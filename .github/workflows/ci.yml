@@ -1,0 +1,56 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main, phase-b]
+  pull_request:
+    branches: [main, phase-b]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kidchess
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: kidchess/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  deploy:
+    name: Deploy to Vercel
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    defaults:
+      run:
+        working-directory: kidchess
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: kidchess/package-lock.json
+      - run: npm ci
+      - run: npm install -g vercel@latest
+      - name: Deploy (preview) on phase-b
+        if: github.ref == 'refs/heads/phase-b'
+        run: vercel deploy --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
+      - name: Deploy (production) on main
+        if: github.ref == 'refs/heads/main'
+        run: vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Comment preview URL on PR
+        if: github.ref == 'refs/heads/phase-b'
+        run: |
+          URL=$(cat deployment-url.txt)
+          echo "Deployed to: $URL"
