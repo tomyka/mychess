@@ -16,6 +16,11 @@ alter table public.kid_stats
 alter table public.profiles
   add column if not exists weekly_xp_goal integer not null default 200;
 
+-- Add cosmetics columns to profiles
+alter table public.profiles
+  add column if not exists board_theme text not null default 'classic',
+  add column if not exists avatar_id   text not null default 'knight';
+
 -- Add read_at to coach_notes
 alter table public.coach_notes
   add column if not exists read_at timestamptz;
