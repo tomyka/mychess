@@ -10,9 +10,9 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
 	let movesQuery = supabase
 		.from('moves')
 		.select(`
-			id, san, ply,
-			from_position:from_position_id(fen),
-			to_position:to_position_id(fen),
+			id, san, move_number,
+			from_position(fen),
+			to_position(fen),
 			repertoire:repertoire_id(id, name, color)
 		`)
 		.order('ply', { ascending: true });

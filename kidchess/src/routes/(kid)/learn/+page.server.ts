@@ -23,9 +23,9 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	const { data: moves } = await supabase
 		.from('moves')
 		.select(`
-			id, san, ply,
-			from_position:from_position_id(fen),
-			to_position:to_position_id(fen),
+			id, san, move_number,
+			from_position(fen),
+			to_position(fen),
 			repertoire:repertoire_id(id, name, color)
 		`)
 		.in('repertoire_id', repIds);
@@ -33,7 +33,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	// Fetch review cards
 	const { data: reviews } = await supabase
 		.from('reviews')
-		.select('move_id, due, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, state, last_review')
+		.select('move_id, due_at, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, state, last_review')
 		.eq('kid_id', user.id);
 
 	const reviewMap = new Map(reviews?.map((r) => [r.move_id, r]) ?? []);
@@ -46,7 +46,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 			const base = newCard();
 			card = {
 				...base,
-				due: new Date(r.due),
+				due: new Date(r.due_at),
 				stability: r.stability ?? 0,
 				difficulty: r.difficulty ?? 0,
 				elapsed_days: r.elapsed_days ?? 0,
