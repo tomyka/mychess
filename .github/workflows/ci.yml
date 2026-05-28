@@ -41,16 +41,45 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: kidchess/package-lock.json
+
+      - name: Check required secrets
+        run: |
+          missing=""
+          [ -z "${{ secrets.VERCEL_TOKEN }}" ] && missing="$missing VERCEL_TOKEN"
+          [ -z "${{ secrets.PUBLIC_SUPABASE_URL }}" ] && missing="$missing PUBLIC_SUPABASE_URL"
+          [ -z "${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}" ] && missing="$missing PUBLIC_SUPABASE_ANON_KEY"
+          [ -z "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ] && missing="$missing SUPABASE_SERVICE_ROLE_KEY"
+          if [ -n "$missing" ]; then
+            echo "❌ Missing GitHub secrets:$missing"
+            echo "Add them at: https://github.com/tomyka/kidchess/settings/secrets/actions"
+            exit 1
+          fi
+          echo "✅ All secrets present"
+
       - run: npm ci
+
+      - name: Write .env for build
+        run: |
+          echo "PUBLIC_SUPABASE_URL=${{ secrets.PUBLIC_SUPABASE_URL }}" > .env
+          echo "PUBLIC_SUPABASE_ANON_KEY=${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}" >> .env
+          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env
+
       - run: npm install -g vercel@latest
-      - name: Deploy (preview) on phase-b
-        if: github.ref == 'refs/heads/phase-b'
-        run: vercel deploy --token=${{ secrets.VERCEL_TOKEN }} > deployment-url.txt
-      - name: Deploy (production) on main
-        if: github.ref == 'refs/heads/main'
-        run: vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
-      - name: Comment preview URL on PR
+
+      - name: Deploy preview (phase-b)
         if: github.ref == 'refs/heads/phase-b'
         run: |
-          URL=$(cat deployment-url.txt)
-          echo "Deployed to: $URL"
+          URL=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} \
+            --env PUBLIC_SUPABASE_URL=${{ secrets.PUBLIC_SUPABASE_URL }} \
+            --env PUBLIC_SUPABASE_ANON_KEY=${{ secrets.PUBLIC_SUPABASE_ANON_KEY }} \
+            --env SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }})
+          echo "✅ Preview deployed: $URL"
+          echo "DEPLOY_URL=$URL" >> $GITHUB_ENV
+
+      - name: Deploy production (main)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} \
+            --env PUBLIC_SUPABASE_URL=${{ secrets.PUBLIC_SUPABASE_URL }} \
+            --env PUBLIC_SUPABASE_ANON_KEY=${{ secrets.PUBLIC_SUPABASE_ANON_KEY }} \
+            --env SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
