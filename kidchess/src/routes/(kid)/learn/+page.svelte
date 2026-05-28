@@ -4,6 +4,7 @@
 	import { xpForReview } from '$lib/srs/xp';
 	import { Rating } from 'ts-fsrs';
 	import type { Key } from 'chessground/types';
+	import { playCorrect, playWrong } from '$lib/sounds';
 
 	let { data } = $props<{ data: any }>();
 
@@ -31,6 +32,7 @@
 		const elapsed = Date.now() - startTime;
 
 		if (detail.san === targetSan) {
+			playCorrect();
 			wrongMove = false;
 			const rating = speedToRating(elapsed, false, showHint);
 			const xp = xpForReview(true, showHint);
@@ -39,6 +41,7 @@
 			phase = 'feedback';
 			submitReview(rating, xp);
 		} else {
+			playWrong();
 			wrongMove = true;
 			incorrect++;
 		}

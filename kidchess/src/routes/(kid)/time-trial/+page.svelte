@@ -3,6 +3,7 @@
   import SirKnight from '$lib/components/SirKnight.svelte';
   import { onMount, onDestroy } from 'svelte';
   import type { Key } from 'chessground/types';
+  import { playCorrect, playWrong } from '$lib/sounds';
 
   let { data } = $props<{ data: any }>();
 
@@ -45,6 +46,7 @@
     const targetSan = current?.san;
 
     if (detail.san === targetSan) {
+      playCorrect();
       wrongMove = false;
       correct++;
       sessionXp += 5;
@@ -52,6 +54,7 @@
       setTimeout(() => { mood = 'idle'; }, 500);
       currentIdx++;
     } else {
+      playWrong();
       wrongMove = true;
       mood = 'sad';
       setTimeout(() => { mood = 'idle'; }, 500);

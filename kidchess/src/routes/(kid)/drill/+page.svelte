@@ -2,6 +2,7 @@
   import ChessBoard from '$lib/components/ChessBoard.svelte';
   import SirKnight from '$lib/components/SirKnight.svelte';
   import type { Key } from 'chessground/types';
+  import { playCorrect, playWrong, playLevelUp } from '$lib/sounds';
 
   let { data } = $props<{ data: any }>();
 
@@ -26,6 +27,7 @@
     const targetSan = current?.san;
 
     if (detail.san === targetSan) {
+      playCorrect();
       wrongMove = false;
       chain++;
       if (chain > bestChain) bestChain = chain;
@@ -34,6 +36,7 @@
       setTimeout(() => { mood = 'idle'; }, 800);
 
       if (chain === 10) {
+        playLevelUp();
         sessionXp += 50;
         mood = 'party';
       }
@@ -46,6 +49,7 @@
         currentIdx++;
       }
     } else {
+      playWrong();
       wrongMove = true;
       failed = true;
       mood = 'sad';
