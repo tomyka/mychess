@@ -1,5 +1,5 @@
-create extension if not exists "uuid-ossp";
-create extension if not exists "pgsodium";
+
+create extension if not exists "pgcrypto";
 
 create table public.profiles (
   id            uuid primary key references auth.users(id) on delete cascade,
@@ -17,9 +17,9 @@ create table public.profiles (
 );
 
 create table public.invites (
-  id          uuid primary key default uuid_generate_v4(),
+  id          uuid primary key default gen_random_uuid(),
   coach_id    uuid not null references public.profiles(id),
-  token       text not null unique default encode(gen_random_bytes(24),'base64url'),
+  token       text not null unique default md5(gen_random_uuid()::text || now()::text),
   kid_email   text,
   redeemed_at timestamptz,
   expires_at  timestamptz not null default now() + interval '7 days',
@@ -27,7 +27,7 @@ create table public.invites (
 );
 
 create table public.repertoires (
-  id         uuid primary key default uuid_generate_v4(),
+  id         uuid primary key default gen_random_uuid(),
   kid_id     uuid not null references public.profiles(id) on delete cascade,
   name       text not null,
   color      text not null check (color in ('white','black')),
@@ -36,12 +36,12 @@ create table public.repertoires (
 );
 
 create table public.positions (
-  id  uuid primary key default uuid_generate_v4(),
+  id  uuid primary key default gen_random_uuid(),
   fen text not null unique
 );
 
 create table public.moves (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid primary key default gen_random_uuid(),
   repertoire_id uuid not null references public.repertoires(id) on delete cascade,
   from_position uuid references public.positions(id),
   to_position   uuid not null references public.positions(id),
@@ -54,7 +54,7 @@ create table public.moves (
 );
 
 create table public.reviews (
-  id             uuid primary key default uuid_generate_v4(),
+  id             uuid primary key default gen_random_uuid(),
   kid_id         uuid not null references public.profiles(id) on delete cascade,
   move_id        uuid not null references public.moves(id) on delete cascade,
   due_at         timestamptz not null default now(),
@@ -70,7 +70,7 @@ create table public.reviews (
 );
 
 create table public.sessions (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid primary key default gen_random_uuid(),
   kid_id        uuid not null references public.profiles(id),
   repertoire_id uuid references public.repertoires(id),
   mode          text not null check (mode in ('learn','practice')),
@@ -81,7 +81,7 @@ create table public.sessions (
 );
 
 create table public.review_events (
-  id         uuid primary key default uuid_generate_v4(),
+  id         uuid primary key default gen_random_uuid(),
   session_id uuid not null references public.sessions(id) on delete cascade,
   move_id    uuid not null references public.moves(id),
   rating     text not null check (rating in ('again','hard','good','easy')),
@@ -115,7 +115,7 @@ create table public.badges_earned (
 );
 
 create table public.coach_notes (
-  id         uuid primary key default uuid_generate_v4(),
+  id         uuid primary key default gen_random_uuid(),
   coach_id   uuid not null references public.profiles(id),
   kid_id     uuid not null references public.profiles(id),
   note       text not null,

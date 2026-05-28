@@ -1,5 +1,5 @@
 -- Insert 30 badge definitions
-truncate public.badges;
+truncate public.badges cascade;
 
 insert into public.badges (id, name, description, icon_url, xp_reward) values
   ('first_move',          'First Move!',          'Complete your first review',                          '/badges/first_move.svg',          25),

@@ -27,7 +27,7 @@ alter table public.coach_notes
 
 -- Quests table
 create table if not exists public.quests (
-  id           uuid primary key default uuid_generate_v4(),
+  id           uuid primary key default gen_random_uuid(),
   kid_id       uuid not null references public.profiles(id) on delete cascade,
   date         date not null,
   template_id  text not null,
@@ -57,7 +57,7 @@ create policy "Service role manages leaderboard" on public.weekly_leaderboard
 
 -- Assigned repertoires table
 create table if not exists public.assigned_repertoires (
-  id            uuid primary key default uuid_generate_v4(),
+  id            uuid primary key default gen_random_uuid(),
   coach_id      uuid not null references public.profiles(id),
   kid_id        uuid not null references public.profiles(id) on delete cascade,
   repertoire_id uuid not null references public.repertoires(id) on delete cascade,
