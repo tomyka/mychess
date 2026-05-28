@@ -1,7 +1,7 @@
 <script lang="ts">
   let { data } = $props<{ data: any }>();
 
-  const badges: any[] = (data as any).badges ?? [];
+  const badges = $derived((data as any).badges ?? []);
   const earnedCount = $derived(badges.filter((b: any) => b.earned).length);
 </script>
 

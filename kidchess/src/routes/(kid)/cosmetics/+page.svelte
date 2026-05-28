@@ -1,9 +1,9 @@
 <script lang="ts">
   let { data } = $props<{ data: any }>();
 
-  const d = data as any;
-  let selectedTheme = $state<string>(d.currentTheme ?? 'classic');
-  let selectedAvatar = $state<string>(d.currentAvatar ?? 'knight');
+  const d = $derived(data as any);
+  let selectedTheme = $state<string>((data as any).currentTheme ?? 'classic');
+  let selectedAvatar = $state<string>((data as any).currentAvatar ?? 'knight');
   let saving = $state(false);
   let saved = $state(false);
 

@@ -4,7 +4,7 @@
 
 	let { data } = $props<{ data: any }>();
 
-	const moves: any[] = (data as any).moves ?? [];
+	const moves = $derived((data as any).moves ?? []);
 
 	let currentIdx = $state(0);
 	let correct = $state(0);

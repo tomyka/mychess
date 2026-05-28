@@ -7,7 +7,7 @@
 
   let { data } = $props<{ data: any }>();
 
-  const allMoves: any[] = (data as any).trialMoves ?? [];
+  const allMoves = $derived((data as any).trialMoves ?? []);
 
   const DURATION = 60;
 

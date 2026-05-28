@@ -9,7 +9,7 @@
 	let { data } = $props<{ data: any }>();
 
 	// Store queue in a local variable - it won't change during the session
-	const initialQueue: any[] = (data as any).queuedMoves ?? [];
+	const initialQueue = $derived((data as any).queuedMoves ?? []);
 
 	let currentIdx = $state(0);
 	let phase = $state<'guess' | 'feedback'>('guess');

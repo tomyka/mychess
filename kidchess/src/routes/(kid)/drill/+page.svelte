@@ -6,7 +6,7 @@
 
   let { data } = $props<{ data: any }>();
 
-  const allMoves: any[] = (data as any).drillMoves ?? [];
+  const allMoves = $derived((data as any).drillMoves ?? []);
 
   let currentIdx = $state(0);
   let chain = $state(0);
