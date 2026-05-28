@@ -84,7 +84,8 @@
               {/if}
             </div>
           {/each}
-      </div>
+        </div>
+      {/if}
     </section>
 
     <button
