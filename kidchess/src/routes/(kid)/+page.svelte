@@ -145,6 +145,31 @@
     </a>
   </div>
 
+  <!-- Badges + Settings row -->
+  <div class="grid grid-cols-2 gap-3 mb-4">
+    <a href="/badges"
+       class="bg-yellow-900 rounded-2xl p-4 hover:bg-yellow-800 transition text-center">
+      <p class="text-2xl mb-1">🏆</p>
+      <p class="font-semibold text-sm">Trophies</p>
+    </a>
+    <a href="/settings"
+       class="bg-slate-700 rounded-2xl p-4 hover:bg-slate-600 transition text-center">
+      <p class="text-2xl mb-1">⚙️</p>
+      <p class="font-semibold text-sm">Settings</p>
+    </a>
+  </div>
+
+  <!-- Streak freeze display -->
+  {#if profile?.streak_freeze > 0}
+    <div class="bg-blue-900 rounded-xl p-3 mb-4 flex items-center gap-3">
+      <p class="text-2xl">🧊</p>
+      <div>
+        <p class="font-semibold text-sm">Streak Freeze Active</p>
+        <p class="text-xs text-blue-300">{profile.streak_freeze} use{profile.streak_freeze === 1 ? '' : 's'} remaining</p>
+      </div>
+    </div>
+  {/if}
+
   <!-- Leaderboard -->
   {#if leaderboard.length > 0}
     <LeaderboardPodium entries={leaderboard} />
