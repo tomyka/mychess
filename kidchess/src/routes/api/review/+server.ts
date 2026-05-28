@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { grantNewBadges } from '$lib/badges/grant';
 
 export const POST: RequestHandler = async ({ request, locals: { supabase, safeGetSession } }) => {
 	const { user } = await safeGetSession();
@@ -18,6 +19,9 @@ export const POST: RequestHandler = async ({ request, locals: { supabase, safeGe
 	if (xp !== 0) {
 		await supabase.rpc('update_xp_and_level', { p_kid_id: user.id, p_xp_delta: xp });
 	}
+
+	// Non-blocking badge check
+	grantNewBadges(supabase, user.id).catch(() => {});
 
 	return json({ ok: true });
 };

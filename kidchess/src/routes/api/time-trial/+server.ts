@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { grantNewBadges } from '$lib/badges/grant';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   const { supabase } = locals;
@@ -58,6 +59,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       }
     }
   }
+
+  grantNewBadges(supabase, user.id, { ttBestScore: correct }).catch(() => {});
 
   return json({ ok: true });
 };
