@@ -14,6 +14,8 @@ jobs:
         working-directory: mychess
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: phase-b
 
       - uses: actions/setup-node@v4
         with:
