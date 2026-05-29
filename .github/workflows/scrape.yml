@@ -1,0 +1,45 @@
+name: Run Tournament Scraper
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'  # every 6 hours
+
+jobs:
+  scrape:
+    name: Scrape chess-results.com
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mychess
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mychess/package-lock.json
+
+      - run: npm ci
+
+      - name: Run scraper
+        run: |
+          cat > run-scrape.mts << 'EOF'
+          import { runScrapeJob } from './src/lib/tournaments/scrape-job.ts';
+
+          const url  = process.env.SUPABASE_URL!;
+          const key  = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+          console.log('Starting scrape job...');
+          const result = await runScrapeJob(url, key);
+          console.log(JSON.stringify(result, null, 2));
+          if (result.errors.length > 0) {
+            console.error('Errors:', result.errors);
+            process.exit(1);
+          }
+          EOF
+          npx tsx run-scrape.mts
+        env:
+          SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
