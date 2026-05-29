@@ -5,7 +5,9 @@
 
   function formatDate(iso: string | null) {
     if (!iso) return '—';
-    return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
   const dateRange = $derived(tournament.end_date && tournament.end_date !== tournament.start_date
@@ -87,10 +89,12 @@
 
   <div class="mb-4 flex items-center justify-between">
     <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Players</h2>
-    <a href={tournament.url} target="_blank" rel="noopener noreferrer"
-       class="text-xs text-blue-600 dark:text-blue-400 hover:underline">
-      View on chess-results.com ↗
-    </a>
+    {#if tournament.url}
+      <a href={tournament.url} target="_blank" rel="noopener noreferrer"
+         class="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+        View on chess-results.com ↗
+      </a>
+    {/if}
   </div>
 
   {#if players.length === 0}

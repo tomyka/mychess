@@ -1,10 +1,11 @@
 <script lang="ts">
   import type { TournamentFilters } from '$lib/tournaments/types';
+  import type { TournamentStatus, TimeControl } from '$lib/tournaments/scraper-utils';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
 
-  export let filters: TournamentFilters;
-  export let total: number;
+  let { filters: filtersProp, total } = $props<{ filters: TournamentFilters; total: number }>();
+  let filters = $state<TournamentFilters>(filtersProp);
 
   const statusOptions = [
     { value: 'NOT_STARTED', label: 'Upcoming' },
@@ -21,7 +22,7 @@
   function applyFilters() {
     const sp = new URLSearchParams($page.url.searchParams);
     sp.set('status', filters.status.join(','));
-    sp.set('timeControl', filters.timeControl.filter(tc => tc !== 'UNKNOWN').join(','));
+    sp.set('timeControl', filters.timeControl.filter((tc: TimeControl) => tc !== 'UNKNOWN').join(','));
     sp.set('country', filters.country.join(','));
     if (filters.dateStart) sp.set('dateStart', filters.dateStart);
     else sp.delete('dateStart');
@@ -33,25 +34,25 @@
 
   function toggleStatus(val: string) {
     if (filters.status.includes(val as never)) {
-      filters = { ...filters, status: filters.status.filter(s => s !== val) as never };
+      filters = { ...filters, status: filters.status.filter((s: TournamentStatus) => s !== val) };
     } else {
-      filters = { ...filters, status: [...filters.status, val as never] };
+      filters = { ...filters, status: [...filters.status, val as TournamentStatus] };
     }
     applyFilters();
   }
 
   function toggleTc(val: string) {
     if (filters.timeControl.includes(val as never)) {
-      filters = { ...filters, timeControl: filters.timeControl.filter(t => t !== val) as never };
+      filters = { ...filters, timeControl: filters.timeControl.filter((t: TimeControl) => t !== val) };
     } else {
-      filters = { ...filters, timeControl: [...filters.timeControl, val as never] };
+      filters = { ...filters, timeControl: [...filters.timeControl, val as TimeControl] };
     }
     applyFilters();
   }
 
   function toggleCountry(val: string) {
     if (filters.country.includes(val)) {
-      filters = { ...filters, country: filters.country.filter(c => c !== val) };
+      filters = { ...filters, country: filters.country.filter((c: string) => c !== val) };
     } else {
       filters = { ...filters, country: [...filters.country, val] };
     }
@@ -62,11 +63,11 @@
     goto('/tournaments', { keepFocus: true });
   }
 
-  $: activeCount =
+  const activeCount = $derived(
     (filters.status.length < 3 ? 1 : 0) +
-    (filters.timeControl.filter(t => t !== 'UNKNOWN').length < 3 ? 1 : 0) +
+    (filters.timeControl.filter((t: TimeControl) => t !== 'UNKNOWN').length < 3 ? 1 : 0) +
     (filters.country.length < 2 ? 1 : 0) +
-    (filters.dateStart || filters.dateEnd ? 1 : 0);
+    (filters.dateStart || filters.dateEnd ? 1 : 0));
 </script>
 
 <div class="space-y-4">

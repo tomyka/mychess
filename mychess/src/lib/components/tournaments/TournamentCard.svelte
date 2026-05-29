@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { DbTournament } from '$lib/tournaments/types';
 
-  export let tournament: DbTournament;
+  const { tournament } = $props<{ tournament: DbTournament }>();
 
   const statusLabel: Record<string, string> = {
     NOT_STARTED: 'Upcoming',
@@ -29,9 +29,9 @@
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
-  $: dateRange = tournament.end_date && tournament.end_date !== tournament.start_date
+  const dateRange = $derived(tournament.end_date && tournament.end_date !== tournament.start_date
     ? `${formatDate(tournament.start_date)} – ${formatDate(tournament.end_date)}`
-    : formatDate(tournament.start_date);
+    : formatDate(tournament.start_date));
 </script>
 
 <a

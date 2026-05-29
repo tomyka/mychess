@@ -1,0 +1,24 @@
+
+> mychess@0.0.1 check
+> svelte-kit sync && svelte-check --tsconfig ./tsconfig.json
+
+Loading svelte-check in workspace: d:\Projects\mychess\mychess
+Getting Svelte diagnostics...
+
+d:\Projects\mychess\mychess\[32msrc\routes\(kid)\cosmetics\+page.svelte[39m:5:39
+[33mWarn[39m: This reference only captures the initial value of `data`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+[36m  const d = $derived(data as any);
+  let selectedTheme = $state<string>(([35mdata[36m as any).currentTheme ?? 'classic');
+  let selectedAvatar = $state<string>((data as any).currentAvatar ?? 'knight');[39m
+
+d:\Projects\mychess\mychess\[32msrc\routes\(kid)\cosmetics\+page.svelte[39m:6:40
+[33mWarn[39m: This reference only captures the initial value of `data`. Did you mean to reference it inside a derived instead?
+https://svelte.dev/e/state_referenced_locally (svelte)
+[36m  let selectedTheme = $state<string>((data as any).currentTheme ?? 'classic');
+  let selectedAvatar = $state<string>(([35mdata[36m as any).currentAvatar ?? 'knight');
+  let saving = $state(false);[39m
+
+====================================
+[33msvelte-check found 0 errors and 2 warnings in 1 file
+[39m
