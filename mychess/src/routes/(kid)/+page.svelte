@@ -3,6 +3,7 @@
   import StatsRow from '$lib/components/StatsRow.svelte';
   import QuickActions from '$lib/components/QuickActions.svelte';
   import CoachNoteBanner from '$lib/components/CoachNoteBanner.svelte';
+  import TournamentCarousel from '$lib/components/tournaments/TournamentCarousel.svelte';
 
   let { data } = $props<{ data: any }>();
 
@@ -50,20 +51,9 @@
         </div>
 
         {#if data.upcomingTournaments?.length > 0}
-          <h2 class="text-lg font-semibold text-gray-900 mb-4 text-left">Upcoming tournaments</h2>
-          <div class="grid gap-3 sm:grid-cols-3 text-left">
-            {#each data.upcomingTournaments as t}
-              <a href="/tournaments/{t.id}"
-                 class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow block">
-                <p class="font-medium text-sm text-gray-900 mb-1">{t.name}</p>
-                <p class="text-xs text-gray-500">
-                  {t.start_date ? new Date(t.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}
-                  {t.city ? ` · ${t.city}` : ''}
-                </p>
-              </a>
-            {/each}
-          </div>
-          <a href="/tournaments" class="text-sm text-indigo-600 hover:underline mt-4 inline-block">
+          <h2 class="text-lg font-semibold text-gray-900 mb-3 text-left">Upcoming tournaments in Lithuania</h2>
+          <TournamentCarousel tournaments={data.upcomingTournaments} />
+          <a href="/tournaments" class="text-sm text-indigo-600 hover:underline mt-3 inline-block">
             View all tournaments →
           </a>
         {/if}
@@ -120,24 +110,10 @@
       {#if data.upcomingTournaments?.length > 0}
         <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="font-semibold text-gray-900">Upcoming tournaments</h2>
+            <h2 class="font-semibold text-gray-900">Upcoming in Lithuania</h2>
             <a href="/tournaments" class="text-sm text-indigo-600 hover:underline">View all →</a>
           </div>
-          <div class="space-y-3">
-            {#each data.upcomingTournaments as t}
-              <a href="/tournaments/{t.id}"
-                 class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0 hover:bg-gray-50 -mx-2 px-2 rounded transition-colors">
-                <div>
-                  <p class="text-sm font-medium text-gray-900">{t.name}</p>
-                  <p class="text-xs text-gray-500">
-                    {t.city ?? ''}
-                    {t.start_date ? new Date(t.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}
-                  </p>
-                </div>
-                <span class="text-gray-400 text-xs">→</span>
-              </a>
-            {/each}
-          </div>
+          <TournamentCarousel tournaments={data.upcomingTournaments} />
         </section>
       {/if}
 

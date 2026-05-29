@@ -7,15 +7,16 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
   const { user, session, profile } = await safeGetSession();
   const isGuest = !user || !!(user as any).is_anonymous;
 
-  // Fetch upcoming tournaments for all visitors (guest landing page + logged-in widget)
-  const todayDate = new Date().toISOString().slice(0, 10); // date-only for midnight-UTC comparison
+  // Fetch upcoming Lithuania tournaments for all visitors (guest landing page + logged-in widget)
+  const todayDate = new Date().toISOString().slice(0, 10);
   const { data: upcomingTournaments, error: tErr } = await supabase
     .from('tournaments')
     .select('id, name, city, country, start_date, time_control, status')
     .in('status', ['NOT_STARTED', 'IN_PROGRESS'])
+    .eq('country', 'Lithuania')
     .gte('start_date', todayDate)
     .order('start_date', { ascending: true })
-    .limit(3);
+    .limit(8);
 
   if (tErr) console.error('Failed to fetch upcoming tournaments:', tErr);
 
