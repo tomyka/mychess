@@ -6,6 +6,7 @@ import {
   SUPPORTED_FEDERATIONS,
 } from './scraper-utils';
 import type { ScrapedTournament, ScrapedPlayer } from './types';
+export type { ScrapedTournamentDetails } from './scraper-utils';
 
 const BASE_URL = 'https://chess-results.com';
 const USER_AGENT = 'mychess/1.0 (https://github.com/tomyka/mychess)';
