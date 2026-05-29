@@ -1,7 +1,7 @@
 -- Create tournaments table
 create table if not exists public.tournaments (
-  id text primary key default gen_random_uuid()::text,
-  chess_results_id text unique not null,
+  id text primary key default cast(gen_random_uuid() as text),
+  chess_results_id text not null,
   name text not null,
   country text not null default 'Lithuania',
   city text,
@@ -17,7 +17,8 @@ create table if not exists public.tournaments (
   url text not null,
   last_scraped_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint tournaments_chess_results_id_key unique (chess_results_id)
 );
 
 -- Create indexes on tournaments
@@ -28,7 +29,7 @@ create index if not exists idx_tournaments_country on public.tournaments(country
 
 -- Create tournament_players table
 create table if not exists public.tournament_players (
-  id text primary key default gen_random_uuid()::text,
+  id text primary key default cast(gen_random_uuid() as text),
   tournament_id text not null references public.tournaments(id) on delete cascade,
   name text not null,
   fide_id text,
@@ -37,8 +38,8 @@ create table if not exists public.tournament_players (
   title text,
   rank integer,
   points numeric(4,1),
-  unique (tournament_id, fide_id),
-  unique (tournament_id, name, rank)
+  constraint tournament_players_tournament_fide_key unique (tournament_id, fide_id),
+  constraint tournament_players_tournament_name_rank_key unique (tournament_id, name, rank)
 );
 
 -- Create indexes on tournament_players
@@ -47,7 +48,7 @@ create index if not exists idx_tournament_players_fide_id on public.tournament_p
 
 -- Create scrape_logs table
 create table if not exists public.scrape_logs (
-  id text primary key default gen_random_uuid()::text,
+  id text primary key default cast(gen_random_uuid() as text),
   started_at timestamptz not null default now(),
   finished_at timestamptz,
   status text not null default 'running',
