@@ -30,7 +30,7 @@ export function buildTournamentFilters(
 
   const country = params.country
     ? params.country.split(',').map(s => s.trim()).filter(Boolean)
-    : ALL_COUNTRIES;
+    : ['Lithuania'];
 
   const rawPage = parseInt(params.page ?? '1', 10);
   const page = isNaN(rawPage) || rawPage < 1 ? 1 : rawPage;
@@ -42,7 +42,7 @@ export function buildTournamentFilters(
   return {
     status: status.length > 0 ? status : ALL_STATUSES,
     timeControl: timeControl.length > 0 ? timeControl : ALL_TIME_CONTROLS,
-    country: country.length > 0 ? country : ALL_COUNTRIES,
+    country: country.length > 0 ? country : ['Lithuania'],
     dateStart,
     dateEnd,
     page,

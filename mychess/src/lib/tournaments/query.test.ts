@@ -3,11 +3,11 @@ import { buildTournamentFilters, DEFAULT_PAGE_SIZE } from './query';
 import { SUPPORTED_FEDERATIONS } from './scraper-utils';
 
 describe('buildTournamentFilters', () => {
-  it('defaults: all statuses, all time controls, both countries, page 1', () => {
+  it('defaults: all statuses, all time controls, Lithuania only, page 1', () => {
     const f = buildTournamentFilters({});
     expect(f.status).toEqual(['NOT_STARTED', 'IN_PROGRESS', 'FINISHED']);
     expect(f.timeControl).toEqual(['STANDARD', 'RAPID', 'BLITZ', 'UNKNOWN']);
-    expect(f.country).toEqual(SUPPORTED_FEDERATIONS.map(fed => fed.name));
+    expect(f.country).toEqual(['Lithuania']);
     expect(f.page).toBe(1);
     expect(f.pageSize).toBe(DEFAULT_PAGE_SIZE);
   });
