@@ -10,39 +10,11 @@
 
   const SUPPORTED_COUNTRIES = ['Lithuania', 'Latvia'];
 
-  // Auto-detect country from GPS on first visit (no country param in URL)
+  // Default to Lithuania if no country param is set
   $effect(() => {
     if ($page.url.searchParams.has('country')) return;
-    if (typeof window === 'undefined' || !navigator.geolocation) return;
-
-    const cached = sessionStorage.getItem('geo_country');
-    if (cached) {
-      if (SUPPORTED_COUNTRIES.includes(cached)) {
-        goto(`?country=${encodeURIComponent(cached)}`, { replaceState: true });
-      }
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const { latitude, longitude } = pos.coords;
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
-            { headers: { 'Accept-Language': 'en' } }
-          );
-          const json = await res.json();
-          const country: string = json?.address?.country ?? '';
-          const matched = SUPPORTED_COUNTRIES.find(c => c === country) ?? null;
-          sessionStorage.setItem('geo_country', matched ?? 'all');
-          if (matched) goto(`?country=${encodeURIComponent(matched)}`, { replaceState: true });
-        } catch {
-          sessionStorage.setItem('geo_country', 'all');
-        }
-      },
-      () => { sessionStorage.setItem('geo_country', 'all'); },
-      { timeout: 6000, maximumAge: 60_000 }
-    );
+    if (typeof window === 'undefined') return;
+    goto(`?country=Lithuania`, { replaceState: true });
   });
 
   function setView(mode: 'list' | 'calendar') {
