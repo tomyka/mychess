@@ -14,79 +14,111 @@
       const res = await fetch(`/api/import/${platform}`, { method: 'POST' });
       const body = await res.json();
       if (body.count !== undefined) {
-        importResult = `✅ Imported ${body.count} game(s) as a new repertoire!`;
+        importResult = `Imported ${body.count} game(s) as a new repertoire.`;
       } else {
-        importResult = `❌ ${body.error ?? 'Import failed'}`;
+        importResult = body.error ?? 'Import failed';
       }
     } catch {
-      importResult = '❌ Network error';
+      importResult = 'Network error';
     } finally {
       importing = null;
     }
   }
 </script>
 
-<div class="min-h-screen bg-slate-900 text-white p-4 max-w-lg mx-auto">
-  <div class="flex items-center gap-3 mb-6">
-    <a href="/" class="text-2xl">⬅️</a>
-    <h1 class="text-2xl font-bold">⚙️ Settings</h1>
-  </div>
+<svelte:head>
+  <title>Settings — mychess</title>
+</svelte:head>
 
-  <section class="bg-slate-800 rounded-2xl p-5 mb-5">
-    <h2 class="font-bold text-lg mb-4 text-yellow-400">🔗 Connect Platforms</h2>
-    <form method="POST" action="?/save" use:enhance class="space-y-4">
-      <div>
-        <label class="block text-sm text-slate-400 mb-1" for="chesscom">Chess.com username</label>
-        <input
-          id="chesscom"
-          name="chesscom_username"
-          type="text"
-          value={d.chesscomUsername}
-          placeholder="e.g. MagnusCarlsen"
-          class="w-full bg-slate-700 rounded-xl px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-        />
-      </div>
-      <div>
-        <label class="block text-sm text-slate-400 mb-1" for="lichess">Lichess username</label>
-        <input
-          id="lichess"
-          name="lichess_username"
-          type="text"
-          value={d.lichessUsername}
-          placeholder="e.g. DrNykterstein"
-          class="w-full bg-slate-700 rounded-xl px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-        />
-      </div>
-      <button class="w-full bg-yellow-400 text-slate-900 py-2 rounded-xl font-bold hover:bg-yellow-300 transition">
-        Save
-      </button>
-      {#if (form as any)?.success}
-        <p class="text-green-400 text-sm">✅ Saved!</p>
-      {/if}
-    </form>
-  </section>
+<div class="min-h-screen bg-gray-50">
+  <div class="max-w-2xl mx-auto px-4 py-6 space-y-5">
+    <h1 class="text-2xl font-bold text-gray-900">Settings</h1>
 
-  <section class="bg-slate-800 rounded-2xl p-5 mb-5">
-    <h2 class="font-bold text-lg mb-1 text-yellow-400">📥 Import Recent Games</h2>
-    <p class="text-slate-400 text-xs mb-4">Import your last 20 games as a new repertoire study set.</p>
-    <div class="flex flex-col gap-3">
-      <button
-        onclick={() => importGames('chesscom')}
-        disabled={!d.chesscomUsername || importing !== null}
-        class="w-full bg-green-600 py-3 rounded-xl font-bold hover:bg-green-500 transition disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        {importing === 'chesscom' ? 'Importing...' : 'Import from Chess.com'}
-      </button>
-      <button
-        onclick={() => importGames('lichess')}
-        disabled={!d.lichessUsername || importing !== null}
-        class="w-full bg-blue-600 py-3 rounded-xl font-bold hover:bg-blue-500 transition disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        {importing === 'lichess' ? 'Importing...' : 'Import from Lichess'}
-      </button>
-    </div>
-    {#if importResult}
-      <p class="text-sm mt-3 {importResult.startsWith('✅') ? 'text-green-400' : 'text-red-400'}">{importResult}</p>
+    {#if form?.success}
+      <p class="text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-sm">
+        Saved successfully.
+      </p>
     {/if}
-  </section>
+    {#if form?.error}
+      <p class="text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-sm">
+        {form.error}
+      </p>
+    {/if}
+
+    <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      <h2 class="font-semibold text-gray-900 mb-4">Connected accounts</h2>
+      <form method="POST" action="?/save" use:enhance class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="fide_id">FIDE ID</label>
+          <input
+            id="fide_id"
+            name="fide_id"
+            type="text"
+            value={d.fideId}
+            placeholder="e.g. 1503014"
+            class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          />
+          <p class="text-xs text-gray-400 mt-1">Your FIDE ID number (find it at ratings.fide.com)</p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="chesscom">Chess.com username</label>
+          <input
+            id="chesscom"
+            name="chesscom_username"
+            type="text"
+            value={d.chesscomUsername}
+            placeholder="e.g. MagnusCarlsen"
+            class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="lichess">Lichess username</label>
+          <input
+            id="lichess"
+            name="lichess_username"
+            type="text"
+            value={d.lichessUsername}
+            placeholder="e.g. DrNykterstein"
+            class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+
+        <button
+          type="submit"
+          class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
+          Save
+        </button>
+      </form>
+    </section>
+
+    <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      <h2 class="font-semibold text-gray-900 mb-4">Import games</h2>
+      <p class="text-sm text-gray-500 mb-4">
+        Import your recent games as a new repertoire. Connect your platform usernames above first.
+      </p>
+
+      {#if importResult}
+        <p class="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 mb-4">
+          {importResult}
+        </p>
+      {/if}
+
+      <div class="flex gap-3">
+        <button
+          onclick={() => importGames('chesscom')}
+          disabled={importing !== null}
+          class="flex-1 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm">
+          {importing === 'chesscom' ? 'Importing…' : 'Import from Chess.com'}
+        </button>
+        <button
+          onclick={() => importGames('lichess')}
+          disabled={importing !== null}
+          class="flex-1 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm">
+          {importing === 'lichess' ? 'Importing…' : 'Import from Lichess'}
+        </button>
+      </div>
+    </section>
+  </div>
 </div>
