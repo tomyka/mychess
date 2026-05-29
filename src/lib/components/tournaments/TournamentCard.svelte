@@ -24,7 +24,9 @@
 
   function formatDate(iso: string | null) {
     if (!iso) return '—';
-    return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
   $: dateRange = tournament.end_date && tournament.end_date !== tournament.start_date
@@ -38,7 +40,7 @@
 >
   <div class="flex items-start justify-between gap-2 mb-2">
     <h3 class="font-semibold text-gray-900 dark:text-gray-100 text-sm leading-snug">{tournament.name}</h3>
-    <span class="shrink-0 text-xs font-medium px-2 py-0.5 rounded-full {statusClass[tournament.status]}">
+    <span class="shrink-0 text-xs font-medium px-2 py-0.5 rounded-full {statusClass[tournament.status] ?? statusClass.FINISHED}">
       {statusLabel[tournament.status] ?? tournament.status}
     </span>
   </div>
@@ -52,7 +54,7 @@
     {/if}
     <div class="flex gap-3 mt-1.5">
       {#if tournament.time_control !== 'UNKNOWN'}
-        <span class="font-medium text-gray-700 dark:text-gray-300">{tcLabel[tournament.time_control]}</span>
+        <span class="font-medium text-gray-700 dark:text-gray-300">{tcLabel[tournament.time_control] ?? tournament.time_control}</span>
       {/if}
       {#if tournament.player_count}
         <span>{tournament.player_count} players</span>
