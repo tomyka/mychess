@@ -60,6 +60,7 @@
   }
 
   function clearAll() {
+    sessionStorage.setItem('geo_country', 'all'); // prevent GPS re-trigger
     goto('/tournaments', { keepFocus: true });
   }
 
