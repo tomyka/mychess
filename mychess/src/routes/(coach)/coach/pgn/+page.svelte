@@ -1,0 +1,61 @@
+<script lang="ts">
+  import { enhance } from '$app/forms';
+
+  let { data, form } = $props<{ data: { kids: any[] }; form: any }>();
+</script>
+
+<svelte:head>
+  <title>Upload Repertoire — mychess</title>
+</svelte:head>
+
+<main class="min-h-screen bg-gray-50">
+  <div class="max-w-lg mx-auto px-4 py-6">
+    <a href="/coach" class="text-gray-400 text-sm hover:text-gray-600 mb-6 block">← Back to Dashboard</a>
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">Upload Repertoire</h1>
+
+    {#if form?.success}
+      <div class="bg-green-50 border border-green-200 rounded-xl p-5 mb-6">
+        <p class="text-green-700 font-bold">{form.gameCount} game(s) imported!</p>
+        <a href="/coach" class="text-sm text-green-600 hover:underline mt-1 block">Back to Dashboard</a>
+      </div>
+    {/if}
+    {#if form?.error}
+      <p class="text-red-600 mb-4 bg-red-50 border border-red-200 px-4 py-2 rounded-xl text-sm">{form.error}</p>
+    {/if}
+
+    <form method="POST" action="?/upload" use:enhance
+          class="bg-white border border-gray-200 rounded-xl shadow-sm p-5 space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="name">Repertoire Name</label>
+        <input id="name" name="name" required placeholder="e.g. Sicilian Defense"
+               class="w-full rounded-lg px-4 py-2.5 border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      </div>
+
+      {#if data.kids.length > 0}
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" for="kid_id">Assign to player</label>
+          <select id="kid_id" name="kid_id"
+                  class="w-full rounded-lg px-4 py-2.5 border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="">Myself</option>
+            {#each data.kids as kid}
+              <option value={kid.id}>{kid.display_name}</option>
+            {/each}
+          </select>
+        </div>
+      {/if}
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="pgn_text">Paste PGN text</label>
+        <textarea id="pgn_text" name="pgn_text" rows="8"
+                  placeholder="[Event &quot;Example&quot;]&#10;&#10;1. e4 e5 *"
+                  class="w-full rounded-lg px-4 py-2.5 border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm resize-none"
+        ></textarea>
+      </div>
+
+      <button type="submit"
+              class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold text-base hover:bg-indigo-700 transition-colors">
+        Upload Repertoire
+      </button>
+    </form>
+  </div>
+</main>

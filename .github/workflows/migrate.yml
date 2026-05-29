@@ -32,18 +32,14 @@ jobs:
             exit 0
           fi
 
-          # Fallback: fetch from Vercel project env vars (requires Supabase-Vercel integration)
+          # Fallback: fetch from Vercel project env vars
           echo "SUPABASE_DB_URL not set — fetching from Vercel..."
           ENV_LIST=$(curl -s "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env" \
             -H "Authorization: Bearer $VERCEL_TOKEN")
 
-          echo "Vercel API status: $(echo "$ENV_LIST" | jq -r '.error.code // "ok"')"
-          echo "Keys found: $(echo "$ENV_LIST" | jq -r '.envs[].key' 2>/dev/null | tr '\n' ' ')"
-
           for KEY in POSTGRES_URL_NON_POOLING POSTGRES_URL DATABASE_URL; do
             ENV_ID=$(echo "$ENV_LIST" | jq -r ".envs[] | select(.key == \"$KEY\") | .id" | head -1)
             if [ -n "$ENV_ID" ] && [ "$ENV_ID" != "null" ]; then
-              echo "Found $KEY (id=$ENV_ID)"
               DB_URL=$(curl -s "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$ENV_ID" \
                 -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r '.value // empty')
               if [ -n "$DB_URL" ]; then
@@ -56,7 +52,6 @@ jobs:
 
           echo "❌ Could not find a Postgres URL."
           echo "Add SUPABASE_DB_URL to GitHub secrets (Settings → Secrets → Actions)."
-          echo "Get it from: Supabase Dashboard → Project → Settings → Database → Connection string (URI)"
           exit 1
 
       - name: Push all migrations
