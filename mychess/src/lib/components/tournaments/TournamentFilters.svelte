@@ -72,9 +72,9 @@
 
 <div class="space-y-4">
   <div class="flex items-center justify-between">
-    <p class="text-sm text-gray-500 dark:text-gray-400">{total} tournament{total !== 1 ? 's' : ''}</p>
+    <p class="text-sm text-gray-500">{total} tournament{total !== 1 ? 's' : ''}</p>
     {#if activeCount > 0}
-      <button on:click={clearAll} class="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+      <button on:click={clearAll} class="text-xs text-indigo-600 hover:underline">
         Clear filters
       </button>
     {/if}
@@ -89,8 +89,8 @@
           on:click={() => toggleStatus(opt.value)}
           class="px-3 py-1 rounded-full text-xs border transition-colors
             {filters.status.includes(opt.value as never)
-              ? 'bg-blue-600 text-white border-blue-600'
-              : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-400'}"
+              ? 'bg-indigo-600 text-white border-indigo-600'
+              : 'border-gray-300 text-gray-600 hover:border-indigo-400'}"
         >{opt.label}</button>
       {/each}
     </div>
@@ -105,8 +105,8 @@
           on:click={() => toggleTc(opt.value)}
           class="px-3 py-1 rounded-full text-xs border transition-colors
             {filters.timeControl.includes(opt.value as never)
-              ? 'bg-blue-600 text-white border-blue-600'
-              : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-400'}"
+              ? 'bg-indigo-600 text-white border-indigo-600'
+              : 'border-gray-300 text-gray-600 hover:border-indigo-400'}"
         >{opt.label}</button>
       {/each}
     </div>
@@ -121,8 +121,8 @@
           on:click={() => toggleCountry(country)}
           class="px-3 py-1 rounded-full text-xs border transition-colors
             {filters.country.includes(country)
-              ? 'bg-blue-600 text-white border-blue-600'
-              : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-400'}"
+              ? 'bg-indigo-600 text-white border-indigo-600'
+              : 'border-gray-300 text-gray-600 hover:border-indigo-400'}"
         >{country}</button>
       {/each}
     </div>
@@ -136,14 +136,14 @@
         type="date"
         bind:value={filters.dateStart}
         on:change={applyFilters}
-        class="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+        class="text-xs border border-gray-300 rounded px-2 py-1 bg-white text-gray-800"
       />
       <span class="text-gray-400 text-xs">to</span>
       <input
         type="date"
         bind:value={filters.dateEnd}
         on:change={applyFilters}
-        class="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+        class="text-xs border border-gray-300 rounded px-2 py-1 bg-white text-gray-800"
       />
     </div>
   </div>

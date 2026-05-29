@@ -53,23 +53,23 @@
     <div class="flex gap-1 text-sm">
       <button
         on:click={() => setView('list')}
-        class="px-3 py-1.5 rounded {!data.isCalendar ? 'bg-blue-600 text-white' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}"
+        class="px-3 py-1.5 rounded {!data.isCalendar ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-100'}"
       >List</button>
       <button
         on:click={() => setView('calendar')}
-         class="px-3 py-1.5 rounded {data.isCalendar ? 'bg-blue-600 text-white' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}"
+         class="px-3 py-1.5 rounded {data.isCalendar ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-100'}"
       >Calendar</button>
     </div>
   </div>
 
   {#if data.isStale}
-    <div class="mb-4 px-4 py-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg text-sm text-amber-700 dark:text-amber-300">
+    <div class="mb-4 px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
       ⚠️ Data may be outdated. Last updated: {data.lastScrapedAt ? new Date(data.lastScrapedAt).toLocaleString() : 'unknown'}
     </div>
   {/if}
 
   {#if data.error}
-    <div class="mb-4 px-4 py-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg text-sm text-red-700 dark:text-red-300">
+    <div class="mb-4 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
       Error loading tournaments: {data.error}
     </div>
   {/if}
@@ -84,7 +84,7 @@
     <main class="flex-1 min-w-0">
       {#if !data.isCalendar}
         {#if data.tournaments.length === 0}
-          <div class="text-center py-16 text-gray-400 dark:text-gray-500">
+          <div class="text-center py-16 text-gray-400">
             <p class="text-4xl mb-3">♟</p>
             <p class="font-medium">No tournaments found</p>
             <p class="text-sm mt-1">Try adjusting your filters</p>
@@ -101,15 +101,15 @@
             <div class="flex justify-center gap-2 mt-8">
               {#if data.filters.page > 1}
                 <a href={buildPageUrl(data.filters.page - 1)}
-                   class="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800"
+                   class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50"
                 >← Previous</a>
               {/if}
-              <span class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+              <span class="px-4 py-2 text-sm text-gray-500">
                 Page {data.filters.page} of {totalPages}
               </span>
               {#if data.filters.page < totalPages}
                 <a href={buildPageUrl(data.filters.page + 1)}
-                   class="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800"
+                   class="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50"
                 >Next →</a>
               {/if}
             </div>
@@ -120,7 +120,7 @@
         <div class="space-y-6">
           {#each byMonthEntries as [month, monthTourneys]}
             <div>
-              <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+              <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 {new Date(month + '-15T12:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
               </h2>
               <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -131,7 +131,7 @@
             </div>
           {/each}
           {#if byMonthEntries.length === 0}
-            <div class="text-center py-16 text-gray-400 dark:text-gray-500">
+            <div class="text-center py-16 text-gray-400">
               <p>No tournaments with dates in this range</p>
             </div>
           {/if}

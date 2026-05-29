@@ -10,9 +10,9 @@
   };
 
   const statusClass: Record<string, string> = {
-    NOT_STARTED: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-    IN_PROGRESS: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-    FINISHED: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+    NOT_STARTED: 'bg-blue-100 text-blue-800',
+    IN_PROGRESS: 'bg-green-100 text-green-800',
+    FINISHED: 'bg-gray-100 text-gray-600',
   };
 
   const tcLabel: Record<string, string> = {
@@ -36,16 +36,16 @@
 
 <a
   href="/tournaments/{tournament.id}"
-  class="block rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 hover:shadow-md transition-shadow"
+  class="block rounded-xl border border-gray-200 bg-white p-4 hover:shadow-md transition-shadow"
 >
   <div class="flex items-start justify-between gap-2 mb-2">
-    <h3 class="font-semibold text-gray-900 dark:text-gray-100 text-sm leading-snug">{tournament.name}</h3>
+    <h3 class="font-semibold text-gray-900 text-sm leading-snug">{tournament.name}</h3>
     <span class="shrink-0 text-xs font-medium px-2 py-0.5 rounded-full {statusClass[tournament.status] ?? statusClass.FINISHED}">
       {statusLabel[tournament.status] ?? tournament.status}
     </span>
   </div>
 
-  <div class="text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
+  <div class="text-xs text-gray-500 space-y-0.5">
     <div>{dateRange}</div>
     {#if tournament.city}
       <div>{tournament.city}, {tournament.country}</div>
@@ -54,7 +54,7 @@
     {/if}
     <div class="flex gap-3 mt-1.5">
       {#if tournament.time_control !== 'UNKNOWN'}
-        <span class="font-medium text-gray-700 dark:text-gray-300">{tcLabel[tournament.time_control] ?? tournament.time_control}</span>
+        <span class="font-medium text-gray-700">{tcLabel[tournament.time_control] ?? tournament.time_control}</span>
       {/if}
       {#if tournament.player_count}
         <span>{tournament.player_count} players</span>
@@ -65,7 +65,7 @@
     </div>
   </div>
 
-  <div class="mt-2 text-xs text-blue-600 dark:text-blue-400 truncate hover:underline">
+  <div class="mt-2 text-xs text-indigo-600 truncate hover:underline">
     chess-results.com ↗
   </div>
 </a>
