@@ -1,0 +1,55 @@
+name: Apply Supabase Migrations
+
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    name: Push SQL migrations to Supabase
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Supabase CLI
+        run: npm install -g supabase
+
+      - name: Get database URL from Vercel
+        id: db-url
+        run: |
+          # List env vars and find POSTGRES_URL_NON_POOLING (direct connection, required for migrations)
+          ENV_LIST=$(curl -sf "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env" \
+            -H "Authorization: Bearer $VERCEL_TOKEN")
+
+          ENV_ID=$(echo "$ENV_LIST" | jq -r \
+            '.envs[] | select(.key == "POSTGRES_URL_NON_POOLING") | .id' | head -1)
+
+          if [ -z "$ENV_ID" ] || [ "$ENV_ID" = "null" ]; then
+            echo "POSTGRES_URL_NON_POOLING not found — trying POSTGRES_URL"
+            ENV_ID=$(echo "$ENV_LIST" | jq -r \
+              '.envs[] | select(.key == "POSTGRES_URL") | .id' | head -1)
+          fi
+
+          if [ -z "$ENV_ID" ] || [ "$ENV_ID" = "null" ]; then
+            echo "❌ No Postgres URL found in Vercel project env vars."
+            echo "Please add SUPABASE_DB_URL to GitHub secrets manually."
+            exit 1
+          fi
+
+          # Fetch decrypted value
+          DB_URL=$(curl -sf "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$ENV_ID" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r '.value')
+
+          echo "::add-mask::$DB_URL"
+          echo "db_url=$DB_URL" >> $GITHUB_OUTPUT
+
+      - name: Push all migrations
+        run: |
+          npx supabase db push --db-url "${{ steps.db-url.outputs.db_url }}"
+        working-directory: mychess
