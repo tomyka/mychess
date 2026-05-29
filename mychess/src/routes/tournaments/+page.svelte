@@ -120,7 +120,7 @@
           {#each Object.entries(byMonth) as [month, monthTourneys]}
             <div>
               <h2 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                {new Date(month + '-02').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                {new Date(month + '-15T12:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
               </h2>
               <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {#each monthTourneys as tournament (tournament.id)}
