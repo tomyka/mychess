@@ -11,12 +11,12 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
   const todayDate = new Date().toISOString().slice(0, 10);
   const { data: upcomingTournaments, error: tErr } = await supabase
     .from('tournaments')
-    .select('id, name, city, country, start_date, time_control, status')
+    .select('id, name, city, country, start_date, time_control, status, average_rating')
     .in('status', ['NOT_STARTED', 'IN_PROGRESS'])
     .eq('country', 'Lithuania')
     .gte('start_date', todayDate)
     .order('start_date', { ascending: true })
-    .limit(10);
+    .limit(15);
 
   if (tErr) console.error('Failed to fetch upcoming tournaments:', tErr);
 
