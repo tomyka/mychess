@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { buildTournamentFilters, DEFAULT_PAGE_SIZE } from './query';
+import { SUPPORTED_FEDERATIONS } from './scraper-utils';
 
 describe('buildTournamentFilters', () => {
   it('defaults: all statuses, all time controls, both countries, page 1', () => {
     const f = buildTournamentFilters({});
     expect(f.status).toEqual(['NOT_STARTED', 'IN_PROGRESS', 'FINISHED']);
     expect(f.timeControl).toEqual(['STANDARD', 'RAPID', 'BLITZ', 'UNKNOWN']);
-    expect(f.country).toEqual(['Lithuania', 'Latvia']);
+    expect(f.country).toEqual(SUPPORTED_FEDERATIONS.map(fed => fed.name));
     expect(f.page).toBe(1);
     expect(f.pageSize).toBe(DEFAULT_PAGE_SIZE);
   });
@@ -14,6 +15,31 @@ describe('buildTournamentFilters', () => {
   it('parses status filter', () => {
     const f = buildTournamentFilters({ status: 'NOT_STARTED,IN_PROGRESS' });
     expect(f.status).toEqual(['NOT_STARTED', 'IN_PROGRESS']);
+  });
+
+  it('trims whitespace from comma-separated status values', () => {
+    const f = buildTournamentFilters({ status: 'NOT_STARTED, IN_PROGRESS' });
+    expect(f.status).toEqual(['NOT_STARTED', 'IN_PROGRESS']);
+  });
+
+  it('falls back to all statuses when all status tokens are invalid', () => {
+    const f = buildTournamentFilters({ status: 'GARBAGE,INVALID' });
+    expect(f.status).toEqual(['NOT_STARTED', 'IN_PROGRESS', 'FINISHED']);
+  });
+
+  it('filters out invalid status enum values', () => {
+    const f = buildTournamentFilters({ status: 'NOT_STARTED,GARBAGE' });
+    expect(f.status).toEqual(['NOT_STARTED']);
+  });
+
+  it('parses timeControl filter', () => {
+    const f = buildTournamentFilters({ timeControl: 'RAPID,BLITZ' });
+    expect(f.timeControl).toEqual(['RAPID', 'BLITZ']);
+  });
+
+  it('trims whitespace from comma-separated timeControl values', () => {
+    const f = buildTournamentFilters({ timeControl: 'RAPID, BLITZ' });
+    expect(f.timeControl).toEqual(['RAPID', 'BLITZ']);
   });
 
   it('parses country filter', () => {
@@ -33,9 +59,25 @@ describe('buildTournamentFilters', () => {
     expect(f2.page).toBe(1);
   });
 
-  it('accepts date range', () => {
+  it('accepts valid date range', () => {
     const f = buildTournamentFilters({ dateStart: '2026-06-01', dateEnd: '2026-08-31' });
     expect(f.dateStart).toBe('2026-06-01');
     expect(f.dateEnd).toBe('2026-08-31');
+  });
+
+  it('rejects invalid dateEnd string to prevent RangeError crash', () => {
+    const f = buildTournamentFilters({ dateEnd: 'not-a-date' });
+    expect(f.dateEnd).toBeUndefined();
+  });
+
+  it('rejects invalid dateStart string', () => {
+    const f = buildTournamentFilters({ dateStart: '2026/06/01' });
+    expect(f.dateStart).toBeUndefined();
+  });
+
+  it('accepts partial date filter (only dateStart)', () => {
+    const f = buildTournamentFilters({ dateStart: '2026-06-01' });
+    expect(f.dateStart).toBe('2026-06-01');
+    expect(f.dateEnd).toBeUndefined();
   });
 });
