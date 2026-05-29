@@ -1,13 +1,17 @@
-import { timingSafeEqual } from 'crypto';
+import { timingSafeEqual, createHmac } from 'crypto';
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { runScrapeJob } from '$lib/tournaments/scrape-job';
 import { CRON_SECRET, SUPABASE_SERVICE_ROLE_KEY } from '$env/static/private';
 import { PUBLIC_SUPABASE_URL } from '$env/static/public';
 
+const HMAC_KEY = Buffer.from('timing-safe-compare');
+
+// Hash both sides to fixed-length output to prevent length-based timing side-channel
 function safeCompare(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  const ha = createHmac('sha256', HMAC_KEY).update(a).digest();
+  const hb = createHmac('sha256', HMAC_KEY).update(b).digest();
+  return timingSafeEqual(ha, hb);
 }
 
 export const POST: RequestHandler = async ({ request }) => {

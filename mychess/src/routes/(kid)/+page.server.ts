@@ -7,12 +7,12 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
   const { user, session, profile } = await safeGetSession();
 
   // Fetch upcoming tournaments for all visitors (guest landing page + logged-in widget)
-  const nowIso = new Date().toISOString();
+  const todayDate = new Date().toISOString().slice(0, 10); // date-only for midnight-UTC comparison
   const { data: upcomingTournaments, error: tErr } = await supabase
     .from('tournaments')
     .select('id, name, city, country, start_date, time_control, status')
     .in('status', ['NOT_STARTED', 'IN_PROGRESS'])
-    .gte('start_date', nowIso)
+    .gte('start_date', todayDate)
     .order('start_date', { ascending: true })
     .limit(3);
 

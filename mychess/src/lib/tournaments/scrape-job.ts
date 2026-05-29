@@ -123,7 +123,8 @@ export async function runScrapeJob(
       const { data: withPlayersRows } = await db
         .from('tournament_players')
         .select('tournament_id')
-        .in('tournament_id', candidateIds);
+        .in('tournament_id', candidateIds)
+        .limit(candidateIds.length * 500); // prevent PostgREST 1000-row default truncation
       (withPlayersRows ?? []).forEach(r => withPlayers.add(r.tournament_id));
     }
 
@@ -141,7 +142,7 @@ export async function runScrapeJob(
         const withoutFide = players.filter(p => !p.fideId);
 
         if (withFide.length > 0) {
-          await db.from('tournament_players').upsert(
+          const { error: withFideErr } = await db.from('tournament_players').upsert(
             withFide.map(p => ({
               tournament_id: row.id, name: p.name, fide_id: p.fideId,
               rating: p.rating ?? null, federation: p.federation ?? null,
@@ -149,10 +150,11 @@ export async function runScrapeJob(
             })),
             { onConflict: 'tournament_id,fide_id', ignoreDuplicates: false }
           );
+          if (withFideErr) throw new Error(`withFide upsert: ${withFideErr.message}`);
         }
 
         if (withoutFide.length > 0) {
-          await db.from('tournament_players').upsert(
+          const { error: withoutFideErr } = await db.from('tournament_players').upsert(
             withoutFide.map(p => ({
               tournament_id: row.id, name: p.name, fide_id: null,
               rating: p.rating ?? null, federation: p.federation ?? null,
@@ -160,6 +162,7 @@ export async function runScrapeJob(
             })),
             { onConflict: 'tournament_id,name,rank', ignoreDuplicates: false }
           );
+          if (withoutFideErr) throw new Error(`withoutFide upsert: ${withoutFideErr.message}`);
         }
 
         result.playersUpdated++;
