@@ -1,11 +1,11 @@
 {
   "name": "MyChess",
-    "short_name": "MyChess",
-  "description": "Learn chess openings with fun \u2014 badges, quests, and SirKnight!",
+  "short_name": "MyChess",
+  "description": "FIDE ratings, national standings, and local OTB tournaments — your daily chess dashboard.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1e293b",
-  "theme_color": "#f59e0b",
+  "background_color": "#f9fafb",
+  "theme_color": "#4f46e5",
   "icons": [
     {
       "src": "/icon-192.png",
