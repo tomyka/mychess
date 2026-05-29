@@ -1,7 +1,6 @@
 <script lang="ts">
   import ChessBoard from '$lib/components/ChessBoard.svelte';
-  import SirKnight from '$lib/components/SirKnight.svelte';
-  import { onMount, onDestroy } from 'svelte';
+  import { onDestroy } from 'svelte';
   import type { Key } from 'chessground/types';
   import { playCorrect, playWrong } from '$lib/sounds';
 
@@ -18,7 +17,6 @@
   let finished = $state(false);
   let wrongMove = $state(false);
   let sessionXp = $state(0);
-  let mood = $state<'idle' | 'cheer' | 'sad' | 'surprise' | 'sleepy' | 'party'>('idle');
 
   let timer: ReturnType<typeof setInterval> | null = null;
 
@@ -35,7 +33,6 @@
         clearInterval(timer!);
         timer = null;
         finished = true;
-        mood = correct >= 20 ? 'party' : correct >= 10 ? 'cheer' : 'idle';
         submitResult();
       }
     }, 1000);
@@ -50,18 +47,16 @@
       wrongMove = false;
       correct++;
       sessionXp += 5;
-      mood = 'cheer';
-      setTimeout(() => { mood = 'idle'; }, 500);
       currentIdx++;
     } else {
       playWrong();
       wrongMove = true;
-      mood = 'sad';
-      setTimeout(() => { mood = 'idle'; }, 500);
     }
   }
 
   function restart() {
+    if (timer) clearInterval(timer);
+    timer = null;
     currentIdx = 0;
     correct = 0;
     timeLeft = DURATION;
@@ -69,8 +64,6 @@
     finished = false;
     wrongMove = false;
     sessionXp = 0;
-    mood = 'idle';
-    if (timer) { clearInterval(timer); timer = null; }
   }
 
   async function submitResult() {
@@ -86,54 +79,59 @@
   onDestroy(() => { if (timer) clearInterval(timer); });
 </script>
 
-<div class="min-h-screen bg-gradient-to-b from-blue-50 to-cyan-100 p-4">
+<svelte:head>
+  <title>Time Trial — mychess</title>
+</svelte:head>
+
+<div class="min-h-screen bg-gray-50 p-4">
   <div class="max-w-lg mx-auto">
-    <!-- Header -->
     <div class="flex justify-between items-center mb-4">
-      <a href="/" class="text-2xl">⬅️</a>
-      <h1 class="text-2xl font-bold text-blue-800">⏱️ Time Trial</h1>
+      <a href="/" class="text-gray-400 text-sm hover:text-gray-600">← Home</a>
+      <h1 class="text-xl font-bold text-gray-900">Time Trial</h1>
       <div class="text-right">
-        <div class="text-2xl font-bold {timeLeft <= 10 ? 'text-red-600 animate-pulse' : 'text-blue-600'}">{timeLeft}s</div>
-        <div class="text-sm text-blue-500">✅ {correct}</div>
+        <div class="text-2xl font-bold {timeLeft <= 10 ? 'text-red-600 animate-pulse' : 'text-indigo-600'}">{timeLeft}s</div>
+        <div class="text-xs text-gray-400">✅ {correct}</div>
       </div>
     </div>
 
-    <SirKnight {mood} />
-
     {#if allMoves.length === 0}
-      <div class="bg-white rounded-2xl p-6 text-center shadow">
-        <p class="text-xl">🎓 No moves to drill yet!</p>
-        <p class="text-gray-500 mt-2">Add moves in Learn mode first.</p>
-        <a href="/learn" class="mt-4 block btn-primary">Go to Learn</a>
+      <div class="bg-white border border-gray-200 rounded-2xl p-6 text-center shadow-sm">
+        <p class="text-xl text-gray-700">No moves to drill yet!</p>
+        <p class="text-gray-400 mt-2">Add moves in Learn mode first.</p>
+        <a href="/learn"
+           class="mt-4 inline-block bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-indigo-700 transition">
+          Go to Learn
+        </a>
       </div>
     {:else if finished}
-      <div class="bg-white rounded-2xl p-6 text-center shadow">
+      <div class="bg-white border border-gray-200 rounded-2xl p-6 text-center shadow-sm">
         <p class="text-4xl mb-2">{correct >= 20 ? '🏆' : correct >= 10 ? '🎉' : '⏱️'}</p>
-        <h2 class="text-2xl font-bold text-blue-700">Time's Up!</h2>
-        <p class="text-gray-600 mt-2">You got <strong>{correct}</strong> correct in 60 seconds</p>
-        <p class="text-amber-600 font-bold mt-1">+{sessionXp} XP earned</p>
+        <h2 class="text-2xl font-bold text-indigo-700">Time's Up!</h2>
+        <p class="text-gray-500 mt-2">You got <strong>{correct}</strong> correct in 60 seconds</p>
         {#if correct >= 20}
-          <p class="text-green-600 font-bold mt-1">+200 Bonus XP for 20+ correct! 🚀</p>
+          <p class="text-green-600 font-bold mt-1">+200 Bonus XP for 20+ correct!</p>
         {/if}
-        <button onclick={restart} class="mt-4 w-full bg-blue-500 text-white py-3 rounded-xl font-bold text-lg hover:bg-blue-600 transition">
-          Play Again 🔄
+        <button onclick={restart}
+                class="mt-4 w-full bg-indigo-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-indigo-700 transition">
+          Play Again
         </button>
-        <a href="/" class="mt-2 block text-center text-gray-500 hover:underline">Back to Home</a>
+        <a href="/" class="mt-2 block text-center text-gray-400 hover:underline text-sm">Back to Home</a>
       </div>
     {:else if !started}
-      <div class="bg-white rounded-2xl p-6 text-center shadow">
+      <div class="bg-white border border-gray-200 rounded-2xl p-6 text-center shadow-sm">
         <p class="text-4xl mb-3">⏱️</p>
-        <h2 class="text-xl font-bold text-blue-700 mb-2">60-Second Challenge!</h2>
-        <p class="text-gray-600 mb-4">Answer as many opening moves as you can in 60 seconds. +5 XP per correct move, +200 bonus for 20+!</p>
-        <button onclick={start} class="w-full bg-blue-500 text-white py-4 rounded-xl font-bold text-xl hover:bg-blue-600 transition">
-          Start! 🚀
+        <h2 class="text-xl font-bold text-gray-900 mb-2">60-Second Challenge!</h2>
+        <p class="text-gray-500 mb-4">Answer as many opening moves as you can. +5 XP per correct, +200 bonus for 20+!</p>
+        <button onclick={start}
+                class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-xl hover:bg-indigo-700 transition">
+          Start!
         </button>
       </div>
     {:else}
-      <div class="bg-white rounded-2xl p-4 shadow mb-4">
-        <p class="text-center text-gray-500 text-sm mb-2">
+      <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm mb-4">
+        <p class="text-center text-gray-400 text-sm mb-2">
           {#if wrongMove}
-            <span class="text-red-500 font-bold">❌ Wrong move! Try again!</span>
+            <span class="text-red-600 font-bold">Wrong move! Try again!</span>
           {:else}
             Play the correct opening move!
           {/if}
@@ -142,17 +140,17 @@
       </div>
 
       <div class="flex gap-2 justify-center">
-        <div class="bg-blue-100 rounded-xl px-4 py-2 text-center">
-          <div class="text-xs text-blue-600">Correct</div>
-          <div class="text-2xl font-bold text-blue-800">{correct}</div>
+        <div class="bg-green-50 border border-green-100 rounded-xl px-4 py-2 text-center">
+          <div class="text-xs text-green-500">Correct</div>
+          <div class="text-2xl font-bold text-green-700">{correct}</div>
         </div>
-        <div class="bg-amber-100 rounded-xl px-4 py-2 text-center">
-          <div class="text-xs text-amber-600">XP</div>
-          <div class="text-2xl font-bold text-amber-800">{sessionXp}</div>
+        <div class="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2 text-center">
+          <div class="text-xs text-indigo-400">XP</div>
+          <div class="text-2xl font-bold text-indigo-700">{sessionXp}</div>
         </div>
-        <div class="bg-red-100 rounded-xl px-4 py-2 text-center">
-          <div class="text-xs text-red-600">Time</div>
-          <div class="text-2xl font-bold text-red-800">{timeLeft}s</div>
+        <div class="bg-red-50 border border-red-100 rounded-xl px-4 py-2 text-center">
+          <div class="text-xs text-red-400">Time</div>
+          <div class="text-2xl font-bold text-red-600">{timeLeft}s</div>
         </div>
       </div>
     {/if}
