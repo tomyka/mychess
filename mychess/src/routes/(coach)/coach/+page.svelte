@@ -5,7 +5,7 @@
 </script>
 
 <svelte:head>
-  <title>Coach Dashboard — mychess</title>
+  <title>Coach Dashboard — MyChess</title>
 </svelte:head>
 
 <main class="min-h-screen bg-gray-50">

@@ -53,7 +53,7 @@
 </script>
 
 <svelte:head>
-  <title>OTB Tournaments — mychess</title>
+  <title>OTB Tournaments — MyChess</title>
 </svelte:head>
 
 <div class="max-w-6xl mx-auto px-4 py-6">

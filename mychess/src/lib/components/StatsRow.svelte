@@ -1,4 +1,4 @@
-<!-- mychess/src/lib/components/StatsRow.svelte -->
+<!-- MyChess/src/lib/components/StatsRow.svelte -->
 <script lang="ts">
   let { streakDays = 0 } = $props<{ streakDays?: number }>();
 </script>

@@ -1,4 +1,4 @@
-<!-- mychess/src/lib/components/QuickActions.svelte -->
+<!-- MyChess/src/lib/components/QuickActions.svelte -->
 <script lang="ts">
   let { totalReviews = 0 } = $props<{ totalReviews?: number }>();
 

@@ -55,7 +55,7 @@
 </script>
 
 <svelte:head>
-  <title>Practice — mychess</title>
+  <title>Practice — MyChess</title>
 </svelte:head>
 
 <main class="min-h-screen bg-gray-50 p-4 max-w-lg mx-auto pb-24">

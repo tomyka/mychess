@@ -1,4 +1,4 @@
-<!-- mychess/src/lib/components/CoachNoteBanner.svelte -->
+<!-- MyChess/src/lib/components/CoachNoteBanner.svelte -->
 <script lang="ts">
   let { note, ondismiss } = $props<{ note: { id: string; message: string }; ondismiss: () => void }>();
 </script>

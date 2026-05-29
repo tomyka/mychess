@@ -27,7 +27,7 @@
     <!-- Logo -->
     <a href="/" class="flex items-center gap-2 font-bold text-gray-900 shrink-0">
       <span class="text-xl">♟</span>
-      <span class="text-base">mychess</span>
+      <span class="text-base">MyChess</span>
     </a>
 
     <!-- Desktop nav links -->

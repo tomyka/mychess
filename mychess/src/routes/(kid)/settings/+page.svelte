@@ -27,7 +27,7 @@
 </script>
 
 <svelte:head>
-  <title>Settings — mychess</title>
+  <title>Settings — MyChess</title>
 </svelte:head>
 
 <div class="min-h-screen bg-gray-50">

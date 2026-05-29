@@ -7,7 +7,7 @@
   <div class="text-center">
     <div class="flex items-center justify-center gap-2 font-bold text-gray-900 mb-3">
       <span class="text-3xl">♟</span>
-      <span class="text-2xl">mychess</span>
+      <span class="text-2xl">MyChess</span>
     </div>
     <h1 class="text-2xl font-bold text-gray-900">Welcome! Tell us about yourself</h1>
     <p class="mt-1 text-gray-500">So we can set up your dashboard</p>

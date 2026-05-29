@@ -71,7 +71,7 @@
 </script>
 
 <svelte:head>
-  <title>Drill Mode — mychess</title>
+  <title>Drill Mode — MyChess</title>
 </svelte:head>
 
 <div class="min-h-screen bg-gray-50 p-4">

@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-  <title>Invite Player — mychess</title>
+  <title>Invite Player — MyChess</title>
 </svelte:head>
 
 <main class="min-h-screen bg-gray-50">

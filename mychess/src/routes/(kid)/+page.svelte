@@ -26,7 +26,7 @@
 </script>
 
 <svelte:head>
-  <title>Dashboard — mychess</title>
+  <title>MyChess</title>
 </svelte:head>
 
 <main class="min-h-screen bg-gray-50">

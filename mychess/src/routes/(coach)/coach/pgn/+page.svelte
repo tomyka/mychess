@@ -5,7 +5,7 @@
 </script>
 
 <svelte:head>
-  <title>Upload Repertoire — mychess</title>
+  <title>Upload Repertoire — MyChess</title>
 </svelte:head>
 
 <main class="min-h-screen bg-gray-50">

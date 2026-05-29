@@ -80,7 +80,7 @@
 </script>
 
 <svelte:head>
-  <title>Time Trial — mychess</title>
+  <title>Time Trial — MyChess</title>
 </svelte:head>
 
 <div class="min-h-screen bg-gray-50 p-4">

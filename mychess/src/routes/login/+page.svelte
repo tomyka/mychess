@@ -39,7 +39,7 @@
   <div class="text-center">
     <a href="/" class="flex items-center justify-center gap-2 font-bold text-gray-900 mb-2">
       <span class="text-3xl">♟</span>
-      <span class="text-2xl">mychess</span>
+      <span class="text-2xl">MyChess</span>
     </a>
     <p class="text-gray-500">Your daily chess dashboard</p>
   </div>

@@ -14,6 +14,10 @@
   );
 </script>
 
+<svelte:head>
+  <title>MyChess</title>
+</svelte:head>
+
 <QueryClientProvider client={queryClient}>
   {#if !hideNav}
     <NavBar user={(data as any)?.user} profile={(data as any)?.profile} />

@@ -1,4 +1,4 @@
-<!-- mychess/src/lib/components/PlayerHeader.svelte -->
+<!-- MyChess/src/lib/components/PlayerHeader.svelte -->
 <script lang="ts">
   let { profile } = $props<{ profile: any }>();
 
