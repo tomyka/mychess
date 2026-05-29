@@ -23,31 +23,41 @@ jobs:
       - name: Get database URL from Vercel
         id: db-url
         run: |
-          # List env vars and find POSTGRES_URL_NON_POOLING (direct connection, required for migrations)
-          ENV_LIST=$(curl -sf "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env" \
+          # Try SUPABASE_DB_URL secret first (fastest path)
+          if [ -n "${{ secrets.SUPABASE_DB_URL }}" ]; then
+            echo "Using SUPABASE_DB_URL secret"
+            DB_URL="${{ secrets.SUPABASE_DB_URL }}"
+            echo "::add-mask::$DB_URL"
+            echo "db_url=$DB_URL" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Fallback: fetch from Vercel project env vars (requires Supabase-Vercel integration)
+          echo "SUPABASE_DB_URL not set — fetching from Vercel..."
+          ENV_LIST=$(curl -s "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env" \
             -H "Authorization: Bearer $VERCEL_TOKEN")
 
-          ENV_ID=$(echo "$ENV_LIST" | jq -r \
-            '.envs[] | select(.key == "POSTGRES_URL_NON_POOLING") | .id' | head -1)
+          echo "Vercel API status: $(echo "$ENV_LIST" | jq -r '.error.code // "ok"')"
+          echo "Keys found: $(echo "$ENV_LIST" | jq -r '.envs[].key' 2>/dev/null | tr '\n' ' ')"
 
-          if [ -z "$ENV_ID" ] || [ "$ENV_ID" = "null" ]; then
-            echo "POSTGRES_URL_NON_POOLING not found — trying POSTGRES_URL"
-            ENV_ID=$(echo "$ENV_LIST" | jq -r \
-              '.envs[] | select(.key == "POSTGRES_URL") | .id' | head -1)
-          fi
+          for KEY in POSTGRES_URL_NON_POOLING POSTGRES_URL DATABASE_URL; do
+            ENV_ID=$(echo "$ENV_LIST" | jq -r ".envs[] | select(.key == \"$KEY\") | .id" | head -1)
+            if [ -n "$ENV_ID" ] && [ "$ENV_ID" != "null" ]; then
+              echo "Found $KEY (id=$ENV_ID)"
+              DB_URL=$(curl -s "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$ENV_ID" \
+                -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r '.value // empty')
+              if [ -n "$DB_URL" ]; then
+                echo "::add-mask::$DB_URL"
+                echo "db_url=$DB_URL" >> $GITHUB_OUTPUT
+                exit 0
+              fi
+            fi
+          done
 
-          if [ -z "$ENV_ID" ] || [ "$ENV_ID" = "null" ]; then
-            echo "❌ No Postgres URL found in Vercel project env vars."
-            echo "Please add SUPABASE_DB_URL to GitHub secrets manually."
-            exit 1
-          fi
-
-          # Fetch decrypted value
-          DB_URL=$(curl -sf "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env/$ENV_ID" \
-            -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r '.value')
-
-          echo "::add-mask::$DB_URL"
-          echo "db_url=$DB_URL" >> $GITHUB_OUTPUT
+          echo "❌ Could not find a Postgres URL."
+          echo "Add SUPABASE_DB_URL to GitHub secrets (Settings → Secrets → Actions)."
+          echo "Get it from: Supabase Dashboard → Project → Settings → Database → Connection string (URI)"
+          exit 1
 
       - name: Push all migrations
         run: |
