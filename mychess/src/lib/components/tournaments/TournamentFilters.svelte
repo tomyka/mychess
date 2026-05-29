@@ -71,80 +71,90 @@
     (filters.dateStart || filters.dateEnd ? 1 : 0));
 </script>
 
-<div class="space-y-4">
+<div class="bg-white border border-gray-200 rounded-xl p-4 space-y-5">
+  <!-- Header -->
   <div class="flex items-center justify-between">
-    <p class="text-sm text-gray-500">{total} tournament{total !== 1 ? 's' : ''}</p>
-    {#if activeCount > 0}
-      <button on:click={clearAll} class="text-xs text-indigo-600 hover:underline">
-        Clear filters
-      </button>
-    {/if}
+    <span class="text-sm font-semibold text-gray-700">Filters</span>
+    <span class="text-xs text-gray-400">{total} result{total !== 1 ? 's' : ''}</span>
   </div>
+
+  {#if activeCount > 0}
+    <button on:click={clearAll} class="w-full text-xs text-center text-indigo-600 hover:text-indigo-800 border border-indigo-200 rounded-lg py-1.5 transition-colors hover:bg-indigo-50">
+      Clear all filters
+    </button>
+  {/if}
 
   <!-- Status -->
   <div>
-    <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Status</p>
-    <div class="flex flex-wrap gap-2">
+    <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Status</p>
+    <div class="flex flex-wrap gap-1.5">
       {#each statusOptions as opt}
         <button
           on:click={() => toggleStatus(opt.value)}
-          class="px-3 py-1 rounded-full text-xs border transition-colors
+          class="px-2.5 py-1 rounded-lg text-xs border transition-colors
             {filters.status.includes(opt.value as never)
               ? 'bg-indigo-600 text-white border-indigo-600'
-              : 'border-gray-300 text-gray-600 hover:border-indigo-400'}"
+              : 'border-gray-200 text-gray-600 hover:border-indigo-300 hover:text-indigo-700'}"
         >{opt.label}</button>
       {/each}
     </div>
   </div>
+
+  <div class="border-t border-gray-100"></div>
 
   <!-- Time control -->
   <div>
-    <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Time Control</p>
-    <div class="flex flex-wrap gap-2">
+    <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Time Control</p>
+    <div class="flex flex-wrap gap-1.5">
       {#each tcOptions as opt}
         <button
           on:click={() => toggleTc(opt.value)}
-          class="px-3 py-1 rounded-full text-xs border transition-colors
+          class="px-2.5 py-1 rounded-lg text-xs border transition-colors
             {filters.timeControl.includes(opt.value as never)
               ? 'bg-indigo-600 text-white border-indigo-600'
-              : 'border-gray-300 text-gray-600 hover:border-indigo-400'}"
+              : 'border-gray-200 text-gray-600 hover:border-indigo-300 hover:text-indigo-700'}"
         >{opt.label}</button>
       {/each}
     </div>
   </div>
 
+  <div class="border-t border-gray-100"></div>
+
   <!-- Country -->
   <div>
-    <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Country</p>
-    <div class="flex flex-wrap gap-2">
+    <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Country</p>
+    <div class="flex flex-wrap gap-1.5">
       {#each countryOptions as country}
         <button
           on:click={() => toggleCountry(country)}
-          class="px-3 py-1 rounded-full text-xs border transition-colors
+          class="px-2.5 py-1 rounded-lg text-xs border transition-colors
             {filters.country.includes(country)
               ? 'bg-indigo-600 text-white border-indigo-600'
-              : 'border-gray-300 text-gray-600 hover:border-indigo-400'}"
+              : 'border-gray-200 text-gray-600 hover:border-indigo-300 hover:text-indigo-700'}"
         >{country}</button>
       {/each}
     </div>
   </div>
 
+  <div class="border-t border-gray-100"></div>
+
   <!-- Date range -->
   <div>
-    <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Date Range</p>
-    <div class="flex gap-2 items-center">
+    <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Date Range</p>
+    <div class="space-y-1.5">
       <input
         type="date"
         bind:value={filters.dateStart}
         on:change={applyFilters}
-        class="text-xs border border-gray-300 rounded px-2 py-1 bg-white text-gray-800"
+        placeholder="From"
+        class="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-800 focus:border-indigo-400 focus:outline-none"
       />
-      <span class="text-gray-400 text-xs">to</span>
       <input
         type="date"
         bind:value={filters.dateEnd}
         on:change={applyFilters}
-        class="text-xs border border-gray-300 rounded px-2 py-1 bg-white text-gray-800"
+        placeholder="To"
+        class="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-800 focus:border-indigo-400 focus:outline-none"
       />
     </div>
   </div>

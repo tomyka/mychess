@@ -86,7 +86,7 @@
 
 <div class="max-w-6xl mx-auto px-4 py-6">
   <div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Tournaments</h1>
+    <h1 class="text-2xl font-bold text-gray-900">Tournaments</h1>
     <div class="flex gap-1 text-sm">
       <button
         on:click={() => setView('list')}
@@ -112,9 +112,11 @@
   {/if}
 
   <div class="flex flex-col md:flex-row gap-6">
-    <!-- Sidebar filters -->
-    <aside class="md:w-56 shrink-0">
-      <TournamentFilters filters={data.filters} total={data.total} />
+    <!-- Sidebar filters — sticky so filters stay visible while scrolling -->
+    <aside class="md:w-60 shrink-0">
+      <div class="sticky top-[57px]">
+        <TournamentFilters filters={data.filters} total={data.total} />
+      </div>
     </aside>
 
     <!-- Tournament list/calendar -->
@@ -127,7 +129,7 @@
             <p class="text-sm mt-1">Try adjusting your filters</p>
           </div>
         {:else}
-          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {#each data.tournaments as tournament (tournament.id)}
               <TournamentCard {tournament} />
             {/each}
@@ -160,7 +162,7 @@
               <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 {new Date(month + '-15T12:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
               </h2>
-              <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {#each monthTourneys as tournament (tournament.id)}
                   <TournamentCard {tournament} />
                 {/each}
