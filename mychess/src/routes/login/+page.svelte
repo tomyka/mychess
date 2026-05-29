@@ -18,7 +18,6 @@
         const { error: err } = await sb.auth.signInWithPassword({ email, password });
         if (err) { error = err.message; loading = false; return; }
       } else {
-        // Check if current user is anonymous (guest) — if so, upgrade in-place to preserve data
         const { data: { user } } = await sb.auth.getUser();
         if (user?.is_anonymous) {
           const { error: err } = await sb.auth.updateUser({ email, password });
@@ -36,67 +35,69 @@
   }
 </script>
 
-<main class="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white gap-8 p-6">
+<main class="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-8 p-6">
   <div class="text-center">
-    <h1 class="text-6xl font-bold text-yellow-400">MyChess ♞</h1>
-    <p class="mt-3 text-slate-300 text-lg">Learn openings. Have fun. Level up!</p>
+    <a href="/" class="flex items-center justify-center gap-2 font-bold text-gray-900 mb-2">
+      <span class="text-3xl">♟</span>
+      <span class="text-2xl">mychess</span>
+    </a>
+    <p class="text-gray-500">Your daily chess dashboard</p>
   </div>
 
   {#if mode === 'signup'}
-    <p class="text-yellow-300 text-sm bg-yellow-900/30 border border-yellow-700/40 rounded-xl px-4 py-2 max-w-sm text-center">
-      🎯 Create a free account to save your progress forever!
+    <p class="text-indigo-700 text-sm bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2 max-w-sm text-center">
+      Create a free account to save your progress forever.
     </p>
   {/if}
 
-  <div class="bg-slate-800 rounded-2xl p-8 w-full max-w-sm flex flex-col gap-4">
-    <div class="flex rounded-xl overflow-hidden border border-slate-700">
+  <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 w-full max-w-sm flex flex-col gap-5">
+    <div class="flex rounded-lg overflow-hidden border border-gray-200">
       <button
         onclick={() => { mode = 'login'; error = ''; }}
-        class="flex-1 py-2 text-sm font-semibold transition {mode === 'login' ? 'bg-yellow-400 text-slate-900' : 'text-slate-400 hover:text-white'}">
-        Log In
+        class="flex-1 py-2 text-sm font-semibold transition {mode === 'login' ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}">
+        Sign in
       </button>
       <button
         onclick={() => { mode = 'signup'; error = ''; }}
-        class="flex-1 py-2 text-sm font-semibold transition {mode === 'signup' ? 'bg-yellow-400 text-slate-900' : 'text-slate-400 hover:text-white'}">
-        Sign Up Free
+        class="flex-1 py-2 text-sm font-semibold transition {mode === 'signup' ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}">
+        Create account
       </button>
     </div>
 
-    <input
-      type="email"
-      bind:value={email}
-      placeholder="Email"
-      class="bg-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-yellow-400"
-    />
-    <input
-      type="password"
-      bind:value={password}
-      placeholder="Password"
-      onkeydown={(e) => e.key === 'Enter' && submit()}
-      class="bg-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-yellow-400"
-    />
-
     {#if error}
-      <p class="text-red-400 text-sm">{error}</p>
+      <p class="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
     {/if}
+
+    <div class="flex flex-col gap-3">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="email">Email</label>
+        <input
+          id="email"
+          type="email"
+          bind:value={email}
+          placeholder="you@example.com"
+          class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="password">Password</label>
+        <input
+          id="password"
+          type="password"
+          bind:value={password}
+          placeholder="••••••••"
+          class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+      </div>
+    </div>
 
     <button
       onclick={submit}
-      disabled={loading || !email || !password}
-      class="bg-yellow-400 text-slate-900 font-bold py-3 rounded-xl hover:bg-yellow-300 transition disabled:opacity-50">
-      {loading ? '...' : mode === 'login' ? 'Log In' : 'Create Account'}
+      disabled={loading}
+      class="bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition disabled:opacity-50">
+      {loading ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
     </button>
 
-    <p class="text-slate-400 text-xs text-center">
-      {#if mode === 'login'}
-        Don't have an account?
-        <button onclick={() => { mode = 'signup'; error = ''; }} class="text-yellow-400 hover:underline">Sign up free</button>
-      {:else}
-        Already have an account?
-        <button onclick={() => { mode = 'login'; error = ''; }} class="text-yellow-400 hover:underline">Log in</button>
-      {/if}
-    </p>
+    <a href="/" class="text-center text-sm text-gray-500 hover:underline">Continue without account →</a>
   </div>
-
-  <a href="/" class="text-slate-500 text-sm hover:text-slate-300 transition">Continue as Guest →</a>
 </main>
