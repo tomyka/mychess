@@ -48,7 +48,7 @@ export async function scrapeTournamentList(): Promise<ScrapedTournament[]> {
   const all: ScrapedTournament[] = [];
   for (const fed of SUPPORTED_FEDERATIONS) {
     const fedUrl = `${BASE_URL}/fed.aspx?lan=1&fed=${fed.code}`;
-    const res = await fetch(fedUrl, { headers: { 'User-Agent': USER_AGENT } });
+    const res = await fetch(fedUrl, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(15_000) });
     if (!res.ok) {
       console.error(`Failed to fetch ${fed.name} (${res.status})`);
       continue;
@@ -82,7 +82,7 @@ export async function scrapeTournamentList(): Promise<ScrapedTournament[]> {
 
 export async function scrapeTournamentDetails(url: string): Promise<Partial<ScrapedTournament>> {
   const detailUrl = url.includes('turdet=') ? url : `${url}${url.includes('?') ? '&' : '?'}turdet=YES`;
-  const res = await fetch(detailUrl, { headers: { 'User-Agent': USER_AGENT } });
+  const res = await fetch(detailUrl, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${detailUrl}`);
   const html = await res.text();
   const $ = cheerio.load(html);
@@ -107,7 +107,7 @@ export async function scrapeTournamentDetails(url: string): Promise<Partial<Scra
 }
 
 export async function scrapePlayers(url: string): Promise<ScrapedPlayer[]> {
-  const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+  const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(15_000) });
   if (!res.ok) return [];
   const html = await res.text();
   const $ = cheerio.load(html);

@@ -78,7 +78,7 @@ export async function runScrapeJob(
             const details = await scrapeTournamentDetails(row.url);
             if (!details.startDate && !details.averageRating) return;
 
-            await db.from('tournaments').update({
+            const { error: updateError } = await db.from('tournaments').update({
               start_date: details.startDate?.toISOString() ?? null,
               end_date: details.endDate?.toISOString() ?? null,
               round_count: details.roundCount ?? null,
@@ -89,7 +89,11 @@ export async function runScrapeJob(
               last_scraped_at: new Date().toISOString(),
             }).eq('id', row.id);
 
-            result.detailsUpdated++;
+            if (updateError) {
+              errors.push(`Details update ${row.chess_results_id}: ${updateError.message}`);
+            } else {
+              result.detailsUpdated++;
+            }
           } catch (e) {
             errors.push(`Details ${row.chess_results_id}: ${String(e)}`);
           }
@@ -107,16 +111,21 @@ export async function runScrapeJob(
     // 5. Scrape player lists for tournaments without players yet
     // Two-step anti-join: fetch tournament_ids that already have players,
     // then exclude them (PostgREST does not support inline subqueries).
-    const { data: withPlayersRows } = await db
-      .from('tournament_players')
-      .select('tournament_id');
-    const withPlayers = new Set((withPlayersRows ?? []).map(r => r.tournament_id));
-
     const { data: allTournaments } = await db
       .from('tournaments')
       .select('id, url')
       .order('last_scraped_at', { ascending: true })
       .limit(50);
+
+    const candidateIds = (allTournaments ?? []).map(t => t.id);
+    const withPlayers = new Set<string>();
+    if (candidateIds.length > 0) {
+      const { data: withPlayersRows } = await db
+        .from('tournament_players')
+        .select('tournament_id')
+        .in('tournament_id', candidateIds);
+      (withPlayersRows ?? []).forEach(r => withPlayers.add(r.tournament_id));
+    }
 
     const noPlayers = (allTournaments ?? [])
       .filter(t => !withPlayers.has(t.id))
