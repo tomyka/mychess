@@ -31,6 +31,45 @@
 
 <main class="min-h-screen bg-slate-900 text-white p-4 max-w-lg mx-auto pb-24">
 
+{#if !data.session}
+  <!-- Guest landing page -->
+  <div class="max-w-3xl mx-auto px-4 py-12 text-center">
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3">
+      Your chess, in one place
+    </h1>
+    <p class="text-gray-500 dark:text-gray-400 mb-8">
+      FIDE rating, national standings, and local OTB tournaments — all on your daily dashboard.
+    </p>
+    <div class="flex justify-center gap-3 mb-12">
+      <a href="/tournaments" class="px-5 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700">
+        Browse tournaments
+      </a>
+      <a href="/login" class="px-5 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800">
+        Sign in
+      </a>
+    </div>
+
+    {#if data.upcomingTournaments?.length > 0}
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 text-left">Upcoming tournaments</h2>
+      <div class="grid gap-3 sm:grid-cols-3 text-left">
+        {#each data.upcomingTournaments as t}
+          <a href="/tournaments/{t.id}"
+             class="rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow block">
+            <p class="font-medium text-sm text-gray-900 dark:text-gray-100 mb-1">{t.name}</p>
+            <p class="text-xs text-gray-500">
+              {t.start_date ? new Date(t.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}
+              {t.city ? ` · ${t.city}` : ''}
+            </p>
+          </a>
+        {/each}
+      </div>
+      <a href="/tournaments" class="text-sm text-blue-600 dark:text-blue-400 hover:underline mt-4 inline-block">
+        View all tournaments →
+      </a>
+    {/if}
+  </div>
+{:else}
+
   <!-- Header -->
   <div class="flex items-center justify-between mb-5">
     <div class="flex items-center gap-3">
@@ -174,5 +213,7 @@
   {#if leaderboard.length > 0}
     <LeaderboardPodium entries={leaderboard} />
   {/if}
+
+{/if}
 
 </main>

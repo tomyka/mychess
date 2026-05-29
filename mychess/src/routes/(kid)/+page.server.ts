@@ -5,7 +5,18 @@ import { selectDailyQuests } from '$lib/quests/generate';
 
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
   const { user, session, profile } = await safeGetSession();
-  if (!user) return { session: null, profile: null };
+
+  // Fetch upcoming tournaments for all visitors (guest landing page + logged-in widget)
+  const nowIso = new Date().toISOString();
+  const { data: upcomingTournaments } = await supabase
+    .from('tournaments')
+    .select('id, name, city, country, start_date, time_control, status')
+    .in('status', ['NOT_STARTED', 'IN_PROGRESS'])
+    .gte('start_date', nowIso)
+    .order('start_date', { ascending: true })
+    .limit(3);
+
+  if (!user) return { session: null, profile: null, upcomingTournaments: upcomingTournaments ?? [] };
 
   const p = profile as any;
   const totalXp = Number(p?.xp ?? 0);
@@ -92,6 +103,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
     quests,
     leaderboard: lbEntries,
     unreadNote: noteRes.data ?? null,
-    avatarId: p?.avatar_id ?? 'knight'
+    avatarId: p?.avatar_id ?? 'knight',
+    upcomingTournaments: upcomingTournaments ?? []
   };
 };
