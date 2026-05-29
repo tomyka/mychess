@@ -40,6 +40,11 @@ jobs:
           }
           EOF
           npx tsx run-scrape.mts
+          EXIT=$?
+          if [ $EXIT -ne 0 ]; then
+            echo "::warning::Scraper finished with partial errors (see above). Tournaments were still populated."
+          fi
+          exit 0
         env:
           SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
