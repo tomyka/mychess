@@ -5,6 +5,7 @@ import { selectDailyQuests } from '$lib/quests/generate';
 
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
   const { user, session, profile } = await safeGetSession();
+  const isGuest = !user || !!(user as any).is_anonymous;
 
   // Fetch upcoming tournaments for all visitors (guest landing page + logged-in widget)
   const todayDate = new Date().toISOString().slice(0, 10); // date-only for midnight-UTC comparison
@@ -18,7 +19,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 
   if (tErr) console.error('Failed to fetch upcoming tournaments:', tErr);
 
-  if (!user) return { session: null, profile: null, upcomingTournaments: upcomingTournaments ?? [] };
+  if (!user) return { isGuest: true, session: null, profile: null, upcomingTournaments: upcomingTournaments ?? [] };
 
   const p = profile as any;
   const totalXp = Number(p?.xp ?? 0);
@@ -91,6 +92,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
   }
 
   return {
+    isGuest,
     session,
     profile,
     stats: {
