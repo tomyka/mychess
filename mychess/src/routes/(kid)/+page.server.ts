@@ -16,7 +16,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
     .eq('country', 'Lithuania')
     .gte('start_date', todayDate)
     .order('start_date', { ascending: true })
-    .limit(5);
+    .limit(10);
 
   if (tErr) console.error('Failed to fetch upcoming tournaments:', tErr);
 
