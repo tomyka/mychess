@@ -48,7 +48,7 @@
         </div>
         <div class="text-xs text-gray-500 space-y-0.5 flex-1">
           <div class="font-medium text-gray-700">{formatDate(t.start_date)}</div>
-          <div>{t.city ? `${t.city}, ${t.country}` : t.country}</div>
+          <div>{t.city ?? ''}</div>
         </div>
         <div class="mt-3 pt-2 border-t border-gray-100 text-xs text-indigo-600">
           View details →
