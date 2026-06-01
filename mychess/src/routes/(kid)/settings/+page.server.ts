@@ -41,19 +41,27 @@ export const actions: Actions = {
         return fail(400, { error: 'First and last name are required when a FIDE ID is set.' });
       }
 
-      const fideName = await fetchFideName(fideId);
-      if (!fideName) {
-        return fail(400, { error: 'Could not look up FIDE profile. Check your FIDE ID.' });
-      }
+      // Only hit FIDE when the ID is newly set or changed
+      const { data: current } = await supabase
+        .from('profiles')
+        .select('fide_id')
+        .eq('id', user.id)
+        .single();
 
-      const normalize = (s: string) => s.trim().toLowerCase();
-      if (
-        normalize(firstName) !== normalize(fideName.firstName) ||
-        normalize(lastName) !== normalize(fideName.lastName)
-      ) {
-        return fail(400, {
-          error: `Name does not match FIDE profile. Expected: ${fideName.firstName} ${fideName.lastName}.`
-        });
+      const storedFideId = (current as any)?.fide_id ?? '';
+      if (fideId !== storedFideId) {
+        const fideName = await fetchFideName(fideId);
+        if (!fideName) {
+          return fail(400, { error: 'Could not look up FIDE profile. Check your FIDE ID.' });
+        }
+
+        const normalize = (s: string) => s.trim().toLowerCase();
+        if (
+          normalize(firstName) !== normalize(fideName.firstName) ||
+          normalize(lastName) !== normalize(fideName.lastName)
+        ) {
+          return fail(400, { error: 'Name does not match FIDE profile.' });
+        }
       }
     }
 

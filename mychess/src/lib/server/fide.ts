@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 export async function fetchFideName(
   fideId: string
 ): Promise<{ firstName: string; lastName: string } | null> {
-  if (!fideId || fideId.trim().length < 3) return null;
+  if (!fideId || !/^\d+$/.test(fideId.trim())) return null;
   try {
     const res = await fetch(`https://ratings.fide.com/profile/${fideId}`, {
       headers: { 'User-Agent': 'Mozilla/5.0' },
