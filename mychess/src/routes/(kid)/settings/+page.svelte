@@ -48,6 +48,32 @@
     <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
       <h2 class="font-semibold text-gray-900 mb-4">Connected accounts</h2>
       <form method="POST" action="?/save" use:enhance class="space-y-4">
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="first_name">First Name</label>
+            <input
+              id="first_name"
+              name="first_name"
+              type="text"
+              value={d.firstName}
+              placeholder="e.g. Magnus"
+              class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1" for="last_name">Last Name</label>
+            <input
+              id="last_name"
+              name="last_name"
+              type="text"
+              value={d.lastName}
+              placeholder="e.g. Carlsen"
+              class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          </div>
+        </div>
+
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1" for="fide_id">FIDE ID</label>
           <input
@@ -58,7 +84,9 @@
             placeholder="e.g. 1503014"
             class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
-          <p class="text-xs text-gray-400 mt-1">Your FIDE ID number (find it at ratings.fide.com)</p>
+          <p class="text-xs text-gray-400 mt-1">
+            Your FIDE ID number (find it at ratings.fide.com). First and last name must match your FIDE profile.
+          </p>
         </div>
 
         <div>
