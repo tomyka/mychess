@@ -6,7 +6,8 @@ export async function fetchFideName(
   if (!fideId || fideId.trim().length < 3) return null;
   try {
     const res = await fetch(`https://ratings.fide.com/profile/${fideId}`, {
-      headers: { 'User-Agent': 'Mozilla/5.0' }
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(5000)
     });
     if (!res.ok) return null;
 
