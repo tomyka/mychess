@@ -75,13 +75,20 @@ export const GET: RequestHandler = async ({ url, cookies, locals: { supabase, sa
     throw redirect(303, '/settings?oauth_error=Could+not+read+Lichess+username');
   }
 
-  const { error: dbError } = await supabase
+  const { error: dbError, count } = await supabase
     .from('profiles')
     .update({ lichess_username: username } as any)
     .eq('id', userId);
 
   if (dbError) {
-    throw redirect(303, '/settings?oauth_error=Failed+to+save+Lichess+username');
+    throw redirect(
+      303,
+      `/settings?oauth_error=${encodeURIComponent(`Failed to save Lichess username: ${dbError.message}`)}`
+    );
+  }
+
+  if (count === 0) {
+    throw redirect(303, '/settings?oauth_error=Profile+not+found.+Could+not+save+Lichess+username');
   }
 
   throw redirect(303, `/settings?oauth_success=Lichess+account+${encodeURIComponent(username)}+connected`);
