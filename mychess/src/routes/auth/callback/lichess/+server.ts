@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { LICHESS_CLIENT_ID, LICHESS_REDIRECT_URI, OAUTH_STATE_SECRET } from '$env/static/private';
+import { env } from '$env/dynamic/private';
+const { LICHESS_CLIENT_ID, LICHESS_REDIRECT_URI, OAUTH_STATE_SECRET } = env;
 import { verifyState } from '$lib/server/oauth';
 
 export const GET: RequestHandler = async ({ url, cookies, locals: { supabase, safeGetSession } }) => {

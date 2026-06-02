@@ -1,7 +1,8 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { dev } from '$app/environment';
-import { LICHESS_CLIENT_ID, LICHESS_REDIRECT_URI, OAUTH_STATE_SECRET } from '$env/static/private';
+import { env } from '$env/dynamic/private';
+const { LICHESS_CLIENT_ID, LICHESS_REDIRECT_URI, OAUTH_STATE_SECRET } = env;
 import { generateCodeVerifier, generateCodeChallenge, createState } from '$lib/server/oauth';
 
 export const GET: RequestHandler = async ({ locals: { safeGetSession }, cookies }) => {

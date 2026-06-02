@@ -2,8 +2,10 @@ import { timingSafeEqual, createHmac } from 'crypto';
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { runScrapeJob } from '$lib/tournaments/scrape-job';
-import { CRON_SECRET, SUPABASE_SERVICE_ROLE_KEY } from '$env/static/private';
-import { PUBLIC_SUPABASE_URL } from '$env/static/public';
+import { env } from '$env/dynamic/private';
+import { env as pubEnv } from '$env/dynamic/public';
+const { CRON_SECRET, SUPABASE_SERVICE_ROLE_KEY } = env;
+const { PUBLIC_SUPABASE_URL } = pubEnv;
 
 const HMAC_KEY = Buffer.from('timing-safe-compare');
 
