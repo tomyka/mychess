@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import { LICHESS_CLIENT_ID, LICHESS_REDIRECT_URI, OAUTH_STATE_SECRET } from '$env/static/private';
 import { verifyState } from '$lib/server/oauth';
 
-export const GET: RequestHandler = async ({ url, cookies, locals: { supabase, safeGetSession } }) => {
+export const GET: RequestHandler = async ({ url, cookies, locals: { supabase } }) => {
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
   const error = url.searchParams.get('error');

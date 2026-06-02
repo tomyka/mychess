@@ -6,14 +6,7 @@ import {
   CHESSCOM_REDIRECT_URI,
   OAUTH_STATE_SECRET
 } from '$env/static/private';
-import { verifyState } from '$lib/server/oauth';
-
-function decodeJwtPayload(token: string): Record<string, unknown> {
-  const parts = token.split('.');
-  if (parts.length !== 3) throw new Error('invalid JWT structure');
-  const padded = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-  return JSON.parse(atob(padded));
-}
+import { verifyState, decodeJwtPayload } from '$lib/server/oauth';
 
 export const GET: RequestHandler = async ({ url, cookies, locals: { supabase } }) => {
   const code = url.searchParams.get('code');

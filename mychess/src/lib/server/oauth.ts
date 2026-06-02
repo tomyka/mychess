@@ -88,3 +88,11 @@ export async function verifyState(state: string, secret: string): Promise<string
   // userId may contain colons (e.g. Supabase UUIDs don't, but guard anyway)
   return parts.slice(0, -2).join(':');
 }
+
+export function decodeJwtPayload(token: string): Record<string, unknown> {
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('invalid JWT structure');
+  const bytes = base64urlDecode(parts[1]);
+  if (!bytes) throw new Error('invalid JWT payload encoding');
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
