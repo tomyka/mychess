@@ -2,7 +2,7 @@ import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { fetchFideName } from '$lib/server/fide';
 
-export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
+export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession }, url }) => {
   const { user, session, profile } = await safeGetSession();
   if (!user) throw redirect(303, '/login');
 
@@ -20,7 +20,9 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
     lastName: (p as any)?.last_name ?? '',
     chesscomUsername: (p as any)?.chesscom_username ?? '',
     lichessUsername: (p as any)?.lichess_username ?? '',
-    fideId: (p as any)?.fide_id ?? ''
+    fideId: (p as any)?.fide_id ?? '',
+    oauthSuccess: url.searchParams.get('oauth_success') ?? null,
+    oauthError: url.searchParams.get('oauth_error') ?? null
   };
 };
 
@@ -33,15 +35,12 @@ export const actions: Actions = {
     const firstName = (fd.get('first_name') as string ?? '').trim();
     const lastName = (fd.get('last_name') as string ?? '').trim();
     const fideId = (fd.get('fide_id') as string ?? '').trim();
-    const chesscomUsername = (fd.get('chesscom_username') as string ?? '').trim();
-    const lichessUsername = (fd.get('lichess_username') as string ?? '').trim();
 
     if (fideId) {
       if (!firstName || !lastName) {
         return fail(400, { error: 'First and last name are required when a FIDE ID is set.' });
       }
 
-      // Only hit FIDE when the ID is newly set or changed
       const { data: current } = await supabase
         .from('profiles')
         .select('fide_id')
@@ -70,10 +69,34 @@ export const actions: Actions = {
       .update({
         first_name: firstName || null,
         last_name: lastName || null,
-        chesscom_username: chesscomUsername || null,
-        lichess_username: lichessUsername || null,
         fide_id: fideId || null
       } as any)
+      .eq('id', user.id);
+
+    if (error) return fail(500, { error: error.message });
+    return { success: true };
+  },
+
+  disconnect_chesscom: async ({ locals: { supabase, safeGetSession } }) => {
+    const { user } = await safeGetSession();
+    if (!user) return fail(401, { error: 'Unauthorized' });
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ chesscom_username: null } as any)
+      .eq('id', user.id);
+
+    if (error) return fail(500, { error: error.message });
+    return { success: true };
+  },
+
+  disconnect_lichess: async ({ locals: { supabase, safeGetSession } }) => {
+    const { user } = await safeGetSession();
+    if (!user) return fail(401, { error: 'Unauthorized' });
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ lichess_username: null } as any)
       .eq('id', user.id);
 
     if (error) return fail(500, { error: error.message });
