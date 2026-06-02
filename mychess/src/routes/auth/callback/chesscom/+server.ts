@@ -1,10 +1,10 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { env } from '$env/dynamic/private';
-const { CHESSCOM_CLIENT_ID, CHESSCOM_CLIENT_SECRET, CHESSCOM_REDIRECT_URI, OAUTH_STATE_SECRET } = env;
 import { verifyState, decodeJwtPayload } from '$lib/server/oauth';
 
 export const GET: RequestHandler = async ({ url, cookies, locals: { supabase, safeGetSession } }) => {
+  const { CHESSCOM_CLIENT_ID, CHESSCOM_CLIENT_SECRET, CHESSCOM_REDIRECT_URI, OAUTH_STATE_SECRET } = env;
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
   const error = url.searchParams.get('error');

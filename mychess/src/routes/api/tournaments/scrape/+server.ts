@@ -4,8 +4,6 @@ import type { RequestHandler } from './$types';
 import { runScrapeJob } from '$lib/tournaments/scrape-job';
 import { env } from '$env/dynamic/private';
 import { env as pubEnv } from '$env/dynamic/public';
-const { CRON_SECRET, SUPABASE_SERVICE_ROLE_KEY } = env;
-const { PUBLIC_SUPABASE_URL } = pubEnv;
 
 const HMAC_KEY = Buffer.from('timing-safe-compare');
 
@@ -17,6 +15,8 @@ function safeCompare(a: string, b: string): boolean {
 }
 
 export const POST: RequestHandler = async ({ request }) => {
+  const { CRON_SECRET, SUPABASE_SERVICE_ROLE_KEY } = env;
+  const { PUBLIC_SUPABASE_URL } = pubEnv;
   const auth = request.headers.get('authorization') ?? '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
 

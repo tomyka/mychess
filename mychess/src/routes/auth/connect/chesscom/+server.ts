@@ -2,10 +2,10 @@ import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
-const { CHESSCOM_CLIENT_ID, CHESSCOM_REDIRECT_URI, OAUTH_STATE_SECRET } = env;
 import { generateCodeVerifier, generateCodeChallenge, createState } from '$lib/server/oauth';
 
 export const GET: RequestHandler = async ({ locals: { safeGetSession }, cookies }) => {
+  const { CHESSCOM_CLIENT_ID, CHESSCOM_REDIRECT_URI, OAUTH_STATE_SECRET } = env;
   const { user } = await safeGetSession();
   if (!user) throw redirect(303, '/login');
 
