@@ -44,9 +44,19 @@
         {form.error}
       </p>
     {/if}
+    {#if d.oauthSuccess}
+      <p class="text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-sm">
+        {d.oauthSuccess}
+      </p>
+    {/if}
+    {#if d.oauthError}
+      <p class="text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-sm">
+        {d.oauthError}
+      </p>
+    {/if}
 
     <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      <h2 class="font-semibold text-gray-900 mb-4">Connected accounts</h2>
+      <h2 class="font-semibold text-gray-900 mb-4">Profile</h2>
       <form method="POST" action="?/save" use:enhance class="space-y-4">
 
         <div class="grid grid-cols-2 gap-4">
@@ -89,30 +99,6 @@
           </p>
         </div>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1" for="chesscom">Chess.com username</label>
-          <input
-            id="chesscom"
-            name="chesscom_username"
-            type="text"
-            value={d.chesscomUsername}
-            placeholder="e.g. MagnusCarlsen"
-            class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1" for="lichess">Lichess username</label>
-          <input
-            id="lichess"
-            name="lichess_username"
-            type="text"
-            value={d.lichessUsername}
-            placeholder="e.g. DrNykterstein"
-            class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-          />
-        </div>
-
         <button
           type="submit"
           class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
@@ -122,9 +108,70 @@
     </section>
 
     <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      <h2 class="font-semibold text-gray-900 mb-4">Connected accounts</h2>
+      <div class="space-y-4">
+
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-700">Chess.com</p>
+            {#if d.chesscomUsername}
+              <p class="text-sm text-gray-500">Connected as <span class="font-mono">{d.chesscomUsername}</span></p>
+            {:else}
+              <p class="text-sm text-gray-400">Not connected</p>
+            {/if}
+          </div>
+          {#if d.chesscomUsername}
+            <form method="POST" action="?/disconnect_chesscom" use:enhance>
+              <button
+                type="submit"
+                class="text-sm border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+                Disconnect
+              </button>
+            </form>
+          {:else}
+            <a
+              href="/auth/connect/chesscom"
+              class="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
+              Connect
+            </a>
+          {/if}
+        </div>
+
+        <div class="border-t border-gray-100"></div>
+
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-700">Lichess</p>
+            {#if d.lichessUsername}
+              <p class="text-sm text-gray-500">Connected as <span class="font-mono">{d.lichessUsername}</span></p>
+            {:else}
+              <p class="text-sm text-gray-400">Not connected</p>
+            {/if}
+          </div>
+          {#if d.lichessUsername}
+            <form method="POST" action="?/disconnect_lichess" use:enhance>
+              <button
+                type="submit"
+                class="text-sm border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+                Disconnect
+              </button>
+            </form>
+          {:else}
+            <a
+              href="/auth/connect/lichess"
+              class="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
+              Connect
+            </a>
+          {/if}
+        </div>
+
+      </div>
+    </section>
+
+    <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
       <h2 class="font-semibold text-gray-900 mb-4">Import games</h2>
       <p class="text-sm text-gray-500 mb-4">
-        Import your recent games as a new repertoire. Connect your platform usernames above first.
+        Import your recent games as a new repertoire. Connect your platform accounts above first.
       </p>
 
       {#if importResult}
@@ -136,13 +183,13 @@
       <div class="flex gap-3">
         <button
           onclick={() => importGames('chesscom')}
-          disabled={importing !== null}
+          disabled={importing !== null || !d.chesscomUsername}
           class="flex-1 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm">
           {importing === 'chesscom' ? 'Importing…' : 'Import from Chess.com'}
         </button>
         <button
           onclick={() => importGames('lichess')}
-          disabled={importing !== null}
+          disabled={importing !== null || !d.lichessUsername}
           class="flex-1 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm">
           {importing === 'lichess' ? 'Importing…' : 'Import from Lichess'}
         </button>
