@@ -45,7 +45,11 @@ export const GET: RequestHandler = async ({ url, cookies, locals: { supabase, sa
   });
 
   if (!tokenRes.ok) {
-    throw redirect(303, '/settings?oauth_error=Failed+to+exchange+Lichess+token');
+    const errBody = await tokenRes.text().catch(() => 'unreadable');
+    throw redirect(
+      303,
+      `/settings?oauth_error=${encodeURIComponent(`Lichess token exchange failed (${tokenRes.status}): ${errBody}`)}`
+    );
   }
 
   const tokenData = await tokenRes.json();
