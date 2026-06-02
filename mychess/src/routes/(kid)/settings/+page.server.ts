@@ -2,25 +2,21 @@ import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { fetchFideName } from '$lib/server/fide';
 
-export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession }, url }) => {
+export const load: PageServerLoad = async ({ locals: { safeGetSession }, url }) => {
   const { user, session, profile } = await safeGetSession();
   if (!user) throw redirect(303, '/login');
 
-  const { data: p } = await supabase
-    .from('profiles')
-    .select('display_name, first_name, last_name, chesscom_username, lichess_username, fide_id')
-    .eq('id', user.id)
-    .single();
+  const p = profile as any;
 
   return {
     session,
     profile,
     displayName: p?.display_name ?? '',
-    firstName: (p as any)?.first_name ?? '',
-    lastName: (p as any)?.last_name ?? '',
-    chesscomUsername: (p as any)?.chesscom_username ?? '',
-    lichessUsername: (p as any)?.lichess_username ?? '',
-    fideId: (p as any)?.fide_id ?? '',
+    firstName: p?.first_name ?? '',
+    lastName: p?.last_name ?? '',
+    chesscomUsername: p?.chesscom_username ?? '',
+    lichessUsername: p?.lichess_username ?? '',
+    fideId: p?.fide_id ?? '',
     oauthSuccess: url.searchParams.get('oauth_success') ?? null,
     oauthError: url.searchParams.get('oauth_error') ?? null
   };
