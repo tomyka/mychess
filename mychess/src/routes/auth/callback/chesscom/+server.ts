@@ -4,7 +4,8 @@ import { env } from '$env/dynamic/private';
 import { verifyState, decodeJwtPayload } from '$lib/server/oauth';
 
 export const GET: RequestHandler = async ({ url, cookies, locals: { supabase, safeGetSession } }) => {
-  const { CHESSCOM_CLIENT_ID, CHESSCOM_CLIENT_SECRET, CHESSCOM_REDIRECT_URI, OAUTH_STATE_SECRET } = env;
+  const { CHESSCOM_CLIENT_ID, CHESSCOM_CLIENT_SECRET, OAUTH_STATE_SECRET } = env;
+  const redirectUri = `${url.origin}/auth/callback/chesscom`;
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
   const error = url.searchParams.get('error');
@@ -39,7 +40,7 @@ export const GET: RequestHandler = async ({ url, cookies, locals: { supabase, sa
       grant_type: 'authorization_code',
       code,
       code_verifier: verifier,
-      redirect_uri: CHESSCOM_REDIRECT_URI,
+      redirect_uri: redirectUri,
       client_id: CHESSCOM_CLIENT_ID,
       client_secret: CHESSCOM_CLIENT_SECRET
     })

@@ -4,8 +4,9 @@ import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
 import { generateCodeVerifier, generateCodeChallenge, createState } from '$lib/server/oauth';
 
-export const GET: RequestHandler = async ({ locals: { safeGetSession }, cookies }) => {
-  const { CHESSCOM_CLIENT_ID, CHESSCOM_REDIRECT_URI, OAUTH_STATE_SECRET } = env;
+export const GET: RequestHandler = async ({ url, locals: { safeGetSession }, cookies }) => {
+  const { CHESSCOM_CLIENT_ID, OAUTH_STATE_SECRET } = env;
+  const redirectUri = `${url.origin}/auth/callback/chesscom`;
   const { user } = await safeGetSession();
   if (!user) throw redirect(303, '/login');
 
@@ -24,7 +25,7 @@ export const GET: RequestHandler = async ({ locals: { safeGetSession }, cookies 
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: CHESSCOM_CLIENT_ID,
-    redirect_uri: CHESSCOM_REDIRECT_URI,
+    redirect_uri: redirectUri,
     scope: 'openid',
     code_challenge_method: 'S256',
     code_challenge: challenge,

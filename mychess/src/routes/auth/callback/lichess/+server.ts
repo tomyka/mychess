@@ -4,7 +4,8 @@ import { env } from '$env/dynamic/private';
 import { verifyState } from '$lib/server/oauth';
 
 export const GET: RequestHandler = async ({ url, cookies, locals: { supabase, safeGetSession } }) => {
-  const { LICHESS_CLIENT_ID, LICHESS_REDIRECT_URI, OAUTH_STATE_SECRET } = env;
+  const { LICHESS_CLIENT_ID, OAUTH_STATE_SECRET } = env;
+  const redirectUri = `${url.origin}/auth/callback/lichess`;
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
   const error = url.searchParams.get('error');
@@ -39,7 +40,7 @@ export const GET: RequestHandler = async ({ url, cookies, locals: { supabase, sa
       grant_type: 'authorization_code',
       code,
       code_verifier: verifier,
-      redirect_uri: LICHESS_REDIRECT_URI,
+      redirect_uri: redirectUri,
       client_id: LICHESS_CLIENT_ID
     })
   });
