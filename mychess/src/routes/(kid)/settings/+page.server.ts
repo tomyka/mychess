@@ -60,26 +60,22 @@ export const actions: Actions = {
       }
     }
 
+    const chesscomUsername = (fd.get('chesscom_username') as string ?? '').trim();
+    if (chesscomUsername) {
+      const res = await fetch(`https://api.chess.com/pub/player/${encodeURIComponent(chesscomUsername)}`);
+      if (!res.ok) {
+        return fail(400, { error: 'Chess.com username not found. Check the spelling.' });
+      }
+    }
+
     const { error } = await supabase
       .from('profiles')
       .update({
         first_name: firstName || null,
         last_name: lastName || null,
-        fide_id: fideId || null
+        fide_id: fideId || null,
+        chesscom_username: chesscomUsername || null
       } as any)
-      .eq('id', user.id);
-
-    if (error) return fail(500, { error: error.message });
-    return { success: true };
-  },
-
-  disconnect_chesscom: async ({ locals: { supabase, safeGetSession } }) => {
-    const { user } = await safeGetSession();
-    if (!user) return fail(401, { error: 'Unauthorized' });
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({ chesscom_username: null } as any)
       .eq('id', user.id);
 
     if (error) return fail(500, { error: error.message });

@@ -88,22 +88,7 @@ export const GET: RequestHandler = async ({ url, cookies, locals: { safeGetSessi
   if (dbError) {
     throw redirect(
       303,
-      `/settings?oauth_error=${encodeURIComponent(`DB update error: ${dbError.message} (code: ${dbError.code})`)}`
-    );
-  }
-
-  // Verify the write actually persisted
-  const { data: verify, error: verifyErr } = await admin
-    .from('profiles')
-    .select('lichess_username')
-    .eq('id', userId)
-    .single();
-
-  const saved = (verify as any)?.lichess_username;
-  if (saved !== username) {
-    throw redirect(
-      303,
-      `/settings?oauth_error=${encodeURIComponent(`Write verification failed: DB has "${saved}", expected "${username}". verifyErr: ${verifyErr?.message ?? 'none'}. userId: ${userId}`)}`
+      `/settings?oauth_error=${encodeURIComponent(`Failed to save Lichess username: ${dbError.message}`)}`
     );
   }
 
