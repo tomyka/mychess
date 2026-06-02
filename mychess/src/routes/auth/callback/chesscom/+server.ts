@@ -1,10 +1,13 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { env } from '$env/dynamic/private';
+import { env as pubEnv } from '$env/dynamic/public';
+import { createClient } from '@supabase/supabase-js';
 import { verifyState, decodeJwtPayload } from '$lib/server/oauth';
 
-export const GET: RequestHandler = async ({ url, cookies, locals: { supabase, safeGetSession } }) => {
-  const { CHESSCOM_CLIENT_ID, CHESSCOM_CLIENT_SECRET, OAUTH_STATE_SECRET } = env;
+export const GET: RequestHandler = async ({ url, cookies, locals: { safeGetSession } }) => {
+  const { CHESSCOM_CLIENT_ID, CHESSCOM_CLIENT_SECRET, OAUTH_STATE_SECRET, SUPABASE_SERVICE_ROLE_KEY } = env;
+  const { PUBLIC_SUPABASE_URL } = pubEnv;
   const redirectUri = `${url.origin}/auth/callback/chesscom`;
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
@@ -66,13 +69,18 @@ export const GET: RequestHandler = async ({ url, cookies, locals: { supabase, sa
     throw redirect(303, '/settings?oauth_error=Could+not+read+Chess.com+username+from+token');
   }
 
-  const { error: dbError } = await supabase
+  // Use service role client to bypass RLS — identity already verified above
+  const admin = createClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { error: dbError } = await admin
     .from('profiles')
-    .update({ chesscom_username: username } as any)
+    .update({ chesscom_username: username })
     .eq('id', userId);
 
   if (dbError) {
-    throw redirect(303, '/settings?oauth_error=Failed+to+save+Chess.com+username');
+    throw redirect(
+      303,
+      `/settings?oauth_error=${encodeURIComponent(`Failed to save Chess.com username: ${dbError.message}`)}`
+    );
   }
 
   throw redirect(303, `/settings?oauth_success=Chess.com+account+${encodeURIComponent(username)}+connected`);
