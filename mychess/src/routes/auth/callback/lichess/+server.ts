@@ -43,7 +43,11 @@ export const GET: RequestHandler = async ({ url, cookies, locals: { supabase, sa
   }
 
   const tokenData = await tokenRes.json();
-  const accessToken: string = tokenData.access_token;
+  const accessToken: string | undefined = tokenData.access_token;
+
+  if (!accessToken) {
+    throw redirect(303, '/settings?oauth_error=Failed+to+exchange+Lichess+token');
+  }
 
   const accountRes = await fetch('https://lichess.org/api/account', {
     headers: { Authorization: `Bearer ${accessToken}` }
