@@ -29,14 +29,29 @@ async function hmacSign(secret: string, message: string): Promise<string> {
   return base64url(new Uint8Array(sig));
 }
 
-async function hmacVerify(secret: string, message: string, sig: string): Promise<boolean> {
-  const expected = await hmacSign(secret, message);
-  if (expected.length !== sig.length) return false;
-  let diff = 0;
-  for (let i = 0; i < expected.length; i++) {
-    diff |= expected.charCodeAt(i) ^ sig.charCodeAt(i);
+function base64urlDecode(s: string): Uint8Array | null {
+  try {
+    const b64 = s.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+    const binary = atob(padded);
+    return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  } catch {
+    return null;
   }
-  return diff === 0;
+}
+
+async function hmacVerify(secret: string, message: string, sig: string): Promise<boolean> {
+  const decoded = base64urlDecode(sig);
+  if (decoded === null) return false;
+  const sigBytes = new Uint8Array(decoded);
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['verify']
+  );
+  return crypto.subtle.verify('HMAC', key, sigBytes, new TextEncoder().encode(message));
 }
 
 function randomNonce(): string {
@@ -68,6 +83,7 @@ export async function verifyState(state: string, secret: string): Promise<string
   const parts = payload.split(':');
   if (parts.length < 3) throw new Error('invalid state format');
   const ts = parseInt(parts[parts.length - 1], 10);
+  if (isNaN(ts)) throw new Error('invalid state format');
   if (Date.now() - ts > 5 * 60 * 1000) throw new Error('state expired');
   // userId may contain colons (e.g. Supabase UUIDs don't, but guard anyway)
   return parts.slice(0, -2).join(':');

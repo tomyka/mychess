@@ -50,4 +50,9 @@ describe('createState / verifyState', () => {
     const state = await createState('user-123', secret);
     await expect(verifyState(state, 'wrong-secret')).rejects.toThrow();
   });
+
+  it('throws on state with non-numeric timestamp', async () => {
+    const state = await createState('user-123', secret, 'fixed-nonce', 'not-a-number' as unknown as number);
+    await expect(verifyState(state, secret)).rejects.toThrow('invalid state format');
+  });
 });
