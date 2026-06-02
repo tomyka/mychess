@@ -8,7 +8,7 @@ import {
 } from '$env/static/private';
 import { verifyState, decodeJwtPayload } from '$lib/server/oauth';
 
-export const GET: RequestHandler = async ({ url, cookies, locals: { supabase } }) => {
+export const GET: RequestHandler = async ({ url, cookies, locals: { supabase, safeGetSession } }) => {
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
   const error = url.searchParams.get('error');
@@ -17,8 +17,8 @@ export const GET: RequestHandler = async ({ url, cookies, locals: { supabase } }
     throw redirect(303, '/settings?oauth_error=Chess.com+authentication+was+denied+or+failed');
   }
 
-  const verifier = cookies.get('oauth_pkce_verifier');
-  cookies.delete('oauth_pkce_verifier', { path: '/' });
+  const verifier = cookies.get('oauth_pkce_verifier_chesscom');
+  cookies.delete('oauth_pkce_verifier_chesscom', { path: '/' });
 
   if (!verifier) {
     throw redirect(303, '/settings?oauth_error=OAuth+session+expired.+Please+try+again');
@@ -29,6 +29,11 @@ export const GET: RequestHandler = async ({ url, cookies, locals: { supabase } }
     userId = await verifyState(state, OAUTH_STATE_SECRET);
   } catch {
     throw redirect(303, '/settings?oauth_error=Invalid+OAuth+state.+Please+try+again');
+  }
+
+  const { user: sessionUser } = await safeGetSession();
+  if (!sessionUser || sessionUser.id !== userId) {
+    throw redirect(303, '/settings?oauth_error=Session+expired.+Please+log+in+and+try+again');
   }
 
   const tokenRes = await fetch('https://oauth.chess.com/token', {

@@ -1,5 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { dev } from '$app/environment';
 import { CHESSCOM_CLIENT_ID, CHESSCOM_REDIRECT_URI, OAUTH_STATE_SECRET } from '$env/static/private';
 import { generateCodeVerifier, generateCodeChallenge, createState } from '$lib/server/oauth';
 
@@ -11,9 +12,9 @@ export const GET: RequestHandler = async ({ locals: { safeGetSession }, cookies 
   const challenge = await generateCodeChallenge(verifier);
   const state = await createState(user.id, OAUTH_STATE_SECRET);
 
-  cookies.set('oauth_pkce_verifier', verifier, {
+  cookies.set('oauth_pkce_verifier_chesscom', verifier, {
     httpOnly: true,
-    secure: true,
+    secure: !dev,
     sameSite: 'lax',
     maxAge: 300,
     path: '/'
