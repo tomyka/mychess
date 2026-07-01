@@ -40,10 +40,20 @@ export default defineConfig({
 	],
 	test: {
 		include: ['src/**/*.test.ts'],
+		// Default environment is 'node'; component tests opt into 'jsdom' via a
+		// `// @vitest-environment jsdom` pragma comment in the test file itself.
+		// (Vitest 4 removed the `environmentMatchGlobs` option that used to be
+		// used here for path-based environment switching.)
 		environment: 'node',
-		environmentMatchGlobs: [['src/lib/components/**/*.test.ts', 'jsdom']],
 		alias: {
 			$lib: '/src/lib'
 		}
-	}
+	},
+	// Under Vitest (any pool), module resolution happens through Vite's SSR
+	// pipeline even for jsdom-environment test files, so the "svelte" package
+	// would otherwise resolve its server-only build (breaking `mount()` from
+	// @testing-library/svelte). Forcing the browser export condition during
+	// test runs only (never for the real dev/build) fixes that; see
+	// https://svelte.dev/docs/svelte/testing#Vitest.
+	resolve: process.env.VITEST ? { conditions: ['browser'] } : undefined
 });
