@@ -41,6 +41,7 @@ export default defineConfig({
 	test: {
 		include: ['src/**/*.test.ts'],
 		environment: 'node',
+		environmentMatchGlobs: [['src/lib/components/**/*.test.ts', 'jsdom']],
 		alias: {
 			$lib: '/src/lib'
 		}
