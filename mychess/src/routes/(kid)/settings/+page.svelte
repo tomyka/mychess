@@ -1,5 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import LichessStatsCard from '$lib/components/LichessStatsCard.svelte';
 
   let { data, form } = $props<{ data: any; form: any }>();
 
@@ -151,6 +152,8 @@
             </a>
           {/if}
         </div>
+
+        <LichessStatsCard username={d.lichessUsername || null} ratings={d.lichessRatings ?? null} />
 
       </div>
     </section>
