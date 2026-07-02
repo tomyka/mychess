@@ -8,6 +8,13 @@
   let importing = $state<'chesscom' | 'lichess' | null>(null);
   let importResult = $state<string | null>(null);
 
+  // Apply the action result and refresh data, but DON'T reset the form —
+  // the default enhance calls form.reset(), which clears the typed
+  // first/last name inputs (they reappear only on a fresh page load).
+  const saveEnhance = () => async ({ update }: { update: (opts?: { reset?: boolean }) => Promise<void> }) => {
+    await update({ reset: false });
+  };
+
   async function importGames(platform: 'chesscom' | 'lichess') {
     importing = platform;
     importResult = null;
@@ -58,7 +65,7 @@
 
     <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
       <h2 class="font-semibold text-gray-900 mb-4">Profile</h2>
-      <form method="POST" action="?/save" use:enhance class="space-y-4">
+      <form method="POST" action="?/save" use:enhance={saveEnhance} class="space-y-4">
 
         <div class="grid grid-cols-2 gap-4">
           <div>
