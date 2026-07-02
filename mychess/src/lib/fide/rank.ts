@@ -14,3 +14,38 @@ export function ageBracket(birthYear: number | null, currentYear: number): AgeBr
   if (age >= 50) return '50+';
   return 'open';
 }
+
+import type { FidePlayer } from './parse';
+
+export interface RankedPlayer extends FidePlayer {
+  countryRank: number | null;
+  ageBracket: AgeBracket | null;
+  ageGroupRank: number | null;
+}
+
+export function computeRanks(players: FidePlayer[], currentYear: number): RankedPlayer[] {
+  const rated = players
+    .map((p, i) => ({ p, i }))
+    .filter(({ p }) => p.stdRating != null)
+    .sort((x, y) => (y.p.stdRating! - x.p.stdRating!) || (x.i - y.i));
+
+  const countryRankById = new Map<string, number>();
+  rated.forEach(({ p }, idx) => countryRankById.set(p.fideId, idx + 1));
+
+  const ageGroupRankById = new Map<string, number>();
+  const perBracketCount = new Map<AgeBracket, number>();
+  for (const { p } of rated) {
+    const bracket = ageBracket(p.birthYear, currentYear);
+    if (!bracket) continue;
+    const next = (perBracketCount.get(bracket) ?? 0) + 1;
+    perBracketCount.set(bracket, next);
+    ageGroupRankById.set(p.fideId, next);
+  }
+
+  return players.map((p) => ({
+    ...p,
+    countryRank: countryRankById.get(p.fideId) ?? null,
+    ageBracket: ageBracket(p.birthYear, currentYear),
+    ageGroupRank: ageGroupRankById.get(p.fideId) ?? null,
+  }));
+}

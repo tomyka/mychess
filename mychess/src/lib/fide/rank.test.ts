@@ -32,3 +32,65 @@ describe('ageBracket', () => {
     expect(ageBracket(1950, YEAR)).toBe('65+');
   });
 });
+
+import { computeRanks } from './rank';
+import type { FidePlayer } from './parse';
+
+function player(overrides: Partial<FidePlayer>): FidePlayer {
+  return {
+    fideId: '1', name: 'X', federation: 'LTU', sex: 'M',
+    birthYear: 1990, stdRating: 2000, rapidRating: null, blitzRating: null,
+    ...overrides,
+  };
+}
+
+describe('computeRanks', () => {
+  const YEAR = 2026;
+
+  it('ranks standard-rated players by rating descending', () => {
+    const ranked = computeRanks([
+      player({ fideId: 'a', stdRating: 1800 }),
+      player({ fideId: 'b', stdRating: 2200 }),
+      player({ fideId: 'c', stdRating: 2000 }),
+    ], YEAR);
+    const byId = Object.fromEntries(ranked.map(r => [r.fideId, r.countryRank]));
+    expect(byId).toEqual({ b: 1, c: 2, a: 3 });
+  });
+
+  it('gives players without a standard rating a null country rank', () => {
+    const ranked = computeRanks([
+      player({ fideId: 'a', stdRating: 1800 }),
+      player({ fideId: 'b', stdRating: null }),
+    ], YEAR);
+    const byId = Object.fromEntries(ranked.map(r => [r.fideId, r.countryRank]));
+    expect(byId).toEqual({ a: 1, b: null });
+  });
+
+  it('ranks within age brackets independently', () => {
+    const ranked = computeRanks([
+      player({ fideId: 'kid1', birthYear: 2016, stdRating: 1200 }),
+      player({ fideId: 'kid2', birthYear: 2016, stdRating: 1400 }),
+      player({ fideId: 'adult', birthYear: 1990, stdRating: 2000 }),
+    ], YEAR);
+    const byId = Object.fromEntries(ranked.map(r => [r.fideId, r.ageGroupRank]));
+    expect(byId).toEqual({ kid2: 1, kid1: 2, adult: 1 });
+  });
+
+  it('gives unrated or bracketless players a null age-group rank', () => {
+    const ranked = computeRanks([
+      player({ fideId: 'a', birthYear: null, stdRating: 2000 }),
+      player({ fideId: 'b', birthYear: 2016, stdRating: null }),
+    ], YEAR);
+    const byId = Object.fromEntries(ranked.map(r => [r.fideId, r.ageGroupRank]));
+    expect(byId).toEqual({ a: null, b: null });
+  });
+
+  it('breaks ties by preserving input order (distinct sequential ranks)', () => {
+    const ranked = computeRanks([
+      player({ fideId: 'a', stdRating: 2000 }),
+      player({ fideId: 'b', stdRating: 2000 }),
+    ], YEAR);
+    const byId = Object.fromEntries(ranked.map(r => [r.fideId, r.countryRank]));
+    expect(byId).toEqual({ a: 1, b: 2 });
+  });
+});
