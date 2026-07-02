@@ -37,6 +37,12 @@ const XML = `<?xml version="1.0" encoding="UTF-8"?>
 <name>No Id</name>
 <country>LTU</country>
 </player>
+<player>
+<fideid>12A45</fideid>
+<name>Bad Id</name>
+<country>LTU</country>
+<rating>1500</rating>
+</player>
 </playerslist>`;
 
 describe('parseFidePlayers', () => {
@@ -70,6 +76,7 @@ describe('parseFidePlayers', () => {
   it('skips players with a missing or non-numeric fideid', () => {
     const players = parseFidePlayers(XML);
     expect(players.find(p => p.name === 'No Id')).toBeUndefined();
+    expect(players.find(p => p.name === 'Bad Id')).toBeUndefined();
   });
 
   it('returns an empty array for empty input', () => {

@@ -1,3 +1,5 @@
+import type { FidePlayer } from './parse';
+
 export type AgeBracket = 'U8' | 'U10' | 'U12' | 'U14' | 'U16' | 'U18' | 'U20' | '50+' | '65+' | 'open';
 
 export function ageBracket(birthYear: number | null, currentYear: number): AgeBracket | null {
@@ -14,8 +16,6 @@ export function ageBracket(birthYear: number | null, currentYear: number): AgeBr
   if (age >= 50) return '50+';
   return 'open';
 }
-
-import type { FidePlayer } from './parse';
 
 export interface RankedPlayer extends FidePlayer {
   countryRank: number | null;

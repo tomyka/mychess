@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { ageBracket } from './rank';
+import { ageBracket, computeRanks } from './rank';
+import type { FidePlayer } from './parse';
 
 describe('ageBracket', () => {
   const YEAR = 2026;
@@ -32,9 +33,6 @@ describe('ageBracket', () => {
     expect(ageBracket(1950, YEAR)).toBe('65+');
   });
 });
-
-import { computeRanks } from './rank';
-import type { FidePlayer } from './parse';
 
 function player(overrides: Partial<FidePlayer>): FidePlayer {
   return {
