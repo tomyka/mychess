@@ -1,12 +1,15 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { fetchFideName } from '$lib/server/fide';
+import { fetchLichessRatings } from '$lib/server/lichess';
 
 export const load: PageServerLoad = async ({ locals: { safeGetSession }, url }) => {
   const { user, session, profile } = await safeGetSession();
   if (!user) throw redirect(303, '/login');
 
   const p = profile as any;
+  const lichessUsername = p?.lichess_username ?? '';
+  const lichessRatings = lichessUsername ? await fetchLichessRatings(lichessUsername) : null;
 
   return {
     session,
@@ -15,7 +18,8 @@ export const load: PageServerLoad = async ({ locals: { safeGetSession }, url }) 
     firstName: p?.first_name ?? '',
     lastName: p?.last_name ?? '',
     chesscomUsername: p?.chesscom_username ?? '',
-    lichessUsername: p?.lichess_username ?? '',
+    lichessUsername,
+    lichessRatings,
     fideId: p?.fide_id ?? '',
     oauthSuccess: url.searchParams.get('oauth_success') ?? null,
     oauthError: url.searchParams.get('oauth_error') ?? null
