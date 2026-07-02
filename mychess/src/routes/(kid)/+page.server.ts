@@ -30,6 +30,21 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
   const today = new Date().toISOString().slice(0, 10);
   const lichessUsername = p?.lichess_username ?? null;
 
+  // FIDE Lithuania rank (from the monthly imported list), keyed by the player's FIDE ID.
+  let countryRank: number | null = null;
+  let ageGroupRank: number | null = null;
+  let ageBracket: string | null = null;
+  if (p?.fide_id) {
+    const { data: fide } = await supabase
+      .from('fide_players')
+      .select('country_rank, age_group_rank, age_bracket')
+      .eq('fide_id', p.fide_id)
+      .single();
+    countryRank = (fide as any)?.country_rank ?? null;
+    ageGroupRank = (fide as any)?.age_group_rank ?? null;
+    ageBracket = (fide as any)?.age_bracket ?? null;
+  }
+
   // Parallel fetches
   const [statsRes, questsRes, leaderboardRes, noteRes, lichessRatings] = await Promise.all([
     supabase
@@ -114,6 +129,9 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
     leaderboard: lbEntries,
     unreadNote: noteRes.data ?? null,
     avatarId: p?.avatar_id ?? 'knight',
+    countryRank,
+    ageGroupRank,
+    ageBracket,
     upcomingTournaments: upcomingTournaments ?? []
   };
 };
