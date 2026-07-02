@@ -29,11 +29,6 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
   const { level, xpInLevel, xpToNextLevel } = levelFromXp(totalXp);
   const today = new Date().toISOString().slice(0, 10);
   const lichessUsername = p?.lichess_username ?? null;
-  // Which FIDE rating drives the rank tiles (validated; constrains column names below).
-  const rawBasis = p?.rank_basis ?? 'standard';
-  const rankBasis = ['standard', 'rapid', 'blitz'].includes(rawBasis) ? rawBasis : 'standard';
-  const countryRankCol = `country_rank_${rankBasis}`;
-  const ageGroupRankCol = `age_group_rank_${rankBasis}`;
 
   // Parallel fetches
   const [statsRes, questsRes, leaderboardRes, noteRes, lichessRatings, fideRes] = await Promise.all([
@@ -61,11 +56,15 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
       .limit(1)
       .single(),
     lichessUsername ? fetchLichessRatings(lichessUsername) : Promise.resolve(null),
-    // FIDE Lithuania rank (from the monthly imported list), keyed by the player's FIDE ID.
+    // FIDE Lithuania ratings + per-type ranks (from the monthly imported list), keyed by FIDE ID.
     p?.fide_id
       ? supabase
           .from('fide_players')
-          .select(`${countryRankCol}, ${ageGroupRankCol}, age_bracket`)
+          .select(
+            'std_rating, rapid_rating, blitz_rating, ' +
+            'country_rank_standard, country_rank_rapid, country_rank_blitz, ' +
+            'age_group_rank_standard, age_group_rank_rapid, age_group_rank_blitz'
+          )
           .eq('fide_id', p.fide_id)
           .single()
       : Promise.resolve({ data: null, error: null })
@@ -74,12 +73,28 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
   // A missing row returns a PGRST116 error, which we treat as "unranked" (null).
   // A genuine failure is worth surfacing.
   if (fideRes.error && fideRes.error.code !== 'PGRST116') {
-    console.error('Failed to fetch FIDE rank:', fideRes.error);
+    console.error('Failed to fetch FIDE ratings:', fideRes.error);
   }
   const fide = fideRes.data as any;
-  const countryRank: number | null = fide?.[countryRankCol] ?? null;
-  const ageGroupRank: number | null = fide?.[ageGroupRankCol] ?? null;
-  const ageBracket: string | null = fide?.age_bracket ?? null;
+  const fideRatings = fide
+    ? {
+        standard: {
+          rating: fide.std_rating ?? null,
+          countryRank: fide.country_rank_standard ?? null,
+          ageGroupRank: fide.age_group_rank_standard ?? null
+        },
+        rapid: {
+          rating: fide.rapid_rating ?? null,
+          countryRank: fide.country_rank_rapid ?? null,
+          ageGroupRank: fide.age_group_rank_rapid ?? null
+        },
+        blitz: {
+          rating: fide.blitz_rating ?? null,
+          countryRank: fide.country_rank_blitz ?? null,
+          ageGroupRank: fide.age_group_rank_blitz ?? null
+        }
+      }
+    : null;
 
   // Seed quests if none exist for today
   let quests = questsRes.data ?? [];
@@ -124,6 +139,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
     profile,
     lichessUsername,
     lichessRatings,
+    fideRatings,
     stats: {
       level,
       total_xp: totalXp,
@@ -137,9 +153,6 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
     leaderboard: lbEntries,
     unreadNote: noteRes.data ?? null,
     avatarId: p?.avatar_id ?? 'knight',
-    countryRank,
-    ageGroupRank,
-    ageBracket,
     upcomingTournaments: upcomingTournaments ?? []
   };
 };
