@@ -11,10 +11,11 @@ create or replace view public.tournaments_ranked
 select
   t.*,
   -- Upcoming/today = false sorts before past = true.
-  (t.start_date is not null and t.start_date < current_date) as is_past,
+  -- start_date is timestamptz; compare on the date part.
+  (t.start_date is not null and t.start_date::date < current_date) as is_past,
   -- Distance in days from today; ascending puts the soonest upcoming and the
   -- most-recently-finished nearest the top of their respective groups.
-  case when t.start_date is not null then abs(current_date - t.start_date) end as day_distance
+  case when t.start_date is not null then abs(current_date - t.start_date::date) end as day_distance
 from public.tournaments t;
 
 -- New views are not covered by table grants; expose it to the API roles.

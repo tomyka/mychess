@@ -1,4 +1,4 @@
-import { unzipSync, strFromU8 } from 'fflate';
+import { unzipSync } from 'fflate';
 
 const DEFAULT_URL = 'https://ratings.fide.com/download/players_list_xml.zip';
 
@@ -19,5 +19,9 @@ export async function downloadPlayersList(url: string = DEFAULT_URL): Promise<st
   const xmlName = names.find((n) => n.toLowerCase().endsWith('.xml')) ?? names[0];
   if (!xmlName) throw new Error('FIDE zip archive is empty');
 
-  return strFromU8(files[xmlName]);
+  // FIDE's file contains bytes that aren't valid UTF-8 (accented names in a
+  // legacy encoding). Decode non-fatally so those bytes become the replacement
+  // character instead of throwing — the fields we parse (fideid, country,
+  // ratings, birthday) are ASCII and unaffected.
+  return new TextDecoder('utf-8', { fatal: false }).decode(files[xmlName]);
 }
