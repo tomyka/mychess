@@ -2,10 +2,10 @@ export type LichessRatings = {
   bullet?: number;
   blitz?: number;
   rapid?: number;
-  classical?: number;
+  puzzle?: number;
 };
 
-const VARIANTS = ['bullet', 'blitz', 'rapid', 'classical'] as const;
+const VARIANTS = ['bullet', 'blitz', 'rapid', 'puzzle'] as const;
 
 export async function fetchLichessRatings(username: string): Promise<LichessRatings | null> {
   let res: Response;

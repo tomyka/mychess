@@ -1,3 +1,4 @@
+// mychess/src/lib/server/lichess.test.ts
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fetchLichessRatings } from './lichess';
 
@@ -25,11 +26,11 @@ describe('fetchLichessRatings', () => {
     mockFetch({
       perfs: {
         rapid: { games: 0, rating: 1500 },
-        classical: { games: 12, rating: 2100 }
+        puzzle: { games: 12, rating: 2100 }
       }
     });
     const result = await fetchLichessRatings('magnus');
-    expect(result).toEqual({ classical: 2100 });
+    expect(result).toEqual({ puzzle: 2100 });
   });
 
   it('returns an empty object when no variant has games', async () => {
