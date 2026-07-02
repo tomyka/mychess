@@ -18,16 +18,29 @@ export function ageBracket(birthYear: number | null, currentYear: number): AgeBr
 }
 
 export interface RankedPlayer extends FidePlayer {
-  countryRank: number | null;
   ageBracket: AgeBracket | null;
-  ageGroupRank: number | null;
+  countryRankStandard: number | null;
+  countryRankRapid: number | null;
+  countryRankBlitz: number | null;
+  ageGroupRankStandard: number | null;
+  ageGroupRankRapid: number | null;
+  ageGroupRankBlitz: number | null;
 }
 
-export function computeRanks(players: FidePlayer[], currentYear: number): RankedPlayer[] {
+/**
+ * Ranks players by one rating: country rank (all players rated in that rating,
+ * sorted descending, 1-based) and age-group rank (within each bracket). Ties
+ * preserve input order. Players unrated in that rating get no entry.
+ */
+function rankByRating(
+  players: FidePlayer[],
+  currentYear: number,
+  rating: (p: FidePlayer) => number | null
+): { countryRankById: Map<string, number>; ageGroupRankById: Map<string, number> } {
   const rated = players
     .map((p, i) => ({ p, i }))
-    .filter(({ p }) => p.stdRating != null)
-    .sort((x, y) => (y.p.stdRating! - x.p.stdRating!) || (x.i - y.i));
+    .filter(({ p }) => rating(p) != null)
+    .sort((x, y) => (rating(y.p)! - rating(x.p)!) || (x.i - y.i));
 
   const countryRankById = new Map<string, number>();
   rated.forEach(({ p }, idx) => countryRankById.set(p.fideId, idx + 1));
@@ -42,10 +55,22 @@ export function computeRanks(players: FidePlayer[], currentYear: number): Ranked
     ageGroupRankById.set(p.fideId, next);
   }
 
+  return { countryRankById, ageGroupRankById };
+}
+
+export function computeRanks(players: FidePlayer[], currentYear: number): RankedPlayer[] {
+  const std = rankByRating(players, currentYear, (p) => p.stdRating);
+  const rapid = rankByRating(players, currentYear, (p) => p.rapidRating);
+  const blitz = rankByRating(players, currentYear, (p) => p.blitzRating);
+
   return players.map((p) => ({
     ...p,
-    countryRank: countryRankById.get(p.fideId) ?? null,
     ageBracket: ageBracket(p.birthYear, currentYear),
-    ageGroupRank: ageGroupRankById.get(p.fideId) ?? null,
+    countryRankStandard: std.countryRankById.get(p.fideId) ?? null,
+    countryRankRapid: rapid.countryRankById.get(p.fideId) ?? null,
+    countryRankBlitz: blitz.countryRankById.get(p.fideId) ?? null,
+    ageGroupRankStandard: std.ageGroupRankById.get(p.fideId) ?? null,
+    ageGroupRankRapid: rapid.ageGroupRankById.get(p.fideId) ?? null,
+    ageGroupRankBlitz: blitz.ageGroupRankById.get(p.fideId) ?? null,
   }));
 }
