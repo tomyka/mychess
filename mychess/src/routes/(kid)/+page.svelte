@@ -79,7 +79,12 @@
       </div>
 
       <!-- Country/age/streak stats -->
-      <StatsRow streakDays={stats.streak_days ?? 0} />
+      <StatsRow
+        streakDays={stats.streak_days ?? 0}
+        countryRank={d.countryRank ?? null}
+        ageGroupRank={d.ageGroupRank ?? null}
+        ageBracket={d.ageBracket ?? null}
+      />
 
       <!-- Quick study actions -->
       <QuickActions totalReviews={stats.total_reviews ?? 0} />

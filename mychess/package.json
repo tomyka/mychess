@@ -11,7 +11,8 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"fide:import": "tsx scripts/import-fide.ts"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.60.0",
@@ -27,6 +28,7 @@
 		"svelte": "^5.55.2",
 		"svelte-check": "^4.4.6",
 		"tailwindcss": "^4.3.0",
+		"tsx": "^4.22.4",
 		"typescript": "^6.0.2",
 		"vite": "^8.0.7",
 		"vitest": "^4.1.7"
@@ -39,6 +41,7 @@
 		"cheerio": "^1.1.0",
 		"chess.js": "^1.4.0",
 		"chessground": "^9.2.1",
+		"fflate": "^0.8.3",
 		"ts-fsrs": "^5.4.1"
 	}
 }
