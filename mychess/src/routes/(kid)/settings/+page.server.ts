@@ -2,6 +2,7 @@ import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { fetchFideName } from '$lib/server/fide';
 import { fetchLichessRatings } from '$lib/server/lichess';
+import { fullNameOrNull } from '$lib/profile';
 
 export const load: PageServerLoad = async ({ locals: { safeGetSession }, url }) => {
   const { user, session, profile } = await safeGetSession();
@@ -72,13 +73,18 @@ export const actions: Actions = {
       }
     }
 
+    // Keep display_name in sync with the player's real name so converted
+    // guests stop showing up as "Guest". Only set it when a name is present.
+    const displayName = fullNameOrNull(firstName, lastName);
+
     const { error } = await supabase
       .from('profiles')
       .update({
         first_name: firstName || null,
         last_name: lastName || null,
         fide_id: fideId || null,
-        chesscom_username: chesscomUsername || null
+        chesscom_username: chesscomUsername || null,
+        ...(displayName ? { display_name: displayName } : {})
       } as any)
       .eq('id', user.id);
 
