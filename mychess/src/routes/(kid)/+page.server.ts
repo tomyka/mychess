@@ -30,23 +30,8 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
   const today = new Date().toISOString().slice(0, 10);
   const lichessUsername = p?.lichess_username ?? null;
 
-  // FIDE Lithuania rank (from the monthly imported list), keyed by the player's FIDE ID.
-  let countryRank: number | null = null;
-  let ageGroupRank: number | null = null;
-  let ageBracket: string | null = null;
-  if (p?.fide_id) {
-    const { data: fide } = await supabase
-      .from('fide_players')
-      .select('country_rank, age_group_rank, age_bracket')
-      .eq('fide_id', p.fide_id)
-      .single();
-    countryRank = (fide as any)?.country_rank ?? null;
-    ageGroupRank = (fide as any)?.age_group_rank ?? null;
-    ageBracket = (fide as any)?.age_bracket ?? null;
-  }
-
   // Parallel fetches
-  const [statsRes, questsRes, leaderboardRes, noteRes, lichessRatings] = await Promise.all([
+  const [statsRes, questsRes, leaderboardRes, noteRes, lichessRatings, fideRes] = await Promise.all([
     supabase
       .from('kid_stats')
       .select('total_reviews, total_correct, moves_learned, new_cards_today')
@@ -70,8 +55,26 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
       .order('created_at', { ascending: false })
       .limit(1)
       .single(),
-    lichessUsername ? fetchLichessRatings(lichessUsername) : Promise.resolve(null)
+    lichessUsername ? fetchLichessRatings(lichessUsername) : Promise.resolve(null),
+    // FIDE Lithuania rank (from the monthly imported list), keyed by the player's FIDE ID.
+    p?.fide_id
+      ? supabase
+          .from('fide_players')
+          .select('country_rank, age_group_rank, age_bracket')
+          .eq('fide_id', p.fide_id)
+          .single()
+      : Promise.resolve({ data: null, error: null })
   ]);
+
+  // A missing row returns a PGRST116 error, which we treat as "unranked" (null).
+  // A genuine failure is worth surfacing.
+  if (fideRes.error && fideRes.error.code !== 'PGRST116') {
+    console.error('Failed to fetch FIDE rank:', fideRes.error);
+  }
+  const fide = fideRes.data as any;
+  const countryRank: number | null = fide?.country_rank ?? null;
+  const ageGroupRank: number | null = fide?.age_group_rank ?? null;
+  const ageBracket: string | null = fide?.age_bracket ?? null;
 
   // Seed quests if none exist for today
   let quests = questsRes.data ?? [];
