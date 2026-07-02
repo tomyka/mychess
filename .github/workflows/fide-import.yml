@@ -19,5 +19,8 @@ jobs:
       - run: npm ci
       - run: npm run fide:import
         env:
+          # The job holds the ~47 MB zip and ~200 MB decompressed XML in memory;
+          # raise the heap ceiling defensively (runner has ~7 GB).
+          NODE_OPTIONS: '--max-old-space-size=4096'
           PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
