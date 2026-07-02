@@ -68,6 +68,9 @@ jobs:
 
       - name: Deploy preview (phase-b)
         if: github.ref == 'refs/heads/phase-b'
+        # Run from the checkout root: the Vercel project's Root Directory is
+        # already "mychess", so running from the app dir would double it.
+        working-directory: ${{ github.workspace }}
         run: |
           URL=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} \
             --env PUBLIC_SUPABASE_URL=${{ secrets.PUBLIC_SUPABASE_URL }} \
@@ -78,6 +81,9 @@ jobs:
 
       - name: Deploy production (main)
         if: github.ref == 'refs/heads/main'
+        # Run from the checkout root: the Vercel project's Root Directory is
+        # already "mychess", so running from the app dir would double it.
+        working-directory: ${{ github.workspace }}
         run: |
           vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} \
             --env PUBLIC_SUPABASE_URL=${{ secrets.PUBLIC_SUPABASE_URL }} \
