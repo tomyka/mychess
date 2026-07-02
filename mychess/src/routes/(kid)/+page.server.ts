@@ -29,6 +29,11 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
   const { level, xpInLevel, xpToNextLevel } = levelFromXp(totalXp);
   const today = new Date().toISOString().slice(0, 10);
   const lichessUsername = p?.lichess_username ?? null;
+  // Which FIDE rating drives the rank tiles (validated; constrains column names below).
+  const rawBasis = p?.rank_basis ?? 'standard';
+  const rankBasis = ['standard', 'rapid', 'blitz'].includes(rawBasis) ? rawBasis : 'standard';
+  const countryRankCol = `country_rank_${rankBasis}`;
+  const ageGroupRankCol = `age_group_rank_${rankBasis}`;
 
   // Parallel fetches
   const [statsRes, questsRes, leaderboardRes, noteRes, lichessRatings, fideRes] = await Promise.all([
@@ -60,7 +65,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
     p?.fide_id
       ? supabase
           .from('fide_players')
-          .select('country_rank, age_group_rank, age_bracket')
+          .select(`${countryRankCol}, ${ageGroupRankCol}, age_bracket`)
           .eq('fide_id', p.fide_id)
           .single()
       : Promise.resolve({ data: null, error: null })
@@ -72,8 +77,8 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
     console.error('Failed to fetch FIDE rank:', fideRes.error);
   }
   const fide = fideRes.data as any;
-  const countryRank: number | null = fide?.country_rank ?? null;
-  const ageGroupRank: number | null = fide?.age_group_rank ?? null;
+  const countryRank: number | null = fide?.[countryRankCol] ?? null;
+  const ageGroupRank: number | null = fide?.[ageGroupRankCol] ?? null;
   const ageBracket: string | null = fide?.age_bracket ?? null;
 
   // Seed quests if none exist for today
