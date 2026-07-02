@@ -27,12 +27,16 @@ ourselves, and surface each player's country and age-group rank on the dashboard
 
 ## Data source
 
-FIDE combined monthly list: `https://ratings.fide.com/download/players_list.zip` (~41 MB zipped).
-One fixed-width TXT file containing every rated player with all three ratings and birth year.
+FIDE combined monthly list, **XML variant**:
+`https://ratings.fide.com/download/players_list_xml.zip` (~47 MB zipped).
+One XML file containing every rated player with all three ratings and birth year.
 Updated monthly (1st of month), so the job runs monthly.
 
+We use the XML variant rather than the fixed-width TXT: several TXT columns are separated by
+single spaces, making header-offset detection unreliable, whereas XML tags are unambiguous.
+
 Downloading the global list is unavoidable — FIDE offers no per-country file. We filter to
-`FED === LTU` during parsing and discard the rest.
+`country === 'LTU'` during parsing and discard the rest.
 
 ## Architecture
 
@@ -58,24 +62,31 @@ cron (monthly) ─▶ POST /api/fide/import  (Bearer CRON_SECRET)
 
 | Module | Purpose | Depends on | Tested |
 |---|---|---|---|
-| `src/lib/fide/parse.ts` | `parseFidePlayers(txt: string): FidePlayer[]` — header-driven fixed-width parse | none (pure) | unit, fixture |
+| `src/lib/fide/parse.ts` | `parseFidePlayers(xml: string): FidePlayer[]` — per-player regex extraction | none (pure) | unit, fixture |
 | `src/lib/fide/rank.ts` | `ageBracket(birthYear, currentYear)`, `computeRanks(players, currentYear)` | none (pure) | unit |
-| `src/lib/fide/download.ts` | `downloadPlayersList(url): Promise<string>` — fetch zip, inflate | `fflate` | thin, not unit-tested |
+| `src/lib/fide/download.ts` | `downloadPlayersList(url?): Promise<string>` — fetch zip, inflate, return XML | `fflate` | thin, not unit-tested |
 | `src/lib/fide/import-job.ts` | `runFideImport(supabaseUrl, serviceKey)` — orchestrates | above + supabase-js | integration only |
 | `src/routes/api/fide/import/+server.ts` | POST endpoint, `CRON_SECRET` Bearer + timing-safe compare | import-job | — |
 | `scripts/import-fide.ts` | manual/cron runner reading env | import-job | — |
 
 ## Parsing detail
 
-FIDE TXT is fixed-width with a header row. Column values (notably Name) contain spaces, so we
-cannot split on whitespace. Instead:
+The XML file is a flat sequence of `<player>...</player>` elements. We iterate players with a
+lazy regex (`/<player\b[^>]*>([\s\S]*?)<\/player>/g`) — no full DOM, so memory stays linear —
+and extract each needed child tag with a simple `<tag>value</tag>` regex:
 
-1. Read the header line.
-2. Locate the start offset of each needed column by its header label
-   (`ID Number`, `Name`, `Fed`, `SRtng`, `RRtng`, `BRtng`, `B-day`).
-3. For each data line, slice `[offset[col], offset[nextCol])` and trim.
+| Tag | Field |
+|---|---|
+| `fideid` | fideId (required; skip player if missing/non-numeric) |
+| `name` | name |
+| `country` | federation |
+| `sex` | sex |
+| `birthday` | birthYear |
+| `rating` | stdRating |
+| `rapid_rating` | rapidRating |
+| `blitz_rating` | blitzRating |
 
-This tolerates names with spaces and minor column-width drift between monthly releases.
+Numeric tags that are blank, `0`, or non-numeric → `null`.
 
 Extracted `FidePlayer`:
 
@@ -162,15 +173,21 @@ harmless; a future cleanup can delete rows whose `updated_at` predates the lates
 
 ## Trigger
 
-- **Endpoint:** `POST /api/fide/import` — copies `/api/tournaments/scrape`: reads
-  `CRON_SECRET` + `SUPABASE_SERVICE_ROLE_KEY` from private env and `PUBLIC_SUPABASE_URL`,
+Primary path is the **GitHub Action runner**, not the serverless endpoint: the job downloads
+~47 MB, decompresses to ~200 MB, and upserts thousands of rows — likely to exceed a Vercel
+serverless function's time/memory limits. A GA runner has ample time and RAM.
+
+- **Manual/cron runner (primary):** `mychess/scripts/import-fide.ts` reads env
+  (`PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) and calls `runFideImport` directly.
+  npm script `fide:import` (`tsx scripts/import-fide.ts`). A GitHub Action
+  (`.github/workflows/fide-import.yml`) runs it monthly with repo secrets. Also runnable
+  manually.
+- **Endpoint (secondary/on-demand):** `POST /api/fide/import` — copies `/api/tournaments/scrape`:
+  reads `CRON_SECRET` + `SUPABASE_SERVICE_ROLE_KEY` from private env and `PUBLIC_SUPABASE_URL`,
   requires `Authorization: Bearer <CRON_SECRET>`, timing-safe compares, calls `runFideImport`,
-  returns JSON result.
-- **Manual/cron runner:** `scripts/import-fide.ts` reads env and calls `runFideImport` directly.
-  npm script `fide:import`. Intended to be invoked monthly by an external scheduler
-  (e.g. GitHub Action cron) hitting the endpoint, or run manually.
+  returns JSON. Documented with the serverless-timeout caveat above.
 - **Sample pg_cron migration** `0014_fide_cron.sql`, marked **DO NOT AUTO-APPLY** (mirrors
-  `0009_cron_schedule.sql`), monthly (`0 3 1 * *`).
+  `0009_cron_schedule.sql`), monthly (`0 3 1 * *`), for teams preferring Supabase-side scheduling.
 
 ## UI wiring
 
@@ -189,11 +206,12 @@ harmless; a future cleanup can delete rows whose `updated_at` predates the lates
 ## Dependencies
 
 - Add `fflate` (small, pure-JS zip inflate; no native deps) for unzipping the download.
+- Add `tsx` (devDependency) to run the TypeScript manual/cron runner script.
 
 ## Testing
 
-- `parse.test.ts` — small fixture TXT (header + a handful of rows incl. LTU and non-LTU, a
-  name with spaces, a rated and an unrated player); asserts field extraction and typing.
+- `parse.test.ts` — small fixture XML (a few `<player>` elements incl. LTU and non-LTU, a
+  rated and an unrated player, a missing/blank birthday); asserts field extraction and typing.
 - `rank.test.ts` — `ageBracket` boundaries (8/9/10/…/18/20/49/50/64/65, null birth year);
   `computeRanks` for ordering, unrated → null, per-bracket independence, tie ordering.
 - Download, job orchestration, endpoint auth: covered by manual/integration run, not unit tests.
