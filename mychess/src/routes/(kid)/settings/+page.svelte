@@ -108,23 +108,6 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1" for="rank_basis">Rank based on</label>
-          <select
-            id="rank_basis"
-            name="rank_basis"
-            value={d.rankBasis}
-            class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-          >
-            <option value="standard">Standard</option>
-            <option value="rapid">Rapid</option>
-            <option value="blitz">Blitz</option>
-          </select>
-          <p class="text-xs text-gray-400 mt-1">
-            Which FIDE rating your country and age-group rank are based on.
-          </p>
-        </div>
-
-        <div>
           <label class="block text-sm font-medium text-gray-700 mb-1" for="chesscom_username">Chess.com Username</label>
           <input
             id="chesscom_username"

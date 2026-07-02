@@ -22,7 +22,6 @@ export const load: PageServerLoad = async ({ locals: { safeGetSession }, url }) 
     lichessUsername,
     lichessRatings,
     fideId: p?.fide_id ?? '',
-    rankBasis: p?.rank_basis ?? 'standard',
     oauthSuccess: url.searchParams.get('oauth_success') ?? null,
     oauthError: url.searchParams.get('oauth_error') ?? null
   };
@@ -37,8 +36,6 @@ export const actions: Actions = {
     const firstName = (fd.get('first_name') as string ?? '').trim();
     const lastName = (fd.get('last_name') as string ?? '').trim();
     const fideId = (fd.get('fide_id') as string ?? '').trim();
-    const rawBasis = (fd.get('rank_basis') as string ?? '').trim();
-    const rankBasis = ['standard', 'rapid', 'blitz'].includes(rawBasis) ? rawBasis : 'standard';
 
     if (fideId) {
       if (!firstName || !lastName) {
@@ -87,7 +84,6 @@ export const actions: Actions = {
         last_name: lastName || null,
         fide_id: fideId || null,
         chesscom_username: chesscomUsername || null,
-        rank_basis: rankBasis,
         ...(displayName ? { display_name: displayName } : {})
       } as any)
       .eq('id', user.id);
