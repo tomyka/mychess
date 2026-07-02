@@ -8,13 +8,16 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 
   const { supabase } = locals;
 
+  // Query the ranked view so upcoming/ongoing tournaments come first (soonest
+  // first) and past events sink to the bottom. See migration 0015.
   let query = supabase
-    .from('tournaments')
+    .from('tournaments_ranked')
     .select('*', { count: 'exact' })
     .in('status', filters.status)
     .in('time_control', filters.timeControl)
     .in('country', filters.country)
-    .order('start_date', { ascending: true, nullsFirst: false });
+    .order('is_past', { ascending: true, nullsFirst: false })
+    .order('day_distance', { ascending: true, nullsFirst: false });
 
   // Calendar view loads all matching (up to 500); list view uses pagination.
   if (isCalendar) {
