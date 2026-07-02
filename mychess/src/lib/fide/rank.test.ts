@@ -51,36 +51,61 @@ describe('computeRanks', () => {
       player({ fideId: 'b', stdRating: 2200 }),
       player({ fideId: 'c', stdRating: 2000 }),
     ], YEAR);
-    const byId = Object.fromEntries(ranked.map(r => [r.fideId, r.countryRank]));
+    const byId = Object.fromEntries(ranked.map(r => [r.fideId, r.countryRankStandard]));
     expect(byId).toEqual({ b: 1, c: 2, a: 3 });
   });
 
-  it('gives players without a standard rating a null country rank', () => {
+  it('gives players without a standard rating a null standard country rank', () => {
     const ranked = computeRanks([
       player({ fideId: 'a', stdRating: 1800 }),
       player({ fideId: 'b', stdRating: null }),
     ], YEAR);
-    const byId = Object.fromEntries(ranked.map(r => [r.fideId, r.countryRank]));
+    const byId = Object.fromEntries(ranked.map(r => [r.fideId, r.countryRankStandard]));
     expect(byId).toEqual({ a: 1, b: null });
   });
 
-  it('ranks within age brackets independently', () => {
+  it('ranks rapid and blitz independently of standard', () => {
     const ranked = computeRanks([
-      player({ fideId: 'kid1', birthYear: 2016, stdRating: 1200 }),
-      player({ fideId: 'kid2', birthYear: 2016, stdRating: 1400 }),
-      player({ fideId: 'adult', birthYear: 1990, stdRating: 2000 }),
+      player({ fideId: 'a', stdRating: null, rapidRating: 1663, blitzRating: 1530 }),
+      player({ fideId: 'b', stdRating: 2000, rapidRating: 1500, blitzRating: 1400 }),
     ], YEAR);
-    const byId = Object.fromEntries(ranked.map(r => [r.fideId, r.ageGroupRank]));
-    expect(byId).toEqual({ kid2: 1, kid1: 2, adult: 1 });
+    const byId = Object.fromEntries(ranked.map(r => [r.fideId, r]));
+    expect(byId.a.countryRankStandard).toBeNull();
+    expect(byId.b.countryRankStandard).toBe(1);
+    expect(byId.a.countryRankRapid).toBe(1);
+    expect(byId.b.countryRankRapid).toBe(2);
+    expect(byId.a.countryRankBlitz).toBe(1);
+    expect(byId.b.countryRankBlitz).toBe(2);
   });
 
-  it('gives unrated or bracketless players a null age-group rank', () => {
+  it('ranks within age brackets independently, per rating', () => {
+    const ranked = computeRanks([
+      player({ fideId: 'kid1', birthYear: 2016, stdRating: 1200, rapidRating: 1000 }),
+      player({ fideId: 'kid2', birthYear: 2016, stdRating: 1400, rapidRating: 900 }),
+      player({ fideId: 'adult', birthYear: 1990, stdRating: 2000, rapidRating: 2000 }),
+    ], YEAR);
+    const byId = Object.fromEntries(ranked.map(r => [r.fideId, r]));
+    expect(byId.kid2.ageGroupRankStandard).toBe(1);
+    expect(byId.kid1.ageGroupRankStandard).toBe(2);
+    expect(byId.adult.ageGroupRankStandard).toBe(1);
+    expect(byId.kid1.ageGroupRankRapid).toBe(1);
+    expect(byId.kid2.ageGroupRankRapid).toBe(2);
+  });
+
+  it('gives unrated or bracketless players null ranks for that rating', () => {
     const ranked = computeRanks([
       player({ fideId: 'a', birthYear: null, stdRating: 2000 }),
       player({ fideId: 'b', birthYear: 2016, stdRating: null }),
     ], YEAR);
-    const byId = Object.fromEntries(ranked.map(r => [r.fideId, r.ageGroupRank]));
-    expect(byId).toEqual({ a: null, b: null });
+    const byId = Object.fromEntries(ranked.map(r => [r.fideId, r]));
+    expect(byId.a.ageGroupRankStandard).toBeNull();
+    expect(byId.b.ageGroupRankStandard).toBeNull();
+    expect(byId.b.countryRankStandard).toBeNull();
+  });
+
+  it('assigns the age bracket once, regardless of rating', () => {
+    const ranked = computeRanks([player({ fideId: 'a', birthYear: 2016 })], YEAR);
+    expect(ranked[0].ageBracket).toBe('U10');
   });
 
   it('breaks ties by preserving input order (distinct sequential ranks)', () => {
@@ -88,7 +113,7 @@ describe('computeRanks', () => {
       player({ fideId: 'a', stdRating: 2000 }),
       player({ fideId: 'b', stdRating: 2000 }),
     ], YEAR);
-    const byId = Object.fromEntries(ranked.map(r => [r.fideId, r.countryRank]));
+    const byId = Object.fromEntries(ranked.map(r => [r.fideId, r.countryRankStandard]));
     expect(byId).toEqual({ a: 1, b: 2 });
   });
 });
