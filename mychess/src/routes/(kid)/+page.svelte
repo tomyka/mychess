@@ -4,7 +4,7 @@
   import QuickActions from '$lib/components/QuickActions.svelte';
   import CoachNoteBanner from '$lib/components/CoachNoteBanner.svelte';
   import TournamentCarousel from '$lib/components/tournaments/TournamentCarousel.svelte';
-  import LichessStatsCard from '$lib/components/LichessStatsCard.svelte';
+  import PlatformRatingsCard from '$lib/components/PlatformRatingsCard.svelte';
 
   let { data } = $props<{ data: any }>();
 
@@ -71,10 +71,12 @@
       <!-- Player identity + FIDE ratings -->
       <PlayerHeader {profile} fideRatings={d.fideRatings ?? null} />
 
-      <!-- Lichess ratings -->
+      <!-- Platform ratings -->
       <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-        <h2 class="font-semibold text-gray-900 mb-4">Lichess ratings</h2>
-        <LichessStatsCard username={d.lichessUsername ?? null} ratings={d.lichessRatings ?? null} />
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <PlatformRatingsCard platform="Lichess" username={d.lichessUsername ?? null} ratings={d.lichessRatings ?? null} />
+          <PlatformRatingsCard platform="Chess.com" username={d.chesscomUsername ?? null} ratings={d.chesscomRatings ?? null} />
+        </div>
       </section>
 
       <!-- Streak -->

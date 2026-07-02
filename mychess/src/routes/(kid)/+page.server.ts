@@ -3,6 +3,7 @@ import type { PageServerLoad } from './$types';
 import { levelFromXp } from '$lib/srs/xp';
 import { selectDailyQuests } from '$lib/quests/generate';
 import { fetchLichessRatings } from '$lib/server/lichess';
+import { fetchChesscomRatings } from '$lib/server/chesscom';
 
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
   const { user, session, profile } = await safeGetSession();
@@ -29,9 +30,10 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
   const { level, xpInLevel, xpToNextLevel } = levelFromXp(totalXp);
   const today = new Date().toISOString().slice(0, 10);
   const lichessUsername = p?.lichess_username ?? null;
+  const chesscomUsername = p?.chesscom_username ?? null;
 
   // Parallel fetches
-  const [statsRes, questsRes, leaderboardRes, noteRes, lichessRatings, fideRes] = await Promise.all([
+  const [statsRes, questsRes, leaderboardRes, noteRes, lichessRatings, chesscomRatings, fideRes] = await Promise.all([
     supabase
       .from('kid_stats')
       .select('total_reviews, total_correct, moves_learned, new_cards_today')
@@ -56,6 +58,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
       .limit(1)
       .single(),
     lichessUsername ? fetchLichessRatings(lichessUsername) : Promise.resolve(null),
+    chesscomUsername ? fetchChesscomRatings(chesscomUsername) : Promise.resolve(null),
     // FIDE Lithuania ratings + per-type ranks (from the monthly imported list), keyed by FIDE ID.
     p?.fide_id
       ? supabase
@@ -139,6 +142,8 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
     profile,
     lichessUsername,
     lichessRatings,
+    chesscomUsername,
+    chesscomRatings,
     fideRatings,
     stats: {
       level,
