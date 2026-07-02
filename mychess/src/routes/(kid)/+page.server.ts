@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { levelFromXp } from '$lib/srs/xp';
 import { selectDailyQuests } from '$lib/quests/generate';
+import { fetchLichessRatings } from '$lib/server/lichess';
 
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
   const { user, session, profile } = await safeGetSession();
@@ -27,9 +28,10 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
   const streakDays = Number(p?.streak_days ?? 0);
   const { level, xpInLevel, xpToNextLevel } = levelFromXp(totalXp);
   const today = new Date().toISOString().slice(0, 10);
+  const lichessUsername = p?.lichess_username ?? null;
 
   // Parallel fetches
-  const [statsRes, questsRes, leaderboardRes, noteRes] = await Promise.all([
+  const [statsRes, questsRes, leaderboardRes, noteRes, lichessRatings] = await Promise.all([
     supabase
       .from('kid_stats')
       .select('total_reviews, total_correct, moves_learned, new_cards_today')
@@ -52,7 +54,8 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
       .is('read_at', null)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .single(),
+    lichessUsername ? fetchLichessRatings(lichessUsername) : Promise.resolve(null)
   ]);
 
   // Seed quests if none exist for today
@@ -96,6 +99,8 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
     isGuest,
     session,
     profile,
+    lichessUsername,
+    lichessRatings,
     stats: {
       level,
       total_xp: totalXp,

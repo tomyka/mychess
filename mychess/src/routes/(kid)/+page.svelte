@@ -4,6 +4,7 @@
   import QuickActions from '$lib/components/QuickActions.svelte';
   import CoachNoteBanner from '$lib/components/CoachNoteBanner.svelte';
   import TournamentCarousel from '$lib/components/tournaments/TournamentCarousel.svelte';
+  import LichessStatsCard from '$lib/components/LichessStatsCard.svelte';
 
   let { data } = $props<{ data: any }>();
 
@@ -67,8 +68,15 @@
         <CoachNoteBanner note={d.unreadNote} ondismiss={dismissNote} />
       {/if}
 
-      <!-- Player identity + FIDE rating -->
-      <PlayerHeader {profile} />
+      <!-- Player identity + FIDE rating, with a compact Lichess rating badge alongside -->
+      <div class="flex items-stretch gap-3">
+        <div class="flex-1">
+          <PlayerHeader {profile} />
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-center justify-center shrink-0">
+          <LichessStatsCard username={d.lichessUsername ?? null} ratings={d.lichessRatings ?? null} compact />
+        </div>
+      </div>
 
       <!-- Country/age/streak stats -->
       <StatsRow streakDays={stats.streak_days ?? 0} />
