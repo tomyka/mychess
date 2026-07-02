@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFidePlayers } from './parse';
+import { parseFidePlayers, parseFidePlayersFromBytes } from './parse';
 
 const XML = `<?xml version="1.0" encoding="UTF-8"?>
 <playerslist>
@@ -81,5 +81,39 @@ describe('parseFidePlayers', () => {
 
   it('returns an empty array for empty input', () => {
     expect(parseFidePlayers('')).toEqual([]);
+  });
+});
+
+describe('parseFidePlayersFromBytes', () => {
+  const bytes = new TextEncoder().encode(XML);
+
+  it('parses the same players as the string parser', () => {
+    const fromBytes = parseFidePlayersFromBytes(bytes);
+    expect(fromBytes.map((p) => p.fideId)).toEqual(['12865168', '1503014', '99999']);
+    expect(fromBytes[0].name).toBe('Konovalovas, Tomas');
+    expect(fromBytes[0].rapidRating).toBe(1663);
+  });
+
+  it('applies the keep filter and reports every valid player to it', () => {
+    const seen: string[] = [];
+    const ltu = parseFidePlayersFromBytes(bytes, (p) => {
+      seen.push(p.fideId);
+      return p.federation === 'LTU';
+    });
+    // Filter keeps only Lithuanians (Carlsen/NOR excluded).
+    expect(ltu.map((p) => p.fideId)).toEqual(['12865168', '99999']);
+    // keep() is invoked once per valid-id player (both LTU and non-LTU).
+    expect(seen).toEqual(['12865168', '1503014', '99999']);
+  });
+
+  it('handles player elements split across chunk boundaries', () => {
+    // A tiny chunk size forces <player> blocks to span multiple decode chunks.
+    const ltu = parseFidePlayersFromBytes(bytes, (p) => p.federation === 'LTU', 8);
+    expect(ltu.map((p) => p.fideId)).toEqual(['12865168', '99999']);
+    expect(ltu[0].name).toBe('Konovalovas, Tomas');
+  });
+
+  it('returns an empty array for empty bytes', () => {
+    expect(parseFidePlayersFromBytes(new Uint8Array())).toEqual([]);
   });
 });
