@@ -39,7 +39,7 @@ Each tile, top to bottom:
 
 All 3 tiles always render whenever `profile.fide_id` is set — individual tiles show placeholders for whatever's missing rather than disappearing. No FIDE ID → unchanged "Link FIDE account →" prompt.
 
-Full name and last name are shown in full (not abbreviated); the avatar circle keeps just the initials (first letter of first name + first letter of last name, matching current behavior).
+Full name and last name are shown in full (not abbreviated) — this already matches current behavior, since `display_name` is stored as "First Last" and rendered as-is. The avatar circle, however, currently derives initials via `display_name.slice(0, 2)`, which does **not** reliably produce "TK" for "Tomas Konovalovas" (it produces "To"). Since the approved mockup showed proper first+last initials, this is a real fix: derive initials from `first_name`/`last_name` (first letter of each) when both are set, falling back to the existing `display_name.slice(0, 2)` behavior otherwise (e.g. Google-only users without FIDE verification).
 
 ## Data source
 
