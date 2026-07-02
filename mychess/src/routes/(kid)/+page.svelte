@@ -68,15 +68,14 @@
         <CoachNoteBanner note={d.unreadNote} ondismiss={dismissNote} />
       {/if}
 
-      <!-- Player identity + FIDE ratings, with a compact Lichess rating badge alongside -->
-      <div class="flex items-stretch gap-3">
-        <div class="flex-1">
-          <PlayerHeader {profile} fideRatings={d.fideRatings ?? null} />
-        </div>
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-center justify-center shrink-0">
-          <LichessStatsCard username={d.lichessUsername ?? null} ratings={d.lichessRatings ?? null} compact />
-        </div>
-      </div>
+      <!-- Player identity + FIDE ratings -->
+      <PlayerHeader {profile} fideRatings={d.fideRatings ?? null} />
+
+      <!-- Lichess ratings -->
+      <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <h2 class="font-semibold text-gray-900 mb-4">Lichess ratings</h2>
+        <LichessStatsCard username={d.lichessUsername ?? null} ratings={d.lichessRatings ?? null} />
+      </section>
 
       <!-- Streak -->
       <StatsRow streakDays={stats.streak_days ?? 0} />
