@@ -3,16 +3,19 @@ import { env } from '$env/dynamic/public';
 import type { Handle } from '@sveltejs/kit';
 import { fullNameOrNull, isPlaceholderName } from '$lib/profile';
 import { ensureGuestProfile } from '$lib/server/guest';
+import { sessionCookieOptions } from '$lib/server/cookies';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } = env;
 	event.locals.supabase = createServerClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
 		cookies: {
 			getAll: () => event.cookies.getAll(),
-			setAll: (cookies) =>
+			setAll: (cookies) => {
+				const noPersist = event.cookies.get('sb-no-persist') === '1';
 				cookies.forEach(({ name, value, options }) =>
-					event.cookies.set(name, value, { ...options, path: '/' })
-				)
+					event.cookies.set(name, value, sessionCookieOptions({ ...options, path: '/' }, noPersist))
+				);
+			}
 		}
 	});
 
