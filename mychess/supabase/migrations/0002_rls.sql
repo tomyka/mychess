@@ -14,9 +14,12 @@ alter table public.equipped_cosmetics enable row level security;
 -- Profiles
 create policy "profiles_self_read"  on public.profiles for select using (id = auth.uid());
 create policy "profiles_self_write" on public.profiles for update using (id = auth.uid());
+-- A coach reads the profiles of players they coach. Do NOT sub-select from
+-- profiles here: a policy on profiles that queries profiles recurses infinitely.
+-- `coach_id = auth.uid()` already implies the reader is a coach (only coaches
+-- are ever a player's coach_id), so the role check is redundant anyway.
 create policy "profiles_coach_read" on public.profiles for select using (
-  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'coach')
-  and coach_id = auth.uid()
+  coach_id = auth.uid()
 );
 create policy "profiles_insert_self" on public.profiles for insert with check (id = auth.uid());
 
