@@ -21,6 +21,7 @@ export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 
 	if (errorMessage) throw redirect(303, `/login?error=${encodeURIComponent(errorMessage)}`);
 
-	const dest = next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+	// Local paths only — reject protocol-relative (`//host`) and backslash (`/\host`) targets.
+	const dest = next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\') ? next : '/';
 	throw redirect(303, dest);
 };

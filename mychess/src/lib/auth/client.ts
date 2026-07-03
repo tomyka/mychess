@@ -18,7 +18,9 @@ export async function sendMagicLink(email: string, keepSignedIn: boolean): Promi
 		data: { user }
 	} = await sb.auth.getUser();
 	if (user?.is_anonymous) {
-		const { error } = await sb.auth.updateUser({ email });
+		// Convert the anonymous account to permanent, keeping its progress. The
+		// confirmation link must return to our callback (not the Supabase Site URL).
+		const { error } = await sb.auth.updateUser({ email }, { emailRedirectTo: callbackUrl() });
 		return error ? { ok: false, error: error.message } : { ok: true };
 	}
 	const { error } = await sb.auth.signInWithOtp({
