@@ -42,7 +42,7 @@ export const POST: RequestHandler = async ({ locals }) => {
   const repName = `Chess.com Import ${year}-${month}`;
   const { data: rep } = await supabase
     .from('repertoires')
-    .insert({ kid_id: user.id, name: repName, color: '#4ade80' })
+    .insert({ player_id: user.id, name: repName, color: '#4ade80' })
     .select()
     .single();
   if (!rep) throw error(500, 'Failed to create repertoire.');

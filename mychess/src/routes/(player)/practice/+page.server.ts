@@ -20,8 +20,8 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
 	if (repId) {
 		movesQuery = movesQuery.eq('repertoire_id', repId);
 	} else {
-		// All repertoires for this kid
-		const { data: reps } = await supabase.from('repertoires').select('id').eq('kid_id', user.id);
+		// All repertoires for this player
+		const { data: reps } = await supabase.from('repertoires').select('id').eq('player_id', user.id);
 		const repIds = reps?.map((r) => r.id) ?? [];
 		if (repIds.length === 0) return { session, profile, moves: [] };
 		movesQuery = movesQuery.in('repertoire_id', repIds);

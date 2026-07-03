@@ -23,8 +23,8 @@ export const actions: Actions = {
 			.upsert({ id: user.id, role, display_name, avatar_id: 'knight' });
 		if (error) return fail(500, { error: error.message });
 
-		await supabase.from('kid_stats').upsert({ kid_id: user.id });
-		await supabase.from('equipped_cosmetics').upsert({ kid_id: user.id });
+		await supabase.from('player_stats').upsert({ player_id: user.id });
+		await supabase.from('equipped_cosmetics').upsert({ player_id: user.id });
 
 		throw redirect(303, role === 'coach' ? '/coach' : '/');
 	}

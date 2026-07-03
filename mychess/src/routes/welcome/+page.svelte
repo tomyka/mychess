@@ -1,5 +1,5 @@
 <script lang="ts">
-  let role = $state('kid');
+  let role = $state('player');
   let { form } = $props<{ form: any }>();
 </script>
 
@@ -29,7 +29,7 @@
     </label>
 
     <div class="flex gap-3">
-      {#each [{ id: 'kid', label: 'I am a Player' }, { id: 'coach', label: 'I am a Coach' }] as r}
+      {#each [{ id: 'player', label: 'I am a Player' }, { id: 'coach', label: 'I am a Coach' }] as r}
         <button
           type="button"
           onclick={() => (role = r.id)}

@@ -38,12 +38,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 		if (!profile && session.user.is_anonymous) {
 			await event.locals.supabase.from('profiles').insert({
 				id: session.user.id,
-				role: 'kid',
+				role: 'player',
 				display_name: 'Guest',
 				avatar_id: 'knight'
 			});
-			await event.locals.supabase.from('kid_stats').upsert({ kid_id: session.user.id });
-			await event.locals.supabase.from('equipped_cosmetics').upsert({ kid_id: session.user.id });
+			await event.locals.supabase.from('player_stats').upsert({ player_id: session.user.id });
+			await event.locals.supabase.from('equipped_cosmetics').upsert({ player_id: session.user.id });
 		}
 
 		let resolvedProfile = profile ?? (await event.locals.supabase

@@ -1,4 +1,4 @@
-create or replace function public.update_xp_and_level(p_kid_id uuid, p_xp_delta integer)
+create or replace function public.update_xp_and_level(p_player_id uuid, p_xp_delta integer)
 returns void language plpgsql security definer set search_path = public as $$
 declare
   v_new_xp    integer;
@@ -7,7 +7,7 @@ declare
   v_thresholds integer[] := array[0,100,250,500,1000];
 begin
   update profiles set xp = greatest(0, xp + p_xp_delta)
-  where id = p_kid_id returning xp into v_new_xp;
+  where id = p_player_id returning xp into v_new_xp;
 
   loop
     if v_new_level <= array_length(v_thresholds,1) then
@@ -19,11 +19,11 @@ begin
     v_new_level := v_new_level + 1;
   end loop;
 
-  update profiles set level = greatest(1, v_new_level - 1) where id = p_kid_id;
+  update profiles set level = greatest(1, v_new_level - 1) where id = p_player_id;
 end;
 $$;
 
-create or replace function public.update_streak(p_kid_id uuid)
+create or replace function public.update_streak(p_player_id uuid)
 returns void language plpgsql security definer set search_path = public as $$
 declare
   v_last  date;
@@ -31,21 +31,21 @@ declare
   v_freeze integer;
 begin
   select last_active_date, streak_freeze into v_last, v_freeze
-  from profiles where id = p_kid_id;
+  from profiles where id = p_player_id;
 
   if v_last = v_today then return; end if;
 
   if v_last = v_today - 1 then
-    update profiles set streak_days = streak_days + 1, last_active_date = v_today where id = p_kid_id;
+    update profiles set streak_days = streak_days + 1, last_active_date = v_today where id = p_player_id;
   elsif v_last = v_today - 2 and v_freeze > 0 then
-    update profiles set streak_freeze = streak_freeze - 1, last_active_date = v_today where id = p_kid_id;
+    update profiles set streak_freeze = streak_freeze - 1, last_active_date = v_today where id = p_player_id;
   else
-    update profiles set streak_days = 1, last_active_date = v_today where id = p_kid_id;
+    update profiles set streak_days = 1, last_active_date = v_today where id = p_player_id;
   end if;
 
   -- Grant a freeze every 7th day (max 2 stored)
   update profiles set streak_freeze = least(2, streak_freeze + 1)
-  where id = p_kid_id and streak_days > 0 and streak_days % 7 = 0;
+  where id = p_player_id and streak_days > 0 and streak_days % 7 = 0;
 end;
 $$;
 
@@ -54,12 +54,12 @@ create or replace function public.submit_session_result(
   p_events     jsonb
 ) returns void language plpgsql security definer set search_path = public as $$
 declare
-  v_kid_id   uuid;
+  v_player_id   uuid;
   v_xp_total integer := 0;
   v_event    jsonb;
 begin
-  select kid_id into v_kid_id from sessions
-  where id = p_session_id and kid_id = auth.uid();
+  select player_id into v_player_id from sessions
+  where id = p_session_id and player_id = auth.uid();
   if not found then raise exception 'session not found or unauthorized'; end if;
 
   for v_event in select * from jsonb_array_elements(p_events) loop
@@ -83,7 +83,7 @@ begin
       lapses         = (v_event->>'lapses')::integer,
       state          = v_event->>'state',
       last_review    = now()
-    where kid_id = v_kid_id and move_id = (v_event->>'move_id')::uuid;
+    where player_id = v_player_id and move_id = (v_event->>'move_id')::uuid;
 
     v_xp_total := v_xp_total + (v_event->>'xp_delta')::integer;
   end loop;
@@ -92,16 +92,16 @@ begin
   set cards_done = jsonb_array_length(p_events), xp_earned = greatest(0, v_xp_total), ended_at = now()
   where id = p_session_id;
 
-  perform public.update_xp_and_level(v_kid_id, v_xp_total);
-  perform public.update_streak(v_kid_id);
+  perform public.update_xp_and_level(v_player_id, v_xp_total);
+  perform public.update_streak(v_player_id);
 
-  update kid_stats set
+  update player_stats set
     total_reviews = total_reviews + jsonb_array_length(p_events),
     total_correct = total_correct + (
       select count(*) from jsonb_array_elements(p_events) e
       where e->>'rating' != 'again'
     ),
     updated_at = now()
-  where kid_id = v_kid_id;
+  where player_id = v_player_id;
 end;
 $$;

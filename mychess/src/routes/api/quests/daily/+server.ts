@@ -12,7 +12,7 @@ export const GET: RequestHandler = async ({ locals }) => {
   const { data: existing } = await supabase
     .from('quests')
     .select('*')
-    .eq('kid_id', authUser.id)
+    .eq('player_id', authUser.id)
     .eq('date', today);
 
   if (existing && existing.length > 0) {
@@ -21,7 +21,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 
   const templates = selectDailyQuests(today, authUser.id);
   const rows = templates.map(t => ({
-    kid_id: authUser.id,
+    player_id: authUser.id,
     date: today,
     quest_id: t.id,
     description: t.description,

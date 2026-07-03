@@ -8,11 +8,11 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	const { user, session, profile } = await safeGetSession();
 	if (!user) throw redirect(303, '/login');
 
-	// Get all repertoire IDs for this kid
+	// Get all repertoire IDs for this player
 	const { data: reps } = await supabase
 		.from('repertoires')
 		.select('id')
-		.eq('kid_id', user.id);
+		.eq('player_id', user.id);
 	const repIds = reps?.map((r) => r.id) ?? [];
 
 	if (repIds.length === 0) {
@@ -34,7 +34,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	const { data: reviews } = await supabase
 		.from('reviews')
 		.select('move_id, due_at, stability, difficulty, elapsed_days, scheduled_days, reps, lapses, state, last_review')
-		.eq('kid_id', user.id);
+		.eq('player_id', user.id);
 
 	const reviewMap = new Map(reviews?.map((r) => [r.move_id, r]) ?? []);
 
@@ -62,11 +62,11 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 		return { moveId: m.id, card };
 	});
 
-	// Daily new card count from kid_stats
+	// Daily new card count from player_stats
 	const { data: stats } = await supabase
-		.from('kid_stats')
+		.from('player_stats')
 		.select('new_cards_today')
-		.eq('kid_id', user.id)
+		.eq('player_id', user.id)
 		.single();
 
 	const queue = buildQueue(cards, stats?.new_cards_today ?? 0);

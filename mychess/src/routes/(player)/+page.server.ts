@@ -35,24 +35,24 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
   // Parallel fetches
   const [statsRes, questsRes, leaderboardRes, noteRes, lichessRatings, chesscomRatings, fideRes] = await Promise.all([
     supabase
-      .from('kid_stats')
+      .from('player_stats')
       .select('total_reviews, total_correct, moves_learned, new_cards_today')
-      .eq('kid_id', user.id)
+      .eq('player_id', user.id)
       .single(),
     supabase
       .from('quests')
       .select('*')
-      .eq('kid_id', user.id)
+      .eq('player_id', user.id)
       .eq('date', today),
     supabase
       .from('weekly_leaderboard')
-      .select('kid_id, weekly_xp, rank')
+      .select('player_id, weekly_xp, rank')
       .order('rank', { ascending: true })
       .limit(10),
     supabase
       .from('coach_notes')
       .select('id, message, created_at')
-      .eq('kid_id', user.id)
+      .eq('player_id', user.id)
       .is('read_at', null)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -104,7 +104,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
   if (quests.length === 0) {
     const templates = selectDailyQuests(today, user.id);
     const rows = templates.map(t => ({
-      kid_id: user.id,
+      player_id: user.id,
       date: today,
       quest_id: t.id,
       description: t.description,
@@ -119,20 +119,20 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 
   // Enrich leaderboard with display names
   const lbData = leaderboardRes.data ?? [];
-  const kidIds = lbData.map((r: any) => r.kid_id);
+  const playerIds = lbData.map((r: any) => r.player_id);
   let lbEntries: any[] = [];
-  if (kidIds.length > 0) {
+  if (playerIds.length > 0) {
     const { data: names } = await supabase
       .from('profiles')
       .select('id, display_name, avatar_id')
-      .in('id', kidIds);
+      .in('id', playerIds);
     const nameMap = new Map((names ?? []).map((n: any) => [n.id, n]));
     lbEntries = lbData.map((r: any) => ({
       rank: r.rank,
-      kid_name: nameMap.get(r.kid_id)?.display_name ?? 'Player',
-      avatar_id: nameMap.get(r.kid_id)?.avatar_id ?? 'knight',
+      player_name: nameMap.get(r.player_id)?.display_name ?? 'Player',
+      avatar_id: nameMap.get(r.player_id)?.avatar_id ?? 'knight',
       weekly_xp: r.weekly_xp,
-      is_current_user: r.kid_id === user.id
+      is_current_user: r.player_id === user.id
     }));
   }
 

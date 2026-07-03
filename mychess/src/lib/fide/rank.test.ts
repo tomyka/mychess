@@ -80,16 +80,16 @@ describe('computeRanks', () => {
 
   it('ranks within age brackets independently, per rating', () => {
     const ranked = computeRanks([
-      player({ fideId: 'kid1', birthYear: 2016, stdRating: 1200, rapidRating: 1000 }),
-      player({ fideId: 'kid2', birthYear: 2016, stdRating: 1400, rapidRating: 900 }),
+      player({ fideId: 'player1', birthYear: 2016, stdRating: 1200, rapidRating: 1000 }),
+      player({ fideId: 'player2', birthYear: 2016, stdRating: 1400, rapidRating: 900 }),
       player({ fideId: 'adult', birthYear: 1990, stdRating: 2000, rapidRating: 2000 }),
     ], YEAR);
     const byId = Object.fromEntries(ranked.map(r => [r.fideId, r]));
-    expect(byId.kid2.ageGroupRankStandard).toBe(1);
-    expect(byId.kid1.ageGroupRankStandard).toBe(2);
+    expect(byId.player2.ageGroupRankStandard).toBe(1);
+    expect(byId.player1.ageGroupRankStandard).toBe(2);
     expect(byId.adult.ageGroupRankStandard).toBe(1);
-    expect(byId.kid1.ageGroupRankRapid).toBe(1);
-    expect(byId.kid2.ageGroupRankRapid).toBe(2);
+    expect(byId.player1.ageGroupRankRapid).toBe(1);
+    expect(byId.player2.ageGroupRankRapid).toBe(2);
   });
 
   it('gives unrated or bracketless players null ranks for that rating', () => {

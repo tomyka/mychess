@@ -11,13 +11,13 @@ export const POST: RequestHandler = async ({ request, locals: { supabase, safeGe
 	// Upsert review card
 	const now = new Date().toISOString();
 	await supabase.from('reviews').upsert(
-		{ kid_id: user.id, move_id: moveId, last_review: now },
-		{ onConflict: 'kid_id,move_id' }
+		{ player_id: user.id, move_id: moveId, last_review: now },
+		{ onConflict: 'player_id,move_id' }
 	);
 
 	// Update XP via RPC
 	if (xp !== 0) {
-		await supabase.rpc('update_xp_and_level', { p_kid_id: user.id, p_xp_delta: xp });
+		await supabase.rpc('update_xp_and_level', { p_player_id: user.id, p_xp_delta: xp });
 	}
 
 	// Non-blocking badge check

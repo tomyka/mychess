@@ -14,7 +14,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   };
 
   await supabase.from('sessions').insert({
-    kid_id: user.id,
+    player_id: user.id,
     mode: 'time_trial',
     cards_reviewed: correct,
     xp_earned: sessionXp
@@ -26,7 +26,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       p_xp_delta: sessionXp
     });
     await supabase.rpc('update_weekly_leaderboard', {
-      p_kid_id: user.id,
+      p_player_id: user.id,
       p_xp: sessionXp
     });
     await supabase.rpc('update_streak', { p_user_id: user.id });
@@ -38,7 +38,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     const { data: quest } = await supabase
       .from('quests')
       .select('*')
-      .eq('kid_id', user.id)
+      .eq('player_id', user.id)
       .eq('date', today)
       .eq('quest_id', 'time_trial')
       .single();
