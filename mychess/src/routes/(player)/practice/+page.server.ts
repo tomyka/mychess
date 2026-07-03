@@ -1,9 +1,12 @@
-import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
+import { ensureGuestSession } from '$lib/server/auth';
 
-export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSession } }) => {
-	const { user, session, profile } = await safeGetSession();
-	if (!user) throw redirect(303, '/login');
+export const load: PageServerLoad = async ({ url, locals }) => {
+	const guest = await ensureGuestSession(locals);
+	if (!guest) return { needsAccount: true };
+	const { user, session, profile } = guest;
+	if (!user) return { needsAccount: true };
+	const supabase = locals.supabase;
 
 	const repId = url.searchParams.get('rep');
 

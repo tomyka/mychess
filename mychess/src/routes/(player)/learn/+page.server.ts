@@ -1,12 +1,15 @@
-import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { buildQueue } from '$lib/srs/queue';
 import { newCard } from '$lib/srs/fsrs';
 import type { Card } from '$lib/srs/fsrs';
+import { ensureGuestSession } from '$lib/server/auth';
 
-export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
-	const { user, session, profile } = await safeGetSession();
-	if (!user) throw redirect(303, '/login');
+export const load: PageServerLoad = async ({ locals }) => {
+	const guest = await ensureGuestSession(locals);
+	if (!guest) return { needsAccount: true };
+	const { user, session, profile } = guest;
+	if (!user) return { needsAccount: true };
+	const supabase = locals.supabase;
 
 	// Get all repertoire IDs for this player
 	const { data: reps } = await supabase
