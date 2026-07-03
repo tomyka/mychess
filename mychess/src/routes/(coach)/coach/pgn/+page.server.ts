@@ -4,12 +4,12 @@ import { parsePgn } from '$lib/pgn/parser';
 
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
 	const { user } = await safeGetSession();
-	const { data: kids } = await supabase
+	const { data: players } = await supabase
 		.from('profiles')
 		.select('id, display_name')
 		.eq('coach_id', user!.id)
-		.eq('role', 'kid');
-	return { kids: kids ?? [] };
+		.eq('role', 'player');
+	return { players: players ?? [] };
 };
 
 export const actions: Actions = {
@@ -19,7 +19,7 @@ export const actions: Actions = {
 
 		const data = await request.formData();
 		const name = data.get('name') as string;
-		const kidId = data.get('kid_id') as string;
+		const playerId = data.get('player_id') as string;
 		const pgnText = data.get('pgn_text') as string;
 
 		if (!name || !pgnText) return fail(400, { error: 'Name and PGN required' });
@@ -27,10 +27,10 @@ export const actions: Actions = {
 		const games = parsePgn(pgnText);
 		if (games.length === 0) return fail(400, { error: 'No valid games in PGN' });
 
-		const targetKid = kidId || user.id;
+		const targetPlayer = playerId || user.id;
 		const { data: rep, error: repErr } = await supabase
 			.from('repertoires')
-			.insert({ kid_id: targetKid, coach_id: user.id, name, pgn_source: pgnText })
+			.insert({ player_id: targetPlayer, coach_id: user.id, name, pgn_source: pgnText })
 			.select()
 			.single();
 

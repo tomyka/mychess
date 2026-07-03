@@ -10,7 +10,7 @@ export interface QueueItem {
 const DAILY_NEW_CAP = 10;
 
 /**
- * Build the review queue for a kid's session.
+ * Build the review queue for a player's session.
  *
  * Priority:
  * 1. Overdue Review cards (due < now, state=Review/Relearning)

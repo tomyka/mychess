@@ -7,7 +7,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 
   const [allRes, earnedRes] = await Promise.all([
     supabase.from('badges').select('id, name, description, icon_url, xp_reward').order('xp_reward', { ascending: true }),
-    supabase.from('badges_earned').select('badge_id, earned_at').eq('kid_id', user.id)
+    supabase.from('badges_earned').select('badge_id, earned_at').eq('player_id', user.id)
   ]);
 
   const earnedMap = new Map((earnedRes.data ?? []).map((e: any) => [e.badge_id, e.earned_at]));

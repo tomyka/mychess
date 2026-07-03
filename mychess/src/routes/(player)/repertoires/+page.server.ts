@@ -5,7 +5,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 	const { data: repertoires } = await supabase
 		.from('repertoires')
 		.select('id, name, color, created_at, moves(count)')
-		.eq('kid_id', user!.id)
+		.eq('player_id', user!.id)
 		.order('created_at', { ascending: false });
 	return { repertoires: repertoires ?? [] };
 };

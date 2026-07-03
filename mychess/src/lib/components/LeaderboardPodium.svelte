@@ -1,7 +1,7 @@
 <script lang="ts">
   export interface LeaderboardEntry {
     rank: number;
-    kid_name: string;
+    player_name: string;
     weekly_xp: number;
     avatar_id?: string;
     is_current_user: boolean;
@@ -36,7 +36,7 @@
           </span>
           <span class="text-xl">{AVATAR_EMOJI[entry.avatar_id ?? 'knight'] ?? '♞'}</span>
           <span class="flex-1 font-medium text-gray-800 {entry.is_current_user ? 'text-amber-700' : ''}">
-            {entry.kid_name}{entry.is_current_user ? ' (you)' : ''}
+            {entry.player_name}{entry.is_current_user ? ' (you)' : ''}
           </span>
           <span class="text-sm font-bold text-amber-600">{entry.weekly_xp} XP</span>
         </li>

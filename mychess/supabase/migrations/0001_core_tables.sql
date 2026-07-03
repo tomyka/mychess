@@ -3,7 +3,7 @@ create extension if not exists "pgcrypto";
 
 create table public.profiles (
   id            uuid primary key references auth.users(id) on delete cascade,
-  role          text not null check (role in ('kid','coach')),
+  role          text not null check (role in ('player','coach')),
   display_name  text not null,
   avatar_id     text not null default 'knight',
   xp            integer not null default 0,
@@ -20,7 +20,7 @@ create table public.invites (
   id          uuid primary key default gen_random_uuid(),
   coach_id    uuid not null references public.profiles(id),
   token       text not null unique default md5(gen_random_uuid()::text || now()::text),
-  kid_email   text,
+  player_email   text,
   redeemed_at timestamptz,
   expires_at  timestamptz not null default now() + interval '7 days',
   created_at  timestamptz not null default now()
@@ -28,7 +28,7 @@ create table public.invites (
 
 create table public.repertoires (
   id         uuid primary key default gen_random_uuid(),
-  kid_id     uuid not null references public.profiles(id) on delete cascade,
+  player_id     uuid not null references public.profiles(id) on delete cascade,
   name       text not null,
   color      text not null check (color in ('white','black')),
   is_draft   boolean not null default true,
@@ -47,7 +47,7 @@ create table public.moves (
   to_position   uuid not null references public.positions(id),
   san           text not null,
   move_number   integer not null,
-  is_kid_turn   boolean not null,
+  is_player_turn   boolean not null,
   annotation    text,
   created_at    timestamptz not null default now(),
   unique (repertoire_id, from_position, san)
@@ -55,7 +55,7 @@ create table public.moves (
 
 create table public.reviews (
   id             uuid primary key default gen_random_uuid(),
-  kid_id         uuid not null references public.profiles(id) on delete cascade,
+  player_id         uuid not null references public.profiles(id) on delete cascade,
   move_id        uuid not null references public.moves(id) on delete cascade,
   due_at         timestamptz not null default now(),
   stability      float8 not null default 0,
@@ -66,12 +66,12 @@ create table public.reviews (
   lapses         integer not null default 0,
   state          text not null default 'New' check (state in ('New','Learning','Review','Relearning')),
   last_review    timestamptz,
-  unique (kid_id, move_id)
+  unique (player_id, move_id)
 );
 
 create table public.sessions (
   id            uuid primary key default gen_random_uuid(),
-  kid_id        uuid not null references public.profiles(id),
+  player_id        uuid not null references public.profiles(id),
   repertoire_id uuid references public.repertoires(id),
   mode          text not null check (mode in ('learn','practice')),
   cards_done    integer not null default 0,
@@ -91,8 +91,8 @@ create table public.review_events (
   created_at timestamptz not null default now()
 );
 
-create table public.kid_stats (
-  kid_id        uuid primary key references public.profiles(id) on delete cascade,
+create table public.player_stats (
+  player_id        uuid primary key references public.profiles(id) on delete cascade,
   total_reviews integer not null default 0,
   total_correct integer not null default 0,
   moves_learned integer not null default 0,
@@ -108,16 +108,16 @@ create table public.badges (
 );
 
 create table public.badges_earned (
-  kid_id    uuid references public.profiles(id) on delete cascade,
+  player_id    uuid references public.profiles(id) on delete cascade,
   badge_id  text references public.badges(id),
   earned_at timestamptz not null default now(),
-  primary key (kid_id, badge_id)
+  primary key (player_id, badge_id)
 );
 
 create table public.coach_notes (
   id         uuid primary key default gen_random_uuid(),
   coach_id   uuid not null references public.profiles(id),
-  kid_id     uuid not null references public.profiles(id),
+  player_id     uuid not null references public.profiles(id),
   note       text not null,
   created_at timestamptz not null default now()
 );
@@ -127,7 +127,7 @@ create table public.themes    (id text primary key, name text, light_square text
 create table public.piece_sets(id text primary key, name text, sprite_url text);
 
 create table public.equipped_cosmetics (
-  kid_id    uuid primary key references public.profiles(id) on delete cascade,
+  player_id    uuid primary key references public.profiles(id) on delete cascade,
   avatar_id text references public.avatars(id) default 'knight',
   theme_id  text references public.themes(id) default 'classic',
   piece_set text references public.piece_sets(id) default 'standard'

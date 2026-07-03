@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
   const { data: reps } = await supabase
     .from('repertoires')
     .select('id')
-    .eq('kid_id', user.id);
+    .eq('player_id', user.id);
   const repIds = reps?.map((r: any) => r.id) ?? [];
 
   if (repIds.length === 0) {
@@ -30,7 +30,7 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
   const { data: reviews } = await supabase
     .from('reviews')
     .select('move_id, state')
-    .eq('kid_id', user.id);
+    .eq('player_id', user.id);
 
   // Drill mode: only use Review-state cards (state === 2)
   const reviewedSet = new Set(

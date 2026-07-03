@@ -1,7 +1,7 @@
 <script lang="ts">
   let { data } = $props<{ data: any }>();
   const profile = $derived(data.profile as any);
-  const kids = $derived<any[]>(data.kids ?? []);
+  const players = $derived<any[]>(data.players ?? []);
 </script>
 
 <svelte:head>
@@ -36,18 +36,18 @@
       </a>
     </div>
 
-    {#if kids.length > 0}
+    {#if players.length > 0}
       <section class="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
-        <h2 class="font-semibold text-gray-900 mb-4">Your Players ({kids.length})</h2>
+        <h2 class="font-semibold text-gray-900 mb-4">Your Players ({players.length})</h2>
         <ul class="space-y-1">
-          {#each kids as kid}
+          {#each players as player}
             <li>
-              <a href="/coach/kids/{kid.id}"
+              <a href="/coach/players/{player.id}"
                  class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
                 <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm flex items-center justify-center">
-                  {(kid.display_name ?? 'P')[0].toUpperCase()}
+                  {(player.display_name ?? 'P')[0].toUpperCase()}
                 </div>
-                <span class="font-medium text-gray-900">{kid.display_name}</span>
+                <span class="font-medium text-gray-900">{player.display_name}</span>
                 <span class="ml-auto text-gray-400 text-sm">→</span>
               </a>
             </li>

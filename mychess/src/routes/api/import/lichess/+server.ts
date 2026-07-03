@@ -37,7 +37,7 @@ export const POST: RequestHandler = async ({ locals }) => {
   const repName = `Lichess Import ${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const { data: rep } = await supabase
     .from('repertoires')
-    .insert({ kid_id: user.id, name: repName, color: '#60a5fa' })
+    .insert({ player_id: user.id, name: repName, color: '#60a5fa' })
     .select()
     .single();
   if (!rep) throw error(500, 'Failed to create repertoire.');

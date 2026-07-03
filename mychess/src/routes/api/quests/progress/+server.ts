@@ -14,7 +14,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const { data: quest } = await supabase
     .from('quests')
     .select('*')
-    .eq('kid_id', authUser.id)
+    .eq('player_id', authUser.id)
     .eq('date', today)
     .eq('quest_id', questId)
     .single();
@@ -39,7 +39,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       p_xp_delta: quest.xp_reward
     });
     await supabase.rpc('update_weekly_leaderboard', {
-      p_kid_id: authUser.id,
+      p_player_id: authUser.id,
       p_xp: quest.xp_reward
     });
   }

@@ -13,7 +13,7 @@ export const QUEST_TEMPLATES: QuestTemplate[] = [
   { id: 'sessions',     description: 'Complete 2 training sessions today', target: 2,  xpReward: 40 },
 ];
 
-/** Deterministic LCG shuffle seeded on date + kidId string */
+/** Deterministic LCG shuffle seeded on date + playerId string */
 function seededShuffle<T>(arr: T[], seed: string): T[] {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
@@ -28,8 +28,8 @@ function seededShuffle<T>(arr: T[], seed: string): T[] {
   return copy;
 }
 
-/** Select 3 quests for the given date + kid. Deterministic. */
-export function selectDailyQuests(date: string, kidId: string): QuestTemplate[] {
-  const seed = `${date}:${kidId}`;
+/** Select 3 quests for the given date + player. Deterministic. */
+export function selectDailyQuests(date: string, playerId: string): QuestTemplate[] {
+  const seed = `${date}:${playerId}`;
   return seededShuffle(QUEST_TEMPLATES, seed).slice(0, 3);
 }

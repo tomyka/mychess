@@ -18,25 +18,25 @@ describe('QUEST_TEMPLATES', () => {
 
 describe('selectDailyQuests', () => {
   it('returns exactly 3 quests', () => {
-    const quests = selectDailyQuests('2024-01-15', 'kid-uuid-1');
+    const quests = selectDailyQuests('2024-01-15', 'player-uuid-1');
     expect(quests).toHaveLength(3);
   });
 
-  it('is deterministic for same date + kid', () => {
-    const a = selectDailyQuests('2024-01-15', 'kid-uuid-1');
-    const b = selectDailyQuests('2024-01-15', 'kid-uuid-1');
+  it('is deterministic for same date + player', () => {
+    const a = selectDailyQuests('2024-01-15', 'player-uuid-1');
+    const b = selectDailyQuests('2024-01-15', 'player-uuid-1');
     expect(a.map(q => q.id)).toEqual(b.map(q => q.id));
   });
 
   it('quest ids are unique within one set', () => {
-    const quests = selectDailyQuests('2024-01-15', 'kid-uuid-1');
+    const quests = selectDailyQuests('2024-01-15', 'player-uuid-1');
     const ids = quests.map(q => q.id);
     expect(new Set(ids).size).toBe(3);
   });
 
-  it('varies between different kid ids', () => {
-    const a = selectDailyQuests('2024-01-15', 'kid-uuid-1');
-    const b = selectDailyQuests('2024-01-15', 'kid-uuid-99');
+  it('varies between different player ids', () => {
+    const a = selectDailyQuests('2024-01-15', 'player-uuid-1');
+    const b = selectDailyQuests('2024-01-15', 'player-uuid-99');
     // Very likely different with 5 choose 3 possibilities
     expect(a.map(q => q.id).join()).not.toEqual(b.map(q => q.id).join());
   });

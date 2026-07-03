@@ -12,7 +12,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     .from('coach_notes')
     .update({ read_at: new Date().toISOString() })
     .eq('id', noteId)
-    .eq('kid_id', user.id)
+    .eq('player_id', user.id)
     .is('read_at', null);
 
   if (updateErr) throw error(500, updateErr.message);

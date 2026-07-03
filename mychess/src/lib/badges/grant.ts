@@ -28,21 +28,21 @@ export function buildBadgeStats(input: BadgeStatsInput): BadgeStats {
  */
 export async function grantNewBadges(
   supabase: SupabaseClient,
-  kidId: string,
+  playerId: string,
   overrides: Partial<BadgeStatsInput> = {}
 ): Promise<string[]> {
-  const [profileRes, kidStatsRes, sessionRes, repRes, questRes, earnedRes] =
+  const [profileRes, playerStatsRes, sessionRes, repRes, questRes, earnedRes] =
     await Promise.all([
-      supabase.from('profiles').select('xp, level, streak_days').eq('id', kidId).single(),
-      supabase.from('kid_stats').select('total_reviews, total_correct, moves_learned').eq('kid_id', kidId).single(),
-      supabase.from('sessions').select('id, mode').eq('kid_id', kidId),
-      supabase.from('repertoires').select('id').eq('kid_id', kidId),
-      supabase.from('quests').select('id').eq('kid_id', kidId).eq('completed', true),
-      supabase.from('badges_earned').select('badge_id').eq('kid_id', kidId)
+      supabase.from('profiles').select('xp, level, streak_days').eq('id', playerId).single(),
+      supabase.from('player_stats').select('total_reviews, total_correct, moves_learned').eq('player_id', playerId).single(),
+      supabase.from('sessions').select('id, mode').eq('player_id', playerId),
+      supabase.from('repertoires').select('id').eq('player_id', playerId),
+      supabase.from('quests').select('id').eq('player_id', playerId).eq('completed', true),
+      supabase.from('badges_earned').select('badge_id').eq('player_id', playerId)
     ]);
 
   const p = profileRes.data;
-  const ks = kidStatsRes.data;
+  const ks = playerStatsRes.data;
   const sessions = sessionRes.data ?? [];
 
   const earnedIds = new Set((earnedRes.data ?? []).map((r: any) => r.badge_id as string));
@@ -66,7 +66,7 @@ export async function grantNewBadges(
   const newBadgeIds = checkBadgeEligibility(stats);
   if (newBadgeIds.length === 0) return [];
 
-  const rows = newBadgeIds.map(id => ({ kid_id: kidId, badge_id: id }));
+  const rows = newBadgeIds.map(id => ({ player_id: playerId, badge_id: id }));
   await supabase.from('badges_earned').insert(rows);
 
   const { data: badgeDefs } = await supabase
@@ -76,7 +76,7 @@ export async function grantNewBadges(
 
   const totalXp = (badgeDefs ?? []).reduce((sum: number, b: any) => sum + (b.xp_reward ?? 0), 0);
   if (totalXp > 0) {
-    await supabase.rpc('update_xp_and_level', { p_user_id: kidId, p_xp_delta: totalXp });
+    await supabase.rpc('update_xp_and_level', { p_user_id: playerId, p_xp_delta: totalXp });
   }
 
   return newBadgeIds;
