@@ -37,7 +37,7 @@
   {:else if entries.length === 0}
     <p class="text-sm text-gray-400">No rated games yet.</p>
   {:else}
-    <div class="grid grid-cols-2 gap-3">
+    <div class="grid grid-cols-4 gap-3">
       {#each entries as entry (entry.variant)}
         <div class="bg-gray-50 rounded-lg border border-gray-200 p-3 text-center">
           <p class="text-xl font-bold text-gray-900">{entry.rating}</p>
