@@ -3,6 +3,7 @@ import { buildQueue } from '$lib/srs/queue';
 import { newCard } from '$lib/srs/fsrs';
 import type { Card } from '$lib/srs/fsrs';
 import { ensureGuestSession } from '$lib/server/auth';
+import { mergeRepertoireIds } from '$lib/repertoire';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const guest = await ensureGuestSession(locals);
@@ -11,12 +12,15 @@ export const load: PageServerLoad = async ({ locals }) => {
 	if (!user) return { needsAccount: true };
 	const supabase = locals.supabase;
 
-	// Get all repertoire IDs for this player
-	const { data: reps } = await supabase
-		.from('repertoires')
-		.select('id')
-		.eq('player_id', user.id);
-	const repIds = reps?.map((r) => r.id) ?? [];
+	// Repertoire IDs: the player's own plus any assigned by a coach.
+	const [{ data: reps }, { data: assigned }] = await Promise.all([
+		supabase.from('repertoires').select('id').eq('player_id', user.id),
+		supabase.from('assigned_repertoires').select('repertoire_id').eq('player_id', user.id)
+	]);
+	const repIds = mergeRepertoireIds(
+		reps?.map((r) => r.id) ?? [],
+		assigned?.map((a) => a.repertoire_id) ?? []
+	);
 
 	if (repIds.length === 0) {
 		return { session, profile, queuedMoves: [], totalDue: 0 };
