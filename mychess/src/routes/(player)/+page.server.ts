@@ -28,7 +28,7 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
   if (fideQuery) {
     const { data: row } = await supabase
       .from('fide_players')
-      .select('name, std_rating, rapid_rating, blitz_rating, country_rank_standard, age_bracket, age_group_rank_standard')
+      .select('name, std_rating, rapid_rating, blitz_rating, country_rank_standard, country_rank_rapid, country_rank_blitz, age_bracket, age_group_rank_standard, age_group_rank_rapid, age_group_rank_blitz')
       .eq('fide_id', fideQuery)
       .single();
     fideLookup = row
@@ -41,8 +41,12 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
             rapidRating: (row as any).rapid_rating,
             blitzRating: (row as any).blitz_rating,
             countryRankStandard: (row as any).country_rank_standard,
+            countryRankRapid: (row as any).country_rank_rapid,
+            countryRankBlitz: (row as any).country_rank_blitz,
             ageBracket: (row as any).age_bracket,
-            ageGroupRankStandard: (row as any).age_group_rank_standard
+            ageGroupRankStandard: (row as any).age_group_rank_standard,
+            ageGroupRankRapid: (row as any).age_group_rank_rapid,
+            ageGroupRankBlitz: (row as any).age_group_rank_blitz
           }
         }
       : { query: fideQuery, found: false };

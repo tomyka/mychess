@@ -4,9 +4,17 @@
     result?: { found: boolean; player?: {
       name: string;
       stdRating: number | null; rapidRating: number | null; blitzRating: number | null;
-      countryRankStandard: number | null; ageBracket: string | null; ageGroupRankStandard: number | null;
+      countryRankStandard: number | null; countryRankRapid: number | null; countryRankBlitz: number | null;
+      ageBracket: string | null;
+      ageGroupRankStandard: number | null; ageGroupRankRapid: number | null; ageGroupRankBlitz: number | null;
     } } | null;
   }>();
+
+  const p = $derived(result?.player ?? null);
+  const ageLabel = $derived(
+    p?.ageBracket && p.ageBracket !== 'open' ? `${p.ageBracket} rank` : 'Age group rank'
+  );
+  const rank = (n: number | null | undefined) => (n != null ? `#${n}` : '––');
 </script>
 
 <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
@@ -27,17 +35,41 @@
   </form>
 
   {#if result}
-    {#if result.found && result.player}
+    {#if result.found && p}
       <div class="mt-4 border-t border-gray-100 pt-4">
-        <p class="font-semibold text-gray-900">{result.player.name}</p>
-        <div class="mt-2 grid grid-cols-3 gap-3 text-center">
-          <div><p class="text-lg font-bold text-gray-900">{result.player.stdRating ?? '––'}</p><p class="text-xs text-gray-400">Standard</p></div>
-          <div><p class="text-lg font-bold text-gray-900">{result.player.rapidRating ?? '––'}</p><p class="text-xs text-gray-400">Rapid</p></div>
-          <div><p class="text-lg font-bold text-gray-900">{result.player.blitzRating ?? '––'}</p><p class="text-xs text-gray-400">Blitz</p></div>
-        </div>
-        <p class="mt-3 text-sm text-gray-500">
-          National rank (standard): <span class="font-medium text-gray-900">{result.player.countryRankStandard ?? '––'}</span>
-        </p>
+        <p class="font-semibold text-gray-900 mb-3">{p.name}</p>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-xs text-gray-400">
+              <th class="text-left font-normal pb-1"></th>
+              <th class="text-right font-normal pb-1">Standard</th>
+              <th class="text-right font-normal pb-1">Rapid</th>
+              <th class="text-right font-normal pb-1">Blitz</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-left text-gray-500 py-1">Rating</td>
+              <td class="text-right font-semibold text-gray-900">{p.stdRating ?? '––'}</td>
+              <td class="text-right font-semibold text-gray-900">{p.rapidRating ?? '––'}</td>
+              <td class="text-right font-semibold text-gray-900">{p.blitzRating ?? '––'}</td>
+            </tr>
+            <tr>
+              <td class="text-left text-gray-500 py-1">National rank</td>
+              <td class="text-right text-gray-900">{rank(p.countryRankStandard)}</td>
+              <td class="text-right text-gray-900">{rank(p.countryRankRapid)}</td>
+              <td class="text-right text-gray-900">{rank(p.countryRankBlitz)}</td>
+            </tr>
+            {#if p.ageBracket}
+              <tr>
+                <td class="text-left text-gray-500 py-1">{ageLabel}</td>
+                <td class="text-right text-gray-900">{rank(p.ageGroupRankStandard)}</td>
+                <td class="text-right text-gray-900">{rank(p.ageGroupRankRapid)}</td>
+                <td class="text-right text-gray-900">{rank(p.ageGroupRankBlitz)}</td>
+              </tr>
+            {/if}
+          </tbody>
+        </table>
       </div>
     {:else}
       <p class="mt-4 text-sm text-gray-500">No FIDE record found for that ID.</p>
