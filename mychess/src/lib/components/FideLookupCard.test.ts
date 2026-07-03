@@ -1,9 +1,16 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/svelte';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
+
+vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
+import { goto } from '$app/navigation';
+
 import FideLookupCard from './FideLookupCard.svelte';
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 const player = {
   name: 'Carlsen, Magnus',
@@ -57,5 +64,18 @@ describe('FideLookupCard', () => {
   it('shows a not-found message when the id has no record', () => {
     render(FideLookupCard, { props: { query: '999', result: { found: false } } });
     expect(screen.getByText(/No FIDE record/i)).toBeTruthy();
+  });
+
+  it('shows a dropdown of name matches and navigates to the selected player', async () => {
+    global.fetch = vi.fn(async () => ({
+      json: async () => ({ results: [{ fideId: '1503014', name: 'Carlsen, Magnus', federation: 'NOR' }] })
+    })) as any;
+
+    render(FideLookupCard, { props: { query: '', result: null } });
+    await fireEvent.input(screen.getByLabelText(/FIDE ID/i), { target: { value: 'Carlsen' } });
+
+    const item = await screen.findByText(/Carlsen, Magnus/); // waits through debounce + fetch
+    await fireEvent.click(item);
+    expect(goto).toHaveBeenCalledWith('/?fide=1503014');
   });
 });
