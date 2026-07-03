@@ -1,10 +1,9 @@
-import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { THEMES, AVATARS } from '$lib/cosmetics';
+import { requireAccount } from '$lib/server/auth';
 
-export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
-  const { user, session, profile } = await safeGetSession();
-  if (!user) throw redirect(303, '/login');
+export const load: PageServerLoad = async ({ locals }) => {
+  const { session, profile } = await requireAccount(locals);
 
   const p = profile as any;
 
