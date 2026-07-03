@@ -1,37 +1,27 @@
 <script lang="ts">
-  import { createSupabaseClient } from '$lib/supabase/client';
-  import { page } from '$app/stores';
+  import { sendMagicLink, startGoogle } from '$lib/auth/client';
 
-  const sb = createSupabaseClient();
+  let { data } = $props<{ data: { error: string | null } }>();
 
   let email = $state('');
-  let password = $state('');
-  let mode = $state<'login' | 'signup'>($page.url.searchParams.get('signup') === '1' ? 'signup' : 'login');
-  let error = $state('');
+  let keepSignedIn = $state(true);
+  let error = $state(data.error ?? '');
   let loading = $state(false);
+  let sent = $state(false);
 
-  async function submit() {
-    loading = true;
-    error = '';
-    try {
-      if (mode === 'login') {
-        const { error: err } = await sb.auth.signInWithPassword({ email, password });
-        if (err) { error = err.message; loading = false; return; }
-      } else {
-        const { data: { user } } = await sb.auth.getUser();
-        if (user?.is_anonymous) {
-          const { error: err } = await sb.auth.updateUser({ email, password });
-          if (err) { error = err.message; loading = false; return; }
-        } else {
-          const { error: err } = await sb.auth.signUp({ email, password });
-          if (err) { error = err.message; loading = false; return; }
-        }
-      }
-      window.location.href = '/';
-    } catch (e: any) {
-      error = e.message ?? 'Something went wrong';
-      loading = false;
-    }
+  async function google() {
+    loading = true; error = '';
+    const r = await startGoogle(keepSignedIn);
+    if (!r.ok) { error = r.error ?? 'Google sign-in failed'; loading = false; }
+  }
+
+  async function magicLink() {
+    if (!email.trim()) { error = 'Enter your email address'; return; }
+    loading = true; error = '';
+    const r = await sendMagicLink(email.trim(), keepSignedIn);
+    loading = false;
+    if (r.ok) sent = true;
+    else error = r.error ?? 'Could not send the link';
   }
 </script>
 
@@ -41,34 +31,32 @@
       <span class="text-3xl">♟</span>
       <span class="text-2xl">MyChess</span>
     </a>
-    <p class="text-gray-500">Your daily chess dashboard</p>
+    <p class="text-gray-500">Sign in to save your progress</p>
   </div>
 
-  {#if mode === 'signup'}
-    <p class="text-indigo-700 text-sm bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2 max-w-sm text-center">
-      Create a free account to save your progress forever.
-    </p>
-  {/if}
-
   <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 w-full max-w-sm flex flex-col gap-5">
-    <div class="flex rounded-lg overflow-hidden border border-gray-200">
-      <button
-        onclick={() => { mode = 'login'; error = ''; }}
-        class="flex-1 py-2 text-sm font-semibold transition {mode === 'login' ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}">
-        Sign in
-      </button>
-      <button
-        onclick={() => { mode = 'signup'; error = ''; }}
-        class="flex-1 py-2 text-sm font-semibold transition {mode === 'signup' ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:bg-gray-50'}">
-        Create account
-      </button>
-    </div>
-
     {#if error}
       <p class="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
     {/if}
 
-    <div class="flex flex-col gap-3">
+    {#if sent}
+      <div class="text-center space-y-2">
+        <h1 class="text-lg font-semibold text-gray-900">Check your email</h1>
+        <p class="text-sm text-gray-500">We sent a sign-in link to <span class="font-medium">{email}</span>. Open it on this device to continue.</p>
+        <button onclick={() => { sent = false; }} class="text-sm text-indigo-600 hover:underline">Use a different email</button>
+      </div>
+    {:else}
+      <button
+        onclick={google}
+        disabled={loading}
+        class="flex items-center justify-center gap-2 border border-gray-300 rounded-xl py-3 font-medium text-gray-700 hover:bg-gray-50 transition disabled:opacity-50">
+        <span aria-hidden="true">G</span> Continue with Google
+      </button>
+
+      <div class="flex items-center gap-3 text-xs text-gray-400">
+        <span class="flex-1 border-t border-gray-200"></span>or<span class="flex-1 border-t border-gray-200"></span>
+      </div>
+
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1" for="email">Email</label>
         <input
@@ -79,24 +67,19 @@
           class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
       </div>
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1" for="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          bind:value={password}
-          placeholder="••••••••"
-          class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
-    </div>
 
-    <button
-      onclick={submit}
-      disabled={loading}
-      class="bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition disabled:opacity-50">
-      {loading ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
-    </button>
+      <label class="flex items-center gap-2 text-sm text-gray-600">
+        <input type="checkbox" bind:checked={keepSignedIn} class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+        Keep me signed in
+      </label>
+
+      <button
+        onclick={magicLink}
+        disabled={loading}
+        class="bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition disabled:opacity-50">
+        {loading ? 'Please wait…' : 'Email me a magic link'}
+      </button>
+    {/if}
 
     <a href="/" class="text-center text-sm text-gray-500 hover:underline">Continue without account →</a>
   </div>
