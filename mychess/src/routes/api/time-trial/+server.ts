@@ -22,14 +22,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   if (sessionXp > 0) {
     await supabase.rpc('update_xp_and_level', {
-      p_user_id: user.id,
+      p_player_id: user.id,
       p_xp_delta: sessionXp
     });
     await supabase.rpc('update_weekly_leaderboard', {
       p_player_id: user.id,
       p_xp: sessionXp
     });
-    await supabase.rpc('update_streak', { p_user_id: user.id });
+    await supabase.rpc('update_streak', { p_player_id: user.id });
   }
 
   // Update quest progress for time_trial
@@ -53,7 +53,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
       if (nowComplete) {
         await supabase.rpc('update_xp_and_level', {
-          p_user_id: user.id,
+          p_player_id: user.id,
           p_xp_delta: quest.xp_reward
         });
       }

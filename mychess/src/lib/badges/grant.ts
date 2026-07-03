@@ -76,7 +76,7 @@ export async function grantNewBadges(
 
   const totalXp = (badgeDefs ?? []).reduce((sum: number, b: any) => sum + (b.xp_reward ?? 0), 0);
   if (totalXp > 0) {
-    await supabase.rpc('update_xp_and_level', { p_user_id: playerId, p_xp_delta: totalXp });
+    await supabase.rpc('update_xp_and_level', { p_player_id: playerId, p_xp_delta: totalXp });
   }
 
   return newBadgeIds;

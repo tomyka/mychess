@@ -35,7 +35,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   if (nowComplete && !quest.completed) {
     await supabase.rpc('update_xp_and_level', {
-      p_user_id: authUser.id,
+      p_player_id: authUser.id,
       p_xp_delta: quest.xp_reward
     });
     await supabase.rpc('update_weekly_leaderboard', {
