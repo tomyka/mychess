@@ -3,9 +3,14 @@ import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({ locals: { safeGetSession } }) => {
 	const data = await safeGetSession();
-	// Anonymous guests are allowed through — they have auto-created profiles
-	if (!data.session) throw redirect(303, '/login');
-	if (!data.profile) throw redirect(303, '/welcome');
-	if ((data.profile as any).role !== 'player') throw redirect(303, '/coach');
+	// A real signup that hasn't completed onboarding yet.
+	if (data.user && !(data.user as any).is_anonymous && !data.profile) {
+		throw redirect(303, '/welcome');
+	}
+	// Coaches use the coach dashboard.
+	if ((data.profile as any)?.role === 'coach') {
+		throw redirect(303, '/coach');
+	}
+	// Guests (no session), anonymous users, and players all pass through.
 	return data;
 };

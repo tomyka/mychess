@@ -5,6 +5,7 @@
   import CoachNoteBanner from '$lib/components/CoachNoteBanner.svelte';
   import TournamentCarousel from '$lib/components/tournaments/TournamentCarousel.svelte';
   import PlatformRatingsCard from '$lib/components/PlatformRatingsCard.svelte';
+  import FideLookupCard from '$lib/components/FideLookupCard.svelte';
 
   let { data } = $props<{ data: any }>();
 
@@ -34,29 +35,28 @@
   <div class="max-w-3xl mx-auto px-4 py-6 space-y-4">
 
     {#if data.isGuest}
-      <!-- Guest landing -->
-      <div class="py-12 text-center">
-        <h1 class="text-3xl font-bold text-gray-900 mb-3">Your chess, all in one place</h1>
-        <p class="text-gray-500 mb-8">
-          FIDE rating, national standings, and local OTB tournaments — your daily dashboard.
-        </p>
-        <div class="flex justify-center gap-3 mb-12">
-          <a href="/tournaments"
-             class="px-5 py-2.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors">
-            Browse tournaments
-          </a>
-          <a href="/login"
-             class="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors">
-            Sign in
-          </a>
+      <!-- Public content landing (no account needed) -->
+      <div class="py-8 space-y-6">
+        <div class="text-center">
+          <h1 class="text-3xl font-bold text-gray-900 mb-2">Your chess, all in one place</h1>
+          <p class="text-gray-500">FIDE ranks, local tournaments, and daily training — no account needed to explore.</p>
         </div>
 
+        <FideLookupCard query={data.fideQuery ?? ''} result={data.fideLookup ?? null} />
+
+        <a href="/drill" class="block bg-indigo-600 text-white rounded-xl p-5 hover:bg-indigo-700 transition-colors">
+          <p class="font-semibold">Try a drill →</p>
+          <p class="text-sm text-indigo-100">No account needed — sign in later to save your progress.</p>
+        </a>
+
         {#if data.upcomingTournaments?.length > 0}
-          <h2 class="text-lg font-semibold text-gray-900 mb-3 text-left">Upcoming tournaments in Lithuania</h2>
-          <TournamentCarousel tournaments={data.upcomingTournaments} />
-          <a href="/tournaments" class="text-sm text-indigo-600 hover:underline mt-3 inline-block">
-            View all tournaments →
-          </a>
+          <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="font-semibold text-gray-900">Upcoming in Lithuania</h2>
+              <a href="/tournaments" class="text-sm text-indigo-600 hover:underline">View all →</a>
+            </div>
+            <TournamentCarousel tournaments={data.upcomingTournaments} />
+          </section>
         {/if}
       </div>
 

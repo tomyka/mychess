@@ -58,6 +58,13 @@
   <title>Practice — MyChess</title>
 </svelte:head>
 
+{#if data.needsAccount}
+  <div class="max-w-md mx-auto text-center py-16 space-y-4">
+    <h1 class="text-2xl font-bold text-gray-900">Sign in to train</h1>
+    <p class="text-gray-500">Guest training is unavailable right now. Create a free account to start.</p>
+    <a href="/login?signup=1" class="inline-block bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-indigo-700">Get started</a>
+  </div>
+{:else}
 <main class="min-h-screen bg-gray-50 p-4 max-w-lg mx-auto pb-24">
   {#if moves.length === 0}
     <div class="flex flex-col items-center justify-center min-h-screen text-center gap-4">
@@ -136,3 +143,4 @@
     {/if}
   {/if}
 </main>
+{/if}

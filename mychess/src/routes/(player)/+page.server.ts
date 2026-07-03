@@ -5,7 +5,7 @@ import { selectDailyQuests } from '$lib/quests/generate';
 import { fetchLichessRatings } from '$lib/server/lichess';
 import { fetchChesscomRatings } from '$lib/server/chesscom';
 
-export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
+export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSession } }) => {
   const { user, session, profile } = await safeGetSession();
   const isGuest = !user || !!(user as any).is_anonymous;
 
@@ -22,7 +22,35 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
 
   if (tErr) console.error('Failed to fetch upcoming tournaments:', tErr);
 
-  if (!user) return { isGuest: true, session: null, profile: null, upcomingTournaments: upcomingTournaments ?? [] };
+  // Public FIDE rank lookup (?fide=<id>) — reads the public fide_players table.
+  const fideQuery = (url.searchParams.get('fide') ?? '').trim();
+  let fideLookup: { query: string; found: boolean; player?: any } | null = null;
+  if (fideQuery) {
+    const { data: row } = await supabase
+      .from('fide_players')
+      .select('name, std_rating, rapid_rating, blitz_rating, country_rank_standard, age_bracket, age_group_rank_standard')
+      .eq('fide_id', fideQuery)
+      .single();
+    fideLookup = row
+      ? {
+          query: fideQuery,
+          found: true,
+          player: {
+            name: (row as any).name,
+            stdRating: (row as any).std_rating,
+            rapidRating: (row as any).rapid_rating,
+            blitzRating: (row as any).blitz_rating,
+            countryRankStandard: (row as any).country_rank_standard,
+            ageBracket: (row as any).age_bracket,
+            ageGroupRankStandard: (row as any).age_group_rank_standard
+          }
+        }
+      : { query: fideQuery, found: false };
+  }
+
+  // Guests (no session AND anonymous) get the public landing — don't run the
+  // authenticated pipeline (quest seeding, leaderboard) for throwaway accounts.
+  if (isGuest) return { isGuest: true, session: null, profile: null, upcomingTournaments: upcomingTournaments ?? [], fideLookup, fideQuery };
 
   const p = profile as any;
   const totalXp = Number(p?.xp ?? 0);
@@ -158,6 +186,8 @@ export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession 
     leaderboard: lbEntries,
     unreadNote: noteRes.data ?? null,
     avatarId: p?.avatar_id ?? 'knight',
-    upcomingTournaments: upcomingTournaments ?? []
+    upcomingTournaments: upcomingTournaments ?? [],
+    fideLookup,
+    fideQuery
   };
 };

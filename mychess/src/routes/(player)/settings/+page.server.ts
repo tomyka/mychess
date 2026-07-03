@@ -1,12 +1,12 @@
-import { redirect, fail } from '@sveltejs/kit';
+import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { fetchFideName } from '$lib/server/fide';
 import { fetchLichessRatings } from '$lib/server/lichess';
 import { fullNameOrNull } from '$lib/profile';
+import { requireAccount } from '$lib/server/auth';
 
-export const load: PageServerLoad = async ({ locals: { safeGetSession }, url }) => {
-  const { user, session, profile } = await safeGetSession();
-  if (!user) throw redirect(303, '/login');
+export const load: PageServerLoad = async ({ locals, url }) => {
+  const { session, profile } = await requireAccount(locals);
 
   const p = profile as any;
   const lichessUsername = p?.lichess_username ?? '';
