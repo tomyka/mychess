@@ -48,7 +48,9 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
       : { query: fideQuery, found: false };
   }
 
-  if (!user) return { isGuest: true, session: null, profile: null, upcomingTournaments: upcomingTournaments ?? [], fideLookup, fideQuery };
+  // Guests (no session AND anonymous) get the public landing — don't run the
+  // authenticated pipeline (quest seeding, leaderboard) for throwaway accounts.
+  if (isGuest) return { isGuest: true, session: null, profile: null, upcomingTournaments: upcomingTournaments ?? [], fideLookup, fideQuery };
 
   const p = profile as any;
   const totalXp = Number(p?.xp ?? 0);
