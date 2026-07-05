@@ -1,5 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import { fullNameOrNull } from '$lib/profile';
+import { createPlayerProfile } from '$lib/server/onboarding';
 
 export const load: PageServerLoad = async ({ locals: { safeGetSession } }) => {
 	const { session, profile } = await safeGetSession();
@@ -14,18 +16,22 @@ export const actions: Actions = {
 		if (!user) return fail(401, { error: 'Not logged in' });
 
 		const data = await request.formData();
-		const role = data.get('role') as string;
-		const display_name = data.get('display_name') as string;
-		if (!role || !display_name) return fail(400, { error: 'All fields required' });
+		const firstName = ((data.get('first_name') as string) ?? '').trim();
+		const lastName = ((data.get('last_name') as string) ?? '').trim();
+		if (!firstName || !lastName) {
+			return fail(400, { error: 'First and last name are required' });
+		}
 
-		const { error } = await supabase
-			.from('profiles')
-			.upsert({ id: user.id, role, display_name, avatar_id: 'knight' });
-		if (error) return fail(500, { error: error.message });
+		const displayName = fullNameOrNull(firstName, lastName) ?? `${firstName} ${lastName}`;
 
-		await supabase.from('player_stats').upsert({ player_id: user.id });
-		await supabase.from('equipped_cosmetics').upsert({ player_id: user.id });
+		const { error } = await createPlayerProfile(supabase, {
+			id: user.id,
+			firstName,
+			lastName,
+			displayName
+		});
+		if (error) return fail(500, { error });
 
-		throw redirect(303, role === 'coach' ? '/coach' : '/');
+		throw redirect(303, '/');
 	}
 };
