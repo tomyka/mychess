@@ -15,6 +15,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
   return {
     session,
     profile,
+    role: p?.role ?? 'player',
     displayName: p?.display_name ?? '',
     firstName: p?.first_name ?? '',
     lastName: p?.last_name ?? '',
@@ -36,6 +37,8 @@ export const actions: Actions = {
     const firstName = (fd.get('first_name') as string ?? '').trim();
     const lastName = (fd.get('last_name') as string ?? '').trim();
     const fideId = (fd.get('fide_id') as string ?? '').trim();
+    const rawRole = (fd.get('role') as string ?? '').trim();
+    const role = rawRole === 'coach' ? 'coach' : 'player';
 
     if (fideId) {
       if (!firstName || !lastName) {
@@ -84,6 +87,7 @@ export const actions: Actions = {
         last_name: lastName || null,
         fide_id: fideId || null,
         chesscom_username: chesscomUsername || null,
+        role,
         ...(displayName ? { display_name: displayName } : {})
       } as any)
       .eq('id', user.id);
