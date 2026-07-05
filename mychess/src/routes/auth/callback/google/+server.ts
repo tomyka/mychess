@@ -1,10 +1,15 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { env } from '$env/dynamic/private';
-import { verifyState } from '$lib/server/oauth';
+import { env as pubEnv } from '$env/dynamic/public';
+import { createClient } from '@supabase/supabase-js';
+import { verifyState, decodeJwtPayload } from '$lib/server/oauth';
+import { fullNameOrNull } from '$lib/profile';
+import { createPlayerProfile } from '$lib/server/onboarding';
 
 export const GET: RequestHandler = async ({ url, cookies, locals: { supabase } }) => {
-  const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, OAUTH_STATE_SECRET } = env;
+  const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, OAUTH_STATE_SECRET, SUPABASE_SERVICE_ROLE_KEY } = env;
+  const { PUBLIC_SUPABASE_URL } = pubEnv;
   const redirectUri = `${url.origin}/auth/callback/google`;
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
@@ -53,7 +58,7 @@ export const GET: RequestHandler = async ({ url, cookies, locals: { supabase } }
     throw redirect(303, '/login?error=Google+did+not+return+an+ID+token');
   }
 
-  const { error: signInError } = await supabase.auth.signInWithIdToken({
+  const { data: signInData, error: signInError } = await supabase.auth.signInWithIdToken({
     provider: 'google',
     token: idToken,
     nonce
@@ -61,6 +66,34 @@ export const GET: RequestHandler = async ({ url, cookies, locals: { supabase } }
 
   if (signInError) {
     throw redirect(303, `/login?error=${encodeURIComponent(signInError.message)}`);
+  }
+
+  const userId = signInData.user?.id;
+
+  if (userId) {
+    try {
+      // Use service role client to bypass RLS — identity already verified above
+      const admin = createClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const { data: existingProfile } = await admin
+        .from('profiles')
+        .select('id')
+        .eq('id', userId)
+        .single();
+
+      if (!existingProfile) {
+        const claims = decodeJwtPayload(idToken);
+        const firstName = (claims.given_name as string | undefined) ?? null;
+        const lastName = (claims.family_name as string | undefined) ?? null;
+        const displayName =
+          fullNameOrNull(firstName, lastName) ?? (claims.name as string | undefined) ?? 'Player';
+
+        await createPlayerProfile(admin, { id: userId, firstName, lastName, displayName });
+      }
+    } catch {
+      // Best-effort bootstrap — any failure here is not fatal. The user is
+      // already signed in, and the (player)/+layout.server.ts "no profile ->
+      // /welcome" check acts as a safety net if profile creation didn't happen.
+    }
   }
 
   throw redirect(303, '/');
