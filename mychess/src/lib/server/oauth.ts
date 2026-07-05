@@ -17,6 +17,25 @@ export async function generateCodeChallenge(verifier: string): Promise<string> {
   return base64url(new Uint8Array(digest));
 }
 
+function toHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/**
+ * Hashes an OIDC nonce as lowercase hex SHA-256 — the encoding Google's native
+ * Sign-In / One Tap convention uses (and what Supabase's signInWithIdToken
+ * expects when re-hashing the raw nonce to compare against the ID token's
+ * `nonce` claim). Deliberately separate from generateCodeChallenge, which
+ * uses base64url per RFC 7636 for PKCE — the two encodings must not be mixed.
+ */
+export async function hashNonce(nonce: string): Promise<string> {
+  const encoded = new TextEncoder().encode(nonce);
+  const digest = await crypto.subtle.digest('SHA-256', encoded);
+  return toHex(new Uint8Array(digest));
+}
+
 async function hmacSign(secret: string, message: string): Promise<string> {
   const key = await crypto.subtle.importKey(
     'raw',

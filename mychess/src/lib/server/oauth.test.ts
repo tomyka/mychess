@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateCodeVerifier, generateCodeChallenge, createState, verifyState } from './oauth';
+import { generateCodeVerifier, generateCodeChallenge, createState, verifyState, hashNonce } from './oauth';
 
 describe('generateCodeVerifier', () => {
   it('returns a base64url string of at least 43 characters', () => {
@@ -21,6 +21,25 @@ describe('generateCodeChallenge', () => {
       'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk'
     );
     expect(challenge).toBe('E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM');
+  });
+});
+
+describe('hashNonce', () => {
+  it('returns correct lowercase-hex SHA-256 per NIST test vector', async () => {
+    // NIST test vector: SHA-256("abc") = ba7816bf...15ad
+    const hash = await hashNonce('abc');
+    expect(hash).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+  });
+
+  it('returns a different encoding than generateCodeChallenge for the same input', async () => {
+    // Regression guard for the "Nonces mismatch" bug: the OIDC nonce hash Google/
+    // Supabase expect is hex, NOT the base64url PKCE code_challenge uses — these
+    // must never be accidentally unified back into one function.
+    const input = 'some-raw-nonce-value';
+    const hex = await hashNonce(input);
+    const b64url = await generateCodeChallenge(input);
+    expect(hex).not.toBe(b64url);
+    expect(hex).toMatch(/^[0-9a-f]{64}$/);
   });
 });
 

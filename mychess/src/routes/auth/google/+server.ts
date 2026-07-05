@@ -2,7 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
-import { generateCodeVerifier, generateCodeChallenge, createState } from '$lib/server/oauth';
+import { generateCodeVerifier, generateCodeChallenge, createState, hashNonce } from '$lib/server/oauth';
 
 export const GET: RequestHandler = async ({ url, cookies }) => {
   const { GOOGLE_CLIENT_ID, OAUTH_STATE_SECRET } = env;
@@ -15,11 +15,12 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
   // verifyState only checks the HMAC signature and expiry here, not identity.
   const state = await createState(crypto.randomUUID(), OAUTH_STATE_SECRET);
 
-  // OIDC nonce: raw value stored for later, its hash sent to Google. Google
-  // embeds whatever it receives into the ID token's `nonce` claim; Supabase's
-  // signInWithIdToken is given the raw value and re-hashes it to compare.
+  // OIDC nonce: raw value stored for later, its hex-SHA256 hash sent to Google.
+  // Google embeds whatever it receives into the ID token's `nonce` claim;
+  // Supabase's signInWithIdToken is given the raw value and re-hashes it
+  // (also hex) to compare — hence hashNonce, not the base64url PKCE hasher.
   const nonce = generateCodeVerifier();
-  const hashedNonce = await generateCodeChallenge(nonce);
+  const hashedNonce = await hashNonce(nonce);
 
   const cookieOptions = {
     httpOnly: true,
