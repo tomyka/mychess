@@ -29,17 +29,3 @@ export async function sendMagicLink(email: string, keepSignedIn: boolean): Promi
 	});
 	return error ? { ok: false, error: error.message } : { ok: true };
 }
-
-/** Starts Google OAuth. On an anonymous user, links Google to it (preserving progress). */
-export async function startGoogle(keepSignedIn: boolean): Promise<AuthResult> {
-	const sb = createSupabaseClient();
-	setPersistMarker(keepSignedIn);
-	const {
-		data: { user }
-	} = await sb.auth.getUser();
-	const options = { redirectTo: callbackUrl() };
-	const { error } = user?.is_anonymous
-		? await sb.auth.linkIdentity({ provider: 'google', options })
-		: await sb.auth.signInWithOAuth({ provider: 'google', options });
-	return error ? { ok: false, error: error.message } : { ok: true };
-}

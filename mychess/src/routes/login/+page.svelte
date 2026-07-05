@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { sendMagicLink, startGoogle } from '$lib/auth/client';
+  import { sendMagicLink } from '$lib/auth/client';
 
   let { data } = $props<{ data: { error: string | null } }>();
 
@@ -8,12 +8,6 @@
   let error = $state(data.error ?? '');
   let loading = $state(false);
   let sent = $state(false);
-
-  async function google() {
-    loading = true; error = '';
-    const r = await startGoogle(keepSignedIn);
-    if (!r.ok) { error = r.error ?? 'Google sign-in failed'; loading = false; }
-  }
 
   async function magicLink() {
     if (!email.trim()) { error = 'Enter your email address'; return; }
@@ -46,12 +40,11 @@
         <button onclick={() => { sent = false; }} class="text-sm text-indigo-600 hover:underline">Use a different email</button>
       </div>
     {:else}
-      <button
-        onclick={google}
-        disabled={loading}
-        class="flex items-center justify-center gap-2 border border-gray-300 rounded-xl py-3 font-medium text-gray-700 hover:bg-gray-50 transition disabled:opacity-50">
+      <a
+        href={`/auth/google?persist=${keepSignedIn ? '1' : '0'}`}
+        class="flex items-center justify-center gap-2 border border-gray-300 rounded-xl py-3 font-medium text-gray-700 hover:bg-gray-50 transition">
         <span aria-hidden="true">G</span> Continue with Google
-      </button>
+      </a>
 
       <div class="flex items-center gap-3 text-xs text-gray-400">
         <span class="flex-1 border-t border-gray-200"></span>or<span class="flex-1 border-t border-gray-200"></span>

@@ -3,8 +3,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
 
 vi.mock('$lib/auth/client', () => ({
-  sendMagicLink: vi.fn(async () => ({ ok: true })),
-  startGoogle: vi.fn(async () => ({ ok: true }))
+  sendMagicLink: vi.fn(async () => ({ ok: true }))
 }));
 
 import Login from './+page.svelte';
@@ -12,12 +11,21 @@ import Login from './+page.svelte';
 afterEach(() => cleanup());
 
 describe('login page', () => {
-  it('renders Google, email, and keep-signed-in — no password field', () => {
+  it('renders a Google sign-in link, email, and keep-signed-in — no password field', () => {
     render(Login, { props: { data: { error: null } } });
-    expect(screen.getByRole('button', { name: /Google/i })).toBeTruthy();
+    const googleLink = screen.getByRole('link', { name: /Google/i });
+    expect(googleLink).toBeTruthy();
+    expect(googleLink.getAttribute('href')).toBe('/auth/google?persist=1');
     expect(screen.getByLabelText(/Email/i)).toBeTruthy();
     expect(screen.getByLabelText(/Keep me signed in/i)).toBeTruthy();
     expect(screen.queryByLabelText(/Password/i)).toBeNull();
+  });
+
+  it('reflects an unchecked keep-signed-in box in the Google link\'s persist param', async () => {
+    render(Login, { props: { data: { error: null } } });
+    await fireEvent.click(screen.getByLabelText(/Keep me signed in/i));
+    const googleLink = screen.getByRole('link', { name: /Google/i });
+    expect(googleLink.getAttribute('href')).toBe('/auth/google?persist=0');
   });
 
   it('shows a check-your-email panel after requesting a magic link', async () => {
