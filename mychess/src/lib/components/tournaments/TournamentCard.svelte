@@ -35,7 +35,9 @@
 </script>
 
 <a
-  href="/tournaments/{tournament.id}"
+  href={tournament.url}
+  target="_blank"
+  rel="noopener noreferrer"
   class="flex flex-col h-full rounded-xl border border-gray-200 bg-white p-4 hover:shadow-md hover:border-gray-300 transition-all"
 >
   <!-- Header: title + status badge -->
