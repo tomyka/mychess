@@ -12,7 +12,8 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "vitest run",
 		"test:watch": "vitest",
-		"fide:import": "tsx scripts/import-fide.ts"
+		"fide:import": "tsx scripts/import-fide.ts",
+		"eco:generate": "tsx scripts/generate-eco-data.ts"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.60.0",
