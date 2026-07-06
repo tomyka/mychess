@@ -10,6 +10,8 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 
 	const repId = url.searchParams.get('rep');
 
+	// Only the player's own moves are quizzed — the opponent's replies
+	// (is_player_turn = false) are just context, not something to guess.
 	let movesQuery = supabase
 		.from('moves')
 		.select(`
@@ -18,6 +20,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 			to_position(fen),
 			repertoire:repertoire_id(id, name, color)
 		`)
+		.eq('is_player_turn', true)
 		.order('ply', { ascending: true });
 
 	if (repId) {

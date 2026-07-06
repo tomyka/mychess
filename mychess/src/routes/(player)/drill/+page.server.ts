@@ -20,6 +20,8 @@ export const load: PageServerLoad = async ({ locals }) => {
     return { session, profile, drillMoves: [] };
   }
 
+  // Only the player's own moves are quizzed — the opponent's replies
+  // (is_player_turn = false) are just context, not something to guess.
   const { data: moves } = await supabase
     .from('moves')
     .select(`
@@ -28,7 +30,8 @@ export const load: PageServerLoad = async ({ locals }) => {
       to_position(fen),
       repertoire:repertoire_id(id, name, color)
     `)
-    .in('repertoire_id', repIds);
+    .in('repertoire_id', repIds)
+    .eq('is_player_turn', true);
 
   const { data: reviews } = await supabase
     .from('reviews')

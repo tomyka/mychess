@@ -26,7 +26,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		return { session, profile, queuedMoves: [], totalDue: 0 };
 	}
 
-	// Fetch all moves
+	// Fetch the player's own moves — the opponent's replies (is_player_turn = false)
+	// are never quizzed; they're just context the player plays through.
 	const { data: moves } = await supabase
 		.from('moves')
 		.select(`
@@ -35,7 +36,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 			to_position(fen),
 			repertoire:repertoire_id(id, name, color)
 		`)
-		.in('repertoire_id', repIds);
+		.in('repertoire_id', repIds)
+		.eq('is_player_turn', true);
 
 	// Fetch review cards
 	const { data: reviews } = await supabase
