@@ -19,7 +19,7 @@ describe('OpeningPicker', () => {
   it('filters results as the user types', async () => {
     render(OpeningPicker, { props: { repId: 'r1', onclose: () => {} } });
     const input = screen.getByPlaceholderText(/search openings/i);
-    await fireEvent.input(input, { target: { value: 'najdorf' } });
+    await fireEvent.input(input, { target: { value: 'B90' } });
     expect(screen.getByText(/Najdorf/i)).toBeTruthy();
   });
 

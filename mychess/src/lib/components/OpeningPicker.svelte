@@ -7,14 +7,6 @@
 
   let query = $state('');
   const results = $derived(searchOpenings(query, ECO_OPENINGS).slice(0, 30));
-  // Many ECO sub-variations share (or nearly share) the same display name
-  // (e.g. ten different Najdorf codes). Showing every match's full name as
-  // plain text gets noisy/redundant, so only the best match gets the full
-  // "code — name" treatment; the rest are shown as compact code-only chips
-  // (full name still available via title/aria-label) to stay pickable
-  // without repeating near-duplicate text throughout the list.
-  const topResult = $derived(results[0] ?? null);
-  const otherResults = $derived(results.slice(1));
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -60,38 +52,21 @@
         <p class="text-sm text-gray-400 px-1">No matches.</p>
       {/if}
 
-      {#if topResult}
-        <form method="POST" action="?/updateOpening" use:enhance onsubmit={onclose}>
-          <input type="hidden" name="rep_id" value={repId} />
-          <input type="hidden" name="eco_code" value={topResult.code} />
-          <input type="hidden" name="eco_name" value={topResult.name} />
-          <button class="w-full text-left text-sm rounded-lg px-3 py-2 hover:bg-indigo-50">
-            <span class="font-medium text-indigo-600">{topResult.code}</span>
-            <span class="text-gray-700"> — {topResult.name}</span>
-          </button>
-        </form>
-      {/if}
-
-      {#if otherResults.length > 0}
-        <ul class="flex flex-wrap gap-1.5">
-          {#each otherResults as opening}
-            <li>
-              <form method="POST" action="?/updateOpening" use:enhance onsubmit={onclose}>
-                <input type="hidden" name="rep_id" value={repId} />
-                <input type="hidden" name="eco_code" value={opening.code} />
-                <input type="hidden" name="eco_name" value={opening.name} />
-                <button
-                  title={opening.name}
-                  aria-label="{opening.code} — {opening.name}"
-                  class="text-xs font-medium text-indigo-600 bg-indigo-50 rounded-full px-2.5 py-1 hover:bg-indigo-100"
-                >
-                  {opening.code}
-                </button>
-              </form>
-            </li>
-          {/each}
-        </ul>
-      {/if}
+      <ul class="space-y-1">
+        {#each results as opening}
+          <li>
+            <form method="POST" action="?/updateOpening" use:enhance onsubmit={onclose}>
+              <input type="hidden" name="rep_id" value={repId} />
+              <input type="hidden" name="eco_code" value={opening.code} />
+              <input type="hidden" name="eco_name" value={opening.name} />
+              <button class="w-full text-left text-sm rounded-lg px-3 py-2 hover:bg-indigo-50">
+                <span class="font-medium text-indigo-600">{opening.code}</span>
+                <span class="text-gray-700"> — {opening.name}</span>
+              </button>
+            </form>
+          </li>
+        {/each}
+      </ul>
     </div>
   </div>
 </div>
