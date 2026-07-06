@@ -28,7 +28,13 @@
     {/if}
 
     <section>
-      <h1 class="text-2xl font-bold text-gray-900 mb-4">My Repertoires</h1>
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-bold text-gray-900">My Repertoires</h1>
+        <a href="/repertoires/new"
+           class="text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
+          + Create Repertoire
+        </a>
+      </div>
       {#if data.repertoires.length === 0}
         <div class="text-center py-16 text-gray-400">
           <p class="text-4xl mb-4">📚</p>
