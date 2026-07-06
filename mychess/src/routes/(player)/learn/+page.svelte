@@ -27,7 +27,7 @@
 	);
 
 	function handleMove(detail: { from: Key; to: Key; san: string }) {
-		if (phase !== 'guess') return;
+		if (phase !== 'guess') return false;
 		const targetSan = current?.move?.san;
 		const elapsed = Date.now() - startTime;
 
@@ -40,10 +40,12 @@
 			correct++;
 			phase = 'feedback';
 			submitReview(rating, xp);
+			return true;
 		} else {
 			playWrong();
 			wrongMove = true;
 			incorrect++;
+			return false;
 		}
 	}
 

@@ -10,7 +10,8 @@
 		orientation?: Color;
 		interactable?: boolean;
 		lastMove?: [Key, Key] | undefined;
-		onmove?: (detail: { from: Key; to: Key; san: string }) => void;
+		// Return `false` to snap the board back to `fen` (e.g. an incorrect guess).
+		onmove?: (detail: { from: Key; to: Key; san: string }) => boolean | void;
 	};
 
 	let {
@@ -52,7 +53,9 @@
 					after: (orig: Key, dest: Key) => {
 						const chess2 = new Chess(fen);
 						const move = chess2.move({ from: orig as any, to: dest as any, promotion: 'q' });
-						if (move && onmove) onmove({ from: orig, to: dest, san: move.san });
+						if (!move || !onmove) return;
+						const keepMove = onmove({ from: orig, to: dest, san: move.san });
+						if (keepMove === false) cg.set(buildConfig());
 					}
 				}
 			},

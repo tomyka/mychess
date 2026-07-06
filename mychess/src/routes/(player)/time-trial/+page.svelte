@@ -39,7 +39,7 @@
   }
 
   function handleMove(detail: { from: Key; to: Key; san: string }) {
-    if (!started || finished) return;
+    if (!started || finished) return false;
     const targetSan = current?.san;
 
     if (detail.san === targetSan) {
@@ -48,9 +48,11 @@
       correct++;
       sessionXp += 5;
       currentIdx++;
+      return true;
     } else {
       playWrong();
       wrongMove = true;
+      return false;
     }
   }
 

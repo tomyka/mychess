@@ -19,14 +19,16 @@
 	);
 
 	function handleMove(detail: { from: Key; to: Key; san: string }) {
-		if (showAnswer) return;
+		if (showAnswer) return false;
 		if (detail.san === current?.san) {
 			wrongMove = false;
 			correct++;
 			showAnswer = true;
+			return true;
 		} else {
 			wrongMove = true;
 			incorrect++;
+			return false;
 		}
 	}
 
