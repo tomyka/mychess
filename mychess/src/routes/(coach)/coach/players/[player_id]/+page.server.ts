@@ -82,5 +82,24 @@ export const actions: Actions = {
 
     if (error) return fail(500, { error: error.message });
     return { success: true };
+  },
+
+  unassignRep: async ({ params, request, locals: { supabase, safeGetSession } }) => {
+    const { user } = await safeGetSession();
+    if (!user) return fail(401, { error: 'Unauthorized' });
+
+    const fd = await request.formData();
+    const repId = fd.get('rep_id') as string;
+    if (!repId) return fail(400, { error: 'No repertoire selected' });
+
+    const { error } = await supabase
+      .from('assigned_repertoires')
+      .delete()
+      .eq('coach_id', user.id)
+      .eq('player_id', params.player_id)
+      .eq('repertoire_id', repId);
+
+    if (error) return fail(500, { error: error.message });
+    return { success: true };
   }
 };

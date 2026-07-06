@@ -1,7 +1,7 @@
 // mychess/src/routes/(coach)/coach/players/[player_id]/player-detail.test.ts
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/svelte';
+import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
 import PlayerDetail from './+page.svelte';
 
 afterEach(() => cleanup());
@@ -28,14 +28,41 @@ describe('coach student detail page', () => {
     expect(screen.getByRole('link', { name: 'Upload one' })).toBeTruthy();
   });
 
-  it('shows the assign dropdown when the coach has repertoires', () => {
+  it('shows the assign-repertoires button when the coach has repertoires', () => {
     render(PlayerDetail, {
       props: {
         data: { ...baseData, coachReps: [{ id: 'r1', name: 'Sicilian Defense', color: 'white' }] },
         form: null
       }
     });
-    expect(screen.getByRole('option', { name: 'Sicilian Defense' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Assign repertoires' })).toBeTruthy();
+  });
+
+  it('opens a modal listing repertoires with an Assign button when + is clicked', async () => {
+    render(PlayerDetail, {
+      props: {
+        data: { ...baseData, coachReps: [{ id: 'r1', name: 'Sicilian Defense', color: 'white' }] },
+        form: null
+      }
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Assign repertoires' }));
+    expect(screen.getByText('Sicilian Defense')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Assign' })).toBeTruthy();
+  });
+
+  it('shows a Remove button in the modal for already-assigned repertoires', async () => {
+    render(PlayerDetail, {
+      props: {
+        data: {
+          ...baseData,
+          coachReps: [{ id: 'r1', name: 'Sicilian Defense', color: 'white' }],
+          assignedReps: [{ id: 'a1', repertoire: { id: 'r1', name: 'Sicilian Defense', color: 'white' } }]
+        },
+        form: null
+      }
+    });
+    await fireEvent.click(screen.getByRole('button', { name: 'Assign repertoires' }));
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeTruthy();
   });
 
   it('shows already-assigned repertoires', () => {

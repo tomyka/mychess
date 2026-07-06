@@ -2,6 +2,8 @@
   import { enhance } from '$app/forms';
 
   let { data, form } = $props<{ data: any; form: any }>();
+
+  let assignModalOpen = $state(false);
 </script>
 
 <svelte:head>
@@ -36,27 +38,28 @@
     </section>
 
     <section class="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
-      <h2 class="font-semibold text-gray-900 mb-3">Assign a Repertoire</h2>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold text-gray-900">Repertoires</h2>
+        {#if data.coachReps.length > 0}
+          <button
+            type="button"
+            onclick={() => (assignModalOpen = true)}
+            aria-label="Assign repertoires"
+            title="Assign repertoires"
+            class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors font-bold"
+          >
+            +
+          </button>
+        {/if}
+      </div>
+
       {#if data.coachReps.length === 0}
-        <p class="text-gray-400 text-sm">
+        <p class="text-gray-400 text-sm mb-3">
           You haven't uploaded any repertoires yet.
           <a href="/coach/pgn" class="text-indigo-600 hover:underline">Upload one</a> first.
         </p>
-      {:else}
-        <form method="POST" action="?/assignRep" use:enhance class="flex gap-2">
-          <select name="rep_id"
-                  class="flex-1 rounded-lg px-4 py-2.5 border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            {#each data.coachReps as rep}
-              <option value={rep.id}>{rep.name}</option>
-            {/each}
-          </select>
-          <button class="bg-indigo-600 text-white px-4 py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
-            Assign
-          </button>
-        </form>
       {/if}
 
-      <h3 class="text-sm font-medium text-gray-700 mt-5 mb-2">Already assigned</h3>
       {#if data.assignedReps.length === 0}
         <p class="text-gray-400 text-sm">Nothing assigned yet.</p>
       {:else}
@@ -96,3 +99,58 @@
     </section>
   </div>
 </main>
+
+{#if assignModalOpen}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
+    onclick={() => (assignModalOpen = false)}
+  >
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="bg-white rounded-xl shadow-lg max-w-sm w-full max-h-[80vh] overflow-y-auto"
+      onclick={(e) => e.stopPropagation()}
+    >
+      <div class="flex items-center justify-between p-4 border-b border-gray-100">
+        <h2 class="font-semibold text-gray-900 truncate">Repertoires for {data.player?.display_name ?? 'Student'}</h2>
+        <button
+          type="button"
+          onclick={() => (assignModalOpen = false)}
+          aria-label="Close"
+          class="text-gray-400 hover:text-gray-600 text-xl leading-none"
+        >
+          &times;
+        </button>
+      </div>
+
+      <div class="p-4">
+        <ul class="space-y-2">
+          {#each data.coachReps as rep}
+            {@const isAssigned = data.assignedReps.some((a: any) => a.repertoire?.id === rep.id)}
+            <li class="flex items-center justify-between gap-3">
+              <span class="flex items-center gap-2 min-w-0">
+                <span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color === 'black' ? '#1f2937' : '#e5e7eb'}"></span>
+                <span class="text-sm text-gray-800 truncate">{rep.name}</span>
+              </span>
+              {#if isAssigned}
+                <form method="POST" action="?/unassignRep" use:enhance>
+                  <input type="hidden" name="rep_id" value={rep.id} />
+                  <button class="text-sm text-red-600 hover:underline shrink-0">Remove</button>
+                </form>
+              {:else}
+                <form method="POST" action="?/assignRep" use:enhance>
+                  <input type="hidden" name="rep_id" value={rep.id} />
+                  <button class="text-sm bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition-colors shrink-0">
+                    Assign
+                  </button>
+                </form>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      </div>
+    </div>
+  </div>
+{/if}
