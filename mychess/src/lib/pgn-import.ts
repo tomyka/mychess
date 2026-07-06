@@ -41,7 +41,8 @@ export function planImport(pgnText: string, color: 'white' | 'black'): ImportPla
     return { error: 'No valid games found in PGN' };
   }
 
-  const opening = detectOpening(games[0].moves.map((m) => m.san), ECO_OPENINGS);
+  const firstGameMoves = games.find((g) => g.moves.length > 0)?.moves ?? [];
+  const opening = detectOpening(firstGameMoves.map((m) => m.san), ECO_OPENINGS);
 
   return {
     gameCount: games.length,

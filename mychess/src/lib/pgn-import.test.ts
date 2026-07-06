@@ -59,4 +59,18 @@ describe('planImport opening detection', () => {
     expect(result.ecoCode).toBe('C20');
     expect(result.ecoName).toBe("King's Pawn Game");
   });
+
+  it('leaves ecoCode/ecoName null when no opening matches', () => {
+    const result = planImport('1. a3 a5 *', 'white');
+    if ('error' in result) throw new Error('expected moves, got error: ' + result.error);
+    expect(result.ecoCode).toBeNull();
+    expect(result.ecoName).toBeNull();
+  });
+
+  it('falls back to the first game with real moves when an earlier game is header-only', () => {
+    const pgn = '[Event "A"]\n\n*\n\n[Event "B"]\n\n1. e4 e5 *';
+    const result = planImport(pgn, 'white');
+    if ('error' in result) throw new Error('expected moves, got error: ' + result.error);
+    expect(result.ecoCode).toBe('C20');
+  });
 });
