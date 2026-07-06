@@ -38,6 +38,10 @@ describe('detectOpening', () => {
     const withCheck: Opening[] = [{ code: 'X00', name: 'Test Check Line', moves: ['e4', 'e5', 'Qh5+'] }];
     expect(detectOpening(['e4', 'e5', 'Qh5+'], withCheck)).toEqual({ code: 'X00', name: 'Test Check Line' });
     expect(detectOpening(['e4', 'e5', 'Qh5'], withCheck)).toEqual({ code: 'X00', name: 'Test Check Line' });
+
+    const withMate: Opening[] = [{ code: 'X01', name: 'Test Mate Line', moves: ['e4', 'e5', 'Qh5#'] }];
+    expect(detectOpening(['e4', 'e5', 'Qh5#'], withMate)).toEqual({ code: 'X01', name: 'Test Mate Line' });
+    expect(detectOpening(['e4', 'e5', 'Qh5'], withMate)).toEqual({ code: 'X01', name: 'Test Mate Line' });
   });
 });
 
