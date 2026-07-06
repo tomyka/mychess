@@ -1,5 +1,6 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import OpeningPicker from '$lib/components/OpeningPicker.svelte';
 
   let { data, form } = $props<{ data: { repertoires: any[]; players: any[] }; form: any }>();
   let filter = $state<'all' | 'white' | 'black'>('all');
@@ -11,6 +12,8 @@
   const assignModalRep = $derived(
     assignModalRepId ? data.repertoires.find((r: any) => r.id === assignModalRepId) ?? null : null
   );
+
+  let openingModalRepId = $state<string | null>(null);
 
   function confirmDelete(e: SubmitEvent, name: string) {
     if (!confirm(`Delete "${name}"? This can't be undone, and it will also remove it from any student it's assigned to.`)) {
@@ -72,6 +75,18 @@
               <div class="flex-1 min-w-0">
                 <h2 class="font-medium text-gray-900 truncate">{rep.name}</h2>
                 <p class="text-sm text-gray-400">{rep.moves?.[0]?.count ?? 0} moves</p>
+                <p class="text-xs mt-0.5">
+                  {#if rep.eco_code}
+                    <span class="text-indigo-600 font-medium">{rep.eco_code}</span>
+                    <span class="text-gray-400"> — {rep.eco_name}</span>
+                  {:else}
+                    <span class="text-gray-400">Unclassified</span>
+                  {/if}
+                  <button type="button" onclick={() => (openingModalRepId = rep.id)}
+                          class="text-gray-400 hover:text-indigo-600 hover:underline ml-1">
+                    change
+                  </button>
+                </p>
               </div>
               <button
                 type="button"
@@ -159,4 +174,8 @@
       </div>
     </div>
   </div>
+{/if}
+
+{#if openingModalRepId}
+  <OpeningPicker repId={openingModalRepId} onclose={() => (openingModalRepId = null)} />
 {/if}
