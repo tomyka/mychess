@@ -1,7 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
 
-  let { data, form } = $props<{ data: { repertoires: any[] }; form: any }>();
+  let { data, form } = $props<{ data: { repertoires: any[]; players: any[] }; form: any }>();
   let filter = $state<'all' | 'white' | 'black'>('all');
   const filtered = $derived(
     filter === 'all' ? data.repertoires : data.repertoires.filter((r: any) => r.color === filter)
@@ -61,16 +61,42 @@
     {:else}
       <ul class="space-y-2">
         {#each filtered as rep}
-          <li class="flex items-center gap-3 bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-            <span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color ?? '#4f46e5'}"></span>
-            <div class="flex-1 min-w-0">
-              <h2 class="font-medium text-gray-900 truncate">{rep.name}</h2>
-              <p class="text-sm text-gray-400">{rep.moves?.[0]?.count ?? 0} moves</p>
+          <li class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+            <div class="flex items-center gap-3">
+              <span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color ?? '#4f46e5'}"></span>
+              <div class="flex-1 min-w-0">
+                <h2 class="font-medium text-gray-900 truncate">{rep.name}</h2>
+                <p class="text-sm text-gray-400">{rep.moves?.[0]?.count ?? 0} moves</p>
+              </div>
+              <form method="POST" action="?/delete" use:enhance onsubmit={(e) => confirmDelete(e, rep.name)}>
+                <input type="hidden" name="rep_id" value={rep.id} />
+                <button class="text-sm text-red-600 hover:underline">Delete</button>
+              </form>
             </div>
-            <form method="POST" action="?/delete" use:enhance onsubmit={(e) => confirmDelete(e, rep.name)}>
-              <input type="hidden" name="rep_id" value={rep.id} />
-              <button class="text-sm text-red-600 hover:underline">Delete</button>
-            </form>
+
+            <div class="mt-3 pt-3 border-t border-gray-100">
+              <p class="text-xs text-gray-400 mb-2">
+                {#if rep.assignedPlayers.length > 0}
+                  Assigned to: {rep.assignedPlayers.map((p: any) => p.display_name).join(', ')}
+                {:else}
+                  Not assigned to anyone yet
+                {/if}
+              </p>
+              {#if data.players.length > 0}
+                <form method="POST" action="?/assign" use:enhance class="flex gap-2">
+                  <input type="hidden" name="rep_id" value={rep.id} />
+                  <select name="player_id"
+                          class="flex-1 text-sm rounded-lg px-3 py-1.5 border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    {#each data.players as player}
+                      <option value={player.id}>{player.display_name}</option>
+                    {/each}
+                  </select>
+                  <button class="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors">
+                    Assign
+                  </button>
+                </form>
+              {/if}
+            </div>
           </li>
         {/each}
       </ul>
