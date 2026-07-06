@@ -68,5 +68,24 @@ export const actions: Actions = {
 		if (error) return fail(500, { error: error.message });
 
 		return { success: true };
+	},
+
+	unassign: async ({ request, locals }) => {
+		const { user } = await requireAccount(locals);
+		const supabase = locals.supabase;
+		const fd = await request.formData();
+		const repId = fd.get('rep_id') as string;
+		const playerId = fd.get('player_id') as string;
+		if (!repId || !playerId) return fail(400, { error: 'No player selected' });
+
+		const { error } = await supabase
+			.from('assigned_repertoires')
+			.delete()
+			.eq('coach_id', user!.id)
+			.eq('repertoire_id', repId)
+			.eq('player_id', playerId);
+		if (error) return fail(500, { error: error.message });
+
+		return { success: true };
 	}
 };

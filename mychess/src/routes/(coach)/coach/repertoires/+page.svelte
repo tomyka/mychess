@@ -7,6 +7,11 @@
     filter === 'all' ? data.repertoires : data.repertoires.filter((r: any) => r.color === filter)
   );
 
+  let assignModalRepId = $state<string | null>(null);
+  const assignModalRep = $derived(
+    assignModalRepId ? data.repertoires.find((r: any) => r.id === assignModalRepId) ?? null : null
+  );
+
   function confirmDelete(e: SubmitEvent, name: string) {
     if (!confirm(`Delete "${name}"? This can't be undone, and it will also remove it from any student it's assigned to.`)) {
       e.preventDefault();
@@ -68,6 +73,14 @@
                 <h2 class="font-medium text-gray-900 truncate">{rep.name}</h2>
                 <p class="text-sm text-gray-400">{rep.moves?.[0]?.count ?? 0} moves</p>
               </div>
+              <button
+                type="button"
+                onclick={() => (assignModalRepId = rep.id)}
+                title="Assign to players"
+                class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors font-bold"
+              >
+                +
+              </button>
               <form method="POST" action="?/delete" use:enhance onsubmit={(e) => confirmDelete(e, rep.name)}>
                 <input type="hidden" name="rep_id" value={rep.id} />
                 <button class="text-sm text-red-600 hover:underline">Delete</button>
@@ -75,27 +88,13 @@
             </div>
 
             <div class="mt-3 pt-3 border-t border-gray-100">
-              <p class="text-xs text-gray-400 mb-2">
+              <p class="text-xs text-gray-400">
                 {#if rep.assignedPlayers.length > 0}
                   Assigned to: {rep.assignedPlayers.map((p: any) => p.display_name).join(', ')}
                 {:else}
                   Not assigned to anyone yet
                 {/if}
               </p>
-              {#if data.players.length > 0}
-                <form method="POST" action="?/assign" use:enhance class="flex gap-2">
-                  <input type="hidden" name="rep_id" value={rep.id} />
-                  <select name="player_id"
-                          class="flex-1 text-sm rounded-lg px-3 py-1.5 border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    {#each data.players as player}
-                      <option value={player.id}>{player.display_name}</option>
-                    {/each}
-                  </select>
-                  <button class="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors">
-                    Assign
-                  </button>
-                </form>
-              {/if}
             </div>
           </li>
         {/each}
@@ -103,3 +102,61 @@
     {/if}
   </div>
 </main>
+
+{#if assignModalRep}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
+    onclick={() => (assignModalRepId = null)}
+  >
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="bg-white rounded-xl shadow-lg max-w-sm w-full max-h-[80vh] overflow-y-auto"
+      onclick={(e) => e.stopPropagation()}
+    >
+      <div class="flex items-center justify-between p-4 border-b border-gray-100">
+        <h2 class="font-semibold text-gray-900 truncate">{assignModalRep.name}</h2>
+        <button
+          type="button"
+          onclick={() => (assignModalRepId = null)}
+          aria-label="Close"
+          class="text-gray-400 hover:text-gray-600 text-xl leading-none"
+        >
+          &times;
+        </button>
+      </div>
+
+      <div class="p-4">
+        {#if data.players.length === 0}
+          <p class="text-sm text-gray-500">You don't have any active students yet.</p>
+        {:else}
+          <ul class="space-y-2">
+            {#each data.players as player}
+              {@const isAssigned = assignModalRep.assignedPlayers.some((p: any) => p.id === player.id)}
+              <li class="flex items-center justify-between gap-3">
+                <span class="text-sm text-gray-800 truncate">{player.display_name}</span>
+                {#if isAssigned}
+                  <form method="POST" action="?/unassign" use:enhance>
+                    <input type="hidden" name="rep_id" value={assignModalRep.id} />
+                    <input type="hidden" name="player_id" value={player.id} />
+                    <button class="text-sm text-red-600 hover:underline shrink-0">Remove</button>
+                  </form>
+                {:else}
+                  <form method="POST" action="?/assign" use:enhance>
+                    <input type="hidden" name="rep_id" value={assignModalRep.id} />
+                    <input type="hidden" name="player_id" value={player.id} />
+                    <button class="text-sm bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition-colors shrink-0">
+                      Assign
+                    </button>
+                  </form>
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    </div>
+  </div>
+{/if}
