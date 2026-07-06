@@ -30,4 +30,24 @@ describe('planImport', () => {
     expect(result.moves[0].toFen).toBe('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1');
     expect(result.moves[1].fromFen).toBe(result.moves[0].toFen);
   });
+
+  it('returns an error for a PGN with headers but no actual moves', () => {
+    const result = planImport('[Event "test"]\n\n*', 'white');
+    expect(result).toEqual({ error: 'No valid games found in PGN' });
+  });
+
+  it('merges two games sharing an opening into one set of move rows with matching FENs', () => {
+    const twoGames = '[Event "A"]\n\n1. e4 e5 *\n\n[Event "B"]\n\n1. e4 e5 2. Nf3 *';
+    const result = planImport(twoGames, 'white');
+    if ('error' in result) throw new Error('expected moves, got error: ' + result.error);
+    expect(result.gameCount).toBe(2);
+    // Both games start with the same e4/e5 sequence — the shared edges must
+    // produce byte-identical FEN pairs, since a later IO layer deduplicates
+    // by upserting on (repertoire_id, from_position, san).
+    const firstGameE4 = result.moves[0];
+    const secondGameE4 = result.moves.find((m, i) => i > 1 && m.san === 'e4');
+    expect(secondGameE4).toBeDefined();
+    expect(secondGameE4!.fromFen).toBe(firstGameE4.fromFen);
+    expect(secondGameE4!.toFen).toBe(firstGameE4.toFen);
+  });
 });

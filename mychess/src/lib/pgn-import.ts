@@ -18,9 +18,6 @@ export type ImportPlan = { gameCount: number; moves: MoveRow[] } | { error: stri
  */
 export function planImport(pgnText: string, color: 'white' | 'black'): ImportPlan {
   const games = parsePgn(pgnText);
-  if (games.length === 0) {
-    return { error: 'No valid games found in PGN' };
-  }
 
   const moves: MoveRow[] = [];
   for (const game of games) {
@@ -34,6 +31,10 @@ export function planImport(pgnText: string, color: 'white' | 'black'): ImportPla
         annotation: move.annotation ?? null
       });
     }
+  }
+
+  if (moves.length === 0) {
+    return { error: 'No valid games found in PGN' };
   }
   return { gameCount: games.length, moves };
 }
