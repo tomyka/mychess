@@ -2,6 +2,7 @@
   let { data } = $props<{ data: any }>();
   const profile = $derived(data.profile as any);
   const players = $derived<any[]>(data.players ?? []);
+  const pendingCount = $derived(data.pendingCount ?? 0);
 </script>
 
 <svelte:head>
@@ -21,7 +22,20 @@
       </a>
     </div>
 
-    <div class="grid grid-cols-2 gap-4 mb-6">
+    {#if pendingCount > 0}
+      <a href="/coach/students"
+         class="block mb-6 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 hover:bg-amber-100 transition-colors">
+        You have {pendingCount} pending student {pendingCount === 1 ? 'request' : 'requests'} — review them →
+      </a>
+    {/if}
+
+    <div class="grid grid-cols-3 gap-4 mb-6">
+      <a href="/coach/students"
+         class="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow">
+        <p class="text-2xl mb-2">👥</p>
+        <p class="font-semibold text-gray-900">Find Players</p>
+        <p class="text-sm text-gray-400">Browse and request students</p>
+      </a>
       <a href="/coach/invite"
          class="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow">
         <p class="text-2xl mb-2">🔗</p>

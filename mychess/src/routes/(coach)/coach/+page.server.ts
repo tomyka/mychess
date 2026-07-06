@@ -1,13 +1,14 @@
 import type { PageServerLoad } from './$types';
+import { listRelationshipsForCoach } from '$lib/server/coach-players';
 
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
 	const { user, session, profile } = await safeGetSession();
+	const { active, pending } = await listRelationshipsForCoach(supabase, user!.id);
 
-	const { data: players } = await supabase
-		.from('profiles')
-		.select('id, display_name')
-		.eq('coach_id', user!.id)
-		.eq('role', 'player');
-
-	return { session, profile, players: players ?? [] };
+	return {
+		session,
+		profile,
+		players: active.map((r) => r.other),
+		pendingCount: pending.length
+	};
 };
