@@ -17,4 +17,12 @@ describe('repertoires page', () => {
     render(Repertoires, { props: { data: { repertoires: [], assignedRepertoires: [] } } });
     expect(screen.queryByText(/Assigned by your coach/i)).toBeNull();
   });
+  it('suggests asking a coach only when nothing is assigned either', () => {
+    render(Repertoires, { props: { data: { repertoires: [], assignedRepertoires: [] } } });
+    expect(screen.getByText(/Ask your coach to assign one/i)).toBeTruthy();
+  });
+  it('does not suggest asking a coach when repertoires are already assigned', () => {
+    render(Repertoires, { props: { data: { repertoires: [], assignedRepertoires: assigned } } });
+    expect(screen.queryByText(/Ask your coach to assign one/i)).toBeNull();
+  });
 });

@@ -39,7 +39,9 @@
         <div class="text-center py-16 text-gray-400">
           <p class="text-4xl mb-4">📚</p>
           <p class="font-semibold text-lg text-gray-500">No repertoires yet</p>
-          <p class="text-sm mt-1">Ask your coach to assign one, or create your own.</p>
+          {#if !data.assignedRepertoires?.length}
+            <p class="text-sm mt-1">Ask your coach to assign one, or create your own.</p>
+          {/if}
         </div>
       {:else}
         <ul class="space-y-2">
