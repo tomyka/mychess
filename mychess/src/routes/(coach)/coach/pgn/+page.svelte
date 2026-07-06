@@ -1,7 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
 
-  let { data, form } = $props<{ data: { players: any[] }; form: any }>();
+  let { form } = $props<{ form: any }>();
   let color = $state<'white' | 'black'>('white');
   let pgnText = $state('');
   let fileError = $state('');
@@ -64,19 +64,6 @@
         </div>
         <input type="hidden" name="color" value={color} />
       </div>
-
-      {#if data.players.length > 0}
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1" for="player_id">Assign to player</label>
-          <select id="player_id" name="player_id"
-                  class="w-full rounded-lg px-4 py-2.5 border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <option value="">Myself</option>
-            {#each data.players as player}
-              <option value={player.id}>{player.display_name}</option>
-            {/each}
-          </select>
-        </div>
-      {/if}
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1" for="pgn_text">Paste PGN text</label>
