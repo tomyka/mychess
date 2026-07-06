@@ -2,6 +2,7 @@
   import { enhance } from '$app/forms';
 
   let { data, form } = $props<{ data: { players: any[] }; form: any }>();
+  let color = $state<'white' | 'black'>('white');
 </script>
 
 <svelte:head>
@@ -29,6 +30,23 @@
         <label class="block text-sm font-medium text-gray-700 mb-1" for="name">Repertoire Name</label>
         <input id="name" name="name" required placeholder="e.g. Sicilian Defense"
                class="w-full rounded-lg px-4 py-2.5 border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      </div>
+
+      <div>
+        <span class="block text-sm font-medium text-gray-700 mb-1">Color</span>
+        <div class="flex gap-3">
+          {#each [{ id: 'white', label: 'White' }, { id: 'black', label: 'Black' }] as const as c}
+            <button
+              type="button"
+              onclick={() => (color = c.id)}
+              class="flex-1 py-2.5 px-2 rounded-xl font-semibold transition-all border-2 text-sm
+                     {color === c.id ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}"
+            >
+              {c.label}
+            </button>
+          {/each}
+        </div>
+        <input type="hidden" name="color" value={color} />
       </div>
 
       {#if data.players.length > 0}
