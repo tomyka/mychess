@@ -16,7 +16,13 @@ export async function importPgn(
 
   const { data: rep, error: repErr } = await supabase
     .from('repertoires')
-    .insert({ player_id: params.playerId, name: params.name, color: params.color })
+    .insert({
+      player_id: params.playerId,
+      name: params.name,
+      color: params.color,
+      eco_code: plan.ecoCode,
+      eco_name: plan.ecoName
+    })
     .select()
     .single();
   if (repErr) return { repertoireId: null, gameCount: null, error: repErr.message };
