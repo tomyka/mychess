@@ -3,6 +3,22 @@
 
   let { data, form } = $props<{ data: { players: any[] }; form: any }>();
   let color = $state<'white' | 'black'>('white');
+  let pgnText = $state('');
+  let fileError = $state('');
+
+  function onFileChange(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      pgnText = reader.result as string;
+      fileError = '';
+    };
+    reader.onerror = () => {
+      fileError = 'Could not read that file — try pasting the PGN text instead.';
+    };
+    reader.readAsText(file);
+  }
 </script>
 
 <svelte:head>
@@ -64,10 +80,19 @@
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1" for="pgn_text">Paste PGN text</label>
-        <textarea id="pgn_text" name="pgn_text" rows="8"
+        <textarea id="pgn_text" name="pgn_text" rows="8" bind:value={pgnText}
                   placeholder="[Event &quot;Example&quot;]&#10;&#10;1. e4 e5 *"
                   class="w-full rounded-lg px-4 py-2.5 border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm resize-none"
         ></textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="pgn_file">…or upload a .pgn file</label>
+        <input id="pgn_file" type="file" accept=".pgn" onchange={onFileChange}
+               class="w-full text-sm text-gray-600" />
+        {#if fileError}
+          <p class="text-red-600 text-sm mt-1">{fileError}</p>
+        {/if}
       </div>
 
       <button type="submit"
