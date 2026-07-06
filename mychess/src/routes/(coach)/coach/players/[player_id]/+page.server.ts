@@ -6,18 +6,17 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
   const { user } = await safeGetSession();
   if (!user) throw redirect(303, '/login');
 
-  const [playerRes, statsRes, repsRes, notesRes] = await Promise.all([
+  const [playerRes, statsRes, notesRes, coachRepsRes, assignedRes] = await Promise.all([
     supabase.from('profiles').select('id, display_name, weekly_xp_goal').eq('id', params.player_id).single(),
     supabase.from('player_stats').select('*').eq('player_id', params.player_id).single(),
-    supabase.from('repertoires').select('id, name, color').eq('player_id', params.player_id),
-    supabase.from('coach_notes').select('*').eq('player_id', params.player_id).order('created_at', { ascending: false }).limit(5)
+    supabase.from('coach_notes').select('id, note, created_at').eq('player_id', params.player_id).order('created_at', { ascending: false }).limit(5),
+    supabase.from('repertoires').select('id, name, color').eq('player_id', user.id),
+    supabase
+      .from('assigned_repertoires')
+      .select('id, repertoire:repertoire_id(id, name, color)')
+      .eq('coach_id', user.id)
+      .eq('player_id', params.player_id)
   ]);
-
-  // Coach's own repertoires for assignment
-  const { data: coachReps } = await supabase
-    .from('repertoires')
-    .select('id, name, color')
-    .eq('player_id', user.id);
 
   const totalXp = statsRes.data?.total_xp ?? 0;
   const levelInfo = levelFromXp(totalXp);
@@ -25,9 +24,9 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
   return {
     player: playerRes.data,
     stats: { ...statsRes.data, ...levelInfo },
-    repertoires: repsRes.data ?? [],
-    coachReps: coachReps ?? [],
     notes: notesRes.data ?? [],
+    coachReps: coachRepsRes.data ?? [],
+    assignedReps: assignedRes.data ?? [],
     playerId: params.player_id
   };
 };
