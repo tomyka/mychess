@@ -39,6 +39,7 @@
         <a href="/tournaments" class={linkClass(['/tournaments'])}>Tournaments</a>
         <a href="/learn" class={linkClass(['/learn', '/drill', '/practice', '/time-trial'])}>Learn</a>
         <a href="/repertoires" class={linkClass(['/repertoires'])}>Repertoires</a>
+        <a href="/coaches" class={linkClass(['/coaches'])}>Coaches</a>
       {:else}
         <a href="/tournaments" class={linkClass(['/tournaments'])}>Tournaments</a>
       {/if}
@@ -125,6 +126,7 @@
         <a href="/tournaments" onclick={() => mobileMenuOpen = false} class="text-gray-700">Tournaments</a>
         <a href="/learn" onclick={() => mobileMenuOpen = false} class="text-gray-700">Learn</a>
         <a href="/repertoires" onclick={() => mobileMenuOpen = false} class="text-gray-700">Repertoires</a>
+        <a href="/coaches" onclick={() => mobileMenuOpen = false} class="text-gray-700">Coaches</a>
         <div class="border-t border-gray-100 pt-2">
           <a href="/settings" onclick={() => mobileMenuOpen = false} class="block text-gray-600">Settings</a>
           <a href="/cosmetics" onclick={() => mobileMenuOpen = false} class="block text-gray-600 mt-2">Customise</a>
