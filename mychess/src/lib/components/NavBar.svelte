@@ -33,7 +33,11 @@
     <!-- Desktop nav links -->
     <div class="hidden md:flex items-center gap-6 text-sm">
       {#if isCoach}
-        <a href="/coach" class={linkClass(['/coach'])}>Coach Dashboard</a>
+        <a href="/coach"
+           class={pathname === '/coach' || active(['/coach/students', '/coach/invite', '/coach/players'])
+             ? 'text-indigo-600 font-semibold border-b-2 border-indigo-600 pb-0.5'
+             : 'text-gray-600 hover:text-gray-900 transition-colors'}>Players</a>
+        <a href="/coach/repertoires" class={linkClass(['/coach/repertoires', '/coach/pgn'])}>Repertoires</a>
       {:else if !isGuest}
         <a href="/" class={linkClass(['/'])}>Dashboard</a>
         <a href="/tournaments" class={linkClass(['/tournaments'])}>Tournaments</a>
@@ -120,7 +124,8 @@
   {#if mobileMenuOpen}
     <div class="md:hidden border-t border-gray-100 bg-white px-4 py-3 flex flex-col gap-3 text-sm">
       {#if isCoach}
-        <a href="/coach" onclick={() => mobileMenuOpen = false} class="text-gray-700 font-medium">Coach Dashboard</a>
+        <a href="/coach" onclick={() => mobileMenuOpen = false} class="text-gray-700 font-medium">Players</a>
+        <a href="/coach/repertoires" onclick={() => mobileMenuOpen = false} class="text-gray-700">Repertoires</a>
       {:else if !isGuest}
         <a href="/" onclick={() => mobileMenuOpen = false} class="text-gray-700 font-medium">Dashboard</a>
         <a href="/tournaments" onclick={() => mobileMenuOpen = false} class="text-gray-700">Tournaments</a>
