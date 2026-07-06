@@ -23,6 +23,10 @@ function toIds(coachId: string, playerId: string) {
   return { coach_id: coachId, player_id: playerId };
 }
 
+function escapePostgrestLiteral(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
 /** Sends a request from `requesterId` (whose role is `requesterRole`) to `otherId`. */
 export async function sendRequest(
   supabase: SupabaseClient,
@@ -141,8 +145,8 @@ async function browseDirectory(
     query = query.not('id', 'in', `(${params.excludeIds.join(',')})`);
   }
   if (params.search.trim()) {
-    const term = `%${params.search.trim()}%`;
-    query = query.or(`first_name.ilike.${term},last_name.ilike.${term},display_name.ilike.${term}`);
+    const term = `%${escapePostgrestLiteral(params.search.trim())}%`;
+    query = query.or(`first_name.ilike."${term}",last_name.ilike."${term}",display_name.ilike."${term}"`);
   }
   const { data, error } = await query.order('display_name', { ascending: true });
   return { entries: (data ?? []) as DirectoryEntry[], error: error?.message ?? null };
