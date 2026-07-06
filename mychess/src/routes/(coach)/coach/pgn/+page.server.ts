@@ -15,7 +15,7 @@ export const actions: Actions = {
 		if (!name || !pgnText) return fail(400, { error: 'Name and PGN required' });
 		if (color !== 'white' && color !== 'black') return fail(400, { error: 'Please select a color' });
 
-		const { repertoireId, gameCount, error } = await importPgn(supabase, {
+		const { repertoireId, error } = await importPgn(supabase, {
 			playerId: user.id,
 			name,
 			color,
@@ -23,6 +23,6 @@ export const actions: Actions = {
 		});
 		if (error) return fail(400, { error });
 
-		return { success: true, gameCount, repId: repertoireId };
+		return { success: true, repId: repertoireId };
 	}
 };

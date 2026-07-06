@@ -2,6 +2,10 @@
   import { enhance } from '$app/forms';
 
   let { data, form } = $props<{ data: { repertoires: any[] }; form: any }>();
+  let filter = $state<'all' | 'white' | 'black'>('all');
+  const filtered = $derived(
+    filter === 'all' ? data.repertoires : data.repertoires.filter((r: any) => r.color === filter)
+  );
 
   function confirmDelete(e: SubmitEvent, name: string) {
     if (!confirm(`Delete "${name}"? This can't be undone, and it will also remove it from any student it's assigned to.`)) {
@@ -28,15 +32,35 @@
       <p class="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-4">{form.error}</p>
     {/if}
 
+    {#if data.repertoires.length > 0}
+      <div class="flex gap-2 mb-4">
+        {#each [{ id: 'all', label: 'All' }, { id: 'white', label: 'White' }, { id: 'black', label: 'Black' }] as const as t}
+          <button
+            type="button"
+            onclick={() => (filter = t.id)}
+            class="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors
+                   {filter === t.id ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
+          >
+            {t.label}
+          </button>
+        {/each}
+      </div>
+    {/if}
+
     {#if data.repertoires.length === 0}
       <div class="text-center py-16 text-gray-400">
         <p class="text-4xl mb-4">📚</p>
         <p class="font-semibold text-lg text-gray-500">No repertoires yet</p>
         <p class="text-sm mt-1">Upload a PGN to build your library, then assign it to students.</p>
       </div>
+    {:else if filtered.length === 0}
+      <div class="text-center py-16 text-gray-400">
+        <p class="text-4xl mb-4">📚</p>
+        <p class="font-semibold text-lg text-gray-500">No {filter} repertoires</p>
+      </div>
     {:else}
       <ul class="space-y-2">
-        {#each data.repertoires as rep}
+        {#each filtered as rep}
           <li class="flex items-center gap-3 bg-white rounded-xl border border-gray-200 shadow-sm p-4">
             <span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color ?? '#4f46e5'}"></span>
             <div class="flex-1 min-w-0">

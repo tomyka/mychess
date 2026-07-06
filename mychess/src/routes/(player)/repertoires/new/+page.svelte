@@ -6,10 +6,12 @@
   let color = $state<'white' | 'black'>('white');
   let pgnText = $state('');
   let fileError = $state('');
+  let fileName = $state('');
 
   function onFileChange(e: Event) {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
+    fileName = file.name;
     const reader = new FileReader();
     reader.onload = () => {
       pgnText = reader.result as string;
@@ -70,8 +72,16 @@
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1" for="pgn_file">…or upload a .pgn file</label>
-        <input id="pgn_file" type="file" accept=".pgn" onchange={onFileChange}
-               class="w-full text-sm text-gray-600" />
+        <div class="flex items-center gap-3">
+          <label for="pgn_file"
+                 class="cursor-pointer inline-block bg-gray-100 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors">
+            Choose File
+          </label>
+          <input id="pgn_file" type="file" accept=".pgn" onchange={onFileChange} class="hidden" />
+          {#if fileName}
+            <span class="text-sm text-gray-500 truncate">{fileName}</span>
+          {/if}
+        </div>
         {#if fileError}
           <p class="text-red-600 text-sm mt-1">{fileError}</p>
         {/if}
