@@ -1,15 +1,12 @@
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { parsePgn } from '$lib/pgn/parser';
+import { listRelationshipsForCoach } from '$lib/server/coach-players';
 
 export const load: PageServerLoad = async ({ locals: { supabase, safeGetSession } }) => {
 	const { user } = await safeGetSession();
-	const { data: players } = await supabase
-		.from('profiles')
-		.select('id, display_name')
-		.eq('coach_id', user!.id)
-		.eq('role', 'player');
-	return { players: players ?? [] };
+	const { active } = await listRelationshipsForCoach(supabase, user!.id);
+	return { players: active.map((r) => r.other) };
 };
 
 export const actions: Actions = {
