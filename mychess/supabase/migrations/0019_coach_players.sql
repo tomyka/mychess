@@ -15,7 +15,8 @@ create table public.coach_players (
   requested_by  uuid not null references public.profiles(id),
   created_at    timestamptz not null default now(),
   responded_at  timestamptz,
-  unique (coach_id, player_id)
+  unique (coach_id, player_id),
+  check (coach_id <> player_id)
 );
 alter table public.coach_players enable row level security;
 
@@ -52,6 +53,30 @@ create policy coach_players_participant_update on public.coach_players
 create policy coach_players_participant_delete on public.coach_players
   for delete using (coach_id = auth.uid() or player_id = auth.uid());
 
+-- RLS's WITH CHECK cannot reference the pre-update row, so it cannot by
+-- itself stop a participant from rewriting coach_id/player_id/requested_by
+-- as part of the same UPDATE that flips status to 'active' — that would let
+-- someone self-approve a relationship, or hijack an active one by pointing
+-- it at a different (non-consenting) party. This trigger closes that gap by
+-- rejecting any UPDATE that touches those three columns, and rejecting any
+-- attempt to revert an active relationship back to pending.
+create or replace function public.coach_players_guard_update()
+returns trigger language plpgsql as $$
+begin
+  if new.coach_id <> old.coach_id or new.player_id <> old.player_id or new.requested_by <> old.requested_by then
+    raise exception 'coach_players: coach_id, player_id, and requested_by cannot be changed';
+  end if;
+  if old.status = 'active' and new.status = 'pending' then
+    raise exception 'coach_players: cannot revert an active relationship to pending';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger coach_players_guard_update
+  before update on public.coach_players
+  for each row execute function public.coach_players_guard_update();
+
 -- Migrate existing single-coach data: every profile with a coach_id today
 -- becomes one active row, requested_by the coach (today's model is always
 -- coach-initiated, via invite link).
@@ -70,12 +95,14 @@ select id, first_name, last_name, display_name, avatar_id
 from public.profiles
 where role = 'coach';
 grant select on public.coach_directory to authenticated;
+revoke all on public.coach_directory from anon, public;
 
 create view public.player_directory as
 select id, first_name, last_name, display_name, avatar_id
 from public.profiles
 where role = 'player';
 grant select on public.player_directory to authenticated;
+revoke all on public.player_directory from anon, public;
 
 -- Replace profiles_coach_read (coach reading a player's profile only) with a
 -- symmetric policy covering both directions and both pending + active rows
