@@ -29,7 +29,7 @@
       </a>
     {/if}
 
-    <div class="grid grid-cols-3 gap-4 mb-6">
+    <div class="grid grid-cols-2 gap-4 mb-6">
       <a href="/coach/students"
          class="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow">
         <p class="text-2xl mb-2">👥</p>
@@ -41,12 +41,6 @@
         <p class="text-2xl mb-2">🔗</p>
         <p class="font-semibold text-gray-900">Invite Links</p>
         <p class="text-sm text-gray-400">Invite students to join</p>
-      </a>
-      <a href="/coach/pgn"
-         class="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow">
-        <p class="text-2xl mb-2">📂</p>
-        <p class="font-semibold text-gray-900">Upload PGN</p>
-        <p class="text-sm text-gray-400">Add repertoires</p>
       </a>
     </div>
 

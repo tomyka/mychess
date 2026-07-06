@@ -1,5 +1,13 @@
 <script lang="ts">
-  let { data } = $props<{ data: { repertoires: any[] } }>();
+  import { enhance } from '$app/forms';
+
+  let { data, form } = $props<{ data: { repertoires: any[] }; form: any }>();
+
+  function confirmDelete(e: SubmitEvent, name: string) {
+    if (!confirm(`Delete "${name}"? This can't be undone, and it will also remove it from any student it's assigned to.`)) {
+      e.preventDefault();
+    }
+  }
 </script>
 
 <svelte:head>
@@ -15,6 +23,11 @@
         + Upload PGN
       </a>
     </div>
+
+    {#if form?.error}
+      <p class="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-4">{form.error}</p>
+    {/if}
+
     {#if data.repertoires.length === 0}
       <div class="text-center py-16 text-gray-400">
         <p class="text-4xl mb-4">📚</p>
@@ -30,6 +43,10 @@
               <h2 class="font-medium text-gray-900 truncate">{rep.name}</h2>
               <p class="text-sm text-gray-400">{rep.moves?.[0]?.count ?? 0} moves</p>
             </div>
+            <form method="POST" action="?/delete" use:enhance onsubmit={(e) => confirmDelete(e, rep.name)}>
+              <input type="hidden" name="rep_id" value={rep.id} />
+              <button class="text-sm text-red-600 hover:underline">Delete</button>
+            </form>
           </li>
         {/each}
       </ul>
