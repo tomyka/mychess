@@ -32,12 +32,6 @@
     <a href="/coach" class="text-gray-400 text-sm hover:text-gray-600 mb-6 block">← Back to Dashboard</a>
     <h1 class="text-2xl font-bold text-gray-900 mb-6">Upload Repertoire</h1>
 
-    {#if form?.success}
-      <div class="bg-green-50 border border-green-200 rounded-xl p-5 mb-6">
-        <p class="text-green-700 font-bold">Repertoire uploaded!</p>
-        <a href="/coach/repertoires" class="text-sm text-green-600 hover:underline mt-1 block">View Repertoires</a>
-      </div>
-    {/if}
     {#if form?.error}
       <p class="text-red-600 mb-4 bg-red-50 border border-red-200 px-4 py-2 rounded-xl text-sm">{form.error}</p>
     {/if}
