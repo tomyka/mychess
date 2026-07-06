@@ -83,7 +83,7 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
       .limit(10),
     supabase
       .from('coach_notes')
-      .select('id, message, created_at')
+      .select('id, note, created_at')
       .eq('player_id', user.id)
       .is('read_at', null)
       .order('created_at', { ascending: false })

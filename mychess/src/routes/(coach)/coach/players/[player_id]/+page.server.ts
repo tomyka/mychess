@@ -55,12 +55,12 @@ export const actions: Actions = {
     if (!user) return fail(401, { error: 'Unauthorized' });
 
     const fd = await request.formData();
-    const message = (fd.get('message') as string ?? '').trim();
-    if (!message) return fail(400, { error: 'Note cannot be empty' });
+    const note = ((fd.get('note') as string) ?? '').trim();
+    if (!note) return fail(400, { error: 'Note cannot be empty' });
 
     const { error } = await supabase
       .from('coach_notes')
-      .insert({ player_id: params.player_id, coach_id: user.id, message });
+      .insert({ player_id: params.player_id, coach_id: user.id, note });
 
     if (error) return fail(500, { error: error.message });
     return { success: true };
