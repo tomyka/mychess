@@ -75,7 +75,10 @@ export const actions: Actions = {
 
     const { error } = await supabase
       .from('assigned_repertoires')
-      .upsert({ player_id: params.player_id, coach_id: user.id, repertoire_id: repId });
+      .upsert(
+        { player_id: params.player_id, coach_id: user.id, repertoire_id: repId },
+        { onConflict: 'player_id,repertoire_id' }
+      );
 
     if (error) return fail(500, { error: error.message });
     return { success: true };
