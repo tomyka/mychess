@@ -51,3 +51,12 @@ describe('planImport', () => {
     expect(secondGameE4!.toFen).toBe(firstGameE4.toFen);
   });
 });
+
+describe('planImport opening detection', () => {
+  it('detects a known opening from the first game', () => {
+    const result = planImport('1. e4 e5 *', 'white');
+    if ('error' in result) throw new Error('expected moves, got error: ' + result.error);
+    expect(result.ecoCode).toBe('C20');
+    expect(result.ecoName).toBe("King's Pawn Game");
+  });
+});

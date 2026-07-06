@@ -1,4 +1,6 @@
 import { parsePgn } from './pgn/parser';
+import { detectOpening } from './openings/classify';
+import { ECO_OPENINGS } from './openings/eco-data';
 
 export type MoveRow = {
   fromFen: string;
@@ -9,7 +11,9 @@ export type MoveRow = {
   annotation: string | null;
 };
 
-export type ImportPlan = { gameCount: number; moves: MoveRow[] } | { error: string };
+export type ImportPlan =
+  | { gameCount: number; moves: MoveRow[]; ecoCode: string | null; ecoName: string | null }
+  | { error: string };
 
 /**
  * Turns PGN text + a chosen studied color into the exact move rows to write.
@@ -36,5 +40,13 @@ export function planImport(pgnText: string, color: 'white' | 'black'): ImportPla
   if (moves.length === 0) {
     return { error: 'No valid games found in PGN' };
   }
-  return { gameCount: games.length, moves };
+
+  const opening = detectOpening(games[0].moves.map((m) => m.san), ECO_OPENINGS);
+
+  return {
+    gameCount: games.length,
+    moves,
+    ecoCode: opening?.code ?? null,
+    ecoName: opening?.name ?? null
+  };
 }
