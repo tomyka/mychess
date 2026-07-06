@@ -7,6 +7,19 @@
 
   let query = $state('');
   const results = $derived(searchOpenings(query, ECO_OPENINGS).slice(0, 30));
+
+  let errorMessage = $state<string | null>(null);
+
+  function handleSubmit() {
+    return async ({ result, update }: { result: { type: string }; update: () => Promise<void> }) => {
+      if (result.type === 'success') {
+        onclose();
+      } else {
+        errorMessage = 'Could not update the opening — try again.';
+      }
+      await update();
+    };
+  }
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -31,6 +44,10 @@
     </div>
 
     <div class="p-4 space-y-3">
+      {#if errorMessage}
+        <p class="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">{errorMessage}</p>
+      {/if}
+
       <input
         type="text"
         bind:value={query}
@@ -39,7 +56,7 @@
         class="w-full text-sm rounded-lg px-3 py-2 border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
       />
 
-      <form method="POST" action="?/updateOpening" use:enhance onsubmit={onclose}>
+      <form method="POST" action="?/updateOpening" use:enhance={handleSubmit}>
         <input type="hidden" name="rep_id" value={repId} />
         <input type="hidden" name="eco_code" value="" />
         <input type="hidden" name="eco_name" value="" />
@@ -55,7 +72,7 @@
       <ul class="space-y-1">
         {#each results as opening}
           <li>
-            <form method="POST" action="?/updateOpening" use:enhance onsubmit={onclose}>
+            <form method="POST" action="?/updateOpening" use:enhance={handleSubmit}>
               <input type="hidden" name="rep_id" value={repId} />
               <input type="hidden" name="eco_code" value={opening.code} />
               <input type="hidden" name="eco_name" value={opening.name} />
