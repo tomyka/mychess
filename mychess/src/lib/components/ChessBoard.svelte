@@ -24,6 +24,22 @@
 
 	let el: HTMLElement;
 	let cg: Api;
+	let correctSquare = $state<Key | null>(null);
+
+	// Tracks the last `fen` we actually repositioned the board to. Reactive
+	// prop changes unrelated to position (e.g. `interactable` flipping once a
+	// guess is answered) must NOT re-snap the board back to this same `fen` —
+	// that would visually undo a move the player just correctly played.
+	// svelte-ignore state_referenced_locally -- intentional one-time snapshot for manual tracking, not a live binding
+	let lastAppliedFen = fen;
+
+	function squareToPosition(square: Key, boardOrientation: Color) {
+		const file = square.charCodeAt(0) - 97; // 'a' -> 0 .. 'h' -> 7
+		const rank = Number(square[1]); // 1-8
+		const col = boardOrientation === 'white' ? file : 7 - file;
+		const row = boardOrientation === 'white' ? 8 - rank : rank - 1;
+		return { left: `${(col + 0.5) * 12.5}%`, top: `${(row + 0.5) * 12.5}%` };
+	}
 
 	function buildConfig() {
 		const chess = new Chess(fen);
@@ -55,7 +71,12 @@
 						const move = chess2.move({ from: orig as any, to: dest as any, promotion: 'q' });
 						if (!move || !onmove) return;
 						const keepMove = onmove({ from: orig, to: dest, san: move.san });
-						if (keepMove === false) cg.set(buildConfig());
+						if (keepMove === false) {
+							correctSquare = null;
+							cg.set(buildConfig());
+						} else {
+							correctSquare = dest;
+						}
 					}
 				}
 			},
@@ -72,10 +93,30 @@
 	onDestroy(() => cg?.destroy());
 
 	$effect(() => {
-		if (cg) {
-			cg.set(buildConfig());
+		if (!cg) return;
+		const config = buildConfig();
+		if (fen === lastAppliedFen) {
+			// Same position as last time we repositioned — a guess may have
+			// already moved a piece visually; don't stomp on it, just apply
+			// whatever else changed (movable color, dests, orientation...).
+			delete (config as { fen?: string }).fen;
+		} else {
+			lastAppliedFen = fen;
+			correctSquare = null;
 		}
+		cg.set(config);
 	});
 </script>
 
-<div bind:this={el} class="w-full aspect-square rounded-xl overflow-hidden shadow-2xl"></div>
+<div class="relative w-full aspect-square rounded-xl overflow-hidden shadow-2xl">
+	<div bind:this={el} class="w-full h-full"></div>
+	{#if correctSquare}
+		{@const pos = squareToPosition(correctSquare, orientation)}
+		<div
+			class="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center w-9 h-9 rounded-full bg-green-500 text-white text-xs font-bold shadow-lg"
+			style="left: {pos.left}; top: {pos.top};"
+		>
+			OK
+		</div>
+	{/if}
+</div>
