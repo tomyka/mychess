@@ -37,6 +37,7 @@
 	let wrongMove = $state(false);
 	let engineLoading = $state(false);
 	let engineFeedback = $state<{ swingCp: number; quality: MoveQuality } | null>(null);
+	let evalRequestId = 0;
 
 	const current = $derived(initialQueue[currentIdx]);
 	const done = $derived(currentIdx >= initialQueue.length && initialQueue.length > 0);
@@ -72,6 +73,7 @@
 		const bookSan = current?.move?.san;
 		if (!bookSan) return;
 
+		const requestId = ++evalRequestId;
 		engineFeedback = null;
 		engineLoading = true;
 		try {
@@ -84,11 +86,12 @@
 				evaluatePosition(bookChess.fen(), 800),
 				evaluatePosition(playedChess.fen(), 800)
 			]);
+			if (requestId !== evalRequestId) return;
 			engineFeedback = evaluateSwing(bookScore, playedScore);
 		} catch {
-			engineFeedback = null;
+			if (requestId === evalRequestId) engineFeedback = null;
 		} finally {
-			engineLoading = false;
+			if (requestId === evalRequestId) engineLoading = false;
 		}
 	}
 
@@ -119,6 +122,7 @@
 		wrongMove = false;
 		engineLoading = false;
 		engineFeedback = null;
+		evalRequestId++;
 		startTime = Date.now();
 	}
 </script>
