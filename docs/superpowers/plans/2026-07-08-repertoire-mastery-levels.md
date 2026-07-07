@@ -770,6 +770,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			.eq('repertoire_id', repertoireId)
 	]);
 
+	if (!repertoire) {
+		throw error(404, 'Repertoire not found');
+	}
+
 	const moves: RawMoveRow[] = (rawMoves ?? []).map((m: any) => ({
 		id: m.id,
 		san: m.san,
