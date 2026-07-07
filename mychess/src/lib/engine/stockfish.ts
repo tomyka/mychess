@@ -13,6 +13,16 @@ function getWorker(): Worker {
 	return worker;
 }
 
+function resetEngine() {
+	try {
+		worker?.terminate();
+	} catch {
+		// ignore — best-effort cleanup of a worker that's already in a bad state
+	}
+	worker = null;
+	readyPromise = null;
+}
+
 function waitForReady(): Promise<void> {
 	if (readyPromise) return readyPromise;
 
@@ -21,12 +31,14 @@ function waitForReady(): Promise<void> {
 		try {
 			w = getWorker();
 		} catch (err) {
+			resetEngine();
 			reject(err);
 			return;
 		}
 
 		const timeout = setTimeout(() => {
 			cleanup();
+			resetEngine();
 			reject(new Error('Stockfish failed to become ready in time'));
 		}, 15000);
 
@@ -38,6 +50,7 @@ function waitForReady(): Promise<void> {
 		}
 		function onError(err: ErrorEvent) {
 			cleanup();
+			resetEngine();
 			reject(err);
 		}
 		function cleanup() {
