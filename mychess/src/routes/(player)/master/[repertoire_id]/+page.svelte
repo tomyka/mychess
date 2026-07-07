@@ -7,6 +7,7 @@
   import { evaluatePosition } from '$lib/engine/stockfish';
   import { evaluateSwing, type MoveQuality } from '$lib/engine/classify';
   import { invalidateAll } from '$app/navigation';
+  import { untrack } from 'svelte';
 
   let { data } = $props<{ data: any }>();
 
@@ -55,9 +56,11 @@
     }
   }
 
+  resetForAttempt();
+
   $effect(() => {
     attempt;
-    resetForAttempt();
+    untrack(() => resetForAttempt());
   });
 
   function handleMove(detail: { from: Key; to: Key; san: string }) {
@@ -121,6 +124,10 @@
       });
       const result = await res.json();
       sessionXp += result.xpAwarded ?? 0;
+    } catch {
+      // XP submission failed — the practice attempt itself still succeeded and
+      // is already shown to the player; just skip the XP bump silently rather
+      // than blocking their progress on a network hiccup.
     } finally {
       submitting = false;
     }
