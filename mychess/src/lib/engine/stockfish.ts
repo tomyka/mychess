@@ -1,0 +1,100 @@
+import type { EngineScore } from './classify';
+
+const ENGINE_URL = '/stockfish/stockfish-18-lite-single.js';
+
+let worker: Worker | null = null;
+let readyPromise: Promise<void> | null = null;
+
+function getWorker(): Worker {
+	if (!worker) {
+		worker = new Worker(ENGINE_URL);
+	}
+	return worker;
+}
+
+function waitForReady(): Promise<void> {
+	if (readyPromise) return readyPromise;
+
+	readyPromise = new Promise((resolve, reject) => {
+		let w: Worker;
+		try {
+			w = getWorker();
+		} catch (err) {
+			reject(err);
+			return;
+		}
+
+		const timeout = setTimeout(() => {
+			cleanup();
+			reject(new Error('Stockfish failed to become ready in time'));
+		}, 15000);
+
+		function onMessage(e: MessageEvent) {
+			if (e.data === 'readyok') {
+				cleanup();
+				resolve();
+			}
+		}
+		function onError(err: ErrorEvent) {
+			cleanup();
+			reject(err);
+		}
+		function cleanup() {
+			clearTimeout(timeout);
+			w.removeEventListener('message', onMessage);
+			w.removeEventListener('error', onError);
+		}
+
+		w.addEventListener('message', onMessage);
+		w.addEventListener('error', onError);
+		w.postMessage('uci');
+		w.postMessage('isready');
+	});
+
+	return readyPromise;
+}
+
+/** Runs a fixed-time search on `fen` and resolves with the final evaluation. Rejects if the engine can't load or times out. */
+export async function evaluatePosition(fen: string, movetimeMs: number): Promise<EngineScore> {
+	await waitForReady();
+	const w = getWorker();
+
+	return new Promise((resolve, reject) => {
+		let latest: EngineScore = { cp: null, mate: null };
+
+		const timeout = setTimeout(() => {
+			cleanup();
+			reject(new Error('Stockfish evaluation timed out'));
+		}, movetimeMs + 5000);
+
+		function onMessage(e: MessageEvent) {
+			const line = e.data;
+			if (typeof line !== 'string') return;
+
+			const scoreMatch = line.match(/score (cp|mate) (-?\d+)/);
+			if (scoreMatch) {
+				const [, kind, value] = scoreMatch;
+				latest = kind === 'cp' ? { cp: Number(value), mate: null } : { cp: null, mate: Number(value) };
+			}
+
+			if (line.startsWith('bestmove')) {
+				cleanup();
+				resolve(latest);
+			}
+		}
+		function onError(err: ErrorEvent) {
+			cleanup();
+			reject(err);
+		}
+		function cleanup() {
+			clearTimeout(timeout);
+			w.removeEventListener('message', onMessage);
+			w.removeEventListener('error', onError);
+		}
+
+		w.addEventListener('message', onMessage);
+		w.addEventListener('error', onError);
+		w.postMessage(`position fen ${fen}`);
+		w.postMessage(`go movetime ${movetimeMs}`);
+	});
+}
