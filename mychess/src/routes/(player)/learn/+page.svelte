@@ -8,8 +8,13 @@
 	import { Chess } from 'chess.js';
 	import { evaluatePosition } from '$lib/engine/stockfish';
 	import { evaluateSwing, type MoveQuality } from '$lib/engine/classify';
+	import { onDestroy } from 'svelte';
 
 	let { data } = $props<{ data: any }>();
+
+	// How long the ✅ correct move stays on the board before the next card's
+	// position auto-loads (opponent's reply). Wrong / gave-up answers don't use this.
+	const AUTO_ADVANCE_MS = 700;
 
 	const QUALITY_LABEL: Record<MoveQuality, string> = {
 		fine: 'Also fine',
@@ -38,6 +43,10 @@
 	let engineLoading = $state(false);
 	let engineFeedback = $state<{ swingCp: number; quality: MoveQuality } | null>(null);
 	let evalRequestId = 0;
+	// Only true when the player must click Next themselves (gave up / showed answer).
+	// A correct move auto-advances instead of showing the button.
+	let awaitingNext = $state(false);
+	let advanceTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const current = $derived(initialQueue[currentIdx]);
 	const done = $derived(currentIdx >= initialQueue.length && initialQueue.length > 0);
@@ -59,6 +68,7 @@
 			correct++;
 			phase = 'feedback';
 			submitReview(rating, xp);
+			scheduleAdvance();
 			return true;
 		} else {
 			playWrong();
@@ -102,6 +112,7 @@
 		sessionXp = Math.max(0, sessionXp + xp);
 		incorrect++;
 		phase = 'feedback';
+		awaitingNext = true;
 		submitReview(Rating.Again, xp);
 	}
 
@@ -115,16 +126,33 @@
 		});
 	}
 
+	function scheduleAdvance() {
+		if (advanceTimer) clearTimeout(advanceTimer);
+		advanceTimer = setTimeout(() => {
+			advanceTimer = null;
+			next();
+		}, AUTO_ADVANCE_MS);
+	}
+
 	function next() {
+		if (advanceTimer) {
+			clearTimeout(advanceTimer);
+			advanceTimer = null;
+		}
 		currentIdx++;
 		phase = 'guess';
 		showHint = false;
 		wrongMove = false;
+		awaitingNext = false;
 		engineLoading = false;
 		engineFeedback = null;
 		evalRequestId++;
 		startTime = Date.now();
 	}
+
+	onDestroy(() => {
+		if (advanceTimer) clearTimeout(advanceTimer);
+	});
 </script>
 
 <svelte:head>
@@ -226,10 +254,12 @@
             </p>
           {/if}
         {/if}
-        <button onclick={next}
-                class="mt-4 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition">
-          {currentIdx + 1 < initialQueue.length ? 'Next →' : 'Finish'}
-        </button>
+        {#if awaitingNext}
+          <button onclick={next}
+                  class="mt-4 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition">
+            {currentIdx + 1 < initialQueue.length ? 'Next →' : 'Finish'}
+          </button>
+        {/if}
       </div>
     {/if}
   {/if}

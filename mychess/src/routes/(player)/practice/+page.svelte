@@ -1,17 +1,26 @@
 <script lang="ts">
 	import ChessBoard from '$lib/components/ChessBoard.svelte';
 	import type { Key } from 'chessground/types';
+	import { onDestroy } from 'svelte';
 
 	let { data } = $props<{ data: any }>();
 
 	const moves = $derived((data as any).moves ?? []);
 
+	// How long the ✅ correct move stays on the board before the opponent's
+	// reply auto-plays (the next card's position). Wrong answers don't use this.
+	const AUTO_ADVANCE_MS = 700;
+
 	let currentIdx = $state(0);
 	let correct = $state(0);
 	let incorrect = $state(0);
 	let showAnswer = $state(false);
+	// Only true when the player must click Next themselves (wrong guess / revealed).
+	// A correct move auto-advances instead of showing the button.
+	let awaitingNext = $state(false);
 	let wrongMove = $state(false);
 	let done = $state(false);
+	let advanceTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const current = $derived(moves[currentIdx]);
 	const boardFen = $derived(
@@ -24,6 +33,7 @@
 			wrongMove = false;
 			correct++;
 			showAnswer = true;
+			scheduleAdvance();
 			return true;
 		} else {
 			wrongMove = true;
@@ -34,26 +44,49 @@
 
 	function reveal() {
 		showAnswer = true;
+		awaitingNext = true;
+	}
+
+	function scheduleAdvance() {
+		if (advanceTimer) clearTimeout(advanceTimer);
+		advanceTimer = setTimeout(() => {
+			advanceTimer = null;
+			next();
+		}, AUTO_ADVANCE_MS);
 	}
 
 	function next() {
+		if (advanceTimer) {
+			clearTimeout(advanceTimer);
+			advanceTimer = null;
+		}
 		if (currentIdx + 1 >= moves.length) {
 			done = true;
 		} else {
 			currentIdx++;
 			showAnswer = false;
+			awaitingNext = false;
 			wrongMove = false;
 		}
 	}
 
 	function restart() {
+		if (advanceTimer) {
+			clearTimeout(advanceTimer);
+			advanceTimer = null;
+		}
 		currentIdx = 0;
 		correct = 0;
 		incorrect = 0;
 		showAnswer = false;
+		awaitingNext = false;
 		wrongMove = false;
 		done = false;
 	}
+
+	onDestroy(() => {
+		if (advanceTimer) clearTimeout(advanceTimer);
+	});
 </script>
 
 <svelte:head>
@@ -137,10 +170,12 @@
         <p class="text-xl font-bold mb-1 {wrongMove ? 'text-gray-700' : 'text-green-600'}">
           {wrongMove ? 'Answer: ' + current?.san : '✅ Correct! ' + current?.san}
         </p>
-        <button onclick={next}
-                class="mt-4 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition">
-          {currentIdx + 1 < moves.length ? 'Next →' : 'Finish'}
-        </button>
+        {#if awaitingNext}
+          <button onclick={next}
+                  class="mt-4 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition">
+            {currentIdx + 1 < moves.length ? 'Next →' : 'Finish'}
+          </button>
+        {/if}
       </div>
     {/if}
   {/if}
