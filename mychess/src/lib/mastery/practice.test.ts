@@ -71,4 +71,14 @@ describe('splitAttempt', () => {
 		expect(lastStep.isPlayerTurn).toBe(true);
 		expect(lastStep.moveId).toBe(v.path[2].moveId); // the 2nd player move is at path index 2
 	});
+
+	it('throws when targetDepthValue exceeds the number of player moves in the path', () => {
+		const v = makeVariation('leaf1', 3);
+		expect(() => splitAttempt(v.path, 0, 10)).toThrow();
+	});
+
+	it('throws when startPoint is out of range for the path', () => {
+		const v = makeVariation('leaf1', 3);
+		expect(() => splitAttempt(v.path, 10, 3)).toThrow();
+	});
 });

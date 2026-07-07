@@ -51,6 +51,12 @@ export function splitAttempt(
 	const nextPlayerIdx = playerIndices[startPoint];
 	const targetPlayerIdx = playerIndices[targetDepthValue - 1];
 
+	if (nextPlayerIdx === undefined || targetPlayerIdx === undefined || startPoint >= targetDepthValue) {
+		throw new Error(
+			`splitAttempt: startPoint (${startPoint}) and targetDepthValue (${targetDepthValue}) are inconsistent with the given path (${playerIndices.length} player moves found)`
+		);
+	}
+
 	return {
 		prefix: path.slice(0, nextPlayerIdx),
 		quizSteps: path.slice(nextPlayerIdx, targetPlayerIdx + 1)
