@@ -4,6 +4,7 @@ const ENGINE_URL = '/stockfish/stockfish-18-lite-single.js';
 
 let worker: Worker | null = null;
 let readyPromise: Promise<void> | null = null;
+let queue: Promise<unknown> = Promise.resolve();
 
 function getWorker(): Worker {
 	if (!worker) {
@@ -54,8 +55,7 @@ function waitForReady(): Promise<void> {
 	return readyPromise;
 }
 
-/** Runs a fixed-time search on `fen` and resolves with the final evaluation. Rejects if the engine can't load or times out. */
-export async function evaluatePosition(fen: string, movetimeMs: number): Promise<EngineScore> {
+async function runEvaluation(fen: string, movetimeMs: number): Promise<EngineScore> {
 	await waitForReady();
 	const w = getWorker();
 
@@ -97,4 +97,16 @@ export async function evaluatePosition(fen: string, movetimeMs: number): Promise
 		w.postMessage(`position fen ${fen}`);
 		w.postMessage(`go movetime ${movetimeMs}`);
 	});
+}
+
+/** Runs a fixed-time search on `fen` and resolves with the final evaluation. Rejects if the engine can't load or times out. Calls are serialized — a single Stockfish instance can only run one search at a time. */
+export async function evaluatePosition(fen: string, movetimeMs: number): Promise<EngineScore> {
+	const result = queue.then(() => runEvaluation(fen, movetimeMs));
+	// Advance the queue regardless of whether this call succeeds or fails,
+	// so one failed evaluation doesn't permanently block every call after it.
+	queue = result.then(
+		() => undefined,
+		() => undefined
+	);
+	return result;
 }
