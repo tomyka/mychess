@@ -165,17 +165,13 @@
               class="mt-6 w-full bg-white border border-gray-300 py-3 rounded-xl font-semibold hover:bg-gray-50 transition text-gray-700">
         Show Answer
       </button>
-    {:else}
+    {:else if awaitingNext}
       <div class="mt-6 p-5 bg-white border border-gray-200 rounded-2xl text-center shadow-sm">
-        <p class="text-xl font-bold mb-1 {wrongMove ? 'text-gray-700' : 'text-green-600'}">
-          {wrongMove ? 'Answer: ' + current?.san : '✅ Correct! ' + current?.san}
-        </p>
-        {#if awaitingNext}
-          <button onclick={next}
-                  class="mt-4 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition">
-            {currentIdx + 1 < moves.length ? 'Next →' : 'Finish'}
-          </button>
-        {/if}
+        <p class="text-xl font-bold mb-1 text-gray-700">Answer: {current?.san}</p>
+        <button onclick={next}
+                class="mt-4 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition">
+          {currentIdx + 1 < moves.length ? 'Next →' : 'Finish'}
+        </button>
       </div>
     {/if}
   {/if}

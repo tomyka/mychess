@@ -240,11 +240,9 @@
           Show Answer
         </button>
       </div>
-    {:else}
+    {:else if awaitingNext}
       <div class="mt-6 p-5 bg-white border border-gray-200 rounded-2xl text-center shadow-sm">
-        <p class="text-xl font-bold mb-1 {wrongMove ? 'text-gray-700' : 'text-green-600'}">
-          {wrongMove ? 'Answer: ' + current.move?.san : '✅ Correct! ' + current.move?.san}
-        </p>
+        <p class="text-xl font-bold mb-1 text-gray-700">Answer: {current.move?.san}</p>
         {#if wrongMove}
           {#if engineLoading}
             <p class="text-sm text-gray-400 mt-2">Evaluating…</p>
@@ -254,12 +252,10 @@
             </p>
           {/if}
         {/if}
-        {#if awaitingNext}
-          <button onclick={next}
-                  class="mt-4 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition">
-            {currentIdx + 1 < initialQueue.length ? 'Next →' : 'Finish'}
-          </button>
-        {/if}
+        <button onclick={next}
+                class="mt-4 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition">
+          {currentIdx + 1 < initialQueue.length ? 'Next →' : 'Finish'}
+        </button>
       </div>
     {/if}
   {/if}
