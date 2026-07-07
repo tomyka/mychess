@@ -19,6 +19,7 @@ export function toPlayerPerspective(score: EngineScore): number {
     const sign = score.mate > 0 ? 1 : -1;
     return -(sign * (MATE_BASE - Math.abs(score.mate)));
   }
+  // `|| 0` normalizes negative zero (from negating a cp of 0) to plain 0.
   return -(score.cp ?? 0) || 0;
 }
 
@@ -26,6 +27,8 @@ export function toPlayerPerspective(score: EngineScore): number {
  * Lichess-style centipawn-loss thresholds. Each boundary belongs to exactly
  * one tier: <=50 fine, <=100 inaccuracy, <=300 mistake, >300 blunder.
  */
+// The checks below must stay ordered from highest threshold to lowest —
+// each relies on falling through from the previous (higher) tier's failure.
 export function classifySwing(swingCp: number): MoveQuality {
   if (swingCp > 300) return 'blunder';
   if (swingCp > 100) return 'mistake';
