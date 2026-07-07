@@ -5,8 +5,24 @@
 	import { Rating } from 'ts-fsrs';
 	import type { Key } from 'chessground/types';
 	import { playCorrect, playWrong } from '$lib/sounds';
+	import { Chess } from 'chess.js';
+	import { evaluatePosition } from '$lib/engine/stockfish';
+	import { evaluateSwing, type MoveQuality } from '$lib/engine/classify';
 
 	let { data } = $props<{ data: any }>();
+
+	const QUALITY_LABEL: Record<MoveQuality, string> = {
+		fine: 'Also fine',
+		inaccuracy: 'Inaccuracy',
+		mistake: 'Mistake',
+		blunder: 'Blunder'
+	};
+	const QUALITY_COLOR: Record<MoveQuality, string> = {
+		fine: 'text-gray-500',
+		inaccuracy: 'text-yellow-600',
+		mistake: 'text-orange-600',
+		blunder: 'text-red-600'
+	};
 
 	// Store queue in a local variable - it won't change during the session
 	const initialQueue = $derived((data as any).queuedMoves ?? []);
@@ -19,6 +35,8 @@
 	let incorrect = $state(0);
 	let showHint = $state(false);
 	let wrongMove = $state(false);
+	let engineLoading = $state(false);
+	let engineFeedback = $state<{ swingCp: number; quality: MoveQuality } | null>(null);
 
 	const current = $derived(initialQueue[currentIdx]);
 	const done = $derived(currentIdx >= initialQueue.length && initialQueue.length > 0);
@@ -45,7 +63,32 @@
 			playWrong();
 			wrongMove = true;
 			incorrect++;
+			evaluateWrongMove(detail.san);
 			return false;
+		}
+	}
+
+	async function evaluateWrongMove(playedSan: string) {
+		const bookSan = current?.move?.san;
+		if (!bookSan) return;
+
+		engineFeedback = null;
+		engineLoading = true;
+		try {
+			const bookChess = new Chess(boardFen);
+			bookChess.move(bookSan);
+			const playedChess = new Chess(boardFen);
+			playedChess.move(playedSan);
+
+			const [bookScore, playedScore] = await Promise.all([
+				evaluatePosition(bookChess.fen(), 800),
+				evaluatePosition(playedChess.fen(), 800)
+			]);
+			engineFeedback = evaluateSwing(bookScore, playedScore);
+		} catch {
+			engineFeedback = null;
+		} finally {
+			engineLoading = false;
 		}
 	}
 
@@ -74,6 +117,8 @@
 		phase = 'guess';
 		showHint = false;
 		wrongMove = false;
+		engineLoading = false;
+		engineFeedback = null;
 		startTime = Date.now();
 	}
 </script>
@@ -168,6 +213,15 @@
         <p class="text-xl font-bold mb-1 {wrongMove ? 'text-gray-700' : 'text-green-600'}">
           {wrongMove ? 'Answer: ' + current.move?.san : '✅ Correct! ' + current.move?.san}
         </p>
+        {#if wrongMove}
+          {#if engineLoading}
+            <p class="text-sm text-gray-400 mt-2">Evaluating…</p>
+          {:else if engineFeedback}
+            <p class="text-sm mt-2 font-semibold {QUALITY_COLOR[engineFeedback.quality]}">
+              {QUALITY_LABEL[engineFeedback.quality]}{#if engineFeedback.quality !== 'fine'} (−{engineFeedback.swingCp}cp){/if}
+            </p>
+          {/if}
+        {/if}
         <button onclick={next}
                 class="mt-4 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition">
           {currentIdx + 1 < initialQueue.length ? 'Next →' : 'Finish'}
