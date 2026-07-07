@@ -11,18 +11,19 @@ export const POST: RequestHandler = async ({ request, locals: { supabase, safeGe
 		return json({ error: 'Invalid request' }, { status: 400 });
 	}
 
-	const { data: existing } = await supabase
+	const { data: existing, error: selectError } = await supabase
 		.from('variation_progress')
 		.select('deepest_depth_reached')
 		.eq('player_id', user.id)
 		.eq('variation_key', variationKey)
 		.maybeSingle();
+	if (selectError) return json({ error: selectError.message }, { status: 500 });
 
 	const oldDepth = existing?.deepest_depth_reached ?? 0;
 	const newlyCovered = Math.max(0, depthReached - oldDepth);
 
 	if (newlyCovered > 0) {
-		await supabase.from('variation_progress').upsert(
+		const { error: upsertError } = await supabase.from('variation_progress').upsert(
 			{
 				player_id: user.id,
 				repertoire_id: repertoireId,
@@ -32,11 +33,16 @@ export const POST: RequestHandler = async ({ request, locals: { supabase, safeGe
 			},
 			{ onConflict: 'player_id,variation_key' }
 		);
+		if (upsertError) return json({ error: upsertError.message }, { status: 500 });
 	}
 
 	const xpAwarded = newlyCovered * xpForReview(true, false);
 	if (xpAwarded > 0) {
-		await supabase.rpc('update_xp_and_level', { p_player_id: user.id, p_xp_delta: xpAwarded });
+		const { error: rpcError } = await supabase.rpc('update_xp_and_level', {
+			p_player_id: user.id,
+			p_xp_delta: xpAwarded
+		});
+		if (rpcError) return json({ error: rpcError.message }, { status: 500 });
 	}
 
 	return json({ xpAwarded });
