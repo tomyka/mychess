@@ -18,6 +18,7 @@ export type VariationStep = {
 
 export type Variation = {
 	leafMoveId: string;
+	variationKey: string;
 	path: VariationStep[];
 	playerMoveCount: number;
 };
@@ -47,7 +48,12 @@ export function enumerateVariations(moves: RawMoveRow[]): Variation[] {
 		const outgoing = byFrom.get(positionId) ?? [];
 		if (outgoing.length === 0) {
 			if (path.length > 0) {
-				variations.push({ leafMoveId: path[path.length - 1].moveId, path, playerMoveCount });
+				variations.push({
+					leafMoveId: path[path.length - 1].moveId,
+					variationKey: path.map((s) => s.moveId).join('>'),
+					path,
+					playerMoveCount
+				});
 			}
 			return;
 		}

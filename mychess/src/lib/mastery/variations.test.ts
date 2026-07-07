@@ -82,4 +82,20 @@ describe('enumerateVariations', () => {
 	it('returns an empty array for no moves', () => {
 		expect(enumerateVariations([])).toEqual([]);
 	});
+
+	it('gives two variations the same leafMoveId but different variationKeys when they transpose into a shared tail', () => {
+		// Two different prefixes (m1a vs m1b) both lead into the same shared node P_SHARED,
+		// which then has one single continuation to a shared leaf (m3) — a transposition.
+		const moves = [
+			move('m1a', 'START_A', 'P_SHARED', 'e4', true),
+			move('m1b', 'START_B', 'P_SHARED', 'd4', true),
+			move('m2', 'P_SHARED', 'P2', 'Nf3', false),
+			move('m3', 'P2', 'P3', 'Bb5', true)
+		];
+		const result = enumerateVariations(moves);
+		expect(result).toHaveLength(2);
+		expect(result[0].leafMoveId).toBe('m3');
+		expect(result[1].leafMoveId).toBe('m3');
+		expect(result[0].variationKey).not.toBe(result[1].variationKey);
+	});
 });
