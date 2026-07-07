@@ -47,6 +47,22 @@ describe('enumerateVariations', () => {
     expect(result[0].playerMoveCount).toBe(2);
   });
 
+  it('gives two variations the same leafMoveId but different variationKeys when they transpose into a shared tail', () => {
+    // Two different prefixes (m1a vs m1b) both lead into the same shared node P_SHARED,
+    // which then has one single continuation to a shared leaf (m3) — a transposition.
+    const moves = [
+      move('m1a', 'START_A', 'P_SHARED', 'e4', true),
+      move('m1b', 'START_B', 'P_SHARED', 'd4', true),
+      move('m2', 'P_SHARED', 'P2', 'Nf3', false),
+      move('m3', 'P2', 'P3', 'Bb5', true)
+    ];
+    const result = enumerateVariations(moves);
+    expect(result).toHaveLength(2);
+    expect(result[0].leafMoveId).toBe('m3');
+    expect(result[1].leafMoveId).toBe('m3');
+    expect(result[0].variationKey).not.toBe(result[1].variationKey);
+  });
+
   it('splits into two variations when the opponent has two replies', () => {
     const moves = [
       move('m1', 'START', 'P1', 'e4', true),
@@ -136,6 +152,7 @@ export type VariationStep = {
 
 export type Variation = {
 	leafMoveId: string;
+	variationKey: string;
 	path: VariationStep[];
 	playerMoveCount: number;
 };
@@ -145,6 +162,14 @@ export type Variation = {
  * root-to-leaf path). A branch — whether the opponent has multiple replies,
  * or the repertoire itself prepares two responses at one node — produces two
  * separate variations sharing the common prefix up to the branch point.
+ *
+ * `leafMoveId` alone is NOT a safe uniqueness key: if a repertoire merges
+ * games that transpose into a shared position (a supported, realistic
+ * scenario — see pgn-import.ts), two genuinely different paths can converge
+ * and share an identical tail, ending on the same leaf move. `variationKey`
+ * (the full ordered sequence of move ids, joined by a separator that can
+ * never appear inside a UUID) is unique per distinct path and is what
+ * later tasks use as the actual database key for progress tracking.
  */
 export function enumerateVariations(moves: RawMoveRow[]): Variation[] {
 	const byFrom = new Map<string, RawMoveRow[]>();
@@ -165,7 +190,12 @@ export function enumerateVariations(moves: RawMoveRow[]): Variation[] {
 		const outgoing = byFrom.get(positionId) ?? [];
 		if (outgoing.length === 0) {
 			if (path.length > 0) {
-				variations.push({ leafMoveId: path[path.length - 1].moveId, path, playerMoveCount });
+				variations.push({
+					leafMoveId: path[path.length - 1].moveId,
+					variationKey: path.map((s) => s.moveId).join('>'),
+					path,
+					playerMoveCount
+				});
 			}
 			return;
 		}
@@ -192,7 +222,7 @@ export function enumerateVariations(moves: RawMoveRow[]): Variation[] {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cd mychess && npx vitest run src/lib/mastery/variations.test.ts`
-Expected: PASS (6 tests)
+Expected: PASS (7 tests)
 
 - [ ] **Step 5: Commit**
 
@@ -399,7 +429,8 @@ function makeVariation(leafMoveId: string, playerMoveCount: number): Variation &
       isPlayerTurn
     });
   }
-  return { leafMoveId, path, playerMoveCount, deepestReached: 0 };
+  const variationKey = path.map((s) => s.moveId).join('>');
+  return { leafMoveId, variationKey, path, playerMoveCount, deepestReached: 0 };
 }
 
 describe('pickPracticeAttempt', () => {
@@ -453,6 +484,16 @@ describe('splitAttempt', () => {
     const lastStep = quizSteps[quizSteps.length - 1];
     expect(lastStep.isPlayerTurn).toBe(true);
     expect(lastStep.moveId).toBe(v.path[2].moveId); // the 2nd player move is at path index 2
+  });
+
+  it('throws when targetDepthValue exceeds the number of player moves in the path', () => {
+    const v = makeVariation('leaf1', 3);
+    expect(() => splitAttempt(v.path, 0, 10)).toThrow();
+  });
+
+  it('throws when startPoint is out of range for the path', () => {
+    const v = makeVariation('leaf1', 3);
+    expect(() => splitAttempt(v.path, 10, 3)).toThrow();
   });
 });
 ```
@@ -518,6 +559,12 @@ export function splitAttempt(
 	const nextPlayerIdx = playerIndices[startPoint];
 	const targetPlayerIdx = playerIndices[targetDepthValue - 1];
 
+	if (nextPlayerIdx === undefined || targetPlayerIdx === undefined || startPoint >= targetDepthValue) {
+		throw new Error(
+			`splitAttempt: startPoint (${startPoint}) and targetDepthValue (${targetDepthValue}) are inconsistent with the given path (${playerIndices.length} player moves found)`
+		);
+	}
+
 	return {
 		prefix: path.slice(0, nextPlayerIdx),
 		quizSteps: path.slice(nextPlayerIdx, targetPlayerIdx + 1)
@@ -528,7 +575,7 @@ export function splitAttempt(
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cd mychess && npx vitest run src/lib/mastery/practice.test.ts`
-Expected: PASS (6 tests)
+Expected: PASS (8 tests)
 
 - [ ] **Step 5: Commit**
 
@@ -549,18 +596,26 @@ git push
 
 ```sql
 -- mychess/supabase/migrations/0023_variation_progress.sql
--- Tracks, per player and per variation (identified by its leaf move id, since
--- a tree has exactly one path from any node back to its root), the deepest
--- point the player has successfully played through. Levels are derived from
--- this single number at query time, not stored separately.
+-- Tracks, per player and per variation, the deepest point the player has
+-- successfully played through. Levels are derived from this single number
+-- at query time, not stored separately.
+--
+-- A variation is identified by `variation_key` (the full ordered sequence of
+-- move ids along its path, joined by '>'), NOT by leaf_move_id alone: if a
+-- repertoire merges games that transpose into a shared position, two
+-- genuinely different paths can converge and share an identical tail,
+-- ending on the same leaf move. leaf_move_id is kept purely as an
+-- informational FK to the variation's final move (e.g. for debugging),
+-- not as the uniqueness key.
 create table public.variation_progress (
   id                    uuid primary key default gen_random_uuid(),
   player_id             uuid not null references public.profiles(id) on delete cascade,
   repertoire_id         uuid not null references public.repertoires(id) on delete cascade,
   leaf_move_id          uuid not null references public.moves(id) on delete cascade,
+  variation_key         text not null,
   deepest_depth_reached int not null default 0,
   updated_at            timestamptz not null default now(),
-  unique(player_id, leaf_move_id)
+  unique(player_id, variation_key)
 );
 
 alter table public.variation_progress enable row level security;
@@ -604,8 +659,8 @@ export const POST: RequestHandler = async ({ request, locals: { supabase, safeGe
 	const { user } = await safeGetSession();
 	if (!user) return json({ error: 'Unauthorized' }, { status: 401 });
 
-	const { repertoireId, leafMoveId, depthReached } = await request.json();
-	if (!repertoireId || !leafMoveId || typeof depthReached !== 'number') {
+	const { repertoireId, leafMoveId, variationKey, depthReached } = await request.json();
+	if (!repertoireId || !leafMoveId || !variationKey || typeof depthReached !== 'number') {
 		return json({ error: 'Invalid request' }, { status: 400 });
 	}
 
@@ -613,7 +668,7 @@ export const POST: RequestHandler = async ({ request, locals: { supabase, safeGe
 		.from('variation_progress')
 		.select('deepest_depth_reached')
 		.eq('player_id', user.id)
-		.eq('leaf_move_id', leafMoveId)
+		.eq('variation_key', variationKey)
 		.maybeSingle();
 
 	const oldDepth = existing?.deepest_depth_reached ?? 0;
@@ -625,9 +680,10 @@ export const POST: RequestHandler = async ({ request, locals: { supabase, safeGe
 				player_id: user.id,
 				repertoire_id: repertoireId,
 				leaf_move_id: leafMoveId,
+				variation_key: variationKey,
 				deepest_depth_reached: depthReached
 			},
-			{ onConflict: 'player_id,leaf_move_id' }
+			{ onConflict: 'player_id,variation_key' }
 		);
 	}
 
@@ -701,7 +757,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			.eq('repertoire_id', repertoireId),
 		supabase
 			.from('variation_progress')
-			.select('leaf_move_id, deepest_depth_reached')
+			.select('variation_key, deepest_depth_reached')
 			.eq('player_id', user!.id)
 			.eq('repertoire_id', repertoireId)
 	]);
@@ -718,17 +774,18 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	const variations = enumerateVariations(moves);
 	const progressMap = new Map<string, number>(
-		(progressRows ?? []).map((p: any) => [p.leaf_move_id, p.deepest_depth_reached])
+		(progressRows ?? []).map((p: any) => [p.variation_key, p.deepest_depth_reached])
 	);
 	const withProgress = variations.map((v) => ({
 		...v,
-		deepestReached: progressMap.get(v.leafMoveId) ?? 0
+		deepestReached: progressMap.get(v.variationKey) ?? 0
 	}));
 
 	const level = activeLevel(withProgress);
 
 	let attempt: {
 		leafMoveId: string;
+		variationKey: string;
 		targetDepth: number;
 		prefix: ReturnType<typeof splitAttempt>['prefix'];
 		quizSteps: ReturnType<typeof splitAttempt>['quizSteps'];
@@ -740,7 +797,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		const picked = pickPracticeAttempt(withProgress, level);
 		if (picked) {
 			const { prefix, quizSteps } = splitAttempt(picked.variation.path, picked.startPoint, picked.targetDepth);
-			attempt = { leafMoveId: picked.variation.leafMoveId, targetDepth: picked.targetDepth, prefix, quizSteps };
+			attempt = {
+				leafMoveId: picked.variation.leafMoveId,
+				variationKey: picked.variation.variationKey,
+				targetDepth: picked.targetDepth,
+				prefix,
+				quizSteps
+			};
 		}
 	}
 
@@ -896,6 +959,7 @@ git push
         body: JSON.stringify({
           repertoireId: data.repertoire.id,
           leafMoveId: attempt.leafMoveId,
+          variationKey: attempt.variationKey,
           depthReached: attempt.targetDepth
         })
       });
@@ -1042,7 +1106,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			.in('repertoire_id', repIds),
 		supabase
 			.from('variation_progress')
-			.select('repertoire_id, leaf_move_id, deepest_depth_reached')
+			.select('repertoire_id, variation_key, deepest_depth_reached')
 			.eq('player_id', user!.id)
 			.in('repertoire_id', repIds)
 	]);
@@ -1065,7 +1129,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const progressByRep = new Map<string, Map<string, number>>();
 	for (const p of (progressRows ?? []) as any[]) {
 		const map = progressByRep.get(p.repertoire_id) ?? new Map<string, number>();
-		map.set(p.leaf_move_id, p.deepest_depth_reached);
+		map.set(p.variation_key, p.deepest_depth_reached);
 		progressByRep.set(p.repertoire_id, map);
 	}
 
@@ -1075,7 +1139,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		const progressMap = progressByRep.get(r.id) ?? new Map<string, number>();
 		const withProgress = variations.map((v) => ({
 			...v,
-			deepestReached: progressMap.get(v.leafMoveId) ?? 0
+			deepestReached: progressMap.get(v.variationKey) ?? 0
 		}));
 		return {
 			id: r.id,
