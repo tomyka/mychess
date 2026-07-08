@@ -1,6 +1,4 @@
 import type { PageServerLoad } from './$types';
-import { newCard } from '$lib/srs/fsrs';
-import type { Card } from '$lib/srs/fsrs';
 import { ensureGuestSession } from '$lib/server/auth';
 
 export const load: PageServerLoad = async ({ locals }) => {
