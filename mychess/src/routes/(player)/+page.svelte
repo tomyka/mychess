@@ -83,7 +83,7 @@
       <StatsRow streakDays={stats.streak_days ?? 0} />
 
       <!-- Quick study actions -->
-      <QuickActions totalReviews={stats.total_reviews ?? 0} />
+      <QuickActions />
 
       <!-- Today's tasks -->
       {#if quests.length > 0}

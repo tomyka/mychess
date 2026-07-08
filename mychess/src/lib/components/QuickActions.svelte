@@ -1,7 +1,5 @@
 <!-- MyChess/src/lib/components/QuickActions.svelte -->
 <script lang="ts">
-  let _ = $props();
-
   const actions = [
     {
       href: '/master',
