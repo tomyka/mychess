@@ -44,17 +44,22 @@ export async function importPgn(
     return { repertoireId: null, gameCount: null, error: message };
   }
 
-  for (let i = 0; i < uniqueFens.length; i += CHUNK) {
-    const chunk = uniqueFens.slice(i, i + CHUNK).map((fen) => ({ fen }));
-    const { error } = await supabase.from('positions').upsert(chunk, { onConflict: 'fen', ignoreDuplicates: true });
-    if (error) return fail(`Failed to save positions: ${error.message}`);
-  }
-
+  // Reading the ids back afterward via `.select().in('fen', chunk)` used to
+  // build a GET request with every FEN in this chunk crammed into the query
+  // string — for a large repertoire that URL blows past a length limit
+  // somewhere between here and Postgres and comes back as a bare "Bad
+  // Request". Upserting with an (effectively no-op) update instead of
+  // ignoreDuplicates makes Postgres's RETURNING include every touched row —
+  // both newly-inserted and already-existing — so we get the ids straight
+  // out of the same POST instead of a second, unbounded GET.
   const fenToId = new Map<string, string>();
   for (let i = 0; i < uniqueFens.length; i += CHUNK) {
-    const chunk = uniqueFens.slice(i, i + CHUNK);
-    const { data: rows, error } = await supabase.from('positions').select('id, fen').in('fen', chunk);
-    if (error) return fail(`Failed to load positions: ${error.message}`);
+    const chunk = uniqueFens.slice(i, i + CHUNK).map((fen) => ({ fen }));
+    const { data: rows, error } = await supabase
+      .from('positions')
+      .upsert(chunk, { onConflict: 'fen' })
+      .select('id, fen');
+    if (error) return fail(`Failed to save positions: ${error.message}`);
     for (const row of rows ?? []) fenToId.set(row.fen, row.id);
   }
 
