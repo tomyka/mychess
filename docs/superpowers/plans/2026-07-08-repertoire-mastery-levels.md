@@ -863,6 +863,7 @@ git push
   import { evaluatePosition } from '$lib/engine/stockfish';
   import { evaluateSwing, type MoveQuality } from '$lib/engine/classify';
   import { invalidateAll } from '$app/navigation';
+  import { untrack } from 'svelte';
 
   let { data } = $props<{ data: any }>();
 
@@ -911,9 +912,22 @@ git push
     }
   }
 
+  // Set the board's initial position synchronously, before ChessBoard's own
+  // onMount runs — it throws on an empty FEN, and (verified empirically) a
+  // child's onMount fires before this component's own $effect does, so
+  // waiting for the effect below to set boardFen for the first time is too
+  // late.
+  resetForAttempt();
+
+  // `attempt` must be the ONLY tracked dependency here. resetForAttempt()
+  // reads `quizIdx` (via advanceThroughOpponentReplies), and Svelte's
+  // automatic dependency tracking would otherwise also subscribe this effect
+  // to quizIdx — meaning handleMove's quizIdx++ on every correct move would
+  // re-trigger a full reset back to the start of the attempt. untrack()
+  // prevents that.
   $effect(() => {
     attempt;
-    resetForAttempt();
+    untrack(() => resetForAttempt());
   });
 
   function handleMove(detail: { from: Key; to: Key; san: string }) {
@@ -977,6 +991,10 @@ git push
       });
       const result = await res.json();
       sessionXp += result.xpAwarded ?? 0;
+    } catch {
+      // XP submission failed — the practice attempt itself still succeeded and
+      // is already shown to the player; just skip the XP bump silently rather
+      // than blocking their progress on a network hiccup.
     } finally {
       submitting = false;
     }
