@@ -10,7 +10,7 @@ Stack: SvelteKit 2 + Svelte 5 (runes), Supabase (Postgres + Auth, via `@supabase
 
 ## Repo layout
 
-The git repo root is `D:\Projects\mychess` (one level **above** this directory). This directory (`mychess/`) is the actual SvelteKit app — all `npm` commands run from here. Design specs and implementation plans from past features live one level up, at `../docs/superpowers/specs/` and `../docs/superpowers/plans/`, not under this directory's own (mostly stale) `docs/`.
+The git repo root is one level **above** this directory (`git rev-parse --show-toplevel`; the path is machine-specific, so don't hardcode it). This directory (`mychess/`) is the actual SvelteKit app — all `npm` commands run from here. Design specs and implementation plans from past features live one level up, at `../docs/superpowers/specs/` and `../docs/superpowers/plans/`, not under this directory's own (mostly stale) `docs/`.
 
 ## Commands
 
@@ -78,4 +78,5 @@ There is no lint script; `svelte-check` is the correctness gate along with vites
 ## Workflow notes
 
 - Treat production (mychess.lt / Vercel) as the test environment for this project going forward: commit and push directly to `main` without asking for confirmation first, since `main` auto-deploys via Vercel and the project has no other users yet. This does not extend to destructive git operations (force-push, history rewrites) — those still require asking.
+- When a request's scope is vague (no file/function named, no clear done-condition), ask one focused clarifying question before fanning out searches across the repo — don't burn tokens exploring to guess intent. Once scope is clear (named files, stated done-condition), act without further questions.
 - Substantial features go through brainstorm → spec → plan → subagent-driven-development (spec-compliance review, then code-quality review, per task) in an isolated worktree; small iterative UI/UX fixes are made directly in-place, still gated on the full `vitest` + `svelte-check` run before commit.
