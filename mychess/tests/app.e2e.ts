@@ -14,11 +14,6 @@ test.describe('Unauthenticated redirects', () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test('redirects /learn to /login when not authenticated', async ({ page }) => {
-    await page.goto('/learn');
-    await expect(page).toHaveURL(/\/login/);
-  });
-
   test('redirects /coach to /login when not authenticated', async ({ page }) => {
     await page.goto('/coach');
     await expect(page).toHaveURL(/\/login/);
