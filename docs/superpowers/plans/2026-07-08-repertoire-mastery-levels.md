@@ -1324,7 +1324,16 @@ to:
   ];
 ```
 
-Note the `totalReviews` prop is now unused by this component — remove the `let { totalReviews = 0 } = $props<{ totalReviews?: number }>();` line entirely (replace with nothing, i.e. delete that line). Its caller (`src/routes/(player)/+page.svelte`) still passes `totalReviews={stats.total_reviews ?? 0}` as a prop — that's harmless (Svelte ignores an unused prop passed to a component that no longer declares it) and is out of scope for this task to clean up; it's cosmetic dead wiring, not a bug.
+Note the `totalReviews` prop is now unused by this component — remove the `let { totalReviews = 0 } = $props<{ totalReviews?: number }>();` line entirely (replace with nothing, i.e. delete that line).
+
+**Actual outcome (differs from the plan text above):** the initial implementation replaced the object literal's contents but left an unrequested `let _ = $props();` stub in place of the removed line. Code-quality review caught this; the fix removed the stub entirely, which meant `QuickActions` now declares zero props. That made its caller, `src/routes/(player)/+page.svelte` — which still passed `<QuickActions totalReviews={stats.total_reviews ?? 0} />` — a type error (Svelte doesn't silently ignore an unknown prop at the type level). The caller was updated to `<QuickActions />`. Fixed in commit `140b264` ("fix: remove unnecessary $props() call from QuickActions").
+
+**Additional fix found during spec-compliance review, outside this task's original scope:** three other pages still linked to `/learn`, which Task 10 deletes — these would have become dead links. Fixed as part of Task 9 before proceeding to Task 10:
+- `src/routes/(player)/drill/+page.svelte` — empty-state copy changed to "Keep mastering repertoires to unlock Drill mode." with a "Go to Master" link to `/master`.
+- `src/routes/(player)/time-trial/+page.svelte` — empty-state copy changed to "Add moves in Master mode first." with a "Go to Master" link to `/master`.
+- `src/routes/(player)/repertoires/+page.svelte` — the per-assigned-repertoire "Train" button now links directly to `/master/{rep.id}` instead of a generic `/learn` link.
+
+Fixed and committed in `787b401` ("fix: update remaining /learn links to point at the new Master mode"). Verified via `grep -rn 'href="/learn"' src/` returning no matches.
 
 - [ ] **Step 4: Run the full test suite and type-check**
 
@@ -1338,6 +1347,8 @@ git add src/lib/components/NavBar.svelte src/lib/components/QuickActions.svelte
 git commit -m "feat: point navigation at the new mastery mode instead of Learn"
 git push
 ```
+
+**Actual commits:** `8e5bba9` (initial nav + quick action change), `140b264` (props-stub fix + caller update), `787b401` (three additional dead-link fixes in `drill`/`time-trial`/`repertoires`).
 
 ---
 
