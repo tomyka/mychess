@@ -149,7 +149,7 @@
     <span class="text-indigo-600 font-bold text-sm">+{sessionXp} XP</span>
   </div>
 
-  {#if data.level === 'mastered'}
+  {#if data.level === 'mastered' && data.totalVariations > 0}
     <div class="flex flex-col items-center justify-center min-h-screen gap-6 text-center">
       <p class="text-7xl">🏆</p>
       <h1 class="text-3xl font-bold text-gray-900">Repertoire Mastered!</h1>
