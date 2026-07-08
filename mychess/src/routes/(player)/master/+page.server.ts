@@ -28,9 +28,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const [{ data: rawMoves }, { data: progressRows }] = await Promise.all([
 		supabase
 			.from('moves')
-			.select(
-				'id, san, is_player_turn, repertoire_id, from_position, to_position, from_pos:from_position(fen), to_pos:to_position(fen)'
-			)
+			.select('id, san, is_player_turn, repertoire_id, from_position, to_position')
 			.in('repertoire_id', repIds),
 		supabase
 			.from('variation_progress')
@@ -48,8 +46,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 			isPlayerTurn: m.is_player_turn,
 			fromPositionId: m.from_position,
 			toPositionId: m.to_position,
-			fromFen: m.from_pos?.fen ?? '',
-			toFen: m.to_pos?.fen ?? ''
+			fromFen: '',
+			toFen: ''
 		});
 		movesByRep.set(m.repertoire_id, list);
 	}

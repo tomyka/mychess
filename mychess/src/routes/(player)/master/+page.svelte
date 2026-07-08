@@ -27,7 +27,13 @@
               <div class="flex-1 min-w-0">
                 <h2 class="font-medium text-gray-900 truncate">{rep.name}</h2>
                 <p class="text-sm text-gray-400">
-                  {rep.level === 'mastered' ? '🏆 Mastered' : `Level ${rep.level} · ${rep.totalVariations} variations`}
+                  {#if rep.totalVariations === 0}
+                    No moves yet
+                  {:else if rep.level === 'mastered'}
+                    🏆 Mastered
+                  {:else}
+                    Level {rep.level} · {rep.totalVariations} variations
+                  {/if}
                 </p>
               </div>
               <span class="text-gray-400 text-sm">→</span>
