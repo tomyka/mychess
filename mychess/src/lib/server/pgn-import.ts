@@ -6,6 +6,29 @@ export type ImportResult =
   | { repertoireId: string; gameCount: number; error: null }
   | { repertoireId: null; gameCount: null; error: string };
 
+/**
+ * Splits values into batches whose combined length stays under `maxChars`.
+ * Used to keep a `.in('col', batch)` filter's URL-encoded query string under
+ * a safe length — a fixed row count alone isn't enough, since it doesn't
+ * account for how long the individual values (FENs) happen to be.
+ */
+function chunkByLength(values: string[], maxChars: number): string[][] {
+  const chunks: string[][] = [];
+  let current: string[] = [];
+  let length = 0;
+  for (const value of values) {
+    if (current.length > 0 && length + value.length + 1 > maxChars) {
+      chunks.push(current);
+      current = [];
+      length = 0;
+    }
+    current.push(value);
+    length += value.length + 1;
+  }
+  if (current.length > 0) chunks.push(current);
+  return chunks;
+}
+
 /** Creates a repertoire from PGN text and imports every move into its tree. */
 export async function importPgn(
   supabase: SupabaseClient,
@@ -44,22 +67,21 @@ export async function importPgn(
     return { repertoireId: null, gameCount: null, error: message };
   }
 
-  // Reading the ids back afterward via `.select().in('fen', chunk)` used to
-  // build a GET request with every FEN in this chunk crammed into the query
-  // string — for a large repertoire that URL blows past a length limit
-  // somewhere between here and Postgres and comes back as a bare "Bad
-  // Request". Upserting with an (effectively no-op) update instead of
-  // ignoreDuplicates makes Postgres's RETURNING include every touched row —
-  // both newly-inserted and already-existing — so we get the ids straight
-  // out of the same POST instead of a second, unbounded GET.
-  const fenToId = new Map<string, string>();
   for (let i = 0; i < uniqueFens.length; i += CHUNK) {
     const chunk = uniqueFens.slice(i, i + CHUNK).map((fen) => ({ fen }));
-    const { data: rows, error } = await supabase
-      .from('positions')
-      .upsert(chunk, { onConflict: 'fen' })
-      .select('id, fen');
+    const { error } = await supabase.from('positions').upsert(chunk, { onConflict: 'fen', ignoreDuplicates: true });
     if (error) return fail(`Failed to save positions: ${error.message}`);
+  }
+
+  // `positions` only has INSERT/SELECT RLS policies (no UPDATE), so the id
+  // lookup has to be a plain SELECT rather than an upsert-with-return. A GET
+  // with every FEN in this chunk crammed into the query string can blow past
+  // a proxy's URL-length limit — chunk by character budget, not row count,
+  // since a fixed row count doesn't account for how long individual FENs are.
+  const fenToId = new Map<string, string>();
+  for (const chunk of chunkByLength(uniqueFens, 1500)) {
+    const { data: rows, error } = await supabase.from('positions').select('id, fen').in('fen', chunk);
+    if (error) return fail(`Failed to load positions: ${error.message}`);
     for (const row of rows ?? []) fenToId.set(row.fen, row.id);
   }
 
