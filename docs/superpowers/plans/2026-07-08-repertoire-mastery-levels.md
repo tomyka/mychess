@@ -1130,9 +1130,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const [{ data: rawMoves }, { data: progressRows }] = await Promise.all([
 		supabase
 			.from('moves')
-			.select(
-				'id, san, is_player_turn, repertoire_id, from_position, to_position, from_pos:from_position(fen), to_pos:to_position(fen)'
-			)
+			.select('id, san, is_player_turn, repertoire_id, from_position, to_position')
 			.in('repertoire_id', repIds),
 		supabase
 			.from('variation_progress')
@@ -1141,6 +1139,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 			.in('repertoire_id', repIds)
 	]);
 
+	// This page only needs `level`/`totalVariations`, both derived purely from
+	// moveId/isPlayerTurn — never from FEN — so the fen columns aren't fetched
+	// here (unlike the [repertoire_id] detail page, which needs them to render
+	// the board).
 	const movesByRep = new Map<string, RawMoveRow[]>();
 	for (const m of (rawMoves ?? []) as any[]) {
 		const list = movesByRep.get(m.repertoire_id) ?? [];
@@ -1150,8 +1152,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 			isPlayerTurn: m.is_player_turn,
 			fromPositionId: m.from_position,
 			toPositionId: m.to_position,
-			fromFen: m.from_pos?.fen ?? '',
-			toFen: m.to_pos?.fen ?? ''
+			fromFen: '',
+			toFen: ''
 		});
 		movesByRep.set(m.repertoire_id, list);
 	}
@@ -1216,7 +1218,13 @@ export const load: PageServerLoad = async ({ locals }) => {
               <div class="flex-1 min-w-0">
                 <h2 class="font-medium text-gray-900 truncate">{rep.name}</h2>
                 <p class="text-sm text-gray-400">
-                  {rep.level === 'mastered' ? '🏆 Mastered' : `Level ${rep.level} · ${rep.totalVariations} variations`}
+                  {#if rep.totalVariations === 0}
+                    No moves yet
+                  {:else if rep.level === 'mastered'}
+                    🏆 Mastered
+                  {:else}
+                    Level {rep.level} · {rep.totalVariations} variations
+                  {/if}
                 </p>
               </div>
               <span class="text-gray-400 text-sm">→</span>
