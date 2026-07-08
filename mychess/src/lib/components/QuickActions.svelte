@@ -1,12 +1,12 @@
 <!-- MyChess/src/lib/components/QuickActions.svelte -->
 <script lang="ts">
-  let { totalReviews = 0 } = $props<{ totalReviews?: number }>();
+  let _ = $props();
 
   const actions = [
     {
-      href: '/learn',
-      label: 'Daily Review',
-      sublabel: `${totalReviews} cards done`,
+      href: '/master',
+      label: 'Master',
+      sublabel: 'Learn a repertoire',
       primary: true
     },
     { href: '/practice', label: 'Practice', sublabel: 'Full board', primary: false },
