@@ -4,12 +4,14 @@
 	import type { Api } from 'chessground/api';
 	import type { Color, Key } from 'chessground/types';
 	import { Chess } from 'chess.js';
+	import { DEFAULT_PREFS, animationDuration, type BoardPrefs } from '$lib/board/prefs';
 
 	type Props = {
 		fen?: string;
 		orientation?: Color;
 		interactable?: boolean;
 		lastMove?: [Key, Key] | undefined;
+		prefs?: BoardPrefs;
 		// Return `false` to snap the board back to `fen` (e.g. an incorrect guess).
 		onmove?: (detail: { from: Key; to: Key; san: string }) => boolean | void;
 	};
@@ -19,6 +21,7 @@
 		orientation = 'white' as Color,
 		interactable = true,
 		lastMove = undefined,
+		prefs = DEFAULT_PREFS,
 		onmove
 	}: Props = $props();
 
@@ -83,8 +86,12 @@
 				}
 			},
 			lastMove,
-			highlight: { lastMove: true, check: true },
-			animation: { enabled: true, duration: 150 }
+			coordinates: prefs.coordinates,
+			highlight: { lastMove: prefs.highlight, check: prefs.highlight },
+			animation: {
+				enabled: animationDuration(prefs.animation) > 0,
+				duration: animationDuration(prefs.animation)
+			}
 		};
 	}
 
@@ -110,7 +117,9 @@
 	});
 </script>
 
-<div class="relative w-full aspect-square rounded-xl overflow-hidden shadow-2xl">
+<div
+	class="relative w-full aspect-square rounded-xl overflow-hidden shadow-2xl board-theme-{prefs.theme} pieces-{prefs.pieceSet}"
+>
 	<div bind:this={el} class="w-full h-full"></div>
 	{#if correctSquare}
 		{@const pos = squareToPosition(correctSquare, orientation)}
