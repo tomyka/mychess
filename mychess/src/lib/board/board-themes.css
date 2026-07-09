@@ -2,40 +2,53 @@
    Scoped board color themes. Applied via a `.board-theme-<id>` class on the
    ChessBoard wrapper. Interactive square colors come from
    chessground.brown.css (imported in app.css); this file only recolors the
-   board squares themselves. */
+   board squares themselves.
+
+   The checkerboard is a conic-gradient tile: one tile is a 2x2 of squares
+   (dark in the top-right + bottom-left quadrants, board `background-color`
+   showing through the transparent quadrants), sized to 25% of the board so it
+   repeats into a flat 8x8. */
 
 .board-theme-brown cg-board {
 	background-color: #f0d9b5;
-	background-image:
-		linear-gradient(45deg, #b58863 25%, transparent 25%, transparent 75%, #b58863 75%),
-		linear-gradient(45deg, #b58863 25%, transparent 25%, transparent 75%, #b58863 75%);
+	background-image: conic-gradient(
+		#b58863 0deg 90deg,
+		transparent 90deg 180deg,
+		#b58863 180deg 270deg,
+		transparent 270deg 360deg
+	);
 	background-size: 25% 25%;
-	background-position: 0 0, 12.5% 12.5%;
 }
 
 .board-theme-green cg-board {
 	background-color: #ebecd0;
-	background-image:
-		linear-gradient(45deg, #779556 25%, transparent 25%, transparent 75%, #779556 75%),
-		linear-gradient(45deg, #779556 25%, transparent 25%, transparent 75%, #779556 75%);
+	background-image: conic-gradient(
+		#779556 0deg 90deg,
+		transparent 90deg 180deg,
+		#779556 180deg 270deg,
+		transparent 270deg 360deg
+	);
 	background-size: 25% 25%;
-	background-position: 0 0, 12.5% 12.5%;
 }
 
 .board-theme-blue cg-board {
 	background-color: #dee3e6;
-	background-image:
-		linear-gradient(45deg, #8ca2ad 25%, transparent 25%, transparent 75%, #8ca2ad 75%),
-		linear-gradient(45deg, #8ca2ad 25%, transparent 25%, transparent 75%, #8ca2ad 75%);
+	background-image: conic-gradient(
+		#8ca2ad 0deg 90deg,
+		transparent 90deg 180deg,
+		#8ca2ad 180deg 270deg,
+		transparent 270deg 360deg
+	);
 	background-size: 25% 25%;
-	background-position: 0 0, 12.5% 12.5%;
 }
 
 .board-theme-midnight cg-board {
 	background-color: #6b7a8f;
-	background-image:
-		linear-gradient(45deg, #3b4657 25%, transparent 25%, transparent 75%, #3b4657 75%),
-		linear-gradient(45deg, #3b4657 25%, transparent 25%, transparent 75%, #3b4657 75%);
+	background-image: conic-gradient(
+		#3b4657 0deg 90deg,
+		transparent 90deg 180deg,
+		#3b4657 180deg 270deg,
+		transparent 270deg 360deg
+	);
 	background-size: 25% 25%;
-	background-position: 0 0, 12.5% 12.5%;
 }
