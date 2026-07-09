@@ -145,7 +145,7 @@
             Play the correct opening move!
           {/if}
         </p>
-        <ChessBoard fen={boardFen} interactable={true} onmove={handleMove} />
+        <ChessBoard fen={boardFen} interactable={true} onmove={handleMove} prefs={data.boardPrefs} />
       </div>
 
       <div class="flex gap-2 justify-center">
