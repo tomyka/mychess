@@ -1,0 +1,30 @@
+/* mychess/src/lib/board/pieces.css
+   Additional piece sets, scoped by a `.pieces-<id>` class on the ChessBoard
+   wrapper. cburnett is the default and comes from chessground.cburnett.css
+   (imported globally in app.css). Files live in /static/pieces/<set>/. */
+
+.pieces-merida .cg-wrap piece.pawn.white { background-image: url('/pieces/merida/wP.svg'); }
+.pieces-merida .cg-wrap piece.knight.white { background-image: url('/pieces/merida/wN.svg'); }
+.pieces-merida .cg-wrap piece.bishop.white { background-image: url('/pieces/merida/wB.svg'); }
+.pieces-merida .cg-wrap piece.rook.white { background-image: url('/pieces/merida/wR.svg'); }
+.pieces-merida .cg-wrap piece.queen.white { background-image: url('/pieces/merida/wQ.svg'); }
+.pieces-merida .cg-wrap piece.king.white { background-image: url('/pieces/merida/wK.svg'); }
+.pieces-merida .cg-wrap piece.pawn.black { background-image: url('/pieces/merida/bP.svg'); }
+.pieces-merida .cg-wrap piece.knight.black { background-image: url('/pieces/merida/bN.svg'); }
+.pieces-merida .cg-wrap piece.bishop.black { background-image: url('/pieces/merida/bB.svg'); }
+.pieces-merida .cg-wrap piece.rook.black { background-image: url('/pieces/merida/bR.svg'); }
+.pieces-merida .cg-wrap piece.queen.black { background-image: url('/pieces/merida/bQ.svg'); }
+.pieces-merida .cg-wrap piece.king.black { background-image: url('/pieces/merida/bK.svg'); }
+
+.pieces-alpha .cg-wrap piece.pawn.white { background-image: url('/pieces/alpha/wP.svg'); }
+.pieces-alpha .cg-wrap piece.knight.white { background-image: url('/pieces/alpha/wN.svg'); }
+.pieces-alpha .cg-wrap piece.bishop.white { background-image: url('/pieces/alpha/wB.svg'); }
+.pieces-alpha .cg-wrap piece.rook.white { background-image: url('/pieces/alpha/wR.svg'); }
+.pieces-alpha .cg-wrap piece.queen.white { background-image: url('/pieces/alpha/wQ.svg'); }
+.pieces-alpha .cg-wrap piece.king.white { background-image: url('/pieces/alpha/wK.svg'); }
+.pieces-alpha .cg-wrap piece.pawn.black { background-image: url('/pieces/alpha/bP.svg'); }
+.pieces-alpha .cg-wrap piece.knight.black { background-image: url('/pieces/alpha/bN.svg'); }
+.pieces-alpha .cg-wrap piece.bishop.black { background-image: url('/pieces/alpha/bB.svg'); }
+.pieces-alpha .cg-wrap piece.rook.black { background-image: url('/pieces/alpha/bR.svg'); }
+.pieces-alpha .cg-wrap piece.queen.black { background-image: url('/pieces/alpha/bQ.svg'); }
+.pieces-alpha .cg-wrap piece.king.black { background-image: url('/pieces/alpha/bK.svg'); }
