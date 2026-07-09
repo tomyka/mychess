@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'chessground/assets/chessground.base.css';
 @import 'chessground/assets/chessground.brown.css';
+@import './lib/board/board-themes.css';
 @import 'chessground/assets/chessground.cburnett.css';
 
 :root {
