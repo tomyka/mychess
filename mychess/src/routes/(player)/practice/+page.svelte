@@ -154,7 +154,7 @@
       {showAnswer ? '' : 'What is the best move?'}
     </p>
 
-    <ChessBoard fen={boardFen} interactable={!showAnswer} onmove={handleMove} />
+    <ChessBoard fen={boardFen} interactable={!showAnswer} onmove={handleMove} prefs={data.boardPrefs} />
 
     {#if wrongMove && !showAnswer}
       <p class="text-red-600 text-center mt-3 font-semibold animate-pulse">Not quite! Try again...</p>

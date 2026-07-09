@@ -173,7 +173,7 @@
       {phase === 'playing' ? 'What is the best move?' : ''}
     </p>
 
-    <ChessBoard fen={boardFen} interactable={phase === 'playing'} onmove={handleMove} />
+    <ChessBoard fen={boardFen} interactable={phase === 'playing'} onmove={handleMove} prefs={data.boardPrefs} />
 
     {#if phase === 'wrong'}
       <div class="mt-6 p-5 bg-white border border-gray-200 rounded-2xl text-center shadow-sm">

@@ -4,6 +4,7 @@ import { fetchFideName } from '$lib/server/fide';
 import { fetchLichessRatings } from '$lib/server/lichess';
 import { fullNameOrNull } from '$lib/profile';
 import { requireAccount } from '$lib/server/auth';
+import { parseBoardPrefs } from '$lib/board/prefs';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
   const { session, profile } = await requireAccount(locals);
@@ -24,7 +25,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     lichessRatings,
     fideId: p?.fide_id ?? '',
     oauthSuccess: url.searchParams.get('oauth_success') ?? null,
-    oauthError: url.searchParams.get('oauth_error') ?? null
+    oauthError: url.searchParams.get('oauth_error') ?? null,
+    boardPrefs: parseBoardPrefs((profile as any)?.board_prefs)
   };
 };
 
@@ -103,6 +105,28 @@ export const actions: Actions = {
     const { error } = await supabase
       .from('profiles')
       .update({ lichess_username: null } as any)
+      .eq('id', user.id);
+
+    if (error) return fail(500, { error: error.message });
+    return { success: true };
+  },
+
+  save_board_prefs: async ({ request, locals: { supabase, safeGetSession } }) => {
+    const { user } = await safeGetSession();
+    if (!user) return fail(401, { error: 'Unauthorized' });
+
+    const fd = await request.formData();
+    const prefs = parseBoardPrefs({
+      theme: fd.get('theme'),
+      pieceSet: fd.get('pieceSet'),
+      animation: fd.get('animation'),
+      coordinates: fd.get('coordinates') === 'true',
+      highlight: fd.get('highlight') === 'true'
+    });
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ board_prefs: prefs } as any)
       .eq('id', user.id);
 
     if (error) return fail(500, { error: error.message });

@@ -134,7 +134,7 @@
         {#if wrongMove}
           <p class="text-center text-red-600 font-bold text-sm mb-2">Wrong move! Chain broken!</p>
         {/if}
-        <ChessBoard fen={boardFen} interactable={true} onmove={handleMove} />
+        <ChessBoard fen={boardFen} interactable={true} onmove={handleMove} prefs={data.boardPrefs} />
       </div>
 
       <div class="flex gap-2 justify-center">

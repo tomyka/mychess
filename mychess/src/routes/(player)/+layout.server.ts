@@ -1,5 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
+import { parseBoardPrefs } from '$lib/board/prefs';
 
 export const load: LayoutServerLoad = async ({ locals: { safeGetSession } }) => {
 	const data = await safeGetSession();
@@ -12,5 +13,5 @@ export const load: LayoutServerLoad = async ({ locals: { safeGetSession } }) => 
 		throw redirect(303, '/coach');
 	}
 	// Guests (no session), anonymous users, and players all pass through.
-	return data;
+	return { ...data, boardPrefs: parseBoardPrefs((data.profile as any)?.board_prefs) };
 };
