@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
 	import { Chessground } from 'chessground';
 	import type { Api } from 'chessground/api';
 	import type { Color, Key } from 'chessground/types';
@@ -25,7 +24,6 @@
 		onmove
 	}: Props = $props();
 
-	let el: HTMLElement;
 	let cg: Api;
 	let correctSquare = $state<Key | null>(null);
 
@@ -95,11 +93,15 @@
 		};
 	}
 
-	onMount(() => {
-		cg = Chessground(el, buildConfig());
-	});
-
-	onDestroy(() => cg?.destroy());
+	// Chessground builds its coordinate labels only once, at construction
+	// (api.set() never re-runs that). So we mount via an action and remount the
+	// node with {#key prefs.coordinates} below, recreating the board whenever
+	// the coordinate toggle changes. Gameplay boards keep a fixed value for the
+	// session, so they mount exactly once.
+	function mountBoard(node: HTMLElement) {
+		cg = Chessground(node, buildConfig());
+		return { destroy: () => cg?.destroy() };
+	}
 
 	$effect(() => {
 		if (!cg) return;
@@ -120,7 +122,9 @@
 <div
 	class="relative w-full aspect-square rounded-xl overflow-hidden shadow-2xl board-theme-{prefs.theme} pieces-{prefs.pieceSet}"
 >
-	<div bind:this={el} class="w-full h-full"></div>
+	{#key prefs.coordinates}
+		<div use:mountBoard class="w-full h-full"></div>
+	{/key}
 	{#if correctSquare}
 		{@const pos = squareToPosition(correctSquare, orientation)}
 		<div
