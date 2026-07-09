@@ -132,19 +132,28 @@
         <a href="/master" onclick={() => mobileMenuOpen = false} class="text-gray-700">Master</a>
         <a href="/repertoires" onclick={() => mobileMenuOpen = false} class="text-gray-700">Repertoires</a>
         <a href="/coaches" onclick={() => mobileMenuOpen = false} class="text-gray-700">Coaches</a>
-        <div class="border-t border-gray-100 pt-2">
-          <a href="/settings" onclick={() => mobileMenuOpen = false} class="block text-gray-600">Settings</a>
-          <a href="/cosmetics" onclick={() => mobileMenuOpen = false} class="block text-gray-600 mt-2">Customise</a>
-          <a href="/badges" onclick={() => mobileMenuOpen = false} class="block text-gray-600 mt-2">Badges</a>
-          <form method="POST" action="/auth/signout" class="mt-2">
-            <button type="submit" class="text-red-600">Sign out</button>
-          </form>
-        </div>
       {:else}
         <a href="/tournaments" onclick={() => mobileMenuOpen = false} class="text-gray-700">Tournaments</a>
         <a href="/login" onclick={() => mobileMenuOpen = false} class="text-gray-700">Sign in</a>
         <a href="/login?signup=1" onclick={() => mobileMenuOpen = false}
            class="text-indigo-600 font-medium">Get started</a>
+      {/if}
+
+      <!-- Account section: Settings + Sign out for every signed-in user
+           (coach and player); Customise/Badges are player-only, mirroring the
+           desktop dropdown. Previously this lived inside the player branch, so
+           coaches on mobile had no way to reach Settings or sign out. -->
+      {#if !isGuest}
+        <div class="border-t border-gray-100 pt-2">
+          <a href="/settings" onclick={() => mobileMenuOpen = false} class="block text-gray-600">Settings</a>
+          {#if !isCoach}
+            <a href="/cosmetics" onclick={() => mobileMenuOpen = false} class="block text-gray-600 mt-2">Customise</a>
+            <a href="/badges" onclick={() => mobileMenuOpen = false} class="block text-gray-600 mt-2">Badges</a>
+          {/if}
+          <form method="POST" action="/auth/signout" class="mt-2">
+            <button type="submit" class="text-red-600">Sign out</button>
+          </form>
+        </div>
       {/if}
     </div>
   {/if}
