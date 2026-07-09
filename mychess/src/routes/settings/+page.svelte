@@ -1,6 +1,14 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import PlatformRatingsCard from '$lib/components/PlatformRatingsCard.svelte';
+  import ChessBoard from '$lib/components/ChessBoard.svelte';
+  import {
+    BOARD_THEMES,
+    PIECE_SETS,
+    ANIMATION_SPEEDS,
+    DEFAULT_PREFS,
+    type BoardPrefs
+  } from '$lib/board/prefs';
 
   let { data, form } = $props<{ data: any; form: any }>();
 
@@ -8,6 +16,16 @@
   let role = $state<'player' | 'coach'>((data as any)?.role ?? 'player');
   let importing = $state<'chesscom' | 'lichess' | null>(null);
   let importResult = $state<string | null>(null);
+
+  let boardPrefs = $state<BoardPrefs>({ ...((data as any).boardPrefs ?? DEFAULT_PREFS) });
+
+  // A sample position after 1.e4 with a last move so the highlight toggle is visible.
+  const PREVIEW_FEN = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
+  const PREVIEW_LAST_MOVE = ['e2', 'e4'] as ['e2', 'e4'];
+
+  const boardEnhance = () => async ({ update }: { update: (opts?: { reset?: boolean }) => Promise<void> }) => {
+    await update({ reset: false });
+  };
 
   // Apply the action result and refresh data, but DON'T reset the form —
   // the default enhance calls form.reset(), which clears the typed
@@ -146,6 +164,89 @@
           Save
         </button>
       </form>
+    </section>
+
+    <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      <h2 class="font-semibold text-gray-900 mb-4">Board</h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 items-start">
+        <div class="max-w-[260px] w-full">
+          <ChessBoard
+            fen={PREVIEW_FEN}
+            interactable={false}
+            lastMove={PREVIEW_LAST_MOVE}
+            prefs={boardPrefs}
+          />
+        </div>
+
+        <form method="POST" action="?/save_board_prefs" use:enhance={boardEnhance} class="space-y-4">
+          <div>
+            <span class="block text-xs uppercase tracking-wide text-gray-500 mb-2">Theme</span>
+            <div class="flex flex-wrap gap-2">
+              {#each BOARD_THEMES as t (t.id)}
+                <button
+                  type="button"
+                  onclick={() => (boardPrefs.theme = t.id)}
+                  class="w-10 h-10 rounded-md border-2 {boardPrefs.theme === t.id ? 'border-blue-500' : 'border-transparent'}"
+                  style="background: linear-gradient(135deg, {t.light} 0 50%, {t.dark} 50% 100%);"
+                  aria-label={t.label}
+                  title={t.label}
+                ></button>
+              {/each}
+            </div>
+            <input type="hidden" name="theme" value={boardPrefs.theme} />
+          </div>
+
+          <div>
+            <span class="block text-xs uppercase tracking-wide text-gray-500 mb-2">Piece set</span>
+            <div class="flex flex-wrap gap-2">
+              {#each PIECE_SETS as p (p.id)}
+                <button
+                  type="button"
+                  onclick={() => (boardPrefs.pieceSet = p.id)}
+                  class="px-3 py-1.5 rounded-md text-sm border {boardPrefs.pieceSet === p.id ? 'bg-blue-500 text-white border-blue-500' : 'border-gray-300 text-gray-700'}"
+                >{p.label}</button>
+              {/each}
+            </div>
+            <input type="hidden" name="pieceSet" value={boardPrefs.pieceSet} />
+          </div>
+
+          <div>
+            <span class="block text-xs uppercase tracking-wide text-gray-500 mb-2">Animation</span>
+            <div class="flex flex-wrap gap-2">
+              {#each ANIMATION_SPEEDS as a (a.id)}
+                <button
+                  type="button"
+                  onclick={() => (boardPrefs.animation = a.id)}
+                  class="px-3 py-1.5 rounded-md text-sm border {boardPrefs.animation === a.id ? 'bg-blue-500 text-white border-blue-500' : 'border-gray-300 text-gray-700'}"
+                >{a.label}</button>
+              {/each}
+            </div>
+            <input type="hidden" name="animation" value={boardPrefs.animation} />
+          </div>
+
+          <label class="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" bind:checked={boardPrefs.coordinates} />
+            Show coordinates
+          </label>
+          <input type="hidden" name="coordinates" value={boardPrefs.coordinates} />
+
+          <label class="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" bind:checked={boardPrefs.highlight} />
+            Highlight last move
+          </label>
+          <input type="hidden" name="highlight" value={boardPrefs.highlight} />
+
+          <div class="flex gap-2 pt-1">
+            <button type="submit" class="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium">Save</button>
+            <button
+              type="button"
+              onclick={() => (boardPrefs = { ...DEFAULT_PREFS })}
+              class="px-4 py-2 rounded-md border border-gray-300 text-gray-700 text-sm"
+            >Reset to default</button>
+          </div>
+        </form>
+      </div>
     </section>
 
     <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">

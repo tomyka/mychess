@@ -25,7 +25,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     lichessRatings,
     fideId: p?.fide_id ?? '',
     oauthSuccess: url.searchParams.get('oauth_success') ?? null,
-    oauthError: url.searchParams.get('oauth_error') ?? null
+    oauthError: url.searchParams.get('oauth_error') ?? null,
+    boardPrefs: parseBoardPrefs((profile as any)?.board_prefs)
   };
 };
 
