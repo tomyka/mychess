@@ -82,7 +82,7 @@
   </div>
 {:else}
 <div class="min-h-screen bg-gray-50 p-4">
-  <div class="max-w-lg mx-auto">
+  <div class="max-w-3xl mx-auto">
     <div class="flex justify-between items-center mb-4">
       <a href="/" class="text-gray-400 text-sm hover:text-gray-600">← Home</a>
       <h1 class="text-xl font-bold text-gray-900">Drill Mode</h1>

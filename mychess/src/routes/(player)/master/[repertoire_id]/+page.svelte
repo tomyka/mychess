@@ -143,7 +143,7 @@
   <title>Master {data.repertoire?.name ?? 'Repertoire'} — MyChess</title>
 </svelte:head>
 
-<main class="min-h-screen bg-gray-50 p-4 max-w-lg mx-auto pb-24">
+<main class="min-h-screen bg-gray-50 p-4 max-w-3xl mx-auto pb-24">
   <div class="flex items-center justify-between mb-4">
     <a href="/master" class="text-gray-400 text-sm hover:text-gray-600">← All Repertoires</a>
     <span class="text-indigo-600 font-bold text-sm">+{sessionXp} XP</span>

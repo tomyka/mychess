@@ -100,7 +100,7 @@
     <a href="/login?signup=1" class="inline-block bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-indigo-700">Get started</a>
   </div>
 {:else}
-<main class="min-h-screen bg-gray-50 p-4 max-w-lg mx-auto pb-24">
+<main class="min-h-screen bg-gray-50 p-4 max-w-3xl mx-auto pb-24">
   {#if moves.length === 0}
     <div class="flex flex-col items-center justify-center min-h-screen text-center gap-4">
       <p class="text-5xl">📭</p>
