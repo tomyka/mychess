@@ -1,0 +1,41 @@
+name: "Feature idea — needs spec first"
+description: Substantial feature backlog entry. Not implementation-ready yet — goes through brainstorm → spec → plan before code.
+title: "[Feature] "
+labels:
+  - "size/large"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Substantial feature — before implementation, run brainstorm → spec → plan** (see `mychess/CLAUDE.md` workflow notes). This issue is the backlog entry, not the spec.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / opportunity
+      description: What's missing or broken today, and what this would enable.
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Why now / motivation
+      description: Optional — what makes this worth doing.
+    validations:
+      required: false
+  - type: textarea
+    id: scope
+    attributes:
+      label: Rough scope
+      description: Non-binding bullets — will be refined during the spec/plan step.
+      value: |
+        -
+        -
+    validations:
+      required: true
+  - type: textarea
+    id: success-criteria
+    attributes:
+      label: Success criteria
+      description: High-level — how we'd know this shipped successfully.
+    validations:
+      required: true

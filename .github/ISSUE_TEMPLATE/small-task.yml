@@ -1,0 +1,54 @@
+name: "Small task — agent can execute directly"
+description: Self-contained task with enough detail for a coding agent to implement without a separate spec/plan.
+title: "[Small] "
+labels:
+  - "size/small"
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: One-liner — what should exist when this is done.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context / why
+      description: Why this is needed, any relevant background.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: Checklist of concrete, verifiable outcomes.
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Files likely touched
+      description: Optional hint — paths/components you'd expect to change.
+    validations:
+      required: false
+  - type: checkboxes
+    id: definition-of-done
+    attributes:
+      label: Definition of done
+      options:
+        - label: "`npm test` passes, including a new colocated test for the change"
+        - label: "`npm run check` adds no new type errors beyond the known baseline"
+        - label: "`npx playwright test` run if the change touches auth or routing"
+    validations:
+      required: false
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: Optional — things this task explicitly should NOT do.
+    validations:
+      required: false
