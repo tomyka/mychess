@@ -13,10 +13,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     bestChain: number;
   };
 
-  // Record drill session
+  // Record master session
   await supabase.from('sessions').insert({
     player_id: user.id,
-    mode: 'drill',
+    mode: 'master',
     cards_reviewed: chain,
     xp_earned: sessionXp
   });
@@ -34,7 +34,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     await supabase.rpc('update_streak', { p_player_id: user.id });
   }
 
-  // Update quest progress for drill_streak
+  // Update quest progress for master_streak
   if (chain >= 5) {
     const today = new Date().toISOString().slice(0, 10);
     const { data: quest } = await supabase
@@ -42,7 +42,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .select('*')
       .eq('player_id', user.id)
       .eq('date', today)
-      .eq('quest_id', 'drill_streak')
+      .eq('quest_id', 'master_streak')
       .single();
 
     if (quest && !quest.completed) {
@@ -62,7 +62,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
   }
 
-  grantNewBadges(supabase, user.id, { drillStreak: bestChain }).catch(() => {});
+  grantNewBadges(supabase, user.id, { masterStreak: bestChain }).catch(() => {});
 
   return json({ ok: true });
 };
