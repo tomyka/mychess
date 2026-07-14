@@ -1,84 +1,78 @@
 // mychess/src/lib/mastery/practice.test.ts
 import { describe, it, expect } from 'vitest';
 import { pickPracticeAttempt, splitAttempt } from './practice';
-import type { Variation } from './variations';
+import type { Variation, VariationStep } from './variations';
 
-function makeVariation(leafMoveId: string, playerMoveCount: number): Variation & { deepestReached: number } {
-	const path = [];
-	for (let i = 0; i < playerMoveCount * 2; i++) {
-		const isPlayerTurn = i % 2 === 0;
-		path.push({
-			moveId: i === playerMoveCount * 2 - 1 ? leafMoveId : `${leafMoveId}-step${i}`,
-			san: `san${i}`,
-			fromFen: `fen${i}`,
-			toFen: `fen${i + 1}`,
-			isPlayerTurn
-		});
+function makeVariation(playerMoveCount: number, prefix: string): Variation {
+	const path: VariationStep[] = [];
+	for (let i = 1; i <= playerMoveCount; i++) {
+		path.push({ moveId: `${prefix}p${i}`, san: `P${i}`, fromFen: `f${i}a`, toFen: `f${i}b`, isPlayerTurn: true });
+		path.push({ moveId: `${prefix}o${i}`, san: `O${i}`, fromFen: `f${i}b`, toFen: `f${i + 1}a`, isPlayerTurn: false });
 	}
-	const variationKey = path.map((s) => s.moveId).join('>');
-	return { leafMoveId, variationKey, path, playerMoveCount, deepestReached: 0 };
+	return {
+		leafMoveId: path[path.length - 1].moveId,
+		variationKey: path.map((s) => s.moveId).join('>'),
+		path,
+		playerMoveCount
+	};
 }
 
 describe('pickPracticeAttempt', () => {
 	it('returns null when every variation is already satisfied at the level', () => {
-		const v = { ...makeVariation('leaf1', 4), deepestReached: 4 };
-		expect(pickPracticeAttempt([v], 1)).toBeNull();
+		const v = makeVariation(3, 'done-');
+		const correct = new Set(['done-p1', 'done-p2', 'done-p3']);
+		expect(pickPracticeAttempt([v], 1, correct)).toBeNull();
 	});
 
-	it('picks a not-yet-satisfied variation and a start point below its target depth', () => {
-		const v = makeVariation('leaf1', 10);
-		const result = pickPracticeAttempt([v], 2, () => 0.5); // deterministic "random"
+	it('picks a not-yet-satisfied variation and computes its target depth', () => {
+		const v = makeVariation(10, 'leaf1-');
+		const result = pickPracticeAttempt([v], 2, new Set(), () => 0.5); // deterministic "random"
 		expect(result).not.toBeNull();
-		expect(result!.variation.leafMoveId).toBe('leaf1');
+		expect(result!.variation.leafMoveId).toBe(v.leafMoveId);
 		expect(result!.targetDepth).toBe(6); // level 2 depth
-		expect(result!.startPoint).toBeGreaterThanOrEqual(0);
-		expect(result!.startPoint).toBeLessThan(6);
 	});
 
 	it('never picks a variation that is already satisfied, even if others are not', () => {
-		const done = { ...makeVariation('done', 4), deepestReached: 4 };
-		const notDone = makeVariation('notdone', 10);
-		// random() always returns 0 -> would pick index 0 if it were a candidate
-		const result = pickPracticeAttempt([done, notDone], 1, () => 0);
-		expect(result!.variation.leafMoveId).toBe('notdone');
+		const done = makeVariation(3, 'done-');
+		const notDone = makeVariation(10, 'notdone-');
+		const correct = new Set(['done-p1', 'done-p2', 'done-p3']);
+		// random() always returns 0 -> would pick index 0 if `done` were a candidate
+		const result = pickPracticeAttempt([done, notDone], 1, correct, () => 0);
+		expect(result!.variation.leafMoveId).toBe(notDone.leafMoveId);
 	});
 });
 
 describe('splitAttempt', () => {
-	it('auto-plays nothing and quizzes through the final required player move when startPoint is 0', () => {
-		const v = makeVariation('leaf1', 3);
-		const { prefix, quizSteps } = splitAttempt(v.path, 0, 3);
-		expect(prefix).toHaveLength(0);
-		// v.path has 6 steps (3 player + 3 opponent, alternating, starting on player).
-		// quizSteps covers everything through the 3rd (final) player move — index 4 —
-		// but excludes the trailing opponent-only step (index 5): 5 steps, not 6.
-		expect(quizSteps).toHaveLength(5);
-	});
-
-	it('auto-plays the known prefix and quizzes only the remaining moves', () => {
-		const v = makeVariation('leaf1', 3);
-		// path: [p0(player), o0(opp), p1(player), o1(opp), p2(player), o2(opp)]
+	it('at level 1, auto-plays nothing and quizzes through the 3rd player move', () => {
+		const v = makeVariation(4, 'x-');
 		const { prefix, quizSteps } = splitAttempt(v.path, 1, 3);
-		expect(prefix.map((s) => s.moveId)).toEqual([v.path[0].moveId, v.path[1].moveId]);
+		expect(prefix).toHaveLength(0);
+		expect(quizSteps).toHaveLength(5); // p1,o1,p2,o2,p3
+		expect(quizSteps[quizSteps.length - 1].moveId).toBe('x-p3');
+		expect(quizSteps[quizSteps.length - 1].isPlayerTurn).toBe(true);
+	});
+
+	it('at level 2, auto-plays through the 3rd player move (both colors) and the player starts on the 4th', () => {
+		const v = makeVariation(6, 'y-');
+		const { prefix, quizSteps } = splitAttempt(v.path, 2, 6);
+		expect(prefix.map((s) => s.moveId)).toEqual(['y-p1', 'y-o1', 'y-p2', 'y-o2', 'y-p3', 'y-o3']);
+		expect(quizSteps[0].moveId).toBe('y-p4');
 		expect(quizSteps[0].isPlayerTurn).toBe(true);
-		expect(quizSteps[0].moveId).toBe(v.path[2].moveId);
 	});
 
-	it('stops exactly at the target depths final player move, not beyond', () => {
-		const v = makeVariation('leaf1', 5);
-		const { quizSteps } = splitAttempt(v.path, 0, 2);
-		const lastStep = quizSteps[quizSteps.length - 1];
-		expect(lastStep.isPlayerTurn).toBe(true);
-		expect(lastStep.moveId).toBe(v.path[2].moveId); // the 2nd player move is at path index 2
+	it("collapses to the variation's own length when shorter than the level depth", () => {
+		const v = makeVariation(2, 'z-');
+		const { prefix, quizSteps } = splitAttempt(v.path, 1, 2); // targetDepth = min(2,3) = 2
+		expect(prefix).toHaveLength(0);
+		expect(quizSteps[quizSteps.length - 1].moveId).toBe('z-p2');
 	});
 
-	it('throws when targetDepthValue exceeds the number of player moves in the path', () => {
-		const v = makeVariation('leaf1', 3);
-		expect(() => splitAttempt(v.path, 0, 10)).toThrow();
-	});
-
-	it('throws when startPoint is out of range for the path', () => {
-		const v = makeVariation('leaf1', 3);
-		expect(() => splitAttempt(v.path, 10, 3)).toThrow();
+	it("throws when the level's auto-play boundary is not below the target depth", () => {
+		const v = makeVariation(3, 'w-');
+		expect(() => splitAttempt(v.path, 1, 3)).not.toThrow(); // sanity: a valid case at level 1
+		// At level 2 the auto-play boundary (3) is not below a target depth of 3 —
+		// this variation has no interactive room left at level 2 and should never
+		// have been picked by pickPracticeAttempt in the first place.
+		expect(() => splitAttempt(v.path, 2, 3)).toThrow();
 	});
 });

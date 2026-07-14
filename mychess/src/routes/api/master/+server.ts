@@ -7,19 +7,21 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const { user } = await locals.safeGetSession();
   if (!user) throw error(401, 'Unauthorized');
 
-  const { correct, sessionXp, bonus } = await request.json() as {
-    correct: number;
+  const { chain, sessionXp, bestChain } = await request.json() as {
+    chain: number;
     sessionXp: number;
-    bonus: number;
+    bestChain: number;
   };
 
+  // Record master session
   await supabase.from('sessions').insert({
     player_id: user.id,
-    mode: 'time_trial',
-    cards_reviewed: correct,
+    mode: 'master',
+    cards_reviewed: chain,
     xp_earned: sessionXp
   });
 
+  // Grant XP
   if (sessionXp > 0) {
     await supabase.rpc('update_xp_and_level', {
       p_player_id: user.id,
@@ -32,15 +34,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     await supabase.rpc('update_streak', { p_player_id: user.id });
   }
 
-  // Update quest progress for time_trial
-  if (correct >= 8) {
+  // Update quest progress for master_streak
+  if (chain >= 5) {
     const today = new Date().toISOString().slice(0, 10);
     const { data: quest } = await supabase
       .from('quests')
       .select('*')
       .eq('player_id', user.id)
       .eq('date', today)
-      .eq('quest_id', 'time_trial')
+      .eq('quest_id', 'master_streak')
       .single();
 
     if (quest && !quest.completed) {
@@ -60,7 +62,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
   }
 
-  grantNewBadges(supabase, user.id, { ttBestScore: correct }).catch(() => {});
+  grantNewBadges(supabase, user.id, { masterStreak: bestChain }).catch(() => {});
 
   return json({ ok: true });
 };

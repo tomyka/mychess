@@ -1,10 +1,9 @@
-// mychess/src/routes/(player)/master/[repertoire_id]/+page.server.ts
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { requireAccount } from '$lib/server/auth';
 import { mergeRepertoireIds } from '$lib/repertoire';
 import { enumerateVariations, type RawMoveRow } from '$lib/mastery/variations';
-import { activeLevel, isSatisfied } from '$lib/mastery/levels';
+import { correctMoveIdSet, repertoireProgress } from '$lib/mastery/moveProgress';
 import { pickPracticeAttempt, splitAttempt } from '$lib/mastery/practice';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -24,18 +23,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		throw error(404, 'Repertoire not found');
 	}
 
-	const [{ data: repertoire }, { data: rawMoves }, { data: progressRows }] = await Promise.all([
+	const [{ data: repertoire }, { data: rawMoves }] = await Promise.all([
 		supabase.from('repertoires').select('id, name, color').eq('id', repertoireId).single(),
 		supabase
 			.from('moves')
 			.select(
 				'id, san, is_player_turn, from_position, to_position, from_pos:from_position(fen), to_pos:to_position(fen)'
 			)
-			.eq('repertoire_id', repertoireId),
-		supabase
-			.from('variation_progress')
-			.select('variation_key, deepest_depth_reached')
-			.eq('player_id', user!.id)
 			.eq('repertoire_id', repertoireId)
 	]);
 
@@ -54,45 +48,31 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	}));
 
 	const variations = enumerateVariations(moves);
-	const progressMap = new Map<string, number>(
-		(progressRows ?? []).map((p: any) => [p.variation_key, p.deepest_depth_reached])
-	);
-	const withProgress = variations.map((v) => ({
-		...v,
-		deepestReached: progressMap.get(v.variationKey) ?? 0
-	}));
 
-	const level = activeLevel(withProgress);
+	const moveIds = moves.map((m) => m.id);
+	const { data: progressRows } = moveIds.length
+		? await supabase
+				.from('move_progress')
+				.select('move_id, state')
+				.eq('player_id', user!.id)
+				.in('move_id', moveIds)
+		: { data: [] as { move_id: string; state: string }[] };
+
+	const { level, satisfiedCount, totalVariations } = repertoireProgress(variations, progressRows ?? []);
+	const correctMoveIds = correctMoveIdSet(progressRows ?? []);
 
 	let attempt: {
-		leafMoveId: string;
-		variationKey: string;
-		targetDepth: number;
 		prefix: ReturnType<typeof splitAttempt>['prefix'];
 		quizSteps: ReturnType<typeof splitAttempt>['quizSteps'];
 	} | null = null;
-	let satisfiedCount = 0;
 
 	if (level !== 'mastered') {
-		satisfiedCount = withProgress.filter((v) => isSatisfied(v, level, v.deepestReached)).length;
-		const picked = pickPracticeAttempt(withProgress, level);
+		const picked = pickPracticeAttempt(variations, level, correctMoveIds);
 		if (picked) {
-			const { prefix, quizSteps } = splitAttempt(picked.variation.path, picked.startPoint, picked.targetDepth);
-			attempt = {
-				leafMoveId: picked.variation.leafMoveId,
-				variationKey: picked.variation.variationKey,
-				targetDepth: picked.targetDepth,
-				prefix,
-				quizSteps
-			};
+			const { prefix, quizSteps } = splitAttempt(picked.variation.path, level, picked.targetDepth);
+			attempt = { prefix, quizSteps };
 		}
 	}
 
-	return {
-		repertoire,
-		level,
-		totalVariations: withProgress.length,
-		satisfiedCount,
-		attempt
-	};
+	return { repertoire, level, totalVariations, satisfiedCount, attempt };
 };

@@ -1,80 +1,54 @@
-// mychess/src/routes/(player)/master/+page.server.ts
 import type { PageServerLoad } from './$types';
-import { requireAccount } from '$lib/server/auth';
-import { enumerateVariations, type RawMoveRow } from '$lib/mastery/variations';
-import { activeLevel } from '$lib/mastery/levels';
+import { ensureGuestSession } from '$lib/server/auth';
+import { mergeRepertoireIds, buildBookMoveMap } from '$lib/repertoire';
 
 export const load: PageServerLoad = async ({ locals }) => {
-	const { user } = await requireAccount(locals);
-	const supabase = locals.supabase;
+  const guest = await ensureGuestSession(locals);
+  if (!guest) return { needsAccount: true };
+  const { user, session, profile } = guest;
+  if (!user) return { needsAccount: true };
+  const supabase = locals.supabase;
 
-	const [{ data: ownReps }, { data: assigned }] = await Promise.all([
-		supabase.from('repertoires').select('id, name, color').eq('player_id', user!.id),
-		supabase
-			.from('assigned_repertoires')
-			.select('repertoire:repertoire_id(id, name, color)')
-			.eq('player_id', user!.id)
-	]);
+  const [{ data: ownReps }, { data: assigned }] = await Promise.all([
+    supabase.from('repertoires').select('id').eq('player_id', user.id),
+    supabase.from('assigned_repertoires').select('repertoire_id').eq('player_id', user.id)
+  ]);
+  const repIds = mergeRepertoireIds(
+    ownReps?.map((r: any) => r.id) ?? [],
+    assigned?.map((a: any) => a.repertoire_id) ?? []
+  );
 
-	const assignedReps = (assigned ?? []).map((a: any) => a.repertoire).filter(Boolean);
-	const seen = new Set((ownReps ?? []).map((r: any) => r.id));
-	const allReps = [...(ownReps ?? []), ...assignedReps.filter((r: any) => !seen.has(r.id))];
+  if (repIds.length === 0) {
+    return { session, profile, masterMoves: [], bookMoveMap: {} };
+  }
 
-	if (allReps.length === 0) {
-		return { repertoires: [] };
-	}
+  // Master's pool is every player-turn move across every repertoire the
+  // player owns or is assigned — no reviews.state filter (that flag hasn't
+  // been written since Learn mode was removed, so on the old Drill route it
+  // only ever froze the queue rather than growing it). Only the player's
+  // own moves are quizzed — the opponent's replies (is_player_turn = false)
+  // are just context, not something to guess.
+  const { data: moves } = await supabase
+    .from('moves')
+    .select(
+      `
+      id, san, from_position,
+      from_pos:from_position(fen),
+      repertoire:repertoire_id(id, name, color)
+    `
+    )
+    .in('repertoire_id', repIds)
+    .eq('is_player_turn', true);
 
-	const repIds = allReps.map((r: any) => r.id);
-	const [{ data: rawMoves }, { data: progressRows }] = await Promise.all([
-		supabase
-			.from('moves')
-			.select('id, san, is_player_turn, repertoire_id, from_position, to_position')
-			.in('repertoire_id', repIds),
-		supabase
-			.from('variation_progress')
-			.select('repertoire_id, variation_key, deepest_depth_reached')
-			.eq('player_id', user!.id)
-			.in('repertoire_id', repIds)
-	]);
+  const allMoves = moves ?? [];
+  const bookMoveMap = buildBookMoveMap(allMoves as any);
 
-	const movesByRep = new Map<string, RawMoveRow[]>();
-	for (const m of (rawMoves ?? []) as any[]) {
-		const list = movesByRep.get(m.repertoire_id) ?? [];
-		list.push({
-			id: m.id,
-			san: m.san,
-			isPlayerTurn: m.is_player_turn,
-			fromPositionId: m.from_position,
-			toPositionId: m.to_position,
-			fromFen: '',
-			toFen: ''
-		});
-		movesByRep.set(m.repertoire_id, list);
-	}
+  // Shuffle for freshness.
+  const masterMoves = [...allMoves];
+  for (let i = masterMoves.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [masterMoves[i], masterMoves[j]] = [masterMoves[j], masterMoves[i]];
+  }
 
-	const progressByRep = new Map<string, Map<string, number>>();
-	for (const p of (progressRows ?? []) as any[]) {
-		const map = progressByRep.get(p.repertoire_id) ?? new Map<string, number>();
-		map.set(p.variation_key, p.deepest_depth_reached);
-		progressByRep.set(p.repertoire_id, map);
-	}
-
-	const repertoires = allReps.map((r: any) => {
-		const moves = movesByRep.get(r.id) ?? [];
-		const variations = enumerateVariations(moves);
-		const progressMap = progressByRep.get(r.id) ?? new Map<string, number>();
-		const withProgress = variations.map((v) => ({
-			...v,
-			deepestReached: progressMap.get(v.variationKey) ?? 0
-		}));
-		return {
-			id: r.id,
-			name: r.name,
-			color: r.color,
-			level: activeLevel(withProgress),
-			totalVariations: withProgress.length
-		};
-	});
-
-	return { repertoires };
+  return { session, profile, masterMoves, bookMoveMap };
 };
