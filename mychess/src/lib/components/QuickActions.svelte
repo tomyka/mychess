@@ -1,19 +1,11 @@
-<!-- MyChess/src/lib/components/QuickActions.svelte -->
 <script lang="ts">
   const actions = [
-    {
-      href: '/master',
-      label: 'Master',
-      sublabel: 'Learn a repertoire',
-      primary: true
-    },
-    { href: '/practice', label: 'Practice', sublabel: 'Full board', primary: false },
-    { href: '/drill',    label: 'Drill',    sublabel: 'No mistakes', primary: false },
-    { href: '/time-trial', label: 'Time Trial', sublabel: '60 seconds', primary: false }
+    { href: '/master', label: 'Master', sublabel: 'Every move, shuffled', primary: true },
+    { href: '/practice', label: 'Practice', sublabel: 'One repertoire, leveled', primary: false }
   ];
 </script>
 
-<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+<div class="grid grid-cols-2 gap-3">
   {#each actions as action}
     <a
       href={action.href}
