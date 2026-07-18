@@ -137,7 +137,7 @@
 </script>
 
 <div
-	class="relative w-full aspect-square rounded-xl overflow-hidden shadow-2xl board-theme-{prefs.theme} pieces-{prefs.pieceSet}"
+	class="relative w-[min(90vh,100%)] aspect-square mx-auto rounded-xl overflow-hidden shadow-2xl board-theme-{prefs.theme} pieces-{prefs.pieceSet}"
 >
 	{#key prefs.coordinates}
 		<div use:mountBoard class="w-full h-full"></div>
