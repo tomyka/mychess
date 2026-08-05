@@ -9,9 +9,10 @@
 
 	let quizIdx = $state(0);
 	let boardFen = $state('');
-	let phase = $state<'playing' | 'wrong' | 'success'>('playing');
-	let wrongBookSan = $state('');
+	let phase = $state<'playing' | 'success'>('playing');
+	let locked = $state(false);
 	let sessionXp = $state(0);
+	let advanceTimeout: ReturnType<typeof setTimeout> | undefined;
 
 	const attempt = $derived(data.attempt);
 
@@ -23,9 +24,10 @@
 	}
 
 	function resetForAttempt() {
+		clearTimeout(advanceTimeout);
 		quizIdx = 0;
 		phase = 'playing';
-		wrongBookSan = '';
+		locked = false;
 		if (attempt) {
 			boardFen =
 				attempt.prefix.length > 0
@@ -52,27 +54,34 @@
 	});
 
 	function handleMove(detail: { from: Key; to: Key; san: string }) {
-		if (phase !== 'playing') return false;
+		if (phase !== 'playing' || locked) return false;
 		const step = attempt?.quizSteps[quizIdx];
 		if (!step) return false;
 
 		if (detail.san === step.san) {
 			playCorrect();
-			boardFen = step.toFen;
-			quizIdx++;
+			locked = true;
 			// Grading is instant and per-move: persist + award XP for this exact
 			// move the moment it's played, independent of whether the rest of the
 			// attempt succeeds.
 			submitMoveProgress(step.moveId);
-			advanceThroughOpponentReplies();
-			if (quizIdx >= attempt.quizSteps.length) {
-				phase = 'success';
-			}
+			// Hold the board here so the green check is actually visible before
+			// advancing — updating boardFen in the same tick would clear it
+			// before the browser ever paints it.
+			advanceTimeout = setTimeout(() => {
+				boardFen = step.toFen;
+				quizIdx++;
+				advanceThroughOpponentReplies();
+				locked = false;
+				if (quizIdx >= attempt.quizSteps.length) {
+					phase = 'success';
+				}
+			}, 500);
 			return true;
 		} else {
 			playWrong();
-			wrongBookSan = step.san;
-			phase = 'wrong';
+			// Don't reveal the book move — just mark the square wrong and let
+			// the player try again on the same position.
 			return false;
 		}
 	}
@@ -137,22 +146,12 @@
 
 		<ChessBoard
 			fen={boardFen}
-			interactable={phase === 'playing'}
+			interactable={phase === 'playing' && !locked}
 			onmove={handleMove}
 			prefs={data.boardPrefs}
 		/>
 
-		{#if phase === 'wrong'}
-			<div class="mt-6 p-5 bg-white border border-gray-200 rounded-2xl text-center shadow-sm">
-				<p class="text-xl font-bold mb-1 text-gray-700">Not quite — the book move was {wrongBookSan}</p>
-				<button
-					onclick={nextAttempt}
-					class="mt-4 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition"
-				>
-					Continue
-				</button>
-			</div>
-		{:else if phase === 'success'}
+		{#if phase === 'success'}
 			<div class="mt-6 p-5 bg-white border border-gray-200 rounded-2xl text-center shadow-sm">
 				<p class="text-xl font-bold mb-1 text-green-600">✅ Solved!</p>
 				<button

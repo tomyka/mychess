@@ -5,13 +5,17 @@
 	import { Chess } from 'chess.js';
 	import { DEFAULT_PREFS, animationDuration, type BoardPrefs } from '$lib/board/prefs';
 
+	type MoveFeedback = { square: Key; kind: 'check' | 'cross' } | null;
+
 	type Props = {
 		fen?: string;
 		orientation?: Color;
 		interactable?: boolean;
 		lastMove?: [Key, Key] | undefined;
 		prefs?: BoardPrefs;
-		// Return `false` to snap the board back to `fen` (e.g. an incorrect guess).
+		// Return `true` to show a green check on the destination square, `false`
+		// to show a red cross there and snap the board back to `fen` (an
+		// incorrect guess). Any other return value accepts the move silently.
 		onmove?: (detail: { from: Key; to: Key; san: string }) => boolean | void;
 	};
 
@@ -25,7 +29,7 @@
 	}: Props = $props();
 
 	let cg: Api;
-	let correctSquare = $state<Key | null>(null);
+	let moveFeedback = $state<MoveFeedback>(null);
 
 	// Tracks the last `fen` we actually repositioned the board to, so
 	// unrelated reactive prop changes don't stomp on a guess already
@@ -72,12 +76,14 @@
 						const chess2 = new Chess(fen);
 						const move = chess2.move({ from: orig as any, to: dest as any, promotion: 'q' });
 						if (!move || !onmove) return;
-						const keepMove = onmove({ from: orig, to: dest, san: move.san });
-						if (keepMove === false) {
-							correctSquare = null;
+						const result = onmove({ from: orig, to: dest, san: move.san });
+						if (result === false) {
+							moveFeedback = { square: dest, kind: 'cross' };
 							cg.set(buildConfig());
+						} else if (result === true) {
+							moveFeedback = { square: dest, kind: 'check' };
 						} else {
-							correctSquare = dest;
+							moveFeedback = null;
 						}
 					}
 				}
@@ -107,7 +113,7 @@
 		const config = buildConfig();
 		if (fen !== lastAppliedFen) {
 			lastAppliedFen = fen;
-			correctSquare = null;
+			moveFeedback = null;
 		} else {
 			// Same position as last time — a guess may have already moved a
 			// piece visually; don't stomp on it, just apply whatever else
@@ -124,15 +130,21 @@
 	{#key prefs.coordinates}
 		<div use:mountBoard class="w-full h-full"></div>
 	{/key}
-	{#if correctSquare}
-		{@const pos = squareToPosition(correctSquare, orientation)}
+	{#if moveFeedback}
+		{@const pos = squareToPosition(moveFeedback.square, orientation)}
 		<div
-			class="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center w-6 h-6 rounded-full border-2 border-white shadow-lg bg-green-500"
+			class="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center w-6 h-6 rounded-full border-2 border-white shadow-lg {moveFeedback.kind === 'check' ? 'bg-green-500' : 'bg-red-500'}"
 			style="left: {pos.left}; top: {pos.top};"
 		>
-			<svg viewBox="0 0 24 24" fill="white" class="w-3.5 h-3.5">
-				<path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z" />
-			</svg>
+			{#if moveFeedback.kind === 'check'}
+				<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" class="w-3.5 h-3.5">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+				</svg>
+			{:else}
+				<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" class="w-3.5 h-3.5">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6L6 18" />
+				</svg>
+			{/if}
 		</div>
 	{/if}
 </div>
