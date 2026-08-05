@@ -1,7 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { requireAccount } from '$lib/server/auth';
 import { enumerateVariations, type RawMoveRow } from '$lib/mastery/variations';
-import { repertoireProgress, type MoveProgressRow } from '$lib/mastery/moveProgress';
+import { repertoireProgress } from '$lib/mastery/moveProgress';
 
 export const load: PageServerLoad = async ({ locals }) => {
   const { user } = await requireAccount(locals);
@@ -48,14 +48,16 @@ export const load: PageServerLoad = async ({ locals }) => {
     movesByRep.set(m.repertoire_id, list);
   }
 
-  const allMoveIds = (rawMoves ?? []).map((m: any) => m.id);
-  const { data: progressRows } = allMoveIds.length
-    ? await supabase
-        .from('move_progress')
-        .select('move_id, state')
-        .eq('player_id', user!.id)
-        .in('move_id', allMoveIds)
-    : { data: [] as MoveProgressRow[] };
+  // Filtered via the moves relation (not `.in('move_id', allMoveIds)`) — with
+  // move ids embedded directly in the request URL, a player with enough
+  // total moves across their repertoires can exceed URL length limits,
+  // silently failing the query and making solved progress look like it
+  // never saved.
+  const { data: progressRows } = await supabase
+    .from('move_progress')
+    .select('move_id, state, moves!inner(repertoire_id)')
+    .eq('player_id', user!.id)
+    .in('moves.repertoire_id', repIds);
 
   const repertoires = allReps.map((r: any) => {
     const variations = enumerateVariations(movesByRep.get(r.id) ?? []);

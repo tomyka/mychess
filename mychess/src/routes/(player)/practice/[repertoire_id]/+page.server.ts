@@ -49,14 +49,15 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	const variations = enumerateVariations(moves);
 
-	const moveIds = moves.map((m) => m.id);
-	const { data: progressRows } = moveIds.length
-		? await supabase
-				.from('move_progress')
-				.select('move_id, state')
-				.eq('player_id', user!.id)
-				.in('move_id', moveIds)
-		: { data: [] as { move_id: string; state: string }[] };
+	// Filtered via the moves relation (not `.in('move_id', moveIds)`) — a
+	// repertoire's move ids embedded directly in the request URL can exceed
+	// length limits once a repertoire has a few hundred moves, silently
+	// failing the query and making solved progress look like it never saved.
+	const { data: progressRows } = await supabase
+		.from('move_progress')
+		.select('move_id, state, moves!inner(repertoire_id)')
+		.eq('player_id', user!.id)
+		.eq('moves.repertoire_id', repertoireId);
 
 	const { level, satisfiedCount, totalVariations } = repertoireProgress(variations, progressRows ?? []);
 	const correctMoveIds = correctMoveIdSet(progressRows ?? []);
