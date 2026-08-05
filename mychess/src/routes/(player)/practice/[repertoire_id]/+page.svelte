@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ChessBoard from '$lib/components/ChessBoard.svelte';
 	import type { Key } from 'chessground/types';
+	import { Chess } from 'chess.js';
 	import { playCorrect, playWrong } from '$lib/sounds';
 	import { invalidateAll } from '$app/navigation';
 	import { untrack } from 'svelte';
@@ -13,6 +14,11 @@
 	let locked = $state(false);
 	let replaying = $state(false);
 	let sessionXp = $state(0);
+	// Consecutive wrong attempts on the CURRENT quiz move — resets the moment
+	// it's solved or a new attempt starts. After 3, a hint becomes available;
+	// requesting it highlights the correct piece's square, never the move.
+	let wrongCount = $state(0);
+	let hintRequested = $state(false);
 	let advanceTimeout: ReturnType<typeof setTimeout> | undefined;
 	// Bumped on every resetForAttempt() call so an in-flight prefix replay
 	// notices it's been superseded (e.g. rapid re-navigation) and stops
@@ -30,6 +36,20 @@
 
 	const attempt = $derived(data.attempt);
 	const repertoireId = $derived(data.repertoire?.id);
+
+	// The correct move's origin square — computed from the step's own
+	// fromFen/san rather than stored, since only the destination is ever
+	// meant to stay hidden.
+	const hintSquare = $derived.by(() => {
+		if (!hintRequested) return null;
+		const step = attempt?.quizSteps[quizIdx];
+		if (!step) return null;
+		try {
+			return new Chess(step.fromFen).move(step.san)?.from ?? null;
+		} catch {
+			return null;
+		}
+	});
 
 	function advanceThroughOpponentReplies() {
 		while (attempt?.quizSteps[quizIdx] && !attempt.quizSteps[quizIdx].isPlayerTurn) {
@@ -50,6 +70,8 @@
 		phase = 'playing';
 		locked = false;
 		replaying = false;
+		wrongCount = 0;
+		hintRequested = false;
 		if (!attempt) return;
 
 		if (attempt.prefix.length === 0) {
@@ -93,6 +115,8 @@
 		if (detail.san === step.san) {
 			playCorrect();
 			locked = true;
+			wrongCount = 0;
+			hintRequested = false;
 			// Grading is instant and per-move: persist + award XP for this exact
 			// move the moment it's played, independent of whether the rest of the
 			// attempt succeeds.
@@ -112,6 +136,7 @@
 			return true;
 		} else {
 			playWrong();
+			wrongCount++;
 			// Don't reveal the book move — just mark the square wrong and let
 			// the player try again on the same position.
 			return false;
@@ -194,6 +219,14 @@
 			<div class="flex-1">
 				<p class="text-center text-gray-700 font-semibold mb-4 lg:hidden">
 					{replaying ? 'Watch how we got here…' : phase === 'playing' ? 'What is the best move?' : ''}
+					{#if wrongCount >= 3 && !hintRequested && phase === 'playing' && !replaying}
+						<button
+							onclick={() => (hintRequested = true)}
+							class="ml-2 inline-flex items-center gap-1 text-sm font-medium text-amber-600 hover:text-amber-700"
+						>
+							<span class="text-base">💡</span> Need a hint?
+						</button>
+					{/if}
 				</p>
 
 				<ChessBoard
@@ -201,6 +234,7 @@
 					interactable={phase === 'playing' && !locked && !replaying}
 					onmove={handleMove}
 					prefs={data.boardPrefs}
+					{hintSquare}
 				/>
 			</div>
 
@@ -215,6 +249,16 @@
 				<p class="text-center text-gray-700 font-semibold hidden lg:block">
 					{replaying ? 'Watch how we got here…' : phase === 'playing' ? 'What is the best move?' : ''}
 				</p>
+				{#if wrongCount >= 3 && !hintRequested && phase === 'playing' && !replaying}
+					<p class="text-center hidden lg:block">
+						<button
+							onclick={() => (hintRequested = true)}
+							class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700"
+						>
+							<span class="text-base">💡</span> Need a hint?
+						</button>
+					</p>
+				{/if}
 
 				{#if phase === 'success' || phase === 'leveled-up'}
 					<div class="p-5 bg-white border border-gray-200 rounded-2xl text-center shadow-sm">

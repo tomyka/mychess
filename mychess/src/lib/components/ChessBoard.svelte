@@ -17,6 +17,10 @@
 		// to show a red cross there and snap the board back to `fen` (an
 		// incorrect guess). Any other return value accepts the move silently.
 		onmove?: (detail: { from: Key; to: Key; san: string }) => boolean | void;
+		// Highlights this square (e.g. a hint's "move this piece" square) with
+		// a pulsing amber ring and a lightbulb badge — never the destination,
+		// so it points at a piece without giving away where it should go.
+		hintSquare?: Key | null;
 	};
 
 	let {
@@ -25,7 +29,8 @@
 		interactable = true,
 		lastMove = undefined,
 		prefs = DEFAULT_PREFS,
-		onmove
+		onmove,
+		hintSquare = null
 	}: Props = $props();
 
 	let cg: Api;
@@ -45,6 +50,16 @@
 		const col = boardOrientation === 'white' ? file : 7 - file;
 		const row = boardOrientation === 'white' ? 8 - rank : rank - 1;
 		return { left: `${(col + 1) * 12.5}%`, top: `${row * 12.5}%` };
+	}
+
+	// The square's own top-left corner, for an overlay sized to the whole
+	// square (unlike squareToPosition's corner-badge placement above).
+	function squareRect(square: Key, boardOrientation: Color) {
+		const file = square.charCodeAt(0) - 97;
+		const rank = Number(square[1]);
+		const col = boardOrientation === 'white' ? file : 7 - file;
+		const row = boardOrientation === 'white' ? 8 - rank : rank - 1;
+		return { left: `${col * 12.5}%`, top: `${row * 12.5}%` };
 	}
 
 	function buildConfig() {
@@ -130,6 +145,15 @@
 	{#key prefs.coordinates}
 		<div use:mountBoard class="w-full h-full"></div>
 	{/key}
+	{#if hintSquare}
+		{@const hint = squareRect(hintSquare, orientation)}
+		<div
+			class="absolute w-[12.5%] h-[12.5%] pointer-events-none rounded-md ring-4 ring-inset ring-amber-400 animate-pulse flex items-start justify-end p-0.5"
+			style="left: {hint.left}; top: {hint.top};"
+		>
+			<span class="text-base leading-none drop-shadow" aria-label="Hint: move this piece">💡</span>
+		</div>
+	{/if}
 	{#if moveFeedback}
 		{@const pos = squareToPosition(moveFeedback.square, orientation)}
 		<div
