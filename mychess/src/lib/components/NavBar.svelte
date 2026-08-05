@@ -41,7 +41,6 @@
       {:else if !isGuest}
         <a href="/" class={linkClass(['/'])}>Dashboard</a>
         <a href="/tournaments" class={linkClass(['/tournaments'])}>Tournaments</a>
-        <a href="/master" class={linkClass(['/master'])}>Master</a>
         <a href="/practice" class={linkClass(['/practice'])}>Practice</a>
         <a href="/repertoires" class={linkClass(['/repertoires'])}>Repertoires</a>
         <a href="/coaches" class={linkClass(['/coaches'])}>Coaches</a>
@@ -130,7 +129,6 @@
       {:else if !isGuest}
         <a href="/" onclick={() => mobileMenuOpen = false} class="text-gray-700 font-medium">Dashboard</a>
         <a href="/tournaments" onclick={() => mobileMenuOpen = false} class="text-gray-700">Tournaments</a>
-        <a href="/master" onclick={() => mobileMenuOpen = false} class="text-gray-700">Master</a>
         <a href="/practice" onclick={() => mobileMenuOpen = false} class="text-gray-700">Practice</a>
         <a href="/repertoires" onclick={() => mobileMenuOpen = false} class="text-gray-700">Repertoires</a>
         <a href="/coaches" onclick={() => mobileMenuOpen = false} class="text-gray-700">Coaches</a>

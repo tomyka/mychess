@@ -26,7 +26,7 @@
                   <p class="text-xs text-indigo-500">{rep.eco_code} — {rep.eco_name}</p>
                 {/if}
               </div>
-              <a href="/master/{rep.id}" class="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors">Train</a>
+              <a href="/practice/{rep.id}" class="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors">Train</a>
             </li>
           {/each}
         </ul>

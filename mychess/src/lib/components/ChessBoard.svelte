@@ -4,7 +4,6 @@
 	import type { Color, Key } from 'chessground/types';
 	import { Chess } from 'chess.js';
 	import { DEFAULT_PREFS, animationDuration, type BoardPrefs } from '$lib/board/prefs';
-	import { resolveDisplayMarker, shouldResnap, type Marker } from './chessboard-marker';
 
 	type Props = {
 		fen?: string;
@@ -14,16 +13,6 @@
 		prefs?: BoardPrefs;
 		// Return `false` to snap the board back to `fen` (e.g. an incorrect guess).
 		onmove?: (detail: { from: Key; to: Key; san: string }) => boolean | void;
-		// Overrides the board's own star-on-correct-square logic. Leave
-		// `undefined` (the default) for that original behavior; pass an
-		// explicit marker (or `null`) to take full manual control — used by
-		// Master mode's ★/pending/✓/✗ feedback.
-		marker?: Marker;
-		// Bump this to force the board to snap back to `fen`, even if `fen`
-		// itself hasn't changed since the last time it was applied — used to
-		// revert a move that was accepted on the board while its quality was
-		// still being graded (Master mode's ✗ outcome, resolved async).
-		forceRevert?: number;
 	};
 
 	let {
@@ -32,23 +21,17 @@
 		interactable = true,
 		lastMove = undefined,
 		prefs = DEFAULT_PREFS,
-		onmove,
-		marker = undefined,
-		forceRevert = 0
+		onmove
 	}: Props = $props();
 
 	let cg: Api;
 	let correctSquare = $state<Key | null>(null);
 
-	// Tracks the last `fen`/`forceRevert` we actually repositioned the board
-	// to, so unrelated reactive prop changes don't stomp on a guess already
+	// Tracks the last `fen` we actually repositioned the board to, so
+	// unrelated reactive prop changes don't stomp on a guess already
 	// visually applied to the board.
 	// svelte-ignore state_referenced_locally -- intentional one-time snapshot for manual tracking, not a live binding
 	let lastAppliedFen = fen;
-	// svelte-ignore state_referenced_locally -- intentional one-time snapshot for manual tracking, not a live binding
-	let lastForceRevert = forceRevert;
-
-	const displayMarker = $derived(resolveDisplayMarker(marker, correctSquare));
 
 	// Positions the badge on the square's top-right corner (matching the
 	// typical "annotation" placement chess sites use), not centered on it.
@@ -122,14 +105,13 @@
 	$effect(() => {
 		if (!cg) return;
 		const config = buildConfig();
-		if (shouldResnap(fen, lastAppliedFen, forceRevert, lastForceRevert)) {
+		if (fen !== lastAppliedFen) {
 			lastAppliedFen = fen;
-			lastForceRevert = forceRevert;
 			correctSquare = null;
 		} else {
-			// Same position/revert-signal as last time — a guess may have
-			// already moved a piece visually; don't stomp on it, just apply
-			// whatever else changed (movable color, dests, orientation...).
+			// Same position as last time — a guess may have already moved a
+			// piece visually; don't stomp on it, just apply whatever else
+			// changed (movable color, dests, orientation...).
 			delete (config as { fen?: string }).fen;
 		}
 		cg.set(config);
@@ -142,29 +124,15 @@
 	{#key prefs.coordinates}
 		<div use:mountBoard class="w-full h-full"></div>
 	{/key}
-	{#if displayMarker}
-		{@const pos = squareToPosition(displayMarker.square, orientation)}
+	{#if correctSquare}
+		{@const pos = squareToPosition(correctSquare, orientation)}
 		<div
-			class="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center w-6 h-6 rounded-full border-2 border-white shadow-lg
-				{displayMarker.kind === 'star' ? 'bg-green-500' : ''}
-				{displayMarker.kind === 'pending' ? 'bg-gray-400 animate-pulse' : ''}
-				{displayMarker.kind === 'check' ? 'bg-blue-500' : ''}
-				{displayMarker.kind === 'cross' ? 'bg-red-500' : ''}"
+			class="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center w-6 h-6 rounded-full border-2 border-white shadow-lg bg-green-500"
 			style="left: {pos.left}; top: {pos.top};"
 		>
-			{#if displayMarker.kind === 'star'}
-				<svg viewBox="0 0 24 24" fill="white" class="w-3.5 h-3.5">
-					<path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z" />
-				</svg>
-			{:else if displayMarker.kind === 'check'}
-				<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" class="w-3.5 h-3.5">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-				</svg>
-			{:else if displayMarker.kind === 'cross'}
-				<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" class="w-3.5 h-3.5">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6L6 18" />
-				</svg>
-			{/if}
+			<svg viewBox="0 0 24 24" fill="white" class="w-3.5 h-3.5">
+				<path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z" />
+			</svg>
 		</div>
 	{/if}
 </div>

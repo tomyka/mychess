@@ -10,7 +10,6 @@ describe('checkBadgeEligibility', () => {
     level: 1,
     sessionCount: 0,
     repertoireCount: 0,
-    masterStreak: 0,
     ttBestScore: 0,
     questsCompleted: 0,
     hasUploaded: false,

@@ -10,7 +10,6 @@ export interface BadgeStatsInput {
   level: number;
   sessionCount: number;
   repertoireCount: number;
-  masterStreak: number;
   ttBestScore: number;
   questsCompleted: number;
   hasUploaded: boolean;
@@ -55,7 +54,6 @@ export async function grantNewBadges(
     level: p?.level ?? 1,
     sessionCount: sessions.length,
     repertoireCount: (repRes.data ?? []).length,
-    masterStreak: 0,
     ttBestScore: 0,
     questsCompleted: (questRes.data ?? []).length,
     hasUploaded: (repRes.data ?? []).length > 0,

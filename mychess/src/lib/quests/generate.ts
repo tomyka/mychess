@@ -8,7 +8,6 @@ export interface QuestTemplate {
 export const QUEST_TEMPLATES: QuestTemplate[] = [
   { id: 'review_cards', description: 'Review 10 cards today',              target: 10, xpReward: 50 },
   { id: 'new_cards',    description: 'Learn 5 new moves today',            target: 5,  xpReward: 60 },
-  { id: 'master_streak', description: 'Get a 5-move Master chain',         target: 5,  xpReward: 70 },
   { id: 'time_trial',   description: 'Score 8+ in Time Trial',             target: 8,  xpReward: 80 },
   { id: 'sessions',     description: 'Complete 2 training sessions today', target: 2,  xpReward: 40 },
 ];

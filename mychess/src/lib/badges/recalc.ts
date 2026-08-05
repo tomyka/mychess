@@ -6,7 +6,6 @@ export interface BadgeStats {
   level: number;
   sessionCount: number;
   repertoireCount: number;
-  masterStreak: number;
   ttBestScore: number;
   questsCompleted: number;
   hasUploaded: boolean;
@@ -23,7 +22,6 @@ const RULES: BadgeRule[] = [
   { id: 'first_move',          check: s => s.totalReviews >= 1 },
   { id: 'first_repertoire',    check: s => s.repertoireCount >= 1 },
   { id: 'first_streak_3',      check: s => s.streakDays >= 3 },
-  { id: 'first_drill',         check: s => s.masterStreak >= 1 },
   { id: 'first_time_trial',    check: s => s.ttBestScore >= 1 },
   // Streak
   { id: 'streak_7',            check: s => s.streakDays >= 7 },
@@ -47,11 +45,6 @@ const RULES: BadgeRule[] = [
   // Time Trial
   { id: 'speed_demon',         check: s => s.ttBestScore >= 10 },
   { id: 'speed_legend',        check: s => s.ttBestScore >= 20 },
-  // Drill
-  { id: 'drill_chain_5',       check: s => s.masterStreak >= 5 },
-  { id: 'drill_chain_10',      check: s => s.masterStreak >= 10 },
-  { id: 'drill_chain_20',      check: s => s.masterStreak >= 20 },
-  { id: 'drill_ace',           check: s => s.masterStreak >= 10 },
   // Sessions
   { id: 'sessions_10',         check: s => s.sessionCount >= 10 },
   { id: 'sessions_50',         check: s => s.sessionCount >= 50 },

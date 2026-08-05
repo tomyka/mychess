@@ -44,8 +44,8 @@
 
         <FideLookupCard query={data.fideQuery ?? ''} result={data.fideLookup ?? null} />
 
-        <a href="/master" class="block bg-indigo-600 text-white rounded-xl p-5 hover:bg-indigo-700 transition-colors">
-          <p class="font-semibold">Try Master mode →</p>
+        <a href="/practice" class="block bg-indigo-600 text-white rounded-xl p-5 hover:bg-indigo-700 transition-colors">
+          <p class="font-semibold">Try Practice mode →</p>
           <p class="text-sm text-indigo-100">No account needed — sign in later to save your progress.</p>
         </a>
 

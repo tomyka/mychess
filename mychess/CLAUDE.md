@@ -54,7 +54,7 @@ There is no lint script; `svelte-check` is the correctness gate along with vites
 **Code split: pure logic vs. Supabase I/O.** Throughout `src/lib/`, business logic that can be unit-tested without a database lives in a plain module (e.g. `src/lib/pgn-import.ts`, `src/lib/repertoire.ts`, `src/lib/coach-players.ts`, `src/lib/fide/*.ts`, `src/lib/tournaments/*.ts`, `src/lib/srs/*.ts`, `src/lib/badges/*.ts`, `src/lib/quests/*.ts`) with a colocated `*.test.ts`. Anything that actually touches `supabase` lives in `src/lib/server/` (e.g. `src/lib/server/pgn-import.ts`, `src/lib/server/coach-players.ts`) and, following established precedent, is generally *not* unit-tested directly — it's a thin wrapper around the pure logic plus DB calls, exercised through the pure-logic tests and manual/e2e verification instead.
 
 **Key domains under `src/lib/`:**
-- `srs/` — XP/leveling math (`xp.ts`), used by the Master/Practice training flows.
+- `srs/` — XP/leveling math (`xp.ts`), used by the Practice training flow.
 - `pgn/` — PGN parsing into position graphs (`parser.ts`), consumed by `pgn-import.ts` to build `repertoires`/`positions`/`moves` rows.
 - `fide/` — FIDE rating lookup, search, and ranking logic; `download.ts`/`import-job.ts` back the `fide:import` script and the cron-triggered `/api/fide/import` route.
 - `tournaments/` — tournament listing/filtering/ranking (`query.ts`) plus a scraper (`scraper.ts`, `scrape-job.ts`) that also runs as a Supabase Edge Function (`supabase/functions/tournaments-scrape/`) and via `/api/tournaments/scrape`.
