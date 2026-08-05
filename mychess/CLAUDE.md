@@ -77,6 +77,7 @@ There is no lint script; `svelte-check` is the correctness gate along with vites
 
 ## Workflow notes
 
+- **Log substantive requests as GitHub issues.** When the user's request is a real feature, bug, or task (not a trivial reply/confirmation/clarification), file it as a GitHub issue in `tomyka/mychess` via `gh issue create --title "..." --body "..."` — do this as part of handling the request, with a clean title/description reflecting the actual ask, not a raw prompt dump. Skip this for one-word replies, "yes"/"looks good" confirmations, or answers to Claude's own clarifying questions.
 - Treat production (mychess.lt / Vercel) as the test environment for this project going forward: commit and push directly to `main` without asking for confirmation first, since `main` auto-deploys via Vercel and the project has no other users yet. This does not extend to destructive git operations (force-push, history rewrites) — those still require asking.
 - When a request's scope is vague (no file/function named, no clear done-condition), ask one focused clarifying question before fanning out searches across the repo — don't burn tokens exploring to guess intent. Once scope is clear (named files, stated done-condition), act without further questions.
 - Substantial features go through brainstorm → spec → plan → subagent-driven-development (spec-compliance review, then code-quality review, per task) in an isolated worktree; small iterative UI/UX fixes are made directly in-place, still gated on the full `vitest` + `svelte-check` run before commit.
