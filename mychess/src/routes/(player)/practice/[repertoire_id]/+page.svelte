@@ -11,14 +11,22 @@
 	let boardFen = $state('');
 	let phase = $state<'playing' | 'success' | 'leveled-up'>('playing');
 	let locked = $state(false);
+	let replaying = $state(false);
 	let sessionXp = $state(0);
 	let advanceTimeout: ReturnType<typeof setTimeout> | undefined;
+	// Bumped on every resetForAttempt() call so an in-flight prefix replay
+	// notices it's been superseded (e.g. rapid re-navigation) and stops
+	// writing to boardFen instead of racing the newer one.
+	let resetToken = 0;
 	// Move-progress writes are fire-and-forget from handleMove (so the board
 	// never blocks on the network) — but nextAttempt must await the in-flight
 	// ones before reloading, or invalidateAll() can race the last write and
 	// re-pick the same not-yet-satisfied variation, making Continue look
 	// like it did nothing.
 	let pendingProgress: Promise<unknown>[] = [];
+
+	const REPLAY_STEP_MS = 550;
+	const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 	const attempt = $derived(data.attempt);
 	const repertoireId = $derived(data.repertoire?.id);
@@ -30,18 +38,36 @@
 		}
 	}
 
-	function resetForAttempt() {
+	// From Level 2 onward, `attempt.prefix` holds the already-mastered moves
+	// leading up to this attempt's quiz. Playing them out one at a time (like
+	// a PC opponent replaying the line) instead of jumping straight to the
+	// quiz position mirrors how the line is actually reached in a real game,
+	// reinforcing the path there rather than just the isolated position.
+	async function resetForAttempt() {
+		const myToken = ++resetToken;
 		clearTimeout(advanceTimeout);
 		quizIdx = 0;
 		phase = 'playing';
 		locked = false;
-		if (attempt) {
-			boardFen =
-				attempt.prefix.length > 0
-					? attempt.prefix[attempt.prefix.length - 1].toFen
-					: (attempt.quizSteps[0]?.fromFen ?? '');
+		replaying = false;
+		if (!attempt) return;
+
+		if (attempt.prefix.length === 0) {
+			boardFen = attempt.quizSteps[0]?.fromFen ?? '';
 			advanceThroughOpponentReplies();
+			return;
 		}
+
+		replaying = true;
+		boardFen = attempt.prefix[0].fromFen;
+		for (const step of attempt.prefix) {
+			await sleep(REPLAY_STEP_MS);
+			if (myToken !== resetToken) return; // superseded by a newer reset
+			boardFen = step.toFen;
+		}
+		if (myToken !== resetToken) return;
+		replaying = false;
+		advanceThroughOpponentReplies();
 	}
 
 	// Set the board's initial position synchronously, before ChessBoard's own
@@ -60,7 +86,7 @@
 	});
 
 	function handleMove(detail: { from: Key; to: Key; san: string }) {
-		if (phase !== 'playing' || locked) return false;
+		if (phase !== 'playing' || locked || replaying) return false;
 		const step = attempt?.quizSteps[quizIdx];
 		if (!step) return false;
 
@@ -167,12 +193,12 @@
 		<div class="flex flex-col lg:flex-row lg:items-start gap-6">
 			<div class="flex-1">
 				<p class="text-center text-gray-700 font-semibold mb-4 lg:hidden">
-					{phase === 'playing' ? 'What is the best move?' : ''}
+					{replaying ? 'Watch how we got here…' : phase === 'playing' ? 'What is the best move?' : ''}
 				</p>
 
 				<ChessBoard
 					fen={boardFen}
-					interactable={phase === 'playing' && !locked}
+					interactable={phase === 'playing' && !locked && !replaying}
 					onmove={handleMove}
 					prefs={data.boardPrefs}
 				/>
@@ -187,7 +213,7 @@
 				</div>
 
 				<p class="text-center text-gray-700 font-semibold hidden lg:block">
-					{phase === 'playing' ? 'What is the best move?' : ''}
+					{replaying ? 'Watch how we got here…' : phase === 'playing' ? 'What is the best move?' : ''}
 				</p>
 
 				{#if phase === 'success' || phase === 'leveled-up'}
