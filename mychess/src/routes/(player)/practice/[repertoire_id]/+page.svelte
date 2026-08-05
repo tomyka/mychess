@@ -9,12 +9,19 @@
 
 	let quizIdx = $state(0);
 	let boardFen = $state('');
-	let phase = $state<'playing' | 'success'>('playing');
+	let phase = $state<'playing' | 'success' | 'leveled-up'>('playing');
 	let locked = $state(false);
 	let sessionXp = $state(0);
 	let advanceTimeout: ReturnType<typeof setTimeout> | undefined;
+	// Move-progress writes are fire-and-forget from handleMove (so the board
+	// never blocks on the network) — but nextAttempt must await the in-flight
+	// ones before reloading, or invalidateAll() can race the last write and
+	// re-pick the same not-yet-satisfied variation, making Continue look
+	// like it did nothing.
+	let pendingProgress: Promise<unknown>[] = [];
 
 	const attempt = $derived(data.attempt);
+	const repertoireId = $derived(data.repertoire?.id);
 
 	function advanceThroughOpponentReplies() {
 		while (attempt?.quizSteps[quizIdx] && !attempt.quizSteps[quizIdx].isPlayerTurn) {
@@ -43,13 +50,12 @@
 	// below to set boardFen for the first time is too late.
 	resetForAttempt();
 
-	// `attempt` must be the ONLY tracked dependency here — resetForAttempt()
-	// also reads `quizIdx`, and Svelte's automatic dependency tracking would
-	// otherwise subscribe this effect to it too, meaning handleMove's
-	// quizIdx++ on every correct move would re-trigger a full reset. untrack()
-	// prevents that.
+	// Reset only when the REPERTOIRE itself changes (including on mount) —
+	// not on every `attempt` change, since nextAttempt() below also changes
+	// `attempt` via invalidateAll() and needs to decide for itself whether to
+	// jump straight into the next attempt or show a level-up notice first.
 	$effect(() => {
-		attempt;
+		repertoireId;
 		untrack(() => resetForAttempt());
 	});
 
@@ -64,7 +70,7 @@
 			// Grading is instant and per-move: persist + award XP for this exact
 			// move the moment it's played, independent of whether the rest of the
 			// attempt succeeds.
-			submitMoveProgress(step.moveId);
+			pendingProgress.push(submitMoveProgress(step.moveId));
 			// Hold the board here so the green check is actually visible before
 			// advancing — updating boardFen in the same tick would clear it
 			// before the browser ever paints it.
@@ -103,7 +109,28 @@
 	}
 
 	async function nextAttempt() {
+		const levelBefore = data.level;
+		await Promise.all(pendingProgress);
+		pendingProgress = [];
 		await invalidateAll();
+		// `data` now reflects the fresh load. If completing that attempt was
+		// the last unsatisfied variation at this level, the recomputed level
+		// has already advanced (or the repertoire is now 'mastered', handled
+		// by the top-level template branch) — surface that instead of
+		// silently dropping the player into the next level's quiz.
+		if (typeof levelBefore === 'number' && data.level !== levelBefore) {
+			phase = 'leveled-up';
+		} else {
+			resetForAttempt();
+		}
+	}
+
+	function handleContinue() {
+		if (phase === 'leveled-up') {
+			resetForAttempt();
+		} else {
+			nextAttempt();
+		}
 	}
 </script>
 
@@ -111,7 +138,7 @@
 	<title>Practice {data.repertoire?.name ?? 'Repertoire'} — MyChess</title>
 </svelte:head>
 
-<main class="min-h-screen bg-gray-50 p-4 max-w-3xl mx-auto pb-24">
+<main class="min-h-screen bg-gray-50 p-4 max-w-5xl mx-auto pb-24">
 	<div class="flex items-center justify-between mb-4">
 		<a href="/practice" class="text-gray-400 text-sm hover:text-gray-600">← All Repertoires</a>
 		<span class="text-indigo-600 font-bold text-sm">+{sessionXp} XP</span>
@@ -137,30 +164,48 @@
 			<a href="/practice" class="text-indigo-600 hover:underline">Back to Repertoires</a>
 		</div>
 	{:else}
-		<p class="text-center text-gray-400 text-sm font-medium mb-2">
-			{data.repertoire?.name} · Level {data.level} · {data.satisfiedCount}/{data.totalVariations} solved
-		</p>
-		<p class="text-center text-gray-700 font-semibold mb-4">
-			{phase === 'playing' ? 'What is the best move?' : ''}
-		</p>
+		<div class="flex flex-col lg:flex-row lg:items-start gap-6">
+			<div class="flex-1">
+				<p class="text-center text-gray-700 font-semibold mb-4 lg:hidden">
+					{phase === 'playing' ? 'What is the best move?' : ''}
+				</p>
 
-		<ChessBoard
-			fen={boardFen}
-			interactable={phase === 'playing' && !locked}
-			onmove={handleMove}
-			prefs={data.boardPrefs}
-		/>
-
-		{#if phase === 'success'}
-			<div class="mt-6 p-5 bg-white border border-gray-200 rounded-2xl text-center shadow-sm">
-				<p class="text-xl font-bold mb-1 text-green-600">✅ Solved!</p>
-				<button
-					onclick={nextAttempt}
-					class="mt-4 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition"
-				>
-					Continue
-				</button>
+				<ChessBoard
+					fen={boardFen}
+					interactable={phase === 'playing' && !locked}
+					onmove={handleMove}
+					prefs={data.boardPrefs}
+				/>
 			</div>
-		{/if}
+
+			<div class="w-full lg:w-72 shrink-0 space-y-4">
+				<div class="p-4 bg-white border border-gray-200 rounded-2xl shadow-sm text-center">
+					<p class="text-gray-400 text-sm font-medium">
+						{data.repertoire?.name} · Level {data.level}
+					</p>
+					<p class="text-gray-400 text-sm">{data.satisfiedCount}/{data.totalVariations} solved</p>
+				</div>
+
+				<p class="text-center text-gray-700 font-semibold hidden lg:block">
+					{phase === 'playing' ? 'What is the best move?' : ''}
+				</p>
+
+				{#if phase === 'success' || phase === 'leveled-up'}
+					<div class="p-5 bg-white border border-gray-200 rounded-2xl text-center shadow-sm">
+						{#if phase === 'leveled-up'}
+							<p class="text-xl font-bold mb-1 text-indigo-600">🎉 Level up! Now on Level {data.level}</p>
+						{:else}
+							<p class="text-xl font-bold mb-1 text-green-600">✅ Solved!</p>
+						{/if}
+						<button
+							onclick={handleContinue}
+							class="mt-4 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition"
+						>
+							Continue
+						</button>
+					</div>
+				{/if}
+			</div>
+		</div>
 	{/if}
 </main>
