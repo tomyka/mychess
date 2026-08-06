@@ -2,6 +2,7 @@
 	import { Chessground } from 'chessground';
 	import type { Api } from 'chessground/api';
 	import type { Color, Key } from 'chessground/types';
+	import type { DrawShape } from 'chessground/draw';
 	import { Chess } from 'chess.js';
 	import { DEFAULT_PREFS, animationDuration, type BoardPrefs } from '$lib/board/prefs';
 
@@ -49,14 +50,43 @@
 	let lastAppliedFen = fen;
 
 	// The square's own top-left corner, for an overlay sized to the whole
-	// square — used to anchor a badge into one of that square's own corners
-	// without straddling into a neighboring square.
+	// square — used to anchor the hint ring into one of that square's own
+	// corners without straddling into a neighboring square.
 	function squareRect(square: Key, boardOrientation: Color) {
 		const file = square.charCodeAt(0) - 97;
 		const rank = Number(square[1]);
 		const col = boardOrientation === 'white' ? file : 7 - file;
 		const row = boardOrientation === 'white' ? 8 - rank : rank - 1;
 		return { left: `${col * 12.5}%`, top: `${row * 12.5}%` };
+	}
+
+	// Draws the move-feedback badge as a chessground shape (same mechanism
+	// lichess uses for its own puzzle feedback) instead of a hand-positioned
+	// div — chessground owns the square's coordinate math, so this can't
+	// drift into a corner shared with another square or survive a resize.
+	// Coordinates are in the shape's own 0–100 square-local space.
+	function feedbackSvg(kind: 'check' | 'cross'): string {
+		const fill = kind === 'check' ? '#22ac38' : '#df5353';
+		const glyph =
+			kind === 'check'
+				? 'M59 30L68 39L87 17'
+				: 'M61 17L83 39M83 17L61 39';
+		return `
+			<defs>
+				<filter id="fb-shadow" x="-60%" y="-60%" width="220%" height="220%">
+					<feDropShadow dx="3" dy="4" stdDeviation="4" flood-opacity="0.45" />
+				</filter>
+			</defs>
+			<g filter="url(#fb-shadow)">
+				<circle cx="72" cy="28" r="25" fill="${fill}" stroke="white" stroke-width="5" />
+			</g>
+			<path d="${glyph}" fill="none" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+		`;
+	}
+
+	function feedbackShapes(): DrawShape[] {
+		if (!moveFeedback) return [];
+		return [{ orig: moveFeedback.square, customSvg: { html: feedbackSvg(moveFeedback.kind) } }];
 	}
 
 	function buildConfig() {
@@ -97,12 +127,19 @@
 							// anything paints, never visibly had a piece on it. Lock
 							// input for the hold so a drag mid-revert can't fight it.
 							clearTimeout(revertTimeout);
-							cg.set({ movable: { color: undefined } });
-							revertTimeout = setTimeout(() => cg.set(buildConfig()), WRONG_MOVE_HOLD_MS);
+							cg.set({ movable: { color: undefined }, drawable: { autoShapes: feedbackShapes() } });
+							revertTimeout = setTimeout(() => {
+								// The X shouldn't linger on the now-empty square after the
+								// piece has snapped back — clear it along with the position.
+								moveFeedback = null;
+								cg.set(buildConfig());
+							}, WRONG_MOVE_HOLD_MS);
 						} else if (result === true) {
 							moveFeedback = { square: dest, kind: 'check' };
+							cg.set({ drawable: { autoShapes: feedbackShapes() } });
 						} else {
 							moveFeedback = null;
+							cg.set({ drawable: { autoShapes: [] } });
 						}
 					}
 				}
@@ -113,7 +150,8 @@
 			animation: {
 				enabled: animationDuration(prefs.animation) > 0,
 				duration: animationDuration(prefs.animation)
-			}
+			},
+			drawable: { autoShapes: feedbackShapes() }
 		};
 	}
 
@@ -134,12 +172,16 @@
 
 	$effect(() => {
 		if (!cg) return;
-		const config = buildConfig();
-		if (fen !== lastAppliedFen) {
+		const isNewPosition = fen !== lastAppliedFen;
+		if (isNewPosition) {
+			// Clear before building config — feedbackShapes() reads moveFeedback,
+			// so this has to land before buildConfig() below, not after.
 			lastAppliedFen = fen;
 			moveFeedback = null;
 			clearTimeout(revertTimeout);
-		} else {
+		}
+		const config = buildConfig();
+		if (!isNewPosition) {
 			// Same position as last time — a guess may have already moved a
 			// piece visually; don't stomp on it, just apply whatever else
 			// changed (movable color, dests, orientation...).
@@ -164,25 +206,6 @@
 			<span class="text-base leading-none drop-shadow" aria-label="Hint: move this piece">💡</span>
 		</div>
 	{/if}
-	{#if moveFeedback}
-		{@const rect = squareRect(moveFeedback.square, orientation)}
-		<div
-			class="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-start justify-end p-1"
-			style="left: {rect.left}; top: {rect.top};"
-		>
-			<div
-				class="flex items-center justify-center w-[42px] h-[42px] rounded-full border-[3px] border-white shadow-lg {moveFeedback.kind === 'check' ? 'bg-green-600' : 'bg-red-600'}"
-			>
-				{#if moveFeedback.kind === 'check'}
-					<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4.6" class="w-6 h-6">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 13L9.5 18L19.5 5.5" />
-					</svg>
-				{:else}
-					<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4.6" class="w-6 h-6">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6L6 18" />
-					</svg>
-				{/if}
-			</div>
-		</div>
-	{/if}
+	<!-- moveFeedback is drawn by chessground itself via drawable.autoShapes/
+	     feedbackShapes(), not a template block — see buildConfig() above. -->
 </div>
