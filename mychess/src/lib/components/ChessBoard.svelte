@@ -52,6 +52,17 @@
 		return { left: `${(col + 1) * 12.5}%`, top: `${row * 12.5}%` };
 	}
 
+	// The square's own center point, for a badge meant to mark the square
+	// itself (unlike squareToPosition's shared-corner placement above, which
+	// straddles four squares and reads as floating between them).
+	function squareCenter(square: Key, boardOrientation: Color) {
+		const file = square.charCodeAt(0) - 97;
+		const rank = Number(square[1]);
+		const col = boardOrientation === 'white' ? file : 7 - file;
+		const row = boardOrientation === 'white' ? 8 - rank : rank - 1;
+		return { left: `${(col + 0.5) * 12.5}%`, top: `${(row + 0.5) * 12.5}%` };
+	}
+
 	// The square's own top-left corner, for an overlay sized to the whole
 	// square (unlike squareToPosition's corner-badge placement above).
 	function squareRect(square: Key, boardOrientation: Color) {
@@ -155,7 +166,7 @@
 		</div>
 	{/if}
 	{#if moveFeedback}
-		{@const pos = squareToPosition(moveFeedback.square, orientation)}
+		{@const pos = squareCenter(moveFeedback.square, orientation)}
 		<div
 			class="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center w-6 h-6 rounded-full border-2 border-white shadow-lg {moveFeedback.kind === 'check' ? 'bg-green-500' : 'bg-red-500'}"
 			style="left: {pos.left}; top: {pos.top};"
