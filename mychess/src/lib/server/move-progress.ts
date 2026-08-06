@@ -4,12 +4,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * Flips a move's `move_progress` row to `'correct'` (idempotent — calling
  * this again on an already-correct move is a no-op past the first time).
  * Returns whether it was ALREADY `'correct'` before this call, so callers
- * that award XP only on the new -> correct transition (Practice) can skip
- * re-awarding it, while callers that don't need that distinction (Master,
- * which awards its own flat per-move XP client-side) can ignore it. Also
- * returns `error` (matching this codebase's `src/lib/server/*` convention,
- * e.g. `pgn-import.ts`/`coach-players.ts`) so callers can detect a failed
- * write instead of silently assuming success.
+ * that only care about the new -> correct transition can distinguish it
+ * from a no-op replay. Also returns `error` (matching this codebase's
+ * `src/lib/server/*` convention, e.g. `pgn-import.ts`/`coach-players.ts`)
+ * so callers can detect a failed write instead of silently assuming success.
  */
 export async function markMoveCorrect(
 	supabase: SupabaseClient,
