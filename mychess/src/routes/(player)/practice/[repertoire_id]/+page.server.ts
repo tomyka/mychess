@@ -4,9 +4,9 @@ import { requireAccount } from '$lib/server/auth';
 import { mergeRepertoireIds } from '$lib/repertoire';
 import { enumerateVariations, type RawMoveRow } from '$lib/mastery/variations';
 import { correctMoveIdSet, repertoireProgress } from '$lib/mastery/moveProgress';
-import { pickPracticeAttempt, splitAttempt } from '$lib/mastery/practice';
+import { pickPracticeAttempt, pickReviewAttempt, splitAttempt } from '$lib/mastery/practice';
 
-export const load: PageServerLoad = async ({ params, locals }) => {
+export const load: PageServerLoad = async ({ params, url, locals }) => {
 	const { user } = await requireAccount(locals);
 	const supabase = locals.supabase;
 	const repertoireId = params.repertoire_id;
@@ -59,15 +59,36 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		.eq('player_id', user!.id)
 		.eq('moves.repertoire_id', repertoireId);
 
-	const { level, satisfiedCount, totalVariations } = repertoireProgress(variations, progressRows ?? []);
+	const { level, satisfiedCount, totalVariations, totalLevels } = repertoireProgress(
+		variations,
+		progressRows ?? []
+	);
 	const correctMoveIds = correctMoveIdSet(progressRows ?? []);
+
+	// A `?level=N` request only takes effect for a level strictly below the
+	// active one (or any level up to totalLevels once mastered) — anything
+	// else (the active level, a locked level, garbage input) is ignored and
+	// the page falls back to normal training below. This means URL tampering
+	// to peek at a locked level just does nothing, rather than erroring.
+	const requestedLevel = Number(url.searchParams.get('level'));
+	const isValidReview =
+		Number.isInteger(requestedLevel) &&
+		requestedLevel >= 1 &&
+		(level === 'mastered' ? requestedLevel <= totalLevels : requestedLevel < level);
+	const reviewLevel = isValidReview ? requestedLevel : null;
 
 	let attempt: {
 		prefix: ReturnType<typeof splitAttempt>['prefix'];
 		quizSteps: ReturnType<typeof splitAttempt>['quizSteps'];
 	} | null = null;
 
-	if (level !== 'mastered') {
+	if (reviewLevel !== null) {
+		const picked = pickReviewAttempt(variations, reviewLevel);
+		if (picked) {
+			const { prefix, quizSteps } = splitAttempt(picked.variation.path, reviewLevel, picked.targetDepth);
+			attempt = { prefix, quizSteps };
+		}
+	} else if (level !== 'mastered') {
 		const picked = pickPracticeAttempt(variations, level, correctMoveIds);
 		if (picked) {
 			const { prefix, quizSteps } = splitAttempt(picked.variation.path, level, picked.targetDepth);
@@ -75,5 +96,5 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		}
 	}
 
-	return { repertoire, level, totalVariations, satisfiedCount, attempt };
+	return { repertoire, level, totalVariations, totalLevels, satisfiedCount, attempt, reviewLevel };
 };
