@@ -74,18 +74,18 @@
 		const fill = kind === 'check' ? '#22ac38' : '#df5353';
 		const glyph =
 			kind === 'check'
-				? 'M75.7 17.3L81.4 23L93.6 9'
-				: 'M77 9L91 23M91 9L77 23';
+				? 'M73.3 19L79.5 25.3L93 9.9'
+				: 'M74.7 9.9L90.1 25.3M90.1 9.9L74.7 25.3';
 		return `
 			<defs>
 				<filter id="fb-shadow" x="-60%" y="-60%" width="220%" height="220%">
-					<feDropShadow dx="2" dy="2.5" stdDeviation="2.5" flood-opacity="0.45" />
+					<feDropShadow dx="2.2" dy="2.8" stdDeviation="2.8" flood-opacity="0.45" />
 				</filter>
 			</defs>
 			<g filter="url(#fb-shadow)">
-				<circle cx="84" cy="16" r="16" fill="${fill}" />
+				<circle cx="82.4" cy="17.6" r="17.6" fill="${fill}" />
 			</g>
-			<path d="${glyph}" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+			<path d="${glyph}" fill="none" stroke="white" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" />
 		`;
 	}
 
