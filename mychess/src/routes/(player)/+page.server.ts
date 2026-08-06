@@ -1,6 +1,5 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { levelFromXp } from '$lib/srs/xp';
 import { selectDailyQuests } from '$lib/quests/generate';
 import { fetchLichessRatings } from '$lib/server/lichess';
 import { fetchChesscomRatings } from '$lib/server/chesscom';
@@ -57,15 +56,13 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
   if (isGuest) return { isGuest: true, session: null, profile: null, upcomingTournaments: upcomingTournaments ?? [], fideLookup, fideQuery };
 
   const p = profile as any;
-  const totalXp = Number(p?.xp ?? 0);
   const streakDays = Number(p?.streak_days ?? 0);
-  const { level, xpInLevel, xpToNextLevel } = levelFromXp(totalXp);
   const today = new Date().toISOString().slice(0, 10);
   const lichessUsername = p?.lichess_username ?? null;
   const chesscomUsername = p?.chesscom_username ?? null;
 
   // Parallel fetches
-  const [statsRes, questsRes, leaderboardRes, noteRes, lichessRatings, chesscomRatings, fideRes] = await Promise.all([
+  const [statsRes, questsRes, noteRes, lichessRatings, chesscomRatings, fideRes] = await Promise.all([
     supabase
       .from('player_stats')
       .select('total_reviews, total_correct, moves_learned, new_cards_today')
@@ -76,11 +73,6 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
       .select('*')
       .eq('player_id', user.id)
       .eq('date', today),
-    supabase
-      .from('weekly_leaderboard')
-      .select('player_id, weekly_xp, rank')
-      .order('rank', { ascending: true })
-      .limit(10),
     supabase
       .from('coach_notes')
       .select('id, note, created_at')
@@ -142,30 +134,10 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
       description: t.description,
       target: t.target,
       progress: 0,
-      xp_reward: t.xpReward,
       completed: false
     }));
     const { data: inserted } = await supabase.from('quests').insert(rows).select();
     quests = inserted ?? [];
-  }
-
-  // Enrich leaderboard with display names
-  const lbData = leaderboardRes.data ?? [];
-  const playerIds = lbData.map((r: any) => r.player_id);
-  let lbEntries: any[] = [];
-  if (playerIds.length > 0) {
-    const { data: names } = await supabase
-      .from('profiles')
-      .select('id, display_name, avatar_id')
-      .in('id', playerIds);
-    const nameMap = new Map((names ?? []).map((n: any) => [n.id, n]));
-    lbEntries = lbData.map((r: any) => ({
-      rank: r.rank,
-      player_name: nameMap.get(r.player_id)?.display_name ?? 'Player',
-      avatar_id: nameMap.get(r.player_id)?.avatar_id ?? 'knight',
-      weekly_xp: r.weekly_xp,
-      is_current_user: r.player_id === user.id
-    }));
   }
 
   return {
@@ -178,16 +150,11 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
     chesscomRatings,
     fideRatings,
     stats: {
-      level,
-      total_xp: totalXp,
-      xp_in_level: xpInLevel,
-      xp_to_next: xpToNextLevel,
       streak_days: streakDays,
       total_reviews: statsRes.data?.total_reviews ?? 0,
       new_cards_today: statsRes.data?.new_cards_today ?? 0
     },
     quests,
-    leaderboard: lbEntries,
     unreadNote: noteRes.data ?? null,
     avatarId: p?.avatar_id ?? 'knight',
     upcomingTournaments: upcomingTournaments ?? [],
