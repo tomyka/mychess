@@ -33,16 +33,5 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   if (updateErr) throw error(500, updateErr.message);
 
-  if (nowComplete && !quest.completed) {
-    await supabase.rpc('update_xp_and_level', {
-      p_player_id: authUser.id,
-      p_xp_delta: quest.xp_reward
-    });
-    await supabase.rpc('update_weekly_leaderboard', {
-      p_player_id: authUser.id,
-      p_xp: quest.xp_reward
-    });
-  }
-
   return json({ updated: true, completed: nowComplete, progress: newProgress });
 };
