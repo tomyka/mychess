@@ -82,6 +82,13 @@
       <!-- Streak -->
       <StatsRow streakDays={stats.streak_days ?? 0} />
 
+      {#if (stats.total_masterable_repertoires ?? 0) > 0}
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-3 text-center">
+          <p class="text-xl font-bold text-amber-500">🏆 {stats.mastered_repertoires} / {stats.total_masterable_repertoires}</p>
+          <p class="text-xs text-gray-400 mt-0.5">Repertoires mastered</p>
+        </div>
+      {/if}
+
       <!-- Quick study actions -->
       <QuickActions />
 

@@ -3,6 +3,7 @@ import type { PageServerLoad } from './$types';
 import { selectDailyQuests } from '$lib/quests/generate';
 import { fetchLichessRatings } from '$lib/server/lichess';
 import { fetchChesscomRatings } from '$lib/server/chesscom';
+import { loadRepertoireProgressSummaries } from '$lib/server/repertoire-progress';
 
 export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSession } }) => {
   const { user, session, profile } = await safeGetSession();
@@ -62,7 +63,7 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
   const chesscomUsername = p?.chesscom_username ?? null;
 
   // Parallel fetches
-  const [statsRes, questsRes, noteRes, lichessRatings, chesscomRatings, fideRes] = await Promise.all([
+  const [statsRes, questsRes, noteRes, lichessRatings, chesscomRatings, fideRes, repertoireSummaries] = await Promise.all([
     supabase
       .from('player_stats')
       .select('total_reviews, total_correct, moves_learned, new_cards_today')
@@ -94,7 +95,8 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
           )
           .eq('fide_id', p.fide_id)
           .single()
-      : Promise.resolve({ data: null, error: null })
+      : Promise.resolve({ data: null, error: null }),
+    loadRepertoireProgressSummaries(supabase, user.id)
   ]);
 
   // A missing row returns a PGRST116 error, which we treat as "unranked" (null).
@@ -140,6 +142,12 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
     quests = inserted ?? [];
   }
 
+  // A repertoire with no moves yet is vacuously "mastered" by
+  // repertoireProgress's math — exclude it from both sides of this ratio, it
+  // isn't meaningfully masterable yet.
+  const masterableRepertoires = repertoireSummaries.filter((r) => r.totalVariations > 0);
+  const masteredRepertoireCount = masterableRepertoires.filter((r) => r.level === 'mastered').length;
+
   return {
     isGuest,
     session,
@@ -152,7 +160,9 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
     stats: {
       streak_days: streakDays,
       total_reviews: statsRes.data?.total_reviews ?? 0,
-      new_cards_today: statsRes.data?.new_cards_today ?? 0
+      new_cards_today: statsRes.data?.new_cards_today ?? 0,
+      mastered_repertoires: masteredRepertoireCount,
+      total_masterable_repertoires: masterableRepertoires.length
     },
     quests,
     unreadNote: noteRes.data ?? null,
