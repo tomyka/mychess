@@ -48,29 +48,9 @@
 	// svelte-ignore state_referenced_locally -- intentional one-time snapshot for manual tracking, not a live binding
 	let lastAppliedFen = fen;
 
-	// Positions the badge on the square's top-right corner (matching the
-	// typical "annotation" placement chess sites use), not centered on it.
-	function squareToPosition(square: Key, boardOrientation: Color) {
-		const file = square.charCodeAt(0) - 97; // 'a' -> 0 .. 'h' -> 7
-		const rank = Number(square[1]); // 1-8
-		const col = boardOrientation === 'white' ? file : 7 - file;
-		const row = boardOrientation === 'white' ? 8 - rank : rank - 1;
-		return { left: `${(col + 1) * 12.5}%`, top: `${row * 12.5}%` };
-	}
-
-	// The square's own center point, for a badge meant to mark the square
-	// itself (unlike squareToPosition's shared-corner placement above, which
-	// straddles four squares and reads as floating between them).
-	function squareCenter(square: Key, boardOrientation: Color) {
-		const file = square.charCodeAt(0) - 97;
-		const rank = Number(square[1]);
-		const col = boardOrientation === 'white' ? file : 7 - file;
-		const row = boardOrientation === 'white' ? 8 - rank : rank - 1;
-		return { left: `${(col + 0.5) * 12.5}%`, top: `${(row + 0.5) * 12.5}%` };
-	}
-
 	// The square's own top-left corner, for an overlay sized to the whole
-	// square (unlike squareToPosition's corner-badge placement above).
+	// square — used to anchor a badge into one of that square's own corners
+	// without straddling into a neighboring square.
 	function squareRect(square: Key, boardOrientation: Color) {
 		const file = square.charCodeAt(0) - 97;
 		const rank = Number(square[1]);
@@ -185,20 +165,24 @@
 		</div>
 	{/if}
 	{#if moveFeedback}
-		{@const pos = squareCenter(moveFeedback.square, orientation)}
+		{@const rect = squareRect(moveFeedback.square, orientation)}
 		<div
-			class="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center w-6 h-6 rounded-full border-2 border-white shadow-lg {moveFeedback.kind === 'check' ? 'bg-green-500' : 'bg-red-500'}"
-			style="left: {pos.left}; top: {pos.top};"
+			class="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-start justify-end p-1"
+			style="left: {rect.left}; top: {rect.top};"
 		>
-			{#if moveFeedback.kind === 'check'}
-				<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" class="w-3.5 h-3.5">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-				</svg>
-			{:else}
-				<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" class="w-3.5 h-3.5">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6L6 18" />
-				</svg>
-			{/if}
+			<div
+				class="flex items-center justify-center w-[42px] h-[42px] rounded-full border-[3px] border-white shadow-lg {moveFeedback.kind === 'check' ? 'bg-green-600' : 'bg-red-600'}"
+			>
+				{#if moveFeedback.kind === 'check'}
+					<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4.6" class="w-6 h-6">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 13L9.5 18L19.5 5.5" />
+					</svg>
+				{:else}
+					<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4.6" class="w-6 h-6">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6L6 18" />
+					</svg>
+				{/if}
+			</div>
 		</div>
 	{/if}
 </div>
