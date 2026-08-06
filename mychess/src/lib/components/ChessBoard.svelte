@@ -64,25 +64,28 @@
 	// lichess uses for its own puzzle feedback) instead of a hand-positioned
 	// div — chessground owns the square's coordinate math, so this can't
 	// drift into a corner shared with another square or survive a resize.
-	// Coordinates are in the shape's own 0–100 square-local space. Anchored
-	// bottom-right, near the piece's base/feet rather than its head, so it
-	// sits beside the piece instead of stamped over its face.
+	// Coordinates are in the shape's own 0–100 square-local space. Lichess's
+	// own badge (ui/lib/src/game/glyphs.ts composeGlyph) sits at (91, 8) r=20
+	// — tucked into the top-right corner, deliberately overflowing past the
+	// square's own edge so it clears the piece rather than sitting on it.
+	// (72, 28) landed squarely on most pieces' heads; pushed further into
+	// the corner here, just short of the edge to avoid any clipping risk.
 	function feedbackSvg(kind: 'check' | 'cross'): string {
 		const fill = kind === 'check' ? '#22ac38' : '#df5353';
 		const glyph =
 			kind === 'check'
-				? 'M59 74L68 83L87 61'
-				: 'M61 61L83 83M83 61L61 83';
+				? 'M75.7 17.3L81.4 23L93.6 9'
+				: 'M77 9L91 23M91 9L77 23';
 		return `
 			<defs>
 				<filter id="fb-shadow" x="-60%" y="-60%" width="220%" height="220%">
-					<feDropShadow dx="3" dy="4" stdDeviation="4" flood-opacity="0.45" />
+					<feDropShadow dx="2" dy="2.5" stdDeviation="2.5" flood-opacity="0.45" />
 				</filter>
 			</defs>
-			<g filter="url(#fb-shadow)" transform="translate(72,72) scale(0.7) translate(-72,-72)">
-				<circle cx="72" cy="72" r="25" fill="${fill}" />
+			<g filter="url(#fb-shadow)">
+				<circle cx="84" cy="16" r="16" fill="${fill}" />
 			</g>
-			<path d="${glyph}" fill="none" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" transform="translate(72,72) scale(0.7) translate(-72,-72)" />
+			<path d="${glyph}" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
 		`;
 	}
 
