@@ -27,6 +27,59 @@ On `practice/[repertoire_id]/+page.svelte`, a new level list renders rows `1..to
 
 Clicking a passed row navigates to `?level=N`.
 
+## Level tags
+
+Each level also gets a difficulty tag — Beginner/Regular/Advanced/Expert — derived purely from its position and the repertoire's `totalLevels`. Tier sizes grow in a fixed order as `totalLevels` increases (Regular appears at 4, Regular grows at 5, Beginner grows at 6, Advanced grows at 7, Expert absorbs any overflow at 8+):
+
+| totalLevels | Beginner | Regular | Advanced | Expert |
+|---|---|---|---|---|
+| 1 | 1 | – | – | – |
+| 2 | 1 | – | 1 | – |
+| 3 | 1 | – | 1 | 1 |
+| 4 | 1 | 1 | 1 | 1 |
+| 5 | 1 | 2 | 1 | 1 |
+| 6 | 2 | 2 | 1 | 1 |
+| 7 | 2 | 2 | 2 | 1 |
+| 8+ | 2 | 2 | 2 | rest |
+
+A new pure module, `src/lib/mastery/tags.ts`:
+
+```ts
+export type LevelTag = 'Beginner' | 'Regular' | 'Advanced' | 'Expert';
+
+// [Beginner, Regular, Advanced, Expert] level counts, for totalLevels 1..7.
+const TIER_SIZES: Record<number, [number, number, number, number]> = {
+  1: [1, 0, 0, 0],
+  2: [1, 0, 1, 0],
+  3: [1, 0, 1, 1],
+  4: [1, 1, 1, 1],
+  5: [1, 2, 1, 1],
+  6: [2, 2, 1, 1],
+  7: [2, 2, 2, 1]
+};
+
+function tierSizes(totalLevels: number): [number, number, number, number] {
+  if (totalLevels <= 0) return [0, 0, 0, 0];
+  if (totalLevels <= 7) return TIER_SIZES[totalLevels];
+  const [b, r, a] = TIER_SIZES[7];
+  return [b, r, a, totalLevels - (b + r + a)]; // Expert absorbs everything beyond 7
+}
+
+export function levelTag(level: Level, totalLevels: number): LevelTag {
+  const [b, r, a] = tierSizes(totalLevels);
+  if (level <= b) return 'Beginner';
+  if (level <= b + r) return 'Regular';
+  if (level <= b + r + a) return 'Advanced';
+  return 'Expert';
+}
+```
+
+A hardcoded lookup for `totalLevels` 1..7 rather than a closed-form formula — the tier growth order isn't a clean function of position, and this table is small, finite, and directly matches the confirmed spec.
+
+A "mastered" repertoire's tag is `levelTag(totalLevels, totalLevels)` — the tag of its topmost level (Expert, except for repertoires shallow enough to top out at Beginner or Advanced per the table above).
+
+**Display:** each row in the level list (see above) shows its own tag next to the level number (e.g. "Level 3 · Regular"). The picker and detail-page summary labels also gain the *current* level's tag: `"Level {level} of {totalLevels} · {tag}"` (mastered rows show `"🏆 Mastered · {tag}"`).
+
 ## Review mode (training a passed level)
 
 `practice/[repertoire_id]/+page.server.ts` reads `url.searchParams.get('level')`. If present, parses to an integer and validates `1 <= N < data.level` (or `1 <= N <= totalLevels` when mastered) — a request for the active or a locked level is silently ignored and the page falls back to normal training. This means URL tampering to peek at a locked level just does nothing, rather than erroring.
@@ -55,8 +108,8 @@ The client (`+page.svelte`) tracks a `reviewLevel` from page data and, when set:
 
 ## Label changes
 
-- `practice/+page.svelte` picker row: `"Level {rep.level} · {satisfied}/{total} solved"` → `"Level {rep.level} of {rep.totalLevels} · {satisfied}/{total} solved"`.
-- `practice/[repertoire_id]/+page.svelte` sidebar summary: same "Level *X* of *Y*" format.
+- `practice/+page.svelte` picker row: `"Level {rep.level} · {satisfied}/{total} solved"` → `"Level {rep.level} of {rep.totalLevels} · {tag} · {satisfied}/{total} solved"`.
+- `practice/[repertoire_id]/+page.svelte` sidebar summary: same "Level *X* of *Y* · *Tag*" format.
 
 ## Dashboard aggregate
 
@@ -121,6 +174,7 @@ Before finalizing this migration at implementation time, grep `supabase/migratio
 - `src/lib/mastery/levels.ts` — new/updated unit tests for the extracted `levelCap`.
 - `src/lib/mastery/moveProgress.ts` — unit test asserting `repertoireProgress` returns the correct `totalLevels`.
 - `src/lib/mastery/practice.ts` — unit tests for `pickReviewAttempt`: picks among variations with content at the given level, returns `null` when none qualify, deterministic under an injected `random`.
+- `src/lib/mastery/tags.ts` — unit tests for `levelTag` covering every row of the table above (`totalLevels` 1 through 7) plus the 8+ overflow case (e.g. `totalLevels = 10` puts levels 7-10 all in Expert).
 - `src/lib/badges/recalc.ts` — existing tests updated to drop `level_3/5/10` cases; `BadgeStats` shape updated.
 - `src/lib/quests/generate.ts` — existing tests updated to drop `xpReward` assertions.
 - The level-list UI, review-mode navigation, and dashboard mastered-count card: not directly unit-tested (Svelte page components with no prior test file in this codebase are verified manually, matching established convention) — verified via `npm run dev` manual walkthrough: view a partially-progressed repertoire's level list, click into a passed level, confirm no `move_progress` row changes, exit review, confirm normal training resumes unaffected.
