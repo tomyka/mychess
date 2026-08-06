@@ -7,7 +7,6 @@ export interface BadgeStatsInput {
   totalCorrect: number;
   movesLearned: number;
   streakDays: number;
-  level: number;
   sessionCount: number;
   repertoireCount: number;
   ttBestScore: number;
@@ -22,7 +21,7 @@ export function buildBadgeStats(input: BadgeStatsInput): BadgeStats {
 }
 
 /**
- * Collect stats from DB, run eligibility check, insert new badges, grant XP.
+ * Collect stats from DB, run eligibility check, insert new badges.
  * Returns the IDs of newly granted badges (empty if none).
  */
 export async function grantNewBadges(
@@ -32,7 +31,7 @@ export async function grantNewBadges(
 ): Promise<string[]> {
   const [profileRes, playerStatsRes, sessionRes, repRes, questRes, earnedRes] =
     await Promise.all([
-      supabase.from('profiles').select('xp, level, streak_days').eq('id', playerId).single(),
+      supabase.from('profiles').select('streak_days').eq('id', playerId).single(),
       supabase.from('player_stats').select('total_reviews, total_correct, moves_learned').eq('player_id', playerId).single(),
       supabase.from('sessions').select('id, mode').eq('player_id', playerId),
       supabase.from('repertoires').select('id').eq('player_id', playerId),
@@ -51,7 +50,6 @@ export async function grantNewBadges(
     totalCorrect: ks?.total_correct ?? 0,
     movesLearned: ks?.moves_learned ?? 0,
     streakDays: p?.streak_days ?? 0,
-    level: p?.level ?? 1,
     sessionCount: sessions.length,
     repertoireCount: (repRes.data ?? []).length,
     ttBestScore: 0,
@@ -66,16 +64,6 @@ export async function grantNewBadges(
 
   const rows = newBadgeIds.map(id => ({ player_id: playerId, badge_id: id }));
   await supabase.from('badges_earned').insert(rows);
-
-  const { data: badgeDefs } = await supabase
-    .from('badges')
-    .select('id, xp_reward')
-    .in('id', newBadgeIds);
-
-  const totalXp = (badgeDefs ?? []).reduce((sum: number, b: any) => sum + (b.xp_reward ?? 0), 0);
-  if (totalXp > 0) {
-    await supabase.rpc('update_xp_and_level', { p_player_id: playerId, p_xp_delta: totalXp });
-  }
 
   return newBadgeIds;
 }

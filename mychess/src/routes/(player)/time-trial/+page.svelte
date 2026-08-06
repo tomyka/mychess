@@ -16,7 +16,6 @@
   let started = $state(false);
   let finished = $state(false);
   let wrongMove = $state(false);
-  let sessionXp = $state(0);
 
   let timer: ReturnType<typeof setInterval> | null = null;
 
@@ -46,7 +45,6 @@
       playCorrect();
       wrongMove = false;
       correct++;
-      sessionXp += 5;
       currentIdx++;
       return true;
     } else {
@@ -65,17 +63,14 @@
     started = false;
     finished = false;
     wrongMove = false;
-    sessionXp = 0;
   }
 
   async function submitResult() {
-    const bonus = correct >= 20 ? 200 : 0;
     await fetch('/api/time-trial', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ correct, sessionXp: sessionXp + bonus, bonus })
+      body: JSON.stringify({ correct })
     });
-    if (bonus > 0) sessionXp += bonus;
   }
 
   onDestroy(() => { if (timer) clearInterval(timer); });
@@ -117,9 +112,6 @@
         <p class="text-4xl mb-2">{correct >= 20 ? '🏆' : correct >= 10 ? '🎉' : '⏱️'}</p>
         <h2 class="text-2xl font-bold text-indigo-700">Time's Up!</h2>
         <p class="text-gray-500 mt-2">You got <strong>{correct}</strong> correct in 60 seconds</p>
-        {#if correct >= 20}
-          <p class="text-green-600 font-bold mt-1">+200 Bonus XP for 20+ correct!</p>
-        {/if}
         <button onclick={restart}
                 class="mt-4 w-full bg-indigo-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-indigo-700 transition">
           Play Again
@@ -130,7 +122,7 @@
       <div class="bg-white border border-gray-200 rounded-2xl p-6 text-center shadow-sm">
         <p class="text-4xl mb-3">⏱️</p>
         <h2 class="text-xl font-bold text-gray-900 mb-2">60-Second Challenge!</h2>
-        <p class="text-gray-500 mb-4">Answer as many opening moves as you can. +5 XP per correct, +200 bonus for 20+!</p>
+        <p class="text-gray-500 mb-4">Answer as many opening moves as you can, before time runs out!</p>
         <button onclick={start}
                 class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-xl hover:bg-indigo-700 transition">
           Start!
@@ -152,10 +144,6 @@
         <div class="bg-green-50 border border-green-100 rounded-xl px-4 py-2 text-center">
           <div class="text-xs text-green-500">Correct</div>
           <div class="text-2xl font-bold text-green-700">{correct}</div>
-        </div>
-        <div class="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2 text-center">
-          <div class="text-xs text-indigo-400">XP</div>
-          <div class="text-2xl font-bold text-indigo-700">{sessionXp}</div>
         </div>
         <div class="bg-red-50 border border-red-100 rounded-xl px-4 py-2 text-center">
           <div class="text-xs text-red-400">Time</div>

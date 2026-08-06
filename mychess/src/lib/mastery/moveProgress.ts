@@ -1,5 +1,5 @@
 import type { Variation } from './variations';
-import { activeLevel, isSatisfied, type Level } from './levels';
+import { activeLevel, isSatisfied, levelCap, type Level } from './levels';
 
 export type MoveProgressRow = { move_id: string; state: string };
 
@@ -12,13 +12,16 @@ export type RepertoireProgress = {
 	level: Level | 'mastered';
 	satisfiedCount: number;
 	totalVariations: number;
+	totalLevels: number;
 };
 
 /**
  * Combines a repertoire's enumerated variations with its raw `move_progress`
  * rows into the summary both `/practice` (the picker) and
  * `/practice/[repertoire_id]` (the detail screen) need: the active level (or
- * "mastered"), and how many variations are already satisfied at that level.
+ * "mastered"), how many variations are already satisfied at that level, and
+ * the repertoire's total level count (for "Level X of Y" displays and the
+ * level list).
  */
 export function repertoireProgress(variations: Variation[], rows: MoveProgressRow[]): RepertoireProgress {
 	const correctMoveIds = correctMoveIdSet(rows);
@@ -27,5 +30,10 @@ export function repertoireProgress(variations: Variation[], rows: MoveProgressRo
 		level === 'mastered'
 			? variations.length
 			: variations.filter((v) => isSatisfied(v, level, correctMoveIds)).length;
-	return { level, satisfiedCount, totalVariations: variations.length };
+	return {
+		level,
+		satisfiedCount,
+		totalVariations: variations.length,
+		totalLevels: levelCap(variations)
+	};
 }

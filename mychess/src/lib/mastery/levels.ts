@@ -51,6 +51,15 @@ function maxPlayerMoveCount(variations: VariationLike[]): number {
 }
 
 /**
+ * The number of levels a repertoire has: the level whose depth first covers
+ * every variation's full length. 0 for an empty variation list (nothing to
+ * level).
+ */
+export function levelCap(variations: VariationLike[]): number {
+	return Math.ceil(maxPlayerMoveCount(variations) / 3);
+}
+
+/**
  * The highest level where every variation is satisfied, or 0 if none.
  * Target depth is non-decreasing as level increases, so once a level fails
  * to be fully satisfied, no higher level can be either — safe to stop there.
@@ -59,7 +68,7 @@ function maxPlayerMoveCount(variations: VariationLike[]): number {
  * target depth changes, so no higher level could ever newly satisfy.
  */
 export function currentLevel(variations: VariationLike[], correctMoveIds: Set<string>): number {
-	const cap = Math.ceil(maxPlayerMoveCount(variations) / 3);
+	const cap = levelCap(variations);
 	let level = 0;
 	for (let l = 1; l <= cap; l++) {
 		if (variations.every((v) => isSatisfied(v, l, correctMoveIds))) {
@@ -80,7 +89,7 @@ export function activeLevel(
 	variations: VariationLike[],
 	correctMoveIds: Set<string>
 ): Level | 'mastered' {
-	const cap = Math.ceil(maxPlayerMoveCount(variations) / 3);
+	const cap = levelCap(variations);
 	const level = currentLevel(variations, correctMoveIds);
 	return level >= cap ? 'mastered' : level + 1;
 }

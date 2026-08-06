@@ -33,9 +33,6 @@
           <div class="text-3xl mb-1">{badge.earned ? '🏅' : '🔒'}</div>
           <p class="text-xs font-bold leading-tight text-gray-800">{badge.name}</p>
           <p class="text-xs text-gray-500 mt-0.5 leading-tight">{badge.description}</p>
-          {#if badge.earned}
-            <p class="text-xs text-indigo-600 font-bold mt-1">+{badge.xp_reward} XP</p>
-          {/if}
         </div>
       {/each}
     </div>

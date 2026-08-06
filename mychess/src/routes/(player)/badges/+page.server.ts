@@ -6,7 +6,7 @@ export const load: PageServerLoad = async ({ locals }) => {
   const supabase = locals.supabase;
 
   const [allRes, earnedRes] = await Promise.all([
-    supabase.from('badges').select('id, name, description, icon_url, xp_reward').order('xp_reward', { ascending: true }),
+    supabase.from('badges').select('id, name, description, icon_url'),
     supabase.from('badges_earned').select('badge_id, earned_at').eq('player_id', user!.id)
   ]);
 

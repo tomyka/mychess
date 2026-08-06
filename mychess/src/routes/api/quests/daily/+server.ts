@@ -27,7 +27,6 @@ export const GET: RequestHandler = async ({ locals }) => {
     description: t.description,
     target: t.target,
     progress: 0,
-    xp_reward: t.xpReward,
     completed: false
   }));
 

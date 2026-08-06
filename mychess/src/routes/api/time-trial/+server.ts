@@ -7,28 +7,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const { user } = await locals.safeGetSession();
   if (!user) throw error(401, 'Unauthorized');
 
-  const { correct, sessionXp, bonus } = await request.json() as {
+  const { correct } = await request.json() as {
     correct: number;
-    sessionXp: number;
-    bonus: number;
   };
 
   await supabase.from('sessions').insert({
     player_id: user.id,
     mode: 'time_trial',
-    cards_reviewed: correct,
-    xp_earned: sessionXp
+    cards_reviewed: correct
   });
 
-  if (sessionXp > 0) {
-    await supabase.rpc('update_xp_and_level', {
-      p_player_id: user.id,
-      p_xp_delta: sessionXp
-    });
-    await supabase.rpc('update_weekly_leaderboard', {
-      p_player_id: user.id,
-      p_xp: sessionXp
-    });
+  if (correct > 0) {
     await supabase.rpc('update_streak', { p_player_id: user.id });
   }
 
@@ -50,13 +39,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         .from('quests')
         .update({ progress: newProgress, completed: nowComplete })
         .eq('id', quest.id);
-
-      if (nowComplete) {
-        await supabase.rpc('update_xp_and_level', {
-          p_player_id: user.id,
-          p_xp_delta: quest.xp_reward
-        });
-      }
     }
   }
 

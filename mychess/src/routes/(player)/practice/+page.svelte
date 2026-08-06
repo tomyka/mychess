@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { levelTag } from '$lib/mastery/tags';
+
   let { data } = $props<{ data: { repertoires: any[] } }>();
 </script>
 
@@ -29,9 +31,9 @@
                   {#if rep.totalVariations === 0}
                     No moves yet
                   {:else if rep.level === 'mastered'}
-                    🏆 Mastered
+                    🏆 Mastered · {levelTag(rep.totalLevels, rep.totalLevels)}
                   {:else}
-                    Level {rep.level} · {rep.satisfiedCount}/{rep.totalVariations} solved
+                    Level {rep.level} of {rep.totalLevels} · {levelTag(rep.level, rep.totalLevels)} · {rep.satisfiedCount}/{rep.totalVariations} solved
                   {/if}
                 </p>
               </div>

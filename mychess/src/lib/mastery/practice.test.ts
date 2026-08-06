@@ -1,6 +1,6 @@
 // mychess/src/lib/mastery/practice.test.ts
 import { describe, it, expect } from 'vitest';
-import { pickPracticeAttempt, splitAttempt } from './practice';
+import { pickPracticeAttempt, pickReviewAttempt, splitAttempt } from './practice';
 import type { Variation, VariationStep } from './variations';
 
 function makeVariation(playerMoveCount: number, prefix: string): Variation {
@@ -39,6 +39,28 @@ describe('pickPracticeAttempt', () => {
 		// random() always returns 0 -> would pick index 0 if `done` were a candidate
 		const result = pickPracticeAttempt([done, notDone], 1, correct, () => 0);
 		expect(result!.variation.leafMoveId).toBe(notDone.leafMoveId);
+	});
+});
+
+describe('pickReviewAttempt', () => {
+	it('picks among variations with quiz content at the level, regardless of satisfied state', () => {
+		const v = makeVariation(6, 'r1-');
+		const result = pickReviewAttempt([v], 1, () => 0);
+		expect(result).not.toBeNull();
+		expect(result!.variation.leafMoveId).toBe(v.leafMoveId);
+		expect(result!.targetDepth).toBe(3); // level 1 depth
+	});
+
+	it("excludes variations naturally shorter than the level's starting point", () => {
+		const short = makeVariation(2, 'short-'); // no content left at level 2 (starts at move 4)
+		const long = makeVariation(6, 'long-');
+		const result = pickReviewAttempt([short, long], 2, () => 0);
+		expect(result!.variation.leafMoveId).toBe(long.leafMoveId);
+	});
+
+	it('returns null when no variation has content at the level', () => {
+		const v = makeVariation(2, 'v-');
+		expect(pickReviewAttempt([v], 2)).toBeNull();
 	});
 });
 

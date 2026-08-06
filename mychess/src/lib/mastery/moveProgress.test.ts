@@ -49,6 +49,7 @@ describe('repertoireProgress', () => {
 		];
 		const progress = repertoireProgress([a, b], rows);
 		expect(progress.totalVariations).toBe(2);
+		expect(progress.totalLevels).toBe(2); // ceil(6/3) — driven by the longer variation `b`
 		expect(progress.level).toBe(2); // both satisfied at level 1 (depth 3); a is done, b needs level 2's depth 6
 		expect(progress.satisfiedCount).toBe(1); // only `a` (fully covered) is satisfied at the active level 2
 	});
@@ -63,6 +64,7 @@ describe('repertoireProgress', () => {
 		expect(progress.level).toBe('mastered');
 		expect(progress.satisfiedCount).toBe(1);
 		expect(progress.totalVariations).toBe(1);
+		expect(progress.totalLevels).toBe(1); // ceil(2/3)
 	});
 
 	it('handles a repertoire with no variations yet', () => {
@@ -70,5 +72,6 @@ describe('repertoireProgress', () => {
 		expect(progress.level).toBe('mastered');
 		expect(progress.satisfiedCount).toBe(0);
 		expect(progress.totalVariations).toBe(0);
+		expect(progress.totalLevels).toBe(0);
 	});
 });

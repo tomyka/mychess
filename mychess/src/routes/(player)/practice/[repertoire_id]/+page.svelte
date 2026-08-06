@@ -1,10 +1,12 @@
 <script lang="ts">
 	import ChessBoard from '$lib/components/ChessBoard.svelte';
+	import LevelList from '$lib/components/LevelList.svelte';
 	import type { Key } from 'chessground/types';
 	import { Chess } from 'chess.js';
 	import { playCorrect, playWrong } from '$lib/sounds';
-	import { invalidateAll } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { untrack } from 'svelte';
+	import { levelTag } from '$lib/mastery/tags';
 
 	let { data } = $props<{ data: any }>();
 
@@ -13,7 +15,6 @@
 	let phase = $state<'playing' | 'success' | 'leveled-up'>('playing');
 	let locked = $state(false);
 	let replaying = $state(false);
-	let sessionXp = $state(0);
 	// Consecutive wrong attempts on the CURRENT quiz move — resets the moment
 	// it's solved or a new attempt starts. After 3, a hint becomes available;
 	// requesting it highlights the correct piece's square, never the move.
@@ -36,6 +37,18 @@
 
 	const attempt = $derived(data.attempt);
 	const repertoireId = $derived(data.repertoire?.id);
+	const reviewLevel = $derived(data.reviewLevel as number | null);
+	const currentTag = $derived(
+		typeof data.level === 'number' ? levelTag(data.level, data.totalLevels) : levelTag(data.totalLevels, data.totalLevels)
+	);
+
+	function selectLevel(level: number) {
+		goto(`/practice/${repertoireId}?level=${level}`);
+	}
+
+	function exitReview() {
+		goto(`/practice/${repertoireId}`);
+	}
 
 	// The correct move's origin square — computed from the step's own
 	// fromFen/san rather than stored, since only the destination is ever
@@ -117,10 +130,12 @@
 			locked = true;
 			wrongCount = 0;
 			hintRequested = false;
-			// Grading is instant and per-move: persist + award XP for this exact
-			// move the moment it's played, independent of whether the rest of the
-			// attempt succeeds.
-			pendingProgress.push(submitMoveProgress(step.moveId));
+			// Grading is instant and per-move: persist the moment it's played,
+			// independent of whether the rest of the attempt succeeds. Skipped
+			// during review — every move in a passed level is already 'correct',
+			// so there's nothing new to persist, and review is intentionally a
+			// pure read-only replay.
+			if (reviewLevel === null) pendingProgress.push(submitMoveProgress(step.moveId));
 			// Hold the board here so the green check is actually visible before
 			// advancing — updating boardFen in the same tick would clear it
 			// before the browser ever paints it.
@@ -145,17 +160,15 @@
 
 	async function submitMoveProgress(moveId: string) {
 		try {
-			const res = await fetch('/api/practice/move-progress', {
+			await fetch('/api/practice/move-progress', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ moveId })
 			});
-			const result = await res.json();
-			sessionXp += result.xpAwarded ?? 0;
 		} catch {
 			// Progress submission failed — the move itself already played
-			// correctly on the board; just skip the XP bump silently rather than
-			// blocking the player on a network hiccup.
+			// correctly on the board; just skip silently rather than blocking the
+			// player on a network hiccup.
 		}
 	}
 
@@ -168,8 +181,10 @@
 		// the last unsatisfied variation at this level, the recomputed level
 		// has already advanced (or the repertoire is now 'mastered', handled
 		// by the top-level template branch) — surface that instead of
-		// silently dropping the player into the next level's quiz.
-		if (typeof levelBefore === 'number' && data.level !== levelBefore) {
+		// silently dropping the player into the next level's quiz. Never
+		// applies during review: reviewing a passed level can't change which
+		// level is active, so it always just serves another review attempt.
+		if (reviewLevel === null && typeof levelBefore === 'number' && data.level !== levelBefore) {
 			phase = 'leveled-up';
 		} else {
 			resetForAttempt();
@@ -190,13 +205,19 @@
 </svelte:head>
 
 <main class="min-h-screen bg-gray-50 p-4 max-w-5xl mx-auto pb-24">
-	<div class="flex items-center justify-between mb-4">
+	<div class="mb-4">
 		<a href="/practice" class="text-gray-400 text-sm hover:text-gray-600">← All Repertoires</a>
-		<span class="text-indigo-600 font-bold text-sm">+{sessionXp} XP</span>
 	</div>
 
-	{#if data.level === 'mastered' && data.totalVariations > 0}
-		<div class="flex flex-col items-center justify-center min-h-screen gap-6 text-center">
+	{#if reviewLevel !== null}
+		<div class="mb-4 flex items-center justify-between bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2 text-sm">
+			<span class="text-indigo-700 font-medium">🔁 Reviewing Level {reviewLevel}</span>
+			<button onclick={exitReview} class="text-indigo-600 hover:underline">Exit review</button>
+		</div>
+	{/if}
+
+	{#if data.level === 'mastered' && data.totalVariations > 0 && reviewLevel === null}
+		<div class="flex flex-col items-center gap-6 text-center py-16">
 			<p class="text-7xl">🏆</p>
 			<h1 class="text-3xl font-bold text-gray-900">Repertoire Mastered!</h1>
 			<p class="text-gray-500">Every variation in {data.repertoire?.name} is fully learned.</p>
@@ -206,6 +227,9 @@
 			>
 				Back to Repertoires
 			</a>
+			<div class="w-full max-w-sm text-left">
+				<LevelList totalLevels={data.totalLevels} currentLevel={data.level} reviewLevel={null} onselect={selectLevel} />
+			</div>
 		</div>
 	{:else if !attempt}
 		<div class="flex flex-col items-center justify-center min-h-screen text-center gap-4">
@@ -241,10 +265,17 @@
 			<div class="w-full lg:w-72 shrink-0 space-y-4">
 				<div class="p-4 bg-white border border-gray-200 rounded-2xl shadow-sm text-center">
 					<p class="text-gray-400 text-sm font-medium">
-						{data.repertoire?.name} · Level {data.level}
+						{data.repertoire?.name} · {typeof data.level === 'number' ? `Level ${data.level} of ${data.totalLevels}` : 'Mastered'} · {currentTag}
 					</p>
 					<p class="text-gray-400 text-sm">{data.satisfiedCount}/{data.totalVariations} solved</p>
 				</div>
+
+				<LevelList
+					totalLevels={data.totalLevels}
+					currentLevel={data.level}
+					reviewLevel={reviewLevel}
+					onselect={selectLevel}
+				/>
 
 				<p class="text-center text-gray-700 font-semibold hidden lg:block">
 					{replaying ? 'Watch how we got here…' : phase === 'playing' ? 'What is the best move?' : ''}

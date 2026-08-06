@@ -11,7 +11,6 @@ describe('QUEST_TEMPLATES', () => {
       expect(t.id).toBeTruthy();
       expect(t.description).toBeTruthy();
       expect(t.target).toBeGreaterThan(0);
-      expect(t.xpReward).toBeGreaterThan(0);
     }
   });
 });

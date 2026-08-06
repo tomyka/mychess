@@ -10,7 +10,6 @@
   let currentIdx = $state(0);
   let chain = $state(0);
   let bestChain = $state(0);
-  let sessionXp = $state(0);
   let failed = $state(false);
   let wrongMove = $state(false);
   let finished = $state(false);
@@ -29,11 +28,9 @@
       wrongMove = false;
       chain++;
       if (chain > bestChain) bestChain = chain;
-      sessionXp += 2;
 
       if (chain === 10) {
         playLevelUp();
-        sessionXp += 50;
         finished = true;
         submitDrillResult();
         return;
@@ -65,7 +62,7 @@
     await fetch('/api/drill', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chain, sessionXp, bestChain })
+      body: JSON.stringify({ chain, bestChain })
     });
   }
 </script>
@@ -88,7 +85,6 @@
       <h1 class="text-xl font-bold text-gray-900">Drill Mode</h1>
       <div class="text-right">
         <div class="text-base font-bold text-indigo-600">Chain: {chain}</div>
-        <div class="text-xs text-gray-400">XP: {sessionXp}</div>
       </div>
     </div>
 
@@ -106,9 +102,6 @@
         <p class="text-4xl mb-2">😢</p>
         <h2 class="text-2xl font-bold text-red-600">Chain Broken!</h2>
         <p class="text-gray-500 mt-2">Best chain: <strong>{bestChain}</strong> moves</p>
-        {#if bestChain >= 10}
-          <p class="text-green-600 font-bold mt-1">+50 bonus XP for 10-chain!</p>
-        {/if}
         <button onclick={restart}
                 class="mt-4 w-full bg-indigo-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-indigo-700 transition">
           Try Again
@@ -145,10 +138,6 @@
         <div class="bg-green-50 border border-green-100 rounded-xl px-4 py-2 text-center">
           <div class="text-xs text-green-500">Best Chain</div>
           <div class="text-2xl font-bold text-green-700">{bestChain}</div>
-        </div>
-        <div class="bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-center">
-          <div class="text-xs text-gray-400">Session XP</div>
-          <div class="text-2xl font-bold text-gray-700">{sessionXp}</div>
         </div>
       </div>
     {/if}

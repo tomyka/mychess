@@ -1,6 +1,6 @@
 // mychess/src/lib/mastery/levels.test.ts
 import { describe, it, expect } from 'vitest';
-import { levelDepth, targetDepth, isSatisfied, currentLevel, activeLevel } from './levels';
+import { levelDepth, targetDepth, isSatisfied, currentLevel, activeLevel, levelCap } from './levels';
 
 /**
  * Builds a variation-shaped object with `playerMoveCount` player moves,
@@ -105,5 +105,20 @@ describe('currentLevel / activeLevel', () => {
 		]);
 		expect(currentLevel([short, long], correct)).toBe(1);
 		expect(activeLevel([short, long], correct)).toBe(2);
+	});
+});
+
+describe('levelCap', () => {
+	it('is 0 for an empty variation list', () => {
+		expect(levelCap([])).toBe(0);
+	});
+
+	it('rounds up to the nearest 3-move chunk covering the longest variation', () => {
+		expect(levelCap([variation(4, 'a-')])).toBe(2); // ceil(4/3) = 2
+		expect(levelCap([variation(9, 'b-')])).toBe(3);
+	});
+
+	it('is driven by the longest variation among several', () => {
+		expect(levelCap([variation(2, 'short-'), variation(7, 'long-')])).toBe(3); // ceil(7/3) = 3
 	});
 });

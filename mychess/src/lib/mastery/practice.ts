@@ -60,3 +60,21 @@ export function splitAttempt(
 		quizSteps: path.slice(nextPlayerIdx, targetPlayerIdx + 1)
 	};
 }
+
+/**
+ * Picks a random variation with quiz content at `level`, ignoring whether
+ * it's already satisfied — used to review a level the player has already
+ * passed, where every variation IS already satisfied (so the `isSatisfied`
+ * filter `pickPracticeAttempt` uses would exclude everything).
+ */
+export function pickReviewAttempt(
+	variations: Variation[],
+	level: Level,
+	random: () => number = Math.random
+): PracticeAttempt | null {
+	const candidates = variations.filter((v) => v.playerMoveCount > levelDepth(level - 1));
+	if (candidates.length === 0) return null;
+
+	const chosen = candidates[Math.floor(random() * candidates.length)];
+	return { variation: chosen, targetDepth: targetDepth(chosen, level) };
+}

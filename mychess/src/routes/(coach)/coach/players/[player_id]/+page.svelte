@@ -21,11 +21,7 @@
 
     <section class="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
       <h2 class="font-semibold text-gray-900 mb-3">Stats</h2>
-      <div class="grid grid-cols-3 gap-4 text-center">
-        <div>
-          <p class="text-2xl font-bold text-indigo-600">{data.stats?.level ?? 0}</p>
-          <p class="text-xs text-gray-400">Level</p>
-        </div>
+      <div class="grid grid-cols-2 gap-4 text-center">
         <div>
           <p class="text-2xl font-bold text-gray-900">{data.stats?.total_reviews ?? 0}</p>
           <p class="text-xs text-gray-400">Reviews</p>
