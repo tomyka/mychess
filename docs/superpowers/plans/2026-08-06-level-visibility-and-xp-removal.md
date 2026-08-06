@@ -2694,9 +2694,15 @@ alter table public.profiles
 
 alter table public.sessions drop column if exists xp_earned;
 alter table public.review_events drop column if exists xp_delta;
-alter table public.badges drop column if exists xp_reward;
 alter table public.quests drop column if exists xp_reward;
 alter table public.player_stats drop column if exists total_xp;
+
+-- Task 16 retired the level_3/level_5/level_10 badge RULES entirely (no
+-- replacement) — these rows would otherwise linger as permanently-locked,
+-- unearnable tiles in the Trophy Room forever.
+delete from public.badges_earned where badge_id in ('level_3', 'level_5', 'level_10');
+delete from public.badges where id in ('level_3', 'level_5', 'level_10');
+alter table public.badges drop column if exists xp_reward;
 ```
 
 - [ ] **Step 3: Commit**
