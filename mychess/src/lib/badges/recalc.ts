@@ -3,7 +3,6 @@ export interface BadgeStats {
   totalCorrect: number;
   movesLearned: number;
   streakDays: number;
-  level: number;
   sessionCount: number;
   repertoireCount: number;
   ttBestScore: number;
@@ -38,10 +37,6 @@ const RULES: BadgeRule[] = [
   { id: 'moves_learned_10',    check: s => s.movesLearned >= 10 },
   { id: 'moves_learned_50',    check: s => s.movesLearned >= 50 },
   { id: 'moves_learned_100',   check: s => s.movesLearned >= 100 },
-  // Level
-  { id: 'level_3',             check: s => s.level >= 3 },
-  { id: 'level_5',             check: s => s.level >= 5 },
-  { id: 'level_10',            check: s => s.level >= 10 },
   // Time Trial
   { id: 'speed_demon',         check: s => s.ttBestScore >= 10 },
   { id: 'speed_legend',        check: s => s.ttBestScore >= 20 },

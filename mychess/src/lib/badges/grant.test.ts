@@ -8,7 +8,6 @@ describe('buildBadgeStats', () => {
       totalCorrect: 8,
       movesLearned: 5,
       streakDays: 3,
-      level: 2,
       sessionCount: 4,
       repertoireCount: 1,
       ttBestScore: 0,
@@ -27,7 +26,6 @@ describe('buildBadgeStats', () => {
       totalCorrect: 0,
       movesLearned: 0,
       streakDays: 0,
-      level: 1,
       sessionCount: 0,
       repertoireCount: 0,
       ttBestScore: 0,
@@ -35,6 +33,6 @@ describe('buildBadgeStats', () => {
       hasUploaded: false,
       earnedIds: new Set()
     });
-    expect(stats.level).toBe(1);
+    expect(stats.streakDays).toBe(0);
   });
 });

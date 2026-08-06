@@ -7,7 +7,6 @@ describe('checkBadgeEligibility', () => {
     totalCorrect: 0,
     movesLearned: 0,
     streakDays: 0,
-    level: 1,
     sessionCount: 0,
     repertoireCount: 0,
     ttBestScore: 0,
@@ -34,11 +33,6 @@ describe('checkBadgeEligibility', () => {
   it('grants streak_7 at 7 streak days', () => {
     const result = checkBadgeEligibility({ ...base, streakDays: 7 });
     expect(result).toContain('streak_7');
-  });
-
-  it('grants level_3 at level 3', () => {
-    const result = checkBadgeEligibility({ ...base, level: 3 });
-    expect(result).toContain('level_3');
   });
 
   it('grants speed_demon at tt best score >= 10', () => {
