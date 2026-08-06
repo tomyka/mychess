@@ -1,13 +1,12 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { levelFromXp } from '$lib/srs/xp';
 
 export const load: PageServerLoad = async ({ params, locals: { supabase, safeGetSession } }) => {
   const { user } = await safeGetSession();
   if (!user) throw redirect(303, '/login');
 
   const [playerRes, statsRes, notesRes, coachRepsRes, assignedRes] = await Promise.all([
-    supabase.from('profiles').select('id, display_name, weekly_xp_goal').eq('id', params.player_id).single(),
+    supabase.from('profiles').select('id, display_name').eq('id', params.player_id).single(),
     supabase.from('player_stats').select('*').eq('player_id', params.player_id).single(),
     supabase.from('coach_notes').select('id, note, created_at').eq('player_id', params.player_id).order('created_at', { ascending: false }).limit(5),
     supabase.from('repertoires').select('id, name, color').eq('player_id', user.id),
@@ -18,12 +17,9 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
       .eq('player_id', params.player_id)
   ]);
 
-  const totalXp = statsRes.data?.total_xp ?? 0;
-  const levelInfo = levelFromXp(totalXp);
-
   return {
     player: playerRes.data,
-    stats: { ...statsRes.data, ...levelInfo },
+    stats: statsRes.data,
     notes: notesRes.data ?? [],
     coachReps: coachRepsRes.data ?? [],
     assignedReps: assignedRes.data ?? [],
@@ -32,23 +28,6 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 };
 
 export const actions: Actions = {
-  setGoal: async ({ params, request, locals: { supabase, safeGetSession } }) => {
-    const { user } = await safeGetSession();
-    if (!user) return fail(401, { error: 'Unauthorized' });
-
-    const fd = await request.formData();
-    const weeklyGoal = Number(fd.get('weekly_xp_goal'));
-    if (isNaN(weeklyGoal) || weeklyGoal < 0) return fail(400, { error: 'Invalid goal' });
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({ weekly_xp_goal: weeklyGoal })
-      .eq('id', params.player_id);
-
-    if (error) return fail(500, { error: error.message });
-    return { success: true };
-  },
-
   addNote: async ({ params, request, locals: { supabase, safeGetSession } }) => {
     const { user } = await safeGetSession();
     if (!user) return fail(401, { error: 'Unauthorized' });

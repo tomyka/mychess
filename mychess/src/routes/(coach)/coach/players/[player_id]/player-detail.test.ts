@@ -8,7 +8,7 @@ afterEach(() => cleanup());
 
 const baseData = {
   player: { id: 'p1', display_name: 'Paulius Konovalovas' },
-  stats: { level: 3, total_reviews: 40, moves_learned: 12 },
+  stats: { total_reviews: 40, moves_learned: 12 },
   notes: [],
   coachReps: [],
   assignedReps: [],
@@ -19,7 +19,6 @@ describe('coach student detail page', () => {
   it('shows the student name and stats', () => {
     render(PlayerDetail, { props: { data: baseData, form: null } });
     expect(screen.getByText('Paulius Konovalovas')).toBeTruthy();
-    expect(screen.getByText('3')).toBeTruthy();
     expect(screen.getByText('40')).toBeTruthy();
   });
 
