@@ -77,10 +77,10 @@
 					<feDropShadow dx="3" dy="4" stdDeviation="4" flood-opacity="0.45" />
 				</filter>
 			</defs>
-			<g filter="url(#fb-shadow)">
+			<g filter="url(#fb-shadow)" transform="translate(72,28) scale(0.7) translate(-72,-28)">
 				<circle cx="72" cy="28" r="25" fill="${fill}" />
 			</g>
-			<path d="${glyph}" fill="none" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+			<path d="${glyph}" fill="none" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" transform="translate(72,28) scale(0.7) translate(-72,-28)" />
 		`;
 	}
 
