@@ -78,7 +78,7 @@
 				</filter>
 			</defs>
 			<g filter="url(#fb-shadow)">
-				<circle cx="72" cy="28" r="25" fill="${fill}" stroke="white" stroke-width="5" />
+				<circle cx="72" cy="28" r="25" fill="${fill}" />
 			</g>
 			<path d="${glyph}" fill="none" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
 		`;
