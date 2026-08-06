@@ -91,10 +91,10 @@
     {#if allMoves.length === 0}
       <div class="bg-white border border-gray-200 rounded-2xl p-6 text-center shadow-sm">
         <p class="text-xl text-gray-700">No mastered moves yet!</p>
-        <p class="text-gray-400 mt-2">Keep mastering repertoires to unlock Drill mode.</p>
-        <a href="/master"
+        <p class="text-gray-400 mt-2">Keep practicing repertoires to unlock Drill mode.</p>
+        <a href="/practice"
            class="mt-4 inline-block bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-indigo-700 transition">
-          Go to Master
+          Go to Practice
         </a>
       </div>
     {:else if failed}
