@@ -33,8 +33,14 @@
 		hintSquare = null
 	}: Props = $props();
 
+	// How long a wrong guess holds the piece on the attempted square (with the
+	// red X over it) before snapping back — long enough to see what was
+	// tried, mirroring the correct-move hold in the parent's handleMove.
+	const WRONG_MOVE_HOLD_MS = 500;
+
 	let cg: Api;
 	let moveFeedback = $state<MoveFeedback>(null);
+	let revertTimeout: ReturnType<typeof setTimeout> | undefined;
 
 	// Tracks the last `fen` we actually repositioned the board to, so
 	// unrelated reactive prop changes don't stomp on a guess already
@@ -105,7 +111,14 @@
 						const result = onmove({ from: orig, to: dest, san: move.san });
 						if (result === false) {
 							moveFeedback = { square: dest, kind: 'cross' };
-							cg.set(buildConfig());
+							// Keep the piece visible on the attempted square (with the X
+							// over it) for a beat before snapping back — an instant
+							// revert leaves the X marking a square that, by the time
+							// anything paints, never visibly had a piece on it. Lock
+							// input for the hold so a drag mid-revert can't fight it.
+							clearTimeout(revertTimeout);
+							cg.set({ movable: { color: undefined } });
+							revertTimeout = setTimeout(() => cg.set(buildConfig()), WRONG_MOVE_HOLD_MS);
 						} else if (result === true) {
 							moveFeedback = { square: dest, kind: 'check' };
 						} else {
@@ -131,7 +144,12 @@
 	// session, so they mount exactly once.
 	function mountBoard(node: HTMLElement) {
 		cg = Chessground(node, buildConfig());
-		return { destroy: () => cg?.destroy() };
+		return {
+			destroy: () => {
+				clearTimeout(revertTimeout);
+				cg?.destroy();
+			}
+		};
 	}
 
 	$effect(() => {
@@ -140,6 +158,7 @@
 		if (fen !== lastAppliedFen) {
 			lastAppliedFen = fen;
 			moveFeedback = null;
+			clearTimeout(revertTimeout);
 		} else {
 			// Same position as last time — a guess may have already moved a
 			// piece visually; don't stomp on it, just apply whatever else
