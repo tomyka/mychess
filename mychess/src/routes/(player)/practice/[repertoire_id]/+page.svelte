@@ -33,6 +33,11 @@
 	// so demotion can fire even if the player never gets this move right.
 	let attemptHadMistake = $state(false);
 	let advanceTimeout: ReturnType<typeof setTimeout> | undefined;
+	// How long the leveled-up/leveled-down banner stays up before auto-
+	// advancing into the next attempt — long enough to actually read the
+	// message, unlike the brief per-move hold above.
+	const LEVEL_TRANSITION_HOLD_MS = 1800;
+	let levelTransitionTimeout: ReturnType<typeof setTimeout> | undefined;
 	// Bumped on every resetForAttempt() call so an in-flight prefix replay
 	// notices it's been superseded (e.g. rapid re-navigation) and stops
 	// writing to boardFen instead of racing the newer one.
@@ -42,9 +47,6 @@
 	// it before reloading, or invalidateAll() can race the write and re-serve
 	// the same task, making Continue look like it did nothing.
 	let pendingReport: Promise<unknown> | null = null;
-	// Guards against a double-click/double-tap on "Continue" firing two
-	// overlapping nextAttempt()/resetForAttempt() calls.
-	let continuing = $state(false);
 
 	const REPLAY_STEP_MS = 550;
 	const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -93,6 +95,7 @@
 	async function resetForAttempt() {
 		const myToken = ++resetToken;
 		clearTimeout(advanceTimeout);
+		clearTimeout(levelTransitionTimeout);
 		quizIdx = 0;
 		phase = 'playing';
 		locked = false;
@@ -243,10 +246,22 @@
 		await invalidateAll();
 		if (myToken !== resetToken) return; // superseded by a resetForAttempt() while we were awaiting
 		phase = 'leveled-down';
+		scheduleLevelTransition();
 	}
 
 	function levelRank(level: number | 'mastered'): number {
 		return level === 'mastered' ? Infinity : level;
+	}
+
+	// Holds the leveled-up/leveled-down banner up long enough to read, then
+	// auto-advances into the next attempt — no confirmation click needed.
+	function scheduleLevelTransition() {
+		const myToken = resetToken;
+		clearTimeout(levelTransitionTimeout);
+		levelTransitionTimeout = setTimeout(() => {
+			if (myToken !== resetToken) return; // superseded by a resetForAttempt() while we were waiting
+			resetForAttempt();
+		}, LEVEL_TRANSITION_HOLD_MS);
 	}
 
 	async function nextAttempt() {
@@ -263,23 +278,12 @@
 		// level can't change which level is active.
 		if (reviewLevel === null && levelRank(data.level) > levelRank(levelBefore)) {
 			phase = 'leveled-up';
+			scheduleLevelTransition();
 		} else if (reviewLevel === null && levelRank(data.level) < levelRank(levelBefore)) {
 			phase = 'leveled-down';
+			scheduleLevelTransition();
 		} else {
 			resetForAttempt();
-		}
-	}
-
-	// Only ever reachable from the leveled-up/leveled-down banner's Continue
-	// button now — a plain solve auto-advances via handleMove/nextAttempt()
-	// directly, with no button at all.
-	async function handleContinue() {
-		if (continuing) return;
-		continuing = true;
-		try {
-			await resetForAttempt();
-		} finally {
-			continuing = false;
 		}
 	}
 </script>
@@ -383,13 +387,6 @@
 						{:else}
 							<p class="text-xl font-bold mb-1 text-amber-600">⬇️ Back to Level {data.level} — brush up and try again</p>
 						{/if}
-						<button
-							onclick={handleContinue}
-							disabled={continuing}
-							class="mt-4 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition disabled:opacity-50"
-						>
-							Continue
-						</button>
 					</div>
 				{/if}
 			</div>
