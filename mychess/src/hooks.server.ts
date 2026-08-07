@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { env } from '$env/dynamic/public';
+import { dev } from '$app/environment';
 import type { Handle } from '@sveltejs/kit';
 import { fullNameOrNull, isPlaceholderName } from '$lib/profile';
 import { ensureGuestProfile } from '$lib/server/guest';
@@ -10,6 +11,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const PUBLIC_SUPABASE_URL = requireEnv(env.PUBLIC_SUPABASE_URL, 'PUBLIC_SUPABASE_URL');
 	const PUBLIC_SUPABASE_ANON_KEY = requireEnv(env.PUBLIC_SUPABASE_ANON_KEY, 'PUBLIC_SUPABASE_ANON_KEY');
 	event.locals.supabase = createServerClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
+		// @supabase/ssr's own DEFAULT_COOKIE_OPTIONS sets httpOnly: false —
+		// without this override it silently beats SvelteKit's httpOnly: true
+		// framework default (the caller's options win in cookies.set's merge),
+		// leaving the session/refresh-token cookies readable via document.cookie
+		// and stealable by any future XSS. Force it back on explicitly.
+		cookieOptions: { httpOnly: true, secure: !dev, sameSite: 'lax' },
 		cookies: {
 			getAll: () => event.cookies.getAll(),
 			setAll: (cookies) => {
@@ -22,7 +29,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	});
 
 	event.locals.safeGetSession = async () => {
-		let {
+		const {
 			data: { session }
 		} = await event.locals.supabase.auth.getSession();
 

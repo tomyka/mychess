@@ -52,6 +52,18 @@ export const actions: Actions = {
     const repId = fd.get('rep_id') as string;
     if (!repId) return fail(400, { error: 'No repertoire selected' });
 
+    // Confirm this coach actually owns the repertoire before assigning it —
+    // the RLS policy enforces the same check server-side (see migration
+    // 0030), but checking here gives a clean 400 instead of a generic
+    // RLS-rejection 500 for what's really a bad/foreign repertoire_id.
+    const { data: ownedRep } = await supabase
+      .from('repertoires')
+      .select('id')
+      .eq('id', repId)
+      .eq('player_id', user.id)
+      .maybeSingle();
+    if (!ownedRep) return fail(400, { error: 'Repertoire not found' });
+
     const { error } = await supabase
       .from('assigned_repertoires')
       .upsert(

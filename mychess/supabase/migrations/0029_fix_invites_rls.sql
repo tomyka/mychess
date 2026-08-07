@@ -1,0 +1,21 @@
+-- mychess/supabase/migrations/0029_fix_invites_rls.sql
+-- Security fix: `invites_read_by_token` (0002_rls.sql) was a `for select
+-- using (true)` policy meant to let an unauthenticated visitor read ONE
+-- invite by token on the /join/[token] page. RLS policies can't see the
+-- client's `.eq('token', ...)` filter, only the row — so `using (true)`
+-- actually meant "every row in `invites` is selectable by anyone," and
+-- Postgres ORs together multiple permissive policies for the same
+-- operation, so this silently swallowed the narrower `invites_coach_all`
+-- policy too. Net effect: any anon/authenticated request could read every
+-- coach's invite tokens, redeemed or not, expired or not, and player_email
+-- — enough to redeem any live invite as an unintended recipient. This is
+-- the exact "OR of permissive policies defeats a narrower one" mistake
+-- this project's own CLAUDE.md already documents as a past error pattern.
+--
+-- Fix: drop the broad read policy entirely. The token itself is the actual
+-- credential for the /join/[token] lookup (a 128-bit random value, not
+-- guessable) — that lookup now goes through the service-role client in
+-- app code instead of a client-side RLS-gated read, matching this file's
+-- own existing pattern of already using the service-role client for the
+-- write side of invite redemption.
+drop policy if exists "invites_read_by_token" on public.invites;
