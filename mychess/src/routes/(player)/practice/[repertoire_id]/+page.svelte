@@ -177,32 +177,58 @@
 					// which changes `attempt`/`reviewLevel` without going through
 					// resetForAttempt(), and reporting against the live (wrong)
 					// attempt would corrupt an unrelated task's progress.
-					if (currentReviewLevel === null) pendingReport = reportAttempt(currentAttempt);
+					if (currentReviewLevel === null) pendingReport = reportAttempt(currentAttempt.taskKey);
 					nextAttempt();
 				}
 			}, 500);
 			return isFinalMove ? 'final' : true;
-		} else {
-			playWrong();
-			wrongCount++;
-			if (currentReviewLevel === null) {
-				attemptHadMistake = true;
-				if (step.band === 'previous') reportPreviousLevelMistake();
-			}
-			// Don't reveal the book move — just mark the square wrong and let
-			// the player try again on the same position.
-			return false;
 		}
+
+		// Not the pinned answer — but the repertoire may allow more than one
+		// reply at this exact position (see splitAttempt/alternativesAt).
+		// Accept it rather than forcing the player to guess which of their own
+		// memorized options this particular attempt happened to pin.
+		const alt = step.alternatives.find((a: { san: string; taskKey: string | null }) => a.san === detail.san);
+		if (alt) {
+			playCorrect();
+			locked = true;
+			wrongCount = 0;
+			hintRequested = false;
+			advanceTimeout = setTimeout(() => {
+				locked = false;
+				// Either way this attempt is done: the board no longer matches
+				// the pinned variation's remaining script, so there's nothing
+				// left to continue quizzing here. A branch landing on another
+				// task's own target-depth move (alt.taskKey set) completes that
+				// task; a branch earlier in a longer line (null) completes
+				// nothing, but costs nothing either — the pinned task is left
+				// untouched, pending for another attempt.
+				phase = 'advancing';
+				if (currentReviewLevel === null && alt.taskKey) pendingReport = reportAttempt(alt.taskKey);
+				nextAttempt();
+			}, 500);
+			return alt.taskKey ? 'final' : true;
+		}
+
+		playWrong();
+		wrongCount++;
+		if (currentReviewLevel === null) {
+			attemptHadMistake = true;
+			if (step.band === 'previous') reportPreviousLevelMistake();
+		}
+		// Don't reveal the book move — just mark the square wrong and let
+		// the player try again on the same position.
+		return false;
 	}
 
-	async function reportAttempt(reportedAttempt: NonNullable<typeof attempt>) {
+	async function reportAttempt(taskKey: string) {
 		try {
 			await fetch('/api/practice/attempt', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					repertoireId,
-					taskKey: reportedAttempt.taskKey,
+					taskKey,
 					hadMistake: attemptHadMistake
 				})
 			});
