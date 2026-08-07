@@ -72,9 +72,9 @@
 		}
 	});
 
-	function advanceThroughOpponentReplies() {
-		while (attempt?.quizSteps[quizIdx] && !attempt.quizSteps[quizIdx].isPlayerTurn) {
-			boardFen = attempt.quizSteps[quizIdx].toFen;
+	function advanceThroughOpponentReplies(activeAttempt: typeof attempt = attempt) {
+		while (activeAttempt?.quizSteps[quizIdx] && !activeAttempt.quizSteps[quizIdx].isPlayerTurn) {
+			boardFen = activeAttempt.quizSteps[quizIdx].toFen;
 			quizIdx++;
 		}
 	}
@@ -148,7 +148,7 @@
 			advanceTimeout = setTimeout(() => {
 				boardFen = step.toFen;
 				quizIdx++;
-				advanceThroughOpponentReplies();
+				advanceThroughOpponentReplies(currentAttempt);
 				locked = false;
 				if (quizIdx >= currentAttempt.quizSteps.length) {
 					phase = 'success';
