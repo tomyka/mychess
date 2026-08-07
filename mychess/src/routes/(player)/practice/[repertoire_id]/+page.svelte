@@ -12,7 +12,12 @@
 
 	let quizIdx = $state(0);
 	let boardFen = $state('');
-	let phase = $state<'playing' | 'success' | 'leveled-up' | 'leveled-down'>('playing');
+	// 'advancing' is the brief, non-interactive gap between the final correct
+	// move of an attempt (shown as a gold star, not a click-through card) and
+	// the next task loading — auto-advances on its own. 'leveled-up' and
+	// 'leveled-down' are the only phases that still wait for a Continue click,
+	// since those are rarer milestones worth pausing on.
+	let phase = $state<'playing' | 'advancing' | 'leveled-up' | 'leveled-down'>('playing');
 	let locked = $state(false);
 	let replaying = $state(false);
 	// Consecutive wrong attempts on the CURRENT quiz move — resets the moment
@@ -142,7 +147,11 @@
 			locked = true;
 			wrongCount = 0;
 			hintRequested = false;
-			// Hold the board here so the green check is actually visible before
+			// Whether THIS move is the last one in the attempt — decided now,
+			// synchronously, since ChessBoard needs the star-vs-check choice at
+			// move time, before the 500ms hold below even starts.
+			const isFinalMove = quizIdx + 1 >= currentAttempt.quizSteps.length;
+			// Hold the board here so the check/star is actually visible before
 			// advancing — updating boardFen in the same tick would clear it
 			// before the browser ever paints it.
 			advanceTimeout = setTimeout(() => {
@@ -151,7 +160,10 @@
 				advanceThroughOpponentReplies(currentAttempt);
 				locked = false;
 				if (quizIdx >= currentAttempt.quizSteps.length) {
-					phase = 'success';
+					// No confirmation click for a plain solve — auto-advance
+					// straight to the next task. `nextAttempt()` still pauses on
+					// a leveled-up/leveled-down banner itself when relevant.
+					phase = 'advancing';
 					// Grading is per-attempt, not per-move — persist the whole
 					// outcome the moment the last quiz step is solved. Skipped
 					// during review, which is a pure read-only replay. Uses the
@@ -162,9 +174,10 @@
 					// resetForAttempt(), and reporting against the live (wrong)
 					// attempt would corrupt an unrelated task's progress.
 					if (currentReviewLevel === null) pendingReport = reportAttempt(currentAttempt);
+					nextAttempt();
 				}
 			}, 500);
-			return true;
+			return isFinalMove ? 'final' : true;
 		} else {
 			playWrong();
 			wrongCount++;
@@ -222,15 +235,14 @@
 		}
 	}
 
+	// Only ever reachable from the leveled-up/leveled-down banner's Continue
+	// button now — a plain solve auto-advances via handleMove/nextAttempt()
+	// directly, with no button at all.
 	async function handleContinue() {
 		if (continuing) return;
 		continuing = true;
 		try {
-			if (phase === 'leveled-up' || phase === 'leveled-down') {
-				resetForAttempt();
-			} else {
-				await nextAttempt();
-			}
+			await resetForAttempt();
 		} finally {
 			continuing = false;
 		}
@@ -328,14 +340,12 @@
 					</p>
 				{/if}
 
-				{#if phase === 'success' || phase === 'leveled-up' || phase === 'leveled-down'}
+				{#if phase === 'leveled-up' || phase === 'leveled-down'}
 					<div class="p-5 bg-white border border-gray-200 rounded-2xl text-center shadow-sm">
 						{#if phase === 'leveled-up'}
 							<p class="text-xl font-bold mb-1 text-indigo-600">🎉 Level up! Now on Level {data.level}</p>
-						{:else if phase === 'leveled-down'}
-							<p class="text-xl font-bold mb-1 text-amber-600">⬇️ Back to Level {data.level} — brush up and try again</p>
 						{:else}
-							<p class="text-xl font-bold mb-1 text-green-600">✅ Solved!</p>
+							<p class="text-xl font-bold mb-1 text-amber-600">⬇️ Back to Level {data.level} — brush up and try again</p>
 						{/if}
 						<button
 							onclick={handleContinue}

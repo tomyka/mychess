@@ -6,7 +6,7 @@
 	import { Chess } from 'chess.js';
 	import { DEFAULT_PREFS, animationDuration, type BoardPrefs } from '$lib/board/prefs';
 
-	type MoveFeedback = { square: Key; kind: 'check' | 'cross' } | null;
+	type MoveFeedback = { square: Key; kind: 'check' | 'cross' | 'star' } | null;
 
 	type Props = {
 		fen?: string;
@@ -14,10 +14,13 @@
 		interactable?: boolean;
 		lastMove?: [Key, Key] | undefined;
 		prefs?: BoardPrefs;
-		// Return `true` to show a green check on the destination square, `false`
-		// to show a red cross there and snap the board back to `fen` (an
-		// incorrect guess). Any other return value accepts the move silently.
-		onmove?: (detail: { from: Key; to: Key; san: string }) => boolean | void;
+		// Return `true` to show a green check on the destination square,
+		// `'final'` to show a gold star there instead (the last move of the
+		// whole attempt — the parent auto-advances to the next task rather
+		// than waiting for a confirmation click), `false` to show a red cross
+		// there and snap the board back to `fen` (an incorrect guess). Any
+		// other return value accepts the move silently.
+		onmove?: (detail: { from: Key; to: Key; san: string }) => boolean | 'final' | void;
 		// Highlights this square (e.g. a hint's "move this piece" square) with
 		// a pulsing amber ring and a lightbulb badge — never the destination,
 		// so it points at a piece without giving away where it should go.
@@ -68,18 +71,33 @@
 	// allowed to overflow past it — like lichess's own badge (composeGlyph
 	// resolves to center (91, 8) r=20), deliberately poking past the square's
 	// top-right edge so it clears the piece rather than sitting on it.
-	function feedbackSvg(kind: 'check' | 'cross'): string {
+	function feedbackSvg(kind: 'check' | 'cross' | 'star'): string {
+		const shadowDefs = `
+			<defs>
+				<filter id="fb-shadow" x="-60%" y="-60%" width="220%" height="220%">
+					<feDropShadow dx="2.2" dy="2.8" stdDeviation="2.8" flood-opacity="0.45" />
+				</filter>
+			</defs>
+		`;
+		if (kind === 'star') {
+			return `
+				${shadowDefs}
+				<g filter="url(#fb-shadow)">
+					<circle cx="88" cy="12" r="17.6" fill="#FBBF24" />
+				</g>
+				<path
+					d="M88,3 L90.12,9.09 L96.56,9.22 L91.42,13.11 L93.29,19.28 L88,15.6 L82.71,19.28 L84.58,13.11 L79.44,9.22 L85.88,9.09 Z"
+					fill="white"
+				/>
+			`;
+		}
 		const fill = kind === 'check' ? '#6FCF73' : '#F28B82';
 		const glyph =
 			kind === 'check'
 				? 'M78.9 13.4L85.1 19.7L98.6 4.3'
 				: 'M80.3 4.3L95.7 19.7M95.7 4.3L80.3 19.7';
 		return `
-			<defs>
-				<filter id="fb-shadow" x="-60%" y="-60%" width="220%" height="220%">
-					<feDropShadow dx="2.2" dy="2.8" stdDeviation="2.8" flood-opacity="0.45" />
-				</filter>
-			</defs>
+			${shadowDefs}
 			<g filter="url(#fb-shadow)">
 				<circle cx="88" cy="12" r="17.6" fill="${fill}" />
 			</g>
@@ -137,8 +155,8 @@
 								moveFeedback = null;
 								cg.set(buildConfig());
 							}, WRONG_MOVE_HOLD_MS);
-						} else if (result === true) {
-							moveFeedback = { square: dest, kind: 'check' };
+						} else if (result === true || result === 'final') {
+							moveFeedback = { square: dest, kind: result === 'final' ? 'star' : 'check' };
 							cg.set({ drawable: { autoShapes: feedbackShapes() } });
 						} else {
 							moveFeedback = null;
