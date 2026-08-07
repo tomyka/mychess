@@ -37,8 +37,8 @@ export function pickQueuedAttempt(
  * `quizSteps` the player walks through interactively. The quiz window is
  * always the CURRENT level plus the one before it (a live review of the
  * previous level's material) — anything older auto-plays. At active level
- * *n*, moves 1 through 2(n-2) auto-play (book line, both colors); the player
- * answers from 2(n-2)+1 through the target depth. Each quiz step is tagged
+ * *n*, moves 1 through 3(n-2) auto-play (book line, both colors); the player
+ * answers from 3(n-2)+1 through the target depth. Each quiz step is tagged
  * `band: 'previous'` (review material — counts toward demotion, see
  * `levelProgress.ts`) or `'current'` (the level's own new material).
  */

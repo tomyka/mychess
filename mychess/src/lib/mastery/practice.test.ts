@@ -39,7 +39,7 @@ describe('pickQueuedAttempt', () => {
 		const result = pickQueuedAttempt([a, b], 2, queue);
 		expect(result).not.toBeNull();
 		expect(result!.variation.leafMoveId).toBe(b.leafMoveId);
-		expect(result!.targetDepth).toBe(4); // level 2 depth
+		expect(result!.targetDepth).toBe(6); // level 2 depth
 		expect(result!.taskKey).toBe(taskKey(b, 2));
 	});
 
@@ -61,11 +61,11 @@ describe('pickReviewAttempt', () => {
 		const result = pickReviewAttempt([v], 1, () => 0);
 		expect(result).not.toBeNull();
 		expect(result!.variation.leafMoveId).toBe(v.leafMoveId);
-		expect(result!.targetDepth).toBe(2); // level 1 depth
+		expect(result!.targetDepth).toBe(3); // level 1 depth
 	});
 
 	it("excludes variations naturally shorter than the level's starting point", () => {
-		const short = makeVariation(2, 'short-'); // no content left at level 2 (starts at move 3)
+		const short = makeVariation(2, 'short-'); // no content left at level 2 (starts at move 4)
 		const long = makeVariation(6, 'long-');
 		const result = pickReviewAttempt([short, long], 2, () => 0);
 		expect(result!.variation.leafMoveId).toBe(long.leafMoveId);
@@ -80,32 +80,38 @@ describe('pickReviewAttempt', () => {
 describe('splitAttempt', () => {
 	it('at level 1, auto-plays nothing and every quiz step is in the "current" band', () => {
 		const v = makeVariation(4, 'x-');
-		const { prefix, quizSteps } = splitAttempt(v.path, 1, 2);
+		const { prefix, quizSteps } = splitAttempt(v.path, 1, 3);
 		expect(prefix).toHaveLength(0);
-		expect(quizSteps.map((s) => s.moveId)).toEqual(['x-p1', 'x-o1', 'x-p2']);
+		expect(quizSteps.map((s) => s.moveId)).toEqual(['x-p1', 'x-o1', 'x-p2', 'x-o2', 'x-p3']);
 		expect(quizSteps.every((s) => s.band === 'current')).toBe(true);
 	});
 
 	it('at level 2, auto-plays nothing and asks both level 1 (previous) and level 2 (current) material', () => {
 		const v = makeVariation(6, 'y-');
-		const { prefix, quizSteps } = splitAttempt(v.path, 2, 4);
+		const { prefix, quizSteps } = splitAttempt(v.path, 2, 6);
 		expect(prefix).toHaveLength(0);
-		expect(quizSteps.map((s) => s.moveId)).toEqual(['y-p1', 'y-o1', 'y-p2', 'y-o2', 'y-p3', 'y-o3', 'y-p4']);
+		expect(quizSteps.map((s) => s.moveId)).toEqual([
+			'y-p1', 'y-o1', 'y-p2', 'y-o2', 'y-p3', 'y-o3', 'y-p4', 'y-o4', 'y-p5', 'y-o5', 'y-p6'
+		]);
 		expect(quizSteps.find((s) => s.moveId === 'y-p1')!.band).toBe('previous');
 		expect(quizSteps.find((s) => s.moveId === 'y-p2')!.band).toBe('previous');
-		expect(quizSteps.find((s) => s.moveId === 'y-p3')!.band).toBe('current');
+		expect(quizSteps.find((s) => s.moveId === 'y-p3')!.band).toBe('previous');
 		expect(quizSteps.find((s) => s.moveId === 'y-p4')!.band).toBe('current');
+		expect(quizSteps.find((s) => s.moveId === 'y-p5')!.band).toBe('current');
+		expect(quizSteps.find((s) => s.moveId === 'y-p6')!.band).toBe('current');
 	});
 
 	it('at level 3, auto-plays level 1 and asks level 2 (previous) plus level 3 (current)', () => {
-		const v = makeVariation(6, 'z-');
-		const { prefix, quizSteps } = splitAttempt(v.path, 3, 6);
-		expect(prefix.map((s) => s.moveId)).toEqual(['z-p1', 'z-o1', 'z-p2', 'z-o2']);
-		expect(quizSteps[0].moveId).toBe('z-p3');
-		expect(quizSteps.find((s) => s.moveId === 'z-p3')!.band).toBe('previous');
+		const v = makeVariation(9, 'z-');
+		const { prefix, quizSteps } = splitAttempt(v.path, 3, 9);
+		expect(prefix.map((s) => s.moveId)).toEqual(['z-p1', 'z-o1', 'z-p2', 'z-o2', 'z-p3', 'z-o3']);
+		expect(quizSteps[0].moveId).toBe('z-p4');
 		expect(quizSteps.find((s) => s.moveId === 'z-p4')!.band).toBe('previous');
-		expect(quizSteps.find((s) => s.moveId === 'z-p5')!.band).toBe('current');
-		expect(quizSteps.find((s) => s.moveId === 'z-p6')!.band).toBe('current');
+		expect(quizSteps.find((s) => s.moveId === 'z-p5')!.band).toBe('previous');
+		expect(quizSteps.find((s) => s.moveId === 'z-p6')!.band).toBe('previous');
+		expect(quizSteps.find((s) => s.moveId === 'z-p7')!.band).toBe('current');
+		expect(quizSteps.find((s) => s.moveId === 'z-p8')!.band).toBe('current');
+		expect(quizSteps.find((s) => s.moveId === 'z-p9')!.band).toBe('current');
 	});
 
 	it("collapses to the variation's own length when shorter than the level depth", () => {

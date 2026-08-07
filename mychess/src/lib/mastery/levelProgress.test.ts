@@ -202,7 +202,7 @@ describe('repertoireProgress', () => {
 		const a = variation(6, 'a-');
 		const progress = repertoireProgress([a], null);
 		expect(progress.level).toBe(1);
-		expect(progress.totalLevels).toBe(3); // ceil(6/2)
+		expect(progress.totalLevels).toBe(2); // ceil(6/3)
 		expect(progress.levelTaskCount).toBe(1);
 		expect(progress.levelSolvedCount).toBe(0);
 	});

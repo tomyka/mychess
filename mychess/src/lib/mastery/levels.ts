@@ -1,7 +1,7 @@
 // mychess/src/lib/mastery/levels.ts
 /**
- * Levels are uniform 2-move chunks with no fixed ceiling: L*n* covers the
- * player's own moves 1 through 2*n*.
+ * Levels are uniform 3-move chunks with no fixed ceiling: L*n* covers the
+ * player's own moves 1 through 3*n*.
  */
 export type Level = number;
 
@@ -10,7 +10,7 @@ type VariationLike = {
 	path: { moveId: string; isPlayerTurn: boolean }[];
 };
 
-const MOVES_PER_LEVEL = 2;
+const MOVES_PER_LEVEL = 3;
 
 export function levelDepth(level: Level): number {
 	return level * MOVES_PER_LEVEL;
