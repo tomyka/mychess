@@ -68,6 +68,8 @@ describe('practice detail page', () => {
 					totalVariations: 5,
 					totalLevels: 4,
 					satisfiedCount: 3,
+					levelTaskCount: 5,
+					levelSolvedCount: 3,
 					reviewLevel: null,
 					attempt: {
 						prefix: [

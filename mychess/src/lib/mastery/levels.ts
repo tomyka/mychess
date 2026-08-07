@@ -46,6 +46,42 @@ export function isSatisfied(
 	return true;
 }
 
+/**
+ * The move a variation's target-depth prefix ends on, at `level`. The moves
+ * table is a shared tree, so two variations that reach the same move id here
+ * have an identical path up to this depth — the same underlying moves, not
+ * just coincidentally equal ones.
+ */
+function levelPrefixKey(variation: VariationLike, level: Level): string {
+	const target = targetDepth(variation, level);
+	let playerMovesSeen = 0;
+	for (const step of variation.path) {
+		if (!step.isPlayerTurn) continue;
+		playerMovesSeen++;
+		if (playerMovesSeen === target) return step.moveId;
+	}
+	return variation.path.at(-1)?.moveId ?? '';
+}
+
+/**
+ * The distinct tasks that exist at `level`: variations with content
+ * remaining there (a variation a strictly earlier level already fully
+ * covers drops out), deduplicated by their shared prefix up to this level's
+ * depth — two variations identical up to here are the same task, since
+ * solving one solves both (see `levelPrefixKey`). This is what "N solved
+ * out of M" on the practice screen should count — not the repertoire's
+ * total variation count, which mixes in every other level's lines too.
+ */
+export function levelTaskVariations(variations: VariationLike[], level: Level): VariationLike[] {
+	const relevant = variations.filter((v) => v.playerMoveCount > levelDepth(level - 1));
+	const seen = new Map<string, VariationLike>();
+	for (const v of relevant) {
+		const key = levelPrefixKey(v, level);
+		if (!seen.has(key)) seen.set(key, v);
+	}
+	return [...seen.values()];
+}
+
 function maxPlayerMoveCount(variations: VariationLike[]): number {
 	return variations.reduce((max, v) => Math.max(max, v.playerMoveCount), 0);
 }

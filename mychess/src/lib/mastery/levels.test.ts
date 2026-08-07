@@ -1,6 +1,14 @@
 // mychess/src/lib/mastery/levels.test.ts
 import { describe, it, expect } from 'vitest';
-import { levelDepth, targetDepth, isSatisfied, currentLevel, activeLevel, levelCap } from './levels';
+import {
+	levelDepth,
+	targetDepth,
+	isSatisfied,
+	currentLevel,
+	activeLevel,
+	levelCap,
+	levelTaskVariations
+} from './levels';
 
 /**
  * Builds a variation-shaped object with `playerMoveCount` player moves,
@@ -105,6 +113,43 @@ describe('currentLevel / activeLevel', () => {
 		]);
 		expect(currentLevel([short, long], correct)).toBe(1);
 		expect(activeLevel([short, long], correct)).toBe(2);
+	});
+});
+
+describe('levelTaskVariations', () => {
+	it('drops a variation once a strictly earlier level already fully covers it', () => {
+		const short = variation(2, 'short-'); // fully covered by level 1 (depth 3 > 2)
+		const long = variation(6, 'long-');
+		expect(levelTaskVariations([short, long], 1).map((v) => v.playerMoveCount)).toEqual([2, 6]);
+		// at level 2, `short` has nothing left — only `long` remains a task
+		expect(levelTaskVariations([short, long], 2)).toEqual([long]);
+	});
+
+	it('counts a variation exactly at a level boundary as ending there, not continuing', () => {
+		const exact = variation(3, 'exact-'); // ends precisely at level 1's depth
+		expect(levelTaskVariations([exact], 1)).toEqual([exact]);
+		expect(levelTaskVariations([exact], 2)).toEqual([]); // nothing left at level 2
+	});
+
+	it('collapses variations sharing an identical prefix at this level into one task', () => {
+		// Both lines play the identical first 3 player moves (all of level 1's
+		// depth) and only diverge on their 4th — same underlying moves up to
+		// level 1's target depth.
+		const shared: { moveId: string; isPlayerTurn: boolean }[] = [];
+		for (let i = 1; i <= 3; i++) {
+			shared.push({ moveId: `s-p${i}`, isPlayerTurn: true });
+			shared.push({ moveId: `s-o${i}`, isPlayerTurn: false });
+		}
+		const a = { playerMoveCount: 4, path: [...shared, { moveId: 'a-p4', isPlayerTurn: true }] };
+		const b = { playerMoveCount: 4, path: [...shared, { moveId: 'b-p4', isPlayerTurn: true }] };
+		expect(levelTaskVariations([a, b], 1).length).toBe(1); // identical through level 1's depth (3)
+		expect(levelTaskVariations([a, b], 2).length).toBe(2); // diverge at move 4, level 2's depth
+	});
+
+	it('does not collapse variations that already differ within this level\'s own depth', () => {
+		const a = variation(3, 'a-');
+		const b = variation(3, 'b-');
+		expect(levelTaskVariations([a, b], 1).length).toBe(2);
 	});
 });
 

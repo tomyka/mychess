@@ -38,10 +38,10 @@ export async function loadRepertoireProgressSummaries(
 		.select('id, san, is_player_turn, repertoire_id, from_position, to_position')
 		.in('repertoire_id', repIds);
 
-	// Only level/satisfiedCount/totalVariations/totalLevels are needed here,
-	// all derived purely from moveId/isPlayerTurn — never from FEN — so the
-	// fen columns aren't fetched (unlike the [repertoire_id] detail page,
-	// which needs them to render the board).
+	// Only RepertoireProgress's fields are needed here, all derived purely
+	// from moveId/isPlayerTurn — never from FEN — so the fen columns aren't
+	// fetched (unlike the [repertoire_id] detail page, which needs them to
+	// render the board).
 	const movesByRep = new Map<string, RawMoveRow[]>();
 	for (const m of (rawMoves ?? []) as any[]) {
 		const list = movesByRep.get(m.repertoire_id) ?? [];

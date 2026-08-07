@@ -33,7 +33,7 @@
                   {:else if rep.level === 'mastered'}
                     🏆 Mastered · {levelTag(rep.totalLevels, rep.totalLevels)}
                   {:else}
-                    Level {rep.level} of {rep.totalLevels} · {levelTag(rep.level, rep.totalLevels)} · {rep.satisfiedCount}/{rep.totalVariations} solved
+                    Level {rep.level} of {rep.totalLevels} · {levelTag(rep.level, rep.totalLevels)} · {rep.levelSolvedCount}/{rep.levelTaskCount} solved
                   {/if}
                 </p>
               </div>

@@ -59,10 +59,8 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		.eq('player_id', user!.id)
 		.eq('moves.repertoire_id', repertoireId);
 
-	const { level, satisfiedCount, totalVariations, totalLevels } = repertoireProgress(
-		variations,
-		progressRows ?? []
-	);
+	const { level, satisfiedCount, totalVariations, totalLevels, levelTaskCount, levelSolvedCount } =
+		repertoireProgress(variations, progressRows ?? []);
 	const correctMoveIds = correctMoveIdSet(progressRows ?? []);
 
 	// A `?level=N` request only takes effect for a level strictly below the
@@ -96,5 +94,15 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		}
 	}
 
-	return { repertoire, level, totalVariations, totalLevels, satisfiedCount, attempt, reviewLevel };
+	return {
+		repertoire,
+		level,
+		totalVariations,
+		totalLevels,
+		satisfiedCount,
+		levelTaskCount,
+		levelSolvedCount,
+		attempt,
+		reviewLevel
+	};
 };

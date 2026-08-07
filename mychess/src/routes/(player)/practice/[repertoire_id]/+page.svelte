@@ -267,7 +267,7 @@
 					<p class="text-gray-400 text-sm font-medium">
 						{data.repertoire?.name} · {typeof data.level === 'number' ? `Level ${data.level} of ${data.totalLevels}` : 'Mastered'} · {currentTag}
 					</p>
-					<p class="text-gray-400 text-sm">{data.satisfiedCount}/{data.totalVariations} solved</p>
+					<p class="text-gray-400 text-sm">{data.levelSolvedCount}/{data.levelTaskCount} solved</p>
 				</div>
 
 				<LevelList

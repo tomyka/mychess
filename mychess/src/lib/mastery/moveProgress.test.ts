@@ -52,6 +52,10 @@ describe('repertoireProgress', () => {
 		expect(progress.totalLevels).toBe(2); // ceil(6/3) — driven by the longer variation `b`
 		expect(progress.level).toBe(2); // both satisfied at level 1 (depth 3); a is done, b needs level 2's depth 6
 		expect(progress.satisfiedCount).toBe(1); // only `a` (fully covered) is satisfied at the active level 2
+		// Level 2's own task count: `a` already finished at level 1 and drops
+		// out, leaving only `b` — not the repertoire-wide total of 2.
+		expect(progress.levelTaskCount).toBe(1);
+		expect(progress.levelSolvedCount).toBe(0); // b's moves 4-6 aren't marked correct yet
 	});
 
 	it('reports every variation as satisfied once the repertoire is mastered', () => {
@@ -65,6 +69,8 @@ describe('repertoireProgress', () => {
 		expect(progress.satisfiedCount).toBe(1);
 		expect(progress.totalVariations).toBe(1);
 		expect(progress.totalLevels).toBe(1); // ceil(2/3)
+		expect(progress.levelTaskCount).toBe(1);
+		expect(progress.levelSolvedCount).toBe(1);
 	});
 
 	it('handles a repertoire with no variations yet', () => {
@@ -73,5 +79,30 @@ describe('repertoireProgress', () => {
 		expect(progress.satisfiedCount).toBe(0);
 		expect(progress.totalVariations).toBe(0);
 		expect(progress.totalLevels).toBe(0);
+		expect(progress.levelTaskCount).toBe(0);
+		expect(progress.levelSolvedCount).toBe(0);
+	});
+
+	it("scopes levelTaskCount to the active level, unlike the repertoire-wide totalVariations", () => {
+		// A French-opening-style repertoire: a couple of short lines finished
+		// early, a couple of longer ones still going — this is the "30/93"
+		// scenario the level-scoped stat replaces.
+		const short1 = variation(2, 's1-');
+		const short2 = variation(3, 's2-');
+		const long1 = variation(9, 'l1-');
+		const long2 = variation(9, 'l2-');
+		const rows = [
+			...short1.path.filter((s) => s.isPlayerTurn),
+			...short2.path.filter((s) => s.isPlayerTurn),
+			...long1.path.filter((s) => s.isPlayerTurn).slice(0, 3),
+			...long2.path.filter((s) => s.isPlayerTurn).slice(0, 3)
+		].map((s) => ({ move_id: s.moveId, state: 'correct' }));
+		const progress = repertoireProgress([short1, short2, long1, long2], rows);
+		expect(progress.totalVariations).toBe(4); // the old, confusing repertoire-wide count
+		expect(progress.level).toBe(2); // level 1 (depth 3) fully done for all four
+		// At level 2: both short variations are already finished (depth ≤ 3)
+		// and drop out; only the two long ones still have content here.
+		expect(progress.levelTaskCount).toBe(2);
+		expect(progress.levelSolvedCount).toBe(0); // neither has reached depth 6 yet
 	});
 });
