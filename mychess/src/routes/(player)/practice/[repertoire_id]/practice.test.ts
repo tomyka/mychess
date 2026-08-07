@@ -14,7 +14,6 @@ describe('practice detail page', () => {
 					level: 'mastered',
 					totalVariations: 0,
 					totalLevels: 0,
-					satisfiedCount: 0,
 					attempt: null,
 					reviewLevel: null
 				}
@@ -32,7 +31,6 @@ describe('practice detail page', () => {
 					level: 'mastered',
 					totalVariations: 5,
 					totalLevels: 3,
-					satisfiedCount: 5,
 					attempt: null,
 					reviewLevel: null
 				}
@@ -49,7 +47,6 @@ describe('practice detail page', () => {
 					level: 'mastered',
 					totalVariations: 5,
 					totalLevels: 3,
-					satisfiedCount: 5,
 					attempt: null,
 					reviewLevel: null
 				}
@@ -67,7 +64,6 @@ describe('practice detail page', () => {
 					level: 2,
 					totalVariations: 5,
 					totalLevels: 4,
-					satisfiedCount: 3,
 					levelTaskCount: 5,
 					levelSolvedCount: 3,
 					reviewLevel: null,
@@ -113,7 +109,6 @@ describe('practice detail page', () => {
 					level: 3,
 					totalVariations: 5,
 					totalLevels: 4,
-					satisfiedCount: 3,
 					reviewLevel: 2,
 					attempt: {
 						prefix: [
@@ -150,7 +145,6 @@ describe('practice detail page', () => {
 					level: 'mastered',
 					totalVariations: 5,
 					totalLevels: 4,
-					satisfiedCount: 5,
 					reviewLevel: 2,
 					attempt: {
 						prefix: [
