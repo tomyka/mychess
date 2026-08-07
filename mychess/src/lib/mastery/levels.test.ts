@@ -1,20 +1,7 @@
 // mychess/src/lib/mastery/levels.test.ts
 import { describe, it, expect } from 'vitest';
-import {
-	levelDepth,
-	targetDepth,
-	isSatisfied,
-	currentLevel,
-	activeLevel,
-	levelCap,
-	levelTaskVariations
-} from './levels';
+import { levelDepth, targetDepth, taskKey, levelTaskVariations, levelCap } from './levels';
 
-/**
- * Builds a variation-shaped object with `playerMoveCount` player moves,
- * alternating player/opponent steps starting on the player's move, with move
- * ids `${prefix}p1`, `${prefix}o1`, `${prefix}p2`, `${prefix}o2`, ...
- */
 function variation(playerMoveCount: number, prefix: string) {
 	const path: { moveId: string; isPlayerTurn: boolean }[] = [];
 	for (let i = 1; i <= playerMoveCount; i++) {
@@ -25,17 +12,17 @@ function variation(playerMoveCount: number, prefix: string) {
 }
 
 describe('levelDepth', () => {
-	it('is a uniform 3-move chunk per level, with no fixed ceiling', () => {
-		expect(levelDepth(1)).toBe(3);
-		expect(levelDepth(2)).toBe(6);
-		expect(levelDepth(3)).toBe(9);
-		expect(levelDepth(10)).toBe(30);
+	it('is a uniform 2-move chunk per level, with no fixed ceiling', () => {
+		expect(levelDepth(1)).toBe(2);
+		expect(levelDepth(2)).toBe(4);
+		expect(levelDepth(3)).toBe(6);
+		expect(levelDepth(10)).toBe(20);
 	});
 });
 
 describe('targetDepth', () => {
 	it('is the level depth when the variation is longer', () => {
-		expect(targetDepth({ playerMoveCount: 12 }, 2)).toBe(6);
+		expect(targetDepth({ playerMoveCount: 12 }, 2)).toBe(4);
 	});
 
 	it("is the variation's own length when shorter than the level depth", () => {
@@ -43,110 +30,46 @@ describe('targetDepth', () => {
 	});
 });
 
-describe('isSatisfied', () => {
-	it('is satisfied when every player move up to the target depth is in the correct set', () => {
+describe('taskKey', () => {
+	it('is the move id the target-depth prefix ends on', () => {
 		const v = variation(4, 'v1-');
-		const correct = new Set(['v1-p1', 'v1-p2', 'v1-p3']);
-		expect(isSatisfied(v, 1, correct)).toBe(true); // target depth min(4,3) = 3
-		expect(isSatisfied(v, 2, correct)).toBe(false); // target depth min(4,6) = 4, p4 missing
+		expect(taskKey(v, 1)).toBe('v1-p2'); // depth 2 -> ends on the 2nd player move
+		expect(taskKey(v, 2)).toBe('v1-p4'); // depth 4 -> ends on the 4th
 	});
 
-	it('a naturally shorter variation is satisfied at every level once its own full length is correct', () => {
+	it("falls back to the variation's own last move once its length caps the target", () => {
 		const v = variation(2, 'short-');
-		const correct = new Set(['short-p1', 'short-p2']);
-		expect(isSatisfied(v, 1, correct)).toBe(true); // target = min(2,3) = 2
-		expect(isSatisfied(v, 5, correct)).toBe(true); // target = min(2,15) = 2, still satisfied
-	});
-
-	it('a gap anywhere before the target depth breaks satisfaction, even deep into the line', () => {
-		const v = variation(4, 'gap-');
-		const correct = new Set(['gap-p1', 'gap-p3', 'gap-p4']); // p2 missing
-		expect(isSatisfied(v, 2, correct)).toBe(false);
-	});
-});
-
-describe('shared-prefix moves', () => {
-	it('marking a shared prefix move correct satisfies every variation that shares it at that depth', () => {
-		const sharedP1 = { moveId: 'shared-p1', isPlayerTurn: true };
-		const va = { playerMoveCount: 1, path: [sharedP1] };
-		const vb = { playerMoveCount: 1, path: [sharedP1] }; // a different variation sharing the same opening move edge
-		const correct = new Set(['shared-p1']);
-		expect(isSatisfied(va, 1, correct)).toBe(true);
-		expect(isSatisfied(vb, 1, correct)).toBe(true);
-	});
-});
-
-describe('currentLevel / activeLevel', () => {
-	it('currentLevel is 0 and activeLevel is 1 when nothing has been played', () => {
-		const v = variation(6, 'a-');
-		expect(currentLevel([v], new Set())).toBe(0);
-		expect(activeLevel([v], new Set())).toBe(1);
-	});
-
-	it('advances as moves are marked correct', () => {
-		const v = variation(6, 'b-');
-		const correct = new Set(['b-p1', 'b-p2', 'b-p3']);
-		expect(currentLevel([v], correct)).toBe(1);
-		expect(activeLevel([v], correct)).toBe(2);
-	});
-
-	it('is "mastered" once every variation\'s full length is covered', () => {
-		const v = variation(4, 'c-');
-		const correct = new Set(['c-p1', 'c-p2', 'c-p3', 'c-p4']);
-		expect(activeLevel([v], correct)).toBe('mastered');
-	});
-
-	it('is "mastered" for an empty variation list', () => {
-		expect(currentLevel([], new Set())).toBe(0);
-		expect(activeLevel([], new Set())).toBe('mastered');
-	});
-
-	it('a satisfied short variation never blocks a longer one from progressing', () => {
-		const short = variation(2, 'short2-');
-		const long = variation(6, 'long2-');
-		const correct = new Set([
-			'short2-p1',
-			'short2-p2',
-			'long2-p1',
-			'long2-p2',
-			'long2-p3'
-		]);
-		expect(currentLevel([short, long], correct)).toBe(1);
-		expect(activeLevel([short, long], correct)).toBe(2);
+		expect(taskKey(v, 5)).toBe('short-p2');
 	});
 });
 
 describe('levelTaskVariations', () => {
 	it('drops a variation once a strictly earlier level already fully covers it', () => {
-		const short = variation(2, 'short-'); // fully covered by level 1 (depth 3 > 2)
+		const short = variation(2, 'short-'); // fully covered by level 1 (depth 2)
 		const long = variation(6, 'long-');
 		expect(levelTaskVariations([short, long], 1).map((v) => v.playerMoveCount)).toEqual([2, 6]);
-		// at level 2, `short` has nothing left — only `long` remains a task
 		expect(levelTaskVariations([short, long], 2)).toEqual([long]);
 	});
 
 	it('counts a variation exactly at a level boundary as ending there, not continuing', () => {
-		const exact = variation(3, 'exact-'); // ends precisely at level 1's depth
+		const exact = variation(2, 'exact-'); // ends precisely at level 1's depth
 		expect(levelTaskVariations([exact], 1)).toEqual([exact]);
-		expect(levelTaskVariations([exact], 2)).toEqual([]); // nothing left at level 2
+		expect(levelTaskVariations([exact], 2)).toEqual([]);
 	});
 
 	it('collapses variations sharing an identical prefix at this level into one task', () => {
-		// Both lines play the identical first 3 player moves (all of level 1's
-		// depth) and only diverge on their 4th — same underlying moves up to
-		// level 1's target depth.
 		const shared: { moveId: string; isPlayerTurn: boolean }[] = [];
-		for (let i = 1; i <= 3; i++) {
+		for (let i = 1; i <= 2; i++) {
 			shared.push({ moveId: `s-p${i}`, isPlayerTurn: true });
 			shared.push({ moveId: `s-o${i}`, isPlayerTurn: false });
 		}
-		const a = { playerMoveCount: 4, path: [...shared, { moveId: 'a-p4', isPlayerTurn: true }] };
-		const b = { playerMoveCount: 4, path: [...shared, { moveId: 'b-p4', isPlayerTurn: true }] };
-		expect(levelTaskVariations([a, b], 1).length).toBe(1); // identical through level 1's depth (3)
-		expect(levelTaskVariations([a, b], 2).length).toBe(2); // diverge at move 4, level 2's depth
+		const a = { playerMoveCount: 3, path: [...shared, { moveId: 'a-p3', isPlayerTurn: true }] };
+		const b = { playerMoveCount: 3, path: [...shared, { moveId: 'b-p3', isPlayerTurn: true }] };
+		expect(levelTaskVariations([a, b], 1).length).toBe(1); // identical through level 1's depth (2)
+		expect(levelTaskVariations([a, b], 2).length).toBe(2); // diverge at move 3, level 2's depth
 	});
 
-	it('does not collapse variations that already differ within this level\'s own depth', () => {
+	it("does not collapse variations that already differ within this level's own depth", () => {
 		const a = variation(3, 'a-');
 		const b = variation(3, 'b-');
 		expect(levelTaskVariations([a, b], 1).length).toBe(2);
@@ -158,12 +81,12 @@ describe('levelCap', () => {
 		expect(levelCap([])).toBe(0);
 	});
 
-	it('rounds up to the nearest 3-move chunk covering the longest variation', () => {
-		expect(levelCap([variation(4, 'a-')])).toBe(2); // ceil(4/3) = 2
-		expect(levelCap([variation(9, 'b-')])).toBe(3);
+	it('rounds up to the nearest 2-move chunk covering the longest variation', () => {
+		expect(levelCap([variation(4, 'a-')])).toBe(2); // ceil(4/2) = 2
+		expect(levelCap([variation(9, 'b-')])).toBe(5); // ceil(9/2) = 5
 	});
 
 	it('is driven by the longest variation among several', () => {
-		expect(levelCap([variation(2, 'short-'), variation(7, 'long-')])).toBe(3); // ceil(7/3) = 3
+		expect(levelCap([variation(2, 'short-'), variation(7, 'long-')])).toBe(4); // ceil(7/2) = 4
 	});
 });
