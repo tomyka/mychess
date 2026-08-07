@@ -1,0 +1,18 @@
+-- mychess/supabase/migrations/0032_level_progress_version.sql
+-- Fixes a lost-update race on level_progress: three independent flows each
+-- do a plain SELECT-then-UPSERT against the same (player_id, repertoire_id)
+-- row with no concurrency control — the detail page's on-load sync
+-- (loadSyncedLevelProgress), an attempt's completion (applyAttemptResult),
+-- and an instant previous-level mistake report (applyPreviousLevelMistake,
+-- fired unawaited the moment a wrong move lands, so it can genuinely overlap
+-- with either of the other two). Whichever write lands last silently wins,
+-- discarding the other's update — observed as a repertoire correctly showing
+-- Level 2 on its own detail page (freshly synced) while the practice picker,
+-- reading a level_progress row a concurrent write had clobbered back to a
+-- stale "mastered" (level > cap) value, showed it as mastered.
+--
+-- Fix: add a version counter. The application layer now does an optimistic
+-- read-modify-write — UPDATE ... WHERE version = <version just read>,
+-- retrying against a fresh read if that affects zero rows (meaning someone
+-- else wrote first) — instead of an unconditional upsert.
+alter table public.level_progress add column version int not null default 0;

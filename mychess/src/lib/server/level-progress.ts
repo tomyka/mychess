@@ -10,22 +10,85 @@ import {
 	type LevelProgressRow
 } from '$lib/mastery/levelProgress';
 
-type DbRow = { level: number; prev_level_mistakes: number; queue: unknown };
+type DbRow = { level: number; prev_level_mistakes: number; queue: unknown; version: number };
 
 function toRow(r: DbRow): LevelProgressRow {
 	return { level: r.level, prevLevelMistakes: r.prev_level_mistakes, queue: r.queue as LevelProgressRow['queue'] };
 }
 
-async function upsert(supabase: SupabaseClient, playerId: string, repertoireId: string, row: LevelProgressRow) {
-	await supabase.from('level_progress').upsert(
-		{
-			player_id: playerId,
-			repertoire_id: repertoireId,
-			level: row.level,
-			prev_level_mistakes: row.prevLevelMistakes,
-			queue: row.queue
-		},
-		{ onConflict: 'player_id,repertoire_id' }
+const MAX_CONFLICT_RETRIES = 5;
+
+/**
+ * Reads the current row (if any), runs `compute` against it, and persists
+ * the result with an optimistic-concurrency check — an `UPDATE ... WHERE
+ * version = <version just read>` (or a bare `INSERT` when no row exists
+ * yet), retrying against a fresh read whenever that affects zero rows,
+ * meaning a concurrent writer landed first.
+ *
+ * This matters because THREE independent flows mutate the same
+ * (player_id, repertoire_id) row: the detail page's on-load sync, an
+ * attempt's completion, and an instant previous-level-mistake report (fired
+ * unawaited the moment a wrong move lands, so it can genuinely overlap with
+ * either of the other two). A plain read-then-write here would let
+ * whichever write lands last silently clobber the other.
+ *
+ * `compute` returns `null` to mean "no row and nothing to create" (an
+ * attempt/mistake report against a repertoire with no run yet — shouldn't
+ * normally happen, but is a safe no-op rather than an error). Returning the
+ * exact `existing` object back is treated as a no-op write too — every pure
+ * resolver in `$lib/mastery/levelProgress.ts` already does this for its own
+ * no-op cases (stale/replayed report, already mastered), so this falls out
+ * for free rather than needing each call site to special-case it.
+ */
+async function mutateLevelProgress(
+	supabase: SupabaseClient,
+	playerId: string,
+	repertoireId: string,
+	compute: (existing: LevelProgressRow | null) => LevelProgressRow | null
+): Promise<LevelProgressRow | null> {
+	for (let attempt = 0; attempt < MAX_CONFLICT_RETRIES; attempt++) {
+		const { data: existingRaw } = await supabase
+			.from('level_progress')
+			.select('level, prev_level_mistakes, queue, version')
+			.eq('player_id', playerId)
+			.eq('repertoire_id', repertoireId)
+			.maybeSingle();
+
+		const existingRow = existingRaw ? toRow(existingRaw) : null;
+		const next = compute(existingRow);
+		if (next === null) return existingRow;
+		if (existingRow && next === existingRow) return existingRow;
+
+		if (!existingRaw) {
+			const { error } = await supabase.from('level_progress').insert({
+				player_id: playerId,
+				repertoire_id: repertoireId,
+				level: next.level,
+				prev_level_mistakes: next.prevLevelMistakes,
+				queue: next.queue,
+				version: 0
+			});
+			if (!error) return next;
+			continue; // someone else inserted first — retry, this time as a version-checked update
+		}
+
+		const { data: updated } = await supabase
+			.from('level_progress')
+			.update({
+				level: next.level,
+				prev_level_mistakes: next.prevLevelMistakes,
+				queue: next.queue,
+				version: existingRaw.version + 1
+			})
+			.eq('player_id', playerId)
+			.eq('repertoire_id', repertoireId)
+			.eq('version', existingRaw.version)
+			.select('version');
+		if (updated && updated.length > 0) return next;
+		// Lost the race against a concurrent writer — retry from a fresh read.
+	}
+	throw new Error(
+		`level_progress: exceeded retry limit resolving a concurrent update (player ${playerId}, repertoire ${repertoireId})`
 	);
 }
 
@@ -44,17 +107,10 @@ export async function loadSyncedLevelProgress(
 ): Promise<LevelProgressRow | null> {
 	if (variations.length === 0) return null;
 
-	const { data: existing } = await supabase
-		.from('level_progress')
-		.select('level, prev_level_mistakes, queue')
-		.eq('player_id', playerId)
-		.eq('repertoire_id', repertoireId)
-		.maybeSingle();
-
-	const row = existing ? toRow(existing) : { level: 1, prevLevelMistakes: 0, queue: buildQueue(variations, 1) };
-	const synced = syncLevelProgress(row, variations);
-	await upsert(supabase, playerId, repertoireId, synced);
-	return synced;
+	return mutateLevelProgress(supabase, playerId, repertoireId, (existing) => {
+		const row = existing ?? { level: 1, prevLevelMistakes: 0, queue: buildQueue(variations, 1) };
+		return syncLevelProgress(row, variations);
+	});
 }
 
 /**
@@ -70,17 +126,10 @@ export async function applyAttemptResult(
 	result: AttemptResult,
 	variations: Variation[]
 ): Promise<void> {
-	const { data: existing, error: selectError } = await supabase
-		.from('level_progress')
-		.select('level, prev_level_mistakes, queue')
-		.eq('player_id', playerId)
-		.eq('repertoire_id', repertoireId)
-		.single();
-
-	if (selectError || !existing) return;
-
-	const next = resolveAttempt(toRow(existing), result, variations);
-	await upsert(supabase, playerId, repertoireId, next);
+	await mutateLevelProgress(supabase, playerId, repertoireId, (existing) => {
+		if (!existing) return null;
+		return resolveAttempt(existing, result, variations);
+	});
 }
 
 /**
@@ -98,16 +147,12 @@ export async function applyPreviousLevelMistake(
 	repertoireId: string,
 	variations: Variation[]
 ): Promise<{ demoted: boolean; level: number } | null> {
-	const { data: existing, error: selectError } = await supabase
-		.from('level_progress')
-		.select('level, prev_level_mistakes, queue')
-		.eq('player_id', playerId)
-		.eq('repertoire_id', repertoireId)
-		.single();
-
-	if (selectError || !existing) return null;
-
-	const { row: next, demoted } = resolvePreviousLevelMistake(toRow(existing), variations);
-	await upsert(supabase, playerId, repertoireId, next);
-	return { demoted, level: next.level };
+	let demoted = false;
+	const next = await mutateLevelProgress(supabase, playerId, repertoireId, (existing) => {
+		if (!existing) return null;
+		const outcome = resolvePreviousLevelMistake(existing, variations);
+		demoted = outcome.demoted;
+		return outcome.row;
+	});
+	return next ? { demoted, level: next.level } : null;
 }
