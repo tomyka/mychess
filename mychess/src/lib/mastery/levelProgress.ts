@@ -64,7 +64,7 @@ function advanceIfCleared(
 ): LevelProgressRow {
 	if (!isFullyCleared(row.queue)) return row;
 	const nextLevel = row.level + 1;
-	if (nextLevel > cap) return { ...row, level: nextLevel };
+	if (nextLevel > cap) return { ...row, level: nextLevel, prevLevelMistakes: 0 };
 	return { level: nextLevel, prevLevelMistakes: 0, queue: buildQueue(variations, nextLevel, random) };
 }
 
@@ -101,6 +101,9 @@ export function resolveAttempt(
 	random: () => number = Math.random
 ): LevelProgressRow {
 	const cap = levelCap(variations);
+	if (row.level > cap) return row; // already mastered — a stale/replayed report is a no-op
+	if (!row.queue.some((entry) => entry.key === result.taskKey)) return row; // stale/unrecognized task — no-op
+
 	const prevLevelMistakes = row.prevLevelMistakes + result.prevLevelMistakeCount;
 
 	if (prevLevelMistakes >= DEMOTION_THRESHOLD && row.level > 1) {

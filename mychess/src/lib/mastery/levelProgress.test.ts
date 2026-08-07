@@ -141,6 +141,28 @@ describe('resolveAttempt', () => {
 		expect(next.level).toBe(1);
 		expect(next.prevLevelMistakes).toBe(3);
 	});
+
+	it('is a no-op when the row is already mastered (a replayed/duplicate report)', () => {
+		const a = variation(2, 'a-'); // cap = 1
+		const row: LevelProgressRow = { level: 2, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 1), status: 'cleared' }] };
+		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false, prevLevelMistakeCount: 0 }, [a]);
+		expect(next).toEqual(row);
+	});
+
+	it('is a no-op when the reported taskKey is not in the queue (stale/unrecognized report)', () => {
+		const a = variation(10, 'a-');
+		const row: LevelProgressRow = { level: 1, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 1), status: 'pending' }] };
+		const next = resolveAttempt(row, { taskKey: 'not-a-real-key', hadMistake: false, prevLevelMistakeCount: 0 }, [a]);
+		expect(next).toEqual(row);
+	});
+
+	it('resets prevLevelMistakes to 0 when mastering, even with a nonzero count at the moment of mastery', () => {
+		const a = variation(2, 'a-'); // cap = 1
+		const row: LevelProgressRow = { level: 1, prevLevelMistakes: 2, queue: [{ key: taskKey(a, 1), status: 'pending' }] };
+		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false, prevLevelMistakeCount: 0 }, [a]);
+		expect(next.level).toBe(2);
+		expect(next.prevLevelMistakes).toBe(0);
+	});
 });
 
 describe('syncLevelProgress', () => {
