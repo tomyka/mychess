@@ -339,6 +339,7 @@
 
 				<ChessBoard
 					fen={boardFen}
+					orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
 					interactable={phase === 'playing' && !locked && !replaying}
 					onmove={handleMove}
 					prefs={data.boardPrefs}
