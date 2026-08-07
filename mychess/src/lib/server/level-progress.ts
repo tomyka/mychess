@@ -4,6 +4,7 @@ import type { Variation } from '$lib/mastery/variations';
 import {
 	buildQueue,
 	resolveAttempt,
+	resolvePreviousLevelMistake,
 	syncLevelProgress,
 	type AttemptResult,
 	type LevelProgressRow
@@ -80,4 +81,33 @@ export async function applyAttemptResult(
 
 	const next = resolveAttempt(toRow(existing), result, variations);
 	await upsert(supabase, playerId, repertoireId, next);
+}
+
+/**
+ * Applies a single previous-level-band mistake immediately — see
+ * `$lib/mastery/levelProgress.ts`'s `resolvePreviousLevelMistake` for the
+ * rules. Called the instant a wrong move lands on review material, not
+ * batched until some attempt eventually completes. Returns whether this
+ * mistake demoted the level, so the caller can react right away; `null` if
+ * no row exists yet (an attempt can only be in progress against an existing
+ * row, so this shouldn't normally happen).
+ */
+export async function applyPreviousLevelMistake(
+	supabase: SupabaseClient,
+	playerId: string,
+	repertoireId: string,
+	variations: Variation[]
+): Promise<{ demoted: boolean; level: number } | null> {
+	const { data: existing, error: selectError } = await supabase
+		.from('level_progress')
+		.select('level, prev_level_mistakes, queue')
+		.eq('player_id', playerId)
+		.eq('repertoire_id', repertoireId)
+		.single();
+
+	if (selectError || !existing) return null;
+
+	const { row: next, demoted } = resolvePreviousLevelMistake(toRow(existing), variations);
+	await upsert(supabase, playerId, repertoireId, next);
+	return { demoted, level: next.level };
 }

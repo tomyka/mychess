@@ -25,12 +25,13 @@
 	// requesting it highlights the correct piece's square, never the move.
 	let wrongCount = $state(0);
 	let hintRequested = $state(false);
-	// Whether THIS ATTEMPT (not just this move) has had any mistake yet, and
-	// how many of those mistakes landed on the "previous level" review band
-	// — both reset only in resetForAttempt(), and reported once when the
-	// attempt finishes (see reportAttempt), not per move.
+	// Whether THIS ATTEMPT (not just this move) has had any mistake yet —
+	// reset only in resetForAttempt(), reported once when the attempt
+	// finishes (see reportAttempt). Previous-level-band mistakes are NOT
+	// tracked here — those are reported the instant they happen (see
+	// reportPreviousLevelMistake), not batched until the attempt completes,
+	// so demotion can fire even if the player never gets this move right.
 	let attemptHadMistake = $state(false);
-	let attemptPrevLevelMistakes = $state(0);
 	let advanceTimeout: ReturnType<typeof setTimeout> | undefined;
 	// Bumped on every resetForAttempt() call so an in-flight prefix replay
 	// notices it's been superseded (e.g. rapid re-navigation) and stops
@@ -99,7 +100,6 @@
 		wrongCount = 0;
 		hintRequested = false;
 		attemptHadMistake = false;
-		attemptPrevLevelMistakes = 0;
 		if (!attempt) return;
 
 		if (attempt.prefix.length === 0) {
@@ -183,7 +183,7 @@
 			wrongCount++;
 			if (currentReviewLevel === null) {
 				attemptHadMistake = true;
-				if (step.band === 'previous') attemptPrevLevelMistakes++;
+				if (step.band === 'previous') reportPreviousLevelMistake();
 			}
 			// Don't reveal the book move — just mark the square wrong and let
 			// the player try again on the same position.
@@ -199,8 +199,7 @@
 				body: JSON.stringify({
 					repertoireId,
 					taskKey: reportedAttempt.taskKey,
-					hadMistake: attemptHadMistake,
-					prevLevelMistakeCount: attemptPrevLevelMistakes
+					hadMistake: attemptHadMistake
 				})
 			});
 		} catch {
@@ -208,6 +207,41 @@
 			// board; just skip silently rather than blocking the player on a
 			// network hiccup. Worst case: the same task is served again.
 		}
+	}
+
+	// Fires the instant a wrong move lands on review material — not batched
+	// until the attempt completes, since a player who keeps failing this
+	// exact move and never gets it right would otherwise never accumulate
+	// enough mistakes to demote, no matter how many times they fail it. If
+	// this was the demoting mistake, abandon the in-flight attempt right
+	// away rather than let the player keep playing against a now-stale quiz.
+	async function reportPreviousLevelMistake() {
+		try {
+			const res = await fetch('/api/practice/mistake', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ repertoireId })
+			});
+			const result = await res.json();
+			if (result?.demoted) await handleMidAttemptDemotion();
+		} catch {
+			// Report failed — worst case this one mistake isn't counted; the
+			// player just needs one more before demotion fires.
+		}
+	}
+
+	// A demotion detected mid-attempt (not at the natural end-of-attempt
+	// point `nextAttempt` handles) — the in-flight quiz was built for the
+	// level just left, so abandon it and show the same banner a
+	// completion-triggered demotion would.
+	async function handleMidAttemptDemotion() {
+		const myToken = resetToken;
+		clearTimeout(advanceTimeout);
+		locked = true;
+		phase = 'advancing';
+		await invalidateAll();
+		if (myToken !== resetToken) return; // superseded by a resetForAttempt() while we were awaiting
+		phase = 'leveled-down';
 	}
 
 	function levelRank(level: number | 'mastered'): number {

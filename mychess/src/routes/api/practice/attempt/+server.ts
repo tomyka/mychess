@@ -14,18 +14,13 @@ export const POST: RequestHandler = async ({ request, locals: { supabase, safeGe
 	if (!user) throw error(401, 'Unauthorized');
 
 	const body = await request.json();
-	const { repertoireId, taskKey, hadMistake, prevLevelMistakeCount } = body ?? {};
-	if (
-		typeof repertoireId !== 'string' ||
-		typeof taskKey !== 'string' ||
-		typeof hadMistake !== 'boolean' ||
-		typeof prevLevelMistakeCount !== 'number'
-	) {
+	const { repertoireId, taskKey, hadMistake } = body ?? {};
+	if (typeof repertoireId !== 'string' || typeof taskKey !== 'string' || typeof hadMistake !== 'boolean') {
 		throw error(400, 'Invalid request');
 	}
 
 	const { variations } = await loadRepertoireVariations(supabase, user.id, repertoireId);
-	await applyAttemptResult(supabase, user.id, repertoireId, { taskKey, hadMistake, prevLevelMistakeCount }, variations);
+	await applyAttemptResult(supabase, user.id, repertoireId, { taskKey, hadMistake }, variations);
 
 	return json({ ok: true });
 };

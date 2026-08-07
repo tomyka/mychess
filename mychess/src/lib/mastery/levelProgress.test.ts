@@ -4,6 +4,7 @@ import {
 	buildQueue,
 	reconcileQueue,
 	resolveAttempt,
+	resolvePreviousLevelMistake,
 	syncLevelProgress,
 	repertoireProgress,
 	type LevelProgressRow
@@ -78,7 +79,7 @@ describe('resolveAttempt', () => {
 				{ key: taskKey(b, 1), status: 'pending' }
 			]
 		};
-		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false, prevLevelMistakeCount: 0 }, [a, b]);
+		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false }, [a, b]);
 		expect(next.queue).toEqual([
 			{ key: taskKey(a, 1), status: 'cleared' },
 			{ key: taskKey(b, 1), status: 'pending' }
@@ -97,7 +98,7 @@ describe('resolveAttempt', () => {
 				{ key: taskKey(b, 1), status: 'pending' }
 			]
 		};
-		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: true, prevLevelMistakeCount: 0 }, [a, b]);
+		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: true }, [a, b]);
 		expect(next.queue).toEqual([
 			{ key: taskKey(b, 1), status: 'pending' },
 			{ key: taskKey(a, 1), status: 'pending' }
@@ -107,7 +108,7 @@ describe('resolveAttempt', () => {
 	it('advances to the next level, with a fresh queue, once every task clears', () => {
 		const a = variation(10, 'a-');
 		const row: LevelProgressRow = { level: 1, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 1), status: 'pending' }] };
-		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false, prevLevelMistakeCount: 0 }, [a], () => 0);
+		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false }, [a], () => 0);
 		expect(next.level).toBe(2);
 		expect(next.prevLevelMistakes).toBe(0);
 		expect(next.queue).toEqual([{ key: taskKey(a, 2), status: 'pending' }]);
@@ -116,52 +117,76 @@ describe('resolveAttempt', () => {
 	it('becomes mastered past the level cap, keeping the cleared queue', () => {
 		const a = variation(2, 'a-'); // 1-level repertoire (cap = 1)
 		const row: LevelProgressRow = { level: 1, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 1), status: 'pending' }] };
-		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false, prevLevelMistakeCount: 0 }, [a]);
+		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false }, [a]);
 		expect(next.level).toBe(2); // cap(1) + 1 — sentinel for "mastered"
 		expect(next.queue).toEqual([{ key: taskKey(a, 1), status: 'cleared' }]);
 	});
 
-	it('demotes a level back down at 3 accumulated previous-band mistakes, discarding its queue', () => {
-		const a = variation(10, 'a-');
-		const row: LevelProgressRow = {
-			level: 2,
-			prevLevelMistakes: 2,
-			queue: [{ key: taskKey(a, 2), status: 'pending' }]
-		};
-		const next = resolveAttempt(row, { taskKey: taskKey(a, 2), hadMistake: true, prevLevelMistakeCount: 1 }, [a], () => 0);
-		expect(next.level).toBe(1);
-		expect(next.prevLevelMistakes).toBe(0);
-		expect(next.queue).toEqual([{ key: taskKey(a, 1), status: 'pending' }]);
-	});
-
-	it('never demotes below level 1', () => {
-		const a = variation(10, 'a-');
+	it('preserves an unrelated nonzero prevLevelMistakes untouched', () => {
+		const a = variation(2, 'a-');
 		const row: LevelProgressRow = { level: 1, prevLevelMistakes: 2, queue: [{ key: taskKey(a, 1), status: 'pending' }] };
-		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: true, prevLevelMistakeCount: 1 }, [a]);
-		expect(next.level).toBe(1);
-		expect(next.prevLevelMistakes).toBe(3);
+		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: true }, [a]);
+		expect(next.prevLevelMistakes).toBe(2); // resolveAttempt never touches this counter
 	});
 
 	it('is a no-op when the row is already mastered (a replayed/duplicate report)', () => {
 		const a = variation(2, 'a-'); // cap = 1
 		const row: LevelProgressRow = { level: 2, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 1), status: 'cleared' }] };
-		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false, prevLevelMistakeCount: 0 }, [a]);
+		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false }, [a]);
 		expect(next).toEqual(row);
 	});
 
 	it('is a no-op when the reported taskKey is not in the queue (stale/unrecognized report)', () => {
 		const a = variation(10, 'a-');
 		const row: LevelProgressRow = { level: 1, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 1), status: 'pending' }] };
-		const next = resolveAttempt(row, { taskKey: 'not-a-real-key', hadMistake: false, prevLevelMistakeCount: 0 }, [a]);
+		const next = resolveAttempt(row, { taskKey: 'not-a-real-key', hadMistake: false }, [a]);
 		expect(next).toEqual(row);
 	});
 
 	it('resets prevLevelMistakes to 0 when mastering, even with a nonzero count at the moment of mastery', () => {
 		const a = variation(2, 'a-'); // cap = 1
 		const row: LevelProgressRow = { level: 1, prevLevelMistakes: 2, queue: [{ key: taskKey(a, 1), status: 'pending' }] };
-		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false, prevLevelMistakeCount: 0 }, [a]);
+		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false }, [a]);
 		expect(next.level).toBe(2);
 		expect(next.prevLevelMistakes).toBe(0);
+	});
+});
+
+describe('resolvePreviousLevelMistake', () => {
+	it('increments the counter without demoting, below the threshold', () => {
+		const a = variation(10, 'a-');
+		const row: LevelProgressRow = { level: 2, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 2), status: 'pending' }] };
+		const { row: next, demoted } = resolvePreviousLevelMistake(row, [a]);
+		expect(demoted).toBe(false);
+		expect(next.prevLevelMistakes).toBe(1);
+		expect(next.level).toBe(2);
+		expect(next.queue).toEqual(row.queue); // untouched — this isn't resolveAttempt's job
+	});
+
+	it('demotes on the 3rd mistake even though no attempt ever completed', () => {
+		const a = variation(10, 'a-');
+		const row: LevelProgressRow = { level: 2, prevLevelMistakes: 2, queue: [{ key: taskKey(a, 2), status: 'pending' }] };
+		const { row: next, demoted } = resolvePreviousLevelMistake(row, [a], () => 0);
+		expect(demoted).toBe(true);
+		expect(next.level).toBe(1);
+		expect(next.prevLevelMistakes).toBe(0);
+		expect(next.queue).toEqual([{ key: taskKey(a, 1), status: 'pending' }]); // fresh queue, departing level's discarded
+	});
+
+	it('never demotes below level 1, and stops accumulating there', () => {
+		const a = variation(10, 'a-');
+		const row: LevelProgressRow = { level: 1, prevLevelMistakes: 5, queue: [{ key: taskKey(a, 1), status: 'pending' }] };
+		const { row: next, demoted } = resolvePreviousLevelMistake(row, [a]);
+		expect(demoted).toBe(false);
+		expect(next).toEqual(row);
+	});
+
+	it('is a no-op once mastered', () => {
+		const a = variation(2, 'a-'); // cap = 1
+		const row: LevelProgressRow = { level: 2, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 1), status: 'cleared' }] };
+		const { row: next, demoted } = resolvePreviousLevelMistake(row, [a]);
+		expect(demoted).toBe(false);
+		expect(next).toEqual(row);
 	});
 });
 

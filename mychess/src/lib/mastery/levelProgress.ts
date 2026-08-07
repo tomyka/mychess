@@ -4,7 +4,8 @@ import { levelCap, levelTaskVariations, taskKey, type Level } from './levels';
 
 export type QueueEntry = { key: string; status: 'pending' | 'cleared' };
 export type LevelProgressRow = { level: number; prevLevelMistakes: number; queue: QueueEntry[] };
-export type AttemptResult = { taskKey: string; hadMistake: boolean; prevLevelMistakeCount: number };
+export type AttemptResult = { taskKey: string; hadMistake: boolean };
+export type MistakeOutcome = { row: LevelProgressRow; demoted: boolean };
 
 export type RepertoireProgress = {
 	level: Level | 'mastered';
@@ -86,13 +87,12 @@ export function syncLevelProgress(
 }
 
 /**
- * Applies one completed attempt's outcome to a level's run: accumulates
- * previous-level-band mistakes (demoting a level at the 3-strikes threshold
- * and discarding the departing level's queue), or marks the attempted task
- * cleared — requeuing it to the back on a mistake instead — advancing to
- * the next level once every task is cleared. There's nothing to demote
- * below level 1: no `previous` band exists there, so its mistake count
- * never actually matters, even though it can keep growing.
+ * Applies one completed attempt's outcome to a level's run: marks the
+ * attempted task cleared, or requeues it to the back on a mistake instead —
+ * advancing to the next level once every task is cleared. Demotion is
+ * handled entirely separately by `resolvePreviousLevelMistake` — this
+ * function never demotes, so a task that's failed but never finished
+ * doesn't need to complete before a mistake made on it can count.
  */
 export function resolveAttempt(
 	row: LevelProgressRow,
@@ -104,13 +104,6 @@ export function resolveAttempt(
 	if (row.level > cap) return row; // already mastered — a stale/replayed report is a no-op
 	if (!row.queue.some((entry) => entry.key === result.taskKey)) return row; // stale/unrecognized task — no-op
 
-	const prevLevelMistakes = row.prevLevelMistakes + result.prevLevelMistakeCount;
-
-	if (prevLevelMistakes >= DEMOTION_THRESHOLD && row.level > 1) {
-		const demotedLevel = row.level - 1;
-		return { level: demotedLevel, prevLevelMistakes: 0, queue: buildQueue(variations, demotedLevel, random) };
-	}
-
 	const queue = row.queue.map((entry) =>
 		entry.key === result.taskKey && !result.hadMistake ? { ...entry, status: 'cleared' as const } : entry
 	);
@@ -118,7 +111,37 @@ export function resolveAttempt(
 		? [...queue.filter((e) => e.key !== result.taskKey), queue.find((e) => e.key === result.taskKey)!]
 		: queue;
 
-	return advanceIfCleared({ level: row.level, prevLevelMistakes, queue: reordered }, variations, cap, random);
+	return advanceIfCleared({ ...row, queue: reordered }, variations, cap, random);
+}
+
+/**
+ * Applies a single previous-level-band mistake the instant it happens —
+ * not batched until some attempt eventually completes, since a player who
+ * keeps failing the same move and never gets it right would otherwise never
+ * trigger a demotion no matter how many times they fail it. Demotes at the
+ * 3-strikes threshold (discarding the departing level's queue and resetting
+ * the counter), or just increments the counter otherwise. There's nothing
+ * to demote below level 1 (no `previous` band exists there) or once
+ * mastered — both are no-ops.
+ */
+export function resolvePreviousLevelMistake(
+	row: LevelProgressRow,
+	variations: Variation[],
+	random: () => number = Math.random
+): MistakeOutcome {
+	const cap = levelCap(variations);
+	if (row.level > cap || row.level <= 1) return { row, demoted: false };
+
+	const prevLevelMistakes = row.prevLevelMistakes + 1;
+	if (prevLevelMistakes >= DEMOTION_THRESHOLD) {
+		const demotedLevel = row.level - 1;
+		return {
+			row: { level: demotedLevel, prevLevelMistakes: 0, queue: buildQueue(variations, demotedLevel, random) },
+			demoted: true
+		};
+	}
+
+	return { row: { ...row, prevLevelMistakes }, demoted: false };
 }
 
 /**
