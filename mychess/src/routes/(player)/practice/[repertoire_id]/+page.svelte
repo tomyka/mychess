@@ -7,6 +7,7 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import { levelTag } from '$lib/mastery/tags';
+	import type { QuizStep } from '$lib/mastery/practice';
 
 	let { data } = $props<{ data: any }>();
 
@@ -188,7 +189,7 @@
 		// reply at this exact position (see splitAttempt/alternativesAt).
 		// Accept it rather than forcing the player to guess which of their own
 		// memorized options this particular attempt happened to pin.
-		const alt = step.alternatives.find((a: { san: string; taskKey: string | null }) => a.san === detail.san);
+		const alt = step.alternatives.find((a: QuizStep['alternatives'][number]) => a.san === detail.san);
 		if (alt) {
 			playCorrect();
 			locked = true;
