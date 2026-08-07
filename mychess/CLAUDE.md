@@ -26,7 +26,7 @@ Run from this directory (`mychess/`):
 
 There is no lint script; `svelte-check` is the correctness gate along with vitest.
 
-**Known baseline:** `npm run check` currently reports ~12 pre-existing type errors, all in the OAuth callback/connect routes (`src/routes/auth/**`) around `string | undefined` env vars. This is a known, unfixed baseline — don't chase it during unrelated work, but don't let a change add *new* errors beyond it.
+**`npm run check` must report zero errors before pushing to `main`.** There is no tolerated baseline — a prior one (OAuth callback/connect routes' `string | undefined` env-var typing) was fixed via `requireEnv()` in `src/lib/env.ts`, which narrows a `$env/dynamic/*` value to `string`, throwing a clear error if it's actually missing. Use it for any new required env var read outside `+layout.server.ts`'s existing patterns, rather than reintroducing the same class of error.
 
 ## Database & migrations
 
