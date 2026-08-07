@@ -145,18 +145,30 @@
 	// below to set boardFen for the first time is too late.
 	resetForAttempt();
 
-	// Reset only when the REPERTOIRE itself changes (including on mount) —
-	// not on every `attempt` change, since nextAttempt() below also changes
-	// `attempt` via invalidateAll() and needs to decide for itself whether to
-	// jump straight into the next attempt or show a level transition notice.
+	// Reset when the REPERTOIRE changes (including on mount) OR when
+	// `reviewLevel` changes (selecting a different level to review, or
+	// exiting review) — not on every `attempt` change, since nextAttempt()
+	// below also changes `attempt` via invalidateAll() and needs to decide
+	// for itself whether to jump straight into the next attempt or show a
+	// level transition notice. `reviewLevel` matters here specifically
+	// because `selectLevel`/`exitReview` navigate within this SAME route
+	// (only the `?level=` query param changes), which SvelteKit handles by
+	// reusing this component instance and just updating `data` — it does
+	// NOT remount, so without this, `resetToken` would never bump on a
+	// level switch, leaving `resetToken`-gated async work (e.g. a
+	// still-in-flight branch continuation fetch below) unable to tell it's
+	// been superseded and free to splice stale content into a since-moved-on
+	// view, including reporting progress against the wrong level.
 	$effect(() => {
 		// eslint-disable-next-line @typescript-eslint/no-unused-expressions -- deliberate Svelte dependency-tracking read, not a no-op statement
 		repertoireId;
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions -- deliberate Svelte dependency-tracking read, not a no-op statement
+		reviewLevel;
 		untrack(() => resetForAttempt());
 	});
 
 	async function fetchContinuation(
-		activeReviewLevel: number | null,
+		activeLevel: number,
 		variationKey: string,
 		afterPlayerMoveIndex: number
 	): Promise<{ quizSteps: QuizStep[]; taskKey: string } | null> {
@@ -166,7 +178,7 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					repertoireId,
-					level: activeReviewLevel ?? data.level,
+					level: activeLevel,
 					variationKey,
 					afterPlayerMoveIndex
 				})
@@ -182,6 +194,14 @@
 		if (phase !== 'playing' || locked || replaying) return false;
 		const myToken = resetToken;
 		const currentReviewLevel = reviewLevel;
+		// Captured now, not read live inside fetchContinuation after the
+		// 'continue' branch's await below — reviewLevel changing mid-hold now
+		// bumps resetToken (see the $effect above) and supersedes this whole
+		// attempt, but the level VALUE itself must still come from this same
+		// snapshot, not a live read, so a `'continue'` request that does slip
+		// through the window before the token check can't ask the server to
+		// resume a line at the wrong level.
+		const currentLevel = currentReviewLevel ?? (data.level as number);
 		const step = liveQuizSteps[quizIdx];
 		if (!step) return false;
 
@@ -275,7 +295,7 @@
 			const branchIdx = quizIdx;
 			advanceTimeout = setTimeout(async () => {
 				boardFen = alt.toFen;
-				const continuation = await fetchContinuation(currentReviewLevel, alt.variationKey, afterPlayerMoveIndex);
+				const continuation = await fetchContinuation(currentLevel, alt.variationKey, afterPlayerMoveIndex);
 				if (myToken !== resetToken) return; // superseded while we were awaiting
 				locked = false;
 				if (!continuation) {
