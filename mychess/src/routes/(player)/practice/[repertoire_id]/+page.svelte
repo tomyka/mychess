@@ -294,9 +294,11 @@
 			const afterPlayerMoveIndex = step.playerMoveIndex;
 			const branchIdx = quizIdx;
 			advanceTimeout = setTimeout(async () => {
-				boardFen = alt.toFen;
 				const continuation = await fetchContinuation(currentLevel, alt.variationKey, afterPlayerMoveIndex);
-				if (myToken !== resetToken) return; // superseded while we were awaiting
+				if (myToken !== resetToken) return; // superseded while we were awaiting — don't touch boardFen
+				// either; a superseding resetForAttempt() has already set it correctly for whatever attempt is
+				// now active (or intentionally left it alone if there's no attempt to show a board for at all).
+				boardFen = alt.toFen;
 				locked = false;
 				if (!continuation) {
 					// Fetch failed — fall back to the dead-end behavior above
