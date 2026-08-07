@@ -6,10 +6,14 @@ import { createClient } from '@supabase/supabase-js';
 import { verifyState, decodeJwtPayload } from '$lib/server/oauth';
 import { fullNameOrNull } from '$lib/profile';
 import { createPlayerProfile } from '$lib/server/onboarding';
+import { requireEnv } from '$lib/env';
 
 export const GET: RequestHandler = async ({ url, cookies, locals: { supabase } }) => {
-  const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, OAUTH_STATE_SECRET, SUPABASE_SERVICE_ROLE_KEY } = env;
-  const { PUBLIC_SUPABASE_URL } = pubEnv;
+  const GOOGLE_CLIENT_ID = requireEnv(env.GOOGLE_CLIENT_ID, 'GOOGLE_CLIENT_ID');
+  const GOOGLE_CLIENT_SECRET = requireEnv(env.GOOGLE_CLIENT_SECRET, 'GOOGLE_CLIENT_SECRET');
+  const OAUTH_STATE_SECRET = requireEnv(env.OAUTH_STATE_SECRET, 'OAUTH_STATE_SECRET');
+  const SUPABASE_SERVICE_ROLE_KEY = requireEnv(env.SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_SERVICE_ROLE_KEY');
+  const PUBLIC_SUPABASE_URL = requireEnv(pubEnv.PUBLIC_SUPABASE_URL, 'PUBLIC_SUPABASE_URL');
   const redirectUri = `${url.origin}/auth/callback/google`;
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');

@@ -4,10 +4,13 @@ import { env } from '$env/dynamic/private';
 import { env as pubEnv } from '$env/dynamic/public';
 import { createClient } from '@supabase/supabase-js';
 import { verifyState } from '$lib/server/oauth';
+import { requireEnv } from '$lib/env';
 
 export const GET: RequestHandler = async ({ url, cookies, locals: { safeGetSession } }) => {
-  const { LICHESS_CLIENT_ID, OAUTH_STATE_SECRET, SUPABASE_SERVICE_ROLE_KEY } = env;
-  const { PUBLIC_SUPABASE_URL } = pubEnv;
+  const LICHESS_CLIENT_ID = requireEnv(env.LICHESS_CLIENT_ID, 'LICHESS_CLIENT_ID');
+  const OAUTH_STATE_SECRET = requireEnv(env.OAUTH_STATE_SECRET, 'OAUTH_STATE_SECRET');
+  const SUPABASE_SERVICE_ROLE_KEY = requireEnv(env.SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_SERVICE_ROLE_KEY');
+  const PUBLIC_SUPABASE_URL = requireEnv(pubEnv.PUBLIC_SUPABASE_URL, 'PUBLIC_SUPABASE_URL');
   const redirectUri = `${url.origin}/auth/callback/lichess`;
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');

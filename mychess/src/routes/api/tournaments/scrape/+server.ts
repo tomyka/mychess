@@ -4,6 +4,7 @@ import type { RequestHandler } from './$types';
 import { runScrapeJob } from '$lib/tournaments/scrape-job';
 import { env } from '$env/dynamic/private';
 import { env as pubEnv } from '$env/dynamic/public';
+import { requireEnv } from '$lib/env';
 
 const HMAC_KEY = Buffer.from('timing-safe-compare');
 
@@ -25,7 +26,10 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 
   try {
-    const result = await runScrapeJob(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const result = await runScrapeJob(
+      requireEnv(PUBLIC_SUPABASE_URL, 'PUBLIC_SUPABASE_URL'),
+      requireEnv(SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_SERVICE_ROLE_KEY')
+    );
     return json({ ok: true, ...result });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

@@ -7,10 +7,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const { user } = await locals.safeGetSession();
   if (!user) throw error(401, 'Unauthorized');
 
-  const { chain, bestChain } = await request.json() as {
-    chain: number;
-    bestChain: number;
-  };
+  const { chain } = (await request.json()) as { chain: number };
 
   // Record drill session
   await supabase.from('sessions').insert({
@@ -44,7 +41,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
   }
 
-  grantNewBadges(supabase, user.id, { drillStreak: bestChain }).catch(() => {});
+  grantNewBadges(supabase, user.id).catch(() => {});
 
   return json({ ok: true });
 };

@@ -4,9 +4,11 @@ import type { Handle } from '@sveltejs/kit';
 import { fullNameOrNull, isPlaceholderName } from '$lib/profile';
 import { ensureGuestProfile } from '$lib/server/guest';
 import { sessionCookieOptions } from '$lib/server/cookies';
+import { requireEnv } from '$lib/env';
 
 export const handle: Handle = async ({ event, resolve }) => {
-	const { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } = env;
+	const PUBLIC_SUPABASE_URL = requireEnv(env.PUBLIC_SUPABASE_URL, 'PUBLIC_SUPABASE_URL');
+	const PUBLIC_SUPABASE_ANON_KEY = requireEnv(env.PUBLIC_SUPABASE_ANON_KEY, 'PUBLIC_SUPABASE_ANON_KEY');
 	event.locals.supabase = createServerClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
 		cookies: {
 			getAll: () => event.cookies.getAll(),

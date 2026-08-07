@@ -4,10 +4,14 @@ import { env } from '$env/dynamic/private';
 import { env as pubEnv } from '$env/dynamic/public';
 import { createClient } from '@supabase/supabase-js';
 import { verifyState, decodeJwtPayload } from '$lib/server/oauth';
+import { requireEnv } from '$lib/env';
 
 export const GET: RequestHandler = async ({ url, cookies, locals: { safeGetSession } }) => {
-  const { CHESSCOM_CLIENT_ID, CHESSCOM_CLIENT_SECRET, OAUTH_STATE_SECRET, SUPABASE_SERVICE_ROLE_KEY } = env;
-  const { PUBLIC_SUPABASE_URL } = pubEnv;
+  const CHESSCOM_CLIENT_ID = requireEnv(env.CHESSCOM_CLIENT_ID, 'CHESSCOM_CLIENT_ID');
+  const CHESSCOM_CLIENT_SECRET = requireEnv(env.CHESSCOM_CLIENT_SECRET, 'CHESSCOM_CLIENT_SECRET');
+  const OAUTH_STATE_SECRET = requireEnv(env.OAUTH_STATE_SECRET, 'OAUTH_STATE_SECRET');
+  const SUPABASE_SERVICE_ROLE_KEY = requireEnv(env.SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_SERVICE_ROLE_KEY');
+  const PUBLIC_SUPABASE_URL = requireEnv(pubEnv.PUBLIC_SUPABASE_URL, 'PUBLIC_SUPABASE_URL');
   const redirectUri = `${url.origin}/auth/callback/chesscom`;
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');

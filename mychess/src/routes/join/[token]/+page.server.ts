@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import { createClient } from '@supabase/supabase-js';
 import { env } from '$env/dynamic/private';
 import { env as pubEnv } from '$env/dynamic/public';
+import { requireEnv } from '$lib/env';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals: { supabase, safeGetSession } }) => {
@@ -25,8 +26,8 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
 	// insert the relationship as already-active — something a regular
 	// participant-scoped insert is intentionally not allowed to do (see
 	// migration 0019's coach_players_participant_insert policy).
-	const { SUPABASE_SERVICE_ROLE_KEY } = env;
-	const { PUBLIC_SUPABASE_URL } = pubEnv;
+	const SUPABASE_SERVICE_ROLE_KEY = requireEnv(env.SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_SERVICE_ROLE_KEY');
+	const PUBLIC_SUPABASE_URL = requireEnv(pubEnv.PUBLIC_SUPABASE_URL, 'PUBLIC_SUPABASE_URL');
 	const admin = createClient(PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 	const { data: existingRelationship } = await admin
