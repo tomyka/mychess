@@ -118,6 +118,8 @@ export async function loadSyncedLevelProgress(
  * `$lib/mastery/levelProgress.ts`'s `resolveAttempt` for the rules. Assumes
  * a row already exists (an attempt can only be reported for a level that
  * was itself served from an existing row); silently no-ops otherwise.
+ * Returns the resulting row so the caller can build a fresh `PracticeView`
+ * without a separate re-read.
  */
 export async function applyAttemptResult(
 	supabase: SupabaseClient,
@@ -125,8 +127,8 @@ export async function applyAttemptResult(
 	repertoireId: string,
 	result: AttemptResult,
 	variations: Variation[]
-): Promise<void> {
-	await mutateLevelProgress(supabase, playerId, repertoireId, (existing) => {
+): Promise<LevelProgressRow | null> {
+	return mutateLevelProgress(supabase, playerId, repertoireId, (existing) => {
 		if (!existing) return null;
 		return resolveAttempt(existing, result, variations);
 	});
@@ -137,8 +139,9 @@ export async function applyAttemptResult(
  * `$lib/mastery/levelProgress.ts`'s `resolvePreviousLevelMistake` for the
  * rules. Called the instant a wrong move lands on review material, not
  * batched until some attempt eventually completes. Returns whether this
- * mistake demoted the level, so the caller can react right away; `null` if
- * no row exists yet (an attempt can only be in progress against an existing
+ * mistake demoted the level plus the resulting row (so a demotion's caller
+ * can build a fresh `PracticeView` without a separate re-read); `null` if no
+ * row exists yet (an attempt can only be in progress against an existing
  * row, so this shouldn't normally happen).
  */
 export async function applyPreviousLevelMistake(
@@ -146,7 +149,7 @@ export async function applyPreviousLevelMistake(
 	playerId: string,
 	repertoireId: string,
 	variations: Variation[]
-): Promise<{ demoted: boolean; level: number } | null> {
+): Promise<{ demoted: boolean; row: LevelProgressRow } | null> {
 	let demoted = false;
 	const next = await mutateLevelProgress(supabase, playerId, repertoireId, (existing) => {
 		if (!existing) return null;
@@ -154,5 +157,5 @@ export async function applyPreviousLevelMistake(
 		demoted = outcome.demoted;
 		return outcome.row;
 	});
-	return next ? { demoted, level: next.level } : null;
+	return next ? { demoted, row: next } : null;
 }

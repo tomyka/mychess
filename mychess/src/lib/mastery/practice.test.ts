@@ -1,6 +1,6 @@
 // mychess/src/lib/mastery/practice.test.ts
 import { describe, it, expect } from 'vitest';
-import { pickQueuedAttempt, pickReviewAttempt, splitAttempt } from './practice';
+import { buildPracticeView, pickQueuedAttempt, pickReviewAttempt, splitAttempt } from './practice';
 import { taskKey } from './levels';
 import type { Variation, VariationStep } from './variations';
 
@@ -289,5 +289,48 @@ describe('splitAttempt', () => {
 		const { quizSteps } = splitAttempt(v.path, 1, 2, [v]);
 		const opponentStep = quizSteps.find((s) => s.moveId === 'o-o1')!;
 		expect(opponentStep.alternatives).toEqual([]);
+	});
+});
+
+describe('buildPracticeView', () => {
+	it('builds a reviewLevel attempt via pickReviewAttempt, ignoring queue state', () => {
+		const v = makeVariation(3, 'r-');
+		const row = { level: 2, prevLevelMistakes: 0, queue: [{ key: taskKey(v, 2), status: 'cleared' as const }] };
+		const view = buildPracticeView([v], row, 1);
+		expect(view.reviewLevel).toBe(1);
+		expect(view.attempt).not.toBeNull();
+		expect(view.attempt!.taskKey).toBe(taskKey(v, 1));
+	});
+
+	it('builds a queued attempt from the row when not reviewing', () => {
+		const v = makeVariation(3, 'q-');
+		const row = { level: 1, prevLevelMistakes: 0, queue: [{ key: taskKey(v, 1), status: 'pending' as const }] };
+		const view = buildPracticeView([v], row, null);
+		expect(view.level).toBe(1);
+		expect(view.attempt).not.toBeNull();
+		expect(view.attempt!.taskKey).toBe(taskKey(v, 1));
+	});
+
+	it('returns a null attempt once the repertoire is mastered', () => {
+		const v = makeVariation(2, 'm-');
+		// level 2 exceeds this variation's cap (levelCap for a 2-move variation is 1) -> mastered
+		const row = { level: 2, prevLevelMistakes: 0, queue: [] };
+		const view = buildPracticeView([v], row, null);
+		expect(view.level).toBe('mastered');
+		expect(view.attempt).toBeNull();
+	});
+
+	it('returns a null attempt when there is no row yet (bootstrap case)', () => {
+		const v = makeVariation(3, 'b-');
+		const view = buildPracticeView([v], null, null);
+		expect(view.level).toBe(1);
+		expect(view.attempt).toBeNull();
+	});
+
+	it('returns the vacuous-mastered shape for a repertoire with no variations', () => {
+		const view = buildPracticeView([], null, null);
+		expect(view.level).toBe('mastered');
+		expect(view.totalVariations).toBe(0);
+		expect(view.attempt).toBeNull();
 	});
 });

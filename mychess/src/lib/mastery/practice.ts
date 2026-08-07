@@ -1,6 +1,7 @@
 // mychess/src/lib/mastery/practice.ts
 import type { Variation, VariationStep } from './variations';
 import { targetDepth, levelDepth, taskKey, levelTaskVariations, hasContentAtLevel, type Level } from './levels';
+import { repertoireProgress, type LevelProgressRow } from './levelProgress';
 
 export type QuizStep = VariationStep & {
 	band: 'previous' | 'current';
@@ -152,4 +153,51 @@ export function pickReviewAttempt(
 
 	const chosen = candidates[Math.floor(random() * candidates.length)];
 	return { variation: chosen, targetDepth: targetDepth(chosen, level), taskKey: taskKey(chosen, level) };
+}
+
+export type PracticeView = {
+	level: Level | 'mastered';
+	totalVariations: number;
+	totalLevels: number;
+	levelTaskCount: number;
+	levelSolvedCount: number;
+	attempt: { prefix: VariationStep[]; quizSteps: QuizStep[]; taskKey: string } | null;
+	reviewLevel: number | null;
+};
+
+/**
+ * Builds the full client-facing practice view — progress summary plus the
+ * next attempt to serve — from a repertoire's variations, its (possibly
+ * absent) `level_progress` row, and an already-validated `reviewLevel`. This
+ * is the one place the detail page's `load` and the attempt/mistake mutation
+ * endpoints both build the same response shape from, so a mutation can
+ * return the fresh view directly instead of the client having to re-`load()`
+ * to get it.
+ */
+export function buildPracticeView(
+	variations: Variation[],
+	row: LevelProgressRow | null,
+	reviewLevel: number | null
+): PracticeView {
+	const { level, totalVariations, totalLevels, levelTaskCount, levelSolvedCount } = repertoireProgress(
+		variations,
+		row
+	);
+
+	let attempt: PracticeView['attempt'] = null;
+	if (reviewLevel !== null) {
+		const picked = pickReviewAttempt(variations, reviewLevel);
+		if (picked) {
+			const { prefix, quizSteps } = splitAttempt(picked.variation.path, reviewLevel, picked.targetDepth, variations);
+			attempt = { prefix, quizSteps, taskKey: picked.taskKey };
+		}
+	} else if (level !== 'mastered' && row) {
+		const picked = pickQueuedAttempt(variations, level, row.queue);
+		if (picked) {
+			const { prefix, quizSteps } = splitAttempt(picked.variation.path, level, picked.targetDepth, variations);
+			attempt = { prefix, quizSteps, taskKey: picked.taskKey };
+		}
+	}
+
+	return { level, totalVariations, totalLevels, levelTaskCount, levelSolvedCount, attempt, reviewLevel };
 }

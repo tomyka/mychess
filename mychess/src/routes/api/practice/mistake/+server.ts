@@ -4,6 +4,7 @@ import type { RequestHandler } from './$types';
 import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
 import { applyPreviousLevelMistake } from '$lib/server/level-progress';
 import { requireApiUser } from '$lib/server/auth';
+import { buildPracticeView } from '$lib/mastery/practice';
 
 /**
  * Called the instant a wrong move lands on the previous-level review band —
@@ -11,6 +12,9 @@ import { requireApiUser } from '$lib/server/auth';
  * player who keeps failing the same move and never gets it right would
  * otherwise never trigger a demotion no matter how many times they fail it.
  * Skipped entirely during review (read-only, no progress side effects).
+ * Only builds a full `PracticeView` on the (rare) demoted case — most wrong
+ * moves don't demote and there's nothing for the client to update then, so
+ * building one on every miss would be pure waste.
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const { supabase } = locals;
@@ -25,5 +29,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const { variations } = await loadRepertoireVariations(supabase, user.id, repertoireId);
 	const result = await applyPreviousLevelMistake(supabase, user.id, repertoireId, variations);
 
-	return json({ demoted: result?.demoted ?? false, level: result?.level ?? null });
+	if (!result || !result.demoted) return json({ demoted: false });
+	return json({ demoted: true, view: buildPracticeView(variations, result.row, null) });
 };

@@ -4,7 +4,7 @@ import { requireAccount } from '$lib/server/auth';
 import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
 import { loadSyncedLevelProgress } from '$lib/server/level-progress';
 import { repertoireProgress } from '$lib/mastery/levelProgress';
-import { pickQueuedAttempt, pickReviewAttempt, splitAttempt } from '$lib/mastery/practice';
+import { buildPracticeView } from '$lib/mastery/practice';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
 	const { user } = await requireAccount(locals);
@@ -13,10 +13,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 
 	const { repertoire, variations } = await loadRepertoireVariations(supabase, user!.id, repertoireId);
 	const row = await loadSyncedLevelProgress(supabase, user!.id, repertoireId, variations);
-	const { level, totalVariations, totalLevels, levelTaskCount, levelSolvedCount } = repertoireProgress(
-		variations,
-		row
-	);
+	const { level, totalLevels } = repertoireProgress(variations, row);
 
 	// A `?level=N` request only takes effect for a level strictly below the
 	// active one (or any level up to totalLevels once mastered) — anything
@@ -30,34 +27,5 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		(level === 'mastered' ? requestedLevel <= totalLevels : requestedLevel < level);
 	const reviewLevel = isValidReview ? requestedLevel : null;
 
-	let attempt: {
-		prefix: ReturnType<typeof splitAttempt>['prefix'];
-		quizSteps: ReturnType<typeof splitAttempt>['quizSteps'];
-		taskKey: string;
-	} | null = null;
-
-	if (reviewLevel !== null) {
-		const picked = pickReviewAttempt(variations, reviewLevel);
-		if (picked) {
-			const { prefix, quizSteps } = splitAttempt(picked.variation.path, reviewLevel, picked.targetDepth, variations);
-			attempt = { prefix, quizSteps, taskKey: picked.taskKey };
-		}
-	} else if (level !== 'mastered' && row) {
-		const picked = pickQueuedAttempt(variations, level, row.queue);
-		if (picked) {
-			const { prefix, quizSteps } = splitAttempt(picked.variation.path, level, picked.targetDepth, variations);
-			attempt = { prefix, quizSteps, taskKey: picked.taskKey };
-		}
-	}
-
-	return {
-		repertoire,
-		level,
-		totalVariations,
-		totalLevels,
-		levelTaskCount,
-		levelSolvedCount,
-		attempt,
-		reviewLevel
-	};
+	return { repertoire, ...buildPracticeView(variations, row, reviewLevel) };
 };

@@ -7,7 +7,7 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import { levelTag } from '$lib/mastery/tags';
-	import type { QuizStep } from '$lib/mastery/practice';
+	import type { PracticeView, QuizStep } from '$lib/mastery/practice';
 
 	let { data } = $props<{ data: any }>();
 
@@ -45,9 +45,9 @@
 	let resetToken = 0;
 	// The attempt-report POST is fire-and-forget from handleMove's final move
 	// (so the board never blocks on the network) — but nextAttempt must await
-	// it before reloading, or invalidateAll() can race the write and re-serve
-	// the same task, making Continue look like it did nothing.
-	let pendingReport: Promise<unknown> | null = null;
+	// it before merging its result, or a stale merge could race the write and
+	// re-serve the same task, making Continue look like it did nothing.
+	let pendingReport: Promise<PracticeView | null> | null = null;
 
 	const REPLAY_STEP_MS = 550;
 	const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -234,9 +234,12 @@
 		return false;
 	}
 
-	async function reportAttempt(taskKey: string) {
+	// Returns the fresh `PracticeView` the server built from this report, or
+	// `null` on a failed/errored request — `nextAttempt` falls back to
+	// `invalidateAll()` in that case rather than merging nothing.
+	async function reportAttempt(taskKey: string): Promise<PracticeView | null> {
 		try {
-			await fetch('/api/practice/attempt', {
+			const res = await fetch('/api/practice/attempt', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -245,10 +248,13 @@
 					hadMistake: attemptHadMistake
 				})
 			});
+			if (!res.ok) return null;
+			return await res.json();
 		} catch {
 			// Report failed — the attempt itself already played out on the
 			// board; just skip silently rather than blocking the player on a
 			// network hiccup. Worst case: the same task is served again.
+			return null;
 		}
 	}
 
@@ -259,6 +265,9 @@
 	// this was the demoting mistake, abandon the in-flight attempt right
 	// away rather than let the player keep playing against a now-stale quiz.
 	async function reportPreviousLevelMistake() {
+		// Captured before the network await — that's the race window now,
+		// since there's no longer a separate invalidateAll() afterward.
+		const myToken = resetToken;
 		try {
 			const res = await fetch('/api/practice/mistake', {
 				method: 'POST',
@@ -266,7 +275,7 @@
 				body: JSON.stringify({ repertoireId })
 			});
 			const result = await res.json();
-			if (result?.demoted) await handleMidAttemptDemotion();
+			if (result?.demoted) await handleMidAttemptDemotion(result.view, myToken);
 		} catch {
 			// Report failed — worst case this one mistake isn't counted; the
 			// player just needs one more before demotion fires.
@@ -276,14 +285,15 @@
 	// A demotion detected mid-attempt (not at the natural end-of-attempt
 	// point `nextAttempt` handles) — the in-flight quiz was built for the
 	// level just left, so abandon it and show the same banner a
-	// completion-triggered demotion would.
-	async function handleMidAttemptDemotion() {
-		const myToken = resetToken;
+	// completion-triggered demotion would. `view` is the fresh PracticeView
+	// the mistake endpoint already built server-side for the demoted level —
+	// merged directly rather than re-fetched via invalidateAll().
+	async function handleMidAttemptDemotion(view: PracticeView, myToken: number) {
+		if (myToken !== resetToken) return; // superseded by a resetForAttempt() while the mistake POST was in flight
 		clearTimeout(advanceTimeout);
 		locked = true;
 		phase = 'advancing';
-		await invalidateAll();
-		if (myToken !== resetToken) return; // superseded by a resetForAttempt() while we were awaiting
+		data = { ...data, ...view };
 		phase = 'leveled-down';
 		scheduleLevelTransition();
 	}
@@ -306,15 +316,26 @@
 	async function nextAttempt() {
 		const levelBefore = data.level;
 		const myToken = resetToken;
-		if (pendingReport) await pendingReport;
+		const view = pendingReport ? await pendingReport : null;
 		pendingReport = null;
-		await invalidateAll();
 		if (myToken !== resetToken) return; // superseded by a resetForAttempt() while we were awaiting
-		// `data` now reflects the fresh load. If completing that attempt
-		// changed the active level — up on mastering it, or down on a
-		// demotion — surface that instead of silently dropping the player
-		// into the next quiz. Never applies during review: reviewing a passed
-		// level can't change which level is active.
+		if (view) {
+			// The report already carries the fresh state — merge it in
+			// directly instead of re-fetching the same repertoire content via
+			// invalidateAll().
+			data = { ...data, ...view };
+		} else {
+			// Nothing to merge: either a dead-end branch alternative (no
+			// report was ever sent) or the report failed — fall back to the
+			// source of truth.
+			await invalidateAll();
+			if (myToken !== resetToken) return;
+		}
+		// If completing that attempt changed the active level — up on
+		// mastering it, or down on a demotion — surface that instead of
+		// silently dropping the player into the next quiz. Never applies
+		// during review: reviewing a passed level can't change which level is
+		// active.
 		if (reviewLevel === null && levelRank(data.level) > levelRank(levelBefore)) {
 			phase = 'leveled-up';
 			scheduleLevelTransition();
