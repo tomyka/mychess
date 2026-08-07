@@ -12,7 +12,7 @@
 
 	let quizIdx = $state(0);
 	let boardFen = $state('');
-	let phase = $state<'playing' | 'success' | 'leveled-up'>('playing');
+	let phase = $state<'playing' | 'success' | 'leveled-up' | 'leveled-down'>('playing');
 	let locked = $state(false);
 	let replaying = $state(false);
 	// Consecutive wrong attempts on the CURRENT quiz move — resets the moment
@@ -20,17 +20,25 @@
 	// requesting it highlights the correct piece's square, never the move.
 	let wrongCount = $state(0);
 	let hintRequested = $state(false);
+	// Whether THIS ATTEMPT (not just this move) has had any mistake yet, and
+	// how many of those mistakes landed on the "previous level" review band
+	// — both reset only in resetForAttempt(), and reported once when the
+	// attempt finishes (see reportAttempt), not per move.
+	let attemptHadMistake = $state(false);
+	let attemptPrevLevelMistakes = $state(0);
 	let advanceTimeout: ReturnType<typeof setTimeout> | undefined;
 	// Bumped on every resetForAttempt() call so an in-flight prefix replay
 	// notices it's been superseded (e.g. rapid re-navigation) and stops
 	// writing to boardFen instead of racing the newer one.
 	let resetToken = 0;
-	// Move-progress writes are fire-and-forget from handleMove (so the board
-	// never blocks on the network) — but nextAttempt must await the in-flight
-	// ones before reloading, or invalidateAll() can race the last write and
-	// re-pick the same not-yet-satisfied variation, making Continue look
-	// like it did nothing.
-	let pendingProgress: Promise<unknown>[] = [];
+	// The attempt-report POST is fire-and-forget from handleMove's final move
+	// (so the board never blocks on the network) — but nextAttempt must await
+	// it before reloading, or invalidateAll() can race the write and re-serve
+	// the same task, making Continue look like it did nothing.
+	let pendingReport: Promise<unknown> | null = null;
+	// Guards against a double-click/double-tap on "Continue" firing two
+	// overlapping nextAttempt()/resetForAttempt() calls.
+	let continuing = $state(false);
 
 	const REPLAY_STEP_MS = 550;
 	const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -64,9 +72,9 @@
 		}
 	});
 
-	function advanceThroughOpponentReplies() {
-		while (attempt?.quizSteps[quizIdx] && !attempt.quizSteps[quizIdx].isPlayerTurn) {
-			boardFen = attempt.quizSteps[quizIdx].toFen;
+	function advanceThroughOpponentReplies(activeAttempt: typeof attempt = attempt) {
+		while (activeAttempt?.quizSteps[quizIdx] && !activeAttempt.quizSteps[quizIdx].isPlayerTurn) {
+			boardFen = activeAttempt.quizSteps[quizIdx].toFen;
 			quizIdx++;
 		}
 	}
@@ -85,6 +93,8 @@
 		replaying = false;
 		wrongCount = 0;
 		hintRequested = false;
+		attemptHadMistake = false;
+		attemptPrevLevelMistakes = 0;
 		if (!attempt) return;
 
 		if (attempt.prefix.length === 0) {
@@ -114,7 +124,7 @@
 	// Reset only when the REPERTOIRE itself changes (including on mount) —
 	// not on every `attempt` change, since nextAttempt() below also changes
 	// `attempt` via invalidateAll() and needs to decide for itself whether to
-	// jump straight into the next attempt or show a level-up notice first.
+	// jump straight into the next attempt or show a level transition notice.
 	$effect(() => {
 		repertoireId;
 		untrack(() => resetForAttempt());
@@ -122,7 +132,9 @@
 
 	function handleMove(detail: { from: Key; to: Key; san: string }) {
 		if (phase !== 'playing' || locked || replaying) return false;
-		const step = attempt?.quizSteps[quizIdx];
+		const currentAttempt = attempt;
+		const currentReviewLevel = reviewLevel;
+		const step = currentAttempt?.quizSteps[quizIdx];
 		if (!step) return false;
 
 		if (detail.san === step.san) {
@@ -130,72 +142,97 @@
 			locked = true;
 			wrongCount = 0;
 			hintRequested = false;
-			// Grading is instant and per-move: persist the moment it's played,
-			// independent of whether the rest of the attempt succeeds. Skipped
-			// during review — every move in a passed level is already 'correct',
-			// so there's nothing new to persist, and review is intentionally a
-			// pure read-only replay.
-			if (reviewLevel === null) pendingProgress.push(submitMoveProgress(step.moveId));
 			// Hold the board here so the green check is actually visible before
 			// advancing — updating boardFen in the same tick would clear it
 			// before the browser ever paints it.
 			advanceTimeout = setTimeout(() => {
 				boardFen = step.toFen;
 				quizIdx++;
-				advanceThroughOpponentReplies();
+				advanceThroughOpponentReplies(currentAttempt);
 				locked = false;
-				if (quizIdx >= attempt.quizSteps.length) {
+				if (quizIdx >= currentAttempt.quizSteps.length) {
 					phase = 'success';
+					// Grading is per-attempt, not per-move — persist the whole
+					// outcome the moment the last quiz step is solved. Skipped
+					// during review, which is a pure read-only replay. Uses the
+					// ATTEMPT/REVIEW-LEVEL CAPTURED AT THE TOP of this function,
+					// not the live reactive values — the player can navigate to a
+					// different level or exit review during this 500ms hold,
+					// which changes `attempt`/`reviewLevel` without going through
+					// resetForAttempt(), and reporting against the live (wrong)
+					// attempt would corrupt an unrelated task's progress.
+					if (currentReviewLevel === null) pendingReport = reportAttempt(currentAttempt);
 				}
 			}, 500);
 			return true;
 		} else {
 			playWrong();
 			wrongCount++;
+			if (currentReviewLevel === null) {
+				attemptHadMistake = true;
+				if (step.band === 'previous') attemptPrevLevelMistakes++;
+			}
 			// Don't reveal the book move — just mark the square wrong and let
 			// the player try again on the same position.
 			return false;
 		}
 	}
 
-	async function submitMoveProgress(moveId: string) {
+	async function reportAttempt(reportedAttempt: NonNullable<typeof attempt>) {
 		try {
-			await fetch('/api/practice/move-progress', {
+			await fetch('/api/practice/attempt', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ moveId })
+				body: JSON.stringify({
+					repertoireId,
+					taskKey: reportedAttempt.taskKey,
+					hadMistake: attemptHadMistake,
+					prevLevelMistakeCount: attemptPrevLevelMistakes
+				})
 			});
 		} catch {
-			// Progress submission failed — the move itself already played
-			// correctly on the board; just skip silently rather than blocking the
-			// player on a network hiccup.
+			// Report failed — the attempt itself already played out on the
+			// board; just skip silently rather than blocking the player on a
+			// network hiccup. Worst case: the same task is served again.
 		}
+	}
+
+	function levelRank(level: number | 'mastered'): number {
+		return level === 'mastered' ? Infinity : level;
 	}
 
 	async function nextAttempt() {
 		const levelBefore = data.level;
-		await Promise.all(pendingProgress);
-		pendingProgress = [];
+		const myToken = resetToken;
+		if (pendingReport) await pendingReport;
+		pendingReport = null;
 		await invalidateAll();
-		// `data` now reflects the fresh load. If completing that attempt was
-		// the last unsatisfied variation at this level, the recomputed level
-		// has already advanced (or the repertoire is now 'mastered', handled
-		// by the top-level template branch) — surface that instead of
-		// silently dropping the player into the next level's quiz. Never
-		// applies during review: reviewing a passed level can't change which
-		// level is active, so it always just serves another review attempt.
-		if (reviewLevel === null && typeof levelBefore === 'number' && data.level !== levelBefore) {
+		if (myToken !== resetToken) return; // superseded by a resetForAttempt() while we were awaiting
+		// `data` now reflects the fresh load. If completing that attempt
+		// changed the active level — up on mastering it, or down on a
+		// demotion — surface that instead of silently dropping the player
+		// into the next quiz. Never applies during review: reviewing a passed
+		// level can't change which level is active.
+		if (reviewLevel === null && levelRank(data.level) > levelRank(levelBefore)) {
 			phase = 'leveled-up';
+		} else if (reviewLevel === null && levelRank(data.level) < levelRank(levelBefore)) {
+			phase = 'leveled-down';
 		} else {
 			resetForAttempt();
 		}
 	}
 
-	function handleContinue() {
-		if (phase === 'leveled-up') {
-			resetForAttempt();
-		} else {
-			nextAttempt();
+	async function handleContinue() {
+		if (continuing) return;
+		continuing = true;
+		try {
+			if (phase === 'leveled-up' || phase === 'leveled-down') {
+				resetForAttempt();
+			} else {
+				await nextAttempt();
+			}
+		} finally {
+			continuing = false;
 		}
 	}
 </script>
@@ -291,16 +328,19 @@
 					</p>
 				{/if}
 
-				{#if phase === 'success' || phase === 'leveled-up'}
+				{#if phase === 'success' || phase === 'leveled-up' || phase === 'leveled-down'}
 					<div class="p-5 bg-white border border-gray-200 rounded-2xl text-center shadow-sm">
 						{#if phase === 'leveled-up'}
 							<p class="text-xl font-bold mb-1 text-indigo-600">🎉 Level up! Now on Level {data.level}</p>
+						{:else if phase === 'leveled-down'}
+							<p class="text-xl font-bold mb-1 text-amber-600">⬇️ Back to Level {data.level} — brush up and try again</p>
 						{:else}
 							<p class="text-xl font-bold mb-1 text-green-600">✅ Solved!</p>
 						{/if}
 						<button
 							onclick={handleContinue}
-							class="mt-4 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition"
+							disabled={continuing}
+							class="mt-4 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition disabled:opacity-50"
 						>
 							Continue
 						</button>

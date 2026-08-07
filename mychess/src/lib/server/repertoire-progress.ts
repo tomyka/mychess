@@ -1,6 +1,7 @@
+// mychess/src/lib/server/repertoire-progress.ts
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { enumerateVariations, type RawMoveRow } from '$lib/mastery/variations';
-import { repertoireProgress, type RepertoireProgress } from '$lib/mastery/moveProgress';
+import { repertoireProgress, type RepertoireProgress, type LevelProgressRow } from '$lib/mastery/levelProgress';
 
 export type RepertoireProgressSummary = RepertoireProgress & {
 	id: string;
@@ -11,8 +12,10 @@ export type RepertoireProgressSummary = RepertoireProgress & {
 /**
  * Every repertoire a player can access (owned + assigned), each with its
  * computed mastery progress. Shared by the `/practice` picker and the
- * dashboard's mastered-repertoire count so both stay in sync with a single
- * query shape instead of duplicating it.
+ * dashboard's mastered-repertoire count. Read-only — doesn't reconcile or
+ * create `level_progress` rows (that's the detail page's job via
+ * `loadSyncedLevelProgress`); a repertoire with no row yet just shows the
+ * bootstrap "fresh Level 1" default.
  */
 export async function loadRepertoireProgressSummaries(
 	supabase: SupabaseClient,
@@ -33,10 +36,17 @@ export async function loadRepertoireProgressSummaries(
 	if (allReps.length === 0) return [];
 
 	const repIds = allReps.map((r: any) => r.id);
-	const { data: rawMoves } = await supabase
-		.from('moves')
-		.select('id, san, is_player_turn, repertoire_id, from_position, to_position')
-		.in('repertoire_id', repIds);
+	const [{ data: rawMoves }, { data: progressRows }] = await Promise.all([
+		supabase
+			.from('moves')
+			.select('id, san, is_player_turn, repertoire_id, from_position, to_position')
+			.in('repertoire_id', repIds),
+		supabase
+			.from('level_progress')
+			.select('repertoire_id, level, prev_level_mistakes, queue')
+			.eq('player_id', userId)
+			.in('repertoire_id', repIds)
+	]);
 
 	// Only RepertoireProgress's fields are needed here, all derived purely
 	// from moveId/isPlayerTurn — never from FEN — so the fen columns aren't
@@ -57,24 +67,14 @@ export async function loadRepertoireProgressSummaries(
 		movesByRep.set(m.repertoire_id, list);
 	}
 
-	// Filtered via the moves relation (not `.in('move_id', allMoveIds)`) — with
-	// move ids embedded directly in the request URL, a player with enough
-	// total moves across their repertoires can exceed URL length limits,
-	// silently failing the query and making solved progress look like it
-	// never saved.
-	const { data: progressRows } = await supabase
-		.from('move_progress')
-		.select('move_id, state, moves!inner(repertoire_id)')
-		.eq('player_id', userId)
-		.in('moves.repertoire_id', repIds);
+	const rowByRep = new Map<string, LevelProgressRow>();
+	for (const r of (progressRows ?? []) as any[]) {
+		rowByRep.set(r.repertoire_id, { level: r.level, prevLevelMistakes: r.prev_level_mistakes, queue: r.queue });
+	}
 
 	return allReps.map((r: any) => {
 		const variations = enumerateVariations(movesByRep.get(r.id) ?? []);
-		// `progressRows` spans every repertoire's move ids at once (one query),
-		// but repertoireProgress only ever looks up ids that appear in this
-		// repertoire's own `variations`, so passing the full set is harmless —
-		// no need to pre-split it per repertoire.
-		const progress = repertoireProgress(variations, progressRows ?? []);
+		const progress = repertoireProgress(variations, rowByRep.get(r.id) ?? null);
 		return { id: r.id, name: r.name, color: r.color, ...progress };
 	});
 }
