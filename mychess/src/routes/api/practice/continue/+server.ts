@@ -1,3 +1,4 @@
+// mychess/src/routes/api/practice/continue/+server.ts
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
