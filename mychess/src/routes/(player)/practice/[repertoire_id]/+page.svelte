@@ -40,14 +40,27 @@
 	const LEVEL_TRANSITION_HOLD_MS = 1800;
 	let levelTransitionTimeout: ReturnType<typeof setTimeout> | undefined;
 	// Bumped on every resetForAttempt() call so an in-flight prefix replay
-	// notices it's been superseded (e.g. rapid re-navigation) and stops
-	// writing to boardFen instead of racing the newer one.
+	// (or a mid-flight branch continuation fetch) notices it's been
+	// superseded (e.g. rapid re-navigation) and stops writing to state
+	// instead of racing a newer reset.
 	let resetToken = 0;
 	// The attempt-report POST is fire-and-forget from handleMove's final move
 	// (so the board never blocks on the network) — but nextAttempt must await
 	// it before reloading, or invalidateAll() can race the write and re-serve
 	// the same task, making Continue look like it did nothing.
 	let pendingReport: Promise<unknown> | null = null;
+	// The in-progress attempt's remaining quiz steps — seeded from
+	// attempt.quizSteps on every resetForAttempt(), but extended in place
+	// when a mid-line 'continue' branch is taken (see handleMove) rather than
+	// staying a pure derived read of `attempt`, since a continuation only
+	// exists client-side until the attempt is completed or abandoned.
+	let liveQuizSteps = $state<QuizStep[]>([]);
+	// Which task to credit if the attempt is completed — starts as the
+	// pinned attempt's own taskKey, reassigned to the continued line's
+	// taskKey each time a 'continue' branch is taken, so completing a
+	// (possibly repeatedly) continued line credits the LAST line actually
+	// walked, not the one the attempt originally pinned.
+	let creditTaskKey = $state<string | null>(null);
 
 	const REPLAY_STEP_MS = 550;
 	const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -72,7 +85,7 @@
 	// meant to stay hidden.
 	const hintSquare = $derived.by(() => {
 		if (!hintRequested) return null;
-		const step = attempt?.quizSteps[quizIdx];
+		const step = liveQuizSteps[quizIdx];
 		if (!step) return null;
 		try {
 			return new Chess(step.fromFen).move(step.san)?.from ?? null;
@@ -81,9 +94,9 @@
 		}
 	});
 
-	function advanceThroughOpponentReplies(activeAttempt: typeof attempt = attempt) {
-		while (activeAttempt?.quizSteps[quizIdx] && !activeAttempt.quizSteps[quizIdx].isPlayerTurn) {
-			boardFen = activeAttempt.quizSteps[quizIdx].toFen;
+	function advanceThroughOpponentReplies() {
+		while (liveQuizSteps[quizIdx] && !liveQuizSteps[quizIdx].isPlayerTurn) {
+			boardFen = liveQuizSteps[quizIdx].toFen;
 			quizIdx++;
 		}
 	}
@@ -104,6 +117,8 @@
 		wrongCount = 0;
 		hintRequested = false;
 		attemptHadMistake = false;
+		liveQuizSteps = attempt?.quizSteps ?? [];
+		creditTaskKey = attempt?.taskKey ?? null;
 		if (!attempt) return;
 
 		if (attempt.prefix.length === 0) {
@@ -140,11 +155,34 @@
 		untrack(() => resetForAttempt());
 	});
 
+	async function fetchContinuation(
+		activeReviewLevel: number | null,
+		variationKey: string,
+		afterPlayerMoveIndex: number
+	): Promise<{ quizSteps: QuizStep[]; taskKey: string } | null> {
+		try {
+			const res = await fetch('/api/practice/continue', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					repertoireId,
+					level: activeReviewLevel ?? data.level,
+					variationKey,
+					afterPlayerMoveIndex
+				})
+			});
+			if (!res.ok) return null;
+			return await res.json();
+		} catch {
+			return null;
+		}
+	}
+
 	function handleMove(detail: { from: Key; to: Key; san: string }) {
 		if (phase !== 'playing' || locked || replaying) return false;
-		const currentAttempt = attempt;
+		const myToken = resetToken;
 		const currentReviewLevel = reviewLevel;
-		const step = currentAttempt?.quizSteps[quizIdx];
+		const step = liveQuizSteps[quizIdx];
 		if (!step) return false;
 
 		if (detail.san === step.san) {
@@ -155,23 +193,23 @@
 			// Whether THIS move is the last one in the attempt — decided now,
 			// synchronously, since ChessBoard needs the star-vs-check choice at
 			// move time, before the 500ms hold below even starts.
-			const isFinalMove = quizIdx + 1 >= currentAttempt.quizSteps.length;
+			const isFinalMove = quizIdx + 1 >= liveQuizSteps.length;
 			// Fire the completion report NOW, before the hold below, not after
 			// it — the report's own network round trip then overlaps with the
 			// 500ms hold instead of stacking after it. nextAttempt() still
 			// awaits pendingReport before reloading, so correctness (never
-			// reloading before the write lands) is unchanged; only the timing
-			// of when that wait starts moves earlier. Grading is per-attempt,
-			// not per-move — this is the whole outcome, the moment the last
-			// quiz step is solved. Skipped during review, which is a pure
-			// read-only replay. Uses the ATTEMPT/REVIEW-LEVEL CAPTURED AT THE
-			// TOP of this function, not the live reactive values — the player
-			// can navigate to a different level or exit review during the
-			// hold, which changes `attempt`/`reviewLevel` without going
-			// through resetForAttempt(), and reporting against the live
-			// (wrong) attempt would corrupt an unrelated task's progress.
-			if (isFinalMove && currentReviewLevel === null) {
-				pendingReport = reportAttempt(currentAttempt.taskKey);
+			// reloading before the write lands) is unchanged. Reports
+			// creditTaskKey, not this attempt's originally-pinned key — if a
+			// branch was continued earlier in this same attempt, that's the
+			// line actually being finished right now. Skipped during review,
+			// which is a pure read-only replay. Uses the REVIEW-LEVEL CAPTURED
+			// AT THE TOP of this function, not the live reactive value — the
+			// player can navigate to a different level or exit review during
+			// the hold, which changes `reviewLevel` without going through
+			// resetForAttempt(), and reporting against a live (wrong) value
+			// would corrupt an unrelated task's progress.
+			if (isFinalMove && currentReviewLevel === null && creditTaskKey) {
+				pendingReport = reportAttempt(creditTaskKey);
 			}
 			// Hold the board here so the check/star is actually visible before
 			// advancing — updating boardFen in the same tick would clear it
@@ -179,9 +217,9 @@
 			advanceTimeout = setTimeout(() => {
 				boardFen = step.toFen;
 				quizIdx++;
-				advanceThroughOpponentReplies(currentAttempt);
+				advanceThroughOpponentReplies();
 				locked = false;
-				if (quizIdx >= currentAttempt.quizSteps.length) {
+				if (quizIdx >= liveQuizSteps.length) {
 					// No confirmation click for a plain solve — auto-advance
 					// straight to the next task. `nextAttempt()` still pauses on
 					// a leveled-up/leveled-down banner itself when relevant.
@@ -202,25 +240,66 @@
 			locked = true;
 			wrongCount = 0;
 			hintRequested = false;
-			// Fire the report now (see the pinned-match branch above for why:
-			// overlaps the network round trip with the hold below instead of
-			// stacking after it).
-			if (currentReviewLevel === null && alt.taskKey) {
-				pendingReport = reportAttempt(alt.taskKey);
+
+			if (alt.kind === 'completes') {
+				// Lands on another task's own target-depth move — finishes it
+				// immediately, same as solving the pinned line's own final move.
+				if (currentReviewLevel === null) pendingReport = reportAttempt(alt.taskKey);
+				advanceTimeout = setTimeout(() => {
+					locked = false;
+					phase = 'advancing';
+					nextAttempt();
+				}, 500);
+				return 'final';
 			}
-			advanceTimeout = setTimeout(() => {
+
+			if (alt.kind === 'dead-end') {
+				// A shorter sibling already fully resolved at an earlier level —
+				// nothing left to continue, nothing to credit. Accept, end
+				// cleanly, leave the originally-pinned task untouched for
+				// another attempt.
+				advanceTimeout = setTimeout(() => {
+					locked = false;
+					phase = 'advancing';
+					nextAttempt();
+				}, 500);
+				return true;
+			}
+
+			// alt.kind === 'continue' — this line has more content ahead.
+			// Resume it in place instead of ending the attempt: fetch the rest
+			// of that specific line and splice it into the live quiz sequence,
+			// so play continues seamlessly rather than dropping the player
+			// into an unrelated fresh attempt.
+			const afterPlayerMoveIndex = step.playerMoveIndex;
+			const branchIdx = quizIdx;
+			advanceTimeout = setTimeout(async () => {
+				boardFen = alt.toFen;
+				const continuation = await fetchContinuation(currentReviewLevel, alt.variationKey, afterPlayerMoveIndex);
+				if (myToken !== resetToken) return; // superseded while we were awaiting
 				locked = false;
-				// Either way this attempt is done: the board no longer matches
-				// the pinned variation's remaining script, so there's nothing
-				// left to continue quizzing here. A branch landing on another
-				// task's own target-depth move (alt.taskKey set) completes that
-				// task; a branch earlier in a longer line (null) completes
-				// nothing, but costs nothing either — the pinned task is left
-				// untouched, pending for another attempt.
-				phase = 'advancing';
-				nextAttempt();
+				if (!continuation) {
+					// Fetch failed — fall back to the dead-end behavior above
+					// rather than leaving the player stuck mid-attempt.
+					phase = 'advancing';
+					nextAttempt();
+					return;
+				}
+				liveQuizSteps = [...liveQuizSteps.slice(0, branchIdx + 1), ...continuation.quizSteps];
+				creditTaskKey = continuation.taskKey;
+				quizIdx = branchIdx + 1;
+				advanceThroughOpponentReplies();
+				if (quizIdx >= liveQuizSteps.length) {
+					// The continuation completed immediately (nothing left after
+					// auto-playing the opponent's reply) — same as any other
+					// end-of-attempt completion.
+					phase = 'advancing';
+					if (currentReviewLevel === null) pendingReport = reportAttempt(creditTaskKey);
+					nextAttempt();
+				}
+				// Otherwise phase stays 'playing' — no restart, just resume.
 			}, 500);
-			return alt.taskKey ? 'final' : true;
+			return true;
 		}
 
 		playWrong();
