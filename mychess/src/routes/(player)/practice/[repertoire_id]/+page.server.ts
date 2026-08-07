@@ -39,13 +39,13 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 	if (reviewLevel !== null) {
 		const picked = pickReviewAttempt(variations, reviewLevel);
 		if (picked) {
-			const { prefix, quizSteps } = splitAttempt(picked.variation.path, reviewLevel, picked.targetDepth);
+			const { prefix, quizSteps } = splitAttempt(picked.variation.path, reviewLevel, picked.targetDepth, variations);
 			attempt = { prefix, quizSteps, taskKey: picked.taskKey };
 		}
 	} else if (level !== 'mastered' && row) {
 		const picked = pickQueuedAttempt(variations, level, row.queue);
 		if (picked) {
-			const { prefix, quizSteps } = splitAttempt(picked.variation.path, level, picked.targetDepth);
+			const { prefix, quizSteps } = splitAttempt(picked.variation.path, level, picked.targetDepth, variations);
 			attempt = { prefix, quizSteps, taskKey: picked.taskKey };
 		}
 	}
