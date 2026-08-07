@@ -34,7 +34,7 @@
         <p class="text-gray-400 text-sm">No students yet.</p>
       {:else}
         <ul class="space-y-2">
-          {#each data.students as rel}
+          {#each data.students as rel (rel.id)}
             <li class="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-3">
               <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm flex items-center justify-center">
                 {initials(rel.other)}
@@ -56,7 +56,7 @@
         <p class="text-gray-400 text-sm">No pending requests.</p>
       {:else}
         <ul class="space-y-2">
-          {#each data.pending as rel}
+          {#each data.pending as rel (rel.id)}
             <li class="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-3">
               <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm flex items-center justify-center">
                 {initials(rel.other)}
@@ -101,7 +101,7 @@
         <p class="text-gray-400 text-sm">No players found.</p>
       {:else}
         <ul class="space-y-2">
-          {#each data.findResults as player}
+          {#each data.findResults as player (player.id)}
             <li class="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-3">
               <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm flex items-center justify-center">
                 {initials(player)}

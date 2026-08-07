@@ -20,7 +20,7 @@
       </div>
     {:else}
       <ul class="space-y-2">
-        {#each data.repertoires as rep}
+        {#each data.repertoires as rep (rep.id)}
           <li>
             <a href="/practice/{rep.id}"
                class="flex items-center gap-3 bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow">

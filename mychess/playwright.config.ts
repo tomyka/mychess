@@ -8,6 +8,9 @@ export default defineConfig({
 		reuseExistingServer: !process.env.CI
 	},
 	testDir: 'tests',
+	// Matches local test filenames on disk at config-time only — never
+	// evaluated against untrusted/attacker-controlled input.
+	// eslint-disable-next-line security/detect-unsafe-regex
 	testMatch: /(.+\/)?(.*\.e2e)\.[jt]s/,
 	projects: [
 		{

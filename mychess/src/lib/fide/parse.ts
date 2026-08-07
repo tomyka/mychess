@@ -10,6 +10,11 @@ export interface FidePlayer {
 }
 
 function tagValue(chunk: string, tag: string): string | null {
+  // `tag` is always one of this file's own hardcoded literal call-site
+  // strings ('fideid', 'name', 'country', ...) — never derived from `chunk`
+  // (the untrusted parsed content) — so there's no injection/ReDoS surface
+  // despite the non-literal constructor call.
+  // eslint-disable-next-line security/detect-non-literal-regexp
   const m = chunk.match(new RegExp(`<${tag}>([^<]*)</${tag}>`));
   const v = m ? m[1].trim() : '';
   return v || null;

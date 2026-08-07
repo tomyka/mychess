@@ -33,7 +33,7 @@
         <p class="text-gray-400 text-sm">No coaches yet.</p>
       {:else}
         <ul class="space-y-2">
-          {#each data.coaches as rel}
+          {#each data.coaches as rel (rel.id)}
             <li class="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-3">
               <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm flex items-center justify-center">
                 {initials(rel.other)}
@@ -55,7 +55,7 @@
         <p class="text-gray-400 text-sm">No pending requests.</p>
       {:else}
         <ul class="space-y-2">
-          {#each data.pending as rel}
+          {#each data.pending as rel (rel.id)}
             <li class="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-3">
               <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm flex items-center justify-center">
                 {initials(rel.other)}
@@ -100,7 +100,7 @@
         <p class="text-gray-400 text-sm">No coaches found.</p>
       {:else}
         <ul class="space-y-2">
-          {#each data.findResults as coach}
+          {#each data.findResults as coach (coach.id)}
             <li class="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-3">
               <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm flex items-center justify-center">
                 {initials(coach)}

@@ -131,6 +131,7 @@
 	// `attempt` via invalidateAll() and needs to decide for itself whether to
 	// jump straight into the next attempt or show a level transition notice.
 	$effect(() => {
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions -- deliberate Svelte dependency-tracking read, not a no-op statement
 		repertoireId;
 		untrack(() => resetForAttempt());
 	});

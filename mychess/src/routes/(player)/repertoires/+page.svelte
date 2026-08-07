@@ -16,7 +16,7 @@
       <section>
         <h1 class="text-2xl font-bold text-gray-900 mb-4">Assigned by your coach</h1>
         <ul class="space-y-2">
-          {#each data.assignedRepertoires as rep}
+          {#each data.assignedRepertoires as rep (rep.id)}
             <li class="flex items-center gap-3 bg-white rounded-xl border border-indigo-200 shadow-sm p-4">
               <span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color ?? '#4f46e5'}"></span>
               <div class="flex-1 min-w-0">
@@ -51,7 +51,7 @@
         </div>
       {:else}
         <ul class="space-y-2">
-          {#each data.repertoires as rep}
+          {#each data.repertoires as rep (rep.id)}
             <li class="flex items-center gap-3 bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow">
               <a href="/repertoires/{rep.id}" class="flex items-center gap-3 flex-1 min-w-0">
                 <span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color ?? '#4f46e5'}"></span>

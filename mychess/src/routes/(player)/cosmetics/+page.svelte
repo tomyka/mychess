@@ -31,7 +31,7 @@
     <section class="bg-white rounded-2xl p-5 shadow mb-4">
       <h2 class="font-bold text-lg text-indigo-600 mb-3">Choose Your Piece</h2>
       <div class="grid grid-cols-6 gap-3">
-        {#each d.avatars as av}
+        {#each d.avatars as av (av.id)}
           <button
             onclick={() => { selectedAvatar = av.id; }}
             class="text-3xl p-2 rounded-xl border-2 transition-all
@@ -48,7 +48,7 @@
     <section class="bg-white rounded-2xl p-5 shadow mb-4">
       <h2 class="font-bold text-lg text-indigo-600 mb-3">Board Theme</h2>
       <div class="grid grid-cols-3 gap-3">
-        {#each d.themes as theme}
+        {#each d.themes as theme (theme.id)}
           <button
             onclick={() => { selectedTheme = theme.id; }}
             class="rounded-xl overflow-hidden border-2 transition-all
@@ -72,7 +72,7 @@
         {@const theme = d.themes.find((t: any) => t.id === selectedTheme)}
         {@const avatar = d.avatars.find((a: any) => a.id === selectedAvatar)}
         <div class="grid grid-cols-4 grid-rows-4 w-32 h-32 mx-auto rounded-lg overflow-hidden">
-          {#each Array(16) as _, i}
+          {#each Array(16) as _, i (i)}
             {@const row = Math.floor(i / 4)}
             {@const col = i % 4}
             <div

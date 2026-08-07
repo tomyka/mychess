@@ -24,7 +24,7 @@
 
 <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
   <ul class="divide-y divide-gray-100">
-    {#each Array.from({ length: totalLevels }, (_, i) => i + 1) as level}
+    {#each Array.from({ length: totalLevels }, (_, i) => i + 1) as level (level)}
       {@const st = status(level)}
       <li>
         <button

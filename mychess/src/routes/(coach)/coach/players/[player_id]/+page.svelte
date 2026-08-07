@@ -60,7 +60,7 @@
         <p class="text-gray-400 text-sm">Nothing assigned yet.</p>
       {:else}
         <ul class="space-y-2">
-          {#each data.assignedReps as a}
+          {#each data.assignedReps as a (a.id)}
             <li class="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
               <span class="w-3 h-3 rounded-full shrink-0"
                     style="background:{a.repertoire?.color === 'black' ? '#1f2937' : '#e5e7eb'}"></span>
@@ -84,7 +84,7 @@
         <p class="text-gray-400 text-sm">No notes yet.</p>
       {:else}
         <ul class="space-y-2">
-          {#each data.notes as note}
+          {#each data.notes as note (note.id)}
             <li class="bg-gray-50 rounded-lg p-3">
               <p class="text-sm text-gray-900">{note.note}</p>
               <p class="text-xs text-gray-400 mt-1">{new Date(note.created_at).toLocaleDateString()}</p>
@@ -123,7 +123,7 @@
 
       <div class="p-4">
         <ul class="space-y-2">
-          {#each data.coachReps as rep}
+          {#each data.coachReps as rep (rep.id)}
             {@const isAssigned = data.assignedReps.some((a: any) => a.repertoire?.id === rep.id)}
             <li class="flex items-center justify-between gap-3">
               <span class="flex items-center gap-2 min-w-0">

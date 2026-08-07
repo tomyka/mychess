@@ -20,6 +20,7 @@
   const countryOptions = ['Lithuania', 'Latvia'];
 
   function applyFilters() {
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- built, stringified, and discarded synchronously within this function; never read reactively
     const sp = new URLSearchParams($page.url.searchParams);
     sp.set('status', filters.status.join(','));
     sp.set('timeControl', filters.timeControl.filter((tc: TimeControl) => tc !== 'UNKNOWN').join(','));
@@ -87,7 +88,7 @@
   <div>
     <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Status</p>
     <div class="flex flex-wrap gap-1.5">
-      {#each statusOptions as opt}
+      {#each statusOptions as opt (opt.value)}
         <button
           on:click={() => toggleStatus(opt.value)}
           class="px-2.5 py-1 rounded-lg text-xs border transition-colors
@@ -105,7 +106,7 @@
   <div>
     <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Time Control</p>
     <div class="flex flex-wrap gap-1.5">
-      {#each tcOptions as opt}
+      {#each tcOptions as opt (opt.value)}
         <button
           on:click={() => toggleTc(opt.value)}
           class="px-2.5 py-1 rounded-lg text-xs border transition-colors
@@ -123,7 +124,7 @@
   <div>
     <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Country</p>
     <div class="flex flex-wrap gap-1.5">
-      {#each countryOptions as country}
+      {#each countryOptions as country (country)}
         <button
           on:click={() => toggleCountry(country)}
           class="px-2.5 py-1 rounded-lg text-xs border transition-colors

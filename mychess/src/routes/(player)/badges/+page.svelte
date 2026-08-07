@@ -23,7 +23,7 @@
     </div>
 
     <div class="grid grid-cols-3 gap-3">
-      {#each badges as badge}
+      {#each badges as badge (badge.id)}
         <div
           class="rounded-2xl p-3 text-center transition-all
                  {badge.earned

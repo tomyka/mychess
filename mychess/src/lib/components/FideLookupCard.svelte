@@ -76,7 +76,7 @@
       />
       {#if open && matches.length > 0}
         <ul class="absolute z-10 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-auto">
-          {#each matches as m}
+          {#each matches as m (m.fideId)}
             <li>
               <button
                 type="button"

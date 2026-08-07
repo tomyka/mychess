@@ -97,7 +97,7 @@
         <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
           <h2 class="font-semibold text-gray-900 mb-4">Today's tasks</h2>
           <ul class="space-y-4">
-            {#each quests as quest}
+            {#each quests as quest (quest.id)}
               <li class="flex items-center gap-3">
                 <div class="flex-1">
                   <div class="flex justify-between text-sm mb-1.5">

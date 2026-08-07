@@ -42,7 +42,7 @@
 
     {#if data.repertoires.length > 0}
       <div class="flex gap-2 mb-4">
-        {#each [{ id: 'all', label: 'All' }, { id: 'white', label: 'White' }, { id: 'black', label: 'Black' }] as const as t}
+        {#each [{ id: 'all', label: 'All' }, { id: 'white', label: 'White' }, { id: 'black', label: 'Black' }] as const as t (t.id)}
           <button
             type="button"
             onclick={() => (filter = t.id)}
@@ -68,7 +68,7 @@
       </div>
     {:else}
       <ul class="space-y-2">
-        {#each filtered as rep}
+        {#each filtered as rep (rep.id)}
           <li class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
             <div class="flex items-center gap-3">
               <span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color ?? '#4f46e5'}"></span>
@@ -148,7 +148,7 @@
           <p class="text-sm text-gray-500">You don't have any active students yet.</p>
         {:else}
           <ul class="space-y-2">
-            {#each data.players as player}
+            {#each data.players as player (player.id)}
               {@const isAssigned = assignModalRep.assignedPlayers.some((p: any) => p.id === player.id)}
               <li class="flex items-center justify-between gap-3">
                 <span class="text-sm text-gray-800 truncate">{player.display_name}</span>

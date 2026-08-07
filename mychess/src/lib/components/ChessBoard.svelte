@@ -49,7 +49,8 @@
 	// Tracks the last `fen` we actually repositioned the board to, so
 	// unrelated reactive prop changes don't stomp on a guess already
 	// visually applied to the board.
-	// svelte-ignore state_referenced_locally -- intentional one-time snapshot for manual tracking, not a live binding
+	// Intentional one-time snapshot for manual tracking, not a live binding.
+	// svelte-ignore state_referenced_locally
 	let lastAppliedFen = fen;
 
 	// The square's own top-left corner, for an overlay sized to the whole
@@ -112,6 +113,9 @@
 
 	function buildConfig() {
 		const chess = new Chess(fen);
+		// Built fresh here and handed straight to chessground's own config —
+		// never read by Svelte's reactivity system, so no need for SvelteMap.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const dests = new Map<Key, Key[]>();
 
 		if (interactable) {

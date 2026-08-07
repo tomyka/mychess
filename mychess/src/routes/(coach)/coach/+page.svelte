@@ -48,7 +48,7 @@
       <section class="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
         <h2 class="font-semibold text-gray-900 mb-4">Your Players ({players.length})</h2>
         <ul class="space-y-1">
-          {#each players as player}
+          {#each players as player (player.id)}
             <li>
               <a href="/coach/players/{player.id}"
                  class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">

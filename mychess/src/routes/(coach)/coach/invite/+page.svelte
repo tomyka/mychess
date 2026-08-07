@@ -1,8 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   let { data, form } = $props<{ data: { invites: any[] }; form: any }>();
-  let origin = $state('');
-  $effect(() => { origin = typeof window !== 'undefined' ? window.location.origin : ''; });
+  let origin = $derived(typeof window !== 'undefined' ? window.location.origin : '');
 </script>
 
 <svelte:head>
@@ -38,7 +37,7 @@
       <p class="text-gray-400">No invites yet.</p>
     {:else}
       <ul class="space-y-2">
-        {#each data.invites as inv}
+        {#each data.invites as inv (inv.token)}
           <li class="bg-white border border-gray-200 rounded-xl p-4 text-sm flex justify-between items-center">
             <span class="font-mono text-gray-500 truncate">/join/{inv.token.slice(0, 16)}...</span>
             {#if inv.redeemed_at}

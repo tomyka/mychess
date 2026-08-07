@@ -114,7 +114,7 @@
         <div>
           <span class="block text-sm font-medium text-gray-700 mb-1">I am a</span>
           <div class="flex gap-3">
-            {#each [{ id: 'player', label: 'Player' }, { id: 'coach', label: 'Coach' }] as const as r}
+            {#each [{ id: 'player', label: 'Player' }, { id: 'coach', label: 'Coach' }] as const as r (r.id)}
               <button
                 type="button"
                 onclick={() => (role = r.id)}

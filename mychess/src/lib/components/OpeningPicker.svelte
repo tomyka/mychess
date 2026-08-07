@@ -70,7 +70,7 @@
       {/if}
 
       <ul class="space-y-1">
-        {#each results as opening}
+        {#each results as opening (opening.code)}
           <li>
             <form method="POST" action="?/updateOpening" use:enhance={handleSubmit}>
               <input type="hidden" name="rep_id" value={repId} />

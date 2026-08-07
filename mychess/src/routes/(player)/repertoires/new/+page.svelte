@@ -50,7 +50,7 @@
       <div>
         <span class="block text-sm font-medium text-gray-700 mb-1">Color</span>
         <div class="flex gap-3">
-          {#each [{ id: 'white', label: 'White' }, { id: 'black', label: 'Black' }] as const as c}
+          {#each [{ id: 'white', label: 'White' }, { id: 'black', label: 'Black' }] as const as c (c.id)}
             <button
               type="button"
               onclick={() => (color = c.id)}

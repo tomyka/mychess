@@ -49,7 +49,7 @@
     bind:this={track}
     class="flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-1 no-scrollbar"
   >
-    {#each tournaments as t}
+    {#each tournaments as t (t.id)}
       <a
         href="/tournaments/{t.id}"
         class="snap-start shrink-0 w-[calc(33.333%-8px)] min-w-[160px] flex flex-col rounded-xl border border-gray-200 bg-white p-3 hover:shadow-md hover:border-indigo-200 transition-all"
@@ -86,7 +86,7 @@
       >←</button>
 
       <div class="flex gap-1.5 items-center">
-        {#each { length: totalPages } as _, i}
+        {#each { length: totalPages } as _, i (i)}
           <button
             onclick={() => goToPage(i)}
             class="rounded-full transition-all {i === currentPage ? 'w-4 h-1.5 bg-indigo-600' : 'w-1.5 h-1.5 bg-gray-300'}"

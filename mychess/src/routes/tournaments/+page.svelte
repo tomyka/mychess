@@ -8,8 +8,6 @@
 
   const { data } = $props<{ data: PageData }>();
 
-  const SUPPORTED_COUNTRIES = ['Lithuania', 'Latvia'];
-
   // Default to Lithuania if no country param is set
   $effect(() => {
     if ($page.url.searchParams.has('country')) return;
@@ -18,6 +16,7 @@
   });
 
   function setView(mode: 'list' | 'calendar') {
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- built, stringified, and discarded synchronously within this function; never read reactively
     const sp = new URLSearchParams($page.url.searchParams);
     if (mode === 'calendar') sp.set('view', 'calendar');
     else sp.delete('view');
@@ -26,6 +25,7 @@
   }
 
   function buildPageUrl(targetPage: number): string {
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- built, stringified, and returned synchronously within this function; never read reactively
     const sp = new URLSearchParams();
     if (data.filters.status.length < 3)           sp.set('status', data.filters.status.join(','));
     if (data.filters.timeControl.some((tc: string) => tc !== 'UNKNOWN' && data.filters.timeControl.length < 4))
@@ -129,7 +129,7 @@
       {:else}
         <!-- Calendar view — grouped by month, server fetches up to 500 (no pagination) -->
         <div class="space-y-6">
-          {#each byMonthEntries as [month, monthTourneys]}
+          {#each byMonthEntries as [month, monthTourneys] (month)}
             <div>
               <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 {new Date(month + '-15T12:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
