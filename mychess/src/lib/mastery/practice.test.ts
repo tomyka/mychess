@@ -190,6 +190,46 @@ describe('splitAttempt', () => {
 		expect(branchStep.alternatives).toEqual([{ san: 'Bc4', taskKey: null }]);
 	});
 
+	it('marks a taskKey null when the sibling variation is shorter and already had no content left at this level', () => {
+		// b ends exactly at the branch (2 player moves total) — it was already
+		// fully resolved as a task back at level 1 (depth 3 >= 2), so it has no
+		// content left at level 2's own depth window (hasContentAtLevel is
+		// false), even though the branch position numerically equals its own
+		// targetDepth for level 2 too. That numeric coincidence must NOT be
+		// treated as a live task boundary at level 2 — there's no such queue
+		// entry to credit.
+		const shared: VariationStep = { moveId: 'shared-p1', san: 'P1', fromFen: 'start', toFen: 'mid', isPlayerTurn: true };
+		const sharedReply: VariationStep = { moveId: 'shared-o1', san: 'O1', fromFen: 'mid', toFen: 'branch', isPlayerTurn: false };
+		const a: Variation = {
+			leafMoveId: 'a-p6',
+			variationKey: 'shared-p1>shared-o1>a-p2>a-o2>a-p3>a-o3>a-p4>a-o4>a-p5>a-o5>a-p6',
+			path: [
+				shared,
+				sharedReply,
+				{ moveId: 'a-p2', san: 'Nf3', fromFen: 'branch', toFen: 'a2b', isPlayerTurn: true },
+				{ moveId: 'a-o2', san: 'O2', fromFen: 'a2b', toFen: 'a3a', isPlayerTurn: false },
+				{ moveId: 'a-p3', san: 'P3', fromFen: 'a3a', toFen: 'a3b', isPlayerTurn: true },
+				{ moveId: 'a-o3', san: 'O3', fromFen: 'a3b', toFen: 'a4a', isPlayerTurn: false },
+				{ moveId: 'a-p4', san: 'P4', fromFen: 'a4a', toFen: 'a4b', isPlayerTurn: true },
+				{ moveId: 'a-o4', san: 'O4', fromFen: 'a4b', toFen: 'a5a', isPlayerTurn: false },
+				{ moveId: 'a-p5', san: 'P5', fromFen: 'a5a', toFen: 'a5b', isPlayerTurn: true },
+				{ moveId: 'a-o5', san: 'O5', fromFen: 'a5b', toFen: 'a6a', isPlayerTurn: false },
+				{ moveId: 'a-p6', san: 'P6', fromFen: 'a6a', toFen: 'a6b', isPlayerTurn: true }
+			],
+			playerMoveCount: 6
+		};
+		const b: Variation = {
+			leafMoveId: 'b-p2',
+			variationKey: 'shared-p1>shared-o1>b-p2',
+			path: [shared, sharedReply, { moveId: 'b-p2', san: 'Bc4', fromFen: 'branch', toFen: 'b-end', isPlayerTurn: true }],
+			playerMoveCount: 2
+		};
+		const { quizSteps } = splitAttempt(a.path, 2, 6, [a, b]);
+		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
+		expect(branchStep.band).toBe('previous'); // sanity: within level 2's review-band window
+		expect(branchStep.alternatives).toEqual([{ san: 'Bc4', taskKey: null }]);
+	});
+
 	it('does not match a transposition reaching the same fromFen via a different player-move count', () => {
 		// c reaches the SAME fromFen ('branch') as a's second player move, but
 		// as its own FIRST player move — a different position in the move-count

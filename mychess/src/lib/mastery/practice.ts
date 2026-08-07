@@ -59,9 +59,13 @@ function nthPlayerStep(path: VariationStep[], n: number): VariationStep | undefi
  * variation sharing that same board position at that same point in its own
  * sequence, excluding the canonical move itself and de-duplicated by SAN.
  * Each alternative is tagged with the `taskKey` it completes if this
- * position is that variation's own target-depth move for `level`, or `null`
- * if it's a valid book move that isn't a task boundary here (a branch
- * earlier in a longer line).
+ * position is that variation's own target-depth move for `level` AND that
+ * variation still has content at `level` (a shorter sibling that already
+ * ended at or before the previous level's depth was already resolved as a
+ * task THEN — its `targetDepth` at this level is just its own natural
+ * length, not a live task boundary here, even though the two happen to be
+ * numerically equal), or `null` if it's a valid book move that isn't a task
+ * boundary here (a branch earlier in a longer line).
  */
 function alternativesAt(
 	variations: Variation[],
@@ -75,7 +79,8 @@ function alternativesAt(
 		const step = nthPlayerStep(variation.path, playerMoveIndex);
 		if (!step || step.fromFen !== fromFen || step.san === canonicalSan) continue;
 		if (found.has(step.san)) continue;
-		const isTaskBoundary = playerMoveIndex === targetDepth(variation, level);
+		const isTaskBoundary =
+			playerMoveIndex === targetDepth(variation, level) && hasContentAtLevel(variation, level);
 		found.set(step.san, isTaskBoundary ? taskKey(variation, level) : null);
 	}
 	return [...found.entries()].map(([san, tk]) => ({ san, taskKey: tk }));
@@ -91,7 +96,8 @@ function alternativesAt(
  * `band: 'previous'` (review material — counts toward demotion, see
  * `levelProgress.ts`) or `'current'` (the level's own new material), plus
  * any `alternatives` the repertoire also allows at that exact position
- * (see `alternativesAt`) — `variations` is the level's full task set, used
+ * (see `alternativesAt`) — `variations` is the repertoire's whole variation
+ * set (unfiltered by level; `alternativesAt` does its own filtering), used
  * only to look those up, independent of which one variation is being split.
  */
 export function splitAttempt(
