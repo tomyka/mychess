@@ -142,16 +142,3 @@ export function parsePgn(pgn: string): ParsedGame[] {
 
   return games;
 }
-
-/** Extract unique FEN positions from parsed games */
-export function extractPositions(games: ParsedGame[]): Set<string> {
-  const fens = new Set<string>();
-  for (const g of games) {
-    fens.add(g.root_fen);
-    for (const m of g.moves) {
-      fens.add(m.fen);
-      fens.add(m.parentFen);
-    }
-  }
-  return fens;
-}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { planImport } from './pgn-import';
+import { planImport, planGameImport, resolvePlayerColor } from './pgn-import';
 
 describe('planImport', () => {
   it('returns an error for a PGN with no valid games', () => {
@@ -72,5 +72,51 @@ describe('planImport opening detection', () => {
     const result = planImport(pgn, 'white');
     if ('error' in result) throw new Error('expected moves, got error: ' + result.error);
     expect(result.ecoCode).toBe('C20');
+  });
+});
+
+describe('resolvePlayerColor', () => {
+  it('matches the White header case-insensitively', () => {
+    expect(resolvePlayerColor({ White: 'MagnusCarlsen', Black: 'someoneElse' }, 'magnuscarlsen')).toBe('white');
+  });
+
+  it('matches the Black header case-insensitively', () => {
+    expect(resolvePlayerColor({ White: 'someoneElse', Black: 'MagnusCarlsen' }, 'magnuscarlsen')).toBe('black');
+  });
+
+  it('returns null when neither side matches', () => {
+    expect(resolvePlayerColor({ White: 'a', Black: 'b' }, 'c')).toBeNull();
+  });
+});
+
+describe('planGameImport', () => {
+  it('returns null when no game matches the username', () => {
+    const pgn = '[White "alice"]\n[Black "bob"]\n\n1. e4 e5 *';
+    expect(planGameImport(pgn, 'carol')).toBeNull();
+  });
+
+  it('resolves is_player_turn per game from whichever side matches the username', () => {
+    const pgn =
+      '[White "carol"]\n[Black "bob"]\n\n1. e4 e5 *\n\n[White "bob"]\n[Black "carol"]\n\n1. d4 d5 *';
+    const result = planGameImport(pgn, 'carol');
+    expect(result).not.toBeNull();
+    expect(result!.matchedGameCount).toBe(2);
+    // Game 1: carol is White — her move (e4) is the player move.
+    expect(result!.moves[0]).toMatchObject({ san: 'e4', is_player_turn: true });
+    expect(result!.moves[1]).toMatchObject({ san: 'e5', is_player_turn: false });
+    // Game 2: carol is Black — her move (d5) is the player move.
+    expect(result!.moves[2]).toMatchObject({ san: 'd4', is_player_turn: false });
+    expect(result!.moves[3]).toMatchObject({ san: 'd5', is_player_turn: true });
+    expect(result!.studiedColor).toBe('white'); // from the first matched game
+  });
+
+  it('skips games where neither side matches, keeping only the matched ones', () => {
+    const pgn =
+      '[White "alice"]\n[Black "bob"]\n\n1. e4 e5 *\n\n[White "carol"]\n[Black "bob"]\n\n1. d4 d5 *';
+    const result = planGameImport(pgn, 'carol');
+    expect(result).not.toBeNull();
+    expect(result!.matchedGameCount).toBe(1);
+    expect(result!.moves).toHaveLength(2);
+    expect(result!.moves[0].san).toBe('d4');
   });
 });

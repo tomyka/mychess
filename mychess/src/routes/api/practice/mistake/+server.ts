@@ -3,6 +3,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
 import { applyPreviousLevelMistake } from '$lib/server/level-progress';
+import { requireApiUser } from '$lib/server/auth';
 
 /**
  * Called the instant a wrong move lands on the previous-level review band —
@@ -11,9 +12,9 @@ import { applyPreviousLevelMistake } from '$lib/server/level-progress';
  * otherwise never trigger a demotion no matter how many times they fail it.
  * Skipped entirely during review (read-only, no progress side effects).
  */
-export const POST: RequestHandler = async ({ request, locals: { supabase, safeGetSession } }) => {
-	const { user } = await safeGetSession();
-	if (!user) throw error(401, 'Unauthorized');
+export const POST: RequestHandler = async ({ request, locals }) => {
+	const { supabase } = locals;
+	const user = await requireApiUser(locals);
 
 	const body = await request.json();
 	const { repertoireId } = body ?? {};

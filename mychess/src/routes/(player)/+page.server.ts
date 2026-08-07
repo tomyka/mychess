@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { selectDailyQuests } from '$lib/quests/generate';
+import { ensureDailyQuests } from '$lib/server/quests';
+import { mapFideRow } from '$lib/fide/rank';
 import { fetchLichessRatings } from '$lib/server/lichess';
 import { fetchChesscomRatings } from '$lib/server/chesscom';
 import { loadRepertoireProgressSummaries } from '$lib/server/repertoire-progress';
@@ -32,23 +33,7 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
       .eq('fide_id', fideQuery)
       .single();
     fideLookup = row
-      ? {
-          query: fideQuery,
-          found: true,
-          player: {
-            name: (row as any).name,
-            stdRating: (row as any).std_rating,
-            rapidRating: (row as any).rapid_rating,
-            blitzRating: (row as any).blitz_rating,
-            countryRankStandard: (row as any).country_rank_standard,
-            countryRankRapid: (row as any).country_rank_rapid,
-            countryRankBlitz: (row as any).country_rank_blitz,
-            ageBracket: (row as any).age_bracket,
-            ageGroupRankStandard: (row as any).age_group_rank_standard,
-            ageGroupRankRapid: (row as any).age_group_rank_rapid,
-            ageGroupRankBlitz: (row as any).age_group_rank_blitz
-          }
-        }
+      ? { query: fideQuery, found: true, player: mapFideRow(row as any) }
       : { query: fideQuery, found: false };
   }
 
@@ -63,17 +48,13 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
   const chesscomUsername = p?.chesscom_username ?? null;
 
   // Parallel fetches
-  const [statsRes, questsRes, noteRes, lichessRatings, chesscomRatings, fideRes, repertoireSummaries] = await Promise.all([
+  const [statsRes, quests, noteRes, lichessRatings, chesscomRatings, fideRes, repertoireSummaries] = await Promise.all([
     supabase
       .from('player_stats')
       .select('total_reviews, total_correct, moves_learned, new_cards_today')
       .eq('player_id', user.id)
       .single(),
-    supabase
-      .from('quests')
-      .select('*')
-      .eq('player_id', user.id)
-      .eq('date', today),
+    ensureDailyQuests(supabase, user.id, today),
     supabase
       .from('coach_notes')
       .select('id, note, created_at')
@@ -89,8 +70,8 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
       ? supabase
           .from('fide_players')
           .select(
-            'std_rating, rapid_rating, blitz_rating, ' +
-            'country_rank_standard, country_rank_rapid, country_rank_blitz, ' +
+            'name, std_rating, rapid_rating, blitz_rating, ' +
+            'country_rank_standard, country_rank_rapid, country_rank_blitz, age_bracket, ' +
             'age_group_rank_standard, age_group_rank_rapid, age_group_rank_blitz'
           )
           .eq('fide_id', p.fide_id)
@@ -104,43 +85,26 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
   if (fideRes.error && fideRes.error.code !== 'PGRST116') {
     console.error('Failed to fetch FIDE ratings:', fideRes.error);
   }
-  const fide = fideRes.data as any;
-  const fideRatings = fide
+  const fideProfile = fideRes.data ? mapFideRow(fideRes.data as any) : null;
+  const fideRatings = fideProfile
     ? {
         standard: {
-          rating: fide.std_rating ?? null,
-          countryRank: fide.country_rank_standard ?? null,
-          ageGroupRank: fide.age_group_rank_standard ?? null
+          rating: fideProfile.stdRating,
+          countryRank: fideProfile.countryRankStandard,
+          ageGroupRank: fideProfile.ageGroupRankStandard
         },
         rapid: {
-          rating: fide.rapid_rating ?? null,
-          countryRank: fide.country_rank_rapid ?? null,
-          ageGroupRank: fide.age_group_rank_rapid ?? null
+          rating: fideProfile.rapidRating,
+          countryRank: fideProfile.countryRankRapid,
+          ageGroupRank: fideProfile.ageGroupRankRapid
         },
         blitz: {
-          rating: fide.blitz_rating ?? null,
-          countryRank: fide.country_rank_blitz ?? null,
-          ageGroupRank: fide.age_group_rank_blitz ?? null
+          rating: fideProfile.blitzRating,
+          countryRank: fideProfile.countryRankBlitz,
+          ageGroupRank: fideProfile.ageGroupRankBlitz
         }
       }
     : null;
-
-  // Seed quests if none exist for today
-  let quests = questsRes.data ?? [];
-  if (quests.length === 0) {
-    const templates = selectDailyQuests(today, user.id);
-    const rows = templates.map(t => ({
-      player_id: user.id,
-      date: today,
-      quest_id: t.id,
-      description: t.description,
-      target: t.target,
-      progress: 0,
-      completed: false
-    }));
-    const { data: inserted } = await supabase.from('quests').insert(rows).select();
-    quests = inserted ?? [];
-  }
 
   // A repertoire with no moves yet is vacuously "mastered" by
   // repertoireProgress's math — exclude it from both sides of this ratio, it

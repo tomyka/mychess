@@ -33,17 +33,39 @@ export function parseStatusFromClass(divClass: string): TournamentStatus {
   return 'NOT_STARTED';
 }
 
-export function deriveStatus(
-  scraped: TournamentStatus,
-  startDate: Date | null | undefined,
-  endDate?: Date | null
-): TournamentStatus {
-  if (scraped === 'FINISHED') return 'FINISHED';
-  const effectiveEnd = endDate ?? startDate;
-  if (!effectiveEnd) return scraped;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return effectiveEnd < today ? 'FINISHED' : scraped;
+/** Extracts a city and start date from a chess-results.com tournament name, e.g. "Vilnius Open (Vilnius, 2026-06-07)". */
+export function parseDateFromName(name: string): { city?: string; startDate?: Date } {
+  const cityPatterns = [
+    /\(([A-Za-zÀ-žĀ-ž\s]+),/,
+    /(?:^|\s)(Vilnius|Kaunas|Klaipėda|Šiauliai|Panevėžys|Druskininkai|Visaginas|Alytus|Riga|Daugavpils)/i,
+  ];
+  let city: string | undefined;
+  for (const p of cityPatterns) {
+    const m = name.match(p);
+    if (m) { city = m[1].trim(); break; }
+  }
+
+  let startDate: Date | undefined;
+  const isoMatch = name.match(/(\d{4}-\d{2}-\d{2})/);
+  if (isoMatch) {
+    const d = new Date(isoMatch[1]);
+    if (!isNaN(d.getTime())) startDate = d;
+  }
+  if (!startDate) {
+    const shortDateMatch = name.match(/,\s*(\d{2}-\d{2})\s*\)/);
+    if (shortDateMatch) {
+      const d = new Date(`${new Date().getFullYear()}-${shortDateMatch[1]}`);
+      if (!isNaN(d.getTime())) startDate = d;
+    }
+  }
+  if (!startDate) {
+    const dayMatch = name.match(/\((\d{2})\s+(\d{2})-\d{2}\)/);
+    if (dayMatch) {
+      const d = new Date(`${new Date().getFullYear()}-${dayMatch[1]}-${dayMatch[2]}`);
+      if (!isNaN(d.getTime())) startDate = d;
+    }
+  }
+  return { city, startDate };
 }
 
 export function parseTournamentDetailField(

@@ -5,8 +5,7 @@ export interface QuestTemplate {
 }
 
 export const QUEST_TEMPLATES: QuestTemplate[] = [
-  { id: 'review_cards',  description: 'Review 10 cards today',                     target: 10 },
-  { id: 'new_cards',     description: 'Learn 5 new moves today',                   target: 5 },
+  { id: 'review_cards',  description: 'Complete 10 Practice attempts today',       target: 10 },
   { id: 'time_trial',    description: 'Score 8+ in Time Trial',                    target: 8 },
   { id: 'sessions',      description: 'Complete 2 training sessions today',        target: 2 },
   { id: 'drill_streak',  description: 'Get a 5+ move streak in Drill, 3 times today', target: 3 },

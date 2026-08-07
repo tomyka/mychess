@@ -1,10 +1,12 @@
 // mychess/src/lib/server/pgn-import.ts
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { planImport } from '$lib/pgn-import';
+import { planImport, planGameImport, type MoveRow } from '$lib/pgn-import';
 
 export type ImportResult =
   | { repertoireId: string; gameCount: number; error: null }
   | { repertoireId: null; gameCount: null; error: string };
+
+export type GameImportResult = { repertoireId: string | null; gameCount: number; error: string | null };
 
 /**
  * Splits values into batches whose combined length stays under `maxChars`.
@@ -37,18 +39,60 @@ export async function importPgn(
   const plan = planImport(params.pgnText, params.color);
   if ('error' in plan) return { repertoireId: null, gameCount: null, error: plan.error };
 
+  const result = await writeMoves(supabase, {
+    playerId: params.playerId,
+    name: params.name,
+    color: params.color,
+    ecoCode: plan.ecoCode,
+    ecoName: plan.ecoName,
+    moves: plan.moves
+  });
+  if (result.error) return { repertoireId: null, gameCount: null, error: result.error };
+  return { repertoireId: result.repertoireId as string, gameCount: plan.gameCount, error: null };
+}
+
+/**
+ * Imports "my games" from chess.com/Lichess: the player's studied color is
+ * resolved per game (see `planGameImport`) rather than fixed up front.
+ * Returns `{ gameCount: 0, error: null }` when no game matched `username` —
+ * that's a no-op, not a failure.
+ */
+export async function importGames(
+  supabase: SupabaseClient,
+  params: { playerId: string; username: string; name: string; pgnText: string }
+): Promise<GameImportResult> {
+  const plan = planGameImport(params.pgnText, params.username);
+  if (!plan) return { repertoireId: null, gameCount: 0, error: null };
+
+  const result = await writeMoves(supabase, {
+    playerId: params.playerId,
+    name: params.name,
+    color: plan.studiedColor,
+    ecoCode: plan.ecoCode,
+    ecoName: plan.ecoName,
+    moves: plan.moves
+  });
+  if (result.error) return { repertoireId: null, gameCount: 0, error: result.error };
+  return { repertoireId: result.repertoireId as string, gameCount: plan.matchedGameCount, error: null };
+}
+
+/** Shared write path: create the repertoire, then chunk-upsert positions and moves into its tree. */
+async function writeMoves(
+  supabase: SupabaseClient,
+  params: { playerId: string; name: string; color: 'white' | 'black'; ecoCode: string | null; ecoName: string | null; moves: MoveRow[] }
+): Promise<{ repertoireId: string | null; error: string | null }> {
   const { data: rep, error: repErr } = await supabase
     .from('repertoires')
     .insert({
       player_id: params.playerId,
       name: params.name,
       color: params.color,
-      eco_code: plan.ecoCode,
-      eco_name: plan.ecoName
+      eco_code: params.ecoCode,
+      eco_name: params.ecoName
     })
     .select()
     .single();
-  if (repErr) return { repertoireId: null, gameCount: null, error: repErr.message };
+  if (repErr) return { repertoireId: null, error: repErr.message };
 
   // Batch every write instead of doing 2 upserts + 2 selects + 1 upsert PER
   // MOVE (5 sequential round-trips each) — for a large multi-chapter study
@@ -56,15 +100,15 @@ export async function importPgn(
   // timeout and leave a partially-imported repertoire behind. Chunking keeps
   // each request comfortably sized regardless of PGN size.
   const CHUNK = 500;
-  const uniqueFens = Array.from(new Set(plan.moves.flatMap((m) => [m.fromFen, m.toFen])));
+  const uniqueFens = Array.from(new Set(params.moves.flatMap((m) => [m.fromFen, m.toFen])));
 
   // Any write failure below leaves an already-inserted repertoire row with
   // no (or partial) moves — silently swallowing that error is what produces
   // a repertoire that looks imported but is actually empty. Roll it back and
   // surface the real error instead.
-  async function fail(message: string): Promise<ImportResult> {
+  async function fail(message: string): Promise<{ repertoireId: string | null; error: string | null }> {
     await supabase.from('repertoires').delete().eq('id', rep.id);
-    return { repertoireId: null, gameCount: null, error: message };
+    return { repertoireId: null, error: message };
   }
 
   for (let i = 0; i < uniqueFens.length; i += CHUNK) {
@@ -93,7 +137,7 @@ export async function importPgn(
   // Multiple games can share an opening sequence (the same position and move
   // played twice) — upsert with ignoreDuplicates so they merge into one
   // shared edge in the tree instead of erroring on the second insert.
-  const moveRows = plan.moves.map((move) => ({
+  const moveRows = params.moves.map((move) => ({
     repertoire_id: rep.id,
     from_position: fenToId.get(move.fromFen)!,
     to_position: fenToId.get(move.toFen)!,
@@ -111,5 +155,5 @@ export async function importPgn(
     if (error) return fail(`Failed to save moves: ${error.message}`);
   }
 
-  return { repertoireId: rep.id, gameCount: plan.gameCount, error: null };
+  return { repertoireId: rep.id, error: null };
 }

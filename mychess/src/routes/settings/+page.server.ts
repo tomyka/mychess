@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { fetchFideName } from '$lib/server/fide';
+import { namesMatch } from '$lib/fide/names';
 import { fetchLichessRatings } from '$lib/server/lichess';
 import { fullNameOrNull } from '$lib/profile';
 import { requireAccount } from '$lib/server/auth';
@@ -60,11 +61,7 @@ export const actions: Actions = {
           return fail(400, { error: 'Could not look up FIDE profile. Check your FIDE ID.' });
         }
 
-        const normalize = (s: string) => s.trim().toLowerCase();
-        if (
-          normalize(firstName) !== normalize(fideName.firstName) ||
-          normalize(lastName) !== normalize(fideName.lastName)
-        ) {
+        if (!namesMatch(firstName, lastName, fideName.firstName, fideName.lastName)) {
           return fail(400, { error: 'Name does not match FIDE profile.' });
         }
       }

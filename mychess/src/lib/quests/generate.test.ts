@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { QUEST_TEMPLATES, selectDailyQuests } from './generate';
 
 describe('QUEST_TEMPLATES', () => {
-  it('has exactly 5 templates', () => {
-    expect(QUEST_TEMPLATES).toHaveLength(5);
+  it('has exactly 4 templates', () => {
+    expect(QUEST_TEMPLATES).toHaveLength(4);
   });
 
   it('each template has required fields', () => {

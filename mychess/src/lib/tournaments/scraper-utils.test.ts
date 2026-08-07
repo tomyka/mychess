@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   parseTimeControl,
   parseStatusFromClass,
-  deriveStatus,
   parseTournamentDetailField,
+  parseDateFromName,
   SUPPORTED_FEDERATIONS,
 } from './scraper-utils';
 
@@ -38,39 +38,35 @@ describe('parseStatusFromClass', () => {
   });
 });
 
-describe('deriveStatus', () => {
-  const daysAgo = (n: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() - n);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  };
-  const daysFromNow = (n: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + n);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  };
+describe('parseDateFromName', () => {
+  it('extracts city and ISO start date', () => {
+    const r = parseDateFromName('Vilnius Open (Vilnius, 2026-06-07)');
+    expect(r.city).toBe('Vilnius');
+    expect(r.startDate).toEqual(new Date('2026-06-07'));
+  });
 
-  it('keeps FINISHED regardless of date', () => {
-    expect(deriveStatus('FINISHED', daysAgo(1))).toBe('FINISHED');
-    expect(deriveStatus('FINISHED', null)).toBe('FINISHED');
+  it('falls back to a short dd-mm date in the current year', () => {
+    const year = new Date().getFullYear();
+    const r = parseDateFromName('Kaunas Rapid (Kaunas, 06-07)');
+    expect(r.city).toBe('Kaunas');
+    expect(r.startDate).toEqual(new Date(`${year}-06-07`));
   });
-  it('overrides NOT_STARTED to FINISHED when start date has passed', () => {
-    expect(deriveStatus('NOT_STARTED', daysAgo(1))).toBe('FINISHED');
+
+  it('falls back to a day-range date in the current year', () => {
+    const year = new Date().getFullYear();
+    const r = parseDateFromName('Riga Open (07 06-09)');
+    expect(r.startDate).toEqual(new Date(`${year}-07-06`));
   });
-  it('keeps NOT_STARTED when start date is today or future', () => {
-    expect(deriveStatus('NOT_STARTED', daysFromNow(0))).toBe('NOT_STARTED');
-    expect(deriveStatus('NOT_STARTED', daysFromNow(3))).toBe('NOT_STARTED');
+
+  it('detects a known city name even without parentheses', () => {
+    const r = parseDateFromName('Šiauliai Chess Festival 2026');
+    expect(r.city).toBe('Šiauliai');
   });
-  it('keeps IN_PROGRESS when endDate is in the future', () => {
-    expect(deriveStatus('IN_PROGRESS', daysAgo(2), daysFromNow(3))).toBe('IN_PROGRESS');
-  });
-  it('overrides to FINISHED when endDate has passed', () => {
-    expect(deriveStatus('NOT_STARTED', daysAgo(5), daysAgo(1))).toBe('FINISHED');
-  });
-  it('keeps scraped status when startDate is null', () => {
-    expect(deriveStatus('NOT_STARTED', null)).toBe('NOT_STARTED');
+
+  it('returns no city or date when nothing matches', () => {
+    const r = parseDateFromName('Untitled Tournament');
+    expect(r.city).toBeUndefined();
+    expect(r.startDate).toBeUndefined();
   });
 });
 

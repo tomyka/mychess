@@ -1,11 +1,12 @@
-import { json, error } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { grantNewBadges } from '$lib/badges/grant';
+import { incrementQuestProgress } from '$lib/server/quests';
+import { requireApiUser } from '$lib/server/auth';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   const { supabase } = locals;
-  const { user } = await locals.safeGetSession();
-  if (!user) throw error(401, 'Unauthorized');
+  const user = await requireApiUser(locals);
 
   const { chain } = (await request.json()) as { chain: number };
 
@@ -20,25 +21,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     await supabase.rpc('update_streak', { p_player_id: user.id });
   }
 
-  // Update quest progress for drill_streak
+  const today = new Date().toISOString().slice(0, 10);
+  await incrementQuestProgress(supabase, user.id, 'sessions', today);
   if (chain >= 5) {
-    const today = new Date().toISOString().slice(0, 10);
-    const { data: quest } = await supabase
-      .from('quests')
-      .select('*')
-      .eq('player_id', user.id)
-      .eq('date', today)
-      .eq('quest_id', 'drill_streak')
-      .single();
-
-    if (quest && !quest.completed) {
-      const newProgress = Math.min(quest.progress + 1, quest.target);
-      const nowComplete = newProgress >= quest.target;
-      await supabase
-        .from('quests')
-        .update({ progress: newProgress, completed: nowComplete })
-        .eq('id', quest.id);
-    }
+    await incrementQuestProgress(supabase, user.id, 'drill_streak', today);
   }
 
   grantNewBadges(supabase, user.id).catch(() => {});

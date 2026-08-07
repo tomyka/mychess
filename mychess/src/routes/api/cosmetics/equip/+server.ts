@@ -1,10 +1,10 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { requireApiUser } from '$lib/server/auth';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   const { supabase } = locals;
-  const { user } = await locals.safeGetSession();
-  if (!user) throw error(401, 'Unauthorized');
+  const user = await requireApiUser(locals);
 
   const { themeId, avatarId } = await request.json() as { themeId: string; avatarId: string };
 

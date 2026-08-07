@@ -1,4 +1,4 @@
-import { redirect } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import { ensureGuestProfile } from './guest';
 
 type Locals = App.Locals;
@@ -10,6 +10,13 @@ export async function requireAccount(locals: Locals) {
 		throw redirect(303, '/login');
 	}
 	return data;
+}
+
+/** Requires a signed-in user for a JSON API route. Throws a 401 (not a redirect) otherwise. */
+export async function requireApiUser(locals: Locals) {
+	const { user } = await locals.safeGetSession();
+	if (!user) throw error(401, 'Unauthorized');
+	return user;
 }
 
 /**

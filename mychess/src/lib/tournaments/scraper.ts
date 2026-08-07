@@ -3,6 +3,7 @@ import {
   parseTimeControl,
   parseStatusFromClass,
   parseTournamentDetailField,
+  parseDateFromName,
   SUPPORTED_FEDERATIONS,
 } from './scraper-utils';
 import type { ScrapedTournament, ScrapedPlayer } from './types';
@@ -10,40 +11,6 @@ export type { ScrapedTournamentDetails } from './scraper-utils';
 
 const BASE_URL = 'https://chess-results.com';
 const USER_AGENT = 'mychess/1.0 (https://github.com/tomyka/mychess)';
-
-function parseDateFromName(name: string): { city?: string; startDate?: Date } {
-  const cityPatterns = [
-    /\(([A-Za-zÀ-žĀ-ž\s]+),/,
-    /(?:^|\s)(Vilnius|Kaunas|Klaipėda|Šiauliai|Panevėžys|Druskininkai|Visaginas|Alytus|Riga|Daugavpils)/i,
-  ];
-  let city: string | undefined;
-  for (const p of cityPatterns) {
-    const m = name.match(p);
-    if (m) { city = m[1].trim(); break; }
-  }
-
-  let startDate: Date | undefined;
-  const isoMatch = name.match(/(\d{4}-\d{2}-\d{2})/);
-  if (isoMatch) {
-    const d = new Date(isoMatch[1]);
-    if (!isNaN(d.getTime())) startDate = d;
-  }
-  if (!startDate) {
-    const shortDateMatch = name.match(/,\s*(\d{2}-\d{2})\s*\)/);
-    if (shortDateMatch) {
-      const d = new Date(`${new Date().getFullYear()}-${shortDateMatch[1]}`);
-      if (!isNaN(d.getTime())) startDate = d;
-    }
-  }
-  if (!startDate) {
-    const dayMatch = name.match(/\((\d{2})\s+(\d{2})-\d{2}\)/);
-    if (dayMatch) {
-      const d = new Date(`${new Date().getFullYear()}-${dayMatch[1]}-${dayMatch[2]}`);
-      if (!isNaN(d.getTime())) startDate = d;
-    }
-  }
-  return { city, startDate };
-}
 
 export async function scrapeTournamentList(): Promise<ScrapedTournament[]> {
   const all: ScrapedTournament[] = [];

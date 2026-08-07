@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFidePlayers, parseFidePlayersFromBytes } from './parse';
+import { parseFidePlayersFromBytes } from './parse';
 
 const XML = `<?xml version="1.0" encoding="UTF-8"?>
 <playerslist>
@@ -45,14 +45,16 @@ const XML = `<?xml version="1.0" encoding="UTF-8"?>
 </player>
 </playerslist>`;
 
-describe('parseFidePlayers', () => {
+describe('parseFidePlayersFromBytes', () => {
+  const bytes = new TextEncoder().encode(XML);
+
   it('extracts every player with a numeric fideid', () => {
-    const players = parseFidePlayers(XML);
-    expect(players.map(p => p.fideId)).toEqual(['12865168', '1503014', '99999']);
+    const players = parseFidePlayersFromBytes(bytes);
+    expect(players.map((p) => p.fideId)).toEqual(['12865168', '1503014', '99999']);
   });
 
   it('maps tags to typed fields', () => {
-    const p = parseFidePlayers(XML)[0];
+    const p = parseFidePlayersFromBytes(bytes)[0];
     expect(p).toEqual({
       fideId: '12865168',
       name: 'Konovalovas, Tomas',
@@ -66,7 +68,7 @@ describe('parseFidePlayers', () => {
   });
 
   it('treats blank/missing numeric tags as null', () => {
-    const junior = parseFidePlayers(XML)[2];
+    const junior = parseFidePlayersFromBytes(bytes)[2];
     expect(junior.birthYear).toBeNull();
     expect(junior.rapidRating).toBeNull();
     expect(junior.blitzRating).toBeNull();
@@ -74,24 +76,9 @@ describe('parseFidePlayers', () => {
   });
 
   it('skips players with a missing or non-numeric fideid', () => {
-    const players = parseFidePlayers(XML);
-    expect(players.find(p => p.name === 'No Id')).toBeUndefined();
-    expect(players.find(p => p.name === 'Bad Id')).toBeUndefined();
-  });
-
-  it('returns an empty array for empty input', () => {
-    expect(parseFidePlayers('')).toEqual([]);
-  });
-});
-
-describe('parseFidePlayersFromBytes', () => {
-  const bytes = new TextEncoder().encode(XML);
-
-  it('parses the same players as the string parser', () => {
-    const fromBytes = parseFidePlayersFromBytes(bytes);
-    expect(fromBytes.map((p) => p.fideId)).toEqual(['12865168', '1503014', '99999']);
-    expect(fromBytes[0].name).toBe('Konovalovas, Tomas');
-    expect(fromBytes[0].rapidRating).toBe(1663);
+    const players = parseFidePlayersFromBytes(bytes);
+    expect(players.find((p) => p.name === 'No Id')).toBeUndefined();
+    expect(players.find((p) => p.name === 'Bad Id')).toBeUndefined();
   });
 
   it('applies the keep filter and reports every valid player to it', () => {

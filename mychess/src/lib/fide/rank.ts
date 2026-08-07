@@ -58,6 +58,52 @@ function rankByRating(
   return { countryRankById, ageGroupRankById };
 }
 
+/** A `fide_players` row's rating/rank columns, as selected from the DB (snake_case). */
+export type FideRatingRow = {
+  name: string;
+  std_rating: number | null;
+  rapid_rating: number | null;
+  blitz_rating: number | null;
+  country_rank_standard: number | null;
+  country_rank_rapid: number | null;
+  country_rank_blitz: number | null;
+  age_bracket: string | null;
+  age_group_rank_standard: number | null;
+  age_group_rank_rapid: number | null;
+  age_group_rank_blitz: number | null;
+};
+
+export type FideRatingProfile = {
+  name: string;
+  stdRating: number | null;
+  rapidRating: number | null;
+  blitzRating: number | null;
+  countryRankStandard: number | null;
+  countryRankRapid: number | null;
+  countryRankBlitz: number | null;
+  ageBracket: string | null;
+  ageGroupRankStandard: number | null;
+  ageGroupRankRapid: number | null;
+  ageGroupRankBlitz: number | null;
+};
+
+/** Maps a `fide_players` row's snake_case rating/rank columns to camelCase. */
+export function mapFideRow(row: FideRatingRow): FideRatingProfile {
+  return {
+    name: row.name,
+    stdRating: row.std_rating,
+    rapidRating: row.rapid_rating,
+    blitzRating: row.blitz_rating,
+    countryRankStandard: row.country_rank_standard,
+    countryRankRapid: row.country_rank_rapid,
+    countryRankBlitz: row.country_rank_blitz,
+    ageBracket: row.age_bracket,
+    ageGroupRankStandard: row.age_group_rank_standard,
+    ageGroupRankRapid: row.age_group_rank_rapid,
+    ageGroupRankBlitz: row.age_group_rank_blitz
+  };
+}
+
 export function computeRanks(players: FidePlayer[], currentYear: number): RankedPlayer[] {
   const std = rankByRating(players, currentYear, (p) => p.stdRating);
   const rapid = rankByRating(players, currentYear, (p) => p.rapidRating);

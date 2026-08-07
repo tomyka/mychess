@@ -45,15 +45,6 @@ function parsePlayerElement(inner: string): FidePlayer | null {
   };
 }
 
-export function parseFidePlayers(xml: string): FidePlayer[] {
-  const players: FidePlayer[] = [];
-  for (const m of xml.matchAll(PLAYER_RE)) {
-    const p = parsePlayerElement(m[1]);
-    if (p) players.push(p);
-  }
-  return players;
-}
-
 /**
  * Streaming variant for the full FIDE list, whose decompressed XML exceeds V8's
  * ~512 MB max string length. Decodes the bytes in chunks, extracts complete
