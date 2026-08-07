@@ -1,51 +1,59 @@
 // mychess/src/lib/mastery/practice.ts
 import type { Variation, VariationStep } from './variations';
-import { isSatisfied, targetDepth, levelDepth, type Level } from './levels';
+import { targetDepth, levelDepth, taskKey, levelTaskVariations, type Level } from './levels';
+
+export type QuizStep = VariationStep & { band: 'previous' | 'current' };
 
 export type PracticeAttempt = {
 	variation: Variation;
 	targetDepth: number;
+	taskKey: string;
 };
 
 /**
- * Picks a random not-yet-satisfied variation at `level` (a variation with at
- * least one 'new' move in the level's range). Returns null once every
- * variation is already satisfied at this level (the repertoire should be
- * promoted to the next level, or "mastered").
+ * Picks the variation behind the first `pending` entry in the level's queue
+ * — a real FIFO-with-requeue sequence, not a random pick, since a mistake
+ * sends a task to the back (see `levelProgress.ts`'s `resolveAttempt`).
+ * Returns null once every entry is `cleared` (the caller should have
+ * promoted the level before reaching here) or the queue is empty.
  */
-export function pickPracticeAttempt(
+export function pickQueuedAttempt(
 	variations: Variation[],
 	level: Level,
-	correctMoveIds: Set<string>,
-	random: () => number = Math.random
+	queue: { key: string; status: 'pending' | 'cleared' }[]
 ): PracticeAttempt | null {
-	const candidates = variations.filter((v) => !isSatisfied(v, level, correctMoveIds));
-	if (candidates.length === 0) return null;
+	const nextKey = queue.find((entry) => entry.status === 'pending')?.key;
+	if (nextKey === undefined) return null;
 
-	const chosen = candidates[Math.floor(random() * candidates.length)];
-	return { variation: chosen, targetDepth: targetDepth(chosen, level) };
+	const tasks = levelTaskVariations(variations, level) as Variation[];
+	const variation = tasks.find((v) => taskKey(v, level) === nextKey);
+	if (!variation) return null;
+
+	return { variation, targetDepth: targetDepth(variation, level), taskKey: nextKey };
 }
 
 /**
- * Splits a variation's path into the auto-played `prefix` and the `quizSteps`
- * the player walks through interactively. The auto-play boundary is
- * DETERMINISTIC (not the old random-start-point mechanic): at active level
- * *n*, every move up through 3(n-1) is auto-played (book line, both colors),
- * and the player picks up interactively at move 3(n-1)+1 — e.g. at Level 2,
- * moves 1-3 auto-play and the player starts on move 4. `quizSteps` stops
- * right after the `targetDepthValue`-th player move.
+ * Splits a variation's path into the auto-played `prefix` and the
+ * `quizSteps` the player walks through interactively. The quiz window is
+ * always the CURRENT level plus the one before it (a live review of the
+ * previous level's material) — anything older auto-plays. At active level
+ * *n*, moves 1 through 2(n-2) auto-play (book line, both colors); the player
+ * answers from 2(n-2)+1 through the target depth. Each quiz step is tagged
+ * `band: 'previous'` (review material — counts toward demotion, see
+ * `levelProgress.ts`) or `'current'` (the level's own new material).
  */
 export function splitAttempt(
 	path: VariationStep[],
 	level: Level,
 	targetDepthValue: number
-): { prefix: VariationStep[]; quizSteps: VariationStep[] } {
+): { prefix: VariationStep[]; quizSteps: QuizStep[] } {
 	const playerIndices: number[] = [];
 	path.forEach((step, i) => {
 		if (step.isPlayerTurn) playerIndices.push(i);
 	});
 
-	const startPoint = levelDepth(level - 1); // moves 1..3(n-1) are already known/auto-played
+	const startPoint = levelDepth(Math.max(level - 2, 0)); // moves before this auto-play
+	const previousLevelDepth = levelDepth(level - 1); // review-band ceiling
 	const nextPlayerIdx = playerIndices[startPoint];
 	const targetPlayerIdx = playerIndices[targetDepthValue - 1];
 
@@ -55,17 +63,22 @@ export function splitAttempt(
 		);
 	}
 
+	let playerMovesSeen = startPoint;
+	const quizSteps: QuizStep[] = path.slice(nextPlayerIdx, targetPlayerIdx + 1).map((step) => {
+		if (step.isPlayerTurn) playerMovesSeen++;
+		return { ...step, band: playerMovesSeen <= previousLevelDepth ? 'previous' : 'current' };
+	});
+
 	return {
 		prefix: path.slice(0, nextPlayerIdx),
-		quizSteps: path.slice(nextPlayerIdx, targetPlayerIdx + 1)
+		quizSteps
 	};
 }
 
 /**
- * Picks a random variation with quiz content at `level`, ignoring whether
- * it's already satisfied — used to review a level the player has already
- * passed, where every variation IS already satisfied (so the `isSatisfied`
- * filter `pickPracticeAttempt` uses would exclude everything).
+ * Picks a random variation with quiz content at `level`, ignoring queue
+ * state — used to review a level the player has already passed. Read-only:
+ * review never reports a result back, so it never touches `level_progress`.
  */
 export function pickReviewAttempt(
 	variations: Variation[],
@@ -76,5 +89,5 @@ export function pickReviewAttempt(
 	if (candidates.length === 0) return null;
 
 	const chosen = candidates[Math.floor(random() * candidates.length)];
-	return { variation: chosen, targetDepth: targetDepth(chosen, level) };
+	return { variation: chosen, targetDepth: targetDepth(chosen, level), taskKey: taskKey(chosen, level) };
 }
