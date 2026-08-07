@@ -156,6 +156,23 @@
 			// synchronously, since ChessBoard needs the star-vs-check choice at
 			// move time, before the 500ms hold below even starts.
 			const isFinalMove = quizIdx + 1 >= currentAttempt.quizSteps.length;
+			// Fire the completion report NOW, before the hold below, not after
+			// it — the report's own network round trip then overlaps with the
+			// 500ms hold instead of stacking after it. nextAttempt() still
+			// awaits pendingReport before reloading, so correctness (never
+			// reloading before the write lands) is unchanged; only the timing
+			// of when that wait starts moves earlier. Grading is per-attempt,
+			// not per-move — this is the whole outcome, the moment the last
+			// quiz step is solved. Skipped during review, which is a pure
+			// read-only replay. Uses the ATTEMPT/REVIEW-LEVEL CAPTURED AT THE
+			// TOP of this function, not the live reactive values — the player
+			// can navigate to a different level or exit review during the
+			// hold, which changes `attempt`/`reviewLevel` without going
+			// through resetForAttempt(), and reporting against the live
+			// (wrong) attempt would corrupt an unrelated task's progress.
+			if (isFinalMove && currentReviewLevel === null) {
+				pendingReport = reportAttempt(currentAttempt.taskKey);
+			}
 			// Hold the board here so the check/star is actually visible before
 			// advancing — updating boardFen in the same tick would clear it
 			// before the browser ever paints it.
@@ -169,16 +186,6 @@
 					// straight to the next task. `nextAttempt()` still pauses on
 					// a leveled-up/leveled-down banner itself when relevant.
 					phase = 'advancing';
-					// Grading is per-attempt, not per-move — persist the whole
-					// outcome the moment the last quiz step is solved. Skipped
-					// during review, which is a pure read-only replay. Uses the
-					// ATTEMPT/REVIEW-LEVEL CAPTURED AT THE TOP of this function,
-					// not the live reactive values — the player can navigate to a
-					// different level or exit review during this 500ms hold,
-					// which changes `attempt`/`reviewLevel` without going through
-					// resetForAttempt(), and reporting against the live (wrong)
-					// attempt would corrupt an unrelated task's progress.
-					if (currentReviewLevel === null) pendingReport = reportAttempt(currentAttempt.taskKey);
 					nextAttempt();
 				}
 			}, 500);
@@ -195,6 +202,12 @@
 			locked = true;
 			wrongCount = 0;
 			hintRequested = false;
+			// Fire the report now (see the pinned-match branch above for why:
+			// overlaps the network round trip with the hold below instead of
+			// stacking after it).
+			if (currentReviewLevel === null && alt.taskKey) {
+				pendingReport = reportAttempt(alt.taskKey);
+			}
 			advanceTimeout = setTimeout(() => {
 				locked = false;
 				// Either way this attempt is done: the board no longer matches
@@ -205,7 +218,6 @@
 				// nothing, but costs nothing either — the pinned task is left
 				// untouched, pending for another attempt.
 				phase = 'advancing';
-				if (currentReviewLevel === null && alt.taskKey) pendingReport = reportAttempt(alt.taskKey);
 				nextAttempt();
 			}, 500);
 			return alt.taskKey ? 'final' : true;
