@@ -1,6 +1,6 @@
 // mychess/src/lib/mastery/practice.test.ts
 import { describe, it, expect } from 'vitest';
-import { pickQueuedAttempt, pickReviewAttempt, splitAttempt } from './practice';
+import { pickQueuedAttempt, pickReviewAttempt, splitAttempt, continueFromBranch } from './practice';
 import { taskKey } from './levels';
 import type { Variation, VariationStep } from './variations';
 
@@ -124,10 +124,15 @@ describe('splitAttempt', () => {
 	it("throws when the level's auto-play boundary is not below the target depth", () => {
 		const v = makeVariation(2, 'w2-');
 		expect(() => splitAttempt(v.path, 1, 2, [v])).not.toThrow(); // sanity: valid at level 1
-		// At level 3 the auto-play boundary (2) is not below a target depth of
-		// 2 — this 2-move variation has no interactive room left at level 3
-		// and should never have been picked by pickQueuedAttempt in the first place.
 		expect(() => splitAttempt(v.path, 3, 2, [v])).toThrow();
+	});
+
+	it('exposes each quiz step\'s running player-move index', () => {
+		const v = makeVariation(3, 'x-');
+		const { quizSteps } = splitAttempt(v.path, 1, 3, [v]);
+		expect(quizSteps.map((s) => [s.moveId, s.playerMoveIndex])).toEqual([
+			['x-p1', 1], ['x-o1', 1], ['x-p2', 2], ['x-o2', 2], ['x-p3', 3]
+		]);
 	});
 
 	it('reports no alternatives when no other variation shares the branch position', () => {
@@ -136,7 +141,7 @@ describe('splitAttempt', () => {
 		expect(quizSteps.every((s) => s.alternatives.length === 0)).toBe(true);
 	});
 
-	it('finds an alternative that completes another task at this level', () => {
+	it('classifies an alternative as "completes" when it lands on another task\'s own target-depth move', () => {
 		// a and b share an identical first player move/reply, then diverge on
 		// their second (and final) player move — a branch landing exactly on
 		// both tasks' own target-depth move for level 1 (depth 3, collapsed to
@@ -157,13 +162,16 @@ describe('splitAttempt', () => {
 		};
 		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, b]);
 		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
-		expect(branchStep.alternatives).toEqual([{ san: 'Bc4', taskKey: taskKey(b, 1) }]);
+		expect(branchStep.alternatives).toEqual([
+			{ san: 'Bc4', toFen: 'b-end', kind: 'completes', taskKey: taskKey(b, 1) }
+		]);
 	});
 
-	it('marks a mid-line branch alternative with a null taskKey', () => {
+	it('classifies a mid-line branch alternative as "continue" when the sibling has more content ahead', () => {
 		// b is longer than a beyond the branch, so b's own target-depth move at
 		// this level lands past the branch point — the branch itself isn't b's
-		// taskKey, just a valid book move partway through a longer line.
+		// taskKey, just a valid book move partway through a longer line that
+		// should be resumed, not treated as a dead end.
 		const shared: VariationStep = { moveId: 'shared-p1', san: 'P1', fromFen: 'start', toFen: 'mid', isPlayerTurn: true };
 		const sharedReply: VariationStep = { moveId: 'shared-o1', san: 'O1', fromFen: 'mid', toFen: 'branch', isPlayerTurn: false };
 		const a: Variation = {
@@ -181,23 +189,20 @@ describe('splitAttempt', () => {
 			path: [shared, sharedReply, bStep2, bReply2, bStep3],
 			playerMoveCount: 3
 		};
-		// Level 1 depth is 3; a's own target depth collapses to 2 (its natural
-		// length). b's target depth is min(3,3)=3 — its taskKey-defining move is
-		// its 3rd player move, not the branch (its 2nd) — so the branch carries
-		// a null taskKey.
 		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, b]);
 		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
-		expect(branchStep.alternatives).toEqual([{ san: 'Bc4', taskKey: null }]);
+		expect(branchStep.alternatives).toEqual([
+			{ san: 'Bc4', toFen: 'b-mid', kind: 'continue', variationKey: b.variationKey }
+		]);
 	});
 
-	it('marks a taskKey null when the sibling variation is shorter and already had no content left at this level', () => {
+	it('classifies an alternative as "dead-end" when the sibling variation is shorter and already had no content left at this level', () => {
 		// b ends exactly at the branch (2 player moves total) — it was already
 		// fully resolved as a task back at level 1 (depth 3 >= 2), so it has no
-		// content left at level 2's own depth window (hasContentAtLevel is
-		// false), even though the branch position numerically equals its own
-		// targetDepth for level 2 too. That numeric coincidence must NOT be
-		// treated as a live task boundary at level 2 — there's no such queue
-		// entry to credit.
+		// content left at level 2's own depth window, even though the branch
+		// position numerically equals its own targetDepth for level 2 too.
+		// That numeric coincidence must NOT be treated as a live task boundary,
+		// and there's nothing to continue either — it's a true dead end.
 		const shared: VariationStep = { moveId: 'shared-p1', san: 'P1', fromFen: 'start', toFen: 'mid', isPlayerTurn: true };
 		const sharedReply: VariationStep = { moveId: 'shared-o1', san: 'O1', fromFen: 'mid', toFen: 'branch', isPlayerTurn: false };
 		const a: Variation = {
@@ -227,7 +232,100 @@ describe('splitAttempt', () => {
 		const { quizSteps } = splitAttempt(a.path, 2, 6, [a, b]);
 		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
 		expect(branchStep.band).toBe('previous'); // sanity: within level 2's review-band window
-		expect(branchStep.alternatives).toEqual([{ san: 'Bc4', taskKey: null }]);
+		expect(branchStep.alternatives).toEqual([{ san: 'Bc4', toFen: 'b-end', kind: 'dead-end' }]);
+	});
+
+	it('prioritizes "completes" over "continue" when two siblings share one branch edge', () => {
+		const shared: VariationStep = { moveId: 'shared-p1', san: 'P1', fromFen: 'start', toFen: 'mid', isPlayerTurn: true };
+		const sharedReply: VariationStep = { moveId: 'shared-o1', san: 'O1', fromFen: 'mid', toFen: 'branch', isPlayerTurn: false };
+		const a: Variation = {
+			leafMoveId: 'a-p2',
+			variationKey: 'a-key',
+			path: [shared, sharedReply, { moveId: 'a-p2', san: 'Nf3', fromFen: 'branch', toFen: 'a-end', isPlayerTurn: true }],
+			playerMoveCount: 2
+		};
+		// b1 completes exactly at the branch (2-move line).
+		const b1: Variation = {
+			leafMoveId: 'b1-p2',
+			variationKey: 'b1-key',
+			path: [shared, sharedReply, { moveId: 'b1-p2', san: 'Bc4', fromFen: 'branch', toFen: 'b-mid', isPlayerTurn: true }],
+			playerMoveCount: 2
+		};
+		// b2 shares the exact same branch edge (same san, same fromFen — a
+		// degenerate but valid shared-edge input, same as other tests here)
+		// but continues further, still within level 1's own depth (3).
+		const b2: Variation = {
+			leafMoveId: 'b2-p3',
+			variationKey: 'b2-key',
+			path: [
+				shared,
+				sharedReply,
+				{ moveId: 'b1-p2', san: 'Bc4', fromFen: 'branch', toFen: 'b-mid', isPlayerTurn: true },
+				{ moveId: 'b2-o2', san: 'O2', fromFen: 'b-mid', toFen: 'b2-branch', isPlayerTurn: false },
+				{ moveId: 'b2-p3', san: 'Bb5', fromFen: 'b2-branch', toFen: 'b2-end', isPlayerTurn: true }
+			],
+			playerMoveCount: 3
+		};
+		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, b1, b2]);
+		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
+		expect(branchStep.alternatives).toEqual([
+			{ san: 'Bc4', toFen: 'b-mid', kind: 'completes', taskKey: taskKey(b1, 1) }
+		]);
+	});
+
+	it('prioritizes "continue" over "dead-end" when two siblings share one branch edge', () => {
+		const shared: VariationStep = { moveId: 'shared-p1', san: 'P1', fromFen: 'start', toFen: 'mid', isPlayerTurn: true };
+		const sharedReply: VariationStep = { moveId: 'shared-o1', san: 'O1', fromFen: 'mid', toFen: 'branch', isPlayerTurn: false };
+		const a: Variation = {
+			leafMoveId: 'a-p6',
+			variationKey: 'a-key',
+			path: [
+				shared,
+				sharedReply,
+				{ moveId: 'a-p2', san: 'Nf3', fromFen: 'branch', toFen: 'a2b', isPlayerTurn: true },
+				{ moveId: 'a-o2', san: 'O2', fromFen: 'a2b', toFen: 'a3a', isPlayerTurn: false },
+				{ moveId: 'a-p3', san: 'P3', fromFen: 'a3a', toFen: 'a3b', isPlayerTurn: true },
+				{ moveId: 'a-o3', san: 'O3', fromFen: 'a3b', toFen: 'a4a', isPlayerTurn: false },
+				{ moveId: 'a-p4', san: 'P4', fromFen: 'a4a', toFen: 'a4b', isPlayerTurn: true },
+				{ moveId: 'a-o4', san: 'O4', fromFen: 'a4b', toFen: 'a5a', isPlayerTurn: false },
+				{ moveId: 'a-p5', san: 'P5', fromFen: 'a5a', toFen: 'a5b', isPlayerTurn: true },
+				{ moveId: 'a-o5', san: 'O5', fromFen: 'a5b', toFen: 'a6a', isPlayerTurn: false },
+				{ moveId: 'a-p6', san: 'P6', fromFen: 'a6a', toFen: 'a6b', isPlayerTurn: true }
+			],
+			playerMoveCount: 6
+		};
+		// d: dead end — ends exactly at the branch, already resolved at level 1.
+		const d: Variation = {
+			leafMoveId: 'd-p2',
+			variationKey: 'd-key',
+			path: [shared, sharedReply, { moveId: 'd-p2', san: 'Bc4', fromFen: 'branch', toFen: 'd-end', isPlayerTurn: true }],
+			playerMoveCount: 2
+		};
+		// e: shares the exact same branch edge but keeps going — still has
+		// content at level 2 and hasn't reached its own target-depth move yet.
+		const e: Variation = {
+			leafMoveId: 'e-p6',
+			variationKey: 'e-key',
+			path: [
+				shared,
+				sharedReply,
+				{ moveId: 'd-p2', san: 'Bc4', fromFen: 'branch', toFen: 'd-end', isPlayerTurn: true },
+				{ moveId: 'e-o2', san: 'O2', fromFen: 'd-end', toFen: 'e3a', isPlayerTurn: false },
+				{ moveId: 'e-p3', san: 'P3', fromFen: 'e3a', toFen: 'e3b', isPlayerTurn: true },
+				{ moveId: 'e-o3', san: 'O3', fromFen: 'e3b', toFen: 'e4a', isPlayerTurn: false },
+				{ moveId: 'e-p4', san: 'P4', fromFen: 'e4a', toFen: 'e4b', isPlayerTurn: true },
+				{ moveId: 'e-o4', san: 'O4', fromFen: 'e4b', toFen: 'e5a', isPlayerTurn: false },
+				{ moveId: 'e-p5', san: 'P5', fromFen: 'e5a', toFen: 'e5b', isPlayerTurn: true },
+				{ moveId: 'e-o5', san: 'O5', fromFen: 'e5b', toFen: 'e6a', isPlayerTurn: false },
+				{ moveId: 'e-p6', san: 'P6', fromFen: 'e6a', toFen: 'e6b', isPlayerTurn: true }
+			],
+			playerMoveCount: 6
+		};
+		const { quizSteps } = splitAttempt(a.path, 2, 6, [a, d, e]);
+		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
+		expect(branchStep.alternatives).toEqual([
+			{ san: 'Bc4', toFen: 'd-end', kind: 'continue', variationKey: e.variationKey }
+		]);
 	});
 
 	it('does not match a transposition reaching the same fromFen via a different player-move count', () => {
@@ -263,10 +361,6 @@ describe('splitAttempt', () => {
 			path: [shared, sharedReply, aStep2],
 			playerMoveCount: 2
 		};
-		// b plays the exact same san as a at the branch, then continues further
-		// — a degenerate but valid input (enumerateVariations only splits on
-		// actual divergence; sharing the branch move here just means a's own
-		// step must never appear as an "alternative" to itself).
 		const b: Variation = {
 			leafMoveId: 'b-p3',
 			variationKey: 'shared-p1>shared-o1>a-p2>b-o2>b-p3',
@@ -289,5 +383,68 @@ describe('splitAttempt', () => {
 		const { quizSteps } = splitAttempt(v.path, 1, 2, [v]);
 		const opponentStep = quizSteps.find((s) => s.moveId === 'o-o1')!;
 		expect(opponentStep.alternatives).toEqual([]);
+	});
+});
+
+describe('continueFromBranch', () => {
+	it('resumes a variation from a mid-line branch and returns its remaining steps plus taskKey', () => {
+		const a = makeVariation(6, 'a-');
+		const b = makeVariation(6, 'b-');
+		const result = continueFromBranch([a, b], 2, b.variationKey, 2);
+		expect(result).not.toBeNull();
+		expect(result!.taskKey).toBe(taskKey(b, 2));
+		expect(result!.quizSteps.map((s) => s.moveId)).toEqual([
+			'b-o2', 'b-p3', 'b-o3', 'b-p4', 'b-o4', 'b-p5', 'b-o5', 'b-p6'
+		]);
+	});
+
+	it('returns null for an unknown variationKey', () => {
+		const a = makeVariation(4, 'a-');
+		expect(continueFromBranch([a], 1, 'no-such-key', 1)).toBeNull();
+	});
+
+	it('returns null when afterPlayerMoveIndex is not a real player-turn step for that variation at this level', () => {
+		const a = makeVariation(4, 'a-');
+		// level 1's quiz range for a 4-move variation is player moves 1-3
+		// (target depth min(4,3)=3) — index 4 is out of that range.
+		expect(continueFromBranch([a], 1, a.variationKey, 4)).toBeNull();
+	});
+
+	it("a continuation's own steps still carry their own alternatives (recursion falls out of reusing splitAttempt)", () => {
+		const shared: VariationStep = { moveId: 'shared-p1', san: 'P1', fromFen: 'start', toFen: 'mid', isPlayerTurn: true };
+		const sharedReply: VariationStep = { moveId: 'shared-o1', san: 'O1', fromFen: 'mid', toFen: 'e2a', isPlayerTurn: false };
+		const e: Variation = {
+			leafMoveId: 'e-p4',
+			variationKey: 'e-key',
+			path: [
+				shared,
+				sharedReply,
+				{ moveId: 'e-p2', san: 'Nf3', fromFen: 'e2a', toFen: 'e2b', isPlayerTurn: true },
+				{ moveId: 'e-o2', san: 'O2', fromFen: 'e2b', toFen: 'e3a', isPlayerTurn: false },
+				{ moveId: 'e-p3', san: 'Bc4', fromFen: 'e3a', toFen: 'e3b', isPlayerTurn: true }, // nested branch point
+				{ moveId: 'e-o3', san: 'O3', fromFen: 'e3b', toFen: 'e4a', isPlayerTurn: false },
+				{ moveId: 'e-p4', san: 'P4', fromFen: 'e4a', toFen: 'e4b', isPlayerTurn: true }
+			],
+			playerMoveCount: 4
+		};
+		// f shares e's prefix through move 2, diverges at move 3.
+		const f: Variation = {
+			leafMoveId: 'f-p3',
+			variationKey: 'f-key',
+			path: [
+				shared,
+				sharedReply,
+				{ moveId: 'e-p2', san: 'Nf3', fromFen: 'e2a', toFen: 'e2b', isPlayerTurn: true },
+				{ moveId: 'e-o2', san: 'O2', fromFen: 'e2b', toFen: 'e3a', isPlayerTurn: false },
+				{ moveId: 'f-p3', san: 'Bb5', fromFen: 'e3a', toFen: 'f-end', isPlayerTurn: true }
+			],
+			playerMoveCount: 3
+		};
+		const result = continueFromBranch([e, f], 1, e.variationKey, 1);
+		expect(result).not.toBeNull();
+		const nested = result!.quizSteps.find((s) => s.moveId === 'e-p3')!;
+		expect(nested.alternatives).toEqual([
+			{ san: 'Bb5', toFen: 'f-end', kind: 'completes', taskKey: taskKey(f, 1) }
+		]);
 	});
 });
