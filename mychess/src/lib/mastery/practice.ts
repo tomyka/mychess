@@ -113,6 +113,14 @@ function alternativesAt(
 		}
 
 		if (existing?.kind !== 'continue') {
+			// If another variation already claimed 'continue' for this exact
+			// SAN, this one is left as the arbitrary (first-seen) pick — safe
+			// because `enumerateVariations` only ever splits two variations
+			// apart at their actual point of divergence, so two variations
+			// sharing this edge are content-identical up to wherever they
+			// really do diverge; whichever one is picked, that later
+			// divergence still surfaces correctly as its own `alternatives`
+			// entry once `continueFromBranch` re-derives this function for it.
 			found.set(step.san, {
 				san: step.san,
 				toFen: step.toFen,
@@ -204,10 +212,12 @@ export function pickReviewAttempt(
  * (so any further branch along this line already has its own `alternatives`
  * computed the normal way, recursion for free) and discards everything up to
  * and including the already-played branch move. Returns `null` if
- * `variationKey` doesn't match any variation, or if `afterPlayerMoveIndex`
- * doesn't land on a real player-turn step within that variation's own quiz
- * range at `level` — both indicate a stale/inconsistent request rather than
- * something to guess at.
+ * `variationKey` doesn't match any variation, if that variation has no
+ * content left at `level` (splitAttempt would throw — a level/variation
+ * mismatch is exactly as stale a request as an unrecognized key), or if
+ * `afterPlayerMoveIndex` doesn't land on a real player-turn step within that
+ * variation's own quiz range at `level` — all three indicate a
+ * stale/inconsistent request rather than something to guess at.
  */
 export function continueFromBranch(
 	variations: Variation[],
@@ -216,7 +226,7 @@ export function continueFromBranch(
 	afterPlayerMoveIndex: number
 ): { quizSteps: QuizStep[]; taskKey: string } | null {
 	const variation = variations.find((v) => v.variationKey === variationKey);
-	if (!variation) return null;
+	if (!variation || !hasContentAtLevel(variation, level)) return null;
 
 	const { quizSteps } = splitAttempt(variation.path, level, targetDepth(variation, level), variations);
 	const cutIndex = quizSteps.findIndex((s) => s.isPlayerTurn && s.playerMoveIndex === afterPlayerMoveIndex);

@@ -328,6 +328,55 @@ describe('splitAttempt', () => {
 		]);
 	});
 
+	it('resolves a continue/continue tie between two siblings sharing one branch edge without crashing', () => {
+		// g and h both share the branch edge (same san, same fromFen, per
+		// enumerateVariations only splitting variations apart at their real
+		// point of divergence) and both still have content left at level 1
+		// (their own target-depth move is further along than the branch) — a
+		// realistic tie, since either one is a safe pick (see the comment on
+		// alternativesAt's 'continue' branch).
+		const shared: VariationStep = { moveId: 'shared-p1', san: 'P1', fromFen: 'start', toFen: 'mid', isPlayerTurn: true };
+		const sharedReply: VariationStep = { moveId: 'shared-o1', san: 'O1', fromFen: 'mid', toFen: 'branch', isPlayerTurn: false };
+		const a: Variation = {
+			leafMoveId: 'a-p2',
+			variationKey: 'a-key',
+			path: [shared, sharedReply, { moveId: 'a-p2', san: 'Nf3', fromFen: 'branch', toFen: 'a-end', isPlayerTurn: true }],
+			playerMoveCount: 2
+		};
+		const gStep2: VariationStep = { moveId: 'g-p2', san: 'Bc4', fromFen: 'branch', toFen: 'g-mid', isPlayerTurn: true };
+		const g: Variation = {
+			leafMoveId: 'g-p3',
+			variationKey: 'g-key',
+			path: [
+				shared,
+				sharedReply,
+				gStep2,
+				{ moveId: 'g-o2', san: 'O2', fromFen: 'g-mid', toFen: 'g-branch', isPlayerTurn: false },
+				{ moveId: 'g-p3', san: 'Bb5', fromFen: 'g-branch', toFen: 'g-end', isPlayerTurn: true }
+			],
+			playerMoveCount: 3
+		};
+		const h: Variation = {
+			leafMoveId: 'h-p3',
+			variationKey: 'h-key',
+			path: [
+				shared,
+				sharedReply,
+				gStep2,
+				{ moveId: 'h-o2', san: 'O3', fromFen: 'g-mid', toFen: 'h-branch', isPlayerTurn: false },
+				{ moveId: 'h-p3', san: 'Qh5', fromFen: 'h-branch', toFen: 'h-end', isPlayerTurn: true }
+			],
+			playerMoveCount: 3
+		};
+		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, g, h]);
+		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
+		expect(branchStep.alternatives).toHaveLength(1);
+		const alt = branchStep.alternatives[0];
+		expect(alt.kind).toBe('continue');
+		expect(alt.san).toBe('Bc4');
+		expect(['g-key', 'h-key']).toContain((alt as { kind: 'continue'; variationKey: string }).variationKey);
+	});
+
 	it('does not match a transposition reaching the same fromFen via a different player-move count', () => {
 		// c reaches the SAME fromFen ('branch') as a's second player move, but
 		// as its own FIRST player move — a different position in the move-count
@@ -408,6 +457,15 @@ describe('continueFromBranch', () => {
 		// level 1's quiz range for a 4-move variation is player moves 1-3
 		// (target depth min(4,3)=3) — index 4 is out of that range.
 		expect(continueFromBranch([a], 1, a.variationKey, 4)).toBeNull();
+	});
+
+	it('returns null (rather than throwing) when the variation has no content left at the requested level', () => {
+		// A 2-move variation has no content at level 5 (hasContentAtLevel is
+		// false) — splitAttempt would throw if called directly with this
+		// level/variation combination; continueFromBranch must catch this
+		// upstream and treat it as just another stale/inconsistent request.
+		const a = makeVariation(2, 'a-');
+		expect(continueFromBranch([a], 5, a.variationKey, 1)).toBeNull();
 	});
 
 	it("a continuation's own steps still carry their own alternatives (recursion falls out of reusing splitAttempt)", () => {
