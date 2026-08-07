@@ -8,7 +8,7 @@ export const GET: RequestHandler = async ({ url, locals: { supabase } }) => {
 	const type = url.searchParams.get('type') as EmailOtpType | null;
 	const next = url.searchParams.get('next');
 
-	let errorMessage: string | null = null;
+	let errorMessage: string | null;
 	if (code) {
 		const { error } = await supabase.auth.exchangeCodeForSession(code);
 		errorMessage = error?.message ?? null;

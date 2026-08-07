@@ -42,7 +42,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
   }
 
-  grantNewBadges(supabase, user.id, { ttBestScore: correct }).catch(() => {});
+  grantNewBadges(supabase, user.id, { ttScore: correct }).catch(() => {});
 
   return json({ ok: true });
 };

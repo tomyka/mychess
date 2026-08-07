@@ -9,7 +9,7 @@ describe('checkBadgeEligibility', () => {
     streakDays: 0,
     sessionCount: 0,
     repertoireCount: 0,
-    ttBestScore: 0,
+    ttScore: 0,
     questsCompleted: 0,
     hasUploaded: false,
     earnedIds: new Set<string>()
@@ -36,7 +36,7 @@ describe('checkBadgeEligibility', () => {
   });
 
   it('grants speed_demon at tt best score >= 10', () => {
-    const result = checkBadgeEligibility({ ...base, ttBestScore: 10 });
+    const result = checkBadgeEligibility({ ...base, ttScore: 10 });
     expect(result).toContain('speed_demon');
   });
 

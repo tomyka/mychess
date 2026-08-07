@@ -48,18 +48,6 @@ export interface DbTournament {
   updated_at: string;
 }
 
-export interface DbTournamentPlayer {
-  id: string;
-  tournament_id: string;
-  name: string;
-  fide_id: string | null;
-  rating: number | null;
-  federation: string | null;
-  title: string | null;
-  rank: number | null;
-  points: number | null;
-}
-
 export interface TournamentFilters {
   status: TournamentStatus[];
   timeControl: TimeControl[];

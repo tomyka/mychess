@@ -9,7 +9,7 @@ export interface BadgeStatsInput {
   streakDays: number;
   sessionCount: number;
   repertoireCount: number;
-  ttBestScore: number;
+  ttScore: number;
   questsCompleted: number;
   hasUploaded: boolean;
   earnedIds: Set<string>;
@@ -52,7 +52,7 @@ export async function grantNewBadges(
     streakDays: p?.streak_days ?? 0,
     sessionCount: sessions.length,
     repertoireCount: (repRes.data ?? []).length,
-    ttBestScore: 0,
+    ttScore: 0,
     questsCompleted: (questRes.data ?? []).length,
     hasUploaded: (repRes.data ?? []).length > 0,
     earnedIds,
@@ -63,7 +63,15 @@ export async function grantNewBadges(
   if (newBadgeIds.length === 0) return [];
 
   const rows = newBadgeIds.map(id => ({ player_id: playerId, badge_id: id }));
-  await supabase.from('badges_earned').insert(rows);
+  const { error } = await supabase.from('badges_earned').insert(rows);
+  // A failed insert didn't actually grant anything — surface it (both call
+  // sites otherwise swallow the returned promise's rejection too, so this
+  // console.error is the only place a real DB failure here would ever be
+  // visible) and don't report badges as granted that weren't persisted.
+  if (error) {
+    console.error(`grantNewBadges: failed to insert ${rows.length} badge row(s) for player ${playerId}:`, error.message);
+    return [];
+  }
 
   return newBadgeIds;
 }

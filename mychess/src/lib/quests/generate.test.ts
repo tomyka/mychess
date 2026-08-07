@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { QUEST_TEMPLATES, selectDailyQuests } from './generate';
 
 describe('QUEST_TEMPLATES', () => {
-  it('has exactly 4 templates', () => {
-    expect(QUEST_TEMPLATES).toHaveLength(4);
+  it('has exactly 5 templates', () => {
+    expect(QUEST_TEMPLATES).toHaveLength(5);
   });
 
   it('each template has required fields', () => {
@@ -36,7 +36,7 @@ describe('selectDailyQuests', () => {
   it('varies between different player ids', () => {
     const a = selectDailyQuests('2024-01-15', 'player-uuid-1');
     const b = selectDailyQuests('2024-01-15', 'player-uuid-99');
-    // Very likely different with 4 choose 3 possibilities
+    // Very likely different with 5 choose 3 possibilities
     expect(a.map(q => q.id).join()).not.toEqual(b.map(q => q.id).join());
   });
 });

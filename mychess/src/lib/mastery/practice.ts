@@ -1,6 +1,6 @@
 // mychess/src/lib/mastery/practice.ts
 import type { Variation, VariationStep } from './variations';
-import { targetDepth, levelDepth, taskKey, levelTaskVariations, type Level } from './levels';
+import { targetDepth, levelDepth, taskKey, levelTaskVariations, hasContentAtLevel, type Level } from './levels';
 
 export type QuizStep = VariationStep & { band: 'previous' | 'current' };
 
@@ -85,7 +85,7 @@ export function pickReviewAttempt(
 	level: Level,
 	random: () => number = Math.random
 ): PracticeAttempt | null {
-	const candidates = variations.filter((v) => v.playerMoveCount > levelDepth(level - 1));
+	const candidates = variations.filter((v) => hasContentAtLevel(v, level));
 	if (candidates.length === 0) return null;
 
 	const chosen = candidates[Math.floor(random() * candidates.length)];

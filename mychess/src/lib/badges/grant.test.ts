@@ -10,7 +10,7 @@ describe('buildBadgeStats', () => {
       streakDays: 3,
       sessionCount: 4,
       repertoireCount: 1,
-      ttBestScore: 0,
+      ttScore: 0,
       questsCompleted: 0,
       hasUploaded: true,
       earnedIds: new Set(['first_move'])
@@ -28,7 +28,7 @@ describe('buildBadgeStats', () => {
       streakDays: 0,
       sessionCount: 0,
       repertoireCount: 0,
-      ttBestScore: 0,
+      ttScore: 0,
       questsCompleted: 0,
       hasUploaded: false,
       earnedIds: new Set()

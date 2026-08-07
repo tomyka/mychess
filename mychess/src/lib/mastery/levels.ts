@@ -21,6 +21,11 @@ export function targetDepth(variation: { playerMoveCount: number }, level: Level
 	return Math.min(variation.playerMoveCount, levelDepth(level));
 }
 
+/** Whether `variation` still has any content left to ask at `level` (i.e. a strictly earlier level hasn't already fully covered it). */
+export function hasContentAtLevel(variation: { playerMoveCount: number }, level: Level): boolean {
+	return variation.playerMoveCount > levelDepth(level - 1);
+}
+
 /**
  * The move a variation's target-depth prefix ends on, at `level` — the
  * stable identity of the "task" a level presents. The moves table is a
@@ -45,7 +50,7 @@ export function taskKey(variation: VariationLike, level: Level): string {
  * up to this level's depth are the same task, since solving one solves both.
  */
 export function levelTaskVariations(variations: VariationLike[], level: Level): VariationLike[] {
-	const relevant = variations.filter((v) => v.playerMoveCount > levelDepth(level - 1));
+	const relevant = variations.filter((v) => hasContentAtLevel(v, level));
 	const seen = new Map<string, VariationLike>();
 	for (const v of relevant) {
 		const key = taskKey(v, level);
