@@ -36,6 +36,9 @@
 	// it before reloading, or invalidateAll() can race the write and re-serve
 	// the same task, making Continue look like it did nothing.
 	let pendingReport: Promise<unknown> | null = null;
+	// Guards against a double-click/double-tap on "Continue" firing two
+	// overlapping nextAttempt()/resetForAttempt() calls.
+	let continuing = $state(false);
 
 	const REPLAY_STEP_MS = 550;
 	const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -129,7 +132,9 @@
 
 	function handleMove(detail: { from: Key; to: Key; san: string }) {
 		if (phase !== 'playing' || locked || replaying) return false;
-		const step = attempt?.quizSteps[quizIdx];
+		const currentAttempt = attempt;
+		const currentReviewLevel = reviewLevel;
+		const step = currentAttempt?.quizSteps[quizIdx];
 		if (!step) return false;
 
 		if (detail.san === step.san) {
@@ -145,19 +150,25 @@
 				quizIdx++;
 				advanceThroughOpponentReplies();
 				locked = false;
-				if (quizIdx >= attempt.quizSteps.length) {
+				if (quizIdx >= currentAttempt.quizSteps.length) {
 					phase = 'success';
 					// Grading is per-attempt, not per-move — persist the whole
 					// outcome the moment the last quiz step is solved. Skipped
-					// during review, which is a pure read-only replay.
-					if (reviewLevel === null) pendingReport = reportAttempt();
+					// during review, which is a pure read-only replay. Uses the
+					// ATTEMPT/REVIEW-LEVEL CAPTURED AT THE TOP of this function,
+					// not the live reactive values — the player can navigate to a
+					// different level or exit review during this 500ms hold,
+					// which changes `attempt`/`reviewLevel` without going through
+					// resetForAttempt(), and reporting against the live (wrong)
+					// attempt would corrupt an unrelated task's progress.
+					if (currentReviewLevel === null) pendingReport = reportAttempt(currentAttempt);
 				}
 			}, 500);
 			return true;
 		} else {
 			playWrong();
 			wrongCount++;
-			if (reviewLevel === null) {
+			if (currentReviewLevel === null) {
 				attemptHadMistake = true;
 				if (step.band === 'previous') attemptPrevLevelMistakes++;
 			}
@@ -167,14 +178,14 @@
 		}
 	}
 
-	async function reportAttempt() {
+	async function reportAttempt(reportedAttempt: NonNullable<typeof attempt>) {
 		try {
 			await fetch('/api/practice/attempt', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					repertoireId,
-					taskKey: attempt.taskKey,
+					taskKey: reportedAttempt.taskKey,
 					hadMistake: attemptHadMistake,
 					prevLevelMistakeCount: attemptPrevLevelMistakes
 				})
@@ -192,9 +203,11 @@
 
 	async function nextAttempt() {
 		const levelBefore = data.level;
+		const myToken = resetToken;
 		if (pendingReport) await pendingReport;
 		pendingReport = null;
 		await invalidateAll();
+		if (myToken !== resetToken) return; // superseded by a resetForAttempt() while we were awaiting
 		// `data` now reflects the fresh load. If completing that attempt
 		// changed the active level — up on mastering it, or down on a
 		// demotion — surface that instead of silently dropping the player
@@ -209,11 +222,17 @@
 		}
 	}
 
-	function handleContinue() {
-		if (phase === 'leveled-up' || phase === 'leveled-down') {
-			resetForAttempt();
-		} else {
-			nextAttempt();
+	async function handleContinue() {
+		if (continuing) return;
+		continuing = true;
+		try {
+			if (phase === 'leveled-up' || phase === 'leveled-down') {
+				resetForAttempt();
+			} else {
+				await nextAttempt();
+			}
+		} finally {
+			continuing = false;
 		}
 	}
 </script>
@@ -320,7 +339,8 @@
 						{/if}
 						<button
 							onclick={handleContinue}
-							class="mt-4 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition"
+							disabled={continuing}
+							class="mt-4 w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition disabled:opacity-50"
 						>
 							Continue
 						</button>
