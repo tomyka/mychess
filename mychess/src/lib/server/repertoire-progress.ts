@@ -9,6 +9,36 @@ export type RepertoireProgressSummary = RepertoireProgress & {
 	color: string;
 };
 
+// Supabase/PostgREST caps an unbounded select at `max_rows` (1000, see
+// supabase/config.toml) and truncates silently past that — no error, just
+// fewer rows than actually exist. A player with several sizeable
+// repertoires can easily have combined move counts over 1000, so this MUST
+// be paginated: without it, whichever repertoire's moves happen to fall
+// past the cutoff gets an undercounted variation set, deflating its
+// computed level cap below a level it has genuinely already reached —
+// surfacing as that repertoire showing "Mastered" here while the detail
+// page (which only ever queries one repertoire's moves at a time, always
+// well under the cap) correctly shows its real, regular level. `.order`
+// makes the pagination deterministic — `.range` alone has no defined
+// traversal order to page through without it.
+const MOVES_PAGE_SIZE = 1000;
+
+async function fetchAllMoves(supabase: SupabaseClient, repIds: string[]): Promise<any[]> {
+	const rows: any[] = [];
+	for (let offset = 0; ; offset += MOVES_PAGE_SIZE) {
+		const { data, error } = await supabase
+			.from('moves')
+			.select('id, san, is_player_turn, repertoire_id, from_position, to_position')
+			.in('repertoire_id', repIds)
+			.order('id', { ascending: true })
+			.range(offset, offset + MOVES_PAGE_SIZE - 1);
+		if (error) throw error;
+		rows.push(...(data ?? []));
+		if (!data || data.length < MOVES_PAGE_SIZE) break;
+	}
+	return rows;
+}
+
 /**
  * Every repertoire a player can access (owned + assigned), each with its
  * computed mastery progress. Shared by the `/practice` picker and the
@@ -36,11 +66,8 @@ export async function loadRepertoireProgressSummaries(
 	if (allReps.length === 0) return [];
 
 	const repIds = allReps.map((r: any) => r.id);
-	const [{ data: rawMoves }, { data: progressRows }] = await Promise.all([
-		supabase
-			.from('moves')
-			.select('id, san, is_player_turn, repertoire_id, from_position, to_position')
-			.in('repertoire_id', repIds),
+	const [rawMoves, { data: progressRows }] = await Promise.all([
+		fetchAllMoves(supabase, repIds),
 		supabase
 			.from('level_progress')
 			.select('repertoire_id, level, prev_level_mistakes, queue')
@@ -53,7 +80,7 @@ export async function loadRepertoireProgressSummaries(
 	// fetched (unlike the [repertoire_id] detail page, which needs them to
 	// render the board).
 	const movesByRep = new Map<string, RawMoveRow[]>();
-	for (const m of (rawMoves ?? []) as any[]) {
+	for (const m of rawMoves as any[]) {
 		const list = movesByRep.get(m.repertoire_id) ?? [];
 		list.push({
 			id: m.id,

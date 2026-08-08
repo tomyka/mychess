@@ -20,15 +20,28 @@ export const load: PageServerLoad = async ({ locals }) => {
 
   // Only the player's own moves are quizzed — the opponent's replies
   // (is_player_turn = false) are just context, not something to guess.
-  const { data: moves } = await supabase
-    .from('moves')
-    .select(`
-      id, san,
-      from_position(fen),
-      to_position(fen)
-    `)
-    .in('repertoire_id', repIds)
-    .eq('is_player_turn', true);
+  // Paginated: an unbounded select across every one of a player's
+  // repertoires at once can exceed PostgREST's max_rows (1000, see
+  // supabase/config.toml), which truncates silently rather than erroring —
+  // a player with several large repertoires would otherwise just lose
+  // access to time-trial moves past the cutoff with no indication why.
+  const MOVES_PAGE_SIZE = 1000;
+  const moves: any[] = [];
+  for (let offset = 0; ; offset += MOVES_PAGE_SIZE) {
+    const { data: page } = await supabase
+      .from('moves')
+      .select(`
+        id, san,
+        from_position(fen),
+        to_position(fen)
+      `)
+      .in('repertoire_id', repIds)
+      .eq('is_player_turn', true)
+      .order('id', { ascending: true })
+      .range(offset, offset + MOVES_PAGE_SIZE - 1);
+    moves.push(...(page ?? []));
+    if (!page || page.length < MOVES_PAGE_SIZE) break;
+  }
 
   // Shuffle for variety
   const shuffled = [...(moves ?? [])];
