@@ -28,7 +28,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	});
 
-	event.locals.safeGetSession = async () => {
+	async function computeSession() {
 		const {
 			data: { session }
 		} = await event.locals.supabase.auth.getSession();
@@ -75,7 +75,18 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 
 		return { session, user: session.user, profile: resolvedProfile, isGuest: !!session.user.is_anonymous };
-	};
+	}
+
+	// Every layout in a route's tree runs its `load` on each navigation, and
+	// most pages' own `load`/actions call this again via requireAccount/
+	// requireApiUser — for a typical (player) page that's 3+ independent
+	// calls per single page view. Without caching, each one redoes the full
+	// auth+profile round trip, multiplying Supabase round trips 3x-4x on
+	// every single page load across the whole app. Memoize per-request (this
+	// `handle` call, and therefore `sessionPromise`, is fresh per request) so
+	// every call after the first reuses the same in-flight/resolved promise.
+	let sessionPromise: ReturnType<typeof computeSession> | undefined;
+	event.locals.safeGetSession = () => (sessionPromise ??= computeSession());
 
 	return resolve(event, {
 		filterSerializedResponseHeaders: (name) =>
