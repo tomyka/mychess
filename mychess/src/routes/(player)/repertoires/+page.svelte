@@ -1,8 +1,15 @@
 <script lang="ts">
+  import { enhance } from '$app/forms';
   import OpeningPicker from '$lib/components/OpeningPicker.svelte';
 
-  let { data } = $props<{ data: { repertoires: any[]; assignedRepertoires: any[] } }>();
+  let { data, form } = $props<{ data: { repertoires: any[]; assignedRepertoires: any[] }; form?: any }>();
   let openingModalRepId = $state<string | null>(null);
+
+  function confirmDelete(e: SubmitEvent, name: string) {
+    if (!confirm(`Delete "${name}"? This can't be undone and will also delete all practice history for it.`)) {
+      e.preventDefault();
+    }
+  }
 </script>
 
 <svelte:head>
@@ -11,6 +18,10 @@
 
 <main class="min-h-screen bg-gray-50">
   <div class="max-w-2xl mx-auto px-4 py-6 space-y-8">
+
+    {#if form?.error}
+      <p class="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">{form.error}</p>
+    {/if}
 
     {#if data.assignedRepertoires?.length > 0}
       <section>
@@ -65,6 +76,10 @@
                       class="text-xs text-indigo-500 hover:underline shrink-0">
                 {rep.eco_code ?? 'Unclassified'}
               </button>
+              <form method="POST" action="?/delete" use:enhance onsubmit={(e) => confirmDelete(e, rep.name)}>
+                <input type="hidden" name="rep_id" value={rep.id} />
+                <button class="text-sm text-red-600 hover:underline shrink-0">Delete</button>
+              </form>
             </li>
           {/each}
         </ul>

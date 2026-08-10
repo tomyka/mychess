@@ -25,4 +25,18 @@ describe('repertoires page', () => {
     render(Repertoires, { props: { data: { repertoires: [], assignedRepertoires: assigned } } });
     expect(screen.queryByText(/Ask your coach to assign one/i)).toBeNull();
   });
+
+  it('shows a delete form with the repertoire id for each owned repertoire', () => {
+    const owned = [{ id: 'r1', name: 'French Defense', color: '#4f46e5', moves: [{ count: 12 }] }];
+    render(Repertoires, { props: { data: { repertoires: owned, assignedRepertoires: [] } } });
+    const form = document.querySelector('form[action="?/delete"]') as HTMLFormElement;
+    expect(form).toBeTruthy();
+    expect((form.querySelector('input[name="rep_id"]') as HTMLInputElement).value).toBe('r1');
+    expect(screen.getByRole('button', { name: /delete/i })).toBeTruthy();
+  });
+
+  it('does not show a delete form in the assigned-by-coach section', () => {
+    render(Repertoires, { props: { data: { repertoires: [], assignedRepertoires: assigned } } });
+    expect(document.querySelector('form[action="?/delete"]')).toBeNull();
+  });
 });
