@@ -35,6 +35,13 @@ describe('repertoires page', () => {
     expect(screen.getByRole('button', { name: /delete/i })).toBeTruthy();
   });
 
+  it('links an owned repertoire to its practice page, not a nonexistent /repertoires/[id] route', () => {
+    const owned = [{ id: 'r1', name: 'French Defense', color: '#4f46e5', moves: [{ count: 12 }] }];
+    render(Repertoires, { props: { data: { repertoires: owned, assignedRepertoires: [] } } });
+    const link = screen.getByText('French Defense').closest('a') as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/practice/r1');
+  });
+
   it('does not show a delete form in the assigned-by-coach section', () => {
     render(Repertoires, { props: { data: { repertoires: [], assignedRepertoires: assigned } } });
     expect(document.querySelector('form[action="?/delete"]')).toBeNull();
