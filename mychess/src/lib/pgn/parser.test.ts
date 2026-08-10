@@ -49,6 +49,33 @@ describe('parsePgn', () => {
     expect(branchReplies.sort()).toEqual(['c5', 'e5']);
   });
 
+  it('splits multiple games on CRLF line endings, not just LF', () => {
+    // Exports from ChessBase/Chess Publisher etc. commonly use \r\n. The
+    // blank-line-before-"[" game separator must not assume bare \n\n, or
+    // every game in the file gets swallowed into one and their movetext
+    // gets nonsensically concatenated and replayed as a single game.
+    const pgn = [
+      '[Event "Game One"]',
+      '[White "Alice"]',
+      '[Black "Bob"]',
+      '',
+      '1. e4 e5 2. Nf3 Nc6 1-0',
+      '',
+      '[Event "Game Two"]',
+      '[White "Carol"]',
+      '[Black "Dave"]',
+      '',
+      '1. d4 d5 2. c4 e6 1-0'
+    ].join('\r\n');
+
+    const games = parsePgn(pgn);
+    expect(games).toHaveLength(2);
+    expect(games[0].headers['Event']).toBe('Game One');
+    expect(games[0].moves.map((m) => m.san)).toEqual(['e4', 'e5', 'Nf3', 'Nc6']);
+    expect(games[1].headers['Event']).toBe('Game Two');
+    expect(games[1].moves.map((m) => m.san)).toEqual(['d4', 'd5', 'c4', 'e6']);
+  });
+
   it('each move has correct parentFen and fen', () => {
     const pgn = `1. e4 e5 *`;
     const games = parsePgn(pgn);

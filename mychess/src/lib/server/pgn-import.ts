@@ -122,8 +122,12 @@ async function writeMoves(
   // with every FEN in this chunk crammed into the query string can blow past
   // a proxy's URL-length limit — chunk by character budget, not row count,
   // since a fixed row count doesn't account for how long individual FENs are.
+  // 6000 stays comfortably under typical proxy limits (~8KB) while cutting
+  // round-trips ~4x vs. the previous 1500 budget — a large multi-chapter
+  // import (thousands of unique positions) was serializing hundreds of tiny
+  // sequential SELECTs here, the dominant cost in a slow import.
   const fenToId = new Map<string, string>();
-  for (const chunk of chunkByLength(uniqueFens, 1500)) {
+  for (const chunk of chunkByLength(uniqueFens, 6000)) {
     const { data: rows, error } = await supabase.from('positions').select('id, fen').in('fen', chunk);
     if (error) return fail(`Failed to load positions: ${error.message}`);
     for (const row of rows ?? []) fenToId.set(row.fen, row.id);

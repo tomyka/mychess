@@ -119,7 +119,11 @@ function parseMovetext(movetext: string, rootFen: string): ParsedMove[] {
  */
 export function parsePgn(pgn: string): ParsedGame[] {
   const games: ParsedGame[] = [];
-  const blocks = pgn.trim().split(/\n\n(?=\[)/);
+  // Exports from ChessBase/Chess Publisher etc. commonly use CRLF, in which
+  // case the separator between games is "\r\n\r\n" — a bare \n\n never
+  // matches inside that, so every game in the file would otherwise be
+  // swallowed into one and have its movetext nonsensically concatenated.
+  const blocks = pgn.trim().split(/\r?\n\r?\n(?=\[)/);
 
   for (const block of blocks) {
     try {
