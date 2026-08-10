@@ -11,6 +11,42 @@ export type MoveRow = {
   annotation: string | null;
 };
 
+/**
+ * Keeps only the prefix of each root-to-leaf line in `moves` up to
+ * `maxPlayerMoves` of the studied color's own moves. A reference/theory PGN
+ * can bury a full illustrative "model game" inside one otherwise-normal
+ * variation, stretching a repertoire's level count to match that one
+ * outlier line — this caps it at import time instead. A branch that
+ * diverges *before* the cap is reached is kept intact even if a sibling
+ * branch runs long; only the edge that would push a path over the cap, and
+ * everything reachable only through it, is dropped.
+ */
+export function capVariationDepth(moves: MoveRow[], maxPlayerMoves: number): MoveRow[] {
+  const byFromFen = new Map<string, MoveRow[]>();
+  const toFens = new Set<string>();
+  for (const m of moves) {
+    const list = byFromFen.get(m.fromFen) ?? [];
+    list.push(m);
+    byFromFen.set(m.fromFen, list);
+    toFens.add(m.toFen);
+  }
+  const fromFens = new Set(moves.map((m) => m.fromFen));
+  const roots = Array.from(fromFens).filter((fen) => !toFens.has(fen));
+
+  const kept = new Set<MoveRow>();
+  function walk(fen: string, playerMoveCount: number) {
+    for (const move of byFromFen.get(fen) ?? []) {
+      const nextCount = playerMoveCount + (move.is_player_turn ? 1 : 0);
+      if (nextCount > maxPlayerMoves) continue;
+      kept.add(move);
+      walk(move.toFen, nextCount);
+    }
+  }
+  for (const root of roots) walk(root, 0);
+
+  return moves.filter((m) => kept.has(m));
+}
+
 export type ImportChapter = {
   name: string;
   moves: MoveRow[];
@@ -43,10 +79,16 @@ export function chapterName(headers: Record<string, string>, index: number): str
  * Turns PGN text + a chosen studied color into one import chapter per game
  * in the file — each game's moves stay in their own chapter rather than
  * merging into a shared tree, since $lib/server/pgn-import.ts creates one
- * repertoire per chapter when a PGN contains more than one game. Pure — no
- * I/O — so it's directly testable without touching Supabase.
+ * repertoire per chapter when a PGN contains more than one game. Each
+ * chapter's lines are capped at `maxVariationMoves` of the studied color's
+ * own moves (default 20 — see `capVariationDepth`). Pure — no I/O — so it's
+ * directly testable without touching Supabase.
  */
-export function planMultiImport(pgnText: string, color: 'white' | 'black'): MultiImportPlan {
+export function planMultiImport(
+  pgnText: string,
+  color: 'white' | 'black',
+  maxVariationMoves = 20
+): MultiImportPlan {
   const games = parsePgn(pgnText);
 
   const chapters: ImportChapter[] = games.map((game, index) => {
@@ -61,7 +103,7 @@ export function planMultiImport(pgnText: string, color: 'white' | 'black'): Mult
     const opening = detectOpening(game.moves.map((m) => m.san), ECO_OPENINGS);
     return {
       name: chapterName(game.headers, index),
-      moves,
+      moves: capVariationDepth(moves, maxVariationMoves),
       ecoCode: opening?.code ?? null,
       ecoName: opening?.name ?? null
     };

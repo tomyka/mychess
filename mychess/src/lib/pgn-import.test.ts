@@ -1,5 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { planMultiImport, chapterName, planGameImport, resolvePlayerColor } from './pgn-import';
+import {
+  planMultiImport,
+  chapterName,
+  planGameImport,
+  resolvePlayerColor,
+  capVariationDepth,
+  type MoveRow
+} from './pgn-import';
+
+function move(fromFen: string, toFen: string, san: string, isPlayerTurn: boolean): MoveRow {
+  return { fromFen, toFen, san, move_number: 0, is_player_turn: isPlayerTurn, annotation: null };
+}
 
 describe('planMultiImport', () => {
   it('returns an error for a PGN with no valid games', () => {
@@ -65,6 +76,80 @@ describe('planMultiImport', () => {
     if ('error' in result) throw new Error('expected chapters, got error: ' + result.error);
     expect(result[0].ecoCode).toBe('C20');
     expect(result[1].ecoCode).toBeNull();
+  });
+
+  // A knight shuffle (out and back) is legal indefinitely — good for a
+  // synthetic PGN longer than any real cap under test.
+  function knightShufflePgn(fullMoves: number): string {
+    return Array.from({ length: fullMoves }, (_, i) => {
+      const out = i % 2 === 0;
+      return `${i + 1}. ${out ? 'Nf3 Nf6' : 'Ng1 Ng8'}`;
+    }).join(' ');
+  }
+
+  it('caps each chapter to 20 player moves by default', () => {
+    const result = planMultiImport(`${knightShufflePgn(25)} *`, 'white');
+    if ('error' in result) throw new Error('expected chapters, got error: ' + result.error);
+    const playerMoves = result[0].moves.filter((m) => m.is_player_turn);
+    expect(playerMoves).toHaveLength(20);
+  });
+
+  it('honors a custom max-variation-moves cap', () => {
+    const result = planMultiImport(`${knightShufflePgn(25)} *`, 'white', 5);
+    if ('error' in result) throw new Error('expected chapters, got error: ' + result.error);
+    const playerMoves = result[0].moves.filter((m) => m.is_player_turn);
+    expect(playerMoves).toHaveLength(5);
+  });
+});
+
+describe('capVariationDepth', () => {
+  it('leaves a variation under the cap untouched', () => {
+    const moves = [move('a', 'b', 'e4', true), move('b', 'c', 'e5', false)];
+    expect(capVariationDepth(moves, 5)).toEqual(moves);
+  });
+
+  it('drops moves past the cap on a single linear line', () => {
+    const moves = [
+      move('a', 'b', 'e4', true),
+      move('b', 'c', 'e5', false),
+      move('c', 'd', 'Nf3', true),
+      move('d', 'e', 'Nc6', false)
+    ];
+    const result = capVariationDepth(moves, 1);
+    expect(result.map((m) => m.san)).toEqual(['e4', 'e5']);
+  });
+
+  it('keeps a sibling branch that diverges before the cap, even though another branch is deep', () => {
+    // From position P: one branch (e5) stops immediately (short), the other
+    // (c5) continues on for several more of the player's own moves.
+    const moves = [
+      move('start', 'p', 'e4', true),
+      move('p', 'short-end', 'e5', false),
+      move('p', 'q', 'c5', false),
+      move('q', 'r', 'Nf3', true),
+      move('r', 's', 'd6', false),
+      move('s', 't', 'd4', true)
+    ];
+    const result = capVariationDepth(moves, 1);
+    const sans = result.map((m) => m.san);
+    expect(sans).toContain('e5'); // short branch survives — it never exceeded the cap
+    expect(sans).toContain('c5'); // divergence point itself is still move 1, kept
+    expect(sans).not.toContain('Nf3'); // this is the player's 2nd move — past the cap
+    expect(sans).not.toContain('d4');
+  });
+
+  it('only counts the studied color\'s own moves toward the cap', () => {
+    const moves = [
+      move('a', 'b', 'e4', true),
+      move('b', 'c', 'e5', false),
+      move('c', 'd', 'Nf3', true),
+      move('d', 'e', 'Nc6', false),
+      move('e', 'f', 'Bb5', true)
+    ];
+    const result = capVariationDepth(moves, 2);
+    // 2 player moves allowed (e4, Nf3) — their replies (e5, Nc6) stay too,
+    // but the 3rd player move (Bb5) is dropped.
+    expect(result.map((m) => m.san)).toEqual(['e4', 'e5', 'Nf3', 'Nc6']);
   });
 });
 

@@ -43,9 +43,15 @@ function chunkByLength(values: string[], maxChars: number): string[][] {
  */
 export async function importPgn(
   supabase: SupabaseClient,
-  params: { playerId: string; name: string; color: 'white' | 'black'; pgnText: string }
+  params: {
+    playerId: string;
+    name: string;
+    color: 'white' | 'black';
+    pgnText: string;
+    maxVariationMoves?: number;
+  }
 ): Promise<ImportResult> {
-  const plan = planMultiImport(params.pgnText, params.color);
+  const plan = planMultiImport(params.pgnText, params.color, params.maxVariationMoves);
   if ('error' in plan) return { repertoireIds: null, gameCount: null, error: plan.error };
 
   const repertoireIds: string[] = [];
@@ -56,7 +62,8 @@ export async function importPgn(
       color: params.color,
       ecoCode: chapter.ecoCode,
       ecoName: chapter.ecoName,
-      moves: chapter.moves
+      moves: chapter.moves,
+      maxVariationMoves: params.maxVariationMoves ?? 20
     });
     if (result.error) {
       // Don't leave a partial set of chapters behind — roll back every
@@ -98,7 +105,15 @@ export async function importGames(
 /** Shared write path: create the repertoire, then chunk-upsert positions and moves into its tree. */
 async function writeMoves(
   supabase: SupabaseClient,
-  params: { playerId: string; name: string; color: 'white' | 'black'; ecoCode: string | null; ecoName: string | null; moves: MoveRow[] }
+  params: {
+    playerId: string;
+    name: string;
+    color: 'white' | 'black';
+    ecoCode: string | null;
+    ecoName: string | null;
+    moves: MoveRow[];
+    maxVariationMoves?: number;
+  }
 ): Promise<{ repertoireId: string | null; error: string | null }> {
   const { data: rep, error: repErr } = await supabase
     .from('repertoires')
@@ -107,7 +122,8 @@ async function writeMoves(
       name: params.name,
       color: params.color,
       eco_code: params.ecoCode,
-      eco_name: params.ecoName
+      eco_name: params.ecoName,
+      max_variation_moves: params.maxVariationMoves ?? 20
     })
     .select()
     .single();

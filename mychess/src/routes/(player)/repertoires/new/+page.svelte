@@ -6,6 +6,7 @@
   let name = $state('');
   let color = $state<'white' | 'black'>('white');
   let pgnText = $state('');
+  let maxVariationMoves = $state(20);
   let fileError = $state('');
   let fileName = $state('');
 
@@ -87,6 +88,15 @@
         {#if fileError}
           <p class="text-red-600 text-sm mt-1">{fileError}</p>
         {/if}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1" for="max_variation_moves">Max moves per line</label>
+        <input id="max_variation_moves" name="max_variation_moves" type="number" min="1" step="1" bind:value={maxVariationMoves}
+               class="w-24 rounded-lg px-4 py-2.5 border border-gray-300 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <p class="text-xs text-gray-400 mt-1">
+          Caps how deep any single line goes. Handy for reference/study PGNs that bury a full illustrative game inside a variation.
+        </p>
       </div>
 
       <button type="submit"
