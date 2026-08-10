@@ -7,17 +7,10 @@ import NewRepertoire from './+page.svelte';
 afterEach(() => cleanup());
 
 describe('new repertoire page', () => {
-  it('renders the form fields', () => {
-    render(NewRepertoire, { props: { form: null } });
-    expect(screen.getByLabelText('Repertoire Name')).toBeTruthy();
-    expect(screen.getByText('White')).toBeTruthy();
-    expect(screen.getByText('Black')).toBeTruthy();
-    expect(screen.getByLabelText('Paste PGN text')).toBeTruthy();
-    expect(screen.getByLabelText('…or upload a .pgn file')).toBeTruthy();
-  });
-
-  it('shows a form error message when present', () => {
-    render(NewRepertoire, { props: { form: { error: 'No valid games found in PGN' } } });
-    expect(screen.getByText('No valid games found in PGN')).toBeTruthy();
-  });
+	it('renders the heading and delegates to PgnImportForm', () => {
+		render(NewRepertoire);
+		expect(screen.getByRole('heading', { name: 'Create Repertoire' })).toBeTruthy();
+		expect(screen.getByLabelText('Repertoire Name')).toBeTruthy();
+		expect(screen.getByLabelText('Paste PGN text')).toBeTruthy();
+	});
 });
