@@ -17,10 +17,11 @@ export type RepertoireProgressSummary = RepertoireProgress & {
 // past the cutoff gets an undercounted variation set, deflating its
 // computed level cap below a level it has genuinely already reached —
 // surfacing as that repertoire showing "Mastered" here while the detail
-// page (which only ever queries one repertoire's moves at a time, always
-// well under the cap) correctly shows its real, regular level. `.order`
-// makes the pagination deterministic — `.range` alone has no defined
-// traversal order to page through without it.
+// page shows its real, regular level (the detail page's own query needed
+// the identical pagination fix — see `loadRepertoireVariations` in
+// `practice-repertoire.ts` — since a single large repertoire can exceed
+// the cap on its own). `.order` makes the pagination deterministic —
+// `.range` alone has no defined traversal order to page through without it.
 const MOVES_PAGE_SIZE = 1000;
 
 async function fetchAllMoves(supabase: SupabaseClient, repIds: string[]): Promise<any[]> {

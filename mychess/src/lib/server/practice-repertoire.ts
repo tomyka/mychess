@@ -5,6 +5,35 @@ import { enumerateVariations, type RawMoveRow, type Variation } from '$lib/maste
 
 export type PracticeRepertoire = { id: string; name: string; color: string };
 
+// Supabase/PostgREST caps an unbounded select at `max_rows` (1000, see
+// supabase/config.toml) and truncates silently past that — no error, just
+// fewer rows than actually exist. A single large repertoire can exceed this
+// on its own; an incomplete move set shatters the tree `enumerateVariations`
+// reconstructs into many short, disconnected fragments, producing bogus
+// level counts and tasks that don't correspond to real opening lines. See
+// the identical fix in `repertoire-progress.ts`'s `fetchAllMoves`. `.order`
+// makes the pagination deterministic — `.range` alone has no defined
+// traversal order to page through without it.
+const MOVES_PAGE_SIZE = 1000;
+
+async function fetchAllMoves(supabase: SupabaseClient, repertoireId: string): Promise<any[]> {
+	const rows: any[] = [];
+	for (let offset = 0; ; offset += MOVES_PAGE_SIZE) {
+		const { data, error: err } = await supabase
+			.from('moves')
+			.select(
+				'id, san, is_player_turn, from_position, to_position, from_pos:from_position(fen), to_pos:to_position(fen)'
+			)
+			.eq('repertoire_id', repertoireId)
+			.order('id', { ascending: true })
+			.range(offset, offset + MOVES_PAGE_SIZE - 1);
+		if (err) throw err;
+		rows.push(...(data ?? []));
+		if (!data || data.length < MOVES_PAGE_SIZE) break;
+	}
+	return rows;
+}
+
 /**
  * Loads a repertoire a player can access (owned or coach-assigned) plus its
  * enumerated variations, or throws a 404 — the same authorization + move
@@ -22,14 +51,9 @@ export async function loadRepertoireVariations(
 	_userId: string,
 	repertoireId: string
 ): Promise<{ repertoire: PracticeRepertoire; variations: Variation[] }> {
-	const [{ data: repertoire }, { data: rawMoves }] = await Promise.all([
+	const [{ data: repertoire }, rawMoves] = await Promise.all([
 		supabase.from('repertoires').select('id, name, color').eq('id', repertoireId).maybeSingle(),
-		supabase
-			.from('moves')
-			.select(
-				'id, san, is_player_turn, from_position, to_position, from_pos:from_position(fen), to_pos:to_position(fen)'
-			)
-			.eq('repertoire_id', repertoireId)
+		fetchAllMoves(supabase, repertoireId)
 	]);
 
 	if (!repertoire) {
