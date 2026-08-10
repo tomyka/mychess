@@ -11,45 +11,67 @@ export type MoveRow = {
   annotation: string | null;
 };
 
-export type ImportPlan =
-  | { gameCount: number; moves: MoveRow[]; ecoCode: string | null; ecoName: string | null }
-  | { error: string };
+export type ImportChapter = {
+  name: string;
+  moves: MoveRow[];
+  ecoCode: string | null;
+  ecoName: string | null;
+};
+
+export type MultiImportPlan = ImportChapter[] | { error: string };
+
+/** PGN's own placeholder for an unset header ("?") never counts as usable text. */
+function usableHeader(value: string | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed && trimmed !== '?' ? trimmed : null;
+}
 
 /**
- * Turns PGN text + a chosen studied color into the exact move rows to write.
- * Pure — no I/O — so it's directly testable without touching Supabase. The
- * IO layer in $lib/server/pgn-import.ts calls this before writing anything.
+ * The label for one game/chapter within a multi-game PGN: Event first (most
+ * export tools put a real title there), falling back to White (some export
+ * tools — e.g. ChessBase reference/study files — put the chapter title
+ * there instead, with Black hardcoded to a fixed boilerplate value),
+ * falling back to a plain ordinal when neither holds anything ("1-indexed
+ * game N" — used for header-less PGNs, or ones where White/Black are
+ * simply absent).
  */
-export function planImport(pgnText: string, color: 'white' | 'black'): ImportPlan {
+export function chapterName(headers: Record<string, string>, index: number): string {
+  return usableHeader(headers.Event) ?? usableHeader(headers.White) ?? `Game ${index + 1}`;
+}
+
+/**
+ * Turns PGN text + a chosen studied color into one import chapter per game
+ * in the file — each game's moves stay in their own chapter rather than
+ * merging into a shared tree, since $lib/server/pgn-import.ts creates one
+ * repertoire per chapter when a PGN contains more than one game. Pure — no
+ * I/O — so it's directly testable without touching Supabase.
+ */
+export function planMultiImport(pgnText: string, color: 'white' | 'black'): MultiImportPlan {
   const games = parsePgn(pgnText);
 
-  const moves: MoveRow[] = [];
-  for (const game of games) {
-    for (const move of game.moves) {
-      moves.push({
-        fromFen: move.parentFen,
-        toFen: move.fen,
-        san: move.san,
-        move_number: move.ply,
-        is_player_turn: move.color === color,
-        annotation: move.annotation ?? null
-      });
-    }
-  }
+  const chapters: ImportChapter[] = games.map((game, index) => {
+    const moves: MoveRow[] = game.moves.map((move) => ({
+      fromFen: move.parentFen,
+      toFen: move.fen,
+      san: move.san,
+      move_number: move.ply,
+      is_player_turn: move.color === color,
+      annotation: move.annotation ?? null
+    }));
+    const opening = detectOpening(game.moves.map((m) => m.san), ECO_OPENINGS);
+    return {
+      name: chapterName(game.headers, index),
+      moves,
+      ecoCode: opening?.code ?? null,
+      ecoName: opening?.name ?? null
+    };
+  });
 
-  if (moves.length === 0) {
+  if (chapters.length === 0) {
     return { error: 'No valid games found in PGN' };
   }
 
-  const firstGameMoves = games.find((g) => g.moves.length > 0)?.moves ?? [];
-  const opening = detectOpening(firstGameMoves.map((m) => m.san), ECO_OPENINGS);
-
-  return {
-    gameCount: games.length,
-    moves,
-    ecoCode: opening?.code ?? null,
-    ecoName: opening?.name ?? null
-  };
+  return chapters;
 }
 
 /** Which side `username` played in a game, matched against the PGN's White/Black headers (case-insensitive). */

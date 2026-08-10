@@ -1,77 +1,99 @@
 import { describe, it, expect } from 'vitest';
-import { planImport, planGameImport, resolvePlayerColor } from './pgn-import';
+import { planMultiImport, chapterName, planGameImport, resolvePlayerColor } from './pgn-import';
 
-describe('planImport', () => {
+describe('planMultiImport', () => {
   it('returns an error for a PGN with no valid games', () => {
-    const result = planImport('not a real pgn', 'white');
+    const result = planMultiImport('not a real pgn', 'white');
     expect(result).toEqual({ error: 'No valid games found in PGN' });
+  });
+
+  it('returns one chapter for a single-game PGN', () => {
+    const result = planMultiImport('1. e4 e5 *', 'white');
+    if ('error' in result) throw new Error('expected chapters, got error: ' + result.error);
+    expect(result).toHaveLength(1);
   });
 
   it('marks white moves as is_player_turn for a white repertoire', () => {
-    const result = planImport('1. e4 e5 *', 'white');
-    if ('error' in result) throw new Error('expected moves, got error: ' + result.error);
-    expect(result.gameCount).toBe(1);
-    expect(result.moves).toHaveLength(2);
-    expect(result.moves[0]).toMatchObject({ san: 'e4', move_number: 1, is_player_turn: true });
-    expect(result.moves[1]).toMatchObject({ san: 'e5', move_number: 2, is_player_turn: false });
+    const result = planMultiImport('1. e4 e5 *', 'white');
+    if ('error' in result) throw new Error('expected chapters, got error: ' + result.error);
+    expect(result[0].moves).toHaveLength(2);
+    expect(result[0].moves[0]).toMatchObject({ san: 'e4', move_number: 1, is_player_turn: true });
+    expect(result[0].moves[1]).toMatchObject({ san: 'e5', move_number: 2, is_player_turn: false });
   });
 
   it('marks black moves as is_player_turn for a black repertoire', () => {
-    const result = planImport('1. e4 e5 *', 'black');
-    if ('error' in result) throw new Error('expected moves, got error: ' + result.error);
-    expect(result.moves[0]).toMatchObject({ san: 'e4', is_player_turn: false });
-    expect(result.moves[1]).toMatchObject({ san: 'e5', is_player_turn: true });
+    const result = planMultiImport('1. e4 e5 *', 'black');
+    if ('error' in result) throw new Error('expected chapters, got error: ' + result.error);
+    expect(result[0].moves[0]).toMatchObject({ san: 'e4', is_player_turn: false });
+    expect(result[0].moves[1]).toMatchObject({ san: 'e5', is_player_turn: true });
   });
 
   it('carries the from/to FEN pair for each move', () => {
-    const result = planImport('1. e4 e5 *', 'white');
-    if ('error' in result) throw new Error('expected moves, got error: ' + result.error);
-    expect(result.moves[0].fromFen).toBe('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
-    expect(result.moves[0].toFen).toBe('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1');
-    expect(result.moves[1].fromFen).toBe(result.moves[0].toFen);
+    const result = planMultiImport('1. e4 e5 *', 'white');
+    if ('error' in result) throw new Error('expected chapters, got error: ' + result.error);
+    const moves = result[0].moves;
+    expect(moves[0].fromFen).toBe('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+    expect(moves[0].toFen).toBe('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1');
+    expect(moves[1].fromFen).toBe(moves[0].toFen);
   });
 
   it('returns an error for a PGN with headers but no actual moves', () => {
-    const result = planImport('[Event "test"]\n\n*', 'white');
+    const result = planMultiImport('[Event "test"]\n\n*', 'white');
     expect(result).toEqual({ error: 'No valid games found in PGN' });
   });
 
-  it('merges two games sharing an opening into one set of move rows with matching FENs', () => {
+  it('keeps each game as its own chapter rather than merging them into one tree', () => {
     const twoGames = '[Event "A"]\n\n1. e4 e5 *\n\n[Event "B"]\n\n1. e4 e5 2. Nf3 *';
-    const result = planImport(twoGames, 'white');
-    if ('error' in result) throw new Error('expected moves, got error: ' + result.error);
-    expect(result.gameCount).toBe(2);
-    // Both games start with the same e4/e5 sequence — the shared edges must
-    // produce byte-identical FEN pairs, since a later IO layer deduplicates
-    // by upserting on (repertoire_id, from_position, san).
-    const firstGameE4 = result.moves[0];
-    const secondGameE4 = result.moves.find((m, i) => i > 1 && m.san === 'e4');
-    expect(secondGameE4).toBeDefined();
-    expect(secondGameE4!.fromFen).toBe(firstGameE4.fromFen);
-    expect(secondGameE4!.toFen).toBe(firstGameE4.toFen);
+    const result = planMultiImport(twoGames, 'white');
+    if ('error' in result) throw new Error('expected chapters, got error: ' + result.error);
+    expect(result).toHaveLength(2);
+    expect(result[0].moves).toHaveLength(2); // e4 e5
+    expect(result[1].moves).toHaveLength(3); // e4 e5 Nf3
+  });
+
+  it('names each chapter from its own headers', () => {
+    const twoGames = '[Event "Line A"]\n\n1. e4 e5 *\n\n[Event "Line B"]\n\n1. d4 d5 *';
+    const result = planMultiImport(twoGames, 'white');
+    if ('error' in result) throw new Error('expected chapters, got error: ' + result.error);
+    expect(result[0].name).toBe('Line A');
+    expect(result[1].name).toBe('Line B');
+  });
+
+  it('detects opening per chapter independently', () => {
+    const twoGames = '[Event "A"]\n\n1. e4 e5 *\n\n[Event "B"]\n\n1. a3 a5 *';
+    const result = planMultiImport(twoGames, 'white');
+    if ('error' in result) throw new Error('expected chapters, got error: ' + result.error);
+    expect(result[0].ecoCode).toBe('C20');
+    expect(result[1].ecoCode).toBeNull();
   });
 });
 
-describe('planImport opening detection', () => {
-  it('detects a known opening from the first game', () => {
-    const result = planImport('1. e4 e5 *', 'white');
-    if ('error' in result) throw new Error('expected moves, got error: ' + result.error);
-    expect(result.ecoCode).toBe('C20');
-    expect(result.ecoName).toBe("King's Pawn Game");
+describe('chapterName', () => {
+  it('uses the Event header when present and meaningful', () => {
+    expect(chapterName({ Event: 'Spanish Four Knights 4 Bb5 Bd6' }, 0)).toBe('Spanish Four Knights 4 Bb5 Bd6');
   });
 
-  it('leaves ecoCode/ecoName null when no opening matches', () => {
-    const result = planImport('1. a3 a5 *', 'white');
-    if ('error' in result) throw new Error('expected moves, got error: ' + result.error);
-    expect(result.ecoCode).toBeNull();
-    expect(result.ecoName).toBeNull();
+  it('falls back to White when Event is missing', () => {
+    expect(chapterName({ White: 'Spanish Four Knights 4 Bb5 Bd6', Black: 'Reference File' }, 0)).toBe(
+      'Spanish Four Knights 4 Bb5 Bd6'
+    );
   });
 
-  it('falls back to the first game with real moves when an earlier game is header-only', () => {
-    const pgn = '[Event "A"]\n\n*\n\n[Event "B"]\n\n1. e4 e5 *';
-    const result = planImport(pgn, 'white');
-    if ('error' in result) throw new Error('expected moves, got error: ' + result.error);
-    expect(result.ecoCode).toBe('C20');
+  it('falls back to White when Event is the PGN placeholder "?"', () => {
+    expect(chapterName({ Event: '?', White: 'Chapter Two' }, 1)).toBe('Chapter Two');
+  });
+
+  it('falls back to a plain ordinal when neither Event nor White is usable', () => {
+    expect(chapterName({ Event: '?', White: '?' }, 2)).toBe('Game 3');
+  });
+
+  // A real tournament-games PGN has actual player names in White, which
+  // counts as "usable" text — this feature is scoped to the manual PGN
+  // upload flow (opening theory/reference files), not the auto "my games"
+  // import, so a player's name ending up as a chapter label here is an
+  // accepted edge case rather than something worth special-casing.
+  it('uses White as-is even when it looks like a player name, not a chapter title', () => {
+    expect(chapterName({ Event: '?', White: 'Carlsen, M', Black: 'Nakamura, H' }, 2)).toBe('Carlsen, M');
   });
 });
 

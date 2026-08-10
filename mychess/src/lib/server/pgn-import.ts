@@ -1,10 +1,10 @@
 // mychess/src/lib/server/pgn-import.ts
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { planImport, planGameImport, type MoveRow } from '$lib/pgn-import';
+import { planMultiImport, planGameImport, type MoveRow } from '$lib/pgn-import';
 
 export type ImportResult =
-  | { repertoireId: string; gameCount: number; error: null }
-  | { repertoireId: null; gameCount: null; error: string };
+  | { repertoireIds: string[]; gameCount: number; error: null }
+  | { repertoireIds: null; gameCount: null; error: string };
 
 export type GameImportResult = { repertoireId: string | null; gameCount: number; error: string | null };
 
@@ -31,24 +31,43 @@ function chunkByLength(values: string[], maxChars: number): string[][] {
   return chunks;
 }
 
-/** Creates a repertoire from PGN text and imports every move into its tree. */
+/**
+ * Creates a repertoire from PGN text and imports every move into its tree.
+ * A PGN containing more than one game creates one repertoire per game
+ * instead of merging them into a shared tree — each named "<name> — <chapter
+ * title>" from that game's own headers (see `chapterName`) — since a
+ * multi-chapter file (an opening reference/study export, most commonly) is
+ * really several distinct lines bundled together, not one continuous line.
+ * A single-game PGN keeps the exact behavior it always had: one repertoire
+ * named `params.name`, no suffix.
+ */
 export async function importPgn(
   supabase: SupabaseClient,
   params: { playerId: string; name: string; color: 'white' | 'black'; pgnText: string }
 ): Promise<ImportResult> {
-  const plan = planImport(params.pgnText, params.color);
-  if ('error' in plan) return { repertoireId: null, gameCount: null, error: plan.error };
+  const plan = planMultiImport(params.pgnText, params.color);
+  if ('error' in plan) return { repertoireIds: null, gameCount: null, error: plan.error };
 
-  const result = await writeMoves(supabase, {
-    playerId: params.playerId,
-    name: params.name,
-    color: params.color,
-    ecoCode: plan.ecoCode,
-    ecoName: plan.ecoName,
-    moves: plan.moves
-  });
-  if (result.error) return { repertoireId: null, gameCount: null, error: result.error };
-  return { repertoireId: result.repertoireId as string, gameCount: plan.gameCount, error: null };
+  const repertoireIds: string[] = [];
+  for (const chapter of plan) {
+    const result = await writeMoves(supabase, {
+      playerId: params.playerId,
+      name: plan.length > 1 ? `${params.name} — ${chapter.name}` : params.name,
+      color: params.color,
+      ecoCode: chapter.ecoCode,
+      ecoName: chapter.ecoName,
+      moves: chapter.moves
+    });
+    if (result.error) {
+      // Don't leave a partial set of chapters behind — roll back every
+      // repertoire this call already created before surfacing the error.
+      for (const id of repertoireIds) await supabase.from('repertoires').delete().eq('id', id);
+      return { repertoireIds: null, gameCount: null, error: result.error };
+    }
+    repertoireIds.push(result.repertoireId as string);
+  }
+
+  return { repertoireIds, gameCount: plan.length, error: null };
 }
 
 /**
