@@ -36,6 +36,16 @@ describe('accuracyTrend', () => {
 		expect(accuracyTrend(rows, null)).toEqual([{ bucket: '2026-07-27', correct: 2, wrong: 0 }]);
 	});
 
+	it('does not merge dates across a week boundary', () => {
+		// 2026-08-02 is a Sunday (end of the week starting 2026-07-27);
+		// 2026-08-03 is the following Monday (start of the next week).
+		const rows = [row('m1', true, '2026-08-02T09:00:00Z'), row('m2', true, '2026-08-03T09:00:00Z')];
+		expect(accuracyTrend(rows, null)).toEqual([
+			{ bucket: '2026-07-27', correct: 1, wrong: 0 },
+			{ bucket: '2026-08-03', correct: 1, wrong: 0 }
+		]);
+	});
+
 	it('returns an empty array for no rows', () => {
 		expect(accuracyTrend([], 30)).toEqual([]);
 	});
@@ -55,6 +65,28 @@ describe('mistakeHotspots', () => {
 		];
 		expect(mistakeHotspots(rows, labels, 10)).toEqual([
 			{ moveId: 'm1', missCount: 2, attemptCount: 2, label: '6...e5' },
+			{ moveId: 'm2', missCount: 1, attemptCount: 1, label: '6.Nf3' }
+		]);
+	});
+
+	it('breaks a miss-count tie by attempt count, descending', () => {
+		const rows = [
+			row('m1', false, '2026-08-01T00:00:00Z'),
+			row('m1', true, '2026-08-01T01:00:00Z'),
+			row('m2', false, '2026-08-01T00:00:00Z')
+		];
+		// Both m1 and m2 have missCount 1, but m1 has attemptCount 2 vs m2's 1.
+		expect(mistakeHotspots(rows, labels, 10)).toEqual([
+			{ moveId: 'm1', missCount: 1, attemptCount: 2, label: '6...e5' },
+			{ moveId: 'm2', missCount: 1, attemptCount: 1, label: '6.Nf3' }
+		]);
+	});
+
+	it('breaks a miss-count and attempt-count tie by moveId, ascending', () => {
+		const rows = [row('m2', false, '2026-08-01T00:00:00Z'), row('m1', false, '2026-08-01T00:00:00Z')];
+		// Both m1 and m2 have missCount 1, attemptCount 1 — moveId 'm1' < 'm2'.
+		expect(mistakeHotspots(rows, labels, 10)).toEqual([
+			{ moveId: 'm1', missCount: 1, attemptCount: 1, label: '6...e5' },
 			{ moveId: 'm2', missCount: 1, attemptCount: 1, label: '6.Nf3' }
 		]);
 	});
