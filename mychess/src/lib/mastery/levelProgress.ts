@@ -225,3 +225,45 @@ export function repertoireProgress(
 	const shape = repertoireShape(variations);
 	return repertoireProgressFromShape({ ...shape, totalLevels: Math.min(shape.totalLevels, maxLevel) }, row);
 }
+
+export type ReviewFreshness = 'fresh' | 'due-soon' | 'overdue';
+
+const FRESH_MAX_DAYS = 14;
+const DUE_SOON_MAX_DAYS = 30;
+
+/**
+ * How urgently a mastered repertoire needs a maintenance review — mastering
+ * every level isn't a finish line, since memory fades over time regardless
+ * of level. `null` (never reviewed since mastering) is treated as the most
+ * overdue state rather than "fresh", so a repertoire doesn't sit unreviewed
+ * forever just because it happened to be mastered before this feature
+ * existed.
+ */
+export function reviewFreshness(lastReviewedAt: string | null, now: Date): ReviewFreshness {
+	if (lastReviewedAt === null) return 'overdue';
+	const days = (now.getTime() - new Date(lastReviewedAt).getTime()) / (1000 * 60 * 60 * 24);
+	if (days < FRESH_MAX_DAYS) return 'fresh';
+	if (days < DUE_SOON_MAX_DAYS) return 'due-soon';
+	return 'overdue';
+}
+
+/**
+ * A shuffled sample of up to `sessionSize` distinct levels from 1..totalLevels
+ * — the sequence a maintenance review session walks through, one task per
+ * level, so a "quick refresher" touches a spread of the repertoire instead
+ * of drilling one level repeatedly. Every level, not just a slice, is a
+ * candidate — capped at `sessionSize` so refreshing a huge repertoire still
+ * takes minutes, not the length of the whole thing.
+ */
+export function pickMaintenanceLevels(
+	totalLevels: number,
+	sessionSize: number,
+	random: () => number = Math.random
+): number[] {
+	const levels = Array.from({ length: totalLevels }, (_, i) => i + 1);
+	for (let i = levels.length - 1; i > 0; i--) {
+		const j = Math.floor(random() * (i + 1));
+		[levels[i], levels[j]] = [levels[j], levels[i]];
+	}
+	return levels.slice(0, Math.min(sessionSize, levels.length));
+}

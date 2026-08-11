@@ -2,7 +2,7 @@
 import type { PageServerLoad } from './$types';
 import { requireAccount } from '$lib/server/auth';
 import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
-import { loadSyncedLevelProgress } from '$lib/server/level-progress';
+import { loadSyncedLevelProgress, getLastReviewedAt } from '$lib/server/level-progress';
 import { repertoireProgress } from '$lib/mastery/levelProgress';
 import { buildPracticeView } from '$lib/mastery/practice';
 
@@ -28,5 +28,10 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		(level === 'mastered' ? requestedLevel <= totalLevels : requestedLevel < level);
 	const reviewLevel = isValidReview ? requestedLevel : null;
 
-	return { repertoire, ...buildPracticeView(variations, row, reviewLevel, maxLevel) };
+	// Only relevant once mastered (see the "Repertoire Mastered" screen's
+	// maintenance-review control) — skip the extra round trip for every
+	// other load, which is the overwhelmingly common case.
+	const lastReviewedAt = level === 'mastered' ? await getLastReviewedAt(supabase, user!.id, repertoireId) : null;
+
+	return { repertoire, lastReviewedAt, ...buildPracticeView(variations, row, reviewLevel, maxLevel) };
 };

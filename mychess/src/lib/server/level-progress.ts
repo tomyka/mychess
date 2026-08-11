@@ -162,3 +162,42 @@ export async function applyPreviousLevelMistake(
 	});
 	return next ? { demoted, row: next } : null;
 }
+
+/** When this player last completed a maintenance review of a mastered repertoire, or `null` if never. */
+export async function getLastReviewedAt(
+	supabase: SupabaseClient,
+	playerId: string,
+	repertoireId: string
+): Promise<string | null> {
+	const { data } = await supabase
+		.from('level_progress')
+		.select('last_reviewed_at')
+		.eq('player_id', playerId)
+		.eq('repertoire_id', repertoireId)
+		.maybeSingle();
+	return data?.last_reviewed_at ?? null;
+}
+
+/**
+ * Records that a maintenance review session just finished — see
+ * `reviewFreshness`. A plain update, not routed through
+ * `mutateLevelProgress`'s optimistic-concurrency machinery: `last_reviewed_at`
+ * doesn't participate in the level/queue/version invariants that machinery
+ * protects (a maintenance review never touches level or queue), so a
+ * concurrent write to either can't corrupt this column or vice versa —
+ * Postgres's normal row-level locking is all that's needed here. Assumes a
+ * row already exists (only reachable from the Mastered screen, which
+ * requires one); silently no-ops otherwise via the `.eq` filters matching
+ * nothing.
+ */
+export async function recordMaintenanceReview(
+	supabase: SupabaseClient,
+	playerId: string,
+	repertoireId: string
+): Promise<void> {
+	await supabase
+		.from('level_progress')
+		.update({ last_reviewed_at: new Date().toISOString() })
+		.eq('player_id', playerId)
+		.eq('repertoire_id', repertoireId);
+}

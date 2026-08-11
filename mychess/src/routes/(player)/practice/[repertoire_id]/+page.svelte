@@ -8,6 +8,7 @@
 	import { untrack } from 'svelte';
 	import { levelTag } from '$lib/mastery/tags';
 	import type { PracticeView, QuizStep } from '$lib/mastery/practice';
+	import { reviewFreshness, pickMaintenanceLevels } from '$lib/mastery/levelProgress';
 
 	let { data } = $props<{ data: any }>();
 
@@ -97,6 +98,53 @@
 		}
 	}
 
+	// Maintenance review: once a repertoire is mastered, memory still fades —
+	// "Refresh now" on the Mastered screen starts a shuffled multi-level
+	// session through the SAME read-only review path a manual "review this
+	// past level" click already uses (reviewLevel !== null never reports to
+	// level_progress — see handleMove/nextAttempt). `maintenanceQueue` is the
+	// remaining levels to visit; non-null exactly while a session is active,
+	// which is what lets nextAttempt() tell an ordinary single-level review
+	// (cycle the same level indefinitely) apart from a maintenance session
+	// (advance through several distinct levels, then finish).
+	const MAINTENANCE_SESSION_SIZE = 6;
+	let maintenanceQueue = $state<number[] | null>(null);
+	let maintenanceTotal = $state(0);
+
+	function startMaintenanceSession() {
+		const levels = pickMaintenanceLevels(data.totalLevels, MAINTENANCE_SESSION_SIZE);
+		if (levels.length === 0) return;
+		maintenanceQueue = levels;
+		maintenanceTotal = levels.length;
+		goto(`/practice/${repertoireId}?level=${levels[0]}`);
+	}
+
+	async function finishMaintenanceSession() {
+		maintenanceQueue = null;
+		try {
+			await fetch('/api/practice/maintenance-review', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ repertoireId })
+			});
+		} catch {
+			// Best-effort — worst case the freshness badge doesn't update until
+			// the next successful session; nothing in the review itself is lost.
+		}
+		await goto(`/practice/${repertoireId}`);
+	}
+
+	const freshness = $derived(reviewFreshness(data.lastReviewedAt ?? null, new Date()));
+	const freshnessDisplay = $derived(
+		data.lastReviewedAt === null
+			? { label: '🔴 Never reviewed since mastering', color: 'text-red-600' }
+			: {
+					fresh: { label: '🟢 Fresh — reviewed recently', color: 'text-green-600' },
+					'due-soon': { label: '🟡 Getting stale', color: 'text-amber-600' },
+					overdue: { label: '🔴 Overdue for a refresh', color: 'text-red-600' }
+				}[freshness]
+	);
+
 	const REPLAY_STEP_MS = 550;
 	const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -112,6 +160,7 @@
 	}
 
 	function exitReview() {
+		maintenanceQueue = null;
 		goto(`/practice/${repertoireId}`);
 	}
 
@@ -455,6 +504,24 @@
 		const view = pendingReport ? await pendingReport : null;
 		pendingReport = null;
 		if (myToken !== resetToken) return; // superseded by a resetForAttempt() while we were awaiting
+
+		// A maintenance session cycles through several DISTINCT levels once
+		// each, then finishes — unlike an ordinary single-level review (below),
+		// which re-fetches another random task at the SAME level indefinitely
+		// until the player manually exits. No report is ever pending here
+		// (review is always read-only), so there's nothing to merge — just
+		// advance the queue or wrap up.
+		if (maintenanceQueue) {
+			const remaining = maintenanceQueue.slice(1);
+			if (remaining.length > 0) {
+				maintenanceQueue = remaining;
+				await goto(`/practice/${repertoireId}?level=${remaining[0]}`);
+			} else {
+				await finishMaintenanceSession();
+			}
+			return;
+		}
+
 		if (view) {
 			// The report already carries the fresh state — merge it in
 			// directly instead of re-fetching the same repertoire content via
@@ -533,7 +600,13 @@
 
 	{#if reviewLevel !== null}
 		<div class="mb-4 flex items-center justify-between bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2 text-sm">
-			<span class="text-indigo-700 font-medium">🔁 Reviewing Level {reviewLevel}</span>
+			{#if maintenanceQueue}
+				<span class="text-indigo-700 font-medium">
+					🔄 Refreshing your knowledge — {maintenanceTotal - maintenanceQueue.length + 1} of {maintenanceTotal}
+				</span>
+			{:else}
+				<span class="text-indigo-700 font-medium">🔁 Reviewing Level {reviewLevel}</span>
+			{/if}
 			<button onclick={exitReview} class="text-indigo-600 hover:underline">Exit review</button>
 		</div>
 	{/if}
@@ -550,6 +623,16 @@
 				Back to Repertoires
 			</a>
 			<div class="w-full max-w-sm text-left space-y-4">
+				<div class="p-4 bg-white border border-gray-200 rounded-2xl shadow-sm text-center space-y-2">
+					<p class="text-sm font-medium {freshnessDisplay.color}">{freshnessDisplay.label}</p>
+					<p class="text-xs text-gray-400">Mastering a repertoire isn't the finish line — memory fades over time.</p>
+					<button
+						onclick={startMaintenanceSession}
+						class="text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+					>
+						Refresh now
+					</button>
+				</div>
 				{@render practiceDepthControl()}
 				<LevelList totalLevels={data.totalLevels} currentLevel={data.level} reviewLevel={null} onselect={selectLevel} />
 			</div>

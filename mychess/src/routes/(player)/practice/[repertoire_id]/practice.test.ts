@@ -4,11 +4,16 @@ import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/sv
 import Practice from './+page.svelte';
 
 const invalidateAllMock = vi.fn();
-vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidateAll: (...args: any[]) => invalidateAllMock(...args) }));
+const gotoMock = vi.fn();
+vi.mock('$app/navigation', () => ({
+	goto: (...args: any[]) => gotoMock(...args),
+	invalidateAll: (...args: any[]) => invalidateAllMock(...args)
+}));
 
 afterEach(() => {
 	cleanup();
 	invalidateAllMock.mockClear();
+	gotoMock.mockClear();
 	vi.unstubAllGlobals();
 });
 
@@ -249,5 +254,79 @@ describe('practice detail page', () => {
 
 		await waitFor(() => expect(screen.getByText('nope')).toBeTruthy());
 		expect(invalidateAllMock).not.toHaveBeenCalled();
+	});
+
+	it('shows "never reviewed" when a mastered repertoire has no maintenance-review history', () => {
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white', practiceDepthLevels: 6 },
+					level: 'mastered',
+					totalVariations: 5,
+					totalLevels: 3,
+					attempt: null,
+					reviewLevel: null,
+					lastReviewedAt: null
+				}
+			}
+		});
+		expect(screen.getByText(/Never reviewed since mastering/i)).toBeTruthy();
+	});
+
+	it('shows "fresh" when the repertoire was reviewed recently', () => {
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white', practiceDepthLevels: 6 },
+					level: 'mastered',
+					totalVariations: 5,
+					totalLevels: 3,
+					attempt: null,
+					reviewLevel: null,
+					lastReviewedAt: new Date().toISOString()
+				}
+			}
+		});
+		expect(screen.getByText(/Fresh — reviewed recently/i)).toBeTruthy();
+	});
+
+	it('shows "overdue" once a maintenance review is long overdue', () => {
+		const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white', practiceDepthLevels: 6 },
+					level: 'mastered',
+					totalVariations: 5,
+					totalLevels: 3,
+					attempt: null,
+					reviewLevel: null,
+					lastReviewedAt: sixtyDaysAgo
+				}
+			}
+		});
+		expect(screen.getByText(/Overdue for a refresh/i)).toBeTruthy();
+	});
+
+	it('starts a maintenance review session by navigating to a random level', async () => {
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white', practiceDepthLevels: 6 },
+					level: 'mastered',
+					totalVariations: 5,
+					totalLevels: 3,
+					attempt: null,
+					reviewLevel: null,
+					lastReviewedAt: null
+				}
+			}
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Refresh now' }));
+
+		expect(gotoMock).toHaveBeenCalledTimes(1);
+		const url = gotoMock.mock.calls[0][0] as string;
+		expect(url).toMatch(/^\/practice\/r1\?level=[1-3]$/);
 	});
 });

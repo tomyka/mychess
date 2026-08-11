@@ -10,6 +10,8 @@ import {
 	repertoireShape,
 	repertoireProgressFromShape,
 	effectiveLevelCap,
+	reviewFreshness,
+	pickMaintenanceLevels,
 	type LevelProgressRow
 } from './levelProgress';
 import { taskKey } from './levels';
@@ -349,5 +351,60 @@ describe('repertoireProgressFromShape', () => {
 			levelTaskCount: 0,
 			levelSolvedCount: 0
 		});
+	});
+});
+
+describe('reviewFreshness', () => {
+	const now = new Date('2026-08-15T00:00:00Z');
+
+	it('treats never-reviewed as overdue, not fresh', () => {
+		expect(reviewFreshness(null, now)).toBe('overdue');
+	});
+
+	it('is fresh just under the fresh threshold', () => {
+		const lastReviewedAt = new Date('2026-08-02T00:00:00Z').toISOString(); // 13 days ago
+		expect(reviewFreshness(lastReviewedAt, now)).toBe('fresh');
+	});
+
+	it('is due-soon at exactly the fresh threshold', () => {
+		const lastReviewedAt = new Date('2026-08-01T00:00:00Z').toISOString(); // 14 days ago
+		expect(reviewFreshness(lastReviewedAt, now)).toBe('due-soon');
+	});
+
+	it('is overdue past the due-soon threshold', () => {
+		const lastReviewedAt = new Date('2026-07-01T00:00:00Z').toISOString(); // 45 days ago
+		expect(reviewFreshness(lastReviewedAt, now)).toBe('overdue');
+	});
+
+	it('is fresh immediately after reviewing', () => {
+		expect(reviewFreshness(now.toISOString(), now)).toBe('fresh');
+	});
+});
+
+describe('pickMaintenanceLevels', () => {
+	it('returns every level, in some order, when totalLevels is under the session size', () => {
+		const picked = pickMaintenanceLevels(4, 6, () => 0);
+		expect(picked.slice().sort((a, b) => a - b)).toEqual([1, 2, 3, 4]);
+	});
+
+	it('caps at sessionSize distinct levels when the repertoire has more', () => {
+		const picked = pickMaintenanceLevels(20, 6, () => 0);
+		expect(picked).toHaveLength(6);
+		expect(new Set(picked).size).toBe(6); // no repeats
+		for (const level of picked) {
+			expect(level).toBeGreaterThanOrEqual(1);
+			expect(level).toBeLessThanOrEqual(20);
+		}
+	});
+
+	it('returns an empty array for a zero-level repertoire', () => {
+		expect(pickMaintenanceLevels(0, 6)).toEqual([]);
+	});
+
+	it('shuffles using the injected random source', () => {
+		// random() always 0 -> Fisher-Yates walks the array end-to-start,
+		// always swapping with index 0, ending on [2, 3, 1].
+		const picked = pickMaintenanceLevels(3, 3, () => 0);
+		expect(picked).toEqual([2, 3, 1]);
 	});
 });
