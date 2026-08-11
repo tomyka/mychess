@@ -33,15 +33,5 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 	// other load, which is the overwhelmingly common case.
 	const lastReviewedAt = level === 'mastered' ? await getLastReviewedAt(supabase, user!.id, repertoireId) : null;
 
-	const view = buildPracticeView(variations, row, reviewLevel, maxLevel);
-
-	// TEMP DIAGNOSTIC — investigating a re-served already-cleared task
-	// (issue #50 follow-up #2). Remove once root-caused.
-	console.log('[practice/load diag2]', {
-		reviewLevel,
-		queueOrder: row?.queue?.map((e) => `${e.key.slice(0, 8)}:${e.status}`),
-		servedTaskKey: view.attempt?.taskKey?.slice(0, 8)
-	});
-
-	return { repertoire, lastReviewedAt, ...view };
+	return { repertoire, lastReviewedAt, ...buildPracticeView(variations, row, reviewLevel, maxLevel) };
 };
