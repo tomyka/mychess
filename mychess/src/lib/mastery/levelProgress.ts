@@ -15,6 +15,28 @@ export type RepertoireProgress = {
 	levelSolvedCount: number;
 };
 
+/**
+ * The part of a repertoire's progress that depends only on its move content
+ * (never on a player's `level_progress` row) — and, since moves are only
+ * ever written once at import and never edited afterward, never changes
+ * again for a given repertoire either. Safe to compute once and cache
+ * indefinitely (see `total_variations`/`total_levels`/`level1_task_count`
+ * on `repertoires`, written by `writeMoves` at import time).
+ */
+export type RepertoireShape = {
+	totalVariations: number;
+	totalLevels: number;
+	level1TaskCount: number;
+};
+
+export function repertoireShape(variations: Variation[]): RepertoireShape {
+	return {
+		totalVariations: variations.length,
+		totalLevels: levelCap(variations),
+		level1TaskCount: levelTaskVariations(variations, 1).length
+	};
+}
+
 const DEMOTION_THRESHOLD = 3;
 
 /** A freshly shuffled, all-pending queue for every task at `level`. */
@@ -145,31 +167,39 @@ export function resolvePreviousLevelMistake(
 }
 
 /**
- * Combines a repertoire's enumerated variations with its `level_progress`
- * row (or `null` if the player hasn't started it yet) into the summary both
- * `/practice` (the picker) and `/practice/[repertoire_id]` (the detail
- * screen) need. Read-only — never reconciles or persists; that's
- * `syncLevelProgress`'s job.
+ * Combines a repertoire's shape with its `level_progress` row (or `null` if
+ * the player hasn't started it yet) into the summary both `/practice` (the
+ * picker) and `/practice/[repertoire_id]` (the detail screen) need.
+ * Read-only — never reconciles or persists; that's `syncLevelProgress`'s job.
  */
-export function repertoireProgress(variations: Variation[], row: LevelProgressRow | null): RepertoireProgress {
-	const totalLevels = levelCap(variations);
-	if (variations.length === 0) {
+export function repertoireProgressFromShape(shape: RepertoireShape, row: LevelProgressRow | null): RepertoireProgress {
+	if (shape.totalVariations === 0) {
 		return { level: 'mastered', totalVariations: 0, totalLevels: 0, levelTaskCount: 0, levelSolvedCount: 0 };
 	}
 	if (!row) {
 		return {
 			level: 1,
-			totalVariations: variations.length,
-			totalLevels,
-			levelTaskCount: levelTaskVariations(variations, 1).length,
+			totalVariations: shape.totalVariations,
+			totalLevels: shape.totalLevels,
+			levelTaskCount: shape.level1TaskCount,
 			levelSolvedCount: 0
 		};
 	}
 	return {
-		level: row.level > totalLevels ? 'mastered' : row.level,
-		totalVariations: variations.length,
-		totalLevels,
+		level: row.level > shape.totalLevels ? 'mastered' : row.level,
+		totalVariations: shape.totalVariations,
+		totalLevels: shape.totalLevels,
 		levelTaskCount: row.queue.length,
 		levelSolvedCount: row.queue.filter((e) => e.status === 'cleared').length
 	};
+}
+
+/**
+ * Same as `repertoireProgressFromShape`, but computes the shape from raw
+ * variations first — for callers (the practice detail page) that already
+ * need the full enumerated tree for other reasons (building queues,
+ * resolving attempts) and don't have a cached shape to reuse.
+ */
+export function repertoireProgress(variations: Variation[], row: LevelProgressRow | null): RepertoireProgress {
+	return repertoireProgressFromShape(repertoireShape(variations), row);
 }

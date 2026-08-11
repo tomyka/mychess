@@ -1,6 +1,8 @@
 // mychess/src/lib/server/pgn-import.ts
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { planGameImport, type MoveRow } from '$lib/pgn-import';
+import { enumerateVariations, type RawMoveRow } from '$lib/mastery/variations';
+import { repertoireShape } from '$lib/mastery/levelProgress';
 
 export type GameImportResult = { repertoireId: string | null; gameCount: number; error: string | null };
 
@@ -71,6 +73,27 @@ export async function writeMoves(
     maxVariationMoves?: number;
   }
 ): Promise<{ repertoireId: string | null; error: string | null }> {
+  // Computed from `params.moves` directly — before any DB writes — since
+  // moves are immutable after import, this "shape" (see
+  // `$lib/mastery/levelProgress.ts`) never changes again for this
+  // repertoire. Caching it here lets loadRepertoireProgressSummaries (the
+  // Dashboard + Practice picker) skip re-fetching and re-walking every move
+  // on every load. Deduped by (fromFen, san) first, mirroring the moves
+  // upsert's own conflict target below — `importGames` can hand this
+  // several real games sharing an opening, whose shared edges collapse into
+  // one on write, and the cached shape has to match what's actually stored.
+  const dedupedMoves = Array.from(new Map(params.moves.map((m) => [`${m.fromFen}|${m.san}`, m])).values());
+  const rawMoves: RawMoveRow[] = dedupedMoves.map((m, i) => ({
+    id: String(i),
+    fromPositionId: m.fromFen,
+    toPositionId: m.toFen,
+    fromFen: m.fromFen,
+    toFen: m.toFen,
+    san: m.san,
+    isPlayerTurn: m.is_player_turn
+  }));
+  const shape = repertoireShape(enumerateVariations(rawMoves));
+
   const { data: rep, error: repErr } = await supabase
     .from('repertoires')
     .insert({
@@ -79,7 +102,10 @@ export async function writeMoves(
       color: params.color,
       eco_code: params.ecoCode,
       eco_name: params.ecoName,
-      max_variation_moves: params.maxVariationMoves ?? 20
+      max_variation_moves: params.maxVariationMoves ?? 20,
+      total_variations: shape.totalVariations,
+      total_levels: shape.totalLevels,
+      level1_task_count: shape.level1TaskCount
     })
     .select()
     .single();

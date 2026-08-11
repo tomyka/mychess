@@ -7,6 +7,8 @@ import {
 	resolvePreviousLevelMistake,
 	syncLevelProgress,
 	repertoireProgress,
+	repertoireShape,
+	repertoireProgressFromShape,
 	type LevelProgressRow
 } from './levelProgress';
 import { taskKey } from './levels';
@@ -256,5 +258,44 @@ describe('repertoireProgress', () => {
 		expect(progress.level).toBe('mastered');
 		expect(progress.levelTaskCount).toBe(1);
 		expect(progress.levelSolvedCount).toBe(1);
+	});
+});
+
+describe('repertoireShape', () => {
+	it('is all zeros for an empty repertoire', () => {
+		expect(repertoireShape([])).toEqual({ totalVariations: 0, totalLevels: 0, level1TaskCount: 0 });
+	});
+
+	it('matches repertoireProgress\'s own computation for a non-empty repertoire', () => {
+		const a = variation(6, 'a-');
+		const b = variation(2, 'b-');
+		expect(repertoireShape([a, b])).toEqual({ totalVariations: 2, totalLevels: 2, level1TaskCount: 2 });
+	});
+});
+
+describe('repertoireProgressFromShape', () => {
+	it('produces the exact same result as repertoireProgress given that variation set\'s shape', () => {
+		const a = variation(6, 'a-');
+		const b = variation(6, 'b-');
+		const row: LevelProgressRow = {
+			level: 2,
+			prevLevelMistakes: 1,
+			queue: [
+				{ key: taskKey(a, 2), status: 'cleared' },
+				{ key: taskKey(b, 2), status: 'pending' }
+			]
+		};
+		expect(repertoireProgressFromShape(repertoireShape([a, b]), row)).toEqual(repertoireProgress([a, b], row));
+	});
+
+	it('is "mastered" vacuously for a zero-variation shape, independent of any row', () => {
+		const shape = { totalVariations: 0, totalLevels: 0, level1TaskCount: 0 };
+		expect(repertoireProgressFromShape(shape, null)).toEqual({
+			level: 'mastered',
+			totalVariations: 0,
+			totalLevels: 0,
+			levelTaskCount: 0,
+			levelSolvedCount: 0
+		});
 	});
 });
