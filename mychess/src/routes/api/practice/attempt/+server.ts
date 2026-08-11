@@ -38,5 +38,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		incrementQuestProgress(supabase, user.id, 'review_cards', today)
 	]);
 
+	// TEMP DIAGNOSTIC — investigating solvedCount not advancing on repeated
+	// correct completions (issue #50 follow-up). Remove once root-caused.
+	console.log('[practice/attempt diag]', {
+		repertoireId,
+		taskKey,
+		hadMistake,
+		resultLevel: row?.level,
+		resultPrevLevelMistakes: row?.prevLevelMistakes,
+		queueLength: row?.queue?.length,
+		clearedCount: row?.queue?.filter((e) => e.status === 'cleared').length,
+		taskKeyInQueue: row?.queue?.some((e) => e.key === taskKey)
+	});
+
 	return json(buildPracticeView(variations, row, null, maxLevel));
 };
