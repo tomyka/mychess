@@ -42,6 +42,12 @@
         <p class="font-semibold text-gray-900">Invite Links</p>
         <p class="text-sm text-gray-400">Invite students to join</p>
       </a>
+      <a href="/coach/reports"
+         class="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow">
+        <p class="text-2xl mb-2">📊</p>
+        <p class="font-semibold text-gray-900">Practice Reports</p>
+        <p class="text-sm text-gray-400">See how students are practicing</p>
+      </a>
     </div>
 
     {#if players.length > 0}
