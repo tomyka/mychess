@@ -4,7 +4,21 @@ import { levelCap, levelTaskVariations, taskKey, type Level } from './levels';
 
 export type QueueEntry = { key: string; status: 'pending' | 'cleared' };
 export type LevelProgressRow = { level: number; prevLevelMistakes: number; queue: QueueEntry[] };
-export type AttemptResult = { taskKey: string; hadMistake: boolean };
+export type AttemptResult = {
+	taskKey: string;
+	hadMistake: boolean;
+	// Set when a mid-attempt branch (an 'alternatives' pick, see
+	// $lib/mastery/practice.ts) moved the player onto a DIFFERENT line than
+	// the one this attempt originally pinned — that original task otherwise
+	// never gets any outcome recorded at all (not cleared, not mistake-
+	// requeued), so if it's still `pending` it stays the FIFO queue's head
+	// forever. If the player consistently branches away from it the same
+	// way (e.g. its very first move has an obvious alternative that leads
+	// into already-mastered content), the SAME already-cleared task keeps
+	// getting credited every attempt while this one never budges — see
+	// resolveAttempt.
+	abandonedTaskKey?: string;
+};
 export type MistakeOutcome = { row: LevelProgressRow; demoted: boolean };
 
 export type RepertoireProgress = {
@@ -143,9 +157,19 @@ export function resolveAttempt(
 	const queue = row.queue.map((entry) =>
 		entry.key === result.taskKey && !result.hadMistake ? { ...entry, status: 'cleared' as const } : entry
 	);
-	const reordered = result.hadMistake
+	let reordered = result.hadMistake
 		? [...queue.filter((e) => e.key !== result.taskKey), queue.find((e) => e.key === result.taskKey)!]
 		: queue;
+
+	// The abandoned original pin never got an outcome of its own — send it
+	// to the back too, same as a mistake, so pickQueuedAttempt's FIFO moves
+	// on instead of re-serving it next. Only matters while still `pending`:
+	// if some earlier attempt already cleared it (or it doesn't exist in
+	// this queue at all — a stale/reconciled key), there's nothing to move.
+	if (result.abandonedTaskKey && result.abandonedTaskKey !== result.taskKey) {
+		const abandoned = reordered.find((e) => e.key === result.abandonedTaskKey && e.status === 'pending');
+		if (abandoned) reordered = [...reordered.filter((e) => e !== abandoned), abandoned];
+	}
 
 	return advanceIfCleared({ ...row, queue: reordered }, variations, cap, random);
 }

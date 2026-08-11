@@ -20,8 +20,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const user = await requireApiUser(locals);
 
 	const body = await request.json();
-	const { repertoireId, taskKey, hadMistake } = body ?? {};
-	if (typeof repertoireId !== 'string' || typeof taskKey !== 'string' || typeof hadMistake !== 'boolean') {
+	const { repertoireId, taskKey, hadMistake, abandonedTaskKey } = body ?? {};
+	if (
+		typeof repertoireId !== 'string' ||
+		typeof taskKey !== 'string' ||
+		typeof hadMistake !== 'boolean' ||
+		(abandonedTaskKey !== undefined && typeof abandonedTaskKey !== 'string')
+	) {
 		throw error(400, 'Invalid request');
 	}
 
@@ -34,22 +39,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// exhausts its retries, quest progress may still have recorded, which is
 	// an acceptable trade for not serializing two unrelated writes.
 	const [row] = await Promise.all([
-		applyAttemptResult(supabase, user.id, repertoireId, { taskKey, hadMistake }, variations, maxLevel),
+		applyAttemptResult(supabase, user.id, repertoireId, { taskKey, hadMistake, abandonedTaskKey }, variations, maxLevel),
 		incrementQuestProgress(supabase, user.id, 'review_cards', today)
 	]);
-
-	// TEMP DIAGNOSTIC — investigating solvedCount not advancing on repeated
-	// correct completions (issue #50 follow-up). Remove once root-caused.
-	console.log('[practice/attempt diag]', {
-		repertoireId,
-		taskKey,
-		hadMistake,
-		resultLevel: row?.level,
-		resultPrevLevelMistakes: row?.prevLevelMistakes,
-		queueLength: row?.queue?.length,
-		clearedCount: row?.queue?.filter((e) => e.status === 'cleared').length,
-		taskKeyInQueue: row?.queue?.some((e) => e.key === taskKey)
-	});
 
 	return json(buildPracticeView(variations, row, null, maxLevel));
 };

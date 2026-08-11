@@ -152,6 +152,80 @@ describe('resolveAttempt', () => {
 		expect(next).toEqual(row);
 	});
 
+	it('sends an abandoned pin to the back of the queue alongside crediting the branch actually walked', () => {
+		const a = variation(2, 'a-');
+		const b = variation(2, 'b-');
+		const c = variation(2, 'c-');
+		const row: LevelProgressRow = {
+			level: 1,
+			prevLevelMistakes: 0,
+			queue: [
+				{ key: taskKey(a, 1), status: 'pending' },
+				{ key: taskKey(b, 1), status: 'pending' },
+				{ key: taskKey(c, 1), status: 'pending' }
+			]
+		};
+		// Attempt was pinned to `a`, but a mid-attempt branch was actually
+		// credited to `b` — `a` gets no outcome of its own from `b`'s clear.
+		const next = resolveAttempt(
+			row,
+			{ taskKey: taskKey(b, 1), hadMistake: false, abandonedTaskKey: taskKey(a, 1) },
+			[a, b, c],
+			UNCAPPED
+		);
+		expect(next.queue).toEqual([
+			{ key: taskKey(b, 1), status: 'cleared' },
+			{ key: taskKey(c, 1), status: 'pending' },
+			{ key: taskKey(a, 1), status: 'pending' }
+		]);
+	});
+
+	it('does not re-requeue an abandoned pin that a previous attempt already cleared', () => {
+		const a = variation(2, 'a-');
+		const b = variation(2, 'b-');
+		const row: LevelProgressRow = {
+			level: 1,
+			prevLevelMistakes: 0,
+			queue: [
+				{ key: taskKey(a, 1), status: 'cleared' },
+				{ key: taskKey(b, 1), status: 'pending' }
+			]
+		};
+		const next = resolveAttempt(
+			row,
+			{ taskKey: taskKey(b, 1), hadMistake: false, abandonedTaskKey: taskKey(a, 1) },
+			[a, b],
+			UNCAPPED
+		);
+		expect(next.queue).toEqual([
+			{ key: taskKey(a, 1), status: 'cleared' },
+			{ key: taskKey(b, 1), status: 'cleared' }
+		]);
+	});
+
+	it('ignores an abandoned pin equal to the credited task itself', () => {
+		const a = variation(2, 'a-');
+		const b = variation(2, 'b-');
+		const row: LevelProgressRow = {
+			level: 1,
+			prevLevelMistakes: 0,
+			queue: [
+				{ key: taskKey(a, 1), status: 'pending' },
+				{ key: taskKey(b, 1), status: 'pending' }
+			]
+		};
+		const next = resolveAttempt(
+			row,
+			{ taskKey: taskKey(a, 1), hadMistake: false, abandonedTaskKey: taskKey(a, 1) },
+			[a, b],
+			UNCAPPED
+		);
+		expect(next.queue).toEqual([
+			{ key: taskKey(a, 1), status: 'cleared' },
+			{ key: taskKey(b, 1), status: 'pending' }
+		]);
+	});
+
 	it('resets prevLevelMistakes to 0 when mastering, even with a nonzero count at the moment of mastery', () => {
 		const a = variation(2, 'a-'); // cap = 1
 		const row: LevelProgressRow = { level: 1, prevLevelMistakes: 2, queue: [{ key: taskKey(a, 1), status: 'pending' }] };

@@ -62,6 +62,13 @@
 	// (possibly repeatedly) continued line credits the LAST line actually
 	// walked, not the one the attempt originally pinned.
 	let creditTaskKey = $state<string | null>(null);
+	// The attempt's ORIGINAL pin, fixed for the whole attempt (unlike
+	// creditTaskKey, never reassigned on a branch) — sent alongside the
+	// credited task so the server can requeue it if a branch left it
+	// abandoned. Without this, a branch taken on the very first move (e.g.
+	// an obvious alternative reply) never gives this task ANY outcome, so it
+	// stays stuck as the queue's FIFO head, re-served every attempt.
+	let pinnedTaskKey = $state<string | null>(null);
 
 	// Practice depth: how many levels deep the level system currently goes
 	// into this repertoire (see `effectiveLevelCap`). Configurable, not fixed
@@ -203,6 +210,7 @@
 		attemptHadMistake = false;
 		liveQuizSteps = attempt?.quizSteps ?? [];
 		creditTaskKey = attempt?.taskKey ?? null;
+		pinnedTaskKey = attempt?.taskKey ?? null;
 		if (!attempt) return;
 
 		if (attempt.prefix.length === 0) {
@@ -306,7 +314,8 @@
 			// reloading before the write lands) is unchanged. Reports
 			// creditTaskKey, not this attempt's originally-pinned key — if a
 			// branch was continued earlier in this same attempt, that's the
-			// line actually being finished right now. Skipped during review,
+			// line actually being finished right now (reportAttempt separately
+			// tells the server about the abandoned pin, if any). Skipped during review,
 			// which is a pure read-only replay. Uses the REVIEW-LEVEL CAPTURED
 			// AT THE TOP of this function, not the live reactive value — the
 			// player can navigate to a different level or exit review during
@@ -424,8 +433,12 @@
 
 	// Returns the fresh `PracticeView` the server built from this report, or
 	// `null` on a failed/errored request — `nextAttempt` falls back to
-	// `invalidateAll()` in that case rather than merging nothing.
+	// `invalidateAll()` in that case rather than merging nothing. Reads
+	// `pinnedTaskKey` synchronously (before the fetch's await) so a later
+	// resetForAttempt() reassigning it for the NEXT attempt can't affect an
+	// already-in-flight report for this one.
 	async function reportAttempt(taskKey: string): Promise<PracticeView | null> {
+		const abandonedTaskKey = pinnedTaskKey && pinnedTaskKey !== taskKey ? pinnedTaskKey : undefined;
 		try {
 			const res = await fetch('/api/practice/attempt', {
 				method: 'POST',
@@ -433,7 +446,8 @@
 				body: JSON.stringify({
 					repertoireId,
 					taskKey,
-					hadMistake: attemptHadMistake
+					hadMistake: attemptHadMistake,
+					abandonedTaskKey
 				})
 			});
 			if (!res.ok) return null;
