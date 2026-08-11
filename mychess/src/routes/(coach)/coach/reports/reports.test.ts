@@ -28,6 +28,7 @@ describe('coach practice reports overview', () => {
     expect(screen.getByText('82%')).toBeTruthy();
     expect(screen.getByText('5')).toBeTruthy();
     expect(screen.getByText('2.5')).toBeTruthy();
+    expect(document.querySelector('a[href="/coach/players/p1"]')).toBeTruthy();
   });
 
   it('shows a dash for a student with no attempts logged yet', () => {
