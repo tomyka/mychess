@@ -8,10 +8,50 @@ import {
 	type Hotspot,
 	type ActivityStats
 } from '$lib/practice-report';
+import { remainingPageRanges } from '$lib/server/practice-repertoire';
 
 export type RepertoireReport = { accuracy: AccuracyPoint[]; hotspots: Hotspot[]; activity: ActivityStats };
 
 const HOTSPOT_LIMIT = 10;
+
+// Supabase/PostgREST caps an unbounded select at `max_rows` (1000, see
+// supabase/config.toml) and truncates silently past that — no error, just
+// fewer rows than actually exist. Every practice move is logged now, so an
+// active student can exceed 1000 move_attempts rows within a single 30-day
+// window on their own. Mirrors practice-repertoire.ts's `fetchAllMoves`
+// pattern: fetch page 1, and only if it came back full-size do an
+// exact-count lookup plus fetch every remaining page concurrently.
+const ATTEMPTS_PAGE_SIZE = 1000;
+
+/**
+ * Fetches every move_attempts row matching a caller-supplied filter,
+ * defeating the `max_rows` cap above. `buildQuery` and `buildCountQuery`
+ * must each build a fresh query on every call (query builders are
+ * stateful/single-use), and `buildQuery`'s query must carry a deterministic
+ * `.order('id', ...)` clause — `.range` alone has no defined traversal
+ * order to page through without it.
+ */
+async function fetchAllMoveAttempts(
+	buildQuery: () => any,
+	buildCountQuery: () => any
+): Promise<any[]> {
+	const { data: firstPage, error: err } = await buildQuery().range(0, ATTEMPTS_PAGE_SIZE - 1);
+	if (err) throw err;
+	const firstRows = firstPage ?? [];
+	if (firstRows.length < ATTEMPTS_PAGE_SIZE) return firstRows;
+
+	const { count, error: countErr } = await buildCountQuery();
+	if (countErr) throw countErr;
+
+	const pages = await Promise.all(
+		remainingPageRanges(count ?? firstRows.length, ATTEMPTS_PAGE_SIZE).map(([from, to]) => buildQuery().range(from, to))
+	);
+	for (const page of pages) {
+		if (page.error) throw page.error;
+	}
+
+	return [...firstRows, ...pages.flatMap((p) => p.data ?? [])];
+}
 
 /**
  * Loads and aggregates one player's move_attempts for one repertoire.
@@ -25,13 +65,26 @@ export async function loadRepertoireReport(
 	sinceIso: string | null,
 	now: Date
 ): Promise<RepertoireReport> {
-	let query = supabase
-		.from('move_attempts')
-		.select('move_id, is_correct, created_at')
-		.eq('player_id', playerId)
-		.eq('repertoire_id', repertoireId);
-	if (sinceIso) query = query.gte('created_at', sinceIso);
-	const { data } = await query;
+	const buildQuery = () => {
+		let q = supabase
+			.from('move_attempts')
+			.select('move_id, is_correct, created_at')
+			.eq('player_id', playerId)
+			.eq('repertoire_id', repertoireId)
+			.order('id', { ascending: true });
+		if (sinceIso) q = q.gte('created_at', sinceIso);
+		return q;
+	};
+	const buildCountQuery = () => {
+		let q = supabase
+			.from('move_attempts')
+			.select('id', { count: 'exact', head: true })
+			.eq('player_id', playerId)
+			.eq('repertoire_id', repertoireId);
+		if (sinceIso) q = q.gte('created_at', sinceIso);
+		return q;
+	};
+	const data = await fetchAllMoveAttempts(buildQuery, buildCountQuery);
 
 	const rows = (data ?? []).map((r: any) => ({
 		moveId: r.move_id as string,
@@ -76,9 +129,23 @@ export async function loadStudentSummary(
 	sinceIso: string,
 	now: Date
 ): Promise<StudentSummary> {
-	const [{ data: assigned }, { data: attemptRows }] = await Promise.all([
+	const [{ data: assigned }, attemptRows] = await Promise.all([
 		supabase.from('assigned_repertoires').select('repertoire_id').eq('coach_id', coachId).eq('player_id', playerId),
-		supabase.from('move_attempts').select('is_correct, created_at').eq('player_id', playerId).gte('created_at', sinceIso)
+		fetchAllMoveAttempts(
+			() =>
+				supabase
+					.from('move_attempts')
+					.select('is_correct, created_at')
+					.eq('player_id', playerId)
+					.gte('created_at', sinceIso)
+					.order('id', { ascending: true }),
+			() =>
+				supabase
+					.from('move_attempts')
+					.select('id', { count: 'exact', head: true })
+					.eq('player_id', playerId)
+					.gte('created_at', sinceIso)
+		)
 	]);
 
 	const repertoireIds = (assigned ?? []).map((a: any) => a.repertoire_id as string);

@@ -345,7 +345,7 @@
 			locked = true;
 			wrongCount = 0;
 			hintRequested = false;
-			logMove(alt.moveId, detail.san, true, currentLevel);
+			logMove(step.moveId, detail.san, true, currentLevel);
 
 			if (alt.kind === 'completes') {
 				// Lands on another task's own target-depth move — finishes it
