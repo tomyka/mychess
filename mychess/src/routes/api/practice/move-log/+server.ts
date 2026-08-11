@@ -25,6 +25,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'Invalid request');
 	}
 
+	const { data: move } = await supabase
+		.from('moves')
+		.select('id')
+		.eq('id', moveId)
+		.eq('repertoire_id', repertoireId)
+		.maybeSingle();
+	if (!move) throw error(404, 'Move not found');
+
 	const { error: insertError } = await supabase.from('move_attempts').insert({
 		player_id: user.id,
 		repertoire_id: repertoireId,
