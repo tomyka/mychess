@@ -1,9 +1,16 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
+import { loadRepertoireReport } from '$lib/server/practice-report';
 
-export const load: PageServerLoad = async ({ params, locals: { supabase, safeGetSession } }) => {
+const RANGE_DAYS = 30;
+
+export const load: PageServerLoad = async ({ params, url, locals: { supabase, safeGetSession } }) => {
   const { user } = await safeGetSession();
   if (!user) throw redirect(303, '/login');
+
+  const range = url.searchParams.get('range') === 'all' ? 'all' : '30d';
+  const now = new Date();
+  const sinceIso = range === 'all' ? null : new Date(now.getTime() - RANGE_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   const [playerRes, statsRes, notesRes, coachRepsRes, assignedRes] = await Promise.all([
     supabase.from('profiles').select('id, display_name').eq('id', params.player_id).single(),
@@ -17,12 +24,26 @@ export const load: PageServerLoad = async ({ params, locals: { supabase, safeGet
       .eq('player_id', params.player_id)
   ]);
 
+  const assignedReps = assignedRes.data ?? [];
+  const practiceReports = await Promise.all(
+    assignedReps.map(async (a: any) => {
+      if (!a.repertoire?.id) return { repertoireId: null, repertoireName: a.repertoire?.name ?? 'Repertoire', level: null, report: null };
+      const [levelRes, report] = await Promise.all([
+        supabase.from('level_progress').select('level').eq('player_id', params.player_id).eq('repertoire_id', a.repertoire.id).maybeSingle(),
+        loadRepertoireReport(supabase, params.player_id, a.repertoire.id, sinceIso, now)
+      ]);
+      return { repertoireId: a.repertoire.id, repertoireName: a.repertoire.name, level: levelRes.data?.level ?? null, report };
+    })
+  );
+
   return {
     player: playerRes.data,
     stats: statsRes.data,
     notes: notesRes.data ?? [],
     coachReps: coachRepsRes.data ?? [],
-    assignedReps: assignedRes.data ?? [],
+    assignedReps,
+    practiceReports,
+    range,
     playerId: params.player_id
   };
 };
