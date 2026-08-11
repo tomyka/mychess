@@ -75,3 +75,20 @@ export function enumerateVariations(moves: RawMoveRow[]): Variation[] {
 
 	return variations;
 }
+
+/** `variations` with any entry whose `variationKey` is in `excludedKeys` dropped. */
+export function filterVariations(variations: Variation[], excludedKeys: ReadonlySet<string>): Variation[] {
+	if (excludedKeys.size === 0) return variations;
+	return variations.filter((v) => !excludedKeys.has(v.variationKey));
+}
+
+/**
+ * A human-readable move-sequence preview for one variation, e.g.
+ * "1.e4 e5 2.Nf3 Nc6 3.Bb5" — assumes `path` starts from the game's actual
+ * first move (true for every repertoire `enumerateVariations` produces,
+ * since a root position never has an incoming edge), so index 0 is always
+ * White's move 1.
+ */
+export function moveSequenceLabel(path: VariationStep[]): string {
+	return path.map((step, i) => (i % 2 === 0 ? `${i / 2 + 1}.${step.san}` : step.san)).join(' ');
+}

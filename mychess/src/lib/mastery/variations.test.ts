@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { enumerateVariations, type RawMoveRow } from './variations';
+import { enumerateVariations, filterVariations, moveSequenceLabel, type RawMoveRow } from './variations';
 
 function move(
 	id: string,
@@ -97,5 +97,47 @@ describe('enumerateVariations', () => {
 		expect(result[0].leafMoveId).toBe('m3');
 		expect(result[1].leafMoveId).toBe('m3');
 		expect(result[0].variationKey).not.toBe(result[1].variationKey);
+	});
+});
+
+describe('filterVariations', () => {
+	it('returns everything unchanged when the excluded set is empty', () => {
+		const moves = [move('m1', 'START', 'P1', 'e4', true)];
+		const variations = enumerateVariations(moves);
+		expect(filterVariations(variations, new Set())).toEqual(variations);
+	});
+
+	it('drops variations whose variationKey is in the excluded set', () => {
+		const moves = [
+			move('m1', 'START', 'P1', 'e4', true),
+			move('m2a', 'P1', 'P2A', 'e5', false),
+			move('m2b', 'P1', 'P2B', 'c5', false),
+			move('m3a', 'P2A', 'P3A', 'Nf3', true),
+			move('m3b', 'P2B', 'P3B', 'Nc3', true)
+		];
+		const variations = enumerateVariations(moves);
+		const [keep, drop] = variations;
+		const result = filterVariations(variations, new Set([drop.variationKey]));
+		expect(result).toEqual([keep]);
+	});
+});
+
+describe('moveSequenceLabel', () => {
+	it('numbers full moves starting at 1, White unlabeled-space, Black no number', () => {
+		const moves = [
+			move('m1', 'START', 'P1', 'e4', true),
+			move('m2', 'P1', 'P2', 'e5', false),
+			move('m3', 'P2', 'P3', 'Nf3', true),
+			move('m4', 'P3', 'P4', 'Nc6', false),
+			move('m5', 'P4', 'P5', 'Bb5', true)
+		];
+		const [variation] = enumerateVariations(moves);
+		expect(moveSequenceLabel(variation.path)).toBe('1.e4 e5 2.Nf3 Nc6 3.Bb5');
+	});
+
+	it('handles a single-move path', () => {
+		const moves = [move('m1', 'START', 'P1', 'd4', true)];
+		const [variation] = enumerateVariations(moves);
+		expect(moveSequenceLabel(variation.path)).toBe('1.d4');
 	});
 });
