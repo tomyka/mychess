@@ -2,6 +2,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { enumerateVariations, type RawMoveRow } from '$lib/mastery/variations';
 import { repertoireProgress, type RepertoireProgress, type LevelProgressRow } from '$lib/mastery/levelProgress';
+import { remainingPageRanges } from './practice-repertoire';
 
 export type RepertoireProgressSummary = RepertoireProgress & {
 	id: string;
@@ -22,22 +23,41 @@ export type RepertoireProgressSummary = RepertoireProgress & {
 // `practice-repertoire.ts` — since a single large repertoire can exceed
 // the cap on its own). `.order` makes the pagination deterministic —
 // `.range` alone has no defined traversal order to page through without it.
+//
+// Pages beyond the first are fetched concurrently (see `remainingPageRanges`,
+// shared with `practice-repertoire.ts`) rather than one at a time — this
+// backs both the Practice picker and the Dashboard, and sequential paging
+// here caused the same multi-second load `practice-repertoire.ts` was fixed
+// for in bb6173f, since it sums moves across *every* accessible repertoire.
 const MOVES_PAGE_SIZE = 1000;
 
 async function fetchAllMoves(supabase: SupabaseClient, repIds: string[]): Promise<any[]> {
-	const rows: any[] = [];
-	for (let offset = 0; ; offset += MOVES_PAGE_SIZE) {
-		const { data, error } = await supabase
+	const query = () =>
+		supabase
 			.from('moves')
 			.select('id, san, is_player_turn, repertoire_id, from_position, to_position')
 			.in('repertoire_id', repIds)
-			.order('id', { ascending: true })
-			.range(offset, offset + MOVES_PAGE_SIZE - 1);
-		if (error) throw error;
-		rows.push(...(data ?? []));
-		if (!data || data.length < MOVES_PAGE_SIZE) break;
+			.order('id', { ascending: true });
+
+	const { data: firstPage, error: err } = await query().range(0, MOVES_PAGE_SIZE - 1);
+	if (err) throw err;
+	const firstRows = firstPage ?? [];
+	if (firstRows.length < MOVES_PAGE_SIZE) return firstRows;
+
+	const { count, error: countErr } = await supabase
+		.from('moves')
+		.select('id', { count: 'exact', head: true })
+		.in('repertoire_id', repIds);
+	if (countErr) throw countErr;
+
+	const pages = await Promise.all(
+		remainingPageRanges(count ?? firstRows.length, MOVES_PAGE_SIZE).map(([from, to]) => query().range(from, to))
+	);
+	for (const page of pages) {
+		if (page.error) throw page.error;
 	}
-	return rows;
+
+	return [...firstRows, ...pages.flatMap((p) => p.data ?? [])];
 }
 
 /**
