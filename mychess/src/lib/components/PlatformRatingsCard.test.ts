@@ -17,6 +17,12 @@ describe('PlatformRatingsCard', () => {
     expect(screen.getByText(/Couldn't load Chess\.com stats/i)).toBeTruthy();
   });
 
+  it('shows a loading skeleton instead of an error while streaming in', () => {
+    render(PlatformRatingsCard, { props: { platform: 'Chess.com', username: 'magnus', ratings: null, loading: true } });
+    expect(screen.queryByText(/Couldn't load Chess\.com stats/i)).toBeNull();
+    expect(screen.getByLabelText('Loading Chess.com ratings')).toBeTruthy();
+  });
+
   it('shows a no-rated-games message when ratings is empty', () => {
     render(PlatformRatingsCard, { props: { platform: 'Lichess', username: 'magnus', ratings: {} } });
     expect(screen.getByText(/No rated games yet/i)).toBeTruthy();

@@ -71,11 +71,21 @@
       <!-- Player identity + FIDE ratings -->
       <PlayerHeader {profile} fideRatings={d.fideRatings ?? null} />
 
-      <!-- Platform ratings -->
+      <!-- Platform ratings — streamed: the dashboard renders immediately and
+           these two cards pop in once their (up to 5s each) external API
+           calls resolve, instead of the whole page waiting on them. -->
       <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <PlatformRatingsCard platform="Lichess" username={d.lichessUsername ?? null} ratings={d.lichessRatings ?? null} />
-          <PlatformRatingsCard platform="Chess.com" username={d.chesscomUsername ?? null} ratings={d.chesscomRatings ?? null} />
+          {#await d.lichessRatings}
+            <PlatformRatingsCard platform="Lichess" username={d.lichessUsername ?? null} ratings={null} loading={true} />
+          {:then lichessRatings}
+            <PlatformRatingsCard platform="Lichess" username={d.lichessUsername ?? null} ratings={lichessRatings} />
+          {/await}
+          {#await d.chesscomRatings}
+            <PlatformRatingsCard platform="Chess.com" username={d.chesscomUsername ?? null} ratings={null} loading={true} />
+          {:then chesscomRatings}
+            <PlatformRatingsCard platform="Chess.com" username={d.chesscomUsername ?? null} ratings={chesscomRatings} />
+          {/await}
         </div>
       </section>
 

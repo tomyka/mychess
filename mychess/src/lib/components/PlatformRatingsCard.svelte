@@ -2,10 +2,11 @@
 <script lang="ts">
   type PlatformRatings = { rapid?: number; blitz?: number; bullet?: number; puzzle?: number };
 
-  let { platform, username, ratings } = $props<{
+  let { platform, username, ratings, loading = false } = $props<{
     platform: string;
     username: string | null;
     ratings: PlatformRatings | null;
+    loading?: boolean;
   }>();
 
   const LABELS = {
@@ -32,7 +33,13 @@
   </p>
 {:else}
   <p class="text-sm font-medium text-gray-700 mb-2">{platform}: <span class="font-mono">{username}</span></p>
-  {#if ratings === null}
+  {#if loading}
+    <div class="grid grid-cols-4 gap-3" aria-label="Loading {platform} ratings">
+      {#each Array(4) as _}
+        <div class="bg-gray-50 rounded-lg border border-gray-200 p-3 h-[60px] animate-pulse"></div>
+      {/each}
+    </div>
+  {:else if ratings === null}
     <p class="text-sm text-gray-400">Couldn't load {platform} stats right now.</p>
   {:else if entries.length === 0}
     <p class="text-sm text-gray-400">No rated games yet.</p>

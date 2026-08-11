@@ -10,9 +10,13 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
   const { user, session, profile } = await safeGetSession();
   const isGuest = !user || !!(user as any).is_anonymous;
 
-  // Fetch upcoming Lithuania tournaments for all visitors (guest landing page + logged-in widget)
+  // Fetch upcoming Lithuania tournaments for all visitors (guest landing page +
+  // logged-in widget). Kicked off here but not awaited yet — it doesn't depend
+  // on the session/profile above, so there's no reason to serialize it ahead
+  // of the guest-vs-logged-in branch or the parallel batch below; it's awaited
+  // only where its result is actually needed, in each branch.
   const todayDate = new Date().toISOString().slice(0, 10);
-  const { data: upcomingTournaments, error: tErr } = await supabase
+  const tournamentsPromise = supabase
     .from('tournaments')
     .select('id, name, city, country, start_date, time_control, status, average_rating')
     .in('status', ['NOT_STARTED', 'IN_PROGRESS'])
@@ -20,8 +24,6 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
     .gte('start_date', todayDate)
     .order('start_date', { ascending: true })
     .limit(15);
-
-  if (tErr) console.error('Failed to fetch upcoming tournaments:', tErr);
 
   // Public FIDE rank lookup (?fide=<id>) — reads the public fide_players table.
   const fideQuery = (url.searchParams.get('fide') ?? '').trim();
@@ -39,7 +41,11 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
 
   // Guests (no session AND anonymous) get the public landing — don't run the
   // authenticated pipeline (quest seeding, leaderboard) for throwaway accounts.
-  if (isGuest) return { isGuest: true, session: null, profile: null, upcomingTournaments: upcomingTournaments ?? [], fideLookup, fideQuery };
+  if (isGuest) {
+    const { data: upcomingTournaments, error: tErr } = await tournamentsPromise;
+    if (tErr) console.error('Failed to fetch upcoming tournaments:', tErr);
+    return { isGuest: true, session: null, profile: null, upcomingTournaments: upcomingTournaments ?? [], fideLookup, fideQuery };
+  }
 
   const p = profile as any;
   const streakDays = Number(p?.streak_days ?? 0);
@@ -47,8 +53,17 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
   const lichessUsername = p?.lichess_username ?? null;
   const chesscomUsername = p?.chesscom_username ?? null;
 
+  // Lichess/Chess.com ratings hit an external API with a 5s timeout each —
+  // fired here so they're in flight alongside everything else, but
+  // deliberately NOT part of the Promise.all below: they're returned as
+  // unresolved promises so the page can stream (see the {#await} blocks in
+  // +page.svelte) instead of the whole dashboard response blocking on two
+  // slow external calls that have nothing to do with the rest of the data.
+  const lichessRatingsPromise = lichessUsername ? fetchLichessRatings(lichessUsername) : Promise.resolve(null);
+  const chesscomRatingsPromise = chesscomUsername ? fetchChesscomRatings(chesscomUsername) : Promise.resolve(null);
+
   // Parallel fetches
-  const [statsRes, quests, noteRes, lichessRatings, chesscomRatings, fideRes, repertoireSummaries] = await Promise.all([
+  const [statsRes, quests, noteRes, fideRes, repertoireSummaries, tournamentsRes] = await Promise.all([
     supabase
       .from('player_stats')
       .select('total_reviews, total_correct, moves_learned, new_cards_today')
@@ -63,8 +78,6 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
       .order('created_at', { ascending: false })
       .limit(1)
       .single(),
-    lichessUsername ? fetchLichessRatings(lichessUsername) : Promise.resolve(null),
-    chesscomUsername ? fetchChesscomRatings(chesscomUsername) : Promise.resolve(null),
     // FIDE Lithuania ratings + per-type ranks (from the monthly imported list), keyed by FIDE ID.
     p?.fide_id
       ? supabase
@@ -77,8 +90,12 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
           .eq('fide_id', p.fide_id)
           .single()
       : Promise.resolve({ data: null, error: null }),
-    loadRepertoireProgressSummaries(supabase, user.id)
+    loadRepertoireProgressSummaries(supabase, user.id),
+    tournamentsPromise
   ]);
+
+  const { data: upcomingTournaments, error: tErr } = tournamentsRes;
+  if (tErr) console.error('Failed to fetch upcoming tournaments:', tErr);
 
   // A missing row returns a PGRST116 error, which we treat as "unranked" (null).
   // A genuine failure is worth surfacing.
@@ -117,9 +134,9 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
     session,
     profile,
     lichessUsername,
-    lichessRatings,
+    lichessRatings: lichessRatingsPromise,
     chesscomUsername,
-    chesscomRatings,
+    chesscomRatings: chesscomRatingsPromise,
     fideRatings,
     stats: {
       streak_days: streakDays,
