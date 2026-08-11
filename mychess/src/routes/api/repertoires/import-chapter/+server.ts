@@ -28,16 +28,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const user = await requireApiUser(locals);
 
 	const body = await request.json().catch(() => null);
-	const { name, color, ecoCode, ecoName, moves, maxVariationMoves } = body ?? {};
+	const { name, color, ecoCode, ecoName, moves } = body ?? {};
 
 	if (typeof name !== 'string' || !name.trim()) throw error(400, 'name is required');
 	if (color !== 'white' && color !== 'black') throw error(400, 'color must be "white" or "black"');
 	if (ecoCode !== null && typeof ecoCode !== 'string') throw error(400, 'ecoCode must be a string or null');
 	if (ecoName !== null && typeof ecoName !== 'string') throw error(400, 'ecoName must be a string or null');
 	if (!Array.isArray(moves) || !moves.every(isMoveRow)) throw error(400, 'moves must be an array of move rows');
-	if (!Number.isInteger(maxVariationMoves) || maxVariationMoves < 1) {
-		throw error(400, 'maxVariationMoves must be a positive whole number');
-	}
 
 	const result = await writeMoves(locals.supabase, {
 		playerId: user.id,
@@ -45,8 +42,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		color,
 		ecoCode,
 		ecoName,
-		moves,
-		maxVariationMoves
+		moves
 	});
 	if (result.error) throw error(400, result.error);
 

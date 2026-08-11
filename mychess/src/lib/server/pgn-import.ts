@@ -70,7 +70,6 @@ export async function writeMoves(
     ecoCode: string | null;
     ecoName: string | null;
     moves: MoveRow[];
-    maxVariationMoves?: number;
   }
 ): Promise<{ repertoireId: string | null; error: string | null }> {
   // Computed from `params.moves` directly — before any DB writes — since
@@ -102,7 +101,6 @@ export async function writeMoves(
       color: params.color,
       eco_code: params.ecoCode,
       eco_name: params.ecoName,
-      max_variation_moves: params.maxVariationMoves ?? 20,
       total_variations: shape.totalVariations,
       total_levels: shape.totalLevels,
       level1_task_count: shape.level1TaskCount

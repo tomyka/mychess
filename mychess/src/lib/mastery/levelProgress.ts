@@ -37,6 +37,18 @@ export function repertoireShape(variations: Variation[]): RepertoireShape {
 	};
 }
 
+/**
+ * The level a player can actually progress to right now: whichever is
+ * smaller of the repertoire's real content depth and their own configured
+ * `practice_depth_levels` (see the repertoires column of the same name).
+ * The full repertoire is always imported — this is a practice-time ceiling
+ * the player can raise later to reveal deeper content that was there all
+ * along, not a limit on what's stored.
+ */
+export function effectiveLevelCap(variations: Variation[], maxLevel: number): number {
+	return Math.min(levelCap(variations), maxLevel);
+}
+
 const DEMOTION_THRESHOLD = 3;
 
 /** A freshly shuffled, all-pending queue for every task at `level`. */
@@ -100,9 +112,10 @@ function advanceIfCleared(
 export function syncLevelProgress(
 	row: LevelProgressRow,
 	variations: Variation[],
+	maxLevel: number,
 	random: () => number = Math.random
 ): LevelProgressRow {
-	const cap = levelCap(variations);
+	const cap = effectiveLevelCap(variations, maxLevel);
 	if (row.level > cap) return row; // already mastered — nothing to reconcile
 	const reconciled = { ...row, queue: reconcileQueue(row.queue, variations, row.level) };
 	return advanceIfCleared(reconciled, variations, cap, random);
@@ -120,9 +133,10 @@ export function resolveAttempt(
 	row: LevelProgressRow,
 	result: AttemptResult,
 	variations: Variation[],
+	maxLevel: number,
 	random: () => number = Math.random
 ): LevelProgressRow {
-	const cap = levelCap(variations);
+	const cap = effectiveLevelCap(variations, maxLevel);
 	if (row.level > cap) return row; // already mastered — a stale/replayed report is a no-op
 	if (!row.queue.some((entry) => entry.key === result.taskKey)) return row; // stale/unrecognized task — no-op
 
@@ -149,9 +163,10 @@ export function resolveAttempt(
 export function resolvePreviousLevelMistake(
 	row: LevelProgressRow,
 	variations: Variation[],
+	maxLevel: number,
 	random: () => number = Math.random
 ): MistakeOutcome {
-	const cap = levelCap(variations);
+	const cap = effectiveLevelCap(variations, maxLevel);
 	if (row.level > cap || row.level <= 1) return { row, demoted: false };
 
 	const prevLevelMistakes = row.prevLevelMistakes + 1;
@@ -198,8 +213,15 @@ export function repertoireProgressFromShape(shape: RepertoireShape, row: LevelPr
  * Same as `repertoireProgressFromShape`, but computes the shape from raw
  * variations first — for callers (the practice detail page) that already
  * need the full enumerated tree for other reasons (building queues,
- * resolving attempts) and don't have a cached shape to reuse.
+ * resolving attempts) and don't have a cached shape to reuse. `maxLevel`
+ * clamps `totalLevels` to the player's configured practice depth, same as
+ * `effectiveLevelCap`.
  */
-export function repertoireProgress(variations: Variation[], row: LevelProgressRow | null): RepertoireProgress {
-	return repertoireProgressFromShape(repertoireShape(variations), row);
+export function repertoireProgress(
+	variations: Variation[],
+	row: LevelProgressRow | null,
+	maxLevel: number
+): RepertoireProgress {
+	const shape = repertoireShape(variations);
+	return repertoireProgressFromShape({ ...shape, totalLevels: Math.min(shape.totalLevels, maxLevel) }, row);
 }

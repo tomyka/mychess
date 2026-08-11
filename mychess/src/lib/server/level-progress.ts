@@ -103,13 +103,14 @@ export async function loadSyncedLevelProgress(
 	supabase: SupabaseClient,
 	playerId: string,
 	repertoireId: string,
-	variations: Variation[]
+	variations: Variation[],
+	maxLevel: number
 ): Promise<LevelProgressRow | null> {
 	if (variations.length === 0) return null;
 
 	return mutateLevelProgress(supabase, playerId, repertoireId, (existing) => {
 		const row = existing ?? { level: 1, prevLevelMistakes: 0, queue: buildQueue(variations, 1) };
-		return syncLevelProgress(row, variations);
+		return syncLevelProgress(row, variations, maxLevel);
 	});
 }
 
@@ -126,11 +127,12 @@ export async function applyAttemptResult(
 	playerId: string,
 	repertoireId: string,
 	result: AttemptResult,
-	variations: Variation[]
+	variations: Variation[],
+	maxLevel: number
 ): Promise<LevelProgressRow | null> {
 	return mutateLevelProgress(supabase, playerId, repertoireId, (existing) => {
 		if (!existing) return null;
-		return resolveAttempt(existing, result, variations);
+		return resolveAttempt(existing, result, variations, maxLevel);
 	});
 }
 
@@ -148,12 +150,13 @@ export async function applyPreviousLevelMistake(
 	supabase: SupabaseClient,
 	playerId: string,
 	repertoireId: string,
-	variations: Variation[]
+	variations: Variation[],
+	maxLevel: number
 ): Promise<{ demoted: boolean; row: LevelProgressRow } | null> {
 	let demoted = false;
 	const next = await mutateLevelProgress(supabase, playerId, repertoireId, (existing) => {
 		if (!existing) return null;
-		const outcome = resolvePreviousLevelMistake(existing, variations);
+		const outcome = resolvePreviousLevelMistake(existing, variations, maxLevel);
 		demoted = outcome.demoted;
 		return outcome.row;
 	});

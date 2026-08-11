@@ -1,9 +1,16 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/svelte';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/svelte';
 import Practice from './+page.svelte';
 
-afterEach(() => cleanup());
+const invalidateAllMock = vi.fn();
+vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidateAll: (...args: any[]) => invalidateAllMock(...args) }));
+
+afterEach(() => {
+	cleanup();
+	invalidateAllMock.mockClear();
+	vi.unstubAllGlobals();
+});
 
 describe('practice detail page', () => {
 	it('shows "nothing to practice" rather than "mastered" when the repertoire has no moves yet', () => {
@@ -174,5 +181,73 @@ describe('practice detail page', () => {
 		// into the same <p>, so matching that combination disambiguates it from
 		// LevelList's own "🏆 Mastered" row (which has no repertoire name nearby).
 		expect(screen.getByText(/French Defense.*Mastered/i)).toBeTruthy();
+	});
+
+	it('shows the current practice depth', () => {
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white', practiceDepthLevels: 6 },
+					level: 'mastered',
+					totalVariations: 5,
+					totalLevels: 3,
+					attempt: null,
+					reviewLevel: null
+				}
+			}
+		});
+		expect(screen.getByText(/Practice depth:/i)).toBeTruthy();
+		expect(screen.getByText('6 levels')).toBeTruthy();
+	});
+
+	it('saves a new practice depth and refreshes the page data', async () => {
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white', practiceDepthLevels: 6 },
+					level: 'mastered',
+					totalVariations: 5,
+					totalLevels: 3,
+					attempt: null,
+					reviewLevel: null
+				}
+			}
+		});
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+		vi.stubGlobal('fetch', fetchSpy);
+
+		await fireEvent.click(screen.getByText(/Practice depth:/i));
+		const input = screen.getByLabelText('Practice depth:') as HTMLInputElement;
+		await fireEvent.input(input, { target: { value: '10' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalled());
+		expect(fetchSpy).toHaveBeenCalledWith(
+			'/api/repertoires/r1',
+			expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ practiceDepthLevels: 10 }) })
+		);
+	});
+
+	it('shows an error and does not refresh when saving the practice depth fails', async () => {
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white', practiceDepthLevels: 6 },
+					level: 'mastered',
+					totalVariations: 5,
+					totalLevels: 3,
+					attempt: null,
+					reviewLevel: null
+				}
+			}
+		});
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: false, json: async () => ({ message: 'nope' }) });
+		vi.stubGlobal('fetch', fetchSpy);
+
+		await fireEvent.click(screen.getByText(/Practice depth:/i));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+		await waitFor(() => expect(screen.getByText('nope')).toBeTruthy());
+		expect(invalidateAllMock).not.toHaveBeenCalled();
 	});
 });

@@ -25,7 +25,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'Invalid request');
 	}
 
-	const { variations } = await loadRepertoireVariations(supabase, user.id, repertoireId);
+	const { repertoire, variations } = await loadRepertoireVariations(supabase, user.id, repertoireId);
+	const maxLevel = repertoire.practiceDepthLevels;
 	const today = new Date().toISOString().slice(0, 10);
 	// The level-progress write and the quest-progress write touch disjoint
 	// tables/rows with no ordering dependency — run them concurrently. Both
@@ -33,9 +34,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// exhausts its retries, quest progress may still have recorded, which is
 	// an acceptable trade for not serializing two unrelated writes.
 	const [row] = await Promise.all([
-		applyAttemptResult(supabase, user.id, repertoireId, { taskKey, hadMistake }, variations),
+		applyAttemptResult(supabase, user.id, repertoireId, { taskKey, hadMistake }, variations, maxLevel),
 		incrementQuestProgress(supabase, user.id, 'review_cards', today)
 	]);
 
-	return json(buildPracticeView(variations, row, null));
+	return json(buildPracticeView(variations, row, null, maxLevel));
 };

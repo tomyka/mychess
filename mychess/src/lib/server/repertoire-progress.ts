@@ -129,11 +129,13 @@ export async function loadRepertoireProgressSummaries(
 	const [{ data: ownReps }, { data: assigned }] = await Promise.all([
 		supabase
 			.from('repertoires')
-			.select('id, name, color, total_variations, total_levels, level1_task_count')
+			.select('id, name, color, total_variations, total_levels, level1_task_count, practice_depth_levels')
 			.eq('player_id', userId),
 		supabase
 			.from('assigned_repertoires')
-			.select('repertoire:repertoire_id(id, name, color, total_variations, total_levels, level1_task_count)')
+			.select(
+				'repertoire:repertoire_id(id, name, color, total_variations, total_levels, level1_task_count, practice_depth_levels)'
+			)
 			.eq('player_id', userId)
 	]);
 
@@ -161,10 +163,17 @@ export async function loadRepertoireProgressSummaries(
 	}
 
 	return allReps.map((r: any) => {
-		const shape: RepertoireShape =
+		const naturalShape: RepertoireShape =
 			r.total_variations !== null
 				? { totalVariations: r.total_variations, totalLevels: r.total_levels, level1TaskCount: r.level1_task_count }
 				: backfilledShapes.get(r.id)!;
+		// Clamped to the player's configured practice depth, same as the
+		// detail page (`effectiveLevelCap`) — otherwise this would show a
+		// level count deeper than what practice will actually ever ask for.
+		const shape: RepertoireShape = {
+			...naturalShape,
+			totalLevels: Math.min(naturalShape.totalLevels, r.practice_depth_levels)
+		};
 		const progress = repertoireProgressFromShape(shape, rowByRep.get(r.id) ?? null);
 		return { id: r.id, name: r.name, color: r.color, ...progress };
 	});

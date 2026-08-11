@@ -12,8 +12,9 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 	const repertoireId = params.repertoire_id;
 
 	const { repertoire, variations } = await loadRepertoireVariations(supabase, user!.id, repertoireId);
-	const row = await loadSyncedLevelProgress(supabase, user!.id, repertoireId, variations);
-	const { level, totalLevels } = repertoireProgress(variations, row);
+	const maxLevel = repertoire.practiceDepthLevels;
+	const row = await loadSyncedLevelProgress(supabase, user!.id, repertoireId, variations, maxLevel);
+	const { level, totalLevels } = repertoireProgress(variations, row, maxLevel);
 
 	// A `?level=N` request only takes effect for a level strictly below the
 	// active one (or any level up to totalLevels once mastered) — anything
@@ -27,5 +28,5 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		(level === 'mastered' ? requestedLevel <= totalLevels : requestedLevel < level);
 	const reviewLevel = isValidReview ? requestedLevel : null;
 
-	return { repertoire, ...buildPracticeView(variations, row, reviewLevel) };
+	return { repertoire, ...buildPracticeView(variations, row, reviewLevel, maxLevel) };
 };

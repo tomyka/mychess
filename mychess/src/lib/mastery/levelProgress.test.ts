@@ -9,10 +9,15 @@ import {
 	repertoireProgress,
 	repertoireShape,
 	repertoireProgressFromShape,
+	effectiveLevelCap,
 	type LevelProgressRow
 } from './levelProgress';
 import { taskKey } from './levels';
 import type { Variation } from './variations';
+
+// A generous ceiling for tests that aren't about the depth cap itself —
+// keeps them exercising the repertoire's own natural level cap unclamped.
+const UNCAPPED = 100;
 
 function variation(playerMoveCount: number, prefix: string): Variation {
 	const path: Variation['path'] = [];
@@ -81,7 +86,7 @@ describe('resolveAttempt', () => {
 				{ key: taskKey(b, 1), status: 'pending' }
 			]
 		};
-		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false }, [a, b]);
+		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false }, [a, b], UNCAPPED);
 		expect(next.queue).toEqual([
 			{ key: taskKey(a, 1), status: 'cleared' },
 			{ key: taskKey(b, 1), status: 'pending' }
@@ -100,7 +105,7 @@ describe('resolveAttempt', () => {
 				{ key: taskKey(b, 1), status: 'pending' }
 			]
 		};
-		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: true }, [a, b]);
+		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: true }, [a, b], UNCAPPED);
 		expect(next.queue).toEqual([
 			{ key: taskKey(b, 1), status: 'pending' },
 			{ key: taskKey(a, 1), status: 'pending' }
@@ -110,7 +115,7 @@ describe('resolveAttempt', () => {
 	it('advances to the next level, with a fresh queue, once every task clears', () => {
 		const a = variation(10, 'a-');
 		const row: LevelProgressRow = { level: 1, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 1), status: 'pending' }] };
-		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false }, [a], () => 0);
+		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false }, [a], UNCAPPED, () => 0);
 		expect(next.level).toBe(2);
 		expect(next.prevLevelMistakes).toBe(0);
 		expect(next.queue).toEqual([{ key: taskKey(a, 2), status: 'pending' }]);
@@ -119,7 +124,7 @@ describe('resolveAttempt', () => {
 	it('becomes mastered past the level cap, keeping the cleared queue', () => {
 		const a = variation(2, 'a-'); // 1-level repertoire (cap = 1)
 		const row: LevelProgressRow = { level: 1, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 1), status: 'pending' }] };
-		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false }, [a]);
+		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false }, [a], UNCAPPED);
 		expect(next.level).toBe(2); // cap(1) + 1 — sentinel for "mastered"
 		expect(next.queue).toEqual([{ key: taskKey(a, 1), status: 'cleared' }]);
 	});
@@ -127,30 +132,37 @@ describe('resolveAttempt', () => {
 	it('preserves an unrelated nonzero prevLevelMistakes untouched', () => {
 		const a = variation(2, 'a-');
 		const row: LevelProgressRow = { level: 1, prevLevelMistakes: 2, queue: [{ key: taskKey(a, 1), status: 'pending' }] };
-		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: true }, [a]);
+		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: true }, [a], UNCAPPED);
 		expect(next.prevLevelMistakes).toBe(2); // resolveAttempt never touches this counter
 	});
 
 	it('is a no-op when the row is already mastered (a replayed/duplicate report)', () => {
 		const a = variation(2, 'a-'); // cap = 1
 		const row: LevelProgressRow = { level: 2, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 1), status: 'cleared' }] };
-		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false }, [a]);
+		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false }, [a], UNCAPPED);
 		expect(next).toEqual(row);
 	});
 
 	it('is a no-op when the reported taskKey is not in the queue (stale/unrecognized report)', () => {
 		const a = variation(10, 'a-');
 		const row: LevelProgressRow = { level: 1, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 1), status: 'pending' }] };
-		const next = resolveAttempt(row, { taskKey: 'not-a-real-key', hadMistake: false }, [a]);
+		const next = resolveAttempt(row, { taskKey: 'not-a-real-key', hadMistake: false }, [a], UNCAPPED);
 		expect(next).toEqual(row);
 	});
 
 	it('resets prevLevelMistakes to 0 when mastering, even with a nonzero count at the moment of mastery', () => {
 		const a = variation(2, 'a-'); // cap = 1
 		const row: LevelProgressRow = { level: 1, prevLevelMistakes: 2, queue: [{ key: taskKey(a, 1), status: 'pending' }] };
-		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false }, [a]);
+		const next = resolveAttempt(row, { taskKey: taskKey(a, 1), hadMistake: false }, [a], UNCAPPED);
 		expect(next.level).toBe(2);
 		expect(next.prevLevelMistakes).toBe(0);
+	});
+
+	it('becomes mastered at the configured practice depth even though the repertoire naturally goes deeper', () => {
+		const a = variation(10, 'a-'); // natural cap = ceil(10/3) = 4
+		const row: LevelProgressRow = { level: 2, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 2), status: 'pending' }] };
+		const next = resolveAttempt(row, { taskKey: taskKey(a, 2), hadMistake: false }, [a], 2, () => 0);
+		expect(next.level).toBe(3); // cap(2)+1 — mastered at the configured depth, not the natural depth of 4
 	});
 });
 
@@ -158,7 +170,7 @@ describe('resolvePreviousLevelMistake', () => {
 	it('increments the counter without demoting, below the threshold', () => {
 		const a = variation(10, 'a-');
 		const row: LevelProgressRow = { level: 2, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 2), status: 'pending' }] };
-		const { row: next, demoted } = resolvePreviousLevelMistake(row, [a]);
+		const { row: next, demoted } = resolvePreviousLevelMistake(row, [a], UNCAPPED);
 		expect(demoted).toBe(false);
 		expect(next.prevLevelMistakes).toBe(1);
 		expect(next.level).toBe(2);
@@ -168,7 +180,7 @@ describe('resolvePreviousLevelMistake', () => {
 	it('demotes on the 3rd mistake even though no attempt ever completed', () => {
 		const a = variation(10, 'a-');
 		const row: LevelProgressRow = { level: 2, prevLevelMistakes: 2, queue: [{ key: taskKey(a, 2), status: 'pending' }] };
-		const { row: next, demoted } = resolvePreviousLevelMistake(row, [a], () => 0);
+		const { row: next, demoted } = resolvePreviousLevelMistake(row, [a], UNCAPPED, () => 0);
 		expect(demoted).toBe(true);
 		expect(next.level).toBe(1);
 		expect(next.prevLevelMistakes).toBe(0);
@@ -178,7 +190,7 @@ describe('resolvePreviousLevelMistake', () => {
 	it('never demotes below level 1, and stops accumulating there', () => {
 		const a = variation(10, 'a-');
 		const row: LevelProgressRow = { level: 1, prevLevelMistakes: 5, queue: [{ key: taskKey(a, 1), status: 'pending' }] };
-		const { row: next, demoted } = resolvePreviousLevelMistake(row, [a]);
+		const { row: next, demoted } = resolvePreviousLevelMistake(row, [a], UNCAPPED);
 		expect(demoted).toBe(false);
 		expect(next).toEqual(row);
 	});
@@ -186,7 +198,15 @@ describe('resolvePreviousLevelMistake', () => {
 	it('is a no-op once mastered', () => {
 		const a = variation(2, 'a-'); // cap = 1
 		const row: LevelProgressRow = { level: 2, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 1), status: 'cleared' }] };
-		const { row: next, demoted } = resolvePreviousLevelMistake(row, [a]);
+		const { row: next, demoted } = resolvePreviousLevelMistake(row, [a], UNCAPPED);
+		expect(demoted).toBe(false);
+		expect(next).toEqual(row);
+	});
+
+	it('is a no-op once mastered at the configured practice depth, even below the natural cap', () => {
+		const a = variation(10, 'a-'); // natural cap = 4
+		const row: LevelProgressRow = { level: 3, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 2), status: 'cleared' }] };
+		const { row: next, demoted } = resolvePreviousLevelMistake(row, [a], 2); // mastered at depth 2 (row.level 3 > cap 2)
 		expect(demoted).toBe(false);
 		expect(next).toEqual(row);
 	});
@@ -203,20 +223,38 @@ describe('syncLevelProgress', () => {
 				{ key: 'removed-task', status: 'pending' }
 			]
 		};
-		const next = syncLevelProgress(row, [a], () => 0);
+		const next = syncLevelProgress(row, [a], UNCAPPED, () => 0);
 		expect(next.level).toBe(2); // cap(1)+1, mastered
 	});
 
 	it('leaves an already-mastered row untouched', () => {
 		const a = variation(2, 'a-');
 		const row: LevelProgressRow = { level: 2, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 1), status: 'cleared' }] };
-		expect(syncLevelProgress(row, [a])).toEqual(row);
+		expect(syncLevelProgress(row, [a], UNCAPPED)).toEqual(row);
+	});
+
+	it('treats a row already past the configured practice depth as mastered, even if the repertoire goes deeper', () => {
+		const a = variation(10, 'a-'); // natural cap = 4
+		const row: LevelProgressRow = { level: 3, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 2), status: 'cleared' }] };
+		expect(syncLevelProgress(row, [a], 2)).toEqual(row); // maxLevel 2 < row.level 3 — already "mastered", untouched
+	});
+});
+
+describe('effectiveLevelCap', () => {
+	it('is the natural cap when the configured depth is more generous', () => {
+		const a = variation(6, 'a-'); // natural cap = 2
+		expect(effectiveLevelCap([a], 6)).toBe(2);
+	});
+
+	it('is the configured depth when it is stricter than the natural cap', () => {
+		const a = variation(30, 'a-'); // natural cap = 10
+		expect(effectiveLevelCap([a], 6)).toBe(6);
 	});
 });
 
 describe('repertoireProgress', () => {
 	it('is "mastered" vacuously for a repertoire with no variations', () => {
-		expect(repertoireProgress([], null)).toEqual({
+		expect(repertoireProgress([], null, UNCAPPED)).toEqual({
 			level: 'mastered',
 			totalVariations: 0,
 			totalLevels: 0,
@@ -227,7 +265,7 @@ describe('repertoireProgress', () => {
 
 	it('defaults to a fresh level 1 when no row exists yet', () => {
 		const a = variation(6, 'a-');
-		const progress = repertoireProgress([a], null);
+		const progress = repertoireProgress([a], null, UNCAPPED);
 		expect(progress.level).toBe(1);
 		expect(progress.totalLevels).toBe(2); // ceil(6/3)
 		expect(progress.levelTaskCount).toBe(1);
@@ -245,7 +283,7 @@ describe('repertoireProgress', () => {
 				{ key: taskKey(b, 2), status: 'pending' }
 			]
 		};
-		const progress = repertoireProgress([a, b], row);
+		const progress = repertoireProgress([a, b], row, UNCAPPED);
 		expect(progress.level).toBe(2);
 		expect(progress.levelTaskCount).toBe(2);
 		expect(progress.levelSolvedCount).toBe(1);
@@ -254,10 +292,22 @@ describe('repertoireProgress', () => {
 	it('reports "mastered" once the row level exceeds the cap', () => {
 		const a = variation(2, 'a-');
 		const row: LevelProgressRow = { level: 2, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 1), status: 'cleared' }] };
-		const progress = repertoireProgress([a], row);
+		const progress = repertoireProgress([a], row, UNCAPPED);
 		expect(progress.level).toBe('mastered');
 		expect(progress.levelTaskCount).toBe(1);
 		expect(progress.levelSolvedCount).toBe(1);
+	});
+
+	it('reports totalLevels clamped to the configured practice depth, not the natural depth', () => {
+		const a = variation(30, 'a-'); // natural cap = 10
+		const progress = repertoireProgress([a], null, 6);
+		expect(progress.totalLevels).toBe(6);
+	});
+
+	it('does not let the configured depth raise totalLevels above the natural cap', () => {
+		const a = variation(6, 'a-'); // natural cap = 2
+		const progress = repertoireProgress([a], null, 6);
+		expect(progress.totalLevels).toBe(2);
 	});
 });
 
@@ -285,7 +335,9 @@ describe('repertoireProgressFromShape', () => {
 				{ key: taskKey(b, 2), status: 'pending' }
 			]
 		};
-		expect(repertoireProgressFromShape(repertoireShape([a, b]), row)).toEqual(repertoireProgress([a, b], row));
+		expect(repertoireProgressFromShape(repertoireShape([a, b]), row)).toEqual(
+			repertoireProgress([a, b], row, UNCAPPED)
+		);
 	});
 
 	it('is "mastered" vacuously for a zero-variation shape, independent of any row', () => {

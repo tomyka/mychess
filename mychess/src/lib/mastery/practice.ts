@@ -229,11 +229,13 @@ export type PracticeView = {
 export function buildPracticeView(
 	variations: Variation[],
 	row: LevelProgressRow | null,
-	reviewLevel: number | null
+	reviewLevel: number | null,
+	maxLevel: number
 ): PracticeView {
 	const { level, totalVariations, totalLevels, levelTaskCount, levelSolvedCount } = repertoireProgress(
 		variations,
-		row
+		row,
+		maxLevel
 	);
 
 	let attempt: PracticeView['attempt'] = null;

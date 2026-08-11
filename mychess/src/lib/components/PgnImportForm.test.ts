@@ -25,12 +25,6 @@ describe('PgnImportForm', () => {
 		expect(screen.getByText('Black')).toBeTruthy();
 		expect(screen.getByLabelText('Paste PGN text')).toBeTruthy();
 		expect(screen.getByLabelText('…or upload a .pgn file')).toBeTruthy();
-		expect(screen.getByLabelText('Max moves per line')).toBeTruthy();
-	});
-
-	it('defaults max moves per line to 20', () => {
-		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
-		expect((screen.getByLabelText('Max moves per line') as HTMLInputElement).value).toBe('20');
 	});
 
 	it('shows an error instead of submitting when the PGN is missing (name has no native required check)', async () => {
@@ -78,7 +72,6 @@ describe('PgnImportForm', () => {
 		const body = JSON.parse(opts.body);
 		expect(body.name).toBe('My Rep'); // single chapter — no " — <chapter>" suffix
 		expect(body.color).toBe('white');
-		expect(body.maxVariationMoves).toBe(20);
 	});
 
 	it('imports a multi-game PGN one chapter at a time, showing per-chapter progress', async () => {

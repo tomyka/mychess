@@ -62,6 +62,41 @@
 	// walked, not the one the attempt originally pinned.
 	let creditTaskKey = $state<string | null>(null);
 
+	// Practice depth: how many levels deep the level system currently goes
+	// into this repertoire (see `effectiveLevelCap`). Configurable, not fixed
+	// at import — the full repertoire is always stored, so raising this later
+	// reveals content that was there all along instead of needing a re-upload.
+	let editingDepth = $state(false);
+	let depthInput = $state(6);
+	let depthSaving = $state(false);
+	let depthError = $state('');
+
+	async function saveDepth() {
+		if (!Number.isInteger(depthInput) || depthInput < 1) {
+			depthError = 'Enter a whole number of 1 or more';
+			return;
+		}
+		depthSaving = true;
+		depthError = '';
+		try {
+			const res = await fetch(`/api/repertoires/${repertoireId}`, {
+				method: 'PATCH',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ practiceDepthLevels: depthInput })
+			});
+			if (!res.ok) {
+				const body = await res.json().catch(() => null);
+				throw new Error(body?.message ?? 'Failed to update practice depth');
+			}
+			editingDepth = false;
+			await invalidateAll();
+		} catch (err) {
+			depthError = err instanceof Error ? err.message : 'Failed to update practice depth';
+		} finally {
+			depthSaving = false;
+		}
+	}
+
 	const REPLAY_STEP_MS = 550;
 	const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -453,6 +488,44 @@
 	<title>Practice {data.repertoire?.name ?? 'Repertoire'} — MyChess</title>
 </svelte:head>
 
+{#snippet practiceDepthControl()}
+	<div class="p-3 bg-white border border-gray-200 rounded-2xl shadow-sm text-center text-sm">
+		{#if editingDepth}
+			<div class="flex items-center justify-center gap-2">
+				<label for="depth-input" class="text-gray-500">Practice depth:</label>
+				<input
+					id="depth-input"
+					type="number"
+					min="1"
+					step="1"
+					bind:value={depthInput}
+					disabled={depthSaving}
+					class="w-16 rounded-lg border border-gray-300 px-2 py-1 text-center disabled:opacity-60"
+				/>
+				<span class="text-gray-500">levels</span>
+				<button onclick={saveDepth} disabled={depthSaving} class="text-indigo-600 font-medium hover:underline disabled:opacity-60">
+					Save
+				</button>
+				<button onclick={() => (editingDepth = false)} disabled={depthSaving} class="text-gray-400 hover:underline disabled:opacity-60">
+					Cancel
+				</button>
+			</div>
+			{#if depthError}<p class="text-red-600 text-xs mt-1">{depthError}</p>{/if}
+		{:else}
+			<button
+				onclick={() => {
+					depthInput = data.repertoire?.practiceDepthLevels ?? 6;
+					editingDepth = true;
+				}}
+				class="text-gray-500 hover:text-indigo-600"
+			>
+				Practice depth: <span class="font-medium">{data.repertoire?.practiceDepthLevels} levels</span>
+				· <span class="text-indigo-600 underline">edit</span>
+			</button>
+		{/if}
+	</div>
+{/snippet}
+
 <main class="min-h-screen bg-gray-50 p-4 max-w-5xl mx-auto pb-24">
 	<div class="mb-4">
 		<a href="/practice" class="text-gray-400 text-sm hover:text-gray-600">← All Repertoires</a>
@@ -476,7 +549,8 @@
 			>
 				Back to Repertoires
 			</a>
-			<div class="w-full max-w-sm text-left">
+			<div class="w-full max-w-sm text-left space-y-4">
+				{@render practiceDepthControl()}
 				<LevelList totalLevels={data.totalLevels} currentLevel={data.level} reviewLevel={null} onselect={selectLevel} />
 			</div>
 		</div>
@@ -519,6 +593,8 @@
 					</p>
 					<p class="text-gray-400 text-sm">{data.levelSolvedCount}/{data.levelTaskCount} solved</p>
 				</div>
+
+				{@render practiceDepthControl()}
 
 				<LevelList
 					totalLevels={data.totalLevels}

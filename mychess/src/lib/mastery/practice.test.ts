@@ -4,6 +4,10 @@ import { buildPracticeView, pickQueuedAttempt, pickReviewAttempt, splitAttempt, 
 import { taskKey } from './levels';
 import type { Variation, VariationStep } from './variations';
 
+// A generous ceiling for tests that aren't about the practice-depth cap —
+// keeps buildPracticeView exercising each variation's own natural cap.
+const UNCAPPED = 100;
+
 function makeVariation(playerMoveCount: number, prefix: string): Variation {
 	const path: VariationStep[] = [];
 	for (let i = 1; i <= playerMoveCount; i++) {
@@ -439,7 +443,7 @@ describe('buildPracticeView', () => {
 	it('builds a reviewLevel attempt via pickReviewAttempt, ignoring queue state', () => {
 		const v = makeVariation(3, 'r-');
 		const row = { level: 2, prevLevelMistakes: 0, queue: [{ key: taskKey(v, 2), status: 'cleared' as const }] };
-		const view = buildPracticeView([v], row, 1);
+		const view = buildPracticeView([v], row, 1, UNCAPPED);
 		expect(view.reviewLevel).toBe(1);
 		expect(view.attempt).not.toBeNull();
 		expect(view.attempt!.taskKey).toBe(taskKey(v, 1));
@@ -448,7 +452,7 @@ describe('buildPracticeView', () => {
 	it('builds a queued attempt from the row when not reviewing', () => {
 		const v = makeVariation(3, 'q-');
 		const row = { level: 1, prevLevelMistakes: 0, queue: [{ key: taskKey(v, 1), status: 'pending' as const }] };
-		const view = buildPracticeView([v], row, null);
+		const view = buildPracticeView([v], row, null, UNCAPPED);
 		expect(view.level).toBe(1);
 		expect(view.attempt).not.toBeNull();
 		expect(view.attempt!.taskKey).toBe(taskKey(v, 1));
@@ -458,20 +462,28 @@ describe('buildPracticeView', () => {
 		const v = makeVariation(2, 'm-');
 		// level 2 exceeds this variation's cap (levelCap for a 2-move variation is 1) -> mastered
 		const row = { level: 2, prevLevelMistakes: 0, queue: [] };
-		const view = buildPracticeView([v], row, null);
+		const view = buildPracticeView([v], row, null, UNCAPPED);
 		expect(view.level).toBe('mastered');
 		expect(view.attempt).toBeNull();
 	});
 
 	it('returns a null attempt when there is no row yet (bootstrap case)', () => {
 		const v = makeVariation(3, 'b-');
-		const view = buildPracticeView([v], null, null);
+		const view = buildPracticeView([v], null, null, UNCAPPED);
 		expect(view.level).toBe(1);
 		expect(view.attempt).toBeNull();
 	});
 
+	it('becomes mastered at the configured practice depth even though the variation naturally goes deeper', () => {
+		const v = makeVariation(10, 'd-'); // natural cap = 4
+		const row = { level: 3, prevLevelMistakes: 0, queue: [{ key: taskKey(v, 2), status: 'cleared' as const }] };
+		const view = buildPracticeView([v], row, null, 2); // maxLevel 2 < row.level 3 -> mastered, not natural cap 4
+		expect(view.level).toBe('mastered');
+		expect(view.totalLevels).toBe(2);
+	});
+
 	it('returns the vacuous-mastered shape for a repertoire with no variations', () => {
-		const view = buildPracticeView([], null, null);
+		const view = buildPracticeView([], null, null, UNCAPPED);
 		expect(view.level).toBe('mastered');
 		expect(view.totalVariations).toBe(0);
 		expect(view.attempt).toBeNull();

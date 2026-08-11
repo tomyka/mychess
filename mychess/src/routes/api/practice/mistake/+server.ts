@@ -26,9 +26,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'Invalid request');
 	}
 
-	const { variations } = await loadRepertoireVariations(supabase, user.id, repertoireId);
-	const result = await applyPreviousLevelMistake(supabase, user.id, repertoireId, variations);
+	const { repertoire, variations } = await loadRepertoireVariations(supabase, user.id, repertoireId);
+	const maxLevel = repertoire.practiceDepthLevels;
+	const result = await applyPreviousLevelMistake(supabase, user.id, repertoireId, variations, maxLevel);
 
 	if (!result || !result.demoted) return json({ demoted: false });
-	return json({ demoted: true, view: buildPracticeView(variations, result.row, null) });
+	return json({ demoted: true, view: buildPracticeView(variations, result.row, null, maxLevel) });
 };
