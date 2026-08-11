@@ -43,5 +43,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		incrementQuestProgress(supabase, user.id, 'review_cards', today)
 	]);
 
-	return json(buildPracticeView(variations, row, null, maxLevel));
+	const view = buildPracticeView(variations, row, null, maxLevel);
+
+	// TEMP DIAGNOSTIC — investigating a re-served already-cleared task
+	// (issue #50 follow-up #2). Remove once root-caused.
+	console.log('[practice/attempt diag2]', {
+		reportedTaskKey: taskKey,
+		abandonedTaskKey,
+		hadMistake,
+		queueOrder: row?.queue?.map((e) => `${e.key.slice(0, 8)}:${e.status}`),
+		nextServedTaskKey: view.attempt?.taskKey?.slice(0, 8)
+	});
+
+	return json(view);
 };
