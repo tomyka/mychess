@@ -75,8 +75,8 @@
       <div class="flex items-center justify-between mb-3">
         <h2 class="font-semibold text-gray-900">Practice Report</h2>
         <div class="flex gap-1 text-xs">
-          <a href="?range=30d" class="px-2 py-1 rounded-full {data.range === '30d' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500'}">30d</a>
-          <a href="?range=all" class="px-2 py-1 rounded-full {data.range === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500'}">All time</a>
+          <a href="?range=30d" aria-current={data.range === '30d' ? 'true' : undefined} class="px-2 py-1 rounded-full {data.range === '30d' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500'}">30d</a>
+          <a href="?range=all" aria-current={data.range === 'all' ? 'true' : undefined} class="px-2 py-1 rounded-full {data.range === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500'}">All time</a>
         </div>
       </div>
 
@@ -125,6 +125,11 @@
                     </g>
                   {/each}
                 </svg>
+                <span class="sr-only">
+                  {#each pr.report.accuracy as point}
+                    {point.bucket}: {point.correct} of {point.correct + point.wrong} correct.
+                  {/each}
+                </span>
                 <div class="flex gap-3 text-xs text-gray-400 mb-3">
                   <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-400"></span>Correct</span>
                   <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-400"></span>Wrong</span>
