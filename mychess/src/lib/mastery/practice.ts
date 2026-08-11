@@ -13,9 +13,9 @@ import { repertoireProgress, type LevelProgressRow } from './levelProgress';
 //   shorter sibling already fully resolved at an earlier level) — nothing to
 //   continue, nothing to credit.
 export type Alternative =
-	| { san: string; toFen: string; kind: 'completes'; taskKey: string }
-	| { san: string; toFen: string; kind: 'continue'; variationKey: string }
-	| { san: string; toFen: string; kind: 'dead-end' };
+	| { san: string; toFen: string; moveId: string; kind: 'completes'; taskKey: string }
+	| { san: string; toFen: string; moveId: string; kind: 'continue'; variationKey: string }
+	| { san: string; toFen: string; moveId: string; kind: 'dead-end' };
 
 export type QuizStep = VariationStep & {
 	band: 'previous' | 'current';
@@ -99,7 +99,7 @@ function alternativesAt(
 		if (existing?.kind === 'completes') continue; // already the best possible classification
 
 		if (!hasContentAtLevel(variation, level)) {
-			if (!existing) found.set(step.san, { san: step.san, toFen: step.toFen, kind: 'dead-end' });
+			if (!existing) found.set(step.san, { san: step.san, toFen: step.toFen, moveId: step.moveId, kind: 'dead-end' });
 			continue;
 		}
 
@@ -107,6 +107,7 @@ function alternativesAt(
 			found.set(step.san, {
 				san: step.san,
 				toFen: step.toFen,
+				moveId: step.moveId,
 				kind: 'completes',
 				taskKey: taskKey(variation, level)
 			});
@@ -125,6 +126,7 @@ function alternativesAt(
 			found.set(step.san, {
 				san: step.san,
 				toFen: step.toFen,
+				moveId: step.moveId,
 				kind: 'continue',
 				variationKey: variation.variationKey
 			});
