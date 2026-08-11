@@ -493,6 +493,17 @@
 	// merged directly rather than re-fetched via invalidateAll().
 	async function handleMidAttemptDemotion(view: PracticeView, myToken: number) {
 		if (myToken !== resetToken) return; // superseded by a resetForAttempt() while the mistake POST was in flight
+		// Bump the token NOW, not just whenever the eventual resetForAttempt()
+		// fires — this attempt is abandoned as of this instant. Without this,
+		// a completion report already in flight for this same attempt (the
+		// player kept playing after the demoting mistake, since a wrong review
+		// move doesn't lock the board, and then solved the rest correctly)
+		// lands after this demotion applies, and nextAttempt()'s own
+		// `myToken !== resetToken` check — captured before this ever ran —
+		// wouldn't see anything stale yet and would go on to merge that
+		// completion's (now-moot) view on top of this one, undoing the
+		// leveled-down banner and looking like an unexplained restart.
+		resetToken++;
 		clearTimeout(advanceTimeout);
 		locked = true;
 		phase = 'advancing';
