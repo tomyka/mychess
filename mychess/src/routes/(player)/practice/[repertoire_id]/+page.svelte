@@ -294,6 +294,7 @@
 			locked = true;
 			wrongCount = 0;
 			hintRequested = false;
+			logMove(step.moveId, detail.san, true, currentLevel);
 			// Whether THIS move is the last one in the attempt — decided now,
 			// synchronously, since ChessBoard needs the star-vs-check choice at
 			// move time, before the 500ms hold below even starts.
@@ -344,6 +345,7 @@
 			locked = true;
 			wrongCount = 0;
 			hintRequested = false;
+			logMove(step.moveId, detail.san, true, currentLevel);
 
 			if (alt.kind === 'completes') {
 				// Lands on another task's own target-depth move — finishes it
@@ -410,6 +412,7 @@
 
 		playWrong();
 		wrongCount++;
+		logMove(step.moveId, detail.san, false, currentLevel);
 		if (currentReviewLevel === null) {
 			attemptHadMistake = true;
 			if (step.band === 'previous') reportPreviousLevelMistake();
@@ -465,6 +468,21 @@
 			// Report failed — worst case this one mistake isn't counted; the
 			// player just needs one more before demotion fires.
 		}
+	}
+
+	// Fire-and-forget log of a single move resolution — every correct and
+	// wrong move, including during review (unlike reportAttempt/
+	// reportPreviousLevelMistake, which are skipped in review since neither
+	// touches level_progress there — this log isn't gated the same way,
+	// since it doesn't affect progress and a fuller activity picture is the
+	// whole point). A dropped log row has no effect on the board or on
+	// progress, so this never blocks or retries.
+	function logMove(moveId: string, playedSan: string, isCorrect: boolean, level: number) {
+		fetch('/api/practice/move-log', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ repertoireId, moveId, playedSan, isCorrect, level })
+		}).catch(() => {});
 	}
 
 	// A demotion detected mid-attempt (not at the natural end-of-attempt

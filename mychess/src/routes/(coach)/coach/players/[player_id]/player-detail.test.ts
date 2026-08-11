@@ -12,6 +12,8 @@ const baseData = {
   notes: [],
   coachReps: [],
   assignedReps: [],
+  practiceReports: [],
+  range: '30d',
   playerId: 'p1'
 };
 
@@ -90,5 +92,53 @@ describe('coach student detail page', () => {
   it('shows a form error message when present', () => {
     render(PlayerDetail, { props: { data: baseData, form: { error: 'Note cannot be empty' } } });
     expect(screen.getByText('Note cannot be empty')).toBeTruthy();
+  });
+
+  it('shows a Practice Report section with mastery level and mistake hotspots per repertoire', () => {
+    render(PlayerDetail, {
+      props: {
+        data: {
+          ...baseData,
+          practiceReports: [
+            {
+              repertoireId: 'r1',
+              repertoireName: 'Sicilian Defense',
+              level: 2,
+              report: {
+                accuracy: [{ bucket: '2026-08-01', correct: 3, wrong: 1 }],
+                hotspots: [{ moveId: 'm1', label: '6...e5', missCount: 4, attemptCount: 7 }],
+                activity: { sessionCount: 5, lastPracticedAt: '2026-08-10T10:00:00Z', streakDays: 2 }
+              }
+            }
+          ]
+        },
+        form: null
+      }
+    });
+    expect(screen.getByText('Practice Report')).toBeTruthy();
+    expect(screen.getByText('Sicilian Defense')).toBeTruthy();
+    expect(screen.getByText(/Level 2/)).toBeTruthy();
+    expect(screen.getByText(/6\.\.\.e5/)).toBeTruthy();
+    expect(screen.getByText(/wrong 4\/7/)).toBeTruthy();
+  });
+
+  it('shows a no-activity message for a repertoire with no logged attempts in range', () => {
+    render(PlayerDetail, {
+      props: {
+        data: {
+          ...baseData,
+          practiceReports: [
+            {
+              repertoireId: 'r1',
+              repertoireName: 'Sicilian Defense',
+              level: null,
+              report: { accuracy: [], hotspots: [], activity: { sessionCount: 0, lastPracticedAt: null, streakDays: 0 } }
+            }
+          ]
+        },
+        form: null
+      }
+    });
+    expect(screen.getByText('No practice activity in this range.')).toBeTruthy();
   });
 });

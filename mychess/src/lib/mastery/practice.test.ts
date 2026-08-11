@@ -167,7 +167,7 @@ describe('splitAttempt', () => {
 		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, b]);
 		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
 		expect(branchStep.alternatives).toEqual([
-			{ san: 'Bc4', toFen: 'b-end', kind: 'completes', taskKey: taskKey(b, 1) }
+			{ san: 'Bc4', toFen: 'b-end', moveId: 'b-p2', kind: 'completes', taskKey: taskKey(b, 1) }
 		]);
 	});
 
@@ -196,7 +196,7 @@ describe('splitAttempt', () => {
 		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, b]);
 		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
 		expect(branchStep.alternatives).toEqual([
-			{ san: 'Bc4', toFen: 'b-mid', kind: 'continue', variationKey: b.variationKey }
+			{ san: 'Bc4', toFen: 'b-mid', moveId: 'b-p2', kind: 'continue', variationKey: b.variationKey }
 		]);
 	});
 
@@ -236,7 +236,7 @@ describe('splitAttempt', () => {
 		const { quizSteps } = splitAttempt(a.path, 2, 6, [a, b]);
 		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
 		expect(branchStep.band).toBe('previous'); // sanity: within level 2's review-band window
-		expect(branchStep.alternatives).toEqual([{ san: 'Bc4', toFen: 'b-end', kind: 'dead-end' }]);
+		expect(branchStep.alternatives).toEqual([{ san: 'Bc4', toFen: 'b-end', moveId: 'b-p2', kind: 'dead-end' }]);
 	});
 
 	it('prioritizes "completes" over "continue" when two siblings share one branch edge', () => {
@@ -273,7 +273,7 @@ describe('splitAttempt', () => {
 		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, b1, b2]);
 		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
 		expect(branchStep.alternatives).toEqual([
-			{ san: 'Bc4', toFen: 'b-mid', kind: 'completes', taskKey: taskKey(b1, 1) }
+			{ san: 'Bc4', toFen: 'b-mid', moveId: 'b1-p2', kind: 'completes', taskKey: taskKey(b1, 1) }
 		]);
 	});
 
@@ -328,7 +328,7 @@ describe('splitAttempt', () => {
 		const { quizSteps } = splitAttempt(a.path, 2, 6, [a, d, e]);
 		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
 		expect(branchStep.alternatives).toEqual([
-			{ san: 'Bc4', toFen: 'd-end', kind: 'continue', variationKey: e.variationKey }
+			{ san: 'Bc4', toFen: 'd-end', moveId: 'd-p2', kind: 'continue', variationKey: e.variationKey }
 		]);
 	});
 
@@ -557,7 +557,7 @@ describe('continueFromBranch', () => {
 		expect(result).not.toBeNull();
 		const nested = result!.quizSteps.find((s) => s.moveId === 'e-p3')!;
 		expect(nested.alternatives).toEqual([
-			{ san: 'Bb5', toFen: 'f-end', kind: 'completes', taskKey: taskKey(f, 1) }
+			{ san: 'Bb5', toFen: 'f-end', moveId: 'f-p3', kind: 'completes', taskKey: taskKey(f, 1) }
 		]);
 	});
 });
