@@ -6,7 +6,14 @@ export type RawMoveRow = {
 	toFen: string;
 	san: string;
 	isPlayerTurn: boolean;
-	chapterName: string | null;
+	// Optional (not just nullable) so the many pre-existing test fixtures
+	// across the codebase that hand-construct these types (e.g.
+	// `mastery/practice.test.ts`, `mastery/levelProgress.test.ts`) don't all
+	// need updating for a field they have no reason to care about — an
+	// omitted `chapterName` is treated identically to an explicit `null`
+	// everywhere it's read (see `RepertoirePracticeRow.svelte`'s grouping and
+	// the `/variations` endpoint's `?? null` normalization).
+	chapterName?: string | null;
 };
 
 export type VariationStep = {
@@ -15,7 +22,7 @@ export type VariationStep = {
 	fromFen: string;
 	toFen: string;
 	isPlayerTurn: boolean;
-	chapterName: string | null;
+	chapterName?: string | null;
 };
 
 export type Variation = {
@@ -25,11 +32,11 @@ export type Variation = {
 	playerMoveCount: number;
 	// The originating PGN chapter's own bare title, carried from this
 	// variation's leaf move (see `MoveRow.isChapterEnd` in `$lib/pgn-import.ts`
-	// for how it's tagged at import time). Null for any variation whose leaf
-	// isn't a tagged chapter-end — every variation of a repertoire imported
-	// before chapter tagging existed, or of a single-chapter import, where
-	// grouping doesn't apply.
-	chapterName: string | null;
+	// for how it's tagged at import time). Undefined/null for any variation
+	// whose leaf isn't a tagged chapter-end — every variation of a
+	// repertoire imported before chapter tagging existed, or of a
+	// single-chapter import, where grouping doesn't apply.
+	chapterName?: string | null;
 };
 
 /**
