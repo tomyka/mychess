@@ -55,11 +55,13 @@ export async function importGames(
 }
 
 /**
- * Creates one repertoire from a single chapter's worth of moves, then
- * chunk-upserts its positions and moves into its tree. Public: called
- * directly by `/api/repertoires/import-chapter` so a multi-chapter PGN can
- * be imported chapter-by-chapter from the client with a real progress bar,
- * instead of one request doing every chapter before replying.
+ * Creates one repertoire from a chapter's worth of moves (or appends to an
+ * existing one, via `existingRepertoireId`), then chunk-upserts its
+ * positions and moves into its tree. Public: called directly by
+ * `/api/repertoires/import-chapter` so a multi-chapter PGN can be imported
+ * chapter-by-chapter from the client with a real progress bar, while every
+ * chapter's moves land in ONE shared repertoire (see the design doc linked
+ * in the PR/issue) instead of each chapter becoming its own repertoire row.
  */
 export async function writeMoves(
   supabase: SupabaseClient,
@@ -70,44 +72,59 @@ export async function writeMoves(
     ecoCode: string | null;
     ecoName: string | null;
     moves: MoveRow[];
+    // Set when this call appends another chapter's moves onto a repertoire
+    // an earlier call in the same multi-chapter import already created.
+    existingRepertoireId?: string;
+    // True for a multi-chapter import's chapters (creating OR appending) —
+    // this call only ever sees ONE chapter's moves, so it cannot correctly
+    // compute the repertoire's full shape (total_variations/total_levels/
+    // level1_task_count spans every chapter). Shape is left null and picked
+    // up the next time the repertoire loads via the existing lazy
+    // `backfillShapes` in `repertoire-progress.ts` — the exact mechanism
+    // already used for repertoires imported before shape caching existed.
+    deferShape?: boolean;
   }
 ): Promise<{ repertoireId: string | null; error: string | null }> {
-  // Computed from `params.moves` directly — before any DB writes — since
-  // moves are immutable after import, this "shape" (see
-  // `$lib/mastery/levelProgress.ts`) never changes again for this
-  // repertoire. Caching it here lets loadRepertoireProgressSummaries (the
-  // Dashboard + Practice picker) skip re-fetching and re-walking every move
-  // on every load. Deduped by (fromFen, san) first, mirroring the moves
-  // upsert's own conflict target below — `importGames` can hand this
-  // several real games sharing an opening, whose shared edges collapse into
-  // one on write, and the cached shape has to match what's actually stored.
-  const dedupedMoves = Array.from(new Map(params.moves.map((m) => [`${m.fromFen}|${m.san}`, m])).values());
-  const rawMoves: RawMoveRow[] = dedupedMoves.map((m, i) => ({
-    id: String(i),
-    fromPositionId: m.fromFen,
-    toPositionId: m.toFen,
-    fromFen: m.fromFen,
-    toFen: m.toFen,
-    san: m.san,
-    isPlayerTurn: m.is_player_turn
-  }));
-  const shape = repertoireShape(enumerateVariations(rawMoves));
+  let repId: string;
+  let isNewRepertoire = false;
 
-  const { data: rep, error: repErr } = await supabase
-    .from('repertoires')
-    .insert({
+  if (params.existingRepertoireId) {
+    repId = params.existingRepertoireId;
+  } else {
+    isNewRepertoire = true;
+    const insertColumns: Record<string, unknown> = {
       player_id: params.playerId,
       name: params.name,
       color: params.color,
       eco_code: params.ecoCode,
-      eco_name: params.ecoName,
-      total_variations: shape.totalVariations,
-      total_levels: shape.totalLevels,
-      level1_task_count: shape.level1TaskCount
-    })
-    .select()
-    .single();
-  if (repErr) return { repertoireId: null, error: repErr.message };
+      eco_name: params.ecoName
+    };
+    if (!params.deferShape) {
+      // Computed from `params.moves` directly — before any DB writes — since
+      // moves are immutable after import, this "shape" (see
+      // `$lib/mastery/levelProgress.ts`) never changes again for this
+      // repertoire once it's known to be complete (a single-chapter import,
+      // or `importGames`, which always hands over every move up front).
+      const dedupedMoves = Array.from(new Map(params.moves.map((m) => [`${m.fromFen}|${m.san}`, m])).values());
+      const rawMoves: RawMoveRow[] = dedupedMoves.map((m, i) => ({
+        id: String(i),
+        fromPositionId: m.fromFen,
+        toPositionId: m.toFen,
+        fromFen: m.fromFen,
+        toFen: m.toFen,
+        san: m.san,
+        isPlayerTurn: m.is_player_turn
+      }));
+      const shape = repertoireShape(enumerateVariations(rawMoves));
+      insertColumns.total_variations = shape.totalVariations;
+      insertColumns.total_levels = shape.totalLevels;
+      insertColumns.level1_task_count = shape.level1TaskCount;
+    }
+
+    const { data: rep, error: repErr } = await supabase.from('repertoires').insert(insertColumns).select().single();
+    if (repErr) return { repertoireId: null, error: repErr.message };
+    repId = rep.id;
+  }
 
   // Batch every write instead of doing 2 upserts + 2 selects + 1 upsert PER
   // MOVE (5 sequential round-trips each) — for a large multi-chapter study
@@ -119,10 +136,13 @@ export async function writeMoves(
 
   // Any write failure below leaves an already-inserted repertoire row with
   // no (or partial) moves — silently swallowing that error is what produces
-  // a repertoire that looks imported but is actually empty. Roll it back and
-  // surface the real error instead.
+  // a repertoire that looks imported but is actually empty. Roll back a
+  // repertoire THIS call created; a pre-existing one (append mode) is left
+  // alone — the client (see `PgnImportForm.svelte`) owns rolling back a
+  // whole multi-chapter batch since it's the only party that knows every
+  // chapter belongs to the same import.
   async function fail(message: string): Promise<{ repertoireId: string | null; error: string | null }> {
-    await supabase.from('repertoires').delete().eq('id', rep.id);
+    if (isNewRepertoire) await supabase.from('repertoires').delete().eq('id', repId);
     return { repertoireId: null, error: message };
   }
 
@@ -153,11 +173,13 @@ export async function writeMoves(
     return fail(`${missingFens.length} position(s) could not be saved — import aborted to avoid dropping moves silently.`);
   }
 
-  // Multiple games can share an opening sequence (the same position and move
-  // played twice) — upsert with ignoreDuplicates so they merge into one
-  // shared edge in the tree instead of erroring on the second insert.
+  // Multiple chapters can share an opening sequence (the same position and
+  // move played twice) — upsert with ignoreDuplicates so they merge into one
+  // shared edge in the tree instead of erroring on the second insert. This is
+  // exactly how a multi-chapter import's separate `writeMoves` calls end up
+  // sharing prefixes once they're all writing into the same `repId`.
   const moveRows = params.moves.map((move) => ({
-    repertoire_id: rep.id,
+    repertoire_id: repId,
     from_position: fenToId.get(move.fromFen)!,
     to_position: fenToId.get(move.toFen)!,
     san: move.san,
@@ -174,5 +196,5 @@ export async function writeMoves(
     if (error) return fail(`Failed to save moves: ${error.message}`);
   }
 
-  return { repertoireId: rep.id, error: null };
+  return { repertoireId: repId, error: null };
 }
