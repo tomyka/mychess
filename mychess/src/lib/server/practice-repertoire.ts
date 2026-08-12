@@ -68,29 +68,38 @@ export async function fetchAllMoves(supabase: SupabaseClient, repertoireId: stri
 }
 
 /**
- * Loads a repertoire a player can access (owned or coach-assigned) plus its
- * enumerated variations, or throws a 404 — the same authorization + move
- * fetch both the practice detail page's load and its attempt-reporting
- * endpoint need. Authorization is enforced entirely by RLS (`repertoires`'
- * and `moves`' own- and assigned-read policies) — a row simply won't come
- * back for a caller who isn't allowed to see it, so there's no need to
- * separately fetch and check the caller's full owned/assigned id lists here.
+ * Loads a repertoire a player can access (owned or coach-assigned), its full
+ * enumerated variations, and this player's own excluded-variation set — the
+ * same authorization + move fetch every practice-mutating endpoint and the
+ * detail page's load need. Authorization is enforced entirely by RLS
+ * (`repertoires`' and `moves`' own- and assigned-read policies) — a row
+ * simply won't come back for a caller who isn't allowed to see it.
+ *
+ * Deliberately returns the FULL variation set rather than filtering out
+ * excluded ones itself — callers that build practice queues/levels should
+ * filter via `filterVariations` before using them (see
+ * `practice/[repertoire_id]/+page.server.ts` and the `/api/practice/*`
+ * endpoints), while callers that need to show every variation with its
+ * checked state (the Practice picker's expand-to-show-variations UI) need
+ * the unfiltered list plus this set to annotate it.
  */
 export async function loadRepertoireVariations(
 	supabase: SupabaseClient,
-	// Unused now that RLS is the sole authorization check (see above) — kept
-	// on the signature for documentation/stability rather than churning
-	// every call site.
-	_userId: string,
+	userId: string,
 	repertoireId: string
-): Promise<{ repertoire: PracticeRepertoire; variations: Variation[] }> {
-	const [{ data: repertoire }, rawMoves] = await Promise.all([
+): Promise<{ repertoire: PracticeRepertoire; variations: Variation[]; excludedVariationKeys: Set<string> }> {
+	const [{ data: repertoire }, rawMoves, { data: exclusions }] = await Promise.all([
 		supabase
 			.from('repertoires')
 			.select('id, name, color, practice_depth_levels')
 			.eq('id', repertoireId)
 			.maybeSingle(),
-		fetchAllMoves(supabase, repertoireId)
+		fetchAllMoves(supabase, repertoireId),
+		supabase
+			.from('variation_practice_exclusions')
+			.select('variation_key')
+			.eq('player_id', userId)
+			.eq('repertoire_id', repertoireId)
 	]);
 
 	if (!repertoire) {
@@ -114,6 +123,7 @@ export async function loadRepertoireVariations(
 			color: repertoire.color,
 			practiceDepthLevels: repertoire.practice_depth_levels
 		},
-		variations: enumerateVariations(moves)
+		variations: enumerateVariations(moves),
+		excludedVariationKeys: new Set((exclusions ?? []).map((row: any) => row.variation_key))
 	};
 }
