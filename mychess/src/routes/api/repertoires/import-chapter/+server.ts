@@ -14,7 +14,8 @@ function isMoveRow(value: unknown): value is MoveRow {
 		typeof m.san === 'string' &&
 		typeof m.move_number === 'number' &&
 		typeof m.is_player_turn === 'boolean' &&
-		(m.annotation === null || typeof m.annotation === 'string')
+		(m.annotation === null || typeof m.annotation === 'string') &&
+		typeof m.isChapterEnd === 'boolean'
 	);
 }
 
@@ -31,7 +32,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const user = await requireApiUser(locals);
 
 	const body = await request.json().catch(() => null);
-	const { name, color, ecoCode, ecoName, moves, existingRepertoireId, finalize } = body ?? {};
+	const { name, color, ecoCode, ecoName, moves, existingRepertoireId, finalize, chapterLabel } = body ?? {};
 
 	if (typeof name !== 'string' || !name.trim()) throw error(400, 'name is required');
 	if (color !== 'white' && color !== 'black') throw error(400, 'color must be "white" or "black"');
@@ -43,6 +44,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 	if (finalize !== undefined && typeof finalize !== 'boolean') {
 		throw error(400, 'finalize must be a boolean');
+	}
+	if (chapterLabel !== undefined && (typeof chapterLabel !== 'string' || !chapterLabel.trim())) {
+		throw error(400, 'chapterLabel must be a non-empty string');
 	}
 
 	if (existingRepertoireId) {
@@ -66,7 +70,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		ecoName,
 		moves,
 		existingRepertoireId,
-		finalize
+		finalize,
+		chapterLabel
 	});
 	if (result.error) throw error(400, result.error);
 
