@@ -48,17 +48,6 @@ export function chapterName(headers: Record<string, string>, index: number): str
 }
 
 /**
- * Turns PGN text + a chosen studied color into one import chapter per game
- * in the file — each game's moves stay in their own chapter rather than
- * merging into a shared tree, since $lib/server/pgn-import.ts creates one
- * repertoire per chapter when a PGN contains more than one game. Imports
- * every move in each chapter, uncapped — how deep a player actually
- * practices into it is a separate, adjustable-after-the-fact setting (see
- * `repertoires.practice_depth_levels`), not something decided once here at
- * import time. Pure — no I/O — so it's directly testable without touching
- * Supabase.
- */
-/**
  * Every `toFen` in `moves` that's never used as another move's `fromFen` —
  * i.e. every distinct line-ending position within one chapter's own moves,
  * including sidelines the chapter's own PGN branches into (not just its
@@ -71,6 +60,17 @@ function chapterLeafFens(moves: { fromFen: string; toFen: string }[]): Set<strin
   return new Set(moves.map((m) => m.toFen).filter((fen) => !fromFens.has(fen)));
 }
 
+/**
+ * Turns PGN text + a chosen studied color into one import chapter per game
+ * in the file — each game's moves stay in their own chapter rather than
+ * merging into a shared tree, since $lib/server/pgn-import.ts creates one
+ * repertoire per chapter when a PGN contains more than one game. Imports
+ * every move in each chapter, uncapped — how deep a player actually
+ * practices into it is a separate, adjustable-after-the-fact setting (see
+ * `repertoires.practice_depth_levels`), not something decided once here at
+ * import time. Pure — no I/O — so it's directly testable without touching
+ * Supabase.
+ */
 export function planMultiImport(pgnText: string, color: 'white' | 'black'): MultiImportPlan {
   const games = parsePgn(pgnText);
 
