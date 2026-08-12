@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { planGameImport, type MoveRow } from '$lib/pgn-import';
 import { enumerateVariations, type RawMoveRow } from '$lib/mastery/variations';
 import { repertoireShape } from '$lib/mastery/levelProgress';
-import { fetchAllMoves } from './practice-repertoire';
+import { fetchAllMoves, toRawMoveRows } from './practice-repertoire';
 
 export type GameImportResult = { repertoireId: string | null; gameCount: number; error: string | null };
 
@@ -212,15 +212,7 @@ export async function writeMoves(
   // favor of lazy backfill for this case.
   if (params.existingRepertoireId && params.finalize !== false) {
     const allMoves = await fetchAllMoves(supabase, repId);
-    const rawMoves: RawMoveRow[] = allMoves.map((m: any) => ({
-      id: m.id,
-      fromPositionId: m.from_position,
-      toPositionId: m.to_position,
-      fromFen: m.from_pos?.fen ?? '',
-      toFen: m.to_pos?.fen ?? '',
-      san: m.san,
-      isPlayerTurn: m.is_player_turn
-    }));
+    const rawMoves: RawMoveRow[] = toRawMoveRows(allMoves);
     const shape = repertoireShape(enumerateVariations(rawMoves));
     const { error: shapeErr } = await supabase
       .from('repertoires')

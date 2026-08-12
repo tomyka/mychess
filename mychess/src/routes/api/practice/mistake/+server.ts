@@ -1,11 +1,10 @@
 // mychess/src/routes/api/practice/mistake/+server.ts
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
+import { loadFilteredRepertoireVariations } from '$lib/server/practice-repertoire';
 import { applyPreviousLevelMistake } from '$lib/server/level-progress';
 import { requireApiUser } from '$lib/server/auth';
 import { buildPracticeView } from '$lib/mastery/practice';
-import { filterVariations } from '$lib/mastery/variations';
 
 /**
  * Called the instant a wrong move lands on the previous-level review band —
@@ -27,12 +26,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'Invalid request');
 	}
 
-	const { repertoire, variations: allVariations, excludedVariationKeys } = await loadRepertoireVariations(
-		supabase,
-		user.id,
-		repertoireId
-	);
-	const variations = filterVariations(allVariations, excludedVariationKeys);
+	const { repertoire, variations } = await loadFilteredRepertoireVariations(supabase, user.id, repertoireId);
 	const maxLevel = repertoire.practiceDepthLevels;
 	const result = await applyPreviousLevelMistake(supabase, user.id, repertoireId, variations, maxLevel);
 

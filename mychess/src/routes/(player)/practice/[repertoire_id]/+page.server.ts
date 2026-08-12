@@ -1,23 +1,17 @@
 // mychess/src/routes/(player)/practice/[repertoire_id]/+page.server.ts
 import type { PageServerLoad } from './$types';
 import { requireAccount } from '$lib/server/auth';
-import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
+import { loadFilteredRepertoireVariations } from '$lib/server/practice-repertoire';
 import { loadSyncedLevelProgress, getLastReviewedAt } from '$lib/server/level-progress';
 import { repertoireProgress } from '$lib/mastery/levelProgress';
 import { buildPracticeView } from '$lib/mastery/practice';
-import { filterVariations } from '$lib/mastery/variations';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
 	const { user } = await requireAccount(locals);
 	const supabase = locals.supabase;
 	const repertoireId = params.repertoire_id;
 
-	const { repertoire, variations: allVariations, excludedVariationKeys } = await loadRepertoireVariations(
-		supabase,
-		user!.id,
-		repertoireId
-	);
-	const variations = filterVariations(allVariations, excludedVariationKeys);
+	const { repertoire, variations } = await loadFilteredRepertoireVariations(supabase, user!.id, repertoireId);
 	const maxLevel = repertoire.practiceDepthLevels;
 	const row = await loadSyncedLevelProgress(supabase, user!.id, repertoireId, variations, maxLevel);
 	const { level, totalLevels } = repertoireProgress(variations, row, maxLevel);

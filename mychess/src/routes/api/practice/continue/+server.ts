@@ -1,10 +1,9 @@
 // mychess/src/routes/api/practice/continue/+server.ts
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
+import { loadFilteredRepertoireVariations } from '$lib/server/practice-repertoire';
 import { continueFromBranch } from '$lib/mastery/practice';
 import { requireApiUser } from '$lib/server/auth';
-import { filterVariations } from '$lib/mastery/variations';
 
 /**
  * Resumes a specific line after a mid-line branch alternative was taken
@@ -28,12 +27,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'Invalid request');
 	}
 
-	const { variations: allVariations, excludedVariationKeys } = await loadRepertoireVariations(
-		supabase,
-		user.id,
-		repertoireId
-	);
-	const variations = filterVariations(allVariations, excludedVariationKeys);
+	const { variations } = await loadFilteredRepertoireVariations(supabase, user.id, repertoireId);
 	const result = continueFromBranch(variations, level, variationKey, afterPlayerMoveIndex);
 	if (!result) throw error(404, 'Continuation not found');
 

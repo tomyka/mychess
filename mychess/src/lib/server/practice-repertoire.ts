@@ -1,7 +1,7 @@
 // mychess/src/lib/server/practice-repertoire.ts
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { enumerateVariations, type RawMoveRow, type Variation } from '$lib/mastery/variations';
+import { enumerateVariations, filterVariations, type RawMoveRow, type Variation } from '$lib/mastery/variations';
 
 export type PracticeRepertoire = { id: string; name: string; color: string; practiceDepthLevels: number };
 
@@ -67,6 +67,19 @@ export async function fetchAllMoves(supabase: SupabaseClient, repertoireId: stri
 	return [...firstRows, ...pages.flatMap((p) => p.data ?? [])];
 }
 
+/** Maps `fetchAllMoves`'s joined-select row shape into `RawMoveRow`s `enumerateVariations` expects. */
+export function toRawMoveRows(rows: any[]): RawMoveRow[] {
+	return rows.map((m: any) => ({
+		id: m.id,
+		san: m.san,
+		isPlayerTurn: m.is_player_turn,
+		fromPositionId: m.from_position,
+		toPositionId: m.to_position,
+		fromFen: m.from_pos?.fen ?? '',
+		toFen: m.to_pos?.fen ?? ''
+	}));
+}
+
 /**
  * Loads a repertoire a player can access (owned or coach-assigned), its full
  * enumerated variations, and this player's own excluded-variation set — the
@@ -107,15 +120,7 @@ export async function loadRepertoireVariations(
 	}
 	if (exclusionsErr) throw exclusionsErr;
 
-	const moves: RawMoveRow[] = (rawMoves ?? []).map((m: any) => ({
-		id: m.id,
-		san: m.san,
-		isPlayerTurn: m.is_player_turn,
-		fromPositionId: m.from_position,
-		toPositionId: m.to_position,
-		fromFen: m.from_pos?.fen ?? '',
-		toFen: m.to_pos?.fen ?? ''
-	}));
+	const moves: RawMoveRow[] = toRawMoveRows(rawMoves ?? []);
 
 	return {
 		repertoire: {
@@ -127,4 +132,23 @@ export async function loadRepertoireVariations(
 		variations: enumerateVariations(moves),
 		excludedVariationKeys: new Set((exclusions ?? []).map((row: any) => row.variation_key))
 	};
+}
+
+/**
+ * Like `loadRepertoireVariations`, but pre-filters out this player's
+ * excluded variations — for the common case (every practice-mutating
+ * endpoint) where the caller always wants the filtered set and never needs
+ * `excludedVariationKeys` itself. `loadRepertoireVariations` stays exported
+ * separately for the one caller that DOES need the raw, unfiltered pair
+ * (the Practice picker's expand-to-show-variations endpoint, which must show
+ * every variation annotated with its checked state, not just the included
+ * ones).
+ */
+export async function loadFilteredRepertoireVariations(
+	supabase: SupabaseClient,
+	userId: string,
+	repertoireId: string
+): Promise<{ repertoire: PracticeRepertoire; variations: Variation[] }> {
+	const { repertoire, variations, excludedVariationKeys } = await loadRepertoireVariations(supabase, userId, repertoireId);
+	return { repertoire, variations: filterVariations(variations, excludedVariationKeys) };
 }

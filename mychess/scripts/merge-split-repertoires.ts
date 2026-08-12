@@ -1,9 +1,9 @@
 // mychess/scripts/merge-split-repertoires.ts
 import { createClient } from '@supabase/supabase-js';
 import { planRepertoireMerges } from '../src/lib/repertoire-merge';
-import { enumerateVariations, type RawMoveRow } from '../src/lib/mastery/variations';
+import { enumerateVariations } from '../src/lib/mastery/variations';
 import { repertoireShape } from '../src/lib/mastery/levelProgress';
-import { fetchAllMoves } from '../src/lib/server/practice-repertoire';
+import { fetchAllMoves, toRawMoveRows } from '../src/lib/server/practice-repertoire';
 
 const url = process.env.PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -14,18 +14,6 @@ if (!url || !key) {
 }
 
 const db = createClient(url, key);
-
-function toRawMoveRows(rows: any[]): RawMoveRow[] {
-	return rows.map((m: any) => ({
-		id: m.id,
-		san: m.san,
-		isPlayerTurn: m.is_player_turn,
-		fromPositionId: m.from_position,
-		toPositionId: m.to_position,
-		fromFen: m.from_pos?.fen ?? '',
-		toFen: m.to_pos?.fen ?? ''
-	}));
-}
 
 async function recomputeAndWriteShape(canonicalId: string): Promise<void> {
 	const mergedMoves = toRawMoveRows(await fetchAllMoves(db, canonicalId));
@@ -52,13 +40,13 @@ async function recomputeAndWriteShape(canonicalId: string): Promise<void> {
  * `move_attempts`/`variation_progress` row pointing at it cascades away with
  * it, same as if the player had never played it).
  *
- * `move_attempts.repertoire_id` and `variation_progress.repertoire_id` are
- * their OWN columns (not derived from move_id), each with `on delete cascade`
- * FROM `repertoires` — so a row referencing a move that DID survive the
- * merge (re-parented, not dropped) would still be destroyed when the
- * duplicate repertoire row is deleted, unless reassigned first. Both are
- * bulk-reassigned to `canonicalId` before the delete, for exactly this
- * reason.
+ * `move_attempts.repertoire_id`, `variation_progress.repertoire_id`, and
+ * `variation_practice_exclusions.repertoire_id` are their OWN columns (not
+ * derived from move_id), each with `on delete cascade` FROM `repertoires` —
+ * so a row referencing a move that DID survive the merge (re-parented, not
+ * dropped) would still be destroyed when the duplicate repertoire row is
+ * deleted, unless reassigned first. All three are bulk-reassigned to
+ * `canonicalId` before the delete, for exactly this reason.
  *
  * `level_progress` is deliberately NOT reassigned: it's an aggregate
  * level/queue state built against ONE repertoire's own level structure,
@@ -107,6 +95,12 @@ async function mergeGroup(canonicalId: string, duplicateIds: string[]): Promise<
 			.update({ repertoire_id: canonicalId })
 			.eq('repertoire_id', dupId);
 		if (progressErr) throw progressErr;
+
+		const { error: exclusionsErr } = await db
+			.from('variation_practice_exclusions')
+			.update({ repertoire_id: canonicalId })
+			.eq('repertoire_id', dupId);
+		if (exclusionsErr) throw exclusionsErr;
 
 		const { error: deleteRepErr } = await db.from('repertoires').delete().eq('id', dupId);
 		if (deleteRepErr) throw deleteRepErr;
