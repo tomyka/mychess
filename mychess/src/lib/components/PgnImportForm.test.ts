@@ -90,11 +90,11 @@ describe('PgnImportForm', () => {
 		expect(fetchSpy).toHaveBeenCalledTimes(2);
 		const firstBody = JSON.parse(fetchSpy.mock.calls[0][1].body);
 		const secondBody = JSON.parse(fetchSpy.mock.calls[1][1].body);
-		expect(firstBody.name).toBe('My Study — Line A');
-		expect(firstBody.chapterLabel).toBe('Line A'); // bare chapter title, not the combined name
+		expect(firstBody.name).toBe('My Study'); // repertoire name only — never suffixed with the chapter title
+		expect(firstBody.chapterLabel).toBe('Line A'); // bare chapter title, sent separately
 		expect(firstBody.existingRepertoireId).toBeUndefined(); // creates the shared repertoire
 		expect(firstBody.finalize).toBe(false); // not the last chapter — shape isn't complete yet
-		expect(secondBody.name).toBe('My Study — Line B');
+		expect(secondBody.name).toBe('My Study');
 		expect(secondBody.chapterLabel).toBe('Line B');
 		expect(secondBody.existingRepertoireId).toBe('r1'); // appends onto chapter 1's repertoire
 		expect(secondBody.finalize).toBeUndefined(); // last chapter — defaults to true, computes real shape

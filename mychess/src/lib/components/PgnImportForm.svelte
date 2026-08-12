@@ -49,10 +49,16 @@
 	 * every chapter's moves are in, so only the last chapter lets it default
 	 * to true, at which point it fetches the repertoire's complete move set
 	 * and computes the real shape from that. Every chapter of a multi-chapter
-	 * import also passes `chapterLabel` (the chapter's own bare PGN title,
-	 * distinct from `name`'s combined "{repertoire} — {chapter}" string) so
+	 * import also passes `chapterLabel` (the chapter's own bare PGN title) so
 	 * the Practice picker can later group this chapter's variations together
 	 * — omitted for a single-chapter import, which has nothing to group.
+	 * `name` is always the repertoire name the user typed, for every chapter
+	 * — only the first chapter's `name` is ever actually stored (see
+	 * `writeMoves`; later chapters append to the repertoire it already
+	 * created), but it's sent on every request for consistency. It used to
+	 * be suffixed with the chapter's own title for a multi-chapter import
+	 * ("My Study — Line A"), which is no longer needed now that the Practice
+	 * picker shows each chapter's real title as its own group header instead.
 	 *
 	 * On failure, rolls back the one shared repertoire created so far (if
 	 * any) — a multi-chapter import is all-or-nothing, matching the old
@@ -78,7 +84,7 @@
 		importing = true;
 		const isMultiChapter = plan.length > 1;
 		chapters = plan.map((chapter) => ({
-			name: isMultiChapter ? `${trimmedName} — ${chapter.name}` : trimmedName,
+			name: chapter.name,
 			status: 'pending' as ChapterStatus
 		}));
 
@@ -91,7 +97,7 @@
 					method: 'POST',
 					headers: { 'content-type': 'application/json' },
 					body: JSON.stringify({
-						name: chapters[i].name,
+						name: trimmedName,
 						color,
 						ecoCode: plan[i].ecoCode,
 						ecoName: plan[i].ecoName,
