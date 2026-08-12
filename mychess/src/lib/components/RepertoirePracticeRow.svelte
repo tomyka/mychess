@@ -269,21 +269,8 @@
 									aria-label={`Include ${group.chapterName} (chapter) in practice`}
 								/>
 								{group.chapterName} (chapter)
+								<span class="text-gray-400 font-normal">· {group.rows.length} {group.rows.length === 1 ? 'line' : 'lines'}</span>
 							</label>
-							<ul class="pl-6 space-y-1">
-								{#each group.rows as variation (variation.variationKey)}
-									<li>
-										<label class="flex items-center gap-2 text-sm text-gray-700">
-											<input
-												type="checkbox"
-												checked={variation.included}
-												onchange={() => toggleVariation(variation.variationKey)}
-											/>
-											{variation.label}
-										</label>
-									</li>
-								{/each}
-							</ul>
 						</li>
 					{:else}
 						{#each group.rows as variation (variation.variationKey)}

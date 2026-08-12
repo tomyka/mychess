@@ -182,7 +182,7 @@ describe('RepertoirePracticeRow', () => {
 		expect(screen.queryByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6')).toBeNull();
 	});
 
-	it('groups variations under a chapter header when they share a chapterName', async () => {
+	it('groups variations under a chapter header when they share a chapterName, without listing individual variations', async () => {
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => chapterVariationsResponse });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, totalVariations: 3, fullVariationCount: 3 } } });
@@ -190,8 +190,12 @@ describe('RepertoirePracticeRow', () => {
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
 		await waitFor(() => expect(screen.getByText('Ruy Lopez (chapter)')).toBeTruthy());
 		expect(screen.getByText('Italian Game (chapter)')).toBeTruthy();
-		expect(screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4')).toBeTruthy();
-		expect(screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5')).toBeTruthy();
+		// Selection is chapter-level only — no per-variation checkboxes/labels
+		// render underneath a chapter header, just a line count.
+		expect(screen.queryByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4')).toBeNull();
+		expect(screen.queryByText('1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5')).toBeNull();
+		expect(screen.getByText('· 2 lines')).toBeTruthy();
+		expect(screen.getByText('· 1 line')).toBeTruthy();
 	});
 
 	it('renders a flat list with no chapter header when no variation has a chapterName', async () => {
