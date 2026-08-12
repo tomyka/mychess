@@ -2,6 +2,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireApiUser } from '$lib/server/auth';
+import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
 import { setVariationsIncluded } from '$lib/server/variation-practice-settings';
 
 /**
@@ -23,17 +24,18 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 	// `variation_practice_exclusions`'s unique constraint is
 	// (player_id, variation_key), not (player_id, repertoire_id,
-	// variation_key) — repertoire_id on a written row is otherwise trusted
-	// straight from this URL param with nothing else to catch a wrong/
-	// inaccessible id, so this existence check (relying on `repertoires`'
-	// own owner/assigned/coach RLS policies to scope what's visible) is the
-	// only thing standing between a typo'd or malicious `params.id` and a
-	// row that silently never applies to any repertoire's actual practice
-	// view. Deliberately a plain existence check, not `.eq('player_id',
-	// user.id)` — a player must also be able to exclude variations in a
-	// repertoire their coach assigned to them, not just ones they own.
-	const { data: repertoire } = await locals.supabase.from('repertoires').select('id').eq('id', params.id).maybeSingle();
-	if (!repertoire) throw error(404, 'Repertoire not found');
+	// variation_key) — a variation_key that legitimately belongs to a
+	// DIFFERENT repertoire this player owns would otherwise hit the same
+	// upsert conflict target and silently get re-tagged with this
+	// repertoire's id, breaking that other repertoire's exclusion state.
+	// `loadRepertoireVariations` both confirms the caller can access this
+	// repertoire (404s otherwise) and gives us its real variation set to
+	// validate every posted key against.
+	const { variations } = await loadRepertoireVariations(locals.supabase, user.id, params.id);
+	const validKeys = new Set(variations.map((v) => v.variationKey));
+	if (!variationKeys.every((k) => validKeys.has(k))) {
+		throw error(400, 'variationKeys must belong to this repertoire');
+	}
 
 	const result = await setVariationsIncluded(locals.supabase, user.id, params.id, variationKeys, included);
 	if (result.error) throw error(400, result.error);

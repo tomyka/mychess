@@ -40,13 +40,18 @@ async function recomputeAndWriteShape(canonicalId: string): Promise<void> {
  * `move_attempts`/`variation_progress` row pointing at it cascades away with
  * it, same as if the player had never played it).
  *
- * `move_attempts.repertoire_id`, `variation_progress.repertoire_id`, and
- * `variation_practice_exclusions.repertoire_id` are their OWN columns (not
- * derived from move_id), each with `on delete cascade` FROM `repertoires` —
- * so a row referencing a move that DID survive the merge (re-parented, not
- * dropped) would still be destroyed when the duplicate repertoire row is
- * deleted, unless reassigned first. All three are bulk-reassigned to
- * `canonicalId` before the delete, for exactly this reason.
+ * `move_attempts.repertoire_id`, `variation_progress.repertoire_id`,
+ * `variation_practice_exclusions.repertoire_id`, and
+ * `assigned_repertoires.repertoire_id` are their OWN columns (not derived
+ * from move_id), each with `on delete cascade` FROM `repertoires` — so a row
+ * referencing a move that DID survive the merge (re-parented, not dropped)
+ * would still be destroyed when the duplicate repertoire row is deleted,
+ * unless reassigned first. All four are bulk-reassigned to `canonicalId`
+ * before the delete, for exactly this reason. `assigned_repertoires` also
+ * carries `unique(player_id, repertoire_id)`, so its reassignment is done
+ * row-by-row: where a student already has the canonical repertoire assigned
+ * (a real unique-constraint collision, Postgres code 23505), the duplicate's
+ * now-redundant assignment row is deleted instead of updated.
  *
  * `level_progress` is deliberately NOT reassigned: it's an aggregate
  * level/queue state built against ONE repertoire's own level structure,
@@ -101,6 +106,31 @@ async function mergeGroup(canonicalId: string, duplicateIds: string[]): Promise<
 			.update({ repertoire_id: canonicalId })
 			.eq('repertoire_id', dupId);
 		if (exclusionsErr) throw exclusionsErr;
+
+		const { data: dupAssignments, error: assignmentsFetchErr } = await db
+			.from('assigned_repertoires')
+			.select('id, coach_id, player_id')
+			.eq('repertoire_id', dupId);
+		if (assignmentsFetchErr) throw assignmentsFetchErr;
+
+		for (const assignment of dupAssignments ?? []) {
+			const { error: reassignErr } = await db
+				.from('assigned_repertoires')
+				.update({ repertoire_id: canonicalId })
+				.eq('id', assignment.id);
+			if (reassignErr) {
+				// unique(player_id, repertoire_id) collision — this student
+				// already has the canonical repertoire assigned some other
+				// way, so the duplicate's assignment row is fully redundant;
+				// drop it instead of failing the whole merge.
+				if (reassignErr.code === '23505') {
+					const { error: deleteAssignmentErr } = await db.from('assigned_repertoires').delete().eq('id', assignment.id);
+					if (deleteAssignmentErr) throw deleteAssignmentErr;
+					continue;
+				}
+				throw reassignErr;
+			}
+		}
 
 		const { error: deleteRepErr } = await db.from('repertoires').delete().eq('id', dupId);
 		if (deleteRepErr) throw deleteRepErr;
