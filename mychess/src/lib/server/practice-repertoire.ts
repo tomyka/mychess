@@ -3,7 +3,7 @@ import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { enumerateVariations, filterVariations, type RawMoveRow, type Variation } from '$lib/mastery/variations';
 
-export type PracticeRepertoire = { id: string; name: string; color: string; practiceDepthLevels: number };
+export type PracticeRepertoire = { id: string; name: string; color: string; practiceDepthLevels: number; chunkSize: number };
 
 // Supabase/PostgREST caps an unbounded select at `max_rows` (1000, see
 // supabase/config.toml) and truncates silently past that — no error, just
@@ -105,7 +105,7 @@ export async function loadRepertoireVariations(
 	const [{ data: repertoire }, rawMoves, { data: exclusions, error: exclusionsErr }] = await Promise.all([
 		supabase
 			.from('repertoires')
-			.select('id, name, color, practice_depth_levels')
+			.select('id, name, color, practice_depth_levels, chunk_size')
 			.eq('id', repertoireId)
 			.maybeSingle(),
 		fetchAllMoves(supabase, repertoireId),
@@ -128,7 +128,8 @@ export async function loadRepertoireVariations(
 			id: repertoire.id,
 			name: repertoire.name,
 			color: repertoire.color,
-			practiceDepthLevels: repertoire.practice_depth_levels
+			practiceDepthLevels: repertoire.practice_depth_levels,
+			chunkSize: repertoire.chunk_size
 		},
 		variations: enumerateVariations(moves),
 		excludedVariationKeys: new Set((exclusions ?? []).map((row: any) => row.variation_key))
