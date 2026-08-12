@@ -88,7 +88,7 @@ export async function loadRepertoireVariations(
 	userId: string,
 	repertoireId: string
 ): Promise<{ repertoire: PracticeRepertoire; variations: Variation[]; excludedVariationKeys: Set<string> }> {
-	const [{ data: repertoire }, rawMoves, { data: exclusions }] = await Promise.all([
+	const [{ data: repertoire }, rawMoves, { data: exclusions, error: exclusionsErr }] = await Promise.all([
 		supabase
 			.from('repertoires')
 			.select('id, name, color, practice_depth_levels')
@@ -105,6 +105,7 @@ export async function loadRepertoireVariations(
 	if (!repertoire) {
 		throw error(404, 'Repertoire not found');
 	}
+	if (exclusionsErr) throw exclusionsErr;
 
 	const moves: RawMoveRow[] = (rawMoves ?? []).map((m: any) => ({
 		id: m.id,
