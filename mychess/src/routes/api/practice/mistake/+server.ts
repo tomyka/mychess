@@ -5,6 +5,7 @@ import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
 import { applyPreviousLevelMistake } from '$lib/server/level-progress';
 import { requireApiUser } from '$lib/server/auth';
 import { buildPracticeView } from '$lib/mastery/practice';
+import { filterVariations } from '$lib/mastery/variations';
 
 /**
  * Called the instant a wrong move lands on the previous-level review band —
@@ -26,7 +27,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'Invalid request');
 	}
 
-	const { repertoire, variations } = await loadRepertoireVariations(supabase, user.id, repertoireId);
+	const { repertoire, variations: allVariations, excludedVariationKeys } = await loadRepertoireVariations(
+		supabase,
+		user.id,
+		repertoireId
+	);
+	const variations = filterVariations(allVariations, excludedVariationKeys);
 	const maxLevel = repertoire.practiceDepthLevels;
 	const result = await applyPreviousLevelMistake(supabase, user.id, repertoireId, variations, maxLevel);
 
