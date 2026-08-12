@@ -14,7 +14,8 @@
 		fullVariationCount: number;
 		excludedVariationCount: number;
 	};
-	type VariationRow = { variationKey: string; label: string; included: boolean };
+	type VariationRow = { variationKey: string; label: string; included: boolean; chapterName: string | null };
+	type ChapterGroup = { chapterName: string | null; rows: VariationRow[] };
 
 	let { rep }: { rep: RepSummary } = $props();
 
@@ -22,10 +23,14 @@
 	let variations = $state<VariationRow[] | null>(null);
 	let loadingVariations = $state(false);
 	let errorMessage = $state<string | null>(null);
-	// The set of variationKeys that were included right before the parent
-	// checkbox last bulk-excluded everything — lets re-checking the parent
-	// restore exactly that selection instead of blanket-including everything.
-	let uncheckSnapshot = $state<Set<string> | null>(null);
+	// Keyed by toggle scope ('__all__' for the repertoire-level checkbox, or
+	// `chapter:{chapterName}` for one chapter's own checkbox) — the set of
+	// variationKeys that were included right before that scope's checkbox
+	// last bulk-excluded everything, so re-checking it restores exactly that
+	// selection instead of blanket-including everything. Independent per
+	// scope: bulk-excluding one chapter never touches another chapter's or
+	// the repertoire-level checkbox's own snapshot.
+	let snapshots = $state<Map<string, Set<string>>>(new Map());
 
 	const checkedCount = $derived(
 		variations ? variations.filter((v) => v.included).length : rep.fullVariationCount - rep.excludedVariationCount
@@ -35,6 +40,32 @@
 		totalCount === 0 || checkedCount === totalCount ? 'checked' : checkedCount === 0 ? 'unchecked' : 'indeterminate'
 	);
 
+	// Preserves first-seen order: a chapter's rows cluster together at the
+	// position its first row appeared in `variations`; a null chapterName
+	// (no chapter tag — every variation of a pre-feature or single-chapter
+	// repertoire) becomes its OWN single-row group rather than one shared
+	// group, so the template's ungrouped branch (no header, no wrapper)
+	// reproduces today's flat rendering exactly when nothing is tagged.
+	const groupedVariations = $derived.by<ChapterGroup[]>(() => {
+		const list = variations ?? [];
+		const groups: ChapterGroup[] = [];
+		const indexByChapter = new Map<string, number>();
+		for (const row of list) {
+			if (row.chapterName === null) {
+				groups.push({ chapterName: null, rows: [row] });
+				continue;
+			}
+			const existingIndex = indexByChapter.get(row.chapterName);
+			if (existingIndex === undefined) {
+				indexByChapter.set(row.chapterName, groups.length);
+				groups.push({ chapterName: row.chapterName, rows: [row] });
+			} else {
+				groups[existingIndex].rows.push(row);
+			}
+		}
+		return groups;
+	});
+
 	function indeterminate(node: HTMLInputElement, value: boolean) {
 		node.indeterminate = value;
 		return {
@@ -42,6 +73,13 @@
 				node.indeterminate = newValue;
 			}
 		};
+	}
+
+	/** Checked/unchecked/indeterminate aggregate for an arbitrary subset of variation rows. */
+	function aggregateState(rows: VariationRow[]): 'checked' | 'unchecked' | 'indeterminate' {
+		if (rows.length === 0) return 'checked';
+		const included = rows.filter((v) => v.included).length;
+		return included === rows.length ? 'checked' : included === 0 ? 'unchecked' : 'indeterminate';
 	}
 
 	async function ensureVariationsLoaded(): Promise<VariationRow[]> {
@@ -106,27 +144,36 @@
 		}
 	}
 
-	async function toggleParent() {
+	/**
+	 * Bulk-toggles every currently-loaded variation for which `belongsToGroup`
+	 * is true — used for both the repertoire-level checkbox (every variation)
+	 * and each chapter header's own checkbox (just that chapter's rows).
+	 * `scopeKey` isolates the uncheck/recheck snapshot per toggle so they
+	 * never interfere with each other (see `snapshots`' doc comment above).
+	 */
+	async function toggleGroup(scopeKey: string, belongsToGroup: (row: VariationRow) => boolean) {
 		let list: VariationRow[];
 		try {
 			list = await ensureVariationsLoaded();
 		} catch {
 			return;
 		}
+		const rows = list.filter(belongsToGroup);
+		const state = aggregateState(rows);
 
-		if (parentState !== 'unchecked') {
-			// Checked or indeterminate -> bulk-exclude everything, remembering
-			// exactly which ones were included so a re-check can restore them.
-			// Only the currently-included keys are posted — an already-excluded
-			// variation doesn't need a redundant write.
-			const included = list.filter((v) => v.included).map((v) => v.variationKey);
-			const previousSnapshot = uncheckSnapshot;
-			uncheckSnapshot = new Set(included);
-			variations = list.map((v) => ({ ...v, included: false }));
+		if (state !== 'unchecked') {
+			// Checked or indeterminate -> bulk-exclude this scope's rows,
+			// remembering exactly which ones were included so a re-check can
+			// restore them. Only the currently-included keys are posted — an
+			// already-excluded variation doesn't need a redundant write.
+			const included = rows.filter((v) => v.included).map((v) => v.variationKey);
+			const previousSnapshots = snapshots;
+			snapshots = new Map(snapshots).set(scopeKey, new Set(included));
+			variations = list.map((v) => (belongsToGroup(v) ? { ...v, included: false } : v));
 			const ok = await postExclusion(included, false);
 			if (!ok) {
 				variations = list;
-				uncheckSnapshot = previousSnapshot;
+				snapshots = previousSnapshots;
 				errorMessage = "Couldn't update that — try again.";
 			} else {
 				errorMessage = null;
@@ -135,19 +182,30 @@
 		}
 
 		// Unchecked -> restore the pre-uncheck selection if we have one from
-		// this visit, otherwise default to including everything.
-		const toInclude = uncheckSnapshot ?? new Set(list.map((v) => v.variationKey));
-		const previousSnapshot = uncheckSnapshot;
-		variations = list.map((v) => ({ ...v, included: toInclude.has(v.variationKey) }));
-		uncheckSnapshot = null;
+		// this visit, otherwise default to including everything in scope.
+		const rowKeys = new Set(rows.map((v) => v.variationKey));
+		const toInclude = snapshots.get(scopeKey) ?? rowKeys;
+		const previousSnapshots = snapshots;
+		variations = list.map((v) => (belongsToGroup(v) ? { ...v, included: toInclude.has(v.variationKey) } : v));
+		const nextSnapshots = new Map(snapshots);
+		nextSnapshots.delete(scopeKey);
+		snapshots = nextSnapshots;
 		const ok = await postExclusion([...toInclude], true);
 		if (!ok) {
 			variations = list;
-			uncheckSnapshot = previousSnapshot;
+			snapshots = previousSnapshots;
 			errorMessage = "Couldn't update that — try again.";
 		} else {
 			errorMessage = null;
 		}
+	}
+
+	function toggleParent() {
+		return toggleGroup('__all__', () => true);
+	}
+
+	function toggleChapter(chapterName: string) {
+		return toggleGroup(`chapter:${chapterName}`, (v) => v.chapterName === chapterName);
 	}
 </script>
 
@@ -199,17 +257,48 @@
 			{#if loadingVariations}
 				<li class="text-sm text-gray-400">Loading variations…</li>
 			{:else}
-				{#each variations ?? [] as variation (variation.variationKey)}
-					<li>
-						<label class="flex items-center gap-2 text-sm text-gray-700">
-							<input
-								type="checkbox"
-								checked={variation.included}
-								onchange={() => toggleVariation(variation.variationKey)}
-							/>
-							{variation.label}
-						</label>
-					</li>
+				{#each groupedVariations as group, i (group.chapterName ?? `_ungrouped_${i}`)}
+					{#if group.chapterName}
+						<li>
+							<label class="flex items-center gap-2 text-sm font-medium text-gray-600 mt-2">
+								<input
+									type="checkbox"
+									checked={aggregateState(group.rows) === 'checked'}
+									use:indeterminate={aggregateState(group.rows) === 'indeterminate'}
+									onchange={() => toggleChapter(group.chapterName ?? '')}
+									aria-label={`Include ${group.chapterName} (chapter) in practice`}
+								/>
+								{group.chapterName} (chapter)
+							</label>
+							<ul class="pl-6 space-y-1">
+								{#each group.rows as variation (variation.variationKey)}
+									<li>
+										<label class="flex items-center gap-2 text-sm text-gray-700">
+											<input
+												type="checkbox"
+												checked={variation.included}
+												onchange={() => toggleVariation(variation.variationKey)}
+											/>
+											{variation.label}
+										</label>
+									</li>
+								{/each}
+							</ul>
+						</li>
+					{:else}
+						{#each group.rows as variation (variation.variationKey)}
+							<li>
+								<label class="flex items-center gap-2 text-sm text-gray-700">
+									<input
+										type="checkbox"
+										checked={variation.included}
+										onchange={() => toggleVariation(variation.variationKey)}
+									/>
+									{variation.label}
+								</label>
+							</li>
+						{/each}
+					{/if}
 				{/each}
 			{/if}
 		</ul>

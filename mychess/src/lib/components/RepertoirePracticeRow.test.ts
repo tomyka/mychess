@@ -23,8 +23,14 @@ const baseRep = {
 };
 
 const variationsResponse = [
-	{ variationKey: 'v1', label: '1.e4 e5 2.Nf3 Nc6 3.Bb5 a6', included: true },
-	{ variationKey: 'v2', label: '1.e4 e5 2.Nf3 Nc6 3.Bb5 Nf6', included: true }
+	{ variationKey: 'v1', label: '1.e4 e5 2.Nf3 Nc6 3.Bb5 a6', included: true, chapterName: null },
+	{ variationKey: 'v2', label: '1.e4 e5 2.Nf3 Nc6 3.Bb5 Nf6', included: true, chapterName: null }
+];
+
+const chapterVariationsResponse = [
+	{ variationKey: 'v1', label: '1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4', included: true, chapterName: 'Ruy Lopez' },
+	{ variationKey: 'v2', label: '1.e4 e5 2.Nf3 Nc6 3.Bb5 Nf6', included: true, chapterName: 'Ruy Lopez' },
+	{ variationKey: 'v3', label: '1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5', included: true, chapterName: 'Italian Game' }
 ];
 
 describe('RepertoirePracticeRow', () => {
@@ -174,5 +180,76 @@ describe('RepertoirePracticeRow', () => {
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
 		await waitFor(() => expect(screen.getByText("Couldn't load variations — try again.")).toBeTruthy());
 		expect(screen.queryByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6')).toBeNull();
+	});
+
+	it('groups variations under a chapter header when they share a chapterName', async () => {
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => chapterVariationsResponse });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, totalVariations: 3, fullVariationCount: 3 } } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => expect(screen.getByText('Ruy Lopez (chapter)')).toBeTruthy());
+		expect(screen.getByText('Italian Game (chapter)')).toBeTruthy();
+		expect(screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4')).toBeTruthy();
+		expect(screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5')).toBeTruthy();
+	});
+
+	it('renders a flat list with no chapter header when no variation has a chapterName', async () => {
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: baseRep } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => expect(screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6')).toBeTruthy());
+		expect(screen.queryByText('(chapter)', { exact: false })).toBeNull();
+	});
+
+	it('shows a chapter checkbox as indeterminate when only some of its own variations are included, independent of a sibling chapter', async () => {
+		const partial = chapterVariationsResponse.map((v) => (v.variationKey === 'v1' ? { ...v, included: false } : v));
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => partial });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, totalVariations: 3, fullVariationCount: 3 } } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
+
+		const ruyCheckbox = screen.getByRole('checkbox', { name: /Ruy Lopez \(chapter\)/ }) as HTMLInputElement;
+		const italianCheckbox = screen.getByRole('checkbox', { name: /Italian Game \(chapter\)/ }) as HTMLInputElement;
+		expect(ruyCheckbox.indeterminate).toBe(true); // v1 excluded, v2 included
+		expect(italianCheckbox.checked).toBe(true); // v3 included, unaffected by Ruy Lopez's state
+	});
+
+	it('bulk-toggling a chapter checkbox only excludes that chapter\'s own variations', async () => {
+		const fetchSpy = vi
+			.fn()
+			.mockResolvedValueOnce({ ok: true, json: async () => chapterVariationsResponse })
+			.mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, totalVariations: 3, fullVariationCount: 3 } } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
+
+		const ruyCheckbox = screen.getByRole('checkbox', { name: /Ruy Lopez \(chapter\)/ }) as HTMLInputElement;
+		await fireEvent.click(ruyCheckbox);
+
+		await waitFor(() =>
+			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false }) // NOT v3
+			})
+		);
+		const italianCheckbox = screen.getByRole('checkbox', { name: /Italian Game \(chapter\)/ }) as HTMLInputElement;
+		expect(italianCheckbox.checked).toBe(true); // untouched by Ruy Lopez's bulk-exclude
+
+		await fireEvent.click(ruyCheckbox); // re-check — restores exactly v1 + v2
+		await waitFor(() =>
+			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: true })
+			})
+		);
 	});
 });
