@@ -48,7 +48,11 @@
 	 * correct shape (total_variations/total_levels/level1_task_count) once
 	 * every chapter's moves are in, so only the last chapter lets it default
 	 * to true, at which point it fetches the repertoire's complete move set
-	 * and computes the real shape from that.
+	 * and computes the real shape from that. Every chapter of a multi-chapter
+	 * import also passes `chapterLabel` (the chapter's own bare PGN title,
+	 * distinct from `name`'s combined "{repertoire} — {chapter}" string) so
+	 * the Practice picker can later group this chapter's variations together
+	 * — omitted for a single-chapter import, which has nothing to group.
 	 *
 	 * On failure, rolls back the one shared repertoire created so far (if
 	 * any) — a multi-chapter import is all-or-nothing, matching the old
@@ -93,7 +97,8 @@
 						ecoName: plan[i].ecoName,
 						moves: plan[i].moves,
 						...(sharedRepertoireId ? { existingRepertoireId: sharedRepertoireId } : {}),
-						...(isMultiChapter && !isLastChapter ? { finalize: false } : {})
+						...(isMultiChapter && !isLastChapter ? { finalize: false } : {}),
+						...(isMultiChapter ? { chapterLabel: plan[i].name } : {})
 					})
 				});
 				if (!res.ok) {

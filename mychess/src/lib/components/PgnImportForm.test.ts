@@ -91,9 +91,11 @@ describe('PgnImportForm', () => {
 		const firstBody = JSON.parse(fetchSpy.mock.calls[0][1].body);
 		const secondBody = JSON.parse(fetchSpy.mock.calls[1][1].body);
 		expect(firstBody.name).toBe('My Study — Line A');
+		expect(firstBody.chapterLabel).toBe('Line A'); // bare chapter title, not the combined name
 		expect(firstBody.existingRepertoireId).toBeUndefined(); // creates the shared repertoire
 		expect(firstBody.finalize).toBe(false); // not the last chapter — shape isn't complete yet
 		expect(secondBody.name).toBe('My Study — Line B');
+		expect(secondBody.chapterLabel).toBe('Line B');
 		expect(secondBody.existingRepertoireId).toBe('r1'); // appends onto chapter 1's repertoire
 		expect(secondBody.finalize).toBeUndefined(); // last chapter — defaults to true, computes real shape
 	});
@@ -118,7 +120,7 @@ describe('PgnImportForm', () => {
 		expect(fetchSpy.mock.calls[2][1]).toMatchObject({ method: 'DELETE' });
 	});
 
-	it('does not pass finalize or existingRepertoireId for a single-chapter import', async () => {
+	it('does not pass finalize, existingRepertoireId, or chapterLabel for a single-chapter import', async () => {
 		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ repertoireId: 'r1' }) });
 		vi.stubGlobal('fetch', fetchSpy);
@@ -130,5 +132,6 @@ describe('PgnImportForm', () => {
 		const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
 		expect(body.existingRepertoireId).toBeUndefined();
 		expect(body.finalize).toBeUndefined();
+		expect(body.chapterLabel).toBeUndefined();
 	});
 });
