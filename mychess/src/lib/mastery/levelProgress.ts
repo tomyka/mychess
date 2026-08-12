@@ -128,7 +128,7 @@ function advanceIfCleared(
 	if (!isFullyCleared(row.queue)) return row;
 	const nextLevel = row.level + 1;
 	if (nextLevel > cap) return { ...row, level: nextLevel, prevLevelMistakes: 0 };
-	return { level: nextLevel, prevLevelMistakes: 0, queue: buildQueue(variations, nextLevel, chunkSize, random) };
+	return { ...row, level: nextLevel, prevLevelMistakes: 0, queue: buildQueue(variations, nextLevel, chunkSize, random) };
 }
 
 /**
@@ -214,7 +214,7 @@ export function resolvePreviousLevelMistake(
 	if (prevLevelMistakes >= DEMOTION_THRESHOLD) {
 		const demotedLevel = row.level - 1;
 		return {
-			row: { level: demotedLevel, prevLevelMistakes: 0, queue: buildQueue(variations, demotedLevel, chunkSize, random) },
+			row: { ...row, level: demotedLevel, prevLevelMistakes: 0, queue: buildQueue(variations, demotedLevel, chunkSize, random) },
 			demoted: true
 		};
 	}

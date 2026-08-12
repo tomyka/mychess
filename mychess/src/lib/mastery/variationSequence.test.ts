@@ -102,6 +102,13 @@ describe('advanceVariationIfMastered', () => {
 		const row: LevelProgressRow = { level: 1, prevLevelMistakes: 0, queue: [] };
 		expect(advanceVariationIfMastered(row, [], UNCAPPED, 3)).toEqual(row);
 	});
+
+	it('returns the exact same row reference (no-op) when activeVariationKey is already correct and nothing changed', () => {
+		const a = variation(6, 'a-'); // cap = 2
+		const row: LevelProgressRow = { level: 1, prevLevelMistakes: 0, queue: [], activeVariationKey: a.variationKey };
+		const next = advanceVariationIfMastered(row, [a], UNCAPPED, 3);
+		expect(next).toBe(row); // same reference, not just equal value
+	});
 });
 
 describe('variationSequenceProgress', () => {

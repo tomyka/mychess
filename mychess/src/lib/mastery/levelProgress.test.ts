@@ -243,6 +243,19 @@ describe('resolveAttempt', () => {
 		const next = resolveAttempt(row, { taskKey: taskKey(a, 2, 3), hadMistake: false }, [a], 2, 3, () => 0);
 		expect(next.level).toBe(3); // cap(2)+1 — mastered at the configured depth, not the natural depth of 4
 	});
+
+	it('preserves activeVariationKey through a level-up that is not yet at the repertoire cap', () => {
+		const a = variation(10, 'a-'); // cap = 4 with chunkSize 3, well above level 2
+		const row: LevelProgressRow = {
+			level: 1,
+			prevLevelMistakes: 0,
+			queue: [{ key: taskKey(a, 1, 3), status: 'pending' }],
+			activeVariationKey: 'some-active-key'
+		};
+		const next = resolveAttempt(row, { taskKey: taskKey(a, 1, 3), hadMistake: false }, [a], UNCAPPED, 3, () => 0);
+		expect(next.level).toBe(2);
+		expect(next.activeVariationKey).toBe('some-active-key'); // must survive the level-up, not become undefined
+	});
 });
 
 describe('resolvePreviousLevelMistake', () => {
@@ -288,6 +301,19 @@ describe('resolvePreviousLevelMistake', () => {
 		const { row: next, demoted } = resolvePreviousLevelMistake(row, [a], 2, 3); // mastered at depth 2 (row.level 3 > cap 2)
 		expect(demoted).toBe(false);
 		expect(next).toEqual(row);
+	});
+
+	it('preserves activeVariationKey through a demotion', () => {
+		const a = variation(10, 'a-');
+		const row: LevelProgressRow = {
+			level: 2,
+			prevLevelMistakes: 2,
+			queue: [{ key: taskKey(a, 2, 3), status: 'pending' }],
+			activeVariationKey: 'some-active-key'
+		};
+		const { row: next, demoted } = resolvePreviousLevelMistake(row, [a], UNCAPPED, 3, () => 0);
+		expect(demoted).toBe(true);
+		expect(next.activeVariationKey).toBe('some-active-key'); // must survive the demotion, not become undefined
 	});
 });
 

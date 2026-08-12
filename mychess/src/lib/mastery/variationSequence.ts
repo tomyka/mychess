@@ -45,10 +45,10 @@ export function advanceVariationIfMastered(
 	if (!active) return row;
 
 	const cap = effectiveLevelCap([active], maxLevel, chunkSize);
-	if (row.level <= cap) return { ...row, activeVariationKey: active.variationKey };
+	if (row.level <= cap) return row.activeVariationKey === active.variationKey ? row : { ...row, activeVariationKey: active.variationKey };
 
 	const next = nextVariation(variations, active.variationKey);
-	if (!next) return { ...row, activeVariationKey: active.variationKey };
+	if (!next) return row.activeVariationKey === active.variationKey ? row : { ...row, activeVariationKey: active.variationKey };
 
 	return {
 		level: 1,
