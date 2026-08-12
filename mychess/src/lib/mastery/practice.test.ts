@@ -25,36 +25,36 @@ function makeVariation(playerMoveCount: number, prefix: string): Variation {
 describe('pickQueuedAttempt', () => {
 	it('returns null when every queue entry is cleared', () => {
 		const v = makeVariation(3, 'done-');
-		const queue = [{ key: taskKey(v, 1), status: 'cleared' as const }];
-		expect(pickQueuedAttempt([v], 1, queue)).toBeNull();
+		const queue = [{ key: taskKey(v, 1, 3), status: 'cleared' as const }];
+		expect(pickQueuedAttempt([v], 1, queue, 3)).toBeNull();
 	});
 
 	it('returns null for an empty queue', () => {
-		expect(pickQueuedAttempt([], 1, [])).toBeNull();
+		expect(pickQueuedAttempt([], 1, [], 3)).toBeNull();
 	});
 
 	it('picks the variation behind the first pending queue entry and computes its target depth', () => {
 		const a = makeVariation(10, 'a-');
 		const b = makeVariation(10, 'b-');
 		const queue = [
-			{ key: taskKey(a, 2), status: 'cleared' as const },
-			{ key: taskKey(b, 2), status: 'pending' as const }
+			{ key: taskKey(a, 2, 3), status: 'cleared' as const },
+			{ key: taskKey(b, 2, 3), status: 'pending' as const }
 		];
-		const result = pickQueuedAttempt([a, b], 2, queue);
+		const result = pickQueuedAttempt([a, b], 2, queue, 3);
 		expect(result).not.toBeNull();
 		expect(result!.variation.leafMoveId).toBe(b.leafMoveId);
 		expect(result!.targetDepth).toBe(6); // level 2 depth
-		expect(result!.taskKey).toBe(taskKey(b, 2));
+		expect(result!.taskKey).toBe(taskKey(b, 2, 3));
 	});
 
 	it('always picks the front pending entry, regardless of how many others are pending', () => {
 		const a = makeVariation(4, 'a-');
 		const b = makeVariation(4, 'b-');
 		const queue = [
-			{ key: taskKey(a, 1), status: 'pending' as const },
-			{ key: taskKey(b, 1), status: 'pending' as const }
+			{ key: taskKey(a, 1, 3), status: 'pending' as const },
+			{ key: taskKey(b, 1, 3), status: 'pending' as const }
 		];
-		const result = pickQueuedAttempt([a, b], 1, queue);
+		const result = pickQueuedAttempt([a, b], 1, queue, 3);
 		expect(result!.variation.leafMoveId).toBe(a.leafMoveId);
 	});
 });
@@ -62,7 +62,7 @@ describe('pickQueuedAttempt', () => {
 describe('pickReviewAttempt', () => {
 	it('picks among variations with quiz content at the level, regardless of queue state', () => {
 		const v = makeVariation(6, 'r1-');
-		const result = pickReviewAttempt([v], 1, () => 0);
+		const result = pickReviewAttempt([v], 1, 3, () => 0);
 		expect(result).not.toBeNull();
 		expect(result!.variation.leafMoveId).toBe(v.leafMoveId);
 		expect(result!.targetDepth).toBe(3); // level 1 depth
@@ -71,20 +71,20 @@ describe('pickReviewAttempt', () => {
 	it("excludes variations naturally shorter than the level's starting point", () => {
 		const short = makeVariation(2, 'short-'); // no content left at level 2 (starts at move 4)
 		const long = makeVariation(6, 'long-');
-		const result = pickReviewAttempt([short, long], 2, () => 0);
+		const result = pickReviewAttempt([short, long], 2, 3, () => 0);
 		expect(result!.variation.leafMoveId).toBe(long.leafMoveId);
 	});
 
 	it('returns null when no variation has content at the level', () => {
 		const v = makeVariation(2, 'v-');
-		expect(pickReviewAttempt([v], 2)).toBeNull();
+		expect(pickReviewAttempt([v], 2, 3)).toBeNull();
 	});
 });
 
 describe('splitAttempt', () => {
 	it('at level 1, auto-plays nothing and every quiz step is in the "current" band', () => {
 		const v = makeVariation(4, 'x-');
-		const { prefix, quizSteps } = splitAttempt(v.path, 1, 3, [v]);
+		const { prefix, quizSteps } = splitAttempt(v.path, 1, 3, [v], 3);
 		expect(prefix).toHaveLength(0);
 		expect(quizSteps.map((s) => s.moveId)).toEqual(['x-p1', 'x-o1', 'x-p2', 'x-o2', 'x-p3']);
 		expect(quizSteps.every((s) => s.band === 'current')).toBe(true);
@@ -92,7 +92,7 @@ describe('splitAttempt', () => {
 
 	it('at level 2, auto-plays nothing and asks both level 1 (previous) and level 2 (current) material', () => {
 		const v = makeVariation(6, 'y-');
-		const { prefix, quizSteps } = splitAttempt(v.path, 2, 6, [v]);
+		const { prefix, quizSteps } = splitAttempt(v.path, 2, 6, [v], 3);
 		expect(prefix).toHaveLength(0);
 		expect(quizSteps.map((s) => s.moveId)).toEqual([
 			'y-p1', 'y-o1', 'y-p2', 'y-o2', 'y-p3', 'y-o3', 'y-p4', 'y-o4', 'y-p5', 'y-o5', 'y-p6'
@@ -107,7 +107,7 @@ describe('splitAttempt', () => {
 
 	it('at level 3, auto-plays level 1 and asks level 2 (previous) plus level 3 (current)', () => {
 		const v = makeVariation(9, 'z-');
-		const { prefix, quizSteps } = splitAttempt(v.path, 3, 9, [v]);
+		const { prefix, quizSteps } = splitAttempt(v.path, 3, 9, [v], 3);
 		expect(prefix.map((s) => s.moveId)).toEqual(['z-p1', 'z-o1', 'z-p2', 'z-o2', 'z-p3', 'z-o3']);
 		expect(quizSteps[0].moveId).toBe('z-p4');
 		expect(quizSteps.find((s) => s.moveId === 'z-p4')!.band).toBe('previous');
@@ -120,20 +120,20 @@ describe('splitAttempt', () => {
 
 	it("collapses to the variation's own length when shorter than the level depth", () => {
 		const v = makeVariation(2, 'w-');
-		const { prefix, quizSteps } = splitAttempt(v.path, 1, 2, [v]); // targetDepth = min(2,2) = 2
+		const { prefix, quizSteps } = splitAttempt(v.path, 1, 2, [v], 3); // targetDepth = min(2,2) = 2
 		expect(prefix).toHaveLength(0);
 		expect(quizSteps[quizSteps.length - 1].moveId).toBe('w-p2');
 	});
 
 	it("throws when the level's auto-play boundary is not below the target depth", () => {
 		const v = makeVariation(2, 'w2-');
-		expect(() => splitAttempt(v.path, 1, 2, [v])).not.toThrow(); // sanity: valid at level 1
-		expect(() => splitAttempt(v.path, 3, 2, [v])).toThrow();
+		expect(() => splitAttempt(v.path, 1, 2, [v], 3)).not.toThrow(); // sanity: valid at level 1
+		expect(() => splitAttempt(v.path, 3, 2, [v], 3)).toThrow();
 	});
 
 	it('exposes each quiz step\'s running player-move index', () => {
 		const v = makeVariation(3, 'x-');
-		const { quizSteps } = splitAttempt(v.path, 1, 3, [v]);
+		const { quizSteps } = splitAttempt(v.path, 1, 3, [v], 3);
 		expect(quizSteps.map((s) => [s.moveId, s.playerMoveIndex])).toEqual([
 			['x-p1', 1], ['x-o1', 1], ['x-p2', 2], ['x-o2', 2], ['x-p3', 3]
 		]);
@@ -141,7 +141,7 @@ describe('splitAttempt', () => {
 
 	it('reports no alternatives when no other variation shares the branch position', () => {
 		const v = makeVariation(3, 'a-');
-		const { quizSteps } = splitAttempt(v.path, 1, 3, [v]);
+		const { quizSteps } = splitAttempt(v.path, 1, 3, [v], 3);
 		expect(quizSteps.every((s) => s.alternatives.length === 0)).toBe(true);
 	});
 
@@ -164,10 +164,10 @@ describe('splitAttempt', () => {
 			path: [shared, sharedReply, { moveId: 'b-p2', san: 'Bc4', fromFen: 'branch', toFen: 'b-end', isPlayerTurn: true }],
 			playerMoveCount: 2
 		};
-		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, b]);
+		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, b], 3);
 		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
 		expect(branchStep.alternatives).toEqual([
-			{ san: 'Bc4', toFen: 'b-end', moveId: 'b-p2', kind: 'completes', taskKey: taskKey(b, 1) }
+			{ san: 'Bc4', toFen: 'b-end', moveId: 'b-p2', kind: 'completes', taskKey: taskKey(b, 1, 3) }
 		]);
 	});
 
@@ -193,7 +193,7 @@ describe('splitAttempt', () => {
 			path: [shared, sharedReply, bStep2, bReply2, bStep3],
 			playerMoveCount: 3
 		};
-		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, b]);
+		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, b], 3);
 		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
 		expect(branchStep.alternatives).toEqual([
 			{ san: 'Bc4', toFen: 'b-mid', moveId: 'b-p2', kind: 'continue', variationKey: b.variationKey }
@@ -233,7 +233,7 @@ describe('splitAttempt', () => {
 			path: [shared, sharedReply, { moveId: 'b-p2', san: 'Bc4', fromFen: 'branch', toFen: 'b-end', isPlayerTurn: true }],
 			playerMoveCount: 2
 		};
-		const { quizSteps } = splitAttempt(a.path, 2, 6, [a, b]);
+		const { quizSteps } = splitAttempt(a.path, 2, 6, [a, b], 3);
 		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
 		expect(branchStep.band).toBe('previous'); // sanity: within level 2's review-band window
 		expect(branchStep.alternatives).toEqual([{ san: 'Bc4', toFen: 'b-end', moveId: 'b-p2', kind: 'dead-end' }]);
@@ -270,10 +270,10 @@ describe('splitAttempt', () => {
 			],
 			playerMoveCount: 3
 		};
-		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, b1, b2]);
+		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, b1, b2], 3);
 		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
 		expect(branchStep.alternatives).toEqual([
-			{ san: 'Bc4', toFen: 'b-mid', moveId: 'b1-p2', kind: 'completes', taskKey: taskKey(b1, 1) }
+			{ san: 'Bc4', toFen: 'b-mid', moveId: 'b1-p2', kind: 'completes', taskKey: taskKey(b1, 1, 3) }
 		]);
 	});
 
@@ -325,7 +325,7 @@ describe('splitAttempt', () => {
 			],
 			playerMoveCount: 6
 		};
-		const { quizSteps } = splitAttempt(a.path, 2, 6, [a, d, e]);
+		const { quizSteps } = splitAttempt(a.path, 2, 6, [a, d, e], 3);
 		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
 		expect(branchStep.alternatives).toEqual([
 			{ san: 'Bc4', toFen: 'd-end', moveId: 'd-p2', kind: 'continue', variationKey: e.variationKey }
@@ -372,7 +372,7 @@ describe('splitAttempt', () => {
 			],
 			playerMoveCount: 3
 		};
-		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, g, h]);
+		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, g, h], 3);
 		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
 		expect(branchStep.alternatives).toHaveLength(1);
 		const alt = branchStep.alternatives[0];
@@ -399,7 +399,7 @@ describe('splitAttempt', () => {
 			path: [{ moveId: 'c-p1', san: 'Qh5', fromFen: 'branch', toFen: 'c-end', isPlayerTurn: true }],
 			playerMoveCount: 1
 		};
-		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, c]);
+		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, c], 3);
 		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
 		expect(branchStep.alternatives).toHaveLength(0);
 	});
@@ -426,14 +426,14 @@ describe('splitAttempt', () => {
 			],
 			playerMoveCount: 3
 		};
-		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, b]);
+		const { quizSteps } = splitAttempt(a.path, 1, 2, [a, b], 3);
 		const branchStep = quizSteps.find((s) => s.moveId === 'a-p2')!;
 		expect(branchStep.alternatives).toHaveLength(0);
 	});
 
 	it('never computes alternatives for a non-player-turn (opponent) step', () => {
 		const v = makeVariation(2, 'o-');
-		const { quizSteps } = splitAttempt(v.path, 1, 2, [v]);
+		const { quizSteps } = splitAttempt(v.path, 1, 2, [v], 3);
 		const opponentStep = quizSteps.find((s) => s.moveId === 'o-o1')!;
 		expect(opponentStep.alternatives).toEqual([]);
 	});
@@ -442,51 +442,78 @@ describe('splitAttempt', () => {
 describe('buildPracticeView', () => {
 	it('builds a reviewLevel attempt via pickReviewAttempt, ignoring queue state', () => {
 		const v = makeVariation(3, 'r-');
-		const row = { level: 2, prevLevelMistakes: 0, queue: [{ key: taskKey(v, 2), status: 'cleared' as const }] };
-		const view = buildPracticeView([v], row, 1, UNCAPPED);
+		const row = { level: 2, prevLevelMistakes: 0, queue: [{ key: taskKey(v, 2, 3), status: 'cleared' as const }] };
+		const view = buildPracticeView([v], row, 1, UNCAPPED, 3);
 		expect(view.reviewLevel).toBe(1);
 		expect(view.attempt).not.toBeNull();
-		expect(view.attempt!.taskKey).toBe(taskKey(v, 1));
+		expect(view.attempt!.taskKey).toBe(taskKey(v, 1, 3));
 	});
 
 	it('builds a queued attempt from the row when not reviewing', () => {
 		const v = makeVariation(3, 'q-');
-		const row = { level: 1, prevLevelMistakes: 0, queue: [{ key: taskKey(v, 1), status: 'pending' as const }] };
-		const view = buildPracticeView([v], row, null, UNCAPPED);
+		const row = { level: 1, prevLevelMistakes: 0, queue: [{ key: taskKey(v, 1, 3), status: 'pending' as const }] };
+		const view = buildPracticeView([v], row, null, UNCAPPED, 3);
 		expect(view.level).toBe(1);
 		expect(view.attempt).not.toBeNull();
-		expect(view.attempt!.taskKey).toBe(taskKey(v, 1));
+		expect(view.attempt!.taskKey).toBe(taskKey(v, 1, 3));
 	});
 
 	it('returns a null attempt once the repertoire is mastered', () => {
 		const v = makeVariation(2, 'm-');
 		// level 2 exceeds this variation's cap (levelCap for a 2-move variation is 1) -> mastered
 		const row = { level: 2, prevLevelMistakes: 0, queue: [] };
-		const view = buildPracticeView([v], row, null, UNCAPPED);
+		const view = buildPracticeView([v], row, null, UNCAPPED, 3);
 		expect(view.level).toBe('mastered');
 		expect(view.attempt).toBeNull();
 	});
 
 	it('returns a null attempt when there is no row yet (bootstrap case)', () => {
 		const v = makeVariation(3, 'b-');
-		const view = buildPracticeView([v], null, null, UNCAPPED);
+		const view = buildPracticeView([v], null, null, UNCAPPED, 3);
 		expect(view.level).toBe(1);
 		expect(view.attempt).toBeNull();
 	});
 
 	it('becomes mastered at the configured practice depth even though the variation naturally goes deeper', () => {
 		const v = makeVariation(10, 'd-'); // natural cap = 4
-		const row = { level: 3, prevLevelMistakes: 0, queue: [{ key: taskKey(v, 2), status: 'cleared' as const }] };
-		const view = buildPracticeView([v], row, null, 2); // maxLevel 2 < row.level 3 -> mastered, not natural cap 4
+		const row = { level: 3, prevLevelMistakes: 0, queue: [{ key: taskKey(v, 2, 3), status: 'cleared' as const }] };
+		const view = buildPracticeView([v], row, null, 2, 3); // maxLevel 2 < row.level 3 -> mastered, not natural cap 4
 		expect(view.level).toBe('mastered');
 		expect(view.totalLevels).toBe(2);
 	});
 
 	it('returns the vacuous-mastered shape for a repertoire with no variations', () => {
-		const view = buildPracticeView([], null, null, UNCAPPED);
+		const view = buildPracticeView([], null, null, UNCAPPED, 3);
 		expect(view.level).toBe('mastered');
 		expect(view.totalVariations).toBe(0);
 		expect(view.attempt).toBeNull();
+	});
+
+	it('serves the SECOND variation once activeVariationKey points past the first', () => {
+		const a = makeVariation(2, 'a-'); // cap = 1, would be mastered
+		const b = makeVariation(3, 'b-');
+		const row = { level: 1, prevLevelMistakes: 0, queue: [{ key: taskKey(b, 1, 3), status: 'pending' as const }], activeVariationKey: b.variationKey };
+		const view = buildPracticeView([a, b], row, null, UNCAPPED, 3);
+		expect(view.attempt).not.toBeNull();
+		expect(view.attempt!.taskKey).toBe(taskKey(b, 1, 3));
+	});
+
+	it('defaults to the FIRST variation when the row has no activeVariationKey yet', () => {
+		const a = makeVariation(3, 'a-');
+		const b = makeVariation(3, 'b-');
+		const row = { level: 1, prevLevelMistakes: 0, queue: [{ key: taskKey(a, 1, 3), status: 'pending' as const }] };
+		const view = buildPracticeView([a, b], row, null, UNCAPPED, 3);
+		expect(view.attempt!.taskKey).toBe(taskKey(a, 1, 3));
+	});
+
+	it('reports variationsMastered/totalVariationsInSequence across the whole repertoire, not just the active variation', () => {
+		const a = makeVariation(2, 'a-');
+		const b = makeVariation(2, 'b-');
+		const c = makeVariation(2, 'c-');
+		const row = { level: 1, prevLevelMistakes: 0, queue: [{ key: taskKey(b, 1, 3), status: 'pending' as const }], activeVariationKey: b.variationKey };
+		const view = buildPracticeView([a, b, c], row, null, UNCAPPED, 3);
+		expect(view.variationsMastered).toBe(1); // a is done, b (active) isn't yet
+		expect(view.totalVariationsInSequence).toBe(3);
 	});
 });
 
@@ -494,9 +521,9 @@ describe('continueFromBranch', () => {
 	it('resumes a variation from a mid-line branch and returns its remaining steps plus taskKey', () => {
 		const a = makeVariation(6, 'a-');
 		const b = makeVariation(6, 'b-');
-		const result = continueFromBranch([a, b], 2, b.variationKey, 2);
+		const result = continueFromBranch([a, b], 2, b.variationKey, 2, 3);
 		expect(result).not.toBeNull();
-		expect(result!.taskKey).toBe(taskKey(b, 2));
+		expect(result!.taskKey).toBe(taskKey(b, 2, 3));
 		expect(result!.quizSteps.map((s) => s.moveId)).toEqual([
 			'b-o2', 'b-p3', 'b-o3', 'b-p4', 'b-o4', 'b-p5', 'b-o5', 'b-p6'
 		]);
@@ -504,14 +531,14 @@ describe('continueFromBranch', () => {
 
 	it('returns null for an unknown variationKey', () => {
 		const a = makeVariation(4, 'a-');
-		expect(continueFromBranch([a], 1, 'no-such-key', 1)).toBeNull();
+		expect(continueFromBranch([a], 1, 'no-such-key', 1, 3)).toBeNull();
 	});
 
 	it('returns null when afterPlayerMoveIndex is not a real player-turn step for that variation at this level', () => {
 		const a = makeVariation(4, 'a-');
 		// level 1's quiz range for a 4-move variation is player moves 1-3
 		// (target depth min(4,3)=3) — index 4 is out of that range.
-		expect(continueFromBranch([a], 1, a.variationKey, 4)).toBeNull();
+		expect(continueFromBranch([a], 1, a.variationKey, 4, 3)).toBeNull();
 	});
 
 	it('returns null (rather than throwing) when the variation has no content left at the requested level', () => {
@@ -520,7 +547,7 @@ describe('continueFromBranch', () => {
 		// level/variation combination; continueFromBranch must catch this
 		// upstream and treat it as just another stale/inconsistent request.
 		const a = makeVariation(2, 'a-');
-		expect(continueFromBranch([a], 5, a.variationKey, 1)).toBeNull();
+		expect(continueFromBranch([a], 5, a.variationKey, 1, 3)).toBeNull();
 	});
 
 	it("a continuation's own steps still carry their own alternatives (recursion falls out of reusing splitAttempt)", () => {
@@ -553,11 +580,11 @@ describe('continueFromBranch', () => {
 			],
 			playerMoveCount: 3
 		};
-		const result = continueFromBranch([e, f], 1, e.variationKey, 1);
+		const result = continueFromBranch([e, f], 1, e.variationKey, 1, 3);
 		expect(result).not.toBeNull();
 		const nested = result!.quizSteps.find((s) => s.moveId === 'e-p3')!;
 		expect(nested.alternatives).toEqual([
-			{ san: 'Bb5', toFen: 'f-end', moveId: 'f-p3', kind: 'completes', taskKey: taskKey(f, 1) }
+			{ san: 'Bb5', toFen: 'f-end', moveId: 'f-p3', kind: 'completes', taskKey: taskKey(f, 1, 3) }
 		]);
 	});
 });
