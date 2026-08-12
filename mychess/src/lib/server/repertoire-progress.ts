@@ -136,18 +136,17 @@ export async function loadRepertoireProgressSummaries(
 	const repIds = allReps.map((r: any) => r.id);
 	const uncachedIds = allReps.filter((r: any) => r.total_variations === null).map((r: any) => r.id);
 
-	const exclusionsByRep = await fetchExclusionsByRepertoire(supabase, userId, repIds);
-	const excludedIds = [...exclusionsByRep.keys()];
-	const needsMoveFetchIds = Array.from(new Set([...uncachedIds, ...excludedIds]));
-
-	const [{ data: progressRows }, rawMoves] = await Promise.all([
+	const [exclusionsByRep, { data: progressRows }] = await Promise.all([
+		fetchExclusionsByRepertoire(supabase, userId, repIds),
 		supabase
 			.from('level_progress')
 			.select('repertoire_id, level, prev_level_mistakes, queue')
 			.eq('player_id', userId)
-			.in('repertoire_id', repIds),
-		needsMoveFetchIds.length > 0 ? fetchAllMoves(supabase, needsMoveFetchIds) : Promise.resolve([])
+			.in('repertoire_id', repIds)
 	]);
+	const excludedIds = [...exclusionsByRep.keys()];
+	const needsMoveFetchIds = Array.from(new Set([...uncachedIds, ...excludedIds]));
+	const rawMoves = needsMoveFetchIds.length > 0 ? await fetchAllMoves(supabase, needsMoveFetchIds) : [];
 
 	const movesByRep = new Map<string, RawMoveRow[]>();
 	for (const m of rawMoves as any[]) {
@@ -198,11 +197,14 @@ export async function loadRepertoireProgressSummaries(
 				? { totalVariations: r.total_variations, totalLevels: r.total_levels, level1TaskCount: r.level1_task_count }
 				: backfilledShapes.get(r.id)!;
 
+		// `fetchExclusionsByRepertoire` only ever adds a map entry when it
+		// found at least one exclusion row, so `excluded`'s mere presence
+		// (no need to also check `.size > 0`) means this player has excluded
+		// something from this repertoire.
 		const excluded = exclusionsByRep.get(r.id);
-		const effectiveShape =
-			excluded && excluded.size > 0
-				? repertoireShape(filterVariations(variationsByRep.get(r.id) ?? [], excluded))
-				: naturalShape;
+		const effectiveShape = excluded
+			? repertoireShape(filterVariations(variationsByRep.get(r.id) ?? [], excluded))
+			: naturalShape;
 
 		// Clamped to the player's configured practice depth, same as the
 		// detail page (`effectiveLevelCap`) — otherwise this would show a
