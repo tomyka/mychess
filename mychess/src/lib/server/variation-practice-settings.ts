@@ -5,7 +5,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * Sets whether `variationKeys` are included in practice for `playerId`,
  * within `repertoireId`. `included: true` deletes any existing exclusion
  * rows (back to the default "included"); `included: false` upserts one
- * exclusion row per key. No-ops on an empty `variationKeys` array.
+ * exclusion row per key (deduped first — see below). No-ops on an empty
+ * `variationKeys` array.
+ *
+ * `playerId` must be the authenticated caller's own id and `supabase` must
+ * be the request-scoped, RLS-respecting client (never a service-role
+ * client) — `variation_practice_exclusions_player_all`'s RLS policy is what
+ * actually prevents writing another player's exclusions; this function
+ * itself performs no ownership check of its own.
  */
 export async function setVariationsIncluded(
 	supabase: SupabaseClient,
@@ -25,7 +32,11 @@ export async function setVariationsIncluded(
 		return { error: error?.message ?? null };
 	}
 
-	const rows = variationKeys.map((variationKey) => ({
+	// Dedupe first — a hierarchical checkbox UI's bulk parent-toggle and an
+	// already-individually-toggled child variation can resolve to the same
+	// key in one call, and Postgres rejects an upsert that would affect the
+	// same conflict target twice within one statement.
+	const rows = [...new Set(variationKeys)].map((variationKey) => ({
 		player_id: playerId,
 		repertoire_id: repertoireId,
 		variation_key: variationKey
