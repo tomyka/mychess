@@ -19,22 +19,44 @@ function isMoveRow(value: unknown): value is MoveRow {
 }
 
 /**
- * Creates one repertoire from one chapter's already-planned moves. Called
- * once per chapter from the client (see `PgnImportForm.svelte`) so a
- * multi-chapter PGN import can show real per-chapter progress instead of
- * one request silently doing everything before replying.
+ * Writes one chapter's already-planned moves — either creating a new
+ * repertoire, or (when `existingRepertoireId` is given) appending onto one
+ * created by an earlier call in the same multi-chapter import. Called once
+ * per chapter from the client (see `PgnImportForm.svelte`) so a multi-chapter
+ * PGN import can show real per-chapter progress instead of one request
+ * silently doing everything before replying, while every chapter still lands
+ * in the SAME repertoire.
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const user = await requireApiUser(locals);
 
 	const body = await request.json().catch(() => null);
-	const { name, color, ecoCode, ecoName, moves } = body ?? {};
+	const { name, color, ecoCode, ecoName, moves, existingRepertoireId, finalize } = body ?? {};
 
 	if (typeof name !== 'string' || !name.trim()) throw error(400, 'name is required');
 	if (color !== 'white' && color !== 'black') throw error(400, 'color must be "white" or "black"');
 	if (ecoCode !== null && typeof ecoCode !== 'string') throw error(400, 'ecoCode must be a string or null');
 	if (ecoName !== null && typeof ecoName !== 'string') throw error(400, 'ecoName must be a string or null');
 	if (!Array.isArray(moves) || !moves.every(isMoveRow)) throw error(400, 'moves must be an array of move rows');
+	if (existingRepertoireId !== undefined && typeof existingRepertoireId !== 'string') {
+		throw error(400, 'existingRepertoireId must be a string');
+	}
+	if (finalize !== undefined && typeof finalize !== 'boolean') {
+		throw error(400, 'finalize must be a boolean');
+	}
+
+	if (existingRepertoireId) {
+		// `moves_player_all`'s RLS policy would reject the move writes below
+		// anyway if this repertoire isn't the caller's own, but checking here
+		// first turns that into a clean 404 instead of a generic write failure.
+		const { data: owned } = await locals.supabase
+			.from('repertoires')
+			.select('id')
+			.eq('id', existingRepertoireId)
+			.eq('player_id', user.id)
+			.maybeSingle();
+		if (!owned) throw error(404, 'Repertoire not found');
+	}
 
 	const result = await writeMoves(locals.supabase, {
 		playerId: user.id,
@@ -42,7 +64,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		color,
 		ecoCode,
 		ecoName,
-		moves
+		moves,
+		existingRepertoireId,
+		finalize
 	});
 	if (result.error) throw error(400, result.error);
 
