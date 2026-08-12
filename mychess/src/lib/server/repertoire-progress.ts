@@ -123,12 +123,12 @@ export async function loadRepertoireProgressSummaries(
 	const [{ data: ownReps }, { data: assigned }] = await Promise.all([
 		supabase
 			.from('repertoires')
-			.select('id, name, color, total_variations, total_levels, level1_task_count, has_chapters, practice_depth_levels')
+			.select('id, name, color, total_variations, total_levels, level1_task_count, has_chapters, practice_depth_levels, chunk_size')
 			.eq('player_id', userId),
 		supabase
 			.from('assigned_repertoires')
 			.select(
-				'repertoire:repertoire_id(id, name, color, total_variations, total_levels, level1_task_count, has_chapters, practice_depth_levels)'
+				'repertoire:repertoire_id(id, name, color, total_variations, total_levels, level1_task_count, has_chapters, practice_depth_levels, chunk_size)'
 			)
 			.eq('player_id', userId)
 	]);
@@ -151,7 +151,7 @@ export async function loadRepertoireProgressSummaries(
 		fetchExclusionsByRepertoire(supabase, userId, repIds),
 		supabase
 			.from('level_progress')
-			.select('repertoire_id, level, prev_level_mistakes, queue')
+			.select('repertoire_id, level, prev_level_mistakes, queue, active_variation_key')
 			.eq('player_id', userId)
 			.in('repertoire_id', repIds)
 	]);
@@ -186,7 +186,8 @@ export async function loadRepertoireProgressSummaries(
 	await Promise.all(
 		uncachedIds.map(async (repId) => {
 			const variations = variationsByRep.get(repId) ?? [];
-			const shape = repertoireShape(variations);
+			const rep = allReps.find((r: any) => r.id === repId);
+			const shape = repertoireShape(variations, rep.chunk_size);
 			const hasChapters = hasChapterTags(variations);
 			backfilledShapes.set(repId, shape);
 			backfilledHasChapters.set(repId, hasChapters);
@@ -205,7 +206,12 @@ export async function loadRepertoireProgressSummaries(
 
 	const rowByRep = new Map<string, LevelProgressRow>();
 	for (const r of (progressRows ?? []) as any[]) {
-		rowByRep.set(r.repertoire_id, { level: r.level, prevLevelMistakes: r.prev_level_mistakes, queue: r.queue });
+		rowByRep.set(r.repertoire_id, {
+			level: r.level,
+			prevLevelMistakes: r.prev_level_mistakes,
+			queue: r.queue,
+			activeVariationKey: r.active_variation_key
+		});
 	}
 
 	return allReps.map((r: any) => {
@@ -220,7 +226,7 @@ export async function loadRepertoireProgressSummaries(
 		// something from this repertoire.
 		const excluded = exclusionsByRep.get(r.id);
 		const effectiveShape = excluded
-			? repertoireShape(filterVariations(variationsByRep.get(r.id) ?? [], excluded))
+			? repertoireShape(filterVariations(variationsByRep.get(r.id) ?? [], excluded), r.chunk_size)
 			: naturalShape;
 
 		// Clamped to the player's configured practice depth, same as the
