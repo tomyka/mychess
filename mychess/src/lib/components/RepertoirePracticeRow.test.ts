@@ -17,6 +17,7 @@ const baseRep = {
 	totalLevels: 6,
 	levelTaskCount: 18,
 	levelSolvedCount: 12,
+	totalVariations: 2,
 	fullVariationCount: 2,
 	excludedVariationCount: 0
 };
@@ -134,5 +135,44 @@ describe('RepertoirePracticeRow', () => {
 		);
 		expect(v1Checkbox.checked).toBe(true);
 		expect(v2Checkbox.checked).toBe(false);
+	});
+
+	it('shows "No moves yet" when totalVariations is 0, even if fullVariationCount is not (every variation excluded)', () => {
+		render(RepertoirePracticeRow, {
+			props: {
+				rep: { ...baseRep, totalVariations: 0, level: 'mastered' as const, totalLevels: 0, excludedVariationCount: 2 }
+			}
+		});
+		expect(screen.getByText('No moves yet')).toBeTruthy();
+	});
+
+	it('reverts the checkbox and shows an error when toggling a variation fails', async () => {
+		const fetchSpy = vi
+			.fn()
+			.mockResolvedValueOnce({ ok: true, json: async () => variationsResponse })
+			.mockResolvedValueOnce({ ok: false });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: baseRep } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6'));
+
+		const variationCheckbox = within(screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6').closest('label')!).getByRole(
+			'checkbox'
+		) as HTMLInputElement;
+		await fireEvent.click(variationCheckbox);
+
+		await waitFor(() => expect(screen.getByText("Couldn't update that — try again.")).toBeTruthy());
+		expect(variationCheckbox.checked).toBe(true); // reverted back to its original state
+	});
+
+	it('shows an error and no variations when the variations fetch fails', async () => {
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: false });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: baseRep } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => expect(screen.getByText("Couldn't load variations — try again.")).toBeTruthy());
+		expect(screen.queryByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6')).toBeNull();
 	});
 });

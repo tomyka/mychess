@@ -10,6 +10,7 @@
 		totalLevels: number;
 		levelTaskCount: number;
 		levelSolvedCount: number;
+		totalVariations: number;
 		fullVariationCount: number;
 		excludedVariationCount: number;
 	};
@@ -20,6 +21,7 @@
 	let expanded = $state(false);
 	let variations = $state<VariationRow[] | null>(null);
 	let loadingVariations = $state(false);
+	let errorMessage = $state<string | null>(null);
 	// The set of variationKeys that were included right before the parent
 	// checkbox last bulk-excluded everything — lets re-checking the parent
 	// restore exactly that selection instead of blanket-including everything.
@@ -47,9 +49,14 @@
 		loadingVariations = true;
 		try {
 			const res = await fetch(`/api/repertoires/${rep.id}/variations`);
+			if (!res.ok) throw new Error('load failed');
 			const data = (await res.json()) as VariationRow[];
 			variations = data;
+			errorMessage = null;
 			return data;
+		} catch {
+			errorMessage = "Couldn't load variations — try again.";
+			throw new Error('load failed');
 		} finally {
 			loadingVariations = false;
 		}
@@ -57,28 +64,55 @@
 
 	async function toggleExpanded() {
 		expanded = !expanded;
-		if (expanded) await ensureVariationsLoaded();
+		if (expanded) {
+			try {
+				await ensureVariationsLoaded();
+			} catch {
+				// errorMessage is already set inside ensureVariationsLoaded.
+			}
+		}
 	}
 
-	async function postExclusion(variationKeys: string[], included: boolean) {
-		await fetch(`/api/repertoires/${rep.id}/exclusions`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ variationKeys, included })
-		});
+	async function postExclusion(variationKeys: string[], included: boolean): Promise<boolean> {
+		try {
+			const res = await fetch(`/api/repertoires/${rep.id}/exclusions`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ variationKeys, included })
+			});
+			return res.ok;
+		} catch {
+			return false;
+		}
 	}
 
 	async function toggleVariation(key: string) {
-		const list = await ensureVariationsLoaded();
+		let list: VariationRow[];
+		try {
+			list = await ensureVariationsLoaded();
+		} catch {
+			return;
+		}
 		const target = list.find((v) => v.variationKey === key);
 		if (!target) return;
 		const nextIncluded = !target.included;
 		variations = list.map((v) => (v.variationKey === key ? { ...v, included: nextIncluded } : v));
-		await postExclusion([key], nextIncluded);
+		const ok = await postExclusion([key], nextIncluded);
+		if (!ok) {
+			variations = list;
+			errorMessage = "Couldn't update that — try again.";
+		} else {
+			errorMessage = null;
+		}
 	}
 
 	async function toggleParent() {
-		const list = await ensureVariationsLoaded();
+		let list: VariationRow[];
+		try {
+			list = await ensureVariationsLoaded();
+		} catch {
+			return;
+		}
 
 		if (parentState !== 'unchecked') {
 			// Checked or indeterminate -> bulk-exclude everything, remembering
@@ -86,18 +120,34 @@
 			// Only the currently-included keys are posted — an already-excluded
 			// variation doesn't need a redundant write.
 			const included = list.filter((v) => v.included).map((v) => v.variationKey);
+			const previousSnapshot = uncheckSnapshot;
 			uncheckSnapshot = new Set(included);
 			variations = list.map((v) => ({ ...v, included: false }));
-			await postExclusion(included, false);
+			const ok = await postExclusion(included, false);
+			if (!ok) {
+				variations = list;
+				uncheckSnapshot = previousSnapshot;
+				errorMessage = "Couldn't update that — try again.";
+			} else {
+				errorMessage = null;
+			}
 			return;
 		}
 
 		// Unchecked -> restore the pre-uncheck selection if we have one from
 		// this visit, otherwise default to including everything.
 		const toInclude = uncheckSnapshot ?? new Set(list.map((v) => v.variationKey));
+		const previousSnapshot = uncheckSnapshot;
 		variations = list.map((v) => ({ ...v, included: toInclude.has(v.variationKey) }));
 		uncheckSnapshot = null;
-		await postExclusion([...toInclude], true);
+		const ok = await postExclusion([...toInclude], true);
+		if (!ok) {
+			variations = list;
+			uncheckSnapshot = previousSnapshot;
+			errorMessage = "Couldn't update that — try again.";
+		} else {
+			errorMessage = null;
+		}
 	}
 </script>
 
@@ -109,7 +159,7 @@
 				checked={parentState === 'checked'}
 				use:indeterminate={parentState === 'indeterminate'}
 				onchange={toggleParent}
-				aria-label={rep.name}
+				aria-label={`Include ${rep.name} in practice`}
 			/>
 		</label>
 		<button
@@ -126,7 +176,7 @@
 			<div class="flex-1 min-w-0">
 				<h2 class="font-medium text-gray-900 truncate">{rep.name}</h2>
 				<p class="text-sm text-gray-400">
-					{#if rep.fullVariationCount === 0}
+					{#if rep.totalVariations === 0}
 						No moves yet
 					{:else if rep.level === 'mastered'}
 						🏆 Mastered · {levelTag(rep.totalLevels, rep.totalLevels)}
@@ -139,6 +189,10 @@
 			<span class="text-gray-400 text-sm">→</span>
 		</a>
 	</div>
+
+	{#if errorMessage}
+		<p class="px-4 pb-2 text-xs text-red-600">{errorMessage}</p>
+	{/if}
 
 	{#if expanded}
 		<ul class="pl-14 pr-4 pb-3 space-y-1">
