@@ -84,11 +84,27 @@ export function filterVariations(variations: Variation[], excludedKeys: Readonly
 
 /**
  * A human-readable move-sequence preview for one variation, e.g.
- * "1.e4 e5 2.Nf3 Nc6 3.Bb5" — assumes `path` starts from the game's actual
- * first move (true for every repertoire `enumerateVariations` produces,
- * since a root position never has an incoming edge), so index 0 is always
- * White's move 1.
+ * "1.e4 e5 2.Nf3 Nc6 3.Bb5" — reads the real starting side-to-move and move
+ * number from `path[0].fromFen` rather than assuming White's move 1, since a
+ * repertoire chapter can start from a custom `[FEN "..."]` PGN header (see
+ * `src/lib/pgn/parser.ts`) rather than the game's true beginning. A path that
+ * opens on Black's move renders with an ellipsis (e.g. "5...Nf6 6.Bg5"),
+ * matching standard chess notation for a mid-move-number start.
  */
 export function moveSequenceLabel(path: VariationStep[]): string {
-	return path.map((step, i) => (i % 2 === 0 ? `${i / 2 + 1}.${step.san}` : step.san)).join(' ');
+	if (path.length === 0) return '';
+
+	const fenFields = path[0].fromFen.split(' ');
+	let moveNumber = Number(fenFields[5]) || 1;
+	let whiteToMove = fenFields[1] !== 'b';
+
+	return path
+		.map((step, i) => {
+			const label =
+				whiteToMove ? `${moveNumber}.${step.san}` : i === 0 ? `${moveNumber}...${step.san}` : step.san;
+			if (!whiteToMove) moveNumber++;
+			whiteToMove = !whiteToMove;
+			return label;
+		})
+		.join(' ');
 }

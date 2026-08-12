@@ -140,4 +140,24 @@ describe('moveSequenceLabel', () => {
 		const [variation] = enumerateVariations(moves);
 		expect(moveSequenceLabel(variation.path)).toBe('1.d4');
 	});
+
+	it('ends on Black to move without a trailing extra number', () => {
+		const moves: RawMoveRow[] = [
+			{ id: 'm1', fromPositionId: 'START', toPositionId: 'P1', fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', toFen: 'x', san: 'e4', isPlayerTurn: true },
+			{ id: 'm2', fromPositionId: 'P1', toPositionId: 'P2', fromFen: 'x', toFen: 'y', san: 'e5', isPlayerTurn: false },
+			{ id: 'm3', fromPositionId: 'P2', toPositionId: 'P3', fromFen: 'y', toFen: 'z', san: 'Nf3', isPlayerTurn: true },
+			{ id: 'm4', fromPositionId: 'P3', toPositionId: 'P4', fromFen: 'z', toFen: 'w', san: 'Nc6', isPlayerTurn: false }
+		];
+		const [variation] = enumerateVariations(moves);
+		expect(moveSequenceLabel(variation.path)).toBe('1.e4 e5 2.Nf3 Nc6');
+	});
+
+	it('starts from a custom mid-game FEN where Black is to move first', () => {
+		const moves: RawMoveRow[] = [
+			{ id: 'm1', fromPositionId: 'START', toPositionId: 'P1', fromFen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 3 5', toFen: 'x', san: 'Nf6', isPlayerTurn: true },
+			{ id: 'm2', fromPositionId: 'P1', toPositionId: 'P2', fromFen: 'x', toFen: 'y', san: 'Bc4', isPlayerTurn: false }
+		];
+		const [variation] = enumerateVariations(moves);
+		expect(moveSequenceLabel(variation.path)).toBe('5...Nf6 6.Bc4');
+	});
 });
