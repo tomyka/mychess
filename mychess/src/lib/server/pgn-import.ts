@@ -90,6 +90,15 @@ export async function writeMoves(
     // incomplete move set — since that backfill only ever runs once per
     // repertoire, it would permanently cache the wrong shape.
     finalize?: boolean;
+    // The originating PGN chapter's own bare title (e.g. `ImportChapter.name`
+    // — "Ruy Lopez — Berlin Defense", NOT the combined "{repertoire name} —
+    // {chapter title}" string `params.name` carries for a multi-chapter
+    // import). Only ever sent for a multi-chapter import (see
+    // `PgnImportForm.svelte`) — a single-chapter import has nothing to
+    // group, so it's omitted and every move's `chapter_name` stays null.
+    // Written only onto moves this call's own `MoveRow.isChapterEnd` marks
+    // true — see `chapterLeafFens` in `$lib/pgn-import.ts`.
+    chapterLabel?: string;
   }
 ): Promise<{ repertoireId: string | null; error: string | null }> {
   let repId: string;
@@ -121,7 +130,8 @@ export async function writeMoves(
         fromFen: m.fromFen,
         toFen: m.toFen,
         san: m.san,
-        isPlayerTurn: m.is_player_turn
+        isPlayerTurn: m.is_player_turn,
+        chapterName: null
       }));
       const shape = repertoireShape(enumerateVariations(rawMoves));
       insertColumns.total_variations = shape.totalVariations;
@@ -193,7 +203,8 @@ export async function writeMoves(
     san: move.san,
     move_number: move.move_number,
     is_player_turn: move.is_player_turn,
-    annotation: move.annotation
+    annotation: move.annotation,
+    chapter_name: move.isChapterEnd && params.chapterLabel ? params.chapterLabel : null
   }));
 
   for (let i = 0; i < moveRows.length; i += CHUNK) {
