@@ -9,6 +9,14 @@ export type MoveRow = {
   move_number: number;
   is_player_turn: boolean;
   annotation: string | null;
+  // True when this move is a leaf WITHIN its own chapter's move set — see
+  // chapterLeafFens. Used at write time (see `$lib/server/pgn-import.ts`) to
+  // tag which moves close out a line for a given PGN chapter, so the
+  // Practice picker can group variations by chapter later. Always false for
+  // moves that don't come from a multi-chapter PGN import (e.g. the
+  // chess.com/Lichess "my games" auto-import via `planGameImport`) — chapter
+  // grouping doesn't apply there.
+  isChapterEnd: boolean;
 };
 
 export type ImportChapter = {
@@ -50,11 +58,24 @@ export function chapterName(headers: Record<string, string>, index: number): str
  * import time. Pure — no I/O — so it's directly testable without touching
  * Supabase.
  */
+/**
+ * Every `toFen` in `moves` that's never used as another move's `fromFen` —
+ * i.e. every distinct line-ending position within one chapter's own moves,
+ * including sidelines the chapter's own PGN branches into (not just its
+ * mainline's final move). Used to tag which moves close out a chapter (see
+ * `isChapterEnd` on `MoveRow`), so a variation ending on one of them can be
+ * grouped under that chapter in the Practice picker.
+ */
+function chapterLeafFens(moves: { fromFen: string; toFen: string }[]): Set<string> {
+  const fromFens = new Set(moves.map((m) => m.fromFen));
+  return new Set(moves.map((m) => m.toFen).filter((fen) => !fromFens.has(fen)));
+}
+
 export function planMultiImport(pgnText: string, color: 'white' | 'black'): MultiImportPlan {
   const games = parsePgn(pgnText);
 
   const chapters: ImportChapter[] = games.map((game, index) => {
-    const moves: MoveRow[] = game.moves.map((move) => ({
+    const rawMoves = game.moves.map((move) => ({
       fromFen: move.parentFen,
       toFen: move.fen,
       san: move.san,
@@ -62,6 +83,8 @@ export function planMultiImport(pgnText: string, color: 'white' | 'black'): Mult
       is_player_turn: move.color === color,
       annotation: move.annotation ?? null
     }));
+    const leafFens = chapterLeafFens(rawMoves);
+    const moves: MoveRow[] = rawMoves.map((m) => ({ ...m, isChapterEnd: leafFens.has(m.toFen) }));
     const opening = detectOpening(game.moves.map((m) => m.san), ECO_OPENINGS);
     return {
       name: chapterName(game.headers, index),
@@ -120,7 +143,8 @@ export function planGameImport(pgnText: string, username: string): GameImportPla
         san: move.san,
         move_number: move.ply,
         is_player_turn: move.color === color,
-        annotation: move.annotation ?? null
+        annotation: move.annotation ?? null,
+        isChapterEnd: false
       });
     }
   }

@@ -82,6 +82,39 @@ describe('planMultiImport', () => {
     const playerMoves = result[0].moves.filter((m) => m.is_player_turn);
     expect(playerMoves).toHaveLength(25); // not truncated at any fixed cap
   });
+
+  it('marks a chapter\'s own final move as isChapterEnd', () => {
+    const result = planMultiImport('1. e4 e5 2. Nf3 *', 'white');
+    if ('error' in result) throw new Error('expected chapters, got error: ' + result.error);
+    const moves = result[0].moves;
+    expect(moves.map((m) => m.isChapterEnd)).toEqual([false, false, true]);
+  });
+
+  it('marks every distinct leaf when a chapter has its own internal branch', () => {
+    // 1.e4 e5 2.Nf3 Nc6 (2...Nf6 3.Nxe5) 3.Bb5 — two lines within ONE
+    // chapter: the mainline ending on Bb5, and the sideline ending on Nxe5.
+    // Both are leaves of this chapter's own move graph and must both be
+    // tagged, since grouping-by-chapter must not silently drop the sideline
+    // out of the picker's checkbox list.
+    const pgn = '1. e4 e5 2. Nf3 Nc6 (2... Nf6 3. Nxe5) 3. Bb5 *';
+    const result = planMultiImport(pgn, 'white');
+    if ('error' in result) throw new Error('expected chapters, got error: ' + result.error);
+    const moves = result[0].moves;
+    const bb5 = moves.find((m) => m.san === 'Bb5');
+    const nxe5 = moves.find((m) => m.san === 'Nxe5');
+    const nc6 = moves.find((m) => m.san === 'Nc6');
+    expect(bb5?.isChapterEnd).toBe(true);
+    expect(nxe5?.isChapterEnd).toBe(true);
+    expect(nc6?.isChapterEnd).toBe(false); // has an outgoing move (Bb5), not a leaf
+  });
+
+  it('does not mark a mid-chapter move as isChapterEnd', () => {
+    const result = planMultiImport('1. e4 e5 2. Nf3 Nc6 *', 'white');
+    if ('error' in result) throw new Error('expected chapters, got error: ' + result.error);
+    const moves = result[0].moves;
+    expect(moves[0].isChapterEnd).toBe(false); // e4
+    expect(moves[moves.length - 1].isChapterEnd).toBe(true); // Nc6, the real last move
+  });
 });
 
 describe('chapterName', () => {
