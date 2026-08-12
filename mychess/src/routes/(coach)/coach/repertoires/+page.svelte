@@ -98,7 +98,7 @@
               </button>
               <form method="POST" action="?/delete" use:enhance onsubmit={(e) => confirmDelete(e, rep.name)}>
                 <input type="hidden" name="rep_id" value={rep.id} />
-                <button class="text-sm text-red-600 hover:underline">Delete</button>
+                <button class="text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-red-700 transition-colors shrink-0">Delete</button>
               </form>
             </div>
 
