@@ -134,7 +134,7 @@ export async function writeMoves(
         chapterName: null
       }));
       const variations = enumerateVariations(rawMoves);
-      const shape = repertoireShape(variations);
+      const shape = repertoireShape(variations, 3); // matches repertoires.chunk_size's default (see migration 0044) — shape is cached at import time, before chunk_size could ever be customized
       insertColumns.total_variations = shape.totalVariations;
       insertColumns.total_levels = shape.totalLevels;
       insertColumns.level1_task_count = shape.level1TaskCount;
@@ -232,7 +232,7 @@ export async function writeMoves(
     const allMoves = await fetchAllMoves(supabase, repId);
     const rawMoves: RawMoveRow[] = toRawMoveRows(allMoves);
     const variations = enumerateVariations(rawMoves);
-    const shape = repertoireShape(variations);
+    const shape = repertoireShape(variations, 3); // matches repertoires.chunk_size's default (see migration 0044) — shape is cached at import time, before chunk_size could ever be customized
     const { error: shapeErr } = await supabase
       .from('repertoires')
       .update({
