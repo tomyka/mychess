@@ -14,7 +14,8 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"fide:import": "tsx scripts/import-fide.ts",
-		"eco:generate": "tsx scripts/generate-eco-data.ts"
+		"eco:generate": "tsx scripts/generate-eco-data.ts",
+		"merge-repertoires": "tsx scripts/merge-split-repertoires.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
