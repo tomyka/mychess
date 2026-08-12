@@ -21,6 +21,20 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	}
 	if (typeof included !== 'boolean') throw error(400, 'included must be a boolean');
 
+	// `variation_practice_exclusions`'s unique constraint is
+	// (player_id, variation_key), not (player_id, repertoire_id,
+	// variation_key) — repertoire_id on a written row is otherwise trusted
+	// straight from this URL param with nothing else to catch a wrong/
+	// inaccessible id, so this existence check (relying on `repertoires`'
+	// own owner/assigned/coach RLS policies to scope what's visible) is the
+	// only thing standing between a typo'd or malicious `params.id` and a
+	// row that silently never applies to any repertoire's actual practice
+	// view. Deliberately a plain existence check, not `.eq('player_id',
+	// user.id)` — a player must also be able to exclude variations in a
+	// repertoire their coach assigned to them, not just ones they own.
+	const { data: repertoire } = await locals.supabase.from('repertoires').select('id').eq('id', params.id).maybeSingle();
+	if (!repertoire) throw error(404, 'Repertoire not found');
+
 	const result = await setVariationsIncluded(locals.supabase, user.id, params.id, variationKeys, included);
 	if (result.error) throw error(400, result.error);
 
