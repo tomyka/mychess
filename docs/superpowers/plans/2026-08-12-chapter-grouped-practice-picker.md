@@ -262,7 +262,7 @@ Expected: FAIL — `RawMoveRow` has no `chapterName` field (type error) and `var
 
 - [ ] **Step 3: Implement**
 
-In `src/lib/mastery/variations.ts`, update the three types and the `walk` function:
+In `src/lib/mastery/variations.ts`, update the three types and the `walk` function. **`chapterName` is optional (`?:`), not a required nullable field** — `mastery/practice.test.ts` and `mastery/levelProgress.test.ts` hand-construct dozens of `VariationStep`/`Variation` literals with no reason to care about chapters, and `repertoire-progress.ts` has its own `RawMoveRow` construction outside this plan's scope; a required field would force edits across all of them for something they're indifferent to. An omitted `chapterName` is treated identically to an explicit `null` everywhere it's read (Task 8's endpoint normalizes with `?? null` before it ever reaches JSON, so the wire format is unaffected):
 
 ```ts
 export type RawMoveRow = {
@@ -273,7 +273,7 @@ export type RawMoveRow = {
 	toFen: string;
 	san: string;
 	isPlayerTurn: boolean;
-	chapterName: string | null;
+	chapterName?: string | null;
 };
 
 export type VariationStep = {
@@ -282,7 +282,7 @@ export type VariationStep = {
 	fromFen: string;
 	toFen: string;
 	isPlayerTurn: boolean;
-	chapterName: string | null;
+	chapterName?: string | null;
 };
 
 export type Variation = {
@@ -292,11 +292,11 @@ export type Variation = {
 	playerMoveCount: number;
 	// The originating PGN chapter's own bare title, carried from this
 	// variation's leaf move (see `MoveRow.isChapterEnd` in `$lib/pgn-import.ts`
-	// for how it's tagged at import time). Null for any variation whose leaf
-	// isn't a tagged chapter-end — every variation of a repertoire imported
-	// before chapter tagging existed, or of a single-chapter import, where
-	// grouping doesn't apply.
-	chapterName: string | null;
+	// for how it's tagged at import time). Undefined/null for any variation
+	// whose leaf isn't a tagged chapter-end — every variation of a
+	// repertoire imported before chapter tagging existed, or of a
+	// single-chapter import, where grouping doesn't apply.
+	chapterName?: string | null;
 };
 ```
 
@@ -336,10 +336,10 @@ In `enumerateVariations`, update the `walk` function's leaf-push and step constr
 Run: `npx vitest run src/lib/mastery/variations.test.ts`
 Expected: PASS (all tests in the file, old and new)
 
-- [ ] **Step 5: Run the type checker to confirm the expected fallout**
+- [ ] **Step 5: Run the type checker to confirm there's no fallout**
 
 Run: `npm run check`
-Expected: FAIL — Vitest itself won't catch this (it transpiles via esbuild without type-checking), but `svelte-check` will now report that every other `RawMoveRow` literal in the codebase (outside this task's own test file) is missing the required `chapterName` field. This is expected until Tasks 4 and 7 add it. Confirm the only errors are in `src/lib/server/pgn-import.ts` and `src/lib/server/practice-repertoire.ts`, not a regression in this task's own files. (`npx vitest run` on its own would still PASS at this point — it has nothing to do with this check.)
+Expected: PASS, zero errors — because `chapterName` is optional (see Step 3's note), no other file's pre-existing `RawMoveRow`/`VariationStep`/`Variation` construction needs to change for this task to type-check cleanly.
 
 - [ ] **Step 6: Commit**
 
@@ -357,9 +357,9 @@ git commit -m "feat: carry chapterName from a leaf move onto its Variation"
 
 No dedicated test file for this task — per this repo's convention (`CLAUDE.md`), `src/lib/server/*` files touching Supabase are thin I/O wrappers exercised through the pure-logic tests plus manual/e2e verification, not unit-tested directly. This change is exercised end-to-end by Task 6's `PgnImportForm.test.ts` updates and by manual verification in Task 10.
 
-- [ ] **Step 1: Fix the two `RawMoveRow` literals broken by Task 3**
+- [ ] **Step 1: Set `chapterName` explicitly on the shape-computation `RawMoveRow` literal**
 
-In `src/lib/server/pgn-import.ts`, the `writeMoves` function builds a `RawMoveRow[]` directly from `params.moves` to compute a repertoire's shape eagerly. Add the new field (chapter grouping is irrelevant to shape math, so `null` is correct here regardless of the moves' real tags):
+In `src/lib/server/pgn-import.ts`, the `writeMoves` function builds a `RawMoveRow[]` directly from `params.moves` to compute a repertoire's shape eagerly. `chapterName` is optional (Task 3), so this compiles fine either way, but set it explicitly for clarity (chapter grouping is irrelevant to shape math, so `null` is correct here regardless of the moves' real tags):
 
 ```ts
       const rawMoves: RawMoveRow[] = dedupedMoves.map((m, i) => ({
@@ -745,7 +745,14 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 			variationKey: v.variationKey,
 			label: moveSequenceLabel(v.path),
 			included: !excludedVariationKeys.has(v.variationKey),
-			chapterName: v.chapterName
+			// `?? null`, not just `v.chapterName`: `chapterName` is an OPTIONAL
+			// field on `Variation` (see `mastery/variations.ts`), so an
+			// omitted value is `undefined` at the type level — `JSON.stringify`
+			// drops `undefined` object keys entirely, which would silently
+			// remove `chapterName` from the response instead of sending `null`.
+			// The client's `VariationRow` type (Task 9) requires the key to
+			// always be present.
+			chapterName: v.chapterName ?? null
 		}))
 	);
 };
