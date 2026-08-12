@@ -1,0 +1,11 @@
+-- mychess/supabase/migrations/0042_move_chapter_names.sql
+-- Tags which PGN chapter a move closes out a line for, so the Practice
+-- picker can group variations by chapter instead of showing every leaf
+-- variation flat. Set only on moves that are a leaf WITHIN their own
+-- chapter's own move set (every distinct line-ending inside that chapter,
+-- including sidelines from the chapter's own internal PGN branches, not just
+-- its mainline's final move) — see planMultiImport's chapterLeafFens.
+-- Null for every other move, and for every move written before this
+-- migration (no source PGN is stored anywhere, so there's nothing to
+-- backfill from for already-imported repertoires).
+alter table public.moves add column chapter_name text;
