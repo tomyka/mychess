@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { levelTag } from '$lib/mastery/tags';
+  import RepertoirePracticeRow from '$lib/components/RepertoirePracticeRow.svelte';
 
   let { data } = $props<{ data: { repertoires: any[] } }>();
 </script>
@@ -21,25 +21,7 @@
     {:else}
       <ul class="space-y-2">
         {#each data.repertoires as rep (rep.id)}
-          <li>
-            <a href="/practice/{rep.id}"
-               class="flex items-center gap-3 bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow">
-              <span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color === 'black' ? '#1f2937' : '#e5e7eb'}"></span>
-              <div class="flex-1 min-w-0">
-                <h2 class="font-medium text-gray-900 truncate">{rep.name}</h2>
-                <p class="text-sm text-gray-400">
-                  {#if rep.totalVariations === 0}
-                    No moves yet
-                  {:else if rep.level === 'mastered'}
-                    🏆 Mastered · {levelTag(rep.totalLevels, rep.totalLevels)}
-                  {:else}
-                    Level {rep.level} of {rep.totalLevels} · {levelTag(rep.level, rep.totalLevels)} · {rep.levelSolvedCount}/{rep.levelTaskCount} solved
-                  {/if}
-                </p>
-              </div>
-              <span class="text-gray-400 text-sm">→</span>
-            </a>
-          </li>
+          <RepertoirePracticeRow {rep} />
         {/each}
       </ul>
     {/if}
