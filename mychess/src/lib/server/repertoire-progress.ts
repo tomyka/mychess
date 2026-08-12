@@ -1,6 +1,6 @@
 // mychess/src/lib/server/repertoire-progress.ts
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { enumerateVariations, type RawMoveRow } from '$lib/mastery/variations';
+import { enumerateVariations, filterVariations, type RawMoveRow, type Variation } from '$lib/mastery/variations';
 import {
 	repertoireProgressFromShape,
 	repertoireShape,
@@ -14,6 +14,15 @@ export type RepertoireProgressSummary = RepertoireProgress & {
 	id: string;
 	name: string;
 	color: string;
+	// The repertoire's TRUE variation count, ignoring this player's
+	// exclusions — together with `excludedVariationCount`, lets the Practice
+	// picker show a repertoire-level checkbox's checked/unchecked/
+	// indeterminate state without fetching every variation up front (only
+	// needed once the row is actually expanded — see
+	// `RepertoirePracticeRow.svelte`). `totalVariations` (from
+	// `RepertoireProgress`) is the FILTERED count used for level/mastery math.
+	fullVariationCount: number;
+	excludedVariationCount: number;
 };
 
 // Supabase/PostgREST caps an unbounded select at `max_rows` (1000, see
@@ -24,10 +33,10 @@ export type RepertoireProgressSummary = RepertoireProgress & {
 // `remainingPageRanges`, shared with `practice-repertoire.ts`) rather than
 // one at a time.
 //
-// Only used now for the lazy shape backfill below (see
-// `backfillShapes`) — repertoires imported since `writeMoves` started
-// caching `total_variations`/`total_levels`/`level1_task_count` at import
-// time never need this at all.
+// Used both for the lazy shape backfill (repertoires imported before
+// `writeMoves` started caching shape at import time) and for repertoires
+// this player has excluded at least one variation from, where the cached
+// whole-repertoire shape can't be trusted for THIS player's filtered view.
 const MOVES_PAGE_SIZE = 1000;
 
 async function fetchAllMoves(supabase: SupabaseClient, repIds: string[]): Promise<any[]> {
@@ -59,50 +68,25 @@ async function fetchAllMoves(supabase: SupabaseClient, repIds: string[]): Promis
 	return [...firstRows, ...pages.flatMap((p) => p.data ?? [])];
 }
 
-/**
- * Computes and persists `total_variations`/`total_levels`/`level1_task_count`
- * for repertoires imported before those columns existed (`repIds` — chosen
- * by the caller as whichever came back with `total_variations: null`).
- * Self-healing: this only ever runs once per repertoire, since every
- * subsequent load finds the columns already populated. Awaited (not
- * fire-and-forget) so the write reliably lands before this request's
- * function invocation ends.
- */
-async function backfillShapes(supabase: SupabaseClient, repIds: string[]): Promise<Map<string, RepertoireShape>> {
-	const rawMoves = await fetchAllMoves(supabase, repIds);
+async function fetchExclusionsByRepertoire(
+	supabase: SupabaseClient,
+	playerId: string,
+	repIds: string[]
+): Promise<Map<string, Set<string>>> {
+	const { data, error } = await supabase
+		.from('variation_practice_exclusions')
+		.select('repertoire_id, variation_key')
+		.eq('player_id', playerId)
+		.in('repertoire_id', repIds);
+	if (error) throw error;
 
-	const movesByRep = new Map<string, RawMoveRow[]>();
-	for (const m of rawMoves as any[]) {
-		const list = movesByRep.get(m.repertoire_id) ?? [];
-		list.push({
-			id: m.id,
-			san: m.san,
-			isPlayerTurn: m.is_player_turn,
-			fromPositionId: m.from_position,
-			toPositionId: m.to_position,
-			fromFen: '',
-			toFen: ''
-		});
-		movesByRep.set(m.repertoire_id, list);
+	const map = new Map<string, Set<string>>();
+	for (const row of (data ?? []) as any[]) {
+		const set = map.get(row.repertoire_id) ?? new Set<string>();
+		set.add(row.variation_key);
+		map.set(row.repertoire_id, set);
 	}
-
-	const shapes = new Map<string, RepertoireShape>();
-	await Promise.all(
-		repIds.map(async (repId) => {
-			const shape = repertoireShape(enumerateVariations(movesByRep.get(repId) ?? []));
-			shapes.set(repId, shape);
-			const { error } = await supabase
-				.from('repertoires')
-				.update({
-					total_variations: shape.totalVariations,
-					total_levels: shape.totalLevels,
-					level1_task_count: shape.level1TaskCount
-				})
-				.eq('id', repId);
-			if (error) console.error(`Failed to backfill shape cache for repertoire ${repId}:`, error);
-		})
-	);
-	return shapes;
+	return map;
 }
 
 /**
@@ -112,15 +96,19 @@ async function backfillShapes(supabase: SupabaseClient, repIds: string[]): Promi
  * perspective — doesn't reconcile or create `level_progress` rows (that's
  * the detail page's job via `loadSyncedLevelProgress`); a repertoire with no
  * row yet just shows the bootstrap "fresh Level 1" default. (It does write
- * the one-time shape backfill above, an implementation detail invisible to
+ * the one-time shape backfill below, an implementation detail invisible to
  * callers — the return value is unaffected either way.)
  *
  * Reads the shape (`total_variations`/`total_levels`/`level1_task_count`)
  * cached on `repertoires` at import time instead of fetching every move row
  * and re-walking the variation tree on every load — moves are immutable
- * after import, so that shape is valid forever once computed. Only
- * repertoires imported before this cache existed (`total_variations` still
- * null) pay the old move-fetch cost, once, via `backfillShapes`.
+ * after import, so that shape is valid forever once computed. Two cases
+ * still need a live move fetch: repertoires imported before this cache
+ * existed (`total_variations` still null — backfilled here, same as before),
+ * and repertoires this player has excluded at least one variation from,
+ * where the cached shape reflects the WHOLE repertoire, not this player's
+ * filtered view of it. The cache itself is never overwritten by exclusions —
+ * it stays the true full-repertoire shape for every other viewer.
  */
 export async function loadRepertoireProgressSummaries(
 	supabase: SupabaseClient,
@@ -148,14 +136,56 @@ export async function loadRepertoireProgressSummaries(
 	const repIds = allReps.map((r: any) => r.id);
 	const uncachedIds = allReps.filter((r: any) => r.total_variations === null).map((r: any) => r.id);
 
-	const [{ data: progressRows }, backfilledShapes] = await Promise.all([
+	const exclusionsByRep = await fetchExclusionsByRepertoire(supabase, userId, repIds);
+	const excludedIds = [...exclusionsByRep.keys()];
+	const needsMoveFetchIds = Array.from(new Set([...uncachedIds, ...excludedIds]));
+
+	const [{ data: progressRows }, rawMoves] = await Promise.all([
 		supabase
 			.from('level_progress')
 			.select('repertoire_id, level, prev_level_mistakes, queue')
 			.eq('player_id', userId)
 			.in('repertoire_id', repIds),
-		uncachedIds.length > 0 ? backfillShapes(supabase, uncachedIds) : Promise.resolve(new Map<string, RepertoireShape>())
+		needsMoveFetchIds.length > 0 ? fetchAllMoves(supabase, needsMoveFetchIds) : Promise.resolve([])
 	]);
+
+	const movesByRep = new Map<string, RawMoveRow[]>();
+	for (const m of rawMoves as any[]) {
+		const list = movesByRep.get(m.repertoire_id) ?? [];
+		list.push({
+			id: m.id,
+			san: m.san,
+			isPlayerTurn: m.is_player_turn,
+			fromPositionId: m.from_position,
+			toPositionId: m.to_position,
+			fromFen: '',
+			toFen: ''
+		});
+		movesByRep.set(m.repertoire_id, list);
+	}
+	const variationsByRep = new Map<string, Variation[]>();
+	for (const repId of needsMoveFetchIds) {
+		variationsByRep.set(repId, enumerateVariations(movesByRep.get(repId) ?? []));
+	}
+
+	// Self-healing, same as before: only ever runs once per repertoire, since
+	// every subsequent load finds the columns already populated.
+	const backfilledShapes = new Map<string, RepertoireShape>();
+	await Promise.all(
+		uncachedIds.map(async (repId) => {
+			const shape = repertoireShape(variationsByRep.get(repId) ?? []);
+			backfilledShapes.set(repId, shape);
+			const { error } = await supabase
+				.from('repertoires')
+				.update({
+					total_variations: shape.totalVariations,
+					total_levels: shape.totalLevels,
+					level1_task_count: shape.level1TaskCount
+				})
+				.eq('id', repId);
+			if (error) console.error(`Failed to backfill shape cache for repertoire ${repId}:`, error);
+		})
+	);
 
 	const rowByRep = new Map<string, LevelProgressRow>();
 	for (const r of (progressRows ?? []) as any[]) {
@@ -167,14 +197,28 @@ export async function loadRepertoireProgressSummaries(
 			r.total_variations !== null
 				? { totalVariations: r.total_variations, totalLevels: r.total_levels, level1TaskCount: r.level1_task_count }
 				: backfilledShapes.get(r.id)!;
+
+		const excluded = exclusionsByRep.get(r.id);
+		const effectiveShape =
+			excluded && excluded.size > 0
+				? repertoireShape(filterVariations(variationsByRep.get(r.id) ?? [], excluded))
+				: naturalShape;
+
 		// Clamped to the player's configured practice depth, same as the
 		// detail page (`effectiveLevelCap`) — otherwise this would show a
 		// level count deeper than what practice will actually ever ask for.
 		const shape: RepertoireShape = {
-			...naturalShape,
-			totalLevels: Math.min(naturalShape.totalLevels, r.practice_depth_levels)
+			...effectiveShape,
+			totalLevels: Math.min(effectiveShape.totalLevels, r.practice_depth_levels)
 		};
 		const progress = repertoireProgressFromShape(shape, rowByRep.get(r.id) ?? null);
-		return { id: r.id, name: r.name, color: r.color, ...progress };
+		return {
+			id: r.id,
+			name: r.name,
+			color: r.color,
+			...progress,
+			fullVariationCount: naturalShape.totalVariations,
+			excludedVariationCount: excluded?.size ?? 0
+		};
 	});
 }
