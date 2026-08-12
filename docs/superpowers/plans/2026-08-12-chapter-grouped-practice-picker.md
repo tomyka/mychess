@@ -489,8 +489,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (finalize !== undefined && typeof finalize !== 'boolean') {
 		throw error(400, 'finalize must be a boolean');
 	}
-	if (chapterLabel !== undefined && typeof chapterLabel !== 'string') {
-		throw error(400, 'chapterLabel must be a string');
+	if (chapterLabel !== undefined && (typeof chapterLabel !== 'string' || !chapterLabel.trim())) {
+		throw error(400, 'chapterLabel must be a non-empty string');
 	}
 
 	if (existingRepertoireId) {
