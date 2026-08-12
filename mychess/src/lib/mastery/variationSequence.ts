@@ -73,11 +73,11 @@ export function variationSequenceProgress(
 	if (variations.length === 0) return { variationsMastered: 0, totalVariationsInSequence: 0 };
 	if (!row) return { variationsMastered: 0, totalVariationsInSequence: variations.length };
 
-	const activeKey = row.activeVariationKey ?? variations[0].variationKey;
-	const activeIndex = variations.findIndex((v) => v.variationKey === activeKey);
-	if (activeIndex === -1) return { variationsMastered: 0, totalVariationsInSequence: variations.length };
+	const active = pickActiveVariation(variations, row.activeVariationKey ?? null);
+	if (!active) return { variationsMastered: 0, totalVariationsInSequence: variations.length };
+	const activeIndex = variations.findIndex((v) => v.variationKey === active.variationKey);
 
-	const cap = effectiveLevelCap([variations[activeIndex]], maxLevel, chunkSize);
+	const cap = effectiveLevelCap([active], maxLevel, chunkSize);
 	const activeMastered = row.level > cap;
 	return {
 		variationsMastered: activeMastered ? activeIndex + 1 : activeIndex,

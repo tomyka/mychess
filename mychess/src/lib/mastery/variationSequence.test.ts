@@ -131,4 +131,18 @@ describe('variationSequenceProgress', () => {
 			totalVariationsInSequence: 3
 		});
 	});
+
+	it('self-heals a stale activeVariationKey the same way pickActiveVariation does, instead of zeroing out progress', () => {
+		const a = variation(2, 'a-'); // cap = 1
+		const b = variation(2, 'b-');
+		// activeVariationKey no longer matches anything (e.g. a repertoire edit
+		// or exclusion removed it) — falls back to the first variation, same as
+		// pickActiveVariation, and reports ITS real mastery state rather than
+		// unconditionally zeroing out.
+		const staleButMastered: LevelProgressRow = { level: 2, prevLevelMistakes: 0, queue: [], activeVariationKey: 'stale-key' };
+		expect(variationSequenceProgress([a, b], staleButMastered, UNCAPPED, 3)).toEqual({
+			variationsMastered: 1, // falls back to `a`, which IS mastered (level 2 > cap 1)
+			totalVariationsInSequence: 2
+		});
+	});
 });
