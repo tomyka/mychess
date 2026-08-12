@@ -6,6 +6,7 @@ export type RawMoveRow = {
 	toFen: string;
 	san: string;
 	isPlayerTurn: boolean;
+	chapterName: string | null;
 };
 
 export type VariationStep = {
@@ -14,6 +15,7 @@ export type VariationStep = {
 	fromFen: string;
 	toFen: string;
 	isPlayerTurn: boolean;
+	chapterName: string | null;
 };
 
 export type Variation = {
@@ -21,6 +23,13 @@ export type Variation = {
 	variationKey: string;
 	path: VariationStep[];
 	playerMoveCount: number;
+	// The originating PGN chapter's own bare title, carried from this
+	// variation's leaf move (see `MoveRow.isChapterEnd` in `$lib/pgn-import.ts`
+	// for how it's tagged at import time). Null for any variation whose leaf
+	// isn't a tagged chapter-end — every variation of a repertoire imported
+	// before chapter tagging existed, or of a single-chapter import, where
+	// grouping doesn't apply.
+	chapterName: string | null;
 };
 
 /**
@@ -52,7 +61,8 @@ export function enumerateVariations(moves: RawMoveRow[]): Variation[] {
 					leafMoveId: path[path.length - 1].moveId,
 					variationKey: path.map((s) => s.moveId).join('>'),
 					path,
-					playerMoveCount
+					playerMoveCount,
+					chapterName: path[path.length - 1].chapterName
 				});
 			}
 			return;
@@ -63,7 +73,8 @@ export function enumerateVariations(moves: RawMoveRow[]): Variation[] {
 				san: move.san,
 				fromFen: move.fromFen,
 				toFen: move.toFen,
-				isPlayerTurn: move.isPlayerTurn
+				isPlayerTurn: move.isPlayerTurn,
+				chapterName: move.chapterName
 			};
 			walk(move.toPositionId, [...path, step], playerMoveCount + (move.isPlayerTurn ? 1 : 0));
 		}

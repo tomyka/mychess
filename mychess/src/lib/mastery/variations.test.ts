@@ -6,9 +6,19 @@ function move(
 	fromPositionId: string,
 	toPositionId: string,
 	san: string,
-	isPlayerTurn: boolean
+	isPlayerTurn: boolean,
+	chapterName: string | null = null
 ): RawMoveRow {
-	return { id, fromPositionId, toPositionId, fromFen: `fen:${fromPositionId}`, toFen: `fen:${toPositionId}`, san, isPlayerTurn };
+	return {
+		id,
+		fromPositionId,
+		toPositionId,
+		fromFen: `fen:${fromPositionId}`,
+		toFen: `fen:${toPositionId}`,
+		san,
+		isPlayerTurn,
+		chapterName
+	};
 }
 
 describe('enumerateVariations', () => {
@@ -98,6 +108,22 @@ describe('enumerateVariations', () => {
 		expect(result[1].leafMoveId).toBe('m3');
 		expect(result[0].variationKey).not.toBe(result[1].variationKey);
 	});
+
+	it('carries the leaf move\'s chapterName onto its Variation', () => {
+		const moves = [
+			move('m1', 'START', 'P1', 'e4', true, null),
+			move('m2', 'P1', 'P2', 'e5', false, null),
+			move('m3', 'P2', 'P3', 'Nf3', true, 'Ruy Lopez')
+		];
+		const [variation] = enumerateVariations(moves);
+		expect(variation.chapterName).toBe('Ruy Lopez');
+	});
+
+	it('defaults chapterName to null when the leaf move has none', () => {
+		const moves = [move('m1', 'START', 'P1', 'e4', true)];
+		const [variation] = enumerateVariations(moves);
+		expect(variation.chapterName).toBeNull();
+	});
 });
 
 describe('filterVariations', () => {
@@ -143,10 +169,10 @@ describe('moveSequenceLabel', () => {
 
 	it('ends on Black to move without a trailing extra number', () => {
 		const moves: RawMoveRow[] = [
-			{ id: 'm1', fromPositionId: 'START', toPositionId: 'P1', fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', toFen: 'x', san: 'e4', isPlayerTurn: true },
-			{ id: 'm2', fromPositionId: 'P1', toPositionId: 'P2', fromFen: 'x', toFen: 'y', san: 'e5', isPlayerTurn: false },
-			{ id: 'm3', fromPositionId: 'P2', toPositionId: 'P3', fromFen: 'y', toFen: 'z', san: 'Nf3', isPlayerTurn: true },
-			{ id: 'm4', fromPositionId: 'P3', toPositionId: 'P4', fromFen: 'z', toFen: 'w', san: 'Nc6', isPlayerTurn: false }
+			{ id: 'm1', fromPositionId: 'START', toPositionId: 'P1', fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', toFen: 'x', san: 'e4', isPlayerTurn: true, chapterName: null },
+			{ id: 'm2', fromPositionId: 'P1', toPositionId: 'P2', fromFen: 'x', toFen: 'y', san: 'e5', isPlayerTurn: false, chapterName: null },
+			{ id: 'm3', fromPositionId: 'P2', toPositionId: 'P3', fromFen: 'y', toFen: 'z', san: 'Nf3', isPlayerTurn: true, chapterName: null },
+			{ id: 'm4', fromPositionId: 'P3', toPositionId: 'P4', fromFen: 'z', toFen: 'w', san: 'Nc6', isPlayerTurn: false, chapterName: null }
 		];
 		const [variation] = enumerateVariations(moves);
 		expect(moveSequenceLabel(variation.path)).toBe('1.e4 e5 2.Nf3 Nc6');
@@ -154,8 +180,8 @@ describe('moveSequenceLabel', () => {
 
 	it('starts from a custom mid-game FEN where Black is to move first', () => {
 		const moves: RawMoveRow[] = [
-			{ id: 'm1', fromPositionId: 'START', toPositionId: 'P1', fromFen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 3 5', toFen: 'x', san: 'Nf6', isPlayerTurn: true },
-			{ id: 'm2', fromPositionId: 'P1', toPositionId: 'P2', fromFen: 'x', toFen: 'y', san: 'Bc4', isPlayerTurn: false }
+			{ id: 'm1', fromPositionId: 'START', toPositionId: 'P1', fromFen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 3 5', toFen: 'x', san: 'Nf6', isPlayerTurn: true, chapterName: null },
+			{ id: 'm2', fromPositionId: 'P1', toPositionId: 'P2', fromFen: 'x', toFen: 'y', san: 'Bc4', isPlayerTurn: false, chapterName: null }
 		];
 		const [variation] = enumerateVariations(moves);
 		expect(moveSequenceLabel(variation.path)).toBe('5...Nf6 6.Bc4');
