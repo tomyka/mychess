@@ -42,7 +42,7 @@ const MOVE_SELECT_COLUMNS =
  * opening reference import) turned "open this page" into several seconds
  * of pure network latency.
  */
-async function fetchAllMoves(supabase: SupabaseClient, repertoireId: string): Promise<any[]> {
+export async function fetchAllMoves(supabase: SupabaseClient, repertoireId: string): Promise<any[]> {
 	const query = () =>
 		supabase.from('moves').select(MOVE_SELECT_COLUMNS).eq('repertoire_id', repertoireId).order('id', { ascending: true });
 

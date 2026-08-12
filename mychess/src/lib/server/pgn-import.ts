@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { planGameImport, type MoveRow } from '$lib/pgn-import';
 import { enumerateVariations, type RawMoveRow } from '$lib/mastery/variations';
 import { repertoireShape } from '$lib/mastery/levelProgress';
+import { fetchAllMoves } from './practice-repertoire';
 
 export type GameImportResult = { repertoireId: string | null; gameCount: number; error: string | null };
 
@@ -75,14 +76,20 @@ export async function writeMoves(
     // Set when this call appends another chapter's moves onto a repertoire
     // an earlier call in the same multi-chapter import already created.
     existingRepertoireId?: string;
-    // True for a multi-chapter import's chapters (creating OR appending) —
-    // this call only ever sees ONE chapter's moves, so it cannot correctly
-    // compute the repertoire's full shape (total_variations/total_levels/
-    // level1_task_count spans every chapter). Shape is left null and picked
-    // up the next time the repertoire loads via the existing lazy
-    // `backfillShapes` in `repertoire-progress.ts` — the exact mechanism
-    // already used for repertoires imported before shape caching existed.
-    deferShape?: boolean;
+    // Defaults to true. Set to false for every non-final chapter of a
+    // multi-chapter import — this call only sees ONE chapter's moves, so it
+    // cannot correctly compute the repertoire's full shape yet. The FINAL
+    // chapter of such an import passes `finalize: true` (or omits it —
+    // that's the default) together with `existingRepertoireId`; in that
+    // combination shape is computed from a FRESH FETCH of the repertoire's
+    // full move set (not `params.moves`, which is still only this one
+    // chapter's moves) so a correct, complete shape lands atomically with
+    // the import's last write. Without this, a picker/dashboard load that
+    // happens to land in the window between two chapters of the same import
+    // could trigger `repertoire-progress.ts`'s lazy `backfillShapes` on an
+    // incomplete move set — since that backfill only ever runs once per
+    // repertoire, it would permanently cache the wrong shape.
+    finalize?: boolean;
   }
 ): Promise<{ repertoireId: string | null; error: string | null }> {
   let repId: string;
@@ -99,7 +106,8 @@ export async function writeMoves(
       eco_code: params.ecoCode,
       eco_name: params.ecoName
     };
-    if (!params.deferShape) {
+    const computeShapeEagerly = params.finalize !== false;
+    if (computeShapeEagerly) {
       // Computed from `params.moves` directly — before any DB writes — since
       // moves are immutable after import, this "shape" (see
       // `$lib/mastery/levelProgress.ts`) never changes again for this
@@ -194,6 +202,40 @@ export async function writeMoves(
       .from('moves')
       .upsert(chunk, { onConflict: 'repertoire_id,from_position,san', ignoreDuplicates: true });
     if (error) return fail(`Failed to save moves: ${error.message}`);
+  }
+
+  // The LAST chapter of a multi-chapter import: `params.moves` above was
+  // only THIS chapter's moves, not the repertoire's full accumulated set —
+  // fetch everything now that every chapter's moves are committed, and
+  // compute+write the real shape. See the `finalize` param's doc comment for
+  // why this can't just reuse `params.moves` and why it can't be skipped in
+  // favor of lazy backfill for this case.
+  if (params.existingRepertoireId && params.finalize !== false) {
+    const allMoves = await fetchAllMoves(supabase, repId);
+    const rawMoves: RawMoveRow[] = allMoves.map((m: any) => ({
+      id: m.id,
+      fromPositionId: m.from_position,
+      toPositionId: m.to_position,
+      fromFen: m.from_pos?.fen ?? '',
+      toFen: m.to_pos?.fen ?? '',
+      san: m.san,
+      isPlayerTurn: m.is_player_turn
+    }));
+    const shape = repertoireShape(enumerateVariations(rawMoves));
+    const { error: shapeErr } = await supabase
+      .from('repertoires')
+      .update({
+        total_variations: shape.totalVariations,
+        total_levels: shape.totalLevels,
+        level1_task_count: shape.level1TaskCount
+      })
+      .eq('id', repId);
+    // Non-fatal, mirroring `repertoire-progress.ts`'s own backfill error
+    // handling: every move is already correctly committed at this point, so
+    // a failure here just means the existing lazy backfill computes the
+    // shape correctly the next time this repertoire loads, instead of it
+    // landing immediately.
+    if (shapeErr) console.error(`Failed to finalize shape for repertoire ${repId}:`, shapeErr);
   }
 
   return { repertoireId: repId, error: null };
