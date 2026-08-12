@@ -28,8 +28,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const { repertoire, variations } = await loadFilteredRepertoireVariations(supabase, user.id, repertoireId);
 	const maxLevel = repertoire.practiceDepthLevels;
-	const result = await applyPreviousLevelMistake(supabase, user.id, repertoireId, variations, maxLevel);
+	const chunkSize = repertoire.chunkSize;
+	const result = await applyPreviousLevelMistake(supabase, user.id, repertoireId, variations, maxLevel, chunkSize);
 
 	if (!result || !result.demoted) return json({ demoted: false });
-	return json({ demoted: true, view: buildPracticeView(variations, result.row, null, maxLevel) });
+	return json({ demoted: true, view: buildPracticeView(variations, result.row, null, maxLevel, chunkSize) });
 };

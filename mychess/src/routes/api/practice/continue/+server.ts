@@ -27,8 +27,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'Invalid request');
 	}
 
-	const { variations } = await loadFilteredRepertoireVariations(supabase, user.id, repertoireId);
-	const result = continueFromBranch(variations, level, variationKey, afterPlayerMoveIndex);
+	const { repertoire, variations } = await loadFilteredRepertoireVariations(supabase, user.id, repertoireId);
+	const result = continueFromBranch(variations, level, variationKey, afterPlayerMoveIndex, repertoire.chunkSize);
 	if (!result) throw error(404, 'Continuation not found');
 
 	return json(result);
