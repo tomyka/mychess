@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { enumerateVariations, filterVariations, moveSequenceLabel, type RawMoveRow } from './variations';
+import { enumerateVariations, filterVariations, hasChapterTags, moveSequenceLabel, type RawMoveRow } from './variations';
 
 function move(
 	id: string,
@@ -123,6 +123,30 @@ describe('enumerateVariations', () => {
 		const moves = [move('m1', 'START', 'P1', 'e4', true)];
 		const [variation] = enumerateVariations(moves);
 		expect(variation.chapterName).toBeNull();
+	});
+});
+
+describe('hasChapterTags', () => {
+	it('returns false when no variation has a chapterName', () => {
+		const moves = [move('m1', 'START', 'P1', 'e4', true)];
+		expect(hasChapterTags(enumerateVariations(moves))).toBe(false);
+	});
+
+	it('returns true when at least one variation has a chapterName', () => {
+		// The tag must be on a LEAF move — Variation.chapterName comes from the
+		// leaf step only, so tagging a mid-path move (m2b) wouldn't propagate.
+		const moves = [
+			move('m1', 'START', 'P1', 'e4', true),
+			move('m2a', 'P1', 'P2A', 'e5', false, null),
+			move('m2b', 'P1', 'P2B', 'c5', false, null),
+			move('m3a', 'P2A', 'P3A', 'Nf3', true, null),
+			move('m3b', 'P2B', 'P3B', 'Nc3', true, 'Sicilian')
+		];
+		expect(hasChapterTags(enumerateVariations(moves))).toBe(true);
+	});
+
+	it('returns false for an empty variation list', () => {
+		expect(hasChapterTags([])).toBe(false);
 	});
 });
 

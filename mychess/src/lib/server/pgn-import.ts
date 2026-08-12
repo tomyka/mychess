@@ -1,7 +1,7 @@
 // mychess/src/lib/server/pgn-import.ts
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { planGameImport, type MoveRow } from '$lib/pgn-import';
-import { enumerateVariations, type RawMoveRow } from '$lib/mastery/variations';
+import { enumerateVariations, hasChapterTags, type RawMoveRow } from '$lib/mastery/variations';
 import { repertoireShape } from '$lib/mastery/levelProgress';
 import { fetchAllMoves, toRawMoveRows } from './practice-repertoire';
 
@@ -133,10 +133,17 @@ export async function writeMoves(
         isPlayerTurn: m.is_player_turn,
         chapterName: null
       }));
-      const shape = repertoireShape(enumerateVariations(rawMoves));
+      const variations = enumerateVariations(rawMoves);
+      const shape = repertoireShape(variations);
       insertColumns.total_variations = shape.totalVariations;
       insertColumns.total_levels = shape.totalLevels;
       insertColumns.level1_task_count = shape.level1TaskCount;
+      // `chapterName` is hardcoded null on `rawMoves` above (this path never
+      // has real chapter tags to check — a single-chapter import, or
+      // `importGames`'s "my games" auto-import), so this is always false
+      // here. Written explicitly (not left null) so this repertoire never
+      // needs the lazy has_chapters backfill in `repertoire-progress.ts`.
+      insertColumns.has_chapters = hasChapterTags(variations);
     }
 
     const { data: rep, error: repErr } = await supabase.from('repertoires').insert(insertColumns).select().single();
@@ -224,13 +231,15 @@ export async function writeMoves(
   if (params.existingRepertoireId && params.finalize !== false) {
     const allMoves = await fetchAllMoves(supabase, repId);
     const rawMoves: RawMoveRow[] = toRawMoveRows(allMoves);
-    const shape = repertoireShape(enumerateVariations(rawMoves));
+    const variations = enumerateVariations(rawMoves);
+    const shape = repertoireShape(variations);
     const { error: shapeErr } = await supabase
       .from('repertoires')
       .update({
         total_variations: shape.totalVariations,
         total_levels: shape.totalLevels,
-        level1_task_count: shape.level1TaskCount
+        level1_task_count: shape.level1TaskCount,
+        has_chapters: hasChapterTags(variations)
       })
       .eq('id', repId);
     // Non-fatal, mirroring `repertoire-progress.ts`'s own backfill error

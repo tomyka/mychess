@@ -19,7 +19,8 @@ const baseRep = {
 	levelSolvedCount: 12,
 	totalVariations: 2,
 	fullVariationCount: 2,
-	excludedVariationCount: 0
+	excludedVariationCount: 0,
+	hasChapters: true
 };
 
 const variationsResponse = [
@@ -255,5 +256,19 @@ describe('RepertoirePracticeRow', () => {
 				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: true })
 			})
 		);
+	});
+
+	it('hides the checkbox and expand control entirely when the repertoire has no chapters', () => {
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, hasChapters: false } } });
+		expect(screen.queryByRole('checkbox', { name: /Ruy Lopez/ })).toBeNull();
+		expect(screen.queryByLabelText('Expand Ruy Lopez')).toBeNull();
+		expect(screen.getByText('Ruy Lopez')).toBeTruthy(); // the row itself still renders, just non-interactive for selection
+	});
+
+	it('never fetches variations when the repertoire has no chapters (nothing to expand)', () => {
+		const fetchSpy = vi.fn();
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, hasChapters: false } } });
+		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 });

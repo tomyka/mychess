@@ -13,6 +13,12 @@
 		totalVariations: number;
 		fullVariationCount: number;
 		excludedVariationCount: number;
+		// Whether this repertoire has any chapter-tagged variation at all. When
+		// false, there's nothing coarser than "the whole repertoire" to select
+		// by (see #58's "just chapters" simplification) — no checkbox or
+		// expand control renders at all, and the full repertoire is always
+		// practiced with nothing excluded.
+		hasChapters: boolean;
 	};
 	type VariationRow = { variationKey: string; label: string; included: boolean; chapterName: string | null };
 	type ChapterGroup = { chapterName: string | null; rows: VariationRow[] };
@@ -211,23 +217,25 @@
 
 <li class="bg-white rounded-xl border border-gray-200 shadow-sm">
 	<div class="flex items-center gap-3 p-4">
-		<label class="flex items-center shrink-0">
-			<input
-				type="checkbox"
-				checked={parentState === 'checked'}
-				use:indeterminate={parentState === 'indeterminate'}
-				onchange={toggleParent}
-				aria-label={`Include ${rep.name} in practice`}
-			/>
-		</label>
-		<button
-			type="button"
-			onclick={toggleExpanded}
-			aria-label={expanded ? `Collapse ${rep.name}` : `Expand ${rep.name}`}
-			class="text-gray-400 shrink-0 w-4"
-		>
-			{expanded ? '▾' : '▸'}
-		</button>
+		{#if rep.hasChapters}
+			<label class="flex items-center shrink-0">
+				<input
+					type="checkbox"
+					checked={parentState === 'checked'}
+					use:indeterminate={parentState === 'indeterminate'}
+					onchange={toggleParent}
+					aria-label={`Include ${rep.name} in practice`}
+				/>
+			</label>
+			<button
+				type="button"
+				onclick={toggleExpanded}
+				aria-label={expanded ? `Collapse ${rep.name}` : `Expand ${rep.name}`}
+				class="text-gray-400 shrink-0 w-4"
+			>
+				{expanded ? '▾' : '▸'}
+			</button>
+		{/if}
 		<a href="/practice/{rep.id}" class="flex items-center gap-3 flex-1 min-w-0">
 			<span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color === 'black' ? '#1f2937' : '#e5e7eb'}"
 			></span>
@@ -248,11 +256,11 @@
 		</a>
 	</div>
 
-	{#if errorMessage}
+	{#if rep.hasChapters && errorMessage}
 		<p class="px-4 pb-2 text-xs text-red-600">{errorMessage}</p>
 	{/if}
 
-	{#if expanded}
+	{#if rep.hasChapters && expanded}
 		<ul class="pl-14 pr-4 pb-3 space-y-1">
 			{#if loadingVariations}
 				<li class="text-sm text-gray-400">Loading variations…</li>

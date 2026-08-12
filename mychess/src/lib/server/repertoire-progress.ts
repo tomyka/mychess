@@ -1,6 +1,6 @@
 // mychess/src/lib/server/repertoire-progress.ts
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { enumerateVariations, filterVariations, type RawMoveRow, type Variation } from '$lib/mastery/variations';
+import { enumerateVariations, filterVariations, hasChapterTags, type RawMoveRow, type Variation } from '$lib/mastery/variations';
 import {
 	repertoireProgressFromShape,
 	repertoireShape,
@@ -23,6 +23,12 @@ export type RepertoireProgressSummary = RepertoireProgress & {
 	// `RepertoireProgress`) is the FILTERED count used for level/mastery math.
 	fullVariationCount: number;
 	excludedVariationCount: number;
+	// Whether ANY variation came from a chapter-tagged PGN import (see
+	// `moves.chapter_name` / `hasChapterTags`) — the Practice picker only
+	// offers chapter-selection UI at all when this is true; otherwise the
+	// whole repertoire is one indivisible practice unit (see
+	// `RepertoirePracticeRow.svelte`).
+	hasChapters: boolean;
 };
 
 // Supabase/PostgREST caps an unbounded select at `max_rows` (1000, see
@@ -43,7 +49,7 @@ async function fetchAllMoves(supabase: SupabaseClient, repIds: string[]): Promis
 	const query = () =>
 		supabase
 			.from('moves')
-			.select('id, san, is_player_turn, repertoire_id, from_position, to_position')
+			.select('id, san, is_player_turn, repertoire_id, from_position, to_position, chapter_name')
 			.in('repertoire_id', repIds)
 			.order('id', { ascending: true });
 
@@ -117,12 +123,12 @@ export async function loadRepertoireProgressSummaries(
 	const [{ data: ownReps }, { data: assigned }] = await Promise.all([
 		supabase
 			.from('repertoires')
-			.select('id, name, color, total_variations, total_levels, level1_task_count, practice_depth_levels')
+			.select('id, name, color, total_variations, total_levels, level1_task_count, has_chapters, practice_depth_levels')
 			.eq('player_id', userId),
 		supabase
 			.from('assigned_repertoires')
 			.select(
-				'repertoire:repertoire_id(id, name, color, total_variations, total_levels, level1_task_count, practice_depth_levels)'
+				'repertoire:repertoire_id(id, name, color, total_variations, total_levels, level1_task_count, has_chapters, practice_depth_levels)'
 			)
 			.eq('player_id', userId)
 	]);
@@ -134,7 +140,12 @@ export async function loadRepertoireProgressSummaries(
 	if (allReps.length === 0) return [];
 
 	const repIds = allReps.map((r: any) => r.id);
-	const uncachedIds = allReps.filter((r: any) => r.total_variations === null).map((r: any) => r.id);
+	// `has_chapters === null` catches repertoires whose shape was already
+	// cached before migration 0043 added this column — same self-healing
+	// backfill, triggered by either column still being unset.
+	const uncachedIds = allReps
+		.filter((r: any) => r.total_variations === null || r.has_chapters === null)
+		.map((r: any) => r.id);
 
 	const [exclusionsByRep, { data: progressRows }] = await Promise.all([
 		fetchExclusionsByRepertoire(supabase, userId, repIds),
@@ -158,7 +169,8 @@ export async function loadRepertoireProgressSummaries(
 			fromPositionId: m.from_position,
 			toPositionId: m.to_position,
 			fromFen: '',
-			toFen: ''
+			toFen: '',
+			chapterName: m.chapter_name ?? null
 		});
 		movesByRep.set(m.repertoire_id, list);
 	}
@@ -170,16 +182,21 @@ export async function loadRepertoireProgressSummaries(
 	// Self-healing, same as before: only ever runs once per repertoire, since
 	// every subsequent load finds the columns already populated.
 	const backfilledShapes = new Map<string, RepertoireShape>();
+	const backfilledHasChapters = new Map<string, boolean>();
 	await Promise.all(
 		uncachedIds.map(async (repId) => {
-			const shape = repertoireShape(variationsByRep.get(repId) ?? []);
+			const variations = variationsByRep.get(repId) ?? [];
+			const shape = repertoireShape(variations);
+			const hasChapters = hasChapterTags(variations);
 			backfilledShapes.set(repId, shape);
+			backfilledHasChapters.set(repId, hasChapters);
 			const { error } = await supabase
 				.from('repertoires')
 				.update({
 					total_variations: shape.totalVariations,
 					total_levels: shape.totalLevels,
-					level1_task_count: shape.level1TaskCount
+					level1_task_count: shape.level1TaskCount,
+					has_chapters: hasChapters
 				})
 				.eq('id', repId);
 			if (error) console.error(`Failed to backfill shape cache for repertoire ${repId}:`, error);
@@ -220,7 +237,8 @@ export async function loadRepertoireProgressSummaries(
 			color: r.color,
 			...progress,
 			fullVariationCount: naturalShape.totalVariations,
-			excludedVariationCount: excluded?.size ?? 0
+			excludedVariationCount: excluded?.size ?? 0,
+			hasChapters: r.has_chapters ?? backfilledHasChapters.get(r.id)!
 		};
 	});
 }

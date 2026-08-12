@@ -94,6 +94,16 @@ export function enumerateVariations(moves: RawMoveRow[]): Variation[] {
 	return variations;
 }
 
+/**
+ * True if any variation came from a chapter-tagged PGN import (see
+ * `chapterName` above) — used to decide whether the Practice picker offers
+ * chapter-selection UI at all for a repertoire, versus treating it as one
+ * indivisible unit (see `repertoires.has_chapters`, migration 0043).
+ */
+export function hasChapterTags(variations: Variation[]): boolean {
+	return variations.some((v) => v.chapterName != null);
+}
+
 /** `variations` with any entry whose `variationKey` is in `excludedKeys` dropped. */
 export function filterVariations(variations: Variation[], excludedKeys: ReadonlySet<string>): Variation[] {
 	if (excludedKeys.size === 0) return variations;
