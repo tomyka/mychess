@@ -12,34 +12,50 @@ function variation(playerMoveCount: number, prefix: string) {
 }
 
 describe('levelDepth', () => {
-	it('is a uniform 3-move chunk per level, with no fixed ceiling', () => {
-		expect(levelDepth(1)).toBe(3);
-		expect(levelDepth(2)).toBe(6);
-		expect(levelDepth(3)).toBe(9);
-		expect(levelDepth(10)).toBe(30);
+	it('is chunkSize-many moves per level, with no fixed ceiling', () => {
+		expect(levelDepth(1, 3)).toBe(3);
+		expect(levelDepth(2, 3)).toBe(6);
+		expect(levelDepth(3, 3)).toBe(9);
+		expect(levelDepth(10, 3)).toBe(30);
+	});
+
+	it('uses whatever chunkSize is passed, not a fixed constant', () => {
+		expect(levelDepth(1, 5)).toBe(5);
+		expect(levelDepth(2, 5)).toBe(10);
+		expect(levelDepth(4, 1)).toBe(4);
 	});
 });
 
 describe('targetDepth', () => {
 	it('is the level depth when the variation is longer', () => {
-		expect(targetDepth({ playerMoveCount: 12 }, 2)).toBe(6);
+		expect(targetDepth({ playerMoveCount: 12 }, 2, 3)).toBe(6);
 	});
 
 	it("is the variation's own length when shorter than the level depth", () => {
-		expect(targetDepth({ playerMoveCount: 2 }, 2)).toBe(2);
+		expect(targetDepth({ playerMoveCount: 2 }, 2, 3)).toBe(2);
+	});
+
+	it('respects a smaller configured chunkSize', () => {
+		expect(targetDepth({ playerMoveCount: 12 }, 2, 1)).toBe(2);
 	});
 });
 
 describe('taskKey', () => {
 	it('is the move id the target-depth prefix ends on', () => {
 		const v = variation(4, 'v1-');
-		expect(taskKey(v, 1)).toBe('v1-p3'); // depth 3 -> ends on the 3rd player move
-		expect(taskKey(v, 2)).toBe('v1-p4'); // depth 6, capped at the variation's own 4th move
+		expect(taskKey(v, 1, 3)).toBe('v1-p3'); // depth 3 -> ends on the 3rd player move
+		expect(taskKey(v, 2, 3)).toBe('v1-p4'); // depth 6, capped at the variation's own 4th move
 	});
 
 	it("falls back to the variation's own last move once its length caps the target", () => {
 		const v = variation(2, 'short-');
-		expect(taskKey(v, 5)).toBe('short-p2');
+		expect(taskKey(v, 5, 3)).toBe('short-p2');
+	});
+
+	it('uses the configured chunkSize, not a fixed 3', () => {
+		const v = variation(4, 'v2-');
+		expect(taskKey(v, 1, 1)).toBe('v2-p1'); // chunkSize 1 -> depth 1
+		expect(taskKey(v, 2, 1)).toBe('v2-p2');
 	});
 });
 
@@ -47,14 +63,14 @@ describe('levelTaskVariations', () => {
 	it('drops a variation once a strictly earlier level already fully covers it', () => {
 		const short = variation(2, 'short-'); // fully covered by level 1 (depth 3)
 		const long = variation(6, 'long-');
-		expect(levelTaskVariations([short, long], 1).map((v) => v.playerMoveCount)).toEqual([2, 6]);
-		expect(levelTaskVariations([short, long], 2)).toEqual([long]);
+		expect(levelTaskVariations([short, long], 1, 3).map((v) => v.playerMoveCount)).toEqual([2, 6]);
+		expect(levelTaskVariations([short, long], 2, 3)).toEqual([long]);
 	});
 
 	it('counts a variation exactly at a level boundary as ending there, not continuing', () => {
 		const exact = variation(3, 'exact-'); // ends precisely at level 1's depth
-		expect(levelTaskVariations([exact], 1)).toEqual([exact]);
-		expect(levelTaskVariations([exact], 2)).toEqual([]); // nothing left at level 2
+		expect(levelTaskVariations([exact], 1, 3)).toEqual([exact]);
+		expect(levelTaskVariations([exact], 2, 3)).toEqual([]); // nothing left at level 2
 	});
 
 	it('collapses variations sharing an identical prefix at this level into one task', () => {
@@ -68,28 +84,32 @@ describe('levelTaskVariations', () => {
 		}
 		const a = { playerMoveCount: 4, path: [...shared, { moveId: 'a-p4', isPlayerTurn: true }] };
 		const b = { playerMoveCount: 4, path: [...shared, { moveId: 'b-p4', isPlayerTurn: true }] };
-		expect(levelTaskVariations([a, b], 1).length).toBe(1); // identical through level 1's depth (3)
-		expect(levelTaskVariations([a, b], 2).length).toBe(2); // diverge at move 4, level 2's depth
+		expect(levelTaskVariations([a, b], 1, 3).length).toBe(1); // identical through level 1's depth (3)
+		expect(levelTaskVariations([a, b], 2, 3).length).toBe(2); // diverge at move 4, level 2's depth
 	});
 
 	it("does not collapse variations that already differ within this level's own depth", () => {
 		const a = variation(3, 'a-');
 		const b = variation(3, 'b-');
-		expect(levelTaskVariations([a, b], 1).length).toBe(2);
+		expect(levelTaskVariations([a, b], 1, 3).length).toBe(2);
 	});
 });
 
 describe('levelCap', () => {
 	it('is 0 for an empty variation list', () => {
-		expect(levelCap([])).toBe(0);
+		expect(levelCap([], 3)).toBe(0);
 	});
 
-	it('rounds up to the nearest 3-move chunk covering the longest variation', () => {
-		expect(levelCap([variation(4, 'a-')])).toBe(2); // ceil(4/3) = 2
-		expect(levelCap([variation(9, 'b-')])).toBe(3); // ceil(9/3) = 3
+	it('rounds up to the nearest chunk covering the longest variation', () => {
+		expect(levelCap([variation(4, 'a-')], 3)).toBe(2); // ceil(4/3) = 2
+		expect(levelCap([variation(9, 'b-')], 3)).toBe(3); // ceil(9/3) = 3
 	});
 
 	it('is driven by the longest variation among several', () => {
-		expect(levelCap([variation(2, 'short-'), variation(7, 'long-')])).toBe(3); // ceil(7/3) = 3
+		expect(levelCap([variation(2, 'short-'), variation(7, 'long-')], 3)).toBe(3); // ceil(7/3) = 3
+	});
+
+	it('shrinks as chunkSize shrinks', () => {
+		expect(levelCap([variation(4, 'a-')], 1)).toBe(4); // ceil(4/1) = 4
 	});
 });
