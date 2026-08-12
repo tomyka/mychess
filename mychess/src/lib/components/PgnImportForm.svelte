@@ -41,9 +41,18 @@
 	 * Imports one chapter per request instead of one request doing every
 	 * chapter before replying — the whole point being a real, per-chapter
 	 * progress bar instead of the page just sitting there for a large
-	 * multi-chapter PGN. Rolls back every chapter already created in this
-	 * batch if a later one fails, matching the old single-request behavior's
-	 * all-or-nothing guarantee.
+	 * multi-chapter PGN. Every chapter after the first passes
+	 * `existingRepertoireId` so they all land in the SAME repertoire (see
+	 * `writeMoves`) instead of each becoming its own. Every chapter EXCEPT
+	 * THE LAST also passes `finalize: false`: `writeMoves` can only compute a
+	 * correct shape (total_variations/total_levels/level1_task_count) once
+	 * every chapter's moves are in, so only the last chapter lets it default
+	 * to true, at which point it fetches the repertoire's complete move set
+	 * and computes the real shape from that.
+	 *
+	 * On failure, rolls back the one shared repertoire created so far (if
+	 * any) — a multi-chapter import is all-or-nothing, matching the old
+	 * single-request behavior's guarantee.
 	 */
 	async function handleSubmit(e: SubmitEvent) {
 		e.preventDefault();
@@ -63,16 +72,18 @@
 		}
 
 		importing = true;
+		const isMultiChapter = plan.length > 1;
 		chapters = plan.map((chapter) => ({
-			name: plan.length > 1 ? `${trimmedName} — ${chapter.name}` : trimmedName,
+			name: isMultiChapter ? `${trimmedName} — ${chapter.name}` : trimmedName,
 			status: 'pending' as ChapterStatus
 		}));
 
-		const createdIds: string[] = [];
+		let sharedRepertoireId: string | null = null;
 		for (let i = 0; i < plan.length; i++) {
+			const isLastChapter = i === plan.length - 1;
 			chapters[i].status = 'importing';
 			try {
-				const res = await fetch('/api/repertoires/import-chapter', {
+				const res: Response = await fetch('/api/repertoires/import-chapter', {
 					method: 'POST',
 					headers: { 'content-type': 'application/json' },
 					body: JSON.stringify({
@@ -80,7 +91,9 @@
 						color,
 						ecoCode: plan[i].ecoCode,
 						ecoName: plan[i].ecoName,
-						moves: plan[i].moves
+						moves: plan[i].moves,
+						...(sharedRepertoireId ? { existingRepertoireId: sharedRepertoireId } : {}),
+						...(isMultiChapter && !isLastChapter ? { finalize: false } : {})
 					})
 				});
 				if (!res.ok) {
@@ -88,12 +101,12 @@
 					throw new Error(body?.message ?? 'Import failed');
 				}
 				const { repertoireId } = await res.json();
-				createdIds.push(repertoireId);
+				sharedRepertoireId = repertoireId;
 				chapters[i].status = 'done';
 			} catch (err) {
 				chapters[i].status = 'error';
 				errorMessage = err instanceof Error ? err.message : 'Import failed';
-				await Promise.all(createdIds.map((id) => fetch(`/api/repertoires/${id}`, { method: 'DELETE' })));
+				if (sharedRepertoireId) await fetch(`/api/repertoires/${sharedRepertoireId}`, { method: 'DELETE' });
 				importing = false;
 				return;
 			}

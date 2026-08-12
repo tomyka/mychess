@@ -74,12 +74,12 @@ describe('PgnImportForm', () => {
 		expect(body.color).toBe('white');
 	});
 
-	it('imports a multi-game PGN one chapter at a time, showing per-chapter progress', async () => {
+	it('imports a multi-game PGN one chapter at a time into ONE shared repertoire', async () => {
 		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
 		const fetchSpy = vi
 			.fn()
 			.mockResolvedValueOnce({ ok: true, json: async () => ({ repertoireId: 'r1' }) })
-			.mockResolvedValueOnce({ ok: true, json: async () => ({ repertoireId: 'r2' }) });
+			.mockResolvedValueOnce({ ok: true, json: async () => ({ repertoireId: 'r1' }) });
 		vi.stubGlobal('fetch', fetchSpy);
 
 		const twoGames = '[Event "Line A"]\n\n1. e4 e5 *\n\n[Event "Line B"]\n\n1. d4 d5 *';
@@ -88,11 +88,17 @@ describe('PgnImportForm', () => {
 
 		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/repertoires'));
 		expect(fetchSpy).toHaveBeenCalledTimes(2);
-		expect(JSON.parse(fetchSpy.mock.calls[0][1].body).name).toBe('My Study — Line A');
-		expect(JSON.parse(fetchSpy.mock.calls[1][1].body).name).toBe('My Study — Line B');
+		const firstBody = JSON.parse(fetchSpy.mock.calls[0][1].body);
+		const secondBody = JSON.parse(fetchSpy.mock.calls[1][1].body);
+		expect(firstBody.name).toBe('My Study — Line A');
+		expect(firstBody.existingRepertoireId).toBeUndefined(); // creates the shared repertoire
+		expect(firstBody.finalize).toBe(false); // not the last chapter — shape isn't complete yet
+		expect(secondBody.name).toBe('My Study — Line B');
+		expect(secondBody.existingRepertoireId).toBe('r1'); // appends onto chapter 1's repertoire
+		expect(secondBody.finalize).toBeUndefined(); // last chapter — defaults to true, computes real shape
 	});
 
-	it('rolls back already-created chapters when a later one fails', async () => {
+	it('rolls back the shared repertoire when a later chapter fails', async () => {
 		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
 		const fetchSpy = vi
 			.fn()
@@ -107,9 +113,22 @@ describe('PgnImportForm', () => {
 
 		await waitFor(() => expect(screen.getByText('Failed to save moves: boom')).toBeTruthy());
 		expect(gotoMock).not.toHaveBeenCalled();
-		// Third call is the rollback DELETE of the chapter that did succeed.
 		expect(fetchSpy).toHaveBeenCalledTimes(3);
-		expect(fetchSpy.mock.calls[2][0]).toBe('/api/repertoires/r1');
+		expect(fetchSpy.mock.calls[2][0]).toBe('/api/repertoires/r1'); // one DELETE for the one shared repertoire
 		expect(fetchSpy.mock.calls[2][1]).toMatchObject({ method: 'DELETE' });
+	});
+
+	it('does not pass finalize or existingRepertoireId for a single-chapter import', async () => {
+		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ repertoireId: 'r1' }) });
+		vi.stubGlobal('fetch', fetchSpy);
+
+		fillBasicForm('My Rep', '1. e4 e5 *');
+		await fireEvent.click(screen.getByRole('button', { name: 'Create Repertoire' }));
+
+		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/repertoires'));
+		const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
+		expect(body.existingRepertoireId).toBeUndefined();
+		expect(body.finalize).toBeUndefined();
 	});
 });
