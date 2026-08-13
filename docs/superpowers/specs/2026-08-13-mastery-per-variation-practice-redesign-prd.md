@@ -1,29 +1,28 @@
 # Mastery-Per-Variation Practice Redesign — PRD
 
+> **Revision note (2026-08-13, second pass):** The first version of this PRD proposed a configurable-depth-chunk "leveling" compromise (see `docs/superpowers/plans/2026-08-13-variation-sequenced-practice-depth.md`, already shipped to `main`) so a long variation wouldn't need a full flawless replay to make progress. Having lived with that shipped foundation — sequential, one-active-variation-at-a-time drilling — the product direction is now: **drop leveling/chunking entirely.** A practice attempt is always the complete variation, start to finish. This revision supersedes every leveling-related section of the original PRD below; the sequential/active-variation architecture itself is kept and built on top of.
+
 ## 1. Executive Summary
 
 ### Problem Statement
 
-Practice mode's current progression model (`src/lib/mastery/levels.ts`) is breadth-first: every variation in a repertoire advances through the same uniform 3-move chunks in lockstep (`MOVES_PER_LEVEL = 3` — level *n* covers the player's own moves 1 through `3n`, across *all* variations at once). A player ends up shallowly familiar with every line in a repertoire before being solid on any single one of them. Separately, when a position allows more than one repertoire move, `alternativesAt` (`src/lib/mastery/practice.ts`) accepts any single valid reply and silently defers the others to a later, unlabeled queue slot — the player is never told "there are 2 correct replies here, find both," so playing a valid-but-unexpected move reads as arbitrary rather than as a signal that more is being asked of them.
+Two things are true at once: (1) sequential, one-variation-at-a-time drilling (already shipped) is working well and should stay — the player likes the "continuity of the exercise." (2) The leveling/chunk-depth machinery layered under it (`src/lib/mastery/levels.ts`, most of `levelProgress.ts`) has no purpose anymore now that only one variation is ever active at a time — it was solving "don't force a 40-move replay," a problem that a full-replay-per-attempt model needs to solve differently, not via chunking. Separately, always forcing the *next* variation in PGN order — with no way to jump to a specific one — doesn't match how players actually study: a user reported wanting to drill one specific line on demand (prepping for an opponent, revisiting something they just blundered in a real game, etc.).
 
 ### Proposed Solution
 
-Redesign Practice mode around **mastery of one variation at a time**, teaching branch points explicitly instead of testing them by surprise:
-
-1. **Depth-first, sequential unlocking**: variations in a repertoire are worked through one at a time (in chapter/PGN order); a variation must be mastered before the next one unlocks.
-2. **Guided teach pass, then blind test pass**: the first time a position is reached, every repertoire-legal move there is shown as an arrow and the player plays each one. On later encounters, arrows are gone, but if a position has *K* valid replies, the player is told *K* is expected and is drilled on that node until all *K* have been reproduced from memory.
-3. **Configurable depth per attempt, no full-length memorization required**: a practice attempt never demands more than a configurable number of the player's own moves in a row (default modest, e.g. 4-6) — a 20-move-deep prep line is never drilled start-to-finish in one go just to advance. The exact algorithm for how a variation's depth grows attempt-over-attempt is intentionally **not** fully specified in this PRD (see Non-Goals) — this PRD's scope is the teach/test loop and sequential focus, not a tuned leveling formula.
-4. **Spaced review resurfacing**: once mastered, a variation is not simply "done" — it resurfaces later on a review schedule so it isn't forgotten while the player learns the next one.
-5. **Repertoire outline side panel**: a read-only tree of the whole repertoire (grouped by chapter) sits alongside the board. The active variation is expanded with moves highlighted as they're solved; not-yet-unlocked variations are collapsed to a title and move-count only, so nothing is spoiled; mastered variations show fully, badged as mastered.
+1. **Keep sequential, one-active-variation drilling** exactly as shipped — this is the part the player explicitly wants preserved.
+2. **Remove leveling entirely.** A practice attempt is always the full variation, move 1 to the last move, in one continuous replay — no chunked depth, no queue, no demotion, no "Level N of M."
+3. **"Solved" = one clean full replay.** The instant a player replays a variation start-to-finish with zero mistakes, it's solved — permanently, no re-testing required to keep that status (matches the simplicity of "continuity of the exercise": one clean pass is the exercise, not a multi-stage gate).
+4. **Progress becomes a single number: "M of N variations solved."** Replaces every "Level X of Y" display, repertoire-wide (not just the active variation).
+5. **A variation picker returns to the practice page**, letting a player jump to and drill any specific variation on demand — hierarchy: **repertoire → chapter → variation**, with variations inside a chapter bucketed by their **top 5 most frequent first moves** (plus an "Other" bucket) so the list stays short even for a repertoire with dozens of variations sharing a chapter. Picking a variation makes it the new active one — the sequence continues from there next time, rather than this being a disconnected side mode.
 
 ### Success Criteria
 
-- **Depth concentration**: at any point in time, ≥90% of a player's in-progress practice time on a repertoire is spent on the single currently-unlocked variation (vs. today, where all variations are simultaneously "in progress" at the same shallow level).
-- **Branch completeness**: ≥95% of multi-option nodes have all valid moves demonstrated by the player before that node is counted as taught (measured via node-level completion logging — new instrumentation, see Risks).
-- **Mastery completion rate**: ≥80% of variations a player starts reach "mastered" status without the player abandoning the repertoire mid-variation (baseline currently unmeasured — requires the logging above before/after comparison isn't possible until this ships; track as the first cohort's own benchmark).
-- **No forced long memorization**: no single practice attempt ever requires the player to replay more than the configured max depth in one unbroken run — depth grows in bounded chunks, never "the whole 20-move line or nothing."
-- **Retention on review**: mastered variations resurfaced via spaced review are answered correctly on first attempt ≥85% of the time (aligned with common SRS retention targets).
-- **No regression in existing chapter-picker flows**: `RepertoirePracticeRow.svelte`'s chapter selection (issue #58/#59) continues to work unmodified against the new progression model.
+- **Leveling fully removed**: no UI, code path, or persisted field describes progress in terms of "levels" once this ships — replaced everywhere by the solved/total count.
+- **Every practice attempt is a full replay**: no attempt ever auto-plays a prefix or stops short of a variation's natural end (except being interrupted by a mistake, which ends that attempt as "not solved this time," not "partially credited").
+- **Picker usability**: for a chapter with 20+ variations, the move-grouped picker never shows more than 6 top-level groups (5 named + "Other") before a variation is chosen.
+- **Picking a variation is durable**: after picking variation V and leaving the page, returning to Practice resumes on V (it's now the active variation), not back to wherever the sequence would have naturally been.
+- **No regression in existing chapter-picker flows**: `RepertoirePracticeRow.svelte`'s chapter include/exclude selection (issues #58/#59, on the `/practice` list page) is a distinct feature from this new in-page variation picker and continues to work unmodified.
 
 ---
 
@@ -31,43 +30,43 @@ Redesign Practice mode around **mastery of one variation at a time**, teaching b
 
 ### User Personas
 
-- **Self-directed player**: builds and drills their own repertoire solo, wants to *actually know* a smaller opening repertoire cold rather than have superficial exposure to a large one.
-- **Coach-assigned student**: practices a repertoire assigned by a coach; coach-facing reporting (`docs/superpowers/specs/2026-08-11-coach-practice-reports-design.md`) should be able to distinguish "deep on 3 lines" from "shallow on 10 lines" once this ships — reporting changes themselves are out of scope here (see Non-Goals).
+- **Self-directed player**: builds and drills their own repertoire solo, wants to *actually know* a smaller opening repertoire cold rather than have superficial exposure to a large one. Also the persona who asked for on-demand variation selection ("I need to drill this one specific line right now").
+- **Coach-assigned student**: practices a repertoire assigned by a coach. Coach-facing reporting is unaffected by this PRD (out of scope, see Non-Goals).
 
 ### User Stories
 
-- As a player, when I reach a position for the first time in a variation, I want to see an arrow for every good move there so I learn the full branch without guessing blindly.
-- As a player, when a position has more than one correct reply, I want to be told how many are expected so a "wrong" doesn't actually mean I played a move the repertoire itself allows.
-- As a player, I want the app to stay on one variation until I've truly got it, instead of nudging every line forward by the same few moves each session.
-- As a player, I want a say in how many moves I'm asked to chain together per attempt, so a long prep line doesn't force me to flawlessly replay 20+ moves in a row just to be allowed to move on.
-- As a player, once I've mastered a variation, I want it to come back for review later so I don't quietly forget it while working on the next one.
-- As a player, I want to see my whole repertoire's structure and progress at a glance, without the moves of variations I haven't reached yet being spoiled for me.
+- As a player, I want the app to stay on one variation until I've truly got it, instead of nudging every line forward a little at a time.
+- As a player, I want "solved" to mean I actually played the whole line correctly in one go — not a multi-step gate I have to decode.
+- As a player, I want to see how many of my repertoire's variations I've actually solved, out of the total, so I have one honest number instead of a level counter that doesn't mean much to me.
+- As a player, when I know I need to drill one specific variation right now (prepping for an opponent, fixing a line I just blundered in a real game), I want to jump straight to it instead of waiting for the sequence to reach it naturally.
+- As a player, when I pick a specific variation to drill, I want that choice to stick — the next time I come back to Practice, it should still be what I'm working on, not reset to wherever the sequence "should" be.
+- As a player, when a chapter has a lot of variations, I want them grouped so I'm not scrolling a huge flat list to find the one I want.
 
 ### Acceptance Criteria
 
-- **Teach pass**: on the first visit to a position within the currently-active variation, the board renders an arrow (not just an origin-square hint) for every move `alternativesAt`-equivalent logic identifies as repertoire-legal there. The player must play each shown move at least once (order doesn't matter) before the app advances past that node for the teach pass.
-- **Test pass**: on any subsequent visit to that same position (later in the same run-through, in a later run-through, or during spaced review), no arrows render. If the node has *K* valid replies, the UI communicates "N of K found" (or equivalent) and the node keeps resurfacing until all *K* have been reproduced since the last reset; a valid-but-not-yet-seen alternative is accepted as correct, not treated as a wrong answer.
-- **Sequential unlocking**: a repertoire exposes exactly one variation as "active" at a time (chapter order, then existing PGN/variation order within chapter); all others are "locked" until the active one is mastered.
-- **Bounded attempt depth**: no single practice attempt asks the player to chain more than a configurable max number of their own moves (a setting akin to the existing per-repertoire `practiceDepthLevels` cap) — a "clean" attempt is judged only over that bounded chunk, not the full variation length. Depth grows attempt-over-attempt as the player shows they've got the current chunk; the exact growth algorithm and mastery threshold are explicitly **not** locked down by this PRD (see Non-Goals) — ship the simplest version that respects the depth cap, and tune it from real usage.
-- **Full-length mastery, eventually**: a variation still isn't "mastered" until the player has demonstrated the entire line, chunk by chunk — this PRD just refuses to specify *how many* clean passes or *how* chunks grow, deferring that tuning to implementation/playtesting.
-- **Spaced review**: mastered variations are scheduled for resurfacing (interval mechanism TBD, see Technical Specifications) and appear back in the practice queue on their due date without blocking progress on the currently-active new variation.
-- **Outline panel**: renders every chapter and variation in the repertoire. Locked variations show title + move count only (no moves). The active variation is expanded, each move visually marked solved/unsolved as the teach/test passes clear it. Mastered variations render fully with a "mastered" badge. The panel is read-only — clicking a move does not move the board (per product decision; navigation is a possible future enhancement, not this PRD).
+- **Full-replay attempts**: every practice attempt auto-plays nothing and quizzes the player on their own moves from the variation's start to its natural end. There is no concept of a partial/chunked attempt.
+- **Mistake handling**: a wrong move is marked wrong and the player retries that same move in place (existing UX — board doesn't reset, book move isn't revealed), same as today. However, an attempt containing ANY mistake does not count as a clean replay — reaching the end of such an attempt does not mark the variation solved. The player must complete one attempt start-to-finish with zero wrong moves to solve it.
+- **Solved is permanent**: once a variation is marked solved, it stays solved — no expiry, no re-testing requirement, no demotion. (Spaced-review resurfacing of solved variations is explicitly a Non-Goal for this PRD, see below.)
+- **Solved/total progress display**: the practice page shows "M of N variations solved" for the current repertoire, where N is every variation the player hasn't excluded (respecting `variation_practice_exclusions`), computed repertoire-wide — not scoped to just the active variation.
+- **Sequential default, resumable**: with no manual pick, the app serves variations in the existing order (chapter, then PGN order within chapter), skipping already-solved ones, exactly as today's active-variation sequencing already does — just without any level concept layered on top.
+- **Variation picker**: a control on the practice page opens a hierarchical picker: chapters as top-level groups (only for repertoires where chapter tags exist, per `hasChapterTags` — matches the existing picker's own gating), each chapter's variations bucketed by their first move into up to 5 named groups (the 5 most frequent first moves within that chapter) plus one "Other" group for everything else. Selecting a leaf variation immediately sets it as the active variation and starts drilling it.
+- **Manual pick affects the one shared sequence**: picking a variation writes the SAME `active_variation_key` the automatic sequence already uses — there is only one active-variation concept, not a separate "manual practice" mode running alongside it. The solved/total count and the "what comes next automatically" order are both unaffected by which variation is currently active; picking just moves the pointer.
+- **Solved variations remain pickable**: the picker doesn't hide already-solved variations — a player can deliberately re-drill something they've already solved (e.g., after a long break, or just for confidence). Re-drilling a solved variation doesn't un-solve it on a mistake, and doesn't need re-solving on a clean pass either — solved is permanent per the acceptance criterion above.
 
 ### Non-Goals
 
-- Click-to-navigate / replay-from-panel interaction (explicitly deferred; panel is read-only for this PRD).
-- Engine-based move-quality feedback (Blunder/Mistake/Inaccuracy) — that's Drill mode's concern (`2026-07-13-drill-move-feedback-design.md`), not touched here.
-- Master mode — already removed; this PRD does not resurrect a separate mode, it reshapes Practice mode itself.
-- Cross-repertoire blending into one global daily queue — review scheduling stays scoped to a single repertoire, consistent with Practice mode's current single-repertoire focus.
-- Reordering variations by frequency/difficulty/ECO data — sequential order is chapter-then-PGN-order for this PRD; smarter ordering is a future enhancement.
-- Coach-report UI changes reflecting the new depth-vs-breadth data — flagged as a likely follow-up, not built here.
-- **A fully specified leveling/mastery algorithm.** Deliberately dropped from this PRD's scope per explicit product direction: no fixed "N consecutive full clean run-throughs," no fixed level-depth table. The only hard requirement is the configurable attempt-depth cap (Acceptance Criteria above); how depth grows within that cap and what exactly counts as "mastered enough for the next variation" is left to implementation/playtesting, not fixed here. The priority for this PRD is the teach-pass/test-pass learning experience itself.
+- **Spaced-review resurfacing of solved variations.** The original PRD's "review schedule" idea is explicitly deferred — not decided against, just not part of this pass. Today's maintenance-review UI/session (level-based) is being removed as part of the leveling cleanup; a *replacement* review mechanism for "solved" variations is future work, not specified here.
+- **Teach-pass arrows / branch-exhaustive "K expected here" drilling.** Still a live idea from the original PRD's Chessbook-inspired vision, still unbuilt, still orthogonal to this pass — not addressed here.
+- **Real-game-frequency data (chess.com/Lichess stats) for move grouping.** The picker's "top 5 moves" grouping uses only the frequency of first moves *within the imported PGN's own variations* for that chapter — no external stats lookup.
+- **Reordering the automatic sequence itself** (e.g., by difficulty or ECO popularity) — the automatic order stays chapter-then-PGN-order; only manual picking lets a player deviate from it.
+- **Coach-report UI changes.** Out of scope, same as the original PRD.
+- **Any change to `RepertoirePracticeRow.svelte`'s chapter include/exclude picker** on the `/practice` list page (issues #58/#59) — that's a different feature (scoping which variations are in the pool at all) from this PRD's new in-page variation picker (choosing which in-pool variation is active right now).
 
 ---
 
 ## 3. AI System Requirements
 
-Not applicable — this feature has no LLM/AI component. (Existing Stockfish move-quality classification used elsewhere in the app, e.g. Drill mode, is out of scope per Non-Goals above.)
+Not applicable — no LLM/AI component.
 
 ---
 
@@ -75,28 +74,39 @@ Not applicable — this feature has no LLM/AI component. (Existing Stockfish mov
 
 ### Architecture Overview
 
-Current relevant modules (from investigation of the live codebase):
+This is primarily a **removal**, with two small additions. Current relevant modules:
 
 | File | Current role | Change |
 |---|---|---|
-| `src/lib/mastery/levels.ts` | Uniform `MOVES_PER_LEVEL = 3` depth levels across all variations | Breadth-first-across-all-variations behavior dropped. Its existing `practiceDepthLevels`-style cap concept is repurposed as the one configurable knob this PRD requires: a max chunk depth applied to whichever single variation is active. No replacement leveling formula is specified here (see Non-Goals) |
-| `src/lib/mastery/practice.ts` | `splitAttempt` (prefix/quiz split), `alternativesAt` (single-alternative acceptance) | `alternativesAt` extended into branch-exhaustive drill tracking (per-node "moves demonstrated" set); attempts gain a `clean` flag, bounded by the configurable chunk-depth cap |
-| `src/lib/mastery/levelProgress.ts` | FIFO queue, demotion after 3 review-band mistakes, level-advance-on-clear | Its queue/demotion mechanics are the likely starting point for the bounded-chunk progression, but the exact state machine is an implementation decision, not fixed by this PRD |
-| `src/lib/mastery/variations.ts` | `enumerateVariations`, chapter tagging | Reused as-is for both sequencing and the outline panel's data source |
-| `src/routes/(player)/practice/[repertoire_id]/+page.svelte` | Board, hint-after-3-misses (origin square only), branch handling | Gains teach-pass/test-pass mode switching and drives the new outline panel |
-| `src/lib/components/ChessBoard.svelte` (lines 24-37, 225-231) | Single-square 💡 hint rendering | Extended to render multiple move arrows for the teach pass |
-| `src/lib/components/RepertoirePracticeRow.svelte` | Chapter-grouped picker (issues #58/#59) | Unchanged — picker still selects which variations are in-scope for the redesigned progression to sequence through |
-| New: `RepertoireOutlinePanel.svelte` | — | New component rendering the read-only chapter/variation tree described above |
+| `src/lib/mastery/levels.ts` | Chunk-size-parameterized level depth math (`levelDepth`/`targetDepth`/`hasContentAtLevel`/`taskKey`/`levelTaskVariations`/`levelCap`) | **Deleted.** Nothing in the new model needs a "level" concept at all. |
+| `src/lib/mastery/levelProgress.ts` | FIFO queue, 3-strikes demotion, level-advance, maintenance-review level picking | **Deleted**, except `repertoireShape`-style variation counting, which is replaced by a much simpler "count of variations, filtered by exclusions" helper with no chunk/level dependency. |
+| `src/lib/mastery/variationSequence.ts` | `pickActiveVariation`, `nextVariation`, `advanceVariationIfMastered`, `variationSequenceProgress` | **Kept and simplified.** `advanceVariationIfMastered`'s "mastered" check (`row.level > cap`) is replaced by a simple "is this variation in the solved set" check. `variationSequenceProgress`'s "M of N" math becomes THE primary progress metric surfaced in the UI (previously a secondary field alongside level info) — same shape, promoted to first-class. A new `pickVariationByKey`-style function backs manual picking (trivial: look the key up, same validation `pickActiveVariation` already does for a stale key). |
+| `src/lib/mastery/practice.ts` | `splitAttempt` (prefix/quiz split by level), `pickQueuedAttempt`/`pickReviewAttempt` (queue/level-based), `alternativesAt`/`continueFromBranch` (already dead code per issue #61) | **`splitAttempt`/`pickQueuedAttempt`/`pickReviewAttempt` deleted** — replaced by a trivial "the whole variation's path is the quiz, nothing auto-plays" helper. `Alternative`/`alternativesAt`/`continueFromBranch` **deleted outright**, formally closing out issue #61 rather than leaving them as dead code. `buildPracticeView` simplifies to: pick the active variation (or the given manual pick), return its full path as the attempt, plus the repertoire-wide solved/total count. |
+| `src/lib/server/level-progress.ts` | Optimistic-concurrency read/write of `level`/`queue`/`prev_level_mistakes`/`active_variation_key` | **Rewritten**, much smaller: persists `active_variation_key` (still needs the same optimistic-concurrency care — the exact concurrent-write scenario from the original design doc still applies) and records a variation as solved (a simple, idempotent presence-insert — no read-modify-write race to guard, since "solved" only ever transitions false→true, never back). |
+| `src/lib/components/LevelList.svelte` | Level-picker sidebar (review-by-level, current-level highlight) | **Deleted.** No longer any levels to list. |
+| `src/routes/(player)/practice/[repertoire_id]/+page.svelte` | Level/maintenance-review UI, depth-edit control, leveled-up/leveled-down banners | Level/banner/depth-edit UI removed. Gains: solved/total display, and the new variation-picker component below. |
+| New: `VariationPicker.svelte` | — | Repertoire → chapter → move-group → variation tree, as described in Acceptance Criteria. Reuses `enumerateVariations`'s chapter tagging (`chapterName`) and computes first-move frequency client- or server-side from the already-fetched variation list — no new data source. |
+
+### Data model
+
+Current schema has `repertoires.chunk_size` / `repertoires.practice_depth_levels` and `level_progress.level` / `.prev_level_mistakes` / `.queue` / `.version` — all leveling-specific. This PRD's technical follow-up plan should:
+
+- Drop `chunk_size` and `practice_depth_levels` from `repertoires` (or leave the columns and just stop reading them, if a clean migration is judged not worth the risk at plan time — an explicit decision for the plan, not fixed here).
+- Replace `level_progress`'s level/queue/demotion columns with a solved-set: a new table (matching the existing presence-based pattern already used by `variation_practice_exclusions` — presence of a row means "solved," absence means "not yet") keyed by `(player_id, repertoire_id, variation_key)`.
+- Keep `active_variation_key` — either on a slimmed-down `level_progress` (rename it, since it no longer tracks levels) or its own dedicated table. Exact shape is a plan-time decision.
+- `move_attempts.level` (a per-move attempt log column, powering coach reports) loses its meaning — either drop the column or repurpose it; flagged as a decision for the plan, not resolved here since it touches coach-reporting surface this PRD doesn't otherwise change.
 
 ### Integration Points
 
-- `/api/practice/{attempt,continue,mistake,move-log}`: attempt payloads need a `clean` flag and per-node branch-drill completion; a new endpoint (or extension) is needed to persist/query spaced-review due dates once mastered.
-- Database: new column(s)/table for per-variation mastery state (`locked`/`active`/`mastered`/`due_at`) and per-node branch-drill progress. Exact schema is a follow-up design doc, not this PRD.
-- No new external integrations.
+- `/api/practice/mistake` (previous-level-mistake demotion reporting) — **deleted**, no demotion concept anymore.
+- `/api/practice/continue` — **deleted**, closing out issue #61's dead-code removal as part of this same pass rather than separately.
+- `/api/practice/attempt` — simplified: reports whether the just-completed attempt was clean; on a clean attempt, marks the variation solved (idempotent) and advances the active variation to the next un-solved one in sequence.
+- A new lightweight way to set `active_variation_key` directly from the picker (either a small dedicated endpoint, or reusing the attempt-completion path with a "just switch, don't play" variant) — exact shape is a plan-time decision.
+- No new external integrations; no new PII.
 
 ### Security & Privacy
 
-No new PII. All data is the practicing player's own progress, governed by existing repertoire/practice authorization — no change to the access model.
+Unchanged from the original PRD — all data is the practicing player's own progress, governed by existing repertoire/practice authorization.
 
 ---
 
@@ -104,14 +114,12 @@ No new PII. All data is the practicing player's own progress, governed by existi
 
 ### Phased Rollout
 
-- **MVP (v1)**: sequential unlocking, a configurable attempt-depth cap (bounded chunks, never the full line at once), teach-pass arrows, test-pass "K expected here" branch-exhaustive drilling. The chunk-growth/mastery algorithm ships as the simplest thing that respects the depth cap — not tuned yet. Mastered variations simply stop appearing (no review scheduling yet).
-- **v1.1**: repertoire outline side panel (read-only, locked lines collapsed).
-- **v2**: spaced review resurfacing for mastered variations — scheduler design (custom interval vs. adapting the FSRS approach referenced in `2026-07-08-repertoire-mastery-levels-design.md`) is an explicit open decision for that phase.
+- **MVP (this PRD)**: remove leveling entirely (code + schema), full-replay-only attempts, permanent solved flag, solved/total display, variation picker with chapter → top-5-move-group → variation hierarchy, manual pick sets the active variation.
+- **Future**: spaced-review resurfacing of solved variations (replacement for the removed level-based maintenance review); teach-pass arrows / branch-exhaustive drilling (from the original PRD, still unbuilt); possibly exposing the picker's move-groups using real-game frequency data instead of in-PGN frequency.
 
 ### Technical Risks
 
-- **No existing instrumentation** for the success KPIs above (depth concentration, branch completeness, mastery completion rate) — lightweight event logging needs to be added before/alongside MVP so these are measurable, not just designed-for.
-- **"Clean" needs a precise, testable definition** before implementation — in particular, whether a hint used during the *teach* pass (which is ungraded) should be allowed to still count toward a later clean attempt, vs. any hint at all resetting the streak.
-- **Default chunk-depth size is an unvalidated guess.** Too small feels grindy (constant re-tests of the same few moves); too large recreates the original 40-move problem. Needs playtesting and should stay a per-repertoire setting the player can adjust, not a hardcoded constant.
-- **Branch-drill UX at wide nodes**: a position with many repertoire-legal replies could make the test pass feel tedious (drilling the same node K times back-to-back). Needs a UX decision (immediate back-to-back vs. interleaved with continuing the line) during implementation, not fully specified by this PRD.
-- **No live users yet** (per current project status) means no migration path is required off the existing breadth-first level data — this can ship as a clean replacement rather than a migration.
+- **This is a bigger removal than it looks.** Leveling touches a lot of surface area that was only just built (see `docs/superpowers/plans/2026-08-13-variation-sequenced-practice-depth.md`) — `levels.ts`, most of `levelProgress.ts`, `LevelList.svelte`, two API routes, and DB columns. The implementation plan for this PRD should expect a similarly-sized task list to that prior plan, not a small patch.
+- **`move_attempts.level` and coach reporting**: removing the level concept touches a column coach-facing reports may read. Needs a concrete decision (drop vs. repurpose) at plan time, informed by actually checking what `docs/superpowers/specs/2026-08-11-coach-practice-reports-design.md`'s reports currently show.
+- **"Top 5 most frequent first moves" tie-breaking is unspecified.** If 6+ distinct first moves are tied for 5th place by count, which 5 win? Needs a deterministic rule (e.g., stable order = order of first appearance in the enumerated variation list) decided at plan time.
+- **No live users yet** (per current project status) means the DB schema changes here can be clean replacements/drops rather than data migrations — same as the prior plan's own note.
