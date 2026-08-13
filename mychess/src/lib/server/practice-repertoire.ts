@@ -10,7 +10,7 @@ export type PracticeRepertoire = { id: string; name: string; color: string };
 // fewer rows than actually exist. A single large repertoire can exceed this
 // on its own; an incomplete move set shatters the tree `enumerateVariations`
 // reconstructs into many short, disconnected fragments, producing bogus
-// level counts and tasks that don't correspond to real opening lines. `.order`
+// variation counts that don't correspond to real opening lines. `.order`
 // makes the pagination deterministic — `.range` alone has no defined
 // traversal order to page through without it.
 const MOVES_PAGE_SIZE = 1000;
@@ -90,7 +90,7 @@ export function toRawMoveRows(rows: any[]): RawMoveRow[] {
  * simply won't come back for a caller who isn't allowed to see it.
  *
  * Deliberately returns the FULL variation set rather than filtering out
- * excluded ones itself — callers that build practice queues/levels should
+ * excluded ones itself — callers that build a practice attempt should
  * filter via `filterVariations` before using them (see
  * `practice/[repertoire_id]/+page.server.ts` and the `/api/practice/*`
  * endpoints), while callers that need to show every variation with its
