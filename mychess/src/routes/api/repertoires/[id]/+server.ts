@@ -22,30 +22,3 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
 	return json({ ok: true });
 };
-
-/**
- * Updates a repertoire's practice depth (how many levels deep the level
- * system currently goes into it — see `effectiveLevelCap`), owner-only.
- * Free-form and editable anytime: the full repertoire is always imported,
- * so raising this later reveals content that was already there rather than
- * requiring a re-upload. Setting it beyond the repertoire's real depth has
- * no further effect — there's nothing more to unlock.
- */
-export const PATCH: RequestHandler = async ({ params, request, locals }) => {
-	const user = await requireApiUser(locals);
-
-	const body = await request.json().catch(() => null);
-	const practiceDepthLevels = body?.practiceDepthLevels;
-	if (!Number.isInteger(practiceDepthLevels) || practiceDepthLevels < 1) {
-		throw error(400, 'practiceDepthLevels must be a positive whole number');
-	}
-
-	const { error: err } = await locals.supabase
-		.from('repertoires')
-		.update({ practice_depth_levels: practiceDepthLevels })
-		.eq('id', params.id)
-		.eq('player_id', user.id);
-	if (err) throw error(400, err.message);
-
-	return json({ ok: true });
-};
