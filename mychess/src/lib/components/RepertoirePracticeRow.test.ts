@@ -21,15 +21,18 @@ const baseRep = {
 	hasChapters: true
 };
 
+// Both share a first move so expanding the repertoire produces exactly one
+// move-group bucket ("e4 · 2 lines") to drill into, keeping the flat-case
+// tests below to one extra click versus the pre-grouping version.
 const variationsResponse = [
-	{ variationKey: 'v1', label: '1.e4 e5 2.Nf3 Nc6 3.Bb5 a6', included: true, chapterName: null },
-	{ variationKey: 'v2', label: '1.e4 e5 2.Nf3 Nc6 3.Bb5 Nf6', included: true, chapterName: null }
+	{ variationKey: 'v1', label: '1.e4 e5 2.Nf3 Nc6 3.Bb5 a6', included: true, chapterName: null, firstMoveSan: 'e4' },
+	{ variationKey: 'v2', label: '1.e4 e5 2.Nf3 Nc6 3.Bb5 Nf6', included: true, chapterName: null, firstMoveSan: 'e4' }
 ];
 
 const chapterVariationsResponse = [
-	{ variationKey: 'v1', label: '1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4', included: true, chapterName: 'Ruy Lopez' },
-	{ variationKey: 'v2', label: '1.e4 e5 2.Nf3 Nc6 3.Bb5 Nf6', included: true, chapterName: 'Ruy Lopez' },
-	{ variationKey: 'v3', label: '1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5', included: true, chapterName: 'Italian Game' }
+	{ variationKey: 'v1', label: '1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4', included: true, chapterName: 'Ruy Lopez', firstMoveSan: 'e4' },
+	{ variationKey: 'v2', label: '1.e4 e5 2.Nf3 Nc6 3.Bb5 Nf6', included: true, chapterName: 'Ruy Lopez', firstMoveSan: 'e4' },
+	{ variationKey: 'v3', label: '1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5', included: true, chapterName: 'Italian Game', firstMoveSan: 'e4' }
 ];
 
 describe('RepertoirePracticeRow', () => {
@@ -41,36 +44,50 @@ describe('RepertoirePracticeRow', () => {
 
 	it('shows the parent checkbox as checked when nothing is excluded', () => {
 		render(RepertoirePracticeRow, { props: { rep: baseRep } });
-		const checkbox = screen.getByRole('checkbox', { name: /Ruy Lopez/ }) as HTMLInputElement;
+		const checkbox = screen.getByRole('checkbox', { name: 'Include Ruy Lopez in practice' }) as HTMLInputElement;
 		expect(checkbox.checked).toBe(true);
 		expect(checkbox.indeterminate).toBe(false);
 	});
 
 	it('shows the parent checkbox as indeterminate when some variations are excluded', () => {
 		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, excludedVariationCount: 1 } } });
-		const checkbox = screen.getByRole('checkbox', { name: /Ruy Lopez/ }) as HTMLInputElement;
+		const checkbox = screen.getByRole('checkbox', { name: 'Include Ruy Lopez in practice' }) as HTMLInputElement;
 		expect(checkbox.indeterminate).toBe(true);
 	});
 
 	it('shows the parent checkbox as unchecked when every variation is excluded', () => {
 		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, excludedVariationCount: 2 } } });
-		const checkbox = screen.getByRole('checkbox', { name: /Ruy Lopez/ }) as HTMLInputElement;
+		const checkbox = screen.getByRole('checkbox', { name: 'Include Ruy Lopez in practice' }) as HTMLInputElement;
 		expect(checkbox.checked).toBe(false);
 		expect(checkbox.indeterminate).toBe(false);
 	});
 
-	it('fetches and shows variations when expanded, only once', async () => {
+	it('fetches variations when expanded, only once, showing a move-group bucket rather than raw variations', async () => {
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(RepertoirePracticeRow, { props: { rep: baseRep } });
 
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
-		await waitFor(() => expect(screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6')).toBeTruthy());
+		await waitFor(() => expect(screen.getByText('· 2 lines')).toBeTruthy());
 		expect(fetchSpy).toHaveBeenCalledWith('/api/repertoires/rep-1/variations');
+		expect(screen.queryByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6')).toBeNull(); // not shown until the bucket is drilled into
 
 		await fireEvent.click(screen.getByLabelText('Collapse Ruy Lopez'));
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
 		expect(fetchSpy).toHaveBeenCalledTimes(1); // cached after the first fetch
+	});
+
+	it('drilling into a move-group bucket reveals its individual variations', async () => {
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: baseRep } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('· 2 lines'));
+		await fireEvent.click(screen.getByLabelText('Expand e4 in Ruy Lopez'));
+
+		expect(screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6')).toBeTruthy();
+		expect(screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 Nf6')).toBeTruthy();
 	});
 
 	it('toggling one variation checkbox posts its own exclusion change', async () => {
@@ -82,6 +99,8 @@ describe('RepertoirePracticeRow', () => {
 		render(RepertoirePracticeRow, { props: { rep: baseRep } });
 
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('· 2 lines'));
+		await fireEvent.click(screen.getByLabelText('Expand e4 in Ruy Lopez'));
 		await waitFor(() => screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6'));
 
 		const variationCheckbox = within(screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6').closest('label')!).getByRole(
@@ -109,6 +128,8 @@ describe('RepertoirePracticeRow', () => {
 		// Individually uncheck v2 first, so the "restore" below has something
 		// meaningful to prove: it must restore v1 only, not both.
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('· 2 lines'));
+		await fireEvent.click(screen.getByLabelText('Expand e4 in Ruy Lopez'));
 		await waitFor(() => screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 Nf6'));
 		const v2Checkbox = within(screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 Nf6').closest('label')!).getByRole(
 			'checkbox'
@@ -116,7 +137,7 @@ describe('RepertoirePracticeRow', () => {
 		await fireEvent.click(v2Checkbox);
 		await waitFor(() => expect(v2Checkbox.checked).toBe(false));
 
-		const parentCheckbox = screen.getByRole('checkbox', { name: /Ruy Lopez/ }) as HTMLInputElement;
+		const parentCheckbox = screen.getByRole('checkbox', { name: 'Include Ruy Lopez in practice' }) as HTMLInputElement;
 		await fireEvent.click(parentCheckbox); // bulk uncheck (only v1 was still included)
 		await waitFor(() =>
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
@@ -151,6 +172,24 @@ describe('RepertoirePracticeRow', () => {
 		expect(screen.getByText('No moves yet')).toBeTruthy();
 	});
 
+	it('still shows the checkbox and expand control when every variation is excluded, so it can be undone', () => {
+		render(RepertoirePracticeRow, {
+			props: {
+				rep: { ...baseRep, total: 0, solved: 0, allSolved: true, excludedVariationCount: 2 }
+			}
+		});
+		expect(screen.getByRole('checkbox', { name: 'Include Ruy Lopez in practice' })).toBeTruthy();
+		expect(screen.getByLabelText('Expand Ruy Lopez')).toBeTruthy();
+	});
+
+	it('hides the checkbox and expand control entirely for a genuinely empty repertoire (fullVariationCount 0)', () => {
+		render(RepertoirePracticeRow, {
+			props: { rep: { ...baseRep, total: 0, solved: 0, allSolved: true, fullVariationCount: 0, excludedVariationCount: 0 } }
+		});
+		expect(screen.queryByRole('checkbox', { name: /Ruy Lopez/ })).toBeNull();
+		expect(screen.queryByLabelText('Expand Ruy Lopez')).toBeNull();
+	});
+
 	it('shows solved/total progress in the subtitle', () => {
 		render(RepertoirePracticeRow, { props: { rep: baseRep } });
 		expect(screen.getByText('12/18 variations solved')).toBeTruthy();
@@ -170,6 +209,8 @@ describe('RepertoirePracticeRow', () => {
 		render(RepertoirePracticeRow, { props: { rep: baseRep } });
 
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('· 2 lines'));
+		await fireEvent.click(screen.getByLabelText('Expand e4 in Ruy Lopez'));
 		await waitFor(() => screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6'));
 
 		const variationCheckbox = within(screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6').closest('label')!).getByRole(
@@ -191,7 +232,7 @@ describe('RepertoirePracticeRow', () => {
 		expect(screen.queryByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6')).toBeNull();
 	});
 
-	it('groups variations under a chapter header when they share a chapterName, without listing individual variations', async () => {
+	it('groups variations under a chapter header, revealing neither move-groups nor variations until drilled into', async () => {
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => chapterVariationsResponse });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
@@ -199,21 +240,35 @@ describe('RepertoirePracticeRow', () => {
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
 		await waitFor(() => expect(screen.getByText('Ruy Lopez (chapter)')).toBeTruthy());
 		expect(screen.getByText('Italian Game (chapter)')).toBeTruthy();
-		// Selection is chapter-level only — no per-variation checkboxes/labels
-		// render underneath a chapter header, just a line count.
 		expect(screen.queryByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4')).toBeNull();
-		expect(screen.queryByText('1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5')).toBeNull();
 		expect(screen.getByText('· 2 lines')).toBeTruthy();
 		expect(screen.getByText('· 1 line')).toBeTruthy();
 	});
 
-	it('renders a flat list with no chapter header when no variation has a chapterName', async () => {
+	it('drilling into a chapter reveals its move-group buckets, and drilling into one of those reveals its variations', async () => {
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => chapterVariationsResponse });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez chapter'));
+		await waitFor(() => expect(screen.getByLabelText('Include e4 in Ruy Lopez in practice')).toBeTruthy());
+		expect(screen.queryByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4')).toBeNull(); // still one drill-down away
+
+		await fireEvent.click(screen.getByLabelText('Expand e4 in Ruy Lopez'));
+		expect(screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4')).toBeTruthy();
+		expect(screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 Nf6')).toBeTruthy();
+	});
+
+	it('renders a flat pool of move-group buckets with no chapter header when no variation has a chapterName', async () => {
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(RepertoirePracticeRow, { props: { rep: baseRep } });
 
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
-		await waitFor(() => expect(screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6')).toBeTruthy());
+		await waitFor(() => expect(screen.getByText('· 2 lines')).toBeTruthy());
 		expect(screen.queryByText('(chapter)', { exact: false })).toBeNull();
 	});
 
@@ -232,7 +287,7 @@ describe('RepertoirePracticeRow', () => {
 		expect(italianCheckbox.checked).toBe(true); // v3 included, unaffected by Ruy Lopez's state
 	});
 
-	it('bulk-toggling a chapter checkbox only excludes that chapter\'s own variations', async () => {
+	it("bulk-toggling a chapter checkbox only excludes that chapter's own variations", async () => {
 		const fetchSpy = vi
 			.fn()
 			.mockResolvedValueOnce({ ok: true, json: async () => chapterVariationsResponse })
@@ -266,17 +321,122 @@ describe('RepertoirePracticeRow', () => {
 		);
 	});
 
-	it('hides the checkbox and expand control entirely when the repertoire has no chapters', () => {
-		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, hasChapters: false } } });
-		expect(screen.queryByRole('checkbox', { name: /Ruy Lopez/ })).toBeNull();
-		expect(screen.queryByLabelText('Expand Ruy Lopez')).toBeNull();
-		expect(screen.getByText('Ruy Lopez')).toBeTruthy(); // the row itself still renders, just non-interactive for selection
+	it("bulk-toggling a move-group bucket checkbox only excludes that bucket's own variations, leaving a sibling chapter untouched", async () => {
+		const fetchSpy = vi
+			.fn()
+			.mockResolvedValueOnce({ ok: true, json: async () => chapterVariationsResponse })
+			.mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez chapter'));
+		await waitFor(() => screen.getByLabelText('Include e4 in Ruy Lopez in practice'));
+
+		const bucketCheckbox = screen.getByRole('checkbox', { name: 'Include e4 in Ruy Lopez in practice' }) as HTMLInputElement;
+		expect(bucketCheckbox.checked).toBe(true);
+		await fireEvent.click(bucketCheckbox);
+
+		await waitFor(() =>
+			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false })
+			})
+		);
+		const italianCheckbox = screen.getByRole('checkbox', { name: /Italian Game \(chapter\)/ }) as HTMLInputElement;
+		expect(italianCheckbox.checked).toBe(true); // a different chapter's own bucket, unaffected
 	});
 
-	it('never fetches variations when the repertoire has no chapters (nothing to expand)', () => {
-		const fetchSpy = vi.fn();
+	it("re-checking a chapter after one of its buckets was already independently excluded restores only what the chapter's own exclusion touched, not the bucket's prior exclusion", async () => {
+		// Two first moves within the same chapter, so the chapter and one of
+		// its own move-group buckets have genuinely independent snapshots to
+		// interleave.
+		const interleaved = [
+			{ variationKey: 'v1', label: '1.e4 e5', included: true, chapterName: 'Ruy Lopez', firstMoveSan: 'e4' },
+			{ variationKey: 'v2', label: '1.e4 c5', included: true, chapterName: 'Ruy Lopez', firstMoveSan: 'e4' },
+			{ variationKey: 'v3', label: '1.d4 d5', included: true, chapterName: 'Ruy Lopez', firstMoveSan: 'd4' }
+		];
+		const fetchSpy = vi
+			.fn()
+			.mockResolvedValueOnce({ ok: true, json: async () => interleaved })
+			.mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez chapter'));
+		await waitFor(() => screen.getByLabelText('Include e4 in Ruy Lopez in practice'));
+
+		// Step 1: independently bulk-exclude the "e4" bucket (v1, v2).
+		const e4BucketCheckbox = screen.getByRole('checkbox', { name: 'Include e4 in Ruy Lopez in practice' }) as HTMLInputElement;
+		await fireEvent.click(e4BucketCheckbox);
+		await waitFor(() =>
+			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false })
+			})
+		);
+
+		// Step 2: the chapter is now indeterminate (v3 still included). Bulk-
+		// exclude the whole chapter — its own snapshot should capture only
+		// v3, the one row still included at this moment.
+		const chapterCheckbox = screen.getByRole('checkbox', { name: /Ruy Lopez \(chapter\)/ }) as HTMLInputElement;
+		expect(chapterCheckbox.indeterminate).toBe(true);
+		await fireEvent.click(chapterCheckbox);
+		await waitFor(() =>
+			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ variationKeys: ['v3'], included: false })
+			})
+		);
+
+		// Step 3: re-checking the chapter restores exactly v3 — NOT v1/v2,
+		// which were excluded independently before the chapter-level
+		// snapshot was ever taken.
+		await fireEvent.click(chapterCheckbox);
+		await waitFor(() =>
+			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ variationKeys: ['v3'], included: true })
+			})
+		);
+		expect(e4BucketCheckbox.checked).toBe(false); // still excluded, untouched by the chapter's restore
+	});
+
+	it('drilling into a move-group bucket within a chapter reveals its individual variations with their own checkboxes', async () => {
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => chapterVariationsResponse });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez chapter'));
+		await waitFor(() => screen.getByLabelText('Include e4 in Ruy Lopez in practice'));
+
+		await fireEvent.click(screen.getByLabelText('Expand e4 in Ruy Lopez'));
+		expect(screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4')).toBeTruthy();
+		expect(screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5 Nf6')).toBeTruthy();
+	});
+
+	it('shows the checkbox and expand control even when the repertoire has no chapters, as long as it has variations', () => {
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, hasChapters: false } } });
+		expect(screen.getByRole('checkbox', { name: 'Include Ruy Lopez in practice' })).toBeTruthy();
+		expect(screen.getByLabelText('Expand Ruy Lopez')).toBeTruthy();
+	});
+
+	it('fetches and shows a move-group bucket even when the repertoire has no chapters', async () => {
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, hasChapters: false } } });
-		expect(fetchSpy).not.toHaveBeenCalled();
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith('/api/repertoires/rep-1/variations'));
+		expect(screen.getByText('· 2 lines')).toBeTruthy();
 	});
 });

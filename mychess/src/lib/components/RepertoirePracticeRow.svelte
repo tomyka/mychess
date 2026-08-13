@@ -1,5 +1,7 @@
 <!-- mychess/src/lib/components/RepertoirePracticeRow.svelte -->
 <script lang="ts">
+	import { groupByFirstMove, type MoveGroup } from '$lib/mastery/variations';
+
 	type RepSummary = {
 		id: string;
 		name: string;
@@ -9,30 +11,48 @@
 		allSolved: boolean;
 		fullVariationCount: number;
 		excludedVariationCount: number;
-		// Whether this repertoire has any chapter-tagged variation at all. When
-		// false, there's nothing coarser than "the whole repertoire" to select
-		// by (see #58's "just chapters" simplification) — no checkbox or
-		// expand control renders at all, and the full repertoire is always
-		// practiced with nothing excluded.
+		// Whether this repertoire has any chapter-tagged variation at all.
+		// Mirrors the server-side RepertoireProgressSummary field, but this
+		// component no longer gates on it — it derives the same fact live
+		// from the loaded variations (`chapters` below), since a repertoire
+		// without chapters is now just as selectable as one with them, only
+		// skipping the chapter tier.
 		hasChapters: boolean;
 	};
-	type VariationRow = { variationKey: string; label: string; included: boolean; chapterName: string | null };
-	type ChapterGroup = { chapterName: string | null; rows: VariationRow[] };
+	type VariationRow = {
+		variationKey: string;
+		label: string;
+		included: boolean;
+		chapterName: string | null;
+		firstMoveSan: string | null;
+	};
 
 	let { rep }: { rep: RepSummary } = $props();
+
+	const TOP_N = 5;
 
 	let expanded = $state(false);
 	let variations = $state<VariationRow[] | null>(null);
 	let loadingVariations = $state(false);
 	let errorMessage = $state<string | null>(null);
-	// Keyed by toggle scope ('__all__' for the repertoire-level checkbox, or
-	// `chapter:{chapterName}` for one chapter's own checkbox) — the set of
-	// variationKeys that were included right before that scope's checkbox
-	// last bulk-excluded everything, so re-checking it restores exactly that
-	// selection instead of blanket-including everything. Independent per
-	// scope: bulk-excluding one chapter never touches another chapter's or
-	// the repertoire-level checkbox's own snapshot.
+	// Keyed by toggle scope ('__all__' for the repertoire-level checkbox,
+	// `chapter:{chapterName}` for a chapter's own checkbox, or
+	// `moveGroup:{chapterName}::{move}` for a move-group bucket's own
+	// checkbox) — the set of variationKeys that were included right before
+	// that scope's checkbox last bulk-excluded everything, so re-checking it
+	// restores exactly that selection instead of blanket-including everything.
+	// Independent per scope: bulk-excluding one bucket never touches another
+	// bucket's, chapter's, or the repertoire-level checkbox's own snapshot.
 	let snapshots = $state<Map<string, Set<string>>>(new Map());
+	// Chapter names currently drilled into to show their move-group buckets.
+	// A Set (not a single value) since this is a checklist screen, not a
+	// pick-one wizard — more than one chapter can reasonably be open at once.
+	let openChapters = $state<Set<string>>(new Set());
+	// Move-group buckets currently drilled into to show their individual
+	// variations, keyed by `moveGroupKey` (chapter + move) so the same first
+	// move bucketed under two different chapters — or under the flat,
+	// chapterless pool — never collide.
+	let openMoveGroups = $state<Set<string>>(new Set());
 
 	const checkedCount = $derived(
 		variations ? variations.filter((v) => v.included).length : rep.fullVariationCount - rep.excludedVariationCount
@@ -42,31 +62,40 @@
 		totalCount === 0 || checkedCount === totalCount ? 'checked' : checkedCount === 0 ? 'unchecked' : 'indeterminate'
 	);
 
-	// Preserves first-seen order: a chapter's rows cluster together at the
-	// position its first row appeared in `variations`; a null chapterName
-	// (no chapter tag — every variation of a pre-feature or single-chapter
-	// repertoire) becomes its OWN single-row group rather than one shared
-	// group, so the template's ungrouped branch (no header, no wrapper)
-	// reproduces today's flat rendering exactly when nothing is tagged.
-	const groupedVariations = $derived.by<ChapterGroup[]>(() => {
-		const list = variations ?? [];
-		const groups: ChapterGroup[] = [];
-		const indexByChapter = new Map<string, number>();
-		for (const row of list) {
-			if (row.chapterName === null) {
-				groups.push({ chapterName: null, rows: [row] });
-				continue;
-			}
-			const existingIndex = indexByChapter.get(row.chapterName);
-			if (existingIndex === undefined) {
-				indexByChapter.set(row.chapterName, groups.length);
-				groups.push({ chapterName: row.chapterName, rows: [row] });
-			} else {
-				groups[existingIndex].rows.push(row);
-			}
+	// null means no loaded variation carries a chapter tag at all — the
+	// chapter tier is skipped entirely and move-groups apply directly to the
+	// whole (flat) repertoire. Mirrors VariationPicker's identical rule so
+	// the two components never disagree about what counts as "chaptered."
+	const chapters = $derived.by<string[] | null>(() => {
+		const rows = variations ?? [];
+		if (rows.every((r) => r.chapterName === null)) return null;
+		const names: string[] = [];
+		for (const r of rows) {
+			if (r.chapterName !== null && !names.includes(r.chapterName)) names.push(r.chapterName);
 		}
-		return groups;
+		return names;
 	});
+
+	function rowsForChapter(chapterName: string | null): VariationRow[] {
+		const rows = variations ?? [];
+		return chapterName === null ? rows : rows.filter((r) => r.chapterName === chapterName);
+	}
+
+	// Reuses the exact same bucketing algorithm VariationPicker uses (Task 2's
+	// groupByFirstMove), so the grouping rule and its tie-breaking behavior
+	// are defined in exactly one place, not reimplemented here.
+	function moveGroups(chapterName: string | null): MoveGroup<VariationRow>[] {
+		return groupByFirstMove(rowsForChapter(chapterName), (r) => r.firstMoveSan, TOP_N);
+	}
+
+	function moveGroupKey(chapterName: string | null, move: string | null): string {
+		return `${chapterName ?? ''}::${move ?? ''}`;
+	}
+
+	/** Qualifies a move-group's own label/aria-text with its parent chapter (or the repertoire name, when there's no chapter tier) so two same-named buckets never read identically. */
+	function moveGroupQualifier(chapterName: string | null): string {
+		return chapterName ?? rep.name;
+	}
 
 	function indeterminate(node: HTMLInputElement, value: boolean) {
 		node.indeterminate = value;
@@ -113,6 +142,20 @@
 		}
 	}
 
+	function toggleChapterOpen(chapterName: string) {
+		const next = new Set(openChapters);
+		if (next.has(chapterName)) next.delete(chapterName);
+		else next.add(chapterName);
+		openChapters = next;
+	}
+
+	function toggleMoveGroupOpen(key: string) {
+		const next = new Set(openMoveGroups);
+		if (next.has(key)) next.delete(key);
+		else next.add(key);
+		openMoveGroups = next;
+	}
+
 	async function postExclusion(variationKeys: string[], included: boolean): Promise<boolean> {
 		try {
 			const res = await fetch(`/api/repertoires/${rep.id}/exclusions`, {
@@ -148,10 +191,11 @@
 
 	/**
 	 * Bulk-toggles every currently-loaded variation for which `belongsToGroup`
-	 * is true — used for both the repertoire-level checkbox (every variation)
-	 * and each chapter header's own checkbox (just that chapter's rows).
-	 * `scopeKey` isolates the uncheck/recheck snapshot per toggle so they
-	 * never interfere with each other (see `snapshots`' doc comment above).
+	 * is true — used for the repertoire-level checkbox (every variation),
+	 * each chapter header's own checkbox (just that chapter's rows), and each
+	 * move-group bucket's own checkbox (just that bucket's rows). `scopeKey`
+	 * isolates the uncheck/recheck snapshot per toggle so they never
+	 * interfere with each other (see `snapshots`' doc comment above).
 	 */
 	async function toggleGroup(scopeKey: string, belongsToGroup: (row: VariationRow) => boolean) {
 		let list: VariationRow[];
@@ -209,11 +253,16 @@
 	function toggleChapter(chapterName: string) {
 		return toggleGroup(`chapter:${chapterName}`, (v) => v.chapterName === chapterName);
 	}
+
+	function toggleMoveGroup(chapterName: string | null, group: MoveGroup<VariationRow>) {
+		const keys = new Set(group.items.map((r) => r.variationKey));
+		return toggleGroup(`moveGroup:${moveGroupKey(chapterName, group.move)}`, (row) => keys.has(row.variationKey));
+	}
 </script>
 
 <li class="bg-white rounded-xl border border-gray-200 shadow-sm">
 	<div class="flex items-center gap-3 p-4">
-		{#if rep.hasChapters}
+		{#if rep.fullVariationCount > 0}
 			<label class="flex items-center shrink-0">
 				<input
 					type="checkbox"
@@ -251,44 +300,134 @@
 		</a>
 	</div>
 
-	{#if rep.hasChapters && errorMessage}
+	{#if errorMessage}
 		<p class="px-4 pb-2 text-xs text-red-600">{errorMessage}</p>
 	{/if}
 
-	{#if rep.hasChapters && expanded}
+	{#if expanded}
 		<ul class="pl-14 pr-4 pb-3 space-y-1">
 			{#if loadingVariations}
 				<li class="text-sm text-gray-400">Loading variations…</li>
-			{:else}
-				{#each groupedVariations as group, i (group.chapterName ?? `_ungrouped_${i}`)}
-					{#if group.chapterName}
-						<li>
-							<label class="flex items-center gap-2 text-sm font-medium text-gray-600 mt-2">
+			{:else if chapters === null}
+				{#each moveGroups(null) as group (group.move ?? '__other__')}
+					<li>
+						<div class="flex items-center gap-2 mt-2">
+							<label class="flex items-center shrink-0">
 								<input
 									type="checkbox"
-									checked={aggregateState(group.rows) === 'checked'}
-									use:indeterminate={aggregateState(group.rows) === 'indeterminate'}
-									onchange={() => toggleChapter(group.chapterName ?? '')}
-									aria-label={`Include ${group.chapterName} (chapter) in practice`}
+									checked={aggregateState(group.items) === 'checked'}
+									use:indeterminate={aggregateState(group.items) === 'indeterminate'}
+									onchange={() => toggleMoveGroup(null, group)}
+									aria-label={`Include ${group.move ?? 'Other'} in ${moveGroupQualifier(null)} in practice`}
 								/>
-								{group.chapterName} (chapter)
-								<span class="text-gray-400 font-normal">· {group.rows.length} {group.rows.length === 1 ? 'line' : 'lines'}</span>
 							</label>
-						</li>
-					{:else}
-						{#each group.rows as variation (variation.variationKey)}
-							<li>
-								<label class="flex items-center gap-2 text-sm text-gray-700">
-									<input
-										type="checkbox"
-										checked={variation.included}
-										onchange={() => toggleVariation(variation.variationKey)}
-									/>
-									{variation.label}
-								</label>
-							</li>
-						{/each}
-					{/if}
+							<button
+								type="button"
+								onclick={() => toggleMoveGroupOpen(moveGroupKey(null, group.move))}
+								aria-label={`${openMoveGroups.has(moveGroupKey(null, group.move)) ? 'Collapse' : 'Expand'} ${group.move ?? 'Other'} in ${moveGroupQualifier(null)}`}
+								class="text-gray-400 shrink-0 w-4"
+							>
+								{openMoveGroups.has(moveGroupKey(null, group.move)) ? '▾' : '▸'}
+							</button>
+							<span class="text-sm font-medium text-gray-600">
+								{group.move ?? 'Other'}
+								<span class="text-gray-400 font-normal">· {group.items.length} {group.items.length === 1 ? 'line' : 'lines'}</span>
+							</span>
+						</div>
+						{#if openMoveGroups.has(moveGroupKey(null, group.move))}
+							<ul class="pl-6 mt-1 space-y-1">
+								{#each group.items as variation (variation.variationKey)}
+									<li>
+										<label class="flex items-center gap-2 text-sm text-gray-700">
+											<input
+												type="checkbox"
+												checked={variation.included}
+												onchange={() => toggleVariation(variation.variationKey)}
+											/>
+											{variation.label}
+										</label>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</li>
+				{/each}
+			{:else}
+				{#each chapters as chapterName (chapterName)}
+					<li>
+						<div class="flex items-center gap-2 mt-2">
+							<label class="flex items-center shrink-0">
+								<input
+									type="checkbox"
+									checked={aggregateState(rowsForChapter(chapterName)) === 'checked'}
+									use:indeterminate={aggregateState(rowsForChapter(chapterName)) === 'indeterminate'}
+									onchange={() => toggleChapter(chapterName)}
+									aria-label={`Include ${chapterName} (chapter) in practice`}
+								/>
+							</label>
+							<button
+								type="button"
+								onclick={() => toggleChapterOpen(chapterName)}
+								aria-label={`${openChapters.has(chapterName) ? 'Collapse' : 'Expand'} ${chapterName} chapter`}
+								class="text-gray-400 shrink-0 w-4"
+							>
+								{openChapters.has(chapterName) ? '▾' : '▸'}
+							</button>
+							<span class="text-sm font-medium text-gray-600">
+								{chapterName} (chapter)
+								<span class="text-gray-400 font-normal">
+									· {rowsForChapter(chapterName).length} {rowsForChapter(chapterName).length === 1 ? 'line' : 'lines'}
+								</span>
+							</span>
+						</div>
+						{#if openChapters.has(chapterName)}
+							<ul class="pl-6 mt-1 space-y-1">
+								{#each moveGroups(chapterName) as group (group.move ?? '__other__')}
+									<li>
+										<div class="flex items-center gap-2">
+											<label class="flex items-center shrink-0">
+												<input
+													type="checkbox"
+													checked={aggregateState(group.items) === 'checked'}
+													use:indeterminate={aggregateState(group.items) === 'indeterminate'}
+													onchange={() => toggleMoveGroup(chapterName, group)}
+													aria-label={`Include ${group.move ?? 'Other'} in ${moveGroupQualifier(chapterName)} in practice`}
+												/>
+											</label>
+											<button
+												type="button"
+												onclick={() => toggleMoveGroupOpen(moveGroupKey(chapterName, group.move))}
+												aria-label={`${openMoveGroups.has(moveGroupKey(chapterName, group.move)) ? 'Collapse' : 'Expand'} ${group.move ?? 'Other'} in ${moveGroupQualifier(chapterName)}`}
+												class="text-gray-400 shrink-0 w-4"
+											>
+												{openMoveGroups.has(moveGroupKey(chapterName, group.move)) ? '▾' : '▸'}
+											</button>
+											<span class="text-sm font-medium text-gray-600">
+												{group.move ?? 'Other'}
+												<span class="text-gray-400 font-normal">· {group.items.length} {group.items.length === 1 ? 'line' : 'lines'}</span>
+											</span>
+										</div>
+										{#if openMoveGroups.has(moveGroupKey(chapterName, group.move))}
+											<ul class="pl-6 mt-1 space-y-1">
+												{#each group.items as variation (variation.variationKey)}
+													<li>
+														<label class="flex items-center gap-2 text-sm text-gray-700">
+															<input
+																type="checkbox"
+																checked={variation.included}
+																onchange={() => toggleVariation(variation.variationKey)}
+															/>
+															{variation.label}
+														</label>
+													</li>
+												{/each}
+											</ul>
+										{/if}
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</li>
 				{/each}
 			{/if}
 		</ul>
