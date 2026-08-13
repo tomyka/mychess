@@ -508,28 +508,112 @@ git commit -m "feat: rewrite variationSequence.ts around the solved set instead 
 ### Task 5: Delete `levelProgress.ts` (and its test)
 
 **Files:**
+- Modify: `src/lib/server/pgn-import.ts`
 - Delete: `src/lib/mastery/levelProgress.ts`
 - Delete: `src/lib/mastery/levelProgress.test.ts`
 
-- [ ] **Step 1: Confirm nothing outside this plan's later tasks still imports it**
+**Note:** a controller-side audit (after two earlier tasks each found an undocumented caller the same way) found a THIRD undocumented caller before this task started: `src/lib/server/pgn-import.ts` calls `repertoireShape(variations, DEFAULT_CHUNK_SIZE)` at two import-time call sites, writing `total_variations`/`total_levels`/`level1_task_count` — the latter two columns were already dropped by Task 1's migration, and `repertoireShape` itself is deleted by this task. Fixing it is folded into Step 1 below, before the deletion, matching the same pattern as Task 3's `RepertoirePracticeRow.svelte` fix.
+
+- [ ] **Step 1: Fix `pgn-import.ts` to stop calling `repertoireShape`**
+
+In `src/lib/server/pgn-import.ts`, remove the import:
+```ts
+import { repertoireShape } from '$lib/mastery/levelProgress';
+```
+and remove the now-unused constant (it existed only to pass a `chunkSize` to `repertoireShape`):
+```ts
+// Matches repertoires.chunk_size's db default (see migration 0044) — shape is
+// cached at import time, before a repertoire row (and its chunk_size) exists
+// yet, so there's no per-repertoire value to read here. Only relevant until a
+// future UI lets a player set chunk_size at import time.
+const DEFAULT_CHUNK_SIZE = 3;
+```
+
+At the first call site (inside the `computeShapeEagerly` branch), change:
+```ts
+      const variations = enumerateVariations(rawMoves);
+      const shape = repertoireShape(variations, DEFAULT_CHUNK_SIZE);
+      insertColumns.total_variations = shape.totalVariations;
+      insertColumns.total_levels = shape.totalLevels;
+      insertColumns.level1_task_count = shape.level1TaskCount;
+```
+to:
+```ts
+      const variations = enumerateVariations(rawMoves);
+      insertColumns.total_variations = variations.length;
+```
+
+At the second call site (the finalize/shape-backfill path), change:
+```ts
+    const variations = enumerateVariations(rawMoves);
+    const shape = repertoireShape(variations, DEFAULT_CHUNK_SIZE);
+    const { error: shapeErr } = await supabase
+      .from('repertoires')
+      .update({
+        total_variations: shape.totalVariations,
+        total_levels: shape.totalLevels,
+        level1_task_count: shape.level1TaskCount,
+        has_chapters: hasChapterTags(variations)
+      })
+      .eq('id', repId);
+```
+to:
+```ts
+    const variations = enumerateVariations(rawMoves);
+    const { error: shapeErr } = await supabase
+      .from('repertoires')
+      .update({
+        total_variations: variations.length,
+        has_chapters: hasChapterTags(variations)
+      })
+      .eq('id', repId);
+```
+
+Also update the doc comment a few lines above the first call site that references `$lib/mastery/levelProgress.ts`'s "shape" concept — replace:
+```
+      // Computed from `params.moves` directly — before any DB writes — since
+      // moves are immutable after import, this "shape" (see
+      // `$lib/mastery/levelProgress.ts`) never changes again for this
+      // repertoire once it's known to be complete (a single-chapter import,
+      // or `importGames`, which always hands over every move up front).
+```
+with:
+```
+      // Computed from `params.moves` directly — before any DB writes — since
+      // moves are immutable after import, this variation count never changes
+      // again for this repertoire once it's known to be complete (a
+      // single-chapter import, or `importGames`, which always hands over
+      // every move up front).
+```
+
+- [ ] **Step 2: Confirm nothing outside this plan's later tasks still imports `levelProgress.ts`**
 
 ```bash
 grep -rl "from '\$lib/mastery/levelProgress'" src/ --include='*.ts' --include='*.svelte'
 ```
 
-Expected output: `src/lib/mastery/practice.ts`, `src/lib/server/level-progress.ts`, `src/lib/server/repertoire-progress.ts`, `src/routes/(player)/practice/[repertoire_id]/+page.server.ts`, `src/routes/(player)/practice/[repertoire_id]/+page.svelte` — all rewritten by Tasks 6, 7, 9, 11, 12. If anything else shows up, stop and investigate.
+Expected output: `src/lib/mastery/practice.ts`, `src/lib/server/level-progress.ts`, `src/lib/server/repertoire-progress.ts`, `src/routes/(player)/practice/[repertoire_id]/+page.server.ts`, `src/routes/(player)/practice/[repertoire_id]/+page.svelte` — all rewritten by Tasks 6, 7, 9, 11, 12 (`pgn-import.ts` should no longer appear, per Step 1 above). If anything else shows up, stop and investigate.
 
-- [ ] **Step 2: Delete both files**
+- [ ] **Step 3: Run the full test suite and type checker for `pgn-import.ts` specifically**
+
+Run: `npx vitest run src/lib/pgn-import.test.ts src/lib/server/pgn-import.test.ts 2>/dev/null; npm run check`
+Expected: zero errors/failures attributed to `pgn-import.ts` itself (errors elsewhere from still-pending later tasks are expected). If `src/lib/server/pgn-import.ts` has no dedicated test file (check first — per this repo's convention, `src/lib/server/*` files are often not unit-tested directly), running just `src/lib/pgn-import.test.ts` (the PURE-logic sibling file, if it exists and is unaffected) plus `npm run check` is sufficient.
+
+- [ ] **Step 4: Delete `levelProgress.ts` and its test**
 
 ```bash
 git rm src/lib/mastery/levelProgress.ts src/lib/mastery/levelProgress.test.ts
 ```
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
+git add src/lib/server/pgn-import.ts
+git commit -m "fix: stop pgn-import.ts from calling the soon-to-be-deleted repertoireShape"
 git commit -m "chore: delete levelProgress.ts — queue/demotion/level-advance machinery no longer exists"
 ```
+
+(Two commits: the `pgn-import.ts` fix separately from the deletion, same pattern as Task 3.)
 
 ---
 
@@ -1396,6 +1480,8 @@ git commit -m "feat: rewrite the practice detail page's load for the solved-set 
 
 ### Task 12: `+page.svelte` — remove level UI, add solved/total display and the picker trigger; delete `LevelList.svelte`
 
+**Important ordering note:** `+page.svelte` (below) imports `$lib/components/VariationPicker.svelte`, which doesn't exist until Task 13. Unlike this plan's other intentional cross-task breakage (a type error in an unrelated file), a missing component import breaks Vite/vitest's MODULE RESOLUTION for anything that renders this file — including its own test. Because of this, this task's own Step 3 does NOT run the full verification, and this task does NOT touch `practice.test.ts` at all (it stays exactly as it was, still testing the OLD level-based component, and will fail once you try to run it — don't try to fix or run it now). Both the practice.test.ts rewrite AND the real verification of this file happen at the END of Task 13, once `VariationPicker.svelte` actually exists. This is a deliberate, narrow exception — do not generalize "skip verification" to any other task in this plan.
+
 **Files:**
 - Modify: `src/routes/(player)/practice/[repertoire_id]/+page.svelte`
 - Delete: `src/lib/components/LevelList.svelte`
@@ -1682,10 +1768,10 @@ git rm src/lib/components/LevelList.svelte
 </main>
 ```
 
-- [ ] **Step 3: Run the full test suite and type checker**
+- [ ] **Step 3: Run type-check on everything EXCEPT this file's own module-resolution error**
 
-Run: `npx vitest run && npm run check`
-Expected: type errors remaining only for the not-yet-created `VariationPicker.svelte` import (Task 13 creates it) — everything else should be clean.
+Run: `npm run check`
+Expected: one error class attributed to `+page.svelte` itself — "Cannot find module '$lib/components/VariationPicker.svelte'" (or equivalent) — that's the expected, deliberate breakage described above, resolved at the end of Task 13. Every OTHER error should be exactly the ones already expected from still-pending later tasks (`practice-repertoire.ts`, `repertoire-progress.ts`, the API routes, coach reports). Do NOT run `npx vitest run` for this task — `practice.test.ts` will fail to even load `+page.svelte` for the same reason, and rewriting it now would just be thrown away when Task 13 needs its own final verification pass anyway.
 
 - [ ] **Step 4: Commit**
 
@@ -1697,7 +1783,7 @@ git commit -m "feat: rewrite the practice detail page for full-replay attempts a
 
 ---
 
-### Task 13: New `VariationPicker.svelte`
+### Task 13: New `VariationPicker.svelte`, then finish wiring up `+page.svelte`
 
 **Files:**
 - Create: `src/lib/components/VariationPicker.svelte`
@@ -1934,16 +2020,143 @@ Expected: FAIL — the component doesn't exist yet.
 Run: `npx vitest run src/lib/components/VariationPicker.test.ts`
 Expected: PASS (all tests)
 
-- [ ] **Step 5: Run the full test suite and type checker**
-
-Run: `npx vitest run && npm run check`
-Expected: zero type errors project-wide (this is the last file this plan creates).
-
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit `VariationPicker.svelte`**
 
 ```bash
 git add src/lib/components/VariationPicker.svelte src/lib/components/VariationPicker.test.ts
 git commit -m "feat: add VariationPicker.svelte for manual repertoire/chapter/move-group/variation selection"
+```
+
+- [ ] **Step 6: Now that `VariationPicker.svelte` exists, rewrite `practice.test.ts` for the new `+page.svelte`**
+
+`src/routes/(player)/practice/[repertoire_id]/practice.test.ts` still tests the OLD level-based component (Level X of Y, maintenance review, practice-depth editing) — none of which exists anymore after Task 12's rewrite. Replace it in full:
+
+```ts
+// @vitest-environment jsdom
+// mychess/src/routes/(player)/practice/[repertoire_id]/practice.test.ts
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
+import Practice from './+page.svelte';
+
+afterEach(() => {
+	cleanup();
+	vi.unstubAllGlobals();
+});
+
+describe('practice detail page', () => {
+	it('shows "nothing to practice" when the repertoire has no moves yet', () => {
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'Empty Repertoire', color: 'white' },
+					attempt: null,
+					solved: 0,
+					total: 0,
+					allSolved: false
+				}
+			}
+		});
+		expect(screen.queryByText(/Repertoire Solved/i)).toBeNull();
+		expect(screen.getByText(/Nothing to practice/i)).toBeTruthy();
+	});
+
+	it('shows the "Repertoire Solved!" screen once every variation is solved', () => {
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					attempt: null,
+					solved: 5,
+					total: 5,
+					allSolved: true
+				}
+			}
+		});
+		expect(screen.getByText(/Repertoire Solved/i)).toBeTruthy();
+		expect(screen.getByText('Re-drill a specific variation')).toBeTruthy();
+	});
+
+	it('shows the repertoire name and solved/total progress while an attempt is in flight', () => {
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 3,
+					total: 5,
+					allSolved: false,
+					attempt: {
+						variationKey: 'v1',
+						path: [
+							{
+								moveId: 'm1',
+								san: 'e4',
+								fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+								toFen: 'rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/8/RNBQKBNR w KQkq - 0 1',
+								isPlayerTurn: true
+							}
+						]
+					}
+				}
+			}
+		});
+		expect(screen.getByText('French Defense')).toBeTruthy();
+		expect(screen.getByText('3 / 5 variations solved')).toBeTruthy();
+	});
+
+	it('shows a "Choose a variation" control whenever a repertoire is loaded', () => {
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 0,
+					total: 5,
+					allSolved: false,
+					attempt: { variationKey: 'v1', path: [{ moveId: 'm1', san: 'e4', fromFen: 'f', toFen: 'f2', isPlayerTurn: true }] }
+				}
+			}
+		});
+		expect(screen.getByText('Choose a variation')).toBeTruthy();
+	});
+
+	it('opens the variation picker when "Choose a variation" is clicked', async () => {
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 0,
+					total: 5,
+					allSolved: false,
+					attempt: { variationKey: 'v1', path: [{ moveId: 'm1', san: 'e4', fromFen: 'f', toFen: 'f2', isPlayerTurn: true }] }
+				}
+			}
+		});
+		await fireEvent.click(screen.getByText('Choose a variation'));
+		// VariationPicker itself renders a "Close" control unique to it — a
+		// reliable signal the picker actually mounted, without colliding with
+		// the "Choose a variation" text that appears in BOTH the trigger
+		// button and the picker's own heading.
+		expect(screen.getByLabelText('Close')).toBeTruthy();
+	});
+});
+```
+
+- [ ] **Step 7: Run tests to verify they pass**
+
+Run: `npx vitest run src/routes/\(player\)/practice/\[repertoire_id\]/practice.test.ts`
+Expected: PASS (all 5 tests)
+
+- [ ] **Step 8: Run the full test suite and type checker**
+
+Run: `npx vitest run && npm run check`
+Expected: zero type errors project-wide (this closes out the last two deliberately-deferred gaps: `+page.svelte`'s missing-module error from Task 12, and this stale test file).
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add "src/routes/(player)/practice/[repertoire_id]/practice.test.ts"
+git commit -m "test: rewrite practice.test.ts for the full-replay, solved/total practice page"
 ```
 
 ---
