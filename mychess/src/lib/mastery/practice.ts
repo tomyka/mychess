@@ -20,7 +20,8 @@ export type PracticeView = {
 export function buildPracticeView(
 	variations: Variation[],
 	activeVariationKey: string | null,
-	solvedKeys: ReadonlySet<string>
+	solvedKeys: ReadonlySet<string>,
+	forceAttempt: boolean = false
 ): PracticeView {
 	const { solved, total } = solvedProgress(variations, solvedKeys);
 	const active = pickActiveVariation(variations, activeVariationKey, solvedKeys);
@@ -31,7 +32,13 @@ export function buildPracticeView(
 	// An empty repertoire (total === 0) counts as vacuously all-solved.
 	const allSolved = solved === total;
 
-	const attempt = active && !allSolved ? { path: active.path, variationKey: active.variationKey } : null;
+	// The !allSolved gate suppresses the attempt once the repertoire is done,
+	// so the trophy screen shows instead of auto-serving variations[0] forever.
+	// forceAttempt bypasses that gate for a deliberate manual re-pick (the
+	// picker), where the player explicitly asked to re-drill a variation even
+	// though everything is already solved.
+	const attempt =
+		active && (forceAttempt || !allSolved) ? { path: active.path, variationKey: active.variationKey } : null;
 
 	return { attempt, solved, total, allSolved };
 }

@@ -29,5 +29,5 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	await setActiveVariationKey(supabase, user.id, repertoireId, variationKey);
 	const solvedKeys = await loadSolvedKeys(supabase, user.id, repertoireId);
-	return json(buildPracticeView(variations, variationKey, solvedKeys));
+	return json(buildPracticeView(variations, variationKey, solvedKeys, true));
 };

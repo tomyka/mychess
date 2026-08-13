@@ -74,4 +74,12 @@ describe('buildPracticeView', () => {
 		expect(view.attempt!.variationKey).toBe(a.variationKey); // respects the manual pick
 		expect(view.allSolved).toBe(false); // but the repertoire as a whole isn't done
 	});
+
+	it('forceAttempt serves a manually re-picked variation even when the whole repertoire is already solved', () => {
+		const a = makeVariation(2, 'a-');
+		const view = buildPracticeView([a], a.variationKey, new Set([a.variationKey]), true);
+		expect(view.attempt).not.toBeNull();
+		expect(view.attempt!.variationKey).toBe(a.variationKey);
+		expect(view.allSolved).toBe(true);
+	});
 });
