@@ -919,8 +919,12 @@ git commit -m "chore: drop chunkSize/practiceDepthLevels from PracticeRepertoire
 
 **Files:**
 - Modify: `src/lib/server/repertoire-progress.ts`
+- Modify: `src/routes/(player)/+page.server.ts`
+- Modify: `src/routes/(player)/+page.svelte`
 
-- [ ] **Step 1: Replace the file's contents**
+**Note:** a code-quality review during Task 3 caught a second consumer of the old level-based `RepertoireProgressSummary` shape that this plan's original task list missed: the player DASHBOARD (`(player)/+page.server.ts`, NOT the practice detail page) computes its "Repertoires mastered" stat card from `r.totalVariations`/`r.level === 'mastered'` — both removed by this task. Fixing it is folded into this same task (Steps 2-3 below) rather than left as a later surprise, since the old fields still exist right up until Step 1 lands.
+
+- [ ] **Step 1: Replace `repertoire-progress.ts`'s contents**
 
 ```ts
 // mychess/src/lib/server/repertoire-progress.ts
@@ -1106,16 +1110,42 @@ export async function loadRepertoireProgressSummaries(
 }
 ```
 
-- [ ] **Step 2: Run the full test suite and type checker**
+- [ ] **Step 2: Fix the dashboard's "Repertoires mastered" stat**
+
+In `src/routes/(player)/+page.server.ts`, change:
+
+```ts
+	const masterableRepertoires = repertoireSummaries.filter((r) => r.totalVariations > 0);
+	const masteredRepertoireCount = masterableRepertoires.filter((r) => r.level === 'mastered').length;
+```
+
+to:
+
+```ts
+	const masterableRepertoires = repertoireSummaries.filter((r) => r.total > 0);
+	const masteredRepertoireCount = masterableRepertoires.filter((r) => r.allSolved).length;
+```
+
+(The comment immediately above this in the file — "A repertoire with no moves yet is vacuously 'mastered'..." — stays accurate as-is; only the field names it refers to change.)
+
+In `src/routes/(player)/+page.svelte`, change the stat card's label from "Repertoires mastered" to "Repertoires solved" (matching this plan's new terminology elsewhere, e.g. `RepertoirePracticeRow.svelte`'s "🏆 Solved" badge):
+
+```svelte
+          <p class="text-xs text-gray-400 mt-0.5">Repertoires solved</p>
+```
+
+Nothing else on this page changes — `stats.mastered_repertoires`/`stats.total_masterable_repertoires`'s own field NAMES stay the same in the returned `stats` object (only what feeds them, above, changes), so the `{#if}`/interpolation lines that read `stats.total_masterable_repertoires`/`stats.mastered_repertoires` need no edit.
+
+- [ ] **Step 3: Run the full test suite and type checker**
 
 Run: `npx vitest run && npm run check`
-Expected: no NEW errors introduced by this task.
+Expected: no NEW errors introduced by this task, across all three files.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add src/lib/server/repertoire-progress.ts
-git commit -m "feat: replace level shape with solved/total counts in repertoire-progress.ts"
+git add src/lib/server/repertoire-progress.ts "src/routes/(player)/+page.server.ts" "src/routes/(player)/+page.svelte"
+git commit -m "feat: replace level shape with solved/total counts in repertoire-progress.ts and the dashboard"
 ```
 
 ---
