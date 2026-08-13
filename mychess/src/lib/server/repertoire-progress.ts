@@ -23,6 +23,19 @@ export type RepertoireProgressSummary = {
 	hasChapters: boolean;
 };
 
+// Supabase/PostgREST caps an unbounded select at `max_rows` (1000, see
+// supabase/config.toml) and truncates silently past that — no error, just
+// fewer rows than actually exist. `.order` makes the pagination
+// deterministic — `.range` alone has no defined traversal order to page
+// through without it. Pages beyond the first are fetched concurrently (see
+// `remainingPageRanges`, shared with `practice-repertoire.ts`) rather than
+// one at a time.
+//
+// Used both for the lazy total-count backfill (repertoires imported before
+// `total_variations` started being cached at import time) and for
+// repertoires this player has excluded at least one variation from, where
+// the cached whole-repertoire count can't be trusted for THIS player's
+// filtered view.
 const MOVES_PAGE_SIZE = 1000;
 
 async function fetchAllMoves(supabase: SupabaseClient, repIds: string[]): Promise<any[]> {
@@ -161,7 +174,9 @@ export async function loadRepertoireProgressSummaries(
 		const excluded = exclusionsByRep.get(r.id);
 		const solved = solvedByRep.get(r.id) ?? new Set<string>();
 
-		const total = excluded ? fullVariationCount - excluded.size : fullVariationCount;
+		const total = excluded
+			? filterVariations(variationsByRep.get(r.id) ?? [], excluded).length
+			: fullVariationCount;
 		const solvedCount = excluded
 			? [...solved].filter((key) => !excluded.has(key)).length
 			: [...solved].length; // stale solved keys (repertoire edited since) simply don't inflate the count below via total's own cap
