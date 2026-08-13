@@ -87,4 +87,21 @@ describe('VariationPicker', () => {
 		await fireEvent.click(screen.getByLabelText('Close'));
 		expect(onclose).toHaveBeenCalled();
 	});
+
+	it('hides excluded variations entirely, so only included ones can be picked', async () => {
+		const mixed = [
+			{ variationKey: 'v1', label: '1.e4 e5 2.Nf3 Nc6 3.Bb5', included: true, chapterName: 'Ruy Lopez', firstMoveSan: 'e4', solved: false },
+			{ variationKey: 'v2', label: '1.e4 e5 2.Nf3 Nc6 3.Bc4', included: false, chapterName: 'Ruy Lopez', firstMoveSan: 'e4', solved: true }
+		];
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => mixed });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(VariationPicker, { props: { repertoireId: 'rep-1', onselect: vi.fn(), onclose: vi.fn() } });
+
+		await waitFor(() => screen.getByText('Ruy Lopez'));
+		await fireEvent.click(screen.getByText('Ruy Lopez'));
+		await fireEvent.click(screen.getByText('e4'));
+
+		expect(screen.getByText('1.e4 e5 2.Nf3 Nc6 3.Bb5')).toBeTruthy();
+		expect(screen.queryByText('1.e4 e5 2.Nf3 Nc6 3.Bc4')).toBeNull();
+	});
 });

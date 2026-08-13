@@ -41,7 +41,7 @@
 	// into one implicit chapter (skips the chapter tier entirely in the
 	// template below) rather than each ungrouped row becoming its own group.
 	const chapters = $derived.by(() => {
-		const rows = variations ?? [];
+		const rows = (variations ?? []).filter((r) => r.included);
 		if (rows.every((r) => r.chapterName === null)) return null;
 		const names: string[] = [];
 		for (const r of rows) {
@@ -52,7 +52,7 @@
 	});
 
 	function rowsForChapter(chapterName: string | null): VariationRow[] {
-		const rows = variations ?? [];
+		const rows = (variations ?? []).filter((r) => r.included);
 		return chapterName === null ? rows : rows.filter((r) => r.chapterName === chapterName);
 	}
 
