@@ -1,7 +1,8 @@
 // mychess/src/lib/mastery/levels.ts
 /**
- * Levels are uniform 3-move chunks with no fixed ceiling: L*n* covers the
- * player's own moves 1 through 3*n*.
+ * Levels are uniform chunks of a configurable size (see `repertoires.chunk_size`,
+ * threaded through every function here as `chunkSize`) with no fixed ceiling:
+ * L*n* covers the player's own moves 1 through *n* * chunkSize.
  */
 export type Level = number;
 
@@ -10,20 +11,18 @@ type VariationLike = {
 	path: { moveId: string; isPlayerTurn: boolean }[];
 };
 
-const MOVES_PER_LEVEL = 3;
-
-export function levelDepth(level: Level): number {
-	return level * MOVES_PER_LEVEL;
+export function levelDepth(level: Level, chunkSize: number): number {
+	return level * chunkSize;
 }
 
 /** The depth this variation must reach at this level — capped by its own natural length. */
-export function targetDepth(variation: { playerMoveCount: number }, level: Level): number {
-	return Math.min(variation.playerMoveCount, levelDepth(level));
+export function targetDepth(variation: { playerMoveCount: number }, level: Level, chunkSize: number): number {
+	return Math.min(variation.playerMoveCount, levelDepth(level, chunkSize));
 }
 
 /** Whether `variation` still has any content left to ask at `level` (i.e. a strictly earlier level hasn't already fully covered it). */
-export function hasContentAtLevel(variation: { playerMoveCount: number }, level: Level): boolean {
-	return variation.playerMoveCount > levelDepth(level - 1);
+export function hasContentAtLevel(variation: { playerMoveCount: number }, level: Level, chunkSize: number): boolean {
+	return variation.playerMoveCount > levelDepth(level - 1, chunkSize);
 }
 
 /**
@@ -32,8 +31,8 @@ export function hasContentAtLevel(variation: { playerMoveCount: number }, level:
  * shared tree, so two variations that reach the same move id here have an
  * identical path up to this depth: solving one solves both.
  */
-export function taskKey(variation: VariationLike, level: Level): string {
-	const target = targetDepth(variation, level);
+export function taskKey(variation: VariationLike, level: Level, chunkSize: number): string {
+	const target = targetDepth(variation, level, chunkSize);
 	let playerMovesSeen = 0;
 	for (const step of variation.path) {
 		if (!step.isPlayerTurn) continue;
@@ -49,11 +48,11 @@ export function taskKey(variation: VariationLike, level: Level): string {
  * covers drops out), deduplicated by `taskKey` — two variations identical
  * up to this level's depth are the same task, since solving one solves both.
  */
-export function levelTaskVariations(variations: VariationLike[], level: Level): VariationLike[] {
-	const relevant = variations.filter((v) => hasContentAtLevel(v, level));
+export function levelTaskVariations(variations: VariationLike[], level: Level, chunkSize: number): VariationLike[] {
+	const relevant = variations.filter((v) => hasContentAtLevel(v, level, chunkSize));
 	const seen = new Map<string, VariationLike>();
 	for (const v of relevant) {
-		const key = taskKey(v, level);
+		const key = taskKey(v, level, chunkSize);
 		if (!seen.has(key)) seen.set(key, v);
 	}
 	return [...seen.values()];
@@ -68,6 +67,6 @@ function maxPlayerMoveCount(variations: VariationLike[]): number {
  * every variation's full length. 0 for an empty variation list (nothing to
  * level).
  */
-export function levelCap(variations: VariationLike[]): number {
-	return Math.ceil(maxPlayerMoveCount(variations) / MOVES_PER_LEVEL);
+export function levelCap(variations: VariationLike[], chunkSize: number): number {
+	return Math.ceil(maxPlayerMoveCount(variations) / chunkSize);
 }

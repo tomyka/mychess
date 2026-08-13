@@ -4,6 +4,7 @@ import { requireAccount } from '$lib/server/auth';
 import { loadFilteredRepertoireVariations } from '$lib/server/practice-repertoire';
 import { loadSyncedLevelProgress, getLastReviewedAt } from '$lib/server/level-progress';
 import { repertoireProgress } from '$lib/mastery/levelProgress';
+import { pickActiveVariation } from '$lib/mastery/variationSequence';
 import { buildPracticeView } from '$lib/mastery/practice';
 
 export const load: PageServerLoad = async ({ params, url, locals }) => {
@@ -13,14 +14,15 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 
 	const { repertoire, variations } = await loadFilteredRepertoireVariations(supabase, user!.id, repertoireId);
 	const maxLevel = repertoire.practiceDepthLevels;
-	const row = await loadSyncedLevelProgress(supabase, user!.id, repertoireId, variations, maxLevel);
-	const { level, totalLevels } = repertoireProgress(variations, row, maxLevel);
+	const chunkSize = repertoire.chunkSize;
+	const row = await loadSyncedLevelProgress(supabase, user!.id, repertoireId, variations, maxLevel, chunkSize);
+	const active = pickActiveVariation(variations, row?.activeVariationKey ?? null);
+	const { level, totalLevels } = repertoireProgress(active ? [active] : [], row, maxLevel, chunkSize);
 
 	// A `?level=N` request only takes effect for a level strictly below the
-	// active one (or any level up to totalLevels once mastered) — anything
-	// else (the active level, a locked level, garbage input) is ignored and
-	// the page falls back to normal training below. This means URL tampering
-	// to peek at a locked level just does nothing, rather than erroring.
+	// active variation's own active level (or any level up to its totalLevels
+	// once IT is mastered) — anything else is ignored and the page falls back
+	// to normal training below.
 	const requestedLevel = Number(url.searchParams.get('level'));
 	const isValidReview =
 		Number.isInteger(requestedLevel) &&
@@ -28,10 +30,7 @@ export const load: PageServerLoad = async ({ params, url, locals }) => {
 		(level === 'mastered' ? requestedLevel <= totalLevels : requestedLevel < level);
 	const reviewLevel = isValidReview ? requestedLevel : null;
 
-	// Only relevant once mastered (see the "Repertoire Mastered" screen's
-	// maintenance-review control) — skip the extra round trip for every
-	// other load, which is the overwhelmingly common case.
 	const lastReviewedAt = level === 'mastered' ? await getLastReviewedAt(supabase, user!.id, repertoireId) : null;
 
-	return { repertoire, lastReviewedAt, ...buildPracticeView(variations, row, reviewLevel, maxLevel) };
+	return { repertoire, lastReviewedAt, ...buildPracticeView(variations, row, reviewLevel, maxLevel, chunkSize) };
 };

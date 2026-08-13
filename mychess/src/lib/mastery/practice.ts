@@ -2,6 +2,7 @@
 import type { Variation, VariationStep } from './variations';
 import { targetDepth, levelDepth, taskKey, levelTaskVariations, hasContentAtLevel, type Level } from './levels';
 import { repertoireProgress, type LevelProgressRow } from './levelProgress';
+import { pickActiveVariation, variationSequenceProgress } from './variationSequence';
 
 // Another move the repertoire allows at some quiz step's exact board position.
 // - 'completes': lands on ANOTHER variation's own target-depth move for the
@@ -47,16 +48,17 @@ export type PracticeAttempt = {
 export function pickQueuedAttempt(
 	variations: Variation[],
 	level: Level,
-	queue: { key: string; status: 'pending' | 'cleared' }[]
+	queue: { key: string; status: 'pending' | 'cleared' }[],
+	chunkSize: number
 ): PracticeAttempt | null {
 	const nextKey = queue.find((entry) => entry.status === 'pending')?.key;
 	if (nextKey === undefined) return null;
 
-	const tasks = levelTaskVariations(variations, level) as Variation[];
-	const variation = tasks.find((v) => taskKey(v, level) === nextKey);
+	const tasks = levelTaskVariations(variations, level, chunkSize) as Variation[];
+	const variation = tasks.find((v) => taskKey(v, level, chunkSize) === nextKey);
 	if (!variation) return null;
 
-	return { variation, targetDepth: targetDepth(variation, level), taskKey: nextKey };
+	return { variation, targetDepth: targetDepth(variation, level, chunkSize), taskKey: nextKey };
 }
 
 /** The `n`th (1-indexed) player-turn step in `path`, or undefined if it has fewer. */
@@ -89,7 +91,8 @@ function alternativesAt(
 	level: Level,
 	playerMoveIndex: number,
 	fromFen: string,
-	canonicalSan: string
+	canonicalSan: string,
+	chunkSize: number
 ): Alternative[] {
 	const found = new Map<string, Alternative>();
 	for (const variation of variations) {
@@ -98,18 +101,18 @@ function alternativesAt(
 		const existing = found.get(step.san);
 		if (existing?.kind === 'completes') continue; // already the best possible classification
 
-		if (!hasContentAtLevel(variation, level)) {
+		if (!hasContentAtLevel(variation, level, chunkSize)) {
 			if (!existing) found.set(step.san, { san: step.san, toFen: step.toFen, moveId: step.moveId, kind: 'dead-end' });
 			continue;
 		}
 
-		if (playerMoveIndex === targetDepth(variation, level)) {
+		if (playerMoveIndex === targetDepth(variation, level, chunkSize)) {
 			found.set(step.san, {
 				san: step.san,
 				toFen: step.toFen,
 				moveId: step.moveId,
 				kind: 'completes',
-				taskKey: taskKey(variation, level)
+				taskKey: taskKey(variation, level, chunkSize)
 			});
 			continue;
 		}
@@ -154,15 +157,16 @@ export function splitAttempt(
 	path: VariationStep[],
 	level: Level,
 	targetDepthValue: number,
-	variations: Variation[]
+	variations: Variation[],
+	chunkSize: number
 ): { prefix: VariationStep[]; quizSteps: QuizStep[] } {
 	const playerIndices: number[] = [];
 	path.forEach((step, i) => {
 		if (step.isPlayerTurn) playerIndices.push(i);
 	});
 
-	const startPoint = levelDepth(Math.max(level - 2, 0)); // moves before this auto-play
-	const previousLevelDepth = levelDepth(level - 1); // review-band ceiling
+	const startPoint = levelDepth(Math.max(level - 2, 0), chunkSize); // moves before this auto-play
+	const previousLevelDepth = levelDepth(level - 1, chunkSize); // review-band ceiling
 	const nextPlayerIdx = playerIndices[startPoint];
 	const targetPlayerIdx = playerIndices[targetDepthValue - 1];
 
@@ -176,7 +180,7 @@ export function splitAttempt(
 	const quizSteps: QuizStep[] = path.slice(nextPlayerIdx, targetPlayerIdx + 1).map((step) => {
 		if (step.isPlayerTurn) playerMovesSeen++;
 		const alternatives = step.isPlayerTurn
-			? alternativesAt(variations, level, playerMovesSeen, step.fromFen, step.san)
+			? alternativesAt(variations, level, playerMovesSeen, step.fromFen, step.san, chunkSize)
 			: [];
 		return {
 			...step,
@@ -200,13 +204,14 @@ export function splitAttempt(
 export function pickReviewAttempt(
 	variations: Variation[],
 	level: Level,
+	chunkSize: number,
 	random: () => number = Math.random
 ): PracticeAttempt | null {
-	const candidates = variations.filter((v) => hasContentAtLevel(v, level));
+	const candidates = variations.filter((v) => hasContentAtLevel(v, level, chunkSize));
 	if (candidates.length === 0) return null;
 
 	const chosen = candidates[Math.floor(random() * candidates.length)];
-	return { variation: chosen, targetDepth: targetDepth(chosen, level), taskKey: taskKey(chosen, level) };
+	return { variation: chosen, targetDepth: targetDepth(chosen, level, chunkSize), taskKey: taskKey(chosen, level, chunkSize) };
 }
 
 export type PracticeView = {
@@ -217,45 +222,68 @@ export type PracticeView = {
 	levelSolvedCount: number;
 	attempt: { prefix: VariationStep[]; quizSteps: QuizStep[]; taskKey: string } | null;
 	reviewLevel: number | null;
+	// "M of N variations mastered" — independent of totalVariations/totalLevels
+	// above, which (once buildPracticeView narrows to `[activeVariation]`)
+	// describe the ACTIVE variation's own level detail, not the whole
+	// repertoire's sequence position. See variationSequence.ts.
+	variationsMastered: number;
+	totalVariationsInSequence: number;
 };
 
 /**
  * Builds the full client-facing practice view — progress summary plus the
- * next attempt to serve — from a repertoire's variations, its (possibly
- * absent) `level_progress` row, and an already-validated `reviewLevel`. This
- * is the one place the detail page's `load` and the attempt/mistake mutation
- * endpoints both build the same response shape from, so a mutation can
- * return the fresh view directly instead of the client having to re-`load()`
- * to get it.
+ * next attempt to serve — from a repertoire's FULL variation set, its
+ * (possibly absent) `level_progress` row, and an already-validated
+ * `reviewLevel`. Resolves which ONE variation is currently active
+ * (`pickActiveVariation`) and narrows every level/queue computation to just
+ * that variation — `variations` itself is only used in full for the
+ * variation-sequence progress count (`variationSequenceProgress`) and to
+ * find the active variation in the first place.
  */
 export function buildPracticeView(
 	variations: Variation[],
 	row: LevelProgressRow | null,
 	reviewLevel: number | null,
-	maxLevel: number
+	maxLevel: number,
+	chunkSize: number
 ): PracticeView {
+	const active = pickActiveVariation(variations, row?.activeVariationKey ?? null);
+	const activeList = active ? [active] : [];
+
 	const { level, totalVariations, totalLevels, levelTaskCount, levelSolvedCount } = repertoireProgress(
-		variations,
+		activeList,
 		row,
-		maxLevel
+		maxLevel,
+		chunkSize
 	);
+	const { variationsMastered, totalVariationsInSequence } = variationSequenceProgress(variations, row, maxLevel, chunkSize);
 
 	let attempt: PracticeView['attempt'] = null;
-	if (reviewLevel !== null) {
-		const picked = pickReviewAttempt(variations, reviewLevel);
+	if (reviewLevel !== null && active) {
+		const picked = pickReviewAttempt(activeList, reviewLevel, chunkSize);
 		if (picked) {
-			const { prefix, quizSteps } = splitAttempt(picked.variation.path, reviewLevel, picked.targetDepth, variations);
+			const { prefix, quizSteps } = splitAttempt(picked.variation.path, reviewLevel, picked.targetDepth, activeList, chunkSize);
 			attempt = { prefix, quizSteps, taskKey: picked.taskKey };
 		}
-	} else if (level !== 'mastered' && row) {
-		const picked = pickQueuedAttempt(variations, level, row.queue);
+	} else if (level !== 'mastered' && row && active) {
+		const picked = pickQueuedAttempt(activeList, level, row.queue, chunkSize);
 		if (picked) {
-			const { prefix, quizSteps } = splitAttempt(picked.variation.path, level, picked.targetDepth, variations);
+			const { prefix, quizSteps } = splitAttempt(picked.variation.path, level, picked.targetDepth, activeList, chunkSize);
 			attempt = { prefix, quizSteps, taskKey: picked.taskKey };
 		}
 	}
 
-	return { level, totalVariations, totalLevels, levelTaskCount, levelSolvedCount, attempt, reviewLevel };
+	return {
+		level,
+		totalVariations,
+		totalLevels,
+		levelTaskCount,
+		levelSolvedCount,
+		attempt,
+		reviewLevel,
+		variationsMastered,
+		totalVariationsInSequence
+	};
 }
 
 /**
@@ -275,14 +303,15 @@ export function continueFromBranch(
 	variations: Variation[],
 	level: Level,
 	variationKey: string,
-	afterPlayerMoveIndex: number
+	afterPlayerMoveIndex: number,
+	chunkSize: number
 ): { quizSteps: QuizStep[]; taskKey: string } | null {
 	const variation = variations.find((v) => v.variationKey === variationKey);
-	if (!variation || !hasContentAtLevel(variation, level)) return null;
+	if (!variation || !hasContentAtLevel(variation, level, chunkSize)) return null;
 
-	const { quizSteps } = splitAttempt(variation.path, level, targetDepth(variation, level), variations);
+	const { quizSteps } = splitAttempt(variation.path, level, targetDepth(variation, level, chunkSize), variations, chunkSize);
 	const cutIndex = quizSteps.findIndex((s) => s.isPlayerTurn && s.playerMoveIndex === afterPlayerMoveIndex);
 	if (cutIndex === -1) return null;
 
-	return { quizSteps: quizSteps.slice(cutIndex + 1), taskKey: taskKey(variation, level) };
+	return { quizSteps: quizSteps.slice(cutIndex + 1), taskKey: taskKey(variation, level, chunkSize) };
 }

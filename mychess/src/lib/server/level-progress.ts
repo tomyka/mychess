@@ -9,11 +9,23 @@ import {
 	type AttemptResult,
 	type LevelProgressRow
 } from '$lib/mastery/levelProgress';
+import { pickActiveVariation, advanceVariationIfMastered } from '$lib/mastery/variationSequence';
 
-type DbRow = { level: number; prev_level_mistakes: number; queue: unknown; version: number };
+type DbRow = {
+	level: number;
+	prev_level_mistakes: number;
+	queue: unknown;
+	version: number;
+	active_variation_key: string | null;
+};
 
 function toRow(r: DbRow): LevelProgressRow {
-	return { level: r.level, prevLevelMistakes: r.prev_level_mistakes, queue: r.queue as LevelProgressRow['queue'] };
+	return {
+		level: r.level,
+		prevLevelMistakes: r.prev_level_mistakes,
+		queue: r.queue as LevelProgressRow['queue'],
+		activeVariationKey: r.active_variation_key
+	};
 }
 
 const MAX_CONFLICT_RETRIES = 5;
@@ -49,7 +61,7 @@ async function mutateLevelProgress(
 	for (let attempt = 0; attempt < MAX_CONFLICT_RETRIES; attempt++) {
 		const { data: existingRaw } = await supabase
 			.from('level_progress')
-			.select('level, prev_level_mistakes, queue, version')
+			.select('level, prev_level_mistakes, queue, version, active_variation_key')
 			.eq('player_id', playerId)
 			.eq('repertoire_id', repertoireId)
 			.maybeSingle();
@@ -66,6 +78,7 @@ async function mutateLevelProgress(
 				level: next.level,
 				prev_level_mistakes: next.prevLevelMistakes,
 				queue: next.queue,
+				active_variation_key: next.activeVariationKey ?? null,
 				version: 0
 			});
 			if (!error) return next;
@@ -78,6 +91,7 @@ async function mutateLevelProgress(
 				level: next.level,
 				prev_level_mistakes: next.prevLevelMistakes,
 				queue: next.queue,
+				active_variation_key: next.activeVariationKey ?? null,
 				version: existingRaw.version + 1
 			})
 			.eq('player_id', playerId)
@@ -93,34 +107,45 @@ async function mutateLevelProgress(
 }
 
 /**
- * Loads a repertoire's level_progress row, creating a fresh Level 1 run if
- * none exists yet, then reconciles it against the repertoire's current
- * content (a coach edit since the last run) — persisting either write.
- * Returns `null` for a repertoire with no variations (vacuously mastered,
- * nothing to track).
+ * Loads a repertoire's level_progress row, creating a fresh Level 1 run
+ * against the first (or resumed) active variation if none exists yet, then
+ * reconciles it against the repertoire's current content — persisting
+ * either write. `advanceVariationIfMastered` runs after every sync so a row
+ * left sitting past its active variation's cap (e.g. the player closed the
+ * tab right after their last correct move) advances to the next variation
+ * on this very load, not just on a future attempt report. Returns `null` for
+ * a repertoire with no variations (vacuously mastered, nothing to track).
  */
 export async function loadSyncedLevelProgress(
 	supabase: SupabaseClient,
 	playerId: string,
 	repertoireId: string,
 	variations: Variation[],
-	maxLevel: number
+	maxLevel: number,
+	chunkSize: number
 ): Promise<LevelProgressRow | null> {
 	if (variations.length === 0) return null;
 
 	return mutateLevelProgress(supabase, playerId, repertoireId, (existing) => {
-		const row = existing ?? { level: 1, prevLevelMistakes: 0, queue: buildQueue(variations, 1) };
-		return syncLevelProgress(row, variations, maxLevel);
+		const active = pickActiveVariation(variations, existing?.activeVariationKey ?? null);
+		if (!active) return null;
+		const row = existing ?? {
+			level: 1,
+			prevLevelMistakes: 0,
+			queue: buildQueue([active], 1, chunkSize),
+			activeVariationKey: active.variationKey
+		};
+		const synced = syncLevelProgress(row, [active], maxLevel, chunkSize);
+		return advanceVariationIfMastered(synced, variations, maxLevel, chunkSize);
 	});
 }
 
 /**
  * Applies a completed Practice attempt's outcome — see
- * `$lib/mastery/levelProgress.ts`'s `resolveAttempt` for the rules. Assumes
- * a row already exists (an attempt can only be reported for a level that
- * was itself served from an existing row); silently no-ops otherwise.
- * Returns the resulting row so the caller can build a fresh `PracticeView`
- * without a separate re-read.
+ * `$lib/mastery/levelProgress.ts`'s `resolveAttempt` for the rules, scoped to
+ * whichever variation is currently active. `advanceVariationIfMastered` runs
+ * afterward so completing a variation's final level immediately switches the
+ * active variation, rather than leaving that switch to the next page load.
  */
 export async function applyAttemptResult(
 	supabase: SupabaseClient,
@@ -128,37 +153,43 @@ export async function applyAttemptResult(
 	repertoireId: string,
 	result: AttemptResult,
 	variations: Variation[],
-	maxLevel: number
+	maxLevel: number,
+	chunkSize: number
 ): Promise<LevelProgressRow | null> {
 	return mutateLevelProgress(supabase, playerId, repertoireId, (existing) => {
 		if (!existing) return null;
-		return resolveAttempt(existing, result, variations, maxLevel);
+		const active = pickActiveVariation(variations, existing.activeVariationKey ?? null);
+		if (!active) return null;
+		const resolved = resolveAttempt(existing, result, [active], maxLevel, chunkSize);
+		return advanceVariationIfMastered(resolved, variations, maxLevel, chunkSize);
 	});
 }
 
 /**
  * Applies a single previous-level-band mistake immediately — see
  * `$lib/mastery/levelProgress.ts`'s `resolvePreviousLevelMistake` for the
- * rules. Called the instant a wrong move lands on review material, not
- * batched until some attempt eventually completes. Returns whether this
- * mistake demoted the level plus the resulting row (so a demotion's caller
- * can build a fresh `PracticeView` without a separate re-read); `null` if no
- * row exists yet (an attempt can only be in progress against an existing
- * row, so this shouldn't normally happen).
+ * rules, scoped to the active variation. `advanceVariationIfMastered` is
+ * applied uniformly afterward for consistency even though a demotion never
+ * masters anything — it's a harmless pass-through in that case, and every
+ * other mutation path already goes through it, so a mistake report doesn't
+ * need its own special case to still carry a correct `activeVariationKey`.
  */
 export async function applyPreviousLevelMistake(
 	supabase: SupabaseClient,
 	playerId: string,
 	repertoireId: string,
 	variations: Variation[],
-	maxLevel: number
+	maxLevel: number,
+	chunkSize: number
 ): Promise<{ demoted: boolean; row: LevelProgressRow } | null> {
 	let demoted = false;
 	const next = await mutateLevelProgress(supabase, playerId, repertoireId, (existing) => {
 		if (!existing) return null;
-		const outcome = resolvePreviousLevelMistake(existing, variations, maxLevel);
+		const active = pickActiveVariation(variations, existing.activeVariationKey ?? null);
+		if (!active) return null;
+		const outcome = resolvePreviousLevelMistake(existing, [active], maxLevel, chunkSize);
 		demoted = outcome.demoted;
-		return outcome.row;
+		return advanceVariationIfMastered(outcome.row, variations, maxLevel, chunkSize);
 	});
 	return next ? { demoted, row: next } : null;
 }
@@ -182,13 +213,12 @@ export async function getLastReviewedAt(
  * Records that a maintenance review session just finished — see
  * `reviewFreshness`. A plain update, not routed through
  * `mutateLevelProgress`'s optimistic-concurrency machinery: `last_reviewed_at`
- * doesn't participate in the level/queue/version invariants that machinery
- * protects (a maintenance review never touches level or queue), so a
- * concurrent write to either can't corrupt this column or vice versa —
- * Postgres's normal row-level locking is all that's needed here. Assumes a
- * row already exists (only reachable from the Mastered screen, which
- * requires one); silently no-ops otherwise via the `.eq` filters matching
- * nothing.
+ * doesn't participate in the level/queue/version/active-variation invariants
+ * that machinery protects, so a concurrent write to any of those can't
+ * corrupt this column or vice versa — Postgres's normal row-level locking is
+ * all that's needed here. Assumes a row already exists (only reachable from
+ * the Mastered screen, which requires one); silently no-ops otherwise via the
+ * `.eq` filters matching nothing.
  */
 export async function recordMaintenanceReview(
 	supabase: SupabaseClient,

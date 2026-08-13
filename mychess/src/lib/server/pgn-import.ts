@@ -7,6 +7,12 @@ import { fetchAllMoves, toRawMoveRows } from './practice-repertoire';
 
 export type GameImportResult = { repertoireId: string | null; gameCount: number; error: string | null };
 
+// Matches repertoires.chunk_size's db default (see migration 0044) — shape is
+// cached at import time, before a repertoire row (and its chunk_size) exists
+// yet, so there's no per-repertoire value to read here. Only relevant until a
+// future UI lets a player set chunk_size at import time.
+const DEFAULT_CHUNK_SIZE = 3;
+
 /**
  * Splits values into batches whose combined length stays under `maxChars`.
  * Used to keep a `.in('col', batch)` filter's URL-encoded query string under
@@ -134,7 +140,7 @@ export async function writeMoves(
         chapterName: null
       }));
       const variations = enumerateVariations(rawMoves);
-      const shape = repertoireShape(variations);
+      const shape = repertoireShape(variations, DEFAULT_CHUNK_SIZE);
       insertColumns.total_variations = shape.totalVariations;
       insertColumns.total_levels = shape.totalLevels;
       insertColumns.level1_task_count = shape.level1TaskCount;
@@ -232,7 +238,7 @@ export async function writeMoves(
     const allMoves = await fetchAllMoves(supabase, repId);
     const rawMoves: RawMoveRow[] = toRawMoveRows(allMoves);
     const variations = enumerateVariations(rawMoves);
-    const shape = repertoireShape(variations);
+    const shape = repertoireShape(variations, DEFAULT_CHUNK_SIZE);
     const { error: shapeErr } = await supabase
       .from('repertoires')
       .update({

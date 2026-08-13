@@ -3,7 +3,19 @@ import type { Variation } from './variations';
 import { levelCap, levelTaskVariations, taskKey, type Level } from './levels';
 
 export type QueueEntry = { key: string; status: 'pending' | 'cleared' };
-export type LevelProgressRow = { level: number; prevLevelMistakes: number; queue: QueueEntry[] };
+export type LevelProgressRow = {
+	level: number;
+	prevLevelMistakes: number;
+	queue: QueueEntry[];
+	// Which ONE variation level/queue currently track — see
+	// src/lib/mastery/variationSequence.ts (Task 4). Optional (not required) so
+	// the many pre-existing test fixtures across this file and practice.test.ts
+	// that hand-construct rows without caring about sequencing don't all need
+	// updating — an omitted value is treated identically to `null`
+	// (`pickActiveVariation` falls back to the first variation) everywhere
+	// it's read.
+	activeVariationKey?: string | null;
+};
 export type AttemptResult = {
 	taskKey: string;
 	hadMistake: boolean;
@@ -43,11 +55,11 @@ export type RepertoireShape = {
 	level1TaskCount: number;
 };
 
-export function repertoireShape(variations: Variation[]): RepertoireShape {
+export function repertoireShape(variations: Variation[], chunkSize: number): RepertoireShape {
 	return {
 		totalVariations: variations.length,
-		totalLevels: levelCap(variations),
-		level1TaskCount: levelTaskVariations(variations, 1).length
+		totalLevels: levelCap(variations, chunkSize),
+		level1TaskCount: levelTaskVariations(variations, 1, chunkSize).length
 	};
 }
 
@@ -59,8 +71,8 @@ export function repertoireShape(variations: Variation[]): RepertoireShape {
  * the player can raise later to reveal deeper content that was there all
  * along, not a limit on what's stored.
  */
-export function effectiveLevelCap(variations: Variation[], maxLevel: number): number {
-	return Math.min(levelCap(variations), maxLevel);
+export function effectiveLevelCap(variations: Variation[], maxLevel: number, chunkSize: number): number {
+	return Math.min(levelCap(variations, chunkSize), maxLevel);
 }
 
 const DEMOTION_THRESHOLD = 3;
@@ -69,9 +81,10 @@ const DEMOTION_THRESHOLD = 3;
 export function buildQueue(
 	variations: Variation[],
 	level: Level,
+	chunkSize: number,
 	random: () => number = Math.random
 ): QueueEntry[] {
-	const keys = levelTaskVariations(variations, level).map((v) => taskKey(v, level));
+	const keys = levelTaskVariations(variations, level, chunkSize).map((v) => taskKey(v, level, chunkSize));
 	for (let i = keys.length - 1; i > 0; i--) {
 		const j = Math.floor(random() * (i + 1));
 		[keys[i], keys[j]] = [keys[j], keys[i]];
@@ -85,8 +98,8 @@ export function buildQueue(
  * are dropped; newly-appearing tasks are appended as pending. Existing
  * entries (and their `cleared`/`pending` status) keep their position.
  */
-export function reconcileQueue(queue: QueueEntry[], variations: Variation[], level: Level): QueueEntry[] {
-	const freshKeys = new Set(levelTaskVariations(variations, level).map((v) => taskKey(v, level)));
+export function reconcileQueue(queue: QueueEntry[], variations: Variation[], level: Level, chunkSize: number): QueueEntry[] {
+	const freshKeys = new Set(levelTaskVariations(variations, level, chunkSize).map((v) => taskKey(v, level, chunkSize)));
 	const kept = queue.filter((entry) => freshKeys.has(entry.key));
 	const keptKeys = new Set(kept.map((entry) => entry.key));
 	const added = [...freshKeys]
@@ -109,12 +122,13 @@ function advanceIfCleared(
 	row: LevelProgressRow,
 	variations: Variation[],
 	cap: number,
+	chunkSize: number,
 	random: () => number
 ): LevelProgressRow {
 	if (!isFullyCleared(row.queue)) return row;
 	const nextLevel = row.level + 1;
 	if (nextLevel > cap) return { ...row, level: nextLevel, prevLevelMistakes: 0 };
-	return { level: nextLevel, prevLevelMistakes: 0, queue: buildQueue(variations, nextLevel, random) };
+	return { ...row, level: nextLevel, prevLevelMistakes: 0, queue: buildQueue(variations, nextLevel, chunkSize, random) };
 }
 
 /**
@@ -127,12 +141,13 @@ export function syncLevelProgress(
 	row: LevelProgressRow,
 	variations: Variation[],
 	maxLevel: number,
+	chunkSize: number,
 	random: () => number = Math.random
 ): LevelProgressRow {
-	const cap = effectiveLevelCap(variations, maxLevel);
+	const cap = effectiveLevelCap(variations, maxLevel, chunkSize);
 	if (row.level > cap) return row; // already mastered — nothing to reconcile
-	const reconciled = { ...row, queue: reconcileQueue(row.queue, variations, row.level) };
-	return advanceIfCleared(reconciled, variations, cap, random);
+	const reconciled = { ...row, queue: reconcileQueue(row.queue, variations, row.level, chunkSize) };
+	return advanceIfCleared(reconciled, variations, cap, chunkSize, random);
 }
 
 /**
@@ -148,9 +163,10 @@ export function resolveAttempt(
 	result: AttemptResult,
 	variations: Variation[],
 	maxLevel: number,
+	chunkSize: number,
 	random: () => number = Math.random
 ): LevelProgressRow {
-	const cap = effectiveLevelCap(variations, maxLevel);
+	const cap = effectiveLevelCap(variations, maxLevel, chunkSize);
 	if (row.level > cap) return row; // already mastered — a stale/replayed report is a no-op
 	if (!row.queue.some((entry) => entry.key === result.taskKey)) return row; // stale/unrecognized task — no-op
 
@@ -171,7 +187,7 @@ export function resolveAttempt(
 		if (abandoned) reordered = [...reordered.filter((e) => e !== abandoned), abandoned];
 	}
 
-	return advanceIfCleared({ ...row, queue: reordered }, variations, cap, random);
+	return advanceIfCleared({ ...row, queue: reordered }, variations, cap, chunkSize, random);
 }
 
 /**
@@ -188,16 +204,17 @@ export function resolvePreviousLevelMistake(
 	row: LevelProgressRow,
 	variations: Variation[],
 	maxLevel: number,
+	chunkSize: number,
 	random: () => number = Math.random
 ): MistakeOutcome {
-	const cap = effectiveLevelCap(variations, maxLevel);
+	const cap = effectiveLevelCap(variations, maxLevel, chunkSize);
 	if (row.level > cap || row.level <= 1) return { row, demoted: false };
 
 	const prevLevelMistakes = row.prevLevelMistakes + 1;
 	if (prevLevelMistakes >= DEMOTION_THRESHOLD) {
 		const demotedLevel = row.level - 1;
 		return {
-			row: { level: demotedLevel, prevLevelMistakes: 0, queue: buildQueue(variations, demotedLevel, random) },
+			row: { ...row, level: demotedLevel, prevLevelMistakes: 0, queue: buildQueue(variations, demotedLevel, chunkSize, random) },
 			demoted: true
 		};
 	}
@@ -244,9 +261,10 @@ export function repertoireProgressFromShape(shape: RepertoireShape, row: LevelPr
 export function repertoireProgress(
 	variations: Variation[],
 	row: LevelProgressRow | null,
-	maxLevel: number
+	maxLevel: number,
+	chunkSize: number
 ): RepertoireProgress {
-	const shape = repertoireShape(variations);
+	const shape = repertoireShape(variations, chunkSize);
 	return repertoireProgressFromShape({ ...shape, totalLevels: Math.min(shape.totalLevels, maxLevel) }, row);
 }
 
