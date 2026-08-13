@@ -1,6 +1,6 @@
 <!-- mychess/src/lib/components/RepertoirePracticeRow.svelte -->
 <script lang="ts">
-	import { groupByFirstMove, type MoveGroup } from '$lib/mastery/variations';
+	import { groupByBranchPoint, moveSequenceLabel, type MoveGroup, type VariationStep } from '$lib/mastery/variations';
 
 	type RepSummary = {
 		id: string;
@@ -24,7 +24,7 @@
 		label: string;
 		included: boolean;
 		chapterName: string | null;
-		firstMoveSan: string | null;
+		path: VariationStep[];
 	};
 
 	let { rep }: { rep: RepSummary } = $props();
@@ -37,10 +37,10 @@
 	let errorMessage = $state<string | null>(null);
 	// Keyed by toggle scope ('__all__' for the repertoire-level checkbox,
 	// `chapter:{chapterName}` for a chapter's own checkbox, or
-	// `moveGroup:{chapterName}::{move}` for a move-group bucket's own
-	// checkbox) — the set of variationKeys that were included right before
-	// that scope's checkbox last bulk-excluded everything, so re-checking it
-	// restores exactly that selection instead of blanket-including everything.
+	// `moveGroup:{groupKey}` for a move-group bucket's own checkbox) — the
+	// set of variationKeys that were included right before that scope's
+	// checkbox last bulk-excluded everything, so re-checking it restores
+	// exactly that selection instead of blanket-including everything.
 	// Independent per scope: bulk-excluding one bucket never touches another
 	// bucket's, chapter's, or the repertoire-level checkbox's own snapshot.
 	let snapshots = $state<Map<string, Set<string>>>(new Map());
@@ -48,10 +48,12 @@
 	// A Set (not a single value) since this is a checklist screen, not a
 	// pick-one wizard — more than one chapter can reasonably be open at once.
 	let openChapters = $state<Set<string>>(new Set());
-	// Move-group buckets currently drilled into to show their individual
-	// variations, keyed by `moveGroupKey` (chapter + move) so the same first
-	// move bucketed under two different chapters — or under the flat,
-	// chapterless pool — never collide.
+	// Move-group buckets currently drilled into, keyed by `groupKey` (the
+	// sorted variationKeys inside it) rather than a move string — grouping
+	// can now nest arbitrarily deep (a bucket may itself contain further
+	// sub-buckets), so there's no fixed "chapter + move" pair to key by; the
+	// exact membership of a bucket uniquely identifies it regardless of how
+	// deep it sits.
 	let openMoveGroups = $state<Set<string>>(new Set());
 
 	const checkedCount = $derived(
@@ -81,20 +83,20 @@
 		return chapterName === null ? rows : rows.filter((r) => r.chapterName === chapterName);
 	}
 
-	// Reuses the exact same bucketing algorithm VariationPicker uses (Task 2's
-	// groupByFirstMove), so the grouping rule and its tie-breaking behavior
-	// are defined in exactly one place, not reimplemented here.
-	function moveGroups(chapterName: string | null): MoveGroup<VariationRow>[] {
-		return groupByFirstMove(rowsForChapter(chapterName), (r) => r.firstMoveSan, TOP_N);
+	function stepsOf(row: VariationRow): VariationStep[] {
+		return row.path;
 	}
 
-	function moveGroupKey(chapterName: string | null, move: string | null): string {
-		return `${chapterName ?? ''}::${move ?? ''}`;
+	/** A stable identifier for a move-group bucket, independent of how deep it sits — its exact variation membership. */
+	function groupKey(group: MoveGroup<VariationRow>): string {
+		return group.items
+			.map((v) => v.variationKey)
+			.sort()
+			.join('|');
 	}
 
-	/** Qualifies a move-group's own label/aria-text with its parent chapter (or the repertoire name, when there's no chapter tier) so two same-named buckets never read identically. */
-	function moveGroupQualifier(chapterName: string | null): string {
-		return chapterName ?? rep.name;
+	function groupLabel(group: MoveGroup<VariationRow>): string {
+		return group.steps.length > 0 ? moveSequenceLabel(group.steps) : 'Other';
 	}
 
 	function indeterminate(node: HTMLInputElement, value: boolean) {
@@ -254,11 +256,59 @@
 		return toggleGroup(`chapter:${chapterName}`, (v) => v.chapterName === chapterName);
 	}
 
-	function toggleMoveGroup(chapterName: string | null, group: MoveGroup<VariationRow>) {
+	function toggleMoveGroup(group: MoveGroup<VariationRow>) {
 		const keys = new Set(group.items.map((r) => r.variationKey));
-		return toggleGroup(`moveGroup:${moveGroupKey(chapterName, group.move)}`, (row) => keys.has(row.variationKey));
+		return toggleGroup(`moveGroup:${groupKey(group)}`, (row) => keys.has(row.variationKey));
 	}
 </script>
+
+{#snippet moveGroupList(items: VariationRow[], depth: number, qualifier: string)}
+	{#each groupByBranchPoint(items, stepsOf, depth, TOP_N) as group (groupKey(group))}
+		{#if group.items.length === 1}
+			<li>
+				<label class="flex items-center gap-2 text-sm text-gray-700">
+					<input
+						type="checkbox"
+						checked={group.items[0].included}
+						onchange={() => toggleVariation(group.items[0].variationKey)}
+					/>
+					{group.items[0].label}
+				</label>
+			</li>
+		{:else}
+			<li>
+				<div class="flex items-center gap-2 mt-2">
+					<label class="flex items-center shrink-0">
+						<input
+							type="checkbox"
+							checked={aggregateState(group.items) === 'checked'}
+							use:indeterminate={aggregateState(group.items) === 'indeterminate'}
+							onchange={() => toggleMoveGroup(group)}
+							aria-label={`Include ${groupLabel(group)} in ${qualifier} in practice`}
+						/>
+					</label>
+					<button
+						type="button"
+						onclick={() => toggleMoveGroupOpen(groupKey(group))}
+						aria-label={`${openMoveGroups.has(groupKey(group)) ? 'Collapse' : 'Expand'} ${groupLabel(group)} in ${qualifier}`}
+						class="text-gray-400 shrink-0 w-4"
+					>
+						{openMoveGroups.has(groupKey(group)) ? '▾' : '▸'}
+					</button>
+					<span class="text-sm font-medium text-gray-600">
+						{groupLabel(group)}
+						<span class="text-gray-400 font-normal">· {group.items.length} {group.items.length === 1 ? 'line' : 'lines'}</span>
+					</span>
+				</div>
+				{#if openMoveGroups.has(groupKey(group))}
+					<ul class="pl-6 mt-1 space-y-1">
+						{@render moveGroupList(group.items, group.depth, `${groupLabel(group)} in ${qualifier}`)}
+					</ul>
+				{/if}
+			</li>
+		{/if}
+	{/each}
+{/snippet}
 
 <li class="bg-white rounded-xl border border-gray-200 shadow-sm">
 	<div class="flex items-center gap-3 p-4">
@@ -309,49 +359,7 @@
 			{#if loadingVariations}
 				<li class="text-sm text-gray-400">Loading variations…</li>
 			{:else if chapters === null}
-				{#each moveGroups(null) as group (group.move ?? '__other__')}
-					<li>
-						<div class="flex items-center gap-2 mt-2">
-							<label class="flex items-center shrink-0">
-								<input
-									type="checkbox"
-									checked={aggregateState(group.items) === 'checked'}
-									use:indeterminate={aggregateState(group.items) === 'indeterminate'}
-									onchange={() => toggleMoveGroup(null, group)}
-									aria-label={`Include ${group.move ?? 'Other'} in ${moveGroupQualifier(null)} in practice`}
-								/>
-							</label>
-							<button
-								type="button"
-								onclick={() => toggleMoveGroupOpen(moveGroupKey(null, group.move))}
-								aria-label={`${openMoveGroups.has(moveGroupKey(null, group.move)) ? 'Collapse' : 'Expand'} ${group.move ?? 'Other'} in ${moveGroupQualifier(null)}`}
-								class="text-gray-400 shrink-0 w-4"
-							>
-								{openMoveGroups.has(moveGroupKey(null, group.move)) ? '▾' : '▸'}
-							</button>
-							<span class="text-sm font-medium text-gray-600">
-								{group.move ?? 'Other'}
-								<span class="text-gray-400 font-normal">· {group.items.length} {group.items.length === 1 ? 'line' : 'lines'}</span>
-							</span>
-						</div>
-						{#if openMoveGroups.has(moveGroupKey(null, group.move))}
-							<ul class="pl-6 mt-1 space-y-1">
-								{#each group.items as variation (variation.variationKey)}
-									<li>
-										<label class="flex items-center gap-2 text-sm text-gray-700">
-											<input
-												type="checkbox"
-												checked={variation.included}
-												onchange={() => toggleVariation(variation.variationKey)}
-											/>
-											{variation.label}
-										</label>
-									</li>
-								{/each}
-							</ul>
-						{/if}
-					</li>
-				{/each}
+				{@render moveGroupList(variations ?? [], 0, rep.name)}
 			{:else}
 				{#each chapters as chapterName (chapterName)}
 					<li>
@@ -382,49 +390,7 @@
 						</div>
 						{#if openChapters.has(chapterName)}
 							<ul class="pl-6 mt-1 space-y-1">
-								{#each moveGroups(chapterName) as group (group.move ?? '__other__')}
-									<li>
-										<div class="flex items-center gap-2">
-											<label class="flex items-center shrink-0">
-												<input
-													type="checkbox"
-													checked={aggregateState(group.items) === 'checked'}
-													use:indeterminate={aggregateState(group.items) === 'indeterminate'}
-													onchange={() => toggleMoveGroup(chapterName, group)}
-													aria-label={`Include ${group.move ?? 'Other'} in ${moveGroupQualifier(chapterName)} in practice`}
-												/>
-											</label>
-											<button
-												type="button"
-												onclick={() => toggleMoveGroupOpen(moveGroupKey(chapterName, group.move))}
-												aria-label={`${openMoveGroups.has(moveGroupKey(chapterName, group.move)) ? 'Collapse' : 'Expand'} ${group.move ?? 'Other'} in ${moveGroupQualifier(chapterName)}`}
-												class="text-gray-400 shrink-0 w-4"
-											>
-												{openMoveGroups.has(moveGroupKey(chapterName, group.move)) ? '▾' : '▸'}
-											</button>
-											<span class="text-sm font-medium text-gray-600">
-												{group.move ?? 'Other'}
-												<span class="text-gray-400 font-normal">· {group.items.length} {group.items.length === 1 ? 'line' : 'lines'}</span>
-											</span>
-										</div>
-										{#if openMoveGroups.has(moveGroupKey(chapterName, group.move))}
-											<ul class="pl-6 mt-1 space-y-1">
-												{#each group.items as variation (variation.variationKey)}
-													<li>
-														<label class="flex items-center gap-2 text-sm text-gray-700">
-															<input
-																type="checkbox"
-																checked={variation.included}
-																onchange={() => toggleVariation(variation.variationKey)}
-															/>
-															{variation.label}
-														</label>
-													</li>
-												{/each}
-											</ul>
-										{/if}
-									</li>
-								{/each}
+								{@render moveGroupList(rowsForChapter(chapterName), 0, chapterName)}
 							</ul>
 						{/if}
 					</li>

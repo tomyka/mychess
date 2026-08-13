@@ -1,13 +1,13 @@
 <!-- mychess/src/lib/components/VariationPicker.svelte -->
 <script lang="ts">
-	import { groupByFirstMove, type MoveGroup } from '$lib/mastery/variations';
+	import { groupByBranchPoint, moveSequenceLabel, type MoveGroup, type VariationStep } from '$lib/mastery/variations';
 
 	type VariationRow = {
 		variationKey: string;
 		label: string;
 		included: boolean;
 		chapterName: string | null;
-		firstMoveSan: string | null;
+		path: VariationStep[];
 		solved: boolean;
 	};
 
@@ -18,12 +18,18 @@
 
 	let variations = $state<VariationRow[] | null>(null);
 	let openChapter = $state<string | null>(null);
-	// Index into the currently-shown move-group list, not the move string
-	// itself — an index cleanly distinguishes "nothing opened yet" (`null`)
-	// from "the Other bucket is opened" (`move: null`, but a real index),
-	// which two `string | null` values pointing at the same `null` couldn't.
-	let openGroupIndex = $state<number | null>(null);
+	// Move-group buckets drilled into so far, within the current chapter (or
+	// the whole repertoire, when there's no chapter tier) — "Back" pops the
+	// last entry. Unlike a fixed single-ply grouping, a bucket can represent
+	// several plies at once (a forced run collapsed into one label), so
+	// there's no fixed number of tiers to model as separate state variables;
+	// a stack handles however deep any given line actually branches.
+	let groupStack = $state<MoveGroup<VariationRow>[]>([]);
 	let errorMessage = $state<string | null>(null);
+
+	function stepsOf(row: VariationRow): VariationStep[] {
+		return row.path;
+	}
 
 	async function load() {
 		try {
@@ -56,18 +62,35 @@
 		return chapterName === null ? rows : rows.filter((r) => r.chapterName === chapterName);
 	}
 
-	// Reuses the exact same bucketing algorithm groupVariationsByFirstMove
-	// wraps for Variation[] (Task 2) — here applied directly to this
-	// endpoint's VariationRow[] via its own firstMoveSan field, so the
-	// grouping rule (and its tie-breaking behavior) is defined in exactly
-	// one place, not reimplemented against a second shape.
-	function moveGroups(chapterName: string | null): MoveGroup<VariationRow>[] {
-		return groupByFirstMove(rowsForChapter(chapterName), (r) => r.firstMoveSan, TOP_N);
+	const activeChapter = $derived(chapters === null ? null : openChapter);
+
+	// The move-group buckets to show right now: the top of `groupStack` if
+	// we've drilled in at least once, otherwise a fresh grouping of the
+	// active chapter's (or the whole repertoire's) own variations.
+	const currentGroups = $derived.by<MoveGroup<VariationRow>[]>(() => {
+		if (activeChapter === null && chapters !== null) return []; // still at the chapter-list tier
+		const top = groupStack[groupStack.length - 1];
+		return top
+			? groupByBranchPoint(top.items, stepsOf, top.depth, TOP_N)
+			: groupByBranchPoint(rowsForChapter(activeChapter), stepsOf, 0, TOP_N);
+	});
+
+	function openChapterTier(chapterName: string) {
+		openChapter = chapterName;
+		groupStack = [];
 	}
 
-	const activeChapter = $derived(chapters === null ? null : openChapter);
-	const currentGroups = $derived(activeChapter !== null || chapters === null ? moveGroups(activeChapter) : []);
-	const openGroup = $derived(openGroupIndex !== null ? currentGroups[openGroupIndex] ?? null : null);
+	function drillInto(group: MoveGroup<VariationRow>) {
+		groupStack = [...groupStack, group];
+	}
+
+	function goBack() {
+		if (groupStack.length > 0) {
+			groupStack = groupStack.slice(0, -1);
+		} else {
+			openChapter = null;
+		}
+	}
 </script>
 
 <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
@@ -83,34 +106,30 @@
 			{:else}
 				<p class="text-sm text-gray-400">Loading…</p>
 			{/if}
-		{:else if openGroup}
-			<button onclick={() => (openGroupIndex = null)} class="text-indigo-600 text-sm mb-2 hover:underline">← Back</button>
-			<ul class="space-y-1">
-				{#each openGroup.items as row (row.variationKey)}
-					<li>
-						<button
-							onclick={() => onselect(row.variationKey)}
-							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-gray-700 flex items-center justify-between"
-						>
-							<span>{row.label}</span>
-							{#if row.solved}<span class="text-green-600 text-sm">✓</span>{/if}
-						</button>
-					</li>
-				{/each}
-			</ul>
 		{:else if activeChapter !== null || chapters === null}
-			{#if chapters !== null}
-				<button onclick={() => (openChapter = null)} class="text-indigo-600 text-sm mb-2 hover:underline">← Back</button>
+			{#if activeChapter !== null || groupStack.length > 0}
+				<button onclick={goBack} class="text-indigo-600 text-sm mb-2 hover:underline">← Back</button>
 			{/if}
 			<ul class="space-y-1">
-				{#each currentGroups as group, i (group.move ?? `other-${i}`)}
+				{#each currentGroups as group, i (group.items.length === 1 ? group.items[0].variationKey : `${group.depth}-${group.steps.map((s) => s.san).join(' ')}-${i}`)}
 					<li>
-						<button
-							onclick={() => (openGroupIndex = i)}
-							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 font-medium text-gray-800"
-						>
-							{group.move ?? 'Other'} <span class="text-gray-400 text-sm">({group.items.length})</span>
-						</button>
+						{#if group.items.length === 1}
+							<button
+								onclick={() => onselect(group.items[0].variationKey)}
+								class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-gray-700 flex items-center justify-between"
+							>
+								<span>{group.items[0].label}</span>
+								{#if group.items[0].solved}<span class="text-green-600 text-sm">✓</span>{/if}
+							</button>
+						{:else}
+							<button
+								onclick={() => drillInto(group)}
+								class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 font-medium text-gray-800"
+							>
+								{group.steps.length > 0 ? moveSequenceLabel(group.steps) : 'Other'}
+								<span class="text-gray-400 text-sm">({group.items.length})</span>
+							</button>
+						{/if}
 					</li>
 				{/each}
 			</ul>
@@ -119,7 +138,7 @@
 				{#each chapters ?? [] as chapterName (chapterName)}
 					<li>
 						<button
-							onclick={() => (openChapter = chapterName)}
+							onclick={() => openChapterTier(chapterName)}
 							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 font-medium text-gray-800"
 						>
 							{chapterName}

@@ -138,56 +138,106 @@ export function moveSequenceLabel(path: VariationStep[]): string {
 }
 
 export type MoveGroup<T> = {
-	// null identifies the "Other" bucket — every item whose first move didn't
-	// make the top N by frequency.
-	move: string | null;
+	// The step sequence shared by every item in this group, consumed since
+	// wherever the caller last drilled in — spans more than one ply when
+	// everything here agreed on the next move for a while before hitting a
+	// real fork (or running out of moves). Empty for the "Other" catch-all
+	// bucket, since its members don't share a next move by definition, and
+	// for a leaf item that already ended exactly where a sibling still
+	// continues.
+	steps: VariationStep[];
 	items: T[];
+	// How many leading steps of `stepsOf(item)` this group has now fully
+	// consumed (including everything already consumed before this call) —
+	// pass straight back in as `depth` to drill one level deeper into this
+	// group's own items.
+	depth: number;
 };
 
 /**
- * Buckets `items` by whatever `firstMoveOf` returns for each one, keeping
- * only the `topN` most frequent distinct first moves as their own named
- * groups (in descending frequency order) and collapsing everything else into
- * one trailing "Other" group (`move: null`) — omitted entirely if nothing
- * landed there. Ties in frequency are broken by first-appearance order in
- * `items` (stable, deterministic — `Array.prototype.sort` is
- * spec-guaranteed stable), so re-running this against the same input always
- * produces the same grouping.
+ * How far `items` can be walked forward in lockstep from `depth`, stopping
+ * the instant either (a) some item runs out of steps, or (b) they disagree
+ * on the next one — i.e. the first point past `depth` where this exact pool
+ * can no longer be treated as one undifferentiated group. Returns `depth`
+ * itself if nothing could be walked at all (already exhausted or forked
+ * right here).
  */
-export function groupByFirstMove<T>(
+function extendUnanimousRun<T>(items: T[], stepsOf: (item: T) => VariationStep[], depth: number): number {
+	let d = depth;
+	while (true) {
+		if (items.some((item) => stepsOf(item).length <= d)) return d;
+		const moves = new Set(items.map((item) => stepsOf(item)[d].san));
+		if (moves.size !== 1) return d;
+		d++;
+	}
+}
+
+/**
+ * Groups `items` by where their future moves actually diverge, rather than
+ * by a fixed single ply — a long run every remaining item agrees on
+ * collapses into one group (label spanning however many plies were forced),
+ * so a repertoire that's one deep, mostly-forced line doesn't present a
+ * useless single "choice" at move one. Call again on a returned group's own
+ * `items` (passing its `depth` back in) to drill one level deeper; a group
+ * whose `items.length` is 1 has nothing further to reveal and should be
+ * rendered as a leaf, not drilled into again.
+ *
+ * A call either:
+ * - returns ONE group (the whole shared run from `depth` to wherever it
+ *   first stops), still holding every item together, deferring the actual
+ *   fork/leaf split to whoever drills into it next; or
+ * - lands directly on a fork or an early-ending item and returns the
+ *   already-partitioned branches, each extended as far as ITS OWN items
+ *   still agree (so a branch uniquely followed by more forced moves gets
+ *   them folded into its own label, instead of costing an extra empty
+ *   drill-down step) — capped at the `topN` most frequent branches by item
+ *   count, with everything else collapsed into a trailing "Other" group
+ *   (`steps: []`) omitted entirely if nothing landed there. Ties in
+ *   frequency are broken by first-appearance order (stable, deterministic).
+ */
+export function groupByBranchPoint<T>(
 	items: T[],
-	firstMoveOf: (item: T) => string | null,
+	stepsOf: (item: T) => VariationStep[],
+	depth: number,
 	topN: number
 ): MoveGroup<T>[] {
+	if (items.length === 0) return [];
+
+	const extendedDepth = extendUnanimousRun(items, stepsOf, depth);
+	if (extendedDepth > depth) {
+		return [{ steps: stepsOf(items[0]).slice(depth, extendedDepth), items, depth: extendedDepth }];
+	}
+
+	const exhausted = items.filter((item) => stepsOf(item).length <= depth);
+	const active = items.filter((item) => stepsOf(item).length > depth);
+
 	const firstAppearanceOrder: string[] = [];
-	const counts = new Map<string, number>();
-	for (const item of items) {
-		const san = firstMoveOf(item);
-		if (!san) continue;
-		if (!counts.has(san)) firstAppearanceOrder.push(san);
-		counts.set(san, (counts.get(san) ?? 0) + 1);
+	const buckets = new Map<string, T[]>();
+	for (const item of active) {
+		const move = stepsOf(item)[depth].san;
+		if (!buckets.has(move)) {
+			firstAppearanceOrder.push(move);
+			buckets.set(move, []);
+		}
+		buckets.get(move)!.push(item);
 	}
 
 	const topMoves = firstAppearanceOrder
 		.slice()
-		.sort((a, b) => counts.get(b)! - counts.get(a)!)
+		.sort((a, b) => buckets.get(b)!.length - buckets.get(a)!.length)
 		.slice(0, topN);
 	const topMoveSet = new Set(topMoves);
 
-	const groups: MoveGroup<T>[] = topMoves.map((move) => ({ move, items: [] }));
-	const groupByMove = new Map(groups.map((g) => [g.move, g]));
-	const other: MoveGroup<T> = { move: null, items: [] };
+	const namedGroups: MoveGroup<T>[] = topMoves.map((move) => {
+		const branchItems = buckets.get(move)!;
+		const branchDepth = extendUnanimousRun(branchItems, stepsOf, depth + 1);
+		return { steps: stepsOf(branchItems[0]).slice(depth, branchDepth), items: branchItems, depth: branchDepth };
+	});
 
-	for (const item of items) {
-		const san = firstMoveOf(item);
-		const target = san && topMoveSet.has(san) ? groupByMove.get(san)! : other;
-		target.items.push(item);
-	}
+	const otherItems = firstAppearanceOrder.filter((m) => !topMoveSet.has(m)).flatMap((m) => buckets.get(m)!);
+	const otherGroup: MoveGroup<T> | null = otherItems.length > 0 ? { steps: [], items: otherItems, depth } : null;
 
-	return other.items.length > 0 ? [...groups, other] : groups;
-}
+	const leafGroups: MoveGroup<T>[] = exhausted.map((item) => ({ steps: [], items: [item], depth }));
 
-/** `groupByFirstMove` specialized for `Variation[]`, using each variation's own first move (`path[0].san`). */
-export function groupVariationsByFirstMove(variations: Variation[], topN: number): MoveGroup<Variation>[] {
-	return groupByFirstMove(variations, (v) => v.path[0]?.san ?? null, topN);
+	return [...leafGroups, ...namedGroups, ...(otherGroup ? [otherGroup] : [])];
 }

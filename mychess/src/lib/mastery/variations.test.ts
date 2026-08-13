@@ -2,11 +2,12 @@ import { describe, it, expect } from 'vitest';
 import {
 	enumerateVariations,
 	filterVariations,
-	groupVariationsByFirstMove,
+	groupByBranchPoint,
 	hasChapterTags,
 	moveSequenceLabel,
 	type RawMoveRow,
-	type Variation
+	type Variation,
+	type VariationStep
 } from './variations';
 
 function move(
@@ -220,57 +221,117 @@ describe('moveSequenceLabel', () => {
 	});
 });
 
-describe('groupVariationsByFirstMove', () => {
-	function withFirstMove(san: string, key: string): Variation {
-		return {
-			leafMoveId: key,
-			variationKey: key,
-			path: [{ moveId: key, san, fromFen: 'f', toFen: 'f2', isPlayerTurn: true }],
-			playerMoveCount: 1
-		};
+describe('groupByBranchPoint', () => {
+	function step(san: string, moveId: string): VariationStep {
+		return { moveId, san, fromFen: 'f', toFen: 'f2', isPlayerTurn: true };
+	}
+	function item(id: string, sans: string[]): { id: string; path: VariationStep[] } {
+		return { id, path: sans.map((san, i) => step(san, `${id}-${i}`)) };
+	}
+	function stepsOf(x: { path: VariationStep[] }): VariationStep[] {
+		return x.path;
+	}
+	function labels(groups: ReturnType<typeof groupByBranchPoint>) {
+		return groups.map((g) => g.steps.map((s) => s.san));
+	}
+	function ids(group: ReturnType<typeof groupByBranchPoint>[number]) {
+		return group.items.map((v: any) => v.id);
 	}
 
-	it('groups variations by their first move, most frequent first', () => {
-		const variations = [withFirstMove('e4', 'a'), withFirstMove('e4', 'b'), withFirstMove('d4', 'c')];
-		const groups = groupVariationsByFirstMove(variations, 5);
-		expect(groups.map((g) => g.move)).toEqual(['e4', 'd4']);
-		expect(groups[0].items.map((v) => v.variationKey)).toEqual(['a', 'b']);
-		expect(groups[1].items.map((v) => v.variationKey)).toEqual(['c']);
+	it('groups items by their first move when they diverge immediately, most frequent first', () => {
+		const items = [item('a', ['e4']), item('b', ['e4']), item('c', ['d4'])];
+		const groups = groupByBranchPoint(items, stepsOf, 0, 5);
+		expect(labels(groups)).toEqual([['e4'], ['d4']]);
+		expect(ids(groups[0])).toEqual(['a', 'b']);
+		expect(ids(groups[1])).toEqual(['c']);
+		expect(groups[0].depth).toBe(1);
 	});
 
-	it('caps at topN groups, bucketing everything else under "Other" (move: null)', () => {
-		const variations = [
-			withFirstMove('e4', 'a'),
-			withFirstMove('e4', 'b'),
-			withFirstMove('d4', 'c'),
-			withFirstMove('c4', 'd'),
-			withFirstMove('Nf3', 'e'),
-			withFirstMove('g3', 'f'),
-			withFirstMove('b3', 'g') // 6th distinct first move — bumped to Other
+	it('collapses a long shared prefix into one group, stopping right before the point it actually forks', () => {
+		const items = [item('a', ['e4', 'c6', 'd4', 'd5', 'Qb6']), item('b', ['e4', 'c6', 'd4', 'd5', 'e6'])];
+		const groups = groupByBranchPoint(items, stepsOf, 0, 5);
+		expect(groups).toHaveLength(1);
+		expect(labels(groups)).toEqual([['e4', 'c6', 'd4', 'd5']]);
+		expect(ids(groups[0])).toEqual(['a', 'b']);
+		expect(groups[0].depth).toBe(4);
+	});
+
+	it('drilling into a collapsed prefix reveals the real fork as its own tier, each branch extended as far as its own items still agree', () => {
+		const items = [
+			item('a', ['e4', 'c6', 'd4', 'd5', 'Qb6', 'Nbd2', 'Qxb2']),
+			item('b', ['e4', 'c6', 'd4', 'd5', 'Qb6', 'Nbd2', 'Rb1']),
+			item('c', ['e4', 'c6', 'd4', 'd5', 'e6'])
 		];
-		const groups = groupVariationsByFirstMove(variations, 5);
-		expect(groups).toHaveLength(6); // 5 named + Other
-		expect(groups[5].move).toBeNull();
-		expect(groups[5].items.map((v) => v.variationKey)).toEqual(['g']);
+		const [prefixGroup] = groupByBranchPoint(items, stepsOf, 0, 5);
+		expect(prefixGroup.depth).toBe(4);
+
+		const forked = groupByBranchPoint(prefixGroup.items, stepsOf, prefixGroup.depth, 5);
+		expect(labels(forked)).toEqual([
+			['Qb6', 'Nbd2'], // a and b both continue with the forced "Nbd2" reply — folded into this tier's own label
+			['e6']
+		]);
+		expect(ids(forked[0])).toEqual(['a', 'b']);
+		expect(forked[0].depth).toBe(6); // e4 c6 d4 d5 Qb6 Nbd2 = 6 plies consumed
+		expect(ids(forked[1])).toEqual(['c']);
 	});
 
-	it('omits the "Other" group entirely when every variation fits in the top N', () => {
-		const variations = [withFirstMove('e4', 'a'), withFirstMove('d4', 'b')];
-		const groups = groupVariationsByFirstMove(variations, 5);
-		expect(groups.every((g) => g.move !== null)).toBe(true);
+	it('caps at topN branches at the real fork, bucketing the rest under "Other" (empty steps)', () => {
+		const items = [
+			item('a', ['e4']),
+			item('b', ['e4']),
+			item('c', ['d4']),
+			item('d', ['c4']),
+			item('e', ['Nf3']),
+			item('f', ['g3']),
+			item('g', ['b3']) // 7th distinct first move — bumped to Other
+		];
+		const groups = groupByBranchPoint(items, stepsOf, 0, 5);
+		expect(groups).toHaveLength(6); // 5 named + Other
+		const other = groups[5];
+		expect(other.steps).toEqual([]);
+		expect(ids(other)).toEqual(['g']);
+	});
+
+	it('omits the "Other" group entirely when everything fits in the top N', () => {
+		const items = [item('a', ['e4']), item('b', ['d4'])];
+		const groups = groupByBranchPoint(items, stepsOf, 0, 5);
+		expect(groups.every((g) => g.steps.length > 0)).toBe(true);
 	});
 
 	it('breaks ties in frequency by first-appearance order (stable, deterministic)', () => {
-		// e4, d4, c4 all appear exactly once each — with topN 2, only e4 and d4
-		// (the first two distinct moves to appear) should make the cut, not c4.
-		const variations = [withFirstMove('e4', 'a'), withFirstMove('d4', 'b'), withFirstMove('c4', 'c')];
-		const groups = groupVariationsByFirstMove(variations, 2);
-		expect(groups.map((g) => g.move)).toEqual(['e4', 'd4', null]);
-		expect(groups[groups.length - 1].move).toBeNull(); // c4 bucketed to Other
-		expect(groups[groups.length - 1].items.map((v) => v.variationKey)).toEqual(['c']);
+		const items = [item('a', ['e4']), item('b', ['d4']), item('c', ['c4'])];
+		const groups = groupByBranchPoint(items, stepsOf, 0, 2);
+		expect(labels(groups)).toEqual([['e4'], ['d4'], []]);
+		expect(ids(groups[2])).toEqual(['c']);
 	});
 
-	it('returns an empty array for an empty variation list', () => {
-		expect(groupVariationsByFirstMove([], 5)).toEqual([]);
+	it('collapses a single item with no siblings into one group spanning its entire remaining path', () => {
+		const items = [item('a', ['e4', 'e5', 'Nf3'])];
+		const groups = groupByBranchPoint(items, stepsOf, 0, 5);
+		expect(groups).toHaveLength(1);
+		expect(labels(groups)).toEqual([['e4', 'e5', 'Nf3']]);
+		expect(ids(groups[0])).toEqual(['a']);
+		expect(groups[0].depth).toBe(3);
+	});
+
+	it('keeps a variation that ends earlier than a sibling grouped with it up to the point it actually ends, then splits it into its own leaf on the next drill-down', () => {
+		const items = [item('a', ['e4', 'e5']), item('b', ['e4', 'e5', 'Nf3'])];
+		const [prefixGroup] = groupByBranchPoint(items, stepsOf, 0, 5);
+		expect(labels([prefixGroup])).toEqual([['e4', 'e5']]);
+		expect(ids(prefixGroup)).toEqual(['a', 'b']);
+		expect(prefixGroup.depth).toBe(2);
+
+		const split = groupByBranchPoint(prefixGroup.items, stepsOf, prefixGroup.depth, 5);
+		expect(split).toHaveLength(2);
+		const leaf = split.find((g) => ids(g)[0] === 'a')!;
+		const continuing = split.find((g) => ids(g)[0] === 'b')!;
+		expect(leaf.steps).toEqual([]);
+		expect(leaf.depth).toBe(2);
+		expect(labels([continuing])).toEqual([['Nf3']]);
+		expect(continuing.depth).toBe(3);
+	});
+
+	it('returns an empty array for an empty item list', () => {
+		expect(groupByBranchPoint([], stepsOf, 0, 5)).toEqual([]);
 	});
 });
