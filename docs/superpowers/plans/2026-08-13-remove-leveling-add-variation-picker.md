@@ -1235,15 +1235,18 @@ git commit -m "feat: replace level shape with solved/total counts in repertoire-
 
 ---
 
-### Task 10: API routes — simplify attempt, add select-variation, delete mistake/continue, extend variations endpoint
+### Task 10: API routes — simplify attempt, add select-variation, delete mistake/continue/maintenance-review, extend variations endpoint
 
 **Files:**
 - Modify: `src/routes/api/practice/attempt/+server.ts`
 - Delete: `src/routes/api/practice/mistake/+server.ts`
 - Delete: `src/routes/api/practice/continue/+server.ts`
+- Delete: `src/routes/api/practice/maintenance-review/+server.ts`
 - Modify: `src/routes/api/practice/move-log/+server.ts`
 - Create: `src/routes/api/practice/select-variation/+server.ts`
 - Modify: `src/routes/api/repertoires/[id]/variations/+server.ts`
+
+**Note:** a controller-side audit after Task 7 found a fourth undocumented caller: `src/routes/api/practice/maintenance-review/+server.ts` calls `recordMaintenanceReview` from the now-deleted `level-progress.ts`. Its whole purpose — recording completion of a level-based "refresh a mastered repertoire" session — no longer exists (the PRD's own Non-Goals already call out that today's level-based maintenance-review UI/session is being removed, with a replacement left for future work). Deleting it is folded into this task alongside `mistake`/`continue`.
 
 - [ ] **Step 1: `attempt/+server.ts`**
 
@@ -1288,13 +1291,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 };
 ```
 
-- [ ] **Step 2: Delete `mistake/+server.ts` and `continue/+server.ts`**
+- [ ] **Step 2: Delete `mistake/+server.ts`, `continue/+server.ts`, and `maintenance-review/+server.ts`**
 
 ```bash
-git rm src/routes/api/practice/mistake/+server.ts src/routes/api/practice/continue/+server.ts
+git rm src/routes/api/practice/mistake/+server.ts src/routes/api/practice/continue/+server.ts src/routes/api/practice/maintenance-review/+server.ts
 ```
 
-(This closes out issue #61's dead-code removal — `continueFromBranch`/branch-alternative handling no longer exists anywhere, and there's no demotion concept left for `mistake` to report.)
+(This closes out issue #61's dead-code removal — `continueFromBranch`/branch-alternative handling no longer exists anywhere, there's no demotion concept left for `mistake` to report, and `maintenance-review` recorded completion of a level-based review session that no longer exists.)
 
 - [ ] **Step 3: `move-log/+server.ts`** — stop requiring/storing `level`
 
@@ -1431,7 +1434,7 @@ Expected: type errors remaining only in `src/routes/(player)/practice/[repertoir
 
 ```bash
 git add src/routes/api/practice/attempt/+server.ts src/routes/api/practice/move-log/+server.ts src/routes/api/practice/select-variation/+server.ts "src/routes/api/repertoires/[id]/variations/+server.ts"
-git rm src/routes/api/practice/mistake/+server.ts src/routes/api/practice/continue/+server.ts
+git rm src/routes/api/practice/mistake/+server.ts src/routes/api/practice/continue/+server.ts src/routes/api/practice/maintenance-review/+server.ts
 git commit -m "feat: simplify practice API routes for full-replay attempts and manual variation selection"
 ```
 
