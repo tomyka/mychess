@@ -136,3 +136,58 @@ export function moveSequenceLabel(path: VariationStep[]): string {
 		})
 		.join(' ');
 }
+
+export type MoveGroup<T> = {
+	// null identifies the "Other" bucket — every item whose first move didn't
+	// make the top N by frequency.
+	move: string | null;
+	items: T[];
+};
+
+/**
+ * Buckets `items` by whatever `firstMoveOf` returns for each one, keeping
+ * only the `topN` most frequent distinct first moves as their own named
+ * groups (in descending frequency order) and collapsing everything else into
+ * one trailing "Other" group (`move: null`) — omitted entirely if nothing
+ * landed there. Ties in frequency are broken by first-appearance order in
+ * `items` (stable, deterministic — `Array.prototype.sort` is
+ * spec-guaranteed stable), so re-running this against the same input always
+ * produces the same grouping.
+ */
+export function groupByFirstMove<T>(
+	items: T[],
+	firstMoveOf: (item: T) => string | null,
+	topN: number
+): MoveGroup<T>[] {
+	const firstAppearanceOrder: string[] = [];
+	const counts = new Map<string, number>();
+	for (const item of items) {
+		const san = firstMoveOf(item);
+		if (!san) continue;
+		if (!counts.has(san)) firstAppearanceOrder.push(san);
+		counts.set(san, (counts.get(san) ?? 0) + 1);
+	}
+
+	const topMoves = firstAppearanceOrder
+		.slice()
+		.sort((a, b) => counts.get(b)! - counts.get(a)!)
+		.slice(0, topN);
+	const topMoveSet = new Set(topMoves);
+
+	const groups: MoveGroup<T>[] = topMoves.map((move) => ({ move, items: [] }));
+	const groupByMove = new Map(groups.map((g) => [g.move, g]));
+	const other: MoveGroup<T> = { move: null, items: [] };
+
+	for (const item of items) {
+		const san = firstMoveOf(item);
+		const target = san && topMoveSet.has(san) ? groupByMove.get(san)! : other;
+		target.items.push(item);
+	}
+
+	return other.items.length > 0 ? [...groups, other] : groups;
+}
+
+/** `groupByFirstMove` specialized for `Variation[]`, using each variation's own first move (`path[0].san`). */
+export function groupVariationsByFirstMove(variations: Variation[], topN: number): MoveGroup<Variation>[] {
+	return groupByFirstMove(variations, (v) => v.path[0]?.san ?? null, topN);
+}

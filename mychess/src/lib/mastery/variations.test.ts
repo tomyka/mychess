@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { enumerateVariations, filterVariations, hasChapterTags, moveSequenceLabel, type RawMoveRow } from './variations';
+import {
+	enumerateVariations,
+	filterVariations,
+	groupVariationsByFirstMove,
+	hasChapterTags,
+	moveSequenceLabel,
+	type RawMoveRow,
+	type Variation
+} from './variations';
 
 function move(
 	id: string,
@@ -209,5 +217,60 @@ describe('moveSequenceLabel', () => {
 		];
 		const [variation] = enumerateVariations(moves);
 		expect(moveSequenceLabel(variation.path)).toBe('5...Nf6 6.Bc4');
+	});
+});
+
+describe('groupVariationsByFirstMove', () => {
+	function withFirstMove(san: string, key: string): Variation {
+		return {
+			leafMoveId: key,
+			variationKey: key,
+			path: [{ moveId: key, san, fromFen: 'f', toFen: 'f2', isPlayerTurn: true }],
+			playerMoveCount: 1
+		};
+	}
+
+	it('groups variations by their first move, most frequent first', () => {
+		const variations = [withFirstMove('e4', 'a'), withFirstMove('e4', 'b'), withFirstMove('d4', 'c')];
+		const groups = groupVariationsByFirstMove(variations, 5);
+		expect(groups.map((g) => g.move)).toEqual(['e4', 'd4']);
+		expect(groups[0].items.map((v) => v.variationKey)).toEqual(['a', 'b']);
+		expect(groups[1].items.map((v) => v.variationKey)).toEqual(['c']);
+	});
+
+	it('caps at topN groups, bucketing everything else under "Other" (move: null)', () => {
+		const variations = [
+			withFirstMove('e4', 'a'),
+			withFirstMove('e4', 'b'),
+			withFirstMove('d4', 'c'),
+			withFirstMove('c4', 'd'),
+			withFirstMove('Nf3', 'e'),
+			withFirstMove('g3', 'f'),
+			withFirstMove('b3', 'g') // 6th distinct first move — bumped to Other
+		];
+		const groups = groupVariationsByFirstMove(variations, 5);
+		expect(groups).toHaveLength(6); // 5 named + Other
+		expect(groups[5].move).toBeNull();
+		expect(groups[5].items.map((v) => v.variationKey)).toEqual(['g']);
+	});
+
+	it('omits the "Other" group entirely when every variation fits in the top N', () => {
+		const variations = [withFirstMove('e4', 'a'), withFirstMove('d4', 'b')];
+		const groups = groupVariationsByFirstMove(variations, 5);
+		expect(groups.every((g) => g.move !== null)).toBe(true);
+	});
+
+	it('breaks ties in frequency by first-appearance order (stable, deterministic)', () => {
+		// e4, d4, c4 all appear exactly once each — with topN 2, only e4 and d4
+		// (the first two distinct moves to appear) should make the cut, not c4.
+		const variations = [withFirstMove('e4', 'a'), withFirstMove('d4', 'b'), withFirstMove('c4', 'c')];
+		const groups = groupVariationsByFirstMove(variations, 2);
+		expect(groups.map((g) => g.move)).toEqual(['e4', 'd4', null]);
+		expect(groups[groups.length - 1].move).toBeNull(); // c4 bucketed to Other
+		expect(groups[groups.length - 1].items.map((v) => v.variationKey)).toEqual(['c']);
+	});
+
+	it('returns an empty array for an empty variation list', () => {
+		expect(groupVariationsByFirstMove([], 5)).toEqual([]);
 	});
 });
