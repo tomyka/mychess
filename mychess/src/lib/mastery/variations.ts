@@ -138,106 +138,71 @@ export function moveSequenceLabel(path: VariationStep[]): string {
 }
 
 export type MoveGroup<T> = {
-	// The step sequence shared by every item in this group, consumed since
-	// wherever the caller last drilled in — spans more than one ply when
-	// everything here agreed on the next move for a while before hitting a
-	// real fork (or running out of moves). Empty for the "Other" catch-all
-	// bucket, since its members don't share a next move by definition, and
-	// for a leaf item that already ended exactly where a sibling still
-	// continues.
+	// The first `steps` shared by every item in this group's key (up to
+	// FIRST_MOVES_GROUP_PLIES, or fewer if a member's own line is shorter).
+	// Empty only for the trailing "Other" catch-all bucket, since its
+	// members don't share a single key by definition.
 	steps: VariationStep[];
 	items: T[];
-	// How many leading steps of `stepsOf(item)` this group has now fully
-	// consumed (including everything already consumed before this call) —
-	// pass straight back in as `depth` to drill one level deeper into this
-	// group's own items.
-	depth: number;
 };
 
-/**
- * How far `items` can be walked forward in lockstep from `depth`, stopping
- * the instant either (a) some item runs out of steps, or (b) they disagree
- * on the next one — i.e. the first point past `depth` where this exact pool
- * can no longer be treated as one undifferentiated group. Returns `depth`
- * itself if nothing could be walked at all (already exhausted or forked
- * right here).
- */
-function extendUnanimousRun<T>(items: T[], stepsOf: (item: T) => VariationStep[], depth: number): number {
-	let d = depth;
-	while (true) {
-		if (items.some((item) => stepsOf(item).length <= d)) return d;
-		const moves = new Set(items.map((item) => stepsOf(item)[d].san));
-		if (moves.size !== 1) return d;
-		d++;
-	}
-}
+/** 5 full moves (White + Black each) — the fixed window `groupByFirstMoves` keys on. */
+export const FIRST_MOVES_GROUP_PLIES = 10;
 
 /**
- * Groups `items` by where their future moves actually diverge, rather than
- * by a fixed single ply — a long run every remaining item agrees on
- * collapses into one group (label spanning however many plies were forced),
- * so a repertoire that's one deep, mostly-forced line doesn't present a
- * useless single "choice" at move one. Call again on a returned group's own
- * `items` (passing its `depth` back in) to drill one level deeper; a group
- * whose `items.length` is 1 has nothing further to reveal and should be
- * rendered as a leaf, not drilled into again.
- *
- * A call either:
- * - returns ONE group (the whole shared run from `depth` to wherever it
- *   first stops), still holding every item together, deferring the actual
- *   fork/leaf split to whoever drills into it next; or
- * - lands directly on a fork or an early-ending item and returns the
- *   already-partitioned branches, each extended as far as ITS OWN items
- *   still agree (so a branch uniquely followed by more forced moves gets
- *   them folded into its own label, instead of costing an extra empty
- *   drill-down step) — capped at the `topN` most frequent branches by item
- *   count, with everything else collapsed into a trailing "Other" group
- *   (`steps: []`) omitted entirely if nothing landed there. Ties in
- *   frequency are broken by first-appearance order (stable, deterministic).
+ * Buckets `items` by their own first `plies` steps (or their whole line, if
+ * shorter) as a single combined key — e.g. two lines that both start
+ * "1.e4 c6 2.d4 d5 3.exd5 cxd5 4.Nf3 Nc6 5.c3" land in the same bucket even
+ * though they already diverged back at move 1 from a third line that opened
+ * "1.d4"; two lines that agree for the first 4 moves but diverge on the 5th
+ * land in DIFFERENT buckets. This is a fixed-depth partition, not a search
+ * for wherever lines happen to diverge — every bucket's key is exactly
+ * `plies` steps long (or the item's full line, if that's shorter), so drilling
+ * into a bucket reveals its individual items directly; there's no further
+ * "where do these split" tier to navigate. Keeps only the `topN` most
+ * frequent distinct keys (by item count), collapsing the rest into a
+ * trailing "Other" bucket (`steps: []`) — omitted entirely if nothing landed
+ * there. Ties in frequency are broken by first-appearance order (stable,
+ * deterministic).
  */
-export function groupByBranchPoint<T>(
+export function groupByFirstMoves<T>(
 	items: T[],
 	stepsOf: (item: T) => VariationStep[],
-	depth: number,
+	plies: number,
 	topN: number
 ): MoveGroup<T>[] {
 	if (items.length === 0) return [];
 
-	const extendedDepth = extendUnanimousRun(items, stepsOf, depth);
-	if (extendedDepth > depth) {
-		return [{ steps: stepsOf(items[0]).slice(depth, extendedDepth), items, depth: extendedDepth }];
-	}
-
-	const exhausted = items.filter((item) => stepsOf(item).length <= depth);
-	const active = items.filter((item) => stepsOf(item).length > depth);
+	const keyOf = (item: T) =>
+		stepsOf(item)
+			.slice(0, plies)
+			.map((s) => s.san)
+			.join('>');
 
 	const firstAppearanceOrder: string[] = [];
 	const buckets = new Map<string, T[]>();
-	for (const item of active) {
-		const move = stepsOf(item)[depth].san;
-		if (!buckets.has(move)) {
-			firstAppearanceOrder.push(move);
-			buckets.set(move, []);
+	for (const item of items) {
+		const key = keyOf(item);
+		if (!buckets.has(key)) {
+			firstAppearanceOrder.push(key);
+			buckets.set(key, []);
 		}
-		buckets.get(move)!.push(item);
+		buckets.get(key)!.push(item);
 	}
 
-	const topMoves = firstAppearanceOrder
+	const topKeys = firstAppearanceOrder
 		.slice()
 		.sort((a, b) => buckets.get(b)!.length - buckets.get(a)!.length)
 		.slice(0, topN);
-	const topMoveSet = new Set(topMoves);
+	const topKeySet = new Set(topKeys);
 
-	const namedGroups: MoveGroup<T>[] = topMoves.map((move) => {
-		const branchItems = buckets.get(move)!;
-		const branchDepth = extendUnanimousRun(branchItems, stepsOf, depth + 1);
-		return { steps: stepsOf(branchItems[0]).slice(depth, branchDepth), items: branchItems, depth: branchDepth };
+	const namedGroups: MoveGroup<T>[] = topKeys.map((key) => {
+		const groupItems = buckets.get(key)!;
+		return { steps: stepsOf(groupItems[0]).slice(0, plies), items: groupItems };
 	});
 
-	const otherItems = firstAppearanceOrder.filter((m) => !topMoveSet.has(m)).flatMap((m) => buckets.get(m)!);
-	const otherGroup: MoveGroup<T> | null = otherItems.length > 0 ? { steps: [], items: otherItems, depth } : null;
+	const otherItems = firstAppearanceOrder.filter((k) => !topKeySet.has(k)).flatMap((k) => buckets.get(k)!);
+	const otherGroup: MoveGroup<T> | null = otherItems.length > 0 ? { steps: [], items: otherItems } : null;
 
-	const leafGroups: MoveGroup<T>[] = exhausted.map((item) => ({ steps: [], items: [item], depth }));
-
-	return [...leafGroups, ...namedGroups, ...(otherGroup ? [otherGroup] : [])];
+	return [...namedGroups, ...(otherGroup ? [otherGroup] : [])];
 }

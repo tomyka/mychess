@@ -23,7 +23,7 @@ const baseRep = {
 
 // Builds a realistic VariationStep[] with correctly alternating side-to-move
 // and move-number FEN fields, so moveSequenceLabel's numbering (used for
-// move-group bucket labels) is accurate for a slice starting at any ply.
+// move-group bucket labels) is accurate.
 function path(sans: string[]) {
 	let moveNumber = 1;
 	let whiteToMove = true;
@@ -39,27 +39,33 @@ function row(variationKey: string, sans: string[], chapterName: string | null, i
 	return { variationKey, label: `label:${variationKey}`, included, chapterName, path: path(sans) };
 }
 
-// v1/v2 share their first 4 plies before forking on move 3 — one bucket to
-// drill into, no chapter tag (the flat/chapterless case).
-const variationsResponse = [row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5'], null), row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4'], null)];
+// v1/v2 share their first 5 full moves (10 plies) before diverging on move
+// 6 — the component's fixed grouping window (FIRST_MOVES_GROUP_PLIES = 10)
+// buckets them together. No chapter tag (the flat/chapterless case).
+const variationsResponse = [
+	row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], null),
+	row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'd3'], null)
+];
 
 // Same shared-prefix pair, now under a 'Ruy Lopez' chapter, plus a single
-// unrelated line in its own 'Italian Game' chapter.
+// short, unrelated line in its own 'Italian Game' chapter.
 const chapterVariationsResponse = [
-	row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5'], 'Ruy Lopez'),
-	row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4'], 'Ruy Lopez'),
+	row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], 'Ruy Lopez'),
+	row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'd3'], 'Ruy Lopez'),
 	row('v3', ['d4', 'd5', 'c4'], 'Italian Game')
 ];
 
-// v1/v2 share only "e4" before forking (e5 vs c5); v3 forks immediately with
-// a different first move (d4) and has no sibling, so it collapses straight
-// to a leaf — used for sibling-isolation tests across a bucket and a leaf
-// that sit side by side under the same chapter.
+// v1/v2 share their first-5-moves window (one bucket); v3 is a short,
+// unrelated line (its own single-item bucket) — used for sibling-isolation
+// tests across two buckets sitting side by side under the same chapter.
 const siblingResponse = [
-	row('v1', ['e4', 'e5'], 'Ruy Lopez'),
-	row('v2', ['e4', 'c5'], 'Ruy Lopez'),
+	row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], 'Ruy Lopez'),
+	row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'd3'], 'Ruy Lopez'),
 	row('v3', ['d4', 'd5'], 'Ruy Lopez')
 ];
+
+const SHARED_BUCKET_LABEL = /1\.e4 e5 2\.Nf3 Nc6 3\.Bb5 a6 4\.Ba4 Nf6 5\.O-O Be7/;
+const SHARED_BUCKET_TEXT = '1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4 Nf6 5.O-O Be7';
 
 describe('RepertoirePracticeRow', () => {
 	it('renders collapsed by default, showing name and progress but no variations', () => {
@@ -88,13 +94,13 @@ describe('RepertoirePracticeRow', () => {
 		expect(checkbox.indeterminate).toBe(false);
 	});
 
-	it('fetches variations when expanded, only once, showing a shared-prefix bucket rather than raw variations', async () => {
+	it('fetches variations when expanded, only once, showing a first-5-moves bucket rather than raw variations', async () => {
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(RepertoirePracticeRow, { props: { rep: baseRep } });
 
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
-		await waitFor(() => expect(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6/)).toBeTruthy());
+		await waitFor(() => expect(screen.getByText(SHARED_BUCKET_LABEL)).toBeTruthy());
 		expect(fetchSpy).toHaveBeenCalledWith('/api/repertoires/rep-1/variations');
 		expect(screen.queryByText('label:v1')).toBeNull(); // not shown until the bucket is drilled into
 
@@ -103,14 +109,14 @@ describe('RepertoirePracticeRow', () => {
 		expect(fetchSpy).toHaveBeenCalledTimes(1); // cached after the first fetch
 	});
 
-	it('drilling into a shared-prefix bucket reveals its individual variations', async () => {
+	it('drilling into a first-5-moves bucket reveals its individual variations', async () => {
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(RepertoirePracticeRow, { props: { rep: baseRep } });
 
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
-		await waitFor(() => screen.getByText(/1\.e4 e5 2\.Nf3 Nc6/));
-		await fireEvent.click(screen.getByLabelText(/Expand 1\.e4 e5 2\.Nf3 Nc6 in Ruy Lopez/));
+		await waitFor(() => screen.getByText(SHARED_BUCKET_LABEL));
+		await fireEvent.click(screen.getByLabelText(`Expand ${SHARED_BUCKET_TEXT} in Ruy Lopez`));
 
 		expect(screen.getByText('label:v1')).toBeTruthy();
 		expect(screen.getByText('label:v2')).toBeTruthy();
@@ -125,8 +131,8 @@ describe('RepertoirePracticeRow', () => {
 		render(RepertoirePracticeRow, { props: { rep: baseRep } });
 
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
-		await waitFor(() => screen.getByText(/1\.e4 e5 2\.Nf3 Nc6/));
-		await fireEvent.click(screen.getByLabelText(/Expand 1\.e4 e5 2\.Nf3 Nc6 in Ruy Lopez/));
+		await waitFor(() => screen.getByText(SHARED_BUCKET_LABEL));
+		await fireEvent.click(screen.getByLabelText(`Expand ${SHARED_BUCKET_TEXT} in Ruy Lopez`));
 		await waitFor(() => screen.getByText('label:v1'));
 
 		const variationCheckbox = within(screen.getByText('label:v1').closest('label')!).getByRole('checkbox') as HTMLInputElement;
@@ -152,8 +158,8 @@ describe('RepertoirePracticeRow', () => {
 		// Individually uncheck v2 first, so the "restore" below has something
 		// meaningful to prove: it must restore v1 only, not both.
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
-		await waitFor(() => screen.getByText(/1\.e4 e5 2\.Nf3 Nc6/));
-		await fireEvent.click(screen.getByLabelText(/Expand 1\.e4 e5 2\.Nf3 Nc6 in Ruy Lopez/));
+		await waitFor(() => screen.getByText(SHARED_BUCKET_LABEL));
+		await fireEvent.click(screen.getByLabelText(`Expand ${SHARED_BUCKET_TEXT} in Ruy Lopez`));
 		await waitFor(() => screen.getByText('label:v2'));
 		const v2Checkbox = within(screen.getByText('label:v2').closest('label')!).getByRole('checkbox') as HTMLInputElement;
 		await fireEvent.click(v2Checkbox);
@@ -225,8 +231,8 @@ describe('RepertoirePracticeRow', () => {
 		render(RepertoirePracticeRow, { props: { rep: baseRep } });
 
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
-		await waitFor(() => screen.getByText(/1\.e4 e5 2\.Nf3 Nc6/));
-		await fireEvent.click(screen.getByLabelText(/Expand 1\.e4 e5 2\.Nf3 Nc6 in Ruy Lopez/));
+		await waitFor(() => screen.getByText(SHARED_BUCKET_LABEL));
+		await fireEvent.click(screen.getByLabelText(`Expand ${SHARED_BUCKET_TEXT} in Ruy Lopez`));
 		await waitFor(() => screen.getByText('label:v1'));
 
 		const variationCheckbox = within(screen.getByText('label:v1').closest('label')!).getByRole('checkbox') as HTMLInputElement;
@@ -259,7 +265,7 @@ describe('RepertoirePracticeRow', () => {
 		expect(screen.getByText('· 1 line')).toBeTruthy();
 	});
 
-	it('drilling into a chapter with only one variation collapses straight to that leaf, with no intermediate bucket', async () => {
+	it('drilling into a chapter with only one variation collapses straight to that leaf-sized bucket', async () => {
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => chapterVariationsResponse });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
@@ -267,11 +273,13 @@ describe('RepertoirePracticeRow', () => {
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
 		await waitFor(() => screen.getByText('Italian Game (chapter)'));
 		await fireEvent.click(screen.getByLabelText('Expand Italian Game chapter'));
+		await waitFor(() => expect(screen.getByText(/1\.d4 d5 2\.c4/)).toBeTruthy());
 
+		await fireEvent.click(screen.getByLabelText(/Expand 1\.d4 d5 2\.c4 in Italian Game/));
 		expect(screen.getByText('label:v3')).toBeTruthy();
 	});
 
-	it('drilling into a chapter with a shared prefix reveals the bucket, then its variations one level deeper', async () => {
+	it('drilling into a chapter with a shared first-5-moves bucket reveals it, then its variations one level deeper', async () => {
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => chapterVariationsResponse });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
@@ -280,21 +288,21 @@ describe('RepertoirePracticeRow', () => {
 		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
 
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez chapter'));
-		await waitFor(() => expect(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6/)).toBeTruthy());
+		await waitFor(() => expect(screen.getByText(SHARED_BUCKET_LABEL)).toBeTruthy());
 		expect(screen.queryByText('label:v1')).toBeNull(); // still one drill-down away
 
-		await fireEvent.click(screen.getByLabelText(/Expand 1\.e4 e5 2\.Nf3 Nc6 in Ruy Lopez/));
+		await fireEvent.click(screen.getByLabelText(`Expand ${SHARED_BUCKET_TEXT} in Ruy Lopez`));
 		expect(screen.getByText('label:v1')).toBeTruthy();
 		expect(screen.getByText('label:v2')).toBeTruthy();
 	});
 
-	it('renders a flat pool of buckets/leaves with no chapter header when no variation has a chapterName', async () => {
+	it('renders a flat pool of buckets with no chapter header when no variation has a chapterName', async () => {
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(RepertoirePracticeRow, { props: { rep: baseRep } });
 
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
-		await waitFor(() => expect(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6/)).toBeTruthy());
+		await waitFor(() => expect(screen.getByText(SHARED_BUCKET_LABEL)).toBeTruthy());
 		expect(screen.queryByText('(chapter)', { exact: false })).toBeNull();
 	});
 
@@ -347,7 +355,7 @@ describe('RepertoirePracticeRow', () => {
 		);
 	});
 
-	it("bulk-toggling a move-group bucket checkbox only excludes that bucket's own variations, leaving a sibling leaf untouched", async () => {
+	it("bulk-toggling a move-group bucket checkbox only excludes that bucket's own variations, leaving a sibling bucket untouched", async () => {
 		const fetchSpy = vi
 			.fn()
 			.mockResolvedValueOnce({ ok: true, json: async () => siblingResponse })
@@ -358,12 +366,14 @@ describe('RepertoirePracticeRow', () => {
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
 		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez chapter'));
-		// v1/v2 (sharing "e4") form a bucket; v3 (d4, no sibling) is a leaf
-		// sitting right alongside it.
-		await waitFor(() => expect(screen.getByLabelText('Include 1.e4 in Ruy Lopez in practice')).toBeTruthy());
-		expect(screen.getByText('label:v3')).toBeTruthy();
+		// v1/v2 (sharing the first-5-moves window) form one bucket; v3 (a
+		// short, unrelated line) forms its own sibling bucket.
+		await waitFor(() => expect(screen.getByLabelText(`Include ${SHARED_BUCKET_TEXT} in Ruy Lopez in practice`)).toBeTruthy());
+		expect(screen.getByText(/1\.d4 d5/)).toBeTruthy();
 
-		const bucketCheckbox = screen.getByRole('checkbox', { name: 'Include 1.e4 in Ruy Lopez in practice' }) as HTMLInputElement;
+		const bucketCheckbox = screen.getByRole('checkbox', {
+			name: `Include ${SHARED_BUCKET_TEXT} in Ruy Lopez in practice`
+		}) as HTMLInputElement;
 		expect(bucketCheckbox.checked).toBe(true);
 		await fireEvent.click(bucketCheckbox);
 
@@ -374,8 +384,10 @@ describe('RepertoirePracticeRow', () => {
 				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false })
 			})
 		);
-		const v3Checkbox = within(screen.getByText('label:v3').closest('label')!).getByRole('checkbox') as HTMLInputElement;
-		expect(v3Checkbox.checked).toBe(true); // a sibling leaf outside the bucket, unaffected
+		const otherBucketCheckbox = screen.getByRole('checkbox', {
+			name: /Include 1\.d4 d5 in Ruy Lopez in practice/
+		}) as HTMLInputElement;
+		expect(otherBucketCheckbox.checked).toBe(true); // a sibling bucket, unaffected
 	});
 
 	it("re-checking a chapter after one of its buckets was already independently excluded restores only what the chapter's own exclusion touched", async () => {
@@ -389,10 +401,12 @@ describe('RepertoirePracticeRow', () => {
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
 		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez chapter'));
-		await waitFor(() => screen.getByLabelText('Include 1.e4 in Ruy Lopez in practice'));
+		await waitFor(() => screen.getByLabelText(`Include ${SHARED_BUCKET_TEXT} in Ruy Lopez in practice`));
 
-		// Step 1: independently bulk-exclude the "1.e4" bucket (v1, v2).
-		const bucketCheckbox = screen.getByRole('checkbox', { name: 'Include 1.e4 in Ruy Lopez in practice' }) as HTMLInputElement;
+		// Step 1: independently bulk-exclude the shared bucket (v1, v2).
+		const bucketCheckbox = screen.getByRole('checkbox', {
+			name: `Include ${SHARED_BUCKET_TEXT} in Ruy Lopez in practice`
+		}) as HTMLInputElement;
 		await fireEvent.click(bucketCheckbox);
 		await waitFor(() =>
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
@@ -438,9 +452,9 @@ describe('RepertoirePracticeRow', () => {
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
 		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez chapter'));
-		await waitFor(() => screen.getByLabelText('Include 1.e4 in Ruy Lopez in practice'));
+		await waitFor(() => screen.getByLabelText(`Include ${SHARED_BUCKET_TEXT} in Ruy Lopez in practice`));
 
-		await fireEvent.click(screen.getByLabelText('Expand 1.e4 in Ruy Lopez'));
+		await fireEvent.click(screen.getByLabelText(`Expand ${SHARED_BUCKET_TEXT} in Ruy Lopez`));
 		expect(screen.getByText('label:v1')).toBeTruthy();
 		expect(screen.getByText('label:v2')).toBeTruthy();
 	});
@@ -451,43 +465,13 @@ describe('RepertoirePracticeRow', () => {
 		expect(screen.getByLabelText('Expand Ruy Lopez')).toBeTruthy();
 	});
 
-	it('fetches and shows a shared-prefix bucket even when the repertoire has no chapters', async () => {
+	it('fetches and shows a first-5-moves bucket even when the repertoire has no chapters', async () => {
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, hasChapters: false } } });
 
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
 		await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith('/api/repertoires/rep-1/variations'));
-		expect(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6/)).toBeTruthy();
-	});
-
-	it('keeps aria-labels unambiguous three levels deep by growing the qualifier with each nested bucket', async () => {
-		// chapter -> "1.e4" bucket (v1,v2,v3) -> "e5" sub-bucket (v1,v2) -> leaves.
-		const threeDeep = [
-			row('v1', ['e4', 'e5', 'Nf3'], 'Open Game'),
-			row('v2', ['e4', 'e5', 'Nc3'], 'Open Game'),
-			row('v3', ['e4', 'c5'], 'Open Game')
-		];
-		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => threeDeep });
-		vi.stubGlobal('fetch', fetchSpy);
-		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
-
-		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
-		await waitFor(() => screen.getByText('Open Game (chapter)'));
-		await fireEvent.click(screen.getByLabelText('Expand Open Game chapter'));
-		await waitFor(() => screen.getByLabelText('Include 1.e4 in Open Game in practice'));
-
-		await fireEvent.click(screen.getByLabelText('Expand 1.e4 in Open Game'));
-		// The second-tier bucket ("e5") must qualify itself with the first
-		// tier's own label, not just the chapter name, so it can never read
-		// identically to a same-named bucket sitting directly under the
-		// chapter itself.
-		await waitFor(() => expect(screen.getByLabelText('Include 1...e5 in 1.e4 in Open Game in practice')).toBeTruthy());
-		expect(screen.getByLabelText('Expand 1...e5 in 1.e4 in Open Game')).toBeTruthy();
-		expect(screen.getByText('label:v3')).toBeTruthy(); // the lone "c5" sibling, a leaf at this same tier
-
-		await fireEvent.click(screen.getByLabelText('Expand 1...e5 in 1.e4 in Open Game'));
-		expect(screen.getByText('label:v1')).toBeTruthy();
-		expect(screen.getByText('label:v2')).toBeTruthy();
+		expect(screen.getByText(SHARED_BUCKET_LABEL)).toBeTruthy();
 	});
 });

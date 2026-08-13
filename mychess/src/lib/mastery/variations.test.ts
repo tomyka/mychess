@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	enumerateVariations,
 	filterVariations,
-	groupByBranchPoint,
+	groupByFirstMoves,
 	hasChapterTags,
 	moveSequenceLabel,
 	type RawMoveRow,
@@ -221,7 +221,7 @@ describe('moveSequenceLabel', () => {
 	});
 });
 
-describe('groupByBranchPoint', () => {
+describe('groupByFirstMoves', () => {
 	function step(san: string, moveId: string): VariationStep {
 		return { moveId, san, fromFen: 'f', toFen: 'f2', isPlayerTurn: true };
 	}
@@ -231,51 +231,57 @@ describe('groupByBranchPoint', () => {
 	function stepsOf(x: { path: VariationStep[] }): VariationStep[] {
 		return x.path;
 	}
-	function labels(groups: ReturnType<typeof groupByBranchPoint>) {
+	function labels(groups: ReturnType<typeof groupByFirstMoves>) {
 		return groups.map((g) => g.steps.map((s) => s.san));
 	}
-	function ids(group: ReturnType<typeof groupByBranchPoint>[number]) {
+	function ids(group: ReturnType<typeof groupByFirstMoves>[number]) {
 		return group.items.map((v: any) => v.id);
 	}
 
-	it('groups items by their first move when they diverge immediately, most frequent first', () => {
-		const items = [item('a', ['e4']), item('b', ['e4']), item('c', ['d4'])];
-		const groups = groupByBranchPoint(items, stepsOf, 0, 5);
-		expect(labels(groups)).toEqual([['e4'], ['d4']]);
+	it('buckets items that share the same first-N-plies key together, distinct keys apart', () => {
+		const items = [
+			item('a', ['e4', 'e5', 'Nf3']),
+			item('b', ['e4', 'e5', 'Nf3']),
+			item('c', ['d4', 'd5', 'c4'])
+		];
+		const groups = groupByFirstMoves(items, stepsOf, 3, 5);
+		expect(labels(groups)).toEqual([
+			['e4', 'e5', 'Nf3'],
+			['d4', 'd5', 'c4']
+		]);
 		expect(ids(groups[0])).toEqual(['a', 'b']);
 		expect(ids(groups[1])).toEqual(['c']);
-		expect(groups[0].depth).toBe(1);
 	});
 
-	it('collapses a long shared prefix into one group, stopping right before the point it actually forks', () => {
-		const items = [item('a', ['e4', 'c6', 'd4', 'd5', 'Qb6']), item('b', ['e4', 'c6', 'd4', 'd5', 'e6'])];
-		const groups = groupByBranchPoint(items, stepsOf, 0, 5);
-		expect(groups).toHaveLength(1);
-		expect(labels(groups)).toEqual([['e4', 'c6', 'd4', 'd5']]);
-		expect(ids(groups[0])).toEqual(['a', 'b']);
-		expect(groups[0].depth).toBe(4);
-	});
-
-	it('drilling into a collapsed prefix reveals the real fork as its own tier, each branch extended as far as its own items still agree', () => {
-		const items = [
-			item('a', ['e4', 'c6', 'd4', 'd5', 'Qb6', 'Nbd2', 'Qxb2']),
-			item('b', ['e4', 'c6', 'd4', 'd5', 'Qb6', 'Nbd2', 'Rb1']),
-			item('c', ['e4', 'c6', 'd4', 'd5', 'e6'])
-		];
-		const [prefixGroup] = groupByBranchPoint(items, stepsOf, 0, 5);
-		expect(prefixGroup.depth).toBe(4);
-
-		const forked = groupByBranchPoint(prefixGroup.items, stepsOf, prefixGroup.depth, 5);
-		expect(labels(forked)).toEqual([
-			['Qb6', 'Nbd2'], // a and b both continue with the forced "Nbd2" reply — folded into this tier's own label
-			['e6']
+	it('splits items into different buckets if they diverge on the LAST ply within the window', () => {
+		const items = [item('a', ['e4', 'e5', 'Nf3']), item('b', ['e4', 'e5', 'Nc3'])];
+		const groups = groupByFirstMoves(items, stepsOf, 3, 5);
+		expect(labels(groups)).toEqual([
+			['e4', 'e5', 'Nf3'],
+			['e4', 'e5', 'Nc3']
 		]);
-		expect(ids(forked[0])).toEqual(['a', 'b']);
-		expect(forked[0].depth).toBe(6); // e4 c6 d4 d5 Qb6 Nbd2 = 6 plies consumed
-		expect(ids(forked[1])).toEqual(['c']);
 	});
 
-	it('caps at topN branches at the real fork, bucketing the rest under "Other" (empty steps)', () => {
+	it('keeps items in the SAME bucket if they only diverge past the window', () => {
+		const items = [item('a', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5']), item('b', ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4'])];
+		const groups = groupByFirstMoves(items, stepsOf, 3, 5); // window stops before the Bb5/Bc4 divergence
+		expect(groups).toHaveLength(1);
+		expect(labels(groups)).toEqual([['e4', 'e5', 'Nf3']]);
+		expect(ids(groups[0])).toEqual(['a', 'b']);
+	});
+
+	it('uses an item\'s whole line as its key when it is shorter than the window', () => {
+		const items = [item('a', ['e4', 'e5']), item('b', ['e4', 'e5', 'Nf3'])];
+		const groups = groupByFirstMoves(items, stepsOf, 5, 5);
+		// 'a' only has 2 plies, so its key is just those 2 — distinct from
+		// 'b's 3-ply key, even though 'a' is a strict prefix of 'b'.
+		expect(labels(groups)).toEqual([
+			['e4', 'e5'],
+			['e4', 'e5', 'Nf3']
+		]);
+	});
+
+	it('caps at topN buckets, bucketing the rest under "Other" (empty steps)', () => {
 		const items = [
 			item('a', ['e4']),
 			item('b', ['e4']),
@@ -283,9 +289,9 @@ describe('groupByBranchPoint', () => {
 			item('d', ['c4']),
 			item('e', ['Nf3']),
 			item('f', ['g3']),
-			item('g', ['b3']) // 7th distinct first move — bumped to Other
+			item('g', ['b3']) // 7th distinct key — bumped to Other
 		];
-		const groups = groupByBranchPoint(items, stepsOf, 0, 5);
+		const groups = groupByFirstMoves(items, stepsOf, 1, 5);
 		expect(groups).toHaveLength(6); // 5 named + Other
 		const other = groups[5];
 		expect(other.steps).toEqual([]);
@@ -294,44 +300,18 @@ describe('groupByBranchPoint', () => {
 
 	it('omits the "Other" group entirely when everything fits in the top N', () => {
 		const items = [item('a', ['e4']), item('b', ['d4'])];
-		const groups = groupByBranchPoint(items, stepsOf, 0, 5);
+		const groups = groupByFirstMoves(items, stepsOf, 1, 5);
 		expect(groups.every((g) => g.steps.length > 0)).toBe(true);
 	});
 
 	it('breaks ties in frequency by first-appearance order (stable, deterministic)', () => {
 		const items = [item('a', ['e4']), item('b', ['d4']), item('c', ['c4'])];
-		const groups = groupByBranchPoint(items, stepsOf, 0, 2);
+		const groups = groupByFirstMoves(items, stepsOf, 1, 2);
 		expect(labels(groups)).toEqual([['e4'], ['d4'], []]);
 		expect(ids(groups[2])).toEqual(['c']);
 	});
 
-	it('collapses a single item with no siblings into one group spanning its entire remaining path', () => {
-		const items = [item('a', ['e4', 'e5', 'Nf3'])];
-		const groups = groupByBranchPoint(items, stepsOf, 0, 5);
-		expect(groups).toHaveLength(1);
-		expect(labels(groups)).toEqual([['e4', 'e5', 'Nf3']]);
-		expect(ids(groups[0])).toEqual(['a']);
-		expect(groups[0].depth).toBe(3);
-	});
-
-	it('keeps a variation that ends earlier than a sibling grouped with it up to the point it actually ends, then splits it into its own leaf on the next drill-down', () => {
-		const items = [item('a', ['e4', 'e5']), item('b', ['e4', 'e5', 'Nf3'])];
-		const [prefixGroup] = groupByBranchPoint(items, stepsOf, 0, 5);
-		expect(labels([prefixGroup])).toEqual([['e4', 'e5']]);
-		expect(ids(prefixGroup)).toEqual(['a', 'b']);
-		expect(prefixGroup.depth).toBe(2);
-
-		const split = groupByBranchPoint(prefixGroup.items, stepsOf, prefixGroup.depth, 5);
-		expect(split).toHaveLength(2);
-		const leaf = split.find((g) => ids(g)[0] === 'a')!;
-		const continuing = split.find((g) => ids(g)[0] === 'b')!;
-		expect(leaf.steps).toEqual([]);
-		expect(leaf.depth).toBe(2);
-		expect(labels([continuing])).toEqual([['Nf3']]);
-		expect(continuing.depth).toBe(3);
-	});
-
 	it('returns an empty array for an empty item list', () => {
-		expect(groupByBranchPoint([], stepsOf, 0, 5)).toEqual([]);
+		expect(groupByFirstMoves([], stepsOf, 5, 5)).toEqual([]);
 	});
 });

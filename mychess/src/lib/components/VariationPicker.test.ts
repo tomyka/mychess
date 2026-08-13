@@ -7,8 +7,8 @@ import VariationPicker from './VariationPicker.svelte';
 afterEach(() => cleanup());
 
 // Builds a realistic VariationStep[] with correctly alternating side-to-move
-// and move-number FEN fields, so moveSequenceLabel's numbering is accurate
-// for a slice starting at any ply, not just the very first one.
+// and move-number FEN fields, so moveSequenceLabel's numbering (used for
+// move-group bucket labels) is accurate.
 function path(sans: string[]) {
 	let moveNumber = 1;
 	let whiteToMove = true;
@@ -36,11 +36,13 @@ function row(
 	};
 }
 
-// v1/v2 share "e4 e5 Nf3 Nc6" (4 plies) before forking on move 3; v3 is a
-// single, unrelated line in a different chapter.
+// v1/v2 share their first 5 full moves (10 plies) before diverging on move
+// 6 — the fixed grouping window used by the component (FIRST_MOVES_GROUP_PLIES
+// = 10) buckets them together. v3 is a short, unrelated line in a different
+// chapter, well under the window's length.
 const variationsResponse = [
-	row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5'], 'Ruy Lopez'),
-	row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4'], 'Ruy Lopez', { solved: true }),
+	row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], 'Ruy Lopez'),
+	row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'd3'], 'Ruy Lopez', { solved: true }),
 	row('v3', ['d4', 'd5', 'c4'], 'Italian Game')
 ];
 
@@ -55,19 +57,18 @@ describe('VariationPicker', () => {
 		expect(fetchSpy).toHaveBeenCalledWith('/api/repertoires/rep-1/variations');
 	});
 
-	it('drills into a chapter to reveal its shared-prefix bucket, then into that bucket to reach the leaf variations', async () => {
+	it('drills into a chapter to show its first-5-moves bucket, then into that bucket to reach the leaf variations', async () => {
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(VariationPicker, { props: { repertoireId: 'rep-1', onselect: vi.fn(), onclose: vi.fn() } });
 
 		await waitFor(() => screen.getByText('Ruy Lopez'));
 		await fireEvent.click(screen.getByText('Ruy Lopez'));
-		// v1 and v2 share their first 4 plies — collapsed into one bucket,
-		// not split into separate per-move tiers.
-		expect(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6/)).toBeTruthy();
+		// v1 and v2 share their first 5 full moves — one bucket, not split.
+		expect(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6 3\.Bb5 a6 4\.Ba4 Nf6 5\.O-O Be7/)).toBeTruthy();
 		expect(screen.queryByText('label:v1')).toBeNull();
 
-		await fireEvent.click(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6/));
+		await fireEvent.click(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6 3\.Bb5 a6 4\.Ba4 Nf6 5\.O-O Be7/));
 		expect(screen.getByText('label:v1')).toBeTruthy();
 		expect(screen.getByText('label:v2')).toBeTruthy();
 	});
@@ -80,7 +81,7 @@ describe('VariationPicker', () => {
 
 		await waitFor(() => screen.getByText('Ruy Lopez'));
 		await fireEvent.click(screen.getByText('Ruy Lopez'));
-		await fireEvent.click(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6/));
+		await fireEvent.click(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6 3\.Bb5 a6 4\.Ba4 Nf6 5\.O-O Be7/));
 
 		const solvedRow = screen.getByText('label:v2').closest('button')!;
 		expect(solvedRow.textContent).toContain('✓');
@@ -96,45 +97,41 @@ describe('VariationPicker', () => {
 
 		await waitFor(() => screen.getByText('Ruy Lopez'));
 		await fireEvent.click(screen.getByText('Ruy Lopez'));
-		await fireEvent.click(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6/));
+		await fireEvent.click(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6 3\.Bb5 a6 4\.Ba4 Nf6 5\.O-O Be7/));
 		await fireEvent.click(screen.getByText('label:v1'));
 		expect(onselect).toHaveBeenCalledWith('v1');
 	});
 
-	it('the "Back" button returns from the fork bucket to the chapter list', async () => {
+	it('the "Back" button returns from the bucket to the chapter list', async () => {
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(VariationPicker, { props: { repertoireId: 'rep-1', onselect: vi.fn(), onclose: vi.fn() } });
 
 		await waitFor(() => screen.getByText('Ruy Lopez'));
 		await fireEvent.click(screen.getByText('Ruy Lopez'));
-		await fireEvent.click(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6/));
+		await fireEvent.click(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6 3\.Bb5 a6 4\.Ba4 Nf6 5\.O-O Be7/));
 		await waitFor(() => screen.getByText('label:v1'));
 
 		await fireEvent.click(screen.getByText('← Back'));
 		expect(screen.queryByText('label:v1')).toBeNull();
-		expect(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6/)).toBeTruthy();
+		expect(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6 3\.Bb5 a6 4\.Ba4 Nf6 5\.O-O Be7/)).toBeTruthy();
 
 		await fireEvent.click(screen.getByText('← Back'));
 		expect(screen.getByText('Ruy Lopez')).toBeTruthy();
 		expect(screen.getByText('Italian Game')).toBeTruthy();
 	});
 
-	it('skips the chapter level entirely when no variation has a chapterName, still bucketing by shared prefix', async () => {
+	it('skips the chapter level entirely when no variation has a chapterName, still bucketing by the first-5-moves window', async () => {
 		const flat = [
-			row('v1', ['e4', 'e5', 'Nf3'], null),
-			row('v2', ['e4', 'e5', 'Nc3'], null),
-			row('v3', ['d4', 'd5'], null)
+			row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7'], null),
+			row('v2', ['d4', 'd5'], null)
 		];
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => flat });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(VariationPicker, { props: { repertoireId: 'rep-1', onselect: vi.fn(), onclose: vi.fn() } });
 
-		// v1/v2 share "e4 e5" before forking — a real bucket to drill into.
-		await waitFor(() => expect(screen.getByText(/1\.e4 e5/)).toBeTruthy());
-		// v3 has no sibling to share a prefix with, so it collapses straight
-		// to a leaf with no extra click.
-		expect(screen.getByText('label:v3')).toBeTruthy();
+		await waitFor(() => expect(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6 3\.Bb5 a6 4\.Ba4 Nf6 5\.O-O Be7/)).toBeTruthy());
+		expect(screen.getByText(/1\.d4 d5/)).toBeTruthy();
 		expect(screen.queryByText('(chapter)', { exact: false })).toBeNull();
 	});
 
@@ -149,14 +146,18 @@ describe('VariationPicker', () => {
 		expect(onclose).toHaveBeenCalled();
 	});
 
-	it('hides excluded variations entirely, collapsing straight to the one remaining leaf', async () => {
-		const mixed = [row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5'], 'Ruy Lopez'), row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4'], 'Ruy Lopez', { included: false })];
+	it('hides excluded variations entirely, so only the one remaining variation can be picked', async () => {
+		const mixed = [
+			row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], 'Ruy Lopez'),
+			row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'd3'], 'Ruy Lopez', { included: false })
+		];
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => mixed });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(VariationPicker, { props: { repertoireId: 'rep-1', onselect: vi.fn(), onclose: vi.fn() } });
 
 		await waitFor(() => screen.getByText('Ruy Lopez'));
 		await fireEvent.click(screen.getByText('Ruy Lopez'));
+		await fireEvent.click(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6 3\.Bb5 a6 4\.Ba4 Nf6 5\.O-O Be7/));
 
 		expect(screen.getByText('label:v1')).toBeTruthy();
 		expect(screen.queryByText('label:v2')).toBeNull();

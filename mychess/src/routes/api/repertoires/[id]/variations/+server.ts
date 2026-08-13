@@ -9,12 +9,12 @@ import { moveSequenceLabel } from '$lib/mastery/variations';
 /**
  * Every variation in a repertoire, labeled by its move sequence, with this
  * player's own included/excluded state, originating PGN chapter (if any),
- * full move path (for the picker's branch-point move-group buckets, which
- * need to see arbitrarily many plies ahead to find where lines actually
- * diverge — not just the first move), and solved state. Fetched lazily
- * (only when a repertoire row is expanded or the picker is opened), not
- * eagerly for every repertoire, to avoid re-introducing the full-move-fetch
- * cost the shape cache exists to avoid.
+ * full move path (for the picker's fixed-window move-group buckets, which
+ * key on each variation's first FIRST_MOVES_GROUP_PLIES plies — not just the
+ * first move), and solved state. Fetched lazily (only when a repertoire row
+ * is expanded or the picker is opened), not eagerly for every repertoire, to
+ * avoid re-introducing the full-move-fetch cost the shape cache exists to
+ * avoid.
  */
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const user = await requireApiUser(locals);
