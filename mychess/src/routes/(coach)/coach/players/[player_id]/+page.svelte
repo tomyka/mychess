@@ -88,7 +88,7 @@
             <div class="bg-gray-50 rounded-lg p-4">
               <h3 class="font-medium text-gray-900 text-sm mb-3">
                 {pr.repertoireName}
-                <span class="text-gray-400 font-normal">— Level {pr.level ?? '—'}</span>
+                <span class="text-gray-400 font-normal">— {pr.total > 0 ? `${pr.solved}/${pr.total} solved` : 'no moves yet'}</span>
               </h3>
 
               {#if !pr.report || pr.report.accuracy.length === 0}

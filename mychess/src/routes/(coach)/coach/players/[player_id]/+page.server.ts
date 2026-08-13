@@ -27,12 +27,23 @@ export const load: PageServerLoad = async ({ params, url, locals: { supabase, sa
   const assignedReps = assignedRes.data ?? [];
   const practiceReports = await Promise.all(
     assignedReps.map(async (a: any) => {
-      if (!a.repertoire?.id) return { repertoireId: null, repertoireName: a.repertoire?.name ?? 'Repertoire', level: null, report: null };
-      const [levelRes, report] = await Promise.all([
-        supabase.from('level_progress').select('level').eq('player_id', params.player_id).eq('repertoire_id', a.repertoire.id).maybeSingle(),
+      if (!a.repertoire?.id) return { repertoireId: null, repertoireName: a.repertoire?.name ?? 'Repertoire', solved: 0, total: 0, report: null };
+      const [{ data: repRow }, { count: solvedCount }, report] = await Promise.all([
+        supabase.from('repertoires').select('total_variations').eq('id', a.repertoire.id).maybeSingle(),
+        supabase
+          .from('variation_solved')
+          .select('id', { count: 'exact', head: true })
+          .eq('player_id', params.player_id)
+          .eq('repertoire_id', a.repertoire.id),
         loadRepertoireReport(supabase, params.player_id, a.repertoire.id, sinceIso, now)
       ]);
-      return { repertoireId: a.repertoire.id, repertoireName: a.repertoire.name, level: levelRes.data?.level ?? null, report };
+      return {
+        repertoireId: a.repertoire.id,
+        repertoireName: a.repertoire.name,
+        solved: solvedCount ?? 0,
+        total: repRow?.total_variations ?? 0,
+        report
+      };
     })
   );
 
