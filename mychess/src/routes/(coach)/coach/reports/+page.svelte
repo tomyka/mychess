@@ -39,8 +39,8 @@
 									<p class="text-xs text-gray-400">Sessions</p>
 								</div>
 								<div>
-									<p class="font-bold text-gray-900">{s.summary.avgLevel ?? '—'}</p>
-									<p class="text-xs text-gray-400">Avg level</p>
+									<p class="font-bold text-gray-900">{s.summary.avgSolvedPct !== null ? `${s.summary.avgSolvedPct}%` : '—'}</p>
+									<p class="text-xs text-gray-400">Avg solved</p>
 								</div>
 								<div>
 									<p class="font-bold text-gray-900">

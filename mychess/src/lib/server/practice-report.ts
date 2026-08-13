@@ -111,16 +111,18 @@ export type StudentSummary = {
 	accuracyPct: number | null;
 	sessionCount: number;
 	lastPracticedAt: string | null;
-	avgLevel: number | null;
+	avgSolvedPct: number | null;
 };
 
 /**
  * A roster-row summary for one student: accuracy/activity across ALL of
  * their move_attempts since `sinceIso` (matching how the existing
  * player_stats numbers on the student page are already global, not scoped
- * to this one coach's assignments), but mastery level averaged only across
- * repertoires THIS coach has assigned them (a level on a repertoire this
- * coach never assigned isn't this coach's business).
+ * to this one coach's assignments), but `avgSolvedPct` averaged only across
+ * repertoires THIS coach has assigned them (a repertoire this coach never
+ * assigned isn't this coach's business) — each repertoire's own solved% is
+ * `variation_solved` rows for that repertoire divided by its variation count,
+ * then averaged evenly across repertoires (not weighted by size).
  */
 export async function loadStudentSummary(
 	supabase: SupabaseClient,
@@ -149,20 +151,31 @@ export async function loadStudentSummary(
 	]);
 
 	const repertoireIds = (assigned ?? []).map((a: any) => a.repertoire_id as string);
-	const { data: levelRows } = repertoireIds.length
-		? await supabase.from('level_progress').select('level').eq('player_id', playerId).in('repertoire_id', repertoireIds)
-		: { data: [] as any[] };
+	const [{ data: repRows }, { data: solvedRows }] = repertoireIds.length
+		? await Promise.all([
+				supabase.from('repertoires').select('id, total_variations').in('id', repertoireIds),
+				supabase.from('variation_solved').select('repertoire_id').eq('player_id', playerId).in('repertoire_id', repertoireIds)
+			])
+		: [{ data: [] as any[] }, { data: [] as any[] }];
+
+	const solvedCountByRep = new Map<string, number>();
+	for (const r of (solvedRows ?? []) as any[]) {
+		solvedCountByRep.set(r.repertoire_id, (solvedCountByRep.get(r.repertoire_id) ?? 0) + 1);
+	}
+	const solvedPcts = (repRows ?? [])
+		.filter((r: any) => (r.total_variations ?? 0) > 0)
+		.map((r: any) => ((solvedCountByRep.get(r.id) ?? 0) / r.total_variations) * 100);
 
 	const rows = (attemptRows ?? []).map((r: any) => ({ isCorrect: r.is_correct as boolean, createdAt: r.created_at as string }));
 	const total = rows.length;
 	const correct = rows.filter((r) => r.isCorrect).length;
 	const activity = activityStats(rows, now);
-	const levels = (levelRows ?? []).map((r: any) => r.level as number);
 
 	return {
 		accuracyPct: total > 0 ? Math.round((correct / total) * 100) : null,
 		sessionCount: activity.sessionCount,
 		lastPracticedAt: activity.lastPracticedAt,
-		avgLevel: levels.length > 0 ? Math.round((levels.reduce((s, l) => s + l, 0) / levels.length) * 10) / 10 : null
+		avgSolvedPct:
+			solvedPcts.length > 0 ? Math.round(solvedPcts.reduce((s, p) => s + p, 0) / solvedPcts.length) : null
 	};
 }
