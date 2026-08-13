@@ -10,8 +10,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const supabase = locals.supabase;
 	const repertoireId = params.repertoire_id;
 
-	const { repertoire, variations } = await loadFilteredRepertoireVariations(supabase, user!.id, repertoireId);
-	const solvedKeys = await loadSolvedKeys(supabase, user!.id, repertoireId);
+	const [{ repertoire, variations }, solvedKeys] = await Promise.all([
+		loadFilteredRepertoireVariations(supabase, user!.id, repertoireId),
+		loadSolvedKeys(supabase, user!.id, repertoireId)
+	]);
 	const activeVariationKey = await loadSyncedActiveVariationKey(supabase, user!.id, repertoireId, variations, solvedKeys);
 
 	return { repertoire, ...buildPracticeView(variations, activeVariationKey, solvedKeys) };
