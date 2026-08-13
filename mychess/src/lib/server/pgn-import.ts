@@ -2,16 +2,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { planGameImport, type MoveRow } from '$lib/pgn-import';
 import { enumerateVariations, hasChapterTags, type RawMoveRow } from '$lib/mastery/variations';
-import { repertoireShape } from '$lib/mastery/levelProgress';
 import { fetchAllMoves, toRawMoveRows } from './practice-repertoire';
 
 export type GameImportResult = { repertoireId: string | null; gameCount: number; error: string | null };
-
-// Matches repertoires.chunk_size's db default (see migration 0044) — shape is
-// cached at import time, before a repertoire row (and its chunk_size) exists
-// yet, so there's no per-repertoire value to read here. Only relevant until a
-// future UI lets a player set chunk_size at import time.
-const DEFAULT_CHUNK_SIZE = 3;
 
 /**
  * Splits values into batches whose combined length stays under `maxChars`.
@@ -124,10 +117,10 @@ export async function writeMoves(
     const computeShapeEagerly = params.finalize !== false;
     if (computeShapeEagerly) {
       // Computed from `params.moves` directly — before any DB writes — since
-      // moves are immutable after import, this "shape" (see
-      // `$lib/mastery/levelProgress.ts`) never changes again for this
-      // repertoire once it's known to be complete (a single-chapter import,
-      // or `importGames`, which always hands over every move up front).
+      // moves are immutable after import, this variation count never changes
+      // again for this repertoire once it's known to be complete (a
+      // single-chapter import, or `importGames`, which always hands over
+      // every move up front).
       const dedupedMoves = Array.from(new Map(params.moves.map((m) => [`${m.fromFen}|${m.san}`, m])).values());
       const rawMoves: RawMoveRow[] = dedupedMoves.map((m, i) => ({
         id: String(i),
@@ -140,10 +133,7 @@ export async function writeMoves(
         chapterName: null
       }));
       const variations = enumerateVariations(rawMoves);
-      const shape = repertoireShape(variations, DEFAULT_CHUNK_SIZE);
-      insertColumns.total_variations = shape.totalVariations;
-      insertColumns.total_levels = shape.totalLevels;
-      insertColumns.level1_task_count = shape.level1TaskCount;
+      insertColumns.total_variations = variations.length;
       // `chapterName` is hardcoded null on `rawMoves` above (this path never
       // has real chapter tags to check — a single-chapter import, or
       // `importGames`'s "my games" auto-import), so this is always false
@@ -238,13 +228,10 @@ export async function writeMoves(
     const allMoves = await fetchAllMoves(supabase, repId);
     const rawMoves: RawMoveRow[] = toRawMoveRows(allMoves);
     const variations = enumerateVariations(rawMoves);
-    const shape = repertoireShape(variations, DEFAULT_CHUNK_SIZE);
     const { error: shapeErr } = await supabase
       .from('repertoires')
       .update({
-        total_variations: shape.totalVariations,
-        total_levels: shape.totalLevels,
-        level1_task_count: shape.level1TaskCount,
+        total_variations: variations.length,
         has_chapters: hasChapterTags(variations)
       })
       .eq('id', repId);
