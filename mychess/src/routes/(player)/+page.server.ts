@@ -126,8 +126,8 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
   // A repertoire with no moves yet is vacuously "mastered" by
   // repertoireProgress's math — exclude it from both sides of this ratio, it
   // isn't meaningfully masterable yet.
-  const masterableRepertoires = repertoireSummaries.filter((r) => r.totalVariations > 0);
-  const masteredRepertoireCount = masterableRepertoires.filter((r) => r.level === 'mastered').length;
+  const masterableRepertoires = repertoireSummaries.filter((r) => r.total > 0);
+  const masteredRepertoireCount = masterableRepertoires.filter((r) => r.allSolved).length;
 
   return {
     isGuest,
