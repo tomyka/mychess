@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { pickActiveVariation, nextVariation, advanceVariationIfMastered, variationSequenceProgress } from './variationSequence';
+import { resolveAttempt } from './levelProgress';
 import type { LevelProgressRow } from './levelProgress';
+import { taskKey } from './levels';
 import type { Variation } from './variations';
 
 const UNCAPPED = 100;
@@ -151,5 +153,26 @@ describe('variationSequenceProgress', () => {
 			variationsMastered: 1, // falls back to `a`, which IS mastered (level 2 > cap 1)
 			totalVariationsInSequence: 2
 		});
+	});
+});
+
+describe('composing resolveAttempt with advanceVariationIfMastered (mirrors applyAttemptResult)', () => {
+	it('clearing the ACTIVE (middle) variation\'s final level advances activeVariationKey to the next one in sequence, with a fresh level-1 queue', () => {
+		const a = variation(2, 'a-');
+		const b = variation(2, 'b-'); // cap = 1 with chunkSize 3 — this attempt clears its only level
+		const c = variation(2, 'c-');
+		const row: LevelProgressRow = {
+			level: 1,
+			prevLevelMistakes: 0,
+			queue: [{ key: taskKey(b, 1, 3), status: 'pending' }],
+			activeVariationKey: b.variationKey
+		};
+		const resolved = resolveAttempt(row, { taskKey: taskKey(b, 1, 3), hadMistake: false }, [b], 100, 3);
+		const next = advanceVariationIfMastered(resolved, [a, b, c], 100, 3, () => 0);
+
+		expect(next.activeVariationKey).toBe(c.variationKey); // advanced past b to c, not back to a
+		expect(next.level).toBe(1); // fresh run for c
+		expect(next.prevLevelMistakes).toBe(0);
+		expect(next.queue).toEqual([{ key: taskKey(c, 1, 3), status: 'pending' }]);
 	});
 });
