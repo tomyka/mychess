@@ -1,107 +1,63 @@
 // @vitest-environment jsdom
+// mychess/src/routes/(player)/practice/[repertoire_id]/practice.test.ts
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/svelte';
+import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
 import Practice from './+page.svelte';
-
-const invalidateAllMock = vi.fn();
-const gotoMock = vi.fn();
-vi.mock('$app/navigation', () => ({
-	goto: (...args: any[]) => gotoMock(...args),
-	invalidateAll: (...args: any[]) => invalidateAllMock(...args)
-}));
 
 afterEach(() => {
 	cleanup();
-	invalidateAllMock.mockClear();
-	gotoMock.mockClear();
 	vi.unstubAllGlobals();
 });
 
 describe('practice detail page', () => {
-	it('shows "nothing to practice" rather than "mastered" when the repertoire has no moves yet', () => {
+	it('shows "nothing to practice" when the repertoire has no moves yet', () => {
 		render(Practice, {
 			props: {
 				data: {
 					repertoire: { id: 'r1', name: 'Empty Repertoire', color: 'white' },
-					level: 'mastered',
-					totalVariations: 0,
-					totalLevels: 0,
 					attempt: null,
-					reviewLevel: null
+					solved: 0,
+					total: 0,
+					allSolved: false
 				}
 			}
 		});
-		expect(screen.queryByText(/Repertoire Mastered/i)).toBeNull();
+		expect(screen.queryByText(/Repertoire Solved/i)).toBeNull();
 		expect(screen.getByText(/Nothing to practice/i)).toBeTruthy();
 	});
 
-	it('shows the mastered screen once every real variation is actually solved', () => {
+	it('shows the "Repertoire Solved!" screen once every variation is solved', () => {
 		render(Practice, {
 			props: {
 				data: {
 					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
-					level: 'mastered',
-					totalVariations: 5,
-					totalLevels: 3,
 					attempt: null,
-					reviewLevel: null
+					solved: 5,
+					total: 5,
+					allSolved: true
 				}
 			}
 		});
-		expect(screen.getByText(/Repertoire Mastered/i)).toBeTruthy();
+		expect(screen.getByText(/Repertoire Solved/i)).toBeTruthy();
+		expect(screen.getByText('Re-drill a specific variation')).toBeTruthy();
 	});
 
-	it('also shows the level list on the mastered screen', () => {
+	it('shows the repertoire name and solved/total progress while an attempt is in flight', () => {
 		render(Practice, {
 			props: {
 				data: {
 					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
-					level: 'mastered',
-					totalVariations: 5,
-					totalLevels: 3,
-					attempt: null,
-					reviewLevel: null
-				}
-			}
-		});
-		expect(screen.getByText(/Repertoire Mastered/i)).toBeTruthy();
-		expect(screen.getByText(/Level 1/i)).toBeTruthy();
-	});
-
-	it('shows the current level and progress while an attempt is in flight', () => {
-		render(Practice, {
-			props: {
-				data: {
-					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
-					level: 2,
-					totalVariations: 5,
-					totalLevels: 4,
-					levelTaskCount: 5,
-					levelSolvedCount: 3,
-					reviewLevel: null,
+					solved: 3,
+					total: 5,
+					allSolved: false,
 					attempt: {
-						prefix: [
+						variationKey: 'v1',
+						path: [
 							{
 								moveId: 'm1',
 								san: 'e4',
 								fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-								toFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-								isPlayerTurn: true
-							},
-							{
-								moveId: 'm2',
-								san: 'e5',
-								fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-								toFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-								isPlayerTurn: false
-							}
-						],
-						quizSteps: [
-							{
-								moveId: 'm3',
-								san: 'Nf3',
-								fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-								toFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+								toFen: 'rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/8/RNBQKBNR w KQkq - 0 1',
 								isPlayerTurn: true
 							}
 						]
@@ -109,35 +65,26 @@ describe('practice detail page', () => {
 				}
 			}
 		});
-		expect(screen.getByText(/Level 2 of 4/i)).toBeTruthy();
-		expect(screen.getByText(/3\/5 solved/i)).toBeTruthy();
+		expect(screen.getByText('French Defense')).toBeTruthy();
+		expect(screen.getByText('3 / 5 variations solved')).toBeTruthy();
 	});
 
-	it('shows the reviewing banner and exit control when reviewing a past level', () => {
+	it('shows a "Choose a variation" control whenever a repertoire is loaded', () => {
 		render(Practice, {
 			props: {
 				data: {
 					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
-					level: 3,
-					totalVariations: 5,
-					totalLevels: 4,
-					reviewLevel: 2,
+					solved: 0,
+					total: 5,
+					allSolved: false,
 					attempt: {
-						prefix: [
+						variationKey: 'v1',
+						path: [
 							{
 								moveId: 'm1',
 								san: 'e4',
 								fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-								toFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-								isPlayerTurn: true
-							}
-						],
-						quizSteps: [
-							{
-								moveId: 'm3',
-								san: 'Nf3',
-								fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-								toFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+								toFen: 'rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/8/RNBQKBNR w KQkq - 0 1',
 								isPlayerTurn: true
 							}
 						]
@@ -145,188 +92,39 @@ describe('practice detail page', () => {
 				}
 			}
 		});
-		expect(screen.getByText(/Reviewing Level 2/i)).toBeTruthy();
-		expect(screen.getByText(/Exit review/i)).toBeTruthy();
+		expect(screen.getByText('Choose a variation')).toBeTruthy();
 	});
 
-	it('shows "Mastered" (not "Level mastered") in the sidebar card when reviewing a level on an already-mastered repertoire', () => {
-		render(Practice, {
-			props: {
-				data: {
-					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
-					level: 'mastered',
-					totalVariations: 5,
-					totalLevels: 4,
-					reviewLevel: 2,
-					attempt: {
-						prefix: [
-							{
-								moveId: 'm1',
-								san: 'e4',
-								fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-								toFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-								isPlayerTurn: true
-							}
-						],
-						quizSteps: [
-							{
-								moveId: 'm3',
-								san: 'Nf3',
-								fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-								toFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-								isPlayerTurn: true
-							}
-						]
-					}
-				}
-			}
-		});
-		expect(screen.queryByText(/Level mastered/i)).toBeNull();
-		// The sidebar progress card interpolates the repertoire name and "Mastered"
-		// into the same <p>, so matching that combination disambiguates it from
-		// LevelList's own "🏆 Mastered" row (which has no repertoire name nearby).
-		expect(screen.getByText(/French Defense.*Mastered/i)).toBeTruthy();
-	});
-
-	it('shows the current practice depth', () => {
-		render(Practice, {
-			props: {
-				data: {
-					repertoire: { id: 'r1', name: 'French Defense', color: 'white', practiceDepthLevels: 6 },
-					level: 'mastered',
-					totalVariations: 5,
-					totalLevels: 3,
-					attempt: null,
-					reviewLevel: null
-				}
-			}
-		});
-		expect(screen.getByText(/Practice depth:/i)).toBeTruthy();
-		expect(screen.getByText('6 levels')).toBeTruthy();
-	});
-
-	it('saves a new practice depth and refreshes the page data', async () => {
-		render(Practice, {
-			props: {
-				data: {
-					repertoire: { id: 'r1', name: 'French Defense', color: 'white', practiceDepthLevels: 6 },
-					level: 'mastered',
-					totalVariations: 5,
-					totalLevels: 3,
-					attempt: null,
-					reviewLevel: null
-				}
-			}
-		});
-		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+	it('opens the variation picker when "Choose a variation" is clicked', async () => {
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
 		vi.stubGlobal('fetch', fetchSpy);
-
-		await fireEvent.click(screen.getByText(/Practice depth:/i));
-		const input = screen.getByLabelText('Practice depth:') as HTMLInputElement;
-		await fireEvent.input(input, { target: { value: '10' } });
-		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
-		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalled());
-		expect(fetchSpy).toHaveBeenCalledWith(
-			'/api/repertoires/r1',
-			expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ practiceDepthLevels: 10 }) })
-		);
-	});
-
-	it('shows an error and does not refresh when saving the practice depth fails', async () => {
 		render(Practice, {
 			props: {
 				data: {
-					repertoire: { id: 'r1', name: 'French Defense', color: 'white', practiceDepthLevels: 6 },
-					level: 'mastered',
-					totalVariations: 5,
-					totalLevels: 3,
-					attempt: null,
-					reviewLevel: null
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 0,
+					total: 5,
+					allSolved: false,
+					attempt: {
+						variationKey: 'v1',
+						path: [
+							{
+								moveId: 'm1',
+								san: 'e4',
+								fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+								toFen: 'rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/8/RNBQKBNR w KQkq - 0 1',
+								isPlayerTurn: true
+							}
+						]
+					}
 				}
 			}
 		});
-		const fetchSpy = vi.fn().mockResolvedValue({ ok: false, json: async () => ({ message: 'nope' }) });
-		vi.stubGlobal('fetch', fetchSpy);
-
-		await fireEvent.click(screen.getByText(/Practice depth:/i));
-		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-
-		await waitFor(() => expect(screen.getByText('nope')).toBeTruthy());
-		expect(invalidateAllMock).not.toHaveBeenCalled();
-	});
-
-	it('shows "never reviewed" when a mastered repertoire has no maintenance-review history', () => {
-		render(Practice, {
-			props: {
-				data: {
-					repertoire: { id: 'r1', name: 'French Defense', color: 'white', practiceDepthLevels: 6 },
-					level: 'mastered',
-					totalVariations: 5,
-					totalLevels: 3,
-					attempt: null,
-					reviewLevel: null,
-					lastReviewedAt: null
-				}
-			}
-		});
-		expect(screen.getByText(/Never reviewed since mastering/i)).toBeTruthy();
-	});
-
-	it('shows "fresh" when the repertoire was reviewed recently', () => {
-		render(Practice, {
-			props: {
-				data: {
-					repertoire: { id: 'r1', name: 'French Defense', color: 'white', practiceDepthLevels: 6 },
-					level: 'mastered',
-					totalVariations: 5,
-					totalLevels: 3,
-					attempt: null,
-					reviewLevel: null,
-					lastReviewedAt: new Date().toISOString()
-				}
-			}
-		});
-		expect(screen.getByText(/Fresh — reviewed recently/i)).toBeTruthy();
-	});
-
-	it('shows "overdue" once a maintenance review is long overdue', () => {
-		const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
-		render(Practice, {
-			props: {
-				data: {
-					repertoire: { id: 'r1', name: 'French Defense', color: 'white', practiceDepthLevels: 6 },
-					level: 'mastered',
-					totalVariations: 5,
-					totalLevels: 3,
-					attempt: null,
-					reviewLevel: null,
-					lastReviewedAt: sixtyDaysAgo
-				}
-			}
-		});
-		expect(screen.getByText(/Overdue for a refresh/i)).toBeTruthy();
-	});
-
-	it('starts a maintenance review session by navigating to a random level', async () => {
-		render(Practice, {
-			props: {
-				data: {
-					repertoire: { id: 'r1', name: 'French Defense', color: 'white', practiceDepthLevels: 6 },
-					level: 'mastered',
-					totalVariations: 5,
-					totalLevels: 3,
-					attempt: null,
-					reviewLevel: null,
-					lastReviewedAt: null
-				}
-			}
-		});
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Refresh now' }));
-
-		expect(gotoMock).toHaveBeenCalledTimes(1);
-		const url = gotoMock.mock.calls[0][0] as string;
-		expect(url).toMatch(/^\/practice\/r1\?level=[1-3]$/);
+		await fireEvent.click(screen.getByText('Choose a variation'));
+		// VariationPicker itself renders a "Close" control unique to it — a
+		// reliable signal the picker actually mounted, without colliding with
+		// the "Choose a variation" text that appears in BOTH the trigger
+		// button and the picker's own heading.
+		expect(screen.getByLabelText('Close')).toBeTruthy();
 	});
 });
