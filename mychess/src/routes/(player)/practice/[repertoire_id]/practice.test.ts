@@ -127,4 +127,22 @@ describe('practice detail page', () => {
 		// button and the picker's own heading.
 		expect(screen.getByLabelText('Close')).toBeTruthy();
 	});
+
+	it('opens the variation picker when "Re-drill a specific variation" is clicked on the solved screen', async () => {
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					attempt: null,
+					solved: 5,
+					total: 5,
+					allSolved: true
+				}
+			}
+		});
+		await fireEvent.click(screen.getByText('Re-drill a specific variation'));
+		expect(screen.getByLabelText('Close')).toBeTruthy();
+	});
 });

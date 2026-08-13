@@ -23,10 +23,17 @@
 	// from "the Other bucket is opened" (`move: null`, but a real index),
 	// which two `string | null` values pointing at the same `null` couldn't.
 	let openGroupIndex = $state<number | null>(null);
+	let errorMessage = $state<string | null>(null);
 
 	async function load() {
-		const res = await fetch(`/api/repertoires/${repertoireId}/variations`);
-		if (res.ok) variations = await res.json();
+		try {
+			const res = await fetch(`/api/repertoires/${repertoireId}/variations`);
+			if (!res.ok) throw new Error('load failed');
+			variations = await res.json();
+			errorMessage = null;
+		} catch {
+			errorMessage = "Couldn't load variations — try again.";
+		}
 	}
 	load();
 
@@ -71,7 +78,11 @@
 		</div>
 
 		{#if variations === null}
-			<p class="text-sm text-gray-400">Loading…</p>
+			{#if errorMessage}
+				<p class="text-sm text-red-600">{errorMessage}</p>
+			{:else}
+				<p class="text-sm text-gray-400">Loading…</p>
+			{/if}
 		{:else if openGroup}
 			<button onclick={() => (openGroupIndex = null)} class="text-indigo-600 text-sm mb-2 hover:underline">← Back</button>
 			<ul class="space-y-1">
