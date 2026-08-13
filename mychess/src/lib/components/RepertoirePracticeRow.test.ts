@@ -13,11 +13,9 @@ const baseRep = {
 	id: 'rep-1',
 	name: 'Ruy Lopez',
 	color: 'white',
-	level: 3 as const,
-	totalLevels: 6,
-	levelTaskCount: 18,
-	levelSolvedCount: 12,
-	totalVariations: 2,
+	solved: 12,
+	total: 18,
+	allSolved: false,
 	fullVariationCount: 2,
 	excludedVariationCount: 0,
 	hasChapters: true
@@ -144,13 +142,23 @@ describe('RepertoirePracticeRow', () => {
 		expect(v2Checkbox.checked).toBe(false);
 	});
 
-	it('shows "No moves yet" when totalVariations is 0, even if fullVariationCount is not (every variation excluded)', () => {
+	it('shows "No moves yet" when total is 0, even if fullVariationCount is not (every variation excluded)', () => {
 		render(RepertoirePracticeRow, {
 			props: {
-				rep: { ...baseRep, totalVariations: 0, level: 'mastered' as const, totalLevels: 0, excludedVariationCount: 2 }
+				rep: { ...baseRep, total: 0, solved: 0, allSolved: true, excludedVariationCount: 2 }
 			}
 		});
 		expect(screen.getByText('No moves yet')).toBeTruthy();
+	});
+
+	it('shows solved/total progress in the subtitle', () => {
+		render(RepertoirePracticeRow, { props: { rep: baseRep } });
+		expect(screen.getByText('12/18 variations solved')).toBeTruthy();
+	});
+
+	it('shows a trophy badge when allSolved is true', () => {
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, allSolved: true, solved: 18 } } });
+		expect(screen.getByText('🏆 Solved · 18/18')).toBeTruthy();
 	});
 
 	it('reverts the checkbox and shows an error when toggling a variation fails', async () => {
@@ -186,7 +194,7 @@ describe('RepertoirePracticeRow', () => {
 	it('groups variations under a chapter header when they share a chapterName, without listing individual variations', async () => {
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => chapterVariationsResponse });
 		vi.stubGlobal('fetch', fetchSpy);
-		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, totalVariations: 3, fullVariationCount: 3 } } });
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
 
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
 		await waitFor(() => expect(screen.getByText('Ruy Lopez (chapter)')).toBeTruthy());
@@ -213,7 +221,7 @@ describe('RepertoirePracticeRow', () => {
 		const partial = chapterVariationsResponse.map((v) => (v.variationKey === 'v1' ? { ...v, included: false } : v));
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => partial });
 		vi.stubGlobal('fetch', fetchSpy);
-		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, totalVariations: 3, fullVariationCount: 3 } } });
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
 
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
 		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
@@ -230,7 +238,7 @@ describe('RepertoirePracticeRow', () => {
 			.mockResolvedValueOnce({ ok: true, json: async () => chapterVariationsResponse })
 			.mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
 		vi.stubGlobal('fetch', fetchSpy);
-		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, totalVariations: 3, fullVariationCount: 3 } } });
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
 
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
 		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));

@@ -1,16 +1,12 @@
 <!-- mychess/src/lib/components/RepertoirePracticeRow.svelte -->
 <script lang="ts">
-	import { levelTag } from '$lib/mastery/tags';
-
 	type RepSummary = {
 		id: string;
 		name: string;
 		color: string;
-		level: number | 'mastered';
-		totalLevels: number;
-		levelTaskCount: number;
-		levelSolvedCount: number;
-		totalVariations: number;
+		solved: number;
+		total: number;
+		allSolved: boolean;
 		fullVariationCount: number;
 		excludedVariationCount: number;
 		// Whether this repertoire has any chapter-tagged variation at all. When
@@ -242,13 +238,12 @@
 			<div class="flex-1 min-w-0">
 				<h2 class="font-medium text-gray-900 truncate">{rep.name}</h2>
 				<p class="text-sm text-gray-400">
-					{#if rep.totalVariations === 0}
+					{#if rep.total === 0}
 						No moves yet
-					{:else if rep.level === 'mastered'}
-						🏆 Mastered · {levelTag(rep.totalLevels, rep.totalLevels)}
+					{:else if rep.allSolved}
+						🏆 Solved · {rep.solved}/{rep.total}
 					{:else}
-						Level {rep.level} of {rep.totalLevels} · {levelTag(rep.level, rep.totalLevels)} · {rep.levelSolvedCount}/{rep.levelTaskCount}
-						solved
+						{rep.solved}/{rep.total} variations solved
 					{/if}
 				</p>
 			</div>
