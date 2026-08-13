@@ -45,10 +45,10 @@
 	 * `existingRepertoireId` so they all land in the SAME repertoire (see
 	 * `writeMoves`) instead of each becoming its own. Every chapter EXCEPT
 	 * THE LAST also passes `finalize: false`: `writeMoves` can only compute a
-	 * correct shape (total_variations/total_levels/level1_task_count) once
-	 * every chapter's moves are in, so only the last chapter lets it default
-	 * to true, at which point it fetches the repertoire's complete move set
-	 * and computes the real shape from that. Every chapter of a multi-chapter
+	 * correct `total_variations` count once every chapter's moves are in, so
+	 * only the last chapter lets it default to true, at which point it
+	 * fetches the repertoire's complete move set and computes the real count
+	 * from that. Every chapter of a multi-chapter
 	 * import also passes `chapterLabel` (the chapter's own bare PGN title) so
 	 * the Practice picker can later group this chapter's variations together
 	 * — omitted for a single-chapter import, which has nothing to group.

@@ -91,8 +91,8 @@ export function mistakeHotspots(
  * no discrete session-start/end concept to draw on instead). The streak
  * anchors on today if the player has already practiced today, otherwise on
  * yesterday (so a streak doesn't read as broken just because today hasn't
- * happened yet). `now` is injected for testability, same convention as
- * `reviewFreshness` in `src/lib/mastery/levelProgress.ts`.
+ * happened yet). `now` is injected for testability, the same convention
+ * used throughout `src/lib/mastery/` and `src/lib/server/practice-report.ts`.
  */
 export function activityStats(rows: Array<{ createdAt: string }>, now: Date): ActivityStats {
 	if (rows.length === 0) return { sessionCount: 0, lastPracticedAt: null, streakDays: 0 };

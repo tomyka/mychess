@@ -8,7 +8,7 @@ export type RawMoveRow = {
 	isPlayerTurn: boolean;
 	// Optional (not just nullable) so the many pre-existing test fixtures
 	// across the codebase that hand-construct these types (e.g.
-	// `mastery/practice.test.ts`, `mastery/levelProgress.test.ts`) don't all
+	// `mastery/practice.test.ts`, `mastery/variationSequence.test.ts`) don't all
 	// need updating for a field they have no reason to care about — an
 	// omitted `chapterName` is treated identically to an explicit `null`
 	// everywhere it's read (see `RepertoirePracticeRow.svelte`'s grouping and

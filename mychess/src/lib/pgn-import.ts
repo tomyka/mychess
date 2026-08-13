@@ -65,9 +65,9 @@ function chapterLeafFens(moves: { fromFen: string; toFen: string }[]): Set<strin
  * in the file — each game's moves stay in their own chapter rather than
  * merging into a shared tree, since $lib/server/pgn-import.ts creates one
  * repertoire per chapter when a PGN contains more than one game. Imports
- * every move in each chapter, uncapped — how deep a player actually
- * practices into it is a separate, adjustable-after-the-fact setting (see
- * `repertoires.practice_depth_levels`), not something decided once here at
+ * every move in each chapter, uncapped — which variations a player actually
+ * practices is a separate, adjustable-after-the-fact choice (see
+ * `variation_practice_exclusions`), not something decided once here at
  * import time. Pure — no I/O — so it's directly testable without touching
  * Supabase.
  */
