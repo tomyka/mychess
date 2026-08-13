@@ -178,7 +178,7 @@ describe('groupVariationsByFirstMove', () => {
 		// (the first two distinct moves to appear) should make the cut, not c4.
 		const variations = [withFirstMove('e4', 'a'), withFirstMove('d4', 'b'), withFirstMove('c4', 'c')];
 		const groups = groupVariationsByFirstMove(variations, 2);
-		expect(groups.map((g) => g.move)).toEqual(['e4', 'd4']);
+		expect(groups.map((g) => g.move)).toEqual(['e4', 'd4', null]);
 		expect(groups[groups.length - 1].move).toBeNull(); // c4 bucketed to Other
 		expect(groups[groups.length - 1].items.map((v) => v.variationKey)).toEqual(['c']);
 	});
