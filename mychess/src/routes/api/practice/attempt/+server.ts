@@ -2,7 +2,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { loadFilteredRepertoireVariations } from '$lib/server/practice-repertoire';
-import { applyAttemptResult, loadActiveVariationKey, loadSolvedKeys } from '$lib/server/practice-progress';
+import { applyAttemptResult, loadActiveVariationKey, loadSolvedKeys, loadTeachingProgress } from '$lib/server/practice-progress';
 import { incrementQuestProgress } from '$lib/server/quests';
 import { requireApiUser } from '$lib/server/auth';
 import { buildPracticeView } from '$lib/mastery/practice';
@@ -30,9 +30,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		incrementQuestProgress(supabase, user.id, 'review_cards', today)
 	]);
 
-	const [activeVariationKey, solvedKeys] = await Promise.all([
+	const [activeVariationKey, solvedKeys, teachingProgress] = await Promise.all([
 		loadActiveVariationKey(supabase, user.id, repertoireId),
-		loadSolvedKeys(supabase, user.id, repertoireId)
+		loadSolvedKeys(supabase, user.id, repertoireId),
+		loadTeachingProgress(supabase, user.id, repertoireId)
 	]);
-	return json(buildPracticeView(variations, activeVariationKey, solvedKeys));
+	return json(buildPracticeView(variations, activeVariationKey, solvedKeys, teachingProgress));
 };

@@ -2,7 +2,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { loadFilteredRepertoireVariations } from '$lib/server/practice-repertoire';
-import { setActiveVariationKey, loadSolvedKeys } from '$lib/server/practice-progress';
+import { setActiveVariationKey, loadSolvedKeys, loadTeachingProgress } from '$lib/server/practice-progress';
 import { requireApiUser } from '$lib/server/auth';
 import { buildPracticeView } from '$lib/mastery/practice';
 
@@ -10,7 +10,8 @@ import { buildPracticeView } from '$lib/mastery/practice';
  * Manually sets the active variation from the picker — the SAME
  * active_variation_key the automatic sequence and attempt-completion both
  * read/write. Picking a variation the player has already solved is allowed
- * (re-drilling for confidence); it doesn't un-solve anything.
+ * (re-drilling for confidence); it doesn't un-solve anything, and it never
+ * re-teaches (see buildPracticeView's already-solved bypass).
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const { supabase } = locals;
@@ -28,6 +29,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	await setActiveVariationKey(supabase, user.id, repertoireId, variationKey);
-	const solvedKeys = await loadSolvedKeys(supabase, user.id, repertoireId);
-	return json(buildPracticeView(variations, variationKey, solvedKeys, true));
+	const [solvedKeys, teachingProgress] = await Promise.all([
+		loadSolvedKeys(supabase, user.id, repertoireId),
+		loadTeachingProgress(supabase, user.id, repertoireId)
+	]);
+	return json(buildPracticeView(variations, variationKey, solvedKeys, teachingProgress, true));
 };
