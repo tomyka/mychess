@@ -1,6 +1,6 @@
 // mychess/src/lib/mastery/practice.test.ts
 import { describe, it, expect } from 'vitest';
-import { buildPracticeView } from './practice';
+import { buildPracticeView, optimisticSolvedAfterAttempt } from './practice';
 import type { Variation, VariationStep } from './variations';
 
 function makeVariation(playerMoveCount: number, prefix: string): Variation {
@@ -81,5 +81,19 @@ describe('buildPracticeView', () => {
 		expect(view.attempt).not.toBeNull();
 		expect(view.attempt!.variationKey).toBe(a.variationKey);
 		expect(view.allSolved).toBe(true);
+	});
+});
+
+describe('optimisticSolvedAfterAttempt', () => {
+	it('bumps solved by one on a clean attempt', () => {
+		expect(optimisticSolvedAfterAttempt({ solved: 3, total: 10 }, false)).toBe(4);
+	});
+
+	it('leaves solved unchanged on a mistaken attempt', () => {
+		expect(optimisticSolvedAfterAttempt({ solved: 3, total: 10 }, true)).toBe(3);
+	});
+
+	it('never exceeds total, even if solved was already at (or somehow past) it', () => {
+		expect(optimisticSolvedAfterAttempt({ solved: 10, total: 10 }, false)).toBe(10);
 	});
 });

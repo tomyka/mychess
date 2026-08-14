@@ -6,7 +6,7 @@
 	import { playCorrect, playWrong } from '$lib/sounds';
 	import { invalidateAll } from '$app/navigation';
 	import { untrack } from 'svelte';
-	import type { PracticeView } from '$lib/mastery/practice';
+	import { optimisticSolvedAfterAttempt, type PracticeView } from '$lib/mastery/practice';
 	import type { VariationStep } from '$lib/mastery/variations';
 
 	let { data } = $props<{ data: any }>();
@@ -106,6 +106,13 @@
 			// 500ms hold instead of stacking after it.
 			if (isFinalMove && attempt) {
 				pendingReport = reportAttempt(attempt.variationKey, attemptHadMistake);
+				// Bump the sidebar count immediately rather than waiting for
+				// the round trip above to resolve — it re-walks the whole
+				// repertoire's move tree to advance the active variation,
+				// which can take a real, noticeable moment for a large
+				// repertoire. nextAttempt() overwrites this with the
+				// server's authoritative value once pendingReport resolves.
+				data = { ...data, solved: optimisticSolvedAfterAttempt(data, attemptHadMistake) };
 			}
 			advanceTimeout = setTimeout(() => {
 				boardFen = step.toFen;

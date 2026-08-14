@@ -42,3 +42,23 @@ export function buildPracticeView(
 
 	return { attempt, solved, total, allSolved };
 }
+
+/**
+ * The sidebar's solved count to show the instant a clean attempt completes,
+ * before the server's own round trip confirms it. That round trip re-walks
+ * the whole repertoire's move tree to advance the active variation and can
+ * take a real, noticeable moment for a large repertoire — this lets the
+ * count bump in step with the "correct!" feedback instead of lagging behind
+ * it. Clamped to never exceed `total`; a no-op for a mistaken attempt.
+ *
+ * This is a best-effort estimate, not a source of truth: re-drilling an
+ * already-solved variation (allowed via the picker) would over-count by one
+ * here, since this has no way to know the active variation was already
+ * solved. The server's authoritative response — merged in once it arrives —
+ * always overwrites this a moment later, so a wrong guess self-corrects
+ * rather than sticking.
+ */
+export function optimisticSolvedAfterAttempt(current: { solved: number; total: number }, hadMistake: boolean): number {
+	if (hadMistake) return current.solved;
+	return Math.min(current.solved + 1, current.total);
+}
