@@ -4,9 +4,9 @@
 -- two ply-depth counters per (player, variation) that a pure function
 -- (resolveTeachingStep/advanceTeachingProgress in src/lib/mastery/teaching.ts)
 -- turns into "how deep to serve this attempt, and which ply range (if any)
--- gets an arrow." No row for a variation means "nothing beyond the free
--- zone taught or mastered yet" — that module floors both counters up to
--- the free zone on every read, so a missing row needs no special-casing.
+-- gets an arrow." No row for a variation means "nothing taught or mastered
+-- yet" — identical to a row with both counters at 0, so a missing row needs
+-- no special-casing.
 create table public.variation_teaching_progress (
   id             uuid primary key default gen_random_uuid(),
   player_id      uuid not null references public.profiles(id) on delete cascade,
