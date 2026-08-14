@@ -84,12 +84,15 @@ describe('buildPracticeView', () => {
 		expect(view.allSolved).toBe(true);
 	});
 
-	it('serves a truncated path and arrow range for an unsolved variation still being taught', () => {
-		const v = makeVariation(15, 'a-'); // 30 plies
+	it('serves a truncated path and arrow range for an unsolved variation still being taught, ending on the player\'s own move', () => {
+		const v = makeVariation(15, 'a-'); // 30 plies, player moves first
 		const view = buildPracticeView([v], null, new Set(), noTeaching);
-		expect(view.attempt!.path).toHaveLength(10);
-		expect(view.attempt!.arrowPlies).toEqual({ from: 0, to: 10 });
+		// The batch ends right after the player's 5th move (ply 8), not a flat
+		// 10-ply offset — see teaching.ts's plyAfterPlayerMoves.
+		expect(view.attempt!.path).toHaveLength(9);
+		expect(view.attempt!.arrowPlies).toEqual({ from: 0, to: 9 });
 		expect(view.attempt!.isFinalPass).toBe(false);
+		expect(view.attempt!.path[view.attempt!.path.length - 1].isPlayerTurn).toBe(true);
 	});
 
 	it('ignores stale teaching-progress data for an already-solved variation and serves it at full depth with no arrow', () => {

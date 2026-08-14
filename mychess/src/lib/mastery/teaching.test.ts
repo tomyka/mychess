@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { resolveTeachingStep, advanceTeachingProgress, arrowMoveForStep } from './teaching';
 import type { VariationStep } from './variations';
 
+/** Player moves first (ply 0), like a White repertoire's own line. */
 function makePath(plies: number): VariationStep[] {
 	const path: VariationStep[] = [];
 	for (let i = 0; i < plies; i++) {
@@ -16,13 +17,46 @@ function makePath(plies: number): VariationStep[] {
 	return path;
 }
 
+/** Opponent moves first (ply 0), like a Black repertoire's own line. */
+function makeOpponentFirstPath(plies: number): VariationStep[] {
+	const path: VariationStep[] = [];
+	for (let i = 0; i < plies; i++) {
+		path.push({
+			moveId: `q${i}`,
+			san: `N${i}`,
+			fromFen: `g${i}a`,
+			toFen: `g${i}b`,
+			isPlayerTurn: i % 2 === 1
+		});
+	}
+	return path;
+}
+
 describe('resolveTeachingStep', () => {
-	it('teaches the very first batch (moves 1-5) from a fresh variation\'s first attempt', () => {
+	it('teaches the very first batch (moves 1-5) from a fresh variation\'s first attempt, ending right after the player\'s 5th move', () => {
 		const path = makePath(25);
 		const step = resolveTeachingStep(path, 0, 0);
+		// Player moves are at even plies (0, 2, 4, 6, 8) here — the 5th one is
+		// ply 8, so the batch is 9 plies (0-8), NOT a flat 10: including the
+		// opponent's ply-9 reply would end the batch on the OPPONENT's move,
+		// and the player is never asked to move at the array's last index, so
+		// the "final move" check that fires the star badge / attempt-report
+		// would never trigger.
+		expect(step.path).toEqual(path.slice(0, 9));
+		expect(step.arrowPlies).toEqual({ from: 0, to: 9 });
+		expect(step.isFinalPass).toBe(false);
+		expect(step.path[step.path.length - 1].isPlayerTurn).toBe(true);
+	});
+
+	it('a batch still ends right after the player\'s 5th move when the opponent moves first', () => {
+		const path = makeOpponentFirstPath(25);
+		const step = resolveTeachingStep(path, 0, 0);
+		// Player moves are at odd plies (1, 3, 5, 7, 9) here — the 5th one is
+		// ply 9, so this batch is 10 plies, not 9. Batch width isn't fixed;
+		// only "ends on the player's own move" is.
 		expect(step.path).toEqual(path.slice(0, 10));
 		expect(step.arrowPlies).toEqual({ from: 0, to: 10 });
-		expect(step.isFinalPass).toBe(false);
+		expect(step.path[step.path.length - 1].isPlayerTurn).toBe(true);
 	});
 
 	it('teaches its entire (short) path when a variation is no longer than one batch', () => {
@@ -66,7 +100,7 @@ describe('advanceTeachingProgress', () => {
 	it('a clean teach pass on a fresh variation advances taught_plies to the first batch end only', () => {
 		const path = makePath(25);
 		const result = advanceTeachingProgress(path, 0, 0, false);
-		expect(result).toEqual({ taughtPlies: 10, masteredPlies: 0, solved: false });
+		expect(result).toEqual({ taughtPlies: 9, masteredPlies: 0, solved: false });
 	});
 
 	it('a clean non-final blind retest advances mastered_plies to match taught_plies', () => {

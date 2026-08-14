@@ -82,7 +82,9 @@ describe('applyAttemptResult', () => {
 		expect(upsertCalls).toEqual([
 			{
 				table: 'variation_teaching_progress',
-				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1', taught_plies: 10, mastered_plies: 0 },
+				// Ends right after the player's 5th move (ply 8, player moves
+				// first in this fixture), not a flat 10-ply offset.
+				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1', taught_plies: 9, mastered_plies: 0 },
 				options: { onConflict: 'player_id,variation_key' }
 			}
 		]);
