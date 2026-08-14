@@ -7,6 +7,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import { optimisticSolvedAfterAttempt, type PracticeView } from '$lib/mastery/practice';
+	import { arrowMoveForStep } from '$lib/mastery/teaching';
 	import type { VariationStep } from '$lib/mastery/variations';
 
 	let { data } = $props<{ data: any }>();
@@ -58,6 +59,16 @@
 		} catch {
 			return null;
 		}
+	});
+
+	// The current ply's teaching arrow, if this attempt is a teach pass and
+	// we're standing on one of its plies — see arrowMoveForStep for the
+	// player-turn/ply-range/parse-failure guards.
+	const arrowMove = $derived.by(() => {
+		const step = quizSteps[quizIdx];
+		if (!step) return null;
+		const move = arrowMoveForStep(step, quizIdx, attempt?.arrowPlies ?? null);
+		return move ? { from: move.from as Key, to: move.to as Key } : null;
 	});
 
 	function resetForAttempt() {
@@ -112,7 +123,12 @@
 				// which can take a real, noticeable moment for a large
 				// repertoire. nextAttempt() overwrites this with the
 				// server's authoritative value once pendingReport resolves.
-				data = { ...data, solved: optimisticSolvedAfterAttempt(data, attemptHadMistake) };
+				// Only a FINAL pass can actually solve the variation — a
+				// clean teach or intermediate blind-retest pass hasn't, so it
+				// must not bump the count.
+				if (attempt.isFinalPass) {
+					data = { ...data, solved: optimisticSolvedAfterAttempt(data, attemptHadMistake) };
+				}
 			}
 			advanceTimeout = setTimeout(() => {
 				boardFen = step.toFen;
@@ -246,6 +262,7 @@
 					onmove={handleMove}
 					prefs={data.boardPrefs}
 					{hintSquare}
+					{arrowMove}
 				/>
 			</div>
 
