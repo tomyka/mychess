@@ -10,9 +10,12 @@ export type PracticeRepertoire = { id: string; name: string; color: string };
 // fewer rows than actually exist. A single large repertoire can exceed this
 // on its own; an incomplete move set shatters the tree `enumerateVariations`
 // reconstructs into many short, disconnected fragments, producing bogus
-// variation counts that don't correspond to real opening lines. `.order`
-// makes the pagination deterministic — `.range` alone has no defined
-// traversal order to page through without it.
+// variation counts that don't correspond to real opening lines. Ordering by
+// `created_at` (then `id` to break ties within the same statement/import
+// step) makes the pagination deterministic *and* preserves each chapter's
+// true import order — `moves.id` is a random UUID, not a sequence, so
+// ordering by it alone (as this used to) surfaces chapters in an
+// effectively arbitrary order instead of the order they were uploaded in.
 const MOVES_PAGE_SIZE = 1000;
 
 /**
@@ -44,7 +47,12 @@ const MOVE_SELECT_COLUMNS =
  */
 export async function fetchAllMoves(supabase: SupabaseClient, repertoireId: string): Promise<any[]> {
 	const query = () =>
-		supabase.from('moves').select(MOVE_SELECT_COLUMNS).eq('repertoire_id', repertoireId).order('id', { ascending: true });
+		supabase
+			.from('moves')
+			.select(MOVE_SELECT_COLUMNS)
+			.eq('repertoire_id', repertoireId)
+			.order('created_at', { ascending: true })
+			.order('id', { ascending: true });
 
 	const { data: firstPage, error: err } = await query().range(0, MOVES_PAGE_SIZE - 1);
 	if (err) throw err;

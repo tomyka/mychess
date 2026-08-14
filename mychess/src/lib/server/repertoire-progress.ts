@@ -25,11 +25,13 @@ export type RepertoireProgressSummary = {
 
 // Supabase/PostgREST caps an unbounded select at `max_rows` (1000, see
 // supabase/config.toml) and truncates silently past that — no error, just
-// fewer rows than actually exist. `.order` makes the pagination
-// deterministic — `.range` alone has no defined traversal order to page
-// through without it. Pages beyond the first are fetched concurrently (see
-// `remainingPageRanges`, shared with `practice-repertoire.ts`) rather than
-// one at a time.
+// fewer rows than actually exist. Ordering by `created_at` (then `id` to
+// break ties) makes the pagination deterministic *and* preserves each
+// chapter's true import order — `moves.id` is a random UUID, not a
+// sequence, so ordering by it alone surfaces chapters in an effectively
+// arbitrary order instead of the order they were uploaded in. Pages beyond
+// the first are fetched concurrently (see `remainingPageRanges`, shared
+// with `practice-repertoire.ts`) rather than one at a time.
 //
 // Used both for the lazy total-count backfill (repertoires imported before
 // `total_variations` started being cached at import time) and for
@@ -44,6 +46,7 @@ async function fetchAllMoves(supabase: SupabaseClient, repIds: string[]): Promis
 			.from('moves')
 			.select('id, san, is_player_turn, repertoire_id, from_position, to_position, chapter_name')
 			.in('repertoire_id', repIds)
+			.order('created_at', { ascending: true })
 			.order('id', { ascending: true });
 
 	const { data: firstPage, error: err } = await query().range(0, MOVES_PAGE_SIZE - 1);
