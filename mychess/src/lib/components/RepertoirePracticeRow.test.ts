@@ -35,8 +35,8 @@ function path(sans: string[]) {
 	});
 }
 
-function row(variationKey: string, sans: string[], chapterName: string | null, included = true) {
-	return { variationKey, label: `label:${variationKey}`, included, chapterName, path: path(sans) };
+function row(variationKey: string, sans: string[], chapterName: string | null, included = true, solved = false) {
+	return { variationKey, label: `label:${variationKey}`, included, chapterName, path: path(sans), solved };
 }
 
 // v1/v2 share their first 5 full moves (10 plies) before diverging on move
@@ -220,6 +220,33 @@ describe('RepertoirePracticeRow', () => {
 	it('shows a trophy badge when allSolved is true', () => {
 		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, allSolved: true, solved: 18 } } });
 		expect(screen.getByText('🏆 Solved · 18/18')).toBeTruthy();
+	});
+
+	it('updates the solved/total subtitle immediately when a variation is toggled, without waiting for a reload', async () => {
+		const withSolved = [row('v1', ['e4', 'e5'], null, true, true), row('v2', ['d4', 'd5'], null, true, false)];
+		const fetchSpy = vi
+			.fn()
+			.mockResolvedValueOnce({ ok: true, json: async () => withSolved })
+			.mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+		vi.stubGlobal('fetch', fetchSpy);
+		// The stale server-provided rep.solved/rep.total (12/18) must never
+		// appear once variations are loaded — the subtitle should reflect
+		// the live, exclusion-aware count instead.
+		render(RepertoirePracticeRow, { props: { rep: baseRep } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => expect(screen.getByText('1/2 variations solved')).toBeTruthy());
+
+		// Exclude v1 (the solved one) — the subtitle must update right away
+		// (optimistically, before the exclusion POST even resolves), since
+		// an excluded variation no longer counts toward either solved or
+		// total. v1 has no sibling sharing its opening move, so it's its own
+		// single-item bucket labeled with its whole (short) line.
+		await fireEvent.click(screen.getByLabelText('Expand 1.e4 e5 in Ruy Lopez'));
+		const v1Checkbox = within(screen.getByText('label:v1').closest('label')!).getByRole('checkbox') as HTMLInputElement;
+		await fireEvent.click(v1Checkbox);
+
+		expect(screen.getByText('0/1 variations solved')).toBeTruthy();
 	});
 
 	it('reverts the checkbox and shows an error when toggling a variation fails', async () => {

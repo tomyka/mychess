@@ -25,6 +25,7 @@
 		included: boolean;
 		chapterName: string | null;
 		path: VariationStep[];
+		solved: boolean;
 	};
 
 	let { rep }: { rep: RepSummary } = $props();
@@ -61,6 +62,18 @@
 	const parentState = $derived<'checked' | 'unchecked' | 'indeterminate'>(
 		totalCount === 0 || checkedCount === totalCount ? 'checked' : checkedCount === 0 ? 'unchecked' : 'indeterminate'
 	);
+
+	// Solved/total for the subtitle — once `variations` is loaded, this is
+	// computed live from it (matching repertoire-progress.ts's own
+	// exclusion-aware formula: total counts only currently-included
+	// variations, solved counts only INCLUDED solved ones) so toggling a
+	// checkbox updates the count immediately, instead of only catching up
+	// once the server-provided `rep` prop is next refreshed (a full page
+	// load). Falls back to the static `rep` summary before anything's been
+	// fetched, since there's nothing live to compute from yet.
+	const liveTotal = $derived(variations ? checkedCount : rep.total);
+	const liveSolved = $derived(variations ? variations.filter((v) => v.included && v.solved).length : rep.solved);
+	const liveAllSolved = $derived(liveTotal > 0 && liveSolved === liveTotal);
 
 	// null means no loaded variation carries a chapter tag at all — the
 	// chapter tier is skipped entirely and move-groups apply directly to the
@@ -326,12 +339,12 @@
 			<div class="flex-1 min-w-0">
 				<h2 class="font-medium text-gray-900 truncate">{rep.name}</h2>
 				<p class="text-sm text-gray-400">
-					{#if rep.total === 0}
+					{#if liveTotal === 0}
 						No moves yet
-					{:else if rep.allSolved}
-						🏆 Solved · {rep.solved}/{rep.total}
+					{:else if liveAllSolved}
+						🏆 Solved · {liveSolved}/{liveTotal}
 					{:else}
-						{rep.solved}/{rep.total} variations solved
+						{liveSolved}/{liveTotal} variations solved
 					{/if}
 				</p>
 			</div>
