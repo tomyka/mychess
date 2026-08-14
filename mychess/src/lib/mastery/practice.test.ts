@@ -17,10 +17,12 @@ function makeVariation(playerMoveCount: number, prefix: string): Variation {
 	};
 }
 
+const noTeaching = new Map<string, { taughtPlies: number; masteredPlies: number }>();
+
 describe('buildPracticeView', () => {
 	it('serves the active variation\'s FULL path as the attempt, unsplit', () => {
 		const v = makeVariation(3, 'a-');
-		const view = buildPracticeView([v], null, new Set());
+		const view = buildPracticeView([v], null, new Set(), noTeaching);
 		expect(view.attempt).not.toBeNull();
 		expect(view.attempt!.variationKey).toBe(v.variationKey);
 		expect(view.attempt!.path).toEqual(v.path); // whole path, no auto-play split
@@ -29,14 +31,14 @@ describe('buildPracticeView', () => {
 	it('defaults to the first unsolved variation when no active key is set', () => {
 		const a = makeVariation(2, 'a-');
 		const b = makeVariation(2, 'b-');
-		const view = buildPracticeView([a, b], null, new Set([a.variationKey]));
+		const view = buildPracticeView([a, b], null, new Set([a.variationKey]), noTeaching);
 		expect(view.attempt!.variationKey).toBe(b.variationKey);
 	});
 
 	it('respects an explicit active key even if it points at an already-solved variation', () => {
 		const a = makeVariation(2, 'a-');
 		const b = makeVariation(2, 'b-');
-		const view = buildPracticeView([a, b], a.variationKey, new Set([a.variationKey]));
+		const view = buildPracticeView([a, b], a.variationKey, new Set([a.variationKey]), noTeaching);
 		expect(view.attempt!.variationKey).toBe(a.variationKey);
 	});
 
@@ -44,14 +46,14 @@ describe('buildPracticeView', () => {
 		const a = makeVariation(2, 'a-');
 		const b = makeVariation(2, 'b-');
 		const c = makeVariation(2, 'c-');
-		const view = buildPracticeView([a, b, c], null, new Set([a.variationKey]));
+		const view = buildPracticeView([a, b, c], null, new Set([a.variationKey]), noTeaching);
 		expect(view.solved).toBe(1);
 		expect(view.total).toBe(3);
 	});
 
 	it('returns a null attempt and allSolved=true once every variation is solved', () => {
 		const a = makeVariation(2, 'a-');
-		const view = buildPracticeView([a], null, new Set([a.variationKey]));
+		const view = buildPracticeView([a], null, new Set([a.variationKey]), noTeaching);
 		expect(view.attempt).toBeNull();
 		expect(view.allSolved).toBe(true);
 		expect(view.solved).toBe(1);
@@ -59,7 +61,7 @@ describe('buildPracticeView', () => {
 	});
 
 	it('returns the vacuous empty-repertoire shape for no variations at all', () => {
-		const view = buildPracticeView([], null, new Set());
+		const view = buildPracticeView([], null, new Set(), noTeaching);
 		expect(view.attempt).toBeNull();
 		expect(view.allSolved).toBe(true);
 		expect(view.solved).toBe(0);
@@ -69,18 +71,34 @@ describe('buildPracticeView', () => {
 	it('allSolved is false while ANY variation (including a manually re-picked solved one) still has unsolved siblings', () => {
 		const a = makeVariation(2, 'a-');
 		const b = makeVariation(2, 'b-');
-		// a is solved and explicitly re-picked, but b isn't solved yet.
-		const view = buildPracticeView([a, b], a.variationKey, new Set([a.variationKey]));
-		expect(view.attempt!.variationKey).toBe(a.variationKey); // respects the manual pick
-		expect(view.allSolved).toBe(false); // but the repertoire as a whole isn't done
+		const view = buildPracticeView([a, b], a.variationKey, new Set([a.variationKey]), noTeaching);
+		expect(view.attempt!.variationKey).toBe(a.variationKey);
+		expect(view.allSolved).toBe(false);
 	});
 
 	it('forceAttempt serves a manually re-picked variation even when the whole repertoire is already solved', () => {
 		const a = makeVariation(2, 'a-');
-		const view = buildPracticeView([a], a.variationKey, new Set([a.variationKey]), true);
+		const view = buildPracticeView([a], a.variationKey, new Set([a.variationKey]), noTeaching, true);
 		expect(view.attempt).not.toBeNull();
 		expect(view.attempt!.variationKey).toBe(a.variationKey);
 		expect(view.allSolved).toBe(true);
+	});
+
+	it('serves a truncated path and arrow range for an unsolved variation still being taught', () => {
+		const v = makeVariation(15, 'a-'); // 30 plies
+		const view = buildPracticeView([v], null, new Set(), noTeaching);
+		expect(view.attempt!.path).toHaveLength(20);
+		expect(view.attempt!.arrowPlies).toEqual({ from: 10, to: 20 });
+		expect(view.attempt!.isFinalPass).toBe(false);
+	});
+
+	it('ignores stale teaching-progress data for an already-solved variation and serves it at full depth with no arrow', () => {
+		const v = makeVariation(15, 'a-'); // 30 plies
+		const progress = new Map([[v.variationKey, { taughtPlies: 20, masteredPlies: 10 }]]);
+		const view = buildPracticeView([v], v.variationKey, new Set([v.variationKey]), progress, true);
+		expect(view.attempt!.path).toHaveLength(30);
+		expect(view.attempt!.arrowPlies).toBeNull();
+		expect(view.attempt!.isFinalPass).toBe(true);
 	});
 });
 
