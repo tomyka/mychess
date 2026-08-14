@@ -91,6 +91,28 @@
 		manualReviewIdx = null;
 	}
 
+	// Left/Right step one ply of review at a time; Up/Down jump to the
+	// start/live-end of the current attempt — mirrors the ⏮◀▶⏭ buttons
+	// exactly. Ignored while the variation picker is open (it doesn't use
+	// arrow keys itself, but the board underneath shouldn't react while a
+	// modal is up) or when there's nothing loaded to review.
+	function handleKeydown(e: KeyboardEvent) {
+		if (pickerOpen || !attempt) return;
+		if (e.key === 'ArrowLeft') {
+			e.preventDefault();
+			reviewBack();
+		} else if (e.key === 'ArrowRight') {
+			e.preventDefault();
+			reviewForward();
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			reviewToStart();
+		} else if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			reviewToLive();
+		}
+	}
+
 	function advanceThroughOpponentReplies() {
 		while (quizSteps[quizIdx] && !quizSteps[quizIdx].isPlayerTurn) {
 			boardFen = quizSteps[quizIdx].toFen;
@@ -295,6 +317,8 @@
 	<title>Practice {data.repertoire?.name ?? 'Repertoire'} — MyChess</title>
 </svelte:head>
 
+<svelte:window onkeydown={handleKeydown} />
+
 <main class="min-h-screen bg-gray-50 p-4 max-w-5xl mx-auto pb-24" data-phase={phase}>
 	<div class="mb-4 flex items-center justify-between">
 		<a href="/practice" class="text-gray-400 text-sm hover:text-gray-600">← All Repertoires</a>
@@ -356,7 +380,7 @@
 					{arrowMove}
 				/>
 
-				<div class="grid grid-cols-4 gap-2 mt-4 lg:hidden">
+				<div class="grid grid-cols-4 gap-2 mt-4">
 					<button
 						onclick={reviewToStart}
 						disabled={reviewIdx <= 0}

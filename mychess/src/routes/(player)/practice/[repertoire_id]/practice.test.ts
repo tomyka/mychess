@@ -258,6 +258,35 @@ describe('practice detail page', () => {
 		expect(toLive.disabled).toBe(true);
 	});
 
+	it('lets the left/right/up/down arrow keys drive the same review nav as the buttons', async () => {
+		vi.useFakeTimers();
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 0,
+					total: 1,
+					allSolved: false,
+					attempt: AUTO_PLAY_ATTEMPT
+				}
+			}
+		});
+		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes, quizIdx lands at 2
+
+		const forward = screen.getByLabelText('Move forward') as HTMLButtonElement;
+		const toLive = screen.getByLabelText('Jump to current position') as HTMLButtonElement;
+
+		expect(forward.disabled).toBe(true);
+
+		await fireEvent.keyDown(window, { key: 'ArrowLeft' });
+		expect(forward.disabled).toBe(false);
+		expect(toLive.disabled).toBe(false);
+
+		await fireEvent.keyDown(window, { key: 'ArrowDown' });
+		expect(forward.disabled).toBe(true);
+		expect(toLive.disabled).toBe(true);
+	});
+
 	it('also auto-plays the already-mastered prefix during a blind retest (no arrowPlies), not just a teach pass', async () => {
 		vi.useFakeTimers();
 		render(Practice, {
