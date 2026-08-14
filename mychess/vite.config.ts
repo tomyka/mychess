@@ -47,7 +47,18 @@ export default defineConfig({
 		environment: 'node',
 		alias: {
 			$lib: '/src/lib'
-		}
+		},
+		// jsdom's CSS parsing pulls in @asamuzakjp/css-color, which `require()`s
+		// the ESM-only @csstools/css-calc — Node throws ERR_REQUIRE_ESM on any
+		// version where require(esm) isn't unflagged yet (Node 20.x before the
+		// backport; fine on Node ≥22 without this). Worse, vitest's forks pool
+		// swallows a worker's failure to even start as an "unhandled error"
+		// rather than a test failure, so `vitest run` exits 0 with the affected
+		// files silently missing from the run instead of failing loudly (see
+		// GitHub issue #55). Passing this flag to every worker process fixes it
+		// on all supported Node versions — it's a harmless no-op where the
+		// feature is already stable and unflagged.
+		execArgv: ['--experimental-require-module']
 	},
 	// Under Vitest (any pool), module resolution happens through Vite's SSR
 	// pipeline even for jsdom-environment test files, so the "svelte" package
