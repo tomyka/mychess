@@ -7,7 +7,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import { optimisticSolvedAfterAttempt, type PracticeView } from '$lib/mastery/practice';
-	import { arrowMoveForStep } from '$lib/mastery/teaching';
+	import { arrowMoveForStep, isLastPlayerMove } from '$lib/mastery/teaching';
 	import type { VariationStep } from '$lib/mastery/variations';
 
 	let { data } = $props<{ data: any }>();
@@ -147,7 +147,11 @@
 			wrongCount = 0;
 			hintRequested = false;
 			logMove(step.moveId, detail.san, true);
-			const isFinalMove = quizIdx + 1 >= quizSteps.length;
+			// NOT quizIdx + 1 >= quizSteps.length — a served path can end with a
+			// trailing opponent-only run (the variation's true leaf is the
+			// opponent's reply), so the LAST PLAYER move isn't always the path's
+			// last ply. See isLastPlayerMove's doc comment.
+			const isFinalMove = isLastPlayerMove(quizSteps, quizIdx);
 			// Fire the completion report NOW, before the hold below, not
 			// after — the report's network round trip then overlaps with the
 			// 500ms hold instead of stacking after it.

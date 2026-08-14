@@ -121,6 +121,23 @@ export function computeMasteredMoveIds(
 }
 
 /**
+ * Whether `plyIndex` is the LAST ply in `path` requiring the player's own
+ * input — i.e. no player-turn ply follows it. Deliberately NOT the same
+ * check as "`plyIndex` is `path`'s last index": a served path can end with a
+ * trailing run of opponent-only plies when the variation's own true leaf is
+ * the opponent's reply (e.g. `plyAfterPlayerMoves`'s fallback for a
+ * variation shorter than one batch, or a full-depth serve of a variation
+ * that simply ends on the opponent's move). The player is never asked to
+ * move at one of those trailing plies, so the practice page's "was that the
+ * attempt's final move" check must fire on the LAST PLAYER move, not on
+ * whichever ply happens to be served last — otherwise the completion report
+ * never sends and the same attempt is re-served forever.
+ */
+export function isLastPlayerMove(path: VariationStep[], plyIndex: number): boolean {
+	return !path.slice(plyIndex + 1).some((step) => step.isPlayerTurn);
+}
+
+/**
  * The current ply's arrow — the move's own origin/destination squares, or
  * null if this ply isn't inside the served arrow range, isn't the player's
  * own move (arrows never point at the opponent's reply), or the move can't

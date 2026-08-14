@@ -4,7 +4,8 @@ import {
 	advanceTeachingProgress,
 	arrowMoveForStep,
 	sharedMasteredPrefixLength,
-	computeMasteredMoveIds
+	computeMasteredMoveIds,
+	isLastPlayerMove
 } from './teaching';
 import type { Variation, VariationStep } from './variations';
 
@@ -173,6 +174,27 @@ describe('arrowMoveForStep', () => {
 	it('returns null if the san cannot be parsed against fromFen', () => {
 		const badStep = { ...playedE4, san: 'Zz9' };
 		expect(arrowMoveForStep(badStep, 12, { from: 10, to: 20 })).toBeNull();
+	});
+});
+
+describe('isLastPlayerMove', () => {
+	it('is true at the last ply of a path that ends on the player\'s own move', () => {
+		const path = makePath(6); // player-first: plies 0,2,4 are the player's
+		expect(isLastPlayerMove(path, 4)).toBe(true);
+	});
+
+	it('is false when a later player-turn ply still follows', () => {
+		const path = makePath(6);
+		expect(isLastPlayerMove(path, 2)).toBe(false);
+	});
+
+	it('is true at the player\'s own last move even when a trailing opponent-only run follows it', () => {
+		// e.g. a variation whose true leaf is the opponent's reply — the
+		// player is never asked to move at that trailing ply, so their own
+		// last move (ply 4) must still count as "final", not ply 5.
+		const path = [...makePath(5), { moveId: 'p5', san: 'M5', fromFen: 'f5a', toFen: 'f5b', isPlayerTurn: false }];
+		expect(isLastPlayerMove(path, 4)).toBe(true);
+		expect(path[path.length - 1].isPlayerTurn).toBe(false);
 	});
 });
 
