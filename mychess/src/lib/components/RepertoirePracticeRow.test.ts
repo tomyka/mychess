@@ -355,6 +355,125 @@ describe('RepertoirePracticeRow', () => {
 		);
 	});
 
+	it("does not lose a concurrent chapter toggle's already-applied change when a different, slower chapter toggle later fails and reverts", async () => {
+		let resolveSlowPost: ((value: { ok: boolean }) => void) | undefined;
+		const fetchSpy = vi.fn((url: string, init?: any) => {
+			if (!init) return Promise.resolve({ ok: true, json: async () => chapterVariationsResponse });
+			const body = JSON.parse(init.body);
+			if (body.variationKeys.includes('v1')) {
+				// Ruy Lopez's bulk-exclude — deliberately left pending until
+				// explicitly resolved below, simulating a slow request that
+				// ultimately fails.
+				return new Promise((resolve) => {
+					resolveSlowPost = resolve;
+				});
+			}
+			// Italian Game's bulk-exclude — resolves immediately and succeeds.
+			return Promise.resolve({ ok: true, json: async () => ({ ok: true }) });
+		});
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
+
+		const ruyCheckbox = screen.getByRole('checkbox', { name: /Ruy Lopez \(chapter\)/ }) as HTMLInputElement;
+		const italianCheckbox = screen.getByRole('checkbox', { name: /Italian Game \(chapter\)/ }) as HTMLInputElement;
+
+		// Click Ruy Lopez first — its request is deferred, not yet resolved.
+		await fireEvent.click(ruyCheckbox);
+		expect(ruyCheckbox.checked).toBe(false); // applied optimistically
+
+		// While Ruy Lopez's request is still in flight, toggle Italian Game
+		// too — its request resolves immediately and succeeds.
+		await fireEvent.click(italianCheckbox);
+		await waitFor(() => expect(italianCheckbox.checked).toBe(false));
+
+		// Now let Ruy Lopez's slow request fail.
+		resolveSlowPost!({ ok: false });
+		await waitFor(() => expect(screen.getByText("Couldn't update that — try again.")).toBeTruthy());
+
+		// Ruy Lopez correctly reverts to checked (its own failed toggle) —
+		// but Italian Game's already-successful exclude must survive, not
+		// get wiped out by Ruy Lopez's revert.
+		expect(ruyCheckbox.checked).toBe(true);
+		expect(italianCheckbox.checked).toBe(false);
+	});
+
+	it("preserves a concurrent chapter's own restore-selection snapshot when a different, slower chapter toggle later fails and reverts", async () => {
+		// Ruy Lopez starts partially excluded (v1 included, v2 already not) —
+		// its own snapshot, once set, must remember exactly ['v1'], not
+		// silently widen to "every row in the chapter" if it survives an
+		// unrelated concurrent revert.
+		const partial = [
+			{ ...chapterVariationsResponse[0] }, // v1, Ruy Lopez, included: true
+			{ ...chapterVariationsResponse[1], included: false }, // v2, Ruy Lopez, already excluded
+			{ ...chapterVariationsResponse[2] } // v3, Italian Game, included: true
+		];
+		let resolveSlowPost: ((value: { ok: boolean }) => void) | undefined;
+		const fetchSpy = vi.fn((url: string, init?: any) => {
+			if (!init) return Promise.resolve({ ok: true, json: async () => partial });
+			const body = JSON.parse(init.body);
+			if (body.variationKeys.includes('v3')) {
+				// Italian Game's bulk-exclude — deliberately left pending
+				// until explicitly resolved below, simulating a slow
+				// request that ultimately fails.
+				return new Promise((resolve) => {
+					resolveSlowPost = resolve;
+				});
+			}
+			// Every other request (Ruy Lopez's exclude, then its restore)
+			// resolves immediately and succeeds.
+			return Promise.resolve({ ok: true, json: async () => ({ ok: true }) });
+		});
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
+
+		const italianCheckbox = screen.getByRole('checkbox', { name: /Italian Game \(chapter\)/ }) as HTMLInputElement;
+
+		// Click Italian Game first — its request is deferred, not yet
+		// resolved (and will fail later).
+		await fireEvent.click(italianCheckbox);
+		expect(italianCheckbox.checked).toBe(false);
+
+		// While that's in flight, bulk-exclude Ruy Lopez (only v1 is
+		// currently included, so its snapshot remembers exactly ['v1']) —
+		// this request resolves immediately and succeeds. (Its checkbox
+		// starts indeterminate, not checked, so — unlike a true
+		// checked-to-unchecked flip — its `.checked` DOM property doesn't
+		// reliably reflect this transition in jsdom; asserting on the
+		// posted request instead is the reliable signal here.)
+		const ruyCheckbox = screen.getByRole('checkbox', { name: /Ruy Lopez \(chapter\)/ }) as HTMLInputElement;
+		await fireEvent.click(ruyCheckbox);
+		await waitFor(() =>
+			expect(fetchSpy).toHaveBeenCalledWith('/api/repertoires/rep-1/exclusions', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ variationKeys: ['v1'], included: false })
+			})
+		);
+
+		// Now let Italian Game's slow request fail — its own revert must not
+		// wipe out Ruy Lopez's already-recorded snapshot entry.
+		resolveSlowPost!({ ok: false });
+		await waitFor(() => expect(screen.getByText("Couldn't update that — try again.")).toBeTruthy());
+
+		// Re-checking Ruy Lopez now must restore exactly v1 (from its own
+		// surviving snapshot) — NOT fall back to "every row in the chapter"
+		// (which would wrongly re-include v2, never included to begin with).
+		await fireEvent.click(ruyCheckbox);
+		await waitFor(() =>
+			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ variationKeys: ['v1'], included: true })
+			})
+		);
+	});
+
 	it("bulk-toggling a move-group bucket checkbox only excludes that bucket's own variations, leaving a sibling bucket untouched", async () => {
 		const fetchSpy = vi
 			.fn()

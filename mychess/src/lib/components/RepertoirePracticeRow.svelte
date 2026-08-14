@@ -176,19 +176,23 @@
 	}
 
 	async function toggleVariation(key: string) {
-		let list: VariationRow[];
 		try {
-			list = await ensureVariationsLoaded();
+			await ensureVariationsLoaded();
 		} catch {
 			return;
 		}
-		const target = list.find((v) => v.variationKey === key);
+		const current = variations!;
+		const target = current.find((v) => v.variationKey === key);
 		if (!target) return;
 		const nextIncluded = !target.included;
-		variations = list.map((v) => (v.variationKey === key ? { ...v, included: nextIncluded } : v));
+		variations = current.map((v) => (v.variationKey === key ? { ...v, included: nextIncluded } : v));
 		const ok = await postExclusion([key], nextIncluded);
 		if (!ok) {
-			variations = list;
+			// Revert only this one row, applied on top of whatever `variations`
+			// is NOW rather than the stale snapshot captured above — another
+			// toggle elsewhere may have completed while this request was in
+			// flight, and that change must survive this one's failure.
+			variations = (variations ?? []).map((v) => (v.variationKey === key ? { ...v, included: target.included } : v));
 			errorMessage = "Couldn't update that — try again.";
 		} else {
 			errorMessage = null;
@@ -202,16 +206,45 @@
 	 * move-group bucket's own checkbox (just that bucket's rows). `scopeKey`
 	 * isolates the uncheck/recheck snapshot per toggle so they never
 	 * interfere with each other (see `snapshots`' doc comment above).
+	 *
+	 * On failure, reverts only the rows THIS call touched — each back to its
+	 * own pre-toggle `included` value — applied on top of whatever
+	 * `variations` is at that moment, not a stale snapshot from before the
+	 * `await`. Two toggles (e.g. one bulk chapter exclude and one individual
+	 * variation checkbox) can genuinely overlap in flight; a wholesale
+	 * revert to an old snapshot would silently erase whichever of them
+	 * finished first.
 	 */
 	async function toggleGroup(scopeKey: string, belongsToGroup: (row: VariationRow) => boolean) {
-		let list: VariationRow[];
 		try {
-			list = await ensureVariationsLoaded();
+			await ensureVariationsLoaded();
 		} catch {
 			return;
 		}
-		const rows = list.filter(belongsToGroup);
+		const current = variations!;
+		const rows = current.filter(belongsToGroup);
 		const state = aggregateState(rows);
+		const originalIncludedByKey = new Map(rows.map((v) => [v.variationKey, v.included]));
+
+		function revertTouchedRows() {
+			variations = (variations ?? []).map((v) => {
+				const original = originalIncludedByKey.get(v.variationKey);
+				return original === undefined ? v : { ...v, included: original };
+			});
+		}
+
+		// Restores just THIS scope's own snapshot entry to whatever it was
+		// in `previous`, applied on top of the current, live `snapshots` —
+		// not a wholesale `snapshots = previous`, which would erase any
+		// other scope's entry set (or cleared) by a concurrent toggle while
+		// this one's request was in flight. Mirrors `revertTouchedRows`
+		// above for the same reason.
+		function revertSnapshotEntry(previous: Map<string, Set<string>>) {
+			const next = new Map(snapshots);
+			if (previous.has(scopeKey)) next.set(scopeKey, previous.get(scopeKey)!);
+			else next.delete(scopeKey);
+			snapshots = next;
+		}
 
 		if (state !== 'unchecked') {
 			// Checked or indeterminate -> bulk-exclude this scope's rows,
@@ -221,11 +254,11 @@
 			const included = rows.filter((v) => v.included).map((v) => v.variationKey);
 			const previousSnapshots = snapshots;
 			snapshots = new Map(snapshots).set(scopeKey, new Set(included));
-			variations = list.map((v) => (belongsToGroup(v) ? { ...v, included: false } : v));
+			variations = current.map((v) => (belongsToGroup(v) ? { ...v, included: false } : v));
 			const ok = await postExclusion(included, false);
 			if (!ok) {
-				variations = list;
-				snapshots = previousSnapshots;
+				revertTouchedRows();
+				revertSnapshotEntry(previousSnapshots);
 				errorMessage = "Couldn't update that — try again.";
 			} else {
 				errorMessage = null;
@@ -238,14 +271,14 @@
 		const rowKeys = new Set(rows.map((v) => v.variationKey));
 		const toInclude = snapshots.get(scopeKey) ?? rowKeys;
 		const previousSnapshots = snapshots;
-		variations = list.map((v) => (belongsToGroup(v) ? { ...v, included: toInclude.has(v.variationKey) } : v));
+		variations = current.map((v) => (belongsToGroup(v) ? { ...v, included: toInclude.has(v.variationKey) } : v));
 		const nextSnapshots = new Map(snapshots);
 		nextSnapshots.delete(scopeKey);
 		snapshots = nextSnapshots;
 		const ok = await postExclusion([...toInclude], true);
 		if (!ok) {
-			variations = list;
-			snapshots = previousSnapshots;
+			revertTouchedRows();
+			revertSnapshotEntry(previousSnapshots);
 			errorMessage = "Couldn't update that — try again.";
 		} else {
 			errorMessage = null;
