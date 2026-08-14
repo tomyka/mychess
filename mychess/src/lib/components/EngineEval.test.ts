@@ -1,56 +1,101 @@
 // @vitest-environment jsdom
 // mychess/src/lib/components/EngineEval.test.ts
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import EngineEval from './EngineEval.svelte';
 
 afterEach(() => {
 	cleanup();
+	vi.unstubAllGlobals();
 });
 
 const FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
-describe('EngineEval', () => {
-	it('renders nothing (no crash) when the engine is unavailable, across repeated mount/unmount cycles', () => {
-		// jsdom has no Worker global, so every mount hits the "engine
-		// unavailable" path. This is the regression case for the bug where a
-		// module-level `failed` flag could get stuck true forever after the
-		// first mount/unmount cycle, because the teardown that's supposed to
-		// reset it was accidentally skipped whenever the worker was already
-		// null (i.e. exactly the failure case) — silently breaking every
-		// later mount in the same session, not just the one that failed.
+it('renders nothing (no crash) when the engine is unavailable (no Worker global at all)', () => {
+	// The real, deployed jsdom test environment has no Worker global —
+	// confirms EngineEval degrades gracefully with zero mocking needed.
+	const { container, unmount } = render(EngineEval, { props: { fen: FEN } });
+	expect(container.textContent?.trim()).toBe('');
+	unmount();
+});
+
+/**
+ * A minimal fake Worker whose construction is directly observable — used to
+ * prove ensureWorker() actually retries spawning a fresh Worker after the
+ * shared singleton state has fully reset, rather than just asserting on
+ * rendered output (which looks identical — empty — whether or not that
+ * retry happens, since jsdom can't run the real WASM engine either way).
+ */
+class FakeWorker {
+	static instances: FakeWorker[] = [];
+	onmessage: ((event: MessageEvent<string>) => void) | null = null;
+	onerror: (() => void) | null = null;
+	terminated = false;
+
+	constructor(public url: string) {
+		FakeWorker.instances.push(this);
+	}
+
+	postMessage() {
+		/* no-op — this test only cares whether/how many Workers get constructed */
+	}
+
+	terminate() {
+		this.terminated = true;
+	}
+}
+
+describe('EngineEval Worker singleton lifecycle', () => {
+	afterEach(() => {
+		FakeWorker.instances.length = 0;
+	});
+
+	it('spawns exactly one Worker when two instances mount simultaneously (desktop + mobile)', () => {
+		vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
+
+		const a = render(EngineEval, { props: { fen: FEN, showBar: true } });
+		const b = render(EngineEval, { props: { fen: FEN, showBar: false } });
+
+		expect(FakeWorker.instances.length).toBe(1);
+
+		a.unmount();
+		b.unmount();
+	});
+
+	it('keeps the Worker alive while at least one instance remains mounted', () => {
+		vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
+
+		const a = render(EngineEval, { props: { fen: FEN } });
+		const b = render(EngineEval, { props: { fen: FEN } });
+		expect(FakeWorker.instances.length).toBe(1);
+
+		a.unmount();
+		expect(FakeWorker.instances[0].terminated).toBe(false);
+
+		b.unmount();
+		expect(FakeWorker.instances[0].terminated).toBe(true);
+	});
+
+	it('retries spawning a new Worker on a later mount after a prior failure, once fully unmounted', () => {
+		// This is the actual regression case: before the fix, a failed
+		// instance left the module-level `failed` flag stuck `true` forever,
+		// so ensureWorker()'s `if (worker || failed) return;` guard silently
+		// prevented ANY later mount from ever constructing a new Worker
+		// again, for the rest of the session. Counting real constructor
+		// calls is the only way to observe that distinction — rendered
+		// output is empty either way, whether the retry happens or not.
+		vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
+
 		const first = render(EngineEval, { props: { fen: FEN } });
-		expect(first.container.textContent?.trim()).toBe('');
+		expect(FakeWorker.instances.length).toBe(1);
+
+		// Simulate the engine failing (e.g. a WASM load error).
+		FakeWorker.instances[0].onerror?.();
 		first.unmount();
 
 		const second = render(EngineEval, { props: { fen: FEN } });
-		expect(second.container.textContent?.trim()).toBe('');
+		expect(FakeWorker.instances.length).toBe(2);
+
 		second.unmount();
-
-		const third = render(EngineEval, { props: { fen: FEN } });
-		expect(third.container.textContent?.trim()).toBe('');
-		third.unmount();
-	});
-
-	it('keeps working across two simultaneously-mounted instances (desktop + mobile), then cleans up when both unmount', () => {
-		// Mirrors the Practice page's real usage: two instances mounted at
-		// once, both driven by the same shared singleton.
-		const a = render(EngineEval, { props: { fen: FEN, showBar: true } });
-		const b = render(EngineEval, { props: { fen: FEN, showBar: false } });
-		expect(a.container.textContent?.trim()).toBe('');
-		expect(b.container.textContent?.trim()).toBe('');
-
-		a.unmount();
-		// b is still mounted — should still render without throwing.
-		expect(b.container.textContent?.trim()).toBe('');
-		b.unmount();
-
-		// A fresh mount after both instances tore down should behave exactly
-		// like a first-ever mount (this is what the fixed onDestroy
-		// guarantees) — not silently do nothing because a stale `failed`
-		// flag never got reset.
-		const c = render(EngineEval, { props: { fen: FEN } });
-		expect(c.container.textContent?.trim()).toBe('');
-		c.unmount();
 	});
 });
