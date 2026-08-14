@@ -25,6 +25,11 @@
 		// a pulsing amber ring and a lightbulb badge — never the destination,
 		// so it points at a piece without giving away where it should go.
 		hintSquare?: Key | null;
+		// The correct move to reveal during a teaching pass — a native
+		// chessground arrow (both orig and dest set), distinct from
+		// hintSquare's origin-only ring. Cleared the instant the move lands
+		// (see feedbackShapes(), which takes over the drawable slot then).
+		arrowMove?: { from: Key; to: Key } | null;
 	};
 
 	let {
@@ -34,7 +39,8 @@
 		lastMove = undefined,
 		prefs = DEFAULT_PREFS,
 		onmove,
-		hintSquare = null
+		hintSquare = null,
+		arrowMove = null
 	}: Props = $props();
 
 	// How long a wrong guess holds the piece on the attempted square (with the
@@ -104,6 +110,14 @@
 			</g>
 			<path d="${glyph}" fill="none" stroke="white" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" />
 		`;
+	}
+
+	// The teaching-pass arrow, drawn via chessground's own native shape
+	// rendering (orig+dest, same brush the board's own right-click drawing
+	// tool already uses) — not a custom SVG like feedbackShapes() below.
+	function arrowShapes(): DrawShape[] {
+		if (!arrowMove) return [];
+		return [{ orig: arrowMove.from, dest: arrowMove.to, brush: 'yellow' }];
 	}
 
 	function feedbackShapes(): DrawShape[] {
@@ -176,7 +190,7 @@
 				enabled: animationDuration(prefs.animation) > 0,
 				duration: animationDuration(prefs.animation)
 			},
-			drawable: { autoShapes: feedbackShapes() }
+			drawable: { autoShapes: [...arrowShapes(), ...feedbackShapes()] }
 		};
 	}
 
