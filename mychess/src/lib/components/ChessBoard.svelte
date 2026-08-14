@@ -30,6 +30,17 @@
 		// hintSquare's origin-only ring. Cleared the instant the move lands
 		// (see feedbackShapes(), which takes over the drawable slot then).
 		arrowMove?: { from: Key; to: Key } | null;
+		// Default sizing (`w-[min(90vh,100%)]`) assumes nothing else on the
+		// page competes for vertical space — fine for a page that's mostly
+		// just the board, wrong wherever surrounding chrome (headers, nav
+		// rows, sidebars) can add up to more than one viewport. Set this when
+		// the caller has already given this component's parent a real,
+		// flex-resolved height budget (e.g. a `flex-1 min-h-0` wrapper inside
+		// a viewport-height-constrained column) — the board then fills that
+		// parent's height (capped by its width) instead of guessing from the
+		// raw viewport. Defaults false so every other existing caller (drill,
+		// time-trial, settings preview) is unaffected.
+		containerFit?: boolean;
 	};
 
 	let {
@@ -40,7 +51,8 @@
 		prefs = DEFAULT_PREFS,
 		onmove,
 		hintSquare = null,
-		arrowMove = null
+		arrowMove = null,
+		containerFit = false
 	}: Props = $props();
 
 	// How long a wrong guess holds the piece on the attempted square (with the
@@ -231,7 +243,9 @@
 </script>
 
 <div
-	class="relative w-[min(90vh,100%)] aspect-square mx-auto rounded-xl overflow-hidden shadow-2xl board-theme-{prefs.theme} pieces-{prefs.pieceSet}"
+	class="relative aspect-square mx-auto rounded-xl overflow-hidden shadow-2xl board-theme-{prefs.theme} pieces-{prefs.pieceSet} {containerFit
+		? 'w-[min(90vh,100%)] lg:w-auto lg:h-full lg:max-w-full'
+		: 'w-[min(90vh,100%)]'}"
 >
 	{#key prefs.coordinates}
 		<div use:mountBoard class="w-full h-full"></div>

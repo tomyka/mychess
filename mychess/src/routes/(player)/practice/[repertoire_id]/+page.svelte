@@ -319,8 +319,11 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<main class="min-h-screen bg-gray-50 p-4 max-w-5xl mx-auto pb-24" data-phase={phase}>
-	<div class="mb-4 flex items-center justify-between">
+<main
+	class="min-h-screen lg:h-[calc(100vh-3.5rem)] lg:overflow-hidden bg-gray-50 p-4 max-w-5xl mx-auto pb-24 lg:pb-4 flex flex-col"
+	data-phase={phase}
+>
+	<div class="mb-3 flex items-center justify-between shrink-0">
 		<a href="/practice" class="text-gray-400 text-sm hover:text-gray-600">← All Repertoires</a>
 		{#if repertoireId}
 			<button onclick={() => (pickerOpen = true)} class="text-indigo-600 text-sm font-medium hover:underline">
@@ -345,20 +348,23 @@
 			</button>
 		</div>
 	{:else if !attempt}
-		<div class="flex flex-col items-center justify-center min-h-screen text-center gap-4">
+		<div class="flex flex-col items-center justify-center min-h-screen lg:min-h-0 lg:flex-1 text-center gap-4">
 			<p class="text-5xl">📭</p>
 			<h1 class="text-2xl font-bold text-gray-700">Nothing to practice</h1>
 			<p class="text-gray-400">This repertoire has no moves for your color yet.</p>
 			<a href="/practice" class="text-indigo-600 hover:underline">Back to Repertoires</a>
 		</div>
 	{:else}
-		<div class="p-4 bg-white border border-gray-200 rounded-2xl shadow-sm text-center mb-4">
-			<p class="text-gray-400 text-sm font-medium">{data.repertoire?.name}</p>
-			<p class="text-gray-900 text-lg font-bold">{data.solved} / {data.total} variations solved</p>
+		<div class="p-3 bg-white border border-gray-200 rounded-2xl shadow-sm text-center mb-3 shrink-0">
+			<p class="text-sm font-medium">
+				<span class="text-gray-400">{data.repertoire?.name}</span>
+				<span class="mx-1.5 text-gray-300">·</span>
+				<span class="text-gray-900 font-bold">{data.solved} / {data.total} variations solved</span>
+			</p>
 		</div>
 
-		<div class="flex flex-col lg:flex-row lg:items-start gap-6">
-			<div class="flex-1">
+		<div class="flex flex-col lg:flex-row lg:items-stretch gap-6 lg:flex-1 lg:min-h-0">
+			<div class="flex-1 lg:flex lg:flex-col lg:min-h-0">
 				{#if wrongCount >= 3 && !hintRequested && phase === 'playing'}
 					<p class="text-center mb-4 lg:hidden">
 						<button
@@ -370,17 +376,20 @@
 					</p>
 				{/if}
 
-				<ChessBoard
-					fen={displayFen}
-					orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
-					interactable={phase === 'playing' && !locked && !isReviewing}
-					onmove={handleMove}
-					prefs={data.boardPrefs}
-					{hintSquare}
-					{arrowMove}
-				/>
+				<div class="lg:flex-1 lg:min-h-0 lg:flex lg:items-center lg:justify-center">
+					<ChessBoard
+						fen={displayFen}
+						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
+						interactable={phase === 'playing' && !locked && !isReviewing}
+						onmove={handleMove}
+						prefs={data.boardPrefs}
+						{hintSquare}
+						{arrowMove}
+						containerFit
+					/>
+				</div>
 
-				<div class="grid grid-cols-4 gap-2 mt-4">
+				<div class="grid grid-cols-4 gap-2 mt-4 shrink-0">
 					<button
 						onclick={reviewToStart}
 						disabled={reviewIdx <= 0}
@@ -423,7 +432,7 @@
 				</div>
 			</div>
 
-			<div class="w-full lg:w-72 shrink-0 space-y-4">
+			<div class="w-full lg:w-72 shrink-0 space-y-4 lg:overflow-y-auto">
 				<div class="p-4 bg-white border border-gray-200 rounded-2xl shadow-sm hidden lg:block">
 					<EngineEval fen={displayFen} />
 					{#if movesSoFar}
