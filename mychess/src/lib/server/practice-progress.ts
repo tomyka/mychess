@@ -2,6 +2,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Variation } from '$lib/mastery/variations';
 import { pickActiveVariation, advanceIfSolved } from '$lib/mastery/variationSequence';
+import { advanceTeachingProgress } from '$lib/mastery/teaching';
 
 /** This player's full solved-variation-key set for one repertoire. */
 export async function loadSolvedKeys(supabase: SupabaseClient, playerId: string, repertoireId: string): Promise<Set<string>> {
@@ -68,6 +69,39 @@ export async function markVariationSolved(
 		);
 }
 
+/** This player's full teaching-progress state for one repertoire, keyed by variation_key. */
+export async function loadTeachingProgress(
+	supabase: SupabaseClient,
+	playerId: string,
+	repertoireId: string
+): Promise<Map<string, { taughtPlies: number; masteredPlies: number }>> {
+	const { data } = await supabase
+		.from('variation_teaching_progress')
+		.select('variation_key, taught_plies, mastered_plies')
+		.eq('player_id', playerId)
+		.eq('repertoire_id', repertoireId);
+	return new Map(
+		(data ?? []).map((r: any) => [r.variation_key as string, { taughtPlies: r.taught_plies as number, masteredPlies: r.mastered_plies as number }])
+	);
+}
+
+/** Persists this variation's teaching-progress counters (see `src/lib/mastery/teaching.ts`). */
+export async function saveTeachingProgress(
+	supabase: SupabaseClient,
+	playerId: string,
+	repertoireId: string,
+	variationKey: string,
+	taughtPlies: number,
+	masteredPlies: number
+): Promise<void> {
+	await supabase
+		.from('variation_teaching_progress')
+		.upsert(
+			{ player_id: playerId, repertoire_id: repertoireId, variation_key: variationKey, taught_plies: taughtPlies, mastered_plies: masteredPlies },
+			{ onConflict: 'player_id,variation_key' }
+		);
+}
+
 /**
  * Ensures a `practice_active_variation` row exists and resolves to a real,
  * current variation before the page ever renders — self-healing the same
@@ -94,12 +128,16 @@ export async function loadSyncedActiveVariationKey(
 }
 
 /**
- * Applies a completed attempt's outcome. On a clean attempt: marks the
- * variation solved and advances the active key to the next unsolved one in
- * sequence (or `null` if that was the last one — the whole repertoire is
- * done). On a mistaken attempt: a no-op — the active variation doesn't
- * change, so the next attempt naturally re-serves the SAME variation for
- * another try.
+ * Applies a completed attempt's outcome. A mistaken attempt is always a
+ * no-op (no reads, no writes) — the active variation and its teaching
+ * progress both stay exactly as they were, so the next attempt naturally
+ * re-serves the same step for another try.
+ *
+ * On a clean attempt: if the variation isn't already solved, its teaching
+ * progress advances (see `advanceTeachingProgress`) — UNLESS that was the
+ * variation's final batch, in which case (exactly like an already-solved
+ * variation re-drilled via the picker) it falls through to the existing
+ * solved/advance-active-variation sequence.
  */
 export async function applyAttemptResult(
 	supabase: SupabaseClient,
@@ -110,6 +148,19 @@ export async function applyAttemptResult(
 	variations: Variation[]
 ): Promise<void> {
 	if (hadMistake) return;
+
+	const variation = variations.find((v) => v.variationKey === variationKey);
+	if (variation) {
+		const solvedKeys = await loadSolvedKeys(supabase, playerId, repertoireId);
+		if (!solvedKeys.has(variationKey)) {
+			const progress = await loadTeachingProgress(supabase, playerId, repertoireId);
+			const current = progress.get(variationKey) ?? { taughtPlies: 0, masteredPlies: 0 };
+			const next = advanceTeachingProgress(variation.path, current.taughtPlies, current.masteredPlies, false);
+			await saveTeachingProgress(supabase, playerId, repertoireId, variationKey, next.taughtPlies, next.masteredPlies);
+			if (!next.solved) return;
+		}
+	}
+
 	await markVariationSolved(supabase, playerId, repertoireId, variationKey);
 	const solvedKeys = await loadSolvedKeys(supabase, playerId, repertoireId);
 	const next = advanceIfSolved(variationKey, variations, solvedKeys);
