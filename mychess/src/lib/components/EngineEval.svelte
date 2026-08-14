@@ -98,9 +98,11 @@
 
 	onDestroy(() => {
 		instanceCount--;
-		if (instanceCount > 0 || !worker) return;
-		send('quit');
-		worker.terminate();
+		if (instanceCount > 0) return;
+		if (worker) {
+			send('quit');
+			worker.terminate();
+		}
 		worker = null;
 		ready = false;
 		failed = false;
