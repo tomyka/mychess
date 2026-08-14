@@ -17,7 +17,10 @@
 	// 'advancing' is the brief, non-interactive gap between the final move
 	// of an attempt (shown as a gold star or a red X, not a click-through
 	// card) and the next attempt loading — auto-advances on its own.
-	let phase = $state<'playing' | 'advancing'>('playing');
+	// 'autoplay' is the intro before a teach pass: already-mastered earlier
+	// batches play themselves out so the player only has to actually play
+	// the batch currently being taught — see startAutoPlay().
+	let phase = $state<'playing' | 'advancing' | 'autoplay'>('playing');
 	let locked = $state(false);
 	// Consecutive wrong attempts on the CURRENT quiz move — resets the moment
 	// it's solved or a new attempt starts. After 3, a hint becomes available;
@@ -29,6 +32,12 @@
 	// in resetForAttempt().
 	let attemptHadMistake = $state(false);
 	let advanceTimeout: ReturnType<typeof setTimeout> | undefined;
+	let autoPlayTimeout: ReturnType<typeof setTimeout> | undefined;
+	// How long each already-mastered ply is shown before advancing to the
+	// next one during the autoplay intro — fast enough not to be tedious for
+	// a long, deeply-nested variation, slow enough to still read as "playing
+	// through", not an instant jump-cut.
+	const AUTO_PLAY_STEP_MS = 350;
 	// Bumped on every resetForAttempt() call so stale async work (a
 	// still-in-flight report) notices it's been superseded and stops writing
 	// to state.
@@ -74,6 +83,7 @@
 	function resetForAttempt() {
 		++resetToken;
 		clearTimeout(advanceTimeout);
+		clearTimeout(autoPlayTimeout);
 		quizIdx = 0;
 		phase = 'playing';
 		locked = false;
@@ -83,7 +93,30 @@
 		quizSteps = attempt?.path ?? [];
 		if (!attempt) return;
 		boardFen = attempt.path[0]?.fromFen ?? '';
-		advanceThroughOpponentReplies();
+		// arrowPlies.from is where THIS teach batch starts — everything before
+		// it was already taught and blind-confirmed in an earlier attempt, so
+		// it plays itself out instead of making the player re-enter it by
+		// hand. A blind-retest or already-solved attempt has no arrowPlies, so
+		// this is a no-op there — full manual replay is the point of a retest.
+		const autoPlayTarget = attempt.arrowPlies?.from ?? 0;
+		if (autoPlayTarget > 0) {
+			phase = 'autoplay';
+			autoPlayStep(resetToken, autoPlayTarget);
+		} else {
+			advanceThroughOpponentReplies();
+		}
+	}
+
+	function autoPlayStep(myToken: number, target: number) {
+		if (myToken !== resetToken) return; // superseded by a later resetForAttempt()
+		if (quizIdx >= target) {
+			phase = 'playing';
+			advanceThroughOpponentReplies();
+			return;
+		}
+		boardFen = quizSteps[quizIdx].toFen;
+		quizIdx++;
+		autoPlayTimeout = setTimeout(() => autoPlayStep(myToken, target), AUTO_PLAY_STEP_MS);
 	}
 
 	// Set the board's initial position synchronously, before ChessBoard's own

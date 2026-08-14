@@ -7,7 +7,44 @@ import Practice from './+page.svelte';
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
+	vi.useRealTimers();
 });
+
+const AUTO_PLAY_ATTEMPT = {
+	variationKey: 'v1',
+	arrowPlies: { from: 2, to: 4 },
+	isFinalPass: false,
+	path: [
+		{
+			moveId: 'm1',
+			san: 'e4',
+			fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+			toFen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+			isPlayerTurn: true
+		},
+		{
+			moveId: 'm2',
+			san: 'e5',
+			fromFen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+			toFen: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2',
+			isPlayerTurn: false
+		},
+		{
+			moveId: 'm3',
+			san: 'Nf3',
+			fromFen: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2',
+			toFen: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2',
+			isPlayerTurn: true
+		},
+		{
+			moveId: 'm4',
+			san: 'Nc6',
+			fromFen: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2',
+			toFen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3',
+			isPlayerTurn: false
+		}
+	]
+};
 
 describe('practice detail page', () => {
 	it('shows "nothing to practice" when the repertoire has no moves yet', () => {
@@ -144,5 +181,42 @@ describe('practice detail page', () => {
 		});
 		await fireEvent.click(screen.getByText('Re-drill a specific variation'));
 		expect(screen.getByLabelText('Close')).toBeTruthy();
+	});
+
+	it('does not prompt for a move while the already-mastered plies before a teach batch are auto-playing', () => {
+		vi.useFakeTimers();
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 0,
+					total: 1,
+					allSolved: false,
+					attempt: AUTO_PLAY_ATTEMPT
+				}
+			}
+		});
+		expect(screen.queryAllByText(/What is the best move/i)).toHaveLength(0);
+	});
+
+	it('prompts for a move again once the autoplay intro reaches the batch actually being taught', async () => {
+		vi.useFakeTimers();
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 0,
+					total: 1,
+					allSolved: false,
+					attempt: AUTO_PLAY_ATTEMPT
+				}
+			}
+		});
+		// arrowPlies.from is 2 — two already-mastered plies auto-play before
+		// the player is asked to move again. advanceTimersByTimeAsync (not the
+		// sync version) also flushes the microtask queue between ticks, which
+		// Svelte 5's reactivity needs to actually re-render.
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(screen.queryAllByText(/What is the best move/i).length).toBeGreaterThan(0);
 	});
 });
