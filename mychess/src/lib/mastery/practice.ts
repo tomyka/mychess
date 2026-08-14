@@ -1,7 +1,7 @@
 // mychess/src/lib/mastery/practice.ts
 import type { Variation, VariationStep } from './variations';
 import { pickActiveVariation, solvedProgress } from './variationSequence';
-import { resolveTeachingStep } from './teaching';
+import { resolveTeachingStep, computeMasteredMoveIds, sharedMasteredPrefixLength } from './teaching';
 
 export type PracticeView = {
 	attempt: {
@@ -9,6 +9,13 @@ export type PracticeView = {
 		variationKey: string;
 		arrowPlies: { from: number; to: number } | null;
 		isFinalPass: boolean;
+		// How many of `path`'s leading plies are already mastered — via this
+		// variation's own progress, OR via a SIBLING variation sharing the
+		// same moves (see computeMasteredMoveIds) — and so should auto-play
+		// rather than require the player to replay them by hand. 0 for an
+		// already-solved variation's own re-drill: that's meant to be played
+		// out in full.
+		autoPlayThrough: number;
 	} | null;
 	solved: number;
 	total: number;
@@ -49,16 +56,28 @@ export function buildPracticeView(
 	if (active && (forceAttempt || !allSolved)) {
 		if (solvedKeys.has(active.variationKey)) {
 			// Already solved (including a manual re-drill pick) — never
-			// re-teach, regardless of what teachingProgress happens to hold.
-			attempt = { path: active.path, variationKey: active.variationKey, arrowPlies: null, isFinalPass: true };
+			// re-teach, regardless of what teachingProgress happens to hold,
+			// and never auto-play any of it: a deliberate re-drill is meant
+			// to be played out in full.
+			attempt = { path: active.path, variationKey: active.variationKey, arrowPlies: null, isFinalPass: true, autoPlayThrough: 0 };
 		} else {
 			const progress = teachingProgress.get(active.variationKey) ?? { taughtPlies: 0, masteredPlies: 0 };
-			const step = resolveTeachingStep(active.path, progress.taughtPlies, progress.masteredPlies);
+			// A sibling variation sharing this one's leading moves (the same
+			// moveIds — a transposition, or just the same opening) may have
+			// already mastered them: credit that shared prefix here rather
+			// than making the player re-earn it from scratch for every
+			// variation that happens to share it.
+			const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, solvedKeys);
+			const sharedFloor = sharedMasteredPrefixLength(active.path, masteredMoveIds);
+			const effectiveMasteredPlies = Math.max(progress.masteredPlies, sharedFloor);
+			const effectiveTaughtPlies = Math.max(progress.taughtPlies, effectiveMasteredPlies);
+			const step = resolveTeachingStep(active.path, effectiveTaughtPlies, effectiveMasteredPlies);
 			attempt = {
 				path: step.path,
 				variationKey: active.variationKey,
 				arrowPlies: step.arrowPlies,
-				isFinalPass: step.isFinalPass
+				isFinalPass: step.isFinalPass,
+				autoPlayThrough: effectiveMasteredPlies
 			};
 		}
 	}

@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { resolveTeachingStep, advanceTeachingProgress, arrowMoveForStep } from './teaching';
-import type { VariationStep } from './variations';
+import {
+	resolveTeachingStep,
+	advanceTeachingProgress,
+	arrowMoveForStep,
+	sharedMasteredPrefixLength,
+	computeMasteredMoveIds
+} from './teaching';
+import type { Variation, VariationStep } from './variations';
 
 /** Player moves first (ply 0), like a White repertoire's own line. */
 function makePath(plies: number): VariationStep[] {
@@ -30,6 +36,15 @@ function makeOpponentFirstPath(plies: number): VariationStep[] {
 		});
 	}
 	return path;
+}
+
+function makeVariation(variationKey: string, path: VariationStep[]): Variation {
+	return {
+		leafMoveId: path[path.length - 1].moveId,
+		variationKey,
+		path,
+		playerMoveCount: path.filter((s) => s.isPlayerTurn).length
+	};
 }
 
 describe('resolveTeachingStep', () => {
@@ -158,5 +173,64 @@ describe('arrowMoveForStep', () => {
 	it('returns null if the san cannot be parsed against fromFen', () => {
 		const badStep = { ...playedE4, san: 'Zz9' };
 		expect(arrowMoveForStep(badStep, 12, { from: 10, to: 20 })).toBeNull();
+	});
+});
+
+describe('sharedMasteredPrefixLength', () => {
+	it('returns 0 when nothing is mastered', () => {
+		const path = makePath(6);
+		expect(sharedMasteredPrefixLength(path, new Set())).toBe(0);
+	});
+
+	it('returns the full length when every ply\'s moveId is mastered', () => {
+		const path = makePath(6);
+		const mastered = new Set(path.map((s) => s.moveId));
+		expect(sharedMasteredPrefixLength(path, mastered)).toBe(6);
+	});
+
+	it('stops at the first ply whose moveId is not mastered', () => {
+		const path = makePath(6);
+		const mastered = new Set([path[0].moveId, path[1].moveId, path[2].moveId]);
+		expect(sharedMasteredPrefixLength(path, mastered)).toBe(3);
+	});
+
+	it('does not skip over a gap — a mastered moveId past an unmastered one does not extend the prefix', () => {
+		const path = makePath(6);
+		const mastered = new Set([path[0].moveId, path[2].moveId]); // path[1] missing
+		expect(sharedMasteredPrefixLength(path, mastered)).toBe(1);
+	});
+});
+
+describe('computeMasteredMoveIds', () => {
+	it('includes every moveId of a fully-solved variation, regardless of its teachingProgress row', () => {
+		const path = makePath(6);
+		const v = makeVariation('v1', path);
+		const mastered = computeMasteredMoveIds([v], new Map(), new Set(['v1']));
+		expect(mastered).toEqual(new Set(path.map((s) => s.moveId)));
+	});
+
+	it('includes only a variation\'s own mastered prefix when it is not fully solved', () => {
+		const path = makePath(6);
+		const v = makeVariation('v1', path);
+		const progress = new Map([['v1', { taughtPlies: 6, masteredPlies: 3 }]]);
+		const mastered = computeMasteredMoveIds([v], progress, new Set());
+		expect(mastered).toEqual(new Set(path.slice(0, 3).map((s) => s.moveId)));
+	});
+
+	it('contributes nothing for a variation with no progress row that is not solved', () => {
+		const path = makePath(6);
+		const v = makeVariation('v1', path);
+		const mastered = computeMasteredMoveIds([v], new Map(), new Set());
+		expect(mastered).toEqual(new Set());
+	});
+
+	it('unions contributions across multiple variations', () => {
+		const pathA = makePath(6);
+		const pathB = makeOpponentFirstPath(4);
+		const a = makeVariation('a', pathA);
+		const b = makeVariation('b', pathB);
+		const progress = new Map([['a', { taughtPlies: 6, masteredPlies: 2 }]]);
+		const mastered = computeMasteredMoveIds([a, b], progress, new Set(['b']));
+		expect(mastered).toEqual(new Set([...pathA.slice(0, 2).map((s) => s.moveId), ...pathB.map((s) => s.moveId)]));
 	});
 });

@@ -14,6 +14,7 @@ const AUTO_PLAY_ATTEMPT = {
 	variationKey: 'v1',
 	arrowPlies: { from: 2, to: 4 },
 	isFinalPass: false,
+	autoPlayThrough: 2,
 	path: [
 		{
 			moveId: 'm1',
@@ -216,6 +217,28 @@ describe('practice detail page', () => {
 		// the player is asked to move again. advanceTimersByTimeAsync (not the
 		// sync version) also flushes the microtask queue between ticks, which
 		// Svelte 5's reactivity needs to actually re-render.
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(screen.queryAllByText(/What is the best move/i).length).toBeGreaterThan(0);
+	});
+
+	it('also auto-plays the already-mastered prefix during a blind retest (no arrowPlies), not just a teach pass', async () => {
+		vi.useFakeTimers();
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 0,
+					total: 1,
+					allSolved: false,
+					attempt: { ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true }
+				}
+			}
+		});
+		// autoPlayThrough (2) still applies with arrowPlies null — a blind
+		// retest whose leading plies are already mastered (e.g. via a sibling
+		// variation sharing them) auto-plays that part just like a teach pass
+		// does, and only requires the player to blind-play what's left.
+		expect(screen.queryAllByText(/What is the best move/i)).toHaveLength(0);
 		await vi.advanceTimersByTimeAsync(1000);
 		expect(screen.queryAllByText(/What is the best move/i).length).toBeGreaterThan(0);
 	});

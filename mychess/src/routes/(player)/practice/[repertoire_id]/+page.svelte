@@ -93,12 +93,15 @@
 		quizSteps = attempt?.path ?? [];
 		if (!attempt) return;
 		boardFen = attempt.path[0]?.fromFen ?? '';
-		// arrowPlies.from is where THIS teach batch starts — everything before
-		// it was already taught and blind-confirmed in an earlier attempt, so
-		// it plays itself out instead of making the player re-enter it by
-		// hand. A blind-retest or already-solved attempt has no arrowPlies, so
-		// this is a no-op there — full manual replay is the point of a retest.
-		const autoPlayTarget = attempt.arrowPlies?.from ?? 0;
+		// autoPlayThrough covers whatever's already mastered — either by THIS
+		// variation's own earlier progress, or by a SIBLING variation sharing
+		// the same leading moves (see computeMasteredMoveIds) — so it applies
+		// during a blind retest too, not just a teach pass: content that's
+		// genuinely already known plays itself out instead of making the
+		// player re-enter it by hand every time a variation happens to share
+		// it. 0 for an already-solved variation's own re-drill, where full
+		// manual replay is the point.
+		const autoPlayTarget = attempt.autoPlayThrough ?? 0;
 		if (autoPlayTarget > 0) {
 			phase = 'autoplay';
 			autoPlayStep(resetToken, autoPlayTarget);

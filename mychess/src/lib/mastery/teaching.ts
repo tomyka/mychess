@@ -1,5 +1,5 @@
 import { Chess } from 'chess.js';
-import type { VariationStep } from './variations';
+import type { Variation, VariationStep } from './variations';
 
 /** How many of the player's own moves make up one teaching batch. */
 export const TEACHING_BATCH_MOVES = 5;
@@ -73,6 +73,51 @@ export function advanceTeachingProgress(
 		return { taughtPlies: step.arrowPlies.to, masteredPlies, solved: false };
 	}
 	return { taughtPlies: Math.max(taughtPlies, step.path.length), masteredPlies: step.path.length, solved: step.isFinalPass };
+}
+
+/**
+ * How many of `path`'s LEADING plies have a moveId already in
+ * `masteredMoveIds` — stops at the first ply whose moveId isn't there, even
+ * if a later ply happens to be mastered too (a gap breaks the prefix). Used
+ * to credit a variation with mastery it never individually earned itself,
+ * when it shares moves with another variation (or the same variation's own
+ * earlier progress) that already covers them.
+ */
+export function sharedMasteredPrefixLength(path: VariationStep[], masteredMoveIds: ReadonlySet<string>): number {
+	let i = 0;
+	while (i < path.length && masteredMoveIds.has(path[i].moveId)) i++;
+	return i;
+}
+
+/**
+ * Every moveId this player has already mastered, across the WHOLE
+ * repertoire — not just the one variation currently being served. A fully
+ * solved variation contributes every one of its moves (solved implies every
+ * ply was mastered at some point); an unsolved variation contributes only
+ * its own `masteredPlies`-long prefix. Two variations that share a common
+ * opening (the same moveIds, since they're literally the same edges in the
+ * move tree) both benefit from whichever one mastered that shared part
+ * first — see `sharedMasteredPrefixLength`, which is how a served attempt
+ * turns this set back into "how much of THIS variation is already known."
+ */
+export function computeMasteredMoveIds(
+	variations: Variation[],
+	teachingProgress: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number }>,
+	solvedKeys: ReadonlySet<string>
+): Set<string> {
+	const mastered = new Set<string>();
+	for (const variation of variations) {
+		if (solvedKeys.has(variation.variationKey)) {
+			for (const step of variation.path) mastered.add(step.moveId);
+			continue;
+		}
+		const progress = teachingProgress.get(variation.variationKey);
+		if (!progress) continue;
+		for (let i = 0; i < progress.masteredPlies && i < variation.path.length; i++) {
+			mastered.add(variation.path[i].moveId);
+		}
+	}
+	return mastered;
 }
 
 /**

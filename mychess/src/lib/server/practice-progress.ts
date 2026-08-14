@@ -2,7 +2,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Variation } from '$lib/mastery/variations';
 import { pickActiveVariation, advanceIfSolved } from '$lib/mastery/variationSequence';
-import { advanceTeachingProgress } from '$lib/mastery/teaching';
+import { advanceTeachingProgress, computeMasteredMoveIds, sharedMasteredPrefixLength } from '$lib/mastery/teaching';
 
 /** This player's full solved-variation-key set for one repertoire. */
 export async function loadSolvedKeys(supabase: SupabaseClient, playerId: string, repertoireId: string): Promise<Set<string>> {
@@ -134,7 +134,12 @@ export async function loadSyncedActiveVariationKey(
  * re-serves the same step for another try.
  *
  * On a clean attempt: if the variation isn't already solved, its teaching
- * progress advances (see `advanceTeachingProgress`) — UNLESS that was the
+ * progress advances (see `advanceTeachingProgress`) — starting from whichever
+ * is higher, its OWN stored counters or the shared-mastery floor a sibling
+ * variation may have already earned for the same leading moves (see
+ * `computeMasteredMoveIds` — this MUST mirror `buildPracticeView`'s own
+ * floor computation exactly, or the server would record progress against a
+ * different step than the one it actually served) — UNLESS that was the
  * variation's final batch, in which case (exactly like an already-solved
  * variation re-drilled via the picker) it falls through to the existing
  * solved/advance-active-variation sequence.
@@ -153,9 +158,13 @@ export async function applyAttemptResult(
 	if (variation) {
 		const solvedKeys = await loadSolvedKeys(supabase, playerId, repertoireId);
 		if (!solvedKeys.has(variationKey)) {
-			const progress = await loadTeachingProgress(supabase, playerId, repertoireId);
-			const current = progress.get(variationKey) ?? { taughtPlies: 0, masteredPlies: 0 };
-			const next = advanceTeachingProgress(variation.path, current.taughtPlies, current.masteredPlies, false);
+			const progressMap = await loadTeachingProgress(supabase, playerId, repertoireId);
+			const current = progressMap.get(variationKey) ?? { taughtPlies: 0, masteredPlies: 0 };
+			const masteredMoveIds = computeMasteredMoveIds(variations, progressMap, solvedKeys);
+			const sharedFloor = sharedMasteredPrefixLength(variation.path, masteredMoveIds);
+			const effectiveMasteredPlies = Math.max(current.masteredPlies, sharedFloor);
+			const effectiveTaughtPlies = Math.max(current.taughtPlies, effectiveMasteredPlies);
+			const next = advanceTeachingProgress(variation.path, effectiveTaughtPlies, effectiveMasteredPlies, false);
 			await saveTeachingProgress(supabase, playerId, repertoireId, variationKey, next.taughtPlies, next.masteredPlies);
 			if (!next.solved) return;
 		}

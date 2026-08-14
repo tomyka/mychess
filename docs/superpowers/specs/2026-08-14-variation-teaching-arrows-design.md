@@ -6,7 +6,9 @@ GitHub issue: [tomyka/mychess#60](https://github.com/tomyka/mychess/issues/60)
 >
 > **Amendment 2 (post-ship):** batches were originally a flat `FIRST_MOVES_GROUP_PLIES` (10) ply offset regardless of whose move that landed on. For a variation where the player moves first, a 10-ply batch ends on the OPPONENT's reply, not the player's own move — and since the practice page only checks "was that the attempt's final move" at the moment the player themselves moves, that check never fired, so the attempt silently completed without ever reporting its outcome to the server: progress never persisted, and the same batch re-taught forever. Batches are now defined by a move count (`TEACHING_BATCH_MOVES = 5`, player moves only) and always end right after the batch's Nth player move — 9 plies if the player moves first, 10 if the opponent does, never landing on an opponent reply.
 >
-> **Amendment 3 (post-ship):** a teach pass used to make the player manually replay every earlier, already-mastered batch by hand (blind) before reaching the new one — tedious for a deep variation. The practice page now auto-plays plies `[0, arrowPlies.from)` on load (see `+page.svelte`'s `autoPlayStep`), landing the player right at the start of the batch actually being taught. This applies ONLY to teach passes — a blind-retest (or an already-solved re-drill) has no `arrowPlies`, so it's never auto-played; replaying the WHOLE line by hand there is still what confirms retention.
+> **Amendment 3 (post-ship):** a teach pass used to make the player manually replay every earlier, already-mastered batch by hand (blind) before reaching the new one — tedious for a deep variation. The practice page now auto-plays already-mastered leading plies on load (see `+page.svelte`'s `autoPlayStep`), landing the player right at the start of the batch actually needing their input. Originally this applied only to teach passes (a blind-retest still required full manual replay); **Amendment 4 below extends it to blind retests too.**
+>
+> **Amendment 4 (post-ship):** progress was tracked entirely per VARIATION, so two variations sharing the same first 5 moves (a repertoire branching at move 6, say) were taught completely independently — mastering one taught the other nothing, forcing the player through the identical opening moves again for every sibling. Teaching progress is now effectively per-MOVE, shared across every variation that happens to use it: `computeMasteredMoveIds` derives every moveId already mastered anywhere in the repertoire (every move of a fully-solved variation, plus each unsolved variation's own `masteredPlies`-long prefix), and `sharedMasteredPrefixLength` turns that into "how much of THIS variation is already covered" — which can be MORE than this variation's own stored `masteredPlies` if a sibling got there first. That shared floor now auto-plays in EVERY attempt, teach or blind-retest alike (see `PracticeView.attempt.autoPlayThrough`, which `+page.svelte` reads instead of `arrowPlies.from`) — a move mastered once, by any variation, is never manually replayed again by any other. `applyAttemptResult` applies the identical floor before calling `advanceTeachingProgress`, so what the server records always matches what it actually served.
 >
 > This document has been updated in place to describe the current, shipped behavior.
 
@@ -150,9 +152,42 @@ export function advanceTeachingProgress(
 	}
 	return { taughtPlies: Math.max(taughtPlies, step.path.length), masteredPlies: step.path.length, solved: step.isFinalPass };
 }
+
+// (Amendment 4) Every moveId already mastered ANYWHERE in the repertoire —
+// every move of a fully-solved variation, plus each unsolved variation's own
+// masteredPlies-long prefix. Two variations that share moves (the same
+// moveId — a shared opening, or a transposition) both draw on this same set.
+export function computeMasteredMoveIds(
+	variations: Variation[],
+	teachingProgress: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number }>,
+	solvedKeys: ReadonlySet<string>
+): Set<string> {
+	const mastered = new Set<string>();
+	for (const variation of variations) {
+		if (solvedKeys.has(variation.variationKey)) {
+			for (const step of variation.path) mastered.add(step.moveId);
+			continue;
+		}
+		const progress = teachingProgress.get(variation.variationKey);
+		if (!progress) continue;
+		for (let i = 0; i < progress.masteredPlies && i < variation.path.length; i++) {
+			mastered.add(variation.path[i].moveId);
+		}
+	}
+	return mastered;
+}
+
+// (Amendment 4) How many of `path`'s LEADING plies are already covered by
+// `masteredMoveIds` — stops at the first ply whose moveId isn't in the set,
+// even if a later ply happens to be mastered too (a gap breaks the prefix).
+export function sharedMasteredPrefixLength(path: VariationStep[], masteredMoveIds: ReadonlySet<string>): number {
+	let i = 0;
+	while (i < path.length && masteredMoveIds.has(path[i].moveId)) i++;
+	return i;
+}
 ```
 
-`resolveTeachingStep` is used when serving an attempt (read path); `advanceTeachingProgress` is used when recording its outcome (write path) — it re-derives the same step the player was actually just served (deterministically, from the same stored counters) rather than trusting anything the client reports, matching how `hadMistake` is already the only client-reported fact about an attempt today.
+`resolveTeachingStep` is used when serving an attempt (read path); `advanceTeachingProgress` is used when recording its outcome (write path) — it re-derives the same step the player was actually just served (deterministically, from the same stored counters) rather than trusting anything the client reports, matching how `hadMistake` is already the only client-reported fact about an attempt today. `computeMasteredMoveIds`/`sharedMasteredPrefixLength` don't participate in that read/write pair directly — both `buildPracticeView` and `applyAttemptResult` call them FIRST, to compute a `taughtPlies`/`masteredPlies` floor (via `Math.max`) before handing off to `resolveTeachingStep`/`advanceTeachingProgress` — see Server-side changes below.
 
 ## Server-side changes
 
@@ -163,17 +198,23 @@ Two new functions, mirroring `loadSolvedKeys`'s existing per-repertoire shape:
 - `loadTeachingProgress(supabase, playerId, repertoireId): Promise<Map<string, { taughtPlies: number; masteredPlies: number }>>` — one `select` filtered by `player_id`/`repertoire_id`, keyed by `variation_key`.
 - `saveTeachingProgress(supabase, playerId, repertoireId, variationKey, taughtPlies, masteredPlies): Promise<void>` — upsert on `(player_id, variation_key)`.
 
-`applyAttemptResult` changes to: look up the attempted variation's `path` from the `variations` array it's already given; if the variation is not already solved, load its teaching-progress row, call `advanceTeachingProgress`, and persist the result via `saveTeachingProgress`. Only when that call reports `solved: true` does it fall through to the existing `markVariationSolved` + `advanceIfSolved` + `setActiveVariationKey` sequence, unchanged. If the variation is already solved (re-drill), or isn't found in `variations` (defensive), behavior is exactly as it is today — `hadMistake` alone gates `markVariationSolved`.
+`applyAttemptResult` changes to: look up the attempted variation's `path` from the `variations` array it's already given; if the variation is not already solved, load the FULL per-repertoire teaching-progress map (needed for `computeMasteredMoveIds`, not just this one variation's own row), compute the shared-mastery floor (`Math.max` against this variation's own stored counters — see Amendment 4), call `advanceTeachingProgress` with the FLOORED values, and persist the result via `saveTeachingProgress`. Only when that call reports `solved: true` does it fall through to the existing `markVariationSolved` + `advanceIfSolved` + `setActiveVariationKey` sequence, unchanged. If the variation is already solved (re-drill), or isn't found in `variations` (defensive), behavior is exactly as it is today — `hadMistake` alone gates `markVariationSolved`. Using the SAME floor computation as `buildPracticeView` (below) is load-bearing: if they ever disagreed, the server could record progress against a different step than the one it actually served.
 
 ### `src/lib/mastery/practice.ts`
 
-`PracticeView.attempt` gains two fields:
+`PracticeView.attempt` gains three fields:
 
 ```ts
-attempt: { path: VariationStep[]; variationKey: string; arrowPlies: { from: number; to: number } | null; isFinalPass: boolean } | null;
+attempt: {
+	path: VariationStep[];
+	variationKey: string;
+	arrowPlies: { from: number; to: number } | null;
+	isFinalPass: boolean;
+	autoPlayThrough: number; // see Amendment 4 — 0 for an already-solved re-drill
+} | null;
 ```
 
-`buildPracticeView` gains a new parameter, `teachingProgress: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number }>`, inserted before the existing `forceAttempt` parameter. After picking the active variation, if it's already solved (or `forceAttempt` re-drilling a solved one) it's served at full depth with `arrowPlies: null, isFinalPass: true`, exactly as today; otherwise its served path/arrow range come from `resolveTeachingStep(active.path, progress.taughtPlies ?? 0, progress.masteredPlies ?? 0)`.
+`buildPracticeView` gains a new parameter, `teachingProgress: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number }>`, inserted before the existing `forceAttempt` parameter. After picking the active variation: if it's already solved (or `forceAttempt` re-drilling a solved one), it's served at full depth with `arrowPlies: null, isFinalPass: true, autoPlayThrough: 0`, exactly as today (a deliberate re-drill is played in full, nothing auto-played). Otherwise, `computeMasteredMoveIds(variations, teachingProgress, solvedKeys)` plus `sharedMasteredPrefixLength(active.path, ...)` produce a shared floor; `effectiveMasteredPlies = Math.max(progress.masteredPlies, sharedFloor)` and `effectiveTaughtPlies = Math.max(progress.taughtPlies, effectiveMasteredPlies)` feed `resolveTeachingStep`, and `autoPlayThrough` is set to `effectiveMasteredPlies`.
 
 ### Call sites
 
@@ -210,7 +251,7 @@ const arrowMove = $derived.by(() => {
 
 Passed to `<ChessBoard ... {arrowMove} />`.
 
-**Autoplay intro (Amendment 3).** `resetForAttempt()` reads `attempt.arrowPlies?.from ?? 0` as the autoplay target. If it's `0` (no `arrowPlies` — a blind retest, the final pass, or an already-solved re-drill), behavior is unchanged from before: `advanceThroughOpponentReplies()` just skips any leading opponent-only plies, same as always. If it's greater than `0` (a teach pass beyond the first batch), a new `phase: 'autoplay'` locks the board (same as the existing `'advancing'` phase — no move prompt, not interactable) and `autoPlayStep` advances `quizIdx` one ply at a time, on a `setTimeout` loop (`AUTO_PLAY_STEP_MS`), until it reaches the target — then flips `phase` back to `'playing'` and calls `advanceThroughOpponentReplies()` as usual (the ply right at the target is typically the opponent's reply following whatever player move ended the previous batch). A `resetToken` guard (the same pattern `nextAttempt()` already uses) aborts a stale autoplay chain if a new attempt starts mid-sequence.
+**Autoplay intro (Amendments 3 & 4).** `resetForAttempt()` reads `attempt.autoPlayThrough` as the autoplay target (NOT `arrowPlies.from` — see Amendment 4: the two agree for a teach pass, but only `autoPlayThrough` is populated for a blind retest too). If it's `0` (an already-solved re-drill, or nothing shared/mastered yet applies), behavior is unchanged from before: `advanceThroughOpponentReplies()` just skips any leading opponent-only plies, same as always. If it's greater than `0`, a new `phase: 'autoplay'` locks the board (same as the existing `'advancing'` phase — no move prompt, not interactable) and `autoPlayStep` advances `quizIdx` one ply at a time, on a `setTimeout` loop (`AUTO_PLAY_STEP_MS`), until it reaches the target — then flips `phase` back to `'playing'` and calls `advanceThroughOpponentReplies()` as usual (the ply right at the target is typically the opponent's reply following whatever player move ended the previous batch). A `resetToken` guard (the same pattern `nextAttempt()` already uses) aborts a stale autoplay chain if a new attempt starts mid-sequence.
 
 ## Edge cases
 
@@ -220,6 +261,7 @@ Passed to `<ChessBoard ... {arrowMove} />`.
 - **Manually re-picking an unsolved, partially-taught variation via the picker:** `variation_teaching_progress` is keyed only by `(player, variation_key)`, independent of which variation is "active" — picking it resumes its stored `taught_plies`/`mastered_plies` exactly where they were left, whether that variation was reached automatically or manually.
 - **A mistake during a teach pass:** `advanceTeachingProgress` leaves both counters unchanged on `hadMistake`, so the identical teach pass (same arrow range) is re-served next attempt — the player isn't asked to blind-guess a batch that was interrupted mid-teaching.
 - **A mistake during a blind-retest (including the final pass):** same mechanism — counters unchanged, the same blind-retest is re-served, matching the confirmed "just retry, no re-teaching" behavior.
+- **(Amendment 4) Sibling variations sharing a prefix:** a fresh variation whose leading moves were already mastered via a DIFFERENT variation (or via this same variation's own earlier progress) is credited immediately — its served `taughtPlies`/`masteredPlies` floor to the shared amount, so it only ever teaches/tests its own genuinely-new content, and `autoPlayThrough` covers the shared part in every attempt, teach or blind-retest. A variation that transposes ENTIRELY into already-mastered content (rare) would serve with `autoPlayThrough >= path.length`, requiring no manual input at all — not specially handled, just a natural consequence of the same floor.
 
 ## Testing
 
@@ -227,5 +269,8 @@ Passed to `<ChessBoard ... {arrowMove} />`.
 - `practice.test.ts`: `buildPracticeView` tests extended with a `teachingProgress` map — an untaught variation gets the right truncated path + arrow range, an already-solved variation ignores a stale/partial `teachingProgress` entry entirely, and existing tests are updated to pass an empty map.
 - `practice-progress.test.ts` (server-side, fake-supabase style already used there): `applyAttemptResult` tests for each of the three transitions (teach→taught, blind-retest→mastered, final→solved) confirming `variation_solved`/`practice_active_variation` are untouched until the final transition.
 - Component test (`ChessBoard.test.ts`): `arrowMove` renders a chessground arrow shape (`orig`+`dest`) when set, and clears when `null`.
-- `practice.test.ts` (route-level, `@testing-library/svelte` + `vi.useFakeTimers()`/`advanceTimersByTimeAsync`): a teach-pass attempt with `arrowPlies.from > 0` doesn't prompt for a move while autoplay is running, and does once autoplay reaches the taught batch.
-- Manual end-to-end verification: practice a fresh variation, confirm an arrow for each move 1–5 on first exposure, a blind (arrow-free) full replay required afterward, and — for a variation longer than 10 plies — the same teach/retest cycle repeating for moves 6–10, 11–15 (with moves 1–10 auto-playing before each new batch's arrows begin), and so on.
+- `practice.test.ts` (route-level, `@testing-library/svelte` + `vi.useFakeTimers()`/`advanceTimersByTimeAsync`): a teach-pass attempt with `autoPlayThrough > 0` doesn't prompt for a move while autoplay is running, and does once autoplay reaches the taught batch; a blind-retest attempt (`arrowPlies: null`) with `autoPlayThrough > 0` behaves the same way — autoplay isn't gated on `arrowPlies`.
+- (Amendment 4) `teaching.test.ts`: `sharedMasteredPrefixLength` stops at the first unmastered ply (a later mastered one past a gap doesn't extend it) and covers the whole/none/all cases; `computeMasteredMoveIds` credits every move of a fully-solved variation, only the mastered prefix of an unsolved one, nothing for a variation with no progress, and unions correctly across several variations.
+- (Amendment 4) `practice.test.ts`: a fresh sibling variation sharing a prefix already solved via another variation is served with the floored counters (teaching only its own new content) and the correct `autoPlayThrough`; the same credit applies to that sibling's own blind retest; an already-solved variation's own re-drill gets `autoPlayThrough: 0`.
+- (Amendment 4) `practice-progress.test.ts`: `applyAttemptResult` records progress against the SAME floored counters `buildPracticeView` would have served, for a fresh sibling variation crediting a solved one's shared prefix.
+- Manual end-to-end verification: practice a fresh variation, confirm an arrow for each move 1–5 on first exposure, a blind (arrow-free) full replay required afterward, and — for a variation longer than 10 plies — the same teach/retest cycle repeating for moves 6–10, 11–15 (with moves 1–10 auto-playing before each new batch's arrows begin), and so on. Also confirm: starting a sibling variation that shares an already-mastered prefix with a previously-learned variation auto-plays that shared part immediately (teach and blind-retest alike), teaching/testing only the new, divergent content.

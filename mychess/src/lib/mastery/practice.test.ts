@@ -19,6 +19,36 @@ function makeVariation(playerMoveCount: number, prefix: string): Variation {
 
 const noTeaching = new Map<string, { taughtPlies: number; masteredPlies: number }>();
 
+/**
+ * Two variations sharing the SAME leading `sharedPlayerMoves` player-move
+ * pairs (identical moveIds, like transposing/shared repertoire lines),
+ * each then branching off with its own additional player moves.
+ */
+function makeSharedPrefixVariations(sharedPlayerMoves: number, ownPlayerMovesA: number, ownPlayerMovesB: number) {
+	const shared: VariationStep[] = [];
+	for (let i = 1; i <= sharedPlayerMoves; i++) {
+		shared.push({ moveId: `shared-p${i}`, san: `P${i}`, fromFen: `f${i}a`, toFen: `f${i}b`, isPlayerTurn: true });
+		shared.push({ moveId: `shared-o${i}`, san: `O${i}`, fromFen: `f${i}b`, toFen: `f${i + 1}a`, isPlayerTurn: false });
+	}
+	function extend(prefix: string, ownPlayerMoves: number): VariationStep[] {
+		const path = [...shared];
+		for (let i = sharedPlayerMoves + 1; i <= sharedPlayerMoves + ownPlayerMoves; i++) {
+			path.push({ moveId: `${prefix}p${i}`, san: `P${i}`, fromFen: `f${i}a`, toFen: `f${i}b`, isPlayerTurn: true });
+			path.push({ moveId: `${prefix}o${i}`, san: `O${i}`, fromFen: `f${i}b`, toFen: `f${i + 1}a`, isPlayerTurn: false });
+		}
+		return path;
+	}
+	function toVariation(variationKey: string, path: VariationStep[], playerMoveCount: number): Variation {
+		return { leafMoveId: path[path.length - 1].moveId, variationKey, path, playerMoveCount };
+	}
+	const pathA = extend('a-', ownPlayerMovesA);
+	const pathB = extend('b-', ownPlayerMovesB);
+	return {
+		a: toVariation('a', pathA, sharedPlayerMoves + ownPlayerMovesA),
+		b: toVariation('b', pathB, sharedPlayerMoves + ownPlayerMovesB)
+	};
+}
+
 describe('buildPracticeView', () => {
 	it('serves the active variation\'s FULL path as the attempt, unsplit', () => {
 		const v = makeVariation(3, 'a-');
@@ -102,6 +132,33 @@ describe('buildPracticeView', () => {
 		expect(view.attempt!.path).toHaveLength(30);
 		expect(view.attempt!.arrowPlies).toBeNull();
 		expect(view.attempt!.isFinalPass).toBe(true);
+	});
+
+	it('credits a fresh sibling variation for a shared prefix already solved via another variation, teaching only its own new content', () => {
+		const { a, b } = makeSharedPrefixVariations(5, 5, 1); // 5 shared moves, a has 5 more of its own, b has 1
+		const view = buildPracticeView([a, b], null, new Set([a.variationKey]), new Map());
+		expect(view.attempt!.variationKey).toBe(b.variationKey);
+		// b's own content is only 1 player move past the shared 10-ply prefix —
+		// shorter than one full batch, so the whole thing is taught at once.
+		expect(view.attempt!.path).toEqual(b.path);
+		expect(view.attempt!.arrowPlies).toEqual({ from: 10, to: 12 });
+		expect(view.attempt!.autoPlayThrough).toBe(10);
+	});
+
+	it('keeps crediting the shared prefix during a sibling\'s own blind retest, so only its own new content needs manual replay', () => {
+		const { a, b } = makeSharedPrefixVariations(5, 5, 1);
+		const progress = new Map([[b.variationKey, { taughtPlies: 12, masteredPlies: 0 }]]);
+		const view = buildPracticeView([a, b], b.variationKey, new Set([a.variationKey]), progress);
+		expect(view.attempt!.path).toEqual(b.path);
+		expect(view.attempt!.arrowPlies).toBeNull();
+		expect(view.attempt!.isFinalPass).toBe(true);
+		expect(view.attempt!.autoPlayThrough).toBe(10);
+	});
+
+	it('does not auto-play anything for an already-solved variation\'s own re-drill', () => {
+		const v = makeVariation(3, 'a-');
+		const view = buildPracticeView([v], v.variationKey, new Set([v.variationKey]), noTeaching, true);
+		expect(view.attempt!.autoPlayThrough).toBe(0);
 	});
 });
 

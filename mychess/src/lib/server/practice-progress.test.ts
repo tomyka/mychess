@@ -14,6 +14,26 @@ function makeVariation(variationKey: string, plies: number): Variation {
 	return { leafMoveId: path[path.length - 1].moveId, variationKey, path, playerMoveCount: Math.ceil(plies / 2) };
 }
 
+/** Two variations sharing the same leading 10 plies (5 player moves), each with its own 2-ply branch after. */
+function makeSharedPrefixVariations(): { a: Variation; b: Variation } {
+	const shared = Array.from({ length: 10 }, (_, i) => ({
+		moveId: `shared-p${i}`,
+		san: `M${i}`,
+		fromFen: `f${i}a`,
+		toFen: `f${i}b`,
+		isPlayerTurn: i % 2 === 0
+	}));
+	function branch(variationKey: string): Variation {
+		const path = [
+			...shared,
+			{ moveId: `${variationKey}-p10`, san: 'M10', fromFen: 'f10a', toFen: 'f10b', isPlayerTurn: true },
+			{ moveId: `${variationKey}-p11`, san: 'M11', fromFen: 'f10b', toFen: 'f11a', isPlayerTurn: false }
+		];
+		return { leafMoveId: path[path.length - 1].moveId, variationKey, path, playerMoveCount: 6 };
+	}
+	return { a: branch('a'), b: branch('b') };
+}
+
 function fakeSupabase(opts: {
 	solvedKeys?: string[];
 	teachingRows?: Array<{ variation_key: string; taught_plies: number; mastered_plies: number }>;
@@ -138,5 +158,21 @@ describe('applyAttemptResult', () => {
 		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1]);
 		expect(upsertCalls.some((c) => c.table === 'variation_teaching_progress')).toBe(false);
 		expect(upsertCalls.some((c) => c.table === 'variation_solved')).toBe(true);
+	});
+
+	it('credits a fresh sibling variation for a shared prefix already solved via another variation', async () => {
+		const { a, b } = makeSharedPrefixVariations();
+		const { client, upsertCalls } = fakeSupabase({ solvedKeys: ['a'], teachingRows: [] });
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'b', false, [a, b]);
+		expect(upsertCalls).toEqual([
+			{
+				table: 'variation_teaching_progress',
+				// b's own path is only 2 plies past the shared 10, so its whole
+				// remaining content is taught in one go — but mastered_plies
+				// starts at 10 (credited from a), not 0.
+				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'b', taught_plies: 12, mastered_plies: 10 },
+				options: { onConflict: 'player_id,variation_key' }
+			}
+		]);
 	});
 });
