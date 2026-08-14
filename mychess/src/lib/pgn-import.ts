@@ -36,15 +36,18 @@ function usableHeader(value: string | undefined): string | null {
 
 /**
  * The label for one game/chapter within a multi-game PGN: Event first (most
- * export tools put a real title there), falling back to White (some export
- * tools — e.g. ChessBase reference/study files — put the chapter title
- * there instead, with Black hardcoded to a fixed boilerplate value),
- * falling back to a plain ordinal when neither holds anything ("1-indexed
- * game N" — used for header-less PGNs, or ones where White/Black are
- * simply absent).
+ * export tools put a real title there), falling back to White then Black
+ * (some export tools — e.g. ChessBase reference/study files — put the
+ * chapter title in one of those two instead, hardcoding the other to a
+ * fixed placeholder — which one holds the title varies by export tool/
+ * version, so both are tried), falling back to a plain ordinal when none of
+ * the three holds anything ("1-indexed game N" — used for header-less
+ * PGNs, or ones where White/Black are simply absent).
  */
 export function chapterName(headers: Record<string, string>, index: number): string {
-  return usableHeader(headers.Event) ?? usableHeader(headers.White) ?? `Game ${index + 1}`;
+  return (
+    usableHeader(headers.Event) ?? usableHeader(headers.White) ?? usableHeader(headers.Black) ?? `Game ${index + 1}`
+  );
 }
 
 /**

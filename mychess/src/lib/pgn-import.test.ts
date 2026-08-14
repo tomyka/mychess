@@ -132,8 +132,15 @@ describe('chapterName', () => {
     expect(chapterName({ Event: '?', White: 'Chapter Two' }, 1)).toBe('Chapter Two');
   });
 
-  it('falls back to a plain ordinal when neither Event nor White is usable', () => {
-    expect(chapterName({ Event: '?', White: '?' }, 2)).toBe('Game 3');
+  it('falls back to Black when neither Event nor White is usable', () => {
+    // ChessBase reference/study exports vary on which of White/Black gets
+    // the real chapter title and which gets a fixed placeholder — some
+    // files put it in White (covered above), others in Black.
+    expect(chapterName({ Event: '?', White: '?', Black: 'Philidor' }, 0)).toBe('Philidor');
+  });
+
+  it('falls back to a plain ordinal when none of Event, White, or Black is usable', () => {
+    expect(chapterName({ Event: '?', White: '?', Black: '?' }, 2)).toBe('Game 3');
   });
 
   // A real tournament-games PGN has actual player names in White, which
