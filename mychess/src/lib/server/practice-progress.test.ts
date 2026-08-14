@@ -75,14 +75,14 @@ describe('applyAttemptResult', () => {
 		expect(upsertCalls).toHaveLength(0);
 	});
 
-	it('a clean teach-batch pass advances taught_plies only, and does not touch variation_solved', async () => {
+	it('a clean teach-batch pass on a fresh variation advances taught_plies to the first batch only, and does not touch variation_solved', async () => {
 		const { client, upsertCalls } = fakeSupabase({ teachingRows: [] });
 		const v1 = makeVariation('v1', 25);
 		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1]);
 		expect(upsertCalls).toEqual([
 			{
 				table: 'variation_teaching_progress',
-				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1', taught_plies: 20, mastered_plies: 10 },
+				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1', taught_plies: 10, mastered_plies: 0 },
 				options: { onConflict: 'player_id,variation_key' }
 			}
 		]);

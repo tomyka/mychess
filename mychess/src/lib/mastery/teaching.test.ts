@@ -17,17 +17,19 @@ function makePath(plies: number): VariationStep[] {
 }
 
 describe('resolveTeachingStep', () => {
-	it('never teaches a variation no longer than the free zone (5 moves / 10 plies)', () => {
-		const path = makePath(6);
-		const step = resolveTeachingStep(path, 0, 0);
-		expect(step).toEqual({ path, arrowPlies: null, isFinalPass: true });
-	});
-
-	it('teaches the first batch beyond the free zone for a fresh, deeper variation', () => {
+	it('teaches the very first batch (moves 1-5) from a fresh variation\'s first attempt', () => {
 		const path = makePath(25);
 		const step = resolveTeachingStep(path, 0, 0);
-		expect(step.path).toEqual(path.slice(0, 20));
-		expect(step.arrowPlies).toEqual({ from: 10, to: 20 });
+		expect(step.path).toEqual(path.slice(0, 10));
+		expect(step.arrowPlies).toEqual({ from: 0, to: 10 });
+		expect(step.isFinalPass).toBe(false);
+	});
+
+	it('teaches its entire (short) path when a variation is no longer than one batch', () => {
+		const path = makePath(6);
+		const step = resolveTeachingStep(path, 0, 0);
+		expect(step.path).toEqual(path);
+		expect(step.arrowPlies).toEqual({ from: 0, to: 6 });
 		expect(step.isFinalPass).toBe(false);
 	});
 
@@ -55,16 +57,16 @@ describe('resolveTeachingStep', () => {
 });
 
 describe('advanceTeachingProgress', () => {
-	it('leaves both counters unchanged (floored to the free zone) on a mistake', () => {
+	it('leaves both counters exactly unchanged on a mistake', () => {
 		const path = makePath(25);
 		const result = advanceTeachingProgress(path, 3, 3, true);
-		expect(result).toEqual({ taughtPlies: 10, masteredPlies: 10, solved: false });
+		expect(result).toEqual({ taughtPlies: 3, masteredPlies: 3, solved: false });
 	});
 
-	it('a clean teach pass advances taught_plies to the batch end only', () => {
+	it('a clean teach pass on a fresh variation advances taught_plies to the first batch end only', () => {
 		const path = makePath(25);
 		const result = advanceTeachingProgress(path, 0, 0, false);
-		expect(result).toEqual({ taughtPlies: 20, masteredPlies: 10, solved: false });
+		expect(result).toEqual({ taughtPlies: 10, masteredPlies: 0, solved: false });
 	});
 
 	it('a clean non-final blind retest advances mastered_plies to match taught_plies', () => {
@@ -79,9 +81,15 @@ describe('advanceTeachingProgress', () => {
 		expect(result).toEqual({ taughtPlies: 25, masteredPlies: 25, solved: true });
 	});
 
-	it('a variation no longer than the free zone is solved on its very first clean attempt', () => {
+	it('a short (one-batch) variation still needs a clean teach pass before it can be solved', () => {
 		const path = makePath(6);
 		const result = advanceTeachingProgress(path, 0, 0, false);
+		expect(result).toEqual({ taughtPlies: 6, masteredPlies: 0, solved: false });
+	});
+
+	it('a short (one-batch) variation solves on the blind retest right after its teach pass', () => {
+		const path = makePath(6);
+		const result = advanceTeachingProgress(path, 6, 0, false);
 		expect(result).toEqual({ taughtPlies: 6, masteredPlies: 6, solved: true });
 	});
 });

@@ -15,18 +15,14 @@ export type TeachingStep = {
  * the full state-machine rationale.
  */
 export function resolveTeachingStep(path: VariationStep[], taughtPlies: number, masteredPlies: number): TeachingStep {
-	const freeZone = Math.min(FIRST_MOVES_GROUP_PLIES, path.length);
-	const taught = Math.max(taughtPlies, freeZone);
-	const mastered = Math.max(masteredPlies, freeZone);
-
-	if (mastered >= path.length) {
+	if (masteredPlies >= path.length) {
 		return { path, arrowPlies: null, isFinalPass: true };
 	}
-	if (taught === mastered) {
-		const target = Math.min(mastered + FIRST_MOVES_GROUP_PLIES, path.length);
-		return { path: path.slice(0, target), arrowPlies: { from: mastered, to: target }, isFinalPass: false };
+	if (taughtPlies === masteredPlies) {
+		const target = Math.min(masteredPlies + FIRST_MOVES_GROUP_PLIES, path.length);
+		return { path: path.slice(0, target), arrowPlies: { from: masteredPlies, to: target }, isFinalPass: false };
 	}
-	return { path: path.slice(0, taught), arrowPlies: null, isFinalPass: taught >= path.length };
+	return { path: path.slice(0, taughtPlies), arrowPlies: null, isFinalPass: taughtPlies >= path.length };
 }
 
 /**
@@ -42,17 +38,14 @@ export function advanceTeachingProgress(
 	hadMistake: boolean
 ): { taughtPlies: number; masteredPlies: number; solved: boolean } {
 	const step = resolveTeachingStep(path, taughtPlies, masteredPlies);
-	const freeZone = Math.min(FIRST_MOVES_GROUP_PLIES, path.length);
-	const taught = Math.max(taughtPlies, freeZone);
-	const mastered = Math.max(masteredPlies, freeZone);
 
 	if (hadMistake) {
-		return { taughtPlies: taught, masteredPlies: mastered, solved: false };
+		return { taughtPlies, masteredPlies, solved: false };
 	}
 	if (step.arrowPlies) {
-		return { taughtPlies: step.arrowPlies.to, masteredPlies: mastered, solved: false };
+		return { taughtPlies: step.arrowPlies.to, masteredPlies, solved: false };
 	}
-	return { taughtPlies: Math.max(taught, step.path.length), masteredPlies: step.path.length, solved: step.isFinalPass };
+	return { taughtPlies: Math.max(taughtPlies, step.path.length), masteredPlies: step.path.length, solved: step.isFinalPass };
 }
 
 /**

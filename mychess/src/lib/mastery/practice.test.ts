@@ -87,8 +87,8 @@ describe('buildPracticeView', () => {
 	it('serves a truncated path and arrow range for an unsolved variation still being taught', () => {
 		const v = makeVariation(15, 'a-'); // 30 plies
 		const view = buildPracticeView([v], null, new Set(), noTeaching);
-		expect(view.attempt!.path).toHaveLength(20);
-		expect(view.attempt!.arrowPlies).toEqual({ from: 10, to: 20 });
+		expect(view.attempt!.path).toHaveLength(10);
+		expect(view.attempt!.arrowPlies).toEqual({ from: 0, to: 10 });
 		expect(view.attempt!.isFinalPass).toBe(false);
 	});
 

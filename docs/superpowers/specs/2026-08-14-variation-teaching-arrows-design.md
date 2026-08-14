@@ -2,6 +2,8 @@
 
 GitHub issue: [tomyka/mychess#60](https://github.com/tomyka/mychess/issues/60)
 
+> **Amendment (post-ship):** the original version of this spec had the first 5 moves (10 plies) of every variation never arrow-taught at all, reasoning that a player who picked the variation from the picker had already seen them in its label preview. That free-zone/skip was removed: the very first batch (moves 1–5) is now taught with arrows just like every later one, so a fresh variation is taught from its first move. Every later batch boundary (10, 15, 20 plies, …) is unchanged. This document has been updated in place to describe the current, shipped behavior.
+
 ## Problem
 
 Practice mode currently quizzes a variation's entire path blind from the very first attempt: a player picking (or being sequenced into) a variation they've never seen has no way to learn its moves except by guessing, failing, and eventually stumbling onto the book line — there's no notion of "first exposure" versus "review." The only existing assistance is the 3-wrong-attempts-triggered origin-square hint (`hintSquare` in `ChessBoard.svelte`), which only ever appears after repeated failure, not on introduction.
@@ -10,8 +12,8 @@ Issue #60 asks for a Chessbook-style guided-then-tested move introduction: show 
 
 ## Goals
 
-- The first `FIRST_MOVES_GROUP_PLIES` (10) plies of any variation — 5 full moves — are never arrow-taught. This matches the picker's own move-sequence preview, which already shows exactly this many plies as the variation's label text; a player who picked the variation has already seen them.
-- Every 10 plies beyond that are taught once, via a yellow arrow on each new ply's correct move, then confirmed via one clean blind replay from the very start of the variation before the next batch is introduced.
+- A variation is taught in fixed `FIRST_MOVES_GROUP_PLIES` (10-ply / 5-move) batches, starting with its very first batch — moves 1–5 are taught via arrows on a fresh variation's first attempt, exactly like every later batch.
+- Each batch is taught once, via a yellow arrow on each new ply's correct move, then confirmed via one clean blind replay from the very start of the variation before the next batch is introduced.
 - The player always plays every move themselves — an arrow reveals the destination, it never auto-plays the move.
 - A mistake during a blind replay is just a retry of that same blind replay; it never re-triggers teaching for moves already taught.
 - The existing "one clean full replay marks the variation solved" mechanic (`variation_solved`, `applyAttemptResult`) is preserved exactly as-is once a variation reaches its final batch — this feature only changes what happens on the way there.
@@ -33,19 +35,11 @@ Two approaches were considered:
 
 ### Deriving the current step
 
-Given a variation's full `path: VariationStep[]` and its two counters:
+Given a variation's full `path: VariationStep[]` and its two counters (`taughtPlies`, `masteredPlies`, both starting at 0 for a fresh variation — a missing row is treated identically to `{0, 0}`, so no backfill migration is needed for pre-existing variations; see Edge Cases):
 
-```ts
-const freeZone = Math.min(FIRST_MOVES_GROUP_PLIES, path.length); // 5 moves, never taught
-const taught = Math.max(taughtPlies, freeZone);
-const mastered = Math.max(masteredPlies, freeZone);
-```
-
-(The `Math.max(..., freeZone)` floor means a missing or all-zero row behaves exactly like "the free zone is already both taught and mastered" — no backfill migration is needed for pre-existing variations; see Edge Cases.)
-
-- **`mastered >= path.length`:** every batch is mastered. Serve the full `path`, no arrow. This is a normal attempt exactly as today, and a clean replay marks the variation solved exactly as today.
-- **`taught === mastered` (and `mastered < path.length`):** the next batch hasn't been taught yet. Target depth `= min(mastered + FIRST_MOVES_GROUP_PLIES, path.length)`. Serve `path.slice(0, target)`, with an arrow on every ply in `[mastered, target)` — the whole new batch, every ply, every time this pass is shown. A clean replay advances `taught_plies` to `target`; `mastered_plies` is untouched. A mistake changes nothing (the same teach pass is re-served next attempt).
-- **`taught > mastered`:** the just-taught batch needs one clean blind replay before it counts. Serve `path.slice(0, taught)`, no arrow. A clean replay advances `mastered_plies` to `taught` (and, if `taught >= path.length`, this attempt was the real full-depth attempt — marks the variation solved exactly as today). A mistake changes nothing — this exact blind pass is re-served next attempt, per Goals.
+- **`masteredPlies >= path.length`:** every batch is mastered. Serve the full `path`, no arrow. This is a normal attempt exactly as today, and a clean replay marks the variation solved exactly as today.
+- **`taughtPlies === masteredPlies` (and `masteredPlies < path.length`):** the next batch hasn't been taught yet — including the very first batch on a fresh variation, where both counters are `0`. Target depth `= min(masteredPlies + FIRST_MOVES_GROUP_PLIES, path.length)`. Serve `path.slice(0, target)`, with an arrow on every ply in `[masteredPlies, target)` — the whole new batch, every ply, every time this pass is shown. A clean replay advances `taught_plies` to `target`; `mastered_plies` is untouched. A mistake changes nothing (the same teach pass is re-served next attempt).
+- **`taughtPlies > masteredPlies`:** the just-taught batch needs one clean blind replay before it counts. Serve `path.slice(0, taughtPlies)`, no arrow. A clean replay advances `mastered_plies` to `taughtPlies` (and, if `taughtPlies >= path.length`, this attempt was the real full-depth attempt — marks the variation solved exactly as today). A mistake changes nothing — this exact blind pass is re-served next attempt, per Goals.
 
 This is a small number of states because "teach" and "blind-retest" always alternate one-for-one per batch, and the final batch's blind-retest *is* the ordinary full-variation attempt — no separate "fully taught" concept is needed on top of `variation_solved`.
 
@@ -89,7 +83,7 @@ create policy variation_teaching_progress_coach_read on public.variation_teachin
 revoke all on public.variation_teaching_progress from anon, public;
 ```
 
-Mirrors `variation_solved`'s exact shape and RLS pattern (migration `0045_remove_leveling_add_solved.sql`). No row means "nothing taught or mastered beyond the free zone yet" — the `Math.max(..., freeZone)` floor in the derivation above means the app never needs to distinguish "no row" from "a row with both counters at 0."
+Mirrors `variation_solved`'s exact shape and RLS pattern (migration `0045_remove_leveling_add_solved.sql`). No row means "nothing taught or mastered yet" — identical to a row with both counters at `0`, so the app never needs to distinguish the two.
 
 ### New pure-logic module: `src/lib/mastery/teaching.ts`
 
@@ -107,18 +101,14 @@ export function resolveTeachingStep(
 	taughtPlies: number,
 	masteredPlies: number
 ): TeachingStep {
-	const freeZone = Math.min(FIRST_MOVES_GROUP_PLIES, path.length);
-	const taught = Math.max(taughtPlies, freeZone);
-	const mastered = Math.max(masteredPlies, freeZone);
-
-	if (mastered >= path.length) {
+	if (masteredPlies >= path.length) {
 		return { path, arrowPlies: null, isFinalPass: true };
 	}
-	if (taught === mastered) {
-		const target = Math.min(mastered + FIRST_MOVES_GROUP_PLIES, path.length);
-		return { path: path.slice(0, target), arrowPlies: { from: mastered, to: target }, isFinalPass: false };
+	if (taughtPlies === masteredPlies) {
+		const target = Math.min(masteredPlies + FIRST_MOVES_GROUP_PLIES, path.length);
+		return { path: path.slice(0, target), arrowPlies: { from: masteredPlies, to: target }, isFinalPass: false };
 	}
-	return { path: path.slice(0, taught), arrowPlies: null, isFinalPass: taught >= path.length };
+	return { path: path.slice(0, taughtPlies), arrowPlies: null, isFinalPass: taughtPlies >= path.length };
 }
 
 export function advanceTeachingProgress(
@@ -198,7 +188,7 @@ Passed to `<ChessBoard ... {arrowMove} />`. No change to `resetForAttempt()` or 
 
 ## Edge cases
 
-- **Variations no longer than `FIRST_MOVES_GROUP_PLIES` (10 plies / 5 moves):** `resolveTeachingStep`'s `freeZone` equals `path.length`, so `mastered >= path.length` is true from the very first attempt — never taught, behaves exactly as today. No special-casing needed; this falls out of the same formula as every other case.
+- **Variations no longer than `FIRST_MOVES_GROUP_PLIES` (10 plies / 5 moves):** taught as a single batch on the first attempt (arrows on every ply), then need one clean blind replay before they're solved — a short variation is never a special case, it just has only one batch.
 - **Already-solved variations (including pre-feature ones):** bypassed unconditionally by the `solvedKeys` check in `buildPracticeView`, before `teachingProgress` is even consulted — see Architecture. No migration backfill of `variation_teaching_progress` is needed.
 - **Manually re-picking an unsolved, partially-taught variation via the picker:** `variation_teaching_progress` is keyed only by `(player, variation_key)`, independent of which variation is "active" — picking it resumes its stored `taught_plies`/`mastered_plies` exactly where they were left, whether that variation was reached automatically or manually.
 - **A mistake during a teach pass:** `advanceTeachingProgress` leaves both counters unchanged on `hadMistake`, so the identical teach pass (same arrow range) is re-served next attempt — the player isn't asked to blind-guess a batch that was interrupted mid-teaching.
@@ -206,8 +196,8 @@ Passed to `<ChessBoard ... {arrowMove} />`. No change to `resetForAttempt()` or 
 
 ## Testing
 
-- Pure-logic tests (`src/lib/mastery/teaching.test.ts`) for `resolveTeachingStep` and `advanceTeachingProgress`: the free-zone floor for a fresh variation, a mid-batch teach pass, a clean teach pass advancing `taught_plies` only, a clean blind-retest advancing `masteredPlies` only, a mistake leaving both counters untouched in both phases, the final batch's blind-retest reporting `isFinalPass`/`solved: true`, and a variation shorter than `FIRST_MOVES_GROUP_PLIES` never leaving the terminal state.
+- Pure-logic tests (`src/lib/mastery/teaching.test.ts`) for `resolveTeachingStep` and `advanceTeachingProgress`: the very first batch on a fresh variation, a mid-batch teach pass, a clean teach pass advancing `taught_plies` only, a clean blind-retest advancing `masteredPlies` only, a mistake leaving both counters untouched in both phases, the final batch's blind-retest reporting `isFinalPass`/`solved: true`, and a variation no longer than one batch requiring its own teach-then-blind-retest cycle before solving.
 - `practice.test.ts`: `buildPracticeView` tests extended with a `teachingProgress` map — an untaught variation gets the right truncated path + arrow range, an already-solved variation ignores a stale/partial `teachingProgress` entry entirely, and existing tests are updated to pass an empty map.
 - `practice-progress.test.ts` (server-side, fake-supabase style already used there): `applyAttemptResult` tests for each of the three transitions (teach→taught, blind-retest→mastered, final→solved) confirming `variation_solved`/`practice_active_variation` are untouched until the final transition.
 - Component test (`ChessBoard.test.ts` or equivalent, if one exists — otherwise a new focused test): `arrowMove` renders a chessground arrow shape (`orig`+`dest`) when set, and clears when `null`.
-- Manual end-to-end verification: practice a fresh variation longer than 10 plies, confirm no arrow for the first 5 moves, an arrow for each move 6–10 on first exposure, a blind (arrow-free) full replay required afterward, and — for a variation longer than 15 moves — the same teach/retest cycle repeating for the next batch.
+- Manual end-to-end verification: practice a fresh variation, confirm an arrow for each move 1–5 on first exposure, a blind (arrow-free) full replay required afterward, and — for a variation longer than 10 plies — the same teach/retest cycle repeating for moves 6–10, 11–15, and so on.
