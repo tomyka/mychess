@@ -103,8 +103,12 @@ describe('practice detail page', () => {
 				}
 			}
 		});
-		expect(screen.getByText('French Defense')).toBeTruthy();
-		expect(screen.getByText('3 / 5 variations solved')).toBeTruthy();
+		// The repertoire name/progress card renders twice — once for the mobile
+		// layout (above the board) and once for the desktop sidebar — with
+		// Tailwind breakpoint classes deciding which is visible; jsdom doesn't
+		// evaluate those, so both are present in the DOM.
+		expect(screen.getAllByText('French Defense').length).toBe(2);
+		expect(screen.getAllByText('3 / 5 variations solved').length).toBe(2);
 	});
 
 	it('shows a "Choose a variation" control whenever a repertoire is loaded', () => {
@@ -197,7 +201,7 @@ describe('practice detail page', () => {
 				}
 			}
 		});
-		expect(screen.queryAllByText(/What is the best move/i)).toHaveLength(0);
+		expect(document.querySelector('main')?.getAttribute('data-phase')).toBe('autoplay');
 	});
 
 	it('prompts for a move again once the autoplay intro reaches the batch actually being taught', async () => {
@@ -218,7 +222,40 @@ describe('practice detail page', () => {
 		// sync version) also flushes the microtask queue between ticks, which
 		// Svelte 5's reactivity needs to actually re-render.
 		await vi.advanceTimersByTimeAsync(1000);
-		expect(screen.queryAllByText(/What is the best move/i).length).toBeGreaterThan(0);
+		expect(document.querySelector('main')?.getAttribute('data-phase')).toBe('playing');
+	});
+
+	it('lets the mobile move-nav browse back through the current attempt and forward again to live', async () => {
+		vi.useFakeTimers();
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 0,
+					total: 1,
+					allSolved: false,
+					attempt: AUTO_PLAY_ATTEMPT
+				}
+			}
+		});
+		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes, quizIdx lands at 2
+
+		const back = screen.getByLabelText('Move back') as HTMLButtonElement;
+		const forward = screen.getByLabelText('Move forward') as HTMLButtonElement;
+		const toLive = screen.getByLabelText('Jump to current position') as HTMLButtonElement;
+
+		// At the live position: nothing to browse forward to yet.
+		expect(forward.disabled).toBe(true);
+		expect(toLive.disabled).toBe(true);
+
+		await fireEvent.click(back);
+		expect(document.querySelector('main')?.getAttribute('data-phase')).toBe('playing');
+		expect(forward.disabled).toBe(false);
+		expect(toLive.disabled).toBe(false);
+
+		await fireEvent.click(toLive);
+		expect(forward.disabled).toBe(true);
+		expect(toLive.disabled).toBe(true);
 	});
 
 	it('also auto-plays the already-mastered prefix during a blind retest (no arrowPlies), not just a teach pass', async () => {
@@ -238,8 +275,8 @@ describe('practice detail page', () => {
 		// retest whose leading plies are already mastered (e.g. via a sibling
 		// variation sharing them) auto-plays that part just like a teach pass
 		// does, and only requires the player to blind-play what's left.
-		expect(screen.queryAllByText(/What is the best move/i)).toHaveLength(0);
+		expect(document.querySelector('main')?.getAttribute('data-phase')).toBe('autoplay');
 		await vi.advanceTimersByTimeAsync(1000);
-		expect(screen.queryAllByText(/What is the best move/i).length).toBeGreaterThan(0);
+		expect(document.querySelector('main')?.getAttribute('data-phase')).toBe('playing');
 	});
 });

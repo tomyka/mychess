@@ -45,9 +45,44 @@
 	let pendingReport: Promise<PracticeView | null> | null = null;
 	let quizSteps = $state<VariationStep[]>([]);
 	let pickerOpen = $state(false);
+	// null means "following the live position" (quizIdx) — set to a concrete
+	// ply count while the player is browsing back through THIS attempt's
+	// already-played moves with the mobile move-nav row. Review-only: it
+	// never lets the player look past quizIdx (nothing further has been
+	// played yet), and the board is non-interactable while it's non-null —
+	// stepping back doesn't undo anything, it's just a look back.
+	let manualReviewIdx = $state<number | null>(null);
 
 	const attempt = $derived(data.attempt);
 	const repertoireId = $derived(data.repertoire?.id);
+	const reviewIdx = $derived(manualReviewIdx ?? quizIdx);
+	const isReviewing = $derived(manualReviewIdx !== null);
+
+	/** The board position after `plyCount` plies of quizSteps have been played (0 = the attempt's start). */
+	function positionAt(plyCount: number): string {
+		if (plyCount <= 0) return quizSteps[0]?.fromFen ?? boardFen;
+		return quizSteps[plyCount - 1]?.toFen ?? boardFen;
+	}
+
+	// boardFen is used at the live position rather than positionAt(quizIdx) —
+	// the two always agree, but boardFen is what the 500ms correct-move hold
+	// (see handleMove) intentionally delays updating, so deriving from it
+	// keeps that timing intact instead of jumping the board early.
+	const displayFen = $derived(isReviewing ? positionAt(reviewIdx) : boardFen);
+
+	function reviewToStart() {
+		manualReviewIdx = 0;
+	}
+	function reviewBack() {
+		manualReviewIdx = Math.max(0, reviewIdx - 1);
+	}
+	function reviewForward() {
+		const next = Math.min(quizIdx, reviewIdx + 1);
+		manualReviewIdx = next >= quizIdx ? null : next;
+	}
+	function reviewToLive() {
+		manualReviewIdx = null;
+	}
 
 	function advanceThroughOpponentReplies() {
 		while (quizSteps[quizIdx] && !quizSteps[quizIdx].isPlayerTurn) {
@@ -60,7 +95,7 @@
 	// fromFen/san rather than stored, since only the destination is ever
 	// meant to stay hidden.
 	const hintSquare = $derived.by(() => {
-		if (!hintRequested) return null;
+		if (!hintRequested || isReviewing) return null;
 		const step = quizSteps[quizIdx];
 		if (!step) return null;
 		try {
@@ -72,8 +107,12 @@
 
 	// The current ply's teaching arrow, if this attempt is a teach pass and
 	// we're standing on one of its plies — see arrowMoveForStep for the
-	// player-turn/ply-range/parse-failure guards.
+	// player-turn/ply-range/parse-failure guards. Suppressed while reviewing
+	// an earlier position: the arrow points at the move due at the LIVE ply,
+	// which would land on the wrong square (or no piece at all) if drawn over
+	// a past position instead.
 	const arrowMove = $derived.by(() => {
+		if (isReviewing) return null;
 		const step = quizSteps[quizIdx];
 		if (!step) return null;
 		const move = arrowMoveForStep(step, quizIdx, attempt?.arrowPlies ?? null);
@@ -85,6 +124,7 @@
 		clearTimeout(advanceTimeout);
 		clearTimeout(autoPlayTimeout);
 		quizIdx = 0;
+		manualReviewIdx = null;
 		phase = 'playing';
 		locked = false;
 		wrongCount = 0;
@@ -248,7 +288,7 @@
 	<title>Practice {data.repertoire?.name ?? 'Repertoire'} — MyChess</title>
 </svelte:head>
 
-<main class="min-h-screen bg-gray-50 p-4 max-w-5xl mx-auto pb-24">
+<main class="min-h-screen bg-gray-50 p-4 max-w-5xl mx-auto pb-24" data-phase={phase}>
 	<div class="mb-4 flex items-center justify-between">
 		<a href="/practice" class="text-gray-400 text-sm hover:text-gray-600">← All Repertoires</a>
 		{#if repertoireId}
@@ -281,40 +321,76 @@
 			<a href="/practice" class="text-indigo-600 hover:underline">Back to Repertoires</a>
 		</div>
 	{:else}
+		<div class="p-4 bg-white border border-gray-200 rounded-2xl shadow-sm text-center mb-4 lg:hidden">
+			<p class="text-gray-400 text-sm font-medium">{data.repertoire?.name}</p>
+			<p class="text-gray-900 text-lg font-bold">{data.solved} / {data.total} variations solved</p>
+		</div>
+
 		<div class="flex flex-col lg:flex-row lg:items-start gap-6">
 			<div class="flex-1">
-				<p class="text-center text-gray-700 font-semibold mb-4 lg:hidden">
-					{phase === 'playing' ? 'What is the best move?' : ''}
-					{#if wrongCount >= 3 && !hintRequested && phase === 'playing'}
+				{#if wrongCount >= 3 && !hintRequested && phase === 'playing'}
+					<p class="text-center mb-4 lg:hidden">
 						<button
 							onclick={() => (hintRequested = true)}
-							class="ml-2 inline-flex items-center gap-1 text-sm font-medium text-amber-600 hover:text-amber-700"
+							class="inline-flex items-center gap-1 text-sm font-medium text-amber-600 hover:text-amber-700"
 						>
 							<span class="text-base">💡</span> Need a hint?
 						</button>
-					{/if}
-				</p>
+					</p>
+				{/if}
 
 				<ChessBoard
-					fen={boardFen}
+					fen={displayFen}
 					orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
-					interactable={phase === 'playing' && !locked}
+					interactable={phase === 'playing' && !locked && !isReviewing}
 					onmove={handleMove}
 					prefs={data.boardPrefs}
 					{hintSquare}
 					{arrowMove}
 				/>
+
+				<div class="grid grid-cols-4 gap-2 mt-4 lg:hidden">
+					<button
+						onclick={reviewToStart}
+						disabled={reviewIdx <= 0}
+						aria-label="Jump to start"
+						class="py-2 rounded-xl bg-white border border-gray-200 text-gray-600 text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50"
+					>
+						⏮
+					</button>
+					<button
+						onclick={reviewBack}
+						disabled={reviewIdx <= 0}
+						aria-label="Move back"
+						class="py-2 rounded-xl bg-white border border-gray-200 text-gray-600 text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50"
+					>
+						◀
+					</button>
+					<button
+						onclick={reviewForward}
+						disabled={!isReviewing}
+						aria-label="Move forward"
+						class="py-2 rounded-xl bg-white border border-gray-200 text-gray-600 text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50"
+					>
+						▶
+					</button>
+					<button
+						onclick={reviewToLive}
+						disabled={!isReviewing}
+						aria-label="Jump to current position"
+						class="py-2 rounded-xl bg-white border border-gray-200 text-gray-600 text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50"
+					>
+						⏭
+					</button>
+				</div>
 			</div>
 
 			<div class="w-full lg:w-72 shrink-0 space-y-4">
-				<div class="p-4 bg-white border border-gray-200 rounded-2xl shadow-sm text-center">
+				<div class="p-4 bg-white border border-gray-200 rounded-2xl shadow-sm text-center hidden lg:block">
 					<p class="text-gray-400 text-sm font-medium">{data.repertoire?.name}</p>
 					<p class="text-gray-900 text-lg font-bold">{data.solved} / {data.total} variations solved</p>
 				</div>
 
-				<p class="text-center text-gray-700 font-semibold hidden lg:block">
-					{phase === 'playing' ? 'What is the best move?' : ''}
-				</p>
 				{#if wrongCount >= 3 && !hintRequested && phase === 'playing'}
 					<p class="text-center hidden lg:block">
 						<button
