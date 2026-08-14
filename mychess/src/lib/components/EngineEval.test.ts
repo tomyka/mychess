@@ -53,8 +53,8 @@ describe('EngineEval Worker singleton lifecycle', () => {
 	it('spawns exactly one Worker when two instances mount simultaneously (desktop + mobile)', () => {
 		vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
 
-		const a = render(EngineEval, { props: { fen: FEN, showBar: true } });
-		const b = render(EngineEval, { props: { fen: FEN, showBar: false } });
+		const a = render(EngineEval, { props: { fen: FEN } });
+		const b = render(EngineEval, { props: { fen: FEN } });
 
 		expect(FakeWorker.instances.length).toBe(1);
 

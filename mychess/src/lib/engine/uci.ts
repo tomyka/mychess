@@ -42,15 +42,3 @@ export function formatEval(score: EngineScore): string {
 	const sign = pawns > 0 ? '+' : pawns < 0 ? '-' : '';
 	return `${sign}${Math.abs(pawns).toFixed(2)}`;
 }
-
-/**
- * 0..1 — how much of the vertical eval bar should read as "White's". A
- * simple linear clamp over +/-500cp, not a win-probability curve — good
- * enough for a quick sanity check, not a serious analysis tool. Mate always
- * fills the bar fully toward whoever is mating.
- */
-export function evalBarWhiteFraction(score: EngineScore): number {
-	if (score.mate !== undefined) return score.mate > 0 ? 1 : 0;
-	const clamped = Math.max(-500, Math.min(500, score.cp ?? 0));
-	return (clamped + 500) / 1000;
-}

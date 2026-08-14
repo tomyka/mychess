@@ -352,7 +352,7 @@
 			<a href="/practice" class="text-indigo-600 hover:underline">Back to Repertoires</a>
 		</div>
 	{:else}
-		<div class="p-4 bg-white border border-gray-200 rounded-2xl shadow-sm text-center mb-4 lg:hidden">
+		<div class="p-4 bg-white border border-gray-200 rounded-2xl shadow-sm text-center mb-4">
 			<p class="text-gray-400 text-sm font-medium">{data.repertoire?.name}</p>
 			<p class="text-gray-900 text-lg font-bold">{data.solved} / {data.total} variations solved</p>
 		</div>
@@ -416,7 +416,7 @@
 				</div>
 
 				<div class="mt-3 p-3 bg-white border border-gray-200 rounded-2xl shadow-sm lg:hidden">
-					<EngineEval fen={displayFen} showBar={false} />
+					<EngineEval fen={displayFen} />
 					{#if movesSoFar}
 						<p class="text-sm text-gray-500 mt-2">{movesSoFar}</p>
 					{/if}
@@ -424,13 +424,11 @@
 			</div>
 
 			<div class="w-full lg:w-72 shrink-0 space-y-4">
-				<div class="p-4 bg-white border border-gray-200 rounded-2xl shadow-sm text-center hidden lg:block">
-					<p class="text-gray-400 text-sm font-medium">{data.repertoire?.name}</p>
-					<p class="text-gray-900 text-lg font-bold">{data.solved} / {data.total} variations solved</p>
-				</div>
-
-				<div class="p-4 bg-white border border-gray-200 rounded-2xl shadow-sm hidden lg:flex justify-center">
+				<div class="p-4 bg-white border border-gray-200 rounded-2xl shadow-sm hidden lg:block">
 					<EngineEval fen={displayFen} />
+					{#if movesSoFar}
+						<p class="text-sm text-gray-500 mt-2">{movesSoFar}</p>
+					{/if}
 				</div>
 
 				{#if wrongCount >= 3 && !hintRequested && phase === 'playing'}

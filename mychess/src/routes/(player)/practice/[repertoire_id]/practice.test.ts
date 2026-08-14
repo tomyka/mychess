@@ -103,12 +103,10 @@ describe('practice detail page', () => {
 				}
 			}
 		});
-		// The repertoire name/progress card renders twice — once for the mobile
-		// layout (above the board) and once for the desktop sidebar — with
-		// Tailwind breakpoint classes deciding which is visible; jsdom doesn't
-		// evaluate those, so both are present in the DOM.
-		expect(screen.getAllByText('French Defense').length).toBe(2);
-		expect(screen.getAllByText('3 / 5 variations solved').length).toBe(2);
+		// The repertoire name/progress card sits once, above the board, shared
+		// by both mobile and desktop layouts.
+		expect(screen.getByText('French Defense')).toBeTruthy();
+		expect(screen.getByText('3 / 5 variations solved')).toBeTruthy();
 	});
 
 	it('shows a "Choose a variation" control whenever a repertoire is loaded', () => {
@@ -335,6 +333,6 @@ describe('practice detail page', () => {
 		// jsdom doesn't implement the Worker API, so EngineEval's onMount
 		// catches that and marks itself failed — this just confirms the page
 		// (and EngineEval within it) doesn't throw and renders the board.
-		expect(screen.getAllByText('French Defense').length).toBe(2);
+		expect(screen.getByText('French Defense')).toBeTruthy();
 	});
 });

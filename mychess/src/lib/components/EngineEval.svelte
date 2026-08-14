@@ -1,13 +1,6 @@
 <!-- mychess/src/lib/components/EngineEval.svelte -->
 <script module lang="ts">
-	import {
-		parseInfoLine,
-		sideToMoveFromFen,
-		toWhiteRelative,
-		formatEval,
-		evalBarWhiteFraction,
-		type EngineScore
-	} from '$lib/engine/uci';
+	import { parseInfoLine, sideToMoveFromFen, toWhiteRelative, formatEval, type EngineScore } from '$lib/engine/uci';
 
 	const ENGINE_URL = '/stockfish/stockfish-18-lite-single.js#stockfish-18-lite-single.wasm,worker';
 	const MOVETIME_MS = 400;
@@ -89,7 +82,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 
-	let { fen, showBar = true }: { fen: string; showBar?: boolean } = $props();
+	let { fen }: { fen: string } = $props();
 
 	onMount(() => {
 		instanceCount++;
@@ -120,19 +113,11 @@
 	});
 
 	const displayText = $derived(failed ? null : score ? formatEval(score) : '…');
-	const whiteFraction = $derived(score ? evalBarWhiteFraction(score) : 0.5);
 </script>
 
 {#if displayText}
-	<div class="flex items-center gap-3">
-		{#if showBar}
-			<div
-				class="w-3 h-24 rounded-full overflow-hidden bg-gray-800 flex flex-col justify-end shrink-0"
-				aria-hidden="true"
-			>
-				<div class="bg-white" style={`height: ${whiteFraction * 100}%`}></div>
-			</div>
-		{/if}
+	<div class="flex items-center gap-2">
+		<span class="text-xs font-semibold uppercase tracking-wide text-gray-400">Eval</span>
 		<span class="text-lg font-bold text-gray-900">{displayText}</span>
 	</div>
 {/if}
