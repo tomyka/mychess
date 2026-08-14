@@ -279,4 +279,33 @@ describe('practice detail page', () => {
 		await vi.advanceTimersByTimeAsync(1000);
 		expect(document.querySelector('main')?.getAttribute('data-phase')).toBe('playing');
 	});
+
+	it('renders without crashing when the engine is unavailable (jsdom has no Worker)', () => {
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 3,
+					total: 5,
+					allSolved: false,
+					attempt: {
+						variationKey: 'v1',
+						path: [
+							{
+								moveId: 'm1',
+								san: 'e4',
+								fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+								toFen: 'rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/8/RNBQKBNR w KQkq - 0 1',
+								isPlayerTurn: true
+							}
+						]
+					}
+				}
+			}
+		});
+		// jsdom doesn't implement the Worker API, so EngineEval's onMount
+		// catches that and marks itself failed — this just confirms the page
+		// (and EngineEval within it) doesn't throw and renders the board.
+		expect(screen.getAllByText('French Defense').length).toBe(2);
+	});
 });

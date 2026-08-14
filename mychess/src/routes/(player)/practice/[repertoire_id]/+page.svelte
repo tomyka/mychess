@@ -8,7 +8,8 @@
 	import { untrack } from 'svelte';
 	import { optimisticSolvedAfterAttempt, type PracticeView } from '$lib/mastery/practice';
 	import { arrowMoveForStep, isLastPlayerMove } from '$lib/mastery/teaching';
-	import type { VariationStep } from '$lib/mastery/variations';
+	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
+	import EngineEval from '$lib/components/EngineEval.svelte';
 
 	let { data } = $props<{ data: any }>();
 
@@ -69,6 +70,12 @@
 	// (see handleMove) intentionally delays updating, so deriving from it
 	// keeps that timing intact instead of jumping the board early.
 	const displayFen = $derived(isReviewing ? positionAt(reviewIdx) : boardFen);
+
+	// Plain-text move list for the mobile eval panel (Lichess-style), e.g.
+	// "1.e4 e5 2.Nf3 Nc6" — every move actually played so far in this
+	// attempt, independent of manualReviewIdx (browsing back to look at an
+	// earlier position doesn't shrink the list).
+	const movesSoFar = $derived(quizIdx > 0 ? moveSequenceLabel(quizSteps.slice(0, quizIdx)) : '');
 
 	function reviewToStart() {
 		manualReviewIdx = 0;
@@ -383,12 +390,23 @@
 						⏭
 					</button>
 				</div>
+
+				<div class="mt-3 p-3 bg-white border border-gray-200 rounded-2xl shadow-sm lg:hidden">
+					<EngineEval fen={displayFen} showBar={false} />
+					{#if movesSoFar}
+						<p class="text-sm text-gray-500 mt-2">{movesSoFar}</p>
+					{/if}
+				</div>
 			</div>
 
 			<div class="w-full lg:w-72 shrink-0 space-y-4">
 				<div class="p-4 bg-white border border-gray-200 rounded-2xl shadow-sm text-center hidden lg:block">
 					<p class="text-gray-400 text-sm font-medium">{data.repertoire?.name}</p>
 					<p class="text-gray-900 text-lg font-bold">{data.solved} / {data.total} variations solved</p>
+				</div>
+
+				<div class="p-4 bg-white border border-gray-200 rounded-2xl shadow-sm hidden lg:flex justify-center">
+					<EngineEval fen={displayFen} />
 				</div>
 
 				{#if wrongCount >= 3 && !hintRequested && phase === 'playing'}
