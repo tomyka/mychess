@@ -5,13 +5,13 @@
   const earnedCount = $derived(badges.filter((b: any) => b.earned).length);
 </script>
 
-<div class="min-h-screen bg-gray-50 p-4">
+<div class="min-h-screen bg-(--color-bg) p-4">
   <div class="max-w-lg mx-auto">
     <div class="flex items-center gap-3 mb-5">
       <a href="/" class="text-2xl">⬅️</a>
       <div>
-        <h1 class="text-2xl font-bold text-gray-900">🏆 Trophy Room</h1>
-        <p class="text-sm text-gray-500">{earnedCount} / {badges.length} badges earned</p>
+        <h1 class="text-2xl font-bold text-(--color-text)">🏆 Trophy Room</h1>
+        <p class="text-sm text-(--color-muted)">{earnedCount} / {badges.length} badges earned</p>
       </div>
     </div>
 
@@ -27,12 +27,12 @@
         <div
           class="rounded-2xl p-3 text-center transition-all
                  {badge.earned
-                   ? 'bg-white shadow-md border-2 border-indigo-200'
+                   ? 'bg-(--color-surface) shadow-md border-2 border-indigo-200'
                    : 'bg-gray-100 opacity-40 grayscale'}"
         >
           <div class="text-3xl mb-1">{badge.earned ? '🏅' : '🔒'}</div>
-          <p class="text-xs font-bold leading-tight text-gray-800">{badge.name}</p>
-          <p class="text-xs text-gray-500 mt-0.5 leading-tight">{badge.description}</p>
+          <p class="text-xs font-bold leading-tight text-(--color-text)">{badge.name}</p>
+          <p class="text-xs text-(--color-muted) mt-0.5 leading-tight">{badge.description}</p>
         </div>
       {/each}
     </div>

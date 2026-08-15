@@ -7,10 +7,10 @@
 	<title>Create Repertoire — MyChess</title>
 </svelte:head>
 
-<main class="min-h-screen bg-gray-50">
+<main class="min-h-screen bg-(--color-bg)">
 	<div class="max-w-lg mx-auto px-4 py-6">
-		<a href="/repertoires" class="text-gray-400 text-sm hover:text-gray-600 mb-6 block">← Back to Repertoires</a>
-		<h1 class="text-2xl font-bold text-gray-900 mb-6">Create Repertoire</h1>
+		<a href="/repertoires" class="text-(--color-muted) text-sm hover:text-(--color-text) mb-6 block">← Back to Repertoires</a>
+		<h1 class="text-2xl font-bold text-(--color-text) mb-6">Create Repertoire</h1>
 
 		<PgnImportForm submitLabel="Create Repertoire" redirectTo="/repertoires" />
 	</div>

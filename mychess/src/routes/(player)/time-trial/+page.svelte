@@ -82,57 +82,57 @@
 
 {#if data.needsAccount}
   <div class="max-w-md mx-auto text-center py-16 space-y-4">
-    <h1 class="text-2xl font-bold text-gray-900">Sign in to train</h1>
-    <p class="text-gray-500">Guest training is unavailable right now. Create a free account to start.</p>
-    <a href="/login?signup=1" class="inline-block bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-indigo-700">Get started</a>
+    <h1 class="text-2xl font-bold text-(--color-text)">Sign in to train</h1>
+    <p class="text-(--color-muted)">Guest training is unavailable right now. Create a free account to start.</p>
+    <a href="/login?signup=1" class="inline-block bg-(--color-accent) text-white px-5 py-2.5 rounded-lg font-medium hover:bg-(--color-accent-hover)">Get started</a>
   </div>
 {:else}
-<div class="min-h-screen bg-gray-50 p-4">
+<div class="min-h-screen bg-(--color-bg) p-4">
   <div class="max-w-3xl mx-auto">
     <div class="flex justify-between items-center mb-4">
-      <a href="/" class="text-gray-400 text-sm hover:text-gray-600">← Home</a>
-      <h1 class="text-xl font-bold text-gray-900">Time Trial</h1>
+      <a href="/" class="text-(--color-muted) text-sm hover:text-(--color-text)">← Home</a>
+      <h1 class="text-xl font-bold text-(--color-text)">Time Trial</h1>
       <div class="text-right">
-        <div class="text-2xl font-bold {timeLeft <= 10 ? 'text-red-600 animate-pulse' : 'text-indigo-600'}">{timeLeft}s</div>
-        <div class="text-xs text-gray-400">✅ {correct}</div>
+        <div class="text-2xl font-bold {timeLeft <= 10 ? 'text-red-600 dark:text-red-400 animate-pulse' : 'text-(--color-accent)'}">{timeLeft}s</div>
+        <div class="text-xs text-(--color-muted)">✅ {correct}</div>
       </div>
     </div>
 
     {#if allMoves.length === 0}
-      <div class="bg-white border border-gray-200 rounded-2xl p-6 text-center shadow-sm">
-        <p class="text-xl text-gray-700">No moves to drill yet!</p>
-        <p class="text-gray-400 mt-2">Add moves in Practice mode first.</p>
+      <div class="bg-(--color-surface) border border-(--color-border) rounded-2xl p-6 text-center shadow-sm">
+        <p class="text-xl text-(--color-text)">No moves to drill yet!</p>
+        <p class="text-(--color-muted) mt-2">Add moves in Practice mode first.</p>
         <a href="/practice"
-           class="mt-4 inline-block bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-indigo-700 transition">
+           class="mt-4 inline-block bg-(--color-accent) text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-(--color-accent-hover) transition">
           Go to Practice
         </a>
       </div>
     {:else if finished}
-      <div class="bg-white border border-gray-200 rounded-2xl p-6 text-center shadow-sm">
+      <div class="bg-(--color-surface) border border-(--color-border) rounded-2xl p-6 text-center shadow-sm">
         <p class="text-4xl mb-2">{correct >= 20 ? '🏆' : correct >= 10 ? '🎉' : '⏱️'}</p>
         <h2 class="text-2xl font-bold text-indigo-700">Time's Up!</h2>
-        <p class="text-gray-500 mt-2">You got <strong>{correct}</strong> correct in 60 seconds</p>
+        <p class="text-(--color-muted) mt-2">You got <strong>{correct}</strong> correct in 60 seconds</p>
         <button onclick={restart}
-                class="mt-4 w-full bg-indigo-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-indigo-700 transition">
+                class="mt-4 w-full bg-(--color-accent) text-white py-3 rounded-xl font-bold text-lg hover:bg-(--color-accent-hover) transition">
           Play Again
         </button>
-        <a href="/" class="mt-2 block text-center text-gray-400 hover:underline text-sm">Back to Home</a>
+        <a href="/" class="mt-2 block text-center text-(--color-muted) hover:underline text-sm">Back to Home</a>
       </div>
     {:else if !started}
-      <div class="bg-white border border-gray-200 rounded-2xl p-6 text-center shadow-sm">
+      <div class="bg-(--color-surface) border border-(--color-border) rounded-2xl p-6 text-center shadow-sm">
         <p class="text-4xl mb-3">⏱️</p>
-        <h2 class="text-xl font-bold text-gray-900 mb-2">60-Second Challenge!</h2>
-        <p class="text-gray-500 mb-4">Answer as many opening moves as you can, before time runs out!</p>
+        <h2 class="text-xl font-bold text-(--color-text) mb-2">60-Second Challenge!</h2>
+        <p class="text-(--color-muted) mb-4">Answer as many opening moves as you can, before time runs out!</p>
         <button onclick={start}
-                class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-xl hover:bg-indigo-700 transition">
+                class="w-full bg-(--color-accent) text-white py-4 rounded-xl font-bold text-xl hover:bg-(--color-accent-hover) transition">
           Start!
         </button>
       </div>
     {:else}
-      <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm mb-4">
-        <p class="text-center text-gray-400 text-sm mb-2">
+      <div class="bg-(--color-surface) border border-(--color-border) rounded-2xl p-4 shadow-sm mb-4">
+        <p class="text-center text-(--color-muted) text-sm mb-2">
           {#if wrongMove}
-            <span class="text-red-600 font-bold">Wrong move! Try again!</span>
+            <span class="text-red-600 dark:text-red-400 font-bold">Wrong move! Try again!</span>
           {:else}
             Play the correct opening move!
           {/if}
@@ -141,13 +141,13 @@
       </div>
 
       <div class="flex gap-2 justify-center">
-        <div class="bg-green-50 border border-green-100 rounded-xl px-4 py-2 text-center">
-          <div class="text-xs text-green-500">Correct</div>
-          <div class="text-2xl font-bold text-green-700">{correct}</div>
+        <div class="bg-green-50 border border-green-100 rounded-xl px-4 py-2 text-center dark:bg-green-950 dark:border-green-800">
+          <div class="text-xs text-green-500 dark:text-green-400">Correct</div>
+          <div class="text-2xl font-bold text-green-700 dark:text-green-400">{correct}</div>
         </div>
-        <div class="bg-red-50 border border-red-100 rounded-xl px-4 py-2 text-center">
-          <div class="text-xs text-red-400">Time</div>
-          <div class="text-2xl font-bold text-red-600">{timeLeft}s</div>
+        <div class="bg-red-50 border border-red-100 rounded-xl px-4 py-2 text-center dark:bg-red-950 dark:border-red-800">
+          <div class="text-xs text-red-400 dark:text-red-400">Time</div>
+          <div class="text-2xl font-bold text-red-600 dark:text-red-400">{timeLeft}s</div>
         </div>
       </div>
     {/if}

@@ -326,15 +326,15 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <main
-	class="min-h-screen lg:min-h-0 lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-gray-50 p-4 max-w-5xl mx-auto pb-24 lg:pb-4 flex flex-col"
+	class="min-h-screen lg:min-h-0 lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-(--color-bg) p-4 max-w-5xl mx-auto pb-24 lg:pb-4 flex flex-col"
 	data-phase={phase}
 >
 	<div class="mb-3 flex items-center justify-between shrink-0">
-		<a href="/practice" class="text-gray-400 text-sm hover:text-gray-600">← All Repertoires</a>
+		<a href="/practice" class="text-(--color-muted) text-sm hover:text-(--color-text)">← All Repertoires</a>
 		{#if repertoireId}
 			<button
 				onclick={() => (pickerOpen = true)}
-				class="lg:hidden inline-flex items-center gap-1 text-indigo-600 text-sm font-medium hover:underline"
+				class="lg:hidden inline-flex items-center gap-1 text-(--color-accent) text-sm font-medium hover:underline"
 			>
 				<span aria-hidden="true">📖</span> Switch variation
 			</button>
@@ -344,31 +344,31 @@
 	{#if data.allSolved && data.total > 0}
 		<div class="flex flex-col items-center gap-6 text-center py-16">
 			<p class="text-7xl">🏆</p>
-			<h1 class="text-3xl font-bold text-gray-900">Repertoire Solved!</h1>
-			<p class="text-gray-500">Every variation in {data.repertoire?.name} has been played cleanly.</p>
+			<h1 class="text-3xl font-bold text-(--color-text)">Repertoire Solved!</h1>
+			<p class="text-(--color-muted)">Every variation in {data.repertoire?.name} has been played cleanly.</p>
 			<a
 				href="/practice"
-				class="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:bg-indigo-700 transition"
+				class="bg-(--color-accent) text-white px-8 py-4 rounded-2xl font-bold text-lg hover:bg-(--color-accent-hover) transition"
 			>
 				Back to Repertoires
 			</a>
-			<button onclick={() => (pickerOpen = true)} class="text-indigo-600 hover:underline">
+			<button onclick={() => (pickerOpen = true)} class="text-(--color-accent) hover:underline">
 				Re-drill a specific variation
 			</button>
 		</div>
 	{:else if !attempt}
 		<div class="flex flex-col items-center justify-center min-h-screen lg:min-h-0 lg:flex-1 text-center gap-4">
 			<p class="text-5xl">📭</p>
-			<h1 class="text-2xl font-bold text-gray-700">Nothing to practice</h1>
-			<p class="text-gray-400">This repertoire has no moves for your color yet.</p>
-			<a href="/practice" class="text-indigo-600 hover:underline">Back to Repertoires</a>
+			<h1 class="text-2xl font-bold text-(--color-text)">Nothing to practice</h1>
+			<p class="text-(--color-muted)">This repertoire has no moves for your color yet.</p>
+			<a href="/practice" class="text-(--color-accent) hover:underline">Back to Repertoires</a>
 		</div>
 	{:else}
-		<div class="p-3 bg-white border border-gray-200 rounded-2xl shadow-sm text-center mb-3 shrink-0 lg:hidden">
+		<div class="p-3 bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm text-center mb-3 shrink-0 lg:hidden">
 			<p class="text-sm font-medium">
-				<span class="text-gray-400">{data.repertoire?.name}</span>
+				<span class="text-(--color-muted)">{data.repertoire?.name}</span>
 				<span class="mx-1.5 text-gray-300">·</span>
-				<span class="text-gray-900 font-bold">{data.solved} / {data.total} variations solved</span>
+				<span class="text-(--color-text) font-bold">{data.solved} / {data.total} variations solved</span>
 			</p>
 		</div>
 
@@ -378,7 +378,7 @@
 					<p class="text-center mb-4 lg:hidden">
 						<button
 							onclick={() => (hintRequested = true)}
-							class="inline-flex items-center gap-1 text-sm font-medium text-amber-600 hover:text-amber-700"
+							class="inline-flex items-center gap-1 text-sm font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700"
 						>
 							<span class="text-base">💡</span> Need a hint?
 						</button>
@@ -407,7 +407,7 @@
 						onclick={reviewToStart}
 						disabled={reviewIdx <= 0}
 						aria-label="Jump to start"
-						class="py-2 rounded-xl bg-white border border-gray-200 text-gray-600 text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50"
+						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-muted) text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50"
 					>
 						⏮
 					</button>
@@ -415,7 +415,7 @@
 						onclick={reviewBack}
 						disabled={reviewIdx <= 0}
 						aria-label="Move back"
-						class="py-2 rounded-xl bg-white border border-gray-200 text-gray-600 text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50"
+						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-muted) text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50"
 					>
 						◀
 					</button>
@@ -423,7 +423,7 @@
 						onclick={reviewForward}
 						disabled={!isReviewing}
 						aria-label="Move forward"
-						class="py-2 rounded-xl bg-white border border-gray-200 text-gray-600 text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50"
+						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-muted) text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50"
 					>
 						▶
 					</button>
@@ -431,37 +431,37 @@
 						onclick={reviewToLive}
 						disabled={!isReviewing}
 						aria-label="Jump to current position"
-						class="py-2 rounded-xl bg-white border border-gray-200 text-gray-600 text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50"
+						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-muted) text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50"
 					>
 						⏭
 					</button>
 				</div>
 
-				<div class="mt-3 p-3 bg-white border border-gray-200 rounded-2xl shadow-sm lg:hidden">
+				<div class="mt-3 p-3 bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:hidden">
 					<EngineEval fen={displayFen} />
 					{#if movesSoFar}
-						<p class="text-sm text-gray-500 mt-2">{movesSoFar}</p>
+						<p class="text-sm text-(--color-muted) mt-2">{movesSoFar}</p>
 					{/if}
 				</div>
 			</div>
 
 			<div
-				class="w-full lg:flex-1 lg:min-w-72 lg:max-w-sm hidden lg:flex lg:flex-col divide-y divide-gray-200 bg-white border border-gray-200 rounded-2xl shadow-sm lg:overflow-y-auto"
+				class="w-full lg:flex-1 lg:min-w-72 lg:max-w-sm hidden lg:flex lg:flex-col divide-y divide-(--color-border) bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:overflow-y-auto"
 			>
 				<div class="p-4">
-					<p class="text-gray-900 font-bold text-sm">{data.repertoire?.name}</p>
+					<p class="text-(--color-text) font-bold text-sm">{data.repertoire?.name}</p>
 					<div class="flex items-center justify-between gap-2 mt-1">
-						<span class="text-gray-500 text-sm">{data.solved} / {data.total} variations solved</span>
+						<span class="text-(--color-muted) text-sm">{data.solved} / {data.total} variations solved</span>
 						<button
 							onclick={() => (pickerOpen = true)}
-							class="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 border border-gray-200 rounded-lg px-2 py-1 hover:bg-gray-50"
+							class="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-(--color-accent) border border-(--color-border) rounded-lg px-2 py-1 hover:bg-gray-50"
 						>
 							<span aria-hidden="true">📖</span> Switch
 						</button>
 					</div>
 					<div class="h-1.5 rounded-full bg-gray-200 overflow-hidden mt-2">
 						<div
-							class="h-full bg-indigo-600 rounded-full"
+							class="h-full bg-(--color-accent) rounded-full"
 							style={`width: ${data.total ? (data.solved / data.total) * 100 : 0}%`}
 						></div>
 					</div>
@@ -472,15 +472,15 @@
 				</div>
 
 				<div class="p-4 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
-					<p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Moves played</p>
-					<p class="text-sm text-gray-600">{movesSoFar || '—'}</p>
+					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">Moves played</p>
+					<p class="text-sm text-(--color-muted)">{movesSoFar || '—'}</p>
 				</div>
 
 				{#if wrongCount >= 3 && !hintRequested && phase === 'playing'}
 					<p class="text-center p-4">
 						<button
 							onclick={() => (hintRequested = true)}
-							class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700"
+							class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700"
 						>
 							<span class="text-base">💡</span> Need a hint?
 						</button>

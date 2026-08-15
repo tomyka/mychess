@@ -31,29 +31,29 @@
   <title>MyChess</title>
 </svelte:head>
 
-<main class="min-h-screen bg-gray-50">
+<main class="min-h-screen bg-(--color-bg)">
   <div class="max-w-3xl mx-auto px-4 py-6 space-y-4">
 
     {#if data.isGuest}
       <!-- Public content landing (no account needed) -->
       <div class="py-8 space-y-6">
         <div class="text-center">
-          <h1 class="text-3xl font-bold text-gray-900 mb-2">Your chess, all in one place</h1>
-          <p class="text-gray-500">FIDE ranks, local tournaments, and daily training — no account needed to explore.</p>
+          <h1 class="text-3xl font-bold text-(--color-text) mb-2">Your chess, all in one place</h1>
+          <p class="text-(--color-muted)">FIDE ranks, local tournaments, and daily training — no account needed to explore.</p>
         </div>
 
         <FideLookupCard query={data.fideQuery ?? ''} result={data.fideLookup ?? null} />
 
-        <a href="/practice" class="block bg-indigo-600 text-white rounded-xl p-5 hover:bg-indigo-700 transition-colors">
+        <a href="/practice" class="block bg-(--color-accent) text-white rounded-xl p-5 hover:bg-(--color-accent-hover) transition-colors">
           <p class="font-semibold">Try Practice mode →</p>
           <p class="text-sm text-indigo-100">No account needed — sign in later to save your progress.</p>
         </a>
 
         {#if data.upcomingTournaments?.length > 0}
-          <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
             <div class="flex items-center justify-between mb-4">
-              <h2 class="font-semibold text-gray-900">Upcoming in Lithuania</h2>
-              <a href="/tournaments" class="text-sm text-indigo-600 hover:underline">View all →</a>
+              <h2 class="font-semibold text-(--color-text)">Upcoming in Lithuania</h2>
+              <a href="/tournaments" class="text-sm text-(--color-accent) hover:underline">View all →</a>
             </div>
             <TournamentCarousel tournaments={data.upcomingTournaments} />
           </section>
@@ -74,7 +74,7 @@
       <!-- Platform ratings — streamed: the dashboard renders immediately and
            these two cards pop in once their (up to 5s each) external API
            calls resolve, instead of the whole page waiting on them. -->
-      <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {#await d.lichessRatings}
             <PlatformRatingsCard platform="Lichess" username={d.lichessUsername ?? null} ratings={null} loading={true} />
@@ -93,9 +93,9 @@
       <StatsRow streakDays={stats.streak_days ?? 0} />
 
       {#if (stats.total_masterable_repertoires ?? 0) > 0}
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-3 text-center">
+        <div class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-3 text-center">
           <p class="text-xl font-bold text-amber-500">🏆 {stats.mastered_repertoires} / {stats.total_masterable_repertoires}</p>
-          <p class="text-xs text-gray-400 mt-0.5">Repertoires solved</p>
+          <p class="text-xs text-(--color-muted) mt-0.5">Repertoires solved</p>
         </div>
       {/if}
 
@@ -104,17 +104,17 @@
 
       <!-- Today's tasks -->
       {#if quests.length > 0}
-        <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-          <h2 class="font-semibold text-gray-900 mb-4">Today's tasks</h2>
+        <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
+          <h2 class="font-semibold text-(--color-text) mb-4">Today's tasks</h2>
           <ul class="space-y-4">
             {#each quests as quest (quest.id)}
               <li class="flex items-center gap-3">
                 <div class="flex-1">
                   <div class="flex justify-between text-sm mb-1.5">
-                    <span class="{quest.completed ? 'line-through text-gray-400' : 'text-gray-700'}">
+                    <span class="{quest.completed ? 'line-through text-(--color-muted)' : 'text-(--color-text)'}">
                       {quest.description}
                     </span>
-                    <span class="text-gray-400 text-xs">{quest.progress}/{quest.target}</span>
+                    <span class="text-(--color-muted) text-xs">{quest.progress}/{quest.target}</span>
                   </div>
                   <div class="bg-gray-100 rounded-full h-1.5 overflow-hidden">
                     <div
@@ -134,10 +134,10 @@
 
       <!-- Upcoming tournaments widget -->
       {#if data.upcomingTournaments?.length > 0}
-        <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="font-semibold text-gray-900">Upcoming in Lithuania</h2>
-            <a href="/tournaments" class="text-sm text-indigo-600 hover:underline">View all →</a>
+            <h2 class="font-semibold text-(--color-text)">Upcoming in Lithuania</h2>
+            <a href="/tournaments" class="text-sm text-(--color-accent) hover:underline">View all →</a>
           </div>
           <TournamentCarousel tournaments={data.upcomingTournaments} />
         </section>
