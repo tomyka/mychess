@@ -9,7 +9,14 @@
 		type EngineScore
 	} from '$lib/engine/uci';
 
-	const ENGINE_URL = '/stockfish/stockfish-18-lite-single.js#stockfish-18-lite-single.wasm,worker';
+	// The URL fragment tells the emscripten bootstrap where to find the
+	// .wasm binary. A trailing `,worker` marks this load as a *nested*
+	// worker spawned by an already-running engine (used internally by
+	// multi-threaded builds) — the bootstrap's top-level dispatch short-
+	// circuits on that marker and never wires up `onmessage` or loads the
+	// engine, so the handshake this component sends silently goes
+	// nowhere. This is the first, top-level worker, so no suffix here.
+	const ENGINE_URL = '/stockfish/stockfish-18-lite-single.js#stockfish-18-lite-single.wasm';
 	const MOVETIME_MS = 400;
 	// If the engine never completes its uci/isready handshake within this
 	// window (WASM instantiation stalling, a network hiccup fetching the
