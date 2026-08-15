@@ -26,18 +26,18 @@
   <title>Repertoires — MyChess</title>
 </svelte:head>
 
-<main class="min-h-screen bg-gray-50">
+<main class="min-h-screen bg-(--color-bg)">
   <div class="max-w-2xl mx-auto px-4 py-6">
     <div class="flex items-center justify-between mb-4">
-      <h1 class="text-2xl font-bold text-gray-900">Repertoires</h1>
+      <h1 class="text-2xl font-bold text-(--color-text)">Repertoires</h1>
       <a href="/coach/pgn"
-         class="text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
+         class="text-sm bg-(--color-accent) text-white px-4 py-2 rounded-lg font-medium hover:bg-(--color-accent-hover) transition-colors">
         + Upload PGN
       </a>
     </div>
 
     {#if form?.error}
-      <p class="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-4">{form.error}</p>
+      <p class="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-4 dark:bg-red-950 dark:border-red-800 dark:text-red-400">{form.error}</p>
     {/if}
 
     {#if data.repertoires.length > 0}
@@ -47,7 +47,7 @@
             type="button"
             onclick={() => (filter = t.id)}
             class="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors
-                   {filter === t.id ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
+                   {filter === t.id ? 'bg-(--color-accent) text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'}"
           >
             {t.label}
           </button>
@@ -56,34 +56,34 @@
     {/if}
 
     {#if data.repertoires.length === 0}
-      <div class="text-center py-16 text-gray-400">
+      <div class="text-center py-16 text-(--color-muted)">
         <p class="text-4xl mb-4">📚</p>
-        <p class="font-semibold text-lg text-gray-500">No repertoires yet</p>
+        <p class="font-semibold text-lg text-(--color-muted)">No repertoires yet</p>
         <p class="text-sm mt-1">Upload a PGN to build your library, then assign it to students.</p>
       </div>
     {:else if filtered.length === 0}
-      <div class="text-center py-16 text-gray-400">
+      <div class="text-center py-16 text-(--color-muted)">
         <p class="text-4xl mb-4">📚</p>
-        <p class="font-semibold text-lg text-gray-500">No {filter} repertoires</p>
+        <p class="font-semibold text-lg text-(--color-muted)">No {filter} repertoires</p>
       </div>
     {:else}
       <ul class="space-y-2">
         {#each filtered as rep (rep.id)}
-          <li class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+          <li class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-4">
             <div class="flex items-center gap-3">
               <span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color ?? '#4f46e5'}"></span>
               <div class="flex-1 min-w-0">
-                <h2 class="font-medium text-gray-900 truncate">{rep.name}</h2>
-                <p class="text-sm text-gray-400">{rep.moves?.[0]?.count ?? 0} moves</p>
+                <h2 class="font-medium text-(--color-text) truncate">{rep.name}</h2>
+                <p class="text-sm text-(--color-muted)">{rep.moves?.[0]?.count ?? 0} moves</p>
                 <p class="text-xs mt-0.5">
                   {#if rep.eco_code}
-                    <span class="text-indigo-600 font-medium">{rep.eco_code}</span>
-                    <span class="text-gray-400"> — {rep.eco_name}</span>
+                    <span class="text-(--color-accent) font-medium">{rep.eco_code}</span>
+                    <span class="text-(--color-muted)"> — {rep.eco_name}</span>
                   {:else}
-                    <span class="text-gray-400">Unclassified</span>
+                    <span class="text-(--color-muted)">Unclassified</span>
                   {/if}
                   <button type="button" onclick={() => (openingModalRepId = rep.id)}
-                          class="text-gray-400 hover:text-indigo-600 hover:underline ml-1">
+                          class="text-(--color-muted) hover:text-indigo-600 hover:underline ml-1">
                     change
                   </button>
                 </p>
@@ -92,7 +92,7 @@
                 type="button"
                 onclick={() => (assignModalRepId = rep.id)}
                 title="Assign to players"
-                class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors font-bold"
+                class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-indigo-50 text-(--color-accent) hover:bg-indigo-100 transition-colors font-bold dark:bg-indigo-950"
               >
                 +
               </button>
@@ -103,7 +103,7 @@
             </div>
 
             <div class="mt-3 pt-3 border-t border-gray-100">
-              <p class="text-xs text-gray-400">
+              <p class="text-xs text-(--color-muted)">
                 {#if rep.assignedPlayers.length > 0}
                   Assigned to: {rep.assignedPlayers.map((p: any) => p.display_name).join(', ')}
                 {:else}
@@ -128,16 +128,16 @@
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
-      class="bg-white rounded-xl shadow-lg max-w-sm w-full max-h-[80vh] overflow-y-auto"
+      class="bg-(--color-surface) rounded-xl shadow-lg max-w-sm w-full max-h-[80vh] overflow-y-auto"
       onclick={(e) => e.stopPropagation()}
     >
       <div class="flex items-center justify-between p-4 border-b border-gray-100">
-        <h2 class="font-semibold text-gray-900 truncate">{assignModalRep.name}</h2>
+        <h2 class="font-semibold text-(--color-text) truncate">{assignModalRep.name}</h2>
         <button
           type="button"
           onclick={() => (assignModalRepId = null)}
           aria-label="Close"
-          class="text-gray-400 hover:text-gray-600 text-xl leading-none"
+          class="text-(--color-muted) hover:text-gray-600 text-xl leading-none"
         >
           &times;
         </button>
@@ -145,24 +145,24 @@
 
       <div class="p-4">
         {#if data.players.length === 0}
-          <p class="text-sm text-gray-500">You don't have any active students yet.</p>
+          <p class="text-sm text-(--color-muted)">You don't have any active students yet.</p>
         {:else}
           <ul class="space-y-2">
             {#each data.players as player (player.id)}
               {@const isAssigned = assignModalRep.assignedPlayers.some((p: any) => p.id === player.id)}
               <li class="flex items-center justify-between gap-3">
-                <span class="text-sm text-gray-800 truncate">{player.display_name}</span>
+                <span class="text-sm text-(--color-text) truncate">{player.display_name}</span>
                 {#if isAssigned}
                   <form method="POST" action="?/unassign" use:enhance>
                     <input type="hidden" name="rep_id" value={assignModalRep.id} />
                     <input type="hidden" name="player_id" value={player.id} />
-                    <button class="text-sm text-red-600 hover:underline shrink-0">Remove</button>
+                    <button class="text-sm text-red-600 hover:underline shrink-0 dark:text-red-400">Remove</button>
                   </form>
                 {:else}
                   <form method="POST" action="?/assign" use:enhance>
                     <input type="hidden" name="rep_id" value={assignModalRep.id} />
                     <input type="hidden" name="player_id" value={player.id} />
-                    <button class="text-sm bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition-colors shrink-0">
+                    <button class="text-sm bg-(--color-accent) text-white px-3 py-1 rounded-lg hover:bg-(--color-accent-hover) transition-colors shrink-0">
                       Assign
                     </button>
                   </form>
