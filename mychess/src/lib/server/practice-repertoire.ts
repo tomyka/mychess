@@ -33,7 +33,7 @@ export function remainingPageRanges(totalCount: number, pageSize: number): Array
 }
 
 const MOVE_SELECT_COLUMNS =
-	'id, san, is_player_turn, from_position, to_position, chapter_name, from_pos:from_position(fen), to_pos:to_position(fen)';
+	'id, san, is_player_turn, from_position, to_position, chapter_names, from_pos:from_position(fen), to_pos:to_position(fen)';
 
 /**
  * Fetches every move row for a repertoire, defeating the `max_rows` cap
@@ -85,7 +85,7 @@ export function toRawMoveRows(rows: any[]): RawMoveRow[] {
 		toPositionId: m.to_position,
 		fromFen: m.from_pos?.fen ?? '',
 		toFen: m.to_pos?.fen ?? '',
-		chapterName: m.chapter_name ?? null
+		chapterNames: m.chapter_names ?? []
 	}));
 }
 
