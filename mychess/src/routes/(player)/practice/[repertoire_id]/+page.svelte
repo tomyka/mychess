@@ -320,7 +320,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <main
-	class="min-h-screen lg:h-[calc(100vh-3.5rem)] lg:overflow-hidden bg-gray-50 p-4 max-w-5xl mx-auto pb-24 lg:pb-4 flex flex-col"
+	class="min-h-screen lg:min-h-0 lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-gray-50 p-4 max-w-5xl mx-auto pb-24 lg:pb-4 flex flex-col"
 	data-phase={phase}
 >
 	<div class="mb-3 flex items-center justify-between shrink-0">
