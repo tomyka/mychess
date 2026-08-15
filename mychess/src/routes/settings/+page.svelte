@@ -92,7 +92,7 @@
             type="button"
             onclick={() => setTheme(t.id as Theme)}
             class="flex-1 py-2.5 px-2 rounded-xl font-semibold transition-all border-2 text-sm
-                   {themeStore.current === t.id ? 'border-(--color-accent) bg-indigo-50 dark:bg-indigo-950 text-indigo-700' : 'border-(--color-border) text-(--color-muted) hover:border-gray-300'}"
+                   {themeStore.current === t.id ? 'border-(--color-accent) bg-indigo-50 dark:bg-indigo-950 text-indigo-700' : 'border-(--color-border) text-(--color-muted) hover:border-gray-300 dark:hover:border-gray-600'}"
           >
             {t.label}
           </button>
@@ -137,7 +137,7 @@
                 type="button"
                 onclick={() => (role = r.id)}
                 class="flex-1 py-2.5 px-2 rounded-xl font-semibold transition-all border-2 text-sm
-                       {role === r.id ? 'border-(--color-accent) bg-indigo-50 dark:bg-indigo-950 text-indigo-700' : 'border-(--color-border) text-(--color-muted) hover:border-gray-300'}"
+                       {role === r.id ? 'border-(--color-accent) bg-indigo-50 dark:bg-indigo-950 text-indigo-700' : 'border-(--color-border) text-(--color-muted) hover:border-gray-300 dark:hover:border-gray-600'}"
               >
                 {r.label}
               </button>
@@ -284,7 +284,7 @@
             <form method="POST" action="?/disconnect_lichess" use:enhance>
               <button
                 type="submit"
-                class="text-sm border border-(--color-border) text-(--color-text) px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+                class="text-sm border border-(--color-border) text-(--color-text) px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                 Disconnect
               </button>
             </form>
@@ -318,13 +318,13 @@
         <button
           onclick={() => importGames('chesscom')}
           disabled={importing !== null || !d.chesscomUsername}
-          class="flex-1 border border-(--color-border) text-(--color-text) px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm">
+          class="flex-1 border border-(--color-border) text-(--color-text) px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors text-sm">
           {importing === 'chesscom' ? 'Importing…' : 'Import from Chess.com'}
         </button>
         <button
           onclick={() => importGames('lichess')}
           disabled={importing !== null || !d.lichessUsername}
-          class="flex-1 border border-(--color-border) text-(--color-text) px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm">
+          class="flex-1 border border-(--color-border) text-(--color-text) px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors text-sm">
           {importing === 'lichess' ? 'Importing…' : 'Import from Lichess'}
         </button>
       </div>

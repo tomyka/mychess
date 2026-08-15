@@ -77,7 +77,7 @@
 	<div class="bg-(--color-surface) rounded-2xl shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto p-4">
 		<div class="flex items-center justify-between mb-3">
 			<h2 class="font-bold text-(--color-text)">Choose a variation</h2>
-			<button aria-label="Close" onclick={onclose} class="text-(--color-muted) hover:text-gray-600">✕</button>
+			<button aria-label="Close" onclick={onclose} class="text-(--color-muted) hover:text-gray-600 dark:hover:text-gray-400">✕</button>
 		</div>
 
 		{#if variations === null}
@@ -93,7 +93,7 @@
 					<li>
 						<button
 							onclick={() => onselect(row.variationKey)}
-							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-(--color-text) flex items-center justify-between"
+							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) flex items-center justify-between"
 						>
 							<span>{row.label}</span>
 							{#if row.solved}<span class="text-green-600 dark:text-green-400 text-sm">✓</span>{/if}
@@ -110,7 +110,7 @@
 					<li>
 						<button
 							onclick={() => (openGroupIndex = i)}
-							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 font-medium text-(--color-text)"
+							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 font-medium text-(--color-text)"
 						>
 							{groupLabel(group)} <span class="text-(--color-muted) text-sm">({group.items.length})</span>
 						</button>
@@ -123,7 +123,7 @@
 					<li>
 						<button
 							onclick={() => (openChapter = chapterName)}
-							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 font-medium text-(--color-text)"
+							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 font-medium text-(--color-text)"
 						>
 							{chapterName}
 						</button>

@@ -79,7 +79,7 @@
   </div>
 
   {#if activeCount > 0}
-    <button on:click={clearAll} class="w-full text-xs text-center text-(--color-accent) hover:text-indigo-800 border border-indigo-200 rounded-lg py-1.5 transition-colors hover:bg-indigo-50">
+    <button on:click={clearAll} class="w-full text-xs text-center text-(--color-accent) hover:text-indigo-800 dark:hover:text-indigo-300 border border-indigo-200 rounded-lg py-1.5 transition-colors hover:bg-indigo-50">
       Clear all filters
     </button>
   {/if}

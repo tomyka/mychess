@@ -9,7 +9,7 @@
 
 <main class="min-h-screen bg-(--color-bg)">
 	<div class="max-w-2xl mx-auto px-4 py-6 space-y-6">
-		<a href="/coach" class="text-(--color-muted) text-sm hover:text-gray-600 block">← Back to Dashboard</a>
+		<a href="/coach" class="text-(--color-muted) text-sm hover:text-gray-600 dark:hover:text-gray-400 block">← Back to Dashboard</a>
 		<div>
 			<h1 class="text-2xl font-bold text-(--color-text)">Practice Reports</h1>
 			<p class="text-(--color-muted) text-sm">Last 30 days</p>

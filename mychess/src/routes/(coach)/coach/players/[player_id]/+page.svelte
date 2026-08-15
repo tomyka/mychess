@@ -12,7 +12,7 @@
 
 <main class="min-h-screen bg-(--color-bg)">
   <div class="max-w-2xl mx-auto px-4 py-6 space-y-8">
-    <a href="/coach" class="text-(--color-muted) text-sm hover:text-gray-600 block">← Back to Dashboard</a>
+    <a href="/coach" class="text-(--color-muted) text-sm hover:text-gray-600 dark:hover:text-gray-400 block">← Back to Dashboard</a>
     <h1 class="text-2xl font-bold text-(--color-text)">{data.player?.display_name ?? 'Student'}</h1>
 
     {#if form?.error}
@@ -194,7 +194,7 @@
           type="button"
           onclick={() => (assignModalOpen = false)}
           aria-label="Close"
-          class="text-(--color-muted) hover:text-gray-600 text-xl leading-none"
+          class="text-(--color-muted) hover:text-gray-600 dark:hover:text-gray-400 text-xl leading-none"
         >
           &times;
         </button>

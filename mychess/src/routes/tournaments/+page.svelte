@@ -112,7 +112,7 @@
             <div class="flex justify-center gap-2 mt-8">
               {#if data.filters.page > 1}
                 <a href={buildPageUrl(data.filters.page - 1)}
-                   class="px-4 py-2 text-sm border border-(--color-border) rounded hover:bg-gray-50"
+                   class="px-4 py-2 text-sm border border-(--color-border) rounded hover:bg-gray-50 dark:hover:bg-gray-800"
                 >← Previous</a>
               {/if}
               <span class="px-4 py-2 text-sm text-(--color-muted)">
@@ -120,7 +120,7 @@
               </span>
               {#if data.filters.page < totalPages}
                 <a href={buildPageUrl(data.filters.page + 1)}
-                   class="px-4 py-2 text-sm border border-(--color-border) rounded hover:bg-gray-50"
+                   class="px-4 py-2 text-sm border border-(--color-border) rounded hover:bg-gray-50 dark:hover:bg-gray-800"
                 >Next →</a>
               {/if}
             </div>

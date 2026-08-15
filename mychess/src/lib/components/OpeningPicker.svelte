@@ -37,7 +37,7 @@
         type="button"
         onclick={onclose}
         aria-label="Close"
-        class="text-(--color-muted) hover:text-gray-600 text-xl leading-none"
+        class="text-(--color-muted) hover:text-gray-600 dark:hover:text-gray-400 text-xl leading-none"
       >
         &times;
       </button>
@@ -60,7 +60,7 @@
         <input type="hidden" name="rep_id" value={repId} />
         <input type="hidden" name="eco_code" value="" />
         <input type="hidden" name="eco_name" value="" />
-        <button class="w-full text-left text-sm text-(--color-muted) hover:bg-gray-50 rounded-lg px-3 py-2">
+        <button class="w-full text-left text-sm text-(--color-muted) hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg px-3 py-2">
           Unclassified
         </button>
       </form>

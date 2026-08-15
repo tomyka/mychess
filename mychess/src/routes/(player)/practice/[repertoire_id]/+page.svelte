@@ -407,7 +407,7 @@
 						onclick={reviewToStart}
 						disabled={reviewIdx <= 0}
 						aria-label="Jump to start"
-						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-muted) text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50"
+						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-muted) text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800"
 					>
 						⏮
 					</button>
@@ -415,7 +415,7 @@
 						onclick={reviewBack}
 						disabled={reviewIdx <= 0}
 						aria-label="Move back"
-						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-muted) text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50"
+						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-muted) text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800"
 					>
 						◀
 					</button>
@@ -423,7 +423,7 @@
 						onclick={reviewForward}
 						disabled={!isReviewing}
 						aria-label="Move forward"
-						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-muted) text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50"
+						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-muted) text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800"
 					>
 						▶
 					</button>
@@ -431,7 +431,7 @@
 						onclick={reviewToLive}
 						disabled={!isReviewing}
 						aria-label="Jump to current position"
-						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-muted) text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50"
+						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-muted) text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800"
 					>
 						⏭
 					</button>
@@ -454,7 +454,7 @@
 						<span class="text-(--color-muted) text-sm">{data.solved} / {data.total} variations solved</span>
 						<button
 							onclick={() => (pickerOpen = true)}
-							class="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-(--color-accent) border border-(--color-border) rounded-lg px-2 py-1 hover:bg-gray-50"
+							class="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-(--color-accent) border border-(--color-border) rounded-lg px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-800"
 						>
 							<span aria-hidden="true">📖</span> Switch
 						</button>

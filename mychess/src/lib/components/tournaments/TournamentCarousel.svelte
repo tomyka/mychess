@@ -81,7 +81,7 @@
       <button
         onclick={() => goToPage(currentPage - 1)}
         disabled={currentPage === 0}
-        class="p-1.5 rounded-lg border border-(--color-border) text-(--color-muted) hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm"
+        class="p-1.5 rounded-lg border border-(--color-border) text-(--color-muted) hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm"
         aria-label="Previous"
       >←</button>
 
@@ -98,7 +98,7 @@
       <button
         onclick={() => goToPage(currentPage + 1)}
         disabled={currentPage === totalPages - 1}
-        class="p-1.5 rounded-lg border border-(--color-border) text-(--color-muted) hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm"
+        class="p-1.5 rounded-lg border border-(--color-border) text-(--color-muted) hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm"
         aria-label="Next"
       >→</button>
     </div>

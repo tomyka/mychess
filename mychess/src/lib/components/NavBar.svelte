@@ -17,7 +17,7 @@
   function linkClass(paths: string[]): string {
     return active(paths)
       ? 'text-(--color-accent) font-semibold border-b-2 border-(--color-accent) pb-0.5'
-      : 'text-(--color-muted) hover:text-gray-900 transition-colors';
+      : 'text-(--color-muted) hover:text-gray-900 dark:hover:text-gray-200 transition-colors';
   }
 </script>
 
@@ -36,7 +36,7 @@
         <a href="/coach"
            class={pathname === '/coach' || active(['/coach/students', '/coach/invite', '/coach/players'])
              ? 'text-(--color-accent) font-semibold border-b-2 border-(--color-accent) pb-0.5'
-             : 'text-(--color-muted) hover:text-gray-900 transition-colors'}>Players</a>
+             : 'text-(--color-muted) hover:text-gray-900 dark:hover:text-gray-200 transition-colors'}>Players</a>
         <a href="/coach/repertoires" class={linkClass(['/coach/repertoires', '/coach/pgn'])}>Repertoires</a>
       {:else if !isGuest}
         <a href="/" class={linkClass(['/'])}>Dashboard</a>
@@ -52,7 +52,7 @@
     <!-- Right side -->
     <div class="flex items-center gap-3 text-sm shrink-0">
       {#if isGuest}
-        <a href="/login" class="hidden sm:inline text-(--color-muted) hover:text-gray-900">Sign in</a>
+        <a href="/login" class="hidden sm:inline text-(--color-muted) hover:text-gray-900 dark:hover:text-gray-200">Sign in</a>
         <a href="/login?signup=1"
            class="bg-(--color-accent) text-white px-3 py-1.5 rounded-lg font-medium hover:bg-(--color-accent-hover) transition-colors">
           Get started
@@ -69,7 +69,7 @@
         <div class="relative hidden md:block">
           <button
             onclick={() => { userMenuOpen = !userMenuOpen; }}
-            class="flex items-center gap-1.5 text-(--color-text) hover:text-gray-900 font-medium"
+            class="flex items-center gap-1.5 text-(--color-text) hover:text-gray-900 dark:hover:text-gray-200 font-medium"
           >
             <span class="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 text-xs font-bold flex items-center justify-center">
               {((profile as any)?.display_name ?? 'P')[0].toUpperCase()}
@@ -88,16 +88,16 @@
             ></button>
             <div class="absolute right-0 mt-2 w-44 bg-(--color-surface) border border-(--color-border) rounded-xl shadow-lg z-20 py-1 text-sm">
               <a href="/settings" onclick={() => userMenuOpen = false}
-                 class="block px-4 py-2 text-(--color-text) hover:bg-gray-50">Settings</a>
+                 class="block px-4 py-2 text-(--color-text) hover:bg-gray-50 dark:hover:bg-gray-800">Settings</a>
               {#if !isCoach}
                 <a href="/cosmetics" onclick={() => userMenuOpen = false}
-                   class="block px-4 py-2 text-(--color-text) hover:bg-gray-50">Customise</a>
+                   class="block px-4 py-2 text-(--color-text) hover:bg-gray-50 dark:hover:bg-gray-800">Customise</a>
                 <a href="/badges" onclick={() => userMenuOpen = false}
-                   class="block px-4 py-2 text-(--color-text) hover:bg-gray-50">Badges</a>
+                   class="block px-4 py-2 text-(--color-text) hover:bg-gray-50 dark:hover:bg-gray-800">Badges</a>
               {/if}
               <div class="border-t border-gray-100 my-1"></div>
               <form method="POST" action="/auth/signout">
-                <button type="submit" class="w-full text-left px-4 py-2 text-red-600 dark:text-red-400 hover:bg-gray-50">
+                <button type="submit" class="w-full text-left px-4 py-2 text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-800">
                   Sign out
                 </button>
               </form>
@@ -108,7 +108,7 @@
 
       <!-- Mobile hamburger -->
       <button
-        class="md:hidden text-(--color-muted) hover:text-gray-900"
+        class="md:hidden text-(--color-muted) hover:text-gray-900 dark:hover:text-gray-200"
         aria-label="Toggle mobile menu"
         onclick={() => { mobileMenuOpen = !mobileMenuOpen; userMenuOpen = false; }}
       >

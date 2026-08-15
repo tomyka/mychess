@@ -38,7 +38,7 @@
   href={tournament.url}
   target="_blank"
   rel="noopener noreferrer"
-  class="flex flex-col h-full rounded-xl border border-(--color-border) bg-(--color-surface) p-4 hover:shadow-md hover:border-gray-300 transition-all"
+  class="flex flex-col h-full rounded-xl border border-(--color-border) bg-(--color-surface) p-4 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all"
 >
   <!-- Header: title + status badge -->
   <div class="flex items-start justify-between gap-2 mb-2">
@@ -77,7 +77,7 @@
   </div>
 
   <!-- Footer: external link anchored to bottom -->
-  <div class="mt-3 pt-2 border-t border-gray-100 text-xs text-(--color-accent) hover:text-indigo-800">
+  <div class="mt-3 pt-2 border-t border-gray-100 text-xs text-(--color-accent) hover:text-indigo-800 dark:hover:text-indigo-300">
     chess-results.com ↗
   </div>
 </a>

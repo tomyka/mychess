@@ -42,7 +42,7 @@
     {:else}
       <a
         href={`/auth/google?persist=${keepSignedIn ? '1' : '0'}`}
-        class="flex items-center justify-center gap-2 border border-(--color-border) rounded-xl py-3 font-medium text-(--color-text) hover:bg-gray-50 transition">
+        class="flex items-center justify-center gap-2 border border-(--color-border) rounded-xl py-3 font-medium text-(--color-text) hover:bg-gray-50 dark:hover:bg-gray-800 transition">
         <span aria-hidden="true">G</span> Continue with Google
       </a>
 

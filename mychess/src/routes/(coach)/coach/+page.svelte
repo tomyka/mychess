@@ -57,7 +57,7 @@
           {#each players as player (player.id)}
             <li>
               <a href="/coach/players/{player.id}"
-                 class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                 class="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                 <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm flex items-center justify-center dark:bg-indigo-950 dark:text-indigo-300">
                   {(player.display_name ?? 'P')[0].toUpperCase()}
                 </div>

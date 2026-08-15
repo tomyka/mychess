@@ -137,7 +137,7 @@
           type="button"
           onclick={() => (assignModalRepId = null)}
           aria-label="Close"
-          class="text-(--color-muted) hover:text-gray-600 text-xl leading-none"
+          class="text-(--color-muted) hover:text-gray-600 dark:hover:text-gray-400 text-xl leading-none"
         >
           &times;
         </button>

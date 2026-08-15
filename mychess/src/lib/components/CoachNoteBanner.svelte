@@ -10,7 +10,7 @@
   </div>
   <button
     onclick={ondismiss}
-    class="text-(--color-muted) hover:text-gray-600 text-sm mt-0.5 shrink-0"
+    class="text-(--color-muted) hover:text-gray-600 dark:hover:text-gray-400 text-sm mt-0.5 shrink-0"
     aria-label="Dismiss"
   >✕</button>
 </div>
