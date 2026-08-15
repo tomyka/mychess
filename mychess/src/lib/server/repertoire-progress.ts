@@ -44,7 +44,7 @@ async function fetchAllMoves(supabase: SupabaseClient, repIds: string[]): Promis
 	const query = () =>
 		supabase
 			.from('moves')
-			.select('id, san, is_player_turn, repertoire_id, from_position, to_position, chapter_name')
+			.select('id, san, is_player_turn, repertoire_id, from_position, to_position, chapter_names')
 			.in('repertoire_id', repIds)
 			.order('created_at', { ascending: true })
 			.order('id', { ascending: true });
@@ -146,7 +146,7 @@ export async function loadRepertoireProgressSummaries(
 			toPositionId: m.to_position,
 			fromFen: '',
 			toFen: '',
-			chapterName: m.chapter_name ?? null
+			chapterNames: m.chapter_names ?? []
 		});
 		movesByRep.set(m.repertoire_id, list);
 	}
