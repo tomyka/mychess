@@ -326,8 +326,11 @@
 	<div class="mb-3 flex items-center justify-between shrink-0">
 		<a href="/practice" class="text-gray-400 text-sm hover:text-gray-600">← All Repertoires</a>
 		{#if repertoireId}
-			<button onclick={() => (pickerOpen = true)} class="text-indigo-600 text-sm font-medium hover:underline">
-				Choose a variation
+			<button
+				onclick={() => (pickerOpen = true)}
+				class="lg:hidden inline-flex items-center gap-1 text-indigo-600 text-sm font-medium hover:underline"
+			>
+				<span aria-hidden="true">📖</span> Switch variation
 			</button>
 		{/if}
 	</div>
@@ -355,7 +358,7 @@
 			<a href="/practice" class="text-indigo-600 hover:underline">Back to Repertoires</a>
 		</div>
 	{:else}
-		<div class="p-3 bg-white border border-gray-200 rounded-2xl shadow-sm text-center mb-3 shrink-0">
+		<div class="p-3 bg-white border border-gray-200 rounded-2xl shadow-sm text-center mb-3 shrink-0 lg:hidden">
 			<p class="text-sm font-medium">
 				<span class="text-gray-400">{data.repertoire?.name}</span>
 				<span class="mx-1.5 text-gray-300">·</span>
@@ -432,16 +435,39 @@
 				</div>
 			</div>
 
-			<div class="w-full lg:w-72 shrink-0 space-y-4 lg:overflow-y-auto">
-				<div class="p-4 bg-white border border-gray-200 rounded-2xl shadow-sm hidden lg:block">
+			<div
+				class="w-full lg:w-72 shrink-0 hidden lg:flex lg:flex-col divide-y divide-gray-200 bg-white border border-gray-200 rounded-2xl shadow-sm lg:overflow-y-auto"
+			>
+				<div class="p-4">
+					<p class="text-gray-900 font-bold text-sm">{data.repertoire?.name}</p>
+					<div class="flex items-center justify-between gap-2 mt-1">
+						<span class="text-gray-500 text-sm">{data.solved} / {data.total} variations solved</span>
+						<button
+							onclick={() => (pickerOpen = true)}
+							class="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 border border-gray-200 rounded-lg px-2 py-1 hover:bg-gray-50"
+						>
+							<span aria-hidden="true">📖</span> Switch
+						</button>
+					</div>
+					<div class="h-1.5 rounded-full bg-gray-200 overflow-hidden mt-2">
+						<div
+							class="h-full bg-indigo-600 rounded-full"
+							style={`width: ${data.total ? (data.solved / data.total) * 100 : 0}%`}
+						></div>
+					</div>
+				</div>
+
+				<div class="p-4">
 					<EngineEval fen={displayFen} />
-					{#if movesSoFar}
-						<p class="text-sm text-gray-500 mt-2">{movesSoFar}</p>
-					{/if}
+				</div>
+
+				<div class="p-4 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
+					<p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Moves played</p>
+					<p class="text-sm text-gray-600">{movesSoFar || '—'}</p>
 				</div>
 
 				{#if wrongCount >= 3 && !hintRequested && phase === 'playing'}
-					<p class="text-center hidden lg:block">
+					<p class="text-center p-4">
 						<button
 							onclick={() => (hintRequested = true)}
 							class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700"

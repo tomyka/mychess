@@ -103,13 +103,15 @@ describe('practice detail page', () => {
 				}
 			}
 		});
-		// The repertoire name/progress card sits once, above the board, shared
-		// by both mobile and desktop layouts.
-		expect(screen.getByText('French Defense')).toBeTruthy();
-		expect(screen.getByText('3 / 5 variations solved')).toBeTruthy();
+		// The repertoire name/progress renders twice — once in the mobile card
+		// above the board, once in the desktop sidebar panel — with Tailwind
+		// breakpoint classes deciding which is visible; jsdom doesn't evaluate
+		// those, so both are present in the DOM.
+		expect(screen.getAllByText('French Defense').length).toBe(2);
+		expect(screen.getAllByText('3 / 5 variations solved').length).toBe(2);
 	});
 
-	it('shows a "Choose a variation" control whenever a repertoire is loaded', () => {
+	it('shows a "Switch variation" control whenever a repertoire is loaded', () => {
 		render(Practice, {
 			props: {
 				data: {
@@ -132,10 +134,10 @@ describe('practice detail page', () => {
 				}
 			}
 		});
-		expect(screen.getByText('Choose a variation')).toBeTruthy();
+		expect(screen.getByText('Switch variation')).toBeTruthy();
 	});
 
-	it('opens the variation picker when "Choose a variation" is clicked', async () => {
+	it('opens the variation picker when "Switch variation" is clicked', async () => {
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(Practice, {
@@ -160,11 +162,9 @@ describe('practice detail page', () => {
 				}
 			}
 		});
-		await fireEvent.click(screen.getByText('Choose a variation'));
+		await fireEvent.click(screen.getByText('Switch variation'));
 		// VariationPicker itself renders a "Close" control unique to it — a
-		// reliable signal the picker actually mounted, without colliding with
-		// the "Choose a variation" text that appears in BOTH the trigger
-		// button and the picker's own heading.
+		// reliable signal the picker actually mounted.
 		expect(screen.getByLabelText('Close')).toBeTruthy();
 	});
 
@@ -333,6 +333,6 @@ describe('practice detail page', () => {
 		// jsdom doesn't implement the Worker API, so EngineEval's onMount
 		// catches that and marks itself failed — this just confirms the page
 		// (and EngineEval within it) doesn't throw and renders the board.
-		expect(screen.getByText('French Defense')).toBeTruthy();
+		expect(screen.getAllByText('French Defense').length).toBe(2);
 	});
 });

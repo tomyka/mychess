@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseInfoLine, sideToMoveFromFen, toWhiteRelative, formatEval } from './uci';
+import { parseInfoLine, sideToMoveFromFen, toWhiteRelative, formatEval, evalBarWhiteFraction } from './uci';
 
 describe('parseInfoLine', () => {
 	it('parses a depth + cp score info line', () => {
@@ -82,5 +82,29 @@ describe('formatEval', () => {
 
 	it('formats a negative mate score as Black mating', () => {
 		expect(formatEval({ mate: -2 })).toBe('-M2');
+	});
+});
+
+describe('evalBarWhiteFraction', () => {
+	it('is 0.5 at an equal position', () => {
+		expect(evalBarWhiteFraction({ cp: 0 })).toBe(0.5);
+	});
+
+	it('is 1 at or beyond +500cp', () => {
+		expect(evalBarWhiteFraction({ cp: 500 })).toBe(1);
+		expect(evalBarWhiteFraction({ cp: 900 })).toBe(1);
+	});
+
+	it('is 0 at or beyond -500cp', () => {
+		expect(evalBarWhiteFraction({ cp: -500 })).toBe(0);
+		expect(evalBarWhiteFraction({ cp: -900 })).toBe(0);
+	});
+
+	it('is 1 for any White-mating score', () => {
+		expect(evalBarWhiteFraction({ mate: 4 })).toBe(1);
+	});
+
+	it('is 0 for any Black-mating score', () => {
+		expect(evalBarWhiteFraction({ mate: -4 })).toBe(0);
 	});
 });

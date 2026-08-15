@@ -1,6 +1,13 @@
 <!-- mychess/src/lib/components/EngineEval.svelte -->
 <script module lang="ts">
-	import { parseInfoLine, sideToMoveFromFen, toWhiteRelative, formatEval, type EngineScore } from '$lib/engine/uci';
+	import {
+		parseInfoLine,
+		sideToMoveFromFen,
+		toWhiteRelative,
+		formatEval,
+		evalBarWhiteFraction,
+		type EngineScore
+	} from '$lib/engine/uci';
 
 	const ENGINE_URL = '/stockfish/stockfish-18-lite-single.js#stockfish-18-lite-single.wasm,worker';
 	const MOVETIME_MS = 400;
@@ -113,11 +120,17 @@
 	});
 
 	const displayText = $derived(failed ? null : score ? formatEval(score) : '…');
+	const whiteFraction = $derived(score ? evalBarWhiteFraction(score) : null);
 </script>
 
 {#if displayText}
 	<div class="flex items-center gap-2">
-		<span class="text-xs font-semibold uppercase tracking-wide text-gray-400">Eval</span>
-		<span class="text-lg font-bold text-gray-900">{displayText}</span>
+		<span class="text-xs font-semibold uppercase tracking-wide text-gray-400 shrink-0">Eval</span>
+		<span class="text-base font-bold text-gray-900 tabular-nums shrink-0">{displayText}</span>
+		{#if whiteFraction !== null}
+			<div class="flex-1 h-1.5 rounded-full bg-gray-800 overflow-hidden" aria-hidden="true">
+				<div class="h-full bg-white" style={`width: ${whiteFraction * 100}%`}></div>
+			</div>
+		{/if}
 	</div>
 {/if}
