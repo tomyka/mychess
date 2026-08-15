@@ -124,4 +124,53 @@ describe('setVariationsIncluded', () => {
 		expect(result).toEqual({ error: 'batch 2 failed' });
 		expect(deleteCalls).toHaveLength(2); // the 3rd batch was never attempted
 	});
+
+	it('rolls back an earlier successful delete batch when a later batch fails (included: true)', async () => {
+		// Without this, a caller (RepertoirePracticeRow) that reverts its own
+		// UI state to "nothing changed" on any error would silently disagree
+		// with the database — batch 1's rows really were deleted (i.e. those
+		// variations really are now included) even though the whole call
+		// reports failure and the UI shows every row as still excluded.
+		const { client, deleteCalls, upsertCalls } = fakeSupabase({ deleteErrorOnCall: 2, errorMessage: 'batch 2 failed' });
+		const keys = Array.from({ length: 150 }, (_, i) => `v${i}`); // 3 batches of 50
+		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, true);
+
+		expect(result).toEqual({ error: 'batch 2 failed' });
+		expect(deleteCalls).toHaveLength(2); // batch 1 (succeeded) + batch 2 (failed)
+
+		// Rollback re-inserts exactly the keys the successful first delete
+		// batch removed — restoring them as excluded again.
+		expect(upsertCalls).toHaveLength(1);
+		expect(upsertCalls[0].rows.map((r: any) => r.variation_key)).toEqual(keys.slice(0, 50));
+		expect(upsertCalls[0].rows.every((r: any) => r.player_id === 'player-1' && r.repertoire_id === 'rep-1')).toBe(true);
+	});
+
+	it('rolls back an earlier successful upsert batch when a later batch fails (included: false)', async () => {
+		const { client, deleteCalls, upsertCalls } = fakeSupabase({ upsertErrorOnCall: 2, errorMessage: 'batch 2 failed' });
+		const keys = Array.from({ length: 150 }, (_, i) => `v${i}`); // 3 batches of 50
+		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, false);
+
+		expect(result).toEqual({ error: 'batch 2 failed' });
+		expect(upsertCalls).toHaveLength(2); // batch 1 (succeeded) + batch 2 (failed)
+
+		// Rollback deletes exactly the keys the successful first upsert batch inserted.
+		expect(deleteCalls).toHaveLength(1);
+		expect(deleteCalls[0]).toEqual({
+			table: 'variation_practice_exclusions',
+			col1: 'player_id',
+			val1: 'player-1',
+			col2: 'variation_key',
+			vals: keys.slice(0, 50)
+		});
+	});
+
+	it('does not attempt any rollback when the very first batch is the one that fails', async () => {
+		const { client, deleteCalls, upsertCalls } = fakeSupabase({ upsertErrorOnCall: 1, errorMessage: 'boom' });
+		const keys = Array.from({ length: 150 }, (_, i) => `v${i}`);
+		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, false);
+
+		expect(result).toEqual({ error: 'boom' });
+		expect(upsertCalls).toHaveLength(1); // only the failing attempt — nothing succeeded first
+		expect(deleteCalls).toHaveLength(0); // nothing to roll back
+	});
 });
