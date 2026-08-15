@@ -12,3 +12,20 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
 		disconnect() {}
 	};
 }
+
+// jsdom doesn't implement window.matchMedia, which src/lib/theme.svelte.ts
+// (applyResolvedThemeClass) and the root layout's system-preference $effect
+// both call — any test that triggers either throws "matchMedia is not a
+// function" without this. A harmless default ('matches: false') is enough
+// for anything that just needs the call to not throw; a test asserting
+// specific OS-preference behavior can still override it locally with its
+// own vi.stubGlobal('matchMedia', ...). No-op in the node environment,
+// where nothing ever calls it.
+if (typeof globalThis.matchMedia === 'undefined') {
+	globalThis.matchMedia = ((query: string) => ({
+		matches: false,
+		media: query,
+		addEventListener: () => {},
+		removeEventListener: () => {}
+	})) as unknown as typeof globalThis.matchMedia;
+}
