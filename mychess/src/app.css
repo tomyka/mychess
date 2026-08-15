@@ -5,6 +5,12 @@
 @import './lib/board/pieces.css';
 @import 'chessground/assets/chessground.cburnett.css';
 
+/* Class-based dark mode (Tailwind v4 defaults to prefers-color-scheme only —
+   this app needs an explicit user toggle, so dark: variants apply based on
+   a `.dark` class on <html> instead, set by app.html's blocking inline
+   script and src/lib/theme.svelte.ts). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --color-accent: #4f46e5;
   --color-accent-hover: #4338ca;
@@ -13,4 +19,14 @@
   --color-border: #e5e7eb;
   --color-text: #111827;
   --color-muted: #6b7280;
+}
+
+.dark {
+  --color-accent: #818cf8;
+  --color-accent-hover: #a5b4fc;
+  --color-bg: #0a0e14;
+  --color-surface: #161b26;
+  --color-border: #2a3040;
+  --color-text: #e8eaed;
+  --color-muted: #8b93a3;
 }
