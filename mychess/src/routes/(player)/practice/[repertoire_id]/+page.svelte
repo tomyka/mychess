@@ -10,7 +10,7 @@
 	import { arrowMoveForStep, isLastPlayerMove } from '$lib/mastery/teaching';
 	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
 	import EngineEval from '$lib/components/EngineEval.svelte';
-	import { enginePrefStore } from '$lib/enginePref.svelte';
+	import { enginePrefStore, setEnginePref } from '$lib/enginePref.svelte';
 
 	let { data } = $props<{ data: any }>();
 
@@ -439,9 +439,19 @@
 				</div>
 
 				<div class="mt-3 p-3 bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:hidden">
-					{#if enginePrefStore.enabled}
-						<EngineEval fen={displayFen} />
-					{/if}
+					<div class="flex items-center gap-2">
+						<button
+							onclick={() => setEnginePref(!enginePrefStore.enabled)}
+							class="text-xs font-medium px-2 py-0.5 rounded-full border shrink-0 {enginePrefStore.enabled ? 'border-(--color-accent) text-(--color-accent)' : 'border-(--color-border) text-(--color-muted)'}"
+						>
+							🔧 Engine: {enginePrefStore.enabled ? 'On' : 'Off'}
+						</button>
+						{#if enginePrefStore.enabled}
+							<div class="flex-1 min-w-0">
+								<EngineEval fen={displayFen} />
+							</div>
+						{/if}
+					</div>
 					{#if movesSoFar}
 						<p class="text-sm text-(--color-muted) mt-2">{movesSoFar}</p>
 					{/if}
@@ -470,11 +480,21 @@
 					</div>
 				</div>
 
-				{#if enginePrefStore.enabled}
-					<div class="p-4">
-						<EngineEval fen={displayFen} />
+				<div class="p-4">
+					<div class="flex items-center gap-2">
+						<button
+							onclick={() => setEnginePref(!enginePrefStore.enabled)}
+							class="text-xs font-medium px-2 py-0.5 rounded-full border shrink-0 {enginePrefStore.enabled ? 'border-(--color-accent) text-(--color-accent)' : 'border-(--color-border) text-(--color-muted)'}"
+						>
+							🔧 Engine: {enginePrefStore.enabled ? 'On' : 'Off'}
+						</button>
+						{#if enginePrefStore.enabled}
+							<div class="flex-1 min-w-0">
+								<EngineEval fen={displayFen} />
+							</div>
+						{/if}
 					</div>
-				{/if}
+				</div>
 
 				<div class="p-4 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
 					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">Moves played</p>

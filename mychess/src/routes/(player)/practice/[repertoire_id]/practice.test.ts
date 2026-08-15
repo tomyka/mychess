@@ -1,13 +1,23 @@
 // @vitest-environment jsdom
 // mychess/src/routes/(player)/practice/[repertoire_id]/practice.test.ts
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
 import Practice from './+page.svelte';
+import { enginePrefStore } from '$lib/enginePref.svelte';
+
+beforeEach(() => {
+	// enginePrefStore is a module-level singleton shared across every test
+	// in this file (and every other file importing it in the same
+	// process) — reset it explicitly rather than relying on it starting
+	// fresh.
+	enginePrefStore.enabled = false;
+});
 
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
 	vi.useRealTimers();
+	document.cookie = 'engine_enabled=; path=/; max-age=0';
 });
 
 const AUTO_PLAY_ATTEMPT = {
@@ -334,5 +344,41 @@ describe('practice detail page', () => {
 		// catches that and marks itself failed — this just confirms the page
 		// (and EngineEval within it) doesn't throw and renders the board.
 		expect(screen.getAllByText('French Defense').length).toBe(2);
+	});
+
+	it('hides the engine eval until its toggle is switched on', async () => {
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 3,
+					total: 5,
+					allSolved: false,
+					attempt: {
+						variationKey: 'v1',
+						path: [
+							{
+								moveId: 'm1',
+								san: 'e4',
+								fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+								toFen: 'rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/8/RNBQKBNR w KQkq - 0 1',
+								isPlayerTurn: true
+							}
+						]
+					}
+				}
+			}
+		});
+
+		// Off by default — no "Eval" label (EngineEval's own content) rendered anywhere yet.
+		expect(screen.getAllByText('🔧 Engine: Off').length).toBe(2);
+		expect(screen.queryByText('Eval')).toBeNull();
+
+		const [toggle] = screen.getAllByText('🔧 Engine: Off');
+		await fireEvent.click(toggle);
+
+		// Both instances (mobile card + desktop panel) share the same store, so both flip together.
+		expect(screen.getAllByText('🔧 Engine: On').length).toBe(2);
+		expect(screen.getAllByText('Eval').length).toBe(2);
 	});
 });

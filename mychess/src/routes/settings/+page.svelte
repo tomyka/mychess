@@ -3,7 +3,6 @@
   import PlatformRatingsCard from '$lib/components/PlatformRatingsCard.svelte';
   import { setTheme, themeStore } from '$lib/theme.svelte';
   import type { Theme } from '$lib/theme';
-  import { setEnginePref, enginePrefStore } from '$lib/enginePref.svelte';
   import ChessBoard from '$lib/components/ChessBoard.svelte';
   import {
     BOARD_THEMES,
@@ -99,21 +98,6 @@
           </button>
         {/each}
       </div>
-    </section>
-
-    <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
-      <h2 class="font-semibold text-(--color-text) mb-4">Engine</h2>
-      <label class="flex items-center gap-2 text-sm text-(--color-text)">
-        <input
-          type="checkbox"
-          checked={enginePrefStore.enabled}
-          onchange={(e) => setEnginePref(e.currentTarget.checked)}
-        />
-        Show engine evaluation during practice
-      </label>
-      <p class="text-xs text-(--color-muted) mt-2">
-        Downloads a ~7MB chess engine to your browser the first time it's used. Off by default.
-      </p>
     </section>
 
     <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
