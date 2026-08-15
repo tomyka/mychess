@@ -59,40 +59,40 @@
   <title>Settings — MyChess</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gray-50">
+<div class="min-h-screen bg-(--color-bg)">
   <div class="max-w-2xl mx-auto px-4 py-6 space-y-5">
-    <h1 class="text-2xl font-bold text-gray-900">Settings</h1>
+    <h1 class="text-2xl font-bold text-(--color-text)">Settings</h1>
 
     {#if form?.success}
-      <p class="text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-sm">
+      <p class="text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-sm dark:bg-green-950 dark:border-green-800 dark:text-green-400">
         Saved successfully.
       </p>
     {/if}
     {#if form?.error}
-      <p class="text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-sm">
+      <p class="text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-sm dark:bg-red-950 dark:border-red-800 dark:text-red-400">
         {form.error}
       </p>
     {/if}
     {#if d.oauthSuccess}
-      <p class="text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-sm">
+      <p class="text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-sm dark:bg-green-950 dark:border-green-800 dark:text-green-400">
         {d.oauthSuccess}
       </p>
     {/if}
     {#if d.oauthError}
-      <p class="text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-sm">
+      <p class="text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-2 text-sm dark:bg-red-950 dark:border-red-800 dark:text-red-400">
         {d.oauthError}
       </p>
     {/if}
 
-    <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      <h2 class="font-semibold text-gray-900 mb-4">Appearance</h2>
+    <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
+      <h2 class="font-semibold text-(--color-text) mb-4">Appearance</h2>
       <div class="flex gap-3">
         {#each [{ id: 'dark', label: 'Dark' }, { id: 'light', label: 'Light' }, { id: 'system', label: 'System' }] as const as t (t.id)}
           <button
             type="button"
             onclick={() => setTheme(t.id as Theme)}
             class="flex-1 py-2.5 px-2 rounded-xl font-semibold transition-all border-2 text-sm
-                   {themeStore.current === t.id ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}"
+                   {themeStore.current === t.id ? 'border-(--color-accent) bg-indigo-50 dark:bg-indigo-950 text-indigo-700' : 'border-(--color-border) text-(--color-muted) hover:border-gray-300'}"
           >
             {t.label}
           </button>
@@ -100,44 +100,44 @@
       </div>
     </section>
 
-    <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      <h2 class="font-semibold text-gray-900 mb-4">Profile</h2>
+    <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
+      <h2 class="font-semibold text-(--color-text) mb-4">Profile</h2>
       <form method="POST" action="?/save" use:enhance={saveEnhance} class="space-y-4">
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1" for="first_name">First Name</label>
+            <label class="block text-sm font-medium text-(--color-text) mb-1" for="first_name">First Name</label>
             <input
               id="first_name"
               name="first_name"
               type="text"
               value={d.firstName}
               placeholder="e.g. Magnus"
-              class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              class="w-full bg-(--color-surface) border border-(--color-border) rounded-lg px-4 py-2 text-(--color-text) placeholder-(--color-muted) focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1" for="last_name">Last Name</label>
+            <label class="block text-sm font-medium text-(--color-text) mb-1" for="last_name">Last Name</label>
             <input
               id="last_name"
               name="last_name"
               type="text"
               value={d.lastName}
               placeholder="e.g. Carlsen"
-              class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              class="w-full bg-(--color-surface) border border-(--color-border) rounded-lg px-4 py-2 text-(--color-text) placeholder-(--color-muted) focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
         </div>
 
         <div>
-          <span class="block text-sm font-medium text-gray-700 mb-1">I am a</span>
+          <span class="block text-sm font-medium text-(--color-text) mb-1">I am a</span>
           <div class="flex gap-3">
             {#each [{ id: 'player', label: 'Player' }, { id: 'coach', label: 'Coach' }] as const as r (r.id)}
               <button
                 type="button"
                 onclick={() => (role = r.id)}
                 class="flex-1 py-2.5 px-2 rounded-xl font-semibold transition-all border-2 text-sm
-                       {role === r.id ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}"
+                       {role === r.id ? 'border-(--color-accent) bg-indigo-50 dark:bg-indigo-950 text-indigo-700' : 'border-(--color-border) text-(--color-muted) hover:border-gray-300'}"
               >
                 {r.label}
               </button>
@@ -147,45 +147,45 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1" for="fide_id">FIDE ID</label>
+          <label class="block text-sm font-medium text-(--color-text) mb-1" for="fide_id">FIDE ID</label>
           <input
             id="fide_id"
             name="fide_id"
             type="text"
             value={d.fideId}
             placeholder="e.g. 1503014"
-            class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            class="w-full bg-(--color-surface) border border-(--color-border) rounded-lg px-4 py-2 text-(--color-text) placeholder-(--color-muted) focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
-          <p class="text-xs text-gray-400 mt-1">
+          <p class="text-xs text-(--color-muted) mt-1">
             Your FIDE ID number (find it at ratings.fide.com). First and last name must match your FIDE profile.
           </p>
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1" for="chesscom_username">Chess.com Username</label>
+          <label class="block text-sm font-medium text-(--color-text) mb-1" for="chesscom_username">Chess.com Username</label>
           <input
             id="chesscom_username"
             name="chesscom_username"
             type="text"
             value={d.chesscomUsername}
             placeholder="e.g. MagnusCarlsen"
-            class="w-full bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            class="w-full bg-(--color-surface) border border-(--color-border) rounded-lg px-4 py-2 text-(--color-text) placeholder-(--color-muted) focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
-          <p class="text-xs text-gray-400 mt-1">
+          <p class="text-xs text-(--color-muted) mt-1">
             Your Chess.com username. We'll verify it exists. Leave blank to disconnect.
           </p>
         </div>
 
         <button
           type="submit"
-          class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
+          class="bg-(--color-accent) text-white px-5 py-2.5 rounded-lg font-medium hover:bg-(--color-accent-hover) transition-colors">
           Save
         </button>
       </form>
     </section>
 
-    <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      <h2 class="font-semibold text-gray-900 mb-4">Board</h2>
+    <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
+      <h2 class="font-semibold text-(--color-text) mb-4">Board</h2>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 items-start">
         <div class="max-w-[260px] w-full">
@@ -199,7 +199,7 @@
 
         <form method="POST" action="?/save_board_prefs" use:enhance={boardEnhance} class="space-y-4">
           <div>
-            <span class="block text-xs uppercase tracking-wide text-gray-500 mb-2">Theme</span>
+            <span class="block text-xs uppercase tracking-wide text-(--color-muted) mb-2">Theme</span>
             <div class="flex flex-wrap gap-2">
               {#each BOARD_THEMES as t (t.id)}
                 <button
@@ -216,13 +216,13 @@
           </div>
 
           <div>
-            <span class="block text-xs uppercase tracking-wide text-gray-500 mb-2">Piece set</span>
+            <span class="block text-xs uppercase tracking-wide text-(--color-muted) mb-2">Piece set</span>
             <div class="flex flex-wrap gap-2">
               {#each PIECE_SETS as p (p.id)}
                 <button
                   type="button"
                   onclick={() => (boardPrefs.pieceSet = p.id)}
-                  class="px-3 py-1.5 rounded-md text-sm border {boardPrefs.pieceSet === p.id ? 'bg-blue-500 text-white border-blue-500' : 'border-gray-300 text-gray-700'}"
+                  class="px-3 py-1.5 rounded-md text-sm border {boardPrefs.pieceSet === p.id ? 'bg-blue-500 text-white border-blue-500' : 'border-(--color-border) text-(--color-text)'}"
                 >{p.label}</button>
               {/each}
             </div>
@@ -230,26 +230,26 @@
           </div>
 
           <div>
-            <span class="block text-xs uppercase tracking-wide text-gray-500 mb-2">Animation</span>
+            <span class="block text-xs uppercase tracking-wide text-(--color-muted) mb-2">Animation</span>
             <div class="flex flex-wrap gap-2">
               {#each ANIMATION_SPEEDS as a (a.id)}
                 <button
                   type="button"
                   onclick={() => (boardPrefs.animation = a.id)}
-                  class="px-3 py-1.5 rounded-md text-sm border {boardPrefs.animation === a.id ? 'bg-blue-500 text-white border-blue-500' : 'border-gray-300 text-gray-700'}"
+                  class="px-3 py-1.5 rounded-md text-sm border {boardPrefs.animation === a.id ? 'bg-blue-500 text-white border-blue-500' : 'border-(--color-border) text-(--color-text)'}"
                 >{a.label}</button>
               {/each}
             </div>
             <input type="hidden" name="animation" value={boardPrefs.animation} />
           </div>
 
-          <label class="flex items-center gap-2 text-sm text-gray-700">
+          <label class="flex items-center gap-2 text-sm text-(--color-text)">
             <input type="checkbox" bind:checked={boardPrefs.coordinates} />
             Show coordinates
           </label>
           <input type="hidden" name="coordinates" value={boardPrefs.coordinates} />
 
-          <label class="flex items-center gap-2 text-sm text-gray-700">
+          <label class="flex items-center gap-2 text-sm text-(--color-text)">
             <input type="checkbox" bind:checked={boardPrefs.highlight} />
             Highlight last move
           </label>
@@ -260,38 +260,38 @@
             <button
               type="button"
               onclick={() => (boardPrefs = { ...DEFAULT_PREFS })}
-              class="px-4 py-2 rounded-md border border-gray-300 text-gray-700 text-sm"
+              class="px-4 py-2 rounded-md border border-(--color-border) text-(--color-text) text-sm"
             >Reset to default</button>
           </div>
         </form>
       </div>
     </section>
 
-    <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      <h2 class="font-semibold text-gray-900 mb-4">Connected accounts</h2>
+    <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
+      <h2 class="font-semibold text-(--color-text) mb-4">Connected accounts</h2>
       <div class="space-y-4">
 
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm font-medium text-gray-700">Lichess</p>
+            <p class="text-sm font-medium text-(--color-text)">Lichess</p>
             {#if d.lichessUsername}
-              <p class="text-sm text-gray-500">Connected as <span class="font-mono">{d.lichessUsername}</span></p>
+              <p class="text-sm text-(--color-muted)">Connected as <span class="font-mono">{d.lichessUsername}</span></p>
             {:else}
-              <p class="text-sm text-gray-400">Not connected</p>
+              <p class="text-sm text-(--color-muted)">Not connected</p>
             {/if}
           </div>
           {#if d.lichessUsername}
             <form method="POST" action="?/disconnect_lichess" use:enhance>
               <button
                 type="submit"
-                class="text-sm border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+                class="text-sm border border-(--color-border) text-(--color-text) px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
                 Disconnect
               </button>
             </form>
           {:else}
             <a
               href="/auth/connect/lichess"
-              class="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
+              class="text-sm bg-(--color-accent) text-white px-3 py-1.5 rounded-lg font-medium hover:bg-(--color-accent-hover) transition-colors">
               Connect
             </a>
           {/if}
@@ -302,14 +302,14 @@
       </div>
     </section>
 
-    <section class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      <h2 class="font-semibold text-gray-900 mb-4">Import games</h2>
-      <p class="text-sm text-gray-500 mb-4">
+    <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
+      <h2 class="font-semibold text-(--color-text) mb-4">Import games</h2>
+      <p class="text-sm text-(--color-muted) mb-4">
         Import your recent games as a new repertoire. Connect your platform accounts above first.
       </p>
 
       {#if importResult}
-        <p class="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 mb-4">
+        <p class="text-sm text-(--color-text) bg-(--color-bg) border border-(--color-border) rounded-lg px-4 py-2 mb-4">
           {importResult}
         </p>
       {/if}
@@ -318,13 +318,13 @@
         <button
           onclick={() => importGames('chesscom')}
           disabled={importing !== null || !d.chesscomUsername}
-          class="flex-1 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm">
+          class="flex-1 border border-(--color-border) text-(--color-text) px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm">
           {importing === 'chesscom' ? 'Importing…' : 'Import from Chess.com'}
         </button>
         <button
           onclick={() => importGames('lichess')}
           disabled={importing !== null || !d.lichessUsername}
-          class="flex-1 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm">
+          class="flex-1 border border-(--color-border) text-(--color-text) px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm">
           {importing === 'lichess' ? 'Importing…' : 'Import from Lichess'}
         </button>
       </div>

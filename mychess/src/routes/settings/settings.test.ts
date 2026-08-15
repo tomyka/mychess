@@ -22,7 +22,7 @@ afterEach(() => {
 describe('Settings appearance toggle', () => {
 	it('shows Dark as selected by default', () => {
 		const { getByText } = render(Settings, { props: { data: {}, form: null } });
-		expect(getByText('Dark').className).toContain('border-indigo-600');
+		expect(getByText('Dark').className).toContain('border-(--color-accent)');
 	});
 
 	it('switching to Light removes the dark class and persists the cookie', async () => {
