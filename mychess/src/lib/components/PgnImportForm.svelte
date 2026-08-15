@@ -128,18 +128,18 @@
 </script>
 
 {#if errorMessage}
-	<p class="text-red-600 mb-4 bg-red-50 border border-red-200 px-4 py-2 rounded-xl text-sm">{errorMessage}</p>
+	<p class="text-red-600 mb-4 bg-red-50 border border-red-200 dark:bg-red-950 dark:border-red-800 dark:text-red-400 px-4 py-2 rounded-xl text-sm">{errorMessage}</p>
 {/if}
 
-<form onsubmit={handleSubmit} class="bg-white border border-gray-200 rounded-xl shadow-sm p-5 space-y-4">
+<form onsubmit={handleSubmit} class="bg-(--color-surface) border border-(--color-border) rounded-xl shadow-sm p-5 space-y-4">
 	<div>
-		<label class="block text-sm font-medium text-gray-700 mb-1" for="name">Repertoire Name</label>
+		<label class="block text-sm font-medium text-(--color-text) mb-1" for="name">Repertoire Name</label>
 		<input id="name" name="name" required placeholder="e.g. Sicilian Defense" bind:value={name} disabled={importing}
-		       class="w-full rounded-lg px-4 py-2.5 border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60" />
+		       class="w-full rounded-lg px-4 py-2.5 border border-(--color-border) text-(--color-text) placeholder-(--color-muted) focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60" />
 	</div>
 
 	<div>
-		<span class="block text-sm font-medium text-gray-700 mb-1">Color</span>
+		<span class="block text-sm font-medium text-(--color-text) mb-1">Color</span>
 		<div class="flex gap-3">
 			{#each [{ id: 'white', label: 'White' }, { id: 'black', label: 'Black' }] as const as c (c.id)}
 				<button
@@ -147,7 +147,7 @@
 					disabled={importing}
 					onclick={() => (color = c.id)}
 					class="flex-1 py-2.5 px-2 rounded-xl font-semibold transition-all border-2 text-sm disabled:opacity-60
-					       {color === c.id ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}"
+					       {color === c.id ? 'border-(--color-accent) bg-indigo-50 dark:bg-indigo-950 text-indigo-700' : 'border-(--color-border) text-(--color-muted) hover:border-gray-300'}"
 				>
 					{c.label}
 				</button>
@@ -156,38 +156,38 @@
 	</div>
 
 	<div>
-		<label class="block text-sm font-medium text-gray-700 mb-1" for="pgn_text">Paste PGN text</label>
+		<label class="block text-sm font-medium text-(--color-text) mb-1" for="pgn_text">Paste PGN text</label>
 		<textarea id="pgn_text" name="pgn_text" rows="8" bind:value={pgnText} disabled={importing}
 		           placeholder="[Event &quot;Example&quot;]&#10;&#10;1. e4 e5 *"
-		           class="w-full rounded-lg px-4 py-2.5 border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm resize-none disabled:opacity-60"
+		           class="w-full rounded-lg px-4 py-2.5 border border-(--color-border) text-(--color-text) placeholder-(--color-muted) focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm resize-none disabled:opacity-60"
 		></textarea>
 	</div>
 
 	<div>
-		<label class="block text-sm font-medium text-gray-700 mb-1" for="pgn_file">…or upload a .pgn file</label>
+		<label class="block text-sm font-medium text-(--color-text) mb-1" for="pgn_file">…or upload a .pgn file</label>
 		<div class="flex items-center gap-3">
 			<label for="pgn_file"
-			       class="cursor-pointer inline-block bg-gray-100 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors">
+			       class="cursor-pointer inline-block bg-gray-100 border border-(--color-border) text-(--color-text) px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors">
 				Choose File
 			</label>
 			<input id="pgn_file" type="file" accept=".pgn" onchange={onFileChange} disabled={importing} class="hidden" />
 			{#if fileName}
-				<span class="text-sm text-gray-500 truncate">{fileName}</span>
+				<span class="text-sm text-(--color-muted) truncate">{fileName}</span>
 			{/if}
 		</div>
 		{#if fileError}
-			<p class="text-red-600 text-sm mt-1">{fileError}</p>
+			<p class="text-red-600 dark:text-red-400 text-sm mt-1">{fileError}</p>
 		{/if}
 	</div>
 
 	{#if chapters.length > 0}
 		<div class="space-y-2">
-			<div class="flex justify-between text-sm text-gray-500">
+			<div class="flex justify-between text-sm text-(--color-muted)">
 				<span>{importing ? 'Importing…' : 'Import finished'}</span>
 				<span>{doneCount} / {chapters.length}</span>
 			</div>
 			<div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-				<div class="bg-indigo-600 h-2 transition-all duration-300"
+				<div class="bg-(--color-accent) h-2 transition-all duration-300"
 				     style="width: {(doneCount / chapters.length) * 100}%"></div>
 			</div>
 			{#if chapters.length > 1}
@@ -197,7 +197,7 @@
 							<span class="w-4 text-center shrink-0">
 								{#if chapter.status === 'done'}✓{:else if chapter.status === 'importing'}⚙{:else if chapter.status === 'error'}✗{:else}·{/if}
 							</span>
-							<span class="truncate {chapter.status === 'error' ? 'text-red-600' : 'text-gray-700'}">{chapter.name}</span>
+							<span class="truncate {chapter.status === 'error' ? 'text-red-600 dark:text-red-400' : 'text-(--color-text)'}">{chapter.name}</span>
 						</li>
 					{/each}
 				</ul>
@@ -206,7 +206,7 @@
 	{/if}
 
 	<button type="submit" disabled={importing}
-	        class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold text-base hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+	        class="w-full bg-(--color-accent) text-white py-3 rounded-xl font-bold text-base hover:bg-(--color-accent-hover) transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
 		{importing ? 'Importing…' : submitLabel}
 	</button>
 </form>

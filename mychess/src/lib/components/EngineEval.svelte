@@ -137,11 +137,11 @@
 </script>
 
 <div class="flex items-center gap-2">
-	<span class="text-xs font-semibold uppercase tracking-wide text-gray-400 shrink-0">Eval</span>
+	<span class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) shrink-0">Eval</span>
 	{#if failed}
-		<span class="text-sm text-gray-400 italic">unavailable</span>
+		<span class="text-sm text-(--color-muted) italic">unavailable</span>
 	{:else}
-		<span class="text-base font-bold text-gray-900 tabular-nums shrink-0">{displayText}</span>
+		<span class="text-base font-bold text-(--color-text) tabular-nums shrink-0">{displayText}</span>
 		{#if whiteFraction !== null}
 			<div class="flex-1 h-1.5 rounded-full bg-gray-800 overflow-hidden" aria-hidden="true">
 				<div class="h-full bg-white" style={`width: ${whiteFraction * 100}%`}></div>

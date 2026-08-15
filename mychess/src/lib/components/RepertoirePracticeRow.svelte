@@ -312,7 +312,7 @@
 	}
 </script>
 
-<li class="bg-white rounded-xl border border-gray-200 shadow-sm">
+<li class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm">
 	<div class="flex items-center gap-3 p-4">
 		{#if rep.fullVariationCount > 0}
 			<label class="flex items-center shrink-0">
@@ -328,7 +328,7 @@
 				type="button"
 				onclick={toggleExpanded}
 				aria-label={expanded ? `Collapse ${rep.name}` : `Expand ${rep.name}`}
-				class="text-gray-400 shrink-0 w-4"
+				class="text-(--color-muted) shrink-0 w-4"
 			>
 				{expanded ? '▾' : '▸'}
 			</button>
@@ -337,8 +337,8 @@
 			<span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color === 'black' ? '#1f2937' : '#e5e7eb'}"
 			></span>
 			<div class="flex-1 min-w-0">
-				<h2 class="font-medium text-gray-900 truncate">{rep.name}</h2>
-				<p class="text-sm text-gray-400">
+				<h2 class="font-medium text-(--color-text) truncate">{rep.name}</h2>
+				<p class="text-sm text-(--color-muted)">
 					{#if liveTotal === 0}
 						No moves yet
 					{:else if liveAllSolved}
@@ -348,18 +348,18 @@
 					{/if}
 				</p>
 			</div>
-			<span class="text-gray-400 text-sm">→</span>
+			<span class="text-(--color-muted) text-sm">→</span>
 		</a>
 	</div>
 
 	{#if errorMessage}
-		<p class="px-4 pb-2 text-xs text-red-600">{errorMessage}</p>
+		<p class="px-4 pb-2 text-xs text-red-600 dark:text-red-400">{errorMessage}</p>
 	{/if}
 
 	{#if expanded}
 		<ul class="pl-14 pr-4 pb-3 space-y-1">
 			{#if loadingVariations}
-				<li class="text-sm text-gray-400">Loading variations…</li>
+				<li class="text-sm text-(--color-muted)">Loading variations…</li>
 			{:else if chapters === null}
 				{#each moveGroups(null) as group (moveGroupKey(null, group))}
 					<li>
@@ -377,20 +377,20 @@
 								type="button"
 								onclick={() => toggleMoveGroupOpen(moveGroupKey(null, group))}
 								aria-label={`${openMoveGroups.has(moveGroupKey(null, group)) ? 'Collapse' : 'Expand'} ${groupLabel(group)} in ${moveGroupQualifier(null)}`}
-								class="text-gray-400 shrink-0 w-4"
+								class="text-(--color-muted) shrink-0 w-4"
 							>
 								{openMoveGroups.has(moveGroupKey(null, group)) ? '▾' : '▸'}
 							</button>
-							<span class="text-sm font-medium text-gray-600">
+							<span class="text-sm font-medium text-(--color-muted)">
 								{groupLabel(group)}
-								<span class="text-gray-400 font-normal">· {group.items.length} {group.items.length === 1 ? 'line' : 'lines'}</span>
+								<span class="text-(--color-muted) font-normal">· {group.items.length} {group.items.length === 1 ? 'line' : 'lines'}</span>
 							</span>
 						</div>
 						{#if openMoveGroups.has(moveGroupKey(null, group))}
 							<ul class="pl-6 mt-1 space-y-1">
 								{#each group.items as variation (variation.variationKey)}
 									<li>
-										<label class="flex items-center gap-2 text-sm text-gray-700">
+										<label class="flex items-center gap-2 text-sm text-(--color-text)">
 											<input
 												type="checkbox"
 												checked={variation.included}
@@ -421,13 +421,13 @@
 								type="button"
 								onclick={() => toggleChapterOpen(chapterName)}
 								aria-label={`${openChapters.has(chapterName) ? 'Collapse' : 'Expand'} ${chapterName} chapter`}
-								class="text-gray-400 shrink-0 w-4"
+								class="text-(--color-muted) shrink-0 w-4"
 							>
 								{openChapters.has(chapterName) ? '▾' : '▸'}
 							</button>
-							<span class="text-sm font-medium text-gray-600">
+							<span class="text-sm font-medium text-(--color-muted)">
 								{chapterName} (chapter)
-								<span class="text-gray-400 font-normal">
+								<span class="text-(--color-muted) font-normal">
 									· {rowsForChapter(chapterName).length} {rowsForChapter(chapterName).length === 1 ? 'line' : 'lines'}
 								</span>
 							</span>
@@ -450,20 +450,20 @@
 												type="button"
 												onclick={() => toggleMoveGroupOpen(moveGroupKey(chapterName, group))}
 												aria-label={`${openMoveGroups.has(moveGroupKey(chapterName, group)) ? 'Collapse' : 'Expand'} ${groupLabel(group)} in ${moveGroupQualifier(chapterName)}`}
-												class="text-gray-400 shrink-0 w-4"
+												class="text-(--color-muted) shrink-0 w-4"
 											>
 												{openMoveGroups.has(moveGroupKey(chapterName, group)) ? '▾' : '▸'}
 											</button>
-											<span class="text-sm font-medium text-gray-600">
+											<span class="text-sm font-medium text-(--color-muted)">
 												{groupLabel(group)}
-												<span class="text-gray-400 font-normal">· {group.items.length} {group.items.length === 1 ? 'line' : 'lines'}</span>
+												<span class="text-(--color-muted) font-normal">· {group.items.length} {group.items.length === 1 ? 'line' : 'lines'}</span>
 											</span>
 										</div>
 										{#if openMoveGroups.has(moveGroupKey(chapterName, group))}
 											<ul class="pl-6 mt-1 space-y-1">
 												{#each group.items as variation (variation.variationKey)}
 													<li>
-														<label class="flex items-center gap-2 text-sm text-gray-700">
+														<label class="flex items-center gap-2 text-sm text-(--color-text)">
 															<input
 																type="checkbox"
 																checked={variation.included}

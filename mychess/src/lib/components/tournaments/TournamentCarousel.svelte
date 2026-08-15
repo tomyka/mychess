@@ -52,15 +52,15 @@
     {#each tournaments as t (t.id)}
       <a
         href="/tournaments/{t.id}"
-        class="snap-start shrink-0 w-[calc(33.333%-8px)] min-w-[160px] flex flex-col rounded-xl border border-gray-200 bg-white p-3 hover:shadow-md hover:border-indigo-200 transition-all"
+        class="snap-start shrink-0 w-[calc(33.333%-8px)] min-w-[160px] flex flex-col rounded-xl border border-(--color-border) bg-(--color-surface) p-3 hover:shadow-md hover:border-indigo-200 transition-all"
       >
         <div class="flex items-center gap-1.5 mb-2">
           <span class="w-1.5 h-1.5 rounded-full shrink-0 {statusDot[t.status] ?? statusDot.NOT_STARTED}"></span>
-          <span class="text-xs text-gray-400 truncate">{statusLabel[t.status] ?? t.status}</span>
+          <span class="text-xs text-(--color-muted) truncate">{statusLabel[t.status] ?? t.status}</span>
         </div>
-        <p class="font-semibold text-gray-900 text-xs leading-snug line-clamp-2 flex-1 mb-2">{t.name}</p>
-        <div class="space-y-0.5 text-xs text-gray-500">
-          <p class="font-medium text-gray-700 tabular-nums">{formatDate(t.start_date)}</p>
+        <p class="font-semibold text-(--color-text) text-xs leading-snug line-clamp-2 flex-1 mb-2">{t.name}</p>
+        <div class="space-y-0.5 text-xs text-(--color-muted)">
+          <p class="font-medium text-(--color-text) tabular-nums">{formatDate(t.start_date)}</p>
           {#if t.city}
             <p class="truncate">{t.city}</p>
           {/if}
@@ -81,7 +81,7 @@
       <button
         onclick={() => goToPage(currentPage - 1)}
         disabled={currentPage === 0}
-        class="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm"
+        class="p-1.5 rounded-lg border border-(--color-border) text-(--color-muted) hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm"
         aria-label="Previous"
       >←</button>
 
@@ -89,7 +89,7 @@
         {#each { length: totalPages } as _, i (i)}
           <button
             onclick={() => goToPage(i)}
-            class="rounded-full transition-all {i === currentPage ? 'w-4 h-1.5 bg-indigo-600' : 'w-1.5 h-1.5 bg-gray-300'}"
+            class="rounded-full transition-all {i === currentPage ? 'w-4 h-1.5 bg-(--color-accent)' : 'w-1.5 h-1.5 bg-gray-300'}"
             aria-label="Page {i + 1}"
           ></button>
         {/each}
@@ -98,7 +98,7 @@
       <button
         onclick={() => goToPage(currentPage + 1)}
         disabled={currentPage === totalPages - 1}
-        class="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm"
+        class="p-1.5 rounded-lg border border-(--color-border) text-(--color-muted) hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm"
         aria-label="Next"
       >→</button>
     </div>

@@ -74,45 +74,45 @@
 </script>
 
 <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-	<div class="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto p-4">
+	<div class="bg-(--color-surface) rounded-2xl shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto p-4">
 		<div class="flex items-center justify-between mb-3">
-			<h2 class="font-bold text-gray-900">Choose a variation</h2>
-			<button aria-label="Close" onclick={onclose} class="text-gray-400 hover:text-gray-600">✕</button>
+			<h2 class="font-bold text-(--color-text)">Choose a variation</h2>
+			<button aria-label="Close" onclick={onclose} class="text-(--color-muted) hover:text-gray-600">✕</button>
 		</div>
 
 		{#if variations === null}
 			{#if errorMessage}
-				<p class="text-sm text-red-600">{errorMessage}</p>
+				<p class="text-sm text-red-600 dark:text-red-400">{errorMessage}</p>
 			{:else}
-				<p class="text-sm text-gray-400">Loading…</p>
+				<p class="text-sm text-(--color-muted)">Loading…</p>
 			{/if}
 		{:else if openGroup}
-			<button onclick={() => (openGroupIndex = null)} class="text-indigo-600 text-sm mb-2 hover:underline">← Back</button>
+			<button onclick={() => (openGroupIndex = null)} class="text-(--color-accent) text-sm mb-2 hover:underline">← Back</button>
 			<ul class="space-y-1">
 				{#each openGroup.items as row (row.variationKey)}
 					<li>
 						<button
 							onclick={() => onselect(row.variationKey)}
-							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-gray-700 flex items-center justify-between"
+							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-(--color-text) flex items-center justify-between"
 						>
 							<span>{row.label}</span>
-							{#if row.solved}<span class="text-green-600 text-sm">✓</span>{/if}
+							{#if row.solved}<span class="text-green-600 dark:text-green-400 text-sm">✓</span>{/if}
 						</button>
 					</li>
 				{/each}
 			</ul>
 		{:else if activeChapter !== null || chapters === null}
 			{#if chapters !== null}
-				<button onclick={() => (openChapter = null)} class="text-indigo-600 text-sm mb-2 hover:underline">← Back</button>
+				<button onclick={() => (openChapter = null)} class="text-(--color-accent) text-sm mb-2 hover:underline">← Back</button>
 			{/if}
 			<ul class="space-y-1">
 				{#each currentGroups as group, i (group.steps.map((s) => s.san).join('>') || `other-${i}`)}
 					<li>
 						<button
 							onclick={() => (openGroupIndex = i)}
-							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 font-medium text-gray-800"
+							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 font-medium text-(--color-text)"
 						>
-							{groupLabel(group)} <span class="text-gray-400 text-sm">({group.items.length})</span>
+							{groupLabel(group)} <span class="text-(--color-muted) text-sm">({group.items.length})</span>
 						</button>
 					</li>
 				{/each}
@@ -123,7 +123,7 @@
 					<li>
 						<button
 							onclick={() => (openChapter = chapterName)}
-							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 font-medium text-gray-800"
+							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 font-medium text-(--color-text)"
 						>
 							{chapterName}
 						</button>

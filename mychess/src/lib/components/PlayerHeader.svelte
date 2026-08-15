@@ -25,19 +25,19 @@
   }
 </script>
 
-<div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex items-center gap-4">
+<div class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5 flex items-center gap-4">
   <!-- Avatar circle -->
-  <div class="w-14 h-14 rounded-full bg-indigo-100 text-indigo-700 font-bold text-xl flex items-center justify-center shrink-0">
+  <div class="w-14 h-14 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 font-bold text-xl flex items-center justify-center shrink-0">
     {initials}
   </div>
 
   <!-- Identity -->
   <div class="flex-1 min-w-0">
-    <h1 class="text-xl font-bold text-gray-900 truncate">{p?.display_name ?? 'Player'}</h1>
+    <h1 class="text-xl font-bold text-(--color-text) truncate">{p?.display_name ?? 'Player'}</h1>
     {#if p?.fide_id}
-      <p class="text-sm text-gray-500">FIDE ID: {p.fide_id}</p>
+      <p class="text-sm text-(--color-muted)">FIDE ID: {p.fide_id}</p>
     {:else}
-      <a href="/settings" class="text-xs text-indigo-600 hover:underline">Link FIDE account →</a>
+      <a href="/settings" class="text-xs text-(--color-accent) hover:underline">Link FIDE account →</a>
     {/if}
   </div>
 
@@ -46,8 +46,8 @@
     <div class="flex gap-2 shrink-0">
       {#each TILES as tile (tile.key)}
         {@const entry = tileFor(tile.key)}
-        <div class="w-[92px] text-center bg-gray-50 border border-gray-100 rounded-lg px-1 py-2">
-          <div class="flex items-center justify-center gap-1 text-gray-400">
+        <div class="w-[92px] text-center bg-(--color-bg) border border-gray-100 rounded-lg px-1 py-2">
+          <div class="flex items-center justify-center gap-1 text-(--color-muted)">
             {#if tile.key === 'standard'}
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" />
@@ -63,15 +63,15 @@
             {/if}
             <span class="text-[9px] uppercase tracking-wide">{tile.label}</span>
           </div>
-          <p class="text-lg font-bold text-gray-900 mt-0.5">{entry.rating ?? '–'}</p>
-          <div class="flex mt-1 border-t border-gray-200 pt-1">
-            <div class="flex-1 border-r border-gray-200">
-              <p class="text-[11px] font-semibold text-gray-700">{entry.countryRank != null ? `#${entry.countryRank}` : 'N/A'}</p>
-              <p class="text-[8px] text-gray-400">LTU</p>
+          <p class="text-lg font-bold text-(--color-text) mt-0.5">{entry.rating ?? '–'}</p>
+          <div class="flex mt-1 border-t border-(--color-border) pt-1">
+            <div class="flex-1 border-r border-(--color-border)">
+              <p class="text-[11px] font-semibold text-(--color-text)">{entry.countryRank != null ? `#${entry.countryRank}` : 'N/A'}</p>
+              <p class="text-[8px] text-(--color-muted)">LTU</p>
             </div>
             <div class="flex-1">
-              <p class="text-[11px] font-semibold text-gray-700">{entry.ageGroupRank != null ? `#${entry.ageGroupRank}` : 'N/A'}</p>
-              <p class="text-[8px] text-gray-400">AGE</p>
+              <p class="text-[11px] font-semibold text-(--color-text)">{entry.ageGroupRank != null ? `#${entry.ageGroupRank}` : 'N/A'}</p>
+              <p class="text-[8px] text-(--color-muted)">AGE</p>
             </div>
           </div>
         </div>
