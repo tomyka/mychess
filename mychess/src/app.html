@@ -1,6 +1,24 @@
 <!doctype html>
 <html lang="en">
 	<head>
+		<script>
+			// Sets the dark class before anything else loads or paints, so there's
+			// no flash of the wrong theme — mirrors src/lib/theme.ts's
+			// parseThemeCookie/resolveTheme exactly (can't import a module into a
+			// blocking inline script, so this is a deliberate, minimal hand-copy;
+			// diff it against that file if either ever changes).
+			(function () {
+				var m = document.cookie.match(/(?:^|;\s*)theme=([^;]*)/);
+				var theme = m && (m[1] === 'light' || m[1] === 'dark' || m[1] === 'system') ? m[1] : 'dark';
+				var resolved =
+					theme === 'system'
+						? window.matchMedia('(prefers-color-scheme: light)').matches
+							? 'light'
+							: 'dark'
+						: theme;
+				if (resolved === 'dark') document.documentElement.classList.add('dark');
+			})();
+		</script>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
