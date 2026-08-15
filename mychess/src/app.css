@@ -24,9 +24,18 @@
 .dark {
   --color-accent: #818cf8;
   --color-accent-hover: #a5b4fc;
-  --color-bg: #0a0e14;
-  --color-surface: #161b26;
-  --color-border: #2a3040;
-  --color-text: #e8eaed;
-  --color-muted: #8b93a3;
+  --color-bg: #18181b;
+  --color-surface: #27272a;
+  --color-border: #3f3f46;
+  --color-text: #e4e4e7;
+  --color-muted: #a1a1aa;
+}
+
+/* Pages that cap their content width (e.g. `max-w-5xl mx-auto`) leave the
+   surrounding gutters unstyled otherwise — html/body have no background of
+   their own, so those gutters fall back to the browser default white,
+   visible as a light strip either side of a dark, width-capped page. */
+html,
+body {
+  background-color: var(--color-bg);
 }
