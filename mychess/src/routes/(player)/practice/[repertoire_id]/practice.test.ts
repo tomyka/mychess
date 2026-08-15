@@ -317,7 +317,7 @@ describe('practice detail page', () => {
 		expect(document.querySelector('main')?.getAttribute('data-phase')).toBe('playing');
 	});
 
-	it('renders without crashing when the engine is unavailable (jsdom has no Worker)', () => {
+	it('renders without crashing with the engine toggle in its default (off) state', () => {
 		render(Practice, {
 			props: {
 				data: {
@@ -340,13 +340,13 @@ describe('practice detail page', () => {
 				}
 			}
 		});
-		// jsdom doesn't implement the Worker API, so EngineEval's onMount
-		// catches that and marks itself failed — this just confirms the page
-		// (and EngineEval within it) doesn't throw and renders the board.
+		// The toggle switch itself always renders (mobile card + desktop
+		// panel); off by default, it never attempts to spawn a Worker at all.
+		expect(screen.getAllByRole('switch', { name: 'Toggle engine evaluation' }).length).toBe(2);
 		expect(screen.getAllByText('French Defense').length).toBe(2);
 	});
 
-	it('hides the engine eval until its toggle is switched on', async () => {
+	it('switching the engine on flips both instances together and shows "unavailable" (jsdom has no Worker)', async () => {
 		render(Practice, {
 			props: {
 				data: {
@@ -370,15 +370,15 @@ describe('practice detail page', () => {
 			}
 		});
 
-		// Off by default — no "Eval" label (EngineEval's own content) rendered anywhere yet.
-		expect(screen.getAllByText('🔧 Engine: Off').length).toBe(2);
-		expect(screen.queryByText('Eval')).toBeNull();
+		const switches = screen.getAllByRole('switch', { name: 'Toggle engine evaluation' });
+		expect(switches.every((s) => s.getAttribute('aria-checked') === 'false')).toBe(true);
 
-		const [toggle] = screen.getAllByText('🔧 Engine: Off');
-		await fireEvent.click(toggle);
+		await fireEvent.click(switches[0]);
 
 		// Both instances (mobile card + desktop panel) share the same store, so both flip together.
-		expect(screen.getAllByText('🔧 Engine: On').length).toBe(2);
-		expect(screen.getAllByText('Eval').length).toBe(2);
+		const switchesAfter = screen.getAllByRole('switch', { name: 'Toggle engine evaluation' });
+		expect(switchesAfter.every((s) => s.getAttribute('aria-checked') === 'true')).toBe(true);
+		// jsdom has no Worker API, so ensureWorker() immediately marks itself failed.
+		expect(screen.getAllByText('unavailable').length).toBe(2);
 	});
 });

@@ -38,9 +38,10 @@
 	// Plain (non-reactive) — only ever read/written from requestEval and
 	// requestIfDue, never needs to itself trigger a re-run.
 	let lastRequestedFen = '';
-	// How many EngineEval instances are currently mounted — the Worker is
-	// only spawned once (by whichever instance mounts first) and only torn
-	// down once every instance has unmounted.
+	// How many EngineEval instances are currently mounted — used only to
+	// decide whether a real unmount (navigating away) should tear down the
+	// Worker; turning the preference off/on while still mounted is handled
+	// separately by teardownWorker()/ensureWorker() below.
 	let instanceCount = 0;
 
 	function send(cmd: string) {
@@ -81,7 +82,7 @@
 		worker = null;
 	}
 
-	/** Spawns the shared Worker once, the first time any instance mounts. */
+	/** Spawns the shared Worker once, the first time it's needed. */
 	function ensureWorker() {
 		if (worker || failed) return;
 		if (typeof Worker === 'undefined') {
@@ -99,25 +100,12 @@
 		}
 	}
 
-	/** Requests a fresh eval only if `nextFen` isn't already the last one requested. */
-	function requestIfDue(nextFen: string) {
-		if (ready && nextFen && nextFen !== lastRequestedFen) requestEval(nextFen);
-	}
-</script>
-
-<script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
-
-	let { fen }: { fen: string } = $props();
-
-	onMount(() => {
-		instanceCount++;
-		ensureWorker();
-	});
-
-	onDestroy(() => {
-		instanceCount--;
-		if (instanceCount > 0) return;
+	/**
+	 * A deliberate stop (the user switched the toggle off), distinct from
+	 * fail() — resets `failed` too, so switching back on gets a clean retry
+	 * rather than being stuck behind ensureWorker()'s `if (failed) return`.
+	 */
+	function teardownWorker() {
 		clearTimeout(handshakeTimeout);
 		if (worker) {
 			send('quit');
@@ -128,6 +116,36 @@
 		failed = false;
 		score = null;
 		lastRequestedFen = '';
+	}
+
+	/** Requests a fresh eval only if `nextFen` isn't already the last one requested. */
+	function requestIfDue(nextFen: string) {
+		if (ready && nextFen && nextFen !== lastRequestedFen) requestEval(nextFen);
+	}
+</script>
+
+<script lang="ts">
+	import { onMount, onDestroy } from 'svelte';
+	import { enginePrefStore, setEnginePref } from '$lib/enginePref.svelte';
+
+	let { fen }: { fen: string } = $props();
+
+	onMount(() => {
+		instanceCount++;
+	});
+
+	onDestroy(() => {
+		instanceCount--;
+		if (instanceCount > 0) return;
+		teardownWorker();
+	});
+
+	// Spawns the engine as soon as the preference is on (including at
+	// mount, if it was already enabled from a prior session) and tears it
+	// down the moment it's switched off — not just on unmount.
+	$effect(() => {
+		if (enginePrefStore.enabled) ensureWorker();
+		else teardownWorker();
 	});
 
 	// Fires once at mount time once `ready` flips true (re-evaluating the
@@ -144,15 +162,42 @@
 </script>
 
 <div class="flex items-center gap-2">
-	<span class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) shrink-0">Eval</span>
-	{#if failed}
-		<span class="text-sm text-(--color-muted) italic">unavailable</span>
-	{:else}
-		<span class="text-base font-bold text-(--color-text) tabular-nums shrink-0">{displayText}</span>
-		{#if whiteFraction !== null}
-			<div class="flex-1 h-1.5 rounded-full bg-gray-800 overflow-hidden" aria-hidden="true">
-				<div class="h-full bg-white" style={`width: ${whiteFraction * 100}%`}></div>
-			</div>
+	<button
+		type="button"
+		role="switch"
+		aria-checked={enginePrefStore.enabled}
+		aria-label="Toggle engine evaluation"
+		onclick={() => setEnginePref(!enginePrefStore.enabled)}
+		class="relative w-9 h-5 rounded-full shrink-0 transition-colors {enginePrefStore.enabled
+			? 'bg-green-500'
+			: 'bg-(--color-border)'}"
+	>
+		<span
+			class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm flex items-center justify-center transition-transform {enginePrefStore.enabled
+				? 'translate-x-4'
+				: ''}"
+		>
+			{#if enginePrefStore.enabled}
+				<svg viewBox="0 0 20 20" fill="currentColor" class="w-2.5 h-2.5 text-green-600" aria-hidden="true">
+					<path
+						fill-rule="evenodd"
+						d="M16.704 5.29a1 1 0 010 1.415l-7.25 7.25a1 1 0 01-1.414 0l-3.25-3.25a1 1 0 111.414-1.415L8.75 11.836l6.543-6.543a1 1 0 011.411-.003z"
+						clip-rule="evenodd"
+					/>
+				</svg>
+			{/if}
+		</span>
+	</button>
+	{#if enginePrefStore.enabled}
+		{#if failed}
+			<span class="text-sm text-(--color-muted) italic">unavailable</span>
+		{:else}
+			<span class="text-base font-bold text-(--color-text) tabular-nums shrink-0">{displayText}</span>
+			{#if whiteFraction !== null}
+				<div class="flex-1 h-1.5 rounded-full bg-gray-800 overflow-hidden" aria-hidden="true">
+					<div class="h-full bg-white" style={`width: ${whiteFraction * 100}%`}></div>
+				</div>
+			{/if}
 		{/if}
 	{/if}
 </div>

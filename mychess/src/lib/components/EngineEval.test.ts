@@ -1,16 +1,43 @@
 // @vitest-environment jsdom
 // mychess/src/lib/components/EngineEval.test.ts
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import EngineEval from './EngineEval.svelte';
+import { enginePrefStore } from '$lib/enginePref.svelte';
+
+beforeEach(() => {
+	// enginePrefStore is a module-level singleton shared across every test
+	// in this file (and every other file importing it in the same
+	// process) — reset it explicitly rather than relying on it starting
+	// fresh. Most tests here exercise the engine itself, so default to on;
+	// the "disabled" tests below set it back to false explicitly.
+	enginePrefStore.enabled = true;
+});
 
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
+	document.cookie = 'engine_enabled=; path=/; max-age=0';
 });
 
 const FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
+it('renders a switch that is off by default and spawns no Worker until switched on', () => {
+	enginePrefStore.enabled = false;
+
+	class SpyWorker {
+		constructor() {
+			throw new Error('should not construct a Worker while the toggle is off');
+		}
+	}
+	vi.stubGlobal('Worker', SpyWorker as unknown as typeof Worker);
+
+	const { getByRole, unmount } = render(EngineEval, { props: { fen: FEN } });
+	const toggle = getByRole('switch', { name: 'Toggle engine evaluation' });
+	expect(toggle.getAttribute('aria-checked')).toBe('false');
+	unmount();
+});
 
 it('shows "unavailable" (not a crash, not a silent blank) when the engine is unavailable', () => {
 	// The real, deployed jsdom test environment has no Worker global —
@@ -19,6 +46,19 @@ it('shows "unavailable" (not a crash, not a silent blank) when the engine is una
 	// indistinguishable from "still loading").
 	const { getByText, unmount } = render(EngineEval, { props: { fen: FEN } });
 	expect(getByText('unavailable')).toBeTruthy();
+	unmount();
+});
+
+it('clicking the switch toggles enginePrefStore, which every instance shares', async () => {
+	enginePrefStore.enabled = false;
+	const { getByRole, unmount } = render(EngineEval, { props: { fen: FEN } });
+	const toggle = getByRole('switch', { name: 'Toggle engine evaluation' });
+
+	toggle.click();
+	flushSync();
+	expect(enginePrefStore.enabled).toBe(true);
+	expect(toggle.getAttribute('aria-checked')).toBe('true');
+
 	unmount();
 });
 
@@ -106,6 +146,27 @@ describe('EngineEval Worker singleton lifecycle', () => {
 		expect(FakeWorker.instances.length).toBe(2);
 
 		second.unmount();
+	});
+
+	it('tears the Worker down and resets the failed state when switched off, so switching back on retries cleanly', () => {
+		vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
+
+		const { getByRole } = render(EngineEval, { props: { fen: FEN } });
+		expect(FakeWorker.instances.length).toBe(1);
+
+		FakeWorker.instances[0].onerror?.();
+		expect(FakeWorker.instances[0].terminated).toBe(true);
+
+		// Switch off, then back on — while still mounted (no unmount involved).
+		enginePrefStore.enabled = false;
+		flushSync();
+		enginePrefStore.enabled = true;
+		flushSync();
+
+		// A fresh Worker got constructed — the earlier failure didn't stick.
+		expect(FakeWorker.instances.length).toBe(2);
+		const toggle = getByRole('switch', { name: 'Toggle engine evaluation' });
+		expect(toggle.getAttribute('aria-checked')).toBe('true');
 	});
 
 	it('walks the full UCI handshake and updates the displayed eval once a score arrives', () => {
