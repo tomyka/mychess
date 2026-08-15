@@ -14,8 +14,7 @@ function isMoveRow(value: unknown): value is MoveRow {
 		typeof m.san === 'string' &&
 		typeof m.move_number === 'number' &&
 		typeof m.is_player_turn === 'boolean' &&
-		(m.annotation === null || typeof m.annotation === 'string') &&
-		typeof m.isChapterEnd === 'boolean'
+		(m.annotation === null || typeof m.annotation === 'string')
 	);
 }
 

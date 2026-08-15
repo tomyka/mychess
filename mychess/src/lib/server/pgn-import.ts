@@ -2,7 +2,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { planGameImport, type MoveRow } from '$lib/pgn-import';
 import { enumerateVariations, hasChapterTags, type RawMoveRow } from '$lib/mastery/variations';
-import { fetchAllMoves, toRawMoveRows } from './practice-repertoire';
+import { fetchAllMoves, remainingPageRanges, toRawMoveRows } from './practice-repertoire';
 
 export type GameImportResult = { repertoireId: string | null; gameCount: number; error: string | null };
 
@@ -94,9 +94,9 @@ export async function writeMoves(
     // {chapter title}" string `params.name` carries for a multi-chapter
     // import). Only ever sent for a multi-chapter import (see
     // `PgnImportForm.svelte`) — a single-chapter import has nothing to
-    // group, so it's omitted and every move's `chapter_name` stays null.
-    // Written only onto moves this call's own `MoveRow.isChapterEnd` marks
-    // true — see `chapterLeafFens` in `$lib/pgn-import.ts`.
+    // group, so it's omitted and every move's `chapter_names` stays `[]`.
+    // Written onto EVERY move this call writes (not just chapter-ending
+    // leaves) — see the `moveRows` construction below.
     chapterLabel?: string;
   }
 ): Promise<{ repertoireId: string | null; error: string | null }> {
@@ -130,11 +130,11 @@ export async function writeMoves(
         toFen: m.toFen,
         san: m.san,
         isPlayerTurn: m.is_player_turn,
-        chapterName: null
+        chapterNames: []
       }));
       const variations = enumerateVariations(rawMoves);
       insertColumns.total_variations = variations.length;
-      // `chapterName` is hardcoded null on `rawMoves` above (this path never
+      // `chapterNames` is hardcoded `[]` on `rawMoves` above (this path never
       // has real chapter tags to check — a single-chapter import, or
       // `importGames`'s "my games" auto-import), so this is always false
       // here. Written explicitly (not left null) so this repertoire never
@@ -153,6 +153,13 @@ export async function writeMoves(
   // timeout and leave a partially-imported repertoire behind. Chunking keeps
   // each request comfortably sized regardless of PGN size.
   const CHUNK = 500;
+  // Same `max_rows` truncation concern as `fetchAllMoves` in
+  // `practice-repertoire.ts` (PostgREST caps an unbounded select at 1000 rows
+  // and truncates silently, no error) — the existing-rows lookup below can
+  // easily need more than 1000 rows back for a heavy-transposition
+  // repertoire (many chapters sharing the same handful of `from_position`s),
+  // so it paginates the same way.
+  const EXISTING_MOVES_PAGE_SIZE = 1000;
   const uniqueFens = Array.from(new Set(params.moves.flatMap((m) => [m.fromFen, m.toFen])));
 
   // Any write failure below leaves an already-inserted repertoire row with
@@ -195,10 +202,16 @@ export async function writeMoves(
   }
 
   // Multiple chapters can share an opening sequence (the same position and
-  // move played twice) — upsert with ignoreDuplicates so they merge into one
-  // shared edge in the tree instead of erroring on the second insert. This is
-  // exactly how a multi-chapter import's separate `writeMoves` calls end up
-  // sharing prefixes once they're all writing into the same `repId`.
+  // move played twice) — every move in THIS call belongs to `chapterLabel`
+  // (if given), whether it's a chapter-ending leaf or an interior move deep
+  // in a shared prefix. Unlike the old leaf-only tagging, a shared edge that
+  // multiple chapters use must know about ALL of them (not just whichever
+  // chapter happened to write it first) — enumerateVariations scopes its
+  // walk per chapter using this, and an edge invisible to a chapter's own
+  // scope breaks that chapter's own path reconstruction. So conflicting
+  // inserts merge chapter_names instead of being dropped (this call's own
+  // chapter name gets added to whatever the row already has), which needs a
+  // real upsert rather than `ignoreDuplicates: true`.
   const moveRows = params.moves.map((move) => ({
     repertoire_id: repId,
     from_position: fenToId.get(move.fromFen)!,
@@ -207,14 +220,83 @@ export async function writeMoves(
     move_number: move.move_number,
     is_player_turn: move.is_player_turn,
     annotation: move.annotation,
-    chapter_name: move.isChapterEnd && params.chapterLabel ? params.chapterLabel : null
+    chapter_names: params.chapterLabel ? [params.chapterLabel] : []
   }));
 
-  for (let i = 0; i < moveRows.length; i += CHUNK) {
-    const chunk = moveRows.slice(i, i + CHUNK);
-    const { error } = await supabase
-      .from('moves')
-      .upsert(chunk, { onConflict: 'repertoire_id,from_position,san', ignoreDuplicates: true });
+  // A single chapter's own move list shouldn't legitimately repeat the same
+  // edge, but a real Postgres upsert (unlike the old `ignoreDuplicates: true`
+  // / `ON CONFLICT DO NOTHING`) ERRORS if one statement tries to affect the
+  // same conflict key twice ("ON CONFLICT DO UPDATE command cannot affect
+  // row a second time") — `ignoreDuplicates` tolerated that silently, so
+  // switching to a real upsert needs this dedupe to stay safe. Merges
+  // chapter_names for any such within-call repeat rather than just keeping
+  // one arbitrarily.
+  const dedupedMoveRows = Array.from(
+    moveRows
+      .reduce((map, row) => {
+        const key = `${row.from_position}|${row.san}`;
+        const existing = map.get(key);
+        map.set(
+          key,
+          existing
+            ? { ...row, chapter_names: Array.from(new Set([...existing.chapter_names, ...row.chapter_names])) }
+            : row
+        );
+        return map;
+      }, new Map<string, (typeof moveRows)[number]>())
+      .values()
+  );
+
+  for (let i = 0; i < dedupedMoveRows.length; i += CHUNK) {
+    const chunk = dedupedMoveRows.slice(i, i + CHUNK);
+
+    // Look up which of this chunk's edges already exist (from an earlier
+    // chapter in the same multi-chapter import sharing a prefix), so their
+    // existing chapter_names can be merged rather than overwritten. Paginated
+    // (see `EXISTING_MOVES_PAGE_SIZE` above) — a chunk can cover up to 500
+    // distinct `from_position`s, and for a heavy-transposition repertoire the
+    // matching row count can comfortably exceed PostgREST's 1000-row cap.
+    const fromPositions = Array.from(new Set(chunk.map((m) => m.from_position)));
+    const existingQuery = () =>
+      supabase
+        .from('moves')
+        .select('from_position, san, chapter_names')
+        .eq('repertoire_id', repId)
+        .in('from_position', fromPositions);
+
+    const { data: firstPage, error: selectErr } = await existingQuery().range(0, EXISTING_MOVES_PAGE_SIZE - 1);
+    if (selectErr) return fail(`Failed to load existing moves: ${selectErr.message}`);
+    let existingRows: { from_position: string; san: string; chapter_names: string[] | null }[] = firstPage ?? [];
+
+    if (existingRows.length === EXISTING_MOVES_PAGE_SIZE) {
+      const { count, error: countErr } = await supabase
+        .from('moves')
+        .select('id', { count: 'exact', head: true })
+        .eq('repertoire_id', repId)
+        .in('from_position', fromPositions);
+      if (countErr) return fail(`Failed to count existing moves: ${countErr.message}`);
+
+      const pages = await Promise.all(
+        remainingPageRanges(count ?? existingRows.length, EXISTING_MOVES_PAGE_SIZE).map(([from, to]) =>
+          existingQuery().range(from, to)
+        )
+      );
+      for (const page of pages) {
+        if (page.error) return fail(`Failed to load existing moves: ${page.error.message}`);
+      }
+      existingRows = [...existingRows, ...pages.flatMap((p) => p.data ?? [])];
+    }
+
+    const existingByKey = new Map(
+      existingRows.map((r) => [`${r.from_position}|${r.san}`, r.chapter_names ?? []])
+    );
+    const merged = chunk.map((m) => {
+      const key = `${m.from_position}|${m.san}`;
+      const existingNames = existingByKey.get(key) ?? [];
+      return { ...m, chapter_names: Array.from(new Set([...existingNames, ...m.chapter_names])) };
+    });
+
+    const { error } = await supabase.from('moves').upsert(merged, { onConflict: 'repertoire_id,from_position,san' });
     if (error) return fail(`Failed to save moves: ${error.message}`);
   }
 
