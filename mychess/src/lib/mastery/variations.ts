@@ -6,14 +6,15 @@ export type RawMoveRow = {
 	toFen: string;
 	san: string;
 	isPlayerTurn: boolean;
-	// Optional (not just nullable) so the many pre-existing test fixtures
-	// across the codebase that hand-construct these types (e.g.
-	// `mastery/practice.test.ts`, `mastery/variationSequence.test.ts`) don't all
-	// need updating for a field they have no reason to care about — an
-	// omitted `chapterName` is treated identically to an explicit `null`
-	// everywhere it's read (see `RepertoirePracticeRow.svelte`'s grouping and
-	// the `/variations` endpoint's `?? null` normalization).
-	chapterName?: string | null;
+	// Every chapter that uses this edge — not just the one whose line ends
+	// on it. A shared prefix move used by many transposing chapters carries
+	// all of them. Optional (not just possibly-empty) so the many
+	// pre-existing test fixtures across the codebase that hand-construct
+	// these types (e.g. `mastery/practice.test.ts`,
+	// `mastery/variationSequence.test.ts`) don't all need updating for a
+	// field they have no reason to care about — an omitted `chapterNames` is
+	// treated identically to `[]` everywhere it's read.
+	chapterNames?: string[];
 };
 
 export type VariationStep = {
@@ -30,32 +31,56 @@ export type Variation = {
 	variationKey: string;
 	path: VariationStep[];
 	playerMoveCount: number;
-	// The originating PGN chapter's own bare title, carried from this
-	// variation's leaf move (see `MoveRow.isChapterEnd` in `$lib/pgn-import.ts`
-	// for how it's tagged at import time). Undefined/null for any variation
-	// whose leaf isn't a tagged chapter-end — every variation of a
-	// repertoire imported before chapter tagging existed, or of a
-	// single-chapter import, where grouping doesn't apply.
+	// The chapter this variation was enumerated under — every variation from
+	// one `enumerateVariationsScoped()` call carries the same chapterName,
+	// stamped directly by that walk rather than derived from the leaf move.
+	// Null for the un-chaptered (no chapter tier) case.
 	chapterName?: string | null;
 };
 
 /**
- * Walks a repertoire's move tree and returns one entry per leaf (a complete
- * root-to-leaf path). A branch — whether the opponent has multiple replies,
- * or the repertoire itself prepares two responses at one node — produces two
- * separate variations sharing the common prefix up to the branch point.
+ * Every distinct chapter name appearing in any move's `chapterNames`, in
+ * first-appearance order (stable, deterministic — matters for the practice
+ * picker's chapter list staying in a consistent order across reloads).
  */
-export function enumerateVariations(moves: RawMoveRow[]): Variation[] {
+function uniqueChapterNames(moves: RawMoveRow[]): string[] {
+	const seen = new Set<string>();
+	const names: string[] = [];
+	for (const m of moves) {
+		for (const name of m.chapterNames ?? []) {
+			if (!seen.has(name)) {
+				seen.add(name);
+				names.push(name);
+			}
+		}
+	}
+	return names;
+}
+
+/**
+ * The actual tree-walk, scoped to exactly one chapter's own edges (or, for
+ * `chapterName: null`, every move that belongs to no chapter at all — the
+ * un-chaptered case). Walking only one chapter's own edges at a time is what
+ * keeps cross-chapter transposition from multiplying the enumerated path
+ * count: a shared position reached by two different chapters' own openings
+ * is only ever explored within ONE chapter's own scoped walk at a time, never
+ * both together.
+ */
+function enumerateVariationsScoped(moves: RawMoveRow[], chapterName: string | null): Variation[] {
+	const scoped = moves.filter((m) =>
+		chapterName === null ? (m.chapterNames ?? []).length === 0 : (m.chapterNames ?? []).includes(chapterName)
+	);
+
 	const byFrom = new Map<string, RawMoveRow[]>();
 	const toPositionIds = new Set<string>();
-	for (const m of moves) {
+	for (const m of scoped) {
 		const list = byFrom.get(m.fromPositionId) ?? [];
 		list.push(m);
 		byFrom.set(m.fromPositionId, list);
 		toPositionIds.add(m.toPositionId);
 	}
 
-	const fromPositionIds = new Set(moves.map((m) => m.fromPositionId));
+	const fromPositionIds = new Set(scoped.map((m) => m.fromPositionId));
 	const roots = Array.from(fromPositionIds).filter((id) => !toPositionIds.has(id));
 
 	const variations: Variation[] = [];
@@ -69,7 +94,7 @@ export function enumerateVariations(moves: RawMoveRow[]): Variation[] {
 					variationKey: path.map((s) => s.moveId).join('>'),
 					path,
 					playerMoveCount,
-					chapterName: path[path.length - 1].chapterName
+					chapterName
 				});
 			}
 			return;
@@ -81,7 +106,7 @@ export function enumerateVariations(moves: RawMoveRow[]): Variation[] {
 				fromFen: move.fromFen,
 				toFen: move.toFen,
 				isPlayerTurn: move.isPlayerTurn,
-				chapterName: move.chapterName
+				chapterName
 			};
 			walk(move.toPositionId, [...path, step], playerMoveCount + (move.isPlayerTurn ? 1 : 0));
 		}
@@ -92,6 +117,29 @@ export function enumerateVariations(moves: RawMoveRow[]): Variation[] {
 	}
 
 	return variations;
+}
+
+/**
+ * Walks a repertoire's move tree and returns one entry per leaf (a complete
+ * root-to-leaf path). A branch — whether the opponent has multiple replies,
+ * or the repertoire itself prepares two responses at one node — produces two
+ * separate variations sharing the common prefix up to the branch point.
+ *
+ * Chaptered repertoires are walked ONE CHAPTER AT A TIME (see
+ * `enumerateVariationsScoped`) and concatenated, rather than as one
+ * whole-repertoire walk — multiple PGN chapters imported into one repertoire
+ * share position/move rows wherever they transpose into the same edge, and a
+ * single walk across the merged graph re-enumerates every downstream path
+ * once per way of reaching a shared position, multiplying the total count at
+ * every such reconvergence instead of summing per chapter. Un-chaptered
+ * repertoires (no move carries any chapter name) fall through to a single
+ * scoped walk with `chapterName: null` — identical to the old unscoped
+ * behavior, since there's nothing to separate.
+ */
+export function enumerateVariations(moves: RawMoveRow[]): Variation[] {
+	const chapterNames = uniqueChapterNames(moves);
+	if (chapterNames.length === 0) return enumerateVariationsScoped(moves, null);
+	return chapterNames.flatMap((name) => enumerateVariationsScoped(moves, name));
 }
 
 /**

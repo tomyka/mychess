@@ -16,7 +16,7 @@ function move(
 	toPositionId: string,
 	san: string,
 	isPlayerTurn: boolean,
-	chapterName: string | null = null
+	chapterNames: string[] = []
 ): RawMoveRow {
 	return {
 		id,
@@ -26,7 +26,7 @@ function move(
 		toFen: `fen:${toPositionId}`,
 		san,
 		isPlayerTurn,
-		chapterName
+		chapterNames
 	};
 }
 
@@ -102,9 +102,11 @@ describe('enumerateVariations', () => {
 		expect(enumerateVariations([])).toEqual([]);
 	});
 
-	it('gives two variations the same leafMoveId but different variationKeys when they transpose into a shared tail', () => {
+	it('gives two variations the same leafMoveId but different variationKeys when they transpose into a shared tail (no chapters involved)', () => {
 		// Two different prefixes (m1a vs m1b) both lead into the same shared node P_SHARED,
-		// which then has one single continuation to a shared leaf (m3) — a transposition.
+		// which then has one single continuation to a shared leaf (m3) — a transposition
+		// within a single (un-chaptered) scope, which is legitimate and NOT the bug this
+		// feature fixes — see the cross-chapter tests below for that.
 		const moves = [
 			move('m1a', 'START_A', 'P_SHARED', 'e4', true),
 			move('m1b', 'START_B', 'P_SHARED', 'd4', true),
@@ -118,20 +120,98 @@ describe('enumerateVariations', () => {
 		expect(result[0].variationKey).not.toBe(result[1].variationKey);
 	});
 
-	it('carries the leaf move\'s chapterName onto its Variation', () => {
+	it('carries the chapter name onto every variation walked under that chapter\'s own scope', () => {
+		// Every move on the line — not just the leaf — must carry the chapter's
+		// name, or the scoped walk can't reconstruct the full path (an interior
+		// move with no chapter tag is invisible to every chapter's own walk).
 		const moves = [
-			move('m1', 'START', 'P1', 'e4', true, null),
-			move('m2', 'P1', 'P2', 'e5', false, null),
-			move('m3', 'P2', 'P3', 'Nf3', true, 'Ruy Lopez')
+			move('m1', 'START', 'P1', 'e4', true, ['Ruy Lopez']),
+			move('m2', 'P1', 'P2', 'e5', false, ['Ruy Lopez']),
+			move('m3', 'P2', 'P3', 'Nf3', true, ['Ruy Lopez'])
 		];
 		const [variation] = enumerateVariations(moves);
 		expect(variation.chapterName).toBe('Ruy Lopez');
+		expect(variation.path.map((s) => s.moveId)).toEqual(['m1', 'm2', 'm3']);
 	});
 
-	it('defaults chapterName to null when the leaf move has none', () => {
+	it('defaults chapterName to null for moves with no chapter tags at all', () => {
 		const moves = [move('m1', 'START', 'P1', 'e4', true)];
 		const [variation] = enumerateVariations(moves);
 		expect(variation.chapterName).toBeNull();
+	});
+
+	it('sums each chapter\'s own variations instead of multiplying when chapters share a prefix then diverge', () => {
+		const moves = [
+			move('m1', 'START', 'P1', 'e4', true, ['A', 'B']), // shared prefix, used by both chapters
+			move('m2a', 'P1', 'P2A', 'Nf3', false, ['A']), // A's own continuation
+			move('m2b', 'P1', 'P2B', 'Nc3', false, ['B']) // B's own continuation
+		];
+		const result = enumerateVariations(moves);
+		expect(result).toHaveLength(2); // one per chapter
+		expect(result.map((v) => v.chapterName).sort()).toEqual(['A', 'B']);
+	});
+
+	it('does not multiply a shared continuation across chapters that transpose into it from different openings', () => {
+		const moves = [
+			// Chapter A reaches the shared node via its own opening move.
+			move('a1', 'START_A', 'SHARED', 'e4', true, ['A']),
+			// Chapter B reaches the SAME shared node via a different opening move — a transposition.
+			move('b1', 'START_B', 'SHARED', 'd4', true, ['B']),
+			// From the shared node, two further branches — chapter A's own game explores
+			// both; chapter B's own game only explores the first.
+			move('c1', 'SHARED', 'C1', 'Nf3', false, ['A', 'B']),
+			move('c2', 'SHARED', 'C2', 'Bc4', false, ['A'])
+		];
+		const result = enumerateVariations(moves);
+		// A contributes 2 (a1->c1, a1->c2). B contributes 1 (b1->c1). Total 3 — NOT 2*2=4.
+		expect(result).toHaveLength(3);
+		expect(result.filter((v) => v.chapterName === 'A')).toHaveLength(2);
+		expect(result.filter((v) => v.chapterName === 'B')).toHaveLength(1);
+	});
+
+	it('enumerates a fully-shared line once per chapter, not deduplicated away', () => {
+		// Two chapters whose entire line is textually identical — matches how a
+		// real opening reference cross-references one tabiya under two headings.
+		const moves = [
+			move('m1', 'START', 'P1', 'e4', true, ['A', 'B']),
+			move('m2', 'P1', 'P2', 'e5', false, ['A', 'B'])
+		];
+		const result = enumerateVariations(moves);
+		expect(result).toHaveLength(2);
+		expect(result.map((v) => v.leafMoveId)).toEqual(['m2', 'm2']);
+		expect(result.map((v) => v.chapterName).sort()).toEqual(['A', 'B']);
+		// Same underlying path, but each chapter's own enumeration is independent.
+		expect(result[0].variationKey).toBe(result[1].variationKey);
+	});
+
+	it('stays additive (not exponential) when many chapters repeatedly transpose through the same shared checkpoints', () => {
+		// Reproduces the shape that crashed the server on a real 414-chapter PGN
+		// import (see the design doc): chapters repeatedly transpose into and
+		// back out of a shared sequence of positions. A walk that doesn't
+		// distinguish chapters re-explores every downstream path once per
+		// incoming way of reaching each shared checkpoint — doubling at every
+		// checkpoint here, so 12 checkpoints would enumerate 2^13 (8192) paths
+		// instead of the correct 2 (one per chapter). This is the actual
+		// regression test for the bug.
+		const CHAPTERS = ['A', 'B'];
+		const CHECKPOINTS = 12;
+		const moves: RawMoveRow[] = [];
+		const prevByChapter: Record<string, string> = { A: 'ROOT', B: 'ROOT' };
+		for (let d = 0; d < CHECKPOINTS; d++) {
+			for (const chapter of CHAPTERS) {
+				const to = `checkpoint-${d}`;
+				moves.push(move(`m-${chapter}-${d}`, prevByChapter[chapter], to, `move-${d}`, d % 2 === 0, [chapter]));
+				prevByChapter[chapter] = to;
+			}
+		}
+		for (const chapter of CHAPTERS) {
+			moves.push(move(`leaf-${chapter}`, prevByChapter[chapter], `final-${chapter}`, 'final', true, [chapter]));
+		}
+
+		const start = Date.now();
+		const result = enumerateVariations(moves);
+		expect(Date.now() - start).toBeLessThan(2000);
+		expect(result).toHaveLength(2); // one variation per chapter, not 2^13
 	});
 });
 
@@ -142,14 +222,14 @@ describe('hasChapterTags', () => {
 	});
 
 	it('returns true when at least one variation has a chapterName', () => {
-		// The tag must be on a LEAF move — Variation.chapterName comes from the
-		// leaf step only, so tagging a mid-path move (m2b) wouldn't propagate.
+		// Every move on the Sicilian branch's own line carries the tag — not
+		// just its leaf — matching the new per-move (not per-leaf) invariant.
 		const moves = [
 			move('m1', 'START', 'P1', 'e4', true),
-			move('m2a', 'P1', 'P2A', 'e5', false, null),
-			move('m2b', 'P1', 'P2B', 'c5', false, null),
-			move('m3a', 'P2A', 'P3A', 'Nf3', true, null),
-			move('m3b', 'P2B', 'P3B', 'Nc3', true, 'Sicilian')
+			move('m2a', 'P1', 'P2A', 'e5', false),
+			move('m2b', 'P1', 'P2B', 'c5', false, ['Sicilian']),
+			move('m3a', 'P2A', 'P3A', 'Nf3', true),
+			move('m3b', 'P2B', 'P3B', 'Nc3', true, ['Sicilian'])
 		];
 		expect(hasChapterTags(enumerateVariations(moves))).toBe(true);
 	});
@@ -202,10 +282,10 @@ describe('moveSequenceLabel', () => {
 
 	it('ends on Black to move without a trailing extra number', () => {
 		const moves: RawMoveRow[] = [
-			{ id: 'm1', fromPositionId: 'START', toPositionId: 'P1', fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', toFen: 'x', san: 'e4', isPlayerTurn: true, chapterName: null },
-			{ id: 'm2', fromPositionId: 'P1', toPositionId: 'P2', fromFen: 'x', toFen: 'y', san: 'e5', isPlayerTurn: false, chapterName: null },
-			{ id: 'm3', fromPositionId: 'P2', toPositionId: 'P3', fromFen: 'y', toFen: 'z', san: 'Nf3', isPlayerTurn: true, chapterName: null },
-			{ id: 'm4', fromPositionId: 'P3', toPositionId: 'P4', fromFen: 'z', toFen: 'w', san: 'Nc6', isPlayerTurn: false, chapterName: null }
+			{ id: 'm1', fromPositionId: 'START', toPositionId: 'P1', fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', toFen: 'x', san: 'e4', isPlayerTurn: true, chapterNames: [] },
+			{ id: 'm2', fromPositionId: 'P1', toPositionId: 'P2', fromFen: 'x', toFen: 'y', san: 'e5', isPlayerTurn: false, chapterNames: [] },
+			{ id: 'm3', fromPositionId: 'P2', toPositionId: 'P3', fromFen: 'y', toFen: 'z', san: 'Nf3', isPlayerTurn: true, chapterNames: [] },
+			{ id: 'm4', fromPositionId: 'P3', toPositionId: 'P4', fromFen: 'z', toFen: 'w', san: 'Nc6', isPlayerTurn: false, chapterNames: [] }
 		];
 		const [variation] = enumerateVariations(moves);
 		expect(moveSequenceLabel(variation.path)).toBe('1.e4 e5 2.Nf3 Nc6');
@@ -213,8 +293,8 @@ describe('moveSequenceLabel', () => {
 
 	it('starts from a custom mid-game FEN where Black is to move first', () => {
 		const moves: RawMoveRow[] = [
-			{ id: 'm1', fromPositionId: 'START', toPositionId: 'P1', fromFen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 3 5', toFen: 'x', san: 'Nf6', isPlayerTurn: true, chapterName: null },
-			{ id: 'm2', fromPositionId: 'P1', toPositionId: 'P2', fromFen: 'x', toFen: 'y', san: 'Bc4', isPlayerTurn: false, chapterName: null }
+			{ id: 'm1', fromPositionId: 'START', toPositionId: 'P1', fromFen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 3 5', toFen: 'x', san: 'Nf6', isPlayerTurn: true, chapterNames: [] },
+			{ id: 'm2', fromPositionId: 'P1', toPositionId: 'P2', fromFen: 'x', toFen: 'y', san: 'Bc4', isPlayerTurn: false, chapterNames: [] }
 		];
 		const [variation] = enumerateVariations(moves);
 		expect(moveSequenceLabel(variation.path)).toBe('5...Nf6 6.Bc4');
