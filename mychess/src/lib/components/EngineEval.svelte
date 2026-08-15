@@ -169,7 +169,7 @@
 		aria-label="Toggle engine evaluation"
 		onclick={() => setEnginePref(!enginePrefStore.enabled)}
 		class="relative w-9 h-5 rounded-full shrink-0 transition-colors {enginePrefStore.enabled
-			? 'bg-green-500'
+			? 'bg-(--color-accent)'
 			: 'bg-(--color-border)'}"
 	>
 		<span
@@ -178,7 +178,7 @@
 				: ''}"
 		>
 			{#if enginePrefStore.enabled}
-				<svg viewBox="0 0 20 20" fill="currentColor" class="w-2.5 h-2.5 text-green-600" aria-hidden="true">
+				<svg viewBox="0 0 20 20" fill="currentColor" class="w-2.5 h-2.5 text-(--color-accent)" aria-hidden="true">
 					<path
 						fill-rule="evenodd"
 						d="M16.704 5.29a1 1 0 010 1.415l-7.25 7.25a1 1 0 01-1.414 0l-3.25-3.25a1 1 0 111.414-1.415L8.75 11.836l6.543-6.543a1 1 0 011.411-.003z"
