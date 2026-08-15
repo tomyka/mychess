@@ -1,0 +1,15 @@
+-- mychess/supabase/migrations/0048_move_chapter_names_array.sql
+-- Replaces chapter_name (leaf-only, migration 0042) with an array recording
+-- EVERY chapter that uses a given move edge, not just the one that closes
+-- out a line. A shared prefix move used by many transposing chapters needs
+-- to know all of them — enumerateVariations scopes its walk per chapter
+-- using this, so cross-chapter transposition can no longer multiply the
+-- enumerated path count the way a single whole-repertoire walk did (see the
+-- 2026-08-15 design doc — a real 414-chapter PGN import OOM'd the server
+-- from exactly this). No backfill: chapter_name never recorded interior-move
+-- membership, so there's nothing to derive chapter_names from for
+-- already-imported repertoires — they keep working as before unless they're
+-- already broken by this bug, in which case they need re-uploading. The old
+-- chapter_name column is dropped in a follow-up migration once this one's
+-- confirmed working (see 0049).
+alter table public.moves add column chapter_names text[] not null default '{}';
