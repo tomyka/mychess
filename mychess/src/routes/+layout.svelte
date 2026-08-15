@@ -4,6 +4,7 @@
   import NavBar from '$lib/components/NavBar.svelte';
   import { page } from '$app/stores';
   import { initThemeFromCookie, applyResolvedThemeClass, themeStore } from '$lib/theme.svelte';
+  import { initEnginePrefFromCookie } from '$lib/enginePref.svelte';
 
   let { children, data } = $props<{ children: any; data: any }>();
 
@@ -19,6 +20,7 @@
   // blocking script already used, so the store starts in sync with what's
   // already painted.
   initThemeFromCookie();
+  initEnginePrefFromCookie();
 
   // Only relevant while 'system' is the active choice — if the OS's own
   // light/dark setting changes while this tab is open, follow it live

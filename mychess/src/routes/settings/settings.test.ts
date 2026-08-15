@@ -4,18 +4,22 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup, fireEvent } from '@testing-library/svelte';
 import Settings from './+page.svelte';
 import { themeStore } from '$lib/theme.svelte';
+import { enginePrefStore } from '$lib/enginePref.svelte';
 
 beforeEach(() => {
-	// themeStore is a module-level singleton shared across every test in
-	// this file (and every other file importing it in the same process) —
-	// reset it explicitly rather than relying on it starting fresh.
+	// themeStore/enginePrefStore are module-level singletons shared across
+	// every test in this file (and every other file importing them in the
+	// same process) — reset them explicitly rather than relying on a fresh
+	// start.
 	themeStore.current = 'dark';
+	enginePrefStore.enabled = false;
 });
 
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
 	document.cookie = 'theme=; path=/; max-age=0';
+	document.cookie = 'engine_enabled=; path=/; max-age=0';
 	document.documentElement.classList.remove('dark');
 });
 
@@ -52,5 +56,29 @@ describe('Settings appearance toggle', () => {
 		await fireEvent.click(getByText('System'));
 		expect(document.documentElement.classList.contains('dark')).toBe(false);
 		expect(document.cookie).toContain('theme=system');
+	});
+});
+
+describe('Settings engine toggle', () => {
+	it('is unchecked by default', () => {
+		const { getByLabelText } = render(Settings, { props: { data: {}, form: null } });
+		expect((getByLabelText('Show engine evaluation during practice') as HTMLInputElement).checked).toBe(false);
+	});
+
+	it('checking it persists the cookie', async () => {
+		const { getByLabelText } = render(Settings, { props: { data: {}, form: null } });
+		const checkbox = getByLabelText('Show engine evaluation during practice') as HTMLInputElement;
+		await fireEvent.click(checkbox);
+		expect(checkbox.checked).toBe(true);
+		expect(document.cookie).toContain('engine_enabled=true');
+	});
+
+	it('unchecking it again persists the cookie', async () => {
+		const { getByLabelText } = render(Settings, { props: { data: {}, form: null } });
+		const checkbox = getByLabelText('Show engine evaluation during practice') as HTMLInputElement;
+		await fireEvent.click(checkbox);
+		await fireEvent.click(checkbox);
+		expect(checkbox.checked).toBe(false);
+		expect(document.cookie).toContain('engine_enabled=false');
 	});
 });

@@ -10,6 +10,7 @@
 	import { arrowMoveForStep, isLastPlayerMove } from '$lib/mastery/teaching';
 	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
 	import EngineEval from '$lib/components/EngineEval.svelte';
+	import { enginePrefStore } from '$lib/enginePref.svelte';
 
 	let { data } = $props<{ data: any }>();
 
@@ -438,7 +439,9 @@
 				</div>
 
 				<div class="mt-3 p-3 bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:hidden">
-					<EngineEval fen={displayFen} />
+					{#if enginePrefStore.enabled}
+						<EngineEval fen={displayFen} />
+					{/if}
 					{#if movesSoFar}
 						<p class="text-sm text-(--color-muted) mt-2">{movesSoFar}</p>
 					{/if}
@@ -467,9 +470,11 @@
 					</div>
 				</div>
 
-				<div class="p-4">
-					<EngineEval fen={displayFen} />
-				</div>
+				{#if enginePrefStore.enabled}
+					<div class="p-4">
+						<EngineEval fen={displayFen} />
+					</div>
+				{/if}
 
 				<div class="p-4 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
 					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">Moves played</p>
