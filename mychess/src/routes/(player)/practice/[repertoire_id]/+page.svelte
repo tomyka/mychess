@@ -46,6 +46,12 @@
 	let pendingReport: Promise<PracticeView | null> | null = null;
 	let quizSteps = $state<VariationStep[]>([]);
 	let pickerOpen = $state(false);
+	// The board's own actual rendered width (bound from ChessBoard) — the
+	// move-nav row below it is capped to match, since on desktop the board
+	// is height-constrained (containerFit) and often narrower than its
+	// column, so a plain full-width row would otherwise end up wider than
+	// the board itself.
+	let boardWidth = $state(0);
 	// null means "following the live position" (quizIdx) — set to a concrete
 	// ply count while the player is browsing back through THIS attempt's
 	// already-played moves with the mobile move-nav row. Review-only: it
@@ -367,7 +373,7 @@
 		</div>
 
 		<div class="flex flex-col lg:flex-row lg:items-stretch gap-6 lg:flex-1 lg:min-h-0">
-			<div class="flex-1 lg:flex lg:flex-col lg:min-h-0">
+			<div class="lg:flex-1 lg:flex lg:flex-col lg:min-h-0">
 				{#if wrongCount >= 3 && !hintRequested && phase === 'playing'}
 					<p class="text-center mb-4 lg:hidden">
 						<button
@@ -389,10 +395,14 @@
 						{hintSquare}
 						{arrowMove}
 						containerFit
+						bind:boxWidth={boardWidth}
 					/>
 				</div>
 
-				<div class="grid grid-cols-4 gap-2 mt-4 shrink-0">
+				<div
+					class="grid grid-cols-4 gap-2 mt-4 shrink-0 mx-auto w-full"
+					style={boardWidth ? `max-width: ${boardWidth}px` : ''}
+				>
 					<button
 						onclick={reviewToStart}
 						disabled={reviewIdx <= 0}
@@ -436,7 +446,7 @@
 			</div>
 
 			<div
-				class="w-full lg:w-72 shrink-0 hidden lg:flex lg:flex-col divide-y divide-gray-200 bg-white border border-gray-200 rounded-2xl shadow-sm lg:overflow-y-auto"
+				class="w-full lg:flex-1 lg:min-w-72 lg:max-w-sm hidden lg:flex lg:flex-col divide-y divide-gray-200 bg-white border border-gray-200 rounded-2xl shadow-sm lg:overflow-y-auto"
 			>
 				<div class="p-4">
 					<p class="text-gray-900 font-bold text-sm">{data.repertoire?.name}</p>

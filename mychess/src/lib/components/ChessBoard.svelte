@@ -41,6 +41,13 @@
 		// raw viewport. Defaults false so every other existing caller (drill,
 		// time-trial, settings preview) is unaffected.
 		containerFit?: boolean;
+		// The board's own actual rendered width in px, once mounted — bind to
+		// this when a sibling element (e.g. a row of controls below the
+		// board) needs to match the board's width exactly. Needed because
+		// that width isn't knowable from CSS alone when containerFit is
+		// active: it comes out of an aspect-ratio-vs-available-height
+		// computation, not a fixed value or simple percentage.
+		boxWidth?: number;
 	};
 
 	let {
@@ -52,7 +59,8 @@
 		onmove,
 		hintSquare = null,
 		arrowMove = null,
-		containerFit = false
+		containerFit = false,
+		boxWidth = $bindable(0)
 	}: Props = $props();
 
 	// How long a wrong guess holds the piece on the attempted square (with the
@@ -246,6 +254,7 @@
 	class="relative aspect-square mx-auto rounded-xl overflow-hidden shadow-2xl board-theme-{prefs.theme} pieces-{prefs.pieceSet} {containerFit
 		? 'w-[min(90vh,100%)] lg:w-auto lg:h-full lg:max-w-full'
 		: 'w-[min(90vh,100%)]'}"
+	bind:clientWidth={boxWidth}
 >
 	{#key prefs.coordinates}
 		<div use:mountBoard class="w-full h-full"></div>

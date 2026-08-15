@@ -2,6 +2,7 @@
 // mychess/src/lib/components/EngineEval.test.ts
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
+import { flushSync } from 'svelte';
 import EngineEval from './EngineEval.svelte';
 
 afterEach(() => {
@@ -11,11 +12,13 @@ afterEach(() => {
 
 const FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
-it('renders nothing (no crash) when the engine is unavailable (no Worker global at all)', () => {
+it('shows "unavailable" (not a crash, not a silent blank) when the engine is unavailable', () => {
 	// The real, deployed jsdom test environment has no Worker global —
-	// confirms EngineEval degrades gracefully with zero mocking needed.
-	const { container, unmount } = render(EngineEval, { props: { fen: FEN } });
-	expect(container.textContent?.trim()).toBe('');
+	// confirms EngineEval degrades gracefully with zero mocking needed, and
+	// says so explicitly rather than rendering nothing (which used to be
+	// indistinguishable from "still loading").
+	const { getByText, unmount } = render(EngineEval, { props: { fen: FEN } });
+	expect(getByText('unavailable')).toBeTruthy();
 	unmount();
 });
 
@@ -31,17 +34,23 @@ class FakeWorker {
 	onmessage: ((event: MessageEvent<string>) => void) | null = null;
 	onerror: (() => void) | null = null;
 	terminated = false;
+	sent: string[] = [];
 
 	constructor(public url: string) {
 		FakeWorker.instances.push(this);
 	}
 
-	postMessage() {
-		/* no-op — this test only cares whether/how many Workers get constructed */
+	postMessage(cmd: string) {
+		this.sent.push(cmd);
 	}
 
 	terminate() {
 		this.terminated = true;
+	}
+
+	/** Simulates the real engine emitting one UCI protocol line back to the page. */
+	emit(line: string) {
+		this.onmessage?.({ data: line } as MessageEvent<string>);
 	}
 }
 
@@ -97,5 +106,75 @@ describe('EngineEval Worker singleton lifecycle', () => {
 		expect(FakeWorker.instances.length).toBe(2);
 
 		second.unmount();
+	});
+
+	it('walks the full UCI handshake and updates the displayed eval once a score arrives', () => {
+		// The lifecycle tests above never actually exercise a successful
+		// scored round-trip (jsdom has no real Worker to talk to) — this
+		// drives a fake one through the exact handshake the real Stockfish
+		// build performs, to directly verify the reactive path from a raw
+		// UCI line to the rendered text, rather than assuming it works.
+		vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
+
+		const { getByText, queryByText } = render(EngineEval, { props: { fen: FEN } });
+		const worker = FakeWorker.instances[0];
+
+		expect(worker.sent).toContain('uci');
+		worker.emit('uciok');
+		flushSync();
+		expect(worker.sent).toContain('isready');
+		worker.emit('readyok');
+		flushSync();
+
+		// Once ready, the fen effect should have kicked off a real search.
+		expect(worker.sent.some((cmd) => cmd.startsWith('position fen'))).toBe(true);
+		expect(worker.sent.some((cmd) => cmd.startsWith('go movetime'))).toBe(true);
+
+		// Loading state before any score has arrived.
+		expect(getByText('…')).toBeTruthy();
+
+		worker.emit('info depth 12 seldepth 18 multipv 1 score cp 35 nodes 1000 nps 500000 time 20 pv e2e4 e7e5');
+		flushSync();
+
+		expect(getByText('+0.35')).toBeTruthy();
+		expect(queryByText('…')).toBeNull();
+	});
+
+	it('gives up and shows "unavailable" if the handshake never completes', () => {
+		// Covers the exact symptom reported in production: the engine loads
+		// (a real Worker gets constructed, no onerror fires) but never
+		// reaches "uciok"/"readyok", so it would otherwise sit on the
+		// loading ellipsis forever with no visible sign anything's wrong.
+		vi.useFakeTimers();
+		vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
+
+		const { getByText } = render(EngineEval, { props: { fen: FEN } });
+		expect(getByText('…')).toBeTruthy();
+
+		vi.advanceTimersByTime(8000);
+		flushSync();
+
+		expect(getByText('unavailable')).toBeTruthy();
+		vi.useRealTimers();
+	});
+
+	it('does not time out once the handshake completes before the deadline', () => {
+		vi.useFakeTimers();
+		vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
+
+		const { getByText, queryByText } = render(EngineEval, { props: { fen: FEN } });
+		const worker = FakeWorker.instances[0];
+
+		worker.emit('uciok');
+		flushSync();
+		worker.emit('readyok');
+		flushSync();
+
+		vi.advanceTimersByTime(8000);
+		flushSync();
+
+		expect(queryByText('unavailable')).toBeNull();
+		expect(getByText('…')).toBeTruthy();
+		vi.useRealTimers();
 	});
 });

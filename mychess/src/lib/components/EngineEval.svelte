@@ -11,6 +11,13 @@
 
 	const ENGINE_URL = '/stockfish/stockfish-18-lite-single.js#stockfish-18-lite-single.wasm,worker';
 	const MOVETIME_MS = 400;
+	// If the engine never completes its uci/isready handshake within this
+	// window (WASM instantiation stalling, a network hiccup fetching the
+	// ~7MB binary, or anything else going wrong at startup), give up and
+	// show "unavailable" instead of sitting on the loading state forever
+	// with no visible signal that anything's wrong.
+	const HANDSHAKE_TIMEOUT_MS = 8000;
+	let handshakeTimeout: ReturnType<typeof setTimeout> | undefined;
 
 	// Module-level singleton: the Practice page mounts both a desktop and a
 	// mobile <EngineEval> simultaneously (visibility is CSS-only, via
@@ -49,7 +56,10 @@
 		const line = event.data;
 		if (!ready) {
 			if (line.includes('uciok')) send('isready');
-			else if (line.includes('readyok')) ready = true;
+			else if (line.includes('readyok')) {
+				ready = true;
+				clearTimeout(handshakeTimeout);
+			}
 			return;
 		}
 		const parsed = parseInfoLine(line);
@@ -59,6 +69,7 @@
 
 	function fail() {
 		failed = true;
+		clearTimeout(handshakeTimeout);
 		worker?.terminate();
 		worker = null;
 	}
@@ -74,6 +85,7 @@
 			worker = new Worker(ENGINE_URL);
 			worker.onmessage = handleMessage;
 			worker.onerror = fail;
+			handshakeTimeout = setTimeout(fail, HANDSHAKE_TIMEOUT_MS);
 			send('uci');
 		} catch {
 			fail();
@@ -99,6 +111,7 @@
 	onDestroy(() => {
 		instanceCount--;
 		if (instanceCount > 0) return;
+		clearTimeout(handshakeTimeout);
 		if (worker) {
 			send('quit');
 			worker.terminate();
@@ -119,18 +132,20 @@
 		requestIfDue(fen);
 	});
 
-	const displayText = $derived(failed ? null : score ? formatEval(score) : '…');
+	const displayText = $derived(score ? formatEval(score) : '…');
 	const whiteFraction = $derived(score ? evalBarWhiteFraction(score) : null);
 </script>
 
-{#if displayText}
-	<div class="flex items-center gap-2">
-		<span class="text-xs font-semibold uppercase tracking-wide text-gray-400 shrink-0">Eval</span>
+<div class="flex items-center gap-2">
+	<span class="text-xs font-semibold uppercase tracking-wide text-gray-400 shrink-0">Eval</span>
+	{#if failed}
+		<span class="text-sm text-gray-400 italic">unavailable</span>
+	{:else}
 		<span class="text-base font-bold text-gray-900 tabular-nums shrink-0">{displayText}</span>
 		{#if whiteFraction !== null}
 			<div class="flex-1 h-1.5 rounded-full bg-gray-800 overflow-hidden" aria-hidden="true">
 				<div class="h-full bg-white" style={`width: ${whiteFraction * 100}%`}></div>
 			</div>
 		{/if}
-	</div>
-{/if}
+	{/if}
+</div>

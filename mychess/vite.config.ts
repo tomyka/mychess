@@ -45,6 +45,7 @@ export default defineConfig({
 		// (Vitest 4 removed the `environmentMatchGlobs` option that used to be
 		// used here for path-based environment switching.)
 		environment: 'node',
+		setupFiles: ['./src/test-setup.ts'],
 		alias: {
 			$lib: '/src/lib'
 		},
