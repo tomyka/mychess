@@ -18,9 +18,14 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const { variationKeys, included } = body ?? {};
 
 	if (!Array.isArray(variationKeys) || !variationKeys.every((k) => typeof k === 'string')) {
+		// TEMPORARY diagnostic — see practice-repertoire GitHub issue #69.
+		console.error('exclusions POST: malformed body', { repertoireId: params.id, body });
 		throw error(400, 'variationKeys must be an array of strings');
 	}
-	if (typeof included !== 'boolean') throw error(400, 'included must be a boolean');
+	if (typeof included !== 'boolean') {
+		console.error('exclusions POST: included not boolean', { repertoireId: params.id, included });
+		throw error(400, 'included must be a boolean');
+	}
 
 	// Confirms the caller can access this repertoire and that every move
 	// referenced by variationKeys actually belongs to it — see
@@ -29,10 +34,27 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	// re-enumerating the whole variation tree just to compare keys.
 	const validation = await validateVariationKeysOwnership(locals.supabase, params.id, variationKeys);
 	if (validation.notFound) throw error(404, 'Repertoire not found');
-	if (validation.error) throw error(400, validation.error);
+	if (validation.error) {
+		console.error('exclusions POST: ownership validation failed', {
+			repertoireId: params.id,
+			userId: user.id,
+			variationKeyCount: variationKeys.length,
+			error: validation.error
+		});
+		throw error(400, validation.error);
+	}
 
 	const result = await setVariationsIncluded(locals.supabase, user.id, params.id, variationKeys, included);
-	if (result.error) throw error(400, result.error);
+	if (result.error) {
+		console.error('exclusions POST: write failed', {
+			repertoireId: params.id,
+			userId: user.id,
+			variationKeyCount: variationKeys.length,
+			included,
+			error: result.error
+		});
+		throw error(400, result.error);
+	}
 
 	return json({ ok: true });
 };
