@@ -159,6 +159,18 @@ export function filterVariations(variations: Variation[], excludedKeys: Readonly
 }
 
 /**
+ * The move-row ids composing `variationKey`, in root-to-leaf order — the
+ * inverse of how `enumerateVariations` builds one
+ * (`path.map((s) => s.moveId).join('>')`). Used to cheaply confirm a
+ * submitted key's moves genuinely belong to a given repertoire without
+ * needing to fetch every move and re-walk the whole tree (see
+ * `validateVariationKeysOwnership` in `$lib/server/practice-repertoire`).
+ */
+export function moveIdsInVariationKey(variationKey: string): string[] {
+	return variationKey.split('>');
+}
+
+/**
  * A human-readable move-sequence preview for one variation, e.g.
  * "1.e4 e5 2.Nf3 Nc6 3.Bb5" — reads the real starting side-to-move and move
  * number from `path[0].fromFen` rather than assuming White's move 1, since a

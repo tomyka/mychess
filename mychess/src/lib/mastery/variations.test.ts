@@ -4,6 +4,7 @@ import {
 	filterVariations,
 	groupByFirstMoves,
 	hasChapterTags,
+	moveIdsInVariationKey,
 	moveSequenceLabel,
 	type RawMoveRow,
 	type Variation,
@@ -258,6 +259,26 @@ describe('filterVariations', () => {
 		const [keep, drop] = variations;
 		const result = filterVariations(variations, new Set([drop.variationKey]));
 		expect(result).toEqual([keep]);
+	});
+});
+
+describe('moveIdsInVariationKey', () => {
+	it('splits a variationKey back into its constituent move ids, in order', () => {
+		expect(moveIdsInVariationKey('m1>m2>m3')).toEqual(['m1', 'm2', 'm3']);
+	});
+
+	it('returns a single-element array for a one-move variation', () => {
+		expect(moveIdsInVariationKey('m1')).toEqual(['m1']);
+	});
+
+	it('round-trips with how enumerateVariations builds a variationKey', () => {
+		const moves = [
+			move('m1', 'START', 'P1', 'e4', true),
+			move('m2', 'P1', 'P2', 'e5', false),
+			move('m3', 'P2', 'P3', 'Nf3', true)
+		];
+		const [variation] = enumerateVariations(moves);
+		expect(moveIdsInVariationKey(variation.variationKey)).toEqual(['m1', 'm2', 'm3']);
 	});
 });
 

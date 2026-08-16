@@ -2,7 +2,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { requireApiUser } from '$lib/server/auth';
-import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
+import { validateVariationKeysOwnership } from '$lib/server/practice-repertoire';
 import { setVariationsIncluded } from '$lib/server/variation-practice-settings';
 
 /**
@@ -22,20 +22,14 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	}
 	if (typeof included !== 'boolean') throw error(400, 'included must be a boolean');
 
-	// `variation_practice_exclusions`'s unique constraint is
-	// (player_id, variation_key), not (player_id, repertoire_id,
-	// variation_key) — a variation_key that legitimately belongs to a
-	// DIFFERENT repertoire this player owns would otherwise hit the same
-	// upsert conflict target and silently get re-tagged with this
-	// repertoire's id, breaking that other repertoire's exclusion state.
-	// `loadRepertoireVariations` both confirms the caller can access this
-	// repertoire (404s otherwise) and gives us its real variation set to
-	// validate every posted key against.
-	const { variations } = await loadRepertoireVariations(locals.supabase, user.id, params.id);
-	const validKeys = new Set(variations.map((v) => v.variationKey));
-	if (!variationKeys.every((k) => validKeys.has(k))) {
-		throw error(400, 'variationKeys must belong to this repertoire');
-	}
+	// Confirms the caller can access this repertoire and that every move
+	// referenced by variationKeys actually belongs to it — see
+	// validateVariationKeysOwnership's own doc comment for why this is a
+	// cheap, targeted check rather than fetching every move and
+	// re-enumerating the whole variation tree just to compare keys.
+	const validation = await validateVariationKeysOwnership(locals.supabase, params.id, variationKeys);
+	if (validation.notFound) throw error(404, 'Repertoire not found');
+	if (validation.error) throw error(400, validation.error);
 
 	const result = await setVariationsIncluded(locals.supabase, user.id, params.id, variationKeys, included);
 	if (result.error) throw error(400, result.error);

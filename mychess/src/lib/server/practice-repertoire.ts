@@ -1,7 +1,7 @@
 // mychess/src/lib/server/practice-repertoire.ts
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { enumerateVariations, filterVariations, type RawMoveRow, type Variation } from '$lib/mastery/variations';
+import { enumerateVariations, filterVariations, moveIdsInVariationKey, type RawMoveRow, type Variation } from '$lib/mastery/variations';
 
 export type PracticeRepertoire = { id: string; name: string; color: string };
 
@@ -159,4 +159,78 @@ export async function loadFilteredRepertoireVariations(
 ): Promise<{ repertoire: PracticeRepertoire; variations: Variation[] }> {
 	const { repertoire, variations, excludedVariationKeys } = await loadRepertoireVariations(supabase, userId, repertoireId);
 	return { repertoire, variations: filterVariations(variations, excludedVariationKeys) };
+}
+
+// Small, fixed-length (UUID) ids — batched only to keep each `.in()`
+// filter's URL query string reasonably sized, not because a single batch
+// risks being slow. Fetched CONCURRENTLY (Promise.all), not sequentially,
+// since this is a pure read with no ordering/conflict constraints — even a
+// repertoire needing many batches completes in roughly one round trip's
+// worth of wall-clock time, not one per batch.
+const MOVE_ID_BATCH_SIZE = 200;
+
+function chunkIds<T>(items: T[], size: number): T[][] {
+	const batches: T[][] = [];
+	for (let i = 0; i < items.length; i += size) batches.push(items.slice(i, i + size));
+	return batches;
+}
+
+/**
+ * Cheaply confirms every move referenced by `variationKeys` actually
+ * belongs to `repertoireId`, and that the repertoire is accessible to the
+ * caller at all (RLS-scoped; reports as `notFound` otherwise) — WITHOUT
+ * fetching every move in the repertoire and re-walking the whole variation
+ * tree the way `loadRepertoireVariations` does. That full fetch-and-
+ * enumerate is needed when the caller actually wants the complete,
+ * currently-correct variation list (the picker's expand view, the shape
+ * cache); it's unnecessary overhead for the exclusions endpoint, which only
+ * ever needs to answer "do these specific keys belong here" — a question
+ * that gets more expensive with repertoire size for no reason under the
+ * old approach, and doesn't need to at all under this one.
+ *
+ * The security concern this guards (see the exclusions route's own comment)
+ * is `variation_practice_exclusions`'s unique constraint being
+ * `(player_id, variation_key)`, not `(player_id, repertoire_id,
+ * variation_key)` — a variation_key legitimately belonging to a DIFFERENT
+ * repertoire this player owns would otherwise hit the same upsert conflict
+ * target and silently get re-tagged with this repertoire's id. Since every
+ * move row belongs to exactly one repertoire and `moves.id` is a real,
+ * globally-unique UUID (never reused across repertoires), confirming every
+ * move-id referenced by a key exists under THIS repertoire_id rules that
+ * out just as completely as re-deriving the whole key from a full
+ * enumeration would — a key can't reference a real, existing move-id from
+ * a different repertoire, because that id was never inserted under this
+ * one.
+ */
+export async function validateVariationKeysOwnership(
+	supabase: SupabaseClient,
+	repertoireId: string,
+	variationKeys: string[]
+): Promise<{ error: string | null; notFound: boolean }> {
+	const { data: repertoire, error: repErr } = await supabase
+		.from('repertoires')
+		.select('id')
+		.eq('id', repertoireId)
+		.maybeSingle();
+	if (repErr) return { error: repErr.message, notFound: false };
+	if (!repertoire) return { error: 'Repertoire not found', notFound: true };
+
+	const moveIds = Array.from(new Set(variationKeys.flatMap(moveIdsInVariationKey)));
+	if (moveIds.length === 0) return { error: null, notFound: false };
+
+	const results = await Promise.all(
+		chunkIds(moveIds, MOVE_ID_BATCH_SIZE).map((batch) =>
+			supabase.from('moves').select('id').eq('repertoire_id', repertoireId).in('id', batch)
+		)
+	);
+	const foundIds = new Set<string>();
+	for (const r of results) {
+		if (r.error) return { error: r.error.message, notFound: false };
+		for (const row of r.data ?? []) foundIds.add(row.id);
+	}
+
+	if (moveIds.some((id) => !foundIds.has(id))) {
+		return { error: 'variationKeys must belong to this repertoire', notFound: false };
+	}
+	return { error: null, notFound: false };
 }
