@@ -25,7 +25,7 @@
   }
 </script>
 
-<div class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5 flex items-center gap-4">
+<div class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5 flex flex-wrap items-center gap-4">
   <!-- Avatar circle -->
   <div class="w-14 h-14 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 font-bold text-xl flex items-center justify-center shrink-0">
     {initials}
@@ -41,9 +41,13 @@
     {/if}
   </div>
 
-  <!-- FIDE rating tiles: Standard / Rapid / Blitz -->
+  <!-- FIDE rating tiles: Standard / Rapid / Blitz. `w-full` (once wrapped
+       onto their own row on narrow screens, per the outer container's
+       `flex-wrap`) keeps them from squeezing onto the identity row's
+       leftover space instead, which used to force both this row's fixed
+       92px-per-tile width AND the identity text into far too little room. -->
   {#if p?.fide_id}
-    <div class="flex gap-2 shrink-0">
+    <div class="flex gap-2 w-full justify-center sm:w-auto sm:justify-start sm:shrink-0">
       {#each TILES as tile (tile.key)}
         {@const entry = tileFor(tile.key)}
         <div class="w-[92px] text-center bg-(--color-bg) border border-gray-100 rounded-lg px-1 py-2">
