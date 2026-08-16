@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { planMultiImport, chapterName, planGameImport, resolvePlayerColor } from './pgn-import';
+import {
+  planMultiImport,
+  chapterName,
+  countHeaderValuesAcrossGames,
+  planGameImport,
+  resolvePlayerColor
+} from './pgn-import';
 
 describe('planMultiImport', () => {
   it('returns an error for a PGN with no valid games', () => {
@@ -54,6 +60,19 @@ describe('planMultiImport', () => {
   it('names each chapter from its own headers', () => {
     const twoGames = '[Event "Line A"]\n\n1. e4 e5 *\n\n[Event "Line B"]\n\n1. d4 d5 *';
     const result = planMultiImport(twoGames, 'white');
+    if ('error' in result) throw new Error('expected chapters, got error: ' + result.error);
+    expect(result[0].name).toBe('Line A');
+    expect(result[1].name).toBe('Line B');
+  });
+
+  it('falls back to White for chapter names when every game in the file shares the same Event header', () => {
+    // Some export tools stamp the collection/study title into Event on
+    // every embedded game rather than a per-game title — trusting it
+    // verbatim would collapse every chapter down to one identical name.
+    const sharedEvent =
+      '[Event "Freeze the French"]\n[White "Line A"]\n\n1. e4 e5 *\n\n' +
+      '[Event "Freeze the French"]\n[White "Line B"]\n\n1. d4 d5 *';
+    const result = planMultiImport(sharedEvent, 'white');
     if ('error' in result) throw new Error('expected chapters, got error: ' + result.error);
     expect(result[0].name).toBe('Line A');
     expect(result[1].name).toBe('Line B');
@@ -118,6 +137,50 @@ describe('chapterName', () => {
   // accepted edge case rather than something worth special-casing.
   it('uses White as-is even when it looks like a player name, not a chapter title', () => {
     expect(chapterName({ Event: '?', White: 'Carlsen, M', Black: 'Nakamura, H' }, 2)).toBe('Carlsen, M');
+  });
+
+  it('falls back to White when Event is identical across every game in the file (a collection title, not a per-chapter title)', () => {
+    const collisions = {
+      event: new Map([['Reference Collection', 3]]),
+      white: new Map([['Chapter One', 1]]),
+      black: new Map()
+    };
+    expect(chapterName({ Event: 'Reference Collection', White: 'Chapter One' }, 0, collisions)).toBe('Chapter One');
+  });
+
+  it('uses Event as-is when it is unique across the file', () => {
+    const collisions = { event: new Map([['Unique Title', 1]]), white: new Map(), black: new Map() };
+    expect(chapterName({ Event: 'Unique Title' }, 0, collisions)).toBe('Unique Title');
+  });
+
+  it('falls all the way through to an ordinal when Event, White, and Black are all non-distinguishing', () => {
+    const collisions = {
+      event: new Map([['Reference Collection', 2]]),
+      white: new Map([['Unknown', 2]]),
+      black: new Map([['Unknown', 2]])
+    };
+    expect(chapterName({ Event: 'Reference Collection', White: 'Unknown', Black: 'Unknown' }, 4, collisions)).toBe(
+      'Game 5'
+    );
+  });
+
+  it('treats every header as distinguishing when no collisions map is supplied (backward compatible)', () => {
+    expect(chapterName({ Event: 'Spanish Four Knights' }, 0)).toBe('Spanish Four Knights');
+  });
+});
+
+describe('countHeaderValuesAcrossGames', () => {
+  it('counts how many games share each Event/White/Black value', () => {
+    const games = [
+      { headers: { Event: 'Same Title', White: 'A' } },
+      { headers: { Event: 'Same Title', White: 'B' } },
+      { headers: { Event: 'Unique', White: 'A' } }
+    ] as unknown as Parameters<typeof countHeaderValuesAcrossGames>[0];
+    const counts = countHeaderValuesAcrossGames(games);
+    expect(counts.event.get('Same Title')).toBe(2);
+    expect(counts.event.get('Unique')).toBe(1);
+    expect(counts.white.get('A')).toBe(2);
+    expect(counts.white.get('B')).toBe(1);
   });
 });
 

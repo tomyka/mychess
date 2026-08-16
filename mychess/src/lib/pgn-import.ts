@@ -26,6 +26,31 @@ function usableHeader(value: string | undefined): string | null {
   return trimmed && trimmed !== '?' ? trimmed : null;
 }
 
+/** How many games (in the same multi-game PGN) carry each distinct Event/White/Black value. */
+export type HeaderValueCounts = {
+  event: Map<string, number>;
+  white: Map<string, number>;
+  black: Map<string, number>;
+};
+
+function countHeaderValues(games: ParsedGame[], field: 'Event' | 'White' | 'Black'): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const game of games) {
+    const value = usableHeader(game.headers[field]);
+    if (value === null) continue;
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return counts;
+}
+
+export function countHeaderValuesAcrossGames(games: ParsedGame[]): HeaderValueCounts {
+  return {
+    event: countHeaderValues(games, 'Event'),
+    white: countHeaderValues(games, 'White'),
+    black: countHeaderValues(games, 'Black')
+  };
+}
+
 /**
  * The label for one game/chapter within a multi-game PGN: Event first (most
  * export tools put a real title there), falling back to White then Black
@@ -35,11 +60,29 @@ function usableHeader(value: string | undefined): string | null {
  * version, so both are tried), falling back to a plain ordinal when none of
  * the three holds anything ("1-indexed game N" — used for header-less
  * PGNs, or ones where White/Black are simply absent).
+ *
+ * A header value is only trusted as a chapter title if it's *distinguishing*
+ * — i.e. it appears on at most one game in the file, per `collisions` (an
+ * optional cross-game tally from `countHeaderValuesAcrossGames`). Some export
+ * tools stamp every game in a multi-game file with the same collection/study
+ * title in Event, rather than a per-game title — trusting that verbatim would
+ * collapse every chapter in the file down to one identical name, which is
+ * worse than falling through to the next header (or an ordinal).
  */
-export function chapterName(headers: Record<string, string>, index: number): string {
-  return (
-    usableHeader(headers.Event) ?? usableHeader(headers.White) ?? usableHeader(headers.Black) ?? `Game ${index + 1}`
-  );
+export function chapterName(headers: Record<string, string>, index: number, collisions?: HeaderValueCounts): string {
+  const isDistinguishing = (value: string | null, counts: Map<string, number> | undefined) =>
+    value !== null && (counts?.get(value) ?? 1) <= 1;
+
+  const event = usableHeader(headers.Event);
+  if (isDistinguishing(event, collisions?.event)) return event as string;
+
+  const white = usableHeader(headers.White);
+  if (isDistinguishing(white, collisions?.white)) return white as string;
+
+  const black = usableHeader(headers.Black);
+  if (isDistinguishing(black, collisions?.black)) return black as string;
+
+  return `Game ${index + 1}`;
 }
 
 /**
@@ -55,6 +98,7 @@ export function chapterName(headers: Record<string, string>, index: number): str
  */
 export function planMultiImport(pgnText: string, color: 'white' | 'black'): MultiImportPlan {
   const games = parsePgn(pgnText);
+  const collisions = countHeaderValuesAcrossGames(games);
 
   const chapters: ImportChapter[] = games.map((game, index) => {
     const moves: MoveRow[] = game.moves.map((move) => ({
@@ -67,7 +111,7 @@ export function planMultiImport(pgnText: string, color: 'white' | 'black'): Mult
     }));
     const opening = detectOpening(game.moves.map((m) => m.san), ECO_OPENINGS);
     return {
-      name: chapterName(game.headers, index),
+      name: chapterName(game.headers, index, collisions),
       moves,
       ecoCode: opening?.code ?? null,
       ecoName: opening?.name ?? null
