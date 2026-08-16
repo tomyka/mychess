@@ -385,7 +385,7 @@
 					</p>
 				{/if}
 
-				<div class="lg:flex-1 lg:min-h-0 lg:flex lg:items-center lg:justify-center">
+				<div class="lg:flex-1 lg:min-h-0 lg:flex lg:items-center lg:justify-center lg:[container-type:size]">
 					<ChessBoard
 						fen={displayFen}
 						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}

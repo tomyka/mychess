@@ -40,6 +40,21 @@
 		// parent's height (capped by its width) instead of guessing from the
 		// raw viewport. Defaults false so every other existing caller (drill,
 		// time-trial, settings preview) is unaffected.
+		//
+		// The immediate parent MUST also be a CSS size container (Tailwind's
+		// `[container-type:size]`) for this to size correctly — the board's
+		// width is driven by a `cqh` (container-query height) unit, not a
+		// plain `h-full`. Mixing an explicit `height: 100%` with a
+		// `max-width` clamp on the aspect-ratio'd width (the previous
+		// approach) only re-derives the axis that was already `auto`: if the
+		// available WIDTH ends up the tighter constraint, `max-width` clamps
+		// it down but `height: 100%` stays put, producing a tall, non-square
+		// board instead of a smaller square one (confirmed live on
+		// mychess.lt, Aug 2026 — a narrower/taller browser window than the
+		// component had been tested at). Container-query units don't have
+		// this asymmetry: only `width` is ever explicitly set, so
+		// `aspect-square` always derives `height` fresh from whichever width
+		// actually won.
 		containerFit?: boolean;
 		// The board's own actual rendered width in px, once mounted — bind to
 		// this when a sibling element (e.g. a row of controls below the
@@ -252,7 +267,7 @@
 
 <div
 	class="relative aspect-square mx-auto rounded-xl overflow-hidden shadow-2xl board-theme-{prefs.theme} pieces-{prefs.pieceSet} {containerFit
-		? 'w-[min(90vh,100%)] lg:w-auto lg:h-full lg:max-w-full'
+		? 'w-[min(90vh,100%)] lg:w-[min(100cqh,100%)]'
 		: 'w-[min(90vh,100%)]'}"
 	bind:clientWidth={boxWidth}
 >
