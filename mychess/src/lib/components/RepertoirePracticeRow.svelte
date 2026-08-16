@@ -116,11 +116,27 @@
 		return chapterName ?? rep.name;
 	}
 
-	function indeterminate(node: HTMLInputElement, value: boolean) {
-		node.indeterminate = value;
+	/**
+	 * Imperatively owns BOTH `checked` and `indeterminate` on a parent/group
+	 * checkbox, bypassing Svelte's normal one-way `checked={...}` diffing —
+	 * which only re-touches the DOM when the JS-computed value differs from
+	 * whatever Svelte itself last assigned. Clicking a native indeterminate
+	 * checkbox flips its real DOM `checked` to `true` before any of our own
+	 * code runs; if the resulting aggregate state (e.g. going from
+	 * 'indeterminate' straight to 'unchecked', both of which map to
+	 * `checked: false`) computes the SAME `checked` value Svelte last set,
+	 * Svelte sees no change and skips the DOM write — leaving the checkbox
+	 * visibly stuck checked even though every child row is correctly
+	 * unselected. Setting both properties directly, every time, avoids that
+	 * stale-diff gap entirely.
+	 */
+	function checkboxState(node: HTMLInputElement, state: { checked: boolean; indeterminate: boolean }) {
+		node.checked = state.checked;
+		node.indeterminate = state.indeterminate;
 		return {
-			update(newValue: boolean) {
-				node.indeterminate = newValue;
+			update(newState: { checked: boolean; indeterminate: boolean }) {
+				node.checked = newState.checked;
+				node.indeterminate = newState.indeterminate;
 			}
 		};
 	}
@@ -318,8 +334,7 @@
 			<label class="flex items-center shrink-0">
 				<input
 					type="checkbox"
-					checked={parentState === 'checked'}
-					use:indeterminate={parentState === 'indeterminate'}
+					use:checkboxState={{ checked: parentState === 'checked', indeterminate: parentState === 'indeterminate' }}
 					onchange={toggleParent}
 					aria-label={`Include ${rep.name} in practice`}
 				/>
@@ -367,8 +382,10 @@
 							<label class="flex items-center shrink-0">
 								<input
 									type="checkbox"
-									checked={aggregateState(group.items) === 'checked'}
-									use:indeterminate={aggregateState(group.items) === 'indeterminate'}
+									use:checkboxState={{
+										checked: aggregateState(group.items) === 'checked',
+										indeterminate: aggregateState(group.items) === 'indeterminate'
+									}}
 									onchange={() => toggleMoveGroup(null, group)}
 									aria-label={`Include ${groupLabel(group)} in ${moveGroupQualifier(null)} in practice`}
 								/>
@@ -411,8 +428,10 @@
 							<label class="flex items-center shrink-0">
 								<input
 									type="checkbox"
-									checked={aggregateState(rowsForChapter(chapterName)) === 'checked'}
-									use:indeterminate={aggregateState(rowsForChapter(chapterName)) === 'indeterminate'}
+									use:checkboxState={{
+										checked: aggregateState(rowsForChapter(chapterName)) === 'checked',
+										indeterminate: aggregateState(rowsForChapter(chapterName)) === 'indeterminate'
+									}}
 									onchange={() => toggleChapter(chapterName)}
 									aria-label={`Include ${chapterName} (chapter) in practice`}
 								/>
@@ -440,8 +459,10 @@
 											<label class="flex items-center shrink-0">
 												<input
 													type="checkbox"
-													checked={aggregateState(group.items) === 'checked'}
-													use:indeterminate={aggregateState(group.items) === 'indeterminate'}
+													use:checkboxState={{
+														checked: aggregateState(group.items) === 'checked',
+														indeterminate: aggregateState(group.items) === 'indeterminate'
+													}}
 													onchange={() => toggleMoveGroup(chapterName, group)}
 													aria-label={`Include ${groupLabel(group)} in ${moveGroupQualifier(chapterName)} in practice`}
 												/>

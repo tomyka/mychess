@@ -166,6 +166,7 @@ describe('RepertoirePracticeRow', () => {
 		await waitFor(() => expect(v2Checkbox.checked).toBe(false));
 
 		const parentCheckbox = screen.getByRole('checkbox', { name: 'Include Ruy Lopez in practice' }) as HTMLInputElement;
+		expect(parentCheckbox.indeterminate).toBe(true); // v1 still included, v2 already excluded
 		await fireEvent.click(parentCheckbox); // bulk uncheck (only v1 was still included)
 		await waitFor(() =>
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
@@ -176,6 +177,15 @@ describe('RepertoirePracticeRow', () => {
 		);
 		const v1Checkbox = within(screen.getByText('label:v1').closest('label')!).getByRole('checkbox') as HTMLInputElement;
 		expect(v1Checkbox.checked).toBe(false);
+		// Regression: clicking a native indeterminate checkbox flips its real DOM
+		// `checked` to true before any of our code runs. Since the resulting
+		// state here (indeterminate -> unchecked) computes the SAME `checked:
+		// false` Svelte last assigned, a plain one-way `checked={...}` binding
+		// would see no change and skip re-touching the DOM, leaving the parent
+		// checkbox stuck visibly checked even though it's now correctly
+		// unchecked underneath (every child excluded).
+		expect(parentCheckbox.checked).toBe(false);
+		expect(parentCheckbox.indeterminate).toBe(false);
 
 		await fireEvent.click(parentCheckbox); // re-check — restores exactly v1, not v2
 		await waitFor(() =>
