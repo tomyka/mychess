@@ -10,8 +10,23 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // variations in one click), so an unbatched `.in()` filter risks blowing past
 // a proxy/URL length limit for a large, deep chapter. Batching keeps each
 // underlying request's filter to a bounded size regardless of how many keys
-// the caller passes in.
-const BATCH_SIZE = 50;
+// the caller passes in. Kept small since every one of these keys goes into
+// the URL query string.
+const DELETE_BATCH_SIZE = 50;
+
+// An upsert's rows travel in the request BODY, not the URL — no query-string
+// length concern, so this can be far bigger than DELETE_BATCH_SIZE. Kept
+// small enough to still bound a single request's payload/processing size,
+// but large enough that a big bulk toggle (e.g. a whole-repertoire checkbox
+// on a large, transposition-heavy import — real example: 1,040 variations)
+// needs only a handful of sequential round trips instead of dozens. Before
+// this, a large enough bulk exclude could accumulate enough round-trip
+// latency across many small batches to risk exceeding the serverless
+// function's own execution time limit — which, unlike a normal batch error,
+// gives no chance to run the compensating rollback below: the process is
+// simply killed mid-loop, leaving whatever batches had already committed in
+// place with no way to undo them.
+const UPSERT_BATCH_SIZE = 500;
 
 function chunk<T>(items: T[], size: number): T[][] {
 	const batches: T[][] = [];
@@ -32,7 +47,7 @@ async function reinsertExclusions(
 		repertoire_id: repertoireId,
 		variation_key: variationKey
 	}));
-	for (const batch of chunk(rows, BATCH_SIZE)) {
+	for (const batch of chunk(rows, UPSERT_BATCH_SIZE)) {
 		await supabase.from('variation_practice_exclusions').upsert(batch, { onConflict: 'player_id,variation_key' });
 	}
 }
@@ -40,7 +55,7 @@ async function reinsertExclusions(
 /** Best-effort compensation for an upsert batch that already succeeded before a later batch failed — re-deletes exactly those keys' exclusion rows. */
 async function deleteExclusions(supabase: SupabaseClient, playerId: string, variationKeys: string[]): Promise<void> {
 	if (variationKeys.length === 0) return;
-	for (const batch of chunk(variationKeys, BATCH_SIZE)) {
+	for (const batch of chunk(variationKeys, DELETE_BATCH_SIZE)) {
 		await supabase.from('variation_practice_exclusions').delete().eq('player_id', playerId).in('variation_key', batch);
 	}
 }
@@ -51,17 +66,18 @@ async function deleteExclusions(supabase: SupabaseClient, playerId: string, vari
  * rows (back to the default "included"); `included: false` upserts one
  * exclusion row per key (deduped first — see below). No-ops on an empty
  * `variationKeys` array. Batches the underlying delete/upsert into groups of
- * `BATCH_SIZE` keys, running sequentially and stopping at the first error.
+ * `DELETE_BATCH_SIZE`/`UPSERT_BATCH_SIZE` keys, running sequentially and
+ * stopping at the first error.
  *
  * A caller that fails gets back a single error and reverts its own state to
  * "nothing changed" — so if an earlier batch in this same call already
  * committed before a later one failed, the call rolls that batch back
  * (a best-effort compensating write, not a real transaction) rather than
  * leaving the database silently ahead of what every caller believes
- * happened. Without this, a large enough bulk toggle (more than
- * `BATCH_SIZE` keys — a chapter-level or whole-repertoire checkbox) that
- * fails partway through would leave some variations actually toggled server-
- * side while the UI reverts to showing none of them as changed.
+ * happened. Without this, a large enough bulk toggle (more than one batch's
+ * worth of keys — a chapter-level or whole-repertoire checkbox) that fails
+ * partway through would leave some variations actually toggled server-side
+ * while the UI reverts to showing none of them as changed.
  *
  * `playerId` must be the authenticated caller's own id and `supabase` must
  * be the request-scoped, RLS-respecting client (never a service-role
@@ -80,7 +96,7 @@ export async function setVariationsIncluded(
 
 	if (included) {
 		const succeededKeys: string[] = [];
-		for (const batch of chunk(variationKeys, BATCH_SIZE)) {
+		for (const batch of chunk(variationKeys, DELETE_BATCH_SIZE)) {
 			const { error } = await supabase
 				.from('variation_practice_exclusions')
 				.delete()
@@ -105,7 +121,7 @@ export async function setVariationsIncluded(
 		variation_key: variationKey
 	}));
 	const succeededKeys: string[] = [];
-	for (const batch of chunk(rows, BATCH_SIZE)) {
+	for (const batch of chunk(rows, UPSERT_BATCH_SIZE)) {
 		const { error } = await supabase
 			.from('variation_practice_exclusions')
 			.upsert(batch, { onConflict: 'player_id,variation_key' });

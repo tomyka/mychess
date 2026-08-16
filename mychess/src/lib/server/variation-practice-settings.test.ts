@@ -97,16 +97,32 @@ describe('setVariationsIncluded', () => {
 		expect(deleteCalls.flatMap((c) => c.vals)).toEqual(keys);
 	});
 
-	it('batches a large upsert (included: false) into multiple calls of at most 50 rows each', async () => {
+	it('batches a large upsert (included: false) into multiple calls of at most 500 rows each — far bigger than the delete batch size, since an upsert travels in the request body, not a URL query string', async () => {
+		// Real-world motivation: a large, transposition-heavy repertoire (e.g.
+		// 1,040 variations, the actual count of a real 414-chapter PGN import
+		// once enumerateVariations was fixed to stop multiplying cross-chapter
+		// paths) needs only ~3 round trips at this batch size instead of ~21 at
+		// the old 50 — the difference between a whole-repertoire "deselect
+		// everything" completing well within a serverless function's execution
+		// time limit versus risking a mid-loop kill that leaves a partial state
+		// committed with no chance to run the rollback below.
 		const { client, upsertCalls } = fakeSupabase();
-		const keys = Array.from({ length: 120 }, (_, i) => `v${i}`);
+		const keys = Array.from({ length: 1200 }, (_, i) => `v${i}`);
 		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, false);
 		expect(result).toEqual({ error: null });
-		expect(upsertCalls).toHaveLength(3);
-		expect(upsertCalls[0].rows).toHaveLength(50);
-		expect(upsertCalls[1].rows).toHaveLength(50);
-		expect(upsertCalls[2].rows).toHaveLength(20);
+		expect(upsertCalls).toHaveLength(3); // 500 + 500 + 200
+		expect(upsertCalls[0].rows).toHaveLength(500);
+		expect(upsertCalls[1].rows).toHaveLength(500);
+		expect(upsertCalls[2].rows).toHaveLength(200);
 		expect(upsertCalls.flatMap((c) => c.rows.map((r: any) => r.variation_key))).toEqual(keys);
+	});
+
+	it('does not batch an upsert at all when the key count is within the 500-row batch size', async () => {
+		const { client, upsertCalls } = fakeSupabase();
+		const keys = Array.from({ length: 120 }, (_, i) => `v${i}`);
+		await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, false);
+		expect(upsertCalls).toHaveLength(1);
+		expect(upsertCalls[0].rows).toHaveLength(120);
 	});
 
 	it('does not batch when the key count is already within one batch', async () => {
@@ -147,26 +163,24 @@ describe('setVariationsIncluded', () => {
 
 	it('rolls back an earlier successful upsert batch when a later batch fails (included: false)', async () => {
 		const { client, deleteCalls, upsertCalls } = fakeSupabase({ upsertErrorOnCall: 2, errorMessage: 'batch 2 failed' });
-		const keys = Array.from({ length: 150 }, (_, i) => `v${i}`); // 3 batches of 50
+		const keys = Array.from({ length: 1200 }, (_, i) => `v${i}`); // 3 batches of 500/500/200
 		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, false);
 
 		expect(result).toEqual({ error: 'batch 2 failed' });
 		expect(upsertCalls).toHaveLength(2); // batch 1 (succeeded) + batch 2 (failed)
 
 		// Rollback deletes exactly the keys the successful first upsert batch inserted.
-		expect(deleteCalls).toHaveLength(1);
-		expect(deleteCalls[0]).toEqual({
-			table: 'variation_practice_exclusions',
-			col1: 'player_id',
-			val1: 'player-1',
-			col2: 'variation_key',
-			vals: keys.slice(0, 50)
-		});
+		// The compensating delete still goes through DELETE_BATCH_SIZE (50)
+		// batches of its own, since it's a `.in()` filter — so 500 rolled-back
+		// keys split into 10 delete calls.
+		expect(deleteCalls).toHaveLength(10);
+		expect(deleteCalls.flatMap((c) => c.vals)).toEqual(keys.slice(0, 500));
+		expect(deleteCalls.every((c) => c.table === 'variation_practice_exclusions' && c.col1 === 'player_id' && c.val1 === 'player-1' && c.col2 === 'variation_key')).toBe(true);
 	});
 
 	it('does not attempt any rollback when the very first batch is the one that fails', async () => {
 		const { client, deleteCalls, upsertCalls } = fakeSupabase({ upsertErrorOnCall: 1, errorMessage: 'boom' });
-		const keys = Array.from({ length: 150 }, (_, i) => `v${i}`);
+		const keys = Array.from({ length: 1200 }, (_, i) => `v${i}`);
 		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, false);
 
 		expect(result).toEqual({ error: 'boom' });
