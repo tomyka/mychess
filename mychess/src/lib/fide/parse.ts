@@ -9,18 +9,34 @@ export interface FidePlayer {
   blitzRating: number | null;
 }
 
-function tagValue(chunk: string, tag: string): string | null {
-  // `tag` is always one of this file's own hardcoded literal call-site
-  // strings ('fideid', 'name', 'country', ...) — never derived from `chunk`
-  // (the untrusted parsed content) — so there's no injection/ReDoS surface
-  // despite the non-literal constructor call.
-  // eslint-disable-next-line security/detect-non-literal-regexp
-  const m = chunk.match(new RegExp(`<${tag}>([^<]*)</${tag}>`));
+// One compiled RegExp per tag, built once at module load rather than per
+// call — the full FIDE list has on the order of a million players, and
+// parsePlayerElement looks up 8 tags on *every one* of them (LTU-filtered
+// or not, since `keep` only decides what's retained afterward), so a
+// naive `new RegExp(...)` per lookup was ~8 million throwaway RegExp +
+// match-array allocations per import run. A plain (non-`/g`) RegExp has no
+// `lastIndex` state, so reusing the same compiled instance across calls is
+// safe.
+const TAG_PATTERNS = {
+  fideid: /<fideid>([^<]*)<\/fideid>/,
+  name: /<name>([^<]*)<\/name>/,
+  country: /<country>([^<]*)<\/country>/,
+  sex: /<sex>([^<]*)<\/sex>/,
+  birthday: /<birthday>([^<]*)<\/birthday>/,
+  rating: /<rating>([^<]*)<\/rating>/,
+  rapid_rating: /<rapid_rating>([^<]*)<\/rapid_rating>/,
+  blitz_rating: /<blitz_rating>([^<]*)<\/blitz_rating>/,
+} as const;
+
+type Tag = keyof typeof TAG_PATTERNS;
+
+function tagValue(chunk: string, tag: Tag): string | null {
+  const m = chunk.match(TAG_PATTERNS[tag]);
   const v = m ? m[1].trim() : '';
   return v || null;
 }
 
-function tagNumber(chunk: string, tag: string): number | null {
+function tagNumber(chunk: string, tag: Tag): number | null {
   const v = tagValue(chunk, tag);
   if (v == null) return null;
   const n = parseInt(v, 10);
