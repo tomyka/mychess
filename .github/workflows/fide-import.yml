@@ -1,5 +1,15 @@
 name: FIDE monthly import
 
+# This used to run `npm run fide:import` directly on the runner, downloading
+# FIDE's list straight from GitHub Actions' own network. As of Aug 2026,
+# ratings.fide.com (or a WAF in front of it) appears to hard-block GitHub's
+# shared runner IP ranges outright -- the download consistently times out at
+# the TCP-connect stage (confirmed reproducible across multiple fresh runs),
+# while the exact same URL is reachable fine from an ordinary residential/
+# office connection. Retrying from the SAME blocked network path can't fix
+# that, so this now triggers the existing `/api/fide/import` Vercel endpoint
+# instead -- the actual download happens from Vercel's network, which isn't
+# blocked, and this workflow only needs to reach mychess.lt (unaffected).
 on:
   schedule:
     - cron: '0 3 1 * *' # 03:00 UTC on the 1st of each month
@@ -8,22 +18,18 @@ on:
 jobs:
   import:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: mychess
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          # Node 22+ ships a native global WebSocket; @supabase/supabase-js's
-          # createClient constructs a Realtime client eagerly and throws on
-          # Node < 22 without the "ws" package.
-          node-version: '22'
-      - run: npm ci
-      - run: npm run fide:import
-        env:
-          # The job holds the ~47 MB zip and ~200 MB decompressed XML in memory;
-          # raise the heap ceiling defensively (runner has ~7 GB).
-          NODE_OPTIONS: '--max-old-space-size=4096'
-          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - name: Trigger FIDE import on Vercel
+        run: |
+          set -e
+          http_status=$(curl -sS -o response.json -w '%{http_code}' \
+            --max-time 290 \
+            -X POST https://mychess.lt/api/fide/import \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP status: $http_status"
+          cat response.json
+          echo
+          if [ "$http_status" -ge 300 ]; then
+            echo "::error::FIDE import endpoint returned HTTP $http_status"
+            exit 1
+          fi
