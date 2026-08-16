@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { setVariationsIncluded } from './variation-practice-settings';
+import { setVariationsIncluded, variationKeyHash } from './variation-practice-settings';
 
 function fakeSupabase(
 	opts: { deleteErrorOnCall?: number; upsertErrorOnCall?: number; errorMessage?: string } = {}
@@ -39,12 +39,18 @@ describe('setVariationsIncluded', () => {
 		expect(upsertCalls).toHaveLength(0);
 	});
 
-	it('deletes matching exclusion rows when included is true', async () => {
+	it('deletes matching exclusion rows, filtered by variation_key_hash, when included is true', async () => {
 		const { client, deleteCalls, upsertCalls } = fakeSupabase();
 		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', ['v1', 'v2'], true);
 		expect(result).toEqual({ error: null });
 		expect(deleteCalls).toEqual([
-			{ table: 'variation_practice_exclusions', col1: 'player_id', val1: 'player-1', col2: 'variation_key', vals: ['v1', 'v2'] }
+			{
+				table: 'variation_practice_exclusions',
+				col1: 'player_id',
+				val1: 'player-1',
+				col2: 'variation_key_hash',
+				vals: ['v1', 'v2'].map(variationKeyHash)
+			}
 		]);
 		expect(upsertCalls).toHaveLength(0);
 	});
@@ -59,7 +65,7 @@ describe('setVariationsIncluded', () => {
 			{ player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1' },
 			{ player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v2' }
 		]);
-		expect(upsertCalls[0].options).toEqual({ onConflict: 'player_id,variation_key' });
+		expect(upsertCalls[0].options).toEqual({ onConflict: 'player_id,variation_key_hash' });
 		expect(deleteCalls).toHaveLength(0);
 	});
 
@@ -84,17 +90,17 @@ describe('setVariationsIncluded', () => {
 		expect(result).toEqual({ error: 'boom' });
 	});
 
-	it('batches a large delete (included: true) into multiple calls of at most 50 keys each', async () => {
+	it('batches a large delete (included: true) into multiple calls of at most 500 keys each', async () => {
 		const { client, deleteCalls } = fakeSupabase();
-		const keys = Array.from({ length: 120 }, (_, i) => `v${i}`);
+		const keys = Array.from({ length: 1200 }, (_, i) => `v${i}`);
 		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, true);
 		expect(result).toEqual({ error: null });
-		expect(deleteCalls).toHaveLength(3); // 50 + 50 + 20
-		expect(deleteCalls[0].vals).toHaveLength(50);
-		expect(deleteCalls[1].vals).toHaveLength(50);
-		expect(deleteCalls[2].vals).toHaveLength(20);
-		// Every key is covered exactly once, in order, across the batches.
-		expect(deleteCalls.flatMap((c) => c.vals)).toEqual(keys);
+		expect(deleteCalls).toHaveLength(3); // 500 + 500 + 200
+		expect(deleteCalls[0].vals).toHaveLength(500);
+		expect(deleteCalls[1].vals).toHaveLength(500);
+		expect(deleteCalls[2].vals).toHaveLength(200);
+		// Every key is covered exactly once, in order, across the batches — as hashes, not raw keys.
+		expect(deleteCalls.flatMap((c) => c.vals)).toEqual(keys.map(variationKeyHash));
 	});
 
 	it('batches a large upsert (included: false) into multiple calls of at most 500 rows each — far bigger than the delete batch size, since an upsert travels in the request body, not a URL query string', async () => {
@@ -135,7 +141,7 @@ describe('setVariationsIncluded', () => {
 
 	it('stops at the first failing batch and does not attempt further batches', async () => {
 		const { client, deleteCalls } = fakeSupabase({ deleteErrorOnCall: 2, errorMessage: 'batch 2 failed' });
-		const keys = Array.from({ length: 150 }, (_, i) => `v${i}`); // 3 batches
+		const keys = Array.from({ length: 1200 }, (_, i) => `v${i}`); // 3 batches of 500/500/200
 		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, true);
 		expect(result).toEqual({ error: 'batch 2 failed' });
 		expect(deleteCalls).toHaveLength(2); // the 3rd batch was never attempted
@@ -148,7 +154,7 @@ describe('setVariationsIncluded', () => {
 		// variations really are now included) even though the whole call
 		// reports failure and the UI shows every row as still excluded.
 		const { client, deleteCalls, upsertCalls } = fakeSupabase({ deleteErrorOnCall: 2, errorMessage: 'batch 2 failed' });
-		const keys = Array.from({ length: 150 }, (_, i) => `v${i}`); // 3 batches of 50
+		const keys = Array.from({ length: 1200 }, (_, i) => `v${i}`); // 3 batches of 500/500/200
 		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, true);
 
 		expect(result).toEqual({ error: 'batch 2 failed' });
@@ -157,7 +163,7 @@ describe('setVariationsIncluded', () => {
 		// Rollback re-inserts exactly the keys the successful first delete
 		// batch removed — restoring them as excluded again.
 		expect(upsertCalls).toHaveLength(1);
-		expect(upsertCalls[0].rows.map((r: any) => r.variation_key)).toEqual(keys.slice(0, 50));
+		expect(upsertCalls[0].rows.map((r: any) => r.variation_key)).toEqual(keys.slice(0, 500));
 		expect(upsertCalls[0].rows.every((r: any) => r.player_id === 'player-1' && r.repertoire_id === 'rep-1')).toBe(true);
 	});
 
@@ -169,13 +175,16 @@ describe('setVariationsIncluded', () => {
 		expect(result).toEqual({ error: 'batch 2 failed' });
 		expect(upsertCalls).toHaveLength(2); // batch 1 (succeeded) + batch 2 (failed)
 
-		// Rollback deletes exactly the keys the successful first upsert batch inserted.
-		// The compensating delete still goes through DELETE_BATCH_SIZE (50)
-		// batches of its own, since it's a `.in()` filter — so 500 rolled-back
-		// keys split into 10 delete calls.
-		expect(deleteCalls).toHaveLength(10);
-		expect(deleteCalls.flatMap((c) => c.vals)).toEqual(keys.slice(0, 500));
-		expect(deleteCalls.every((c) => c.table === 'variation_practice_exclusions' && c.col1 === 'player_id' && c.val1 === 'player-1' && c.col2 === 'variation_key')).toBe(true);
+		// Rollback deletes exactly the keys the successful first upsert batch
+		// inserted. The compensating delete goes through DELETE_BATCH_SIZE
+		// (500) batches of its own — so 500 rolled-back keys fit in one call.
+		expect(deleteCalls).toHaveLength(1);
+		expect(deleteCalls.flatMap((c) => c.vals)).toEqual(keys.slice(0, 500).map(variationKeyHash));
+		expect(
+			deleteCalls.every(
+				(c) => c.table === 'variation_practice_exclusions' && c.col1 === 'player_id' && c.val1 === 'player-1' && c.col2 === 'variation_key_hash'
+			)
+		).toBe(true);
 	});
 
 	it('does not attempt any rollback when the very first batch is the one that fails', async () => {

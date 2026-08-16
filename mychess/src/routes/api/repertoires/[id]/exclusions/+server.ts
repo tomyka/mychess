@@ -18,14 +18,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const { variationKeys, included } = body ?? {};
 
 	if (!Array.isArray(variationKeys) || !variationKeys.every((k) => typeof k === 'string')) {
-		// TEMPORARY diagnostic — see practice-repertoire GitHub issue #69.
-		console.error('exclusions POST: malformed body', { repertoireId: params.id, body });
 		throw error(400, 'variationKeys must be an array of strings');
 	}
-	if (typeof included !== 'boolean') {
-		console.error('exclusions POST: included not boolean', { repertoireId: params.id, included });
-		throw error(400, 'included must be a boolean');
-	}
+	if (typeof included !== 'boolean') throw error(400, 'included must be a boolean');
 
 	// Confirms the caller can access this repertoire and that every move
 	// referenced by variationKeys actually belongs to it — see
@@ -46,6 +41,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 	const result = await setVariationsIncluded(locals.supabase, user.id, params.id, variationKeys, included);
 	if (result.error) {
+		// Logged (not just returned to the client) since a write failure here
+		// means practice/progress state silently diverges from what the UI
+		// shows — see migration 0049's own comment for the class of bug this
+		// caught (a Postgres btree index size limit, not obvious from the
+		// generic error message alone).
 		console.error('exclusions POST: write failed', {
 			repertoireId: params.id,
 			userId: user.id,

@@ -105,7 +105,7 @@ describe('applyAttemptResult', () => {
 				// Ends right after the player's 5th move (ply 8, player moves
 				// first in this fixture), not a flat 10-ply offset.
 				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1', taught_plies: 9, mastered_plies: 0 },
-				options: { onConflict: 'player_id,variation_key' }
+				options: { onConflict: 'player_id,variation_key_hash' }
 			}
 		]);
 	});
@@ -120,7 +120,7 @@ describe('applyAttemptResult', () => {
 			{
 				table: 'variation_teaching_progress',
 				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1', taught_plies: 20, mastered_plies: 20 },
-				options: { onConflict: 'player_id,variation_key' }
+				options: { onConflict: 'player_id,variation_key_hash' }
 			}
 		]);
 	});
@@ -137,12 +137,12 @@ describe('applyAttemptResult', () => {
 			{
 				table: 'variation_teaching_progress',
 				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1', taught_plies: 25, mastered_plies: 25 },
-				options: { onConflict: 'player_id,variation_key' }
+				options: { onConflict: 'player_id,variation_key_hash' }
 			},
 			{
 				table: 'variation_solved',
 				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1' },
-				options: { onConflict: 'player_id,variation_key', ignoreDuplicates: true }
+				options: { onConflict: 'player_id,variation_key_hash', ignoreDuplicates: true }
 			},
 			{
 				table: 'practice_active_variation',
@@ -171,7 +171,7 @@ describe('applyAttemptResult', () => {
 				// remaining content is taught in one go — but mastered_plies
 				// starts at 10 (credited from a), not 0.
 				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'b', taught_plies: 12, mastered_plies: 10 },
-				options: { onConflict: 'player_id,variation_key' }
+				options: { onConflict: 'player_id,variation_key_hash' }
 			}
 		]);
 	});

@@ -65,7 +65,7 @@ export async function markVariationSolved(
 		.from('variation_solved')
 		.upsert(
 			{ player_id: playerId, repertoire_id: repertoireId, variation_key: variationKey },
-			{ onConflict: 'player_id,variation_key', ignoreDuplicates: true }
+			{ onConflict: 'player_id,variation_key_hash', ignoreDuplicates: true }
 		);
 }
 
@@ -98,7 +98,7 @@ export async function saveTeachingProgress(
 		.from('variation_teaching_progress')
 		.upsert(
 			{ player_id: playerId, repertoire_id: repertoireId, variation_key: variationKey, taught_plies: taughtPlies, mastered_plies: masteredPlies },
-			{ onConflict: 'player_id,variation_key' }
+			{ onConflict: 'player_id,variation_key_hash' }
 		);
 }
 
