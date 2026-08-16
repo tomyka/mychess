@@ -31,15 +31,20 @@ describe('remainingPageRanges', () => {
 });
 
 describe('validateVariationKeysOwnership', () => {
+	const MOVES_PAGE_SIZE = 1000; // mirrors the private constant in practice-repertoire.ts
+
 	function fakeSupabase(
 		opts: {
 			repertoire?: { id: string } | null;
 			repertoireError?: string;
 			existingMoveIds?: string[];
 			movesError?: string;
+			countError?: string;
 		} = {}
 	) {
-		const movesInCalls: { repertoireId: string; ids: string[] }[] = [];
+		const rangeCalls: { repertoireId: string; from: number; to: number }[] = [];
+		const countCalls: string[] = [];
+		const allIds = opts.existingMoveIds ?? [];
 		return {
 			client: {
 				from: (table: string) => {
@@ -59,24 +64,37 @@ describe('validateVariationKeysOwnership', () => {
 					}
 					if (table === 'moves') {
 						return {
-							select: () => ({
-								eq: (_col: string, repertoireId: string) => ({
-									in: (_col2: string, ids: string[]) => {
-										movesInCalls.push({ repertoireId, ids });
-										if (opts.movesError) {
-											return Promise.resolve({ data: null, error: { message: opts.movesError } });
-										}
-										const found = (opts.existingMoveIds ?? []).filter((id) => ids.includes(id));
-										return Promise.resolve({ data: found.map((id) => ({ id })), error: null });
+							select: (_cols: string, selectOpts?: { count?: string; head?: boolean }) => ({
+								eq: (_col: string, repertoireId: string) => {
+									if (selectOpts?.head) {
+										countCalls.push(repertoireId);
+										return Promise.resolve(
+											opts.countError
+												? { data: null, count: null, error: { message: opts.countError } }
+												: { data: null, count: allIds.length, error: null }
+										);
 									}
-								})
+									return {
+										order: () => ({
+											range: (from: number, to: number) => {
+												rangeCalls.push({ repertoireId, from, to });
+												if (opts.movesError) {
+													return Promise.resolve({ data: null, error: { message: opts.movesError } });
+												}
+												const page = allIds.slice(from, to + 1);
+												return Promise.resolve({ data: page.map((id) => ({ id })), error: null });
+											}
+										})
+									};
+								}
 							})
 						};
 					}
 					throw new Error(`unexpected table ${table}`);
 				}
 			},
-			movesInCalls
+			rangeCalls,
+			countCalls
 		};
 	}
 
@@ -93,10 +111,10 @@ describe('validateVariationKeysOwnership', () => {
 	});
 
 	it('no-ops (no error, no moves query) on an empty variationKeys array', async () => {
-		const { client, movesInCalls } = fakeSupabase({ repertoire: { id: 'rep-1' } });
+		const { client, rangeCalls } = fakeSupabase({ repertoire: { id: 'rep-1' } });
 		const result = await validateVariationKeysOwnership(client as any, 'rep-1', []);
 		expect(result).toEqual({ error: null, notFound: false });
-		expect(movesInCalls).toHaveLength(0);
+		expect(rangeCalls).toHaveLength(0);
 	});
 
 	it('succeeds when every move id referenced by every key exists under this repertoire', async () => {
@@ -105,14 +123,13 @@ describe('validateVariationKeysOwnership', () => {
 		expect(result).toEqual({ error: null, notFound: false });
 	});
 
-	it('dedupes move ids shared across multiple keys before querying', async () => {
-		const { client, movesInCalls } = fakeSupabase({
+	it('fetches the repertoire once regardless of how many (possibly duplicate) keys reference its moves', async () => {
+		const { client, rangeCalls } = fakeSupabase({
 			repertoire: { id: 'rep-1' },
 			existingMoveIds: ['m1', 'm2', 'm3']
 		});
 		await validateVariationKeysOwnership(client as any, 'rep-1', ['m1>m2', 'm1>m3']);
-		expect(movesInCalls).toHaveLength(1);
-		expect(movesInCalls[0].ids.slice().sort()).toEqual(['m1', 'm2', 'm3']);
+		expect(rangeCalls).toHaveLength(1);
 	});
 
 	it('fails when a referenced move id does not exist under this repertoire — the actual security check', async () => {
@@ -129,17 +146,20 @@ describe('validateVariationKeysOwnership', () => {
 		expect(result).toEqual({ error: 'boom', notFound: false });
 	});
 
-	it('batches move-id lookups at 200 ids per call, querying every batch (concurrently, not sequentially)', async () => {
-		const ids = Array.from({ length: 250 }, (_, i) => `m${i}`);
-		const { client, movesInCalls } = fakeSupabase({ repertoire: { id: 'rep-1' }, existingMoveIds: ids });
-		const result = await validateVariationKeysOwnership(client as any, 'rep-1', [ids.join('>')]);
+	it('propagates a count lookup error for a repertoire spanning more than one page', async () => {
+		const ids = Array.from({ length: MOVES_PAGE_SIZE + 50 }, (_, i) => `m${i}`);
+		const { client } = fakeSupabase({ repertoire: { id: 'rep-1' }, existingMoveIds: ids, countError: 'boom' });
+		const result = await validateVariationKeysOwnership(client as any, 'rep-1', [ids.slice(0, 5).join('>')]);
+		expect(result).toEqual({ error: 'boom', notFound: false });
+	});
+
+	it('pages through every move in a repertoire spanning more than one page, fetched concurrently', async () => {
+		const ids = Array.from({ length: MOVES_PAGE_SIZE + 250 }, (_, i) => `m${i}`);
+		const { client, rangeCalls } = fakeSupabase({ repertoire: { id: 'rep-1' }, existingMoveIds: ids });
+		// References a move id that only exists on the second page — proves the
+		// full repertoire (not just its first page) is checked.
+		const result = await validateVariationKeysOwnership(client as any, 'rep-1', [`m0>m${MOVES_PAGE_SIZE + 100}`]);
 		expect(result).toEqual({ error: null, notFound: false });
-		expect(movesInCalls).toHaveLength(2); // 200 + 50
-		expect(
-			movesInCalls
-				.map((c) => c.ids.length)
-				.slice()
-				.sort((a, b) => a - b)
-		).toEqual([50, 200]);
+		expect(rangeCalls).toHaveLength(2); // page 1 (0..999) + page 2 (1000..1999)
 	});
 });

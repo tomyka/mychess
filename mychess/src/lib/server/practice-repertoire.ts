@@ -161,32 +161,51 @@ export async function loadFilteredRepertoireVariations(
 	return { repertoire, variations: filterVariations(variations, excludedVariationKeys) };
 }
 
-// Small, fixed-length (UUID) ids — batched only to keep each `.in()`
-// filter's URL query string reasonably sized, not because a single batch
-// risks being slow. Fetched CONCURRENTLY (Promise.all), not sequentially,
-// since this is a pure read with no ordering/conflict constraints — even a
-// repertoire needing many batches completes in roughly one round trip's
-// worth of wall-clock time, not one per batch.
-const MOVE_ID_BATCH_SIZE = 200;
+/**
+ * Every move id belonging to `repertoireId`, fetched with the same
+ * paginated-and-fully-concurrent approach as `fetchAllMoves` (defeating the
+ * `max_rows` cap the same way — see that function's own comment) but
+ * selecting only `id`, since that's all an ownership check needs.
+ *
+ * `validateVariationKeysOwnership` used to instead chunk the *caller's*
+ * move ids into `.in()` batches of 200 and fetch them all concurrently —
+ * for a large, deep, transposition-heavy repertoire (thousands of unique
+ * move ids across a bulk toggle), that meant dozens of simultaneous
+ * requests from one serverless invocation, which was implicated in
+ * legitimate variation keys sporadically failing ownership validation
+ * (mychess.lt production, Aug 2026). Fetching this repertoire's own move ids
+ * once, the same proven way the GET /variations endpoint already does via
+ * `fetchAllMoves`, avoids that fan-out entirely.
+ */
+async function fetchAllMoveIds(supabase: SupabaseClient, repertoireId: string): Promise<Set<string>> {
+	const query = () => supabase.from('moves').select('id').eq('repertoire_id', repertoireId).order('id', { ascending: true });
 
-function chunkIds<T>(items: T[], size: number): T[][] {
-	const batches: T[][] = [];
-	for (let i = 0; i < items.length; i += size) batches.push(items.slice(i, i + size));
-	return batches;
+	const { data: firstPage, error: err } = await query().range(0, MOVES_PAGE_SIZE - 1);
+	if (err) throw err;
+	const firstRows = firstPage ?? [];
+	const ids = new Set<string>(firstRows.map((r) => r.id));
+	if (firstRows.length < MOVES_PAGE_SIZE) return ids;
+
+	const { count, error: countErr } = await supabase
+		.from('moves')
+		.select('id', { count: 'exact', head: true })
+		.eq('repertoire_id', repertoireId);
+	if (countErr) throw countErr;
+
+	const pages = await Promise.all(
+		remainingPageRanges(count ?? firstRows.length, MOVES_PAGE_SIZE).map(([from, to]) => query().range(from, to))
+	);
+	for (const page of pages) {
+		if (page.error) throw page.error;
+		for (const row of page.data ?? []) ids.add(row.id);
+	}
+	return ids;
 }
 
 /**
- * Cheaply confirms every move referenced by `variationKeys` actually
- * belongs to `repertoireId`, and that the repertoire is accessible to the
- * caller at all (RLS-scoped; reports as `notFound` otherwise) — WITHOUT
- * fetching every move in the repertoire and re-walking the whole variation
- * tree the way `loadRepertoireVariations` does. That full fetch-and-
- * enumerate is needed when the caller actually wants the complete,
- * currently-correct variation list (the picker's expand view, the shape
- * cache); it's unnecessary overhead for the exclusions endpoint, which only
- * ever needs to answer "do these specific keys belong here" — a question
- * that gets more expensive with repertoire size for no reason under the
- * old approach, and doesn't need to at all under this one.
+ * Confirms every move referenced by `variationKeys` actually belongs to
+ * `repertoireId`, and that the repertoire is accessible to the caller at all
+ * (RLS-scoped; reports as `notFound` otherwise).
  *
  * The security concern this guards (see the exclusions route's own comment)
  * is `variation_practice_exclusions`'s unique constraint being
@@ -218,15 +237,12 @@ export async function validateVariationKeysOwnership(
 	const moveIds = Array.from(new Set(variationKeys.flatMap(moveIdsInVariationKey)));
 	if (moveIds.length === 0) return { error: null, notFound: false };
 
-	const results = await Promise.all(
-		chunkIds(moveIds, MOVE_ID_BATCH_SIZE).map((batch) =>
-			supabase.from('moves').select('id').eq('repertoire_id', repertoireId).in('id', batch)
-		)
-	);
-	const foundIds = new Set<string>();
-	for (const r of results) {
-		if (r.error) return { error: r.error.message, notFound: false };
-		for (const row of r.data ?? []) foundIds.add(row.id);
+	let foundIds: Set<string>;
+	try {
+		foundIds = await fetchAllMoveIds(supabase, repertoireId);
+	} catch (err) {
+		const message = err instanceof Error ? err.message : (err as { message?: string })?.message;
+		return { error: message ?? 'Failed to validate variation keys', notFound: false };
 	}
 
 	if (moveIds.some((id) => !foundIds.has(id))) {
