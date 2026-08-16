@@ -34,7 +34,7 @@
       {:else}
         <ul class="space-y-2">
           {#each data.coaches as rel (rel.id)}
-            <li class="bg-(--color-surface) border border-(--color-border) rounded-xl p-4 flex items-center gap-3">
+            <li class="bg-(--color-surface) border border-(--color-border) rounded-xl shadow-sm p-4 flex items-center gap-3">
               <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm flex items-center justify-center dark:bg-indigo-950 dark:text-indigo-300">
                 {initials(rel.other)}
               </div>
@@ -56,7 +56,7 @@
       {:else}
         <ul class="space-y-2">
           {#each data.pending as rel (rel.id)}
-            <li class="bg-(--color-surface) border border-(--color-border) rounded-xl p-4 flex items-center gap-3">
+            <li class="bg-(--color-surface) border border-(--color-border) rounded-xl shadow-sm p-4 flex items-center gap-3">
               <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm flex items-center justify-center dark:bg-indigo-950 dark:text-indigo-300">
                 {initials(rel.other)}
               </div>
@@ -101,7 +101,7 @@
       {:else}
         <ul class="space-y-2">
           {#each data.findResults as coach (coach.id)}
-            <li class="bg-(--color-surface) border border-(--color-border) rounded-xl p-4 flex items-center gap-3">
+            <li class="bg-(--color-surface) border border-(--color-border) rounded-xl shadow-sm p-4 flex items-center gap-3">
               <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm flex items-center justify-center dark:bg-indigo-950 dark:text-indigo-300">
                 {initials(coach)}
               </div>
