@@ -13,8 +13,13 @@ import { requireCronAuth } from '$lib/server/cron-auth';
 // TCP-connect timeouts from the runner, fine from any ordinary connection),
 // so the actual download has to happen from Vercel's network instead. This
 // download+parse job is heavy (~47 MB download, ~200 MB decompressed,
-// thousands of upserts) -- if it starts exceeding Vercel's function time/
-// memory limits, that's the thing to revisit, not which runner triggers it.
+// thousands of upserts) -- confirmed OOM-killed at the platform's default
+// memory allocation on a real run (Aug 2026: "Vercel Runtime Error: instance
+// was killed because it ran out of available memory"), hence the raised
+// `memory`/`maxDuration` below (adapter-vercel's per-route config, Serverless
+// Functions only -- see its own ServerlessConfig type).
+export const config = { memory: 3009, maxDuration: 300 };
+
 export const POST: RequestHandler = async ({ request }) => {
   const { CRON_SECRET, SUPABASE_SERVICE_ROLE_KEY } = env;
   const { PUBLIC_SUPABASE_URL } = pubEnv;
