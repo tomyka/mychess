@@ -1,4 +1,4 @@
-import { unzipSync } from 'fflate';
+import { Unzip, UnzipInflate } from 'fflate';
 
 const DEFAULT_URL = 'https://ratings.fide.com/download/players_list_xml.zip';
 
@@ -39,21 +39,64 @@ async function fetchWithRetry(url: string): Promise<Response> {
 }
 
 /**
- * Downloads FIDE's monthly combined rating list (XML variant) and unzips it in
- * memory, returning the raw decompressed bytes.
+ * Downloads FIDE's monthly combined rating list (XML variant), decompresses
+ * it, and hands the decompressed XML to `onChunk` as bytes become available —
+ * end-to-end streaming, never materializing the full compressed (~47 MB) or
+ * decompressed (~800+ MB as of Aug 2026, and only growing every month) file
+ * in memory at once. `onChunk`'s `final` flag marks the last call.
  *
- * We return bytes (not a string) because the decompressed XML exceeds V8's
- * ~512 MB max string length; the caller decodes and parses it in chunks via
- * `parseFidePlayersFromBytes`.
+ * This used to buffer the whole response via `res.arrayBuffer()` then
+ * `unzipSync` it in one shot, returning the fully-materialized decompressed
+ * bytes. That worked fine on a GitHub Actions runner (~7 GB RAM), but this
+ * import now runs inside a Vercel serverless function instead (see
+ * .github/workflows/fide-import.yml's own comment for why) — confirmed via
+ * Vercel runtime logs that even at the platform's max per-function memory,
+ * the whole-buffer approach got OOM-killed once FIDE's real decompressed
+ * size (~800 MB, confirmed by downloading and unzipping the file directly —
+ * nowhere near the ~200 MB this code used to assume) is accounted for.
+ * Streaming end-to-end keeps peak memory to a small rolling buffer
+ * regardless of how large the underlying file is or ever grows to.
  */
-export async function downloadPlayersList(url: string = DEFAULT_URL): Promise<Uint8Array> {
+export async function streamPlayersList(
+  onChunk: (chunk: Uint8Array, final: boolean) => void,
+  url: string = DEFAULT_URL
+): Promise<void> {
   const res = await fetchWithRetry(url);
+  if (!res.body) throw new Error('FIDE download response has no body to stream');
 
-  const zipped = new Uint8Array(await res.arrayBuffer());
-  const files = unzipSync(zipped);
-  const names = Object.keys(files);
-  const xmlName = names.find((n) => n.toLowerCase().endsWith('.xml')) ?? names[0];
-  if (!xmlName) throw new Error('FIDE zip archive is empty');
+  let sawFile = false;
+  let pendingError: unknown;
 
-  return files[xmlName];
+  const unzipper = new Unzip((file) => {
+    sawFile = true;
+    file.ondata = (err, chunk, final) => {
+      if (err) {
+        pendingError = err;
+        return;
+      }
+      onChunk(chunk, final);
+    };
+    file.start();
+  });
+  // Synchronous inflate decoder — runs on this same thread rather than a
+  // worker (fflate's AsyncUnzipInflate), trading a bit of CPU-bound latency
+  // for not needing worker_threads to bundle/spawn cleanly inside a
+  // SvelteKit/Vercel serverless function. Streaming is what actually fixes
+  // the memory problem here; running inflate off-thread is an orthogonal
+  // concern this import doesn't need.
+  unzipper.register(UnzipInflate);
+
+  const reader = res.body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (pendingError) throw pendingError;
+    if (done) {
+      unzipper.push(new Uint8Array(0), true);
+      break;
+    }
+    unzipper.push(value, false);
+    if (pendingError) throw pendingError;
+  }
+
+  if (!sawFile) throw new Error('FIDE zip archive is empty');
 }

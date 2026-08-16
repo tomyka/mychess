@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { downloadPlayersList } from './download';
-import { parseFidePlayersFromBytes } from './parse';
+import { streamPlayersList } from './download';
+import { createFideStreamParser } from './parse';
 import { computeRanks } from './rank';
 
 export interface FideImportResult {
@@ -38,14 +38,17 @@ export async function runFideImport(
   const result: FideImportResult = { total: 0, ltu: 0, imported: 0, listDate, errors };
 
   try {
-    const bytes = await downloadPlayersList();
-    // Stream-parse: the decompressed XML exceeds V8's max string length, so we
-    // never hold it whole. Count every valid player and keep only Lithuanians.
+    // Stream end-to-end (network -> unzip -> XML parse): the decompressed
+    // list is ~800+ MB and growing every month, far past what's safe to
+    // materialize whole in a serverless function's memory budget. Count
+    // every valid player and keep only Lithuanians.
     let total = 0;
-    const ltu = parseFidePlayersFromBytes(bytes, (p) => {
+    const parser = createFideStreamParser((p) => {
       total++;
       return p.federation === 'LTU';
     });
+    await streamPlayersList((chunk) => parser.push(chunk));
+    const ltu = parser.finish();
     result.total = total;
     result.ltu = ltu.length;
 

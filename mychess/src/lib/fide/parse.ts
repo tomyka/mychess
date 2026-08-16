@@ -43,8 +43,6 @@ function tagNumber(chunk: string, tag: Tag): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-const PLAYER_RE = /<player\b[^>]*>([\s\S]*?)<\/player>/g;
-
 /** Parses the inner content of one <player>…</player>. Returns null if the id is missing/non-numeric. */
 function parsePlayerElement(inner: string): FidePlayer | null {
   const fideId = tagValue(inner, 'fideid');
@@ -61,41 +59,110 @@ function parsePlayerElement(inner: string): FidePlayer | null {
   };
 }
 
+export interface FideStreamParser {
+  /** Feed the next chunk of decompressed XML bytes, in order. */
+  push(chunk: Uint8Array): void;
+  /** Flushes any trailing partial content and returns every kept player. */
+  finish(): FidePlayer[];
+}
+
+const PLAYER_OPEN = '<player';
+const PLAYER_CLOSE = '</player>';
+const GT = '>'.charCodeAt(0);
+
+/** Zero-copy view of `u8`'s bytes as a Node `Buffer`, for its native (C++-backed) `indexOf`/`toString`. */
+function toBuffer(u8: Uint8Array): Buffer {
+  return Buffer.from(u8.buffer, u8.byteOffset, u8.byteLength);
+}
+
 /**
- * Streaming variant for the full FIDE list, whose decompressed XML exceeds V8's
- * ~512 MB max string length. Decodes the bytes in chunks, extracts complete
- * <player> blocks from a small rolling buffer, and keeps only players for which
- * `keep` returns true (called once per valid-id player — use it to count totals
- * and filter to a federation without accumulating the whole list).
+ * A push-based counterpart to `parseFidePlayersFromBytes` for when the
+ * decompressed XML arrives incrementally (e.g. streamed straight out of a
+ * zip decoder) rather than as one fully-materialized buffer — see
+ * `streamPlayersList` in `./download`, which feeds this directly so the
+ * ~800+ MB (and growing every month) decompressed FIDE list is never held
+ * in memory all at once.
+ *
+ * The rolling buffer here is a Node `Buffer`, not a JS string — confirmed
+ * live (Aug 2026) that decoding the whole stream into one growing JS
+ * string via repeated `+=`, finding `<player>` blocks with a regex, then
+ * `.slice()`-ing off the consumed prefix, leaked: V8's ConsString/
+ * SlicedString representation for a string built that way keeps retaining
+ * old backing storage, so heap usage grew linearly with total bytes
+ * processed instead of staying bounded — reproduced against the real
+ * ~800 MB FIDE file, which OOM'd a 1.5 GB heap well before finishing. A
+ * first fix (hand-rolled byte-array boundary search, no string at all
+ * until a single player's own span is isolated) fixed the leak but was far
+ * too slow for ~1.7 million players' worth of byte-by-byte JS comparisons
+ * to finish inside a serverless function's time limit. `Buffer`'s
+ * `indexOf`/`concat`/`toString` are native (V8/Node C++), not JS loops —
+ * fast *and* bounded, since `Buffer.concat` always produces one fresh,
+ * appropriately-sized allocation rather than a view chain that keeps
+ * retaining old, larger backing buffers the way string slicing did.
+ */
+export function createFideStreamParser(keep: (p: FidePlayer) => boolean = () => true): FideStreamParser {
+  const players: FidePlayer[] = [];
+  let pending: Buffer = Buffer.alloc(0);
+
+  const drain = () => {
+    for (;;) {
+      const openIdx = pending.indexOf(PLAYER_OPEN);
+      if (openIdx === -1) {
+        // No opening tag at all yet — keep only enough of the tail that a
+        // `<player` split across the next chunk boundary can still be found.
+        const keepFrom = Math.max(0, pending.length - (PLAYER_OPEN.length - 1));
+        if (keepFrom > 0) pending = pending.subarray(keepFrom);
+        return;
+      }
+      const tagEnd = pending.indexOf(GT, openIdx + PLAYER_OPEN.length);
+      if (tagEnd === -1) {
+        // The opening tag itself isn't fully buffered yet. Drop anything
+        // before it (uninteresting prologue/whitespace) and wait for more.
+        if (openIdx > 0) pending = pending.subarray(openIdx);
+        return;
+      }
+      const closeIdx = pending.indexOf(PLAYER_CLOSE, tagEnd);
+      if (closeIdx === -1) {
+        // Whole element isn't fully buffered yet — same idea, wait for more.
+        if (openIdx > 0) pending = pending.subarray(openIdx);
+        return;
+      }
+      const inner = pending.toString('utf-8', tagEnd + 1, closeIdx);
+      const p = parsePlayerElement(inner);
+      if (p && keep(p)) players.push(p);
+      pending = pending.subarray(closeIdx + PLAYER_CLOSE.length);
+    }
+  };
+
+  return {
+    push(chunk: Uint8Array) {
+      const chunkBuf = toBuffer(chunk);
+      pending = pending.length === 0 ? chunkBuf : Buffer.concat([pending, chunkBuf]);
+      drain();
+    },
+    finish(): FidePlayer[] {
+      drain();
+      return players;
+    }
+  };
+}
+
+/**
+ * Whole-buffer variant of `createFideStreamParser`, for callers that already
+ * have the full decompressed XML as one `Uint8Array` (e.g. tests, or a list
+ * small enough not to need true streaming). Chunks it internally at
+ * `chunkSize` purely to bound the decoder's own rolling buffer — this still
+ * requires `bytes` to already be fully materialized, unlike the stream
+ * parser above.
  */
 export function parseFidePlayersFromBytes(
   bytes: Uint8Array,
   keep: (p: FidePlayer) => boolean = () => true,
   chunkSize = 1 << 22 // 4 MB
 ): FidePlayer[] {
-  const decoder = new TextDecoder('utf-8', { fatal: false });
-  const players: FidePlayer[] = [];
-  let buffer = '';
-
-  const drain = () => {
-    PLAYER_RE.lastIndex = 0;
-    let lastEnd = 0;
-    let m: RegExpExecArray | null;
-    while ((m = PLAYER_RE.exec(buffer)) !== null) {
-      const p = parsePlayerElement(m[1]);
-      if (p && keep(p)) players.push(p);
-      lastEnd = PLAYER_RE.lastIndex;
-    }
-    // Drop everything through the last complete </player>; keep any partial tail.
-    if (lastEnd > 0) buffer = buffer.slice(lastEnd);
-  };
-
+  const parser = createFideStreamParser(keep);
   for (let i = 0; i < bytes.length; i += chunkSize) {
-    buffer += decoder.decode(bytes.subarray(i, i + chunkSize), { stream: true });
-    drain();
+    parser.push(bytes.subarray(i, i + chunkSize));
   }
-  buffer += decoder.decode(); // flush any trailing bytes
-  drain();
-
-  return players;
+  return parser.finish();
 }
