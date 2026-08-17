@@ -14,14 +14,29 @@
 -- Verified before writing: none of the tables dropped below appear in any
 -- `from('...')` call anywhere in `src/`, and the cosmetics feature writes
 -- `profiles.board_theme` / `profiles.avatar_id` (see
--- `api/cosmetics/equip/+server.ts`), never the catalog tables. Note
--- `equipped_cosmetics` itself is deliberately KEPT: it is still written, as a
--- bare `upsert({ player_id })` on profile creation (`server/guest.ts:15`,
--- `server/onboarding.ts:30`), even though its own cosmetic columns are dead.
+-- `api/cosmetics/equip/+server.ts`), never the catalog tables.
+--
+-- `equipped_cosmetics` itself is deliberately KEPT, even though all three of
+-- its cosmetic columns are dropped below, leaving only its `player_id` key.
+-- It is still written — as a bare `upsert({ player_id })` on profile creation
+-- (`server/guest.ts:15`, `server/onboarding.ts:30`) — so dropping the table
+-- here would break signup for anyone whose browser hit the old code between
+-- this migration running and the next deploy landing. Retiring it properly
+-- means first shipping code that stops writing it, THEN dropping it; that
+-- sequencing is deliberately left as a separate follow-up rather than
+-- smuggled into a housekeeping migration.
 
 -- Dead columns on `equipped_cosmetics`. Dropped BEFORE the catalog tables
--- below so that those drops don't need `cascade` (these columns carry the
--- only foreign keys into them).
+-- below so that those drops don't need `cascade` (these three columns carry
+-- the ONLY foreign keys into those tables anywhere in the schema — verified
+-- against 0001_core_tables.sql:129-134, which is where all three are
+-- defined). Dropping a column drops its FK constraint with it.
+--
+-- The live cosmetics feature writes `profiles.board_theme` and
+-- `profiles.avatar_id` instead (see `api/cosmetics/equip/+server.ts`) — note
+-- `profiles.avatar_id` is a DIFFERENT, live column that must not be confused
+-- with `equipped_cosmetics.avatar_id` dropped here.
+alter table public.equipped_cosmetics drop column if exists avatar_id;
 alter table public.equipped_cosmetics drop column if exists theme_id;
 alter table public.equipped_cosmetics drop column if exists piece_set;
 
