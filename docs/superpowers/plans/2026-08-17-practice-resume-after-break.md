@@ -455,7 +455,277 @@ git push
 
 ---
 
-## Task 4: Full verification
+## Task 4: Fix the write-path mirror gap (found by final holistic review)
+
+**Files:**
+- Modify: `mychess/src/lib/server/practice-progress.ts`
+- Modify: `mychess/src/routes/api/practice/attempt/+server.ts`
+- Test: `mychess/src/lib/server/practice-progress.test.ts`
+
+**Why this task exists:** Tasks 1–3 correctly changed what gets *served* (`buildPracticeView` zeroes
+the effective floor for a resumed-after-break attempt) but never touched what gets *recorded*
+(`applyAttemptResult`). A clean completion of that served, zeroed attempt was still being recorded
+against the raw, un-reset stored counters — `applyAttemptResult`'s own doc comment already warns
+this exact mirror must stay in sync with `buildPracticeView`'s, and this feature broke it. In the
+feature's own primary target scenario (existing progress + a break + a clean follow-up attempt),
+this could advance progress far past what was actually replayed, or even permanently mark a
+variation solved off a truncated teach batch. Fixed by threading the same `resumedAfterBreak` signal
+into `applyAttemptResult`, computed from a read taken *before* `touchVariationAttempt`'s write lands.
+
+- [ ] **Step 1: Write the failing test**
+
+Add this test inside the existing `describe('applyAttemptResult', ...)` block in
+`mychess/src/lib/server/practice-progress.test.ts`, right after the test
+`'a clean non-final blind retest advances mastered_plies only, and does not touch variation_solved'`:
+
+```ts
+	it('records a resumed-after-break attempt against a zeroed floor, not the raw stored counters', async () => {
+		const { client, upsertCalls } = fakeSupabase({
+			teachingRows: [{ variation_key: 'v1', taught_plies: 20, mastered_plies: 10 }]
+		});
+		const v1 = makeVariation('v1', 25);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1], true);
+		expect(upsertCalls).toEqual([
+			{
+				table: 'variation_teaching_progress',
+				// Same shape as a genuinely fresh variation's first teach pass —
+				// the raw 20/10 stored counters are ignored entirely because this
+				// attempt was served reset to 0, so it must be recorded as if it
+				// started from 0 too.
+				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1', taught_plies: 9, mastered_plies: 0 },
+				options: { onConflict: 'player_id,variation_key_hash' }
+			}
+		]);
+	});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run (from `mychess/`): `npx vitest run src/lib/server/practice-progress.test.ts`
+Expected: FAIL — `applyAttemptResult` doesn't yet accept a 7th argument, and even if TypeScript lets
+the extra argument through at runtime (JS ignores excess call arguments), the recorded
+`taught_plies`/`mastered_plies` will be `25`/`25` (computed from the raw 20/10 floor, since this is
+also this variation's own final batch) instead of the expected `9`/`0`.
+
+- [ ] **Step 3: Thread `resumedAfterBreak` into `applyAttemptResult`**
+
+In `mychess/src/lib/server/practice-progress.ts`, change the doc comment above `applyAttemptResult`
+from:
+
+```ts
+/**
+ * Applies a completed attempt's outcome. A mistaken attempt is always a
+ * no-op (no reads, no writes) — the active variation and its teaching
+ * progress both stay exactly as they were, so the next attempt naturally
+ * re-serves the same step for another try.
+ *
+ * On a clean attempt: if the variation isn't already solved, its teaching
+ * progress advances (see `advanceTeachingProgress`) — starting from whichever
+ * is higher, its OWN stored counters or the shared-mastery floor a sibling
+ * variation may have already earned for the same leading moves (see
+ * `computeMasteredMoveIds` — this MUST mirror `buildPracticeView`'s own
+ * floor computation exactly, or the server would record progress against a
+ * different step than the one it actually served) — UNLESS that was the
+ * variation's final batch, in which case (exactly like an already-solved
+ * variation re-drilled via the picker) it falls through to the existing
+ * solved/advance-active-variation sequence.
+ */
+```
+
+to:
+
+```ts
+/**
+ * Applies a completed attempt's outcome. A mistaken attempt is always a
+ * no-op (no reads, no writes) — the active variation and its teaching
+ * progress both stay exactly as they were, so the next attempt naturally
+ * re-serves the same step for another try.
+ *
+ * On a clean attempt: if the variation isn't already solved, its teaching
+ * progress advances (see `advanceTeachingProgress`) — starting from whichever
+ * is higher, its OWN stored counters or the shared-mastery floor a sibling
+ * variation may have already earned for the same leading moves (see
+ * `computeMasteredMoveIds` — this MUST mirror `buildPracticeView`'s own
+ * floor computation exactly, or the server would record progress against a
+ * different step than the one it actually served). `resumedAfterBreak`
+ * mirrors that same requirement for `buildPracticeView`'s resumed-after-a-break
+ * reset (see `wasResumedAfterBreak` in `mastery/practice.ts`): when true, the
+ * floor used here is zeroed exactly like the served attempt was, so a clean
+ * run of a break-reset teach batch advances progress by only what was
+ * actually replayed in it — never against the raw, un-reset stored counters,
+ * which could otherwise jump progress ahead or even wrongly mark the
+ * variation solved off a truncated replay. UNLESS that was the variation's
+ * final batch, in which case (exactly like an already-solved variation
+ * re-drilled via the picker) it falls through to the existing
+ * solved/advance-active-variation sequence.
+ */
+```
+
+Change the function signature and body from:
+
+```ts
+export async function applyAttemptResult(
+	supabase: SupabaseClient,
+	playerId: string,
+	repertoireId: string,
+	variationKey: string,
+	hadMistake: boolean,
+	variations: Variation[]
+): Promise<void> {
+	if (hadMistake) return;
+
+	const variation = variations.find((v) => v.variationKey === variationKey);
+	if (variation) {
+		const solvedKeys = await loadSolvedKeys(supabase, playerId, repertoireId);
+		if (!solvedKeys.has(variationKey)) {
+			const progressMap = await loadTeachingProgress(supabase, playerId, repertoireId);
+			const current = progressMap.get(variationKey) ?? { taughtPlies: 0, masteredPlies: 0 };
+			const masteredMoveIds = computeMasteredMoveIds(variations, progressMap, solvedKeys);
+			const sharedFloor = sharedMasteredPrefixLength(variation.path, masteredMoveIds);
+			const effectiveMasteredPlies = Math.max(current.masteredPlies, sharedFloor);
+			const effectiveTaughtPlies = Math.max(current.taughtPlies, effectiveMasteredPlies);
+			const next = advanceTeachingProgress(variation.path, effectiveTaughtPlies, effectiveMasteredPlies, false);
+			await saveTeachingProgress(supabase, playerId, repertoireId, variationKey, next.taughtPlies, next.masteredPlies);
+			if (!next.solved) return;
+		}
+	}
+
+	await markVariationSolved(supabase, playerId, repertoireId, variationKey);
+	const solvedKeys = await loadSolvedKeys(supabase, playerId, repertoireId);
+	const next = advanceIfSolved(variationKey, variations, solvedKeys);
+	await setActiveVariationKey(supabase, playerId, repertoireId, next);
+}
+```
+
+to:
+
+```ts
+export async function applyAttemptResult(
+	supabase: SupabaseClient,
+	playerId: string,
+	repertoireId: string,
+	variationKey: string,
+	hadMistake: boolean,
+	variations: Variation[],
+	resumedAfterBreak: boolean = false
+): Promise<void> {
+	if (hadMistake) return;
+
+	const variation = variations.find((v) => v.variationKey === variationKey);
+	if (variation) {
+		const solvedKeys = await loadSolvedKeys(supabase, playerId, repertoireId);
+		if (!solvedKeys.has(variationKey)) {
+			const progressMap = await loadTeachingProgress(supabase, playerId, repertoireId);
+			const current = progressMap.get(variationKey) ?? { taughtPlies: 0, masteredPlies: 0, updatedAt: null };
+			const masteredMoveIds = computeMasteredMoveIds(variations, progressMap, solvedKeys);
+			const sharedFloor = sharedMasteredPrefixLength(variation.path, masteredMoveIds);
+			const rawMasteredPlies = Math.max(current.masteredPlies, sharedFloor);
+			const rawTaughtPlies = Math.max(current.taughtPlies, rawMasteredPlies);
+			const effectiveMasteredPlies = resumedAfterBreak ? 0 : rawMasteredPlies;
+			const effectiveTaughtPlies = resumedAfterBreak ? 0 : rawTaughtPlies;
+			const next = advanceTeachingProgress(variation.path, effectiveTaughtPlies, effectiveMasteredPlies, false);
+			await saveTeachingProgress(supabase, playerId, repertoireId, variationKey, next.taughtPlies, next.masteredPlies);
+			if (!next.solved) return;
+		}
+	}
+
+	await markVariationSolved(supabase, playerId, repertoireId, variationKey);
+	const solvedKeys = await loadSolvedKeys(supabase, playerId, repertoireId);
+	const next = advanceIfSolved(variationKey, variations, solvedKeys);
+	await setActiveVariationKey(supabase, playerId, repertoireId, next);
+}
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `npx vitest run src/lib/server/practice-progress.test.ts`
+Expected: PASS (all existing tests + 1 new one). Every pre-existing test calls `applyAttemptResult`
+with exactly 6 positional arguments, so the new 7th parameter's `= false` default preserves their
+behavior unchanged.
+
+- [ ] **Step 5: Wire the pre-write read into the attempt endpoint**
+
+In `mychess/src/routes/api/practice/attempt/+server.ts`, change the import from:
+
+```ts
+import {
+	applyAttemptResult,
+	loadActiveVariationKey,
+	loadSolvedKeys,
+	loadTeachingProgress,
+	touchVariationAttempt
+} from '$lib/server/practice-progress';
+import { incrementQuestProgress } from '$lib/server/quests';
+import { requireApiUser } from '$lib/server/auth';
+import { buildPracticeView } from '$lib/mastery/practice';
+```
+
+to:
+
+```ts
+import {
+	applyAttemptResult,
+	loadActiveVariationKey,
+	loadSolvedKeys,
+	loadTeachingProgress,
+	touchVariationAttempt
+} from '$lib/server/practice-progress';
+import { incrementQuestProgress } from '$lib/server/quests';
+import { requireApiUser } from '$lib/server/auth';
+import { buildPracticeView, wasResumedAfterBreak } from '$lib/mastery/practice';
+```
+
+Change:
+
+```ts
+	const { variations } = await loadFilteredRepertoireVariations(supabase, user.id, repertoireId);
+	const today = new Date().toISOString().slice(0, 10);
+	await Promise.all([
+		applyAttemptResult(supabase, user.id, repertoireId, variationKey, hadMistake, variations),
+		touchVariationAttempt(supabase, user.id, repertoireId, variationKey),
+		incrementQuestProgress(supabase, user.id, 'review_cards', today)
+	]);
+```
+
+to:
+
+```ts
+	const { variations } = await loadFilteredRepertoireVariations(supabase, user.id, repertoireId);
+	const today = new Date().toISOString().slice(0, 10);
+
+	// Read BEFORE touchVariationAttempt's write below lands — reading this
+	// after that unconditional refresh would always see a fresh updated_at
+	// and never detect a real gap. Must mirror buildPracticeView's own
+	// resumed-after-break check exactly, or a clean completion of a served
+	// reset attempt would be recorded against the raw (un-reset) stored
+	// counters instead of what was actually replayed (see applyAttemptResult's
+	// doc comment in practice-progress.ts).
+	const progressBeforeThisAttempt = await loadTeachingProgress(supabase, user.id, repertoireId);
+	const resumedAfterBreak = wasResumedAfterBreak(progressBeforeThisAttempt.get(variationKey)?.updatedAt ?? null, new Date());
+
+	await Promise.all([
+		applyAttemptResult(supabase, user.id, repertoireId, variationKey, hadMistake, variations, resumedAfterBreak),
+		touchVariationAttempt(supabase, user.id, repertoireId, variationKey),
+		incrementQuestProgress(supabase, user.id, 'review_cards', today)
+	]);
+```
+
+- [ ] **Step 6: Type-check and run the full test suite**
+
+Run: `npm run check` — expected: 0 errors
+Run: `npm test` — expected: all existing tests still pass, plus the 1 new test
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add src/lib/server/practice-progress.ts src/lib/server/practice-progress.test.ts "src/routes/api/practice/attempt/+server.ts"
+git commit -m "fix: record resumed-after-break attempts against a zeroed floor"
+git push
+```
+
+---
+
+## Task 5: Full verification
 
 **Files:** none (verification only)
 
