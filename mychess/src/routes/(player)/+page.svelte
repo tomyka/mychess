@@ -108,22 +108,23 @@
           <h2 class="font-semibold text-(--color-text) mb-4">Today's tasks</h2>
           <ul class="space-y-4">
             {#each quests as quest (quest.id)}
+              {@const isComplete = quest.completed_at != null}
               <li class="flex items-center gap-3">
                 <div class="flex-1">
                   <div class="flex justify-between text-sm mb-1.5">
-                    <span class="{quest.completed ? 'line-through text-(--color-muted)' : 'text-(--color-text)'}">
+                    <span class="{isComplete ? 'line-through text-(--color-muted)' : 'text-(--color-text)'}">
                       {quest.description}
                     </span>
                     <span class="text-(--color-muted) text-xs">{quest.progress}/{quest.target}</span>
                   </div>
                   <div class="bg-gray-100 rounded-full h-1.5 overflow-hidden">
                     <div
-                      class="h-full rounded-full transition-all {quest.completed ? 'bg-green-500' : 'bg-indigo-500'}"
+                      class="h-full rounded-full transition-all {isComplete ? 'bg-green-500' : 'bg-indigo-500'}"
                       style="width: {Math.min(100, (quest.progress / quest.target) * 100)}%"
                     ></div>
                   </div>
                 </div>
-                {#if quest.completed}
+                {#if isComplete}
                   <span class="text-green-500 shrink-0" aria-label="Complete">✓</span>
                 {/if}
               </li>

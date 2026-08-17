@@ -35,7 +35,10 @@ export async function grantNewBadges(
       supabase.from('player_stats').select('total_reviews, total_correct, moves_learned').eq('player_id', playerId).single(),
       supabase.from('sessions').select('id, mode').eq('player_id', playerId),
       supabase.from('repertoires').select('id').eq('player_id', playerId),
-      supabase.from('quests').select('id').eq('player_id', playerId).eq('completed', true),
+      // Completion is recorded as a timestamp (`quests.completed_at`), not a
+      // boolean — filtering on a non-existent `completed` column made this
+      // query fail and pinned questsCompleted at 0 forever.
+      supabase.from('quests').select('id').eq('player_id', playerId).not('completed_at', 'is', null),
       supabase.from('badges_earned').select('badge_id').eq('player_id', playerId)
     ]);
 
@@ -44,6 +47,12 @@ export async function grantNewBadges(
   const sessions = sessionRes.data ?? [];
 
   const earnedIds = new Set((earnedRes.data ?? []).map((r: any) => r.badge_id as string));
+
+  // A failed quest count silently reads as "0 quests completed", which quietly
+  // makes quest badges unearnable — log it rather than let it look like real data.
+  if (questRes.error) {
+    console.error(`grantNewBadges: failed to count completed quests for player ${playerId}:`, questRes.error.message);
+  }
 
   const stats: BadgeStats = buildBadgeStats({
     totalReviews: ks?.total_reviews ?? 0,
