@@ -60,15 +60,19 @@ export function isEuropeanFederation(federation: string): boolean {
 
 ## Architecture
 
-Single streaming pass, unchanged download/parse pipeline. The stream parser gains a second,
-always-invoked callback so every parsed player (not just the ones kept in memory) can feed a
-bounded-memory rank accumulator:
+Single streaming pass, unchanged download/parse pipeline and **no changes to `parse.ts`**.
+`createFideStreamParser`'s existing `keep(p)` callback is already invoked once for every
+successfully-parsed player regardless of what it returns — `drain()` calls it as
+`if (p && keep(p)) players.push(p)`, so `keep`'s return value only controls array retention, not
+whether it runs. (`import-job.ts` already relies on exactly this today, incrementing `total++`
+inside `keep` as a side effect.) That means the accumulator can simply be fed from inside the
+existing `keep` callback in `import-job.ts`, with no parser API change:
 
 ```
 stream players_list.zip
    │
-   ├─ onEach(p): isEuropeanFederation(p.federation) → europeAcc.add(p)   [O(1), bounded buckets]
-   └─ keep(p):   p.federation === 'LTU'              → push to ltu[]      [unchanged, small array]
+   └─ keep(p):  { if (isEuropeanFederation(p.federation)) europeAcc.add(p); return p.federation === 'LTU'; }
+                                                            [O(1) accumulate]   [unchanged: push to ltu[] only for LTU]
 
 after the stream ends:
    europeAcc.finalize()
@@ -115,9 +119,9 @@ divergence — not a defect.
 
 ```sql
 alter table public.fide_players
-  add column europe_age_group_rank_standard integer,
-  add column europe_age_group_rank_rapid    integer,
-  add column europe_age_group_rank_blitz    integer;
+  add column if not exists europe_age_group_rank_standard integer,
+  add column if not exists europe_age_group_rank_rapid    integer,
+  add column if not exists europe_age_group_rank_blitz    integer;
 ```
 
 No RLS changes — same public-read, service-role-write policy as the rest of the table.
@@ -127,9 +131,8 @@ No RLS changes — same public-read, service-role-write policy as the rest of th
 | File | Change |
 |---|---|
 | `src/lib/fide/federations.ts` | **New.** `EUROPEAN_FEDERATIONS`, `isEuropeanFederation()`. |
-| `src/lib/fide/parse.ts` | `createFideStreamParser(keep, onEach?)` — new optional 2nd param, invoked for every successfully parsed player before the `keep` filter. Backward compatible (existing 1-arg call sites unaffected). |
 | `src/lib/fide/rank.ts` | Add `createEuropeRankAccumulator(currentYear)`, `attachEuropeRanks()`. Extend `RankedPlayer`, `FideRatingRow`, `FideRatingProfile`, `mapFideRow()` with the 3 new fields. |
-| `src/lib/fide/import-job.ts` | Construct the accumulator; pass `onEach` to the parser; call `finalize()` after `streamPlayersList` resolves; wrap `computeRanks(...)` result through `attachEuropeRanks`; add 3 columns to the upsert payload. |
+| `src/lib/fide/import-job.ts` | Construct the accumulator; call `europeAcc.add(p)` as a side effect inside the existing `keep` callback (no parser change needed — `keep` already runs for every parsed player); call `finalize()` after `streamPlayersList` resolves; wrap `computeRanks(...)` result through `attachEuropeRanks`; add 3 columns to the upsert payload. |
 | `supabase/migrations/0050_fide_europe_age_group_rank.sql` | **New.** Column additions above. |
 | `src/routes/(player)/+page.server.ts` | Both `fide_players` `select()` calls (dashboard ratings + public `?fide=` lookup) add the 3 new columns; dashboard's `fideRatings` object gains `europeAgeGroupRank` per tile. |
 | `src/lib/components/PlayerHeader.svelte` | `FideTypeRatings` gains `europeAgeGroupRank: number | null`. Tile grows from 2 to 3 cells: existing `LTU` / `AGE`, plus new `EUR`. |
@@ -141,8 +144,6 @@ No RLS changes — same public-read, service-role-write policy as the rest of th
 - `rank.test.ts` — accumulator: counting across multiple `add()` calls, tie sharing a rank,
   per-bracket isolation (a strong U16 player doesn't affect U18 counts), unrated/no-bracket
   players skipped and return `null` from `rankOf`; `attachEuropeRanks` wiring onto `RankedPlayer`.
-- `parse.test.ts` — `onEach` invoked for every parsed player regardless of `keep`'s result;
-  omitted `onEach` is a no-op (backward compatibility).
 - `PlayerHeader.test.ts` — 3rd tile cell renders `europeAgeGroupRank`, or `N/A` when null.
 - `FideLookupCard.test.ts` — new row renders under the age-bracket guard, `––` when null.
 - `import-job.ts` end-to-end wiring: integration-only, per existing convention (not unit-tested
