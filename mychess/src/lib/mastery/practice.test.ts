@@ -18,7 +18,7 @@ function makeVariation(playerMoveCount: number, prefix: string): Variation {
 	};
 }
 
-const noTeaching = new Map<string, { taughtPlies: number; masteredPlies: number }>();
+const noTeaching = new Map<string, { taughtPlies: number; masteredPlies: number; updatedAt: string | null }>();
 
 /**
  * Two variations sharing the SAME leading `sharedPlayerMoves` player-move
@@ -128,7 +128,7 @@ describe('buildPracticeView', () => {
 
 	it('flags a teach pass that reaches the end of the path as the final pass, so a clean run of it solves', () => {
 		const v = makeVariation(8, 'a-'); // 16 plies: batch 1 is plies 0-8, batch 2 is the rest
-		const progress = new Map([[v.variationKey, { taughtPlies: 9, masteredPlies: 9 }]]);
+		const progress = new Map([[v.variationKey, { taughtPlies: 9, masteredPlies: 9, updatedAt: null }]]);
 		const view = buildPracticeView([v], null, new Set(), progress);
 		expect(view.attempt!.path).toEqual(v.path);
 		expect(view.attempt!.arrowPlies).toEqual({ from: 9, to: 16 });
@@ -148,7 +148,7 @@ describe('buildPracticeView', () => {
 
 	it('ignores stale teaching-progress data for an already-solved variation and serves it at full depth with no arrow', () => {
 		const v = makeVariation(15, 'a-'); // 30 plies
-		const progress = new Map([[v.variationKey, { taughtPlies: 20, masteredPlies: 10 }]]);
+		const progress = new Map([[v.variationKey, { taughtPlies: 20, masteredPlies: 10, updatedAt: null }]]);
 		const view = buildPracticeView([v], v.variationKey, new Set([v.variationKey]), progress, true);
 		expect(view.attempt!.path).toHaveLength(30);
 		expect(view.attempt!.arrowPlies).toBeNull();
@@ -168,7 +168,7 @@ describe('buildPracticeView', () => {
 
 	it('keeps crediting the shared prefix during a sibling\'s own blind retest, so only its own new content needs manual replay', () => {
 		const { a, b } = makeSharedPrefixVariations(5, 5, 1);
-		const progress = new Map([[b.variationKey, { taughtPlies: 12, masteredPlies: 0 }]]);
+		const progress = new Map([[b.variationKey, { taughtPlies: 12, masteredPlies: 0, updatedAt: null }]]);
 		const view = buildPracticeView([a, b], b.variationKey, new Set([a.variationKey]), progress);
 		expect(view.attempt!.path).toEqual(b.path);
 		expect(view.attempt!.arrowPlies).toBeNull();
@@ -180,6 +180,41 @@ describe('buildPracticeView', () => {
 		const v = makeVariation(3, 'a-');
 		const view = buildPracticeView([v], v.variationKey, new Set([v.variationKey]), noTeaching, true);
 		expect(view.attempt!.autoPlayThrough).toBe(0);
+	});
+
+	it('keeps normal auto-play when the variation was attempted recently', () => {
+		const v = makeVariation(15, 'a-'); // 30 plies
+		const now = new Date('2026-08-17T12:00:00Z');
+		const progress = new Map([
+			[v.variationKey, { taughtPlies: 20, masteredPlies: 10, updatedAt: '2026-08-17T11:55:00Z' }] // 5 min ago
+		]);
+		const view = buildPracticeView([v], v.variationKey, new Set(), progress, false, now);
+		expect(view.attempt!.autoPlayThrough).toBe(10);
+	});
+
+	it('resets to no auto-play and restarts teaching from the beginning after a 10+ minute gap', () => {
+		const v = makeVariation(15, 'a-'); // 30 plies
+		const now = new Date('2026-08-17T12:00:00Z');
+		const progress = new Map([
+			[v.variationKey, { taughtPlies: 20, masteredPlies: 10, updatedAt: '2026-08-17T11:49:00Z' }] // 11 min ago
+		]);
+		const view = buildPracticeView([v], v.variationKey, new Set(), progress, false, now);
+		expect(view.attempt!.autoPlayThrough).toBe(0);
+		// Teaching restarts from ply 0 too, not just auto-play — same truncated
+		// batch/arrow a genuinely fresh variation gets (see the existing
+		// 'serves a truncated path and arrow range...' test above for the same
+		// 15-player-move fixture with zero progress).
+		expect(view.attempt!.path).toHaveLength(9);
+		expect(view.attempt!.arrowPlies).toEqual({ from: 0, to: 9 });
+	});
+
+	it('does not treat a never-attempted variation (no updatedAt yet) as a resume-after-break', () => {
+		const v = makeVariation(15, 'a-');
+		const now = new Date('2026-08-17T12:00:00Z');
+		const progress = new Map([[v.variationKey, { taughtPlies: 0, masteredPlies: 0, updatedAt: null }]]);
+		const view = buildPracticeView([v], v.variationKey, new Set(), progress, false, now);
+		expect(view.attempt!.autoPlayThrough).toBe(0);
+		expect(view.attempt!.path).toHaveLength(9);
 	});
 });
 

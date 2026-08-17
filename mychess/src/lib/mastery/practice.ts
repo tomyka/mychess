@@ -22,6 +22,19 @@ export type PracticeView = {
 	allSolved: boolean;
 };
 
+/** How long since a variation's last attempt counts as "the player took a break" from it. */
+export const RESUME_GAP_MS = 10 * 60 * 1000;
+
+/**
+ * True if more than `RESUME_GAP_MS` has passed since `updatedAt`. A variation
+ * with no `updatedAt` yet (never attempted) is never "resumed" — there's
+ * nothing to resume from, and its progress is already zero.
+ */
+export function wasResumedAfterBreak(updatedAt: string | null, now: Date): boolean {
+	if (updatedAt == null) return false;
+	return now.getTime() - new Date(updatedAt).getTime() > RESUME_GAP_MS;
+}
+
 /**
  * Builds the full client-facing practice view: which variation to quiz next
  * (its path — the WHOLE thing once mastered, or truncated to the current
@@ -35,8 +48,9 @@ export function buildPracticeView(
 	variations: Variation[],
 	activeVariationKey: string | null,
 	solvedKeys: ReadonlySet<string>,
-	teachingProgress: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number }>,
-	forceAttempt: boolean = false
+	teachingProgress: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number; updatedAt: string | null }>,
+	forceAttempt: boolean = false,
+	now: Date = new Date()
 ): PracticeView {
 	const { solved, total } = solvedProgress(variations, solvedKeys);
 	const active = pickActiveVariation(variations, activeVariationKey, solvedKeys);
@@ -61,7 +75,7 @@ export function buildPracticeView(
 			// to be played out in full.
 			attempt = { path: active.path, variationKey: active.variationKey, arrowPlies: null, isFinalPass: true, autoPlayThrough: 0 };
 		} else {
-			const progress = teachingProgress.get(active.variationKey) ?? { taughtPlies: 0, masteredPlies: 0 };
+			const progress = teachingProgress.get(active.variationKey) ?? { taughtPlies: 0, masteredPlies: 0, updatedAt: null };
 			// A sibling variation sharing this one's leading moves (the same
 			// moveIds — a transposition, or just the same opening) may have
 			// already mastered them: credit that shared prefix here rather
@@ -69,8 +83,17 @@ export function buildPracticeView(
 			// variation that happens to share it.
 			const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, solvedKeys);
 			const sharedFloor = sharedMasteredPrefixLength(active.path, masteredMoveIds);
-			const effectiveMasteredPlies = Math.max(progress.masteredPlies, sharedFloor);
-			const effectiveTaughtPlies = Math.max(progress.taughtPlies, effectiveMasteredPlies);
+			const rawMasteredPlies = Math.max(progress.masteredPlies, sharedFloor);
+			const rawTaughtPlies = Math.max(progress.taughtPlies, rawMasteredPlies);
+			// A break of 10+ minutes since this specific variation's last
+			// attempt serves this one attempt as if nothing were mastered yet —
+			// the player's own memory of "mastered" moves fades too. Nothing is
+			// written back; the real stored counters are untouched, so the next
+			// attempt (once touchVariationAttempt in practice-progress.ts
+			// refreshes updatedAt) goes back to normal.
+			const resumedAfterBreak = wasResumedAfterBreak(progress.updatedAt, now);
+			const effectiveMasteredPlies = resumedAfterBreak ? 0 : rawMasteredPlies;
+			const effectiveTaughtPlies = resumedAfterBreak ? 0 : rawTaughtPlies;
 			const step = resolveTeachingStep(active.path, effectiveTaughtPlies, effectiveMasteredPlies);
 			attempt = {
 				path: step.path,
