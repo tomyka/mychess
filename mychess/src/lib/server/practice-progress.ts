@@ -266,12 +266,12 @@ export async function applyAttemptResult(
 			const current = progressMap.get(variationKey) ?? { taughtPlies: 0, masteredPlies: 0, updatedAt: null };
 			const masteredMoveIds = computeMasteredMoveIds(variations, progressMap, solvedKeys);
 			const sharedFloor = sharedMasteredPrefixLength(variation.path, masteredMoveIds);
-			const { taughtPlies: effectiveTaughtPlies, masteredPlies: effectiveMasteredPlies } = effectiveProgress(
-				current.taughtPlies,
-				current.masteredPlies,
+			const { taughtPlies: effectiveTaughtPlies, masteredPlies: effectiveMasteredPlies } = effectiveProgress({
+				ownTaughtPlies: current.taughtPlies,
+				ownMasteredPlies: current.masteredPlies,
 				sharedFloor,
 				resumedAfterBreak
-			);
+			});
 			const next = advanceTeachingProgress(variation.path, effectiveTaughtPlies, effectiveMasteredPlies, false);
 			await saveTeachingProgress(supabase, playerId, repertoireId, variationKey, next.taughtPlies, next.masteredPlies);
 			if (!next.solved) return;

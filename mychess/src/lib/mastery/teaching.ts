@@ -122,15 +122,15 @@ export function sharedMasteredPrefixLength(path: VariationStep[], masteredMoveId
  * fix), so this exists specifically to make that impossible going forward
  * rather than trusting two copies to stay in sync by convention.
  */
-export function effectiveProgress(
-	ownTaughtPlies: number,
-	ownMasteredPlies: number,
-	sharedFloor: number,
-	resumedAfterBreak: boolean
-): { taughtPlies: number; masteredPlies: number } {
-	if (resumedAfterBreak) return { taughtPlies: 0, masteredPlies: 0 };
-	const masteredPlies = Math.max(ownMasteredPlies, sharedFloor);
-	const taughtPlies = Math.max(ownTaughtPlies, masteredPlies);
+export function effectiveProgress(args: {
+	ownTaughtPlies: number;
+	ownMasteredPlies: number;
+	sharedFloor: number;
+	resumedAfterBreak: boolean;
+}): { taughtPlies: number; masteredPlies: number } {
+	if (args.resumedAfterBreak) return { taughtPlies: 0, masteredPlies: 0 };
+	const masteredPlies = Math.max(args.ownMasteredPlies, args.sharedFloor);
+	const taughtPlies = Math.max(args.ownTaughtPlies, masteredPlies);
 	return { taughtPlies, masteredPlies };
 }
 

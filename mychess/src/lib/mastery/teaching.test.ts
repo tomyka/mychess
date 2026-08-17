@@ -351,11 +351,20 @@ describe('computeMasteredMoveIds', () => {
 
 describe('effectiveProgress', () => {
 	it('takes the higher of the own counters or the shared floor', () => {
-		expect(effectiveProgress(5, 3, 8, false)).toEqual({ taughtPlies: 8, masteredPlies: 8 });
-		expect(effectiveProgress(10, 6, 2, false)).toEqual({ taughtPlies: 10, masteredPlies: 6 });
+		expect(effectiveProgress({ ownTaughtPlies: 5, ownMasteredPlies: 3, sharedFloor: 8, resumedAfterBreak: false })).toEqual({
+			taughtPlies: 8,
+			masteredPlies: 8
+		});
+		expect(effectiveProgress({ ownTaughtPlies: 10, ownMasteredPlies: 6, sharedFloor: 2, resumedAfterBreak: false })).toEqual({
+			taughtPlies: 10,
+			masteredPlies: 6
+		});
 	});
 
 	it('zeroes both counters entirely when resumedAfterBreak is true, ignoring the shared floor too', () => {
-		expect(effectiveProgress(20, 10, 15, true)).toEqual({ taughtPlies: 0, masteredPlies: 0 });
+		expect(effectiveProgress({ ownTaughtPlies: 20, ownMasteredPlies: 10, sharedFloor: 15, resumedAfterBreak: true })).toEqual({
+			taughtPlies: 0,
+			masteredPlies: 0
+		});
 	});
 });

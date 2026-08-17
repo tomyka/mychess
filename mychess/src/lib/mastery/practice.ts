@@ -99,12 +99,12 @@ export function buildPracticeView(
 			// different step than the one it actually served — see its own
 			// doc comment) so both sides can never drift apart again.
 			const resumedAfterBreak = wasResumedAfterBreak(progress.updatedAt, now);
-			const { taughtPlies: effectiveTaughtPlies, masteredPlies: effectiveMasteredPlies } = effectiveProgress(
-				progress.taughtPlies,
-				progress.masteredPlies,
+			const { taughtPlies: effectiveTaughtPlies, masteredPlies: effectiveMasteredPlies } = effectiveProgress({
+				ownTaughtPlies: progress.taughtPlies,
+				ownMasteredPlies: progress.masteredPlies,
 				sharedFloor,
 				resumedAfterBreak
-			);
+			});
 			const step = resolveTeachingStep(active.path, effectiveTaughtPlies, effectiveMasteredPlies);
 			attempt = {
 				path: step.path,
