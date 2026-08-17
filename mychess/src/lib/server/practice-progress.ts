@@ -104,12 +104,17 @@ export async function loadTeachingProgress(
 	supabase: SupabaseClient,
 	playerId: string,
 	repertoireId: string
-): Promise<Map<string, { taughtPlies: number; masteredPlies: number }>> {
-	const rows = await fetchAllPages<{ variation_key: string; taught_plies: number; mastered_plies: number }>(
+): Promise<Map<string, { taughtPlies: number; masteredPlies: number; updatedAt: string | null }>> {
+	const rows = await fetchAllPages<{
+		variation_key: string;
+		taught_plies: number;
+		mastered_plies: number;
+		updated_at: string | null;
+	}>(
 		() =>
 			supabase
 				.from('variation_teaching_progress')
-				.select('variation_key, taught_plies, mastered_plies')
+				.select('variation_key, taught_plies, mastered_plies, updated_at')
 				.eq('player_id', playerId)
 				.eq('repertoire_id', repertoireId)
 				.order('variation_key', { ascending: true }),
@@ -121,7 +126,9 @@ export async function loadTeachingProgress(
 				.eq('repertoire_id', repertoireId),
 		MAX_ROWS_PAGE_SIZE
 	);
-	return new Map(rows.map((r) => [r.variation_key, { taughtPlies: r.taught_plies, masteredPlies: r.mastered_plies }]));
+	return new Map(
+		rows.map((r) => [r.variation_key, { taughtPlies: r.taught_plies, masteredPlies: r.mastered_plies, updatedAt: r.updated_at }])
+	);
 }
 
 /** Persists this variation's teaching-progress counters (see `src/lib/mastery/teaching.ts`). */
@@ -137,6 +144,31 @@ export async function saveTeachingProgress(
 		.from('variation_teaching_progress')
 		.upsert(
 			{ player_id: playerId, repertoire_id: repertoireId, variation_key: variationKey, taught_plies: taughtPlies, mastered_plies: masteredPlies },
+			{ onConflict: 'player_id,variation_key_hash' }
+		);
+}
+
+/**
+ * Records that the player just attempted this variation, regardless of
+ * outcome — the only unconditional write in the attempt-completion flow
+ * (unlike `applyAttemptResult`, which is a true no-op on a mistake). Only
+ * `updated_at` is included in the upsert payload, so an existing row's real
+ * `taught_plies`/`mastered_plies` are left exactly as they were; a variation
+ * with no row yet gets one created with the table's own 0/0 defaults, which
+ * every reader of this table already treats as equivalent to "no row exists".
+ * Powers `buildPracticeView`'s resumed-after-a-break check in
+ * `mastery/practice.ts`.
+ */
+export async function touchVariationAttempt(
+	supabase: SupabaseClient,
+	playerId: string,
+	repertoireId: string,
+	variationKey: string
+): Promise<void> {
+	await supabase
+		.from('variation_teaching_progress')
+		.upsert(
+			{ player_id: playerId, repertoire_id: repertoireId, variation_key: variationKey, updated_at: new Date().toISOString() },
 			{ onConflict: 'player_id,variation_key_hash' }
 		);
 }

@@ -1,6 +1,6 @@
 // mychess/src/lib/server/practice-progress.test.ts
 import { describe, it, expect } from 'vitest';
-import { applyAttemptResult } from './practice-progress';
+import { applyAttemptResult, touchVariationAttempt } from './practice-progress';
 import type { Variation } from '$lib/mastery/variations';
 
 function makeVariation(variationKey: string, plies: number): Variation {
@@ -234,5 +234,24 @@ describe('applyAttemptResult', () => {
 				options: { onConflict: 'player_id,variation_key_hash' }
 			}
 		]);
+	});
+});
+
+describe('touchVariationAttempt', () => {
+	it('upserts only updated_at, leaving taught_plies/mastered_plies out of the payload', async () => {
+		const { client, upsertCalls } = fakeSupabase();
+		await touchVariationAttempt(client as any, 'player-1', 'rep-1', 'v1');
+		expect(upsertCalls).toHaveLength(1);
+		expect(upsertCalls[0].table).toBe('variation_teaching_progress');
+		expect(upsertCalls[0].options).toEqual({ onConflict: 'player_id,variation_key_hash' });
+		// No taught_plies/mastered_plies in the payload: PostgREST's upsert only
+		// updates columns actually present in the row on conflict, so omitting
+		// them here is what keeps an existing row's real progress untouched.
+		expect(upsertCalls[0].rows).toEqual({
+			player_id: 'player-1',
+			repertoire_id: 'rep-1',
+			variation_key: 'v1',
+			updated_at: expect.any(String)
+		});
 	});
 });
