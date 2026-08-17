@@ -2,8 +2,43 @@
 // mychess/src/routes/(player)/practice/[repertoire_id]/practice.test.ts
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
-import Practice from './+page.svelte';
 import { enginePrefStore } from '$lib/enginePref.svelte';
+
+// Chessground is faked so a test can actually PLAY a move. It can't be driven
+// through the DOM here: every one of its input paths goes through
+// `drag.start`, which bails on `!e.isTrusted`, and jsdom's synthetic events
+// are untrusted by definition (`isTrusted` is an own, non-configurable
+// property on every event instance — unspoofable). So the third-party board
+// is replaced by a shell that just remembers the last config ChessBoard
+// handed it, and `playMove` invokes that config's own
+// `movable.events.after` — the exact callback chessground itself would call
+// after a real drag. Everything above that (ChessBoard's move validation and
+// feedback badges, the practice page's whole phase machine) is the real
+// thing, not a stub.
+const cgMock = vi.hoisted(() => ({ boards: [] as { config: any }[] }));
+
+vi.mock('chessground', () => ({
+	Chessground: (_node: HTMLElement, config: any) => {
+		const entry = { config };
+		cgMock.boards.push(entry);
+		return {
+			// ChessBoard only ever partially updates (`cg.set({ drawable })`)
+			// or replaces the whole config (`cg.set(buildConfig())`), so a
+			// shallow merge is enough to keep `movable.events.after` current.
+			set: (cfg: any) => {
+				entry.config = { ...entry.config, ...cfg };
+			},
+			destroy: () => {}
+		};
+	}
+}));
+
+import Practice from './+page.svelte';
+
+/** Plays a move on the board currently rendered, as chessground would report it. */
+function playMove(from: string, to: string) {
+	cgMock.boards[cgMock.boards.length - 1].config.movable.events.after(from, to);
+}
 
 beforeEach(() => {
 	// enginePrefStore is a module-level singleton shared across every test
@@ -11,6 +46,7 @@ beforeEach(() => {
 	// process) — reset it explicitly rather than relying on it starting
 	// fresh.
 	enginePrefStore.enabled = false;
+	cgMock.boards.length = 0;
 });
 
 afterEach(() => {
@@ -315,6 +351,106 @@ describe('practice detail page', () => {
 		expect(document.querySelector('main')?.getAttribute('data-phase')).toBe('autoplay');
 		await vi.advanceTimersByTimeAsync(1000);
 		expect(document.querySelector('main')?.getAttribute('data-phase')).toBe('playing');
+	});
+
+	// AUTO_PLAY_ATTEMPT is a teach pass: plies 0-1 are already mastered (they
+	// auto-play), and the arrowed batch is the player's Nf3 at ply 2. Nf3 is
+	// therefore the pass's last player move — playing it correctly completes a
+	// clean teach pass, which is exactly the moment the blind retest gets
+	// demanded.
+	const RETEST_VIEW = {
+		solved: 0,
+		total: 1,
+		allSolved: false,
+		attempt: { ...AUTO_PLAY_ATTEMPT, arrowPlies: null }
+	};
+
+	/**
+	 * `report: 'hang'` leaves the attempt-completion POST pending forever, which
+	 * parks the page in the phase it reaches right after the final move instead
+	 * of letting it roll on into the next attempt — the only way to inspect that
+	 * moment deterministically.
+	 */
+	function renderAttempt(attempt: unknown, report: 'reset' | 'hang' = 'reset') {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockImplementation(() =>
+				report === 'hang' ? new Promise(() => {}) : Promise.resolve({ ok: true, json: async () => RETEST_VIEW })
+			)
+		);
+		render(Practice, {
+			props: {
+				data: { repertoire: { id: 'r1', name: 'French Defense', color: 'white' }, solved: 0, total: 1, allSolved: false, attempt }
+			}
+		});
+	}
+
+	const phaseNow = () => document.querySelector('main')?.getAttribute('data-phase');
+
+	it('cues "now play it from memory" when a clean teach pass ends, BEFORE the board resets for the blind retest', async () => {
+		vi.useFakeTimers();
+		renderAttempt(AUTO_PLAY_ATTEMPT);
+		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes on the taught batch
+
+		playMove('g1', 'f3');
+		await vi.advanceTimersByTimeAsync(500); // the correct-move hold
+
+		expect(screen.getByText(/now play it from memory/i)).toBeTruthy();
+		// 'transition' is still the FINISHED pass: nextAttempt() hasn't run, so
+		// nothing has rewound the board yet — the cue lands ahead of the reset,
+		// not after it.
+		expect(phaseNow()).toBe('transition');
+	});
+
+	it('keeps the cue up across the reset it is explaining, then retires it on its own', async () => {
+		vi.useFakeTimers();
+		renderAttempt(AUTO_PLAY_ATTEMPT);
+		await vi.advanceTimersByTimeAsync(1000);
+		playMove('g1', 'f3');
+		await vi.advanceTimersByTimeAsync(500 + 1200 + 50); // hold, cue hold, next attempt loads
+
+		expect(phaseNow()).not.toBe('transition'); // the blind retest is now up
+		expect(screen.getByText(/now play it from memory/i)).toBeTruthy();
+
+		await vi.advanceTimersByTimeAsync(2000);
+		expect(screen.queryByText(/now play it from memory/i)).toBeNull();
+	});
+
+	it('does not cue a final pass — that solves the variation instead of re-asking for it', async () => {
+		vi.useFakeTimers();
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true }, 'hang');
+		await vi.advanceTimersByTimeAsync(1000);
+		playMove('g1', 'f3');
+		await vi.advanceTimersByTimeAsync(500);
+
+		// The optimistic solved bump fires only for a FINAL pass, so seeing the
+		// count move is proof this really was played out as one — the missing cue
+		// below isn't just a move that failed to land.
+		expect(screen.getAllByText('1 / 1 variations solved').length).toBe(2);
+		expect(phaseNow()).toBe('advancing');
+		expect(screen.queryByText(/now play it from memory/i)).toBeNull();
+	});
+
+	it('does not cue a teach pass that had a mistake — the same taught batch comes back, not a blind test', async () => {
+		vi.useFakeTimers();
+		renderAttempt(AUTO_PLAY_ATTEMPT, 'hang');
+		await vi.advanceTimersByTimeAsync(1000);
+
+		for (let i = 0; i < 3; i++) {
+			playMove('b1', 'c3'); // Nc3, not the book's Nf3
+			await vi.advanceTimersByTimeAsync(500);
+		}
+		// Three wrong guesses on one move is what unlocks the hint prompt — proof
+		// the mistakes above actually registered as mistakes.
+		expect(screen.getAllByText('Need a hint?').length).toBe(2);
+
+		playMove('g1', 'f3');
+		await vi.advanceTimersByTimeAsync(500);
+
+		// The pass still finished (it just wasn't clean), so this is a real
+		// "completed without a cue", not a move that never landed.
+		expect(phaseNow()).toBe('advancing');
+		expect(screen.queryByText(/now play it from memory/i)).toBeNull();
 	});
 
 	it('renders without crashing with the engine toggle in its default (off) state', () => {

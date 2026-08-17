@@ -126,6 +126,26 @@ describe('buildPracticeView', () => {
 		expect(view.attempt!.path[view.attempt!.path.length - 1].isPlayerTurn).toBe(true);
 	});
 
+	it('flags a teach pass that reaches the end of the path as the final pass, so a clean run of it solves', () => {
+		const v = makeVariation(8, 'a-'); // 16 plies: batch 1 is plies 0-8, batch 2 is the rest
+		const progress = new Map([[v.variationKey, { taughtPlies: 9, masteredPlies: 9 }]]);
+		const view = buildPracticeView([v], null, new Set(), progress);
+		expect(view.attempt!.path).toEqual(v.path);
+		expect(view.attempt!.arrowPlies).toEqual({ from: 9, to: 16 });
+		// isFinalPass is what gates the client's optimistic solved bump — a
+		// final teach pass has to set it, or the sidebar count would lag a
+		// solve by a whole round trip.
+		expect(view.attempt!.isFinalPass).toBe(true);
+		expect(view.attempt!.autoPlayThrough).toBe(9);
+	});
+
+	it('does not flag a fresh single-batch variation\'s first teach pass as final (it still owes one blind retest)', () => {
+		const v = makeVariation(3, 'a-'); // 6 plies — one batch covers all of it
+		const view = buildPracticeView([v], null, new Set(), noTeaching);
+		expect(view.attempt!.arrowPlies).toEqual({ from: 0, to: 6 });
+		expect(view.attempt!.isFinalPass).toBe(false);
+	});
+
 	it('ignores stale teaching-progress data for an already-solved variation and serves it at full depth with no arrow', () => {
 		const v = makeVariation(15, 'a-'); // 30 plies
 		const progress = new Map([[v.variationKey, { taughtPlies: 20, masteredPlies: 10 }]]);

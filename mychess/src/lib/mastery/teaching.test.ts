@@ -105,6 +105,24 @@ describe('resolveTeachingStep', () => {
 		const step = resolveTeachingStep(path, 25, 25);
 		expect(step).toEqual({ path, arrowPlies: null, isFinalPass: true });
 	});
+
+	it('reports a teach batch that reaches the path\'s end over an already-mastered prefix as the FINAL pass', () => {
+		const path = makePath(16); // 8 player moves: batch 1 is plies 0-8, batch 2 the rest
+		const step = resolveTeachingStep(path, 9, 9);
+		expect(step.path).toEqual(path);
+		// Still a teach pass — the new tail is still arrowed — but nothing is
+		// left to teach afterwards, so no separate blind retest of the same
+		// tail follows it (issue #68).
+		expect(step.arrowPlies).toEqual({ from: 9, to: 16 });
+		expect(step.isFinalPass).toBe(true);
+	});
+
+	it('does NOT treat a fresh single-batch variation\'s first teach pass as final — it has never been played blind', () => {
+		const path = makePath(6);
+		const step = resolveTeachingStep(path, 0, 0);
+		expect(step.arrowPlies).toEqual({ from: 0, to: 6 });
+		expect(step.isFinalPass).toBe(false);
+	});
 });
 
 describe('advanceTeachingProgress', () => {
@@ -142,6 +160,78 @@ describe('advanceTeachingProgress', () => {
 		const path = makePath(6);
 		const result = advanceTeachingProgress(path, 6, 0, false);
 		expect(result).toEqual({ taughtPlies: 6, masteredPlies: 6, solved: true });
+	});
+
+	it('a clean FINAL teach pass masters everything it just taught and solves the variation', () => {
+		const path = makePath(16);
+		const result = advanceTeachingProgress(path, 9, 9, false);
+		expect(result).toEqual({ taughtPlies: 16, masteredPlies: 16, solved: true });
+	});
+
+	it('a mistake on a final teach pass still changes nothing — the same teach pass is re-served', () => {
+		const path = makePath(16);
+		const result = advanceTeachingProgress(path, 9, 9, true);
+		expect(result).toEqual({ taughtPlies: 9, masteredPlies: 9, solved: false });
+	});
+});
+
+/**
+ * Drives the REAL read/write pair the way the server does — serve a step,
+ * report a clean attempt, feed the resulting counters back in — and reports
+ * how many clean attempts a variation takes to reach solved, plus what kind
+ * of pass each one was. This is what the issue's "how many times must I
+ * replay this before it counts?" complaint actually measures.
+ */
+function cleanRunToSolved(path: VariationStep[]): { attempts: number; passes: ('teach' | 'blind')[] } {
+	let taughtPlies = 0;
+	let masteredPlies = 0;
+	const passes: ('teach' | 'blind')[] = [];
+	// A generous bound: a genuine regression here would loop forever otherwise.
+	for (let i = 0; i < 100; i++) {
+		const step = resolveTeachingStep(path, taughtPlies, masteredPlies);
+		passes.push(step.arrowPlies ? 'teach' : 'blind');
+		const next = advanceTeachingProgress(path, taughtPlies, masteredPlies, false);
+		expect(next).not.toEqual({ taughtPlies, masteredPlies, solved: false }); // no stuck state
+		taughtPlies = next.taughtPlies;
+		masteredPlies = next.masteredPlies;
+		if (next.solved) return { attempts: passes.length, passes };
+	}
+	throw new Error('never reached solved');
+}
+
+describe('clean attempts needed to solve a variation', () => {
+	it('an 8-move variation (shorter than two full batches) solves in 3 clean attempts, not 4', () => {
+		// 16 plies / 8 player moves, split 5 + 3 by TEACHING_BATCH_MOVES. Before
+		// issue #68 this was teach(1-5) → blind(1-5) → teach(6-8) → blind(6-8) =
+		// 4 clean attempts; the trailing blind retest of the just-taught tail
+		// was identical to the teach pass that preceded it (same served path,
+		// same auto-played mastered prefix, same manual tail — only the arrows
+		// differed), so it's gone.
+		expect(cleanRunToSolved(makePath(16))).toEqual({ attempts: 3, passes: ['teach', 'blind', 'teach'] });
+	});
+
+	it('the same holds for an 8-move variation where the opponent moves first', () => {
+		// Opponent-first parity shifts every batch boundary by a ply; the count
+		// of clean attempts must not depend on it.
+		expect(cleanRunToSolved(makeOpponentFirstPath(16))).toEqual({ attempts: 3, passes: ['teach', 'blind', 'teach'] });
+	});
+
+	it('a variation longer than two batches keeps the unchanged teach/blind-retest alternation', () => {
+		// 25 plies / 13 player moves = three batches. Every batch except the
+		// last still earns its own blind retest, in the same order as before —
+		// only the final batch's redundant trailing retest is gone (6 clean
+		// attempts before issue #68, 5 now).
+		expect(cleanRunToSolved(makePath(25))).toEqual({
+			attempts: 5,
+			passes: ['teach', 'blind', 'teach', 'blind', 'teach']
+		});
+	});
+
+	it('a variation of one batch or less still takes 2 clean attempts: taught once, then played blind once', () => {
+		// Unchanged by issue #68 on purpose — with nothing mastered behind it,
+		// skipping this variation's only blind retest would mark it solved
+		// without it ever having been played from memory.
+		expect(cleanRunToSolved(makePath(6))).toEqual({ attempts: 2, passes: ['teach', 'blind'] });
 	});
 });
 

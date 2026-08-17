@@ -47,7 +47,23 @@ export function resolveTeachingStep(path: VariationStep[], taughtPlies: number, 
 	}
 	if (taughtPlies === masteredPlies) {
 		const target = plyAfterPlayerMoves(path, masteredPlies, TEACHING_BATCH_MOVES);
-		return { path: path.slice(0, target), arrowPlies: { from: masteredPlies, to: target }, isFinalPass: false };
+		// A teach batch that runs all the way to the path's end, with an
+		// already-mastered prefix behind it, IS the final pass — the blind
+		// retest that used to follow it served the identical path, auto-played
+		// the identical mastered prefix, and asked for the identical manual
+		// tail, differing only in whether the arrows were drawn. That extra
+		// pass is what made a short variation (8 moves, split 5+3) take four
+		// clean attempts to solve; a clean pass here now solves it in three
+		// (see GitHub issue #68).
+		//
+		// `masteredPlies > 0` is load-bearing, not an accident: with nothing
+		// mastered yet, this batch is the variation's FIRST and only one, so
+		// skipping its retest would mean marking a variation solved that was
+		// never once played without arrows. Such a variation still earns
+		// exactly one blind retest of everything it was just taught, as it
+		// always has.
+		const isFinalPass = target >= path.length && masteredPlies > 0;
+		return { path: path.slice(0, target), arrowPlies: { from: masteredPlies, to: target }, isFinalPass };
 	}
 	return { path: path.slice(0, taughtPlies), arrowPlies: null, isFinalPass: taughtPlies >= path.length };
 }
@@ -69,7 +85,11 @@ export function advanceTeachingProgress(
 	if (hadMistake) {
 		return { taughtPlies, masteredPlies, solved: false };
 	}
-	if (step.arrowPlies) {
+	// A teach pass normally only advances taught_plies — its batch still owes
+	// one blind retest before it counts as mastered. The exception is a FINAL
+	// teach pass (see `resolveTeachingStep`): no retest follows it, so it
+	// falls through below and masters (and solves) everything it just taught.
+	if (step.arrowPlies && !step.isFinalPass) {
 		return { taughtPlies: step.arrowPlies.to, masteredPlies, solved: false };
 	}
 	return { taughtPlies: Math.max(taughtPlies, step.path.length), masteredPlies: step.path.length, solved: step.isFinalPass };

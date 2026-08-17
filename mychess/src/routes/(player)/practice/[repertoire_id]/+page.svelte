@@ -21,7 +21,10 @@
 	// 'autoplay' is the intro before a teach pass: already-mastered earlier
 	// batches play themselves out so the player only has to actually play
 	// the batch currently being taught — see startAutoPlay().
-	let phase = $state<'playing' | 'advancing' | 'autoplay'>('playing');
+	// 'transition' is the beat AFTER a clean teach pass and BEFORE the board
+	// snaps back for its blind retest, held open just long enough to read the
+	// "now play it from memory" cue — see showTeachCue().
+	let phase = $state<'playing' | 'advancing' | 'autoplay' | 'transition'>('playing');
 	let locked = $state(false);
 	// Consecutive wrong attempts on the CURRENT quiz move — resets the moment
 	// it's solved or a new attempt starts. After 3, a hint becomes available;
@@ -34,6 +37,19 @@
 	let attemptHadMistake = $state(false);
 	let advanceTimeout: ReturnType<typeof setTimeout> | undefined;
 	let autoPlayTimeout: ReturnType<typeof setTimeout> | undefined;
+	// Whether the "now play it from memory" cue is currently up. A clean teach
+	// pass is followed by a blind retest of the very same moves, which used to
+	// look like the board silently rewinding itself for no reason — the cue is
+	// what makes that reset read as the intentional test it is.
+	let teachCue = $state(false);
+	let cueTimeout: ReturnType<typeof setTimeout> | undefined;
+	// How long the finished teach pass is held on screen before the board
+	// resets (long enough to read the cue, short enough not to feel like a
+	// stall), and how much longer the cue then lingers OVER the freshly reset
+	// board — the reset itself is the moment being explained, so the cue has
+	// to outlive it rather than vanish with it.
+	const CUE_HOLD_MS = 1200;
+	const CUE_LINGER_MS = 1800;
 	// How long each already-mastered ply is shown before advancing to the
 	// next one during the autoplay intro — fast enough not to be tedious for
 	// a long, deeply-nested variation, slow enough to still read as "playing
@@ -154,6 +170,26 @@
 		return move ? { from: move.from as Key, to: move.to as Key } : null;
 	});
 
+	/**
+	 * Raises the between-passes cue and keeps it up across the board reset that
+	 * follows. Its timeout is deliberately NOT cleared by resetForAttempt() —
+	 * every other bit of attempt state is per-attempt, but this one exists
+	 * precisely to bridge two attempts, so tying its lifetime to the reset
+	 * would hide it at exactly the moment it's needed. It's cleared only by a
+	 * player-initiated jump elsewhere (variation switch / repertoire change),
+	 * where the cue would be talking about a line they just left.
+	 */
+	function showTeachCue() {
+		clearTimeout(cueTimeout);
+		teachCue = true;
+		cueTimeout = setTimeout(() => (teachCue = false), CUE_HOLD_MS + CUE_LINGER_MS);
+	}
+
+	function clearTeachCue() {
+		clearTimeout(cueTimeout);
+		teachCue = false;
+	}
+
 	function resetForAttempt() {
 		++resetToken;
 		clearTimeout(advanceTimeout);
@@ -208,7 +244,10 @@
 	$effect(() => {
 		// eslint-disable-next-line @typescript-eslint/no-unused-expressions -- deliberate Svelte dependency-tracking read
 		repertoireId;
-		untrack(() => resetForAttempt());
+		untrack(() => {
+			clearTeachCue();
+			resetForAttempt();
+		});
 	});
 
 	function handleMove(detail: { from: Key; to: Key; san: string }) {
@@ -245,14 +284,31 @@
 					data = { ...data, solved: optimisticSolvedAfterAttempt(data, attemptHadMistake) };
 				}
 			}
+			// A clean teach pass is about to be re-served as a blind retest of
+			// the same moves: same length, same start, arrows gone. Announce
+			// that BEFORE the reset, or it just looks like the board threw the
+			// player's work away and started over (issue #68). A final pass
+			// (which solves the variation) and a pass with a mistake in it
+			// (which re-serves the identical teach pass, arrows and all) both
+			// mean something else, so neither gets this cue.
+			const cueRetest = isFinalMove && !attemptHadMistake && !!attempt?.arrowPlies && !attempt.isFinalPass;
 			advanceTimeout = setTimeout(() => {
 				boardFen = step.toFen;
 				quizIdx++;
 				advanceThroughOpponentReplies();
 				locked = false;
 				if (quizIdx >= quizSteps.length) {
-					phase = 'advancing';
-					nextAttempt();
+					if (cueRetest) {
+						showTeachCue();
+						phase = 'transition';
+						advanceTimeout = setTimeout(() => {
+							phase = 'advancing';
+							nextAttempt();
+						}, CUE_HOLD_MS);
+					} else {
+						phase = 'advancing';
+						nextAttempt();
+					}
 				}
 			}, 500);
 			return isFinalMove ? 'final' : true;
@@ -307,6 +363,7 @@
 
 	async function selectVariation(variationKey: string) {
 		pickerOpen = false;
+		clearTeachCue();
 		const res = await fetch('/api/practice/select-variation', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -374,6 +431,20 @@
 
 		<div class="flex flex-col lg:flex-row lg:items-stretch gap-6 lg:flex-1 lg:min-h-0">
 			<div class="lg:flex-1 lg:flex lg:flex-col lg:min-h-0">
+				<!-- Sits directly above the board in both layouts, so it's in the
+				     same place the player is already looking. role="status" (an
+				     implicit aria-live="polite" region) announces it on appearance:
+				     it's the only signal that the board is about to rewind, and
+				     nothing about the board itself conveys that. -->
+				{#if teachCue}
+					<p
+						role="status"
+						class="mb-3 shrink-0 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-center text-sm font-semibold text-amber-800 shadow-sm dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
+					>
+						<span aria-hidden="true">🧠</span> Nice — now play it from memory
+					</p>
+				{/if}
+
 				{#if wrongCount >= 3 && !hintRequested && phase === 'playing'}
 					<p class="text-center mb-4 lg:hidden">
 						<button

@@ -10,6 +10,8 @@ GitHub issue: [tomyka/mychess#60](https://github.com/tomyka/mychess/issues/60)
 >
 > **Amendment 4 (post-ship):** progress was tracked entirely per VARIATION, so two variations sharing the same first 5 moves (a repertoire branching at move 6, say) were taught completely independently — mastering one taught the other nothing, forcing the player through the identical opening moves again for every sibling. Teaching progress is now effectively per-MOVE, shared across every variation that happens to use it: `computeMasteredMoveIds` derives every moveId already mastered anywhere in the repertoire (every move of a fully-solved variation, plus each unsolved variation's own `masteredPlies`-long prefix), and `sharedMasteredPrefixLength` turns that into "how much of THIS variation is already covered" — which can be MORE than this variation's own stored `masteredPlies` if a sibling got there first. That shared floor now auto-plays in EVERY attempt, teach or blind-retest alike (see `PracticeView.attempt.autoPlayThrough`, which `+page.svelte` reads instead of `arrowPlies.from`) — a move mastered once, by any variation, is never manually replayed again by any other. `applyAttemptResult` applies the identical floor before calling `advanceTeachingProgress`, so what the server records always matches what it actually served.
 >
+> **Amendment 5 (post-ship, [issue #68](https://github.com/tomyka/mychess/issues/68)):** two things about the teach→retest hand-off read as a bug in practice. (a) Nothing on screen marked it: a clean teach pass silently snapped the board back to the start and asked for the same moves again, which players reported as "it makes 5 moves and restarts". The "no UI indicating you're in a teaching pass" non-goal below is therefore **partially revisited**: there's still no persistent teaching banner or within-variation progress indicator, but the TRANSITION now has one — a `'transition'` phase in `+page.svelte` holds the finished pass on screen for `CUE_HOLD_MS` behind a "Nice — now play it from memory" `role="status"` cue, which then lingers over the freshly reset board rather than vanishing with it. Only a clean, non-final teach pass raises it: a final pass solves the variation instead of re-asking, and a pass with a mistake re-serves the identical teach pass (arrows and all), so neither is the thing the cue describes. (b) The LAST batch's blind retest was redundant: a teach batch reaching the path's end already auto-plays the same mastered prefix and asks for the same manual tail as the retest that followed it — only the arrows differed. `resolveTeachingStep` now reports such a batch as `isFinalPass`, so a clean run of it solves the variation outright. An 8-move variation (split 5+3) takes 3 clean attempts instead of 4; a 13-move one takes 5 instead of 6. The `masteredPlies > 0` guard keeps the one case where the retest isn't redundant: a variation whose FIRST batch covers its whole path would otherwise be marked solved having never once been played without arrows, so it still earns exactly one blind retest.
+>
 > This document has been updated in place to describe the current, shipped behavior.
 
 ## Problem
@@ -31,7 +33,7 @@ Issue #60 asks for a Chessbook-style guided-then-tested move introduction: show 
 - **No change to `variation_solved`'s meaning or the repertoire-wide "M of N solved" count.** A variation only counts as solved once it's been cleanly replayed start-to-leaf at full depth, exactly as today.
 - **No change to the 3-wrong-attempts origin-square hint.** It continues to exist independently, including during a taught or blind-retest pass.
 - **No re-teaching of already-solved variations.** A variation already in `variation_solved` — including ones solved before this feature ships — is always served at full depth with no arrows, regardless of what (if anything) is in its teaching-progress row.
-- **No new UI chrome indicating "you're in a teaching pass."** The arrow itself is the only signal; no banner, label, or progress-within-the-variation indicator is added.
+- **No new UI chrome indicating "you're in a teaching pass."** The arrow itself is the only signal; no banner, label, or progress-within-the-variation indicator is added. **(Partially revisited by Amendment 5:** still no persistent teaching indicator, but the teach→blind-retest hand-off itself now gets a transient cue, because the unexplained reset read as a bug.**)**
 - **No per-alternative teaching.** If a repertoire preps multiple replies at one position (see #29), this feature doesn't change how those are surfaced — it only decides whether the single path being played shows arrows.
 
 ## Architecture: batch depth as two ply-counters, resolved fresh on every serve
@@ -46,10 +48,10 @@ Two approaches were considered:
 Given a variation's full `path: VariationStep[]` and its two counters (`taughtPlies`, `masteredPlies`, both starting at 0 for a fresh variation — a missing row is treated identically to `{0, 0}`, so no backfill migration is needed for pre-existing variations; see Edge Cases):
 
 - **`masteredPlies >= path.length`:** every batch is mastered. Serve the full `path`, no arrow. This is a normal attempt exactly as today, and a clean replay marks the variation solved exactly as today.
-- **`taughtPlies === masteredPlies` (and `masteredPlies < path.length`):** the next batch hasn't been taught yet — including the very first batch on a fresh variation, where both counters are `0`. Target depth = the ply index right after the batch's `TEACHING_BATCH_MOVES`-th (5th) player-turn ply found at or after `masteredPlies` (or `path.length`, if the path runs out before finding that many) — see `plyAfterPlayerMoves` below; this is NOT a flat ply-count offset, since the batch must always end on the player's own move. Serve `path.slice(0, target)`, with an arrow on every ply in `[masteredPlies, target)` — the whole new batch, every ply, every time this pass is shown. A clean replay advances `taught_plies` to `target`; `mastered_plies` is untouched. A mistake changes nothing (the same teach pass is re-served next attempt).
+- **`taughtPlies === masteredPlies` (and `masteredPlies < path.length`):** the next batch hasn't been taught yet — including the very first batch on a fresh variation, where both counters are `0`. Target depth = the ply index right after the batch's `TEACHING_BATCH_MOVES`-th (5th) player-turn ply found at or after `masteredPlies` (or `path.length`, if the path runs out before finding that many) — see `plyAfterPlayerMoves` below; this is NOT a flat ply-count offset, since the batch must always end on the player's own move. Serve `path.slice(0, target)`, with an arrow on every ply in `[masteredPlies, target)` — the whole new batch, every ply, every time this pass is shown. A clean replay advances `taught_plies` to `target`; `mastered_plies` is untouched. A mistake changes nothing (the same teach pass is re-served next attempt). **(Amendment 5)** The exception: when `target` reaches `path.length` AND `masteredPlies > 0`, this batch is the LAST one and the blind retest that would follow it is the identical pass minus the arrows — it's reported as `isFinalPass`, and a clean replay masters the whole path and solves the variation directly.
 - **`taughtPlies > masteredPlies`:** the just-taught batch needs one clean blind replay before it counts. Serve `path.slice(0, taughtPlies)`, no arrow. A clean replay advances `mastered_plies` to `taughtPlies` (and, if `taughtPlies >= path.length`, this attempt was the real full-depth attempt — marks the variation solved exactly as today). A mistake changes nothing — this exact blind pass is re-served next attempt, per Goals.
 
-This is a small number of states because "teach" and "blind-retest" always alternate one-for-one per batch, and the final batch's blind-retest *is* the ordinary full-variation attempt — no separate "fully taught" concept is needed on top of `variation_solved`.
+This is a small number of states because "teach" and "blind-retest" alternate one-for-one per batch, and the pass that completes the whole path *is* the ordinary full-variation attempt — no separate "fully taught" concept is needed on top of `variation_solved`. (Per Amendment 5, that completing pass is the final batch's own TEACH pass, not a separate retest of it — except for a variation whose first batch is also its last, where it's still the retest.)
 
 ### Already-solved variations bypass this entirely
 
@@ -132,7 +134,14 @@ export function resolveTeachingStep(
 	}
 	if (taughtPlies === masteredPlies) {
 		const target = plyAfterPlayerMoves(path, masteredPlies, TEACHING_BATCH_MOVES);
-		return { path: path.slice(0, target), arrowPlies: { from: masteredPlies, to: target }, isFinalPass: false };
+		// (Amendment 5) A last batch — one reaching the path's end with an
+		// already-mastered prefix behind it — is itself the final pass; the
+		// blind retest that used to follow it was the identical pass minus
+		// the arrows. `masteredPlies > 0` keeps a variation whose FIRST batch
+		// covers its whole path from being solved having never been played
+		// blind at all.
+		const isFinalPass = target >= path.length && masteredPlies > 0;
+		return { path: path.slice(0, target), arrowPlies: { from: masteredPlies, to: target }, isFinalPass };
 	}
 	return { path: path.slice(0, taughtPlies), arrowPlies: null, isFinalPass: taughtPlies >= path.length };
 }
@@ -147,7 +156,9 @@ export function advanceTeachingProgress(
 	if (hadMistake) {
 		return { taughtPlies, masteredPlies, solved: false };
 	}
-	if (step.arrowPlies) {
+	// (Amendment 5) `&& !step.isFinalPass`: a FINAL teach pass owes no blind
+	// retest, so it falls through and masters/solves what it just taught.
+	if (step.arrowPlies && !step.isFinalPass) {
 		return { taughtPlies: step.arrowPlies.to, masteredPlies, solved: false };
 	}
 	return { taughtPlies: Math.max(taughtPlies, step.path.length), masteredPlies: step.path.length, solved: step.isFinalPass };
@@ -273,4 +284,6 @@ Passed to `<ChessBoard ... {arrowMove} />`.
 - (Amendment 4) `teaching.test.ts`: `sharedMasteredPrefixLength` stops at the first unmastered ply (a later mastered one past a gap doesn't extend it) and covers the whole/none/all cases; `computeMasteredMoveIds` credits every move of a fully-solved variation, only the mastered prefix of an unsolved one, nothing for a variation with no progress, and unions correctly across several variations.
 - (Amendment 4) `practice.test.ts`: a fresh sibling variation sharing a prefix already solved via another variation is served with the floored counters (teaching only its own new content) and the correct `autoPlayThrough`; the same credit applies to that sibling's own blind retest; an already-solved variation's own re-drill gets `autoPlayThrough: 0`.
 - (Amendment 4) `practice-progress.test.ts`: `applyAttemptResult` records progress against the SAME floored counters `buildPracticeView` would have served, for a fresh sibling variation crediting a solved one's shared prefix.
+- (Amendment 5) `teaching.test.ts`: a `cleanRunToSolved` driver runs the real `resolveTeachingStep`/`advanceTeachingProgress` pair over a whole variation and asserts both the number of clean attempts to reach solved and the teach/blind sequence — 8 moves in 3 attempts (`teach, blind, teach`) for both parities, 13 moves in 5 (`teach, blind, teach, blind, teach`), and a one-batch variation still in 2 (`teach, blind`).
+- (Amendment 5) `practice.test.ts` (route-level): playing out a clean teach pass raises the cue while the page is still in `'transition'` (i.e. before the reset), keeps it up once the next attempt has loaded, and drops it afterwards; a final pass and a mistaken pass raise nothing. Chessground is mocked in that file purely as an input harness — jsdom can't produce the trusted pointer events its `drag.start` requires — and `playMove` invokes the very `movable.events.after` config `ChessBoard` handed it, so everything above the third-party board is exercised for real.
 - Manual end-to-end verification: practice a fresh variation, confirm an arrow for each move 1–5 on first exposure, a blind (arrow-free) full replay required afterward, and — for a variation longer than 10 plies — the same teach/retest cycle repeating for moves 6–10, 11–15 (with moves 1–10 auto-playing before each new batch's arrows begin), and so on. Also confirm: starting a sibling variation that shares an already-mastered prefix with a previously-learned variation auto-plays that shared part immediately (teach and blind-retest alike), teaching/testing only the new, divergent content.

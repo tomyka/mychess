@@ -169,13 +169,68 @@ describe('applyAttemptResult', () => {
 		const { a, b } = makeSharedPrefixVariations();
 		const { client, upsertCalls } = fakeSupabase({ solvedKeys: ['a'], teachingRows: [] });
 		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'b', false, [a, b]);
+		// b's own path is only 2 plies past the shared 10, so its whole
+		// remaining content is taught in one go — and mastered_plies starts at
+		// 10 (credited from a), not 0, so this teach pass reaches b's full path
+		// length with a mastered prefix behind it: it IS b's final pass, and a
+		// clean run of it solves b outright rather than demanding an identical
+		// arrow-free replay of the same two plies (issue #68).
+		expect(upsertCalls.map((c) => c.table)).toEqual([
+			'variation_teaching_progress',
+			'variation_solved',
+			'practice_active_variation'
+		]);
+		expect(upsertCalls[0].rows).toEqual({
+			player_id: 'player-1',
+			repertoire_id: 'rep-1',
+			variation_key: 'b',
+			taught_plies: 12,
+			mastered_plies: 12
+		});
+	});
+
+	it('a clean teach pass reaching the path\'s end over an already-mastered prefix solves the variation outright', async () => {
+		// 16 plies / 8 player moves — the issue's own repro shape: batch 1 is
+		// plies 0-8, batch 2 (plies 9-15) is the rest, so this teach pass has
+		// nothing left to teach afterwards and no longer owes a second,
+		// identical arrow-free replay of the same tail.
+		const { client, upsertCalls } = fakeSupabase({
+			teachingRows: [{ variation_key: 'v1', taught_plies: 9, mastered_plies: 9 }]
+		});
+		const v1 = makeVariation('v1', 16);
+		const v2 = makeVariation('v2', 4);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1, v2]);
+
 		expect(upsertCalls).toEqual([
 			{
 				table: 'variation_teaching_progress',
-				// b's own path is only 2 plies past the shared 10, so its whole
-				// remaining content is taught in one go — but mastered_plies
-				// starts at 10 (credited from a), not 0.
-				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'b', taught_plies: 12, mastered_plies: 10 },
+				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1', taught_plies: 16, mastered_plies: 16 },
+				options: { onConflict: 'player_id,variation_key_hash' }
+			},
+			{
+				table: 'variation_solved',
+				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1' },
+				options: { onConflict: 'player_id,variation_key_hash', ignoreDuplicates: true }
+			},
+			{
+				table: 'practice_active_variation',
+				rows: expect.objectContaining({ player_id: 'player-1', repertoire_id: 'rep-1', active_variation_key: 'v2' }),
+				options: { onConflict: 'player_id,repertoire_id' }
+			}
+		]);
+	});
+
+	it('a fresh SINGLE-batch variation still needs its blind retest before it is solved — a first teach pass never solves', async () => {
+		// Nothing mastered yet, and one batch covers the whole 6-ply path: this
+		// variation has never once been played without arrows, so it advances
+		// taught_plies only and variation_solved stays untouched.
+		const { client, upsertCalls } = fakeSupabase({ teachingRows: [] });
+		const v1 = makeVariation('v1', 6);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1]);
+		expect(upsertCalls).toEqual([
+			{
+				table: 'variation_teaching_progress',
+				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1', taught_plies: 6, mastered_plies: 0 },
 				options: { onConflict: 'player_id,variation_key_hash' }
 			}
 		]);
