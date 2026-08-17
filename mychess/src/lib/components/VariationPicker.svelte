@@ -1,12 +1,22 @@
 <!-- mychess/src/lib/components/VariationPicker.svelte -->
 <script lang="ts">
-	import { groupByFirstMoves, moveSequenceLabel, FIRST_MOVES_GROUP_PLIES, type MoveGroup, type VariationStep } from '$lib/mastery/variations';
+	import {
+		groupByFirstMoves,
+		moveSequenceLabel,
+		chapterTiers,
+		rowsInChapterTier,
+		FIRST_MOVES_GROUP_PLIES,
+		type MoveGroup,
+		type VariationStep
+	} from '$lib/mastery/variations';
 
 	type VariationRow = {
 		variationKey: string;
 		label: string;
 		included: boolean;
-		chapterName: string | null;
+		// Every chapter this line belongs to — a line cross-referenced by two
+		// chapters shows under both. Empty means untagged (see UNTAGGED_CHAPTER).
+		chapterNames: string[];
 		path: VariationStep[];
 		solved: boolean;
 	};
@@ -41,27 +51,25 @@
 	}
 	load();
 
-	// Preserves first-appearance order; a null chapterName groups everything
-	// into one implicit chapter (skips the chapter tier entirely in the
-	// template below) rather than each ungrouped row becoming its own group.
-	const chapters = $derived.by(() => {
-		const rows = (variations ?? []).filter((r) => r.included);
-		if (rows.every((r) => r.chapterName === null)) return null;
-		const names: string[] = [];
-		for (const r of rows) {
-			const name = r.chapterName ?? '';
-			if (!names.includes(name)) names.push(name);
-		}
-		return names;
-	});
-
-	function rowsForChapter(chapterName: string | null): VariationRow[] {
-		const rows = (variations ?? []).filter((r) => r.included);
-		return chapterName === null ? rows : rows.filter((r) => r.chapterName === chapterName);
+	function includedRows(): VariationRow[] {
+		return (variations ?? []).filter((r) => r.included);
 	}
 
-	function moveGroups(chapterName: string | null): MoveGroup<VariationRow>[] {
-		return groupByFirstMoves(rowsForChapter(chapterName), stepsOf, FIRST_MOVES_GROUP_PLIES, TOP_N);
+	// Chapters in first-appearance order, with the untagged bucket last; null
+	// when no row is chaptered at all, which skips the chapter tier entirely in
+	// the template below rather than making each ungrouped row its own group.
+	const chapters = $derived.by(() => chapterTiers(includedRows()));
+
+	// `null` is the flat, chapterless pool (only reachable when `chapters` is
+	// null) — distinct from the untagged bucket WITHIN a chaptered repertoire,
+	// which is a real tier name like any other.
+	function rowsForChapter(chapter: string | null): VariationRow[] {
+		const rows = includedRows();
+		return chapter === null ? rows : rowsInChapterTier(rows, chapter);
+	}
+
+	function moveGroups(chapter: string | null): MoveGroup<VariationRow>[] {
+		return groupByFirstMoves(rowsForChapter(chapter), stepsOf, FIRST_MOVES_GROUP_PLIES, TOP_N);
 	}
 
 	function groupLabel(group: MoveGroup<VariationRow>): string {
@@ -119,13 +127,13 @@
 			</ul>
 		{:else}
 			<ul class="space-y-1">
-				{#each chapters ?? [] as chapterName (chapterName)}
+				{#each chapters ?? [] as chapter (chapter)}
 					<li>
 						<button
-							onclick={() => (openChapter = chapterName)}
+							onclick={() => (openChapter = chapter)}
 							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 font-medium text-(--color-text)"
 						>
-							{chapterName}
+							{chapter}
 						</button>
 					</li>
 				{/each}

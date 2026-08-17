@@ -11,7 +11,7 @@ function makeVariation(variationKey: string, plies: number): Variation {
 		toFen: `f${i}b`,
 		isPlayerTurn: i % 2 === 0
 	}));
-	return { leafMoveId: path[path.length - 1].moveId, variationKey, path, playerMoveCount: Math.ceil(plies / 2) };
+	return { leafMoveId: path[path.length - 1].moveId, variationKey, path, playerMoveCount: Math.ceil(plies / 2), chapterNames: [] };
 }
 
 /** Two variations sharing the same leading 10 plies (5 player moves), each with its own 2-ply branch after. */
@@ -29,7 +29,7 @@ function makeSharedPrefixVariations(): { a: Variation; b: Variation } {
 			{ moveId: `${variationKey}-p10`, san: 'M10', fromFen: 'f10a', toFen: 'f10b', isPlayerTurn: true },
 			{ moveId: `${variationKey}-p11`, san: 'M11', fromFen: 'f10b', toFen: 'f11a', isPlayerTurn: false }
 		];
-		return { leafMoveId: path[path.length - 1].moveId, variationKey, path, playerMoveCount: 6 };
+		return { leafMoveId: path[path.length - 1].moveId, variationKey, path, playerMoveCount: 6, chapterNames: [] };
 	}
 	return { a: branch('a'), b: branch('b') };
 }

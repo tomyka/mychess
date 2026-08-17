@@ -13,7 +13,8 @@ function makeVariation(playerMoveCount: number, prefix: string): Variation {
 		leafMoveId: path[path.length - 1].moveId,
 		variationKey: path.map((s) => s.moveId).join('>'),
 		path,
-		playerMoveCount
+		playerMoveCount,
+		chapterNames: []
 	};
 }
 
@@ -39,7 +40,7 @@ function makeSharedPrefixVariations(sharedPlayerMoves: number, ownPlayerMovesA: 
 		return path;
 	}
 	function toVariation(variationKey: string, path: VariationStep[], playerMoveCount: number): Variation {
-		return { leafMoveId: path[path.length - 1].moveId, variationKey, path, playerMoveCount };
+		return { leafMoveId: path[path.length - 1].moveId, variationKey, path, playerMoveCount, chapterNames: [] };
 	}
 	const pathA = extend('a-', ownPlayerMovesA);
 	const pathB = extend('b-', ownPlayerMovesB);

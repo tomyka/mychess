@@ -1,0 +1,29 @@
+-- 0052: invalidate the cached repertoire "shape" columns so they recompute.
+--
+-- This is CACHE INVALIDATION, not a data migration. No player progress is
+-- touched: `variation_solved`, `variation_practice_exclusions`,
+-- `variation_teaching_progress` and `practice_active_variation` are all keyed by
+-- variation key (hash) and are left completely alone, as is every row in
+-- `positions` / `moves`. The variation key format did not change, so every
+-- existing progress row keeps matching its line.
+--
+-- Why: `repertoires.total_variations` was computed as `enumerateVariations()
+-- .length` back when that function emitted a line ONCE PER CHAPTER containing
+-- it. A line cross-referenced by N chapters (a shared tabiya, very common in
+-- multi-chapter opening references) was therefore counted N times, so every
+-- chaptered repertoire's cached total is inflated — "M / N variations solved"
+-- could never reach its total, and could jump by more than one. Enumeration now
+-- merges those duplicates into one variation carrying all its chapter names, so
+-- the cached numbers are stale and must be recomputed.
+--
+-- Why both columns: `loadRepertoireProgressSummaries` in
+-- `src/lib/server/repertoire-progress.ts` lazily backfills the shape cache when
+-- EITHER column is null, and computes `total_variations` and `has_chapters`
+-- together from the same fresh `enumerateVariations()` walk before writing both
+-- back. Nulling them together is what makes that one backfill path run; nulling
+-- only one would leave the other's value untouched but still recompute it.
+--
+-- Cost: the next load of each repertoire re-fetches its moves and re-walks the
+-- tree once, then re-caches. Moves are immutable after import, so the refreshed
+-- values are valid forever after.
+update public.repertoires set total_variations = null, has_chapters = null;

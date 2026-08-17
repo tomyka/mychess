@@ -3,6 +3,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/svelte';
 import RepertoirePracticeRow from './RepertoirePracticeRow.svelte';
+import { UNTAGGED_CHAPTER } from '$lib/mastery/variations';
 
 afterEach(() => {
 	cleanup();
@@ -35,33 +36,33 @@ function path(sans: string[]) {
 	});
 }
 
-function row(variationKey: string, sans: string[], chapterName: string | null, included = true, solved = false) {
-	return { variationKey, label: `label:${variationKey}`, included, chapterName, path: path(sans), solved };
+function row(variationKey: string, sans: string[], chapterNames: string[], included = true, solved = false) {
+	return { variationKey, label: `label:${variationKey}`, included, chapterNames, path: path(sans), solved };
 }
 
 // v1/v2 share their first 5 full moves (10 plies) before diverging on move
 // 6 — the component's fixed grouping window (FIRST_MOVES_GROUP_PLIES = 10)
 // buckets them together. No chapter tag (the flat/chapterless case).
 const variationsResponse = [
-	row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], null),
-	row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'd3'], null)
+	row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], []),
+	row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'd3'], [])
 ];
 
 // Same shared-prefix pair, now under a 'Ruy Lopez' chapter, plus a single
 // short, unrelated line in its own 'Italian Game' chapter.
 const chapterVariationsResponse = [
-	row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], 'Ruy Lopez'),
-	row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'd3'], 'Ruy Lopez'),
-	row('v3', ['d4', 'd5', 'c4'], 'Italian Game')
+	row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], ['Ruy Lopez']),
+	row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'd3'], ['Ruy Lopez']),
+	row('v3', ['d4', 'd5', 'c4'], ['Italian Game'])
 ];
 
 // v1/v2 share their first-5-moves window (one bucket); v3 is a short,
 // unrelated line (its own single-item bucket) — used for sibling-isolation
 // tests across two buckets sitting side by side under the same chapter.
 const siblingResponse = [
-	row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], 'Ruy Lopez'),
-	row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'd3'], 'Ruy Lopez'),
-	row('v3', ['d4', 'd5'], 'Ruy Lopez')
+	row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], ['Ruy Lopez']),
+	row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'd3'], ['Ruy Lopez']),
+	row('v3', ['d4', 'd5'], ['Ruy Lopez'])
 ];
 
 const SHARED_BUCKET_LABEL = /1\.e4 e5 2\.Nf3 Nc6 3\.Bb5 a6 4\.Ba4 Nf6 5\.O-O Be7/;
@@ -233,7 +234,7 @@ describe('RepertoirePracticeRow', () => {
 	});
 
 	it('updates the solved/total subtitle immediately when a variation is toggled, without waiting for a reload', async () => {
-		const withSolved = [row('v1', ['e4', 'e5'], null, true, true), row('v2', ['d4', 'd5'], null, true, false)];
+		const withSolved = [row('v1', ['e4', 'e5'], [], true, true), row('v2', ['d4', 'd5'], [], true, false)];
 		const fetchSpy = vi
 			.fn()
 			.mockResolvedValueOnce({ ok: true, json: async () => withSolved })
@@ -333,7 +334,7 @@ describe('RepertoirePracticeRow', () => {
 		expect(screen.getByText('label:v2')).toBeTruthy();
 	});
 
-	it('renders a flat pool of buckets with no chapter header when no variation has a chapterName', async () => {
+	it('renders a flat pool of buckets with no chapter header when no variation carries a chapter', async () => {
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(RepertoirePracticeRow, { props: { rep: baseRep } });
@@ -613,6 +614,151 @@ describe('RepertoirePracticeRow', () => {
 		await fireEvent.click(screen.getByLabelText(`Expand ${SHARED_BUCKET_TEXT} in Ruy Lopez`));
 		expect(screen.getByText('label:v1')).toBeTruthy();
 		expect(screen.getByText('label:v2')).toBeTruthy();
+	});
+
+	// v1 belongs to BOTH chapters — one row carrying two chapter names (a shared
+	// tabiya cross-referenced under two headings), not two rows sharing one
+	// variationKey. v2 is Ruy Lopez's own; v3 is Italian Game's own.
+	const sharedLineResponse = [
+		row('v1', ['e4', 'e5', 'Nf3'], ['Ruy Lopez', 'Italian Game']),
+		row('v2', ['e4', 'e5', 'Bc4'], ['Ruy Lopez']),
+		row('v3', ['d4', 'd5', 'c4'], ['Italian Game'])
+	];
+
+	it('shows a line belonging to two chapters under BOTH of them', async () => {
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => sharedLineResponse });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
+		// Each chapter counts the shared line: Ruy Lopez has v1 + v2, Italian
+		// Game has v1 + v3 — two chapters of 2, from only 3 distinct lines.
+		expect(screen.getAllByText('· 2 lines')).toHaveLength(2);
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez chapter'));
+		await fireEvent.click(screen.getByLabelText('Expand 1.e4 e5 2.Nf3 in Ruy Lopez'));
+		expect(screen.getByText('label:v1')).toBeTruthy();
+
+		await fireEvent.click(screen.getByLabelText('Expand Italian Game chapter'));
+		await fireEvent.click(screen.getByLabelText('Expand 1.e4 e5 2.Nf3 in Italian Game'));
+		// Once under each chapter — the same row rendered in both subtrees.
+		expect(screen.getAllByText('label:v1')).toHaveLength(2);
+	});
+
+	it("bulk-toggling a chapter includes the lines it SHARES with another chapter, not just its exclusive ones", async () => {
+		const fetchSpy = vi
+			.fn()
+			.mockResolvedValueOnce({ ok: true, json: async () => sharedLineResponse })
+			.mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
+
+		// Membership, not equality: the old `chapterName === name` filter posted
+		// only v3 here, silently leaving the shared line included.
+		await fireEvent.click(screen.getByRole('checkbox', { name: /Italian Game \(chapter\)/ }));
+		await waitFor(() =>
+			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ variationKeys: ['v1', 'v3'], included: false })
+			})
+		);
+
+		// And the effect is visible from the other chapter, since it's one line:
+		// Ruy Lopez reads indeterminate (v1 now excluded, v2 still included).
+		expect((screen.getByRole('checkbox', { name: /Ruy Lopez \(chapter\)/ }) as HTMLInputElement).indeterminate).toBe(true);
+	});
+
+	it('toggling a shared line under one chapter shows as toggled under the other too, since it is one line', async () => {
+		const fetchSpy = vi
+			.fn()
+			.mockResolvedValueOnce({ ok: true, json: async () => sharedLineResponse })
+			.mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
+
+		// Uncheck the shared line from inside Italian Game.
+		await fireEvent.click(screen.getByLabelText('Expand Italian Game chapter'));
+		await fireEvent.click(screen.getByLabelText('Expand 1.e4 e5 2.Nf3 in Italian Game'));
+		await fireEvent.click(within(screen.getByText('label:v1').closest('label')!).getByRole('checkbox'));
+		await waitFor(() =>
+			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ variationKeys: ['v1'], included: false })
+			})
+		);
+		expect((screen.getByRole('checkbox', { name: /Ruy Lopez \(chapter\)/ }) as HTMLInputElement).indeterminate).toBe(true);
+
+		// Its copy under Ruy Lopez reflects the same exclusion, and re-checking
+		// it there re-includes the one shared line for both chapters.
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez chapter'));
+		await fireEvent.click(screen.getByLabelText('Expand 1.e4 e5 2.Nf3 in Ruy Lopez'));
+		const [underRuy, underItalian] = screen
+			.getAllByText('label:v1')
+			.map((el) => within(el.closest('label')!).getByRole('checkbox') as HTMLInputElement);
+		expect(underRuy.checked).toBe(false);
+		expect(underItalian.checked).toBe(false);
+
+		await fireEvent.click(underRuy);
+		await waitFor(() =>
+			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ variationKeys: ['v1'], included: true })
+			})
+		);
+		expect((screen.getByRole('checkbox', { name: /Italian Game \(chapter\)/ }) as HTMLInputElement).checked).toBe(true);
+	});
+
+	it('gives untagged lines their own bucket, listed last, in an otherwise-chaptered repertoire', async () => {
+		// A chaptered import appended onto pre-0048 (untagged) moves: without an
+		// explicit bucket, v2 matches no chapter and is unreachable here.
+		const mixed = [row('v1', ['e4', 'e5', 'Nf3'], ['Ruy Lopez']), row('v2', ['d4', 'd5'], [])];
+		const fetchSpy = vi
+			.fn()
+			.mockResolvedValueOnce({ ok: true, json: async () => mixed })
+			.mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 2 } } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
+		const headings = screen.getAllByText(/\(chapter\)|Lines without a chapter/).map((el) => el.textContent!.trim());
+		expect(headings[headings.length - 1]).toContain(UNTAGGED_CHAPTER); // rendered last
+
+		// It behaves like any other chapter tier: expandable down to its lines...
+		await fireEvent.click(screen.getByLabelText(`Expand ${UNTAGGED_CHAPTER}`));
+		await fireEvent.click(screen.getByLabelText(`Expand 1.d4 d5 in ${UNTAGGED_CHAPTER}`));
+		expect(screen.getByText('label:v2')).toBeTruthy();
+
+		// ...and bulk-selectable, touching only its own untagged rows.
+		await fireEvent.click(screen.getByRole('checkbox', { name: `Include ${UNTAGGED_CHAPTER} in practice` }));
+		await waitFor(() =>
+			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ variationKeys: ['v2'], included: false })
+			})
+		);
+		expect((screen.getByRole('checkbox', { name: /Ruy Lopez \(chapter\)/ }) as HTMLInputElement).checked).toBe(true);
+	});
+
+	it('shows no untagged bucket when every line is chaptered', async () => {
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => chapterVariationsResponse });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
+		expect(screen.queryByText(UNTAGGED_CHAPTER, { exact: false })).toBeNull();
 	});
 
 	it('shows the checkbox and expand control even when the repertoire has no chapters, as long as it has variations', () => {

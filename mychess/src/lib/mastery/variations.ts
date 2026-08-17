@@ -23,7 +23,6 @@ export type VariationStep = {
 	fromFen: string;
 	toFen: string;
 	isPlayerTurn: boolean;
-	chapterName?: string | null;
 };
 
 export type Variation = {
@@ -31,11 +30,13 @@ export type Variation = {
 	variationKey: string;
 	path: VariationStep[];
 	playerMoveCount: number;
-	// The chapter this variation was enumerated under — every variation from
-	// one `enumerateVariationsScoped()` call carries the same chapterName,
-	// stamped directly by that walk rather than derived from the leaf move.
-	// Null for the un-chaptered (no chapter tier) case.
-	chapterName?: string | null;
+	// EVERY chapter this line appears in, in first-appearance order — a line
+	// cross-referenced by two chapters (a shared tabiya) is ONE variation
+	// carrying both names, not two variations sharing one `variationKey`.
+	// Empty (never null/undefined) means the line is untagged: it belongs to
+	// no chapter at all, which is both the whole-repertoire pre-0048 case and
+	// the untagged remainder of a mixed repertoire.
+	chapterNames: string[];
 };
 
 /**
@@ -55,6 +56,30 @@ function uniqueChapterNames(moves: RawMoveRow[]): string[] {
 		}
 	}
 	return names;
+}
+
+/**
+ * The ordered list of scopes `enumerateVariations` walks, one at a time: every
+ * chapter in `moves`' own first-appearance order, then `null` (the untagged
+ * scope) LAST.
+ *
+ * The untagged scope is included whenever any move carries no chapter tag —
+ * not only when NOTHING is tagged. That distinction is the whole fix for the
+ * "untagged lines silently vanish" bug: a MIXED repertoire (a chaptered import
+ * appended onto pre-0048 untagged moves) used to have its untagged lines
+ * walked by no scope at all, since the chaptered scopes filter them out and the
+ * `null` scope was only reached when the chapter list was empty. It is also
+ * pushed for a repertoire with no chapters at all, where it is the only scope
+ * and reproduces the original unscoped walk exactly.
+ *
+ * Pure and deterministic — the resulting order is what makes
+ * `enumerateVariations`' merge order stable across reloads (see its doc).
+ */
+export function variationScopes(moves: RawMoveRow[]): Array<string | null> {
+	const scopes: Array<string | null> = [...uniqueChapterNames(moves)];
+	const hasUntagged = moves.some((m) => (m.chapterNames ?? []).length === 0);
+	if (hasUntagged || scopes.length === 0) scopes.push(null);
+	return scopes;
 }
 
 /**
@@ -94,7 +119,10 @@ function enumerateVariationsScoped(moves: RawMoveRow[], chapterName: string | nu
 					variationKey: path.map((s) => s.moveId).join('>'),
 					path,
 					playerMoveCount,
-					chapterName
+					// A fresh array per variation — `enumerateVariations` pushes
+					// onto the surviving one while merging, so two variations
+					// must never share the same array instance.
+					chapterNames: chapterName === null ? [] : [chapterName]
 				});
 			}
 			return;
@@ -105,8 +133,7 @@ function enumerateVariationsScoped(moves: RawMoveRow[], chapterName: string | nu
 				san: move.san,
 				fromFen: move.fromFen,
 				toFen: move.toFen,
-				isPlayerTurn: move.isPlayerTurn,
-				chapterName
+				isPlayerTurn: move.isPlayerTurn
 			};
 			walk(move.toPositionId, [...path, step], playerMoveCount + (move.isPlayerTurn ? 1 : 0));
 		}
@@ -126,30 +153,111 @@ function enumerateVariationsScoped(moves: RawMoveRow[], chapterName: string | nu
  * separate variations sharing the common prefix up to the branch point.
  *
  * Chaptered repertoires are walked ONE CHAPTER AT A TIME (see
- * `enumerateVariationsScoped`) and concatenated, rather than as one
- * whole-repertoire walk — multiple PGN chapters imported into one repertoire
- * share position/move rows wherever they transpose into the same edge, and a
- * single walk across the merged graph re-enumerates every downstream path
- * once per way of reaching a shared position, multiplying the total count at
- * every such reconvergence instead of summing per chapter. Un-chaptered
- * repertoires (no move carries any chapter name) fall through to a single
- * scoped walk with `chapterName: null` — identical to the old unscoped
- * behavior, since there's nothing to separate.
+ * `enumerateVariationsScoped`) rather than as one whole-repertoire walk —
+ * multiple PGN chapters imported into one repertoire share position/move rows
+ * wherever they transpose into the same edge, and a single walk across the
+ * merged graph re-enumerates every downstream path once per way of reaching a
+ * shared position, multiplying the total count at every such reconvergence
+ * instead of summing per chapter. Un-chaptered repertoires (no move carries
+ * any chapter name) fall through to a single scoped walk over the untagged
+ * scope — identical to the old unscoped behavior, since there's nothing to
+ * separate.
+ *
+ * The per-chapter results are then MERGED by `variationKey` rather than
+ * concatenated: a line belonging to N chapters is walked once per chapter (that
+ * is what bounds the work) but returned as ONE variation whose `chapterNames`
+ * lists all N. Concatenating instead emitted the same key N times, and every
+ * consumer treats one key as one entry — duplicates made `nextVariation`'s
+ * `findIndex` alternate between copies forever inside `advanceIfSolved`, let
+ * one progress row silently stand in for every chapter's copy, and inflated
+ * `variations.length` (the source of `repertoires.total_variations`).
+ *
+ * Order is deterministic: chapters run in `variationScopes`' order (first
+ * appearance across `moves`, untagged last), and a line lands at the position
+ * of the FIRST scope that reached it.
  */
 export function enumerateVariations(moves: RawMoveRow[]): Variation[] {
-	const chapterNames = uniqueChapterNames(moves);
-	if (chapterNames.length === 0) return enumerateVariationsScoped(moves, null);
-	return chapterNames.flatMap((name) => enumerateVariationsScoped(moves, name));
+	const byKey = new Map<string, Variation>();
+	for (const scope of variationScopes(moves)) {
+		for (const v of enumerateVariationsScoped(moves, scope)) {
+			const existing = byKey.get(v.variationKey);
+			if (!existing) {
+				byKey.set(v.variationKey, v);
+			} else if (scope !== null && !existing.chapterNames.includes(scope)) {
+				// Safe to push: every scoped walk stamps a freshly-built array,
+				// so `existing.chapterNames` is owned by `existing` alone.
+				existing.chapterNames.push(scope);
+			}
+		}
+	}
+	return [...byKey.values()];
 }
 
 /**
  * True if any variation came from a chapter-tagged PGN import (see
- * `chapterName` above) — used to decide whether the Practice picker offers
+ * `chapterNames` above) — used to decide whether the Practice picker offers
  * chapter-selection UI at all for a repertoire, versus treating it as one
  * indivisible unit (see `repertoires.has_chapters`, migration 0043).
  */
 export function hasChapterTags(variations: Variation[]): boolean {
-	return variations.some((v) => v.chapterName != null);
+	return variations.some((v) => v.chapterNames.length > 0);
+}
+
+/**
+ * The chapter tier's label for lines belonging to no chapter at all. A mixed
+ * repertoire (a chaptered PGN import appended onto older untagged moves) has
+ * both kinds; without an explicit bucket its untagged lines match no chapter
+ * name and would be unreachable in the practice picker — the same invisibility
+ * as the enumeration bug, just moved into the UI.
+ *
+ * Phrased as a sentence fragment rather than a plausible opening name so it
+ * can't realistically collide with a real PGN chapter heading — and if one ever
+ * does collide, `isInChapterTier` degrades into a single merged bucket holding
+ * both that chapter's lines and the untagged ones, rather than rendering the
+ * same tier twice.
+ */
+export const UNTAGGED_CHAPTER = 'Lines without a chapter';
+
+/**
+ * The chapter tier to render for a set of variation rows: every chapter any row
+ * belongs to, in first-appearance order, plus `UNTAGGED_CHAPTER` LAST when some
+ * row belongs to none.
+ *
+ * `null` means NO row carries a chapter at all — the caller should skip the
+ * chapter tier entirely and group the flat pool directly, rather than render a
+ * single all-encompassing bucket. Note that's specifically "no chapters
+ * anywhere", not "some rows are untagged": a mixed repertoire still gets a
+ * chapter tier, with its untagged rows in the `UNTAGGED_CHAPTER` bucket.
+ *
+ * Shared by `RepertoirePracticeRow` and `VariationPicker` so the two can never
+ * disagree about what counts as chaptered, or order chapters differently.
+ */
+export function chapterTiers(rows: Array<{ chapterNames: string[] }>): string[] | null {
+	if (rows.every((r) => r.chapterNames.length === 0)) return null;
+	const names: string[] = [];
+	for (const r of rows) {
+		for (const name of r.chapterNames) {
+			if (!names.includes(name)) names.push(name);
+		}
+	}
+	if (rows.some((r) => r.chapterNames.length === 0) && !names.includes(UNTAGGED_CHAPTER)) {
+		names.push(UNTAGGED_CHAPTER);
+	}
+	return names;
+}
+
+/**
+ * Whether one row belongs to one tier from `chapterTiers` — membership, not
+ * equality, since one line can belong to several chapters (see
+ * `Variation.chapterNames`) and must show, and toggle, under each of them.
+ */
+export function isInChapterTier(row: { chapterNames: string[] }, tier: string): boolean {
+	return (tier === UNTAGGED_CHAPTER && row.chapterNames.length === 0) || row.chapterNames.includes(tier);
+}
+
+/** `rows` filtered to one tier from `chapterTiers` (see `isInChapterTier`). */
+export function rowsInChapterTier<T extends { chapterNames: string[] }>(rows: T[], tier: string): T[] {
+	return rows.filter((r) => isInChapterTier(r, tier));
 }
 
 /** `variations` with any entry whose `variationKey` is in `excludedKeys` dropped. */

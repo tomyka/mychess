@@ -3,6 +3,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/svelte';
 import VariationPicker from './VariationPicker.svelte';
+import { UNTAGGED_CHAPTER } from '$lib/mastery/variations';
 
 afterEach(() => cleanup());
 
@@ -23,14 +24,14 @@ function path(sans: string[]) {
 function row(
 	variationKey: string,
 	sans: string[],
-	chapterName: string | null,
+	chapterNames: string[],
 	opts: { included?: boolean; solved?: boolean } = {}
 ) {
 	return {
 		variationKey,
 		label: `label:${variationKey}`, // stand-in for the server's own moveSequenceLabel(v.path) — irrelevant to grouping
 		included: opts.included ?? true,
-		chapterName,
+		chapterNames,
 		path: path(sans),
 		solved: opts.solved ?? false
 	};
@@ -41,9 +42,9 @@ function row(
 // = 10) buckets them together. v3 is a short, unrelated line in a different
 // chapter, well under the window's length.
 const variationsResponse = [
-	row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], 'Ruy Lopez'),
-	row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'd3'], 'Ruy Lopez', { solved: true }),
-	row('v3', ['d4', 'd5', 'c4'], 'Italian Game')
+	row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], ['Ruy Lopez']),
+	row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'd3'], ['Ruy Lopez'], { solved: true }),
+	row('v3', ['d4', 'd5', 'c4'], ['Italian Game'])
 ];
 
 describe('VariationPicker', () => {
@@ -121,10 +122,10 @@ describe('VariationPicker', () => {
 		expect(screen.getByText('Italian Game')).toBeTruthy();
 	});
 
-	it('skips the chapter level entirely when no variation has a chapterName, still bucketing by the first-5-moves window', async () => {
+	it('skips the chapter level entirely when no variation carries a chapter, still bucketing by the first-5-moves window', async () => {
 		const flat = [
-			row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7'], null),
-			row('v2', ['d4', 'd5'], null)
+			row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7'], []),
+			row('v2', ['d4', 'd5'], [])
 		];
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => flat });
 		vi.stubGlobal('fetch', fetchSpy);
@@ -133,6 +134,62 @@ describe('VariationPicker', () => {
 		await waitFor(() => expect(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6 3\.Bb5 a6 4\.Ba4 Nf6 5\.O-O Be7/)).toBeTruthy());
 		expect(screen.getByText(/1\.d4 d5/)).toBeTruthy();
 		expect(screen.queryByText('(chapter)', { exact: false })).toBeNull();
+	});
+
+	it('shows a line belonging to two chapters under BOTH of them, selectable from either', async () => {
+		// One entry carrying two chapter names (a shared tabiya cross-referenced
+		// by two chapter headings) — not two entries sharing one variationKey.
+		const shared = [
+			row('v1', ['e4', 'e5', 'Nf3'], ['Ruy Lopez', 'Italian Game']),
+			row('v2', ['d4', 'd5', 'c4'], ['Italian Game'])
+		];
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => shared });
+		vi.stubGlobal('fetch', fetchSpy);
+		const onselect = vi.fn();
+		render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onclose: vi.fn() } });
+
+		await waitFor(() => screen.getByText('Ruy Lopez'));
+		await fireEvent.click(screen.getByText('Ruy Lopez'));
+		await fireEvent.click(screen.getByText(/1\.e4 e5 2\.Nf3/));
+		expect(screen.getByText('label:v1')).toBeTruthy();
+		await fireEvent.click(screen.getByText('label:v1'));
+		expect(onselect).toHaveBeenCalledWith('v1');
+
+		// Back out to the chapter list and reach the same line via the other chapter.
+		await fireEvent.click(screen.getByText('← Back'));
+		await fireEvent.click(screen.getByText('← Back'));
+		await fireEvent.click(screen.getByText('Italian Game'));
+		await fireEvent.click(screen.getByText(/1\.e4 e5 2\.Nf3/));
+		expect(screen.getByText('label:v1')).toBeTruthy();
+	});
+
+	it('offers untagged lines in their own bucket, listed last, in an otherwise-chaptered repertoire', async () => {
+		const mixed = [
+			row('v1', ['e4', 'e5', 'Nf3'], ['Ruy Lopez']),
+			row('v2', ['d4', 'd5'], []) // untagged — would match no chapter without the bucket
+		];
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => mixed });
+		vi.stubGlobal('fetch', fetchSpy);
+		const onselect = vi.fn();
+		render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onclose: vi.fn() } });
+
+		await waitFor(() => screen.getByText('Ruy Lopez'));
+		const tiers = screen.getAllByRole('button').map((b) => b.textContent?.trim());
+		expect(tiers).toEqual(['✕', 'Ruy Lopez', UNTAGGED_CHAPTER]); // untagged bucket last
+
+		await fireEvent.click(screen.getByText(UNTAGGED_CHAPTER));
+		await fireEvent.click(screen.getByText(/1\.d4 d5/));
+		await fireEvent.click(screen.getByText('label:v2'));
+		expect(onselect).toHaveBeenCalledWith('v2');
+	});
+
+	it('shows no untagged bucket when every line is chaptered', async () => {
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(VariationPicker, { props: { repertoireId: 'rep-1', onselect: vi.fn(), onclose: vi.fn() } });
+
+		await waitFor(() => screen.getByText('Ruy Lopez'));
+		expect(screen.queryByText(UNTAGGED_CHAPTER)).toBeNull();
 	});
 
 	it('calls onclose when the close button is clicked', async () => {
@@ -148,8 +205,8 @@ describe('VariationPicker', () => {
 
 	it('hides excluded variations entirely, so only the one remaining variation can be picked', async () => {
 		const mixed = [
-			row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], 'Ruy Lopez'),
-			row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'd3'], 'Ruy Lopez', { included: false })
+			row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], ['Ruy Lopez']),
+			row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'd3'], ['Ruy Lopez'], { included: false })
 		];
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => mixed });
 		vi.stubGlobal('fetch', fetchSpy);

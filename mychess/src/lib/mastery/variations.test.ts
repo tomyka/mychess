@@ -1,11 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import {
+	chapterTiers,
 	enumerateVariations,
 	filterVariations,
 	groupByFirstMoves,
 	hasChapterTags,
 	moveIdsInVariationKey,
 	moveSequenceLabel,
+	rowsInChapterTier,
+	UNTAGGED_CHAPTER,
+	variationScopes,
 	type RawMoveRow,
 	type Variation,
 	type VariationStep
@@ -131,14 +135,14 @@ describe('enumerateVariations', () => {
 			move('m3', 'P2', 'P3', 'Nf3', true, ['Ruy Lopez'])
 		];
 		const [variation] = enumerateVariations(moves);
-		expect(variation.chapterName).toBe('Ruy Lopez');
+		expect(variation.chapterNames).toEqual(['Ruy Lopez']);
 		expect(variation.path.map((s) => s.moveId)).toEqual(['m1', 'm2', 'm3']);
 	});
 
-	it('defaults chapterName to null for moves with no chapter tags at all', () => {
+	it('leaves chapterNames empty for moves with no chapter tags at all', () => {
 		const moves = [move('m1', 'START', 'P1', 'e4', true)];
 		const [variation] = enumerateVariations(moves);
-		expect(variation.chapterName).toBeNull();
+		expect(variation.chapterNames).toEqual([]);
 	});
 
 	it('sums each chapter\'s own variations instead of multiplying when chapters share a prefix then diverge', () => {
@@ -149,7 +153,7 @@ describe('enumerateVariations', () => {
 		];
 		const result = enumerateVariations(moves);
 		expect(result).toHaveLength(2); // one per chapter
-		expect(result.map((v) => v.chapterName).sort()).toEqual(['A', 'B']);
+		expect(result.flatMap((v) => v.chapterNames).sort()).toEqual(['A', 'B']);
 	});
 
 	it('does not multiply a shared continuation across chapters that transpose into it from different openings', () => {
@@ -166,23 +170,115 @@ describe('enumerateVariations', () => {
 		const result = enumerateVariations(moves);
 		// A contributes 2 (a1->c1, a1->c2). B contributes 1 (b1->c1). Total 3 — NOT 2*2=4.
 		expect(result).toHaveLength(3);
-		expect(result.filter((v) => v.chapterName === 'A')).toHaveLength(2);
-		expect(result.filter((v) => v.chapterName === 'B')).toHaveLength(1);
+		expect(result.filter((v) => v.chapterNames.includes('A'))).toHaveLength(2);
+		expect(result.filter((v) => v.chapterNames.includes('B'))).toHaveLength(1);
 	});
 
-	it('enumerates a fully-shared line once per chapter, not deduplicated away', () => {
+	it('emits a fully-shared line ONCE, carrying every chapter it appears in', () => {
 		// Two chapters whose entire line is textually identical — matches how a
 		// real opening reference cross-references one tabiya under two headings.
+		// Both chapters still walk it (that's what bounds the work per chapter),
+		// but the results are merged: emitting it twice produced two entries with
+		// the SAME variationKey, which hung `advanceIfSolved`, made one progress
+		// row stand in for both copies, and double-counted `total_variations`.
 		const moves = [
 			move('m1', 'START', 'P1', 'e4', true, ['A', 'B']),
 			move('m2', 'P1', 'P2', 'e5', false, ['A', 'B'])
 		];
 		const result = enumerateVariations(moves);
+		expect(result).toHaveLength(1);
+		expect(result[0].leafMoveId).toBe('m2');
+		expect(result[0].chapterNames).toEqual(['A', 'B']);
+	});
+
+	it('merges a line shared by three chapters into one variation listing all three', () => {
+		const moves = [
+			move('m1', 'START', 'P1', 'e4', true, ['A', 'B', 'C']),
+			move('m2', 'P1', 'P2', 'e5', false, ['A', 'B', 'C'])
+		];
+		const result = enumerateVariations(moves);
+		expect(result).toHaveLength(1);
+		expect(result[0].chapterNames).toEqual(['A', 'B', 'C']);
+	});
+
+	it('does not let a merged variation share its chapterNames array with any other variation', () => {
+		// The merge pushes onto the surviving variation's own array; if two
+		// variations from one scoped walk shared an array instance, tagging one
+		// would silently tag the other too.
+		const moves = [
+			move('m1', 'START', 'P1', 'e4', true, ['A', 'B']), // shared prefix
+			move('m2a', 'P1', 'P2A', 'Nf3', false, ['A', 'B']), // shared line, merged
+			move('m2b', 'P1', 'P2B', 'Nc3', false, ['A']) // A-only line, must stay A-only
+		];
+		const result = enumerateVariations(moves);
 		expect(result).toHaveLength(2);
-		expect(result.map((v) => v.leafMoveId)).toEqual(['m2', 'm2']);
-		expect(result.map((v) => v.chapterName).sort()).toEqual(['A', 'B']);
-		// Same underlying path, but each chapter's own enumeration is independent.
-		expect(result[0].variationKey).toBe(result[1].variationKey);
+		const shared = result.find((v) => v.leafMoveId === 'm2a')!;
+		const aOnly = result.find((v) => v.leafMoveId === 'm2b')!;
+		expect(shared.chapterNames).toEqual(['A', 'B']);
+		expect(aOnly.chapterNames).toEqual(['A']);
+		expect(aOnly.chapterNames).not.toBe(shared.chapterNames);
+	});
+
+	it('enumerates BOTH tagged and untagged lines in a mixed repertoire', () => {
+		// A chaptered PGN import appended onto a repertoire that already held
+		// pre-0048 (untagged) moves. The untagged line used to be walked by no
+		// scope at all — the chaptered scopes filter it out, and the untagged
+		// scope was only walked when NOTHING was tagged — so it silently
+		// vanished from practice entirely.
+		const moves = [
+			move('t1', 'START_T', 'PT1', 'e4', true, ['Sicilian']),
+			move('t2', 'PT1', 'PT2', 'c5', false, ['Sicilian']),
+			move('u1', 'START_U', 'PU1', 'd4', true), // untagged, pre-0048
+			move('u2', 'PU1', 'PU2', 'd5', false)
+		];
+		const result = enumerateVariations(moves);
+		expect(result).toHaveLength(2);
+		expect(result.map((v) => v.leafMoveId)).toEqual(['t2', 'u2']); // untagged scope walked LAST
+		expect(result.map((v) => v.chapterNames)).toEqual([['Sicilian'], []]);
+	});
+
+	it('returns unique variationKeys for every shape of repertoire (the invariant every consumer assumes)', () => {
+		const cases: Record<string, RawMoveRow[]> = {
+			'fully shared across two chapters': [
+				move('m1', 'START', 'P1', 'e4', true, ['A', 'B']),
+				move('m2', 'P1', 'P2', 'e5', false, ['A', 'B'])
+			],
+			'shared prefix then per-chapter divergence': [
+				move('m1', 'START', 'P1', 'e4', true, ['A', 'B']),
+				move('m2a', 'P1', 'P2A', 'Nf3', false, ['A']),
+				move('m2b', 'P1', 'P2B', 'Nc3', false, ['B'])
+			],
+			'chapters transposing into a shared node': [
+				move('a1', 'START_A', 'SHARED', 'e4', true, ['A']),
+				move('b1', 'START_B', 'SHARED', 'd4', true, ['B']),
+				move('c1', 'SHARED', 'C1', 'Nf3', false, ['A', 'B']),
+				move('c2', 'SHARED', 'C2', 'Bc4', false, ['A'])
+			],
+			mixed: [
+				move('t1', 'START_T', 'PT1', 'e4', true, ['Sicilian']),
+				move('t2', 'PT1', 'PT2', 'c5', false, ['Sicilian']),
+				move('u1', 'START_U', 'PU1', 'd4', true)
+			],
+			untagged: [move('m1', 'START', 'P1', 'e4', true), move('m2', 'P1', 'P2', 'e5', false)]
+		};
+		for (const [name, moves] of Object.entries(cases)) {
+			const keys = enumerateVariations(moves).map((v) => v.variationKey);
+			expect(new Set(keys).size, `duplicate variationKey in the "${name}" case`).toBe(keys.length);
+		}
+	});
+
+	it('orders variations deterministically: by first chapter of appearance, untagged last', () => {
+		const moves = [
+			// 'Second' appears on an earlier move row than 'First' does, so the
+			// chapter order follows the MOVES' first-appearance order, not the
+			// alphabet — and stays identical across repeated runs.
+			move('s1', 'START_S', 'PS1', 'c4', true, ['Second']),
+			move('f1', 'START_F', 'PF1', 'e4', true, ['First']),
+			move('u1', 'START_U', 'PU1', 'd4', true)
+		];
+		const run = () => enumerateVariations(moves).map((v) => v.leafMoveId);
+		expect(run()).toEqual(['s1', 'f1', 'u1']);
+		expect(run()).toEqual(run());
 	});
 
 	it('stays additive (not exponential) when many chapters repeatedly transpose through the same shared checkpoints', () => {
@@ -216,13 +312,35 @@ describe('enumerateVariations', () => {
 	});
 });
 
+describe('variationScopes', () => {
+	it('lists chapters in first-appearance order across moves', () => {
+		const moves = [move('m1', 'START', 'P1', 'e4', true, ['Second', 'First']), move('m2', 'P1', 'P2', 'e5', false, ['First'])];
+		expect(variationScopes(moves)).toEqual(['Second', 'First']);
+	});
+
+	it('walks the untagged scope alongside the chapters when SOME moves are untagged', () => {
+		// The bug-4 rule: not "only when nothing is tagged".
+		const moves = [move('m1', 'START', 'P1', 'e4', true, ['A']), move('m2', 'START_U', 'PU', 'd4', true)];
+		expect(variationScopes(moves)).toEqual(['A', null]);
+	});
+
+	it('walks only the untagged scope when nothing is tagged at all', () => {
+		expect(variationScopes([move('m1', 'START', 'P1', 'e4', true)])).toEqual([null]);
+		expect(variationScopes([])).toEqual([null]);
+	});
+
+	it('omits the untagged scope when every move is tagged', () => {
+		expect(variationScopes([move('m1', 'START', 'P1', 'e4', true, ['A'])])).toEqual(['A']);
+	});
+});
+
 describe('hasChapterTags', () => {
-	it('returns false when no variation has a chapterName', () => {
+	it('returns false when no variation carries any chapter name', () => {
 		const moves = [move('m1', 'START', 'P1', 'e4', true)];
 		expect(hasChapterTags(enumerateVariations(moves))).toBe(false);
 	});
 
-	it('returns true when at least one variation has a chapterName', () => {
+	it('returns true when at least one variation carries a chapter name', () => {
 		// Every move on the Sicilian branch's own line carries the tag — not
 		// just its leaf — matching the new per-move (not per-leaf) invariant.
 		const moves = [
@@ -237,6 +355,51 @@ describe('hasChapterTags', () => {
 
 	it('returns false for an empty variation list', () => {
 		expect(hasChapterTags([])).toBe(false);
+	});
+});
+
+describe('chapterTiers / rowsInChapterTier', () => {
+	function tierRow(id: string, chapterNames: string[]) {
+		return { id, chapterNames };
+	}
+
+	it('returns null when no row carries a chapter, so the caller skips the chapter tier', () => {
+		expect(chapterTiers([tierRow('a', []), tierRow('b', [])])).toBeNull();
+	});
+
+	it('returns an empty-list tier of null for no rows at all', () => {
+		expect(chapterTiers([])).toBeNull();
+	});
+
+	it('dedupes chapters across rows, preserving first-appearance order', () => {
+		const rows = [tierRow('a', ['Sicilian', 'Najdorf']), tierRow('b', ['Najdorf']), tierRow('c', ['Caro-Kann'])];
+		expect(chapterTiers(rows)).toEqual(['Sicilian', 'Najdorf', 'Caro-Kann']);
+	});
+
+	it('appends the untagged bucket LAST in a mixed set, and only when some row is untagged', () => {
+		expect(chapterTiers([tierRow('a', ['Sicilian']), tierRow('b', [])])).toEqual(['Sicilian', UNTAGGED_CHAPTER]);
+		expect(chapterTiers([tierRow('a', ['Sicilian'])])).toEqual(['Sicilian']);
+	});
+
+	it('matches rows by chapter MEMBERSHIP, so a line shared by two chapters shows under both', () => {
+		const shared = tierRow('shared', ['A', 'B']);
+		const aOnly = tierRow('aOnly', ['A']);
+		expect(rowsInChapterTier([shared, aOnly], 'A')).toEqual([shared, aOnly]);
+		expect(rowsInChapterTier([shared, aOnly], 'B')).toEqual([shared]);
+	});
+
+	it('collects exactly the untagged rows into the untagged bucket', () => {
+		const untagged = tierRow('untagged', []);
+		expect(rowsInChapterTier([tierRow('tagged', ['A']), untagged], UNTAGGED_CHAPTER)).toEqual([untagged]);
+	});
+
+	it('lists a chapter genuinely named like the untagged bucket only once, merging both into it', () => {
+		// Vanishingly unlikely, but it must degrade into one bucket rather than
+		// render the same tier twice (a duplicate keyed-each entry).
+		const collide = tierRow('collide', [UNTAGGED_CHAPTER]);
+		const untagged = tierRow('untagged', []);
+		expect(chapterTiers([collide, untagged])).toEqual([UNTAGGED_CHAPTER]);
+		expect(rowsInChapterTier([collide, untagged], UNTAGGED_CHAPTER)).toEqual([collide, untagged]);
 	});
 });
 

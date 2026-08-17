@@ -38,14 +38,27 @@ export function nextVariation(variations: Variation[], currentKey: string): Vari
  * variation that's ALSO already solved (e.g. a player solved it earlier via
  * manual re-drill, out of order). `null` means every remaining variation is
  * already solved: the whole repertoire is done.
+ *
+ * Defence in depth: `nextVariation` resolves a key via `findIndex`, which
+ * always lands on the FIRST entry with that key. `enumerateVariations` now
+ * guarantees keys are unique, so that's exact — but if a duplicate key ever
+ * reappeared upstream, two adjacent copies would make this loop hand each
+ * other back forever (verified at 10,000+ iterations before the uniqueness
+ * fix), spinning a serverless function until it's killed and losing the
+ * attempt. `visited` makes that structurally impossible: any key reached twice
+ * ends the walk instead of continuing, at worst returning `null` (treated as
+ * "nothing left to advance to") rather than hanging.
  */
 export function advanceIfSolved(
 	activeVariationKey: string,
 	variations: Variation[],
 	solvedKeys: ReadonlySet<string>
 ): string | null {
+	const visited = new Set<string>([activeVariationKey]);
 	let candidate = nextVariation(variations, activeVariationKey);
 	while (candidate && solvedKeys.has(candidate.variationKey)) {
+		if (visited.has(candidate.variationKey)) return null;
+		visited.add(candidate.variationKey);
 		candidate = nextVariation(variations, candidate.variationKey);
 	}
 	return candidate?.variationKey ?? null;

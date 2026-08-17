@@ -8,8 +8,9 @@ import { moveSequenceLabel } from '$lib/mastery/variations';
 
 /**
  * Every variation in a repertoire, labeled by its move sequence, with this
- * player's own included/excluded state, originating PGN chapter (if any),
- * full move path (for the picker's fixed-window move-group buckets, which
+ * player's own included/excluded state, every originating PGN chapter (empty
+ * for an untagged line — a line cross-referenced by several chapters is one
+ * entry listing all of them, never one entry per chapter), full move path (for the picker's fixed-window move-group buckets, which
  * key on each variation's first FIRST_MOVES_GROUP_PLIES plies — not just the
  * first move), and solved state. Fetched lazily (only when a repertoire row
  * is expanded or the picker is opened), not eagerly for every repertoire, to
@@ -28,7 +29,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 			variationKey: v.variationKey,
 			label: moveSequenceLabel(v.path),
 			included: !excludedVariationKeys.has(v.variationKey),
-			chapterName: v.chapterName ?? null,
+			chapterNames: v.chapterNames,
 			path: v.path,
 			solved: solvedKeys.has(v.variationKey)
 		}))

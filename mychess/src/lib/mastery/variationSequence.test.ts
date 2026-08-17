@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { pickActiveVariation, nextVariation, advanceIfSolved, solvedProgress } from './variationSequence';
-import type { Variation } from './variations';
+import { enumerateVariations, type RawMoveRow, type Variation } from './variations';
 
 function variation(key: string): Variation {
 	return {
 		leafMoveId: key,
 		variationKey: key,
 		path: [{ moveId: key, san: 'e4', fromFen: 'f', toFen: 'f2', isPlayerTurn: true }],
-		playerMoveCount: 1
+		playerMoveCount: 1,
+		chapterNames: []
 	};
 }
 
@@ -86,6 +87,67 @@ describe('advanceIfSolved', () => {
 		const a = variation('a');
 		const b = variation('b');
 		expect(advanceIfSolved('b', [a, b], new Set(['a', 'b']))).toBeNull();
+	});
+
+	// `enumerateVariations` guarantees unique keys, so these can't arise from
+	// real data any more — they're the defence-in-depth guard's own tests. A
+	// duplicate key used to make this loop alternate between the two copies
+	// forever (verified past 10,000 iterations), spinning a serverless function
+	// until it was killed and losing the player's attempt entirely.
+	//
+	// That loop is synchronous, so a plain call on the unguarded code would hang
+	// the whole test worker rather than time out — vitest's per-test timeout
+	// can't interrupt a busy loop. `boundedList` supplies the bound instead: it
+	// throws once the list has been scanned more times than any terminating
+	// implementation could need, so removing the guard fails these tests
+	// immediately instead of wedging the suite.
+	function boundedList(variations: Variation[], maxScans: number): Variation[] {
+		let scans = 0;
+		return new Proxy(variations, {
+			get(target, prop, receiver) {
+				// One `findIndex` per `nextVariation` call — i.e. per loop step.
+				if (prop === 'findIndex' && ++scans > maxScans) {
+					throw new Error(`advanceIfSolved scanned the list ${scans} times — it is not terminating`);
+				}
+				return Reflect.get(target, prop, receiver);
+			}
+		});
+	}
+
+	it('terminates instead of looping forever when two ADJACENT entries share a key', () => {
+		const a = variation('a');
+		const duplicate = variation('a'); // same variationKey — the old cross-chapter shape
+		expect(advanceIfSolved('a', boundedList([a, duplicate], 8), new Set(['a']))).toBeNull();
+	});
+
+	it('terminates instead of looping forever when a duplicate key appears further down the list', () => {
+		const list = [variation('a'), variation('b'), variation('a'), variation('c')];
+		// 'a' and 'b' solved: the walk steps a -> b -> (the 'a' duplicate), which
+		// resolves back to index 0 and would then revisit 'b' forever unguarded.
+		expect(advanceIfSolved('a', boundedList(list, 8), new Set(['a', 'b']))).toBeNull();
+	});
+
+	it('never advances backwards for a line shared by two chapters, since it is now a single entry', () => {
+		// The verified non-adjacent symptom: the shared line was emitted once
+		// per chapter, so solving the LATER copy resolved (via findIndex) to the
+		// earlier one and advanced to the entry after IT — teleporting the player
+		// back into the middle of the first chapter. Merged enumeration removes
+		// the second copy entirely, so "the entry after the shared line" is
+		// unambiguous and always forward.
+		const moves: RawMoveRow[] = [
+			{ id: 'a1', fromPositionId: 'START', toPositionId: 'PA', fromFen: 'f', toFen: 'f2', san: 'e4', isPlayerTurn: true, chapterNames: ['A'] },
+			{ id: 'a2', fromPositionId: 'PA', toPositionId: 'PA2', fromFen: 'f2', toFen: 'f3', san: 'Nf3', isPlayerTurn: false, chapterNames: ['A'] },
+			// The shared tabiya: its own root-to-leaf line belongs to both chapters.
+			{ id: 's1', fromPositionId: 'START_S', toPositionId: 'PS', fromFen: 'f', toFen: 'f2', san: 'd4', isPlayerTurn: true, chapterNames: ['A', 'B'] },
+			{ id: 'b1', fromPositionId: 'START_B', toPositionId: 'PB', fromFen: 'f', toFen: 'f2', san: 'c4', isPlayerTurn: true, chapterNames: ['B'] }
+		];
+		const variations = enumerateVariations(moves);
+		const keys = variations.map((v) => v.variationKey);
+		expect(new Set(keys).size).toBe(keys.length); // no duplicate to teleport back from
+
+		const sharedKey = variations.find((v) => v.chapterNames.length === 2)!.variationKey;
+		const next = advanceIfSolved(sharedKey, variations, new Set([sharedKey]));
+		expect(keys.indexOf(next!)).toBeGreaterThan(keys.indexOf(sharedKey));
 	});
 });
 

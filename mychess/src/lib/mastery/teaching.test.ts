@@ -44,7 +44,8 @@ function makeVariation(variationKey: string, path: VariationStep[]): Variation {
 		leafMoveId: path[path.length - 1].moveId,
 		variationKey,
 		path,
-		playerMoveCount: path.filter((s) => s.isPlayerTurn).length
+		playerMoveCount: path.filter((s) => s.isPlayerTurn).length,
+		chapterNames: []
 	};
 }
 
