@@ -110,6 +110,31 @@ export function sharedMasteredPrefixLength(path: VariationStep[], masteredMoveId
 }
 
 /**
+ * The floor of taught/mastered plies to actually use for a served or
+ * recorded attempt — the higher of the variation's own stored counters or a
+ * shared sibling's credited prefix (`sharedFloor`, from
+ * `sharedMasteredPrefixLength`), or zeroed entirely if the player is
+ * resuming this variation after a break. Shared by `buildPracticeView`
+ * (serve time, `mastery/practice.ts`) and `applyAttemptResult` (record time,
+ * `server/practice-progress.ts`) so what gets served always matches what
+ * gets recorded — the two computations silently drifting apart is exactly
+ * what caused a real bug (see the "resumed after break" feature's Task 4
+ * fix), so this exists specifically to make that impossible going forward
+ * rather than trusting two copies to stay in sync by convention.
+ */
+export function effectiveProgress(
+	ownTaughtPlies: number,
+	ownMasteredPlies: number,
+	sharedFloor: number,
+	resumedAfterBreak: boolean
+): { taughtPlies: number; masteredPlies: number } {
+	if (resumedAfterBreak) return { taughtPlies: 0, masteredPlies: 0 };
+	const masteredPlies = Math.max(ownMasteredPlies, sharedFloor);
+	const taughtPlies = Math.max(ownTaughtPlies, masteredPlies);
+	return { taughtPlies, masteredPlies };
+}
+
+/**
  * Every moveId this player has already mastered, across the WHOLE
  * repertoire — not just the one variation currently being served. A fully
  * solved variation contributes every one of its moves (solved implies every

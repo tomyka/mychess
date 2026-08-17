@@ -7,6 +7,7 @@ import {
 	loadActiveVariationKey,
 	loadSolvedKeys,
 	loadTeachingProgress,
+	loadVariationUpdatedAt,
 	touchVariationAttempt
 } from '$lib/server/practice-progress';
 import { incrementQuestProgress } from '$lib/server/quests';
@@ -41,18 +42,24 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'Invalid request');
 	}
 
-	const { variations } = await loadFilteredRepertoireVariations(supabase, user.id, repertoireId);
-	const today = new Date().toISOString().slice(0, 10);
-
 	// Read BEFORE touchVariationAttempt's write below lands — reading this
 	// after that unconditional refresh would always see a fresh updated_at
 	// and never detect a real gap. Must mirror buildPracticeView's own
 	// resumed-after-break check exactly, or a clean completion of a served
 	// reset attempt would be recorded against the raw (un-reset) stored
 	// counters instead of what was actually replayed (see applyAttemptResult's
-	// doc comment in practice-progress.ts).
-	const progressBeforeThisAttempt = await loadTeachingProgress(supabase, user.id, repertoireId);
-	const resumedAfterBreak = wasResumedAfterBreak(progressBeforeThisAttempt.get(variationKey)?.updatedAt ?? null, new Date());
+	// doc comment in practice-progress.ts). A single targeted row read
+	// (`loadVariationUpdatedAt`), not the whole-repertoire `loadTeachingProgress`
+	// — this fires on every attempt completion, so a full paginated fetch here
+	// just to read one variation's timestamp would be real, avoidable cost on
+	// a hot path for a large repertoire. Independent of `variations`, so it
+	// runs alongside that load rather than after it.
+	const [{ variations }, updatedAtBeforeThisAttempt] = await Promise.all([
+		loadFilteredRepertoireVariations(supabase, user.id, repertoireId),
+		loadVariationUpdatedAt(supabase, user.id, repertoireId, variationKey)
+	]);
+	const today = new Date().toISOString().slice(0, 10);
+	const resumedAfterBreak = wasResumedAfterBreak(updatedAtBeforeThisAttempt, new Date());
 
 	await Promise.all([
 		applyAttemptResult(supabase, user.id, repertoireId, variationKey, hadMistake, variations, resumedAfterBreak),

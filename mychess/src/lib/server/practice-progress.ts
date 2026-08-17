@@ -2,7 +2,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Variation } from '$lib/mastery/variations';
 import { pickActiveVariation, advanceIfSolved } from '$lib/mastery/variationSequence';
-import { advanceTeachingProgress, computeMasteredMoveIds, sharedMasteredPrefixLength } from '$lib/mastery/teaching';
+import { advanceTeachingProgress, computeMasteredMoveIds, sharedMasteredPrefixLength, effectiveProgress } from '$lib/mastery/teaching';
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
 
 /**
@@ -50,6 +50,30 @@ export async function loadActiveVariationKey(
 		.eq('repertoire_id', repertoireId)
 		.maybeSingle();
 	return data?.active_variation_key ?? null;
+}
+
+/**
+ * This variation's currently-persisted `updated_at`, or `null` if no row
+ * exists yet. A single targeted row read — unlike `loadTeachingProgress`,
+ * which loads the WHOLE repertoire's progress — for callers (like the
+ * attempt-completion endpoint) that only need one variation's recency to
+ * decide `wasResumedAfterBreak`, without paying a full paginated fetch on a
+ * per-attempt hot path.
+ */
+export async function loadVariationUpdatedAt(
+	supabase: SupabaseClient,
+	playerId: string,
+	repertoireId: string,
+	variationKey: string
+): Promise<string | null> {
+	const { data } = await supabase
+		.from('variation_teaching_progress')
+		.select('updated_at')
+		.eq('player_id', playerId)
+		.eq('repertoire_id', repertoireId)
+		.eq('variation_key', variationKey)
+		.maybeSingle();
+	return data?.updated_at ?? null;
 }
 
 /**
@@ -242,10 +266,12 @@ export async function applyAttemptResult(
 			const current = progressMap.get(variationKey) ?? { taughtPlies: 0, masteredPlies: 0, updatedAt: null };
 			const masteredMoveIds = computeMasteredMoveIds(variations, progressMap, solvedKeys);
 			const sharedFloor = sharedMasteredPrefixLength(variation.path, masteredMoveIds);
-			const rawMasteredPlies = Math.max(current.masteredPlies, sharedFloor);
-			const rawTaughtPlies = Math.max(current.taughtPlies, rawMasteredPlies);
-			const effectiveMasteredPlies = resumedAfterBreak ? 0 : rawMasteredPlies;
-			const effectiveTaughtPlies = resumedAfterBreak ? 0 : rawTaughtPlies;
+			const { taughtPlies: effectiveTaughtPlies, masteredPlies: effectiveMasteredPlies } = effectiveProgress(
+				current.taughtPlies,
+				current.masteredPlies,
+				sharedFloor,
+				resumedAfterBreak
+			);
 			const next = advanceTeachingProgress(variation.path, effectiveTaughtPlies, effectiveMasteredPlies, false);
 			await saveTeachingProgress(supabase, playerId, repertoireId, variationKey, next.taughtPlies, next.masteredPlies);
 			if (!next.solved) return;

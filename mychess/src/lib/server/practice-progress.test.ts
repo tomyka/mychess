@@ -1,6 +1,6 @@
 // mychess/src/lib/server/practice-progress.test.ts
 import { describe, it, expect } from 'vitest';
-import { applyAttemptResult, touchVariationAttempt } from './practice-progress';
+import { applyAttemptResult, touchVariationAttempt, loadVariationUpdatedAt } from './practice-progress';
 import type { Variation } from '$lib/mastery/variations';
 
 function makeVariation(variationKey: string, plies: number): Variation {
@@ -69,7 +69,26 @@ function fakeSupabase(opts: {
 			}
 			if (table === 'variation_teaching_progress') {
 				return {
-					select: () => pagedRead(() => teachingRows),
+					select: (columns: string) => {
+						if (columns === 'updated_at') {
+							// Single-row lookup path used by loadVariationUpdatedAt: each
+							// .eq() narrows a running filter; .maybeSingle() resolves it.
+							let filters: Record<string, string> = {};
+							const node: any = {
+								eq: (col: string, value: string) => {
+									filters = { ...filters, [col]: value };
+									return node;
+								},
+								maybeSingle: () =>
+									Promise.resolve({
+										data: teachingRows.find((r: any) => r.variation_key === filters.variation_key) ?? null,
+										error: null
+									})
+							};
+							return node;
+						}
+						return pagedRead(() => teachingRows);
+					},
 					upsert: (rows: any, options: any) => {
 						upsertCalls.push({ table, rows, options });
 						return Promise.resolve({ error: null });
@@ -253,6 +272,16 @@ describe('applyAttemptResult', () => {
 				options: { onConflict: 'player_id,variation_key_hash' }
 			}
 		]);
+	});
+});
+
+describe('loadVariationUpdatedAt', () => {
+	it('returns the row\'s updated_at, or null if no matching row exists', async () => {
+		const { client } = fakeSupabase({
+			teachingRows: [{ variation_key: 'v1', taught_plies: 5, mastered_plies: 3, updated_at: '2026-08-17T11:00:00Z' } as any]
+		});
+		expect(await loadVariationUpdatedAt(client as any, 'player-1', 'rep-1', 'v1')).toBe('2026-08-17T11:00:00Z');
+		expect(await loadVariationUpdatedAt(client as any, 'player-1', 'rep-1', 'v2')).toBeNull();
 	});
 });
 

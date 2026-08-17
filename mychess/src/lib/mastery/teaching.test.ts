@@ -5,7 +5,8 @@ import {
 	arrowMoveForStep,
 	sharedMasteredPrefixLength,
 	computeMasteredMoveIds,
-	isLastPlayerMove
+	isLastPlayerMove,
+	effectiveProgress
 } from './teaching';
 import type { Variation, VariationStep } from './variations';
 
@@ -345,5 +346,16 @@ describe('computeMasteredMoveIds', () => {
 		const progress = new Map([['a', { taughtPlies: 6, masteredPlies: 2 }]]);
 		const mastered = computeMasteredMoveIds([a, b], progress, new Set(['b']));
 		expect(mastered).toEqual(new Set([...pathA.slice(0, 2).map((s) => s.moveId), ...pathB.map((s) => s.moveId)]));
+	});
+});
+
+describe('effectiveProgress', () => {
+	it('takes the higher of the own counters or the shared floor', () => {
+		expect(effectiveProgress(5, 3, 8, false)).toEqual({ taughtPlies: 8, masteredPlies: 8 });
+		expect(effectiveProgress(10, 6, 2, false)).toEqual({ taughtPlies: 10, masteredPlies: 6 });
+	});
+
+	it('zeroes both counters entirely when resumedAfterBreak is true, ignoring the shared floor too', () => {
+		expect(effectiveProgress(20, 10, 15, true)).toEqual({ taughtPlies: 0, masteredPlies: 0 });
 	});
 });

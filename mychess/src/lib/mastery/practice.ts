@@ -1,7 +1,7 @@
 // mychess/src/lib/mastery/practice.ts
 import type { Variation, VariationStep } from './variations';
 import { pickActiveVariation, solvedProgress } from './variationSequence';
-import { resolveTeachingStep, computeMasteredMoveIds, sharedMasteredPrefixLength } from './teaching';
+import { resolveTeachingStep, computeMasteredMoveIds, sharedMasteredPrefixLength, effectiveProgress } from './teaching';
 
 export type PracticeView = {
 	attempt: {
@@ -83,22 +83,28 @@ export function buildPracticeView(
 			// variation that happens to share it.
 			const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, solvedKeys);
 			const sharedFloor = sharedMasteredPrefixLength(active.path, masteredMoveIds);
-			const rawMasteredPlies = Math.max(progress.masteredPlies, sharedFloor);
-			const rawTaughtPlies = Math.max(progress.taughtPlies, rawMasteredPlies);
 			// A break of 10+ minutes since this specific variation's last
 			// attempt serves this one attempt as if nothing were mastered yet —
 			// the player's own memory of "mastered" moves fades too. Nothing is
 			// written back; the real stored counters are untouched, so the next
 			// attempt (once touchVariationAttempt in practice-progress.ts
-			// refreshes updatedAt) goes back to normal. This zeroes rawMasteredPlies
-			// wholesale, including any sharedFloor credit from a sibling variation
-			// practiced moments ago — deliberately conservative (a per-variation
-			// break check, not a per-move-id one): worst case a few already-known
-			// moves get manually replayed once, rather than risking auto-play
-			// through content THIS variation's own break should have reset.
+			// refreshes updatedAt) goes back to normal. effectiveProgress zeroes
+			// the whole floor, including any sharedFloor credit from a sibling
+			// variation practiced moments ago — deliberately conservative (a
+			// per-variation break check, not a per-move-id one): worst case a
+			// few already-known moves get manually replayed once, rather than
+			// risking auto-play through content THIS variation's own break
+			// should have reset. Shared with `applyAttemptResult` (which MUST
+			// mirror this exactly, or the server records progress against a
+			// different step than the one it actually served — see its own
+			// doc comment) so both sides can never drift apart again.
 			const resumedAfterBreak = wasResumedAfterBreak(progress.updatedAt, now);
-			const effectiveMasteredPlies = resumedAfterBreak ? 0 : rawMasteredPlies;
-			const effectiveTaughtPlies = resumedAfterBreak ? 0 : rawTaughtPlies;
+			const { taughtPlies: effectiveTaughtPlies, masteredPlies: effectiveMasteredPlies } = effectiveProgress(
+				progress.taughtPlies,
+				progress.masteredPlies,
+				sharedFloor,
+				resumedAfterBreak
+			);
 			const step = resolveTeachingStep(active.path, effectiveTaughtPlies, effectiveMasteredPlies);
 			attempt = {
 				path: step.path,
