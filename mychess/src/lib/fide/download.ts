@@ -66,12 +66,17 @@ export async function streamPlayersList(
 
   let sawFile = false;
   let pendingError: unknown;
+  // Tracked separately from `pendingError` itself: fflate reports errors
+  // through a callback argument, and a truthiness check on the value alone
+  // would miss any falsy error object it ever decided to pass.
+  let hasPendingError = false;
 
   const unzipper = new Unzip((file) => {
     sawFile = true;
     file.ondata = (err, chunk, final) => {
       if (err) {
         pendingError = err;
+        hasPendingError = true;
         return;
       }
       onChunk(chunk, final);
@@ -86,17 +91,39 @@ export async function streamPlayersList(
   // concern this import doesn't need.
   unzipper.register(UnzipInflate);
 
+  // fflate surfaces inflate failures (corrupt/truncated deflate stream, bad
+  // CRC) through `file.ondata`'s `err` argument rather than by throwing out of
+  // `unzipper.push`, so *every* push has to be followed by a check — including
+  // the final flush below, which is where fflate finishes the last deflate
+  // block. That last check used to be missing: an error raised by the flush was
+  // collected into `pendingError` and then silently dropped, so
+  // `streamPlayersList` returned normally having emitted only part of the XML
+  // and the caller went on to rank and import a partial player list. (Truncated
+  // archives usually make `Unzip.push` itself throw `invalid zip data`, which
+  // always propagated; it's the `ondata` route out of the flush that was
+  // swallowed. `import-job.ts`'s MIN_PLAUSIBLE_PLAYER_COUNT covers the third
+  // case, where fflate reports no error at all because corrupt bytes happened
+  // to decode as a legitimately terminated shorter stream.)
+  const throwIfPending = () => {
+    if (hasPendingError) throw pendingError;
+  };
+
   const reader = res.body.getReader();
   for (;;) {
     const { done, value } = await reader.read();
-    if (pendingError) throw pendingError;
+    throwIfPending();
     if (done) {
       unzipper.push(new Uint8Array(0), true);
+      throwIfPending();
       break;
     }
     unzipper.push(value, false);
-    if (pendingError) throw pendingError;
+    throwIfPending();
   }
+
+  // Belt-and-braces: whatever path left the loop, never return with an error
+  // still sitting unobserved in `pendingError`.
+  throwIfPending();
 
   if (!sawFile) throw new Error('FIDE zip archive is empty');
 }

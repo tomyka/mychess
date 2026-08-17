@@ -136,8 +136,20 @@ export function createFideStreamParser(keep: (p: FidePlayer) => boolean = () => 
 
   return {
     push(chunk: Uint8Array) {
-      const chunkBuf = toBuffer(chunk);
-      pending = pending.length === 0 ? chunkBuf : Buffer.concat([pending, chunkBuf]);
+      // `pending` outlives this call — whatever `drain` couldn't consume (a
+      // player record straddling the chunk boundary) is carried into the next
+      // push. So it has to own its bytes: fflate hands out views into its own
+      // internal output buffer and is free to reuse that buffer on a later
+      // push, which would silently rewrite a half-parsed record underneath us.
+      // The `Buffer.concat` branch already allocates a fresh buffer; only the
+      // empty-`pending` branch used to keep a zero-copy view, so `Buffer.from`
+      // (which copies) is the whole fix. Cost is negligible on a real run:
+      // that branch is reached on the first push plus only the rare chunk that
+      // happens to end exactly on a `</player>` boundary, it's one native
+      // memcpy of a single chunk (not the file), and it adds no per-record
+      // allocation.
+      pending =
+        pending.length === 0 ? Buffer.from(chunk) : Buffer.concat([pending, toBuffer(chunk)]);
       drain();
     },
     finish(): FidePlayer[] {

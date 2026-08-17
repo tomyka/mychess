@@ -1,7 +1,37 @@
 // mychess/src/lib/fide/download.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { zipSync } from 'fflate';
+import type { FlateError, UnzipFile, UnzipFileHandler } from 'fflate';
 import { streamPlayersList } from './download';
+
+// fflate reports inflate failures (corrupt/truncated deflate stream, bad CRC)
+// through `file.ondata(err, …)` rather than by throwing out of `push`, and
+// which push the error lands on depends on where the damage sits in the
+// archive. `finalFlushError` lets one test pin the case that matters most: an
+// error raised by the *final* flush push, whose `pendingError` used to be
+// collected and then dropped on the floor. Everything else delegates to the
+// real fflate, so the rest of this file still exercises genuine zips.
+const script = vi.hoisted(() => ({ finalFlushError: null as FlateError | null }));
+
+vi.mock('fflate', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('fflate')>();
+  let lastFile: UnzipFile | null = null;
+  class ScriptedUnzip extends actual.Unzip {
+    constructor(cb: UnzipFileHandler) {
+      super((file) => {
+        lastFile = file;
+        cb(file);
+      });
+    }
+    push(chunk: Uint8Array, final?: boolean): void {
+      super.push(chunk, final);
+      if (final && script.finalFlushError && lastFile?.ondata) {
+        lastFile.ondata(script.finalFlushError, new Uint8Array(0), true);
+      }
+    }
+  }
+  return { ...actual, Unzip: ScriptedUnzip };
+});
 
 function bodyFromChunks(chunks: Uint8Array[]): ReadableStream<Uint8Array> {
   let i = 0;
@@ -41,6 +71,7 @@ describe('streamPlayersList', () => {
   });
 
   afterEach(() => {
+    script.finalFlushError = null;
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -101,6 +132,35 @@ describe('streamPlayersList', () => {
     const emptyZip = zipSync({});
     fetchMock.mockResolvedValueOnce(okResponse(bodyFromChunks([emptyZip])));
     await expect(streamPlayersList(() => {})).rejects.toThrow('FIDE zip archive is empty');
+  });
+
+  it('throws a decode error raised by the final flush instead of resolving with a partial list', async () => {
+    const xml = '<playerslist><player><fideid>1</fideid></player></playerslist>';
+    fetchMock.mockResolvedValueOnce(okResponse(bodyFromChunks(splitIntoChunks(zipOf(xml), 16))));
+    script.finalFlushError = Object.assign(new Error('invalid distance'), { code: 3 }) as FlateError;
+
+    const received: Uint8Array[] = [];
+    await expect(streamPlayersList((chunk) => received.push(chunk.slice()))).rejects.toThrow(
+      'invalid distance'
+    );
+    // The whole point of the bug: bytes really were handed to the caller before
+    // the error, so swallowing it meant returning normally with a short list.
+    expect(received.length).toBeGreaterThan(0);
+  });
+
+  it('rejects a truncated archive rather than resolving with the bytes decoded so far', async () => {
+    const xml =
+      '<playerslist>' + '<player><fideid>1</fideid></player>'.repeat(2000) + '</playerslist>';
+    const zip = zipOf(xml);
+    const truncated = zip.subarray(0, Math.floor(zip.length / 2));
+    fetchMock.mockResolvedValueOnce(okResponse(bodyFromChunks([truncated])));
+
+    const received: Uint8Array[] = [];
+    const promise = streamPlayersList((chunk) => received.push(chunk.slice()));
+    await expect(promise).rejects.toThrow(/invalid zip data/);
+    // Partial output was emitted first — exactly the state the old code
+    // returned successfully from.
+    expect(received.reduce((n, c) => n + c.length, 0)).toBeGreaterThan(0);
   });
 
   it('gives up after exhausting every attempt and throws the last thrown error', async () => {

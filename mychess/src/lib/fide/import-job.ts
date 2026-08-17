@@ -14,6 +14,29 @@ export interface FideImportResult {
 const CHUNK = 500;
 
 /**
+ * Smallest global player count we're willing to treat as a real FIDE list.
+ *
+ * FIDE's monthly combined list holds on the order of a million players (~1.7 M
+ * records / ~800 MB of decompressed XML as of Aug 2026, growing every month),
+ * so anything in the low thousands means the stream was truncated or the XML
+ * shape changed — not that FIDE lost 99% of its players.
+ *
+ * This matters because a *partial* parse is far more dangerous than a failed
+ * one: `computeRanks` below is happy to rank whatever it's handed, so five
+ * surviving Lithuanians would silently crown an arbitrary player national #1
+ * and we'd persist that as `status: 'success'`. And a partial parse really can
+ * look successful end-to-end: a deflate stream corrupted near its end can
+ * decode as a legitimately-terminated shorter stream, so `streamPlayersList`
+ * has no error to report (verified against a deliberately corrupted zip, which
+ * yielded ~34% of the bytes and no error at all).
+ *
+ * Deliberately set an order of magnitude below any plausible real list size:
+ * it should only ever fire on a broken parse, never on a legitimately — if
+ * surprisingly — smaller month.
+ */
+const MIN_PLAUSIBLE_PLAYER_COUNT = 100_000;
+
+/**
  * Full monthly FIDE import for Lithuania.
  * @param supabaseUrl PUBLIC_SUPABASE_URL
  * @param serviceKey  SUPABASE_SERVICE_ROLE_KEY (write access, bypasses RLS)
@@ -51,6 +74,17 @@ export async function runFideImport(
     const ltu = parser.finish();
     result.total = total;
     result.ltu = ltu.length;
+
+    // Bail *before* computeRanks/upsert: no ranks get written from a partial
+    // list, and the catch below records this as a plain `status: 'error'` run
+    // (not `partial`, which means "imported, with some upsert failures").
+    if (total < MIN_PLAUSIBLE_PLAYER_COUNT) {
+      throw new Error(
+        `FIDE player list looks truncated: parsed only ${total} players, ` +
+          `expected at least ${MIN_PLAUSIBLE_PLAYER_COUNT}. Refusing to import ` +
+          `or recompute ranks from a partial list.`
+      );
+    }
 
     const ranked = computeRanks(ltu, currentYear);
     const nowIso = now.toISOString();
