@@ -41,7 +41,7 @@
               <span class="font-medium text-(--color-text) flex-1">{rel.other.display_name}</span>
               <form method="POST" action="?/unlink" use:enhance>
                 <input type="hidden" name="relationship_id" value={rel.id} />
-                <button class="text-sm text-red-600 dark:text-red-400 hover:underline">Remove</button>
+                <button class="text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-red-700 transition-colors shrink-0">Remove</button>
               </form>
             </li>
           {/each}
@@ -70,7 +70,7 @@
               {:else}
                 <form method="POST" action="?/accept" use:enhance>
                   <input type="hidden" name="relationship_id" value={rel.id} />
-                  <button class="text-sm bg-(--color-accent) text-white px-3 py-1.5 rounded-lg hover:bg-(--color-accent-hover)">Accept</button>
+                  <button class="text-sm bg-(--color-accent) text-white px-3 py-1.5 rounded-lg font-medium hover:bg-(--color-accent-hover) transition-colors">Accept</button>
                 </form>
                 <form method="POST" action="?/decline" use:enhance>
                   <input type="hidden" name="relationship_id" value={rel.id} />
@@ -108,7 +108,7 @@
               <span class="font-medium text-(--color-text) flex-1">{coach.display_name}</span>
               <form method="POST" action="?/request" use:enhance>
                 <input type="hidden" name="coach_id" value={coach.id} />
-                <button class="text-sm bg-(--color-accent) text-white px-3 py-1.5 rounded-lg hover:bg-(--color-accent-hover)">Request</button>
+                <button class="text-sm bg-(--color-accent) text-white px-3 py-1.5 rounded-lg font-medium hover:bg-(--color-accent-hover) transition-colors">Request</button>
               </form>
             </li>
           {/each}
