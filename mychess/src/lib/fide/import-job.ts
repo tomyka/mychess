@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { streamPlayersList } from './download';
 import { createFideStreamParser } from './parse';
-import { computeRanks } from './rank';
+import { computeRanks, createEuropeRankAccumulator, attachEuropeRanks } from './rank';
+import { isEuropeanFederation } from './federations';
 
 export interface FideImportResult {
   total: number;      // players parsed from the global list
@@ -43,8 +44,12 @@ export async function runFideImport(
     // materialize whole in a serverless function's memory budget. Count
     // every valid player and keep only Lithuanians.
     let total = 0;
+    const europeAcc = createEuropeRankAccumulator(currentYear);
     const parser = createFideStreamParser((p) => {
       total++;
+      // Every European-federation player counts toward the Europe rank
+      // pool, even though only Lithuanians are kept in `players` below.
+      if (isEuropeanFederation(p.federation)) europeAcc.add(p);
       return p.federation === 'LTU';
     });
     await streamPlayersList((chunk) => parser.push(chunk));
@@ -52,7 +57,8 @@ export async function runFideImport(
     result.total = total;
     result.ltu = ltu.length;
 
-    const ranked = computeRanks(ltu, currentYear);
+    europeAcc.finalize();
+    const ranked = attachEuropeRanks(computeRanks(ltu, currentYear), europeAcc);
     const nowIso = now.toISOString();
 
     for (let i = 0; i < ranked.length; i += CHUNK) {
@@ -72,6 +78,9 @@ export async function runFideImport(
         age_group_rank_standard: p.ageGroupRankStandard,
         age_group_rank_rapid: p.ageGroupRankRapid,
         age_group_rank_blitz: p.ageGroupRankBlitz,
+        europe_age_group_rank_standard: p.europeAgeGroupRankStandard,
+        europe_age_group_rank_rapid: p.europeAgeGroupRankRapid,
+        europe_age_group_rank_blitz: p.europeAgeGroupRankBlitz,
         list_date: listDate,
         updated_at: nowIso,
       }));
