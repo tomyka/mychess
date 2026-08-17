@@ -11,7 +11,7 @@ import {
 } from '$lib/server/practice-progress';
 import { incrementQuestProgress } from '$lib/server/quests';
 import { requireApiUser } from '$lib/server/auth';
-import { buildPracticeView } from '$lib/mastery/practice';
+import { buildPracticeView, wasResumedAfterBreak } from '$lib/mastery/practice';
 
 /**
  * Called once per completed Practice attempt (the whole variation replayed,
@@ -43,8 +43,19 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const { variations } = await loadFilteredRepertoireVariations(supabase, user.id, repertoireId);
 	const today = new Date().toISOString().slice(0, 10);
+
+	// Read BEFORE touchVariationAttempt's write below lands — reading this
+	// after that unconditional refresh would always see a fresh updated_at
+	// and never detect a real gap. Must mirror buildPracticeView's own
+	// resumed-after-break check exactly, or a clean completion of a served
+	// reset attempt would be recorded against the raw (un-reset) stored
+	// counters instead of what was actually replayed (see applyAttemptResult's
+	// doc comment in practice-progress.ts).
+	const progressBeforeThisAttempt = await loadTeachingProgress(supabase, user.id, repertoireId);
+	const resumedAfterBreak = wasResumedAfterBreak(progressBeforeThisAttempt.get(variationKey)?.updatedAt ?? null, new Date());
+
 	await Promise.all([
-		applyAttemptResult(supabase, user.id, repertoireId, variationKey, hadMistake, variations),
+		applyAttemptResult(supabase, user.id, repertoireId, variationKey, hadMistake, variations, resumedAfterBreak),
 		touchVariationAttempt(supabase, user.id, repertoireId, variationKey),
 		incrementQuestProgress(supabase, user.id, 'review_cards', today)
 	]);

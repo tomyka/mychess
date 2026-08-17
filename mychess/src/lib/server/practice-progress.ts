@@ -211,9 +211,16 @@ export async function loadSyncedActiveVariationKey(
  * variation may have already earned for the same leading moves (see
  * `computeMasteredMoveIds` — this MUST mirror `buildPracticeView`'s own
  * floor computation exactly, or the server would record progress against a
- * different step than the one it actually served) — UNLESS that was the
- * variation's final batch, in which case (exactly like an already-solved
- * variation re-drilled via the picker) it falls through to the existing
+ * different step than the one it actually served). `resumedAfterBreak`
+ * mirrors that same requirement for `buildPracticeView`'s resumed-after-a-break
+ * reset (see `wasResumedAfterBreak` in `mastery/practice.ts`): when true, the
+ * floor used here is zeroed exactly like the served attempt was, so a clean
+ * run of a break-reset teach batch advances progress by only what was
+ * actually replayed in it — never against the raw, un-reset stored counters,
+ * which could otherwise jump progress ahead or even wrongly mark the
+ * variation solved off a truncated replay. UNLESS that was the variation's
+ * final batch, in which case (exactly like an already-solved variation
+ * re-drilled via the picker) it falls through to the existing
  * solved/advance-active-variation sequence.
  */
 export async function applyAttemptResult(
@@ -222,7 +229,8 @@ export async function applyAttemptResult(
 	repertoireId: string,
 	variationKey: string,
 	hadMistake: boolean,
-	variations: Variation[]
+	variations: Variation[],
+	resumedAfterBreak: boolean = false
 ): Promise<void> {
 	if (hadMistake) return;
 
@@ -231,11 +239,13 @@ export async function applyAttemptResult(
 		const solvedKeys = await loadSolvedKeys(supabase, playerId, repertoireId);
 		if (!solvedKeys.has(variationKey)) {
 			const progressMap = await loadTeachingProgress(supabase, playerId, repertoireId);
-			const current = progressMap.get(variationKey) ?? { taughtPlies: 0, masteredPlies: 0 };
+			const current = progressMap.get(variationKey) ?? { taughtPlies: 0, masteredPlies: 0, updatedAt: null };
 			const masteredMoveIds = computeMasteredMoveIds(variations, progressMap, solvedKeys);
 			const sharedFloor = sharedMasteredPrefixLength(variation.path, masteredMoveIds);
-			const effectiveMasteredPlies = Math.max(current.masteredPlies, sharedFloor);
-			const effectiveTaughtPlies = Math.max(current.taughtPlies, effectiveMasteredPlies);
+			const rawMasteredPlies = Math.max(current.masteredPlies, sharedFloor);
+			const rawTaughtPlies = Math.max(current.taughtPlies, rawMasteredPlies);
+			const effectiveMasteredPlies = resumedAfterBreak ? 0 : rawMasteredPlies;
+			const effectiveTaughtPlies = resumedAfterBreak ? 0 : rawTaughtPlies;
 			const next = advanceTeachingProgress(variation.path, effectiveTaughtPlies, effectiveMasteredPlies, false);
 			await saveTeachingProgress(supabase, playerId, repertoireId, variationKey, next.taughtPlies, next.masteredPlies);
 			if (!next.solved) return;

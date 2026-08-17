@@ -130,6 +130,25 @@ describe('applyAttemptResult', () => {
 		]);
 	});
 
+	it('records a resumed-after-break attempt against a zeroed floor, not the raw stored counters', async () => {
+		const { client, upsertCalls } = fakeSupabase({
+			teachingRows: [{ variation_key: 'v1', taught_plies: 20, mastered_plies: 10 }]
+		});
+		const v1 = makeVariation('v1', 25);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1], true);
+		expect(upsertCalls).toEqual([
+			{
+				table: 'variation_teaching_progress',
+				// Same shape as a genuinely fresh variation's first teach pass —
+				// the raw 20/10 stored counters are ignored entirely because this
+				// attempt was served reset to 0, so it must be recorded as if it
+				// started from 0 too.
+				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1', taught_plies: 9, mastered_plies: 0 },
+				options: { onConflict: 'player_id,variation_key_hash' }
+			}
+		]);
+	});
+
 	it('the final batch\'s clean blind retest marks the variation solved and advances the active variation', async () => {
 		const { client, upsertCalls } = fakeSupabase({
 			teachingRows: [{ variation_key: 'v1', taught_plies: 25, mastered_plies: 20 }]
