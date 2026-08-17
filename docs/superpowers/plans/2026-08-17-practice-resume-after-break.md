@@ -725,6 +725,430 @@ git push
 
 ---
 
+## Task 4b: Extract shared floor logic + avoid a full-repertoire read on the hot path (found by Task 4's code review)
+
+**Files:**
+- Modify: `mychess/src/lib/mastery/teaching.ts`
+- Modify: `mychess/src/lib/mastery/teaching.test.ts`
+- Modify: `mychess/src/lib/mastery/practice.ts`
+- Modify: `mychess/src/lib/server/practice-progress.ts`
+- Modify: `mychess/src/lib/server/practice-progress.test.ts`
+- Modify: `mychess/src/routes/api/practice/attempt/+server.ts`
+
+**Why this task exists:** Task 4's code review flagged two real, non-blocking issues in its own fix:
+(1) `buildPracticeView` and `applyAttemptResult` now each independently implement "compute raw floor,
+then zero if resumed" — the exact class of duplication that caused Task 4's bug in the first place,
+now duplicated a second time; (2) the endpoint's pre-write gap check calls `loadTeachingProgress`
+(a full paginated per-repertoire fetch) just to read one variation's `updated_at`, on a hot path
+(every attempt completion) — and does it sequentially before an independent read
+(`loadFilteredRepertoireVariations`) that could run alongside it. This task extracts the shared floor
+computation into one function in `mastery/teaching.ts` and replaces the full-repertoire read with a
+single targeted row read, run in parallel with the independent `variations` load.
+
+- [ ] **Step 1: Write the failing test for the extracted helper**
+
+Add `effectiveProgress` to the import list at the top of `mychess/src/lib/mastery/teaching.test.ts`:
+
+```ts
+import {
+	resolveTeachingStep,
+	advanceTeachingProgress,
+	arrowMoveForStep,
+	sharedMasteredPrefixLength,
+	computeMasteredMoveIds,
+	isLastPlayerMove,
+	effectiveProgress
+} from './teaching';
+```
+
+Add this new `describe` block at the end of the file:
+
+```ts
+describe('effectiveProgress', () => {
+	it('takes the higher of the own counters or the shared floor', () => {
+		expect(effectiveProgress(5, 3, 8, false)).toEqual({ taughtPlies: 8, masteredPlies: 8 });
+		expect(effectiveProgress(10, 6, 2, false)).toEqual({ taughtPlies: 10, masteredPlies: 6 });
+	});
+
+	it('zeroes both counters entirely when resumedAfterBreak is true, ignoring the shared floor too', () => {
+		expect(effectiveProgress(20, 10, 15, true)).toEqual({ taughtPlies: 0, masteredPlies: 0 });
+	});
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run (from `mychess/`): `npx vitest run src/lib/mastery/teaching.test.ts`
+Expected: FAIL — `effectiveProgress` is not exported from `./teaching`
+
+- [ ] **Step 3: Add `effectiveProgress` to `teaching.ts`**
+
+Add this function to `mychess/src/lib/mastery/teaching.ts`, right after `sharedMasteredPrefixLength`:
+
+```ts
+/**
+ * The floor of taught/mastered plies to actually use for a served or
+ * recorded attempt — the higher of the variation's own stored counters or a
+ * shared sibling's credited prefix (`sharedFloor`, from
+ * `sharedMasteredPrefixLength`), or zeroed entirely if the player is
+ * resuming this variation after a break. Shared by `buildPracticeView`
+ * (serve time, `mastery/practice.ts`) and `applyAttemptResult` (record time,
+ * `server/practice-progress.ts`) so what gets served always matches what
+ * gets recorded — the two computations silently drifting apart is exactly
+ * what caused a real bug (see the "resumed after break" feature's Task 4
+ * fix), so this exists specifically to make that impossible going forward
+ * rather than trusting two copies to stay in sync by convention.
+ */
+export function effectiveProgress(
+	ownTaughtPlies: number,
+	ownMasteredPlies: number,
+	sharedFloor: number,
+	resumedAfterBreak: boolean
+): { taughtPlies: number; masteredPlies: number } {
+	if (resumedAfterBreak) return { taughtPlies: 0, masteredPlies: 0 };
+	const masteredPlies = Math.max(ownMasteredPlies, sharedFloor);
+	const taughtPlies = Math.max(ownTaughtPlies, masteredPlies);
+	return { taughtPlies, masteredPlies };
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `npx vitest run src/lib/mastery/teaching.test.ts`
+Expected: PASS (all existing tests + 2 new ones)
+
+- [ ] **Step 5: Use `effectiveProgress` in `buildPracticeView`**
+
+In `mychess/src/lib/mastery/practice.ts`, change the import from:
+
+```ts
+import { resolveTeachingStep, computeMasteredMoveIds, sharedMasteredPrefixLength } from './teaching';
+```
+
+to:
+
+```ts
+import { resolveTeachingStep, computeMasteredMoveIds, sharedMasteredPrefixLength, effectiveProgress } from './teaching';
+```
+
+Change the not-yet-solved branch's body from:
+
+```ts
+				const progress = teachingProgress.get(active.variationKey) ?? { taughtPlies: 0, masteredPlies: 0, updatedAt: null };
+				// A sibling variation sharing this one's leading moves (the same
+				// moveIds — a transposition, or just the same opening) may have
+				// already mastered them: credit that shared prefix here rather
+				// than making the player re-earn it from scratch for every
+				// variation that happens to share it.
+				const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, solvedKeys);
+				const sharedFloor = sharedMasteredPrefixLength(active.path, masteredMoveIds);
+				const rawMasteredPlies = Math.max(progress.masteredPlies, sharedFloor);
+				const rawTaughtPlies = Math.max(progress.taughtPlies, rawMasteredPlies);
+				// A break of 10+ minutes since this specific variation's last
+				// attempt serves this one attempt as if nothing were mastered yet —
+				// the player's own memory of "mastered" moves fades too. Nothing is
+				// written back; the real stored counters are untouched, so the next
+				// attempt (once touchVariationAttempt in practice-progress.ts
+				// refreshes updatedAt) goes back to normal. This zeroes rawMasteredPlies
+				// wholesale, including any sharedFloor credit from a sibling variation
+				// practiced moments ago — deliberately conservative (a per-variation
+				// break check, not a per-move-id one): worst case a few already-known
+				// moves get manually replayed once, rather than risking auto-play
+				// through content THIS variation's own break should have reset.
+				const resumedAfterBreak = wasResumedAfterBreak(progress.updatedAt, now);
+				const effectiveMasteredPlies = resumedAfterBreak ? 0 : rawMasteredPlies;
+				const effectiveTaughtPlies = resumedAfterBreak ? 0 : rawTaughtPlies;
+				const step = resolveTeachingStep(active.path, effectiveTaughtPlies, effectiveMasteredPlies);
+```
+
+to:
+
+```ts
+				const progress = teachingProgress.get(active.variationKey) ?? { taughtPlies: 0, masteredPlies: 0, updatedAt: null };
+				// A sibling variation sharing this one's leading moves (the same
+				// moveIds — a transposition, or just the same opening) may have
+				// already mastered them: credit that shared prefix here rather
+				// than making the player re-earn it from scratch for every
+				// variation that happens to share it.
+				const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, solvedKeys);
+				const sharedFloor = sharedMasteredPrefixLength(active.path, masteredMoveIds);
+				// A break of 10+ minutes since this specific variation's last
+				// attempt serves this one attempt as if nothing were mastered yet —
+				// the player's own memory of "mastered" moves fades too. Nothing is
+				// written back; the real stored counters are untouched, so the next
+				// attempt (once touchVariationAttempt in practice-progress.ts
+				// refreshes updatedAt) goes back to normal. effectiveProgress zeroes
+				// the whole floor, including any sharedFloor credit from a sibling
+				// variation practiced moments ago — deliberately conservative (a
+				// per-variation break check, not a per-move-id one): worst case a
+				// few already-known moves get manually replayed once, rather than
+				// risking auto-play through content THIS variation's own break
+				// should have reset. Shared with `applyAttemptResult` (which MUST
+				// mirror this exactly, or the server records progress against a
+				// different step than the one it actually served — see its own
+				// doc comment) so both sides can never drift apart again.
+				const resumedAfterBreak = wasResumedAfterBreak(progress.updatedAt, now);
+				const { taughtPlies: effectiveTaughtPlies, masteredPlies: effectiveMasteredPlies } = effectiveProgress(
+					progress.taughtPlies,
+					progress.masteredPlies,
+					sharedFloor,
+					resumedAfterBreak
+				);
+				const step = resolveTeachingStep(active.path, effectiveTaughtPlies, effectiveMasteredPlies);
+```
+
+- [ ] **Step 6: Run tests to verify nothing broke**
+
+Run: `npx vitest run src/lib/mastery/practice.test.ts`
+Expected: PASS — every existing `buildPracticeView` test still passes unchanged, since this is a pure
+refactor (identical inputs produce identical outputs), not a behavior change.
+
+- [ ] **Step 7: Use `effectiveProgress` in `applyAttemptResult`, and add `loadVariationUpdatedAt`**
+
+In `mychess/src/lib/server/practice-progress.ts`, change the import from:
+
+```ts
+import { advanceTeachingProgress, computeMasteredMoveIds, sharedMasteredPrefixLength } from '$lib/mastery/teaching';
+```
+
+to:
+
+```ts
+import { advanceTeachingProgress, computeMasteredMoveIds, sharedMasteredPrefixLength, effectiveProgress } from '$lib/mastery/teaching';
+```
+
+Change `applyAttemptResult`'s body from:
+
+```ts
+			const progressMap = await loadTeachingProgress(supabase, playerId, repertoireId);
+			const current = progressMap.get(variationKey) ?? { taughtPlies: 0, masteredPlies: 0, updatedAt: null };
+			const masteredMoveIds = computeMasteredMoveIds(variations, progressMap, solvedKeys);
+			const sharedFloor = sharedMasteredPrefixLength(variation.path, masteredMoveIds);
+			const rawMasteredPlies = Math.max(current.masteredPlies, sharedFloor);
+			const rawTaughtPlies = Math.max(current.taughtPlies, rawMasteredPlies);
+			const effectiveMasteredPlies = resumedAfterBreak ? 0 : rawMasteredPlies;
+			const effectiveTaughtPlies = resumedAfterBreak ? 0 : rawTaughtPlies;
+			const next = advanceTeachingProgress(variation.path, effectiveTaughtPlies, effectiveMasteredPlies, false);
+```
+
+to:
+
+```ts
+			const progressMap = await loadTeachingProgress(supabase, playerId, repertoireId);
+			const current = progressMap.get(variationKey) ?? { taughtPlies: 0, masteredPlies: 0, updatedAt: null };
+			const masteredMoveIds = computeMasteredMoveIds(variations, progressMap, solvedKeys);
+			const sharedFloor = sharedMasteredPrefixLength(variation.path, masteredMoveIds);
+			const { taughtPlies: effectiveTaughtPlies, masteredPlies: effectiveMasteredPlies } = effectiveProgress(
+				current.taughtPlies,
+				current.masteredPlies,
+				sharedFloor,
+				resumedAfterBreak
+			);
+			const next = advanceTeachingProgress(variation.path, effectiveTaughtPlies, effectiveMasteredPlies, false);
+```
+
+Add this new function right after `loadActiveVariationKey`:
+
+```ts
+/**
+ * This variation's currently-persisted `updated_at`, or `null` if no row
+ * exists yet. A single targeted row read — unlike `loadTeachingProgress`,
+ * which loads the WHOLE repertoire's progress — for callers (like the
+ * attempt-completion endpoint) that only need one variation's recency to
+ * decide `wasResumedAfterBreak`, without paying a full paginated fetch on a
+ * per-attempt hot path.
+ */
+export async function loadVariationUpdatedAt(
+	supabase: SupabaseClient,
+	playerId: string,
+	repertoireId: string,
+	variationKey: string
+): Promise<string | null> {
+	const { data } = await supabase
+		.from('variation_teaching_progress')
+		.select('updated_at')
+		.eq('player_id', playerId)
+		.eq('repertoire_id', repertoireId)
+		.eq('variation_key', variationKey)
+		.maybeSingle();
+	return data?.updated_at ?? null;
+}
+```
+
+- [ ] **Step 8: Write the failing test for `loadVariationUpdatedAt`**
+
+Add this test inside a new `describe('loadVariationUpdatedAt', ...)` block in
+`mychess/src/lib/server/practice-progress.test.ts`, appended after the `describe('applyAttemptResult', ...)`
+block's closing `});` (import `loadVariationUpdatedAt` alongside the file's existing imports from
+`./practice-progress`):
+
+```ts
+describe('loadVariationUpdatedAt', () => {
+	it('returns the row\'s updated_at, or null if no matching row exists', async () => {
+		const { client } = fakeSupabase({
+			teachingRows: [{ variation_key: 'v1', taught_plies: 5, mastered_plies: 3, updated_at: '2026-08-17T11:00:00Z' } as any]
+		});
+		expect(await loadVariationUpdatedAt(client as any, 'player-1', 'rep-1', 'v1')).toBe('2026-08-17T11:00:00Z');
+		expect(await loadVariationUpdatedAt(client as any, 'player-1', 'rep-1', 'v2')).toBeNull();
+	});
+});
+```
+
+This requires the shared `fakeSupabase` harness's `variation_teaching_progress` branch to also
+support a single-row `.eq(...).eq(...).eq(...).maybeSingle()` read (it currently only supports the
+paginated `.select().eq().eq().order().range()` chain used by `loadTeachingProgress`, and `.upsert()`).
+Update the harness in the same file: change
+
+```ts
+		if (table === 'variation_teaching_progress') {
+			return {
+				select: () => pagedRead(() => teachingRows),
+				upsert: (rows: any, options: any) => {
+					upsertCalls.push({ table, rows, options });
+					return Promise.resolve({ error: null });
+				}
+			};
+		}
+```
+
+to:
+
+```ts
+		if (table === 'variation_teaching_progress') {
+			return {
+				select: (columns: string) => {
+					if (columns === 'updated_at') {
+						// Single-row lookup path used by loadVariationUpdatedAt: each
+						// .eq() narrows a running filter; .maybeSingle() resolves it.
+						let filters: Record<string, string> = {};
+						const node: any = {
+							eq: (col: string, value: string) => {
+								filters = { ...filters, [col]: value };
+								return node;
+							},
+							maybeSingle: () =>
+								Promise.resolve({
+									data: teachingRows.find((r: any) => r.variation_key === filters.variation_key) ?? null,
+									error: null
+								})
+						};
+						return node;
+					}
+					return pagedRead(() => teachingRows);
+				},
+				upsert: (rows: any, options: any) => {
+					upsertCalls.push({ table, rows, options });
+					return Promise.resolve({ error: null });
+				}
+			};
+		}
+```
+
+- [ ] **Step 9: Run test to verify it fails, then implement, then verify it passes**
+
+Run: `npx vitest run src/lib/server/practice-progress.test.ts`
+Expected: FAIL first (`loadVariationUpdatedAt` not exported / harness doesn't support `.maybeSingle()`
+on this table yet), then PASS once Steps 7-8 are both in place (all existing tests + 2 new: the
+`effectiveProgress`-refactor regression coverage is already provided by the EXISTING `applyAttemptResult`
+tests, which must all still pass unchanged since this is a behavior-preserving refactor).
+
+- [ ] **Step 10: Wire `loadVariationUpdatedAt` into the endpoint, parallelized with the variations load**
+
+In `mychess/src/routes/api/practice/attempt/+server.ts`, change the import from:
+
+```ts
+import {
+	applyAttemptResult,
+	loadActiveVariationKey,
+	loadSolvedKeys,
+	loadTeachingProgress,
+	touchVariationAttempt
+} from '$lib/server/practice-progress';
+```
+
+to:
+
+```ts
+import {
+	applyAttemptResult,
+	loadActiveVariationKey,
+	loadSolvedKeys,
+	loadTeachingProgress,
+	loadVariationUpdatedAt,
+	touchVariationAttempt
+} from '$lib/server/practice-progress';
+```
+
+Change:
+
+```ts
+	const { variations } = await loadFilteredRepertoireVariations(supabase, user.id, repertoireId);
+	const today = new Date().toISOString().slice(0, 10);
+
+	// Read BEFORE touchVariationAttempt's write below lands — reading this
+	// after that unconditional refresh would always see a fresh updated_at
+	// and never detect a real gap. Must mirror buildPracticeView's own
+	// resumed-after-break check exactly, or a clean completion of a served
+	// reset attempt would be recorded against the raw (un-reset) stored
+	// counters instead of what was actually replayed (see applyAttemptResult's
+	// doc comment in practice-progress.ts).
+	const progressBeforeThisAttempt = await loadTeachingProgress(supabase, user.id, repertoireId);
+	const resumedAfterBreak = wasResumedAfterBreak(progressBeforeThisAttempt.get(variationKey)?.updatedAt ?? null, new Date());
+
+	await Promise.all([
+		applyAttemptResult(supabase, user.id, repertoireId, variationKey, hadMistake, variations, resumedAfterBreak),
+		touchVariationAttempt(supabase, user.id, repertoireId, variationKey),
+		incrementQuestProgress(supabase, user.id, 'review_cards', today)
+	]);
+```
+
+to:
+
+```ts
+	// Read BEFORE touchVariationAttempt's write below lands — reading this
+	// after that unconditional refresh would always see a fresh updated_at
+	// and never detect a real gap. Must mirror buildPracticeView's own
+	// resumed-after-break check exactly, or a clean completion of a served
+	// reset attempt would be recorded against the raw (un-reset) stored
+	// counters instead of what was actually replayed (see applyAttemptResult's
+	// doc comment in practice-progress.ts). A single targeted row read
+	// (`loadVariationUpdatedAt`), not the whole-repertoire `loadTeachingProgress`
+	// — this fires on every attempt completion, so a full paginated fetch here
+	// just to read one variation's timestamp would be real, avoidable cost on
+	// a hot path for a large repertoire. Independent of `variations`, so it
+	// runs alongside that load rather than after it.
+	const [{ variations }, updatedAtBeforeThisAttempt] = await Promise.all([
+		loadFilteredRepertoireVariations(supabase, user.id, repertoireId),
+		loadVariationUpdatedAt(supabase, user.id, repertoireId, variationKey)
+	]);
+	const today = new Date().toISOString().slice(0, 10);
+	const resumedAfterBreak = wasResumedAfterBreak(updatedAtBeforeThisAttempt, new Date());
+
+	await Promise.all([
+		applyAttemptResult(supabase, user.id, repertoireId, variationKey, hadMistake, variations, resumedAfterBreak),
+		touchVariationAttempt(supabase, user.id, repertoireId, variationKey),
+		incrementQuestProgress(supabase, user.id, 'review_cards', today)
+	]);
+```
+
+- [ ] **Step 11: Type-check and run the full test suite**
+
+Run: `npm run check` — expected: 0 errors
+Run: `npm test` — expected: all existing tests still pass, plus the new `effectiveProgress` and
+`loadVariationUpdatedAt` tests
+
+- [ ] **Step 12: Commit**
+
+```bash
+git add src/lib/mastery/teaching.ts src/lib/mastery/teaching.test.ts src/lib/mastery/practice.ts \
+        src/lib/server/practice-progress.ts src/lib/server/practice-progress.test.ts \
+        "src/routes/api/practice/attempt/+server.ts"
+git commit -m "refactor: share resumed-after-break floor logic, avoid a full-repertoire read"
+git push
+```
+
+---
+
 ## Task 5: Full verification
 
 **Files:** none (verification only)
