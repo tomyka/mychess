@@ -90,7 +90,12 @@ export function buildPracticeView(
 			// the player's own memory of "mastered" moves fades too. Nothing is
 			// written back; the real stored counters are untouched, so the next
 			// attempt (once touchVariationAttempt in practice-progress.ts
-			// refreshes updatedAt) goes back to normal.
+			// refreshes updatedAt) goes back to normal. This zeroes rawMasteredPlies
+			// wholesale, including any sharedFloor credit from a sibling variation
+			// practiced moments ago — deliberately conservative (a per-variation
+			// break check, not a per-move-id one): worst case a few already-known
+			// moves get manually replayed once, rather than risking auto-play
+			// through content THIS variation's own break should have reset.
 			const resumedAfterBreak = wasResumedAfterBreak(progress.updatedAt, now);
 			const effectiveMasteredPlies = resumedAfterBreak ? 0 : rawMasteredPlies;
 			const effectiveTaughtPlies = resumedAfterBreak ? 0 : rawTaughtPlies;
