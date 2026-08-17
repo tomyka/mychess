@@ -2,7 +2,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { planGameImport, type MoveRow } from '$lib/pgn-import';
 import { enumerateVariations, hasChapterTags, type RawMoveRow } from '$lib/mastery/variations';
-import { fetchAllMoves, remainingPageRanges, toRawMoveRows } from './practice-repertoire';
+import { fetchAllMoves, toRawMoveRows } from './practice-repertoire';
+import { fetchAllPages } from './paginate';
 
 export type GameImportResult = { repertoireId: string | null; gameCount: number; error: string | null };
 
@@ -257,34 +258,38 @@ export async function writeMoves(
     // distinct `from_position`s, and for a heavy-transposition repertoire the
     // matching row count can comfortably exceed PostgREST's 1000-row cap.
     const fromPositions = Array.from(new Set(chunk.map((m) => m.from_position)));
-    const existingQuery = () =>
-      supabase
-        .from('moves')
-        .select('from_position, san, chapter_names')
-        .eq('repertoire_id', repId)
-        .in('from_position', fromPositions);
 
-    const { data: firstPage, error: selectErr } = await existingQuery().range(0, EXISTING_MOVES_PAGE_SIZE - 1);
-    if (selectErr) return fail(`Failed to load existing moves: ${selectErr.message}`);
-    let existingRows: { from_position: string; san: string; chapter_names: string[] | null }[] = firstPage ?? [];
-
-    if (existingRows.length === EXISTING_MOVES_PAGE_SIZE) {
-      const { count, error: countErr } = await supabase
-        .from('moves')
-        .select('id', { count: 'exact', head: true })
-        .eq('repertoire_id', repId)
-        .in('from_position', fromPositions);
-      if (countErr) return fail(`Failed to count existing moves: ${countErr.message}`);
-
-      const pages = await Promise.all(
-        remainingPageRanges(count ?? existingRows.length, EXISTING_MOVES_PAGE_SIZE).map(([from, to]) =>
-          existingQuery().range(from, to)
-        )
+    // Unlike every other `fetchAllPages` caller, this one must NOT throw — a
+    // failure here has to roll the half-written repertoire back via `fail`.
+    // The count phase tags its own error so the catch can keep producing the
+    // distinct "Failed to count existing moves" message it always has.
+    type ExistingMoveRow = { from_position: string; san: string; chapter_names: string[] | null };
+    let existingRows: ExistingMoveRow[] = [];
+    try {
+      existingRows = await fetchAllPages<ExistingMoveRow>(
+        () =>
+          supabase
+            .from('moves')
+            .select('from_position, san, chapter_names')
+            .eq('repertoire_id', repId)
+            .in('from_position', fromPositions)
+            .order('id', { ascending: true }),
+        async () => {
+          const result = await supabase
+            .from('moves')
+            .select('id', { count: 'exact', head: true })
+            .eq('repertoire_id', repId)
+            .in('from_position', fromPositions);
+          if (result.error) throw Object.assign(new Error(result.error.message), { countPhase: true });
+          return result;
+        },
+        EXISTING_MOVES_PAGE_SIZE
       );
-      for (const page of pages) {
-        if (page.error) return fail(`Failed to load existing moves: ${page.error.message}`);
-      }
-      existingRows = [...existingRows, ...pages.flatMap((p) => p.data ?? [])];
+    } catch (err) {
+      const message = (err as { message?: string })?.message ?? String(err);
+      return (err as { countPhase?: boolean })?.countPhase
+        ? fail(`Failed to count existing moves: ${message}`)
+        : fail(`Failed to load existing moves: ${message}`);
     }
 
     const existingByKey = new Map(

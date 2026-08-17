@@ -3,15 +3,38 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Variation } from '$lib/mastery/variations';
 import { pickActiveVariation, advanceIfSolved } from '$lib/mastery/variationSequence';
 import { advanceTeachingProgress, computeMasteredMoveIds, sharedMasteredPrefixLength } from '$lib/mastery/teaching';
+import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
 
-/** This player's full solved-variation-key set for one repertoire. */
+/**
+ * This player's full solved-variation-key set for one repertoire.
+ *
+ * Paginated: Supabase/PostgREST caps an unbounded select at `max_rows` (1000,
+ * see supabase/config.toml) and truncates silently, and a large repertoire
+ * (1,000+ variations, which exists in production) can have more solved keys
+ * than that — a truncated read would read back as "these lines were never
+ * solved" and re-serve them. Errors are thrown rather than swallowed for the
+ * same reason: an empty `data` on a failed read is indistinguishable from
+ * "nothing solved yet", which would silently reset the player's progress
+ * view.
+ */
 export async function loadSolvedKeys(supabase: SupabaseClient, playerId: string, repertoireId: string): Promise<Set<string>> {
-	const { data } = await supabase
-		.from('variation_solved')
-		.select('variation_key')
-		.eq('player_id', playerId)
-		.eq('repertoire_id', repertoireId);
-	return new Set((data ?? []).map((r: any) => r.variation_key as string));
+	const rows = await fetchAllPages<{ variation_key: string }>(
+		() =>
+			supabase
+				.from('variation_solved')
+				.select('variation_key')
+				.eq('player_id', playerId)
+				.eq('repertoire_id', repertoireId)
+				.order('variation_key', { ascending: true }),
+		() =>
+			supabase
+				.from('variation_solved')
+				.select('id', { count: 'exact', head: true })
+				.eq('player_id', playerId)
+				.eq('repertoire_id', repertoireId),
+		MAX_ROWS_PAGE_SIZE
+	);
+	return new Set(rows.map((r) => r.variation_key));
 }
 
 /** This player's currently-persisted active variation key for one repertoire, or `null` if no row exists yet. */
@@ -69,20 +92,36 @@ export async function markVariationSolved(
 		);
 }
 
-/** This player's full teaching-progress state for one repertoire, keyed by variation_key. */
+/**
+ * This player's full teaching-progress state for one repertoire, keyed by variation_key.
+ *
+ * Paginated and error-propagating for the same reasons as `loadSolvedKeys`
+ * above — a silently truncated (or silently failed) read here reads back as
+ * "nothing taught yet" for the missing variations, resetting their teaching
+ * counters and re-teaching them from ply 0.
+ */
 export async function loadTeachingProgress(
 	supabase: SupabaseClient,
 	playerId: string,
 	repertoireId: string
 ): Promise<Map<string, { taughtPlies: number; masteredPlies: number }>> {
-	const { data } = await supabase
-		.from('variation_teaching_progress')
-		.select('variation_key, taught_plies, mastered_plies')
-		.eq('player_id', playerId)
-		.eq('repertoire_id', repertoireId);
-	return new Map(
-		(data ?? []).map((r: any) => [r.variation_key as string, { taughtPlies: r.taught_plies as number, masteredPlies: r.mastered_plies as number }])
+	const rows = await fetchAllPages<{ variation_key: string; taught_plies: number; mastered_plies: number }>(
+		() =>
+			supabase
+				.from('variation_teaching_progress')
+				.select('variation_key, taught_plies, mastered_plies')
+				.eq('player_id', playerId)
+				.eq('repertoire_id', repertoireId)
+				.order('variation_key', { ascending: true }),
+		() =>
+			supabase
+				.from('variation_teaching_progress')
+				.select('id', { count: 'exact', head: true })
+				.eq('player_id', playerId)
+				.eq('repertoire_id', repertoireId),
+		MAX_ROWS_PAGE_SIZE
 	);
+	return new Map(rows.map((r) => [r.variation_key, { taughtPlies: r.taught_plies, masteredPlies: r.mastered_plies }]));
 }
 
 /** Persists this variation's teaching-progress counters (see `src/lib/mastery/teaching.ts`). */

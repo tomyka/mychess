@@ -1,7 +1,7 @@
 // mychess/src/lib/server/repertoire-progress.ts
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { enumerateVariations, filterVariations, hasChapterTags, type RawMoveRow, type Variation } from '$lib/mastery/variations';
-import { remainingPageRanges } from './practice-repertoire';
+import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
 
 export type RepertoireProgressSummary = {
 	id: string;
@@ -30,58 +30,58 @@ export type RepertoireProgressSummary = {
 // chapter's true import order — `moves.id` is a random UUID, not a
 // sequence, so ordering by it alone surfaces chapters in an effectively
 // arbitrary order instead of the order they were uploaded in. Pages beyond
-// the first are fetched concurrently (see `remainingPageRanges`, shared
-// with `practice-repertoire.ts`) rather than one at a time.
+// the first are fetched concurrently (see `fetchAllPages`, shared with
+// `practice-repertoire.ts`) rather than one at a time.
 //
 // Used both for the lazy total-count backfill (repertoires imported before
 // `total_variations` started being cached at import time) and for
 // repertoires this player has excluded at least one variation from, where
 // the cached whole-repertoire count can't be trusted for THIS player's
 // filtered view.
-const MOVES_PAGE_SIZE = 1000;
+const MOVES_PAGE_SIZE = MAX_ROWS_PAGE_SIZE;
 
 async function fetchAllMoves(supabase: SupabaseClient, repIds: string[]): Promise<any[]> {
-	const query = () =>
-		supabase
-			.from('moves')
-			.select('id, san, is_player_turn, repertoire_id, from_position, to_position, chapter_names')
-			.in('repertoire_id', repIds)
-			.order('created_at', { ascending: true })
-			.order('id', { ascending: true });
-
-	const { data: firstPage, error: err } = await query().range(0, MOVES_PAGE_SIZE - 1);
-	if (err) throw err;
-	const firstRows = firstPage ?? [];
-	if (firstRows.length < MOVES_PAGE_SIZE) return firstRows;
-
-	const { count, error: countErr } = await supabase
-		.from('moves')
-		.select('id', { count: 'exact', head: true })
-		.in('repertoire_id', repIds);
-	if (countErr) throw countErr;
-
-	const pages = await Promise.all(
-		remainingPageRanges(count ?? firstRows.length, MOVES_PAGE_SIZE).map(([from, to]) => query().range(from, to))
+	return fetchAllPages(
+		() =>
+			supabase
+				.from('moves')
+				.select('id, san, is_player_turn, repertoire_id, from_position, to_position, chapter_names')
+				.in('repertoire_id', repIds)
+				.order('created_at', { ascending: true })
+				.order('id', { ascending: true }),
+		() => supabase.from('moves').select('id', { count: 'exact', head: true }).in('repertoire_id', repIds),
+		MOVES_PAGE_SIZE
 	);
-	for (const page of pages) {
-		if (page.error) throw page.error;
-	}
-
-	return [...firstRows, ...pages.flatMap((p) => p.data ?? [])];
 }
 
+// Paginated for the same `max_rows` reason as the move fetch above, and more
+// urgently: this reads across EVERY repertoire the player can access at once,
+// so the combined row count hits the 1000-row cap far sooner than any
+// single-repertoire read does. Truncation here silently dropped exclusions
+// (excluded lines came back as practiceable, with wrong totals) and solved
+// keys (solved lines looked unsolved).
 async function fetchByRepertoire(
 	supabase: SupabaseClient,
 	table: 'variation_practice_exclusions' | 'variation_solved',
 	playerId: string,
 	repIds: string[]
 ): Promise<Map<string, Set<string>>> {
-	const { data, error } = await supabase
-		.from(table)
-		.select('repertoire_id, variation_key')
-		.eq('player_id', playerId)
-		.in('repertoire_id', repIds);
-	if (error) throw error;
+	const data = await fetchAllPages<{ repertoire_id: string; variation_key: string }>(
+		() =>
+			supabase
+				.from(table)
+				.select('repertoire_id, variation_key')
+				.eq('player_id', playerId)
+				.in('repertoire_id', repIds)
+				.order('variation_key', { ascending: true }),
+		() =>
+			supabase
+				.from(table)
+				.select('id', { count: 'exact', head: true })
+				.eq('player_id', playerId)
+				.in('repertoire_id', repIds),
+		MAX_ROWS_PAGE_SIZE
+	);
 
 	const map = new Map<string, Set<string>>();
 	for (const row of (data ?? []) as any[]) {

@@ -2,6 +2,7 @@
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { enumerateVariations, filterVariations, moveIdsInVariationKey, type RawMoveRow, type Variation } from '$lib/mastery/variations';
+import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
 
 export type PracticeRepertoire = { id: string; name: string; color: string };
 
@@ -16,63 +17,27 @@ export type PracticeRepertoire = { id: string; name: string; color: string };
 // true import order — `moves.id` is a random UUID, not a sequence, so
 // ordering by it alone (as this used to) surfaces chapters in an
 // effectively arbitrary order instead of the order they were uploaded in.
-const MOVES_PAGE_SIZE = 1000;
-
-/**
- * The `.range()` boundaries needed to fetch the rest of a result set after
- * an already-fetched first page, given the true total row count. Pure and
- * separately tested so the off-by-one page math can be verified without a
- * real Supabase client.
- */
-export function remainingPageRanges(totalCount: number, pageSize: number): Array<[number, number]> {
-	const totalPages = Math.ceil(totalCount / pageSize);
-	return Array.from({ length: Math.max(0, totalPages - 1) }, (_, i) => {
-		const page = i + 1;
-		return [page * pageSize, page * pageSize + pageSize - 1] as [number, number];
-	});
-}
+const MOVES_PAGE_SIZE = MAX_ROWS_PAGE_SIZE;
 
 const MOVE_SELECT_COLUMNS =
 	'id, san, is_player_turn, from_position, to_position, chapter_names, from_pos:from_position(fen), to_pos:to_position(fen)';
 
 /**
  * Fetches every move row for a repertoire, defeating the `max_rows` cap
- * above. The common case (a repertoire fitting in one page) costs exactly
- * one round trip. A repertoire spanning multiple pages costs one more (an
- * exact-count lookup) plus a single round of every remaining page fetched
- * *concurrently* — rather than one round trip per page fetched
- * sequentially, which for a large repertoire (e.g. a multi-thousand-move
- * opening reference import) turned "open this page" into several seconds
- * of pure network latency.
+ * above (see `fetchAllPages` for the paging strategy itself).
  */
 export async function fetchAllMoves(supabase: SupabaseClient, repertoireId: string): Promise<any[]> {
-	const query = () =>
-		supabase
-			.from('moves')
-			.select(MOVE_SELECT_COLUMNS)
-			.eq('repertoire_id', repertoireId)
-			.order('created_at', { ascending: true })
-			.order('id', { ascending: true });
-
-	const { data: firstPage, error: err } = await query().range(0, MOVES_PAGE_SIZE - 1);
-	if (err) throw err;
-	const firstRows = firstPage ?? [];
-	if (firstRows.length < MOVES_PAGE_SIZE) return firstRows;
-
-	const { count, error: countErr } = await supabase
-		.from('moves')
-		.select('id', { count: 'exact', head: true })
-		.eq('repertoire_id', repertoireId);
-	if (countErr) throw countErr;
-
-	const pages = await Promise.all(
-		remainingPageRanges(count ?? firstRows.length, MOVES_PAGE_SIZE).map(([from, to]) => query().range(from, to))
+	return fetchAllPages(
+		() =>
+			supabase
+				.from('moves')
+				.select(MOVE_SELECT_COLUMNS)
+				.eq('repertoire_id', repertoireId)
+				.order('created_at', { ascending: true })
+				.order('id', { ascending: true }),
+		() => supabase.from('moves').select('id', { count: 'exact', head: true }).eq('repertoire_id', repertoireId),
+		MOVES_PAGE_SIZE
 	);
-	for (const page of pages) {
-		if (page.error) throw page.error;
-	}
-
-	return [...firstRows, ...pages.flatMap((p) => p.data ?? [])];
 }
 
 /** Maps `fetchAllMoves`'s joined-select row shape into `RawMoveRow`s `enumerateVariations` expects. */
@@ -87,6 +52,26 @@ export function toRawMoveRows(rows: any[]): RawMoveRow[] {
 		toFen: m.to_pos?.fen ?? '',
 		chapterNames: m.chapter_names ?? []
 	}));
+}
+
+/** Every one of this player's excluded variation keys for one repertoire, paginated past `max_rows`. */
+function fetchAllExclusions(supabase: SupabaseClient, userId: string, repertoireId: string): Promise<{ variation_key: string }[]> {
+	return fetchAllPages<{ variation_key: string }>(
+		() =>
+			supabase
+				.from('variation_practice_exclusions')
+				.select('variation_key')
+				.eq('player_id', userId)
+				.eq('repertoire_id', repertoireId)
+				.order('variation_key', { ascending: true }),
+		() =>
+			supabase
+				.from('variation_practice_exclusions')
+				.select('id', { count: 'exact', head: true })
+				.eq('player_id', userId)
+				.eq('repertoire_id', repertoireId),
+		MAX_ROWS_PAGE_SIZE
+	);
 }
 
 /**
@@ -110,24 +95,26 @@ export async function loadRepertoireVariations(
 	userId: string,
 	repertoireId: string
 ): Promise<{ repertoire: PracticeRepertoire; variations: Variation[]; excludedVariationKeys: Set<string> }> {
-	const [{ data: repertoire }, rawMoves, { data: exclusions, error: exclusionsErr }] = await Promise.all([
+	const [{ data: repertoire }, rawMoves, exclusions] = await Promise.all([
 		supabase
 			.from('repertoires')
 			.select('id, name, color')
 			.eq('id', repertoireId)
 			.maybeSingle(),
 		fetchAllMoves(supabase, repertoireId),
-		supabase
-			.from('variation_practice_exclusions')
-			.select('variation_key')
-			.eq('player_id', userId)
-			.eq('repertoire_id', repertoireId)
+		// Paginated for the same `max_rows` reason as the move fetch above:
+		// "deselect all" on a large repertoire writes one exclusion row per
+		// variation, so a 1,040-variation repertoire (which exists in
+		// production) writes 1,040 rows — an unpaginated read saw only the
+		// first 1,000, silently practicing ~40 excluded lines and reporting
+		// wrong counts. Still inside this `Promise.all`, so it stays
+		// concurrent with the repertoire and move fetches.
+		fetchAllExclusions(supabase, userId, repertoireId)
 	]);
 
 	if (!repertoire) {
 		throw error(404, 'Repertoire not found');
 	}
-	if (exclusionsErr) throw exclusionsErr;
 
 	const moves: RawMoveRow[] = toRawMoveRows(rawMoves ?? []);
 
@@ -178,28 +165,12 @@ export async function loadFilteredRepertoireVariations(
  * `fetchAllMoves`, avoids that fan-out entirely.
  */
 async function fetchAllMoveIds(supabase: SupabaseClient, repertoireId: string): Promise<Set<string>> {
-	const query = () => supabase.from('moves').select('id').eq('repertoire_id', repertoireId).order('id', { ascending: true });
-
-	const { data: firstPage, error: err } = await query().range(0, MOVES_PAGE_SIZE - 1);
-	if (err) throw err;
-	const firstRows = firstPage ?? [];
-	const ids = new Set<string>(firstRows.map((r) => r.id));
-	if (firstRows.length < MOVES_PAGE_SIZE) return ids;
-
-	const { count, error: countErr } = await supabase
-		.from('moves')
-		.select('id', { count: 'exact', head: true })
-		.eq('repertoire_id', repertoireId);
-	if (countErr) throw countErr;
-
-	const pages = await Promise.all(
-		remainingPageRanges(count ?? firstRows.length, MOVES_PAGE_SIZE).map(([from, to]) => query().range(from, to))
+	const rows = await fetchAllPages<{ id: string }>(
+		() => supabase.from('moves').select('id').eq('repertoire_id', repertoireId).order('id', { ascending: true }),
+		() => supabase.from('moves').select('id', { count: 'exact', head: true }).eq('repertoire_id', repertoireId),
+		MOVES_PAGE_SIZE
 	);
-	for (const page of pages) {
-		if (page.error) throw page.error;
-		for (const row of page.data ?? []) ids.add(row.id);
-	}
-	return ids;
+	return new Set(rows.map((r) => r.id));
 }
 
 /**

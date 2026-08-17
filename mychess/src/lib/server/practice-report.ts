@@ -8,7 +8,7 @@ import {
 	type Hotspot,
 	type ActivityStats
 } from '$lib/practice-report';
-import { remainingPageRanges } from '$lib/server/practice-repertoire';
+import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from '$lib/server/paginate';
 
 export type RepertoireReport = { accuracy: AccuracyPoint[]; hotspots: Hotspot[]; activity: ActivityStats };
 
@@ -18,39 +18,18 @@ const HOTSPOT_LIMIT = 10;
 // supabase/config.toml) and truncates silently past that — no error, just
 // fewer rows than actually exist. Every practice move is logged now, so an
 // active student can exceed 1000 move_attempts rows within a single 30-day
-// window on their own. Mirrors practice-repertoire.ts's `fetchAllMoves`
-// pattern: fetch page 1, and only if it came back full-size do an
-// exact-count lookup plus fetch every remaining page concurrently.
-const ATTEMPTS_PAGE_SIZE = 1000;
+// window on their own. See `fetchAllPages` in ./paginate for the paging
+// strategy itself.
+const ATTEMPTS_PAGE_SIZE = MAX_ROWS_PAGE_SIZE;
 
 /**
  * Fetches every move_attempts row matching a caller-supplied filter,
- * defeating the `max_rows` cap above. `buildQuery` and `buildCountQuery`
- * must each build a fresh query on every call (query builders are
- * stateful/single-use), and `buildQuery`'s query must carry a deterministic
- * `.order('id', ...)` clause — `.range` alone has no defined traversal
- * order to page through without it.
+ * defeating the `max_rows` cap above. A thin wrapper fixing this module's
+ * page size — see `fetchAllPages` for the contract both builders must honour
+ * (fresh query per call; a deterministic `.order('id', ...)` on `buildQuery`).
  */
-async function fetchAllMoveAttempts(
-	buildQuery: () => any,
-	buildCountQuery: () => any
-): Promise<any[]> {
-	const { data: firstPage, error: err } = await buildQuery().range(0, ATTEMPTS_PAGE_SIZE - 1);
-	if (err) throw err;
-	const firstRows = firstPage ?? [];
-	if (firstRows.length < ATTEMPTS_PAGE_SIZE) return firstRows;
-
-	const { count, error: countErr } = await buildCountQuery();
-	if (countErr) throw countErr;
-
-	const pages = await Promise.all(
-		remainingPageRanges(count ?? firstRows.length, ATTEMPTS_PAGE_SIZE).map(([from, to]) => buildQuery().range(from, to))
-	);
-	for (const page of pages) {
-		if (page.error) throw page.error;
-	}
-
-	return [...firstRows, ...pages.flatMap((p) => p.data ?? [])];
+async function fetchAllMoveAttempts(buildQuery: () => any, buildCountQuery: () => any): Promise<any[]> {
+	return fetchAllPages(buildQuery, buildCountQuery, ATTEMPTS_PAGE_SIZE);
 }
 
 /**
@@ -151,12 +130,32 @@ export async function loadStudentSummary(
 	]);
 
 	const repertoireIds = (assigned ?? []).map((a: any) => a.repertoire_id as string);
-	const [{ data: repRows }, { data: solvedRows }] = repertoireIds.length
+	// The solved read is paginated (past the `max_rows` cap above): it spans
+	// every repertoire this coach assigned the student, so its combined row
+	// count exceeds 1000 well before any single repertoire does — and a
+	// truncated read would silently understate `avgSolvedPct`. Kept inside the
+	// `Promise.all` so it still runs concurrently with the repertoires lookup.
+	const [{ data: repRows }, solvedRows] = repertoireIds.length
 		? await Promise.all([
 				supabase.from('repertoires').select('id, total_variations').in('id', repertoireIds),
-				supabase.from('variation_solved').select('repertoire_id').eq('player_id', playerId).in('repertoire_id', repertoireIds)
+				fetchAllPages<{ repertoire_id: string }>(
+					() =>
+						supabase
+							.from('variation_solved')
+							.select('repertoire_id')
+							.eq('player_id', playerId)
+							.in('repertoire_id', repertoireIds)
+							.order('variation_key', { ascending: true }),
+					() =>
+						supabase
+							.from('variation_solved')
+							.select('id', { count: 'exact', head: true })
+							.eq('player_id', playerId)
+							.in('repertoire_id', repertoireIds),
+					MAX_ROWS_PAGE_SIZE
+				)
 			])
-		: [{ data: [] as any[] }, { data: [] as any[] }];
+		: [{ data: [] as any[] }, [] as any[]];
 
 	const solvedCountByRep = new Map<string, number>();
 	for (const r of (solvedRows ?? []) as any[]) {

@@ -43,16 +43,23 @@ function fakeSupabase(opts: {
 	const fromCalls: string[] = [];
 	const upsertCalls: Array<{ table: string; rows: any; options: any }> = [];
 
+	// Both reads are paginated now (see `fetchAllPages`), so a read chain ends
+	// in `.order(...).range(...)`. Every fixture here is far under one page, so
+	// the exact-count lookup is never reached.
+	const pagedRead = (data: () => any[]) => ({
+		eq: () => ({
+			eq: () => ({
+				order: () => ({ range: () => Promise.resolve({ data: data(), error: null }) })
+			})
+		})
+	});
+
 	const client = {
 		from: (table: string) => {
 			fromCalls.push(table);
 			if (table === 'variation_solved') {
 				return {
-					select: () => ({
-						eq: () => ({
-							eq: () => Promise.resolve({ data: Array.from(solved).map((variation_key) => ({ variation_key })) })
-						})
-					}),
+					select: () => pagedRead(() => Array.from(solved).map((variation_key) => ({ variation_key }))),
 					upsert: (rows: any, options: any) => {
 						upsertCalls.push({ table, rows, options });
 						solved.add((Array.isArray(rows) ? rows[0] : rows).variation_key);
@@ -62,9 +69,7 @@ function fakeSupabase(opts: {
 			}
 			if (table === 'variation_teaching_progress') {
 				return {
-					select: () => ({
-						eq: () => ({ eq: () => Promise.resolve({ data: teachingRows }) })
-					}),
+					select: () => pagedRead(() => teachingRows),
 					upsert: (rows: any, options: any) => {
 						upsertCalls.push({ table, rows, options });
 						return Promise.resolve({ error: null });
