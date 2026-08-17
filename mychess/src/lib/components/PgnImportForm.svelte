@@ -21,6 +21,23 @@
 	let importing = $state(false);
 	let doneCount = $derived(chapters.filter((c) => c.status === 'done').length);
 
+	/**
+	 * Theme-aware colour for a chapter's status glyph. These used to carry no
+	 * colour class at all, so they inherited the default near-black body text —
+	 * which made the ✓ on a completed chapter almost invisible against a dark
+	 * surface. Semantic colours (green/red) keep their light class and add a
+	 * one-step-lighter `dark:` variant, matching how the rest of the app handles
+	 * success/error text; the neutral states use the muted token, which already
+	 * has a dark override.
+	 */
+	function statusIconClass(status: ChapterStatus): string {
+		if (status === 'done') return 'text-green-600 dark:text-green-400';
+		if (status === 'error') return 'text-red-600 dark:text-red-400';
+		// 'importing' and 'pending' are both transient/neutral — the spinner
+		// glyph and the placeholder dot read as secondary information.
+		return 'text-(--color-muted)';
+	}
+
 	function onFileChange(e: Event) {
 		const file = (e.target as HTMLInputElement).files?.[0];
 		if (!file) return;
@@ -186,7 +203,7 @@
 				<span>{importing ? 'Importing…' : 'Import finished'}</span>
 				<span>{doneCount} / {chapters.length}</span>
 			</div>
-			<div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+			<div class="w-full bg-(--color-border) rounded-full h-2 overflow-hidden">
 				<div class="bg-(--color-accent) h-2 transition-all duration-300"
 				     style="width: {(doneCount / chapters.length) * 100}%"></div>
 			</div>
@@ -194,7 +211,7 @@
 				<ul class="text-sm space-y-1 max-h-40 overflow-y-auto">
 					{#each chapters as chapter}
 						<li class="flex items-center gap-2">
-							<span class="w-4 text-center shrink-0">
+							<span class="w-4 text-center shrink-0 {statusIconClass(chapter.status)}">
 								{#if chapter.status === 'done'}✓{:else if chapter.status === 'importing'}⚙{:else if chapter.status === 'error'}✗{:else}·{/if}
 							</span>
 							<span class="truncate {chapter.status === 'error' ? 'text-red-600 dark:text-red-400' : 'text-(--color-text)'}">{chapter.name}</span>

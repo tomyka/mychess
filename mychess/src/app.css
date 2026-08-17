@@ -34,8 +34,18 @@
 /* Pages that cap their content width (e.g. `max-w-5xl mx-auto`) leave the
    surrounding gutters unstyled otherwise — html/body have no background of
    their own, so those gutters fall back to the browser default white,
-   visible as a light strip either side of a dark, width-capped page. */
+   visible as a light strip either side of a dark, width-capped page.
+
+   The `color` matters just as much and was the subtler half: without it, any
+   element that doesn't set its own text colour inherits all the way up to
+   the browser default (black), which is invisible on a dark surface. That is
+   a whole CLASS of bug rather than a one-off — it bit the PGN import
+   progress list's ✓/✗ status glyphs, and would bite any future markup that
+   simply forgets a colour class. Anchoring the default here means "no
+   explicit colour" degrades to readable-in-both-themes instead of
+   black-on-black. */
 html,
 body {
   background-color: var(--color-bg);
+  color: var(--color-text);
 }
