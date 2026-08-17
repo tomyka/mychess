@@ -69,16 +69,16 @@
           </div>
           <p class="text-lg font-bold text-(--color-text) mt-0.5">{entry.rating ?? '–'}</p>
           <div class="flex mt-1 border-t border-(--color-border) pt-1">
-            <div class="flex-1 border-r border-(--color-border)">
-              <p class="text-[11px] font-semibold text-(--color-text)">{entry.countryRank != null ? `#${entry.countryRank}` : 'N/A'}</p>
+            <div class="flex-1 min-w-0 border-r border-(--color-border)">
+              <p class="text-[11px] font-semibold text-(--color-text) truncate" title={entry.countryRank != null ? `#${entry.countryRank}` : undefined}>{entry.countryRank != null ? `#${entry.countryRank}` : 'N/A'}</p>
               <p class="text-[8px] text-(--color-muted)">LTU</p>
             </div>
-            <div class="flex-1 border-r border-(--color-border)">
-              <p class="text-[11px] font-semibold text-(--color-text)">{entry.ageGroupRank != null ? `#${entry.ageGroupRank}` : 'N/A'}</p>
+            <div class="flex-1 min-w-0 border-r border-(--color-border)">
+              <p class="text-[11px] font-semibold text-(--color-text) truncate" title={entry.ageGroupRank != null ? `#${entry.ageGroupRank}` : undefined}>{entry.ageGroupRank != null ? `#${entry.ageGroupRank}` : 'N/A'}</p>
               <p class="text-[8px] text-(--color-muted)">AGE</p>
             </div>
-            <div class="flex-1">
-              <p class="text-[11px] font-semibold text-(--color-text)">{entry.europeAgeGroupRank != null ? `#${entry.europeAgeGroupRank}` : 'N/A'}</p>
+            <div class="flex-1 min-w-0">
+              <p class="text-[11px] font-semibold text-(--color-text) truncate" title={entry.europeAgeGroupRank != null ? `#${entry.europeAgeGroupRank}` : undefined}>{entry.europeAgeGroupRank != null ? `#${entry.europeAgeGroupRank}` : 'N/A'}</p>
               <p class="text-[8px] text-(--color-muted)">EUR</p>
             </div>
           </div>
