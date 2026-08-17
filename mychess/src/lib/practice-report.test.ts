@@ -1,6 +1,12 @@
 // mychess/src/lib/practice-report.test.ts
 import { describe, it, expect } from 'vitest';
-import { accuracyTrend, mistakeHotspots, activityStats, formatMoveLabel } from './practice-report';
+import {
+	accuracyTrend,
+	mistakeHotspots,
+	rankMistakeHotspots,
+	activityStats,
+	formatMoveLabel
+} from './practice-report';
 
 function row(moveId: string, isCorrect: boolean, createdAt: string) {
 	return { moveId, isCorrect, createdAt };
@@ -48,6 +54,51 @@ describe('accuracyTrend', () => {
 
 	it('returns an empty array for no rows', () => {
 		expect(accuracyTrend([], 30)).toEqual([]);
+	});
+});
+
+describe('rankMistakeHotspots', () => {
+	// Exists so a caller can fetch labels for ONLY the moves that will actually
+	// be shown, instead of one row per distinct move in the whole range.
+	it('returns at most `limit` entries, so a label fetch scales with the limit not the repertoire', () => {
+		const rows = Array.from({ length: 50 }, (_, i) => row(`m${i}`, false, '2026-08-01T10:00:00Z'));
+		const ranked = rankMistakeHotspots(rows, 10);
+		expect(ranked).toHaveLength(10);
+	});
+
+	it('excludes moves that were never missed', () => {
+		const rows = [row('miss', false, '2026-08-01T10:00:00Z'), row('clean', true, '2026-08-01T10:00:00Z')];
+		expect(rankMistakeHotspots(rows, 10).map((h) => h.moveId)).toEqual(['miss']);
+	});
+
+	it('ranks by miss count descending, then attempt count, then moveId', () => {
+		const rows = [
+			row('a', false, '2026-08-01T10:00:00Z'),
+			row('b', false, '2026-08-01T10:00:00Z'),
+			row('b', false, '2026-08-01T10:00:00Z'),
+			row('c', false, '2026-08-01T10:00:00Z'),
+			row('c', true, '2026-08-01T10:00:00Z')
+		];
+		// b: 2 misses. c: 1 miss / 2 attempts. a: 1 miss / 1 attempt.
+		expect(rankMistakeHotspots(rows, 10).map((h) => h.moveId)).toEqual(['b', 'c', 'a']);
+	});
+
+	it('agrees with mistakeHotspots on which moves make the cut', () => {
+		// The two must not drift: the server ranks first to decide what labels to
+		// fetch, then mistakeHotspots re-ranks to build the output. If they
+		// disagreed, a shown hotspot could be missing its label.
+		const rows = [
+			row('m1', false, '2026-08-01T10:00:00Z'),
+			row('m1', false, '2026-08-01T10:00:00Z'),
+			row('m2', false, '2026-08-01T10:00:00Z')
+		];
+		const labels = new Map([
+			['m1', { san: 'e5', moveNumber: 12 }],
+			['m2', { san: 'Nf3', moveNumber: 11 }]
+		]);
+		const rankedIds = rankMistakeHotspots(rows, 10).map((h) => h.moveId);
+		const hotspotIds = mistakeHotspots(rows, labels, 10).map((h) => h.moveId);
+		expect(hotspotIds).toEqual(rankedIds);
 	});
 });
 

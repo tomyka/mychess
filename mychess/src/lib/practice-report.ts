@@ -1,6 +1,5 @@
 // mychess/src/lib/practice-report.ts
 
-export type MoveAttemptRow = { moveId: string; isCorrect: boolean; createdAt: string };
 export type MoveLabel = { san: string; moveNumber: number };
 export type AccuracyPoint = { bucket: string; correct: number; wrong: number };
 export type Hotspot = { moveId: string; label: string; missCount: number; attemptCount: number };
@@ -52,17 +51,22 @@ export function formatMoveLabel(moveNumber: number, san: string): string {
 }
 
 /**
- * Ranks moves by wrong-attempt count, descending; ties break by total
- * attempt count, then by `moveId` for a stable order. `labels` supplies the
- * human-readable san/moveNumber for each `moveId` — one missing from it
- * (shouldn't happen; every attempt logs a real move) is skipped rather than
- * shown with a blank label.
+ * The top `limit` most-missed moves, ranked by wrong-attempt count descending;
+ * ties break by total attempt count, then by `moveId` for a stable order.
+ * Moves that were never missed are excluded entirely.
+ *
+ * Split out from `mistakeHotspots` so a caller can learn WHICH moves it needs
+ * human-readable labels for before fetching any: the label lookup is a DB
+ * query, and fetching one row per distinct move that merely *appears* in the
+ * range scales with repertoire size, when only these `limit` are ever shown.
+ * That also removed a latent `max_rows` truncation risk — an `.in(...)` over
+ * every distinct move id would silently drop labels past PostgREST's 1000-row
+ * cap for a large enough repertoire.
  */
-export function mistakeHotspots(
+export function rankMistakeHotspots(
 	rows: Array<{ moveId: string; isCorrect: boolean }>,
-	labels: Map<string, MoveLabel>,
 	limit: number
-): Hotspot[] {
+): Array<{ moveId: string; missCount: number; attemptCount: number }> {
 	const counts = new Map<string, { missCount: number; attemptCount: number }>();
 	for (const row of rows) {
 		const entry = counts.get(row.moveId) ?? { missCount: 0, attemptCount: 0 };
@@ -71,16 +75,30 @@ export function mistakeHotspots(
 		counts.set(row.moveId, entry);
 	}
 
-	const ranked = [...counts.entries()]
+	return [...counts.entries()]
 		.filter(([, c]) => c.missCount > 0)
 		.sort(([aId, a], [bId, b]) => b.missCount - a.missCount || b.attemptCount - a.attemptCount || (aId < bId ? -1 : 1))
-		.slice(0, limit);
+		.slice(0, limit)
+		.map(([moveId, c]) => ({ moveId, missCount: c.missCount, attemptCount: c.attemptCount }));
+}
 
+/**
+ * `rankMistakeHotspots` with each entry's human-readable label attached.
+ * `labels` supplies the san/moveNumber for each `moveId` — one missing from it
+ * (shouldn't happen; every attempt logs a real move) is skipped rather than
+ * shown with a blank label. Callers that fetch labels lazily need only supply
+ * labels for `rankMistakeHotspots(rows, limit)`'s own ids.
+ */
+export function mistakeHotspots(
+	rows: Array<{ moveId: string; isCorrect: boolean }>,
+	labels: Map<string, MoveLabel>,
+	limit: number
+): Hotspot[] {
 	const hotspots: Hotspot[] = [];
-	for (const [moveId, c] of ranked) {
+	for (const { moveId, missCount, attemptCount } of rankMistakeHotspots(rows, limit)) {
 		const label = labels.get(moveId);
 		if (!label) continue;
-		hotspots.push({ moveId, missCount: c.missCount, attemptCount: c.attemptCount, label: formatMoveLabel(label.moveNumber, label.san) });
+		hotspots.push({ moveId, missCount, attemptCount, label: formatMoveLabel(label.moveNumber, label.san) });
 	}
 	return hotspots;
 }

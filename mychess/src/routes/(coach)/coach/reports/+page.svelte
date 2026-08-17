@@ -12,7 +12,12 @@
 		<a href="/coach" class="text-(--color-muted) text-sm hover:text-gray-600 dark:hover:text-gray-400 block">← Back to Dashboard</a>
 		<div>
 			<h1 class="text-2xl font-bold text-(--color-text)">Practice Reports</h1>
-			<p class="text-(--color-muted) text-sm">Last 30 days</p>
+			<!-- Scope matters and used to be implicit: these figures are summed
+			     ACROSS every repertoire a student has, whereas the per-repertoire
+			     cards on the student's own page below count each repertoire
+			     separately. A day spent on two repertoires is one session here
+			     and two there, so both pages now say which they mean. -->
+			<p class="text-(--color-muted) text-sm">Last 30 days · across all repertoires</p>
 		</div>
 
 		{#if students.length === 0}

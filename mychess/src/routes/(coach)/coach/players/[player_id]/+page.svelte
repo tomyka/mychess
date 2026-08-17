@@ -86,9 +86,14 @@
         <div class="space-y-4">
           {#each data.practiceReports as pr (pr.repertoireId ?? pr.repertoireName)}
             <div class="bg-(--color-bg) rounded-lg p-4">
+              <!-- Counted for THIS repertoire only — the roster on
+                   /coach/reports sums the same-named figures across all of a
+                   student's repertoires, so the two pages legitimately differ
+                   and each now states its scope. -->
               <h3 class="font-medium text-(--color-text) text-sm mb-3">
                 {pr.repertoireName}
                 <span class="text-(--color-muted) font-normal">— {pr.total > 0 ? `${pr.solved}/${pr.total} solved` : 'no moves yet'}</span>
+                <span class="block text-xs text-(--color-muted) font-normal mt-0.5">This repertoire only</span>
               </h3>
 
               {#if !pr.report || pr.report.accuracy.length === 0}

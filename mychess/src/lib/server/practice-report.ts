@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
 	accuracyTrend,
 	mistakeHotspots,
+	rankMistakeHotspots,
 	activityStats,
 	type AccuracyPoint,
 	type Hotspot,
@@ -73,9 +74,18 @@ export async function loadRepertoireReport(
 
 	const rangeDays = sinceIso ? Math.round((now.getTime() - new Date(sinceIso).getTime()) / (24 * 60 * 60 * 1000)) : null;
 
-	const distinctMoveIds = [...new Set(rows.map((r) => r.moveId))];
-	const { data: moveRows } = distinctMoveIds.length
-		? await supabase.from('moves').select('id, san, move_number').in('id', distinctMoveIds)
+	// Rank FIRST, then fetch labels only for the winners. Ranking is pure and
+	// in-memory, so doing it before the query costs nothing, while fetching a
+	// label row for every move that merely appears in the range scaled with
+	// repertoire size for a list that only ever shows HOTSPOT_LIMIT entries.
+	// It also removed a latent truncation bug: an `.in(...)` over every
+	// distinct move id silently drops rows past PostgREST's 1000-row
+	// `max_rows` cap once a repertoire has that many distinct moves, which
+	// would have quietly blanked hotspot labels on exactly the biggest
+	// repertoires. Bounded at HOTSPOT_LIMIT ids, that can no longer happen.
+	const rankedMoveIds = rankMistakeHotspots(rows, HOTSPOT_LIMIT).map((h) => h.moveId);
+	const { data: moveRows } = rankedMoveIds.length
+		? await supabase.from('moves').select('id, san, move_number').in('id', rankedMoveIds)
 		: { data: [] as any[] };
 	const labels = new Map((moveRows ?? []).map((m: any) => [m.id as string, { san: m.san as string, moveNumber: m.move_number as number }]));
 
