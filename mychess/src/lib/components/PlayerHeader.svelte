@@ -45,9 +45,13 @@
        onto their own row on narrow screens, per the outer container's
        `flex-wrap`) keeps them from squeezing onto the identity row's
        leftover space instead, which used to force both this row's fixed
-       92px-per-tile width AND the identity text into far too little room. -->
+       92px-per-tile width AND the identity text into far too little room.
+       `flex-wrap` here too: three 124px tiles + gaps (~388px) is wider than
+       the smallest real phone viewports (~360-375px) once the card's own
+       padding is subtracted, so on those widths the third tile wraps to its
+       own row rather than overflowing past the card's border. -->
   {#if p?.fide_id}
-    <div class="flex gap-2 w-full justify-center sm:w-auto sm:justify-start sm:shrink-0">
+    <div class="flex flex-wrap gap-2 w-full justify-center sm:w-auto sm:justify-start sm:shrink-0">
       {#each TILES as tile (tile.key)}
         {@const entry = tileFor(tile.key)}
         <div class="w-[124px] text-center bg-(--color-bg) border border-gray-100 rounded-lg px-1 py-2">

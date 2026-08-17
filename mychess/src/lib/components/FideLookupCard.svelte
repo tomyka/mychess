@@ -14,12 +14,10 @@
   }>();
 
   const p = $derived(result?.player ?? null);
-  const ageLabel = $derived(
-    p?.ageBracket && p.ageBracket !== 'open' ? `${p.ageBracket} rank` : 'Age group rank'
-  );
-  const europeAgeLabel = $derived(
-    p?.ageBracket && p.ageBracket !== 'open' ? `${p.ageBracket} rank (Europe)` : 'Age group rank (Europe)'
-  );
+  const labelFor = (suffix: string) =>
+    p?.ageBracket && p.ageBracket !== 'open' ? `${p.ageBracket} rank${suffix}` : `Age group rank${suffix}`;
+  const ageLabel = $derived(labelFor(''));
+  const europeAgeLabel = $derived(labelFor(' (Europe)'));
   const rank = (n: number | null | undefined) => (n != null ? `#${n}` : '––');
 
   let q = $state(query);
