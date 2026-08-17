@@ -123,8 +123,12 @@ describe('VariationPicker', () => {
 	});
 
 	it('skips the chapter level entirely when no variation carries a chapter, still bucketing by the first-5-moves window', async () => {
+		// v1/v1b share the whole 10-ply window, so they bucket together and that
+		// bucket is shown by its shared move sequence. v2 is alone in its own
+		// bucket, so it renders as the variation it effectively is.
 		const flat = [
-			row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7'], []),
+			row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], []),
+			row('v1b', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'd3'], []),
 			row('v2', ['d4', 'd5'], [])
 		];
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => flat });
@@ -132,8 +136,34 @@ describe('VariationPicker', () => {
 		render(VariationPicker, { props: { repertoireId: 'rep-1', onselect: vi.fn(), onclose: vi.fn() } });
 
 		await waitFor(() => expect(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6 3\.Bb5 a6 4\.Ba4 Nf6 5\.O-O Be7/)).toBeTruthy());
-		expect(screen.getByText(/1\.d4 d5/)).toBeTruthy();
+		expect(screen.getByText('(2)')).toBeTruthy(); // the shared bucket still groups by the window
+		expect(screen.getByText('label:v2')).toBeTruthy(); // bucket of one -> shown as its own line
 		expect(screen.queryByText('(chapter)', { exact: false })).toBeNull();
+	});
+
+	it('a bucket holding a single line selects it directly instead of drilling into a list of one', async () => {
+		// A bucket's button is labelled with its shared opening moves, so a bucket
+		// of one already reads as a variation — drilling in only ever showed one
+		// row with a near-identical label, which felt like a pointless second
+		// popup of the same information.
+		const single = [row('v1', ['e4', 'e5', 'Nf3'], ['Ruy Lopez'], { solved: true })];
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => single });
+		vi.stubGlobal('fetch', fetchSpy);
+		const onselect = vi.fn();
+		render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onclose: vi.fn() } });
+
+		await waitFor(() => screen.getByText('Ruy Lopez'));
+		await fireEvent.click(screen.getByText('Ruy Lopez'));
+
+		// Rendered like a variation row: its own full label, its solved tick, and
+		// no "(1)" count — not like a folder.
+		const soleRow = screen.getByText('label:v1').closest('button')!;
+		expect(soleRow.textContent).toContain('✓');
+		expect(screen.queryByText('(1)')).toBeNull();
+
+		// One click straight into practice — no intermediate tier.
+		await fireEvent.click(soleRow);
+		expect(onselect).toHaveBeenCalledWith('v1');
 	});
 
 	it('shows a line belonging to two chapters under BOTH of them, selectable from either', async () => {
@@ -148,18 +178,17 @@ describe('VariationPicker', () => {
 		const onselect = vi.fn();
 		render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onclose: vi.fn() } });
 
+		// v1 is alone in its bucket under each chapter, so it's one click from the
+		// chapter list to practice — no bucket tier in between.
 		await waitFor(() => screen.getByText('Ruy Lopez'));
 		await fireEvent.click(screen.getByText('Ruy Lopez'));
-		await fireEvent.click(screen.getByText(/1\.e4 e5 2\.Nf3/));
 		expect(screen.getByText('label:v1')).toBeTruthy();
 		await fireEvent.click(screen.getByText('label:v1'));
 		expect(onselect).toHaveBeenCalledWith('v1');
 
 		// Back out to the chapter list and reach the same line via the other chapter.
 		await fireEvent.click(screen.getByText('← Back'));
-		await fireEvent.click(screen.getByText('← Back'));
 		await fireEvent.click(screen.getByText('Italian Game'));
-		await fireEvent.click(screen.getByText(/1\.e4 e5 2\.Nf3/));
 		expect(screen.getByText('label:v1')).toBeTruthy();
 	});
 
@@ -178,8 +207,7 @@ describe('VariationPicker', () => {
 		expect(tiers).toEqual(['✕', 'Ruy Lopez', UNTAGGED_CHAPTER]); // untagged bucket last
 
 		await fireEvent.click(screen.getByText(UNTAGGED_CHAPTER));
-		await fireEvent.click(screen.getByText(/1\.d4 d5/));
-		await fireEvent.click(screen.getByText('label:v2'));
+		await fireEvent.click(screen.getByText('label:v2')); // sole line in its bucket — selects directly
 		expect(onselect).toHaveBeenCalledWith('v2');
 	});
 
@@ -214,8 +242,9 @@ describe('VariationPicker', () => {
 
 		await waitFor(() => screen.getByText('Ruy Lopez'));
 		await fireEvent.click(screen.getByText('Ruy Lopez'));
-		await fireEvent.click(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6 3\.Bb5 a6 4\.Ba4 Nf6 5\.O-O Be7/));
 
+		// Excluding v2 leaves v1 alone in the bucket, so it surfaces directly
+		// rather than behind a drill-in — and v2 is nowhere to be found.
 		expect(screen.getByText('label:v1')).toBeTruthy();
 		expect(screen.queryByText('label:v2')).toBeNull();
 	});

@@ -76,6 +76,19 @@
 		return group.steps.length > 0 ? moveSequenceLabel(group.steps) : 'Other';
 	}
 
+	/**
+	 * The single variation a move-group holds, or null if it holds several.
+	 *
+	 * A group's button is labelled with its shared opening moves, so a group of
+	 * one reads as a variation already — drilling into it just showed a list of
+	 * one row with a near-identical label (identical, for any line no longer
+	 * than the grouping window). Groups of one are therefore selected directly
+	 * instead, skipping a tier that carried no new information.
+	 */
+	function soleVariation(group: MoveGroup<VariationRow>): VariationRow | null {
+		return group.items.length === 1 ? group.items[0] : null;
+	}
+
 	const activeChapter = $derived(chapters === null ? null : openChapter);
 	const currentGroups = $derived(activeChapter !== null || chapters === null ? moveGroups(activeChapter) : []);
 	const openGroup = $derived(openGroupIndex !== null ? currentGroups[openGroupIndex] ?? null : null);
@@ -115,12 +128,24 @@
 			{/if}
 			<ul class="space-y-1">
 				{#each currentGroups as group, i (group.steps.map((s) => s.san).join('>') || `other-${i}`)}
+					{@const only = soleVariation(group)}
 					<li>
+						<!-- A group of one IS a variation, so it selects straight into
+						     practice and renders like a variation row (own full label,
+						     solved tick, no count) rather than as a folder holding one
+						     item. Groups of several still drill in. -->
 						<button
-							onclick={() => (openGroupIndex = i)}
-							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 font-medium text-(--color-text)"
+							onclick={() => (only ? onselect(only.variationKey) : (openGroupIndex = i))}
+							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) flex items-center justify-between {only
+								? ''
+								: 'font-medium'}"
 						>
-							{groupLabel(group)} <span class="text-(--color-muted) text-sm">({group.items.length})</span>
+							<span>{only ? only.label : groupLabel(group)}</span>
+							{#if only}
+								{#if only.solved}<span class="text-green-600 dark:text-green-400 text-sm">✓</span>{/if}
+							{:else}
+								<span class="text-(--color-muted) text-sm">({group.items.length})</span>
+							{/if}
 						</button>
 					</li>
 				{/each}
