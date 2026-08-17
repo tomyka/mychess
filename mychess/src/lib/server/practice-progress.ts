@@ -150,8 +150,9 @@ export async function saveTeachingProgress(
 
 /**
  * Records that the player just attempted this variation, regardless of
- * outcome — the only unconditional write in the attempt-completion flow
- * (unlike `applyAttemptResult`, which is a true no-op on a mistake). Only
+ * outcome — the only unconditional write to `variation_teaching_progress`
+ * in the attempt-completion flow (unlike `applyAttemptResult`, which is a
+ * true no-op on a mistake). Only
  * `updated_at` is included in the upsert payload, so an existing row's real
  * `taught_plies`/`mastered_plies` are left exactly as they were; a variation
  * with no row yet gets one created with the table's own 0/0 defaults, which
