@@ -398,7 +398,15 @@
 		{/if}
 	</div>
 
-	{#if data.allSolved && data.total > 0}
+	<!-- `!attempt` is load-bearing: re-drilling from the solved screen keeps
+	     `allSolved` true (picking a variation deliberately doesn't un-solve
+	     anything), and the server signals the re-drill by returning a real
+	     `attempt` anyway — `/api/practice/select-variation` passes
+	     `forceAttempt: true`, which makes `buildPracticeView` build an attempt
+	     despite the repertoire being complete. Without this guard the solved
+	     screen kept winning the branch, so "Re-drill a specific variation"
+	     closed the picker and appeared to do nothing. -->
+	{#if data.allSolved && data.total > 0 && !attempt}
 		<div class="flex flex-col items-center gap-6 text-center py-16">
 			<p class="text-7xl">🏆</p>
 			<h1 class="text-3xl font-bold text-(--color-text)">Repertoire Solved!</h1>

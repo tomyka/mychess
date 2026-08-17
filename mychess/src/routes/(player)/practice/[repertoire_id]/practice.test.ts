@@ -126,6 +126,44 @@ describe('practice detail page', () => {
 		expect(screen.getByText('Re-drill a specific variation')).toBeTruthy();
 	});
 
+	it('shows the board, not the solved screen, when re-drilling a variation from a completed repertoire', () => {
+		// Regression: picking a variation to re-drill deliberately does NOT
+		// un-solve anything, so `allSolved` stays true. The server signals the
+		// re-drill by returning a real `attempt` anyway
+		// (/api/practice/select-variation passes forceAttempt: true, which makes
+		// buildPracticeView build one despite the repertoire being complete).
+		// The template used to branch on `allSolved` alone, so the trophy screen
+		// kept winning and "Re-drill a specific variation" appeared to do
+		// nothing at all.
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 5,
+					total: 5,
+					allSolved: true,
+					attempt: {
+						variationKey: 'v1',
+						path: [
+							{
+								moveId: 'm1',
+								san: 'e4',
+								fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+								toFen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+								isPlayerTurn: true
+							}
+						]
+					}
+				}
+			}
+		});
+		expect(screen.queryByText(/Repertoire Solved/i)).toBeNull();
+		// The practice chrome renders instead (name/progress appear twice — once
+		// in the mobile card, once in the desktop sidebar).
+		expect(screen.getAllByText('French Defense').length).toBe(2);
+		expect(screen.getAllByText('5 / 5 variations solved').length).toBe(2);
+	});
+
 	it('shows the repertoire name and solved/total progress while an attempt is in flight', () => {
 		render(Practice, {
 			props: {
