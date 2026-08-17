@@ -16,14 +16,16 @@ const player = {
   name: 'Carlsen, Magnus',
   stdRating: 2839, rapidRating: 2828, blitzRating: 2887,
   countryRankStandard: 1, countryRankRapid: 2, countryRankBlitz: 3,
-  ageBracket: 'U18', ageGroupRankStandard: 4, ageGroupRankRapid: 5, ageGroupRankBlitz: 6
+  ageBracket: 'U18', ageGroupRankStandard: 4, ageGroupRankRapid: 5, ageGroupRankBlitz: 6,
+  europeAgeGroupRankStandard: 7, europeAgeGroupRankRapid: 8, europeAgeGroupRankBlitz: 9
 };
 
 const noBirthYear = {
   name: 'No Birthday',
   stdRating: 1500, rapidRating: null, blitzRating: null,
   countryRankStandard: 10, countryRankRapid: null, countryRankBlitz: null,
-  ageBracket: null, ageGroupRankStandard: null, ageGroupRankRapid: null, ageGroupRankBlitz: null
+  ageBracket: null, ageGroupRankStandard: null, ageGroupRankRapid: null, ageGroupRankBlitz: null,
+  europeAgeGroupRankStandard: null, europeAgeGroupRankRapid: null, europeAgeGroupRankBlitz: null
 };
 
 describe('FideLookupCard', () => {
@@ -49,13 +51,21 @@ describe('FideLookupCard', () => {
 
   it('shows the age-group rank row labelled with the bracket', () => {
     render(FideLookupCard, { props: { query: '1503014', result: { found: true, player } } });
-    expect(screen.getByText(/U18 rank/i)).toBeTruthy();
+    expect(screen.getByText(/^U18 rank$/i)).toBeTruthy();
     expect(screen.getByText('#4')).toBeTruthy();
     expect(screen.getByText('#5')).toBeTruthy();
     expect(screen.getByText('#6')).toBeTruthy();
   });
 
-  it('omits the age-group row when the bracket is unknown', () => {
+  it('shows the Europe age-group rank row labelled with the bracket', () => {
+    render(FideLookupCard, { props: { query: '1503014', result: { found: true, player } } });
+    expect(screen.getByText(/U18 rank \(Europe\)/i)).toBeTruthy();
+    expect(screen.getByText('#7')).toBeTruthy();
+    expect(screen.getByText('#8')).toBeTruthy();
+    expect(screen.getByText('#9')).toBeTruthy();
+  });
+
+  it('omits both age-group rows when the bracket is unknown', () => {
     render(FideLookupCard, { props: { query: '9', result: { found: true, player: noBirthYear } } });
     expect(screen.getByText('#10')).toBeTruthy(); // national rank row still present
     expect(screen.queryByText(/U\d+ rank|Age group rank/i)).toBeNull();
