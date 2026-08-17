@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ageBracket, computeRanks } from './rank';
+import { ageBracket, computeRanks, createEuropeRankAccumulator, attachEuropeRanks } from './rank';
 import type { FidePlayer } from './parse';
 
 describe('ageBracket', () => {
@@ -115,5 +115,90 @@ describe('computeRanks', () => {
     ], YEAR);
     const byId = Object.fromEntries(ranked.map(r => [r.fideId, r.countryRankStandard]));
     expect(byId).toEqual({ a: 1, b: 2 });
+  });
+});
+
+describe('createEuropeRankAccumulator', () => {
+  const YEAR = 2026;
+
+  it('ranks by count of strictly-higher ratings within the same bracket', () => {
+    const acc = createEuropeRankAccumulator(YEAR);
+    const players = [
+      player({ fideId: 'a', birthYear: 2010, stdRating: 1800 }), // U16
+      player({ fideId: 'b', birthYear: 2010, stdRating: 2200 }),
+      player({ fideId: 'c', birthYear: 2010, stdRating: 2000 })
+    ];
+    players.forEach((p) => acc.add(p));
+    acc.finalize();
+    expect(acc.rankOf(players[1], 'standard')).toBe(1); // 2200
+    expect(acc.rankOf(players[2], 'standard')).toBe(2); // 2000
+    expect(acc.rankOf(players[0], 'standard')).toBe(3); // 1800
+  });
+
+  it('gives tied ratings the same rank', () => {
+    const acc = createEuropeRankAccumulator(YEAR);
+    const players = [
+      player({ fideId: 'a', birthYear: 2010, stdRating: 2000 }),
+      player({ fideId: 'b', birthYear: 2010, stdRating: 2000 })
+    ];
+    players.forEach((p) => acc.add(p));
+    acc.finalize();
+    expect(acc.rankOf(players[0], 'standard')).toBe(1);
+    expect(acc.rankOf(players[1], 'standard')).toBe(1);
+  });
+
+  it('keeps age brackets independent', () => {
+    const acc = createEuropeRankAccumulator(YEAR);
+    const u16 = player({ fideId: 'junior', birthYear: 2010, stdRating: 2200 });
+    const adult = player({ fideId: 'adult', birthYear: 1990, stdRating: 1000 });
+    [u16, adult].forEach((p) => acc.add(p));
+    acc.finalize();
+    expect(acc.rankOf(u16, 'standard')).toBe(1);
+    expect(acc.rankOf(adult, 'standard')).toBe(1);
+  });
+
+  it('returns null for players with no bracket or no rating for that kind', () => {
+    const acc = createEuropeRankAccumulator(YEAR);
+    const noBracket = player({ fideId: 'a', birthYear: null, stdRating: 2000 });
+    const unrated = player({ fideId: 'b', birthYear: 2010, stdRating: null });
+    [noBracket, unrated].forEach((p) => acc.add(p));
+    acc.finalize();
+    expect(acc.rankOf(noBracket, 'standard')).toBeNull();
+    expect(acc.rankOf(unrated, 'standard')).toBeNull();
+  });
+
+  it('ranks each rating kind independently', () => {
+    const acc = createEuropeRankAccumulator(YEAR);
+    const a = player({ fideId: 'a', birthYear: 2010, stdRating: 1000, rapidRating: 2000 });
+    const b = player({ fideId: 'b', birthYear: 2010, stdRating: 2000, rapidRating: 1000 });
+    [a, b].forEach((p) => acc.add(p));
+    acc.finalize();
+    expect(acc.rankOf(a, 'standard')).toBe(2);
+    expect(acc.rankOf(b, 'standard')).toBe(1);
+    expect(acc.rankOf(a, 'rapid')).toBe(1);
+    expect(acc.rankOf(b, 'rapid')).toBe(2);
+  });
+
+  it('throws if rankOf is called before finalize', () => {
+    const acc = createEuropeRankAccumulator(YEAR);
+    expect(() => acc.rankOf(player({ fideId: 'a' }), 'standard')).toThrow();
+  });
+});
+
+describe('attachEuropeRanks', () => {
+  it('attaches europe age-group ranks onto each ranked player, scored against the wider European pool', () => {
+    const YEAR = 2026;
+    const ltu = [player({ fideId: 'ltu1', birthYear: 2010, stdRating: 1800 })];
+
+    const acc = createEuropeRankAccumulator(YEAR);
+    // A stronger German junior who is never stored, but still counts toward the Europe rank.
+    acc.add(player({ fideId: 'ger1', federation: 'GER', birthYear: 2010, stdRating: 2200 }));
+    ltu.forEach((p) => acc.add(p));
+    acc.finalize();
+
+    const ranked = computeRanks(ltu, YEAR);
+    const withEurope = attachEuropeRanks(ranked, acc);
+    expect(withEurope[0].europeAgeGroupRankStandard).toBe(2);
+    expect(withEurope[0].europeAgeGroupRankRapid).toBeNull(); // unrated in rapid
   });
 });

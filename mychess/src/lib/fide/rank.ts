@@ -71,6 +71,9 @@ export type FideRatingRow = {
   age_group_rank_standard: number | null;
   age_group_rank_rapid: number | null;
   age_group_rank_blitz: number | null;
+  europe_age_group_rank_standard: number | null;
+  europe_age_group_rank_rapid: number | null;
+  europe_age_group_rank_blitz: number | null;
 };
 
 export type FideRatingProfile = {
@@ -85,6 +88,9 @@ export type FideRatingProfile = {
   ageGroupRankStandard: number | null;
   ageGroupRankRapid: number | null;
   ageGroupRankBlitz: number | null;
+  europeAgeGroupRankStandard: number | null;
+  europeAgeGroupRankRapid: number | null;
+  europeAgeGroupRankBlitz: number | null;
 };
 
 /** Maps a `fide_players` row's snake_case rating/rank columns to camelCase. */
@@ -100,7 +106,10 @@ export function mapFideRow(row: FideRatingRow): FideRatingProfile {
     ageBracket: row.age_bracket,
     ageGroupRankStandard: row.age_group_rank_standard,
     ageGroupRankRapid: row.age_group_rank_rapid,
-    ageGroupRankBlitz: row.age_group_rank_blitz
+    ageGroupRankBlitz: row.age_group_rank_blitz,
+    europeAgeGroupRankStandard: row.europe_age_group_rank_standard,
+    europeAgeGroupRankRapid: row.europe_age_group_rank_rapid,
+    europeAgeGroupRankBlitz: row.europe_age_group_rank_blitz
   };
 }
 
@@ -118,5 +127,119 @@ export function computeRanks(players: FidePlayer[], currentYear: number): Ranked
     ageGroupRankStandard: std.ageGroupRankById.get(p.fideId) ?? null,
     ageGroupRankRapid: rapid.ageGroupRankById.get(p.fideId) ?? null,
     ageGroupRankBlitz: blitz.ageGroupRankById.get(p.fideId) ?? null,
+  }));
+}
+
+export type RatingKind = 'standard' | 'rapid' | 'blitz';
+
+const RATING_ACCESSORS: Record<RatingKind, (p: FidePlayer) => number | null> = {
+  standard: (p) => p.stdRating,
+  rapid: (p) => p.rapidRating,
+  blitz: (p) => p.blitzRating,
+};
+
+interface FinalizedBucket {
+  /** Distinct ratings observed in this (kind, bracket), sorted descending. */
+  ratingsDesc: number[];
+  /** cumAbove[i] = count of players with a rating strictly greater than ratingsDesc[i]. */
+  cumAbove: number[];
+}
+
+export interface RankedPlayerWithEurope extends RankedPlayer {
+  europeAgeGroupRankStandard: number | null;
+  europeAgeGroupRankRapid: number | null;
+  europeAgeGroupRankBlitz: number | null;
+}
+
+export interface EuropeRankAccumulator {
+  /** Feed one European-federation player's ratings into the running counts. */
+  add(p: FidePlayer): void;
+  /** Freezes the counts into a queryable form. Call once, after all `add()` calls. */
+  finalize(): void;
+  /** Europe-wide rank within `p`'s own age bracket for one rating kind, or null if `p` has no bracket or no rating of that kind. */
+  rankOf(p: FidePlayer, kind: RatingKind): number | null;
+}
+
+function rankFromFinalizedBucket(bucket: FinalizedBucket, rating: number): number | null {
+  // Binary search a descending array: values to the left are larger, so when
+  // ratingsDesc[mid] is greater than the target the target (if present) is
+  // further right.
+  let lo = 0;
+  let hi = bucket.ratingsDesc.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (bucket.ratingsDesc[mid] === rating) return bucket.cumAbove[mid] + 1;
+    if (bucket.ratingsDesc[mid] > rating) lo = mid + 1;
+    else hi = mid - 1;
+  }
+  return null;
+}
+
+/**
+ * Ranks players against the full European rated population using O(distinct
+ * rating values) memory per (rating kind, age bracket) bucket, rather than
+ * retaining every European player in memory — see the design spec for why
+ * that distinction matters at FIDE's scale.
+ */
+export function createEuropeRankAccumulator(currentYear: number): EuropeRankAccumulator {
+  const buckets: Record<RatingKind, Map<AgeBracket, Map<number, number>>> = {
+    standard: new Map(),
+    rapid: new Map(),
+    blitz: new Map(),
+  };
+  let finalized: Record<RatingKind, Map<AgeBracket, FinalizedBucket>> | null = null;
+
+  return {
+    add(p) {
+      const bracket = ageBracket(p.birthYear, currentYear);
+      if (!bracket) return;
+      for (const kind of ['standard', 'rapid', 'blitz'] as const) {
+        const rating = RATING_ACCESSORS[kind](p);
+        if (rating == null) continue;
+        let byBracket = buckets[kind].get(bracket);
+        if (!byBracket) buckets[kind].set(bracket, (byBracket = new Map()));
+        byBracket.set(rating, (byBracket.get(rating) ?? 0) + 1);
+      }
+    },
+
+    finalize() {
+      finalized = { standard: new Map(), rapid: new Map(), blitz: new Map() };
+      for (const kind of ['standard', 'rapid', 'blitz'] as const) {
+        for (const [bracket, counts] of buckets[kind]) {
+          const ratingsDesc = [...counts.keys()].sort((a, b) => b - a);
+          const cumAbove: number[] = [];
+          let running = 0;
+          for (const rating of ratingsDesc) {
+            cumAbove.push(running);
+            running += counts.get(rating)!;
+          }
+          finalized[kind].set(bracket, { ratingsDesc, cumAbove });
+        }
+      }
+    },
+
+    rankOf(p, kind) {
+      if (!finalized) throw new Error('EuropeRankAccumulator.rankOf() called before finalize()');
+      const bracket = ageBracket(p.birthYear, currentYear);
+      if (!bracket) return null;
+      const rating = RATING_ACCESSORS[kind](p);
+      if (rating == null) return null;
+      const bucket = finalized[kind].get(bracket);
+      if (!bucket) return null;
+      return rankFromFinalizedBucket(bucket, rating);
+    },
+  };
+}
+
+/** Attaches each player's Europe age-group rank, computed against `acc` (which must already be finalized). */
+export function attachEuropeRanks(
+  players: RankedPlayer[],
+  acc: EuropeRankAccumulator
+): RankedPlayerWithEurope[] {
+  return players.map((p) => ({
+    ...p,
+    europeAgeGroupRankStandard: acc.rankOf(p, 'standard'),
+    europeAgeGroupRankRapid: acc.rankOf(p, 'rapid'),
+    europeAgeGroupRankBlitz: acc.rankOf(p, 'blitz'),
   }));
 }

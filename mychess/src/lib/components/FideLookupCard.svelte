@@ -9,12 +9,16 @@
       countryRankStandard: number | null; countryRankRapid: number | null; countryRankBlitz: number | null;
       ageBracket: string | null;
       ageGroupRankStandard: number | null; ageGroupRankRapid: number | null; ageGroupRankBlitz: number | null;
+      europeAgeGroupRankStandard: number | null; europeAgeGroupRankRapid: number | null; europeAgeGroupRankBlitz: number | null;
     } } | null;
   }>();
 
   const p = $derived(result?.player ?? null);
   const ageLabel = $derived(
     p?.ageBracket && p.ageBracket !== 'open' ? `${p.ageBracket} rank` : 'Age group rank'
+  );
+  const europeAgeLabel = $derived(
+    p?.ageBracket && p.ageBracket !== 'open' ? `${p.ageBracket} rank (Europe)` : 'Age group rank (Europe)'
   );
   const rank = (n: number | null | undefined) => (n != null ? `#${n}` : '––');
 
@@ -127,6 +131,12 @@
                 <td class="text-right text-(--color-text)">{rank(p.ageGroupRankStandard)}</td>
                 <td class="text-right text-(--color-text)">{rank(p.ageGroupRankRapid)}</td>
                 <td class="text-right text-(--color-text)">{rank(p.ageGroupRankBlitz)}</td>
+              </tr>
+              <tr>
+                <td class="text-left text-(--color-muted) py-1">{europeAgeLabel}</td>
+                <td class="text-right text-(--color-text)">{rank(p.europeAgeGroupRankStandard)}</td>
+                <td class="text-right text-(--color-text)">{rank(p.europeAgeGroupRankRapid)}</td>
+                <td class="text-right text-(--color-text)">{rank(p.europeAgeGroupRankBlitz)}</td>
               </tr>
             {/if}
           </tbody>

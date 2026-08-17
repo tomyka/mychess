@@ -31,7 +31,7 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
   if (fideQuery) {
     const { data: row } = await supabase
       .from('fide_players')
-      .select('name, std_rating, rapid_rating, blitz_rating, country_rank_standard, country_rank_rapid, country_rank_blitz, age_bracket, age_group_rank_standard, age_group_rank_rapid, age_group_rank_blitz')
+      .select('name, std_rating, rapid_rating, blitz_rating, country_rank_standard, country_rank_rapid, country_rank_blitz, age_bracket, age_group_rank_standard, age_group_rank_rapid, age_group_rank_blitz, europe_age_group_rank_standard, europe_age_group_rank_rapid, europe_age_group_rank_blitz')
       .eq('fide_id', fideQuery)
       .single();
     fideLookup = row
@@ -85,7 +85,8 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
           .select(
             'name, std_rating, rapid_rating, blitz_rating, ' +
             'country_rank_standard, country_rank_rapid, country_rank_blitz, age_bracket, ' +
-            'age_group_rank_standard, age_group_rank_rapid, age_group_rank_blitz'
+            'age_group_rank_standard, age_group_rank_rapid, age_group_rank_blitz, ' +
+            'europe_age_group_rank_standard, europe_age_group_rank_rapid, europe_age_group_rank_blitz'
           )
           .eq('fide_id', p.fide_id)
           .single()
@@ -108,17 +109,20 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
         standard: {
           rating: fideProfile.stdRating,
           countryRank: fideProfile.countryRankStandard,
-          ageGroupRank: fideProfile.ageGroupRankStandard
+          ageGroupRank: fideProfile.ageGroupRankStandard,
+          europeAgeGroupRank: fideProfile.europeAgeGroupRankStandard
         },
         rapid: {
           rating: fideProfile.rapidRating,
           countryRank: fideProfile.countryRankRapid,
-          ageGroupRank: fideProfile.ageGroupRankRapid
+          ageGroupRank: fideProfile.ageGroupRankRapid,
+          europeAgeGroupRank: fideProfile.europeAgeGroupRankRapid
         },
         blitz: {
           rating: fideProfile.blitzRating,
           countryRank: fideProfile.countryRankBlitz,
-          ageGroupRank: fideProfile.ageGroupRankBlitz
+          ageGroupRank: fideProfile.ageGroupRankBlitz,
+          europeAgeGroupRank: fideProfile.europeAgeGroupRankBlitz
         }
       }
     : null;
