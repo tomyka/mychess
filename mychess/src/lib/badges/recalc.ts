@@ -26,8 +26,13 @@ const RULES: BadgeRule[] = [
   { id: 'streak_7',            check: s => s.streakDays >= 7 },
   { id: 'streak_30',           check: s => s.streakDays >= 30 },
   { id: 'streak_100',          check: s => s.streakDays >= 100 },
-  // streak_freeze_saved is granted manually only
-  { id: 'streak_freeze_saved', check: _s => false },
+  // `streak_freeze_saved` used to sit here as `check: () => false`, described
+  // as "granted manually only" — but no manual path ever existed (no cron, no
+  // admin action, no streak-freeze feature), so it was unearnable by anyone
+  // while still being listed to players by the badges page, which renders the
+  // whole `badges` catalog table. Rule and catalog row both removed (see
+  // migration 0053); re-add both together if a real streak-freeze feature
+  // ships.
   // Review volume
   { id: 'review_10',           check: s => s.totalReviews >= 10 },
   { id: 'review_100',          check: s => s.totalReviews >= 100 },

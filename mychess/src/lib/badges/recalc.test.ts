@@ -45,7 +45,13 @@ describe('checkBadgeEligibility', () => {
     expect(result).toContain('multi_repertoire');
   });
 
-  it('never grants streak_freeze_saved automatically', () => {
+  it('does not offer streak_freeze_saved at all — it has no grant path, so it is not in the roster', () => {
+    // It previously sat in RULES as `check: () => false` ("granted manually
+    // only"), but nothing anywhere granted it, so it was permanently
+    // unearnable while still being shown to players. Removed from both the
+    // rules and the badges catalog (migration 0053). This assertion still
+    // holds for the same observable reason — nobody can earn it — but now
+    // because it isn't offered, rather than because it silently always fails.
     const result = checkBadgeEligibility({ ...base, streakDays: 100 });
     expect(result).not.toContain('streak_freeze_saved');
   });

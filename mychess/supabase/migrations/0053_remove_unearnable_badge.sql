@@ -1,0 +1,19 @@
+-- mychess/supabase/migrations/0053_remove_unearnable_badge.sql
+--
+-- Removes `streak_freeze_saved` from the badges catalog.
+--
+-- It was seeded by `0006_badges.sql` and carried a rule in
+-- `src/lib/badges/recalc.ts` of `check: () => false`, commented "granted
+-- manually only" — but no manual grant path was ever built: no cron job, no
+-- admin action, and no streak-freeze feature exists to trigger it. Meanwhile
+-- `(player)/badges/+page.server.ts` renders the whole `badges` table, so every
+-- player has been shown a badge that literally nobody can earn.
+--
+-- Deleting the catalog row is safe: `badges_earned` references badge ids, and
+-- since this badge was unearnable there cannot be any earned row pointing at
+-- it. The delete is scoped to this one id and guarded so re-running is a
+-- no-op.
+--
+-- If a real streak-freeze feature ever ships, re-add the catalog row AND the
+-- recalc rule together — the pairing is the thing that was missing.
+delete from public.badges where id = 'streak_freeze_saved';
