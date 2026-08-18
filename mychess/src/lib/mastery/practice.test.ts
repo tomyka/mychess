@@ -208,6 +208,29 @@ describe('buildPracticeView', () => {
 		expect(view.attempt!.arrowPlies).toEqual({ from: 0, to: 9 });
 	});
 
+	it('discards a freshly-earned sibling\'s shared-prefix credit when THIS variation is resumed after a break', () => {
+		// The two freshness signals disagree: the shared opening was mastered
+		// via sibling b moments ago, but variation a itself hasn't been touched
+		// in 11 minutes. a's own break wins and the shared credit is dropped —
+		// the break check is per-variation, not per-moveId (see the comment on
+		// knownProgressFor). Locking this down because the alternative reading
+		// (keep credit the sibling just re-earned) is defensible enough that a
+		// future refactor could silently flip to it.
+		const { a, b } = makeSharedPrefixVariations(5, 5, 1); // 10 shared plies
+		const now = new Date('2026-08-17T12:00:00Z');
+		const progress = new Map([
+			[a.variationKey, { taughtPlies: 0, masteredPlies: 0, updatedAt: '2026-08-17T11:49:00Z' }], // 11 min ago
+			[b.variationKey, { taughtPlies: 10, masteredPlies: 10, updatedAt: '2026-08-17T11:59:00Z' }] // 1 min ago
+		]);
+		const view = buildPracticeView([a, b], a.variationKey, new Set(), progress, false, now);
+		expect(view.attempt!.variationKey).toBe(a.variationKey);
+		expect(view.attempt!.autoPlayThrough).toBe(0); // not 10, despite b's fresh mastery of the shared prefix
+		// And teaching restarts from ply 0 rather than resuming past the shared
+		// prefix — a's first batch, exactly as if nothing were known.
+		expect(view.attempt!.path).toHaveLength(9);
+		expect(view.attempt!.arrowPlies).toEqual({ from: 0, to: 9 });
+	});
+
 	it('does not treat a never-attempted variation (no updatedAt yet) as a resume-after-break', () => {
 		const v = makeVariation(15, 'a-');
 		const now = new Date('2026-08-17T12:00:00Z');

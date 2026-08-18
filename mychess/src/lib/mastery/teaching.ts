@@ -110,19 +110,13 @@ export function sharedMasteredPrefixLength(path: VariationStep[], masteredMoveId
 }
 
 /**
- * The floor of taught/mastered plies to actually use for a served or
- * recorded attempt — the higher of the variation's own stored counters or a
- * shared sibling's credited prefix (`sharedFloor`, from
- * `sharedMasteredPrefixLength`), or zeroed entirely if the player is
- * resuming this variation after a break. Shared by `buildPracticeView`
- * (serve time, `mastery/practice.ts`) and `applyAttemptResult` (record time,
- * `server/practice-progress.ts`) so what gets served always matches what
- * gets recorded — the two computations silently drifting apart is exactly
- * what caused a real bug (see the "resumed after break" feature's Task 4
- * fix), so this exists specifically to make that impossible going forward
- * rather than trusting two copies to stay in sync by convention.
+ * The final zero-or-not step of `knownProgressFor`, split out only to keep
+ * that function readable. Deliberately NOT exported: a caller holding just
+ * this could compute a floor differently from the other call site, which is
+ * the exact drift `knownProgressFor` exists to prevent. Go through
+ * `knownProgressFor`.
  */
-export function effectiveProgress(args: {
+function effectiveProgress(args: {
 	ownTaughtPlies: number;
 	ownMasteredPlies: number;
 	sharedFloor: number;
@@ -163,6 +157,47 @@ export function computeMasteredMoveIds(
 		}
 	}
 	return mastered;
+}
+
+/**
+ * How much of `variation` this player already knows, expressed as the
+ * taught/mastered ply counters an attempt should actually be built from.
+ *
+ * This is the SINGLE owner of that question, and the only entry point either
+ * side should use: `buildPracticeView` (serve time, `mastery/practice.ts`) and
+ * `applyAttemptResult` (record time, `server/practice-progress.ts`) must agree
+ * exactly, or the server records progress against a different step than the
+ * one it served — a real bug that has happened (see the resume-after-break
+ * feature's Task 4 fix). It owns the whole computation, not just its last
+ * step: the variation's own stored counters, the shared-sibling floor
+ * (`computeMasteredMoveIds` + `sharedMasteredPrefixLength`), and the
+ * zero-if-resumed reset. Callers that computed the floor themselves and passed
+ * it in could still drift apart from each other while looking correct, which
+ * is why those inputs live in here now rather than at each call site.
+ *
+ * `resumedAfterBreak` (see `wasResumedAfterBreak` in `mastery/practice.ts`)
+ * zeroes the floor WHOLESALE — including shared-prefix credit from a sibling
+ * variation practiced moments ago. That is deliberate: the break check is
+ * per-variation, not per-moveId, so the conservative choice is to make the
+ * player replay a few already-known moves rather than auto-play through
+ * content this variation's own break should have reset.
+ */
+export function knownProgressFor(args: {
+	variation: Variation;
+	variations: Variation[];
+	teachingProgress: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number }>;
+	solvedKeys: ReadonlySet<string>;
+	resumedAfterBreak: boolean;
+}): { taughtPlies: number; masteredPlies: number } {
+	const own = args.teachingProgress.get(args.variation.variationKey) ?? { taughtPlies: 0, masteredPlies: 0 };
+	const masteredMoveIds = computeMasteredMoveIds(args.variations, args.teachingProgress, args.solvedKeys);
+	const sharedFloor = sharedMasteredPrefixLength(args.variation.path, masteredMoveIds);
+	return effectiveProgress({
+		ownTaughtPlies: own.taughtPlies,
+		ownMasteredPlies: own.masteredPlies,
+		sharedFloor,
+		resumedAfterBreak: args.resumedAfterBreak
+	});
 }
 
 /**

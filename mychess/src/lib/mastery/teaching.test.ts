@@ -6,7 +6,7 @@ import {
 	sharedMasteredPrefixLength,
 	computeMasteredMoveIds,
 	isLastPlayerMove,
-	effectiveProgress
+	knownProgressFor
 } from './teaching';
 import type { Variation, VariationStep } from './variations';
 
@@ -349,22 +349,74 @@ describe('computeMasteredMoveIds', () => {
 	});
 });
 
-describe('effectiveProgress', () => {
-	it('takes the higher of the own counters or the shared floor', () => {
-		expect(effectiveProgress({ ownTaughtPlies: 5, ownMasteredPlies: 3, sharedFloor: 8, resumedAfterBreak: false })).toEqual({
-			taughtPlies: 8,
-			masteredPlies: 8
-		});
-		expect(effectiveProgress({ ownTaughtPlies: 10, ownMasteredPlies: 6, sharedFloor: 2, resumedAfterBreak: false })).toEqual({
-			taughtPlies: 10,
-			masteredPlies: 6
-		});
+describe('knownProgressFor', () => {
+	// Two variations built from makePath share leading moveIds by construction
+	// (`p0`, `p1`, ...) — the same thing that makes real sibling variations share
+	// an opening, which is what produces a shared floor at all.
+	const long = makeVariation('a', makePath(24));
+
+	function siblingMastering(plies: number) {
+		return makeVariation('b', makePath(plies));
+	}
+
+	it('takes the higher of the variation\'s own counters or the shared sibling floor', () => {
+		const b = siblingMastering(8);
+		expect(
+			knownProgressFor({
+				variation: long,
+				variations: [long, b],
+				teachingProgress: new Map([
+					['a', { taughtPlies: 5, masteredPlies: 3 }],
+					['b', { taughtPlies: 8, masteredPlies: 8 }]
+				]),
+				solvedKeys: new Set(),
+				resumedAfterBreak: false
+			})
+		).toEqual({ taughtPlies: 8, masteredPlies: 8 });
 	});
 
-	it('zeroes both counters entirely when resumedAfterBreak is true, ignoring the shared floor too', () => {
-		expect(effectiveProgress({ ownTaughtPlies: 20, ownMasteredPlies: 10, sharedFloor: 15, resumedAfterBreak: true })).toEqual({
-			taughtPlies: 0,
-			masteredPlies: 0
-		});
+	it('keeps its own higher counters when the shared floor is lower', () => {
+		const b = siblingMastering(8);
+		expect(
+			knownProgressFor({
+				variation: long,
+				variations: [long, b],
+				teachingProgress: new Map([
+					['a', { taughtPlies: 10, masteredPlies: 6 }],
+					['b', { taughtPlies: 2, masteredPlies: 2 }]
+				]),
+				solvedKeys: new Set(),
+				resumedAfterBreak: false
+			})
+		).toEqual({ taughtPlies: 10, masteredPlies: 6 });
+	});
+
+	it('credits the shared floor to a variation with no progress row of its own', () => {
+		const b = siblingMastering(8);
+		expect(
+			knownProgressFor({
+				variation: long,
+				variations: [long, b],
+				teachingProgress: new Map([['b', { taughtPlies: 8, masteredPlies: 8 }]]),
+				solvedKeys: new Set(),
+				resumedAfterBreak: false
+			})
+		).toEqual({ taughtPlies: 8, masteredPlies: 8 });
+	});
+
+	it('zeroes both counters entirely when resumedAfterBreak is true, discarding the shared floor too', () => {
+		const b = siblingMastering(15);
+		expect(
+			knownProgressFor({
+				variation: long,
+				variations: [long, b],
+				teachingProgress: new Map([
+					['a', { taughtPlies: 20, masteredPlies: 10 }],
+					['b', { taughtPlies: 15, masteredPlies: 15 }]
+				]),
+				solvedKeys: new Set(),
+				resumedAfterBreak: true
+			})
+		).toEqual({ taughtPlies: 0, masteredPlies: 0 });
 	});
 });

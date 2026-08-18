@@ -2,7 +2,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Variation } from '$lib/mastery/variations';
 import { pickActiveVariation, advanceIfSolved } from '$lib/mastery/variationSequence';
-import { advanceTeachingProgress, computeMasteredMoveIds, sharedMasteredPrefixLength, effectiveProgress } from '$lib/mastery/teaching';
+import { advanceTeachingProgress, knownProgressFor } from '$lib/mastery/teaching';
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
 
 /**
@@ -230,15 +230,16 @@ export async function loadSyncedActiveVariationKey(
  * re-serves the same step for another try.
  *
  * On a clean attempt: if the variation isn't already solved, its teaching
- * progress advances (see `advanceTeachingProgress`) — starting from whichever
- * is higher, its OWN stored counters or the shared-mastery floor a sibling
- * variation may have already earned for the same leading moves (see
- * `computeMasteredMoveIds` — this MUST mirror `buildPracticeView`'s own
- * floor computation exactly, or the server would record progress against a
- * different step than the one it actually served). `resumedAfterBreak`
- * mirrors that same requirement for `buildPracticeView`'s resumed-after-a-break
- * reset (see `wasResumedAfterBreak` in `mastery/practice.ts`): when true, the
- * floor used here is zeroed exactly like the served attempt was, so a clean
+ * progress advances (see `advanceTeachingProgress`) — starting from whatever
+ * `knownProgressFor` says is already known for it: its own stored counters, or
+ * the higher shared-mastery floor a sibling variation may have earned for the
+ * same leading moves. `buildPracticeView` derives the served attempt from that
+ * same function, which is what guarantees this records progress against the
+ * step that was actually served rather than a separately-computed one.
+ * `resumedAfterBreak` (see `wasResumedAfterBreak` in `mastery/practice.ts`) is
+ * the one input the caller must still supply, since only the serve side knows
+ * whether it suppressed auto-play: when true, the floor is zeroed here exactly
+ * as it was for the served attempt, so a clean
  * run of a break-reset teach batch advances progress by only what was
  * actually replayed in it — never against the raw, un-reset stored counters,
  * which could otherwise jump progress ahead or even wrongly mark the
@@ -263,13 +264,11 @@ export async function applyAttemptResult(
 		const solvedKeys = await loadSolvedKeys(supabase, playerId, repertoireId);
 		if (!solvedKeys.has(variationKey)) {
 			const progressMap = await loadTeachingProgress(supabase, playerId, repertoireId);
-			const current = progressMap.get(variationKey) ?? { taughtPlies: 0, masteredPlies: 0, updatedAt: null };
-			const masteredMoveIds = computeMasteredMoveIds(variations, progressMap, solvedKeys);
-			const sharedFloor = sharedMasteredPrefixLength(variation.path, masteredMoveIds);
-			const { taughtPlies: effectiveTaughtPlies, masteredPlies: effectiveMasteredPlies } = effectiveProgress({
-				ownTaughtPlies: current.taughtPlies,
-				ownMasteredPlies: current.masteredPlies,
-				sharedFloor,
+			const { taughtPlies: effectiveTaughtPlies, masteredPlies: effectiveMasteredPlies } = knownProgressFor({
+				variation,
+				variations,
+				teachingProgress: progressMap,
+				solvedKeys,
 				resumedAfterBreak
 			});
 			const next = advanceTeachingProgress(variation.path, effectiveTaughtPlies, effectiveMasteredPlies, false);
