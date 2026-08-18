@@ -6,9 +6,13 @@ import PgnImportForm from './PgnImportForm.svelte';
 const gotoMock = vi.fn();
 vi.mock('$app/navigation', () => ({ goto: (...args: any[]) => gotoMock(...args) }));
 
+vi.mock('$lib/googleDrivePicker', () => ({ pickPgnFromGoogleDrive: vi.fn() }));
+import { pickPgnFromGoogleDrive } from '$lib/googleDrivePicker';
+
 afterEach(() => {
 	cleanup();
 	gotoMock.mockClear();
+	vi.mocked(pickPgnFromGoogleDrive).mockReset();
 	vi.unstubAllGlobals();
 });
 
@@ -25,6 +29,42 @@ describe('PgnImportForm', () => {
 		expect(screen.getByText('Black')).toBeTruthy();
 		expect(screen.getByLabelText('Paste PGN text')).toBeTruthy();
 		expect(screen.getByLabelText('…or upload a .pgn file')).toBeTruthy();
+	});
+
+	it('renders the Google Drive import button', () => {
+		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
+		expect(screen.getByRole('button', { name: '…or import from Google Drive' })).toBeTruthy();
+	});
+
+	it('populates the form from a picked Google Drive file', async () => {
+		vi.mocked(pickPgnFromGoogleDrive).mockResolvedValue({ name: 'My Line.pgn', text: '1. e4 e5 *' });
+		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
+
+		await fireEvent.click(screen.getByRole('button', { name: '…or import from Google Drive' }));
+
+		await waitFor(() =>
+			expect((screen.getByLabelText('Repertoire Name') as HTMLInputElement).value).toBe('My Line')
+		);
+		expect((screen.getByLabelText('Paste PGN text') as HTMLTextAreaElement).value).toBe('1. e4 e5 *');
+	});
+
+	it('does nothing when the Google Drive picker is cancelled', async () => {
+		vi.mocked(pickPgnFromGoogleDrive).mockResolvedValue(null);
+		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
+
+		await fireEvent.click(screen.getByRole('button', { name: '…or import from Google Drive' }));
+
+		await waitFor(() => expect(pickPgnFromGoogleDrive).toHaveBeenCalled());
+		expect((screen.getByLabelText('Paste PGN text') as HTMLTextAreaElement).value).toBe('');
+	});
+
+	it('shows an error when the Google Drive picker fails', async () => {
+		vi.mocked(pickPgnFromGoogleDrive).mockRejectedValue(new Error('Could not download that file from Google Drive.'));
+		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
+
+		await fireEvent.click(screen.getByRole('button', { name: '…or import from Google Drive' }));
+
+		await waitFor(() => expect(screen.getByText('Could not download that file from Google Drive.')).toBeTruthy());
 	});
 
 	it('shows an error instead of submitting when the PGN is missing (name has no native required check)', async () => {

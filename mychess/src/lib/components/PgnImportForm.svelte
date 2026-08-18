@@ -2,6 +2,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { planMultiImport } from '$lib/pgn-import';
+	import { pickPgnFromGoogleDrive } from '$lib/googleDrivePicker';
 
 	type Props = {
 		submitLabel: string;
@@ -14,6 +15,8 @@
 	let pgnText = $state('');
 	let fileError = $state('');
 	let fileName = $state('');
+	let driveError = $state('');
+	let drivePicking = $state(false);
 	let errorMessage = $state('');
 
 	type ChapterStatus = 'pending' | 'importing' | 'done' | 'error';
@@ -52,6 +55,23 @@
 			fileError = 'Could not read that file — try pasting the PGN text instead.';
 		};
 		reader.readAsText(file);
+	}
+
+	async function onGoogleDriveClick() {
+		driveError = '';
+		drivePicking = true;
+		try {
+			const result = await pickPgnFromGoogleDrive();
+			if (result) {
+				pgnText = result.text;
+				name = result.name.replace(/\.[^/.]+$/, '');
+				fileName = result.name;
+			}
+		} catch (err) {
+			driveError = err instanceof Error ? err.message : 'Could not import from Google Drive.';
+		} finally {
+			drivePicking = false;
+		}
 	}
 
 	/**
@@ -194,6 +214,18 @@
 		</div>
 		{#if fileError}
 			<p class="text-red-600 dark:text-red-400 text-sm mt-1">{fileError}</p>
+		{/if}
+	</div>
+
+	<div>
+		<div class="flex items-center gap-3">
+			<button type="button" onclick={onGoogleDriveClick} disabled={importing || drivePicking}
+			        class="cursor-pointer inline-block bg-gray-100 border border-(--color-border) text-(--color-text) px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+				{drivePicking ? 'Opening Google Drive…' : '…or import from Google Drive'}
+			</button>
+		</div>
+		{#if driveError}
+			<p class="text-red-600 dark:text-red-400 text-sm mt-1">{driveError}</p>
 		{/if}
 	</div>
 
