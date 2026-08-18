@@ -67,6 +67,50 @@ describe('PgnImportForm', () => {
 		await waitFor(() => expect(screen.getByText('Could not download that file from Google Drive.')).toBeTruthy());
 	});
 
+	it('shows the picked filename in a shared caption, not attributed to either specific button', async () => {
+		vi.mocked(pickPgnFromGoogleDrive).mockResolvedValue({ name: 'My Line.pgn', text: '1. e4 e5 *' });
+		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
+
+		await fireEvent.click(screen.getByRole('button', { name: '…or import from Google Drive' }));
+
+		await waitFor(() => expect(screen.getByText('Selected: My Line.pgn')).toBeTruthy());
+	});
+
+	it('clears a stale Google Drive error once a local file is chosen successfully', async () => {
+		vi.mocked(pickPgnFromGoogleDrive).mockRejectedValue(new Error('Could not download that file from Google Drive.'));
+		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
+
+		await fireEvent.click(screen.getByRole('button', { name: '…or import from Google Drive' }));
+		await waitFor(() => expect(screen.getByText('Could not download that file from Google Drive.')).toBeTruthy());
+
+		const file = new File(['1. e4 e5 *'], 'local.pgn', { type: 'text/plain' });
+		await fireEvent.change(screen.getByLabelText('…or upload a .pgn file'), { target: { files: [file] } });
+
+		await waitFor(() => expect(screen.queryByText('Could not download that file from Google Drive.')).toBeNull());
+	});
+
+	it('disables the submit button and the local file input while a Google Drive pick is in progress', async () => {
+		let resolvePick: (value: { name: string; text: string } | null) => void;
+		vi.mocked(pickPgnFromGoogleDrive).mockReturnValue(
+			new Promise((resolve) => {
+				resolvePick = resolve;
+			})
+		);
+		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
+
+		await fireEvent.click(screen.getByRole('button', { name: '…or import from Google Drive' }));
+
+		await waitFor(() =>
+			expect((screen.getByRole('button', { name: 'Create Repertoire' }) as HTMLButtonElement).disabled).toBe(true)
+		);
+		expect((screen.getByLabelText('…or upload a .pgn file') as HTMLInputElement).disabled).toBe(true);
+
+		resolvePick!({ name: 'x.pgn', text: '1. e4 *' });
+		await waitFor(() =>
+			expect((screen.getByRole('button', { name: 'Create Repertoire' }) as HTMLButtonElement).disabled).toBe(false)
+		);
+	});
+
 	it('shows an error instead of submitting when the PGN is missing (name has no native required check)', async () => {
 		// pgn_text has no native `required` attribute (either it or a chosen
 		// file can supply the PGN) — unlike #name, which does and would block

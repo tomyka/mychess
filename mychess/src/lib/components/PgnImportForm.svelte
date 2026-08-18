@@ -44,6 +44,7 @@
 	function onFileChange(e: Event) {
 		const file = (e.target as HTMLInputElement).files?.[0];
 		if (!file) return;
+		driveError = '';
 		fileName = file.name;
 		name = file.name.replace(/\.[^/.]+$/, '');
 		const reader = new FileReader();
@@ -59,6 +60,7 @@
 
 	async function onGoogleDriveClick() {
 		driveError = '';
+		fileError = '';
 		drivePicking = true;
 		try {
 			const result = await pickPgnFromGoogleDrive();
@@ -207,10 +209,7 @@
 			       class="cursor-pointer inline-block bg-gray-100 border border-(--color-border) text-(--color-text) px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors">
 				Choose File
 			</label>
-			<input id="pgn_file" type="file" accept=".pgn" onchange={onFileChange} disabled={importing} class="hidden" />
-			{#if fileName}
-				<span class="text-sm text-(--color-muted) truncate">{fileName}</span>
-			{/if}
+			<input id="pgn_file" type="file" accept=".pgn" onchange={onFileChange} disabled={importing || drivePicking} class="hidden" />
 		</div>
 		{#if fileError}
 			<p class="text-red-600 dark:text-red-400 text-sm mt-1">{fileError}</p>
@@ -228,6 +227,10 @@
 			<p class="text-red-600 dark:text-red-400 text-sm mt-1">{driveError}</p>
 		{/if}
 	</div>
+
+	{#if fileName}
+		<p class="text-sm text-(--color-muted) truncate">Selected: {fileName}</p>
+	{/if}
 
 	{#if chapters.length > 0}
 		<div class="space-y-2">
@@ -254,7 +257,7 @@
 		</div>
 	{/if}
 
-	<button type="submit" disabled={importing}
+	<button type="submit" disabled={importing || drivePicking}
 	        class="w-full bg-(--color-accent) text-white py-3 rounded-xl font-bold text-base hover:bg-(--color-accent-hover) transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
 		{importing ? 'Importing…' : submitLabel}
 	</button>
