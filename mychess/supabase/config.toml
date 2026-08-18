@@ -241,6 +241,17 @@ otp_expiry = 3600
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
+# Branded magic-link sign-in email. The subject includes the OTP token so
+# repeat sign-in requests get distinct subjects instead of threading together
+# in the recipient's inbox (each one looking identical, hiding which link is
+# still valid). This local config only affects `supabase start`'s Inbucket
+# test server — the production project's template must be set separately in
+# the Supabase Dashboard (Authentication -> Emails -> Templates -> Magic
+# Link), since this repo has no working CLI link/push to the hosted project.
+[auth.email.template.magic_link]
+subject = "Your MyChess sign-in code: {{ .Token }}"
+content_path = "./supabase/templates/magic_link.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true
