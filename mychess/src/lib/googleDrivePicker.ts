@@ -39,7 +39,9 @@ function loadScript(src: string): Promise<void> {
 				script.async = true;
 				script.onload = () => resolve();
 				script.onerror = () => {
-					scriptLoadPromises.delete(src); // allow a later retry after a real failure
+					scriptLoadPromises.delete(src);
+					script.remove(); // otherwise a retry's DOM-presence check below would
+					// false-positive on this failed tag and skip loading entirely
 					reject(new Error(`Failed to load ${src}`));
 				};
 				document.head.appendChild(script);
