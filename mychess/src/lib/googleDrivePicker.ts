@@ -18,19 +18,34 @@ const GIS_SRC = 'https://accounts.google.com/gsi/client';
 const GAPI_SRC = 'https://apis.google.com/js/api.js';
 const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
+const scriptLoadPromises = new Map<string, Promise<void>>();
+
+/**
+ * Caches the in-flight loading Promise itself (not just DOM presence): if two
+ * calls overlap while the script is still loading, both must await the SAME
+ * promise and only proceed once it has genuinely resolved — a presence-only
+ * check would let a second concurrent caller race ahead of the first
+ * script's `onload` and touch `window.google`/`window.gapi` while still
+ * `undefined`.
+ */
 function loadScript(src: string): Promise<void> {
-	return new Promise((resolve, reject) => {
-		if (document.querySelector(`script[src="${src}"]`)) {
-			resolve();
-			return;
-		}
-		const script = document.createElement('script');
-		script.src = src;
-		script.async = true;
-		script.onload = () => resolve();
-		script.onerror = () => reject(new Error(`Failed to load ${src}`));
-		document.head.appendChild(script);
-	});
+	const cached = scriptLoadPromises.get(src);
+	if (cached) return cached;
+	const promise = document.querySelector(`script[src="${src}"]`)
+		? Promise.resolve()
+		: new Promise<void>((resolve, reject) => {
+				const script = document.createElement('script');
+				script.src = src;
+				script.async = true;
+				script.onload = () => resolve();
+				script.onerror = () => {
+					scriptLoadPromises.delete(src); // allow a later retry after a real failure
+					reject(new Error(`Failed to load ${src}`));
+				};
+				document.head.appendChild(script);
+			});
+	scriptLoadPromises.set(src, promise);
+	return promise;
 }
 
 async function ensureGoogleSdksLoaded(): Promise<void> {
@@ -43,8 +58,21 @@ async function ensureGoogleSdksLoaded(): Promise<void> {
 	}
 }
 
+const ACCESS_TOKEN_TIMEOUT_MS = 60_000;
+
 function requestAccessToken(clientId: string): Promise<string | null> {
 	return new Promise((resolve, reject) => {
+		// If Google's own callback never fires at all (e.g. a browser/extension
+		// silently blocks the OAuth popup in a way GIS's popup-closed detection
+		// doesn't catch), this promise would otherwise hang forever with no
+		// error — a permanently-stuck "Opening Google Drive…" button.
+		const timeout = setTimeout(() => {
+			reject(new Error("Google sign-in didn't respond — try again."));
+		}, ACCESS_TOKEN_TIMEOUT_MS);
+		const settle = (fn: () => void) => {
+			clearTimeout(timeout);
+			fn();
+		};
 		try {
 			const tokenClient = window.google.accounts.oauth2.initTokenClient({
 				client_id: clientId,
@@ -53,15 +81,15 @@ function requestAccessToken(clientId: string): Promise<string | null> {
 					if (response.error) {
 						// Includes the user closing/dismissing the consent popup —
 						// treated as a cancel, not a hard failure.
-						resolve(null);
+						settle(() => resolve(null));
 						return;
 					}
-					resolve(response.access_token as string);
+					settle(() => resolve(response.access_token as string));
 				}
 			});
 			tokenClient.requestAccessToken();
 		} catch (err) {
-			reject(err instanceof Error ? err : new Error('Failed to start Google sign-in'));
+			settle(() => reject(err instanceof Error ? err : new Error('Failed to start Google sign-in')));
 		}
 	});
 }
@@ -89,7 +117,10 @@ async function fetchFileText(fileId: string, token: string): Promise<string> {
 	const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
 		headers: { Authorization: `Bearer ${token}` }
 	});
-	if (!res.ok) throw new Error('Could not download that file from Google Drive.');
+	if (!res.ok) {
+		console.error(`Google Drive file fetch failed: ${res.status} ${res.statusText}`);
+		throw new Error('Could not download that file from Google Drive.');
+	}
 	return res.text();
 }
 
