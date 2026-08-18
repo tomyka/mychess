@@ -1,6 +1,12 @@
 // mychess/src/lib/server/repertoire-progress.ts
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { enumerateVariations, filterVariations, hasChapterTags, type RawMoveRow, type Variation } from '$lib/mastery/variations';
+import { enumerateVariations, hasChapterTags, type RawMoveRow, type Variation } from '$lib/mastery/variations';
+import {
+	exclusionsAreVerified,
+	exclusionShape,
+	partitionByLiveness,
+	type ExclusionRow
+} from '$lib/mastery/exclusionFreshness';
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
 
 export type RepertoireProgressSummary = {
@@ -33,11 +39,11 @@ export type RepertoireProgressSummary = {
 // the first are fetched concurrently (see `fetchAllPages`, shared with
 // `practice-repertoire.ts`) rather than one at a time.
 //
-// Used both for the lazy total-count backfill (repertoires imported before
-// `total_variations` started being cached at import time) and for
-// repertoires this player has excluded at least one variation from, where
-// the cached whole-repertoire count can't be trusted for THIS player's
-// filtered view.
+// Used for the lazy total-count backfill (repertoires imported before
+// `total_variations` started being cached at import time) and to re-verify a
+// player's exclusion rows against a changed move set — NOT, any longer, on
+// every load for every player who has excluded something (see
+// `exclusionFreshness.ts` and GitHub issue #52).
 const MOVES_PAGE_SIZE = MAX_ROWS_PAGE_SIZE;
 
 async function fetchAllMoves(supabase: SupabaseClient, repIds: string[]): Promise<any[]> {
@@ -60,17 +66,18 @@ async function fetchAllMoves(supabase: SupabaseClient, repIds: string[]): Promis
 // single-repertoire read does. Truncation here silently dropped exclusions
 // (excluded lines came back as practiceable, with wrong totals) and solved
 // keys (solved lines looked unsolved).
-async function fetchByRepertoire(
+async function fetchRowsByRepertoire<T extends { repertoire_id: string }>(
 	supabase: SupabaseClient,
 	table: 'variation_practice_exclusions' | 'variation_solved',
 	playerId: string,
-	repIds: string[]
-): Promise<Map<string, Set<string>>> {
-	const data = await fetchAllPages<{ repertoire_id: string; variation_key: string }>(
+	repIds: string[],
+	columns: string
+): Promise<Map<string, T[]>> {
+	const data = await fetchAllPages<T>(
 		() =>
 			supabase
 				.from(table)
-				.select('repertoire_id, variation_key')
+				.select(columns)
 				.eq('player_id', playerId)
 				.in('repertoire_id', repIds)
 				.order('variation_key', { ascending: true }),
@@ -83,13 +90,83 @@ async function fetchByRepertoire(
 		MAX_ROWS_PAGE_SIZE
 	);
 
-	const map = new Map<string, Set<string>>();
-	for (const row of (data ?? []) as any[]) {
-		const set = map.get(row.repertoire_id) ?? new Set<string>();
-		set.add(row.variation_key);
-		map.set(row.repertoire_id, set);
+	const map = new Map<string, T[]>();
+	for (const row of data ?? []) {
+		const list = map.get(row.repertoire_id) ?? [];
+		list.push(row);
+		map.set(row.repertoire_id, list);
 	}
 	return map;
+}
+
+// A `.in()` filter is URL query text regardless of verb (PostgREST
+// convention), so the re-verify writes below batch their row ids the same way
+// `variation-practice-settings.ts` batches its delete filters. Ids are
+// fixed-length UUIDs, so a batch of 500 keeps the URL well short of any limit.
+const REVERIFY_BATCH_SIZE = 500;
+
+function chunk<T>(items: T[], size: number): T[][] {
+	const batches: T[][] = [];
+	for (let i = 0; i < items.length; i += size) batches.push(items.slice(i, i + size));
+	return batches;
+}
+
+/**
+ * Brings this player's exclusion rows for one repertoire back in line with its
+ * current shape, after the caller has already enumerated it: rows whose key no
+ * longer names a live variation are deleted (the line is gone — there is
+ * nothing left to exclude), and the survivors are stamped as verified against
+ * this shape so the next load can subtract instead of enumerating again.
+ *
+ * Survivors are stamped with the repertoire's own `moves_updated_at` rather
+ * than a clock reading, which is what keeps this free of clock-skew concerns:
+ * the freshness test is `verified_at >= moves_updated_at`, and stamping the
+ * exact value it is compared against satisfies it without either side needing
+ * to agree on what time it is.
+ *
+ * Best-effort by design, and safe to fail: every write here is idempotent and
+ * a failure only means the next load repeats the enumeration it just did. Only
+ * the caller's own rows are touched, so this needs no privileges beyond
+ * `variation_practice_exclusions_player_all`'s RLS.
+ */
+async function reverifyExclusions(
+	supabase: SupabaseClient,
+	playerId: string,
+	rows: (ExclusionRow & { id: string })[],
+	liveKeys: ReadonlySet<string>,
+	movesUpdatedAt: string
+): Promise<void> {
+	const { stale, live } = partitionByLiveness(rows, liveKeys);
+
+	for (const batch of chunk(stale, REVERIFY_BATCH_SIZE)) {
+		const { error } = await supabase
+			.from('variation_practice_exclusions')
+			.delete()
+			.eq('player_id', playerId)
+			.in(
+				'id',
+				batch.map((r) => r.id)
+			);
+		if (error) {
+			console.error('Failed to prune stale exclusion rows:', error);
+			return;
+		}
+	}
+
+	for (const batch of chunk(live, REVERIFY_BATCH_SIZE)) {
+		const { error } = await supabase
+			.from('variation_practice_exclusions')
+			.update({ verified_at: movesUpdatedAt })
+			.eq('player_id', playerId)
+			.in(
+				'id',
+				batch.map((r) => r.id)
+			);
+		if (error) {
+			console.error('Failed to stamp verified exclusion rows:', error);
+			return;
+		}
+	}
 }
 
 /**
@@ -100,21 +177,26 @@ async function fetchByRepertoire(
  *
  * Reads the cached `total_variations` on `repertoires` (written at import
  * time) instead of fetching every move row and re-walking the variation tree
- * on every load — moves are immutable after import, so that cache is valid
- * forever once computed. Two cases still need a live move fetch: repertoires
- * imported before this cache existed (backfilled here), and repertoires this
- * player has excluded at least one variation from, where the cached
- * whole-repertoire count can't be trusted for this player's filtered view.
+ * on every load. A player's own exclusions are then subtracted from it, which
+ * is only sound while their exclusion rows are known to name variations that
+ * still exist — so two cases need a live move fetch, both self-healing and
+ * both one-off: a repertoire imported before this cache existed (backfilled
+ * here), and one whose move set has changed since this player's exclusions
+ * were last verified against it (re-verified here, see `reverifyExclusions`).
+ * Neither recurs on subsequent loads.
  */
 export async function loadRepertoireProgressSummaries(
 	supabase: SupabaseClient,
 	userId: string
 ): Promise<RepertoireProgressSummary[]> {
 	const [{ data: ownReps }, { data: assigned }] = await Promise.all([
-		supabase.from('repertoires').select('id, name, color, total_variations, has_chapters').eq('player_id', userId),
+		supabase
+			.from('repertoires')
+			.select('id, name, color, total_variations, has_chapters, moves_updated_at')
+			.eq('player_id', userId),
 		supabase
 			.from('assigned_repertoires')
-			.select('repertoire:repertoire_id(id, name, color, total_variations, has_chapters)')
+			.select('repertoire:repertoire_id(id, name, color, total_variations, has_chapters, moves_updated_at)')
 			.eq('player_id', userId)
 	]);
 
@@ -127,12 +209,49 @@ export async function loadRepertoireProgressSummaries(
 	const repIds = allReps.map((r: any) => r.id);
 	const uncachedIds = allReps.filter((r: any) => r.total_variations === null || r.has_chapters === null).map((r: any) => r.id);
 
-	const [exclusionsByRep, solvedByRep] = await Promise.all([
-		fetchByRepertoire(supabase, 'variation_practice_exclusions', userId, repIds),
-		fetchByRepertoire(supabase, 'variation_solved', userId, repIds)
+	const [exclusionRowsByRep, solvedRowsByRep] = await Promise.all([
+		fetchRowsByRepertoire<{ id: string; repertoire_id: string; variation_key: string; verified_at: string }>(
+			supabase,
+			'variation_practice_exclusions',
+			userId,
+			repIds,
+			'id, repertoire_id, variation_key, verified_at'
+		),
+		fetchRowsByRepertoire<{ repertoire_id: string; variation_key: string }>(
+			supabase,
+			'variation_solved',
+			userId,
+			repIds,
+			'repertoire_id, variation_key'
+		)
 	]);
-	const excludedIds = [...exclusionsByRep.keys()];
-	const needsMoveFetchIds = Array.from(new Set([...uncachedIds, ...excludedIds]));
+
+	const exclusionsByRep = new Map<string, (ExclusionRow & { id: string })[]>();
+	for (const [repId, rows] of exclusionRowsByRep) {
+		exclusionsByRep.set(
+			repId,
+			rows.map((r) => ({ id: r.id, variationKey: r.variation_key, verifiedAt: r.verified_at }))
+		);
+	}
+	const solvedByRep = new Map<string, Set<string>>();
+	for (const [repId, rows] of solvedRowsByRep) {
+		solvedByRep.set(repId, new Set(rows.map((r) => r.variation_key)));
+	}
+
+	// The cached shape (`total_variations`) is the whole repertoire's, so a
+	// player with exclusions needs their own filtered count on top of it. That
+	// used to mean a full move fetch on EVERY load for such a player (the cost
+	// GitHub issue #52 was about); now it only happens when their exclusion rows
+	// haven't been checked against the repertoire's current move set, after
+	// which the count is plain subtraction. See `exclusionFreshness.ts`.
+	// Only the freshness verdict is needed here — the count itself is computed
+	// further down, once the lazy `total_variations` backfill below has supplied
+	// a real full count for any repertoire that didn't have one cached yet.
+	const unverifiedIds = (allReps as any[])
+		.filter((r) => !exclusionsAreVerified(exclusionsByRep.get(r.id) ?? [], r.moves_updated_at ?? null))
+		.map((r) => r.id);
+
+	const needsMoveFetchIds = Array.from(new Set([...uncachedIds, ...unverifiedIds]));
 	const rawMoves = needsMoveFetchIds.length > 0 ? await fetchAllMoves(supabase, needsMoveFetchIds) : [];
 
 	const movesByRep = new Map<string, RawMoveRow[]>();
@@ -171,18 +290,53 @@ export async function loadRepertoireProgressSummaries(
 		})
 	);
 
+	// Freshly enumerated repertoires: their exclusion rows can be reconciled
+	// against the live key set now, so the next load for this player takes the
+	// subtraction path instead of fetching every move again. Keyed by repertoire
+	// so the loop below can use the live (post-prune) exclusion set for its own
+	// counts, rather than the raw rows that may include keys about to be deleted.
+	const liveExcludedByRep = new Map<string, Set<string>>();
+	await Promise.all(
+		unverifiedIds.map(async (repId) => {
+			const rep = (allReps as any[]).find((r) => r.id === repId);
+			const rows = exclusionsByRep.get(repId) ?? [];
+			const liveKeys = new Set((variationsByRep.get(repId) ?? []).map((v) => v.variationKey));
+			const { live } = partitionByLiveness(rows, liveKeys);
+			liveExcludedByRep.set(repId, new Set(live.map((r) => r.variationKey)));
+			// `moves_updated_at` is what survivors get stamped with, so a repertoire
+			// missing it (only possible if a select forgot the column) is left
+			// un-stamped rather than stamped with a guess — it just re-verifies next
+			// load, exactly as it does today.
+			if (rep?.moves_updated_at) {
+				await reverifyExclusions(supabase, userId, rows, liveKeys, rep.moves_updated_at);
+			}
+		})
+	);
+
 	return allReps.map((r: any) => {
 		const fullVariationCount: number = r.total_variations ?? backfilledTotals.get(r.id)!;
-
-		const excluded = exclusionsByRep.get(r.id);
 		const solved = solvedByRep.get(r.id) ?? new Set<string>();
 
-		const total = excluded
-			? filterVariations(variationsByRep.get(r.id) ?? [], excluded).length
-			: fullVariationCount;
-		const solvedCount = excluded
-			? [...solved].filter((key) => !excluded.has(key)).length
-			: [...solved].length; // stale solved keys (repertoire edited since) simply don't inflate the count below via total's own cap
+		// Two paths to the same numbers: an enumerated repertoire counts its live
+		// exclusions directly, a verified one subtracts the row count it already
+		// knows is all-live. Either way `excluded` holds ONLY keys that name a
+		// variation that currently exists, which is what keeps `total` and
+		// `excludedVariationCount` consistent with each other — they used to be
+		// filtered and unfiltered respectively, so a stale row made them sum past
+		// `fullVariationCount` and skewed the picker's repertoire checkbox.
+		const rows = exclusionsByRep.get(r.id) ?? [];
+		const enumerated = liveExcludedByRep.get(r.id);
+		const excluded = enumerated ?? new Set(rows.map((row) => row.variationKey));
+		// `?? fullVariationCount` is unreachable defence: a null total means the
+		// rows weren't verified, and every unverified repertoire was enumerated
+		// above, so `enumerated` would have won. If that ever stops holding, an
+		// unfiltered count is the safe wrong answer — it can only overstate what's
+		// left to practice, never hide lines by reporting fewer.
+		const cachedTotal = exclusionShape({ fullVariationCount, rows, movesUpdatedAt: r.moves_updated_at ?? null }).total;
+		const total = enumerated
+			? (variationsByRep.get(r.id) ?? []).length - excluded.size
+			: (cachedTotal ?? fullVariationCount);
+		const solvedCount = [...solved].filter((key) => !excluded.has(key)).length; // stale solved keys (repertoire edited since) simply don't inflate the count below via total's own cap
 
 		return {
 			id: r.id,
@@ -192,7 +346,7 @@ export async function loadRepertoireProgressSummaries(
 			total,
 			allSolved: total > 0 && Math.min(solvedCount, total) === total,
 			fullVariationCount,
-			excludedVariationCount: excluded?.size ?? 0,
+			excludedVariationCount: excluded.size,
 			hasChapters: r.has_chapters ?? backfilledHasChapters.get(r.id)!
 		};
 	});
