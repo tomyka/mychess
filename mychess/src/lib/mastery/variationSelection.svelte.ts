@@ -155,14 +155,17 @@ export class VariationSelection {
 			this.#snapshots = next;
 		};
 
-		// Anything in scope still included (or nothing in scope at all — the
-		// same 'checked' aggregate an empty group renders as) means this
-		// checkbox reads checked or indeterminate, so clicking it excludes.
-		if (rows.length === 0 || rows.some((v) => v.included)) {
-			// Checked or indeterminate -> bulk-exclude this scope's rows,
-			// remembering exactly which ones were included so a re-check can
-			// restore them. Only the currently-included keys are posted — an
-			// already-excluded variation doesn't need a redundant write.
+		// Only a fully-checked scope (or an empty one, which renders as the
+		// same 'checked' aggregate) excludes on click. A partially-checked
+		// (indeterminate) scope selects everything instead — clicking a
+		// partial parent checkbox is expected to mean "everything under me,"
+		// not "exclude whatever's still included."
+		const allIncluded = rows.length > 0 && rows.every((v) => v.included);
+		if (rows.length === 0 || allIncluded) {
+			// Fully checked -> bulk-exclude this scope's rows, remembering
+			// exactly which ones were included (always all of them, since
+			// this branch only runs when every row in scope is) so a
+			// re-check can restore them.
 			const included = rows.filter((v) => v.included).map((v) => v.variationKey);
 			const previousSnapshots = this.#snapshots;
 			this.#snapshots = new Map(this.#snapshots).set(scopeKey, new Set(included));
@@ -178,8 +181,11 @@ export class VariationSelection {
 			return;
 		}
 
-		// Unchecked -> restore the pre-uncheck selection if we have one from
-		// this visit, otherwise default to including everything in scope.
+		// Unchecked or indeterminate -> select everything in scope: restore
+		// the pre-uncheck selection if we have one from this visit (which, since
+		// the exclude branch above only ever fires from a fully-checked scope,
+		// is always "every row" anyway), otherwise default to including
+		// everything in scope directly.
 		const rowKeys = new Set(rows.map((v) => v.variationKey));
 		const toInclude = this.#snapshots.get(scopeKey) ?? rowKeys;
 		const previousSnapshots = this.#snapshots;

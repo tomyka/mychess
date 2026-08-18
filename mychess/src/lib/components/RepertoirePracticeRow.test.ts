@@ -148,7 +148,7 @@ describe('RepertoirePracticeRow', () => {
 		);
 	});
 
-	it('unchecking the parent excludes every variation, and re-checking restores the prior selection', async () => {
+	it('unchecking a fully-checked parent excludes every variation, and re-checking restores them', async () => {
 		const fetchSpy = vi
 			.fn()
 			.mockResolvedValueOnce({ ok: true, json: async () => variationsResponse }) // GET on expand
@@ -156,8 +156,43 @@ describe('RepertoirePracticeRow', () => {
 		vi.stubGlobal('fetch', fetchSpy);
 		render(RepertoirePracticeRow, { props: { rep: baseRep } });
 
-		// Individually uncheck v2 first, so the "restore" below has something
-		// meaningful to prove: it must restore v1 only, not both.
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText(SHARED_BUCKET_LABEL));
+
+		const parentCheckbox = screen.getByRole('checkbox', { name: 'Include Ruy Lopez in practice' }) as HTMLInputElement;
+		expect(parentCheckbox.checked).toBe(true); // both v1 and v2 start included
+		await fireEvent.click(parentCheckbox); // fully checked -> bulk-exclude everything
+		await waitFor(() =>
+			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false })
+			})
+		);
+		expect(parentCheckbox.checked).toBe(false);
+		expect(parentCheckbox.indeterminate).toBe(false);
+
+		await fireEvent.click(parentCheckbox); // re-check — restores both
+		await waitFor(() =>
+			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: true })
+			})
+		);
+		expect(parentCheckbox.checked).toBe(true);
+	});
+
+	it('clicking an indeterminate parent selects every variation, including ones individually excluded', async () => {
+		const fetchSpy = vi
+			.fn()
+			.mockResolvedValueOnce({ ok: true, json: async () => variationsResponse }) // GET on expand
+			.mockResolvedValue({ ok: true, json: async () => ({ ok: true }) }); // every POST after
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: baseRep } });
+
+		// Individually uncheck v2, leaving v1 included — the parent now reads
+		// indeterminate ("empty"), not unchecked.
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
 		await waitFor(() => screen.getByText(SHARED_BUCKET_LABEL));
 		await fireEvent.click(screen.getByLabelText(`Expand ${SHARED_BUCKET_TEXT} in Ruy Lopez`));
@@ -168,36 +203,34 @@ describe('RepertoirePracticeRow', () => {
 
 		const parentCheckbox = screen.getByRole('checkbox', { name: 'Include Ruy Lopez in practice' }) as HTMLInputElement;
 		expect(parentCheckbox.indeterminate).toBe(true); // v1 still included, v2 already excluded
-		await fireEvent.click(parentCheckbox); // bulk uncheck (only v1 was still included)
+
+		// Clicking the indeterminate parent selects EVERYTHING — v1 (already
+		// included) and v2 (individually excluded) both end up checked. This is
+		// the fix: previously this click bulk-excluded whatever was still
+		// included, treating indeterminate the same as fully-checked.
+		await fireEvent.click(parentCheckbox);
 		await waitFor(() =>
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1'], included: false })
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: true })
 			})
 		);
 		const v1Checkbox = within(screen.getByText('label:v1').closest('label')!).getByRole('checkbox') as HTMLInputElement;
-		expect(v1Checkbox.checked).toBe(false);
-		// Regression: clicking a native indeterminate checkbox flips its real DOM
-		// `checked` to true before any of our code runs. Since the resulting
-		// state here (indeterminate -> unchecked) computes the SAME `checked:
-		// false` Svelte last assigned, a plain one-way `checked={...}` binding
-		// would see no change and skip re-touching the DOM, leaving the parent
-		// checkbox stuck visibly checked even though it's now correctly
-		// unchecked underneath (every child excluded).
-		expect(parentCheckbox.checked).toBe(false);
+		expect(v1Checkbox.checked).toBe(true);
+		expect(v2Checkbox.checked).toBe(true);
+		expect(parentCheckbox.checked).toBe(true);
 		expect(parentCheckbox.indeterminate).toBe(false);
 
-		await fireEvent.click(parentCheckbox); // re-check — restores exactly v1, not v2
+		// Now fully checked -> the next click excludes everything again.
+		await fireEvent.click(parentCheckbox);
 		await waitFor(() =>
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1'], included: true })
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false })
 			})
 		);
-		expect(v1Checkbox.checked).toBe(true);
-		expect(v2Checkbox.checked).toBe(false);
 	});
 
 	it('shows "No moves yet" when total is 0, even if fullVariationCount is not (every variation excluded)', () => {
@@ -439,18 +472,11 @@ describe('RepertoirePracticeRow', () => {
 	});
 
 	it("preserves a concurrent chapter's own restore-selection snapshot when a different, slower chapter toggle later fails and reverts", async () => {
-		// Ruy Lopez starts partially excluded (v1 included, v2 already not) —
-		// its own snapshot, once set, must remember exactly ['v1'], not
-		// silently widen to "every row in the chapter" if it survives an
-		// unrelated concurrent revert.
-		const partial = [
-			{ ...chapterVariationsResponse[0] }, // v1, Ruy Lopez, included: true
-			{ ...chapterVariationsResponse[1], included: false }, // v2, Ruy Lopez, already excluded
-			{ ...chapterVariationsResponse[2] } // v3, Italian Game, included: true
-		];
+		// Ruy Lopez's own snapshot, once set by its own bulk-exclude, must
+		// survive an unrelated concurrent chapter's revert untouched.
 		let resolveSlowPost: ((value: { ok: boolean }) => void) | undefined;
 		const fetchSpy = vi.fn((url: string, init?: any) => {
-			if (!init) return Promise.resolve({ ok: true, json: async () => partial });
+			if (!init) return Promise.resolve({ ok: true, json: async () => chapterVariationsResponse });
 			const body = JSON.parse(init.body);
 			if (body.variationKeys.includes('v3')) {
 				// Italian Game's bulk-exclude — deliberately left pending
@@ -477,37 +503,33 @@ describe('RepertoirePracticeRow', () => {
 		await fireEvent.click(italianCheckbox);
 		expect(italianCheckbox.checked).toBe(false);
 
-		// While that's in flight, bulk-exclude Ruy Lopez (only v1 is
-		// currently included, so its snapshot remembers exactly ['v1']) —
-		// this request resolves immediately and succeeds. (Its checkbox
-		// starts indeterminate, not checked, so — unlike a true
-		// checked-to-unchecked flip — its `.checked` DOM property doesn't
-		// reliably reflect this transition in jsdom; asserting on the
-		// posted request instead is the reliable signal here.)
+		// While that's in flight, bulk-exclude Ruy Lopez (fully checked, so
+		// its snapshot remembers both v1 and v2) — this request resolves
+		// immediately and succeeds.
 		const ruyCheckbox = screen.getByRole('checkbox', { name: /Ruy Lopez \(chapter\)/ }) as HTMLInputElement;
 		await fireEvent.click(ruyCheckbox);
 		await waitFor(() =>
 			expect(fetchSpy).toHaveBeenCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1'], included: false })
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false })
 			})
 		);
+		expect(ruyCheckbox.checked).toBe(false);
 
 		// Now let Italian Game's slow request fail — its own revert must not
 		// wipe out Ruy Lopez's already-recorded snapshot entry.
 		resolveSlowPost!({ ok: false });
 		await waitFor(() => expect(screen.getByText("Couldn't update that — try again.")).toBeTruthy());
 
-		// Re-checking Ruy Lopez now must restore exactly v1 (from its own
-		// surviving snapshot) — NOT fall back to "every row in the chapter"
-		// (which would wrongly re-include v2, never included to begin with).
+		// Re-checking Ruy Lopez now must restore exactly v1 and v2 (from its
+		// own surviving snapshot), unaffected by Italian Game's revert.
 		await fireEvent.click(ruyCheckbox);
 		await waitFor(() =>
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1'], included: true })
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: true })
 			})
 		);
 	});
@@ -547,7 +569,7 @@ describe('RepertoirePracticeRow', () => {
 		expect(otherBucketCheckbox.checked).toBe(true); // a sibling bucket, unaffected
 	});
 
-	it("re-checking a chapter after one of its buckets was already independently excluded restores only what the chapter's own exclusion touched", async () => {
+	it('clicking an indeterminate chapter checkbox selects every variation in the chapter, including ones a bucket had independently excluded', async () => {
 		const fetchSpy = vi
 			.fn()
 			.mockResolvedValueOnce({ ok: true, json: async () => siblingResponse })
@@ -573,9 +595,10 @@ describe('RepertoirePracticeRow', () => {
 			})
 		);
 
-		// Step 2: the chapter is now indeterminate (v3 still included). Bulk-
-		// exclude the whole chapter — its own snapshot should capture only
-		// v3, the one row still included at this moment.
+		// Step 2: the chapter is now indeterminate (v3 still included, v1/v2
+		// excluded via the bucket). Clicking it selects EVERYTHING in the
+		// chapter — including v1/v2, overriding the bucket's own exclusion —
+		// rather than excluding whatever's still included (v3).
 		const chapterCheckbox = screen.getByRole('checkbox', { name: /Ruy Lopez \(chapter\)/ }) as HTMLInputElement;
 		expect(chapterCheckbox.indeterminate).toBe(true);
 		await fireEvent.click(chapterCheckbox);
@@ -583,22 +606,22 @@ describe('RepertoirePracticeRow', () => {
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v3'], included: false })
+				body: JSON.stringify({ variationKeys: ['v1', 'v2', 'v3'], included: true })
 			})
 		);
+		expect(bucketCheckbox.checked).toBe(true); // re-included by the chapter-level select-all
+		expect(chapterCheckbox.checked).toBe(true);
+		expect(chapterCheckbox.indeterminate).toBe(false);
 
-		// Step 3: re-checking the chapter restores exactly v3 — NOT v1/v2,
-		// which were excluded independently before the chapter-level
-		// snapshot was ever taken.
+		// Now fully checked -> the next click excludes the whole chapter.
 		await fireEvent.click(chapterCheckbox);
 		await waitFor(() =>
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v3'], included: true })
+				body: JSON.stringify({ variationKeys: ['v1', 'v2', 'v3'], included: false })
 			})
 		);
-		expect(bucketCheckbox.checked).toBe(false); // still excluded, untouched by the chapter's restore
 	});
 
 	it('drilling into a move-group bucket within a chapter reveals its individual variations with their own checkboxes', async () => {
