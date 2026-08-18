@@ -5,6 +5,7 @@
   import { page } from '$app/stores';
   import { initThemeFromCookie, applyResolvedThemeClass, themeStore } from '$lib/theme.svelte';
   import { initEnginePrefFromCookie } from '$lib/enginePref.svelte';
+  import { clearStaleChunkGuard } from '$lib/staleChunk';
 
   let { children, data } = $props<{ children: any; data: any }>();
 
@@ -21,6 +22,13 @@
   // already painted.
   initThemeFromCookie();
   initEnginePrefFromCookie();
+
+  // Reaching here means the app rendered, so whatever stale-chunk recovery may
+  // have run on a previous load is spent and shouldn't count against a LATER
+  // deploy landing while this same tab stays open (we redeploy on every push).
+  $effect(() => {
+    clearStaleChunkGuard();
+  });
 
   // Only relevant while 'system' is the active choice — if the OS's own
   // light/dark setting changes while this tab is open, follow it live
