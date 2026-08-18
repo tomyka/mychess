@@ -21,10 +21,12 @@ Run from this directory (`mychess/`):
 - `npm test` / `npm run test:watch` — vitest (unit tests, colocated `*.test.ts` files)
 - `npx vitest run path/to/file.test.ts` — run a single test file
 - `npm run check` / `npm run check:watch` — `svelte-kit sync` + `svelte-check` (TypeScript + Svelte type checking)
+- `npm run lint` — `eslint .` (flat config in `eslint.config.js`, includes `eslint-plugin-svelte` and `eslint-plugin-security`)
 - `npm run fide:import` — one-off script (`scripts/import-fide.ts`) to bulk-import FIDE player data
+- `npm run eco:generate` — one-off script (`scripts/generate-eco-data.ts`) to regenerate ECO opening data
 - `npx playwright test` — e2e tests (`tests/*.e2e.ts`); builds and previews the app first, runs against Chromium + a Pixel 5 mobile profile
 
-There is no lint script; `svelte-check` is the correctness gate along with vitest.
+CI (`.github/workflows/ci.yml`) only runs `npm test` before deploying — `check` and `lint` are not gated there, so running both locally before pushing is on you.
 
 **`npm run check` must report zero errors before pushing to `main`.** There is no tolerated baseline — a prior one (OAuth callback/connect routes' `string | undefined` env-var typing) was fixed via `requireEnv()` in `src/lib/env.ts`, which narrows a `$env/dynamic/*` value to `string`, throwing a clear error if it's actually missing. Use it for any new required env var read outside `+layout.server.ts`'s existing patterns, rather than reintroducing the same class of error.
 
@@ -59,14 +61,18 @@ There is no lint script; `svelte-check` is the correctness gate along with vites
 - `fide/` — FIDE rating lookup, search, and ranking logic; `download.ts`/`import-job.ts` back the `fide:import` script and the cron-triggered `/api/fide/import` route.
 - `tournaments/` — tournament listing/filtering/ranking (`query.ts`) plus a scraper (`scraper.ts`, `scrape-job.ts`) that also runs as a Supabase Edge Function (`supabase/functions/tournaments-scrape/`) and via `/api/tournaments/scrape`.
 - `badges/`, `quests/`, `cosmetics.ts` — gamification layer (grants, recalculation, daily quest generation).
-- `coach-players.ts` (+ `server/coach-players.ts`) — the many-to-many coach↔player relationship system: request/accept flow, invite-link redemption (`/join/[token]`), and directory browsing (`/coach/students` finding players, `/(player)/coaches` finding coaches). This has its own guard-trigger-based anti-hijack protection at the DB layer (see migrations 0019–0021) — don't bypass it by writing directly instead of through the relationship functions.
+- `coach-players.ts` (+ `server/coach-players.ts`) — the many-to-many coach↔player relationship system: request/accept flow, invite-link redemption (`/join/[token]`), and directory browsing (`/coach/students` finding players, `/(player)/coaches` finding coaches). This has its own guard-trigger-based anti-hijack protection at the DB layer (see migrations 0019–0021) — don't bypass it by writing directly instead of through the relationship functions. Directory browsing is backed by two Postgres views, `coach_directory`/`player_directory` (migration 0019), deliberately not `security_invoker` so they can expose a narrow column set that `profiles`' own RLS wouldn't otherwise grant to an unconnected user — access is controlled by table `GRANT`s, not view-level RLS. `player_directory` also excludes guest/anonymous accounts by joining `auth.users.is_anonymous` (migration 0056); `coach_directory` needs no equivalent since `ensureGuestProfile` always creates guest profiles with `role = 'player'`.
 - `repertoire.ts` / `server/pgn-import.ts` — repertoires are position/move graphs built from parsed PGN; a repertoire is *owned* by whoever uploaded it (`repertoires.player_id`) and separately *assigned* to students via `assigned_repertoires` (coach_id, player_id, repertoire_id) — ownership and assignment are deliberately decoupled so a coach can build a personal library and assign the same repertoire to many students.
 
-**Chess platform integrations** (`src/lib/server/{lichess,chesscom,oauth}.ts`, `src/routes/auth/{connect,callback}/*`): OAuth/PKCE flows to link Lichess and Chess.com accounts, plus a custom Google Sign-In flow — all hand-rolled against each provider's token endpoint rather than a generic OAuth library. `oauth.ts` centralizes signed-state handling (`OAUTH_STATE_SECRET`).
+**Chess platform integrations** (`src/lib/server/{lichess,chesscom,oauth}.ts`, `src/routes/auth/{connect,callback}/*`): OAuth/PKCE flows to link Lichess and Chess.com accounts, plus a custom Google Sign-In flow — all hand-rolled against each provider's token endpoint rather than a generic OAuth library. `oauth.ts` centralizes signed-state handling (`OAUTH_STATE_SECRET`). A separate, purely client-side OAuth interaction — `src/lib/googleDrivePicker.ts` (Google Identity Services token client + Picker API, `drive.file` scope, for importing a PGN directly from Google Drive) — is unrelated to the sign-in flow above and needs its own Google Cloud Console configuration: it depends on `PUBLIC_GOOGLE_CLIENT_ID`'s **Authorized JavaScript origins**, not the sign-in flow's Authorized redirect URIs. Mixing these two up is a common source of `invalid_client`/`no registered origin` errors.
 
 **Client-side chess UI:** `chess.js` for rules/move validation, `chessground` for the interactive board, wrapped by `src/lib/components/ChessBoard.svelte`.
 
 **PWA:** `@vite-pwa/sveltekit` (configured in `vite.config.ts`) generates a service worker with `NetworkFirst` caching for Supabase REST calls; manifest/icons under `static/`.
+
+**Deployment:** pinned to Vercel region `arn1` (Stockholm) in `svelte.config.js`, matching the Supabase project's North EU region — without this, Vercel defaults to `iad1` (US East), forcing every server-side Supabase round trip across the Atlantic for no reason.
+
+**Auth emails:** the magic-link sign-in email uses a branded HTML template at `supabase/templates/magic_link.html`, wired into `supabase/config.toml` for local dev only. As with migrations, the production project's template must be pasted manually into the Supabase Dashboard (Authentication → Emails → Templates) — there's no working CLI link to the hosted project. The template's subject deliberately includes `{{ .Token }}` so repeat sign-in requests get distinct subjects instead of threading into one inbox conversation, hiding which link is still valid.
 
 ## Svelte/SvelteKit conventions used throughout
 
