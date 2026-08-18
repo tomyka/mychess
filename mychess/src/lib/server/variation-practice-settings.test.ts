@@ -90,15 +90,15 @@ describe('setVariationsIncluded', () => {
 		expect(result).toEqual({ error: 'boom' });
 	});
 
-	it('batches a large delete (included: true) into multiple calls of at most 500 keys each', async () => {
+	it('batches a large delete (included: true) into multiple calls of at most 100 keys each', async () => {
 		const { client, deleteCalls } = fakeSupabase();
-		const keys = Array.from({ length: 1200 }, (_, i) => `v${i}`);
+		const keys = Array.from({ length: 250 }, (_, i) => `v${i}`);
 		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, true);
 		expect(result).toEqual({ error: null });
-		expect(deleteCalls).toHaveLength(3); // 500 + 500 + 200
-		expect(deleteCalls[0].vals).toHaveLength(500);
-		expect(deleteCalls[1].vals).toHaveLength(500);
-		expect(deleteCalls[2].vals).toHaveLength(200);
+		expect(deleteCalls).toHaveLength(3); // 100 + 100 + 50
+		expect(deleteCalls[0].vals).toHaveLength(100);
+		expect(deleteCalls[1].vals).toHaveLength(100);
+		expect(deleteCalls[2].vals).toHaveLength(50);
 		// Every key is covered exactly once, in order, across the batches — as hashes, not raw keys.
 		expect(deleteCalls.flatMap((c) => c.vals)).toEqual(keys.map(variationKeyHash));
 	});
@@ -141,10 +141,10 @@ describe('setVariationsIncluded', () => {
 
 	it('stops at the first failing batch and does not attempt further batches', async () => {
 		const { client, deleteCalls } = fakeSupabase({ deleteErrorOnCall: 2, errorMessage: 'batch 2 failed' });
-		const keys = Array.from({ length: 1200 }, (_, i) => `v${i}`); // 3 batches of 500/500/200
+		const keys = Array.from({ length: 1200 }, (_, i) => `v${i}`); // 12 batches of 100
 		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, true);
 		expect(result).toEqual({ error: 'batch 2 failed' });
-		expect(deleteCalls).toHaveLength(2); // the 3rd batch was never attempted
+		expect(deleteCalls).toHaveLength(2); // the remaining 10 batches were never attempted
 	});
 
 	it('rolls back an earlier successful delete batch when a later batch fails (included: true)', async () => {
@@ -154,7 +154,7 @@ describe('setVariationsIncluded', () => {
 		// variations really are now included) even though the whole call
 		// reports failure and the UI shows every row as still excluded.
 		const { client, deleteCalls, upsertCalls } = fakeSupabase({ deleteErrorOnCall: 2, errorMessage: 'batch 2 failed' });
-		const keys = Array.from({ length: 1200 }, (_, i) => `v${i}`); // 3 batches of 500/500/200
+		const keys = Array.from({ length: 1200 }, (_, i) => `v${i}`); // 12 batches of 100
 		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, true);
 
 		expect(result).toEqual({ error: 'batch 2 failed' });
@@ -163,7 +163,7 @@ describe('setVariationsIncluded', () => {
 		// Rollback re-inserts exactly the keys the successful first delete
 		// batch removed — restoring them as excluded again.
 		expect(upsertCalls).toHaveLength(1);
-		expect(upsertCalls[0].rows.map((r: any) => r.variation_key)).toEqual(keys.slice(0, 500));
+		expect(upsertCalls[0].rows.map((r: any) => r.variation_key)).toEqual(keys.slice(0, 100));
 		expect(upsertCalls[0].rows.every((r: any) => r.player_id === 'player-1' && r.repertoire_id === 'rep-1')).toBe(true);
 	});
 
@@ -177,8 +177,8 @@ describe('setVariationsIncluded', () => {
 
 		// Rollback deletes exactly the keys the successful first upsert batch
 		// inserted. The compensating delete goes through DELETE_BATCH_SIZE
-		// (500) batches of its own — so 500 rolled-back keys fit in one call.
-		expect(deleteCalls).toHaveLength(1);
+		// (100) batches of its own — so the 500 rolled-back keys span 5 calls.
+		expect(deleteCalls).toHaveLength(5);
 		expect(deleteCalls.flatMap((c) => c.vals)).toEqual(keys.slice(0, 500).map(variationKeyHash));
 		expect(
 			deleteCalls.every(

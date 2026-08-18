@@ -17,10 +17,15 @@ export function variationKeyHash(variationKey: string): string {
 
 // A `.in()` filter goes out as URL query text regardless of HTTP verb
 // (PostgREST convention), not a request body. Hashes are a fixed 64 hex
-// characters each (unlike raw variation_key, whose length is unbounded), so
-// this can be far larger than the old raw-key batch size while still
-// keeping every request's URL comfortably short.
-const DELETE_BATCH_SIZE = 500;
+// characters each (unlike raw variation_key, whose length is unbounded).
+// This used to be 500 (~33KB of hashes alone in one query string), which
+// production hit repeatedly as a bare "Bad Request" with no Postgres error
+// detail — the signature of a request rejected by a URL-length limit in
+// front of PostgREST, not a real database error. 100 keeps a batch's `.in()`
+// text under ~7KB, comfortably inside typical proxy/gateway limits, while
+// still keeping a large bulk restore (e.g. an 899-variation repertoire) to
+// under 10 sequential round trips.
+const DELETE_BATCH_SIZE = 100;
 
 // An upsert's rows travel in the request BODY, not the URL — no query-string
 // length concern, so this can be far bigger than DELETE_BATCH_SIZE. Kept
