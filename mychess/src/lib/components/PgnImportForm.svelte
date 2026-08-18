@@ -173,7 +173,7 @@
 <form onsubmit={handleSubmit} class="bg-(--color-surface) border border-(--color-border) rounded-xl shadow-sm p-5 space-y-4">
 	<div>
 		<label class="block text-sm font-medium text-(--color-text) mb-1" for="name">Repertoire Name</label>
-		<input id="name" name="name" required placeholder="e.g. Sicilian Defense" bind:value={name} disabled={importing}
+		<input id="name" name="name" required placeholder="e.g. Sicilian Defense" bind:value={name} disabled={importing || drivePicking}
 		       class="w-full rounded-lg px-4 py-2.5 border border-(--color-border) text-(--color-text) placeholder-(--color-muted) focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60" />
 	</div>
 
@@ -196,7 +196,7 @@
 
 	<div>
 		<label class="block text-sm font-medium text-(--color-text) mb-1" for="pgn_text">Paste PGN text</label>
-		<textarea id="pgn_text" name="pgn_text" rows="8" bind:value={pgnText} disabled={importing}
+		<textarea id="pgn_text" name="pgn_text" rows="8" bind:value={pgnText} disabled={importing || drivePicking}
 		           placeholder="[Event &quot;Example&quot;]&#10;&#10;1. e4 e5 *"
 		           class="w-full rounded-lg px-4 py-2.5 border border-(--color-border) text-(--color-text) placeholder-(--color-muted) focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm resize-none disabled:opacity-60"
 		></textarea>
