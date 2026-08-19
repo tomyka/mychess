@@ -383,7 +383,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <main
-	class="min-h-screen lg:min-h-0 lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-(--color-bg) p-4 max-w-5xl mx-auto pb-24 lg:pb-4 flex flex-col"
+	class="min-h-screen lg:min-h-0 lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-(--color-bg) p-4 max-w-7xl mx-auto pb-24 lg:pb-4 flex flex-col"
 	data-phase={phase}
 >
 	<div class="mb-3 flex items-center justify-between shrink-0">
@@ -464,7 +464,7 @@
 					</p>
 				{/if}
 
-				<div class="lg:flex-1 lg:min-h-0 lg:flex lg:items-center lg:justify-center lg:[container-type:size]">
+				<div class="lg:flex-1 lg:min-h-0 lg:flex lg:items-start lg:justify-center lg:[container-type:size]">
 					<ChessBoard
 						fen={displayFen}
 						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
@@ -525,7 +525,7 @@
 			</div>
 
 			<div
-				class="w-full lg:flex-1 lg:min-w-72 lg:max-w-sm hidden lg:flex lg:flex-col divide-y divide-(--color-border) bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:overflow-y-auto"
+				class="w-full lg:w-80 lg:shrink-0 hidden lg:flex lg:flex-col divide-y divide-(--color-border) bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:overflow-y-auto"
 			>
 				<div class="p-4">
 					<p class="text-(--color-text) font-bold text-sm">{data.repertoire?.name}</p>
