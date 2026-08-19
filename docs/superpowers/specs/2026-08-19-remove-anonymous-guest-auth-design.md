@@ -123,7 +123,9 @@ The code changes stop *the app* from minting. They do not stop *the API*: while 
 
 ## Testing
 
-- `src/lib/server/auth.test.ts` — remove the guest-session tests; add assertions that `drill` and `time-trial` loads redirect an unauthenticated visitor to `/login`.
+- `src/lib/server/auth.test.ts` — remove the guest-session tests. Keep all three `requireAccount` cases, including the anonymous-user redirect, which becomes load-bearing as the stale-cookie guard.
+
+> **Correction.** This section originally also said to add assertions that the `drill` and `time-trial` loads redirect an unauthenticated visitor to `/login`. Those were deliberately not added, and the shipped code is correct without them. CLAUDE.md documents that Supabase-touching route `load`s are not unit-tested in this project — pure logic lives in `src/lib/` with colocated tests, I/O is verified manually and via e2e. Both routes are now one-line delegations to `requireAccount`, which already has full coverage of all three cases (real user, no user, anonymous user). Adding route-load tests would have meant mocking Supabase against the grain of the existing convention for no added signal.
 - Manual check: signed out, `/` renders with the signed-out NavBar; `/drill` and `/time-trial` redirect to `/login`; signed in with zero repertoires, both render their existing empty state.
 - Gate before push: full `npm test` and `npm run check` at **zero errors**, per CLAUDE.md.
 
