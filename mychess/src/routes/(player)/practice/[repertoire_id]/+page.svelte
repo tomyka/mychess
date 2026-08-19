@@ -10,6 +10,7 @@
 	import { arrowMoveForStep, isLastPlayerMove } from '$lib/mastery/teaching';
 	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
 	import EngineEval from '$lib/components/EngineEval.svelte';
+	import PracticeStatusStrip, { type PracticeStripState } from '$lib/components/PracticeStatusStrip.svelte';
 
 	let { data } = $props<{ data: any }>();
 
@@ -180,6 +181,18 @@
 		if (!step) return null;
 		const move = arrowMoveForStep(step, quizIdx, attempt?.arrowPlies ?? null);
 		return move ? { from: move.from as Key, to: move.to as Key } : null;
+	});
+
+	// Priority: a teaching arrow is self-explanatory (silent) > the
+	// between-passes cue > the last move's own result > the autoplay intro
+	// > the default blind-retest prompt.
+	const stripState = $derived.by((): PracticeStripState => {
+		if (arrowMove) return 'silent';
+		if (teachCue) return 'retest-cue';
+		if (lastMoveResult === 'wrong') return 'wrong';
+		if (lastMoveResult === 'correct') return 'correct';
+		if (phase === 'autoplay') return 'autoplay';
+		return 'blind';
 	});
 
 	/**
@@ -466,16 +479,9 @@
 				<!-- Sits directly above the board in both layouts, so it's in the
 				     same place the player is already looking. role="status" (an
 				     implicit aria-live="polite" region) announces it on appearance:
-				     it's the only signal that the board is about to rewind, and
+				     it's the only signal that e.g. the board is about to rewind, and
 				     nothing about the board itself conveys that. -->
-				{#if teachCue}
-					<p
-						role="status"
-						class="mb-3 shrink-0 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-center text-sm font-semibold text-amber-800 shadow-sm dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
-					>
-						<span aria-hidden="true">🧠</span> Nice — now play it from memory
-					</p>
-				{/if}
+				<PracticeStatusStrip state={stripState} />
 
 				{#if !hintRequested && phase === 'playing'}
 					<p class="text-center mb-4 lg:hidden">
