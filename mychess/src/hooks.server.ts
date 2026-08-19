@@ -43,9 +43,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 		let resolvedProfile = profile;
 
-		// Backfill display_name for accounts that converted from a guest: they
-		// keep the "Guest" placeholder even after a real name is set. Once a
-		// name exists on a non-anonymous account, adopt it as the display name.
+		// Backfill display_name for any account still carrying a placeholder —
+		// an empty string, or the literal "Guest" left behind by a profile the
+		// removed guest-auth flow created. Once a real name exists, adopt it.
+		// The is_anonymous clause stays deliberately: anonymous rows still exist
+		// with valid refresh tokens until they are purged (#90), and they are
+		// treated as non-accounts everywhere else too (see requireAccount).
 		if (
 			resolvedProfile &&
 			!session.user.is_anonymous &&
