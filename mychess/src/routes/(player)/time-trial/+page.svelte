@@ -80,13 +80,6 @@
   <title>Time Trial — MyChess</title>
 </svelte:head>
 
-{#if data.needsAccount}
-  <div class="max-w-md mx-auto text-center py-16 space-y-4">
-    <h1 class="text-2xl font-bold text-(--color-text)">Sign in to train</h1>
-    <p class="text-(--color-muted)">Guest training is unavailable right now. Create a free account to start.</p>
-    <a href="/login?signup=1" class="inline-block bg-(--color-accent) text-white px-5 py-2.5 rounded-lg font-medium hover:bg-(--color-accent-hover)">Get started</a>
-  </div>
-{:else}
 <div class="min-h-screen bg-(--color-bg) p-4">
   <div class="max-w-3xl mx-auto">
     <div class="flex justify-between items-center mb-4">
@@ -153,4 +146,3 @@
     {/if}
   </div>
 </div>
-{/if}
