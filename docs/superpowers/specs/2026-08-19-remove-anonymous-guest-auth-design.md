@@ -95,9 +95,17 @@ Both deleted blocks contain a `Get started` link pointing at `/login?signup=1`. 
 
 This is a rename, **not** a deletion. `/` stays public, so NavBar must keep its signed-out arm (the `{:else}` branch showing only the Tournaments link). Removing the branch would break the public page.
 
-### 4. Simplify the display_name backfill
+### 4. Correct the display_name backfill's comment — keep its logic
 
-In `src/hooks.server.ts`, drop the `!session.user.is_anonymous` condition from the backfill guard — always true once anonymous users cannot exist.
+In `src/hooks.server.ts`, **retain** the `!session.user.is_anonymous` condition in the backfill guard, and fix only the comment above it.
+
+> **Correction.** This section originally said to drop that condition as "always true once anonymous users cannot exist." That repeats the same mistake corrected in §3: anonymous rows persist in production until #90 purges them, so the condition is not vacuous.
+>
+> Dropping it is *probably* inert — guest profiles were created with only `role`, `display_name`, and `avatar_id`, so `fullNameOrNull(null, null)` returns `null` and no write occurs. But that safety rests entirely on no anonymous row ever having a `first_name`, and a guest who filled in name fields before converting would defeat it and get written to. Keeping the clause costs nothing and is consistent with `requireAccount` and all three `isSignedOut` consumers: anonymous means "not a real account" everywhere until the purge.
+>
+> Once #90 has purged the rows and the Supabase provider is disabled, this clause and `requireAccount`'s can be removed together, as one coherent follow-up.
+
+The comment does need correcting: it currently frames the backfill as guest-conversion-specific, when `isPlaceholderName` also matches an empty display name.
 
 **Keep everything else about this block, including `GUEST_DISPLAY_NAME` and `isPlaceholderName`.** `isPlaceholderName` (`src/lib/profile.ts:26`) treats `''` *or* `'Guest'` as a placeholder, so the backfill also serves real accounts with an empty display name. Converted-guest rows in production may also still hold the literal string `'Guest'`. Deleting this would be a live regression, not dead-code cleanup.
 

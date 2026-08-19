@@ -538,14 +538,16 @@ no-session return path in hooks that had been omitting it entirely."
 
 ---
 
-### Task 5: Simplify the display_name backfill
+### Task 5: Correct the display_name backfill's comment — keep its logic
 
 **Files:**
-- Modify: `src/hooks.server.ts:61`
+- Modify: `mychess/src/hooks.server.ts` — the comment above the backfill guard only
 
-- [ ] **Step 1: Drop the now-redundant condition**
+- [ ] **Step 1: Do NOT change the guard. Read this first.**
 
-The backfill guard currently reads:
+This task originally said to delete the `!session.user.is_anonymous` line from the guard, on the grounds that it was "always true now." **That was wrong and the instruction is withdrawn.** It repeated the same false premise that caused the Task 4 regression: anonymous rows still exist in production, with valid refresh tokens, until #90 purges them.
+
+Leave the guard exactly as it is:
 
 ```ts
 		if (
@@ -555,18 +557,13 @@ The backfill guard currently reads:
 		) {
 ```
 
-Remove the middle line so it becomes:
+Rationale for keeping it, so nobody removes it later thinking it is dead: dropping it is *probably* inert, because guest profiles were created with only `role`, `display_name`, and `avatar_id`, so `fullNameOrNull(null, null)` returns `null` and no write happens. But that safety depends entirely on no anonymous row ever carrying a `first_name` — and a guest who filled in name fields before converting would defeat it and get written to. Keeping the clause costs nothing and matches how `requireAccount` and all three `isSignedOut` consumers now treat anonymous sessions. It comes out later, together with `requireAccount`'s, once #90 has purged the rows.
 
-```ts
-		if (
-			resolvedProfile &&
-			isPlaceholderName((resolvedProfile as any).display_name)
-		) {
-```
+Also keep `GUEST_DISPLAY_NAME` and `isPlaceholderName` in `src/lib/profile.ts` — `isPlaceholderName` returns true for `''` as well as `'Guest'`, so the backfill genuinely serves real accounts with an empty display name. Deleting it would be a live regression, not cleanup.
 
-**Keep everything else in this block, and keep `GUEST_DISPLAY_NAME` and `isPlaceholderName` in `src/lib/profile.ts`.** `isPlaceholderName` (`profile.ts:26`) returns true for `''` as well as `'Guest'`, so this backfill also serves real accounts that have an empty display name. Converted-guest rows in production may still hold the literal string `'Guest'`. Deleting this would be a live regression, not cleanup.
+- [ ] **Step 2: Fix only the comment**
 
-Update the block's comment above it, which currently frames it as guest-specific:
+The comment above the guard misdescribes what the block does — it frames it as guest-conversion-specific when `isPlaceholderName` also matches empty names. It currently reads:
 
 ```ts
 		// Backfill display_name for accounts that converted from a guest: they
@@ -578,28 +575,33 @@ Change to:
 
 ```ts
 		// Backfill display_name for any account still carrying a placeholder —
-		// an empty string, or the literal "Guest" left behind by an account that
-		// converted from a guest before anonymous auth was removed. Once a real
-		// name exists, adopt it as the display name.
+		// an empty string, or the literal "Guest" left behind by a profile the
+		// removed guest-auth flow created. Once a real name exists, adopt it.
+		// The is_anonymous clause stays deliberately: anonymous rows still exist
+		// with valid refresh tokens until they are purged (#90), and they are
+		// treated as non-accounts everywhere else too (see requireAccount).
 ```
 
-- [ ] **Step 2: Run the full suite and type check**
+- [ ] **Step 3: Run the full suite and type check**
 
 ```bash
 npm test && npm run check
 ```
 
-Expected: all tests pass; `0 ERRORS`.
+Expected: **641** tests passing; `0 ERRORS` and 17 WARNINGS. A comment-only change must not move either number — if it does, something else was touched.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add src/hooks.server.ts
-git commit -m "refactor: drop the is_anonymous clause from the display_name backfill
+git add mychess/src/hooks.server.ts
+git commit -m "docs: correct the display_name backfill comment
 
-Always true now that anonymous users cannot exist. The backfill itself stays:
-isPlaceholderName also matches an empty display name, so it still serves real
-accounts, and converted-guest rows may still hold the literal 'Guest'."
+The comment framed the block as guest-conversion-specific, but
+isPlaceholderName also matches an empty display name, so it serves real
+accounts too. Records why the is_anonymous clause is deliberately retained:
+anonymous rows still exist with valid refresh tokens until #90 purges them, so
+the clause is not vacuous, and dropping it would risk writing to an anonymous
+profile that happened to carry a first_name. No logic change."
 ```
 
 ---
