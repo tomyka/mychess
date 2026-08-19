@@ -429,8 +429,14 @@ In `src/routes/(player)/+page.server.ts`, line 11:
 Change to:
 
 ```ts
-  const isSignedOut = !user;
+  // Anonymous sessions count as signed-out: rows from the removed guest-auth
+  // flow still exist in production with valid refresh tokens until they are
+  // purged (#90), and they must not reach the authenticated pipeline — it
+  // seeds quest rows. Mirrors requireAccount's own is_anonymous check.
+  const isSignedOut = !user || !!(user as any).is_anonymous;
 ```
+
+**Keep the `is_anonymous` disjunct — only the name changes.** This step originally said to narrow the test to plain `!user`, and that was wrong: a code-quality reviewer caught it during implementation. Anonymous rows still exist in production with valid refresh tokens until #90 purges them, so narrowing the test flips them from "guest" to "signed in" — and `/` would then run the authenticated pipeline for them, reaching `ensureDailyQuests` (`src/lib/server/quests.ts:69`), which **inserts quest rows**. That is precisely the DB pollution this change exists to eliminate. Apply the same reasoning at the other two consumers: `NavBar.svelte`'s local derive keeps `|| user.is_anonymous`, and `hooks.server.ts`'s resolved-session return uses `isSignedOut: !!session.user.is_anonymous` rather than a hardcoded `false`.
 
 Update the comment and branch at lines 43-44:
 
@@ -673,7 +679,7 @@ State plainly why this is not optional: the code changes stop *the app* from min
 Do **not** close #88 on the strength of the push alone. Its final acceptance criterion depends on a manual step outside Claude's control, and CLAUDE.md is explicit that pushing code is insufficient in that case. Wait for the user to confirm, then:
 
 ```bash
-gh issue close 88 --comment "Shipped. ensureGuestSession and lib/server/guest.ts deleted, so no code path calls signInAnonymously. /drill and /time-trial now use requireAccount like their five siblings, and their unreachable needsAccount branches are gone. isGuest renamed to isSignedOut (required, not optional, in app.d.ts) and redefined as !user; / remains public with its existing landing page. The display_name backfill was kept — isPlaceholderName also matches empty names — with only its now-always-true is_anonymous clause dropped. requireAccount keeps its own is_anonymous check to reject stale guest cookies until #90 purges the existing rows. Anonymous sign-ins disabled in the dashboard, confirmed by the user. Full test suite and svelte-check clean."
+gh issue close 88 --comment "Shipped. ensureGuestSession and lib/server/guest.ts deleted, so no code path calls signInAnonymously. /drill and /time-trial now use requireAccount like their five siblings, and their unreachable needsAccount branches are gone. isGuest renamed to isSignedOut (required, not optional, in app.d.ts), meaning 'not a usable real account' — the is_anonymous disjunct is retained at every consumer, because stale anonymous sessions stay valid until #90 purges them, and treating them as signed-in would have let / seed quest rows for them. / remains public with its existing landing page. The display_name backfill was kept — isPlaceholderName also matches empty names — with only its now-always-true is_anonymous clause dropped. requireAccount keeps its own is_anonymous check to reject stale guest cookies until #90 purges the existing rows. Anonymous sign-ins disabled in the dashboard, confirmed by the user. Full test suite and svelte-check clean."
 ```
 
 Then note that #90 (purging the existing anonymous rows) is now unblocked, since the pile has stopped growing.

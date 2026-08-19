@@ -84,11 +84,13 @@ Both deleted blocks contain a `Get started` link pointing at `/login?signup=1`. 
 
 ### 3. Rename `isGuest` to `isSignedOut`
 
-`isGuest` currently means "no session **or** anonymous session". With anonymous sessions gone it means only "no session", so the name misleads. Rename, and redefine as `!user`:
+`isGuest` currently means "no session **or** anonymous session". The name misleads, because "guest" now reads as a product concept that no longer exists. Rename it to `isSignedOut`, meaning **"not a usable real account"** — which keeps the existing `!user || is_anonymous` test rather than narrowing it:
+
+> **Correction.** This section originally said to redefine the flag as plain `!user`, on the reasoning that anonymous sessions no longer exist. That was wrong, and a code-quality reviewer caught it during implementation. Anonymous rows *do* still exist in production, with valid refresh tokens, until the Supabase provider is disabled and #90 purges them — which is exactly why `requireAccount` deliberately keeps its own `is_anonymous` check. Narrowing to `!user` flipped those sessions from "guest" to "signed in", so `/` would have run the authenticated pipeline for them and `ensureDailyQuests` would have **inserted quest rows** (`src/lib/server/quests.ts:69`) — the precise DB pollution this whole change exists to stop. The rename must be behaviour-preserving; keep the `is_anonymous` disjunct at every consumer until the purge lands.
 
 - `src/app.d.ts` — the field appears **twice**, in `Locals.safeGetSession`'s return type (line 11) and in `PageData` (line 17). Both are currently optional (`isGuest?: boolean`). Make the renamed field **required** (`isSignedOut: boolean`) in both, so every branch is forced to state it rather than leaning on `undefined` being falsy.
 - `src/hooks.server.ts` — `isGuest: !!session.user.is_anonymous` becomes `isSignedOut: false` in the session branch. The no-session early return at line 37 currently omits the field entirely — legal today only because it is optional — and must now set `isSignedOut: true`. Making the field required is what forces this second site to be found; leaving it optional would let it slip through silently.
-- `src/routes/(player)/+page.server.ts:11` — `!user || !!user.is_anonymous` becomes `!user`; update the `isGuest` returns at lines 47 and 137
+- `src/routes/(player)/+page.server.ts:11` — the `!user || !!user.is_anonymous` test is **kept as-is**, only renamed; update the `isGuest` returns at lines 47 and 137. `NavBar.svelte`'s local derive keeps its `is_anonymous` disjunct for the same reason, and `hooks.server.ts`'s resolved-session return reports `isSignedOut: !!session.user.is_anonymous` rather than a hardcoded `false`
 - `src/routes/(player)/+page.svelte` and `src/lib/components/NavBar.svelte` — rename the prop and branch conditions
 
 This is a rename, **not** a deletion. `/` stays public, so NavBar must keep its signed-out arm (the `{:else}` branch showing only the Tournaments link). Removing the branch would break the public page.
@@ -123,7 +125,8 @@ The code changes stop *the app* from minting. They do not stop *the API*: while 
 - [ ] `src/lib/server/guest.ts` deleted
 - [ ] `drill` and `time-trial` loads use `requireAccount`; signed-out visitors are redirected to `/login`
 - [ ] `needsAccount` branches removed from both components; `allMoves.length === 0` states retained
-- [ ] `isGuest` renamed to `isSignedOut` throughout, defined as `!user`, and **required** (not optional) in both `app.d.ts` declarations; `/` still renders publicly with a signed-out NavBar
+- [ ] `isGuest` renamed to `isSignedOut` throughout, meaning "not a usable real account" — the `is_anonymous` disjunct **retained** at every consumer until #90 purges the rows — and **required** (not optional) in both `app.d.ts` declarations; `/` still renders publicly with a signed-out NavBar
+- [ ] An anonymous session visiting `/` still gets the public landing and does **not** reach `ensureDailyQuests`
 - [ ] `display_name` backfill retained and still fires for empty-name accounts
 - [ ] `npm test` and `npm run check` both clean
 - [ ] Anonymous sign-ins disabled in the Supabase dashboard (user-confirmed)
