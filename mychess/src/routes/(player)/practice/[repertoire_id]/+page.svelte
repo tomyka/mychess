@@ -26,15 +26,27 @@
 	// "now play it from memory" cue — see showTeachCue().
 	let phase = $state<'playing' | 'advancing' | 'autoplay' | 'transition'>('playing');
 	let locked = $state(false);
-	// Consecutive wrong attempts on the CURRENT quiz move — resets the moment
-	// it's solved or a new attempt starts. After 3, a hint becomes available;
-	// requesting it highlights the correct piece's square, never the move.
-	let wrongCount = $state(0);
+	// Requesting a hint highlights the correct piece's square, never the
+	// move itself — available every turn (see requestHint()), and marks the
+	// whole attempt dirty so a hinted pass can't solve the variation.
 	let hintRequested = $state(false);
 	// Whether THIS ATTEMPT (the whole variation replay) has had any mistake
 	// yet — a clean full replay is what marks a variation solved. Reset only
 	// in resetForAttempt().
 	let attemptHadMistake = $state(false);
+	// Wrong attempts on the current attempt, shown as the sidebar's
+	// "mistakes this attempt" chip — reset alongside attemptHadMistake.
+	let attemptMistakeCount = $state(0);
+	// The status strip's take on the last move played: holds 'correct' only
+	// for the same brief window the board itself holds correct-move
+	// feedback (cleared in the advanceTimeout callback below), holds 'wrong'
+	// until overwritten by the player's next attempt. Reset in
+	// resetForAttempt() like the rest of per-attempt state.
+	let lastMoveResult = $state<'correct' | 'wrong' | null>(null);
+	// How many variations have been solved cleanly since this page loaded —
+	// deliberately NOT reset in resetForAttempt(): a running session total,
+	// not per-attempt state.
+	let solvedThisSession = $state(0);
 	let advanceTimeout: ReturnType<typeof setTimeout> | undefined;
 	let autoPlayTimeout: ReturnType<typeof setTimeout> | undefined;
 	// Whether the "now play it from memory" cue is currently up. A clean teach
@@ -198,9 +210,10 @@
 		manualReviewIdx = null;
 		phase = 'playing';
 		locked = false;
-		wrongCount = 0;
 		hintRequested = false;
 		attemptHadMistake = false;
+		attemptMistakeCount = 0;
+		lastMoveResult = null;
 		quizSteps = attempt?.path ?? [];
 		if (!attempt) return;
 		boardFen = attempt.path[0]?.fromFen ?? '';
@@ -250,6 +263,13 @@
 		});
 	});
 
+	function requestHint() {
+		hintRequested = true;
+		// A taken hint marks this pass dirty, same as a wrong move — it can
+		// still be played out, but it can no longer solve the variation.
+		attemptHadMistake = true;
+	}
+
 	function handleMove(detail: { from: Key; to: Key; san: string }) {
 		if (phase !== 'playing' || locked) return false;
 		const step = quizSteps[quizIdx];
@@ -258,7 +278,7 @@
 		if (detail.san === step.san) {
 			playCorrect();
 			locked = true;
-			wrongCount = 0;
+			lastMoveResult = 'correct';
 			hintRequested = false;
 			logMove(step.moveId, detail.san, true);
 			// NOT quizIdx + 1 >= quizSteps.length — a served path can end with a
@@ -282,6 +302,7 @@
 				// must not bump the count.
 				if (attempt.isFinalPass) {
 					data = { ...data, solved: optimisticSolvedAfterAttempt(data, attemptHadMistake) };
+					if (!attemptHadMistake) solvedThisSession++;
 				}
 			}
 			// A clean teach pass is about to be re-served as a blind retest of
@@ -297,6 +318,7 @@
 				quizIdx++;
 				advanceThroughOpponentReplies();
 				locked = false;
+				lastMoveResult = null;
 				if (quizIdx >= quizSteps.length) {
 					if (cueRetest) {
 						showTeachCue();
@@ -315,8 +337,9 @@
 		}
 
 		playWrong();
-		wrongCount++;
+		lastMoveResult = 'wrong';
 		attemptHadMistake = true;
+		attemptMistakeCount++;
 		logMove(step.moveId, detail.san, false);
 		// Don't reveal the book move — just mark the square wrong and let
 		// the player try again on the same position. The whole attempt is
@@ -454,10 +477,10 @@
 					</p>
 				{/if}
 
-				{#if wrongCount >= 3 && !hintRequested && phase === 'playing'}
+				{#if !hintRequested && phase === 'playing'}
 					<p class="text-center mb-4 lg:hidden">
 						<button
-							onclick={() => (hintRequested = true)}
+							onclick={requestHint}
 							class="inline-flex items-center gap-1 text-sm font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700"
 						>
 							<span class="text-base">💡</span> Need a hint?
@@ -568,10 +591,10 @@
 					<p class="text-sm text-(--color-muted)">{movesSoFar || '—'}</p>
 				</div>
 
-				{#if wrongCount >= 3 && !hintRequested && phase === 'playing'}
+				{#if !hintRequested && phase === 'playing'}
 					<p class="text-center p-4">
 						<button
-							onclick={() => (hintRequested = true)}
+							onclick={requestHint}
 							class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700"
 						>
 							<span class="text-base">💡</span> Need a hint?

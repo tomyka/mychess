@@ -492,9 +492,6 @@ describe('practice detail page', () => {
 			playMove('b1', 'c3'); // Nc3, not the book's Nf3
 			await vi.advanceTimersByTimeAsync(500);
 		}
-		// Three wrong guesses on one move is what unlocks the hint prompt — proof
-		// the mistakes above actually registered as mistakes.
-		expect(screen.getAllByText('Need a hint?').length).toBe(2);
 
 		playMove('g1', 'f3');
 		await vi.advanceTimersByTimeAsync(500);
@@ -503,6 +500,24 @@ describe('practice detail page', () => {
 		// "completed without a cue", not a move that never landed.
 		expect(phaseNow()).toBe('advancing');
 		expect(screen.queryByText(/now play it from memory/i)).toBeNull();
+	});
+
+	it('offers a hint immediately, and taking it prevents the pass from counting as solved', async () => {
+		vi.useFakeTimers();
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
+		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes
+
+		// Visible with zero wrong attempts — no three-strikes wait.
+		const hintButtons = screen.getAllByText('Need a hint?');
+		expect(hintButtons.length).toBe(2);
+
+		await fireEvent.click(hintButtons[0]);
+
+		playMove('g1', 'f3'); // the correct move — but the hint already marked this pass dirty
+		await vi.advanceTimersByTimeAsync(500);
+
+		// A dirty final pass must not bump solved (optimisticSolvedAfterAttempt(hadMistake=true)).
+		expect(screen.getAllByText('0 / 1 variations solved').length).toBe(2);
 	});
 
 	it('renders without crashing with the engine toggle in its default (off) state', () => {
