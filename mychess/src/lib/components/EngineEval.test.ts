@@ -62,6 +62,13 @@ it('clicking the switch toggles enginePrefStore, which every instance shares', a
 	unmount();
 });
 
+it('always shows the "Engine" label, even when the toggle is off', () => {
+	enginePrefStore.enabled = false;
+	const { getByText, unmount } = render(EngineEval, { props: { fen: FEN } });
+	expect(getByText('Engine')).toBeTruthy();
+	unmount();
+});
+
 /**
  * A minimal fake Worker whose construction is directly observable — used to
  * prove ensureWorker() actually retries spawning a fresh Worker after the
@@ -199,6 +206,22 @@ describe('EngineEval Worker singleton lifecycle', () => {
 
 		expect(getByText('+0.35')).toBeTruthy();
 		expect(queryByText('…')).toBeNull();
+	});
+
+	it('shows a White/Black legend on the eval bar once a score arrives', () => {
+		vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
+
+		const { getByText } = render(EngineEval, { props: { fen: FEN } });
+		const worker = FakeWorker.instances[0];
+		worker.emit('uciok');
+		flushSync();
+		worker.emit('readyok');
+		flushSync();
+		worker.emit('info depth 12 seldepth 18 multipv 1 score cp 35 nodes 1000 nps 500000 time 20 pv e2e4 e7e5');
+		flushSync();
+
+		expect(getByText('W')).toBeTruthy();
+		expect(getByText('B')).toBeTruthy();
 	});
 
 	it('gives up and shows "unavailable" if the handshake never completes', () => {
