@@ -386,12 +386,17 @@
 	class="min-h-screen lg:min-h-0 lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-(--color-bg) p-4 max-w-7xl mx-auto pb-24 lg:pb-4 flex flex-col"
 	data-phase={phase}
 >
-	<div class="mb-3 flex items-center justify-between shrink-0">
-		<a href="/practice" class="text-(--color-muted) text-sm hover:text-(--color-text)">← All Repertoires</a>
+	<div class="mb-3 flex items-center justify-between gap-3 shrink-0">
+		<a href="/practice" class="text-(--color-muted) text-sm hover:text-(--color-text) shrink-0">← All Repertoires</a>
+		{#if data.repertoire?.name}
+			<h1 class="text-(--color-text) font-bold text-base sm:text-lg truncate text-center flex-1">
+				{data.repertoire.name}
+			</h1>
+		{/if}
 		{#if repertoireId}
 			<button
 				onclick={() => (pickerOpen = true)}
-				class="lg:hidden inline-flex items-center gap-1 text-(--color-accent) text-sm font-medium hover:underline"
+				class="lg:hidden inline-flex items-center gap-1 text-(--color-accent) text-sm font-medium hover:underline shrink-0"
 			>
 				<span aria-hidden="true">📖</span> Switch variation
 			</button>
@@ -430,11 +435,7 @@
 		</div>
 	{:else}
 		<div class="p-3 bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm text-center mb-3 shrink-0 lg:hidden">
-			<p class="text-sm font-medium">
-				<span class="text-(--color-muted)">{data.repertoire?.name}</span>
-				<span class="mx-1.5 text-gray-300">·</span>
-				<span class="text-(--color-text) font-bold">{data.solved} / {data.total} variations solved</span>
-			</p>
+			<p class="text-sm font-bold text-(--color-text)">{data.solved} / {data.total} variations solved</p>
 		</div>
 
 		<div class="flex flex-col lg:flex-row lg:items-stretch gap-6 lg:flex-1 lg:min-h-0">
@@ -528,8 +529,7 @@
 				class="w-full lg:w-80 lg:shrink-0 hidden lg:flex lg:flex-col divide-y divide-(--color-border) bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:overflow-y-auto"
 			>
 				<div class="p-4">
-					<p class="text-(--color-text) font-bold text-sm">{data.repertoire?.name}</p>
-					<div class="flex items-center justify-between gap-2 mt-1">
+					<div class="flex items-center justify-between gap-2">
 						<span class="text-(--color-muted) text-sm">{data.solved} / {data.total} variations solved</span>
 						<button
 							onclick={() => (pickerOpen = true)}
