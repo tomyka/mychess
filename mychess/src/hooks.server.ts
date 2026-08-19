@@ -3,7 +3,6 @@ import { env } from '$env/dynamic/public';
 import { dev } from '$app/environment';
 import type { Handle } from '@sveltejs/kit';
 import { fullNameOrNull, isPlaceholderName } from '$lib/profile';
-import { ensureGuestProfile } from '$lib/server/guest';
 import { sessionCookieOptions } from '$lib/server/cookies';
 import { requireEnv } from '$lib/env';
 
@@ -42,16 +41,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			.eq('id', session.user.id)
 			.single();
 
-		// A lazily-created anonymous session may not have its guest profile yet.
-		if (!profile && session.user.is_anonymous) {
-			await ensureGuestProfile(event.locals.supabase, session.user.id);
-		}
-
-		let resolvedProfile = profile ?? (await event.locals.supabase
-			.from('profiles')
-			.select('*')
-			.eq('id', session.user.id)
-			.single()).data;
+		let resolvedProfile = profile;
 
 		// Backfill display_name for accounts that converted from a guest: they
 		// keep the "Guest" placeholder even after a real name is set. Once a
