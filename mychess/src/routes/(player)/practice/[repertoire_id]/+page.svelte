@@ -189,6 +189,7 @@
 	const stripState = $derived.by((): PracticeStripState => {
 		if (arrowMove) return 'silent';
 		if (teachCue) return 'retest-cue';
+		if (phase === 'advancing') return 'correct';
 		if (lastMoveResult === 'wrong') return 'wrong';
 		if (lastMoveResult === 'correct') return 'correct';
 		if (phase === 'autoplay') return 'autoplay';
