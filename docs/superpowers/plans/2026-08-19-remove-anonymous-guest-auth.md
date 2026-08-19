@@ -45,7 +45,188 @@ Untouched on purpose: `src/lib/profile.ts` (`GUEST_DISPLAY_NAME`/`isPlaceholderN
 
 ---
 
-### Task 1: Delete the minting capability
+### Task 1: Gate `/drill` behind a real account
+
+**Files:**
+- Modify: `src/routes/(player)/drill/+page.server.ts:2`, `:5-8`, `:14`, `:50`
+- Modify: `src/routes/(player)/drill/+page.svelte:74-80`, final line
+
+- [ ] **Step 1: Switch the load to `requireAccount`**
+
+In `src/routes/(player)/drill/+page.server.ts`, replace lines 1-9 (imports through the `supabase` binding):
+
+```ts
+import type { PageServerLoad } from './$types';
+import { ensureGuestSession } from '$lib/server/auth';
+
+export const load: PageServerLoad = async ({ locals }) => {
+  const guest = await ensureGuestSession(locals);
+  if (!guest) return { needsAccount: true };
+  const { user, session, profile } = guest;
+  if (!user) return { needsAccount: true };
+  const supabase = locals.supabase;
+```
+
+with:
+
+```ts
+import type { PageServerLoad } from './$types';
+import { requireAccount } from '$lib/server/auth';
+
+export const load: PageServerLoad = async ({ locals }) => {
+  const { user, session, profile } = await requireAccount(locals);
+  const supabase = locals.supabase;
+```
+
+- [ ] **Step 2: Add the non-null assertions**
+
+`requireAccount`'s return type isn't narrowable, so both `user.id` references need `!`. On line 14 (was `.eq('player_id', user.id);` in the repertoires query) and on line 50 (was `.eq('player_id', user.id);` in the reviews query), change:
+
+```ts
+    .eq('player_id', user.id);
+```
+
+to:
+
+```ts
+    .eq('player_id', user!.id);
+```
+
+There are exactly two such lines in this file. This matches the convention in the five already-gated sibling routes.
+
+- [ ] **Step 3: Delete the unreachable signed-out branch**
+
+`src/routes/(player)/drill/+page.svelte` wraps its entire body in `{#if data.needsAccount} … {:else} … {/if}`. All three parts must go, or the build fails on an unmatched block.
+
+Delete lines 74-79:
+
+```svelte
+{#if data.needsAccount}
+  <div class="max-w-md mx-auto text-center py-16 space-y-4">
+    <h1 class="text-2xl font-bold text-(--color-text)">Sign in to train</h1>
+    <p class="text-(--color-muted)">Guest training is unavailable right now. Create a free account to start.</p>
+    <a href="/login?signup=1" class="inline-block bg-(--color-accent) text-white px-5 py-2.5 rounded-lg font-medium hover:bg-(--color-accent-hover)">Get started</a>
+  </div>
+```
+
+Delete the `{:else}` on line 80.
+
+Delete the closing `{/if}` on the file's final line (line 146 before edits).
+
+Leave the page body between them alone — do not reflow its indentation, it makes the diff unreadable for no gain. The inner `{#if allMoves.length === 0}` empty state stays: a signed-in player with no repertoires still needs it.
+
+- [ ] **Step 4: Type check**
+
+```bash
+npm run check
+```
+
+Expected: `0 ERRORS`. A dangling `{:else}` or `{/if}` shows up here as a Svelte parse error naming the file — if that happens, Step 3 was applied incompletely.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add "src/routes/(player)/drill/+page.server.ts" "src/routes/(player)/drill/+page.svelte"
+git commit -m "feat: require an account for /drill
+
+Was the only gate that minted an anonymous session instead of redirecting.
+Now uses requireAccount like its five sibling routes. The needsAccount
+branch is unreachable once the guard redirects, so it is deleted along with
+its inert /login?signup=1 link."
+```
+
+---
+
+### Task 2: Gate `/time-trial` behind a real account
+
+**Files:**
+- Modify: `src/routes/(player)/time-trial/+page.server.ts:2`, `:5-8`, `:14`
+- Modify: `src/routes/(player)/time-trial/+page.svelte:83-89`, final line
+
+- [ ] **Step 1: Switch the load to `requireAccount`**
+
+In `src/routes/(player)/time-trial/+page.server.ts`, replace lines 1-9:
+
+```ts
+import type { PageServerLoad } from './$types';
+import { ensureGuestSession } from '$lib/server/auth';
+
+export const load: PageServerLoad = async ({ locals }) => {
+  const guest = await ensureGuestSession(locals);
+  if (!guest) return { needsAccount: true };
+  const { user, session, profile } = guest;
+  if (!user) return { needsAccount: true };
+  const supabase = locals.supabase;
+```
+
+with:
+
+```ts
+import type { PageServerLoad } from './$types';
+import { requireAccount } from '$lib/server/auth';
+
+export const load: PageServerLoad = async ({ locals }) => {
+  const { user, session, profile } = await requireAccount(locals);
+  const supabase = locals.supabase;
+```
+
+- [ ] **Step 2: Add the non-null assertion**
+
+This file has exactly **one** `user.id` reference, on line 14. Change:
+
+```ts
+    .eq('player_id', user.id);
+```
+
+to:
+
+```ts
+    .eq('player_id', user!.id);
+```
+
+- [ ] **Step 3: Delete the unreachable signed-out branch**
+
+Same `{#if}/{:else}/{/if}` wrapper structure as drill. Delete lines 83-88:
+
+```svelte
+{#if data.needsAccount}
+  <div class="max-w-md mx-auto text-center py-16 space-y-4">
+    <h1 class="text-2xl font-bold text-(--color-text)">Sign in to train</h1>
+    <p class="text-(--color-muted)">Guest training is unavailable right now. Create a free account to start.</p>
+    <a href="/login?signup=1" class="inline-block bg-(--color-accent) text-white px-5 py-2.5 rounded-lg font-medium hover:bg-(--color-accent-hover)">Get started</a>
+  </div>
+```
+
+Delete the `{:else}` on line 89.
+
+Delete the closing `{/if}` on the file's final line (line 156 before edits).
+
+Keep the inner `{#if allMoves.length === 0}` empty state.
+
+- [ ] **Step 4: Type check**
+
+```bash
+npm run check
+```
+
+Expected: `0 ERRORS`.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add "src/routes/(player)/time-trial/+page.server.ts" "src/routes/(player)/time-trial/+page.svelte"
+git commit -m "feat: require an account for /time-trial
+
+Second and last route that minted an anonymous session from its load
+function. Same treatment as /drill: requireAccount, and delete the now
+unreachable needsAccount branch."
+```
+
+---
+
+### Task 3: Delete the minting capability
+
+**Run this AFTER Tasks 1 and 2.** Deleting `ensureGuestSession` while `/drill` or `/time-trial` still import it puts `svelte-check` into a 2-error state (`Module '"$lib/server/auth"' has no exported member 'ensureGuestSession'`). Gating those two routes first removes the only callers, so this task's deletions land on a codebase that already has none — every commit boundary stays green and no throwaway stopgap is needed.
 
 **Files:**
 - Delete: `src/lib/server/guest.ts`
@@ -178,185 +359,6 @@ anonymous auth user plus three dependent rows. Removes the capability
 outright rather than relocating it, so no future route can reintroduce the
 leak. requireAccount keeps its is_anonymous check as a guard against stale
 guest cookies until existing rows are purged (#90)."
-```
-
----
-
-### Task 2: Gate `/drill` behind a real account
-
-**Files:**
-- Modify: `src/routes/(player)/drill/+page.server.ts:2`, `:5-8`, `:14`, `:50`
-- Modify: `src/routes/(player)/drill/+page.svelte:74-80`, final line
-
-- [ ] **Step 1: Switch the load to `requireAccount`**
-
-In `src/routes/(player)/drill/+page.server.ts`, replace lines 1-9 (imports through the `supabase` binding):
-
-```ts
-import type { PageServerLoad } from './$types';
-import { ensureGuestSession } from '$lib/server/auth';
-
-export const load: PageServerLoad = async ({ locals }) => {
-  const guest = await ensureGuestSession(locals);
-  if (!guest) return { needsAccount: true };
-  const { user, session, profile } = guest;
-  if (!user) return { needsAccount: true };
-  const supabase = locals.supabase;
-```
-
-with:
-
-```ts
-import type { PageServerLoad } from './$types';
-import { requireAccount } from '$lib/server/auth';
-
-export const load: PageServerLoad = async ({ locals }) => {
-  const { user, session, profile } = await requireAccount(locals);
-  const supabase = locals.supabase;
-```
-
-- [ ] **Step 2: Add the non-null assertions**
-
-`requireAccount`'s return type isn't narrowable, so both `user.id` references need `!`. On line 14 (was `.eq('player_id', user.id);` in the repertoires query) and on line 50 (was `.eq('player_id', user.id);` in the reviews query), change:
-
-```ts
-    .eq('player_id', user.id);
-```
-
-to:
-
-```ts
-    .eq('player_id', user!.id);
-```
-
-There are exactly two such lines in this file. This matches the convention in the five already-gated sibling routes.
-
-- [ ] **Step 3: Delete the unreachable signed-out branch**
-
-`src/routes/(player)/drill/+page.svelte` wraps its entire body in `{#if data.needsAccount} … {:else} … {/if}`. All three parts must go, or the build fails on an unmatched block.
-
-Delete lines 74-79:
-
-```svelte
-{#if data.needsAccount}
-  <div class="max-w-md mx-auto text-center py-16 space-y-4">
-    <h1 class="text-2xl font-bold text-(--color-text)">Sign in to train</h1>
-    <p class="text-(--color-muted)">Guest training is unavailable right now. Create a free account to start.</p>
-    <a href="/login?signup=1" class="inline-block bg-(--color-accent) text-white px-5 py-2.5 rounded-lg font-medium hover:bg-(--color-accent-hover)">Get started</a>
-  </div>
-```
-
-Delete the `{:else}` on line 80.
-
-Delete the closing `{/if}` on the file's final line (line 146 before edits).
-
-Leave the page body between them alone — do not reflow its indentation, it makes the diff unreadable for no gain. The inner `{#if allMoves.length === 0}` empty state stays: a signed-in player with no repertoires still needs it.
-
-- [ ] **Step 4: Type check**
-
-```bash
-npm run check
-```
-
-Expected: `0 ERRORS`. A dangling `{:else}` or `{/if}` shows up here as a Svelte parse error naming the file — if that happens, Step 3 was applied incompletely.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add "src/routes/(player)/drill/+page.server.ts" "src/routes/(player)/drill/+page.svelte"
-git commit -m "feat: require an account for /drill
-
-Was the only gate that minted an anonymous session instead of redirecting.
-Now uses requireAccount like its five sibling routes. The needsAccount
-branch is unreachable once the guard redirects, so it is deleted along with
-its inert /login?signup=1 link."
-```
-
----
-
-### Task 3: Gate `/time-trial` behind a real account
-
-**Files:**
-- Modify: `src/routes/(player)/time-trial/+page.server.ts:2`, `:5-8`, `:14`
-- Modify: `src/routes/(player)/time-trial/+page.svelte:83-89`, final line
-
-- [ ] **Step 1: Switch the load to `requireAccount`**
-
-In `src/routes/(player)/time-trial/+page.server.ts`, replace lines 1-9:
-
-```ts
-import type { PageServerLoad } from './$types';
-import { ensureGuestSession } from '$lib/server/auth';
-
-export const load: PageServerLoad = async ({ locals }) => {
-  const guest = await ensureGuestSession(locals);
-  if (!guest) return { needsAccount: true };
-  const { user, session, profile } = guest;
-  if (!user) return { needsAccount: true };
-  const supabase = locals.supabase;
-```
-
-with:
-
-```ts
-import type { PageServerLoad } from './$types';
-import { requireAccount } from '$lib/server/auth';
-
-export const load: PageServerLoad = async ({ locals }) => {
-  const { user, session, profile } = await requireAccount(locals);
-  const supabase = locals.supabase;
-```
-
-- [ ] **Step 2: Add the non-null assertion**
-
-This file has exactly **one** `user.id` reference, on line 14. Change:
-
-```ts
-    .eq('player_id', user.id);
-```
-
-to:
-
-```ts
-    .eq('player_id', user!.id);
-```
-
-- [ ] **Step 3: Delete the unreachable signed-out branch**
-
-Same `{#if}/{:else}/{/if}` wrapper structure as drill. Delete lines 83-88:
-
-```svelte
-{#if data.needsAccount}
-  <div class="max-w-md mx-auto text-center py-16 space-y-4">
-    <h1 class="text-2xl font-bold text-(--color-text)">Sign in to train</h1>
-    <p class="text-(--color-muted)">Guest training is unavailable right now. Create a free account to start.</p>
-    <a href="/login?signup=1" class="inline-block bg-(--color-accent) text-white px-5 py-2.5 rounded-lg font-medium hover:bg-(--color-accent-hover)">Get started</a>
-  </div>
-```
-
-Delete the `{:else}` on line 89.
-
-Delete the closing `{/if}` on the file's final line (line 156 before edits).
-
-Keep the inner `{#if allMoves.length === 0}` empty state.
-
-- [ ] **Step 4: Type check**
-
-```bash
-npm run check
-```
-
-Expected: `0 ERRORS`.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add "src/routes/(player)/time-trial/+page.server.ts" "src/routes/(player)/time-trial/+page.svelte"
-git commit -m "feat: require an account for /time-trial
-
-Second and last route that minted an anonymous session from its load
-function. Same treatment as /drill: requireAccount, and delete the now
-unreachable needsAccount branch."
 ```
 
 ---
@@ -616,7 +618,7 @@ grep -c "is_anonymous" src/lib/server/auth.ts ; echo "--- expect 1 (the requireA
 npm test && npm run check
 ```
 
-Expected: 643+ tests pass (the suite loses 2 guest tests from Task 1, so expect 641+), and `check` reports `0 ERRORS`. Per CLAUDE.md, zero errors is required before pushing to `main` — there is no tolerated baseline.
+Expected: 641 tests pass (643 at baseline, minus the 2 guest tests deleted in Task 3), and `check` reports `0 ERRORS` with 17 WARNINGS. Per CLAUDE.md, zero errors is required before pushing to `main` — there is no tolerated baseline. The 17 warnings are pre-existing and must be left alone.
 
 - [ ] **Step 3: Manual verification against a running app**
 
@@ -665,7 +667,11 @@ Then note that #90 (purging the existing anonymous rows) is now unblocked, since
 
 ## Notes for the implementer
 
-**Task order matters.** Task 1 deletes the tests before the code they cover; doing it the other way round leaves a broken suite between steps. Tasks 2 and 3 are independent of each other and can be done in either order, but both depend on Task 1 having removed `ensureGuestSession`.
+**Task order matters, and it is not the obvious order.** Gating (Tasks 1 and 2) must come *before* the deletion (Task 3), not after. Deleting `ensureGuestSession` first leaves `/drill` and `/time-trial` importing a symbol that no longer exists, which is 2 `svelte-check` errors at that commit boundary — and CLAUDE.md allows no tolerated error baseline. Gating first removes both callers, so the deletion lands cleanly.
+
+Tasks 1 and 2 are independent of each other and can be done in either order. Task 3 depends on both. Within Task 3, delete the tests before the code they cover, or the suite breaks between its own steps.
+
+*(This ordering was wrong in the first version of this plan. An implementer hit the 2 errors, correctly refused to invent a stopgap, and the plan was re-sequenced.)*
 
 **The `{#if}/{:else}/{/if}` deletion in Tasks 2 and 3 is the single most likely place to break the build.** The wrapper spans the whole component, so the opening block, the `{:else}`, and the closing `{/if}` on the last line are far apart in the file. Delete all three. `npm run check` catches it if you don't.
 
