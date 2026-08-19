@@ -337,6 +337,23 @@ describe('practice detail page', () => {
 		expect(toLive.disabled).toBe(true);
 	});
 
+	it('shows the current ply position in the nav row', async () => {
+		vi.useFakeTimers();
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 0,
+					total: 1,
+					allSolved: false,
+					attempt: AUTO_PLAY_ATTEMPT
+				}
+			}
+		});
+		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes, quizIdx lands at 2
+		expect(screen.getByText('2 / 4')).toBeTruthy();
+	});
+
 	it('lets the left/right/up/down arrow keys drive the same review nav as the buttons', async () => {
 		vi.useFakeTimers();
 		render(Practice, {
