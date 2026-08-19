@@ -389,7 +389,7 @@
 	<div class="mb-3 flex items-center justify-between gap-3 shrink-0">
 		<a href="/practice" class="text-(--color-muted) text-sm hover:text-(--color-text) shrink-0">← All Repertoires</a>
 		{#if data.repertoire?.name}
-			<h1 class="text-(--color-text) font-bold text-base sm:text-lg truncate text-center flex-1">
+			<h1 class="text-(--color-text) font-bold text-base sm:text-lg truncate text-center flex-1 min-w-0">
 				{data.repertoire.name}
 			</h1>
 		{/if}
@@ -414,7 +414,7 @@
 	{#if data.allSolved && data.total > 0 && !attempt}
 		<div class="flex flex-col items-center gap-6 text-center py-16">
 			<p class="text-7xl">🏆</p>
-			<h1 class="text-3xl font-bold text-(--color-text)">Repertoire Solved!</h1>
+			<h2 class="text-3xl font-bold text-(--color-text)">Repertoire Solved!</h2>
 			<p class="text-(--color-muted)">Every variation in {data.repertoire?.name} has been played cleanly.</p>
 			<a
 				href="/practice"
@@ -429,7 +429,7 @@
 	{:else if !attempt}
 		<div class="flex flex-col items-center justify-center min-h-screen lg:min-h-0 lg:flex-1 text-center gap-4">
 			<p class="text-5xl">📭</p>
-			<h1 class="text-2xl font-bold text-(--color-text)">Nothing to practice</h1>
+			<h2 class="text-2xl font-bold text-(--color-text)">Nothing to practice</h2>
 			<p class="text-(--color-muted)">This repertoire has no moves for your color yet.</p>
 			<a href="/practice" class="text-(--color-accent) hover:underline">Back to Repertoires</a>
 		</div>
