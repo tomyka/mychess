@@ -52,10 +52,13 @@
     <!-- Right side -->
     <div class="flex items-center gap-3 text-sm shrink-0">
       {#if isGuest}
-        <a href="/login" class="hidden sm:inline text-(--color-muted) hover:text-gray-900 dark:hover:text-gray-200">Sign in</a>
-        <a href="/login?signup=1"
+        <!-- One CTA only: "Get started" pointed at /login?signup=1, but no route
+             ever reads a `signup` param, so it rendered the same page as "Sign in".
+             Not `hidden sm:inline` — this is now the only guest CTA in the top bar,
+             so it has to stay visible at every width. -->
+        <a href="/login"
            class="bg-(--color-accent) text-white px-3 py-1.5 rounded-lg font-medium hover:bg-(--color-accent-hover) transition-colors">
-          Get started
+          Sign in
         </a>
       {:else}
         <!-- Streak badge (player only) -->
@@ -134,9 +137,8 @@
         <a href="/coaches" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">Coaches</a>
       {:else}
         <a href="/tournaments" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">Tournaments</a>
-        <a href="/login" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">Sign in</a>
-        <a href="/login?signup=1" onclick={() => mobileMenuOpen = false}
-           class="text-(--color-accent) font-medium">Get started</a>
+        <a href="/login" onclick={() => mobileMenuOpen = false}
+           class="bg-(--color-accent) text-white px-3 py-1.5 rounded-lg font-medium text-center hover:bg-(--color-accent-hover) transition-colors">Sign in</a>
       {/if}
 
       <!-- Account section: Settings + Sign out for every signed-in user
