@@ -598,9 +598,24 @@ accounts, and converted-guest rows may still hold the literal 'Guest'."
 
 ---
 
-### Task 6: Verify end to end and hand off the manual step
+### Task 6: Update CLAUDE.md, verify end to end, hand off the manual step
 
-**Files:** none modified.
+**Files:**
+- Modify: `mychess/CLAUDE.md` — the "Auth model" section
+
+- [ ] **Step 0: Update CLAUDE.md's Auth model section**
+
+Added after a code-quality reviewer caught it during Task 3. `mychess/CLAUDE.md`'s "Auth model" section still documents the deleted architecture as current — it names `src/lib/server/guest.ts`, `ensureGuestSession`, and `ensureGuestProfile`, and describes guest-profile auto-creation and guest→real conversion as live behaviour. None of that exists any more.
+
+This matters more than a normal stale comment: CLAUDE.md is the file that orients every future session in this repo, so leaving it describing a removed subsystem actively misleads later work.
+
+Rewrite the bullets in that section so they describe what is actually true after this change:
+- `locals.safeGetSession()` remains the single source of truth, returning `{ session, user, profile, isSignedOut }` — note the renamed field (Task 4), and that it still does not eagerly create a session, so public pages render with `user: null`.
+- Anonymous/guest sessions no longer exist. Delete the bullet describing `ensureGuestSession`/`ensureGuestProfile` and the `"Guest"` placeholder profile. State plainly that anonymous auth was removed, and why: it minted a throwaway account on every GET of `/drill` and `/time-trial`.
+- `requireAccount(locals)` keeps its `is_anonymous` check deliberately, to reject stale guest cookies whose refresh tokens are still valid until the Supabase provider is disabled and the existing rows are purged (#90). Say so explicitly, so nobody later "cleans up" what looks like a vestigial branch. Keep the existing note that call sites use `user!.id` because the return type cannot be narrowed.
+- Replace the guest→real conversion bullet: `display_name` backfill still exists in `hooks.server.ts`, but its purpose is now any placeholder name — `isPlaceholderName` matches an empty string as well as the literal `'Guest'`, and converted-guest rows may still carry `'Guest'` until #90 runs.
+
+Also check the "Route groups gate by role" section: it says of `src/routes/(player)/` that "Guests (no session) and anonymous sessions pass through". Update it — `/` still renders for a signed-out visitor, but all seven sub-pages now require a real account via `requireAccount`.
 
 - [ ] **Step 1: Confirm every acceptance criterion mechanically**
 
