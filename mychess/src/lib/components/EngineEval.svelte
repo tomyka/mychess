@@ -201,7 +201,7 @@
 	{#if enginePrefStore.enabled && !failed && whiteFraction !== null}
 		<div class="flex items-center gap-1.5">
 			<span class="text-[10px] font-semibold text-(--color-muted)">W</span>
-			<div class="flex-1 h-1.5 rounded-full bg-(--color-border) overflow-hidden" aria-hidden="true">
+			<div class="flex-1 h-1.5 rounded-full bg-black/80 overflow-hidden" aria-hidden="true">
 				<div class="h-full bg-white" style={`width: ${whiteFraction * 100}%`}></div>
 			</div>
 			<span class="text-[10px] font-semibold text-(--color-muted)">B</span>
