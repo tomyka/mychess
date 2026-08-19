@@ -158,9 +158,8 @@ describe('practice detail page', () => {
 			}
 		});
 		expect(screen.queryByText(/Repertoire Solved/i)).toBeNull();
-		// The practice chrome renders instead (name/progress appear twice — once
-		// in the mobile card, once in the desktop sidebar).
-		expect(screen.getAllByText('French Defense').length).toBe(2);
+		// The practice chrome renders instead (name appears once in the header).
+		expect(screen.getAllByText('French Defense').length).toBe(1);
 		expect(screen.getAllByText('5 / 5 variations solved').length).toBe(2);
 	});
 
@@ -187,11 +186,9 @@ describe('practice detail page', () => {
 				}
 			}
 		});
-		// The repertoire name/progress renders twice — once in the mobile card
-		// above the board, once in the desktop sidebar panel — with Tailwind
-		// breakpoint classes deciding which is visible; jsdom doesn't evaluate
-		// those, so both are present in the DOM.
-		expect(screen.getAllByText('French Defense').length).toBe(2);
+		// The repertoire name renders once in the header; progress renders
+		// twice (mobile card + desktop sidebar).
+		expect(screen.getAllByText('French Defense').length).toBe(1);
 		expect(screen.getAllByText('3 / 5 variations solved').length).toBe(2);
 	});
 
@@ -517,7 +514,7 @@ describe('practice detail page', () => {
 		// The toggle switch itself always renders (mobile card + desktop
 		// panel); off by default, it never attempts to spawn a Worker at all.
 		expect(screen.getAllByRole('switch', { name: 'Toggle engine evaluation' }).length).toBe(2);
-		expect(screen.getAllByText('French Defense').length).toBe(2);
+		expect(screen.getAllByText('French Defense').length).toBe(1);
 	});
 
 	it('switching the engine on flips both instances together and shows "unavailable" (jsdom has no Worker)', async () => {
