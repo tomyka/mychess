@@ -1,6 +1,7 @@
 # Local dev
 node_modules/
 .svelte-kit/
+supabase/.temp/
 build/
 dist/
 .env
