@@ -8,13 +8,13 @@ declare global {
 				session: Session | null;
 				user: User | null;
 				profile: Record<string, unknown> | null;
-				isGuest?: boolean;
+				isSignedOut: boolean;
 			}>;
 		}
 		interface PageData {
 			session: Session | null;
 			profile: Record<string, unknown> | null;
-			isGuest?: boolean;
+			isSignedOut: boolean;
 		}
 	}
 }

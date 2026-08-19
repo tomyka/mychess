@@ -45,7 +45,188 @@ Untouched on purpose: `src/lib/profile.ts` (`GUEST_DISPLAY_NAME`/`isPlaceholderN
 
 ---
 
-### Task 1: Delete the minting capability
+### Task 1: Gate `/drill` behind a real account
+
+**Files:**
+- Modify: `src/routes/(player)/drill/+page.server.ts:2`, `:5-8`, `:14`, `:50`
+- Modify: `src/routes/(player)/drill/+page.svelte:74-80`, final line
+
+- [ ] **Step 1: Switch the load to `requireAccount`**
+
+In `src/routes/(player)/drill/+page.server.ts`, replace lines 1-9 (imports through the `supabase` binding):
+
+```ts
+import type { PageServerLoad } from './$types';
+import { ensureGuestSession } from '$lib/server/auth';
+
+export const load: PageServerLoad = async ({ locals }) => {
+  const guest = await ensureGuestSession(locals);
+  if (!guest) return { needsAccount: true };
+  const { user, session, profile } = guest;
+  if (!user) return { needsAccount: true };
+  const supabase = locals.supabase;
+```
+
+with:
+
+```ts
+import type { PageServerLoad } from './$types';
+import { requireAccount } from '$lib/server/auth';
+
+export const load: PageServerLoad = async ({ locals }) => {
+  const { user, session, profile } = await requireAccount(locals);
+  const supabase = locals.supabase;
+```
+
+- [ ] **Step 2: Add the non-null assertions**
+
+`requireAccount`'s return type isn't narrowable, so both `user.id` references need `!`. On line 14 (was `.eq('player_id', user.id);` in the repertoires query) and on line 50 (was `.eq('player_id', user.id);` in the reviews query), change:
+
+```ts
+    .eq('player_id', user.id);
+```
+
+to:
+
+```ts
+    .eq('player_id', user!.id);
+```
+
+There are exactly two such lines in this file. This matches the convention in the five already-gated sibling routes.
+
+- [ ] **Step 3: Delete the unreachable signed-out branch**
+
+`src/routes/(player)/drill/+page.svelte` wraps its entire body in `{#if data.needsAccount} … {:else} … {/if}`. All three parts must go, or the build fails on an unmatched block.
+
+Delete lines 74-79:
+
+```svelte
+{#if data.needsAccount}
+  <div class="max-w-md mx-auto text-center py-16 space-y-4">
+    <h1 class="text-2xl font-bold text-(--color-text)">Sign in to train</h1>
+    <p class="text-(--color-muted)">Guest training is unavailable right now. Create a free account to start.</p>
+    <a href="/login?signup=1" class="inline-block bg-(--color-accent) text-white px-5 py-2.5 rounded-lg font-medium hover:bg-(--color-accent-hover)">Get started</a>
+  </div>
+```
+
+Delete the `{:else}` on line 80.
+
+Delete the closing `{/if}` on the file's final line (line 146 before edits).
+
+Leave the page body between them alone — do not reflow its indentation, it makes the diff unreadable for no gain. The inner `{#if allMoves.length === 0}` empty state stays: a signed-in player with no repertoires still needs it.
+
+- [ ] **Step 4: Type check**
+
+```bash
+npm run check
+```
+
+Expected: `0 ERRORS`. A dangling `{:else}` or `{/if}` shows up here as a Svelte parse error naming the file — if that happens, Step 3 was applied incompletely.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add "src/routes/(player)/drill/+page.server.ts" "src/routes/(player)/drill/+page.svelte"
+git commit -m "feat: require an account for /drill
+
+Was the only gate that minted an anonymous session instead of redirecting.
+Now uses requireAccount like its five sibling routes. The needsAccount
+branch is unreachable once the guard redirects, so it is deleted along with
+its inert /login?signup=1 link."
+```
+
+---
+
+### Task 2: Gate `/time-trial` behind a real account
+
+**Files:**
+- Modify: `src/routes/(player)/time-trial/+page.server.ts:2`, `:5-8`, `:14`
+- Modify: `src/routes/(player)/time-trial/+page.svelte:83-89`, final line
+
+- [ ] **Step 1: Switch the load to `requireAccount`**
+
+In `src/routes/(player)/time-trial/+page.server.ts`, replace lines 1-9:
+
+```ts
+import type { PageServerLoad } from './$types';
+import { ensureGuestSession } from '$lib/server/auth';
+
+export const load: PageServerLoad = async ({ locals }) => {
+  const guest = await ensureGuestSession(locals);
+  if (!guest) return { needsAccount: true };
+  const { user, session, profile } = guest;
+  if (!user) return { needsAccount: true };
+  const supabase = locals.supabase;
+```
+
+with:
+
+```ts
+import type { PageServerLoad } from './$types';
+import { requireAccount } from '$lib/server/auth';
+
+export const load: PageServerLoad = async ({ locals }) => {
+  const { user, session, profile } = await requireAccount(locals);
+  const supabase = locals.supabase;
+```
+
+- [ ] **Step 2: Add the non-null assertion**
+
+This file has exactly **one** `user.id` reference, on line 14. Change:
+
+```ts
+    .eq('player_id', user.id);
+```
+
+to:
+
+```ts
+    .eq('player_id', user!.id);
+```
+
+- [ ] **Step 3: Delete the unreachable signed-out branch**
+
+Same `{#if}/{:else}/{/if}` wrapper structure as drill. Delete lines 83-88:
+
+```svelte
+{#if data.needsAccount}
+  <div class="max-w-md mx-auto text-center py-16 space-y-4">
+    <h1 class="text-2xl font-bold text-(--color-text)">Sign in to train</h1>
+    <p class="text-(--color-muted)">Guest training is unavailable right now. Create a free account to start.</p>
+    <a href="/login?signup=1" class="inline-block bg-(--color-accent) text-white px-5 py-2.5 rounded-lg font-medium hover:bg-(--color-accent-hover)">Get started</a>
+  </div>
+```
+
+Delete the `{:else}` on line 89.
+
+Delete the closing `{/if}` on the file's final line (line 156 before edits).
+
+Keep the inner `{#if allMoves.length === 0}` empty state.
+
+- [ ] **Step 4: Type check**
+
+```bash
+npm run check
+```
+
+Expected: `0 ERRORS`.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add "src/routes/(player)/time-trial/+page.server.ts" "src/routes/(player)/time-trial/+page.svelte"
+git commit -m "feat: require an account for /time-trial
+
+Second and last route that minted an anonymous session from its load
+function. Same treatment as /drill: requireAccount, and delete the now
+unreachable needsAccount branch."
+```
+
+---
+
+### Task 3: Delete the minting capability
+
+**Run this AFTER Tasks 1 and 2.** Deleting `ensureGuestSession` while `/drill` or `/time-trial` still import it puts `svelte-check` into a 2-error state (`Module '"$lib/server/auth"' has no exported member 'ensureGuestSession'`). Gating those two routes first removes the only callers, so this task's deletions land on a codebase that already has none — every commit boundary stays green and no throwaway stopgap is needed.
 
 **Files:**
 - Delete: `src/lib/server/guest.ts`
@@ -182,185 +363,6 @@ guest cookies until existing rows are purged (#90)."
 
 ---
 
-### Task 2: Gate `/drill` behind a real account
-
-**Files:**
-- Modify: `src/routes/(player)/drill/+page.server.ts:2`, `:5-8`, `:14`, `:50`
-- Modify: `src/routes/(player)/drill/+page.svelte:74-80`, final line
-
-- [ ] **Step 1: Switch the load to `requireAccount`**
-
-In `src/routes/(player)/drill/+page.server.ts`, replace lines 1-9 (imports through the `supabase` binding):
-
-```ts
-import type { PageServerLoad } from './$types';
-import { ensureGuestSession } from '$lib/server/auth';
-
-export const load: PageServerLoad = async ({ locals }) => {
-  const guest = await ensureGuestSession(locals);
-  if (!guest) return { needsAccount: true };
-  const { user, session, profile } = guest;
-  if (!user) return { needsAccount: true };
-  const supabase = locals.supabase;
-```
-
-with:
-
-```ts
-import type { PageServerLoad } from './$types';
-import { requireAccount } from '$lib/server/auth';
-
-export const load: PageServerLoad = async ({ locals }) => {
-  const { user, session, profile } = await requireAccount(locals);
-  const supabase = locals.supabase;
-```
-
-- [ ] **Step 2: Add the non-null assertions**
-
-`requireAccount`'s return type isn't narrowable, so both `user.id` references need `!`. On line 14 (was `.eq('player_id', user.id);` in the repertoires query) and on line 50 (was `.eq('player_id', user.id);` in the reviews query), change:
-
-```ts
-    .eq('player_id', user.id);
-```
-
-to:
-
-```ts
-    .eq('player_id', user!.id);
-```
-
-There are exactly two such lines in this file. This matches the convention in the five already-gated sibling routes.
-
-- [ ] **Step 3: Delete the unreachable signed-out branch**
-
-`src/routes/(player)/drill/+page.svelte` wraps its entire body in `{#if data.needsAccount} … {:else} … {/if}`. All three parts must go, or the build fails on an unmatched block.
-
-Delete lines 74-79:
-
-```svelte
-{#if data.needsAccount}
-  <div class="max-w-md mx-auto text-center py-16 space-y-4">
-    <h1 class="text-2xl font-bold text-(--color-text)">Sign in to train</h1>
-    <p class="text-(--color-muted)">Guest training is unavailable right now. Create a free account to start.</p>
-    <a href="/login?signup=1" class="inline-block bg-(--color-accent) text-white px-5 py-2.5 rounded-lg font-medium hover:bg-(--color-accent-hover)">Get started</a>
-  </div>
-```
-
-Delete the `{:else}` on line 80.
-
-Delete the closing `{/if}` on the file's final line (line 146 before edits).
-
-Leave the page body between them alone — do not reflow its indentation, it makes the diff unreadable for no gain. The inner `{#if allMoves.length === 0}` empty state stays: a signed-in player with no repertoires still needs it.
-
-- [ ] **Step 4: Type check**
-
-```bash
-npm run check
-```
-
-Expected: `0 ERRORS`. A dangling `{:else}` or `{/if}` shows up here as a Svelte parse error naming the file — if that happens, Step 3 was applied incompletely.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add "src/routes/(player)/drill/+page.server.ts" "src/routes/(player)/drill/+page.svelte"
-git commit -m "feat: require an account for /drill
-
-Was the only gate that minted an anonymous session instead of redirecting.
-Now uses requireAccount like its five sibling routes. The needsAccount
-branch is unreachable once the guard redirects, so it is deleted along with
-its inert /login?signup=1 link."
-```
-
----
-
-### Task 3: Gate `/time-trial` behind a real account
-
-**Files:**
-- Modify: `src/routes/(player)/time-trial/+page.server.ts:2`, `:5-8`, `:14`
-- Modify: `src/routes/(player)/time-trial/+page.svelte:83-89`, final line
-
-- [ ] **Step 1: Switch the load to `requireAccount`**
-
-In `src/routes/(player)/time-trial/+page.server.ts`, replace lines 1-9:
-
-```ts
-import type { PageServerLoad } from './$types';
-import { ensureGuestSession } from '$lib/server/auth';
-
-export const load: PageServerLoad = async ({ locals }) => {
-  const guest = await ensureGuestSession(locals);
-  if (!guest) return { needsAccount: true };
-  const { user, session, profile } = guest;
-  if (!user) return { needsAccount: true };
-  const supabase = locals.supabase;
-```
-
-with:
-
-```ts
-import type { PageServerLoad } from './$types';
-import { requireAccount } from '$lib/server/auth';
-
-export const load: PageServerLoad = async ({ locals }) => {
-  const { user, session, profile } = await requireAccount(locals);
-  const supabase = locals.supabase;
-```
-
-- [ ] **Step 2: Add the non-null assertion**
-
-This file has exactly **one** `user.id` reference, on line 14. Change:
-
-```ts
-    .eq('player_id', user.id);
-```
-
-to:
-
-```ts
-    .eq('player_id', user!.id);
-```
-
-- [ ] **Step 3: Delete the unreachable signed-out branch**
-
-Same `{#if}/{:else}/{/if}` wrapper structure as drill. Delete lines 83-88:
-
-```svelte
-{#if data.needsAccount}
-  <div class="max-w-md mx-auto text-center py-16 space-y-4">
-    <h1 class="text-2xl font-bold text-(--color-text)">Sign in to train</h1>
-    <p class="text-(--color-muted)">Guest training is unavailable right now. Create a free account to start.</p>
-    <a href="/login?signup=1" class="inline-block bg-(--color-accent) text-white px-5 py-2.5 rounded-lg font-medium hover:bg-(--color-accent-hover)">Get started</a>
-  </div>
-```
-
-Delete the `{:else}` on line 89.
-
-Delete the closing `{/if}` on the file's final line (line 156 before edits).
-
-Keep the inner `{#if allMoves.length === 0}` empty state.
-
-- [ ] **Step 4: Type check**
-
-```bash
-npm run check
-```
-
-Expected: `0 ERRORS`.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add "src/routes/(player)/time-trial/+page.server.ts" "src/routes/(player)/time-trial/+page.svelte"
-git commit -m "feat: require an account for /time-trial
-
-Second and last route that minted an anonymous session from its load
-function. Same treatment as /drill: requireAccount, and delete the now
-unreachable needsAccount branch."
-```
-
----
-
 ### Task 4: Rename `isGuest` to `isSignedOut`
 
 `isGuest` currently means "no session **or** anonymous session". With anonymous sessions gone it means only "no session", so the name misleads. This is a rename, not a removal — `/` stays public and genuinely has signed-out visitors.
@@ -427,8 +429,14 @@ In `src/routes/(player)/+page.server.ts`, line 11:
 Change to:
 
 ```ts
-  const isSignedOut = !user;
+  // Anonymous sessions count as signed-out: rows from the removed guest-auth
+  // flow still exist in production with valid refresh tokens until they are
+  // purged (#90), and they must not reach the authenticated pipeline — it
+  // seeds quest rows. Mirrors requireAccount's own is_anonymous check.
+  const isSignedOut = !user || !!(user as any).is_anonymous;
 ```
+
+**Keep the `is_anonymous` disjunct — only the name changes.** This step originally said to narrow the test to plain `!user`, and that was wrong: a code-quality reviewer caught it during implementation. Anonymous rows still exist in production with valid refresh tokens until #90 purges them, so narrowing the test flips them from "guest" to "signed in" — and `/` would then run the authenticated pipeline for them, reaching `ensureDailyQuests` (`src/lib/server/quests.ts:69`), which **inserts quest rows**. That is precisely the DB pollution this change exists to eliminate. Apply the same reasoning at the other two consumers: `NavBar.svelte`'s local derive keeps `|| user.is_anonymous`, and `hooks.server.ts`'s resolved-session return uses `isSignedOut: !!session.user.is_anonymous` rather than a hardcoded `false`.
 
 Update the comment and branch at lines 43-44:
 
@@ -530,14 +538,16 @@ no-session return path in hooks that had been omitting it entirely."
 
 ---
 
-### Task 5: Simplify the display_name backfill
+### Task 5: Correct the display_name backfill's comment — keep its logic
 
 **Files:**
-- Modify: `src/hooks.server.ts:61`
+- Modify: `mychess/src/hooks.server.ts` — the comment above the backfill guard only
 
-- [ ] **Step 1: Drop the now-redundant condition**
+- [ ] **Step 1: Do NOT change the guard. Read this first.**
 
-The backfill guard currently reads:
+This task originally said to delete the `!session.user.is_anonymous` line from the guard, on the grounds that it was "always true now." **That was wrong and the instruction is withdrawn.** It repeated the same false premise that caused the Task 4 regression: anonymous rows still exist in production, with valid refresh tokens, until #90 purges them.
+
+Leave the guard exactly as it is:
 
 ```ts
 		if (
@@ -547,18 +557,13 @@ The backfill guard currently reads:
 		) {
 ```
 
-Remove the middle line so it becomes:
+Rationale for keeping it, so nobody removes it later thinking it is dead: dropping it is *probably* inert, because guest profiles were created with only `role`, `display_name`, and `avatar_id`, so `fullNameOrNull(null, null)` returns `null` and no write happens. But that safety depends entirely on no anonymous row ever carrying a `first_name` — and a guest who filled in name fields before converting would defeat it and get written to. Keeping the clause costs nothing and matches how `requireAccount` and all three `isSignedOut` consumers now treat anonymous sessions. It comes out later, together with `requireAccount`'s, once #90 has purged the rows.
 
-```ts
-		if (
-			resolvedProfile &&
-			isPlaceholderName((resolvedProfile as any).display_name)
-		) {
-```
+Also keep `GUEST_DISPLAY_NAME` and `isPlaceholderName` in `src/lib/profile.ts` — `isPlaceholderName` returns true for `''` as well as `'Guest'`, so the backfill genuinely serves real accounts with an empty display name. Deleting it would be a live regression, not cleanup.
 
-**Keep everything else in this block, and keep `GUEST_DISPLAY_NAME` and `isPlaceholderName` in `src/lib/profile.ts`.** `isPlaceholderName` (`profile.ts:26`) returns true for `''` as well as `'Guest'`, so this backfill also serves real accounts that have an empty display name. Converted-guest rows in production may still hold the literal string `'Guest'`. Deleting this would be a live regression, not cleanup.
+- [ ] **Step 2: Fix only the comment**
 
-Update the block's comment above it, which currently frames it as guest-specific:
+The comment above the guard misdescribes what the block does — it frames it as guest-conversion-specific when `isPlaceholderName` also matches empty names. It currently reads:
 
 ```ts
 		// Backfill display_name for accounts that converted from a guest: they
@@ -570,35 +575,55 @@ Change to:
 
 ```ts
 		// Backfill display_name for any account still carrying a placeholder —
-		// an empty string, or the literal "Guest" left behind by an account that
-		// converted from a guest before anonymous auth was removed. Once a real
-		// name exists, adopt it as the display name.
+		// an empty string, or the literal "Guest" left behind by a profile the
+		// removed guest-auth flow created. Once a real name exists, adopt it.
+		// The is_anonymous clause stays deliberately: anonymous rows still exist
+		// with valid refresh tokens until they are purged (#90), and they are
+		// treated as non-accounts everywhere else too (see requireAccount).
 ```
 
-- [ ] **Step 2: Run the full suite and type check**
+- [ ] **Step 3: Run the full suite and type check**
 
 ```bash
 npm test && npm run check
 ```
 
-Expected: all tests pass; `0 ERRORS`.
+Expected: **641** tests passing; `0 ERRORS` and 17 WARNINGS. A comment-only change must not move either number — if it does, something else was touched.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add src/hooks.server.ts
-git commit -m "refactor: drop the is_anonymous clause from the display_name backfill
+git add mychess/src/hooks.server.ts
+git commit -m "docs: correct the display_name backfill comment
 
-Always true now that anonymous users cannot exist. The backfill itself stays:
-isPlaceholderName also matches an empty display name, so it still serves real
-accounts, and converted-guest rows may still hold the literal 'Guest'."
+The comment framed the block as guest-conversion-specific, but
+isPlaceholderName also matches an empty display name, so it serves real
+accounts too. Records why the is_anonymous clause is deliberately retained:
+anonymous rows still exist with valid refresh tokens until #90 purges them, so
+the clause is not vacuous, and dropping it would risk writing to an anonymous
+profile that happened to carry a first_name. No logic change."
 ```
 
 ---
 
-### Task 6: Verify end to end and hand off the manual step
+### Task 6: Update CLAUDE.md, verify end to end, hand off the manual step
 
-**Files:** none modified.
+**Files:**
+- Modify: `mychess/CLAUDE.md` — the "Auth model" section
+
+- [ ] **Step 0: Update CLAUDE.md's Auth model section**
+
+Added after a code-quality reviewer caught it during Task 3. `mychess/CLAUDE.md`'s "Auth model" section still documents the deleted architecture as current — it names `src/lib/server/guest.ts`, `ensureGuestSession`, and `ensureGuestProfile`, and describes guest-profile auto-creation and guest→real conversion as live behaviour. None of that exists any more.
+
+This matters more than a normal stale comment: CLAUDE.md is the file that orients every future session in this repo, so leaving it describing a removed subsystem actively misleads later work.
+
+Rewrite the bullets in that section so they describe what is actually true after this change:
+- `locals.safeGetSession()` remains the single source of truth, returning `{ session, user, profile, isSignedOut }` — note the renamed field (Task 4), and that it still does not eagerly create a session, so public pages render with `user: null`.
+- Anonymous/guest sessions no longer exist. Delete the bullet describing `ensureGuestSession`/`ensureGuestProfile` and the `"Guest"` placeholder profile. State plainly that anonymous auth was removed, and why: it minted a throwaway account on every GET of `/drill` and `/time-trial`.
+- `requireAccount(locals)` keeps its `is_anonymous` check deliberately, to reject stale guest cookies whose refresh tokens are still valid until the Supabase provider is disabled and the existing rows are purged (#90). Say so explicitly, so nobody later "cleans up" what looks like a vestigial branch. Keep the existing note that call sites use `user!.id` because the return type cannot be narrowed.
+- Replace the guest→real conversion bullet: `display_name` backfill still exists in `hooks.server.ts`, but its purpose is now any placeholder name — `isPlaceholderName` matches an empty string as well as the literal `'Guest'`, and converted-guest rows may still carry `'Guest'` until #90 runs.
+
+Also check the "Route groups gate by role" section: it says of `src/routes/(player)/` that "Guests (no session) and anonymous sessions pass through". Update it — `/` still renders for a signed-out visitor, but all seven sub-pages now require a real account via `requireAccount`.
 
 - [ ] **Step 1: Confirm every acceptance criterion mechanically**
 
@@ -616,7 +641,7 @@ grep -c "is_anonymous" src/lib/server/auth.ts ; echo "--- expect 1 (the requireA
 npm test && npm run check
 ```
 
-Expected: 643+ tests pass (the suite loses 2 guest tests from Task 1, so expect 641+), and `check` reports `0 ERRORS`. Per CLAUDE.md, zero errors is required before pushing to `main` — there is no tolerated baseline.
+Expected: 641 tests pass (643 at baseline, minus the 2 guest tests deleted in Task 3), and `check` reports `0 ERRORS` with 17 WARNINGS. Per CLAUDE.md, zero errors is required before pushing to `main` — there is no tolerated baseline. The 17 warnings are pre-existing and must be left alone.
 
 - [ ] **Step 3: Manual verification against a running app**
 
@@ -656,7 +681,7 @@ State plainly why this is not optional: the code changes stop *the app* from min
 Do **not** close #88 on the strength of the push alone. Its final acceptance criterion depends on a manual step outside Claude's control, and CLAUDE.md is explicit that pushing code is insufficient in that case. Wait for the user to confirm, then:
 
 ```bash
-gh issue close 88 --comment "Shipped. ensureGuestSession and lib/server/guest.ts deleted, so no code path calls signInAnonymously. /drill and /time-trial now use requireAccount like their five siblings, and their unreachable needsAccount branches are gone. isGuest renamed to isSignedOut (required, not optional, in app.d.ts) and redefined as !user; / remains public with its existing landing page. The display_name backfill was kept — isPlaceholderName also matches empty names — with only its now-always-true is_anonymous clause dropped. requireAccount keeps its own is_anonymous check to reject stale guest cookies until #90 purges the existing rows. Anonymous sign-ins disabled in the dashboard, confirmed by the user. Full test suite and svelte-check clean."
+gh issue close 88 --comment "Shipped. ensureGuestSession and lib/server/guest.ts deleted, so no code path calls signInAnonymously. /drill and /time-trial now use requireAccount like their five siblings, and their unreachable needsAccount branches are gone. isGuest renamed to isSignedOut (required, not optional, in app.d.ts), meaning 'not a usable real account' — the is_anonymous disjunct is retained at every consumer, because stale anonymous sessions stay valid until #90 purges them, and treating them as signed-in would have let / seed quest rows for them. / remains public with its existing landing page. The display_name backfill was kept — isPlaceholderName also matches empty names — with only its now-always-true is_anonymous clause dropped. requireAccount keeps its own is_anonymous check to reject stale guest cookies until #90 purges the existing rows. Anonymous sign-ins disabled in the dashboard, confirmed by the user. Full test suite and svelte-check clean."
 ```
 
 Then note that #90 (purging the existing anonymous rows) is now unblocked, since the pile has stopped growing.
@@ -665,7 +690,11 @@ Then note that #90 (purging the existing anonymous rows) is now unblocked, since
 
 ## Notes for the implementer
 
-**Task order matters.** Task 1 deletes the tests before the code they cover; doing it the other way round leaves a broken suite between steps. Tasks 2 and 3 are independent of each other and can be done in either order, but both depend on Task 1 having removed `ensureGuestSession`.
+**Task order matters, and it is not the obvious order.** Gating (Tasks 1 and 2) must come *before* the deletion (Task 3), not after. Deleting `ensureGuestSession` first leaves `/drill` and `/time-trial` importing a symbol that no longer exists, which is 2 `svelte-check` errors at that commit boundary — and CLAUDE.md allows no tolerated error baseline. Gating first removes both callers, so the deletion lands cleanly.
+
+Tasks 1 and 2 are independent of each other and can be done in either order. Task 3 depends on both. Within Task 3, delete the tests before the code they cover, or the suite breaks between its own steps.
+
+*(This ordering was wrong in the first version of this plan. An implementer hit the 2 errors, correctly refused to invent a stopgap, and the plan was re-sequenced.)*
 
 **The `{#if}/{:else}/{/if}` deletion in Tasks 2 and 3 is the single most likely place to break the build.** The wrapper spans the whole component, so the opening block, the `{:else}`, and the closing `{/if}` on the last line are far apart in the file. Delete all three. `npm run check` catches it if you don't.
 

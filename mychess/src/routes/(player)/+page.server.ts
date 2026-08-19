@@ -8,13 +8,17 @@ import { loadRepertoireProgressSummaries } from '$lib/server/repertoire-progress
 
 export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSession } }) => {
   const { user, session, profile } = await safeGetSession();
-  const isGuest = !user || !!(user as any).is_anonymous;
+  // Anonymous sessions count as signed-out: rows from the removed guest-auth
+  // flow still exist in production with valid refresh tokens until they are
+  // purged (#90), and they must not reach the authenticated pipeline — it
+  // seeds quest rows. Mirrors requireAccount's own is_anonymous check.
+  const isSignedOut = !user || !!(user as any).is_anonymous;
 
-  // Fetch upcoming Lithuania tournaments for all visitors (guest landing page +
-  // logged-in widget). Kicked off here but not awaited yet — it doesn't depend
-  // on the session/profile above, so there's no reason to serialize it ahead
-  // of the guest-vs-logged-in branch or the parallel batch below; it's awaited
-  // only where its result is actually needed, in each branch.
+  // Fetch upcoming Lithuania tournaments for all visitors (signed-out landing
+  // page + logged-in widget). Kicked off here but not awaited yet — it doesn't
+  // depend on the session/profile above, so there's no reason to serialize it
+  // ahead of the signed-out-vs-logged-in branch or the parallel batch below;
+  // it's awaited only where its result is actually needed, in each branch.
   const todayDate = new Date().toISOString().slice(0, 10);
   const tournamentsPromise = supabase
     .from('tournaments')
@@ -39,12 +43,12 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
       : { query: fideQuery, found: false };
   }
 
-  // Guests (no session AND anonymous) get the public landing — don't run the
-  // authenticated pipeline (quest seeding, leaderboard) for throwaway accounts.
-  if (isGuest) {
+  // Signed-out visitors get the public landing — don't run the authenticated
+  // pipeline (quest seeding, leaderboard) for them.
+  if (isSignedOut) {
     const { data: upcomingTournaments, error: tErr } = await tournamentsPromise;
     if (tErr) console.error('Failed to fetch upcoming tournaments:', tErr);
-    return { isGuest: true, session: null, profile: null, upcomingTournaments: upcomingTournaments ?? [], fideLookup, fideQuery };
+    return { isSignedOut: true, session: null, profile: null, upcomingTournaments: upcomingTournaments ?? [], fideLookup, fideQuery };
   }
 
   const p = profile as any;
@@ -134,7 +138,7 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
   const masteredRepertoireCount = masterableRepertoires.filter((r) => r.allSolved).length;
 
   return {
-    isGuest,
+    isSignedOut,
     session,
     profile,
     lichessUsername,

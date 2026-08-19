@@ -1,17 +1,14 @@
 import type { PageServerLoad } from './$types';
-import { ensureGuestSession } from '$lib/server/auth';
+import { requireAccount } from '$lib/server/auth';
 
 export const load: PageServerLoad = async ({ locals }) => {
-  const guest = await ensureGuestSession(locals);
-  if (!guest) return { needsAccount: true };
-  const { user, session, profile } = guest;
-  if (!user) return { needsAccount: true };
+  const { user, session, profile } = await requireAccount(locals);
   const supabase = locals.supabase;
 
   const { data: reps } = await supabase
     .from('repertoires')
     .select('id')
-    .eq('player_id', user.id);
+    .eq('player_id', user!.id);
   const repIds = reps?.map((r: any) => r.id) ?? [];
 
   if (repIds.length === 0) {

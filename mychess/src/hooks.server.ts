@@ -3,7 +3,6 @@ import { env } from '$env/dynamic/public';
 import { dev } from '$app/environment';
 import type { Handle } from '@sveltejs/kit';
 import { fullNameOrNull, isPlaceholderName } from '$lib/profile';
-import { ensureGuestProfile } from '$lib/server/guest';
 import { sessionCookieOptions } from '$lib/server/cookies';
 import { requireEnv } from '$lib/env';
 
@@ -34,7 +33,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		} = await event.locals.supabase.auth.getSession();
 
 		// No eager anonymous session — public pages are viewable without any session.
-		if (!session) return { session: null, user: null, profile: null };
+		if (!session) return { session: null, user: null, profile: null, isSignedOut: true };
 
 		const { data: profile } = await event.locals.supabase
 			.from('profiles')
@@ -42,20 +41,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 			.eq('id', session.user.id)
 			.single();
 
-		// A lazily-created anonymous session may not have its guest profile yet.
-		if (!profile && session.user.is_anonymous) {
-			await ensureGuestProfile(event.locals.supabase, session.user.id);
-		}
+		let resolvedProfile = profile;
 
-		let resolvedProfile = profile ?? (await event.locals.supabase
-			.from('profiles')
-			.select('*')
-			.eq('id', session.user.id)
-			.single()).data;
-
-		// Backfill display_name for accounts that converted from a guest: they
-		// keep the "Guest" placeholder even after a real name is set. Once a
-		// name exists on a non-anonymous account, adopt it as the display name.
+		// Backfill display_name for any account still carrying a placeholder —
+		// an empty string, or the literal "Guest" left behind by a profile the
+		// removed guest-auth flow created. Once a real name exists, adopt it.
+		// The is_anonymous clause stays deliberately: anonymous rows still exist
+		// with valid refresh tokens until they are purged (#90), and they are
+		// treated as non-accounts everywhere else too (see requireAccount).
 		if (
 			resolvedProfile &&
 			!session.user.is_anonymous &&
@@ -74,7 +67,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			}
 		}
 
-		return { session, user: session.user, profile: resolvedProfile, isGuest: !!session.user.is_anonymous };
+		return { session, user: session.user, profile: resolvedProfile, isSignedOut: !!session.user.is_anonymous };
 	}
 
 	// Every layout in a route's tree runs its `load` on each navigation, and

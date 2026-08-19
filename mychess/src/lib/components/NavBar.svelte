@@ -7,7 +7,9 @@
   let mobileMenuOpen = $state(false);
 
   const isCoach = $derived((profile as any)?.role === 'coach');
-  const isGuest = $derived(!user || user.is_anonymous);
+  // Anonymous sessions still exist until the guest-row purge (#90); show them
+  // the signed-out chrome, not a half-real account.
+  const isSignedOut = $derived(!user || user.is_anonymous);
   const pathname = $derived($page.url.pathname);
 
   function active(paths: string[]): boolean {
@@ -38,7 +40,7 @@
              ? 'text-(--color-accent) font-semibold border-b-2 border-(--color-accent) pb-0.5'
              : 'text-(--color-muted) hover:text-gray-900 dark:hover:text-gray-200 transition-colors'}>Players</a>
         <a href="/coach/repertoires" class={linkClass(['/coach/repertoires', '/coach/pgn'])}>Repertoires</a>
-      {:else if !isGuest}
+      {:else if !isSignedOut}
         <a href="/" class={linkClass(['/'])}>Dashboard</a>
         <a href="/tournaments" class={linkClass(['/tournaments'])}>Tournaments</a>
         <a href="/practice" class={linkClass(['/practice'])}>Practice</a>
@@ -51,10 +53,10 @@
 
     <!-- Right side -->
     <div class="flex items-center gap-3 text-sm shrink-0">
-      {#if isGuest}
+      {#if isSignedOut}
         <!-- One CTA only: "Get started" pointed at /login?signup=1, but no route
              ever reads a `signup` param, so it rendered the same page as "Sign in".
-             Not `hidden sm:inline` — this is now the only guest CTA in the top bar,
+             Not `hidden sm:inline` — this is now the only signed-out CTA in the top bar,
              so it has to stay visible at every width. -->
         <a href="/login"
            class="bg-(--color-accent) text-white px-3 py-1.5 rounded-lg font-medium hover:bg-(--color-accent-hover) transition-colors">
@@ -129,7 +131,7 @@
       {#if isCoach}
         <a href="/coach" onclick={() => mobileMenuOpen = false} class="text-(--color-text) font-medium">Players</a>
         <a href="/coach/repertoires" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">Repertoires</a>
-      {:else if !isGuest}
+      {:else if !isSignedOut}
         <a href="/" onclick={() => mobileMenuOpen = false} class="text-(--color-text) font-medium">Dashboard</a>
         <a href="/tournaments" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">Tournaments</a>
         <a href="/practice" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">Practice</a>
@@ -145,7 +147,7 @@
            (coach and player); Customise/Badges are player-only, mirroring the
            desktop dropdown. Previously this lived inside the player branch, so
            coaches on mobile had no way to reach Settings or sign out. -->
-      {#if !isGuest}
+      {#if !isSignedOut}
         <div class="border-t border-gray-100 pt-2">
           <a href="/settings" onclick={() => mobileMenuOpen = false} class="block text-(--color-muted)">Settings</a>
           {#if !isCoach}
