@@ -6,18 +6,28 @@
 <script lang="ts">
 	let { state }: { state: PracticeStripState } = $props();
 
-	// Keyed over the FULL union (including 'silent') so `TONE[state]`/`COPY[state]`
-	// type-check without narrowing — indexing with `Exclude<PracticeStripState,
-	// 'silent'>` instead would make `svelte-check` reject `state` (whose type
-	// still includes 'silent') as a key, since template expressions don't
-	// narrow the way an `{#if}` block's own contents do.
+	// Keyed over the FULL union (including 'silent') so `TONE[state]`/`COPY[state]`/
+	// `ICON[state]` type-check without narrowing — indexing with `Exclude<
+	// PracticeStripState, 'silent'>` instead would make `svelte-check` reject
+	// `state` (whose type still includes 'silent') as a key, since template
+	// expressions on the host element's own attributes don't narrow the way a
+	// nested `{#if}`'s own contents do.
+	const ICON: Record<PracticeStripState, string> = {
+		silent: '',
+		blind: '',
+		wrong: '✗',
+		correct: '✓',
+		autoplay: '',
+		'retest-cue': '🧠'
+	};
+
 	const COPY: Record<PracticeStripState, string> = {
 		silent: '',
 		blind: 'Play it from memory',
-		wrong: '✗ Not that move — try again',
-		correct: '✓ Correct',
+		wrong: 'Not that move — try again',
+		correct: 'Correct',
 		autoplay: 'Replaying what you already know…',
-		'retest-cue': '🧠 Nice — now play it from memory'
+		'retest-cue': 'Nice — now play it from memory'
 	};
 
 	const TONE: Record<PracticeStripState, string> = {
@@ -35,5 +45,5 @@
 	role="status"
 	class="mb-3 shrink-0 min-h-[2.75rem] flex items-center justify-center rounded-2xl border p-3 text-center text-sm font-semibold shadow-sm {TONE[state]}"
 >
-	{COPY[state]}
+	{#if ICON[state]}<span aria-hidden="true">{ICON[state]}</span> {/if}{COPY[state]}
 </p>

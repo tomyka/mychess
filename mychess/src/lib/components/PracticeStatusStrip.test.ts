@@ -17,7 +17,7 @@ describe('PracticeStatusStrip', () => {
 
 	it('shows the correct-move message', () => {
 		render(PracticeStatusStrip, { props: { state: 'correct' } });
-		expect(screen.getByText('✓ Correct')).toBeTruthy();
+		expect(screen.getByText(/^Correct$/i)).toBeTruthy();
 	});
 
 	it('shows the blind-retest prompt', () => {
