@@ -33,7 +33,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		} = await event.locals.supabase.auth.getSession();
 
 		// No eager anonymous session — public pages are viewable without any session.
-		if (!session) return { session: null, user: null, profile: null };
+		if (!session) return { session: null, user: null, profile: null, isSignedOut: true };
 
 		const { data: profile } = await event.locals.supabase
 			.from('profiles')
@@ -64,7 +64,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			}
 		}
 
-		return { session, user: session.user, profile: resolvedProfile, isGuest: !!session.user.is_anonymous };
+		return { session, user: session.user, profile: resolvedProfile, isSignedOut: !!session.user.is_anonymous };
 	}
 
 	// Every layout in a route's tree runs its `load` on each navigation, and

@@ -34,7 +34,7 @@
 <main class="min-h-screen bg-(--color-bg)">
   <div class="max-w-3xl mx-auto px-4 py-6 space-y-4">
 
-    {#if data.isGuest}
+    {#if data.isSignedOut}
       <!-- Public content landing (no account needed) -->
       <div class="py-8 space-y-6">
         <div class="text-center">
