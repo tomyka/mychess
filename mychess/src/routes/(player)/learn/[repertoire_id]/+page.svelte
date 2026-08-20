@@ -308,12 +308,10 @@
 				// which can take a real, noticeable moment for a large
 				// repertoire. nextAttempt() overwrites this with the
 				// server's authoritative value once pendingReport resolves.
-				// Only a GRADUATION pass learns the variation. A clean teach pass,
-				// an intermediate blind retest, and the FIRST clean pass of the
-				// two the 20h rule needs all leave the learned count alone — and
-				// the client can't tell a graduation attempt from a re-drill of an
-				// already-learned line without being told (#104).
-				if (attempt.isGraduationAttempt) {
+				// Only a FINAL pass can actually learn the variation — a clean
+				// teach pass or an intermediate blind-retest pass hasn't
+				// finished it yet, so it must not bump the count.
+				if (attempt.isFinalPass) {
 					data = { ...data, solved: optimisticSolvedAfterAttempt(data, attemptHadMistake) };
 					if (!attemptHadMistake) learnedThisSession++;
 				}
@@ -451,8 +449,7 @@
 			<p class="text-7xl">🎓</p>
 			<h2 class="text-3xl font-bold text-(--color-text)">Repertoire learned!</h2>
 			<p class="text-(--color-muted)">
-				Every variation in {data.repertoire?.name} has been played cleanly twice, a day apart. Keep it
-				sharp in Practice.
+				Every variation in {data.repertoire?.name} has been played cleanly. Keep it sharp in Practice.
 			</p>
 			<a
 				href="/practice/{data.repertoire?.id}"
@@ -463,30 +460,6 @@
 			<button onclick={() => (pickerOpen = true)} class="text-(--color-accent) hover:underline">
 				Re-drill a specific variation
 			</button>
-		</div>
-		<!-- Nothing new to teach, but variations are still inside their 20h
-		     window. Without its own branch this fell through to "nothing to
-		     learn", which reads as finished when the player is one sleep away
-		     from graduating a batch of lines. -->
-	{:else if !attempt && data.pendingWaiting > 0}
-		<div class="flex flex-col items-center gap-5 text-center py-16">
-			<p class="text-6xl">🌙</p>
-			<h2 class="text-2xl font-bold text-(--color-text)">Nothing new to learn right now</h2>
-			<p class="text-(--color-muted) max-w-md">
-				{data.pendingWaiting}
-				{data.pendingWaiting === 1 ? 'variation is' : 'variations are'} waiting on their second pass —
-				come back tomorrow and play {data.pendingWaiting === 1 ? 'it' : 'them'} from memory to finish
-				learning {data.pendingWaiting === 1 ? 'it' : 'them'}.
-			</p>
-			{#if data.solved > 0}
-				<a
-					href="/practice/{data.repertoire?.id}"
-					class="bg-(--color-accent) text-white px-6 py-3 rounded-2xl font-bold hover:bg-(--color-accent-hover) transition"
-				>
-					Practice what you know
-				</a>
-			{/if}
-			<a href="/practice" class="text-(--color-accent) hover:underline text-sm">All repertoires</a>
 		</div>
 	{:else if !attempt}
 		<div class="flex flex-col items-center justify-center min-h-screen lg:min-h-0 lg:flex-1 text-center gap-4">

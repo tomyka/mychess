@@ -60,7 +60,6 @@ const AUTO_PLAY_ATTEMPT = {
 	variationKey: 'v1',
 	arrowPlies: { from: 2, to: 4 },
 	isFinalPass: false,
-	isGraduationAttempt: false,
 	autoPlayThrough: 2,
 	path: [
 		{
@@ -393,7 +392,7 @@ describe('learn detail page', () => {
 					solved: 0,
 					total: 1,
 					allSolved: false,
-					attempt: { ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true, isGraduationAttempt: true }
+					attempt: { ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true }
 				}
 			}
 		});
@@ -471,7 +470,7 @@ describe('learn detail page', () => {
 
 	it('does not cue a final pass — that solves the variation instead of re-asking for it', async () => {
 		vi.useFakeTimers();
-		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true, isGraduationAttempt: true }, 'hang');
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true }, 'hang');
 		await vi.advanceTimersByTimeAsync(1000);
 		playMove('g1', 'f3');
 		await vi.advanceTimersByTimeAsync(500);
@@ -505,7 +504,7 @@ describe('learn detail page', () => {
 
 	it('offers a hint immediately, and taking it prevents the pass from counting as a clean pass', async () => {
 		vi.useFakeTimers();
-		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true, isGraduationAttempt: true });
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
 		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes
 
 		// Visible with zero wrong attempts — no three-strikes wait.
@@ -519,62 +518,6 @@ describe('learn detail page', () => {
 
 		// A dirty final pass must not bump solved (optimisticSolvedAfterAttempt(hadMistake=true)).
 		expect(screen.getAllByText('0 / 1 variations learned').length).toBe(2);
-	});
-
-	// Nothing left to teach, but variations are still inside their 20h window.
-	// Before this branch existed the screen fell through to "nothing to learn",
-	// which reads as finished when the player is one sleep from graduating.
-	it('tells the player when everything left is waiting on its second pass', () => {
-		render(Practice, {
-			props: {
-				data: {
-					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
-					solved: 2,
-					total: 5,
-					allSolved: false,
-					pendingWaiting: 3,
-					attempt: null
-				}
-			}
-		});
-		expect(screen.getByText(/Nothing new to learn right now/i)).toBeTruthy();
-		expect(screen.getByText(/3 variations are waiting/i)).toBeTruthy();
-		// Something IS learned, so practising it is offered.
-		expect(screen.getByText('Practice what you know')).toBeTruthy();
-	});
-
-	it('uses singular wording for a single waiting variation, and hides Practice when nothing is learned yet', () => {
-		render(Practice, {
-			props: {
-				data: {
-					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
-					solved: 0,
-					total: 5,
-					allSolved: false,
-					pendingWaiting: 1,
-					attempt: null
-				}
-			}
-		});
-		expect(screen.getByText(/1 variation is waiting/i)).toBeTruthy();
-		expect(screen.queryByText('Practice what you know')).toBeNull();
-	});
-
-	it('still shows the plain empty state when nothing is waiting either', () => {
-		render(Practice, {
-			props: {
-				data: {
-					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
-					solved: 0,
-					total: 0,
-					allSolved: false,
-					pendingWaiting: 0,
-					attempt: null
-				}
-			}
-		});
-		expect(screen.getByText(/Nothing to learn/i)).toBeTruthy();
-		expect(screen.queryByText(/waiting/i)).toBeNull();
 	});
 
 	it('shows a running session count and a Finish session link in the sidebar', () => {

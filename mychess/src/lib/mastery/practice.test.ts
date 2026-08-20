@@ -267,110 +267,6 @@ describe('optimisticSolvedAfterAttempt', () => {
 	});
 });
 
-describe('buildPracticeView — pending graduation (story #104)', () => {
-	const NOW = new Date('2026-08-21T12:00:00.000Z');
-	const hoursBefore = (h: number) => new Date(NOW.getTime() - h * 60 * 60 * 1000).toISOString();
-
-	/** A variation whose whole path is taught and mastered — i.e. one clean pass done. */
-	function pendingProgress(v: Variation, cleanPassCount: number, lastCleanPassAt: string | null) {
-		return new Map([
-			[
-				v.variationKey,
-				{
-					taughtPlies: v.path.length,
-					masteredPlies: v.path.length,
-					updatedAt: lastCleanPassAt,
-					cleanPassCount,
-					lastCleanPassAt
-				}
-			]
-		]);
-	}
-
-	it('serves an eligible pending variation as a cold full replay, not an autoplay', () => {
-		const v = makeVariation(3, 'a');
-		const view = buildPracticeView(
-			[v],
-			v.variationKey,
-			new Set(),
-			pendingProgress(v, 1, hoursBefore(21)),
-			false,
-			NOW
-		);
-
-		expect(view.attempt).not.toBeNull();
-		// The bug this guards: masteredPlies covers the whole path here, so
-		// passing it through would play the line out and ask for nothing.
-		expect(view.attempt!.autoPlayThrough).toBe(0);
-		expect(view.attempt!.arrowPlies).toBeNull();
-		expect(view.attempt!.isFinalPass).toBe(true);
-		expect(view.attempt!.path).toHaveLength(v.path.length);
-		expect(view.pendingWaiting).toBe(0);
-	});
-
-	it('does not serve a pending variation whose 20h gap has not elapsed', () => {
-		const v = makeVariation(3, 'a');
-		const view = buildPracticeView([v], v.variationKey, new Set(), pendingProgress(v, 1, hoursBefore(2)), false, NOW);
-
-		expect(view.attempt).toBeNull();
-		expect(view.pendingWaiting).toBe(1);
-	});
-
-	it('skips a waiting variation and serves the next un-learned one instead', () => {
-		const waiting = makeVariation(2, 'w');
-		const fresh = makeVariation(2, 'f');
-		const progress = pendingProgress(waiting, 1, hoursBefore(1));
-
-		const view = buildPracticeView([waiting, fresh], waiting.variationKey, new Set(), progress, false, NOW);
-
-		expect(view.attempt).not.toBeNull();
-		expect(view.attempt!.variationKey).toBe(fresh.variationKey);
-		expect(view.pendingWaiting).toBe(1);
-	});
-
-	it('reports every waiting variation when the whole remaining pool is waiting', () => {
-		const a = makeVariation(2, 'a');
-		const b = makeVariation(2, 'b');
-		const progress = new Map([
-			...pendingProgress(a, 1, hoursBefore(3)),
-			...pendingProgress(b, 1, hoursBefore(4))
-		]);
-
-		const view = buildPracticeView([a, b], null, new Set(), progress, false, NOW);
-
-		expect(view.attempt).toBeNull();
-		expect(view.pendingWaiting).toBe(2);
-		// Not finished — nothing is learned yet, so this must not read as solved.
-		expect(view.solved).toBe(0);
-		expect(view.allSolved).toBe(false);
-	});
-
-	it('treats a learned variation as learned, never as waiting', () => {
-		const v = makeVariation(2, 'a');
-		const view = buildPracticeView(
-			[v],
-			v.variationKey,
-			new Set([v.variationKey]),
-			pendingProgress(v, 2, hoursBefore(30)),
-			false,
-			NOW
-		);
-
-		expect(view.pendingWaiting).toBe(0);
-		expect(view.solved).toBe(1);
-		expect(view.allSolved).toBe(true);
-	});
-
-	it('leaves a variation with no clean pass yet on the normal teaching path', () => {
-		const v = makeVariation(3, 'a');
-		const view = buildPracticeView([v], v.variationKey, new Set(), noTeaching, false, NOW);
-
-		expect(view.pendingWaiting).toBe(0);
-		expect(view.attempt).not.toBeNull();
-		expect(view.attempt!.arrowPlies).not.toBeNull();
-	});
-});
-
 describe('buildPracticeView — queue membership comes from splitQueues', () => {
 	// Self-review finding: the Practice route used splitQueues while Learn filtered
 	// independently. They agreed, but two implementations of "which queue is this
@@ -390,6 +286,5 @@ describe('buildPracticeView — queue membership comes from splitQueues', () => 
 		const view = buildPracticeView([a], a.variationKey, new Set([a.variationKey]), noTeaching, true);
 		expect(view.attempt).not.toBeNull();
 		expect(view.attempt!.variationKey).toBe(a.variationKey);
-		expect(view.attempt!.isGraduationAttempt).toBe(false);
 	});
 });
