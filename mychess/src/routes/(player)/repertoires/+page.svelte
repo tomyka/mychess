@@ -37,7 +37,7 @@
                   <p class="text-xs text-indigo-500">{rep.eco_code} — {rep.eco_name}</p>
                 {/if}
               </div>
-              <a href="/practice/{rep.id}" class="text-sm bg-(--color-accent) text-white px-3 py-1.5 rounded-lg font-medium hover:bg-(--color-accent-hover) transition-colors">Train</a>
+              <a href="/learn/{rep.id}" class="text-sm bg-(--color-accent) text-white px-3 py-1.5 rounded-lg font-medium hover:bg-(--color-accent-hover) transition-colors">Train</a>
             </li>
           {/each}
         </ul>
@@ -64,7 +64,7 @@
         <ul class="space-y-2">
           {#each data.repertoires as rep (rep.id)}
             <li class="flex items-center gap-3 bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-4 hover:shadow-md transition-shadow">
-              <a href="/practice/{rep.id}" class="flex items-center gap-3 flex-1 min-w-0">
+              <a href="/learn/{rep.id}" class="flex items-center gap-3 flex-1 min-w-0">
                 <span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color ?? '#4f46e5'}"></span>
                 <div class="flex-1 min-w-0">
                   <h2 class="font-medium text-(--color-text) truncate">{rep.name}</h2>

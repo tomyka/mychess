@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// mychess/src/routes/(player)/practice/[repertoire_id]/practice.test.ts
+// mychess/src/routes/(player)/learn/[repertoire_id]/learn.test.ts
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
 import { enginePrefStore } from '$lib/enginePref.svelte';
@@ -60,6 +60,7 @@ const AUTO_PLAY_ATTEMPT = {
 	variationKey: 'v1',
 	arrowPlies: { from: 2, to: 4 },
 	isFinalPass: false,
+	isGraduationAttempt: false,
 	autoPlayThrough: 2,
 	path: [
 		{
@@ -93,8 +94,8 @@ const AUTO_PLAY_ATTEMPT = {
 	]
 };
 
-describe('practice detail page', () => {
-	it('shows "nothing to practice" when the repertoire has no moves yet', () => {
+describe('learn detail page', () => {
+	it('shows "nothing to learn" when the repertoire has no moves yet', () => {
 		render(Practice, {
 			props: {
 				data: {
@@ -106,11 +107,11 @@ describe('practice detail page', () => {
 				}
 			}
 		});
-		expect(screen.queryByText(/Repertoire Solved/i)).toBeNull();
-		expect(screen.getByText(/Nothing to practice/i)).toBeTruthy();
+		expect(screen.queryByText(/Repertoire learned/i)).toBeNull();
+		expect(screen.getByText(/Nothing to learn/i)).toBeTruthy();
 	});
 
-	it('shows the "Repertoire Solved!" screen once every variation is solved', () => {
+	it('shows the "Repertoire learned!" screen once every variation is learned', () => {
 		render(Practice, {
 			props: {
 				data: {
@@ -122,11 +123,11 @@ describe('practice detail page', () => {
 				}
 			}
 		});
-		expect(screen.getByText(/Repertoire Solved/i)).toBeTruthy();
+		expect(screen.getByText(/Repertoire learned/i)).toBeTruthy();
 		expect(screen.getByText('Re-drill a specific variation')).toBeTruthy();
 	});
 
-	it('shows the board, not the solved screen, when re-drilling a variation from a completed repertoire', () => {
+	it('shows the board, not the learned screen, when re-drilling a variation from a completed repertoire', () => {
 		// Regression: picking a variation to re-drill deliberately does NOT
 		// un-solve anything, so `allSolved` stays true. The server signals the
 		// re-drill by returning a real `attempt` anyway
@@ -157,13 +158,13 @@ describe('practice detail page', () => {
 				}
 			}
 		});
-		expect(screen.queryByText(/Repertoire Solved/i)).toBeNull();
+		expect(screen.queryByText(/Repertoire learned/i)).toBeNull();
 		// The practice chrome renders instead (name appears once in the header).
 		expect(screen.getAllByText('French Defense').length).toBe(1);
-		expect(screen.getAllByText('5 / 5 variations solved').length).toBe(2);
+		expect(screen.getAllByText('5 / 5 variations learned').length).toBe(2);
 	});
 
-	it('shows the repertoire name and solved/total progress while an attempt is in flight', () => {
+	it('shows the repertoire name and learned/total progress while an attempt is in flight', () => {
 		render(Practice, {
 			props: {
 				data: {
@@ -189,7 +190,7 @@ describe('practice detail page', () => {
 		// The repertoire name renders once in the header; progress renders
 		// twice (mobile card + desktop sidebar).
 		expect(screen.getAllByText('French Defense').length).toBe(1);
-		expect(screen.getAllByText('3 / 5 variations solved').length).toBe(2);
+		expect(screen.getAllByText('3 / 5 variations learned').length).toBe(2);
 	});
 
 	it('shows a "Switch variation" control whenever a repertoire is loaded', () => {
@@ -392,7 +393,7 @@ describe('practice detail page', () => {
 					solved: 0,
 					total: 1,
 					allSolved: false,
-					attempt: { ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true }
+					attempt: { ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true, isGraduationAttempt: true }
 				}
 			}
 		});
@@ -470,7 +471,7 @@ describe('practice detail page', () => {
 
 	it('does not cue a final pass — that solves the variation instead of re-asking for it', async () => {
 		vi.useFakeTimers();
-		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true }, 'hang');
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true, isGraduationAttempt: true }, 'hang');
 		await vi.advanceTimersByTimeAsync(1000);
 		playMove('g1', 'f3');
 		await vi.advanceTimersByTimeAsync(500);
@@ -478,7 +479,7 @@ describe('practice detail page', () => {
 		// The optimistic solved bump fires only for a FINAL pass, so seeing the
 		// count move is proof this really was played out as one — the missing cue
 		// below isn't just a move that failed to land.
-		expect(screen.getAllByText('1 / 1 variations solved').length).toBe(2);
+		expect(screen.getAllByText('1 / 1 variations learned').length).toBe(2);
 		expect(phaseNow()).toBe('advancing');
 		expect(screen.queryByText(/now play it from memory/i)).toBeNull();
 	});
@@ -502,9 +503,9 @@ describe('practice detail page', () => {
 		expect(screen.queryByText(/now play it from memory/i)).toBeNull();
 	});
 
-	it('offers a hint immediately, and taking it prevents the pass from counting as solved', async () => {
+	it('offers a hint immediately, and taking it prevents the pass from counting as a clean pass', async () => {
 		vi.useFakeTimers();
-		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true, isGraduationAttempt: true });
 		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes
 
 		// Visible with zero wrong attempts — no three-strikes wait.
@@ -517,7 +518,63 @@ describe('practice detail page', () => {
 		await vi.advanceTimersByTimeAsync(500);
 
 		// A dirty final pass must not bump solved (optimisticSolvedAfterAttempt(hadMistake=true)).
-		expect(screen.getAllByText('0 / 1 variations solved').length).toBe(2);
+		expect(screen.getAllByText('0 / 1 variations learned').length).toBe(2);
+	});
+
+	// Nothing left to teach, but variations are still inside their 20h window.
+	// Before this branch existed the screen fell through to "nothing to learn",
+	// which reads as finished when the player is one sleep from graduating.
+	it('tells the player when everything left is waiting on its second pass', () => {
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 2,
+					total: 5,
+					allSolved: false,
+					pendingWaiting: 3,
+					attempt: null
+				}
+			}
+		});
+		expect(screen.getByText(/Nothing new to learn right now/i)).toBeTruthy();
+		expect(screen.getByText(/3 variations are waiting/i)).toBeTruthy();
+		// Something IS learned, so practising it is offered.
+		expect(screen.getByText('Practice what you know')).toBeTruthy();
+	});
+
+	it('uses singular wording for a single waiting variation, and hides Practice when nothing is learned yet', () => {
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 0,
+					total: 5,
+					allSolved: false,
+					pendingWaiting: 1,
+					attempt: null
+				}
+			}
+		});
+		expect(screen.getByText(/1 variation is waiting/i)).toBeTruthy();
+		expect(screen.queryByText('Practice what you know')).toBeNull();
+	});
+
+	it('still shows the plain empty state when nothing is waiting either', () => {
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 0,
+					total: 0,
+					allSolved: false,
+					pendingWaiting: 0,
+					attempt: null
+				}
+			}
+		});
+		expect(screen.getByText(/Nothing to learn/i)).toBeTruthy();
+		expect(screen.queryByText(/waiting/i)).toBeNull();
 	});
 
 	it('shows a running session count and a Finish session link in the sidebar', () => {
@@ -543,7 +600,7 @@ describe('practice detail page', () => {
 				}
 			}
 		});
-		expect(screen.getByText('0 solved this session')).toBeTruthy();
+		expect(screen.getByText('0 learned this session')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Finish session' })).toBeTruthy();
 	});
 

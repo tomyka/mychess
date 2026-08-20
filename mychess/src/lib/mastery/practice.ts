@@ -24,6 +24,14 @@ export type PracticeView = {
 		variationKey: string;
 		arrowPlies: { from: number; to: number } | null;
 		isFinalPass: boolean;
+		/**
+		 * True when this attempt is the second, cold pass that graduates the
+		 * variation (#104). The client can't infer it — a re-drill of an
+		 * already-learned line looks identical (no arrows, final pass, no
+		 * autoplay) — and it needs to know, or the optimistic learned-count bump
+		 * fires on a first clean pass that learned nothing.
+		 */
+		isGraduationAttempt: boolean;
 		// How many of `path`'s leading plies are already mastered — via this
 		// variation's own progress, OR via a SIBLING variation sharing the
 		// same moves (see computeMasteredMoveIds) — and so should auto-play
@@ -116,7 +124,16 @@ export function buildPracticeView(
 			// re-teach, regardless of what teachingProgress happens to hold,
 			// and never auto-play any of it: a deliberate re-drill is meant
 			// to be played out in full.
-			attempt = { path: active.path, variationKey: active.variationKey, arrowPlies: null, isFinalPass: true, autoPlayThrough: 0 };
+			// A deliberate re-drill of an already-learned variation: nothing to
+			// graduate, so a clean run must not bump the learned count.
+			attempt = {
+				path: active.path,
+				variationKey: active.variationKey,
+				arrowPlies: null,
+				isFinalPass: true,
+				autoPlayThrough: 0,
+				isGraduationAttempt: false
+			};
 		} else {
 			// A break of 10+ minutes since this specific variation's last
 			// attempt serves this one attempt as if nothing were mastered yet —
@@ -160,7 +177,8 @@ export function buildPracticeView(
 					variationKey: active.variationKey,
 					arrowPlies: null,
 					isFinalPass: true,
-					autoPlayThrough: 0
+					autoPlayThrough: 0,
+					isGraduationAttempt: true
 				};
 				return { attempt, solved, total, allSolved, pendingWaiting: waitingKeys.size };
 			}
@@ -171,7 +189,8 @@ export function buildPracticeView(
 				variationKey: active.variationKey,
 				arrowPlies: step.arrowPlies,
 				isFinalPass: step.isFinalPass,
-				autoPlayThrough: effectiveMasteredPlies
+				autoPlayThrough: effectiveMasteredPlies,
+				isGraduationAttempt: false
 			};
 		}
 	}

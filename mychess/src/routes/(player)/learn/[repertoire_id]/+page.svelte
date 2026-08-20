@@ -47,7 +47,7 @@
 	// How many variations have been solved cleanly since this page loaded —
 	// deliberately NOT reset in resetForAttempt(): a running session total,
 	// not per-attempt state.
-	let solvedThisSession = $state(0);
+	let learnedThisSession = $state(0);
 	let advanceTimeout: ReturnType<typeof setTimeout> | undefined;
 	let autoPlayTimeout: ReturnType<typeof setTimeout> | undefined;
 	// Whether the "now play it from memory" cue is currently up. A clean teach
@@ -311,12 +311,14 @@
 				// which can take a real, noticeable moment for a large
 				// repertoire. nextAttempt() overwrites this with the
 				// server's authoritative value once pendingReport resolves.
-				// Only a FINAL pass can actually solve the variation — a
-				// clean teach or intermediate blind-retest pass hasn't, so it
-				// must not bump the count.
-				if (attempt.isFinalPass) {
+				// Only a GRADUATION pass learns the variation. A clean teach pass,
+				// an intermediate blind retest, and the FIRST clean pass of the
+				// two the 20h rule needs all leave the learned count alone — and
+				// the client can't tell a graduation attempt from a re-drill of an
+				// already-learned line without being told (#104).
+				if (attempt.isGraduationAttempt) {
 					data = { ...data, solved: optimisticSolvedAfterAttempt(data, attemptHadMistake) };
-					if (!attemptHadMistake) solvedThisSession++;
+					if (!attemptHadMistake) learnedThisSession++;
 				}
 			}
 			// A clean teach pass is about to be re-served as a blind retest of
@@ -450,29 +452,56 @@
 	     closed the picker and appeared to do nothing. -->
 	{#if data.allSolved && data.total > 0 && !attempt}
 		<div class="flex flex-col items-center gap-6 text-center py-16">
-			<p class="text-7xl">🏆</p>
-			<h2 class="text-3xl font-bold text-(--color-text)">Repertoire Solved!</h2>
-			<p class="text-(--color-muted)">Every variation in {data.repertoire?.name} has been played cleanly.</p>
+			<p class="text-7xl">🎓</p>
+			<h2 class="text-3xl font-bold text-(--color-text)">Repertoire learned!</h2>
+			<p class="text-(--color-muted)">
+				Every variation in {data.repertoire?.name} has been played cleanly twice, a day apart. Keep it
+				sharp in Practice.
+			</p>
 			<a
-				href="/practice"
+				href="/practice/{data.repertoire?.id}"
 				class="bg-(--color-accent) text-white px-8 py-4 rounded-2xl font-bold text-lg hover:bg-(--color-accent-hover) transition"
 			>
-				Back to Repertoires
+				Practice this repertoire
 			</a>
 			<button onclick={() => (pickerOpen = true)} class="text-(--color-accent) hover:underline">
 				Re-drill a specific variation
 			</button>
 		</div>
+		<!-- Nothing new to teach, but variations are still inside their 20h
+		     window. Without its own branch this fell through to "nothing to
+		     learn", which reads as finished when the player is one sleep away
+		     from graduating a batch of lines. -->
+	{:else if !attempt && data.pendingWaiting > 0}
+		<div class="flex flex-col items-center gap-5 text-center py-16">
+			<p class="text-6xl">🌙</p>
+			<h2 class="text-2xl font-bold text-(--color-text)">Nothing new to learn right now</h2>
+			<p class="text-(--color-muted) max-w-md">
+				{data.pendingWaiting}
+				{data.pendingWaiting === 1 ? 'variation is' : 'variations are'} waiting on their second pass —
+				come back tomorrow and play {data.pendingWaiting === 1 ? 'it' : 'them'} from memory to finish
+				learning {data.pendingWaiting === 1 ? 'it' : 'them'}.
+			</p>
+			{#if data.solved > 0}
+				<a
+					href="/practice/{data.repertoire?.id}"
+					class="bg-(--color-accent) text-white px-6 py-3 rounded-2xl font-bold hover:bg-(--color-accent-hover) transition"
+				>
+					Practice what you know
+				</a>
+			{/if}
+			<a href="/practice" class="text-(--color-accent) hover:underline text-sm">All repertoires</a>
+		</div>
 	{:else if !attempt}
 		<div class="flex flex-col items-center justify-center min-h-screen lg:min-h-0 lg:flex-1 text-center gap-4">
 			<p class="text-5xl">📭</p>
-			<h2 class="text-2xl font-bold text-(--color-text)">Nothing to practice</h2>
+			<h2 class="text-2xl font-bold text-(--color-text)">Nothing to learn</h2>
 			<p class="text-(--color-muted)">This repertoire has no moves for your color yet.</p>
 			<a href="/practice" class="text-(--color-accent) hover:underline">Back to Repertoires</a>
 		</div>
 	{:else}
 		<div class="p-3 bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm text-center mb-3 shrink-0 lg:hidden">
-			<p class="text-sm font-bold text-(--color-text)">{data.solved} / {data.total} variations solved</p>
+			<p class="text-sm font-bold text-(--color-text)">{data.solved} / {data.total} variations learned</p>
 		</div>
 
 		<div class="flex flex-col lg:flex-row lg:items-stretch gap-6 lg:flex-1 lg:min-h-0">
@@ -574,7 +603,7 @@
 				<div class="p-4">
 					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">Progress</p>
 					<div class="flex items-center justify-between gap-2">
-						<span class="text-(--color-muted) text-sm">{data.solved} / {data.total} variations solved</span>
+						<span class="text-(--color-muted) text-sm">{data.solved} / {data.total} variations learned</span>
 						<button
 							onclick={() => (pickerOpen = true)}
 							class="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-(--color-accent) border border-(--color-border) rounded-lg px-2 py-1 hover:bg-(--color-border)/40"
@@ -623,7 +652,7 @@
 
 				<div class="p-4">
 					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">Session</p>
-					<p class="text-sm text-(--color-text) font-medium mb-2">{solvedThisSession} solved this session</p>
+					<p class="text-sm text-(--color-text) font-medium mb-2">{learnedThisSession} learned this session</p>
 					<a
 						href="/practice"
 						class="inline-flex items-center gap-1 text-sm font-semibold text-(--color-muted) border border-(--color-border) rounded-lg px-3 py-1.5 hover:bg-(--color-border)/40"

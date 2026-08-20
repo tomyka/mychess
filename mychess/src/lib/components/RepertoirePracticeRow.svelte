@@ -86,7 +86,7 @@
 				{expanded ? '▾' : '▸'}
 			</button>
 		{/if}
-		<a href="/practice/{rep.id}" class="flex items-center gap-3 flex-1 min-w-0">
+		<a href="/learn/{rep.id}" class="flex items-center gap-3 flex-1 min-w-0">
 			<span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color === 'black' ? '#1f2937' : '#e5e7eb'}"
 			></span>
 			<div class="flex-1 min-w-0">

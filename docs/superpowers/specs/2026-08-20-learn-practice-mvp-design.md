@@ -61,7 +61,7 @@ applyAttemptResult (server)  → advanceTeachingProgress()        // unchanged
 ## 3. Learn serves only un-learned variations (#96)
 
 - `pickActiveVariation` / `buildPracticeView` filter out learned and excluded variations, and skip pending-but-not-yet-eligible ones as described above.
-- Route becomes `/learn/[repertoire_id]`; the old `/practice/[repertoire_id]` redirects (301 semantics via SvelteKit `redirect(301, …)`) so bookmarks and the nav survive.
+- Route becomes `/learn/[repertoire_id]`. **No redirect from the old path** — corrected during implementation: #97 claims `/practice/[repertoire_id]` for the Practice pool, so a permanent redirect there would have to be torn straight back out. An old bookmark therefore lands on the pool, which for an un-learned repertoire shows its own locked state pointing at Learn. That is self-explanatory, and honest about what now lives at that URL. The rename and the pool must ship together so no interim 404 is ever user-visible.
 - Graduation mid-session advances to the next un-learned variation without a reload — the existing `nextAttempt()` merge path already does this; it just needs the filter applied.
 - The "Repertoire Solved!" trophy is replaced by a Learned state pointing at Practice. Its meaning (one clean pass each) ceases to exist.
 
