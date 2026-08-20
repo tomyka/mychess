@@ -217,8 +217,14 @@
 		<a href="/practice" class="text-(--color-muted) text-sm hover:text-(--color-text)">← All repertoires</a>
 		<h1 class="text-base font-bold text-(--color-text) flex-1 min-w-0 truncate">{data.repertoire?.name}</h1>
 		<a
-			href="/learn/{data.repertoire?.id}"
+			href="/practice/{data.repertoire?.id}/mastery"
 			class="text-xs font-semibold text-(--color-accent) border border-(--color-border) rounded-lg px-2 py-1 hover:bg-(--color-border)/40"
+		>
+			Mastery
+		</a>
+		<a
+			href="/learn/{data.repertoire?.id}"
+			class="text-xs font-semibold text-(--color-muted) border border-(--color-border) rounded-lg px-2 py-1 hover:bg-(--color-border)/40"
 		>
 			Learn mode
 		</a>
