@@ -9,6 +9,8 @@
 	import { optimisticSolvedAfterAttempt, type PracticeView } from '$lib/mastery/practice';
 	import { arrowMoveForStep, isLastPlayerMove } from '$lib/mastery/teaching';
 	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
+	import { positionAt, playOpponentReplies } from '$lib/mastery/playback';
+	import { logMove } from '$lib/moveLog';
 	import EngineEval from '$lib/components/EngineEval.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
 	import PracticeStatusStrip, { type PracticeStripState } from '$lib/components/PracticeStatusStrip.svelte';
@@ -95,17 +97,12 @@
 	const reviewIdx = $derived(manualReviewIdx ?? quizIdx);
 	const isReviewing = $derived(manualReviewIdx !== null);
 
-	/** The board position after `plyCount` plies of quizSteps have been played (0 = the attempt's start). */
-	function positionAt(plyCount: number): string {
-		if (plyCount <= 0) return quizSteps[0]?.fromFen ?? boardFen;
-		return quizSteps[plyCount - 1]?.toFen ?? boardFen;
-	}
 
 	// boardFen is used at the live position rather than positionAt(quizIdx) —
 	// the two always agree, but boardFen is what the 500ms correct-move hold
 	// (see handleMove) intentionally delays updating, so deriving from it
 	// keeps that timing intact instead of jumping the board early.
-	const displayFen = $derived(isReviewing ? positionAt(reviewIdx) : boardFen);
+	const displayFen = $derived(isReviewing ? positionAt(quizSteps, reviewIdx, boardFen) : boardFen);
 
 	// Plain-text move list for the mobile eval panel (Lichess-style), e.g.
 	// "1.e4 e5 2.Nf3 Nc6" — every move actually played so far in this
@@ -150,10 +147,9 @@
 	}
 
 	function advanceThroughOpponentReplies() {
-		while (quizSteps[quizIdx] && !quizSteps[quizIdx].isPlayerTurn) {
-			boardFen = quizSteps[quizIdx].toFen;
-			quizIdx++;
-		}
+		const played = playOpponentReplies(quizSteps, quizIdx, boardFen);
+		quizIdx = played.plyIdx;
+		boardFen = played.fen;
 	}
 
 	// The correct move's origin square — computed from the step's own
@@ -295,7 +291,7 @@
 			locked = true;
 			lastMoveResult = 'correct';
 			hintRequested = false;
-			logMove(step.moveId, detail.san, true);
+			logMove(repertoireId, step.moveId, detail.san, true);
 			// NOT quizIdx + 1 >= quizSteps.length — a served path can end with a
 			// trailing opponent-only run (the variation's true leaf is the
 			// opponent's reply), so the LAST PLAYER move isn't always the path's
@@ -357,7 +353,7 @@
 		lastMoveResult = 'wrong';
 		attemptHadMistake = true;
 		attemptMistakeCount++;
-		logMove(step.moveId, detail.san, false);
+		logMove(repertoireId, step.moveId, detail.san, false);
 		// Don't reveal the book move — just mark the square wrong and let
 		// the player try again on the same position. The whole attempt is
 		// no longer clean, but they still finish playing it out.
@@ -384,13 +380,6 @@
 		}
 	}
 
-	function logMove(moveId: string, playedSan: string, isCorrect: boolean) {
-		fetch('/api/practice/move-log', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ repertoireId, moveId, playedSan, isCorrect })
-		}).catch(() => {});
-	}
 
 	async function nextAttempt() {
 		const myToken = resetToken;

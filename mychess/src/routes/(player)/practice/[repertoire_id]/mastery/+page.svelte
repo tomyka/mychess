@@ -3,6 +3,7 @@
 	import type { Key } from 'chessground/types';
 	import { playCorrect, playWrong } from '$lib/sounds';
 	import type { VariationStep } from '$lib/mastery/variations';
+	import { playOpponentReplies } from '$lib/mastery/playback';
 
 	let { data } = $props<{ data: any }>();
 
@@ -41,10 +42,9 @@
 	const progressLabel = $derived(`${Math.min(queueIdx + 1, queue.length)} / ${queue.length}`);
 
 	function advanceThroughOpponentReplies() {
-		while (steps[plyIdx] && !steps[plyIdx].isPlayerTurn) {
-			boardFen = steps[plyIdx].toFen;
-			plyIdx++;
-		}
+		const played = playOpponentReplies(steps, plyIdx, boardFen);
+		plyIdx = played.plyIdx;
+		boardFen = played.fen;
 	}
 
 	function startVariation() {

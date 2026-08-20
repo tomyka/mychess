@@ -7,6 +7,8 @@
 	import { Chess } from 'chess.js';
 	import { playCorrect, playWrong } from '$lib/sounds';
 	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
+	import { positionAt, playOpponentReplies } from '$lib/mastery/playback';
+	import { logMove } from '$lib/moveLog';
 
 	let { data } = $props<{ data: any }>();
 
@@ -42,11 +44,7 @@
 	const isReviewing = $derived(manualReviewIdx !== null);
 	const movesSoFar = $derived(plyIdx > 0 ? moveSequenceLabel(steps.slice(0, plyIdx)) : '');
 
-	function positionAt(plyCount: number): string {
-		if (plyCount <= 0) return steps[0]?.fromFen ?? boardFen;
-		return steps[plyCount - 1]?.toFen ?? boardFen;
-	}
-	const displayFen = $derived(isReviewing ? positionAt(reviewIdx) : boardFen);
+	const displayFen = $derived(isReviewing ? positionAt(steps, reviewIdx, boardFen) : boardFen);
 
 	// Only ever the piece's own square, never the destination — same contract as
 	// Learn's hint. Taking it has already cost the line its learned status, so
@@ -63,10 +61,9 @@
 	});
 
 	function advanceThroughOpponentReplies() {
-		while (steps[plyIdx] && !steps[plyIdx].isPlayerTurn) {
-			boardFen = steps[plyIdx].toFen;
-			plyIdx++;
-		}
+		const played = playOpponentReplies(steps, plyIdx, boardFen);
+		plyIdx = played.plyIdx;
+		boardFen = played.fen;
 	}
 
 	function startCurrent() {
@@ -99,13 +96,6 @@
 		}).catch(() => {});
 	}
 
-	function logMove(moveId: string, playedSan: string, isCorrect: boolean) {
-		fetch('/api/practice/move-log', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ repertoireId: data.repertoire?.id, moveId, playedSan, isCorrect })
-		}).catch(() => {});
-	}
 
 	function toNext(delay: number) {
 		advanceTimeout = setTimeout(() => {
@@ -136,7 +126,7 @@
 		if (detail.san === step.san) {
 			playCorrect();
 			locked = true;
-			logMove(step.moveId, detail.san, true);
+			logMove(data.repertoire?.id, step.moveId, detail.san, true);
 			// A hinted line keeps its demotion notice up while it is played out —
 			// overwriting it with 'correct' would suggest the pass still counted.
 			if (!outcomeReported) strip = 'correct';
@@ -161,7 +151,7 @@
 		}
 
 		playWrong();
-		logMove(step.moveId, detail.san, false);
+		logMove(data.repertoire?.id, step.moveId, detail.san, false);
 		// Practice is a test: a wrong move ends the line rather than letting the
 		// player retry it. The variation goes back to Learn, where it will be
 		// re-taught with arrows — which is also why the correct move is still not
