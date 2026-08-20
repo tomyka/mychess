@@ -62,6 +62,18 @@
 	);
 	const liveAllSolved = $derived(liveTotal > 0 && liveSolved === liveTotal);
 
+	// Learning vs Learned is exact from the counts this row already has.
+	// Mastered is deliberately absent until #100 writes chapter-mastery records:
+	// deciding it here would mean loading every repertoire's variations to work
+	// out its chapter list, and showing a status we can't yet compute would be
+	// worse than showing the one we can.
+	const statusLabel = $derived(liveAllSolved ? 'Learned' : 'Learning');
+	const statusChipClass = $derived(
+		liveAllSolved
+			? 'border-[#6FCF73]/40 bg-[#6FCF73]/10 text-[#4b9e50] dark:text-[#6FCF73]'
+			: 'border-(--color-border) bg-(--color-bg) text-(--color-muted)'
+	);
+
 	async function toggleExpanded() {
 		expanded = !expanded;
 		if (expanded) {
@@ -97,14 +109,23 @@
 			<span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color === 'black' ? '#1f2937' : '#e5e7eb'}"
 			></span>
 			<div class="flex-1 min-w-0">
-				<h2 class="font-medium text-(--color-text) truncate">{rep.name}</h2>
+				<div class="flex items-center gap-2 min-w-0">
+					<h2 class="font-medium text-(--color-text) truncate">{rep.name}</h2>
+					{#if liveTotal > 0}
+						<span
+							class="shrink-0 text-[0.65rem] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full border {statusChipClass}"
+						>
+							{statusLabel}
+						</span>
+					{/if}
+				</div>
 				<p class="text-sm text-(--color-muted)">
 					{#if liveTotal === 0}
 						No moves yet
 					{:else if liveAllSolved}
-						🏆 Solved · {liveSolved}/{liveTotal}
+						{liveSolved}/{liveTotal} variations learned
 					{:else}
-						{liveSolved}/{liveTotal} variations solved
+						{liveSolved}/{liveTotal} variations learned
 					{/if}
 				</p>
 			</div>

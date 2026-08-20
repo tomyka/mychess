@@ -256,14 +256,17 @@ describe('RepertoirePracticeRow', () => {
 		expect(screen.queryByLabelText('Expand Ruy Lopez')).toBeNull();
 	});
 
-	it('shows solved/total progress in the subtitle', () => {
+	it('shows learned/total progress in the subtitle', () => {
 		render(RepertoirePracticeRow, { props: { rep: baseRep } });
-		expect(screen.getByText('12/18 variations solved')).toBeTruthy();
+		expect(screen.getByText('12/18 variations learned')).toBeTruthy();
 	});
 
-	it('shows a trophy badge when allSolved is true', () => {
+	it('shows the Learned chip instead of a trophy when allSolved is true', () => {
 		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, allSolved: true, solved: 18 } } });
-		expect(screen.getByText('🏆 Solved · 18/18')).toBeTruthy();
+		// The trophy is gone with #99: a fully-learned repertoire now carries a
+		// Learned chip, and Mastered is the state that earns celebration.
+		expect(screen.getByText('Learned')).toBeTruthy();
+		expect(screen.getByText('18/18 variations learned')).toBeTruthy();
 	});
 
 	it('updates the solved/total subtitle immediately when a variation is toggled, without waiting for a reload', async () => {
@@ -279,7 +282,7 @@ describe('RepertoirePracticeRow', () => {
 		render(RepertoirePracticeRow, { props: { rep: baseRep } });
 
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
-		await waitFor(() => expect(screen.getByText('1/2 variations solved')).toBeTruthy());
+		await waitFor(() => expect(screen.getByText('1/2 variations learned')).toBeTruthy());
 
 		// Exclude v1 (the solved one) — the subtitle must update right away
 		// (optimistically, before the exclusion POST even resolves), since
@@ -290,7 +293,7 @@ describe('RepertoirePracticeRow', () => {
 		const v1Checkbox = within(screen.getByText('label:v1').closest('label')!).getByRole('checkbox') as HTMLInputElement;
 		await fireEvent.click(v1Checkbox);
 
-		expect(screen.getByText('0/1 variations solved')).toBeTruthy();
+		expect(screen.getByText('0/1 variations learned')).toBeTruthy();
 	});
 
 	it('reverts the checkbox and shows an error when toggling a variation fails', async () => {
@@ -798,5 +801,68 @@ describe('RepertoirePracticeRow', () => {
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
 		await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith('/api/repertoires/rep-1/variations'));
 		expect(screen.getByText(SHARED_BUCKET_LABEL)).toBeTruthy();
+	});
+});
+
+describe('status chip', () => {
+	// Learning vs Learned is the visible half of #99's derived status. Mastered
+	// joins once #100 writes chapter-mastery records.
+	it('reads Learning while variations remain un-learned', () => {
+		render(RepertoirePracticeRow, {
+			props: {
+				rep: {
+					id: 'r1',
+					name: 'French Defense',
+					color: 'white',
+					solved: 1,
+					total: 3,
+					allSolved: false,
+					fullVariationCount: 3,
+					excludedVariationCount: 0,
+					hasChapters: false
+				}
+			}
+		});
+		expect(screen.getByText('Learning')).toBeTruthy();
+		expect(screen.getByText('1/3 variations learned')).toBeTruthy();
+	});
+
+	it('reads Learned once every variation is learned', () => {
+		render(RepertoirePracticeRow, {
+			props: {
+				rep: {
+					id: 'r1',
+					name: 'French Defense',
+					color: 'white',
+					solved: 3,
+					total: 3,
+					allSolved: true,
+					fullVariationCount: 3,
+					excludedVariationCount: 0,
+					hasChapters: false
+				}
+			}
+		});
+		expect(screen.getByText('Learned')).toBeTruthy();
+	});
+
+	it('shows no status chip for a repertoire with no moves', () => {
+		render(RepertoirePracticeRow, {
+			props: {
+				rep: {
+					id: 'r1',
+					name: 'Empty',
+					color: 'white',
+					solved: 0,
+					total: 0,
+					allSolved: false,
+					fullVariationCount: 0,
+					excludedVariationCount: 0,
+					hasChapters: false
+				}
+			}
+		});
+		expect(screen.queryByText('Learning')).toBeNull();
+		expect(screen.getByText('No moves yet')).toBeTruthy();
 	});
 });
