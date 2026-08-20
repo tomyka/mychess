@@ -38,6 +38,7 @@
              ? 'text-(--color-accent) font-semibold border-b-2 border-(--color-accent) pb-0.5'
              : 'text-(--color-muted) hover:text-gray-900 dark:hover:text-gray-200 transition-colors'}>Players</a>
         <a href="/coach/repertoires" class={linkClass(['/coach/repertoires', '/coach/pgn'])}>Repertoires</a>
+        <a href="/support" class={linkClass(['/support'])}>Support</a>
       {:else if !isSignedOut}
         <a href="/" class={linkClass(['/'])}>Dashboard</a>
         <a href="/tournaments" class={linkClass(['/tournaments'])}>Tournaments</a>
@@ -45,8 +46,10 @@
         <a href="/practice" class={linkClass(['/practice'])}>Practice</a>
         <a href="/repertoires" class={linkClass(['/repertoires'])}>Repertoires</a>
         <a href="/coaches" class={linkClass(['/coaches'])}>Coaches</a>
+        <a href="/support" class={linkClass(['/support'])}>Support</a>
       {:else}
         <a href="/tournaments" class={linkClass(['/tournaments'])}>Tournaments</a>
+        <a href="/support" class={linkClass(['/support'])}>Support</a>
       {/if}
     </div>
 
@@ -130,6 +133,7 @@
       {#if isCoach}
         <a href="/coach" onclick={() => mobileMenuOpen = false} class="text-(--color-text) font-medium">Players</a>
         <a href="/coach/repertoires" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">Repertoires</a>
+        <a href="/support" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">Support</a>
       {:else if !isSignedOut}
         <a href="/" onclick={() => mobileMenuOpen = false} class="text-(--color-text) font-medium">Dashboard</a>
         <a href="/tournaments" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">Tournaments</a>
@@ -137,8 +141,10 @@
         <a href="/practice" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">Practice</a>
         <a href="/repertoires" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">Repertoires</a>
         <a href="/coaches" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">Coaches</a>
+        <a href="/support" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">Support</a>
       {:else}
         <a href="/tournaments" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">Tournaments</a>
+        <a href="/support" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">Support</a>
         <a href="/login" onclick={() => mobileMenuOpen = false}
            class="bg-(--color-accent) text-white px-3 py-1.5 rounded-lg font-medium text-center hover:bg-(--color-accent-hover) transition-colors">Sign in</a>
       {/if}
