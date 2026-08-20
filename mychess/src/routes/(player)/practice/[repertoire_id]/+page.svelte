@@ -572,16 +572,17 @@
 				class="w-full lg:w-80 lg:shrink-0 hidden lg:flex lg:flex-col divide-y divide-(--color-border) bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:overflow-y-auto"
 			>
 				<div class="p-4">
+					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">Progress</p>
 					<div class="flex items-center justify-between gap-2">
 						<span class="text-(--color-muted) text-sm">{data.solved} / {data.total} variations solved</span>
 						<button
 							onclick={() => (pickerOpen = true)}
-							class="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-(--color-accent) border border-(--color-border) rounded-lg px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-800"
+							class="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-(--color-accent) border border-(--color-border) rounded-lg px-2 py-1 hover:bg-(--color-border)/40"
 						>
 							<span aria-hidden="true">📖</span> Switch
 						</button>
 					</div>
-					<div class="h-1.5 rounded-full bg-gray-200 overflow-hidden mt-2">
+					<div class="h-1.5 rounded-full bg-(--color-border) overflow-hidden mt-2">
 						<div
 							class="h-full bg-(--color-accent) rounded-full"
 							style={`width: ${data.total ? (data.solved / data.total) * 100 : 0}%`}
@@ -590,24 +591,46 @@
 				</div>
 
 				<div class="p-4">
+					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">This line</p>
+					<p class="text-sm text-(--color-muted)">{movesSoFar || '—'}</p>
+					{#if attemptMistakeCount > 0}
+						<p class="text-xs font-medium text-[#F28B82] mt-1">
+							{attemptMistakeCount} mistake{attemptMistakeCount === 1 ? '' : 's'} this attempt
+						</p>
+					{/if}
+				</div>
+
+				<div class="p-4">
 					<EngineEval fen={displayFen} />
 				</div>
 
-				<div class="p-4 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
-					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">Moves played</p>
-					<p class="text-sm text-(--color-muted)">{movesSoFar || '—'}</p>
-				</div>
-
-				{#if !hintRequested && phase === 'playing'}
-					<p class="text-center p-4">
+				<div class="p-4">
+					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">Stuck?</p>
+					{#if hintRequested}
+						<p class="text-sm text-(--color-muted)">Hint used for this attempt.</p>
+					{:else if phase === 'playing'}
 						<button
 							onclick={requestHint}
 							class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700"
 						>
 							<span class="text-base">💡</span> Need a hint?
 						</button>
+					{/if}
+					<p class="text-xs text-(--color-muted) mt-2">
+						← → step through moves you've played · ↑ jump to start · ↓ jump to live position
 					</p>
-				{/if}
+				</div>
+
+				<div class="p-4">
+					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">Session</p>
+					<p class="text-sm text-(--color-text) font-medium mb-2">{solvedThisSession} solved this session</p>
+					<a
+						href="/practice"
+						class="inline-flex items-center gap-1 text-sm font-semibold text-(--color-muted) border border-(--color-border) rounded-lg px-3 py-1.5 hover:bg-(--color-border)/40"
+					>
+						Finish session
+					</a>
+				</div>
 			</div>
 		</div>
 	{/if}
