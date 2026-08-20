@@ -3,6 +3,11 @@ import { describe, it, expect } from 'vitest';
 import { applyAttemptResult, touchVariationAttempt, loadVariationUpdatedAt } from './practice-progress';
 import type { Variation } from '$lib/mastery/variations';
 
+// Graduation needs two clean passes >=20h apart (#104), so these tests pin the
+// clock rather than relying on wall time.
+const FIRST_PASS = new Date('2026-08-20T09:00:00.000Z');
+const NEXT_DAY = new Date('2026-08-21T09:00:00.000Z');
+
 function makeVariation(variationKey: string, plies: number): Variation {
 	const path = Array.from({ length: plies }, (_, i) => ({
 		moveId: `${variationKey}-p${i}`,
@@ -36,7 +41,13 @@ function makeSharedPrefixVariations(): { a: Variation; b: Variation } {
 
 function fakeSupabase(opts: {
 	solvedKeys?: string[];
-	teachingRows?: Array<{ variation_key: string; taught_plies: number; mastered_plies: number }>;
+	teachingRows?: Array<{
+		variation_key: string;
+		taught_plies: number;
+		mastered_plies: number;
+		clean_pass_count?: number;
+		last_clean_pass_at?: string | null;
+	}>;
 } = {}) {
 	const solved = new Set(opts.solvedKeys ?? []);
 	const teachingRows = opts.teachingRows ?? [];
@@ -168,31 +179,90 @@ describe('applyAttemptResult', () => {
 		]);
 	});
 
-	it('the final batch\'s clean blind retest marks the variation solved and advances the active variation', async () => {
+	it('the final batch\'s clean blind retest records a first clean pass WITHOUT learning the variation', async () => {
 		const { client, upsertCalls } = fakeSupabase({
 			teachingRows: [{ variation_key: 'v1', taught_plies: 25, mastered_plies: 20 }]
 		});
 		const v1 = makeVariation('v1', 25);
 		const v2 = makeVariation('v2', 4);
-		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1, v2]);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1, v2], false, FIRST_PASS);
 
+		// Was "solved" before #104. One clean pass is now evidence, not
+		// graduation: the counters advance and the clock starts, but no
+		// variation_solved row and no move to the next variation — the player
+		// still owes a cold replay tomorrow.
 		expect(upsertCalls).toEqual([
 			{
 				table: 'variation_teaching_progress',
-				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1', taught_plies: 25, mastered_plies: 25 },
+				rows: {
+					player_id: 'player-1',
+					repertoire_id: 'rep-1',
+					variation_key: 'v1',
+					taught_plies: 25,
+					mastered_plies: 25,
+					clean_pass_count: 1,
+					last_clean_pass_at: FIRST_PASS.toISOString()
+				},
 				options: { onConflict: 'player_id,variation_key_hash' }
-			},
-			{
-				table: 'variation_solved',
-				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1' },
-				options: { onConflict: 'player_id,variation_key_hash', ignoreDuplicates: true }
-			},
-			{
-				table: 'practice_active_variation',
-				rows: expect.objectContaining({ player_id: 'player-1', repertoire_id: 'rep-1', active_variation_key: 'v2' }),
-				options: { onConflict: 'player_id,repertoire_id' }
 			}
 		]);
+	});
+
+	it('graduates the variation on a second clean pass a day later, then advances the active variation', async () => {
+		const { client, upsertCalls } = fakeSupabase({
+			teachingRows: [
+				{
+					variation_key: 'v1',
+					taught_plies: 25,
+					mastered_plies: 25,
+					clean_pass_count: 1,
+					last_clean_pass_at: FIRST_PASS.toISOString()
+				}
+			]
+		});
+		const v1 = makeVariation('v1', 25);
+		const v2 = makeVariation('v2', 4);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1, v2], false, NEXT_DAY);
+
+		expect(upsertCalls.map((c) => c.table)).toEqual([
+			'variation_teaching_progress',
+			'variation_solved',
+			'practice_active_variation'
+		]);
+		expect(upsertCalls[0].rows).toEqual({
+			player_id: 'player-1',
+			repertoire_id: 'rep-1',
+			variation_key: 'v1',
+			taught_plies: 25,
+			mastered_plies: 25,
+			clean_pass_count: 2,
+			last_clean_pass_at: NEXT_DAY.toISOString()
+		});
+		expect(upsertCalls[2].rows).toEqual(
+			expect.objectContaining({ active_variation_key: 'v2' })
+		);
+	});
+
+	it('does not graduate a second clean pass taken too soon, and does not slide the clock', async () => {
+		const tooSoon = new Date(FIRST_PASS.getTime() + 3 * 60 * 60 * 1000);
+		const { client, upsertCalls } = fakeSupabase({
+			teachingRows: [
+				{
+					variation_key: 'v1',
+					taught_plies: 25,
+					mastered_plies: 25,
+					clean_pass_count: 1,
+					last_clean_pass_at: FIRST_PASS.toISOString()
+				}
+			]
+		});
+		const v1 = makeVariation('v1', 25);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1], false, tooSoon);
+
+		expect(upsertCalls.map((c) => c.table)).toEqual(['variation_teaching_progress']);
+		expect(upsertCalls[0].rows).toEqual(
+			expect.objectContaining({ clean_pass_count: 1, last_clean_pass_at: FIRST_PASS.toISOString() })
+		);
 	});
 
 	it('bypasses teaching progress entirely for an already-solved variation (re-drill)', async () => {
@@ -206,24 +276,24 @@ describe('applyAttemptResult', () => {
 	it('credits a fresh sibling variation for a shared prefix already solved via another variation', async () => {
 		const { a, b } = makeSharedPrefixVariations();
 		const { client, upsertCalls } = fakeSupabase({ solvedKeys: ['a'], teachingRows: [] });
-		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'b', false, [a, b]);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'b', false, [a, b], false, FIRST_PASS);
 		// b's own path is only 2 plies past the shared 10, so its whole
 		// remaining content is taught in one go — and mastered_plies starts at
 		// 10 (credited from a), not 0, so this teach pass reaches b's full path
 		// length with a mastered prefix behind it: it IS b's final pass, and a
 		// clean run of it solves b outright rather than demanding an identical
 		// arrow-free replay of the same two plies (issue #68).
-		expect(upsertCalls.map((c) => c.table)).toEqual([
-			'variation_teaching_progress',
-			'variation_solved',
-			'practice_active_variation'
-		]);
+		// The shared-prefix credit is unchanged; what changed with #104 is that
+		// reaching the end cleanly is a first clean pass, not graduation.
+		expect(upsertCalls.map((c) => c.table)).toEqual(['variation_teaching_progress']);
 		expect(upsertCalls[0].rows).toEqual({
 			player_id: 'player-1',
 			repertoire_id: 'rep-1',
 			variation_key: 'b',
 			taught_plies: 12,
-			mastered_plies: 12
+			mastered_plies: 12,
+			clean_pass_count: 1,
+			last_clean_pass_at: FIRST_PASS.toISOString()
 		});
 	});
 
@@ -237,23 +307,24 @@ describe('applyAttemptResult', () => {
 		});
 		const v1 = makeVariation('v1', 16);
 		const v2 = makeVariation('v2', 4);
-		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1, v2]);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1, v2], false, FIRST_PASS);
 
+		// Still one pass, not a solve (#104) — the issue-#68 behaviour being
+		// pinned here is that this pass owes no second arrow-free replay of the
+		// same tail, which is unchanged.
 		expect(upsertCalls).toEqual([
 			{
 				table: 'variation_teaching_progress',
-				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1', taught_plies: 16, mastered_plies: 16 },
+				rows: {
+					player_id: 'player-1',
+					repertoire_id: 'rep-1',
+					variation_key: 'v1',
+					taught_plies: 16,
+					mastered_plies: 16,
+					clean_pass_count: 1,
+					last_clean_pass_at: FIRST_PASS.toISOString()
+				},
 				options: { onConflict: 'player_id,variation_key_hash' }
-			},
-			{
-				table: 'variation_solved',
-				rows: { player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1' },
-				options: { onConflict: 'player_id,variation_key_hash', ignoreDuplicates: true }
-			},
-			{
-				table: 'practice_active_variation',
-				rows: expect.objectContaining({ player_id: 'player-1', repertoire_id: 'rep-1', active_variation_key: 'v2' }),
-				options: { onConflict: 'player_id,repertoire_id' }
 			}
 		]);
 	});

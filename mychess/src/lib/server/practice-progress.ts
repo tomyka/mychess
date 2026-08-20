@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Variation } from '$lib/mastery/variations';
 import { pickActiveVariation, advanceIfSolved } from '$lib/mastery/variationSequence';
 import { advanceTeachingProgress, knownProgressFor } from '$lib/mastery/teaching';
+import { applyCleanPass, isPendingSecondPass } from '$lib/mastery/learning';
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
 
 /**
@@ -128,17 +129,30 @@ export async function loadTeachingProgress(
 	supabase: SupabaseClient,
 	playerId: string,
 	repertoireId: string
-): Promise<Map<string, { taughtPlies: number; masteredPlies: number; updatedAt: string | null }>> {
+): Promise<
+	Map<
+		string,
+		{
+			taughtPlies: number;
+			masteredPlies: number;
+			updatedAt: string | null;
+			cleanPassCount: number;
+			lastCleanPassAt: string | null;
+		}
+	>
+> {
 	const rows = await fetchAllPages<{
 		variation_key: string;
 		taught_plies: number;
 		mastered_plies: number;
 		updated_at: string | null;
+		clean_pass_count: number | null;
+		last_clean_pass_at: string | null;
 	}>(
 		() =>
 			supabase
 				.from('variation_teaching_progress')
-				.select('variation_key, taught_plies, mastered_plies, updated_at')
+				.select('variation_key, taught_plies, mastered_plies, updated_at, clean_pass_count, last_clean_pass_at')
 				.eq('player_id', playerId)
 				.eq('repertoire_id', repertoireId)
 				.order('variation_key', { ascending: true }),
@@ -151,23 +165,56 @@ export async function loadTeachingProgress(
 		MAX_ROWS_PAGE_SIZE
 	);
 	return new Map(
-		rows.map((r) => [r.variation_key, { taughtPlies: r.taught_plies, masteredPlies: r.mastered_plies, updatedAt: r.updated_at }])
+		rows.map((r) => [
+			r.variation_key,
+			{
+				taughtPlies: r.taught_plies,
+				masteredPlies: r.mastered_plies,
+				updatedAt: r.updated_at,
+				// `?? 0` / `?? null` rather than trusting the column: the
+				// migration defaults these for existing rows, but a row read
+				// before it ran would arrive undefined, and "no clean passes
+				// yet" is the only safe reading of absent data.
+				cleanPassCount: r.clean_pass_count ?? 0,
+				lastCleanPassAt: r.last_clean_pass_at ?? null
+			}
+		])
 	);
 }
 
-/** Persists this variation's teaching-progress counters (see `src/lib/mastery/teaching.ts`). */
+/**
+ * Persists this variation's teaching-progress counters (see
+ * `src/lib/mastery/teaching.ts`), plus the clean-pass state behind the
+ * graduation rule (`src/lib/mastery/learning.ts`) when the caller has new
+ * values for it.
+ *
+ * `cleanPass` is optional and omitted from the payload when absent, so a
+ * caller advancing only the teaching counters can't accidentally zero a
+ * variation's graduation progress — the same reason `touchVariationAttempt`
+ * writes `updated_at` alone.
+ */
 export async function saveTeachingProgress(
 	supabase: SupabaseClient,
 	playerId: string,
 	repertoireId: string,
 	variationKey: string,
 	taughtPlies: number,
-	masteredPlies: number
+	masteredPlies: number,
+	cleanPass?: { cleanPassCount: number; lastCleanPassAt: string | null }
 ): Promise<void> {
 	await supabase
 		.from('variation_teaching_progress')
 		.upsert(
-			{ player_id: playerId, repertoire_id: repertoireId, variation_key: variationKey, taught_plies: taughtPlies, mastered_plies: masteredPlies },
+			{
+				player_id: playerId,
+				repertoire_id: repertoireId,
+				variation_key: variationKey,
+				taught_plies: taughtPlies,
+				mastered_plies: masteredPlies,
+				...(cleanPass
+					? { clean_pass_count: cleanPass.cleanPassCount, last_clean_pass_at: cleanPass.lastCleanPassAt }
+					: {})
+			},
 			{ onConflict: 'player_id,variation_key_hash' }
 		);
 }
@@ -255,7 +302,8 @@ export async function applyAttemptResult(
 	variationKey: string,
 	hadMistake: boolean,
 	variations: Variation[],
-	resumedAfterBreak: boolean = false
+	resumedAfterBreak: boolean = false,
+	now: Date = new Date()
 ): Promise<void> {
 	if (hadMistake) return;
 
@@ -264,6 +312,36 @@ export async function applyAttemptResult(
 		const solvedKeys = await loadSolvedKeys(supabase, playerId, repertoireId);
 		if (!solvedKeys.has(variationKey)) {
 			const progressMap = await loadTeachingProgress(supabase, playerId, repertoireId);
+			const storedProgress = progressMap.get(variationKey);
+			const cleanPassState = {
+				cleanPassCount: storedProgress?.cleanPassCount ?? 0,
+				lastCleanPassAt: storedProgress?.lastCleanPassAt ?? null
+			};
+
+			// Graduation attempt: served as a cold full-path replay, so record it as
+			// one. Going through knownProgressFor here would apply the
+			// resumed-after-a-break reset (10 minutes, which the mandatory 20h wait
+			// always exceeds) and score a completed graduation pass as an
+			// unfinished teach batch — the variation could never graduate. Mirrors
+			// the identical bypass on the serve side in mastery/practice.ts.
+			if (isPendingSecondPass(cleanPassState, false)) {
+				const { next: cleanPass, learned } = applyCleanPass(cleanPassState, now);
+				await saveTeachingProgress(
+					supabase,
+					playerId,
+					repertoireId,
+					variationKey,
+					variation.path.length,
+					variation.path.length,
+					cleanPass
+				);
+				if (!learned) return;
+				await markVariationSolved(supabase, playerId, repertoireId, variationKey);
+				const keysAfter = await loadSolvedKeys(supabase, playerId, repertoireId);
+				await setActiveVariationKey(supabase, playerId, repertoireId, advanceIfSolved(variationKey, variations, keysAfter));
+				return;
+			}
+
 			const { taughtPlies: effectiveTaughtPlies, masteredPlies: effectiveMasteredPlies } = knownProgressFor({
 				variation,
 				variations,
@@ -272,8 +350,27 @@ export async function applyAttemptResult(
 				resumedAfterBreak
 			});
 			const next = advanceTeachingProgress(variation.path, effectiveTaughtPlies, effectiveMasteredPlies, false);
-			await saveTeachingProgress(supabase, playerId, repertoireId, variationKey, next.taughtPlies, next.masteredPlies);
-			if (!next.solved) return;
+
+			// `next.solved` no longer means learned — it means this attempt was a
+			// clean pass over the variation's final batch. Graduation needs TWO
+			// such passes >=20h apart (#104), so the clean-pass counters advance
+			// here and only `learned` opens the gate below.
+			if (!next.solved) {
+				await saveTeachingProgress(supabase, playerId, repertoireId, variationKey, next.taughtPlies, next.masteredPlies);
+				return;
+			}
+
+			const { next: cleanPass, learned } = applyCleanPass(cleanPassState, now);
+			await saveTeachingProgress(
+				supabase,
+				playerId,
+				repertoireId,
+				variationKey,
+				next.taughtPlies,
+				next.masteredPlies,
+				cleanPass
+			);
+			if (!learned) return;
 		}
 	}
 

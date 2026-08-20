@@ -2,6 +2,21 @@
 import type { Variation, VariationStep } from './variations';
 import { pickActiveVariation, solvedProgress } from './variationSequence';
 import { resolveTeachingStep, knownProgressFor } from './teaching';
+import { applyCleanPass, isPendingSecondPass } from './learning';
+
+/**
+ * One variation's stored progress. The clean-pass fields are optional so a
+ * caller (or an older test) that knows nothing about graduation still
+ * type-checks — absent reads as "no clean passes yet", the same default the
+ * migration gives existing rows.
+ */
+export type TeachingProgressEntry = {
+	taughtPlies: number;
+	masteredPlies: number;
+	updatedAt: string | null;
+	cleanPassCount?: number;
+	lastCleanPassAt?: string | null;
+};
 
 export type PracticeView = {
 	attempt: {
@@ -9,6 +24,14 @@ export type PracticeView = {
 		variationKey: string;
 		arrowPlies: { from: number; to: number } | null;
 		isFinalPass: boolean;
+		/**
+		 * True when this attempt is the second, cold pass that graduates the
+		 * variation (#104). The client can't infer it — a re-drill of an
+		 * already-learned line looks identical (no arrows, final pass, no
+		 * autoplay) — and it needs to know, or the optimistic learned-count bump
+		 * fires on a first clean pass that learned nothing.
+		 */
+		isGraduationAttempt: boolean;
 		// How many of `path`'s leading plies are already mastered — via this
 		// variation's own progress, OR via a SIBLING variation sharing the
 		// same moves (see computeMasteredMoveIds) — and so should auto-play
@@ -20,6 +43,13 @@ export type PracticeView = {
 	solved: number;
 	total: number;
 	allSolved: boolean;
+	/**
+	 * Un-learned variations that have a clean pass behind them but whose 20h gap
+	 * hasn't elapsed. They are deliberately not served: there is nothing left to
+	 * teach and they can't graduate yet. Surfaced so Learn can say "waiting until
+	 * tomorrow" instead of looking empty or finished.
+	 */
+	pendingWaiting: number;
 };
 
 /** How long since a variation's last attempt counts as "the player took a break" from it. */
@@ -48,12 +78,33 @@ export function buildPracticeView(
 	variations: Variation[],
 	activeVariationKey: string | null,
 	solvedKeys: ReadonlySet<string>,
-	teachingProgress: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number; updatedAt: string | null }>,
+	teachingProgress: ReadonlyMap<string, TeachingProgressEntry>,
 	forceAttempt: boolean = false,
 	now: Date = new Date()
 ): PracticeView {
 	const { solved, total } = solvedProgress(variations, solvedKeys);
-	const active = pickActiveVariation(variations, activeVariationKey, solvedKeys);
+
+	// A variation with a clean pass behind it has nothing left to teach, but it
+	// can't graduate until 20h have passed — so while it waits it is served by
+	// neither surface. `applyCleanPass` decides eligibility rather than a second
+	// gap comparison here, so the 20h rule keeps living in exactly one place.
+	const waitingKeys = new Set(
+		variations
+			.filter((v) => {
+				if (solvedKeys.has(v.variationKey)) return false;
+				const stored = teachingProgress.get(v.variationKey);
+				const state = {
+					cleanPassCount: stored?.cleanPassCount ?? 0,
+					lastCleanPassAt: stored?.lastCleanPassAt ?? null
+				};
+				if (!isPendingSecondPass(state, false)) return false;
+				return !applyCleanPass(state, now).learned;
+			})
+			.map((v) => v.variationKey)
+	);
+
+	const servable = waitingKeys.size > 0 ? variations.filter((v) => !waitingKeys.has(v.variationKey)) : variations;
+	const active = pickActiveVariation(servable, activeVariationKey, solvedKeys);
 
 	// allSolved means the REPERTOIRE is done, not just that the (possibly
 	// manually re-picked) active variation happens to be solved — those are
@@ -73,7 +124,16 @@ export function buildPracticeView(
 			// re-teach, regardless of what teachingProgress happens to hold,
 			// and never auto-play any of it: a deliberate re-drill is meant
 			// to be played out in full.
-			attempt = { path: active.path, variationKey: active.variationKey, arrowPlies: null, isFinalPass: true, autoPlayThrough: 0 };
+			// A deliberate re-drill of an already-learned variation: nothing to
+			// graduate, so a clean run must not bump the learned count.
+			attempt = {
+				path: active.path,
+				variationKey: active.variationKey,
+				arrowPlies: null,
+				isFinalPass: true,
+				autoPlayThrough: 0,
+				isGraduationAttempt: false
+			};
 		} else {
 			// A break of 10+ minutes since this specific variation's last
 			// attempt serves this one attempt as if nothing were mastered yet —
@@ -81,7 +141,15 @@ export function buildPracticeView(
 			// written back; the real stored counters are untouched, so the next
 			// attempt (once touchVariationAttempt in practice-progress.ts
 			// refreshes updatedAt) goes back to normal.
-			const updatedAt = teachingProgress.get(active.variationKey)?.updatedAt ?? null;
+			const stored = teachingProgress.get(active.variationKey);
+			// Eligible (not merely present) — a waiting variation was already
+			// filtered out of `servable` above, so reaching here with a clean pass
+			// behind it means the gap has elapsed.
+			const pendingGraduation = isPendingSecondPass(
+				{ cleanPassCount: stored?.cleanPassCount ?? 0, lastCleanPassAt: stored?.lastCleanPassAt ?? null },
+				false
+			);
+			const updatedAt = stored?.updatedAt ?? null;
 			const resumedAfterBreak = wasResumedAfterBreak(updatedAt, now);
 			// knownProgressFor owns the whole "what's already known here"
 			// computation — this variation's own counters, the shared-sibling
@@ -95,18 +163,39 @@ export function buildPracticeView(
 				solvedKeys,
 				resumedAfterBreak
 			});
+			// A graduation attempt bypasses the teaching machinery entirely.
+			// `wasResumedAfterBreak` fires after only 10 minutes, and the 20h wait
+			// guarantees that — so routing a pending variation through
+			// `knownProgressFor` would zero its mastery and re-teach it WITH
+			// ARROWS, which is the opposite of the cold replay the second pass is
+			// supposed to be. `applyAttemptResult` bypasses it symmetrically when
+			// recording, the same way `knownProgressFor` keeps serve and record in
+			// step for the normal path.
+			if (pendingGraduation) {
+				attempt = {
+					path: active.path,
+					variationKey: active.variationKey,
+					arrowPlies: null,
+					isFinalPass: true,
+					autoPlayThrough: 0,
+					isGraduationAttempt: true
+				};
+				return { attempt, solved, total, allSolved, pendingWaiting: waitingKeys.size };
+			}
+
 			const step = resolveTeachingStep(active.path, effectiveTaughtPlies, effectiveMasteredPlies);
 			attempt = {
 				path: step.path,
 				variationKey: active.variationKey,
 				arrowPlies: step.arrowPlies,
 				isFinalPass: step.isFinalPass,
-				autoPlayThrough: effectiveMasteredPlies
+				autoPlayThrough: effectiveMasteredPlies,
+				isGraduationAttempt: false
 			};
 		}
 	}
 
-	return { attempt, solved, total, allSolved };
+	return { attempt, solved, total, allSolved, pendingWaiting: waitingKeys.size };
 }
 
 /**
