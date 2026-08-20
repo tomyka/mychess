@@ -28,8 +28,10 @@ describe('fullNameOrNull', () => {
 });
 
 describe('isPlaceholderName', () => {
-  it('treats the guest placeholder as a placeholder', () => {
-    expect(isPlaceholderName('Guest')).toBe(true);
+  it('leaves a player who is actually called Guest alone', () => {
+    // Was a placeholder while the guest-auth flow named profiles "Guest";
+    // those rows are gone (#90), so the literal is just a name now.
+    expect(isPlaceholderName('Guest')).toBe(false);
   });
 
   it('treats empty/nullish names as placeholders', () => {

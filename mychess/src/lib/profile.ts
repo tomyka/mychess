@@ -1,6 +1,3 @@
-/** Placeholder display name assigned to anonymous guest profiles. */
-export const GUEST_DISPLAY_NAME = 'Guest';
-
 /**
  * Builds a display name from a player's first and last name.
  * Returns the trimmed "First Last" (or whichever part is present), or null
@@ -18,10 +15,11 @@ export function fullNameOrNull(
 }
 
 /**
- * True when a display name is missing or is the guest placeholder — i.e. safe
- * to overwrite with the player's real name.
+ * True when a display name is missing — i.e. safe to overwrite with the
+ * player's real name. The literal "Guest" used to count as a placeholder too,
+ * for profiles the removed guest-auth flow created; those rows were purged in
+ * #90, and a real player who chooses "Guest" as their name gets to keep it.
  */
 export function isPlaceholderName(displayName: string | null | undefined): boolean {
-  const name = (displayName ?? '').trim();
-  return name === '' || name === GUEST_DISPLAY_NAME;
+  return (displayName ?? '').trim() === '';
 }

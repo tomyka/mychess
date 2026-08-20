@@ -7,9 +7,7 @@
   let mobileMenuOpen = $state(false);
 
   const isCoach = $derived((profile as any)?.role === 'coach');
-  // Anonymous sessions still exist until the guest-row purge (#90); show them
-  // the signed-out chrome, not a half-real account.
-  const isSignedOut = $derived(!user || user.is_anonymous);
+  const isSignedOut = $derived(!user);
   const pathname = $derived($page.url.pathname);
 
   function active(paths: string[]): boolean {

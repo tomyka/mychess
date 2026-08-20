@@ -43,17 +43,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 		let resolvedProfile = profile;
 
-		// Backfill display_name for any account still carrying a placeholder —
-		// an empty string, or the literal "Guest" left behind by a profile the
-		// removed guest-auth flow created. Once a real name exists, adopt it.
-		// The is_anonymous clause stays deliberately: anonymous rows still exist
-		// with valid refresh tokens until they are purged (#90), and they are
-		// treated as non-accounts everywhere else too (see requireAccount).
-		if (
-			resolvedProfile &&
-			!session.user.is_anonymous &&
-			isPlaceholderName((resolvedProfile as any).display_name)
-		) {
+		// Backfill display_name for an account that never set one. Once first/last
+		// name exist, adopt them.
+		if (resolvedProfile && isPlaceholderName((resolvedProfile as any).display_name)) {
 			const displayName = fullNameOrNull(
 				(resolvedProfile as any).first_name,
 				(resolvedProfile as any).last_name
@@ -67,7 +59,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 			}
 		}
 
-		return { session, user: session.user, profile: resolvedProfile, isSignedOut: !!session.user.is_anonymous };
+		// A session now means a real account, full stop — anonymous auth is
+		// retired: the code path that minted guests went in #88, the 3,811 rows it
+		// left were purged in #90, and the Supabase provider itself is disabled,
+		// so nothing can present an anonymous session any more.
+		return { session, user: session.user, profile: resolvedProfile, isSignedOut: false };
 	}
 
 	// Every layout in a route's tree runs its `load` on each navigation, and

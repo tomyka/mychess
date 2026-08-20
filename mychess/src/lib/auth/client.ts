@@ -10,19 +10,16 @@ function callbackUrl(): string {
 	return `${window.location.origin}/auth/callback`;
 }
 
-/** Sends a magic link. On an anonymous user, converts it (preserving progress). */
+/**
+ * Sends a magic link. This used to branch on an anonymous session first and
+ * convert it via `updateUser` to preserve its progress; anonymous auth is
+ * retired (#88 removed the minting, #90 purged the rows, the Supabase provider
+ * is disabled), so the branch is gone along with the `getUser` round trip it
+ * needed.
+ */
 export async function sendMagicLink(email: string, keepSignedIn: boolean): Promise<AuthResult> {
 	const sb = createSupabaseClient();
 	setPersistMarker(keepSignedIn);
-	const {
-		data: { user }
-	} = await sb.auth.getUser();
-	if (user?.is_anonymous) {
-		// Convert the anonymous account to permanent, keeping its progress. The
-		// confirmation link must return to our callback (not the Supabase Site URL).
-		const { error } = await sb.auth.updateUser({ email }, { emailRedirectTo: callbackUrl() });
-		return error ? { ok: false, error: error.message } : { ok: true };
-	}
 	const { error } = await sb.auth.signInWithOtp({
 		email,
 		options: { emailRedirectTo: callbackUrl(), shouldCreateUser: true }

@@ -8,11 +8,7 @@ import { loadRepertoireProgressSummaries } from '$lib/server/repertoire-progress
 
 export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSession } }) => {
   const { user, session, profile } = await safeGetSession();
-  // Anonymous sessions count as signed-out: rows from the removed guest-auth
-  // flow still exist in production with valid refresh tokens until they are
-  // purged (#90), and they must not reach the authenticated pipeline — it
-  // seeds quest rows. Mirrors requireAccount's own is_anonymous check.
-  const isSignedOut = !user || !!(user as any).is_anonymous;
+  const isSignedOut = !user;
 
   // Fetch upcoming Lithuania tournaments for all visitors (signed-out landing
   // page + logged-in widget). Kicked off here but not awaited yet — it doesn't

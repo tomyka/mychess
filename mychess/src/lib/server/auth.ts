@@ -2,10 +2,10 @@ import { error, redirect } from '@sveltejs/kit';
 
 type Locals = App.Locals;
 
-/** Requires a real (non-anonymous) signed-in account. Redirects to /login otherwise. */
+/** Requires a signed-in account. Redirects to /login otherwise. */
 export async function requireAccount(locals: Locals) {
 	const data = await locals.safeGetSession();
-	if (!data.user || (data.user as any).is_anonymous) {
+	if (!data.user) {
 		throw redirect(303, '/login');
 	}
 	return data;
