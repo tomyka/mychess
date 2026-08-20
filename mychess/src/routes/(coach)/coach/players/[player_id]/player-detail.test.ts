@@ -94,7 +94,7 @@ describe('coach student detail page', () => {
     expect(screen.getByText('Note cannot be empty')).toBeTruthy();
   });
 
-  it('shows a Practice Report section with solved/total progress and mistake hotspots per repertoire', () => {
+  it('shows a Practice Report section with learned/total progress and mistake hotspots per repertoire', () => {
     render(PlayerDetail, {
       props: {
         data: {
@@ -118,7 +118,8 @@ describe('coach student detail page', () => {
     });
     expect(screen.getByText('Practice Report')).toBeTruthy();
     expect(screen.getByText('Sicilian Defense')).toBeTruthy();
-    expect(screen.getByText(/2\/5 solved/)).toBeTruthy();
+    expect(screen.getByText(/2\/5 learned/)).toBeTruthy();
+    expect(screen.getByText('Learning')).toBeTruthy();
     expect(screen.getByText(/6\.\.\.e5/)).toBeTruthy();
     expect(screen.getByText(/wrong 4\/7/)).toBeTruthy();
   });
@@ -164,4 +165,75 @@ describe('coach student detail page', () => {
     });
     expect(screen.getByText('No practice activity in this range.')).toBeTruthy();
   });
+});
+
+describe('coach view of learning status (#102)', () => {
+	const report = {
+		accuracy: [],
+		hotspots: [],
+		activity: { lastPracticedAt: null, sessionsInRange: 0 }
+	};
+
+	function renderWith(pr: Record<string, unknown>) {
+		render(PlayerDetail, {
+			props: {
+				data: {
+					player: { id: 'p1', display_name: 'Student' },
+					stats: null,
+					notes: [],
+					coachReps: [],
+					assignedReps: [{ id: 'a1', repertoire: { id: 'r1', name: 'Sicilian Defense', color: 'black' } }],
+					practiceReports: [
+						{
+							repertoireId: 'r1',
+							repertoireName: 'Sicilian Defense',
+							solved: 5,
+							total: 5,
+							status: 'learned',
+							chaptersMastered: 0,
+							chaptersStale: 0,
+							demotions: 0,
+							report,
+							...pr
+						}
+					],
+					range: '30d',
+					playerId: 'p1'
+				}
+			}
+		});
+	}
+
+	it('reads Learned once the student has learned every variation', () => {
+		renderWith({});
+		expect(screen.getByText('Learned')).toBeTruthy();
+		expect(screen.getByText(/5\/5 learned/)).toBeTruthy();
+	});
+
+	it('reports chapters mastered', () => {
+		renderWith({ chaptersMastered: 2 });
+		expect(screen.getByText(/2 chapters mastered/)).toBeTruthy();
+	});
+
+	it('uses the singular for one chapter', () => {
+		renderWith({ chaptersMastered: 1 });
+		expect(screen.getByText(/1 chapter mastered/)).toBeTruthy();
+	});
+
+	// The signal a coach actually wants: material that was learned and then lost.
+	it('flags lines sent back to Learn in the window', () => {
+		renderWith({ demotions: 3 });
+		expect(screen.getByText(/3 lines sent back to Learn/)).toBeTruthy();
+	});
+
+	it('flags chapters whose mastery went stale after new material was added', () => {
+		renderWith({ chaptersMastered: 1, chaptersStale: 2 });
+		expect(screen.getByText(/2 needing re-mastery after new material/)).toBeTruthy();
+	});
+
+	it('shows no status chip for a repertoire with no moves', () => {
+		renderWith({ total: 0, solved: 0 });
+		expect(screen.queryByText('Learned')).toBeNull();
+		expect(screen.queryByText('Learning')).toBeNull();
+	});
 });

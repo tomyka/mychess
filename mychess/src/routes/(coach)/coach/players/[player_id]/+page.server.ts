@@ -1,6 +1,7 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { loadRepertoireReport } from '$lib/server/practice-report';
+import { loadStudentRepertoireProgress } from '$lib/server/coach-progress';
 
 const RANGE_DAYS = 30;
 
@@ -25,6 +26,16 @@ export const load: PageServerLoad = async ({ params, url, locals: { supabase, sa
   ]);
 
   const assignedReps = assignedRes.data ?? [];
+
+  // Learning progress for every assigned repertoire in four queries, rather
+  // than more per-repertoire round trips on a page that already makes several.
+  const progressByRep = await loadStudentRepertoireProgress(
+    supabase,
+    params.player_id,
+    assignedReps.map((a: any) => a.repertoire?.id).filter(Boolean),
+    sinceIso
+  );
+
   const practiceReports = await Promise.all(
     assignedReps.map(async (a: any) => {
       if (!a.repertoire?.id) return { repertoireId: null, repertoireName: a.repertoire?.name ?? 'Repertoire', solved: 0, total: 0, report: null };
@@ -37,11 +48,22 @@ export const load: PageServerLoad = async ({ params, url, locals: { supabase, sa
           .eq('repertoire_id', a.repertoire.id),
         loadRepertoireReport(supabase, params.player_id, a.repertoire.id, sinceIso, now)
       ]);
+      const progress = progressByRep.get(a.repertoire.id);
+      const total = repRow?.total_variations ?? 0;
+      const learned = progress?.learned ?? solvedCount ?? 0;
       return {
         repertoireId: a.repertoire.id,
         repertoireName: a.repertoire.name,
-        solved: solvedCount ?? 0,
-        total: repRow?.total_variations ?? 0,
+        solved: learned,
+        total,
+        // Learning vs Learned is exact from these counts. Mastered needs the
+        // repertoire's chapter count, which would cost a full move fetch per
+        // repertoire here — deferred to #105's cached chapter_count, the same
+        // reason the player-facing list defers it.
+        status: total > 0 && learned >= total ? 'learned' : 'learning',
+        chaptersMastered: progress?.chaptersMastered ?? 0,
+        chaptersStale: progress?.chaptersStale ?? 0,
+        demotions: progress?.demotions ?? 0,
         report
       };
     })

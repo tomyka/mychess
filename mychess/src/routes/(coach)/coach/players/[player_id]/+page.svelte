@@ -92,9 +92,34 @@
                    and each now states its scope. -->
               <h3 class="font-medium text-(--color-text) text-sm mb-3">
                 {pr.repertoireName}
-                <span class="text-(--color-muted) font-normal">— {pr.total > 0 ? `${pr.solved}/${pr.total} solved` : 'no moves yet'}</span>
+                <span class="text-(--color-muted) font-normal"
+                  >— {pr.total > 0 ? `${pr.solved}/${pr.total} learned` : 'no moves yet'}</span
+                >
+                {#if pr.total > 0}
+                  <span
+                    class="ml-1 align-middle text-[0.65rem] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full border {pr.status ===
+                    'learned'
+                      ? 'border-[#6FCF73]/40 bg-[#6FCF73]/10 text-[#4b9e50] dark:text-[#6FCF73]'
+                      : 'border-(--color-border) bg-(--color-bg) text-(--color-muted)'}"
+                  >
+                    {pr.status === 'learned' ? 'Learned' : 'Learning'}
+                  </span>
+                {/if}
                 <span class="block text-xs text-(--color-muted) font-normal mt-0.5">This repertoire only</span>
               </h3>
+              {#if pr.total > 0}
+                <p class="text-xs text-(--color-muted) mb-2">
+                  {pr.chaptersMastered} chapter{pr.chaptersMastered === 1 ? '' : 's'} mastered
+                  {#if pr.chaptersStale > 0}
+                    · {pr.chaptersStale} needing re-mastery after new material
+                  {/if}
+                  {#if pr.demotions > 0}
+                    · <span class="text-amber-600 dark:text-amber-400"
+                      >{pr.demotions} line{pr.demotions === 1 ? '' : 's'} sent back to Learn</span
+                    >
+                  {/if}
+                </p>
+              {/if}
 
               {#if !pr.report || pr.report.accuracy.length === 0}
                 <p class="text-(--color-muted) text-xs">No practice activity in this range.</p>
