@@ -520,6 +520,56 @@ describe('practice detail page', () => {
 		expect(screen.getAllByText('0 / 1 variations solved').length).toBe(2);
 	});
 
+	it('shows a running session count and a Finish session link in the sidebar', () => {
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 0,
+					total: 1,
+					allSolved: false,
+					attempt: {
+						variationKey: 'v1',
+						path: [
+							{
+								moveId: 'm1',
+								san: 'e4',
+								fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+								toFen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+								isPlayerTurn: true
+							}
+						]
+					}
+				}
+			}
+		});
+		expect(screen.getByText('0 solved this session')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Finish session' })).toBeTruthy();
+	});
+
+	it('shows a mistakes-this-attempt chip in the sidebar after a wrong move', async () => {
+		vi.useFakeTimers();
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 0,
+					total: 1,
+					allSolved: false,
+					attempt: AUTO_PLAY_ATTEMPT
+				}
+			}
+		});
+		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes
+
+		expect(screen.queryByText(/mistake/i)).toBeNull();
+
+		playMove('b1', 'c3'); // wrong: the book move is Nf3
+		await vi.advanceTimersByTimeAsync(500);
+
+		expect(screen.getByText('1 mistake this attempt')).toBeTruthy();
+	});
+
 	it('renders without crashing with the engine toggle in its default (off) state', () => {
 		render(Practice, {
 			props: {
