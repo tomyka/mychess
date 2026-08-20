@@ -177,6 +177,10 @@ describe('coach view of learning status (#102)', () => {
 	function renderWith(pr: Record<string, unknown>) {
 		render(PlayerDetail, {
 			props: {
+				// The page declares a `form` prop (its note-adding action); the other
+				// tests in this file pass it, so this helper must too or svelte-check
+				// rejects the props object.
+				form: null,
 				data: {
 					player: { id: 'p1', display_name: 'Student' },
 					stats: null,
