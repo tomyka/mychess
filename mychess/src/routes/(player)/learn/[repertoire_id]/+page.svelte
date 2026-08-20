@@ -10,6 +10,7 @@
 	import { arrowMoveForStep, isLastPlayerMove } from '$lib/mastery/teaching';
 	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
 	import EngineEval from '$lib/components/EngineEval.svelte';
+	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
 	import PracticeStatusStrip, { type PracticeStripState } from '$lib/components/PracticeStatusStrip.svelte';
 
 	let { data } = $props<{ data: any }>();
@@ -538,56 +539,16 @@
 					/>
 				</div>
 
-				<div
-					class="grid grid-cols-5 gap-2 mt-4 shrink-0 mx-auto w-full items-center"
-					style={boardWidth ? `max-width: ${boardWidth}px` : ''}
-				>
-					<button
-						onclick={reviewToStart}
-						disabled={reviewIdx <= 0}
-						aria-label="Jump to start"
-						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-text) disabled:opacity-30 disabled:cursor-not-allowed hover:bg-(--color-border)/40"
-					>
-						<svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 mx-auto" aria-hidden="true">
-							<rect x="4" y="4" width="1.6" height="12" />
-							<path d="M14.5 4l-6 6 6 6V4z" />
-						</svg>
-					</button>
-					<button
-						onclick={reviewBack}
-						disabled={reviewIdx <= 0}
-						aria-label="Move back"
-						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-text) disabled:opacity-30 disabled:cursor-not-allowed hover:bg-(--color-border)/40"
-					>
-						<svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 mx-auto" aria-hidden="true">
-							<path d="M12.5 4l-6 6 6 6V4z" />
-						</svg>
-					</button>
-					<p class="text-center text-sm font-semibold text-(--color-muted) tabular-nums" aria-hidden="true">
-						{reviewIdx} / {quizSteps.length}
-					</p>
-					<button
-						onclick={reviewForward}
-						disabled={!isReviewing}
-						aria-label="Move forward"
-						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-text) disabled:opacity-30 disabled:cursor-not-allowed hover:bg-(--color-border)/40"
-					>
-						<svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 mx-auto" aria-hidden="true">
-							<path d="M7.5 4l6 6-6 6V4z" />
-						</svg>
-					</button>
-					<button
-						onclick={reviewToLive}
-						disabled={!isReviewing}
-						aria-label="Jump to current position"
-						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-text) disabled:opacity-30 disabled:cursor-not-allowed hover:bg-(--color-border)/40"
-					>
-						<svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 mx-auto" aria-hidden="true">
-							<rect x="14.4" y="4" width="1.6" height="12" />
-							<path d="M5.5 4l6 6-6 6V4z" />
-						</svg>
-					</button>
-				</div>
+				<MoveNavRow
+					{reviewIdx}
+					totalPlies={quizSteps.length}
+					{isReviewing}
+					{boardWidth}
+					onstart={reviewToStart}
+					onback={reviewBack}
+					onforward={reviewForward}
+					onlive={reviewToLive}
+				/>
 
 				<div class="mt-3 p-3 bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:hidden">
 					<EngineEval fen={displayFen} />
