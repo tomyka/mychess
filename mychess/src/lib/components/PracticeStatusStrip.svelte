@@ -1,6 +1,15 @@
 <!-- mychess/src/lib/components/PracticeStatusStrip.svelte -->
 <script module lang="ts">
-	export type PracticeStripState = 'silent' | 'blind' | 'wrong' | 'correct' | 'autoplay' | 'retest-cue';
+	export type PracticeStripState =
+		| 'silent'
+		| 'blind'
+		| 'wrong'
+		| 'correct'
+		| 'autoplay'
+		| 'retest-cue'
+		// Practice only (#98): this line just went back to Learn. Distinct from
+		// 'wrong', which means "try again" — here there is no trying again.
+		| 'demoted';
 </script>
 
 <script lang="ts">
@@ -18,7 +27,8 @@
 		wrong: '✗',
 		correct: '✓',
 		autoplay: '',
-		'retest-cue': '🧠'
+		'retest-cue': '🧠',
+		demoted: '↩'
 	};
 
 	const COPY: Record<PracticeStripState, string> = {
@@ -27,7 +37,8 @@
 		wrong: 'Not that move — try again',
 		correct: 'Correct',
 		autoplay: 'Replaying what you already know…',
-		'retest-cue': 'Nice — now play it from memory'
+		'retest-cue': 'Nice — now play it from memory',
+		demoted: 'Back to Learn — this line needs teaching again'
 	};
 
 	const TONE: Record<PracticeStripState, string> = {
@@ -37,6 +48,8 @@
 		correct: 'border-[#6FCF73]/40 bg-[#6FCF73]/10 text-[#6FCF73]',
 		autoplay: 'border-(--color-border) bg-(--color-surface) text-(--color-muted)',
 		'retest-cue':
+			'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300',
+		demoted:
 			'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300'
 	};
 </script>
