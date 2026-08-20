@@ -8,7 +8,7 @@
 // (0001_core_tables.sql:5) means each deleted auth user takes its profile and
 // everything cascading off it. There is no undo and no backup step here.
 //
-// Four guards, all of which abort the whole run rather than skipping a user:
+// Guards, each aborting the whole run rather than skipping a user:
 //   1. --expect must equal the live anonymous count exactly. The count was
 //      signed off against a specific number; if reality has moved, the sign-off
 //      no longer covers it.
@@ -17,8 +17,14 @@
 //   3. No candidate may appear in ANY non-auto-seeded player_id table (list
 //      discovered from the live schema, so a table nobody remembered blocks the
 //      run instead of being ignored).
-//   4. No candidate may look like a converted account (auth identity provider
-//      'anonymous', app_metadata.providers, or profiles.display_name 'Guest').
+//   4. Converted accounts are reported and preserved. They are never candidates
+//      — conversion sets `is_anonymous = false` — so this reports rather than
+//      filters. The conversion markers must NOT be tested against candidates:
+//      identity provider 'anonymous' and a profile named 'Guest' are the normal
+//      state of an un-converted guest, and doing so aborted on all 27 of them.
+//   4b. A candidate carrying a display name other than 'Guest'/empty was
+//      deliberately personalised; it holds no progress (guard 3) but isn't the
+//      debris this purge targets, so it stops the run unless --allow-named.
 //
 // Without --confirm it prints exactly what it would do and exits.
 
@@ -110,6 +116,24 @@ async function guestNamedProfiles(): Promise<Set<string>> {
   return new Set(((await res.json()) as { id: string }[]).map((r) => r.id));
 }
 
+/**
+ * `profiles.display_name` for the given ids, batched — the id list runs to
+ * thousands, far past what one `in.(…)` URL can carry.
+ */
+async function profileDisplayNames(ids: string[]): Promise<Map<string, string | null>> {
+  const out = new Map<string, string | null>();
+  const BATCH = 200;
+  for (let i = 0; i < ids.length; i += BATCH) {
+    const slice = ids.slice(i, i + BATCH);
+    const res = await fetch(`${url}/rest/v1/profiles?select=id,display_name&id=in.(${slice.join(',')})`, {
+      headers: authHeaders
+    });
+    if (!res.ok) throw new Error(`profiles batch read failed: ${res.status} ${await res.text()}`);
+    for (const r of (await res.json()) as { id: string; display_name: string | null }[]) out.set(r.id, r.display_name);
+  }
+  return out;
+}
+
 async function deleteUser(id: string): Promise<{ id: string; ok: boolean; detail?: string }> {
   for (let attempt = 1; attempt <= 3; attempt++) {
     const res = await fetch(`${url}/auth/v1/admin/users/${id}`, { method: 'DELETE', headers: authHeaders });
@@ -142,22 +166,45 @@ async function main() {
     process.exit(1);
   }
 
-  // Guard 4 — anything that smells converted is disqualifying, not skippable.
-  const looksConverted = users.filter(
+  const anonIds = new Set(anon.map((u) => u.id));
+
+  // Guard 4 — converted accounts must survive. A converted account has
+  // `is_anonymous === false` by definition, so it can never be a candidate
+  // here; what this checks is that the conversion markers point only at
+  // accounts we are NOT touching. The markers are meaningless ON an anonymous
+  // account: identity provider 'anonymous' and a profile named 'Guest' are the
+  // normal state of an un-converted guest. An earlier version of this guard
+  // tested them against candidates and duly aborted on all 27 plain guests.
+  const convertedReal = users.filter(
     (u) =>
-      (u.identities ?? []).some((i) => i.provider === 'anonymous') ||
-      (u.app_metadata?.providers ?? []).includes('anonymous') ||
-      guestNamed.has(u.id)
+      u.is_anonymous !== true &&
+      ((u.identities ?? []).some((i) => i.provider === 'anonymous') ||
+        (u.app_metadata?.providers ?? []).includes('anonymous') ||
+        guestNamed.has(u.id))
   );
-  const convertedAnon = looksConverted.filter((u) => u.is_anonymous === true);
-  if (convertedAnon.length > 0) {
-    console.error(`ABORT: ${convertedAnon.length} candidate(s) carry conversion markers:`);
-    for (const u of convertedAnon) console.error(`  ${u.id}  ${u.email ?? '(no email)'}`);
+  console.log(`converted accounts preserved (never candidates): ${convertedReal.length}`);
+  for (const u of convertedReal) console.log(`  keep ${u.id}  ${u.email ?? '(no email)'}`);
+
+  // Guard 4b — a candidate whose profile carries a display name it was never
+  // given by default suggests somebody deliberately personalised that guest
+  // session. It owns no progress rows (guard 3 proves that) but it isn't the
+  // anonymous debris this purge is for, so it stops the run unless allowed.
+  const profileNames = await profileDisplayNames([...anonIds]);
+  const named = anon.filter((u) => {
+    const name = profileNames.get(u.id);
+    return name != null && name !== '' && name !== 'Guest';
+  });
+  if (named.length > 0 && !hasFlag('allow-named')) {
+    console.error('');
+    console.error(`ABORT: ${named.length} candidate(s) have a personalised display name:`);
+    for (const u of named.slice(0, 25)) console.error(`  ${u.id}  name=${JSON.stringify(profileNames.get(u.id))}  created=${u.created_at}`);
+    if (named.length > 25) console.error(`  … and ${named.length - 25} more`);
+    console.error('Review them, then re-run with --allow-named to include them.');
     process.exit(1);
   }
+  if (named.length > 0) console.log(`including ${named.length} personalised-name candidate(s) (--allow-named)`);
 
   // Guard 3 — no candidate may own a row in any real progress table.
-  const anonIds = new Set(anon.map((u) => u.id));
   const offenders = new Map<string, string[]>();
   for (const table of playerTables) {
     if (AUTO_SEEDED.has(table)) continue;
