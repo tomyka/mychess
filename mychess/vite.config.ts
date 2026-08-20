@@ -1,4 +1,5 @@
 import { sveltekit } from '@sveltejs/kit/vite';
+import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
@@ -7,6 +8,12 @@ export default defineConfig({
 	plugins: [
 		tailwindcss(),
 		sveltekit(),
+		paraglideVitePlugin({
+			project: './project.inlang',
+			outdir: './src/lib/paraglide',
+			cookieName: 'PARAGLIDE_LOCALE',
+			strategy: ['custom-profileLocale', 'cookie', 'baseLocale']
+		}),
 		SvelteKitPWA({
 			registerType: 'autoUpdate',
 			workbox: {
