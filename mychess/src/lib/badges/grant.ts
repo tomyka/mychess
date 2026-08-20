@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BadgeStats } from './recalc';
-import { checkBadgeEligibility } from './recalc';
+import { checkBadgeEligibility, checkBadgeRevocations } from './recalc';
+import { countRepertoireStatuses } from '$lib/server/repertoire-status-counts';
 
 export interface BadgeStatsInput {
   totalReviews: number;
@@ -12,6 +13,8 @@ export interface BadgeStatsInput {
   ttScore: number;
   questsCompleted: number;
   hasUploaded: boolean;
+  repertoiresLearned: number;
+  repertoiresMastered: number;
   earnedIds: Set<string>;
 }
 
@@ -21,7 +24,13 @@ export function buildBadgeStats(input: BadgeStatsInput): BadgeStats {
 }
 
 /**
- * Collect stats from DB, run eligibility check, insert new badges.
+ * Collect stats from DB, run the eligibility check, insert new badges — and,
+ * for the four revocable epic-#95 badges only, delete any that no longer hold.
+ *
+ * Revocation is new behaviour: this function was insert-only, so badges were
+ * permanent by construction. Deleting the row is also what lets a badge be
+ * re-earned later with no special case, since `earnedIds` stops suppressing it.
+ *
  * Returns the IDs of newly granted badges (empty if none).
  */
 export async function grantNewBadges(
@@ -41,6 +50,10 @@ export async function grantNewBadges(
       supabase.from('quests').select('id').eq('player_id', playerId).not('completed_at', 'is', null),
       supabase.from('badges_earned').select('badge_id').eq('player_id', playerId)
     ]);
+
+  // Bounded work: only repertoires that are already fully learned need their
+  // chapter mastery checked, and that set is small by definition.
+  const statusCounts = await countRepertoireStatuses(supabase, playerId);
 
   const p = profileRes.data;
   const ks = playerStatsRes.data;
@@ -64,9 +77,25 @@ export async function grantNewBadges(
     ttScore: 0,
     questsCompleted: (questRes.data ?? []).length,
     hasUploaded: (repRes.data ?? []).length > 0,
+    repertoiresLearned: statusCounts.learned,
+    repertoiresMastered: statusCounts.mastered,
     earnedIds,
     ...overrides
   });
+
+  // Revocations first, so a tier that has fallen is removed even in the same
+  // pass that grants something else.
+  const revoked = checkBadgeRevocations(stats);
+  if (revoked.length > 0) {
+    const { error: revokeError } = await supabase
+      .from('badges_earned')
+      .delete()
+      .eq('player_id', playerId)
+      .in('badge_id', revoked);
+    if (revokeError) {
+      console.error(`grantNewBadges: failed to revoke ${revoked.join(', ')} for player ${playerId}:`, revokeError.message);
+    }
+  }
 
   const newBadgeIds = checkBadgeEligibility(stats);
   if (newBadgeIds.length === 0) return [];

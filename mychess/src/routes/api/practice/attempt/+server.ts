@@ -13,6 +13,7 @@ import {
 import { incrementQuestProgress } from '$lib/server/quests';
 import { requireApiUser } from '$lib/server/auth';
 import { recordSession } from '$lib/server/sessions';
+import { grantNewBadges } from '$lib/badges/grant';
 import { buildPracticeView, wasResumedAfterBreak } from '$lib/mastery/practice';
 
 /**
@@ -77,5 +78,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		loadSolvedKeys(supabase, user.id, repertoireId),
 		loadTeachingProgress(supabase, user.id, repertoireId)
 	]);
+	// Badge recalculation was only ever wired to Drill and Time Trial, so nothing
+	// in the learning flow could grant (or revoke) a badge. A clean attempt is the
+	// only kind that can change a repertoire's status, so it is the only one worth
+	// recalculating for. Fire-and-forget, matching the existing callers: a badge
+	// must not delay the response to the move the player just made.
+	if (!hadMistake) grantNewBadges(supabase, user.id).catch(() => {});
+
 	return json(buildPracticeView(variations, activeVariationKey, solvedKeys, teachingProgress));
 };

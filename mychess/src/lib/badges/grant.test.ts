@@ -13,6 +13,8 @@ describe('buildBadgeStats', () => {
       ttScore: 0,
       questsCompleted: 0,
       hasUploaded: true,
+    repertoiresLearned: 0,
+    repertoiresMastered: 0,
       earnedIds: new Set(['first_move'])
     });
     expect(stats.totalReviews).toBe(10);
@@ -31,6 +33,8 @@ describe('buildBadgeStats', () => {
       ttScore: 0,
       questsCompleted: 0,
       hasUploaded: false,
+    repertoiresLearned: 0,
+    repertoiresMastered: 0,
       earnedIds: new Set()
     });
     expect(stats.streakDays).toBe(0);

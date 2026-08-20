@@ -6,6 +6,7 @@ import { loadFilteredRepertoireVariations } from '$lib/server/practice-repertoir
 import { loadSolvedKeys } from '$lib/server/practice-progress';
 import { recordChapterMastery } from '$lib/server/mastery';
 import { recordSession } from '$lib/server/sessions';
+import { grantNewBadges } from '$lib/badges/grant';
 import { chapterMasteryView } from '$lib/mastery/masteryRun';
 
 /**
@@ -47,5 +48,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// A completed run is exactly one mastery session, so this needs no
 	// sessionStart flag from the client.
 	await recordSession(supabase, user.id, repertoireId, 'mastery', chapter.total);
+	// A completed run can newly master a repertoire, so recalculate — and this is
+	// also the path that REVOKES a stale mastery badge.
+	grantNewBadges(supabase, user.id).catch(() => {});
+
 	return json({ mastered: true });
 };
