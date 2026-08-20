@@ -8,7 +8,7 @@
 // read. There is no invalidation job, no cron, and no flag that can drift out of
 // step with the rows it claims to summarise.
 
-import { chapterTiers, UNTAGGED_CHAPTER } from './variations';
+import { chapterTiers, rowsInChapterTier, UNTAGGED_CHAPTER } from './variations';
 
 export type RepertoireStatus = 'learning' | 'learned' | 'mastered';
 
@@ -78,6 +78,29 @@ export function deriveRepertoireStatus(args: {
 	const chapters = masterableChapters(variations);
 	if (chapters.length === 0) return 'learned';
 	return chapters.every((chapter) => currentlyMasteredChapters.has(chapter)) ? 'mastered' : 'learned';
+}
+
+/**
+ * Every chapter tier (see `masterableChapters`) all of whose variations are
+ * learned.
+ *
+ * This is Practice's own visibility rule, distinct from #99's mastery status
+ * above: a chapter becomes practiceable once every one of its lines has
+ * graduated out of Learn, full stop — no mastery run required. A lone
+ * learned line sitting inside an otherwise-unfinished chapter doesn't count;
+ * the player finishes what they started in Learn before Practice starts
+ * drilling any of it.
+ */
+export function fullyLearnedChapters(
+	variations: readonly ScopedVariation[],
+	learnedKeys: ReadonlySet<string>
+): Set<string> {
+	const fully = new Set<string>();
+	for (const chapter of masterableChapters(variations)) {
+		const rows = rowsInChapterTier([...variations], chapter);
+		if (rows.length > 0 && rows.every((v) => learnedKeys.has(v.variationKey))) fully.add(chapter);
+	}
+	return fully;
 }
 
 /** Display label for a status, used by the repertoire cards. */

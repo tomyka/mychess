@@ -86,6 +86,17 @@ describe('practice pool page', () => {
 		expect(screen.getByText('Go to Learn')).toBeTruthy();
 	});
 
+	// The server gates the queue on WHOLE chapters (see fullyLearnedChapters),
+	// so some lines can be learned with nothing yet available to practice —
+	// a distinct state from "nothing learned yet" (learnedCount === 0 above).
+	it('shows a different locked state when lines are learned but no whole chapter is finished', () => {
+		render(Practice, { props: { data: poolData({ queue: [], learnedCount: 2 }) } });
+		expect(screen.queryByText(/Nothing learned yet/i)).toBeNull();
+		expect(screen.getByText(/Finish a chapter to unlock Practice/i)).toBeTruthy();
+		expect(screen.getByText(/2 lines are learned/i)).toBeTruthy();
+		expect(screen.getByText('Go to Learn')).toBeTruthy();
+	});
+
 	// #103: exactly one session row per visit, however many lines are played.
 	it('flags only the first reported outcome as the start of a session', async () => {
 		render(Practice, { props: { data: poolData() } });

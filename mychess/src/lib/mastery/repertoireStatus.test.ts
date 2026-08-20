@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
 	deriveRepertoireStatus,
+	fullyLearnedChapters,
 	isMasteryCurrent,
 	masterableChapters,
 	type RepertoireStatus
@@ -158,5 +159,43 @@ describe('deriveRepertoireStatus', () => {
 				currentlyMasteredChapters: new Set(['Open', 'Closed'])
 			})
 		).toBe('mastered');
+	});
+});
+
+describe('fullyLearnedChapters', () => {
+	const three = [v('a', ['Open']), v('b', ['Open']), v('c', ['Closed'])];
+
+	it('is empty when nothing is learned', () => {
+		expect(fullyLearnedChapters(three, new Set())).toEqual(new Set());
+	});
+
+	it('excludes a chapter with only some of its lines learned', () => {
+		expect(fullyLearnedChapters(three, new Set(['a']))).toEqual(new Set());
+	});
+
+	it('includes a chapter the moment every one of its lines is learned, independent of other chapters', () => {
+		expect(fullyLearnedChapters(three, new Set(['a', 'b']))).toEqual(new Set(['Open']));
+	});
+
+	it('includes every fully-learned chapter once the whole repertoire is learned', () => {
+		expect(fullyLearnedChapters(three, new Set(['a', 'b', 'c']))).toEqual(new Set(['Open', 'Closed']));
+	});
+
+	// A shared line belongs to both its chapters, so both need it learned —
+	// but the OTHER lines in each chapter still gate that chapter independently.
+	it('requires a shared line\'s chapters to each have their own lines fully learned too', () => {
+		const withShared = [v('a', ['Open', 'Closed']), v('b', ['Open']), v('c', ['Closed'])];
+		expect(fullyLearnedChapters(withShared, new Set(['a', 'b']))).toEqual(new Set(['Open']));
+		expect(fullyLearnedChapters(withShared, new Set(['a', 'b', 'c']))).toEqual(new Set(['Open', 'Closed']));
+	});
+
+	it('treats the untagged bucket as its own chapter', () => {
+		const mixed = [v('a', ['Open']), v('b'), v('c')];
+		expect(fullyLearnedChapters(mixed, new Set(['b']))).toEqual(new Set());
+		expect(fullyLearnedChapters(mixed, new Set(['b', 'c']))).toEqual(new Set([UNTAGGED_CHAPTER]));
+	});
+
+	it('has no fully-learned chapters for an empty repertoire', () => {
+		expect(fullyLearnedChapters([], new Set())).toEqual(new Set());
 	});
 });

@@ -6,6 +6,8 @@ import { loadSolvedKeys } from '$lib/server/practice-progress';
 import { loadMoveAttemptStats } from '$lib/server/practice-pool';
 import { splitQueues } from '$lib/mastery/learning';
 import { orderPracticeQueue } from '$lib/mastery/practiceQueue';
+import { fullyLearnedChapters } from '$lib/mastery/repertoireStatus';
+import { isInChapterTier } from '$lib/mastery/variations';
 
 /**
  * The Practice pool: learned variations only, weakest-first, no arrows ever
@@ -19,7 +21,11 @@ import { orderPracticeQueue } from '$lib/mastery/practiceQueue';
  * `loadFilteredRepertoireVariations` has already dropped anything excluded, so
  * `splitQueues` only separates learned from un-learned here — and it is the same
  * function the Learn route uses, which is what stops a variation appearing on
- * both surfaces.
+ * both surfaces. `learnedCount` is `splitQueues`' full learned count (used to
+ * pick the "nothing learned yet" locked state); the queue served below is
+ * further narrowed to only chapters that are ENTIRELY learned, so
+ * `learnedCount > 0` with an empty `queue` is a real, distinct state — some
+ * lines are learned, but no whole chapter is finished yet.
  */
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const { user } = await requireAccount(locals);
@@ -33,10 +39,17 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	const { learn, practice } = splitQueues(variations, learnedKeys);
 
+	// A learned line only becomes practiceable once its WHOLE chapter is
+	// learned — a lone learned line inside an otherwise-unfinished chapter
+	// stays out, so the player finishes what they started in Learn first
+	// (see fullyLearnedChapters).
+	const readyChapters = fullyLearnedChapters(variations, learnedKeys);
+	const available = practice.filter((v) => [...readyChapters].some((chapter) => isInChapterTier(v, chapter)));
+
 	// Only pay for the attempt sweep when there is something to order with it.
-	const stats = practice.length > 0 ? await loadMoveAttemptStats(supabase, user!.id, repertoireId) : new Map();
-	const ordered = orderPracticeQueue(practice, stats);
-	const byKey = new Map(practice.map((v) => [v.variationKey, v]));
+	const stats = available.length > 0 ? await loadMoveAttemptStats(supabase, user!.id, repertoireId) : new Map();
+	const ordered = orderPracticeQueue(available, stats);
+	const byKey = new Map(available.map((v) => [v.variationKey, v]));
 
 	return {
 		repertoire,

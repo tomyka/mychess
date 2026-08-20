@@ -242,6 +242,25 @@
 				Go to Learn
 			</a>
 		</div>
+	{:else if queue.length === 0}
+		<!-- learnedCount > 0 here, but no whole chapter is finished yet — a lone
+		     learned line inside an unfinished chapter doesn't unlock Practice for
+		     it (see +page.server.ts's fullyLearnedChapters gate). -->
+		<div class="flex flex-col items-center justify-center lg:flex-1 text-center gap-4 py-16">
+			<p class="text-6xl">📖</p>
+			<h2 class="text-2xl font-bold text-(--color-text)">Finish a chapter to unlock Practice</h2>
+			<p class="text-(--color-muted) max-w-md">
+				{data.learnedCount}
+				{data.learnedCount === 1 ? 'line is' : 'lines are'} learned, but Practice only drills a chapter
+				once every line in it is learned. Keep going in Learn to finish one.
+			</p>
+			<a
+				href="/learn/{data.repertoire?.id}"
+				class="bg-(--color-accent) text-white px-6 py-3 rounded-2xl font-bold hover:bg-(--color-accent-hover) transition"
+			>
+				Go to Learn
+			</a>
+		</div>
 	{:else if finished}
 		<div class="flex flex-col items-center justify-center lg:flex-1 text-center gap-4 py-16">
 			<p class="text-6xl">{sessionDemoted === 0 ? '🎯' : '📚'}</p>
