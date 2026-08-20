@@ -158,9 +158,8 @@ describe('practice detail page', () => {
 			}
 		});
 		expect(screen.queryByText(/Repertoire Solved/i)).toBeNull();
-		// The practice chrome renders instead (name/progress appear twice — once
-		// in the mobile card, once in the desktop sidebar).
-		expect(screen.getAllByText('French Defense').length).toBe(2);
+		// The practice chrome renders instead (name appears once in the header).
+		expect(screen.getAllByText('French Defense').length).toBe(1);
 		expect(screen.getAllByText('5 / 5 variations solved').length).toBe(2);
 	});
 
@@ -187,11 +186,9 @@ describe('practice detail page', () => {
 				}
 			}
 		});
-		// The repertoire name/progress renders twice — once in the mobile card
-		// above the board, once in the desktop sidebar panel — with Tailwind
-		// breakpoint classes deciding which is visible; jsdom doesn't evaluate
-		// those, so both are present in the DOM.
-		expect(screen.getAllByText('French Defense').length).toBe(2);
+		// The repertoire name renders once in the header; progress renders
+		// twice (mobile card + desktop sidebar).
+		expect(screen.getAllByText('French Defense').length).toBe(1);
 		expect(screen.getAllByText('3 / 5 variations solved').length).toBe(2);
 	});
 
@@ -340,6 +337,23 @@ describe('practice detail page', () => {
 		expect(toLive.disabled).toBe(true);
 	});
 
+	it('shows the current ply position in the nav row', async () => {
+		vi.useFakeTimers();
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 0,
+					total: 1,
+					allSolved: false,
+					attempt: AUTO_PLAY_ATTEMPT
+				}
+			}
+		});
+		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes, quizIdx lands at 2
+		expect(screen.getByText('2 / 4')).toBeTruthy();
+	});
+
 	it('lets the left/right/up/down arrow keys drive the same review nav as the buttons', async () => {
 		vi.useFakeTimers();
 		render(Practice, {
@@ -478,9 +492,6 @@ describe('practice detail page', () => {
 			playMove('b1', 'c3'); // Nc3, not the book's Nf3
 			await vi.advanceTimersByTimeAsync(500);
 		}
-		// Three wrong guesses on one move is what unlocks the hint prompt — proof
-		// the mistakes above actually registered as mistakes.
-		expect(screen.getAllByText('Need a hint?').length).toBe(2);
 
 		playMove('g1', 'f3');
 		await vi.advanceTimersByTimeAsync(500);
@@ -489,6 +500,74 @@ describe('practice detail page', () => {
 		// "completed without a cue", not a move that never landed.
 		expect(phaseNow()).toBe('advancing');
 		expect(screen.queryByText(/now play it from memory/i)).toBeNull();
+	});
+
+	it('offers a hint immediately, and taking it prevents the pass from counting as solved', async () => {
+		vi.useFakeTimers();
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
+		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes
+
+		// Visible with zero wrong attempts — no three-strikes wait.
+		const hintButtons = screen.getAllByText('Need a hint?');
+		expect(hintButtons.length).toBe(2);
+
+		await fireEvent.click(hintButtons[0]);
+
+		playMove('g1', 'f3'); // the correct move — but the hint already marked this pass dirty
+		await vi.advanceTimersByTimeAsync(500);
+
+		// A dirty final pass must not bump solved (optimisticSolvedAfterAttempt(hadMistake=true)).
+		expect(screen.getAllByText('0 / 1 variations solved').length).toBe(2);
+	});
+
+	it('shows a running session count and a Finish session link in the sidebar', () => {
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 0,
+					total: 1,
+					allSolved: false,
+					attempt: {
+						variationKey: 'v1',
+						path: [
+							{
+								moveId: 'm1',
+								san: 'e4',
+								fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+								toFen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+								isPlayerTurn: true
+							}
+						]
+					}
+				}
+			}
+		});
+		expect(screen.getByText('0 solved this session')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Finish session' })).toBeTruthy();
+	});
+
+	it('shows a mistakes-this-attempt chip in the sidebar after a wrong move', async () => {
+		vi.useFakeTimers();
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 0,
+					total: 1,
+					allSolved: false,
+					attempt: AUTO_PLAY_ATTEMPT
+				}
+			}
+		});
+		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes
+
+		expect(screen.queryByText(/mistake/i)).toBeNull();
+
+		playMove('b1', 'c3'); // wrong: the book move is Nf3
+		await vi.advanceTimersByTimeAsync(500);
+
+		expect(screen.getByText('1 mistake this attempt')).toBeTruthy();
 	});
 
 	it('renders without crashing with the engine toggle in its default (off) state', () => {
@@ -517,7 +596,7 @@ describe('practice detail page', () => {
 		// The toggle switch itself always renders (mobile card + desktop
 		// panel); off by default, it never attempts to spawn a Worker at all.
 		expect(screen.getAllByRole('switch', { name: 'Toggle engine evaluation' }).length).toBe(2);
-		expect(screen.getAllByText('French Defense').length).toBe(2);
+		expect(screen.getAllByText('French Defense').length).toBe(1);
 	});
 
 	it('switching the engine on flips both instances together and shows "unavailable" (jsdom has no Worker)', async () => {

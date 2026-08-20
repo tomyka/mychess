@@ -10,6 +10,7 @@
 	import { arrowMoveForStep, isLastPlayerMove } from '$lib/mastery/teaching';
 	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
 	import EngineEval from '$lib/components/EngineEval.svelte';
+	import PracticeStatusStrip, { type PracticeStripState } from '$lib/components/PracticeStatusStrip.svelte';
 
 	let { data } = $props<{ data: any }>();
 
@@ -26,15 +27,27 @@
 	// "now play it from memory" cue — see showTeachCue().
 	let phase = $state<'playing' | 'advancing' | 'autoplay' | 'transition'>('playing');
 	let locked = $state(false);
-	// Consecutive wrong attempts on the CURRENT quiz move — resets the moment
-	// it's solved or a new attempt starts. After 3, a hint becomes available;
-	// requesting it highlights the correct piece's square, never the move.
-	let wrongCount = $state(0);
+	// Requesting a hint highlights the correct piece's square, never the
+	// move itself — available every turn (see requestHint()), and marks the
+	// whole attempt dirty so a hinted pass can't solve the variation.
 	let hintRequested = $state(false);
 	// Whether THIS ATTEMPT (the whole variation replay) has had any mistake
 	// yet — a clean full replay is what marks a variation solved. Reset only
 	// in resetForAttempt().
 	let attemptHadMistake = $state(false);
+	// Wrong attempts on the current attempt, shown as the sidebar's
+	// "mistakes this attempt" chip — reset alongside attemptHadMistake.
+	let attemptMistakeCount = $state(0);
+	// The status strip's take on the last move played: holds 'correct' only
+	// for the same brief window the board itself holds correct-move
+	// feedback (cleared in the advanceTimeout callback below), holds 'wrong'
+	// until overwritten by the player's next attempt. Reset in
+	// resetForAttempt() like the rest of per-attempt state.
+	let lastMoveResult = $state<'correct' | 'wrong' | null>(null);
+	// How many variations have been solved cleanly since this page loaded —
+	// deliberately NOT reset in resetForAttempt(): a running session total,
+	// not per-attempt state.
+	let solvedThisSession = $state(0);
 	let advanceTimeout: ReturnType<typeof setTimeout> | undefined;
 	let autoPlayTimeout: ReturnType<typeof setTimeout> | undefined;
 	// Whether the "now play it from memory" cue is currently up. A clean teach
@@ -170,6 +183,19 @@
 		return move ? { from: move.from as Key, to: move.to as Key } : null;
 	});
 
+	// Priority: a teaching arrow is self-explanatory (silent) > the
+	// between-passes cue > the last move's own result > the autoplay intro
+	// > the default blind-retest prompt.
+	const stripState = $derived.by((): PracticeStripState => {
+		if (arrowMove) return 'silent';
+		if (teachCue) return 'retest-cue';
+		if (phase === 'advancing') return 'correct';
+		if (lastMoveResult === 'wrong') return 'wrong';
+		if (lastMoveResult === 'correct') return 'correct';
+		if (phase === 'autoplay') return 'autoplay';
+		return 'blind';
+	});
+
 	/**
 	 * Raises the between-passes cue and keeps it up across the board reset that
 	 * follows. Its timeout is deliberately NOT cleared by resetForAttempt() —
@@ -198,9 +224,10 @@
 		manualReviewIdx = null;
 		phase = 'playing';
 		locked = false;
-		wrongCount = 0;
 		hintRequested = false;
 		attemptHadMistake = false;
+		attemptMistakeCount = 0;
+		lastMoveResult = null;
 		quizSteps = attempt?.path ?? [];
 		if (!attempt) return;
 		boardFen = attempt.path[0]?.fromFen ?? '';
@@ -250,6 +277,13 @@
 		});
 	});
 
+	function requestHint() {
+		hintRequested = true;
+		// A taken hint marks this pass dirty, same as a wrong move — it can
+		// still be played out, but it can no longer solve the variation.
+		attemptHadMistake = true;
+	}
+
 	function handleMove(detail: { from: Key; to: Key; san: string }) {
 		if (phase !== 'playing' || locked) return false;
 		const step = quizSteps[quizIdx];
@@ -258,7 +292,7 @@
 		if (detail.san === step.san) {
 			playCorrect();
 			locked = true;
-			wrongCount = 0;
+			lastMoveResult = 'correct';
 			hintRequested = false;
 			logMove(step.moveId, detail.san, true);
 			// NOT quizIdx + 1 >= quizSteps.length — a served path can end with a
@@ -282,6 +316,7 @@
 				// must not bump the count.
 				if (attempt.isFinalPass) {
 					data = { ...data, solved: optimisticSolvedAfterAttempt(data, attemptHadMistake) };
+					if (!attemptHadMistake) solvedThisSession++;
 				}
 			}
 			// A clean teach pass is about to be re-served as a blind retest of
@@ -297,6 +332,7 @@
 				quizIdx++;
 				advanceThroughOpponentReplies();
 				locked = false;
+				lastMoveResult = null;
 				if (quizIdx >= quizSteps.length) {
 					if (cueRetest) {
 						showTeachCue();
@@ -315,8 +351,9 @@
 		}
 
 		playWrong();
-		wrongCount++;
+		lastMoveResult = 'wrong';
 		attemptHadMistake = true;
+		attemptMistakeCount++;
 		logMove(step.moveId, detail.san, false);
 		// Don't reveal the book move — just mark the square wrong and let
 		// the player try again on the same position. The whole attempt is
@@ -383,15 +420,20 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <main
-	class="min-h-screen lg:min-h-0 lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-(--color-bg) p-4 max-w-5xl mx-auto pb-24 lg:pb-4 flex flex-col"
+	class="min-h-screen lg:min-h-0 lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-(--color-bg) p-4 max-w-7xl mx-auto pb-24 lg:pb-4 flex flex-col"
 	data-phase={phase}
 >
-	<div class="mb-3 flex items-center justify-between shrink-0">
-		<a href="/practice" class="text-(--color-muted) text-sm hover:text-(--color-text)">← All Repertoires</a>
+	<div class="mb-3 flex items-center justify-between gap-3 shrink-0">
+		<a href="/practice" class="text-(--color-muted) text-sm hover:text-(--color-text) shrink-0">← All Repertoires</a>
+		{#if data.repertoire?.name}
+			<h1 class="text-(--color-text) font-bold text-base sm:text-lg truncate text-center flex-1 min-w-0">
+				{data.repertoire.name}
+			</h1>
+		{/if}
 		{#if repertoireId}
 			<button
 				onclick={() => (pickerOpen = true)}
-				class="lg:hidden inline-flex items-center gap-1 text-(--color-accent) text-sm font-medium hover:underline"
+				class="lg:hidden inline-flex items-center gap-1 text-(--color-accent) text-sm font-medium hover:underline shrink-0"
 			>
 				<span aria-hidden="true">📖</span> Switch variation
 			</button>
@@ -409,7 +451,7 @@
 	{#if data.allSolved && data.total > 0 && !attempt}
 		<div class="flex flex-col items-center gap-6 text-center py-16">
 			<p class="text-7xl">🏆</p>
-			<h1 class="text-3xl font-bold text-(--color-text)">Repertoire Solved!</h1>
+			<h2 class="text-3xl font-bold text-(--color-text)">Repertoire Solved!</h2>
 			<p class="text-(--color-muted)">Every variation in {data.repertoire?.name} has been played cleanly.</p>
 			<a
 				href="/practice"
@@ -424,17 +466,13 @@
 	{:else if !attempt}
 		<div class="flex flex-col items-center justify-center min-h-screen lg:min-h-0 lg:flex-1 text-center gap-4">
 			<p class="text-5xl">📭</p>
-			<h1 class="text-2xl font-bold text-(--color-text)">Nothing to practice</h1>
+			<h2 class="text-2xl font-bold text-(--color-text)">Nothing to practice</h2>
 			<p class="text-(--color-muted)">This repertoire has no moves for your color yet.</p>
 			<a href="/practice" class="text-(--color-accent) hover:underline">Back to Repertoires</a>
 		</div>
 	{:else}
 		<div class="p-3 bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm text-center mb-3 shrink-0 lg:hidden">
-			<p class="text-sm font-medium">
-				<span class="text-(--color-muted)">{data.repertoire?.name}</span>
-				<span class="mx-1.5 text-gray-300">·</span>
-				<span class="text-(--color-text) font-bold">{data.solved} / {data.total} variations solved</span>
-			</p>
+			<p class="text-sm font-bold text-(--color-text)">{data.solved} / {data.total} variations solved</p>
 		</div>
 
 		<div class="flex flex-col lg:flex-row lg:items-stretch gap-6 lg:flex-1 lg:min-h-0">
@@ -442,21 +480,14 @@
 				<!-- Sits directly above the board in both layouts, so it's in the
 				     same place the player is already looking. role="status" (an
 				     implicit aria-live="polite" region) announces it on appearance:
-				     it's the only signal that the board is about to rewind, and
+				     it's the only signal that e.g. the board is about to rewind, and
 				     nothing about the board itself conveys that. -->
-				{#if teachCue}
-					<p
-						role="status"
-						class="mb-3 shrink-0 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-center text-sm font-semibold text-amber-800 shadow-sm dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
-					>
-						<span aria-hidden="true">🧠</span> Nice — now play it from memory
-					</p>
-				{/if}
+				<PracticeStatusStrip state={stripState} />
 
-				{#if wrongCount >= 3 && !hintRequested && phase === 'playing'}
+				{#if !hintRequested && phase === 'playing'}
 					<p class="text-center mb-4 lg:hidden">
 						<button
-							onclick={() => (hintRequested = true)}
+							onclick={requestHint}
 							class="inline-flex items-center gap-1 text-sm font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700"
 						>
 							<span class="text-base">💡</span> Need a hint?
@@ -464,7 +495,7 @@
 					</p>
 				{/if}
 
-				<div class="lg:flex-1 lg:min-h-0 lg:flex lg:items-center lg:justify-center lg:[container-type:size]">
+				<div class="lg:flex-1 lg:min-h-0 lg:flex lg:items-start lg:justify-center lg:[container-type:size]">
 					<ChessBoard
 						fen={displayFen}
 						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
@@ -479,40 +510,53 @@
 				</div>
 
 				<div
-					class="grid grid-cols-4 gap-2 mt-4 shrink-0 mx-auto w-full"
+					class="grid grid-cols-5 gap-2 mt-4 shrink-0 mx-auto w-full items-center"
 					style={boardWidth ? `max-width: ${boardWidth}px` : ''}
 				>
 					<button
 						onclick={reviewToStart}
 						disabled={reviewIdx <= 0}
 						aria-label="Jump to start"
-						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-muted) text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800"
+						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-text) disabled:opacity-30 disabled:cursor-not-allowed hover:bg-(--color-border)/40"
 					>
-						⏮
+						<svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 mx-auto" aria-hidden="true">
+							<rect x="4" y="4" width="1.6" height="12" />
+							<path d="M14.5 4l-6 6 6 6V4z" />
+						</svg>
 					</button>
 					<button
 						onclick={reviewBack}
 						disabled={reviewIdx <= 0}
 						aria-label="Move back"
-						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-muted) text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800"
+						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-text) disabled:opacity-30 disabled:cursor-not-allowed hover:bg-(--color-border)/40"
 					>
-						◀
+						<svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 mx-auto" aria-hidden="true">
+							<path d="M12.5 4l-6 6 6 6V4z" />
+						</svg>
 					</button>
+					<p class="text-center text-sm font-semibold text-(--color-muted) tabular-nums" aria-hidden="true">
+						{reviewIdx} / {quizSteps.length}
+					</p>
 					<button
 						onclick={reviewForward}
 						disabled={!isReviewing}
 						aria-label="Move forward"
-						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-muted) text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800"
+						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-text) disabled:opacity-30 disabled:cursor-not-allowed hover:bg-(--color-border)/40"
 					>
-						▶
+						<svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 mx-auto" aria-hidden="true">
+							<path d="M7.5 4l6 6-6 6V4z" />
+						</svg>
 					</button>
 					<button
 						onclick={reviewToLive}
 						disabled={!isReviewing}
 						aria-label="Jump to current position"
-						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-muted) text-lg font-medium disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800"
+						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-text) disabled:opacity-30 disabled:cursor-not-allowed hover:bg-(--color-border)/40"
 					>
-						⏭
+						<svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 mx-auto" aria-hidden="true">
+							<rect x="14.4" y="4" width="1.6" height="12" />
+							<path d="M5.5 4l6 6-6 6V4z" />
+						</svg>
 					</button>
 				</div>
 
@@ -525,20 +569,20 @@
 			</div>
 
 			<div
-				class="w-full lg:flex-1 lg:min-w-72 lg:max-w-sm hidden lg:flex lg:flex-col divide-y divide-(--color-border) bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:overflow-y-auto"
+				class="w-full lg:w-80 lg:shrink-0 hidden lg:flex lg:flex-col divide-y divide-(--color-border) bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:overflow-y-auto"
 			>
 				<div class="p-4">
-					<p class="text-(--color-text) font-bold text-sm">{data.repertoire?.name}</p>
-					<div class="flex items-center justify-between gap-2 mt-1">
+					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">Progress</p>
+					<div class="flex items-center justify-between gap-2">
 						<span class="text-(--color-muted) text-sm">{data.solved} / {data.total} variations solved</span>
 						<button
 							onclick={() => (pickerOpen = true)}
-							class="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-(--color-accent) border border-(--color-border) rounded-lg px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-800"
+							class="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-(--color-accent) border border-(--color-border) rounded-lg px-2 py-1 hover:bg-(--color-border)/40"
 						>
 							<span aria-hidden="true">📖</span> Switch
 						</button>
 					</div>
-					<div class="h-1.5 rounded-full bg-gray-200 overflow-hidden mt-2">
+					<div class="h-1.5 rounded-full bg-(--color-border) overflow-hidden mt-2">
 						<div
 							class="h-full bg-(--color-accent) rounded-full"
 							style={`width: ${data.total ? (data.solved / data.total) * 100 : 0}%`}
@@ -547,24 +591,46 @@
 				</div>
 
 				<div class="p-4">
+					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">This line</p>
+					<p class="text-sm text-(--color-muted)">{movesSoFar || '—'}</p>
+					{#if attemptMistakeCount > 0}
+						<p class="text-xs font-medium text-[#F28B82] mt-1">
+							{attemptMistakeCount} mistake{attemptMistakeCount === 1 ? '' : 's'} this attempt
+						</p>
+					{/if}
+				</div>
+
+				<div class="p-4">
 					<EngineEval fen={displayFen} />
 				</div>
 
-				<div class="p-4 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
-					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">Moves played</p>
-					<p class="text-sm text-(--color-muted)">{movesSoFar || '—'}</p>
-				</div>
-
-				{#if wrongCount >= 3 && !hintRequested && phase === 'playing'}
-					<p class="text-center p-4">
+				<div class="p-4">
+					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">Stuck?</p>
+					{#if hintRequested}
+						<p class="text-sm text-(--color-muted)">Hint used for this attempt.</p>
+					{:else if phase === 'playing'}
 						<button
-							onclick={() => (hintRequested = true)}
+							onclick={requestHint}
 							class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700"
 						>
 							<span class="text-base">💡</span> Need a hint?
 						</button>
+					{/if}
+					<p class="text-xs text-(--color-muted) mt-2">
+						← → step through moves you've played · ↑ jump to start · ↓ jump to live position
 					</p>
-				{/if}
+				</div>
+
+				<div class="p-4">
+					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">Session</p>
+					<p class="text-sm text-(--color-text) font-medium mb-2">{solvedThisSession} solved this session</p>
+					<a
+						href="/practice"
+						class="inline-flex items-center gap-1 text-sm font-semibold text-(--color-muted) border border-(--color-border) rounded-lg px-3 py-1.5 hover:bg-(--color-border)/40"
+					>
+						Finish session
+					</a>
+				</div>
 			</div>
 		</div>
 	{/if}

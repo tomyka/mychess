@@ -161,43 +161,50 @@
 	const whiteFraction = $derived(score ? evalBarWhiteFraction(score) : null);
 </script>
 
-<div class="flex items-center gap-2">
-	<button
-		type="button"
-		role="switch"
-		aria-checked={enginePrefStore.enabled}
-		aria-label="Toggle engine evaluation"
-		onclick={() => setEnginePref(!enginePrefStore.enabled)}
-		class="relative w-9 h-5 rounded-full shrink-0 transition-colors {enginePrefStore.enabled
-			? 'bg-(--color-accent)'
-			: 'bg-(--color-border)'}"
-	>
-		<span
-			class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm flex items-center justify-center transition-transform {enginePrefStore.enabled
-				? 'translate-x-4'
-				: ''}"
+<div class="flex flex-col gap-1.5">
+	<div class="flex items-center gap-2">
+		<span class="text-xs font-semibold uppercase tracking-wide text-(--color-muted)">Engine</span>
+		<button
+			type="button"
+			role="switch"
+			aria-checked={enginePrefStore.enabled}
+			aria-label="Toggle engine evaluation"
+			onclick={() => setEnginePref(!enginePrefStore.enabled)}
+			class="relative w-9 h-5 rounded-full shrink-0 transition-colors {enginePrefStore.enabled
+				? 'bg-(--color-accent)'
+				: 'bg-(--color-border)'}"
 		>
-			{#if enginePrefStore.enabled}
-				<svg viewBox="0 0 20 20" fill="currentColor" class="w-2.5 h-2.5 text-(--color-accent)" aria-hidden="true">
-					<path
-						fill-rule="evenodd"
-						d="M16.704 5.29a1 1 0 010 1.415l-7.25 7.25a1 1 0 01-1.414 0l-3.25-3.25a1 1 0 111.414-1.415L8.75 11.836l6.543-6.543a1 1 0 011.411-.003z"
-						clip-rule="evenodd"
-					/>
-				</svg>
-			{/if}
-		</span>
-	</button>
-	{#if enginePrefStore.enabled}
-		{#if failed}
-			<span class="text-sm text-(--color-muted) italic">unavailable</span>
-		{:else}
-			<span class="text-base font-bold text-(--color-text) tabular-nums shrink-0">{displayText}</span>
-			{#if whiteFraction !== null}
-				<div class="flex-1 h-1.5 rounded-full bg-gray-800 overflow-hidden" aria-hidden="true">
-					<div class="h-full bg-white" style={`width: ${whiteFraction * 100}%`}></div>
-				</div>
+			<span
+				class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm flex items-center justify-center transition-transform {enginePrefStore.enabled
+					? 'translate-x-4'
+					: ''}"
+			>
+				{#if enginePrefStore.enabled}
+					<svg viewBox="0 0 20 20" fill="currentColor" class="w-2.5 h-2.5 text-(--color-accent)" aria-hidden="true">
+						<path
+							fill-rule="evenodd"
+							d="M16.704 5.29a1 1 0 010 1.415l-7.25 7.25a1 1 0 01-1.414 0l-3.25-3.25a1 1 0 111.414-1.415L8.75 11.836l6.543-6.543a1 1 0 011.411-.003z"
+							clip-rule="evenodd"
+						/>
+					</svg>
+				{/if}
+			</span>
+		</button>
+		{#if enginePrefStore.enabled}
+			{#if failed}
+				<span class="text-sm text-(--color-muted) italic">unavailable</span>
+			{:else}
+				<span class="text-base font-bold text-(--color-text) tabular-nums shrink-0">{displayText}</span>
 			{/if}
 		{/if}
+	</div>
+	{#if enginePrefStore.enabled && !failed && whiteFraction !== null}
+		<div class="flex items-center gap-1.5">
+			<span class="text-[10px] font-semibold text-(--color-muted)">W</span>
+			<div class="flex-1 h-1.5 rounded-full bg-black/80 overflow-hidden" aria-hidden="true">
+				<div class="h-full bg-white" style={`width: ${whiteFraction * 100}%`}></div>
+			</div>
+			<span class="text-[10px] font-semibold text-(--color-muted)">B</span>
+		</div>
 	{/if}
 </div>
