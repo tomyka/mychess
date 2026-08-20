@@ -46,34 +46,41 @@ type AuthUser = {
 };
 
 /**
- * Tables keyed on `player_id`. `auto` marks a table the app seeds by itself for
- * any account that merely EXISTS — a row there proves nothing about the player
- * having done anything, so it must not count as "real progress":
- *   - profiles / player_stats / equipped_cosmetics: created on first request
+ * Tables the app seeds by itself for any account that merely EXISTS — a row
+ * there proves nothing about the player having done anything, so it must not
+ * count as "real progress":
+ *   - player_stats / equipped_cosmetics: created on first authenticated request
  *   - quests: `ensureDailyQuests` seeds a day's quests on an authenticated hit,
  *     which the guest-session leak in #88 triggered for every crawler visit
+ *   - level_progress: derived counters, same story
+ * Anything discovered that is NOT in this set is treated as real progress —
+ * deliberately the conservative direction, so a table nobody remembered blocks
+ * a purge instead of being silently written off.
  */
-const PLAYER_TABLES: { table: string; auto: boolean }[] = [
-  { table: 'player_stats', auto: true },
-  { table: 'equipped_cosmetics', auto: true },
-  { table: 'quests', auto: true },
-  { table: 'level_progress', auto: true },
-  { table: 'reviews', auto: false },
-  { table: 'move_attempts', auto: false },
-  { table: 'move_progress', auto: false },
-  { table: 'sessions', auto: false },
-  { table: 'repertoires', auto: false },
-  { table: 'assigned_repertoires', auto: false },
-  { table: 'badges_earned', auto: false },
-  { table: 'coach_players', auto: false },
-  { table: 'coach_notes', auto: false },
-  { table: 'variation_progress', auto: false },
-  { table: 'variation_solved', auto: false },
-  { table: 'variation_teaching_progress', auto: false },
-  { table: 'variation_practice_exclusions', auto: false },
-  { table: 'practice_active_variation', auto: false },
-  { table: 'weekly_leaderboard', auto: false }
-];
+const AUTO_SEEDED = new Set(['player_stats', 'equipped_cosmetics', 'quests', 'level_progress']);
+
+/**
+ * Every table in the live schema carrying a `player_id` column, read from
+ * PostgREST's own OpenAPI document rather than from `supabase/migrations/*.sql`.
+ * The migration history has drifted from the live schema more than once (see
+ * CLAUDE.md), and a hand-written list is exactly how a progress table gets
+ * missed — the first run of this audit listed four tables that no longer exist
+ * (`level_progress`, `move_progress`, `variation_progress`,
+ * `weekly_leaderboard`), which is proof the drift is real in both directions.
+ */
+async function discoverPlayerTables(): Promise<string[]> {
+  const res = await fetch(`${url}/rest/v1/`, { headers: authHeaders });
+  if (!res.ok) throw new Error(`rest/v1 OpenAPI fetch failed: ${res.status} ${await res.text()}`);
+  const spec = (await res.json()) as {
+    definitions?: Record<string, { properties?: Record<string, unknown> }>;
+  };
+  const tables = Object.entries(spec.definitions ?? {})
+    .filter(([, def]) => def.properties && Object.hasOwn(def.properties, 'player_id'))
+    .map(([name]) => name)
+    .sort();
+  if (tables.length === 0) throw new Error('OpenAPI document exposed no player_id tables — refusing to report a clean audit');
+  return tables;
+}
 
 async function fetchAllUsers(): Promise<AuthUser[]> {
   const users: AuthUser[] = [];
@@ -212,14 +219,17 @@ async function main() {
   }
 
   // --- progress cross-reference ----------------------------------------
+  const playerTables = await discoverPlayerTables();
   console.log('');
   console.log('=== PER-TABLE: ANONYMOUS USERS PRESENT ===');
+  console.log(`(${playerTables.length} player_id tables discovered from the live schema)`);
   console.log('(auto = seeded by the app for any account that merely exists; not evidence of activity)');
   const anonWithRealProgress = new Set<string>();
   const anonWithAutoRows = new Set<string>();
   const statsMoved = await nonDefaultStatsPlayers();
 
-  for (const { table, auto } of PLAYER_TABLES) {
+  for (const table of playerTables) {
+    const auto = AUTO_SEEDED.has(table);
     const found = await playerIdsIn(table);
     if (!found) continue;
     const anonHere = [...found.ids].filter((id) => anonIds.has(id));
