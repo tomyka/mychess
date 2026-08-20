@@ -4,7 +4,17 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { enumerateVariations, filterVariations, moveIdsInVariationKey, type RawMoveRow, type Variation } from '$lib/mastery/variations';
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
 
-export type PracticeRepertoire = { id: string; name: string; color: string };
+export type PracticeRepertoire = {
+	id: string;
+	name: string;
+	color: string;
+	/**
+	 * When this repertoire's moves last changed, maintained by a database trigger
+	 * (migration 0055). Mastery records are stamped with it and go stale the
+	 * moment it moves — see `isMasteryCurrent` in `$lib/mastery/repertoireStatus`.
+	 */
+	movesUpdatedAt: string | null;
+};
 
 // Supabase/PostgREST caps an unbounded select at `max_rows` (1000, see
 // supabase/config.toml) and truncates silently past that — no error, just
@@ -98,7 +108,7 @@ export async function loadRepertoireVariations(
 	const [{ data: repertoire }, rawMoves, exclusions] = await Promise.all([
 		supabase
 			.from('repertoires')
-			.select('id, name, color')
+			.select('id, name, color, moves_updated_at')
 			.eq('id', repertoireId)
 			.maybeSingle(),
 		fetchAllMoves(supabase, repertoireId),
@@ -122,7 +132,8 @@ export async function loadRepertoireVariations(
 		repertoire: {
 			id: repertoire.id,
 			name: repertoire.name,
-			color: repertoire.color
+			color: repertoire.color,
+			movesUpdatedAt: (repertoire as { moves_updated_at?: string | null }).moves_updated_at ?? null
 		},
 		variations: enumerateVariations(moves),
 		excludedVariationKeys: new Set((exclusions ?? []).map((row: any) => row.variation_key))
