@@ -66,10 +66,22 @@ describe('buildPracticeView', () => {
 		expect(view.attempt!.variationKey).toBe(b.variationKey);
 	});
 
-	it('respects an explicit active key even if it points at an already-solved variation', () => {
+	// Contract change from epic #95: a stored active key pointing at a LEARNED
+	// variation no longer re-serves it in Learn. Learned lines belong to Practice,
+	// and honouring a stale key here would also strand Learn on a line that has
+	// already graduated. The picker is unaffected — it passes forceAttempt (see
+	// api/practice/select-variation), which is the case below.
+	it('moves past a stale active key that points at an already-learned variation', () => {
 		const a = makeVariation(2, 'a-');
 		const b = makeVariation(2, 'b-');
 		const view = buildPracticeView([a, b], a.variationKey, new Set([a.variationKey]), noTeaching);
+		expect(view.attempt!.variationKey).toBe(b.variationKey);
+	});
+
+	it('serves a learned variation when the picker forces it', () => {
+		const a = makeVariation(2, 'a-');
+		const b = makeVariation(2, 'b-');
+		const view = buildPracticeView([a, b], a.variationKey, new Set([a.variationKey]), noTeaching, true);
 		expect(view.attempt!.variationKey).toBe(a.variationKey);
 	});
 
@@ -99,12 +111,12 @@ describe('buildPracticeView', () => {
 		expect(view.total).toBe(0);
 	});
 
-	it('allSolved is false while ANY variation (including a manually re-picked solved one) still has unsolved siblings', () => {
+	it('allSolved is false while any variation still has unlearned siblings, re-pick or not', () => {
 		const a = makeVariation(2, 'a-');
 		const b = makeVariation(2, 'b-');
-		const view = buildPracticeView([a, b], a.variationKey, new Set([a.variationKey]), noTeaching);
-		expect(view.attempt!.variationKey).toBe(a.variationKey);
-		expect(view.allSolved).toBe(false);
+		const forced = buildPracticeView([a, b], a.variationKey, new Set([a.variationKey]), noTeaching, true);
+		expect(forced.attempt!.variationKey).toBe(a.variationKey);
+		expect(forced.allSolved).toBe(false);
 	});
 
 	it('forceAttempt serves a manually re-picked variation even when the whole repertoire is already solved', () => {
@@ -356,5 +368,28 @@ describe('buildPracticeView — pending graduation (story #104)', () => {
 		expect(view.pendingWaiting).toBe(0);
 		expect(view.attempt).not.toBeNull();
 		expect(view.attempt!.arrowPlies).not.toBeNull();
+	});
+});
+
+describe('buildPracticeView — queue membership comes from splitQueues', () => {
+	// Self-review finding: the Practice route used splitQueues while Learn filtered
+	// independently. They agreed, but two implementations of "which queue is this
+	// in" is the drift the invariant exists to prevent. These pin both halves.
+	it('never serves a learned variation in Learn', () => {
+		const a = makeVariation(2, 'a');
+		const b = makeVariation(2, 'b');
+		const view = buildPracticeView([a, b], a.variationKey, new Set([a.variationKey]), noTeaching);
+		expect(view.attempt?.variationKey).toBe(b.variationKey);
+	});
+
+	// The re-drill path, which must keep working: the picker deliberately targets
+	// an already-learned variation, and filtering learned lines out of the
+	// candidates would make it silently do nothing (the bug fixed in 02bb6d6).
+	it('still serves an already-learned variation when a re-drill is forced', () => {
+		const a = makeVariation(2, 'a');
+		const view = buildPracticeView([a], a.variationKey, new Set([a.variationKey]), noTeaching, true);
+		expect(view.attempt).not.toBeNull();
+		expect(view.attempt!.variationKey).toBe(a.variationKey);
+		expect(view.attempt!.isGraduationAttempt).toBe(false);
 	});
 });

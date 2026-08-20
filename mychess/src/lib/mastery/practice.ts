@@ -2,7 +2,7 @@
 import type { Variation, VariationStep } from './variations';
 import { pickActiveVariation, solvedProgress } from './variationSequence';
 import { resolveTeachingStep, knownProgressFor } from './teaching';
-import { applyCleanPass, isPendingSecondPass } from './learning';
+import { applyCleanPass, isPendingSecondPass, splitQueues } from './learning';
 
 /**
  * One variation's stored progress. The clean-pass fields are optional so a
@@ -103,7 +103,18 @@ export function buildPracticeView(
 			.map((v) => v.variationKey)
 	);
 
-	const servable = waitingKeys.size > 0 ? variations.filter((v) => !waitingKeys.has(v.variationKey)) : variations;
+	// Learn's candidates come from the SAME `splitQueues` the Practice pool uses,
+	// so the two surfaces cannot drift into serving one variation on both. This
+	// used to be an independent filter here, which happened to agree — the point
+	// of routing it through one function is that it still agrees after the next
+	// change.
+	//
+	// `forceAttempt` is the exception and must stay one: a deliberate re-drill
+	// picked from the variation picker targets an ALREADY-LEARNED variation, so
+	// filtering learned lines out of the candidates would make the picker appear
+	// to do nothing (the bug fixed in 02bb6d6).
+	const { learn } = splitQueues(variations, solvedKeys, waitingKeys);
+	const servable = forceAttempt ? variations.filter((v) => !waitingKeys.has(v.variationKey)) : learn;
 	const active = pickActiveVariation(servable, activeVariationKey, solvedKeys);
 
 	// allSolved means the REPERTOIRE is done, not just that the (possibly
