@@ -47,3 +47,30 @@ describe('repertoires page', () => {
     expect(document.querySelector('form[action="?/delete"]')).toBeNull();
   });
 });
+
+describe('RepertoirePracticeRow destination', () => {
+	// Regression: #96 moved the teaching flow to /learn and repointed this row's
+	// hardcoded href, which silently sent the Practice list's visitors into Learn.
+	// The destination is a prop now, and both callers pass their own.
+	it('links to the mode it was given', async () => {
+		const { default: Row } = await import('$lib/components/RepertoirePracticeRow.svelte');
+		const rep = {
+			id: 'r1',
+			name: 'French Defense',
+			color: 'white',
+			solved: 1,
+			total: 3,
+			allSolved: false,
+			fullVariationCount: 3,
+			excludedVariationCount: 0,
+			hasChapters: false
+		};
+
+		const learn = render(Row, { props: { rep, mode: 'learn' } });
+		expect(learn.getByText('French Defense').closest('a')?.getAttribute('href')).toBe('/learn/r1');
+		learn.unmount();
+
+		const practice = render(Row, { props: { rep, mode: 'practice' } });
+		expect(practice.getByText('French Defense').closest('a')?.getAttribute('href')).toBe('/practice/r1');
+	});
+});

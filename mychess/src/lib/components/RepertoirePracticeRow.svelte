@@ -22,7 +22,14 @@
 		hasChapters: boolean;
 	};
 
-	let { rep }: { rep: RepSummary } = $props();
+	/**
+	 * Where the row's title links. Passed in rather than hardcoded: this row is
+	 * used by both the Learn list and the Practice list, and hardcoding one of
+	 * them sent the other surface's visitors to the wrong mode (which is exactly
+	 * what happened when the teaching flow moved to /learn in #96).
+	 */
+	let { rep, mode = 'learn' }: { rep: RepSummary; mode?: 'learn' | 'practice' } = $props();
+	const href = $derived(`/${mode}/${rep.id}`);
 
 	// The lazily-fetched variation rows plus every toggle that mutates them,
 	// shared with the expanded tree below — the summary row here needs the same
@@ -86,7 +93,7 @@
 				{expanded ? '▾' : '▸'}
 			</button>
 		{/if}
-		<a href="/learn/{rep.id}" class="flex items-center gap-3 flex-1 min-w-0">
+		<a {href} class="flex items-center gap-3 flex-1 min-w-0">
 			<span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color === 'black' ? '#1f2937' : '#e5e7eb'}"
 			></span>
 			<div class="flex-1 min-w-0">

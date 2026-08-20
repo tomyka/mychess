@@ -5,12 +5,15 @@
 </script>
 
 <svelte:head>
-  <title>Practice Your Repertoires — MyChess</title>
+  <title>Practice — MyChess</title>
 </svelte:head>
 
 <main class="min-h-screen bg-(--color-bg)">
   <div class="max-w-2xl mx-auto px-4 py-6">
-    <h1 class="text-2xl font-bold text-(--color-text) mb-4">Practice Your Repertoires</h1>
+    <h1 class="text-2xl font-bold text-(--color-text) mb-1">Practice</h1>
+    <p class="text-sm text-(--color-muted) mb-4">
+      Drill the lines you already know. New material lives in <a href="/learn" class="text-(--color-accent) hover:underline">Learn</a>.
+    </p>
 
     {#if data.repertoires.length === 0}
       <div class="text-center py-16 text-(--color-muted)">
@@ -21,7 +24,7 @@
     {:else}
       <ul class="space-y-2">
         {#each data.repertoires as rep (rep.id)}
-          <RepertoirePracticeRow {rep} />
+          <RepertoirePracticeRow {rep} mode="practice" />
         {/each}
       </ul>
     {/if}
