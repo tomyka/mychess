@@ -1,11 +1,12 @@
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { requireAccount } from '$lib/server/auth';
+import { loadRepertoireProgressSummaries } from '$lib/server/repertoire-progress';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const { user } = await requireAccount(locals);
 	const supabase = locals.supabase;
-	const [{ data: repertoires }, { data: assigned }] = await Promise.all([
+	const [{ data: repertoires }, { data: assigned }, summaries] = await Promise.all([
 		supabase
 			.from('repertoires')
 			.select('id, name, color, eco_code, eco_name, created_at, moves(count)')
@@ -14,12 +15,25 @@ export const load: PageServerLoad = async ({ locals }) => {
 		supabase
 			.from('assigned_repertoires')
 			.select('repertoire:repertoire_id ( id, name, color, eco_code, eco_name, moves(count) )')
-			.eq('player_id', user!.id)
+			.eq('player_id', user!.id),
+		loadRepertoireProgressSummaries(supabase, user!.id)
 	]);
 	const assignedRepertoires = (assigned ?? [])
 		.map((a: any) => a.repertoire)
 		.filter(Boolean);
-	return { repertoires: repertoires ?? [], assignedRepertoires };
+
+	// Whether every variation is already learned — decides which button a
+	// repertoire's card shows (Learn while anything's outstanding, Practice
+	// once it's all learned). `loadRepertoireProgressSummaries` already exists
+	// to answer this cheaply elsewhere (badge counts), so this reuses it
+	// rather than re-deriving solved/total here.
+	const allSolvedById = new Map(summaries.map((s) => [s.id, s.allSolved]));
+	const withStatus = (rep: any) => ({ ...rep, allSolved: allSolvedById.get(rep.id) ?? false });
+
+	return {
+		repertoires: (repertoires ?? []).map(withStatus),
+		assignedRepertoires: assignedRepertoires.map(withStatus)
+	};
 };
 
 export const actions: Actions = {

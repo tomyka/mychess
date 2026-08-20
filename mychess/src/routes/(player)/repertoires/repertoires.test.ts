@@ -40,6 +40,26 @@ describe('repertoires page', () => {
     render(Repertoires, { props: { data: { repertoires: owned, assignedRepertoires: [] } } });
     const link = screen.getByText('French Defense').closest('a') as HTMLAnchorElement;
     expect(link.getAttribute('href')).toBe('/learn/r1');
+    expect(screen.getByText(/Learn →/)).toBeTruthy();
+  });
+
+  it('shows a Practice link instead of Learn once an owned repertoire is fully learned', () => {
+    const owned = [{ id: 'r1', name: 'French Defense', color: '#4f46e5', moves: [{ count: 12 }], allSolved: true }];
+    render(Repertoires, { props: { data: { repertoires: owned, assignedRepertoires: [] } } });
+    const link = screen.getByText('French Defense').closest('a') as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/practice/r1');
+    expect(screen.getByText(/Practice →/)).toBeTruthy();
+  });
+
+  it('shows Learn for an outstanding assigned repertoire and Practice once it is fully learned', () => {
+    const outstanding = [{ id: 'r1', name: 'French Defense', color: '#4f46e5', moves: [{ count: 12 }], allSolved: false }];
+    const learned = render(Repertoires, { props: { data: { repertoires: [], assignedRepertoires: outstanding } } });
+    expect(learned.getByRole('link', { name: 'Learn' }).getAttribute('href')).toBe('/learn/r1');
+    learned.unmount();
+
+    const done = [{ id: 'r1', name: 'French Defense', color: '#4f46e5', moves: [{ count: 12 }], allSolved: true }];
+    render(Repertoires, { props: { data: { repertoires: [], assignedRepertoires: done } } });
+    expect(screen.getByRole('link', { name: 'Practice' }).getAttribute('href')).toBe('/practice/r1');
   });
 
   it('does not show a delete form in the assigned-by-coach section', () => {
