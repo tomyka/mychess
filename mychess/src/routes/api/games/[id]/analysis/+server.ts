@@ -8,7 +8,7 @@ function isAnalysisEntry(value: unknown): boolean {
 	return (
 		typeof e.ply === 'number' &&
 		!!e.score &&
-		typeof e.score === 'object' &&
+		typeof e.score === 'object' && !Array.isArray(e.score) &&
 		typeof e.bestMoveSan === 'string' &&
 		(e.classification === null || typeof e.classification === 'string')
 	);
@@ -35,7 +35,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if (!Array.isArray(analysis) || !analysis.every(isAnalysisEntry)) {
 		throw error(400, 'analysis must be an array of analysis entries');
 	}
-	if (analysis.length !== (owned.moves as unknown[]).length) {
+	if (!Array.isArray(owned.moves) || analysis.length !== owned.moves.length) {
 		throw error(400, "analysis length must match the game's move count");
 	}
 
