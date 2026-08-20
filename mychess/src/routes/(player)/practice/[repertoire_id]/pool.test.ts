@@ -86,6 +86,18 @@ describe('practice pool page', () => {
 		expect(screen.getByText('Go to Learn')).toBeTruthy();
 	});
 
+	// #103: exactly one session row per visit, however many lines are played.
+	it('flags only the first reported outcome as the start of a session', async () => {
+		render(Practice, { props: { data: poolData() } });
+
+		playMove('d2', 'd4');
+		await vi.advanceTimersByTimeAsync(1700);
+		playMove('d2', 'd4');
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(outcomes().map((o) => o.sessionStart)).toEqual([true, false]);
+	});
+
 	it("shows the queue position and the current line's chapter", () => {
 		render(Practice, { props: { data: poolData() } });
 		expect(screen.getByText('Line 1 of 2')).toBeTruthy();
@@ -106,7 +118,7 @@ describe('practice pool page', () => {
 		playMove('g1', 'f3');
 		await vi.advanceTimersByTimeAsync(500);
 
-		expect(outcomes()).toEqual([{ repertoireId: 'r1', variationKey: 'v1', outcome: 'clean' }]);
+		expect(outcomes()).toMatchObject([{ repertoireId: 'r1', variationKey: 'v1', outcome: 'clean' }]);
 
 		await vi.advanceTimersByTimeAsync(800);
 		expect(screen.getByText('Line 2 of 2')).toBeTruthy();
@@ -118,7 +130,7 @@ describe('practice pool page', () => {
 		playMove('d2', 'd4');
 		await vi.advanceTimersByTimeAsync(0);
 
-		expect(outcomes()).toEqual([{ repertoireId: 'r1', variationKey: 'v1', outcome: 'mistake' }]);
+		expect(outcomes()).toMatchObject([{ repertoireId: 'r1', variationKey: 'v1', outcome: 'mistake' }]);
 		expect(screen.getByRole('status').textContent).toMatch(/Back to Learn/i);
 
 		// A second wrong move must not report a second demotion.
@@ -134,7 +146,7 @@ describe('practice pool page', () => {
 		render(Practice, { props: { data: poolData() } });
 		await fireEvent.click(screen.getByText(/Show hint/i));
 
-		expect(outcomes()).toEqual([{ repertoireId: 'r1', variationKey: 'v1', outcome: 'hint' }]);
+		expect(outcomes()).toMatchObject([{ repertoireId: 'r1', variationKey: 'v1', outcome: 'hint' }]);
 		expect(screen.getByRole('status').textContent).toMatch(/Back to Learn/i);
 	});
 

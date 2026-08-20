@@ -12,11 +12,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     correct: number;
   };
 
-  await supabase.from('sessions').insert({
+  const { error: sessionError } = await supabase.from('sessions').insert({
     player_id: user.id,
     mode: 'time_trial',
-    cards_reviewed: correct
+    cards_done: correct
   });
+  // Logged, not swallowed. This insert had been failing since it was written —
+  // `cards_reviewed` has never existed as a column (it is `cards_done`) — and
+  // because nothing checked the error, `sessions` sat empty for months and the
+  // session-count badges were unearnable. See #103.
+  if (sessionError) {
+    console.error('failed to record session:', sessionError.message);
+  }
 
   if (correct > 0) {
     await supabase.rpc('update_streak', { p_player_id: user.id });

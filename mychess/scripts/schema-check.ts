@@ -20,7 +20,13 @@ const headers = { apikey: key, Authorization: `Bearer ${key}` };
 const PROBES: { migration: string; table: string; select: string }[] = [
   { migration: '0057', table: 'variation_teaching_progress', select: 'clean_pass_count,last_clean_pass_at' },
   { migration: '0057', table: 'variation_demotions', select: 'id,player_id,variation_key,cause,demoted_at' },
-  { migration: '0058', table: 'chapter_mastery', select: 'id,player_id,repertoire_id,chapter_name,mastered_at,moves_updated_at' }
+  { migration: '0058', table: 'chapter_mastery', select: 'id,player_id,repertoire_id,chapter_name,mastered_at,moves_updated_at' },
+  // 0059 widens a CHECK constraint, which a select can't observe — but the
+  // column list is still worth pinning, because `sessions` was silently
+  // unwritable for months: both writers sent `cards_reviewed`, a column that
+  // has never existed in any migration (the real one is `cards_done`), and
+  // neither checked the resulting error. See #103.
+  { migration: '0059', table: 'sessions', select: 'id,player_id,repertoire_id,mode,cards_done,started_at' }
 ];
 
 let failed = 0;

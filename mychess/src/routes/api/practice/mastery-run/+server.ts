@@ -5,6 +5,7 @@ import { requireApiUser } from '$lib/server/auth';
 import { loadFilteredRepertoireVariations } from '$lib/server/practice-repertoire';
 import { loadSolvedKeys } from '$lib/server/practice-progress';
 import { recordChapterMastery } from '$lib/server/mastery';
+import { recordSession } from '$lib/server/sessions';
 import { chapterMasteryView } from '$lib/mastery/masteryRun';
 
 /**
@@ -43,5 +44,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!chapter.canRun) throw error(409, 'Chapter still has un-learned variations');
 
 	await recordChapterMastery(supabase, user.id, repertoireId, chapterName, repertoire.movesUpdatedAt);
+	// A completed run is exactly one mastery session, so this needs no
+	// sessionStart flag from the client.
+	await recordSession(supabase, user.id, repertoireId, 'mastery', chapter.total);
 	return json({ mastered: true });
 };

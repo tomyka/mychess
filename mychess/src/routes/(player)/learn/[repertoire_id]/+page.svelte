@@ -364,12 +364,18 @@
 		return false;
 	}
 
+	// One session row per visit (#103): set on the first attempt reported and
+	// never again, so a session means a sitting rather than a move.
+	let sessionReported = false;
+
 	async function reportAttempt(variationKey: string, hadMistake: boolean): Promise<PracticeView | null> {
+		const sessionStart = !sessionReported;
+		sessionReported = true;
 		try {
 			const res = await fetch('/api/practice/attempt', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ repertoireId, variationKey, hadMistake })
+				body: JSON.stringify({ repertoireId, variationKey, hadMistake, sessionStart })
 			});
 			if (!res.ok) return null;
 			return await res.json();

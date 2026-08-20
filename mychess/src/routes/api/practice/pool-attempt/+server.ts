@@ -4,6 +4,7 @@ import type { RequestHandler } from './$types';
 import { requireApiUser } from '$lib/server/auth';
 import { demoteVariation } from '$lib/server/practice-pool';
 import { loadSolvedKeys } from '$lib/server/practice-progress';
+import { recordSession } from '$lib/server/sessions';
 
 /**
  * Records the outcome of one Practice-pool attempt (stories #97/#98).
@@ -22,7 +23,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const user = await requireApiUser(locals);
 
 	const body = await request.json();
-	const { repertoireId, variationKey, outcome } = body ?? {};
+	const { repertoireId, variationKey, outcome, sessionStart } = body ?? {};
 	if (
 		typeof repertoireId !== 'string' ||
 		typeof variationKey !== 'string' ||
@@ -30,6 +31,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	) {
 		throw error(400, 'Invalid request');
 	}
+
+	if (sessionStart === true) await recordSession(supabase, user.id, repertoireId, 'practice');
 
 	if (outcome === 'clean') return json({ demoted: false });
 

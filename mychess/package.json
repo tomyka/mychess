@@ -17,7 +17,8 @@
 		"eco:generate": "tsx scripts/generate-eco-data.ts",
 		"anon:audit": "tsx --env-file=.env scripts/anon-audit.ts",
 		"anon:purge": "tsx --env-file=.env scripts/anon-purge.ts",
-		"schema:check": "tsx --env-file=.env scripts/schema-check.ts"
+		"schema:check": "tsx --env-file=.env scripts/schema-check.ts",
+		"epic95:metrics": "tsx --env-file=.env scripts/epic95-metrics.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

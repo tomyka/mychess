@@ -86,11 +86,16 @@
 	// empty FEN.
 	startCurrent();
 
+	// One session row per visit (#103) — set on the first outcome reported only.
+	let sessionReported = false;
+
 	function report(outcome: 'clean' | 'mistake' | 'hint') {
+		const sessionStart = !sessionReported;
+		sessionReported = true;
 		fetch('/api/practice/pool-attempt', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ repertoireId: data.repertoire?.id, variationKey: current?.variationKey, outcome })
+			body: JSON.stringify({ repertoireId: data.repertoire?.id, variationKey: current?.variationKey, outcome, sessionStart })
 		}).catch(() => {});
 	}
 

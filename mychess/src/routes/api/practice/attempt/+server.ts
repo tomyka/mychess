@@ -12,6 +12,7 @@ import {
 } from '$lib/server/practice-progress';
 import { incrementQuestProgress } from '$lib/server/quests';
 import { requireApiUser } from '$lib/server/auth';
+import { recordSession } from '$lib/server/sessions';
 import { buildPracticeView, wasResumedAfterBreak } from '$lib/mastery/practice';
 
 /**
@@ -37,10 +38,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const user = await requireApiUser(locals);
 
 	const body = await request.json();
-	const { repertoireId, variationKey, hadMistake } = body ?? {};
+	const { repertoireId, variationKey, hadMistake, sessionStart } = body ?? {};
 	if (typeof repertoireId !== 'string' || typeof variationKey !== 'string' || typeof hadMistake !== 'boolean') {
 		throw error(400, 'Invalid request');
 	}
+
+	// One row per page visit — the client sets this on its first attempt only, so
+	// "sessions" means what a person would mean by it. See recordSession.
+	if (sessionStart === true) await recordSession(supabase, user.id, repertoireId, 'learn');
 
 	// Read BEFORE touchVariationAttempt's write below lands — reading this
 	// after that unconditional refresh would always see a fresh updated_at
