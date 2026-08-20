@@ -52,7 +52,7 @@ function makeSharedPrefixVariations(sharedPlayerMoves: number, ownPlayerMovesA: 
 
 describe('buildPracticeView', () => {
 	it('serves the active variation\'s FULL path as the attempt, unsplit', () => {
-		const v = makeVariation(3, 'a-');
+		const v = makeVariation(2, 'a-'); // 2 player moves — strictly under one batch
 		const view = buildPracticeView([v], null, new Set(), noTeaching);
 		expect(view.attempt).not.toBeNull();
 		expect(view.attempt!.variationKey).toBe(v.variationKey);
@@ -130,31 +130,31 @@ describe('buildPracticeView', () => {
 	it('serves a truncated path and arrow range for an unsolved variation still being taught, ending on the player\'s own move', () => {
 		const v = makeVariation(15, 'a-'); // 30 plies, player moves first
 		const view = buildPracticeView([v], null, new Set(), noTeaching);
-		// The batch ends right after the player's 5th move (ply 8), not a flat
-		// 10-ply offset — see teaching.ts's plyAfterPlayerMoves.
-		expect(view.attempt!.path).toHaveLength(9);
-		expect(view.attempt!.arrowPlies).toEqual({ from: 0, to: 9 });
+		// The batch ends right after the player's 3rd move (ply 4), not a flat
+		// 6-ply offset — see teaching.ts's plyAfterPlayerMoves.
+		expect(view.attempt!.path).toHaveLength(5);
+		expect(view.attempt!.arrowPlies).toEqual({ from: 0, to: 5 });
 		expect(view.attempt!.isFinalPass).toBe(false);
 		expect(view.attempt!.path[view.attempt!.path.length - 1].isPlayerTurn).toBe(true);
 	});
 
 	it('flags a teach pass that reaches the end of the path as the final pass, so a clean run of it solves', () => {
-		const v = makeVariation(8, 'a-'); // 16 plies: batch 1 is plies 0-8, batch 2 is the rest
-		const progress = new Map([[v.variationKey, { taughtPlies: 9, masteredPlies: 9, updatedAt: null }]]);
+		const v = makeVariation(4, 'a-'); // 8 plies: batch 1 is plies 0-4, batch 2 is the rest
+		const progress = new Map([[v.variationKey, { taughtPlies: 5, masteredPlies: 5, updatedAt: null }]]);
 		const view = buildPracticeView([v], null, new Set(), progress);
 		expect(view.attempt!.path).toEqual(v.path);
-		expect(view.attempt!.arrowPlies).toEqual({ from: 9, to: 16 });
+		expect(view.attempt!.arrowPlies).toEqual({ from: 5, to: 8 });
 		// isFinalPass is what gates the client's optimistic solved bump — a
 		// final teach pass has to set it, or the sidebar count would lag a
 		// solve by a whole round trip.
 		expect(view.attempt!.isFinalPass).toBe(true);
-		expect(view.attempt!.autoPlayThrough).toBe(9);
+		expect(view.attempt!.autoPlayThrough).toBe(5);
 	});
 
 	it('does not flag a fresh single-batch variation\'s first teach pass as final (it still owes one blind retest)', () => {
-		const v = makeVariation(3, 'a-'); // 6 plies — one batch covers all of it
+		const v = makeVariation(2, 'a-'); // 4 plies — one batch covers all of it
 		const view = buildPracticeView([v], null, new Set(), noTeaching);
-		expect(view.attempt!.arrowPlies).toEqual({ from: 0, to: 6 });
+		expect(view.attempt!.arrowPlies).toEqual({ from: 0, to: 4 });
 		expect(view.attempt!.isFinalPass).toBe(false);
 	});
 
@@ -216,8 +216,8 @@ describe('buildPracticeView', () => {
 		// batch/arrow a genuinely fresh variation gets (see the existing
 		// 'serves a truncated path and arrow range...' test above for the same
 		// 15-player-move fixture with zero progress).
-		expect(view.attempt!.path).toHaveLength(9);
-		expect(view.attempt!.arrowPlies).toEqual({ from: 0, to: 9 });
+		expect(view.attempt!.path).toHaveLength(5);
+		expect(view.attempt!.arrowPlies).toEqual({ from: 0, to: 5 });
 	});
 
 	it('discards a freshly-earned sibling\'s shared-prefix credit when THIS variation is resumed after a break', () => {
@@ -239,8 +239,8 @@ describe('buildPracticeView', () => {
 		expect(view.attempt!.autoPlayThrough).toBe(0); // not 10, despite b's fresh mastery of the shared prefix
 		// And teaching restarts from ply 0 rather than resuming past the shared
 		// prefix — a's first batch, exactly as if nothing were known.
-		expect(view.attempt!.path).toHaveLength(9);
-		expect(view.attempt!.arrowPlies).toEqual({ from: 0, to: 9 });
+		expect(view.attempt!.path).toHaveLength(5);
+		expect(view.attempt!.arrowPlies).toEqual({ from: 0, to: 5 });
 	});
 
 	it('does not treat a never-attempted variation (no updatedAt yet) as a resume-after-break', () => {
@@ -249,7 +249,7 @@ describe('buildPracticeView', () => {
 		const progress = new Map([[v.variationKey, { taughtPlies: 0, masteredPlies: 0, updatedAt: null }]]);
 		const view = buildPracticeView([v], v.variationKey, new Set(), progress, false, now);
 		expect(view.attempt!.autoPlayThrough).toBe(0);
-		expect(view.attempt!.path).toHaveLength(9);
+		expect(view.attempt!.path).toHaveLength(5);
 	});
 });
 

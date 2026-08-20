@@ -51,37 +51,37 @@ function makeVariation(variationKey: string, path: VariationStep[]): Variation {
 }
 
 describe('resolveTeachingStep', () => {
-	it('teaches the very first batch (moves 1-5) from a fresh variation\'s first attempt, ending right after the player\'s 5th move', () => {
+	it('teaches the very first batch (moves 1-3) from a fresh variation\'s first attempt, ending right after the player\'s 3rd move', () => {
 		const path = makePath(25);
 		const step = resolveTeachingStep(path, 0, 0);
-		// Player moves are at even plies (0, 2, 4, 6, 8) here — the 5th one is
-		// ply 8, so the batch is 9 plies (0-8), NOT a flat 10: including the
-		// opponent's ply-9 reply would end the batch on the OPPONENT's move,
+		// Player moves are at even plies (0, 2, 4) here — the 3rd one is ply
+		// 4, so the batch is 5 plies (0-4), NOT a flat 6: including the
+		// opponent's ply-5 reply would end the batch on the OPPONENT's move,
 		// and the player is never asked to move at the array's last index, so
 		// the "final move" check that fires the star badge / attempt-report
 		// would never trigger.
-		expect(step.path).toEqual(path.slice(0, 9));
-		expect(step.arrowPlies).toEqual({ from: 0, to: 9 });
+		expect(step.path).toEqual(path.slice(0, 5));
+		expect(step.arrowPlies).toEqual({ from: 0, to: 5 });
 		expect(step.isFinalPass).toBe(false);
 		expect(step.path[step.path.length - 1].isPlayerTurn).toBe(true);
 	});
 
-	it('a batch still ends right after the player\'s 5th move when the opponent moves first', () => {
+	it('a batch still ends right after the player\'s 3rd move when the opponent moves first', () => {
 		const path = makeOpponentFirstPath(25);
 		const step = resolveTeachingStep(path, 0, 0);
-		// Player moves are at odd plies (1, 3, 5, 7, 9) here — the 5th one is
-		// ply 9, so this batch is 10 plies, not 9. Batch width isn't fixed;
-		// only "ends on the player's own move" is.
-		expect(step.path).toEqual(path.slice(0, 10));
-		expect(step.arrowPlies).toEqual({ from: 0, to: 10 });
+		// Player moves are at odd plies (1, 3, 5) here — the 3rd one is ply
+		// 5, so this batch is 6 plies, not 5. Batch width isn't fixed; only
+		// "ends on the player's own move" is.
+		expect(step.path).toEqual(path.slice(0, 6));
+		expect(step.arrowPlies).toEqual({ from: 0, to: 6 });
 		expect(step.path[step.path.length - 1].isPlayerTurn).toBe(true);
 	});
 
 	it('teaches its entire (short) path when a variation is no longer than one batch', () => {
-		const path = makePath(6);
+		const path = makePath(4);
 		const step = resolveTeachingStep(path, 0, 0);
 		expect(step.path).toEqual(path);
-		expect(step.arrowPlies).toEqual({ from: 0, to: 6 });
+		expect(step.arrowPlies).toEqual({ from: 0, to: 4 });
 		expect(step.isFinalPass).toBe(false);
 	});
 
@@ -108,20 +108,20 @@ describe('resolveTeachingStep', () => {
 	});
 
 	it('reports a teach batch that reaches the path\'s end over an already-mastered prefix as the FINAL pass', () => {
-		const path = makePath(16); // 8 player moves: batch 1 is plies 0-8, batch 2 the rest
-		const step = resolveTeachingStep(path, 9, 9);
+		const path = makePath(8); // 4 player moves: batch 1 is plies 0-4, batch 2 the rest
+		const step = resolveTeachingStep(path, 5, 5);
 		expect(step.path).toEqual(path);
 		// Still a teach pass — the new tail is still arrowed — but nothing is
 		// left to teach afterwards, so no separate blind retest of the same
 		// tail follows it (issue #68).
-		expect(step.arrowPlies).toEqual({ from: 9, to: 16 });
+		expect(step.arrowPlies).toEqual({ from: 5, to: 8 });
 		expect(step.isFinalPass).toBe(true);
 	});
 
 	it('does NOT treat a fresh single-batch variation\'s first teach pass as final — it has never been played blind', () => {
-		const path = makePath(6);
+		const path = makePath(4);
 		const step = resolveTeachingStep(path, 0, 0);
-		expect(step.arrowPlies).toEqual({ from: 0, to: 6 });
+		expect(step.arrowPlies).toEqual({ from: 0, to: 4 });
 		expect(step.isFinalPass).toBe(false);
 	});
 });
@@ -136,7 +136,7 @@ describe('advanceTeachingProgress', () => {
 	it('a clean teach pass on a fresh variation advances taught_plies to the first batch end only', () => {
 		const path = makePath(25);
 		const result = advanceTeachingProgress(path, 0, 0, false);
-		expect(result).toEqual({ taughtPlies: 9, masteredPlies: 0, solved: false });
+		expect(result).toEqual({ taughtPlies: 5, masteredPlies: 0, solved: false });
 	});
 
 	it('a clean non-final blind retest advances mastered_plies to match taught_plies', () => {
@@ -152,27 +152,27 @@ describe('advanceTeachingProgress', () => {
 	});
 
 	it('a short (one-batch) variation still needs a clean teach pass before it can be solved', () => {
-		const path = makePath(6);
+		const path = makePath(4);
 		const result = advanceTeachingProgress(path, 0, 0, false);
-		expect(result).toEqual({ taughtPlies: 6, masteredPlies: 0, solved: false });
+		expect(result).toEqual({ taughtPlies: 4, masteredPlies: 0, solved: false });
 	});
 
 	it('a short (one-batch) variation solves on the blind retest right after its teach pass', () => {
-		const path = makePath(6);
-		const result = advanceTeachingProgress(path, 6, 0, false);
-		expect(result).toEqual({ taughtPlies: 6, masteredPlies: 6, solved: true });
+		const path = makePath(4);
+		const result = advanceTeachingProgress(path, 4, 0, false);
+		expect(result).toEqual({ taughtPlies: 4, masteredPlies: 4, solved: true });
 	});
 
 	it('a clean FINAL teach pass masters everything it just taught and solves the variation', () => {
-		const path = makePath(16);
-		const result = advanceTeachingProgress(path, 9, 9, false);
-		expect(result).toEqual({ taughtPlies: 16, masteredPlies: 16, solved: true });
+		const path = makePath(8);
+		const result = advanceTeachingProgress(path, 5, 5, false);
+		expect(result).toEqual({ taughtPlies: 8, masteredPlies: 8, solved: true });
 	});
 
 	it('a mistake on a final teach pass still changes nothing — the same teach pass is re-served', () => {
-		const path = makePath(16);
-		const result = advanceTeachingProgress(path, 9, 9, true);
-		expect(result).toEqual({ taughtPlies: 9, masteredPlies: 9, solved: false });
+		const path = makePath(8);
+		const result = advanceTeachingProgress(path, 5, 5, true);
+		expect(result).toEqual({ taughtPlies: 5, masteredPlies: 5, solved: false });
 	});
 });
 
@@ -201,30 +201,30 @@ function cleanRunToSolved(path: VariationStep[]): { attempts: number; passes: ('
 }
 
 describe('clean attempts needed to solve a variation', () => {
-	it('an 8-move variation (shorter than two full batches) solves in 3 clean attempts, not 4', () => {
-		// 16 plies / 8 player moves, split 5 + 3 by TEACHING_BATCH_MOVES. Before
-		// issue #68 this was teach(1-5) → blind(1-5) → teach(6-8) → blind(6-8) =
+	it('a 5-move variation (shorter than two full batches) solves in 3 clean attempts, not 4', () => {
+		// 10 plies / 5 player moves, split 3 + 2 by TEACHING_BATCH_MOVES. Before
+		// issue #68 this was teach(1-3) → blind(1-3) → teach(4-5) → blind(4-5) =
 		// 4 clean attempts; the trailing blind retest of the just-taught tail
 		// was identical to the teach pass that preceded it (same served path,
 		// same auto-played mastered prefix, same manual tail — only the arrows
 		// differed), so it's gone.
-		expect(cleanRunToSolved(makePath(16))).toEqual({ attempts: 3, passes: ['teach', 'blind', 'teach'] });
+		expect(cleanRunToSolved(makePath(10))).toEqual({ attempts: 3, passes: ['teach', 'blind', 'teach'] });
 	});
 
-	it('the same holds for an 8-move variation where the opponent moves first', () => {
+	it('the same holds for a 5-move variation where the opponent moves first', () => {
 		// Opponent-first parity shifts every batch boundary by a ply; the count
 		// of clean attempts must not depend on it.
-		expect(cleanRunToSolved(makeOpponentFirstPath(16))).toEqual({ attempts: 3, passes: ['teach', 'blind', 'teach'] });
+		expect(cleanRunToSolved(makeOpponentFirstPath(10))).toEqual({ attempts: 3, passes: ['teach', 'blind', 'teach'] });
 	});
 
 	it('a variation longer than two batches keeps the unchanged teach/blind-retest alternation', () => {
-		// 25 plies / 13 player moves = three batches. Every batch except the
-		// last still earns its own blind retest, in the same order as before —
-		// only the final batch's redundant trailing retest is gone (6 clean
-		// attempts before issue #68, 5 now).
+		// 25 plies / 13 player moves = five 3-move batches (3+3+3+3+1). Every
+		// batch except the last still earns its own blind retest, in the same
+		// alternating order as before — only the final batch's redundant
+		// trailing retest is gone, giving 2*5-1 = 9 clean attempts.
 		expect(cleanRunToSolved(makePath(25))).toEqual({
-			attempts: 5,
-			passes: ['teach', 'blind', 'teach', 'blind', 'teach']
+			attempts: 9,
+			passes: ['teach', 'blind', 'teach', 'blind', 'teach', 'blind', 'teach', 'blind', 'teach']
 		});
 	});
 
@@ -232,7 +232,7 @@ describe('clean attempts needed to solve a variation', () => {
 		// Unchanged by issue #68 on purpose — with nothing mastered behind it,
 		// skipping this variation's only blind retest would mark it solved
 		// without it ever having been played from memory.
-		expect(cleanRunToSolved(makePath(6))).toEqual({ attempts: 2, passes: ['teach', 'blind'] });
+		expect(cleanRunToSolved(makePath(4))).toEqual({ attempts: 2, passes: ['teach', 'blind'] });
 	});
 });
 

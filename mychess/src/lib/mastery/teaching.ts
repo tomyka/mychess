@@ -2,7 +2,7 @@ import { Chess } from 'chess.js';
 import type { Variation, VariationStep } from './variations';
 
 /** How many of the player's own moves make up one teaching batch. */
-export const TEACHING_BATCH_MOVES = 5;
+export const TEACHING_BATCH_MOVES = 3;
 
 export type TeachingStep = {
 	path: VariationStep[];
