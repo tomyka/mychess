@@ -118,7 +118,7 @@
 
                 <svg viewBox="0 0 {pr.report.accuracy.length * 14} 60" class="w-full h-16 mb-1" role="img"
                      aria-label="Accuracy over time for {pr.repertoireName}">
-                  {#each pr.report.accuracy as point, i}
+                  {#each pr.report.accuracy as point, i (point.bucket)}
                     {@const total = point.correct + point.wrong}
                     {@const wrongH = total === 0 ? 0 : (point.wrong / total) * 46}
                     {@const correctH = total === 0 ? 0 : (point.correct / total) * 46}
@@ -131,7 +131,7 @@
                   {/each}
                 </svg>
                 <span class="sr-only">
-                  {#each pr.report.accuracy as point}
+                  {#each pr.report.accuracy as point (point.bucket)}
                     {point.bucket}: {point.correct} of {point.correct + point.wrong} correct.
                   {/each}
                 </span>

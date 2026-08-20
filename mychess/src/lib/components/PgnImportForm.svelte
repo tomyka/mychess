@@ -257,7 +257,7 @@
 			</div>
 			{#if chapters.length > 1}
 				<ul class="text-sm space-y-1 max-h-40 overflow-y-auto">
-					{#each chapters as chapter}
+					{#each chapters as chapter, i (i)}
 						<li class="flex items-center gap-2">
 							<span class="w-4 text-center shrink-0 {statusIconClass(chapter.status)}">
 								{#if chapter.status === 'done'}✓{:else if chapter.status === 'importing'}⚙{:else if chapter.status === 'error'}✗{:else}·{/if}

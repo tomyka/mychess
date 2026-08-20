@@ -26,9 +26,11 @@ Run from this directory (`mychess/`):
 - `npm run eco:generate` — one-off script (`scripts/generate-eco-data.ts`) to regenerate ECO opening data
 - `npx playwright test` — e2e tests (`tests/*.e2e.ts`); builds and previews the app first, runs against Chromium + a Pixel 5 mobile profile
 
-CI (`.github/workflows/ci.yml`) only runs `npm test` before deploying — `check` and `lint` are not gated there, so running both locally before pushing is on you.
+CI (`.github/workflows/ci.yml`) runs `npm test` and `npm run lint` before deploying; `check` is not gated there, so running it locally before pushing is on you.
 
-**`npm run check` must report zero errors before pushing to `main`.** There is no tolerated baseline — a prior one (OAuth callback/connect routes' `string | undefined` env-var typing) was fixed via `requireEnv()` in `src/lib/env.ts`, which narrows a `$env/dynamic/*` value to `string`, throwing a clear error if it's actually missing. Use it for any new required env var read outside `+layout.server.ts`'s existing patterns, rather than reintroducing the same class of error.
+**`npm run check` and `npm run lint` must both report zero errors before pushing to `main`.** There is no tolerated baseline — a prior one (OAuth callback/connect routes' `string | undefined` env-var typing) was fixed via `requireEnv()` in `src/lib/env.ts`, which narrows a `$env/dynamic/*` value to `string`, throwing a clear error if it's actually missing. Use it for any new required env var read outside `+layout.server.ts`'s existing patterns, rather than reintroducing the same class of error.
+
+Lint has no tolerated baseline either (issue #91): `npm run lint` is gated in CI as of that fix, and `eslint.config.js` now hands the TypeScript sub-parser to `**/*.svelte.ts`/`**/*.svelte.js` as well as `**/*.svelte` — without it, `eslint-plugin-svelte`'s base config points rune modules at `svelte-eslint-parser` alone and every one of them dies on its first type annotation, so they read as "errors" while actually going unlinted. Its ~164 warnings (mostly `@typescript-eslint/no-explicit-any`, deliberate at Supabase/webhook boundaries) are not gated and are not a baseline to clear.
 
 ## Database & migrations
 

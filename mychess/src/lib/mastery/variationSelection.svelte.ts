@@ -1,4 +1,12 @@
 // mychess/src/lib/mastery/variationSelection.svelte.ts
+/* eslint-disable svelte/prefer-svelte-reactivity --
+   Every Map/Set here is deliberately NON-reactive. `#snapshots` says so in its
+   own doc comment below (nothing renders from it — only `toggleGroup` reads
+   it), and the rest are short-lived locals inside a single method call
+   (`originalIncludedByKey`, `rowKeys`, `nextSnapshots`). SvelteMap/SvelteSet
+   would add reactive-graph bookkeeping for values nothing tracks. This file
+   was never actually linted before #91 fixed the `.svelte.ts` parser config,
+   which is why the rule only surfaces now. */
 import type { VariationStep } from './variations';
 
 export type VariationRow = {

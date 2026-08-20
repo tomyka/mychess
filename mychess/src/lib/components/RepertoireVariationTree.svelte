@@ -19,6 +19,7 @@
 	} from '$lib/mastery/variations';
 	import type { VariationRow, VariationSelection } from '$lib/mastery/variationSelection.svelte';
 	import { aggregateState, checkboxState } from './checkboxState';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	let { selection, repName }: { selection: VariationSelection; repName: string } = $props();
 
@@ -27,12 +28,12 @@
 	// Chapter names currently drilled into to show their move-group buckets.
 	// A Set (not a single value) since this is a checklist screen, not a
 	// pick-one wizard — more than one chapter can reasonably be open at once.
-	let openChapters = $state<Set<string>>(new Set());
+	let openChapters = new SvelteSet<string>();
 	// Move-group buckets currently drilled into to show their individual
 	// variations, keyed by `moveGroupKey` (chapter + the bucket's own first-5-
 	// moves key) so the same key under two different chapters — or under the
 	// flat, chapterless pool — never collide.
-	let openMoveGroups = $state<Set<string>>(new Set());
+	let openMoveGroups = new SvelteSet<string>();
 
 	// Chapters in first-appearance order, with the untagged bucket last (only
 	// when some row is untagged). null means no loaded variation carries a
@@ -84,17 +85,11 @@
 	}
 
 	function toggleChapterOpen(chapter: string) {
-		const next = new Set(openChapters);
-		if (next.has(chapter)) next.delete(chapter);
-		else next.add(chapter);
-		openChapters = next;
+		if (!openChapters.delete(chapter)) openChapters.add(chapter);
 	}
 
 	function toggleMoveGroupOpen(key: string) {
-		const next = new Set(openMoveGroups);
-		if (next.has(key)) next.delete(key);
-		else next.add(key);
-		openMoveGroups = next;
+		if (!openMoveGroups.delete(key)) openMoveGroups.add(key);
 	}
 
 	// Membership, not equality: a line shared by two chapters is one row

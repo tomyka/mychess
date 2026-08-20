@@ -264,7 +264,7 @@ export async function writeMoves(
     // The count phase tags its own error so the catch can keep producing the
     // distinct "Failed to count existing moves" message it always has.
     type ExistingMoveRow = { from_position: string; san: string; chapter_names: string[] | null };
-    let existingRows: ExistingMoveRow[] = [];
+    let existingRows: ExistingMoveRow[];
     try {
       existingRows = await fetchAllPages<ExistingMoveRow>(
         () =>

@@ -22,6 +22,11 @@ jobs:
           cache-dependency-path: mychess/package-lock.json
       - run: npm ci
       - run: npm test
+      # Gated as of #91, when 10 accumulated lint errors (three of them a
+      # parser misconfiguration that silently skipped every `.svelte.ts`
+      # module) went unnoticed precisely because nothing ran this. Errors
+      # only — the 164 `no-explicit-any`-style warnings don't fail the job.
+      - run: npm run lint
 
   deploy:
     name: Deploy to Vercel

@@ -27,7 +27,13 @@ export default tseslint.config(
 		}
 	},
 	{
-		files: ['**/*.svelte'],
+		// `.svelte.ts`/`.svelte.js` (Svelte 5 rune modules) belong here too, not
+		// just `.svelte`: eslint-plugin-svelte's base config points all three at
+		// svelte-eslint-parser, and that parser only understands TypeScript when
+		// it's handed a TS sub-parser. Without this, every `.svelte.ts` module
+		// failed with `Parsing error: Unexpected token` on its first type
+		// annotation and was never actually linted (issue #91).
+		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
 		languageOptions: {
 			parserOptions: {
 				parser: tseslint.parser

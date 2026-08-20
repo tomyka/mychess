@@ -35,7 +35,7 @@
   <p class="text-sm font-medium text-(--color-text) mb-2">{platform}: <span class="font-mono">{username}</span></p>
   {#if loading}
     <div class="grid grid-cols-4 gap-3" aria-label="Loading {platform} ratings">
-      {#each Array(4) as _}
+      {#each Array(4) as _, i (i)}
         <div class="bg-(--color-bg) rounded-lg border border-(--color-border) p-3 h-[60px] animate-pulse"></div>
       {/each}
     </div>
