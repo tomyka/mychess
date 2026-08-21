@@ -29,6 +29,42 @@ export type ReconciliationFreshness = {
 };
 
 /**
+ * Whether a repertoire's move set may currently be HALF-APPLIED, i.e. whether
+ * a coach's apply is still in flight for it.
+ *
+ * The apply is NOT one transaction and cannot be: the move upsert chunks around
+ * PostgREST's URL-length and `max_rows` limits, so it runs in its own
+ * transaction BEFORE `apply_repertoire_update` — and migration 0055's trigger
+ * bumps `moves_updated_at` at the START of that window, while the new moves are
+ * already live but the pruned ones are not yet retired. Enumerating inside the
+ * window therefore yields a shape that is neither the old one nor the new one,
+ * and every reader that acts DESTRUCTIVELY on an enumerated shape has to
+ * decline until it closes — reconciliation here, and the exclusion prune in
+ * `./repertoire-progress.ts`, which DELETES rows whose key is absent from the
+ * shape it sees and so would permanently discard a student's "skip this line"
+ * choice on a line the finished shape still contains.
+ *
+ * "In flight" is `update_in_progress_at` set AND newer than
+ * `UPDATE_FLAG_STALE_MS` ago. Both halves of that live HERE, in one place, and
+ * `UPDATE_FLAG_STALE_MS` itself is imported from `./repertoire-update` rather
+ * than re-declared, because two sides deciding "stale" differently is how a
+ * repertoire wedges (or gets acted on mid-apply, which is worse). The flag is a
+ * TIMESTAMP rather than a boolean precisely so a crashed apply goes stale and
+ * lets the declining readers resume, instead of wedging the repertoire forever
+ * behind a flag nobody will ever clear.
+ *
+ * Takes the raw column value, which is null when no apply has ever run. A
+ * caller reading it off a select that FORGOT the column gets undefined, so
+ * callers coalesce to null at the call site rather than widening the parameter
+ * here — an absent column reading as "not in flight" is a select bug to fix,
+ * not a case to normalise away.
+ */
+export function isApplyInFlight(updateInProgressAt: string | null): boolean {
+	if (updateInProgressAt === null) return false;
+	return Date.parse(updateInProgressAt) > Date.now() - UPDATE_FLAG_STALE_MS;
+}
+
+/**
  * Whether this student's progress has to be reconciled against the
  * repertoire's current shape before anything is read from it.
  *
@@ -44,29 +80,16 @@ export type ReconciliationFreshness = {
  *    `reconcilePlayerProgress`), so `>=` is the freshness test and only `<`
  *    means work to do.
  *
- * 2. No apply is in flight. The apply is NOT one transaction and cannot be:
- *    the move upsert chunks around PostgREST's URL-length and `max_rows`
- *    limits, so it runs in its own transaction BEFORE
- *    `apply_repertoire_update` — and migration 0055's trigger bumps
- *    `moves_updated_at` at the START of that window, while the new moves are
- *    live but the pruned ones are not yet retired. A student reconciling
- *    inside the window would therefore work against a HALF-APPLIED shape, and
- *    reconciliation is destructive in a way that does not self-heal: the
- *    counts would recover on the next reconcile, but a `variation_solved` row
- *    deleted on a phantom `diverged` classification does not come back, and
- *    the demotion log keeps a spurious `coach_update` row forever.
- *
- * "In flight" is `update_in_progress_at` set AND newer than
- * `UPDATE_FLAG_STALE_MS` ago — imported from `./repertoire-update` rather than
- * re-declared here, because the two sides deciding "stale" differently is how
- * a repertoire wedges (or reconciles against a half-applied shape, which is
- * worse). The flag is a TIMESTAMP rather than a boolean precisely so a crashed
- * apply goes stale and lets reconciliation resume, instead of wedging the
- * repertoire forever behind a flag nobody will ever clear.
+ * 2. No apply is in flight — see `isApplyInFlight`, which owns that window so
+ *    this function and the exclusion prune in `./repertoire-progress.ts` cannot
+ *    drift apart on what "in flight" means. Reconciliation is destructive in a
+ *    way that does not self-heal inside it: the counts would recover on the
+ *    next reconcile, but a `variation_solved` row deleted on a phantom
+ *    `diverged` classification does not come back, and the demotion log keeps
+ *    a spurious `coach_update` row forever.
  */
 export function needsReconciliation(repertoire: ReconciliationFreshness): boolean {
-	const inProgress = repertoire.update_in_progress_at;
-	if (inProgress !== null && Date.parse(inProgress) > Date.now() - UPDATE_FLAG_STALE_MS) return false;
+	if (isApplyInFlight(repertoire.update_in_progress_at)) return false;
 	if (repertoire.reconciled_at === null) return true;
 	return Date.parse(repertoire.reconciled_at) < Date.parse(repertoire.moves_updated_at);
 }

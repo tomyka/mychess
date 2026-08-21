@@ -450,9 +450,30 @@ describe('loadRepertoireProgressSummaries', () => {
 		expect(calls.stamped).toEqual([]);
 		expect(summary.id).toBe('r1');
 		expect(summary.total).toBe(10);
-		// Known and accepted: `solved` comes from the read taken BEFORE
-		// reconciliation, so the demotion above shows up on the NEXT load. The
-		// count is transiently one too high, never too low, and self-corrects.
+		// The demoted badge is gone from the count on THIS load. `solved` is read
+		// before reconciliation runs, so it is RE-READ for any repertoire that
+		// actually reconciled — otherwise this reported 1 here and 0 on the next
+		// load, for no reason the student could see.
+		expect(summary.solved).toBe(0);
+	});
+
+	it('reports the post-reconciliation solved count on the load that reconciles', async () => {
+		// Two learned lines, one of which the coach extended out from under the
+		// student: 'm1>m2' is demoted, 'm1>m3' survives. The pre-reconcile read says
+		// 2, the truth after reconciliation is 1 — and a count that reads 2 now and
+		// 1 on the next page load is exactly the unexplained drop this whole feature
+		// exists to avoid. Asserting 1 (not 0) also keeps a re-read that returned
+		// nothing at all from passing this test.
+		const { client, calls } = fakeSupabase({
+			repertoire: cachedRepertoire,
+			moves: EXTENDED_MOVES,
+			solved: ['m1>m2', 'm1>m3'],
+			reconciledAt: null
+		});
+
+		const [summary] = await loadRepertoireProgressSummaries(client, USER);
+
+		expect(calls.solvedDeletes).toEqual(['m1>m2']);
 		expect(summary.solved).toBe(1);
 	});
 
@@ -478,6 +499,43 @@ describe('loadRepertoireProgressSummaries', () => {
 		// The student sees the pre-existing cached numbers, unchanged — the load is
 		// a normal one, it just leaves the catching-up to a later one.
 		expect(summary.total).toBe(10);
+	});
+
+	it('does not prune exclusions against a half-applied shape', async () => {
+		// The prune's own half of the in-flight guard (`isApplyInFlight`), which is
+		// NOT covered by the reconciliation tests above: this student is already
+		// caught up (the default `reconciledAt`), so reconciliation has nothing to
+		// decline — only the prune is in play. 0055's trigger bumped
+		// `moves_updated_at` when the apply STARTED, so these rows read as
+		// unverified, and the shape visible right now is half-applied: 'm1>gone' is
+		// absent from it. Enumerate and the row is deleted by id, permanently, even
+		// though the finished shape may well contain that line.
+		const { client, calls, exclusions } = fakeSupabase({
+			repertoire: {
+				...cachedRepertoire,
+				total_variations: 2,
+				update_in_progress_at: new Date(Date.now() - 60_000).toISOString()
+			},
+			exclusions: [{ id: 'x1', repertoire_id: 'r1', variation_key: 'm1>gone', verified_at: EPOCH }]
+		});
+
+		const [summary] = await loadRepertoireProgressSummaries(client, USER);
+
+		// Not enumerated at all, so nothing was judged stale in the first place.
+		expect(calls.moveFetches).toEqual([]);
+		expect(calls.deletedIds).toEqual([]);
+		// And not stamped either: stamping would claim this row had been checked
+		// against a shape that is still being written, and the next load would then
+		// subtract it without ever checking.
+		expect(calls.stamped).toEqual([]);
+		expect(exclusions).toEqual([{ id: 'x1', repertoire_id: 'r1', variation_key: 'm1>gone', verified_at: EPOCH }]);
+		// The load is still a normal one — the repertoire must not drop out of the
+		// summaries because it was held back. Its total is the UNFILTERED count for
+		// this one load (nothing enumerated it, and the rows are unverified), which
+		// can only overstate what's left to practice; it resolves on the load after
+		// the apply finishes.
+		expect(summary.id).toBe('r1');
+		expect(summary.total).toBe(2);
 	});
 
 	it('reconciles an assigned repertoire once its apply has finished', async () => {

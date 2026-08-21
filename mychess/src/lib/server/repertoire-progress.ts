@@ -8,7 +8,7 @@ import {
 	type ExclusionRow
 } from '$lib/mastery/exclusionFreshness';
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
-import { needsReconciliation, reconcilePlayerProgress } from './repertoire-reconcile';
+import { isApplyInFlight, needsReconciliation, reconcilePlayerProgress } from './repertoire-reconcile';
 
 export type RepertoireProgressSummary = {
 	id: string;
@@ -140,6 +140,28 @@ async function fetchExclusionRowsForRepertoire(
 		EXCLUSION_COLUMNS
 	);
 	return toExclusionRows(byRep.get(repId) ?? []);
+}
+
+/**
+ * ONE repertoire's learned-line keys, read fresh. The mirror of
+ * `fetchExclusionRowsForRepertoire` above and used at the same point, for the
+ * same reason: reconciliation REKEYS and DELETES `variation_solved` rows, so the
+ * copy read at the top of a load describes the shape the student was on BEFORE
+ * it ran.
+ */
+async function fetchSolvedKeysForRepertoire(
+	supabase: SupabaseClient,
+	playerId: string,
+	repId: string
+): Promise<Set<string>> {
+	const byRep = await fetchRowsByRepertoire<{ repertoire_id: string; variation_key: string }>(
+		supabase,
+		'variation_solved',
+		playerId,
+		[repId],
+		'repertoire_id, variation_key'
+	);
+	return new Set((byRep.get(repId) ?? []).map((r) => r.variation_key));
 }
 
 /**
@@ -288,12 +310,13 @@ export async function loadRepertoireProgressSummaries(
 	supabase: SupabaseClient,
 	userId: string
 ): Promise<RepertoireProgressSummary[]> {
-	// `update_in_progress_at` is selected purely for `needsReconciliation`, and
-	// it has to be on BOTH selects: an ASSIGNED repertoire is the main case lazy
-	// reconciliation exists for (a coach reshapes material their students are
-	// working through), and a column missing from the joined select would read as
-	// undefined — which `needsReconciliation` would take as "no apply in flight"
-	// and reconcile against a possibly half-applied shape.
+	// `update_in_progress_at` is selected for the two readers that must decline to
+	// act on a half-applied shape — `needsReconciliation` and the exclusion prune
+	// below, both via `isApplyInFlight` — and it has to be on BOTH selects: an
+	// ASSIGNED repertoire is the main case lazy reconciliation exists for (a coach
+	// reshapes material their students are working through), and a column missing
+	// from the joined select would read as undefined, which both readers would take
+	// as "no apply in flight" and then act against a possibly half-applied shape.
 	const [{ data: ownReps }, { data: assigned }] = await Promise.all([
 		supabase
 			.from('repertoires')
@@ -355,8 +378,26 @@ export async function loadRepertoireProgressSummaries(
 	// Only the freshness verdict is needed here — the count itself is computed
 	// further down, once the lazy `total_variations` backfill below has supplied
 	// a real full count for any repertoire that didn't have one cached yet.
+	//
+	// A repertoire whose apply is IN FLIGHT is held out entirely — neither pruned
+	// nor stamped. `reverifyExclusions` DELETES every row whose key is absent from
+	// the shape it was given, and mid-apply that shape is half-applied: 0055's
+	// trigger has already bumped `moves_updated_at` (so these rows read as
+	// unverified) while the removed moves are not yet retired and the new ones
+	// already are live. Pruning against it destroys "skip this line" choices for
+	// lines the FINISHED shape still contains, and a deleted row does not come
+	// back — there is nothing to mark and nothing to recover. Held out, the
+	// repertoire simply re-verifies on a later load, exactly as it does today when
+	// its exclusions are behind. Only the IN-FLIGHT half of `needsReconciliation`
+	// is shared (via `isApplyInFlight`, which owns that window): the two questions
+	// are otherwise independent, and a repertoire can need pruning without needing
+	// reconciliation or the other way round.
 	const unverifiedIds = (allReps as any[])
-		.filter((r) => !exclusionsAreVerified(exclusionsByRep.get(r.id) ?? [], r.moves_updated_at ?? null))
+		.filter(
+			(r) =>
+				!isApplyInFlight(r.update_in_progress_at ?? null) &&
+				!exclusionsAreVerified(exclusionsByRep.get(r.id) ?? [], r.moves_updated_at ?? null)
+		)
 		.map((r) => r.id);
 
 	// Lazy carry-forward after a coach re-upload (GitHub issue #118): this
@@ -474,6 +515,36 @@ export async function loadRepertoireProgressSummaries(
 		})
 	);
 
+	// `solvedByRep` was filled at the top of this load, BEFORE reconciliation ran,
+	// and reconciliation DELETES `variation_solved` rows for the lines it demotes
+	// (a line the coach reshaped past recognition loses its learned badge). So on
+	// the one load where a repertoire reconciles, the in-memory set still holds
+	// badges that have just been taken away and `summary.solved` comes out one too
+	// high per demoted line — a learned count that is right now and DROPS on the
+	// next page load, which is precisely the unexplained progress change this
+	// feature exists to replace with an explained one. Re-read for the reconciled
+	// repertoires only, the same way (and for the same reason) their exclusion rows
+	// are re-read below: reconciliation runs once per shape change per player, so
+	// this read is rare, and a re-read is the version of it that cannot be subtly
+	// wrong. Do not optimise it away.
+	//
+	// Best-effort, and safe to fail: a failed re-read leaves the pre-reconcile set
+	// in place, which is the transiently-one-too-high behaviour this replaces —
+	// never too low, and self-correcting on the next load — rather than a page that
+	// fails to render.
+	await Promise.all(
+		[...reconciledIds].map(async (repId) => {
+			try {
+				solvedByRep.set(repId, await fetchSolvedKeysForRepertoire(supabase, userId, repId));
+			} catch (err) {
+				console.error(
+					`Failed to re-read solved rows after reconciling repertoire ${repId}:`,
+					err instanceof Error ? err.message : err
+				);
+			}
+		})
+	);
+
 	// Freshly enumerated repertoires: their exclusion rows can be reconciled
 	// against the live key set now, so the next load for this player takes the
 	// subtraction path instead of fetching every move again. Keyed by repertoire
@@ -556,11 +627,16 @@ export async function loadRepertoireProgressSummaries(
 		const rows = exclusionsByRep.get(r.id) ?? [];
 		const enumerated = liveExcludedByRep.get(r.id);
 		const excluded = enumerated ?? new Set(rows.map((row) => row.variationKey));
-		// `?? fullVariationCount` is unreachable defence: a null total means the
-		// rows weren't verified, and every unverified repertoire was enumerated
-		// above, so `enumerated` would have won. If that ever stops holding, an
-		// unfiltered count is the safe wrong answer — it can only overstate what's
-		// left to practice, never hide lines by reporting fewer.
+		// `?? fullVariationCount` is reached by exactly one case: a repertoire whose
+		// exclusions read as unverified but which was held out of `unverifiedIds`
+		// because its apply is in flight, so nothing enumerated it. For that one
+		// load the unfiltered count is the deliberate answer — it can only overstate
+		// what's left to practice, never hide lines by reporting fewer, and the
+		// alternative is subtracting rows whose keys nothing has checked against a
+		// shape that is still being written. It resolves itself on the load after
+		// the apply finishes. Otherwise a null total means the rows weren't
+		// verified, and every unverified repertoire was enumerated above, so
+		// `enumerated` would have won.
 		const cachedTotal = exclusionShape({ fullVariationCount, rows, movesUpdatedAt: r.moves_updated_at ?? null }).total;
 		const total = enumerated
 			? (variationsByRep.get(r.id) ?? []).length - excluded.size
