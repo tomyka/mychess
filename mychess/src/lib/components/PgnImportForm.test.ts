@@ -36,6 +36,13 @@ describe('PgnImportForm', () => {
 		expect(screen.getByRole('button', { name: '…or import from Google Drive' })).toBeTruthy();
 	});
 
+	it('renders the Google Drive logo in grayscale, not its native colors', () => {
+		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
+		const button = screen.getByRole('button', { name: '…or import from Google Drive' });
+		const svg = button.querySelector('svg');
+		expect(svg?.getAttribute('class')).toContain('grayscale');
+	});
+
 	it('populates the form from a picked Google Drive file', async () => {
 		vi.mocked(pickPgnFromGoogleDrive).mockResolvedValue({ name: 'My Line.pgn', text: '1. e4 e5 *' });
 		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });

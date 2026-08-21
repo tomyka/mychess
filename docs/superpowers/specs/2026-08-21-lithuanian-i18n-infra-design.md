@@ -1,7 +1,7 @@
 # Lithuanian language support — i18n infrastructure (Epic 1 of 2)
 
 **Date:** 2026-08-21
-**Status:** approved, ready to plan
+**Status:** implemented (Epic 1 shipped on `worktree-lithuanian-i18n-infra`; corrections below reflect what was actually built, found during task-by-task and final whole-branch review)
 
 ## Problem
 
@@ -52,10 +52,10 @@ Resolution order, computed once per request in `src/hooks.server.ts`:
 2. Otherwise → `locale` cookie, if present and valid (`'en' | 'lt'`).
 3. Otherwise → `'en'`.
 
-The resolved locale is attached to `event.locals` and used to set Paraglide's active locale for that request's render (SSR), so there's no client-side flash of the wrong language.
+The resolved locale is used to set Paraglide's active locale for that request's render (SSR), so there's no client-side flash of the wrong language. **Correction from implementation:** the precedence above isn't a hand-rolled function attached to `event.locals` — it's expressed declaratively as Paraglide's own `strategy` array (`['custom-profileLocale', 'cookie', 'baseLocale']` in `vite.config.ts`), with `custom-profileLocale` registered via `defineCustomServerStrategy` in `hooks.server.ts`, reading the already-memoized `profile.locale` from `safeGetSession()` (no extra DB round trip). This reuses Paraglide's own strategy-resolution machinery instead of duplicating it, and is the reason there's no standalone "resolution precedence" function to unit-test (see Testing, below).
 
 **Switching language:** a small POST action (e.g. `src/routes/api/locale/+server.ts` or a form action on a shared component) that:
-- Sets the `locale` cookie (`SameSite=Lax`, long-lived, `httpOnly: false` isn't needed since it's read server-side — use `httpOnly: true`).
+- Sets the `locale` cookie (`SameSite=Lax`, long-lived). **Correction from implementation (Task 4 review):** this must be `httpOnly: false`, not `true` — Paraglide's own client-side `setLocale()` writes this cookie directly via `document.cookie`, so client JS needs read/write access to it. Not a security concern; a locale preference isn't sensitive.
 - If signed in, also updates `profiles.locale` in the same request.
 - Triggers a full navigation/reload so the next SSR render picks up the new locale immediately, rather than relying on client-side reactivity to swap every visible string.
 
@@ -75,15 +75,17 @@ Per this repo's migration workflow, Claude writes the file; the user applies it 
 In `src/lib/components/NavBar.svelte`:
 
 - A small text button showing the current locale (`EN` / `LT`), opening a 2-item dropdown (`English` / `Lietuviškai`) — same open/close/overlay interaction pattern already used for the user menu (`userMenuOpen` state, `fixed inset-0` close-overlay).
-- **Placement:** immediately to the left of the user-menu button when signed in; immediately to the left of the "Sign in" CTA when signed out. Present in both the desktop bar and the mobile menu.
+- **Placement:** immediately to the left of the user-menu button when signed in; immediately to the left of the "Sign in" CTA when signed out. **Correction from implementation:** rather than a separate copy inside the collapsible mobile hamburger menu, a single `<LanguageSwitcher />` sits in the top bar's always-visible "Right side" flex container (not gated by `hidden md:block` the way the user-menu dropdown is) — one instance satisfies "visible at every width" without duplication, confirmed via Playwright screenshots at both desktop and mobile viewports.
 - Selecting a language posts to the switch action described above.
 
 ## Testing
 
-- Unit test for the locale-resolution precedence function (pure logic, colocated `*.test.ts`, following the repo's pure-logic-in-`lib` convention).
-- Component test for the switcher's open/close/select behavior, `jsdom` pragma per existing convention.
-- Manual verification: switch language signed-out (cookie persists across reload) and signed-in (DB column updates, persists across a fresh session/browser); confirm switcher renders correctly for both coach and player nav variants, desktop and mobile.
+- Unit test for `isSupportedLocale` (pure logic, colocated `*.test.ts`, following the repo's pure-logic-in-`lib` convention). **Correction from implementation:** there's no separate "resolution precedence" function to test beyond this — precedence is Paraglide's own declarative `strategy` array (see Architecture §2), which is Paraglide's tested code, not this app's; the one piece of actual app logic in the resolution path (`isSupportedLocale`) has its test.
+- Component test for the switcher's open/close/select behavior, `jsdom` pragma per existing convention. Also covers the POST-failure fallback path (added after code review flagged that a failed persist can cause a silent revert for signed-in users on reload — see Follow-on).
+- Manual verification: done via real Playwright screenshots (desktop + mobile, signed-in + signed-out) plus a zero-cookie fresh-session check confirming the DB-backed strategy resolves correctly on first load — not just eyeballed.
 
 ## Follow-on
 
 Epic 2 (content translation) gets its own brainstorm/spec cycle once this ships, and will need to separately resolve: translation source/quality process (machine vs. reviewed), which of the ~29 route files and ~19 shared components get swept and in what order, and — flagged during discussion — that the ECO opening dataset (`src/lib/openings/eco-data.ts`) has on the order of several thousand entries; not all of them have an established Lithuanian name to source online, so Epic 2's spec needs to decide how to handle the long tail (e.g. real Lithuanian names for well-known openings, English fallback for obscure ones) rather than fabricating translations for entries with no real-world Lithuanian usage.
+
+**Known accepted gap (tracked separately, not blocking Epic 1):** because `custom-profileLocale` outranks the cookie for signed-in users, a failed `POST /api/locale` (network blip, RLS hiccup) means the client-side `setLocale()` call still reloads the page, but the reload resolves locale from the unchanged DB value — silently reverting the switch with no indication to the user why. This is now logged server-side (`console.error`) instead of swallowed, and the fallback path has a test, but there's no user-facing feedback. See the tracking issue for a fast-follow (e.g. a toast on POST failure).

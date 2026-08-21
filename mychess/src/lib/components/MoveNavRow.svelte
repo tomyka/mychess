@@ -23,7 +23,8 @@
 		onstart,
 		onback,
 		onforward,
-		onlive
+		onlive,
+		onExplore
 	}: {
 		reviewIdx: number;
 		totalPlies: number;
@@ -38,6 +39,10 @@
 		onback: () => void;
 		onforward: () => void;
 		onlive: () => void;
+		// Adds a 6th "explore this position" button when provided. Omitted by
+		// Learn and Practice (they have their own below-row explore trigger),
+		// so the row renders exactly as it always has for them.
+		onExplore?: () => void;
 	} = $props();
 
 	const buttonClass =
@@ -45,7 +50,7 @@
 </script>
 
 <div
-	class="grid grid-cols-5 gap-2 mt-4 shrink-0 mx-auto w-full items-center"
+	class="grid {onExplore ? 'grid-cols-6' : 'grid-cols-5'} gap-2 mt-4 shrink-0 mx-auto w-full items-center"
 	style={boardWidth ? `max-width: ${boardWidth}px` : ''}
 >
 	<button onclick={onstart} disabled={reviewIdx <= 0} aria-label="Jump to start" class={buttonClass}>
@@ -73,4 +78,23 @@
 			<path d="M5.5 4l6 6-6 6V4z" />
 		</svg>
 	</button>
+	{#if onExplore}
+		<button onclick={onExplore} aria-label="Explore this position" class={buttonClass}>
+			<svg
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.8"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				class="w-4 h-4 mx-auto"
+				aria-hidden="true"
+			>
+				<circle cx="10.5" cy="10.5" r="6.5" />
+				<line x1="10.5" y1="7.5" x2="10.5" y2="13.5" />
+				<line x1="7.5" y1="10.5" x2="13.5" y2="10.5" />
+				<line x1="15.3" y1="15.3" x2="20" y2="20" />
+			</svg>
+		</button>
+	{/if}
 </div>

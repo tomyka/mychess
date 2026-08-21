@@ -1,4 +1,5 @@
 import { sveltekit } from '@sveltejs/kit/vite';
+import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
@@ -7,6 +8,12 @@ export default defineConfig({
 	plugins: [
 		tailwindcss(),
 		sveltekit(),
+		paraglideVitePlugin({
+			project: './project.inlang',
+			outdir: './src/lib/paraglide',
+			cookieName: 'PARAGLIDE_LOCALE',
+			strategy: ['custom-profileLocale', 'cookie', 'baseLocale']
+		}),
 		SvelteKitPWA({
 			registerType: 'autoUpdate',
 			workbox: {
@@ -68,6 +75,15 @@ export default defineConfig({
 		// (Vitest 4 removed the `environmentMatchGlobs` option that used to be
 		// used here for path-based environment switching.)
 		environment: 'node',
+		// A module-level `vi.mock(...)` factory built from plain `vi.fn()`s (as
+		// opposed to `vi.spyOn` on a real object) has no "original" for
+		// `vi.restoreAllMocks()` to restore to, so a test file's own
+		// `afterEach(() => vi.restoreAllMocks())` leaves call history (mock.calls)
+		// accumulating across tests in the same file even though it looks like
+		// per-test isolation. `clearMocks` runs `vi.clearAllMocks()` before every
+		// test, which does reset call/result history — closing that gap without
+		// touching each test file's own cleanup.
+		clearMocks: true,
 		setupFiles: ['./src/test-setup.ts'],
 		alias: {
 			$lib: '/src/lib'
