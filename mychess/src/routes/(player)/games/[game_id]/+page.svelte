@@ -135,6 +135,7 @@
 		if (c === 'blunder') return '??';
 		if (c === 'mistake') return '?';
 		if (c === 'inaccuracy') return '?!';
+		if (c === 'best') return '!';
 		return '';
 	}
 
@@ -142,6 +143,7 @@
 		if (c === 'blunder') return 'text-red-600 dark:text-red-400';
 		if (c === 'mistake') return 'text-orange-600 dark:text-orange-400';
 		if (c === 'inaccuracy') return 'text-yellow-600 dark:text-yellow-400';
+		if (c === 'best') return 'text-green-600 dark:text-green-400';
 		return 'text-(--color-muted)';
 	}
 </script>

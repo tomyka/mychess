@@ -37,11 +37,17 @@ export function buildAnalysis(moves: GameMove[], results: PositionAnalysis[]): A
 		const before = results[i];
 		const after = results[i + 1];
 		const loss = cpLoss(before.score, after.score);
+		const bestMoveSan = sanFromUci(move.parentFen, before.bestMoveUci);
+		// A real best move always has zero loss, so classifyMove's own verdict
+		// (never null for a genuine loss) always wins over this — 'best' only
+		// ever fills in for an otherwise-unflagged move that also happens to
+		// match the engine's own top choice exactly, not just any zero-loss tie.
+		const isBest = bestMoveSan !== '' && bestMoveSan === move.san;
 		return {
 			ply: move.ply,
 			score: toWhiteRelative(after.score, sideToMoveFromFen(move.fen)),
-			bestMoveSan: sanFromUci(move.parentFen, before.bestMoveUci),
-			classification: classifyMove(loss)
+			bestMoveSan,
+			classification: classifyMove(loss) ?? (isBest ? 'best' : null)
 		};
 	});
 }

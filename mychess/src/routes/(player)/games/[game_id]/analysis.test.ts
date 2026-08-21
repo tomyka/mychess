@@ -74,6 +74,19 @@ describe('analysis board page', () => {
 		expect(screen.queryByText(/Blunder|Mistake|Inaccuracy/)).toBeNull();
 	});
 
+	it('marks a move that matches the engine\'s exact top choice as a good move', () => {
+		const bestMoveGame = {
+			...threeMoveGame,
+			analysis: [
+				{ ply: 1, score: { cp: 30 }, bestMoveSan: 'e4', classification: 'best' },
+				{ ply: 2, score: { cp: 25 }, bestMoveSan: 'e5', classification: null },
+				{ ply: 3, score: { cp: 20 }, bestMoveSan: 'Nf3', classification: null }
+			]
+		};
+		render(GamePage, { props: { data: { game: bestMoveGame, boardPrefs: undefined } } });
+		expect(screen.getByRole('button', { name: 'e4!' })).toBeTruthy();
+	});
+
 	it('shows the classification sign in the reviewed-move eval line too', async () => {
 		const flaggedGame = {
 			...threeMoveGame,
