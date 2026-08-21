@@ -1,0 +1,26 @@
+{
+	// The generated `.svelte-kit/tsconfig.json` include list covers src/, test/ and
+	// tests/ — but NOT scripts/, so `npm run check` type-checked none of the
+	// one-off jobs. That is how a `ReferenceError: skipped is not defined` reached
+	// a real run of `positions:eval` with both check and lint reporting clean.
+	//
+	// A separate config rather than an `include` override in tsconfig.json:
+	// overriding include there replaces SvelteKit's generated list, which then
+	// silently drifts every time the framework changes it.
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"types": ["node"],
+		// Without this, a script with no imports (anon-audit.ts) is treated as a
+		// global script rather than a module, and its top-level `const url` collides
+		// with every other script's.
+		"moduleDetection": "force",
+		"module": "esnext",
+		"target": "es2022"
+	},
+	// Just the scripts: whatever they import is pulled in and checked
+	// transitively. Listing src/lib/**/*.ts as well dragged in SvelteKit-only
+	// modules ($env/dynamic/public, the app.d.ts `Locals` augmentation) whose
+	// types live in the generated ambient files that this include list replaces.
+	"include": ["scripts/**/*.ts", ".svelte-kit/ambient.d.ts"]
+}

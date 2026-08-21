@@ -85,7 +85,7 @@ async function main() {
 			);
 			if (error) throw error;
 			if (!pending || pending.length === 0) break;
-			const before = evaluated + skipped;
+			const before = evaluated;
 			const results: Record<string, unknown>[] = [];
 
 			for (const row of pending) {
