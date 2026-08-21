@@ -48,35 +48,81 @@ export function commonPrefixLength(a: string[], b: string[]): number {
 
 export function classifyVariations(existing: ExistingLine[], incoming: IncomingLine[]): VariationDiff[] {
 	const diffs: VariationDiff[] = [];
+	const claimed = new Set<string>();
 
+	/**
+	 * The longest prefix this incoming line shares with ANY existing line,
+	 * claimed or not. Inheritance is about what the student already knows, not
+	 * about which line owns which ancestor — a new sibling branching off a line
+	 * the student has learned starts at that depth even though the parent line
+	 * is already claimed by its own unchanged self.
+	 */
+	const inheritedPlies = (inc: IncomingLine): number =>
+		existing.reduce((max, ex) => Math.max(max, commonPrefixLength(ex.sans, inc.sans)), 0);
+
+	// Pass 1: exact matches claim their existing line before anything else.
+	// Without this ordering a near-match could steal the line that another
+	// incoming line reproduces exactly, and an untouched line would be reported
+	// as diverged — demoting students who had learned it.
+	const byExactPath = new Map<string, ExistingLine>();
+	for (const ex of existing) byExactPath.set(ex.sans.join('>'), ex);
+
+	const pending: IncomingLine[] = [];
 	for (const inc of incoming) {
-		// The existing line this one most plausibly descends from: longest
-		// shared prefix wins, and among equals the shorter existing line, so a
-		// line that is a clean prefix of the upload reads as extended rather
-		// than as an arbitrary sibling.
+		const exact = byExactPath.get(inc.sans.join('>'));
+		if (exact && !claimed.has(exact.variationKey)) {
+			claimed.add(exact.variationKey);
+			diffs.push({
+				kind: 'unchanged',
+				existingKey: exact.variationKey,
+				sans: inc.sans,
+				commonPlies: inc.sans.length
+			});
+		} else {
+			pending.push(inc);
+		}
+	}
+
+	// Pass 2: each remaining line takes the closest UNCLAIMED existing line.
+	// Processed best-match-first (ties on input order, for determinism) so the
+	// line that most resembles an ancestor wins it, rather than whichever
+	// happened to be listed first.
+	const ordered = pending
+		.map((inc, index) => ({ inc, index, shared: inheritedPlies(inc) }))
+		.sort((a, b) => b.shared - a.shared || a.index - b.index);
+
+	for (const { inc } of ordered) {
 		let best: { line: ExistingLine; shared: number } | null = null;
 		for (const ex of existing) {
+			if (claimed.has(ex.variationKey)) continue;
 			const shared = commonPrefixLength(ex.sans, inc.sans);
+			if (shared === 0) continue;
+			// Among equal prefixes the SHORTER existing line wins, so a line that
+			// is a clean prefix of the upload reads as extended rather than as an
+			// arbitrary sibling.
 			if (!best || shared > best.shared || (shared === best.shared && ex.sans.length < best.line.sans.length)) {
 				best = { line: ex, shared };
 			}
 		}
 
-		if (!best || best.shared === 0) {
-			diffs.push({ kind: 'new', existingKey: null, sans: inc.sans, commonPlies: 0 });
+		if (!best) {
+			diffs.push({ kind: 'new', existingKey: null, sans: inc.sans, commonPlies: inheritedPlies(inc) });
 			continue;
 		}
 
-		const ex = best.line;
-		if (best.shared === ex.sans.length && best.shared === inc.sans.length) {
-			diffs.push({ kind: 'unchanged', existingKey: ex.variationKey, sans: inc.sans, commonPlies: best.shared });
-		} else if (best.shared === ex.sans.length) {
-			diffs.push({ kind: 'extended', existingKey: ex.variationKey, sans: inc.sans, commonPlies: best.shared });
-		} else if (best.shared === inc.sans.length) {
-			diffs.push({ kind: 'truncated', existingKey: ex.variationKey, sans: inc.sans, commonPlies: best.shared });
-		} else {
-			diffs.push({ kind: 'diverged', existingKey: ex.variationKey, sans: inc.sans, commonPlies: best.shared });
-		}
+		claimed.add(best.line.variationKey);
+		// `unchanged` is unreachable here: an identical path was claimed in pass 1.
+		const kind: DiffKind =
+			best.shared === best.line.sans.length ? 'extended' : best.shared === inc.sans.length ? 'truncated' : 'diverged';
+		diffs.push({ kind, existingKey: best.line.variationKey, sans: inc.sans, commonPlies: best.shared });
+	}
+
+	// Whatever no incoming line claimed is gone from the upload. `claimed` is
+	// what keeps an extended line from ALSO being reported as removed: its
+	// `extended` entry claimed the old shorter line already.
+	for (const ex of existing) {
+		if (claimed.has(ex.variationKey)) continue;
+		diffs.push({ kind: 'removed', existingKey: ex.variationKey, sans: null, commonPlies: 0 });
 	}
 
 	return diffs;
