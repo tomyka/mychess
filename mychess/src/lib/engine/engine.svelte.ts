@@ -52,7 +52,12 @@ export const engineState = $state<{
  */
 export const engineEnabled = $state<{ on: boolean }>({ on: false });
 
-/** Switches the engine on or off; off stops the worker rather than just hiding it. */
+/**
+ * Switches the engine on or off; off stops the worker rather than just hiding it.
+ *
+ * Always switch off through here. Writing `engineEnabled.on = false` directly
+ * skips the teardown and leaves a worker searching for a bar nobody can see.
+ */
 export function setEngineEnabled(on: boolean) {
 	engineEnabled.on = on;
 	if (!on) teardownEngine();
