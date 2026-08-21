@@ -84,11 +84,17 @@ export async function loadRepertoireReport(
 	// would have quietly blanked hotspot labels on exactly the biggest
 	// repertoires. Bounded at HOTSPOT_LIMIT ids, that can no longer happen.
 	const rankedMoveIds = rankMistakeHotspots(rows, HOTSPOT_LIMIT).map((h) => h.moveId);
-	// Retired moves (a coach's re-upload removed the line; the row survives only
-	// so restoring the line restores its history) are excluded here too — a
-	// retired move id shouldn't resurface as a labeled hotspot to keep drilling.
+	// Deliberately does NOT filter `retired_at`. This is a LABEL lookup for ids
+	// that `rankMistakeHotspots` already selected, so filtering here cannot
+	// exclude a retired move from the report — it has consumed its hotspot slot
+	// already and would simply come back unlabeled. Excluding retired lines
+	// would have to happen before ranking, on `rows`.
+	//
+	// It also shouldn't: this report is a record of where a student actually
+	// struggled, and a coach who reworks a line has not changed what happened
+	// before they did.
 	const { data: moveRows } = rankedMoveIds.length
-		? await supabase.from('moves').select('id, san, move_number').in('id', rankedMoveIds).is('retired_at', null)
+		? await supabase.from('moves').select('id, san, move_number').in('id', rankedMoveIds)
 		: { data: [] as any[] };
 	const labels = new Map((moveRows ?? []).map((m: any) => [m.id as string, { san: m.san as string, moveNumber: m.move_number as number }]));
 

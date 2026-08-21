@@ -23,15 +23,19 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'Invalid request');
 	}
 
-	// Retired moves (a coach's re-upload removed the line; the row survives only
-	// so restoring the line restores its review/attempt history) can't be
-	// logged against going forward — they aren't offered for practice anymore.
+	// Deliberately does NOT filter `retired_at`. This check's invariant is
+	// narrow — "does this move id belong to this repertoire" — and a retired
+	// move still does. Filtering it here would 404 every move a student logs
+	// while finishing a session that was already in flight when their coach
+	// re-uploaded the repertoire, and a session in flight is meant to complete
+	// against the material it loaded (see the re-upload design doc). The log is
+	// additive history, so recording an attempt against a line that has since
+	// been retired is a true statement about what happened.
 	const { data: move } = await supabase
 		.from('moves')
 		.select('id')
 		.eq('id', moveId)
 		.eq('repertoire_id', repertoireId)
-		.is('retired_at', null)
 		.maybeSingle();
 	if (!move) throw error(404, 'Move not found');
 
