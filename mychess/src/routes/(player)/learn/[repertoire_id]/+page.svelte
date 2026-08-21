@@ -13,6 +13,8 @@
 	import { logMove } from '$lib/moveLog';
 	import { ExploreSession } from '$lib/mastery/explore.svelte';
 	import EvalBar from '$lib/components/EvalBar.svelte';
+	import EngineToggle from '$lib/components/EngineToggle.svelte';
+	import { engineEnabled } from '$lib/engine/engine.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
 	import PracticeStatusStrip, { type PracticeStripState } from '$lib/components/PracticeStatusStrip.svelte';
 
@@ -554,12 +556,20 @@
 				<div
 					class="flex items-start justify-center gap-2 lg:flex-1 lg:min-h-0 lg:[container-type:size]"
 				>
-					<EvalBar
-						fen={displayFen}
-						bookEval={data.evals?.[displayFen] ?? null}
-						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
-						height={boardWidth}
-					/>
+					<!-- Analysis belongs to explore mode, and only once asked for. The
+					     empty slot holds the bar's place for as long as the excursion
+					     lasts, so switching the engine on fills a waiting gap instead of
+					     shoving the board sideways mid-analysis. -->
+					{#if explore.active && engineEnabled.on}
+						<EvalBar
+							fen={displayFen}
+							bookEval={data.evals?.[displayFen] ?? null}
+							orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
+							height={boardWidth}
+						/>
+					{:else if explore.active}
+						<div class="w-8 shrink-0" aria-hidden="true"></div>
+					{/if}
 					<ChessBoard
 						fen={displayFen}
 						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
@@ -576,9 +586,9 @@
 				{#if explore.active}
 					<!-- The review nav would be lying here (it counts drill plies, and
 					     none of these moves are drill plies), so the excursion's own
-					     two controls take its place for as long as it lasts. -->
+					     controls take its place for as long as it lasts. -->
 					<div
-						class="grid grid-cols-2 gap-2 mt-4 shrink-0 mx-auto w-full"
+						class="grid grid-cols-3 gap-2 mt-4 shrink-0 mx-auto w-full"
 						style={boardWidth ? `max-width: ${boardWidth}px` : ''}
 					>
 						<button
@@ -588,6 +598,7 @@
 						>
 							↶ Undo
 						</button>
+						<EngineToggle />
 						<button
 							onclick={stopExplore}
 							class="py-2 rounded-xl border border-amber-300 bg-amber-50 text-sm font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"

@@ -33,6 +33,7 @@ vi.mock('chessground', () => ({
 }));
 
 import Practice from './+page.svelte';
+import { engineEnabled } from '$lib/engine/engine.svelte';
 
 /** Plays a move on the board currently rendered, as chessground would report it. */
 function playMove(from: string, to: string) {
@@ -47,6 +48,7 @@ afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
 	vi.useRealTimers();
+	engineEnabled.on = false;
 });
 
 // Long enough to clear AUTO_PLAY_ATTEMPT's 2-ply autoplay intro at the page's
@@ -663,35 +665,47 @@ describe('learn detail page', () => {
 		expect(screen.getByText('1 mistake this attempt')).toBeTruthy();
 	});
 
-	// The engine has no toggle any more (it is always on), and jsdom has no
-	// Worker at all — so what matters here is that the page still renders and the
-	// eval bar is present and honest about having nothing to show.
-	it('renders the eval bar, and survives the engine being unavailable (no Worker in jsdom)', () => {
-		render(Practice, {
-			props: {
-				data: {
-					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
-					solved: 3,
-					total: 5,
-					allSolved: false,
-					attempt: {
-						variationKey: 'v1',
-						path: [
-							{
-								moveId: 'm1',
-								san: 'e4',
-								fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-								toFen: 'rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/8/RNBQKBNR w KQkq - 0 1',
-								isPlayerTurn: true
-							}
-						]
-					}
-				}
-			}
-		});
+	// The engine is no longer part of drilling at all: Learn repeats a line, and
+	// an evaluation on screen invites judging the position instead of recalling
+	// the move. There is no bar, and nothing downloads an engine.
+	it('shows no eval bar while drilling', async () => {
+		vi.useFakeTimers();
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
+
+		expect(screen.queryByRole('img', { name: /Engine evaluation/i })).toBeNull();
+		expect(screen.queryByRole('button', { name: /engine/i })).toBeNull();
+	});
+
+	// Explore is where analysis belongs — but the toggle starts off, so the bar
+	// (and the ~5.5MB download behind it) waits to be asked for.
+	it('offers the engine in explore mode, switched off, with no bar yet', async () => {
+		vi.useFakeTimers();
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
+		await fireEvent.click(screen.getByText(/Explore this position/i));
+
+		const toggle = screen.getByRole('button', { name: /engine/i });
+		expect(toggle.getAttribute('aria-pressed')).toBe('false');
+		expect(screen.queryByRole('img', { name: /Engine evaluation/i })).toBeNull();
+	});
+
+	// Pressed, the bar appears. jsdom has no Worker, so the engine can only
+	// fail — which is exactly what the bar must survive: it says so and stays.
+	// Pressed again it unmounts, which is what keeps the flag and the worker in
+	// lockstep (EvalBar tears the worker down as its last instance unmounts).
+	it('shows the bar once the engine is switched on, and drops it when switched off', async () => {
+		vi.useFakeTimers();
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
+		await fireEvent.click(screen.getByText(/Explore this position/i));
+		await fireEvent.click(screen.getByRole('button', { name: /engine/i }));
+
 		const bar = screen.getByRole('img', { name: /Engine evaluation/i });
 		expect(bar.getAttribute('aria-label')).toBe('Engine evaluation unavailable');
-		expect(screen.queryByRole('switch', { name: 'Toggle engine evaluation' })).toBeNull();
-		expect(screen.getAllByText('French Defense').length).toBe(1);
+		expect(screen.getByRole('button', { name: /engine/i }).getAttribute('aria-pressed')).toBe('true');
+
+		await fireEvent.click(screen.getByRole('button', { name: /engine/i }));
+		expect(screen.queryByRole('img', { name: /Engine evaluation/i })).toBeNull();
 	});
 });
