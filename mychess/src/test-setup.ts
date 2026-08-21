@@ -1,4 +1,10 @@
 // mychess/src/test-setup.ts
+// Extends vitest's `expect` with jest-dom matchers (toHaveTextContent, etc.)
+// for component tests rendered under the jsdom environment. Importing the
+// `/vitest` entrypoint auto-registers the matchers; harmless to load in the
+// node environment too, since nothing there calls a DOM matcher.
+import '@testing-library/jest-dom/vitest';
+
 // jsdom doesn't implement ResizeObserver, which Svelte's `bind:clientWidth`/
 // `bind:clientHeight` actions use internally — any component test that
 // renders one (e.g. ChessBoard, via its `boxWidth` binding) throws
