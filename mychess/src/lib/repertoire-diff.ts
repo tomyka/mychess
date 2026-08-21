@@ -10,6 +10,9 @@
  * can find the progress rows belonging to a matched line.
  */
 
+import { enumerateVariations, moveIdsInVariationKey, type RawMoveRow } from '$lib/mastery/variations';
+import type { MoveRow } from './pgn-import';
+
 /** A line as it exists in the database. `sans` is one entry per ply, root to leaf. */
 export type ExistingLine = {
 	variationKey: string;
@@ -170,4 +173,85 @@ export function detectRenames(absent: ChapterLines[], added: ChapterLines[]): Re
 	}
 
 	return candidates;
+}
+
+/** One parsed chapter of an upload. `name: null` means the upload is untagged. */
+export type IncomingChapter = { name: string | null; moves: MoveRow[] };
+
+/**
+ * The upload's own line set, ready to compare against the repertoire's current
+ * lines.
+ *
+ * Routed through `enumerateVariations` rather than assembled by hand, for the
+ * property that function provides and hand-rolling loses: it walks each
+ * chapter's own edges separately and merges the results BY KEY, so a line two
+ * chapters share becomes ONE line carrying both names, and a line repeated
+ * inside the upload collapses to one entry. Duplicates would otherwise reach
+ * `classifyVariations` and read as spurious extra `new` lines.
+ *
+ * Synthetic ids and `fromPositionId: fromFen` mirror what `writeMoves` already
+ * does to compute a repertoire's shape before any row is written — the FEN IS
+ * the position identity at this stage, since no `positions` row exists yet.
+ */
+export function incomingLinesFromChapters(chapters: IncomingChapter[]): IncomingLine[] {
+	// `chapterNames` is required on this local type (it is optional on
+	// `RawMoveRow`, for the benefit of fixtures that don't care) so the merge
+	// below can push onto it without a non-null assertion.
+	const byEdge = new Map<string, RawMoveRow & { chapterNames: string[] }>();
+
+	for (const chapter of chapters) {
+		for (const move of chapter.moves) {
+			const edge = `${move.fromFen}|${move.san}`;
+			const existing = byEdge.get(edge);
+			if (existing) {
+				// Same edge reached from another chapter (a transposition, or a
+				// duplicated chapter): merge the names rather than keeping whichever
+				// arrived first. `enumerateVariations` scopes its walk per chapter,
+				// and an edge invisible to a chapter's own scope breaks that
+				// chapter's path reconstruction.
+				if (chapter.name && !existing.chapterNames.includes(chapter.name)) {
+					existing.chapterNames.push(chapter.name);
+				}
+				continue;
+			}
+			byEdge.set(edge, {
+				id: String(byEdge.size),
+				fromPositionId: move.fromFen,
+				toPositionId: move.toFen,
+				fromFen: move.fromFen,
+				toFen: move.toFen,
+				san: move.san,
+				isPlayerTurn: move.is_player_turn,
+				chapterNames: chapter.name ? [chapter.name] : []
+			});
+		}
+	}
+
+	return enumerateVariations([...byEdge.values()]).map((v) => ({
+		sans: v.path.map((s) => s.san),
+		chapterNames: v.chapterNames
+	}));
+}
+
+/**
+ * The move ids a `removed` line makes retirable: every ply belonging
+ * EXCLUSIVELY to removed lines. A ply shared with any surviving line is kept —
+ * retiring a shared prefix move would silently break every line running
+ * through it, which is the worst failure this feature could produce.
+ */
+export function moveIdsToRetire(diffs: VariationDiff[]): string[] {
+	const surviving = new Set<string>();
+	for (const d of diffs) {
+		if (d.kind === 'removed' || !d.existingKey) continue;
+		for (const id of moveIdsInVariationKey(d.existingKey)) surviving.add(id);
+	}
+
+	const doomed = new Set<string>();
+	for (const d of diffs) {
+		if (d.kind !== 'removed' || !d.existingKey) continue;
+		for (const id of moveIdsInVariationKey(d.existingKey)) {
+			if (!surviving.has(id)) doomed.add(id);
+		}
+	}
+	return [...doomed];
 }

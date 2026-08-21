@@ -4,8 +4,11 @@ import {
 	type ExistingLine,
 	type IncomingLine,
 	detectRenames,
-	RENAME_THRESHOLD
+	RENAME_THRESHOLD,
+	incomingLinesFromChapters,
+	moveIdsToRetire
 } from './repertoire-diff';
+import type { MoveRow } from './pgn-import';
 
 /** A line as the DB has it: move ids plus the SAN at each ply. */
 function existing(ids: string[], sans: string[]): ExistingLine {
@@ -215,5 +218,137 @@ describe('detectRenames', () => {
 
 	it('uses a threshold of 0.7', () => {
 		expect(RENAME_THRESHOLD).toBe(0.7);
+	});
+});
+
+/**
+ * A chain of moves through the given SANs. FENs are synthetic but structurally
+ * honest: each move's `toFen` is the next move's `fromFen`, which is what makes
+ * the tree walk connect them.
+ */
+function chain(sans: string[], prefix = ''): MoveRow[] {
+	return sans.map((san, i) => ({
+		fromFen: `${prefix}fen${i}`,
+		toFen: `${prefix}fen${i + 1}`,
+		san,
+		move_number: Math.floor(i / 2) + 1,
+		is_player_turn: i % 2 === 0,
+		annotation: null
+	}));
+}
+
+describe('incomingLinesFromChapters', () => {
+	it('turns one untagged chapter into one line with no chapter names', () => {
+		const lines = incomingLinesFromChapters([{ name: null, moves: chain(['e4', 'c5', 'Nf3']) }]);
+		expect(lines).toHaveLength(1);
+		expect(lines[0].sans).toEqual(['e4', 'c5', 'Nf3']);
+		expect(lines[0].chapterNames).toEqual([]);
+	});
+
+	it('tags each line with its own chapter name', () => {
+		const lines = incomingLinesFromChapters([
+			{ name: 'Chapter A', moves: chain(['e4', 'c5'], 'a') },
+			{ name: 'Chapter B', moves: chain(['d4', 'd5'], 'b') }
+		]);
+		expect(lines).toHaveLength(2);
+		expect(lines.map((l) => l.chapterNames)).toEqual([['Chapter A'], ['Chapter B']]);
+	});
+
+	it('collapses a line repeated across two chapters into one carrying both names', () => {
+		// A duplicated chapter must NOT produce two identical lines — the
+		// classifier would read the second as a spurious new line.
+		const shared = chain(['e4', 'c5', 'Nf3']);
+		const lines = incomingLinesFromChapters([
+			{ name: 'Chapter A', moves: shared },
+			{ name: 'Chapter B', moves: shared }
+		]);
+		expect(lines).toHaveLength(1);
+		expect(lines[0].chapterNames.sort()).toEqual(['Chapter A', 'Chapter B']);
+	});
+
+	it('collapses a line repeated within one chapter', () => {
+		const moves = chain(['e4', 'c5', 'Nf3']);
+		const lines = incomingLinesFromChapters([{ name: null, moves: [...moves, ...moves] }]);
+		expect(lines).toHaveLength(1);
+	});
+
+	it('produces one line per branch', () => {
+		// Two replies to the same position: e4 c5 Nf3 and e4 c5 Nc3.
+		const base = chain(['e4', 'c5']);
+		const branchA: MoveRow[] = [
+			{ fromFen: 'fen2', toFen: 'fen3a', san: 'Nf3', move_number: 2, is_player_turn: true, annotation: null }
+		];
+		const branchB: MoveRow[] = [
+			{ fromFen: 'fen2', toFen: 'fen3b', san: 'Nc3', move_number: 2, is_player_turn: true, annotation: null }
+		];
+		const lines = incomingLinesFromChapters([{ name: null, moves: [...base, ...branchA, ...branchB] }]);
+		expect(lines).toHaveLength(2);
+		expect(lines.map((l) => l.sans[2]).sort()).toEqual(['Nc3', 'Nf3']);
+	});
+
+	it('returns nothing for no chapters', () => {
+		expect(incomingLinesFromChapters([])).toEqual([]);
+	});
+});
+
+describe('moveIdsToRetire', () => {
+	it('never retires a ply shared with a surviving line', () => {
+		const diffs = classifyVariations(
+			[
+				{ variationKey: 'a>b>c>d', sans: ['1', '2', '3', '4'], chapterNames: [] },
+				{ variationKey: 'a>b>x', sans: ['1', '2', '9'], chapterNames: [] }
+			],
+			[{ sans: ['1', '2', '9'], chapterNames: [] }]
+		);
+		// The first line is gone; a and b are shared with the survivor.
+		expect(moveIdsToRetire(diffs).sort()).toEqual(['c', 'd']);
+	});
+
+	it('retires every ply of a line sharing nothing', () => {
+		const diffs = classifyVariations(
+			[
+				{ variationKey: 'p>q', sans: ['7', '8'], chapterNames: [] },
+				{ variationKey: 'a>b', sans: ['1', '2'], chapterNames: [] }
+			],
+			[{ sans: ['1', '2'], chapterNames: [] }]
+		);
+		expect(moveIdsToRetire(diffs).sort()).toEqual(['p', 'q']);
+	});
+
+	it('retires nothing when no line was removed', () => {
+		const diffs = classifyVariations(
+			[{ variationKey: 'a>b', sans: ['1', '2'], chapterNames: [] }],
+			[{ sans: ['1', '2', '3'], chapterNames: [] }]
+		);
+		expect(moveIdsToRetire(diffs)).toEqual([]);
+	});
+
+	it('keeps a ply shared with an extended line', () => {
+		// The extended line still uses a and b, so a removed sibling through
+		// them must not retire them.
+		const diffs = classifyVariations(
+			[
+				{ variationKey: 'a>b', sans: ['1', '2'], chapterNames: [] },
+				{ variationKey: 'a>z', sans: ['1', '9'], chapterNames: [] }
+			],
+			[{ sans: ['1', '2', '3'], chapterNames: [] }]
+		);
+		const retired = moveIdsToRetire(diffs);
+		expect(retired).not.toContain('a');
+		expect(retired).toContain('z');
+	});
+
+	it('returns no duplicates when two removed lines share a doomed ply', () => {
+		const diffs = classifyVariations(
+			[
+				{ variationKey: 'x>y>1', sans: ['7', '8', '1'], chapterNames: [] },
+				{ variationKey: 'x>y>2', sans: ['7', '8', '2'], chapterNames: [] },
+				{ variationKey: 'a>b', sans: ['1', '2'], chapterNames: [] }
+			],
+			[{ sans: ['1', '2'], chapterNames: [] }]
+		);
+		const retired = moveIdsToRetire(diffs);
+		expect(new Set(retired).size).toBe(retired.length);
+		expect(retired.sort()).toEqual(['1', '2', 'x', 'y']);
 	});
 });
