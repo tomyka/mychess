@@ -20,9 +20,14 @@
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ locale: code })
       });
-    } catch {
-      // Persisting the preference is best-effort — still switch the active
-      // locale client-side even if the request fails.
+    } catch (err) {
+      // Best-effort persistence — for a signed-out visitor this only affects
+      // the cookie Paraglide's own setLocale() writes, so failure here
+      // doesn't block the switch. For a signed-in user, a failed write means
+      // the reload below will resolve back to the DB's stored locale
+      // (custom-profileLocale outranks the cookie) — logged below so it's at
+      // least debuggable, not silently lost.
+      console.error('Failed to persist locale preference', err);
     }
 
     setLocale(code);

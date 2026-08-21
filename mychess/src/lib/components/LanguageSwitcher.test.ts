@@ -55,4 +55,18 @@ describe('LanguageSwitcher', () => {
     expect(global.fetch).not.toHaveBeenCalled();
     expect(setLocale).not.toHaveBeenCalled();
   });
+
+  it('still switches locale even when persisting the choice fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    global.fetch = vi.fn(async () => {
+      throw new Error('network error');
+    }) as any;
+
+    render(LanguageSwitcher);
+    await fireEvent.click(screen.getByRole('button', { name: /select language/i }));
+    await fireEvent.click(screen.getByText('Lietuviškai'));
+
+    expect(setLocale).toHaveBeenCalledWith('lt');
+    expect(consoleError).toHaveBeenCalled();
+  });
 });
