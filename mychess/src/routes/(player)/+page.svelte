@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { m } from '$lib/paraglide/messages';
   import PlayerHeader from '$lib/components/PlayerHeader.svelte';
   import StatsRow from '$lib/components/StatsRow.svelte';
   import QuickActions from '$lib/components/QuickActions.svelte';
@@ -38,22 +39,22 @@
       <!-- Public content landing (no account needed) -->
       <div class="py-8 space-y-6">
         <div class="text-center">
-          <h1 class="text-3xl font-bold text-(--color-text) mb-2">Your chess, all in one place</h1>
-          <p class="text-(--color-muted)">FIDE ranks, local tournaments, and daily training — no account needed to explore.</p>
+          <h1 class="text-3xl font-bold text-(--color-text) mb-2">{m.dashboard_hero_title()}</h1>
+          <p class="text-(--color-muted)">{m.dashboard_hero_subtitle()}</p>
         </div>
 
         <FideLookupCard query={data.fideQuery ?? ''} result={data.fideLookup ?? null} />
 
         <a href="/practice" class="block bg-(--color-accent) text-white rounded-xl p-5 hover:bg-(--color-accent-hover) transition-colors">
-          <p class="font-semibold">Try Practice mode →</p>
-          <p class="text-sm text-indigo-100">No account needed — sign in later to save your progress.</p>
+          <p class="font-semibold">{m.dashboard_try_practice_cta()}</p>
+          <p class="text-sm text-indigo-100">{m.dashboard_try_practice_subtitle()}</p>
         </a>
 
         {#if data.upcomingTournaments?.length > 0}
           <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
             <div class="flex items-center justify-between mb-4">
-              <h2 class="font-semibold text-(--color-text)">Upcoming in Lithuania</h2>
-              <a href="/tournaments" class="text-sm text-(--color-accent) hover:underline">View all →</a>
+              <h2 class="font-semibold text-(--color-text)">{m.dashboard_upcoming_tournaments_title()}</h2>
+              <a href="/tournaments" class="text-sm text-(--color-accent) hover:underline">{m.dashboard_view_all()}</a>
             </div>
             <TournamentCarousel tournaments={data.upcomingTournaments} />
           </section>
@@ -95,7 +96,7 @@
       {#if (stats.total_masterable_repertoires ?? 0) > 0}
         <div class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-3 text-center">
           <p class="text-xl font-bold text-amber-500">🏆 {stats.mastered_repertoires} / {stats.total_masterable_repertoires}</p>
-          <p class="text-xs text-(--color-muted) mt-0.5">Repertoires solved</p>
+          <p class="text-xs text-(--color-muted) mt-0.5">{m.dashboard_repertoires_solved()}</p>
         </div>
       {/if}
 
@@ -105,7 +106,7 @@
       <!-- Today's tasks -->
       {#if quests.length > 0}
         <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
-          <h2 class="font-semibold text-(--color-text) mb-4">Today's tasks</h2>
+          <h2 class="font-semibold text-(--color-text) mb-4">{m.dashboard_todays_tasks()}</h2>
           <ul class="space-y-4">
             {#each quests as quest (quest.id)}
               {@const isComplete = quest.completed_at != null}
@@ -125,7 +126,7 @@
                   </div>
                 </div>
                 {#if isComplete}
-                  <span class="text-green-500 shrink-0" aria-label="Complete">✓</span>
+                  <span class="text-green-500 shrink-0" aria-label={m.dashboard_quest_complete()}>✓</span>
                 {/if}
               </li>
             {/each}
@@ -137,8 +138,8 @@
       {#if data.upcomingTournaments?.length > 0}
         <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="font-semibold text-(--color-text)">Upcoming in Lithuania</h2>
-            <a href="/tournaments" class="text-sm text-(--color-accent) hover:underline">View all →</a>
+            <h2 class="font-semibold text-(--color-text)">{m.dashboard_upcoming_tournaments_title()}</h2>
+            <a href="/tournaments" class="text-sm text-(--color-accent) hover:underline">{m.dashboard_view_all()}</a>
           </div>
           <TournamentCarousel tournaments={data.upcomingTournaments} />
         </section>

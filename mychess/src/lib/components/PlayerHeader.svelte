@@ -1,5 +1,7 @@
 <!-- MyChess/src/lib/components/PlayerHeader.svelte -->
 <script lang="ts">
+  import { m } from '$lib/paraglide/messages';
+
   type FideTypeRatings = { rating: number | null; countryRank: number | null; ageGroupRank: number | null; europeAgeGroupRank: number | null };
   type FideRatings = { standard: FideTypeRatings; rapid: FideTypeRatings; blitz: FideTypeRatings } | null;
 
@@ -14,11 +16,11 @@
 
   const EMPTY_TILE: FideTypeRatings = { rating: null, countryRank: null, ageGroupRank: null, europeAgeGroupRank: null };
 
-  const TILES = [
-    { key: 'standard' as const, label: 'Standard' },
-    { key: 'rapid' as const, label: 'Rapid' },
-    { key: 'blitz' as const, label: 'Blitz' }
-  ];
+  const TILES = $derived([
+    { key: 'standard' as const, label: m.player_header_tile_standard() },
+    { key: 'rapid' as const, label: m.player_header_tile_rapid() },
+    { key: 'blitz' as const, label: m.player_header_tile_blitz() }
+  ]);
 
   function tileFor(key: 'standard' | 'rapid' | 'blitz'): FideTypeRatings {
     return fideRatings?.[key] ?? EMPTY_TILE;
@@ -33,11 +35,11 @@
 
   <!-- Identity -->
   <div class="flex-1 min-w-0">
-    <h1 class="text-xl font-bold text-(--color-text) truncate">{p?.display_name ?? 'Player'}</h1>
+    <h1 class="text-xl font-bold text-(--color-text) truncate">{p?.display_name ?? m.nav_player_fallback()}</h1>
     {#if p?.fide_id}
-      <p class="text-sm text-(--color-muted)">FIDE ID: {p.fide_id}</p>
+      <p class="text-sm text-(--color-muted)">{m.player_header_fide_id({ id: p.fide_id })}</p>
     {:else}
-      <a href="/settings" class="text-xs text-(--color-accent) hover:underline">Link FIDE account →</a>
+      <a href="/settings" class="text-xs text-(--color-accent) hover:underline">{m.player_header_link_fide()}</a>
     {/if}
   </div>
 
@@ -74,16 +76,16 @@
           <p class="text-lg font-bold text-(--color-text) mt-0.5">{entry.rating ?? '–'}</p>
           <div class="flex mt-1 border-t border-(--color-border) pt-1">
             <div class="flex-1 min-w-0 border-r border-(--color-border)">
-              <p class="text-[11px] font-semibold text-(--color-text) truncate" title={entry.countryRank != null ? `#${entry.countryRank}` : undefined}>{entry.countryRank != null ? `#${entry.countryRank}` : 'N/A'}</p>
-              <p class="text-[8px] text-(--color-muted)">LTU</p>
+              <p class="text-[11px] font-semibold text-(--color-text) truncate" title={entry.countryRank != null ? `#${entry.countryRank}` : undefined}>{entry.countryRank != null ? `#${entry.countryRank}` : m.player_header_rank_na()}</p>
+              <p class="text-[8px] text-(--color-muted)">{m.player_header_rank_country()}</p>
             </div>
             <div class="flex-1 min-w-0 border-r border-(--color-border)">
-              <p class="text-[11px] font-semibold text-(--color-text) truncate" title={entry.ageGroupRank != null ? `#${entry.ageGroupRank}` : undefined}>{entry.ageGroupRank != null ? `#${entry.ageGroupRank}` : 'N/A'}</p>
-              <p class="text-[8px] text-(--color-muted)">AGE</p>
+              <p class="text-[11px] font-semibold text-(--color-text) truncate" title={entry.ageGroupRank != null ? `#${entry.ageGroupRank}` : undefined}>{entry.ageGroupRank != null ? `#${entry.ageGroupRank}` : m.player_header_rank_na()}</p>
+              <p class="text-[8px] text-(--color-muted)">{m.player_header_rank_age()}</p>
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-[11px] font-semibold text-(--color-text) truncate" title={entry.europeAgeGroupRank != null ? `#${entry.europeAgeGroupRank}` : undefined}>{entry.europeAgeGroupRank != null ? `#${entry.europeAgeGroupRank}` : 'N/A'}</p>
-              <p class="text-[8px] text-(--color-muted)">EUR</p>
+              <p class="text-[11px] font-semibold text-(--color-text) truncate" title={entry.europeAgeGroupRank != null ? `#${entry.europeAgeGroupRank}` : undefined}>{entry.europeAgeGroupRank != null ? `#${entry.europeAgeGroupRank}` : m.player_header_rank_na()}</p>
+              <p class="text-[8px] text-(--color-muted)">{m.player_header_rank_europe()}</p>
             </div>
           </div>
         </div>
