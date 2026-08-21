@@ -33,7 +33,7 @@ vi.mock('chessground', () => ({
 }));
 
 import Practice from './+page.svelte';
-import { engineEnabled } from '$lib/engine/engine.svelte';
+import { setEngineEnabled } from '$lib/engine/engine.svelte';
 
 /** Plays a move on the board currently rendered, as chessground would report it. */
 function playMove(from: string, to: string) {
@@ -48,7 +48,7 @@ afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
 	vi.useRealTimers();
-	engineEnabled.on = false;
+	setEngineEnabled(false);
 });
 
 // Long enough to clear AUTO_PLAY_ATTEMPT's 2-ply autoplay intro at the page's
@@ -670,11 +670,14 @@ describe('learn detail page', () => {
 	// the move. There is no bar, and nothing downloads an engine.
 	it('shows no eval bar while drilling', async () => {
 		vi.useFakeTimers();
+		const WorkerSpy = vi.fn();
+		vi.stubGlobal('Worker', WorkerSpy);
 		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
 		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
 
 		expect(screen.queryByRole('img', { name: /Engine evaluation/i })).toBeNull();
 		expect(screen.queryByRole('button', { name: /engine/i })).toBeNull();
+		expect(WorkerSpy).not.toHaveBeenCalled();
 	});
 
 	// Explore is where analysis belongs — but the toggle starts off, so the bar

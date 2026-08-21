@@ -409,24 +409,27 @@
 				     excursion untouched. -->
 				<PracticeStatusStrip state={explore.active ? 'exploring' : strip} />
 
-				<!-- See Learn's copy of this: the bar is a sibling so the board's
+				<!-- See Learn's copy of this: the bar's slot is a sibling so the board's
 				     container-height sizing isn't fed its width. -->
 				<div
 					class="w-full flex items-start justify-center gap-2 lg:flex-1 lg:min-h-0 lg:[container-type:size]"
 				>
-					<!-- See Learn's copy: the bar belongs to explore mode and only once
-					     the engine is switched on, with an empty slot holding its place
-					     for the rest of the excursion so the board never jumps. -->
-					{#if explore.active && engineEnabled.on}
-						<EvalBar
-							fen={displayFen}
-							bookEval={data.evals?.[displayFen] ?? null}
-							orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
-							height={boardWidth}
-						/>
-					{:else if explore.active}
-						<div class="w-8 shrink-0" aria-hidden="true"></div>
-					{/if}
+					<!-- The bar's slot is always here and only its contents change: the
+					     bar while exploring with the engine switched on, nothing the rest
+					     of the time. Mounting the slot conditionally instead moved the
+					     board every time explore opened or closed — 20px sideways on
+					     desktop, and a 40px resize on mobile, where the board is width-
+					     constrained and the control row is capped to its width. Same rule
+					     as #113's status strip: reserve the space, vary the contents. -->
+					<div class="w-8 shrink-0">
+						{#if explore.active && engineEnabled.on}
+							<EvalBar
+								fen={displayFen}
+								orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
+								height={boardWidth}
+							/>
+						{/if}
+					</div>
 					<ChessBoard
 						fen={displayFen}
 						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
@@ -450,14 +453,14 @@
 						<button
 							onclick={() => explore.undo()}
 							disabled={explore.depth === 0}
-							class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-sm font-semibold text-(--color-text) disabled:opacity-30"
+							class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-xs sm:text-sm font-semibold text-(--color-text) disabled:opacity-30"
 						>
 							↶ Undo
 						</button>
 						<EngineToggle />
 						<button
 							onclick={stopExplore}
-							class="py-2 rounded-xl border border-amber-300 bg-amber-50 text-sm font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
+							class="py-2 rounded-xl border border-amber-300 bg-amber-50 text-xs sm:text-sm font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
 						>
 							{exploringDemoted ? '→ Next line' : '↩ Back to the line'}
 						</button>

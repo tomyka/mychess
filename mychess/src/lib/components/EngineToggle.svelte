@@ -19,7 +19,7 @@
 	type="button"
 	aria-pressed={engineEnabled.on}
 	onclick={() => setEngineEnabled(!engineEnabled.on)}
-	class="py-2 rounded-xl border text-sm font-semibold {engineEnabled.on
+	class="py-2 rounded-xl border text-xs sm:text-sm font-semibold {engineEnabled.on
 		? 'border-(--color-accent) bg-(--color-accent)/10 text-(--color-text)'
 		: 'border-(--color-border) bg-(--color-surface) text-(--color-muted)'}"
 >
