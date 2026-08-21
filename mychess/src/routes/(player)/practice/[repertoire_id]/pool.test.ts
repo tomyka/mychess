@@ -186,4 +186,74 @@ describe('practice pool page', () => {
 		expect(screen.getByText(/1 went back to Learn/i)).toBeTruthy();
 		expect(screen.getByText(/Re-learn that line/i)).toBeTruthy();
 	});
+
+	// #125 on Practice. The stake is higher here than on Learn: a wrong move
+	// demotes the line and reports it, so an excursion that leaked into the drill
+	// would cost the player a learned variation.
+	describe('explore mode', () => {
+		it('accepts an off-book move without demoting the line, and comes back unchanged', async () => {
+			render(Practice, { props: { data: poolData() } });
+			const fenBefore = cgMock.boards[cgMock.boards.length - 1].config.fen;
+
+			await fireEvent.click(screen.getByText(/Explore this position/i));
+			expect(screen.getByText(/Exploring — nothing counts here/i)).toBeTruthy();
+
+			// Nc3 is legal but is NOT the book move (e4) — in the drill this would
+			// demote the line and POST an outcome.
+			playMove('b1', 'c3');
+			await vi.advanceTimersByTimeAsync(0);
+			// Nothing at all: no outcome reported, and not even a move logged, since
+			// the excursion never reaches the drill's handler.
+			expect(fetchMock).not.toHaveBeenCalled();
+			expect(screen.queryByText(/needs teaching again/i)).toBeNull();
+
+			await fireEvent.click(screen.getByText(/Back to the line/i));
+			expect(screen.queryByText(/Exploring/i)).toBeNull();
+			expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(fenBefore);
+
+			// The drill still works, on the same board: the book move passes.
+			// The drill still works, on the same board: the book move is accepted and
+			// logged (logMove posts too, which is why the assertions below name the
+			// OUTCOME endpoint rather than counting fetches).
+			playMove('e2', 'e4');
+			await vi.advanceTimersByTimeAsync(450);
+			expect(screen.queryByText(/needs teaching again/i)).toBeNull();
+			expect(fetchMock.mock.calls.some(([url]) => String(url).includes('pool-attempt'))).toBe(false);
+			expect(
+				fetchMock.mock.calls.some(([, init]) => String(init?.body).includes('"playedSan":"e4"'))
+			).toBe(true);
+		});
+
+		it('restores the status message that was up before the excursion', async () => {
+			render(Practice, { props: { data: poolData() } });
+			expect(screen.getByText('Play it from memory')).toBeTruthy();
+
+			await fireEvent.click(screen.getByText(/Explore this position/i));
+			expect(screen.queryByText('Play it from memory')).toBeNull();
+
+			await fireEvent.click(screen.getByText(/Back to the line/i));
+			expect(screen.getByText('Play it from memory')).toBeTruthy();
+		});
+
+		it('takes the hint button out of reach while off-book, since a hint demotes', async () => {
+			render(Practice, { props: { data: poolData() } });
+			expect((screen.getByText(/Show hint/i) as HTMLButtonElement).disabled).toBe(false);
+
+			await fireEvent.click(screen.getByText(/Explore this position/i));
+			expect((screen.getByText(/Show hint/i) as HTMLButtonElement).disabled).toBe(true);
+
+			await fireEvent.click(screen.getByText(/Back to the line/i));
+			expect((screen.getByText(/Show hint/i) as HTMLButtonElement).disabled).toBe(false);
+		});
+
+		// A demoted line is already gone and about to be replaced, so there is no
+		// position worth exploring — and an excursion would be interrupted anyway.
+		it('is not offered while a demoted line is being cleared', async () => {
+			render(Practice, { props: { data: poolData() } });
+			playMove('b1', 'c3'); // wrong: demotes v1
+			await vi.advanceTimersByTimeAsync(0);
+			expect(screen.getByText(/needs teaching again/i)).toBeTruthy();
+			expect(screen.queryByText(/Explore this position/i)).toBeNull();
+		});
+	});
 });

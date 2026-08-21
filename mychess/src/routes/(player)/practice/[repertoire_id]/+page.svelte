@@ -10,6 +10,7 @@
 	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
 	import { positionAt, playOpponentReplies, playerMovesIn } from '$lib/mastery/playback';
 	import { logMove } from '$lib/moveLog';
+	import { ExploreSession } from '$lib/mastery/explore.svelte';
 
 	let { data } = $props<{ data: any }>();
 
@@ -37,6 +38,12 @@
 	let advanceTimeout: ReturnType<typeof setTimeout> | undefined;
 	let boardWidth = $state(0);
 	let manualReviewIdx = $state<number | null>(null);
+	// Explore mode (#125), the same scratch board Learn has and the same module
+	// behind it: it owns only its own position, so an excursion cannot touch
+	// plyIdx, boardFen, outcomeReported or hintRequested — which matters more here
+	// than on Learn, where a stray mistake only costs a clean pass. In Practice it
+	// would demote the line.
+	const explore = new ExploreSession();
 
 	const current = $derived(queue[queueIdx] ?? null);
 	const steps = $derived(current?.path ?? []);
@@ -45,7 +52,16 @@
 	const isReviewing = $derived(manualReviewIdx !== null);
 	const movesSoFar = $derived(plyIdx > 0 ? moveSequenceLabel(steps.slice(0, plyIdx)) : '');
 
-	const displayFen = $derived(isReviewing ? positionAt(steps, reviewIdx, boardFen) : boardFen);
+	const drillFen = $derived(isReviewing ? positionAt(steps, reviewIdx, boardFen) : boardFen);
+	// The explored position while off-book, the drill's own otherwise. The eval bar
+	// reads the same value, so it answers for whatever is actually on the board —
+	// and an off-book position has no precomputed eval, which is what makes the
+	// local engine spawn there and nowhere else (#126).
+	const displayFen = $derived(explore.active ? explore.fen : drillFen);
+	// Only while the drill is genuinely waiting for a move. `locked` covers both
+	// the correct-move hold and the 1.6s window after a wrong move, when the line
+	// is already demoted and about to be replaced.
+	const canExplore = $derived(!!current && !locked && !isReviewing && !!drillFen);
 
 	// Only ever the piece's own square, never the destination — same contract as
 	// Learn's hint. Taking it has already cost the line its learned status, so
@@ -122,6 +138,30 @@
 		strip = 'demoted';
 	}
 
+	function startExplore() {
+		if (!canExplore) return;
+		explore.start(drillFen);
+	}
+
+	/**
+	 * Leaves explore mode. Nothing to restore: the drill's state was never handed
+	 * over, and `strip` is read through a derived below rather than overwritten,
+	 * so whatever message was up comes back on its own.
+	 */
+	function stopExplore() {
+		explore.stop();
+	}
+
+	/**
+	 * The board's one move handler for both modes — dispatching at call time
+	 * rather than swapping ChessBoard's `onmove` prop, so it can't route a drill
+	 * move into a dead excursion whenever the config is rebuilt.
+	 */
+	function handleBoardMove(detail: { from: Key; to: Key; san: string }) {
+		if (explore.active) return explore.play(detail.from, detail.to);
+		return handleMove(detail);
+	}
+
 	function handleMove(detail: { from: Key; to: Key; san: string }) {
 		if (locked || isReviewing) return false;
 		const step = steps[plyIdx];
@@ -186,7 +226,9 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (!current) return;
+		// Not while exploring: the arrows step through drill plies, and none of the
+		// explored moves are drill plies.
+		if (!current || explore.active) return;
 		if (e.key === 'ArrowLeft') {
 			e.preventDefault();
 			reviewBack();
@@ -311,7 +353,11 @@
 	{:else}
 		<div class="flex flex-col lg:flex-row lg:items-stretch gap-6 lg:flex-1 lg:min-h-0">
 			<div class="lg:flex-1 lg:flex lg:flex-col lg:min-h-0 lg:items-start">
-				<PracticeStatusStrip state={strip} />
+				<!-- Explore wins the strip outright while it lasts: every other message
+				     would be describing a position that isn't on screen. Read through a
+				     derived rather than assigned, so `strip`'s real value survives the
+				     excursion untouched. -->
+				<PracticeStatusStrip state={explore.active ? 'exploring' : strip} />
 
 				<!-- See Learn's copy of this: the bar is a sibling so the board's
 				     container-height sizing isn't fed its width. -->
@@ -327,28 +373,61 @@
 					<ChessBoard
 						fen={displayFen}
 						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
-						interactable={!locked && !isReviewing}
-						onmove={handleMove}
+						interactable={explore.active || (!locked && !isReviewing)}
+						onmove={handleBoardMove}
 						prefs={data.boardPrefs}
-						{hintSquare}
+						hintSquare={explore.active ? null : hintSquare}
 						arrowMove={null}
 						containerFit
 						bind:boxWidth={boardWidth}
 					/>
 				</div>
 
-				<MoveNavRow
-					{reviewIdx}
-					totalPlies={steps.length}
-					reviewMoves={playerMovesIn(steps, reviewIdx)}
-					totalMoves={playerMovesIn(steps, steps.length)}
-					{isReviewing}
-					{boardWidth}
-					onstart={reviewToStart}
-					onback={reviewBack}
-					onforward={reviewForward}
-					onlive={reviewToLive}
-				/>
+				{#if explore.active}
+					<!-- The review nav counts drill plies, and none of these are drill
+					     plies, so the excursion's own controls take its place. -->
+					<div
+						class="grid grid-cols-2 gap-2 mt-4 shrink-0 mx-auto w-full"
+						style={boardWidth ? `max-width: ${boardWidth}px` : ''}
+					>
+						<button
+							onclick={() => explore.undo()}
+							disabled={explore.depth === 0}
+							class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-sm font-semibold text-(--color-text) disabled:opacity-30"
+						>
+							↶ Undo
+						</button>
+						<button
+							onclick={stopExplore}
+							class="py-2 rounded-xl border border-amber-300 bg-amber-50 text-sm font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
+						>
+							↩ Back to the line
+						</button>
+					</div>
+				{:else}
+					<MoveNavRow
+						{reviewIdx}
+						totalPlies={steps.length}
+						reviewMoves={playerMovesIn(steps, reviewIdx)}
+						totalMoves={playerMovesIn(steps, steps.length)}
+						{isReviewing}
+						{boardWidth}
+						onstart={reviewToStart}
+						onback={reviewBack}
+						onforward={reviewForward}
+						onlive={reviewToLive}
+					/>
+					{#if canExplore}
+						<p class="text-center mt-2 shrink-0">
+							<button
+								onclick={startExplore}
+								class="inline-flex items-center gap-1.5 text-sm font-medium text-(--color-muted) hover:text-(--color-text)"
+							>
+								<span aria-hidden="true">🔍</span> Explore this position
+							</button>
+						</p>
+					{/if}
+				{/if}
 			</div>
 
 			<aside
@@ -382,7 +461,7 @@
 					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted)">Stuck?</p>
 					<button
 						onclick={requestHint}
-						disabled={hintRequested}
+						disabled={hintRequested || explore.active}
 						class="self-start inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 border border-amber-400/40 bg-amber-400/10 rounded-lg px-2.5 py-1.5 disabled:opacity-40"
 					>
 						<span aria-hidden="true">💡</span> Show hint
