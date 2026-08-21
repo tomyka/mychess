@@ -1,6 +1,8 @@
 <script lang="ts">
 	import ChessBoard from '$lib/components/ChessBoard.svelte';
 	import EvalBar from '$lib/components/EvalBar.svelte';
+	import EngineToggle from '$lib/components/EngineToggle.svelte';
+	import { engineEnabled } from '$lib/engine/engine.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
 	import PracticeStatusStrip, { type PracticeStripState } from '$lib/components/PracticeStatusStrip.svelte';
 	import RepertoireUpdatedBanner from '$lib/components/RepertoireUpdatedBanner.svelte';
@@ -412,12 +414,19 @@
 				<div
 					class="w-full flex items-start justify-center gap-2 lg:flex-1 lg:min-h-0 lg:[container-type:size]"
 				>
-					<EvalBar
-						fen={displayFen}
-						bookEval={data.evals?.[displayFen] ?? null}
-						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
-						height={boardWidth}
-					/>
+					<!-- See Learn's copy: the bar belongs to explore mode and only once
+					     the engine is switched on, with an empty slot holding its place
+					     for the rest of the excursion so the board never jumps. -->
+					{#if explore.active && engineEnabled.on}
+						<EvalBar
+							fen={displayFen}
+							bookEval={data.evals?.[displayFen] ?? null}
+							orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
+							height={boardWidth}
+						/>
+					{:else if explore.active}
+						<div class="w-8 shrink-0" aria-hidden="true"></div>
+					{/if}
 					<ChessBoard
 						fen={displayFen}
 						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
@@ -435,7 +444,7 @@
 					<!-- The review nav counts drill plies, and none of these are drill
 					     plies, so the excursion's own controls take its place. -->
 					<div
-						class="grid grid-cols-2 gap-2 mt-4 shrink-0 mx-auto w-full"
+						class="grid grid-cols-3 gap-2 mt-4 shrink-0 mx-auto w-full"
 						style={boardWidth ? `max-width: ${boardWidth}px` : ''}
 					>
 						<button
@@ -445,6 +454,7 @@
 						>
 							↶ Undo
 						</button>
+						<EngineToggle />
 						<button
 							onclick={stopExplore}
 							class="py-2 rounded-xl border border-amber-300 bg-amber-50 text-sm font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
