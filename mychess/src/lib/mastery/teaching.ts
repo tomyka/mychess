@@ -71,23 +71,19 @@ export function resolveTeachingStep(path: VariationStep[], taughtPlies: number, 
 	}
 	if (taughtPlies === masteredPlies) {
 		const target = plyAfterPlayerMoves(path, masteredPlies, TEACHING_BATCH_MOVES);
-		// A teach batch that runs all the way to the path's end, with an
-		// already-mastered prefix behind it, IS the final pass — the blind
-		// retest that used to follow it served the identical path, auto-played
-		// the identical mastered prefix, and asked for the identical manual
-		// tail, differing only in whether the arrows were drawn. That extra
-		// pass is what made a short variation (8 moves, split 5+3) take four
-		// clean attempts to solve; a clean pass here now solves it in three
-		// (see GitHub issue #68).
-		//
-		// `masteredPlies > 0` is load-bearing, not an accident: with nothing
-		// mastered yet, this batch is the variation's FIRST and only one, so
-		// skipping its retest would mean marking a variation solved that was
-		// never once played without arrows. Such a variation still earns
-		// exactly one blind retest of everything it was just taught, as it
-		// always has.
-		const isFinalPass = target >= path.length && masteredPlies > 0;
-		return { path: path.slice(0, target), arrowPlies: { from: masteredPlies, to: target }, isFinalPass };
+		// A pass that draws arrows is NEVER the final pass — every batch,
+		// including the last, owes one blind retest before the variation can be
+		// solved. Issue #68 made the last batch an exception (a teach pass
+		// reaching the path's end over a mastered prefix solved the variation
+		// outright, saving one attempt) on the reasoning that the retest which
+		// followed served the identical path and asked for the identical manual
+		// tail, "only the arrows differed". The arrows are the whole test: under
+		// that exception a variation's final moves were shown with guidance and
+		// then never once asked for from memory, and replaying them WITH the
+		// arrows up counted as learning them. Trading one extra clean attempt
+		// per multi-batch line for "nothing counts as learned until it's been
+		// played unaided" is the right side of that trade.
+		return { path: path.slice(0, target), arrowPlies: { from: masteredPlies, to: target }, isFinalPass: false };
 	}
 	return { path: path.slice(0, taughtPlies), arrowPlies: null, isFinalPass: taughtPlies >= path.length };
 }
@@ -109,11 +105,11 @@ export function advanceTeachingProgress(
 	if (hadMistake) {
 		return { taughtPlies, masteredPlies, solved: false };
 	}
-	// A teach pass normally only advances taught_plies — its batch still owes
-	// one blind retest before it counts as mastered. The exception is a FINAL
-	// teach pass (see `resolveTeachingStep`): no retest follows it, so it
-	// falls through below and masters (and solves) everything it just taught.
-	if (step.arrowPlies && !step.isFinalPass) {
+	// A teach pass only ever advances taught_plies: its batch owes one blind
+	// retest before it counts as mastered, and there is no longer any exception
+	// for the last batch (see `resolveTeachingStep`). Mastery — and therefore
+	// solving — is only ever awarded below, by a pass with no arrows up.
+	if (step.arrowPlies) {
 		return { taughtPlies: step.arrowPlies.to, masteredPlies, solved: false };
 	}
 	return { taughtPlies: Math.max(taughtPlies, step.path.length), masteredPlies: step.path.length, solved: step.isFinalPass };

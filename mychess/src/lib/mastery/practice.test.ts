@@ -155,17 +155,23 @@ describe('buildPracticeView', () => {
 		expect(view.attempt!.path[view.attempt!.path.length - 1].isPlayerTurn).toBe(true);
 	});
 
-	it('flags a teach pass that reaches the end of the path as the final pass, so a clean run of it solves', () => {
+	it('does not flag the LAST teach pass as final — its blind retest is what solves', () => {
 		const v = makeVariation(4, 'a-'); // 8 plies: batch 1 is plies 0-4, batch 2 is the rest
 		const progress = new Map([[v.variationKey, { taughtPlies: 5, masteredPlies: 5, updatedAt: null }]]);
 		const view = buildPracticeView([v], null, new Set(), progress);
 		expect(view.attempt!.path).toEqual(v.path);
 		expect(view.attempt!.arrowPlies).toEqual({ from: 5, to: 8 });
-		// isFinalPass is what gates the client's optimistic solved bump — a
-		// final teach pass has to set it, or the sidebar count would lag a
-		// solve by a whole round trip.
-		expect(view.attempt!.isFinalPass).toBe(true);
+		// Arrows up means the moves are being shown, not recalled — so this pass
+		// cannot be the one that learns the line, no matter that it reaches the
+		// path's end.
+		expect(view.attempt!.isFinalPass).toBe(false);
 		expect(view.attempt!.autoPlayThrough).toBe(5);
+
+		// The pass that follows it: same path, no arrows, and THAT one is final.
+		const taught = new Map([[v.variationKey, { taughtPlies: 8, masteredPlies: 5, updatedAt: null }]]);
+		const retest = buildPracticeView([v], null, new Set(), taught);
+		expect(retest.attempt!.arrowPlies).toBeNull();
+		expect(retest.attempt!.isFinalPass).toBe(true);
 	});
 
 	it('does not flag a fresh single-batch variation\'s first teach pass as final (it still owes one blind retest)', () => {

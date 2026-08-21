@@ -207,36 +207,29 @@ describe('applyAttemptResult', () => {
 		expect(upsertCalls.some((c) => c.table === 'variation_solved')).toBe(true);
 	});
 
-	it('credits a fresh sibling variation for a shared prefix already solved via another variation, and learns it immediately', async () => {
+	it('credits a fresh sibling variation for a shared prefix already solved via another variation, but still teaches its own tail first', async () => {
 		const { a, b } = makeSharedPrefixVariations();
 		const { client, upsertCalls } = fakeSupabase({ solvedKeys: ['a'], teachingRows: [] });
 		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'b', false, [a, b]);
 		// b's own path is only 2 plies past the shared 10, so its whole
 		// remaining content is taught in one go — and mastered_plies starts at
-		// 10 (credited from a), not 0, so this teach pass reaches b's full path
-		// length with a mastered prefix behind it: it IS b's final pass, and a
-		// clean run of it learns b outright rather than demanding an identical
-		// arrow-free replay of the same two plies (issue #68).
-		expect(upsertCalls.map((c) => c.table)).toEqual([
-			'variation_teaching_progress',
-			'variation_solved',
-			'practice_active_variation'
-		]);
+		// 10 (credited from a), not 0. That still leaves b's own two plies shown
+		// under an arrow and never yet recalled, so this pass advances
+		// taught_plies alone; b is learned by the blind retest that follows.
+		expect(upsertCalls.map((c) => c.table)).toEqual(['variation_teaching_progress']);
 		expect(upsertCalls[0].rows).toEqual({
 			player_id: 'player-1',
 			repertoire_id: 'rep-1',
 			variation_key: 'b',
 			taught_plies: 12,
-			mastered_plies: 12
+			mastered_plies: 10
 		});
 	});
 
-	it('a clean teach pass reaching the path\'s end over an already-mastered prefix solves the variation outright', async () => {
-		// 8 plies / 4 player moves — the issue's own repro shape: batch 1 is
-		// plies 0-4, batch 2 (plies 5-7) is the rest, so this teach pass has
-		// nothing left to teach afterwards and no longer owes a second,
-		// identical arrow-free replay of the same tail (issue #68) — and since
-		// a clean pass now learns a variation immediately, it solves outright.
+	it('a clean LAST teach pass advances teaching only — the variation is solved by the blind retest after it', async () => {
+		// 8 plies / 4 player moves: batch 1 is plies 0-4, batch 2 (plies 5-7)
+		// the rest. That last batch reaches the path's end, but its moves have
+		// only ever been shown under an arrow, so nothing is mastered yet.
 		const { client, upsertCalls } = fakeSupabase({
 			teachingRows: [{ variation_key: 'v1', taught_plies: 5, mastered_plies: 5 }]
 		});
@@ -244,12 +237,26 @@ describe('applyAttemptResult', () => {
 		const v2 = makeVariation('v2', 4);
 		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1, v2]);
 
-		expect(upsertCalls.map((c) => c.table)).toEqual([
+		expect(upsertCalls.map((c) => c.table)).toEqual(['variation_teaching_progress']);
+		expect(upsertCalls[0].rows).toEqual({
+			player_id: 'player-1',
+			repertoire_id: 'rep-1',
+			variation_key: 'v1',
+			taught_plies: 8,
+			mastered_plies: 5
+		});
+
+		// The arrow-free replay that follows is what learns it.
+		const second = fakeSupabase({
+			teachingRows: [{ variation_key: 'v1', taught_plies: 8, mastered_plies: 5 }]
+		});
+		await applyAttemptResult(second.client as any, 'player-1', 'rep-1', 'v1', false, [v1, v2]);
+		expect(second.upsertCalls.map((c) => c.table)).toEqual([
 			'variation_teaching_progress',
 			'variation_solved',
 			'practice_active_variation'
 		]);
-		expect(upsertCalls[0].rows).toEqual({
+		expect(second.upsertCalls[0].rows).toEqual({
 			player_id: 'player-1',
 			repertoire_id: 'rep-1',
 			variation_key: 'v1',
