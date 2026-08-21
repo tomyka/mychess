@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { parseInfoLine, sideToMoveFromFen, toWhiteRelative, formatEval, evalBarWhiteFraction } from './uci';
+import {
+	parseInfoLine,
+	sideToMoveFromFen,
+	toWhiteRelative,
+	formatEval,
+	evalBarWhiteFraction,
+	bestScoreFromInfoLines
+} from './uci';
 
 describe('parseInfoLine', () => {
 	it('parses a depth + cp score info line', () => {
@@ -65,15 +72,15 @@ describe('toWhiteRelative', () => {
 
 describe('formatEval', () => {
 	it('formats a positive cp score with a leading +', () => {
-		expect(formatEval({ cp: 35 })).toBe('+0.35');
+		expect(formatEval({ cp: 35 })).toBe('+0.3'); // 0.35 is 0.34999… in binary float
 	});
 
 	it('formats a negative cp score with a leading -', () => {
-		expect(formatEval({ cp: -120 })).toBe('-1.20');
+		expect(formatEval({ cp: -120 })).toBe('-1.2');
 	});
 
 	it('formats a zero cp score with no sign', () => {
-		expect(formatEval({ cp: 0 })).toBe('0.00');
+		expect(formatEval({ cp: 0 })).toBe('0.0');
 	});
 
 	it('formats a positive mate score as White mating', () => {
@@ -106,5 +113,29 @@ describe('evalBarWhiteFraction', () => {
 
 	it('is 0 for any Black-mating score', () => {
 		expect(evalBarWhiteFraction({ mate: -4 })).toBe(0);
+	});
+});
+
+describe('bestScoreFromInfoLines', () => {
+	const at = (depth: number, cp: number) =>
+		`info depth ${depth} seldepth ${depth + 4} multipv 1 score cp ${cp} nodes 1 nps 1 time 1 pv e2e4`;
+
+	it('takes the deepest line\'s score', () => {
+		expect(bestScoreFromInfoLines([at(1, 10), at(12, 35), at(8, -80)])).toEqual({ depth: 12, score: { cp: 35 } });
+	});
+
+	it('prefers the later of two lines at equal depth', () => {
+		expect(bestScoreFromInfoLines([at(12, 10), at(12, 35)])).toEqual({ depth: 12, score: { cp: 35 } });
+	});
+
+	it('reads a mate score', () => {
+		expect(
+			bestScoreFromInfoLines(['info depth 20 multipv 1 score mate 3 nodes 1 nps 1 time 1 pv e2e4'])
+		).toEqual({ depth: 20, score: { mate: 3 } });
+	});
+
+	it('ignores lines that carry no score, and returns null when nothing does', () => {
+		expect(bestScoreFromInfoLines(['info string NNUE evaluation using nn.nnue', 'bestmove e2e4'])).toBeNull();
+		expect(bestScoreFromInfoLines([])).toBeNull();
 	});
 });

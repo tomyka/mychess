@@ -11,7 +11,7 @@
 	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
 	import { positionAt, playOpponentReplies, playerMovesIn } from '$lib/mastery/playback';
 	import { logMove } from '$lib/moveLog';
-	import EngineEval from '$lib/components/EngineEval.svelte';
+	import { ExploreSession } from '$lib/mastery/explore.svelte';
 	import EvalBar from '$lib/components/EvalBar.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
 	import PracticeStatusStrip, { type PracticeStripState } from '$lib/components/PracticeStatusStrip.svelte';
@@ -67,11 +67,11 @@
 	// to outlive it rather than vanish with it.
 	const CUE_HOLD_MS = 1200;
 	const CUE_LINGER_MS = 1800;
-	// How long each already-mastered ply is shown before advancing to the
-	// next one during the autoplay intro — fast enough not to be tedious for
-	// a long, deeply-nested variation, slow enough to still read as "playing
-	// through", not an instant jump-cut.
-	const AUTO_PLAY_STEP_MS = 350;
+	// How long each already-mastered ply is shown before advancing to the next
+	// one during the autoplay intro. Raised from 350ms: at that speed the moves
+	// went past faster than they could be followed, which is the opposite of what
+	// replaying known material is for.
+	const AUTO_PLAY_STEP_MS = 700;
 	// Bumped on every resetForAttempt() call so stale async work (a
 	// still-in-flight report) notices it's been superseded and stops writing
 	// to state.
@@ -92,6 +92,11 @@
 	// played yet), and the board is non-interactable while it's non-null —
 	// stepping back doesn't undo anything, it's just a look back.
 	let manualReviewIdx = $state<number | null>(null);
+	// Explore mode (#125): a scratch board opened ON TOP of the drill, never
+	// instead of it. It owns nothing but its own position, which is what makes
+	// "an excursion changes no drill state" true by construction rather than by
+	// remembering to restore things — see explore.svelte.ts.
+	const explore = new ExploreSession();
 
 	const attempt = $derived(data.attempt);
 	const repertoireId = $derived(data.repertoire?.id);
@@ -103,7 +108,15 @@
 	// the two always agree, but boardFen is what the 500ms correct-move hold
 	// (see handleMove) intentionally delays updating, so deriving from it
 	// keeps that timing intact instead of jumping the board early.
-	const displayFen = $derived(isReviewing ? positionAt(quizSteps, reviewIdx, boardFen) : boardFen);
+	const drillFen = $derived(isReviewing ? positionAt(quizSteps, reviewIdx, boardFen) : boardFen);
+	// What the board actually renders: the explored position while off-book, the
+	// drill's own otherwise. The eval bar follows the same value, so it answers
+	// for whatever is on the board.
+	const displayFen = $derived(explore.active ? explore.fen : drillFen);
+	// Offered only while the drill is genuinely waiting for a move: during the
+	// autoplay intro, the correct-move hold, or a review of earlier plies,
+	// "the position" is ambiguous or about to change under the excursion.
+	const canExplore = $derived(phase === 'playing' && !locked && !isReviewing && !!drillFen);
 
 	// Plain-text move list for the mobile eval panel (Lichess-style), e.g.
 	// "1.e4 e5 2.Nf3 Nc6" — every move actually played so far in this
@@ -131,7 +144,9 @@
 	// arrow keys itself, but the board underneath shouldn't react while a
 	// modal is up) or when there's nothing loaded to review.
 	function handleKeydown(e: KeyboardEvent) {
-		if (pickerOpen || !attempt) return;
+		// Not while exploring: the arrows step through drill plies, and none of the
+		// explored moves are drill plies.
+		if (pickerOpen || !attempt || explore.active) return;
 		if (e.key === 'ArrowLeft') {
 			e.preventDefault();
 			reviewBack();
@@ -184,12 +199,15 @@
 	// Whether to offer a hint at all. Not on an arrowed ply: the move is already
 	// drawn on the board there, so offering to point at the piece is noise on a
 	// move the player was never asked to recall.
-	const hintOffered = $derived(phase === 'playing' && !hintRequested && !arrowMove);
+	const hintOffered = $derived(phase === 'playing' && !hintRequested && !arrowMove && !explore.active);
 
 	// Priority: a teaching arrow is self-explanatory (silent) > the
 	// between-passes cue > the last move's own result > the autoplay intro
 	// > the default blind-retest prompt.
 	const stripState = $derived.by((): PracticeStripState => {
+		// Explore wins outright: while the board is off-book, every other message
+		// would be describing a position that isn't on screen.
+		if (explore.active) return 'exploring';
 		if (arrowMove) return 'silent';
 		if (teachCue) return 'retest-cue';
 		if (phase === 'advancing') return 'correct';
@@ -279,6 +297,33 @@
 			resetForAttempt();
 		});
 	});
+
+	function startExplore() {
+		if (!canExplore) return;
+		explore.start(drillFen);
+	}
+
+	/**
+	 * Leaves explore mode. Nothing is restored because nothing was handed over:
+	 * quizIdx, boardFen, phase, the mistake counters and the hint flag were never
+	 * touched, so the drill simply becomes visible again exactly as it was.
+	 */
+	function stopExplore() {
+		explore.stop();
+	}
+
+	/**
+	 * The board's ONE move handler, for both modes. Swapping the `onmove` prop
+	 * between two functions works too (ChessBoard rebuilds its chessground config
+	 * when its props change, and a test drove a full excursion both ways to
+	 * confirm), but dispatching at call time doesn't depend on WHEN that rebuild
+	 * happens — it can't route a drill move to a dead excursion however the
+	 * config is refreshed.
+	 */
+	function handleBoardMove(detail: { from: Key; to: Key; san: string }) {
+		if (explore.active) return explore.play(detail.from, detail.to);
+		return handleMove(detail);
+	}
 
 	function requestHint() {
 		// Snap back to the live position first: hintSquare is deliberately null
@@ -509,39 +554,79 @@
 				<div
 					class="flex items-start justify-center gap-2 lg:flex-1 lg:min-h-0 lg:[container-type:size]"
 				>
-					<EvalBar orientation={data.repertoire?.color === 'black' ? 'black' : 'white'} height={boardWidth} />
+					<EvalBar
+						fen={displayFen}
+						bookEval={data.evals?.[displayFen] ?? null}
+						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
+						height={boardWidth}
+					/>
 					<ChessBoard
 						fen={displayFen}
 						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
-						interactable={phase === 'playing' && !locked && !isReviewing}
-						onmove={handleMove}
+						interactable={explore.active || (phase === 'playing' && !locked && !isReviewing)}
+						onmove={handleBoardMove}
 						prefs={data.boardPrefs}
-						{hintSquare}
-						{arrowMove}
+						hintSquare={explore.active ? null : hintSquare}
+						arrowMove={explore.active ? null : arrowMove}
 						containerFit
 						bind:boxWidth={boardWidth}
 					/>
 				</div>
 
-				<MoveNavRow
-					{reviewIdx}
-					totalPlies={quizSteps.length}
-					reviewMoves={playerMovesIn(quizSteps, reviewIdx)}
-					totalMoves={playerMovesIn(quizSteps, quizSteps.length)}
-					{isReviewing}
-					{boardWidth}
-					onstart={reviewToStart}
-					onback={reviewBack}
-					onforward={reviewForward}
-					onlive={reviewToLive}
-				/>
-
-				<div class="mt-3 p-3 bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:hidden">
-					<EngineEval fen={displayFen} />
-					{#if movesSoFar}
-						<p class="text-sm text-(--color-muted) mt-2">{movesSoFar}</p>
+				{#if explore.active}
+					<!-- The review nav would be lying here (it counts drill plies, and
+					     none of these moves are drill plies), so the excursion's own
+					     two controls take its place for as long as it lasts. -->
+					<div
+						class="grid grid-cols-2 gap-2 mt-4 shrink-0 mx-auto w-full"
+						style={boardWidth ? `max-width: ${boardWidth}px` : ''}
+					>
+						<button
+							onclick={() => explore.undo()}
+							disabled={explore.depth === 0}
+							class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-sm font-semibold text-(--color-text) disabled:opacity-30"
+						>
+							↶ Undo
+						</button>
+						<button
+							onclick={stopExplore}
+							class="py-2 rounded-xl border border-amber-300 bg-amber-50 text-sm font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
+						>
+							↩ Back to the line
+						</button>
+					</div>
+				{:else}
+					<MoveNavRow
+						{reviewIdx}
+						totalPlies={quizSteps.length}
+						reviewMoves={playerMovesIn(quizSteps, reviewIdx)}
+						totalMoves={playerMovesIn(quizSteps, quizSteps.length)}
+						{isReviewing}
+						{boardWidth}
+						onstart={reviewToStart}
+						onback={reviewBack}
+						onforward={reviewForward}
+						onlive={reviewToLive}
+					/>
+					{#if canExplore}
+						<p class="text-center mt-2 shrink-0">
+							<button
+								onclick={startExplore}
+								class="inline-flex items-center gap-1.5 text-sm font-medium text-(--color-muted) hover:text-(--color-text)"
+							>
+								<span aria-hidden="true">🔍</span> Explore this position
+							</button>
+						</p>
 					{/if}
-				</div>
+				{/if}
+
+				<!-- The engine used to live here too; it's on the board's own edge now
+				     (EvalBar), so this card is just the moves played so far. -->
+				{#if movesSoFar}
+					<div class="mt-3 p-3 bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:hidden">
+						<p class="text-sm text-(--color-muted)">{movesSoFar}</p>
+					</div>
+				{/if}
 			</div>
 
 			<div
@@ -574,10 +659,6 @@
 							{attemptMistakeCount} mistake{attemptMistakeCount === 1 ? '' : 's'} this attempt
 						</p>
 					{/if}
-				</div>
-
-				<div class="p-4">
-					<EngineEval fen={displayFen} />
 				</div>
 
 				<div class="p-4">

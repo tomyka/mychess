@@ -9,7 +9,11 @@
 		| 'retest-cue'
 		// Practice only (#98): this line just went back to Learn. Distinct from
 		// 'wrong', which means "try again" — here there is no trying again.
-		| 'demoted';
+		| 'demoted'
+		// #125: the board is off-book on a scratch position. Says so plainly,
+		// because a board that suddenly accepts wrong moves silently would
+		// otherwise read as broken.
+		| 'exploring';
 </script>
 
 <script lang="ts">
@@ -40,7 +44,8 @@
 		correct: '✓',
 		autoplay: '',
 		'retest-cue': '🧠',
-		demoted: '↩'
+		demoted: '↩',
+		exploring: '🔍'
 	};
 
 	const COPY: Record<PracticeStripState, string> = {
@@ -52,7 +57,8 @@
 		'retest-cue': 'Nice — now play it from memory',
 		// Kept short on purpose: at 320px the longer wording wrapped to a second
 		// line, which is a height change and therefore a board shift (#113).
-		demoted: 'Back to Learn — needs teaching again'
+		demoted: 'Back to Learn — needs teaching again',
+		exploring: 'Exploring — nothing counts here'
 	};
 
 	const TONE: Record<PracticeStripState, string> = {
@@ -64,6 +70,8 @@
 		'retest-cue':
 			'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300',
 		demoted:
+			'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300',
+		exploring:
 			'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300'
 	};
 
@@ -82,7 +90,8 @@
 		correct: '',
 		autoplay: '',
 		'retest-cue': '',
-		demoted: ''
+		demoted: '',
+		exploring: ''
 	};
 </script>
 

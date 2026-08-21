@@ -2,7 +2,6 @@
 // mychess/src/routes/(player)/practice/[repertoire_id]/pool.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/svelte';
-import { enginePrefStore } from '$lib/enginePref.svelte';
 
 vi.mock('$lib/sounds', () => ({ playCorrect: vi.fn(), playWrong: vi.fn() }));
 
@@ -61,7 +60,6 @@ function poolData(overrides: Record<string, unknown> = {}) {
 let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
-	enginePrefStore.enabled = false;
 	cgMock.boards.length = 0;
 	fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ demoted: true }) });
 	vi.stubGlobal('fetch', fetchMock);

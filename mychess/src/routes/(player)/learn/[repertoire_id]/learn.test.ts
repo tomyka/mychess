@@ -2,7 +2,6 @@
 // mychess/src/routes/(player)/learn/[repertoire_id]/learn.test.ts
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
-import { enginePrefStore } from '$lib/enginePref.svelte';
 
 // Chessground is faked so a test can actually PLAY a move. It can't be driven
 // through the DOM here: every one of its input paths goes through
@@ -41,11 +40,6 @@ function playMove(from: string, to: string) {
 }
 
 beforeEach(() => {
-	// enginePrefStore is a module-level singleton shared across every test
-	// in this file (and every other file importing it in the same
-	// process) — reset it explicitly rather than relying on it starting
-	// fresh.
-	enginePrefStore.enabled = false;
 	cgMock.boards.length = 0;
 });
 
@@ -53,8 +47,11 @@ afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
 	vi.useRealTimers();
-	document.cookie = 'engine_enabled=; path=/; max-age=0';
 });
+
+// Long enough to clear AUTO_PLAY_ATTEMPT's 2-ply autoplay intro at the page's
+// own AUTO_PLAY_STEP_MS (700ms per ply, deliberately unhurried) plus slack.
+const AUTO_PLAY_INTRO_MS = 2000;
 
 const AUTO_PLAY_ATTEMPT = {
 	variationKey: 'v1',
@@ -300,7 +297,7 @@ describe('learn detail page', () => {
 		// the player is asked to move again. advanceTimersByTimeAsync (not the
 		// sync version) also flushes the microtask queue between ticks, which
 		// Svelte 5's reactivity needs to actually re-render.
-		await vi.advanceTimersByTimeAsync(1000);
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
 		expect(document.querySelector('main')?.getAttribute('data-phase')).toBe('playing');
 	});
 
@@ -317,7 +314,7 @@ describe('learn detail page', () => {
 				}
 			}
 		});
-		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes, quizIdx lands at 2
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS); // autoplay intro finishes, quizIdx lands at 2
 
 		const back = screen.getByLabelText('Move back') as HTMLButtonElement;
 		const forward = screen.getByLabelText('Move forward') as HTMLButtonElement;
@@ -352,7 +349,7 @@ describe('learn detail page', () => {
 				}
 			}
 		});
-		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes, quizIdx lands at 2
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS); // autoplay intro finishes, quizIdx lands at 2
 		expect(screen.getByText('1 / 2')).toBeTruthy();
 	});
 
@@ -369,7 +366,7 @@ describe('learn detail page', () => {
 				}
 			}
 		});
-		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes, quizIdx lands at 2
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS); // autoplay intro finishes, quizIdx lands at 2
 
 		const forward = screen.getByLabelText('Move forward') as HTMLButtonElement;
 		const toLive = screen.getByLabelText('Jump to current position') as HTMLButtonElement;
@@ -403,7 +400,7 @@ describe('learn detail page', () => {
 		// variation sharing them) auto-plays that part just like a teach pass
 		// does, and only requires the player to blind-play what's left.
 		expect(document.querySelector('main')?.getAttribute('data-phase')).toBe('autoplay');
-		await vi.advanceTimersByTimeAsync(1000);
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
 		expect(document.querySelector('main')?.getAttribute('data-phase')).toBe('playing');
 	});
 
@@ -444,7 +441,7 @@ describe('learn detail page', () => {
 	it('cues "now play it from memory" when a clean teach pass ends, BEFORE the board resets for the blind retest', async () => {
 		vi.useFakeTimers();
 		renderAttempt(AUTO_PLAY_ATTEMPT);
-		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes on the taught batch
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS); // autoplay intro finishes on the taught batch
 
 		playMove('g1', 'f3');
 		await vi.advanceTimersByTimeAsync(500); // the correct-move hold
@@ -459,7 +456,7 @@ describe('learn detail page', () => {
 	it('keeps the cue up across the reset it is explaining, then retires it on its own', async () => {
 		vi.useFakeTimers();
 		renderAttempt(AUTO_PLAY_ATTEMPT);
-		await vi.advanceTimersByTimeAsync(1000);
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
 		playMove('g1', 'f3');
 		await vi.advanceTimersByTimeAsync(500 + 1200 + 50); // hold, cue hold, next attempt loads
 
@@ -473,7 +470,7 @@ describe('learn detail page', () => {
 	it('does not cue a final pass — that solves the variation instead of re-asking for it', async () => {
 		vi.useFakeTimers();
 		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true }, 'hang');
-		await vi.advanceTimersByTimeAsync(1000);
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
 		playMove('g1', 'f3');
 		await vi.advanceTimersByTimeAsync(500);
 
@@ -488,7 +485,7 @@ describe('learn detail page', () => {
 	it('does not cue a teach pass that had a mistake — the same taught batch comes back, not a blind test', async () => {
 		vi.useFakeTimers();
 		renderAttempt(AUTO_PLAY_ATTEMPT, 'hang');
-		await vi.advanceTimersByTimeAsync(1000);
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
 
 		for (let i = 0; i < 3; i++) {
 			playMove('b1', 'c3'); // Nc3, not the book's Nf3
@@ -507,7 +504,7 @@ describe('learn detail page', () => {
 	it('offers a hint immediately, and taking it prevents the pass from counting as a clean pass', async () => {
 		vi.useFakeTimers();
 		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
-		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS); // autoplay intro finishes
 
 		// Visible with zero wrong attempts — no three-strikes wait.
 		const hintButtons = screen.getAllByText('Need a hint?');
@@ -532,7 +529,7 @@ describe('learn detail page', () => {
 		// arrowPlies covers plies 2-4, and autoPlayThrough lands the board on
 		// ply 2 — so the move being asked for is the one under the arrow.
 		renderAttempt(AUTO_PLAY_ATTEMPT);
-		await vi.advanceTimersByTimeAsync(1000);
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
 
 		expect(screen.queryByText('Need a hint?')).toBeNull();
 		// Said instead of an empty "Stuck?" block on the desktop sidebar.
@@ -542,7 +539,7 @@ describe('learn detail page', () => {
 	it('draws the hint even when the player had stepped back through the line', async () => {
 		vi.useFakeTimers();
 		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
-		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS); // autoplay intro finishes
 
 		// Browsing back puts the board on a past position, where the ring has
 		// nothing correct to point at — so the hint has to return to the live
@@ -555,6 +552,65 @@ describe('learn detail page', () => {
 		expect((screen.getByLabelText('Jump to current position') as HTMLButtonElement).disabled).toBe(
 			true
 		);
+	});
+
+	// #125: the whole point of explore mode is that it costs the drill nothing.
+	// These drive the real page through an excursion and then check the drill is
+	// exactly where it was — same ply, same position, still able to solve.
+	it('lets the player go off-book and come back with the attempt untouched', async () => {
+		vi.useFakeTimers();
+		// 'hang' holds the report open so the optimistic solved bump stays on
+		// screen to be asserted, as in the final-pass test above.
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true }, 'hang');
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
+
+		const fenBefore = cgMock.boards[cgMock.boards.length - 1].config.fen;
+		await fireEvent.click(screen.getByText(/Explore this position/i));
+
+		expect(screen.getByText(/Exploring — nothing counts here/i)).toBeTruthy();
+		// A move that would be WRONG in the drill is simply legal here.
+		playMove('b1', 'c3');
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.queryByText(/Not that move/i)).toBeNull();
+		expect(screen.queryByText(/1 mistake this attempt/i)).toBeNull();
+
+		await fireEvent.click(screen.getByText(/Back to the line/i));
+		expect(screen.queryByText(/Exploring/i)).toBeNull();
+		expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(fenBefore);
+
+		// And the drill still works: the book move solves the (final) pass.
+		// And the drill still works afterwards: the book move lands on the same
+		// board the excursion was played on, and solves the (final) pass.
+		playMove('g1', 'f3');
+		await vi.advanceTimersByTimeAsync(500);
+		expect(screen.getAllByText('1 / 1 variations learned').length).toBe(2);
+	});
+
+	it('undoes explored moves one at a time', async () => {
+		vi.useFakeTimers();
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
+
+		const fenBefore = cgMock.boards[cgMock.boards.length - 1].config.fen;
+		await fireEvent.click(screen.getByText(/Explore this position/i));
+
+		const undo = screen.getByText(/Undo/i);
+		expect((undo as HTMLButtonElement).disabled).toBe(true); // nothing to undo yet
+
+		playMove('b1', 'c3');
+		await vi.advanceTimersByTimeAsync(0);
+		expect((screen.getByText(/Undo/i) as HTMLButtonElement).disabled).toBe(false);
+
+		await fireEvent.click(screen.getByText(/Undo/i));
+		expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(fenBefore);
+	});
+
+	// Explore is about "the position the drill is asking about", which is not a
+	// well-defined thing mid-autoplay or while looking back at an earlier ply.
+	it('does not offer explore during the autoplay intro', () => {
+		vi.useFakeTimers();
+		renderAttempt(AUTO_PLAY_ATTEMPT);
+		expect(screen.queryByText(/Explore this position/i)).toBeNull();
 	});
 
 	it('shows a running session count and a Finish session link in the sidebar', () => {
@@ -597,7 +653,7 @@ describe('learn detail page', () => {
 				}
 			}
 		});
-		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS); // autoplay intro finishes
 
 		expect(screen.queryByText(/mistake/i)).toBeNull();
 
@@ -607,7 +663,10 @@ describe('learn detail page', () => {
 		expect(screen.getByText('1 mistake this attempt')).toBeTruthy();
 	});
 
-	it('renders without crashing with the engine toggle in its default (off) state', () => {
+	// The engine has no toggle any more (it is always on), and jsdom has no
+	// Worker at all — so what matters here is that the page still renders and the
+	// eval bar is present and honest about having nothing to show.
+	it('renders the eval bar, and survives the engine being unavailable (no Worker in jsdom)', () => {
 		render(Practice, {
 			props: {
 				data: {
@@ -630,45 +689,9 @@ describe('learn detail page', () => {
 				}
 			}
 		});
-		// The toggle switch itself always renders (mobile card + desktop
-		// panel); off by default, it never attempts to spawn a Worker at all.
-		expect(screen.getAllByRole('switch', { name: 'Toggle engine evaluation' }).length).toBe(2);
+		const bar = screen.getByRole('img', { name: /Engine evaluation/i });
+		expect(bar.getAttribute('aria-label')).toBe('Engine evaluation unavailable');
+		expect(screen.queryByRole('switch', { name: 'Toggle engine evaluation' })).toBeNull();
 		expect(screen.getAllByText('French Defense').length).toBe(1);
-	});
-
-	it('switching the engine on flips both instances together and shows "unavailable" (jsdom has no Worker)', async () => {
-		render(Practice, {
-			props: {
-				data: {
-					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
-					solved: 3,
-					total: 5,
-					allSolved: false,
-					attempt: {
-						variationKey: 'v1',
-						path: [
-							{
-								moveId: 'm1',
-								san: 'e4',
-								fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-								toFen: 'rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/8/RNBQKBNR w KQkq - 0 1',
-								isPlayerTurn: true
-							}
-						]
-					}
-				}
-			}
-		});
-
-		const switches = screen.getAllByRole('switch', { name: 'Toggle engine evaluation' });
-		expect(switches.every((s) => s.getAttribute('aria-checked') === 'false')).toBe(true);
-
-		await fireEvent.click(switches[0]);
-
-		// Both instances (mobile card + desktop panel) share the same store, so both flip together.
-		const switchesAfter = screen.getAllByRole('switch', { name: 'Toggle engine evaluation' });
-		expect(switchesAfter.every((s) => s.getAttribute('aria-checked') === 'true')).toBe(true);
-		// jsdom has no Worker API, so ensureWorker() immediately marks itself failed.
-		expect(screen.getAllByText('unavailable').length).toBe(2);
 	});
 });
