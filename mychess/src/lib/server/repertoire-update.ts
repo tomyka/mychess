@@ -42,8 +42,23 @@ export { moveIdsToRetire } from '$lib/repertoire-diff';
  */
 export const UPDATE_FLAG_STALE_MS = 10 * 60 * 1000;
 
+/**
+ * A classified line plus the chapter(s) it belongs to.
+ *
+ * `VariationDiff` deliberately carries no chapter — classification compares SAN
+ * paths and nothing else — but the review screen's left pane IS a chapter rail,
+ * and a `removed` line's chapter name exists ONLY on the database side (the
+ * upload never mentions it, which is exactly why the line is removed). So the
+ * attribution happens here, the one place holding both sides at once, rather
+ * than being re-derived on the client, which can only see the upload.
+ *
+ * Empty for a line from an untagged upload; the review renders those as one
+ * unnamed chapter.
+ */
+export type DiffWithChapters = VariationDiff & { chapterNames: string[] };
+
 export type UpdatePreview = {
-	diffs: VariationDiff[];
+	diffs: DiffWithChapters[];
 	renames: RenameCandidate[];
 	impact: Impact;
 	/** Chapters the repertoire has that this upload does not mention. */
@@ -91,7 +106,22 @@ export async function buildUpdatePreview(
 	}));
 
 	const incoming: IncomingLine[] = incomingLinesFromChapters(chapters);
-	const diffs = classifyVariations(existing, incoming);
+	const rawDiffs = classifyVariations(existing, incoming);
+
+	// Attribution runs off whichever side actually knows the line: a surviving
+	// line is looked up by its NEW SAN path among the upload's lines, a `removed`
+	// line by its existing key among the repertoire's. Keyed on the SAN path
+	// rather than on array identity because `incomingLinesFromChapters` merges
+	// duplicate edges, so the classifier's `sans` may not be the same array
+	// object the chapter walk produced.
+	const incomingByPath = new Map(incoming.map((line) => [line.sans.join('>'), line.chapterNames]));
+	const existingByKey = new Map(existing.map((line) => [line.variationKey, line.chapterNames]));
+	const diffs: DiffWithChapters[] = rawDiffs.map((diff) => ({
+		...diff,
+		chapterNames:
+			(diff.sans ? incomingByPath.get(diff.sans.join('>')) : diff.existingKey ? existingByKey.get(diff.existingKey) : undefined) ??
+			[]
+	}));
 
 	// The upload's chapter names come from the `chapters` argument, NOT from
 	// `incoming`. A chapter whose `moves` array is empty contributes no line and

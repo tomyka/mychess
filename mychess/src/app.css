@@ -19,6 +19,19 @@
   --color-border: #e5e7eb;
   --color-text: #111827;
   --color-muted: #6b7280;
+
+  /* Diff-class colours for the repertoire-update review screen. Semantic, and
+     deliberately NOT derived from --color-accent: the accent means "the thing
+     you press", while these mean "what happened to this line". Reusing indigo
+     for `new` would make a status read as an action. Defined here, in both
+     :root and .dark, rather than as Tailwind palette classes, so no colour is
+     defined inside only one theme's block. */
+  --color-diff-unchanged: #64748b;
+  --color-diff-extended: #0f766e;
+  --color-diff-truncated: #0369a1;
+  --color-diff-diverged: #b45309;
+  --color-diff-new: #15803d;
+  --color-diff-removed: #b91c1c;
 }
 
 .dark {
@@ -29,6 +42,16 @@
   --color-border: #3f3f46;
   --color-text: #e4e4e7;
   --color-muted: #a1a1aa;
+
+  /* Lifted for contrast against the dark surface — same six roles, one step
+     lighter, matching how the rest of the app steps semantic colours up in
+     dark mode. */
+  --color-diff-unchanged: #a1a1aa;
+  --color-diff-extended: #5eead4;
+  --color-diff-truncated: #7dd3fc;
+  --color-diff-diverged: #fbbf24;
+  --color-diff-new: #86efac;
+  --color-diff-removed: #fca5a5;
 }
 
 /* Pages that cap their content width (e.g. `max-w-5xl mx-auto`) leave the
