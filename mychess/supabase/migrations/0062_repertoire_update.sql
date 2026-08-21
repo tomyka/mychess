@@ -49,7 +49,35 @@ create index if not exists moves_repertoire_live_idx
   where retired_at is null;
 
 -- ---------------------------------------------------------------------------
--- 2. repertoire_reconciliation — per-player "I have caught up" stamp.
+-- 2. repertoires.update_in_progress_at — defer reconciliation across the
+--    non-atomic apply window.
+-- ---------------------------------------------------------------------------
+-- The apply is NOT one transaction, and cannot be: the move upsert stays in
+-- application code (`writeMoves` chunks around PostgREST's URL-length and
+-- `max_rows` limits) and runs in its own transaction BEFORE the RPC below. So
+-- there is a window where the new moves are already live and the pruned ones
+-- are not yet retired — and 0055's trigger bumps `moves_updated_at` at the
+-- START of that window, not the end.
+--
+-- A student loading inside that window would therefore reconcile against a
+-- half-applied shape, and reconciliation is destructive: the counts self-heal
+-- on the next reconcile, but a `variation_solved` row deleted on a phantom
+-- 'diverged' classification does not come back, and the demotion log keeps a
+-- spurious 'coach_update' row. So reconciliation skips entirely while this
+-- flag is set and non-stale, then runs once against the final shape.
+--
+-- A timestamp rather than a boolean, so a crashed apply cannot wedge a
+-- repertoire forever: the application ignores a flag older than 10 minutes
+-- and reconciles anyway. Set immediately before the upsert by the application;
+-- cleared by `apply_repertoire_update` below.
+alter table public.repertoires
+  add column if not exists update_in_progress_at timestamptz;
+
+comment on column public.repertoires.update_in_progress_at is
+  'Non-null means a coach re-upload is mid-apply. The move upsert runs in its own transaction ahead of apply_repertoire_update, so moves_updated_at is already bumped while the shape is still half-applied; reconciliation skips while this flag is set and under 10 minutes old. A timestamp rather than a boolean so a crashed apply goes stale instead of wedging the repertoire forever. Set by the application before the upsert, cleared by apply_repertoire_update.';
+
+-- ---------------------------------------------------------------------------
+-- 3. repertoire_reconciliation — per-player "I have caught up" stamp.
 -- ---------------------------------------------------------------------------
 -- A dedicated table rather than a column on `assigned_repertoires`, because
 -- `assigned_repertoires` only has a row for an *assigned* repertoire. A coach
@@ -106,7 +134,7 @@ revoke all on public.repertoire_reconciliation from anon, public;
 grant select, insert, update on public.repertoire_reconciliation to authenticated;
 
 -- ---------------------------------------------------------------------------
--- 3. Widen variation_demotions.cause to allow 'coach_update'.
+-- 4. Widen variation_demotions.cause to allow 'coach_update'.
 -- ---------------------------------------------------------------------------
 -- A coach revising a line demotes every student who had learned it. That
 -- belongs in the same audit trail as the existing demotions (it is the same
@@ -114,21 +142,44 @@ grant select, insert, update on public.repertoire_reconciliation to authenticate
 -- it is neither a mistake nor a hint — the student did nothing wrong, the
 -- material moved under them. Hence a third cause rather than reusing one.
 --
--- The constraint is unnamed in 0057 (an inline `check (cause in (...))` on the
--- column), so Postgres auto-named it `variation_demotions_cause_check`.
-alter table public.variation_demotions
-  drop constraint if exists variation_demotions_cause_check;
+-- Dropped by PROBING pg_constraint rather than by name. The name migration
+-- 0057 would have produced is `variation_demotions_cause_check`, but this
+-- repo's migration files have drifted from the live schema before (see
+-- CLAUDE.md). A name-based `drop constraint if exists` that no-ops against a
+-- differently-named live constraint leaves TWO check constraints on `cause`,
+-- with the old one still forbidding 'coach_update' — a migration that reports
+-- success and then breaks at the first demotion insert. Probing cannot miss.
+--
+-- Still idempotent on re-run: the probe drops whatever the previous run added
+-- (it matches by definition, not by name), and the widened constraint is then
+-- re-added below. Same `pg_constraint`-probing style migration 0049 uses.
+do $$
+declare
+  v_name text;
+begin
+  for v_name in
+    select conname
+    from pg_constraint
+    where conrelid = 'public.variation_demotions'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) ilike '%cause%'
+  loop
+    execute format('alter table public.variation_demotions drop constraint %I', v_name);
+  end loop;
+end $$;
 
 alter table public.variation_demotions
   add constraint variation_demotions_cause_check
   check (cause in ('mistake', 'hint', 'coach_update'));
 
 -- ---------------------------------------------------------------------------
--- 4. apply_repertoire_update — the atomic tail of a re-upload.
+-- 5. apply_repertoire_update — the atomic tail of a re-upload.
 -- ---------------------------------------------------------------------------
--- Renames chapters in place, retires pruned moves, and refreshes the cached
--- shape columns, all in one transaction so a partial re-upload can never leave
--- a repertoire half-updated.
+-- Renames chapters in place, retires pruned moves, un-retires restored ones,
+-- refreshes the cached shape columns and clears the deferral flag, all in one
+-- transaction so the tail of a re-upload can never leave a repertoire
+-- half-updated. (The move upsert ahead of it is a separate transaction by
+-- necessity — that window is exactly what `update_in_progress_at` covers.)
 --
 -- There is deliberately NO staleness-check parameter, and nothing here compares
 -- `moves_updated_at` against anything. The optimistic-concurrency check lives
@@ -141,9 +192,17 @@ alter table public.variation_demotions
 -- owner on a coach's behalf, which the owner-scoped RLS on `moves` would not
 -- allow; that is exactly why it does its own authorization check below.
 -- `search_path` is pinned per Supabase's linter guidance for definer functions.
+--
+-- The 5-argument version from this migration's first revision must be dropped
+-- explicitly: `create or replace` cannot change an argument list, it creates a
+-- second overload — and a caller resolving to the stale overload would skip the
+-- un-retire and the flag clear entirely.
+drop function if exists public.apply_repertoire_update(uuid, uuid[], jsonb, int, boolean);
+
 create or replace function public.apply_repertoire_update(
   p_repertoire_id uuid,
   p_retire_move_ids uuid[],
+  p_unretire_move_ids uuid[],
   p_chapter_renames jsonb,
   p_total_variations int,
   p_has_chapters boolean
@@ -173,7 +232,23 @@ begin
   -- its own statements, so the only thing standing between an arbitrary
   -- authenticated caller and someone else's repertoire is this check. Allowed
   -- callers are the owner, or an active coach of the owner.
-  if v_owner <> auth.uid()
+  --
+  -- Written as an explicit null guard plus `is distinct from`, never
+  -- `v_owner <> auth.uid()`. With a NULL `auth.uid()` that comparison yields
+  -- NULL, `NULL and true` is NULL, `if NULL` is not taken, and this definer
+  -- function proceeds to write with no guard at all. `service_role` JWTs carry
+  -- no `sub`, so `auth.uid()` IS NULL under them, and Supabase's default
+  -- privileges keep EXECUTE for `service_role` regardless of the revoke below
+  -- — so the fail-open path is reachable, not theoretical.
+  --
+  -- Consequence worth knowing: a service-role caller is now DENIED. Verifying
+  -- this function against production has to go through a real user session, not
+  -- the service-role key.
+  if auth.uid() is null then
+    raise exception 'Not authorized to update repertoire %', p_repertoire_id;
+  end if;
+
+  if v_owner is distinct from auth.uid()
      and not exists (
        select 1
        from public.coach_players cp
@@ -200,18 +275,29 @@ begin
   -- `chapter_names` is `text[]` (migration 0048), so both the array_replace
   -- arguments and the containment probe are cast to text explicitly rather
   -- than left to default to unknown/anyelement resolution.
-  for v_rename in
-    select value from jsonb_array_elements(coalesce(p_chapter_renames, '[]'::jsonb))
-  loop
-    update public.moves
-      set chapter_names = array_replace(
-            chapter_names,
-            (v_rename->>'from')::text,
-            (v_rename->>'to')::text
-          )
-      where repertoire_id = p_repertoire_id
-        and chapter_names @> array[(v_rename->>'from')::text];
-  end loop;
+  --
+  -- `jsonb_array_elements` raises `cannot extract elements from ...` when
+  -- handed a jsonb scalar (`'null'::jsonb`), an object or a string, and
+  -- `coalesce` only catches SQL NULL — so the type is checked rather than
+  -- coalesced. Each entry is then guarded: a missing or JSON-null 'to' would
+  -- make array_replace write a NULL ELEMENT into `chapter_names text[] not
+  -- null`, which enumerateVariations does not expect. `->>` is used in
+  -- preference to the `?` existence operator because it yields NULL for both a
+  -- missing key and a JSON null, so one check covers both.
+  if jsonb_typeof(p_chapter_renames) = 'array' then
+    for v_rename in select value from jsonb_array_elements(p_chapter_renames) loop
+      if (v_rename ->> 'from') is not null and (v_rename ->> 'to') is not null then
+        update public.moves
+          set chapter_names = array_replace(
+                chapter_names,
+                (v_rename ->> 'from')::text,
+                (v_rename ->> 'to')::text
+              )
+          where repertoire_id = p_repertoire_id
+            and chapter_names @> array[(v_rename ->> 'from')::text];
+      end if;
+    end loop;
+  end if;
 
   -- Retire the pruned moves. `retired_at is null` in the predicate keeps this
   -- from re-stamping an already-retired move (which would also fire 0055's
@@ -224,13 +310,42 @@ begin
         and retired_at is null;
   end if;
 
+  -- Un-retire a line the coach removed in one version and restored in a later
+  -- one. This CANNOT live in the application's move upsert: `moves` has no RLS
+  -- policy granting a coach UPDATE on a student-owned repertoire
+  -- (`moves_player_all` in 0002 is owner-only; `moves_coach_insert_for_student`
+  -- in 0020 is INSERT only), so an app-side un-retire fails under RLS in
+  -- exactly the coach case this feature exists for — and fails silently, since
+  -- `retired_at` is not in `writeMoves`' upsert payload at all. This definer
+  -- function already holds the privileges, the authorization check and the row
+  -- lock.
+  --
+  -- The retire and un-retire sets are DISJOINT by construction of the diff: a
+  -- move present in the new PGN is classified unchanged/extended/diverged/new,
+  -- never removed, so no id can appear in both arrays. Their order relative to
+  -- each other therefore does not matter — and nobody should later assume an
+  -- overlap is handled here, because it is not.
+  if array_length(p_unretire_move_ids, 1) > 0 then
+    update public.moves
+      set retired_at = null
+      where repertoire_id = p_repertoire_id
+        and id = any(p_unretire_move_ids)
+        and retired_at is not null;
+  end if;
+
   -- Refresh the cached shape (migrations 0036 / 0043). Computed by the caller
   -- from the new PGN, since it already walked the tree to produce the diff.
+  --
+  -- Clearing `update_in_progress_at` here is what re-opens reconciliation: the
+  -- shape is final as of this transaction's commit, so the flag has to drop in
+  -- the same commit rather than in a follow-up call that could fail and leave
+  -- reconciliation deferred until the flag goes stale.
   update public.repertoires
     set total_variations = p_total_variations,
-        has_chapters = p_has_chapters
+        has_chapters = p_has_chapters,
+        update_in_progress_at = null
     where id = p_repertoire_id;
 end $$;
 
-revoke all on function public.apply_repertoire_update(uuid, uuid[], jsonb, int, boolean) from anon, public;
-grant execute on function public.apply_repertoire_update(uuid, uuid[], jsonb, int, boolean) to authenticated;
+revoke all on function public.apply_repertoire_update(uuid, uuid[], uuid[], jsonb, int, boolean) from anon, public;
+grant execute on function public.apply_repertoire_update(uuid, uuid[], uuid[], jsonb, int, boolean) to authenticated;
