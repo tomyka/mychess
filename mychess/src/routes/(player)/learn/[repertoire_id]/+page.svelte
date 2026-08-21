@@ -180,6 +180,11 @@
 		return move ? { from: move.from as Key, to: move.to as Key } : null;
 	});
 
+	// Whether to offer a hint at all. Not on an arrowed ply: the move is already
+	// drawn on the board there, so offering to point at the piece is noise on a
+	// move the player was never asked to recall.
+	const hintOffered = $derived(phase === 'playing' && !hintRequested && !arrowMove);
+
 	// Priority: a teaching arrow is self-explanatory (silent) > the
 	// between-passes cue > the last move's own result > the autoplay intro
 	// > the default blind-retest prompt.
@@ -492,10 +497,7 @@
 				     unmounted on every phase change and moved the board with it
 				     (#113). Passing the callback only while the offer actually
 				     stands is what makes the strip hand the slot over. -->
-				<PracticeStatusStrip
-					state={stripState}
-					onhint={phase === 'playing' && !hintRequested ? requestHint : undefined}
-				/>
+				<PracticeStatusStrip state={stripState} onhint={hintOffered ? requestHint : undefined} />
 
 				<div class="lg:flex-1 lg:min-h-0 lg:flex lg:items-start lg:justify-center lg:[container-type:size]">
 					<ChessBoard
@@ -572,13 +574,17 @@
 					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">Stuck?</p>
 					{#if hintRequested}
 						<p class="text-sm text-(--color-muted)">Hint used for this attempt.</p>
-					{:else if phase === 'playing'}
+					{:else if hintOffered}
 						<button
 							onclick={requestHint}
 							class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700"
 						>
 							<span class="text-base">💡</span> Need a hint?
 						</button>
+					{:else if arrowMove}
+						<!-- Nothing to offer on an arrowed ply, and an empty "Stuck?"
+						     block reads as broken — so say why there's no offer. -->
+						<p class="text-sm text-(--color-muted)">This move is being shown — follow the arrow.</p>
 					{/if}
 					<p class="text-xs text-(--color-muted) mt-2">
 						← → step through moves you've played · ↑ jump to start · ↓ jump to live position

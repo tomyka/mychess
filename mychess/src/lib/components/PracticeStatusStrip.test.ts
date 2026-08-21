@@ -41,7 +41,7 @@ describe('PracticeStatusStrip', () => {
 	// their own `container` — this project has no auto-cleanup between renders,
 	// so `screen` sees every strip rendered earlier in the file, and the copy
 	// asserted on here is copy other cases render too.
-	it('hands the slot to the hint offer in the quiet states', () => {
+	it('hands the slot to the hint offer during the blind retest', () => {
 		const { container } = render(PracticeStatusStrip, {
 			props: { state: 'blind', onhint: () => {} }
 		});
@@ -60,6 +60,13 @@ describe('PracticeStatusStrip', () => {
 		const strip = within(container);
 		expect(strip.queryByRole('button', { name: /Need a hint/i })).toBeNull();
 		expect(strip.getByText(/Not that move/i).className).toBe('');
+	});
+
+	it('offers no hint under a teaching arrow — the move is already on the board', () => {
+		const { container } = render(PracticeStatusStrip, {
+			props: { state: 'silent', onhint: () => {} }
+		});
+		expect(within(container).queryByRole('button', { name: /Need a hint/i })).toBeNull();
 	});
 
 	it('offers no hint without a callback, whatever the state', () => {

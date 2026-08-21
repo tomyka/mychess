@@ -21,9 +21,11 @@
 	// (hint taken, correct move, autoplay intro, cue) and shoved the board up
 	// and down mid-drill (#113). Sharing the strip's one fixed-height slot means
 	// the board's top edge never moves — at the cost of the two never being
-	// visible together, which is why the offer only takes the slot in the states
-	// with nothing urgent to say. Move feedback always wins it back.
-	const hintable = $derived(!!onhint && (state === 'silent' || state === 'blind'));
+	// visible together, which is why the offer only takes the slot in 'blind',
+	// the one state where the player is being asked to recall a move. Move
+	// feedback always wins the slot back, and 'silent' means a teaching arrow is
+	// up: the move is already being shown, so offering to show it is noise.
+	const hintable = $derived(!!onhint && state === 'blind');
 
 	// Keyed over the FULL union (including 'silent') so `TONE[state]`/`COPY[state]`/
 	// `ICON[state]` type-check without narrowing — indexing with `Exclude<
@@ -69,12 +71,12 @@
 	// reads as an offer rather than as a status. That swap is mobile-only — the
 	// desktop sidebar has its own hint button, so `lg:` puts the state's real
 	// tone back (mobile-first, so these min-width utilities beat the base ones
-	// above them). Only the two hintable states can be reached here; the rest
-	// exist to keep the record keyed over the full union, same as TONE above.
+	// above them). Only 'blind' can be reached here; the rest exist to keep the
+	// record keyed over the full union, same as TONE above.
 	const HINT_TONE =
 		'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300';
 	const TONE_LG: Record<PracticeStripState, string> = {
-		silent: 'lg:border-transparent lg:bg-transparent',
+		silent: '',
 		blind: 'lg:border-(--color-border) lg:bg-(--color-surface) lg:text-(--color-muted)',
 		wrong: '',
 		correct: '',

@@ -527,6 +527,18 @@ describe('learn detail page', () => {
 		expect(screen.getAllByText('0 / 1 variations learned').length).toBe(2);
 	});
 
+	it('offers no hint on a ply whose move is already drawn as a teaching arrow', async () => {
+		vi.useFakeTimers();
+		// arrowPlies covers plies 2-4, and autoPlayThrough lands the board on
+		// ply 2 — so the move being asked for is the one under the arrow.
+		renderAttempt(AUTO_PLAY_ATTEMPT);
+		await vi.advanceTimersByTimeAsync(1000);
+
+		expect(screen.queryByText('Need a hint?')).toBeNull();
+		// Said instead of an empty "Stuck?" block on the desktop sidebar.
+		expect(screen.getByText(/This move is being shown/i)).toBeTruthy();
+	});
+
 	it('draws the hint even when the player had stepped back through the line', async () => {
 		vi.useFakeTimers();
 		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
