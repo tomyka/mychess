@@ -345,8 +345,10 @@ describe('projectImpact', () => {
 		// projection consumes the classifier's own output with no mapping step.
 		// Hoisted to a variable (rather than passed inline) so TS's excess-property
 		// check on object literals doesn't trip over VariationDiff's extra `sans`/
-		// `commonPlies` fields — structural assignability is what's under test.
-		const diffs: VariationDiff[] = [{ kind: 'diverged', existingKey: 'd', sans: ['e4'], commonPlies: 1 }];
+		// `previousSans`/`commonPlies` fields — structural assignability is what's under test.
+		const diffs: VariationDiff[] = [
+			{ kind: 'diverged', existingKey: 'd', sans: ['e4'], previousSans: ['d4'], commonPlies: 1 }
+		];
 		const impact = projectImpact(diffs, [{ playerId: 'p1', solved: ['d'] }]);
 		expect(impact.demotedLineCount).toBe(1);
 	});

@@ -35,6 +35,18 @@ export type VariationDiff = {
 	/** The line as it will exist after the update. Null for `removed`. */
 	sans: string[] | null;
 	/**
+	 * The matched existing line, as it is TODAY. Null only for `new`, which had
+	 * no previous version at all — for `unchanged` it is the same array as
+	 * `sans`, set deliberately rather than left out, so a consumer never has to
+	 * branch on `kind` to know whether it is there.
+	 *
+	 * Carried because the review screen renders a change IN PLACE — the replaced
+	 * ply struck through beside its replacement, mid-line — and "diverges at ply
+	 * 15" is unreadable to a coach while 8.a4 → 8.Bd3 is not. That needs the old
+	 * moves, which a ply count cannot reconstruct.
+	 */
+	previousSans: string[] | null;
+	/**
 	 * Plies the two versions share. For `unchanged` this is the full length; for
 	 * `new` it is the longest prefix shared with ANY existing line (the
 	 * inheritance depth); for `removed` it is 0.
@@ -79,6 +91,7 @@ export function classifyVariations(existing: ExistingLine[], incoming: IncomingL
 				kind: 'unchanged',
 				existingKey: exact.variationKey,
 				sans: inc.sans,
+				previousSans: inc.sans,
 				commonPlies: inc.sans.length
 			});
 		} else {
@@ -109,7 +122,13 @@ export function classifyVariations(existing: ExistingLine[], incoming: IncomingL
 		}
 
 		if (!best) {
-			diffs.push({ kind: 'new', existingKey: null, sans: inc.sans, commonPlies: inheritedPlies(inc) });
+			diffs.push({
+				kind: 'new',
+				existingKey: null,
+				sans: inc.sans,
+				previousSans: null,
+				commonPlies: inheritedPlies(inc)
+			});
 			continue;
 		}
 
@@ -117,7 +136,13 @@ export function classifyVariations(existing: ExistingLine[], incoming: IncomingL
 		// `unchanged` is unreachable here: an identical path was claimed in pass 1.
 		const kind: DiffKind =
 			best.shared === best.line.sans.length ? 'extended' : best.shared === inc.sans.length ? 'truncated' : 'diverged';
-		diffs.push({ kind, existingKey: best.line.variationKey, sans: inc.sans, commonPlies: best.shared });
+		diffs.push({
+			kind,
+			existingKey: best.line.variationKey,
+			sans: inc.sans,
+			previousSans: best.line.sans,
+			commonPlies: best.shared
+		});
 	}
 
 	// Whatever no incoming line claimed is gone from the upload. `claimed` is
@@ -125,7 +150,7 @@ export function classifyVariations(existing: ExistingLine[], incoming: IncomingL
 	// `extended` entry claimed the old shorter line already.
 	for (const ex of existing) {
 		if (claimed.has(ex.variationKey)) continue;
-		diffs.push({ kind: 'removed', existingKey: ex.variationKey, sans: null, commonPlies: 0 });
+		diffs.push({ kind: 'removed', existingKey: ex.variationKey, sans: null, previousSans: ex.sans, commonPlies: 0 });
 	}
 
 	return diffs;

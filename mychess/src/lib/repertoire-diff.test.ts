@@ -352,3 +352,42 @@ describe('moveIdsToRetire', () => {
 		expect(retired.sort()).toEqual(['1', '2', 'x', 'y']);
 	});
 });
+
+describe('classifyVariations — previousSans', () => {
+	it('carries both the old and the new moves on a diverged line', () => {
+		const before = [...NAJDORF, 'a4'];
+		const after = [...NAJDORF, 'Bd3'];
+		const result = classifyVariations([existing([...IDS, 'm10'], before)], [incoming(after)]);
+		expect(result[0].kind).toBe('diverged');
+		expect(result[0].previousSans).toEqual(before);
+		expect(result[0].sans).toEqual(after);
+	});
+
+	it('leaves previousSans null on a new line — there was no previous version', () => {
+		const result = classifyVariations([], [incoming(NAJDORF)]);
+		expect(result[0].kind).toBe('new');
+		expect(result[0].previousSans).toBeNull();
+	});
+
+	it('carries the old moves on a removed line, whose sans is null', () => {
+		const result = classifyVariations([existing(IDS, NAJDORF)], []);
+		expect(result[0].kind).toBe('removed');
+		expect(result[0].sans).toBeNull();
+		expect(result[0].previousSans).toEqual(NAJDORF);
+	});
+
+	it("makes an extended line's previousSans a prefix of its sans", () => {
+		const longer = [...NAJDORF, 'Be3', 'e5'];
+		const result = classifyVariations([existing(IDS, NAJDORF)], [incoming(longer)]);
+		expect(result[0].kind).toBe('extended');
+		const previous = result[0].previousSans;
+		expect(previous).not.toBeNull();
+		expect(result[0].sans?.slice(0, previous!.length)).toEqual(previous);
+	});
+
+	it('sets previousSans on an unchanged line too, so no consumer branches on kind', () => {
+		const result = classifyVariations([existing(IDS, NAJDORF)], [incoming(NAJDORF)]);
+		expect(result[0].kind).toBe('unchanged');
+		expect(result[0].previousSans).toEqual(result[0].sans);
+	});
+});
