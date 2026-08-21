@@ -4,6 +4,7 @@ import { requireAccount } from '$lib/server/auth';
 import { loadFilteredRepertoireVariations } from '$lib/server/practice-repertoire';
 import { loadSolvedKeys } from '$lib/server/practice-progress';
 import { loadMoveAttemptStats } from '$lib/server/practice-pool';
+import { coachUpdatedLineCount } from '$lib/server/coach-update-notice';
 import { splitQueues } from '$lib/mastery/learning';
 import { orderPracticeQueue } from '$lib/mastery/practiceQueue';
 import { fullyLearnedChapters } from '$lib/mastery/repertoireStatus';
@@ -32,9 +33,20 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const supabase = locals.supabase;
 	const repertoireId = params.repertoire_id;
 
-	const [{ repertoire, variations }, learnedKeys] = await Promise.all([
+	// Joined into the existing parallel read rather than awaited after it: it
+	// reads only this student's demotion and solved rows, so it depends on
+	// neither and costs latency only when it is the slowest of the three.
+	//
+	// There is no read-your-own-write race with reconciliation here, because
+	// nothing on this path reconciles: the `coach_update` demotions this counts
+	// are written by `reconcilePlayerProgress`, which runs from
+	// `repertoire-progress.ts` (the dashboard, the practice picker, the learn
+	// list) — every route a student can reach this page THROUGH. By the time
+	// this load runs, the rows it counts already exist.
+	const [{ repertoire, variations }, learnedKeys, coachUpdatedLines] = await Promise.all([
 		loadFilteredRepertoireVariations(supabase, user!.id, repertoireId),
-		loadSolvedKeys(supabase, user!.id, repertoireId)
+		loadSolvedKeys(supabase, user!.id, repertoireId),
+		coachUpdatedLineCount(supabase, user!.id, repertoireId)
 	]);
 
 	const { learn, practice } = splitQueues(variations, learnedKeys);
@@ -60,6 +72,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			const variation = byKey.get(variationKey)!;
 			return { variationKey, path: variation.path, chapterNames: variation.chapterNames };
 		}),
+		// Lines a coach's re-upload sent back to review that this student has not
+		// re-learned yet. Self-clearing — see `coachUpdatedLineCount`.
+		coachUpdatedLines,
 		learnedCount: practice.length,
 		stillLearningCount: learn.length,
 		total: practice.length + learn.length

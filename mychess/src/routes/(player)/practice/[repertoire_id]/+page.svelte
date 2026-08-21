@@ -4,6 +4,7 @@
 	import EvalBar from '$lib/components/EvalBar.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
 	import PracticeStatusStrip, { type PracticeStripState } from '$lib/components/PracticeStatusStrip.svelte';
+	import RepertoireUpdatedBanner from '$lib/components/RepertoireUpdatedBanner.svelte';
 	import type { Key } from 'chessground/types';
 	import { Chess } from 'chess.js';
 	import { playCorrect, playWrong } from '$lib/sounds';
@@ -228,6 +229,22 @@
 			Learn mode
 		</a>
 	</div>
+
+	<!-- OUTSIDE the status strip's slot, and above it, on purpose. That slot's
+	     height is pinned (min-h-12, fixed leading — see PracticeStatusStrip)
+	     because mobile stacks it straight onto the board, so any content-driven
+	     height difference between its states moves the board's top edge mid-drill
+	     (#113, fixed in 2fa68dd). This banner is a variable-height block that
+	     appears for some students and not others and can be dismissed mid-session
+	     — putting it in that slot would reintroduce exactly the shift the pin
+	     exists to prevent. As its own sibling above the layout it takes its space
+	     once, before the board, and the strip's slot stays fixed.
+
+	     Above the state branch rather than inside it, too: a coach update DEMOTES
+	     lines, which routinely drops a student into the "nothing learned yet" or
+	     "finish a chapter" states below — the states where an unexplained
+	     backwards step is most alarming and most needs attributing to the coach. -->
+	<RepertoireUpdatedBanner lineCount={data.coachUpdatedLines ?? 0} />
 
 	{#if data.learnedCount === 0}
 		<!-- Also the landing spot for an old /practice/[id] bookmark, which used to
