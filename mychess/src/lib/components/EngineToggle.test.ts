@@ -2,6 +2,7 @@
 // mychess/src/lib/components/EngineToggle.test.ts
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
+import { flushSync } from 'svelte';
 import EngineToggle from './EngineToggle.svelte';
 import { engineEnabled } from '$lib/engine/engine.svelte';
 
@@ -31,10 +32,12 @@ describe('EngineToggle', () => {
 		expect(button.getAttribute('aria-pressed')).toBe('false');
 	});
 
-	it('reflects the engine being switched on from somewhere else', async () => {
-		const { rerender } = render(EngineToggle);
+	// The state lives in a module, so the other drill page's copy of this button —
+	// or a teardown from anywhere — has to be reflected here too.
+	it('reflects the engine being switched on from somewhere else', () => {
+		render(EngineToggle);
 		engineEnabled.on = true;
-		await rerender({});
+		flushSync();
 		expect(screen.getByRole('button', { name: /engine/i }).getAttribute('aria-pressed')).toBe('true');
 	});
 });

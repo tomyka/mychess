@@ -6,6 +6,10 @@
 
 	Off by default and off again after a reload, because pressing it costs a
 	~5.5MB WASM download — a thing the player should ask for, not inherit.
+
+	The label stays "Engine" in both states and the accent treatment carries the
+	on/off signal: `aria-pressed` already says "pressed", so a label that also
+	said "on" had a screen reader announcing the same fact twice.
 -->
 <script lang="ts">
 	import { engineEnabled, setEngineEnabled } from '$lib/engine/engine.svelte';
@@ -19,5 +23,5 @@
 		? 'border-(--color-accent) bg-(--color-accent)/10 text-(--color-text)'
 		: 'border-(--color-border) bg-(--color-surface) text-(--color-muted)'}"
 >
-	<span aria-hidden="true">⚙</span> Engine{engineEnabled.on ? ' on' : ''}
+	<span aria-hidden="true">⚙</span> Engine
 </button>
