@@ -64,5 +64,21 @@
 	"player_header_rank_europe": "EUR",
 	"stats_row_day_streak": "Day streak",
 	"coach_note_title": "Coach note",
-	"coach_note_dismiss": "Dismiss"
+	"coach_note_dismiss": "Dismiss",
+	"move_nav_jump_to_start": "Jump to start",
+	"move_nav_move_back": "Move back",
+	"move_nav_move_forward": "Move forward",
+	"move_nav_jump_to_current": "Jump to current position",
+	"chessboard_hint_move_this_piece": "Hint: move this piece",
+	"eval_bar_label_score": "Engine evaluation {score}",
+	"eval_bar_label_unavailable": "Engine evaluation unavailable",
+	"eval_bar_label_loading": "Engine evaluation loading",
+	"practice_status_blind": "Play it from memory",
+	"practice_status_wrong": "Not that move — try again",
+	"practice_status_correct": "Correct",
+	"practice_status_autoplay": "Replaying what you already know…",
+	"practice_status_retest_cue": "Nice — now play it from memory",
+	"practice_status_demoted": "Back to Learn — needs teaching again",
+	"practice_status_exploring": "Exploring — nothing counts here",
+	"practice_status_need_hint": "Need a hint?"
 }

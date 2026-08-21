@@ -64,5 +64,21 @@
 	"player_header_rank_europe": "EUR",
 	"stats_row_day_streak": "Dienų iš eilės",
 	"coach_note_title": "Trenerio pastaba",
-	"coach_note_dismiss": "Uždaryti"
+	"coach_note_dismiss": "Uždaryti",
+	"move_nav_jump_to_start": "Peršokti į pradžią",
+	"move_nav_move_back": "Ėjimas atgal",
+	"move_nav_move_forward": "Ėjimas pirmyn",
+	"move_nav_jump_to_current": "Peršokti į esamą padėtį",
+	"chessboard_hint_move_this_piece": "Užuomina: paslinkite šią figūrą",
+	"eval_bar_label_score": "Variklio įvertinimas {score}",
+	"eval_bar_label_unavailable": "Variklio įvertinimas nepasiekiamas",
+	"eval_bar_label_loading": "Variklio įvertinimas kraunamas",
+	"practice_status_blind": "Sužaiskite iš atminties",
+	"practice_status_wrong": "Ne tas ėjimas — bandykite dar kartą",
+	"practice_status_correct": "Teisingai",
+	"practice_status_autoplay": "Kartojama tai, ką jau žinote…",
+	"practice_status_retest_cue": "Šauniai — dabar sužaiskite iš atminties",
+	"practice_status_demoted": "Atgal į „Mokytis“ — reikia mokytis iš naujo",
+	"practice_status_exploring": "Tyrinėjama — čia niekas neskaičiuojama",
+	"practice_status_need_hint": "Reikia užuominos?"
 }

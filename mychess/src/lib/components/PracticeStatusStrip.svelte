@@ -17,6 +17,8 @@
 </script>
 
 <script lang="ts">
+	import { m } from '$lib/paraglide/messages';
+
 	let { state, onhint }: { state: PracticeStripState; onhint?: () => void } = $props();
 
 	// Mobile stacks this strip directly on top of the board, so a caller that
@@ -50,15 +52,15 @@
 
 	const COPY: Record<PracticeStripState, string> = {
 		silent: '',
-		blind: 'Play it from memory',
-		wrong: 'Not that move — try again',
-		correct: 'Correct',
-		autoplay: 'Replaying what you already know…',
-		'retest-cue': 'Nice — now play it from memory',
+		blind: m.practice_status_blind(),
+		wrong: m.practice_status_wrong(),
+		correct: m.practice_status_correct(),
+		autoplay: m.practice_status_autoplay(),
+		'retest-cue': m.practice_status_retest_cue(),
 		// Kept short on purpose: at 320px the longer wording wrapped to a second
 		// line, which is a height change and therefore a board shift (#113).
-		demoted: 'Back to Learn — needs teaching again',
-		exploring: 'Exploring — nothing counts here'
+		demoted: m.practice_status_demoted(),
+		exploring: m.practice_status_exploring()
 	};
 
 	const TONE: Record<PracticeStripState, string> = {
@@ -117,7 +119,7 @@
 			onclick={onhint}
 			class="lg:hidden -m-3 flex w-full items-center justify-center gap-1.5 p-3"
 		>
-			<span aria-hidden="true">💡</span> Need a hint?
+			<span aria-hidden="true">💡</span> {m.practice_status_need_hint()}
 		</button>
 	{/if}
 	<span class={hintable ? 'hidden lg:inline' : ''}>

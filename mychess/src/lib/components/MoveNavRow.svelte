@@ -13,6 +13,8 @@
 	would otherwise be wider than the board it belongs to.
 -->
 <script lang="ts">
+	import { m } from '$lib/paraglide/messages';
+
 	let {
 		reviewIdx,
 		totalPlies,
@@ -48,13 +50,13 @@
 	class="grid grid-cols-5 gap-2 mt-4 shrink-0 mx-auto w-full items-center"
 	style={boardWidth ? `max-width: ${boardWidth}px` : ''}
 >
-	<button onclick={onstart} disabled={reviewIdx <= 0} aria-label="Jump to start" class={buttonClass}>
+	<button onclick={onstart} disabled={reviewIdx <= 0} aria-label={m.move_nav_jump_to_start()} class={buttonClass}>
 		<svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 mx-auto" aria-hidden="true">
 			<rect x="4" y="4" width="1.6" height="12" />
 			<path d="M14.5 4l-6 6 6 6V4z" />
 		</svg>
 	</button>
-	<button onclick={onback} disabled={reviewIdx <= 0} aria-label="Move back" class={buttonClass}>
+	<button onclick={onback} disabled={reviewIdx <= 0} aria-label={m.move_nav_move_back()} class={buttonClass}>
 		<svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 mx-auto" aria-hidden="true">
 			<path d="M12.5 4l-6 6 6 6V4z" />
 		</svg>
@@ -62,12 +64,12 @@
 	<p class="text-center text-sm font-semibold text-(--color-muted) tabular-nums" aria-hidden="true">
 		{reviewMoves} / {totalMoves}
 	</p>
-	<button onclick={onforward} disabled={!isReviewing} aria-label="Move forward" class={buttonClass}>
+	<button onclick={onforward} disabled={!isReviewing} aria-label={m.move_nav_move_forward()} class={buttonClass}>
 		<svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 mx-auto" aria-hidden="true">
 			<path d="M7.5 4l6 6-6 6V4z" />
 		</svg>
 	</button>
-	<button onclick={onlive} disabled={!isReviewing} aria-label="Jump to current position" class={buttonClass}>
+	<button onclick={onlive} disabled={!isReviewing} aria-label={m.move_nav_jump_to_current()} class={buttonClass}>
 		<svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 mx-auto" aria-hidden="true">
 			<rect x="14.4" y="4" width="1.6" height="12" />
 			<path d="M5.5 4l6 6-6 6V4z" />

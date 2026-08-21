@@ -5,6 +5,7 @@
 	import type { DrawShape } from 'chessground/draw';
 	import { Chess } from 'chess.js';
 	import { DEFAULT_PREFS, animationDuration, type BoardPrefs } from '$lib/board/prefs';
+	import { m } from '$lib/paraglide/messages';
 
 	type MoveFeedback = { square: Key; kind: 'check' | 'cross' | 'star' } | null;
 
@@ -280,7 +281,7 @@
 			class="absolute w-[12.5%] h-[12.5%] pointer-events-none rounded-md ring-4 ring-inset ring-amber-400 animate-pulse flex items-start justify-end p-0.5"
 			style="left: {hint.left}; top: {hint.top};"
 		>
-			<span class="text-base leading-none drop-shadow" aria-label="Hint: move this piece">💡</span>
+			<span class="text-base leading-none drop-shadow" aria-label={m.chessboard_hint_move_this_piece()}>💡</span>
 		</div>
 	{/if}
 	<!-- moveFeedback is drawn by chessground itself via drawable.autoShapes/

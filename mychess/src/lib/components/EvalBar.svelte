@@ -29,6 +29,7 @@
 	import { onDestroy } from 'svelte';
 	import { engineState, ensureEngine, requestIfDue, retainEngine } from '$lib/engine/engine.svelte';
 	import { evalBarWhiteFraction, formatEval, type EngineScore } from '$lib/engine/uci';
+	import { m } from '$lib/paraglide/messages';
 
 	let {
 		fen,
@@ -84,10 +85,10 @@
 	// with "unavailable".
 	const label = $derived(
 		score
-			? `Engine evaluation ${formatEval(score)}`
+			? m.eval_bar_label_score({ score: formatEval(score) })
 			: engineState.failed
-				? 'Engine evaluation unavailable'
-				: 'Engine evaluation loading'
+				? m.eval_bar_label_unavailable()
+				: m.eval_bar_label_loading()
 	);
 	// Board-white and board-black, deliberately not the theme's own surface/text
 	// tokens: these two read as the pieces' colours in either theme, which is the
