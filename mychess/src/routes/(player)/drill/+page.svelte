@@ -2,6 +2,7 @@
   import ChessBoard from '$lib/components/ChessBoard.svelte';
   import type { Key } from 'chessground/types';
   import { playCorrect, playWrong, playLevelUp } from '$lib/sounds';
+  import { m } from '$lib/paraglide/messages';
 
   let { data } = $props<{ data: any }>();
 
@@ -68,68 +69,68 @@
 </script>
 
 <svelte:head>
-  <title>Drill Mode — MyChess</title>
+  <title>{m.seo_drill_title()}</title>
 </svelte:head>
 
 <div class="min-h-screen bg-(--color-bg) p-4">
   <div class="max-w-3xl mx-auto">
     <div class="flex justify-between items-center mb-4">
-      <a href="/" class="text-(--color-muted) text-sm hover:text-(--color-text)">← Home</a>
-      <h1 class="text-xl font-bold text-(--color-text)">Drill Mode</h1>
+      <a href="/" class="text-(--color-muted) text-sm hover:text-(--color-text)">{m.drill_back_home()}</a>
+      <h1 class="text-xl font-bold text-(--color-text)">{m.drill_title()}</h1>
       <div class="text-right">
-        <div class="text-base font-bold text-(--color-accent)">Chain: {chain}</div>
+        <div class="text-base font-bold text-(--color-accent)">{m.drill_chain_label({ chain })}</div>
       </div>
     </div>
 
     {#if allMoves.length === 0}
       <div class="bg-(--color-surface) border border-(--color-border) rounded-2xl p-6 text-center shadow-sm">
-        <p class="text-xl text-(--color-text)">No mastered moves yet!</p>
-        <p class="text-(--color-muted) mt-2">Keep practicing repertoires to unlock Drill mode.</p>
+        <p class="text-xl text-(--color-text)">{m.drill_empty_title()}</p>
+        <p class="text-(--color-muted) mt-2">{m.drill_empty_body()}</p>
         <a href="/practice"
            class="mt-4 inline-block bg-(--color-accent) text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-(--color-accent-hover) transition">
-          Go to Practice
+          {m.drill_go_to_practice()}
         </a>
       </div>
     {:else if failed}
       <div class="bg-(--color-surface) border border-(--color-border) rounded-2xl p-6 text-center shadow-sm">
         <p class="text-4xl mb-2">😢</p>
-        <h2 class="text-2xl font-bold text-red-600 dark:text-red-400">Chain Broken!</h2>
-        <p class="text-(--color-muted) mt-2">Best chain: <strong>{bestChain}</strong> moves</p>
+        <h2 class="text-2xl font-bold text-red-600 dark:text-red-400">{m.drill_broken_title()}</h2>
+        <p class="text-(--color-muted) mt-2">{m.drill_best_chain_count({ count: bestChain })}</p>
         <button onclick={restart}
                 class="mt-4 w-full bg-(--color-accent) text-white py-3 rounded-xl font-bold text-lg hover:bg-(--color-accent-hover) transition">
-          Try Again
+          {m.drill_try_again()}
         </button>
-        <a href="/" class="mt-2 block text-center text-(--color-muted) hover:underline text-sm">Back to Home</a>
+        <a href="/" class="mt-2 block text-center text-(--color-muted) hover:underline text-sm">{m.drill_back_to_home()}</a>
       </div>
     {:else if finished}
       <div class="bg-(--color-surface) border border-(--color-border) rounded-2xl p-6 text-center shadow-sm">
         <p class="text-4xl mb-2">🏆</p>
-        <h2 class="text-2xl font-bold text-green-600 dark:text-green-400">All Done!</h2>
-        <p class="text-(--color-muted) mt-2">You drilled all {allMoves.length} moves!</p>
+        <h2 class="text-2xl font-bold text-green-600 dark:text-green-400">{m.drill_all_done_title()}</h2>
+        <p class="text-(--color-muted) mt-2">{m.drill_all_moves_drilled_count({ count: allMoves.length })}</p>
         <button onclick={restart}
                 class="mt-4 w-full bg-(--color-accent) text-white py-3 rounded-xl font-bold text-lg hover:bg-(--color-accent-hover) transition">
-          Go Again
+          {m.drill_go_again()}
         </button>
-        <a href="/" class="mt-2 block text-center text-(--color-muted) hover:underline text-sm">Back to Home</a>
+        <a href="/" class="mt-2 block text-center text-(--color-muted) hover:underline text-sm">{m.drill_back_to_home()}</a>
       </div>
     {:else}
       <div class="bg-(--color-surface) border border-(--color-border) rounded-2xl p-4 shadow-sm mb-4">
         <p class="text-center text-(--color-muted) text-sm mb-2">
-          Move {currentIdx + 1} / {allMoves.length} · Play the correct move!
+          {m.drill_move_progress({ current: currentIdx + 1, total: allMoves.length })}
         </p>
         {#if wrongMove}
-          <p class="text-center text-red-600 dark:text-red-400 font-bold text-sm mb-2">Wrong move! Chain broken!</p>
+          <p class="text-center text-red-600 dark:text-red-400 font-bold text-sm mb-2">{m.drill_wrong_move_broken()}</p>
         {/if}
         <ChessBoard fen={boardFen} interactable={true} onmove={handleMove} prefs={data.boardPrefs} />
       </div>
 
       <div class="flex gap-2 justify-center">
         <div class="bg-indigo-50 dark:bg-indigo-950 border border-indigo-100 rounded-xl px-4 py-2 text-center">
-          <div class="text-xs text-indigo-400">Current Chain</div>
+          <div class="text-xs text-indigo-400">{m.drill_current_chain_label()}</div>
           <div class="text-2xl font-bold text-indigo-700">{chain}</div>
         </div>
         <div class="bg-green-50 border border-green-100 rounded-xl px-4 py-2 text-center dark:bg-green-950 dark:border-green-800">
-          <div class="text-xs text-green-500 dark:text-green-400">Best Chain</div>
+          <div class="text-xs text-green-500 dark:text-green-400">{m.drill_best_chain_label()}</div>
           <div class="text-2xl font-bold text-green-700 dark:text-green-400">{bestChain}</div>
         </div>
       </div>

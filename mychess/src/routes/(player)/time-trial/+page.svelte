@@ -3,6 +3,7 @@
   import { onDestroy } from 'svelte';
   import type { Key } from 'chessground/types';
   import { playCorrect, playWrong } from '$lib/sounds';
+  import { m } from '$lib/paraglide/messages';
 
   let { data } = $props<{ data: any }>();
 
@@ -77,57 +78,57 @@
 </script>
 
 <svelte:head>
-  <title>Time Trial — MyChess</title>
+  <title>{m.seo_time_trial_title()}</title>
 </svelte:head>
 
 <div class="min-h-screen bg-(--color-bg) p-4">
   <div class="max-w-3xl mx-auto">
     <div class="flex justify-between items-center mb-4">
-      <a href="/" class="text-(--color-muted) text-sm hover:text-(--color-text)">← Home</a>
-      <h1 class="text-xl font-bold text-(--color-text)">Time Trial</h1>
+      <a href="/" class="text-(--color-muted) text-sm hover:text-(--color-text)">{m.time_trial_back_home()}</a>
+      <h1 class="text-xl font-bold text-(--color-text)">{m.time_trial_title()}</h1>
       <div class="text-right">
-        <div class="text-2xl font-bold {timeLeft <= 10 ? 'text-red-600 dark:text-red-400 animate-pulse' : 'text-(--color-accent)'}">{timeLeft}s</div>
+        <div class="text-2xl font-bold {timeLeft <= 10 ? 'text-red-600 dark:text-red-400 animate-pulse' : 'text-(--color-accent)'}">{m.time_trial_seconds_display({ seconds: timeLeft })}</div>
         <div class="text-xs text-(--color-muted)">✅ {correct}</div>
       </div>
     </div>
 
     {#if allMoves.length === 0}
       <div class="bg-(--color-surface) border border-(--color-border) rounded-2xl p-6 text-center shadow-sm">
-        <p class="text-xl text-(--color-text)">No moves to drill yet!</p>
-        <p class="text-(--color-muted) mt-2">Add moves in Practice mode first.</p>
+        <p class="text-xl text-(--color-text)">{m.time_trial_empty_title()}</p>
+        <p class="text-(--color-muted) mt-2">{m.time_trial_empty_body()}</p>
         <a href="/practice"
            class="mt-4 inline-block bg-(--color-accent) text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-(--color-accent-hover) transition">
-          Go to Practice
+          {m.time_trial_go_to_practice()}
         </a>
       </div>
     {:else if finished}
       <div class="bg-(--color-surface) border border-(--color-border) rounded-2xl p-6 text-center shadow-sm">
         <p class="text-4xl mb-2">{correct >= 20 ? '🏆' : correct >= 10 ? '🎉' : '⏱️'}</p>
-        <h2 class="text-2xl font-bold text-indigo-700">Time's Up!</h2>
-        <p class="text-(--color-muted) mt-2">You got <strong>{correct}</strong> correct in 60 seconds</p>
+        <h2 class="text-2xl font-bold text-indigo-700">{m.time_trial_finished_title()}</h2>
+        <p class="text-(--color-muted) mt-2">{m.time_trial_result_count({ count: correct })}</p>
         <button onclick={restart}
                 class="mt-4 w-full bg-(--color-accent) text-white py-3 rounded-xl font-bold text-lg hover:bg-(--color-accent-hover) transition">
-          Play Again
+          {m.time_trial_play_again()}
         </button>
-        <a href="/" class="mt-2 block text-center text-(--color-muted) hover:underline text-sm">Back to Home</a>
+        <a href="/" class="mt-2 block text-center text-(--color-muted) hover:underline text-sm">{m.time_trial_back_to_home()}</a>
       </div>
     {:else if !started}
       <div class="bg-(--color-surface) border border-(--color-border) rounded-2xl p-6 text-center shadow-sm">
         <p class="text-4xl mb-3">⏱️</p>
-        <h2 class="text-xl font-bold text-(--color-text) mb-2">60-Second Challenge!</h2>
-        <p class="text-(--color-muted) mb-4">Answer as many opening moves as you can, before time runs out!</p>
+        <h2 class="text-xl font-bold text-(--color-text) mb-2">{m.time_trial_start_title()}</h2>
+        <p class="text-(--color-muted) mb-4">{m.time_trial_start_body()}</p>
         <button onclick={start}
                 class="w-full bg-(--color-accent) text-white py-4 rounded-xl font-bold text-xl hover:bg-(--color-accent-hover) transition">
-          Start!
+          {m.time_trial_start_button()}
         </button>
       </div>
     {:else}
       <div class="bg-(--color-surface) border border-(--color-border) rounded-2xl p-4 shadow-sm mb-4">
         <p class="text-center text-(--color-muted) text-sm mb-2">
           {#if wrongMove}
-            <span class="text-red-600 dark:text-red-400 font-bold">Wrong move! Try again!</span>
+            <span class="text-red-600 dark:text-red-400 font-bold">{m.time_trial_wrong_move()}</span>
           {:else}
-            Play the correct opening move!
+            {m.time_trial_play_correct_move()}
           {/if}
         </p>
         <ChessBoard fen={boardFen} interactable={true} onmove={handleMove} prefs={data.boardPrefs} />
@@ -135,12 +136,12 @@
 
       <div class="flex gap-2 justify-center">
         <div class="bg-green-50 border border-green-100 rounded-xl px-4 py-2 text-center dark:bg-green-950 dark:border-green-800">
-          <div class="text-xs text-green-500 dark:text-green-400">Correct</div>
+          <div class="text-xs text-green-500 dark:text-green-400">{m.time_trial_correct_label()}</div>
           <div class="text-2xl font-bold text-green-700 dark:text-green-400">{correct}</div>
         </div>
         <div class="bg-red-50 border border-red-100 rounded-xl px-4 py-2 text-center dark:bg-red-950 dark:border-red-800">
-          <div class="text-xs text-red-400 dark:text-red-400">Time</div>
-          <div class="text-2xl font-bold text-red-600 dark:text-red-400">{timeLeft}s</div>
+          <div class="text-xs text-red-400 dark:text-red-400">{m.time_trial_time_label()}</div>
+          <div class="text-2xl font-bold text-red-600 dark:text-red-400">{m.time_trial_seconds_display({ seconds: timeLeft })}</div>
         </div>
       </div>
     {/if}
