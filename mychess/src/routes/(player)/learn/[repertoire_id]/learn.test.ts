@@ -554,6 +554,65 @@ describe('learn detail page', () => {
 		);
 	});
 
+	// #125: the whole point of explore mode is that it costs the drill nothing.
+	// These drive the real page through an excursion and then check the drill is
+	// exactly where it was — same ply, same position, still able to solve.
+	it('lets the player go off-book and come back with the attempt untouched', async () => {
+		vi.useFakeTimers();
+		// 'hang' holds the report open so the optimistic solved bump stays on
+		// screen to be asserted, as in the final-pass test above.
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true }, 'hang');
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
+
+		const fenBefore = cgMock.boards[cgMock.boards.length - 1].config.fen;
+		await fireEvent.click(screen.getByText(/Explore this position/i));
+
+		expect(screen.getByText(/Exploring — nothing counts here/i)).toBeTruthy();
+		// A move that would be WRONG in the drill is simply legal here.
+		playMove('b1', 'c3');
+		await vi.advanceTimersByTimeAsync(0);
+		expect(screen.queryByText(/Not that move/i)).toBeNull();
+		expect(screen.queryByText(/1 mistake this attempt/i)).toBeNull();
+
+		await fireEvent.click(screen.getByText(/Back to the line/i));
+		expect(screen.queryByText(/Exploring/i)).toBeNull();
+		expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(fenBefore);
+
+		// And the drill still works: the book move solves the (final) pass.
+		// And the drill still works afterwards: the book move lands on the same
+		// board the excursion was played on, and solves the (final) pass.
+		playMove('g1', 'f3');
+		await vi.advanceTimersByTimeAsync(500);
+		expect(screen.getAllByText('1 / 1 variations learned').length).toBe(2);
+	});
+
+	it('undoes explored moves one at a time', async () => {
+		vi.useFakeTimers();
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
+
+		const fenBefore = cgMock.boards[cgMock.boards.length - 1].config.fen;
+		await fireEvent.click(screen.getByText(/Explore this position/i));
+
+		const undo = screen.getByText(/Undo/i);
+		expect((undo as HTMLButtonElement).disabled).toBe(true); // nothing to undo yet
+
+		playMove('b1', 'c3');
+		await vi.advanceTimersByTimeAsync(0);
+		expect((screen.getByText(/Undo/i) as HTMLButtonElement).disabled).toBe(false);
+
+		await fireEvent.click(screen.getByText(/Undo/i));
+		expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(fenBefore);
+	});
+
+	// Explore is about "the position the drill is asking about", which is not a
+	// well-defined thing mid-autoplay or while looking back at an earlier ply.
+	it('does not offer explore during the autoplay intro', () => {
+		vi.useFakeTimers();
+		renderAttempt(AUTO_PLAY_ATTEMPT);
+		expect(screen.queryByText(/Explore this position/i)).toBeNull();
+	});
+
 	it('shows a running session count and a Finish session link in the sidebar', () => {
 		render(Practice, {
 			props: {
