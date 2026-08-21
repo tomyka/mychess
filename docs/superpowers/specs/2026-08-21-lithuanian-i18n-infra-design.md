@@ -55,7 +55,7 @@ Resolution order, computed once per request in `src/hooks.server.ts`:
 The resolved locale is attached to `event.locals` and used to set Paraglide's active locale for that request's render (SSR), so there's no client-side flash of the wrong language.
 
 **Switching language:** a small POST action (e.g. `src/routes/api/locale/+server.ts` or a form action on a shared component) that:
-- Sets the `locale` cookie (`SameSite=Lax`, long-lived, `httpOnly: false` isn't needed since it's read server-side — use `httpOnly: true`).
+- Sets the `locale` cookie (`SameSite=Lax`, long-lived). **Correction from implementation (Task 4 review):** this must be `httpOnly: false`, not `true` — Paraglide's own client-side `setLocale()` writes this cookie directly via `document.cookie`, so client JS needs read/write access to it. Not a security concern; a locale preference isn't sensitive.
 - If signed in, also updates `profiles.locale` in the same request.
 - Triggers a full navigation/reload so the next SSR render picks up the new locale immediately, rather than relying on client-side reactivity to swap every visible string.
 
