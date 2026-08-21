@@ -19,6 +19,8 @@
 	 * a live page — a live region would have a screen reader interrupt itself to
 	 * read content the normal reading order covers anyway.
 	 */
+	import { m } from '$lib/paraglide/messages';
+
 	let { lineCount }: { lineCount: number } = $props();
 
 	// Dismissal is per page view only, on purpose: nothing is persisted, so the
@@ -33,13 +35,12 @@
 	>
 		<span aria-hidden="true" class="text-(--color-accent)">↻</span>
 		<p class="flex-1 text-(--color-text)">
-			Your coach updated this repertoire — {lineCount}
-			{lineCount === 1 ? 'line needs' : 'lines need'} review.
+			{m.practice_coach_update_notice({ lineCount })}
 		</p>
 		<button
 			type="button"
 			onclick={() => (dismissed = true)}
-			aria-label="Dismiss coach update notice"
+			aria-label={m.practice_dismiss_coach_notice_label()}
 			class="shrink-0 rounded-lg px-1.5 text-(--color-muted) hover:bg-(--color-border)/40 hover:text-(--color-text) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent)"
 		>
 			<span aria-hidden="true">✕</span>

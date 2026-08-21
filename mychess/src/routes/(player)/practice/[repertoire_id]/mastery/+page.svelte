@@ -4,6 +4,7 @@
 	import { playCorrect, playWrong } from '$lib/sounds';
 	import type { VariationStep } from '$lib/mastery/variations';
 	import { playOpponentReplies } from '$lib/mastery/playback';
+	import { m } from '$lib/paraglide/messages';
 
 	let { data } = $props<{ data: any }>();
 
@@ -84,7 +85,7 @@
 			// The run really was completed, so the celebration stands — but say
 			// plainly that it wasn't recorded rather than showing mastery that the
 			// next page load will contradict.
-			saveError = "Run completed, but we couldn't save it. Try the chapter again later.";
+			saveError = m.practice_mastery_save_error();
 		}
 	}
 
@@ -123,16 +124,17 @@
 </script>
 
 <svelte:head>
-	<title>Mastery · {data.repertoire?.name ?? 'Repertoire'} — MyChess</title>
+	<!-- Fallback name reused verbatim from Learn's per-repertoire page. -->
+	<title>{m.practice_mastery_page_title({ name: data.repertoire?.name ?? m.learn_repertoire_fallback_name() })}</title>
 </svelte:head>
 
 <main class="min-h-screen lg:min-h-0 lg:h-[calc(100vh-4rem)] bg-(--color-bg) p-4 max-w-7xl mx-auto pb-24 lg:pb-4 flex flex-col">
 	<div class="mb-4 flex items-center gap-3 shrink-0 flex-wrap">
 		<a href="/practice/{data.repertoire?.id}" class="text-(--color-muted) text-sm hover:text-(--color-text)">
-			← Practice
+			{m.practice_mastery_back_link()}
 		</a>
 		<h1 class="text-base font-bold text-(--color-text) flex-1 min-w-0 truncate">
-			Mastery · {data.repertoire?.name}
+			{m.practice_mastery_page_heading({ name: data.repertoire?.name })}
 		</h1>
 	</div>
 
@@ -141,21 +143,20 @@
 			{#if allMastered}
 				<div class="rounded-2xl border border-[#6FCF73]/40 bg-[#6FCF73]/10 p-4 text-center">
 					<p class="text-3xl mb-1">🏆</p>
-					<p class="font-bold text-(--color-text)">Repertoire mastered</p>
+					<p class="font-bold text-(--color-text)">{m.practice_mastery_all_title()}</p>
 					<p class="text-sm text-(--color-muted)">
-						Every chapter played through unaided. New material added later will need re-earning.
+						{m.practice_mastery_all_body()}
 					</p>
 				</div>
 			{:else}
 				<p class="text-sm text-(--color-muted)">
-					A mastery run plays every learned line in a chapter back to back — no arrows, no hints. One
-					mistake ends the run, and you start that chapter again. Nothing is unlearned by failing.
+					{m.practice_mastery_intro()}
 				</p>
 			{/if}
 
 			{#if chapters.length === 0}
 				<p class="text-(--color-muted) text-center py-12">
-					Nothing to master yet. <a href="/learn/{data.repertoire?.id}" class="text-(--color-accent) hover:underline">Learn some lines first</a>.
+					{m.practice_mastery_empty_prefix()}<a href="/learn/{data.repertoire?.id}" class="text-(--color-accent) hover:underline">{m.practice_mastery_empty_link()}</a>.
 				</p>
 			{:else}
 				<ul class="flex flex-col gap-2">
@@ -166,15 +167,15 @@
 							<div class="flex-1 min-w-0">
 								<p class="font-medium text-(--color-text) truncate">{c.chapter}</p>
 								<p class="text-xs text-(--color-muted)">
-									{c.learned}/{c.total} learned
-									{#if !c.canRun}· finish learning to unlock{/if}
+									{m.practice_mastery_chapter_progress({ learned: c.learned, total: c.total })}
+									{#if !c.canRun}· {m.practice_mastery_finish_to_unlock()}{/if}
 								</p>
 							</div>
 							{#if c.mastered}
 								<span
 									class="shrink-0 text-[0.65rem] font-semibold uppercase tracking-wide px-2 py-1 rounded-full border border-[#6FCF73]/40 bg-[#6FCF73]/10 text-[#4b9e50] dark:text-[#6FCF73]"
 								>
-									Mastered
+									{m.practice_mastery_badge_mastered()}
 								</span>
 							{/if}
 							<button
@@ -182,7 +183,7 @@
 								disabled={!c.canRun}
 								class="shrink-0 text-sm font-semibold px-3 py-1.5 rounded-xl bg-(--color-accent) text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-(--color-accent-hover)"
 							>
-								{c.mastered ? 'Run again' : 'Start run'}
+								{c.mastered ? m.practice_mastery_run_again() : m.practice_mastery_start_run()}
 							</button>
 						</li>
 					{/each}
@@ -192,37 +193,36 @@
 	{:else if phase === 'failed'}
 		<div class="flex flex-col items-center justify-center lg:flex-1 text-center gap-4 py-16">
 			<p class="text-6xl">🔁</p>
-			<h2 class="text-2xl font-bold text-(--color-text)">Run ended</h2>
+			<h2 class="text-2xl font-bold text-(--color-text)">{m.practice_mastery_failed_title()}</h2>
 			<p class="text-(--color-muted) max-w-md">
-				That wasn't the book move, so the run stops here — {chapter} isn't mastered yet. Nothing was
-				unlearned; the line is still yours to practise.
+				{m.practice_mastery_failed_body({ chapter: chapter ?? '' })}
 			</p>
 			<button
 				onclick={() => chapter && startRun(chapter)}
 				class="bg-(--color-accent) text-white px-6 py-3 rounded-2xl font-bold hover:bg-(--color-accent-hover) transition"
 			>
-				Start the chapter again
+				{m.practice_mastery_restart_button()}
 			</button>
-			<button onclick={abandon} class="text-(--color-accent) hover:underline text-sm">Back to chapters</button>
+			<button onclick={abandon} class="text-(--color-accent) hover:underline text-sm">{m.practice_mastery_back_to_chapters()}</button>
 		</div>
 	{:else if phase === 'passed'}
 		<div class="flex flex-col items-center justify-center lg:flex-1 text-center gap-4 py-16">
 			<p class="text-6xl">🏅</p>
-			<h2 class="text-2xl font-bold text-(--color-text)">{chapter} mastered</h2>
-			<p class="text-(--color-muted)">Every line in the chapter, unaided, in one sitting.</p>
+			<h2 class="text-2xl font-bold text-(--color-text)">{m.practice_mastery_passed_title({ chapter: chapter ?? '' })}</h2>
+			<p class="text-(--color-muted)">{m.practice_mastery_passed_body()}</p>
 			{#if saveError}
 				<p class="text-sm text-amber-600 dark:text-amber-400 max-w-md">{saveError}</p>
 			{/if}
 			<button onclick={abandon} class="bg-(--color-accent) text-white px-6 py-3 rounded-2xl font-bold hover:bg-(--color-accent-hover) transition">
-				Back to chapters
+				{m.practice_mastery_back_to_chapters()}
 			</button>
 		</div>
 	{:else}
 		<div class="flex flex-col items-center gap-3 lg:flex-1 lg:min-h-0">
 			<div class="w-full max-w-2xl flex items-center justify-between gap-3">
 				<p class="text-sm font-semibold text-(--color-text)">{chapter}</p>
-				<p class="text-sm text-(--color-muted) tabular-nums">Line {progressLabel}</p>
-				<button onclick={abandon} class="text-xs text-(--color-muted) hover:text-(--color-text)">Abandon</button>
+				<p class="text-sm text-(--color-muted) tabular-nums">{m.practice_mastery_line_label({ progress: progressLabel })}</p>
+				<button onclick={abandon} class="text-xs text-(--color-muted) hover:text-(--color-text)">{m.practice_mastery_abandon_button()}</button>
 			</div>
 			<div class="w-full lg:flex-1 lg:min-h-0 flex items-start justify-center lg:[container-type:size]">
 				<ChessBoard

@@ -162,5 +162,112 @@
 	"learn_finish_session": "Finish session",
 	"learn_undo": "Undo",
 	"learn_back_to_line": "Back to the line",
-	"learn_explore_position": "Explore this position"
+	"learn_explore_position": "Explore this position",
+	"practice_list_page_title": "Practice — MyChess",
+	"practice_list_title": "Practice",
+	"practice_list_subtitle_prefix": "Drill the lines you already know. New material lives in ",
+	"practice_learn_link_anchor": "Learn",
+	"practice_list_empty_ready_title": "Nothing ready to practice yet",
+	"practice_list_empty_ready_prefix": "Finish a whole chapter in ",
+	"practice_list_empty_ready_suffix": " and it'll show up here.",
+	"practice_repertoire_page_title": "Practice {name} — MyChess",
+	"practice_all_repertoires_link": "← All repertoires",
+	"practice_mastery_link": "Mastery",
+	"practice_learn_mode_link": "Learn mode",
+	"practice_empty_nothing_learned_title": "Nothing learned yet",
+	"practice_empty_nothing_learned_body": "Practice drills the lines you already know. Learn a variation first — two clean runs a day apart — and it turns up here.",
+	"practice_go_to_learn": "Go to Learn",
+	"practice_empty_finish_chapter_title": "Finish a chapter to unlock Practice",
+	"practice_finish_chapter_body": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} line is learned, but Practice only drills a chapter once every line in it is learned. Keep going in Learn to finish one.",
+				"countPlural=other": "{count} lines are learned, but Practice only drills a chapter once every line in it is learned. Keep going in Learn to finish one."
+			}
+		}
+	],
+	"practice_session_complete_title": "Session complete",
+	"practice_session_held_up_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} held up",
+				"countPlural=other": "{count} held up"
+			}
+		}
+	],
+	"practice_session_demoted_suffix": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": ", {count} went back to Learn",
+				"countPlural=other": ", {count} went back to Learn"
+			}
+		}
+	],
+	"practice_sidebar_demoted_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} back to Learn",
+				"countPlural=other": "{count} back to Learn"
+			}
+		}
+	],
+	"practice_relearn_button": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Re-learn that line",
+				"countPlural=other": "Re-learn those lines"
+			}
+		}
+	],
+	"practice_again_button": "Practice again",
+	"practice_session_line_progress": "Line {current} of {total}",
+	"practice_this_session_heading": "This session",
+	"practice_show_hint": "Show hint",
+	"practice_hint_description": "Reveals the piece — and sends this line back to Learn, since knowing it means playing it unaided.",
+	"practice_keyboard_hint": "← → step · ↑ start · ↓ live",
+	"practice_explore_next_line": "Next line",
+	"practice_explore_see_why": "See why",
+	"practice_mastery_page_title": "Mastery · {name} — MyChess",
+	"practice_mastery_back_link": "← Practice",
+	"practice_mastery_page_heading": "Mastery · {name}",
+	"practice_mastery_all_title": "Repertoire mastered",
+	"practice_mastery_all_body": "Every chapter played through unaided. New material added later will need re-earning.",
+	"practice_mastery_intro": "A mastery run plays every learned line in a chapter back to back — no arrows, no hints. One mistake ends the run, and you start that chapter again. Nothing is unlearned by failing.",
+	"practice_mastery_empty_prefix": "Nothing to master yet. ",
+	"practice_mastery_empty_link": "Learn some lines first",
+	"practice_mastery_chapter_progress": "{learned}/{total} learned",
+	"practice_mastery_finish_to_unlock": "finish learning to unlock",
+	"practice_mastery_badge_mastered": "Mastered",
+	"practice_mastery_run_again": "Run again",
+	"practice_mastery_start_run": "Start run",
+	"practice_mastery_failed_title": "Run ended",
+	"practice_mastery_failed_body": "That wasn't the book move, so the run stops here — {chapter} isn't mastered yet. Nothing was unlearned; the line is still yours to practise.",
+	"practice_mastery_restart_button": "Start the chapter again",
+	"practice_mastery_back_to_chapters": "Back to chapters",
+	"practice_mastery_passed_title": "{chapter} mastered",
+	"practice_mastery_passed_body": "Every line in the chapter, unaided, in one sitting.",
+	"practice_mastery_save_error": "Run completed, but we couldn't save it. Try the chapter again later.",
+	"practice_mastery_line_label": "Line {progress}",
+	"practice_mastery_abandon_button": "Abandon",
+	"practice_coach_update_notice": [
+		{
+			"declarations": ["input lineCount", "local lineCountPlural = lineCount: plural"],
+			"selectors": ["lineCountPlural"],
+			"match": {
+				"lineCountPlural=one": "Your coach updated this repertoire — {lineCount} line needs review.",
+				"lineCountPlural=other": "Your coach updated this repertoire — {lineCount} lines need review."
+			}
+		}
+	],
+	"practice_dismiss_coach_notice_label": "Dismiss coach update notice"
 }

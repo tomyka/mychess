@@ -172,5 +172,124 @@
 	"learn_finish_session": "Užbaigti sesiją",
 	"learn_undo": "Atšaukti",
 	"learn_back_to_line": "Atgal į variantą",
-	"learn_explore_position": "Tyrinėti šią padėtį"
+	"learn_explore_position": "Tyrinėti šią padėtį",
+	"practice_list_page_title": "Praktika — MyChess",
+	"practice_list_title": "Praktika",
+	"practice_list_subtitle_prefix": "Kartokite jau žinomus variantus. Nauja medžiaga atsiranda skiltyje ",
+	"practice_learn_link_anchor": "Mokytis",
+	"practice_list_empty_ready_title": "Kol kas nėra ko praktikuoti",
+	"practice_list_empty_ready_prefix": "Baikite visą skyrių skiltyje ",
+	"practice_list_empty_ready_suffix": " ir jis atsiras čia.",
+	"practice_repertoire_page_title": "Praktika {name} — MyChess",
+	"practice_all_repertoires_link": "← Visi repertuarai",
+	"practice_mastery_link": "Meistriškumas",
+	"practice_learn_mode_link": "Mokymosi režimas",
+	"practice_empty_nothing_learned_title": "Kol kas nieko neišmokta",
+	"practice_empty_nothing_learned_body": "Praktika kartoja jau žinomus variantus. Pirmiausia išmokite variantą skiltyje Mokytis — du kartus be klaidų su para pertraukos — ir jis atsiras čia.",
+	"practice_go_to_learn": "Eiti mokytis",
+	"practice_empty_finish_chapter_title": "Baikite skyrių, kad atrakintumėte Praktiką",
+	"practice_finish_chapter_body": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Išmoktas {count} variantas, tačiau Praktika pradeda skyrių tik tada, kai jame išmokti visi variantai. Tęskite mokymąsi skiltyje Mokytis, kad jį pabaigtumėte.",
+				"countPlural=few": "Išmokti {count} variantai, tačiau Praktika pradeda skyrių tik tada, kai jame išmokti visi variantai. Tęskite mokymąsi skiltyje Mokytis, kad jį pabaigtumėte.",
+				"countPlural=many": "Išmokta {count} variantų, tačiau Praktika pradeda skyrių tik tada, kai jame išmokti visi variantai. Tęskite mokymąsi skiltyje Mokytis, kad jį pabaigtumėte.",
+				"countPlural=other": "Išmokta {count} variantų, tačiau Praktika pradeda skyrių tik tada, kai jame išmokti visi variantai. Tęskite mokymąsi skiltyje Mokytis, kad jį pabaigtumėte."
+			}
+		}
+	],
+	"practice_session_complete_title": "Sesija baigta",
+	"practice_session_held_up_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} variantas atsilaikė",
+				"countPlural=few": "{count} variantai atsilaikė",
+				"countPlural=many": "{count} variantų atsilaikė",
+				"countPlural=other": "{count} variantų atsilaikė"
+			}
+		}
+	],
+	"practice_session_demoted_suffix": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": ", {count} variantas grįžo mokytis",
+				"countPlural=few": ", {count} variantai grįžo mokytis",
+				"countPlural=many": ", {count} variantų grįžo mokytis",
+				"countPlural=other": ", {count} variantų grįžo mokytis"
+			}
+		}
+	],
+	"practice_sidebar_demoted_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} variantas atgal į Mokytis",
+				"countPlural=few": "{count} variantai atgal į Mokytis",
+				"countPlural=many": "{count} variantų atgal į Mokytis",
+				"countPlural=other": "{count} variantų atgal į Mokytis"
+			}
+		}
+	],
+	"practice_relearn_button": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Iš naujo mokytis šio varianto",
+				"countPlural=few": "Iš naujo mokytis šių variantų",
+				"countPlural=many": "Iš naujo mokytis šių variantų",
+				"countPlural=other": "Iš naujo mokytis šių variantų"
+			}
+		}
+	],
+	"practice_again_button": "Praktikuoti dar kartą",
+	"practice_session_line_progress": "Variantas {current} iš {total}",
+	"practice_this_session_heading": "Ši sesija",
+	"practice_show_hint": "Rodyti užuominą",
+	"practice_hint_description": "Atskleidžia figūrą — ir šis variantas grąžinamas į Mokytis, nes jį žinoti reiškia sužaisti savarankiškai.",
+	"practice_keyboard_hint": "← → žingsnis · ↑ pradžia · ↓ dabartinė padėtis",
+	"practice_explore_next_line": "Kitas variantas",
+	"practice_explore_see_why": "Pažiūrėti kodėl",
+	"practice_mastery_page_title": "Meistriškumas · {name} — MyChess",
+	"practice_mastery_back_link": "← Praktika",
+	"practice_mastery_page_heading": "Meistriškumas · {name}",
+	"practice_mastery_all_title": "Repertuaras įvaldytas",
+	"practice_mastery_all_body": "Visi skyriai sužaisti savarankiškai. Vėliau pridėta nauja medžiaga turės būti įvaldyta iš naujo.",
+	"practice_mastery_intro": "Meistriškumo bandymas sužaidžia visus išmoktus skyriaus variantus vieną po kito — be rodyklių, be užuominų. Viena klaida baigia bandymą, ir tą skyrių pradedate iš naujo. Nesėkmė nieko neišmokina atgal — medžiaga išlieka išmokta.",
+	"practice_mastery_empty_prefix": "Kol kas nėra ko įvaldyti. ",
+	"practice_mastery_empty_link": "Pirmiausia išmokite kelis variantus",
+	"practice_mastery_chapter_progress": "{learned}/{total} išmokta",
+	"practice_mastery_finish_to_unlock": "baikite mokytis, kad atrakintumėte",
+	"practice_mastery_badge_mastered": "Įvaldyta",
+	"practice_mastery_run_again": "Bandyti dar kartą",
+	"practice_mastery_start_run": "Pradėti bandymą",
+	"practice_mastery_failed_title": "Bandymas baigtas",
+	"practice_mastery_failed_body": "Tai nebuvo teisingas ėjimas, todėl bandymas čia baigiasi — {chapter} kol kas neįvaldytas. Nieko neišmokote atgal — šis variantas tebėra jūsų praktikuotis.",
+	"practice_mastery_restart_button": "Pradėti skyrių iš naujo",
+	"practice_mastery_back_to_chapters": "Atgal į skyrius",
+	"practice_mastery_passed_title": "{chapter} įvaldytas",
+	"practice_mastery_passed_body": "Visi skyriaus variantai, savarankiškai, per vieną sesiją.",
+	"practice_mastery_save_error": "Bandymas baigtas, bet nepavyko jo išsaugoti. Pabandykite šį skyrių vėliau.",
+	"practice_mastery_line_label": "Variantas {progress}",
+	"practice_mastery_abandon_button": "Atsisakyti",
+	"practice_coach_update_notice": [
+		{
+			"declarations": ["input lineCount", "local lineCountPlural = lineCount: plural"],
+			"selectors": ["lineCountPlural"],
+			"match": {
+				"lineCountPlural=one": "Jūsų treneris atnaujino šį repertuarą — reikia peržiūrėti {lineCount} variantą.",
+				"lineCountPlural=few": "Jūsų treneris atnaujino šį repertuarą — reikia peržiūrėti {lineCount} variantus.",
+				"lineCountPlural=many": "Jūsų treneris atnaujino šį repertuarą — reikia peržiūrėti {lineCount} variantų.",
+				"lineCountPlural=other": "Jūsų treneris atnaujino šį repertuarą — reikia peržiūrėti {lineCount} variantų."
+			}
+		}
+	],
+	"practice_dismiss_coach_notice_label": "Uždaryti trenerio atnaujinimo pranešimą"
 }

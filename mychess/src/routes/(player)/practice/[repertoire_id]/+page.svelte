@@ -11,6 +11,7 @@
 	import { positionAt, playOpponentReplies, playerMovesIn } from '$lib/mastery/playback';
 	import { logMove } from '$lib/moveLog';
 	import { ExploreSession } from '$lib/mastery/explore.svelte';
+	import { m } from '$lib/paraglide/messages';
 
 	let { data } = $props<{ data: any }>();
 
@@ -294,7 +295,8 @@
 </script>
 
 <svelte:head>
-	<title>Practice {data.repertoire?.name ?? 'Repertoire'} — MyChess</title>
+	<!-- Fallback name reused verbatim from Learn's per-repertoire page. -->
+	<title>{m.practice_repertoire_page_title({ name: data.repertoire?.name ?? m.learn_repertoire_fallback_name() })}</title>
 </svelte:head>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -303,19 +305,19 @@
 	class="min-h-screen lg:min-h-0 lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-(--color-bg) p-4 max-w-7xl mx-auto pb-24 lg:pb-4 flex flex-col"
 >
 	<div class="mb-3 flex items-center gap-3 shrink-0 flex-wrap">
-		<a href="/practice" class="text-(--color-muted) text-sm hover:text-(--color-text)">← All repertoires</a>
+		<a href="/practice" class="text-(--color-muted) text-sm hover:text-(--color-text)">{m.practice_all_repertoires_link()}</a>
 		<h1 class="text-base font-bold text-(--color-text) flex-1 min-w-0 truncate">{data.repertoire?.name}</h1>
 		<a
 			href="/practice/{data.repertoire?.id}/mastery"
 			class="text-xs font-semibold text-(--color-accent) border border-(--color-border) rounded-lg px-2 py-1 hover:bg-(--color-border)/40"
 		>
-			Mastery
+			{m.practice_mastery_link()}
 		</a>
 		<a
 			href="/learn/{data.repertoire?.id}"
 			class="text-xs font-semibold text-(--color-muted) border border-(--color-border) rounded-lg px-2 py-1 hover:bg-(--color-border)/40"
 		>
-			Learn mode
+			{m.practice_learn_mode_link()}
 		</a>
 	</div>
 
@@ -340,16 +342,15 @@
 		     be the teaching flow before #96 moved it to /learn. -->
 		<div class="flex flex-col items-center justify-center lg:flex-1 text-center gap-4 py-16">
 			<p class="text-6xl">🔒</p>
-			<h2 class="text-2xl font-bold text-(--color-text)">Nothing learned yet</h2>
+			<h2 class="text-2xl font-bold text-(--color-text)">{m.practice_empty_nothing_learned_title()}</h2>
 			<p class="text-(--color-muted) max-w-md">
-				Practice drills the lines you already know. Learn a variation first — two clean runs a day
-				apart — and it turns up here.
+				{m.practice_empty_nothing_learned_body()}
 			</p>
 			<a
 				href="/learn/{data.repertoire?.id}"
 				class="bg-(--color-accent) text-white px-6 py-3 rounded-2xl font-bold hover:bg-(--color-accent-hover) transition"
 			>
-				Go to Learn
+				{m.practice_go_to_learn()}
 			</a>
 		</div>
 	{:else if queue.length === 0}
@@ -358,32 +359,30 @@
 		     it (see +page.server.ts's fullyLearnedChapters gate). -->
 		<div class="flex flex-col items-center justify-center lg:flex-1 text-center gap-4 py-16">
 			<p class="text-6xl">📖</p>
-			<h2 class="text-2xl font-bold text-(--color-text)">Finish a chapter to unlock Practice</h2>
+			<h2 class="text-2xl font-bold text-(--color-text)">{m.practice_empty_finish_chapter_title()}</h2>
 			<p class="text-(--color-muted) max-w-md">
-				{data.learnedCount}
-				{data.learnedCount === 1 ? 'line is' : 'lines are'} learned, but Practice only drills a chapter
-				once every line in it is learned. Keep going in Learn to finish one.
+				{m.practice_finish_chapter_body({ count: data.learnedCount })}
 			</p>
 			<a
 				href="/learn/{data.repertoire?.id}"
 				class="bg-(--color-accent) text-white px-6 py-3 rounded-2xl font-bold hover:bg-(--color-accent-hover) transition"
 			>
-				Go to Learn
+				{m.practice_go_to_learn()}
 			</a>
 		</div>
 	{:else if finished}
 		<div class="flex flex-col items-center justify-center lg:flex-1 text-center gap-4 py-16">
 			<p class="text-6xl">{sessionDemoted === 0 ? '🎯' : '📚'}</p>
-			<h2 class="text-2xl font-bold text-(--color-text)">Session complete</h2>
+			<h2 class="text-2xl font-bold text-(--color-text)">{m.practice_session_complete_title()}</h2>
 			<p class="text-(--color-muted)">
-				{sessionPassed} held up{sessionDemoted > 0 ? `, ${sessionDemoted} went back to Learn` : ''}.
+				{m.practice_session_held_up_count({ count: sessionPassed })}{sessionDemoted > 0 ? m.practice_session_demoted_suffix({ count: sessionDemoted }) : ''}.
 			</p>
 			{#if sessionDemoted > 0}
 				<a
 					href="/learn/{data.repertoire?.id}"
 					class="bg-(--color-accent) text-white px-6 py-3 rounded-2xl font-bold hover:bg-(--color-accent-hover) transition"
 				>
-					Re-learn {sessionDemoted === 1 ? 'that line' : 'those lines'}
+					{m.practice_relearn_button({ count: sessionDemoted })}
 				</a>
 			{/if}
 			<button
@@ -395,7 +394,7 @@
 				}}
 				class="text-(--color-accent) hover:underline"
 			>
-				Practice again
+				{m.practice_again_button()}
 			</button>
 		</div>
 	{:else}
@@ -443,13 +442,13 @@
 							disabled={explore.depth === 0}
 							class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-sm font-semibold text-(--color-text) disabled:opacity-30"
 						>
-							↶ Undo
+							↶ {m.learn_undo()}
 						</button>
 						<button
 							onclick={stopExplore}
 							class="py-2 rounded-xl border border-amber-300 bg-amber-50 text-sm font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
 						>
-							{exploringDemoted ? '→ Next line' : '↩ Back to the line'}
+							{exploringDemoted ? `→ ${m.practice_explore_next_line()}` : `↩ ${m.learn_back_to_line()}`}
 						</button>
 					</div>
 				{:else}
@@ -471,7 +470,7 @@
 								onclick={startExplore}
 								class="inline-flex items-center gap-1.5 text-sm font-medium text-(--color-muted) hover:text-(--color-text)"
 							>
-								<span aria-hidden="true">🔍</span> Explore this position
+								<span aria-hidden="true">🔍</span> {m.learn_explore_position()}
 							</button>
 						</p>
 					{:else if strip === 'demoted' && current}
@@ -484,7 +483,7 @@
 								onclick={exploreDemoted}
 								class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 dark:text-amber-300 hover:underline"
 							>
-								<span aria-hidden="true">🔍</span> See why
+								<span aria-hidden="true">🔍</span> {m.practice_explore_see_why()}
 							</button>
 						</p>
 					{/if}
@@ -495,9 +494,9 @@
 				class="w-full lg:w-80 lg:shrink-0 hidden lg:flex lg:flex-col divide-y divide-(--color-border) bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:overflow-y-auto"
 			>
 				<div class="p-4 flex flex-col gap-2">
-					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted)">This session</p>
+					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted)">{m.practice_this_session_heading()}</p>
 					<p class="text-sm text-(--color-text) tabular-nums">
-						Line {Math.min(queueIdx + 1, queue.length)} of {queue.length}
+						{m.practice_session_line_progress({ current: Math.min(queueIdx + 1, queue.length), total: queue.length })}
 					</p>
 					<div class="h-1.5 rounded-full bg-(--color-border) overflow-hidden">
 						<div
@@ -506,12 +505,12 @@
 						></div>
 					</div>
 					<p class="text-xs text-(--color-muted)">
-						{sessionPassed} held up · {sessionDemoted} back to Learn
+						{m.practice_session_held_up_count({ count: sessionPassed })} · {m.practice_sidebar_demoted_count({ count: sessionDemoted })}
 					</p>
 				</div>
 
 				<div class="p-4 flex flex-col gap-1">
-					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted)">This line</p>
+					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted)">{m.learn_this_line_heading()}</p>
 					{#if current?.chapterNames?.length}
 						<p class="text-sm text-(--color-text) font-medium">{current.chapterNames.join(' · ')}</p>
 					{/if}
@@ -519,23 +518,22 @@
 				</div>
 
 				<div class="p-4 flex flex-col gap-2">
-					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted)">Stuck?</p>
+					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted)">{m.learn_stuck_heading()}</p>
 					<button
 						onclick={requestHint}
 						disabled={hintRequested || explore.active}
 						class="self-start inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 border border-amber-400/40 bg-amber-400/10 rounded-lg px-2.5 py-1.5 disabled:opacity-40"
 					>
-						<span aria-hidden="true">💡</span> Show hint
+						<span aria-hidden="true">💡</span> {m.practice_show_hint()}
 					</button>
 					<p class="text-xs text-(--color-muted)">
-						Reveals the piece — and sends this line back to Learn, since knowing it means playing it
-						unaided.
+						{m.practice_hint_description()}
 					</p>
-					<p class="text-xs text-(--color-muted)">← → step · ↑ start · ↓ live</p>
+					<p class="text-xs text-(--color-muted)">{m.practice_keyboard_hint()}</p>
 				</div>
 
 				<div class="p-4 mt-auto">
-					<a href="/practice" class="text-sm text-(--color-muted) hover:text-(--color-text)">Finish session</a>
+					<a href="/practice" class="text-sm text-(--color-muted) hover:text-(--color-text)">{m.learn_finish_session()}</a>
 				</div>
 			</aside>
 		</div>
