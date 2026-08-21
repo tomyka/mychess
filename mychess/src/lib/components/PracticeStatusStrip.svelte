@@ -98,7 +98,14 @@
 		: TONE[state]}"
 >
 	{#if hintable}
-		<button onclick={onhint} class="lg:hidden inline-flex items-center gap-1.5">
+		<!-- `-m-3 p-3` makes the button cover the slot's whole 48px box instead
+		     of just its own 20px text line: the offer LOOKS like a card, so a
+		     finger lands anywhere on it, and every tap outside the text used to
+		     hit the <p> and do nothing. -->
+		<button
+			onclick={onhint}
+			class="lg:hidden -m-3 flex w-full items-center justify-center gap-1.5 p-3"
+		>
 			<span aria-hidden="true">💡</span> Need a hint?
 		</button>
 	{/if}

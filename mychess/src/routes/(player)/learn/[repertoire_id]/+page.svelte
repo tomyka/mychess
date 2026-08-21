@@ -275,6 +275,13 @@
 	});
 
 	function requestHint() {
+		// Snap back to the live position first: hintSquare is deliberately null
+		// while reviewing (the ring would land on a past position's piece), so
+		// without this a hint taken while browsing back marked the attempt dirty
+		// and drew nothing at all — the tap did nothing visible. The hint is
+		// about the move due NOW, so going live is also where the player has to
+		// end up anyway.
+		manualReviewIdx = null;
 		hintRequested = true;
 		// A taken hint marks this pass dirty, same as a wrong move — it can
 		// still be played out, but it can no longer solve the variation.

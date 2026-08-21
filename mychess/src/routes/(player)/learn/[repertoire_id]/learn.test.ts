@@ -513,11 +513,34 @@ describe('learn detail page', () => {
 
 		await fireEvent.click(hintButtons[0]);
 
+		// What the player must actually SEE for the tap to have done anything:
+		// the amber ring + 💡 badge over the piece to move (#113 follow-up —
+		// "pressed Need a hint and nothing happened").
+		expect(screen.getByLabelText('Hint: move this piece')).toBeTruthy();
+
 		playMove('g1', 'f3'); // the correct move — but the hint already marked this pass dirty
 		await vi.advanceTimersByTimeAsync(500);
 
 		// A dirty final pass must not bump solved (optimisticSolvedAfterAttempt(hadMistake=true)).
 		expect(screen.getAllByText('0 / 1 variations learned').length).toBe(2);
+	});
+
+	it('draws the hint even when the player had stepped back through the line', async () => {
+		vi.useFakeTimers();
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
+		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes
+
+		// Browsing back puts the board on a past position, where the ring has
+		// nothing correct to point at — so the hint has to return to the live
+		// position rather than silently do nothing (#113 follow-up).
+		await fireEvent.click(screen.getByLabelText('Move back'));
+		await fireEvent.click(screen.getAllByText('Need a hint?')[0]);
+
+		expect(screen.getByLabelText('Hint: move this piece')).toBeTruthy();
+		// Back on the live position, so the board is playable again.
+		expect((screen.getByLabelText('Jump to current position') as HTMLButtonElement).disabled).toBe(
+			true
+		);
 	});
 
 	it('shows a running session count and a Finish session link in the sidebar', () => {

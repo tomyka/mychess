@@ -106,6 +106,9 @@
 
 	function requestHint() {
 		if (hintRequested || locked) return;
+		// Same reason as Learn's: hintSquare is null while reviewing, so a hint
+		// taken from a stepped-back position demoted the line and drew nothing.
+		manualReviewIdx = null;
 		hintRequested = true;
 		// Reported immediately rather than at the end of the line: a player who
 		// takes a hint and then navigates away has still had the answer, and the
