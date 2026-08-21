@@ -97,15 +97,16 @@ makes reviving the pipeline a code change rather than a backfill.
 
 ## Tests
 
-`src/lib/components/EvalBar.test.ts` — the five `bookEval` render cases lose the
-prop and seed `engineState.score` instead, as the file's engine-driven cases
-already do. They test bar geometry, label, and number placement, not the eval
-source, so no coverage is lost.
+`src/lib/components/EvalBar.test.ts` — five tests use the prop. Four are
+duplicates of live-score tests in the same file (board flip, held score while
+searching, live-beats-stored, and the "never spawns an engine" case that
+`EvalBar.engine.test.ts` covers from the other side) and are deleted. The fifth,
+the file's only mate case, is reseeded from `engineState.score` instead. No
+behaviour loses coverage.
 
-`src/lib/components/EvalBar.engine.test.ts` — drop the "no spawn when bookEval
-is present" assertion; the spawn, handshake, and failure cases stay, now
-unconditional. `setEngineEnabled(false)` tearing the worker down is added here,
-where the Worker mock already lives.
+`src/lib/components/EvalBar.engine.test.ts` — every case there already renders
+without the prop, so nothing is removed. `setEngineEnabled(false)` tearing the
+worker down is added here, where the Worker mock already lives.
 
 `src/routes/(player)/learn/[repertoire_id]/learn.test.ts` — the existing
 "renders the eval bar" test inverts into three:
