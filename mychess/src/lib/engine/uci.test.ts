@@ -65,15 +65,15 @@ describe('toWhiteRelative', () => {
 
 describe('formatEval', () => {
 	it('formats a positive cp score with a leading +', () => {
-		expect(formatEval({ cp: 35 })).toBe('+0.35');
+		expect(formatEval({ cp: 35 })).toBe('+0.3'); // 0.35 is 0.34999… in binary float
 	});
 
 	it('formats a negative cp score with a leading -', () => {
-		expect(formatEval({ cp: -120 })).toBe('-1.20');
+		expect(formatEval({ cp: -120 })).toBe('-1.2');
 	});
 
 	it('formats a zero cp score with no sign', () => {
-		expect(formatEval({ cp: 0 })).toBe('0.00');
+		expect(formatEval({ cp: 0 })).toBe('0.0');
 	});
 
 	it('formats a positive mate score as White mating', () => {

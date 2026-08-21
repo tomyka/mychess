@@ -83,6 +83,39 @@ describe('EvalBar', () => {
 	it('names the current evaluation for assistive tech', () => {
 		engineState.score = { cp: -150 };
 		const { container } = render(EvalBar, { props: { orientation: 'white', height: 400 } });
-		expect(container.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe('Engine evaluation -1.50');
+		expect(container.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe('Engine evaluation -1.5');
+	});
+
+	// The number's POSITION carries who's ahead, so its sign can stay
+	// White-relative without flipping with the board.
+	it('prints the evaluation inside the larger segment, at that segment\'s outer end', () => {
+		engineState.score = { cp: 200 }; // White clearly better
+		const { container } = render(EvalBar, { props: { orientation: 'white', height: 400 } });
+		const num = container.querySelector('[role="img"] span') as HTMLElement;
+		expect(num.textContent?.trim()).toBe('+2.0');
+		// White's segment is the bottom one for a white player, and it's the
+		// bigger one here — so the number sits at the bottom, in dark ink.
+		expect(num.className).toContain('bottom-1');
+		expect(num.className).toContain('text-[#26262b]');
+	});
+
+	it('moves the number to the other end when the opponent is ahead', () => {
+		engineState.score = { cp: 200 }; // White better, but the player has black
+		const { container } = render(EvalBar, { props: { orientation: 'black', height: 400 } });
+		const num = container.querySelector('[role="img"] span') as HTMLElement;
+		expect(num.textContent?.trim()).toBe('+2.0'); // sign unchanged: White-relative
+		expect(num.className).toContain('top-1'); // White's segment is the top one here
+		expect(num.className).toContain('text-[#26262b]');
+	});
+
+	it('prints nothing on the bar before the first score', () => {
+		const { container } = render(EvalBar, { props: { orientation: 'white', height: 400 } });
+		expect(container.querySelector('[role="img"] span')).toBeNull();
+	});
+
+	it('rounds to one decimal', () => {
+		engineState.score = { cp: -135 };
+		const { container } = render(EvalBar, { props: { orientation: 'white', height: 400 } });
+		expect((container.querySelector('[role="img"] span') as HTMLElement).textContent?.trim()).toBe('-1.4');
 	});
 });

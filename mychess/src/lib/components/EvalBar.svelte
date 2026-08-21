@@ -4,9 +4,12 @@
 
 	Orientation follows the BOARD, not the colour convention: the side you play
 	is always the bottom end, the same end your own pieces sit on, so "the bar is
-	filling towards me" means "I'm doing well" whichever colour you have. The
-	number in the Engine card stays white-relative (`+` is good for White), as
-	every chess UI has it.
+	filling towards me" means "I'm doing well" whichever colour you have.
+
+	The evaluation is printed on the bar itself, inside whichever segment is the
+	larger one, at that segment's outer end: its POSITION says who is ahead, so
+	its sign can stay White-relative (`+` is good for White) the way every chess
+	UI has it, without the number having to flip with the board.
 
 	Renders nothing at all unless the engine preference is on — including no
 	width, so a page with the engine off looks exactly as it did before this
@@ -45,11 +48,19 @@
 	// whole point of the bar.
 	const bottomColor = $derived(orientation === 'black' ? 'bg-[#26262b]' : 'bg-[#f8f8f6]');
 	const topColor = $derived(orientation === 'black' ? 'bg-[#f8f8f6]' : 'bg-[#26262b]');
+
+	// The number sits inside the LARGER segment, at that segment's outer end —
+	// so its position says who is ahead while its sign stays White-relative (`+`
+	// good for White), the convention every chess UI shares. Ink colour is
+	// whichever contrasts with the segment it lands in.
+	const numberAtBottom = $derived(bottomPct >= 50);
+	const numberOnWhite = $derived(numberAtBottom ? orientation !== 'black' : orientation === 'black');
+	const numberText = $derived(engineState.score ? formatEval(engineState.score) : '');
 </script>
 
 {#if shown}
 	<div
-		class="relative w-3.5 shrink-0 self-center flex flex-col rounded-full overflow-hidden border border-(--color-border)"
+		class="relative w-8 shrink-0 self-start flex flex-col rounded-lg overflow-hidden border border-(--color-border)"
 		style={height ? `height: ${height}px` : 'align-self: stretch'}
 		role="img"
 		aria-label={label}
@@ -64,5 +75,14 @@
 		<div class="shrink-0 transition-[height] duration-200 {bottomColor}" style={`height: ${bottomPct}%`}></div>
 		<!-- Dead level, so a near-equal position reads without the number. -->
 		<div class="absolute inset-x-0 top-1/2 h-px bg-(--color-accent)/60"></div>
+		{#if numberText}
+			<span
+				class="absolute inset-x-0 text-center text-[0.6rem] font-bold leading-none tabular-nums {numberAtBottom
+					? 'bottom-1'
+					: 'top-1'} {numberOnWhite ? 'text-[#26262b]' : 'text-[#f8f8f6]'}"
+			>
+				{numberText}
+			</span>
+		{/if}
 	</div>
 {/if}

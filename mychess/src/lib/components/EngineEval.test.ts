@@ -204,7 +204,7 @@ describe('EngineEval Worker singleton lifecycle', () => {
 		worker.emit('info depth 12 seldepth 18 multipv 1 score cp 35 nodes 1000 nps 500000 time 20 pv e2e4 e7e5');
 		flushSync();
 
-		expect(getByText('+0.35')).toBeTruthy();
+		expect(getByText('+0.3')).toBeTruthy();
 		expect(queryByText('…')).toBeNull();
 	});
 

@@ -40,7 +40,11 @@ export function formatEval(score: EngineScore): string {
 	}
 	const pawns = (score.cp ?? 0) / 100;
 	const sign = pawns > 0 ? '+' : pawns < 0 ? '-' : '';
-	return `${sign}${Math.abs(pawns).toFixed(2)}`;
+	// One decimal, not two: this is a 400ms shallow search shown as a glance
+	// signal, and a second decimal implies a precision it doesn't have — plus
+	// the number now sits inside the eval bar, where fewer characters is what
+	// keeps the bar narrow enough to sit beside the board.
+	return `${sign}${Math.abs(pawns).toFixed(1)}`;
 }
 
 /**
