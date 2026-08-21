@@ -35,6 +35,14 @@ All commands below run from `mychess/` (the SvelteKit app directory). If any `np
 
 Confirmed empirically during brainstorming: calling a generated `m.xxx()` function outside a real HTTP request — exactly what happens in this repo's Vitest component tests — resolves to the `en` base locale with no error, no mocking required. So `getByText('Upload a game')` / `getByLabelText('Paste PGN text')`-style assertions keep passing unmodified once the literal is replaced by `m.xxx()`, **as long as `en.json`'s value matches the replaced string exactly**. The one exception is when a string genuinely needs to change to be correctly pluralized (Worked Example 2) — in that case, update the specific test assertion to match, and say so explicitly in that task.
 
+### Rule for pre-existing always-plural English (added after Task 5's review)
+
+Several count+noun strings in this app were already grammatically wrong before this migration — always plural regardless of count (e.g. Worked Example 2's "1 blunders, 1 mistakes"; also `learn_progress_count`'s "1 / 1 variations learned", left as-is in Task 5 as a one-off exception before this rule was written down). **From Task 6 onward, the rule is: fix it.** When you find a pre-existing always-plural English string, give it a correct `one` variant in the plural-match key and update whichever test asserted the old always-plural wording (same pattern as Worked Example 2) — don't preserve the grammatically-wrong wording just to avoid touching a test. Say explicitly in your report which test assertion(s) you updated and why. (`learn_progress_count` itself is not being retroactively fixed — it's a known, deliberately-accepted inconsistency from before this rule existed, not worth a dedicated follow-up task on its own.)
+
+### Pattern for Lithuanian grammatical case (added after Task 5's review)
+
+Lithuanian nouns decline by case depending on their grammatical role in a sentence — the same English word (e.g. "Practice") can need two different Lithuanian forms depending on whether it's a direct object ("moves to Practice" → accusative "Praktiką") or a locative ("stays sharp in Practice" → locative "Praktikoje"). When you hit this, split into role-specific keys (e.g. `learn_practice_to_link` / `learn_practice_in_link`) rather than trying to force one key to cover both — English can share one word across roles, Lithuanian can't. This already came up in Task 5 and is likely to recur in Tasks 6, 8, 9, and 12 wherever a noun like "chapter," "student," or "repertoire" appears in more than one grammatical role. If you reuse a message key across areas (e.g. a `practice_status_*` key from Task 4 reused in a Learn-flow file), leave a one-line comment at the reusing call site noting it's intentional shared copy — don't let the cross-area coupling go undocumented.
+
 ### Worked Example 1 — plain string swap
 
 `src/routes/tournaments/+page.svelte:56, 61, 66, 70, 100-101`, before:
