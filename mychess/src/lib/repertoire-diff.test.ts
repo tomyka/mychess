@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { classifyVariations, type ExistingLine, type IncomingLine } from './repertoire-diff';
+import {
+	classifyVariations,
+	type ExistingLine,
+	type IncomingLine,
+	detectRenames,
+	RENAME_THRESHOLD
+} from './repertoire-diff';
 
 /** A line as the DB has it: move ids plus the SAN at each ply. */
 function existing(ids: string[], sans: string[]): ExistingLine {
@@ -148,5 +154,66 @@ describe('classifyVariations — one ancestor per existing line', () => {
 		expect(result.filter((r) => r.kind === 'removed')).toHaveLength(0);
 		// Both siblings branch after NAJDORF + Be3 — 11 plies of shared knowledge.
 		for (const n of result.filter((r) => r.kind === 'new')) expect(n.commonPlies).toBe(11);
+	});
+});
+
+describe('detectRenames', () => {
+	// n distinct lines, all sharing a 3-ply head so they look like real chapter
+	// siblings rather than unrelated fragments.
+	const lines = (n: number) => Array.from({ length: n }, (_, i) => ['e4', 'c5', 'Nf3', `x${i}`]);
+
+	it('offers a rename when overlap is at or above the threshold', () => {
+		// Six lines in the old chapter; five of them reappear under the new name.
+		const result = detectRenames(
+			[{ name: 'Najdorf — 6.f4', lines: lines(6) }],
+			[{ name: 'Najdorf — Amsterdam Variation (6.f4)', lines: lines(5) }]
+		);
+		expect(result).toHaveLength(1);
+		expect(result[0].from).toBe('Najdorf — 6.f4');
+		expect(result[0].to).toBe('Najdorf — Amsterdam Variation (6.f4)');
+		expect(result[0].overlap).toBeCloseTo(5 / 6);
+	});
+
+	it('offers nothing below the threshold rather than a bad guess', () => {
+		const result = detectRenames(
+			[{ name: 'Najdorf — 6.f4', lines: lines(6) }],
+			[{ name: 'Something else', lines: lines(2) }]
+		);
+		expect(result).toEqual([]);
+	});
+
+	it('offers nothing when two new chapters both qualify', () => {
+		// Ambiguous: the coach resolves it manually rather than being handed a
+		// coin-flip presented as a default.
+		const result = detectRenames(
+			[{ name: 'Najdorf — 6.f4', lines: lines(6) }],
+			[
+				{ name: 'Amsterdam A', lines: lines(6) },
+				{ name: 'Amsterdam B', lines: lines(6) }
+			]
+		);
+		expect(result).toEqual([]);
+	});
+
+	it('never reports an overlap above 1 when the new chapter repeats a line', () => {
+		// A duplicated line in the new chapter must not inflate the ratio past
+		// 100% — overlap is "how much of the OLD chapter is covered", so it is
+		// bounded by the old chapter's own distinct line count.
+		const duplicated = [...lines(6), ...lines(6)];
+		const result = detectRenames(
+			[{ name: 'Najdorf — 6.f4', lines: lines(6) }],
+			[{ name: 'Amsterdam', lines: duplicated }]
+		);
+		expect(result).toHaveLength(1);
+		expect(result[0].overlap).toBe(1);
+	});
+
+	it('ignores an empty old chapter instead of dividing by zero', () => {
+		const result = detectRenames([{ name: 'Empty', lines: [] }], [{ name: 'New', lines: lines(3) }]);
+		expect(result).toEqual([]);
+	});
+
+	it('uses a threshold of 0.7', () => {
+		expect(RENAME_THRESHOLD).toBe(0.7);
 	});
 });

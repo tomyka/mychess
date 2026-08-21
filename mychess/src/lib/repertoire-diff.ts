@@ -127,3 +127,47 @@ export function classifyVariations(existing: ExistingLine[], incoming: IncomingL
 
 	return diffs;
 }
+
+/**
+ * Minimum share of an absent chapter's lines that must reappear under a new
+ * chapter's name before a rename is offered. Below this, offering nothing beats
+ * offering a guess: a wrong rename accepted by a coach clicking through
+ * silently merges two unrelated chapters, and merging is not reversible from
+ * the UI.
+ */
+export const RENAME_THRESHOLD = 0.7;
+
+export type ChapterLines = { name: string; lines: string[][] };
+export type RenameCandidate = { from: string; to: string; overlap: number };
+
+/**
+ * Pairs each chapter absent from the upload with the new chapter that most
+ * covers its lines, when exactly one clears `RENAME_THRESHOLD`. Two qualifying
+ * candidates yield nothing — a coin-flip presented as a default is worse than
+ * asking, so the coach resolves an ambiguous case by hand.
+ *
+ * `overlap` is "how much of the OLD chapter the new one covers", measured over
+ * DISTINCT lines on both sides. Counting the new chapter's matching lines
+ * instead would let a duplicated line push the ratio above 1.
+ */
+export function detectRenames(absent: ChapterLines[], added: ChapterLines[]): RenameCandidate[] {
+	const candidates: RenameCandidate[] = [];
+
+	for (const gone of absent) {
+		const goneKeys = new Set(gone.lines.map((l) => l.join('>')));
+		if (goneKeys.size === 0) continue;
+
+		const qualifying = added
+			.map((add) => {
+				const addKeys = new Set(add.lines.map((l) => l.join('>')));
+				let covered = 0;
+				for (const key of goneKeys) if (addKeys.has(key)) covered++;
+				return { from: gone.name, to: add.name, overlap: covered / goneKeys.size };
+			})
+			.filter((c) => c.overlap >= RENAME_THRESHOLD);
+
+		if (qualifying.length === 1) candidates.push(qualifying[0]);
+	}
+
+	return candidates;
+}
