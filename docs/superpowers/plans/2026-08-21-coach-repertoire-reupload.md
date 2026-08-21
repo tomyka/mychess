@@ -125,7 +125,7 @@ export async function fetchAllMoves(supabase: SupabaseClient, repertoireId: stri
 
 - [ ] **Step 4: Apply the same filter to `repertoire-progress.ts`'s private fetch**
 
-Read `mychych/src/lib/server/repertoire-progress.ts:49-68` first — it fetches for *many* repertoires at once (`repIds: string[]`), so the shape differs from Step 3. Add `.is('retired_at', null)` to both its page query and its count query, matching whatever `.in('repertoire_id', ...)` filter is already there. Do not restructure the function.
+Read `mychess/src/lib/server/repertoire-progress.ts:49-68` first — it fetches for *many* repertoires at once (`repIds: string[]`), so the shape differs from Step 3. Add `.is('retired_at', null)` to both its page query and its count query, matching whatever `.in('repertoire_id', ...)` filter is already there. Do not restructure the function.
 
 - [ ] **Step 5: Run the full suite**
 
