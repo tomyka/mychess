@@ -1,9 +1,6 @@
 import type { EngineScore } from '$lib/engine/uci';
 
-// 'best' is never returned by classifyMove itself (it only sees a cp-loss
-// number) — it's assigned by build-analysis.ts when a zero-loss move also
-// matches the engine's own top choice exactly, not just any unflagged move.
-export type MoveClassification = 'best' | 'inaccuracy' | 'mistake' | 'blunder' | null;
+export type MoveClassification = 'inaccuracy' | 'mistake' | 'blunder' | null;
 
 // Large enough that any mate score dominates the cp-loss comparison against
 // a non-mate score, without needing separate mate-vs-mate/mate-vs-cp branches.

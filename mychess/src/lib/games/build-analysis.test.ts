@@ -35,10 +35,7 @@ describe('buildAnalysis', () => {
 			// AFTER_E4_E5 has white to move, so the raw +10 is already white-relative.
 			score: { cp: 10 },
 			bestMoveSan: 'e5',
-			// The played move (e5) IS the engine's own top choice at AFTER_E4
-			// (bestMoveUci: 'e7e5') — a zero-loss move that matches the engine
-			// exactly is marked 'best', not left unflagged.
-			classification: 'best'
+			classification: null
 		});
 	});
 
@@ -48,29 +45,6 @@ describe('buildAnalysis', () => {
 			{ score: { cp: 190 }, bestMoveUci: 'e7e5' } // mover-relative: -190, a 390cp swing
 		];
 		const analysis = buildAnalysis([moves[0]], results);
-		expect(analysis[0].classification).toBe('blunder');
-	});
-
-	it('leaves a zero-loss move unflagged when it does not match the engine\'s exact top choice', () => {
-		// Both moves score the same for the mover (0 loss), but the played move
-		// isn't literally the engine's own suggestion — a tie, not "the" best move.
-		const results = [
-			{ score: { cp: 20 }, bestMoveUci: 'd2d4' }, // engine's top pick: d4
-			{ score: { cp: -20 }, bestMoveUci: 'g1f3' } // 0 loss for e4, but e4 !== d4
-		];
-		const analysis = buildAnalysis([moves[0]], results);
-		expect(analysis[0].classification).toBeNull();
-	});
-
-	it('never marks a move both flagged and best — a real best move always has zero loss', () => {
-		const results = [
-			{ score: { cp: 20 }, bestMoveUci: 'e2e4' }, // engine's own top pick IS e4
-			{ score: { cp: 190 }, bestMoveUci: 'e7e5' } // yet the position swung hard anyway
-		];
-		const analysis = buildAnalysis([moves[0]], results);
-		// cpLoss still governs: a large swing is a blunder, even if bestMoveUci
-		// happened to name the played move (a same-ply UCI/SAN quirk, not a
-		// real scenario, but classifyMove's own verdict must win regardless).
 		expect(analysis[0].classification).toBe('blunder');
 	});
 });
