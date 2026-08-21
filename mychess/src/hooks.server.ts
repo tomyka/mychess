@@ -1,12 +1,17 @@
 import { createServerClient } from '@supabase/ssr';
 import { env } from '$env/dynamic/public';
 import { dev } from '$app/environment';
+import { getRequestEvent } from '$app/server';
 import type { Handle } from '@sveltejs/kit';
+import { sequence } from '@sveltejs/kit/hooks';
 import { fullNameOrNull, isPlaceholderName } from '$lib/profile';
 import { sessionCookieOptions } from '$lib/server/cookies';
 import { requireEnv } from '$lib/env';
+import { isSupportedLocale } from '$lib/locale';
+import { paraglideMiddleware } from '$lib/paraglide/server';
+import { cookieName as LOCALE_COOKIE_NAME, defineCustomServerStrategy } from '$lib/paraglide/runtime';
 
-export const handle: Handle = async ({ event, resolve }) => {
+const supabaseHandle: Handle = async ({ event, resolve }) => {
 	const PUBLIC_SUPABASE_URL = requireEnv(env.PUBLIC_SUPABASE_URL, 'PUBLIC_SUPABASE_URL');
 	const PUBLIC_SUPABASE_ANON_KEY = requireEnv(env.PUBLIC_SUPABASE_ANON_KEY, 'PUBLIC_SUPABASE_ANON_KEY');
 	event.locals.supabase = createServerClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
@@ -77,8 +82,43 @@ export const handle: Handle = async ({ event, resolve }) => {
 	let sessionPromise: ReturnType<typeof computeSession> | undefined;
 	event.locals.safeGetSession = () => (sessionPromise ??= computeSession());
 
-	return resolve(event, {
-		filterSerializedResponseHeaders: (name) =>
-			name === 'content-range' || name === 'x-supabase-api-version'
-	});
+	return resolve(event);
 };
+
+// Reuses the request's already-memoized session/profile lookup (safeGetSession)
+// instead of a second DB round trip — this strategy costs nothing extra on top
+// of what every page already does.
+defineCustomServerStrategy('custom-profileLocale', {
+	getLocale: async () => {
+		const event = getRequestEvent();
+		const { profile } = await event.locals.safeGetSession();
+		const locale = (profile as any)?.locale;
+		return isSupportedLocale(locale) ? locale : undefined;
+	}
+});
+
+const paraglideHandle: Handle = ({ event, resolve }) =>
+	paraglideMiddleware(event.request, async ({ request: localizedRequest, locale }) => {
+		event.request = localizedRequest;
+
+		// Keep the cookie in sync with the DB-backed preference so a future
+		// request (or a signed-out visit right after signing out) doesn't need
+		// custom-profileLocale to re-resolve it.
+		const { user } = await event.locals.safeGetSession();
+		if (user && event.cookies.get(LOCALE_COOKIE_NAME) !== locale) {
+			event.cookies.set(LOCALE_COOKIE_NAME, locale, {
+				path: '/',
+				httpOnly: false, // Paraglide's client runtime reads/writes this cookie directly
+				sameSite: 'lax',
+				maxAge: 60 * 60 * 24 * 400
+			});
+		}
+
+		return resolve(event, {
+			filterSerializedResponseHeaders: (name) =>
+				name === 'content-range' || name === 'x-supabase-api-version',
+			transformPageChunk: ({ html }) => html.replace('%paraglide.lang%', locale)
+		});
+	});
+
+export const handle = sequence(supabaseHandle, paraglideHandle);
