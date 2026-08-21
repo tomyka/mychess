@@ -37,9 +37,18 @@ line (#131).
 bar, no engine, no `evals` in the page data.
 
 **Explore, engine off (default).** The two-button control row (Undo / Back to
-the line) becomes three, with **⚙ Engine** in the middle. The bar's slot (`w-8` plus the `gap-2` beside it, ~40px) is reserved for as long as explore is active, empty while the engine is off, so
-turning it on fills a waiting slot instead of shoving the board sideways
-mid-analysis.
+the line) becomes three, with **⚙ Engine** in the middle.
+
+**The bar's slot (`w-8` plus the `gap-2` beside it, ~40px) is always mounted —
+while drilling too — and only its contents change.** Reserving it only for the
+duration of an excursion was tried first and moved the board every time explore
+opened or closed: the row is `justify-center`, so the board translated ~20px on
+desktop, and on mobile — where it is always width-constrained — it *resized* by
+40px and dragged the control row and `MoveNavRow` with it, both being capped to
+`max-width: {boardWidth}px`. That is the same failure #113's status strip
+already solved by staying mounted in a transparent state. The drilling layout is
+therefore pixel-identical to what shipped before this change; the 40px is simply
+empty now.
 
 **Explore, engine on.** Bar appears in that gutter and evaluates the explored
 position and each ply after it, exactly as it does today off-book. Before the

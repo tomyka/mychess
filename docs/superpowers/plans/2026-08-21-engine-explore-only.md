@@ -711,7 +711,7 @@ Expected: build completes with no errors.
 Run: `npm run dev`, open a repertoire in Learn with DevTools → Network filtered to `stockfish`, and confirm:
 
 1. Drilling: no eval bar beside the board, and **no** `stockfish-*.js` / `.wasm` request.
-2. "Explore this position": three buttons (Undo / ⚙ Engine / Back to the line), still no bar, still no engine request; the board has not moved sideways.
+2. "Explore this position": three buttons (Undo / ⚙ Engine / Back to the line), still no bar, still no engine request; the board has not moved sideways — the bar's slot is mounted all along, empty.
 3. Press ⚙ Engine: one `stockfish-18-lite-single.js` + `.wasm` request, the bar appears in the reserved gap (the board does not jump), and its number changes as you play moves off-book.
 4. Press it again: bar disappears, no further requests.
 5. Back to the line, then explore again: bar is there immediately (button still reads "Engine on"), one fresh worker, no new network request — the WASM comes from cache.
