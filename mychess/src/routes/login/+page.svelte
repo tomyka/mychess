@@ -37,7 +37,7 @@
     {#if sent}
       <div class="text-center space-y-2">
         <h1 class="text-lg font-semibold text-(--color-text)">{m.login_check_email_title()}</h1>
-        <p class="text-sm text-(--color-muted)">{m.login_check_email_body({ email })}</p>
+        <p class="text-sm text-(--color-muted)">{m.login_check_email_body_prefix()}<span class="font-medium">{email}</span>{m.login_check_email_body_suffix()}</p>
         <button onclick={() => { sent = false; }} class="text-sm text-(--color-accent) hover:underline">{m.login_use_different_email()}</button>
       </div>
     {:else}
