@@ -13,7 +13,7 @@
 	import { logMove } from '$lib/moveLog';
 	import { ExploreSession } from '$lib/mastery/explore.svelte';
 	import EvalBar from '$lib/components/EvalBar.svelte';
-	import EngineToggle from '$lib/components/EngineToggle.svelte';
+	import ExploreControls from '$lib/components/ExploreControls.svelte';
 	import { engineEnabled } from '$lib/engine/engine.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
 	import PracticeStatusStrip, { type PracticeStripState } from '$lib/components/PracticeStatusStrip.svelte';
@@ -586,28 +586,12 @@
 				</div>
 
 				{#if explore.active}
-					<!-- The review nav would be lying here (it counts drill plies, and
-					     none of these moves are drill plies), so the excursion's own
-					     controls take its place for as long as it lasts. -->
-					<div
-						class="grid grid-cols-3 gap-2 mt-4 shrink-0 mx-auto w-full"
-						style={boardWidth ? `max-width: ${boardWidth}px` : ''}
-					>
-						<button
-							onclick={() => explore.undo()}
-							disabled={explore.depth === 0}
-							class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-xs sm:text-sm font-semibold text-(--color-text) disabled:opacity-30"
-						>
-							↶ Undo
-						</button>
-						<EngineToggle />
-						<button
-							onclick={stopExplore}
-							class="py-2 rounded-xl border border-amber-300 bg-amber-50 text-xs sm:text-sm font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
-						>
-							↩ Back to the line
-						</button>
-					</div>
+					<ExploreControls
+						depth={explore.depth}
+						onundo={() => explore.undo()}
+						onstop={stopExplore}
+						{boardWidth}
+					/>
 				{:else}
 					<MoveNavRow
 						{reviewIdx}

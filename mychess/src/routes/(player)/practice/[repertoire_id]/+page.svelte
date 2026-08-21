@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ChessBoard from '$lib/components/ChessBoard.svelte';
 	import EvalBar from '$lib/components/EvalBar.svelte';
-	import EngineToggle from '$lib/components/EngineToggle.svelte';
+	import ExploreControls from '$lib/components/ExploreControls.svelte';
 	import { engineEnabled } from '$lib/engine/engine.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
 	import PracticeStatusStrip, { type PracticeStripState } from '$lib/components/PracticeStatusStrip.svelte';
@@ -444,27 +444,13 @@
 				</div>
 
 				{#if explore.active}
-					<!-- The review nav counts drill plies, and none of these are drill
-					     plies, so the excursion's own controls take its place. -->
-					<div
-						class="grid grid-cols-3 gap-2 mt-4 shrink-0 mx-auto w-full"
-						style={boardWidth ? `max-width: ${boardWidth}px` : ''}
-					>
-						<button
-							onclick={() => explore.undo()}
-							disabled={explore.depth === 0}
-							class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-xs sm:text-sm font-semibold text-(--color-text) disabled:opacity-30"
-						>
-							↶ Undo
-						</button>
-						<EngineToggle />
-						<button
-							onclick={stopExplore}
-							class="py-2 rounded-xl border border-amber-300 bg-amber-50 text-xs sm:text-sm font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
-						>
-							{exploringDemoted ? '→ Next line' : '↩ Back to the line'}
-						</button>
-					</div>
+					<ExploreControls
+						depth={explore.depth}
+						onundo={() => explore.undo()}
+						onstop={stopExplore}
+						stopLabel={exploringDemoted ? '→ Next line' : '↩ Back to the line'}
+						{boardWidth}
+					/>
 				{:else}
 					<MoveNavRow
 						{reviewIdx}
