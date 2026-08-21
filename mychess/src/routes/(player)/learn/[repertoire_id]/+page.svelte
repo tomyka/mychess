@@ -12,6 +12,7 @@
 	import { positionAt, playOpponentReplies, playerMovesIn } from '$lib/mastery/playback';
 	import { logMove } from '$lib/moveLog';
 	import EngineEval from '$lib/components/EngineEval.svelte';
+	import EvalBar from '$lib/components/EvalBar.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
 	import PracticeStatusStrip, { type PracticeStripState } from '$lib/components/PracticeStatusStrip.svelte';
 
@@ -499,7 +500,16 @@
 				     stands is what makes the strip hand the slot over. -->
 				<PracticeStatusStrip state={stripState} onhint={hintOffered ? requestHint : undefined} />
 
-				<div class="lg:flex-1 lg:min-h-0 lg:flex lg:items-start lg:justify-center lg:[container-type:size]">
+				<!-- The eval bar is a sibling of the board, not a child of it: it
+				     matches the board's own rendered height (bound below), and the
+				     board itself is sized from this container's height on desktop
+				     (`containerFit` + [container-type:size]), so nesting the bar
+				     inside the board's box would feed its own width back into that
+				     calculation. -->
+				<div
+					class="flex items-start justify-center gap-2 lg:flex-1 lg:min-h-0 lg:[container-type:size]"
+				>
+					<EvalBar orientation={data.repertoire?.color === 'black' ? 'black' : 'white'} height={boardWidth} />
 					<ChessBoard
 						fen={displayFen}
 						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}

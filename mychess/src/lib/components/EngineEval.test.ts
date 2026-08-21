@@ -18,7 +18,7 @@ beforeEach(() => {
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
-	document.cookie = 'engine_enabled=; path=/; max-age=0';
+	document.cookie = 'engine_eval=; path=/; max-age=0';
 });
 
 const FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -206,22 +206,6 @@ describe('EngineEval Worker singleton lifecycle', () => {
 
 		expect(getByText('+0.35')).toBeTruthy();
 		expect(queryByText('…')).toBeNull();
-	});
-
-	it('shows a White/Black legend on the eval bar once a score arrives', () => {
-		vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
-
-		const { getByText } = render(EngineEval, { props: { fen: FEN } });
-		const worker = FakeWorker.instances[0];
-		worker.emit('uciok');
-		flushSync();
-		worker.emit('readyok');
-		flushSync();
-		worker.emit('info depth 12 seldepth 18 multipv 1 score cp 35 nodes 1000 nps 500000 time 20 pv e2e4 e7e5');
-		flushSync();
-
-		expect(getByText('W')).toBeTruthy();
-		expect(getByText('B')).toBeTruthy();
 	});
 
 	it('gives up and shows "unavailable" if the handshake never completes', () => {
