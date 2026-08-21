@@ -457,3 +457,81 @@ describe('buildCarryForwardPlan', () => {
 		expect(plan.demotions).toEqual([{ variationKey: 'a>b>c', cause: 'coach_update' }]);
 	});
 });
+
+describe('planReconciliation — target key already occupied', () => {
+	const STALE = 'a>b>x';
+	const LIVE = 'a>b>y';
+
+	function divergedOnto(from: string, to: string): CarryForward {
+		return { kind: 'diverged', fromKey: from, toKey: to, commonPlies: 2 };
+	}
+
+	it('does not rekey onto a key that already has a teaching row', () => {
+		const plan = planReconciliation(
+			[divergedOnto(STALE, LIVE)],
+			[],
+			progress({
+				teaching: [
+					{ variationKey: STALE, taughtPlies: 3, masteredPlies: 3, cleanPassCount: 0 },
+					{ variationKey: LIVE, taughtPlies: 2, masteredPlies: 2, cleanPassCount: 1 }
+				]
+			})
+		);
+		expect(plan.teachingUpdates).toEqual([]);
+	});
+
+	it('does not move learned onto an occupied key, and does not demote it', () => {
+		const plan = planReconciliation(
+			[divergedOnto(STALE, LIVE)],
+			[],
+			progress({ solved: [STALE, LIVE], teaching: [{ variationKey: LIVE, taughtPlies: 2, masteredPlies: 2, cleanPassCount: 0 }] })
+		);
+		expect(plan.solvedMoves).toEqual([]);
+		expect(plan.solvedDeletes).toEqual([]);
+		expect(plan.demotions).toEqual([]);
+	});
+
+	it('treats an occupying exclusion row as occupied too', () => {
+		const plan = planReconciliation(
+			[divergedOnto(STALE, LIVE)],
+			[],
+			progress({ excluded: [STALE, LIVE] })
+		);
+		expect(plan.exclusionMoves).toEqual([]);
+	});
+
+	it('treats an occupying solved row as occupied too', () => {
+		const plan = planReconciliation(
+			[divergedOnto(STALE, LIVE)],
+			[],
+			progress({
+				solved: [LIVE],
+				teaching: [{ variationKey: STALE, taughtPlies: 3, masteredPlies: 3, cleanPassCount: 0 }]
+			})
+		);
+		expect(plan.teachingUpdates).toEqual([]);
+	});
+
+	it('still clears the active pointer when the occupied carry was active', () => {
+		const plan = planReconciliation(
+			[divergedOnto(STALE, LIVE)],
+			[],
+			progress({
+				activeVariationKey: STALE,
+				teaching: [{ variationKey: LIVE, taughtPlies: 2, masteredPlies: 2, cleanPassCount: 0 }]
+			})
+		);
+		expect(plan.clearActiveVariation).toBe(true);
+	});
+
+	it('still carries normally when the target is unoccupied', () => {
+		// Regression guard: the new check must not suppress the ordinary case.
+		const plan = planReconciliation(
+			[divergedOnto(STALE, LIVE)],
+			[],
+			progress({ teaching: [{ variationKey: STALE, taughtPlies: 3, masteredPlies: 3, cleanPassCount: 0 }] })
+		);
+		expect(plan.teachingUpdates).toHaveLength(1);
+		expect(plan.teachingUpdates[0].toKey).toBe(LIVE);
+	});
+});

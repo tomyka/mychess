@@ -124,6 +124,32 @@ export function planReconciliation(
 	}
 
 	for (const [toKey, group] of groups) {
+		// The student ALREADY holds progress under `toKey` — it is a live line they
+		// have been learning in its own right, and a different, now-removed line
+		// merely happens to best-match it by shared prefix. Rekeying onto it would
+		// be a second row at the same key, i.e. the same
+		// unique(player_id, variation_key) violation the grouping above exists to
+		// prevent, by a third route: the caller treats a failed write as fatal and
+		// returns WITHOUT stamping reconciliation as done, so it retries on every
+		// subsequent page load, forever.
+		//
+		// So the whole carry is a no-op. Not just to dodge the constraint: their
+		// existing progress on that live line is DIRECT evidence about that line,
+		// which is strictly better than progress carried over from a different line
+		// that only shared a prefix. Overwriting the better record with the worse
+		// one would be wrong even if the write succeeded.
+		//
+		// The stale rows are left where they are — harmless, since nothing reads a
+		// key no live variation has, and consistent with the "retire, don't delete"
+		// stance taken for a removed line above. Only a pointer AT a stale key has
+		// to go, since that one is read.
+		if (teachingByKey.has(toKey) || solved.has(toKey) || excluded.has(toKey)) {
+			for (const c of group) {
+				if (progress.activeVariationKey === c.fromKey) plan.clearActiveVariation = true;
+			}
+			continue;
+		}
+
 		// --- Teaching: the merged line inherits the DEEPEST of the collapsing
 		// lines. The student genuinely knew that much of it, so keeping the best
 		// is the honest merge; the losers' rows are simply left under their now
