@@ -30,7 +30,7 @@ Recorded with their reasoning because several of these were live alternatives.
 - **Chapters absent from the upload default to keep.** A coach exporting a single chapter must not silently delete the other four. Full-source-of-truth semantics were rejected for that reason.
 - **Renames are detected and offered, never inferred silently.** Pure name matching treats a rename as delete-plus-add, which loses every affected student's progress. Both move sets are in hand at diff time, so overlap is cheap.
 - **Rename threshold: 70%.** Offer a rename when an absent chapter's lines are at least 70% covered by exactly one new chapter, and that chapter is the best match. Below 70%, offer nothing — a bad guess presented as a default is worse than no guess. The coach can still declare a rename manually via *choose per chapter*.
-- **Reconciliation is lazy.** Apply writes the repertoire and stamps `repertoires.content_version`; each student's progress rows reconcile on their next load of that repertoire. Avoids a write fan-out across every assigned student at apply time, and handles a student who is mid-session. Consequence for copy: the coach's "5 lines drop to review" is a projection, and the UI says *will*, not *did*.
+- **Reconciliation is lazy, reusing migration 0055's freshness machinery — no new version column.** The spec originally proposed `repertoires.content_version` plus a per-student stamp. That is already built, in a narrower form: `repertoires.moves_updated_at` is maintained by `touch_repertoire_moves_updated_at` triggers on insert, update *and* delete of `moves` (0055), so no move write can escape it — including this design's retire-by-`UPDATE`. Reuse it as the staleness signal. Per-player stamps follow the same trick 0055 uses for `variation_practice_exclusions.verified_at`: stamp the repertoire's own `moves_updated_at` value rather than a clock reading, so the freshness test `stamp >= moves_updated_at` is satisfied without either side agreeing what time it is. Each student's progress reconciles on their next load of that repertoire. Avoids a write fan-out across every assigned student at apply time, and handles a student who is mid-session. Consequence for copy: the coach's "5 lines drop to review" is a projection, and the UI says *will*, not *did*.
 - **A session in flight finishes on the material it started with.** Reconciliation happens on next load, not mid-session.
 - **Every default is the non-destructive one.** Keep unmentioned chapters, accept a high-confidence rename, notify students. A coach who clicks straight through loses nothing; destruction requires a deliberate click.
 
@@ -79,14 +79,15 @@ Colocated `repertoire-diff.test.ts` carries the real coverage; this is where the
 
 `src/lib/server/repertoire-update.ts` orchestrates; the mutation itself is a single Postgres function so it cannot half-apply.
 
-`apply_repertoire_update(p_repertoire_id uuid, p_moves jsonb, p_retire_move_ids uuid[], p_chapter_renames jsonb, p_content_version int)`:
+`apply_repertoire_update(p_repertoire_id uuid, p_moves jsonb, p_retire_move_ids uuid[], p_chapter_renames jsonb, p_expected_moves_updated_at timestamptz)`:
 
 1. Upsert positions and moves exactly as `writeMoves` does today (reusing its chunking).
 2. `chapter_names` **replaces** rather than merges for chapters named in this upload; chapters not named in it keep theirs. This is the one behavioural change to existing import semantics, and it is scoped to the update path — the multi-chapter first-import path keeps merging, which is correct there.
 3. Set `retired_at = now()` on `p_retire_move_ids`.
 4. Clear `retired_at` on any move the upload reintroduces (a restored line).
 5. Recompute `total_variations` / `has_chapters`.
-6. Bump `content_version`.
+
+`moves_updated_at` needs no explicit bump — 0055's statement-level triggers fire on the upsert and on the retire `UPDATE`.
 
 `security definer` with an explicit ownership check, since a coach updates a repertoire whose `player_id` may be their own while students hold only read policies.
 
@@ -98,16 +99,29 @@ Every read path that enumerates moves filters `retired_at is null`. The touch po
 
 ### Reconciliation
 
-`src/lib/server/repertoire-progress.ts` gains a reconcile step, running when a player loads a repertoire whose `content_version` exceeds the version stamped on their own progress. Per player:
+`src/lib/server/repertoire-progress.ts` gains a reconcile step, running when a player loads a repertoire whose `moves_updated_at` is newer than their own reconciliation stamp. Per player:
 
 - clamp `taught_plies` / `mastered_plies` on carried-forward keys
 - delete `variation_solved` rows for demoted keys, inserting `variation_demotions` with cause `coach_update`
 - seed new-sibling keys from their inherited prefix
-- carry `variation_practice_exclusions` across a prefix match, so a student's "skip this" intent survives a coach's typo fix
+- **rewrite** `variation_practice_exclusions` keys across a prefix match, so a student's "skip this" intent survives a coach's typo fix
 - clear `practice_active_variation` if it points at a retired line
-- stamp the player's reconciled version
+- stamp the player's reconciliation
 
-Needs a per-player version stamp. `assigned_repertoires` is the natural home — it already exists per `(player_id, repertoire_id)` — via a nullable `reconciled_content_version int`.
+**Ordering is load-bearing, and it is where this design collides with existing behaviour.** `reverifyExclusions` (`repertoire-progress.ts:132`) currently **deletes** any exclusion row whose key no longer names a live variation — correct under the old assumption that a vanished key means a vanished line, but wrong here: a line the coach merely extended gets a new key, and its owner's exclusion would be destroyed rather than carried. So reconciliation must run **before** `reverifyExclusions` on the same load, rewriting stale keys to their carried-forward equivalents; the prune then sees them as live and only genuinely-removed lines are deleted. Reconciliation is the thing that knows the old-key-to-new-key mapping, so this ownership split is the right one — but the two must not be reordered, and a test pins that.
+
+The per-player stamp goes in a dedicated table rather than on `assigned_repertoires`, which only has a row for *assigned* repertoires — a coach practicing their own material has none:
+
+```sql
+create table public.repertoire_reconciliation (
+  player_id     uuid not null references public.profiles(id) on delete cascade,
+  repertoire_id uuid not null references public.repertoires(id) on delete cascade,
+  reconciled_at timestamptz not null default 'epoch',
+  primary key (player_id, repertoire_id)
+);
+```
+
+`'epoch'` as the default is 0055's asymmetry trick reused deliberately: nothing is assumed reconciled at deploy time, so every player's first load per repertoire reconciles once, exactly as if the shape had just changed.
 
 `variation_demotions.cause` currently checks `in ('mistake','hint')`; the constraint widens to include `'coach_update'`.
 
@@ -121,13 +135,13 @@ Reuses `PgnImportForm.svelte`'s file-input and parse machinery; the chapter-at-a
 
 ### Student notification
 
-A repertoire whose `content_version` moved shows an inline banner on the repertoire card and its practice screen: "Your coach updated this — N lines need review." N comes from the same `projectProgressImpact` used for the coach's projection, evaluated against that student's own rows at reconcile time. Dismissible; cleared once the affected lines are re-learned.
+A repertoire whose `moves_updated_at` has moved past the player's reconciliation stamp shows an inline banner on the repertoire card and its practice screen: "Your coach updated this — N lines need review." N comes from the same `projectProgressImpact` used for the coach's projection, evaluated against that student's own rows at reconcile time. Dismissible; cleared once the affected lines are re-learned.
 
 ## Error handling
 
 - **Parse failure** in the uploaded PGN: reported before any diff is shown, with the failing chapter named. Nothing is written.
 - **Apply failure**: the RPC rolls back whole. The previous state — every move, every progress row — is intact. The coach sees what failed and can retry; a retry is idempotent because the diff is recomputed from current state.
-- **Concurrent apply** (two coaches, or a double-submit): `content_version` is checked inside the RPC against the value the diff was computed from. A mismatch aborts with "this repertoire changed since you started — reload to see the current diff" rather than applying a stale diff.
+- **Concurrent apply** (two coaches, or a double-submit): the RPC takes the `moves_updated_at` the diff was computed against and checks it inside the transaction. A mismatch aborts with "this repertoire changed since you started — reload to see the current diff" rather than applying a stale diff.
 - **Reconcile failure** for one student: logged, not fatal, version stamp not advanced — so it retries on their next load. Mirrors how `repertoire-progress.ts` already treats its lazy shape backfill.
 - **A student mid-session** when an update lands: the session completes against the material it loaded. Reconciliation runs on next load.
 - **Ambiguous rename** (two new chapters both above threshold for one absent chapter): no rename offered, both treated as new, absent chapter surfaced as usual. The coach resolves it via *choose per chapter*.
@@ -149,7 +163,7 @@ Existing tests to watch: `practice-progress.test.ts`, `repertoire-progress.test.
 
 ## Rollout
 
-1. Migration: `moves.retired_at`, `repertoires.content_version`, `assigned_repertoires.reconciled_content_version`, widen the `variation_demotions.cause` check, add `apply_repertoire_update`. Written to `supabase/migrations/`, pasted by hand into the Supabase dashboard — there is no CLI link from this environment, so the migration must be confirmed applied before anything depends on it.
+1. Migration: `moves.retired_at`, the `repertoire_reconciliation` table, widen the `variation_demotions.cause` check, add `apply_repertoire_update`. No new version column — `repertoires.moves_updated_at` (0055) is the staleness signal. Written to `supabase/migrations/`, pasted by hand into the Supabase dashboard — there is no CLI link from this environment, so the migration must be confirmed applied before anything depends on it.
 2. `retired_at is null` filter into `fetchAllMoves` first, on its own — a no-op until something retires a move, and it is the change with the widest read-path reach.
 3. Pure diff module plus its tests.
 4. The RPC and its server wrapper, verified manually.
