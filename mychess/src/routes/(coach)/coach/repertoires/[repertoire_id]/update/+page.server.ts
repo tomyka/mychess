@@ -109,6 +109,36 @@ function parseRenames(raw: FormDataEntryValue | null): { renames: ChapterRename[
 	return { renames: (parsed as ChapterRename[]).map(({ from, to }) => ({ from, to })) };
 }
 
+/**
+ * The chapters the coach chose to Keep on the review screen — chapters this
+ * upload does not mention, whose lines must NOT be retired.
+ *
+ * Validated only for shape here. It is deliberately NOT trusted as a list of
+ * names: see where it is used in `apply`, which intersects it with the server's
+ * own freshly computed `absentChapters`.
+ */
+function parseKeptChapters(raw: FormDataEntryValue | null): { keptChapters: string[] } | { error: string } {
+	// Absent means "nothing was kept" — every default on the review screen is
+	// Keep, so in practice the field is always sent, but an older client or a
+	// repertoire with no absent chapters at all legitimately sends nothing.
+	if (raw === null || raw === '') return { keptChapters: [] };
+	if (typeof raw !== 'string') return { error: 'keptChapters must be valid JSON' };
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return { error: 'keptChapters must be valid JSON' };
+	}
+
+	if (!Array.isArray(parsed)) return { error: 'keptChapters must be an array' };
+	for (const entry of parsed) {
+		if (typeof entry !== 'string' || !entry) return { error: 'each kept chapter must be a non-empty string' };
+	}
+
+	return { keptChapters: parsed as string[] };
+}
+
 export const load: PageServerLoad = async ({ params, locals }) => {
 	// The `(coach)` group's `+layout.server.ts` already gates
 	// `profile.role === 'coach'`, so this only has to require a real account —
@@ -176,6 +206,10 @@ export const actions: Actions = {
 		if ('error' in parsedRenames) return fail(400, { error: parsedRenames.error });
 		const { renames } = parsedRenames;
 
+		const parsedKept = parseKeptChapters(fd.get('keptChapters'));
+		if ('error' in parsedKept) return fail(400, { error: parsedKept.error });
+		const { keptChapters } = parsedKept;
+
 		// 2. Claim the repertoire. ONE conditional UPDATE that both checks the
 		// shape has not moved since the preview and sets the deferral flag, so
 		// the two cannot be split by a concurrent apply.
@@ -196,7 +230,17 @@ export const actions: Actions = {
 		// moves. Only ids this server-side classification marks `removed` are
 		// ever handed to the RPC.
 		const preview = await buildUpdatePreview(supabase, params.repertoire_id, chapters);
-		const retireMoveIds = moveIdsToRetire(preview.diffs);
+
+		// The coach's per-chapter Keep, intersected with the chapters THIS
+		// server-side classification just found absent. Same reasoning as the
+		// retire set above, in the other direction: `keptChapters` arrives from
+		// the client, so it is not honoured as an allow-list of arbitrary names.
+		// Only a chapter the server itself determined the upload does not mention
+		// can spare anything — a forged payload naming every chapter still spares
+		// nothing in a chapter the upload genuinely replaces, because that chapter
+		// is not absent and so never survives this intersection.
+		const spared = new Set(preview.absentChapters.filter((name) => keptChapters.includes(name)));
+		const retireMoveIds = moveIdsToRetire(preview.diffs, spared);
 
 		// 4. Write the moves, one call per chapter, appending onto this
 		// repertoire rather than creating a new one.

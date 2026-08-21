@@ -263,17 +263,42 @@ export function incomingLinesFromChapters(chapters: IncomingChapter[]): Incoming
  * EXCLUSIVELY to removed lines. A ply shared with any surviving line is kept —
  * retiring a shared prefix move would silently break every line running
  * through it, which is the worst failure this feature could produce.
+ *
+ * `keptChapters` is the coach's per-chapter Keep decision, and it is what makes
+ * the design's promise of PER-CHAPTER replace true. Every line of a chapter the
+ * upload does not mention classifies as `removed` — it is simply not in the
+ * file — so without this the retire set would contain exactly the lines Keep
+ * promises to preserve, and a coach exporting one chapter of five would destroy
+ * the other four. A `removed` line is SPARED when ANY of its chapters is kept:
+ * a line shared by a kept and a replaced chapter is still in use by the kept
+ * one, and sparing is the non-destructive reading. A `removed` line with no
+ * chapter names cannot be spared this way — an untagged upload has no chapter
+ * to keep it alive, so the line is genuinely gone.
  */
-export function moveIdsToRetire(diffs: VariationDiff[]): string[] {
+export function moveIdsToRetire(
+	diffs: Array<VariationDiff & { chapterNames?: string[] }>,
+	keptChapters: ReadonlySet<string> = new Set()
+): string[] {
+	const spared = (d: VariationDiff & { chapterNames?: string[] }): boolean =>
+		d.kind === 'removed' && (d.chapterNames ?? []).some((name) => keptChapters.has(name));
+
+	// A spared line's plies join the SURVIVING set, not merely leave the doomed
+	// one — this is the subtle part. The two passes exist because a doomed line
+	// and a live line can share a prefix, and retiring a shared ply breaks every
+	// line running through it. A spared line IS a live line, so if sparing only
+	// filtered the second pass, a genuinely-removed sibling branching off the
+	// same prefix would still retire the plies its spared neighbour needs, and
+	// the kept chapter would break anyway.
 	const surviving = new Set<string>();
 	for (const d of diffs) {
-		if (d.kind === 'removed' || !d.existingKey) continue;
+		if (!d.existingKey) continue;
+		if (d.kind === 'removed' && !spared(d)) continue;
 		for (const id of moveIdsInVariationKey(d.existingKey)) surviving.add(id);
 	}
 
 	const doomed = new Set<string>();
 	for (const d of diffs) {
-		if (d.kind !== 'removed' || !d.existingKey) continue;
+		if (d.kind !== 'removed' || !d.existingKey || spared(d)) continue;
 		for (const id of moveIdsInVariationKey(d.existingKey)) {
 			if (!surviving.has(id)) doomed.add(id);
 		}

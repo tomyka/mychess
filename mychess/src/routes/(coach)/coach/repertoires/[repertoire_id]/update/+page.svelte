@@ -36,10 +36,11 @@
 	let applyError = $state('');
 	let applied = $state(false);
 
-	let decisions = $state<ReviewDecisions>({ acceptedRenames: [], canApply: false });
+	let decisions = $state<ReviewDecisions>({ acceptedRenames: [], keptChapters: [] });
 
 	const chaptersJson = $derived(JSON.stringify(chapters));
 	const renamesJson = $derived(JSON.stringify(decisions.acceptedRenames));
+	const keptChaptersJson = $derived(JSON.stringify(decisions.keptChapters));
 
 	function onFileChange(event: Event) {
 		const file = (event.target as HTMLInputElement).files?.[0];
@@ -133,6 +134,11 @@
 				     refuses the apply if the repertoire has moved since. -->
 				<input type="hidden" name="movesUpdatedAt" value={preview.movesUpdatedAt} />
 				<input type="hidden" name="renames" value={renamesJson} />
+				<!-- Chapters this file does not mention that the coach chose to keep;
+				     the apply excludes their lines from the retire set. The server
+				     intersects these names with the chapters its own recomputed diff
+				     finds absent, so this cannot spare a chapter the file replaces. -->
+				<input type="hidden" name="keptChapters" value={keptChaptersJson} />
 				<RepertoireDiffReview
 					{preview}
 					repertoireName={data.repertoire.name}

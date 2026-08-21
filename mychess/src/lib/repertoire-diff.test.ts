@@ -353,6 +353,70 @@ describe('moveIdsToRetire', () => {
 	});
 });
 
+describe('moveIdsToRetire — chapters the coach chose to keep', () => {
+	/**
+	 * The classifier compares SAN paths and carries no chapter, so attribution
+	 * happens exactly where `buildUpdatePreview` does it: by existing key, from
+	 * the repertoire's own lines. A `removed` line's chapter exists only on the
+	 * database side — the upload never mentions it, which is why it is removed.
+	 */
+	function classifyWithChapters(existingLines: ExistingLine[], incomingLines: IncomingLine[]) {
+		const byKey = new Map(existingLines.map((line) => [line.variationKey, line.chapterNames]));
+		return classifyVariations(existingLines, incomingLines).map((diff) => ({
+			...diff,
+			chapterNames: (diff.existingKey ? byKey.get(diff.existingKey) : undefined) ?? []
+		}));
+	}
+
+	const inChapter = (key: string, sans: string[], chapterNames: string[]): ExistingLine => ({
+		variationKey: key,
+		sans,
+		chapterNames
+	});
+
+	it('retires nothing for a removed line whose chapter the coach kept', () => {
+		const diffs = classifyWithChapters([inChapter('a>b', ['1', '2'], ['Kept'])], []);
+		expect(diffs[0].kind).toBe('removed');
+		expect(moveIdsToRetire(diffs, new Set(['Kept']))).toEqual([]);
+	});
+
+	it('still retires a removed line whose chapter is not kept', () => {
+		const diffs = classifyWithChapters([inChapter('a>b', ['1', '2'], ['Gone'])], []);
+		expect(moveIdsToRetire(diffs, new Set(['Kept'])).sort()).toEqual(['a', 'b']);
+	});
+
+	it('spares a removed line tagged with both a kept and a non-kept chapter', () => {
+		// ANY kept chapter spares the line: the kept chapter is still drilling it.
+		const diffs = classifyWithChapters([inChapter('a>b', ['1', '2'], ['Gone', 'Kept'])], []);
+		expect(moveIdsToRetire(diffs, new Set(['Kept']))).toEqual([]);
+	});
+
+	it('does not spare a removed line with no chapter names', () => {
+		// An untagged upload has no chapter to keep the line alive.
+		const diffs = classifyWithChapters([inChapter('a>b', ['1', '2'], [])], []);
+		expect(moveIdsToRetire(diffs, new Set(['Kept'])).sort()).toEqual(['a', 'b']);
+	});
+
+	it('keeps the prefix a spared line shares with a genuinely-removed sibling', () => {
+		// This is the case sparing-by-filtering-the-second-pass gets wrong: the
+		// spared line needs a and b, and the doomed sibling runs through both.
+		const diffs = classifyWithChapters(
+			[inChapter('a>b>c', ['1', '2', '3'], ['Kept']), inChapter('a>b>d', ['1', '2', '4'], ['Gone'])],
+			[]
+		);
+		expect(moveIdsToRetire(diffs, new Set(['Kept']))).toEqual(['d']);
+	});
+
+	it('behaves exactly as before when no kept chapters are given', () => {
+		const diffs = classifyWithChapters(
+			[inChapter('a>b>c', ['1', '2', '3'], ['Kept']), inChapter('a>b>d', ['1', '2', '4'], ['Gone'])],
+			[]
+		);
+		expect(moveIdsToRetire(diffs).sort()).toEqual(['a', 'b', 'c', 'd']);
+		expect(moveIdsToRetire(diffs, new Set()).sort()).toEqual(['a', 'b', 'c', 'd']);
+	});
+});
+
 describe('classifyVariations — previousSans', () => {
 	it('carries both the old and the new moves on a diverged line', () => {
 		const before = [...NAJDORF, 'a4'];
