@@ -4,6 +4,10 @@ export type EngineScore = { cp?: number; mate?: number };
  * Extracts the search depth and score from a raw UCI "info ..." line. Null
  * for any line that isn't a scored info line — a "bestmove" line, an
  * "info string ..." line (no score), or anything unparseable.
+ *
+ * `depth` is parsed but currently unread: the only consumer is the browser
+ * worker, which takes just the score. It is kept for a future "depth N" label
+ * beside the evaluation, and because the line has to be matched for it anyway.
  */
 export function parseInfoLine(line: string): { depth: number; score: EngineScore } | null {
 	if (!line.startsWith('info ')) return null;
@@ -57,23 +61,4 @@ export function evalBarWhiteFraction(score: EngineScore): number {
 	if (score.mate !== undefined) return score.mate > 0 ? 1 : 0;
 	const clamped = Math.max(-500, Math.min(500, score.cp ?? 0));
 	return (clamped + 500) / 1000;
-}
-
-/**
- * The score from a completed search: the one belonging to the DEEPEST info line
- * seen, which is the engine's best answer for that position. Later lines are
- * normally deeper, but ties and out-of-order arrivals both happen, so this picks
- * on depth rather than trusting "last line wins".
- *
- * Returns null when no line carried a score at all (a search that was stopped
- * immediately, or output that isn't from a search).
- */
-export function bestScoreFromInfoLines(lines: readonly string[]): { depth: number; score: EngineScore } | null {
-	let best: { depth: number; score: EngineScore } | null = null;
-	for (const line of lines) {
-		const parsed = parseInfoLine(line);
-		if (!parsed) continue;
-		if (!best || parsed.depth >= best.depth) best = parsed;
-	}
-	return best;
 }

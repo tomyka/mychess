@@ -47,7 +47,10 @@
 
 	// The component only exists while the player has the engine switched on in
 	// explore mode, so there is nothing conditional left here: mount it and it
-	// spawns, hand it a position and it searches.
+	// spawns, hand it a position and it searches. It stays an $effect rather than
+	// a plain top-level call precisely so it never runs on the SSR path, where it
+	// would mark the module-level (and therefore request-shared) `engineState`
+	// failed on the server.
 	$effect(() => {
 		ensureEngine();
 	});
@@ -58,8 +61,9 @@
 		requestIfDue(fen);
 	});
 
-	const score = $derived(engineState.score);
-	const whiteFraction = $derived(score ? evalBarWhiteFraction(score) : 0.5);
+	const whiteFraction = $derived(
+		engineState.score ? evalBarWhiteFraction(engineState.score) : 0.5
+	);
 	// The share of the bar belonging to the side at the BOTTOM, as a percentage
 	// rounded to a tenth: the two segments are sized from ONE number
 	// (`100 - bottomPct` for the top) so float error can't leave a hairline gap
@@ -71,8 +75,8 @@
 	// after answering leaves its last number on screen rather than replacing it
 	// with "unavailable".
 	const label = $derived(
-		score
-			? `Engine evaluation ${formatEval(score)}`
+		engineState.score
+			? `Engine evaluation ${formatEval(engineState.score)}`
 			: engineState.failed
 				? 'Engine evaluation unavailable'
 				: 'Engine evaluation loading'
@@ -92,7 +96,7 @@
 	// A dash rather than an empty bar while there is nothing to say: the bar holds
 	// its place while the engine loads, so it has to read as "no number yet",
 	// not as broken.
-	const numberText = $derived(score ? formatEval(score) : '–');
+	const numberText = $derived(engineState.score ? formatEval(engineState.score) : '–');
 </script>
 
 <div

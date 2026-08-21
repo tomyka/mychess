@@ -60,7 +60,7 @@ afterEach(() => {
 });
 
 describe('EvalBar against a live worker', () => {
-	it('spawns the engine on mount without any preference to switch on', () => {
+	it('spawns the engine on mount, leaving the on/off decision to whoever renders it', () => {
 		vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
 		const { unmount } = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
 		expect(FakeWorker.instances.length).toBe(1);
@@ -155,6 +155,22 @@ describe('EvalBar against a live worker', () => {
 
 		setEngineEnabled(true);
 		expect(engineEnabled.on).toBe(true);
+
+		// Switching off deliberately does NOT touch retainEngine's instance count —
+		// the bar is still mounted, so it is the one that releases its slot on
+		// destroy. Unmounting it therefore has to land the count on exactly zero.
+		// Had the switch-off zeroed it as well, this unmount would drive it to -1
+		// and every count after it would be one short: the pair below would read as
+		// a single bar, and the first unmount would kill a worker the second still
+		// needs. So the pair is the assertion — a fresh worker for the fresh bars,
+		// alive while either of them lives.
 		unmount();
+		const a = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
+		const b = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
+		expect(FakeWorker.instances.length).toBe(2);
+		a.unmount();
+		expect(FakeWorker.instances[1].terminated).toBe(false);
+		b.unmount();
+		expect(FakeWorker.instances[1].terminated).toBe(true);
 	});
 });

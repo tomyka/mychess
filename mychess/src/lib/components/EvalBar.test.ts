@@ -3,17 +3,20 @@
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import EvalBar from './EvalBar.svelte';
-import { engineState } from '$lib/engine/engine.svelte';
+import { engineState, teardownEngine } from '$lib/engine/engine.svelte';
 
 const FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
 beforeEach(() => {
-	// engineState is a module-level singleton shared across every test in the
-	// process — reset it explicitly rather than relying on it starting fresh.
-	engineState.failed = false;
+	// The engine is a module-level singleton shared across every test in the
+	// process, and setting engineState's fields by hand only resets half of it:
+	// `lastRequestedFen` lives inside engine.svelte.ts and survives, so whether a
+	// render actually starts a search depended on which test had already used the
+	// same position. teardownEngine() clears the lot. (jsdom has no Worker, so
+	// every render here really does call ensureEngine() and fail — this resets
+	// that too, rather than letting one test's failure leak into the next.)
+	teardownEngine();
 	engineState.ready = true;
-	engineState.score = null;
-	engineState.searching = false;
 });
 
 afterEach(() => {
