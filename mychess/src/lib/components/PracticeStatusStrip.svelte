@@ -48,7 +48,9 @@
 		correct: 'Correct',
 		autoplay: 'Replaying what you already know…',
 		'retest-cue': 'Nice — now play it from memory',
-		demoted: 'Back to Learn — this line needs teaching again'
+		// Kept short on purpose: at 320px the longer wording wrapped to a second
+		// line, which is a height change and therefore a board shift (#113).
+		demoted: 'Back to Learn — needs teaching again'
 	};
 
 	const TONE: Record<PracticeStripState, string> = {
@@ -82,15 +84,22 @@
 	};
 </script>
 
+<!-- The slot's height is deliberately over-reserved and its line-height
+     pinned (`min-h-12` against a 46px worst case of `leading-5` + p-3 +
+     border): mobile stacks this directly on the board, so ANY content-driven
+     height difference between states moves the board (#113). Without both,
+     'silent' measured 44px, the copy states 46px, and the hint offer 50px —
+     the emoji sitting on its own taller line box — for a visible shift on
+     every phase change. Nothing in here may set its own font-size. -->
 <p
 	role="status"
-	class="mb-3 shrink-0 min-h-[2.75rem] flex items-center justify-center rounded-2xl border p-3 text-center text-sm font-semibold shadow-sm {hintable
+	class="mb-3 shrink-0 min-h-12 flex items-center justify-center rounded-2xl border p-3 text-center text-sm leading-5 font-semibold shadow-sm {hintable
 		? `${HINT_TONE} ${TONE_LG[state]}`
 		: TONE[state]}"
 >
 	{#if hintable}
 		<button onclick={onhint} class="lg:hidden inline-flex items-center gap-1.5">
-			<span class="text-base" aria-hidden="true">💡</span> Need a hint?
+			<span aria-hidden="true">💡</span> Need a hint?
 		</button>
 	{/if}
 	<span class={hintable ? 'hidden lg:inline' : ''}>
