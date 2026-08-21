@@ -1,11 +1,19 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/svelte';
+import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
 import GamePage from './+page.svelte';
+import { engineState } from '$lib/engine/engine.svelte';
 
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
+	// engineState is a module-level singleton shared across every test in the
+	// process (see EvalBar.test.ts) — reset it so exploring in one test can't
+	// leak an engine state into another.
+	engineState.failed = false;
+	engineState.ready = false;
+	engineState.score = null;
+	engineState.searching = false;
 });
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -50,5 +58,60 @@ describe('analysis board page', () => {
 
 		expect(screen.getByText('Analyzing…')).toBeTruthy();
 		expect(FakeWorker.instances.length).toBe(1);
+	});
+
+	describe('explore mode', () => {
+		it('shows an explore button for an already-analyzed game', () => {
+			render(GamePage, { props: { data: { game: doneGame, boardPrefs: undefined } } });
+			expect(screen.getByRole('button', { name: 'Explore this position' })).toBeTruthy();
+		});
+
+		it('does not show the explore button while a batch analysis is running', () => {
+			class FakeWorker {
+				static instances: FakeWorker[] = [];
+				onmessage: ((e: MessageEvent<string>) => void) | null = null;
+				onerror: (() => void) | null = null;
+				constructor(public url: string) {
+					FakeWorker.instances.push(this);
+				}
+				postMessage() {}
+				terminate() {}
+			}
+			vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
+			const pendingGame = { ...doneGame, analysis_status: 'pending', analysis: null };
+			render(GamePage, { props: { data: { game: pendingGame, boardPrefs: undefined } } });
+			expect(screen.queryByRole('button', { name: 'Explore this position' })).toBeNull();
+		});
+
+		it('replaces the move-nav row with Undo/Back-to-review controls and shows a live eval bar once exploring', async () => {
+			render(GamePage, { props: { data: { game: doneGame, boardPrefs: undefined } } });
+			await fireEvent.click(screen.getByRole('button', { name: 'Explore this position' }));
+
+			expect(screen.queryByRole('button', { name: 'Explore this position' })).toBeNull();
+			expect(screen.getByRole('button', { name: /Undo/ })).toBeTruthy();
+			expect(screen.getByRole('button', { name: /Back to review/ })).toBeTruthy();
+			expect(screen.getByRole('img', { name: /Engine evaluation/ })).toBeTruthy();
+		});
+
+		it('hides the recorded-move eval/classification line while exploring', async () => {
+			render(GamePage, { props: { data: { game: doneGame, boardPrefs: undefined } } });
+			await fireEvent.click(screen.getByRole('button', { name: 'Jump to current position' }));
+			expect(screen.getByText(/Eval:/)).toBeTruthy();
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Explore this position' }));
+			expect(screen.queryByText(/Eval:/)).toBeNull();
+		});
+
+		it('returns to the move-nav row, at the same reviewIdx, when leaving explore mode', async () => {
+			render(GamePage, { props: { data: { game: doneGame, boardPrefs: undefined } } });
+			await fireEvent.click(screen.getByRole('button', { name: 'Jump to current position' }));
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Explore this position' }));
+			await fireEvent.click(screen.getByRole('button', { name: /Back to review/ }));
+
+			expect(screen.getByRole('button', { name: 'Explore this position' })).toBeTruthy();
+			// Still reviewing the recorded move at the position explore was entered from.
+			expect(screen.getByText(/Eval:/)).toBeTruthy();
+		});
 	});
 });

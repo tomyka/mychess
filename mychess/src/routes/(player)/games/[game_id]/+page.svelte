@@ -2,12 +2,14 @@
 	import { onDestroy } from 'svelte';
 	import ChessBoard from '$lib/components/ChessBoard.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
+	import EvalBar from '$lib/components/EvalBar.svelte';
 	import { Chess } from 'chess.js';
 	import type { Key } from 'chessground/types';
 	import { analyzeGame } from '$lib/engine/analyzeGame';
 	import { buildAnalysis, type AnalysisEntry } from '$lib/games/build-analysis';
 	import { formatEval, evalBarWhiteFraction } from '$lib/engine/uci';
 	import { formatMoveLabel } from '$lib/practice-report';
+	import { ExploreSession } from '$lib/mastery/explore.svelte';
 
 	type GameMove = { ply: number; san: string; fen: string; parentFen: string };
 
@@ -27,8 +29,22 @@
 	let analyzing = $state(false);
 	let analyzeError = $state('');
 	let progress = $state({ done: 0, total: moves.length + 1 });
+	let boardWidth = $state(0);
+	const explore = new ExploreSession();
 
-	const displayFen = $derived(reviewIdx === 0 ? rootFen : moves[reviewIdx - 1].fen);
+	const reviewFen = $derived(reviewIdx === 0 ? rootFen : moves[reviewIdx - 1].fen);
+	// The explored position while off-book, the recorded game's own otherwise —
+	// same pattern Practice/Learn use. EvalBar reads this too, so it answers for
+	// whatever is actually on the board.
+	const displayFen = $derived(explore.active ? explore.fen : reviewFen);
+
+	function startExplore() {
+		explore.start(reviewFen);
+	}
+
+	function stopExplore() {
+		explore.stop();
+	}
 
 	const lastMove = $derived.by((): [Key, Key] | undefined => {
 		if (reviewIdx === 0) return undefined;
@@ -125,28 +141,61 @@
 				<span class="text-(--color-muted) font-normal text-sm ml-2">{game.headers?.Result ?? '*'}</span>
 			</h1>
 
-			<ChessBoard
-				fen={displayFen}
-				interactable={false}
-				orientation={game.played_as === 'black' ? 'black' : 'white'}
-				{lastMove}
-				{arrowMove}
-				prefs={data.boardPrefs}
-			/>
+			<div class="flex items-start justify-center gap-2">
+				{#if explore.active}
+					<EvalBar
+						fen={displayFen}
+						orientation={game.played_as === 'black' ? 'black' : 'white'}
+						height={boardWidth}
+					/>
+				{/if}
+				<ChessBoard
+					fen={displayFen}
+					interactable={explore.active}
+					onmove={explore.active ? (detail) => explore.play(detail.from, detail.to) : undefined}
+					orientation={game.played_as === 'black' ? 'black' : 'white'}
+					lastMove={explore.active ? undefined : lastMove}
+					arrowMove={explore.active ? null : arrowMove}
+					prefs={data.boardPrefs}
+					bind:boxWidth={boardWidth}
+				/>
+			</div>
 
-			<MoveNavRow
-				{reviewIdx}
-				totalPlies={moves.length}
-				reviewMoves={reviewIdx}
-				totalMoves={moves.length}
-				isReviewing={true}
-				onstart={() => (reviewIdx = 0)}
-				onback={() => (reviewIdx = Math.max(reviewIdx - 1, 0))}
-				onforward={() => (reviewIdx = Math.min(reviewIdx + 1, moves.length))}
-				onlive={() => (reviewIdx = moves.length)}
-			/>
+			{#if explore.active}
+				<div
+					class="grid grid-cols-2 gap-2 mt-4 shrink-0 mx-auto w-full"
+					style={boardWidth ? `max-width: ${boardWidth}px` : ''}
+				>
+					<button
+						onclick={() => explore.undo()}
+						disabled={explore.depth === 0}
+						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-sm font-semibold text-(--color-text) disabled:opacity-30"
+					>
+						↶ Undo
+					</button>
+					<button
+						onclick={stopExplore}
+						class="py-2 rounded-xl border border-amber-300 bg-amber-50 text-sm font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
+					>
+						↩ Back to review
+					</button>
+				</div>
+			{:else}
+				<MoveNavRow
+					{reviewIdx}
+					totalPlies={moves.length}
+					reviewMoves={reviewIdx}
+					totalMoves={moves.length}
+					isReviewing={true}
+					onstart={() => (reviewIdx = 0)}
+					onback={() => (reviewIdx = Math.max(reviewIdx - 1, 0))}
+					onforward={() => (reviewIdx = Math.min(reviewIdx + 1, moves.length))}
+					onlive={() => (reviewIdx = moves.length)}
+					onExplore={analyzing ? undefined : startExplore}
+				/>
+			{/if}
 
-			{#if currentEntry}
+			{#if currentEntry && !explore.active}
 				<p class="mt-3 text-sm text-(--color-text)">
 					Eval: <span class="font-semibold tabular-nums">{formatEval(currentEntry.score)}</span>
 					{#if currentEntry.classification}

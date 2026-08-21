@@ -23,6 +23,13 @@ describe('upload a game page', () => {
 		expect(screen.getByLabelText('Paste PGN text')).toBeTruthy();
 	});
 
+	it('renders the Google Drive logo in grayscale, not its native colors', () => {
+		render(NewGame);
+		const button = screen.getByRole('button', { name: /import from Google Drive/ });
+		const svg = button.querySelector('svg');
+		expect(svg?.getAttribute('class')).toContain('grayscale');
+	});
+
 	it('shows an error and does not submit when the PGN has more than one game', async () => {
 		const fetchSpy = vi.spyOn(globalThis, 'fetch');
 		render(NewGame);
