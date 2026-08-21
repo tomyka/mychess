@@ -10,8 +10,31 @@ export default defineConfig({
 		SvelteKitPWA({
 			registerType: 'autoUpdate',
 			workbox: {
+				// Deliberately no `wasm` here: globPatterns is the PRECACHE list, so
+				// adding the 7.3MB engine would download it during service-worker
+				// install for every visitor — the exact cost #124 exists to avoid. It
+				// is cached on first real use by the runtime rule below instead.
 				globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+				// The engine is the one asset big enough that re-fetching it matters,
+				// and Workbox skips >2MiB files in the precache anyway.
+				maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
 				runtimeCaching: [
+					{
+						// CacheFirst, not StaleWhileRevalidate: the filename carries the
+						// engine version (`stockfish-18-lite-single`), so a cached copy can
+						// never be stale — a new build is a new URL. One download per
+						// device per version, and explore mode then works offline.
+						urlPattern: /\/stockfish\/.*\.(?:wasm|js|cjs)$/i,
+						handler: 'CacheFirst',
+						options: {
+							cacheName: 'stockfish-engine',
+							// A handful of entries covers the current build plus whatever a
+							// previous one left behind; the year matches the immutable
+							// cache-control in vercel.json.
+							expiration: { maxEntries: 6, maxAgeSeconds: 60 * 60 * 24 * 365 },
+							cacheableResponse: { statuses: [200] }
+						}
+					},
 					{
 						urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/.*/i,
 						handler: 'NetworkFirst',

@@ -18,10 +18,30 @@
 export const SEARCH_MOVETIME_MS = 150;
 
 /**
- * Identity of the evaluation, stamped on every row and checked on every read.
- * Derived from the search time rather than written out, so the writer and the
- * reader cannot disagree about what a stored number means: change
- * SEARCH_MOVETIME_MS and every existing row becomes "no eval" (not "wrong
- * eval") until the job re-runs. Bump the prefix when the binary changes.
+ * The engine build, in one place: the file stem everything is loaded by, and the
+ * short id that goes into the stored stamp. They are one literal deliberately —
+ * swapping the binary means editing both together, so the stamp cannot claim a
+ * build that isn't the one running.
+ *
+ * Swapping in a smaller build (#127) is therefore a config change: drop
+ * `<stem>.js`, `<stem>.wasm` and a `<stem>.cjs` copy of the bootstrap into
+ * `static/stockfish/`, change both fields here, and re-run
+ * `npm run positions:eval`. The `.cjs` copy is what the precompute job spawns —
+ * this package is `"type": "module"`, so Node parses the `.js` as ESM and its
+ * UMD wrapper fails — and it must keep the same stem, because the wasm sibling
+ * is located by basename.
  */
-export const ENGINE_ID = `sf18-lite-single@${SEARCH_MOVETIME_MS}ms`;
+export const ENGINE = {
+	/** File stem under `static/stockfish/`, shared by the .js, .cjs and .wasm. */
+	basename: 'stockfish-18-lite-single',
+	/** Short form used in the stored stamp. Keep it in step with the basename. */
+	shortId: 'sf18-lite-single'
+} as const;
+
+/**
+ * Identity of the evaluation, stamped on every row and checked on every read.
+ * Derived rather than written out, so the writer and the reader cannot disagree
+ * about what a stored number means: change the build or the search time and
+ * every existing row becomes "no eval" (not "wrong eval") until the job re-runs.
+ */
+export const ENGINE_ID = `${ENGINE.shortId}@${SEARCH_MOVETIME_MS}ms`;

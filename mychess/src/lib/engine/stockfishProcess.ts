@@ -16,9 +16,9 @@
 // keeps the same stem.
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { bestScoreFromInfoLines, sideToMoveFromFen, toWhiteRelative, type EngineScore } from './uci';
-import { SEARCH_MOVETIME_MS } from './version';
+import { ENGINE, SEARCH_MOVETIME_MS } from './version';
 
-export const ENGINE_CLI_PATH = 'static/stockfish/stockfish-18-lite-single.cjs';
+export const ENGINE_CLI_PATH = `static/stockfish/${ENGINE.basename}.cjs`;
 
 /** How long to wait for the uci/isready handshake before giving up on the process. */
 const HANDSHAKE_TIMEOUT_MS = 30_000;

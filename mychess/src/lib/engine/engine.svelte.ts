@@ -6,6 +6,7 @@
 // build: the worker completes its handshake and returns a first score in
 // ~130ms, so a blank evaluation is this module's problem, never Stockfish's.
 import { parseInfoLine, sideToMoveFromFen, toWhiteRelative, type EngineScore } from './uci';
+import { ENGINE } from './version';
 
 // The URL fragment tells the emscripten bootstrap where to find the .wasm
 // binary. A trailing `,worker` marks this load as a *nested* worker spawned by
@@ -13,7 +14,10 @@ import { parseInfoLine, sideToMoveFromFen, toWhiteRelative, type EngineScore } f
 // bootstrap's top-level dispatch short-circuits on that marker and never wires
 // up `onmessage` or loads the engine, so the handshake sent below silently goes
 // nowhere. This is the first, top-level worker, so no suffix here.
-const ENGINE_URL = '/stockfish/stockfish-18-lite-single.js#stockfish-18-lite-single.wasm';
+//
+// Built from ENGINE.basename rather than spelled out, so swapping the build is a
+// one-place change that also moves the stored-eval stamp with it (see version.ts).
+const ENGINE_URL = `/stockfish/${ENGINE.basename}.js#${ENGINE.basename}.wasm`;
 const MOVETIME_MS = 400;
 // If the engine never completes its uci/isready handshake within this window
 // (WASM instantiation stalling, a network hiccup fetching the ~7MB binary, or
