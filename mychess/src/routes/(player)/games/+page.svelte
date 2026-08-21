@@ -2,8 +2,14 @@
 	import { enhance } from '$app/forms';
 	import { summarizeAnalysis } from '$lib/games/summary';
 
-	let { data } = $props<{ data: { games: any[] } }>();
+	let { data, form } = $props<{ data: { games: any[] }; form?: any }>();
 	const games = $derived(data.games);
+
+	function confirmDelete(e: SubmitEvent) {
+		if (!confirm("Delete this game? This can't be undone.")) {
+			e.preventDefault();
+		}
+	}
 </script>
 
 <svelte:head>
@@ -12,6 +18,10 @@
 
 <main class="min-h-screen bg-(--color-bg)">
 	<div class="max-w-3xl mx-auto px-4 py-8">
+		{#if form?.error}
+			<p class="text-red-600 dark:text-red-400 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2 dark:bg-red-950 dark:border-red-800 mb-6">{form.error}</p>
+		{/if}
+
 		<div class="flex items-center justify-between mb-6">
 			<h1 class="text-2xl font-bold text-(--color-text)">My Games</h1>
 			<a
@@ -43,7 +53,7 @@
 								{/if}
 							</p>
 						</a>
-						<form method="POST" action="?/delete" use:enhance>
+						<form method="POST" action="?/delete" use:enhance onsubmit={confirmDelete}>
 							<input type="hidden" name="game_id" value={game.id} />
 							<button type="submit" class="text-red-600 dark:text-red-400 text-sm font-medium hover:underline"
 								>Delete</button
