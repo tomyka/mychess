@@ -109,3 +109,18 @@ it('rejects immediately when Workers are unavailable', async () => {
 	vi.stubGlobal('Worker', undefined as unknown as typeof Worker);
 	await expect(analyzeGame([FEN1])).rejects.toThrow('Web Workers are not available');
 });
+
+it('rejects and terminates the worker when the signal is aborted mid-analysis', async () => {
+	vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
+	const controller = new AbortController();
+
+	const promise = analyzeGame([FEN1], { movetimeMs: 10, signal: controller.signal });
+	const worker = FakeWorker.instances[0];
+	worker.emit('uciok');
+	worker.emit('readyok');
+
+	controller.abort();
+
+	await expect(promise).rejects.toThrow('Analysis cancelled');
+	expect(worker.terminated).toBe(true);
+});

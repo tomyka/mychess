@@ -7,6 +7,7 @@ export type AnalyzeGameOptions = {
 	movetimeMs?: number;
 	handshakeTimeoutMs?: number;
 	onProgress?: (done: number, total: number) => void;
+	signal?: AbortSignal;
 };
 
 // Same binary EngineEval.svelte loads — see its comment for why the URL
@@ -55,6 +56,20 @@ export function analyzeGame(
 			worker.terminate();
 			reject(new Error('Engine handshake timed out'));
 		}, handshakeTimeoutMs);
+
+		if (options.signal) {
+			if (options.signal.aborted) {
+				clearTimeout(handshakeTimeout);
+				worker.terminate();
+				reject(new Error('Analysis cancelled'));
+				return;
+			}
+			options.signal.addEventListener('abort', () => {
+				clearTimeout(handshakeTimeout);
+				worker.terminate();
+				reject(new Error('Analysis cancelled'));
+			});
+		}
 
 		function searchNext() {
 			if (idx >= fens.length) {

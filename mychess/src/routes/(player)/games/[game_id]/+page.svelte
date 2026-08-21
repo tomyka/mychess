@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import ChessBoard from '$lib/components/ChessBoard.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
 	import { Chess } from 'chess.js';
@@ -6,10 +7,13 @@
 	import { analyzeGame } from '$lib/engine/analyzeGame';
 	import { buildAnalysis, type AnalysisEntry } from '$lib/games/build-analysis';
 	import { formatEval, evalBarWhiteFraction } from '$lib/engine/uci';
+	import { formatMoveLabel } from '$lib/practice-report';
 
 	type GameMove = { ply: number; san: string; fen: string; parentFen: string };
 
 	let { data } = $props<{ data: { game: any; boardPrefs?: any } }>();
+
+	let abortController: AbortController | undefined;
 
 	const game = $derived(data.game);
 	const moves = $derived(game.moves as GameMove[]);
@@ -55,12 +59,14 @@
 		analyzing = true;
 		analyzeError = '';
 		progress = { done: 0, total: moves.length + 1 };
+		abortController = new AbortController();
 		const fens = [rootFen, ...moves.map((m) => m.fen)];
 		try {
 			const results = await analyzeGame(fens, {
 				onProgress: (done, total) => {
 					progress = { done, total };
-				}
+				},
+				signal: abortController.signal
 			});
 			const built = buildAnalysis(moves, results);
 			const res = await fetch(`/api/games/${game.id}/analysis`, {
@@ -83,6 +89,10 @@
 	// Retry button below calls startAnalysis() directly).
 	$effect(() => {
 		if (analysisStatus === 'pending' && !analyzing && !analyzeError) startAnalysis();
+	});
+
+	onDestroy(() => {
+		abortController?.abort();
 	});
 
 	function classificationLabel(c: AnalysisEntry['classification']): string {
@@ -198,8 +208,7 @@
 								? 'bg-(--color-accent)/10 font-semibold'
 								: 'hover:bg-(--color-border)/40'}"
 						>
-							{move.ply % 2 === 1 ? `${Math.ceil(move.ply / 2)}.` : `${Math.ceil(move.ply / 2)}...`}
-							{move.san}
+							{formatMoveLabel(move.ply, move.san)}
 							{#if entry?.classification}
 								<span class={classificationClass(entry.classification)}
 									>({classificationLabel(entry.classification)})</span
