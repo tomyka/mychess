@@ -47,7 +47,7 @@ Each maps to an acceptance criterion on issue #118.
 7. **Chapters absent from the upload are surfaced**, default *keep*; removing them requires a deliberate click.
 8. A likely **chapter rename is detected and offered**; accepting it preserves the existing move rows and therefore all progress under them.
 9. **Removed lines stop being drilled** but their progress and SRS rows survive; restoring the line later restores its state.
-10. The update **applies as one transaction** — any failure leaves the previous state exactly intact.
+10. The update leaves **no observable partial state** — any failure leaves the previous state exactly intact, and no student can reconcile against a half-applied shape. See the Applying section for why this is not literally one transaction.
 11. Affected students **see why their progress changed**.
 
 ## Non-goals
@@ -75,21 +75,32 @@ Following the codebase's pure-logic / Supabase-I/O split, classification is a pu
 
 Colocated `repertoire-diff.test.ts` carries the real coverage; this is where the five classes and the prefix arithmetic get pinned down.
 
-### Applying — one RPC
+### Applying — upsert, then one RPC, behind a deferral flag
 
-`src/lib/server/repertoire-update.ts` orchestrates; the mutation itself is a single Postgres function so it cannot half-apply.
+The move upsert stays in application code: `writeMoves` already chunks positions and moves correctly and works around PostgREST's URL-length and `max_rows` limits, none of which exist inside Postgres. Reimplementing it in plpgsql would duplicate tested logic for no gain. Everything that must be consistent with everything else goes in the RPC:
 
-`apply_repertoire_update(p_repertoire_id uuid, p_moves jsonb, p_retire_move_ids uuid[], p_chapter_renames jsonb, p_expected_moves_updated_at timestamptz)`:
+`apply_repertoire_update(p_repertoire_id uuid, p_retire_move_ids uuid[], p_unretire_move_ids uuid[], p_chapter_renames jsonb, p_total_variations int, p_has_chapters boolean)`:
 
-1. Upsert positions and moves exactly as `writeMoves` does today (reusing its chunking).
+1. Lock the repertoire row, then authorize: caller owns it, or is an active coach of the owner.
 2. `chapter_names` **replaces** rather than merges for chapters named in this upload; chapters not named in it keep theirs. This is the one behavioural change to existing import semantics, and it is scoped to the update path — the multi-chapter first-import path keeps merging, which is correct there.
 3. Set `retired_at = now()` on `p_retire_move_ids`.
-4. Clear `retired_at` on any move the upload reintroduces (a restored line).
-5. Recompute `total_variations` / `has_chapters`.
+4. Clear `retired_at` on `p_unretire_move_ids` — a line the coach removed in one version and restored in a later one.
+5. Recompute `total_variations` / `has_chapters`, and clear `update_in_progress_at`.
 
 `moves_updated_at` needs no explicit bump — 0055's statement-level triggers fire on the upsert and on the retire `UPDATE`.
 
-`security definer` with an explicit ownership check, since a coach updates a repertoire whose `player_id` may be their own while students hold only read policies.
+**Why the un-retire is in the RPC and not the upsert.** `moves` has no UPDATE policy granting a coach write access to a student-owned repertoire: `moves_player_all` is owner-only (0002), and `moves_coach_insert_for_student` (0020) is INSERT only. An app-side un-retire — whether as `retired_at: null` in the upsert payload or a separate `.update()` — therefore fails under RLS in exactly the coach case the feature exists for, and fails silently, since `retired_at` is not in `writeMoves`' payload at all. The `security definer` RPC has the privileges, the authorization check, and the row lock already. (The same RLS gap means the existing multi-chapter `chapter_names` merge upsert cannot work for a coach on a student-owned repertoire either — a pre-existing latent bug, filed separately.)
+
+**Why `security definer` needs an explicit null guard.** The authorization check must be written `if auth.uid() is null then raise` followed by `v_owner is distinct from auth.uid()`. Written as `v_owner <> auth.uid()`, a NULL `auth.uid()` makes the whole condition NULL, `if NULL` is not taken, and the function proceeds to write — a definer function with no effective guard. `service_role` JWTs carry no `sub`, so `auth.uid()` is NULL there, and Supabase's default privileges keep `execute` for `service_role` regardless of `revoke ... from anon, public`.
+
+**The deferral flag.** Because the upsert is a separate transaction from the RPC, there is a window where new moves are live and pruned moves are not yet retired — and 0055's trigger bumps `moves_updated_at` at the *start* of it. A student loading inside that window would reconcile against a half-applied shape, and reconciliation is destructive: the counts self-heal on the next reconcile, but a `variation_solved` row deleted on a phantom `diverged` classification does not come back, and the demotion log keeps a spurious `coach_update` row.
+
+So `repertoires.update_in_progress_at timestamptz` is set immediately before the upsert and cleared by the RPC. Reconciliation skips entirely while it is set and non-stale, then runs once against the final shape. It is a timestamp rather than a boolean so a crashed apply cannot wedge a repertoire forever — a flag older than `UPDATE_FLAG_STALE_MINUTES` (10) is ignored.
+
+Two known limitations, accepted rather than solved:
+
+- **Concurrent applies can interleave.** The staleness check happens in the action before the upsert, and the RPC's `FOR UPDATE` does not cover the upsert, so two applies of the same repertoire can run upsert-A / upsert-B / RPC-A / RPC-B. Single-coach-per-repertoire makes this rare; the deferral flag means students see no partial state either way.
+- **ABBA deadlock is possible.** The RPC locks `repertoires` then `moves`; a concurrent `writeMoves` upsert locks `moves` and then, via 0055's trigger, the same `repertoires` row. Overlapping move sets can deadlock, and Postgres aborts one side with `40P01`. A retry is safe.
 
 ### Retirement
 
@@ -140,7 +151,8 @@ A repertoire whose `moves_updated_at` has moved past the player's reconciliation
 ## Error handling
 
 - **Parse failure** in the uploaded PGN: reported before any diff is shown, with the failing chapter named. Nothing is written.
-- **Apply failure**: the RPC rolls back whole. The previous state — every move, every progress row — is intact. The coach sees what failed and can retry; a retry is idempotent because the diff is recomputed from current state.
+- **Apply failure**: the RPC rolls back whole, and `update_in_progress_at` stays set until it goes stale, so no student reconciles against the partial shape in the meantime. A failed upsert leaves extra live moves but retires nothing — additive, never destructive. The coach sees what failed and can retry; a retry is idempotent because the diff is recomputed from current state.
+- **A student loading mid-apply**: reconciliation is skipped while `update_in_progress_at` is set and under 10 minutes old. They practise the shape they loaded and reconcile on their next load after the apply completes.
 - **Concurrent apply** (two coaches, or a double-submit): the RPC takes the `moves_updated_at` the diff was computed against and checks it inside the transaction. A mismatch aborts with "this repertoire changed since you started — reload to see the current diff" rather than applying a stale diff.
 - **Reconcile failure** for one student: logged, not fatal, version stamp not advanced — so it retries on their next load. Mirrors how `repertoire-progress.ts` already treats its lazy shape backfill.
 - **A student mid-session** when an update lands: the session completes against the material it loaded. Reconciliation runs on next load.
@@ -163,7 +175,7 @@ Existing tests to watch: `practice-progress.test.ts`, `repertoire-progress.test.
 
 ## Rollout
 
-1. Migration: `moves.retired_at`, the `repertoire_reconciliation` table, widen the `variation_demotions.cause` check, add `apply_repertoire_update`. No new version column — `repertoires.moves_updated_at` (0055) is the staleness signal. Written to `supabase/migrations/`, pasted by hand into the Supabase dashboard — there is no CLI link from this environment, so the migration must be confirmed applied before anything depends on it.
+1. Migration: `moves.retired_at`, `repertoires.update_in_progress_at`, the `repertoire_reconciliation` table, widen the `variation_demotions.cause` check, add `apply_repertoire_update`. No new version column — `repertoires.moves_updated_at` (0055) is the staleness signal. The `cause` constraint is dropped by probing `pg_constraint` rather than by name: migration files in this repo have drifted from the live schema before, and a name-based `drop constraint if exists` that no-ops would leave two check constraints with the old one still forbidding `'coach_update'` — a migration that reports success and breaks at the first demotion insert. Written to `supabase/migrations/`, pasted by hand into the Supabase dashboard — there is no CLI link from this environment, so the migration must be confirmed applied before anything depends on it.
 2. `retired_at is null` filter into `fetchAllMoves` first, on its own — a no-op until something retires a move, and it is the change with the widest read-path reach.
 3. Pure diff module plus its tests.
 4. The RPC and its server wrapper, verified manually.
