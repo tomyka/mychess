@@ -93,8 +93,19 @@ export function toRawMoveRows(rows: any[]): RawMoveRow[] {
 	}));
 }
 
-/** Every one of this player's excluded variation keys for one repertoire, paginated past `max_rows`. */
-function fetchAllExclusions(supabase: SupabaseClient, userId: string, repertoireId: string): Promise<{ variation_key: string }[]> {
+/**
+ * Every one of this player's excluded variation keys for one repertoire,
+ * paginated past `max_rows`.
+ *
+ * Exported for `./repertoire-reconcile.ts`, which needs the same set as one of
+ * its inputs — the shared read rather than a second copy of the same paged
+ * query and its paired count.
+ */
+export function fetchAllExclusions(
+	supabase: SupabaseClient,
+	userId: string,
+	repertoireId: string
+): Promise<{ variation_key: string }[]> {
 	return fetchAllPages<{ variation_key: string }>(
 		() =>
 			supabase

@@ -12,7 +12,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { enumerateVariations } from '$lib/mastery/variations';
 import { buildCarryForwardPlan, planReconciliation, type PlayerProgress } from '$lib/repertoire-reconcile';
-import { fetchAllMoves, toRawMoveRows } from './practice-repertoire';
+import { fetchAllExclusions, fetchAllMoves, toRawMoveRows } from './practice-repertoire';
+import { loadActiveVariationKey, loadSolvedKeys } from './practice-progress';
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
 import { UPDATE_FLAG_STALE_MS } from './repertoire-update';
 
@@ -135,10 +136,19 @@ export async function reconcilePlayerProgress(
 	// would be stranded under a dead key rather than moved. Each count query
 	// repeats its page query's filters exactly, since the pager derives its
 	// remaining ranges from that count.
+	//
+	// Solved keys, exclusions and the active pointer therefore go through the
+	// SHARED readers (`loadSolvedKeys`, `fetchAllExclusions`,
+	// `loadActiveVariationKey`) rather than local copies of the same queries —
+	// one paging/count decision per table, in one place. Only the teaching read
+	// is spelled out here: `loadTeachingProgress` selects `updated_at` and not
+	// `clean_pass_count`, and the clean-pass streak is exactly what the carry
+	// arithmetic has to clamp, so this is a genuinely different read rather than
+	// the same one duplicated.
 	let liveKeys: string[];
 	let progress: PlayerProgress;
 	try {
-		const [rawMoves, teachingRows, solvedRows, exclusionRows, active] = await Promise.all([
+		const [rawMoves, teachingRows, solved, exclusionRows, activeVariationKey] = await Promise.all([
 			fetchAllMoves(supabase, repertoireId),
 			fetchAllPages<{
 				variation_key: string;
@@ -161,44 +171,9 @@ export async function reconcilePlayerProgress(
 						.eq('repertoire_id', repertoireId),
 				MAX_ROWS_PAGE_SIZE
 			),
-			fetchAllPages<{ variation_key: string }>(
-				() =>
-					supabase
-						.from('variation_solved')
-						.select('variation_key')
-						.eq('player_id', playerId)
-						.eq('repertoire_id', repertoireId)
-						.order('variation_key', { ascending: true }),
-				() =>
-					supabase
-						.from('variation_solved')
-						.select('id', { count: 'exact', head: true })
-						.eq('player_id', playerId)
-						.eq('repertoire_id', repertoireId),
-				MAX_ROWS_PAGE_SIZE
-			),
-			fetchAllPages<{ variation_key: string }>(
-				() =>
-					supabase
-						.from('variation_practice_exclusions')
-						.select('variation_key')
-						.eq('player_id', playerId)
-						.eq('repertoire_id', repertoireId)
-						.order('variation_key', { ascending: true }),
-				() =>
-					supabase
-						.from('variation_practice_exclusions')
-						.select('id', { count: 'exact', head: true })
-						.eq('player_id', playerId)
-						.eq('repertoire_id', repertoireId),
-				MAX_ROWS_PAGE_SIZE
-			),
-			supabase
-				.from('practice_active_variation')
-				.select('active_variation_key')
-				.eq('player_id', playerId)
-				.eq('repertoire_id', repertoireId)
-				.maybeSingle()
+			loadSolvedKeys(supabase, playerId, repertoireId),
+			fetchAllExclusions(supabase, playerId, repertoireId),
+			loadActiveVariationKey(supabase, playerId, repertoireId)
 		]);
 
 		// `fetchAllMoves` already filters `retired_at is null`, so this is the
@@ -212,9 +187,13 @@ export async function reconcilePlayerProgress(
 				masteredPlies: row.mastered_plies,
 				cleanPassCount: row.clean_pass_count
 			})),
-			solved: solvedRows.map((row) => row.variation_key),
+			// Spread back to an array in the reader's own key order: the carry order
+			// `buildCarryForwardPlan` produces follows the order these keys arrive
+			// in, and a `Set` preserves insertion order, so this is the same sequence
+			// the paged read returned.
+			solved: [...solved],
 			excluded: exclusionRows.map((row) => row.variation_key),
-			activeVariationKey: active.data?.active_variation_key ?? null
+			activeVariationKey
 		};
 	} catch (err) {
 		// Read failures must NOT be swallowed into empty arrays: an empty progress

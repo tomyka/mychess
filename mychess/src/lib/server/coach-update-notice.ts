@@ -12,6 +12,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
+import { loadSolvedKeys } from './practice-progress';
 
 /**
  * How many lines a coach's update knocked back to review and this student has
@@ -40,26 +41,29 @@ import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
  *
  * PostgREST cannot express "rows in A with no matching row in B" across two
  * tables without a view or an RPC, so both key sets are fetched and subtracted
- * here. Both reads PAGE (`fetchAllPages`): PostgREST silently truncates an
- * unbounded select at `max_rows` (1000), and a student working a large
- * repertoire holds more than that in `variation_solved` alone — a truncated
- * solved set would read back as "never learned" and OVERSTATE the count, which
- * is exactly the "mastery moved for no reason" confusion the notice exists to
- * prevent. Each paired count query repeats its page query's filters exactly;
- * a count carrying a different filter would have the pager read past the end.
+ * here. Both reads PAGE: PostgREST silently truncates an unbounded select at
+ * `max_rows` (1000), and a student working a large repertoire holds more than
+ * that in `variation_solved` alone — a truncated solved set would read back as
+ * "never learned" and OVERSTATE the count, which is exactly the "mastery moved
+ * for no reason" confusion the notice exists to prevent. The demotion side
+ * pages via `fetchAllPages` directly, and its paired count query repeats the
+ * page query's filters exactly; a count carrying a different filter would have
+ * the pager read past the end.
+ *
+ * The solved side is `loadSolvedKeys` — the shared read every other consumer of
+ * that table already uses — rather than a second copy of the same paged query.
+ * It scopes by player AND repertoire even though the table's uniqueness is
+ * `(player_id, variation_key)` and the player filter alone would give the same
+ * answer (keys are chains of move UUIDs, so they cannot collide across
+ * repertoires): the redundant filter keeps the fetch proportional to this
+ * repertoire instead of the student's entire library, and uses the same index.
+ * It throws rather than truncating on failure, which the catch below turns into
+ * the same 0 any other read failure yields.
  *
  * `DISTINCT` matters because `variation_demotions` is an append-only audit log:
  * a line demoted by two successive re-uploads has two rows, and counting rows
  * rather than keys would tell the student two lines need review when one does.
  * Deduping is what the `Set` here is for.
- *
- * `variation_solved` is scoped by player AND repertoire, even though its
- * uniqueness is `(player_id, variation_key)` and the player filter alone would
- * give the same answer (keys are chains of move UUIDs, so they cannot collide
- * across repertoires). The redundant filter is deliberate: it matches every
- * other read of the table (`loadSolvedKeys`, `reconcilePlayerProgress`), keeps
- * the fetch proportional to this repertoire instead of the student's entire
- * library, and uses the same index.
  *
  * Returns 0 on any read failure — this is a decoration on a practice page, and
  * a failed count must not take the drill down with it.
@@ -70,7 +74,7 @@ export async function coachUpdatedLineCount(
 	repertoireId: string
 ): Promise<number> {
 	try {
-		const [demotedRows, solvedRows] = await Promise.all([
+		const [demotedRows, solved] = await Promise.all([
 			fetchAllPages<{ variation_key: string }>(
 				() =>
 					supabase
@@ -93,25 +97,9 @@ export async function coachUpdatedLineCount(
 						.eq('cause', 'coach_update'),
 				MAX_ROWS_PAGE_SIZE
 			),
-			fetchAllPages<{ variation_key: string }>(
-				() =>
-					supabase
-						.from('variation_solved')
-						.select('variation_key')
-						.eq('player_id', playerId)
-						.eq('repertoire_id', repertoireId)
-						.order('variation_key', { ascending: true }),
-				() =>
-					supabase
-						.from('variation_solved')
-						.select('id', { count: 'exact', head: true })
-						.eq('player_id', playerId)
-						.eq('repertoire_id', repertoireId),
-				MAX_ROWS_PAGE_SIZE
-			)
+			loadSolvedKeys(supabase, playerId, repertoireId)
 		]);
 
-		const solved = new Set(solvedRows.map((row) => row.variation_key));
 		const outstanding = new Set<string>();
 		for (const row of demotedRows) {
 			if (!solved.has(row.variation_key)) outstanding.add(row.variation_key);
