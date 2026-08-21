@@ -8,6 +8,7 @@ import { splitQueues } from '$lib/mastery/learning';
 import { orderPracticeQueue } from '$lib/mastery/practiceQueue';
 import { fullyLearnedChapters } from '$lib/mastery/repertoireStatus';
 import { isInChapterTier } from '$lib/mastery/variations';
+import { loadPositionEvals, fensInPath } from '$lib/server/position-evals';
 
 /**
  * The Practice pool: learned variations only, weakest-first, no arrows ever
@@ -51,8 +52,21 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const ordered = orderPracticeQueue(available, stats);
 	const byKey = new Map(available.map((v) => [v.variationKey, v]));
 
+	// Same as Learn's: precomputed evals for the positions the queue can show, so
+	// the bar has a number without an engine download (#126). Scoped to the
+	// FIRST few lines rather than the whole queue — a long pool would mean a
+	// pointless lookup for positions this sitting will never reach.
+	const EVAL_LOOKAHEAD_LINES = 5;
+	const evals = await loadPositionEvals(
+		supabase,
+		ordered
+			.slice(0, EVAL_LOOKAHEAD_LINES)
+			.flatMap((key) => fensInPath(byKey.get(key)?.path ?? []))
+	);
+
 	return {
 		repertoire,
+		evals,
 		// Ordered weakest-first on the server. The client walks this list rather
 		// than re-deriving the order, so the two cannot disagree about what comes
 		// next.

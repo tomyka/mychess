@@ -11,8 +11,11 @@
 	its sign can stay White-relative (`+` is good for White) the way every chess
 	UI has it, without the number having to flip with the board.
 
-	Always on: it spawns the shared engine itself on mount, and there is no
-	preference to switch it off any more (the toggle and its cookie are gone).
+	Always on, and normally engine-free: a precomputed evaluation for the position
+	(`bookEval`, from `positions.eval_cp` — see #126) is what fills the bar while
+	drilling, so no WASM is downloaded at all. The local engine is spawned only
+	when a position has no stored eval, which in practice means explore mode's
+	off-book positions. There is no preference to switch any of it off.
 	Before the first score, and if the engine can't load at all, the bar holds an
 	even 50/50 so the board never shifts sideways — with a dash instead of a
 	number when there is nothing to report.
@@ -25,15 +28,22 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { engineState, ensureEngine, requestIfDue, retainEngine } from '$lib/engine/engine.svelte';
-	import { evalBarWhiteFraction, formatEval } from '$lib/engine/uci';
+	import { evalBarWhiteFraction, formatEval, type EngineScore } from '$lib/engine/uci';
 
 	let {
 		fen,
+		bookEval = null,
 		orientation = 'white',
 		height = 0
 	}: {
 		/** The position to evaluate — the board's own displayed FEN. */
 		fen: string;
+		/**
+		 * The precomputed, white-relative evaluation for `fen`, when there is one.
+		 * Takes precedence over spawning an engine; a live score, once the engine
+		 * has produced one for the current position, takes precedence over it.
+		 */
+		bookEval?: EngineScore | null;
 		orientation?: 'white' | 'black';
 		// The board's own rendered size in px (it's square, so its width IS its
 		// height) — the bar matches it exactly rather than guessing from the
@@ -43,20 +53,25 @@
 
 	onDestroy(retainEngine());
 
-	// Spawned on mount rather than behind a preference: the evaluation is part of
-	// the board now, so the ~7MB WASM download happens once per drilling session
-	// instead of being opt-in.
+	// The engine is spawned only for a position nothing has precomputed — which
+	// is what keeps the ~5.5MB download off the drilling path entirely (#126).
+	// Once spawned it stays for the session, so a second off-book position is
+	// instant.
 	$effect(() => {
-		ensureEngine();
+		if (!bookEval) ensureEngine();
 	});
 
 	// Fires once when `ready` flips true (evaluating the fen already on screen at
 	// that point) and again on every later position — one code path for both.
 	$effect(() => {
-		requestIfDue(fen);
+		if (!bookEval) requestIfDue(fen);
 	});
 
-	const whiteFraction = $derived(engineState.score ? evalBarWhiteFraction(engineState.score) : 0.5);
+	// A live score wins when the engine has actually answered for THIS position;
+	// otherwise the stored one. `engineState.searching` is what distinguishes
+	// "the engine's number is for the previous position" from "it's current".
+	const score = $derived(engineState.score && !engineState.searching ? engineState.score : (bookEval ?? engineState.score));
+	const whiteFraction = $derived(score ? evalBarWhiteFraction(score) : 0.5);
 	// The share of the bar belonging to the side at the BOTTOM, as a percentage
 	// rounded to a tenth: the two segments are sized from ONE number
 	// (`100 - bottomPct` for the top) so float error can't leave a hairline gap
@@ -68,8 +83,8 @@
 	// after answering leaves its last number on screen rather than replacing it
 	// with "unavailable".
 	const label = $derived(
-		engineState.score
-			? `Engine evaluation ${formatEval(engineState.score)}`
+		score
+			? `Engine evaluation ${formatEval(score)}`
 			: engineState.failed
 				? 'Engine evaluation unavailable'
 				: 'Engine evaluation loading'
@@ -88,7 +103,7 @@
 	const numberOnWhite = $derived(numberAtBottom ? orientation !== 'black' : orientation === 'black');
 	// A dash rather than an empty bar while there is nothing to say: the bar is
 	// always visible now, so it has to read as "no number yet", not as broken.
-	const numberText = $derived(engineState.score ? formatEval(engineState.score) : '–');
+	const numberText = $derived(score ? formatEval(score) : '–');
 </script>
 
 <div
@@ -108,7 +123,8 @@
 	<!-- Dead level, so a near-equal position reads without the number. -->
 	<div class="absolute inset-x-0 top-1/2 h-px bg-(--color-accent)/60"></div>
 	<span
-		class="absolute inset-x-0 text-center text-[0.6rem] font-bold leading-none tabular-nums transition-opacity {engineState.searching
+		class="absolute inset-x-0 text-center text-[0.6rem] font-bold leading-none tabular-nums transition-opacity {engineState.searching &&
+		!bookEval
 			? 'opacity-60'
 			: ''} {numberAtBottom
 				? 'bottom-1'

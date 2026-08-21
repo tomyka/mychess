@@ -58,3 +58,22 @@ export function evalBarWhiteFraction(score: EngineScore): number {
 	const clamped = Math.max(-500, Math.min(500, score.cp ?? 0));
 	return (clamped + 500) / 1000;
 }
+
+/**
+ * The score from a completed search: the one belonging to the DEEPEST info line
+ * seen, which is the engine's best answer for that position. Later lines are
+ * normally deeper, but ties and out-of-order arrivals both happen, so this picks
+ * on depth rather than trusting "last line wins".
+ *
+ * Returns null when no line carried a score at all (a search that was stopped
+ * immediately, or output that isn't from a search).
+ */
+export function bestScoreFromInfoLines(lines: readonly string[]): { depth: number; score: EngineScore } | null {
+	let best: { depth: number; score: EngineScore } | null = null;
+	for (const line of lines) {
+		const parsed = parseInfoLine(line);
+		if (!parsed) continue;
+		if (!best || parsed.depth >= best.depth) best = parsed;
+	}
+	return best;
+}

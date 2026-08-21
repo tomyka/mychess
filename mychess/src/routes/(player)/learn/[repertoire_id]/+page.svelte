@@ -556,6 +556,7 @@
 				>
 					<EvalBar
 						fen={displayFen}
+						bookEval={data.evals?.[displayFen] ?? null}
 						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
 						height={boardWidth}
 					/>
