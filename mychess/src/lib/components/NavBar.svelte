@@ -85,7 +85,7 @@
             class="flex items-center gap-1.5 text-(--color-text) hover:text-gray-900 dark:hover:text-gray-200 font-medium"
           >
             <span class="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 text-xs font-bold flex items-center justify-center">
-              {((profile as any)?.display_name ?? 'P')[0].toUpperCase()}
+              {((profile as any)?.display_name ?? m.nav_player_fallback())[0].toUpperCase()}
             </span>
             <span class="text-sm">{(profile as any)?.display_name ?? m.nav_player_fallback()}</span>
             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
