@@ -4,7 +4,6 @@
   import NavBar from '$lib/components/NavBar.svelte';
   import { page } from '$app/stores';
   import { initThemeFromCookie, applyResolvedThemeClass, themeStore } from '$lib/theme.svelte';
-  import { initEnginePrefFromCookie } from '$lib/enginePref.svelte';
   import { clearStaleChunkGuard } from '$lib/staleChunk';
 
   let { children, data } = $props<{ children: any; data: any }>();
@@ -21,7 +20,6 @@
   // blocking script already used, so the store starts in sync with what's
   // already painted.
   initThemeFromCookie();
-  initEnginePrefFromCookie();
 
   // Reaching here means the app rendered, so whatever stale-chunk recovery may
   // have run on a previous load is spent and shouldn't count against a LATER

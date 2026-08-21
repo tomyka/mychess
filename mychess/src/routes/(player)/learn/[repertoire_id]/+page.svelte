@@ -11,7 +11,6 @@
 	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
 	import { positionAt, playOpponentReplies, playerMovesIn } from '$lib/mastery/playback';
 	import { logMove } from '$lib/moveLog';
-	import EngineEval from '$lib/components/EngineEval.svelte';
 	import EvalBar from '$lib/components/EvalBar.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
 	import PracticeStatusStrip, { type PracticeStripState } from '$lib/components/PracticeStatusStrip.svelte';
@@ -67,11 +66,11 @@
 	// to outlive it rather than vanish with it.
 	const CUE_HOLD_MS = 1200;
 	const CUE_LINGER_MS = 1800;
-	// How long each already-mastered ply is shown before advancing to the
-	// next one during the autoplay intro — fast enough not to be tedious for
-	// a long, deeply-nested variation, slow enough to still read as "playing
-	// through", not an instant jump-cut.
-	const AUTO_PLAY_STEP_MS = 350;
+	// How long each already-mastered ply is shown before advancing to the next
+	// one during the autoplay intro. Raised from 350ms: at that speed the moves
+	// went past faster than they could be followed, which is the opposite of what
+	// replaying known material is for.
+	const AUTO_PLAY_STEP_MS = 700;
 	// Bumped on every resetForAttempt() call so stale async work (a
 	// still-in-flight report) notices it's been superseded and stops writing
 	// to state.
@@ -509,7 +508,11 @@
 				<div
 					class="flex items-start justify-center gap-2 lg:flex-1 lg:min-h-0 lg:[container-type:size]"
 				>
-					<EvalBar orientation={data.repertoire?.color === 'black' ? 'black' : 'white'} height={boardWidth} />
+					<EvalBar
+						fen={displayFen}
+						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
+						height={boardWidth}
+					/>
 					<ChessBoard
 						fen={displayFen}
 						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
@@ -536,12 +539,13 @@
 					onlive={reviewToLive}
 				/>
 
-				<div class="mt-3 p-3 bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:hidden">
-					<EngineEval fen={displayFen} />
-					{#if movesSoFar}
-						<p class="text-sm text-(--color-muted) mt-2">{movesSoFar}</p>
-					{/if}
-				</div>
+				<!-- The engine used to live here too; it's on the board's own edge now
+				     (EvalBar), so this card is just the moves played so far. -->
+				{#if movesSoFar}
+					<div class="mt-3 p-3 bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:hidden">
+						<p class="text-sm text-(--color-muted)">{movesSoFar}</p>
+					</div>
+				{/if}
 			</div>
 
 			<div
@@ -574,10 +578,6 @@
 							{attemptMistakeCount} mistake{attemptMistakeCount === 1 ? '' : 's'} this attempt
 						</p>
 					{/if}
-				</div>
-
-				<div class="p-4">
-					<EngineEval fen={displayFen} />
 				</div>
 
 				<div class="p-4">

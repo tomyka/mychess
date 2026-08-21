@@ -1,10 +1,10 @@
 // mychess/src/lib/engine/engine.svelte.ts
 //
-// The shared Stockfish worker and its latest score, extracted out of
-// EngineEval.svelte's module block so more than one component can read the
-// same evaluation: the toggle/number card and the board-side eval bar are
-// separate components in separate parts of the layout, and both need the
-// score without spawning a second ~7MB WASM engine.
+// The shared Stockfish worker and its latest score. Kept out of any one
+// component so the engine survives across the surfaces that show it and so a
+// second ~7MB WASM instance can never be spawned. Verified against the served
+// build: the worker completes its handshake and returns a first score in
+// ~130ms, so a blank evaluation is this module's problem, never Stockfish's.
 import { parseInfoLine, sideToMoveFromFen, toWhiteRelative, type EngineScore } from './uci';
 
 // The URL fragment tells the emscripten bootstrap where to find the .wasm
@@ -21,10 +21,17 @@ const MOVETIME_MS = 400;
 // than sitting on the loading state forever with no visible signal.
 const HANDSHAKE_TIMEOUT_MS = 8000;
 
-export const engineState = $state<{ ready: boolean; failed: boolean; score: EngineScore | null }>({
+export const engineState = $state<{
+	ready: boolean;
+	failed: boolean;
+	score: EngineScore | null;
+	/** A search is in flight, so `score` still describes the PREVIOUS position. */
+	searching: boolean;
+}>({
 	ready: false,
 	failed: false,
-	score: null
+	score: null,
+	searching: false
 });
 
 let worker: Worker | null = null;
@@ -54,6 +61,7 @@ function handleMessage(event: MessageEvent<string>) {
 	const parsed = parseInfoLine(line);
 	if (!parsed) return;
 	engineState.score = toWhiteRelative(parsed.score, sideToMoveFromFen(lastRequestedFen));
+	engineState.searching = false;
 }
 
 function fail() {
@@ -96,6 +104,7 @@ export function teardownEngine() {
 	engineState.ready = false;
 	engineState.failed = false;
 	engineState.score = null;
+	engineState.searching = false;
 	lastRequestedFen = '';
 }
 
@@ -103,10 +112,17 @@ export function teardownEngine() {
 export function requestIfDue(nextFen: string) {
 	if (!engineState.ready || !nextFen || nextFen === lastRequestedFen) return;
 	lastRequestedFen = nextFen;
-	engineState.score = null;
+	// The previous score deliberately STAYS on screen until the new one lands.
+	// Clearing it here is what made the evaluation look switched off: positions
+	// change faster than a 400ms search finishes wherever moves play themselves
+	// (the autoplay intro, an opponent reply after a correct move), so the bar
+	// spent those stretches empty and only occasionally flashed a number.
+	// `searching` lets the display say "this is the previous position's number"
+	// without the number disappearing.
+	engineState.searching = true;
 	// "stop" is safe to send even when nothing is searching — sent
-	// unconditionally so a burst of rapid fen changes (e.g. the autoplay intro)
-	// never leaves a stale search about to overwrite a newer one.
+	// unconditionally so a burst of rapid fen changes never leaves a stale
+	// search about to overwrite a newer one.
 	send('stop');
 	send(`position fen ${nextFen}`);
 	send(`go movetime ${MOVETIME_MS}`);

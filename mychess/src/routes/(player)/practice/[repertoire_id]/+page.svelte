@@ -1,6 +1,5 @@
 <script lang="ts">
 	import ChessBoard from '$lib/components/ChessBoard.svelte';
-	import EngineEval from '$lib/components/EngineEval.svelte';
 	import EvalBar from '$lib/components/EvalBar.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
 	import PracticeStatusStrip, { type PracticeStripState } from '$lib/components/PracticeStatusStrip.svelte';
@@ -302,7 +301,11 @@
 				<div
 					class="w-full flex items-start justify-center gap-2 lg:flex-1 lg:min-h-0 lg:[container-type:size]"
 				>
-					<EvalBar orientation={data.repertoire?.color === 'black' ? 'black' : 'white'} height={boardWidth} />
+					<EvalBar
+						fen={displayFen}
+						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
+						height={boardWidth}
+					/>
 					<ChessBoard
 						fen={displayFen}
 						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
@@ -355,10 +358,6 @@
 						<p class="text-sm text-(--color-text) font-medium">{current.chapterNames.join(' · ')}</p>
 					{/if}
 					<p class="text-sm text-(--color-muted) font-mono">{movesSoFar || '—'}</p>
-				</div>
-
-				<div class="p-4">
-					<EngineEval fen={displayFen} />
 				</div>
 
 				<div class="p-4 flex flex-col gap-2">

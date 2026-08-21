@@ -3,22 +3,24 @@
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import EvalBar from './EvalBar.svelte';
-import { enginePrefStore } from '$lib/enginePref.svelte';
 import { engineState } from '$lib/engine/engine.svelte';
 
+const FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+
 beforeEach(() => {
-	// Both are module-level singletons shared across every test in the process.
-	enginePrefStore.enabled = true;
+	// engineState is a module-level singleton shared across every test in the
+	// process — reset it explicitly rather than relying on it starting fresh.
 	engineState.failed = false;
 	engineState.ready = true;
 	engineState.score = null;
+	engineState.searching = false;
 });
 
 afterEach(() => {
 	cleanup();
-	enginePrefStore.enabled = false;
 	engineState.score = null;
 	engineState.ready = false;
+	engineState.searching = false;
 });
 
 /** The bar's two stacked segments, top first. */
@@ -34,28 +36,39 @@ const WHITE = 'bg-[#f8f8f6]';
 const BLACK = 'bg-[#26262b]';
 
 describe('EvalBar', () => {
-	it('renders nothing at all while the engine preference is off', () => {
-		enginePrefStore.enabled = false;
-		const { container } = render(EvalBar, { props: { orientation: 'white', height: 400 } });
-		expect(container.querySelector('[role="img"]')).toBeNull();
+	// Always visible: there is no preference to switch it off, and it must not
+	// vanish just because the engine hasn't answered (or can't).
+	it('still renders an even bar when the engine failed to load', () => {
+		engineState.failed = true;
+		const { container } = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
+		const bar = container.querySelector('[role="img"]');
+		expect(bar).not.toBeNull();
+		expect(bar?.getAttribute('aria-label')).toBe('Engine evaluation unavailable');
+		expect(segments(container).map((s) => s.height)).toEqual(['50%', '50%']);
 	});
 
-	it('renders nothing when the engine failed to load', () => {
-		engineState.failed = true;
-		const { container } = render(EvalBar, { props: { orientation: 'white', height: 400 } });
-		expect(container.querySelector('[role="img"]')).toBeNull();
+	// The bug behind "it wasn't showing evaluations": positions change faster
+	// than a 400ms search finishes wherever moves play themselves, so clearing
+	// the score per request left the bar blank through the whole autoplay intro.
+	it('keeps the previous number up, dimmed, while the next search runs', () => {
+		engineState.score = { cp: 120 };
+		engineState.searching = true;
+		const { container } = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
+		const num = container.querySelector('[role="img"] span') as HTMLElement;
+		expect(num.textContent?.trim()).toBe('+1.2');
+		expect(num.className).toContain('opacity-60');
 	});
 
 	// The board doesn't shift sideways between evaluations: the bar holds its
 	// width and sits level until a score arrives.
 	it('holds an even bar before the first score', () => {
-		const { container } = render(EvalBar, { props: { orientation: 'white', height: 400 } });
+		const { container } = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
 		expect(segments(container).map((s) => s.height)).toEqual(['50%', '50%']);
 	});
 
 	it('fills from the bottom in White for a player with the white pieces', () => {
 		engineState.score = { cp: 200 }; // +2.00 => white 0.7 of the bar
-		const { container } = render(EvalBar, { props: { orientation: 'white', height: 400 } });
+		const { container } = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
 		const [top, bottom] = segments(container);
 		expect(bottom.className).toContain(WHITE);
 		expect(bottom.height).toBe('70%');
@@ -67,7 +80,7 @@ describe('EvalBar', () => {
 	// White's +2.00 now fills from the top instead of the numbers flipping.
 	it('flips with the board for a player with the black pieces', () => {
 		engineState.score = { cp: 200 };
-		const { container } = render(EvalBar, { props: { orientation: 'black', height: 400 } });
+		const { container } = render(EvalBar, { props: { fen: FEN, orientation: 'black', height: 400 } });
 		const [top, bottom] = segments(container);
 		expect(bottom.className).toContain(BLACK);
 		expect(bottom.height).toBe('30%');
@@ -76,13 +89,13 @@ describe('EvalBar', () => {
 	});
 
 	it('matches the board\'s own rendered height', () => {
-		const { container } = render(EvalBar, { props: { orientation: 'white', height: 512 } });
+		const { container } = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 512 } });
 		expect((container.querySelector('[role="img"]') as HTMLElement).style.height).toBe('512px');
 	});
 
 	it('names the current evaluation for assistive tech', () => {
 		engineState.score = { cp: -150 };
-		const { container } = render(EvalBar, { props: { orientation: 'white', height: 400 } });
+		const { container } = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
 		expect(container.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe('Engine evaluation -1.5');
 	});
 
@@ -90,7 +103,7 @@ describe('EvalBar', () => {
 	// White-relative without flipping with the board.
 	it('prints the evaluation inside the larger segment, at that segment\'s outer end', () => {
 		engineState.score = { cp: 200 }; // White clearly better
-		const { container } = render(EvalBar, { props: { orientation: 'white', height: 400 } });
+		const { container } = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
 		const num = container.querySelector('[role="img"] span') as HTMLElement;
 		expect(num.textContent?.trim()).toBe('+2.0');
 		// White's segment is the bottom one for a white player, and it's the
@@ -101,21 +114,21 @@ describe('EvalBar', () => {
 
 	it('moves the number to the other end when the opponent is ahead', () => {
 		engineState.score = { cp: 200 }; // White better, but the player has black
-		const { container } = render(EvalBar, { props: { orientation: 'black', height: 400 } });
+		const { container } = render(EvalBar, { props: { fen: FEN, orientation: 'black', height: 400 } });
 		const num = container.querySelector('[role="img"] span') as HTMLElement;
 		expect(num.textContent?.trim()).toBe('+2.0'); // sign unchanged: White-relative
 		expect(num.className).toContain('top-1'); // White's segment is the top one here
 		expect(num.className).toContain('text-[#26262b]');
 	});
 
-	it('prints nothing on the bar before the first score', () => {
-		const { container } = render(EvalBar, { props: { orientation: 'white', height: 400 } });
-		expect(container.querySelector('[role="img"] span')).toBeNull();
+	it('shows a dash, not a blank, before the first score', () => {
+		const { container } = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
+		expect((container.querySelector('[role="img"] span') as HTMLElement).textContent?.trim()).toBe('–');
 	});
 
 	it('rounds to one decimal', () => {
 		engineState.score = { cp: -135 };
-		const { container } = render(EvalBar, { props: { orientation: 'white', height: 400 } });
+		const { container } = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
 		expect((container.querySelector('[role="img"] span') as HTMLElement).textContent?.trim()).toBe('-1.4');
 	});
 });
