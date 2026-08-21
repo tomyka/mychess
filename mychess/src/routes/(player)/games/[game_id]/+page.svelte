@@ -137,6 +137,8 @@
 			<MoveNavRow
 				{reviewIdx}
 				totalPlies={moves.length}
+				reviewMoves={reviewIdx}
+				totalMoves={moves.length}
 				isReviewing={true}
 				onstart={() => (reviewIdx = 0)}
 				onback={() => (reviewIdx = Math.max(reviewIdx - 1, 0))}
