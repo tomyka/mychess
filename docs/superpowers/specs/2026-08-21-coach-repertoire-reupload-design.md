@@ -184,3 +184,53 @@ Existing tests to watch: `practice-progress.test.ts`, `repertoire-progress.test.
 7. Student banner.
 
 Steps 2 and 3 are independently shippable and carry no user-visible behaviour, which is where the risk in this work actually sits.
+
+## Changes during implementation
+
+Recorded because several of these contradict what the sections above originally said, and a spec that describes a design nobody built is worse than none. Each was found while building, and is reflected in the shipped code.
+
+**Keep now actually keeps.** The most consequential correction. Every line in a chapter the upload does not mention classifies as `removed`, so the retire set included exactly the lines the *Keep* default promised to preserve — a coach uploading one revised chapter of five would have destroyed the other four, the precise failure per-chapter replace exists to prevent. `moveIdsToRetire` now takes a kept-chapter set and spares those lines, and the apply action intersects the client's list with its own freshly computed `absentChapters`, so it cannot be used to spare a chapter the upload genuinely replaces. A spared line's move ids join the *surviving* set rather than merely being dropped from the doomed one — otherwise a genuinely-removed sibling would retire the prefix its spared neighbour runs through.
+
+**Three separate duplicate-write paths had to be closed**, all the same shape — two things wanting one `variation_key` — and all fatal the same way: the unique constraint rejects the second write, the applier treats that as fatal, the reconciliation stamp is never written, and it retries on every page load forever.
+
+1. Two old lines collapsing onto one new key (coach drops `3.Bb5` and `3.Bc4`, adds `3.d4`). They now merge: the survivor inherits the deepest of them, stays learned if any of them kept learned, and logs one demotion rather than one per line.
+2. Two seeds targeting one key.
+3. A removed line best-matching a live line the student already holds progress on. That carry is a no-op — their existing progress on that line is better evidence than progress carried from a line that merely shared a prefix.
+
+The recurring root cause is that `variation_key` is both the identity and the thing being rewritten, so every rewrite is a potential collision. Content-addressed keys, deferred in Decisions, would remove the whole class rather than these three instances.
+
+**The exclusion prune needed the in-flight guard too.** `reverifyExclusions` deletes exclusion rows whose key no longer names a live variation, and had no window check — so a student loading mid-apply pruned against a half-applied shape and permanently lost "skip this line" choices for lines that exist in the finished shape. It and reconciliation now share one `isApplyInFlight` predicate, defined once, because two copies of a window definition drift.
+
+**Ordering alone was not enough to protect exclusions.** Reconciliation running before the prune is necessary but insufficient: the exclusion rows are read into memory first and the prune deletes by row *id*, so a rewritten row was still judged stale from its stale in-memory key and deleted anyway. Reconciled repertoires therefore re-read their exclusion rows.
+
+**`VariationDiff` carries `previousSans`.** The review screen renders a change in place — the replaced ply struck through beside its replacement — which needs the old line, not just the new one and a ply count.
+
+**Diffs carry `chapterNames`.** Classification compares SAN paths only, but the review's left pane is a chapter rail, and a removed line's chapter name exists only on the database side, since the upload never mentions it. Attribution happens in `buildUpdatePreview`, the one place holding both sides at once.
+
+**Inherited depth is clamped by `masteredPlies`, not just the shared prefix.** A sibling sharing eleven plies with a line the student mastered five of inherits five. The raw prefix would credit knowledge never demonstrated.
+
+**The un-retire moved into the RPC.** `moves` has no policy granting a coach UPDATE on a student-owned repertoire, so an app-side un-retire fails under RLS in exactly the coach case — and fails silently, since `retired_at` is not in `writeMoves`' payload at all. The same gap affects the existing multi-chapter `chapter_names` merge; filed separately as #123.
+
+**Service-role callers are denied the RPC.** Its authorization check read `v_owner <> auth.uid()`, which yields NULL when `auth.uid()` is NULL — `if NULL` is not taken, so the definer function proceeded with no guard at all. Reachable under `service_role`, whose JWTs carry no `sub` and which keeps EXECUTE regardless of the revoke. Consequence: the verification below cannot use the service-role key and must go through a real coach session.
+
+**Dropped: the "notify students" toggle.** The notice derives from demotion rows, so suppressing it would need a schema column for an option that contradicts the feature's own premise.
+
+**Dropped: rename offers when two absent chapters target one new chapter.** Presented as two independent rename questions, accepting both silently merges two chapters. Both are listed as absent instead, defaulting to Keep.
+
+**The student notice is self-clearing by construction** — demoted lines with no `variation_solved` row — so re-learning a line removes it, with no dismissal flag to migrate or get stuck showing a stale number.
+
+**Entry point is the repertoire list**, not a detail page. There is no coach repertoire detail page.
+
+## Verification status
+
+Unit-tested and type-checked throughout: 881 tests, with `npm run check` and `npm run lint` both clean. But the migration aside, **no part of this feature has executed against a real database**. The apply RPC, every reconciliation write, and the whole coach review screen are unexercised outside unit tests — and `src/lib/server/` is conventionally not unit-tested in this repo.
+
+Remaining gate, which needs a real coach session in a browser (not the service-role key, per the auth fix above):
+
+1. Apply an update that extends one line, diverges one, removes one, and adds one.
+2. Confirm unchanged lines' `variation_teaching_progress` rows are byte-identical before and after.
+3. Confirm a diverged line's `mastered_plies` clamped to the common prefix.
+4. Confirm `variation_demotions` gained rows with `cause = 'coach_update'`.
+5. Confirm a removed line's moves have `retired_at` set and no longer appear in practice, while its progress rows still exist.
+6. Confirm uploading a single chapter of a multi-chapter repertoire retires nothing.
+7. Confirm a stale apply is refused with the reload message rather than applied.
