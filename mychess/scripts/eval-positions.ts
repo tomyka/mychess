@@ -3,11 +3,13 @@
 // Precomputes engine evaluations for `positions` rows that don't have a current
 // one (issue #126). Run it after importing a repertoire:
 //
-//   npm run positions:eval           # evaluate everything pending
-//   npm run positions:eval -- 200    # cap this run at 200 positions
+//   npm run positions:eval                    # evaluate everything pending
+//   npm run positions:eval -- 200             # cap this run at 200 positions
+//   npm run positions:eval -- --workers=6     # more engines in parallel
 //
 // Idempotent and resumable: it only ever picks up rows whose `eval_engine` isn't
 // the current ENGINE_ID, so re-running it costs one query and stops.
+import { cpus } from 'node:os';
 import { createClient } from '@supabase/supabase-js';
 import { StockfishProcess } from '../src/lib/engine/stockfishProcess';
 import { ENGINE_ID } from '../src/lib/engine/version';
@@ -20,10 +22,19 @@ if (!url || !key) {
 	process.exit(1);
 }
 
-const limit = Number(process.argv[2] ?? '0') || Infinity;
-// Small enough that a crashed run loses almost nothing, big enough that the
-// round trips don't dominate a 400ms-per-position job.
-const BATCH = 50;
+const args = process.argv.slice(2);
+const limit = Number(args.find((a) => /^\d+$/.test(a)) ?? '0') || Infinity;
+// One engine per core would starve the machine of everything else, and the
+// engine is single-threaded by build, so this is just "how many searches at
+// once". Default leaves a few cores for the OS and whatever else is running.
+const workerCount = Math.max(
+	1,
+	Number(args.find((a) => a.startsWith('--workers='))?.split('=')[1] ?? '') ||
+		Math.min(4, Math.max(1, cpus().length - 2))
+);
+// Big enough that one write covers a lot of search time, small enough that a
+// crash loses little.
+const BATCH = 100;
 
 const supabase = createClient(url, key, { auth: { persistSession: false } });
 
@@ -68,12 +79,21 @@ async function withRetry<T>(what: string, call: () => PromiseLike<PgResult<T>>):
 }
 
 async function main() {
-	const engine = new StockfishProcess();
-	await engine.start();
-	console.log(`engine ready — evaluating with ${ENGINE_ID}`);
+	// N engines, each a separate process (the build is single-threaded), sharing
+	// the batch between them. The job is entirely search-bound — 27k positions at
+	// one engine was three hours — so this is the only lever that matters.
+	const engines = await Promise.all(
+		Array.from({ length: workerCount }, async () => {
+			const engine = new StockfishProcess();
+			await engine.start();
+			return engine;
+		})
+	);
+	console.log(`${engines.length} engine(s) ready — evaluating with ${ENGINE_ID}`);
 
 	let evaluated = 0;
 	let unscored = 0;
+	const startedAt = Date.now();
 	try {
 		while (evaluated < limit) {
 			const { data: pending, error } = await withRetry('fetch pending', () =>
@@ -86,23 +106,35 @@ async function main() {
 			if (error) throw error;
 			if (!pending || pending.length === 0) break;
 			const before = evaluated;
-			const results: Record<string, unknown>[] = [];
 
-			for (const row of pending) {
-				const score = await engine.evaluate(row.fen);
-				// A position with no legal moves has no score, and must still be
-				// stamped — otherwise the next run picks it up again forever.
-				if (!score) unscored++;
-				results.push({
-					id: row.id,
-					fen: row.fen,
-					eval_cp: score?.cp ?? null,
-					eval_mate: score?.mate ?? null,
-					eval_engine: ENGINE_ID,
-					eval_at: new Date().toISOString()
-				});
-				evaluated++;
-			}
+			// Each engine walks its own share sequentially; the shares run at once.
+			const shares: typeof pending[] = engines.map(() => []);
+			pending.forEach((row, i) => shares[i % engines.length].push(row));
+			const stamped = new Date().toISOString();
+			const results = (
+				await Promise.all(
+					shares.map(async (share, workerIdx) => {
+						const engine = engines[workerIdx];
+						const rows: Record<string, unknown>[] = [];
+						for (const row of share) {
+							const score = await engine.evaluate(row.fen);
+							// A position with no legal moves has no score, and must still be
+							// stamped — otherwise the next run picks it up again forever.
+							if (!score) unscored++;
+							rows.push({
+								id: row.id,
+								fen: row.fen,
+								eval_cp: score?.cp ?? null,
+								eval_mate: score?.mate ?? null,
+								eval_engine: ENGINE_ID,
+								eval_at: stamped
+							});
+						}
+						return rows;
+					})
+				)
+			).flat();
+			evaluated += results.length;
 
 			// ONE write per batch, not one per position. Per-row updates meant ~2
 			// HTTP requests per position, and a long run exhausted local ports:
@@ -113,13 +145,18 @@ async function main() {
 				supabase.from('positions').upsert(results, { onConflict: 'id' })
 			);
 			if (writeError) throw writeError;
-			console.log(`evaluated ${evaluated} (${unscored} with no legal moves)`);
+
+			const rate = evaluated / ((Date.now() - startedAt) / 1000);
+			console.log(
+				`evaluated ${evaluated} (${unscored} with no legal moves) — ${rate.toFixed(1)}/sec`
+			);
+
 			// A batch where nothing at all moved means the remaining rows are being
 			// handled by another run; stop rather than spinning on the same page.
 			if (evaluated === before) break;
 		}
 	} finally {
-		engine.stop();
+		for (const engine of engines) engine.stop();
 	}
 
 	console.log(`done: ${evaluated} positions evaluated, ${unscored} had no legal move`);
