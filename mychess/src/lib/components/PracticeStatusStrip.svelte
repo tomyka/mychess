@@ -13,7 +13,17 @@
 </script>
 
 <script lang="ts">
-	let { state }: { state: PracticeStripState } = $props();
+	let { state, onhint }: { state: PracticeStripState; onhint?: () => void } = $props();
+
+	// Mobile stacks this strip directly on top of the board, so a caller that
+	// wants to offer a hint hands it in here rather than rendering a row of its
+	// own below the strip: that row mounted and unmounted on every phase change
+	// (hint taken, correct move, autoplay intro, cue) and shoved the board up
+	// and down mid-drill (#113). Sharing the strip's one fixed-height slot means
+	// the board's top edge never moves — at the cost of the two never being
+	// visible together, which is why the offer only takes the slot in the states
+	// with nothing urgent to say. Move feedback always wins it back.
+	const hintable = $derived(!!onhint && (state === 'silent' || state === 'blind'));
 
 	// Keyed over the FULL union (including 'silent') so `TONE[state]`/`COPY[state]`/
 	// `ICON[state]` type-check without narrowing — indexing with `Exclude<
@@ -52,11 +62,38 @@
 		demoted:
 			'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300'
 	};
+
+	// While the hint owns the slot it owns the strip's tone too, so the offer
+	// reads as an offer rather than as a status. That swap is mobile-only — the
+	// desktop sidebar has its own hint button, so `lg:` puts the state's real
+	// tone back (mobile-first, so these min-width utilities beat the base ones
+	// above them). Only the two hintable states can be reached here; the rest
+	// exist to keep the record keyed over the full union, same as TONE above.
+	const HINT_TONE =
+		'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300';
+	const TONE_LG: Record<PracticeStripState, string> = {
+		silent: 'lg:border-transparent lg:bg-transparent',
+		blind: 'lg:border-(--color-border) lg:bg-(--color-surface) lg:text-(--color-muted)',
+		wrong: '',
+		correct: '',
+		autoplay: '',
+		'retest-cue': '',
+		demoted: ''
+	};
 </script>
 
 <p
 	role="status"
-	class="mb-3 shrink-0 min-h-[2.75rem] flex items-center justify-center rounded-2xl border p-3 text-center text-sm font-semibold shadow-sm {TONE[state]}"
+	class="mb-3 shrink-0 min-h-[2.75rem] flex items-center justify-center rounded-2xl border p-3 text-center text-sm font-semibold shadow-sm {hintable
+		? `${HINT_TONE} ${TONE_LG[state]}`
+		: TONE[state]}"
 >
-	{#if ICON[state]}<span aria-hidden="true">{ICON[state]}</span> {/if}{COPY[state]}
+	{#if hintable}
+		<button onclick={onhint} class="lg:hidden inline-flex items-center gap-1.5">
+			<span class="text-base" aria-hidden="true">💡</span> Need a hint?
+		</button>
+	{/if}
+	<span class={hintable ? 'hidden lg:inline' : ''}>
+		{#if ICON[state]}<span aria-hidden="true">{ICON[state]}</span> {/if}{COPY[state]}
+	</span>
 </p>

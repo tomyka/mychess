@@ -480,18 +480,15 @@
 				     implicit aria-live="polite" region) announces it on appearance:
 				     it's the only signal that e.g. the board is about to rewind, and
 				     nothing about the board itself conveys that. -->
-				<PracticeStatusStrip state={stripState} />
-
-				{#if !hintRequested && phase === 'playing'}
-					<p class="text-center mb-4 lg:hidden">
-						<button
-							onclick={requestHint}
-							class="inline-flex items-center gap-1 text-sm font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700"
-						>
-							<span class="text-base">💡</span> Need a hint?
-						</button>
-					</p>
-				{/if}
+				<!-- The mobile hint offer lives INSIDE the strip (see its own doc
+				     comment): as its own row below the strip it mounted and
+				     unmounted on every phase change and moved the board with it
+				     (#113). Passing the callback only while the offer actually
+				     stands is what makes the strip hand the slot over. -->
+				<PracticeStatusStrip
+					state={stripState}
+					onhint={phase === 'playing' && !hintRequested ? requestHint : undefined}
+				/>
 
 				<div class="lg:flex-1 lg:min-h-0 lg:flex lg:items-start lg:justify-center lg:[container-type:size]">
 					<ChessBoard
