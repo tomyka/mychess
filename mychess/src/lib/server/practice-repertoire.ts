@@ -35,6 +35,12 @@ const MOVE_SELECT_COLUMNS =
 /**
  * Fetches every move row for a repertoire, defeating the `max_rows` cap
  * above (see `fetchAllPages` for the paging strategy itself).
+ *
+ * Excludes retired moves (`retired_at is null`): a retired row is a line a
+ * coach removed on a repertoire re-upload, kept around (rather than deleted)
+ * only so that re-adding the line later restores its `reviews`/
+ * `move_attempts` history instead of starting it over. It must not resurface
+ * as something to enumerate or practice.
  */
 export async function fetchAllMoves(supabase: SupabaseClient, repertoireId: string): Promise<any[]> {
 	return fetchAllPages(
@@ -43,9 +49,15 @@ export async function fetchAllMoves(supabase: SupabaseClient, repertoireId: stri
 				.from('moves')
 				.select(MOVE_SELECT_COLUMNS)
 				.eq('repertoire_id', repertoireId)
+				.is('retired_at', null)
 				.order('created_at', { ascending: true })
 				.order('id', { ascending: true }),
-		() => supabase.from('moves').select('id', { count: 'exact', head: true }).eq('repertoire_id', repertoireId),
+		() =>
+			supabase
+				.from('moves')
+				.select('id', { count: 'exact', head: true })
+				.eq('repertoire_id', repertoireId)
+				.is('retired_at', null),
 		MOVES_PAGE_SIZE
 	);
 }

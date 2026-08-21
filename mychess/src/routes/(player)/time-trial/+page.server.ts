@@ -34,6 +34,10 @@ export const load: PageServerLoad = async ({ locals }) => {
       `)
       .in('repertoire_id', repIds)
       .eq('is_player_turn', true)
+      // Retired moves are lines a coach removed on a repertoire re-upload; the
+      // rows survive only so restoring the line restores its review/attempt
+      // history, so they must never come back for time-trial.
+      .is('retired_at', null)
       .order('id', { ascending: true })
       .range(offset, offset + MOVES_PAGE_SIZE - 1);
     moves.push(...(page ?? []));

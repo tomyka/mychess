@@ -87,7 +87,11 @@ describe('loadRepertoireProgressSummaries', () => {
 						select: () => ({
 							in: (_col: string, repIds: string[]) => {
 								calls.moveFetches.push(repIds);
-								return { order: () => ({ order: () => ({ range: () => Promise.resolve({ data: moves, error: null }) }) }) };
+								return {
+									is: () => ({
+										order: () => ({ order: () => ({ range: () => Promise.resolve({ data: moves, error: null }) }) })
+									})
+								};
 							}
 						})
 					};

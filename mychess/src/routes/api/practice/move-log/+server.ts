@@ -23,11 +23,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'Invalid request');
 	}
 
+	// Retired moves (a coach's re-upload removed the line; the row survives only
+	// so restoring the line restores its review/attempt history) can't be
+	// logged against going forward — they aren't offered for practice anymore.
 	const { data: move } = await supabase
 		.from('moves')
 		.select('id')
 		.eq('id', moveId)
 		.eq('repertoire_id', repertoireId)
+		.is('retired_at', null)
 		.maybeSingle();
 	if (!move) throw error(404, 'Move not found');
 

@@ -46,6 +46,12 @@ export type RepertoireProgressSummary = {
 // `exclusionFreshness.ts` and GitHub issue #52).
 const MOVES_PAGE_SIZE = MAX_ROWS_PAGE_SIZE;
 
+// Excludes retired moves (`retired_at is null`): a retired row is a line a
+// coach removed on a repertoire re-upload, kept around (rather than deleted)
+// only so that re-adding the line later restores its `reviews`/
+// `move_attempts` history instead of starting it over. This function
+// reconstructs each repertoire's live variation shape, so a retired row must
+// not resurface as a variation to count as solved/total or enumerate here.
 async function fetchAllMoves(supabase: SupabaseClient, repIds: string[]): Promise<any[]> {
 	return fetchAllPages(
 		() =>
@@ -53,9 +59,15 @@ async function fetchAllMoves(supabase: SupabaseClient, repIds: string[]): Promis
 				.from('moves')
 				.select('id, san, is_player_turn, repertoire_id, from_position, to_position, chapter_names')
 				.in('repertoire_id', repIds)
+				.is('retired_at', null)
 				.order('created_at', { ascending: true })
 				.order('id', { ascending: true }),
-		() => supabase.from('moves').select('id', { count: 'exact', head: true }).in('repertoire_id', repIds),
+		() =>
+			supabase
+				.from('moves')
+				.select('id', { count: 'exact', head: true })
+				.in('repertoire_id', repIds)
+				.is('retired_at', null),
 		MOVES_PAGE_SIZE
 	);
 }
