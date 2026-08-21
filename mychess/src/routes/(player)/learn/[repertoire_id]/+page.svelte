@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ChessBoard from '$lib/components/ChessBoard.svelte';
 	import VariationPicker from '$lib/components/VariationPicker.svelte';
+	import { m } from '$lib/paraglide/messages';
 	import type { Key } from 'chessground/types';
 	import { Chess } from 'chess.js';
 	import { playCorrect, playWrong } from '$lib/sounds';
@@ -468,7 +469,7 @@
 </script>
 
 <svelte:head>
-	<title>Practice {data.repertoire?.name ?? 'Repertoire'} — MyChess</title>
+	<title>{m.learn_repertoire_page_title({ name: data.repertoire?.name ?? m.learn_repertoire_fallback_name() })}</title>
 </svelte:head>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -478,7 +479,7 @@
 	data-phase={phase}
 >
 	<div class="mb-3 flex items-center justify-between gap-3 shrink-0">
-		<a href="/practice" class="text-(--color-muted) text-sm hover:text-(--color-text) shrink-0">← All Repertoires</a>
+		<a href="/practice" class="text-(--color-muted) text-sm hover:text-(--color-text) shrink-0">{m.learn_all_repertoires_link()}</a>
 		{#if data.repertoire?.name}
 			<h1 class="text-(--color-text) font-bold text-base sm:text-lg truncate text-center flex-1 min-w-0">
 				{data.repertoire.name}
@@ -489,7 +490,7 @@
 				onclick={() => (pickerOpen = true)}
 				class="lg:hidden inline-flex items-center gap-1 text-(--color-accent) text-sm font-medium hover:underline shrink-0"
 			>
-				<span aria-hidden="true">📖</span> Switch variation
+				<span aria-hidden="true">📖</span> {m.learn_switch_variation()}
 			</button>
 		{/if}
 	</div>
@@ -505,30 +506,30 @@
 	{#if data.allSolved && data.total > 0 && !attempt}
 		<div class="flex flex-col items-center gap-6 text-center py-16">
 			<p class="text-7xl">🎓</p>
-			<h2 class="text-3xl font-bold text-(--color-text)">Repertoire learned!</h2>
+			<h2 class="text-3xl font-bold text-(--color-text)">{m.learn_repertoire_learned_title()}</h2>
 			<p class="text-(--color-muted)">
-				Every variation in {data.repertoire?.name} has been played cleanly. Keep it sharp in Practice.
+				{m.learn_repertoire_learned_body({ name: data.repertoire?.name })}
 			</p>
 			<a
 				href="/practice/{data.repertoire?.id}"
 				class="bg-(--color-accent) text-white px-8 py-4 rounded-2xl font-bold text-lg hover:bg-(--color-accent-hover) transition"
 			>
-				Practice this repertoire
+				{m.learn_practice_this_repertoire()}
 			</a>
 			<button onclick={() => (pickerOpen = true)} class="text-(--color-accent) hover:underline">
-				Re-drill a specific variation
+				{m.learn_redrill_variation()}
 			</button>
 		</div>
 	{:else if !attempt}
 		<div class="flex flex-col items-center justify-center min-h-screen lg:min-h-0 lg:flex-1 text-center gap-4">
 			<p class="text-5xl">📭</p>
-			<h2 class="text-2xl font-bold text-(--color-text)">Nothing to learn</h2>
-			<p class="text-(--color-muted)">This repertoire has no moves for your color yet.</p>
-			<a href="/practice" class="text-(--color-accent) hover:underline">Back to Repertoires</a>
+			<h2 class="text-2xl font-bold text-(--color-text)">{m.learn_nothing_to_learn_title()}</h2>
+			<p class="text-(--color-muted)">{m.learn_no_moves_body()}</p>
+			<a href="/practice" class="text-(--color-accent) hover:underline">{m.learn_back_to_repertoires()}</a>
 		</div>
 	{:else}
 		<div class="p-3 bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm text-center mb-3 shrink-0 lg:hidden">
-			<p class="text-sm font-bold text-(--color-text)">{data.solved} / {data.total} variations learned</p>
+			<p class="text-sm font-bold text-(--color-text)">{m.learn_progress_count({ solved: data.solved, total: data.total })}</p>
 		</div>
 
 		<div class="flex flex-col lg:flex-row lg:items-stretch gap-6 lg:flex-1 lg:min-h-0">
@@ -586,13 +587,13 @@
 							disabled={explore.depth === 0}
 							class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-sm font-semibold text-(--color-text) disabled:opacity-30"
 						>
-							↶ Undo
+							↶ {m.learn_undo()}
 						</button>
 						<button
 							onclick={stopExplore}
 							class="py-2 rounded-xl border border-amber-300 bg-amber-50 text-sm font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
 						>
-							↩ Back to the line
+							↩ {m.learn_back_to_line()}
 						</button>
 					</div>
 				{:else}
@@ -614,7 +615,7 @@
 								onclick={startExplore}
 								class="inline-flex items-center gap-1.5 text-sm font-medium text-(--color-muted) hover:text-(--color-text)"
 							>
-								<span aria-hidden="true">🔍</span> Explore this position
+								<span aria-hidden="true">🔍</span> {m.learn_explore_position()}
 							</button>
 						</p>
 					{/if}
@@ -633,14 +634,14 @@
 				class="w-full lg:w-80 lg:shrink-0 hidden lg:flex lg:flex-col divide-y divide-(--color-border) bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:overflow-y-auto"
 			>
 				<div class="p-4">
-					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">Progress</p>
+					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">{m.learn_progress_heading()}</p>
 					<div class="flex items-center justify-between gap-2">
-						<span class="text-(--color-muted) text-sm">{data.solved} / {data.total} variations learned</span>
+						<span class="text-(--color-muted) text-sm">{m.learn_progress_count({ solved: data.solved, total: data.total })}</span>
 						<button
 							onclick={() => (pickerOpen = true)}
 							class="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-(--color-accent) border border-(--color-border) rounded-lg px-2 py-1 hover:bg-(--color-border)/40"
 						>
-							<span aria-hidden="true">📖</span> Switch
+							<span aria-hidden="true">📖</span> {m.learn_switch()}
 						</button>
 					</div>
 					<div class="h-1.5 rounded-full bg-(--color-border) overflow-hidden mt-2">
@@ -652,44 +653,44 @@
 				</div>
 
 				<div class="p-4">
-					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">This line</p>
+					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">{m.learn_this_line_heading()}</p>
 					<p class="text-sm text-(--color-muted)">{movesSoFar || '—'}</p>
 					{#if attemptMistakeCount > 0}
 						<p class="text-xs font-medium text-[#F28B82] mt-1">
-							{attemptMistakeCount} mistake{attemptMistakeCount === 1 ? '' : 's'} this attempt
+							{m.learn_mistake_count({ count: attemptMistakeCount })}
 						</p>
 					{/if}
 				</div>
 
 				<div class="p-4">
-					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">Stuck?</p>
+					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">{m.learn_stuck_heading()}</p>
 					{#if hintRequested}
-						<p class="text-sm text-(--color-muted)">Hint used for this attempt.</p>
+						<p class="text-sm text-(--color-muted)">{m.learn_hint_used()}</p>
 					{:else if hintOffered}
 						<button
 							onclick={requestHint}
 							class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700"
 						>
-							<span class="text-base">💡</span> Need a hint?
+							<span class="text-base">💡</span> {m.practice_status_need_hint()}
 						</button>
 					{:else if arrowMove}
 						<!-- Nothing to offer on an arrowed ply, and an empty "Stuck?"
 						     block reads as broken — so say why there's no offer. -->
-						<p class="text-sm text-(--color-muted)">This move is being shown — follow the arrow.</p>
+						<p class="text-sm text-(--color-muted)">{m.learn_move_shown()}</p>
 					{/if}
 					<p class="text-xs text-(--color-muted) mt-2">
-						← → step through moves you've played · ↑ jump to start · ↓ jump to live position
+						{m.learn_keyboard_hint()}
 					</p>
 				</div>
 
 				<div class="p-4">
-					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">Session</p>
-					<p class="text-sm text-(--color-text) font-medium mb-2">{learnedThisSession} learned this session</p>
+					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">{m.learn_session_heading()}</p>
+					<p class="text-sm text-(--color-text) font-medium mb-2">{m.learn_session_count({ count: learnedThisSession })}</p>
 					<a
 						href="/practice"
 						class="inline-flex items-center gap-1 text-sm font-semibold text-(--color-muted) border border-(--color-border) rounded-lg px-3 py-1.5 hover:bg-(--color-border)/40"
 					>
-						Finish session
+						{m.learn_finish_session()}
 					</a>
 				</div>
 			</div>

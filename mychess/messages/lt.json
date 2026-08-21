@@ -80,5 +80,97 @@
 	"practice_status_retest_cue": "Šauniai — dabar sužaiskite iš atminties",
 	"practice_status_demoted": "Atgal į „Mokytis“ — reikia mokytis iš naujo",
 	"practice_status_exploring": "Tyrinėjama — čia niekas neskaičiuojama",
-	"practice_status_need_hint": "Reikia užuominos?"
+	"practice_status_need_hint": "Reikia užuominos?",
+	"mastery_untagged_chapter_label": "Variantai be skyriaus",
+	"learn_page_title": "Mokytis — MyChess",
+	"learn_title": "Mokytis",
+	"learn_intro_prefix": "Dirbkite su nauja medžiaga. Variantas, kurį vieną kartą savarankiškai sužaidžiate iš atminties, perkeliamas į ",
+	"learn_practice_to_link": "Praktiką",
+	"learn_practice_in_link": "Praktikoje",
+	"learn_nothing_left_title": "Nebėra ko mokytis",
+	"learn_no_repertoires_title": "Kol kas repertuarų nėra",
+	"learn_no_repertoires_body": "Paprašykite trenerio priskirti repertuarą arba susikurkite savo.",
+	"learn_fully_learned_prefix": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Jūsų repertuaras jau visiškai išmoktas — toliau tobulinkite jį",
+				"countPlural=few": "Visi jūsų {count} repertuarai jau visiškai išmokti — toliau tobulinkite juos",
+				"countPlural=many": "Visi jūsų {count} repertuarų jau visiškai išmokti — toliau tobulinkite juos",
+				"countPlural=other": "Visi jūsų {count} repertuarų jau visiškai išmokti — toliau tobulinkite juos"
+			}
+		}
+	],
+	"learn_repertoires_live": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} visiškai išmoktas repertuaras yra",
+				"countPlural=few": "{count} visiškai išmokti repertuarai yra",
+				"countPlural=many": "{count} visiškai išmoktų repertuarų yra",
+				"countPlural=other": "{count} visiškai išmoktų repertuarų yra"
+			}
+		}
+	],
+	"learn_repertoire_page_title": "Praktika {name} — MyChess",
+	"learn_repertoire_fallback_name": "Repertuaras",
+	"learn_all_repertoires_link": "← Visi repertuarai",
+	"learn_switch_variation": "Keisti variantą",
+	"learn_repertoire_learned_title": "Repertuaras išmoktas!",
+	"learn_repertoire_learned_body": "Visi {name} variantai sužaisti be klaidų. Toliau tobulinkite jį Praktikoje.",
+	"learn_practice_this_repertoire": "Praktikuoti šį repertuarą",
+	"learn_redrill_variation": "Pakartoti konkretų variantą",
+	"learn_nothing_to_learn_title": "Nėra ko mokytis",
+	"learn_no_moves_body": "Šiame repertuare kol kas nėra ėjimų jūsų spalvai.",
+	"learn_back_to_repertoires": "Atgal į repertuarus",
+	"learn_progress_count": [
+		{
+			"declarations": ["input total", "input solved", "local totalPlural = total: plural"],
+			"selectors": ["totalPlural"],
+			"match": {
+				"totalPlural=one": "{solved} / {total} variantas išmoktas",
+				"totalPlural=few": "{solved} / {total} variantai išmokti",
+				"totalPlural=many": "{solved} / {total} variantų išmokta",
+				"totalPlural=other": "{solved} / {total} variantų išmokta"
+			}
+		}
+	],
+	"learn_mistake_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} klaida šiame bandyme",
+				"countPlural=few": "{count} klaidos šiame bandyme",
+				"countPlural=many": "{count} klaidų šiame bandyme",
+				"countPlural=other": "{count} klaidų šiame bandyme"
+			}
+		}
+	],
+	"learn_session_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} variantas išmoktas šioje sesijoje",
+				"countPlural=few": "{count} variantai išmokti šioje sesijoje",
+				"countPlural=many": "{count} variantų išmokta šioje sesijoje",
+				"countPlural=other": "{count} variantų išmokta šioje sesijoje"
+			}
+		}
+	],
+	"learn_progress_heading": "Pažanga",
+	"learn_switch": "Keisti",
+	"learn_this_line_heading": "Šis variantas",
+	"learn_hint_used": "Šiam bandymui užuomina panaudota.",
+	"learn_move_shown": "Šis ėjimas rodomas — sekite rodyklę.",
+	"learn_keyboard_hint": "← → naršykite atliktus ėjimus · ↑ peršokti į pradžią · ↓ peršokti į esamą padėtį",
+	"learn_stuck_heading": "Įstrigote?",
+	"learn_session_heading": "Sesija",
+	"learn_finish_session": "Užbaigti sesiją",
+	"learn_undo": "Atšaukti",
+	"learn_back_to_line": "Atgal į variantą",
+	"learn_explore_position": "Tyrinėti šią padėtį"
 }

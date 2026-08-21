@@ -80,5 +80,87 @@
 	"practice_status_retest_cue": "Nice — now play it from memory",
 	"practice_status_demoted": "Back to Learn — needs teaching again",
 	"practice_status_exploring": "Exploring — nothing counts here",
-	"practice_status_need_hint": "Need a hint?"
+	"practice_status_need_hint": "Need a hint?",
+	"mastery_untagged_chapter_label": "Lines without a chapter",
+	"learn_page_title": "Learn — MyChess",
+	"learn_title": "Learn",
+	"learn_intro_prefix": "Work through new material. A line you play through once from memory, unaided, moves to ",
+	"learn_practice_to_link": "Practice",
+	"learn_practice_in_link": "Practice",
+	"learn_nothing_left_title": "Nothing left to learn",
+	"learn_no_repertoires_title": "No repertoires yet",
+	"learn_no_repertoires_body": "Ask your coach to assign one, or create your own.",
+	"learn_fully_learned_prefix": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Your repertoire is fully learned — keep it sharp in",
+				"countPlural=other": "All {count} of your repertoires are fully learned — keep them sharp in"
+			}
+		}
+	],
+	"learn_repertoires_live": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} fully learned repertoire lives in",
+				"countPlural=other": "{count} fully learned repertoires live in"
+			}
+		}
+	],
+	"learn_repertoire_page_title": "Practice {name} — MyChess",
+	"learn_repertoire_fallback_name": "Repertoire",
+	"learn_all_repertoires_link": "← All Repertoires",
+	"learn_switch_variation": "Switch variation",
+	"learn_repertoire_learned_title": "Repertoire learned!",
+	"learn_repertoire_learned_body": "Every variation in {name} has been played cleanly. Keep it sharp in Practice.",
+	"learn_practice_this_repertoire": "Practice this repertoire",
+	"learn_redrill_variation": "Re-drill a specific variation",
+	"learn_nothing_to_learn_title": "Nothing to learn",
+	"learn_no_moves_body": "This repertoire has no moves for your color yet.",
+	"learn_back_to_repertoires": "Back to Repertoires",
+	"learn_progress_count": [
+		{
+			"declarations": ["input total", "input solved", "local totalPlural = total: plural"],
+			"selectors": ["totalPlural"],
+			"match": {
+				"totalPlural=one": "{solved} / {total} variations learned",
+				"totalPlural=other": "{solved} / {total} variations learned"
+			}
+		}
+	],
+	"learn_mistake_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} mistake this attempt",
+				"countPlural=other": "{count} mistakes this attempt"
+			}
+		}
+	],
+	"learn_session_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} learned this session",
+				"countPlural=other": "{count} learned this session"
+			}
+		}
+	],
+	"learn_progress_heading": "Progress",
+	"learn_switch": "Switch",
+	"learn_this_line_heading": "This line",
+	"learn_hint_used": "Hint used for this attempt.",
+	"learn_move_shown": "This move is being shown — follow the arrow.",
+	"learn_keyboard_hint": "← → step through moves you've played · ↑ jump to start · ↓ jump to live position",
+	"learn_stuck_heading": "Stuck?",
+	"learn_session_heading": "Session",
+	"learn_finish_session": "Finish session",
+	"learn_undo": "Undo",
+	"learn_back_to_line": "Back to the line",
+	"learn_explore_position": "Explore this position"
 }
