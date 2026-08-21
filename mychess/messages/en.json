@@ -1,4 +1,21 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"language_switcher_label": "Select language"
+	"language_switcher_label": "Select language",
+	"nav_players": "Players",
+	"nav_repertoires": "Repertoires",
+	"nav_support": "Support",
+	"nav_dashboard": "Dashboard",
+	"nav_tournaments": "Tournaments",
+	"nav_learn": "Learn",
+	"nav_practice": "Practice",
+	"nav_games": "Games",
+	"nav_coaches": "Coaches",
+	"nav_sign_in": "Sign in",
+	"nav_settings": "Settings",
+	"nav_customise": "Customise",
+	"nav_badges": "Badges",
+	"nav_sign_out": "Sign out",
+	"nav_close_menu": "Close menu",
+	"nav_toggle_mobile_menu": "Toggle mobile menu",
+	"nav_player_fallback": "Player"
 }

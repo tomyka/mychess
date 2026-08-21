@@ -1,4 +1,21 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"language_switcher_label": "Select language"
+	"language_switcher_label": "Select language",
+	"nav_players": "Žaidėjai",
+	"nav_repertoires": "Repertuarai",
+	"nav_support": "Pagalba",
+	"nav_dashboard": "Skydelis",
+	"nav_tournaments": "Turnyrai",
+	"nav_learn": "Mokytis",
+	"nav_practice": "Praktika",
+	"nav_games": "Partijos",
+	"nav_coaches": "Treneriai",
+	"nav_sign_in": "Prisijungti",
+	"nav_settings": "Nustatymai",
+	"nav_customise": "Tinkinti",
+	"nav_badges": "Ženkleliai",
+	"nav_sign_out": "Atsijungti",
+	"nav_close_menu": "Uždaryti meniu",
+	"nav_toggle_mobile_menu": "Rodyti mobilųjį meniu",
+	"nav_player_fallback": "Žaidėjas"
 }
