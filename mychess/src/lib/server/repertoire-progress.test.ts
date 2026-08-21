@@ -6,6 +6,11 @@ import { loadRepertoireProgressSummaries } from './repertoire-progress';
  * queries this function does and doesn't make, so these tests assert on the
  * recorded calls as much as on the returned summaries — a correct total that
  * still costs a full move fetch per load is the bug, not the fix.
+ *
+ * The same is true of the lazy reconciliation bolted on beside it (issue #118),
+ * for a second reason: reconciliation and the exclusion prune write to the SAME
+ * rows in a specific order, so the recorded writes are the only way to tell a
+ * rewritten exclusion from a deleted-and-forgotten one.
  */
 describe('loadRepertoireProgressSummaries', () => {
 	const USER = 'player-1';
@@ -20,32 +25,119 @@ describe('loadRepertoireProgressSummaries', () => {
 		{ id: 'm3', san: 'c5', is_player_turn: false, repertoire_id: 'r1', from_position: 'p1', to_position: 'p3', chapter_names: [] }
 	];
 
+	// The same repertoire after the coach EXTENDED one line by a ply: 'm1>m2'
+	// is no longer a variation key, 'm1>m2>m4' is. Still two variations, so a
+	// count alone cannot tell the two shapes apart — only the keys can.
+	const EXTENDED_MOVES = [
+		...MOVES,
+		{ id: 'm4', san: 'Nf3', is_player_turn: true, repertoire_id: 'r1', from_position: 'p2', to_position: 'p4', chapter_names: [] }
+	];
+
 	type ExclusionRecord = { id: string; repertoire_id: string; variation_key: string; verified_at: string };
+	type TeachingRecord = { variation_key: string; taught_plies: number; mastered_plies: number; clean_pass_count: number };
+	type Filter = [string, unknown];
+
+	// The fake honours the SELECT COLUMN LIST — a column the query does not ask
+	// for is not returned — which is what lets the assigned-repertoire tests
+	// below catch a joined select that forgot `update_in_progress_at`.
+	function project(row: Record<string, unknown>, columns: string): Record<string, unknown> {
+		const inner = columns.includes('(') ? columns.slice(columns.indexOf('(') + 1, columns.lastIndexOf(')')) : columns;
+		const asked = inner.split(',').map((c) => c.trim());
+		return Object.fromEntries(asked.filter((c) => c in row).map((c) => [c, row[c]]));
+	}
 
 	function fakeSupabase(opts: {
-		repertoire: Record<string, unknown>;
+		repertoire?: Record<string, unknown>;
+		assigned?: Record<string, unknown>;
 		exclusions?: ExclusionRecord[];
 		solved?: string[];
+		teaching?: TeachingRecord[];
 		moves?: typeof MOVES;
+		/**
+		 * This player's `repertoire_reconciliation.reconciled_at` for r1. Defaults
+		 * to the repertoire's own `moves_updated_at` — i.e. already caught up —
+		 * because the exclusion-freshness tests are about a student with nothing to
+		 * reconcile, and leaving them behind would silently route every one of them
+		 * through the reconciliation path instead. Pass null for NO stamp row,
+		 * which is how a coach's reshape presents on the student's next load.
+		 */
+		reconciledAt?: string | null;
 	}) {
 		const calls = {
+			/** Batched (`.in`) move fetches — the ones this loader does for itself. */
 			moveFetches: [] as string[][],
+			/** Single-repertoire (`.eq`) move fetches, i.e. reconciliation's own read. */
+			reconcileMoveFetches: [] as string[],
 			deletedIds: [] as string[],
 			stamped: [] as { ids: string[]; verifiedAt: string }[],
-			repertoireUpdates: [] as Record<string, unknown>[]
+			repertoireUpdates: [] as Record<string, unknown>[],
+			reconciliationStamps: [] as Record<string, unknown>[],
+			exclusionRekeys: [] as { fromKey: string; toKey: string; verifiedAt: string }[],
+			solvedRekeys: [] as { fromKey: string; toKey: string }[],
+			solvedDeletes: [] as string[],
+			teachingRekeys: [] as { fromKey: string; toKey: string }[],
+			teachingUpserts: [] as Record<string, unknown>[],
+			demotions: [] as Record<string, unknown>[],
+			activeCleared: 0
 		};
 		const moves = opts.moves ?? MOVES;
+		// MUTABLE, and deliberately so: reconciliation rewrites exclusion keys and
+		// the loader then RE-READS them, so a fixture that answered every read from
+		// the original array would hide exactly the bug the re-read exists for.
+		const exclusions = (opts.exclusions ?? []).map((row) => ({ ...row }));
+		const solvedRows = (opts.solved ?? []).map((variation_key) => ({ repertoire_id: 'r1', variation_key }));
+		const teaching = (opts.teaching ?? []).map((row) => ({ ...row }));
+		const reconciliationRows =
+			opts.reconciledAt === null
+				? []
+				: [
+						{
+							repertoire_id: 'r1',
+							reconciled_at: opts.reconciledAt ?? ((opts.repertoire ?? opts.assigned ?? {}).moves_updated_at as string)
+						}
+					];
 
 		// fetchAllPages issues `.range(0, pageSize - 1)` and, only if that page
 		// comes back full, a `head: true` count query — every fixture here is
-		// far smaller than one page, so the count path is never reached.
-		const paged = (rows: unknown[]) => ({ order: () => ({ range: () => Promise.resolve({ data: rows, error: null }) }) });
+		// far smaller than one page, so the count path is never reached. `getRows`
+		// is a thunk so a read sees the CURRENT rows, not the ones that existed
+		// when the query builder was created.
+		const paged = (getRows: () => unknown[]): any => ({
+			eq: () => paged(getRows),
+			in: () => paged(getRows),
+			order: () => paged(getRows),
+			range: () => Promise.resolve({ data: getRows(), error: null }),
+			maybeSingle: () => Promise.resolve({ data: getRows()[0] ?? null, error: null })
+		});
+
+		// Supabase query builders are chainable AND awaitable, so this fake is
+		// both: `.eq`/`.in` extend the filter list and awaiting runs `terminal`.
+		// One branch can then serve writes whose filter chains differ in length
+		// and column (reconciliation rekeys by `variation_key`, the prune deletes
+		// and stamps by row `id`) instead of guessing from chain depth.
+		const filterChain = (terminal: (filters: Filter[]) => void): any => {
+			const make = (filters: Filter[]): any => ({
+				eq: (col: string, val: unknown) => make([...filters, [col, val]]),
+				in: (col: string, val: unknown) => make([...filters, [col, val]]),
+				then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
+					Promise.resolve()
+						.then(() => {
+							terminal(filters);
+							return { error: null };
+						})
+						.then(resolve, reject)
+			});
+			return make([]);
+		};
+		const filterValue = (filters: Filter[], col: string) => filters.find(([c]) => c === col)?.[1];
 
 		const client = {
 			from: (table: string) => {
 				if (table === 'repertoires') {
 					return {
-						select: () => ({ eq: () => Promise.resolve({ data: [opts.repertoire], error: null }) }),
+						select: (columns: string) => ({
+							eq: () => Promise.resolve({ data: opts.repertoire ? [project(opts.repertoire, columns)] : [], error: null })
+						}),
 						update: (values: Record<string, unknown>) => ({
 							eq: () => {
 								calls.repertoireUpdates.push(values);
@@ -55,43 +147,125 @@ describe('loadRepertoireProgressSummaries', () => {
 					};
 				}
 				if (table === 'assigned_repertoires') {
-					return { select: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }) };
-				}
-				if (table === 'variation_practice_exclusions') {
 					return {
-						select: () => ({ eq: () => ({ in: () => paged(opts.exclusions ?? []) }) }),
-						delete: () => ({
-							eq: () => ({
-								in: (_col: string, ids: string[]) => {
-									calls.deletedIds.push(...ids);
-									return Promise.resolve({ error: null });
-								}
-							})
-						}),
-						update: (values: { verified_at: string }) => ({
-							eq: () => ({
-								in: (_col: string, ids: string[]) => {
-									calls.stamped.push({ ids, verifiedAt: values.verified_at });
-									return Promise.resolve({ error: null });
-								}
-							})
+						select: (columns: string) => ({
+							eq: () =>
+								Promise.resolve({
+									data: opts.assigned ? [{ repertoire: project(opts.assigned, columns) }] : [],
+									error: null
+								})
 						})
 					};
 				}
+				if (table === 'repertoire_reconciliation') {
+					return {
+						select: () => paged(() => reconciliationRows),
+						upsert: (values: Record<string, unknown>) => {
+							calls.reconciliationStamps.push(values);
+							return Promise.resolve({ error: null });
+						}
+					};
+				}
+				if (table === 'variation_practice_exclusions') {
+					return {
+						select: () => paged(() => exclusions),
+						delete: () =>
+							filterChain((filters) => {
+								const ids = filterValue(filters, 'id') as string[];
+								calls.deletedIds.push(...ids);
+								for (const id of ids) {
+									const at = exclusions.findIndex((row) => row.id === id);
+									if (at >= 0) exclusions.splice(at, 1);
+								}
+							}),
+						update: (values: Record<string, unknown>) =>
+							filterChain((filters) => {
+								const ids = filterValue(filters, 'id') as string[] | undefined;
+								if (ids) {
+									// The prune's `verified_at` stamp, batched by row id.
+									calls.stamped.push({ ids, verifiedAt: values.verified_at as string });
+									for (const row of exclusions) if (ids.includes(row.id)) row.verified_at = values.verified_at as string;
+									return;
+								}
+								// Reconciliation's rekey, filtered by the OLD variation key.
+								const fromKey = filterValue(filters, 'variation_key') as string;
+								calls.exclusionRekeys.push({
+									fromKey,
+									toKey: values.variation_key as string,
+									verifiedAt: values.verified_at as string
+								});
+								for (const row of exclusions) {
+									if (row.variation_key !== fromKey) continue;
+									row.variation_key = values.variation_key as string;
+									row.verified_at = values.verified_at as string;
+								}
+							})
+					};
+				}
 				if (table === 'variation_solved') {
-					const rows = (opts.solved ?? []).map((variation_key) => ({ repertoire_id: 'r1', variation_key }));
-					return { select: () => ({ eq: () => ({ in: () => paged(rows) }) }) };
+					return {
+						select: () => paged(() => solvedRows),
+						update: (values: Record<string, unknown>) =>
+							filterChain((filters) => {
+								const fromKey = filterValue(filters, 'variation_key') as string;
+								calls.solvedRekeys.push({ fromKey, toKey: values.variation_key as string });
+								for (const row of solvedRows) {
+									if (row.variation_key === fromKey) row.variation_key = values.variation_key as string;
+								}
+							}),
+						delete: () =>
+							filterChain((filters) => {
+								const key = filterValue(filters, 'variation_key') as string;
+								calls.solvedDeletes.push(key);
+								const at = solvedRows.findIndex((row) => row.variation_key === key);
+								if (at >= 0) solvedRows.splice(at, 1);
+							})
+					};
+				}
+				if (table === 'variation_teaching_progress') {
+					return {
+						select: () => paged(() => teaching),
+						update: (values: Record<string, unknown>) =>
+							filterChain((filters) => {
+								const fromKey = filterValue(filters, 'variation_key') as string;
+								calls.teachingRekeys.push({ fromKey, toKey: values.variation_key as string });
+								for (const row of teaching) {
+									if (row.variation_key === fromKey) row.variation_key = values.variation_key as string;
+								}
+							}),
+						upsert: (rows: Record<string, unknown>[]) => {
+							calls.teachingUpserts.push(...rows);
+							return Promise.resolve({ error: null });
+						}
+					};
+				}
+				if (table === 'variation_demotions') {
+					return {
+						insert: (rows: Record<string, unknown>[]) => {
+							calls.demotions.push(...rows);
+							return Promise.resolve({ error: null });
+						}
+					};
+				}
+				if (table === 'practice_active_variation') {
+					return {
+						select: () => paged(() => []),
+						update: () =>
+							filterChain(() => {
+								calls.activeCleared += 1;
+							})
+					};
 				}
 				if (table === 'moves') {
 					return {
 						select: () => ({
 							in: (_col: string, repIds: string[]) => {
 								calls.moveFetches.push(repIds);
-								return {
-									is: () => ({
-										order: () => ({ order: () => ({ range: () => Promise.resolve({ data: moves, error: null }) }) })
-									})
-								};
+								return { is: () => paged(() => moves) };
+							},
+							eq: (_col: string, repId: string) => {
+								calls.reconcileMoveFetches.push(repId);
+								return { is: () => paged(() => moves) };
 							}
 						})
 					};
@@ -100,7 +274,7 @@ describe('loadRepertoireProgressSummaries', () => {
 			}
 		};
 
-		return { client: client as any, calls };
+		return { client: client as any, calls, exclusions, solvedRows };
 	}
 
 	const cachedRepertoire = {
@@ -201,5 +375,128 @@ describe('loadRepertoireProgressSummaries', () => {
 		expect(calls.stamped).toEqual([]);
 		expect(summary.total).toBe(10);
 		expect(summary.solved).toBe(1);
+	});
+
+	it('does not reconcile a student already caught up with the shape', async () => {
+		// The cost claim for the overwhelmingly common load: the reconciliation
+		// stamp is READ (one query, alongside the two progress reads) and nothing
+		// else happens — no move fetch, no writes.
+		const { client, calls } = fakeSupabase({ repertoire: cachedRepertoire, reconciledAt: SHAPE_CHANGED });
+
+		await loadRepertoireProgressSummaries(client, USER);
+
+		expect(calls.moveFetches).toEqual([]);
+		expect(calls.reconcileMoveFetches).toEqual([]);
+		expect(calls.reconciliationStamps).toEqual([]);
+	});
+
+	it('rewrites an extended line\'s exclusion instead of pruning it', async () => {
+		// THE trap this ordering exists for. The coach extended 'm1>m2' into
+		// 'm1>m2>m4'; the student had excluded that line. Reconciliation rewrites
+		// the key, and `reverifyExclusions` — which deletes by row ID any row whose
+		// key is not live — must see the REWRITTEN key, not the stale in-memory one
+		// it read before reconciliation ran. Reuse that stale copy and the row is
+		// deleted by id, rewrite or no rewrite, and the student's "skip this line"
+		// is gone for good.
+		const { client, calls, exclusions } = fakeSupabase({
+			repertoire: { ...cachedRepertoire, total_variations: 2 },
+			moves: EXTENDED_MOVES,
+			exclusions: [{ id: 'x1', repertoire_id: 'r1', variation_key: 'm1>m2', verified_at: EPOCH }],
+			reconciledAt: null
+		});
+
+		const [summary] = await loadRepertoireProgressSummaries(client, USER);
+
+		expect(calls.exclusionRekeys).toEqual([{ fromKey: 'm1>m2', toKey: 'm1>m2>m4', verifiedAt: SHAPE_CHANGED }]);
+		// The row SURVIVES, carrying its new key — this is the whole assertion.
+		expect(calls.deletedIds).toEqual([]);
+		expect(exclusions).toEqual([
+			{ id: 'x1', repertoire_id: 'r1', variation_key: 'm1>m2>m4', verified_at: SHAPE_CHANGED }
+		]);
+		// And it still counts as an exclusion, against the new shape: 2 live
+		// variations, 1 of them excluded.
+		expect(summary.excludedVariationCount).toBe(1);
+		expect(summary.total).toBe(1);
+		// Stamped last and only on success, so the next load skips all of this.
+		expect(calls.reconciliationStamps).toEqual([
+			{ player_id: USER, repertoire_id: 'r1', reconciled_at: SHAPE_CHANGED }
+		]);
+	});
+
+	it('reconciles a repertoire whose exclusions are already verified', async () => {
+		// `unverifiedIds` is computed from EXCLUSION freshness, so a student with
+		// learned lines and no exclusions is not in it at all — and used to be
+		// skipped entirely. This one has to be enumerated and reconciled anyway,
+		// and then to fall through the exclusion work untouched.
+		const { client, calls } = fakeSupabase({
+			repertoire: cachedRepertoire,
+			moves: EXTENDED_MOVES,
+			solved: ['m1>m2'],
+			reconciledAt: null
+		});
+
+		const [summary] = await loadRepertoireProgressSummaries(client, USER);
+
+		expect(calls.reconcileMoveFetches).toEqual(['r1']);
+		// The line was extended, so the learned badge does not survive it.
+		expect(calls.solvedDeletes).toEqual(['m1>m2']);
+		expect(calls.demotions).toEqual([
+			{ player_id: USER, repertoire_id: 'r1', variation_key: 'm1>m2>m4', cause: 'coach_update' }
+		]);
+		expect(calls.reconciliationStamps).toHaveLength(1);
+		// No exclusions, so no prune and no stamp — and the repertoire is still
+		// reported rather than dropped out of the summaries.
+		expect(calls.deletedIds).toEqual([]);
+		expect(calls.stamped).toEqual([]);
+		expect(summary.id).toBe('r1');
+		expect(summary.total).toBe(10);
+		// Known and accepted: `solved` comes from the read taken BEFORE
+		// reconciliation, so the demotion above shows up on the NEXT load. The
+		// count is transiently one too high, never too low, and self-corrects.
+		expect(summary.solved).toBe(1);
+	});
+
+	it('skips reconciliation for an assigned repertoire whose apply is still in flight', async () => {
+		// The joined `repertoire:repertoire_id(...)` select must ask for
+		// `update_in_progress_at` too: a column it forgets comes back undefined,
+		// which reads as "no apply in flight", and reconciling against a
+		// half-applied shape deletes progress that does not come back. The fake
+		// honours the select list, so this test fails outright if the column is
+		// dropped from the assigned select.
+		const { client, calls } = fakeSupabase({
+			assigned: { ...cachedRepertoire, update_in_progress_at: new Date(Date.now() - 60_000).toISOString() },
+			moves: EXTENDED_MOVES,
+			solved: ['m1>m2'],
+			reconciledAt: null
+		});
+
+		const [summary] = await loadRepertoireProgressSummaries(client, USER);
+
+		expect(calls.reconcileMoveFetches).toEqual([]);
+		expect(calls.reconciliationStamps).toEqual([]);
+		expect(calls.solvedDeletes).toEqual([]);
+		// The student sees the pre-existing cached numbers, unchanged — the load is
+		// a normal one, it just leaves the catching-up to a later one.
+		expect(summary.total).toBe(10);
+	});
+
+	it('reconciles an assigned repertoire once its apply has finished', async () => {
+		// The other half of the pair above: with no flag set, an ASSIGNED
+		// repertoire reconciles like an owned one. This is the case issue #118 is
+		// actually about, and it silently did nothing while the joined select was
+		// missing `update_in_progress_at`.
+		const { client, calls, exclusions } = fakeSupabase({
+			assigned: { ...cachedRepertoire, total_variations: 2, update_in_progress_at: null },
+			moves: EXTENDED_MOVES,
+			exclusions: [{ id: 'x1', repertoire_id: 'r1', variation_key: 'm1>m2', verified_at: EPOCH }],
+			reconciledAt: null
+		});
+
+		const [summary] = await loadRepertoireProgressSummaries(client, USER);
+
+		expect(calls.reconcileMoveFetches).toEqual(['r1']);
+		expect(calls.deletedIds).toEqual([]);
+		expect(exclusions[0].variation_key).toBe('m1>m2>m4');
+		expect(summary.excludedVariationCount).toBe(1);
 	});
 });
