@@ -27,6 +27,46 @@ const BATCH = 50;
 
 const supabase = createClient(url, key, { auth: { persistSession: false } });
 
+
+/**
+ * Retries a Supabase call through transient network failures. A run long enough
+ * to matter WILL hit one — the first full run died on
+ * `TypeError: fetch failed / EADDRNOTAVAIL` (local port exhaustion) after ~1350
+ * positions, and losing that much engine time to one dropped socket is not
+ * acceptable for a job meant to be run once and forgotten.
+ *
+ * Note the shape: supabase-js does NOT throw a transport failure, it hands it
+ * back in `{ error }` (that EADDRNOTAVAIL arrived as an error object, not an
+ * exception), so both paths have to be checked. A real Postgres error — a
+ * missing column, a constraint violation — is returned to the caller untouched
+ * on the first attempt rather than retried four more times.
+ */
+const TRANSIENT = /fetch failed|EADDRNOTAVAIL|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|socket hang up|network|timeout/i;
+const MAX_ATTEMPTS = 5;
+
+type PgResult<T> = { data: T; error: { message?: string; details?: string } | null };
+
+async function withRetry<T>(what: string, call: () => PromiseLike<PgResult<T>>): Promise<PgResult<T>> {
+	for (let attempt = 1; ; attempt++) {
+		const backoffMs = 500 * 2 ** (attempt - 1);
+		const wait = () => new Promise((resolve) => setTimeout(resolve, backoffMs));
+		try {
+			const result = await call();
+			const text = `${result.error?.message ?? ''} ${result.error?.details ?? ''}`;
+			if (result.error && TRANSIENT.test(text) && attempt < MAX_ATTEMPTS) {
+				console.warn(`${what}: transient failure (${attempt}/${MAX_ATTEMPTS}), retrying in ${backoffMs}ms: ${text.trim()}`);
+				await wait();
+				continue;
+			}
+			return result;
+		} catch (err) {
+			if (attempt >= MAX_ATTEMPTS) throw err;
+			console.warn(`${what}: threw (${attempt}/${MAX_ATTEMPTS}), retrying in ${backoffMs}ms: ${String(err)}`);
+			await wait();
+		}
+	}
+}
+
 async function main() {
 	const engine = new StockfishProcess();
 	await engine.start();
@@ -34,64 +74,55 @@ async function main() {
 
 	let evaluated = 0;
 	let unscored = 0;
-	let skipped = 0;
 	try {
 		while (evaluated < limit) {
-			const { data: pending, error } = await supabase
-				.from('positions')
-				.select('id, fen')
-				.or(`eval_engine.is.null,eval_engine.neq.${ENGINE_ID}`)
-				.limit(Math.min(BATCH, limit - evaluated));
+			const { data: pending, error } = await withRetry('fetch pending', () =>
+				supabase
+					.from('positions')
+					.select('id, fen')
+					.or(`eval_engine.is.null,eval_engine.neq.${ENGINE_ID}`)
+					.limit(Math.min(BATCH, limit - evaluated))
+			);
 			if (error) throw error;
 			if (!pending || pending.length === 0) break;
 			const before = evaluated + skipped;
+			const results: Record<string, unknown>[] = [];
 
 			for (const row of pending) {
-				// Re-check the row is still pending immediately before spending 400ms
-				// on it. Nothing claims rows, so two concurrent runs fetch overlapping
-				// batches (observed: two runs re-evaluating the same positions); a
-				// ~20ms read is a cheap way to stop the second one paying the search
-				// cost for work the first has already done.
-				const { data: fresh } = await supabase
-					.from('positions')
-					.select('eval_engine')
-					.eq('id', row.id)
-					.maybeSingle();
-				if (fresh?.eval_engine === ENGINE_ID) {
-					skipped++;
-					continue;
-				}
-
 				const score = await engine.evaluate(row.fen);
 				// A position with no legal moves has no score, and must still be
 				// stamped — otherwise the next run picks it up again forever.
 				if (!score) unscored++;
-				const { error: writeError } = await supabase
-					.from('positions')
-					.update({
-						eval_cp: score?.cp ?? null,
-						eval_mate: score?.mate ?? null,
-						eval_engine: ENGINE_ID,
-						eval_at: new Date().toISOString()
-					})
-					.eq('id', row.id);
-				if (writeError) throw writeError;
+				results.push({
+					id: row.id,
+					fen: row.fen,
+					eval_cp: score?.cp ?? null,
+					eval_mate: score?.mate ?? null,
+					eval_engine: ENGINE_ID,
+					eval_at: new Date().toISOString()
+				});
 				evaluated++;
 			}
-			console.log(
-				`evaluated ${evaluated} (${unscored} with no legal moves${skipped ? `, ${skipped} already done elsewhere` : ''})`
+
+			// ONE write per batch, not one per position. Per-row updates meant ~2
+			// HTTP requests per position, and a long run exhausted local ports:
+			// `TypeError: fetch failed / EADDRNOTAVAIL` after ~1350 positions,
+			// observed. `id` is the primary key, but onConflict is passed
+			// explicitly per the repo's own convention.
+			const { error: writeError } = await withRetry('write batch', () =>
+				supabase.from('positions').upsert(results, { onConflict: 'id' })
 			);
+			if (writeError) throw writeError;
+			console.log(`evaluated ${evaluated} (${unscored} with no legal moves)`);
 			// A batch where nothing at all moved means the remaining rows are being
 			// handled by another run; stop rather than spinning on the same page.
-			if (evaluated + skipped === before) break;
+			if (evaluated === before) break;
 		}
 	} finally {
 		engine.stop();
 	}
 
-	console.log(
-		`done: ${evaluated} positions evaluated, ${unscored} had no legal move, ${skipped} skipped as already current`
-	);
+	console.log(`done: ${evaluated} positions evaluated, ${unscored} had no legal move`);
 }
 
 main().catch((err) => {
