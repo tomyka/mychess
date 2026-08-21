@@ -306,15 +306,15 @@ Replace the `<EvalBar ... />` element inside the board's flex container (lines 5
 					     empty slot holds the bar's place for as long as the excursion
 					     lasts, so switching the engine on fills a waiting gap instead of
 					     shoving the board sideways mid-analysis. -->
-					{#if explore.active && engineEnabled.on}
-						<EvalBar
-							fen={displayFen}
-							orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
-							height={boardWidth}
-						/>
-					{:else if explore.active}
-						<div class="w-8 shrink-0" aria-hidden="true"></div>
-					{/if}
+					<div class="w-8 shrink-0">
+						{#if explore.active && engineEnabled.on}
+							<EvalBar
+								fen={displayFen}
+								orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
+								height={boardWidth}
+							/>
+						{/if}
+					</div>
 ```
 
 Then in the explore control row (the `<div class="grid grid-cols-2 gap-2 mt-4 shrink-0 mx-auto w-full">` at line 578), widen the grid and add the toggle between Undo and Back to the line:
@@ -379,15 +379,15 @@ Replace the `<EvalBar ... />` element (lines 415-420) with:
 					<!-- See Learn's copy: the bar belongs to explore mode and only once
 					     the engine is switched on, with an empty slot holding its place
 					     for the rest of the excursion so the board never jumps. -->
-					{#if explore.active && engineEnabled.on}
-						<EvalBar
-							fen={displayFen}
-							orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
-							height={boardWidth}
-						/>
-					{:else if explore.active}
-						<div class="w-8 shrink-0" aria-hidden="true"></div>
-					{/if}
+					<div class="w-8 shrink-0">
+						{#if explore.active && engineEnabled.on}
+							<EvalBar
+								fen={displayFen}
+								orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
+								height={boardWidth}
+							/>
+						{/if}
+					</div>
 ```
 
 - [ ] **Step 3: Add the toggle to the explore control row**
@@ -419,7 +419,7 @@ Replace the explore control row (the `<div class="grid grid-cols-2 gap-2 mt-4 sh
 - [ ] **Step 4: Verify the suite still passes**
 
 Run: `npm test`
-Expected: PASS — the page still passes `bookEval` at this point (removed in Task 5), which is valid until the prop goes.
+Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -434,11 +434,12 @@ git commit -m "feat(practice): no engine while drilling; switch it on in explore
 
 **Files:**
 - Modify: `src/lib/components/EvalBar.svelte` (header comment lines 14-20; props lines 32-53; effects and `score` lines 56-75; the number's `<span>` class at lines 126-128)
-- Modify: `src/routes/(player)/learn/[repertoire_id]/+page.svelte` (the `bookEval` line inside the `EvalBar` element added in Task 3 — remove it if Task 3's replacement left one)
-- Modify: `src/routes/(player)/practice/[repertoire_id]/+page.svelte` (same)
+- (Both pages already stopped passing `bookEval` when their slots were rewritten — nothing left to remove there.)
 - Test: `src/lib/components/EvalBar.test.ts` (the five `bookEval` tests, lines 137-181)
 
 Tasks 3 and 4 already dropped the `bookEval` attribute from both call sites; this task removes the prop itself.
+
+**As shipped:** the slot in both pages is mounted unconditionally (`<div class="w-8 shrink-0">` with the `{#if}` inside), per the review that followed Task 3 — see the spec's Behaviour section.
 
 - [ ] **Step 1: Rewrite the tests that used the prop**
 
