@@ -89,6 +89,17 @@ export function planReconciliation(
 	const solved = new Set(progress.solved);
 	const excluded = new Set(progress.excluded);
 
+	// Several old lines can land on the SAME new one: a coach deletes 3.Bb5 and
+	// 3.Bc4 and adds 3.d4, and both old lines best-match the new line at four
+	// plies. So carries are grouped by destination and resolved per GROUP, never
+	// per carry. `variation_teaching` and `variation_solved` are both
+	// unique(player_id, variation_key), so a second write to the same key fails;
+	// the caller treats a failed write as fatal and returns WITHOUT stamping
+	// reconciliation as done, which makes it run again on every subsequent page
+	// load, forever. One emitted write per key is therefore not tidiness, it is
+	// the correctness condition.
+	const groups = new Map<string, CarryForward[]>();
+
 	for (const c of carries) {
 		if (c.kind === 'removed') {
 			// Rows are deliberately KEPT — the line's moves are retired, not
@@ -103,12 +114,24 @@ export function planReconciliation(
 		// row in the repertoire on every reconcile.
 		if (c.kind === 'unchanged' || c.toKey === null || c.toKey === c.fromKey) continue;
 
-		const toKey = c.toKey;
-		const keepsLearned = KEEPS_LEARNED.has(c.kind);
+		const group = groups.get(c.toKey);
+		if (group) group.push(c);
+		else groups.set(c.toKey, [c]);
+	}
 
-		const row = teachingByKey.get(c.fromKey);
-		if (row) {
-			plan.teachingUpdates.push({
+	for (const [toKey, group] of groups) {
+		// --- Teaching: the merged line inherits the DEEPEST of the collapsing
+		// lines. The student genuinely knew that much of it, so keeping the best
+		// is the honest merge; the losers' rows are simply left under their now
+		// dead keys, which is harmless because nothing reads a key no live
+		// variation has, and is the same "retire, don't delete" stance taken for
+		// a removed line above.
+		let best: ReconciliationPlan['teachingUpdates'][number] | null = null;
+		for (const c of group) {
+			const row = teachingByKey.get(c.fromKey);
+			// A carry with no teaching row has nothing to contribute to the merge.
+			if (!row) continue;
+			const candidate = {
 				fromKey: c.fromKey,
 				toKey,
 				// Math.min in both directions: a truncated line clamps DOWN to the
@@ -120,23 +143,52 @@ export function planReconciliation(
 				// A clean-pass streak is over the line's FINAL batch. A line whose
 				// end moved has no surviving streak, so it restarts — while the
 				// depth above is kept.
-				cleanPassCount: keepsLearned ? row.cleanPassCount : 0
-			});
+				cleanPassCount: KEEPS_LEARNED.has(c.kind) ? row.cleanPassCount : 0
+			};
+			// Compare the CLAMPED depths, not the raw row values: a deep row whose
+			// carry only shares one ply is worth less to the merged line than a
+			// shallower row that survives whole. Ties fall to the greater clamped
+			// taughtPlies, then to input order, so the choice is deterministic.
+			if (
+				best === null ||
+				candidate.masteredPlies > best.masteredPlies ||
+				(candidate.masteredPlies === best.masteredPlies && candidate.taughtPlies > best.taughtPlies)
+			) {
+				best = candidate;
+			}
 		}
+		if (best) plan.teachingUpdates.push(best);
 
-		if (solved.has(c.fromKey)) {
-			if (keepsLearned) {
-				plan.solvedMoves.push({ fromKey: c.fromKey, toKey });
+		// --- Learned: if ANY of the collapsing lines both keeps learned and has a
+		// solved row, the merged line stays learned — the student has replayed
+		// something that contains it cleanly. Every other solved row in the group
+		// is deleted rather than moved, so no second write hits `toKey`.
+		const solvedInGroup = group.filter((c) => solved.has(c.fromKey));
+		if (solvedInGroup.length > 0) {
+			const keeper = solvedInGroup.find((c) => KEEPS_LEARNED.has(c.kind));
+			if (keeper) {
+				plan.solvedMoves.push({ fromKey: keeper.fromKey, toKey });
+				for (const c of solvedInGroup) if (c !== keeper) plan.solvedDeletes.push(c.fromKey);
 			} else {
-				plan.solvedDeletes.push(c.fromKey);
+				for (const c of solvedInGroup) plan.solvedDeletes.push(c.fromKey);
+				// Exactly one demotion per merged line: the student lost the badge on
+				// one line, not on however many lines happened to collapse into it.
 				plan.demotions.push({ variationKey: toKey, cause: 'coach_update' });
 			}
 		}
 
-		if (excluded.has(c.fromKey)) {
-			plan.exclusionMoves.push({ fromKey: c.fromKey, toKey });
-		}
+		// --- Exclusions: one move, from the first excluded line in input order.
+		// The rest are left where they are — `reverifyExclusions` prunes exclusion
+		// rows with stale keys on its own, so the redundant ones self-clean.
+		const firstExcluded = group.find((c) => excluded.has(c.fromKey));
+		if (firstExcluded) plan.exclusionMoves.push({ fromKey: firstExcluded.fromKey, toKey });
 	}
+
+	// A seed targeting a key an update is already rekeying a row onto is the same
+	// collision by another route, and the check below cannot see it: the student's
+	// teaching rows are still under their STALE keys at this point.
+	const updateTargets = new Set(plan.teachingUpdates.map((u) => u.toKey));
+	const seeded = new Set<string>();
 
 	for (const seed of seeds) {
 		// Nothing to inherit, or the student has already practised this line —
@@ -144,6 +196,9 @@ export function planReconciliation(
 		// more than once.
 		if (seed.inheritedPlies <= 0) continue;
 		if (teachingByKey.has(seed.toKey)) continue;
+		if (updateTargets.has(seed.toKey)) continue;
+		if (seeded.has(seed.toKey)) continue;
+		seeded.add(seed.toKey);
 		plan.teachingInserts.push({
 			variationKey: seed.toKey,
 			taughtPlies: seed.inheritedPlies,
