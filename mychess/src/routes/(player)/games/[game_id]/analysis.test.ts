@@ -18,6 +18,8 @@ afterEach(() => {
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const AFTER_E4 = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1';
+const AFTER_E4_E5 = 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2';
+const AFTER_NF3 = 'rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2';
 
 const doneGame = {
 	id: 'g1',
@@ -26,6 +28,20 @@ const doneGame = {
 	moves: [{ ply: 1, san: 'e4', fen: AFTER_E4, parentFen: START_FEN }],
 	analysis_status: 'done',
 	analysis: [{ ply: 1, score: { cp: 30 }, bestMoveSan: 'e4', classification: null }]
+};
+
+const threeMoveGame = {
+	...doneGame,
+	moves: [
+		{ ply: 1, san: 'e4', fen: AFTER_E4, parentFen: START_FEN },
+		{ ply: 2, san: 'e5', fen: AFTER_E4_E5, parentFen: AFTER_E4 },
+		{ ply: 3, san: 'Nf3', fen: AFTER_NF3, parentFen: AFTER_E4_E5 }
+	],
+	analysis: [
+		{ ply: 1, score: { cp: 30 }, bestMoveSan: 'e4', classification: null },
+		{ ply: 2, score: { cp: 25 }, bestMoveSan: 'e5', classification: null },
+		{ ply: 3, score: { cp: 20 }, bestMoveSan: 'Nf3', classification: null }
+	]
 };
 
 describe('analysis board page', () => {
@@ -38,6 +54,30 @@ describe('analysis board page', () => {
 	it('lists the recorded move', () => {
 		render(GamePage, { props: { data: { game: doneGame, boardPrefs: undefined } } });
 		expect(screen.getByText('e4', { exact: false })).toBeTruthy();
+	});
+
+	it("pairs White's and Black's moves for the same move number on one row, PGN-style", () => {
+		render(GamePage, { props: { data: { game: threeMoveGame, boardPrefs: undefined } } });
+
+		const whiteMove = screen.getByRole('button', { name: /^e4/ });
+		const blackMove = screen.getByRole('button', { name: /^e5/ });
+		const secondWhiteMove = screen.getByRole('button', { name: /^Nf3/ });
+
+		// Move 1: White's e4 and Black's e5 share the same row.
+		expect(whiteMove.closest('li')).toBe(blackMove.closest('li'));
+		// Move 2: White's Nf3 (no Black reply yet) is its own row.
+		expect(secondWhiteMove.closest('li')).not.toBe(whiteMove.closest('li'));
+
+		expect(screen.getByText('1.')).toBeTruthy();
+		expect(screen.getByText('2.')).toBeTruthy();
+	});
+
+	it('jumps to the right position when clicking either White or Black\'s move in a paired row', async () => {
+		render(GamePage, { props: { data: { game: threeMoveGame, boardPrefs: undefined } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: /^e5/ }));
+		// Black's move (ply 2) is now the reviewed position — its own eval line shows.
+		expect(screen.getByText('e5', { selector: '.font-mono' })).toBeTruthy();
 	});
 
 	it('shows a pending-analysis progress state and spawns the engine for an unanalyzed game', () => {

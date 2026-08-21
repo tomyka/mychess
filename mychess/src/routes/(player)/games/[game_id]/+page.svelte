@@ -8,7 +8,6 @@
 	import { analyzeGame } from '$lib/engine/analyzeGame';
 	import { buildAnalysis, type AnalysisEntry } from '$lib/games/build-analysis';
 	import { formatEval, evalBarWhiteFraction } from '$lib/engine/uci';
-	import { formatMoveLabel } from '$lib/practice-report';
 	import { ExploreSession } from '$lib/mastery/explore.svelte';
 
 	type GameMove = { ply: number; san: string; fen: string; parentFen: string };
@@ -70,6 +69,24 @@
 	});
 
 	const currentEntry = $derived(analysis && reviewIdx > 0 ? analysis[reviewIdx - 1] : null);
+
+	type MoveCell = { move: GameMove; idx: number };
+	type MovePair = { moveNumber: number; white: MoveCell; black: MoveCell | null };
+
+	// PGN-style pairing: White's and Black's move for the same move number
+	// share a row. `idx` is the move's own index in `moves` (= reviewIdx - 1
+	// once reviewed), kept alongside it so each cell can jump straight there.
+	const movePairs = $derived.by((): MovePair[] => {
+		const pairs: MovePair[] = [];
+		for (let idx = 0; idx < moves.length; idx += 2) {
+			pairs.push({
+				moveNumber: pairs.length + 1,
+				white: { move: moves[idx], idx },
+				black: idx + 1 < moves.length ? { move: moves[idx + 1], idx: idx + 1 } : null
+			});
+		}
+		return pairs;
+	});
 
 	async function startAnalysis() {
 		analyzing = true;
@@ -250,22 +267,39 @@
 		<div class="border border-(--color-border) rounded-xl bg-(--color-surface) p-3 max-h-[70vh] overflow-y-auto">
 			<h2 class="text-sm font-semibold text-(--color-muted) uppercase tracking-wide mb-2">Moves</h2>
 			<ol class="text-sm space-y-1">
-				{#each moves as move, i (move.ply)}
-					{@const entry = analysis?.[i]}
-					<li>
+				{#each movePairs as pair (pair.moveNumber)}
+					{@const whiteEntry = analysis?.[pair.white.idx]}
+					{@const blackEntry = pair.black ? analysis?.[pair.black.idx] : undefined}
+					<li class="grid grid-cols-[2rem_1fr_1fr] gap-1 items-center">
+						<span class="text-(--color-muted) text-xs text-right pr-1">{pair.moveNumber}.</span>
 						<button
-							onclick={() => (reviewIdx = i + 1)}
-							class="w-full text-left px-2 py-1 rounded-lg {reviewIdx === i + 1
+							onclick={() => (reviewIdx = pair.white.idx + 1)}
+							class="text-left px-2 py-1 rounded-lg {reviewIdx === pair.white.idx + 1
 								? 'bg-(--color-accent)/10 font-semibold'
 								: 'hover:bg-(--color-border)/40'}"
 						>
-							{formatMoveLabel(move.ply, move.san)}
-							{#if entry?.classification}
-								<span class={classificationClass(entry.classification)}
-									>({classificationLabel(entry.classification)})</span
+							{pair.white.move.san}
+							{#if whiteEntry?.classification}
+								<span class={classificationClass(whiteEntry.classification)}
+									>({classificationLabel(whiteEntry.classification)})</span
 								>
 							{/if}
 						</button>
+						{#if pair.black}
+							<button
+								onclick={() => (reviewIdx = pair.black!.idx + 1)}
+								class="text-left px-2 py-1 rounded-lg {reviewIdx === pair.black.idx + 1
+									? 'bg-(--color-accent)/10 font-semibold'
+									: 'hover:bg-(--color-border)/40'}"
+							>
+								{pair.black.move.san}
+								{#if blackEntry?.classification}
+									<span class={classificationClass(blackEntry.classification)}
+										>({classificationLabel(blackEntry.classification)})</span
+									>
+								{/if}
+							</button>
+						{/if}
 					</li>
 				{/each}
 			</ol>
