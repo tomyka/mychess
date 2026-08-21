@@ -11,7 +11,7 @@
   const initials = $derived(
     p?.first_name && p?.last_name
       ? `${p.first_name[0]}${p.last_name[0]}`.toUpperCase()
-      : (p?.display_name ?? 'P').slice(0, 2).toUpperCase()
+      : (p?.display_name ?? m.nav_player_fallback()).slice(0, 2).toUpperCase()
   );
 
   const EMPTY_TILE: FideTypeRatings = { rating: null, countryRank: null, ageGroupRank: null, europeAgeGroupRank: null };
