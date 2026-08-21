@@ -13,6 +13,8 @@
 	import { logMove } from '$lib/moveLog';
 	import { ExploreSession } from '$lib/mastery/explore.svelte';
 	import EvalBar from '$lib/components/EvalBar.svelte';
+	import ExploreControls from '$lib/components/ExploreControls.svelte';
+	import { engineEnabled } from '$lib/engine/engine.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
 	import PracticeStatusStrip, { type PracticeStripState } from '$lib/components/PracticeStatusStrip.svelte';
 
@@ -545,8 +547,8 @@
 				     stands is what makes the strip hand the slot over. -->
 				<PracticeStatusStrip state={stripState} onhint={hintOffered ? requestHint : undefined} />
 
-				<!-- The eval bar is a sibling of the board, not a child of it: it
-				     matches the board's own rendered height (bound below), and the
+				<!-- The eval bar's slot is a sibling of the board, not a child of it:
+				     the bar matches the board's own rendered height (bound below), and the
 				     board itself is sized from this container's height on desktop
 				     (`containerFit` + [container-type:size]), so nesting the bar
 				     inside the board's box would feed its own width back into that
@@ -554,12 +556,22 @@
 				<div
 					class="flex items-start justify-center gap-2 lg:flex-1 lg:min-h-0 lg:[container-type:size]"
 				>
-					<EvalBar
-						fen={displayFen}
-						bookEval={data.evals?.[displayFen] ?? null}
-						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
-						height={boardWidth}
-					/>
+					<!-- The bar's slot is always here and only its contents change: the
+					     bar while exploring with the engine switched on, nothing the rest
+					     of the time. Mounting the slot conditionally instead moved the
+					     board every time explore opened or closed — 20px sideways on
+					     desktop, and a 40px resize on mobile, where the board is width-
+					     constrained and the control row is capped to its width. Same rule
+					     as #113's status strip: reserve the space, vary the contents. -->
+					<div class="w-8 shrink-0">
+						{#if explore.active && engineEnabled.on}
+							<EvalBar
+								fen={displayFen}
+								orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
+								height={boardWidth}
+							/>
+						{/if}
+					</div>
 					<ChessBoard
 						fen={displayFen}
 						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
@@ -574,27 +586,12 @@
 				</div>
 
 				{#if explore.active}
-					<!-- The review nav would be lying here (it counts drill plies, and
-					     none of these moves are drill plies), so the excursion's own
-					     two controls take its place for as long as it lasts. -->
-					<div
-						class="grid grid-cols-2 gap-2 mt-4 shrink-0 mx-auto w-full"
-						style={boardWidth ? `max-width: ${boardWidth}px` : ''}
-					>
-						<button
-							onclick={() => explore.undo()}
-							disabled={explore.depth === 0}
-							class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-sm font-semibold text-(--color-text) disabled:opacity-30"
-						>
-							↶ Undo
-						</button>
-						<button
-							onclick={stopExplore}
-							class="py-2 rounded-xl border border-amber-300 bg-amber-50 text-sm font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
-						>
-							↩ Back to the line
-						</button>
-					</div>
+					<ExploreControls
+						depth={explore.depth}
+						onundo={() => explore.undo()}
+						onstop={stopExplore}
+						{boardWidth}
+					/>
 				{:else}
 					<MoveNavRow
 						{reviewIdx}
@@ -620,8 +617,7 @@
 					{/if}
 				{/if}
 
-				<!-- The engine used to live here too; it's on the board's own edge now
-				     (EvalBar), so this card is just the moves played so far. -->
+				<!-- Just the moves played so far. -->
 				{#if movesSoFar}
 					<div class="mt-3 p-3 bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:hidden">
 						<p class="text-sm text-(--color-muted)">{movesSoFar}</p>

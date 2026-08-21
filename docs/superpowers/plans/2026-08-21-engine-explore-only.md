@@ -306,15 +306,15 @@ Replace the `<EvalBar ... />` element inside the board's flex container (lines 5
 					     empty slot holds the bar's place for as long as the excursion
 					     lasts, so switching the engine on fills a waiting gap instead of
 					     shoving the board sideways mid-analysis. -->
-					{#if explore.active && engineEnabled.on}
-						<EvalBar
-							fen={displayFen}
-							orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
-							height={boardWidth}
-						/>
-					{:else if explore.active}
-						<div class="w-8 shrink-0" aria-hidden="true"></div>
-					{/if}
+					<div class="w-8 shrink-0">
+						{#if explore.active && engineEnabled.on}
+							<EvalBar
+								fen={displayFen}
+								orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
+								height={boardWidth}
+							/>
+						{/if}
+					</div>
 ```
 
 Then in the explore control row (the `<div class="grid grid-cols-2 gap-2 mt-4 shrink-0 mx-auto w-full">` at line 578), widen the grid and add the toggle between Undo and Back to the line:
@@ -379,15 +379,15 @@ Replace the `<EvalBar ... />` element (lines 415-420) with:
 					<!-- See Learn's copy: the bar belongs to explore mode and only once
 					     the engine is switched on, with an empty slot holding its place
 					     for the rest of the excursion so the board never jumps. -->
-					{#if explore.active && engineEnabled.on}
-						<EvalBar
-							fen={displayFen}
-							orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
-							height={boardWidth}
-						/>
-					{:else if explore.active}
-						<div class="w-8 shrink-0" aria-hidden="true"></div>
-					{/if}
+					<div class="w-8 shrink-0">
+						{#if explore.active && engineEnabled.on}
+							<EvalBar
+								fen={displayFen}
+								orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
+								height={boardWidth}
+							/>
+						{/if}
+					</div>
 ```
 
 - [ ] **Step 3: Add the toggle to the explore control row**
@@ -419,7 +419,7 @@ Replace the explore control row (the `<div class="grid grid-cols-2 gap-2 mt-4 sh
 - [ ] **Step 4: Verify the suite still passes**
 
 Run: `npm test`
-Expected: PASS — the page still passes `bookEval` at this point (removed in Task 5), which is valid until the prop goes.
+Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -434,11 +434,12 @@ git commit -m "feat(practice): no engine while drilling; switch it on in explore
 
 **Files:**
 - Modify: `src/lib/components/EvalBar.svelte` (header comment lines 14-20; props lines 32-53; effects and `score` lines 56-75; the number's `<span>` class at lines 126-128)
-- Modify: `src/routes/(player)/learn/[repertoire_id]/+page.svelte` (the `bookEval` line inside the `EvalBar` element added in Task 3 — remove it if Task 3's replacement left one)
-- Modify: `src/routes/(player)/practice/[repertoire_id]/+page.svelte` (same)
+- (Both pages already stopped passing `bookEval` when their slots were rewritten — nothing left to remove there.)
 - Test: `src/lib/components/EvalBar.test.ts` (the five `bookEval` tests, lines 137-181)
 
 Tasks 3 and 4 already dropped the `bookEval` attribute from both call sites; this task removes the prop itself.
+
+**As shipped:** the slot in both pages is mounted unconditionally (`<div class="w-8 shrink-0">` with the `{#if}` inside), per the review that followed Task 3 — see the spec's Behaviour section.
 
 - [ ] **Step 1: Rewrite the tests that used the prop**
 
@@ -711,13 +712,57 @@ Expected: build completes with no errors.
 Run: `npm run dev`, open a repertoire in Learn with DevTools → Network filtered to `stockfish`, and confirm:
 
 1. Drilling: no eval bar beside the board, and **no** `stockfish-*.js` / `.wasm` request.
-2. "Explore this position": three buttons (Undo / ⚙ Engine / Back to the line), still no bar, still no engine request; the board has not moved sideways.
+2. "Explore this position": three buttons (Undo / ⚙ Engine / Back to the line), still no bar, still no engine request; the board has not moved sideways — the bar's slot is mounted all along, empty.
 3. Press ⚙ Engine: one `stockfish-18-lite-single.js` + `.wasm` request, the bar appears in the reserved gap (the board does not jump), and its number changes as you play moves off-book.
 4. Press it again: bar disappears, no further requests.
-5. Back to the line, then explore again: bar is there immediately (button still reads "Engine on"), one fresh worker, no new network request — the WASM comes from cache.
+5. Back to the line, then explore again: bar is there immediately (the toggle still reads pressed), one fresh worker, no new network request — the WASM comes from cache.
 6. Reload the page: the toggle is off again.
 7. Repeat 1-3 on a Practice repertoire, including the "See why" entry after deliberately playing a wrong move.
 
 - [ ] **Step 4: Report**
 
 State plainly what passed and anything that did not, with the actual output — no "should work". If step 3 differs from this list, stop and report rather than patching around it.
+
+
+---
+
+## Post-plan passes
+
+Everything below happened after the eight tasks above, driven by the per-task and
+whole-branch reviews. Recorded here so the plan and the branch tell the same
+story.
+
+**9. The bar's slot stays mounted** (`3cf17bb`). Reserving the 40px only for the
+duration of an excursion — what Tasks 3 and 4 originally shipped — moved the
+board on every explore entry and exit: ~20px sideways on desktop, and on mobile,
+where the board is width-constrained, a 40px *resize* that dragged the control
+row and `MoveNavRow` with it. Both pages now mount `<div class="w-8 shrink-0">`
+unconditionally and vary only its contents, the same rule #113's status strip
+already established. Both pages also stopped passing `bookEval` here rather than
+in Task 5: the first position of an excursion is on-book, so with a stored eval
+in hand the toggle spawned no worker at all and appeared to do nothing until the
+player moved off-book.
+
+**10. The engine module's own leftovers** (`92bbb53`, `dc52473`). `version.ts`
+folded into `engine.svelte.ts` as `ENGINE_BASENAME` — one stem, one consumer, in
+a file whose name had stopped describing it. `bestScoreFromInfoLines` deleted
+from `uci.ts`: its only caller was the deleted `stockfishProcess.ts`, and Task
+7's greps could not have caught it because the symbol was not in the pattern.
+
+**11. One control row, shared** (`6fe5373`). The three-button explore row was
+duplicated verbatim across both drill pages, so it became
+`src/lib/components/ExploreControls.svelte` (`depth`, `onundo`, `onstop`,
+`stopLabel`, `boardWidth`). The neighbouring board+bar block was deliberately
+left duplicated — extracting it needs 9-11 props, and they are precisely where
+the two pages genuinely differ (`interactable`, `arrowMove`, `hintSquare`).
+
+**12. The columns' documentation** (`579a81a`). `0065_retire_position_evals.sql`
+re-stamps the four `eval_*` column comments as RETIRED — they are live catalog
+metadata and still named a deleted script — and drops the sweep's work-queue
+index. Applied to production 2026-08-22.
+
+**13. Verification gap.** Step 3 of Task 8 (driving the real pages in a browser
+with the Network panel open) was **not** performed: Google sign-in does not work
+against `localhost`, and Claude cannot sign in on the user's behalf. Everything
+else in Task 8 passed. The seven checks in that list still stand and are worth
+running once against production after the deploy.

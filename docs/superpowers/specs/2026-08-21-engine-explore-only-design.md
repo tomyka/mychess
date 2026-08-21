@@ -37,9 +37,18 @@ line (#131).
 bar, no engine, no `evals` in the page data.
 
 **Explore, engine off (default).** The two-button control row (Undo / Back to
-the line) becomes three, with **⚙ Engine** in the middle. The bar's slot (`w-8` plus the `gap-2` beside it, ~40px) is reserved for as long as explore is active, empty while the engine is off, so
-turning it on fills a waiting slot instead of shoving the board sideways
-mid-analysis.
+the line) becomes three, with **⚙ Engine** in the middle.
+
+**The bar's slot (`w-8` plus the `gap-2` beside it, ~40px) is always mounted —
+while drilling too — and only its contents change.** Reserving it only for the
+duration of an excursion was tried first and moved the board every time explore
+opened or closed: the row is `justify-center`, so the board translated ~20px on
+desktop, and on mobile — where it is always width-constrained — it *resized* by
+40px and dragged the control row and `MoveNavRow` with it, both being capped to
+`max-width: {boardWidth}px`. That is the same failure #113's status strip
+already solved by staying mounted in a transparent state. The drilling layout is
+therefore pixel-identical to what shipped before this change; the 40px is simply
+empty now.
 
 **Explore, engine on.** Bar appears in that gutter and evaluates the explored
 position and each ply after it, exactly as it does today off-book. Before the
@@ -85,15 +94,29 @@ The precompute pipeline, consumer-less once the drilling bar is gone:
   script is its only importer)
 - the `positions:eval` npm script, and `.github/workflows/eval-positions.yml`
   (the daily sweep added in #130)
-- `ENGINE_ID` from `src/lib/engine/version.ts` — the stamp had exactly two users,
-  both going — along with `SEARCH_MOVETIME_MS`, which goes with
-  `stockfishProcess.ts`; the browser worker has its own `MOVETIME_MS = 400`.
-  `ENGINE` stays: the worker loads by `basename`. The file's comments about
-  stamping and backfilling shrink to "which build the browser worker loads".
+- `src/lib/engine/version.ts` entirely. `ENGINE_ID`'s stamp had exactly two
+  users, both going, and `SEARCH_MOVETIME_MS` went with `stockfishProcess.ts`
+  (the browser worker has its own `MOVETIME_MS = 400`). What survived was one
+  file stem with one consumer, in a file whose name no longer described it — so
+  it is now `const ENGINE_BASENAME` two lines above the `ENGINE_URL` it feeds,
+  in `engine.svelte.ts`.
+- `static/stockfish/stockfish-18-lite-single.cjs` — a copy of the bootstrap that
+  existed only because the Node job could not load the ESM `.js`. The browser
+  loads the `.js`; nothing referenced the `.cjs`.
 
-**`positions.eval_cp` / `eval_mate` / `eval_engine` stay.** No migration: the
-columns are harmless, the ~31k stored numbers cost nothing, and keeping them
-makes reviving the pipeline a code change rather than a backfill.
+**`positions.eval_cp` / `eval_mate` / `eval_engine` stay.** The columns are
+harmless, the ~31k stored numbers cost nothing, and keeping them makes reviving
+the pipeline a code change rather than a backfill.
+
+One migration does go with them — `0065_retire_position_evals.sql`, which drops
+nothing the data lives in. Column comments are *live* catalog metadata, visible
+in Studio and `\d+ positions`, and they still advertised a writer
+(`scripts/eval-positions.ts`) that no longer exists; the migration re-stamps all
+four as RETIRED. It also drops `positions_eval_pending_idx`, the partial index
+that was the sweep's work queue: `eval_engine` is null on every new row, so with
+the job gone it was maintained on every insert into a growing global table and
+read by nobody. Both halves are reversible in one statement, and the running app
+cannot tell whether the migration has been applied.
 
 ## Tests
 
