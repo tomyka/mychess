@@ -1,4 +1,12 @@
--- mychess/supabase/migrations/0062_repertoire_update.sql
+-- mychess/supabase/migrations/0063_repertoire_update.sql
+--
+-- NOTE ON NUMBERING: authored and APPLIED TO PRODUCTION as `0062_...`, then
+-- renumbered to 0063 before merge because `main` had meanwhile taken 0062 for
+-- `0062_position_evals.sql`. The live schema already has everything below; the
+-- rename only fixes replay order for a fresh database. Every statement is
+-- idempotent, so re-running it against production is a no-op rather than a
+-- hazard. See GitHub issue #128.
+--
 -- Coach repertoire re-upload (GitHub issue #118): a coach uploads a revised
 -- PGN over an existing repertoire, and unchanged lines keep every student's
 -- learning progress. See
