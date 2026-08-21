@@ -282,3 +282,115 @@ export function projectImpact(
 
 	return { counts, demotedLineCount, removedLearnedCount, affectedPlayerCount };
 }
+
+/** Leading move ids two ply chains agree on — how much of the line still means the same thing. */
+function sharedPrefixLength(a: readonly string[], b: readonly string[]): number {
+	const limit = Math.min(a.length, b.length);
+	let shared = 0;
+	while (shared < limit && a[shared] === b[shared]) shared++;
+	return shared;
+}
+
+/**
+ * Rebuild the carry-forward mapping `planReconciliation` consumes from the only
+ * two things lazy reconciliation can still observe: the repertoire's LIVE line
+ * set, and this student's own progress keys.
+ *
+ * Reconstruction is possible at all because move ids survive a re-upload. Moves
+ * are upserted on `(repertoire_id, from_position, san)`, so a modified line's
+ * unchanged head keeps its original ids — a stale key and the line it became
+ * therefore share a real move-id prefix, and the length of that prefix is
+ * exactly how many plies still mean the same thing. Guessing is not involved.
+ *
+ * A key that is still live gets no carry: it means that line did not change,
+ * and `planReconciliation` writes nothing for `unchanged` anyway.
+ *
+ * Two stale keys legitimately matching the SAME live key is expected, not a bug
+ * to break — a coach dropping 3.Bb5 and 3.Bc4 and adding 3.d4 produces exactly
+ * that. Both carries are emitted; `planReconciliation` groups by destination and
+ * merges the collapsing lines into one write per key.
+ *
+ * `inheritedPlies` is clamped by `masteredPlies`, not left at the raw shared
+ * prefix. The prefix says how much of the new line is structurally identical to
+ * a line the student holds; `masteredPlies` says how much of that line they
+ * actually demonstrated. Seeding the raw prefix would credit a student with
+ * knowledge they never showed — e.g. 11 shared plies on a line they had only
+ * mastered 5 of.
+ */
+export function buildCarryForwardPlan(
+	liveKeys: string[],
+	progress: PlayerProgress
+): { carries: CarryForward[]; seeds: SeedNew[] } {
+	const liveSet = new Set(liveKeys);
+	// Split once, in the caller's order: every match below iterates `liveKeys` as
+	// given, so ties resolve to the earliest live key and the output is stable.
+	const live = liveKeys.map((key) => ({ key, plies: key.split('>') }));
+
+	// Insertion order teaching → solved → excluded → active, so the same student
+	// state always yields the same carry order.
+	const staleKeys = new Set<string>();
+	const collectStale = (key: string | null) => {
+		if (key !== null && !liveSet.has(key)) staleKeys.add(key);
+	};
+	for (const row of progress.teaching) collectStale(row.variationKey);
+	for (const key of progress.solved) collectStale(key);
+	for (const key of progress.excluded) collectStale(key);
+	collectStale(progress.activeVariationKey);
+
+	const carries: CarryForward[] = [];
+	const carryTargets = new Set<string>();
+
+	for (const fromKey of staleKeys) {
+		const fromPlies = fromKey.split('>');
+		let bestKey: string | null = null;
+		let bestShared = 0;
+		for (const candidate of live) {
+			const shared = sharedPrefixLength(fromPlies, candidate.plies);
+			// Strictly greater, so a tie keeps the first live key in the given order.
+			if (shared > bestShared) {
+				bestShared = shared;
+				bestKey = candidate.key;
+			}
+		}
+
+		// Nothing live shares even the first move: the line is gone, not moved.
+		if (bestKey === null) {
+			carries.push({ kind: 'removed', fromKey, toKey: null, commonPlies: 0 });
+			continue;
+		}
+
+		const toLength = bestKey.split('>').length;
+		// `extended` and `truncated` cannot both hold: that needs equal lengths and
+		// a full shared prefix, i.e. identical keys — impossible when `fromKey` is
+		// stale and `bestKey` is live. So a carry never has toKey === fromKey.
+		const kind: CarryForward['kind'] =
+			bestShared === fromPlies.length ? 'extended' : bestShared === toLength ? 'truncated' : 'diverged';
+		carries.push({ kind, fromKey, toKey: bestKey, commonPlies: bestShared });
+		carryTargets.add(bestKey);
+	}
+
+	// Known lines include the STALE ones — inheriting from a line the coach just
+	// reshaped is the common case, not the exception.
+	const taughtKeys = new Set(progress.teaching.map((row) => row.variationKey));
+	const known = progress.teaching.map((row) => ({
+		plies: row.variationKey.split('>'),
+		masteredPlies: row.masteredPlies
+	}));
+
+	const seeds: SeedNew[] = [];
+	for (const candidate of live) {
+		// Real progress already exists here, or a carry is about to move a row onto
+		// this key — either way a seed would collide with it.
+		if (taughtKeys.has(candidate.key)) continue;
+		if (carryTargets.has(candidate.key)) continue;
+
+		let inheritedPlies = 0;
+		for (const row of known) {
+			const inherited = Math.min(sharedPrefixLength(row.plies, candidate.plies), row.masteredPlies);
+			if (inherited > inheritedPlies) inheritedPlies = inherited;
+		}
+		if (inheritedPlies > 0) seeds.push({ toKey: candidate.key, inheritedPlies });
+	}
+
+	return { carries, seeds };
+}

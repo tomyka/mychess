@@ -5,7 +5,9 @@ import {
 	type CarryForward,
 	type SeedNew,
 	type PlayerProgress,
-	type ImpactLine
+	type TeachingRow,
+	type ImpactLine,
+	buildCarryForwardPlan
 } from './repertoire-reconcile';
 import type { VariationDiff } from './repertoire-diff';
 
@@ -347,5 +349,111 @@ describe('projectImpact', () => {
 		const diffs: VariationDiff[] = [{ kind: 'diverged', existingKey: 'd', sans: ['e4'], commonPlies: 1 }];
 		const impact = projectImpact(diffs, [{ playerId: 'p1', solved: ['d'] }]);
 		expect(impact.demotedLineCount).toBe(1);
+	});
+});
+
+describe('buildCarryForwardPlan', () => {
+	function teaching(key: string, mastered: number, taught = mastered): TeachingRow {
+		return { variationKey: key, taughtPlies: taught, masteredPlies: mastered, cleanPassCount: 0 };
+	}
+
+	it('reads a stale key that became longer as extended', () => {
+		const { carries } = buildCarryForwardPlan(['a>b>c'], progress({ teaching: [teaching('a>b', 2)] }));
+		expect(carries).toEqual([{ kind: 'extended', fromKey: 'a>b', toKey: 'a>b>c', commonPlies: 2 }]);
+	});
+
+	it('reads a stale key that became shorter as truncated', () => {
+		const { carries } = buildCarryForwardPlan(['a>b'], progress({ teaching: [teaching('a>b>c', 3)] }));
+		expect(carries).toEqual([{ kind: 'truncated', fromKey: 'a>b>c', toKey: 'a>b', commonPlies: 2 }]);
+	});
+
+	it('reads a mid-line change as diverged', () => {
+		const { carries } = buildCarryForwardPlan(['a>b>y'], progress({ teaching: [teaching('a>b>x', 3)] }));
+		expect(carries).toEqual([{ kind: 'diverged', fromKey: 'a>b>x', toKey: 'a>b>y', commonPlies: 2 }]);
+	});
+
+	it('reads a key sharing nothing as removed', () => {
+		const { carries } = buildCarryForwardPlan(['a>b'], progress({ teaching: [teaching('p>q', 2)] }));
+		expect(carries).toEqual([{ kind: 'removed', fromKey: 'p>q', toKey: null, commonPlies: 0 }]);
+	});
+
+	it('emits no carry for a key that is still live', () => {
+		const { carries, seeds } = buildCarryForwardPlan(['a>b'], progress({ teaching: [teaching('a>b', 2)] }));
+		expect(carries).toEqual([]);
+		expect(seeds).toEqual([]);
+	});
+
+	it('collects stale keys from solved, exclusions and the active pointer too', () => {
+		const { carries } = buildCarryForwardPlan(
+			['a>b>c'],
+			progress({ solved: ['a>b'], excluded: ['a>z'], activeVariationKey: 'a>w' })
+		);
+		expect(carries.map((c) => c.fromKey).sort()).toEqual(['a>b', 'a>w', 'a>z']);
+	});
+
+	it('does not emit the same stale key twice when several tables hold it', () => {
+		const { carries } = buildCarryForwardPlan(
+			['a>b>c'],
+			progress({ teaching: [teaching('a>b', 2)], solved: ['a>b'], excluded: ['a>b'] })
+		);
+		expect(carries).toHaveLength(1);
+	});
+
+	it('emits both carries when two stale keys collapse onto one live key', () => {
+		const { carries } = buildCarryForwardPlan(
+			['a>b>new'],
+			progress({ teaching: [teaching('a>b>x', 3), teaching('a>b>y', 3)] })
+		);
+		expect(carries).toHaveLength(2);
+		expect(carries.every((c) => c.toKey === 'a>b>new')).toBe(true);
+	});
+
+	it('seeds a new sibling from a shared prefix', () => {
+		const { seeds } = buildCarryForwardPlan(['a>b>c', 'a>b>d'], progress({ teaching: [teaching('a>b>c', 3)] }));
+		expect(seeds).toEqual([{ toKey: 'a>b>d', inheritedPlies: 2 }]);
+	});
+
+	it('clamps inherited depth to what the student actually mastered', () => {
+		// Shares 2 plies with a>b>c, but they only mastered 1 of it.
+		const { seeds } = buildCarryForwardPlan(['a>b>c', 'a>b>d'], progress({ teaching: [teaching('a>b>c', 1, 3)] }));
+		expect(seeds).toEqual([{ toKey: 'a>b>d', inheritedPlies: 1 }]);
+	});
+
+	it('takes the deepest inheritance across several known lines', () => {
+		// Both known lines are still live, so neither produces a carry and the new
+		// line is genuinely unclaimed — otherwise the carries would target it and
+		// the seed would (correctly) be suppressed as a collision.
+		const { seeds } = buildCarryForwardPlan(
+			['a>z', 'a>b>c>d>e', 'a>b>c>d>NEW'],
+			progress({ teaching: [teaching('a>z', 2), teaching('a>b>c>d>e', 4)] })
+		);
+		expect(seeds).toEqual([{ toKey: 'a>b>c>d>NEW', inheritedPlies: 4 }]);
+	});
+
+	it('does not seed a line inheriting nothing', () => {
+		const { seeds } = buildCarryForwardPlan(['x>y'], progress({ teaching: [teaching('a>b', 2)] }));
+		expect(seeds).toEqual([]);
+	});
+
+	it('does not seed a live key a carry already maps onto', () => {
+		// a>b>x became a>b>y; the carry moves the row there, so no seed.
+		const { carries, seeds } = buildCarryForwardPlan(['a>b>y'], progress({ teaching: [teaching('a>b>x', 3)] }));
+		expect(carries).toHaveLength(1);
+		expect(seeds).toEqual([]);
+	});
+
+	it('returns nothing for a student with no progress', () => {
+		expect(buildCarryForwardPlan(['a>b', 'a>c'], progress())).toEqual({ carries: [], seeds: [] });
+	});
+
+	it('feeds planReconciliation directly', () => {
+		// The two functions compose — this is the whole lazy-reconciliation path.
+		const p = progress({ teaching: [teaching('a>b', 2)], solved: ['a>b'] });
+		const { carries, seeds } = buildCarryForwardPlan(['a>b>c'], p);
+		const plan = planReconciliation(carries, seeds, p);
+		expect(plan.teachingUpdates).toEqual([
+			{ fromKey: 'a>b', toKey: 'a>b>c', taughtPlies: 2, masteredPlies: 2, cleanPassCount: 0 }
+		]);
+		expect(plan.demotions).toEqual([{ variationKey: 'a>b>c', cause: 'coach_update' }]);
 	});
 });
