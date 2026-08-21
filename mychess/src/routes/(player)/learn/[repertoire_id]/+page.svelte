@@ -9,7 +9,7 @@
 	import { optimisticSolvedAfterAttempt, type PracticeView } from '$lib/mastery/practice';
 	import { arrowMoveForStep, isLastPlayerMove } from '$lib/mastery/teaching';
 	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
-	import { positionAt, playOpponentReplies } from '$lib/mastery/playback';
+	import { positionAt, playOpponentReplies, playerMovesIn } from '$lib/mastery/playback';
 	import { logMove } from '$lib/moveLog';
 	import EngineEval from '$lib/components/EngineEval.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
@@ -514,6 +514,8 @@
 				<MoveNavRow
 					{reviewIdx}
 					totalPlies={quizSteps.length}
+					reviewMoves={playerMovesIn(quizSteps, reviewIdx)}
+					totalMoves={playerMovesIn(quizSteps, quizSteps.length)}
 					{isReviewing}
 					{boardWidth}
 					onstart={reviewToStart}

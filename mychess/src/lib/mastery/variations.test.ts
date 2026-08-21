@@ -89,6 +89,20 @@ describe('enumerateVariations', () => {
 		expect(result.map((v) => v.leafMoveId).sort()).toEqual(['m1', 'm2']);
 	});
 
+	// A line the player never moves in is unplayable, not a variation: served, it
+	// auto-plays and then waits forever for a move that doesn't exist.
+	it('drops leaves the player never moves in', () => {
+		const moves: RawMoveRow[] = [
+			{ id: 'm1', fromPositionId: 'p0', toPositionId: 'p1', fromFen: 'f0', toFen: 'f1', san: 'e4', isPlayerTurn: false },
+			{ id: 'm2', fromPositionId: 'p1', toPositionId: 'p2', fromFen: 'f1', toFen: 'f2', san: 'c5', isPlayerTurn: true },
+			// A second opponent branch off the root that stops before any reply
+			// of the player's own — a chapter that ends on the opponent's move.
+			{ id: 'm3', fromPositionId: 'p0', toPositionId: 'p3', fromFen: 'f0', toFen: 'f3', san: 'd4', isPlayerTurn: false }
+		];
+		const variations = enumerateVariations(moves);
+		expect(variations.map((v) => v.variationKey)).toEqual(['m1>m2']);
+	});
+
 	it('counts only is_player_turn steps toward playerMoveCount', () => {
 		const moves = [
 			move('m1', 'START', 'P1', 'e4', true),

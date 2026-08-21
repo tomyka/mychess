@@ -7,7 +7,7 @@
 	import { Chess } from 'chess.js';
 	import { playCorrect, playWrong } from '$lib/sounds';
 	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
-	import { positionAt, playOpponentReplies } from '$lib/mastery/playback';
+	import { positionAt, playOpponentReplies, playerMovesIn } from '$lib/mastery/playback';
 	import { logMove } from '$lib/moveLog';
 
 	let { data } = $props<{ data: any }>();
@@ -313,6 +313,8 @@
 				<MoveNavRow
 					{reviewIdx}
 					totalPlies={steps.length}
+					reviewMoves={playerMovesIn(steps, reviewIdx)}
+					totalMoves={playerMovesIn(steps, steps.length)}
 					{isReviewing}
 					{boardWidth}
 					onstart={reviewToStart}

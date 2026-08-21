@@ -113,7 +113,14 @@ function enumerateVariationsScoped(moves: RawMoveRow[], chapterName: string | nu
 	function walk(positionId: string, path: VariationStep[], playerMoveCount: number) {
 		const outgoing = byFrom.get(positionId) ?? [];
 		if (outgoing.length === 0) {
-			if (path.length > 0) {
+			// `playerMoveCount > 0`, not just a non-empty path: a line the player
+			// never moves in (an opponent branch with no prepared reply — common
+			// where a PGN chapter stops right after the opponent's move) can
+			// never be drilled or solved. Served, it auto-plays its opponent
+			// plies and then waits in 'playing' for a move that doesn't exist,
+			// rejecting everything; counted, it makes a repertoire that is fully
+			// learned read as permanently incomplete.
+			if (playerMoveCount > 0) {
 				variations.push({
 					leafMoveId: path[path.length - 1].moveId,
 					variationKey: path.map((s) => s.moveId).join('>'),

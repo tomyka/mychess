@@ -16,6 +16,8 @@
 	let {
 		reviewIdx,
 		totalPlies,
+		reviewMoves,
+		totalMoves,
 		isReviewing,
 		boardWidth = 0,
 		onstart,
@@ -25,6 +27,11 @@
 	}: {
 		reviewIdx: number;
 		totalPlies: number;
+		// The same two positions counted in the PLAYER's own moves — what the
+		// counter shows. reviewIdx/totalPlies stay plies because that's what the
+		// buttons' own disabled logic is expressed in.
+		reviewMoves: number;
+		totalMoves: number;
 		isReviewing: boolean;
 		boardWidth?: number;
 		onstart: () => void;
@@ -53,7 +60,7 @@
 		</svg>
 	</button>
 	<p class="text-center text-sm font-semibold text-(--color-muted) tabular-nums" aria-hidden="true">
-		{reviewIdx} / {totalPlies}
+		{reviewMoves} / {totalMoves}
 	</p>
 	<button onclick={onforward} disabled={!isReviewing} aria-label="Move forward" class={buttonClass}>
 		<svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 mx-auto" aria-hidden="true">

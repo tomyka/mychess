@@ -1,7 +1,7 @@
 // mychess/src/lib/mastery/practice.ts
 import type { Variation, VariationStep } from './variations';
 import { pickActiveVariation, solvedProgress } from './variationSequence';
-import { resolveTeachingStep, knownProgressFor } from './teaching';
+import { resolveTeachingStep, knownProgressFor, autoPlayCeiling } from './teaching';
 import { splitQueues } from './learning';
 
 /**
@@ -137,7 +137,11 @@ export function buildPracticeView(
 				variationKey: active.variationKey,
 				arrowPlies: step.arrowPlies,
 				isFinalPass: step.isFinalPass,
-				autoPlayThrough: effectiveMasteredPlies
+				// Clamped, never raw: a variation fully covered by a solved
+				// sibling has masteredPlies == path.length, and auto-playing
+				// that far leaves the player nothing to play and the attempt
+				// unfinishable. See autoPlayCeiling.
+				autoPlayThrough: Math.min(effectiveMasteredPlies, autoPlayCeiling(step.path))
 			};
 		}
 	}

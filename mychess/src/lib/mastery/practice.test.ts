@@ -51,6 +51,23 @@ function makeSharedPrefixVariations(sharedPlayerMoves: number, ownPlayerMovesA: 
 }
 
 describe('buildPracticeView', () => {
+	// The hang reported on "Atidėtas alapinas baltais": variation A's moves are
+	// all covered by an already-solved sibling B (A is a strict prefix of it), so
+	// the shared-prefix credit made masteredPlies reach A's own path length. The
+	// whole attempt then auto-played — including A's last player move — and the
+	// board sat there in 'playing' with nothing left to ask for, rejecting every
+	// move the player tried, forever. The player must always be left at least
+	// their own final move to make.
+	it('never auto-plays past the last player move of the served path', () => {
+		const { a, b } = makeSharedPrefixVariations(2, 0, 1);
+		const view = buildPracticeView([a, b], a.variationKey, new Set([b.variationKey]), noTeaching);
+		expect(view.attempt).not.toBeNull();
+		const path = view.attempt!.path;
+		const lastPlayerPly = path.reduce((last, step, i) => (step.isPlayerTurn ? i : last), -1);
+		expect(view.attempt!.autoPlayThrough).toBeLessThanOrEqual(lastPlayerPly);
+		expect(path.slice(view.attempt!.autoPlayThrough).some((s) => s.isPlayerTurn)).toBe(true);
+	});
+
 	it('serves the active variation\'s FULL path as the attempt, unsplit', () => {
 		const v = makeVariation(2, 'a-'); // 2 player moves — strictly under one batch
 		const view = buildPracticeView([v], null, new Set(), noTeaching);

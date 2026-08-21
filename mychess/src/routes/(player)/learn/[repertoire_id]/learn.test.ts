@@ -337,7 +337,9 @@ describe('learn detail page', () => {
 		expect(toLive.disabled).toBe(true);
 	});
 
-	it('shows the current ply position in the nav row', async () => {
+	// Counted in the player's OWN moves, not plies: 4 plies here, two of them the
+	// player's, and the auto-played opponent reply must not advance the counter.
+	it('shows the current position in the nav row, counted in player moves', async () => {
 		vi.useFakeTimers();
 		render(Practice, {
 			props: {
@@ -351,7 +353,7 @@ describe('learn detail page', () => {
 			}
 		});
 		await vi.advanceTimersByTimeAsync(1000); // autoplay intro finishes, quizIdx lands at 2
-		expect(screen.getByText('2 / 4')).toBeTruthy();
+		expect(screen.getByText('1 / 2')).toBeTruthy();
 	});
 
 	it('lets the left/right/up/down arrow keys drive the same review nav as the buttons', async () => {

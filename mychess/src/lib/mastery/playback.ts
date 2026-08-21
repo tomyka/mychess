@@ -38,3 +38,17 @@ export function playOpponentReplies(
 	}
 	return { plyIdx: idx, fen };
 }
+
+/**
+ * How many of the PLAYER's own moves are inside the first `plyCount` plies —
+ * what the move-nav row counts. The player thinks in their own moves ("I'm 3
+ * moves into my line"), not in plies: a ply count silently doubles every number
+ * and, worse, jumps by two per tap wherever an opponent reply auto-plays.
+ */
+export function playerMovesIn(steps: readonly VariationStep[], plyCount: number): number {
+	let count = 0;
+	for (let i = 0; i < plyCount && i < steps.length; i++) {
+		if (steps[i].isPlayerTurn) count++;
+	}
+	return count;
+}

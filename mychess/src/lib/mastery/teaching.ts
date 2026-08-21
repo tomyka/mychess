@@ -35,6 +35,30 @@ function plyAfterPlayerMoves(path: VariationStep[], fromPly: number, moveCount: 
 }
 
 /**
+ * How many leading plies of a served path may auto-play: everything up to, but
+ * never including, its LAST player move. The player must always be left a move
+ * to make, or the attempt can never finish — the board waits in 'playing' for a
+ * move it has already played itself, and rejects everything the player tries.
+ *
+ * That was reachable in practice, not in theory: the shared-prefix credit in
+ * `knownProgressFor` gives a variation whose every move belongs to an
+ * already-solved sibling a `masteredPlies` equal to its own path length, and
+ * `masteredPlies` is exactly what auto-plays. Clamping here rather than at the
+ * progress layer is deliberate — the credit itself is correct (those moves ARE
+ * known), it just can't be allowed to swallow the move being tested.
+ *
+ * 0 for a path with no player move at all, which leaves such a path playing
+ * nothing automatically; it still cannot be completed, and is dropped from
+ * enumeration instead (see `enumerateVariations`).
+ */
+export function autoPlayCeiling(path: readonly VariationStep[]): number {
+	for (let i = path.length - 1; i >= 0; i--) {
+		if (path[i].isPlayerTurn) return i;
+	}
+	return 0;
+}
+
+/**
  * Derives what the NEXT attempt of this variation should look like, purely
  * from its two persisted counters — never from a stored "phase" — so a
  * corrupted or stale counter can't disagree with what's actually served. See

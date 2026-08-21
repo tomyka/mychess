@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { positionAt, playOpponentReplies } from './playback';
+import { positionAt, playOpponentReplies, playerMovesIn } from './playback';
 import type { VariationStep } from './variations';
 
 const step = (id: string, isPlayerTurn: boolean): VariationStep =>
@@ -48,5 +48,31 @@ describe('playOpponentReplies', () => {
 	it('plays out a trailing opponent-only run', () => {
 		const steps = [step('mine', true), step('opp', false)];
 		expect(playOpponentReplies(steps, 1, 'mine-to')).toEqual({ plyIdx: 2, fen: 'opp-to' });
+	});
+});
+
+describe('playerMovesIn', () => {
+	// The move-nav counter reads in the player's own moves, so an auto-played
+	// opponent reply must not advance it — the number would jump by two per tap
+	// and read as twice the line's real length.
+	const steps = [step('mine1', true), step('opp1', false), step('mine2', true), step('opp2', false)];
+
+	it('counts only the player\'s own moves', () => {
+		expect(playerMovesIn(steps, 0)).toBe(0);
+		expect(playerMovesIn(steps, 1)).toBe(1);
+		expect(playerMovesIn(steps, 2)).toBe(1); // opponent reply played, still one move in
+		expect(playerMovesIn(steps, 3)).toBe(2);
+		expect(playerMovesIn(steps, 4)).toBe(2); // trailing opponent reply doesn't count
+	});
+
+	it('handles an empty path and a ply count past the end', () => {
+		expect(playerMovesIn([], 3)).toBe(0);
+		expect(playerMovesIn(steps, 99)).toBe(2);
+	});
+
+	it('counts a line the opponent opens', () => {
+		const opensWithOpponent = [step('opp1', false), step('mine1', true)];
+		expect(playerMovesIn(opensWithOpponent, 1)).toBe(0);
+		expect(playerMovesIn(opensWithOpponent, 2)).toBe(1);
 	});
 });
