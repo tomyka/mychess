@@ -128,10 +128,13 @@
 		abortController?.abort();
 	});
 
+	// Standard chess annotation glyphs (Lichess/chess.com convention) rather
+	// than words — glued directly onto a move's SAN in the move list, the way
+	// "Qxd5??" is written anywhere else in chess.
 	function classificationLabel(c: AnalysisEntry['classification']): string {
-		if (c === 'blunder') return 'Blunder';
-		if (c === 'mistake') return 'Mistake';
-		if (c === 'inaccuracy') return 'Inaccuracy';
+		if (c === 'blunder') return '??';
+		if (c === 'mistake') return '?';
+		if (c === 'inaccuracy') return '?!';
 		return '';
 	}
 
@@ -278,12 +281,10 @@
 								? 'bg-(--color-accent)/10 font-semibold'
 								: 'hover:bg-(--color-border)/40'}"
 						>
-							{pair.white.move.san}
-							{#if whiteEntry?.classification}
-								<span class={classificationClass(whiteEntry.classification)}
-									>({classificationLabel(whiteEntry.classification)})</span
-								>
-							{/if}
+							{pair.white.move.san}{#if whiteEntry?.classification}<span
+									class={classificationClass(whiteEntry.classification)}
+									>{classificationLabel(whiteEntry.classification)}</span
+								>{/if}
 						</button>
 						{#if pair.black}
 							<button
@@ -292,12 +293,10 @@
 									? 'bg-(--color-accent)/10 font-semibold'
 									: 'hover:bg-(--color-border)/40'}"
 							>
-								{pair.black.move.san}
-								{#if blackEntry?.classification}
-									<span class={classificationClass(blackEntry.classification)}
-										>({classificationLabel(blackEntry.classification)})</span
-									>
-								{/if}
+								{pair.black.move.san}{#if blackEntry?.classification}<span
+										class={classificationClass(blackEntry.classification)}
+										>{classificationLabel(blackEntry.classification)}</span
+									>{/if}
 							</button>
 						{/if}
 					</li>

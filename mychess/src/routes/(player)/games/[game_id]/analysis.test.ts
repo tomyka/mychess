@@ -56,6 +56,40 @@ describe('analysis board page', () => {
 		expect(screen.getByText('e4', { exact: false })).toBeTruthy();
 	});
 
+	it('shows move classifications as chess annotation signs, not words', () => {
+		const flaggedGame = {
+			...threeMoveGame,
+			analysis: [
+				{ ply: 1, score: { cp: 30 }, bestMoveSan: 'e4', classification: null },
+				{ ply: 2, score: { cp: -180 }, bestMoveSan: 'Nc6', classification: 'blunder' },
+				{ ply: 3, score: { cp: 20 }, bestMoveSan: 'Nf3', classification: 'mistake' }
+			]
+		};
+		render(GamePage, { props: { data: { game: flaggedGame, boardPrefs: undefined } } });
+
+		// Glued directly to the move in the move list, standard chess notation —
+		// no "(Blunder)"/"(Mistake)" words, no parentheses.
+		expect(screen.getByRole('button', { name: 'e5??' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Nf3?' })).toBeTruthy();
+		expect(screen.queryByText(/Blunder|Mistake|Inaccuracy/)).toBeNull();
+	});
+
+	it('shows the classification sign in the reviewed-move eval line too', async () => {
+		const flaggedGame = {
+			...threeMoveGame,
+			analysis: [
+				{ ply: 1, score: { cp: 30 }, bestMoveSan: 'e4', classification: null },
+				{ ply: 2, score: { cp: -180 }, bestMoveSan: 'Nc6', classification: 'blunder' },
+				{ ply: 3, score: { cp: 20 }, bestMoveSan: 'Nf3', classification: null }
+			]
+		};
+		render(GamePage, { props: { data: { game: flaggedGame, boardPrefs: undefined } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'e5??' }));
+		expect(screen.getByText(/Eval:/).closest('p')?.textContent).toContain('??');
+		expect(screen.getByText(/Eval:/).closest('p')?.textContent).not.toContain('Blunder');
+	});
+
 	it("pairs White's and Black's moves for the same move number on one row, PGN-style", () => {
 		render(GamePage, { props: { data: { game: threeMoveGame, boardPrefs: undefined } } });
 
