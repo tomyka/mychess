@@ -64,8 +64,8 @@
 	const drillFen = $derived(isReviewing ? positionAt(steps, reviewIdx, boardFen) : boardFen);
 	// The explored position while off-book, the drill's own otherwise. The eval bar
 	// reads the same value, so it answers for whatever is actually on the board —
-	// and an off-book position has no precomputed eval, which is what makes the
-	// local engine spawn there and nowhere else (#126).
+	// and the bar only exists in explore mode with the engine switched on, so the
+	// local engine spawns there and nowhere else.
 	const displayFen = $derived(explore.active ? explore.fen : drillFen);
 	// Only while the drill is genuinely waiting for a move. `locked` covers both
 	// the correct-move hold and the 1.6s window after a wrong move, when the line

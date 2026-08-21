@@ -36,8 +36,8 @@ const WHITE = 'bg-[#f8f8f6]';
 const BLACK = 'bg-[#26262b]';
 
 describe('EvalBar', () => {
-	// Always visible: there is no preference to switch it off, and it must not
-	// vanish just because the engine hasn't answered (or can't).
+	// Once the bar is up it stays up: it must not vanish just because the engine
+	// hasn't answered (or can't).
 	it('still renders an even bar when the engine failed to load', () => {
 		engineState.failed = true;
 		const { container } = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
@@ -132,50 +132,9 @@ describe('EvalBar', () => {
 		expect((container.querySelector('[role="img"] span') as HTMLElement).textContent?.trim()).toBe('-1.4');
 	});
 
-	// #126: the drilling path shows a precomputed number and never spawns an
-	// engine. jsdom has no Worker, so an attempted spawn shows up as failed.
-	it('uses the precomputed eval, without needing the engine at all', () => {
-		const { container } = render(EvalBar, {
-			props: { fen: FEN, bookEval: { cp: 150 }, orientation: 'white', height: 400 }
-		});
-		expect((container.querySelector('[role="img"] span') as HTMLElement).textContent?.trim()).toBe('+1.5');
-		expect(engineState.failed).toBe(false); // never tried to spawn
-		expect(segments(container).map((s) => s.height)).toEqual(['35%', '65%']);
-	});
-
-	it('flips a precomputed eval with the board, like a live one', () => {
-		const { container } = render(EvalBar, {
-			props: { fen: FEN, bookEval: { cp: 150 }, orientation: 'black', height: 400 }
-		});
-		const [top, bottom] = segments(container);
-		expect(top.height).toBe('65%'); // White's share, now at the top
-		expect(bottom.height).toBe('35%');
-	});
-
-	// Explore mode's off-book positions have no stored eval, so the engine is
-	// what answers there — and its answer supersedes any stored one.
-	it('prefers a live score for the current position over the stored one', () => {
-		engineState.score = { cp: -80 };
-		engineState.searching = false;
-		const { container } = render(EvalBar, {
-			props: { fen: FEN, bookEval: { cp: 150 }, orientation: 'white', height: 400 }
-		});
-		expect((container.querySelector('[role="img"] span') as HTMLElement).textContent?.trim()).toBe('-0.8');
-	});
-
-	it('falls back to the stored eval while a live search is still running', () => {
-		engineState.score = { cp: -80 }; // the PREVIOUS position's answer
-		engineState.searching = true;
-		const { container } = render(EvalBar, {
-			props: { fen: FEN, bookEval: { cp: 150 }, orientation: 'white', height: 400 }
-		});
-		expect((container.querySelector('[role="img"] span') as HTMLElement).textContent?.trim()).toBe('+1.5');
-	});
-
-	it('shows a mate eval from the stored value', () => {
-		const { container } = render(EvalBar, {
-			props: { fen: FEN, bookEval: { mate: 3 }, orientation: 'white', height: 400 }
-		});
+	it('shows a mate score as M-and-a-number, with the bar fully filled', () => {
+		engineState.score = { mate: 3 };
+		const { container } = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
 		expect((container.querySelector('[role="img"] span') as HTMLElement).textContent?.trim()).toBe('M3');
 		expect(segments(container).map((s) => s.height)).toEqual(['0%', '100%']);
 	});
