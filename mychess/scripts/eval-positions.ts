@@ -34,6 +34,7 @@ async function main() {
 
 	let evaluated = 0;
 	let unscored = 0;
+	let skipped = 0;
 	try {
 		while (evaluated < limit) {
 			const { data: pending, error } = await supabase
@@ -43,8 +44,24 @@ async function main() {
 				.limit(Math.min(BATCH, limit - evaluated));
 			if (error) throw error;
 			if (!pending || pending.length === 0) break;
+			const before = evaluated + skipped;
 
 			for (const row of pending) {
+				// Re-check the row is still pending immediately before spending 400ms
+				// on it. Nothing claims rows, so two concurrent runs fetch overlapping
+				// batches (observed: two runs re-evaluating the same positions); a
+				// ~20ms read is a cheap way to stop the second one paying the search
+				// cost for work the first has already done.
+				const { data: fresh } = await supabase
+					.from('positions')
+					.select('eval_engine')
+					.eq('id', row.id)
+					.maybeSingle();
+				if (fresh?.eval_engine === ENGINE_ID) {
+					skipped++;
+					continue;
+				}
+
 				const score = await engine.evaluate(row.fen);
 				// A position with no legal moves has no score, and must still be
 				// stamped — otherwise the next run picks it up again forever.
@@ -61,13 +78,20 @@ async function main() {
 				if (writeError) throw writeError;
 				evaluated++;
 			}
-			console.log(`evaluated ${evaluated} (${unscored} with no legal moves)`);
+			console.log(
+				`evaluated ${evaluated} (${unscored} with no legal moves${skipped ? `, ${skipped} already done elsewhere` : ''})`
+			);
+			// A batch where nothing at all moved means the remaining rows are being
+			// handled by another run; stop rather than spinning on the same page.
+			if (evaluated + skipped === before) break;
 		}
 	} finally {
 		engine.stop();
 	}
 
-	console.log(`done: ${evaluated} positions evaluated, ${unscored} had no legal move`);
+	console.log(
+		`done: ${evaluated} positions evaluated, ${unscored} had no legal move, ${skipped} skipped as already current`
+	);
 }
 
 main().catch((err) => {
