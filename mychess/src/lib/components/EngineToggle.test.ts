@@ -4,11 +4,11 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import EngineToggle from './EngineToggle.svelte';
-import { engineEnabled } from '$lib/engine/engine.svelte';
+import { engineEnabled, setEngineEnabled } from '$lib/engine/engine.svelte';
 
 afterEach(() => {
 	cleanup();
-	engineEnabled.on = false;
+	setEngineEnabled(false);
 });
 
 describe('EngineToggle', () => {

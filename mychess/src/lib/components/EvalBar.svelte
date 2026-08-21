@@ -39,7 +39,10 @@
 		orientation?: 'white' | 'black';
 		// The board's own rendered size in px (it's square, so its width IS its
 		// height) — the bar matches it exactly rather than guessing from the
-		// viewport, since the board is height-constrained on desktop.
+		// viewport, since the board is height-constrained on desktop. There is no
+		// fallback for 0: the bar can only mount once explore is open, long after
+		// the board's `bind:boxWidth` has measured itself, so a real caller always
+		// has a number by then.
 		height?: number;
 	} = $props();
 
@@ -100,8 +103,8 @@
 </script>
 
 <div
-	class="relative w-8 shrink-0 self-start flex flex-col rounded-lg overflow-hidden border border-(--color-border)"
-	style={height ? `height: ${height}px` : 'align-self: stretch'}
+	class="relative w-8 shrink-0 flex flex-col rounded-lg overflow-hidden border border-(--color-border)"
+	style={`height: ${height}px`}
 	role="img"
 	aria-label={label}
 >

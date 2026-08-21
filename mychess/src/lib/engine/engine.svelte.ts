@@ -42,7 +42,7 @@ export const engineState = $state<{
 /**
  * Whether the player has switched the engine on. Off by default, and off again
  * on every reload: analysis is something you ask for in explore mode, not a
- * thing that quietly follows you into drilling (see the #126 follow-up spec).
+ * thing that quietly follows you into drilling (see #132).
  *
  * An object rather than an exported `let` because a module-scope `let` cannot be
  * exported reactively — consumers read `engineEnabled.on`.

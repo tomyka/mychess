@@ -56,7 +56,7 @@ afterEach(() => {
 	engineState.ready = false;
 	engineState.failed = false;
 	engineState.searching = false;
-	engineEnabled.on = false;
+	setEngineEnabled(false);
 });
 
 describe('EvalBar against a live worker', () => {
@@ -133,6 +133,27 @@ describe('EvalBar against a live worker', () => {
 
 		const second = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
 		expect(FakeWorker.instances.length).toBe(2);
+		second.unmount();
+	});
+
+	// "Switched on for this visit" is the whole feature: the flag lives in the
+	// module and the worker does not, so closing explore is allowed to cost the
+	// ~7MB worker but must never cost the decision. If unmounting the bar quietly
+	// switched the engine back off, re-opening explore — or walking from Learn to
+	// Practice — would silently need the toggle pressed again.
+	it('keeps the engine switched on across the bar unmounting, so it comes back on its own', () => {
+		vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
+		setEngineEnabled(true);
+		const first = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
+		handshake(FakeWorker.instances[0]);
+
+		first.unmount();
+		expect(FakeWorker.instances[0].terminated).toBe(true);
+		expect(engineEnabled.on).toBe(true);
+
+		const second = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
+		expect(FakeWorker.instances.length).toBe(2);
+		expect(FakeWorker.instances[1].terminated).toBe(false);
 		second.unmount();
 	});
 
