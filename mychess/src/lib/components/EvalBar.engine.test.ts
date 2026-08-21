@@ -9,7 +9,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import EvalBar from './EvalBar.svelte';
-import { engineState } from '$lib/engine/engine.svelte';
+import { engineState, engineEnabled, setEngineEnabled } from '$lib/engine/engine.svelte';
 
 const FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const NEXT_FEN = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1';
@@ -56,6 +56,7 @@ afterEach(() => {
 	engineState.ready = false;
 	engineState.failed = false;
 	engineState.searching = false;
+	engineEnabled.on = false;
 });
 
 describe('EvalBar against a live worker', () => {
@@ -133,5 +134,27 @@ describe('EvalBar against a live worker', () => {
 		const second = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
 		expect(FakeWorker.instances.length).toBe(2);
 		second.unmount();
+	});
+
+	// The engine is now something the player switches on in explore mode, so
+	// switching it off has to actually stop the worker — not just hide the bar.
+	it('quits and terminates the worker when the engine is switched off', () => {
+		vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
+		const { unmount } = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
+		const worker = FakeWorker.instances[0];
+		handshake(worker);
+		worker.emit('info depth 12 multipv 1 score cp 35 nodes 1 nps 1 time 1 pv e2e4');
+		flushSync();
+		expect(engineState.score).not.toBeNull();
+
+		setEngineEnabled(false);
+		expect(worker.sent).toContain('quit');
+		expect(worker.terminated).toBe(true);
+		expect(engineState.score).toBeNull();
+		expect(engineEnabled.on).toBe(false);
+
+		setEngineEnabled(true);
+		expect(engineEnabled.on).toBe(true);
+		unmount();
 	});
 });

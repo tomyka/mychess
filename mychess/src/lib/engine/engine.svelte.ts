@@ -38,6 +38,26 @@ export const engineState = $state<{
 	searching: false
 });
 
+/**
+ * Whether the player has switched the engine on. Off by default, and off again
+ * on every reload: analysis is something you ask for in explore mode, not a
+ * thing that quietly follows you into drilling (see the #126 follow-up spec).
+ *
+ * An object rather than an exported `let` because a module-scope `let` cannot be
+ * exported reactively — consumers read `engineEnabled.on`.
+ *
+ * Module-level, so it outlives any one component: closing explore unmounts the
+ * bar (and with it the worker), but re-opening explore in the same visit — or
+ * moving between Learn and Practice — finds the engine already switched on.
+ */
+export const engineEnabled = $state<{ on: boolean }>({ on: false });
+
+/** Switches the engine on or off; off stops the worker rather than just hiding it. */
+export function setEngineEnabled(on: boolean) {
+	engineEnabled.on = on;
+	if (!on) teardownEngine();
+}
+
 let worker: Worker | null = null;
 let handshakeTimeout: ReturnType<typeof setTimeout> | undefined;
 // Plain (non-reactive) — only ever read/written by the request functions, and
