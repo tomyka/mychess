@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 // mychess/src/routes/(player)/practice/[repertoire_id]/pool.test.ts
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/svelte';
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, cleanup } from "@testing-library/svelte";
 
-vi.mock('$lib/sounds', () => ({ playCorrect: vi.fn(), playWrong: vi.fn() }));
+vi.mock("$lib/sounds", () => ({ playCorrect: vi.fn(), playWrong: vi.fn() }));
 
 // Same harness as the Learn page's tests: chessground itself is replaced by a
 // shell that remembers the config ChessBoard hands it, and `playMove` invokes
@@ -12,248 +12,341 @@ vi.mock('$lib/sounds', () => ({ playCorrect: vi.fn(), playWrong: vi.fn() }));
 // state machine are the real thing.
 const cgMock = vi.hoisted(() => ({ boards: [] as { config: any }[] }));
 
-vi.mock('chessground', () => ({
-	Chessground: (_node: HTMLElement, config: any) => {
-		const entry = { config };
-		cgMock.boards.push(entry);
-		return {
-			set: (cfg: any) => {
-				entry.config = { ...entry.config, ...cfg };
-			},
-			destroy: () => {}
-		};
-	}
+vi.mock("chessground", () => ({
+  Chessground: (_node: HTMLElement, config: any) => {
+    const entry = { config };
+    cgMock.boards.push(entry);
+    return {
+      set: (cfg: any) => {
+        entry.config = { ...entry.config, ...cfg };
+      },
+      destroy: () => {},
+    };
+  },
 }));
 
-import Practice from './+page.svelte';
+import Practice from "./+page.svelte";
 
 function playMove(from: string, to: string) {
-	cgMock.boards[cgMock.boards.length - 1].config.movable.events.after(from, to);
+  cgMock.boards[cgMock.boards.length - 1].config.movable.events.after(from, to);
 }
 
-const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-const AFTER_E4 = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1';
-const AFTER_E5 = 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2';
-const AFTER_NF3 = 'rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2';
+const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+const AFTER_E4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1";
+const AFTER_E5 = "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2";
+const AFTER_NF3 =
+  "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2";
 
 /** 1.e4 e5 2.Nf3 — two player moves with an opponent reply between them. */
 const STEPS = [
-	{ moveId: 'm1', san: 'e4', fromFen: START, toFen: AFTER_E4, isPlayerTurn: true },
-	{ moveId: 'm2', san: 'e5', fromFen: AFTER_E4, toFen: AFTER_E5, isPlayerTurn: false },
-	{ moveId: 'm3', san: 'Nf3', fromFen: AFTER_E5, toFen: AFTER_NF3, isPlayerTurn: true }
+  {
+    moveId: "m1",
+    san: "e4",
+    fromFen: START,
+    toFen: AFTER_E4,
+    isPlayerTurn: true,
+  },
+  {
+    moveId: "m2",
+    san: "e5",
+    fromFen: AFTER_E4,
+    toFen: AFTER_E5,
+    isPlayerTurn: false,
+  },
+  {
+    moveId: "m3",
+    san: "Nf3",
+    fromFen: AFTER_E5,
+    toFen: AFTER_NF3,
+    isPlayerTurn: true,
+  },
 ];
 
 function poolData(overrides: Record<string, unknown> = {}) {
-	return {
-		repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
-		queue: [
-			{ variationKey: 'v1', path: STEPS, chapterNames: ['Chapter 1'] },
-			{ variationKey: 'v2', path: STEPS, chapterNames: [] }
-		],
-		learnedCount: 2,
-		stillLearningCount: 3,
-		total: 5,
-		...overrides
-	};
+  return {
+    repertoire: { id: "r1", name: "French Defense", color: "white" },
+    queue: [
+      { variationKey: "v1", path: STEPS, chapterNames: ["Chapter 1"] },
+      { variationKey: "v2", path: STEPS, chapterNames: [] },
+    ],
+    learnedCount: 2,
+    stillLearningCount: 3,
+    total: 5,
+    ...overrides,
+  };
 }
 
 let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
-	cgMock.boards.length = 0;
-	fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ demoted: true }) });
-	vi.stubGlobal('fetch', fetchMock);
-	vi.useFakeTimers();
+  cgMock.boards.length = 0;
+  fetchMock = vi
+    .fn()
+    .mockResolvedValue({ ok: true, json: async () => ({ demoted: true }) });
+  vi.stubGlobal("fetch", fetchMock);
+  vi.useFakeTimers();
 });
 
 afterEach(() => {
-	cleanup();
-	vi.useRealTimers();
-	vi.unstubAllGlobals();
+  cleanup();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 const outcomes = () =>
-	fetchMock.mock.calls
-		.filter((c) => String(c[0]).includes('/api/practice/pool-attempt'))
-		.map((c) => JSON.parse((c[1] as any).body));
+  fetchMock.mock.calls
+    .filter((c) => String(c[0]).includes("/api/practice/pool-attempt"))
+    .map((c) => JSON.parse((c[1] as any).body));
 
-describe('practice pool page', () => {
-	it('locks the pool and points at Learn when nothing is learned yet', () => {
-		render(Practice, { props: { data: poolData({ queue: [], learnedCount: 0 }) } });
-		expect(screen.getByText(/Nothing learned yet/i)).toBeTruthy();
-		expect(screen.getByText('Go to Learn')).toBeTruthy();
-	});
+describe("practice pool page", () => {
+  it("locks the pool and points at Learn when nothing is learned yet", () => {
+    render(Practice, {
+      props: { data: poolData({ queue: [], learnedCount: 0 }) },
+    });
+    expect(screen.getByText(/Nothing learned yet/i)).toBeTruthy();
+    expect(screen.getByText("Go to Learn")).toBeTruthy();
+  });
 
-	// The server gates the queue on WHOLE chapters (see fullyLearnedChapters),
-	// so some lines can be learned with nothing yet available to practice —
-	// a distinct state from "nothing learned yet" (learnedCount === 0 above).
-	it('shows a different locked state when lines are learned but no whole chapter is finished', () => {
-		render(Practice, { props: { data: poolData({ queue: [], learnedCount: 2 }) } });
-		expect(screen.queryByText(/Nothing learned yet/i)).toBeNull();
-		expect(screen.getByText(/Finish a chapter to unlock Practice/i)).toBeTruthy();
-		expect(screen.getByText(/2 lines are learned/i)).toBeTruthy();
-		expect(screen.getByText('Go to Learn')).toBeTruthy();
-	});
+  // The server gates the queue on WHOLE chapters (see fullyLearnedChapters),
+  // so some lines can be learned with nothing yet available to practice —
+  // a distinct state from "nothing learned yet" (learnedCount === 0 above).
+  it("shows a different locked state when lines are learned but no whole chapter is finished", () => {
+    render(Practice, {
+      props: { data: poolData({ queue: [], learnedCount: 2 }) },
+    });
+    expect(screen.queryByText(/Nothing learned yet/i)).toBeNull();
+    expect(
+      screen.getByText(/Finish a chapter to unlock Practice/i),
+    ).toBeTruthy();
+    expect(screen.getByText(/2 lines are learned/i)).toBeTruthy();
+    expect(screen.getByText("Go to Learn")).toBeTruthy();
+  });
 
-	// #103: exactly one session row per visit, however many lines are played.
-	it('flags only the first reported outcome as the start of a session', async () => {
-		render(Practice, { props: { data: poolData() } });
+  // #103: exactly one session row per visit, however many lines are played.
+  it("flags only the first reported outcome as the start of a session", async () => {
+    render(Practice, { props: { data: poolData() } });
 
-		playMove('d2', 'd4');
-		await vi.advanceTimersByTimeAsync(1700);
-		playMove('d2', 'd4');
-		await vi.advanceTimersByTimeAsync(0);
+    playMove("d2", "d4");
+    await vi.advanceTimersByTimeAsync(1700);
+    playMove("d2", "d4");
+    await vi.advanceTimersByTimeAsync(0);
 
-		expect(outcomes().map((o) => o.sessionStart)).toEqual([true, false]);
-	});
+    expect(outcomes().map((o) => o.sessionStart)).toEqual([true, false]);
+  });
 
-	it("shows the queue position and the current line's chapter", () => {
-		render(Practice, { props: { data: poolData() } });
-		expect(screen.getByText('Line 1 of 2')).toBeTruthy();
-		expect(screen.getByText('Chapter 1')).toBeTruthy();
-	});
+  it("shows the queue position and the current line's chapter", () => {
+    render(Practice, { props: { data: poolData() } });
+    expect(screen.getByText("Line 1 of 2")).toBeTruthy();
+    expect(screen.getByText("Chapter 1")).toBeTruthy();
+  });
 
-	it('never draws a teaching arrow — Practice is unaided by definition', () => {
-		render(Practice, { props: { data: poolData() } });
-		const shapes = cgMock.boards[cgMock.boards.length - 1].config.drawable?.autoShapes ?? [];
-		expect(shapes.filter((s: any) => s.orig && s.dest)).toEqual([]);
-	});
+  it("never draws a teaching arrow — Practice is unaided by definition", () => {
+    render(Practice, { props: { data: poolData() } });
+    const shapes =
+      cgMock.boards[cgMock.boards.length - 1].config.drawable?.autoShapes ?? [];
+    expect(shapes.filter((s: any) => s.orig && s.dest)).toEqual([]);
+  });
 
-	it('reports a clean run exactly once and moves on to the next line', async () => {
-		render(Practice, { props: { data: poolData() } });
+  it("reports a clean run exactly once and moves on to the next line", async () => {
+    render(Practice, { props: { data: poolData() } });
 
-		playMove('e2', 'e4');
-		await vi.advanceTimersByTimeAsync(500);
-		playMove('g1', 'f3');
-		await vi.advanceTimersByTimeAsync(500);
+    playMove("e2", "e4");
+    await vi.advanceTimersByTimeAsync(500);
+    playMove("g1", "f3");
+    await vi.advanceTimersByTimeAsync(500);
 
-		expect(outcomes()).toMatchObject([{ repertoireId: 'r1', variationKey: 'v1', outcome: 'clean' }]);
+    expect(outcomes()).toMatchObject([
+      { repertoireId: "r1", variationKey: "v1", outcome: "clean" },
+    ]);
 
-		await vi.advanceTimersByTimeAsync(800);
-		expect(screen.getByText('Line 2 of 2')).toBeTruthy();
-	});
+    await vi.advanceTimersByTimeAsync(800);
+    expect(screen.getByText("Line 2 of 2")).toBeTruthy();
+  });
 
-	it('demotes on a wrong move and refuses a retry of the same line', async () => {
-		render(Practice, { props: { data: poolData() } });
+  it("demotes on a wrong move and refuses a retry of the same line", async () => {
+    render(Practice, { props: { data: poolData() } });
 
-		playMove('d2', 'd4');
-		await vi.advanceTimersByTimeAsync(0);
+    playMove("d2", "d4");
+    await vi.advanceTimersByTimeAsync(0);
 
-		expect(outcomes()).toMatchObject([{ repertoireId: 'r1', variationKey: 'v1', outcome: 'mistake' }]);
-		expect(screen.getByRole('status').textContent).toMatch(/Back to Learn/i);
+    expect(outcomes()).toMatchObject([
+      { repertoireId: "r1", variationKey: "v1", outcome: "mistake" },
+    ]);
+    expect(screen.getByRole("status").textContent).toMatch(/Back to Learn/i);
 
-		// A second wrong move must not report a second demotion.
-		playMove('c2', 'c4');
-		await vi.advanceTimersByTimeAsync(0);
-		expect(outcomes()).toHaveLength(1);
+    // A second wrong move must not report a second demotion.
+    playMove("c2", "c4");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(outcomes()).toHaveLength(1);
 
-		await vi.advanceTimersByTimeAsync(1700);
-		expect(screen.getByText('Line 2 of 2')).toBeTruthy();
-	});
+    await vi.advanceTimersByTimeAsync(1700);
+    expect(screen.getByText("Line 2 of 2")).toBeTruthy();
+  });
 
-	it('demotes the moment a hint is taken, not when the line ends', async () => {
-		render(Practice, { props: { data: poolData() } });
-		await fireEvent.click(screen.getByText(/Show hint/i));
+  it("demotes the moment a hint is taken, not when the line ends", async () => {
+    render(Practice, { props: { data: poolData() } });
+    await fireEvent.click(screen.getByText(/Show hint/i));
 
-		expect(outcomes()).toMatchObject([{ repertoireId: 'r1', variationKey: 'v1', outcome: 'hint' }]);
-		expect(screen.getByRole('status').textContent).toMatch(/Back to Learn/i);
-	});
+    expect(outcomes()).toMatchObject([
+      { repertoireId: "r1", variationKey: "v1", outcome: "hint" },
+    ]);
+    expect(screen.getByRole("status").textContent).toMatch(/Back to Learn/i);
+  });
 
-	it('keeps the demotion notice up while a hinted line is played out, and reports nothing more', async () => {
-		render(Practice, { props: { data: poolData() } });
+  it("keeps the demotion notice up while a hinted line is played out, and reports nothing more", async () => {
+    render(Practice, { props: { data: poolData() } });
 
-		await fireEvent.click(screen.getByText(/Show hint/i));
-		playMove('e2', 'e4');
-		await vi.advanceTimersByTimeAsync(500);
+    await fireEvent.click(screen.getByText(/Show hint/i));
+    playMove("e2", "e4");
+    await vi.advanceTimersByTimeAsync(500);
 
-		// Not "Correct" — that would suggest the pass still counted.
-		expect(screen.getByRole('status').textContent).toMatch(/Back to Learn/i);
-		expect(screen.getByRole('status').textContent).not.toMatch(/Correct/i);
-		playMove('g1', 'f3');
-		await vi.advanceTimersByTimeAsync(500);
-		expect(outcomes()).toHaveLength(1);
-	});
+    // Not "Correct" — that would suggest the pass still counted.
+    expect(screen.getByRole("status").textContent).toMatch(/Back to Learn/i);
+    expect(screen.getByRole("status").textContent).not.toMatch(/Correct/i);
+    playMove("g1", "f3");
+    await vi.advanceTimersByTimeAsync(500);
+    expect(outcomes()).toHaveLength(1);
+  });
 
-	it('summarises the session once the queue is exhausted', async () => {
-		render(Practice, {
-			props: { data: poolData({ queue: [{ variationKey: 'v1', path: STEPS, chapterNames: [] }] }) }
-		});
+  it("summarises the session once the queue is exhausted", async () => {
+    render(Practice, {
+      props: {
+        data: poolData({
+          queue: [{ variationKey: "v1", path: STEPS, chapterNames: [] }],
+        }),
+      },
+    });
 
-		playMove('d2', 'd4');
-		await vi.advanceTimersByTimeAsync(1700);
+    playMove("d2", "d4");
+    await vi.advanceTimersByTimeAsync(1700);
 
-		expect(screen.getByText(/Session complete/i)).toBeTruthy();
-		expect(screen.getByText(/1 went back to Learn/i)).toBeTruthy();
-		expect(screen.getByText(/Re-learn that line/i)).toBeTruthy();
-	});
+    expect(screen.getByText(/Session complete/i)).toBeTruthy();
+    expect(screen.getByText(/1 went back to Learn/i)).toBeTruthy();
+    expect(screen.getByText(/Re-learn that line/i)).toBeTruthy();
+  });
 
-	// #125 on Practice. The stake is higher here than on Learn: a wrong move
-	// demotes the line and reports it, so an excursion that leaked into the drill
-	// would cost the player a learned variation.
-	describe('explore mode', () => {
-		it('accepts an off-book move without demoting the line, and comes back unchanged', async () => {
-			render(Practice, { props: { data: poolData() } });
-			const fenBefore = cgMock.boards[cgMock.boards.length - 1].config.fen;
+  // #125 on Practice. The stake is higher here than on Learn: a wrong move
+  // demotes the line and reports it, so an excursion that leaked into the drill
+  // would cost the player a learned variation.
+  describe("explore mode", () => {
+    it("accepts an off-book move without demoting the line, and comes back unchanged", async () => {
+      render(Practice, { props: { data: poolData() } });
+      const fenBefore = cgMock.boards[cgMock.boards.length - 1].config.fen;
 
-			await fireEvent.click(screen.getByText(/Explore this position/i));
-			expect(screen.getByText(/Exploring — nothing counts here/i)).toBeTruthy();
+      await fireEvent.click(screen.getByText(/Explore this position/i));
+      expect(screen.getByText(/Exploring — nothing counts here/i)).toBeTruthy();
 
-			// Nc3 is legal but is NOT the book move (e4) — in the drill this would
-			// demote the line and POST an outcome.
-			playMove('b1', 'c3');
-			await vi.advanceTimersByTimeAsync(0);
-			// Nothing at all: no outcome reported, and not even a move logged, since
-			// the excursion never reaches the drill's handler.
-			expect(fetchMock).not.toHaveBeenCalled();
-			expect(screen.queryByText(/needs teaching again/i)).toBeNull();
+      // Nc3 is legal but is NOT the book move (e4) — in the drill this would
+      // demote the line and POST an outcome.
+      playMove("b1", "c3");
+      await vi.advanceTimersByTimeAsync(0);
+      // Nothing at all: no outcome reported, and not even a move logged, since
+      // the excursion never reaches the drill's handler.
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(screen.queryByText(/needs teaching again/i)).toBeNull();
 
-			await fireEvent.click(screen.getByText(/Back to the line/i));
-			expect(screen.queryByText(/Exploring/i)).toBeNull();
-			expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(fenBefore);
+      await fireEvent.click(screen.getByText(/Back to the line/i));
+      expect(screen.queryByText(/Exploring/i)).toBeNull();
+      expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(
+        fenBefore,
+      );
 
-			// The drill still works, on the same board: the book move passes.
-			// The drill still works, on the same board: the book move is accepted and
-			// logged (logMove posts too, which is why the assertions below name the
-			// OUTCOME endpoint rather than counting fetches).
-			playMove('e2', 'e4');
-			await vi.advanceTimersByTimeAsync(450);
-			expect(screen.queryByText(/needs teaching again/i)).toBeNull();
-			expect(fetchMock.mock.calls.some(([url]) => String(url).includes('pool-attempt'))).toBe(false);
-			expect(
-				fetchMock.mock.calls.some(([, init]) => String(init?.body).includes('"playedSan":"e4"'))
-			).toBe(true);
-		});
+      // The drill still works, on the same board: the book move passes.
+      // The drill still works, on the same board: the book move is accepted and
+      // logged (logMove posts too, which is why the assertions below name the
+      // OUTCOME endpoint rather than counting fetches).
+      playMove("e2", "e4");
+      await vi.advanceTimersByTimeAsync(450);
+      expect(screen.queryByText(/needs teaching again/i)).toBeNull();
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).includes("pool-attempt"),
+        ),
+      ).toBe(false);
+      expect(
+        fetchMock.mock.calls.some(([, init]) =>
+          String(init?.body).includes('"playedSan":"e4"'),
+        ),
+      ).toBe(true);
+    });
 
-		it('restores the status message that was up before the excursion', async () => {
-			render(Practice, { props: { data: poolData() } });
-			expect(screen.getByText('Play it from memory')).toBeTruthy();
+    it("restores the status message that was up before the excursion", async () => {
+      render(Practice, { props: { data: poolData() } });
+      expect(screen.getByText("Play it from memory")).toBeTruthy();
 
-			await fireEvent.click(screen.getByText(/Explore this position/i));
-			expect(screen.queryByText('Play it from memory')).toBeNull();
+      await fireEvent.click(screen.getByText(/Explore this position/i));
+      expect(screen.queryByText("Play it from memory")).toBeNull();
 
-			await fireEvent.click(screen.getByText(/Back to the line/i));
-			expect(screen.getByText('Play it from memory')).toBeTruthy();
-		});
+      await fireEvent.click(screen.getByText(/Back to the line/i));
+      expect(screen.getByText("Play it from memory")).toBeTruthy();
+    });
 
-		it('takes the hint button out of reach while off-book, since a hint demotes', async () => {
-			render(Practice, { props: { data: poolData() } });
-			expect((screen.getByText(/Show hint/i) as HTMLButtonElement).disabled).toBe(false);
+    it("takes the hint button out of reach while off-book, since a hint demotes", async () => {
+      render(Practice, { props: { data: poolData() } });
+      expect(
+        (screen.getByText(/Show hint/i) as HTMLButtonElement).disabled,
+      ).toBe(false);
 
-			await fireEvent.click(screen.getByText(/Explore this position/i));
-			expect((screen.getByText(/Show hint/i) as HTMLButtonElement).disabled).toBe(true);
+      await fireEvent.click(screen.getByText(/Explore this position/i));
+      expect(
+        (screen.getByText(/Show hint/i) as HTMLButtonElement).disabled,
+      ).toBe(true);
 
-			await fireEvent.click(screen.getByText(/Back to the line/i));
-			expect((screen.getByText(/Show hint/i) as HTMLButtonElement).disabled).toBe(false);
-		});
+      await fireEvent.click(screen.getByText(/Back to the line/i));
+      expect(
+        (screen.getByText(/Show hint/i) as HTMLButtonElement).disabled,
+      ).toBe(false);
+    });
 
-		// A demoted line is already gone and about to be replaced, so there is no
-		// position worth exploring — and an excursion would be interrupted anyway.
-		it('is not offered while a demoted line is being cleared', async () => {
-			render(Practice, { props: { data: poolData() } });
-			playMove('b1', 'c3'); // wrong: demotes v1
-			await vi.advanceTimersByTimeAsync(0);
-			expect(screen.getByText(/needs teaching again/i)).toBeTruthy();
-			expect(screen.queryByText(/Explore this position/i)).toBeNull();
-		});
-	});
+    // #131: the plain "explore this position" offer is gone on a demoted line —
+    // "see why" takes its place, because the line is finished and the excursion
+    // ends by moving on rather than going back.
+    it('offers "see why" instead of the usual explore entry on a demoted line', async () => {
+      render(Practice, { props: { data: poolData() } });
+      playMove("b1", "c3"); // wrong: demotes v1
+      await vi.advanceTimersByTimeAsync(0);
+      expect(screen.getByText(/needs teaching again/i)).toBeTruthy();
+      expect(screen.queryByText(/Explore this position/i)).toBeNull();
+      expect(screen.getByText(/See why/i)).toBeTruthy();
+    });
+
+    it("holds the failed line on screen while the player looks around, then moves on", async () => {
+      render(Practice, { props: { data: poolData() } });
+      expect(screen.getByText("Line 1 of 2")).toBeTruthy();
+
+      playMove("b1", "c3"); // wrong: demotes v1, and schedules the 1.6s advance
+      await vi.advanceTimersByTimeAsync(0);
+      await fireEvent.click(screen.getByText(/See why/i));
+
+      // The advance must NOT fire while the excursion is open.
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(screen.getByText(/Exploring — nothing counts here/i)).toBeTruthy();
+      expect(screen.getByText("Line 1 of 2")).toBeTruthy();
+
+      // The exit says where it goes, and goes there exactly once.
+      expect(screen.queryByText(/Back to the line/i)).toBeNull();
+      await fireEvent.click(screen.getByText(/Next line/i));
+      expect(screen.getByText("Line 2 of 2")).toBeTruthy();
+
+      // No second advance from the timer that was cancelled on the way in.
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(screen.getByText("Line 2 of 2")).toBeTruthy();
+    });
+
+    it("reports the demotion once, whether or not the player explores it", async () => {
+      render(Practice, { props: { data: poolData() } });
+      playMove("b1", "c3");
+      await vi.advanceTimersByTimeAsync(0);
+      expect(outcomes()).toMatchObject([
+        { variationKey: "v1", outcome: "mistake" },
+      ]);
+
+      await fireEvent.click(screen.getByText(/See why/i));
+      playMove("e7", "e5"); // a legal move for the other side, on the scratch board
+      await vi.advanceTimersByTimeAsync(0);
+      await fireEvent.click(screen.getByText(/Next line/i));
+
+      expect(outcomes()).toHaveLength(1);
+    });
+  });
 });

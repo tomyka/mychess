@@ -44,6 +44,13 @@
 	// than on Learn, where a stray mistake only costs a clean pass. In Practice it
 	// would demote the line.
 	const explore = new ExploreSession();
+	// True when the excursion was opened FROM a demoted line (#131): the line is
+	// already reported and finished, so leaving the excursion moves on to the next
+	// one instead of returning to a board that was about to disappear.
+	let exploringDemoted = $state(false);
+	// The position a wrong move produced, kept aside so "see why" can open on the
+	// consequence rather than on the question. Never applied to the board.
+	let mistakeFen = $state<string | null>(null);
 
 	const current = $derived(queue[queueIdx] ?? null);
 	const steps = $derived(current?.path ?? []);
@@ -85,6 +92,9 @@
 
 	function startCurrent() {
 		clearTimeout(advanceTimeout);
+		explore.stop();
+		exploringDemoted = false;
+		mistakeFen = null;
 		plyIdx = 0;
 		manualReviewIdx = null;
 		locked = false;
@@ -140,7 +150,23 @@
 
 	function startExplore() {
 		if (!canExplore) return;
+		exploringDemoted = false;
 		explore.start(drillFen);
+	}
+
+	/**
+	 * Explore a line that has just been failed (#131). The wrong move is already
+	 * on the board here, which is the whole point — the player wants to see what
+	 * it does, and Practice deliberately never shows them the right move.
+	 *
+	 * Cancels the pending advance so the position stays put. The outcome was
+	 * reported at the moment of the mistake, so nothing about the record changes.
+	 */
+	function exploreDemoted() {
+		clearTimeout(advanceTimeout);
+		advanceTimeout = undefined;
+		exploringDemoted = true;
+		explore.start(mistakeFen ?? boardFen);
 	}
 
 	/**
@@ -149,7 +175,17 @@
 	 * so whatever message was up comes back on its own.
 	 */
 	function stopExplore() {
+		const wasDemoted = exploringDemoted;
+		exploringDemoted = false;
 		explore.stop();
+		// The demoted line is finished — its outcome is already recorded — so the
+		// only place to go is the next one. Advanced directly rather than by
+		// re-arming the timer, so this can't double-advance with a timer that was
+		// cancelled on the way in.
+		if (wasDemoted) {
+			queueIdx++;
+			startCurrent();
+		}
 	}
 
 	/**
@@ -196,6 +232,18 @@
 
 		playWrong();
 		logMove(data.repertoire?.id, step.moveId, detail.san, false);
+		// Remembered, NOT applied to the board: `boardFen` staying on the position
+		// the player was asked about is what lets ChessBoard hold the wrong move
+		// under its red X and then snap back, and what keeps a second attempt
+		// reaching handleMove to be ignored. This is only where a "see why"
+		// excursion should open from.
+		try {
+			const board = new Chess(step.fromFen);
+			board.move({ from: detail.from, to: detail.to, promotion: 'q' });
+			mistakeFen = board.fen();
+		} catch {
+			mistakeFen = null;
+		}
 		// Practice is a test: a wrong move ends the line rather than letting the
 		// player retry it. The variation goes back to Learn, where it will be
 		// re-taught with arrows — which is also why the correct move is still not
@@ -401,7 +449,7 @@
 							onclick={stopExplore}
 							class="py-2 rounded-xl border border-amber-300 bg-amber-50 text-sm font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
 						>
-							↩ Back to the line
+							{exploringDemoted ? '→ Next line' : '↩ Back to the line'}
 						</button>
 					</div>
 				{:else}
@@ -424,6 +472,19 @@
 								class="inline-flex items-center gap-1.5 text-sm font-medium text-(--color-muted) hover:text-(--color-text)"
 							>
 								<span aria-hidden="true">🔍</span> Explore this position
+							</button>
+						</p>
+					{:else if strip === 'demoted' && current}
+						<!-- The one moment a player most wants to look around, and the one
+						     the drill was about to take away 1.6s later (#131). Taking it
+						     cancels that advance; the outcome is already reported either
+						     way, so nothing about the record changes. -->
+						<p class="text-center mt-2 shrink-0">
+							<button
+								onclick={exploreDemoted}
+								class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 dark:text-amber-300 hover:underline"
+							>
+								<span aria-hidden="true">🔍</span> See why
 							</button>
 						</p>
 					{/if}
