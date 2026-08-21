@@ -22,7 +22,7 @@
 	let analysisStatus = $state<'pending' | 'done'>(game.analysis_status);
 	let analyzing = $state(false);
 	let analyzeError = $state('');
-	let progress = $state({ done: 0, total: moves.length });
+	let progress = $state({ done: 0, total: moves.length + 1 });
 
 	const displayFen = $derived(reviewIdx === 0 ? rootFen : moves[reviewIdx - 1].fen);
 
@@ -54,7 +54,7 @@
 	async function startAnalysis() {
 		analyzing = true;
 		analyzeError = '';
-		progress = { done: 0, total: moves.length };
+		progress = { done: 0, total: moves.length + 1 };
 		const fens = [rootFen, ...moves.map((m) => m.fen)];
 		try {
 			const results = await analyzeGame(fens, {
