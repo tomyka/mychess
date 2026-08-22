@@ -17,6 +17,7 @@
 		type ReviewDecisions,
 		type ReviewPreview
 	} from '$lib/components/RepertoireDiffReview.svelte';
+	import { m } from '$lib/paraglide/messages';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -69,30 +70,29 @@
 			chapters = plan.map((chapter) => ({ name: multi ? chapter.name : null, moves: chapter.moves }));
 		};
 		reader.onerror = () => {
-			fileError = 'Could not read that file — try exporting the study again.';
+			fileError = m.coach_repertoire_update_file_read_error();
 		};
 		reader.readAsText(file);
 	}
 </script>
 
 <svelte:head>
-	<title>Update {data.repertoire.name} — MyChess</title>
+	<title>{m.seo_coach_repertoire_update_title({ name: data.repertoire.name })}</title>
 </svelte:head>
 
 <main class="min-h-screen bg-(--color-bg)">
 	<div class="mx-auto max-w-6xl px-4 py-6">
 		{#if applied}
 			<div class="rounded-xl border border-(--color-border) bg-(--color-surface) p-6 text-center shadow-sm">
-				<h1 class="text-xl font-bold text-(--color-text)">Update applied</h1>
+				<h1 class="text-xl font-bold text-(--color-text)">{m.coach_repertoire_update_applied_heading()}</h1>
 				<p class="mx-auto mt-2 max-w-prose text-sm text-(--color-muted)">
-					“{data.repertoire.name}” now matches {fileName}. Each student's progress will be carried forward on
-					their next visit, and they will see what changed.
+					{m.coach_repertoire_update_applied_body({ name: data.repertoire.name, fileName })}
 				</p>
 				<a
 					href={repertoiresHref}
 					class="mt-4 inline-block rounded-xl bg-(--color-accent) px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-(--color-accent-hover) focus:bg-(--color-accent-hover) focus:outline-2 focus:outline-offset-2 focus:outline-(--color-accent)"
 				>
-					Back to repertoires
+					{m.coach_repertoire_update_back_link()}
 				</a>
 			</div>
 		{:else if preview}
@@ -122,9 +122,9 @@
 						if (result.type === 'failure') {
 							// Shown verbatim: the 409 tells the coach to reload, and
 							// rewording it would lose the instruction.
-							applyError = String((result.data as { error?: string } | undefined)?.error ?? 'Could not apply the update.');
+							applyError = String((result.data as { error?: string } | undefined)?.error ?? m.coach_repertoire_update_apply_error_fallback());
 						} else if (result.type === 'error') {
-							applyError = result.error?.message ?? 'Could not apply the update.';
+							applyError = result.error?.message ?? m.coach_repertoire_update_apply_error_fallback();
 						}
 					};
 				}}
@@ -150,12 +150,9 @@
 				/>
 			</form>
 		{:else}
-			<h1 class="text-2xl font-bold text-(--color-text)">Update “{data.repertoire.name}” from a file</h1>
+			<h1 class="text-2xl font-bold text-(--color-text)">{m.coach_repertoire_update_heading({ name: data.repertoire.name })}</h1>
 			<p class="mt-1 max-w-prose text-sm text-(--color-muted)">
-				Upload the revised study. Nothing is written until you have read the review and pressed Apply, and
-				{data.assignedStudentCount}
-				{data.assignedStudentCount === 1 ? 'student' : 'students'} assigned to this repertoire will keep the depth
-				they have already earned.
+				{m.coach_repertoire_update_intro({ count: data.assignedStudentCount })}
 			</p>
 
 			<form
@@ -170,10 +167,10 @@
 							preview = result.data as unknown as ReviewPreview;
 						} else if (result.type === 'failure') {
 							previewError = String(
-								(result.data as { error?: string } | undefined)?.error ?? 'Could not read that file.'
+								(result.data as { error?: string } | undefined)?.error ?? m.coach_repertoire_update_preview_error_fallback()
 							);
 						} else if (result.type === 'error') {
-							previewError = result.error?.message ?? 'Could not read that file.';
+							previewError = result.error?.message ?? m.coach_repertoire_update_preview_error_fallback();
 						}
 					};
 				}}
@@ -181,7 +178,7 @@
 			>
 				<div>
 					<label class="mb-1 block text-sm font-medium text-(--color-text)" for="pgn_file">
-						Revised .pgn file
+						{m.coach_repertoire_update_file_label()}
 					</label>
 					<div class="flex items-center gap-3">
 						<label
@@ -204,7 +201,7 @@
 								<polyline points="17 8 12 3 7 8" />
 								<line x1="12" y1="3" x2="12" y2="15" />
 							</svg>
-							Choose File
+							{m.coach_repertoire_update_choose_file_button()}
 						</label>
 						<input
 							id="pgn_file"
@@ -225,8 +222,7 @@
 
 				{#if chapters.length > 0}
 					<p class="text-sm text-(--color-muted)">
-						<span class="tabular-nums font-semibold text-(--color-text)">{chapters.length}</span>
-						{chapters.length === 1 ? 'chapter' : 'chapters'} read from this file.
+						{m.coach_repertoire_update_chapters_read({ count: chapters.length })}
 					</p>
 				{/if}
 
@@ -244,14 +240,14 @@
 						href={repertoiresHref}
 						class="rounded-xl border border-(--color-border) px-4 py-2 text-sm font-semibold text-(--color-muted) transition-colors hover:border-(--color-accent) hover:text-(--color-text) focus:border-(--color-accent) focus:text-(--color-text) focus:outline-2 focus:outline-offset-2 focus:outline-(--color-accent)"
 					>
-						Cancel
+						{m.coach_repertoire_update_cancel_link()}
 					</a>
 					<button
 						type="submit"
 						disabled={previewing || chapters.length === 0}
 						class="rounded-xl bg-(--color-accent) px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-(--color-accent-hover) focus:bg-(--color-accent-hover) focus:outline-2 focus:outline-offset-2 focus:outline-(--color-accent) disabled:cursor-not-allowed disabled:opacity-60"
 					>
-						{previewing ? 'Reading…' : 'Review changes'}
+						{previewing ? m.coach_repertoire_update_reading_button() : m.coach_repertoire_update_review_button()}
 					</button>
 				</div>
 			</form>

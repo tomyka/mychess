@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { m } from '$lib/paraglide/messages';
+
   let { data } = $props<{ data: any }>();
   const profile = $derived(data.profile as any);
   const players = $derived<any[]>(data.players ?? []);
@@ -6,26 +8,26 @@
 </script>
 
 <svelte:head>
-  <title>Coach Dashboard — MyChess</title>
+  <title>{m.seo_coach_dashboard_title()}</title>
 </svelte:head>
 
 <main class="min-h-screen bg-(--color-bg)">
   <div class="max-w-2xl mx-auto px-4 py-6">
     <div class="flex items-center justify-between mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-(--color-text)">Coach Dashboard</h1>
-        <p class="text-(--color-muted) text-sm">Welcome back, {profile?.display_name ?? 'Coach'}</p>
+        <h1 class="text-2xl font-bold text-(--color-text)">{m.coach_dashboard_heading()}</h1>
+        <p class="text-(--color-muted) text-sm">{m.coach_dashboard_welcome({ name: profile?.display_name ?? m.coach_dashboard_coach_fallback_name() })}</p>
       </div>
       <a href="/coach/invite"
          class="bg-(--color-accent) text-white px-5 py-2.5 rounded-lg font-medium hover:bg-(--color-accent-hover) transition-colors">
-        + Invite Player
+        {m.coach_dashboard_invite_player_button()}
       </a>
     </div>
 
     {#if pendingCount > 0}
       <a href="/coach/students"
          class="block mb-6 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 hover:bg-amber-100 transition-colors dark:bg-amber-950 dark:border-amber-800 dark:text-amber-400">
-        You have {pendingCount} pending student {pendingCount === 1 ? 'request' : 'requests'} — review them →
+        {m.coach_dashboard_pending_students_banner({ count: pendingCount })}
       </a>
     {/if}
 
@@ -33,26 +35,26 @@
       <a href="/coach/students"
          class="bg-(--color-surface) border border-(--color-border) rounded-xl p-5 hover:shadow-md transition-shadow">
         <p class="text-2xl mb-2">👥</p>
-        <p class="font-semibold text-(--color-text)">Find Players</p>
-        <p class="text-sm text-(--color-muted)">Browse and request students</p>
+        <p class="font-semibold text-(--color-text)">{m.coach_dashboard_find_players_heading()}</p>
+        <p class="text-sm text-(--color-muted)">{m.coach_dashboard_find_players_subtitle()}</p>
       </a>
       <a href="/coach/invite"
          class="bg-(--color-surface) border border-(--color-border) rounded-xl p-5 hover:shadow-md transition-shadow">
         <p class="text-2xl mb-2">🔗</p>
-        <p class="font-semibold text-(--color-text)">Invite Links</p>
-        <p class="text-sm text-(--color-muted)">Invite students to join</p>
+        <p class="font-semibold text-(--color-text)">{m.coach_dashboard_invite_links_heading()}</p>
+        <p class="text-sm text-(--color-muted)">{m.coach_dashboard_invite_links_subtitle()}</p>
       </a>
       <a href="/coach/reports"
          class="bg-(--color-surface) border border-(--color-border) rounded-xl p-5 hover:shadow-md transition-shadow">
         <p class="text-2xl mb-2">📊</p>
-        <p class="font-semibold text-(--color-text)">Practice Reports</p>
-        <p class="text-sm text-(--color-muted)">See how students are practicing</p>
+        <p class="font-semibold text-(--color-text)">{m.coach_dashboard_reports_heading()}</p>
+        <p class="text-sm text-(--color-muted)">{m.coach_dashboard_reports_subtitle()}</p>
       </a>
     </div>
 
     {#if players.length > 0}
       <section class="bg-(--color-surface) border border-(--color-border) rounded-xl shadow-sm p-5">
-        <h2 class="font-semibold text-(--color-text) mb-4">Your Players ({players.length})</h2>
+        <h2 class="font-semibold text-(--color-text) mb-4">{m.coach_dashboard_your_players_heading({ count: players.length })}</h2>
         <ul class="space-y-1">
           {#each players as player (player.id)}
             <li>
@@ -71,8 +73,8 @@
     {:else}
       <div class="bg-(--color-surface) border border-(--color-border) rounded-xl p-8 text-center text-(--color-muted)">
         <p class="text-4xl mb-3">👤</p>
-        <p class="font-medium text-(--color-muted)">No players yet</p>
-        <p class="text-sm mt-1">Use Invite Links to add your first student.</p>
+        <p class="font-medium text-(--color-muted)">{m.coach_dashboard_no_players_heading()}</p>
+        <p class="text-sm mt-1">{m.coach_dashboard_no_players_subtitle()}</p>
       </div>
     {/if}
   </div>

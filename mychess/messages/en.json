@@ -844,5 +844,205 @@
 	"games_analyze_save_failed_error": "Could not save analysis",
 	"games_retry_button": "Retry",
 	"games_moves_heading": "Moves",
-	"games_jump_to_move": "Jump to move {move}"
+	"games_jump_to_move": "Jump to move {move}",
+	"seo_coach_dashboard_title": "Coach Dashboard — MyChess",
+	"coach_dashboard_heading": "Coach Dashboard",
+	"coach_dashboard_welcome": "Welcome back, {name}",
+	"coach_dashboard_coach_fallback_name": "Coach",
+	"coach_dashboard_invite_player_button": "+ Invite Player",
+	"coach_dashboard_pending_students_banner": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "You have {count} pending student request — review them →",
+				"countPlural=other": "You have {count} pending student requests — review them →"
+			}
+		}
+	],
+	"coach_dashboard_find_players_heading": "Find Players",
+	"coach_dashboard_find_players_subtitle": "Browse and request students",
+	"coach_dashboard_invite_links_heading": "Invite Links",
+	"coach_dashboard_invite_links_subtitle": "Invite students to join",
+	"coach_dashboard_reports_heading": "Practice Reports",
+	"coach_dashboard_reports_subtitle": "See how students are practicing",
+	"coach_dashboard_your_players_heading": "Your Players ({count})",
+	"coach_dashboard_no_players_heading": "No players yet",
+	"coach_dashboard_no_players_subtitle": "Use Invite Links to add your first student.",
+	"seo_coach_invite_title": "Invite Player — MyChess",
+	"coach_back_to_dashboard_link": "← Back to Dashboard",
+	"coach_invite_heading": "Invite a Player",
+	"coach_invite_generate_button": "Generate Invite Link",
+	"coach_invite_share_label": "Share this link:",
+	"coach_invite_copy_button": "Copy Link",
+	"coach_invite_past_heading": "Past Invites",
+	"coach_invite_none_yet": "No invites yet.",
+	"coach_invite_status_redeemed": "Redeemed",
+	"coach_invite_status_expired": "Expired",
+	"coach_invite_status_pending": "Pending",
+	"seo_coach_pgn_title": "Upload Repertoire — MyChess",
+	"coach_pgn_heading": "Upload Repertoire",
+	"coach_pgn_submit_label": "Upload Repertoire",
+	"seo_coach_reports_title": "Practice Reports — MyChess",
+	"coach_reports_heading": "Practice Reports",
+	"coach_reports_subtitle": "Last 30 days · across all repertoires",
+	"coach_reports_no_students": "No students yet",
+	"coach_reports_stat_accuracy": "Accuracy",
+	"coach_reports_stat_sessions": "Sessions",
+	"coach_reports_stat_avg_solved": "Avg solved",
+	"coach_reports_stat_last_practiced": "Last practiced",
+	"seo_coach_students_title": "Find Players — MyChess",
+	"coach_students_heading": "Students",
+	"coach_students_active_heading": "Active",
+	"coach_students_no_active": "No students yet.",
+	"coach_students_remove_button": "Remove",
+	"coach_students_pending_heading": "Pending",
+	"coach_students_no_pending": "No pending requests.",
+	"coach_students_requested_awaiting": "Requested — awaiting response",
+	"coach_students_cancel_button": "Cancel",
+	"coach_students_accept_button": "Accept",
+	"coach_students_decline_button": "Decline",
+	"coach_students_find_heading": "Find a Player",
+	"coach_students_search_placeholder": "Search by name…",
+	"coach_students_search_button": "Search",
+	"coach_students_find_error": "Error loading players: {error}",
+	"coach_students_none_found": "No players found.",
+	"coach_students_request_button": "Request",
+	"seo_coach_repertoires_title": "Repertoires — MyChess",
+	"coach_repertoires_heading": "Repertoires",
+	"coach_repertoires_upload_button": "+ Upload PGN",
+	"coach_repertoires_confirm_delete": "Delete \"{name}\"? This can't be undone, and it will also remove it from any student it's assigned to.",
+	"coach_repertoires_filter_all": "All",
+	"coach_repertoires_filter_white": "White",
+	"coach_repertoires_filter_black": "Black",
+	"coach_repertoires_none_yet_heading": "No repertoires yet",
+	"coach_repertoires_none_yet_subtitle": "Upload a PGN to build your library, then assign it to students.",
+	"coach_repertoires_filter_none_all": "all",
+	"coach_repertoires_filter_none_white": "white",
+	"coach_repertoires_filter_none_black": "black",
+	"coach_repertoires_none_for_filter": "No {filterLabel} repertoires",
+	"coach_repertoires_move_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} move",
+				"countPlural=other": "{count} moves"
+			}
+		}
+	],
+	"coach_repertoires_unclassified": "Unclassified",
+	"coach_repertoires_change_button": "change",
+	"coach_repertoires_assign_title": "Assign to players",
+	"coach_repertoires_update_link": "Update from file",
+	"coach_repertoires_update_title": "Re-upload a revised PGN over this repertoire",
+	"coach_repertoires_delete_button": "Delete",
+	"coach_repertoires_assigned_to": "Assigned to: {names}",
+	"coach_repertoires_not_assigned": "Not assigned to anyone yet",
+	"coach_repertoires_close_label": "Close",
+	"coach_repertoires_no_active_students": "You don't have any active students yet.",
+	"coach_repertoires_unassign_button": "Remove",
+	"coach_repertoires_assign_button": "Assign",
+	"seo_coach_repertoire_update_title": "Update {name} — MyChess",
+	"coach_repertoire_update_applied_heading": "Update applied",
+	"coach_repertoire_update_applied_body": "“{name}” now matches {fileName}. Each student's progress will be carried forward on their next visit, and they will see what changed.",
+	"coach_repertoire_update_back_link": "Back to repertoires",
+	"coach_repertoire_update_apply_error_fallback": "Could not apply the update.",
+	"coach_repertoire_update_heading": "Update “{name}” from a file",
+	"coach_repertoire_update_intro": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Upload the revised study. Nothing is written until you have read the review and pressed Apply, and {count} student assigned to this repertoire will keep the depth they have already earned.",
+				"countPlural=other": "Upload the revised study. Nothing is written until you have read the review and pressed Apply, and {count} students assigned to this repertoire will keep the depth they have already earned."
+			}
+		}
+	],
+	"coach_repertoire_update_preview_error_fallback": "Could not read that file.",
+	"coach_repertoire_update_file_label": "Revised .pgn file",
+	"coach_repertoire_update_choose_file_button": "Choose File",
+	"coach_repertoire_update_file_read_error": "Could not read that file — try exporting the study again.",
+	"coach_repertoire_update_chapters_read": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} chapter read from this file.",
+				"countPlural=other": "{count} chapters read from this file."
+			}
+		}
+	],
+	"coach_repertoire_update_cancel_link": "Cancel",
+	"coach_repertoire_update_reading_button": "Reading…",
+	"coach_repertoire_update_review_button": "Review changes",
+	"seo_coach_player_title": "{name} — MyChess",
+	"coach_player_fallback_name": "Student",
+	"coach_player_stats_heading": "Stats",
+	"coach_player_stat_reviews": "Reviews",
+	"coach_player_stat_moves_learned": "Moves learned",
+	"coach_player_repertoires_heading": "Repertoires",
+	"coach_player_assign_reps_label": "Assign repertoires",
+	"coach_player_no_reps_prefix": "You haven't uploaded any repertoires yet.",
+	"coach_player_no_reps_upload_link": "Upload one",
+	"coach_player_no_reps_suffix": "first.",
+	"coach_player_no_assigned": "Nothing assigned yet.",
+	"coach_player_practice_report_heading": "Practice Report",
+	"coach_player_range_30d": "30d",
+	"coach_player_range_all_time": "All time",
+	"coach_player_scope_note": "This repertoire only",
+	"coach_player_no_reps_assigned_yet": "No repertoires assigned yet.",
+	"coach_player_progress_learned": "{solved}/{total} learned",
+	"coach_player_progress_no_moves": "no moves yet",
+	"coach_player_status_learned": "Learned",
+	"coach_player_status_learning": "Learning",
+	"coach_player_chapters_mastered": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} chapter mastered",
+				"countPlural=other": "{count} chapters mastered"
+			}
+		}
+	],
+	"coach_player_chapters_stale": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} needing re-mastery after new material",
+				"countPlural=other": "{count} needing re-mastery after new material"
+			}
+		}
+	],
+	"coach_player_demotions": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} line sent back to Learn",
+				"countPlural=other": "{count} lines sent back to Learn"
+			}
+		}
+	],
+	"coach_player_no_activity": "No practice activity in this range.",
+	"coach_player_stat_sessions": "Sessions",
+	"coach_player_stat_streak": "Day streak",
+	"coach_player_stat_last_practiced": "Last practiced",
+	"coach_player_accuracy_chart_aria": "Accuracy over time for {name}",
+	"coach_player_accuracy_point_title": "{bucket}: {correct}/{total} correct",
+	"coach_player_accuracy_point_sr": "{bucket}: {correct} of {total} correct.",
+	"coach_player_legend_correct": "Correct",
+	"coach_player_legend_wrong": "Wrong",
+	"coach_player_hotspots_heading": "Mistake hotspots",
+	"coach_player_hotspot_line": "{label} — wrong {missCount}/{attemptCount}",
+	"coach_player_notes_heading": "Notes",
+	"coach_player_note_placeholder": "Leave a note for this student…",
+	"coach_player_add_note_button": "Add",
+	"coach_player_no_notes": "No notes yet.",
+	"coach_player_modal_heading": "Repertoires for {name}",
+	"coach_player_modal_close_label": "Close",
+	"coach_player_unassign_button": "Remove",
+	"coach_player_assign_button": "Assign"
 }

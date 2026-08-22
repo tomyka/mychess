@@ -922,5 +922,219 @@
 	"games_analyze_save_failed_error": "Nepavyko išsaugoti analizės",
 	"games_retry_button": "Bandyti iš naujo",
 	"games_moves_heading": "Ėjimai",
-	"games_jump_to_move": "Peršokti į {move} ėjimą"
+	"games_jump_to_move": "Peršokti į {move} ėjimą",
+	"seo_coach_dashboard_title": "Trenerio skydelis — MyChess",
+	"coach_dashboard_heading": "Trenerio skydelis",
+	"coach_dashboard_welcome": "Sveiki sugrįžę, {name}",
+	"coach_dashboard_coach_fallback_name": "Trenerį",
+	"coach_dashboard_invite_player_button": "+ Pakviesti žaidėją",
+	"coach_dashboard_pending_students_banner": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Turite {count} laukiantį mokinio prašymą — peržiūrėkite juos →",
+				"countPlural=few": "Turite {count} laukiančius mokinio prašymus — peržiūrėkite juos →",
+				"countPlural=many": "Turite {count} laukiančių mokinio prašymų — peržiūrėkite juos →",
+				"countPlural=other": "Turite {count} laukiančių mokinio prašymų — peržiūrėkite juos →"
+			}
+		}
+	],
+	"coach_dashboard_find_players_heading": "Rasti žaidėjus",
+	"coach_dashboard_find_players_subtitle": "Naršykite ir pakvieskite mokinius",
+	"coach_dashboard_invite_links_heading": "Kvietimo nuorodos",
+	"coach_dashboard_invite_links_subtitle": "Pakvieskite mokinius prisijungti",
+	"coach_dashboard_reports_heading": "Praktikos ataskaitos",
+	"coach_dashboard_reports_subtitle": "Sužinokite, kaip mokiniai praktikuojasi",
+	"coach_dashboard_your_players_heading": "Jūsų žaidėjai ({count})",
+	"coach_dashboard_no_players_heading": "Kol kas nėra žaidėjų",
+	"coach_dashboard_no_players_subtitle": "Naudokite kvietimo nuorodas, kad pridėtumėte pirmą mokinį.",
+	"seo_coach_invite_title": "Pakviesti žaidėją — MyChess",
+	"coach_back_to_dashboard_link": "← Atgal į skydelį",
+	"coach_invite_heading": "Pakviesti žaidėją",
+	"coach_invite_generate_button": "Generuoti kvietimo nuorodą",
+	"coach_invite_share_label": "Pasidalinkite šia nuoroda:",
+	"coach_invite_copy_button": "Kopijuoti nuorodą",
+	"coach_invite_past_heading": "Ankstesni kvietimai",
+	"coach_invite_none_yet": "Kvietimų kol kas nėra.",
+	"coach_invite_status_redeemed": "Panaudotas",
+	"coach_invite_status_expired": "Baigęs galiojimą",
+	"coach_invite_status_pending": "Laukiantis",
+	"seo_coach_pgn_title": "Įkelti repertuarą — MyChess",
+	"coach_pgn_heading": "Įkelti repertuarą",
+	"coach_pgn_submit_label": "Įkelti repertuarą",
+	"seo_coach_reports_title": "Praktikos ataskaitos — MyChess",
+	"coach_reports_heading": "Praktikos ataskaitos",
+	"coach_reports_subtitle": "Paskutinės 30 dienų · visuose repertuaruose",
+	"coach_reports_no_students": "Kol kas nėra mokinių",
+	"coach_reports_stat_accuracy": "Tikslumas",
+	"coach_reports_stat_sessions": "Sesijos",
+	"coach_reports_stat_avg_solved": "Vid. išspręsta",
+	"coach_reports_stat_last_practiced": "Paskutinė praktika",
+	"seo_coach_students_title": "Rasti žaidėjus — MyChess",
+	"coach_students_heading": "Mokiniai",
+	"coach_students_active_heading": "Aktyvūs",
+	"coach_students_no_active": "Kol kas nėra mokinių.",
+	"coach_students_remove_button": "Pašalinti",
+	"coach_students_pending_heading": "Laukiantys",
+	"coach_students_no_pending": "Nėra laukiančių prašymų.",
+	"coach_students_requested_awaiting": "Užklausta — laukiama atsakymo",
+	"coach_students_cancel_button": "Atšaukti",
+	"coach_students_accept_button": "Priimti",
+	"coach_students_decline_button": "Atmesti",
+	"coach_students_find_heading": "Rasti žaidėją",
+	"coach_students_search_placeholder": "Ieškoti pagal vardą…",
+	"coach_students_search_button": "Ieškoti",
+	"coach_students_find_error": "Nepavyko įkelti žaidėjų: {error}",
+	"coach_students_none_found": "Žaidėjų nerasta.",
+	"coach_students_request_button": "Siųsti užklausą",
+	"seo_coach_repertoires_title": "Repertuarai — MyChess",
+	"coach_repertoires_heading": "Repertuarai",
+	"coach_repertoires_upload_button": "+ Įkelti PGN",
+	"coach_repertoires_confirm_delete": "Ištrinti „{name}“? Šio veiksmo negalima atšaukti, jis taip pat pašalins repertuarą iš visų mokinių, kuriems jis priskirtas.",
+	"coach_repertoires_filter_all": "Visi",
+	"coach_repertoires_filter_white": "Balta",
+	"coach_repertoires_filter_black": "Juoda",
+	"coach_repertoires_none_yet_heading": "Kol kas nėra repertuarų",
+	"coach_repertoires_none_yet_subtitle": "Įkelkite PGN, kad sukurtumėte biblioteką, tada priskirkite jį mokiniams.",
+	"coach_repertoires_filter_none_all": "visų",
+	"coach_repertoires_filter_none_white": "baltų",
+	"coach_repertoires_filter_none_black": "juodų",
+	"coach_repertoires_none_for_filter": "Nėra {filterLabel} repertuarų",
+	"coach_repertoires_move_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} ėjimas",
+				"countPlural=few": "{count} ėjimai",
+				"countPlural=many": "{count} ėjimų",
+				"countPlural=other": "{count} ėjimų"
+			}
+		}
+	],
+	"coach_repertoires_unclassified": "Nepriskirta",
+	"coach_repertoires_change_button": "keisti",
+	"coach_repertoires_assign_title": "Priskirti žaidėjams",
+	"coach_repertoires_update_link": "Atnaujinti iš failo",
+	"coach_repertoires_update_title": "Iš naujo įkelti pataisytą PGN šiam repertuarui",
+	"coach_repertoires_delete_button": "Ištrinti",
+	"coach_repertoires_assigned_to": "Priskirta: {names}",
+	"coach_repertoires_not_assigned": "Kol kas niekam nepriskirta",
+	"coach_repertoires_close_label": "Uždaryti",
+	"coach_repertoires_no_active_students": "Kol kas neturite aktyvių mokinių.",
+	"coach_repertoires_unassign_button": "Pašalinti",
+	"coach_repertoires_assign_button": "Priskirti",
+	"seo_coach_repertoire_update_title": "Atnaujinti {name} — MyChess",
+	"coach_repertoire_update_applied_heading": "Atnaujinimas pritaikytas",
+	"coach_repertoire_update_applied_body": "„{name}“ dabar atitinka {fileName}. Kiekvieno mokinio progresas bus perkeltas per kitą jo apsilankymą, ir jie pamatys, kas pasikeitė.",
+	"coach_repertoire_update_back_link": "Atgal į repertuarus",
+	"coach_repertoire_update_apply_error_fallback": "Nepavyko pritaikyti atnaujinimo.",
+	"coach_repertoire_update_heading": "Atnaujinti „{name}“ iš failo",
+	"coach_repertoire_update_intro": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Įkelkite atnaujintą studiją. Kol neperžiūrėsite pakeitimų ir nepaspausite „Taikyti“, nieko neįrašoma, o {count} šiam repertuarui priskirtas mokinys išlaikys jau pasiektą gilumą.",
+				"countPlural=few": "Įkelkite atnaujintą studiją. Kol neperžiūrėsite pakeitimų ir nepaspausite „Taikyti“, nieko neįrašoma, o {count} šiam repertuarui priskirti mokiniai išlaikys jau pasiektą gilumą.",
+				"countPlural=many": "Įkelkite atnaujintą studiją. Kol neperžiūrėsite pakeitimų ir nepaspausite „Taikyti“, nieko neįrašoma, o {count} šiam repertuarui priskirtų mokinių išlaikys jau pasiektą gilumą.",
+				"countPlural=other": "Įkelkite atnaujintą studiją. Kol neperžiūrėsite pakeitimų ir nepaspausite „Taikyti“, nieko neįrašoma, o {count} šiam repertuarui priskirtų mokinių išlaikys jau pasiektą gilumą."
+			}
+		}
+	],
+	"coach_repertoire_update_preview_error_fallback": "Nepavyko nuskaityti failo.",
+	"coach_repertoire_update_file_label": "Pataisytas .pgn failas",
+	"coach_repertoire_update_choose_file_button": "Pasirinkti failą",
+	"coach_repertoire_update_file_read_error": "Nepavyko nuskaityti failo — pabandykite dar kartą eksportuoti studiją.",
+	"coach_repertoire_update_chapters_read": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Iš šio failo nuskaitytas {count} skyrius.",
+				"countPlural=few": "Iš šio failo nuskaityti {count} skyriai.",
+				"countPlural=many": "Iš šio failo nuskaityta {count} skyrių.",
+				"countPlural=other": "Iš šio failo nuskaityta {count} skyrių."
+			}
+		}
+	],
+	"coach_repertoire_update_cancel_link": "Atšaukti",
+	"coach_repertoire_update_reading_button": "Skaitoma…",
+	"coach_repertoire_update_review_button": "Peržiūrėti pakeitimus",
+	"seo_coach_player_title": "{name} — MyChess",
+	"coach_player_fallback_name": "Mokinys",
+	"coach_player_stats_heading": "Statistika",
+	"coach_player_stat_reviews": "Kartojimai",
+	"coach_player_stat_moves_learned": "Išmokti ėjimai",
+	"coach_player_repertoires_heading": "Repertuarai",
+	"coach_player_assign_reps_label": "Priskirti repertuarus",
+	"coach_player_no_reps_prefix": "Kol kas neįkėlėte nė vieno repertuaro.",
+	"coach_player_no_reps_upload_link": "Įkelkite vieną",
+	"coach_player_no_reps_suffix": "pirmiausia.",
+	"coach_player_no_assigned": "Kol kas nieko nepriskirta.",
+	"coach_player_practice_report_heading": "Praktikos ataskaita",
+	"coach_player_range_30d": "30 d.",
+	"coach_player_range_all_time": "Visą laiką",
+	"coach_player_scope_note": "Tik šis repertuaras",
+	"coach_player_no_reps_assigned_yet": "Kol kas nepriskirta jokių repertuarų.",
+	"coach_player_progress_learned": "{solved}/{total} išmokta",
+	"coach_player_progress_no_moves": "kol kas nėra ėjimų",
+	"coach_player_status_learned": "Išmokta",
+	"coach_player_status_learning": "Mokomasi",
+	"coach_player_chapters_mastered": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} skyrius įvaldytas",
+				"countPlural=few": "{count} skyriai įvaldyti",
+				"countPlural=many": "{count} skyrių įvaldyta",
+				"countPlural=other": "{count} skyrių įvaldyta"
+			}
+		}
+	],
+	"coach_player_chapters_stale": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} skyrius reikalauja pakartotinio įvaldymo dėl naujos medžiagos",
+				"countPlural=few": "{count} skyriai reikalauja pakartotinio įvaldymo dėl naujos medžiagos",
+				"countPlural=many": "{count} skyrių reikalauja pakartotinio įvaldymo dėl naujos medžiagos",
+				"countPlural=other": "{count} skyrių reikalauja pakartotinio įvaldymo dėl naujos medžiagos"
+			}
+		}
+	],
+	"coach_player_demotions": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} variantas atgal į Mokytis",
+				"countPlural=few": "{count} variantai atgal į Mokytis",
+				"countPlural=many": "{count} variantų atgal į Mokytis",
+				"countPlural=other": "{count} variantų atgal į Mokytis"
+			}
+		}
+	],
+	"coach_player_no_activity": "Šiuo laikotarpiu praktikos veiklos nėra.",
+	"coach_player_stat_sessions": "Sesijos",
+	"coach_player_stat_streak": "Dienų iš eilės",
+	"coach_player_stat_last_practiced": "Paskutinė praktika",
+	"coach_player_accuracy_chart_aria": "Tikslumas laike repertuarui {name}",
+	"coach_player_accuracy_point_title": "{bucket}: {correct}/{total} teisingai",
+	"coach_player_accuracy_point_sr": "{bucket}: {correct} iš {total} teisingai.",
+	"coach_player_legend_correct": "Teisingai",
+	"coach_player_legend_wrong": "Neteisingai",
+	"coach_player_hotspots_heading": "Klaidų vietos",
+	"coach_player_hotspot_line": "{label} — neteisingai {missCount}/{attemptCount}",
+	"coach_player_notes_heading": "Pastabos",
+	"coach_player_note_placeholder": "Palikite pastabą šiam mokiniui…",
+	"coach_player_add_note_button": "Pridėti",
+	"coach_player_no_notes": "Kol kas nėra pastabų.",
+	"coach_player_modal_heading": "Repertuarai, skirti {name}",
+	"coach_player_modal_close_label": "Uždaryti",
+	"coach_player_unassign_button": "Pašalinti",
+	"coach_player_assign_button": "Priskirti"
 }

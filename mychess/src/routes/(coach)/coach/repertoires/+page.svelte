@@ -1,11 +1,19 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import OpeningPicker from '$lib/components/OpeningPicker.svelte';
+  import { m } from '$lib/paraglide/messages';
 
   let { data, form } = $props<{ data: { repertoires: any[]; players: any[] }; form: any }>();
   let filter = $state<'all' | 'white' | 'black'>('all');
   const filtered = $derived(
     filter === 'all' ? data.repertoires : data.repertoires.filter((r: any) => r.color === filter)
+  );
+  const filterNoneLabel = $derived(
+    filter === 'white'
+      ? m.coach_repertoires_filter_none_white()
+      : filter === 'black'
+        ? m.coach_repertoires_filter_none_black()
+        : m.coach_repertoires_filter_none_all()
   );
 
   let assignModalRepId = $state<string | null>(null);
@@ -16,23 +24,23 @@
   let openingModalRepId = $state<string | null>(null);
 
   function confirmDelete(e: SubmitEvent, name: string) {
-    if (!confirm(`Delete "${name}"? This can't be undone, and it will also remove it from any student it's assigned to.`)) {
+    if (!confirm(m.coach_repertoires_confirm_delete({ name }))) {
       e.preventDefault();
     }
   }
 </script>
 
 <svelte:head>
-  <title>Repertoires — MyChess</title>
+  <title>{m.seo_coach_repertoires_title()}</title>
 </svelte:head>
 
 <main class="min-h-screen bg-(--color-bg)">
   <div class="max-w-2xl mx-auto px-4 py-6">
     <div class="flex items-center justify-between mb-4">
-      <h1 class="text-2xl font-bold text-(--color-text)">Repertoires</h1>
+      <h1 class="text-2xl font-bold text-(--color-text)">{m.coach_repertoires_heading()}</h1>
       <a href="/coach/pgn"
          class="text-sm bg-(--color-accent) text-white px-4 py-2 rounded-lg font-medium hover:bg-(--color-accent-hover) transition-colors">
-        + Upload PGN
+        {m.coach_repertoires_upload_button()}
       </a>
     </div>
 
@@ -42,7 +50,7 @@
 
     {#if data.repertoires.length > 0}
       <div class="flex gap-2 mb-4">
-        {#each [{ id: 'all', label: 'All' }, { id: 'white', label: 'White' }, { id: 'black', label: 'Black' }] as const as t (t.id)}
+        {#each [{ id: 'all', label: m.coach_repertoires_filter_all() }, { id: 'white', label: m.coach_repertoires_filter_white() }, { id: 'black', label: m.coach_repertoires_filter_black() }] as const as t (t.id)}
           <button
             type="button"
             onclick={() => (filter = t.id)}
@@ -58,13 +66,13 @@
     {#if data.repertoires.length === 0}
       <div class="text-center py-16 text-(--color-muted)">
         <p class="text-4xl mb-4">📚</p>
-        <p class="font-semibold text-lg text-(--color-muted)">No repertoires yet</p>
-        <p class="text-sm mt-1">Upload a PGN to build your library, then assign it to students.</p>
+        <p class="font-semibold text-lg text-(--color-muted)">{m.coach_repertoires_none_yet_heading()}</p>
+        <p class="text-sm mt-1">{m.coach_repertoires_none_yet_subtitle()}</p>
       </div>
     {:else if filtered.length === 0}
       <div class="text-center py-16 text-(--color-muted)">
         <p class="text-4xl mb-4">📚</p>
-        <p class="font-semibold text-lg text-(--color-muted)">No {filter} repertoires</p>
+        <p class="font-semibold text-lg text-(--color-muted)">{m.coach_repertoires_none_for_filter({ filterLabel: filterNoneLabel })}</p>
       </div>
     {:else}
       <ul class="space-y-2">
@@ -74,45 +82,45 @@
               <span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color ?? '#4f46e5'}"></span>
               <div class="flex-1 min-w-0">
                 <h2 class="font-medium text-(--color-text) truncate">{rep.name}</h2>
-                <p class="text-sm text-(--color-muted)">{rep.moves?.[0]?.count ?? 0} moves</p>
+                <p class="text-sm text-(--color-muted)">{m.coach_repertoires_move_count({ count: rep.moves?.[0]?.count ?? 0 })}</p>
                 <p class="text-xs mt-0.5">
                   {#if rep.eco_code}
                     <span class="text-(--color-accent) font-medium">{rep.eco_code}</span>
                     <span class="text-(--color-muted)"> — {rep.eco_name}</span>
                   {:else}
-                    <span class="text-(--color-muted)">Unclassified</span>
+                    <span class="text-(--color-muted)">{m.coach_repertoires_unclassified()}</span>
                   {/if}
                   <button type="button" onclick={() => (openingModalRepId = rep.id)}
                           class="text-(--color-muted) hover:text-indigo-600 hover:underline ml-1">
-                    change
+                    {m.coach_repertoires_change_button()}
                   </button>
                 </p>
               </div>
               <button
                 type="button"
                 onclick={() => (assignModalRepId = rep.id)}
-                title="Assign to players"
+                title={m.coach_repertoires_assign_title()}
                 class="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-indigo-50 text-(--color-accent) hover:bg-indigo-100 transition-colors font-bold dark:bg-indigo-950"
               >
                 +
               </button>
               <a href="/coach/repertoires/{rep.id}/update"
-                 title="Re-upload a revised PGN over this repertoire"
+                 title={m.coach_repertoires_update_title()}
                  class="text-sm bg-(--color-accent) text-white px-3 py-1.5 rounded-lg font-medium hover:bg-(--color-accent-hover) focus:bg-(--color-accent-hover) transition-colors shrink-0">
-                Update from file
+                {m.coach_repertoires_update_link()}
               </a>
               <form method="POST" action="?/delete" use:enhance onsubmit={(e) => confirmDelete(e, rep.name)}>
                 <input type="hidden" name="rep_id" value={rep.id} />
-                <button class="text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-red-700 transition-colors shrink-0">Delete</button>
+                <button class="text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-red-700 transition-colors shrink-0">{m.coach_repertoires_delete_button()}</button>
               </form>
             </div>
 
             <div class="mt-3 pt-3 border-t border-gray-100">
               <p class="text-xs text-(--color-muted)">
                 {#if rep.assignedPlayers.length > 0}
-                  Assigned to: {rep.assignedPlayers.map((p: any) => p.display_name).join(', ')}
+                  {m.coach_repertoires_assigned_to({ names: rep.assignedPlayers.map((p: any) => p.display_name).join(', ') })}
                 {:else}
-                  Not assigned to anyone yet
+                  {m.coach_repertoires_not_assigned()}
                 {/if}
               </p>
             </div>
@@ -141,7 +149,7 @@
         <button
           type="button"
           onclick={() => (assignModalRepId = null)}
-          aria-label="Close"
+          aria-label={m.coach_repertoires_close_label()}
           class="text-(--color-muted) hover:text-gray-600 dark:hover:text-gray-400 text-xl leading-none"
         >
           &times;
@@ -150,7 +158,7 @@
 
       <div class="p-4">
         {#if data.players.length === 0}
-          <p class="text-sm text-(--color-muted)">You don't have any active students yet.</p>
+          <p class="text-sm text-(--color-muted)">{m.coach_repertoires_no_active_students()}</p>
         {:else}
           <ul class="space-y-2">
             {#each data.players as player (player.id)}
@@ -161,14 +169,14 @@
                   <form method="POST" action="?/unassign" use:enhance>
                     <input type="hidden" name="rep_id" value={assignModalRep.id} />
                     <input type="hidden" name="player_id" value={player.id} />
-                    <button class="text-sm text-red-600 hover:underline shrink-0 dark:text-red-400">Remove</button>
+                    <button class="text-sm text-red-600 hover:underline shrink-0 dark:text-red-400">{m.coach_repertoires_unassign_button()}</button>
                   </form>
                 {:else}
                   <form method="POST" action="?/assign" use:enhance>
                     <input type="hidden" name="rep_id" value={assignModalRep.id} />
                     <input type="hidden" name="player_id" value={player.id} />
                     <button class="text-sm bg-(--color-accent) text-white px-3 py-1 rounded-lg hover:bg-(--color-accent-hover) transition-colors shrink-0">
-                      Assign
+                      {m.coach_repertoires_assign_button()}
                     </button>
                   </form>
                 {/if}
