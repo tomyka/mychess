@@ -776,5 +776,73 @@
 	],
 	"tournament_carousel_prev_label": "Previous",
 	"tournament_carousel_next_label": "Next",
-	"tournament_carousel_page_label": "Page {page}"
+	"tournament_carousel_page_label": "Page {page}",
+	"seo_games_title": "My Games — MyChess",
+	"games_heading": "My Games",
+	"games_upload_button": "Upload a game",
+	"games_empty": "No games uploaded yet.",
+	"games_vs": "vs",
+	"games_not_yet_analyzed": "Not yet analyzed",
+	"games_delete_confirm": "Delete this game? This can't be undone.",
+	"games_delete_button": "Delete",
+	"games_blunder_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} blunder",
+				"countPlural=other": "{count} blunders"
+			}
+		}
+	],
+	"games_mistake_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} mistake",
+				"countPlural=other": "{count} mistakes"
+			}
+		}
+	],
+	"games_inaccuracy_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} inaccuracy",
+				"countPlural=other": "{count} inaccuracies"
+			}
+		}
+	],
+	"seo_games_new_title": "Upload a game — MyChess",
+	"games_back_link": "← Back to My Games",
+	"games_new_heading": "Upload a game",
+	"games_new_played_as_label": "Which side did you play?",
+	"games_side_unsure": "Not sure",
+	"games_new_paste_pgn_label": "Paste PGN text",
+	"games_new_upload_file_label": "…or upload a .pgn file",
+	"games_new_choose_file_button": "Choose File",
+	"games_new_drive_import_button": "…or import from Google Drive",
+	"games_new_drive_opening": "Opening Google Drive…",
+	"games_new_selected_file": "Selected: {fileName}",
+	"games_new_uploading": "Uploading…",
+	"games_new_submit_button": "Upload and analyze",
+	"games_new_file_read_error": "Could not read that file — try pasting the PGN text instead.",
+	"games_new_drive_import_error": "Could not import from Google Drive.",
+	"games_new_pgn_required_error": "PGN is required",
+	"games_new_upload_failed_error": "Upload failed",
+	"seo_game_title": "{white} vs {black} — MyChess",
+	"games_classification_blunder": "Blunder",
+	"games_classification_mistake": "Mistake",
+	"games_classification_inaccuracy": "Inaccuracy",
+	"games_eval_label": "Eval:",
+	"games_best_was_label": "Best was",
+	"games_analyzing_label": "Analyzing…",
+	"games_progress_count": "{done} / {total}",
+	"games_analyze_failed_error": "Analysis failed",
+	"games_analyze_save_failed_error": "Could not save analysis",
+	"games_retry_button": "Retry",
+	"games_moves_heading": "Moves",
+	"games_jump_to_move": "Jump to move {move}"
 }

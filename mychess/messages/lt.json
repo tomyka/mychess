@@ -848,5 +848,79 @@
 	],
 	"tournament_carousel_prev_label": "Ankstesnis",
 	"tournament_carousel_next_label": "Kitas",
-	"tournament_carousel_page_label": "{page} puslapis"
+	"tournament_carousel_page_label": "{page} puslapis",
+	"seo_games_title": "Mano žaidimai — MyChess",
+	"games_heading": "Mano žaidimai",
+	"games_upload_button": "Įkelti žaidimą",
+	"games_empty": "Kol kas neįkelta žaidimų.",
+	"games_vs": "prieš",
+	"games_not_yet_analyzed": "Kol kas neanalizuota",
+	"games_delete_confirm": "Ištrinti šį žaidimą? Šio veiksmo negalėsite atšaukti.",
+	"games_delete_button": "Ištrinti",
+	"games_blunder_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} rimta klaida",
+				"countPlural=few": "{count} rimtos klaidos",
+				"countPlural=many": "{count} rimtų klaidų",
+				"countPlural=other": "{count} rimtų klaidų"
+			}
+		}
+	],
+	"games_mistake_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} klaida",
+				"countPlural=few": "{count} klaidos",
+				"countPlural=many": "{count} klaidų",
+				"countPlural=other": "{count} klaidų"
+			}
+		}
+	],
+	"games_inaccuracy_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} netikslumas",
+				"countPlural=few": "{count} netikslumai",
+				"countPlural=many": "{count} netikslumų",
+				"countPlural=other": "{count} netikslumų"
+			}
+		}
+	],
+	"seo_games_new_title": "Įkelti žaidimą — MyChess",
+	"games_back_link": "← Atgal į Mano žaidimus",
+	"games_new_heading": "Įkelti žaidimą",
+	"games_new_played_as_label": "Kuria puse žaidėte?",
+	"games_side_unsure": "Nesu tikras",
+	"games_new_paste_pgn_label": "Įklijuokite PGN tekstą",
+	"games_new_upload_file_label": "…arba įkelkite .pgn failą",
+	"games_new_choose_file_button": "Pasirinkti failą",
+	"games_new_drive_import_button": "…arba importuokite iš Google Drive",
+	"games_new_drive_opening": "Atveriama Google Drive…",
+	"games_new_selected_file": "Pasirinkta: {fileName}",
+	"games_new_uploading": "Įkeliama…",
+	"games_new_submit_button": "Įkelti ir analizuoti",
+	"games_new_file_read_error": "Nepavyko perskaityti failo — pabandykite įklijuoti PGN tekstą.",
+	"games_new_drive_import_error": "Nepavyko importuoti iš Google Drive.",
+	"games_new_pgn_required_error": "PGN yra privalomas",
+	"games_new_upload_failed_error": "Įkėlimas nepavyko",
+	"seo_game_title": "{white} prieš {black} — MyChess",
+	"games_classification_blunder": "Rimta klaida",
+	"games_classification_mistake": "Klaida",
+	"games_classification_inaccuracy": "Netikslumas",
+	"games_eval_label": "Įvertis:",
+	"games_best_was_label": "Geriausias buvo",
+	"games_analyzing_label": "Analizuojama…",
+	"games_progress_count": "{done} / {total}",
+	"games_analyze_failed_error": "Analizė nepavyko",
+	"games_analyze_save_failed_error": "Nepavyko išsaugoti analizės",
+	"games_retry_button": "Bandyti iš naujo",
+	"games_moves_heading": "Ėjimai",
+	"games_jump_to_move": "Peršokti į {move} ėjimą"
 }

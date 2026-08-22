@@ -1,19 +1,20 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { summarizeAnalysis } from '$lib/games/summary';
+	import { m } from '$lib/paraglide/messages';
 
 	let { data, form } = $props<{ data: { games: any[] }; form?: any }>();
 	const games = $derived(data.games);
 
 	function confirmDelete(e: SubmitEvent) {
-		if (!confirm("Delete this game? This can't be undone.")) {
+		if (!confirm(m.games_delete_confirm())) {
 			e.preventDefault();
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>My Games — MyChess</title>
+	<title>{m.seo_games_title()}</title>
 </svelte:head>
 
 <main class="min-h-screen bg-(--color-bg)">
@@ -23,16 +24,16 @@
 		{/if}
 
 		<div class="flex items-center justify-between mb-6">
-			<h1 class="text-2xl font-bold text-(--color-text)">My Games</h1>
+			<h1 class="text-2xl font-bold text-(--color-text)">{m.games_heading()}</h1>
 			<a
 				href="/games/new"
 				class="bg-(--color-accent) text-white px-4 py-2 rounded-xl font-semibold hover:bg-(--color-accent-hover) transition-colors"
-				>Upload a game</a
+				>{m.games_upload_button()}</a
 			>
 		</div>
 
 		{#if games.length === 0}
-			<p class="text-(--color-muted)">No games uploaded yet.</p>
+			<p class="text-(--color-muted)">{m.games_empty()}</p>
 		{:else}
 			<ul class="space-y-3">
 				{#each games as game (game.id)}
@@ -42,21 +43,23 @@
 					>
 						<a href="/games/{game.id}" class="flex-1 min-w-0">
 							<p class="font-semibold text-(--color-text) truncate">
-								{game.headers?.White ?? '?'} vs {game.headers?.Black ?? '?'}
+								{game.headers?.White ?? '?'} {m.games_vs()} {game.headers?.Black ?? '?'}
 							</p>
 							<p class="text-sm text-(--color-muted)">
 								{game.headers?.Result ?? '*'} · {game.headers?.Date ?? ''}
 								{#if game.analysis_status === 'pending'}
-									· Not yet analyzed
+									· {m.games_not_yet_analyzed()}
 								{:else if summary}
-									· {summary.blunders} blunders, {summary.mistakes} mistakes, {summary.inaccuracies} inaccuracies
+									· {m.games_blunder_count({ count: summary.blunders })}, {m.games_mistake_count({
+										count: summary.mistakes
+									})}, {m.games_inaccuracy_count({ count: summary.inaccuracies })}
 								{/if}
 							</p>
 						</a>
 						<form method="POST" action="?/delete" use:enhance onsubmit={confirmDelete}>
 							<input type="hidden" name="game_id" value={game.id} />
 							<button type="submit" class="text-red-600 dark:text-red-400 text-sm font-medium hover:underline"
-								>Delete</button
+								>{m.games_delete_button()}</button
 							>
 						</form>
 					</li>

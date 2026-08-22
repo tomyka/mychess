@@ -8,6 +8,7 @@
 	import { buildAnalysis, type AnalysisEntry } from '$lib/games/build-analysis';
 	import { formatEval, evalBarWhiteFraction } from '$lib/engine/uci';
 	import { formatMoveLabel } from '$lib/practice-report';
+	import { m } from '$lib/paraglide/messages';
 
 	type GameMove = { ply: number; san: string; fen: string; parentFen: string };
 
@@ -74,11 +75,11 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ analysis: built })
 			});
-			if (!res.ok) throw new Error('Could not save analysis');
+			if (!res.ok) throw new Error(m.games_analyze_save_failed_error());
 			analysis = built;
 			analysisStatus = 'done';
 		} catch (err) {
-			analyzeError = err instanceof Error ? err.message : 'Analysis failed';
+			analyzeError = err instanceof Error ? err.message : m.games_analyze_failed_error();
 		} finally {
 			analyzing = false;
 		}
@@ -96,9 +97,9 @@
 	});
 
 	function classificationLabel(c: AnalysisEntry['classification']): string {
-		if (c === 'blunder') return 'Blunder';
-		if (c === 'mistake') return 'Mistake';
-		if (c === 'inaccuracy') return 'Inaccuracy';
+		if (c === 'blunder') return m.games_classification_blunder();
+		if (c === 'mistake') return m.games_classification_mistake();
+		if (c === 'inaccuracy') return m.games_classification_inaccuracy();
 		return '';
 	}
 
@@ -111,17 +112,17 @@
 </script>
 
 <svelte:head>
-	<title>{game.headers?.White ?? '?'} vs {game.headers?.Black ?? '?'} — MyChess</title>
+	<title>{m.seo_game_title({ white: game.headers?.White ?? '?', black: game.headers?.Black ?? '?' })}</title>
 </svelte:head>
 
 <main class="min-h-screen bg-(--color-bg)">
 	<div class="max-w-5xl mx-auto px-4 py-8 grid md:grid-cols-[minmax(0,1fr)_320px] gap-6">
 		<div>
 			<a href="/games" class="text-(--color-muted) text-sm hover:text-(--color-text) mb-4 block"
-				>← Back to My Games</a
+				>{m.games_back_link()}</a
 			>
 			<h1 class="text-lg font-bold text-(--color-text) mb-3">
-				{game.headers?.White ?? '?'} vs {game.headers?.Black ?? '?'}
+				{game.headers?.White ?? '?'} {m.games_vs()} {game.headers?.Black ?? '?'}
 				<span class="text-(--color-muted) font-normal text-sm ml-2">{game.headers?.Result ?? '*'}</span>
 			</h1>
 
@@ -148,14 +149,14 @@
 
 			{#if currentEntry}
 				<p class="mt-3 text-sm text-(--color-text)">
-					Eval: <span class="font-semibold tabular-nums">{formatEval(currentEntry.score)}</span>
+					{m.games_eval_label()} <span class="font-semibold tabular-nums">{formatEval(currentEntry.score)}</span>
 					{#if currentEntry.classification}
 						· <span class={classificationClass(currentEntry.classification)}
 							>{classificationLabel(currentEntry.classification)}</span
 						>
 					{/if}
 					{#if currentEntry.bestMoveSan}
-						· Best was <span class="font-mono">{currentEntry.bestMoveSan}</span>
+						· {m.games_best_was_label()} <span class="font-mono">{currentEntry.bestMoveSan}</span>
 					{/if}
 				</p>
 			{/if}
@@ -163,8 +164,8 @@
 			{#if analyzing}
 				<div class="mt-4 space-y-2">
 					<div class="flex justify-between text-sm text-(--color-muted)">
-						<span>Analyzing…</span>
-						<span>{progress.done} / {progress.total}</span>
+						<span>{m.games_analyzing_label()}</span>
+						<span>{m.games_progress_count({ done: progress.done, total: progress.total })}</span>
 					</div>
 					<div class="w-full bg-(--color-border) rounded-full h-2 overflow-hidden">
 						<div
@@ -179,7 +180,7 @@
 				<div class="mt-4 flex items-center gap-3">
 					<p class="text-red-600 dark:text-red-400 text-sm">{analyzeError}</p>
 					<button onclick={startAnalysis} class="text-sm font-semibold text-(--color-accent) hover:underline"
-						>Retry</button
+						>{m.games_retry_button()}</button
 					>
 				</div>
 			{/if}
@@ -191,7 +192,7 @@
 							onclick={() => (reviewIdx = i + 1)}
 							class="flex-1 bg-(--color-border) hover:opacity-80 transition-opacity"
 							style="height: {evalBarWhiteFraction(entry.score) * 100}%"
-							aria-label={`Jump to move ${i + 1}`}
+							aria-label={m.games_jump_to_move({ move: i + 1 })}
 						></button>
 					{/each}
 				</div>
@@ -199,7 +200,7 @@
 		</div>
 
 		<div class="border border-(--color-border) rounded-xl bg-(--color-surface) p-3 max-h-[70vh] overflow-y-auto">
-			<h2 class="text-sm font-semibold text-(--color-muted) uppercase tracking-wide mb-2">Moves</h2>
+			<h2 class="text-sm font-semibold text-(--color-muted) uppercase tracking-wide mb-2">{m.games_moves_heading()}</h2>
 			<ol class="text-sm space-y-1">
 				{#each moves as move, i (move.ply)}
 					{@const entry = analysis?.[i]}

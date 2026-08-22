@@ -43,7 +43,7 @@ describe('My Games list', () => {
 			}
 		];
 		render(GamesList, { props: { data: { games } } });
-		expect(screen.getByText(/1 blunders, 1 mistakes, 0 inaccuracies/)).toBeTruthy();
+		expect(screen.getByText(/1 blunder, 1 mistake, 0 inaccuracies/)).toBeTruthy();
 	});
 
 	it('links each game to its analysis page and includes a delete form', () => {

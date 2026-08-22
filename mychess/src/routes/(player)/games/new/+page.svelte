@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { pickPgnFromGoogleDrive } from '$lib/googleDrivePicker';
 	import { extractSingleGame } from '$lib/games/parse';
+	import { m } from '$lib/paraglide/messages';
 
 	let pgnText = $state('');
 	let fileName = $state('');
@@ -23,7 +24,7 @@
 			fileError = '';
 		};
 		reader.onerror = () => {
-			fileError = 'Could not read that file — try pasting the PGN text instead.';
+			fileError = m.games_new_file_read_error();
 		};
 		reader.readAsText(file);
 	}
@@ -39,7 +40,7 @@
 				fileName = result.name;
 			}
 		} catch (err) {
-			driveError = err instanceof Error ? err.message : 'Could not import from Google Drive.';
+			driveError = err instanceof Error ? err.message : m.games_new_drive_import_error();
 		} finally {
 			drivePicking = false;
 		}
@@ -51,7 +52,7 @@
 
 		const trimmedPgn = pgnText.trim();
 		if (!trimmedPgn) {
-			errorMessage = 'PGN is required';
+			errorMessage = m.games_new_pgn_required_error();
 			return;
 		}
 		const checked = extractSingleGame(trimmedPgn);
@@ -69,25 +70,25 @@
 			});
 			if (!res.ok) {
 				const body = await res.json().catch(() => null);
-				throw new Error(body?.message ?? 'Upload failed');
+				throw new Error(body?.message ?? m.games_new_upload_failed_error());
 			}
 			const { id } = await res.json();
 			await goto(`/games/${id}`);
 		} catch (err) {
-			errorMessage = err instanceof Error ? err.message : 'Upload failed';
+			errorMessage = err instanceof Error ? err.message : m.games_new_upload_failed_error();
 			submitting = false;
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>Upload a game — MyChess</title>
+	<title>{m.seo_games_new_title()}</title>
 </svelte:head>
 
 <main class="min-h-screen bg-(--color-bg)">
 	<div class="max-w-lg mx-auto px-4 py-6">
 		<a href="/games" class="text-(--color-muted) text-sm hover:text-(--color-text) mb-6 block"
-			>← Back to My Games</a
+			>{m.games_back_link()}</a
 		>
 
 		{#if errorMessage}
@@ -102,12 +103,12 @@
 			onsubmit={handleSubmit}
 			class="bg-(--color-surface) border border-(--color-border) rounded-xl shadow-sm p-5 space-y-4"
 		>
-			<h1 class="text-2xl font-bold text-(--color-text)">Upload a game</h1>
+			<h1 class="text-2xl font-bold text-(--color-text)">{m.games_new_heading()}</h1>
 
 			<div>
-				<span class="block text-sm font-medium text-(--color-text) mb-1">Which side did you play?</span>
+				<span class="block text-sm font-medium text-(--color-text) mb-1">{m.games_new_played_as_label()}</span>
 				<div class="flex gap-3">
-					{#each [{ id: 'white', label: 'White' }, { id: 'black', label: 'Black' }, { id: null, label: 'Not sure' }] as const as c (c.label)}
+					{#each [{ id: 'white', label: m.pgn_import_color_white() }, { id: 'black', label: m.pgn_import_color_black() }, { id: null, label: m.games_side_unsure() }] as const as c (c.label)}
 						<button
 							type="button"
 							disabled={submitting}
@@ -124,7 +125,7 @@
 			</div>
 
 			<div>
-				<label class="block text-sm font-medium text-(--color-text) mb-1" for="pgn_text">Paste PGN text</label>
+				<label class="block text-sm font-medium text-(--color-text) mb-1" for="pgn_text">{m.games_new_paste_pgn_label()}</label>
 				<textarea
 					id="pgn_text"
 					name="pgn_text"
@@ -137,7 +138,7 @@
 			</div>
 
 			<div>
-				<label class="block text-sm font-medium text-(--color-text) mb-1" for="pgn_file">…or upload a .pgn file</label>
+				<label class="block text-sm font-medium text-(--color-text) mb-1" for="pgn_file">{m.games_new_upload_file_label()}</label>
 				<div class="flex items-center gap-3">
 					<label
 						for="pgn_file"
@@ -159,7 +160,7 @@
 							<polyline points="17 8 12 3 7 8" />
 							<line x1="12" y1="3" x2="12" y2="15" />
 						</svg>
-						Choose File
+						{m.games_new_choose_file_button()}
 					</label>
 					<input
 						id="pgn_file"
@@ -199,7 +200,7 @@
 							fill="#ffba00"
 						/>
 					</svg>
-					{drivePicking ? 'Opening Google Drive…' : '…or import from Google Drive'}
+					{drivePicking ? m.games_new_drive_opening() : m.games_new_drive_import_button()}
 				</button>
 				{#if driveError}
 					<p class="text-red-600 dark:text-red-400 text-sm mt-1">{driveError}</p>
@@ -207,7 +208,7 @@
 			</div>
 
 			{#if fileName}
-				<p class="text-sm text-(--color-muted) truncate">Selected: {fileName}</p>
+				<p class="text-sm text-(--color-muted) truncate">{m.games_new_selected_file({ fileName })}</p>
 			{/if}
 
 			<button
@@ -215,7 +216,7 @@
 				disabled={submitting || drivePicking}
 				class="w-full bg-(--color-accent) text-white py-3 rounded-xl font-bold text-base hover:bg-(--color-accent-hover) transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
 			>
-				{submitting ? 'Uploading…' : 'Upload and analyze'}
+				{submitting ? m.games_new_uploading() : m.games_new_submit_button()}
 			</button>
 		</form>
 	</div>
