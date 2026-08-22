@@ -2,12 +2,13 @@
 	import { onDestroy } from 'svelte';
 	import ChessBoard from '$lib/components/ChessBoard.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
+	import EvalBar from '$lib/components/EvalBar.svelte';
 	import { Chess } from 'chess.js';
 	import type { Key } from 'chessground/types';
 	import { analyzeGame } from '$lib/engine/analyzeGame';
 	import { buildAnalysis, type AnalysisEntry } from '$lib/games/build-analysis';
 	import { formatEval, evalBarWhiteFraction } from '$lib/engine/uci';
-	import { formatMoveLabel } from '$lib/practice-report';
+	import { ExploreSession } from '$lib/mastery/explore.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	type GameMove = { ply: number; san: string; fen: string; parentFen: string };
@@ -28,8 +29,22 @@
 	let analyzing = $state(false);
 	let analyzeError = $state('');
 	let progress = $state({ done: 0, total: moves.length + 1 });
+	let boardWidth = $state(0);
+	const explore = new ExploreSession();
 
-	const displayFen = $derived(reviewIdx === 0 ? rootFen : moves[reviewIdx - 1].fen);
+	const reviewFen = $derived(reviewIdx === 0 ? rootFen : moves[reviewIdx - 1].fen);
+	// The explored position while off-book, the recorded game's own otherwise —
+	// same pattern Practice/Learn use. EvalBar reads this too, so it answers for
+	// whatever is actually on the board.
+	const displayFen = $derived(explore.active ? explore.fen : reviewFen);
+
+	function startExplore() {
+		explore.start(reviewFen);
+	}
+
+	function stopExplore() {
+		explore.stop();
+	}
 
 	const lastMove = $derived.by((): [Key, Key] | undefined => {
 		if (reviewIdx === 0) return undefined;
@@ -55,6 +70,24 @@
 	});
 
 	const currentEntry = $derived(analysis && reviewIdx > 0 ? analysis[reviewIdx - 1] : null);
+
+	type MoveCell = { move: GameMove; idx: number };
+	type MovePair = { moveNumber: number; white: MoveCell; black: MoveCell | null };
+
+	// PGN-style pairing: White's and Black's move for the same move number
+	// share a row. `idx` is the move's own index in `moves` (= reviewIdx - 1
+	// once reviewed), kept alongside it so each cell can jump straight there.
+	const movePairs = $derived.by((): MovePair[] => {
+		const pairs: MovePair[] = [];
+		for (let idx = 0; idx < moves.length; idx += 2) {
+			pairs.push({
+				moveNumber: pairs.length + 1,
+				white: { move: moves[idx], idx },
+				black: idx + 1 < moves.length ? { move: moves[idx + 1], idx: idx + 1 } : null
+			});
+		}
+		return pairs;
+	});
 
 	async function startAnalysis() {
 		analyzing = true;
@@ -96,10 +129,13 @@
 		abortController?.abort();
 	});
 
+	// Standard chess annotation glyphs (Lichess/chess.com convention) rather
+	// than words — glued directly onto a move's SAN in the move list, the way
+	// "Qxd5??" is written anywhere else in chess.
 	function classificationLabel(c: AnalysisEntry['classification']): string {
-		if (c === 'blunder') return m.games_classification_blunder();
-		if (c === 'mistake') return m.games_classification_mistake();
-		if (c === 'inaccuracy') return m.games_classification_inaccuracy();
+		if (c === 'blunder') return '??';
+		if (c === 'mistake') return '?';
+		if (c === 'inaccuracy') return '?!';
 		return '';
 	}
 
@@ -126,28 +162,61 @@
 				<span class="text-(--color-muted) font-normal text-sm ml-2">{game.headers?.Result ?? '*'}</span>
 			</h1>
 
-			<ChessBoard
-				fen={displayFen}
-				interactable={false}
-				orientation={game.played_as === 'black' ? 'black' : 'white'}
-				{lastMove}
-				{arrowMove}
-				prefs={data.boardPrefs}
-			/>
+			<div class="flex items-start justify-center gap-2">
+				{#if explore.active}
+					<EvalBar
+						fen={displayFen}
+						orientation={game.played_as === 'black' ? 'black' : 'white'}
+						height={boardWidth}
+					/>
+				{/if}
+				<ChessBoard
+					fen={displayFen}
+					interactable={explore.active}
+					onmove={explore.active ? (detail) => explore.play(detail.from, detail.to) : undefined}
+					orientation={game.played_as === 'black' ? 'black' : 'white'}
+					lastMove={explore.active ? undefined : lastMove}
+					arrowMove={explore.active ? null : arrowMove}
+					prefs={data.boardPrefs}
+					bind:boxWidth={boardWidth}
+				/>
+			</div>
 
-			<MoveNavRow
-				{reviewIdx}
-				totalPlies={moves.length}
-				reviewMoves={reviewIdx}
-				totalMoves={moves.length}
-				isReviewing={true}
-				onstart={() => (reviewIdx = 0)}
-				onback={() => (reviewIdx = Math.max(reviewIdx - 1, 0))}
-				onforward={() => (reviewIdx = Math.min(reviewIdx + 1, moves.length))}
-				onlive={() => (reviewIdx = moves.length)}
-			/>
+			{#if explore.active}
+				<div
+					class="grid grid-cols-2 gap-2 mt-4 shrink-0 mx-auto w-full"
+					style={boardWidth ? `max-width: ${boardWidth}px` : ''}
+				>
+					<button
+						onclick={() => explore.undo()}
+						disabled={explore.depth === 0}
+						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-sm font-semibold text-(--color-text) disabled:opacity-30"
+					>
+						{m.explore_controls_undo()}
+					</button>
+					<button
+						onclick={stopExplore}
+						class="py-2 rounded-xl border border-amber-300 bg-amber-50 text-sm font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
+					>
+						{m.games_explore_back_to_review()}
+					</button>
+				</div>
+			{:else}
+				<MoveNavRow
+					{reviewIdx}
+					totalPlies={moves.length}
+					reviewMoves={reviewIdx}
+					totalMoves={moves.length}
+					isReviewing={true}
+					onstart={() => (reviewIdx = 0)}
+					onback={() => (reviewIdx = Math.max(reviewIdx - 1, 0))}
+					onforward={() => (reviewIdx = Math.min(reviewIdx + 1, moves.length))}
+					onlive={() => (reviewIdx = moves.length)}
+					onExplore={analyzing ? undefined : startExplore}
+				/>
+			{/if}
 
-			{#if currentEntry}
+			{#if currentEntry && !explore.active}
 				<p class="mt-3 text-sm text-(--color-text)">
 					{m.games_eval_label()} <span class="font-semibold tabular-nums">{formatEval(currentEntry.score)}</span>
 					{#if currentEntry.classification}
@@ -202,22 +271,35 @@
 		<div class="border border-(--color-border) rounded-xl bg-(--color-surface) p-3 max-h-[70vh] overflow-y-auto">
 			<h2 class="text-sm font-semibold text-(--color-muted) uppercase tracking-wide mb-2">{m.games_moves_heading()}</h2>
 			<ol class="text-sm space-y-1">
-				{#each moves as move, i (move.ply)}
-					{@const entry = analysis?.[i]}
-					<li>
+				{#each movePairs as pair (pair.moveNumber)}
+					{@const whiteEntry = analysis?.[pair.white.idx]}
+					{@const blackEntry = pair.black ? analysis?.[pair.black.idx] : undefined}
+					<li class="grid grid-cols-[2rem_1fr_1fr] gap-1 items-center">
+						<span class="text-(--color-muted) text-xs text-right pr-1">{pair.moveNumber}.</span>
 						<button
-							onclick={() => (reviewIdx = i + 1)}
-							class="w-full text-left px-2 py-1 rounded-lg {reviewIdx === i + 1
+							onclick={() => (reviewIdx = pair.white.idx + 1)}
+							class="text-left px-2 py-1 rounded-lg {reviewIdx === pair.white.idx + 1
 								? 'bg-(--color-accent)/10 font-semibold'
 								: 'hover:bg-(--color-border)/40'}"
 						>
-							{formatMoveLabel(move.ply, move.san)}
-							{#if entry?.classification}
-								<span class={classificationClass(entry.classification)}
-									>({classificationLabel(entry.classification)})</span
-								>
-							{/if}
+							{pair.white.move.san}{#if whiteEntry?.classification}<span
+									class={classificationClass(whiteEntry.classification)}
+									>{classificationLabel(whiteEntry.classification)}</span
+								>{/if}
 						</button>
+						{#if pair.black}
+							<button
+								onclick={() => (reviewIdx = pair.black!.idx + 1)}
+								class="text-left px-2 py-1 rounded-lg {reviewIdx === pair.black.idx + 1
+									? 'bg-(--color-accent)/10 font-semibold'
+									: 'hover:bg-(--color-border)/40'}"
+							>
+								{pair.black.move.san}{#if blackEntry?.classification}<span
+										class={classificationClass(blackEntry.classification)}
+										>{classificationLabel(blackEntry.classification)}</span
+									>{/if}
+							</button>
+						{/if}
 					</li>
 				{/each}
 			</ol>

@@ -2,7 +2,7 @@
 	// The generated `.svelte-kit/tsconfig.json` include list covers src/, test/ and
 	// tests/ — but NOT scripts/, so `npm run check` type-checked none of the
 	// one-off jobs. That is how a `ReferenceError: skipped is not defined` reached
-	// a real run of `positions:eval` with both check and lint reporting clean.
+	// a real run of one of them with both check and lint reporting clean.
 	//
 	// A separate config rather than an `include` override in tsconfig.json:
 	// overriding include there replaces SvelteKit's generated list, which then

@@ -6,18 +6,19 @@
 // build: the worker completes its handshake and returns a first score in
 // ~130ms, so a blank evaluation is this module's problem, never Stockfish's.
 import { parseInfoLine, sideToMoveFromFen, toWhiteRelative, type EngineScore } from './uci';
-import { ENGINE } from './version';
 
+// The engine build, in one place: the .js bootstrap and the .wasm binary share
+// this stem, and the bootstrap locates the wasm by basename — so swapping the
+// build (#127) means dropping `<stem>.js` and `<stem>.wasm` into
+// static/stockfish/ and changing this line.
+const ENGINE_BASENAME = 'stockfish-18-lite-single';
 // The URL fragment tells the emscripten bootstrap where to find the .wasm
 // binary. A trailing `,worker` marks this load as a *nested* worker spawned by
 // an already-running engine (used internally by multi-threaded builds) — the
 // bootstrap's top-level dispatch short-circuits on that marker and never wires
 // up `onmessage` or loads the engine, so the handshake sent below silently goes
 // nowhere. This is the first, top-level worker, so no suffix here.
-//
-// Built from ENGINE.basename rather than spelled out, so swapping the build is a
-// one-place change that also moves the stored-eval stamp with it (see version.ts).
-const ENGINE_URL = `/stockfish/${ENGINE.basename}.js#${ENGINE.basename}.wasm`;
+const ENGINE_URL = `/stockfish/${ENGINE_BASENAME}.js#${ENGINE_BASENAME}.wasm`;
 const MOVETIME_MS = 400;
 // If the engine never completes its uci/isready handshake within this window
 // (WASM instantiation stalling, a network hiccup fetching the ~7MB binary, or
@@ -37,6 +38,31 @@ export const engineState = $state<{
 	score: null,
 	searching: false
 });
+
+/**
+ * Whether the player has switched the engine on. Off by default, and off again
+ * on every reload: analysis is something you ask for in explore mode, not a
+ * thing that quietly follows you into drilling (see #132).
+ *
+ * An object rather than an exported `let` because a module-scope `let` cannot be
+ * exported reactively — consumers read `engineEnabled.on`.
+ *
+ * Module-level, so it outlives any one component: closing explore unmounts the
+ * bar (and with it the worker), but re-opening explore in the same visit — or
+ * moving between Learn and Practice — finds the engine already switched on.
+ */
+export const engineEnabled = $state<{ on: boolean }>({ on: false });
+
+/**
+ * Switches the engine on or off; off stops the worker rather than just hiding it.
+ *
+ * Always switch off through here. Writing `engineEnabled.on = false` directly
+ * skips the teardown and leaves a worker searching for a bar nobody can see.
+ */
+export function setEngineEnabled(on: boolean) {
+	engineEnabled.on = on;
+	if (!on) teardownEngine();
+}
 
 let worker: Worker | null = null;
 let handshakeTimeout: ReturnType<typeof setTimeout> | undefined;

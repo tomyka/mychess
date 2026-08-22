@@ -9,7 +9,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import EvalBar from './EvalBar.svelte';
-import { engineState } from '$lib/engine/engine.svelte';
+import { engineState, engineEnabled, setEngineEnabled } from '$lib/engine/engine.svelte';
 
 const FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const NEXT_FEN = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1';
@@ -56,10 +56,11 @@ afterEach(() => {
 	engineState.ready = false;
 	engineState.failed = false;
 	engineState.searching = false;
+	setEngineEnabled(false);
 });
 
 describe('EvalBar against a live worker', () => {
-	it('spawns the engine on mount without any preference to switch on', () => {
+	it('spawns the engine on mount, leaving the on/off decision to whoever renders it', () => {
 		vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
 		const { unmount } = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
 		expect(FakeWorker.instances.length).toBe(1);
@@ -133,5 +134,64 @@ describe('EvalBar against a live worker', () => {
 		const second = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
 		expect(FakeWorker.instances.length).toBe(2);
 		second.unmount();
+	});
+
+	// "Switched on for this visit" is the whole feature: the flag lives in the
+	// module and the worker does not, so closing explore is allowed to cost the
+	// ~7MB worker but must never cost the decision. If unmounting the bar quietly
+	// switched the engine back off, re-opening explore — or walking from Learn to
+	// Practice — would silently need the toggle pressed again.
+	it('keeps the engine switched on across the bar unmounting, so it comes back on its own', () => {
+		vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
+		setEngineEnabled(true);
+		const first = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
+		handshake(FakeWorker.instances[0]);
+
+		first.unmount();
+		expect(FakeWorker.instances[0].terminated).toBe(true);
+		expect(engineEnabled.on).toBe(true);
+
+		const second = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
+		expect(FakeWorker.instances.length).toBe(2);
+		expect(FakeWorker.instances[1].terminated).toBe(false);
+		second.unmount();
+	});
+
+	// The engine is now something the player switches on in explore mode, so
+	// switching it off has to actually stop the worker — not just hide the bar.
+	it('quits and terminates the worker when the engine is switched off', () => {
+		vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
+		const { unmount } = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
+		const worker = FakeWorker.instances[0];
+		handshake(worker);
+		worker.emit('info depth 12 multipv 1 score cp 35 nodes 1 nps 1 time 1 pv e2e4');
+		flushSync();
+		expect(engineState.score).not.toBeNull();
+
+		setEngineEnabled(false);
+		expect(worker.sent).toContain('quit');
+		expect(worker.terminated).toBe(true);
+		expect(engineState.score).toBeNull();
+		expect(engineEnabled.on).toBe(false);
+
+		setEngineEnabled(true);
+		expect(engineEnabled.on).toBe(true);
+
+		// Switching off deliberately does NOT touch retainEngine's instance count —
+		// the bar is still mounted, so it is the one that releases its slot on
+		// destroy. Unmounting it therefore has to land the count on exactly zero.
+		// Had the switch-off zeroed it as well, this unmount would drive it to -1
+		// and every count after it would be one short: the pair below would read as
+		// a single bar, and the first unmount would kill a worker the second still
+		// needs. So the pair is the assertion — a fresh worker for the fresh bars,
+		// alive while either of them lives.
+		unmount();
+		const a = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
+		const b = render(EvalBar, { props: { fen: FEN, orientation: 'white', height: 400 } });
+		expect(FakeWorker.instances.length).toBe(2);
+		a.unmount();
+		expect(FakeWorker.instances[1].terminated).toBe(false);
+		b.unmount();
+		expect(FakeWorker.instances[1].terminated).toBe(true);
 	});
 });

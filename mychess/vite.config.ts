@@ -31,7 +31,7 @@ export default defineConfig({
 						// engine version (`stockfish-18-lite-single`), so a cached copy can
 						// never be stale — a new build is a new URL. One download per
 						// device per version, and explore mode then works offline.
-						urlPattern: /\/stockfish\/.*\.(?:wasm|js|cjs)$/i,
+						urlPattern: /\/stockfish\/.*\.(?:wasm|js)$/i,
 						handler: 'CacheFirst',
 						options: {
 							cacheName: 'stockfish-engine',

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import ChessBoard from '$lib/components/ChessBoard.svelte';
 	import EvalBar from '$lib/components/EvalBar.svelte';
+	import ExploreControls from '$lib/components/ExploreControls.svelte';
+	import { engineEnabled } from '$lib/engine/engine.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
 	import PracticeStatusStrip, { type PracticeStripState } from '$lib/components/PracticeStatusStrip.svelte';
 	import RepertoireUpdatedBanner from '$lib/components/RepertoireUpdatedBanner.svelte';
@@ -63,8 +65,8 @@
 	const drillFen = $derived(isReviewing ? positionAt(steps, reviewIdx, boardFen) : boardFen);
 	// The explored position while off-book, the drill's own otherwise. The eval bar
 	// reads the same value, so it answers for whatever is actually on the board —
-	// and an off-book position has no precomputed eval, which is what makes the
-	// local engine spawn there and nowhere else (#126).
+	// and the bar only exists in explore mode with the engine switched on, so the
+	// local engine spawns there and nowhere else.
 	const displayFen = $derived(explore.active ? explore.fen : drillFen);
 	// Only while the drill is genuinely waiting for a move. `locked` covers both
 	// the correct-move hold and the 1.6s window after a wrong move, when the line
@@ -406,17 +408,27 @@
 				     excursion untouched. -->
 				<PracticeStatusStrip state={explore.active ? 'exploring' : strip} />
 
-				<!-- See Learn's copy of this: the bar is a sibling so the board's
+				<!-- See Learn's copy of this: the bar's slot is a sibling so the board's
 				     container-height sizing isn't fed its width. -->
 				<div
 					class="w-full flex items-start justify-center gap-2 lg:flex-1 lg:min-h-0 lg:[container-type:size]"
 				>
-					<EvalBar
-						fen={displayFen}
-						bookEval={data.evals?.[displayFen] ?? null}
-						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
-						height={boardWidth}
-					/>
+					<!-- The bar's slot is always here and only its contents change: the
+					     bar while exploring with the engine switched on, nothing the rest
+					     of the time. Mounting the slot conditionally instead moved the
+					     board every time explore opened or closed — 20px sideways on
+					     desktop, and a 40px resize on mobile, where the board is width-
+					     constrained and the control row is capped to its width. Same rule
+					     as #113's status strip: reserve the space, vary the contents. -->
+					<div class="w-8 shrink-0">
+						{#if explore.active && engineEnabled.on}
+							<EvalBar
+								fen={displayFen}
+								orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
+								height={boardWidth}
+							/>
+						{/if}
+					</div>
 					<ChessBoard
 						fen={displayFen}
 						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
@@ -431,26 +443,15 @@
 				</div>
 
 				{#if explore.active}
-					<!-- The review nav counts drill plies, and none of these are drill
-					     plies, so the excursion's own controls take its place. -->
-					<div
-						class="grid grid-cols-2 gap-2 mt-4 shrink-0 mx-auto w-full"
-						style={boardWidth ? `max-width: ${boardWidth}px` : ''}
-					>
-						<button
-							onclick={() => explore.undo()}
-							disabled={explore.depth === 0}
-							class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-sm font-semibold text-(--color-text) disabled:opacity-30"
-						>
-							↶ {m.learn_undo()}
-						</button>
-						<button
-							onclick={stopExplore}
-							class="py-2 rounded-xl border border-amber-300 bg-amber-50 text-sm font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
-						>
-							{exploringDemoted ? `→ ${m.practice_explore_next_line()}` : `↩ ${m.learn_back_to_line()}`}
-						</button>
-					</div>
+					<ExploreControls
+						depth={explore.depth}
+						onundo={() => explore.undo()}
+						onstop={stopExplore}
+						stopLabel={exploringDemoted
+							? `→ ${m.practice_explore_next_line()}`
+							: m.explore_controls_back_to_line()}
+						{boardWidth}
+					/>
 				{:else}
 					<MoveNavRow
 						{reviewIdx}
