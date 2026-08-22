@@ -791,5 +791,62 @@
 	"fide_lookup_age_rank_fallback": "Amžiaus grupės reitingo vieta",
 	"fide_lookup_age_rank_bracket_europe": "{bracket} reitingo vieta (Europa)",
 	"fide_lookup_age_rank_fallback_europe": "Amžiaus grupės reitingo vieta (Europa)",
-	"fide_lookup_not_found": "Pagal šį ID FIDE įrašo nerasta."
+	"fide_lookup_not_found": "Pagal šį ID FIDE įrašo nerasta.",
+	"seo_tournaments_title": "OTB turnyrai — MyChess",
+	"tournaments_heading": "Turnyrai",
+	"tournaments_view_list": "Sąrašas",
+	"tournaments_view_calendar": "Kalendorius",
+	"tournaments_stale_warning": "⚠️ Duomenys gali būti pasenę. Paskutinį kartą atnaujinta: {lastUpdated}",
+	"tournaments_last_updated_unknown": "nežinoma",
+	"tournaments_error_loading": "Nepavyko įkelti turnyrų: {error}",
+	"tournaments_prev": "← Ankstesnis",
+	"tournaments_next": "Kitas →",
+	"tournaments_page_of": "Puslapis {page} iš {totalPages}",
+	"tournaments_empty_title": "Turnyrų nerasta",
+	"tournaments_empty_subtitle": "Pabandykite pakeisti filtrus",
+	"tournaments_calendar_empty": "Šiuo laikotarpiu turnyrų nėra",
+	"tournaments_status_upcoming": "Būsimas",
+	"tournaments_status_live": "Vyksta",
+	"tournaments_status_finished": "Baigtas",
+	"tournaments_tc_classical": "Klasikinis",
+	"tournaments_tc_rapid": "Greitasis",
+	"tournaments_tc_blitz": "Blitz",
+	"tournament_card_player_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} žaidėjas",
+				"countPlural=few": "{count} žaidėjai",
+				"countPlural=many": "{count} žaidėjų",
+				"countPlural=other": "{count} žaidėjų"
+			}
+		}
+	],
+	"tournaments_avg_rating": "Vid. {rating}",
+	"tournaments_filters_heading": "Filtrai",
+	"tournaments_filters_clear_all": "Išvalyti visus filtrus",
+	"tournaments_filters_status_label": "Būsena",
+	"tournaments_filters_tc_label": "Laiko kontrolė",
+	"tournaments_filters_country_label": "Šalis",
+	"tournaments_filters_date_range_label": "Datų intervalas",
+	"tournaments_filters_date_from_placeholder": "Nuo",
+	"tournaments_filters_date_to_placeholder": "Iki",
+	"tournaments_country_lithuania": "Lietuva",
+	"tournaments_country_latvia": "Latvija",
+	"tournaments_filters_result_count": [
+		{
+			"declarations": ["input total", "local totalPlural = total: plural"],
+			"selectors": ["totalPlural"],
+			"match": {
+				"totalPlural=one": "{total} rezultatas",
+				"totalPlural=few": "{total} rezultatai",
+				"totalPlural=many": "{total} rezultatų",
+				"totalPlural=other": "{total} rezultatų"
+			}
+		}
+	],
+	"tournament_carousel_prev_label": "Ankstesnis",
+	"tournament_carousel_next_label": "Kitas",
+	"tournament_carousel_page_label": "{page} puslapis"
 }

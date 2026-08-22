@@ -723,5 +723,58 @@
 	"fide_lookup_age_rank_fallback": "Age group rank",
 	"fide_lookup_age_rank_bracket_europe": "{bracket} rank (Europe)",
 	"fide_lookup_age_rank_fallback_europe": "Age group rank (Europe)",
-	"fide_lookup_not_found": "No FIDE record found for that ID."
+	"fide_lookup_not_found": "No FIDE record found for that ID.",
+	"seo_tournaments_title": "OTB Tournaments — MyChess",
+	"tournaments_heading": "Tournaments",
+	"tournaments_view_list": "List",
+	"tournaments_view_calendar": "Calendar",
+	"tournaments_stale_warning": "⚠️ Data may be outdated. Last updated: {lastUpdated}",
+	"tournaments_last_updated_unknown": "unknown",
+	"tournaments_error_loading": "Error loading tournaments: {error}",
+	"tournaments_prev": "← Previous",
+	"tournaments_next": "Next →",
+	"tournaments_page_of": "Page {page} of {totalPages}",
+	"tournaments_empty_title": "No tournaments found",
+	"tournaments_empty_subtitle": "Try adjusting your filters",
+	"tournaments_calendar_empty": "No tournaments with dates in this range",
+	"tournaments_status_upcoming": "Upcoming",
+	"tournaments_status_live": "Live",
+	"tournaments_status_finished": "Finished",
+	"tournaments_tc_classical": "Classical",
+	"tournaments_tc_rapid": "Rapid",
+	"tournaments_tc_blitz": "Blitz",
+	"tournament_card_player_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} player",
+				"countPlural=other": "{count} players"
+			}
+		}
+	],
+	"tournaments_avg_rating": "Avg {rating}",
+	"tournaments_filters_heading": "Filters",
+	"tournaments_filters_clear_all": "Clear all filters",
+	"tournaments_filters_status_label": "Status",
+	"tournaments_filters_tc_label": "Time Control",
+	"tournaments_filters_country_label": "Country",
+	"tournaments_filters_date_range_label": "Date Range",
+	"tournaments_filters_date_from_placeholder": "From",
+	"tournaments_filters_date_to_placeholder": "To",
+	"tournaments_country_lithuania": "Lithuania",
+	"tournaments_country_latvia": "Latvia",
+	"tournaments_filters_result_count": [
+		{
+			"declarations": ["input total", "local totalPlural = total: plural"],
+			"selectors": ["totalPlural"],
+			"match": {
+				"totalPlural=one": "{total} result",
+				"totalPlural=other": "{total} results"
+			}
+		}
+	],
+	"tournament_carousel_prev_label": "Previous",
+	"tournament_carousel_next_label": "Next",
+	"tournament_carousel_page_label": "Page {page}"
 }

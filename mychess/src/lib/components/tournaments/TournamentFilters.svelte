@@ -3,21 +3,27 @@
   import type { TournamentStatus, TimeControl } from '$lib/tournaments/scraper-utils';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
+  import { m } from '$lib/paraglide/messages';
 
   let { filters: filtersProp, total } = $props<{ filters: TournamentFilters; total: number }>();
   let filters = $state<TournamentFilters>(filtersProp);
 
   const statusOptions = [
-    { value: 'NOT_STARTED', label: 'Upcoming' },
-    { value: 'IN_PROGRESS', label: 'Live' },
-    { value: 'FINISHED', label: 'Finished' },
+    { value: 'NOT_STARTED', label: m.tournaments_status_upcoming() },
+    { value: 'IN_PROGRESS', label: m.tournaments_status_live() },
+    { value: 'FINISHED', label: m.tournaments_status_finished() },
   ];
   const tcOptions = [
-    { value: 'STANDARD', label: 'Classical' },
-    { value: 'RAPID', label: 'Rapid' },
-    { value: 'BLITZ', label: 'Blitz' },
+    { value: 'STANDARD', label: m.tournaments_tc_classical() },
+    { value: 'RAPID', label: m.tournaments_tc_rapid() },
+    { value: 'BLITZ', label: m.tournaments_tc_blitz() },
   ];
+  // Underlying values are compared against DB data / sent in the URL — never translate these.
   const countryOptions = ['Lithuania', 'Latvia'];
+  const countryLabel: Record<string, string> = {
+    Lithuania: m.tournaments_country_lithuania(),
+    Latvia: m.tournaments_country_latvia(),
+  };
 
   function applyFilters() {
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- built, stringified, and discarded synchronously within this function; never read reactively
@@ -74,19 +80,19 @@
 <div class="bg-(--color-surface) border border-(--color-border) rounded-xl p-4 space-y-5">
   <!-- Header -->
   <div class="flex items-center justify-between">
-    <span class="text-sm font-semibold text-(--color-text)">Filters</span>
-    <span class="text-xs text-(--color-muted)">{total} result{total !== 1 ? 's' : ''}</span>
+    <span class="text-sm font-semibold text-(--color-text)">{m.tournaments_filters_heading()}</span>
+    <span class="text-xs text-(--color-muted)">{m.tournaments_filters_result_count({ total })}</span>
   </div>
 
   {#if activeCount > 0}
     <button on:click={clearAll} class="w-full text-xs text-center text-(--color-accent) hover:text-indigo-800 dark:hover:text-indigo-300 border border-indigo-200 rounded-lg py-1.5 transition-colors hover:bg-indigo-50">
-      Clear all filters
+      {m.tournaments_filters_clear_all()}
     </button>
   {/if}
 
   <!-- Status -->
   <div>
-    <p class="text-xs font-semibold uppercase tracking-wider text-(--color-muted) mb-2">Status</p>
+    <p class="text-xs font-semibold uppercase tracking-wider text-(--color-muted) mb-2">{m.tournaments_filters_status_label()}</p>
     <div class="flex flex-wrap gap-1.5">
       {#each statusOptions as opt (opt.value)}
         <button
@@ -104,7 +110,7 @@
 
   <!-- Time control -->
   <div>
-    <p class="text-xs font-semibold uppercase tracking-wider text-(--color-muted) mb-2">Time Control</p>
+    <p class="text-xs font-semibold uppercase tracking-wider text-(--color-muted) mb-2">{m.tournaments_filters_tc_label()}</p>
     <div class="flex flex-wrap gap-1.5">
       {#each tcOptions as opt (opt.value)}
         <button
@@ -122,7 +128,7 @@
 
   <!-- Country -->
   <div>
-    <p class="text-xs font-semibold uppercase tracking-wider text-(--color-muted) mb-2">Country</p>
+    <p class="text-xs font-semibold uppercase tracking-wider text-(--color-muted) mb-2">{m.tournaments_filters_country_label()}</p>
     <div class="flex flex-wrap gap-1.5">
       {#each countryOptions as country (country)}
         <button
@@ -131,7 +137,7 @@
             {filters.country.includes(country)
               ? 'bg-(--color-accent) text-white border-(--color-accent)'
               : 'border-(--color-border) text-(--color-muted) hover:border-indigo-300 hover:text-(--color-accent-hover)'}"
-        >{country}</button>
+        >{countryLabel[country] ?? country}</button>
       {/each}
     </div>
   </div>
@@ -140,20 +146,20 @@
 
   <!-- Date range -->
   <div>
-    <p class="text-xs font-semibold uppercase tracking-wider text-(--color-muted) mb-2">Date Range</p>
+    <p class="text-xs font-semibold uppercase tracking-wider text-(--color-muted) mb-2">{m.tournaments_filters_date_range_label()}</p>
     <div class="space-y-1.5">
       <input
         type="date"
         bind:value={filters.dateStart}
         on:change={applyFilters}
-        placeholder="From"
+        placeholder={m.tournaments_filters_date_from_placeholder()}
         class="w-full text-xs border border-(--color-border) rounded-lg px-2.5 py-1.5 bg-(--color-surface) text-(--color-text) focus:border-indigo-400 focus:outline-none"
       />
       <input
         type="date"
         bind:value={filters.dateEnd}
         on:change={applyFilters}
-        placeholder="To"
+        placeholder={m.tournaments_filters_date_to_placeholder()}
         class="w-full text-xs border border-(--color-border) rounded-lg px-2.5 py-1.5 bg-(--color-surface) text-(--color-text) focus:border-indigo-400 focus:outline-none"
       />
     </div>

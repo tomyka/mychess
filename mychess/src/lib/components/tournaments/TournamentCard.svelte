@@ -1,12 +1,13 @@
 <script lang="ts">
   import type { DbTournament } from '$lib/tournaments/types';
+  import { m } from '$lib/paraglide/messages';
 
   const { tournament } = $props<{ tournament: DbTournament }>();
 
   const statusLabel: Record<string, string> = {
-    NOT_STARTED: 'Upcoming',
-    IN_PROGRESS: 'Live',
-    FINISHED: 'Finished',
+    NOT_STARTED: m.tournaments_status_upcoming(),
+    IN_PROGRESS: m.tournaments_status_live(),
+    FINISHED: m.tournaments_status_finished(),
   };
 
   const statusClass: Record<string, string> = {
@@ -16,9 +17,9 @@
   };
 
   const tcLabel: Record<string, string> = {
-    STANDARD: 'Classical',
-    RAPID: 'Rapid',
-    BLITZ: 'Blitz',
+    STANDARD: m.tournaments_tc_classical(),
+    RAPID: m.tournaments_tc_rapid(),
+    BLITZ: m.tournaments_tc_blitz(),
     UNKNOWN: '',
   };
 
@@ -68,10 +69,10 @@
         </span>
       {/if}
       {#if tournament.player_count}
-        <span class="text-(--color-muted)">{tournament.player_count} players</span>
+        <span class="text-(--color-muted)">{m.tournament_card_player_count({ count: tournament.player_count })}</span>
       {/if}
       {#if tournament.average_rating}
-        <span class="text-(--color-muted)">Avg {tournament.average_rating}</span>
+        <span class="text-(--color-muted)">{m.tournaments_avg_rating({ rating: tournament.average_rating })}</span>
       {/if}
     </div>
   </div>

@@ -5,6 +5,7 @@
   import TournamentFilters from '$lib/components/tournaments/TournamentFilters.svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
+  import { m } from '$lib/paraglide/messages';
 
   const { data } = $props<{ data: PageData }>();
 
@@ -53,33 +54,33 @@
 </script>
 
 <svelte:head>
-  <title>OTB Tournaments — MyChess</title>
+  <title>{m.seo_tournaments_title()}</title>
 </svelte:head>
 
 <div class="max-w-6xl mx-auto px-4 py-6">
   <div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold text-(--color-text)">Tournaments</h1>
+    <h1 class="text-2xl font-bold text-(--color-text)">{m.tournaments_heading()}</h1>
     <div class="flex gap-1 text-sm">
       <button
         on:click={() => setView('list')}
         class="px-3 py-1.5 rounded {!data.isCalendar ? 'bg-(--color-accent) text-white' : 'text-(--color-muted) hover:bg-gray-100'}"
-      >List</button>
+      >{m.tournaments_view_list()}</button>
       <button
         on:click={() => setView('calendar')}
          class="px-3 py-1.5 rounded {data.isCalendar ? 'bg-(--color-accent) text-white' : 'text-(--color-muted) hover:bg-gray-100'}"
-      >Calendar</button>
+      >{m.tournaments_view_calendar()}</button>
     </div>
   </div>
 
   {#if data.isStale}
     <div class="mb-4 px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700 dark:bg-amber-950 dark:border-amber-800 dark:text-amber-400">
-      ⚠️ Data may be outdated. Last updated: {data.lastScrapedAt ? new Date(data.lastScrapedAt).toLocaleString() : 'unknown'}
+      {m.tournaments_stale_warning({ lastUpdated: data.lastScrapedAt ? new Date(data.lastScrapedAt).toLocaleString() : m.tournaments_last_updated_unknown() })}
     </div>
   {/if}
 
   {#if data.error}
     <div class="mb-4 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 dark:bg-red-950 dark:border-red-800 dark:text-red-400">
-      Error loading tournaments: {data.error}
+      {m.tournaments_error_loading({ error: data.error })}
     </div>
   {/if}
 
@@ -97,8 +98,8 @@
         {#if data.tournaments.length === 0}
           <div class="text-center py-16 text-(--color-muted)">
             <p class="text-4xl mb-3">♟</p>
-            <p class="font-medium">No tournaments found</p>
-            <p class="text-sm mt-1">Try adjusting your filters</p>
+            <p class="font-medium">{m.tournaments_empty_title()}</p>
+            <p class="text-sm mt-1">{m.tournaments_empty_subtitle()}</p>
           </div>
         {:else}
           <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -113,15 +114,15 @@
               {#if data.filters.page > 1}
                 <a href={buildPageUrl(data.filters.page - 1)}
                    class="px-4 py-2 text-sm border border-(--color-border) rounded hover:bg-gray-50 dark:hover:bg-gray-800"
-                >← Previous</a>
+                >{m.tournaments_prev()}</a>
               {/if}
               <span class="px-4 py-2 text-sm text-(--color-muted)">
-                Page {data.filters.page} of {totalPages}
+                {m.tournaments_page_of({ page: data.filters.page, totalPages })}
               </span>
               {#if data.filters.page < totalPages}
                 <a href={buildPageUrl(data.filters.page + 1)}
                    class="px-4 py-2 text-sm border border-(--color-border) rounded hover:bg-gray-50 dark:hover:bg-gray-800"
-                >Next →</a>
+                >{m.tournaments_next()}</a>
               {/if}
             </div>
           {/if}
@@ -143,7 +144,7 @@
           {/each}
           {#if byMonthEntries.length === 0}
             <div class="text-center py-16 text-(--color-muted)">
-              <p>No tournaments with dates in this range</p>
+              <p>{m.tournaments_calendar_empty()}</p>
             </div>
           {/if}
         </div>

@@ -1,12 +1,14 @@
 <script lang="ts">
+  import { m } from '$lib/paraglide/messages';
+
   const { tournaments } = $props<{ tournaments: any[] }>();
 
   const PAGE_SIZE = 3;
 
   const statusLabel: Record<string, string> = {
-    NOT_STARTED: 'Upcoming',
-    IN_PROGRESS: 'Live',
-    FINISHED: 'Finished',
+    NOT_STARTED: m.tournaments_status_upcoming(),
+    IN_PROGRESS: m.tournaments_status_live(),
+    FINISHED: m.tournaments_status_finished(),
   };
   const statusDot: Record<string, string> = {
     NOT_STARTED: 'bg-blue-400',
@@ -14,9 +16,9 @@
     FINISHED: 'bg-gray-300',
   };
   const tcLabel: Record<string, string> = {
-    STANDARD: 'Classical',
-    RAPID: 'Rapid',
-    BLITZ: 'Blitz',
+    STANDARD: m.tournaments_tc_classical(),
+    RAPID: m.tournaments_tc_rapid(),
+    BLITZ: m.tournaments_tc_blitz(),
     UNKNOWN: '',
   };
 
@@ -68,7 +70,7 @@
             <p class="text-indigo-500 font-medium">{tcLabel[t.time_control] ?? t.time_control}</p>
           {/if}
           {#if t.average_rating}
-            <p>Avg {t.average_rating}</p>
+            <p>{m.tournaments_avg_rating({ rating: t.average_rating })}</p>
           {/if}
         </div>
       </a>
@@ -82,7 +84,7 @@
         onclick={() => goToPage(currentPage - 1)}
         disabled={currentPage === 0}
         class="p-1.5 rounded-lg border border-(--color-border) text-(--color-muted) hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm"
-        aria-label="Previous"
+        aria-label={m.tournament_carousel_prev_label()}
       >←</button>
 
       <div class="flex gap-1.5 items-center">
@@ -90,7 +92,7 @@
           <button
             onclick={() => goToPage(i)}
             class="rounded-full transition-all {i === currentPage ? 'w-4 h-1.5 bg-(--color-accent)' : 'w-1.5 h-1.5 bg-gray-300'}"
-            aria-label="Page {i + 1}"
+            aria-label={m.tournament_carousel_page_label({ page: i + 1 })}
           ></button>
         {/each}
       </div>
@@ -99,7 +101,7 @@
         onclick={() => goToPage(currentPage + 1)}
         disabled={currentPage === totalPages - 1}
         class="p-1.5 rounded-lg border border-(--color-border) text-(--color-muted) hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm"
-        aria-label="Next"
+        aria-label={m.tournament_carousel_next_label()}
       >→</button>
     </div>
   {/if}
