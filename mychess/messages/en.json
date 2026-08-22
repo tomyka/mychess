@@ -505,8 +505,8 @@
 			],
 			"selectors": ["countPlural"],
 			"match": {
-				"countPlural=one": "{demotedLineCount} learned line will drop to review, across {affectedPlayerCount} of {assignedStudentCount} ",
-				"countPlural=other": "{demotedLineCount} learned lines will drop to review, across {affectedPlayerCount} of {assignedStudentCount} "
+				"countPlural=one": "{demotedLineCount} learned line will drop to review, across {affectedPlayerCount} of {assignedStudentCount}",
+				"countPlural=other": "{demotedLineCount} learned lines will drop to review, across {affectedPlayerCount} of {assignedStudentCount}"
 			}
 		}
 	],

@@ -405,7 +405,7 @@
 						demotedLineCount: preview.impact.demotedLineCount,
 						affectedPlayerCount: preview.impact.affectedPlayerCount,
 						assignedStudentCount
-					})}${m.diff_review_cost_students_suffix({ assignedStudentCount })}`;
+					})} ${m.diff_review_cost_students_suffix({ assignedStudentCount })}`;
 		return m.diff_review_verdict_wrapper({ shape, cost });
 	});
 </script>

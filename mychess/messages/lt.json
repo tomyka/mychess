@@ -547,10 +547,10 @@
 			],
 			"selectors": ["countPlural"],
 			"match": {
-				"countPlural=one": "{demotedLineCount} išmoktas variantas grįš į peržiūrą, tarp {affectedPlayerCount} iš {assignedStudentCount} ",
-				"countPlural=few": "{demotedLineCount} išmokti variantai grįš į peržiūrą, tarp {affectedPlayerCount} iš {assignedStudentCount} ",
-				"countPlural=many": "{demotedLineCount} išmoktų variantų grįš į peržiūrą, tarp {affectedPlayerCount} iš {assignedStudentCount} ",
-				"countPlural=other": "{demotedLineCount} išmoktų variantų grįš į peržiūrą, tarp {affectedPlayerCount} iš {assignedStudentCount} "
+				"countPlural=one": "{demotedLineCount} išmoktas variantas grįš į peržiūrą, tarp {affectedPlayerCount} iš {assignedStudentCount}",
+				"countPlural=few": "{demotedLineCount} išmokti variantai grįš į peržiūrą, tarp {affectedPlayerCount} iš {assignedStudentCount}",
+				"countPlural=many": "{demotedLineCount} išmoktų variantų grįš į peržiūrą, tarp {affectedPlayerCount} iš {assignedStudentCount}",
+				"countPlural=other": "{demotedLineCount} išmoktų variantų grįš į peržiūrą, tarp {affectedPlayerCount} iš {assignedStudentCount}"
 			}
 		}
 	],
