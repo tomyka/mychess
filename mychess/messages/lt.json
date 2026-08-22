@@ -1136,5 +1136,11 @@
 	"coach_player_modal_heading": "Repertuarai, skirti {name}",
 	"coach_player_modal_close_label": "Uždaryti",
 	"coach_player_unassign_button": "Pašalinti",
-	"coach_player_assign_button": "Priskirti"
+	"coach_player_assign_button": "Priskirti",
+	"seo_support_title": "Palaikykite MyChess",
+	"support_heading": "Palaikykite MyChess",
+	"support_intro_body": "MyChess yra ir visada bus nemokama naudotis — nėra mokamo plano ir nė viena funkcija nėra prieinama tik už mokėjimą. Tai pomėgio projektas, šiuo metu veikiantis nemokamame prieglobos pakete.",
+	"support_tip_body": "Jei šis projektas jums buvo naudingas ir norite padėti padengti prieglobos išlaidas augant naudojimui, mielai priimsime vienkartinę paramą žemiau. Tai visiškai neprivaloma ir nesuteikia jokių privilegijų ar paskyros pakeitimų — tiesiog būdas padėkoti, jei norite.",
+	"support_leave_tip_button": "Palikti paramą",
+	"support_donation_coming_soon": "Paramos nuoroda greitai bus pridėta."
 }

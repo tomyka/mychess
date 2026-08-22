@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { m } from '$lib/paraglide/messages';
+
   // Swap this for the real Stripe Payment Link once one exists (Stripe
   // Dashboard → Payment Links → create a one-time payment). Until then the
   // page shows a "coming soon" notice instead of shipping a dead link.
@@ -6,23 +8,18 @@
 </script>
 
 <svelte:head>
-  <title>Support MyChess</title>
+  <title>{m.seo_support_title()}</title>
 </svelte:head>
 
 <div class="max-w-2xl mx-auto px-4 py-12">
-  <h1 class="text-2xl font-bold text-(--color-text) mb-4">Support MyChess</h1>
+  <h1 class="text-2xl font-bold text-(--color-text) mb-4">{m.support_heading()}</h1>
 
   <div class="space-y-4 text-(--color-muted) leading-relaxed">
     <p>
-      MyChess is free to use and always will be — there's no paywalled tier and
-      no feature held back for payment. It's a hobby project, currently running
-      on free-tier hosting.
+      {m.support_intro_body()}
     </p>
     <p>
-      If you've gotten value out of it and want to help cover hosting costs as
-      usage grows, you're welcome to leave a one-time tip below. It's entirely
-      optional and comes with no perks or account changes — just a way to say
-      thanks if you'd like to.
+      {m.support_tip_body()}
     </p>
   </div>
 
@@ -34,11 +31,11 @@
         rel="noopener noreferrer"
         class="inline-block bg-(--color-accent) text-white px-4 py-2 rounded-lg font-medium hover:bg-(--color-accent-hover) transition-colors"
       >
-        Leave a tip
+        {m.support_leave_tip_button()}
       </a>
     {:else}
       <p class="text-sm text-(--color-muted) italic">
-        Donation link coming soon.
+        {m.support_donation_coming_soon()}
       </p>
     {/if}
   </div>

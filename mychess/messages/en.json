@@ -1044,5 +1044,11 @@
 	"coach_player_modal_heading": "Repertoires for {name}",
 	"coach_player_modal_close_label": "Close",
 	"coach_player_unassign_button": "Remove",
-	"coach_player_assign_button": "Assign"
+	"coach_player_assign_button": "Assign",
+	"seo_support_title": "Support MyChess",
+	"support_heading": "Support MyChess",
+	"support_intro_body": "MyChess is free to use and always will be — there's no paywalled tier and no feature held back for payment. It's a hobby project, currently running on free-tier hosting.",
+	"support_tip_body": "If you've gotten value out of it and want to help cover hosting costs as usage grows, you're welcome to leave a one-time tip below. It's entirely optional and comes with no perks or account changes — just a way to say thanks if you'd like to.",
+	"support_leave_tip_button": "Leave a tip",
+	"support_donation_coming_soon": "Donation link coming soon."
 }
