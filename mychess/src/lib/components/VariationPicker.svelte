@@ -9,6 +9,7 @@
 		type MoveGroup,
 		type VariationStep
 	} from '$lib/mastery/variations';
+	import { m } from '$lib/paraglide/messages';
 
 	type VariationRow = {
 		variationKey: string;
@@ -46,7 +47,7 @@
 			variations = await res.json();
 			errorMessage = null;
 		} catch {
-			errorMessage = "Couldn't load variations — try again.";
+			errorMessage = m.variation_picker_load_error();
 		}
 	}
 	load();
@@ -73,7 +74,7 @@
 	}
 
 	function groupLabel(group: MoveGroup<VariationRow>): string {
-		return group.steps.length > 0 ? moveSequenceLabel(group.steps) : 'Other';
+		return group.steps.length > 0 ? moveSequenceLabel(group.steps) : m.variation_picker_other_group_label();
 	}
 
 	/**
@@ -97,18 +98,18 @@
 <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
 	<div class="bg-(--color-surface) rounded-2xl shadow-xl max-w-md w-full max-h-[80vh] overflow-y-auto p-4">
 		<div class="flex items-center justify-between mb-3">
-			<h2 class="font-bold text-(--color-text)">Choose a variation</h2>
-			<button aria-label="Close" onclick={onclose} class="text-(--color-muted) hover:text-gray-600 dark:hover:text-gray-400">✕</button>
+			<h2 class="font-bold text-(--color-text)">{m.variation_picker_heading()}</h2>
+			<button aria-label={m.picker_close_aria()} onclick={onclose} class="text-(--color-muted) hover:text-gray-600 dark:hover:text-gray-400">✕</button>
 		</div>
 
 		{#if variations === null}
 			{#if errorMessage}
 				<p class="text-sm text-red-600 dark:text-red-400">{errorMessage}</p>
 			{:else}
-				<p class="text-sm text-(--color-muted)">Loading…</p>
+				<p class="text-sm text-(--color-muted)">{m.variation_picker_loading()}</p>
 			{/if}
 		{:else if openGroup}
-			<button onclick={() => (openGroupIndex = null)} class="text-(--color-accent) text-sm mb-2 hover:underline">← Back</button>
+			<button onclick={() => (openGroupIndex = null)} class="text-(--color-accent) text-sm mb-2 hover:underline">{m.variation_picker_back()}</button>
 			<ul class="space-y-1">
 				{#each openGroup.items as row (row.variationKey)}
 					<li>
@@ -124,7 +125,7 @@
 			</ul>
 		{:else if activeChapter !== null || chapters === null}
 			{#if chapters !== null}
-				<button onclick={() => (openChapter = null)} class="text-(--color-accent) text-sm mb-2 hover:underline">← Back</button>
+				<button onclick={() => (openChapter = null)} class="text-(--color-accent) text-sm mb-2 hover:underline">{m.variation_picker_back()}</button>
 			{/if}
 			<ul class="space-y-1">
 				{#each currentGroups as group, i (group.steps.map((s) => s.san).join('>') || `other-${i}`)}

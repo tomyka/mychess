@@ -2,6 +2,7 @@
   import { enhance } from '$app/forms';
   import { searchOpenings } from '$lib/openings/classify';
   import { ECO_OPENINGS } from '$lib/openings/eco-data';
+  import { m } from '$lib/paraglide/messages';
 
   let { repId, onclose } = $props<{ repId: string; onclose: () => void }>();
 
@@ -15,7 +16,7 @@
       if (result.type === 'success') {
         onclose();
       } else {
-        errorMessage = 'Could not update the opening — try again.';
+        errorMessage = m.opening_picker_update_error();
       }
       await update();
     };
@@ -32,11 +33,11 @@
     onclick={(e) => e.stopPropagation()}
   >
     <div class="flex items-center justify-between p-4 border-b border-gray-100">
-      <h2 class="font-semibold text-(--color-text)">Change Opening</h2>
+      <h2 class="font-semibold text-(--color-text)">{m.opening_picker_heading()}</h2>
       <button
         type="button"
         onclick={onclose}
-        aria-label="Close"
+        aria-label={m.picker_close_aria()}
         class="text-(--color-muted) hover:text-gray-600 dark:hover:text-gray-400 text-xl leading-none"
       >
         &times;
@@ -51,8 +52,8 @@
       <input
         type="text"
         bind:value={query}
-        placeholder="Search openings (e.g. Sicilian, B90)…"
-        aria-label="Search openings"
+        placeholder={m.opening_picker_search_placeholder()}
+        aria-label={m.opening_picker_search_aria()}
         class="w-full text-sm rounded-lg px-3 py-2 border border-(--color-border) text-(--color-text) focus:outline-none focus:ring-2 focus:ring-indigo-500"
       />
 
@@ -61,12 +62,15 @@
         <input type="hidden" name="eco_code" value="" />
         <input type="hidden" name="eco_name" value="" />
         <button class="w-full text-left text-sm text-(--color-muted) hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg px-3 py-2">
-          Unclassified
+          <!-- Same "Unclassified" fallback label as the repertoires list
+               (repertoires_unclassified_label) — deliberately shared rather
+               than duplicated. -->
+          {m.repertoires_unclassified_label()}
         </button>
       </form>
 
       {#if query.trim() && results.length === 0}
-        <p class="text-sm text-(--color-muted) px-1">No matches.</p>
+        <p class="text-sm text-(--color-muted) px-1">{m.opening_picker_no_matches()}</p>
       {/if}
 
       <ul class="space-y-1">

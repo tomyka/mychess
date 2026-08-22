@@ -69,6 +69,7 @@
 
 <script lang="ts">
 	import { commonPrefixLength } from '$lib/repertoire-diff';
+	import { m } from '$lib/paraglide/messages';
 
 	type Props = {
 		preview: ReviewPreview;
@@ -127,12 +128,12 @@
 	};
 
 	const KIND_LABEL: Record<ReviewDiffKind, string> = {
-		unchanged: 'Unchanged',
-		extended: 'Extended',
-		truncated: 'Shortened',
-		diverged: 'Diverged',
-		new: 'New',
-		removed: 'Removed'
+		unchanged: m.diff_review_kind_unchanged(),
+		extended: m.diff_review_kind_extended(),
+		truncated: m.diff_review_kind_truncated(),
+		diverged: m.diff_review_kind_diverged(),
+		new: m.diff_review_kind_new(),
+		removed: m.diff_review_kind_removed()
 	};
 
 	/**
@@ -186,7 +187,7 @@
 		for (const diff of preview.diffs) {
 			const keys = diff.chapterNames.length > 0 ? diff.chapterNames : [UNTAGGED];
 			for (const key of keys) {
-				const target = bucket(key, key === UNTAGGED ? 'Untitled chapter' : key, false);
+				const target = bucket(key, key === UNTAGGED ? m.diff_review_untitled_chapter() : key, false);
 				target.diffs.push(diff);
 				target.counts[diff.kind]++;
 			}
@@ -341,21 +342,24 @@
 	function consequenceOf(diff: ReviewDiff): string {
 		switch (diff.kind) {
 			case 'unchanged':
-				return 'No change — every student will keep their progress and their learned badge.';
+				return m.diff_review_consequence_unchanged();
 			case 'extended':
-				return `${(diff.sans?.length ?? 0) - diff.commonPlies} more plies at the end; depth will be kept, the learned badge will drop to review.`;
+				return m.diff_review_consequence_extended({ n: (diff.sans?.length ?? 0) - diff.commonPlies });
 			case 'truncated':
-				return `Shorter by ${(diff.previousSans?.length ?? 0) - diff.commonPlies} plies; depth will be clamped to the new end and the learned badge kept.`;
+				return m.diff_review_consequence_truncated({ n: (diff.previousSans?.length ?? 0) - diff.commonPlies });
 			case 'diverged':
-				return `Changes from move ${Math.floor(diff.commonPlies / 2) + 1}; the first ${diff.commonPlies} plies will be kept, the learned badge will drop to review.`;
+				return m.diff_review_consequence_diverged({
+					commonPlies: diff.commonPlies,
+					moveNumber: Math.floor(diff.commonPlies / 2) + 1
+				});
 			case 'new':
 				return diff.commonPlies > 0
-					? `New line; students will start it at ${diff.commonPlies} plies, inherited from what they already know.`
-					: 'New line; students will start it from the first move.';
+					? m.diff_review_consequence_new_continued({ commonPlies: diff.commonPlies })
+					: m.diff_review_consequence_new_fresh();
 			case 'removed':
 				return isSpared(diff)
-					? 'This file does not mention its chapter, which you chose to keep — it will stay live and drillable, untouched.'
-					: 'Will stop being drilled. Its learned badge is kept, so restoring the line restores it too.';
+					? m.diff_review_consequence_removed_spared()
+					: m.diff_review_consequence_removed();
 		}
 	}
 
@@ -364,7 +368,7 @@
 	 * `removed` — the file does not contain it — but labelling it Removed beside
 	 * a sentence saying it stays would be the same lie this screen used to tell.
 	 */
-	const badgeOf = (diff: ReviewDiff) => (isSpared(diff) ? 'Kept' : KIND_LABEL[diff.kind]);
+	const badgeOf = (diff: ReviewDiff) => (isSpared(diff) ? m.diff_review_badge_kept() : KIND_LABEL[diff.kind]);
 
 	const styleOf = (diff: ReviewDiff) => (isSpared(diff) ? DIFF_STYLE.unchanged : DIFF_STYLE[diff.kind]);
 
@@ -383,35 +387,40 @@
 
 	const verdict = $derived.by(() => {
 		const parts: string[] = [];
-		if (counts.new > 0) parts.push(`add ${counts.new} ${counts.new === 1 ? 'line' : 'lines'}`);
-		if (changedCount > 0) parts.push(`reshape ${changedCount} ${changedCount === 1 ? 'line' : 'lines'}`);
-		if (retiredCount > 0) parts.push(`retire ${retiredCount} ${retiredCount === 1 ? 'line' : 'lines'}`);
-		if (sparedCount > 0) {
-			parts.push(`leave ${sparedCount} ${sparedCount === 1 ? 'line' : 'lines'} in the chapters you kept untouched`);
-		}
+		if (counts.new > 0) parts.push(m.diff_review_verdict_add({ n: counts.new }));
+		if (changedCount > 0) parts.push(m.diff_review_verdict_reshape({ n: changedCount }));
+		if (retiredCount > 0) parts.push(m.diff_review_verdict_retire({ n: retiredCount }));
+		if (sparedCount > 0) parts.push(m.diff_review_verdict_spared({ n: sparedCount }));
 		if (parts.length === 0) {
-			return 'This file matches the repertoire exactly — applying it will change no lines and cost no student anything.';
+			return m.diff_review_verdict_no_changes();
 		}
-		const shape = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+		const shape =
+			parts.length === 1
+				? parts[0]
+				: `${parts.slice(0, -1).join(', ')} ${m.diff_review_verdict_and()} ${parts[parts.length - 1]}`;
 		const cost =
 			preview.impact.demotedLineCount === 0
-				? 'No student will lose a learned badge.'
-				: `${preview.impact.demotedLineCount} learned ${preview.impact.demotedLineCount === 1 ? 'line' : 'lines'} will drop to review, across ${preview.impact.affectedPlayerCount} of ${assignedStudentCount} students, on each student's next visit.`;
-		return `Applying this will ${shape}. ${cost}`;
+				? m.diff_review_cost_none()
+				: `${m.diff_review_cost_demoted({
+						demotedLineCount: preview.impact.demotedLineCount,
+						affectedPlayerCount: preview.impact.affectedPlayerCount,
+						assignedStudentCount
+					})}${m.diff_review_cost_students_suffix({ assignedStudentCount })}`;
+		return m.diff_review_verdict_wrapper({ shape, cost });
 	});
 </script>
 
 <section class="space-y-4">
 	<!-- 1. Header ------------------------------------------------------------ -->
 	<header class="rounded-xl border border-(--color-border) bg-(--color-surface) p-4 shadow-sm">
-		<h1 class="text-xl font-bold text-(--color-text)">Review update before applying</h1>
+		<h1 class="text-xl font-bold text-(--color-text)">{m.diff_review_heading()}</h1>
 		<p class="mt-1 text-sm text-(--color-muted)">
 			<span class="font-medium text-(--color-text)">{repertoireName}</span>
 			<span aria-hidden="true"> · </span>
 			<span class="break-all">{fileName}</span>
 			<span aria-hidden="true"> · </span>
 			<span class="tabular-nums">{assignedStudentCount}</span>
-			{assignedStudentCount === 1 ? 'student' : 'students'} assigned
+			{m.diff_review_header_students_assigned({ count: assignedStudentCount })}
 		</p>
 	</header>
 
@@ -432,11 +441,11 @@
 		{/each}
 		<p class="ml-auto text-sm text-(--color-muted)">
 			<span class="tabular-nums font-semibold text-(--color-text)">{preview.impact.demotedLineCount}</span>
-			learned {preview.impact.demotedLineCount === 1 ? 'line' : 'lines'} will drop to review, across
+			{m.diff_review_chip_demoted_clause({ count: preview.impact.demotedLineCount })}
 			<span class="tabular-nums font-semibold text-(--color-text)">{preview.impact.affectedPlayerCount}</span>
-			of
+			{m.diff_review_chip_of()}
 			<span class="tabular-nums font-semibold text-(--color-text)">{assignedStudentCount}</span>
-			students
+			{m.diff_review_chip_students_suffix({ count: assignedStudentCount })}
 		</p>
 	</div>
 
@@ -444,7 +453,7 @@
 	<div class="grid gap-4 md:grid-cols-[16rem_minmax(0,1fr)]">
 		<nav
 			class="min-w-0 rounded-xl border border-(--color-border) bg-(--color-surface) p-2 shadow-sm"
-			aria-label="Chapters"
+			aria-label={m.diff_review_chapters_nav_aria()}
 		>
 			<ul class="space-y-1">
 				{#each chapters as chapter (chapter.key)}
@@ -468,13 +477,13 @@
 											>{chapter.counts[kind]} {KIND_LABEL[kind].toLowerCase()}</span
 										>
 									{/each}
-									{#if chapter.diffs.length === 0}no lines{/if}
+									{#if chapter.diffs.length === 0}{m.diff_review_chapter_no_lines()}{/if}
 								</span>
 								{#if chapter.absent}
 									<span
 										class="mt-1 inline-block rounded border border-(--color-diff-removed) px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-(--color-diff-removed)"
 									>
-										not in file
+										{m.diff_review_not_in_file()}
 									</span>
 								{/if}
 							</span>
@@ -487,9 +496,7 @@
 		<div class="min-w-0 rounded-xl border border-(--color-border) bg-(--color-surface) shadow-sm">
 			{#if !selected || selected.diffs.length === 0}
 				<p class="p-4 text-sm text-(--color-muted)">
-					{selected?.absent
-						? 'This chapter has no lines left to show — every line it held was matched to a line that stayed.'
-						: 'Nothing to show for this chapter.'}
+					{selected?.absent ? m.diff_review_chapter_absent_empty() : m.diff_review_chapter_empty()}
 				</p>
 			{:else}
 				<ul class="max-h-[32rem] divide-y divide-(--color-border) overflow-y-auto">
@@ -531,16 +538,14 @@
 	{#each offeredRenames as candidate (candidate.from)}
 		<div class="rounded-xl border border-(--color-border) bg-(--color-surface) p-4 shadow-sm">
 			<h2 class="text-sm font-semibold text-(--color-text)">
-				Is “{candidate.to}” a rename of “{candidate.from}”?
+				{m.diff_review_rename_question({ to: candidate.to, from: candidate.from })}
 			</h2>
 			<p class="mt-1 text-sm text-(--color-muted)">
 				<span class="tabular-nums font-medium text-(--color-text)">{Math.round(candidate.overlap * 100)}%</span>
-				of “{candidate.from}”’s lines turn up under “{candidate.to}”. Renaming keeps the chapter and its lines
-				together; treating them as separate chapters lists “{candidate.from}” below as a chapter this file does
-				not mention, where you decide whether to keep or retire its lines.
+				{m.diff_review_rename_overlap_body({ from: candidate.from, to: candidate.to })}
 			</p>
 			<div class="mt-3 flex gap-2">
-				{#each [{ id: 'rename', label: 'Rename' }, { id: 'separate', label: 'Separate chapter' }] as const as option (option.id)}
+				{#each [{ id: 'rename', label: m.diff_review_rename_choice_rename() }, { id: 'separate', label: m.diff_review_rename_choice_separate() }] as const as option (option.id)}
 					<button
 						type="button"
 						onclick={() => (renameChoice = { ...renameChoice, [candidate.from]: option.id })}
@@ -562,21 +567,14 @@
 	{#if omittedChapters.length > 0}
 		<div class="rounded-xl border border-(--color-border) bg-(--color-surface) p-4 shadow-sm">
 			<h2 class="text-sm font-semibold text-(--color-text)">
-				This file does not mention {omittedChapters.length}
-				{omittedChapters.length === 1 ? 'chapter' : 'chapters'}. Remove {omittedChapters.length === 1
-					? 'it'
-					: 'them'}?
+				{m.diff_review_omitted_heading({ n: omittedChapters.length })}
 			</h2>
 			<p class="mt-1 text-sm text-(--color-muted)">
-				Keep leaves a chapter's lines exactly as they are — this file replaces only the chapters it names, so a
-				kept chapter stays live and drillable and no student loses anything. Remove retires its lines: they stop
-				being drilled, though each student's learned badge is kept in case you restore the chapter later. Keep is
-				the default, so say Remove for each one you actually meant to drop.
+				{m.diff_review_omitted_explainer()}
 			</p>
 			{#each ambiguousRenames as candidate (candidate.from)}
 				<p class="mt-2 text-sm text-(--color-muted)">
-					“{candidate.from}” looks like it became “{candidate.to}” — but so does another chapter, so no rename is
-					offered for either. Accepting both would silently merge two chapters into one.
+					{m.diff_review_ambiguous_rename({ from: candidate.from, to: candidate.to })}
 				</p>
 			{/each}
 			<ul class="mt-3 space-y-2">
@@ -584,11 +582,10 @@
 					<li class="flex flex-wrap items-center gap-2">
 						<span class="min-w-0 flex-1 truncate text-sm font-medium text-(--color-text)">{chapter.name}</span>
 						<span class="text-xs text-(--color-muted) tabular-nums">
-							{chapter.lineCount}
-							{chapter.lineCount === 1 ? 'line' : 'lines'}
+							{m.diff_review_omitted_line_count({ n: chapter.lineCount })}
 						</span>
 						<span class="flex gap-2">
-							{#each [{ id: 'keep', label: 'Keep' }, { id: 'remove', label: 'Remove' }] as const as option (option.id)}
+							{#each [{ id: 'keep', label: m.diff_review_omitted_choice_keep() }, { id: 'remove', label: m.diff_review_omitted_choice_remove() }] as const as option (option.id)}
 								<button
 									type="button"
 									onclick={() => (omittedChoice = { ...omittedChoice, [chapter.name]: option.id })}
@@ -613,22 +610,21 @@
 	<footer class="rounded-xl border border-(--color-border) bg-(--color-surface) p-4 shadow-sm">
 		<p class="text-sm text-(--color-text)">{verdict}</p>
 		<p class="mt-1 text-xs text-(--color-muted)">
-			Students always see what changed — the banner on their next visit is built from these very changes, so there
-			is nothing to switch off.
+			{m.diff_review_footer_note()}
 		</p>
 		<div class="mt-3 flex items-center justify-end gap-3">
 			<a
 				href={cancelHref}
 				class="rounded-xl border border-(--color-border) px-4 py-2 text-sm font-semibold text-(--color-muted) transition-colors hover:border-(--color-accent) hover:text-(--color-text) focus:border-(--color-accent) focus:text-(--color-text) focus:outline-2 focus:outline-offset-2 focus:outline-(--color-accent)"
 			>
-				Cancel
+				{m.diff_review_cancel_button()}
 			</a>
 			<button
 				type="submit"
 				disabled={submitting}
 				class="rounded-xl bg-(--color-accent) px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-(--color-accent-hover) focus:bg-(--color-accent-hover) focus:outline-2 focus:outline-offset-2 focus:outline-(--color-accent) disabled:cursor-not-allowed disabled:opacity-60"
 			>
-				{submitting ? 'Applying…' : 'Apply update'}
+				{submitting ? m.diff_review_applying() : m.diff_review_apply_button()}
 			</button>
 		</div>
 	</footer>

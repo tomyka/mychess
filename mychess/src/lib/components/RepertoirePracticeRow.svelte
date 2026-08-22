@@ -3,6 +3,7 @@
 	import { VariationSelection } from '$lib/mastery/variationSelection.svelte';
 	import { checkboxState } from './checkboxState';
 	import RepertoireVariationTree from './RepertoireVariationTree.svelte';
+	import { m } from '$lib/paraglide/messages';
 
 	type RepSummary = {
 		id: string;
@@ -67,7 +68,7 @@
 	// deciding it here would mean loading every repertoire's variations to work
 	// out its chapter list, and showing a status we can't yet compute would be
 	// worse than showing the one we can.
-	const statusLabel = $derived(liveAllSolved ? 'Learned' : 'Learning');
+	const statusLabel = $derived(liveAllSolved ? m.repertoire_row_status_learned() : m.repertoire_row_status_learning());
 	const statusChipClass = $derived(
 		liveAllSolved
 			? 'border-[#6FCF73]/40 bg-[#6FCF73]/10 text-[#4b9e50] dark:text-[#6FCF73]'
@@ -94,12 +95,12 @@
 	<div class="flex items-center gap-3 p-4">
 		{#if rep.fullVariationCount > 0}
 			<label class="flex items-center shrink-0">
-				<input type="checkbox" use:checkboxState={parentState} onchange={toggleParent} aria-label={`Include ${rep.name} in practice`} />
+				<input type="checkbox" use:checkboxState={parentState} onchange={toggleParent} aria-label={m.repertoire_row_include_aria({ name: rep.name })} />
 			</label>
 			<button
 				type="button"
 				onclick={toggleExpanded}
-				aria-label={expanded ? `Collapse ${rep.name}` : `Expand ${rep.name}`}
+				aria-label={expanded ? m.repertoire_row_collapse_aria({ name: rep.name }) : m.repertoire_row_expand_aria({ name: rep.name })}
 				class="text-(--color-muted) shrink-0 w-4"
 			>
 				{expanded ? '▾' : '▸'}
@@ -121,11 +122,9 @@
 				</div>
 				<p class="text-sm text-(--color-muted)">
 					{#if liveTotal === 0}
-						No moves yet
-					{:else if liveAllSolved}
-						{liveSolved}/{liveTotal} variations learned
+						{m.repertoire_row_no_moves()}
 					{:else}
-						{liveSolved}/{liveTotal} variations learned
+						{m.repertoire_row_progress({ solved: liveSolved, total: liveTotal })}
 					{/if}
 				</p>
 			</div>

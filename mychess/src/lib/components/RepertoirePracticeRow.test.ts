@@ -293,7 +293,9 @@ describe('RepertoirePracticeRow', () => {
 		const v1Checkbox = within(screen.getByText('label:v1').closest('label')!).getByRole('checkbox') as HTMLInputElement;
 		await fireEvent.click(v1Checkbox);
 
-		expect(screen.getByText('0/1 variations learned')).toBeTruthy();
+		// "variation" singular: the i18n pass fixed a pre-existing always-plural
+		// bug (the subtitle used to say "variations" even when total was 1).
+		expect(screen.getByText('0/1 variation learned')).toBeTruthy();
 	});
 
 	it('reverts the checkbox and shows an error when toggling a variation fails', async () => {

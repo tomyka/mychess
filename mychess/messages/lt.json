@@ -360,5 +360,318 @@
 	"time_trial_wrong_move": "Neteisingas ėjimas! Bandykite dar kartą!",
 	"time_trial_play_correct_move": "Suveskite teisingą debiuto ėjimą!",
 	"time_trial_correct_label": "Teisingi",
-	"time_trial_time_label": "Laikas"
+	"time_trial_time_label": "Laikas",
+	"seo_repertoires_title": "Repertuarai — MyChess",
+	"repertoires_delete_confirm": "Ištrinti „{name}“? Šio veiksmo anuliuoti nebegalėsite, be to, bus ištrinta visa šio repertuaro praktikos istorija.",
+	"repertoires_assigned_heading": "Priskyrė jūsų treneris",
+	"repertoires_moves_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} ėjimas",
+				"countPlural=few": "{count} ėjimai",
+				"countPlural=many": "{count} ėjimų",
+				"countPlural=other": "{count} ėjimų"
+			}
+		}
+	],
+	"repertoires_action_learn": "Mokytis",
+	"repertoires_action_practice": "Praktika",
+	"repertoires_title": "Mano repertuarai",
+	"repertoires_create_button": "+ Sukurti repertuarą",
+	"repertoires_unclassified_label": "Nepriskirtas",
+	"repertoires_delete_button": "Ištrinti",
+	"seo_repertoires_new_title": "Sukurti repertuarą — MyChess",
+	"repertoires_new_back_link": "← Atgal į repertuarus",
+	"repertoires_create_action_label": "Sukurti repertuarą",
+	"pgn_import_name_label": "Repertuaro pavadinimas",
+	"pgn_import_name_placeholder": "pvz. Sicilijos gynyba",
+	"pgn_import_color_label": "Spalva",
+	"pgn_import_color_white": "Balta",
+	"pgn_import_color_black": "Juoda",
+	"pgn_import_pgn_text_label": "Įklijuokite PGN tekstą",
+	"pgn_import_pgn_text_placeholder": "[Event \"Example\"]\n\n1. e4 e5 *",
+	"pgn_import_file_label": "…arba įkelkite .pgn failą",
+	"pgn_import_choose_file_button": "Pasirinkti failą",
+	"pgn_import_gdrive_button": "…arba importuokite iš Google Drive",
+	"pgn_import_gdrive_opening": "Atveriamas Google Drive…",
+	"pgn_import_selected_file": "Pasirinkta: {fileName}",
+	"pgn_import_importing_label": "Importuojama…",
+	"pgn_import_finished_label": "Importavimas baigtas",
+	"pgn_import_file_read_error": "Nepavyko perskaityti šio failo — pabandykite įklijuoti PGN tekstą.",
+	"pgn_import_drive_generic_error": "Nepavyko importuoti iš Google Drive.",
+	"pgn_import_missing_fields_error": "Būtina nurodyti pavadinimą ir PGN",
+	"pgn_import_generic_failure": "Importavimas nepavyko",
+	"opening_picker_heading": "Pakeisti debiutą",
+	"picker_close_aria": "Uždaryti",
+	"opening_picker_search_placeholder": "Ieškoti debiutų (pvz. Sicilijos, B90)…",
+	"opening_picker_search_aria": "Ieškoti debiutų",
+	"opening_picker_no_matches": "Nerasta atitikmenų.",
+	"opening_picker_update_error": "Nepavyko atnaujinti debiuto — bandykite dar kartą.",
+	"variation_picker_heading": "Pasirinkite variantą",
+	"variation_picker_loading": "Įkeliama…",
+	"variation_picker_load_error": "Nepavyko įkelti variantų — bandykite dar kartą.",
+	"variation_picker_other_group_label": "Kita",
+	"variation_picker_back": "← Atgal",
+	"repertoire_row_include_aria": "Įtraukti {name} į praktiką",
+	"repertoire_row_expand_aria": "Išskleisti {name}",
+	"repertoire_row_collapse_aria": "Suskleisti {name}",
+	"repertoire_row_status_learned": "Išmokta",
+	"repertoire_row_status_learning": "Mokomasi",
+	"repertoire_row_no_moves": "Kol kas nėra ėjimų",
+	"repertoire_row_progress": [
+		{
+			"declarations": ["input total", "input solved", "local totalPlural = total: plural"],
+			"selectors": ["totalPlural"],
+			"match": {
+				"totalPlural=one": "{solved}/{total} variantas išmoktas",
+				"totalPlural=few": "{solved}/{total} variantai išmokti",
+				"totalPlural=many": "{solved}/{total} variantų išmokta",
+				"totalPlural=other": "{solved}/{total} variantų išmokta"
+			}
+		}
+	],
+	"repertoire_tree_loading": "Kraunami variantai…",
+	"repertoire_tree_line_count": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "· {n} variantas",
+				"nPlural=few": "· {n} variantai",
+				"nPlural=many": "· {n} variantų",
+				"nPlural=other": "· {n} variantų"
+			}
+		}
+	],
+	"repertoire_tree_chapter_heading": "{chapter} (skyrius)",
+	"repertoire_tree_expand_aria": "Išskleisti {target}",
+	"repertoire_tree_collapse_aria": "Suskleisti {target}",
+	"repertoire_tree_chapter_expand_aria": "Išskleisti skyrių {chapter}",
+	"repertoire_tree_chapter_collapse_aria": "Suskleisti skyrių {chapter}",
+	"repertoire_tree_chapter_include_aria": "Įtraukti {heading} į praktiką",
+	"repertoire_tree_movegroup_include_aria": "Įtraukti {group} iš {qualifier} į praktiką",
+	"repertoire_tree_movegroup_expand_aria": "Išskleisti {group} iš {qualifier}",
+	"repertoire_tree_movegroup_collapse_aria": "Suskleisti {group} iš {qualifier}",
+	"diff_review_heading": "Peržiūrėkite atnaujinimą prieš jį pritaikydami",
+	"diff_review_kind_unchanged": "Nepakeista",
+	"diff_review_kind_extended": "Pratęsta",
+	"diff_review_kind_truncated": "Sutrumpinta",
+	"diff_review_kind_diverged": "Pakeista",
+	"diff_review_kind_new": "Nauja",
+	"diff_review_kind_removed": "Pašalinta",
+	"diff_review_badge_kept": "Palikta",
+	"diff_review_chapters_nav_aria": "Skyriai",
+	"diff_review_not_in_file": "nėra faile",
+	"diff_review_chapter_no_lines": "nėra variantų",
+	"diff_review_chapter_absent_empty": "Šiam skyriui nėra ką parodyti — visi jo variantai buvo priskirti variantams, kurie nepasikeitė.",
+	"diff_review_chapter_empty": "Šiam skyriui nėra ką parodyti.",
+	"diff_review_consequence_unchanged": "Pokyčių nėra — kiekvienas mokinys išsaugos savo pažangą ir išmokimo ženklelį.",
+	"diff_review_consequence_new_fresh": "Naujas variantas; mokiniai jį pradės nuo pirmojo ėjimo.",
+	"diff_review_consequence_removed_spared": "Šiame faile nepaminėtas jo skyrius, kurį nusprendėte palikti — jis išliks aktyvus ir prieinamas praktikai, nepaliestas.",
+	"diff_review_consequence_removed": "Nebebus praktikuojamas. Jo išmokimo ženklelis paliktas, todėl atkūrus variantą atkuriamas ir jis.",
+	"diff_review_rename_question": "Ar „{to}“ yra „{from}“ pervadinimas?",
+	"diff_review_rename_overlap_body": "„{from}“ variantų yra „{to}“. Pervadinimas išlaiko skyrių su jo variantais kartu; laikant juos atskirais skyriais, „{from}“ bus rodomas žemiau kaip skyrius, kurio šis failas nemini — tuomet nuspręsite, ar palikti, ar atšaukti jo variantus.",
+	"diff_review_rename_choice_rename": "Pervadinti",
+	"diff_review_rename_choice_separate": "Atskiras skyrius",
+	"diff_review_ambiguous_rename": "Atrodo, kad „{from}“ tapo „{to}“ — bet taip pat atrodo ir apie kitą skyrių, todėl pervadinimas nėra pasiūlytas nė vienam. Priėmus abu, du skyriai būtų nepastebimai sulieti į vieną.",
+	"diff_review_omitted_explainer": "Palikti išsaugo skyriaus variantus tokius, kokie jie yra — šis failas pakeičia tik jame nurodytus skyrius, todėl paliktas skyrius išlieka aktyvus ir prieinamas praktikai, o mokinys nieko nepraranda. Pašalinti atšaukia jo variantus: jie nebebus praktikuojami, tačiau kiekvieno mokinio išmokimo ženklelis paliekamas, jei vėliau atkurtumėte skyrių. Palikti yra numatytasis pasirinkimas, todėl pasirinkite Pašalinti tik tiems skyriams, kuriuos tikrai norite atmesti.",
+	"diff_review_omitted_choice_keep": "Palikti",
+	"diff_review_omitted_choice_remove": "Pašalinti",
+	"diff_review_footer_note": "Mokiniai visada mato, kas pasikeitė — pranešimas apie tai jų kitame apsilankyme yra sudarytas iš tų pačių pakeitimų, todėl nėra ko išjungti.",
+	"diff_review_cancel_button": "Atšaukti",
+	"diff_review_applying": "Pritaikoma…",
+	"diff_review_apply_button": "Pritaikyti atnaujinimą",
+	"diff_review_verdict_and": "ir",
+	"diff_review_verdict_no_changes": "Šis failas tiksliai sutampa su repertuaru — jį pritaikius nebus pakeistas joks variantas ir tai nieko nekainuos jokiam mokiniui.",
+	"diff_review_verdict_wrapper": "Pritaikius tai: {shape}. {cost}",
+	"diff_review_cost_none": "Joks mokinys neprarastų išmokimo ženklelio.",
+	"diff_review_chip_of": "iš",
+	"diff_review_untitled_chapter": "Neįvardintas skyrius",
+	"diff_review_verdict_add": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "pridėti {n} variantą",
+				"nPlural=few": "pridėti {n} variantus",
+				"nPlural=many": "pridėti {n} variantų",
+				"nPlural=other": "pridėti {n} variantų"
+			}
+		}
+	],
+	"diff_review_verdict_reshape": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "pertvarkyti {n} variantą",
+				"nPlural=few": "pertvarkyti {n} variantus",
+				"nPlural=many": "pertvarkyti {n} variantų",
+				"nPlural=other": "pertvarkyti {n} variantų"
+			}
+		}
+	],
+	"diff_review_verdict_retire": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "atsisakyti {n} varianto",
+				"nPlural=few": "atsisakyti {n} variantų",
+				"nPlural=many": "atsisakyti {n} variantų",
+				"nPlural=other": "atsisakyti {n} variantų"
+			}
+		}
+	],
+	"diff_review_verdict_spared": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "palikti {n} variantą nepakeistuose skyriuose, kuriuos nusprendėte palikti",
+				"nPlural=few": "palikti {n} variantus nepakeistuose skyriuose, kuriuos nusprendėte palikti",
+				"nPlural=many": "palikti {n} variantų nepakeistuose skyriuose, kuriuos nusprendėte palikti",
+				"nPlural=other": "palikti {n} variantų nepakeistuose skyriuose, kuriuos nusprendėte palikti"
+			}
+		}
+	],
+	"diff_review_cost_demoted": [
+		{
+			"declarations": [
+				"input demotedLineCount",
+				"input affectedPlayerCount",
+				"input assignedStudentCount",
+				"local countPlural = demotedLineCount: plural"
+			],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{demotedLineCount} išmoktas variantas grįš į peržiūrą, tarp {affectedPlayerCount} iš {assignedStudentCount} ",
+				"countPlural=few": "{demotedLineCount} išmokti variantai grįš į peržiūrą, tarp {affectedPlayerCount} iš {assignedStudentCount} ",
+				"countPlural=many": "{demotedLineCount} išmoktų variantų grįš į peržiūrą, tarp {affectedPlayerCount} iš {assignedStudentCount} ",
+				"countPlural=other": "{demotedLineCount} išmoktų variantų grįš į peržiūrą, tarp {affectedPlayerCount} iš {assignedStudentCount} "
+			}
+		}
+	],
+	"diff_review_cost_students_suffix": [
+		{
+			"declarations": ["input assignedStudentCount", "local countPlural = assignedStudentCount: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "mokinio, per artimiausią jo apsilankymą.",
+				"countPlural=few": "mokinių, per artimiausią jų apsilankymą.",
+				"countPlural=many": "mokinių, per artimiausią jų apsilankymą.",
+				"countPlural=other": "mokinių, per artimiausią jų apsilankymą."
+			}
+		}
+	],
+	"diff_review_chip_demoted_clause": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "išmoktas variantas grįš į peržiūrą, tarp",
+				"countPlural=few": "išmokti variantai grįš į peržiūrą, tarp",
+				"countPlural=many": "išmoktų variantų grįš į peržiūrą, tarp",
+				"countPlural=other": "išmoktų variantų grįš į peržiūrą, tarp"
+			}
+		}
+	],
+	"diff_review_chip_students_suffix": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "mokinio",
+				"countPlural=few": "mokinių",
+				"countPlural=many": "mokinių",
+				"countPlural=other": "mokinių"
+			}
+		}
+	],
+	"diff_review_header_students_assigned": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "mokinys priskirtas",
+				"countPlural=few": "mokiniai priskirti",
+				"countPlural=many": "mokinių priskirta",
+				"countPlural=other": "mokinių priskirta"
+			}
+		}
+	],
+	"diff_review_omitted_heading": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "Šiame faile nepaminėtas {n} skyrius. Ar jį pašalinti?",
+				"nPlural=few": "Šiame faile nepaminėti {n} skyriai. Ar juos pašalinti?",
+				"nPlural=many": "Šiame faile nepaminėta {n} skyrių. Ar juos pašalinti?",
+				"nPlural=other": "Šiame faile nepaminėta {n} skyrių. Ar juos pašalinti?"
+			}
+		}
+	],
+	"diff_review_omitted_line_count": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "{n} variantas",
+				"nPlural=few": "{n} variantai",
+				"nPlural=many": "{n} variantų",
+				"nPlural=other": "{n} variantų"
+			}
+		}
+	],
+	"diff_review_consequence_extended": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "{n} papildomas ėjimas gale; gylis bus išlaikytas, o išmokimo ženklelis grįš į peržiūrą.",
+				"nPlural=few": "{n} papildomi ėjimai gale; gylis bus išlaikytas, o išmokimo ženklelis grįš į peržiūrą.",
+				"nPlural=many": "{n} papildomų ėjimų gale; gylis bus išlaikytas, o išmokimo ženklelis grįš į peržiūrą.",
+				"nPlural=other": "{n} papildomų ėjimų gale; gylis bus išlaikytas, o išmokimo ženklelis grįš į peržiūrą."
+			}
+		}
+	],
+	"diff_review_consequence_truncated": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "Trumpesnis {n} ėjimu; gylis bus pritaikytas naujai pabaigai, o išmokimo ženklelis paliktas.",
+				"nPlural=few": "Trumpesnis {n} ėjimais; gylis bus pritaikytas naujai pabaigai, o išmokimo ženklelis paliktas.",
+				"nPlural=many": "Trumpesnis {n} ėjimais; gylis bus pritaikytas naujai pabaigai, o išmokimo ženklelis paliktas.",
+				"nPlural=other": "Trumpesnis {n} ėjimais; gylis bus pritaikytas naujai pabaigai, o išmokimo ženklelis paliktas."
+			}
+		}
+	],
+	"diff_review_consequence_diverged": [
+		{
+			"declarations": ["input commonPlies", "input moveNumber", "local countPlural = commonPlies: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Pakeitimai nuo {moveNumber} ėjimo; pirmasis {commonPlies} ėjimas bus išlaikytas, o išmokimo ženklelis grįš į peržiūrą.",
+				"countPlural=few": "Pakeitimai nuo {moveNumber} ėjimo; pirmieji {commonPlies} ėjimai bus išlaikyti, o išmokimo ženklelis grįš į peržiūrą.",
+				"countPlural=many": "Pakeitimai nuo {moveNumber} ėjimo; pirmieji {commonPlies} ėjimų bus išlaikyti, o išmokimo ženklelis grįš į peržiūrą.",
+				"countPlural=other": "Pakeitimai nuo {moveNumber} ėjimo; pirmieji {commonPlies} ėjimų bus išlaikyti, o išmokimo ženklelis grįš į peržiūrą."
+			}
+		}
+	],
+	"diff_review_consequence_new_continued": [
+		{
+			"declarations": ["input commonPlies", "local countPlural = commonPlies: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Naujas variantas; mokiniai jį pradės nuo {commonPlies} ėjimo, paveldėto iš to, ką jie jau žino.",
+				"countPlural=few": "Naujas variantas; mokiniai jį pradės nuo {commonPlies} ėjimų, paveldėtų iš to, ką jie jau žino.",
+				"countPlural=many": "Naujas variantas; mokiniai jį pradės nuo {commonPlies} ėjimų, paveldėtų iš to, ką jie jau žino.",
+				"countPlural=other": "Naujas variantas; mokiniai jį pradės nuo {commonPlies} ėjimų, paveldėtų iš to, ką jie jau žino."
+			}
+		}
+	]
 }

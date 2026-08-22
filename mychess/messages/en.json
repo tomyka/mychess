@@ -332,5 +332,282 @@
 	"time_trial_wrong_move": "Wrong move! Try again!",
 	"time_trial_play_correct_move": "Play the correct opening move!",
 	"time_trial_correct_label": "Correct",
-	"time_trial_time_label": "Time"
+	"time_trial_time_label": "Time",
+	"seo_repertoires_title": "Repertoires — MyChess",
+	"repertoires_delete_confirm": "Delete \"{name}\"? This can't be undone and will also delete all practice history for it.",
+	"repertoires_assigned_heading": "Assigned by your coach",
+	"repertoires_moves_count": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{count} move",
+				"countPlural=other": "{count} moves"
+			}
+		}
+	],
+	"repertoires_action_learn": "Learn",
+	"repertoires_action_practice": "Practice",
+	"repertoires_title": "My Repertoires",
+	"repertoires_create_button": "+ Create Repertoire",
+	"repertoires_unclassified_label": "Unclassified",
+	"repertoires_delete_button": "Delete",
+	"seo_repertoires_new_title": "Create Repertoire — MyChess",
+	"repertoires_new_back_link": "← Back to Repertoires",
+	"repertoires_create_action_label": "Create Repertoire",
+	"pgn_import_name_label": "Repertoire Name",
+	"pgn_import_name_placeholder": "e.g. Sicilian Defense",
+	"pgn_import_color_label": "Color",
+	"pgn_import_color_white": "White",
+	"pgn_import_color_black": "Black",
+	"pgn_import_pgn_text_label": "Paste PGN text",
+	"pgn_import_pgn_text_placeholder": "[Event \"Example\"]\n\n1. e4 e5 *",
+	"pgn_import_file_label": "…or upload a .pgn file",
+	"pgn_import_choose_file_button": "Choose File",
+	"pgn_import_gdrive_button": "…or import from Google Drive",
+	"pgn_import_gdrive_opening": "Opening Google Drive…",
+	"pgn_import_selected_file": "Selected: {fileName}",
+	"pgn_import_importing_label": "Importing…",
+	"pgn_import_finished_label": "Import finished",
+	"pgn_import_file_read_error": "Could not read that file — try pasting the PGN text instead.",
+	"pgn_import_drive_generic_error": "Could not import from Google Drive.",
+	"pgn_import_missing_fields_error": "Name and PGN are required",
+	"pgn_import_generic_failure": "Import failed",
+	"opening_picker_heading": "Change Opening",
+	"picker_close_aria": "Close",
+	"opening_picker_search_placeholder": "Search openings (e.g. Sicilian, B90)…",
+	"opening_picker_search_aria": "Search openings",
+	"opening_picker_no_matches": "No matches.",
+	"opening_picker_update_error": "Could not update the opening — try again.",
+	"variation_picker_heading": "Choose a variation",
+	"variation_picker_loading": "Loading…",
+	"variation_picker_load_error": "Couldn't load variations — try again.",
+	"variation_picker_other_group_label": "Other",
+	"variation_picker_back": "← Back",
+	"repertoire_row_include_aria": "Include {name} in practice",
+	"repertoire_row_expand_aria": "Expand {name}",
+	"repertoire_row_collapse_aria": "Collapse {name}",
+	"repertoire_row_status_learned": "Learned",
+	"repertoire_row_status_learning": "Learning",
+	"repertoire_row_no_moves": "No moves yet",
+	"repertoire_row_progress": [
+		{
+			"declarations": ["input total", "input solved", "local totalPlural = total: plural"],
+			"selectors": ["totalPlural"],
+			"match": {
+				"totalPlural=one": "{solved}/{total} variation learned",
+				"totalPlural=other": "{solved}/{total} variations learned"
+			}
+		}
+	],
+	"repertoire_tree_loading": "Loading variations…",
+	"repertoire_tree_line_count": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "· {n} line",
+				"nPlural=other": "· {n} lines"
+			}
+		}
+	],
+	"repertoire_tree_chapter_heading": "{chapter} (chapter)",
+	"repertoire_tree_expand_aria": "Expand {target}",
+	"repertoire_tree_collapse_aria": "Collapse {target}",
+	"repertoire_tree_chapter_expand_aria": "Expand {chapter} chapter",
+	"repertoire_tree_chapter_collapse_aria": "Collapse {chapter} chapter",
+	"repertoire_tree_chapter_include_aria": "Include {heading} in practice",
+	"repertoire_tree_movegroup_include_aria": "Include {group} in {qualifier} in practice",
+	"repertoire_tree_movegroup_expand_aria": "Expand {group} in {qualifier}",
+	"repertoire_tree_movegroup_collapse_aria": "Collapse {group} in {qualifier}",
+	"diff_review_heading": "Review update before applying",
+	"diff_review_kind_unchanged": "Unchanged",
+	"diff_review_kind_extended": "Extended",
+	"diff_review_kind_truncated": "Shortened",
+	"diff_review_kind_diverged": "Diverged",
+	"diff_review_kind_new": "New",
+	"diff_review_kind_removed": "Removed",
+	"diff_review_badge_kept": "Kept",
+	"diff_review_chapters_nav_aria": "Chapters",
+	"diff_review_not_in_file": "not in file",
+	"diff_review_chapter_no_lines": "no lines",
+	"diff_review_chapter_absent_empty": "This chapter has no lines left to show — every line it held was matched to a line that stayed.",
+	"diff_review_chapter_empty": "Nothing to show for this chapter.",
+	"diff_review_consequence_unchanged": "No change — every student will keep their progress and their learned badge.",
+	"diff_review_consequence_new_fresh": "New line; students will start it from the first move.",
+	"diff_review_consequence_removed_spared": "This file does not mention its chapter, which you chose to keep — it will stay live and drillable, untouched.",
+	"diff_review_consequence_removed": "Will stop being drilled. Its learned badge is kept, so restoring the line restores it too.",
+	"diff_review_rename_question": "Is “{to}” a rename of “{from}”?",
+	"diff_review_rename_overlap_body": "of “{from}”’s lines turn up under “{to}”. Renaming keeps the chapter and its lines together; treating them as separate chapters lists “{from}” below as a chapter this file does not mention, where you decide whether to keep or retire its lines.",
+	"diff_review_rename_choice_rename": "Rename",
+	"diff_review_rename_choice_separate": "Separate chapter",
+	"diff_review_ambiguous_rename": "“{from}” looks like it became “{to}” — but so does another chapter, so no rename is offered for either. Accepting both would silently merge two chapters into one.",
+	"diff_review_omitted_explainer": "Keep leaves a chapter's lines exactly as they are — this file replaces only the chapters it names, so a kept chapter stays live and drillable and no student loses anything. Remove retires its lines: they stop being drilled, though each student's learned badge is kept in case you restore the chapter later. Keep is the default, so say Remove for each one you actually meant to drop.",
+	"diff_review_omitted_choice_keep": "Keep",
+	"diff_review_omitted_choice_remove": "Remove",
+	"diff_review_footer_note": "Students always see what changed — the banner on their next visit is built from these very changes, so there is nothing to switch off.",
+	"diff_review_cancel_button": "Cancel",
+	"diff_review_applying": "Applying…",
+	"diff_review_apply_button": "Apply update",
+	"diff_review_verdict_and": "and",
+	"diff_review_verdict_no_changes": "This file matches the repertoire exactly — applying it will change no lines and cost no student anything.",
+	"diff_review_verdict_wrapper": "Applying this will {shape}. {cost}",
+	"diff_review_cost_none": "No student will lose a learned badge.",
+	"diff_review_chip_of": "of",
+	"diff_review_untitled_chapter": "Untitled chapter",
+	"diff_review_verdict_add": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "add {n} line",
+				"nPlural=other": "add {n} lines"
+			}
+		}
+	],
+	"diff_review_verdict_reshape": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "reshape {n} line",
+				"nPlural=other": "reshape {n} lines"
+			}
+		}
+	],
+	"diff_review_verdict_retire": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "retire {n} line",
+				"nPlural=other": "retire {n} lines"
+			}
+		}
+	],
+	"diff_review_verdict_spared": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "leave {n} line in the chapters you kept untouched",
+				"nPlural=other": "leave {n} lines in the chapters you kept untouched"
+			}
+		}
+	],
+	"diff_review_cost_demoted": [
+		{
+			"declarations": [
+				"input demotedLineCount",
+				"input affectedPlayerCount",
+				"input assignedStudentCount",
+				"local countPlural = demotedLineCount: plural"
+			],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "{demotedLineCount} learned line will drop to review, across {affectedPlayerCount} of {assignedStudentCount} ",
+				"countPlural=other": "{demotedLineCount} learned lines will drop to review, across {affectedPlayerCount} of {assignedStudentCount} "
+			}
+		}
+	],
+	"diff_review_cost_students_suffix": [
+		{
+			"declarations": ["input assignedStudentCount", "local countPlural = assignedStudentCount: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "student, on each student's next visit.",
+				"countPlural=other": "students, on each student's next visit."
+			}
+		}
+	],
+	"diff_review_chip_demoted_clause": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "learned line will drop to review, across",
+				"countPlural=other": "learned lines will drop to review, across"
+			}
+		}
+	],
+	"diff_review_chip_students_suffix": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "student",
+				"countPlural=other": "students"
+			}
+		}
+	],
+	"diff_review_header_students_assigned": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "student assigned",
+				"countPlural=other": "students assigned"
+			}
+		}
+	],
+	"diff_review_omitted_heading": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "This file does not mention {n} chapter. Remove it?",
+				"nPlural=other": "This file does not mention {n} chapters. Remove them?"
+			}
+		}
+	],
+	"diff_review_omitted_line_count": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "{n} line",
+				"nPlural=other": "{n} lines"
+			}
+		}
+	],
+	"diff_review_consequence_extended": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "{n} more ply at the end; depth will be kept, the learned badge will drop to review.",
+				"nPlural=other": "{n} more plies at the end; depth will be kept, the learned badge will drop to review."
+			}
+		}
+	],
+	"diff_review_consequence_truncated": [
+		{
+			"declarations": ["input n", "local nPlural = n: plural"],
+			"selectors": ["nPlural"],
+			"match": {
+				"nPlural=one": "Shorter by {n} ply; depth will be clamped to the new end and the learned badge kept.",
+				"nPlural=other": "Shorter by {n} plies; depth will be clamped to the new end and the learned badge kept."
+			}
+		}
+	],
+	"diff_review_consequence_diverged": [
+		{
+			"declarations": ["input commonPlies", "input moveNumber", "local countPlural = commonPlies: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Changes from move {moveNumber}; the first {commonPlies} ply will be kept, the learned badge will drop to review.",
+				"countPlural=other": "Changes from move {moveNumber}; the first {commonPlies} plies will be kept, the learned badge will drop to review."
+			}
+		}
+	],
+	"diff_review_consequence_new_continued": [
+		{
+			"declarations": ["input commonPlies", "local countPlural = commonPlies: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "New line; students will start it at {commonPlies} ply, inherited from what they already know.",
+				"countPlural=other": "New line; students will start it at {commonPlies} plies, inherited from what they already know."
+			}
+		}
+	]
 }

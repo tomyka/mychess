@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { planMultiImport } from '$lib/pgn-import';
 	import { pickPgnFromGoogleDrive } from '$lib/googleDrivePicker';
+	import { m } from '$lib/paraglide/messages';
 
 	type Props = {
 		submitLabel: string;
@@ -53,7 +54,7 @@
 			fileError = '';
 		};
 		reader.onerror = () => {
-			fileError = 'Could not read that file — try pasting the PGN text instead.';
+			fileError = m.pgn_import_file_read_error();
 		};
 		reader.readAsText(file);
 	}
@@ -70,7 +71,7 @@
 				fileName = result.name;
 			}
 		} catch (err) {
-			driveError = err instanceof Error ? err.message : 'Could not import from Google Drive.';
+			driveError = err instanceof Error ? err.message : m.pgn_import_drive_generic_error();
 		} finally {
 			drivePicking = false;
 		}
@@ -110,7 +111,7 @@
 		const trimmedName = name.trim();
 		const trimmedPgn = pgnText.trim();
 		if (!trimmedName || !trimmedPgn) {
-			errorMessage = 'Name and PGN are required';
+			errorMessage = m.pgn_import_missing_fields_error();
 			return;
 		}
 
@@ -148,14 +149,14 @@
 				});
 				if (!res.ok) {
 					const body = await res.json().catch(() => null);
-					throw new Error(body?.message ?? 'Import failed');
+					throw new Error(body?.message ?? m.pgn_import_generic_failure());
 				}
 				const { repertoireId } = await res.json();
 				sharedRepertoireId = repertoireId;
 				chapters[i].status = 'done';
 			} catch (err) {
 				chapters[i].status = 'error';
-				errorMessage = err instanceof Error ? err.message : 'Import failed';
+				errorMessage = err instanceof Error ? err.message : m.pgn_import_generic_failure();
 				if (sharedRepertoireId) await fetch(`/api/repertoires/${sharedRepertoireId}`, { method: 'DELETE' });
 				importing = false;
 				return;
@@ -172,15 +173,15 @@
 
 <form onsubmit={handleSubmit} class="bg-(--color-surface) border border-(--color-border) rounded-xl shadow-sm p-5 space-y-4">
 	<div>
-		<label class="block text-sm font-medium text-(--color-text) mb-1" for="name">Repertoire Name</label>
-		<input id="name" name="name" required placeholder="e.g. Sicilian Defense" bind:value={name} disabled={importing || drivePicking}
+		<label class="block text-sm font-medium text-(--color-text) mb-1" for="name">{m.pgn_import_name_label()}</label>
+		<input id="name" name="name" required placeholder={m.pgn_import_name_placeholder()} bind:value={name} disabled={importing || drivePicking}
 		       class="w-full rounded-lg px-4 py-2.5 border border-(--color-border) text-(--color-text) placeholder-(--color-muted) focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60" />
 	</div>
 
 	<div>
-		<span class="block text-sm font-medium text-(--color-text) mb-1">Color</span>
+		<span class="block text-sm font-medium text-(--color-text) mb-1">{m.pgn_import_color_label()}</span>
 		<div class="flex gap-3">
-			{#each [{ id: 'white', label: 'White' }, { id: 'black', label: 'Black' }] as const as c (c.id)}
+			{#each [{ id: 'white', label: m.pgn_import_color_white() }, { id: 'black', label: m.pgn_import_color_black() }] as const as c (c.id)}
 				<button
 					type="button"
 					disabled={importing}
@@ -195,15 +196,15 @@
 	</div>
 
 	<div>
-		<label class="block text-sm font-medium text-(--color-text) mb-1" for="pgn_text">Paste PGN text</label>
+		<label class="block text-sm font-medium text-(--color-text) mb-1" for="pgn_text">{m.pgn_import_pgn_text_label()}</label>
 		<textarea id="pgn_text" name="pgn_text" rows="8" bind:value={pgnText} disabled={importing || drivePicking}
-		           placeholder="[Event &quot;Example&quot;]&#10;&#10;1. e4 e5 *"
+		           placeholder={m.pgn_import_pgn_text_placeholder()}
 		           class="w-full rounded-lg px-4 py-2.5 border border-(--color-border) text-(--color-text) placeholder-(--color-muted) focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm resize-none disabled:opacity-60"
 		></textarea>
 	</div>
 
 	<div>
-		<label class="block text-sm font-medium text-(--color-text) mb-1" for="pgn_file">…or upload a .pgn file</label>
+		<label class="block text-sm font-medium text-(--color-text) mb-1" for="pgn_file">{m.pgn_import_file_label()}</label>
 		<div class="flex items-center gap-3">
 			<label for="pgn_file"
 			       class="cursor-pointer inline-flex items-center gap-2 bg-gray-100 border border-(--color-border) text-(--color-text) px-4 py-2.5 rounded-lg font-medium text-sm hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors">
@@ -212,7 +213,7 @@
 					<polyline points="17 8 12 3 7 8" />
 					<line x1="12" y1="3" x2="12" y2="15" />
 				</svg>
-				Choose File
+				{m.pgn_import_choose_file_button()}
 			</label>
 			<input id="pgn_file" type="file" accept=".pgn" onchange={onFileChange} disabled={importing || drivePicking} class="hidden" />
 		</div>
@@ -233,7 +234,7 @@
 					<path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/>
 					<path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
 				</svg>
-				{drivePicking ? 'Opening Google Drive…' : '…or import from Google Drive'}
+				{drivePicking ? m.pgn_import_gdrive_opening() : m.pgn_import_gdrive_button()}
 			</button>
 		</div>
 		{#if driveError}
@@ -242,13 +243,13 @@
 	</div>
 
 	{#if fileName}
-		<p class="text-sm text-(--color-muted) truncate">Selected: {fileName}</p>
+		<p class="text-sm text-(--color-muted) truncate">{m.pgn_import_selected_file({ fileName })}</p>
 	{/if}
 
 	{#if chapters.length > 0}
 		<div class="space-y-2">
 			<div class="flex justify-between text-sm text-(--color-muted)">
-				<span>{importing ? 'Importing…' : 'Import finished'}</span>
+				<span>{importing ? m.pgn_import_importing_label() : m.pgn_import_finished_label()}</span>
 				<span>{doneCount} / {chapters.length}</span>
 			</div>
 			<div class="w-full bg-(--color-border) rounded-full h-2 overflow-hidden">
@@ -272,6 +273,6 @@
 
 	<button type="submit" disabled={importing || drivePicking}
 	        class="w-full bg-(--color-accent) text-white py-3 rounded-xl font-bold text-base hover:bg-(--color-accent-hover) transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
-		{importing ? 'Importing…' : submitLabel}
+		{importing ? m.pgn_import_importing_label() : submitLabel}
 	</button>
 </form>
