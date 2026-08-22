@@ -762,8 +762,8 @@
 	"tournaments_filters_date_range_label": "Date Range",
 	"tournaments_filters_date_from_placeholder": "From",
 	"tournaments_filters_date_to_placeholder": "To",
-	"tournaments_country_lithuania": "Lithuania",
-	"tournaments_country_latvia": "Latvia",
+	"tournaments_filters_country_lithuania": "Lithuania",
+	"tournaments_filters_country_latvia": "Latvia",
 	"tournaments_filters_result_count": [
 		{
 			"declarations": ["input total", "local totalPlural = total: plural"],

@@ -832,8 +832,8 @@
 	"tournaments_filters_date_range_label": "Datų intervalas",
 	"tournaments_filters_date_from_placeholder": "Nuo",
 	"tournaments_filters_date_to_placeholder": "Iki",
-	"tournaments_country_lithuania": "Lietuva",
-	"tournaments_country_latvia": "Latvija",
+	"tournaments_filters_country_lithuania": "Lietuva",
+	"tournaments_filters_country_latvia": "Latvija",
 	"tournaments_filters_result_count": [
 		{
 			"declarations": ["input total", "local totalPlural = total: plural"],

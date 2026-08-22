@@ -21,8 +21,8 @@
   // Underlying values are compared against DB data / sent in the URL — never translate these.
   const countryOptions = ['Lithuania', 'Latvia'];
   const countryLabel: Record<string, string> = {
-    Lithuania: m.tournaments_country_lithuania(),
-    Latvia: m.tournaments_country_latvia(),
+    Lithuania: m.tournaments_filters_country_lithuania(),
+    Latvia: m.tournaments_filters_country_latvia(),
   };
 
   function applyFilters() {
