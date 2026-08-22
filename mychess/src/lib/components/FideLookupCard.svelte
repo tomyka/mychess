@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { m } from '$lib/paraglide/messages';
 
   let { query = '', result = null } = $props<{
     query?: string;
@@ -14,10 +15,19 @@
   }>();
 
   const p = $derived(result?.player ?? null);
-  const labelFor = (suffix: string) =>
-    p?.ageBracket && p.ageBracket !== 'open' ? `${p.ageBracket} rank${suffix}` : `Age group rank${suffix}`;
-  const ageLabel = $derived(labelFor(''));
-  const europeAgeLabel = $derived(labelFor(' (Europe)'));
+  // Each of the four real rendered forms is its own message key rather than a
+  // suffix-appended string — Lithuanian word order isn't guaranteed to match
+  // English's "{bracket} rank" + " (Europe)" concatenation pattern.
+  const ageLabel = $derived(
+    p?.ageBracket && p.ageBracket !== 'open'
+      ? m.fide_lookup_age_rank_bracket({ bracket: p.ageBracket })
+      : m.fide_lookup_age_rank_fallback()
+  );
+  const europeAgeLabel = $derived(
+    p?.ageBracket && p.ageBracket !== 'open'
+      ? m.fide_lookup_age_rank_bracket_europe({ bracket: p.ageBracket })
+      : m.fide_lookup_age_rank_fallback_europe()
+  );
   const rank = (n: number | null | undefined) => (n != null ? `#${n}` : '––');
 
   let q = $state(query);
@@ -63,9 +73,9 @@
 </script>
 
 <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
-  <h2 class="font-semibold text-(--color-text) mb-3">Look up a FIDE rank</h2>
+  <h2 class="font-semibold text-(--color-text) mb-3">{m.fide_lookup_heading()}</h2>
   <form method="GET" onsubmit={onSubmit} class="relative flex gap-2">
-    <label class="sr-only" for="fide">Search by name or FIDE ID</label>
+    <label class="sr-only" for="fide">{m.fide_lookup_search_label()}</label>
     <div class="relative flex-1">
       <input
         id="fide"
@@ -73,19 +83,19 @@
         bind:value={q}
         oninput={onInput}
         autocomplete="off"
-        placeholder="Name or FIDE ID, e.g. Carlsen or 12865168"
+        placeholder={m.fide_lookup_search_placeholder()}
         class="w-full border border-(--color-border) rounded-lg px-4 py-2 text-(--color-text) placeholder-(--color-muted) focus:outline-none focus:ring-2 focus:ring-indigo-500"
       />
       {#if open && matches.length > 0}
         <ul class="absolute z-10 left-0 right-0 mt-1 bg-(--color-surface) border border-(--color-border) rounded-lg shadow-lg max-h-64 overflow-auto">
-          {#each matches as m (m.fideId)}
+          {#each matches as match (match.fideId)}
             <li>
               <button
                 type="button"
-                onclick={() => select(m.fideId)}
+                onclick={() => select(match.fideId)}
                 class="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-between gap-3">
-                <span class="text-(--color-text) truncate">{m.name}</span>
-                <span class="text-xs text-(--color-muted) shrink-0">{m.federation}</span>
+                <span class="text-(--color-text) truncate">{match.name}</span>
+                <span class="text-xs text-(--color-muted) shrink-0">{match.federation}</span>
               </button>
             </li>
           {/each}
@@ -93,7 +103,7 @@
       {/if}
     </div>
     <button type="submit" class="bg-(--color-accent) text-white px-4 py-2 rounded-lg font-medium hover:bg-(--color-accent-hover) transition-colors">
-      Look up
+      {m.fide_lookup_submit_button()}
     </button>
   </form>
 
@@ -105,20 +115,20 @@
           <thead>
             <tr class="text-xs text-(--color-muted)">
               <th class="text-left font-normal pb-1"></th>
-              <th class="text-right font-normal pb-1">Standard</th>
-              <th class="text-right font-normal pb-1">Rapid</th>
-              <th class="text-right font-normal pb-1">Blitz</th>
+              <th class="text-right font-normal pb-1">{m.player_header_tile_standard()}</th>
+              <th class="text-right font-normal pb-1">{m.player_header_tile_rapid()}</th>
+              <th class="text-right font-normal pb-1">{m.player_header_tile_blitz()}</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td class="text-left text-(--color-muted) py-1">Rating</td>
+              <td class="text-left text-(--color-muted) py-1">{m.fide_lookup_rating_row_label()}</td>
               <td class="text-right font-semibold text-(--color-text)">{p.stdRating ?? '––'}</td>
               <td class="text-right font-semibold text-(--color-text)">{p.rapidRating ?? '––'}</td>
               <td class="text-right font-semibold text-(--color-text)">{p.blitzRating ?? '––'}</td>
             </tr>
             <tr>
-              <td class="text-left text-(--color-muted) py-1">National rank</td>
+              <td class="text-left text-(--color-muted) py-1">{m.fide_lookup_national_rank_row_label()}</td>
               <td class="text-right text-(--color-text)">{rank(p.countryRankStandard)}</td>
               <td class="text-right text-(--color-text)">{rank(p.countryRankRapid)}</td>
               <td class="text-right text-(--color-text)">{rank(p.countryRankBlitz)}</td>
@@ -141,7 +151,7 @@
         </table>
       </div>
     {:else}
-      <p class="mt-4 text-sm text-(--color-muted)">No FIDE record found for that ID.</p>
+      <p class="mt-4 text-sm text-(--color-muted)">{m.fide_lookup_not_found()}</p>
     {/if}
   {/if}
 </section>

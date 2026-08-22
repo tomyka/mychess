@@ -1,17 +1,24 @@
 <script lang="ts">
+  import { m } from '$lib/paraglide/messages';
+
   let { data } = $props<{ data: any }>();
 
   const badges = $derived((data as any).badges ?? []);
   const earnedCount = $derived(badges.filter((b: any) => b.earned).length);
 </script>
 
+<svelte:head>
+  <title>{m.seo_badges_title()}</title>
+  <meta name="description" content={m.seo_badges_description()} />
+</svelte:head>
+
 <div class="min-h-screen bg-(--color-bg) p-4">
   <div class="max-w-lg mx-auto">
     <div class="flex items-center gap-3 mb-5">
       <a href="/" class="text-2xl">⬅️</a>
       <div>
-        <h1 class="text-2xl font-bold text-(--color-text)">🏆 Trophy Room</h1>
-        <p class="text-sm text-(--color-muted)">{earnedCount} / {badges.length} badges earned</p>
+        <h1 class="text-2xl font-bold text-(--color-text)">🏆 {m.badges_page_heading()}</h1>
+        <p class="text-sm text-(--color-muted)">{m.badges_earned_ratio({ earned: earnedCount, total: badges.length })}</p>
       </div>
     </div>
 

@@ -1,5 +1,7 @@
 <!-- MyChess/src/lib/components/PlatformRatingsCard.svelte -->
 <script lang="ts">
+  import { m } from '$lib/paraglide/messages';
+
   type PlatformRatings = { rapid?: number; blitz?: number; bullet?: number; puzzle?: number };
 
   let { platform, username, ratings, loading = false } = $props<{
@@ -9,12 +11,12 @@
     loading?: boolean;
   }>();
 
-  const LABELS = {
-    rapid: 'Rapid',
-    blitz: 'Blitz',
-    bullet: 'Bullet',
-    puzzle: 'Puzzles'
-  } as const;
+  const LABELS = $derived({
+    rapid: m.platform_ratings_label_rapid(),
+    blitz: m.platform_ratings_label_blitz(),
+    bullet: m.platform_ratings_label_bullet(),
+    puzzle: m.platform_ratings_label_puzzle()
+  });
 
   const DISPLAY_ORDER = ['rapid', 'blitz', 'bullet', 'puzzle'] as const;
 
@@ -29,20 +31,20 @@
 
 {#if !username}
   <p class="text-sm text-(--color-muted)">
-    <a href="/settings" class="text-(--color-accent) hover:underline">Connect {platform}</a> to see your ratings.
+    <a href="/settings" class="text-(--color-accent) hover:underline">{m.platform_ratings_connect_link({ platform })}</a> {m.platform_ratings_connect_suffix()}
   </p>
 {:else}
   <p class="text-sm font-medium text-(--color-text) mb-2">{platform}: <span class="font-mono">{username}</span></p>
   {#if loading}
-    <div class="grid grid-cols-4 gap-3" aria-label="Loading {platform} ratings">
+    <div class="grid grid-cols-4 gap-3" aria-label={m.platform_ratings_loading_aria_label({ platform })}>
       {#each Array(4) as _, i (i)}
         <div class="bg-(--color-bg) rounded-lg border border-(--color-border) p-3 h-[60px] animate-pulse"></div>
       {/each}
     </div>
   {:else if ratings === null}
-    <p class="text-sm text-(--color-muted)">Couldn't load {platform} stats right now.</p>
+    <p class="text-sm text-(--color-muted)">{m.platform_ratings_load_error({ platform })}</p>
   {:else if entries.length === 0}
-    <p class="text-sm text-(--color-muted)">No rated games yet.</p>
+    <p class="text-sm text-(--color-muted)">{m.platform_ratings_none_yet()}</p>
   {:else}
     <div class="grid grid-cols-4 gap-3">
       {#each entries as entry (entry.variant)}

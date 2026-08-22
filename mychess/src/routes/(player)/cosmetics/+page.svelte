@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { m } from '$lib/paraglide/messages';
+
   let { data } = $props<{ data: any }>();
 
   const d = $derived(data as any);
@@ -20,16 +22,21 @@
   }
 </script>
 
+<svelte:head>
+  <title>{m.seo_cosmetics_title()}</title>
+  <meta name="description" content={m.seo_cosmetics_description()} />
+</svelte:head>
+
 <div class="min-h-screen bg-(--color-bg) p-4">
   <div class="max-w-lg mx-auto">
     <div class="flex items-center gap-3 mb-6">
       <a href="/" class="text-2xl">⬅️</a>
-      <h1 class="text-2xl font-bold text-(--color-text)">🎨 Customize</h1>
+      <h1 class="text-2xl font-bold text-(--color-text)">🎨 {m.cosmetics_page_heading()}</h1>
     </div>
 
     <!-- Avatar Picker -->
     <section class="bg-(--color-surface) rounded-2xl p-5 shadow mb-4">
-      <h2 class="font-bold text-lg text-(--color-accent) mb-3">Choose Your Piece</h2>
+      <h2 class="font-bold text-lg text-(--color-accent) mb-3">{m.cosmetics_choose_piece_heading()}</h2>
       <div class="grid grid-cols-6 gap-3">
         {#each d.avatars as av (av.id)}
           <button
@@ -46,7 +53,7 @@
 
     <!-- Board Theme Picker -->
     <section class="bg-(--color-surface) rounded-2xl p-5 shadow mb-4">
-      <h2 class="font-bold text-lg text-(--color-accent) mb-3">Board Theme</h2>
+      <h2 class="font-bold text-lg text-(--color-accent) mb-3">{m.cosmetics_board_theme_heading()}</h2>
       <div class="grid grid-cols-3 gap-3">
         {#each d.themes as theme (theme.id)}
           <button
@@ -67,7 +74,7 @@
 
     <!-- Preview -->
     <section class="bg-(--color-surface) rounded-2xl p-5 shadow mb-4">
-      <h2 class="font-bold text-lg text-(--color-accent) mb-3">Preview</h2>
+      <h2 class="font-bold text-lg text-(--color-accent) mb-3">{m.cosmetics_preview_heading()}</h2>
       {#if true}
         {@const theme = d.themes.find((t: any) => t.id === selectedTheme)}
         {@const avatar = d.avatars.find((a: any) => a.id === selectedAvatar)}
@@ -94,11 +101,11 @@
       class="w-full bg-(--color-accent) text-white py-3 rounded-xl font-bold text-lg hover:bg-(--color-accent-hover) transition disabled:opacity-50"
     >
       {#if saving}
-        Saving...
+        {m.cosmetics_saving_label()}
       {:else if saved}
-        ✅ Saved!
+        ✅ {m.cosmetics_saved_label()}
       {:else}
-        Save Customization 🎉
+        {m.cosmetics_save_button()} 🎉
       {/if}
     </button>
   </div>

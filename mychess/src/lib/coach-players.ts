@@ -1,3 +1,5 @@
+import { m } from '$lib/paraglide/messages';
+
 export type ExistingRelationship = { status: 'pending' | 'active'; requested_by: string } | null;
 
 export type RequestOutcome = { ok: true } | { ok: false; error: string };
@@ -12,13 +14,13 @@ export type RequestOutcome = { ok: true } | { ok: false; error: string };
 export function planRequest(existing: ExistingRelationship, requesterId: string): RequestOutcome {
 	if (!existing) return { ok: true };
 	if (existing.status === 'active') {
-		return { ok: false, error: 'You already have an active relationship.' };
+		return { ok: false, error: m.coaches_request_error_active_relationship() };
 	}
 	if (existing.requested_by === requesterId) {
-		return { ok: false, error: 'You already sent a request — waiting for a response.' };
+		return { ok: false, error: m.coaches_request_error_already_sent() };
 	}
 	return {
 		ok: false,
-		error: 'There is already a pending request between you — respond to it instead.'
+		error: m.coaches_request_error_pending_request()
 	};
 }

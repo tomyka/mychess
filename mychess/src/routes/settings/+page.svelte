@@ -4,6 +4,7 @@
   import { setTheme, themeStore } from '$lib/theme.svelte';
   import type { Theme } from '$lib/theme';
   import ChessBoard from '$lib/components/ChessBoard.svelte';
+  import { m } from '$lib/paraglide/messages';
   import {
     BOARD_THEMES,
     PIECE_SETS,
@@ -43,12 +44,12 @@
       const res = await fetch(`/api/import/${platform}`, { method: 'POST' });
       const body = await res.json();
       if (body.count !== undefined) {
-        importResult = `Imported ${body.count} game(s) as a new repertoire.`;
+        importResult = m.settings_import_success({ count: body.count });
       } else {
-        importResult = body.error ?? 'Import failed';
+        importResult = body.error ?? m.settings_import_failed();
       }
     } catch {
-      importResult = 'Network error';
+      importResult = m.settings_import_network_error();
     } finally {
       importing = null;
     }
@@ -56,16 +57,16 @@
 </script>
 
 <svelte:head>
-  <title>Settings — MyChess</title>
+  <title>{m.seo_settings_title()}</title>
 </svelte:head>
 
 <div class="min-h-screen bg-(--color-bg)">
   <div class="max-w-2xl mx-auto px-4 py-6 space-y-5">
-    <h1 class="text-2xl font-bold text-(--color-text)">Settings</h1>
+    <h1 class="text-2xl font-bold text-(--color-text)">{m.settings_page_heading()}</h1>
 
     {#if form?.success}
       <p class="text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-sm dark:bg-green-950 dark:border-green-800 dark:text-green-400">
-        Saved successfully.
+        {m.settings_saved_success()}
       </p>
     {/if}
     {#if form?.error}
@@ -85,9 +86,9 @@
     {/if}
 
     <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
-      <h2 class="font-semibold text-(--color-text) mb-4">Appearance</h2>
+      <h2 class="font-semibold text-(--color-text) mb-4">{m.settings_appearance_heading()}</h2>
       <div class="flex gap-3">
-        {#each [{ id: 'dark', label: 'Dark' }, { id: 'light', label: 'Light' }, { id: 'system', label: 'System' }] as const as t (t.id)}
+        {#each [{ id: 'dark', label: m.settings_theme_dark() }, { id: 'light', label: m.settings_theme_light() }, { id: 'system', label: m.settings_theme_system() }] as t (t.id)}
           <button
             type="button"
             onclick={() => setTheme(t.id as Theme)}
@@ -101,41 +102,41 @@
     </section>
 
     <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
-      <h2 class="font-semibold text-(--color-text) mb-4">Profile</h2>
+      <h2 class="font-semibold text-(--color-text) mb-4">{m.settings_profile_heading()}</h2>
       <form method="POST" action="?/save" use:enhance={saveEnhance} class="space-y-4">
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-(--color-text) mb-1" for="first_name">First Name</label>
+            <label class="block text-sm font-medium text-(--color-text) mb-1" for="first_name">{m.settings_first_name_label()}</label>
             <input
               id="first_name"
               name="first_name"
               type="text"
               value={d.firstName}
-              placeholder="e.g. Magnus"
+              placeholder={m.settings_first_name_placeholder()}
               class="w-full bg-(--color-surface) border border-(--color-border) rounded-lg px-4 py-2 text-(--color-text) placeholder-(--color-muted) focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
           <div>
-            <label class="block text-sm font-medium text-(--color-text) mb-1" for="last_name">Last Name</label>
+            <label class="block text-sm font-medium text-(--color-text) mb-1" for="last_name">{m.settings_last_name_label()}</label>
             <input
               id="last_name"
               name="last_name"
               type="text"
               value={d.lastName}
-              placeholder="e.g. Carlsen"
+              placeholder={m.settings_last_name_placeholder()}
               class="w-full bg-(--color-surface) border border-(--color-border) rounded-lg px-4 py-2 text-(--color-text) placeholder-(--color-muted) focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
         </div>
 
         <div>
-          <span class="block text-sm font-medium text-(--color-text) mb-1">I am a</span>
+          <span class="block text-sm font-medium text-(--color-text) mb-1">{m.settings_role_label()}</span>
           <div class="flex gap-3">
-            {#each [{ id: 'player', label: 'Player' }, { id: 'coach', label: 'Coach' }] as const as r (r.id)}
+            {#each [{ id: 'player', label: m.settings_role_player() }, { id: 'coach', label: m.settings_role_coach() }] as r (r.id)}
               <button
                 type="button"
-                onclick={() => (role = r.id)}
+                onclick={() => (role = r.id as 'player' | 'coach')}
                 class="flex-1 py-2.5 px-2 rounded-xl font-semibold transition-all border-2 text-sm
                        {role === r.id ? 'border-(--color-accent) bg-indigo-50 dark:bg-indigo-950 text-indigo-700' : 'border-(--color-border) text-(--color-muted) hover:border-gray-300 dark:hover:border-gray-600'}"
               >
@@ -147,45 +148,45 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-(--color-text) mb-1" for="fide_id">FIDE ID</label>
+          <label class="block text-sm font-medium text-(--color-text) mb-1" for="fide_id">{m.settings_fide_id_label()}</label>
           <input
             id="fide_id"
             name="fide_id"
             type="text"
             value={d.fideId}
-            placeholder="e.g. 1503014"
+            placeholder={m.settings_fide_id_placeholder()}
             class="w-full bg-(--color-surface) border border-(--color-border) rounded-lg px-4 py-2 text-(--color-text) placeholder-(--color-muted) focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
           <p class="text-xs text-(--color-muted) mt-1">
-            Your FIDE ID number (find it at ratings.fide.com). First and last name must match your FIDE profile.
+            {m.settings_fide_id_help()}
           </p>
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-(--color-text) mb-1" for="chesscom_username">Chess.com Username</label>
+          <label class="block text-sm font-medium text-(--color-text) mb-1" for="chesscom_username">{m.settings_chesscom_username_label()}</label>
           <input
             id="chesscom_username"
             name="chesscom_username"
             type="text"
             value={d.chesscomUsername}
-            placeholder="e.g. MagnusCarlsen"
+            placeholder={m.settings_chesscom_username_placeholder()}
             class="w-full bg-(--color-surface) border border-(--color-border) rounded-lg px-4 py-2 text-(--color-text) placeholder-(--color-muted) focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
           <p class="text-xs text-(--color-muted) mt-1">
-            Your Chess.com username. We'll verify it exists. Leave blank to disconnect.
+            {m.settings_chesscom_username_help()}
           </p>
         </div>
 
         <button
           type="submit"
           class="bg-(--color-accent) text-white px-5 py-2.5 rounded-lg font-medium hover:bg-(--color-accent-hover) transition-colors">
-          Save
+          {m.settings_save_button()}
         </button>
       </form>
     </section>
 
     <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
-      <h2 class="font-semibold text-(--color-text) mb-4">Board</h2>
+      <h2 class="font-semibold text-(--color-text) mb-4">{m.settings_board_heading()}</h2>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 items-start">
         <div class="max-w-[260px] w-full">
@@ -199,7 +200,7 @@
 
         <form method="POST" action="?/save_board_prefs" use:enhance={boardEnhance} class="space-y-4">
           <div>
-            <span class="block text-xs uppercase tracking-wide text-(--color-muted) mb-2">Theme</span>
+            <span class="block text-xs uppercase tracking-wide text-(--color-muted) mb-2">{m.settings_board_theme_label()}</span>
             <div class="flex flex-wrap gap-2">
               {#each BOARD_THEMES as t (t.id)}
                 <button
@@ -216,7 +217,7 @@
           </div>
 
           <div>
-            <span class="block text-xs uppercase tracking-wide text-(--color-muted) mb-2">Piece set</span>
+            <span class="block text-xs uppercase tracking-wide text-(--color-muted) mb-2">{m.settings_board_piece_set_label()}</span>
             <div class="flex flex-wrap gap-2">
               {#each PIECE_SETS as p (p.id)}
                 <button
@@ -230,7 +231,7 @@
           </div>
 
           <div>
-            <span class="block text-xs uppercase tracking-wide text-(--color-muted) mb-2">Animation</span>
+            <span class="block text-xs uppercase tracking-wide text-(--color-muted) mb-2">{m.settings_board_animation_label()}</span>
             <div class="flex flex-wrap gap-2">
               {#each ANIMATION_SPEEDS as a (a.id)}
                 <button
@@ -245,39 +246,39 @@
 
           <label class="flex items-center gap-2 text-sm text-(--color-text)">
             <input type="checkbox" bind:checked={boardPrefs.coordinates} />
-            Show coordinates
+            {m.settings_board_show_coordinates_label()}
           </label>
           <input type="hidden" name="coordinates" value={boardPrefs.coordinates} />
 
           <label class="flex items-center gap-2 text-sm text-(--color-text)">
             <input type="checkbox" bind:checked={boardPrefs.highlight} />
-            Highlight last move
+            {m.settings_board_highlight_last_move_label()}
           </label>
           <input type="hidden" name="highlight" value={boardPrefs.highlight} />
 
           <div class="flex gap-2 pt-1">
-            <button type="submit" class="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium">Save</button>
+            <button type="submit" class="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-medium">{m.settings_save_button()}</button>
             <button
               type="button"
               onclick={() => (boardPrefs = { ...DEFAULT_PREFS })}
               class="px-4 py-2 rounded-md border border-(--color-border) text-(--color-text) text-sm"
-            >Reset to default</button>
+            >{m.settings_board_reset_button()}</button>
           </div>
         </form>
       </div>
     </section>
 
     <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
-      <h2 class="font-semibold text-(--color-text) mb-4">Connected accounts</h2>
+      <h2 class="font-semibold text-(--color-text) mb-4">{m.settings_connected_accounts_heading()}</h2>
       <div class="space-y-4">
 
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm font-medium text-(--color-text)">Lichess</p>
             {#if d.lichessUsername}
-              <p class="text-sm text-(--color-muted)">Connected as <span class="font-mono">{d.lichessUsername}</span></p>
+              <p class="text-sm text-(--color-muted)">{m.settings_connected_as()} <span class="font-mono">{d.lichessUsername}</span></p>
             {:else}
-              <p class="text-sm text-(--color-muted)">Not connected</p>
+              <p class="text-sm text-(--color-muted)">{m.settings_not_connected()}</p>
             {/if}
           </div>
           {#if d.lichessUsername}
@@ -285,14 +286,14 @@
               <button
                 type="submit"
                 class="text-sm border border-(--color-border) text-(--color-text) px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                Disconnect
+                {m.settings_disconnect_button()}
               </button>
             </form>
           {:else}
             <a
               href="/auth/connect/lichess"
               class="text-sm bg-(--color-accent) text-white px-3 py-1.5 rounded-lg font-medium hover:bg-(--color-accent-hover) transition-colors">
-              Connect
+              {m.settings_connect_button()}
             </a>
           {/if}
         </div>
@@ -303,9 +304,9 @@
     </section>
 
     <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
-      <h2 class="font-semibold text-(--color-text) mb-4">Import games</h2>
+      <h2 class="font-semibold text-(--color-text) mb-4">{m.settings_import_games_heading()}</h2>
       <p class="text-sm text-(--color-muted) mb-4">
-        Import your recent games as a new repertoire. Connect your platform accounts above first.
+        {m.settings_import_games_description()}
       </p>
 
       {#if importResult}
@@ -319,13 +320,13 @@
           onclick={() => importGames('chesscom')}
           disabled={importing !== null || !d.chesscomUsername}
           class="flex-1 border border-(--color-border) text-(--color-text) px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors text-sm">
-          {importing === 'chesscom' ? 'Importing…' : 'Import from Chess.com'}
+          {importing === 'chesscom' ? m.settings_importing_label() : m.settings_import_chesscom_button()}
         </button>
         <button
           onclick={() => importGames('lichess')}
           disabled={importing !== null || !d.lichessUsername}
           class="flex-1 border border-(--color-border) text-(--color-text) px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors text-sm">
-          {importing === 'lichess' ? 'Importing…' : 'Import from Lichess'}
+          {importing === 'lichess' ? m.settings_importing_label() : m.settings_import_lichess_button()}
         </button>
       </div>
     </section>
