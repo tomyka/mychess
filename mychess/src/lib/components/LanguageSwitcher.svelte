@@ -46,7 +46,7 @@
   {#if open}
     <button
       class="fixed inset-0 z-10"
-      aria-label="Close menu"
+      aria-label={m.nav_close_menu()}
       onclick={() => { open = false; }}
     ></button>
     <div class="absolute right-0 mt-2 w-36 bg-(--color-surface) border border-(--color-border) rounded-xl shadow-lg z-20 py-1 text-sm">

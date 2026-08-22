@@ -7,7 +7,10 @@ vi.mock('$lib/paraglide/runtime', () => ({
   setLocale: vi.fn()
 }));
 vi.mock('$lib/paraglide/messages', () => ({
-  m: { language_switcher_label: () => 'Select language' }
+  m: {
+    language_switcher_label: () => 'Select language',
+    nav_close_menu: () => 'Close menu'
+  }
 }));
 
 import { setLocale } from '$lib/paraglide/runtime';
