@@ -1,20 +1,40 @@
 import type { FidePlayer } from './parse';
 
-export type AgeBracket = 'U8' | 'U10' | 'U12' | 'U14' | 'U16' | 'U18' | 'U20' | '50+' | '65+' | 'open';
+export type AgeBracket = string;
 
+// One age per bracket, labelled by the player's next birthday ("under
+// that age") -- matches FIDE's own ranking tool (rankings.phtml), which
+// takes an exact age (age1=N&age2=N), not a span. This used to be a 2-year
+// band (U12 meant ages 11 AND 12 pooled together), which materially
+// inflated everyone's age-group rank compared to FIDE's own numbers.
 export function ageBracket(birthYear: number | null, currentYear: number): AgeBracket | null {
   if (birthYear == null) return null;
   const age = currentYear - birthYear;
-  if (age <= 8) return 'U8';
-  if (age <= 10) return 'U10';
-  if (age <= 12) return 'U12';
-  if (age <= 14) return 'U14';
-  if (age <= 16) return 'U16';
-  if (age <= 18) return 'U18';
-  if (age <= 20) return 'U20';
+  if (age <= 20) return `U${age + 1}`;
   if (age >= 65) return '65+';
   if (age >= 50) return '50+';
   return 'open';
+}
+
+/** 'M'/'F' (case/whitespace-insensitive), or null for anything else -- unset, unrecognized, etc. */
+function normalizedSex(sex: string | null): 'M' | 'F' | null {
+  const s = sex?.trim().toUpperCase();
+  return s === 'M' || s === 'F' ? s : null;
+}
+
+/**
+ * The bucket a player's age-group rank is computed within: age bracket AND
+ * sex. Competitive age-group ranking is always gender-split (FIDE's own
+ * rankings tool requires picking M or F) -- this used to ignore sex
+ * entirely, pooling boys and girls together. A player with no recognizable
+ * sex gets no age-group rank at all (returns null), same as one with no
+ * birth year.
+ */
+function ageGroupKey(birthYear: number | null, sex: string | null, currentYear: number): string | null {
+  const bracket = ageBracket(birthYear, currentYear);
+  const normSex = normalizedSex(sex);
+  if (!bracket || !normSex) return null;
+  return `${bracket}|${normSex}`;
 }
 
 export interface RankedPlayer extends FidePlayer {
@@ -46,12 +66,12 @@ function rankByRating(
   rated.forEach(({ p }, idx) => countryRankById.set(p.fideId, idx + 1));
 
   const ageGroupRankById = new Map<string, number>();
-  const perBracketCount = new Map<AgeBracket, number>();
+  const perBracketCount = new Map<string, number>();
   for (const { p } of rated) {
-    const bracket = ageBracket(p.birthYear, currentYear);
-    if (!bracket) continue;
-    const next = (perBracketCount.get(bracket) ?? 0) + 1;
-    perBracketCount.set(bracket, next);
+    const key = ageGroupKey(p.birthYear, p.sex, currentYear);
+    if (!key) continue;
+    const next = (perBracketCount.get(key) ?? 0) + 1;
+    perBracketCount.set(key, next);
     ageGroupRankById.set(p.fideId, next);
   }
 
@@ -182,22 +202,23 @@ function rankFromFinalizedBucket(bucket: FinalizedBucket, rating: number): numbe
  * that distinction matters at FIDE's scale.
  */
 export function createEuropeRankAccumulator(currentYear: number): EuropeRankAccumulator {
-  const buckets: Record<RatingKind, Map<AgeBracket, Map<number, number>>> = {
+  // Keyed by "bracket|sex" (see ageGroupKey), not just the age bracket.
+  const buckets: Record<RatingKind, Map<string, Map<number, number>>> = {
     standard: new Map(),
     rapid: new Map(),
     blitz: new Map(),
   };
-  let finalized: Record<RatingKind, Map<AgeBracket, FinalizedBucket>> | null = null;
+  let finalized: Record<RatingKind, Map<string, FinalizedBucket>> | null = null;
 
   return {
     add(p) {
-      const bracket = ageBracket(p.birthYear, currentYear);
-      if (!bracket) return;
+      const key = ageGroupKey(p.birthYear, p.sex, currentYear);
+      if (!key) return;
       for (const kind of ['standard', 'rapid', 'blitz'] as const) {
         const rating = RATING_ACCESSORS[kind](p);
         if (rating == null) continue;
-        let byBracket = buckets[kind].get(bracket);
-        if (!byBracket) buckets[kind].set(bracket, (byBracket = new Map()));
+        let byBracket = buckets[kind].get(key);
+        if (!byBracket) buckets[kind].set(key, (byBracket = new Map()));
         byBracket.set(rating, (byBracket.get(rating) ?? 0) + 1);
       }
     },
@@ -220,11 +241,11 @@ export function createEuropeRankAccumulator(currentYear: number): EuropeRankAccu
 
     rankOf(p, kind) {
       if (!finalized) throw new Error('EuropeRankAccumulator.rankOf() called before finalize()');
-      const bracket = ageBracket(p.birthYear, currentYear);
-      if (!bracket) return null;
+      const key = ageGroupKey(p.birthYear, p.sex, currentYear);
+      if (!key) return null;
       const rating = RATING_ACCESSORS[kind](p);
       if (rating == null) return null;
-      const bucket = finalized[kind].get(bracket);
+      const bucket = finalized[kind].get(key);
       if (!bucket) return null;
       return rankFromFinalizedBucket(bucket, rating);
     },

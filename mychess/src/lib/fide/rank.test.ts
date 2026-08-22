@@ -9,16 +9,17 @@ describe('ageBracket', () => {
     expect(ageBracket(null, YEAR)).toBeNull();
   });
 
-  it('classifies juniors by upper bound of each bracket', () => {
-    expect(ageBracket(2019, YEAR)).toBe('U8');
-    expect(ageBracket(2018, YEAR)).toBe('U8');
-    expect(ageBracket(2017, YEAR)).toBe('U10');
-    expect(ageBracket(2016, YEAR)).toBe('U10');
-    expect(ageBracket(2014, YEAR)).toBe('U12');
-    expect(ageBracket(2012, YEAR)).toBe('U14');
-    expect(ageBracket(2010, YEAR)).toBe('U16');
-    expect(ageBracket(2008, YEAR)).toBe('U18');
-    expect(ageBracket(2006, YEAR)).toBe('U20');
+  // Single year of age per bracket -- matches FIDE's own ranking tool
+  // (https://ratings.fide.com/rankings.phtml), which takes an exact age
+  // (age1=N&age2=N), not a 2-year band. A player aged N is labelled U(N+1)
+  // ("under" their next birthday), so each age gets its own bracket instead
+  // of two ages sharing one (the bug: U12 used to mean ages 11 AND 12).
+  it('classifies juniors one age per bracket, labelled by the next birthday', () => {
+    expect(ageBracket(2018, YEAR)).toBe('U9'); // age 8
+    expect(ageBracket(2017, YEAR)).toBe('U10'); // age 9
+    expect(ageBracket(2015, YEAR)).toBe('U12'); // age 11
+    expect(ageBracket(2014, YEAR)).toBe('U13'); // age 12 -- distinct from age 11's U12
+    expect(ageBracket(2006, YEAR)).toBe('U21'); // age 20
   });
 
   it('classifies adults between U20 and senior as open', () => {
@@ -92,6 +93,26 @@ describe('computeRanks', () => {
     expect(byId.player2.ageGroupRankRapid).toBe(2);
   });
 
+  it('ranks age groups separately by gender, like FIDE\'s own rankings tool', () => {
+    // Same age, same rating, opposite sex -- competitive age-group ranking is
+    // always gender-split (FIDE's rankings.phtml requires picking M or F),
+    // so both should come out rank 1 in their own pool, not 1st/2nd pooled.
+    const ranked = computeRanks([
+      player({ fideId: 'boy', sex: 'M', birthYear: 2015, stdRating: 1800 }),
+      player({ fideId: 'girl', sex: 'F', birthYear: 2015, stdRating: 1800 }),
+    ], YEAR);
+    const byId = Object.fromEntries(ranked.map(r => [r.fideId, r.ageGroupRankStandard]));
+    expect(byId).toEqual({ boy: 1, girl: 1 });
+  });
+
+  it('gives a player with unknown sex no age-group rank, but keeps their country rank', () => {
+    const ranked = computeRanks([
+      player({ fideId: 'a', sex: null, birthYear: 2015, stdRating: 1800 }),
+    ], YEAR);
+    expect(ranked[0].ageGroupRankStandard).toBeNull();
+    expect(ranked[0].countryRankStandard).toBe(1); // country rank doesn't depend on gender
+  });
+
   it('gives unrated or bracketless players null ranks for that rating', () => {
     const ranked = computeRanks([
       player({ fideId: 'a', birthYear: null, stdRating: 2000 }),
@@ -105,7 +126,7 @@ describe('computeRanks', () => {
 
   it('assigns the age bracket once, regardless of rating', () => {
     const ranked = computeRanks([player({ fideId: 'a', birthYear: 2016 })], YEAR);
-    expect(ranked[0].ageBracket).toBe('U10');
+    expect(ranked[0].ageBracket).toBe('U11'); // age 10
   });
 
   it('breaks ties by preserving input order (distinct sequential ranks)', () => {
@@ -165,6 +186,24 @@ describe('createEuropeRankAccumulator', () => {
     acc.finalize();
     expect(acc.rankOf(noBracket, 'standard')).toBeNull();
     expect(acc.rankOf(unrated, 'standard')).toBeNull();
+  });
+
+  it('ranks age groups separately by gender across the whole European pool', () => {
+    const acc = createEuropeRankAccumulator(YEAR);
+    const boy = player({ fideId: 'boy', sex: 'M', birthYear: 2010, stdRating: 1800 });
+    const girl = player({ fideId: 'girl', sex: 'F', birthYear: 2010, stdRating: 1800 });
+    [boy, girl].forEach((p) => acc.add(p));
+    acc.finalize();
+    expect(acc.rankOf(boy, 'standard')).toBe(1);
+    expect(acc.rankOf(girl, 'standard')).toBe(1);
+  });
+
+  it('returns null for a player with unknown sex, even with a bracket and rating', () => {
+    const acc = createEuropeRankAccumulator(YEAR);
+    const unknownSex = player({ fideId: 'a', sex: null, birthYear: 2010, stdRating: 2000 });
+    acc.add(unknownSex);
+    acc.finalize();
+    expect(acc.rankOf(unknownSex, 'standard')).toBeNull();
   });
 
   it('ranks each rating kind independently', () => {
