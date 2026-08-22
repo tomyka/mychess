@@ -8,7 +8,7 @@
 </script>
 
 <svelte:head>
-	<title>{m.learn_page_title()}</title>
+	<title>{m.seo_learn_title()}</title>
 </svelte:head>
 
 <main class="min-h-screen bg-(--color-bg)">

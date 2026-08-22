@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.practice_list_page_title()}</title>
+  <title>{m.seo_practice_title()}</title>
 </svelte:head>
 
 <main class="min-h-screen bg-(--color-bg)">

@@ -469,7 +469,7 @@
 </script>
 
 <svelte:head>
-	<title>{m.learn_repertoire_page_title({ name: data.repertoire?.name ?? m.learn_repertoire_fallback_name() })}</title>
+	<title>{m.seo_learn_repertoire_title({ name: data.repertoire?.name ?? m.learn_repertoire_fallback_name() })}</title>
 </svelte:head>
 
 <svelte:window onkeydown={handleKeydown} />

@@ -296,7 +296,7 @@
 
 <svelte:head>
 	<!-- Fallback name reused verbatim from Learn's per-repertoire page. -->
-	<title>{m.practice_repertoire_page_title({ name: data.repertoire?.name ?? m.learn_repertoire_fallback_name() })}</title>
+	<title>{m.seo_practice_repertoire_title({ name: data.repertoire?.name ?? m.learn_repertoire_fallback_name() })}</title>
 </svelte:head>
 
 <svelte:window onkeydown={handleKeydown} />

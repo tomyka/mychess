@@ -125,7 +125,7 @@
 
 <svelte:head>
 	<!-- Fallback name reused verbatim from Learn's per-repertoire page. -->
-	<title>{m.practice_mastery_page_title({ name: data.repertoire?.name ?? m.learn_repertoire_fallback_name() })}</title>
+	<title>{m.seo_practice_mastery_title({ name: data.repertoire?.name ?? m.learn_repertoire_fallback_name() })}</title>
 </svelte:head>
 
 <main class="min-h-screen lg:min-h-0 lg:h-[calc(100vh-4rem)] bg-(--color-bg) p-4 max-w-7xl mx-auto pb-24 lg:pb-4 flex flex-col">
