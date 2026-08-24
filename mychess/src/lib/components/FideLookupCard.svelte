@@ -5,6 +5,7 @@
   let { query = '', result = null } = $props<{
     query?: string;
     result?: { found: boolean; player?: {
+      fideId: string;
       name: string;
       stdRating: number | null; rapidRating: number | null; blitzRating: number | null;
       countryRankStandard: number | null; countryRankRapid: number | null; countryRankBlitz: number | null;
@@ -110,7 +111,9 @@
   {#if result}
     {#if result.found && p}
       <div class="mt-4 border-t border-gray-100 pt-4">
-        <p class="font-semibold text-(--color-text) mb-3">{p.name}</p>
+        <p class="font-semibold text-(--color-text) mb-3">
+          {p.name} <span class="font-normal text-(--color-muted)">({p.fideId})</span>
+        </p>
         <table class="w-full text-sm">
           <thead>
             <tr class="text-xs text-(--color-muted)">

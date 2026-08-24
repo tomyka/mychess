@@ -13,6 +13,7 @@ afterEach(() => {
 });
 
 const player = {
+  fideId: '1503014',
   name: 'Carlsen, Magnus',
   stdRating: 2839, rapidRating: 2828, blitzRating: 2887,
   countryRankStandard: 1, countryRankRapid: 2, countryRankBlitz: 3,
@@ -21,6 +22,7 @@ const player = {
 };
 
 const noBirthYear = {
+  fideId: '9999999',
   name: 'No Birthday',
   stdRating: 1500, rapidRating: null, blitzRating: null,
   countryRankStandard: 10, countryRankRapid: null, countryRankBlitz: null,
@@ -32,6 +34,12 @@ describe('FideLookupCard', () => {
   it('renders the FIDE id input', () => {
     render(FideLookupCard, { props: { query: '', result: null } });
     expect(screen.getByLabelText(/FIDE ID/i)).toBeTruthy();
+  });
+
+  it('shows the FIDE ID next to the name in the result heading', () => {
+    render(FideLookupCard, { props: { query: '1503014', result: { found: true, player } } });
+    expect(screen.getByText('Carlsen, Magnus')).toBeTruthy();
+    expect(screen.getByText('(1503014)')).toBeTruthy();
   });
 
   it('shows ratings for all three chess types', () => {

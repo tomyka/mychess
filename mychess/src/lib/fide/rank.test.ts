@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ageBracket, computeRanks, createEuropeRankAccumulator, attachEuropeRanks } from './rank';
+import { ageBracket, computeRanks, createEuropeRankAccumulator, attachEuropeRanks, mapFideRow, type FideRatingRow } from './rank';
 import type { FidePlayer } from './parse';
 
 describe('ageBracket', () => {
@@ -239,5 +239,20 @@ describe('attachEuropeRanks', () => {
     const withEurope = attachEuropeRanks(ranked, acc);
     expect(withEurope[0].europeAgeGroupRankStandard).toBe(2);
     expect(withEurope[0].europeAgeGroupRankRapid).toBeNull(); // unrated in rapid
+  });
+});
+
+describe('mapFideRow', () => {
+  it('carries the FIDE ID through alongside the rest of the profile', () => {
+    const row: FideRatingRow = {
+      fide_id: '1503014',
+      name: 'Carlsen, Magnus',
+      std_rating: 2830, rapid_rating: 2800, blitz_rating: 2880,
+      country_rank_standard: 1, country_rank_rapid: 1, country_rank_blitz: 1,
+      age_bracket: null,
+      age_group_rank_standard: null, age_group_rank_rapid: null, age_group_rank_blitz: null,
+      europe_age_group_rank_standard: null, europe_age_group_rank_rapid: null, europe_age_group_rank_blitz: null,
+    };
+    expect(mapFideRow(row).fideId).toBe('1503014');
   });
 });

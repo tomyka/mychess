@@ -80,6 +80,7 @@ function rankByRating(
 
 /** A `fide_players` row's rating/rank columns, as selected from the DB (snake_case). */
 export type FideRatingRow = {
+  fide_id: string;
   name: string;
   std_rating: number | null;
   rapid_rating: number | null;
@@ -97,6 +98,7 @@ export type FideRatingRow = {
 };
 
 export type FideRatingProfile = {
+  fideId: string;
   name: string;
   stdRating: number | null;
   rapidRating: number | null;
@@ -116,6 +118,7 @@ export type FideRatingProfile = {
 /** Maps a `fide_players` row's snake_case rating/rank columns to camelCase. */
 export function mapFideRow(row: FideRatingRow): FideRatingProfile {
   return {
+    fideId: row.fide_id,
     name: row.name,
     stdRating: row.std_rating,
     rapidRating: row.rapid_rating,
