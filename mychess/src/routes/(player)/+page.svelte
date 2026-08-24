@@ -2,7 +2,6 @@
   import { m } from '$lib/paraglide/messages';
   import PlayerHeader from '$lib/components/PlayerHeader.svelte';
   import StatsRow from '$lib/components/StatsRow.svelte';
-  import QuickActions from '$lib/components/QuickActions.svelte';
   import CoachNoteBanner from '$lib/components/CoachNoteBanner.svelte';
   import TournamentCarousel from '$lib/components/tournaments/TournamentCarousel.svelte';
   import PlatformRatingsCard from '$lib/components/PlatformRatingsCard.svelte';
@@ -95,9 +94,6 @@
         </div>
       {/if}
 
-      <!-- Quick study actions -->
-      <QuickActions />
-
       <!-- Today's tasks -->
       {#if quests.length > 0}
         <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
@@ -126,17 +122,6 @@
               </li>
             {/each}
           </ul>
-        </section>
-      {/if}
-
-      <!-- Upcoming tournaments widget -->
-      {#if data.upcomingTournaments?.length > 0}
-        <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="font-semibold text-(--color-text)">{m.dashboard_upcoming_tournaments_title()}</h2>
-            <a href="/tournaments" class="text-sm text-(--color-accent) hover:underline">{m.dashboard_view_all()}</a>
-          </div>
-          <TournamentCarousel tournaments={data.upcomingTournaments} />
         </section>
       {/if}
 
