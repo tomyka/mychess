@@ -45,11 +45,6 @@
 
         <FideLookupCard query={data.fideQuery ?? ''} result={data.fideLookup ?? null} />
 
-        <a href="/practice" class="block bg-(--color-accent) text-white rounded-xl p-5 hover:bg-(--color-accent-hover) transition-colors">
-          <p class="font-semibold">{m.dashboard_try_practice_cta()}</p>
-          <p class="text-sm text-indigo-100">{m.dashboard_try_practice_subtitle()}</p>
-        </a>
-
         {#if data.upcomingTournaments?.length > 0}
           <section class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-5">
             <div class="flex items-center justify-between mb-4">
