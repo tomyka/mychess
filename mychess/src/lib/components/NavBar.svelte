@@ -44,6 +44,7 @@
       {:else if !isSignedOut}
         <a href="/" class={linkClass(['/'])}>{m.nav_dashboard()}</a>
         <a href="/tournaments" class={linkClass(['/tournaments'])}>{m.nav_tournaments()}</a>
+        <a href="/players" class={linkClass(['/players'])}>{m.nav_players_search()}</a>
         <a href="/learn" class={linkClass(['/learn'])}>{m.nav_learn()}</a>
         <a href="/practice" class={linkClass(['/practice'])}>{m.nav_practice()}</a>
         <a href="/repertoires" class={linkClass(['/repertoires'])}>{m.nav_repertoires()}</a>
@@ -143,6 +144,7 @@
       {:else if !isSignedOut}
         <a href="/" onclick={() => mobileMenuOpen = false} class="text-(--color-text) font-medium">{m.nav_dashboard()}</a>
         <a href="/tournaments" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">{m.nav_tournaments()}</a>
+        <a href="/players" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">{m.nav_players_search()}</a>
         <a href="/learn" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">{m.nav_learn()}</a>
         <a href="/practice" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">{m.nav_practice()}</a>
         <a href="/repertoires" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">{m.nav_repertoires()}</a>

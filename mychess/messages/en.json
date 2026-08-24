@@ -6,6 +6,7 @@
 	"nav_support": "Support",
 	"nav_dashboard": "Dashboard",
 	"nav_tournaments": "Tournaments",
+	"nav_players_search": "Players",
 	"nav_learn": "Learn",
 	"nav_practice": "Practice",
 	"nav_games": "Games",
@@ -814,6 +815,8 @@
 		}
 	],
 	"seo_games_new_title": "Upload a game — MyChess",
+	"seo_players_title": "Players — MyChess",
+	"players_back_link": "← Back to Dashboard",
 	"games_back_link": "← Back to My Games",
 	"games_new_heading": "Upload a game",
 	"games_new_played_as_label": "Which side did you play?",

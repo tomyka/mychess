@@ -6,6 +6,7 @@
 	"nav_support": "Pagalba",
 	"nav_dashboard": "Skydelis",
 	"nav_tournaments": "Turnyrai",
+	"nav_players_search": "Žaidėjai",
 	"nav_learn": "Mokytis",
 	"nav_practice": "Praktika",
 	"nav_games": "Partijos",
@@ -892,6 +893,8 @@
 		}
 	],
 	"seo_games_new_title": "Įkelti žaidimą — MyChess",
+	"seo_players_title": "Žaidėjai — MyChess",
+	"players_back_link": "← Atgal į skydelį",
 	"games_back_link": "← Atgal į Mano žaidimus",
 	"games_new_heading": "Įkelti žaidimą",
 	"games_new_played_as_label": "Kuria puse žaidėte?",

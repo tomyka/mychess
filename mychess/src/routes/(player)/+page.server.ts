@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { ensureDailyQuests } from '$lib/server/quests';
 import { mapFideRow } from '$lib/fide/rank';
+import { loadFideLookup } from '$lib/server/fide-lookup';
 import { fetchLichessRatings } from '$lib/server/lichess';
 import { fetchChesscomRatings } from '$lib/server/chesscom';
 import { loadRepertoireProgressSummaries } from '$lib/server/repertoire-progress';
@@ -27,17 +28,7 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
 
   // Public FIDE rank lookup (?fide=<id>) — reads the public fide_players table.
   const fideQuery = (url.searchParams.get('fide') ?? '').trim();
-  let fideLookup: { query: string; found: boolean; player?: any } | null = null;
-  if (fideQuery) {
-    const { data: row } = await supabase
-      .from('fide_players')
-      .select('fide_id, name, std_rating, rapid_rating, blitz_rating, country_rank_standard, country_rank_rapid, country_rank_blitz, age_bracket, age_group_rank_standard, age_group_rank_rapid, age_group_rank_blitz, europe_age_group_rank_standard, europe_age_group_rank_rapid, europe_age_group_rank_blitz')
-      .eq('fide_id', fideQuery)
-      .single();
-    fideLookup = row
-      ? { query: fideQuery, found: true, player: mapFideRow(row as any) }
-      : { query: fideQuery, found: false };
-  }
+  const fideLookup = await loadFideLookup(supabase, fideQuery);
 
   // Signed-out visitors get the public landing — don't run the authenticated
   // pipeline (quest seeding, leaderboard) for them.
