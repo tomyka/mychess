@@ -94,7 +94,7 @@
                 type="button"
                 onclick={() => select(match.fideId)}
                 class="w-full text-left px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-between gap-3">
-                <span class="text-(--color-text) truncate">{match.name}</span>
+                <span class="text-(--color-text) truncate">{match.name} ({match.fideId})</span>
                 <span class="text-xs text-(--color-muted) shrink-0">{match.federation}</span>
               </button>
             </li>

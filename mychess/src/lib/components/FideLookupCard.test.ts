@@ -88,4 +88,15 @@ describe('FideLookupCard', () => {
     await fireEvent.click(item);
     expect(goto).toHaveBeenCalledWith('/?fide=1503014');
   });
+
+  it('shows each match\'s FIDE ID in brackets next to their name', async () => {
+    global.fetch = vi.fn(async () => ({
+      json: async () => ({ results: [{ fideId: '1503014', name: 'Carlsen, Magnus', federation: 'NOR' }] })
+    })) as any;
+
+    render(FideLookupCard, { props: { query: '', result: null } });
+    await fireEvent.input(screen.getByLabelText(/FIDE ID/i), { target: { value: 'Carlsen' } });
+
+    expect(await screen.findByText('Carlsen, Magnus (1503014)')).toBeTruthy();
+  });
 });
