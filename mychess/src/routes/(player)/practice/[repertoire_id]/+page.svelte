@@ -4,15 +4,16 @@
 	import ExploreControls from '$lib/components/ExploreControls.svelte';
 	import { engineEnabled } from '$lib/engine/engine.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
-	import PracticeStatusStrip, { type PracticeStripState } from '$lib/components/PracticeStatusStrip.svelte';
+	import PracticeStatusStrip from '$lib/components/PracticeStatusStrip.svelte';
 	import RepertoireUpdatedBanner from '$lib/components/RepertoireUpdatedBanner.svelte';
 	import type { Key } from 'chessground/types';
 	import { Chess } from 'chess.js';
 	import { playCorrect, playWrong } from '$lib/sounds';
 	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
-	import { positionAt, playOpponentReplies, playerMovesIn } from '$lib/mastery/playback';
+	import { positionAt, playerMovesIn } from '$lib/mastery/playback';
 	import { logMove } from '$lib/moveLog';
 	import { ExploreSession } from '$lib/mastery/explore.svelte';
+	import { PracticeDrill } from '$lib/mastery/practiceDrill.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	let { data } = $props<{ data: any }>();
@@ -28,90 +29,24 @@
 	const queue = $derived((data.queue ?? []) as { variationKey: string; path: VariationStep[]; chapterNames: string[] }[]);
 
 	let queueIdx = $state(0);
-	let plyIdx = $state(0);
-	let boardFen = $state('');
-	let locked = $state(false);
-	let strip = $state<PracticeStripState>('blind');
-	// Set once a line is failed or hinted, so the outcome is reported exactly
-	// once however many more moves the player makes on it.
-	let outcomeReported = $state(false);
-	let hintRequested = $state(false);
 	let sessionPassed = $state(0);
 	let sessionDemoted = $state(0);
-	let advanceTimeout: ReturnType<typeof setTimeout> | undefined;
 	let boardWidth = $state(0);
 	let manualReviewIdx = $state<number | null>(null);
 	// Explore mode (#125), the same scratch board Learn has and the same module
-	// behind it: it owns only its own position, so an excursion cannot touch
-	// plyIdx, boardFen, outcomeReported or hintRequested — which matters more here
-	// than on Learn, where a stray mistake only costs a clean pass. In Practice it
-	// would demote the line.
+	// behind it: it owns only its own position, so an excursion cannot touch the
+	// drill's ply/board/outcome state — which matters more here than on Learn,
+	// where a stray mistake only costs a clean pass. In Practice it would demote
+	// the line.
 	const explore = new ExploreSession();
 	// True when the excursion was opened FROM a demoted line (#131): the line is
 	// already reported and finished, so leaving the excursion moves on to the next
 	// one instead of returning to a board that was about to disappear.
 	let exploringDemoted = $state(false);
-	// The position a wrong move produced, kept aside so "see why" can open on the
-	// consequence rather than on the question. Never applied to the board.
-	let mistakeFen = $state<string | null>(null);
 
 	const current = $derived(queue[queueIdx] ?? null);
 	const steps = $derived(current?.path ?? []);
 	const finished = $derived(queue.length > 0 && queueIdx >= queue.length);
-	const reviewIdx = $derived(manualReviewIdx ?? plyIdx);
-	const isReviewing = $derived(manualReviewIdx !== null);
-	const movesSoFar = $derived(plyIdx > 0 ? moveSequenceLabel(steps.slice(0, plyIdx)) : '');
-
-	const drillFen = $derived(isReviewing ? positionAt(steps, reviewIdx, boardFen) : boardFen);
-	// The explored position while off-book, the drill's own otherwise. The eval bar
-	// reads the same value, so it answers for whatever is actually on the board —
-	// and the bar only exists in explore mode with the engine switched on, so the
-	// local engine spawns there and nowhere else.
-	const displayFen = $derived(explore.active ? explore.fen : drillFen);
-	// Only while the drill is genuinely waiting for a move. `locked` covers both
-	// the correct-move hold and the 1.6s window after a wrong move, when the line
-	// is already demoted and about to be replaced.
-	const canExplore = $derived(!!current && !locked && !isReviewing && !!drillFen);
-
-	// Only ever the piece's own square, never the destination — same contract as
-	// Learn's hint. Taking it has already cost the line its learned status, so
-	// there is nothing further to protect.
-	const hintSquare = $derived.by(() => {
-		if (!hintRequested || isReviewing) return null;
-		const step = steps[plyIdx];
-		if (!step) return null;
-		try {
-			return new Chess(step.fromFen).move(step.san)?.from ?? null;
-		} catch {
-			return null;
-		}
-	});
-
-	function advanceThroughOpponentReplies() {
-		const played = playOpponentReplies(steps, plyIdx, boardFen);
-		plyIdx = played.plyIdx;
-		boardFen = played.fen;
-	}
-
-	function startCurrent() {
-		clearTimeout(advanceTimeout);
-		explore.stop();
-		exploringDemoted = false;
-		mistakeFen = null;
-		plyIdx = 0;
-		manualReviewIdx = null;
-		locked = false;
-		hintRequested = false;
-		outcomeReported = false;
-		strip = 'blind';
-		if (!current) return;
-		boardFen = steps[0]?.fromFen ?? '';
-		advanceThroughOpponentReplies();
-	}
-
-	// Set the first position synchronously — ChessBoard's onMount throws on an
-	// empty FEN.
-	startCurrent();
 
 	// One session row per visit (#103) — set on the first outcome reported only.
 	let sessionReported = false;
@@ -126,29 +61,70 @@
 		}).catch(() => {});
 	}
 
-
-	function toNext(delay: number) {
-		advanceTimeout = setTimeout(() => {
-			queueIdx++;
-			startCurrent();
-		}, delay);
+	function advanceToNextLine() {
+		queueIdx++;
+		startCurrent();
 	}
 
+	// The current line's drill state machine (#97/#98/#103/#113/#125/#131) —
+	// everything about playing THIS line out, extracted to
+	// $lib/mastery/practiceDrill.svelte.ts. This page composes it with the queue
+	// (above), Explore (below), and review navigation, the same way it already
+	// composed with ExploreSession.
+	const drill = new PracticeDrill({
+		onOutcome: (outcome) => {
+			if (outcome === 'clean') sessionPassed++;
+			else sessionDemoted++;
+			report(outcome);
+		},
+		onAdvance: advanceToNextLine
+	});
+
+	const reviewIdx = $derived(manualReviewIdx ?? drill.plyIdx);
+	const isReviewing = $derived(manualReviewIdx !== null);
+	const movesSoFar = $derived(drill.plyIdx > 0 ? moveSequenceLabel(steps.slice(0, drill.plyIdx)) : '');
+
+	const drillFen = $derived(isReviewing ? positionAt(steps, reviewIdx, drill.boardFen) : drill.boardFen);
+	// The explored position while off-book, the drill's own otherwise. The eval bar
+	// reads the same value, so it answers for whatever is actually on the board —
+	// and the bar only exists in explore mode with the engine switched on, so the
+	// local engine spawns there and nowhere else.
+	const displayFen = $derived(explore.active ? explore.fen : drillFen);
+	// Only while the drill is genuinely waiting for a move. `locked` covers both
+	// the correct-move hold and the 1.6s window after a wrong move, when the line
+	// is already demoted and about to be replaced.
+	const canExplore = $derived(!!current && !drill.locked && !isReviewing && !!drillFen);
+
+	// Only ever the piece's own square, never the destination — same contract as
+	// Learn's hint. Taking it has already cost the line its learned status, so
+	// there is nothing further to protect.
+	const hintSquare = $derived.by(() => {
+		if (!drill.hintRequested || isReviewing) return null;
+		const step = steps[drill.plyIdx];
+		if (!step) return null;
+		try {
+			return new Chess(step.fromFen).move(step.san)?.from ?? null;
+		} catch {
+			return null;
+		}
+	});
+
+	function startCurrent() {
+		explore.stop();
+		exploringDemoted = false;
+		manualReviewIdx = null;
+		drill.start(steps);
+	}
+
+	// Set the first position synchronously — ChessBoard's onMount throws on an
+	// empty FEN.
+	startCurrent();
+
 	function requestHint() {
-		if (hintRequested || locked) return;
+		if (!drill.requestHint()) return;
 		// Same reason as Learn's: hintSquare is null while reviewing, so a hint
 		// taken from a stepped-back position demoted the line and drew nothing.
 		manualReviewIdx = null;
-		hintRequested = true;
-		// Reported immediately rather than at the end of the line: a player who
-		// takes a hint and then navigates away has still had the answer, and the
-		// demotion must not depend on them finishing.
-		if (!outcomeReported) {
-			outcomeReported = true;
-			sessionDemoted++;
-			report('hint');
-		}
-		strip = 'demoted';
 	}
 
 	function startExplore() {
@@ -166,16 +142,15 @@
 	 * reported at the moment of the mistake, so nothing about the record changes.
 	 */
 	function exploreDemoted() {
-		clearTimeout(advanceTimeout);
-		advanceTimeout = undefined;
+		drill.cancelPendingAdvance();
 		exploringDemoted = true;
-		explore.start(mistakeFen ?? boardFen);
+		explore.start(drill.mistakeFen ?? drill.boardFen);
 	}
 
 	/**
 	 * Leaves explore mode. Nothing to restore: the drill's state was never handed
-	 * over, and `strip` is read through a derived below rather than overwritten,
-	 * so whatever message was up comes back on its own.
+	 * over, and `drill.strip` is read directly below rather than overwritten, so
+	 * whatever message was up comes back on its own.
 	 */
 	function stopExplore() {
 		const wasDemoted = exploringDemoted;
@@ -186,8 +161,7 @@
 		// re-arming the timer, so this can't double-advance with a timer that was
 		// cancelled on the way in.
 		if (wasDemoted) {
-			queueIdx++;
-			startCurrent();
+			advanceToNextLine();
 		}
 	}
 
@@ -202,64 +176,17 @@
 	}
 
 	function handleMove(detail: { from: Key; to: Key; san: string }) {
-		if (locked || isReviewing) return false;
-		const step = steps[plyIdx];
-		if (!step) return false;
-
-		if (detail.san === step.san) {
+		if (isReviewing) return false;
+		const result = drill.attemptMove(detail.from, detail.to, detail.san);
+		if (!result) return false;
+		if (result.correct) {
 			playCorrect();
-			locked = true;
-			logMove(data.repertoire?.id, step.moveId, detail.san, true);
-			// A hinted line keeps its demotion notice up while it is played out —
-			// overwriting it with 'correct' would suggest the pass still counted.
-			if (!outcomeReported) strip = 'correct';
-
-			advanceTimeout = setTimeout(() => {
-				boardFen = step.toFen;
-				plyIdx++;
-				advanceThroughOpponentReplies();
-				locked = false;
-				if (plyIdx >= steps.length) {
-					if (!outcomeReported) {
-						outcomeReported = true;
-						sessionPassed++;
-						report('clean');
-					}
-					toNext(700);
-				} else if (!outcomeReported) {
-					strip = 'blind';
-				}
-			}, 450);
-			return true;
+			logMove(data.repertoire?.id, result.moveId, detail.san, true);
+		} else {
+			playWrong();
+			logMove(data.repertoire?.id, result.moveId, detail.san, false);
 		}
-
-		playWrong();
-		logMove(data.repertoire?.id, step.moveId, detail.san, false);
-		// Remembered, NOT applied to the board: `boardFen` staying on the position
-		// the player was asked about is what lets ChessBoard hold the wrong move
-		// under its red X and then snap back, and what keeps a second attempt
-		// reaching handleMove to be ignored. This is only where a "see why"
-		// excursion should open from.
-		try {
-			const board = new Chess(step.fromFen);
-			board.move({ from: detail.from, to: detail.to, promotion: 'q' });
-			mistakeFen = board.fen();
-		} catch {
-			mistakeFen = null;
-		}
-		// Practice is a test: a wrong move ends the line rather than letting the
-		// player retry it. The variation goes back to Learn, where it will be
-		// re-taught with arrows — which is also why the correct move is still not
-		// revealed here.
-		if (!outcomeReported) {
-			outcomeReported = true;
-			sessionDemoted++;
-			report('mistake');
-			strip = 'demoted';
-			locked = true;
-			toNext(1600);
-		}
-		return false;
+		return result.correct;
 	}
 
 	function reviewToStart() {
@@ -269,8 +196,8 @@
 		manualReviewIdx = Math.max(0, reviewIdx - 1);
 	}
 	function reviewForward() {
-		const next = Math.min(plyIdx, reviewIdx + 1);
-		manualReviewIdx = next >= plyIdx ? null : next;
+		const next = Math.min(drill.plyIdx, reviewIdx + 1);
+		manualReviewIdx = next >= drill.plyIdx ? null : next;
 	}
 	function reviewToLive() {
 		manualReviewIdx = null;
@@ -403,10 +330,10 @@
 		<div class="flex flex-col lg:flex-row lg:items-stretch gap-6 lg:flex-1 lg:min-h-0">
 			<div class="lg:flex-1 lg:flex lg:flex-col lg:min-h-0 lg:items-start">
 				<!-- Explore wins the strip outright while it lasts: every other message
-				     would be describing a position that isn't on screen. Read through a
-				     derived rather than assigned, so `strip`'s real value survives the
+				     would be describing a position that isn't on screen. Read from the
+				     drill directly rather than a copy, so its real value survives the
 				     excursion untouched. -->
-				<PracticeStatusStrip state={explore.active ? 'exploring' : strip} />
+				<PracticeStatusStrip state={explore.active ? 'exploring' : drill.strip} />
 
 				<!-- See Learn's copy of this: the bar's slot is a sibling so the board's
 				     container-height sizing isn't fed its width. -->
@@ -432,7 +359,7 @@
 					<ChessBoard
 						fen={displayFen}
 						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
-						interactable={explore.active || (!locked && !isReviewing)}
+						interactable={explore.active || (!drill.locked && !isReviewing)}
 						onmove={handleBoardMove}
 						prefs={data.boardPrefs}
 						hintSquare={explore.active ? null : hintSquare}
@@ -474,7 +401,7 @@
 								<span aria-hidden="true">🔍</span> {m.learn_explore_position()}
 							</button>
 						</p>
-					{:else if strip === 'demoted' && current}
+					{:else if drill.strip === 'demoted' && current}
 						<!-- The one moment a player most wants to look around, and the one
 						     the drill was about to take away 1.6s later (#131). Taking it
 						     cancels that advance; the outcome is already reported either
@@ -522,7 +449,7 @@
 					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted)">{m.learn_stuck_heading()}</p>
 					<button
 						onclick={requestHint}
-						disabled={hintRequested || explore.active}
+						disabled={drill.hintRequested || explore.active}
 						class="self-start inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 border border-amber-400/40 bg-amber-400/10 rounded-lg px-2.5 py-1.5 disabled:opacity-40"
 					>
 						<span aria-hidden="true">💡</span> {m.practice_show_hint()}
