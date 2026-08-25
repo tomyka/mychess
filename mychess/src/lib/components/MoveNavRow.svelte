@@ -41,9 +41,12 @@
 		onback: () => void;
 		onforward: () => void;
 		onlive: () => void;
-		// Adds a 6th "explore this position" button when provided. Omitted by
-		// Learn and Practice (they have their own below-row explore trigger),
-		// so the row renders exactly as it always has for them.
+		// Adds a 6th "explore this position" button when provided. A below-row
+		// trigger used to exist instead on Learn/Practice, but that separate
+		// element's own mount/unmount as canExplore flipped changed the page's
+		// total height out from under the board, forcing a resize every time
+		// (#158) -- unlike this button, which only ever changes the row's
+		// column count, never its height.
 		onExplore?: () => void;
 	} = $props();
 

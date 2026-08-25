@@ -233,7 +233,7 @@ describe("practice pool page", () => {
       render(Practice, { props: { data: poolData() } });
       const fenBefore = cgMock.boards[cgMock.boards.length - 1].config.fen;
 
-      await fireEvent.click(screen.getByText(/Explore this position/i));
+      await fireEvent.click(screen.getByRole("button", { name: "Explore this position" }));
       expect(screen.getByText(/Exploring — nothing counts here/i)).toBeTruthy();
 
       // Nc3 is legal but is NOT the book move (e4) — in the drill this would
@@ -274,7 +274,7 @@ describe("practice pool page", () => {
       render(Practice, { props: { data: poolData() } });
       expect(screen.getByText("Play it from memory")).toBeTruthy();
 
-      await fireEvent.click(screen.getByText(/Explore this position/i));
+      await fireEvent.click(screen.getByRole("button", { name: "Explore this position" }));
       expect(screen.queryByText("Play it from memory")).toBeNull();
 
       await fireEvent.click(screen.getByText(/Back to the line/i));
@@ -287,7 +287,7 @@ describe("practice pool page", () => {
         (screen.getByText(/Show hint/i) as HTMLButtonElement).disabled,
       ).toBe(false);
 
-      await fireEvent.click(screen.getByText(/Explore this position/i));
+      await fireEvent.click(screen.getByRole("button", { name: "Explore this position" }));
       expect(
         (screen.getByText(/Show hint/i) as HTMLButtonElement).disabled,
       ).toBe(true);
@@ -306,7 +306,7 @@ describe("practice pool page", () => {
       playMove("b1", "c3"); // wrong: demotes v1
       await vi.advanceTimersByTimeAsync(0);
       expect(screen.getByText(/needs teaching again/i)).toBeTruthy();
-      expect(screen.queryByText(/Explore this position/i)).toBeNull();
+      expect(screen.queryByRole("button", { name: "Explore this position" })).toBeNull();
       expect(screen.getByText(/See why/i)).toBeTruthy();
     });
 

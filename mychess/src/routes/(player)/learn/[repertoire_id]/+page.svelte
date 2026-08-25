@@ -476,17 +476,8 @@
 						onback={reviewBack}
 						onforward={reviewForward}
 						onlive={reviewToLive}
+						onExplore={canExplore ? startExplore : undefined}
 					/>
-					{#if canExplore}
-						<p class="text-center mt-2 shrink-0">
-							<button
-								onclick={startExplore}
-								class="inline-flex items-center gap-1.5 text-sm font-medium text-(--color-muted) hover:text-(--color-text)"
-							>
-								<span aria-hidden="true">🔍</span> {m.learn_explore_position()}
-							</button>
-						</p>
-					{/if}
 				{/if}
 
 				<!-- Just the moves played so far. -->

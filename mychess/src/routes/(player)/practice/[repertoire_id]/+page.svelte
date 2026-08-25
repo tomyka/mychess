@@ -364,17 +364,9 @@
 						onback={reviewBack}
 						onforward={reviewForward}
 						onlive={reviewToLive}
+						onExplore={canExplore ? startExplore : undefined}
 					/>
-					{#if canExplore}
-						<p class="text-center mt-2 shrink-0">
-							<button
-								onclick={startExplore}
-								class="inline-flex items-center gap-1.5 text-sm font-medium text-(--color-muted) hover:text-(--color-text)"
-							>
-								<span aria-hidden="true">🔍</span> {m.learn_explore_position()}
-							</button>
-						</p>
-					{:else if drill.strip === 'demoted' && current}
+					{#if drill.strip === 'demoted' && current}
 						<!-- The one moment a player most wants to look around, and the one
 						     the drill was about to take away 1.6s later (#131). Taking it
 						     cancels that advance; the outcome is already reported either

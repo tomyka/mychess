@@ -567,7 +567,7 @@ describe('learn detail page', () => {
 		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
 
 		const fenBefore = cgMock.boards[cgMock.boards.length - 1].config.fen;
-		await fireEvent.click(screen.getByText(/Explore this position/i));
+		await fireEvent.click(screen.getByRole('button', { name: 'Explore this position' }));
 
 		expect(screen.getByText(/Exploring — nothing counts here/i)).toBeTruthy();
 		// A move that would be WRONG in the drill is simply legal here.
@@ -594,7 +594,7 @@ describe('learn detail page', () => {
 		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
 
 		const fenBefore = cgMock.boards[cgMock.boards.length - 1].config.fen;
-		await fireEvent.click(screen.getByText(/Explore this position/i));
+		await fireEvent.click(screen.getByRole('button', { name: 'Explore this position' }));
 
 		const undo = screen.getByText(/Undo/i);
 		expect((undo as HTMLButtonElement).disabled).toBe(true); // nothing to undo yet
@@ -612,7 +612,7 @@ describe('learn detail page', () => {
 	it('does not offer explore during the autoplay intro', () => {
 		vi.useFakeTimers();
 		renderAttempt(AUTO_PLAY_ATTEMPT);
-		expect(screen.queryByText(/Explore this position/i)).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Explore this position' })).toBeNull();
 	});
 
 	it('shows a running session count and a Finish session link in the sidebar', () => {
@@ -686,7 +686,7 @@ describe('learn detail page', () => {
 		vi.useFakeTimers();
 		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
 		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
-		await fireEvent.click(screen.getByText(/Explore this position/i));
+		await fireEvent.click(screen.getByRole('button', { name: 'Explore this position' }));
 
 		const toggle = screen.getByRole('button', { name: /engine/i });
 		expect(toggle.getAttribute('aria-pressed')).toBe('false');
@@ -701,7 +701,7 @@ describe('learn detail page', () => {
 		vi.useFakeTimers();
 		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
 		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
-		await fireEvent.click(screen.getByText(/Explore this position/i));
+		await fireEvent.click(screen.getByRole('button', { name: 'Explore this position' }));
 		await fireEvent.click(screen.getByRole('button', { name: /engine/i }));
 
 		const bar = screen.getByRole('img', { name: /Engine evaluation/i });
