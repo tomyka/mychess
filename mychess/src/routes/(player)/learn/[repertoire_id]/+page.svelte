@@ -8,11 +8,12 @@
 	import { invalidateAll } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import { optimisticSolvedAfterAttempt, type PracticeView } from '$lib/mastery/practice';
-	import { arrowMoveForStep, isLastPlayerMove } from '$lib/mastery/teaching';
+	import { arrowMoveForStep } from '$lib/mastery/teaching';
 	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
-	import { positionAt, playOpponentReplies, playerMovesIn } from '$lib/mastery/playback';
+	import { positionAt, playerMovesIn } from '$lib/mastery/playback';
 	import { logMove } from '$lib/moveLog';
 	import { ExploreSession } from '$lib/mastery/explore.svelte';
+	import { LearnDrill, CUE_HOLD_MS } from '$lib/mastery/learnDrill.svelte';
 	import EvalBar from '$lib/components/EvalBar.svelte';
 	import ExploreControls from '$lib/components/ExploreControls.svelte';
 	import { engineEnabled } from '$lib/engine/engine.svelte';
@@ -21,63 +22,27 @@
 
 	let { data } = $props<{ data: any }>();
 
-	let quizIdx = $state(0);
-	let boardFen = $state('');
-	// 'advancing' is the brief, non-interactive gap between the final move
-	// of an attempt (shown as a gold star or a red X, not a click-through
-	// card) and the next attempt loading — auto-advances on its own.
-	// 'autoplay' is the intro before a teach pass: already-mastered earlier
-	// batches play themselves out so the player only has to actually play
-	// the batch currently being taught — see startAutoPlay().
-	// 'transition' is the beat AFTER a clean teach pass and BEFORE the board
-	// snaps back for its blind retest, held open just long enough to read the
-	// "now play it from memory" cue — see showTeachCue().
-	let phase = $state<'playing' | 'advancing' | 'autoplay' | 'transition'>('playing');
-	let locked = $state(false);
-	// Requesting a hint highlights the correct piece's square, never the
-	// move itself — available every turn (see requestHint()), and marks the
-	// whole attempt dirty so a hinted pass can't solve the variation.
-	let hintRequested = $state(false);
-	// Whether THIS ATTEMPT (the whole variation replay) has had any mistake
-	// yet — a clean full replay is what marks a variation solved. Reset only
-	// in resetForAttempt().
-	let attemptHadMistake = $state(false);
-	// Wrong attempts on the current attempt, shown as the sidebar's
-	// "mistakes this attempt" chip — reset alongside attemptHadMistake.
-	let attemptMistakeCount = $state(0);
-	// The status strip's take on the last move played: holds 'correct' only
-	// for the same brief window the board itself holds correct-move
-	// feedback (cleared in the advanceTimeout callback below), holds 'wrong'
-	// until overwritten by the player's next attempt. Reset in
-	// resetForAttempt() like the rest of per-attempt state.
-	let lastMoveResult = $state<'correct' | 'wrong' | null>(null);
 	// How many variations have been solved cleanly since this page loaded —
-	// deliberately NOT reset in resetForAttempt(): a running session total,
+	// deliberately NOT reset on an attempt reset: a running session total,
 	// not per-attempt state.
 	let learnedThisSession = $state(0);
-	let advanceTimeout: ReturnType<typeof setTimeout> | undefined;
-	let autoPlayTimeout: ReturnType<typeof setTimeout> | undefined;
 	// Whether the "now play it from memory" cue is currently up. A clean teach
 	// pass is followed by a blind retest of the very same moves, which used to
 	// look like the board silently rewinding itself for no reason — the cue is
-	// what makes that reset read as the intentional test it is.
+	// what makes that reset read as the intentional test it is. Deliberately
+	// NOT reset by the drill: it exists precisely to bridge two attempts, so
+	// tying its lifetime to the drill's own reset would hide it exactly when
+	// it's needed. Cleared only by a player-initiated jump elsewhere (variation
+	// switch / repertoire change), where the cue would be talking about a line
+	// they just left.
 	let teachCue = $state(false);
 	let cueTimeout: ReturnType<typeof setTimeout> | undefined;
-	// How long the finished teach pass is held on screen before the board
-	// resets (long enough to read the cue, short enough not to feel like a
-	// stall), and how much longer the cue then lingers OVER the freshly reset
-	// board — the reset itself is the moment being explained, so the cue has
-	// to outlive it rather than vanish with it.
-	const CUE_HOLD_MS = 1200;
+	// CUE_HOLD_MS is the drill's own phase='transition' wait, imported from
+	// learnDrill.svelte.ts so the two stay in lockstep; CUE_LINGER_MS is purely
+	// how much longer the cue overlay stays up OVER the freshly reset board.
 	const CUE_LINGER_MS = 1800;
-	// How long each already-mastered ply is shown before advancing to the next
-	// one during the autoplay intro. Raised from 350ms: at that speed the moves
-	// went past faster than they could be followed, which is the opposite of what
-	// replaying known material is for.
-	const AUTO_PLAY_STEP_MS = 700;
-	// Bumped on every resetForAttempt() call so stale async work (a
-	// still-in-flight report) notices it's been superseded and stops writing
-	// to state.
+	// Bumped on every resetForAttempt() call so a stale in-flight nextAttempt()
+	// notices it's been superseded and stops writing to state.
 	let resetToken = 0;
 	let pendingReport: Promise<PracticeView | null> | null = null;
 	let quizSteps = $state<VariationStep[]>([]);
@@ -101,17 +66,44 @@
 	// remembering to restore things — see explore.svelte.ts.
 	const explore = new ExploreSession();
 
+	// The current attempt's drill state machine — ply position, phase, lock,
+	// hint, and mistake bookkeeping — extracted to
+	// $lib/mastery/learnDrill.svelte.ts. This page composes it with the async
+	// report/nextAttempt cycle, the teach-cue overlay, review navigation, and
+	// Explore, the same way it already composed with ExploreSession. Declared
+	// before the deriveds below reference it.
+	const drill = new LearnDrill({
+		onFinalMove: (hadMistake) => {
+			if (!attempt) return;
+			pendingReport = reportAttempt(attempt.variationKey, hadMistake);
+			// Bump the sidebar count immediately rather than waiting for the
+			// round trip above to resolve — it re-walks the whole repertoire's
+			// move tree to advance the active variation, which can take a
+			// real, noticeable moment for a large repertoire. nextAttempt()
+			// overwrites this with the server's authoritative value once
+			// pendingReport resolves. Only a FINAL pass can actually learn the
+			// variation — a clean teach pass or an intermediate blind-retest
+			// pass hasn't finished it yet, so it must not bump the count.
+			if (attempt.isFinalPass) {
+				data = { ...data, solved: optimisticSolvedAfterAttempt(data, hadMistake) };
+				if (!hadMistake) learnedThisSession++;
+			}
+		},
+		onCueRetest: () => showTeachCue(),
+		onAttemptFinished: () => nextAttempt()
+	});
+
 	const attempt = $derived(data.attempt);
 	const repertoireId = $derived(data.repertoire?.id);
-	const reviewIdx = $derived(manualReviewIdx ?? quizIdx);
+	const reviewIdx = $derived(manualReviewIdx ?? drill.quizIdx);
 	const isReviewing = $derived(manualReviewIdx !== null);
 
 
 	// boardFen is used at the live position rather than positionAt(quizIdx) —
 	// the two always agree, but boardFen is what the 500ms correct-move hold
-	// (see handleMove) intentionally delays updating, so deriving from it
-	// keeps that timing intact instead of jumping the board early.
-	const drillFen = $derived(isReviewing ? positionAt(quizSteps, reviewIdx, boardFen) : boardFen);
+	// (see the drill's attemptMove) intentionally delays updating, so deriving
+	// from it keeps that timing intact instead of jumping the board early.
+	const drillFen = $derived(isReviewing ? positionAt(quizSteps, reviewIdx, drill.boardFen) : drill.boardFen);
 	// What the board actually renders: the explored position while off-book, the
 	// drill's own otherwise. The eval bar follows the same value, so it answers
 	// for whatever is on the board.
@@ -119,13 +111,13 @@
 	// Offered only while the drill is genuinely waiting for a move: during the
 	// autoplay intro, the correct-move hold, or a review of earlier plies,
 	// "the position" is ambiguous or about to change under the excursion.
-	const canExplore = $derived(phase === 'playing' && !locked && !isReviewing && !!drillFen);
+	const canExplore = $derived(drill.phase === 'playing' && !drill.locked && !isReviewing && !!drillFen);
 
 	// Plain-text move list for the mobile eval panel (Lichess-style), e.g.
 	// "1.e4 e5 2.Nf3 Nc6" — every move actually played so far in this
 	// attempt, independent of manualReviewIdx (browsing back to look at an
 	// earlier position doesn't shrink the list).
-	const movesSoFar = $derived(quizIdx > 0 ? moveSequenceLabel(quizSteps.slice(0, quizIdx)) : '');
+	const movesSoFar = $derived(drill.quizIdx > 0 ? moveSequenceLabel(quizSteps.slice(0, drill.quizIdx)) : '');
 
 	function reviewToStart() {
 		manualReviewIdx = 0;
@@ -134,8 +126,8 @@
 		manualReviewIdx = Math.max(0, reviewIdx - 1);
 	}
 	function reviewForward() {
-		const next = Math.min(quizIdx, reviewIdx + 1);
-		manualReviewIdx = next >= quizIdx ? null : next;
+		const next = Math.min(drill.quizIdx, reviewIdx + 1);
+		manualReviewIdx = next >= drill.quizIdx ? null : next;
 	}
 	function reviewToLive() {
 		manualReviewIdx = null;
@@ -165,18 +157,12 @@
 		}
 	}
 
-	function advanceThroughOpponentReplies() {
-		const played = playOpponentReplies(quizSteps, quizIdx, boardFen);
-		quizIdx = played.plyIdx;
-		boardFen = played.fen;
-	}
-
 	// The correct move's origin square — computed from the step's own
 	// fromFen/san rather than stored, since only the destination is ever
 	// meant to stay hidden.
 	const hintSquare = $derived.by(() => {
-		if (!hintRequested || isReviewing) return null;
-		const step = quizSteps[quizIdx];
+		if (!drill.hintRequested || isReviewing) return null;
+		const step = quizSteps[drill.quizIdx];
 		if (!step) return null;
 		try {
 			return new Chess(step.fromFen).move(step.san)?.from ?? null;
@@ -193,16 +179,16 @@
 	// a past position instead.
 	const arrowMove = $derived.by(() => {
 		if (isReviewing) return null;
-		const step = quizSteps[quizIdx];
+		const step = quizSteps[drill.quizIdx];
 		if (!step) return null;
-		const move = arrowMoveForStep(step, quizIdx, attempt?.arrowPlies ?? null);
+		const move = arrowMoveForStep(step, drill.quizIdx, attempt?.arrowPlies ?? null);
 		return move ? { from: move.from as Key, to: move.to as Key } : null;
 	});
 
 	// Whether to offer a hint at all. Not on an arrowed ply: the move is already
 	// drawn on the board there, so offering to point at the piece is noise on a
 	// move the player was never asked to recall.
-	const hintOffered = $derived(phase === 'playing' && !hintRequested && !arrowMove && !explore.active);
+	const hintOffered = $derived(drill.phase === 'playing' && !drill.hintRequested && !arrowMove && !explore.active);
 
 	// Priority: a teaching arrow is self-explanatory (silent) > the
 	// between-passes cue > the last move's own result > the autoplay intro
@@ -213,21 +199,21 @@
 		if (explore.active) return 'exploring';
 		if (arrowMove) return 'silent';
 		if (teachCue) return 'retest-cue';
-		if (phase === 'advancing') return 'correct';
-		if (lastMoveResult === 'wrong') return 'wrong';
-		if (lastMoveResult === 'correct') return 'correct';
-		if (phase === 'autoplay') return 'autoplay';
+		if (drill.phase === 'advancing') return 'correct';
+		if (drill.lastMoveResult === 'wrong') return 'wrong';
+		if (drill.lastMoveResult === 'correct') return 'correct';
+		if (drill.phase === 'autoplay') return 'autoplay';
 		return 'blind';
 	});
 
 	/**
 	 * Raises the between-passes cue and keeps it up across the board reset that
-	 * follows. Its timeout is deliberately NOT cleared by resetForAttempt() —
-	 * every other bit of attempt state is per-attempt, but this one exists
-	 * precisely to bridge two attempts, so tying its lifetime to the reset
-	 * would hide it at exactly the moment it's needed. It's cleared only by a
-	 * player-initiated jump elsewhere (variation switch / repertoire change),
-	 * where the cue would be talking about a line they just left.
+	 * follows. Its timeout is deliberately NOT cleared when a new attempt
+	 * starts — every bit of the drill's own state is per-attempt, but this one
+	 * exists precisely to bridge two attempts, so tying its lifetime to the
+	 * drill's reset would hide it exactly when it's needed. It's cleared only
+	 * by a player-initiated jump elsewhere (variation switch / repertoire
+	 * change), where the cue would be talking about a line they just left.
 	 */
 	function showTeachCue() {
 		clearTimeout(cueTimeout);
@@ -242,19 +228,7 @@
 
 	function resetForAttempt() {
 		++resetToken;
-		clearTimeout(advanceTimeout);
-		clearTimeout(autoPlayTimeout);
-		quizIdx = 0;
-		manualReviewIdx = null;
-		phase = 'playing';
-		locked = false;
-		hintRequested = false;
-		attemptHadMistake = false;
-		attemptMistakeCount = 0;
-		lastMoveResult = null;
 		quizSteps = attempt?.path ?? [];
-		if (!attempt) return;
-		boardFen = attempt.path[0]?.fromFen ?? '';
 		// autoPlayThrough covers whatever's already mastered — either by THIS
 		// variation's own earlier progress, or by a SIBLING variation sharing
 		// the same leading moves (see computeMasteredMoveIds) — so it applies
@@ -263,25 +237,19 @@
 		// player re-enter it by hand every time a variation happens to share
 		// it. 0 for an already-solved variation's own re-drill, where full
 		// manual replay is the point.
-		const autoPlayTarget = attempt.autoPlayThrough ?? 0;
-		if (autoPlayTarget > 0) {
-			phase = 'autoplay';
-			autoPlayStep(resetToken, autoPlayTarget);
-		} else {
-			advanceThroughOpponentReplies();
-		}
-	}
-
-	function autoPlayStep(myToken: number, target: number) {
-		if (myToken !== resetToken) return; // superseded by a later resetForAttempt()
-		if (quizIdx >= target) {
-			phase = 'playing';
-			advanceThroughOpponentReplies();
-			return;
-		}
-		boardFen = quizSteps[quizIdx].toFen;
-		quizIdx++;
-		autoPlayTimeout = setTimeout(() => autoPlayStep(myToken, target), AUTO_PLAY_STEP_MS);
+		//
+		// cueRetestEligible: a clean teach pass is about to be re-served as a
+		// blind retest of the same moves: same length, same start, arrows
+		// gone. That's announced (issue #68) before the drill's own reset, or
+		// it just looks like the board threw the player's work away and
+		// started over. A final pass (which solves the variation) and a pass
+		// with a mistake in it (which re-serves the identical teach pass,
+		// arrows and all) both mean something else, so neither is eligible.
+		drill.start(quizSteps, {
+			autoPlayThrough: attempt?.autoPlayThrough ?? 0,
+			cueRetestEligible: !!attempt?.arrowPlies && !attempt?.isFinalPass
+		});
+		manualReviewIdx = null;
 	}
 
 	// Set the board's initial position synchronously, before ChessBoard's own
@@ -308,8 +276,8 @@
 
 	/**
 	 * Leaves explore mode. Nothing is restored because nothing was handed over:
-	 * quizIdx, boardFen, phase, the mistake counters and the hint flag were never
-	 * touched, so the drill simply becomes visible again exactly as it was.
+	 * the drill's own state was never touched, so it simply becomes visible
+	 * again exactly as it was.
 	 */
 	function stopExplore() {
 		explore.stop();
@@ -336,86 +304,19 @@
 		// about the move due NOW, so going live is also where the player has to
 		// end up anyway.
 		manualReviewIdx = null;
-		hintRequested = true;
-		// A taken hint marks this pass dirty, same as a wrong move — it can
-		// still be played out, but it can no longer solve the variation.
-		attemptHadMistake = true;
+		drill.requestHint();
 	}
 
 	function handleMove(detail: { from: Key; to: Key; san: string }) {
-		if (phase !== 'playing' || locked) return false;
-		const step = quizSteps[quizIdx];
-		if (!step) return false;
-
-		if (detail.san === step.san) {
+		const result = drill.attemptMove(detail.from, detail.to, detail.san);
+		if (!result) return false;
+		if (result.correct) {
 			playCorrect();
-			locked = true;
-			lastMoveResult = 'correct';
-			hintRequested = false;
-			logMove(repertoireId, step.moveId, detail.san, true);
-			// NOT quizIdx + 1 >= quizSteps.length — a served path can end with a
-			// trailing opponent-only run (the variation's true leaf is the
-			// opponent's reply), so the LAST PLAYER move isn't always the path's
-			// last ply. See isLastPlayerMove's doc comment.
-			const isFinalMove = isLastPlayerMove(quizSteps, quizIdx);
-			// Fire the completion report NOW, before the hold below, not
-			// after — the report's network round trip then overlaps with the
-			// 500ms hold instead of stacking after it.
-			if (isFinalMove && attempt) {
-				pendingReport = reportAttempt(attempt.variationKey, attemptHadMistake);
-				// Bump the sidebar count immediately rather than waiting for
-				// the round trip above to resolve — it re-walks the whole
-				// repertoire's move tree to advance the active variation,
-				// which can take a real, noticeable moment for a large
-				// repertoire. nextAttempt() overwrites this with the
-				// server's authoritative value once pendingReport resolves.
-				// Only a FINAL pass can actually learn the variation — a clean
-				// teach pass or an intermediate blind-retest pass hasn't
-				// finished it yet, so it must not bump the count.
-				if (attempt.isFinalPass) {
-					data = { ...data, solved: optimisticSolvedAfterAttempt(data, attemptHadMistake) };
-					if (!attemptHadMistake) learnedThisSession++;
-				}
-			}
-			// A clean teach pass is about to be re-served as a blind retest of
-			// the same moves: same length, same start, arrows gone. Announce
-			// that BEFORE the reset, or it just looks like the board threw the
-			// player's work away and started over (issue #68). A final pass
-			// (which solves the variation) and a pass with a mistake in it
-			// (which re-serves the identical teach pass, arrows and all) both
-			// mean something else, so neither gets this cue.
-			const cueRetest = isFinalMove && !attemptHadMistake && !!attempt?.arrowPlies && !attempt.isFinalPass;
-			advanceTimeout = setTimeout(() => {
-				boardFen = step.toFen;
-				quizIdx++;
-				advanceThroughOpponentReplies();
-				locked = false;
-				lastMoveResult = null;
-				if (quizIdx >= quizSteps.length) {
-					if (cueRetest) {
-						showTeachCue();
-						phase = 'transition';
-						advanceTimeout = setTimeout(() => {
-							phase = 'advancing';
-							nextAttempt();
-						}, CUE_HOLD_MS);
-					} else {
-						phase = 'advancing';
-						nextAttempt();
-					}
-				}
-			}, 500);
-			return isFinalMove ? 'final' : true;
+			logMove(repertoireId, result.moveId, detail.san, true);
+			return result.isFinalMove ? 'final' : true;
 		}
-
 		playWrong();
-		lastMoveResult = 'wrong';
-		attemptHadMistake = true;
-		attemptMistakeCount++;
-		logMove(repertoireId, step.moveId, detail.san, false);
-		// Don't reveal the book move — just mark the square wrong and let
-		// the player try again on the same position. The whole attempt is
-		// no longer clean, but they still finish playing it out.
+		logMove(repertoireId, result.moveId, detail.san, false);
 		return false;
 	}
 
@@ -478,7 +379,7 @@
 
 <main
 	class="min-h-screen lg:min-h-0 lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-(--color-bg) p-4 max-w-7xl mx-auto pb-24 lg:pb-4 flex flex-col"
-	data-phase={phase}
+	data-phase={drill.phase}
 >
 	<div class="mb-3 flex items-center justify-between gap-3 shrink-0">
 		<a href="/practice" class="text-(--color-muted) text-sm hover:text-(--color-text) shrink-0">{m.learn_all_repertoires_link()}</a>
@@ -576,7 +477,7 @@
 					<ChessBoard
 						fen={displayFen}
 						orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
-						interactable={explore.active || (phase === 'playing' && !locked && !isReviewing)}
+						interactable={explore.active || (drill.phase === 'playing' && !drill.locked && !isReviewing)}
 						onmove={handleBoardMove}
 						prefs={data.boardPrefs}
 						hintSquare={explore.active ? null : hintSquare}
@@ -652,16 +553,16 @@
 				<div class="p-4">
 					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">{m.learn_this_line_heading()}</p>
 					<p class="text-sm text-(--color-muted)">{movesSoFar || '—'}</p>
-					{#if attemptMistakeCount > 0}
+					{#if drill.attemptMistakeCount > 0}
 						<p class="text-xs font-medium text-[#F28B82] mt-1">
-							{m.learn_mistake_count({ count: attemptMistakeCount })}
+							{m.learn_mistake_count({ count: drill.attemptMistakeCount })}
 						</p>
 					{/if}
 				</div>
 
 				<div class="p-4">
 					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">{m.learn_stuck_heading()}</p>
-					{#if hintRequested}
+					{#if drill.hintRequested}
 						<p class="text-sm text-(--color-muted)">{m.learn_hint_used()}</p>
 					{:else if hintOffered}
 						<button

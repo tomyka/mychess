@@ -233,7 +233,7 @@ export function knownProgressFor(args: {
  * whichever ply happens to be served last — otherwise the completion report
  * never sends and the same attempt is re-served forever.
  */
-export function isLastPlayerMove(path: VariationStep[], plyIndex: number): boolean {
+export function isLastPlayerMove(path: readonly VariationStep[], plyIndex: number): boolean {
 	return !path.slice(plyIndex + 1).some((step) => step.isPlayerTurn);
 }
 
