@@ -151,8 +151,7 @@
 		if (isReviewing) return null;
 		const step = quizSteps[drill.quizIdx];
 		if (!step) return null;
-		const move = arrowMoveForStep(step, drill.quizIdx, attempt?.arrowPlies ?? null);
-		return move ? { from: move.from as Key, to: move.to as Key } : null;
+		return arrowMoveForStep(step, drill.quizIdx, attempt?.arrowPlies ?? null);
 	});
 
 	// Whether to offer a hint at all. Not on an arrowed ply: the move is already

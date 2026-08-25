@@ -1,5 +1,6 @@
-import { Chess } from 'chess.js';
+import type { Square } from 'chess.js';
 import type { Variation, VariationStep } from './variations';
+import { squaresForSanMove } from '../chess-moves';
 
 /** How many of the player's own moves make up one teaching batch. */
 export const TEACHING_BATCH_MOVES = 3;
@@ -241,19 +242,13 @@ export function isLastPlayerMove(path: readonly VariationStep[], plyIndex: numbe
  * The current ply's arrow — the move's own origin/destination squares, or
  * null if this ply isn't inside the served arrow range, isn't the player's
  * own move (arrows never point at the opponent's reply), or the move can't
- * be parsed. Mirrors the existing hintSquare derivation's try/catch shape in
- * +page.svelte.
+ * be parsed.
  */
 export function arrowMoveForStep(
 	step: VariationStep,
 	plyIndex: number,
 	arrowPlies: { from: number; to: number } | null
-): { from: string; to: string } | null {
+): { from: Square; to: Square } | null {
 	if (!arrowPlies || plyIndex < arrowPlies.from || plyIndex >= arrowPlies.to || !step.isPlayerTurn) return null;
-	try {
-		const move = new Chess(step.fromFen).move(step.san);
-		return move ? { from: move.from, to: move.to } : null;
-	} catch {
-		return null;
-	}
+	return squaresForSanMove(step.fromFen, step.san);
 }

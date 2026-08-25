@@ -6,8 +6,9 @@
 // silently missing the others is exactly the drift that produces
 // "works in Learn, broken in Practice" bugs.
 
-import { Chess, type Square } from 'chess.js';
+import type { Square } from 'chess.js';
 import type { VariationStep } from './variations';
+import { squaresForSanMove } from '../chess-moves';
 
 /**
  * The position after `plyCount` plies of `steps` have been played — 0 being the
@@ -74,11 +75,7 @@ export function hintSquareFor(
 	if (!hintRequested || isReviewing) return null;
 	const step = steps[plyIdx];
 	if (!step) return null;
-	try {
-		return new Chess(step.fromFen).move(step.san)?.from ?? null;
-	} catch {
-		return null;
-	}
+	return squaresForSanMove(step.fromFen, step.san)?.from ?? null;
 }
 
 /**

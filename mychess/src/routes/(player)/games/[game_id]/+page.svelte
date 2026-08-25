@@ -3,8 +3,8 @@
 	import ChessBoard from '$lib/components/ChessBoard.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
 	import EvalBar from '$lib/components/EvalBar.svelte';
-	import { Chess } from 'chess.js';
 	import type { Key } from 'chessground/types';
+	import { squaresForSanMove } from '$lib/chess-moves';
 	import { analyzeGame } from '$lib/engine/analyzeGame';
 	import { buildAnalysis, type AnalysisEntry } from '$lib/games/build-analysis';
 	import { formatEval, evalBarWhiteFraction } from '$lib/engine/uci';
@@ -49,24 +49,15 @@
 	const lastMove = $derived.by((): [Key, Key] | undefined => {
 		if (reviewIdx === 0) return undefined;
 		const mv = moves[reviewIdx - 1];
-		try {
-			const move = new Chess(mv.parentFen).move(mv.san);
-			return move ? [move.from as Key, move.to as Key] : undefined;
-		} catch {
-			return undefined;
-		}
+		const squares = squaresForSanMove(mv.parentFen, mv.san);
+		return squares ? [squares.from, squares.to] : undefined;
 	});
 
 	const arrowMove = $derived.by((): { from: Key; to: Key } | null => {
 		if (!analysis || reviewIdx >= moves.length) return null;
 		const entry = analysis[reviewIdx];
 		if (!entry?.bestMoveSan) return null;
-		try {
-			const move = new Chess(displayFen).move(entry.bestMoveSan);
-			return move ? { from: move.from as Key, to: move.to as Key } : null;
-		} catch {
-			return null;
-		}
+		return squaresForSanMove(displayFen, entry.bestMoveSan);
 	});
 
 	const currentEntry = $derived(analysis && reviewIdx > 0 ? analysis[reviewIdx - 1] : null);
