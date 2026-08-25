@@ -115,6 +115,45 @@ export type FideRatingProfile = {
   europeAgeGroupRankBlitz: number | null;
 };
 
+/** One rating kind's rating plus its three ranks — the shape every display surface actually wants. */
+export type RatingTile = {
+  rating: number | null;
+  countryRank: number | null;
+  ageGroupRank: number | null;
+  europeAgeGroupRank: number | null;
+};
+
+export type FideRatingsByKind = Record<RatingKind, RatingTile>;
+
+/**
+ * Regroups a flat `FideRatingProfile` (one field per rating kind, DB-column
+ * shaped) into one tile per kind — what every consumer that renders "the
+ * Standard/Rapid/Blitz numbers" actually iterates over, instead of each
+ * picking the three suffixed fields back apart by hand.
+ */
+export function ratingsByKind(profile: FideRatingProfile): FideRatingsByKind {
+  return {
+    standard: {
+      rating: profile.stdRating,
+      countryRank: profile.countryRankStandard,
+      ageGroupRank: profile.ageGroupRankStandard,
+      europeAgeGroupRank: profile.europeAgeGroupRankStandard
+    },
+    rapid: {
+      rating: profile.rapidRating,
+      countryRank: profile.countryRankRapid,
+      ageGroupRank: profile.ageGroupRankRapid,
+      europeAgeGroupRank: profile.europeAgeGroupRankRapid
+    },
+    blitz: {
+      rating: profile.blitzRating,
+      countryRank: profile.countryRankBlitz,
+      ageGroupRank: profile.ageGroupRankBlitz,
+      europeAgeGroupRank: profile.europeAgeGroupRankBlitz
+    }
+  };
+}
+
 /** Maps a `fide_players` row's snake_case rating/rank columns to camelCase. */
 export function mapFideRow(row: FideRatingRow): FideRatingProfile {
   return {

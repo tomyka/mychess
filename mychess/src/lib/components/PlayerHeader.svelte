@@ -1,11 +1,9 @@
 <!-- MyChess/src/lib/components/PlayerHeader.svelte -->
 <script lang="ts">
   import { m } from '$lib/paraglide/messages';
+  import type { RatingTile, FideRatingsByKind } from '$lib/fide/rank';
 
-  type FideTypeRatings = { rating: number | null; countryRank: number | null; ageGroupRank: number | null; europeAgeGroupRank: number | null };
-  type FideRatings = { standard: FideTypeRatings; rapid: FideTypeRatings; blitz: FideTypeRatings } | null;
-
-  let { profile, fideRatings = null } = $props<{ profile: any; fideRatings?: FideRatings }>();
+  let { profile, fideRatings = null } = $props<{ profile: any; fideRatings?: FideRatingsByKind | null }>();
 
   const p = $derived(profile as any);
   const initials = $derived(
@@ -14,7 +12,7 @@
       : (p?.display_name ?? m.nav_player_fallback()).slice(0, 2).toUpperCase()
   );
 
-  const EMPTY_TILE: FideTypeRatings = { rating: null, countryRank: null, ageGroupRank: null, europeAgeGroupRank: null };
+  const EMPTY_TILE: RatingTile = { rating: null, countryRank: null, ageGroupRank: null, europeAgeGroupRank: null };
 
   const TILES = $derived([
     { key: 'standard' as const, label: m.player_header_tile_standard() },
@@ -22,7 +20,7 @@
     { key: 'blitz' as const, label: m.player_header_tile_blitz() }
   ]);
 
-  function tileFor(key: 'standard' | 'rapid' | 'blitz'): FideTypeRatings {
+  function tileFor(key: 'standard' | 'rapid' | 'blitz'): RatingTile {
     return fideRatings?.[key] ?? EMPTY_TILE;
   }
 </script>

@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { ensureDailyQuests } from '$lib/server/quests';
-import { mapFideRow } from '$lib/fide/rank';
+import { mapFideRow, ratingsByKind } from '$lib/fide/rank';
 import { loadFideLookup } from '$lib/server/fide-lookup';
 import { fetchLichessRatings } from '$lib/server/lichess';
 import { fetchChesscomRatings } from '$lib/server/chesscom';
@@ -95,28 +95,7 @@ export const load: PageServerLoad = async ({ url, locals: { supabase, safeGetSes
     console.error('Failed to fetch FIDE ratings:', fideRes.error);
   }
   const fideProfile = fideRes.data ? mapFideRow(fideRes.data as any) : null;
-  const fideRatings = fideProfile
-    ? {
-        standard: {
-          rating: fideProfile.stdRating,
-          countryRank: fideProfile.countryRankStandard,
-          ageGroupRank: fideProfile.ageGroupRankStandard,
-          europeAgeGroupRank: fideProfile.europeAgeGroupRankStandard
-        },
-        rapid: {
-          rating: fideProfile.rapidRating,
-          countryRank: fideProfile.countryRankRapid,
-          ageGroupRank: fideProfile.ageGroupRankRapid,
-          europeAgeGroupRank: fideProfile.europeAgeGroupRankRapid
-        },
-        blitz: {
-          rating: fideProfile.blitzRating,
-          countryRank: fideProfile.countryRankBlitz,
-          ageGroupRank: fideProfile.ageGroupRankBlitz,
-          europeAgeGroupRank: fideProfile.europeAgeGroupRankBlitz
-        }
-      }
-    : null;
+  const fideRatings = fideProfile ? ratingsByKind(fideProfile) : null;
 
   // A repertoire with no moves yet is vacuously "mastered" by
   // repertoireProgress's math — exclude it from both sides of this ratio, it

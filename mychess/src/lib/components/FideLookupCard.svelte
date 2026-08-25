@@ -1,18 +1,11 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { m } from '$lib/paraglide/messages';
+  import type { FideRatingProfile } from '$lib/fide/rank';
 
   let { query = '', result = null } = $props<{
     query?: string;
-    result?: { found: boolean; player?: {
-      fideId: string;
-      name: string;
-      stdRating: number | null; rapidRating: number | null; blitzRating: number | null;
-      countryRankStandard: number | null; countryRankRapid: number | null; countryRankBlitz: number | null;
-      ageBracket: string | null;
-      ageGroupRankStandard: number | null; ageGroupRankRapid: number | null; ageGroupRankBlitz: number | null;
-      europeAgeGroupRankStandard: number | null; europeAgeGroupRankRapid: number | null; europeAgeGroupRankBlitz: number | null;
-    } } | null;
+    result?: { found: boolean; player?: FideRatingProfile } | null;
   }>();
 
   const p = $derived(result?.player ?? null);

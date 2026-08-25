@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ageBracket, computeRanks, createEuropeRankAccumulator, attachEuropeRanks, mapFideRow, type FideRatingRow } from './rank';
+import { ageBracket, computeRanks, createEuropeRankAccumulator, attachEuropeRanks, mapFideRow, ratingsByKind, type FideRatingRow, type FideRatingProfile } from './rank';
 import type { FidePlayer } from './parse';
 
 describe('ageBracket', () => {
@@ -254,5 +254,24 @@ describe('mapFideRow', () => {
       europe_age_group_rank_standard: null, europe_age_group_rank_rapid: null, europe_age_group_rank_blitz: null,
     };
     expect(mapFideRow(row).fideId).toBe('1503014');
+  });
+});
+
+describe('ratingsByKind', () => {
+  it('regroups the flat per-kind-suffixed fields into one tile per rating kind', () => {
+    const profile: FideRatingProfile = {
+      fideId: '1503014',
+      name: 'Carlsen, Magnus',
+      stdRating: 2830, rapidRating: 2800, blitzRating: 2880,
+      countryRankStandard: 1, countryRankRapid: 2, countryRankBlitz: 3,
+      ageBracket: 'open',
+      ageGroupRankStandard: 4, ageGroupRankRapid: 5, ageGroupRankBlitz: 6,
+      europeAgeGroupRankStandard: 7, europeAgeGroupRankRapid: 8, europeAgeGroupRankBlitz: 9
+    };
+    expect(ratingsByKind(profile)).toEqual({
+      standard: { rating: 2830, countryRank: 1, ageGroupRank: 4, europeAgeGroupRank: 7 },
+      rapid: { rating: 2800, countryRank: 2, ageGroupRank: 5, europeAgeGroupRank: 8 },
+      blitz: { rating: 2880, countryRank: 3, ageGroupRank: 6, europeAgeGroupRank: 9 }
+    });
   });
 });
