@@ -19,3 +19,6 @@ Thumbs.db
 # Superpowers brainstorming artifacts
 .superpowers/
 .vercel
+
+# Local Claude Code config (settings.local.json, worktrees, lock files)
+.claude/
