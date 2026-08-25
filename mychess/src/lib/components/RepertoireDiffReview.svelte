@@ -19,36 +19,23 @@
 	route wrapped this component in.
 -->
 <script lang="ts" module>
-	export type ReviewDiffKind = 'unchanged' | 'extended' | 'truncated' | 'diverged' | 'new' | 'removed';
-
-	/**
-	 * One classified line. Declared structurally rather than imported from
-	 * `$lib/server/repertoire-update`, which is a server-only module — a type-only
-	 * import would probably survive the bundler, but "probably" is not a good
-	 * reason to point client code at `$lib/server`.
-	 */
-	export type ReviewDiff = {
-		kind: ReviewDiffKind;
-		existingKey: string | null;
-		sans: string[] | null;
-		previousSans: string[] | null;
-		commonPlies: number;
-		chapterNames: string[];
-	};
-
-	export type ReviewPreview = {
-		diffs: ReviewDiff[];
-		renames: Array<{ from: string; to: string; overlap: number }>;
-		impact: {
-			counts: Record<ReviewDiffKind, number>;
-			demotedLineCount: number;
-			removedLearnedCount: number;
-			affectedPlayerCount: number;
-		};
-		absentChapters: string[];
-		movesUpdatedAt: string;
-		assignedStudentCount: number;
-	};
+	// `ReviewDiffKind`/`ReviewDiff`/`ReviewPreview` live in `$lib/repertoire-diff-review`
+	// now, alongside the pure rendering logic (`segmentsOf`, `consequenceOf`,
+	// `verdictOf`) that is typed against them — re-exported here so
+	// `+page.svelte` (and anything else importing from this component) keeps
+	// one place to get them from.
+	import type {
+		ReviewDiffKind as _ReviewDiffKind,
+		ReviewDiff as _ReviewDiff,
+		ReviewPreview as _ReviewPreview
+	} from '$lib/repertoire-diff-review';
+	// Re-declared rather than ` export type { X } from ` — the latter trips
+	// ` no-import-assign ` on this codebase's eslint setup, which does not
+	// understand a type-only re-export as distinct from a write to the import
+	// binding.
+	export type ReviewDiffKind = _ReviewDiffKind;
+	export type ReviewDiff = _ReviewDiff;
+	export type ReviewPreview = _ReviewPreview;
 
 	/** What the coach decided, as the route needs to post it. */
 	export type ReviewDecisions = {
@@ -68,7 +55,8 @@
 </script>
 
 <script lang="ts">
-	import { commonPrefixLength } from '$lib/repertoire-diff';
+	import { isSparedRemovedLine } from '$lib/repertoire-diff';
+	import { segmentsOf, consequenceOf, verdictOf, moveLabel, type SegmentStyleKind } from '$lib/repertoire-diff-review';
 	import { m } from '$lib/paraglide/messages';
 
 	type Props = {
@@ -258,109 +246,33 @@
 	const keptChapters = $derived(omittedChapters.filter((c) => omittedOf(c.name) === 'keep').map((c) => c.name));
 
 	/**
-	 * True for a `removed` line that survives anyway, because one of its chapters
-	 * is being kept. ANY kept chapter is enough — a line two chapters share is
-	 * still drilled by the one that stays — which is the same rule
-	 * `moveIdsToRetire` applies, so the row's copy matches what the apply does.
+	 * Recomputed as a `Set` once per render rather than inside `isSpared` itself,
+	 * since that is called once per visible line.
 	 */
-	const isSpared = (diff: ReviewDiff) =>
-		diff.kind === 'removed' && diff.chapterNames.some((name) => keptChapters.includes(name));
+	const keptChaptersSet = $derived(new Set(keptChapters));
+
+	/**
+	 * True for a `removed` line that survives anyway, because one of its chapters
+	 * is being kept. `isSparedRemovedLine` (`$lib/repertoire-diff`) is the single
+	 * source of truth for this rule — `moveIdsToRetire` applies the exact same
+	 * predicate when it decides what to actually retire, so the row's copy here
+	 * can never drift from what the apply does.
+	 */
+	const isSpared = (diff: ReviewDiff) => isSparedRemovedLine(diff, keptChaptersSet);
 
 	$effect(() => {
 		ondecisions({ acceptedRenames, keptChapters });
 	});
 
 	// --- Rendering one line's change in place ------------------------------
+	//
+	// `segmentsOf`/`consequenceOf` themselves live in `$lib/repertoire-diff-review`
+	// now — pure, and tested there directly. What stays here is presentation:
+	// mapping a `SegmentStyleKind` onto this component's own `DIFF_STYLE` tokens.
 
-	type Segment = { sans: string[]; startPly: number; style: string; struck: boolean };
-
-	/**
-	 * The line, split into the pieces that get different colours: what both
-	 * versions agree on, what this upload drops, and what it puts there instead.
-	 * `startPly` is carried so every segment keeps the move numbering of the
-	 * position it actually occupies.
-	 */
-	function segmentsOf(diff: ReviewDiff): Segment[] {
-		const previous = diff.previousSans;
-		const next = diff.sans;
-
-		// Removed: there is no new version, so the whole old line is struck —
-		// unless its chapter is being kept, in which case nothing happens to it and
-		// striking it would say the opposite.
-		if (!next) {
-			if (!previous) return [];
-			const spared = isSpared(diff);
-			return [
-				{
-					sans: previous,
-					startPly: 0,
-					style: spared ? DIFF_STYLE.unchanged.text : DIFF_STYLE.removed.text,
-					struck: !spared
-				}
-			];
-		}
-		// New: nothing was replaced, so the whole line is new.
-		if (!previous) return [{ sans: next, startPly: 0, style: DIFF_STYLE.new.text, struck: false }];
-
-		const common = commonPrefixLength(previous, next);
-		const segments: Segment[] = [];
-		if (common > 0) {
-			segments.push({ sans: next.slice(0, common), startPly: 0, style: 'text-(--color-text)', struck: false });
-		}
-		// The replaced plies, struck, immediately before their replacement — the
-		// whole point of carrying `previousSans`.
-		const replaced = previous.slice(common);
-		if (replaced.length > 0) {
-			segments.push({ sans: replaced, startPly: common, style: DIFF_STYLE.removed.text, struck: true });
-		}
-		const added = next.slice(common);
-		if (added.length > 0) {
-			// A replacement reads as diverged; a pure append reads as extended. When
-			// a line both diverges and grows, the first new ply is the replacement
-			// and the rest is the tail.
-			if (replaced.length > 0) {
-				segments.push({ sans: added.slice(0, 1), startPly: common, style: DIFF_STYLE.diverged.text, struck: false });
-				if (added.length > 1) {
-					segments.push({
-						sans: added.slice(1),
-						startPly: common + 1,
-						style: DIFF_STYLE.extended.text,
-						struck: false
-					});
-				}
-			} else {
-				segments.push({ sans: added, startPly: common, style: DIFF_STYLE.extended.text, struck: false });
-			}
-		}
-		return segments;
-	}
-
-	/** Ply 0 is White's first move, so the label only appears on even plies. */
-	const moveLabel = (ply: number) => (ply % 2 === 0 ? `${ply / 2 + 1}.` : '');
-
-	/** One muted sentence saying what this line costs, in the future tense it actually happens in. */
-	function consequenceOf(diff: ReviewDiff): string {
-		switch (diff.kind) {
-			case 'unchanged':
-				return m.diff_review_consequence_unchanged();
-			case 'extended':
-				return m.diff_review_consequence_extended({ n: (diff.sans?.length ?? 0) - diff.commonPlies });
-			case 'truncated':
-				return m.diff_review_consequence_truncated({ n: (diff.previousSans?.length ?? 0) - diff.commonPlies });
-			case 'diverged':
-				return m.diff_review_consequence_diverged({
-					commonPlies: diff.commonPlies,
-					moveNumber: Math.floor(diff.commonPlies / 2) + 1
-				});
-			case 'new':
-				return diff.commonPlies > 0
-					? m.diff_review_consequence_new_continued({ commonPlies: diff.commonPlies })
-					: m.diff_review_consequence_new_fresh();
-			case 'removed':
-				return isSpared(diff)
-					? m.diff_review_consequence_removed_spared()
-					: m.diff_review_consequence_removed();
-		}
+	/** `'context'` is the one `SegmentStyleKind` with no `DIFF_STYLE` entry of its own. */
+	function styleClassOf(kind: SegmentStyleKind): string {
+		return kind === 'context' ? 'text-(--color-text)' : DIFF_STYLE[kind].text;
 	}
 
 	/**
@@ -375,39 +287,8 @@
 	// --- Footer verdict ----------------------------------------------------
 
 	const counts = $derived(preview.impact.counts);
-	const changedCount = $derived(counts.extended + counts.truncated + counts.diverged);
 
-	/**
-	 * Not `counts.removed`: a `removed` line in a chapter the coach kept is not
-	 * retired, so counting it here would promise a retirement the apply will not
-	 * perform — the coach-facing half of the same fix.
-	 */
-	const retiredCount = $derived(preview.diffs.filter((d) => d.kind === 'removed' && !isSpared(d)).length);
-	const sparedCount = $derived(preview.diffs.filter((d) => isSpared(d)).length);
-
-	const verdict = $derived.by(() => {
-		const parts: string[] = [];
-		if (counts.new > 0) parts.push(m.diff_review_verdict_add({ n: counts.new }));
-		if (changedCount > 0) parts.push(m.diff_review_verdict_reshape({ n: changedCount }));
-		if (retiredCount > 0) parts.push(m.diff_review_verdict_retire({ n: retiredCount }));
-		if (sparedCount > 0) parts.push(m.diff_review_verdict_spared({ n: sparedCount }));
-		if (parts.length === 0) {
-			return m.diff_review_verdict_no_changes();
-		}
-		const shape =
-			parts.length === 1
-				? parts[0]
-				: `${parts.slice(0, -1).join(', ')} ${m.diff_review_verdict_and()} ${parts[parts.length - 1]}`;
-		const cost =
-			preview.impact.demotedLineCount === 0
-				? m.diff_review_cost_none()
-				: `${m.diff_review_cost_demoted({
-						demotedLineCount: preview.impact.demotedLineCount,
-						affectedPlayerCount: preview.impact.affectedPlayerCount,
-						assignedStudentCount
-					})} ${m.diff_review_cost_students_suffix({ assignedStudentCount })}`;
-		return m.diff_review_verdict_wrapper({ shape, cost });
-	});
+	const verdict = $derived(verdictOf(preview, keptChaptersSet, assignedStudentCount));
 </script>
 
 <section class="space-y-4">
@@ -513,19 +394,20 @@
 								     page body never does. -->
 								<div class="overflow-x-auto">
 									<p class="whitespace-nowrap font-mono text-sm">
-										{#each segmentsOf(diff) as segment, s (s)}
+										{#each segmentsOf(diff, isSpared(diff)) as segment, s (s)}
 											{#each segment.sans as san, p (p)}
 												{#if moveLabel(segment.startPly + p)}<span
 														class="me-0.5 text-(--color-muted) tabular-nums"
 														>{moveLabel(segment.startPly + p)}</span
-													>{/if}<span class="me-1.5 {segment.style} {segment.struck ? 'line-through' : ''}"
+													>{/if}<span
+													class="me-1.5 {styleClassOf(segment.styleKind)} {segment.struck ? 'line-through' : ''}"
 													>{san}</span
 												>
 											{/each}
 										{/each}
 									</p>
 								</div>
-								<p class="mt-1 text-xs text-(--color-muted)">{consequenceOf(diff)}</p>
+								<p class="mt-1 text-xs text-(--color-muted)">{consequenceOf(diff, isSpared(diff))}</p>
 							</div>
 						</li>
 					{/each}

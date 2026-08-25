@@ -259,6 +259,30 @@ export function incomingLinesFromChapters(chapters: IncomingChapter[]): Incoming
 }
 
 /**
+ * True when a `removed` line survives anyway, because at least one of its
+ * chapters is on the coach's Keep list: a line shared by a kept and a
+ * replaced chapter is still in use by the kept one, and sparing is the
+ * non-destructive reading. A `removed` line with no chapter names cannot be
+ * spared this way — an untagged upload has no chapter to keep it alive, so
+ * the line is genuinely gone.
+ *
+ * The single source of truth for that rule. Shared by `moveIdsToRetire`
+ * below (which move ids actually get retired), `RepertoireDiffReview.svelte`
+ * (which lines the review renders as spared rather than removed, via
+ * `$lib/repertoire-diff-review`), and the update route's `apply` action
+ * (indirectly, through `moveIdsToRetire`, after it validates the coach's Keep
+ * choice against the chapters this server-side classification actually
+ * found absent). It used to be reimplemented at each of the first two; a
+ * second copy is not the fix.
+ */
+export function isSparedRemovedLine(
+	diff: { kind: DiffKind; chapterNames?: string[] },
+	keptChapters: ReadonlySet<string>
+): boolean {
+	return diff.kind === 'removed' && (diff.chapterNames ?? []).some((name) => keptChapters.has(name));
+}
+
+/**
  * The move ids a `removed` line makes retirable: every ply belonging
  * EXCLUSIVELY to removed lines. A ply shared with any surviving line is kept —
  * retiring a shared prefix move would silently break every line running
@@ -269,19 +293,13 @@ export function incomingLinesFromChapters(chapters: IncomingChapter[]): Incoming
  * upload does not mention classifies as `removed` — it is simply not in the
  * file — so without this the retire set would contain exactly the lines Keep
  * promises to preserve, and a coach exporting one chapter of five would destroy
- * the other four. A `removed` line is SPARED when ANY of its chapters is kept:
- * a line shared by a kept and a replaced chapter is still in use by the kept
- * one, and sparing is the non-destructive reading. A `removed` line with no
- * chapter names cannot be spared this way — an untagged upload has no chapter
- * to keep it alive, so the line is genuinely gone.
+ * the other four. Which `removed` lines that spares is `isSparedRemovedLine`,
+ * above.
  */
 export function moveIdsToRetire(
 	diffs: Array<VariationDiff & { chapterNames?: string[] }>,
 	keptChapters: ReadonlySet<string> = new Set()
 ): string[] {
-	const spared = (d: VariationDiff & { chapterNames?: string[] }): boolean =>
-		d.kind === 'removed' && (d.chapterNames ?? []).some((name) => keptChapters.has(name));
-
 	// A spared line's plies join the SURVIVING set, not merely leave the doomed
 	// one — this is the subtle part. The two passes exist because a doomed line
 	// and a live line can share a prefix, and retiring a shared ply breaks every
@@ -292,13 +310,13 @@ export function moveIdsToRetire(
 	const surviving = new Set<string>();
 	for (const d of diffs) {
 		if (!d.existingKey) continue;
-		if (d.kind === 'removed' && !spared(d)) continue;
+		if (d.kind === 'removed' && !isSparedRemovedLine(d, keptChapters)) continue;
 		for (const id of moveIdsInVariationKey(d.existingKey)) surviving.add(id);
 	}
 
 	const doomed = new Set<string>();
 	for (const d of diffs) {
-		if (d.kind !== 'removed' || !d.existingKey || spared(d)) continue;
+		if (d.kind !== 'removed' || !d.existingKey || isSparedRemovedLine(d, keptChapters)) continue;
 		for (const id of moveIdsInVariationKey(d.existingKey)) {
 			if (!surviving.has(id)) doomed.add(id);
 		}

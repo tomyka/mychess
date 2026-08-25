@@ -6,7 +6,8 @@ import {
 	detectRenames,
 	RENAME_THRESHOLD,
 	incomingLinesFromChapters,
-	moveIdsToRetire
+	moveIdsToRetire,
+	isSparedRemovedLine
 } from './repertoire-diff';
 import type { MoveRow } from './pgn-import';
 
@@ -414,6 +415,37 @@ describe('moveIdsToRetire — chapters the coach chose to keep', () => {
 		);
 		expect(moveIdsToRetire(diffs).sort()).toEqual(['a', 'b', 'c', 'd']);
 		expect(moveIdsToRetire(diffs, new Set()).sort()).toEqual(['a', 'b', 'c', 'd']);
+	});
+});
+
+// This is the exported predicate `moveIdsToRetire` above is now built on, and
+// that `RepertoireDiffReview.svelte` and the update route's `apply` action
+// also share — direct coverage here, on top of `moveIdsToRetire`'s own tests,
+// since it is now a public surface in its own right rather than a private
+// implementation detail of one function.
+describe('isSparedRemovedLine', () => {
+	it('is false for a kind other than removed, regardless of chapters', () => {
+		expect(isSparedRemovedLine({ kind: 'unchanged', chapterNames: ['Kept'] }, new Set(['Kept']))).toBe(false);
+		expect(isSparedRemovedLine({ kind: 'extended', chapterNames: ['Kept'] }, new Set(['Kept']))).toBe(false);
+		expect(isSparedRemovedLine({ kind: 'new', chapterNames: ['Kept'] }, new Set(['Kept']))).toBe(false);
+	});
+
+	it('is false for a removed line with no chapter names', () => {
+		expect(isSparedRemovedLine({ kind: 'removed', chapterNames: [] }, new Set(['Kept']))).toBe(false);
+		expect(isSparedRemovedLine({ kind: 'removed' }, new Set(['Kept']))).toBe(false);
+	});
+
+	it('is false for a removed line whose chapters are all unkept', () => {
+		expect(isSparedRemovedLine({ kind: 'removed', chapterNames: ['Gone'] }, new Set(['Kept']))).toBe(false);
+	});
+
+	it('is true for a removed line with any kept chapter, including alongside an unkept one', () => {
+		expect(isSparedRemovedLine({ kind: 'removed', chapterNames: ['Kept'] }, new Set(['Kept']))).toBe(true);
+		expect(isSparedRemovedLine({ kind: 'removed', chapterNames: ['Gone', 'Kept'] }, new Set(['Kept']))).toBe(true);
+	});
+
+	it('is false when keptChapters is empty', () => {
+		expect(isSparedRemovedLine({ kind: 'removed', chapterNames: ['Kept'] }, new Set())).toBe(false);
 	});
 });
 

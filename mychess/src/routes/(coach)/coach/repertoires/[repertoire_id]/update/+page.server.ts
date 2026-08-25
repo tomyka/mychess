@@ -239,8 +239,14 @@ export const actions: Actions = {
 		// can spare anything — a forged payload naming every chapter still spares
 		// nothing in a chapter the upload genuinely replaces, because that chapter
 		// is not absent and so never survives this intersection.
-		const spared = new Set(preview.absentChapters.filter((name) => keptChapters.includes(name)));
-		const retireMoveIds = moveIdsToRetire(preview.diffs, spared);
+		//
+		// This validated set is NOT itself the "is this line spared" predicate —
+		// that is `isSparedRemovedLine` in `$lib/repertoire-diff`, which
+		// `moveIdsToRetire` below applies per line. This is the one input to it
+		// this route is trusted to supply: which of the coach's Keep choices are
+		// even eligible to matter.
+		const validKeptChapters = new Set(preview.absentChapters.filter((name) => keptChapters.includes(name)));
+		const retireMoveIds = moveIdsToRetire(preview.diffs, validKeptChapters);
 
 		// 4. Write the moves, one call per chapter, appending onto this
 		// repertoire rather than creating a new one.
