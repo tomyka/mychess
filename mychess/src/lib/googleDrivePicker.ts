@@ -18,7 +18,30 @@ const GIS_SRC = 'https://accounts.google.com/gsi/client';
 const GAPI_SRC = 'https://apis.google.com/js/api.js';
 const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
+const SDK_LOAD_TIMEOUT_MS = 15_000;
+
 const scriptLoadPromises = new Map<string, Promise<void>>();
+
+/**
+ * Rejects if `promise` doesn't settle within `ms`, so a stalled script tag
+ * (no onload/onerror ever firing) or a bare gapi.load() that only ever
+ * resolves can't leave the caller waiting forever.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+	return new Promise<T>((resolve, reject) => {
+		const timeout = setTimeout(() => reject(new Error(message)), ms);
+		promise.then(
+			(value) => {
+				clearTimeout(timeout);
+				resolve(value);
+			},
+			(err) => {
+				clearTimeout(timeout);
+				reject(err);
+			}
+		);
+	});
+}
 
 /**
  * Caches the in-flight loading Promise itself (not just DOM presence): if two
@@ -33,18 +56,25 @@ function loadScript(src: string): Promise<void> {
 	if (cached) return cached;
 	const promise = document.querySelector(`script[src="${src}"]`)
 		? Promise.resolve()
-		: new Promise<void>((resolve, reject) => {
-				const script = document.createElement('script');
-				script.src = src;
-				script.async = true;
-				script.onload = () => resolve();
-				script.onerror = () => {
-					scriptLoadPromises.delete(src);
-					script.remove(); // otherwise a retry's DOM-presence check below would
-					// false-positive on this failed tag and skip loading entirely
-					reject(new Error(`Failed to load ${src}`));
-				};
-				document.head.appendChild(script);
+		: withTimeout(
+				new Promise<void>((resolve, reject) => {
+					const script = document.createElement('script');
+					script.src = src;
+					script.async = true;
+					script.onload = () => resolve();
+					script.onerror = () => {
+						reject(new Error(`Failed to load ${src}`));
+					};
+					document.head.appendChild(script);
+				}),
+				SDK_LOAD_TIMEOUT_MS,
+				`Timed out loading ${src}`
+			).catch((err) => {
+				scriptLoadPromises.delete(src);
+				document.querySelector(`script[src="${src}"]`)?.remove(); // otherwise a retry's
+				// DOM-presence check above would false-positive on this stalled/failed tag
+				// and skip loading entirely
+				throw err;
 			});
 	scriptLoadPromises.set(src, promise);
 	return promise;
@@ -56,7 +86,11 @@ async function ensureGoogleSdksLoaded(): Promise<void> {
 	}
 	if (!window.gapi?.picker) {
 		await loadScript(GAPI_SRC);
-		await new Promise<void>((resolve) => window.gapi.load('picker', resolve));
+		await withTimeout(
+			new Promise<void>((resolve) => window.gapi.load('picker', resolve)),
+			SDK_LOAD_TIMEOUT_MS,
+			'Timed out loading the Google Drive picker'
+		);
 	}
 }
 
