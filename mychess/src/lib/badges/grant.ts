@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BadgeStats } from './recalc';
 import { checkBadgeEligibility, checkBadgeRevocations } from './recalc';
 import { countRepertoireStatuses } from '$lib/server/repertoire-status-counts';
+import type { RepertoireProgressSummary } from '$lib/server/repertoire-progress';
 
 export interface BadgeStatsInput {
   totalReviews: number;
@@ -32,11 +33,17 @@ export function buildBadgeStats(input: BadgeStatsInput): BadgeStats {
  * re-earned later with no special case, since `earnedIds` stops suppressing it.
  *
  * Returns the IDs of newly granted badges (empty if none).
+ *
+ * `progressSummaries`, when passed, is forwarded to `countRepertoireStatuses`
+ * as-is instead of letting it recompute them — see that function's own doc
+ * comment for why (avoids calling back into whichever function already
+ * computed them, when that function is what's calling this one).
  */
 export async function grantNewBadges(
   supabase: SupabaseClient,
   playerId: string,
-  overrides: Partial<BadgeStatsInput> = {}
+  overrides: Partial<BadgeStatsInput> = {},
+  progressSummaries?: RepertoireProgressSummary[]
 ): Promise<string[]> {
   const [profileRes, playerStatsRes, sessionRes, repRes, questRes, earnedRes] =
     await Promise.all([
@@ -53,7 +60,7 @@ export async function grantNewBadges(
 
   // Bounded work: only repertoires that are already fully learned need their
   // chapter mastery checked, and that set is small by definition.
-  const statusCounts = await countRepertoireStatuses(supabase, playerId);
+  const statusCounts = await countRepertoireStatuses(supabase, playerId, progressSummaries);
 
   const p = profileRes.data;
   const ks = playerStatsRes.data;

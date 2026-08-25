@@ -78,7 +78,9 @@ describe('loadRepertoireProgressSummaries', () => {
 			teachingRekeys: [] as { fromKey: string; toKey: string }[],
 			teachingUpserts: [] as Record<string, unknown>[],
 			demotions: [] as Record<string, unknown>[],
-			activeCleared: 0
+			activeCleared: 0,
+			/** Badge rows granted by grantNewBadges(), i.e. whether badge sync ran at all. */
+			badgesGranted: [] as string[]
 		};
 		const moves = opts.moves ?? MOVES;
 		// MUTABLE, and deliberately so: reconciliation rewrites exclusion keys and
@@ -270,6 +272,35 @@ describe('loadRepertoireProgressSummaries', () => {
 						})
 					};
 				}
+				// grantNewBadges() reads these once reconciliation actually changes
+				// something (see repertoire-progress.ts) — none of the badge math
+				// itself is this file's concern (that's grant.test.ts/recalc.test.ts),
+				// these just need to answer so the wiring doesn't error mid-load. The
+				// fixtures above give this player a repertoire, so first_repertoire/
+				// uploader end up newly eligible — badges_earned needs insert(), not
+				// just select(), to answer that.
+				if (
+					table === 'profiles' ||
+					table === 'player_stats' ||
+					table === 'sessions' ||
+					table === 'quests' ||
+					table === 'badges_earned'
+				) {
+					return {
+						select: () => ({
+							eq: () => ({
+								single: () => Promise.resolve({ data: null, error: null }),
+								not: () => Promise.resolve({ data: [], error: null }),
+								then: (resolve: (v: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(resolve)
+							})
+						}),
+						insert: (rows: Record<string, unknown>[]) => {
+							if (table === 'badges_earned') calls.badgesGranted.push(...rows.map((r) => r.badge_id as string));
+							return Promise.resolve({ error: null });
+						},
+						delete: () => ({ eq: () => ({ in: () => Promise.resolve({ error: null }) }) })
+					};
+				}
 				throw new Error(`unexpected table ${table}`);
 			}
 		};
@@ -388,6 +419,8 @@ describe('loadRepertoireProgressSummaries', () => {
 		expect(calls.moveFetches).toEqual([]);
 		expect(calls.reconcileMoveFetches).toEqual([]);
 		expect(calls.reconciliationStamps).toEqual([]);
+		// No reconciliation, so no reason to re-check badges either.
+		expect(calls.badgesGranted).toEqual([]);
 	});
 
 	it('rewrites an extended line\'s exclusion instead of pruning it', async () => {
@@ -421,6 +454,12 @@ describe('loadRepertoireProgressSummaries', () => {
 		expect(calls.reconciliationStamps).toEqual([
 			{ player_id: USER, repertoire_id: 'r1', reconciled_at: SHAPE_CHANGED }
 		]);
+		// Reconciliation ran, so badges are re-checked against the new status —
+		// this player's one repertoire makes first_repertoire/uploader newly
+		// eligible, which is besides this test's point but is what proves the
+		// wiring actually fired (see grant.test.ts/recalc.test.ts for the badge
+		// math itself).
+		expect(calls.badgesGranted.length).toBeGreaterThan(0);
 	});
 
 	it('reconciles a repertoire whose exclusions are already verified', async () => {

@@ -4,7 +4,7 @@
 // (story #101 of epic #95, feeding the account-level badges).
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { loadRepertoireProgressSummaries } from './repertoire-progress';
+import { loadRepertoireProgressSummaries, type RepertoireProgressSummary } from './repertoire-progress';
 import { loadFilteredRepertoireVariations } from './practice-repertoire';
 import { loadSolvedKeys } from './practice-progress';
 import { loadChapterMastery } from './mastery';
@@ -19,13 +19,20 @@ import { deriveRepertoireStatus, isMasteryCurrent } from '$lib/mastery/repertoir
  * ALREADY fully learned can possibly be mastered, so the expensive check runs
  * over that subset alone. For every player who hasn't finished a repertoire yet
  * (the normal case) it does no extra work at all.
+ *
+ * `summaries`, when passed, is used as-is instead of calling
+ * `loadRepertoireProgressSummaries` again — the badge sync that runs inside
+ * that function's own reconciliation path (see repertoire-progress.ts) already
+ * has the summaries it just computed, and re-deriving them here would call
+ * back into the very function this is nested inside.
  */
 export async function countRepertoireStatuses(
 	supabase: SupabaseClient,
-	playerId: string
+	playerId: string,
+	summaries?: RepertoireProgressSummary[]
 ): Promise<{ learned: number; mastered: number }> {
-	const summaries = await loadRepertoireProgressSummaries(supabase, playerId);
-	const fullyLearned = summaries.filter((s) => s.total > 0 && s.solved >= s.total);
+	const summ = summaries ?? (await loadRepertoireProgressSummaries(supabase, playerId));
+	const fullyLearned = summ.filter((s) => s.total > 0 && s.solved >= s.total);
 	if (fullyLearned.length === 0) return { learned: 0, mastered: 0 };
 
 	const statuses = await Promise.all(

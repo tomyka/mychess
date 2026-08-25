@@ -9,6 +9,7 @@ import {
 } from '$lib/mastery/exclusionFreshness';
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
 import { isApplyInFlight, needsReconciliation, reconcilePlayerProgress } from './repertoire-reconcile';
+import { grantNewBadges } from '$lib/badges/grant';
 
 export type RepertoireProgressSummary = {
 	id: string;
@@ -613,7 +614,7 @@ export async function loadRepertoireProgressSummaries(
 	// plain cached-subtraction path below, exactly as it would have without
 	// reconciliation; it must not fall out of the output just because it never
 	// entered `unverifiedIds`.
-	return allReps.map((r: any) => {
+	const summaries = allReps.map((r: any) => {
 		const fullVariationCount: number = r.total_variations ?? backfilledTotals.get(r.id)!;
 		const solved = solvedByRep.get(r.id) ?? new Set<string>();
 
@@ -655,4 +656,25 @@ export async function loadRepertoireProgressSummaries(
 			hasChapters: r.has_chapters ?? backfilledHasChapters.get(r.id)!
 		};
 	});
+
+	// Reconciliation is the only place a repertoire's Learned/Mastered status can
+	// drop (a demotion or a raised bar from a coach re-upload) outside of the
+	// player's own drill/practice/time-trial actions, which is where badge
+	// revocation otherwise runs (see grant.ts). Skipped when nothing actually
+	// reconciled, so an ordinary load never pays for this — only the rare
+	// next-load-after-a-coach-re-upload case does. `summaries` is passed straight
+	// through to grantNewBadges so its own countRepertoireStatuses() call reuses
+	// what THIS call just computed instead of invoking this function again —
+	// countRepertoireStatuses() calls loadRepertoireProgressSummaries() itself
+	// when it isn't handed a summaries array, and this function's callers
+	// otherwise resolve to exactly that when nothing is passed.
+	if (reconciledIds.size > 0) {
+		try {
+			await grantNewBadges(supabase, userId, {}, summaries);
+		} catch (err) {
+			console.error(`Failed to run badge grant/revocation after reconciliation for player ${userId}:`, err instanceof Error ? err.message : err);
+		}
+	}
+
+	return summaries;
 }
