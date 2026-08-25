@@ -476,7 +476,8 @@
 						onback={reviewBack}
 						onforward={reviewForward}
 						onlive={reviewToLive}
-						onExplore={canExplore ? startExplore : undefined}
+						onExplore={startExplore}
+						exploreDisabled={!canExplore}
 					/>
 				{/if}
 

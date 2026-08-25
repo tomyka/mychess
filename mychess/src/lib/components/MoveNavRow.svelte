@@ -26,7 +26,8 @@
 		onback,
 		onforward,
 		onlive,
-		onExplore
+		onExplore,
+		exploreDisabled = false
 	}: {
 		reviewIdx: number;
 		totalPlies: number;
@@ -45,9 +46,14 @@
 		// trigger used to exist instead on Learn/Practice, but that separate
 		// element's own mount/unmount as canExplore flipped changed the page's
 		// total height out from under the board, forcing a resize every time
-		// (#158) -- unlike this button, which only ever changes the row's
-		// column count, never its height.
+		// (#158). This button avoids that by existing statically: a caller that
+		// offers explore mode at all passes a stable onExplore function for the
+		// whole page's lifetime and toggles `exploreDisabled` instead of the
+		// prop itself — swapping onExplore to undefined per-render changed the
+		// row's own column count (5 vs 6), the same class of layout shift under
+		// a different name.
 		onExplore?: () => void;
+		exploreDisabled?: boolean;
 	} = $props();
 
 	const buttonClass =
@@ -84,7 +90,12 @@
 		</svg>
 	</button>
 	{#if onExplore}
-		<button onclick={onExplore} aria-label={m.learn_explore_position()} class={buttonClass}>
+		<button
+			onclick={onExplore}
+			disabled={exploreDisabled}
+			aria-label={m.learn_explore_position()}
+			class={buttonClass}
+		>
 			<svg
 				viewBox="0 0 24 24"
 				fill="none"

@@ -609,10 +609,11 @@ describe('learn detail page', () => {
 
 	// Explore is about "the position the drill is asking about", which is not a
 	// well-defined thing mid-autoplay or while looking back at an earlier ply.
-	it('does not offer explore during the autoplay intro', () => {
+	it('disables (but keeps visible) explore during the autoplay intro', () => {
 		vi.useFakeTimers();
 		renderAttempt(AUTO_PLAY_ATTEMPT);
-		expect(screen.queryByRole('button', { name: 'Explore this position' })).toBeNull();
+		const button = screen.getByRole('button', { name: 'Explore this position' }) as HTMLButtonElement;
+		expect(button.disabled).toBe(true);
 	});
 
 	it('shows a running session count and a Finish session link in the sidebar', () => {

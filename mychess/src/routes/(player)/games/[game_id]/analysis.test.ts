@@ -141,7 +141,7 @@ describe('analysis board page', () => {
 			expect(screen.getByRole('button', { name: 'Explore this position' })).toBeTruthy();
 		});
 
-		it('does not show the explore button while a batch analysis is running', () => {
+		it('disables (but keeps visible) the explore button while a batch analysis is running', () => {
 			class FakeWorker {
 				static instances: FakeWorker[] = [];
 				onmessage: ((e: MessageEvent<string>) => void) | null = null;
@@ -155,7 +155,8 @@ describe('analysis board page', () => {
 			vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
 			const pendingGame = { ...doneGame, analysis_status: 'pending', analysis: null };
 			render(GamePage, { props: { data: { game: pendingGame, boardPrefs: undefined } } });
-			expect(screen.queryByRole('button', { name: 'Explore this position' })).toBeNull();
+			const button = screen.getByRole('button', { name: 'Explore this position' }) as HTMLButtonElement;
+			expect(button.disabled).toBe(true);
 		});
 
 		it('replaces the move-nav row with Undo/Engine/Back-to-review controls, with no eval bar until the engine is switched on', async () => {

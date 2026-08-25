@@ -298,15 +298,18 @@ describe("practice pool page", () => {
       ).toBe(false);
     });
 
-    // #131: the plain "explore this position" offer is gone on a demoted line —
-    // "see why" takes its place, because the line is finished and the excursion
-    // ends by moving on rather than going back.
+    // #131: the plain "explore this position" offer is disabled on a demoted
+    // line — "see why" takes its place as the actionable trigger, because the
+    // line is finished and the excursion ends by moving on rather than going
+    // back. The nav-row button itself stays visible but inert (#161): it
+    // never disappears, only its disabled state changes.
     it('offers "see why" instead of the usual explore entry on a demoted line', async () => {
       render(Practice, { props: { data: poolData() } });
       playMove("b1", "c3"); // wrong: demotes v1
       await vi.advanceTimersByTimeAsync(0);
       expect(screen.getByText(/needs teaching again/i)).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Explore this position" })).toBeNull();
+      const exploreButton = screen.getByRole("button", { name: "Explore this position" }) as HTMLButtonElement;
+      expect(exploreButton.disabled).toBe(true);
       expect(screen.getByText(/See why/i)).toBeTruthy();
     });
 

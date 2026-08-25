@@ -364,7 +364,8 @@
 						onback={reviewBack}
 						onforward={reviewForward}
 						onlive={reviewToLive}
-						onExplore={canExplore ? startExplore : undefined}
+						onExplore={startExplore}
+						exploreDisabled={!canExplore}
 					/>
 					{#if drill.strip === 'demoted' && current}
 						<!-- The one moment a player most wants to look around, and the one

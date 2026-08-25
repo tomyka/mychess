@@ -194,7 +194,8 @@
 					onback={() => (reviewIdx = Math.max(reviewIdx - 1, 0))}
 					onforward={() => (reviewIdx = Math.min(reviewIdx + 1, moves.length))}
 					onlive={() => (reviewIdx = moves.length)}
-					onExplore={analyzing ? undefined : startExplore}
+					onExplore={startExplore}
+					exploreDisabled={analyzing}
 				/>
 			{/if}
 
