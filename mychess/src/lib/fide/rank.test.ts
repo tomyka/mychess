@@ -11,15 +11,15 @@ describe('ageBracket', () => {
 
   // Single year of age per bracket -- matches FIDE's own ranking tool
   // (https://ratings.fide.com/rankings.phtml), which takes an exact age
-  // (age1=N&age2=N), not a 2-year band. A player aged N is labelled U(N+1)
-  // ("under" their next birthday), so each age gets its own bracket instead
-  // of two ages sharing one (the bug: U12 used to mean ages 11 AND 12).
-  it('classifies juniors one age per bracket, labelled by the next birthday', () => {
-    expect(ageBracket(2018, YEAR)).toBe('U9'); // age 8
-    expect(ageBracket(2017, YEAR)).toBe('U10'); // age 9
-    expect(ageBracket(2015, YEAR)).toBe('U12'); // age 11
-    expect(ageBracket(2014, YEAR)).toBe('U13'); // age 12 -- distinct from age 11's U12
-    expect(ageBracket(2006, YEAR)).toBe('U21'); // age 20
+  // (age1=N&age2=N), not a 2-year band. A player aged N is labelled UN,
+  // matching FIDE's real category naming, so each age gets its own bracket
+  // instead of two ages sharing one (the bug: U12 used to mean ages 11 AND 12).
+  it('classifies juniors one age per bracket, labelled by their own age', () => {
+    expect(ageBracket(2018, YEAR)).toBe('U8'); // age 8
+    expect(ageBracket(2017, YEAR)).toBe('U9'); // age 9
+    expect(ageBracket(2015, YEAR)).toBe('U11'); // age 11
+    expect(ageBracket(2014, YEAR)).toBe('U12'); // age 12 -- distinct from age 11's U11
+    expect(ageBracket(2006, YEAR)).toBe('U20'); // age 20
   });
 
   it('classifies adults between U20 and senior as open', () => {
@@ -126,7 +126,7 @@ describe('computeRanks', () => {
 
   it('assigns the age bracket once, regardless of rating', () => {
     const ranked = computeRanks([player({ fideId: 'a', birthYear: 2016 })], YEAR);
-    expect(ranked[0].ageBracket).toBe('U11'); // age 10
+    expect(ranked[0].ageBracket).toBe('U10'); // age 10
   });
 
   it('breaks ties by preserving input order (distinct sequential ranks)', () => {

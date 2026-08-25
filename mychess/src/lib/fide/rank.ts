@@ -2,15 +2,17 @@ import type { FidePlayer } from './parse';
 
 export type AgeBracket = string;
 
-// One age per bracket, labelled by the player's next birthday ("under
-// that age") -- matches FIDE's own ranking tool (rankings.phtml), which
-// takes an exact age (age1=N&age2=N), not a span. This used to be a 2-year
-// band (U12 meant ages 11 AND 12 pooled together), which materially
-// inflated everyone's age-group rank compared to FIDE's own numbers.
+// One age per bracket, labelled by the player's own age (age 10 -> U10,
+// matching FIDE's real category naming -- U10 is the age itself, not the
+// player's next birthday) -- matches FIDE's own ranking tool
+// (rankings.phtml), which takes an exact age (age1=N&age2=N), not a span.
+// This used to be a 2-year band (U12 meant ages 11 AND 12 pooled together),
+// which materially inflated everyone's age-group rank compared to FIDE's
+// own numbers.
 export function ageBracket(birthYear: number | null, currentYear: number): AgeBracket | null {
   if (birthYear == null) return null;
   const age = currentYear - birthYear;
-  if (age <= 20) return `U${age + 1}`;
+  if (age <= 20) return `U${age}`;
   if (age >= 65) return '65+';
   if (age >= 50) return '50+';
   return 'open';
