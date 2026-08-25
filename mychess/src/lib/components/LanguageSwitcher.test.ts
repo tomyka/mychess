@@ -9,6 +9,7 @@ vi.mock('$lib/paraglide/runtime', () => ({
 vi.mock('$lib/paraglide/messages', () => ({
   m: {
     language_switcher_label: () => 'Select language',
+    language_switcher_persist_failed: () => "Couldn't save your language choice",
     nav_close_menu: () => 'Close menu'
   }
 }));
@@ -18,6 +19,7 @@ import LanguageSwitcher from './LanguageSwitcher.svelte';
 
 beforeEach(() => {
   global.fetch = vi.fn(async () => ({ ok: true })) as any;
+  sessionStorage.clear();
 });
 
 afterEach(() => {
@@ -71,5 +73,53 @@ describe('LanguageSwitcher', () => {
 
     expect(setLocale).toHaveBeenCalledWith('lt');
     expect(consoleError).toHaveBeenCalled();
+  });
+
+  it('stashes a persist-failure flag in sessionStorage when the POST throws', async () => {
+    global.fetch = vi.fn(async () => {
+      throw new Error('network error');
+    }) as any;
+
+    render(LanguageSwitcher);
+    await fireEvent.click(screen.getByRole('button', { name: /select language/i }));
+    await fireEvent.click(screen.getByText('Lietuviškai'));
+
+    expect(sessionStorage.getItem('mychess:locale-persist-failed')).toBe('1');
+  });
+
+  it('stashes a persist-failure flag in sessionStorage when the POST responds not-ok', async () => {
+    global.fetch = vi.fn(async () => ({ ok: false })) as any;
+
+    render(LanguageSwitcher);
+    await fireEvent.click(screen.getByRole('button', { name: /select language/i }));
+    await fireEvent.click(screen.getByText('Lietuviškai'));
+
+    expect(sessionStorage.getItem('mychess:locale-persist-failed')).toBe('1');
+  });
+
+  it('does not stash a persist-failure flag when the POST succeeds', async () => {
+    render(LanguageSwitcher);
+    await fireEvent.click(screen.getByRole('button', { name: /select language/i }));
+    await fireEvent.click(screen.getByText('Lietuviškai'));
+
+    expect(sessionStorage.getItem('mychess:locale-persist-failed')).toBeNull();
+  });
+
+  it('shows a dismissible failure message on mount when the flag was left by a prior reload', () => {
+    sessionStorage.setItem('mychess:locale-persist-failed', '1');
+
+    render(LanguageSwitcher);
+
+    expect(screen.getByRole('alert')).toHaveTextContent("Couldn't save your language choice");
+    expect(sessionStorage.getItem('mychess:locale-persist-failed')).toBeNull();
+  });
+
+  it('dismisses the failure message when its close button is clicked', async () => {
+    sessionStorage.setItem('mychess:locale-persist-failed', '1');
+
+    render(LanguageSwitcher);
+    await fireEvent.click(screen.getByRole('button', { name: /close menu/i }));
+
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });

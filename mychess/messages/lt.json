@@ -1,6 +1,7 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
 	"language_switcher_label": "Select language",
+	"language_switcher_persist_failed": "Nepavyko išsaugoti kalbos pasirinkimo — kitą kartą prisijungus jis gali atsistatyti. Bandyti dar kartą?",
 	"nav_players": "Žaidėjai",
 	"nav_repertoires": "Repertuarai",
 	"nav_support": "Pagalba",
