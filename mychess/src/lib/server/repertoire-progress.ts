@@ -8,6 +8,7 @@ import {
 	type ExclusionRow
 } from '$lib/mastery/exclusionFreshness';
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
+import { fetchLiveMoves } from './moves';
 import { isApplyInFlight, needsReconciliation, reconcilePlayerProgress } from './repertoire-reconcile';
 import { grantNewBadges } from '$lib/badges/grant';
 
@@ -31,47 +32,16 @@ export type RepertoireProgressSummary = {
 	hasChapters: boolean;
 };
 
-// Supabase/PostgREST caps an unbounded select at `max_rows` (1000, see
-// supabase/config.toml) and truncates silently past that — no error, just
-// fewer rows than actually exist. Ordering by `created_at` (then `id` to
-// break ties) makes the pagination deterministic *and* preserves each
-// chapter's true import order — `moves.id` is a random UUID, not a
-// sequence, so ordering by it alone surfaces chapters in an effectively
-// arbitrary order instead of the order they were uploaded in. Pages beyond
-// the first are fetched concurrently (see `fetchAllPages`, shared with
-// `practice-repertoire.ts`) rather than one at a time.
-//
 // Used for the lazy total-count backfill (repertoires imported before
 // `total_variations` started being cached at import time) and to re-verify a
 // player's exclusion rows against a changed move set — NOT, any longer, on
 // every load for every player who has excluded something (see
-// `exclusionFreshness.ts` and GitHub issue #52).
-const MOVES_PAGE_SIZE = MAX_ROWS_PAGE_SIZE;
-
-// Excludes retired moves (`retired_at is null`): a retired row is a line a
-// coach removed on a repertoire re-upload, kept around (rather than deleted)
-// only so that re-adding the line later restores its `reviews`/
-// `move_attempts` history instead of starting it over. This function
-// reconstructs each repertoire's live variation shape, so a retired row must
-// not resurface as a variation to count as solved/total or enumerate here.
+// `exclusionFreshness.ts` and GitHub issue #52). This function reconstructs
+// each repertoire's live variation shape, so `fetchLiveMoves` (see moves.ts)
+// excluding retired rows is what keeps a coach-removed line from resurfacing
+// as a variation to count as solved/total or enumerate here.
 async function fetchAllMoves(supabase: SupabaseClient, repIds: string[]): Promise<any[]> {
-	return fetchAllPages(
-		() =>
-			supabase
-				.from('moves')
-				.select('id, san, is_player_turn, repertoire_id, from_position, to_position, chapter_names')
-				.in('repertoire_id', repIds)
-				.is('retired_at', null)
-				.order('created_at', { ascending: true })
-				.order('id', { ascending: true }),
-		() =>
-			supabase
-				.from('moves')
-				.select('id', { count: 'exact', head: true })
-				.in('repertoire_id', repIds)
-				.is('retired_at', null),
-		MOVES_PAGE_SIZE
-	);
+	return fetchLiveMoves(supabase, repIds, 'id, san, is_player_turn, repertoire_id, from_position, to_position, chapter_names');
 }
 
 // Paginated for the same `max_rows` reason as the move fetch above, and more

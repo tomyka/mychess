@@ -3,6 +3,7 @@ import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { enumerateVariations, filterVariations, moveIdsInVariationKey, type RawMoveRow, type Variation } from '$lib/mastery/variations';
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
+import { fetchLiveMoves } from './moves';
 
 export type PracticeRepertoire = {
 	id: string;
@@ -16,50 +17,18 @@ export type PracticeRepertoire = {
 	movesUpdatedAt: string | null;
 };
 
-// Supabase/PostgREST caps an unbounded select at `max_rows` (1000, see
-// supabase/config.toml) and truncates silently past that — no error, just
-// fewer rows than actually exist. A single large repertoire can exceed this
-// on its own; an incomplete move set shatters the tree `enumerateVariations`
-// reconstructs into many short, disconnected fragments, producing bogus
-// variation counts that don't correspond to real opening lines. Ordering by
-// `created_at` (then `id` to break ties within the same statement/import
-// step) makes the pagination deterministic *and* preserves each chapter's
-// true import order — `moves.id` is a random UUID, not a sequence, so
-// ordering by it alone (as this used to) surfaces chapters in an
-// effectively arbitrary order instead of the order they were uploaded in.
-const MOVES_PAGE_SIZE = MAX_ROWS_PAGE_SIZE;
-
+// PostgREST's `max_rows` cap (1000, see supabase/config.toml) means a single
+// large repertoire's move set can exceed one page on its own; an incomplete
+// move set shatters the tree `enumerateVariations` reconstructs into many
+// short, disconnected fragments, producing bogus variation counts that don't
+// correspond to real opening lines. `fetchLiveMoves` (see moves.ts) handles
+// the paging and ordering this needs.
 const MOVE_SELECT_COLUMNS =
 	'id, san, is_player_turn, from_position, to_position, chapter_names, from_pos:from_position(fen), to_pos:to_position(fen)';
 
-/**
- * Fetches every move row for a repertoire, defeating the `max_rows` cap
- * above (see `fetchAllPages` for the paging strategy itself).
- *
- * Excludes retired moves (`retired_at is null`): a retired row is a line a
- * coach removed on a repertoire re-upload, kept around (rather than deleted)
- * only so that re-adding the line later restores its `reviews`/
- * `move_attempts` history instead of starting it over. It must not resurface
- * as something to enumerate or practice.
- */
+/** Fetches every live move row for a repertoire — see `fetchLiveMoves`. */
 export async function fetchAllMoves(supabase: SupabaseClient, repertoireId: string): Promise<any[]> {
-	return fetchAllPages(
-		() =>
-			supabase
-				.from('moves')
-				.select(MOVE_SELECT_COLUMNS)
-				.eq('repertoire_id', repertoireId)
-				.is('retired_at', null)
-				.order('created_at', { ascending: true })
-				.order('id', { ascending: true }),
-		() =>
-			supabase
-				.from('moves')
-				.select('id', { count: 'exact', head: true })
-				.eq('repertoire_id', repertoireId)
-				.is('retired_at', null),
-		MOVES_PAGE_SIZE
-	);
+	return fetchLiveMoves(supabase, repertoireId, MOVE_SELECT_COLUMNS);
 }
 
 /**
@@ -219,7 +188,7 @@ async function fetchAllMoveIds(supabase: SupabaseClient, repertoireId: string): 
 	const rows = await fetchAllPages<{ id: string }>(
 		() => supabase.from('moves').select('id').eq('repertoire_id', repertoireId).order('id', { ascending: true }),
 		() => supabase.from('moves').select('id', { count: 'exact', head: true }).eq('repertoire_id', repertoireId),
-		MOVES_PAGE_SIZE
+		MAX_ROWS_PAGE_SIZE
 	);
 	return new Set(rows.map((r) => r.id));
 }
