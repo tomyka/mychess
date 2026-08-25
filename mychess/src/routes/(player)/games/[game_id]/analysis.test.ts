@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
 import GamePage from './+page.svelte';
-import { engineState } from '$lib/engine/engine.svelte';
+import { engineState, setEngineEnabled } from '$lib/engine/engine.svelte';
 
 afterEach(() => {
 	cleanup();
@@ -14,6 +14,7 @@ afterEach(() => {
 	engineState.ready = false;
 	engineState.score = null;
 	engineState.searching = false;
+	setEngineEnabled(false);
 });
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -157,13 +158,18 @@ describe('analysis board page', () => {
 			expect(screen.queryByRole('button', { name: 'Explore this position' })).toBeNull();
 		});
 
-		it('replaces the move-nav row with Undo/Back-to-review controls and shows a live eval bar once exploring', async () => {
+		it('replaces the move-nav row with Undo/Engine/Back-to-review controls, with no eval bar until the engine is switched on', async () => {
 			render(GamePage, { props: { data: { game: doneGame, boardPrefs: undefined } } });
 			await fireEvent.click(screen.getByRole('button', { name: 'Explore this position' }));
 
 			expect(screen.queryByRole('button', { name: 'Explore this position' })).toBeNull();
 			expect(screen.getByRole('button', { name: /Undo/ })).toBeTruthy();
 			expect(screen.getByRole('button', { name: /Back to review/ })).toBeTruthy();
+			const toggle = screen.getByRole('button', { name: /engine/i });
+			expect(toggle.getAttribute('aria-pressed')).toBe('false');
+			expect(screen.queryByRole('img', { name: /Engine evaluation/ })).toBeNull();
+
+			await fireEvent.click(toggle);
 			expect(screen.getByRole('img', { name: /Engine evaluation/ })).toBeTruthy();
 		});
 

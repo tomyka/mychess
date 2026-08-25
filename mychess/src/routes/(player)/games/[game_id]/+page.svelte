@@ -3,6 +3,8 @@
 	import ChessBoard from '$lib/components/ChessBoard.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
 	import EvalBar from '$lib/components/EvalBar.svelte';
+	import ExploreControls from '$lib/components/ExploreControls.svelte';
+	import { engineEnabled } from '$lib/engine/engine.svelte';
 	import type { Key } from 'chessground/types';
 	import { squaresForSanMove } from '$lib/chess-moves';
 	import { analyzeGame } from '$lib/engine/analyzeGame';
@@ -154,7 +156,7 @@
 			</h1>
 
 			<div class="flex items-start justify-center gap-2">
-				{#if explore.active}
+				{#if explore.active && engineEnabled.on}
 					<EvalBar
 						fen={displayFen}
 						orientation={game.played_as === 'black' ? 'black' : 'white'}
@@ -174,24 +176,13 @@
 			</div>
 
 			{#if explore.active}
-				<div
-					class="grid grid-cols-2 gap-2 mt-4 shrink-0 mx-auto w-full"
-					style={boardWidth ? `max-width: ${boardWidth}px` : ''}
-				>
-					<button
-						onclick={() => explore.undo()}
-						disabled={explore.depth === 0}
-						class="py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-sm font-semibold text-(--color-text) disabled:opacity-30"
-					>
-						{m.explore_controls_undo()}
-					</button>
-					<button
-						onclick={stopExplore}
-						class="py-2 rounded-xl border border-amber-300 bg-amber-50 text-sm font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
-					>
-						{m.games_explore_back_to_review()}
-					</button>
-				</div>
+				<ExploreControls
+					depth={explore.depth}
+					onundo={() => explore.undo()}
+					onstop={stopExplore}
+					stopLabel={m.games_explore_back_to_review()}
+					{boardWidth}
+				/>
 			{:else}
 				<MoveNavRow
 					{reviewIdx}
