@@ -3,14 +3,13 @@
 	import VariationPicker from '$lib/components/VariationPicker.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import type { Key } from 'chessground/types';
-	import { Chess } from 'chess.js';
 	import { playCorrect, playWrong } from '$lib/sounds';
 	import { invalidateAll } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import { optimisticSolvedAfterAttempt, type PracticeView } from '$lib/mastery/practice';
 	import { arrowMoveForStep } from '$lib/mastery/teaching';
 	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
-	import { positionAt, playerMovesIn } from '$lib/mastery/playback';
+	import { positionAt, playerMovesIn, hintSquareFor, makeReviewNav, makeReviewKeyHandler } from '$lib/mastery/playback';
 	import { logMove } from '$lib/moveLog';
 	import { ExploreSession } from '$lib/mastery/explore.svelte';
 	import { LearnDrill, CUE_HOLD_MS } from '$lib/mastery/learnDrill.svelte';
@@ -119,57 +118,28 @@
 	// earlier position doesn't shrink the list).
 	const movesSoFar = $derived(drill.quizIdx > 0 ? moveSequenceLabel(quizSteps.slice(0, drill.quizIdx)) : '');
 
-	function reviewToStart() {
-		manualReviewIdx = 0;
-	}
-	function reviewBack() {
-		manualReviewIdx = Math.max(0, reviewIdx - 1);
-	}
-	function reviewForward() {
-		const next = Math.min(drill.quizIdx, reviewIdx + 1);
-		manualReviewIdx = next >= drill.quizIdx ? null : next;
-	}
-	function reviewToLive() {
-		manualReviewIdx = null;
-	}
-
-	// Left/Right step one ply of review at a time; Up/Down jump to the
-	// start/live-end of the current attempt — mirrors the ⏮◀▶⏭ buttons
-	// exactly. Ignored while the variation picker is open (it doesn't use
-	// arrow keys itself, but the board underneath shouldn't react while a
-	// modal is up) or when there's nothing loaded to review.
-	function handleKeydown(e: KeyboardEvent) {
-		// Not while exploring: the arrows step through drill plies, and none of the
-		// explored moves are drill plies.
-		if (pickerOpen || !attempt || explore.active) return;
-		if (e.key === 'ArrowLeft') {
-			e.preventDefault();
-			reviewBack();
-		} else if (e.key === 'ArrowRight') {
-			e.preventDefault();
-			reviewForward();
-		} else if (e.key === 'ArrowUp') {
-			e.preventDefault();
-			reviewToStart();
-		} else if (e.key === 'ArrowDown') {
-			e.preventDefault();
-			reviewToLive();
-		}
-	}
-
-	// The correct move's origin square — computed from the step's own
-	// fromFen/san rather than stored, since only the destination is ever
-	// meant to stay hidden.
-	const hintSquare = $derived.by(() => {
-		if (!drill.hintRequested || isReviewing) return null;
-		const step = quizSteps[drill.quizIdx];
-		if (!step) return null;
-		try {
-			return new Chess(step.fromFen).move(step.san)?.from ?? null;
-		} catch {
-			return null;
-		}
+	const { reviewToStart, reviewBack, reviewForward, reviewToLive } = makeReviewNav({
+		get: () => manualReviewIdx,
+		set: (v) => (manualReviewIdx = v),
+		reviewIdx: () => reviewIdx,
+		liveIdx: () => drill.quizIdx
 	});
+
+	// Ignored while the variation picker is open (it doesn't use arrow keys
+	// itself, but the board underneath shouldn't react while a modal is up),
+	// not while exploring (the arrows step through drill plies, and none of
+	// the explored moves are drill plies), or when there's nothing loaded.
+	const handleKeydown = makeReviewKeyHandler({
+		reviewToStart,
+		reviewBack,
+		reviewForward,
+		reviewToLive,
+		isEnabled: () => !pickerOpen && !!attempt && !explore.active
+	});
+
+	// Taken has already cost this pass its clean-solve eligibility, so there
+	// is nothing further for the hint to protect.
+	const hintSquare = $derived(hintSquareFor(quizSteps, drill.quizIdx, drill.hintRequested, isReviewing));
 
 	// The current ply's teaching arrow, if this attempt is a teach pass and
 	// we're standing on one of its plies — see arrowMoveForStep for the

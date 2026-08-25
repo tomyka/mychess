@@ -7,10 +7,9 @@
 	import PracticeStatusStrip from '$lib/components/PracticeStatusStrip.svelte';
 	import RepertoireUpdatedBanner from '$lib/components/RepertoireUpdatedBanner.svelte';
 	import type { Key } from 'chessground/types';
-	import { Chess } from 'chess.js';
 	import { playCorrect, playWrong } from '$lib/sounds';
 	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
-	import { positionAt, playerMovesIn } from '$lib/mastery/playback';
+	import { positionAt, playerMovesIn, hintSquareFor, makeReviewNav, makeReviewKeyHandler } from '$lib/mastery/playback';
 	import { logMove } from '$lib/moveLog';
 	import { ExploreSession } from '$lib/mastery/explore.svelte';
 	import { PracticeDrill } from '$lib/mastery/practiceDrill.svelte';
@@ -95,19 +94,9 @@
 	// is already demoted and about to be replaced.
 	const canExplore = $derived(!!current && !drill.locked && !isReviewing && !!drillFen);
 
-	// Only ever the piece's own square, never the destination — same contract as
-	// Learn's hint. Taking it has already cost the line its learned status, so
-	// there is nothing further to protect.
-	const hintSquare = $derived.by(() => {
-		if (!drill.hintRequested || isReviewing) return null;
-		const step = steps[drill.plyIdx];
-		if (!step) return null;
-		try {
-			return new Chess(step.fromFen).move(step.san)?.from ?? null;
-		} catch {
-			return null;
-		}
-	});
+	// Taking it has already cost the line its learned status, so there is
+	// nothing further for the hint to protect.
+	const hintSquare = $derived(hintSquareFor(steps, drill.plyIdx, drill.hintRequested, isReviewing));
 
 	function startCurrent() {
 		explore.stop();
@@ -189,38 +178,22 @@
 		return result.correct;
 	}
 
-	function reviewToStart() {
-		manualReviewIdx = 0;
-	}
-	function reviewBack() {
-		manualReviewIdx = Math.max(0, reviewIdx - 1);
-	}
-	function reviewForward() {
-		const next = Math.min(drill.plyIdx, reviewIdx + 1);
-		manualReviewIdx = next >= drill.plyIdx ? null : next;
-	}
-	function reviewToLive() {
-		manualReviewIdx = null;
-	}
+	const { reviewToStart, reviewBack, reviewForward, reviewToLive } = makeReviewNav({
+		get: () => manualReviewIdx,
+		set: (v) => (manualReviewIdx = v),
+		reviewIdx: () => reviewIdx,
+		liveIdx: () => drill.plyIdx
+	});
 
-	function handleKeydown(e: KeyboardEvent) {
-		// Not while exploring: the arrows step through drill plies, and none of the
-		// explored moves are drill plies.
-		if (!current || explore.active) return;
-		if (e.key === 'ArrowLeft') {
-			e.preventDefault();
-			reviewBack();
-		} else if (e.key === 'ArrowRight') {
-			e.preventDefault();
-			reviewForward();
-		} else if (e.key === 'ArrowUp') {
-			e.preventDefault();
-			reviewToStart();
-		} else if (e.key === 'ArrowDown') {
-			e.preventDefault();
-			reviewToLive();
-		}
-	}
+	// Not while exploring: the arrows step through drill plies, and none of the
+	// explored moves are drill plies.
+	const handleKeydown = makeReviewKeyHandler({
+		reviewToStart,
+		reviewBack,
+		reviewForward,
+		reviewToLive,
+		isEnabled: () => !!current && !explore.active
+	});
 </script>
 
 <svelte:head>
