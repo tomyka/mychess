@@ -59,9 +59,15 @@
     timer = setTimeout(search, 250);
   }
 
+  // Relative on purpose: this card is hosted by both the signed-out landing
+  // page and the signed-in Players page, and only the landing page's `/`
+  // renders it — sending a signed-in player to `/` would land them on the
+  // authenticated dashboard, which drops the ?fide result entirely. `goto`
+  // resolves this against the current document, so each host page looks the
+  // player up in place.
   function select(fideId: string) {
     open = false;
-    goto(`/?fide=${encodeURIComponent(fideId)}`);
+    goto(`?fide=${encodeURIComponent(fideId)}`);
   }
 
   function onSubmit(e: Event) {

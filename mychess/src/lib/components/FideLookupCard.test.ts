@@ -84,7 +84,12 @@ describe('FideLookupCard', () => {
     expect(screen.getByText(/No FIDE record/i)).toBeTruthy();
   });
 
-  it('shows a dropdown of name matches and navigates to the selected player', async () => {
+  // The card is hosted by both the signed-out landing page (/) and the
+  // signed-in Players page (/players), so it navigates to `?fide=<id>` on
+  // whichever page it's on rather than hardcoding `/` — the authenticated
+  // dashboard doesn't render the lookup card at all, so sending a signed-in
+  // player there would drop the result they just picked.
+  it('shows a dropdown of name matches and navigates to the selected player on the current page', async () => {
     global.fetch = vi.fn(async () => ({
       json: async () => ({ results: [{ fideId: '1503014', name: 'Carlsen, Magnus', federation: 'NOR' }] })
     })) as any;
@@ -94,7 +99,14 @@ describe('FideLookupCard', () => {
 
     const item = await screen.findByText(/Carlsen, Magnus/); // waits through debounce + fetch
     await fireEvent.click(item);
-    expect(goto).toHaveBeenCalledWith('/?fide=1503014');
+    expect(goto).toHaveBeenCalledWith('?fide=1503014');
+  });
+
+  it('submitting a numeric id looks it up on the current page', async () => {
+    render(FideLookupCard, { props: { query: '', result: null } });
+    await fireEvent.input(screen.getByLabelText(/FIDE ID/i), { target: { value: '1503014' } });
+    await fireEvent.submit(screen.getByLabelText(/FIDE ID/i).closest('form')!);
+    expect(goto).toHaveBeenCalledWith('?fide=1503014');
   });
 
   it('shows each match\'s FIDE ID in brackets next to their name', async () => {
