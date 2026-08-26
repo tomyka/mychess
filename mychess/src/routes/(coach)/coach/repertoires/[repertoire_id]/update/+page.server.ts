@@ -13,6 +13,7 @@ import { error, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { requireAccount } from '$lib/server/auth';
 import { enumerateVariations, hasChapterTags } from '$lib/mastery/variations';
+import { masterableChapters } from '$lib/mastery/repertoireStatus';
 import type { MoveRow } from '$lib/pgn-import';
 import type { IncomingChapter } from '$lib/repertoire-diff';
 import { writeMoves } from '$lib/server/pgn-import';
@@ -309,7 +310,8 @@ export const actions: Actions = {
 			p_unretire_move_ids: unretireMoveIds,
 			p_chapter_renames: renames,
 			p_total_variations: variations.length,
-			p_has_chapters: hasChapterTags(variations)
+			p_has_chapters: hasChapterTags(variations),
+			p_chapter_count: masterableChapters(variations).length
 		});
 		if (rpcErr) return fail(500, { error: rpcErr.message });
 

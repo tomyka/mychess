@@ -11,6 +11,12 @@ import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
 import { fetchLiveMoves } from './moves';
 import { isApplyInFlight, needsReconciliation, reconcilePlayerProgress } from './repertoire-reconcile';
 import { grantNewBadges } from '$lib/badges/grant';
+import {
+	deriveRepertoireStatusFromCounts,
+	isMasteryCurrent,
+	masterableChapters,
+	type RepertoireStatus
+} from '$lib/mastery/repertoireStatus';
 
 export type RepertoireProgressSummary = {
 	id: string;
@@ -30,6 +36,11 @@ export type RepertoireProgressSummary = {
 	// Practice picker (and the new VariationPicker) only offer chapter
 	// grouping UI at all when this is true.
 	hasChapters: boolean;
+	// Derived via `deriveRepertoireStatusFromCounts` (GitHub issue #105) — the
+	// cheap, cached-count approximation of `deriveRepertoireStatus`, since this
+	// summary is the repertoire list's own hot path and can't afford a full
+	// variation enumeration per repertoire on every load.
+	status: RepertoireStatus;
 };
 
 // Used for the lazy total-count backfill (repertoires imported before
@@ -52,10 +63,11 @@ async function fetchAllMoves(supabase: SupabaseClient, repIds: string[]): Promis
 // keys (solved lines looked unsolved).
 async function fetchRowsByRepertoire<T extends { repertoire_id: string }>(
 	supabase: SupabaseClient,
-	table: 'variation_practice_exclusions' | 'variation_solved',
+	table: 'variation_practice_exclusions' | 'variation_solved' | 'chapter_mastery',
 	playerId: string,
 	repIds: string[],
-	columns: string
+	columns: string,
+	orderColumn: string = 'variation_key'
 ): Promise<Map<string, T[]>> {
 	const data = await fetchAllPages<T>(
 		() =>
@@ -64,7 +76,7 @@ async function fetchRowsByRepertoire<T extends { repertoire_id: string }>(
 				.select(columns)
 				.eq('player_id', playerId)
 				.in('repertoire_id', repIds)
-				.order('variation_key', { ascending: true }),
+				.order(orderColumn, { ascending: true }),
 		() =>
 			supabase
 				.from(table)
@@ -291,12 +303,12 @@ export async function loadRepertoireProgressSummaries(
 	const [{ data: ownReps }, { data: assigned }] = await Promise.all([
 		supabase
 			.from('repertoires')
-			.select('id, name, color, total_variations, has_chapters, moves_updated_at, update_in_progress_at')
+			.select('id, name, color, total_variations, has_chapters, chapter_count, moves_updated_at, update_in_progress_at')
 			.eq('player_id', userId),
 		supabase
 			.from('assigned_repertoires')
 			.select(
-				'repertoire:repertoire_id(id, name, color, total_variations, has_chapters, moves_updated_at, update_in_progress_at)'
+				'repertoire:repertoire_id(id, name, color, total_variations, has_chapters, chapter_count, moves_updated_at, update_in_progress_at)'
 			)
 			.eq('player_id', userId)
 	]);
@@ -308,12 +320,14 @@ export async function loadRepertoireProgressSummaries(
 	if (allReps.length === 0) return [];
 
 	const repIds = allReps.map((r: any) => r.id);
-	const uncachedIds = allReps.filter((r: any) => r.total_variations === null || r.has_chapters === null).map((r: any) => r.id);
+	const uncachedIds = allReps
+		.filter((r: any) => r.total_variations === null || r.has_chapters === null || r.chapter_count === null)
+		.map((r: any) => r.id);
 
 	// The reconciliation stamps ride along in the same round trip as the two
 	// progress reads, so the reconciliation check below costs no added latency —
 	// only one extra query, and only ever one (see `fetchReconciledAt`).
-	const [exclusionRowsByRep, solvedRowsByRep, reconciledAtByRep] = await Promise.all([
+	const [exclusionRowsByRep, solvedRowsByRep, chapterMasteryRowsByRep, reconciledAtByRep] = await Promise.all([
 		fetchRowsByRepertoire<ExclusionRecord>(
 			supabase,
 			'variation_practice_exclusions',
@@ -327,6 +341,17 @@ export async function loadRepertoireProgressSummaries(
 			userId,
 			repIds,
 			'repertoire_id, variation_key'
+		),
+		// Cheap (indexed, bounded by chapter count — no variation enumeration):
+		// GitHub issue #105's Mastered badge on the list, via
+		// `deriveRepertoireStatusFromCounts` further down.
+		fetchRowsByRepertoire<{ repertoire_id: string; moves_updated_at: string }>(
+			supabase,
+			'chapter_mastery',
+			userId,
+			repIds,
+			'repertoire_id, moves_updated_at',
+			'repertoire_id'
 		),
 		fetchReconciledAt(supabase, userId, repIds)
 	]);
@@ -437,15 +462,18 @@ export async function loadRepertoireProgressSummaries(
 
 	const backfilledTotals = new Map<string, number>();
 	const backfilledHasChapters = new Map<string, boolean>();
+	const backfilledChapterCounts = new Map<string, number>();
 	await Promise.all(
 		uncachedIds.map(async (repId) => {
 			const variations = variationsByRep.get(repId) ?? [];
 			const hasChapters = hasChapterTags(variations);
+			const chapterCount = masterableChapters(variations).length;
 			backfilledTotals.set(repId, variations.length);
 			backfilledHasChapters.set(repId, hasChapters);
+			backfilledChapterCounts.set(repId, chapterCount);
 			const { error } = await supabase
 				.from('repertoires')
-				.update({ total_variations: variations.length, has_chapters: hasChapters })
+				.update({ total_variations: variations.length, has_chapters: hasChapters, chapter_count: chapterCount })
 				.eq('id', repId);
 			if (error) console.error(`Failed to backfill shape cache for repertoire ${repId}:`, error);
 		})
@@ -613,6 +641,18 @@ export async function loadRepertoireProgressSummaries(
 			? (variationsByRep.get(r.id) ?? []).length - excluded.size
 			: (cachedTotal ?? fullVariationCount);
 		const solvedCount = [...solved].filter((key) => !excluded.has(key)).length; // stale solved keys (repertoire edited since) simply don't inflate the count below via total's own cap
+		const allSolved = total > 0 && Math.min(solvedCount, total) === total;
+
+		// #105: cheap Mastered detection. `chapterCount` null means neither the
+		// cache nor this load's backfill has a number for this repertoire yet
+		// (only possible if the backfill write above failed) — status simply
+		// can't read as mastered until it does, same as an unresolved
+		// `total_variations` falls back to `fullVariationCount` above.
+		const chapterCount: number | null = r.chapter_count ?? backfilledChapterCounts.get(r.id) ?? null;
+		const currentlyMasteredChapterCount = (chapterMasteryRowsByRep.get(r.id) ?? []).filter((row) =>
+			isMasteryCurrent(row.moves_updated_at, r.moves_updated_at ?? null)
+		).length;
+		const status = deriveRepertoireStatusFromCounts({ allLearned: allSolved, chapterCount, currentlyMasteredChapterCount });
 
 		return {
 			id: r.id,
@@ -620,10 +660,11 @@ export async function loadRepertoireProgressSummaries(
 			color: r.color,
 			solved: Math.min(solvedCount, total),
 			total,
-			allSolved: total > 0 && Math.min(solvedCount, total) === total,
+			allSolved,
 			fullVariationCount,
 			excludedVariationCount: excluded.size,
-			hasChapters: r.has_chapters ?? backfilledHasChapters.get(r.id)!
+			hasChapters: r.has_chapters ?? backfilledHasChapters.get(r.id)!,
+			status
 		};
 	});
 

@@ -397,6 +397,7 @@
 	"repertoire_row_collapse_aria": "Collapse {name}",
 	"repertoire_row_status_learned": "Learned",
 	"repertoire_row_status_learning": "Learning",
+	"repertoire_row_status_mastered": "Mastered",
 	"repertoire_row_no_moves": "No moves yet",
 	"repertoire_row_progress": [
 		{

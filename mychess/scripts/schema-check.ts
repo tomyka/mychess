@@ -27,7 +27,8 @@ const PROBES: { migration: string; table: string; select: string }[] = [
   // has never existed in any migration (the real one is `cards_done`), and
   // neither checked the resulting error. See #103.
   { migration: '0059', table: 'sessions', select: 'id,player_id,repertoire_id,mode,cards_done,started_at' },
-  { migration: '0060', table: 'badges', select: 'id,name,description' }
+  { migration: '0060', table: 'badges', select: 'id,name,description' },
+  { migration: '0069', table: 'repertoires', select: 'id,chapter_count' }
 ];
 
 let failed = 0;

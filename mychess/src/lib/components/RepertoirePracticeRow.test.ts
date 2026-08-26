@@ -19,7 +19,8 @@ const baseRep = {
 	allSolved: false,
 	fullVariationCount: 2,
 	excludedVariationCount: 0,
-	hasChapters: true
+	hasChapters: true,
+	status: 'learning' as const
 };
 
 // Builds a realistic VariationStep[] with correctly alternating side-to-move
@@ -807,8 +808,8 @@ describe('RepertoirePracticeRow', () => {
 });
 
 describe('status chip', () => {
-	// Learning vs Learned is the visible half of #99's derived status. Mastered
-	// joins once #100 writes chapter-mastery records.
+	// Learning vs Learned is the visible half of #99's derived status; Mastered
+	// (#105) rides on top, from the server-cached chapter_count comparison.
 	it('reads Learning while variations remain un-learned', () => {
 		render(RepertoirePracticeRow, {
 			props: {
@@ -821,7 +822,8 @@ describe('status chip', () => {
 					allSolved: false,
 					fullVariationCount: 3,
 					excludedVariationCount: 0,
-					hasChapters: false
+					hasChapters: false,
+					status: 'learning'
 				}
 			}
 		});
@@ -829,7 +831,7 @@ describe('status chip', () => {
 		expect(screen.getByText('1/3 variations learned')).toBeTruthy();
 	});
 
-	it('reads Learned once every variation is learned', () => {
+	it('reads Learned once every variation is learned but the repertoire is not mastered', () => {
 		render(RepertoirePracticeRow, {
 			props: {
 				rep: {
@@ -841,11 +843,58 @@ describe('status chip', () => {
 					allSolved: true,
 					fullVariationCount: 3,
 					excludedVariationCount: 0,
-					hasChapters: false
+					hasChapters: false,
+					status: 'learned'
 				}
 			}
 		});
 		expect(screen.getByText('Learned')).toBeTruthy();
+	});
+
+	it('reads Mastered once every variation is learned and the server reports mastered', () => {
+		render(RepertoirePracticeRow, {
+			props: {
+				rep: {
+					id: 'r1',
+					name: 'French Defense',
+					color: 'white',
+					solved: 3,
+					total: 3,
+					allSolved: true,
+					fullVariationCount: 3,
+					excludedVariationCount: 0,
+					hasChapters: false,
+					status: 'mastered'
+				}
+			}
+		});
+		expect(screen.getByText('Mastered')).toBeTruthy();
+		expect(screen.queryByText('Learned')).toBeNull();
+	});
+
+	it('falls back to Learned when the server reports mastered but a live toggle has not yet caught up to all-solved', () => {
+		// rep.status is stale relative to a checkbox toggle that just made
+		// everything included solved again — trusting it here would show
+		// Mastered from data that predates the toggle, so Learning (not yet
+		// fully solved per the live count) or the safe Learned fallback wins.
+		render(RepertoirePracticeRow, {
+			props: {
+				rep: {
+					id: 'r1',
+					name: 'French Defense',
+					color: 'white',
+					solved: 2,
+					total: 3,
+					allSolved: false,
+					fullVariationCount: 3,
+					excludedVariationCount: 0,
+					hasChapters: false,
+					status: 'mastered'
+				}
+			}
+		});
+		expect(screen.getByText('Learning')).toBeTruthy();
+		expect(screen.queryByText('Mastered')).toBeNull();
 	});
 
 	it('shows no status chip for a repertoire with no moves', () => {
@@ -860,7 +909,8 @@ describe('status chip', () => {
 					allSolved: false,
 					fullVariationCount: 0,
 					excludedVariationCount: 0,
-					hasChapters: false
+					hasChapters: false,
+					status: 'learned'
 				}
 			}
 		});

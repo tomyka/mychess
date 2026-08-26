@@ -83,7 +83,8 @@ describe('RepertoirePracticeRow destination', () => {
 			allSolved: false,
 			fullVariationCount: 3,
 			excludedVariationCount: 0,
-			hasChapters: false
+			hasChapters: false,
+			status: 'learning' as const
 		};
 
 		const learn = render(Row, { props: { rep, mode: 'learn' } });

@@ -21,6 +21,12 @@
 		// chapters is now just as selectable as one with them, only skipping
 		// the chapter tier.
 		hasChapters: boolean;
+		// Server-computed via the cheap chapter_count comparison (GitHub issue
+		// #105) — only consulted for the mastered/not-mastered split once the
+		// live counts below already agree everything is solved (see
+		// `statusLabel`), since it can't react to a checkbox toggle the way
+		// `liveAllSolved` does.
+		status: 'learning' | 'learned' | 'mastered';
 	};
 
 	/**
@@ -63,16 +69,26 @@
 	);
 	const liveAllSolved = $derived(liveTotal > 0 && liveSolved === liveTotal);
 
-	// Learning vs Learned is exact from the counts this row already has.
-	// Mastered is deliberately absent until #100 writes chapter-mastery records:
-	// deciding it here would mean loading every repertoire's variations to work
-	// out its chapter list, and showing a status we can't yet compute would be
-	// worse than showing the one we can.
-	const statusLabel = $derived(liveAllSolved ? m.repertoire_row_status_learned() : m.repertoire_row_status_learning());
+	// Learning vs Learned is exact from the counts this row already has, so it
+	// updates live as checkboxes toggle. Mastered rides on top of that: it only
+	// ever shows once the live counts already agree everything is solved, and
+	// otherwise trusts the server's cached chapter-mastery comparison (#105) —
+	// a toggle can't earn or revoke a mastery run, so there's nothing live to
+	// compute there.
+	const statusLabel = $derived(
+		!liveAllSolved
+			? m.repertoire_row_status_learning()
+			: rep.status === 'mastered'
+				? m.repertoire_row_status_mastered()
+				: m.repertoire_row_status_learned()
+	);
+	const isMastered = $derived(liveAllSolved && rep.status === 'mastered');
 	const statusChipClass = $derived(
-		liveAllSolved
-			? 'border-[#6FCF73]/40 bg-[#6FCF73]/10 text-[#4b9e50] dark:text-[#6FCF73]'
-			: 'border-(--color-border) bg-(--color-bg) text-(--color-muted)'
+		isMastered
+			? 'border-[#E8B923]/40 bg-[#E8B923]/10 text-[#a4790f] dark:text-[#E8B923]'
+			: liveAllSolved
+				? 'border-[#6FCF73]/40 bg-[#6FCF73]/10 text-[#4b9e50] dark:text-[#6FCF73]'
+				: 'border-(--color-border) bg-(--color-bg) text-(--color-muted)'
 	);
 
 	async function toggleExpanded() {

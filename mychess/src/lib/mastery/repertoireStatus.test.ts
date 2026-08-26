@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
 	deriveRepertoireStatus,
+	deriveRepertoireStatusFromCounts,
 	fullyLearnedChapters,
 	isMasteryCurrent,
 	masterableChapters,
@@ -158,6 +159,38 @@ describe('deriveRepertoireStatus', () => {
 				learnedKeys: new Set(['a']),
 				currentlyMasteredChapters: new Set(['Open', 'Closed'])
 			})
+		).toBe('mastered');
+	});
+});
+
+describe('deriveRepertoireStatusFromCounts', () => {
+	it('is learning when not everything is learned, regardless of counts', () => {
+		expect(
+			deriveRepertoireStatusFromCounts({ allLearned: false, chapterCount: 2, currentlyMasteredChapterCount: 2 })
+		).toBe('learning');
+	});
+
+	it('is learned when everything is learned but the chapter count is not cached yet', () => {
+		expect(
+			deriveRepertoireStatusFromCounts({ allLearned: true, chapterCount: null, currentlyMasteredChapterCount: 0 })
+		).toBe('learned');
+	});
+
+	it('is learned for an empty repertoire (chapterCount 0), never mastered', () => {
+		expect(
+			deriveRepertoireStatusFromCounts({ allLearned: true, chapterCount: 0, currentlyMasteredChapterCount: 0 })
+		).toBe('learned');
+	});
+
+	it('is learned when everything is learned but only some chapters are currently mastered', () => {
+		expect(
+			deriveRepertoireStatusFromCounts({ allLearned: true, chapterCount: 3, currentlyMasteredChapterCount: 2 })
+		).toBe('learned');
+	});
+
+	it('is mastered once the current mastery count matches the cached chapter count', () => {
+		expect(
+			deriveRepertoireStatusFromCounts({ allLearned: true, chapterCount: 3, currentlyMasteredChapterCount: 3 })
 		).toBe('mastered');
 	});
 });

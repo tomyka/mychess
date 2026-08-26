@@ -52,6 +52,8 @@ describe('loadRepertoireProgressSummaries', () => {
 		exclusions?: ExclusionRecord[];
 		solved?: string[];
 		teaching?: TeachingRecord[];
+		/** This player's current `chapter_mastery` rows for r1 (GitHub issue #105). */
+		chapterMastery?: { moves_updated_at: string }[];
 		moves?: typeof MOVES;
 		/**
 		 * This player's `repertoire_reconciliation.reconciled_at` for r1. Defaults
@@ -89,6 +91,7 @@ describe('loadRepertoireProgressSummaries', () => {
 		const exclusions = (opts.exclusions ?? []).map((row) => ({ ...row }));
 		const solvedRows = (opts.solved ?? []).map((variation_key) => ({ repertoire_id: 'r1', variation_key }));
 		const teaching = (opts.teaching ?? []).map((row) => ({ ...row }));
+		const chapterMastery = (opts.chapterMastery ?? []).map((row) => ({ repertoire_id: 'r1', ...row }));
 		const reconciliationRows =
 			opts.reconciledAt === null
 				? []
@@ -241,6 +244,9 @@ describe('loadRepertoireProgressSummaries', () => {
 						}
 					};
 				}
+				if (table === 'chapter_mastery') {
+					return { select: () => paged(() => chapterMastery) };
+				}
 				if (table === 'variation_demotions') {
 					return {
 						insert: (rows: Record<string, unknown>[]) => {
@@ -314,6 +320,7 @@ describe('loadRepertoireProgressSummaries', () => {
 		color: 'white',
 		total_variations: 10,
 		has_chapters: false,
+		chapter_count: 1,
 		moves_updated_at: SHAPE_CHANGED
 	};
 
@@ -385,13 +392,13 @@ describe('loadRepertoireProgressSummaries', () => {
 		// no exclusions has vacuously "verified" exclusions, and an earlier draft
 		// of this therefore reported total 0 for every fresh import.
 		const { client, calls } = fakeSupabase({
-			repertoire: { ...cachedRepertoire, total_variations: null, has_chapters: null }
+			repertoire: { ...cachedRepertoire, total_variations: null, has_chapters: null, chapter_count: null }
 		});
 
 		const [summary] = await loadRepertoireProgressSummaries(client, USER);
 
 		expect(calls.moveFetches).toEqual([['r1']]);
-		expect(calls.repertoireUpdates).toEqual([{ total_variations: 2, has_chapters: false }]);
+		expect(calls.repertoireUpdates).toEqual([{ total_variations: 2, has_chapters: false, chapter_count: 1 }]);
 		expect(summary.total).toBe(2);
 		expect(summary.fullVariationCount).toBe(2);
 	});
@@ -595,5 +602,46 @@ describe('loadRepertoireProgressSummaries', () => {
 		expect(calls.deletedIds).toEqual([]);
 		expect(exclusions[0].variation_key).toBe('m1>m2>m4');
 		expect(summary.excludedVariationCount).toBe(1);
+	});
+
+	describe('status (GitHub issue #105)', () => {
+		it('is learning while anything is unsolved, regardless of chapter mastery', async () => {
+			const { client } = fakeSupabase({
+				repertoire: { ...cachedRepertoire, total_variations: 2 },
+				solved: ['m1>m2'],
+				chapterMastery: [{ moves_updated_at: SHAPE_CHANGED }]
+			});
+			const [summary] = await loadRepertoireProgressSummaries(client, USER);
+			expect(summary.status).toBe('learning');
+		});
+
+		it('is learned once everything is solved but no current chapter mastery exists', async () => {
+			const { client } = fakeSupabase({
+				repertoire: { ...cachedRepertoire, total_variations: 2 },
+				solved: ['m1>m2', 'm1>m3']
+			});
+			const [summary] = await loadRepertoireProgressSummaries(client, USER);
+			expect(summary.status).toBe('learned');
+		});
+
+		it('is mastered once everything is solved and the cached chapter count matches current mastery', async () => {
+			const { client } = fakeSupabase({
+				repertoire: { ...cachedRepertoire, total_variations: 2 },
+				solved: ['m1>m2', 'm1>m3'],
+				chapterMastery: [{ moves_updated_at: SHAPE_CHANGED }]
+			});
+			const [summary] = await loadRepertoireProgressSummaries(client, USER);
+			expect(summary.status).toBe('mastered');
+		});
+
+		it('drops from mastered back to learned when the mastery record is stale', async () => {
+			const { client } = fakeSupabase({
+				repertoire: { ...cachedRepertoire, total_variations: 2 },
+				solved: ['m1>m2', 'm1>m3'],
+				chapterMastery: [{ moves_updated_at: EPOCH }]
+			});
+			const [summary] = await loadRepertoireProgressSummaries(client, USER);
+			expect(summary.status).toBe('learned');
+		});
 	});
 });

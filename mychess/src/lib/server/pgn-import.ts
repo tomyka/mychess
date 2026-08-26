@@ -2,6 +2,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { planGameImport, type MoveRow } from '$lib/pgn-import';
 import { enumerateVariations, hasChapterTags, type RawMoveRow } from '$lib/mastery/variations';
+import { masterableChapters } from '$lib/mastery/repertoireStatus';
 import { fetchAllMoves, toRawMoveRows } from './practice-repertoire';
 import { fetchAllPages } from './paginate';
 
@@ -139,8 +140,10 @@ export async function writeMoves(
       // has real chapter tags to check — a single-chapter import, or
       // `importGames`'s "my games" auto-import), so this is always false
       // here. Written explicitly (not left null) so this repertoire never
-      // needs the lazy has_chapters backfill in `repertoire-progress.ts`.
+      // needs the lazy has_chapters/chapter_count backfill in
+      // `repertoire-progress.ts`.
       insertColumns.has_chapters = hasChapterTags(variations);
+      insertColumns.chapter_count = masterableChapters(variations).length;
     }
 
     const { data: rep, error: repErr } = await supabase.from('repertoires').insert(insertColumns).select().single();
@@ -319,7 +322,8 @@ export async function writeMoves(
       .from('repertoires')
       .update({
         total_variations: variations.length,
-        has_chapters: hasChapterTags(variations)
+        has_chapters: hasChapterTags(variations),
+        chapter_count: masterableChapters(variations).length
       })
       .eq('id', repId);
     // Non-fatal, mirroring `repertoire-progress.ts`'s own backfill error

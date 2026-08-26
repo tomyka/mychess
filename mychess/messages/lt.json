@@ -427,6 +427,7 @@
 	"repertoire_row_collapse_aria": "Suskleisti {name}",
 	"repertoire_row_status_learned": "Išmokta",
 	"repertoire_row_status_learning": "Mokomasi",
+	"repertoire_row_status_mastered": "Įvaldyta",
 	"repertoire_row_no_moves": "Kol kas nėra ėjimų",
 	"repertoire_row_progress": [
 		{
