@@ -1424,6 +1424,46 @@ EOF
 
 ---
 
+### Task 10: Fix exclusion-blocking and redefine "complete" as a chapter's own ceiling
+
+**Post-Task-9 amendment.** A final holistic review across the whole feature diff (Tasks 1-9) found two real issues that no single-task review had the cross-file context to catch:
+
+1. **Exclusions don't actually block the ladder in practice — every real caller pre-filters them out.** The design's whole "no exclusion parameter needed" argument for `deriveChapterLevel` (see the design doc and Task 1) rests on an excluded variation still being present in the array passed in, just absent from `solvedKeys` — that's what makes its bracket fail `.every(...)` and block. But `repertoire-status-counts.ts` (Task 3), `coach-progress.ts` (Task 8), `mastery/+page.server.ts` (Task 7), and `practice-progress.ts`'s new `cachePlatinumChaptersReached` (Task 6, via `/api/practice/attempt/+server.ts`'s existing `loadFilteredRepertoireVariations` call) all load variations through `loadFilteredRepertoireVariations`, which calls `filterVariations` and removes excluded variations from the array **entirely** before `deriveChapterLevel` ever sees them. An excluded, never-solved variation's tier bracket becomes smaller (or vacuously empty) instead of "present but unsolved" — so a chapter can sail past an excluded variation's tier instead of being blocked by it, contradicting the confirmed design decision (grilling round 2, "Q2 - yes strict version").
+
+2. **"Mastered" as literally "every chapter reads `'platinum'`" makes it unreachable for any repertoire with a short chapter.** Per the confirmed vacuous-ceiling rule (grilling round 2, Q6), a chapter with nothing past move 18 can never read higher than `'silver'` — by design. But `deriveRepertoireStatus`'s `mastered` branch (Task 2) and the `chapter_platinum` cache (Task 6) both require a chapter's level to literally equal `'platinum'`, so a repertoire with even one short chapter can now never be "Mastered," regardless of how thoroughly solved — a real behavior regression versus the old `chapter_mastery` mechanic, which any chapter could earn regardless of length. **Resolved per explicit product decision**: "mastered"/"completed" now means a chapter has reached its own *ceiling* (the highest tier it has any content in), not literally Platinum.
+
+**Files:**
+- Modify: `mychess/src/lib/mastery/chapterLevels.ts` + test
+- Modify: `mychess/src/lib/mastery/repertoireStatus.ts` + test
+- Modify: `mychess/src/lib/server/repertoire-status-counts.ts`
+- Modify: `mychess/src/lib/server/practice-progress.ts` + test
+- Modify: `mychess/src/lib/server/repertoire-progress.ts` + test
+- Modify: `mychess/src/routes/api/practice/attempt/+server.ts`
+- Modify: `mychess/src/routes/(player)/practice/[repertoire_id]/mastery/+page.server.ts`
+- Modify: `mychess/src/lib/server/coach-progress.ts`
+- Modify: `mychess/supabase/migrations/0071_chapter_platinum.sql` (edit in place — rename table to `chapter_completed`; safe since it was never applied to production, per Task 5's own hand-off note)
+
+**Design for the fix:**
+
+- Add two new pure exports to `chapterLevels.ts`:
+  - `chapterCeiling(variationsInChapter): Tier | null` — the highest tier the chapter has ANY variation in (via the existing `TIER_RANK`).
+  - `isChapterComplete(variationsInChapter, solvedKeys): boolean` — `deriveChapterLevel(...) === chapterCeiling(...)` (both non-null). This is the new "mastered"/"completed" predicate, replacing every `=== 'platinum'` check.
+- `deriveRepertoireStatus`'s parameter renames `platinumChapters` → `completedChapters` (same shape, new meaning: chapters where `isChapterComplete` is true, not literally platinum).
+- Every one of the four consumers that currently calls `loadFilteredRepertoireVariations` for chapter/tier computation must switch to `loadRepertoireVariations` (the **unfiltered** variant, which also returns `excludedVariationKeys`) for that specific computation — while any OTHER purpose that file already had for `variations` (the "learned" flat-status check, sequencing which variation to serve next, etc.) keeps using the **filtered** set exactly as before. Two of the four (`mastery/+page.server.ts`, `coach-progress.ts`) have no other purpose for `variations` at all, so they can switch entirely. The other two (`repertoire-status-counts.ts`, and `practice-progress.ts`/`/api/practice/attempt/+server.ts`) need BOTH: fetch unfiltered once, derive the filtered set locally via `filterVariations` for their existing logic, and use the unfiltered set only for the new chapter/tier/completeness computation.
+- `practice-progress.ts`'s `applyAttemptResult` currently only receives the filtered `variations` from its one caller. It needs access to the unfiltered set too, for the platinum/completed-chapter cache write. Thread this through however is cleanest given the function's existing signature and its ~9 existing test call sites in `practice-progress.test.ts` — an implementer's judgment call, not dictated here; a new optional parameter defaulting sensibly (e.g. to the same array, for callers/tests that don't care about exclusions) is one reasonable shape.
+- Rename `cachePlatinumChaptersReached` → something reflecting "completed" (e.g. `cacheCompletedChaptersReached`), writing to the renamed `chapter_completed` table, gated on `isChapterComplete(...)` rather than `deriveChapterLevel(...) === 'platinum'`.
+- `repertoire-progress.ts`'s read/clear of the cache table follows the rename (`chapter_platinum` → `chapter_completed`) but keeps its exact existing lifecycle (earn at attempt-completion, sticky, cleared only by reconciliation, clear-before-summaries ordering from the earlier fix) — no behavior change there beyond the rename and what feeds it.
+- Edit `supabase/migrations/0071_chapter_platinum.sql` **in place** (don't add a new migration number) to rename the table, its index, its policies, and its grants from `chapter_platinum` to `chapter_completed` — safe because Task 5's own hand-off note means this migration has not yet been run against production.
+
+**Testing requirements:**
+- `chapterLevels.test.ts`: cover `chapterCeiling` (a chapter with only short lines has a low ceiling; an empty chapter has a null ceiling) and `isChapterComplete` (a short chapter fully solved is complete; a chapter with unsolved content at its own ceiling is not; a chapter with an excluded-and-unsolved variation is not complete even if everything else is solved — this last case is the regression test for issue #1 above).
+- Add the exclusion-blocks-completion scenario at the integration level too, in at least one of `repertoire-status-counts.ts`'s or `practice-progress.ts`'s test coverage (whichever is more natural given the final signature shape) — this was explicitly called out as a coverage gap with zero existing tests.
+- Update `repertoireStatus.test.ts` for the `completedChapters` rename (mechanical — same pattern as Task 2's own rename).
+
+**Verification:** `npm test`, `npm run check`, `npm run lint` — all zero errors, matching every prior task's bar.
+
+---
+
 ## After this plan
 
-Per the standing project convention, once this feature is merged: run `mp-code-review` against the diff since this feature's starting commit, and — since this adds a new user-facing capability (the knowledge-level ladder) — run `improve-codebase-architecture` scoped to `chapterLevels.ts` plus everything it touched. Remind the user to run migration `0069_drop_chapter_mastery.sql` manually (Supabase Dashboard SQL editor or `migrate.yml`) and confirm before closing GitHub issue #160.
+Per the standing project convention, once this feature is merged: run `mp-code-review` against the diff since this feature's starting commit, and — since this adds a new user-facing capability (the knowledge-level ladder) — run `improve-codebase-architecture` scoped to `chapterLevels.ts` plus everything it touched (including the duplication the final holistic review flagged: the `masterableChapters`/`rowsInChapterTier`/`deriveChapterLevel` pipeline is now inlined in four places, and `LEVEL_LABEL`/`LEVEL_BADGE_CLASS` in two — both explicitly deferred to this pass rather than fixed piecemeal). Also worth a documentation note (no code change) that Proposed Solution #4 in the design doc — reordering `variationSequence.ts`'s automatic sequence by tier — was deliberately dropped after further review of the actual Learn/Practice architecture and the user's own "leave learning as-is" clarification; the design doc's Acceptance Criteria section still describes it and should be amended for consistency, the way the #105 conflict was amended. Remind the user to run migrations `0070_drop_chapter_mastery.sql` and `0071_chapter_platinum.sql` (as amended by Task 10 to create `chapter_completed`, not `chapter_platinum`) manually (Supabase Dashboard SQL editor or `migrate.yml`) and confirm before closing GitHub issue #160.
