@@ -7,18 +7,20 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadRepertoireProgressSummaries, type RepertoireProgressSummary } from './repertoire-progress';
 import { loadFilteredRepertoireVariations } from './practice-repertoire';
 import { loadSolvedKeys } from './practice-progress';
-import { loadChapterMastery } from './mastery';
-import { deriveRepertoireStatus, isMasteryCurrent } from '$lib/mastery/repertoireStatus';
+import { deriveRepertoireStatus, masterableChapters } from '$lib/mastery/repertoireStatus';
+import { rowsInChapterTier } from '$lib/mastery/variations';
+import { deriveChapterLevel } from '$lib/mastery/chapterLevels';
 
 /**
  * Counts Learned and Mastered repertoires for one player.
  *
  * The Learned count comes from the cached summaries the repertoire list already
  * uses, so it costs nothing extra. Mastered needs each repertoire's chapter
- * list, which means enumerating its variations — but only a repertoire that is
- * ALREADY fully learned can possibly be mastered, so the expensive check runs
- * over that subset alone. For every player who hasn't finished a repertoire yet
- * (the normal case) it does no extra work at all.
+ * list plus every variation's `playerMoveCount` (to derive each chapter's
+ * knowledge level), which means enumerating its variations — but only a
+ * repertoire that is ALREADY fully learned can possibly be mastered, so the
+ * expensive check runs over that subset alone. For every player who hasn't
+ * finished a repertoire yet (the normal case) it does no extra work at all.
  *
  * `summaries`, when passed, is used as-is instead of calling
  * `loadRepertoireProgressSummaries` again — the badge sync that runs inside
@@ -38,17 +40,16 @@ export async function countRepertoireStatuses(
 	const statuses = await Promise.all(
 		fullyLearned.map(async (summary) => {
 			try {
-				const [{ repertoire, variations }, learnedKeys, masteryRecords] = await Promise.all([
+				const [{ variations }, learnedKeys] = await Promise.all([
 					loadFilteredRepertoireVariations(supabase, playerId, summary.id),
-					loadSolvedKeys(supabase, playerId, summary.id),
-					loadChapterMastery(supabase, playerId, summary.id)
+					loadSolvedKeys(supabase, playerId, summary.id)
 				]);
-				const currentlyMasteredChapters = new Set(
-					masteryRecords
-						.filter((r) => isMasteryCurrent(r.movesUpdatedAt, repertoire.movesUpdatedAt))
-						.map((r) => r.chapterName)
+				const platinumChapters = new Set(
+					masterableChapters(variations).filter(
+						(chapter) => deriveChapterLevel(rowsInChapterTier(variations, chapter), learnedKeys) === 'platinum'
+					)
 				);
-				return deriveRepertoireStatus({ variations, learnedKeys, currentlyMasteredChapters });
+				return deriveRepertoireStatus({ variations, learnedKeys, platinumChapters });
 			} catch (err) {
 				// A badge count is not worth failing the request that triggered it.
 				// Logged rather than swallowed so a persistent failure is visible.
