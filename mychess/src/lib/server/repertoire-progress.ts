@@ -13,7 +13,6 @@ import { isApplyInFlight, needsReconciliation, reconcilePlayerProgress } from '.
 import { grantNewBadges } from '$lib/badges/grant';
 import {
 	deriveRepertoireStatusFromCounts,
-	isMasteryCurrent,
 	masterableChapters,
 	type RepertoireStatus
 } from '$lib/mastery/repertoireStatus';
@@ -63,7 +62,7 @@ async function fetchAllMoves(supabase: SupabaseClient, repIds: string[]): Promis
 // keys (solved lines looked unsolved).
 async function fetchRowsByRepertoire<T extends { repertoire_id: string }>(
 	supabase: SupabaseClient,
-	table: 'variation_practice_exclusions' | 'variation_solved' | 'chapter_mastery',
+	table: 'variation_practice_exclusions' | 'variation_solved' | 'chapter_completed',
 	playerId: string,
 	repIds: string[],
 	columns: string,
@@ -360,7 +359,7 @@ export async function loadRepertoireProgressSummaries(
 	// The reconciliation stamps ride along in the same round trip as the two
 	// progress reads, so the reconciliation check below costs no added latency —
 	// only one extra query, and only ever one (see `fetchReconciledAt`).
-	const [exclusionRowsByRep, solvedRowsByRep, chapterMasteryRowsByRep, reconciledAtByRep] = await Promise.all([
+	const [exclusionRowsByRep, solvedRowsByRep, chapterCompletedRowsByRep, reconciledAtByRep] = await Promise.all([
 		fetchRowsByRepertoire<ExclusionRecord>(
 			supabase,
 			'variation_practice_exclusions',
@@ -376,14 +375,16 @@ export async function loadRepertoireProgressSummaries(
 			'repertoire_id, variation_key'
 		),
 		// Cheap (indexed, bounded by chapter count — no variation enumeration):
-		// GitHub issue #105's Mastered badge on the list, via
-		// `deriveRepertoireStatusFromCounts` further down.
-		fetchRowsByRepertoire<{ repertoire_id: string; moves_updated_at: string }>(
+		// the repertoire list's Mastered badge (originally #105, now sourced
+		// from the knowledge-levels ladder's sticky cache — see
+		// chapter_completed, migration 0071), via `deriveRepertoireStatusFromCounts`
+		// further down.
+		fetchRowsByRepertoire<{ repertoire_id: string }>(
 			supabase,
-			'chapter_mastery',
+			'chapter_completed',
 			userId,
 			repIds,
-			'repertoire_id, moves_updated_at',
+			'repertoire_id',
 			'repertoire_id'
 		),
 		fetchReconciledAt(supabase, userId, repIds)
@@ -577,6 +578,38 @@ export async function loadRepertoireProgressSummaries(
 		})
 	);
 
+	// `chapterCompletedRowsByRep` was filled at the top of this load too, for the
+	// same reason `solvedByRep` above needed a re-read: `needsReconciliation`
+	// triggers off `moves_updated_at` alone, which a DB trigger bumps on ANY
+	// write to a repertoire's moves — including a coach edit that demotes
+	// nothing at all for this player. Left unhandled, the pre-reconcile count
+	// (possibly already equal to `chapterCount`) would feed `summaries` below
+	// and could render `mastered` on this exact load, only for the unconditional
+	// clear a few lines down to wipe it — surfacing as an unexplained drop to
+	// `learned` on the very next load, with no real change in this player's
+	// mastery. So the clear must happen, and the in-memory map must be
+	// corrected, BEFORE `summaries` is computed — not after, alongside
+	// `grantNewBadges`, which is too late for this one load.
+	//
+	// Only clear the in-memory map when the delete actually succeeded: a failed
+	// delete leaves the real rows in the database untouched, and reporting an
+	// empty count in that case would be wrong in a NEW way (too low, against
+	// what the database still holds) rather than merely stale.
+	if (reconciledIds.size > 0) {
+		const { error } = await supabase
+			.from('chapter_completed')
+			.delete()
+			.eq('player_id', userId)
+			.in('repertoire_id', [...reconciledIds]);
+		if (error) {
+			console.error(`Failed to clear chapter_completed after reconciliation for player ${userId}:`, error.message);
+		} else {
+			for (const repId of reconciledIds) {
+				chapterCompletedRowsByRep.set(repId, []);
+			}
+		}
+	}
+
 	// Freshly enumerated repertoires: their exclusion rows can be reconciled
 	// against the live key set now, so the next load for this player takes the
 	// subtraction path instead of fetching every move again. Keyed by repertoire
@@ -684,9 +717,7 @@ export async function loadRepertoireProgressSummaries(
 		// can't read as mastered until it does, same as an unresolved
 		// `total_variations` falls back to `fullVariationCount` above.
 		const chapterCount: number | null = r.chapter_count ?? backfilledChapterCounts.get(r.id) ?? null;
-		const currentlyMasteredChapterCount = (chapterMasteryRowsByRep.get(r.id) ?? []).filter((row) =>
-			isMasteryCurrent(row.moves_updated_at, r.moves_updated_at ?? null)
-		).length;
+		const currentlyMasteredChapterCount = (chapterCompletedRowsByRep.get(r.id) ?? []).length;
 		const status = deriveRepertoireStatusFromCounts({ allLearned: allSolved, chapterCount, currentlyMasteredChapterCount });
 
 		return {

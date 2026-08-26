@@ -189,7 +189,7 @@
 	"practice_list_empty_ready_suffix": " ir jis atsiras čia.",
 	"seo_practice_repertoire_title": "Praktika {name} — MyChess",
 	"practice_all_repertoires_link": "← Visi repertuarai",
-	"practice_mastery_link": "Meistriškumas",
+	"practice_levels_link": "Lygiai",
 	"practice_learn_mode_link": "Mokymosi režimas",
 	"practice_empty_nothing_learned_title": "Kol kas nieko neišmokta",
 	"practice_empty_nothing_learned_body": "Praktika kartoja jau žinomus variantus. Pirmiausia išmokite variantą skiltyje Mokytis — du kartus be klaidų su para pertraukos — ir jis atsiras čia.",
@@ -264,28 +264,19 @@
 	"practice_keyboard_hint": "← → žingsnis · ↑ pradžia · ↓ dabartinė padėtis",
 	"practice_explore_next_line": "Kitas variantas",
 	"practice_explore_see_why": "Pažiūrėti kodėl",
-	"seo_practice_mastery_title": "Meistriškumas · {name} — MyChess",
-	"practice_mastery_back_link": "← Praktika",
-	"practice_mastery_page_heading": "Meistriškumas · {name}",
-	"practice_mastery_all_title": "Repertuaras įvaldytas",
-	"practice_mastery_all_body": "Visi skyriai sužaisti savarankiškai. Vėliau pridėta nauja medžiaga turės būti įvaldyta iš naujo.",
-	"practice_mastery_intro": "Meistriškumo bandymas sužaidžia visus išmoktus skyriaus variantus vieną po kito — be rodyklių, be užuominų. Viena klaida baigia bandymą, ir tą skyrių pradedate iš naujo. Nesėkmė nieko neišmokina atgal — medžiaga išlieka išmokta.",
-	"practice_mastery_empty_prefix": "Kol kas nėra ko įvaldyti. ",
-	"practice_mastery_empty_link": "Pirmiausia išmokite kelis variantus",
-	"practice_mastery_chapter_progress": "{learned}/{total} išmokta",
-	"practice_mastery_finish_to_unlock": "baikite mokytis, kad atrakintumėte",
-	"practice_mastery_badge_mastered": "Įvaldyta",
-	"practice_mastery_run_again": "Bandyti dar kartą",
-	"practice_mastery_start_run": "Pradėti bandymą",
-	"practice_mastery_failed_title": "Bandymas baigtas",
-	"practice_mastery_failed_body": "Tai nebuvo teisingas ėjimas, todėl bandymas čia baigiasi — {chapter} kol kas neįvaldytas. Nieko neišmokote atgal — šis variantas tebėra jūsų praktikuotis.",
-	"practice_mastery_restart_button": "Pradėti skyrių iš naujo",
-	"practice_mastery_back_to_chapters": "Atgal į skyrius",
-	"practice_mastery_passed_title": "{chapter} įvaldytas",
-	"practice_mastery_passed_body": "Visi skyriaus variantai, savarankiškai, per vieną sesiją.",
-	"practice_mastery_save_error": "Bandymas baigtas, bet nepavyko jo išsaugoti. Pabandykite šį skyrių vėliau.",
-	"practice_mastery_line_label": "Variantas {progress}",
-	"practice_mastery_abandon_button": "Atsisakyti",
+	"seo_practice_levels_title": "Lygiai · {name} — MyChess",
+	"practice_levels_back_link": "← Praktika",
+	"practice_levels_page_heading": "Lygiai · {name}",
+	"practice_levels_intro": "Skyriai kyla lygiais automatiškai, kai jų variantai išsprendžiami praktikuojant — pirmiausia Bronza, tada Sidabras, Auksas ir Platina. Nereikia jokio bandymo ar tvarkaraščio.",
+	"practice_levels_empty_prefix": "Kol kas nėra ką vertinti. ",
+	"practice_levels_empty_link": "Pirmiausia išmokite kelis variantus",
+	"practice_levels_chapter_progress": "{learned}/{total} išmokta",
+	"practice_levels_repertoire_summary_prefix": "Bendras lygis:",
+	"level_bronze": "Bronza",
+	"level_silver": "Sidabras",
+	"level_gold": "Auksas",
+	"level_platinum": "Platina",
+	"level_none": "Neįvertinta",
 	"practice_coach_update_notice": [
 		{
 			"declarations": ["input lineCount", "local lineCountPlural = lineCount: plural"],
@@ -1099,30 +1090,7 @@
 	"coach_player_progress_no_moves": "kol kas nėra ėjimų",
 	"coach_player_status_learned": "Išmokta",
 	"coach_player_status_learning": "Mokomasi",
-	"coach_player_chapters_mastered": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "{count} skyrius įvaldytas",
-				"countPlural=few": "{count} skyriai įvaldyti",
-				"countPlural=many": "{count} skyrių įvaldyta",
-				"countPlural=other": "{count} skyrių įvaldyta"
-			}
-		}
-	],
-	"coach_player_chapters_stale": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "{count} skyrius reikalauja pakartotinio įvaldymo dėl naujos medžiagos",
-				"countPlural=few": "{count} skyriai reikalauja pakartotinio įvaldymo dėl naujos medžiagos",
-				"countPlural=many": "{count} skyrių reikalauja pakartotinio įvaldymo dėl naujos medžiagos",
-				"countPlural=other": "{count} skyrių reikalauja pakartotinio įvaldymo dėl naujos medžiagos"
-			}
-		}
-	],
+	"coach_player_level_prefix": "Lygis:",
 	"coach_player_demotions": [
 		{
 			"declarations": ["input count", "local countPlural = count: plural"],

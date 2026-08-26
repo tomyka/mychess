@@ -213,7 +213,7 @@
 			href="/practice/{data.repertoire?.id}/mastery"
 			class="text-xs font-semibold text-(--color-accent) border border-(--color-border) rounded-lg px-2 py-1 hover:bg-(--color-border)/40"
 		>
-			{m.practice_mastery_link()}
+			{m.practice_levels_link()}
 		</a>
 		<a
 			href="/learn/{data.repertoire?.id}"

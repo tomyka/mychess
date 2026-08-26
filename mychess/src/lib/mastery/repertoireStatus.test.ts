@@ -3,7 +3,6 @@ import {
 	deriveRepertoireStatus,
 	deriveRepertoireStatusFromCounts,
 	fullyLearnedChapters,
-	isMasteryCurrent,
 	masterableChapters,
 	type RepertoireStatus
 } from './repertoireStatus';
@@ -14,30 +13,6 @@ const v = (variationKey: string, chapterNames: string[] = []) => ({ variationKey
 
 const status = (args: Parameters<typeof deriveRepertoireStatus>[0]): RepertoireStatus =>
 	deriveRepertoireStatus(args);
-
-describe('isMasteryCurrent', () => {
-	const EARNED = '2026-08-20T10:00:00.000Z';
-
-	it('is current when the repertoire has not changed since mastery was earned', () => {
-		expect(isMasteryCurrent(EARNED, EARNED)).toBe(true);
-	});
-
-	it('is stale once the repertoire\'s moves change', () => {
-		expect(isMasteryCurrent(EARNED, '2026-08-21T09:00:00.000Z')).toBe(false);
-	});
-
-	// Defensive: a record stamped after the repertoire's own timestamp can only
-	// come from clock skew or a re-read, and treating it as stale would revoke
-	// mastery nobody invalidated.
-	it('is current when the record is somehow newer than the repertoire', () => {
-		expect(isMasteryCurrent('2026-08-22T00:00:00.000Z', EARNED)).toBe(true);
-	});
-
-	it('is never current when either timestamp is missing', () => {
-		expect(isMasteryCurrent(null, EARNED)).toBe(false);
-		expect(isMasteryCurrent(EARNED, null)).toBe(false);
-	});
-});
 
 describe('masterableChapters', () => {
 	it('lists each chapter once, in first-appearance order', () => {
@@ -66,74 +41,66 @@ describe('deriveRepertoireStatus', () => {
 	const three = [v('a', ['Open']), v('b', ['Open']), v('c', ['Closed'])];
 
 	it('is learning while any variation is un-learned', () => {
-		expect(status({ variations: three, learnedKeys: new Set(['a']), currentlyMasteredChapters: new Set() })).toBe(
+		expect(status({ variations: three, learnedKeys: new Set(['a']), completedChapters: new Set() })).toBe(
 			'learning'
 		);
 	});
 
-	it('is learned once every variation is learned but no chapter is mastered', () => {
+	it('is learned once every variation is learned but no chapter is complete', () => {
 		expect(
-			status({ variations: three, learnedKeys: new Set(['a', 'b', 'c']), currentlyMasteredChapters: new Set() })
+			status({ variations: three, learnedKeys: new Set(['a', 'b', 'c']), completedChapters: new Set() })
 		).toBe('learned');
 	});
 
-	it('is still learned when only some chapters are mastered', () => {
+	it('is still learned when only some chapters are complete', () => {
 		expect(
 			status({
 				variations: three,
 				learnedKeys: new Set(['a', 'b', 'c']),
-				currentlyMasteredChapters: new Set(['Open'])
+				completedChapters: new Set(['Open'])
 			})
 		).toBe('learned');
 	});
 
-	it('is mastered once every chapter holds current mastery', () => {
+	it('is mastered once every chapter is complete', () => {
 		expect(
 			status({
 				variations: three,
 				learnedKeys: new Set(['a', 'b', 'c']),
-				currentlyMasteredChapters: new Set(['Open', 'Closed'])
+				completedChapters: new Set(['Open', 'Closed'])
 			})
 		).toBe('mastered');
 	});
 
-	// The growth rule: new material drops the status, and the caller has already
-	// filtered stale mastery out of `currentlyMasteredChapters`.
-	it('drops back to learning when new un-learned material arrives, even with chapter mastery held', () => {
+	it('drops back to learning when new un-learned material arrives, even with every chapter complete', () => {
 		expect(
 			status({
 				variations: [...three, v('d', ['Sharp'])],
 				learnedKeys: new Set(['a', 'b', 'c']),
-				currentlyMasteredChapters: new Set(['Open', 'Closed'])
+				completedChapters: new Set(['Open', 'Closed'])
 			})
 		).toBe('learning');
 	});
 
-	it('drops from mastered to learned when a chapter\'s mastery goes stale', () => {
+	it('drops from mastered to learned when a chapter falls out of complete', () => {
 		const learned = new Set(['a', 'b', 'c']);
-		expect(status({ variations: three, learnedKeys: learned, currentlyMasteredChapters: new Set(['Open', 'Closed']) })).toBe(
+		expect(status({ variations: three, learnedKeys: learned, completedChapters: new Set(['Open', 'Closed']) })).toBe(
 			'mastered'
 		);
-		expect(status({ variations: three, learnedKeys: learned, currentlyMasteredChapters: new Set(['Open']) })).toBe(
+		expect(status({ variations: three, learnedKeys: learned, completedChapters: new Set(['Open']) })).toBe(
 			'learned'
 		);
 	});
 
-	// Excluded lines are dropped before this function is called (the loader
-	// already filters them), so the contract is simply: whatever you pass in is
-	// the repertoire's scope. This pins that an excluded-away un-learned line
-	// cannot hold a repertoire at 'learning'.
 	it('ignores variations the caller has excluded from scope', () => {
 		const inScope = three.filter((x) => x.variationKey !== 'c');
-		expect(status({ variations: inScope, learnedKeys: new Set(['a', 'b']), currentlyMasteredChapters: new Set(['Open']) })).toBe(
+		expect(status({ variations: inScope, learnedKeys: new Set(['a', 'b']), completedChapters: new Set(['Open']) })).toBe(
 			'mastered'
 		);
 	});
 
-	// Matches the existing `allSolved = solved === total` convention, which is
-	// already vacuously true for an empty repertoire.
 	it('treats an empty repertoire as vacuously learned, never mastered', () => {
-		expect(status({ variations: [], learnedKeys: new Set(), currentlyMasteredChapters: new Set() })).toBe('learned');
+		expect(status({ variations: [], learnedKeys: new Set(), completedChapters: new Set() })).toBe('learned');
 	});
 
 	it('masters a wholly untagged repertoire through its implicit chapter', () => {
@@ -141,23 +108,21 @@ describe('deriveRepertoireStatus', () => {
 			status({
 				variations: [v('a'), v('b')],
 				learnedKeys: new Set(['a', 'b']),
-				currentlyMasteredChapters: new Set([UNTAGGED_CHAPTER])
+				completedChapters: new Set([UNTAGGED_CHAPTER])
 			})
 		).toBe('mastered');
 	});
 
-	// A line cross-referenced by two chapters belongs to both, so both must be
-	// mastered before the repertoire is.
-	it('requires every chapter of a shared line to be mastered', () => {
+	it('requires every chapter of a shared line to be complete', () => {
 		const shared = [v('a', ['Open', 'Closed'])];
 		expect(
-			status({ variations: shared, learnedKeys: new Set(['a']), currentlyMasteredChapters: new Set(['Open']) })
+			status({ variations: shared, learnedKeys: new Set(['a']), completedChapters: new Set(['Open']) })
 		).toBe('learned');
 		expect(
 			status({
 				variations: shared,
 				learnedKeys: new Set(['a']),
-				currentlyMasteredChapters: new Set(['Open', 'Closed'])
+				completedChapters: new Set(['Open', 'Closed'])
 			})
 		).toBe('mastered');
 	});

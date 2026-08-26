@@ -4,6 +4,9 @@ import type { Variation } from '$lib/mastery/variations';
 import { pickActiveVariation, advanceIfSolved } from '$lib/mastery/variationSequence';
 import { advanceTeachingProgress, knownProgressFor } from '$lib/mastery/teaching';
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
+import { masterableChapters } from '$lib/mastery/repertoireStatus';
+import { isInChapterTier, rowsInChapterTier } from '$lib/mastery/variations';
+import { isChapterComplete } from '$lib/mastery/chapterLevels';
 
 /**
  * This player's full solved-variation-key set for one repertoire.
@@ -114,6 +117,49 @@ export async function markVariationSolved(
 			{ player_id: playerId, repertoire_id: repertoireId, variation_key: variationKey },
 			{ onConflict: 'player_id,variation_key_hash', ignoreDuplicates: true }
 		);
+}
+
+/**
+ * Writes a `chapter_completed` cache row for every chapter `variation` belongs
+ * to that has just newly reached its own ceiling (see `isChapterComplete`),
+ * given the up-to-date `solvedKeys` (read AFTER this attempt's
+ * `variation_solved` write).
+ *
+ * `allVariations` MUST be the UNFILTERED variation set (excluded variations
+ * included) — `isChapterComplete` only blocks correctly on an excluded,
+ * never-solved variation if it's still present in the array (see that
+ * function's doc comment). Passing the filtered set here would silently
+ * un-cap a chapter an excluded line should still be blocking.
+ *
+ * Idempotent (safe to call even when the chapter was already complete) and
+ * best-effort: this cache only backs the repertoire list's decorative
+ * "Mastered" badge, never the authoritative Levels page or badge counts (both
+ * derive fresh from `variation_solved` directly, with no cache) — so a failed
+ * write here must not fail the attempt it's piggybacking on.
+ */
+async function cacheCompletedChaptersReached(
+	supabase: SupabaseClient,
+	playerId: string,
+	repertoireId: string,
+	variation: Variation,
+	allVariations: Variation[],
+	solvedKeys: ReadonlySet<string>
+): Promise<void> {
+	const chapters = masterableChapters(allVariations).filter((chapter) => isInChapterTier(variation, chapter));
+	const completedChapters = chapters.filter((chapter) =>
+		isChapterComplete(rowsInChapterTier(allVariations, chapter), solvedKeys)
+	);
+	if (completedChapters.length === 0) return;
+
+	const { error } = await supabase
+		.from('chapter_completed')
+		.upsert(
+			completedChapters.map((chapterName) => ({ player_id: playerId, repertoire_id: repertoireId, chapter_name: chapterName })),
+			{ onConflict: 'player_id,repertoire_id,chapter_name', ignoreDuplicates: true }
+		);
+	if (error) {
+		console.error(`cacheCompletedChaptersReached: failed to write for repertoire ${repertoireId}:`, error.message);
+	}
 }
 
 /**
@@ -277,6 +323,17 @@ export async function loadSyncedActiveVariationKey(
  * was providing already exists downstream — `demoteVariation` (Practice pool)
  * sends a learned variation straight back to Learn the moment it's failed or
  * hinted, so a lucky one-off pass doesn't get to sit in Practice unchecked.
+ *
+ * `variations` is this player's PRACTICEABLE (filtered) set — used for
+ * everything above: finding the served variation, teaching-progress credit,
+ * and picking the next variation to serve. `allVariations`, defaulting to
+ * `variations` itself, is the UNFILTERED set, used only for the
+ * completed-chapters cache write at the end (`cacheCompletedChaptersReached`)
+ * — that computation needs excluded variations still present to correctly
+ * block a chapter's completion on them (see `isChapterComplete`'s doc
+ * comment). The default keeps every existing caller/test that doesn't care
+ * about exclusions unchanged; the one real caller with exclusions to worry
+ * about (`/api/practice/attempt`) passes both sets explicitly.
  */
 export async function applyAttemptResult(
 	supabase: SupabaseClient,
@@ -285,7 +342,8 @@ export async function applyAttemptResult(
 	variationKey: string,
 	hadMistake: boolean,
 	variations: Variation[],
-	resumedAfterBreak: boolean = false
+	resumedAfterBreak: boolean = false,
+	allVariations: Variation[] = variations
 ): Promise<void> {
 	if (hadMistake) return;
 
@@ -311,4 +369,7 @@ export async function applyAttemptResult(
 	const solvedKeys = await loadSolvedKeys(supabase, playerId, repertoireId);
 	const next = advanceIfSolved(variationKey, variations, solvedKeys);
 	await setActiveVariationKey(supabase, playerId, repertoireId, next);
+	if (variation) {
+		await cacheCompletedChaptersReached(supabase, playerId, repertoireId, variation, allVariations, solvedKeys);
+	}
 }

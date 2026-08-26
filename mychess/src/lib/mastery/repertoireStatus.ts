@@ -1,12 +1,14 @@
 // mychess/src/lib/mastery/repertoireStatus.ts
 //
 // A repertoire's status, DERIVED — never stored as a mutable flag.
-// Story #99 of epic #95.
+// Story #99 of epic #95; `mastered` redefined per the knowledge-levels
+// feature (see docs/superpowers/specs/2026-08-26-repertoire-knowledge-levels-design.md).
 //
 // Deriving it is what makes the growth rule work by itself: a coach adding
-// chapters changes the inputs, so the status recomputes downward on the next
-// read. There is no invalidation job, no cron, and no flag that can drift out of
-// step with the rows it claims to summarise.
+// chapters, or a variation crossing a tier boundary, changes the inputs, so
+// the status recomputes downward on the next read. There is no invalidation
+// job, no cron, and no flag that can drift out of step with the rows it
+// claims to summarise.
 
 import { chapterTiers, rowsInChapterTier, UNTAGGED_CHAPTER } from './variations';
 
@@ -14,30 +16,6 @@ export type RepertoireStatus = 'learning' | 'learned' | 'mastered';
 
 /** The subset of a variation this module needs. */
 type ScopedVariation = { variationKey: string; chapterNames: string[] };
-
-/**
- * Whether a mastery record earned when the repertoire's moves last changed at
- * `recordMovesUpdatedAt` still describes the repertoire as it is now.
- *
- * `repertoires.moves_updated_at` is maintained by a database trigger on every
- * insert/update/delete against `moves` (migration 0055), so this is the one
- * signal application code cannot forget to update — which is exactly why it is
- * used here instead of hashing the variation-key set. A hash would be finer
- * grained (it could tell an untouched chapter from a changed one), but it puts a
- * second answer to "has this material changed?" in the codebase, and the rule
- * this epic actually asked for is repertoire-wide: new chapters revoke Mastered.
- *
- * A record stamped LATER than the repertoire is treated as current: that can
- * only come from clock skew, and revoking mastery nobody invalidated is the
- * worse failure.
- */
-export function isMasteryCurrent(
-	recordMovesUpdatedAt: string | null,
-	repertoireMovesUpdatedAt: string | null
-): boolean {
-	if (!recordMovesUpdatedAt || !repertoireMovesUpdatedAt) return false;
-	return new Date(recordMovesUpdatedAt).getTime() >= new Date(repertoireMovesUpdatedAt).getTime();
-}
 
 /**
  * Every chapter that has to be mastered before the repertoire is.
@@ -54,13 +32,18 @@ export function masterableChapters(variations: readonly ScopedVariation[]): stri
 
 /**
  * `learning` while anything is un-learned → `learned` once everything is →
- * `mastered` once every chapter holds mastery that is still current.
+ * `mastered` once every chapter has reached its own ceiling on the
+ * knowledge-level ladder (see `isChapterComplete` in
+ * `$lib/mastery/chapterLevels`) — not necessarily literally Platinum, since a
+ * short chapter can never structurally reach Platinum by design.
  *
  * `variations` is the repertoire's scope as the caller sees it: excluded lines
  * are already filtered out upstream (`loadFilteredRepertoireVariations` /
  * `filterVariations`), so a line a coach excluded cannot hold a repertoire at
- * `learning` forever. `currentlyMasteredChapters` is likewise pre-filtered by
- * `isMasteryCurrent`, keeping the staleness comparison in one place.
+ * `learning` forever. `completedChapters` is the set of chapter names for
+ * which `isChapterComplete` is currently `true` — computed by the caller (who
+ * needs the full, UNFILTERED `playerMoveCount`-bearing variation set to do
+ * so, which this module intentionally does not depend on).
  *
  * An empty repertoire is vacuously `learned`, matching the existing
  * `allSolved = solved === total` convention, but never `mastered` — there are no
@@ -69,15 +52,15 @@ export function masterableChapters(variations: readonly ScopedVariation[]): stri
 export function deriveRepertoireStatus(args: {
 	variations: readonly ScopedVariation[];
 	learnedKeys: ReadonlySet<string>;
-	currentlyMasteredChapters: ReadonlySet<string>;
+	completedChapters: ReadonlySet<string>;
 }): RepertoireStatus {
-	const { variations, learnedKeys, currentlyMasteredChapters } = args;
+	const { variations, learnedKeys, completedChapters } = args;
 
 	if (variations.some((v) => !learnedKeys.has(v.variationKey))) return 'learning';
 
 	const chapters = masterableChapters(variations);
 	if (chapters.length === 0) return 'learned';
-	return chapters.every((chapter) => currentlyMasteredChapters.has(chapter)) ? 'mastered' : 'learned';
+	return chapters.every((chapter) => completedChapters.has(chapter)) ? 'mastered' : 'learned';
 }
 
 /**

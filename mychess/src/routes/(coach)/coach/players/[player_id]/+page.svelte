@@ -6,6 +6,20 @@
 
   let assignModalOpen = $state(false);
   const playerName = $derived(data.player?.display_name ?? m.coach_player_fallback_name());
+
+  const LEVEL_LABEL = {
+    bronze: m.level_bronze,
+    silver: m.level_silver,
+    gold: m.level_gold,
+    platinum: m.level_platinum
+  } as const;
+
+  const LEVEL_BADGE_CLASS = {
+    bronze: 'border-[#B08D57]/40 bg-[#B08D57]/10 text-[#8a6b3f] dark:text-[#cda876]',
+    silver: 'border-[#A8A8A8]/40 bg-[#A8A8A8]/10 text-[#6b6b6b] dark:text-[#c7c7c7]',
+    gold: 'border-[#D4AF37]/40 bg-[#D4AF37]/10 text-[#8a6d10] dark:text-[#e0c15c]',
+    platinum: 'border-[#E8B923]/40 bg-[#E8B923]/10 text-[#a4790f] dark:text-[#E8B923]'
+  } as const;
 </script>
 
 <svelte:head>
@@ -110,11 +124,13 @@
                 <span class="block text-xs text-(--color-muted) font-normal mt-0.5">{m.coach_player_scope_note()}</span>
               </h3>
               {#if pr.total > 0}
-                <p class="text-xs text-(--color-muted) mb-2">
-                  {m.coach_player_chapters_mastered({ count: pr.chaptersMastered })}
-                  {#if pr.chaptersStale > 0}
-                    · {m.coach_player_chapters_stale({ count: pr.chaptersStale })}
-                  {/if}
+                <p class="text-xs text-(--color-muted) mb-2 flex items-center gap-1.5 flex-wrap">
+                  <span>{m.coach_player_level_prefix()}</span>
+                  <span
+                    class="text-[0.65rem] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full border {LEVEL_BADGE_CLASS[pr.level as keyof typeof LEVEL_BADGE_CLASS] ?? 'border-(--color-border) bg-(--color-bg) text-(--color-muted)'}"
+                  >
+                    {LEVEL_LABEL[pr.level as keyof typeof LEVEL_LABEL]?.() ?? m.level_none()}
+                  </span>
                   {#if pr.demotions > 0}
                     · <span class="text-amber-600 dark:text-amber-400"
                       >{m.coach_player_demotions({ count: pr.demotions })}</span

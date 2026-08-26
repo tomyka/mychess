@@ -1,52 +1,47 @@
 // mychess/src/routes/(player)/practice/[repertoire_id]/mastery/+page.server.ts
 import type { PageServerLoad } from './$types';
 import { requireAccount } from '$lib/server/auth';
-import { loadFilteredRepertoireVariations } from '$lib/server/practice-repertoire';
+import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
 import { loadSolvedKeys } from '$lib/server/practice-progress';
-import { loadChapterMastery } from '$lib/server/mastery';
-import { chapterMasteryView, masteryRunQueue } from '$lib/mastery/masteryRun';
+import { masterableChapters } from '$lib/mastery/repertoireStatus';
+import { rowsInChapterTier } from '$lib/mastery/variations';
+import { deriveChapterLevel, deriveRepertoireLevel } from '$lib/mastery/chapterLevels';
 
 /**
- * The mastery screen (story #100): one chapter at a time, every learned
- * variation in it, no arrows and no hints, any mistake ending the run.
- *
- * Every chapter's queue is shipped up front rather than fetched when a run
- * starts. A run is a single sitting by design, so a mid-run network round trip
- * is a failure mode worth removing — and the whole repertoire's variations are
- * already loaded here to compute the chapter view anyway.
+ * The knowledge-levels screen: each chapter's Bronze/Silver/Gold/Platinum
+ * tier, derived read-only from `playerMoveCount` + this player's solved set.
+ * Superseded the mastery-run screen (story #100) — there is no run to start
+ * any more, a chapter's level simply reflects what's already been solved in
+ * Practice.
  */
 export const load: PageServerLoad = async ({ params, locals }) => {
 	const { user } = await requireAccount(locals);
 	const supabase = locals.supabase;
 	const repertoireId = params.repertoire_id;
 
-	const [{ repertoire, variations }, learnedKeys, masteryRecords] = await Promise.all([
-		loadFilteredRepertoireVariations(supabase, user!.id, repertoireId),
-		loadSolvedKeys(supabase, user!.id, repertoireId),
-		loadChapterMastery(supabase, user!.id, repertoireId)
+	// UNFILTERED on purpose: an excluded, never-solved variation must still be
+	// present in its tier bracket to block the ladder past its own tier,
+	// rather than silently absent from it — see `deriveChapterLevel`'s doc
+	// comment. This page has no other use for `variations`, so it switches
+	// entirely rather than also deriving a filtered copy.
+	const [{ repertoire, variations }, learnedKeys] = await Promise.all([
+		loadRepertoireVariations(supabase, user!.id, repertoireId),
+		loadSolvedKeys(supabase, user!.id, repertoireId)
 	]);
 
-	const chapters = chapterMasteryView({
-		variations,
-		learnedKeys,
-		masteryRecords,
-		repertoireMovesUpdatedAt: repertoire.movesUpdatedAt
+	const chapters = masterableChapters(variations).map((chapter) => {
+		const rows = rowsInChapterTier(variations, chapter);
+		return {
+			chapter,
+			total: rows.length,
+			learned: rows.filter((v) => learnedKeys.has(v.variationKey)).length,
+			level: deriveChapterLevel(rows, learnedKeys)
+		};
 	});
 
 	return {
 		repertoire,
 		chapters,
-		queues: Object.fromEntries(
-			chapters
-				.filter((c) => c.canRun)
-				.map((c) => [
-					c.chapter,
-					masteryRunQueue(variations, c.chapter, learnedKeys).map((v) => ({
-						variationKey: v.variationKey,
-						path: v.path
-					}))
-				])
-		),
-		allMastered: chapters.length > 0 && chapters.every((c) => c.mastered)
+		repertoireLevel: deriveRepertoireLevel(chapters.map((c) => c.level))
 	};
 };
