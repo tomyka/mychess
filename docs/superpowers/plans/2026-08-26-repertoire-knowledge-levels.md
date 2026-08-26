@@ -4,11 +4,13 @@
 
 **Goal:** Add a per-chapter Bronze/Silver/Gold/Platinum medal ladder to repertoires, tiered by `playerMoveCount`, retiring the `chapter_mastery`/mastery-run mechanic it replaces.
 
-**Architecture:** A new pure module (`src/lib/mastery/chapterLevels.ts`) derives a chapter's tier from already-existing `enumerateVariations()` output and `variation_solved` rows — no new tables, no new caching. It plugs into exactly three existing consumers: `deriveRepertoireStatus`'s `mastered` branch (feeds badges, free — same cost as before), the per-repertoire mastery page (rewritten from a "run" UI to a read-only ladder display — this page already does a full move fetch for one repertoire, so this is where the tier computation belongs, not the cheap repertoire-list summary), and the coach's per-student page (accepts a new, small per-repertoire move-fetch cost, per your explicit choice). The Learn sequence, the Practice pool's weakest-first ordering, and the repertoire-list dashboard summary (`RepertoireProgressSummary`) are **not touched** — computing a tier ladder there would require a full move fetch on every dashboard load, which this codebase has deliberately avoided since issue #52.
+**Architecture:** A new pure module (`src/lib/mastery/chapterLevels.ts`) derives a chapter's tier from already-existing `enumerateVariations()` output and `variation_solved` rows. It plugs into exactly three existing consumers: `deriveRepertoireStatus`'s `mastered` branch (feeds badges, free — same cost as before), the per-repertoire mastery page (rewritten from a "run" UI to a read-only ladder display — this page already does a full move fetch for one repertoire, so this is where the tier computation belongs, not the cheap repertoire-list summary), and the coach's per-student page (accepts a new, small per-repertoire move-fetch cost, per your explicit choice). The Learn sequence, the Practice pool's weakest-first ordering, and the repertoire-list dashboard summary's *derivation logic* are **not touched** — computing a full tier ladder there would require a full move fetch on every dashboard load, which this codebase has deliberately avoided since issue #52.
 
 **Tech Stack:** SvelteKit 2 + Svelte 5, Supabase/Postgres, Vitest.
 
 **Correction to the approved design doc:** the doc's Technical Specifications section said `repertoire-progress.ts`'s summary "gains `chapterLevels`/`repertoireLevel` fields... no new I/O." That's wrong — `loadRepertoireProgressSummaries` deliberately avoids a full move fetch per repertoire on every load (via the `total_variations` cache), and a tier ladder needs `playerMoveCount` + chapter grouping, which only a full move fetch provides. This plan instead computes tiers only on the already-move-fetching per-repertoire pages (the mastery/levels page, the badge count's already-narrowed "already-learned" subset, and the coach detail page). Everything else in the design doc holds.
+
+**Mid-plan amendment (after Task 1 shipped):** while this plan was being written, a separate, already-merged commit (`feat(mastery): show Mastered on the repertoire list`, closing issue #105) landed on `main`. It added a `repertoires.chapter_count` cache and `deriveRepertoireStatusFromCounts()` so the repertoire *list* can show a cheap "Mastered" badge by comparing `chapter_count` against this player's current `chapter_mastery` row count — without a full move fetch. That's built entirely on `chapter_mastery`, which this plan deletes. Per explicit direction, the retirement is extended to cover it: a new presence-based cache table, `chapter_platinum(player_id, repertoire_id, chapter_name)`, replaces `chapter_mastery` as the input to that same cheap list comparison — `chapter_count` itself is repertoire-wide and tier-agnostic, so it's reused unchanged. `chapter_platinum` is written once, at attempt-completion, the moment a chapter's live-derived level newly reaches `'platinum'` — and is otherwise **sticky**, cleared only by reconciliation (a coach-driven content change), never by an ordinary Practice-pool mistake/hint demotion. This deliberately mirrors `chapter_mastery`'s own original policy ("nothing legitimately removes a mastery record" except staleness) — the ordinary demotion endpoint (`/api/practice/pool-attempt`) stays exactly as cheap as it is today, with no new move fetch. The **authoritative** derivation everywhere else (the Levels page, badge counts) is unaffected by any of this — it has no cache, is always live, and already reacts to a Practice-pool demotion immediately, exactly as `deriveRepertoireStatus`'s existing `learned`/`learning` split already does today. Tasks 5 and 6 below cover this addition; Tasks 2 and 3 (already written before this landed) needed no changes.
 
 ---
 
@@ -225,7 +227,9 @@ EOF
 
 - [ ] **Step 1: Update the test file's fixtures and expectations first**
 
-In `repertoireStatus.test.ts`, replace every `currentlyMasteredChapters: new Set([...])` argument with `platinumChapters: new Set([...])` (same values — this test suite already expresses "which chapters currently count as mastered," which is exactly what `platinumChapters` means now). Also delete the whole `describe('isMasteryCurrent', ...)` block (lines 17-39) and remove `isMasteryCurrent` from the `import` on line 5 — it has no remaining callers after Task 7 rewrites `coach-progress.ts` (verify with `grep -rn "isMasteryCurrent" mychess/src` after Task 7 — it must show zero matches outside this deletion).
+In `repertoireStatus.test.ts`, replace every `currentlyMasteredChapters: new Set([...])` argument with `platinumChapters: new Set([...])` (same values — this test suite already expresses "which chapters currently count as mastered," which is exactly what `platinumChapters` means now). Also delete the whole `describe('isMasteryCurrent', ...)` block (lines 17-39) and remove `isMasteryCurrent` from the `import` on line 5.
+
+`isMasteryCurrent` currently has two other callers beyond this file: `coach-progress.ts` (rewritten in Task 8) and, as of a commit that landed on `main` while this plan was being written (`feat(mastery): show Mastered on the repertoire list`, closing #105), `repertoire-progress.ts` too (rewritten in Task 6). Both are left exactly as-is for now — deleting the export here will make them fail to build until their own tasks land; that's expected, not a regression to fix here. Verify with `grep -rn "isMasteryCurrent" mychess/src` after Task 6 — it must show zero matches anywhere.
 
 The result for the `deriveRepertoireStatus` describe block:
 
@@ -508,13 +512,13 @@ EOF
 - Delete: `mychess/src/lib/server/mastery.ts`
 - Delete: `mychess/src/routes/api/practice/mastery-run/+server.ts`
 
-`coach-progress.ts` also queries `chapter_mastery` and imports `isMasteryCurrent` at this point — it is left exactly as-is here and fully rewritten in Task 7, which replaces its entire contents. Editing it now would just be thrown away.
+`coach-progress.ts` (rewritten in Task 8) and `repertoire-progress.ts` (rewritten in Task 6 — it also queries `chapter_mastery` and imports `isMasteryCurrent`, added by the concurrent `#105` commit described at the top of this plan) are both left exactly as-is here. Editing them now would just be thrown away.
 
 - [ ] **Step 1: Confirm no other callers remain**
 
 Run: `cd mychess && grep -rln "masteryRun\|loadChapterMastery\|recordChapterMastery\|chapterMasteryView\|masteryRunQueue" src`
 
-Expected output at this point (before deletion): `src/lib/mastery/masteryRun.ts`, `src/lib/mastery/masteryRun.test.ts`, `src/lib/server/mastery.ts`, `src/routes/(player)/practice/[repertoire_id]/mastery/+page.server.ts`, `src/routes/api/practice/mastery-run/+server.ts`. The two route files are rewritten in Task 6, not deleted — do this step's grep again after Task 6 to confirm it then returns nothing outside the four files this task deletes.
+Expected output at this point (before deletion): `src/lib/mastery/masteryRun.ts`, `src/lib/mastery/masteryRun.test.ts`, `src/lib/server/mastery.ts`, `src/routes/(player)/practice/[repertoire_id]/mastery/+page.server.ts`, `src/routes/api/practice/mastery-run/+server.ts`. The two route files are rewritten in Task 7, not deleted — do this step's grep again after Task 7 to confirm it then returns nothing outside the four files this task deletes.
 
 - [ ] **Step 2: Delete the files**
 
@@ -525,7 +529,7 @@ git rm mychess/src/lib/mastery/masteryRun.ts mychess/src/lib/mastery/masteryRun.
 - [ ] **Step 3: Verify nothing else references the deleted files**
 
 Run: `cd mychess && npm run check`
-Expected: no errors referencing `masteryRun`, `mastery.ts`, or the deleted API route. Two files still fail at this point and are expected to: `/practice/[repertoire_id]/mastery/+page.server.ts`+`.svelte` (still reference `chapterMasteryView`/`loadChapterMastery`, fixed by Task 6) and `coach-progress.ts` (still queries `chapter_mastery`, fully rewritten by Task 7). Confirm the only errors reported are inside those specific files before moving on.
+Expected: no errors referencing `masteryRun`, `mastery.ts`, or the deleted API route. Three files still fail at this point and are expected to: `/practice/[repertoire_id]/mastery/+page.server.ts`+`.svelte` (still reference `chapterMasteryView`/`loadChapterMastery`, fixed by Task 7), `repertoire-progress.ts` (still queries `chapter_mastery`/`isMasteryCurrent`, fixed by Task 6), and `coach-progress.ts` (still queries `chapter_mastery`, fully rewritten by Task 8). Confirm the only errors reported are inside those specific files before moving on.
 
 - [ ] **Step 4: Commit**
 
@@ -536,8 +540,8 @@ feat(mastery): remove the mastery-run subsystem
 
 Retired per the knowledge-levels design: a chapter's mastery is now the
 platinum tier on the knowledge-level ladder, not a separate continuous
-no-mistake run. coach-progress.ts and the mastery page are fixed up in
-the following two tasks.
+no-mistake run. repertoire-progress.ts, coach-progress.ts, and the
+mastery page are fixed up in the following three tasks.
 
 Refs #160
 EOF
@@ -546,36 +550,102 @@ EOF
 
 ---
 
-### Task 5: Migration — drop `chapter_mastery`
+### Task 5: Migrations — drop `chapter_mastery`, add `chapter_platinum`
 
 **Files:**
-- Create: `mychess/supabase/migrations/0069_drop_chapter_mastery.sql`
+- Create: `mychess/supabase/migrations/0070_drop_chapter_mastery.sql`
+- Create: `mychess/supabase/migrations/0071_chapter_platinum.sql`
 
-- [ ] **Step 1: Write the migration**
+Numbered `0070`/`0071`, not `0069` — migration `0069` is already taken by the concurrent `#105` commit (`0069_repertoire_chapter_count.sql`), which this plan does **not** touch or revert (its `chapter_count` column is repertoire-wide and tier-agnostic, and stays exactly as it is).
+
+- [ ] **Step 1: Write the `chapter_mastery` drop**
 
 ```sql
+-- mychess/supabase/migrations/0070_drop_chapter_mastery.sql
+--
 -- Retires the chapter-mastery-run mechanic (migration 0058), superseded by
 -- the knowledge-levels ladder (bronze/silver/gold/platinum, derived from
 -- enumerateVariations()'s playerMoveCount + variation_solved — see
 -- src/lib/mastery/chapterLevels.ts). Nothing in src/ reads or writes this
--- table any more (masteryRun.ts, server/mastery.ts, and the mastery-run API
--- route were deleted in the same feature). No live users yet, so this is a
--- clean drop with no data migration, matching the precedent set by
+-- table any more after this feature's Tasks 4 and 6 land (masteryRun.ts,
+-- server/mastery.ts, the mastery-run API route, and repertoire-progress.ts's
+-- #105 chapter_mastery read are all gone/rewritten). No live users yet, so
+-- this is a clean drop with no data migration, matching the precedent set by
 -- 0045_remove_leveling_add_solved.sql and 0047_drop_move_progress.sql.
 
 drop table if exists public.chapter_mastery;
 ```
 
-- [ ] **Step 2: Hand off for manual application**
+- [ ] **Step 2: Write the `chapter_platinum` cache table**
 
-Per this repo's convention (`CLAUDE.md`, "Database & migrations"): Claude cannot execute DDL directly. Paste this migration's contents for the user to run in the Supabase Dashboard SQL editor (or trigger the `migrate.yml` GitHub Action), and do not treat any later task as verified against production until the user confirms it ran. Application order is not urgent — the code changes in Tasks 3, 4, and 6 already stop reading/writing this table, so the drop is safe to run any time after this task's file exists, even before the rest of the feature ships.
+```sql
+-- mychess/supabase/migrations/0071_chapter_platinum.sql
+--
+-- Presence-based cache: a row means this player's copy of this chapter has
+-- reached Platinum on the knowledge-level ladder (src/lib/mastery/chapterLevels.ts).
+-- Exists ONLY so the repertoire list can show a cheap "Mastered" badge (the
+-- #105 comparison against repertoires.chapter_count, migration 0069) without
+-- a full move fetch per repertoire — the authoritative, always-correct
+-- computation (the Levels page, badge counts) never reads this table; it
+-- derives platinum status fresh every time from variation_solved.
+--
+-- Deliberately sticky, mirroring chapter_mastery's own original policy
+-- ("nothing legitimately removes a mastery record" — migration 0058): a row
+-- is written once, at attempt-completion, the moment a chapter's live-derived
+-- level newly reaches platinum (src/lib/server/practice-progress.ts), and is
+-- cleared ONLY by reconciliation (src/lib/server/repertoire-progress.ts),
+-- when a coach re-upload demotes something in that repertoire for that
+-- player. An ordinary Practice-pool mistake/hint demotion
+-- (src/lib/server/practice-pool.ts's demoteVariation) does NOT clear it —
+-- adding that check would require a full move fetch on that hot, frequently
+-- hit endpoint, which this codebase has consistently avoided elsewhere. The
+-- practical effect: the list's Mastered badge can lag the authoritative
+-- Levels page after an ordinary practice mistake, but never after a coach
+-- edit, and it can never show a chapter platinum that was never legitimately
+-- earned.
+create table if not exists public.chapter_platinum (
+  id             bigserial primary key,
+  player_id      uuid not null references public.profiles(id) on delete cascade,
+  repertoire_id  uuid not null references public.repertoires(id) on delete cascade,
+  chapter_name   text not null,
+  reached_at     timestamptz not null default now(),
+  unique (player_id, repertoire_id, chapter_name)
+);
 
-- [ ] **Step 3: Commit**
+create index if not exists chapter_platinum_player_repertoire_idx
+  on public.chapter_platinum (player_id, repertoire_id);
+
+alter table public.chapter_platinum enable row level security;
+
+drop policy if exists chapter_platinum_select_own on public.chapter_platinum;
+create policy chapter_platinum_select_own on public.chapter_platinum
+  for select using (auth.uid() = player_id);
+
+drop policy if exists chapter_platinum_insert_own on public.chapter_platinum;
+create policy chapter_platinum_insert_own on public.chapter_platinum
+  for insert with check (auth.uid() = player_id);
+
+-- Reconciliation clears rows on a coach-driven regression (see Task 6) —
+-- nothing else legitimately removes one.
+drop policy if exists chapter_platinum_delete_own on public.chapter_platinum;
+create policy chapter_platinum_delete_own on public.chapter_platinum
+  for delete using (auth.uid() = player_id);
+
+revoke all on public.chapter_platinum from anon, public;
+grant select, insert, delete on public.chapter_platinum to authenticated;
+grant usage, select on sequence public.chapter_platinum_id_seq to authenticated;
+```
+
+- [ ] **Step 3: Hand off for manual application**
+
+Per this repo's convention (`CLAUDE.md`, "Database & migrations"): Claude cannot execute DDL directly. Paste both migrations' contents for the user to run in the Supabase Dashboard SQL editor (or trigger the `migrate.yml` GitHub Action), in order (`0070` then `0071`), and do not treat any later task as verified against production until the user confirms both ran. Application order relative to the rest of this plan is not urgent — the code changes in Tasks 3, 4, and 6 already stop reading/writing `chapter_mastery`, and nothing reads `chapter_platinum` until Task 6's code lands.
+
+- [ ] **Step 4: Commit**
 
 ```bash
-git add mychess/supabase/migrations/0069_drop_chapter_mastery.sql
+git add mychess/supabase/migrations/0070_drop_chapter_mastery.sql mychess/supabase/migrations/0071_chapter_platinum.sql
 git commit -m "$(cat <<'EOF'
-feat(db): drop chapter_mastery, superseded by the knowledge-levels ladder
+feat(db): drop chapter_mastery, add chapter_platinum cache
 
 Refs #160
 EOF
@@ -584,7 +654,181 @@ EOF
 
 ---
 
-### Task 6: Rewrite the mastery page as the Levels page
+### Task 6: Wire the `chapter_platinum` cache into attempt-completion, reconciliation, and the repertoire list
+
+**Files:**
+- Modify: `mychess/src/lib/server/practice-progress.ts`
+- Modify: `mychess/src/lib/server/repertoire-progress.ts`
+- Modify: `mychess/src/lib/server/repertoire-progress.test.ts`
+
+This task replaces the `#105` commit's `chapter_mastery`-based "Mastered" comparison on the repertoire list with the new `chapter_platinum` cache, and adds the two write points that keep it correct: earning it at attempt-completion, and clearing it on reconciliation.
+
+- [ ] **Step 1: Earn `chapter_platinum` rows at attempt-completion**
+
+In `mychess/src/lib/server/practice-progress.ts`, add these imports alongside the existing ones at the top of the file:
+
+```ts
+import { masterableChapters } from '$lib/mastery/repertoireStatus';
+import { isInChapterTier, rowsInChapterTier } from '$lib/mastery/variations';
+import { deriveChapterLevel } from '$lib/mastery/chapterLevels';
+```
+
+Add this new function after `markVariationSolved` (it's a natural sibling — same file, same "write a presence row" shape):
+
+```ts
+/**
+ * Writes a `chapter_platinum` cache row for every chapter `variation` belongs
+ * to whose knowledge level has just newly become Platinum, given the
+ * up-to-date `solvedKeys` (read AFTER this attempt's `variation_solved` write).
+ *
+ * Idempotent (safe to call even when the chapter was already platinum) and
+ * best-effort: this cache only backs the repertoire list's decorative
+ * "Mastered" badge, never the authoritative Levels page or badge counts (both
+ * derive fresh from `variation_solved` directly, with no cache) — so a failed
+ * write here must not fail the attempt it's piggybacking on.
+ */
+async function cachePlatinumChaptersReached(
+	supabase: SupabaseClient,
+	playerId: string,
+	repertoireId: string,
+	variation: Variation,
+	allVariations: Variation[],
+	solvedKeys: ReadonlySet<string>
+): Promise<void> {
+	const chapters = masterableChapters(allVariations).filter((chapter) => isInChapterTier(variation, chapter));
+	const platinumChapters = chapters.filter(
+		(chapter) => deriveChapterLevel(rowsInChapterTier(allVariations, chapter), solvedKeys) === 'platinum'
+	);
+	if (platinumChapters.length === 0) return;
+
+	const { error } = await supabase
+		.from('chapter_platinum')
+		.upsert(
+			platinumChapters.map((chapterName) => ({ player_id: playerId, repertoire_id: repertoireId, chapter_name: chapterName })),
+			{ onConflict: 'player_id,repertoire_id,chapter_name', ignoreDuplicates: true }
+		);
+	if (error) {
+		console.error(`cachePlatinumChaptersReached: failed to write for repertoire ${repertoireId}:`, error.message);
+	}
+}
+```
+
+Then, in `applyAttemptResult`, call it right after the existing `markVariationSolved` + re-`loadSolvedKeys` lines at the end of the function:
+
+```ts
+	await markVariationSolved(supabase, playerId, repertoireId, variationKey);
+	const solvedKeys = await loadSolvedKeys(supabase, playerId, repertoireId);
+	const next = advanceIfSolved(variationKey, variations, solvedKeys);
+	await setActiveVariationKey(supabase, playerId, repertoireId, next);
+	if (variation) {
+		await cachePlatinumChaptersReached(supabase, playerId, repertoireId, variation, variations, solvedKeys);
+	}
+```
+
+(`variation` here is the same `const variation = variations.find(...)` already computed near the top of `applyAttemptResult` — it's `undefined` only when the solved key doesn't match any current variation, e.g. a stale key from a just-reconciled repertoire, in which case there's nothing meaningful to cache.)
+
+- [ ] **Step 2: Clear `chapter_platinum` on reconciliation**
+
+In `mychess/src/lib/server/repertoire-progress.ts`, find the existing reconciliation block (the one that calls `grantNewBadges` when `reconciledIds.size > 0`, near the end of `loadRepertoireProgressSummaries`):
+
+```ts
+	if (reconciledIds.size > 0) {
+		try {
+			await grantNewBadges(supabase, userId, {}, summaries);
+		} catch (err) {
+			console.error(`Failed to run badge grant/revocation after reconciliation for player ${userId}:`, err instanceof Error ? err.message : err);
+		}
+	}
+```
+
+Add a sibling block right before it that clears the cache for every reconciled repertoire — reconciliation is the only event that can legitimately regress a chapter out of platinum from outside the player's own actions, so a blanket clear per reconciled repertoire is simple and correct (the cache self-repopulates the next time the player solves something in that repertoire):
+
+```ts
+	if (reconciledIds.size > 0) {
+		const { error } = await supabase
+			.from('chapter_platinum')
+			.delete()
+			.eq('player_id', userId)
+			.in('repertoire_id', [...reconciledIds]);
+		if (error) {
+			console.error(`Failed to clear chapter_platinum after reconciliation for player ${userId}:`, error.message);
+		}
+	}
+```
+
+- [ ] **Step 3: Replace the `chapter_mastery` read with `chapter_platinum`**
+
+Still in `repertoire-progress.ts`, replace the `chapter_mastery` fetch added by the `#105` commit:
+
+```ts
+		// Cheap (indexed, bounded by chapter count — no variation enumeration):
+		// GitHub issue #105's Mastered badge on the list, via
+		// `deriveRepertoireStatusFromCounts` further down.
+		fetchRowsByRepertoire<{ repertoire_id: string; moves_updated_at: string }>(
+			supabase,
+			'chapter_mastery',
+			userId,
+			repIds,
+			'repertoire_id, moves_updated_at',
+			'repertoire_id'
+		),
+```
+
+with:
+
+```ts
+		// Cheap (indexed, bounded by chapter count — no variation enumeration):
+		// the repertoire list's Mastered badge (originally #105, now sourced
+		// from the knowledge-levels ladder's sticky cache — see
+		// chapter_platinum, migration 0071), via `deriveRepertoireStatusFromCounts`
+		// further down.
+		fetchRowsByRepertoire<{ repertoire_id: string }>(
+			supabase,
+			'chapter_platinum',
+			userId,
+			repIds,
+			'repertoire_id',
+			'repertoire_id'
+		),
+```
+
+Rename the destructured variable `chapterMasteryRowsByRep` to `chapterPlatinumRowsByRep` at both the destructuring site and its one other use, and drop the `isMasteryCurrent` currency filter entirely (the cache has no staleness concept — it's cleared outright by reconciliation, not compared for currency):
+
+```ts
+		const chapterCount: number | null = r.chapter_count ?? backfilledChapterCounts.get(r.id) ?? null;
+		const currentlyMasteredChapterCount = (chapterPlatinumRowsByRep.get(r.id) ?? []).length;
+		const status = deriveRepertoireStatusFromCounts({ allLearned: allSolved, chapterCount, currentlyMasteredChapterCount });
+```
+
+Update the type parameter `'variation_practice_exclusions' | 'variation_solved' | 'chapter_mastery'` on `fetchRowsByRepertoire` to `'variation_practice_exclusions' | 'variation_solved' | 'chapter_platinum'`, and remove the now-unused `isMasteryCurrent` from the `$lib/mastery/repertoireStatus` import (keep `deriveRepertoireStatusFromCounts`, `masterableChapters`, and the `RepertoireStatus` type — all three are still used).
+
+- [ ] **Step 4: Update `repertoire-progress.test.ts`**
+
+The `#105` commit added tests exercising the `chapter_mastery`-based Mastered path. Find them (search the file for `chapter_mastery` and `mastered`) and update the mocked table name and row shape from `chapter_mastery` (`{ repertoire_id, moves_updated_at }`, filtered by currency) to `chapter_platinum` (`{ repertoire_id }`, no currency filtering — every returned row counts). The test's intent (a repertoire reads as `mastered` once its platinum-chapter count reaches its cached `chapter_count`) is unchanged; only the fixture table/shape changes.
+
+- [ ] **Step 5: Run the tests**
+
+Run: `cd mychess && npx vitest run src/lib/server/repertoire-progress.test.ts src/lib/server/practice-progress.test.ts`
+Expected: PASS. (If `practice-progress.test.ts` doesn't exist — this repo's convention is that `src/lib/server/` I/O wrappers generally aren't unit-tested directly — skip it; running `npm run check` afterward is what verifies this file's own correctness.)
+
+Run: `cd mychess && npm run check`
+Expected: no errors from `practice-progress.ts` or `repertoire-progress.ts`. `coach-progress.ts` and the mastery page are still expected to fail — fixed by Tasks 7 and 8.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add mychess/src/lib/server/practice-progress.ts mychess/src/lib/server/repertoire-progress.ts mychess/src/lib/server/repertoire-progress.test.ts
+git commit -m "$(cat <<'EOF'
+feat(mastery): back the repertoire list's Mastered badge with chapter_platinum
+
+Refs #160
+EOF
+)"
+```
+
+---
+
+### Task 7: Rewrite the mastery page as the Levels page
 
 **Files:**
 - Modify: `mychess/src/routes/(player)/practice/[repertoire_id]/mastery/+page.server.ts`
@@ -877,7 +1121,7 @@ EOF
 
 ---
 
-### Task 7: Coach's per-student page — recompute via the tier ladder
+### Task 8: Coach's per-student page — recompute via the tier ladder
 
 **Files:**
 - Modify: `mychess/src/lib/server/coach-progress.ts`
@@ -1052,7 +1296,7 @@ with:
               {/if}
 ```
 
-Then add the two lookup tables near the top of the `<script>` block (alongside the existing imports), matching Task 6's badge styling for consistency across the app:
+Then add the two lookup tables near the top of the `<script>` block (alongside the existing imports), matching Task 7's badge styling for consistency across the app:
 
 ```ts
 	const LEVEL_LABEL = {
@@ -1086,7 +1330,7 @@ In `messages/lt.json`, remove the same two keys (lines 1102-1121 there) and add:
 	"coach_player_level_prefix": "Lygis:",
 ```
 
-(`level_bronze`/`level_silver`/`level_gold`/`level_platinum`/`level_none` already exist from Task 6 — reused here, not duplicated.)
+(`level_bronze`/`level_silver`/`level_gold`/`level_platinum`/`level_none` already exist from Task 7 — reused here, not duplicated.)
 
 - [ ] **Step 5: Update `player-detail.test.ts`**
 
@@ -1128,7 +1372,7 @@ EOF
 
 ---
 
-### Task 8: Clean up the stray doc-comment reference and full verification
+### Task 9: Clean up the stray doc-comment reference and full verification
 
 **Files:**
 - Modify: `mychess/src/lib/server/practice-repertoire.ts`
@@ -1162,9 +1406,9 @@ Expected: all three exit 0. Per `CLAUDE.md`, `check` and `lint` have no tolerate
 
 - [ ] **Step 3: Confirm the dead-code sweep is complete**
 
-Run: `cd mychess && grep -rn "chapter_mastery\|masteryRun\|isMasteryCurrent\|chaptersMastered\|chaptersStale\|practice_mastery_" src messages supabase/migrations/0069_drop_chapter_mastery.sql`
+Run: `cd mychess && grep -rn "chapter_mastery\|masteryRun\|isMasteryCurrent\|chaptersMastered\|chaptersStale\|practice_mastery_" src messages supabase/migrations/0070_drop_chapter_mastery.sql`
 
-Expected: zero matches, except the migration file's own comment referencing the retired table by name (that's fine — it's describing what it drops) and any earlier migration files (0058 and prior) that legitimately still mention `chapter_mastery` in their own historical SQL — those are never edited.
+Expected: zero matches, except the migration file's own comment referencing the retired table by name (that's fine — it's describing what it drops) and any earlier migration files (0058 and prior, and the concurrent `#105` commit's `0069_repertoire_chapter_count.sql`) that legitimately still mention `chapter_mastery` in their own historical SQL — those are never edited.
 
 - [ ] **Step 4: Commit**
 

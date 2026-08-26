@@ -1,5 +1,7 @@
 # Repertoire Knowledge Levels (Bronze/Silver/Gold/Platinum) — Design
 
+> **Implementation-time amendment (2026-08-26):** while the implementation plan for this design was being written, a separate, already-merged commit (`feat(mastery): show Mastered on the repertoire list`, closing issue #105) landed on `main`. It added a `repertoires.chapter_count` cache and a cheap "Mastered" comparison on the repertoire *list* against this player's `chapter_mastery` row count — built entirely on the table this design retires. The retirement is extended to cover it: a new presence-based cache, `chapter_platinum(player_id, repertoire_id, chapter_name)`, replaces `chapter_mastery` as that comparison's input (written at attempt-completion, cleared only by reconciliation — deliberately sticky, mirroring `chapter_mastery`'s own original policy). `chapter_count` itself is repertoire-wide and tier-agnostic, and is reused unchanged. This does not change any decision in the body below; see the implementation plan's own header note for the full mechanics.
+
 ## 1. Executive Summary
 
 ### Problem Statement
