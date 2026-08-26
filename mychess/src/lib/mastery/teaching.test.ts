@@ -6,7 +6,9 @@ import {
 	sharedMasteredPrefixLength,
 	computeMasteredMoveIds,
 	isLastPlayerMove,
-	knownProgressFor
+	knownProgressFor,
+	ceilingPlyFor,
+	isPausedAtCeiling
 } from './teaching';
 import type { Variation, VariationStep } from './variations';
 
@@ -38,6 +40,23 @@ function makeOpponentFirstPath(plies: number): VariationStep[] {
 		});
 	}
 	return path;
+}
+
+/**
+ * Builds a `VariationStep[]` from a list of SAN moves, alternating turns
+ * starting with the player (ply 0) — the ceiling tests below reason about
+ * "the Nth player move" in terms of recognizable SAN (e4, Nf3, ...) rather
+ * than opaque `makePath`-style indices, since `ceilingPlyFor`/`ceilingMoveCount`
+ * are inherently about player-move counts, not raw ply counts.
+ */
+function path(sanMoves: string[]): VariationStep[] {
+	return sanMoves.map((san, i) => ({
+		moveId: `c${i}`,
+		san,
+		fromFen: `c${i}a`,
+		toFen: `c${i}b`,
+		isPlayerTurn: i % 2 === 0
+	}));
 }
 
 function makeVariation(variationKey: string, path: VariationStep[]): Variation {
@@ -104,7 +123,7 @@ describe('resolveTeachingStep', () => {
 	it('serves the full path with no arrow once every batch is mastered', () => {
 		const path = makePath(25);
 		const step = resolveTeachingStep(path, 25, 25);
-		expect(step).toEqual({ path, arrowPlies: null, isFinalPass: true });
+		expect(step).toEqual({ path, arrowPlies: null, isFinalPass: true, pausedAtCeiling: false });
 	});
 
 	it('never reports an arrowed pass as final, not even the last batch', () => {
@@ -138,55 +157,56 @@ describe('advanceTeachingProgress', () => {
 	it('leaves both counters exactly unchanged on a mistake', () => {
 		const path = makePath(25);
 		const result = advanceTeachingProgress(path, 3, 3, true);
-		expect(result).toEqual({ taughtPlies: 3, masteredPlies: 3, solved: false });
+		expect(result).toEqual({ taughtPlies: 3, masteredPlies: 3, solved: false, pausedAtCeiling: false });
 	});
 
 	it('a clean teach pass on a fresh variation advances taught_plies to the first batch end only', () => {
 		const path = makePath(25);
 		const result = advanceTeachingProgress(path, 0, 0, false);
-		expect(result).toEqual({ taughtPlies: 5, masteredPlies: 0, solved: false });
+		expect(result).toEqual({ taughtPlies: 5, masteredPlies: 0, solved: false, pausedAtCeiling: false });
 	});
 
 	it('a clean non-final blind retest advances mastered_plies to match taught_plies', () => {
 		const path = makePath(25);
 		const result = advanceTeachingProgress(path, 20, 10, false);
-		expect(result).toEqual({ taughtPlies: 20, masteredPlies: 20, solved: false });
+		expect(result).toEqual({ taughtPlies: 20, masteredPlies: 20, solved: false, pausedAtCeiling: false });
 	});
 
 	it('a clean final blind retest reports solved', () => {
 		const path = makePath(25);
 		const result = advanceTeachingProgress(path, 25, 20, false);
-		expect(result).toEqual({ taughtPlies: 25, masteredPlies: 25, solved: true });
+		expect(result).toEqual({ taughtPlies: 25, masteredPlies: 25, solved: true, pausedAtCeiling: false });
 	});
 
 	it('a short (one-batch) variation still needs a clean teach pass before it can be solved', () => {
 		const path = makePath(4);
 		const result = advanceTeachingProgress(path, 0, 0, false);
-		expect(result).toEqual({ taughtPlies: 4, masteredPlies: 0, solved: false });
+		expect(result).toEqual({ taughtPlies: 4, masteredPlies: 0, solved: false, pausedAtCeiling: false });
 	});
 
 	it('a short (one-batch) variation solves on the blind retest right after its teach pass', () => {
 		const path = makePath(4);
 		const result = advanceTeachingProgress(path, 4, 0, false);
-		expect(result).toEqual({ taughtPlies: 4, masteredPlies: 4, solved: true });
+		expect(result).toEqual({ taughtPlies: 4, masteredPlies: 4, solved: true, pausedAtCeiling: false });
 	});
 
 	it('a clean LAST teach pass advances what is taught but masters and solves nothing', () => {
 		const path = makePath(8);
 		const result = advanceTeachingProgress(path, 5, 5, false);
-		expect(result).toEqual({ taughtPlies: 8, masteredPlies: 5, solved: false });
+		expect(result).toEqual({ taughtPlies: 8, masteredPlies: 5, solved: false, pausedAtCeiling: false });
 		// ...and the blind retest it now owes is what solves the variation.
 		expect(advanceTeachingProgress(path, 8, 5, false)).toEqual({
 			taughtPlies: 8,
 			masteredPlies: 8,
-			solved: true
+			solved: true,
+			pausedAtCeiling: false
 		});
 	});
 
 	it('a mistake on the last teach pass still changes nothing — the same teach pass is re-served', () => {
 		const path = makePath(8);
 		const result = advanceTeachingProgress(path, 5, 5, true);
-		expect(result).toEqual({ taughtPlies: 5, masteredPlies: 5, solved: false });
+		expect(result).toEqual({ taughtPlies: 5, masteredPlies: 5, solved: false, pausedAtCeiling: false });
 	});
 });
 
@@ -206,7 +226,7 @@ function cleanRunToSolved(path: VariationStep[]): { attempts: number; passes: ('
 		const step = resolveTeachingStep(path, taughtPlies, masteredPlies);
 		passes.push(step.arrowPlies ? 'teach' : 'blind');
 		const next = advanceTeachingProgress(path, taughtPlies, masteredPlies, false);
-		expect(next).not.toEqual({ taughtPlies, masteredPlies, solved: false }); // no stuck state
+		expect(next).not.toEqual({ taughtPlies, masteredPlies, solved: false, pausedAtCeiling: false }); // no stuck state
 		taughtPlies = next.taughtPlies;
 		masteredPlies = next.masteredPlies;
 		if (next.solved) return { attempts: passes.length, passes };
@@ -437,5 +457,137 @@ describe('knownProgressFor', () => {
 				resumedAfterBreak: true
 			})
 		).toEqual({ taughtPlies: 0, masteredPlies: 0 });
+	});
+});
+
+describe('ceilingPlyFor', () => {
+	it('is the ply just past the Nth player move', () => {
+		const p = path(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5']); // 3 player moves (e4, Nf3, Bb5)
+		expect(ceilingPlyFor(p, 2)).toBe(3); // past e4, e5, Nf3 -> index 3
+	});
+
+	it('is the whole path when the ceiling exceeds the path length', () => {
+		const p = path(['e4', 'e5']);
+		expect(ceilingPlyFor(p, 99)).toBe(p.length);
+	});
+
+});
+
+describe('resolveTeachingStep with a ceiling', () => {
+	it('behaves identically to no ceiling when the variation is shorter than it', () => {
+		const p = path(['e4', 'e5', 'Nf3']); // 2 player moves, well under a 9-move ceiling
+		const withCeiling = resolveTeachingStep(p, 0, 0, ceilingPlyFor(p, 9));
+		const withoutCeiling = resolveTeachingStep(p, 0, 0);
+		expect(withCeiling).toEqual({ ...withoutCeiling, pausedAtCeiling: false });
+	});
+
+	it('pauses exactly at the ceiling for a variation longer than it, without reaching its own true end', () => {
+		// 9 player moves' worth of plies, ceiling of 2 player moves (TEACHING_BATCH_MOVES-aligned).
+		const p = path(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O']);
+		const ceilingPly = ceilingPlyFor(p, 2);
+		// masteredPlies already at the ceiling: nothing more to teach for now.
+		const step = resolveTeachingStep(p, ceilingPly, ceilingPly, ceilingPly);
+		expect(step.isFinalPass).toBe(true);
+		expect(step.pausedAtCeiling).toBe(true);
+		expect(step.path.length).toBe(ceilingPly);
+	});
+
+	it("is NOT paused when the ceiling ply exactly equals the variation's own true length", () => {
+		// Path must itself END on the player's own move for ceilingPlyFor(p, 2) to
+		// land on p.length — plyAfterPlayerMoves never lands past a player's own
+		// move, so a path with a trailing opponent reply (e.g. one more SAN move
+		// appended) would make the ceiling fall one ply SHORT of p.length instead.
+		const p = path(['e4', 'e5', 'Nf3']); // 2 player moves (e4, Nf3), ending on Nf3
+		const ceilingPly = ceilingPlyFor(p, 2); // equals p.length here
+		const step = resolveTeachingStep(p, p.length, p.length, ceilingPly);
+		expect(step.isFinalPass).toBe(true);
+		expect(step.pausedAtCeiling).toBe(false);
+	});
+
+	it('a ceiling regression below already-mastered content does not crash, and clamps served content to the new ceiling', () => {
+		const p = path(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O']); // 5 player moves
+		const loweredCeilingPly = ceilingPlyFor(p, 2); // pretend a reconciliation regression just lowered the ceiling
+		// masteredPlies (4 player moves in) is already PAST the new, lower ceiling.
+		const alreadyPast = ceilingPlyFor(p, 4);
+		const step = resolveTeachingStep(p, alreadyPast, alreadyPast, loweredCeilingPly);
+		expect(step.path.length).toBe(loweredCeilingPly);
+		expect(step.pausedAtCeiling).toBe(true);
+	});
+
+	it('mid-batch teach/blind-retest passes below the ceiling report pausedAtCeiling: false', () => {
+		// Ceiling well past this batch — a non-final pass must never claim to be paused.
+		const p = path(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O']); // 5 player moves
+		const ceilingPly = ceilingPlyFor(p, 9); // exceeds path length -> effectively no ceiling
+		const teachStep = resolveTeachingStep(p, 0, 0, ceilingPly);
+		expect(teachStep.isFinalPass).toBe(false);
+		expect(teachStep.pausedAtCeiling).toBe(false);
+	});
+
+	it('a fresh (never-taught) variation entirely at or under the ceiling is unaffected by it, all the way to a genuine final pass', () => {
+		const p = path(['e4', 'e5', 'Nf3']); // 2 player moves, ending on Nf3 (see note above)
+		const ceilingPly = ceilingPlyFor(p, 2); // exactly the variation's own length
+		const step = resolveTeachingStep(p, p.length, p.length, ceilingPly);
+		expect(step.path.length).toBe(p.length);
+		expect(step.isFinalPass).toBe(true);
+		expect(step.pausedAtCeiling).toBe(false);
+	});
+});
+
+describe('advanceTeachingProgress with a ceiling', () => {
+	it('reports solved (not paused) for a clean final pass within a variation shorter than the ceiling', () => {
+		const p = path(['e4', 'e5']); // 1 player move
+		const ceilingPly = ceilingPlyFor(p, 9);
+		const next = advanceTeachingProgress(p, p.length, p.length, false, ceilingPly);
+		expect(next.solved).toBe(true);
+		expect(next.pausedAtCeiling).toBe(false);
+	});
+
+	it('reports pausedAtCeiling (never solved) for a clean pass that only reaches the ceiling', () => {
+		const p = path(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O']); // 5 player moves
+		const ceilingPly = ceilingPlyFor(p, 2);
+		const next = advanceTeachingProgress(p, ceilingPly, ceilingPly, false, ceilingPly);
+		expect(next.solved).toBe(false);
+		expect(next.pausedAtCeiling).toBe(true);
+	});
+
+	it('a mistake is a no-op regardless of the ceiling, exactly as without one', () => {
+		const p = path(['e4', 'e5', 'Nf3', 'Nc6']);
+		const next = advanceTeachingProgress(p, 0, 0, true, ceilingPlyFor(p, 2));
+		expect(next).toEqual({ taughtPlies: 0, masteredPlies: 0, solved: false, pausedAtCeiling: false });
+	});
+
+	it('a clean teach (arrowed) pass under the ceiling never reports pausedAtCeiling, even mid-way through a longer-than-ceiling variation', () => {
+		const p = path(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O']); // 5 player moves
+		const ceilingPly = ceilingPlyFor(p, 2);
+		const next = advanceTeachingProgress(p, 0, 0, false, ceilingPly);
+		expect(next.solved).toBe(false);
+		expect(next.pausedAtCeiling).toBe(false);
+	});
+});
+
+describe('isPausedAtCeiling', () => {
+	it('is false for an untouched variation, however long, so it is still fully servable up to the ceiling', () => {
+		const p = path(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O']); // 5 player moves
+		expect(isPausedAtCeiling(p, 0, 2)).toBe(false);
+	});
+
+	it('is true once mastered progress reaches the ceiling on a variation longer than it', () => {
+		const p = path(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O']);
+		const ceilingPly = ceilingPlyFor(p, 2);
+		expect(isPausedAtCeiling(p, ceilingPly, 2)).toBe(true);
+	});
+
+	it('is false once a variation is genuinely fully mastered, even at exactly the ceiling length', () => {
+		// Ends on the player's own move (see note in the resolveTeachingStep
+		// ceiling tests) so its own true length lands exactly on the ceiling ply.
+		const p = path(['e4', 'e5', 'Nf3']); // 2 player moves, exactly the ceiling
+		expect(isPausedAtCeiling(p, p.length, 2)).toBe(false);
+	});
+
+	it('is true partway through a variation whose masteredPlies is between 0 and the ceiling but the ceiling is below its own length', () => {
+		// masteredPlies short of the ceiling itself: not yet paused, still servable.
+		const p = path(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O']);
+		const ceilingPly = ceilingPlyFor(p, 2);
+		expect(isPausedAtCeiling(p, ceilingPly - 1, 2)).toBe(false);
 	});
 });

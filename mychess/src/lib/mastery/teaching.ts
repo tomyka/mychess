@@ -9,6 +9,11 @@ export type TeachingStep = {
 	path: VariationStep[];
 	arrowPlies: { from: number; to: number } | null;
 	isFinalPass: boolean;
+	/** True only when THIS pass reached path's end because of `ceilingPly`,
+	 * not because the variation's own true path ended there. The caller —
+	 * never this module — decides what "paused" means downstream (no
+	 * variation_solved write, still advance past it when picking what's next). */
+	pausedAtCeiling: boolean;
 };
 
 /**
@@ -59,61 +64,115 @@ export function autoPlayCeiling(path: readonly VariationStep[]): number {
 	return 0;
 }
 
+/** Where `ceilingMoveCount` player moves lands within `path` — the same
+ * "N player moves from a starting ply" question `plyAfterPlayerMoves` already
+ * answers, from ply 0. A one-line wrapper, not new logic. */
+export function ceilingPlyFor(path: readonly VariationStep[], ceilingMoveCount: number): number {
+	return plyAfterPlayerMoves(path as VariationStep[], 0, ceilingMoveCount);
+}
+
 /**
  * Derives what the NEXT attempt of this variation should look like, purely
  * from its two persisted counters — never from a stored "phase" — so a
  * corrupted or stale counter can't disagree with what's actually served. See
  * docs/superpowers/specs/2026-08-14-variation-teaching-arrows-design.md for
- * the full state-machine rationale.
+ * the full state-machine rationale, and
+ * docs/superpowers/specs/2026-08-26-tier-gated-learn-design.md §3 for
+ * `ceilingPly`'s rationale (GitHub issue #163).
+ *
+ * `ceilingPly` defaults to `path.length` — i.e. no cap, today's exact
+ * behavior — so every existing caller that doesn't pass one is unaffected.
+ * `TEACHING_BATCH_MOVES` (3) divides evenly into every tier boundary this
+ * repo's ceilings ever use (9/18/27), so a real ceiling always lands exactly
+ * on a batch boundary in the ordinary path; the `Math.min` clamps below exist
+ * for the one case that can still disagree — a ceiling that REGRESSED (a
+ * coach reconciliation demoting solved content) below progress already made
+ * under a higher one.
  */
-export function resolveTeachingStep(path: VariationStep[], taughtPlies: number, masteredPlies: number): TeachingStep {
-	if (masteredPlies >= path.length) {
-		return { path, arrowPlies: null, isFinalPass: true };
+export function resolveTeachingStep(
+	path: VariationStep[],
+	taughtPlies: number,
+	masteredPlies: number,
+	ceilingPly: number = path.length
+): TeachingStep {
+	const effectiveLength = Math.min(path.length, ceilingPly);
+	if (masteredPlies >= effectiveLength) {
+		return {
+			path: path.slice(0, effectiveLength),
+			arrowPlies: null,
+			isFinalPass: true,
+			pausedAtCeiling: effectiveLength < path.length
+		};
 	}
 	if (taughtPlies === masteredPlies) {
-		const target = plyAfterPlayerMoves(path, masteredPlies, TEACHING_BATCH_MOVES);
-		// A pass that draws arrows is NEVER the final pass — every batch,
-		// including the last, owes one blind retest before the variation can be
-		// solved. Issue #68 made the last batch an exception (a teach pass
-		// reaching the path's end over a mastered prefix solved the variation
-		// outright, saving one attempt) on the reasoning that the retest which
-		// followed served the identical path and asked for the identical manual
-		// tail, "only the arrows differed". The arrows are the whole test: under
-		// that exception a variation's final moves were shown with guidance and
-		// then never once asked for from memory, and replaying them WITH the
-		// arrows up counted as learning them. Trading one extra clean attempt
-		// per multi-batch line for "nothing counts as learned until it's been
-		// played unaided" is the right side of that trade.
-		return { path: path.slice(0, target), arrowPlies: { from: masteredPlies, to: target }, isFinalPass: false };
+		const target = Math.min(plyAfterPlayerMoves(path, masteredPlies, TEACHING_BATCH_MOVES), effectiveLength);
+		// See resolveTeachingStep's own prior doc comment (issue #68) for why a
+		// pass that draws arrows is never the final pass, unchanged by the ceiling.
+		return {
+			path: path.slice(0, target),
+			arrowPlies: { from: masteredPlies, to: target },
+			isFinalPass: false,
+			pausedAtCeiling: false
+		};
 	}
-	return { path: path.slice(0, taughtPlies), arrowPlies: null, isFinalPass: taughtPlies >= path.length };
+	const target = Math.min(taughtPlies, effectiveLength);
+	return {
+		path: path.slice(0, target),
+		arrowPlies: null,
+		isFinalPass: target >= effectiveLength,
+		pausedAtCeiling: target >= effectiveLength && effectiveLength < path.length
+	};
 }
 
 /**
  * Applies a completed attempt's outcome to the two counters. Always
  * re-derives the step that was actually served (via `resolveTeachingStep`)
- * rather than trusting anything the client reports beyond `hadMistake` — the
- * same trust boundary `applyAttemptResult` already has today.
+ * rather than trusting anything the client reports beyond `hadMistake`.
+ *
+ * `solved` now means genuinely, truly finished — never true for a pass that
+ * only reached a ceiling short of the variation's own real end.
+ * `pausedAtCeiling` is the caller's signal to do everything a genuine solve
+ * does NOT do (no `variation_solved` write, no completed-chapters cache
+ * update) while STILL doing the one thing a mid-batch pass does NOT do:
+ * advance past this variation when deciding what to serve next (see
+ * `variationSequence.ts`'s new `blockedKeys` parameter and
+ * `server/practice-progress.ts`'s new branch in `applyAttemptResult`).
  */
 export function advanceTeachingProgress(
 	path: VariationStep[],
 	taughtPlies: number,
 	masteredPlies: number,
-	hadMistake: boolean
-): { taughtPlies: number; masteredPlies: number; solved: boolean } {
-	const step = resolveTeachingStep(path, taughtPlies, masteredPlies);
+	hadMistake: boolean,
+	ceilingPly: number = path.length
+): { taughtPlies: number; masteredPlies: number; solved: boolean; pausedAtCeiling: boolean } {
+	const step = resolveTeachingStep(path, taughtPlies, masteredPlies, ceilingPly);
 
 	if (hadMistake) {
-		return { taughtPlies, masteredPlies, solved: false };
+		return { taughtPlies, masteredPlies, solved: false, pausedAtCeiling: false };
 	}
-	// A teach pass only ever advances taught_plies: its batch owes one blind
-	// retest before it counts as mastered, and there is no longer any exception
-	// for the last batch (see `resolveTeachingStep`). Mastery — and therefore
-	// solving — is only ever awarded below, by a pass with no arrows up.
 	if (step.arrowPlies) {
-		return { taughtPlies: step.arrowPlies.to, masteredPlies, solved: false };
+		return { taughtPlies: step.arrowPlies.to, masteredPlies, solved: false, pausedAtCeiling: false };
 	}
-	return { taughtPlies: Math.max(taughtPlies, step.path.length), masteredPlies: step.path.length, solved: step.isFinalPass };
+	const masteredNow = step.path.length;
+	return {
+		taughtPlies: Math.max(taughtPlies, masteredNow),
+		masteredPlies: masteredNow,
+		solved: step.isFinalPass && !step.pausedAtCeiling,
+		pausedAtCeiling: step.isFinalPass && step.pausedAtCeiling
+	};
+}
+
+/**
+ * Whether `path` currently has nothing more Learn can teach under
+ * `ceilingMoveCount` — already taught as far as the ceiling allows, but not
+ * this variation's own true end. Deliberately FALSE for an untouched
+ * (`masteredPlies === 0`) long variation: that one is still fully servable,
+ * up to the ceiling, on its very next pass — this predicate answers "is
+ * there nothing left to do here RIGHT NOW", not "is this variation long".
+ */
+export function isPausedAtCeiling(path: readonly VariationStep[], masteredPlies: number, ceilingMoveCount: number): boolean {
+	const ceilingPly = ceilingPlyFor(path, ceilingMoveCount);
+	return masteredPlies >= ceilingPly && ceilingPly < path.length;
 }
 
 /**
