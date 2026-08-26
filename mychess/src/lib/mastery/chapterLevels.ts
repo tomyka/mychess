@@ -150,7 +150,7 @@ export function deriveRepertoireLevel(chapterLevels: Iterable<Tier | null>): Tie
  * together — the WHOLE repertoire treated as one chapter — rather than
  * per-chapter-then-`deriveRepertoireLevel`. See
  * docs/superpowers/specs/2026-08-26-tier-gated-learn-design.md §3 for why:
- * minning independently-computed per-chapter LEVELS reintroduces a deadlock
+ * min-ing independently-computed per-chapter LEVELS reintroduces a deadlock
  * `deriveChapterLevel`'s own vacuous-tier handling already solves once, at
  * the chapter level — a chapter with nothing bronze-length at all would
  * otherwise permanently cap the whole repertoire at 9. Pooling first, then
