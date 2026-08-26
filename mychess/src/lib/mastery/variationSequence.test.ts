@@ -42,6 +42,41 @@ describe('pickActiveVariation', () => {
 	});
 });
 
+describe('pickActiveVariation with blockedKeys', () => {
+	it('behaves exactly as without blockedKeys when nothing is blocked', () => {
+		const a = variation('a');
+		const b = variation('b');
+		expect(pickActiveVariation([a, b], null, new Set(['a']), new Set())).toBe(b);
+		expect(pickActiveVariation([a, b], null, new Set(['a']))).toBe(
+			pickActiveVariation([a, b], null, new Set(['a']), new Set())
+		);
+	});
+
+	it('a stored active pointer to a BLOCKED (unsolved, paused) variation does NOT win outright — falls through', () => {
+		const variations = [variation('a'), variation('b'), variation('c')];
+		const picked = pickActiveVariation(variations, 'b', new Set(), new Set(['b']));
+		expect(picked?.variationKey).not.toBe('b');
+	});
+
+	it('a stored active pointer to an already-SOLVED variation still wins outright, even if it happens to be in blockedKeys', () => {
+		const variations = [variation('a'), variation('b')];
+		const picked = pickActiveVariation(variations, 'a', new Set(['a']), new Set(['a']));
+		expect(picked?.variationKey).toBe('a');
+	});
+
+	it('skips blocked candidates when falling back to the first unsolved variation', () => {
+		const variations = [variation('a'), variation('b'), variation('c')];
+		const picked = pickActiveVariation(variations, null, new Set(), new Set(['a']));
+		expect(picked?.variationKey).toBe('b');
+	});
+
+	it('falls back to the first variation overall when every candidate is solved or blocked', () => {
+		const variations = [variation('a'), variation('b')];
+		const picked = pickActiveVariation(variations, null, new Set(), new Set(['a', 'b']));
+		expect(picked?.variationKey).toBe('a');
+	});
+});
+
 describe('nextVariation', () => {
 	it('returns the variation right after the given key', () => {
 		const a = variation('a');
@@ -148,6 +183,20 @@ describe('advanceIfSolved', () => {
 		const sharedKey = variations.find((v) => v.chapterNames.length === 2)!.variationKey;
 		const next = advanceIfSolved(sharedKey, variations, new Set([sharedKey]));
 		expect(keys.indexOf(next!)).toBeGreaterThan(keys.indexOf(sharedKey));
+	});
+});
+
+describe('advanceIfSolved with blockedKeys', () => {
+	it('skips a blocked candidate the same way it already skips a solved one', () => {
+		const variations = [variation('a'), variation('b'), variation('c')];
+		const next = advanceIfSolved('a', variations, new Set(), new Set(['b']));
+		expect(next).toBe('c');
+	});
+
+	it('returns null, without hanging, when every remaining candidate is solved or blocked', () => {
+		const variations = [variation('a'), variation('b'), variation('c')];
+		const next = advanceIfSolved('a', variations, new Set(['b']), new Set(['c']));
+		expect(next).toBeNull();
 	});
 });
 

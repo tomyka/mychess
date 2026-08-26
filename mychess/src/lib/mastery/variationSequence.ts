@@ -4,25 +4,32 @@ import type { Variation } from './variations';
  * The ONE variation currently active for a repertoire. If `activeVariationKey`
  * matches a real variation, that variation wins outright — even if it's
  * already solved (a player can deliberately re-drill something they've
- * solved; see the PRD's "solved variations remain pickable" acceptance
- * criterion). Only when there's NO key, or the key no longer matches
- * anything (a repertoire edited, or a variation excluded, since it was last
- * stored — the same self-healing fallback `variation_practice_exclusions`-
- * style tables already need), does this fall back to the first UNSOLVED
- * variation in sequence — or, if everything is solved, the very first
- * variation overall (there's nothing more useful to default to).
+ * solved) — UNLESS it's currently blocked (unsolved AND has nothing more to
+ * teach right now under the current tier ceiling, GitHub issue #163): a
+ * stale pointer to a now-paused variation must not keep re-serving the same
+ * frozen board forever, so it's treated like "not found" and falls through.
+ * Only when there's NO key, the key no longer matches anything, or the match
+ * is blocked, does this fall back to the first UNSOLVED-and-unblocked
+ * variation in sequence — or, if everything is solved or blocked, the first
+ * UNSOLVED one regardless of blocked status — or, if everything is solved,
+ * the very first variation overall.
  */
 export function pickActiveVariation(
 	variations: Variation[],
 	activeVariationKey: string | null,
-	solvedKeys: ReadonlySet<string>
+	solvedKeys: ReadonlySet<string>,
+	blockedKeys: ReadonlySet<string> = new Set()
 ): Variation | null {
 	if (variations.length === 0) return null;
 	if (activeVariationKey) {
 		const found = variations.find((v) => v.variationKey === activeVariationKey);
-		if (found) return found;
+		if (found && (solvedKeys.has(found.variationKey) || !blockedKeys.has(found.variationKey))) return found;
 	}
-	return variations.find((v) => !solvedKeys.has(v.variationKey)) ?? variations[0];
+	return (
+		variations.find((v) => !solvedKeys.has(v.variationKey) && !blockedKeys.has(v.variationKey)) ??
+		variations.find((v) => !solvedKeys.has(v.variationKey)) ??
+		variations[0]
+	);
 }
 
 /** The variation immediately after `currentKey` in `variations`' own order, or null if it's the last one (or not found). */
@@ -33,11 +40,16 @@ export function nextVariation(variations: Variation[], currentKey: string): Vari
 }
 
 /**
- * Called right after `activeVariationKey` has just been marked solved — the
- * next UNSOLVED variation in sequence after it, skipping over any later
- * variation that's ALSO already solved (e.g. a player solved it earlier via
- * manual re-drill, out of order). `null` means every remaining variation is
- * already solved: the whole repertoire is done.
+ * Called right after `activeVariationKey` has just been marked solved, OR
+ * paused at its tier ceiling (GitHub issue #163 — see
+ * server/practice-progress.ts's `applyAttemptResult`) — the next
+ * UNSOLVED-and-unblocked variation in sequence after it, skipping over any
+ * later variation that's ALSO already solved or ALSO currently blocked.
+ * `null` means every remaining variation is solved or blocked: nothing more
+ * is currently servable.
+ *
+ * `visited` (unchanged from before this task) is what keeps this loop from
+ * hanging even in that fully-blocked case.
  *
  * Defence in depth: `nextVariation` resolves a key via `findIndex`, which
  * always lands on the FIRST entry with that key. `enumerateVariations` now
@@ -52,11 +64,12 @@ export function nextVariation(variations: Variation[], currentKey: string): Vari
 export function advanceIfSolved(
 	activeVariationKey: string,
 	variations: Variation[],
-	solvedKeys: ReadonlySet<string>
+	solvedKeys: ReadonlySet<string>,
+	blockedKeys: ReadonlySet<string> = new Set()
 ): string | null {
 	const visited = new Set<string>([activeVariationKey]);
 	let candidate = nextVariation(variations, activeVariationKey);
-	while (candidate && solvedKeys.has(candidate.variationKey)) {
+	while (candidate && (solvedKeys.has(candidate.variationKey) || blockedKeys.has(candidate.variationKey))) {
 		if (visited.has(candidate.variationKey)) return null;
 		visited.add(candidate.variationKey);
 		candidate = nextVariation(variations, candidate.variationKey);
