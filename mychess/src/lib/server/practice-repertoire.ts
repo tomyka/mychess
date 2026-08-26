@@ -12,7 +12,7 @@ export type PracticeRepertoire = {
 	/**
 	 * When this repertoire's moves last changed, maintained by a database trigger
 	 * (migration 0055). Mastery records are stamped with it and go stale the
-	 * moment it moves — see `isMasteryCurrent` in `$lib/mastery/repertoireStatus`.
+	 * moment it moves — see `repertoires.moves_updated_at`'s trigger (migration 0055).
 	 */
 	movesUpdatedAt: string | null;
 };
