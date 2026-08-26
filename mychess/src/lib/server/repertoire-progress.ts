@@ -13,7 +13,6 @@ import { isApplyInFlight, needsReconciliation, reconcilePlayerProgress } from '.
 import { grantNewBadges } from '$lib/badges/grant';
 import {
 	deriveRepertoireStatusFromCounts,
-	isMasteryCurrent,
 	masterableChapters,
 	type RepertoireStatus
 } from '$lib/mastery/repertoireStatus';
@@ -63,7 +62,7 @@ async function fetchAllMoves(supabase: SupabaseClient, repIds: string[]): Promis
 // keys (solved lines looked unsolved).
 async function fetchRowsByRepertoire<T extends { repertoire_id: string }>(
 	supabase: SupabaseClient,
-	table: 'variation_practice_exclusions' | 'variation_solved' | 'chapter_mastery',
+	table: 'variation_practice_exclusions' | 'variation_solved' | 'chapter_platinum',
 	playerId: string,
 	repIds: string[],
 	columns: string,
@@ -327,7 +326,7 @@ export async function loadRepertoireProgressSummaries(
 	// The reconciliation stamps ride along in the same round trip as the two
 	// progress reads, so the reconciliation check below costs no added latency —
 	// only one extra query, and only ever one (see `fetchReconciledAt`).
-	const [exclusionRowsByRep, solvedRowsByRep, chapterMasteryRowsByRep, reconciledAtByRep] = await Promise.all([
+	const [exclusionRowsByRep, solvedRowsByRep, chapterPlatinumRowsByRep, reconciledAtByRep] = await Promise.all([
 		fetchRowsByRepertoire<ExclusionRecord>(
 			supabase,
 			'variation_practice_exclusions',
@@ -343,14 +342,16 @@ export async function loadRepertoireProgressSummaries(
 			'repertoire_id, variation_key'
 		),
 		// Cheap (indexed, bounded by chapter count — no variation enumeration):
-		// GitHub issue #105's Mastered badge on the list, via
-		// `deriveRepertoireStatusFromCounts` further down.
-		fetchRowsByRepertoire<{ repertoire_id: string; moves_updated_at: string }>(
+		// the repertoire list's Mastered badge (originally #105, now sourced
+		// from the knowledge-levels ladder's sticky cache — see
+		// chapter_platinum, migration 0071), via `deriveRepertoireStatusFromCounts`
+		// further down.
+		fetchRowsByRepertoire<{ repertoire_id: string }>(
 			supabase,
-			'chapter_mastery',
+			'chapter_platinum',
 			userId,
 			repIds,
-			'repertoire_id, moves_updated_at',
+			'repertoire_id',
 			'repertoire_id'
 		),
 		fetchReconciledAt(supabase, userId, repIds)
@@ -649,9 +650,7 @@ export async function loadRepertoireProgressSummaries(
 		// can't read as mastered until it does, same as an unresolved
 		// `total_variations` falls back to `fullVariationCount` above.
 		const chapterCount: number | null = r.chapter_count ?? backfilledChapterCounts.get(r.id) ?? null;
-		const currentlyMasteredChapterCount = (chapterMasteryRowsByRep.get(r.id) ?? []).filter((row) =>
-			isMasteryCurrent(row.moves_updated_at, r.moves_updated_at ?? null)
-		).length;
+		const currentlyMasteredChapterCount = (chapterPlatinumRowsByRep.get(r.id) ?? []).length;
 		const status = deriveRepertoireStatusFromCounts({ allLearned: allSolved, chapterCount, currentlyMasteredChapterCount });
 
 		return {
@@ -679,6 +678,17 @@ export async function loadRepertoireProgressSummaries(
 	// countRepertoireStatuses() calls loadRepertoireProgressSummaries() itself
 	// when it isn't handed a summaries array, and this function's callers
 	// otherwise resolve to exactly that when nothing is passed.
+	if (reconciledIds.size > 0) {
+		const { error } = await supabase
+			.from('chapter_platinum')
+			.delete()
+			.eq('player_id', userId)
+			.in('repertoire_id', [...reconciledIds]);
+		if (error) {
+			console.error(`Failed to clear chapter_platinum after reconciliation for player ${userId}:`, error.message);
+		}
+	}
+
 	if (reconciledIds.size > 0) {
 		try {
 			await grantNewBadges(supabase, userId, {}, summaries);

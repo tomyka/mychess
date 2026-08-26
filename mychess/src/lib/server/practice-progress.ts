@@ -4,6 +4,9 @@ import type { Variation } from '$lib/mastery/variations';
 import { pickActiveVariation, advanceIfSolved } from '$lib/mastery/variationSequence';
 import { advanceTeachingProgress, knownProgressFor } from '$lib/mastery/teaching';
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
+import { masterableChapters } from '$lib/mastery/repertoireStatus';
+import { isInChapterTier, rowsInChapterTier } from '$lib/mastery/variations';
+import { deriveChapterLevel } from '$lib/mastery/chapterLevels';
 
 /**
  * This player's full solved-variation-key set for one repertoire.
@@ -114,6 +117,42 @@ export async function markVariationSolved(
 			{ player_id: playerId, repertoire_id: repertoireId, variation_key: variationKey },
 			{ onConflict: 'player_id,variation_key_hash', ignoreDuplicates: true }
 		);
+}
+
+/**
+ * Writes a `chapter_platinum` cache row for every chapter `variation` belongs
+ * to whose knowledge level has just newly become Platinum, given the
+ * up-to-date `solvedKeys` (read AFTER this attempt's `variation_solved` write).
+ *
+ * Idempotent (safe to call even when the chapter was already platinum) and
+ * best-effort: this cache only backs the repertoire list's decorative
+ * "Mastered" badge, never the authoritative Levels page or badge counts (both
+ * derive fresh from `variation_solved` directly, with no cache) — so a failed
+ * write here must not fail the attempt it's piggybacking on.
+ */
+async function cachePlatinumChaptersReached(
+	supabase: SupabaseClient,
+	playerId: string,
+	repertoireId: string,
+	variation: Variation,
+	allVariations: Variation[],
+	solvedKeys: ReadonlySet<string>
+): Promise<void> {
+	const chapters = masterableChapters(allVariations).filter((chapter) => isInChapterTier(variation, chapter));
+	const platinumChapters = chapters.filter(
+		(chapter) => deriveChapterLevel(rowsInChapterTier(allVariations, chapter), solvedKeys) === 'platinum'
+	);
+	if (platinumChapters.length === 0) return;
+
+	const { error } = await supabase
+		.from('chapter_platinum')
+		.upsert(
+			platinumChapters.map((chapterName) => ({ player_id: playerId, repertoire_id: repertoireId, chapter_name: chapterName })),
+			{ onConflict: 'player_id,repertoire_id,chapter_name', ignoreDuplicates: true }
+		);
+	if (error) {
+		console.error(`cachePlatinumChaptersReached: failed to write for repertoire ${repertoireId}:`, error.message);
+	}
 }
 
 /**
@@ -311,4 +350,7 @@ export async function applyAttemptResult(
 	const solvedKeys = await loadSolvedKeys(supabase, playerId, repertoireId);
 	const next = advanceIfSolved(variationKey, variations, solvedKeys);
 	await setActiveVariationKey(supabase, playerId, repertoireId, next);
+	if (variation) {
+		await cachePlatinumChaptersReached(supabase, playerId, repertoireId, variation, variations, solvedKeys);
+	}
 }
