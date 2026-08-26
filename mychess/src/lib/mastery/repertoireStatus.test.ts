@@ -41,66 +41,66 @@ describe('deriveRepertoireStatus', () => {
 	const three = [v('a', ['Open']), v('b', ['Open']), v('c', ['Closed'])];
 
 	it('is learning while any variation is un-learned', () => {
-		expect(status({ variations: three, learnedKeys: new Set(['a']), platinumChapters: new Set() })).toBe(
+		expect(status({ variations: three, learnedKeys: new Set(['a']), completedChapters: new Set() })).toBe(
 			'learning'
 		);
 	});
 
-	it('is learned once every variation is learned but no chapter is platinum', () => {
+	it('is learned once every variation is learned but no chapter is complete', () => {
 		expect(
-			status({ variations: three, learnedKeys: new Set(['a', 'b', 'c']), platinumChapters: new Set() })
+			status({ variations: three, learnedKeys: new Set(['a', 'b', 'c']), completedChapters: new Set() })
 		).toBe('learned');
 	});
 
-	it('is still learned when only some chapters are platinum', () => {
+	it('is still learned when only some chapters are complete', () => {
 		expect(
 			status({
 				variations: three,
 				learnedKeys: new Set(['a', 'b', 'c']),
-				platinumChapters: new Set(['Open'])
+				completedChapters: new Set(['Open'])
 			})
 		).toBe('learned');
 	});
 
-	it('is mastered once every chapter is platinum', () => {
+	it('is mastered once every chapter is complete', () => {
 		expect(
 			status({
 				variations: three,
 				learnedKeys: new Set(['a', 'b', 'c']),
-				platinumChapters: new Set(['Open', 'Closed'])
+				completedChapters: new Set(['Open', 'Closed'])
 			})
 		).toBe('mastered');
 	});
 
-	it('drops back to learning when new un-learned material arrives, even with every chapter platinum', () => {
+	it('drops back to learning when new un-learned material arrives, even with every chapter complete', () => {
 		expect(
 			status({
 				variations: [...three, v('d', ['Sharp'])],
 				learnedKeys: new Set(['a', 'b', 'c']),
-				platinumChapters: new Set(['Open', 'Closed'])
+				completedChapters: new Set(['Open', 'Closed'])
 			})
 		).toBe('learning');
 	});
 
-	it('drops from mastered to learned when a chapter falls out of platinum', () => {
+	it('drops from mastered to learned when a chapter falls out of complete', () => {
 		const learned = new Set(['a', 'b', 'c']);
-		expect(status({ variations: three, learnedKeys: learned, platinumChapters: new Set(['Open', 'Closed']) })).toBe(
+		expect(status({ variations: three, learnedKeys: learned, completedChapters: new Set(['Open', 'Closed']) })).toBe(
 			'mastered'
 		);
-		expect(status({ variations: three, learnedKeys: learned, platinumChapters: new Set(['Open']) })).toBe(
+		expect(status({ variations: three, learnedKeys: learned, completedChapters: new Set(['Open']) })).toBe(
 			'learned'
 		);
 	});
 
 	it('ignores variations the caller has excluded from scope', () => {
 		const inScope = three.filter((x) => x.variationKey !== 'c');
-		expect(status({ variations: inScope, learnedKeys: new Set(['a', 'b']), platinumChapters: new Set(['Open']) })).toBe(
+		expect(status({ variations: inScope, learnedKeys: new Set(['a', 'b']), completedChapters: new Set(['Open']) })).toBe(
 			'mastered'
 		);
 	});
 
 	it('treats an empty repertoire as vacuously learned, never mastered', () => {
-		expect(status({ variations: [], learnedKeys: new Set(), platinumChapters: new Set() })).toBe('learned');
+		expect(status({ variations: [], learnedKeys: new Set(), completedChapters: new Set() })).toBe('learned');
 	});
 
 	it('masters a wholly untagged repertoire through its implicit chapter', () => {
@@ -108,21 +108,21 @@ describe('deriveRepertoireStatus', () => {
 			status({
 				variations: [v('a'), v('b')],
 				learnedKeys: new Set(['a', 'b']),
-				platinumChapters: new Set([UNTAGGED_CHAPTER])
+				completedChapters: new Set([UNTAGGED_CHAPTER])
 			})
 		).toBe('mastered');
 	});
 
-	it('requires every chapter of a shared line to be platinum', () => {
+	it('requires every chapter of a shared line to be complete', () => {
 		const shared = [v('a', ['Open', 'Closed'])];
 		expect(
-			status({ variations: shared, learnedKeys: new Set(['a']), platinumChapters: new Set(['Open']) })
+			status({ variations: shared, learnedKeys: new Set(['a']), completedChapters: new Set(['Open']) })
 		).toBe('learned');
 		expect(
 			status({
 				variations: shared,
 				learnedKeys: new Set(['a']),
-				platinumChapters: new Set(['Open', 'Closed'])
+				completedChapters: new Set(['Open', 'Closed'])
 			})
 		).toBe('mastered');
 	});

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { tierForMoveCount, deriveChapterLevel, deriveRepertoireLevel } from './chapterLevels';
+import { tierForMoveCount, deriveChapterLevel, deriveRepertoireLevel, chapterCeiling, isChapterComplete } from './chapterLevels';
 
 const v = (variationKey: string, playerMoveCount: number) => ({ variationKey, playerMoveCount });
 
@@ -62,6 +62,50 @@ describe('deriveChapterLevel', () => {
 
 	it('is null for a chapter with no variations at all', () => {
 		expect(deriveChapterLevel([], new Set())).toBeNull();
+	});
+});
+
+describe('chapterCeiling', () => {
+	it('is the highest tier the chapter has any content in', () => {
+		const rows = [v('a', 5), v('b', 15)]; // bronze + silver, nothing gold or platinum
+		expect(chapterCeiling(rows)).toBe('silver');
+	});
+
+	it('is platinum when the chapter has content that deep', () => {
+		const rows = [v('a', 5), v('b', 30)];
+		expect(chapterCeiling(rows)).toBe('platinum');
+	});
+
+	it('is null for a chapter with no variations at all', () => {
+		expect(chapterCeiling([])).toBeNull();
+	});
+});
+
+describe('isChapterComplete', () => {
+	// The whole point of this predicate: a short chapter's own ceiling (not
+	// literally Platinum) is what "complete" means.
+	it('is complete once a short chapter (ceiling: silver) is fully solved', () => {
+		const rows = [v('a', 5), v('b', 15)];
+		expect(isChapterComplete(rows, new Set(['a', 'b']))).toBe(true);
+	});
+
+	it('is not complete while any content at or below its own ceiling is unsolved', () => {
+		const rows = [v('a', 5), v('b', 15)];
+		expect(isChapterComplete(rows, new Set(['a']))).toBe(false);
+	});
+
+	it('is not complete for an empty chapter', () => {
+		expect(isChapterComplete([], new Set())).toBe(false);
+	});
+
+	// Regression test for the exclusion-blocking bug: an excluded, never-solved
+	// variation must remain present in the array passed in here (never
+	// pre-filtered out upstream) for this to hold — its absence from
+	// `solvedKeys` alone is what should keep the chapter below its own ceiling,
+	// with no exclusion special-casing needed inside this function itself.
+	it('is not complete when an excluded, never-solved variation is still present in the (unfiltered) array, even if everything else is solved', () => {
+		const rows = [v('a', 5), v('excludedLine', 15)]; // ceiling: silver
+		expect(isChapterComplete(rows, new Set(['a']))).toBe(false);
 	});
 });
 

@@ -1,7 +1,7 @@
 // mychess/src/lib/server/practice-progress.test.ts
 import { describe, it, expect } from 'vitest';
 import { applyAttemptResult, touchVariationAttempt, loadVariationUpdatedAt } from './practice-progress';
-import type { Variation } from '$lib/mastery/variations';
+import { UNTAGGED_CHAPTER, type Variation } from '$lib/mastery/variations';
 
 function makeVariation(variationKey: string, plies: number): Variation {
 	const path = Array.from({ length: plies }, (_, i) => ({
@@ -100,6 +100,14 @@ function fakeSupabase(opts: {
 				};
 			}
 			if (table === 'practice_active_variation') {
+				return {
+					upsert: (rows: any, options: any) => {
+						upsertCalls.push({ table, rows, options });
+						return Promise.resolve({ error: null });
+					}
+				};
+			}
+			if (table === 'chapter_completed') {
 				return {
 					upsert: (rows: any, options: any) => {
 						upsertCalls.push({ table, rows, options });
@@ -279,6 +287,50 @@ describe('applyAttemptResult', () => {
 				options: { onConflict: 'player_id,variation_key_hash' }
 			}
 		]);
+	});
+
+	// Regression coverage for the exclusion-blocking bug: `allVariations` (the
+	// 8th, UNFILTERED parameter) must include an excluded, never-solved
+	// variation for the completed-chapters cache write to correctly stay
+	// blocked by it — passing only the filtered `variations` here would
+	// silently let the chapter sail past that variation's tier.
+	it('does not cache a chapter as completed when an excluded, never-solved variation still caps its own ceiling', async () => {
+		// v1 (silver tier: playerMoveCount 13) is the only PRACTICEABLE variation
+		// — matching what /api/practice/attempt does before calling
+		// applyAttemptResult, having already filtered `excludedVar` out of the
+		// `variations` it passes as the 6th argument. `excludedVar` (gold tier:
+		// playerMoveCount 20) is passed only via the 8th, UNFILTERED argument —
+		// it can never appear in solvedKeys while excluded, which is exactly
+		// what should keep this chapter below its own ceiling (gold) even once
+		// v1 is solved.
+		const { client, upsertCalls } = fakeSupabase({
+			teachingRows: [{ variation_key: 'v1', taught_plies: 25, mastered_plies: 20 }]
+		});
+		const v1 = makeVariation('v1', 25);
+		const excludedVar = makeVariation('excludedVar', 40);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1], false, [v1, excludedVar]);
+
+		expect(upsertCalls.map((c) => c.table)).toEqual([
+			'variation_teaching_progress',
+			'variation_solved',
+			'practice_active_variation'
+		]);
+		expect(upsertCalls.some((c) => c.table === 'chapter_completed')).toBe(false);
+	});
+
+	it('caches a chapter as completed once it reaches its own ceiling, without needing literal platinum', async () => {
+		// v1 alone (silver tier), with no excluded sibling this time: once it's
+		// solved, its chapter's own ceiling (silver — the highest tier it has
+		// any content in) is reached, so it should be cached as completed even
+		// though the chapter never reaches platinum.
+		const { client, upsertCalls } = fakeSupabase({
+			teachingRows: [{ variation_key: 'v1', taught_plies: 25, mastered_plies: 20 }]
+		});
+		const v1 = makeVariation('v1', 25);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1]);
+
+		const cacheWrite = upsertCalls.find((c) => c.table === 'chapter_completed');
+		expect(cacheWrite?.rows).toEqual([{ player_id: 'player-1', repertoire_id: 'rep-1', chapter_name: UNTAGGED_CHAPTER }]);
 	});
 });
 

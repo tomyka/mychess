@@ -1,7 +1,7 @@
 // mychess/src/routes/(player)/practice/[repertoire_id]/mastery/+page.server.ts
 import type { PageServerLoad } from './$types';
 import { requireAccount } from '$lib/server/auth';
-import { loadFilteredRepertoireVariations } from '$lib/server/practice-repertoire';
+import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
 import { loadSolvedKeys } from '$lib/server/practice-progress';
 import { masterableChapters } from '$lib/mastery/repertoireStatus';
 import { rowsInChapterTier } from '$lib/mastery/variations';
@@ -19,8 +19,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const supabase = locals.supabase;
 	const repertoireId = params.repertoire_id;
 
+	// UNFILTERED on purpose: an excluded, never-solved variation must still be
+	// present in its tier bracket to block the ladder past its own tier,
+	// rather than silently absent from it — see `deriveChapterLevel`'s doc
+	// comment. This page has no other use for `variations`, so it switches
+	// entirely rather than also deriving a filtered copy.
 	const [{ repertoire, variations }, learnedKeys] = await Promise.all([
-		loadFilteredRepertoireVariations(supabase, user!.id, repertoireId),
+		loadRepertoireVariations(supabase, user!.id, repertoireId),
 		loadSolvedKeys(supabase, user!.id, repertoireId)
 	]);
 

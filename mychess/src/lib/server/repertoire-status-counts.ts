@@ -5,11 +5,11 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadRepertoireProgressSummaries, type RepertoireProgressSummary } from './repertoire-progress';
-import { loadFilteredRepertoireVariations } from './practice-repertoire';
+import { loadRepertoireVariations } from './practice-repertoire';
 import { loadSolvedKeys } from './practice-progress';
 import { deriveRepertoireStatus, masterableChapters } from '$lib/mastery/repertoireStatus';
-import { rowsInChapterTier } from '$lib/mastery/variations';
-import { deriveChapterLevel } from '$lib/mastery/chapterLevels';
+import { filterVariations, rowsInChapterTier } from '$lib/mastery/variations';
+import { isChapterComplete } from '$lib/mastery/chapterLevels';
 
 /**
  * Counts Learned and Mastered repertoires for one player.
@@ -40,16 +40,23 @@ export async function countRepertoireStatuses(
 	const statuses = await Promise.all(
 		fullyLearned.map(async (summary) => {
 			try {
-				const [{ variations }, learnedKeys] = await Promise.all([
-					loadFilteredRepertoireVariations(supabase, playerId, summary.id),
+				const [{ variations: allVariations, excludedVariationKeys }, learnedKeys] = await Promise.all([
+					loadRepertoireVariations(supabase, playerId, summary.id),
 					loadSolvedKeys(supabase, playerId, summary.id)
 				]);
-				const platinumChapters = new Set(
-					masterableChapters(variations).filter(
-						(chapter) => deriveChapterLevel(rowsInChapterTier(variations, chapter), learnedKeys) === 'platinum'
+				// `deriveRepertoireStatus`'s own "learned" check wants the FILTERED
+				// set (an excluded line is not owed to it, exactly like today) —
+				// but chapter completeness needs the UNFILTERED set, so an excluded,
+				// never-solved variation still caps its chapter below its own
+				// ceiling instead of vanishing from the bracket entirely (see
+				// `isChapterComplete`'s doc comment).
+				const variations = filterVariations(allVariations, excludedVariationKeys);
+				const completedChapters = new Set(
+					masterableChapters(allVariations).filter((chapter) =>
+						isChapterComplete(rowsInChapterTier(allVariations, chapter), learnedKeys)
 					)
 				);
-				return deriveRepertoireStatus({ variations, learnedKeys, platinumChapters });
+				return deriveRepertoireStatus({ variations, learnedKeys, completedChapters });
 			} catch (err) {
 				// A badge count is not worth failing the request that triggered it.
 				// Logged rather than swallowed so a persistent failure is visible.

@@ -53,13 +53,13 @@ describe('loadRepertoireProgressSummaries', () => {
 		solved?: string[];
 		teaching?: TeachingRecord[];
 		/**
-		 * This player's current number of `chapter_platinum` rows for r1 — the
+		 * This player's current number of `chapter_completed` rows for r1 — the
 		 * knowledge-levels ladder's sticky cache (migration 0071), which replaced
 		 * `chapter_mastery` (GitHub issue #105's original Mastered badge source).
 		 * Row content beyond `repertoire_id` doesn't matter here: the loader only
 		 * counts rows, with no currency concept to filter by.
 		 */
-		chapterPlatinum?: number;
+		chapterCompleted?: number;
 		moves?: typeof MOVES;
 		/**
 		 * This player's `repertoire_reconciliation.reconciled_at` for r1. Defaults
@@ -78,8 +78,8 @@ describe('loadRepertoireProgressSummaries', () => {
 			reconcileMoveFetches: [] as string[],
 			deletedIds: [] as string[],
 			stamped: [] as { ids: string[]; verifiedAt: string }[],
-			/** Repertoire ids whose `chapter_platinum` rows were cleared after reconciliation. */
-			chapterPlatinumCleared: [] as string[],
+			/** Repertoire ids whose `chapter_completed` rows were cleared after reconciliation. */
+			chapterCompletedCleared: [] as string[],
 			repertoireUpdates: [] as Record<string, unknown>[],
 			reconciliationStamps: [] as Record<string, unknown>[],
 			exclusionRekeys: [] as { fromKey: string; toKey: string; verifiedAt: string }[],
@@ -99,7 +99,7 @@ describe('loadRepertoireProgressSummaries', () => {
 		const exclusions = (opts.exclusions ?? []).map((row) => ({ ...row }));
 		const solvedRows = (opts.solved ?? []).map((variation_key) => ({ repertoire_id: 'r1', variation_key }));
 		const teaching = (opts.teaching ?? []).map((row) => ({ ...row }));
-		const chapterPlatinum = Array.from({ length: opts.chapterPlatinum ?? 0 }, () => ({ repertoire_id: 'r1' }));
+		const chapterCompleted = Array.from({ length: opts.chapterCompleted ?? 0 }, () => ({ repertoire_id: 'r1' }));
 		const reconciliationRows =
 			opts.reconciledAt === null
 				? []
@@ -252,13 +252,13 @@ describe('loadRepertoireProgressSummaries', () => {
 						}
 					};
 				}
-				if (table === 'chapter_platinum') {
+				if (table === 'chapter_completed') {
 					return {
-						select: () => paged(() => chapterPlatinum),
+						select: () => paged(() => chapterCompleted),
 						delete: () =>
 							filterChain((filters) => {
 								const repIds = (filterValue(filters, 'repertoire_id') as string[]) ?? [];
-								calls.chapterPlatinumCleared.push(...repIds);
+								calls.chapterCompletedCleared.push(...repIds);
 							})
 					};
 				}
@@ -443,8 +443,8 @@ describe('loadRepertoireProgressSummaries', () => {
 		expect(calls.reconciliationStamps).toEqual([]);
 		// No reconciliation, so no reason to re-check badges either.
 		expect(calls.badgesGranted).toEqual([]);
-		// ...nor to clear an already-earned chapter_platinum cache.
-		expect(calls.chapterPlatinumCleared).toEqual([]);
+		// ...nor to clear an already-earned chapter_completed cache.
+		expect(calls.chapterCompletedCleared).toEqual([]);
 	});
 
 	it('rewrites an extended line\'s exclusion instead of pruning it', async () => {
@@ -501,10 +501,10 @@ describe('loadRepertoireProgressSummaries', () => {
 		const [summary] = await loadRepertoireProgressSummaries(client, USER);
 
 		expect(calls.reconcileMoveFetches).toEqual(['r1']);
-		// Reconciliation ran for r1, so its `chapter_platinum` cache is cleared —
+		// Reconciliation ran for r1, so its `chapter_completed` cache is cleared —
 		// a coach-driven demotion is the one thing allowed to take back an
-		// already-earned platinum chapter (migration 0071).
-		expect(calls.chapterPlatinumCleared).toEqual(['r1']);
+		// already-earned completed chapter (migration 0071).
+		expect(calls.chapterCompletedCleared).toEqual(['r1']);
 		// The line was extended, so the learned badge does not survive it.
 		expect(calls.solvedDeletes).toEqual(['m1>m2']);
 		expect(calls.demotions).toEqual([
@@ -625,18 +625,18 @@ describe('loadRepertoireProgressSummaries', () => {
 		expect(summary.excludedVariationCount).toBe(1);
 	});
 
-	describe('status (originally GitHub issue #105, now backed by chapter_platinum)', () => {
-		it('is learning while anything is unsolved, regardless of chapter platinum count', async () => {
+	describe('status (originally GitHub issue #105, now backed by chapter_completed)', () => {
+		it('is learning while anything is unsolved, regardless of chapter completed count', async () => {
 			const { client } = fakeSupabase({
 				repertoire: { ...cachedRepertoire, total_variations: 2 },
 				solved: ['m1>m2'],
-				chapterPlatinum: 1
+				chapterCompleted: 1
 			});
 			const [summary] = await loadRepertoireProgressSummaries(client, USER);
 			expect(summary.status).toBe('learning');
 		});
 
-		it('is learned once everything is solved but no chapter_platinum row exists yet', async () => {
+		it('is learned once everything is solved but no chapter_completed row exists yet', async () => {
 			const { client } = fakeSupabase({
 				repertoire: { ...cachedRepertoire, total_variations: 2 },
 				solved: ['m1>m2', 'm1>m3']
@@ -645,11 +645,11 @@ describe('loadRepertoireProgressSummaries', () => {
 			expect(summary.status).toBe('learned');
 		});
 
-		it('is mastered once everything is solved and the cached chapter count matches the chapter_platinum row count', async () => {
+		it('is mastered once everything is solved and the cached chapter count matches the chapter_completed row count', async () => {
 			const { client } = fakeSupabase({
 				repertoire: { ...cachedRepertoire, total_variations: 2 },
 				solved: ['m1>m2', 'm1>m3'],
-				chapterPlatinum: 1
+				chapterCompleted: 1
 			});
 			const [summary] = await loadRepertoireProgressSummaries(client, USER);
 			expect(summary.status).toBe('mastered');
@@ -661,7 +661,7 @@ describe('loadRepertoireProgressSummaries', () => {
 			// chapter) — `reconciledAt: null` here means simply "never reconciled
 			// before", with `moves` left as the UNCHANGED `MOVES` fixture, so
 			// reconciliation runs, finds every key already live, and demotes/rekeys
-			// nothing for this player. Its unconditional `chapter_platinum` clear
+			// nothing for this player. Its unconditional `chapter_completed` clear
 			// still fires (the plan does not gate it on whether anything was actually
 			// demoted) — so the pre-clear count (already equal to `chapter_count`)
 			// must not leak into THIS load's status, or it renders 'mastered' now and
@@ -669,7 +669,7 @@ describe('loadRepertoireProgressSummaries', () => {
 			const { client, calls } = fakeSupabase({
 				repertoire: { ...cachedRepertoire, total_variations: 2 },
 				solved: ['m1>m2', 'm1>m3'],
-				chapterPlatinum: 1,
+				chapterCompleted: 1,
 				reconciledAt: null
 			});
 
@@ -680,7 +680,7 @@ describe('loadRepertoireProgressSummaries', () => {
 			expect(calls.demotions).toEqual([]);
 			expect(calls.solvedDeletes).toEqual([]);
 			// ...yet its cache clear still fired...
-			expect(calls.chapterPlatinumCleared).toEqual(['r1']);
+			expect(calls.chapterCompletedCleared).toEqual(['r1']);
 			// ...so this load's own status must already reflect the cleared cache,
 			// not the stale pre-clear count that would otherwise still equal
 			// chapter_count.

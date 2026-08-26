@@ -1,7 +1,8 @@
 // mychess/src/routes/api/practice/attempt/+server.ts
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { loadFilteredRepertoireVariations } from '$lib/server/practice-repertoire';
+import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
+import { filterVariations } from '$lib/mastery/variations';
 import {
 	applyAttemptResult,
 	loadActiveVariationKey,
@@ -60,15 +61,22 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// just to read one variation's timestamp would be real, avoidable cost on
 	// a hot path for a large repertoire. Independent of `variations`, so it
 	// runs alongside that load rather than after it.
-	const [{ variations }, updatedAtBeforeThisAttempt] = await Promise.all([
-		loadFilteredRepertoireVariations(supabase, user.id, repertoireId),
+	// UNFILTERED here (`loadRepertoireVariations`, not the `...Filtered...`
+	// variant): `applyAttemptResult`'s own serving/teaching logic still needs
+	// the FILTERED set (derived below), but its completed-chapters cache write
+	// needs the excluded variations still present, so an excluded, never-solved
+	// line still caps its chapter instead of vanishing from the bracket
+	// entirely — see `isChapterComplete`'s doc comment.
+	const [{ variations: allVariations, excludedVariationKeys }, updatedAtBeforeThisAttempt] = await Promise.all([
+		loadRepertoireVariations(supabase, user.id, repertoireId),
 		loadVariationUpdatedAt(supabase, user.id, repertoireId, variationKey)
 	]);
+	const variations = filterVariations(allVariations, excludedVariationKeys);
 	const today = new Date().toISOString().slice(0, 10);
 	const resumedAfterBreak = wasResumedAfterBreak(updatedAtBeforeThisAttempt, new Date());
 
 	await Promise.all([
-		applyAttemptResult(supabase, user.id, repertoireId, variationKey, hadMistake, variations, resumedAfterBreak),
+		applyAttemptResult(supabase, user.id, repertoireId, variationKey, hadMistake, variations, resumedAfterBreak, allVariations),
 		touchVariationAttempt(supabase, user.id, repertoireId, variationKey),
 		incrementQuestProgress(supabase, user.id, 'review_cards', today)
 	]);

@@ -5,7 +5,7 @@
 // chapter_mastery-based mastered/stale counters.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { loadFilteredRepertoireVariations } from './practice-repertoire';
+import { loadRepertoireVariations } from './practice-repertoire';
 import { loadSolvedKeys } from './practice-progress';
 import { masterableChapters } from '$lib/mastery/repertoireStatus';
 import { rowsInChapterTier } from '$lib/mastery/variations';
@@ -76,12 +76,19 @@ export async function loadStudentRepertoireProgress(
 	await Promise.all(
 		repertoireIds.map(async (repertoireId) => {
 			try {
-				const [{ variations }, learnedKeys] = await Promise.all([
-					loadFilteredRepertoireVariations(supabase, playerId, repertoireId),
+				// UNFILTERED on purpose (named `allVariations`, matching the same
+				// naming convention used everywhere else this fix touches): chapter/
+				// tier computation needs an excluded, never-solved variation to
+				// still be present in its bracket (so it blocks the ladder past its
+				// own tier), not silently absent — see `deriveChapterLevel`'s doc
+				// comment. This file has no other use for the variation set, so it
+				// switches entirely rather than also deriving a filtered copy.
+				const [{ variations: allVariations }, learnedKeys] = await Promise.all([
+					loadRepertoireVariations(supabase, playerId, repertoireId),
 					loadSolvedKeys(supabase, playerId, repertoireId)
 				]);
-				const chapterLevels = masterableChapters(variations).map((chapter) =>
-					deriveChapterLevel(rowsInChapterTier(variations, chapter), learnedKeys)
+				const chapterLevels = masterableChapters(allVariations).map((chapter) =>
+					deriveChapterLevel(rowsInChapterTier(allVariations, chapter), learnedKeys)
 				);
 				const entry = result.get(repertoireId);
 				if (entry) entry.level = deriveRepertoireLevel(chapterLevels);
