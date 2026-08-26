@@ -1,199 +1,284 @@
 import { describe, it, expect } from 'vitest';
 import { setVariationsIncluded, variationKeyHash } from './variation-practice-settings';
+import { UNTAGGED_CHAPTER } from '$lib/mastery/variations';
 
+type MoveRow = { id: string; chapter_names: string[] };
+type ChapterExclusionRow = { player_id: string; repertoire_id: string; chapter_name: string; variation_key: string };
+type FlatExclusionRow = { player_id: string; repertoire_id: string; variation_key: string };
+
+/**
+ * A stateful fake — not just a call recorder — because the write path now
+ * reads its own prior writes back (`syncFlatExclusions` re-reads
+ * `variation_chapter_practice_exclusions` after `setVariationsIncluded`'s own
+ * per-chapter write), so a call-recording-only mock can't drive the sync
+ * logic correctly.
+ */
 function fakeSupabase(
-	opts: { deleteErrorOnCall?: number; upsertErrorOnCall?: number; errorMessage?: string } = {}
+	opts: {
+		moves?: MoveRow[];
+		existingChapterExclusions?: ChapterExclusionRow[];
+		existingFlatExclusions?: FlatExclusionRow[];
+		chapterDeleteErrorOnCall?: number;
+		chapterUpsertErrorOnCall?: number;
+		errorMessage?: string;
+	} = {}
 ) {
-	const deleteCalls: any[] = [];
-	const upsertCalls: any[] = [];
-	return {
-		client: {
-			from: (table: string) => ({
-				delete: () => ({
-					eq: (col1: string, val1: string) => ({
-						in: (col2: string, vals: string[]) => {
-							deleteCalls.push({ table, col1, val1, col2, vals });
-							const isErrorCall = opts.deleteErrorOnCall === deleteCalls.length;
-							return Promise.resolve({ error: isErrorCall ? { message: opts.errorMessage ?? 'boom' } : null });
-						}
+	const moves = opts.moves ?? [];
+	const chapterExclusions = (opts.existingChapterExclusions ?? []).map((r) => ({ ...r }));
+	const flatExclusions = (opts.existingFlatExclusions ?? []).map((r) => ({ ...r }));
+
+	let chapterDeleteCallCount = 0;
+	let chapterUpsertCallCount = 0;
+	const chapterDeleteCalls: { playerId: string; chapter: string; hashes: string[] }[] = [];
+	const chapterUpsertCalls: { rows: ChapterExclusionRow[]; options: unknown }[] = [];
+	const flatDeleteCalls: { playerId: string; hashes: string[] }[] = [];
+	const flatUpsertCalls: { rows: FlatExclusionRow[]; options: unknown }[] = [];
+
+	const client = {
+		from: (table: string) => {
+			if (table === 'moves') {
+				return {
+					select: () => ({
+						eq: () => ({
+							in: (_col: string, ids: string[]) =>
+								Promise.resolve({ data: moves.filter((m) => ids.includes(m.id)), error: null })
+						})
 					})
-				}),
-				upsert: (rows: any[], options: any) => {
-					upsertCalls.push({ table, rows, options });
-					const isErrorCall = opts.upsertErrorOnCall === upsertCalls.length;
-					return Promise.resolve({ error: isErrorCall ? { message: opts.errorMessage ?? 'boom' } : null });
-				}
-			})
-		},
-		deleteCalls,
-		upsertCalls
+				};
+			}
+			if (table === 'variation_chapter_practice_exclusions') {
+				return {
+					select: () => ({
+						eq: (_c: string, playerId: string) => ({
+							in: (_c2: string, hashes: string[]) => {
+								const rows = chapterExclusions.filter(
+									(r) => r.player_id === playerId && hashes.includes(variationKeyHash(r.variation_key))
+								);
+								return Promise.resolve({
+									data: rows.map((r) => ({ variation_key: r.variation_key, chapter_name: r.chapter_name })),
+									error: null
+								});
+							}
+						})
+					}),
+					delete: () => ({
+						eq: (_c: string, playerId: string) => ({
+							eq: (_c2: string, chapter: string) => ({
+								in: (_c3: string, hashes: string[]) => {
+									chapterDeleteCallCount++;
+									chapterDeleteCalls.push({ playerId, chapter, hashes });
+									if (opts.chapterDeleteErrorOnCall === chapterDeleteCallCount) {
+										return Promise.resolve({ error: { message: opts.errorMessage ?? 'boom' } });
+									}
+									for (let i = chapterExclusions.length - 1; i >= 0; i--) {
+										const r = chapterExclusions[i];
+										if (r.player_id === playerId && r.chapter_name === chapter && hashes.includes(variationKeyHash(r.variation_key))) {
+											chapterExclusions.splice(i, 1);
+										}
+									}
+									return Promise.resolve({ error: null });
+								}
+							})
+						})
+					}),
+					upsert: (rows: ChapterExclusionRow[], options: unknown) => {
+						chapterUpsertCallCount++;
+						chapterUpsertCalls.push({ rows, options });
+						if (opts.chapterUpsertErrorOnCall === chapterUpsertCallCount) {
+							return Promise.resolve({ error: { message: opts.errorMessage ?? 'boom' } });
+						}
+						for (const row of rows) {
+							const idx = chapterExclusions.findIndex(
+								(r) => r.player_id === row.player_id && r.chapter_name === row.chapter_name && r.variation_key === row.variation_key
+							);
+							if (idx >= 0) chapterExclusions[idx] = { ...row };
+							else chapterExclusions.push({ ...row });
+						}
+						return Promise.resolve({ error: null });
+					}
+				};
+			}
+			if (table === 'variation_practice_exclusions') {
+				return {
+					delete: () => ({
+						eq: (_c: string, playerId: string) => ({
+							in: (_c2: string, hashes: string[]) => {
+								flatDeleteCalls.push({ playerId, hashes });
+								for (let i = flatExclusions.length - 1; i >= 0; i--) {
+									if (flatExclusions[i].player_id === playerId && hashes.includes(variationKeyHash(flatExclusions[i].variation_key))) {
+										flatExclusions.splice(i, 1);
+									}
+								}
+								return Promise.resolve({ error: null });
+							}
+						})
+					}),
+					upsert: (rows: FlatExclusionRow[], options: unknown) => {
+						flatUpsertCalls.push({ rows, options });
+						for (const row of rows) {
+							const idx = flatExclusions.findIndex((r) => r.player_id === row.player_id && r.variation_key === row.variation_key);
+							if (idx >= 0) flatExclusions[idx] = { ...row };
+							else flatExclusions.push({ ...row });
+						}
+						return Promise.resolve({ error: null });
+					}
+				};
+			}
+			throw new Error(`unexpected table ${table}`);
+		}
 	};
+
+	return { client, chapterExclusions, flatExclusions, chapterDeleteCalls, chapterUpsertCalls, flatDeleteCalls, flatUpsertCalls };
 }
+
+// v1: Ruy Lopez only ('m1'). v2: shared by Ruy Lopez AND Italian Game ('m2',
+// tagged with both — every edge along v2's one-move path carries both names,
+// so the intersection is both). v3: untagged ('m3', no chapter_names).
+const MOVES: MoveRow[] = [
+	{ id: 'm1', chapter_names: ['Ruy Lopez'] },
+	{ id: 'm2', chapter_names: ['Ruy Lopez', 'Italian Game'] },
+	{ id: 'm3', chapter_names: [] }
+];
 
 describe('setVariationsIncluded', () => {
 	it('no-ops on an empty variationKeys array without touching supabase at all', async () => {
-		const { client, deleteCalls, upsertCalls } = fakeSupabase();
-		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', [], true);
+		const { client, chapterDeleteCalls, chapterUpsertCalls } = fakeSupabase();
+		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', [], true, 'Ruy Lopez');
 		expect(result).toEqual({ error: null });
-		expect(deleteCalls).toHaveLength(0);
-		expect(upsertCalls).toHaveLength(0);
+		expect(chapterDeleteCalls).toHaveLength(0);
+		expect(chapterUpsertCalls).toHaveLength(0);
 	});
 
-	it('deletes matching exclusion rows, filtered by variation_key_hash, when included is true', async () => {
-		const { client, deleteCalls, upsertCalls } = fakeSupabase();
-		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', ['v1', 'v2'], true);
+	it('excludes a line under one chapter only, leaving its OWN entry under a sibling chapter untouched — the actual bug (#86)', async () => {
+		const { client, chapterExclusions, flatExclusions } = fakeSupabase({
+			moves: MOVES,
+			// v2 is already excluded under Italian Game (its other chapter).
+			existingChapterExclusions: [{ player_id: 'player-1', repertoire_id: 'rep-1', chapter_name: 'Italian Game', variation_key: 'm2' }]
+		});
+		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', ['m2'], false, 'Ruy Lopez');
 		expect(result).toEqual({ error: null });
-		expect(deleteCalls).toEqual([
-			{
-				table: 'variation_practice_exclusions',
-				col1: 'player_id',
-				val1: 'player-1',
-				col2: 'variation_key_hash',
-				vals: ['v1', 'v2'].map(variationKeyHash)
-			}
-		]);
-		expect(upsertCalls).toHaveLength(0);
+
+		// Now excluded under BOTH chapters independently — Ruy Lopez's own new
+		// row, Italian Game's pre-existing one, both present.
+		expect(chapterExclusions).toContainEqual({
+			player_id: 'player-1',
+			repertoire_id: 'rep-1',
+			chapter_name: 'Ruy Lopez',
+			variation_key: 'm2'
+		});
+		expect(chapterExclusions).toContainEqual({
+			player_id: 'player-1',
+			repertoire_id: 'rep-1',
+			chapter_name: 'Italian Game',
+			variation_key: 'm2'
+		});
+
+		// Excluded under every real chapter it belongs to -> truly excluded ->
+		// mirrored into the flat table.
+		expect(flatExclusions).toEqual([{ player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'm2' }]);
 	});
 
-	it('upserts one row per key when included is false', async () => {
-		const { client, deleteCalls, upsertCalls } = fakeSupabase();
-		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', ['v1', 'v2'], false);
+	it('a line excluded under only SOME of its chapters stays included in the flat (practiceable) table', async () => {
+		const { client, flatExclusions } = fakeSupabase({ moves: MOVES });
+		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', ['m2'], false, 'Ruy Lopez');
 		expect(result).toEqual({ error: null });
-		expect(upsertCalls).toHaveLength(1);
-		expect(upsertCalls[0].table).toBe('variation_practice_exclusions');
-		expect(upsertCalls[0].rows).toEqual([
-			{ player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1' },
-			{ player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v2' }
+		// Only excluded under Ruy Lopez; Italian Game still includes it, so it
+		// stays in the practice pool.
+		expect(flatExclusions).toEqual([]);
+	});
+
+	it('re-including a line under one chapter restores the flat table once no chapter excludes it anymore', async () => {
+		const { client, chapterExclusions, flatExclusions } = fakeSupabase({
+			moves: MOVES,
+			existingChapterExclusions: [
+				{ player_id: 'player-1', repertoire_id: 'rep-1', chapter_name: 'Ruy Lopez', variation_key: 'm2' },
+				{ player_id: 'player-1', repertoire_id: 'rep-1', chapter_name: 'Italian Game', variation_key: 'm2' }
+			],
+			existingFlatExclusions: [{ player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'm2' }]
+		});
+		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', ['m2'], true, 'Italian Game');
+		expect(result).toEqual({ error: null });
+
+		// Italian Game's own row is gone; Ruy Lopez's own row (untouched) survives.
+		expect(chapterExclusions).toEqual([
+			{ player_id: 'player-1', repertoire_id: 'rep-1', chapter_name: 'Ruy Lopez', variation_key: 'm2' }
 		]);
-		expect(upsertCalls[0].options).toEqual({ onConflict: 'player_id,variation_key_hash' });
-		expect(deleteCalls).toHaveLength(0);
+		// No longer excluded under every chapter -> back in the practice pool.
+		expect(flatExclusions).toEqual([]);
+	});
+
+	it('the repertoire-level scope (chapter: null) excludes a shared line under EVERY real chapter it belongs to, in one call', async () => {
+		const { client, chapterExclusions, flatExclusions } = fakeSupabase({ moves: MOVES });
+		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', ['m2'], false, null);
+		expect(result).toEqual({ error: null });
+		expect(chapterExclusions.map((r) => r.chapter_name).sort()).toEqual(['Italian Game', 'Ruy Lopez']);
+		expect(flatExclusions).toEqual([{ player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'm2' }]);
+	});
+
+	it('resolves a genuinely untagged line to the UNTAGGED_CHAPTER bucket', async () => {
+		const { client, chapterExclusions } = fakeSupabase({ moves: MOVES });
+		await setVariationsIncluded(client as any, 'player-1', 'rep-1', ['m3'], false, null);
+		expect(chapterExclusions).toEqual([
+			{ player_id: 'player-1', repertoire_id: 'rep-1', chapter_name: UNTAGGED_CHAPTER, variation_key: 'm3' }
+		]);
+	});
+
+	it('a chapter-scoped write (not null) never touches a key it was not given, even under the same chapter', async () => {
+		const { client, chapterUpsertCalls } = fakeSupabase({ moves: MOVES });
+		await setVariationsIncluded(client as any, 'player-1', 'rep-1', ['m1'], false, 'Ruy Lopez');
+		expect(chapterUpsertCalls.flatMap((c) => c.rows.map((r) => r.variation_key))).toEqual(['m1']);
+	});
+
+	it('propagates a per-chapter delete error message', async () => {
+		const { client } = fakeSupabase({ moves: MOVES, chapterDeleteErrorOnCall: 1, errorMessage: 'boom' });
+		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', ['m1'], true, 'Ruy Lopez');
+		expect(result).toEqual({ error: 'boom' });
+	});
+
+	it('propagates a per-chapter upsert error message', async () => {
+		const { client } = fakeSupabase({ moves: MOVES, chapterUpsertErrorOnCall: 1, errorMessage: 'boom' });
+		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', ['m1'], false, 'Ruy Lopez');
+		expect(result).toEqual({ error: 'boom' });
+	});
+
+	it('rolls back an earlier successful per-chapter upsert batch when a later batch fails', async () => {
+		// Two chapters -> two upsert groups (one per chapter) when chapter is
+		// null; the second group's failure must roll back the first group's
+		// already-committed insert.
+		const { client, chapterExclusions } = fakeSupabase({ moves: MOVES, chapterUpsertErrorOnCall: 2, errorMessage: 'batch 2 failed' });
+		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', ['m2'], false, null);
+		expect(result).toEqual({ error: 'batch 2 failed' });
+		// Whichever chapter group committed first was rolled back — nothing survives.
+		expect(chapterExclusions).toEqual([]);
+	});
+
+	it('batches a large per-chapter delete into multiple calls of at most 100 keys each', async () => {
+		const manyMoves = Array.from({ length: 250 }, (_, i) => ({ id: `m${i}`, chapter_names: ['Ruy Lopez'] }));
+		const { client, chapterDeleteCalls } = fakeSupabase({ moves: manyMoves });
+		const keys = manyMoves.map((m) => m.id);
+		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, true, 'Ruy Lopez');
+		expect(result).toEqual({ error: null });
+		expect(chapterDeleteCalls).toHaveLength(3); // 100 + 100 + 50
+		expect(chapterDeleteCalls[0].hashes).toHaveLength(100);
+		expect(chapterDeleteCalls[2].hashes).toHaveLength(50);
 	});
 
 	it('dedupes variationKeys before upserting, so a repeated key does not appear twice', async () => {
-		const { client, upsertCalls } = fakeSupabase();
-		await setVariationsIncluded(client as any, 'player-1', 'rep-1', ['v1', 'v2', 'v1'], false);
-		expect(upsertCalls[0].rows).toEqual([
-			{ player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v1' },
-			{ player_id: 'player-1', repertoire_id: 'rep-1', variation_key: 'v2' }
-		]);
+		const { client, chapterUpsertCalls } = fakeSupabase({ moves: MOVES });
+		await setVariationsIncluded(client as any, 'player-1', 'rep-1', ['m1', 'm1'], false, 'Ruy Lopez');
+		expect(chapterUpsertCalls.flatMap((c) => c.rows.map((r) => r.variation_key))).toEqual(['m1']);
 	});
 
-	it('propagates a delete error message', async () => {
-		const { client } = fakeSupabase({ deleteErrorOnCall: 1, errorMessage: 'boom' });
-		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', ['v1'], true);
-		expect(result).toEqual({ error: 'boom' });
-	});
-
-	it('propagates an upsert error message', async () => {
-		const { client } = fakeSupabase({ upsertErrorOnCall: 1, errorMessage: 'boom' });
-		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', ['v1'], false);
-		expect(result).toEqual({ error: 'boom' });
-	});
-
-	it('batches a large delete (included: true) into multiple calls of at most 100 keys each', async () => {
-		const { client, deleteCalls } = fakeSupabase();
-		const keys = Array.from({ length: 250 }, (_, i) => `v${i}`);
-		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, true);
-		expect(result).toEqual({ error: null });
-		expect(deleteCalls).toHaveLength(3); // 100 + 100 + 50
-		expect(deleteCalls[0].vals).toHaveLength(100);
-		expect(deleteCalls[1].vals).toHaveLength(100);
-		expect(deleteCalls[2].vals).toHaveLength(50);
-		// Every key is covered exactly once, in order, across the batches — as hashes, not raw keys.
-		expect(deleteCalls.flatMap((c) => c.vals)).toEqual(keys.map(variationKeyHash));
-	});
-
-	it('batches a large upsert (included: false) into multiple calls of at most 500 rows each — far bigger than the delete batch size, since an upsert travels in the request body, not a URL query string', async () => {
-		// Real-world motivation: a large, transposition-heavy repertoire (e.g.
-		// 1,040 variations, the actual count of a real 414-chapter PGN import
-		// once enumerateVariations was fixed to stop multiplying cross-chapter
-		// paths) needs only ~3 round trips at this batch size instead of ~21 at
-		// the old 50 — the difference between a whole-repertoire "deselect
-		// everything" completing well within a serverless function's execution
-		// time limit versus risking a mid-loop kill that leaves a partial state
-		// committed with no chance to run the rollback below.
-		const { client, upsertCalls } = fakeSupabase();
-		const keys = Array.from({ length: 1200 }, (_, i) => `v${i}`);
-		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, false);
-		expect(result).toEqual({ error: null });
-		expect(upsertCalls).toHaveLength(3); // 500 + 500 + 200
-		expect(upsertCalls[0].rows).toHaveLength(500);
-		expect(upsertCalls[1].rows).toHaveLength(500);
-		expect(upsertCalls[2].rows).toHaveLength(200);
-		expect(upsertCalls.flatMap((c) => c.rows.map((r: any) => r.variation_key))).toEqual(keys);
-	});
-
-	it('does not batch an upsert at all when the key count is within the 500-row batch size', async () => {
-		const { client, upsertCalls } = fakeSupabase();
-		const keys = Array.from({ length: 120 }, (_, i) => `v${i}`);
-		await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, false);
-		expect(upsertCalls).toHaveLength(1);
-		expect(upsertCalls[0].rows).toHaveLength(120);
-	});
-
-	it('does not batch when the key count is already within one batch', async () => {
-		const { client, deleteCalls } = fakeSupabase();
-		const keys = Array.from({ length: 50 }, (_, i) => `v${i}`);
-		await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, true);
-		expect(deleteCalls).toHaveLength(1);
-		expect(deleteCalls[0].vals).toHaveLength(50);
-	});
-
-	it('stops at the first failing batch and does not attempt further batches', async () => {
-		const { client, deleteCalls } = fakeSupabase({ deleteErrorOnCall: 2, errorMessage: 'batch 2 failed' });
-		const keys = Array.from({ length: 1200 }, (_, i) => `v${i}`); // 12 batches of 100
-		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, true);
-		expect(result).toEqual({ error: 'batch 2 failed' });
-		expect(deleteCalls).toHaveLength(2); // the remaining 10 batches were never attempted
-	});
-
-	it('rolls back an earlier successful delete batch when a later batch fails (included: true)', async () => {
-		// Without this, a caller (RepertoirePracticeRow) that reverts its own
-		// UI state to "nothing changed" on any error would silently disagree
-		// with the database — batch 1's rows really were deleted (i.e. those
-		// variations really are now included) even though the whole call
-		// reports failure and the UI shows every row as still excluded.
-		const { client, deleteCalls, upsertCalls } = fakeSupabase({ deleteErrorOnCall: 2, errorMessage: 'batch 2 failed' });
-		const keys = Array.from({ length: 1200 }, (_, i) => `v${i}`); // 12 batches of 100
-		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, true);
-
-		expect(result).toEqual({ error: 'batch 2 failed' });
-		expect(deleteCalls).toHaveLength(2); // batch 1 (succeeded) + batch 2 (failed)
-
-		// Rollback re-inserts exactly the keys the successful first delete
-		// batch removed — restoring them as excluded again.
-		expect(upsertCalls).toHaveLength(1);
-		expect(upsertCalls[0].rows.map((r: any) => r.variation_key)).toEqual(keys.slice(0, 100));
-		expect(upsertCalls[0].rows.every((r: any) => r.player_id === 'player-1' && r.repertoire_id === 'rep-1')).toBe(true);
-	});
-
-	it('rolls back an earlier successful upsert batch when a later batch fails (included: false)', async () => {
-		const { client, deleteCalls, upsertCalls } = fakeSupabase({ upsertErrorOnCall: 2, errorMessage: 'batch 2 failed' });
-		const keys = Array.from({ length: 1200 }, (_, i) => `v${i}`); // 3 batches of 500/500/200
-		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, false);
-
-		expect(result).toEqual({ error: 'batch 2 failed' });
-		expect(upsertCalls).toHaveLength(2); // batch 1 (succeeded) + batch 2 (failed)
-
-		// Rollback deletes exactly the keys the successful first upsert batch
-		// inserted. The compensating delete goes through DELETE_BATCH_SIZE
-		// (100) batches of its own — so the 500 rolled-back keys span 5 calls.
-		expect(deleteCalls).toHaveLength(5);
-		expect(deleteCalls.flatMap((c) => c.vals)).toEqual(keys.slice(0, 500).map(variationKeyHash));
-		expect(
-			deleteCalls.every(
-				(c) => c.table === 'variation_practice_exclusions' && c.col1 === 'player_id' && c.val1 === 'player-1' && c.col2 === 'variation_key_hash'
-			)
-		).toBe(true);
-	});
-
-	it('does not attempt any rollback when the very first batch is the one that fails', async () => {
-		const { client, deleteCalls, upsertCalls } = fakeSupabase({ upsertErrorOnCall: 1, errorMessage: 'boom' });
-		const keys = Array.from({ length: 1200 }, (_, i) => `v${i}`);
-		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', keys, false);
-
-		expect(result).toEqual({ error: 'boom' });
-		expect(upsertCalls).toHaveLength(1); // only the failing attempt — nothing succeeded first
-		expect(deleteCalls).toHaveLength(0); // nothing to roll back
+	it('propagates an error when the moves lookup itself fails', async () => {
+		const client = {
+			from: (table: string) => {
+				if (table === 'moves') {
+					return { select: () => ({ eq: () => ({ in: () => Promise.resolve({ data: null, error: { message: 'moves lookup failed' } }) }) }) };
+				}
+				throw new Error(`unexpected table ${table}`);
+			}
+		};
+		const result = await setVariationsIncluded(client as any, 'player-1', 'rep-1', ['m1'], true, 'Ruy Lopez');
+		expect(result).toEqual({ error: 'moves lookup failed' });
 	});
 });

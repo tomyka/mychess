@@ -1,6 +1,6 @@
 <!-- mychess/src/lib/components/RepertoirePracticeRow.svelte -->
 <script lang="ts">
-	import { VariationSelection } from '$lib/mastery/variationSelection.svelte';
+	import { VariationSelection, isIncludedFor } from '$lib/mastery/variationSelection.svelte';
 	import { checkboxState } from './checkboxState';
 	import RepertoireVariationTree from './RepertoireVariationTree.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -45,9 +45,11 @@
 
 	let expanded = $state(false);
 
+	// null: the repertoire-level "everything" scope — truly included means any
+	// chapter this line belongs to still includes it (GitHub issue #86).
 	const checkedCount = $derived(
 		selection.variations
-			? selection.variations.filter((v) => v.included).length
+			? selection.variations.filter((v) => isIncludedFor(v, null)).length
 			: rep.fullVariationCount - rep.excludedVariationCount
 	);
 	const totalCount = $derived(selection.variations ? selection.variations.length : rep.fullVariationCount);
@@ -65,7 +67,9 @@
 	// fetched, since there's nothing live to compute from yet.
 	const liveTotal = $derived(selection.variations ? checkedCount : rep.total);
 	const liveSolved = $derived(
-		selection.variations ? selection.variations.filter((v) => v.included && v.solved).length : rep.solved
+		selection.variations
+			? selection.variations.filter((v) => isIncludedFor(v, null) && v.solved).length
+			: rep.solved
 	);
 	const liveAllSolved = $derived(liveTotal > 0 && liveSolved === liveTotal);
 
@@ -103,7 +107,7 @@
 	}
 
 	function toggleParent() {
-		return selection.toggleGroup('__all__', () => true);
+		return selection.toggleGroup('__all__', () => true, null);
 	}
 </script>
 

@@ -15,12 +15,15 @@ import { setVariationsIncluded } from '$lib/server/variation-practice-settings';
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const user = await requireApiUser(locals);
 	const body = await request.json().catch(() => null);
-	const { variationKeys, included } = body ?? {};
+	const { variationKeys, included, chapter } = body ?? {};
 
 	if (!Array.isArray(variationKeys) || !variationKeys.every((k) => typeof k === 'string')) {
 		throw error(400, 'variationKeys must be an array of strings');
 	}
 	if (typeof included !== 'boolean') throw error(400, 'included must be a boolean');
+	// null: the repertoire-level "everything" scope (GitHub issue #86); any
+	// other value must be a real chapter name to scope the write to.
+	if (chapter !== null && typeof chapter !== 'string') throw error(400, 'chapter must be a string or null');
 
 	// Confirms the caller can access this repertoire and that every move
 	// referenced by variationKeys actually belongs to it — see
@@ -39,7 +42,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		throw error(400, validation.error);
 	}
 
-	const result = await setVariationsIncluded(locals.supabase, user.id, params.id, variationKeys, included);
+	const result = await setVariationsIncluded(locals.supabase, user.id, params.id, variationKeys, included, chapter);
 	if (result.error) {
 		// Logged (not just returned to the client) since a write failure here
 		// means practice/progress state silently diverges from what the UI

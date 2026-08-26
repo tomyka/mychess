@@ -1,6 +1,7 @@
 // mychess/src/lib/server/variation-practice-settings.ts
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createHash } from 'node:crypto';
+import { moveIdsInVariationKey, UNTAGGED_CHAPTER } from '$lib/mastery/variations';
 
 // `variation_key` is a `>`-joined chain of the line's own move UUIDs (see
 // `enumerateVariations` in `$lib/mastery/variations`) — long enough for a
@@ -41,108 +42,312 @@ const DELETE_BATCH_SIZE = 100;
 // place with no way to undo them.
 const UPSERT_BATCH_SIZE = 500;
 
+// Move ids are 36-char UUIDs, so a batch of 200 keeps a lookup's `.in()`
+// text comfortably under the same URL-length concern as DELETE_BATCH_SIZE.
+const MOVE_ID_BATCH_SIZE = 200;
+
 function chunk<T>(items: T[], size: number): T[][] {
 	const batches: T[][] = [];
 	for (let i = 0; i < items.length; i += size) batches.push(items.slice(i, i + size));
 	return batches;
 }
 
-/** Best-effort compensation for a delete batch that already succeeded before a later batch failed — re-excludes exactly those keys. */
-async function reinsertExclusions(
+/** One (variationKey, chapter) pair a per-chapter exclusion write touches. */
+type Pair = { variationKey: string; chapter: string };
+
+function groupByChapter(pairs: Pair[]): Map<string, string[]> {
+	const map = new Map<string, string[]>();
+	for (const p of pairs) {
+		const list = map.get(p.chapter) ?? [];
+		list.push(p.variationKey);
+		map.set(p.chapter, list);
+	}
+	return map;
+}
+
+/**
+ * Every real chapter each of `variationKeys` belongs to (GitHub issue #86) —
+ * the write path's own cheap alternative to a full `enumerateVariations`
+ * graph walk. A chapter genuinely belongs to a variation only if EVERY move
+ * edge along that variation's path carries it (the same condition that lets
+ * `enumerateVariationsScoped` traverse the whole path within that chapter's
+ * own scope), so this is the INTERSECTION of `chapter_names` across the
+ * path's edges, not their union — a naive union would silently reintroduce
+ * this exact bug into the write path. Falls back to `[UNTAGGED_CHAPTER]`
+ * when the intersection is empty (a genuinely untagged line, or one whose
+ * edges share no single chapter throughout).
+ *
+ * Fetches only the specific moves referenced by `variationKeys` (batched,
+ * `.in('id', ...)`), not the whole repertoire — proportional to what this
+ * call actually touches, from a single toggle to a whole-repertoire bulk
+ * action.
+ */
+async function resolveRealChaptersForKeys(
+	supabase: SupabaseClient,
+	repertoireId: string,
+	variationKeys: string[]
+): Promise<Map<string, string[]>> {
+	const allMoveIds = [...new Set(variationKeys.flatMap(moveIdsInVariationKey))];
+	const chapterNamesByMoveId = new Map<string, string[]>();
+	for (const batch of chunk(allMoveIds, MOVE_ID_BATCH_SIZE)) {
+		const { data, error } = await supabase
+			.from('moves')
+			.select('id, chapter_names')
+			.eq('repertoire_id', repertoireId)
+			.in('id', batch);
+		if (error) throw new Error(error.message);
+		for (const row of data ?? []) chapterNamesByMoveId.set(row.id, row.chapter_names ?? []);
+	}
+
+	const result = new Map<string, string[]>();
+	for (const key of variationKeys) {
+		let intersection: string[] | null = null;
+		for (const id of moveIdsInVariationKey(key)) {
+			const names = chapterNamesByMoveId.get(id) ?? [];
+			intersection = intersection === null ? [...names] : intersection.filter((n) => names.includes(n));
+		}
+		result.set(key, intersection && intersection.length > 0 ? intersection : [UNTAGGED_CHAPTER]);
+	}
+	return result;
+}
+
+/** Best-effort compensation for a per-chapter delete batch that already succeeded before a later batch failed — re-excludes exactly those pairs. */
+async function reinsertChapterExclusions(
 	supabase: SupabaseClient,
 	playerId: string,
 	repertoireId: string,
-	variationKeys: string[]
+	pairs: Pair[]
 ): Promise<void> {
-	if (variationKeys.length === 0) return;
-	const rows = variationKeys.map((variationKey) => ({
+	if (pairs.length === 0) return;
+	const rows = pairs.map((p) => ({
 		player_id: playerId,
 		repertoire_id: repertoireId,
-		variation_key: variationKey
+		chapter_name: p.chapter,
+		variation_key: p.variationKey
 	}));
 	for (const batch of chunk(rows, UPSERT_BATCH_SIZE)) {
-		await supabase.from('variation_practice_exclusions').upsert(batch, { onConflict: 'player_id,variation_key_hash' });
+		await supabase
+			.from('variation_chapter_practice_exclusions')
+			.upsert(batch, { onConflict: 'player_id,chapter_name,variation_key_hash' });
 	}
 }
 
-/** Best-effort compensation for an upsert batch that already succeeded before a later batch failed — re-deletes exactly those keys' exclusion rows. */
-async function deleteExclusions(supabase: SupabaseClient, playerId: string, variationKeys: string[]): Promise<void> {
-	if (variationKeys.length === 0) return;
-	for (const batch of chunk(variationKeys.map(variationKeyHash), DELETE_BATCH_SIZE)) {
-		await supabase.from('variation_practice_exclusions').delete().eq('player_id', playerId).in('variation_key_hash', batch);
+/** Best-effort compensation for a per-chapter upsert batch that already succeeded before a later batch failed — re-deletes exactly those pairs' rows. */
+async function deleteChapterExclusionPairs(supabase: SupabaseClient, playerId: string, pairs: Pair[]): Promise<void> {
+	for (const [chapter, keys] of groupByChapter(pairs)) {
+		for (const batch of chunk(keys, DELETE_BATCH_SIZE)) {
+			await supabase
+				.from('variation_chapter_practice_exclusions')
+				.delete()
+				.eq('player_id', playerId)
+				.eq('chapter_name', chapter)
+				.in('variation_key_hash', batch.map(variationKeyHash));
+		}
+	}
+}
+
+/**
+ * Deletes `pairs`' own per-chapter exclusion rows (the "included" direction),
+ * grouped by chapter so each batch's `.in()` filter stays scoped to that one
+ * chapter's rows — a bare `.in('variation_key_hash', ...)` alone would also
+ * match the SAME key's rows under any OTHER chapter it belongs to, which is
+ * exactly the cross-chapter leak this feature exists to fix.
+ */
+async function deleteChapterExclusions(
+	supabase: SupabaseClient,
+	playerId: string,
+	pairs: Pair[]
+): Promise<{ error: string | null; succeeded: Pair[] }> {
+	const succeeded: Pair[] = [];
+	for (const [chapter, keys] of groupByChapter(pairs)) {
+		for (const batch of chunk(keys, DELETE_BATCH_SIZE)) {
+			const { error } = await supabase
+				.from('variation_chapter_practice_exclusions')
+				.delete()
+				.eq('player_id', playerId)
+				.eq('chapter_name', chapter)
+				.in('variation_key_hash', batch.map(variationKeyHash));
+			if (error) return { error: error.message, succeeded };
+			succeeded.push(...batch.map((variationKey) => ({ variationKey, chapter })));
+		}
+	}
+	return { error: null, succeeded };
+}
+
+/** Upserts `pairs`' own per-chapter exclusion rows (the "excluded" direction), grouped by chapter for the same reason as `deleteChapterExclusions`. */
+async function upsertChapterExclusions(
+	supabase: SupabaseClient,
+	playerId: string,
+	repertoireId: string,
+	pairs: Pair[]
+): Promise<{ error: string | null; succeeded: Pair[] }> {
+	const succeeded: Pair[] = [];
+	for (const [chapter, keys] of groupByChapter(pairs)) {
+		// Dedupe first — a hierarchical checkbox UI's bulk parent-toggle and an
+		// already-individually-toggled child variation can resolve to the same
+		// (chapter, key) pair in one call, and Postgres rejects an upsert that
+		// would affect the same conflict target twice within one statement.
+		const rows = [...new Set(keys)].map((variationKey) => ({
+			player_id: playerId,
+			repertoire_id: repertoireId,
+			chapter_name: chapter,
+			variation_key: variationKey
+		}));
+		for (const batch of chunk(rows, UPSERT_BATCH_SIZE)) {
+			const { error } = await supabase
+				.from('variation_chapter_practice_exclusions')
+				.upsert(batch, { onConflict: 'player_id,chapter_name,variation_key_hash' });
+			if (error) return { error: error.message, succeeded };
+			succeeded.push(...batch.map((r) => ({ variationKey: r.variation_key, chapter })));
+		}
+	}
+	return { error: null, succeeded };
+}
+
+/**
+ * Mirrors this call's touched `variationKeys` into the flat
+ * `variation_practice_exclusions` table — "excluded under EVERY chapter it
+ * belongs to" (per `realChaptersByKey`), which is what "actually excluded
+ * from practice" means (Goal #3 of the design: a line stays practiceable as
+ * long as ANY chapter it belongs to still includes it). Keeps
+ * `repertoire-progress.ts`'s existing fast-count read path (migration 0055,
+ * issue #52) working unchanged — that path only ever reads the flat table.
+ *
+ * Best-effort by design (see the module's own Error Handling section in the
+ * design doc): the caller logs rather than fails the request on error, since
+ * the per-chapter write this mirrors has already succeeded, and the next
+ * freshness re-verification pass corrects any drift.
+ */
+async function syncFlatExclusions(
+	supabase: SupabaseClient,
+	playerId: string,
+	repertoireId: string,
+	variationKeys: string[],
+	realChaptersByKey: Map<string, string[]>
+): Promise<void> {
+	// Every chapter currently excluding each key, from a single lookup across
+	// all of them (not just the chapter(s) this call touched) — a key's flat
+	// state depends on ALL its chapters, not only the one just written.
+	const excludedChaptersByKey = new Map<string, Set<string>>();
+	for (const batch of chunk(variationKeys, DELETE_BATCH_SIZE)) {
+		const { data, error } = await supabase
+			.from('variation_chapter_practice_exclusions')
+			.select('variation_key, chapter_name')
+			.eq('player_id', playerId)
+			.in('variation_key_hash', batch.map(variationKeyHash));
+		if (error) throw new Error(error.message);
+		for (const row of data ?? []) {
+			const set = excludedChaptersByKey.get(row.variation_key) ?? new Set<string>();
+			set.add(row.chapter_name);
+			excludedChaptersByKey.set(row.variation_key, set);
+		}
+	}
+
+	const trulyExcluded: string[] = [];
+	const trulyIncluded: string[] = [];
+	for (const key of variationKeys) {
+		const realChapters = realChaptersByKey.get(key) ?? [];
+		const excludedChapters = excludedChaptersByKey.get(key) ?? new Set<string>();
+		const isExcluded = realChapters.length > 0 && realChapters.every((c) => excludedChapters.has(c));
+		(isExcluded ? trulyExcluded : trulyIncluded).push(key);
+	}
+
+	for (const batch of chunk(trulyIncluded, DELETE_BATCH_SIZE)) {
+		const { error } = await supabase
+			.from('variation_practice_exclusions')
+			.delete()
+			.eq('player_id', playerId)
+			.in('variation_key_hash', batch.map(variationKeyHash));
+		if (error) throw new Error(error.message);
+	}
+
+	const rows = trulyExcluded.map((variationKey) => ({ player_id: playerId, repertoire_id: repertoireId, variation_key: variationKey }));
+	for (const batch of chunk(rows, UPSERT_BATCH_SIZE)) {
+		const { error } = await supabase
+			.from('variation_practice_exclusions')
+			.upsert(batch, { onConflict: 'player_id,variation_key_hash' });
+		if (error) throw new Error(error.message);
 	}
 }
 
 /**
  * Sets whether `variationKeys` are included in practice for `playerId`,
- * within `repertoireId`. `included: true` deletes any existing exclusion
- * rows (back to the default "included"); `included: false` upserts one
- * exclusion row per key (deduped first — see below). No-ops on an empty
- * `variationKeys` array. Batches the underlying delete/upsert into groups of
- * `DELETE_BATCH_SIZE`/`UPSERT_BATCH_SIZE` keys, running sequentially and
- * stopping at the first error.
+ * within `repertoireId`, scoped to `chapter` (GitHub issue #86):
  *
- * A caller that fails gets back a single error and reverts its own state to
- * "nothing changed" — so if an earlier batch in this same call already
- * committed before a later one failed, the call rolls that batch back
- * (a best-effort compensating write, not a real transaction) rather than
- * leaving the database silently ahead of what every caller believes
- * happened. Without this, a large enough bulk toggle (more than one batch's
- * worth of keys — a chapter-level or whole-repertoire checkbox) that fails
- * partway through would leave some variations actually toggled server-side
- * while the UI reverts to showing none of them as changed.
+ * - A real chapter name (including `UNTAGGED_CHAPTER`) scopes the write to
+ *   exactly that chapter's own view of the given keys — a line shared by
+ *   another chapter keeps its own independent state there.
+ * - `null` is the repertoire-level "everything" scope: each key's write
+ *   spans every REAL chapter it belongs to (resolved via
+ *   `resolveRealChaptersForKeys`), not just one.
+ *
+ * After the per-chapter write, the flat `variation_practice_exclusions`
+ * table (still the source of truth for `repertoire-progress.ts`'s fast-count
+ * read path) is re-synced for every distinct key this call touched — see
+ * `syncFlatExclusions`.
+ *
+ * Batches the underlying delete/upsert into groups of
+ * `DELETE_BATCH_SIZE`/`UPSERT_BATCH_SIZE` pairs (further grouped by chapter),
+ * running sequentially and stopping at the first error. A caller that fails
+ * gets back a single error and reverts its own per-chapter state to "nothing
+ * changed" — a best-effort compensating write for whatever batch already
+ * committed before a later one failed, mirroring the flat table's own prior
+ * behaviour before this table existed.
  *
  * `playerId` must be the authenticated caller's own id and `supabase` must
  * be the request-scoped, RLS-respecting client (never a service-role
- * client) — `variation_practice_exclusions_player_all`'s RLS policy is what
- * actually prevents writing another player's exclusions; this function
- * itself performs no ownership check of its own.
+ * client) — `variation_chapter_practice_exclusions_player_all`'s RLS policy
+ * is what actually prevents writing another player's exclusions; this
+ * function itself performs no ownership check of its own.
  */
 export async function setVariationsIncluded(
 	supabase: SupabaseClient,
 	playerId: string,
 	repertoireId: string,
 	variationKeys: string[],
-	included: boolean
+	included: boolean,
+	chapter: string | null
 ): Promise<{ error: string | null }> {
 	if (variationKeys.length === 0) return { error: null };
 
-	if (included) {
-		const succeededKeys: string[] = [];
-		for (const batch of chunk(variationKeys, DELETE_BATCH_SIZE)) {
-			const { error } = await supabase
-				.from('variation_practice_exclusions')
-				.delete()
-				.eq('player_id', playerId)
-				.in('variation_key_hash', batch.map(variationKeyHash));
-			if (error) {
-				await reinsertExclusions(supabase, playerId, repertoireId, succeededKeys);
-				return { error: error.message };
-			}
-			succeededKeys.push(...batch);
-		}
-		return { error: null };
+	const distinctKeys = [...new Set(variationKeys)];
+
+	let realChaptersByKey: Map<string, string[]>;
+	try {
+		realChaptersByKey = await resolveRealChaptersForKeys(supabase, repertoireId, distinctKeys);
+	} catch (err) {
+		return { error: err instanceof Error ? err.message : 'Failed to resolve chapters for variationKeys' };
 	}
 
-	// Dedupe first — a hierarchical checkbox UI's bulk parent-toggle and an
-	// already-individually-toggled child variation can resolve to the same
-	// key in one call, and Postgres rejects an upsert that would affect the
-	// same conflict target twice within one statement.
-	const rows = [...new Set(variationKeys)].map((variationKey) => ({
-		player_id: playerId,
-		repertoire_id: repertoireId,
-		variation_key: variationKey
-	}));
-	const succeededKeys: string[] = [];
-	for (const batch of chunk(rows, UPSERT_BATCH_SIZE)) {
-		const { error } = await supabase
-			.from('variation_practice_exclusions')
-			.upsert(batch, { onConflict: 'player_id,variation_key_hash' });
-		if (error) {
-			await deleteExclusions(supabase, playerId, succeededKeys);
-			return { error: error.message };
+	const pairs: Pair[] =
+		chapter !== null
+			? distinctKeys.map((variationKey) => ({ variationKey, chapter }))
+			: distinctKeys.flatMap((variationKey) =>
+					(realChaptersByKey.get(variationKey) ?? []).map((c) => ({ variationKey, chapter: c }))
+				);
+
+	const writeResult = included
+		? await deleteChapterExclusions(supabase, playerId, pairs)
+		: await upsertChapterExclusions(supabase, playerId, repertoireId, pairs);
+
+	if (writeResult.error) {
+		if (included) {
+			await reinsertChapterExclusions(supabase, playerId, repertoireId, writeResult.succeeded);
+		} else {
+			await deleteChapterExclusionPairs(supabase, playerId, writeResult.succeeded);
 		}
-		succeededKeys.push(...batch.map((r) => r.variation_key));
+		return { error: writeResult.error };
 	}
+
+	try {
+		await syncFlatExclusions(supabase, playerId, repertoireId, distinctKeys, realChaptersByKey);
+	} catch (err) {
+		console.error('setVariationsIncluded: flat-table sync failed', {
+			repertoireId,
+			playerId,
+			error: err instanceof Error ? err.message : err
+		});
+	}
+
 	return { error: null };
 }

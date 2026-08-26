@@ -11,11 +11,17 @@
 		type VariationStep
 	} from '$lib/mastery/variations';
 	import { m } from '$lib/paraglide/messages';
+	import { isIncludedFor } from '$lib/mastery/variationSelection.svelte';
 
 	type VariationRow = {
 		variationKey: string;
 		label: string;
-		included: boolean;
+		// One entry per chapter this line belongs to (a single UNTAGGED_CHAPTER
+		// entry for a genuinely untagged line) — GitHub issue #86. This picker
+		// is read-only (it never toggles inclusion, only lists what's
+		// practiceable), so it only ever needs the "truly included" aggregate
+		// (`isIncludedFor(row, null)`), never a single chapter's own entry.
+		includedByChapter: Record<string, boolean>;
 		// Every chapter this line belongs to — a line cross-referenced by two
 		// chapters shows under both. Empty means untagged (see UNTAGGED_CHAPTER).
 		chapterNames: string[];
@@ -77,7 +83,7 @@
 	load();
 
 	function includedRows(): VariationRow[] {
-		return (variations ?? []).filter((r) => r.included);
+		return (variations ?? []).filter((r) => isIncludedFor(r, null));
 	}
 
 	// Chapters in first-appearance order, with the untagged bucket last; null

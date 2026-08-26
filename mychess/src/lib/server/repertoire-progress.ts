@@ -1,6 +1,6 @@
 // mychess/src/lib/server/repertoire-progress.ts
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { enumerateVariations, hasChapterTags, type RawMoveRow, type Variation } from '$lib/mastery/variations';
+import { enumerateVariations, hasChapterTags, UNTAGGED_CHAPTER, type RawMoveRow, type Variation } from '$lib/mastery/variations';
 import {
 	exclusionsAreVerified,
 	exclusionShape,
@@ -227,13 +227,24 @@ function chunk<T>(items: T[], size: number): T[][] {
  * a failure only means the next load repeats the enumeration it just did. Only
  * the caller's own rows are touched, so this needs no privileges beyond
  * `variation_practice_exclusions_player_all`'s RLS.
+ *
+ * Also the migration/backfill path for GitHub issue #86's per-chapter
+ * exclusions: every LIVE row here gets expanded into one
+ * `variation_chapter_practice_exclusions` row per real chapter it belongs to
+ * (`chapterNamesByKey`, from this same load's own full enumeration — a single
+ * `UNTAGGED_CHAPTER` row for a genuinely untagged line), so this player's
+ * next visit to the picker can toggle chapters independently instead of
+ * re-verifying the legacy flat state forever. Nothing about the practice
+ * pool itself changes here — see the migration's own comment.
  */
 async function reverifyExclusions(
 	supabase: SupabaseClient,
 	playerId: string,
+	repertoireId: string,
 	rows: (ExclusionRow & { id: string })[],
 	liveKeys: ReadonlySet<string>,
-	movesUpdatedAt: string
+	movesUpdatedAt: string,
+	chapterNamesByKey: ReadonlyMap<string, string[]>
 ): Promise<void> {
 	const { stale, live } = partitionByLiveness(rows, liveKeys);
 
@@ -264,6 +275,28 @@ async function reverifyExclusions(
 		if (error) {
 			console.error('Failed to stamp verified exclusion rows:', error);
 			return;
+		}
+	}
+
+	if (live.length > 0) {
+		const chapterRows = live.flatMap((row) => {
+			const chapters = chapterNamesByKey.get(row.variationKey);
+			const realChapters = chapters && chapters.length > 0 ? chapters : [UNTAGGED_CHAPTER];
+			return realChapters.map((chapter) => ({
+				player_id: playerId,
+				repertoire_id: repertoireId,
+				chapter_name: chapter,
+				variation_key: row.variationKey
+			}));
+		});
+		for (const batch of chunk(chapterRows, REVERIFY_BATCH_SIZE)) {
+			const { error } = await supabase
+				.from('variation_chapter_practice_exclusions')
+				.upsert(batch, { onConflict: 'player_id,chapter_name,variation_key_hash' });
+			if (error) {
+				console.error('Failed to expand exclusion rows into per-chapter rows:', error);
+				return;
+			}
 		}
 	}
 }
@@ -592,7 +625,8 @@ export async function loadRepertoireProgressSummaries(
 				exclusionsByRep.set(repId, rows);
 			}
 
-			const liveKeys = new Set((variationsByRep.get(repId) ?? []).map((v) => v.variationKey));
+			const repVariations = variationsByRep.get(repId) ?? [];
+			const liveKeys = new Set(repVariations.map((v) => v.variationKey));
 			const { live } = partitionByLiveness(rows, liveKeys);
 			liveExcludedByRep.set(repId, new Set(live.map((r) => r.variationKey)));
 			// `moves_updated_at` is what survivors get stamped with, so a repertoire
@@ -600,7 +634,8 @@ export async function loadRepertoireProgressSummaries(
 			// un-stamped rather than stamped with a guess — it just re-verifies next
 			// load, exactly as it does today.
 			if (rep?.moves_updated_at) {
-				await reverifyExclusions(supabase, userId, rows, liveKeys, rep.moves_updated_at);
+				const chapterNamesByKey = new Map(repVariations.map((v) => [v.variationKey, v.chapterNames]));
+				await reverifyExclusions(supabase, userId, repId, rows, liveKeys, rep.moves_updated_at, chapterNamesByKey);
 			}
 		})
 	);

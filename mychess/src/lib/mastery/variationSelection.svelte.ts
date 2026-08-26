@@ -12,7 +12,11 @@ import type { VariationStep } from './variations';
 export type VariationRow = {
 	variationKey: string;
 	label: string;
-	included: boolean;
+	// One entry per chapter this line belongs to (UNTAGGED_CHAPTER's own single
+	// entry for a genuinely untagged line) — GitHub issue #86. Independent per
+	// chapter: excluding this line under one chapter's view leaves its entry
+	// under any other chapter it belongs to untouched.
+	includedByChapter: Record<string, boolean>;
 	// Every chapter this line belongs to — a line cross-referenced by two
 	// chapters shows (and toggles) under both. Empty means untagged, which
 	// gets its own UNTAGGED_CHAPTER bucket inside a chaptered repertoire.
@@ -20,6 +24,38 @@ export type VariationRow = {
 	path: VariationStep[];
 	solved: boolean;
 };
+
+/**
+ * Whether `row` is included from the perspective of `chapter` — the tri-state
+ * checkbox tree's own chapter/move-group/leaf-variation tier reads this to
+ * decide its checked state.
+ *
+ * `chapter: null` means "truly included in practice at all" (the repertoire-
+ * level checkbox's own scope, and the flat/chapterless pool's implicit single
+ * tier, which happens to coincide with it — a row in a chapterless repertoire
+ * carries exactly one entry, so "any chapter still includes it" and "that one
+ * entry" are the same question). Any other value looks up that one chapter's
+ * own entry directly.
+ */
+export function isIncludedFor(row: VariationRow, chapter: string | null): boolean {
+	if (chapter === null) return Object.values(row.includedByChapter).some(Boolean);
+	return row.includedByChapter[chapter] ?? true;
+}
+
+/**
+ * `row` with `chapter`'s own entry (or, for `chapter: null`, EVERY entry —
+ * the repertoire-level "everything" scope) set to `included`. Used for both
+ * the optimistic local update on toggle and its revert on a failed write.
+ */
+function withIncluded(row: VariationRow, chapter: string | null, included: boolean): VariationRow {
+	if (chapter === null) {
+		const next: Record<string, boolean> = {};
+		for (const key of Object.keys(row.includedByChapter)) next[key] = included;
+		return { ...row, includedByChapter: next };
+	}
+	if (!(chapter in row.includedByChapter)) return row;
+	return { ...row, includedByChapter: { ...row.includedByChapter, [chapter]: included } };
+}
 
 /**
  * One repertoire's practice-exclusion selection: the lazily-fetched variation
@@ -78,12 +114,12 @@ export class VariationSelection {
 		}
 	}
 
-	async #postExclusion(variationKeys: string[], included: boolean): Promise<boolean> {
+	async #postExclusion(variationKeys: string[], included: boolean, chapter: string | null): Promise<boolean> {
 		try {
 			const res = await fetch(`/api/repertoires/${this.#repertoireId()}/exclusions`, {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys, included })
+				body: JSON.stringify({ variationKeys, included, chapter })
 			});
 			return res.ok;
 		} catch {
@@ -91,7 +127,14 @@ export class VariationSelection {
 		}
 	}
 
-	async toggleVariation(key: string) {
+	/**
+	 * Toggles one variation, scoped to `chapter` — the chapter/move-group
+	 * subtree it's rendered under (`null` for the repertoire-level "everything"
+	 * scope, or the flat pool's own implicit single tier; see `isIncludedFor`).
+	 * A line shared by two chapters has an independent checkbox under each —
+	 * toggling it under chapter A never touches its own entry under chapter B.
+	 */
+	async toggleVariation(key: string, chapter: string | null) {
 		try {
 			await this.ensureLoaded();
 		} catch {
@@ -100,16 +143,17 @@ export class VariationSelection {
 		const current = this.variations!;
 		const target = current.find((v) => v.variationKey === key);
 		if (!target) return;
-		const nextIncluded = !target.included;
-		this.variations = current.map((v) => (v.variationKey === key ? { ...v, included: nextIncluded } : v));
-		const ok = await this.#postExclusion([key], nextIncluded);
+		const wasIncluded = isIncludedFor(target, chapter);
+		const nextIncluded = !wasIncluded;
+		this.variations = current.map((v) => (v.variationKey === key ? withIncluded(v, chapter, nextIncluded) : v));
+		const ok = await this.#postExclusion([key], nextIncluded, chapter);
 		if (!ok) {
 			// Revert only this one row, applied on top of whatever `variations`
 			// is NOW rather than the stale snapshot captured above — another
 			// toggle elsewhere may have completed while this request was in
 			// flight, and that change must survive this one's failure.
 			this.variations = (this.variations ?? []).map((v) =>
-				v.variationKey === key ? { ...v, included: target.included } : v
+				v.variationKey === key ? withIncluded(v, chapter, wasIncluded) : v
 			);
 			this.errorMessage = "Couldn't update that — try again.";
 		} else {
@@ -132,8 +176,14 @@ export class VariationSelection {
 	 * variation checkbox) can genuinely overlap in flight; a wholesale
 	 * revert to an old snapshot would silently erase whichever of them
 	 * finished first.
+	 *
+	 * `chapter` scopes both the read (which rows in `belongsToGroup` count as
+	 * already included) and the write (which entry in each touched row's
+	 * `includedByChapter` actually flips) — `null` for the repertoire-level
+	 * checkbox, a real chapter/move-group's own name otherwise. See
+	 * `isIncludedFor`/`withIncluded`.
 	 */
-	async toggleGroup(scopeKey: string, belongsToGroup: (row: VariationRow) => boolean) {
+	async toggleGroup(scopeKey: string, belongsToGroup: (row: VariationRow) => boolean, chapter: string | null) {
 		try {
 			await this.ensureLoaded();
 		} catch {
@@ -141,12 +191,12 @@ export class VariationSelection {
 		}
 		const current = this.variations!;
 		const rows = current.filter(belongsToGroup);
-		const originalIncludedByKey = new Map(rows.map((v) => [v.variationKey, v.included]));
+		const originalIncludedByKey = new Map(rows.map((v) => [v.variationKey, isIncludedFor(v, chapter)]));
 
 		const revertTouchedRows = () => {
 			this.variations = (this.variations ?? []).map((v) => {
 				const original = originalIncludedByKey.get(v.variationKey);
-				return original === undefined ? v : { ...v, included: original };
+				return original === undefined ? v : withIncluded(v, chapter, original);
 			});
 		};
 
@@ -168,17 +218,17 @@ export class VariationSelection {
 		// (indeterminate) scope selects everything instead — clicking a
 		// partial parent checkbox is expected to mean "everything under me,"
 		// not "exclude whatever's still included."
-		const allIncluded = rows.length > 0 && rows.every((v) => v.included);
+		const allIncluded = rows.length > 0 && rows.every((v) => isIncludedFor(v, chapter));
 		if (rows.length === 0 || allIncluded) {
 			// Fully checked -> bulk-exclude this scope's rows, remembering
 			// exactly which ones were included (always all of them, since
 			// this branch only runs when every row in scope is) so a
 			// re-check can restore them.
-			const included = rows.filter((v) => v.included).map((v) => v.variationKey);
+			const included = rows.filter((v) => isIncludedFor(v, chapter)).map((v) => v.variationKey);
 			const previousSnapshots = this.#snapshots;
 			this.#snapshots = new Map(this.#snapshots).set(scopeKey, new Set(included));
-			this.variations = current.map((v) => (belongsToGroup(v) ? { ...v, included: false } : v));
-			const ok = await this.#postExclusion(included, false);
+			this.variations = current.map((v) => (belongsToGroup(v) ? withIncluded(v, chapter, false) : v));
+			const ok = await this.#postExclusion(included, false, chapter);
 			if (!ok) {
 				revertTouchedRows();
 				revertSnapshotEntry(previousSnapshots);
@@ -197,11 +247,11 @@ export class VariationSelection {
 		const rowKeys = new Set(rows.map((v) => v.variationKey));
 		const toInclude = this.#snapshots.get(scopeKey) ?? rowKeys;
 		const previousSnapshots = this.#snapshots;
-		this.variations = current.map((v) => (belongsToGroup(v) ? { ...v, included: toInclude.has(v.variationKey) } : v));
+		this.variations = current.map((v) => (belongsToGroup(v) ? withIncluded(v, chapter, toInclude.has(v.variationKey)) : v));
 		const nextSnapshots = new Map(this.#snapshots);
 		nextSnapshots.delete(scopeKey);
 		this.#snapshots = nextSnapshots;
-		const ok = await this.#postExclusion([...toInclude], true);
+		const ok = await this.#postExclusion([...toInclude], true, chapter);
 		if (!ok) {
 			revertTouchedRows();
 			revertSnapshotEntry(previousSnapshots);

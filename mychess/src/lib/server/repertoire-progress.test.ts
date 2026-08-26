@@ -79,6 +79,8 @@ describe('loadRepertoireProgressSummaries', () => {
 			solvedDeletes: [] as string[],
 			teachingRekeys: [] as { fromKey: string; toKey: string }[],
 			teachingUpserts: [] as Record<string, unknown>[],
+			/** Per-chapter exclusion rows written by reverifyExclusions' migration/backfill expansion (#86). */
+			chapterExclusionUpserts: [] as Record<string, unknown>[],
 			demotions: [] as Record<string, unknown>[],
 			activeCleared: 0,
 			/** Badge rows granted by grantNewBadges(), i.e. whether badge sync ran at all. */
@@ -246,6 +248,14 @@ describe('loadRepertoireProgressSummaries', () => {
 				}
 				if (table === 'chapter_mastery') {
 					return { select: () => paged(() => chapterMastery) };
+				}
+				if (table === 'variation_chapter_practice_exclusions') {
+					return {
+						upsert: (rows: Record<string, unknown>[]) => {
+							calls.chapterExclusionUpserts.push(...rows);
+							return Promise.resolve({ error: null });
+						}
+					};
 				}
 				if (table === 'variation_demotions') {
 					return {
@@ -642,6 +652,83 @@ describe('loadRepertoireProgressSummaries', () => {
 			});
 			const [summary] = await loadRepertoireProgressSummaries(client, USER);
 			expect(summary.status).toBe('learned');
+		});
+	});
+
+	describe('per-chapter exclusion expansion (GitHub issue #86)', () => {
+		it('expands a legacy flat exclusion into a per-chapter row, keyed by UNTAGGED_CHAPTER for an untagged line', async () => {
+			const { client, calls } = fakeSupabase({
+				repertoire: { ...cachedRepertoire, total_variations: 2 },
+				exclusions: [{ id: 'x1', repertoire_id: 'r1', variation_key: 'm1>m2', verified_at: EPOCH }]
+			});
+
+			const [summary] = await loadRepertoireProgressSummaries(client, USER);
+
+			// Verification/pruning still ran and produced the same numbers as
+			// before — the expansion is additive, changing nothing about the
+			// practice pool itself in this same pass.
+			expect(summary.total).toBe(1);
+			expect(calls.chapterExclusionUpserts).toEqual([
+				{ player_id: USER, repertoire_id: 'r1', chapter_name: 'Lines without a chapter', variation_key: 'm1>m2' }
+			]);
+		});
+
+		it('expands into one row per real chapter for a variation belonging to several', async () => {
+			const CHAPTERED_MOVES = [
+				{
+					id: 'm1',
+					san: 'e4',
+					is_player_turn: true,
+					repertoire_id: 'r1',
+					from_position: 'p0',
+					to_position: 'p1',
+					chapter_names: ['Ruy Lopez', 'Italian Game']
+				},
+				{
+					id: 'm2',
+					san: 'e5',
+					is_player_turn: false,
+					repertoire_id: 'r1',
+					from_position: 'p1',
+					to_position: 'p2',
+					chapter_names: ['Ruy Lopez', 'Italian Game']
+				},
+				{ id: 'm3', san: 'c5', is_player_turn: false, repertoire_id: 'r1', from_position: 'p1', to_position: 'p3', chapter_names: [] }
+			];
+			const { client, calls } = fakeSupabase({
+				repertoire: { ...cachedRepertoire, total_variations: 2 },
+				exclusions: [{ id: 'x1', repertoire_id: 'r1', variation_key: 'm1>m2', verified_at: EPOCH }],
+				moves: CHAPTERED_MOVES as any
+			});
+
+			await loadRepertoireProgressSummaries(client, USER);
+
+			expect(calls.chapterExclusionUpserts.map((r: any) => r.chapter_name).sort()).toEqual(['Italian Game', 'Ruy Lopez']);
+			expect(calls.chapterExclusionUpserts.every((r: any) => r.variation_key === 'm1>m2')).toBe(true);
+		});
+
+		it('does not expand a stale (pruned) exclusion row — there is nothing left to exclude', async () => {
+			const { client, calls } = fakeSupabase({
+				repertoire: { ...cachedRepertoire, total_variations: 2 },
+				exclusions: [{ id: 'x-stale', repertoire_id: 'r1', variation_key: 'm1>gone', verified_at: EPOCH }]
+			});
+
+			await loadRepertoireProgressSummaries(client, USER);
+
+			expect(calls.deletedIds).toEqual(['x-stale']);
+			expect(calls.chapterExclusionUpserts).toEqual([]);
+		});
+
+		it('does not touch the per-chapter table at all when every exclusion is already verified', async () => {
+			const { client, calls } = fakeSupabase({
+				repertoire: cachedRepertoire,
+				exclusions: [{ id: 'x1', repertoire_id: 'r1', variation_key: 'k1', verified_at: SHAPE_CHANGED }]
+			});
+
+			await loadRepertoireProgressSummaries(client, USER);
+
+			expect(calls.moveFetches).toEqual([]); // the whole point of #52 — no enumeration needed
+			expect(calls.chapterExclusionUpserts).toEqual([]);
 		});
 	});
 });

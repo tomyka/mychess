@@ -27,10 +27,14 @@ function row(
 	chapterNames: string[],
 	opts: { included?: boolean; solved?: boolean } = {}
 ) {
+	const included = opts.included ?? true;
+	const chapters = chapterNames.length > 0 ? chapterNames : [UNTAGGED_CHAPTER];
+	const includedByChapter: Record<string, boolean> = {};
+	for (const c of chapters) includedByChapter[c] = included;
 	return {
 		variationKey,
 		label: `label:${variationKey}`, // stand-in for the server's own moveSequenceLabel(v.path) — irrelevant to grouping
-		included: opts.included ?? true,
+		includedByChapter,
 		chapterNames,
 		path: path(sans),
 		solved: opts.solved ?? false

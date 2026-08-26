@@ -3,11 +3,16 @@
 /** A checkbox that aggregates several rows is one of three states, not a boolean. */
 export type TriState = 'checked' | 'unchecked' | 'indeterminate';
 
-/** Checked/unchecked/indeterminate aggregate for an arbitrary subset of togglable rows. */
-export function aggregateState(rows: Array<{ included: boolean }>): TriState {
-	if (rows.length === 0) return 'checked';
-	const included = rows.filter((v) => v.included).length;
-	return included === rows.length ? 'checked' : included === 0 ? 'unchecked' : 'indeterminate';
+/**
+ * Checked/unchecked/indeterminate aggregate for an arbitrary subset of
+ * togglable rows, given each row's own included state — resolved by the
+ * caller (e.g. `isIncludedFor(row, chapter)`) rather than read directly off
+ * the row, since "included" is chapter-relative (see `variationSelection`).
+ */
+export function aggregateState(included: boolean[]): TriState {
+	if (included.length === 0) return 'checked';
+	const includedCount = included.filter(Boolean).length;
+	return includedCount === included.length ? 'checked' : includedCount === 0 ? 'unchecked' : 'indeterminate';
 }
 
 /**

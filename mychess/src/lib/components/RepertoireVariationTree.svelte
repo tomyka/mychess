@@ -17,7 +17,7 @@
 		FIRST_MOVES_GROUP_PLIES,
 		type MoveGroup
 	} from '$lib/mastery/variations';
-	import type { VariationRow, VariationSelection } from '$lib/mastery/variationSelection.svelte';
+	import { isIncludedFor, type VariationRow, type VariationSelection } from '$lib/mastery/variationSelection.svelte';
 	import { aggregateState, checkboxState } from './checkboxState';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { m } from '$lib/paraglide/messages';
@@ -105,14 +105,16 @@
 
 	// Membership, not equality: a line shared by two chapters is one row
 	// belonging to both, so toggling either chapter must pick it up — and the
-	// untagged bucket toggles exactly the rows belonging to no chapter.
+	// untagged bucket toggles exactly the rows belonging to no chapter. Scoped
+	// to this chapter's own entry in each row's includedByChapter (#86) — never
+	// a sibling chapter's, even for a shared line.
 	function toggleChapter(chapter: string) {
-		return selection.toggleGroup(`chapter:${chapter}`, (v) => isInChapterTier(v, chapter));
+		return selection.toggleGroup(`chapter:${chapter}`, (v) => isInChapterTier(v, chapter), chapter);
 	}
 
 	function toggleMoveGroup(chapter: string | null, group: MoveGroup<VariationRow>) {
 		const keys = new Set(group.items.map((r) => r.variationKey));
-		return selection.toggleGroup(`moveGroup:${moveGroupKey(chapter, group)}`, (row) => keys.has(row.variationKey));
+		return selection.toggleGroup(`moveGroup:${moveGroupKey(chapter, group)}`, (row) => keys.has(row.variationKey), chapter);
 	}
 </script>
 
@@ -130,7 +132,7 @@
 			<label class="flex items-center shrink-0">
 				<input
 					type="checkbox"
-					use:checkboxState={aggregateState(group.items)}
+					use:checkboxState={aggregateState(group.items.map((r) => isIncludedFor(r, chapter)))}
 					onchange={() => toggleMoveGroup(chapter, group)}
 					aria-label={m.repertoire_tree_movegroup_include_aria({ group: groupLabel(group), qualifier: moveGroupQualifier(chapter) })}
 				/>
@@ -157,8 +159,8 @@
 						<label class="flex items-center gap-2 text-sm text-(--color-text)">
 							<input
 								type="checkbox"
-								checked={variation.included}
-								onchange={() => selection.toggleVariation(variation.variationKey)}
+								checked={isIncludedFor(variation, chapter)}
+								onchange={() => selection.toggleVariation(variation.variationKey, chapter)}
 							/>
 							{variation.label}
 						</label>
@@ -183,7 +185,7 @@
 					<label class="flex items-center shrink-0">
 						<input
 							type="checkbox"
-							use:checkboxState={aggregateState(rowsForChapter(chapter))}
+							use:checkboxState={aggregateState(rowsForChapter(chapter).map((r) => isIncludedFor(r, chapter)))}
 							onchange={() => toggleChapter(chapter)}
 							aria-label={m.repertoire_tree_chapter_include_aria({ heading: chapterHeading(chapter) })}
 						/>

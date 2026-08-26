@@ -37,8 +37,24 @@ function path(sans: string[]) {
 	});
 }
 
-function row(variationKey: string, sans: string[], chapterNames: string[], included = true, solved = false) {
-	return { variationKey, label: `label:${variationKey}`, included, chapterNames, path: path(sans), solved };
+/**
+ * `included` is the default for every chapter this row belongs to (or the
+ * single UNTAGGED_CHAPTER entry for an untagged row); `overrides` sets a
+ * specific chapter's own entry independently — GitHub issue #86's whole
+ * point is that these entries are no longer one shared flag.
+ */
+function row(
+	variationKey: string,
+	sans: string[],
+	chapterNames: string[],
+	included = true,
+	solved = false,
+	overrides: Record<string, boolean> = {}
+) {
+	const chapters = chapterNames.length > 0 ? chapterNames : [UNTAGGED_CHAPTER];
+	const includedByChapter: Record<string, boolean> = {};
+	for (const c of chapters) includedByChapter[c] = overrides[c] ?? included;
+	return { variationKey, label: `label:${variationKey}`, includedByChapter, chapterNames, path: path(sans), solved };
 }
 
 // v1/v2 share their first 5 full moves (10 plies) before diverging on move
@@ -124,7 +140,7 @@ describe('RepertoirePracticeRow', () => {
 		expect(screen.getByText('label:v2')).toBeTruthy();
 	});
 
-	it('toggling one variation checkbox posts its own exclusion change', async () => {
+	it('toggling one variation checkbox in a chapterless repertoire posts its own exclusion change', async () => {
 		const fetchSpy = vi
 			.fn()
 			.mockResolvedValueOnce({ ok: true, json: async () => variationsResponse })
@@ -144,12 +160,12 @@ describe('RepertoirePracticeRow', () => {
 			expect(fetchSpy).toHaveBeenCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1'], included: false })
+				body: JSON.stringify({ variationKeys: ['v1'], included: false, chapter: null })
 			})
 		);
 	});
 
-	it('unchecking a fully-checked parent excludes every variation, and re-checking restores them', async () => {
+	it('unchecking a fully-checked parent excludes every variation across every chapter, and re-checking restores them', async () => {
 		const fetchSpy = vi
 			.fn()
 			.mockResolvedValueOnce({ ok: true, json: async () => variationsResponse }) // GET on expand
@@ -167,7 +183,7 @@ describe('RepertoirePracticeRow', () => {
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false })
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false, chapter: null })
 			})
 		);
 		expect(parentCheckbox.checked).toBe(false);
@@ -178,7 +194,7 @@ describe('RepertoirePracticeRow', () => {
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: true })
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: true, chapter: null })
 			})
 		);
 		expect(parentCheckbox.checked).toBe(true);
@@ -214,7 +230,7 @@ describe('RepertoirePracticeRow', () => {
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: true })
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: true, chapter: null })
 			})
 		);
 		const v1Checkbox = within(screen.getByText('label:v1').closest('label')!).getByRole('checkbox') as HTMLInputElement;
@@ -229,7 +245,7 @@ describe('RepertoirePracticeRow', () => {
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false })
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false, chapter: null })
 			})
 		);
 	});
@@ -384,7 +400,9 @@ describe('RepertoirePracticeRow', () => {
 	});
 
 	it('shows a chapter checkbox as indeterminate when only some of its own variations are included, independent of a sibling chapter', async () => {
-		const partial = chapterVariationsResponse.map((v) => (v.variationKey === 'v1' ? { ...v, included: false } : v));
+		const partial = chapterVariationsResponse.map((v) =>
+			v.variationKey === 'v1' ? row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], ['Ruy Lopez'], false) : v
+		);
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => partial });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
@@ -398,7 +416,7 @@ describe('RepertoirePracticeRow', () => {
 		expect(italianCheckbox.checked).toBe(true); // v3 included, unaffected by Ruy Lopez's state
 	});
 
-	it("bulk-toggling a chapter checkbox only excludes that chapter's own variations", async () => {
+	it("bulk-toggling a chapter checkbox only excludes that chapter's own variations, scoped to that chapter", async () => {
 		const fetchSpy = vi
 			.fn()
 			.mockResolvedValueOnce({ ok: true, json: async () => chapterVariationsResponse })
@@ -416,7 +434,7 @@ describe('RepertoirePracticeRow', () => {
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false }) // NOT v3
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false, chapter: 'Ruy Lopez' }) // NOT v3
 			})
 		);
 		const italianCheckbox = screen.getByRole('checkbox', { name: /Italian Game \(chapter\)/ }) as HTMLInputElement;
@@ -427,7 +445,7 @@ describe('RepertoirePracticeRow', () => {
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: true })
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: true, chapter: 'Ruy Lopez' })
 			})
 		);
 	});
@@ -518,7 +536,7 @@ describe('RepertoirePracticeRow', () => {
 			expect(fetchSpy).toHaveBeenCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false })
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false, chapter: 'Ruy Lopez' })
 			})
 		);
 		expect(ruyCheckbox.checked).toBe(false);
@@ -535,7 +553,7 @@ describe('RepertoirePracticeRow', () => {
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: true })
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: true, chapter: 'Ruy Lopez' })
 			})
 		);
 	});
@@ -566,7 +584,7 @@ describe('RepertoirePracticeRow', () => {
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false })
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false, chapter: 'Ruy Lopez' })
 			})
 		);
 		const otherBucketCheckbox = screen.getByRole('checkbox', {
@@ -597,7 +615,7 @@ describe('RepertoirePracticeRow', () => {
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false })
+				body: JSON.stringify({ variationKeys: ['v1', 'v2'], included: false, chapter: 'Ruy Lopez' })
 			})
 		);
 
@@ -612,7 +630,7 @@ describe('RepertoirePracticeRow', () => {
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1', 'v2', 'v3'], included: true })
+				body: JSON.stringify({ variationKeys: ['v1', 'v2', 'v3'], included: true, chapter: 'Ruy Lopez' })
 			})
 		);
 		expect(bucketCheckbox.checked).toBe(true); // re-included by the chapter-level select-all
@@ -625,7 +643,7 @@ describe('RepertoirePracticeRow', () => {
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1', 'v2', 'v3'], included: false })
+				body: JSON.stringify({ variationKeys: ['v1', 'v2', 'v3'], included: false, chapter: 'Ruy Lopez' })
 			})
 		);
 	});
@@ -675,7 +693,7 @@ describe('RepertoirePracticeRow', () => {
 		expect(screen.getAllByText('label:v1')).toHaveLength(2);
 	});
 
-	it("bulk-toggling a chapter includes the lines it SHARES with another chapter, not just its exclusive ones", async () => {
+	it("bulk-toggling a chapter only excludes THAT chapter's own view of a shared line, leaving the sibling chapter's own view untouched (GitHub issue #86)", async () => {
 		const fetchSpy = vi
 			.fn()
 			.mockResolvedValueOnce({ ok: true, json: async () => sharedLineResponse })
@@ -686,23 +704,28 @@ describe('RepertoirePracticeRow', () => {
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
 		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
 
-		// Membership, not equality: the old `chapterName === name` filter posted
-		// only v3 here, silently leaving the shared line included.
+		// Membership, not equality: Italian Game's checkbox touches both of
+		// its own rows (v1 shared, v3 exclusive) — but scoped to ITS OWN
+		// includedByChapter entry for each, never Ruy Lopez's.
 		await fireEvent.click(screen.getByRole('checkbox', { name: /Italian Game \(chapter\)/ }));
 		await waitFor(() =>
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1', 'v3'], included: false })
+				body: JSON.stringify({ variationKeys: ['v1', 'v3'], included: false, chapter: 'Italian Game' })
 			})
 		);
 
-		// And the effect is visible from the other chapter, since it's one line:
-		// Ruy Lopez reads indeterminate (v1 now excluded, v2 still included).
-		expect((screen.getByRole('checkbox', { name: /Ruy Lopez \(chapter\)/ }) as HTMLInputElement).indeterminate).toBe(true);
+		// The bug this issue reported: Ruy Lopez used to flip to indeterminate
+		// too, because both chapters read the same single flag for v1. With
+		// independent per-chapter entries, v1's OWN Ruy Lopez entry — and v2 —
+		// are both still included, so Ruy Lopez stays fully checked.
+		const ruyCheckbox = screen.getByRole('checkbox', { name: /Ruy Lopez \(chapter\)/ }) as HTMLInputElement;
+		expect(ruyCheckbox.indeterminate).toBe(false);
+		expect(ruyCheckbox.checked).toBe(true);
 	});
 
-	it('toggling a shared line under one chapter shows as toggled under the other too, since it is one line', async () => {
+	it('toggling a shared line under one chapter does not change its own checkbox under a different chapter (GitHub issue #86)', async () => {
 		const fetchSpy = vi
 			.fn()
 			.mockResolvedValueOnce({ ok: true, json: async () => sharedLineResponse })
@@ -716,24 +739,26 @@ describe('RepertoirePracticeRow', () => {
 		// Uncheck the shared line from inside Italian Game.
 		await fireEvent.click(screen.getByLabelText('Expand Italian Game chapter'));
 		await fireEvent.click(screen.getByLabelText('Expand 1.e4 e5 2.Nf3 in Italian Game'));
-		await fireEvent.click(within(screen.getByText('label:v1').closest('label')!).getByRole('checkbox'));
+		await fireEvent.click(within(screen.getAllByText('label:v1')[0].closest('label')!).getByRole('checkbox'));
 		await waitFor(() =>
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1'], included: false })
+				body: JSON.stringify({ variationKeys: ['v1'], included: false, chapter: 'Italian Game' })
 			})
 		);
-		expect((screen.getByRole('checkbox', { name: /Ruy Lopez \(chapter\)/ }) as HTMLInputElement).indeterminate).toBe(true);
+		// Ruy Lopez is completely unaffected — v1's own entry there, and v2,
+		// are both still included.
+		expect((screen.getByRole('checkbox', { name: /Ruy Lopez \(chapter\)/ }) as HTMLInputElement).checked).toBe(true);
 
-		// Its copy under Ruy Lopez reflects the same exclusion, and re-checking
-		// it there re-includes the one shared line for both chapters.
+		// Its copy under Ruy Lopez still shows checked (independent state) —
+		// toggling it there posts its OWN chapter scope, not Italian Game's.
 		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez chapter'));
 		await fireEvent.click(screen.getByLabelText('Expand 1.e4 e5 2.Nf3 in Ruy Lopez'));
 		const [underRuy, underItalian] = screen
 			.getAllByText('label:v1')
 			.map((el) => within(el.closest('label')!).getByRole('checkbox') as HTMLInputElement);
-		expect(underRuy.checked).toBe(false);
+		expect(underRuy.checked).toBe(true); // untouched by Italian Game's own toggle
 		expect(underItalian.checked).toBe(false);
 
 		await fireEvent.click(underRuy);
@@ -741,10 +766,40 @@ describe('RepertoirePracticeRow', () => {
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v1'], included: true })
+				body: JSON.stringify({ variationKeys: ['v1'], included: false, chapter: 'Ruy Lopez' })
 			})
 		);
-		expect((screen.getByRole('checkbox', { name: /Italian Game \(chapter\)/ }) as HTMLInputElement).checked).toBe(true);
+		// Italian Game's own (already-unchecked) entry is unaffected by this.
+		expect((screen.getByRole('checkbox', { name: /Italian Game \(chapter\)/ }) as HTMLInputElement).checked).toBe(false);
+	});
+
+	it('the repertoire-level checkbox still toggles a shared line under every chapter it belongs to, in one click', async () => {
+		const fetchSpy = vi
+			.fn()
+			.mockResolvedValueOnce({ ok: true, json: async () => sharedLineResponse })
+			.mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
+		vi.stubGlobal('fetch', fetchSpy);
+		render(RepertoirePracticeRow, { props: { rep: { ...baseRep, fullVariationCount: 3 } } });
+
+		await fireEvent.click(screen.getByLabelText('Expand Ruy Lopez'));
+		await waitFor(() => screen.getByText('Ruy Lopez (chapter)'));
+
+		const parentCheckbox = screen.getByRole('checkbox', { name: 'Include Ruy Lopez in practice' }) as HTMLInputElement;
+		await fireEvent.click(parentCheckbox);
+		await waitFor(() =>
+			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ variationKeys: ['v1', 'v2', 'v3'], included: false, chapter: null })
+			})
+		);
+
+		// Both chapters now read fully excluded, including v1's own entry
+		// under each — the repertoire-level scope spans every chapter a
+		// shared line belongs to.
+		expect((screen.getByRole('checkbox', { name: /Ruy Lopez \(chapter\)/ }) as HTMLInputElement).checked).toBe(false);
+		await fireEvent.click(screen.getByLabelText('Expand Italian Game chapter'));
+		expect(screen.getByRole('checkbox', { name: /Italian Game \(chapter\)/ })).toHaveProperty('checked', false);
 	});
 
 	it('gives untagged lines their own bucket, listed last, in an otherwise-chaptered repertoire', async () => {
@@ -774,7 +829,7 @@ describe('RepertoirePracticeRow', () => {
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ variationKeys: ['v2'], included: false })
+				body: JSON.stringify({ variationKeys: ['v2'], included: false, chapter: UNTAGGED_CHAPTER })
 			})
 		);
 		expect((screen.getByRole('checkbox', { name: /Ruy Lopez \(chapter\)/ }) as HTMLInputElement).checked).toBe(true);

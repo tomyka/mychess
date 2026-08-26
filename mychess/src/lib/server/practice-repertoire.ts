@@ -94,6 +94,36 @@ export function fetchAllExclusions(
 }
 
 /**
+ * Every one of this player's per-chapter excluded (variation, chapter) pairs
+ * for one repertoire, paginated past `max_rows` (GitHub issue #86). Used only
+ * by the variations endpoint to build each row's `includedByChapter` — the
+ * flat `variation_practice_exclusions` table (see `fetchAllExclusions`) stays
+ * the source of truth for "truly excluded" everywhere else.
+ */
+export function fetchAllChapterExclusions(
+	supabase: SupabaseClient,
+	userId: string,
+	repertoireId: string
+): Promise<{ chapter_name: string; variation_key: string }[]> {
+	return fetchAllPages<{ chapter_name: string; variation_key: string }>(
+		() =>
+			supabase
+				.from('variation_chapter_practice_exclusions')
+				.select('chapter_name, variation_key')
+				.eq('player_id', userId)
+				.eq('repertoire_id', repertoireId)
+				.order('variation_key', { ascending: true }),
+		() =>
+			supabase
+				.from('variation_chapter_practice_exclusions')
+				.select('id', { count: 'exact', head: true })
+				.eq('player_id', userId)
+				.eq('repertoire_id', repertoireId),
+		MAX_ROWS_PAGE_SIZE
+	);
+}
+
+/**
  * Loads a repertoire a player can access (owned or coach-assigned), its full
  * enumerated variations, and this player's own excluded-variation set — the
  * same authorization + move fetch every practice-mutating endpoint and the
