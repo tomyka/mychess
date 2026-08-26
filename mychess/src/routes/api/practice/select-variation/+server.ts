@@ -44,9 +44,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		loadSolvedKeys(supabase, user.id, repertoireId),
 		loadTeachingProgress(supabase, user.id, repertoireId)
 	]);
+	const ceilingMoveCount = teachingCeilingMoveCount(allVariations, solvedKeys);
 
 	if (!solvedKeys.has(variationKey)) {
-		const ceilingMoveCount = teachingCeilingMoveCount(allVariations, solvedKeys);
 		const masteredPlies = teachingProgress.get(variationKey)?.masteredPlies ?? 0;
 		if (isPausedAtCeiling(picked.path, masteredPlies, ceilingMoveCount)) {
 			throw error(403, 'This line is locked until you finish your current tier');
@@ -54,7 +54,5 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	await setActiveVariationKey(supabase, user.id, repertoireId, variationKey);
-	return json(
-		buildPracticeView(variations, variationKey, solvedKeys, teachingProgress, teachingCeilingMoveCount(allVariations, solvedKeys), true)
-	);
+	return json(buildPracticeView(variations, variationKey, solvedKeys, teachingProgress, ceilingMoveCount, true));
 };

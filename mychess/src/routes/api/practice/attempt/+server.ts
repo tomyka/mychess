@@ -115,5 +115,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// must not delay the response to the move the player just made.
 	if (!hadMistake) grantNewBadges(supabase, user.id).catch(() => {});
 
-	return json(buildPracticeView(variations, activeVariationKey, solvedKeys, teachingProgress, teachingCeilingMoveCount(allVariations, solvedKeys)));
+	const ceilingMoveCountAfterAttempt = teachingCeilingMoveCount(allVariations, solvedKeys);
+	return json(buildPracticeView(variations, activeVariationKey, solvedKeys, teachingProgress, ceilingMoveCountAfterAttempt));
 };
