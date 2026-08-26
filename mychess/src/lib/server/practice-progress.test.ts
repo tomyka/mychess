@@ -334,6 +334,81 @@ describe('applyAttemptResult', () => {
 	});
 });
 
+describe('applyAttemptResult with a ceilingMoveCount', () => {
+	it('a clean pass that only reaches the ceiling does NOT call markVariationSolved (no variation_solved upsert)', async () => {
+		// v1 is 25 plies (13 player moves); a ceilingMoveCount of 4 caps it at
+		// ply 7. Its stored progress is already AT that ceiling ply going into
+		// this call, so this pass's advanceTeachingProgress reports
+		// pausedAtCeiling: true rather than solved.
+		const { client, upsertCalls } = fakeSupabase({
+			teachingRows: [{ variation_key: 'v1', taught_plies: 7, mastered_plies: 7 }]
+		});
+		const v1 = makeVariation('v1', 25);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1], false, [v1], 4);
+
+		expect(upsertCalls.some((c) => c.table === 'variation_solved')).toBe(false);
+		// Progress is still saved (unchanged, since it was already at the
+		// ceiling) even though the variation isn't solved.
+		expect(upsertCalls.find((c) => c.table === 'variation_teaching_progress')?.rows).toEqual({
+			player_id: 'player-1',
+			repertoire_id: 'rep-1',
+			variation_key: 'v1',
+			taught_plies: 7,
+			mastered_plies: 7
+		});
+	});
+
+	it('a clean pass that pauses STILL advances practice_active_variation to a different, still-servable variation', async () => {
+		// v1 is about to pause at the ceiling (same setup as above). v2 is a
+		// short, untouched variation that stays fully servable under the same
+		// ceiling (its whole path fits within 4 player moves).
+		const { client, upsertCalls } = fakeSupabase({
+			teachingRows: [{ variation_key: 'v1', taught_plies: 7, mastered_plies: 7 }]
+		});
+		const v1 = makeVariation('v1', 25);
+		const v2 = makeVariation('v2', 4);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1, v2], false, [v1, v2], 4);
+
+		const activeWrite = upsertCalls.find((c) => c.table === 'practice_active_variation');
+		expect(activeWrite?.rows).toEqual(expect.objectContaining({ active_variation_key: 'v2' }));
+		expect(upsertCalls.some((c) => c.table === 'variation_solved')).toBe(false);
+	});
+
+	it('a clean pass that genuinely finishes a variation within the ceiling behaves exactly as without a ceiling: marks solved, advances', async () => {
+		// v1's 13 player moves are well within a ceiling of 100, so the ceiling
+		// never binds and this must match the no-ceiling "reaching the end of
+		// the path" behavior exactly: solved, and the active variation advances.
+		const { client, upsertCalls } = fakeSupabase({
+			teachingRows: [{ variation_key: 'v1', taught_plies: 25, mastered_plies: 20 }]
+		});
+		const v1 = makeVariation('v1', 25);
+		const v2 = makeVariation('v2', 4);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1, v2], false, [v1, v2], 100);
+
+		expect(upsertCalls.map((c) => c.table)).toEqual([
+			'variation_teaching_progress',
+			'variation_solved',
+			'practice_active_variation'
+		]);
+		expect(upsertCalls[0].rows).toEqual({
+			player_id: 'player-1',
+			repertoire_id: 'rep-1',
+			variation_key: 'v1',
+			taught_plies: 25,
+			mastered_plies: 25
+		});
+		expect(upsertCalls[2].rows).toEqual(expect.objectContaining({ active_variation_key: 'v2' }));
+	});
+
+	it('a mistake stays a complete no-op regardless of the ceiling', async () => {
+		const { client, fromCalls, upsertCalls } = fakeSupabase();
+		const v1 = makeVariation('v1', 25);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', true, [v1], false, [v1], 4);
+		expect(fromCalls).toHaveLength(0);
+		expect(upsertCalls).toHaveLength(0);
+	});
+});
+
 describe('loadVariationUpdatedAt', () => {
 	it('returns the row\'s updated_at, or null if no matching row exists', async () => {
 		const { client } = fakeSupabase({

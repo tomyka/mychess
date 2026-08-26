@@ -281,6 +281,31 @@ export function knownProgressFor(args: {
 }
 
 /**
+ * Which currently-unsolved variations have nothing more Learn can teach them
+ * right now under `ceilingMoveCount` (see `isPausedAtCeiling`) — used to keep
+ * `pickActiveVariation`/`advanceIfSolved` from serving (or re-serving) a
+ * variation that's blocked at its tier ceiling. Shared between serve time
+ * (`buildPracticeView`, `mastery/practice.ts`) and record time
+ * (`applyAttemptResult`, `server/practice-progress.ts`) — those two must
+ * agree exactly on what's blocked, never compute it independently, which is
+ * why this lives here rather than as a local helper in either caller.
+ */
+export function computeBlockedKeys(
+	variations: Variation[],
+	solvedKeys: ReadonlySet<string>,
+	teachingProgress: ReadonlyMap<string, { masteredPlies: number }>,
+	ceilingMoveCount: number
+): Set<string> {
+	const blocked = new Set<string>();
+	for (const variation of variations) {
+		if (solvedKeys.has(variation.variationKey)) continue;
+		const masteredPlies = teachingProgress.get(variation.variationKey)?.masteredPlies ?? 0;
+		if (isPausedAtCeiling(variation.path, masteredPlies, ceilingMoveCount)) blocked.add(variation.variationKey);
+	}
+	return blocked;
+}
+
+/**
  * Whether `plyIndex` is the LAST ply in `path` requiring the player's own
  * input — i.e. no player-turn ply follows it. Deliberately NOT the same
  * check as "`plyIndex` is `path`'s last index": a served path can end with a

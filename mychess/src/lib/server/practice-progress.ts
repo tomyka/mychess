@@ -2,7 +2,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Variation } from '$lib/mastery/variations';
 import { pickActiveVariation, advanceIfSolved } from '$lib/mastery/variationSequence';
-import { advanceTeachingProgress, knownProgressFor } from '$lib/mastery/teaching';
+import { advanceTeachingProgress, knownProgressFor, ceilingPlyFor, computeBlockedKeys } from '$lib/mastery/teaching';
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
 import { masterableChapters } from '$lib/mastery/repertoireStatus';
 import { isInChapterTier, rowsInChapterTier } from '$lib/mastery/variations';
@@ -334,6 +334,21 @@ export async function loadSyncedActiveVariationKey(
  * comment). The default keeps every existing caller/test that doesn't care
  * about exclusions unchanged; the one real caller with exclusions to worry
  * about (`/api/practice/attempt`) passes both sets explicitly.
+ *
+ * `ceilingMoveCount` (GitHub issue #163's tier gating) caps how many player
+ * moves of a NOT-YET-solved variation this attempt may credit — the same cap
+ * `buildPracticeView` applies at serve time (see `mastery/practice.ts`), so
+ * what gets recorded here always matches what was actually served. It
+ * defaults to `Infinity`, i.e. no cap, so every existing caller/test is
+ * unaffected. When a clean pass reaches that cap without reaching the
+ * variation's own true end (`next.pausedAtCeiling`), it is NOT solved —
+ * `variation_solved` and the completed-chapters cache are both left
+ * untouched — but the active pointer still MUST advance to a different,
+ * still-servable variation, exactly as a genuine solve does. Skipping that
+ * advance would leave `practice_active_variation` pointing at a variation
+ * that's now blocked (see `computeBlockedKeys`/`isPausedAtCeiling`), which
+ * would re-serve the same frozen, paused board forever — this repo's central
+ * "stuck gauntlet" failure mode.
  */
 export async function applyAttemptResult(
 	supabase: SupabaseClient,
@@ -343,7 +358,8 @@ export async function applyAttemptResult(
 	hadMistake: boolean,
 	variations: Variation[],
 	resumedAfterBreak: boolean = false,
-	allVariations: Variation[] = variations
+	allVariations: Variation[] = variations,
+	ceilingMoveCount: number = Infinity
 ): Promise<void> {
 	if (hadMistake) return;
 
@@ -359,8 +375,28 @@ export async function applyAttemptResult(
 				solvedKeys,
 				resumedAfterBreak
 			});
-			const next = advanceTeachingProgress(variation.path, effectiveTaughtPlies, effectiveMasteredPlies, false);
+			const ceilingPly = ceilingPlyFor(variation.path, ceilingMoveCount);
+			const next = advanceTeachingProgress(variation.path, effectiveTaughtPlies, effectiveMasteredPlies, false, ceilingPly);
 			await saveTeachingProgress(supabase, playerId, repertoireId, variationKey, next.taughtPlies, next.masteredPlies);
+
+			if (next.pausedAtCeiling) {
+				// Paused, not solved: must NOT markVariationSolved or touch the
+				// completed-chapters cache — but MUST still advance past this
+				// variation, or the active pointer re-serves the same frozen,
+				// paused board forever (GitHub issue #163's central risk — see
+				// the design doc). blockedKeys is recomputed from the JUST-SAVED
+				// progress (progressMap doesn't yet reflect this write), so patch
+				// this one variation's masteredPlies in locally before computing it.
+				const updatedProgress = new Map(progressMap);
+				updatedProgress.set(variationKey, {
+					...(progressMap.get(variationKey) ?? { taughtPlies: 0, masteredPlies: 0, updatedAt: null }),
+					masteredPlies: next.masteredPlies
+				});
+				const blockedKeys = computeBlockedKeys(variations, solvedKeys, updatedProgress, ceilingMoveCount);
+				const nextKey = advanceIfSolved(variationKey, variations, solvedKeys, blockedKeys);
+				await setActiveVariationKey(supabase, playerId, repertoireId, nextKey);
+				return;
+			}
 			if (!next.solved) return;
 		}
 	}

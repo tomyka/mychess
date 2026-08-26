@@ -1,7 +1,7 @@
 // mychess/src/lib/mastery/practice.ts
 import type { Variation, VariationStep } from './variations';
 import { pickActiveVariation, solvedProgress } from './variationSequence';
-import { resolveTeachingStep, knownProgressFor, autoPlayCeiling, ceilingPlyFor, isPausedAtCeiling } from './teaching';
+import { resolveTeachingStep, knownProgressFor, autoPlayCeiling, ceilingPlyFor, computeBlockedKeys } from './teaching';
 import { splitQueues } from './learning';
 
 /**
@@ -49,32 +49,6 @@ export const RESUME_GAP_MS = 10 * 60 * 1000;
 export function wasResumedAfterBreak(updatedAt: string | null, now: Date): boolean {
 	if (updatedAt == null) return false;
 	return now.getTime() - new Date(updatedAt).getTime() > RESUME_GAP_MS;
-}
-
-/**
- * Which currently-unsolved variations have nothing more Learn can teach them
- * right now under `ceilingMoveCount` (see `isPausedAtCeiling`) — used to keep
- * `pickActiveVariation` from serving (or re-serving) a variation that's
- * blocked at its tier ceiling. Deliberately local and non-exported: this is
- * `buildPracticeView`'s own "what's servable right now" concern, not a
- * general-purpose export. `applyAttemptResult` (server/practice-progress.ts,
- * a later task) needs the identical computation at record time and must
- * either import this by moving it to teaching.ts, or duplicate it exactly —
- * never compute it differently.
- */
-function computeBlockedKeys(
-	variations: Variation[],
-	solvedKeys: ReadonlySet<string>,
-	teachingProgress: ReadonlyMap<string, { masteredPlies: number }>,
-	ceilingMoveCount: number
-): Set<string> {
-	const blocked = new Set<string>();
-	for (const variation of variations) {
-		if (solvedKeys.has(variation.variationKey)) continue;
-		const masteredPlies = teachingProgress.get(variation.variationKey)?.masteredPlies ?? 0;
-		if (isPausedAtCeiling(variation.path, masteredPlies, ceilingMoveCount)) blocked.add(variation.variationKey);
-	}
-	return blocked;
 }
 
 /**
