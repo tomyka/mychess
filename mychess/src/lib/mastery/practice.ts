@@ -1,7 +1,7 @@
 // mychess/src/lib/mastery/practice.ts
 import type { Variation, VariationStep } from './variations';
 import { pickActiveVariation, solvedProgress } from './variationSequence';
-import { resolveTeachingStep, knownProgressFor, autoPlayCeiling } from './teaching';
+import { resolveTeachingStep, knownProgressFor, autoPlayCeiling, ceilingPlyFor, isPausedAtCeiling } from './teaching';
 import { splitQueues } from './learning';
 
 /**
@@ -52,6 +52,32 @@ export function wasResumedAfterBreak(updatedAt: string | null, now: Date): boole
 }
 
 /**
+ * Which currently-unsolved variations have nothing more Learn can teach them
+ * right now under `ceilingMoveCount` (see `isPausedAtCeiling`) — used to keep
+ * `pickActiveVariation` from serving (or re-serving) a variation that's
+ * blocked at its tier ceiling. Deliberately local and non-exported: this is
+ * `buildPracticeView`'s own "what's servable right now" concern, not a
+ * general-purpose export. `applyAttemptResult` (server/practice-progress.ts,
+ * a later task) needs the identical computation at record time and must
+ * either import this by moving it to teaching.ts, or duplicate it exactly —
+ * never compute it differently.
+ */
+function computeBlockedKeys(
+	variations: Variation[],
+	solvedKeys: ReadonlySet<string>,
+	teachingProgress: ReadonlyMap<string, { masteredPlies: number }>,
+	ceilingMoveCount: number
+): Set<string> {
+	const blocked = new Set<string>();
+	for (const variation of variations) {
+		if (solvedKeys.has(variation.variationKey)) continue;
+		const masteredPlies = teachingProgress.get(variation.variationKey)?.masteredPlies ?? 0;
+		if (isPausedAtCeiling(variation.path, masteredPlies, ceilingMoveCount)) blocked.add(variation.variationKey);
+	}
+	return blocked;
+}
+
+/**
  * Builds the full client-facing practice view: which variation to quiz next
  * (its path — the WHOLE thing once mastered, or truncated to the current
  * teaching batch otherwise, see resolveTeachingStep) plus the
@@ -59,12 +85,19 @@ export function wasResumedAfterBreak(updatedAt: string | null, now: Date): boole
  * currently persisted (or `null` if none yet); `solvedKeys` is this player's
  * full solved set for this repertoire; `teachingProgress` is this player's
  * per-variation `{taughtPlies, masteredPlies}` state for this repertoire.
+ * `ceilingMoveCount` caps how many player moves of a NOT-YET-solved variation
+ * Learn will teach in one go (GitHub issue #163's tier gating) — it defaults
+ * to `Infinity`, i.e. no cap, so every caller not yet passing a real ceiling
+ * keeps today's exact behavior. It never applies to an already-solved
+ * variation's re-drill (forced or picked): that's deliberately served in
+ * full, ceiling or not.
  */
 export function buildPracticeView(
 	variations: Variation[],
 	activeVariationKey: string | null,
 	solvedKeys: ReadonlySet<string>,
 	teachingProgress: ReadonlyMap<string, TeachingProgressEntry>,
+	ceilingMoveCount: number = Infinity,
 	forceAttempt: boolean = false,
 	now: Date = new Date()
 ): PracticeView {
@@ -82,7 +115,8 @@ export function buildPracticeView(
 	// to do nothing (the bug fixed in 02bb6d6).
 	const { learn } = splitQueues(variations, solvedKeys);
 	const servable = forceAttempt ? variations : learn;
-	const active = pickActiveVariation(servable, activeVariationKey, solvedKeys);
+	const blockedKeys = computeBlockedKeys(variations, solvedKeys, teachingProgress, ceilingMoveCount);
+	const active = pickActiveVariation(servable, activeVariationKey, solvedKeys, blockedKeys);
 
 	// allSolved means the REPERTOIRE is done, not just that the (possibly
 	// manually re-picked) active variation happens to be solved — those are
@@ -131,7 +165,12 @@ export function buildPracticeView(
 				solvedKeys,
 				resumedAfterBreak
 			});
-			const step = resolveTeachingStep(active.path, effectiveTaughtPlies, effectiveMasteredPlies);
+			const step = resolveTeachingStep(
+				active.path,
+				effectiveTaughtPlies,
+				effectiveMasteredPlies,
+				ceilingPlyFor(active.path, ceilingMoveCount)
+			);
 			attempt = {
 				path: step.path,
 				variationKey: active.variationKey,
