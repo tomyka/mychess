@@ -138,3 +138,38 @@ export function deriveRepertoireLevel(chapterLevels: Iterable<Tier | null>): Tie
 	}
 	return any ? min : null;
 }
+
+/**
+ * The player-move-count Learn may currently teach up to, repertoire-wide: the
+ * ceiling of the tier immediately above the pooled repertoire's own tier —
+ * bronze's own ceiling (9) when nothing is solved yet, silver's (18) once
+ * every <=9-move variation REPERTOIRE-WIDE is solved, and so on, unlimited
+ * once every <=27-move variation is.
+ *
+ * Deliberately reuses `deriveChapterLevel` over `allVariations` pooled
+ * together — the WHOLE repertoire treated as one chapter — rather than
+ * per-chapter-then-`deriveRepertoireLevel`. See
+ * docs/superpowers/specs/2026-08-26-tier-gated-learn-design.md §3 for why:
+ * minning independently-computed per-chapter LEVELS reintroduces a deadlock
+ * `deriveChapterLevel`'s own vacuous-tier handling already solves once, at
+ * the chapter level — a chapter with nothing bronze-length at all would
+ * otherwise permanently cap the whole repertoire at 9. Pooling first, then
+ * deriving once, is not an optimisation of the per-chapter approach; it is a
+ * different, correct answer to a subtly different question. This is a
+ * SEPARATE call from `deriveRepertoireLevel` (which keeps its own, different,
+ * unaffected meaning — the Levels page's "worst chapter's medal" display) —
+ * the two can legitimately disagree and both be right.
+ *
+ * `allVariations` MUST be the repertoire's UNFILTERED variation set, for the
+ * same exclusion-blocking reason `deriveChapterLevel` itself documents.
+ */
+export function teachingCeilingMoveCount(
+	allVariations: readonly ScopedVariation[],
+	solvedKeys: ReadonlySet<string>
+): number {
+	const repertoireWideLevel = deriveChapterLevel(allVariations, solvedKeys);
+	if (repertoireWideLevel === null) return TIER_MAX_PLAYER_MOVES.bronze;
+	const idx = TIER_ORDER.indexOf(repertoireWideLevel);
+	const nextTier = TIER_ORDER[idx + 1];
+	return nextTier ? TIER_MAX_PLAYER_MOVES[nextTier] : Infinity;
+}

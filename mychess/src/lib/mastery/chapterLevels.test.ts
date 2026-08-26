@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { tierForMoveCount, deriveChapterLevel, deriveRepertoireLevel, chapterCeiling, isChapterComplete } from './chapterLevels';
+import {
+	tierForMoveCount,
+	deriveChapterLevel,
+	deriveRepertoireLevel,
+	chapterCeiling,
+	isChapterComplete,
+	teachingCeilingMoveCount
+} from './chapterLevels';
 
 const v = (variationKey: string, playerMoveCount: number) => ({ variationKey, playerMoveCount });
 
@@ -106,6 +113,46 @@ describe('isChapterComplete', () => {
 	it('is not complete when an excluded, never-solved variation is still present in the (unfiltered) array, even if everything else is solved', () => {
 		const rows = [v('a', 5), v('excludedLine', 15)]; // ceiling: silver
 		expect(isChapterComplete(rows, new Set(['a']))).toBe(false);
+	});
+});
+
+describe('teachingCeilingMoveCount', () => {
+	it('is 9 (bronze) when nothing has been solved yet', () => {
+		const rows = [v('a', 5), v('b', 15)];
+		expect(teachingCeilingMoveCount(rows, new Set())).toBe(9);
+	});
+
+	it('is 9 while any <=9-move variation anywhere is unsolved, even if a longer one is solved', () => {
+		const rows = [v('short', 5), v('long', 15)];
+		expect(teachingCeilingMoveCount(rows, new Set(['long']))).toBe(9);
+	});
+
+	it('rises to 18 once every <=9-move variation repertoire-wide is solved', () => {
+		const rows = [v('short1', 5), v('short2', 9), v('long', 15)];
+		expect(teachingCeilingMoveCount(rows, new Set(['short1', 'short2']))).toBe(18);
+	});
+
+	it('rises to 27 once every <=18-move variation is solved too', () => {
+		const rows = [v('short', 5), v('mid', 15), v('gold', 22)];
+		expect(teachingCeilingMoveCount(rows, new Set(['short', 'mid']))).toBe(27);
+	});
+
+	it('is Infinity once every <=27-move variation is solved', () => {
+		const rows = [v('a', 5), v('b', 27)];
+		expect(teachingCeilingMoveCount(rows, new Set(['a', 'b']))).toBe(Infinity);
+	});
+
+	// The deadlock case §3 of the design doc exists to rule out: a repertoire
+	// (or, equivalently here, a pool) with NO bronze-length content at all must
+	// not stay capped at 9 forever just because nothing can ever satisfy that
+	// bracket.
+	it('does not deadlock when nothing in the pool is bronze-length at all', () => {
+		const rows = [v('a', 15), v('b', 15)];
+		expect(teachingCeilingMoveCount(rows, new Set(['a', 'b']))).toBe(27);
+	});
+
+	it('is 9 for an empty pool', () => {
+		expect(teachingCeilingMoveCount([], new Set())).toBe(9);
 	});
 });
 
