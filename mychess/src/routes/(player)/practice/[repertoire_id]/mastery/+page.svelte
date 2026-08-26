@@ -20,7 +20,7 @@
 		bronze: 'border-[#B08D57]/40 bg-[#B08D57]/10 text-[#8a6b3f] dark:text-[#cda876]',
 		silver: 'border-[#A8A8A8]/40 bg-[#A8A8A8]/10 text-[#6b6b6b] dark:text-[#c7c7c7]',
 		gold: 'border-[#D4AF37]/40 bg-[#D4AF37]/10 text-[#8a6d10] dark:text-[#e0c15c]',
-		platinum: 'border-[#6FCF73]/40 bg-[#6FCF73]/10 text-[#4b9e50] dark:text-[#6FCF73]'
+		platinum: 'border-[#E8B923]/40 bg-[#E8B923]/10 text-[#a4790f] dark:text-[#E8B923]'
 	};
 
 	function badgeClass(level: Tier | null): string {
@@ -30,7 +30,7 @@
 
 <svelte:head>
 	<!-- Fallback name reused verbatim from Learn's per-repertoire page. -->
-	<title>{m.seo_practice_mastery_title({ name: data.repertoire?.name ?? m.learn_repertoire_fallback_name() })}</title>
+	<title>{m.seo_practice_levels_title({ name: data.repertoire?.name ?? m.learn_repertoire_fallback_name() })}</title>
 </svelte:head>
 
 <main class="min-h-screen bg-(--color-bg) p-4 max-w-2xl mx-auto pb-24">

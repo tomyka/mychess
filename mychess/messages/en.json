@@ -245,7 +245,7 @@
 	"practice_keyboard_hint": "← → step · ↑ start · ↓ live",
 	"practice_explore_next_line": "Next line",
 	"practice_explore_see_why": "See why",
-	"seo_practice_mastery_title": "Mastery · {name} — MyChess",
+	"seo_practice_levels_title": "Levels · {name} — MyChess",
 	"practice_levels_back_link": "← Practice",
 	"practice_levels_page_heading": "Levels · {name}",
 	"practice_levels_intro": "Chapters level up automatically as their lines are solved in Practice — Bronze first, then Silver, Gold, and Platinum. Nothing to run or schedule.",
