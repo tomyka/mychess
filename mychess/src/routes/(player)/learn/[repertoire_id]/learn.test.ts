@@ -42,6 +42,22 @@ function playMove(from: string, to: string) {
 
 beforeEach(() => {
 	cgMock.boards.length = 0;
+	// The permanent desktop rail (#93) fetches its own variation list
+	// unconditionally on mount, independent of anything a given test is
+	// actually exercising. Only that one endpoint is given a real response —
+	// everything else (e.g. /api/practice/attempt) still rejects exactly as
+	// an unmocked fetch to a relative URL always has in this suite, which the
+	// page's own try/catch already tolerates (see reportAttempt). Tests that
+	// care about the picker's own data override this with their own
+	// vi.stubGlobal('fetch', ...), same as before.
+	vi.stubGlobal(
+		'fetch',
+		vi.fn((url: string) =>
+			typeof url === 'string' && url.includes('/variations')
+				? Promise.resolve({ ok: true, json: async () => [] })
+				: Promise.reject(new Error(`unmocked fetch in this test: ${url}`))
+		)
+	);
 });
 
 afterEach(() => {
@@ -427,9 +443,14 @@ describe('learn detail page', () => {
 	function renderAttempt(attempt: unknown, report: 'reset' | 'hang' = 'reset') {
 		vi.stubGlobal(
 			'fetch',
-			vi.fn().mockImplementation(() =>
-				report === 'hang' ? new Promise(() => {}) : Promise.resolve({ ok: true, json: async () => RETEST_VIEW })
-			)
+			vi.fn().mockImplementation((url: string) => {
+				// The rail's own /variations fetch shares this stub too — it
+				// needs an array, not RETEST_VIEW's PracticeView shape.
+				if (typeof url === 'string' && url.includes('/variations')) {
+					return Promise.resolve({ ok: true, json: async () => [] });
+				}
+				return report === 'hang' ? new Promise(() => {}) : Promise.resolve({ ok: true, json: async () => RETEST_VIEW });
+			})
 		);
 		render(Practice, {
 			props: {

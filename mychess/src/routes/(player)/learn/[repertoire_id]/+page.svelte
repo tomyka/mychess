@@ -405,6 +405,22 @@
 		</div>
 
 		<div class="flex flex-col lg:flex-row lg:items-stretch gap-6 lg:flex-1 lg:min-h-0">
+			<!-- Permanent desktop rail (GitHub issue #93): replaces the modal
+			     picker's role there entirely, so the sidebar's own "Switch"
+			     button (further down) is gone rather than duplicating it. Mobile
+			     keeps the modal, opened from the top bar's "Switch variation"
+			     button — no viewport width here for a third column. -->
+			{#if repertoireId}
+				<div class="hidden lg:flex lg:w-64 lg:shrink-0 lg:min-h-0">
+					<VariationPicker
+						{repertoireId}
+						onselect={selectVariation}
+						variant="inline"
+						currentVariationKey={attempt?.variationKey ?? null}
+					/>
+				</div>
+			{/if}
+
 			<div class="lg:flex-1 lg:flex lg:flex-col lg:min-h-0">
 				<!-- Sits directly above the board in both layouts, so it's in the
 				     same place the player is already looking. role="status" (an
@@ -494,15 +510,9 @@
 			>
 				<div class="p-4">
 					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">{m.learn_progress_heading()}</p>
-					<div class="flex items-center justify-between gap-2">
-						<span class="text-(--color-muted) text-sm">{m.learn_progress_count({ solved: data.solved, total: data.total })}</span>
-						<button
-							onclick={() => (pickerOpen = true)}
-							class="shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-(--color-accent) border border-(--color-border) rounded-lg px-2 py-1 hover:bg-(--color-border)/40"
-						>
-							<span aria-hidden="true">📖</span> {m.learn_switch()}
-						</button>
-					</div>
+					<!-- No "Switch" button here on desktop (#93): the permanent rail
+					     to the left of the board now does that job directly. -->
+					<span class="text-(--color-muted) text-sm">{m.learn_progress_count({ solved: data.solved, total: data.total })}</span>
 					<div class="h-1.5 rounded-full bg-(--color-border) overflow-hidden mt-2">
 						<div
 							class="h-full bg-(--color-accent) rounded-full"

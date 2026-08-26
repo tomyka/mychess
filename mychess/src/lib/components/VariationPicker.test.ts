@@ -231,6 +231,82 @@ describe('VariationPicker', () => {
 		expect(onclose).toHaveBeenCalled();
 	});
 
+	describe('inline variant (GitHub issue #93)', () => {
+		it('renders no backdrop or close button', async () => {
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
+			vi.stubGlobal('fetch', fetchSpy);
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect: vi.fn(), variant: 'inline' } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			expect(screen.queryByLabelText('Close')).toBeNull();
+		});
+
+		it('auto-opens straight to the chapter and bucket holding the current variation', async () => {
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
+			vi.stubGlobal('fetch', fetchSpy);
+			render(VariationPicker, {
+				props: { repertoireId: 'rep-1', onselect: vi.fn(), variant: 'inline', currentVariationKey: 'v3' }
+			});
+
+			// v3 is alone in its bucket under Italian Game, so it surfaces
+			// directly — no chapter list, no bucket drill-down needed.
+			await waitFor(() => expect(screen.getByText('label:v3')).toBeTruthy());
+		});
+
+		it('highlights the active variation row', async () => {
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
+			vi.stubGlobal('fetch', fetchSpy);
+			render(VariationPicker, {
+				props: { repertoireId: 'rep-1', onselect: vi.fn(), variant: 'inline', currentVariationKey: 'v3' }
+			});
+
+			await waitFor(() => screen.getByText('label:v3'));
+			const activeButton = screen.getByText('label:v3').closest('button')!;
+			expect(activeButton.className).toContain('ring-2');
+		});
+
+		it('shows a per-chapter completion indicator', async () => {
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
+			vi.stubGlobal('fetch', fetchSpy);
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect: vi.fn(), variant: 'inline' } });
+
+			// v1 unsolved, v2 solved — Ruy Lopez reads 1/2; Italian Game (v3,
+			// unsolved) reads 0/1. Modal mode never shows this text at all
+			// (see the modal-mode chapter-list test above).
+			await waitFor(() => expect(screen.getByText('1/2')).toBeTruthy());
+			expect(screen.getByText('0/1')).toBeTruthy();
+		});
+
+		it('shows a checkmark instead of a fraction once a chapter is fully solved', async () => {
+			const allSolved = [
+				row('v1', ['e4', 'e5', 'Nf3'], ['Ruy Lopez'], { solved: true }),
+				row('v2', ['d4', 'd5'], ['Italian Game'])
+			];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => allSolved });
+			vi.stubGlobal('fetch', fetchSpy);
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect: vi.fn(), variant: 'inline' } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			const ruyButton = screen.getByText('Ruy Lopez').closest('button')!;
+			expect(ruyButton.textContent).toContain('✓');
+			expect(ruyButton.textContent).not.toContain('/');
+		});
+
+		it('does not auto-open a second time after the player navigates away, even though currentVariationKey is unchanged', async () => {
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
+			vi.stubGlobal('fetch', fetchSpy);
+			render(VariationPicker, {
+				props: { repertoireId: 'rep-1', onselect: vi.fn(), variant: 'inline', currentVariationKey: 'v3' }
+			});
+
+			await waitFor(() => screen.getByText('label:v3'));
+			// Back out to the chapter list manually.
+			await fireEvent.click(screen.getByText('← Back'));
+			expect(screen.getByText('Ruy Lopez')).toBeTruthy();
+			expect(screen.queryByText('label:v3')).toBeNull();
+		});
+	});
+
 	it('hides excluded variations entirely, so only the one remaining variation can be picked', async () => {
 		const mixed = [
 			row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], ['Ruy Lopez']),
