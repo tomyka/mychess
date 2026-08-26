@@ -382,6 +382,7 @@
 	"variation_picker_load_error": "Couldn't load variations — try again.",
 	"variation_picker_other_group_label": "Other",
 	"variation_picker_back": "← Back",
+	"variation_picker_locked_reason": "Finish your current level first",
 	"repertoire_row_include_aria": "Include {name} in practice",
 	"repertoire_row_expand_aria": "Expand {name}",
 	"repertoire_row_collapse_aria": "Collapse {name}",

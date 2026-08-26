@@ -25,7 +25,7 @@ function row(
 	variationKey: string,
 	sans: string[],
 	chapterNames: string[],
-	opts: { included?: boolean; solved?: boolean } = {}
+	opts: { included?: boolean; solved?: boolean; locked?: boolean } = {}
 ) {
 	const included = opts.included ?? true;
 	const chapters = chapterNames.length > 0 ? chapterNames : [UNTAGGED_CHAPTER];
@@ -37,7 +37,8 @@ function row(
 		includedByChapter,
 		chapterNames,
 		path: path(sans),
-		solved: opts.solved ?? false
+		solved: opts.solved ?? false,
+		locked: opts.locked ?? false
 	};
 }
 
@@ -327,5 +328,61 @@ describe('VariationPicker', () => {
 		// rather than behind a drill-in — and v2 is nowhere to be found.
 		expect(screen.getByText('label:v1')).toBeTruthy();
 		expect(screen.queryByText('label:v2')).toBeNull();
+	});
+
+	describe('locked variations (GitHub issue #163)', () => {
+		it('renders a locked leaf row disabled, with the reason text, and does not select it when clicked', async () => {
+			const mixed = [
+				row('v1', ['e4', 'e5', 'Nf3'], ['Ruy Lopez'], { locked: true }),
+				row('v2', ['d4', 'd5', 'c4'], ['Italian Game'])
+			];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => mixed });
+			vi.stubGlobal('fetch', fetchSpy);
+			const onselect = vi.fn();
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onclose: vi.fn() } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			await fireEvent.click(screen.getByText('Ruy Lopez'));
+
+			const lockedRow = screen.getByText('label:v1').closest('button')!;
+			expect(lockedRow.textContent).toContain('Finish your current level first');
+			expect(lockedRow).toBeDisabled();
+			await fireEvent.click(lockedRow);
+			expect(onselect).not.toHaveBeenCalled();
+		});
+
+		it("a mixed bucket (one locked, one not) stays enterable, and shows each row's own lock state", async () => {
+			const mixed = [
+				row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], ['Ruy Lopez'], { locked: true }),
+				row('v2', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'd3'], ['Ruy Lopez'])
+			];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => mixed });
+			vi.stubGlobal('fetch', fetchSpy);
+			const onselect = vi.fn();
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onclose: vi.fn() } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			await fireEvent.click(screen.getByText('Ruy Lopez'));
+			// v1/v2 share their first 5 moves -> one bucket, still enterable despite v1 being locked.
+			await fireEvent.click(screen.getByText(/1\.e4 e5 2\.Nf3 Nc6 3\.Bb5 a6 4\.Ba4 Nf6 5\.O-O Be7/));
+			expect(screen.getByText('label:v1').closest('button')).toBeDisabled();
+			await fireEvent.click(screen.getByText('label:v2'));
+			expect(onselect).toHaveBeenCalledWith('v2');
+		});
+
+		it('a locked bucket-of-one renders as a locked LEAF row, not an auto-selecting folder', async () => {
+			const single = [row('v1', ['e4', 'e5', 'Nf3'], ['Ruy Lopez'], { locked: true })];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => single });
+			vi.stubGlobal('fetch', fetchSpy);
+			const onselect = vi.fn();
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onclose: vi.fn() } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			await fireEvent.click(screen.getByText('Ruy Lopez'));
+			const soleRow = screen.getByText('label:v1').closest('button')!;
+			expect(soleRow).toBeDisabled();
+			await fireEvent.click(soleRow);
+			expect(onselect).not.toHaveBeenCalled();
+		});
 	});
 });

@@ -27,6 +27,12 @@
 		chapterNames: string[];
 		path: VariationStep[];
 		solved: boolean;
+		// Server-computed (see `/api/repertoires/[id]/variations`): true when this
+		// variation sits above the player's current level. Never true alongside
+		// `solved` — a solved line is by definition already reachable. This UI
+		// disables and explains, purely as a courtesy; the real gate is
+		// `/api/practice/select-variation`'s 403 (GitHub issue #163).
+		locked: boolean;
 	};
 
 	let {
@@ -182,13 +188,20 @@
 			{#each openGroup.items as row (row.variationKey)}
 				<li>
 					<button
-						onclick={() => onselect(row.variationKey)}
+						disabled={row.locked}
+						onclick={() => {
+							if (!row.locked) onselect(row.variationKey);
+						}}
 						class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) flex items-center justify-between {isActive(row.variationKey)
 							? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10'
-							: ''}"
+							: ''} {row.locked ? 'opacity-50 cursor-not-allowed' : ''}"
 					>
 						<span>{row.label}</span>
-						{#if row.solved}<span class="text-green-600 dark:text-green-400 text-sm">✓</span>{/if}
+						{#if row.locked}
+							<span class="text-xs text-(--color-muted)">{m.variation_picker_locked_reason()}</span>
+						{:else if row.solved}
+							<span class="text-green-600 dark:text-green-400 text-sm">✓</span>
+						{/if}
 					</button>
 				</li>
 			{/each}
@@ -206,14 +219,27 @@
 					     solved tick, no count) rather than as a folder holding one
 					     item. Groups of several still drill in. -->
 					<button
-						onclick={() => (only ? onselect(only.variationKey) : (openGroupIndex = i))}
+						disabled={only?.locked ?? false}
+						onclick={() => {
+							if (only) {
+								if (!only.locked) onselect(only.variationKey);
+							} else {
+								openGroupIndex = i;
+							}
+						}}
 						class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) flex items-center justify-between {only
 							? ''
-							: 'font-medium'} {groupHasActive(group) ? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10' : ''}"
+							: 'font-medium'} {groupHasActive(group) ? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10' : ''} {only?.locked
+							? 'opacity-50 cursor-not-allowed'
+							: ''}"
 					>
 						<span>{only ? only.label : groupLabel(group)}</span>
 						{#if only}
-							{#if only.solved}<span class="text-green-600 dark:text-green-400 text-sm">✓</span>{/if}
+							{#if only.locked}
+								<span class="text-xs text-(--color-muted)">{m.variation_picker_locked_reason()}</span>
+							{:else if only.solved}
+								<span class="text-green-600 dark:text-green-400 text-sm">✓</span>
+							{/if}
 						{:else}
 							<span class="text-(--color-muted) text-sm">({group.items.length})</span>
 						{/if}
