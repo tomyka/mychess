@@ -1091,30 +1091,7 @@
 	"coach_player_progress_no_moves": "kol kas nėra ėjimų",
 	"coach_player_status_learned": "Išmokta",
 	"coach_player_status_learning": "Mokomasi",
-	"coach_player_chapters_mastered": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "{count} skyrius įvaldytas",
-				"countPlural=few": "{count} skyriai įvaldyti",
-				"countPlural=many": "{count} skyrių įvaldyta",
-				"countPlural=other": "{count} skyrių įvaldyta"
-			}
-		}
-	],
-	"coach_player_chapters_stale": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "{count} skyrius reikalauja pakartotinio įvaldymo dėl naujos medžiagos",
-				"countPlural=few": "{count} skyriai reikalauja pakartotinio įvaldymo dėl naujos medžiagos",
-				"countPlural=many": "{count} skyrių reikalauja pakartotinio įvaldymo dėl naujos medžiagos",
-				"countPlural=other": "{count} skyrių reikalauja pakartotinio įvaldymo dėl naujos medžiagos"
-			}
-		}
-	],
+	"coach_player_level_prefix": "Lygis:",
 	"coach_player_demotions": [
 		{
 			"declarations": ["input count", "local countPlural = count: plural"],

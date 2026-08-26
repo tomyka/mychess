@@ -56,13 +56,8 @@ export const load: PageServerLoad = async ({ params, url, locals: { supabase, sa
         repertoireName: a.repertoire.name,
         solved: learned,
         total,
-        // Learning vs Learned is exact from these counts. Mastered needs the
-        // repertoire's chapter count, which would cost a full move fetch per
-        // repertoire here — deferred to #105's cached chapter_count, the same
-        // reason the player-facing list defers it.
         status: total > 0 && learned >= total ? 'learned' : 'learning',
-        chaptersMastered: progress?.chaptersMastered ?? 0,
-        chaptersStale: progress?.chaptersStale ?? 0,
+        level: progress?.level ?? null,
         demotions: progress?.demotions ?? 0,
         report
       };

@@ -194,8 +194,7 @@ describe('coach view of learning status (#102)', () => {
 							solved: 5,
 							total: 5,
 							status: 'learned',
-							chaptersMastered: 0,
-							chaptersStale: 0,
+							level: null,
 							demotions: 0,
 							report,
 							...pr
@@ -214,25 +213,20 @@ describe('coach view of learning status (#102)', () => {
 		expect(screen.getByText(/5\/5 learned/)).toBeTruthy();
 	});
 
-	it('reports chapters mastered', () => {
-		renderWith({ chaptersMastered: 2 });
-		expect(screen.getByText(/2 chapters mastered/)).toBeTruthy();
+	it('shows the repertoire level', () => {
+		renderWith({ level: 'silver' });
+		expect(screen.getByText('Silver')).toBeTruthy();
 	});
 
-	it('uses the singular for one chapter', () => {
-		renderWith({ chaptersMastered: 1 });
-		expect(screen.getByText(/1 chapter mastered/)).toBeTruthy();
+	it('shows Unranked when no medal has been earned yet', () => {
+		renderWith({ level: null });
+		expect(screen.getByText('Unranked')).toBeTruthy();
 	});
 
 	// The signal a coach actually wants: material that was learned and then lost.
 	it('flags lines sent back to Learn in the window', () => {
 		renderWith({ demotions: 3 });
 		expect(screen.getByText(/3 lines sent back to Learn/)).toBeTruthy();
-	});
-
-	it('flags chapters whose mastery went stale after new material was added', () => {
-		renderWith({ chaptersMastered: 1, chaptersStale: 2 });
-		expect(screen.getByText(/2 needing re-mastery after new material/)).toBeTruthy();
 	});
 
 	it('shows no status chip for a repertoire with no moves', () => {

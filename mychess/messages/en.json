@@ -1005,26 +1005,7 @@
 	"coach_player_progress_no_moves": "no moves yet",
 	"coach_player_status_learned": "Learned",
 	"coach_player_status_learning": "Learning",
-	"coach_player_chapters_mastered": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "{count} chapter mastered",
-				"countPlural=other": "{count} chapters mastered"
-			}
-		}
-	],
-	"coach_player_chapters_stale": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "{count} needing re-mastery after new material",
-				"countPlural=other": "{count} needing re-mastery after new material"
-			}
-		}
-	],
+	"coach_player_level_prefix": "Level:",
 	"coach_player_demotions": [
 		{
 			"declarations": ["input count", "local countPlural = count: plural"],
