@@ -16,6 +16,7 @@ import { requireApiUser } from '$lib/server/auth';
 import { recordSession } from '$lib/server/sessions';
 import { grantNewBadges } from '$lib/badges/grant';
 import { buildPracticeView, wasResumedAfterBreak } from '$lib/mastery/practice';
+import { teachingCeilingMoveCount } from '$lib/mastery/chapterLevels';
 
 /**
  * Called once per completed Practice attempt (the whole variation replayed,
@@ -67,16 +68,37 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// needs the excluded variations still present, so an excluded, never-solved
 	// line still caps its chapter instead of vanishing from the bracket
 	// entirely — see `isChapterComplete`'s doc comment.
-	const [{ variations: allVariations, excludedVariationKeys }, updatedAtBeforeThisAttempt] = await Promise.all([
-		loadRepertoireVariations(supabase, user.id, repertoireId),
-		loadVariationUpdatedAt(supabase, user.id, repertoireId, variationKey)
-	]);
+	// solvedKeysBeforeThisAttempt joins this same Promise.all rather than being
+	// read separately afterward: it's needed to compute the ceiling this attempt
+	// is capped under (GitHub issue #163), which must reflect the solved set as
+	// it stood BEFORE this attempt's own outcome is applied below — the same cap
+	// the request that served this attempt computed it under. Reading it here,
+	// concurrently with the other two loads already happening, costs nothing
+	// extra; the solvedKeys read further down (after applyAttemptResult) is a
+	// genuinely different moment in time (post-attempt), not a redundant repeat.
+	const [{ variations: allVariations, excludedVariationKeys }, updatedAtBeforeThisAttempt, solvedKeysBeforeThisAttempt] =
+		await Promise.all([
+			loadRepertoireVariations(supabase, user.id, repertoireId),
+			loadVariationUpdatedAt(supabase, user.id, repertoireId, variationKey),
+			loadSolvedKeys(supabase, user.id, repertoireId)
+		]);
 	const variations = filterVariations(allVariations, excludedVariationKeys);
 	const today = new Date().toISOString().slice(0, 10);
 	const resumedAfterBreak = wasResumedAfterBreak(updatedAtBeforeThisAttempt, new Date());
+	const ceilingMoveCount = teachingCeilingMoveCount(allVariations, solvedKeysBeforeThisAttempt);
 
 	await Promise.all([
-		applyAttemptResult(supabase, user.id, repertoireId, variationKey, hadMistake, variations, resumedAfterBreak, allVariations),
+		applyAttemptResult(
+			supabase,
+			user.id,
+			repertoireId,
+			variationKey,
+			hadMistake,
+			variations,
+			resumedAfterBreak,
+			allVariations,
+			ceilingMoveCount
+		),
 		touchVariationAttempt(supabase, user.id, repertoireId, variationKey),
 		incrementQuestProgress(supabase, user.id, 'review_cards', today)
 	]);
@@ -93,5 +115,5 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// must not delay the response to the move the player just made.
 	if (!hadMistake) grantNewBadges(supabase, user.id).catch(() => {});
 
-	return json(buildPracticeView(variations, activeVariationKey, solvedKeys, teachingProgress));
+	return json(buildPracticeView(variations, activeVariationKey, solvedKeys, teachingProgress, teachingCeilingMoveCount(allVariations, solvedKeys)));
 };

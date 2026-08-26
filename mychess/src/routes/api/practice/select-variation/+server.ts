@@ -1,7 +1,10 @@
 // mychess/src/routes/api/practice/select-variation/+server.ts
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { loadFilteredRepertoireVariations } from '$lib/server/practice-repertoire';
+import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
+import { filterVariations } from '$lib/mastery/variations';
+import { teachingCeilingMoveCount } from '$lib/mastery/chapterLevels';
+import { isPausedAtCeiling } from '$lib/mastery/teaching';
 import { setActiveVariationKey, loadSolvedKeys, loadTeachingProgress } from '$lib/server/practice-progress';
 import { requireApiUser } from '$lib/server/auth';
 import { buildPracticeView } from '$lib/mastery/practice';
@@ -12,6 +15,13 @@ import { buildPracticeView } from '$lib/mastery/practice';
  * read/write. Picking a variation the player has already solved is allowed
  * (re-drilling for confidence); it doesn't un-solve anything, and it never
  * re-teaches (see buildPracticeView's already-solved bypass).
+ *
+ * An UNSOLVED variation already paused at the current tier ceiling (GitHub
+ * issue #163) is rejected with 403 — the picker's own disabled UI (a later
+ * task) is only a courtesy; this is the real, server-side gate, since a
+ * request can always bypass client-side UI. The check must run BEFORE
+ * `setActiveVariationKey` below, or a locked variation would already be
+ * persisted as active by the time the rejection is thrown.
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const { supabase } = locals;
@@ -23,15 +33,28 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, 'Invalid request');
 	}
 
-	const { variations } = await loadFilteredRepertoireVariations(supabase, user.id, repertoireId);
-	if (!variations.some((v) => v.variationKey === variationKey)) {
+	const { variations: allVariations, excludedVariationKeys } = await loadRepertoireVariations(supabase, user.id, repertoireId);
+	const variations = filterVariations(allVariations, excludedVariationKeys);
+	const picked = variations.find((v) => v.variationKey === variationKey);
+	if (!picked) {
 		throw error(404, 'Variation not found');
 	}
 
-	await setActiveVariationKey(supabase, user.id, repertoireId, variationKey);
 	const [solvedKeys, teachingProgress] = await Promise.all([
 		loadSolvedKeys(supabase, user.id, repertoireId),
 		loadTeachingProgress(supabase, user.id, repertoireId)
 	]);
-	return json(buildPracticeView(variations, variationKey, solvedKeys, teachingProgress, true));
+
+	if (!solvedKeys.has(variationKey)) {
+		const ceilingMoveCount = teachingCeilingMoveCount(allVariations, solvedKeys);
+		const masteredPlies = teachingProgress.get(variationKey)?.masteredPlies ?? 0;
+		if (isPausedAtCeiling(picked.path, masteredPlies, ceilingMoveCount)) {
+			throw error(403, 'This line is locked until you finish your current tier');
+		}
+	}
+
+	await setActiveVariationKey(supabase, user.id, repertoireId, variationKey);
+	return json(
+		buildPracticeView(variations, variationKey, solvedKeys, teachingProgress, teachingCeilingMoveCount(allVariations, solvedKeys), true)
+	);
 };

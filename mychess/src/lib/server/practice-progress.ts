@@ -276,17 +276,27 @@ export async function touchVariationAttempt(
  * player, or a repertoire edited/excluded since the key was last stored).
  * Returns the RESOLVED key (never null unless there are no variations at
  * all), persisting it if it differs from what was stored.
+ *
+ * `blockedKeys` (GitHub issue #163's tier ceiling — see `computeBlockedKeys`
+ * in `mastery/teaching.ts`) defaults to empty, so every existing caller that
+ * doesn't pass one is unaffected. Passing it here means a stored pointer
+ * that's now paused at the ceiling gets resolved past at THIS stage rather
+ * than relying entirely on `buildPracticeView`'s own later
+ * `pickActiveVariation` call to correct it — both call the same pure
+ * function, so this is a strictly earlier application of the same rule, not
+ * a second, independently-computed one.
  */
 export async function loadSyncedActiveVariationKey(
 	supabase: SupabaseClient,
 	playerId: string,
 	repertoireId: string,
 	variations: Variation[],
-	solvedKeys: ReadonlySet<string>
+	solvedKeys: ReadonlySet<string>,
+	blockedKeys: ReadonlySet<string> = new Set()
 ): Promise<string | null> {
 	if (variations.length === 0) return null;
 	const stored = await loadActiveVariationKey(supabase, playerId, repertoireId);
-	const resolved = pickActiveVariation(variations, stored, solvedKeys);
+	const resolved = pickActiveVariation(variations, stored, solvedKeys, blockedKeys);
 	if (!resolved) return null;
 	if (resolved.variationKey !== stored) {
 		await setActiveVariationKey(supabase, playerId, repertoireId, resolved.variationKey);
