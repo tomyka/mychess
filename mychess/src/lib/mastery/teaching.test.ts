@@ -584,7 +584,7 @@ describe('isPausedAtCeiling', () => {
 		expect(isPausedAtCeiling(p, p.length, 2)).toBe(false);
 	});
 
-	it('is true partway through a variation whose masteredPlies is between 0 and the ceiling but the ceiling is below its own length', () => {
+	it('is false partway through a variation whose masteredPlies is between 0 and the ceiling but the ceiling is below its own length', () => {
 		// masteredPlies short of the ceiling itself: not yet paused, still servable.
 		const p = path(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O']);
 		const ceilingPly = ceilingPlyFor(p, 2);
