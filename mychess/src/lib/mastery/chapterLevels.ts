@@ -55,9 +55,16 @@ export function deriveChapterLevel(
 	let achieved: Tier | null = null;
 	for (const tier of TIER_ORDER) {
 		const bracket = variationsInChapter.filter((v) => tierForMoveCount(v.playerMoveCount) === tier);
-		if (bracket.length === 0) continue; // Skip empty tiers (vacuously cleared)
-		if (!bracket.every((v) => solvedKeys.has(v.variationKey))) break; // Can't reach this tier
-		achieved = tier; // We can reach this tier
+		// An empty bracket must be skipped outright, not merely allowed to pass
+		// the `every` check below. `[].every(...)` is vacuously `true`, so
+		// without this `continue`, execution would fall through to
+		// `achieved = tier` for an empty tier too — incorrectly crediting a
+		// level nothing was solved at, and cascading through every subsequent
+		// empty tier all the way to platinum even when only a lower, non-empty
+		// tier was ever actually solved.
+		if (bracket.length === 0) continue;
+		if (!bracket.every((v) => solvedKeys.has(v.variationKey))) break; // A real, unsolved tier blocks further advancement.
+		achieved = tier;
 	}
 	return achieved;
 }
