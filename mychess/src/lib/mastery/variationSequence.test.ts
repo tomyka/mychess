@@ -52,10 +52,11 @@ describe('pickActiveVariation with blockedKeys', () => {
 		);
 	});
 
-	it('a stored active pointer to a BLOCKED (unsolved, paused) variation does NOT win outright — falls through', () => {
+	it('a stored active pointer to a BLOCKED (unsolved, paused) variation does NOT win outright — falls through to the first unsolved-and-unblocked variation', () => {
 		const variations = [variation('a'), variation('b'), variation('c')];
 		const picked = pickActiveVariation(variations, 'b', new Set(), new Set(['b']));
 		expect(picked?.variationKey).not.toBe('b');
+		expect(picked?.variationKey).toBe('a');
 	});
 
 	it('a stored active pointer to an already-SOLVED variation still wins outright, even if it happens to be in blockedKeys', () => {
@@ -70,9 +71,15 @@ describe('pickActiveVariation with blockedKeys', () => {
 		expect(picked?.variationKey).toBe('b');
 	});
 
-	it('falls back to the first variation overall when every candidate is solved or blocked', () => {
+	it('falls back to the first UNSOLVED variation, even if blocked, when every candidate is blocked (does not skip straight to "everything solved" tier)', () => {
 		const variations = [variation('a'), variation('b')];
-		const picked = pickActiveVariation(variations, null, new Set(), new Set(['a', 'b']));
+		const picked = pickActiveVariation(variations, null, new Set(['a']), new Set(['b']));
+		expect(picked?.variationKey).toBe('b');
+	});
+
+	it('falls back to the first variation overall only once every candidate is actually solved (blocked or not)', () => {
+		const variations = [variation('a'), variation('b')];
+		const picked = pickActiveVariation(variations, null, new Set(['a', 'b']), new Set(['a', 'b']));
 		expect(picked?.variationKey).toBe('a');
 	});
 });
