@@ -545,6 +545,38 @@ export async function loadRepertoireProgressSummaries(
 		})
 	);
 
+	// `chapterPlatinumRowsByRep` was filled at the top of this load too, for the
+	// same reason `solvedByRep` above needed a re-read: `needsReconciliation`
+	// triggers off `moves_updated_at` alone, which a DB trigger bumps on ANY
+	// write to a repertoire's moves — including a coach edit that demotes
+	// nothing at all for this player. Left unhandled, the pre-reconcile count
+	// (possibly already equal to `chapterCount`) would feed `summaries` below
+	// and could render `mastered` on this exact load, only for the unconditional
+	// clear a few lines down to wipe it — surfacing as an unexplained drop to
+	// `learned` on the very next load, with no real change in this player's
+	// mastery. So the clear must happen, and the in-memory map must be
+	// corrected, BEFORE `summaries` is computed — not after, alongside
+	// `grantNewBadges`, which is too late for this one load.
+	//
+	// Only clear the in-memory map when the delete actually succeeded: a failed
+	// delete leaves the real rows in the database untouched, and reporting an
+	// empty count in that case would be wrong in a NEW way (too low, against
+	// what the database still holds) rather than merely stale.
+	if (reconciledIds.size > 0) {
+		const { error } = await supabase
+			.from('chapter_platinum')
+			.delete()
+			.eq('player_id', userId)
+			.in('repertoire_id', [...reconciledIds]);
+		if (error) {
+			console.error(`Failed to clear chapter_platinum after reconciliation for player ${userId}:`, error.message);
+		} else {
+			for (const repId of reconciledIds) {
+				chapterPlatinumRowsByRep.set(repId, []);
+			}
+		}
+	}
+
 	// Freshly enumerated repertoires: their exclusion rows can be reconciled
 	// against the live key set now, so the next load for this player takes the
 	// subtraction path instead of fetching every move again. Keyed by repertoire
@@ -678,17 +710,6 @@ export async function loadRepertoireProgressSummaries(
 	// countRepertoireStatuses() calls loadRepertoireProgressSummaries() itself
 	// when it isn't handed a summaries array, and this function's callers
 	// otherwise resolve to exactly that when nothing is passed.
-	if (reconciledIds.size > 0) {
-		const { error } = await supabase
-			.from('chapter_platinum')
-			.delete()
-			.eq('player_id', userId)
-			.in('repertoire_id', [...reconciledIds]);
-		if (error) {
-			console.error(`Failed to clear chapter_platinum after reconciliation for player ${userId}:`, error.message);
-		}
-	}
-
 	if (reconciledIds.size > 0) {
 		try {
 			await grantNewBadges(supabase, userId, {}, summaries);

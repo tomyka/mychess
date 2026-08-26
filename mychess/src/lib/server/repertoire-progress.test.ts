@@ -654,5 +654,37 @@ describe('loadRepertoireProgressSummaries', () => {
 			const [summary] = await loadRepertoireProgressSummaries(client, USER);
 			expect(summary.status).toBe('mastered');
 		});
+
+		it('does not render a stale mastered status on the very load that reconciles, even without any demotion', async () => {
+			// `needsReconciliation` fires off `moves_updated_at` alone (bumped by ANY
+			// write to the repertoire's moves, including a coach edit to an unrelated
+			// chapter) — `reconciledAt: null` here means simply "never reconciled
+			// before", with `moves` left as the UNCHANGED `MOVES` fixture, so
+			// reconciliation runs, finds every key already live, and demotes/rekeys
+			// nothing for this player. Its unconditional `chapter_platinum` clear
+			// still fires (the plan does not gate it on whether anything was actually
+			// demoted) — so the pre-clear count (already equal to `chapter_count`)
+			// must not leak into THIS load's status, or it renders 'mastered' now and
+			// silently drops to 'learned' next load with no real change underneath.
+			const { client, calls } = fakeSupabase({
+				repertoire: { ...cachedRepertoire, total_variations: 2 },
+				solved: ['m1>m2', 'm1>m3'],
+				chapterPlatinum: 1,
+				reconciledAt: null
+			});
+
+			const [summary] = await loadRepertoireProgressSummaries(client, USER);
+
+			// Reconciliation genuinely ran, and genuinely demoted nothing...
+			expect(calls.reconcileMoveFetches).toEqual(['r1']);
+			expect(calls.demotions).toEqual([]);
+			expect(calls.solvedDeletes).toEqual([]);
+			// ...yet its cache clear still fired...
+			expect(calls.chapterPlatinumCleared).toEqual(['r1']);
+			// ...so this load's own status must already reflect the cleared cache,
+			// not the stale pre-clear count that would otherwise still equal
+			// chapter_count.
+			expect(summary.status).toBe('learned');
+		});
 	});
 });
