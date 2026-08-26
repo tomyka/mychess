@@ -28,3 +28,5 @@ vite.config.ts.timestamp-*
 # Playwright
 test-results/
 playwright-report/
+# Saved authenticated session (GitHub issue #133) — a live session token, never committed.
+tests/.auth/
