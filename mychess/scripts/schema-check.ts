@@ -17,10 +17,11 @@ if (!url || !key) {
 
 const headers = { apikey: key, Authorization: `Bearer ${key}` };
 
-const PROBES: { migration: string; table: string; select: string }[] = [
+// `absent: true` inverts a probe: it passes only if the table is GONE — the
+// only way a `drop table` migration is observable through PostgREST.
+const PROBES: { migration: string; table: string; select: string; absent?: boolean }[] = [
   { migration: '0057', table: 'variation_teaching_progress', select: 'clean_pass_count,last_clean_pass_at' },
   { migration: '0057', table: 'variation_demotions', select: 'id,player_id,variation_key,cause,demoted_at' },
-  { migration: '0058', table: 'chapter_mastery', select: 'id,player_id,repertoire_id,chapter_name,mastered_at,moves_updated_at' },
   // 0059 widens a CHECK constraint, which a select can't observe — but the
   // column list is still worth pinning, because `sessions` was silently
   // unwritable for months: both writers sent `cards_reviewed`, a column that
@@ -28,15 +29,23 @@ const PROBES: { migration: string; table: string; select: string }[] = [
   // neither checked the resulting error. See #103.
   { migration: '0059', table: 'sessions', select: 'id,player_id,repertoire_id,mode,cards_done,started_at' },
   { migration: '0060', table: 'badges', select: 'id,name,description' },
-  { migration: '0069', table: 'repertoires', select: 'id,chapter_count' }
+  { migration: '0069', table: 'repertoires', select: 'id,chapter_count' },
+  { migration: '0070', table: 'variation_chapter_practice_exclusions', select: 'id,player_id,repertoire_id,chapter_name,variation_key,variation_key_hash' },
+  // 0071 drops chapter_mastery (0058's table), retired by the knowledge-levels ladder.
+  { migration: '0071', table: 'chapter_mastery', select: 'id', absent: true },
+  { migration: '0072', table: 'chapter_completed', select: 'id,player_id,repertoire_id,chapter_name,reached_at' }
 ];
 
 let failed = 0;
 
 for (const probe of PROBES) {
   const res = await fetch(`${url}/rest/v1/${probe.table}?select=${probe.select}&limit=1`, { headers });
-  if (res.ok) {
-    console.log(`✓ ${probe.migration}  ${probe.table} (${probe.select})`);
+  const passed = probe.absent ? !res.ok : res.ok;
+  if (passed) {
+    console.log(`✓ ${probe.migration}  ${probe.table}${probe.absent ? ' (dropped)' : ` (${probe.select})`}`);
+  } else if (probe.absent) {
+    failed++;
+    console.log(`✗ ${probe.migration}  ${probe.table}: still exists — the drop has not been applied`);
   } else {
     failed++;
     console.log(`✗ ${probe.migration}  ${probe.table}: ${res.status} ${(await res.text()).slice(0, 200)}`);
