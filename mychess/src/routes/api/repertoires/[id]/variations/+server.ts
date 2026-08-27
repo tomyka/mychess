@@ -6,12 +6,12 @@ import { fetchAllChapterExclusions, loadRepertoireVariations } from '$lib/server
 import { loadSolvedKeys, loadTeachingProgress } from '$lib/server/practice-progress';
 import { moveSequenceLabel, UNTAGGED_CHAPTER } from '$lib/mastery/variations';
 import { teachingCeilingMoveCount } from '$lib/mastery/chapterLevels';
-import { isPausedAtCeiling } from '$lib/mastery/teaching';
+import { isPausedAtCeiling, knownProgressFor } from '$lib/mastery/teaching';
 
 // A null byte can't appear in a Postgres `text` value or a variation key (a
 // `>`-joined chain of UUIDs), so joining a (chapter, variationKey) pair on it
 // can't collide two distinct pairs onto the same lookup key.
-const PAIR_SEP = '\u0000';
+const PAIR_SEP = String.fromCharCode(0);
 
 /**
  * Every variation in a repertoire, labeled by its move sequence, with this
@@ -23,10 +23,25 @@ const PAIR_SEP = '\u0000';
  * key on each variation's first FIRST_MOVES_GROUP_PLIES plies — not just the
  * first move), solved state, this variation's own player-move count (for
  * the picker to bucket/label by tier the same way the teaching ceiling
- * does), and locked state — whether this UNSOLVED variation is currently
- * paused at the repertoire's teaching-tier ceiling, so the picker can render
- * it disabled instead of letting the player click into a dead end that
- * `/api/practice/select-variation` would reject anyway (GitHub issue #163).
+ * does), locked state — whether this UNSOLVED variation is currently paused
+ * at the repertoire's teaching-tier ceiling — and this repertoire's current
+ * ceiling itself (`ceilingMoveCount`, the same value repeated on every row
+ * rather than a separate top-level field, so the response stays the flat
+ * array `VariationSelection.ensureLoaded` also consumes, unchanged). The
+ * picker renders a locked row disabled instead of letting the player click
+ * into a dead end that `/api/practice/select-variation` would reject anyway
+ * (GitHub issue #163), and groups/truncates rows whose own path currently
+ * extends past the ceiling by their real shared prefix (GitHub issue #165).
+ *
+ * `locked` is computed from the SHARED-CREDIT-AWARE mastered-ply count
+ * (`knownProgressFor`), not each variation's own raw progress row: a
+ * variation whose entire visible opening is already mastered via a sibling
+ * that shares those same moves must show as locked/paused immediately,
+ * without requiring this specific variation to be individually taught first
+ * — the same shared-credit floor `buildPracticeView` already applies at
+ * serve time (`mastery/practice.ts`), just also applied here at picker-read
+ * time (GitHub issue #165).
+ *
  * Fetched lazily (only when a repertoire row is expanded or the picker is
  * opened), not eagerly for every repertoire, to avoid re-introducing the
  * full-move-fetch cost the shape cache exists to avoid.
@@ -51,7 +66,13 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 				includedByChapter[chapter] = !excludedPairs.has(`${chapter}${PAIR_SEP}${v.variationKey}`);
 			}
 			const solved = solvedKeys.has(v.variationKey);
-			const masteredPlies = teachingProgress.get(v.variationKey)?.masteredPlies ?? 0;
+			const masteredPlies = knownProgressFor({
+				variation: v,
+				variations,
+				teachingProgress,
+				solvedKeys,
+				resumedAfterBreak: false
+			}).masteredPlies;
 			return {
 				variationKey: v.variationKey,
 				label: moveSequenceLabel(v.path),
@@ -60,7 +81,8 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 				path: v.path,
 				solved,
 				playerMoveCount: v.playerMoveCount,
-				locked: !solved && isPausedAtCeiling(v.path, masteredPlies, ceilingMoveCount)
+				locked: !solved && isPausedAtCeiling(v.path, masteredPlies, ceilingMoveCount),
+				ceilingMoveCount
 			};
 		})
 	);
