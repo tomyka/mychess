@@ -19,11 +19,15 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 
-	let { state, onhint }: { state: PracticeStripState; onhint?: () => void } = $props();
+	let {
+		state,
+		onhint,
+		hintTitle
+	}: { state: PracticeStripState; onhint?: () => void; hintTitle?: string } = $props();
 
-	// Mobile stacks this strip directly on top of the board, so a caller that
-	// wants to offer a hint hands it in here rather than rendering a row of its
-	// own below the strip: that row mounted and unmounted on every phase change
+	// This strip sits directly above the board on both mobile and desktop, so a
+	// caller that wants to offer a hint hands it in here rather than rendering a
+	// row of its own: that row used to mount and unmount on every phase change
 	// (hint taken, correct move, autoplay intro, cue) and shoved the board up
 	// and down mid-drill (#113). Sharing the strip's one fixed-height slot means
 	// the board's top edge never moves — at the cost of the two never being
@@ -78,36 +82,22 @@
 	};
 
 	// While the hint owns the slot it owns the strip's tone too, so the offer
-	// reads as an offer rather than as a status. That swap is mobile-only — the
-	// desktop sidebar has its own hint button, so `lg:` puts the state's real
-	// tone back (mobile-first, so these min-width utilities beat the base ones
-	// above them). Only 'blind' can be reached here; the rest exist to keep the
-	// record keyed over the full union, same as TONE above.
+	// reads as an offer rather than as a status.
 	const HINT_TONE =
 		'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300';
-	const TONE_LG: Record<PracticeStripState, string> = {
-		silent: '',
-		blind: 'lg:border-(--color-border) lg:bg-(--color-surface) lg:text-(--color-muted)',
-		wrong: '',
-		correct: '',
-		autoplay: '',
-		'retest-cue': '',
-		demoted: '',
-		exploring: ''
-	};
 </script>
 
 <!-- The slot's height is deliberately over-reserved and its line-height
      pinned (`min-h-12` against a 46px worst case of `leading-5` + p-3 +
-     border): mobile stacks this directly on the board, so ANY content-driven
-     height difference between states moves the board (#113). Without both,
-     'silent' measured 44px, the copy states 46px, and the hint offer 50px —
-     the emoji sitting on its own taller line box — for a visible shift on
-     every phase change. Nothing in here may set its own font-size. -->
+     border): this strip sits directly on the board at every width, so ANY
+     content-driven height difference between states moves the board (#113).
+     Without both, 'silent' measured 44px, the copy states 46px, and the hint
+     offer 50px — the emoji sitting on its own taller line box — for a visible
+     shift on every phase change. Nothing in here may set its own font-size. -->
 <p
 	role="status"
 	class="mb-3 shrink-0 min-h-12 flex items-center justify-center rounded-2xl border p-3 text-center text-sm leading-5 font-semibold shadow-sm {hintable
-		? `${HINT_TONE} ${TONE_LG[state]}`
+		? HINT_TONE
 		: TONE[state]}"
 >
 	{#if hintable}
@@ -117,12 +107,14 @@
 		     hit the <p> and do nothing. -->
 		<button
 			onclick={onhint}
-			class="lg:hidden -m-3 flex w-full items-center justify-center gap-1.5 p-3"
+			title={hintTitle}
+			class="-m-3 flex w-full items-center justify-center gap-1.5 p-3"
 		>
 			<span aria-hidden="true">💡</span> {m.practice_status_need_hint()}
 		</button>
+	{:else}
+		<span>
+			{#if ICON[state]}<span aria-hidden="true">{ICON[state]}</span> {/if}{COPY[state]}
+		</span>
 	{/if}
-	<span class={hintable ? 'hidden lg:inline' : ''}>
-		{#if ICON[state]}<span aria-hidden="true">{ICON[state]}</span> {/if}{COPY[state]}
-	</span>
 </p>

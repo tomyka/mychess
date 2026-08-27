@@ -35,22 +35,21 @@ describe('PracticeStatusStrip', () => {
 		expect(screen.getByText(/now play it from memory/i)).toBeTruthy();
 	});
 
-	// #113: mobile stacks the strip straight onto the board, so the hint offer
-	// shares its one fixed-height slot instead of adding a row that mounts and
-	// unmounts under the player's finger. These three scope their queries to
-	// their own `container` — this project has no auto-cleanup between renders,
-	// so `screen` sees every strip rendered earlier in the file, and the copy
-	// asserted on here is copy other cases render too.
+	// #113: the strip stacks straight onto the board at every width, so the
+	// hint offer shares its one fixed-height slot instead of adding a row that
+	// mounts and unmounts under the player's finger. These scope their queries
+	// to their own `container` — this project has no auto-cleanup between
+	// renders, so `screen` sees every strip rendered earlier in the file, and
+	// the copy asserted on here is copy other cases render too.
 	it('hands the slot to the hint offer during the blind retest', () => {
 		const { container } = render(PracticeStatusStrip, {
 			props: { state: 'blind', onhint: () => {} }
 		});
 		const strip = within(container);
 		expect(strip.getByRole('button', { name: /Need a hint/i })).toBeTruthy();
-		// The copy stays in the DOM for the desktop layout, which keeps its own
-		// sidebar hint button — so "never both at once" is a `hidden lg:inline`
-		// assertion rather than an absence one; jsdom applies no stylesheet.
-		expect(strip.getByText('Play it from memory').className).toBe('hidden lg:inline');
+		// The two are mutually exclusive now that there's no separate desktop
+		// hint button to keep them apart for.
+		expect(strip.queryByText('Play it from memory')).toBeNull();
 	});
 
 	it('keeps move feedback in the slot even when a hint is on offer', () => {
@@ -72,5 +71,14 @@ describe('PracticeStatusStrip', () => {
 	it('offers no hint without a callback, whatever the state', () => {
 		const { container } = render(PracticeStatusStrip, { props: { state: 'blind' } });
 		expect(within(container).queryByRole('button', { name: /Need a hint/i })).toBeNull();
+	});
+
+	it('passes hintTitle through as the hint button title, for a caller with extra context to give', () => {
+		const { container } = render(PracticeStatusStrip, {
+			props: { state: 'blind', onhint: () => {}, hintTitle: 'Demotes this line back to Learn' }
+		});
+		expect(within(container).getByRole('button', { name: /Need a hint/i }).title).toBe(
+			'Demotes this line back to Learn'
+		);
 	});
 });

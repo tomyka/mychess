@@ -185,7 +185,7 @@ describe("practice pool page", () => {
 
   it("demotes the moment a hint is taken, not when the line ends", async () => {
     render(Practice, { props: { data: poolData() } });
-    await fireEvent.click(screen.getByText(/Show hint/i));
+    await fireEvent.click(screen.getByText(/Need a hint/i));
 
     expect(outcomes()).toMatchObject([
       { repertoireId: "r1", variationKey: "v1", outcome: "hint" },
@@ -196,7 +196,7 @@ describe("practice pool page", () => {
   it("keeps the demotion notice up while a hinted line is played out, and reports nothing more", async () => {
     render(Practice, { props: { data: poolData() } });
 
-    await fireEvent.click(screen.getByText(/Show hint/i));
+    await fireEvent.click(screen.getByText(/Need a hint/i));
     playMove("e2", "e4");
     await vi.advanceTimersByTimeAsync(500);
 
@@ -272,30 +272,31 @@ describe("practice pool page", () => {
 
     it("restores the status message that was up before the excursion", async () => {
       render(Practice, { props: { data: poolData() } });
-      expect(screen.getByText("Play it from memory")).toBeTruthy();
+      // The strip's own default here is the hint offer (#167 moved it above
+      // the board), not the plain "Play it from memory" copy — that copy only
+      // shows once the offer itself is out of reach, which the next test covers.
+      expect(screen.getByText("Need a hint?")).toBeTruthy();
 
       await fireEvent.click(screen.getAllByRole("button", { name: "Explore this position" })[0]);
-      expect(screen.queryByText("Play it from memory")).toBeNull();
+      expect(screen.queryByText("Need a hint?")).toBeNull();
+      expect(screen.getByText(/Exploring — nothing counts here/i)).toBeTruthy();
 
       await fireEvent.click(screen.getAllByText(/Back to the line/i)[0]);
-      expect(screen.getByText("Play it from memory")).toBeTruthy();
+      expect(screen.getByText("Need a hint?")).toBeTruthy();
     });
 
-    it("takes the hint button out of reach while off-book, since a hint demotes", async () => {
+    it("takes the hint offer out of reach while off-book, since a hint demotes", async () => {
       render(Practice, { props: { data: poolData() } });
-      expect(
-        (screen.getByText(/Show hint/i) as HTMLButtonElement).disabled,
-      ).toBe(false);
+      expect(screen.getByText("Need a hint?")).toBeTruthy();
 
+      // Exploring passes state='exploring' to the strip rather than 'blind',
+      // so the hint offer doesn't merely disable — it loses the slot entirely
+      // to the strip's own "Exploring" message.
       await fireEvent.click(screen.getAllByRole("button", { name: "Explore this position" })[0]);
-      expect(
-        (screen.getByText(/Show hint/i) as HTMLButtonElement).disabled,
-      ).toBe(true);
+      expect(screen.queryByText("Need a hint?")).toBeNull();
 
       await fireEvent.click(screen.getAllByText(/Back to the line/i)[0]);
-      expect(
-        (screen.getByText(/Show hint/i) as HTMLButtonElement).disabled,
-      ).toBe(false);
+      expect(screen.getByText("Need a hint?")).toBeTruthy();
     });
 
     // #131: the plain "explore this position" offer is disabled on a demoted

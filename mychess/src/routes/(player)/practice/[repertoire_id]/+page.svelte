@@ -98,6 +98,11 @@
 	// Taking it has already cost the line its learned status, so there is
 	// nothing further for the hint to protect.
 	const hintSquare = $derived(hintSquareFor(steps, drill.plyIdx, drill.hintRequested, isReviewing));
+	// Offered only in the drill's normal waiting-for-a-move state: 'blind' is
+	// the only strip state a fresh, not-yet-hinted line can be in (taking the
+	// hint or a mistake both flip it to 'demoted' — see PracticeDrill), and
+	// exploring is a scratch excursion the drill itself isn't waiting on.
+	const hintOffered = $derived(drill.strip === 'blind' && !explore.active);
 
 	function startCurrent() {
 		explore.stop();
@@ -306,8 +311,13 @@
 				<!-- Explore wins the strip outright while it lasts: every other message
 				     would be describing a position that isn't on screen. Read from the
 				     drill directly rather than a copy, so its real value survives the
-				     excursion untouched. -->
-				<PracticeStatusStrip state={explore.active ? 'exploring' : drill.strip} />
+				     excursion untouched. hintTitle carries the one thing Learn's hint
+				     doesn't need to say: taking it demotes the line. -->
+				<PracticeStatusStrip
+					state={explore.active ? 'exploring' : drill.strip}
+					onhint={hintOffered ? requestHint : undefined}
+					hintTitle={m.practice_hint_description()}
+				/>
 
 				<!-- See Learn's copy of this: the bar's slot is a sibling so the board's
 				     container-height sizing isn't fed its width. -->
@@ -394,8 +404,20 @@
 			<aside
 				class="w-full lg:w-80 lg:shrink-0 hidden lg:flex lg:flex-col divide-y divide-(--color-border) bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:overflow-y-auto"
 			>
+				<!-- Absorbed the old standalone "Session" panel's Finish link (#167):
+				     Stuck? is gone too — its hint offer now shares the status strip
+				     above the board (see PracticeStatusStrip's hintable slot and
+				     hintOffered above), the same spot mobile always offered it in. -->
 				<div class="p-4 flex flex-col gap-2">
-					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted)">{m.practice_this_session_heading()}</p>
+					<div class="flex items-baseline justify-between gap-2">
+						<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted)">{m.practice_this_session_heading()}</p>
+						<a
+							href="/practice"
+							class="shrink-0 text-xs font-semibold text-(--color-muted) border border-(--color-border) rounded-lg px-2 py-1 hover:bg-(--color-border)/40"
+						>
+							{m.learn_finish_session()}
+						</a>
+					</div>
 					<p class="text-sm text-(--color-text) tabular-nums">
 						{m.practice_session_line_progress({ current: Math.min(queueIdx + 1, queue.length), total: queue.length })}
 					</p>
@@ -416,25 +438,6 @@
 						<p class="text-sm text-(--color-text) font-medium">{current.chapterNames.join(' · ')}</p>
 					{/if}
 					<MoveList rows={moveRows} />
-				</div>
-
-				<div class="p-4 flex flex-col gap-2">
-					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted)">{m.learn_stuck_heading()}</p>
-					<button
-						onclick={requestHint}
-						disabled={drill.hintRequested || explore.active}
-						class="self-start inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 border border-amber-400/40 bg-amber-400/10 rounded-lg px-2.5 py-1.5 disabled:opacity-40"
-					>
-						<span aria-hidden="true">💡</span> {m.practice_show_hint()}
-					</button>
-					<p class="text-xs text-(--color-muted)">
-						{m.practice_hint_description()}
-					</p>
-					<p class="text-xs text-(--color-muted)">{m.practice_keyboard_hint()}</p>
-				</div>
-
-				<div class="p-4">
-					<a href="/practice" class="text-sm text-(--color-muted) hover:text-(--color-text)">{m.learn_finish_session()}</a>
 				</div>
 
 				<!-- Desktop-only nav row footer (#166): pinned to the sidebar's

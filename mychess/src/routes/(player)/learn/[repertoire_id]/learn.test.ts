@@ -532,11 +532,12 @@ describe('learn detail page', () => {
 		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
 		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS); // autoplay intro finishes
 
-		// Visible with zero wrong attempts — no three-strikes wait.
-		const hintButtons = screen.getAllByText('Need a hint?');
-		expect(hintButtons.length).toBe(2);
+		// Visible with zero wrong attempts — no three-strikes wait. One button
+		// now: the status strip above the board is the only place it's offered
+		// (#167 removed the desktop sidebar's separate Stuck? panel).
+		const hintButton = screen.getByText('Need a hint?');
 
-		await fireEvent.click(hintButtons[0]);
+		await fireEvent.click(hintButton);
 
 		// What the player must actually SEE for the tap to have done anything:
 		// the amber ring + 💡 badge over the piece to move (#113 follow-up —
@@ -558,8 +559,9 @@ describe('learn detail page', () => {
 		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
 
 		expect(screen.queryByText('Need a hint?')).toBeNull();
-		// Said instead of an empty "Stuck?" block on the desktop sidebar.
-		expect(screen.getByText(/This move is being shown/i)).toBeTruthy();
+		// The strip goes blank rather than explaining itself (#167): the arrow
+		// is already showing the move, so there's nothing left to say about it.
+		expect(screen.getByRole('status').textContent?.trim()).toBe('');
 	});
 
 	it('draws the hint even when the player had stepped back through the line', async () => {

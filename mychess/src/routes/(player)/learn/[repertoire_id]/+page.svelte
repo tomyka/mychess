@@ -26,6 +26,12 @@
 	// deliberately NOT reset on an attempt reset: a running session total,
 	// not per-attempt state.
 	let learnedThisSession = $state(0);
+	// Snapshot of data.solved at mount, NOT reactive: the denominator for the
+	// sidebar's session bar is "how much of what was left to learn got covered
+	// this sitting", which needs a value that stays put while data.solved
+	// climbs across the session — a $derived over data.solved would move the
+	// goalposts with every attempt instead of measuring progress against them.
+	const sessionStartSolved = data.solved;
 	// Whether the "now play it from memory" cue is currently up. A clean teach
 	// pass is followed by a blind retest of the very same moves, which used to
 	// look like the board silently rewinding itself for no reason — the cue is
@@ -97,6 +103,13 @@
 	const repertoireId = $derived(data.repertoire?.id);
 	const reviewIdx = $derived(manualReviewIdx ?? drill.quizIdx);
 	const isReviewing = $derived(manualReviewIdx !== null);
+	// How much of what was left to learn at the start of this sitting has been
+	// covered since — the sidebar's second progress bar. Clamped to 1: solving
+	// something demoted back in by a coach update mid-session (rare, but
+	// possible) could otherwise push the count past its own denominator.
+	const sessionRatio = $derived(
+		Math.min(1, learnedThisSession / Math.max(1, data.total - sessionStartSolved))
+	);
 
 
 	// boardFen is used at the live position rather than positionAt(quizIdx) —
@@ -516,16 +529,32 @@
 			<div
 				class="w-full lg:w-80 lg:shrink-0 hidden lg:flex lg:flex-col divide-y divide-(--color-border) bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:overflow-y-auto"
 			>
+				<!-- Progress absorbed the old standalone "Session" panel (#167): the
+				     Stuck? panel is gone too — its hint offer now shares the status
+				     strip above the board (see PracticeStatusStrip's hintable slot),
+				     the same spot mobile always offered it in. -->
 				<div class="p-4">
-					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">{m.learn_progress_heading()}</p>
-					<!-- No "Switch" button here on desktop (#93): the permanent rail
-					     to the left of the board now does that job directly. -->
+					<div class="flex items-baseline justify-between gap-2 mb-2">
+						<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted)">{m.learn_progress_heading()}</p>
+						<!-- No "Switch" button here on desktop (#93): the permanent rail
+						     to the left of the board now does that job directly. -->
+						<a
+							href="/practice"
+							class="shrink-0 text-xs font-semibold text-(--color-muted) border border-(--color-border) rounded-lg px-2 py-1 hover:bg-(--color-border)/40"
+						>
+							{m.learn_finish_session()}
+						</a>
+					</div>
 					<span class="text-(--color-muted) text-sm">{m.learn_progress_count({ solved: data.solved, total: data.total })}</span>
 					<div class="h-1.5 rounded-full bg-(--color-border) overflow-hidden mt-2">
 						<div
 							class="h-full bg-(--color-accent) rounded-full"
 							style={`width: ${data.total ? (data.solved / data.total) * 100 : 0}%`}
 						></div>
+					</div>
+					<span class="text-(--color-muted) text-sm mt-3 block">{m.learn_session_count({ count: learnedThisSession })}</span>
+					<div class="h-1.5 rounded-full bg-(--color-border) overflow-hidden mt-2">
+						<div class="h-full bg-teal-500 dark:bg-teal-400 rounded-full" style={`width: ${sessionRatio * 100}%`}></div>
 					</div>
 				</div>
 
@@ -537,38 +566,6 @@
 							{m.learn_mistake_count({ count: drill.attemptMistakeCount })}
 						</p>
 					{/if}
-				</div>
-
-				<div class="p-4">
-					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">{m.learn_stuck_heading()}</p>
-					{#if drill.hintRequested}
-						<p class="text-sm text-(--color-muted)">{m.learn_hint_used()}</p>
-					{:else if hintOffered}
-						<button
-							onclick={requestHint}
-							class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700"
-						>
-							<span class="text-base">💡</span> {m.practice_status_need_hint()}
-						</button>
-					{:else if arrowMove}
-						<!-- Nothing to offer on an arrowed ply, and an empty "Stuck?"
-						     block reads as broken — so say why there's no offer. -->
-						<p class="text-sm text-(--color-muted)">{m.learn_move_shown()}</p>
-					{/if}
-					<p class="text-xs text-(--color-muted) mt-2">
-						{m.learn_keyboard_hint()}
-					</p>
-				</div>
-
-				<div class="p-4">
-					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">{m.learn_session_heading()}</p>
-					<p class="text-sm text-(--color-text) font-medium mb-2">{m.learn_session_count({ count: learnedThisSession })}</p>
-					<a
-						href="/practice"
-						class="inline-flex items-center gap-1 text-sm font-semibold text-(--color-muted) border border-(--color-border) rounded-lg px-3 py-1.5 hover:bg-(--color-border)/40"
-					>
-						{m.learn_finish_session()}
-					</a>
 				</div>
 
 				<!-- Desktop-only nav row footer (#166): pinned to the sidebar's
