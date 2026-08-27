@@ -274,6 +274,34 @@ describe('VariationPicker', () => {
 			expect(activeButton.className).toContain('ring-2');
 		});
 
+		it('auto-opens to a ceiling group holding the current variation, rendering it directly without drill-in', async () => {
+			// Two variations sharing prefix past the ceiling — they land in one
+			// ceiling-clipped group together.
+			const rows = [
+				row('v1', ['e4', 'e5', 'Nf3', 'a6', 'Ba4'], ['Ruy Lopez'], { ceilingMoveCount: 3 }),
+				row('v2', ['e4', 'e5', 'Nf3', 'O-O', 'd3'], ['Ruy Lopez'], { ceilingMoveCount: 3 })
+			];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
+			vi.stubGlobal('fetch', fetchSpy);
+			render(VariationPicker, {
+				props: { repertoireId: 'rep-1', onselect: vi.fn(), variant: 'inline', currentVariationKey: 'v1' }
+			});
+
+			// The ceiling group is truncated to the shared prefix past the ceiling
+			// (first 3 plies: 1.e4 e5 2.Nf3) and surfaces directly in the inline picker,
+			// not nested behind a drill-in.
+			await waitFor(() => expect(screen.getByText(/1\.e4 e5 2\.Nf3/)).toBeTruthy());
+
+			// Verify it's highlighted as active (contains ring-2 class)
+			const ceilingButton = screen.getByText(/1\.e4 e5 2\.Nf3/).closest('button')!;
+			expect(ceilingButton.className).toContain('ring-2');
+
+			// Verify no drill-in happened: the leaf variations are not visible
+			// (they only appear when openGroup is set, i.e., when drilling into a regular group)
+			expect(screen.queryByText('label:v1')).toBeNull();
+			expect(screen.queryByText('label:v2')).toBeNull();
+		});
+
 		it('shows a per-chapter completion indicator', async () => {
 			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
 			vi.stubGlobal('fetch', fetchSpy);
