@@ -334,9 +334,12 @@ describe('learn detail page', () => {
 		});
 		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS); // autoplay intro finishes, quizIdx lands at 2
 
-		const back = screen.getByLabelText('Move back') as HTMLButtonElement;
-		const forward = screen.getByLabelText('Move forward') as HTMLButtonElement;
-		const toLive = screen.getByLabelText('Jump to current position') as HTMLButtonElement;
+		// Two copies of the nav row exist now (mobile under the board, desktop in
+		// the sidebar footer — CSS picks one per viewport); jsdom applies no CSS,
+		// so both are "visible" here and either one drives the same shared state.
+		const back = screen.getAllByLabelText('Move back')[0] as HTMLButtonElement;
+		const forward = screen.getAllByLabelText('Move forward')[0] as HTMLButtonElement;
+		const toLive = screen.getAllByLabelText('Jump to current position')[0] as HTMLButtonElement;
 
 		// At the live position: nothing to browse forward to yet.
 		expect(forward.disabled).toBe(true);
@@ -368,7 +371,7 @@ describe('learn detail page', () => {
 			}
 		});
 		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS); // autoplay intro finishes, quizIdx lands at 2
-		expect(screen.getByText('1 / 2')).toBeTruthy();
+		expect(screen.getAllByText('1 / 2').length).toBe(2);
 	});
 
 	it('lets the left/right/up/down arrow keys drive the same review nav as the buttons', async () => {
@@ -386,8 +389,8 @@ describe('learn detail page', () => {
 		});
 		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS); // autoplay intro finishes, quizIdx lands at 2
 
-		const forward = screen.getByLabelText('Move forward') as HTMLButtonElement;
-		const toLive = screen.getByLabelText('Jump to current position') as HTMLButtonElement;
+		const forward = screen.getAllByLabelText('Move forward')[0] as HTMLButtonElement;
+		const toLive = screen.getAllByLabelText('Jump to current position')[0] as HTMLButtonElement;
 
 		expect(forward.disabled).toBe(true);
 
@@ -567,12 +570,12 @@ describe('learn detail page', () => {
 		// Browsing back puts the board on a past position, where the ring has
 		// nothing correct to point at — so the hint has to return to the live
 		// position rather than silently do nothing (#113 follow-up).
-		await fireEvent.click(screen.getByLabelText('Move back'));
+		await fireEvent.click(screen.getAllByLabelText('Move back')[0]);
 		await fireEvent.click(screen.getAllByText('Need a hint?')[0]);
 
 		expect(screen.getByLabelText('Hint: move this piece')).toBeTruthy();
 		// Back on the live position, so the board is playable again.
-		expect((screen.getByLabelText('Jump to current position') as HTMLButtonElement).disabled).toBe(
+		expect((screen.getAllByLabelText('Jump to current position')[0] as HTMLButtonElement).disabled).toBe(
 			true
 		);
 	});
@@ -588,7 +591,7 @@ describe('learn detail page', () => {
 		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
 
 		const fenBefore = cgMock.boards[cgMock.boards.length - 1].config.fen;
-		await fireEvent.click(screen.getByRole('button', { name: 'Explore this position' }));
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Explore this position' })[0]);
 
 		expect(screen.getByText(/Exploring — nothing counts here/i)).toBeTruthy();
 		// A move that would be WRONG in the drill is simply legal here.
@@ -597,7 +600,7 @@ describe('learn detail page', () => {
 		expect(screen.queryByText(/Not that move/i)).toBeNull();
 		expect(screen.queryByText(/1 mistake this attempt/i)).toBeNull();
 
-		await fireEvent.click(screen.getByText(/Back to the line/i));
+		await fireEvent.click(screen.getAllByText(/Back to the line/i)[0]);
 		expect(screen.queryByText(/Exploring/i)).toBeNull();
 		expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(fenBefore);
 
@@ -615,16 +618,16 @@ describe('learn detail page', () => {
 		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
 
 		const fenBefore = cgMock.boards[cgMock.boards.length - 1].config.fen;
-		await fireEvent.click(screen.getByRole('button', { name: 'Explore this position' }));
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Explore this position' })[0]);
 
-		const undo = screen.getByText(/Undo/i);
+		const undo = screen.getAllByText(/Undo/i)[0];
 		expect((undo as HTMLButtonElement).disabled).toBe(true); // nothing to undo yet
 
 		playMove('b1', 'c3');
 		await vi.advanceTimersByTimeAsync(0);
-		expect((screen.getByText(/Undo/i) as HTMLButtonElement).disabled).toBe(false);
+		expect((screen.getAllByText(/Undo/i)[0] as HTMLButtonElement).disabled).toBe(false);
 
-		await fireEvent.click(screen.getByText(/Undo/i));
+		await fireEvent.click(screen.getAllByText(/Undo/i)[0]);
 		expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(fenBefore);
 	});
 
@@ -633,7 +636,7 @@ describe('learn detail page', () => {
 	it('disables (but keeps visible) explore during the autoplay intro', () => {
 		vi.useFakeTimers();
 		renderAttempt(AUTO_PLAY_ATTEMPT);
-		const button = screen.getByRole('button', { name: 'Explore this position' }) as HTMLButtonElement;
+		const button = screen.getAllByRole('button', { name: 'Explore this position' })[0] as HTMLButtonElement;
 		expect(button.disabled).toBe(true);
 	});
 
@@ -708,9 +711,9 @@ describe('learn detail page', () => {
 		vi.useFakeTimers();
 		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
 		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
-		await fireEvent.click(screen.getByRole('button', { name: 'Explore this position' }));
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Explore this position' })[0]);
 
-		const toggle = screen.getByRole('button', { name: /engine/i });
+		const toggle = screen.getAllByRole('button', { name: /engine/i })[0];
 		expect(toggle.getAttribute('aria-pressed')).toBe('false');
 		expect(screen.queryByRole('img', { name: /Engine evaluation/i })).toBeNull();
 	});
@@ -723,14 +726,14 @@ describe('learn detail page', () => {
 		vi.useFakeTimers();
 		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
 		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
-		await fireEvent.click(screen.getByRole('button', { name: 'Explore this position' }));
-		await fireEvent.click(screen.getByRole('button', { name: /engine/i }));
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Explore this position' })[0]);
+		await fireEvent.click(screen.getAllByRole('button', { name: /engine/i })[0]);
 
 		const bar = screen.getByRole('img', { name: /Engine evaluation/i });
 		expect(bar.getAttribute('aria-label')).toBe('Engine evaluation unavailable');
-		expect(screen.getByRole('button', { name: /engine/i }).getAttribute('aria-pressed')).toBe('true');
+		expect(screen.getAllByRole('button', { name: /engine/i })[0].getAttribute('aria-pressed')).toBe('true');
 
-		await fireEvent.click(screen.getByRole('button', { name: /engine/i }));
+		await fireEvent.click(screen.getAllByRole('button', { name: /engine/i })[0]);
 		expect(screen.queryByRole('img', { name: /Engine evaluation/i })).toBeNull();
 	});
 });

@@ -7,6 +7,7 @@ import {
 	hasChapterTags,
 	moveIdsInVariationKey,
 	moveSequenceLabel,
+	moveSequenceRows,
 	rowsInChapterTier,
 	UNTAGGED_CHAPTER,
 	variationScopes,
@@ -496,6 +497,51 @@ describe('moveSequenceLabel', () => {
 		];
 		const [variation] = enumerateVariations(moves);
 		expect(moveSequenceLabel(variation.path)).toBe('5...Nf6 6.Bc4');
+	});
+});
+
+describe('moveSequenceRows', () => {
+	it('returns an empty array for an empty path', () => {
+		expect(moveSequenceRows([])).toEqual([]);
+	});
+
+	it('pairs an even number of plies into full-move rows', () => {
+		const moves = [
+			move('m1', 'START', 'P1', 'e4', true),
+			move('m2', 'P1', 'P2', 'e5', false),
+			move('m3', 'P2', 'P3', 'Nf3', true),
+			move('m4', 'P3', 'P4', 'Nc6', false)
+		];
+		const [variation] = enumerateVariations(moves);
+		expect(moveSequenceRows(variation.path)).toEqual([
+			{ number: 1, white: 'e4', black: 'e5' },
+			{ number: 2, white: 'Nf3', black: 'Nc6' }
+		]);
+	});
+
+	it('leaves a trailing row Black-empty for an odd number of plies', () => {
+		const moves = [
+			move('m1', 'START', 'P1', 'e4', true),
+			move('m2', 'P1', 'P2', 'e5', false),
+			move('m3', 'P2', 'P3', 'Nf3', true)
+		];
+		const [variation] = enumerateVariations(moves);
+		expect(moveSequenceRows(variation.path)).toEqual([
+			{ number: 1, white: 'e4', black: 'e5' },
+			{ number: 2, white: 'Nf3', black: null }
+		]);
+	});
+
+	it('starts from a custom mid-game FEN where Black is to move first', () => {
+		const moves: RawMoveRow[] = [
+			{ id: 'm1', fromPositionId: 'START', toPositionId: 'P1', fromFen: 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 3 5', toFen: 'x', san: 'Nf6', isPlayerTurn: true, chapterNames: [] },
+			{ id: 'm2', fromPositionId: 'P1', toPositionId: 'P2', fromFen: 'x', toFen: 'y', san: 'Bc4', isPlayerTurn: false, chapterNames: [] }
+		];
+		const [variation] = enumerateVariations(moves);
+		expect(moveSequenceRows(variation.path)).toEqual([
+			{ number: 5, white: '', black: 'Nf6' },
+			{ number: 6, white: 'Bc4', black: null }
+		]);
 	});
 });
 

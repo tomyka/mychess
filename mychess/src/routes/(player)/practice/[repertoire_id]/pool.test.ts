@@ -233,7 +233,7 @@ describe("practice pool page", () => {
       render(Practice, { props: { data: poolData() } });
       const fenBefore = cgMock.boards[cgMock.boards.length - 1].config.fen;
 
-      await fireEvent.click(screen.getByRole("button", { name: "Explore this position" }));
+      await fireEvent.click(screen.getAllByRole("button", { name: "Explore this position" })[0]);
       expect(screen.getByText(/Exploring — nothing counts here/i)).toBeTruthy();
 
       // Nc3 is legal but is NOT the book move (e4) — in the drill this would
@@ -245,7 +245,7 @@ describe("practice pool page", () => {
       expect(fetchMock).not.toHaveBeenCalled();
       expect(screen.queryByText(/needs teaching again/i)).toBeNull();
 
-      await fireEvent.click(screen.getByText(/Back to the line/i));
+      await fireEvent.click(screen.getAllByText(/Back to the line/i)[0]);
       expect(screen.queryByText(/Exploring/i)).toBeNull();
       expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(
         fenBefore,
@@ -274,10 +274,10 @@ describe("practice pool page", () => {
       render(Practice, { props: { data: poolData() } });
       expect(screen.getByText("Play it from memory")).toBeTruthy();
 
-      await fireEvent.click(screen.getByRole("button", { name: "Explore this position" }));
+      await fireEvent.click(screen.getAllByRole("button", { name: "Explore this position" })[0]);
       expect(screen.queryByText("Play it from memory")).toBeNull();
 
-      await fireEvent.click(screen.getByText(/Back to the line/i));
+      await fireEvent.click(screen.getAllByText(/Back to the line/i)[0]);
       expect(screen.getByText("Play it from memory")).toBeTruthy();
     });
 
@@ -287,12 +287,12 @@ describe("practice pool page", () => {
         (screen.getByText(/Show hint/i) as HTMLButtonElement).disabled,
       ).toBe(false);
 
-      await fireEvent.click(screen.getByRole("button", { name: "Explore this position" }));
+      await fireEvent.click(screen.getAllByRole("button", { name: "Explore this position" })[0]);
       expect(
         (screen.getByText(/Show hint/i) as HTMLButtonElement).disabled,
       ).toBe(true);
 
-      await fireEvent.click(screen.getByText(/Back to the line/i));
+      await fireEvent.click(screen.getAllByText(/Back to the line/i)[0]);
       expect(
         (screen.getByText(/Show hint/i) as HTMLButtonElement).disabled,
       ).toBe(false);
@@ -308,9 +308,9 @@ describe("practice pool page", () => {
       playMove("b1", "c3"); // wrong: demotes v1
       await vi.advanceTimersByTimeAsync(0);
       expect(screen.getByText(/needs teaching again/i)).toBeTruthy();
-      const exploreButton = screen.getByRole("button", { name: "Explore this position" }) as HTMLButtonElement;
+      const exploreButton = screen.getAllByRole("button", { name: "Explore this position" })[0] as HTMLButtonElement;
       expect(exploreButton.disabled).toBe(true);
-      expect(screen.getByText(/See why/i)).toBeTruthy();
+      expect(screen.getAllByText(/See why/i)[0]).toBeTruthy();
     });
 
     it("holds the failed line on screen while the player looks around, then moves on", async () => {
@@ -319,7 +319,7 @@ describe("practice pool page", () => {
 
       playMove("b1", "c3"); // wrong: demotes v1, and schedules the 1.6s advance
       await vi.advanceTimersByTimeAsync(0);
-      await fireEvent.click(screen.getByText(/See why/i));
+      await fireEvent.click(screen.getAllByText(/See why/i)[0]);
 
       // The advance must NOT fire while the excursion is open.
       await vi.advanceTimersByTimeAsync(5000);
@@ -328,7 +328,7 @@ describe("practice pool page", () => {
 
       // The exit says where it goes, and goes there exactly once.
       expect(screen.queryByText(/Back to the line/i)).toBeNull();
-      await fireEvent.click(screen.getByText(/Next line/i));
+      await fireEvent.click(screen.getAllByText(/Next line/i)[0]);
       expect(screen.getByText("Line 2 of 2")).toBeTruthy();
 
       // No second advance from the timer that was cancelled on the way in.
@@ -344,10 +344,10 @@ describe("practice pool page", () => {
         { variationKey: "v1", outcome: "mistake" },
       ]);
 
-      await fireEvent.click(screen.getByText(/See why/i));
+      await fireEvent.click(screen.getAllByText(/See why/i)[0]);
       playMove("e7", "e5"); // a legal move for the other side, on the scratch board
       await vi.advanceTimersByTimeAsync(0);
-      await fireEvent.click(screen.getByText(/Next line/i));
+      await fireEvent.click(screen.getAllByText(/Next line/i)[0]);
 
       expect(outcomes()).toHaveLength(1);
     });

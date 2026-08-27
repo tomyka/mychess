@@ -312,6 +312,44 @@ export function moveSequenceLabel(path: VariationStep[]): string {
 		.join(' ');
 }
 
+/** One row of a chess.com-style move grid: a full move number plus White's and Black's SAN. */
+export type MoveRow = { number: number; white: string; black: string | null };
+
+/**
+ * Structured form of `moveSequenceLabel`, for rendering a real move-number
+ * grid instead of a wrapped string. Same rules: reads the true starting side
+ * to move and move number from `path[0].fromFen`, so a chapter that opens on
+ * Black's move produces a leading row with an empty White cell (the grid's
+ * equivalent of the label's "5...Nf6" ellipsis) rather than assuming White
+ * moved first. A path ending on White to move (odd ply count) leaves the
+ * trailing row's Black cell `null`.
+ */
+export function moveSequenceRows(path: VariationStep[]): MoveRow[] {
+	if (path.length === 0) return [];
+
+	const fenFields = path[0].fromFen.split(' ');
+	let moveNumber = Number(fenFields[5]) || 1;
+	let whiteToMove = fenFields[1] !== 'b';
+
+	const rows: MoveRow[] = [];
+	let openRow: MoveRow | null = null;
+	for (const step of path) {
+		if (whiteToMove) {
+			openRow = { number: moveNumber, white: step.san, black: null };
+			rows.push(openRow);
+		} else {
+			if (openRow && openRow.number === moveNumber) {
+				openRow.black = step.san;
+			} else {
+				rows.push({ number: moveNumber, white: '', black: step.san });
+			}
+			moveNumber++;
+		}
+		whiteToMove = !whiteToMove;
+	}
+	return rows;
+}
+
 export type MoveGroup<T> = {
 	// The first `steps` shared by every item in this group's key (up to
 	// FIRST_MOVES_GROUP_PLIES, or fewer if a member's own line is shorter).

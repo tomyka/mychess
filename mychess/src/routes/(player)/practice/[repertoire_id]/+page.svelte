@@ -3,12 +3,13 @@
 	import EvalBar from '$lib/components/EvalBar.svelte';
 	import ExploreControls from '$lib/components/ExploreControls.svelte';
 	import { engineEnabled } from '$lib/engine/engine.svelte';
+	import MoveList from '$lib/components/MoveList.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
 	import PracticeStatusStrip from '$lib/components/PracticeStatusStrip.svelte';
 	import RepertoireUpdatedBanner from '$lib/components/RepertoireUpdatedBanner.svelte';
 	import type { Key } from 'chessground/types';
 	import { playCorrect, playWrong } from '$lib/sounds';
-	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
+	import { moveSequenceRows, type VariationStep } from '$lib/mastery/variations';
 	import { positionAt, playerMovesIn, hintSquareFor, makeReviewNav, makeReviewKeyHandler } from '$lib/mastery/playback';
 	import { logMove } from '$lib/moveLog';
 	import { ExploreSession } from '$lib/mastery/explore.svelte';
@@ -81,7 +82,7 @@
 
 	const reviewIdx = $derived(manualReviewIdx ?? drill.plyIdx);
 	const isReviewing = $derived(manualReviewIdx !== null);
-	const movesSoFar = $derived(drill.plyIdx > 0 ? moveSequenceLabel(steps.slice(0, drill.plyIdx)) : '');
+	const moveRows = $derived(moveSequenceRows(steps.slice(0, drill.plyIdx)));
 
 	const drillFen = $derived(isReviewing ? positionAt(steps, reviewIdx, drill.boardFen) : drill.boardFen);
 	// The explored position while off-book, the drill's own otherwise. The eval bar
@@ -342,46 +343,52 @@
 					/>
 				</div>
 
-				{#if explore.active}
-					<ExploreControls
-						depth={explore.depth}
-						onundo={() => explore.undo()}
-						onstop={stopExplore}
-						stopLabel={exploringDemoted
-							? `→ ${m.practice_explore_next_line()}`
-							: m.explore_controls_back_to_line()}
-						{boardWidth}
-					/>
-				{:else}
-					<MoveNavRow
-						{reviewIdx}
-						totalPlies={steps.length}
-						reviewMoves={playerMovesIn(steps, reviewIdx)}
-						totalMoves={playerMovesIn(steps, steps.length)}
-						{isReviewing}
-						{boardWidth}
-						onstart={reviewToStart}
-						onback={reviewBack}
-						onforward={reviewForward}
-						onlive={reviewToLive}
-						onExplore={startExplore}
-						exploreDisabled={!canExplore}
-					/>
-					{#if drill.strip === 'demoted' && current}
-						<!-- The one moment a player most wants to look around, and the one
-						     the drill was about to take away 1.6s later (#131). Taking it
-						     cancels that advance; the outcome is already reported either
-						     way, so nothing about the record changes. -->
-						<p class="text-center mt-2 shrink-0">
-							<button
-								onclick={exploreDemoted}
-								class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 dark:text-amber-300 hover:underline"
-							>
-								<span aria-hidden="true">🔍</span> {m.practice_explore_see_why()}
-							</button>
-						</p>
+				<!-- Mobile only (#166): desktop gets the same controls pinned to the
+				     sidebar's bottom edge instead, so the board column can grow to
+				     fill the space this used to occupy. See
+				     2026-08-26-drill-sidebar-nav-design.md. -->
+				<div class="lg:hidden">
+					{#if explore.active}
+						<ExploreControls
+							depth={explore.depth}
+							onundo={() => explore.undo()}
+							onstop={stopExplore}
+							stopLabel={exploringDemoted
+								? `→ ${m.practice_explore_next_line()}`
+								: m.explore_controls_back_to_line()}
+							{boardWidth}
+						/>
+					{:else}
+						<MoveNavRow
+							{reviewIdx}
+							totalPlies={steps.length}
+							reviewMoves={playerMovesIn(steps, reviewIdx)}
+							totalMoves={playerMovesIn(steps, steps.length)}
+							{isReviewing}
+							{boardWidth}
+							onstart={reviewToStart}
+							onback={reviewBack}
+							onforward={reviewForward}
+							onlive={reviewToLive}
+							onExplore={startExplore}
+							exploreDisabled={!canExplore}
+						/>
+						{#if drill.strip === 'demoted' && current}
+							<!-- The one moment a player most wants to look around, and the
+							     one the drill was about to take away 1.6s later (#131).
+							     Taking it cancels that advance; the outcome is already
+							     reported either way, so nothing about the record changes. -->
+							<p class="text-center mt-2 shrink-0">
+								<button
+									onclick={exploreDemoted}
+									class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 dark:text-amber-300 hover:underline"
+								>
+									<span aria-hidden="true">🔍</span> {m.practice_explore_see_why()}
+								</button>
+							</p>
+						{/if}
 					{/if}
-				{/if}
+				</div>
 			</div>
 
 			<aside
@@ -408,7 +415,7 @@
 					{#if current?.chapterNames?.length}
 						<p class="text-sm text-(--color-text) font-medium">{current.chapterNames.join(' · ')}</p>
 					{/if}
-					<p class="text-sm text-(--color-muted) font-mono">{movesSoFar || '—'}</p>
+					<MoveList rows={moveRows} />
 				</div>
 
 				<div class="p-4 flex flex-col gap-2">
@@ -426,8 +433,50 @@
 					<p class="text-xs text-(--color-muted)">{m.practice_keyboard_hint()}</p>
 				</div>
 
-				<div class="p-4 mt-auto">
+				<div class="p-4">
 					<a href="/practice" class="text-sm text-(--color-muted) hover:text-(--color-text)">{m.learn_finish_session()}</a>
+				</div>
+
+				<!-- Desktop-only nav row footer (#166): pinned to the sidebar's
+				     bottom edge, matching chess.com's stacking of an actions area
+				     above a nav-arrows row flush at the bottom. Mobile keeps its own
+				     copy directly under the board (above). No boardWidth here — the
+				     sidebar is already a fixed width, so nothing needs capping. -->
+				<div class="hidden lg:flex lg:flex-col p-4 mt-auto">
+					{#if explore.active}
+						<ExploreControls
+							depth={explore.depth}
+							onundo={() => explore.undo()}
+							onstop={stopExplore}
+							stopLabel={exploringDemoted
+								? `→ ${m.practice_explore_next_line()}`
+								: m.explore_controls_back_to_line()}
+						/>
+					{:else}
+						<MoveNavRow
+							{reviewIdx}
+							totalPlies={steps.length}
+							reviewMoves={playerMovesIn(steps, reviewIdx)}
+							totalMoves={playerMovesIn(steps, steps.length)}
+							{isReviewing}
+							onstart={reviewToStart}
+							onback={reviewBack}
+							onforward={reviewForward}
+							onlive={reviewToLive}
+							onExplore={startExplore}
+							exploreDisabled={!canExplore}
+						/>
+						{#if drill.strip === 'demoted' && current}
+							<p class="text-center mt-2 shrink-0">
+								<button
+									onclick={exploreDemoted}
+									class="inline-flex items-center gap-1.5 text-sm font-medium text-amber-700 dark:text-amber-300 hover:underline"
+								>
+									<span aria-hidden="true">🔍</span> {m.practice_explore_see_why()}
+								</button>
+							</p>
+						{/if}
+					{/if}
 				</div>
 			</aside>
 		</div>

@@ -8,7 +8,7 @@
 	import { untrack } from 'svelte';
 	import { optimisticSolvedAfterAttempt, type PracticeView } from '$lib/mastery/practice';
 	import { arrowMoveForStep } from '$lib/mastery/teaching';
-	import { moveSequenceLabel, type VariationStep } from '$lib/mastery/variations';
+	import { moveSequenceLabel, moveSequenceRows, type VariationStep } from '$lib/mastery/variations';
 	import { positionAt, playerMovesIn, hintSquareFor, makeReviewNav, makeReviewKeyHandler } from '$lib/mastery/playback';
 	import { logMove } from '$lib/moveLog';
 	import { ExploreSession } from '$lib/mastery/explore.svelte';
@@ -16,6 +16,7 @@
 	import EvalBar from '$lib/components/EvalBar.svelte';
 	import ExploreControls from '$lib/components/ExploreControls.svelte';
 	import { engineEnabled } from '$lib/engine/engine.svelte';
+	import MoveList from '$lib/components/MoveList.svelte';
 	import MoveNavRow from '$lib/components/MoveNavRow.svelte';
 	import PracticeStatusStrip, { type PracticeStripState } from '$lib/components/PracticeStatusStrip.svelte';
 
@@ -117,6 +118,7 @@
 	// attempt, independent of manualReviewIdx (browsing back to look at an
 	// earlier position doesn't shrink the list).
 	const movesSoFar = $derived(drill.quizIdx > 0 ? moveSequenceLabel(quizSteps.slice(0, drill.quizIdx)) : '');
+	const moveRows = $derived(moveSequenceRows(quizSteps.slice(0, drill.quizIdx)));
 
 	const { reviewToStart, reviewBack, reviewForward, reviewToLive } = makeReviewNav({
 		get: () => manualReviewIdx,
@@ -472,37 +474,43 @@
 					/>
 				</div>
 
-				{#if explore.active}
-					<ExploreControls
-						depth={explore.depth}
-						onundo={() => explore.undo()}
-						onstop={stopExplore}
-						stopLabel={m.explore_controls_back_to_line()}
-						{boardWidth}
-					/>
-				{:else}
-					<MoveNavRow
-						{reviewIdx}
-						totalPlies={quizSteps.length}
-						reviewMoves={playerMovesIn(quizSteps, reviewIdx)}
-						totalMoves={playerMovesIn(quizSteps, quizSteps.length)}
-						{isReviewing}
-						{boardWidth}
-						onstart={reviewToStart}
-						onback={reviewBack}
-						onforward={reviewForward}
-						onlive={reviewToLive}
-						onExplore={startExplore}
-						exploreDisabled={!canExplore}
-					/>
-				{/if}
+				<!-- Mobile only (#166): desktop gets the same controls pinned to the
+				     sidebar's bottom edge instead, so the board column can grow to
+				     fill the space this used to occupy. See
+				     2026-08-26-drill-sidebar-nav-design.md. -->
+				<div class="lg:hidden">
+					{#if explore.active}
+						<ExploreControls
+							depth={explore.depth}
+							onundo={() => explore.undo()}
+							onstop={stopExplore}
+							stopLabel={m.explore_controls_back_to_line()}
+							{boardWidth}
+						/>
+					{:else}
+						<MoveNavRow
+							{reviewIdx}
+							totalPlies={quizSteps.length}
+							reviewMoves={playerMovesIn(quizSteps, reviewIdx)}
+							totalMoves={playerMovesIn(quizSteps, quizSteps.length)}
+							{isReviewing}
+							{boardWidth}
+							onstart={reviewToStart}
+							onback={reviewBack}
+							onforward={reviewForward}
+							onlive={reviewToLive}
+							onExplore={startExplore}
+							exploreDisabled={!canExplore}
+						/>
+					{/if}
 
-				<!-- Just the moves played so far. -->
-				{#if movesSoFar}
-					<div class="mt-3 p-3 bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm lg:hidden">
-						<p class="text-sm text-(--color-muted)">{movesSoFar}</p>
-					</div>
-				{/if}
+					<!-- Just the moves played so far. -->
+					{#if movesSoFar}
+						<div class="mt-3 p-3 bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm">
+							<p class="text-sm text-(--color-muted)">{movesSoFar}</p>
+						</div>
+					{/if}
+				</div>
 			</div>
 
 			<div
@@ -523,7 +531,7 @@
 
 				<div class="p-4">
 					<p class="text-xs font-semibold uppercase tracking-wide text-(--color-muted) mb-2">{m.learn_this_line_heading()}</p>
-					<p class="text-sm text-(--color-muted)">{movesSoFar || '—'}</p>
+					<MoveList rows={moveRows} />
 					{#if drill.attemptMistakeCount > 0}
 						<p class="text-xs font-medium text-[#F28B82] mt-1">
 							{m.learn_mistake_count({ count: drill.attemptMistakeCount })}
@@ -561,6 +569,36 @@
 					>
 						{m.learn_finish_session()}
 					</a>
+				</div>
+
+				<!-- Desktop-only nav row footer (#166): pinned to the sidebar's
+				     bottom edge, matching chess.com's stacking of an actions area
+				     above a nav-arrows row flush at the bottom. Mobile keeps its own
+				     copy directly under the board (above). No boardWidth here — the
+				     sidebar is already a fixed width, so nothing needs capping. -->
+				<div class="hidden lg:flex lg:flex-col p-4 mt-auto">
+					{#if explore.active}
+						<ExploreControls
+							depth={explore.depth}
+							onundo={() => explore.undo()}
+							onstop={stopExplore}
+							stopLabel={m.explore_controls_back_to_line()}
+						/>
+					{:else}
+						<MoveNavRow
+							{reviewIdx}
+							totalPlies={quizSteps.length}
+							reviewMoves={playerMovesIn(quizSteps, reviewIdx)}
+							totalMoves={playerMovesIn(quizSteps, quizSteps.length)}
+							{isReviewing}
+							onstart={reviewToStart}
+							onback={reviewBack}
+							onforward={reviewForward}
+							onlive={reviewToLive}
+							onExplore={startExplore}
+							exploreDisabled={!canExplore}
+						/>
+					{/if}
 				</div>
 			</div>
 		</div>
