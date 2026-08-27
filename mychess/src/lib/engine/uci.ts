@@ -37,7 +37,7 @@ export function toWhiteRelative(score: EngineScore, sideToMove: 'w' | 'b'): Engi
 	return { cp: -(score.cp ?? 0) };
 }
 
-/** "+0.35", "-1.20", "0.00", "M4", "-M6" — sign follows the White-positive convention. */
+/** "+0.3", "-1.2", "0.0", "M4", "-M6" — sign follows the White-positive convention. */
 export function formatEval(score: EngineScore): string {
 	if (score.mate !== undefined) {
 		return score.mate > 0 ? `M${score.mate}` : `-M${Math.abs(score.mate)}`;
