@@ -2,6 +2,7 @@
 <script lang="ts">
 	import {
 		groupByFirstMoves,
+		groupByCeilingPrefix,
 		moveSequenceLabel,
 		chapterTiers,
 		rowsInChapterTier,
@@ -10,6 +11,7 @@
 		type MoveGroup,
 		type VariationStep
 	} from '$lib/mastery/variations';
+	import { ceilingPlyFor } from '$lib/mastery/teaching';
 	import { m } from '$lib/paraglide/messages';
 	import { isIncludedFor } from '$lib/mastery/variationSelection.svelte';
 
@@ -33,7 +35,20 @@
 		// disables and explains, purely as a courtesy; the real gate is
 		// `/api/practice/select-variation`'s 403 (GitHub issue #163).
 		locked: boolean;
+		// This repertoire's current teaching-tier ceiling — the same value on
+		// every row (see the server route's doc comment). Used to decide which
+		// rows extend past what's currently teachable, and to clip their
+		// display to that point (GitHub issue #165).
+		ceilingMoveCount: number;
 	};
+
+	// One entry in the rendered move-group list: either a fixed-window bucket
+	// from `groupByFirstMoves` (today's behavior, for anything already fully
+	// within reach) or a ceiling-clipped bucket from `groupByCeilingPrefix`
+	// (for variations that currently extend past the teaching ceiling —
+	// GitHub issue #165). A tagged union, not two parallel arrays, so the
+	// template renders one combined list in one pass.
+	type PickerEntry = { kind: 'ceiling'; group: MoveGroup<VariationRow> } | { kind: 'regular'; group: MoveGroup<VariationRow> };
 
 	let {
 		repertoireId,
@@ -60,10 +75,10 @@
 
 	let variations = $state<VariationRow[] | null>(null);
 	let openChapter = $state<string | null>(null);
-	// Index into the currently-shown move-group list, not the group's own
-	// identity — an index cleanly distinguishes "nothing opened yet" (`null`)
-	// from "the Other bucket is opened" (an empty-steps group, but a real
-	// index), which two otherwise-equal values couldn't.
+	// Index into the currently-shown entry list, not the entry's own identity —
+	// an index cleanly distinguishes "nothing opened yet" (`null`) from "the
+	// Other bucket is opened" (an empty-steps group, but a real index), which
+	// two otherwise-equal values couldn't.
 	let openGroupIndex = $state<number | null>(null);
 	let errorMessage = $state<string | null>(null);
 	// Whether the auto-open below has already run for the current
@@ -74,6 +89,19 @@
 
 	function stepsOf(row: VariationRow): VariationStep[] {
 		return row.path;
+	}
+
+	/**
+	 * A variation whose own path currently extends past what Learn will teach
+	 * — whether it's already paused there or simply hasn't reached it yet —
+	 * so the picker never shows moves beyond the ceiling and never asks the
+	 * player to separately visit several variations that share the exact same
+	 * not-yet-reachable prefix (GitHub issue #165). A solved variation is
+	 * never a frontier row: it's already past anything a ceiling could
+	 * withhold.
+	 */
+	function isFrontier(row: VariationRow, ceilingMoveCount: number): boolean {
+		return !row.solved && ceilingPlyFor(row.path, ceilingMoveCount) < row.path.length;
 	}
 
 	async function load() {
@@ -105,8 +133,28 @@
 		return chapter === null ? rows : rowsInChapterTier(rows, chapter);
 	}
 
-	function moveGroups(chapter: string | null): MoveGroup<VariationRow>[] {
-		return groupByFirstMoves(rowsForChapter(chapter), stepsOf, FIRST_MOVES_GROUP_PLIES, TOP_N);
+	/**
+	 * The entries shown for one chapter (or the flat pool): every frontier row
+	 * grouped by its ceiling-clipped shared prefix FIRST (the actionable "what
+	 * do I still need to do" content), then everything else through the
+	 * existing fixed-window grouping — unchanged from before this feature.
+	 */
+	function pickerEntries(chapter: string | null): PickerEntry[] {
+		const rows = rowsForChapter(chapter);
+		// Every row carries the same repertoire-wide ceiling (see the server
+		// route) — read it off the first row rather than a separate prop, so
+		// the response can stay the flat array `VariationSelection` also
+		// consumes. Defaults to Infinity (nothing is ever "past the ceiling")
+		// for an empty chapter, which is never actually rendered.
+		const ceilingMoveCount = rows[0]?.ceilingMoveCount ?? Infinity;
+		const frontierRows = rows.filter((r) => isFrontier(r, ceilingMoveCount));
+		const regularRows = rows.filter((r) => !isFrontier(r, ceilingMoveCount));
+		const ceilingGroups = groupByCeilingPrefix(frontierRows, stepsOf, ceilingMoveCount);
+		const regularGroups = groupByFirstMoves(regularRows, stepsOf, FIRST_MOVES_GROUP_PLIES, TOP_N);
+		return [
+			...ceilingGroups.map((group) => ({ kind: 'ceiling' as const, group })),
+			...regularGroups.map((group) => ({ kind: 'regular' as const, group }))
+		];
 	}
 
 	function groupLabel(group: MoveGroup<VariationRow>): string {
@@ -124,6 +172,16 @@
 	 */
 	function soleVariation(group: MoveGroup<VariationRow>): VariationRow | null {
 		return group.items.length === 1 ? group.items[0] : null;
+	}
+
+	/** Whether every member of a ceiling group is already paused there — nothing left to practice until the tier ceiling itself advances. */
+	function ceilingGroupDone(group: MoveGroup<VariationRow>): boolean {
+		return group.items.every((r) => r.locked);
+	}
+
+	/** The member to actually practice when a ceiling group is selected — any not-yet-paused member if one exists (always selectable), else the first (only reachable when the whole group is done, and thus unclickable anyway). */
+	function ceilingGroupRepresentative(group: MoveGroup<VariationRow>): VariationRow {
+		return group.items.find((r) => !r.locked) ?? group.items[0];
 	}
 
 	/** Solved/total across a chapter's own rows — the rail's per-chapter indicator. */
@@ -145,8 +203,11 @@
 	}
 
 	const activeChapter = $derived(chapters === null ? null : openChapter);
-	const currentGroups = $derived(activeChapter !== null || chapters === null ? moveGroups(activeChapter) : []);
-	const openGroup = $derived(openGroupIndex !== null ? currentGroups[openGroupIndex] ?? null : null);
+	const currentEntries = $derived(activeChapter !== null || chapters === null ? pickerEntries(activeChapter) : []);
+	const openEntry = $derived(openGroupIndex !== null ? currentEntries[openGroupIndex] ?? null : null);
+	// Only a 'regular' entry can ever be drilled into — a ceiling entry always
+	// selects directly (see the template), so it never sets `openGroupIndex`.
+	const openGroup = $derived(openEntry?.kind === 'regular' ? openEntry.group : null);
 
 	// Inline-only (see the `variant` prop doc comment above): opens straight to
 	// whatever tier holds the active line instead of leaving a permanent panel
@@ -159,12 +220,13 @@
 		autoOpenedFor = currentVariationKey;
 		const chapter = chapters === null ? null : row.chapterNames[0] ?? UNTAGGED_CHAPTER;
 		openChapter = chapter;
-		const groups = moveGroups(chapter);
-		const idx = groups.findIndex((g) => g.items.some((r) => r.variationKey === currentVariationKey));
-		// A group of one already renders its row directly in the group list
-		// (see `soleVariation`) — drilling into it would just show the same
-		// single row again behind a pointless "Back".
-		openGroupIndex = idx >= 0 && !soleVariation(groups[idx]) ? idx : null;
+		const entries = pickerEntries(chapter);
+		const idx = entries.findIndex((e) => e.group.items.some((r) => r.variationKey === currentVariationKey));
+		const found = idx >= 0 ? entries[idx] : null;
+		// A ceiling entry (any size) and a regular group-of-one already render
+		// their row directly in the entry list — drilling in would just show
+		// the same row again behind a pointless "Back".
+		openGroupIndex = found && found.kind === 'regular' && !soleVariation(found.group) ? idx : null;
 	});
 </script>
 
@@ -211,40 +273,65 @@
 			<button onclick={() => (openChapter = null)} class="text-(--color-accent) text-sm mb-2 hover:underline">{m.variation_picker_back()}</button>
 		{/if}
 		<ul class="space-y-1">
-			{#each currentGroups as group, i (group.steps.map((s) => s.san).join('>') || `other-${i}`)}
-				{@const only = soleVariation(group)}
-				<li>
-					<!-- A group of one IS a variation, so it selects straight into
-					     practice and renders like a variation row (own full label,
-					     solved tick, no count) rather than as a folder holding one
-					     item. Groups of several still drill in. -->
-					<button
-						disabled={only?.locked ?? false}
-						onclick={() => {
-							if (only) {
-								if (!only.locked) onselect(only.variationKey);
-							} else {
-								openGroupIndex = i;
-							}
-						}}
-						class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) flex items-center justify-between {only
-							? ''
-							: 'font-medium'} {groupHasActive(group) ? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10' : ''} {only?.locked
-							? 'opacity-50 cursor-not-allowed'
-							: ''}"
-					>
-						<span>{only ? only.label : groupLabel(group)}</span>
-						{#if only}
-							{#if only.locked}
-								<span class="text-xs text-(--color-muted)">{m.variation_picker_locked_reason()}</span>
-							{:else if only.solved}
-								<span class="text-green-600 dark:text-green-400 text-sm">✓</span>
+			{#each currentEntries as entry, i (entry.kind === 'ceiling' ? `ceiling-${entry.group.steps.map((s) => s.moveId).join('>')}` : entry.group.steps.map((s) => s.san).join('>') || `other-${i}`)}
+				{#if entry.kind === 'ceiling'}
+					{@const done = ceilingGroupDone(entry.group)}
+					<li>
+						<button
+							disabled={done}
+							onclick={() => {
+								if (!done) onselect(ceilingGroupRepresentative(entry.group).variationKey);
+							}}
+							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) flex items-center justify-between font-medium {groupHasActive(entry.group)
+								? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10'
+								: ''} {done ? 'opacity-50 cursor-not-allowed' : ''}"
+						>
+							<span>{moveSequenceLabel(entry.group.steps)}</span>
+							<span class="flex items-center gap-2 shrink-0">
+								{#if entry.group.items.length > 1}
+									<span class="text-(--color-muted) text-sm">({entry.group.items.length})</span>
+								{/if}
+								{#if done}
+									<span class="text-xs text-(--color-muted)">{m.variation_picker_locked_reason()}</span>
+								{/if}
+							</span>
+						</button>
+					</li>
+				{:else}
+					{@const only = soleVariation(entry.group)}
+					<li>
+						<!-- A group of one IS a variation, so it selects straight into
+						     practice and renders like a variation row (own full label,
+						     solved tick, no count) rather than as a folder holding one
+						     item. Groups of several still drill in. -->
+						<button
+							disabled={only?.locked ?? false}
+							onclick={() => {
+								if (only) {
+									if (!only.locked) onselect(only.variationKey);
+								} else {
+									openGroupIndex = i;
+								}
+							}}
+							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) flex items-center justify-between {only
+								? ''
+								: 'font-medium'} {groupHasActive(entry.group) ? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10' : ''} {only?.locked
+								? 'opacity-50 cursor-not-allowed'
+								: ''}"
+						>
+							<span>{only ? only.label : groupLabel(entry.group)}</span>
+							{#if only}
+								{#if only.locked}
+									<span class="text-xs text-(--color-muted)">{m.variation_picker_locked_reason()}</span>
+								{:else if only.solved}
+									<span class="text-green-600 dark:text-green-400 text-sm">✓</span>
+								{/if}
+							{:else}
+								<span class="text-(--color-muted) text-sm">({entry.group.items.length})</span>
 							{/if}
-						{:else}
-							<span class="text-(--color-muted) text-sm">({group.items.length})</span>
-						{/if}
-					</button>
-				</li>
+						</button>
+					</li>
+				{/if}
 			{/each}
 		</ul>
 	{:else}

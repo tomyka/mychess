@@ -25,7 +25,7 @@ function row(
 	variationKey: string,
 	sans: string[],
 	chapterNames: string[],
-	opts: { included?: boolean; solved?: boolean; locked?: boolean } = {}
+	opts: { included?: boolean; solved?: boolean; locked?: boolean; ceilingMoveCount?: number } = {}
 ) {
 	const included = opts.included ?? true;
 	const chapters = chapterNames.length > 0 ? chapterNames : [UNTAGGED_CHAPTER];
@@ -38,7 +38,11 @@ function row(
 		chapterNames,
 		path: path(sans),
 		solved: opts.solved ?? false,
-		locked: opts.locked ?? false
+		locked: opts.locked ?? false,
+		// Defaults to Infinity — no row is ever "past the ceiling" unless a test
+		// explicitly opts in, so every EXISTING test in this file (none of which
+		// pass this option) is completely unaffected by ceiling-frontier grouping.
+		ceilingMoveCount: opts.ceilingMoveCount ?? Infinity
 	};
 }
 
@@ -270,6 +274,34 @@ describe('VariationPicker', () => {
 			expect(activeButton.className).toContain('ring-2');
 		});
 
+		it('auto-opens to a ceiling group holding the current variation, rendering it directly without drill-in', async () => {
+			// Two variations sharing prefix past the ceiling — they land in one
+			// ceiling-clipped group together.
+			const rows = [
+				row('v1', ['e4', 'e5', 'Nf3', 'a6', 'Ba4'], ['Ruy Lopez'], { ceilingMoveCount: 3 }),
+				row('v2', ['e4', 'e5', 'Nf3', 'O-O', 'd3'], ['Ruy Lopez'], { ceilingMoveCount: 3 })
+			];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
+			vi.stubGlobal('fetch', fetchSpy);
+			render(VariationPicker, {
+				props: { repertoireId: 'rep-1', onselect: vi.fn(), variant: 'inline', currentVariationKey: 'v1' }
+			});
+
+			// The ceiling group is truncated to the shared prefix past the ceiling
+			// (first 3 plies: 1.e4 e5 2.Nf3) and surfaces directly in the inline picker,
+			// not nested behind a drill-in.
+			await waitFor(() => expect(screen.getByText(/1\.e4 e5 2\.Nf3/)).toBeTruthy());
+
+			// Verify it's highlighted as active (contains ring-2 class)
+			const ceilingButton = screen.getByText(/1\.e4 e5 2\.Nf3/).closest('button')!;
+			expect(ceilingButton.className).toContain('ring-2');
+
+			// Verify no drill-in happened: the leaf variations are not visible
+			// (they only appear when openGroup is set, i.e., when drilling into a regular group)
+			expect(screen.queryByText('label:v1')).toBeNull();
+			expect(screen.queryByText('label:v2')).toBeNull();
+		});
+
 		it('shows a per-chapter completion indicator', async () => {
 			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
 			vi.stubGlobal('fetch', fetchSpy);
@@ -383,6 +415,99 @@ describe('VariationPicker', () => {
 			expect(soleRow).toBeDisabled();
 			await fireEvent.click(soleRow);
 			expect(onselect).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('ceiling-frontier grouping (GitHub issue #165)', () => {
+		it('groups variations that share their opening past the ceiling into one clickable entry', async () => {
+			const rows = [
+				row('v1', ['e4', 'e5', 'Nf3', 'a6', 'Ba4'], ['Ruy Lopez'], { ceilingMoveCount: 3 }),
+				row('v2', ['e4', 'e5', 'Nf3', 'O-O', 'd3'], ['Ruy Lopez'], { ceilingMoveCount: 3 })
+			];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
+			vi.stubGlobal('fetch', fetchSpy);
+			const onselect = vi.fn();
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onclose: vi.fn() } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			await fireEvent.click(screen.getByText('Ruy Lopez'));
+
+			// Truncated to the shared first 3 plies — the diverging 4th/5th moves
+			// (a6/Ba4 vs O-O/d3) are never shown.
+			const groupButton = screen.getByText('1.e4 e5 2.Nf3').closest('button')!;
+			expect(groupButton.textContent).toContain('(2)');
+			expect(screen.queryByText('label:v1')).toBeNull();
+			expect(screen.queryByText('label:v2')).toBeNull();
+
+			await fireEvent.click(groupButton);
+			expect(onselect).toHaveBeenCalledTimes(1);
+			expect(['v1', 'v2']).toContain(onselect.mock.calls[0][0]);
+		});
+
+		it('shows a fully-paused ceiling group as done and disabled, without requiring a visit to each member', async () => {
+			const rows = [
+				row('v1', ['e4', 'e5', 'Nf3', 'a6', 'Ba4'], ['Ruy Lopez'], { ceilingMoveCount: 3, locked: true }),
+				row('v2', ['e4', 'e5', 'Nf3', 'O-O', 'd3'], ['Ruy Lopez'], { ceilingMoveCount: 3, locked: true })
+			];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
+			vi.stubGlobal('fetch', fetchSpy);
+			const onselect = vi.fn();
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onclose: vi.fn() } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			await fireEvent.click(screen.getByText('Ruy Lopez'));
+
+			const groupButton = screen.getByText('1.e4 e5 2.Nf3').closest('button')!;
+			expect(groupButton.textContent).toContain('Finish your current level first');
+			expect(groupButton).toBeDisabled();
+			await fireEvent.click(groupButton);
+			expect(onselect).not.toHaveBeenCalled();
+		});
+
+		it('keeps a ceiling group clickable and targets a not-yet-paused member when only some siblings are already paused', async () => {
+			const rows = [
+				row('v1', ['e4', 'e5', 'Nf3', 'a6', 'Ba4'], ['Ruy Lopez'], { ceilingMoveCount: 3, locked: true }),
+				row('v2', ['e4', 'e5', 'Nf3', 'O-O', 'd3'], ['Ruy Lopez'], { ceilingMoveCount: 3, locked: false })
+			];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
+			vi.stubGlobal('fetch', fetchSpy);
+			const onselect = vi.fn();
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onclose: vi.fn() } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			await fireEvent.click(screen.getByText('Ruy Lopez'));
+
+			const groupButton = screen.getByText('1.e4 e5 2.Nf3').closest('button')!;
+			expect(groupButton).not.toBeDisabled();
+			await fireEvent.click(groupButton);
+			expect(onselect).toHaveBeenCalledWith('v2'); // the not-yet-paused member
+		});
+
+		it('does not group or truncate a variation whose own line never exceeds the ceiling', async () => {
+			const rows = [row('v1', ['e4', 'e5'], ['Italian Game'], { ceilingMoveCount: 3 })];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
+			vi.stubGlobal('fetch', fetchSpy);
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect: vi.fn(), onclose: vi.fn() } });
+
+			await waitFor(() => screen.getByText('Italian Game'));
+			await fireEvent.click(screen.getByText('Italian Game'));
+			// Short enough to fit entirely under the ceiling — rendered via the
+			// existing regular grouping (its own full label), not swept into a
+			// ceiling-clipped entry.
+			expect(screen.getByText('label:v1')).toBeTruthy();
+		});
+
+		it('a solved variation is never treated as a frontier row, even if it is long', async () => {
+			const rows = [row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6'], ['Ruy Lopez'], { ceilingMoveCount: 3, solved: true })];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
+			vi.stubGlobal('fetch', fetchSpy);
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect: vi.fn(), onclose: vi.fn() } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			await fireEvent.click(screen.getByText('Ruy Lopez'));
+			// Solved -> shown via the regular path with its own full label, not
+			// truncated to the ceiling.
+			expect(screen.getByText('label:v1')).toBeTruthy();
 		});
 	});
 });
