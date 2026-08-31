@@ -239,23 +239,34 @@
 	}
 
 	/**
-	 * Scrolls a row/group button into view the moment it mounts, if it's the
-	 * one currently being taught — GitHub issue #174. Ceiling (frontier)
-	 * groups always render before regular ones (see `pickerEntries`'s own
-	 * doc comment), and a chapter can hold a dozen+ of them, several already
+	 * Scrolls a row/group button into view the moment it BECOMES the one
+	 * currently being taught — GitHub issue #174. Ceiling (frontier) groups
+	 * always render before regular ones (see `pickerEntries`'s own doc
+	 * comment), and a chapter can hold a dozen+ of them, several already
 	 * fully paused from an earlier session; the active line can easily be a
 	 * short "regular" group sorted well below all of that. Without this, the
 	 * player opens the picker to a wall of unrelated, often already-resolved
 	 * rows with no cue that what they're actually being taught is further
-	 * down. Only ever needs to run once per row's lifetime (an active row
-	 * doesn't move once it exists), so a plain Svelte action — no update
-	 * handler — is enough; scrolling again on every reactive update would
-	 * fight the player's own manual scrolling.
+	 * down.
+	 *
+	 * Re-scrolls on a false→true transition (`update`), not just on mount —
+	 * a group that's already open and mounted (e.g. a drilled-in regular
+	 * group) can have the active variation advance to a DIFFERENT row inside
+	 * it, in the same-open, no-remount case a mount-only action would miss.
+	 * Deliberately does NOT re-scroll on every call where `active` stays
+	 * true, or a still-active row would keep fighting the player's own
+	 * manual scrolling on every unrelated reactive update.
 	 */
 	function scrollIntoViewIfActive(node: HTMLElement, active: boolean) {
-		// Optional chaining: jsdom (component tests) doesn't implement
-		// `scrollIntoView` at all, unlike a real browser.
-		if (active) node.scrollIntoView?.({ block: 'nearest' });
+		let wasActive = false;
+		const maybeScroll = (nowActive: boolean) => {
+			// Optional chaining: jsdom (component tests) doesn't implement
+			// `scrollIntoView` at all, unlike a real browser.
+			if (nowActive && !wasActive) node.scrollIntoView?.({ block: 'nearest' });
+			wasActive = nowActive;
+		};
+		maybeScroll(active);
+		return { update: maybeScroll };
 	}
 
 	const activeChapter = $derived(chapters === null ? null : openChapter);
@@ -322,15 +333,16 @@
 		<button onclick={() => (openGroupIndex = null)} class="text-(--color-accent) text-sm mb-2 hover:underline">{m.variation_picker_back()}</button>
 		<ul class="space-y-1">
 			{#each openGroup.items as row (row.variationKey)}
+				{@const active = isActive(row.variationKey)}
 				<li>
 					<button
 						disabled={row.locked}
 						onclick={() => {
 							if (!row.locked) onselect(row.variationKey);
 						}}
-						use:scrollIntoViewIfActive={isActive(row.variationKey)}
+						use:scrollIntoViewIfActive={active}
 						title={statusTitle(row.locked, row.solved)}
-						class="relative block w-full text-left px-3 py-2 pr-8 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) {isActive(row.variationKey)
+						class="relative block w-full text-left px-3 py-2 pr-8 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) {active
 							? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10'
 							: ''} {row.locked ? 'opacity-50 cursor-not-allowed' : ''}"
 					>
@@ -353,6 +365,7 @@
 			{#each currentEntries as entry, i (entry.kind === 'ceiling' ? `ceiling-${entry.group.steps.map((s) => s.moveId).join('>')}` : entry.group.steps.map((s) => s.san).join('>') || `other-${i}`)}
 				{#if entry.kind === 'ceiling'}
 					{@const done = ceilingGroupDone(entry.group)}
+					{@const active = groupHasActive(entry.group)}
 					<li>
 						<button
 							disabled={done}
@@ -362,9 +375,9 @@
 									if (representative) onselect(representative.variationKey);
 								}
 							}}
-							use:scrollIntoViewIfActive={groupHasActive(entry.group)}
+							use:scrollIntoViewIfActive={active}
 							title={statusTitle(done, false)}
-							class="relative block w-full text-left px-3 py-2 pr-12 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) font-medium {groupHasActive(entry.group)
+							class="relative block w-full text-left px-3 py-2 pr-12 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) font-medium {active
 								? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10'
 								: ''} {done ? 'opacity-50 cursor-not-allowed' : ''}"
 						>
@@ -381,6 +394,7 @@
 					</li>
 				{:else}
 					{@const only = soleVariation(entry.group)}
+					{@const active = only ? isActive(only.variationKey) : groupHasActive(entry.group)}
 					<li>
 						<!-- A group of one IS a variation, so it selects straight into
 						     practice and renders like a variation row (own full label,
@@ -395,11 +409,11 @@
 									openGroupIndex = i;
 								}
 							}}
-							use:scrollIntoViewIfActive={only ? isActive(only.variationKey) : groupHasActive(entry.group)}
+							use:scrollIntoViewIfActive={active}
 							title={statusTitle(only?.locked ?? false, only?.solved ?? false)}
 							class="relative block w-full text-left px-3 py-2 {only ? 'pr-8' : 'pr-12'} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) {only
 								? ''
-								: 'font-medium'} {groupHasActive(entry.group) ? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10' : ''} {only?.locked
+								: 'font-medium'} {active ? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10' : ''} {only?.locked
 								? 'opacity-50 cursor-not-allowed'
 								: ''}"
 						>

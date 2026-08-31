@@ -5,7 +5,13 @@ import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/sv
 import VariationPicker from './VariationPicker.svelte';
 import { UNTAGGED_CHAPTER } from '$lib/mastery/variations';
 
-afterEach(() => cleanup());
+afterEach(() => {
+	cleanup();
+	// A few tests below patch this directly (jsdom doesn't implement it at
+	// all) — undo it so it doesn't leak into unrelated tests/files sharing
+	// this worker.
+	delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+});
 
 // Builds a realistic VariationStep[] with correctly alternating side-to-move
 // and move-number FEN fields, so moveSequenceLabel's numbering (used for
@@ -276,7 +282,7 @@ describe('VariationPicker', () => {
 			expect(activeButton.className).toContain('ring-2');
 		});
 
-		it('scrolls the active variation row into view (GitHub issue #174 — active row buried below other groups)', async () => {
+		it('scrolls the active variation row into view when it renders directly as a sole regular group (GitHub issue #174 — active row buried below other groups)', async () => {
 			// jsdom doesn't implement scrollIntoView at all — stand one in so the
 			// action (`scrollIntoViewIfActive`) has something to call.
 			const scrollIntoView = vi.fn();
@@ -291,9 +297,38 @@ describe('VariationPicker', () => {
 			expect(scrollIntoView).toHaveBeenCalled();
 		});
 
+		it('re-scrolls when the active variation moves to a different, already-mounted row in the same open group (no remount)', async () => {
+			// v1/v2 share their first 10 plies (groupByFirstMoves's own window)
+			// and diverge only after it, so both land in ONE regular group that
+			// requires drilling in — both rows mount together, and neither
+			// row's own DOM node is destroyed when the active one changes from
+			// one to the other. A mount-only action (no `update`) would only
+			// ever scroll the FIRST of the two to become active, never the
+			// second — exactly the gap this test guards against.
+			const scrollIntoView = vi.fn();
+			HTMLElement.prototype.scrollIntoView = scrollIntoView;
+			const shared = ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7'];
+			const rows = [row('v1', [...shared, 'Re1'], ['Ruy Lopez']), row('v2', [...shared, 'd3'], ['Ruy Lopez'])];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
+			vi.stubGlobal('fetch', fetchSpy);
+			const { rerender } = render(VariationPicker, {
+				props: { repertoireId: 'rep-1', onselect: vi.fn(), variant: 'inline', currentVariationKey: 'v1' }
+			});
+
+			await waitFor(() => screen.getByText('label:v1'));
+			screen.getByText('label:v2'); // both rows already mounted side by side
+			expect(scrollIntoView).toHaveBeenCalledTimes(1);
+
+			await rerender({ repertoireId: 'rep-1', onselect: vi.fn(), variant: 'inline', currentVariationKey: 'v2' });
+
+			await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(2));
+		});
+
 		it('auto-opens to a ceiling group holding the current variation, rendering it directly without drill-in', async () => {
 			// Two variations sharing prefix past the ceiling — they land in one
 			// ceiling-clipped group together.
+			const scrollIntoView = vi.fn();
+			HTMLElement.prototype.scrollIntoView = scrollIntoView;
 			const rows = [
 				row('v1', ['e4', 'e5', 'Nf3', 'a6', 'Ba4'], ['Ruy Lopez'], { ceilingMoveCount: 3 }),
 				row('v2', ['e4', 'e5', 'Nf3', 'O-O', 'd3'], ['Ruy Lopez'], { ceilingMoveCount: 3 })
@@ -312,6 +347,7 @@ describe('VariationPicker', () => {
 			// Verify it's highlighted as active (contains ring-2 class)
 			const ceilingButton = screen.getByText(/1\.e4 e5 2\.Nf3/).closest('button')!;
 			expect(ceilingButton.className).toContain('ring-2');
+			expect(scrollIntoView).toHaveBeenCalled();
 
 			// Verify no drill-in happened: the leaf variations are not visible
 			// (they only appear when openGroup is set, i.e., when drilling into a regular group)
