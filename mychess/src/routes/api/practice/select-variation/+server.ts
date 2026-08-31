@@ -47,14 +47,19 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const ceilingMoveCount = teachingCeilingMoveCount(allVariations, solvedKeys);
 
 	if (!solvedKeys.has(variationKey)) {
-		// Shared-credit-aware, matching the picker's own `locked` computation
-		// (GET /api/repertoires/[id]/variations) — a never-visited variation
-		// whose entire visible opening is already mastered via a sibling must
-		// be rejected here too, or this "real" gate would disagree with what
-		// the picker displays as locked (GitHub issue #168).
+		// Shared-credit-aware (GitHub issue #168) and, deliberately, over the
+		// same FILTERED `variations` pool `buildPracticeView` below will
+		// itself use for the exact same computation (mastery/practice.ts) —
+		// not `allVariations`. `knownProgressFor`'s own doc comment requires
+		// this: the two calls "must agree exactly, or the server records
+		// progress against a different step than the one it served." Using
+		// the bigger, unfiltered pool here could credit more shared mastery
+		// than the serve step actually will (excluded siblings can only ever
+		// ADD credit, never remove it), which could reject a pick that
+		// `buildPracticeView` would in fact have served just fine.
 		const { masteredPlies } = knownProgressFor({
 			variation: picked,
-			variations: allVariations,
+			variations,
 			teachingProgress,
 			solvedKeys,
 			resumedAfterBreak: false

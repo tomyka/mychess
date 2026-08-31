@@ -268,9 +268,17 @@ export function knownProgressFor(args: {
 	teachingProgress: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number }>;
 	solvedKeys: ReadonlySet<string>;
 	resumedAfterBreak: boolean;
+	// Precomputed `computeMasteredMoveIds(variations, teachingProgress, solvedKeys)`,
+	// for a caller (`computeBlockedKeys`) that calls this once per variation
+	// in a repertoire — recomputing the whole-repertoire mastered-moveId set
+	// on every one of those calls would be O(n²) in variation count for no
+	// reason, since the set itself doesn't depend on which variation is being
+	// asked about. Optional so every other caller (asking about exactly one
+	// variation) is unaffected.
+	masteredMoveIds?: ReadonlySet<string>;
 }): { taughtPlies: number; masteredPlies: number } {
 	const own = args.teachingProgress.get(args.variation.variationKey) ?? { taughtPlies: 0, masteredPlies: 0 };
-	const masteredMoveIds = computeMasteredMoveIds(args.variations, args.teachingProgress, args.solvedKeys);
+	const masteredMoveIds = args.masteredMoveIds ?? computeMasteredMoveIds(args.variations, args.teachingProgress, args.solvedKeys);
 	const sharedFloor = sharedMasteredPrefixLength(args.variation.path, masteredMoveIds);
 	return effectiveProgress({
 		ownTaughtPlies: own.taughtPlies,
@@ -304,6 +312,10 @@ export function computeBlockedKeys(
 	teachingProgress: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number }>,
 	ceilingMoveCount: number
 ): Set<string> {
+	// Computed once, not once per variation: this set doesn't depend on which
+	// variation is being checked, and recomputing it inside the loop below
+	// would make this function quadratic in variation count.
+	const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, solvedKeys);
 	const blocked = new Set<string>();
 	for (const variation of variations) {
 		if (solvedKeys.has(variation.variationKey)) continue;
@@ -312,7 +324,8 @@ export function computeBlockedKeys(
 			variations,
 			teachingProgress,
 			solvedKeys,
-			resumedAfterBreak: false
+			resumedAfterBreak: false,
+			masteredMoveIds
 		});
 		if (isPausedAtCeiling(variation.path, masteredPlies, ceilingMoveCount)) blocked.add(variation.variationKey);
 	}
