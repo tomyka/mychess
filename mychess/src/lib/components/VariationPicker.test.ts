@@ -168,6 +168,8 @@ describe('VariationPicker', () => {
 		// no "(1)" count — not like a folder.
 		const soleRow = screen.getByText('label:v1').closest('button')!;
 		expect(soleRow.textContent).toContain('✓');
+		expect(soleRow.getAttribute('title')).toBe('Already learned');
+		expect(soleRow.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe('Already learned');
 		expect(screen.queryByText('(1)')).toBeNull();
 
 		// One click straight into practice — no intermediate tier.
@@ -385,9 +387,24 @@ describe('VariationPicker', () => {
 			// label wrapped several lines).
 			expect(lockedRow.textContent).toContain('🔒');
 			expect(lockedRow.getAttribute('title')).toBe('Finish your current level first');
+			// The icon carries its own accessible name (role="img" + aria-label),
+			// not aria-hidden — otherwise the lock status is announced to no one,
+			// a regression from when it was plain visible text.
+			expect(lockedRow.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe('Finish your current level first');
 			expect(lockedRow).toBeDisabled();
 			await fireEvent.click(lockedRow);
 			expect(onselect).not.toHaveBeenCalled();
+		});
+
+		it('shows a one-line legend explaining the lock/learned icons above the leaf-row list', async () => {
+			const rows = [row('v1', ['e4', 'e5', 'Nf3'], ['Ruy Lopez'], { locked: true })];
+			vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => rows }));
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect: vi.fn(), onclose: vi.fn() } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			await fireEvent.click(screen.getByText('Ruy Lopez'));
+
+			expect(screen.getByText('🔒 locked · ✓ learned')).toBeTruthy();
 		});
 
 		it("a mixed bucket (one locked, one not) stays enterable, and shows each row's own lock state", async () => {

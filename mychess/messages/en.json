@@ -378,6 +378,7 @@
 	"variation_picker_other_group_label": "Other",
 	"variation_picker_back": "← Back",
 	"variation_picker_locked_reason": "Finish your current level first",
+	"variation_picker_learned_reason": "Already learned",
 	"variation_picker_legend": "🔒 locked · ✓ learned",
 	"repertoire_row_include_aria": "Include {name} in practice",
 	"repertoire_row_expand_aria": "Expand {name}",

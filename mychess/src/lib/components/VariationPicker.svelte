@@ -187,6 +187,18 @@
 	}
 
 	/**
+	 * The full locked/learned reason, as a tooltip on a row/group — `undefined`
+	 * (no `title` attribute at all) for a row that's neither. `locked` and
+	 * `solved` are never both true (see `VariationRow.locked`'s own doc
+	 * comment), so this always resolves to at most one reason.
+	 */
+	function statusTitle(locked: boolean, solved: boolean): string | undefined {
+		if (locked) return m.variation_picker_locked_reason();
+		if (solved) return m.variation_picker_learned_reason();
+		return undefined;
+	}
+
+	/**
 	 * The row to start teaching when the caller only has a SET of rows to
 	 * choose from, not a specific one — a ceiling group's members (GitHub
 	 * issue #165) or a chapter's own rows (GitHub issue #170). Same
@@ -254,6 +266,14 @@
 	});
 </script>
 
+{#snippet cornerBadge(icon: string, extraClass: string, label?: string)}
+	{#if label}
+		<span class="absolute top-2 right-2 {extraClass}" role="img" aria-label={label}>{icon}</span>
+	{:else}
+		<span class="absolute top-2 right-2 {extraClass}">{icon}</span>
+	{/if}
+{/snippet}
+
 {#snippet body()}
 	<div class="flex items-center justify-between mb-3">
 		<h2 class="font-bold text-(--color-text)">{m.variation_picker_heading()}</h2>
@@ -268,16 +288,17 @@
 		{:else}
 			<p class="text-sm text-(--color-muted)">{m.variation_picker_loading()}</p>
 		{/if}
-	{:else}
-	<!-- A corner icon (not inline text) marks a locked/learned row — GitHub
-	     issue #173: an untagged repertoire's rows are full, unshortened move
-	     sequences that can wrap several lines in this narrow rail, and inline
-	     status text sitting in a `justify-between` flex row got vertically
-	     centered against the whole wrapped paragraph instead of anchoring
-	     near the text it describes. A legend spells out what the icons mean
-	     once, since they no longer carry their own label. -->
-	<p class="text-xs text-(--color-muted) mb-2">{m.variation_picker_legend()}</p>
-	{#if openGroup}
+	{:else if openGroup}
+		<!-- A corner icon (not inline text) marks a locked/learned row — GitHub
+		     issue #173: an untagged repertoire's rows are full, unshortened move
+		     sequences that can wrap several lines in this narrow rail, and inline
+		     status text sitting in a `justify-between` flex row got vertically
+		     centered against the whole wrapped paragraph instead of anchoring
+		     near the text it describes. A legend spells out what the icons mean
+		     once, since they no longer carry their own label — shown only on the
+		     leaf-row views below, where the icons actually appear, not on the
+		     top-level chapter list. -->
+		<p class="text-xs text-(--color-muted) mb-2">{m.variation_picker_legend()}</p>
 		<button onclick={() => (openGroupIndex = null)} class="text-(--color-accent) text-sm mb-2 hover:underline">{m.variation_picker_back()}</button>
 		<ul class="space-y-1">
 			{#each openGroup.items as row (row.variationKey)}
@@ -287,22 +308,23 @@
 						onclick={() => {
 							if (!row.locked) onselect(row.variationKey);
 						}}
-						title={row.locked ? m.variation_picker_locked_reason() : undefined}
+						title={statusTitle(row.locked, row.solved)}
 						class="relative block w-full text-left px-3 py-2 pr-8 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) {isActive(row.variationKey)
 							? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10'
 							: ''} {row.locked ? 'opacity-50 cursor-not-allowed' : ''}"
 					>
 						{row.label}
 						{#if row.locked}
-							<span class="absolute top-2 right-2 text-xs" aria-hidden="true">🔒</span>
+							{@render cornerBadge('🔒', 'text-xs', m.variation_picker_locked_reason())}
 						{:else if row.solved}
-							<span class="absolute top-2 right-2 text-green-600 dark:text-green-400 text-sm" aria-hidden="true">✓</span>
+							{@render cornerBadge('✓', 'text-green-600 dark:text-green-400 text-sm', m.variation_picker_learned_reason())}
 						{/if}
 					</button>
 				</li>
 			{/each}
 		</ul>
 	{:else if activeChapter !== null || chapters === null}
+		<p class="text-xs text-(--color-muted) mb-2">{m.variation_picker_legend()}</p>
 		{#if chapters !== null}
 			<button onclick={() => (openChapter = null)} class="text-(--color-accent) text-sm mb-2 hover:underline">{m.variation_picker_back()}</button>
 		{/if}
@@ -319,18 +341,18 @@
 									if (representative) onselect(representative.variationKey);
 								}
 							}}
-							title={done ? m.variation_picker_locked_reason() : undefined}
+							title={statusTitle(done, false)}
 							class="relative block w-full text-left px-3 py-2 pr-12 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) font-medium {groupHasActive(entry.group)
 								? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10'
 								: ''} {done ? 'opacity-50 cursor-not-allowed' : ''}"
 						>
 							{moveSequenceLabel(entry.group.steps)}
-							<span class="absolute top-2 right-2 flex items-center gap-1.5" aria-hidden="true">
+							<span class="absolute top-2 right-2 flex items-center gap-1.5">
 								{#if entry.group.items.length > 1}
 									<span class="text-(--color-muted) text-sm">({entry.group.items.length})</span>
 								{/if}
 								{#if done}
-									<span class="text-xs">🔒</span>
+									<span class="text-xs" role="img" aria-label={m.variation_picker_locked_reason()}>🔒</span>
 								{/if}
 							</span>
 						</button>
@@ -351,7 +373,7 @@
 									openGroupIndex = i;
 								}
 							}}
-							title={only?.locked ? m.variation_picker_locked_reason() : undefined}
+							title={statusTitle(only?.locked ?? false, only?.solved ?? false)}
 							class="relative block w-full text-left px-3 py-2 {only ? 'pr-8' : 'pr-12'} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) {only
 								? ''
 								: 'font-medium'} {groupHasActive(entry.group) ? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10' : ''} {only?.locked
@@ -361,12 +383,12 @@
 							{only ? only.label : groupLabel(entry.group)}
 							{#if only}
 								{#if only.locked}
-									<span class="absolute top-2 right-2 text-xs" aria-hidden="true">🔒</span>
+									{@render cornerBadge('🔒', 'text-xs', m.variation_picker_locked_reason())}
 								{:else if only.solved}
-									<span class="absolute top-2 right-2 text-green-600 dark:text-green-400 text-sm" aria-hidden="true">✓</span>
+									{@render cornerBadge('✓', 'text-green-600 dark:text-green-400 text-sm', m.variation_picker_learned_reason())}
 								{/if}
 							{:else}
-								<span class="absolute top-2 right-2 text-(--color-muted) text-sm" aria-hidden="true">({entry.group.items.length})</span>
+								{@render cornerBadge(`(${entry.group.items.length})`, 'text-(--color-muted) text-sm')}
 							{/if}
 						</button>
 					</li>
@@ -398,7 +420,6 @@
 				</li>
 			{/each}
 		</ul>
-	{/if}
 	{/if}
 {/snippet}
 
