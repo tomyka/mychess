@@ -111,17 +111,45 @@
 		return !row.solved && ceilingPlyFor(row.path, ceilingMoveCount) < row.path.length;
 	}
 
+	// Bumped on every load() call so an out-of-order response (a slow first
+	// fetch resolving after a newer one already landed) can't overwrite
+	// fresher data with stale data.
+	let loadToken = 0;
+
 	async function load() {
+		const myToken = ++loadToken;
 		try {
 			const res = await fetch(`/api/repertoires/${repertoireId}/variations`);
 			if (!res.ok) throw new Error('load failed');
-			variations = await res.json();
+			const data = await res.json();
+			if (myToken !== loadToken) return;
+			variations = data;
 			errorMessage = null;
 		} catch {
+			if (myToken !== loadToken) return;
 			errorMessage = m.variation_picker_load_error();
 		}
 	}
-	load();
+
+	/**
+	 * Re-fetches whenever the active variation changes, not just once at
+	 * mount — GitHub issue #175. The inline rail is resident for the
+	 * player's whole Learn session and never remounts, so without this its
+	 * locked/solved icons go stale as teaching progresses: pausing or
+	 * solving a variation always advances `currentVariationKey` to
+	 * whatever's served next, which is the one reliable signal that ANY
+	 * row's status may have changed. This is exactly what `autoOpenedFor`'s
+	 * own guard above was already built to tolerate ("every subsequent
+	 * load()") — the reactive trigger to actually call it again was simply
+	 * never wired up. A harmless no-op for the modal variant, which
+	 * remounts (and re-fetches) fresh every time it opens.
+	 */
+	$effect(() => {
+		// Reading it (not just closing over it) is what makes this effect a
+		// reactive dependent on it — see the doc comment above for why.
+		void currentVariationKey;
+		load();
+	});
 
 	function includedRows(): VariationRow[] {
 		return (variations ?? []).filter((r) => isIncludedFor(r, null));

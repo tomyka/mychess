@@ -258,6 +258,52 @@ describe('VariationPicker', () => {
 			expect(screen.queryByLabelText('Close')).toBeNull();
 		});
 
+		it('re-fetches when the active variation changes, not just once at mount (GitHub issue #175)', async () => {
+			// The inline rail is resident for the whole Learn session and never
+			// remounts — without a live re-fetch, a row's locked/solved status
+			// would freeze at whatever it was on first load, even after the
+			// player actually paused or solved something server-side.
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
+			vi.stubGlobal('fetch', fetchSpy);
+			const { rerender } = render(VariationPicker, {
+				props: { repertoireId: 'rep-1', onselect: vi.fn(), variant: 'inline', currentVariationKey: 'v1' }
+			});
+
+			await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+
+			await rerender({ repertoireId: 'rep-1', onselect: vi.fn(), variant: 'inline', currentVariationKey: 'v2' });
+
+			await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+		});
+
+		it('does not let a slow, superseded fetch response overwrite fresher data (GitHub issue #175)', async () => {
+			let resolveFirst!: (value: unknown) => void;
+			const fetchSpy = vi
+				.fn()
+				.mockImplementationOnce(
+					() =>
+						new Promise((resolve) => {
+							resolveFirst = resolve;
+						})
+				)
+				.mockResolvedValueOnce({ ok: true, json: async () => variationsResponse });
+			vi.stubGlobal('fetch', fetchSpy);
+			const { rerender } = render(VariationPicker, {
+				props: { repertoireId: 'rep-1', onselect: vi.fn(), variant: 'inline', currentVariationKey: 'v1' }
+			});
+
+			// A second load fires (and resolves) before the first one does.
+			await rerender({ repertoireId: 'rep-1', onselect: vi.fn(), variant: 'inline', currentVariationKey: 'v2' });
+			await waitFor(() => screen.getByText('label:v2'));
+
+			// The first (now-stale) response finally arrives — it must not
+			// clobber what the second, newer response already rendered.
+			resolveFirst({ ok: true, json: async () => [row('stale', ['e4'], ['Stale Chapter'])] });
+			await new Promise((r) => setTimeout(r, 0));
+			expect(screen.queryByText('Stale Chapter')).toBeNull();
+			expect(screen.getByText('label:v2')).toBeTruthy();
+		});
+
 		it('auto-opens straight to the chapter and bucket holding the current variation', async () => {
 			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
 			vi.stubGlobal('fetch', fetchSpy);
