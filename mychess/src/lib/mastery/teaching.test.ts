@@ -8,7 +8,8 @@ import {
 	isLastPlayerMove,
 	knownProgressFor,
 	ceilingPlyFor,
-	isPausedAtCeiling
+	isPausedAtCeiling,
+	computeBlockedKeys
 } from './teaching';
 import type { Variation, VariationStep } from './variations';
 
@@ -589,5 +590,52 @@ describe('isPausedAtCeiling', () => {
 		const p = path(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O']);
 		const ceilingPly = ceilingPlyFor(p, 2);
 		expect(isPausedAtCeiling(p, ceilingPly - 1, 2)).toBe(false);
+	});
+});
+
+describe('computeBlockedKeys (GitHub issue #168/#171 — shared-credit-aware)', () => {
+	it('blocks a never-visited sibling whose entire path is already covered by another variation reaching the ceiling', () => {
+		// Both share the exact same first 2 player moves (same moveIds via
+		// the shared `path` prefix) and diverge nowhere within the ceiling —
+		// `sibling` is a plain prefix of `taught`, so it has nothing left to
+		// teach once `taught` reaches the ceiling.
+		const taughtPath = path(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6']); // 3 player moves
+		const sibling = makeVariation('sibling', taughtPath.slice(0, 4)); // 'e4 e5 Nf3 Nc6' — 2 player moves
+		const taught = makeVariation('taught', taughtPath);
+		const ceilingPly = ceilingPlyFor(taughtPath, 2);
+
+		const blocked = computeBlockedKeys(
+			[taught, sibling],
+			new Set(),
+			new Map([['taught', { taughtPlies: ceilingPly, masteredPlies: ceilingPly }]]),
+			2
+		);
+
+		expect(blocked.has('sibling')).toBe(true);
+		expect(blocked.has('taught')).toBe(true);
+	});
+
+	it('does not block a sibling whose own final move (right at the ceiling) was never individually taught', () => {
+		// Both share moves 0-1 ('s0'/'s1'), then diverge at ply 2 ('t2' vs
+		// 'u2') — the sibling's own divergent move is its 2nd player move,
+		// exactly the ceiling boundary, so it's still legitimately servable
+		// (current per-variation design, GitHub issue #172) rather than
+		// already blocked by the OTHER variation having reached the ceiling
+		// via a different 2nd move.
+		const step = (moveId: string, isPlayerTurn: boolean): VariationStep => ({ moveId, san: moveId, fromFen: 'x', toFen: 'y', isPlayerTurn });
+		const shared = [step('s0', true), step('s1', false)];
+		const taught = makeVariation('taught', [...shared, step('t2', true), step('t3', false), step('t4', true), step('t5', false)]);
+		const sibling = makeVariation('sibling', [...shared, step('u2', true), step('u3', false)]);
+		const ceilingPly = ceilingPlyFor(taught.path, 2); // after the 2nd player move: s0, s1, t2
+
+		const blocked = computeBlockedKeys(
+			[taught, sibling],
+			new Set(),
+			new Map([['taught', { taughtPlies: ceilingPly, masteredPlies: ceilingPly }]]),
+			2
+		);
+
+		expect(blocked.has('taught')).toBe(true);
+		expect(blocked.has('sibling')).toBe(false);
 	});
 });

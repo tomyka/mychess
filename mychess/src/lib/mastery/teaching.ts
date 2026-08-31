@@ -289,17 +289,31 @@ export function knownProgressFor(args: {
  * (`applyAttemptResult`, `server/practice-progress.ts`) — those two must
  * agree exactly on what's blocked, never compute it independently, which is
  * why this lives here rather than as a local helper in either caller.
+ *
+ * Shared-credit-aware (`knownProgressFor`), not each variation's own raw
+ * progress row - matching the picker's `locked` display (GitHub issue #165)
+ * and `select-variation`'s own rejection (#168): a never-visited variation
+ * whose entire visible opening is already mastered via a sibling sharing
+ * those moves must be treated as blocked immediately too, or it gets picked
+ * as "next" and re-teaches a supposedly-new final move that's actually still
+ * within the tier the ceiling already spent on its siblings.
  */
 export function computeBlockedKeys(
 	variations: Variation[],
 	solvedKeys: ReadonlySet<string>,
-	teachingProgress: ReadonlyMap<string, { masteredPlies: number }>,
+	teachingProgress: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number }>,
 	ceilingMoveCount: number
 ): Set<string> {
 	const blocked = new Set<string>();
 	for (const variation of variations) {
 		if (solvedKeys.has(variation.variationKey)) continue;
-		const masteredPlies = teachingProgress.get(variation.variationKey)?.masteredPlies ?? 0;
+		const { masteredPlies } = knownProgressFor({
+			variation,
+			variations,
+			teachingProgress,
+			solvedKeys,
+			resumedAfterBreak: false
+		});
 		if (isPausedAtCeiling(variation.path, masteredPlies, ceilingMoveCount)) blocked.add(variation.variationKey);
 	}
 	return blocked;

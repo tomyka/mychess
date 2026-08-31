@@ -4,7 +4,7 @@ import type { RequestHandler } from './$types';
 import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
 import { filterVariations } from '$lib/mastery/variations';
 import { teachingCeilingMoveCount } from '$lib/mastery/chapterLevels';
-import { isPausedAtCeiling } from '$lib/mastery/teaching';
+import { isPausedAtCeiling, knownProgressFor } from '$lib/mastery/teaching';
 import { setActiveVariationKey, loadSolvedKeys, loadTeachingProgress } from '$lib/server/practice-progress';
 import { requireApiUser } from '$lib/server/auth';
 import { buildPracticeView } from '$lib/mastery/practice';
@@ -47,7 +47,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const ceilingMoveCount = teachingCeilingMoveCount(allVariations, solvedKeys);
 
 	if (!solvedKeys.has(variationKey)) {
-		const masteredPlies = teachingProgress.get(variationKey)?.masteredPlies ?? 0;
+		// Shared-credit-aware, matching the picker's own `locked` computation
+		// (GET /api/repertoires/[id]/variations) — a never-visited variation
+		// whose entire visible opening is already mastered via a sibling must
+		// be rejected here too, or this "real" gate would disagree with what
+		// the picker displays as locked (GitHub issue #168).
+		const { masteredPlies } = knownProgressFor({
+			variation: picked,
+			variations: allVariations,
+			teachingProgress,
+			solvedKeys,
+			resumedAfterBreak: false
+		});
 		if (isPausedAtCeiling(picked.path, masteredPlies, ceilingMoveCount)) {
 			throw error(403, 'This line is locked until you finish your current tier');
 		}

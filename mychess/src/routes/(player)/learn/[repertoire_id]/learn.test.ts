@@ -381,7 +381,7 @@ describe('learn detail page', () => {
 			});
 		});
 
-		it('shows an error and leaves the board unchanged when the select-variation request fails', async () => {
+		it('shows the tier-locked message (not the generic error) when select-variation 403s, and leaves the board unchanged', async () => {
 			vi.stubGlobal(
 				'fetch',
 				vi.fn((url: string) => {
@@ -436,8 +436,69 @@ describe('learn detail page', () => {
 			// v2 is locked, so its own leaf row is disabled — the chapter-click
 			// auto-select is what actually fires the (failing) request here.
 
-			await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+			// "Try again" would be misleading for a 403 — the tier lock doesn't
+			// clear by retrying, so this must be the distinct locked message,
+			// not the generic learn_select_variation_error banner.
+			await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/locked/i));
 			// Board stays on v1 — the failed request never got applied.
+			expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(v1Attempt.path[0].fromFen);
+		});
+
+		it('shows the generic try-again error (not the locked message) when select-variation fails for a non-403 reason', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((url: string) => {
+					if (typeof url === 'string' && url.includes('/variations')) {
+						return Promise.resolve({
+							ok: true,
+							json: async () => [
+								{
+									variationKey: 'v1',
+									label: '1.e4',
+									includedByChapter: { 'Open Games': true },
+									chapterNames: ['Open Games'],
+									path: v1Attempt.path,
+									solved: false,
+									locked: false,
+									ceilingMoveCount: Infinity
+								},
+								{
+									variationKey: 'v2',
+									label: '1.d4',
+									includedByChapter: { "Queen's Pawn": true },
+									chapterNames: ["Queen's Pawn"],
+									path: v2Attempt.path,
+									solved: false,
+									locked: false,
+									ceilingMoveCount: Infinity
+								}
+							]
+						});
+					}
+					if (typeof url === 'string' && url.includes('/api/practice/select-variation')) {
+						return Promise.resolve({ ok: false, status: 404 });
+					}
+					return Promise.reject(new Error(`unmocked fetch in this test: ${url}`));
+				})
+			);
+			render(Practice, {
+				props: {
+					data: {
+						repertoire: { id: 'r1', name: 'Test Repertoire', color: 'white' },
+						solved: 0,
+						total: 2,
+						allSolved: false,
+						attempt: v1Attempt
+					}
+				}
+			});
+
+			await waitFor(() => screen.getByText('← Back'));
+			await fireEvent.click(screen.getByText('← Back'));
+			await fireEvent.click(screen.getByText("Queen's Pawn"));
+			await fireEvent.click(screen.getByText('1.d4'));
+
+			await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/try again/i));
 			expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(v1Attempt.path[0].fromFen);
 		});
 

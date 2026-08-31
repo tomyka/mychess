@@ -365,7 +365,11 @@
 				body: JSON.stringify({ repertoireId, variationKey })
 			});
 			if (!res.ok) {
-				selectError = m.learn_select_variation_error();
+				// A 403 means the server's own tier-ceiling gate rejected this pick
+				// (see select-variation's doc comment) — distinct from a generic
+				// failure, since "try again" is misleading here: retrying won't
+				// help until the current tier is actually cleared.
+				selectError = res.status === 403 ? m.learn_select_variation_locked() : m.learn_select_variation_error();
 				return;
 			}
 			selectError = null;
