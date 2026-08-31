@@ -116,7 +116,13 @@
 	// fresher data with stale data.
 	let loadToken = 0;
 
-	async function load() {
+	// `_currentVariationKey` is unused inside — `load` always fetches every
+	// row regardless of which one is active — but taking it as a real
+	// argument (rather than a bare `void`'d read in the caller) is what
+	// makes the `$effect` below read as "re-run this when the active
+	// variation changes," matching this codebase's existing pattern for the
+	// same shape of problem (see `requestIfDue(fen)` in `EvalBar.svelte`).
+	async function load(_currentVariationKey: string | null) {
 		const myToken = ++loadToken;
 		try {
 			const res = await fetch(`/api/repertoires/${repertoireId}/variations`);
@@ -145,10 +151,7 @@
 	 * remounts (and re-fetches) fresh every time it opens.
 	 */
 	$effect(() => {
-		// Reading it (not just closing over it) is what makes this effect a
-		// reactive dependent on it — see the doc comment above for why.
-		void currentVariationKey;
-		load();
+		load(currentVariationKey);
 	});
 
 	function includedRows(): VariationRow[] {
