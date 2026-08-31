@@ -268,7 +268,16 @@
 		{:else}
 			<p class="text-sm text-(--color-muted)">{m.variation_picker_loading()}</p>
 		{/if}
-	{:else if openGroup}
+	{:else}
+	<!-- A corner icon (not inline text) marks a locked/learned row — GitHub
+	     issue #173: an untagged repertoire's rows are full, unshortened move
+	     sequences that can wrap several lines in this narrow rail, and inline
+	     status text sitting in a `justify-between` flex row got vertically
+	     centered against the whole wrapped paragraph instead of anchoring
+	     near the text it describes. A legend spells out what the icons mean
+	     once, since they no longer carry their own label. -->
+	<p class="text-xs text-(--color-muted) mb-2">{m.variation_picker_legend()}</p>
+	{#if openGroup}
 		<button onclick={() => (openGroupIndex = null)} class="text-(--color-accent) text-sm mb-2 hover:underline">{m.variation_picker_back()}</button>
 		<ul class="space-y-1">
 			{#each openGroup.items as row (row.variationKey)}
@@ -278,15 +287,16 @@
 						onclick={() => {
 							if (!row.locked) onselect(row.variationKey);
 						}}
-						class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) flex items-center justify-between {isActive(row.variationKey)
+						title={row.locked ? m.variation_picker_locked_reason() : undefined}
+						class="relative block w-full text-left px-3 py-2 pr-8 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) {isActive(row.variationKey)
 							? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10'
 							: ''} {row.locked ? 'opacity-50 cursor-not-allowed' : ''}"
 					>
-						<span>{row.label}</span>
+						{row.label}
 						{#if row.locked}
-							<span class="text-xs text-(--color-muted)">{m.variation_picker_locked_reason()}</span>
+							<span class="absolute top-2 right-2 text-xs" aria-hidden="true">🔒</span>
 						{:else if row.solved}
-							<span class="text-green-600 dark:text-green-400 text-sm">✓</span>
+							<span class="absolute top-2 right-2 text-green-600 dark:text-green-400 text-sm" aria-hidden="true">✓</span>
 						{/if}
 					</button>
 				</li>
@@ -309,17 +319,18 @@
 									if (representative) onselect(representative.variationKey);
 								}
 							}}
-							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) flex items-center justify-between font-medium {groupHasActive(entry.group)
+							title={done ? m.variation_picker_locked_reason() : undefined}
+							class="relative block w-full text-left px-3 py-2 pr-12 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) font-medium {groupHasActive(entry.group)
 								? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10'
 								: ''} {done ? 'opacity-50 cursor-not-allowed' : ''}"
 						>
-							<span>{moveSequenceLabel(entry.group.steps)}</span>
-							<span class="flex items-center gap-2 shrink-0">
+							{moveSequenceLabel(entry.group.steps)}
+							<span class="absolute top-2 right-2 flex items-center gap-1.5" aria-hidden="true">
 								{#if entry.group.items.length > 1}
 									<span class="text-(--color-muted) text-sm">({entry.group.items.length})</span>
 								{/if}
 								{#if done}
-									<span class="text-xs text-(--color-muted)">{m.variation_picker_locked_reason()}</span>
+									<span class="text-xs">🔒</span>
 								{/if}
 							</span>
 						</button>
@@ -340,21 +351,22 @@
 									openGroupIndex = i;
 								}
 							}}
-							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) flex items-center justify-between {only
+							title={only?.locked ? m.variation_picker_locked_reason() : undefined}
+							class="relative block w-full text-left px-3 py-2 {only ? 'pr-8' : 'pr-12'} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) {only
 								? ''
 								: 'font-medium'} {groupHasActive(entry.group) ? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10' : ''} {only?.locked
 								? 'opacity-50 cursor-not-allowed'
 								: ''}"
 						>
-							<span>{only ? only.label : groupLabel(entry.group)}</span>
+							{only ? only.label : groupLabel(entry.group)}
 							{#if only}
 								{#if only.locked}
-									<span class="text-xs text-(--color-muted)">{m.variation_picker_locked_reason()}</span>
+									<span class="absolute top-2 right-2 text-xs" aria-hidden="true">🔒</span>
 								{:else if only.solved}
-									<span class="text-green-600 dark:text-green-400 text-sm">✓</span>
+									<span class="absolute top-2 right-2 text-green-600 dark:text-green-400 text-sm" aria-hidden="true">✓</span>
 								{/if}
 							{:else}
-								<span class="text-(--color-muted) text-sm">({entry.group.items.length})</span>
+								<span class="absolute top-2 right-2 text-(--color-muted) text-sm" aria-hidden="true">({entry.group.items.length})</span>
 							{/if}
 						</button>
 					</li>
@@ -386,6 +398,7 @@
 				</li>
 			{/each}
 		</ul>
+	{/if}
 	{/if}
 {/snippet}
 

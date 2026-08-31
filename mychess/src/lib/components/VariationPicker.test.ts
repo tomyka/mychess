@@ -380,7 +380,11 @@ describe('VariationPicker', () => {
 			await fireEvent.click(screen.getByText('Ruy Lopez'));
 
 			const lockedRow = screen.getByText('label:v1').closest('button')!;
-			expect(lockedRow.textContent).toContain('Finish your current level first');
+			// The reason is a corner icon + tooltip now, not inline text (GitHub
+			// issue #173 — inline reason text broke the layout when a row's own
+			// label wrapped several lines).
+			expect(lockedRow.textContent).toContain('🔒');
+			expect(lockedRow.getAttribute('title')).toBe('Finish your current level first');
 			expect(lockedRow).toBeDisabled();
 			await fireEvent.click(lockedRow);
 			expect(onselect).not.toHaveBeenCalled();
@@ -470,7 +474,8 @@ describe('VariationPicker', () => {
 			await fireEvent.click(screen.getByText('Ruy Lopez'));
 
 			const groupButton = screen.getByText('1.e4 e5 2.Nf3').closest('button')!;
-			expect(groupButton.textContent).toContain('Finish your current level first');
+			expect(groupButton.textContent).toContain('🔒');
+			expect(groupButton.getAttribute('title')).toBe('Finish your current level first');
 			expect(groupButton).toBeDisabled();
 			await fireEvent.click(groupButton);
 			expect(onselect).not.toHaveBeenCalled();
