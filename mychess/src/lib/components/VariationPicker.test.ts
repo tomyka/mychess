@@ -276,6 +276,21 @@ describe('VariationPicker', () => {
 			expect(activeButton.className).toContain('ring-2');
 		});
 
+		it('scrolls the active variation row into view (GitHub issue #174 — active row buried below other groups)', async () => {
+			// jsdom doesn't implement scrollIntoView at all — stand one in so the
+			// action (`scrollIntoViewIfActive`) has something to call.
+			const scrollIntoView = vi.fn();
+			HTMLElement.prototype.scrollIntoView = scrollIntoView;
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
+			vi.stubGlobal('fetch', fetchSpy);
+			render(VariationPicker, {
+				props: { repertoireId: 'rep-1', onselect: vi.fn(), variant: 'inline', currentVariationKey: 'v3' }
+			});
+
+			await waitFor(() => screen.getByText('label:v3'));
+			expect(scrollIntoView).toHaveBeenCalled();
+		});
+
 		it('auto-opens to a ceiling group holding the current variation, rendering it directly without drill-in', async () => {
 			// Two variations sharing prefix past the ceiling — they land in one
 			// ceiling-clipped group together.

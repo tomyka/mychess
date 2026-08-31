@@ -238,6 +238,26 @@
 		return currentVariationKey !== null && group.items.some((r) => isActive(r.variationKey));
 	}
 
+	/**
+	 * Scrolls a row/group button into view the moment it mounts, if it's the
+	 * one currently being taught — GitHub issue #174. Ceiling (frontier)
+	 * groups always render before regular ones (see `pickerEntries`'s own
+	 * doc comment), and a chapter can hold a dozen+ of them, several already
+	 * fully paused from an earlier session; the active line can easily be a
+	 * short "regular" group sorted well below all of that. Without this, the
+	 * player opens the picker to a wall of unrelated, often already-resolved
+	 * rows with no cue that what they're actually being taught is further
+	 * down. Only ever needs to run once per row's lifetime (an active row
+	 * doesn't move once it exists), so a plain Svelte action — no update
+	 * handler — is enough; scrolling again on every reactive update would
+	 * fight the player's own manual scrolling.
+	 */
+	function scrollIntoViewIfActive(node: HTMLElement, active: boolean) {
+		// Optional chaining: jsdom (component tests) doesn't implement
+		// `scrollIntoView` at all, unlike a real browser.
+		if (active) node.scrollIntoView?.({ block: 'nearest' });
+	}
+
 	const activeChapter = $derived(chapters === null ? null : openChapter);
 	const currentEntries = $derived(activeChapter !== null || chapters === null ? pickerEntries(activeChapter) : []);
 	const openEntry = $derived(openGroupIndex !== null ? currentEntries[openGroupIndex] ?? null : null);
@@ -308,6 +328,7 @@
 						onclick={() => {
 							if (!row.locked) onselect(row.variationKey);
 						}}
+						use:scrollIntoViewIfActive={isActive(row.variationKey)}
 						title={statusTitle(row.locked, row.solved)}
 						class="relative block w-full text-left px-3 py-2 pr-8 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) {isActive(row.variationKey)
 							? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10'
@@ -341,6 +362,7 @@
 									if (representative) onselect(representative.variationKey);
 								}
 							}}
+							use:scrollIntoViewIfActive={groupHasActive(entry.group)}
 							title={statusTitle(done, false)}
 							class="relative block w-full text-left px-3 py-2 pr-12 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) font-medium {groupHasActive(entry.group)
 								? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10'
@@ -373,6 +395,7 @@
 									openGroupIndex = i;
 								}
 							}}
+							use:scrollIntoViewIfActive={only ? isActive(only.variationKey) : groupHasActive(entry.group)}
 							title={statusTitle(only?.locked ?? false, only?.solved ?? false)}
 							class="relative block w-full text-left px-3 py-2 {only ? 'pr-8' : 'pr-12'} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) {only
 								? ''
