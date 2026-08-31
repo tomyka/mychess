@@ -53,12 +53,19 @@
 	let {
 		repertoireId,
 		onselect,
+		onselectchapter = onselect,
 		onclose,
 		variant = 'modal',
 		currentVariationKey = null
 	}: {
 		repertoireId: string;
 		onselect: (variationKey: string) => void;
+		// Called instead of `onselect` when a CHAPTER heading — not a specific
+		// variation — is clicked, so a chapter click can start teaching a
+		// representative variation without necessarily closing the picker the
+		// way picking a specific variation does (GitHub issue #170). Defaults
+		// to `onselect` for callers that don't care about the distinction.
+		onselectchapter?: (variationKey: string) => void;
 		onclose?: () => void;
 		// 'modal' (default) is the existing overlay, used on mobile everywhere
 		// and as the "Switch variation" entry point on desktop too. 'inline'
@@ -179,9 +186,26 @@
 		return group.items.every((r) => r.locked);
 	}
 
-	/** The member to actually practice when a ceiling group is selected — any not-yet-paused member if one exists (always selectable), else the first (only reachable when the whole group is done, and thus unclickable anyway). */
-	function ceilingGroupRepresentative(group: MoveGroup<VariationRow>): VariationRow {
-		return group.items.find((r) => !r.locked) ?? group.items[0];
+	/**
+	 * The row to start teaching when the caller only has a SET of rows to
+	 * choose from, not a specific one — a ceiling group's members (GitHub
+	 * issue #165) or a chapter's own rows (GitHub issue #170). Same
+	 * three-tier fallback both callers want: first unsolved-and-unlocked
+	 * (always genuinely selectable), else first unsolved (locked, but at
+	 * least not already done — the server will reject it, which is fine,
+	 * see `applyVariationSelection`'s error handling on the Learn page),
+	 * else just the first row (everything solved — still has to land on
+	 * SOMETHING for a re-drill). Mirrors the repertoire-wide equivalent,
+	 * `pickActiveVariation` in `mastery/variationSequence.ts`, which
+	 * operates over the whole repertoire via separate solved/blocked Sets
+	 * rather than a row array with its own booleans — different enough data
+	 * shape that sharing one implementation across both wasn't worth it.
+	 * `rows` empty only for a chapter heading the picker never actually
+	 * renders (see `chapterTiers`), so the `undefined` case is unreachable
+	 * in practice, not silently swallowed.
+	 */
+	function pickRepresentative(rows: VariationRow[]): VariationRow | undefined {
+		return rows.find((r) => !r.solved && !r.locked) ?? rows.find((r) => !r.solved) ?? rows[0];
 	}
 
 	/** Solved/total across a chapter's own rows — the rail's per-chapter indicator. */
@@ -280,7 +304,10 @@
 						<button
 							disabled={done}
 							onclick={() => {
-								if (!done) onselect(ceilingGroupRepresentative(entry.group).variationKey);
+								if (!done) {
+									const representative = pickRepresentative(entry.group.items);
+									if (representative) onselect(representative.variationKey);
+								}
 							}}
 							class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) flex items-center justify-between font-medium {groupHasActive(entry.group)
 								? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10'
@@ -340,7 +367,11 @@
 				{@const progress = variant === 'inline' ? chapterProgress(chapter) : null}
 				<li>
 					<button
-						onclick={() => (openChapter = chapter)}
+						onclick={() => {
+							openChapter = chapter;
+							const representative = pickRepresentative(rowsInChapterTier(includedRows(), chapter));
+							if (representative) onselectchapter(representative.variationKey);
+						}}
 						class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 font-medium text-(--color-text) flex items-center justify-between gap-2 {chapterHasActive(chapter)
 							? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10'
 							: ''}"

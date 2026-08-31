@@ -371,7 +371,10 @@ describe('VariationPicker', () => {
 			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => mixed });
 			vi.stubGlobal('fetch', fetchSpy);
 			const onselect = vi.fn();
-			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onclose: vi.fn() } });
+			// A distinct mock for the chapter-click auto-select (GitHub issue
+			// #170) isolates it from `onselect`, which this test uses only to
+			// verify clicking the LEAF row itself does nothing.
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onselectchapter: vi.fn(), onclose: vi.fn() } });
 
 			await waitFor(() => screen.getByText('Ruy Lopez'));
 			await fireEvent.click(screen.getByText('Ruy Lopez'));
@@ -407,7 +410,10 @@ describe('VariationPicker', () => {
 			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => single });
 			vi.stubGlobal('fetch', fetchSpy);
 			const onselect = vi.fn();
-			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onclose: vi.fn() } });
+			// A distinct mock for the chapter-click auto-select (GitHub issue
+			// #170) isolates it from `onselect`, which this test uses only to
+			// verify clicking the LEAF row itself does nothing.
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onselectchapter: vi.fn(), onclose: vi.fn() } });
 
 			await waitFor(() => screen.getByText('Ruy Lopez'));
 			await fireEvent.click(screen.getByText('Ruy Lopez'));
@@ -427,7 +433,10 @@ describe('VariationPicker', () => {
 			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
 			vi.stubGlobal('fetch', fetchSpy);
 			const onselect = vi.fn();
-			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onclose: vi.fn() } });
+			// A distinct mock for the chapter-click auto-select (GitHub issue
+			// #170) isolates it from `onselect`, which this test uses only to
+			// verify clicking the GROUP itself.
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onselectchapter: vi.fn(), onclose: vi.fn() } });
 
 			await waitFor(() => screen.getByText('Ruy Lopez'));
 			await fireEvent.click(screen.getByText('Ruy Lopez'));
@@ -452,7 +461,10 @@ describe('VariationPicker', () => {
 			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
 			vi.stubGlobal('fetch', fetchSpy);
 			const onselect = vi.fn();
-			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onclose: vi.fn() } });
+			// A distinct mock for the chapter-click auto-select (GitHub issue
+			// #170) isolates it from `onselect`, which this test uses only to
+			// verify clicking the (disabled) GROUP itself does nothing.
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onselectchapter: vi.fn(), onclose: vi.fn() } });
 
 			await waitFor(() => screen.getByText('Ruy Lopez'));
 			await fireEvent.click(screen.getByText('Ruy Lopez'));
@@ -508,6 +520,88 @@ describe('VariationPicker', () => {
 			// Solved -> shown via the regular path with its own full label, not
 			// truncated to the ceiling.
 			expect(screen.getByText('label:v1')).toBeTruthy();
+		});
+	});
+
+	describe('selecting a chapter (GitHub issue #170)', () => {
+		it('picks the first unsolved-and-unlocked row in the chapter as the representative', async () => {
+			const rows = [
+				row('v1', ['e4', 'e5'], ['Ruy Lopez'], { solved: true }),
+				row('v2', ['e4', 'c5'], ['Ruy Lopez'], { locked: true }),
+				row('v3', ['e4', 'd6'], ['Ruy Lopez'])
+			];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
+			vi.stubGlobal('fetch', fetchSpy);
+			const onselect = vi.fn();
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onclose: vi.fn() } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			await fireEvent.click(screen.getByText('Ruy Lopez'));
+			// v1 is solved and v2 is locked — v3 is the only one both unsolved
+			// and unlocked, so it's the representative even though it's neither
+			// first in the list nor the one clicked.
+			expect(onselect).toHaveBeenCalledWith('v3');
+		});
+
+		it('falls back to the first unsolved row when every row is locked', async () => {
+			const rows = [
+				row('v1', ['e4', 'e5'], ['Ruy Lopez'], { locked: true }),
+				row('v2', ['e4', 'c5'], ['Ruy Lopez'], { locked: true })
+			];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
+			vi.stubGlobal('fetch', fetchSpy);
+			const onselect = vi.fn();
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onclose: vi.fn() } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			await fireEvent.click(screen.getByText('Ruy Lopez'));
+			expect(onselect).toHaveBeenCalledWith('v1');
+		});
+
+		it('falls back to the very first row when every row in the chapter is solved', async () => {
+			const rows = [
+				row('v1', ['e4', 'e5'], ['Ruy Lopez'], { solved: true }),
+				row('v2', ['e4', 'c5'], ['Ruy Lopez'], { solved: true })
+			];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
+			vi.stubGlobal('fetch', fetchSpy);
+			const onselect = vi.fn();
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onclose: vi.fn() } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			await fireEvent.click(screen.getByText('Ruy Lopez'));
+			expect(onselect).toHaveBeenCalledWith('v1');
+		});
+
+		it('calls a distinct onselectchapter callback instead of onselect when one is provided, and still opens the chapter', async () => {
+			const rows = [row('v1', ['e4', 'e5'], ['Ruy Lopez']), row('v2', ['d4', 'd5'], ['Italian Game'])];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
+			vi.stubGlobal('fetch', fetchSpy);
+			const onselect = vi.fn();
+			const onselectchapter = vi.fn();
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onselectchapter, onclose: vi.fn() } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			await fireEvent.click(screen.getByText('Ruy Lopez'));
+
+			expect(onselectchapter).toHaveBeenCalledWith('v1');
+			expect(onselect).not.toHaveBeenCalled();
+			// The chapter is also still opened/navigable — its lone variation
+			// renders directly (bucket-of-one shortcut), so the player can
+			// confirm or pick something else instead of the auto-picked one.
+			expect(screen.getByText('label:v1')).toBeTruthy();
+		});
+
+		it('falls back to onselect when no onselectchapter is provided', async () => {
+			const rows = [row('v1', ['e4', 'e5'], ['Ruy Lopez'])];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
+			vi.stubGlobal('fetch', fetchSpy);
+			const onselect = vi.fn();
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onclose: vi.fn() } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			await fireEvent.click(screen.getByText('Ruy Lopez'));
+			expect(onselect).toHaveBeenCalledWith('v1');
 		});
 	});
 });

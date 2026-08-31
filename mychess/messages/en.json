@@ -163,6 +163,7 @@
 	],
 	"learn_progress_heading": "Progress",
 	"learn_this_line_heading": "This line",
+	"learn_select_variation_error": "Couldn't switch to that variation — try again.",
 	"learn_finish_session": "Finish session",
 	"learn_explore_position": "Explore this position",
 	"seo_practice_title": "Practice — MyChess",

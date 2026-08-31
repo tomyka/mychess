@@ -53,6 +53,12 @@
 	let pendingReport: Promise<PracticeView | null> | null = null;
 	let quizSteps = $state<VariationStep[]>([]);
 	let pickerOpen = $state(false);
+	// Set when a POST to /api/practice/select-variation fails (tier lock,
+	// exclusion drift, network hiccup) — surfaced to the player instead of
+	// silently leaving the board on whatever was already being taught, which
+	// used to look exactly like "selecting a variation does nothing" (GitHub
+	// issue #170). Cleared on the next successful selection.
+	let selectError = $state<string | null>(null);
 	// The board's own actual rendered width (bound from ChessBoard) — the
 	// move-nav row below it is capped to match, since on desktop the board
 	// is height-constrained (containerFit) and often narrower than its
@@ -249,6 +255,7 @@
 		repertoireId;
 		untrack(() => {
 			clearTeachCue();
+			selectError = null;
 			resetForAttempt();
 		});
 	});
@@ -340,18 +347,44 @@
 		resetForAttempt();
 	}
 
-	async function selectVariation(variationKey: string) {
-		pickerOpen = false;
+	/**
+	 * The shared core of both selection paths below: posts the pick, merges
+	 * the returned PracticeView into `data`, and resets the drill onto it.
+	 * Neither closes the picker nor is itself exposed as an `onselect` —
+	 * that decision belongs to the two thin wrappers, since picking a chapter
+	 * (start teaching a representative, stay browsable) and picking a specific
+	 * variation (start teaching it, done choosing) mean different things for
+	 * whether the picker should close.
+	 */
+	async function applyVariationSelection(variationKey: string) {
 		clearTeachCue();
-		const res = await fetch('/api/practice/select-variation', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ repertoireId, variationKey })
-		});
-		if (res.ok) {
+		try {
+			const res = await fetch('/api/practice/select-variation', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ repertoireId, variationKey })
+			});
+			if (!res.ok) {
+				selectError = m.learn_select_variation_error();
+				return;
+			}
+			selectError = null;
 			data = { ...data, ...(await res.json()) };
 			resetForAttempt();
+		} catch {
+			selectError = m.learn_select_variation_error();
 		}
+	}
+
+	/** A specific variation was picked from the list — teach it, and the picker's job is done. */
+	async function selectVariation(variationKey: string) {
+		pickerOpen = false;
+		await applyVariationSelection(variationKey);
+	}
+
+	/** A chapter heading was picked — teach its representative variation, but leave the picker open so the player can still drill into a more specific one. */
+	async function selectChapterRepresentative(variationKey: string) {
+		await applyVariationSelection(variationKey);
 	}
 </script>
 
@@ -430,6 +463,7 @@
 					<VariationPicker
 						{repertoireId}
 						onselect={selectVariation}
+						onselectchapter={selectChapterRepresentative}
 						variant="inline"
 						currentVariationKey={attempt?.variationKey ?? null}
 					/>
@@ -448,6 +482,15 @@
 				     (#113). Passing the callback only while the offer actually
 				     stands is what makes the strip hand the slot over. -->
 				<PracticeStatusStrip state={stripState} onhint={hintOffered ? requestHint : undefined} />
+
+				<!-- A failed variation switch (tier lock, exclusion drift, network)
+				     used to leave the board on whatever was already being taught with
+				     zero feedback — indistinguishable from "selecting does nothing"
+				     (GitHub issue #170). role="alert" so it's announced immediately,
+				     unlike the status strip's role="status" above. -->
+				{#if selectError}
+					<p role="alert" class="text-sm text-red-600 dark:text-red-400 text-center mb-2">{selectError}</p>
+				{/if}
 
 				<!-- The eval bar's slot is a sibling of the board, not a child of it:
 				     the bar matches the board's own rendered height (bound below), and the
@@ -602,6 +645,11 @@
 	{/if}
 
 	{#if pickerOpen && repertoireId}
-		<VariationPicker {repertoireId} onselect={selectVariation} onclose={() => (pickerOpen = false)} />
+		<VariationPicker
+			{repertoireId}
+			onselect={selectVariation}
+			onselectchapter={selectChapterRepresentative}
+			onclose={() => (pickerOpen = false)}
+		/>
 	{/if}
 </main>

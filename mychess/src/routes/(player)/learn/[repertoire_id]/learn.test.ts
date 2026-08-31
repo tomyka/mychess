@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // mychess/src/routes/(player)/learn/[repertoire_id]/learn.test.ts
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/svelte';
 
 // Chessground is faked so a test can actually PLAY a move. It can't be driven
 // through the DOM here: every one of its input paths goes through
@@ -280,6 +280,194 @@ describe('learn detail page', () => {
 		});
 		await fireEvent.click(screen.getByText('Re-drill a specific variation'));
 		expect(screen.getByLabelText('Close')).toBeTruthy();
+	});
+
+	describe('selecting a variation from the desktop picker (GitHub issue #170)', () => {
+		const v1Attempt = {
+			variationKey: 'v1',
+			path: [
+				{
+					moveId: 'm1',
+					san: 'e4',
+					fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+					toFen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+					isPlayerTurn: true
+				}
+			]
+		};
+		// A genuinely different opening (own moveIds, own starting position) —
+		// not a sibling sharing a prefix with v1, so this isolates whether
+		// selection itself works from whether shared-prefix content merely
+		// LOOKS unchanged (see the investigation behind issue #170).
+		const v2Attempt = {
+			variationKey: 'v2',
+			path: [
+				{
+					moveId: 'n1',
+					san: 'd4',
+					fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+					toFen: 'rnbqkbnr/pppppppp/8/3p4/8/8/PPP1PPPP/RNBQKBNR w KQkq - 0 1',
+					isPlayerTurn: true
+				}
+			]
+		};
+
+		function stubFetch() {
+			return vi.fn((url: string) => {
+				if (typeof url === 'string' && url.includes('/variations')) {
+					return Promise.resolve({
+						ok: true,
+						json: async () => [
+							{
+								variationKey: 'v1',
+								label: '1.e4',
+								includedByChapter: { 'Open Games': true },
+								chapterNames: ['Open Games'],
+								path: v1Attempt.path,
+								solved: false,
+								locked: false,
+								ceilingMoveCount: Infinity
+							},
+							{
+								variationKey: 'v2',
+								label: '1.d4',
+								includedByChapter: { "Queen's Pawn": true },
+								chapterNames: ["Queen's Pawn"],
+								path: v2Attempt.path,
+								solved: false,
+								locked: false,
+								ceilingMoveCount: Infinity
+							}
+						]
+					});
+				}
+				if (typeof url === 'string' && url.includes('/api/practice/select-variation')) {
+					return Promise.resolve({
+						ok: true,
+						json: async () => ({ attempt: v2Attempt, solved: 0, total: 2, allSolved: false })
+					});
+				}
+				return Promise.reject(new Error(`unmocked fetch in this test: ${url}`));
+			});
+		}
+
+		it('selecting a genuinely different variation actually changes the served attempt and board', async () => {
+			vi.stubGlobal('fetch', stubFetch());
+			render(Practice, {
+				props: {
+					data: {
+						repertoire: { id: 'r1', name: 'Test Repertoire', color: 'white' },
+						solved: 0,
+						total: 2,
+						allSolved: false,
+						attempt: v1Attempt
+					}
+				}
+			});
+
+			// Board initially reflects v1's starting position.
+			expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(v1Attempt.path[0].fromFen);
+
+			// The desktop rail auto-opens straight to v1's own chapter (only
+			// member of "Open Games") — back out to the chapter list to reach
+			// the other chapter's variation.
+			await waitFor(() => screen.getByText('← Back'));
+			await fireEvent.click(screen.getByText('← Back'));
+			await fireEvent.click(screen.getByText("Queen's Pawn"));
+			await fireEvent.click(screen.getByText('1.d4'));
+
+			await waitFor(() => {
+				expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(v2Attempt.path[0].fromFen);
+			});
+		});
+
+		it('shows an error and leaves the board unchanged when the select-variation request fails', async () => {
+			vi.stubGlobal(
+				'fetch',
+				vi.fn((url: string) => {
+					if (typeof url === 'string' && url.includes('/variations')) {
+						return Promise.resolve({
+							ok: true,
+							json: async () => [
+								{
+									variationKey: 'v1',
+									label: '1.e4',
+									includedByChapter: { 'Open Games': true },
+									chapterNames: ['Open Games'],
+									path: v1Attempt.path,
+									solved: false,
+									locked: false,
+									ceilingMoveCount: Infinity
+								},
+								{
+									variationKey: 'v2',
+									label: '1.d4',
+									includedByChapter: { "Queen's Pawn": true },
+									chapterNames: ["Queen's Pawn"],
+									path: v2Attempt.path,
+									solved: false,
+									locked: true, // tier-locked -> select-variation 403s
+									ceilingMoveCount: Infinity
+								}
+							]
+						});
+					}
+					if (typeof url === 'string' && url.includes('/api/practice/select-variation')) {
+						return Promise.resolve({ ok: false, status: 403 });
+					}
+					return Promise.reject(new Error(`unmocked fetch in this test: ${url}`));
+				})
+			);
+			render(Practice, {
+				props: {
+					data: {
+						repertoire: { id: 'r1', name: 'Test Repertoire', color: 'white' },
+						solved: 0,
+						total: 2,
+						allSolved: false,
+						attempt: v1Attempt
+					}
+				}
+			});
+
+			await waitFor(() => screen.getByText('← Back'));
+			await fireEvent.click(screen.getByText('← Back'));
+			await fireEvent.click(screen.getByText("Queen's Pawn"));
+			// v2 is locked, so its own leaf row is disabled — the chapter-click
+			// auto-select is what actually fires the (failing) request here.
+
+			await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+			// Board stays on v1 — the failed request never got applied.
+			expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(v1Attempt.path[0].fromFen);
+		});
+
+		it('clicking a chapter in the mobile modal selects its representative but keeps the modal open', async () => {
+			vi.stubGlobal('fetch', stubFetch());
+			render(Practice, {
+				props: {
+					data: {
+						repertoire: { id: 'r1', name: 'Test Repertoire', color: 'white' },
+						solved: 0,
+						total: 2,
+						allSolved: false,
+						attempt: v1Attempt
+					}
+				}
+			});
+
+			await fireEvent.click(screen.getByText('Switch variation'));
+			await waitFor(() => screen.getByLabelText('Close'));
+			// The modal picker doesn't auto-open to the active chapter the way
+			// the inline rail does, so both chapters are already visible.
+			await fireEvent.click(screen.getByText("Queen's Pawn"));
+
+			await waitFor(() => {
+				expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(v2Attempt.path[0].fromFen);
+			});
+			// Still open — a chapter click auto-selects but doesn't commit the
+			// way picking a specific variation does.
+			expect(screen.getByLabelText('Close')).toBeTruthy();
+		});
 	});
 
 	it('does not prompt for a move while the already-mastered plies before a teach batch are auto-playing', () => {
