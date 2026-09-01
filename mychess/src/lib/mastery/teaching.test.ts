@@ -9,7 +9,9 @@ import {
 	knownProgressFor,
 	ceilingPlyFor,
 	isPausedAtCeiling,
-	computeBlockedKeys
+	computeBlockedKeys,
+	isCeilingReachedAnywhere,
+	isLockedForTier
 } from './teaching';
 import type { Variation, VariationStep } from './variations';
 
@@ -615,17 +617,16 @@ describe('computeBlockedKeys (GitHub issue #168/#171 — shared-credit-aware)', 
 		expect(blocked.has('taught')).toBe(true);
 	});
 
-	it('does not block a sibling whose own final move (right at the ceiling) was never individually taught', () => {
+	it('does not block a sibling whose own final move would SOLVE it outright, even once another variation reached the ceiling (GitHub issue #172)', () => {
 		// Both share moves 0-1 ('s0'/'s1'), then diverge at ply 2 ('t2' vs
-		// 'u2') — the sibling's own divergent move is its 2nd player move,
-		// exactly the ceiling boundary, so it's still legitimately servable
-		// (current per-variation design, GitHub issue #172) rather than
-		// already blocked by the OTHER variation having reached the ceiling
-		// via a different 2nd move.
+		// 'u2') — sibling's own path ENDS at 'u2' (its own true end lands
+		// exactly at the ceiling boundary), so teaching it finishes it — a
+		// genuine, permanent solve, not more of the same shared content —
+		// and is never deferred regardless of what else reached the ceiling.
 		const step = (moveId: string, isPlayerTurn: boolean): VariationStep => ({ moveId, san: moveId, fromFen: 'x', toFen: 'y', isPlayerTurn });
 		const shared = [step('s0', true), step('s1', false)];
 		const taught = makeVariation('taught', [...shared, step('t2', true), step('t3', false), step('t4', true), step('t5', false)]);
-		const sibling = makeVariation('sibling', [...shared, step('u2', true), step('u3', false)]);
+		const sibling = makeVariation('sibling', [...shared, step('u2', true)]);
 		const ceilingPly = ceilingPlyFor(taught.path, 2); // after the 2nd player move: s0, s1, t2
 
 		const blocked = computeBlockedKeys(
@@ -637,5 +638,131 @@ describe('computeBlockedKeys (GitHub issue #168/#171 — shared-credit-aware)', 
 
 		expect(blocked.has('taught')).toBe(true);
 		expect(blocked.has('sibling')).toBe(false);
+	});
+
+	it('defers a sibling that would only PAUSE (not solve) once another variation already reached the ceiling (GitHub issue #172)', () => {
+		// Same shared prefix and divergence as above, but sibling has ONE
+		// more ply ('u3') past its own divergent move — its own true end
+		// lies beyond the ceiling, so it would merely pause there too, same
+		// as `taught` — exactly the "4 continuations" case the user
+		// reported: teaching `taught` to the ceiling shouldn't leave every
+		// OTHER continuation free to independently spend its own final move.
+		const step = (moveId: string, isPlayerTurn: boolean): VariationStep => ({ moveId, san: moveId, fromFen: 'x', toFen: 'y', isPlayerTurn });
+		const shared = [step('s0', true), step('s1', false)];
+		const taught = makeVariation('taught', [...shared, step('t2', true), step('t3', false), step('t4', true), step('t5', false)]);
+		const sibling = makeVariation('sibling', [...shared, step('u2', true), step('u3', false)]);
+		const ceilingPly = ceilingPlyFor(taught.path, 2);
+
+		const blocked = computeBlockedKeys(
+			[taught, sibling],
+			new Set(),
+			new Map([['taught', { taughtPlies: ceilingPly, masteredPlies: ceilingPly }]]),
+			2
+		);
+
+		expect(blocked.has('taught')).toBe(true);
+		expect(blocked.has('sibling')).toBe(true);
+	});
+
+	it('does not defer an untouched, unrelated variation just because something else reached the ceiling (GitHub issue #172)', () => {
+		// `unrelated` shares NOTHING with `taught` — Learn must still "simply
+		// serve something else" per the original design's own guarantee.
+		const step = (moveId: string, isPlayerTurn: boolean): VariationStep => ({ moveId, san: moveId, fromFen: 'x', toFen: 'y', isPlayerTurn });
+		const taught = makeVariation('taught', [
+			step('t0', true),
+			step('t1', false),
+			step('t2', true),
+			step('t3', false),
+			step('t4', true),
+			step('t5', false)
+		]);
+		const unrelated = makeVariation('unrelated', [step('z0', true), step('z1', false), step('z2', true), step('z3', false)]);
+		const ceilingPly = ceilingPlyFor(taught.path, 2);
+
+		const blocked = computeBlockedKeys(
+			[taught, unrelated],
+			new Set(),
+			new Map([['taught', { taughtPlies: ceilingPly, masteredPlies: ceilingPly }]]),
+			2
+		);
+
+		expect(blocked.has('taught')).toBe(true);
+		expect(blocked.has('unrelated')).toBe(false);
+	});
+});
+
+describe('isCeilingReachedAnywhere (GitHub issue #172)', () => {
+	const step = (moveId: string, isPlayerTurn: boolean): VariationStep => ({ moveId, san: moveId, fromFen: 'x', toFen: 'y', isPlayerTurn });
+
+	it('is false when nothing has been taught yet', () => {
+		const long = makeVariation('long', [step('a', true), step('b', false), step('c', true), step('d', false)]);
+		expect(isCeilingReachedAnywhere([long], new Set(), new Map(), 2)).toBe(false);
+	});
+
+	it('is true once a long variation has genuinely been taught to the ceiling and paused', () => {
+		const long = makeVariation('long', [step('a', true), step('b', false), step('c', true), step('d', false)]);
+		const ceilingPly = ceilingPlyFor(long.path, 2);
+		const progress = new Map([['long', { taughtPlies: ceilingPly, masteredPlies: ceilingPly }]]);
+		expect(isCeilingReachedAnywhere([long], new Set(), progress, 2)).toBe(true);
+	});
+
+	it('is false for a variation that would SOLVE (not pause) at its own true end, even if that end is fully taught', () => {
+		// Only 1 player-turn ply exists; a ceiling of 5 player moves can
+		// never be reached along this path, so `ceilingPlyFor` falls back to
+		// `path.length` itself — this variation's own true end IS the
+		// "ceiling," so finishing it is a solve, never a pause.
+		const short = makeVariation('short', [step('a', true), step('b', false)]);
+		const progress = new Map([['short', { taughtPlies: 2, masteredPlies: 2 }]]); // fully taught, would solve
+		expect(isCeilingReachedAnywhere([short], new Set(), progress, 5)).toBe(false);
+	});
+
+	it('is false for a variation that is merely untouched, however long', () => {
+		const long = makeVariation('long', [step('a', true), step('b', false), step('c', true), step('d', false)]);
+		expect(isCeilingReachedAnywhere([long], new Set(), new Map([['long', { taughtPlies: 0, masteredPlies: 0 }]]), 2)).toBe(false);
+	});
+});
+
+describe('isLockedForTier (GitHub issue #172)', () => {
+	it('is true for the original per-variation case (genuinely paused) even when ceilingReached is false', () => {
+		const path: VariationStep[] = [
+			{ moveId: 'a', san: 'a', fromFen: 'x', toFen: 'y', isPlayerTurn: true },
+			{ moveId: 'b', san: 'b', fromFen: 'x', toFen: 'y', isPlayerTurn: false },
+			{ moveId: 'c', san: 'c', fromFen: 'x', toFen: 'y', isPlayerTurn: true },
+			{ moveId: 'd', san: 'd', fromFen: 'x', toFen: 'y', isPlayerTurn: false }
+		];
+		const ceilingPly = ceilingPlyFor(path, 1);
+		expect(isLockedForTier(path, ceilingPly, 1, false)).toBe(true);
+	});
+
+	it('locks a deferred sibling: ceilingReached, would merely pause, and already carries some credit', () => {
+		const path: VariationStep[] = [
+			{ moveId: 'a', san: 'a', fromFen: 'x', toFen: 'y', isPlayerTurn: true },
+			{ moveId: 'b', san: 'b', fromFen: 'x', toFen: 'y', isPlayerTurn: false },
+			{ moveId: 'c', san: 'c', fromFen: 'x', toFen: 'y', isPlayerTurn: true },
+			{ moveId: 'd', san: 'd', fromFen: 'x', toFen: 'y', isPlayerTurn: false }
+		];
+		const ceilingPly = ceilingPlyFor(path, 2); // after the 2nd player move -> ply 3
+		expect(isLockedForTier(path, ceilingPly - 2, 2, true)).toBe(true); // partial credit (1), short of the ceiling (3), path longer than it (4)
+	});
+
+	it('does not lock a sibling that would SOLVE outright at its own true end, even when ceilingReached is true', () => {
+		const path: VariationStep[] = [
+			{ moveId: 'a', san: 'a', fromFen: 'x', toFen: 'y', isPlayerTurn: true },
+			{ moveId: 'b', san: 'b', fromFen: 'x', toFen: 'y', isPlayerTurn: false }
+		];
+		// Only 1 player-turn ply exists, so a ceiling of 5 player moves can
+		// never be reached — ceilingPlyFor falls back to path.length itself,
+		// i.e. this variation's own true end IS the "ceiling": would solve.
+		expect(isLockedForTier(path, 2, 5, true)).toBe(false);
+	});
+
+	it('does not lock an untouched (masteredPlies === 0) sibling even when ceilingReached is true', () => {
+		const path: VariationStep[] = [
+			{ moveId: 'a', san: 'a', fromFen: 'x', toFen: 'y', isPlayerTurn: true },
+			{ moveId: 'b', san: 'b', fromFen: 'x', toFen: 'y', isPlayerTurn: false },
+			{ moveId: 'c', san: 'c', fromFen: 'x', toFen: 'y', isPlayerTurn: true },
+			{ moveId: 'd', san: 'd', fromFen: 'x', toFen: 'y', isPlayerTurn: false }
+		];
+		expect(isLockedForTier(path, 0, 1, true)).toBe(false);
 	});
 });

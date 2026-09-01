@@ -6,7 +6,7 @@ import { fetchAllChapterExclusions, loadRepertoireVariations } from '$lib/server
 import { loadSolvedKeys, loadTeachingProgress } from '$lib/server/practice-progress';
 import { moveSequenceLabel, UNTAGGED_CHAPTER } from '$lib/mastery/variations';
 import { teachingCeilingMoveCount } from '$lib/mastery/chapterLevels';
-import { isPausedAtCeiling, knownProgressFor } from '$lib/mastery/teaching';
+import { isLockedForTier, isCeilingReachedAnywhere, knownProgressFor } from '$lib/mastery/teaching';
 
 // A null byte can't appear in a Postgres `text` value or a variation key (a
 // `>`-joined chain of UUIDs), so joining a (chapter, variationKey) pair on it
@@ -24,7 +24,9 @@ const PAIR_SEP = String.fromCharCode(0);
  * first move), solved state, this variation's own player-move count (for
  * the picker to bucket/label by tier the same way the teaching ceiling
  * does), locked state — whether this UNSOLVED variation is currently paused
- * at the repertoire's teaching-tier ceiling — and this repertoire's current
+ * at the repertoire's teaching-tier ceiling, or deferred because a sibling
+ * sharing part of its credited prefix already reached that ceiling (GitHub
+ * issue #172, `isLockedForTier`) — and this repertoire's current
  * ceiling itself (`ceilingMoveCount`, the same value repeated on every row
  * rather than a separate top-level field, so the response stays the flat
  * array `VariationSelection.ensureLoaded` also consumes, unchanged). The
@@ -57,6 +59,12 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 
 	const ceilingMoveCount = teachingCeilingMoveCount(variations, solvedKeys);
 	const excludedPairs = new Set(chapterExclusions.map((r) => `${r.chapter_name}${PAIR_SEP}${r.variation_key}`));
+	// GitHub issue #172: once the ceiling has genuinely been reached by any
+	// one variation, a deferred sibling (would also merely pause there, not
+	// solve, and already carries some shared credit toward it) shows as
+	// locked too — matching `computeBlockedKeys`, what actually decides what
+	// Learn would serve.
+	const ceilingReached = isCeilingReachedAnywhere(variations, solvedKeys, teachingProgress, ceilingMoveCount);
 
 	return json(
 		variations.map((v) => {
@@ -81,7 +89,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 				path: v.path,
 				solved,
 				playerMoveCount: v.playerMoveCount,
-				locked: !solved && isPausedAtCeiling(v.path, masteredPlies, ceilingMoveCount),
+				locked: !solved && isLockedForTier(v.path, masteredPlies, ceilingMoveCount, ceilingReached),
 				ceilingMoveCount
 			};
 		})

@@ -4,7 +4,7 @@ import type { RequestHandler } from './$types';
 import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
 import { filterVariations } from '$lib/mastery/variations';
 import { teachingCeilingMoveCount } from '$lib/mastery/chapterLevels';
-import { isPausedAtCeiling, knownProgressFor } from '$lib/mastery/teaching';
+import { isLockedForTier, isCeilingReachedAnywhere, knownProgressFor } from '$lib/mastery/teaching';
 import { setActiveVariationKey, loadSolvedKeys, loadTeachingProgress } from '$lib/server/practice-progress';
 import { requireApiUser } from '$lib/server/auth';
 import { buildPracticeView } from '$lib/mastery/practice';
@@ -64,7 +64,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			solvedKeys,
 			resumedAfterBreak: false
 		});
-		if (isPausedAtCeiling(picked.path, masteredPlies, ceilingMoveCount)) {
+		// Shared-credit-aware AND deferred-sibling-aware (GitHub issue #172) —
+		// matching `computeBlockedKeys`, which is what actually decides what
+		// auto-advance would have served here anyway.
+		const ceilingReached = isCeilingReachedAnywhere(variations, solvedKeys, teachingProgress, ceilingMoveCount);
+		if (isLockedForTier(picked.path, masteredPlies, ceilingMoveCount, ceilingReached)) {
 			throw error(403, 'This line is locked until you finish your current tier');
 		}
 	}

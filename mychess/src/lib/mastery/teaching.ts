@@ -176,6 +176,87 @@ export function isPausedAtCeiling(path: readonly VariationStep[], masteredPlies:
 }
 
 /**
+ * Whether `path` would merely PAUSE at the ceiling rather than genuinely
+ * finish there — i.e. its own true end lies beyond `ceilingMoveCount`. Ply
+ * position within `ceilingMoveCount` player moves lands at the SAME index
+ * for every variation of consistent starting side-to-move regardless of
+ * content (`ceilingPlyFor` counts player-turn plies, which alternate on a
+ * fixed parity), so this is really "is `path` longer than the ceiling" —
+ * shared by `isCeilingReachedAnywhere` and `isLockedForTier` below so both
+ * agree on what counts as "would merely pause" vs. "would solve outright."
+ */
+function wouldMerelyPauseAt(path: readonly VariationStep[], ceilingMoveCount: number): boolean {
+	return ceilingPlyFor(path, ceilingMoveCount) < path.length;
+}
+
+/**
+ * Whether ANY currently-unsolved variation has already been taught all the
+ * way to the tier ceiling and is genuinely paused there (not just eligible
+ * to pause) — GitHub issue #172. Feeds `isLockedForTier`'s deferred-sibling
+ * check below; expensive to recompute per row (an O(n) scan plus a shared
+ * `knownProgressFor` call per candidate), so callers compute it ONCE per
+ * request and pass the result to every row, not once per row.
+ */
+export function isCeilingReachedAnywhere(
+	variations: Variation[],
+	solvedKeys: ReadonlySet<string>,
+	teachingProgress: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number }>,
+	ceilingMoveCount: number,
+	masteredMoveIds: ReadonlySet<string> = computeMasteredMoveIds(variations, teachingProgress, solvedKeys)
+): boolean {
+	return variations.some((variation) => {
+		if (solvedKeys.has(variation.variationKey)) return false;
+		if (!wouldMerelyPauseAt(variation.path, ceilingMoveCount)) return false;
+		const { masteredPlies } = knownProgressFor({
+			variation,
+			variations,
+			teachingProgress,
+			solvedKeys,
+			resumedAfterBreak: false,
+			masteredMoveIds
+		});
+		return isPausedAtCeiling(variation.path, masteredPlies, ceilingMoveCount);
+	});
+}
+
+/**
+ * Whether `path` is locked for the CURRENT tier — either genuinely paused
+ * at its own ceiling (`isPausedAtCeiling`), or (GitHub issue #172)
+ * DEFERRED: some sibling sharing part of its credited prefix has already
+ * been taught all the way to the ceiling and paused there (`ceilingReached`,
+ * from `isCeilingReachedAnywhere`), `path` would ALSO merely pause at the
+ * same ceiling rather than solve outright, and `path` already carries SOME
+ * shared credit toward it (`masteredPlies > 0` — otherwise it's an
+ * unrelated, untouched line Learn should still move on to freely, per the
+ * original design's "Learn simply serves something else" guarantee).
+ *
+ * The user's own framing, from the grilling session behind this change:
+ * a repertoire with several near-identical continuations sharing almost
+ * their entire length used to let Learn front-load ALL of the shared
+ * content via one continuation's own teaching, then separately quiz the
+ * player on each OTHER continuation's own single divergent final move —
+ * one quick quiz per sibling, indefinitely, since each such move is
+ * technically still "that sibling's own Nth move," nominally within its
+ * own per-path budget. Once the ceiling has genuinely been reached by
+ * ANYONE, a pass counts as passed for every variation sharing that
+ * stretch, not a fresh per-sibling allowance for its own unique tail — a
+ * sibling whose OWN true end is reached in the process (it would SOLVE,
+ * not merely pause) is exempt: finishing it is a genuine, permanent piece
+ * of knowledge, not more of the same already-covered content.
+ */
+export function isLockedForTier(
+	path: readonly VariationStep[],
+	masteredPlies: number,
+	ceilingMoveCount: number,
+	ceilingReached: boolean
+): boolean {
+	if (isPausedAtCeiling(path, masteredPlies, ceilingMoveCount)) return true;
+	if (!ceilingReached || !wouldMerelyPauseAt(path, ceilingMoveCount)) return false;
+	const ceilingPly = ceilingPlyFor(path, ceilingMoveCount);
+	return masteredPlies > 0 && masteredPlies < ceilingPly;
+}
+
+/**
  * How many of `path`'s LEADING plies have a moveId already in
  * `masteredMoveIds` — stops at the first ply whose moveId isn't there, even
  * if a later ply happens to be mastered too (a gap breaks the prefix). Used
@@ -305,6 +386,12 @@ export function knownProgressFor(args: {
  * those moves must be treated as blocked immediately too, or it gets picked
  * as "next" and re-teaches a supposedly-new final move that's actually still
  * within the tier the ceiling already spent on its siblings.
+ *
+ * Also covers deferred siblings (`isLockedForTier`, GitHub issue #172): once
+ * the ceiling has genuinely been reached anywhere, an unsolved variation
+ * that would ALSO merely pause there (not solve outright), and already
+ * carries some shared credit toward it, is blocked too — not just the one
+ * that actually reached it.
  */
 export function computeBlockedKeys(
 	variations: Variation[],
@@ -316,6 +403,7 @@ export function computeBlockedKeys(
 	// variation is being checked, and recomputing it inside the loop below
 	// would make this function quadratic in variation count.
 	const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, solvedKeys);
+	const ceilingReached = isCeilingReachedAnywhere(variations, solvedKeys, teachingProgress, ceilingMoveCount, masteredMoveIds);
 	const blocked = new Set<string>();
 	for (const variation of variations) {
 		if (solvedKeys.has(variation.variationKey)) continue;
@@ -327,7 +415,7 @@ export function computeBlockedKeys(
 			resumedAfterBreak: false,
 			masteredMoveIds
 		});
-		if (isPausedAtCeiling(variation.path, masteredPlies, ceilingMoveCount)) blocked.add(variation.variationKey);
+		if (isLockedForTier(variation.path, masteredPlies, ceilingMoveCount, ceilingReached)) blocked.add(variation.variationKey);
 	}
 	return blocked;
 }
