@@ -18,16 +18,8 @@ import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
  * Ordered by `created_at`, then `import_order`, then `id` (a final
  * tie-break, since `moves.id` is a random UUID and carries no order of its
  * own) so pagination is deterministic and each chapter surfaces in its true
- * import order. `created_at` alone isn't enough: a bulk upsert evaluates
- * `now()` once per STATEMENT, so every move written in one `writeMoves()`
- * call (typically a whole chapter) shares one IDENTICAL timestamp, and
- * ordering used to silently fall through to the random `id` tie-break for
- * all of them — verified against a real repertoire where an entire
- * chapter's ~275 moves shared one `created_at` down to the microsecond.
- * `import_order` (nullable — absent on rows written before it existed, in
- * which case this falls back to exactly the old, imperfect `id` ordering)
- * records each move's own position in the parser's array within the call
- * that wrote it — see `writeMoves` in `pgn-import.ts`.
+ * import order. See `moves.import_order`'s own column comment (migration
+ * 0073) for why `created_at` alone isn't enough to guarantee that.
  */
 export async function fetchLiveMoves(
 	supabase: SupabaseClient,

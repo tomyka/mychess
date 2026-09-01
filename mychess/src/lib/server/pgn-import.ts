@@ -216,15 +216,16 @@ export async function writeMoves(
   // inserts merge chapter_names instead of being dropped (this call's own
   // chapter name gets added to whatever the row already has), which needs a
   // real upsert rather than `ignoreDuplicates: true`.
-  // `import_order` is this move's own position in the PARSER's array — a
-  // tie-break for moves sharing one `created_at` (a bulk upsert evaluates
-  // `now()` once per statement, so every move in ONE writeMoves() call gets
-  // an IDENTICAL timestamp; `fetchLiveMoves` used to fall back to `id`, a
-  // random UUID, which silently scrambled a chapter's own move order —
-  // verified against a real repertoire where a whole chapter's ~275 moves
-  // shared one timestamp down to the microsecond). Only meaningful WITHIN
-  // this call: `created_at` already separates different chapters/calls
-  // correctly on its own, so this never needs to be globally unique.
+  // `import_order` is this move's own position in the PARSER's array — see
+  // `moves.import_order`'s own column comment (migration 0073) for why
+  // `created_at` alone can't disambiguate moves written in this same call.
+  // Only meaningful WITHIN this call: `created_at` already separates
+  // different chapters/calls correctly on its own, so this never needs to
+  // be globally unique. Assigned over the WHOLE array before the `CHUNK`
+  // loop below splits it into separate upsert calls, so it stays correctly
+  // ascending across chunk boundaries too, even one that lands on a later,
+  // genuinely distinct `created_at` — chunk N's rows always carry strictly
+  // greater `import_order` than chunk N-1's.
   const moveRows = params.moves.map((move, index) => ({
     repertoire_id: repId,
     from_position: fenToId.get(move.fromFen)!,
