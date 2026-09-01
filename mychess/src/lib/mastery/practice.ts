@@ -25,6 +25,13 @@ export type PracticeView = {
 		variationKey: string;
 		arrowPlies: { from: number; to: number } | null;
 		isFinalPass: boolean;
+		// True only when this pass's `isFinalPass` is true because it hit the
+		// teaching-tier CEILING, not because the variation's own true path
+		// ended — i.e. paused, not genuinely learned (see
+		// `resolveTeachingStep`'s own field of the same name). Callers that
+		// treat "final pass" as "the player just learned this variation" must
+		// also check this is false, or a ceiling pause gets counted as a solve.
+		pausedAtCeiling: boolean;
 		// How many of `path`'s leading plies are already mastered — via this
 		// variation's own progress, OR via a SIBLING variation sharing the
 		// same moves (see computeMasteredMoveIds) — and so should auto-play
@@ -115,6 +122,7 @@ export function buildPracticeView(
 				variationKey: active.variationKey,
 				arrowPlies: null,
 				isFinalPass: true,
+				pausedAtCeiling: false,
 				autoPlayThrough: 0
 			};
 		} else {
@@ -167,6 +175,7 @@ export function buildPracticeView(
 				variationKey: active.variationKey,
 				arrowPlies: step.arrowPlies,
 				isFinalPass: step.isFinalPass,
+				pausedAtCeiling: step.pausedAtCeiling,
 				// Clamped, never raw: a variation fully covered by a solved
 				// sibling has masteredPlies == path.length, and auto-playing
 				// that far leaves the player nothing to play and the attempt

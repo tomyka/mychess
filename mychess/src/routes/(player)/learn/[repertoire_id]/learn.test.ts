@@ -757,6 +757,23 @@ describe('learn detail page', () => {
 		expect(screen.queryByText(/now play it from memory/i)).toBeNull();
 	});
 
+	// GitHub issue #180: a final pass that only reached the teaching-tier
+	// ceiling is a PAUSE, not a solve — before `pausedAtCeiling` was threaded
+	// through to the client, this bumped the sidebar's "learned" count exactly
+	// like a genuine solve, so finishing one teaching batch could make it look
+	// like a whole variation (or two, once the count and the picker's own
+	// deferred-sibling lock disagreed) had just been learned.
+	it('does not bump the learned count for a final pass that only paused at the ceiling', async () => {
+		vi.useFakeTimers();
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true, pausedAtCeiling: true }, 'hang');
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
+		playMove('g1', 'f3');
+		await vi.advanceTimersByTimeAsync(500);
+
+		expect(screen.getAllByText('0 / 1 variations learned').length).toBe(2);
+		expect(screen.getByText('0 learned this session')).toBeTruthy();
+	});
+
 	it('does not cue a teach pass that had a mistake — the same taught batch comes back, not a blind test', async () => {
 		vi.useFakeTimers();
 		renderAttempt(AUTO_PLAY_ATTEMPT, 'hang');
