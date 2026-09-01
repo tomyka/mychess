@@ -328,6 +328,51 @@ describe('buildPracticeView with a ceilingMoveCount', () => {
 		expect(view.attempt).not.toBeNull();
 		expect(view.attempt!.variationKey).toBe(b.variationKey);
 	});
+
+	it("never teaches a DEFERRED sibling's own new content even when pickActiveVariation's last-resort fallback selects it (GitHub issue #172)", () => {
+		// `a` is genuinely paused at the ceiling (the shared prefix plus its
+		// own one extra move) — that alone makes `ceilingReached` true. `b`
+		// shares only the common prefix with `a` (masteredPlies stops right
+		// where they diverge) and would ALSO merely pause at the same
+		// ceiling, so it's DEFERRED, not independently paused. With both `a`
+		// and `b` now blocked and nothing else in the pool, pickActiveVariation's
+		// fallback ("serve the first unsolved one anyway, ignoring blocked
+		// status") lands on `b` (array order puts it first) — without the
+		// fallback-safety clamp, buildPracticeView would happily teach `b`'s
+		// own never-before-seen move here, reopening the exact loophole #172
+		// closes the moment it's reached via this path.
+		const shared: VariationStep[] = [
+			{ moveId: 'shared-p1', san: 'P1', fromFen: 'f1a', toFen: 'f1b', isPlayerTurn: true },
+			{ moveId: 'shared-o1', san: 'O1', fromFen: 'f1b', toFen: 'f2a', isPlayerTurn: false }
+		];
+		const a: Variation = {
+			leafMoveId: 'a-o2',
+			variationKey: 'a',
+			path: [...shared, { moveId: 'a-p2', san: 'P2', fromFen: 'f2a', toFen: 'f2b', isPlayerTurn: true }, { moveId: 'a-o2', san: 'O2', fromFen: 'f2b', toFen: 'f3a', isPlayerTurn: false }],
+			playerMoveCount: 2,
+			chapterNames: []
+		};
+		const b: Variation = {
+			leafMoveId: 'b-o2',
+			variationKey: 'b',
+			path: [...shared, { moveId: 'b-p2', san: 'P2', fromFen: 'f2a', toFen: 'f2b', isPlayerTurn: true }, { moveId: 'b-o2', san: 'O2', fromFen: 'f2b', toFen: 'f3a', isPlayerTurn: false }],
+			playerMoveCount: 2,
+			chapterNames: []
+		};
+		const ceilingMoveCount = 2; // ceilingPly = 3 for both (they share plies 0-1, diverge at ply 2)
+		const progress = new Map([['a', { taughtPlies: 3, masteredPlies: 3, updatedAt: null }]]);
+
+		// `b` first in array order, so the "everything blocked" fallback lands on it.
+		const view = buildPracticeView([b, a], null, new Set(), progress, ceilingMoveCount);
+
+		expect(view.attempt).not.toBeNull();
+		expect(view.attempt!.variationKey).toBe('b');
+		// Only the shared prefix (2 plies) — b's own divergent move ('b-p2')
+		// must NOT be taught, and there must be no arrow inviting one.
+		expect(view.attempt!.path).toHaveLength(2);
+		expect(view.attempt!.arrowPlies).toBeNull();
+		expect(view.attempt!.isFinalPass).toBe(true);
+	});
 });
 
 describe('optimisticSolvedAfterAttempt', () => {

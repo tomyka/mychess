@@ -385,7 +385,18 @@ export async function applyAttemptResult(
 				solvedKeys,
 				resumedAfterBreak
 			});
-			const ceilingPly = ceilingPlyFor(variation.path, ceilingMoveCount);
+			// Mirrors buildPracticeView's own fallback-safety clamp exactly
+			// (GitHub issue #172, mastery/practice.ts): `variationKey` may have
+			// been served only because pickActiveVariation's last-resort
+			// fallback ignored blocked status (paused OR deferred) — in that
+			// case it must be RECORDED the same restricted way it was SERVED,
+			// or this and the serve step disagree on what happened, which
+			// knownProgressFor's own doc comment calls out as "a real bug that
+			// has happened." Without this, a deferred sibling reached only via
+			// that fallback would get credited for a genuinely fresh batch it
+			// was never actually supposed to be taught.
+			const blockedKeys = computeBlockedKeys(variations, solvedKeys, progressMap, ceilingMoveCount);
+			const ceilingPly = blockedKeys.has(variationKey) ? effectiveMasteredPlies : ceilingPlyFor(variation.path, ceilingMoveCount);
 			const next = advanceTeachingProgress(variation.path, effectiveTaughtPlies, effectiveMasteredPlies, false, ceilingPly);
 			await saveTeachingProgress(supabase, playerId, repertoireId, variationKey, next.taughtPlies, next.masteredPlies);
 

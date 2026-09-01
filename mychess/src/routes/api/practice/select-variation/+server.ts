@@ -4,7 +4,7 @@ import type { RequestHandler } from './$types';
 import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
 import { filterVariations } from '$lib/mastery/variations';
 import { teachingCeilingMoveCount } from '$lib/mastery/chapterLevels';
-import { isLockedForTier, isCeilingReachedAnywhere, knownProgressFor } from '$lib/mastery/teaching';
+import { isLockedForTier, isCeilingReachedAnywhere, knownProgressFor, computeMasteredMoveIds } from '$lib/mastery/teaching';
 import { setActiveVariationKey, loadSolvedKeys, loadTeachingProgress } from '$lib/server/practice-progress';
 import { requireApiUser } from '$lib/server/auth';
 import { buildPracticeView } from '$lib/mastery/practice';
@@ -57,17 +57,22 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		// than the serve step actually will (excluded siblings can only ever
 		// ADD credit, never remove it), which could reject a pick that
 		// `buildPracticeView` would in fact have served just fine.
+		// Computed once, not once for `knownProgressFor` and again inside
+		// `isCeilingReachedAnywhere` — both would otherwise independently
+		// re-derive the same whole-repertoire set.
+		const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, solvedKeys);
 		const { masteredPlies } = knownProgressFor({
 			variation: picked,
 			variations,
 			teachingProgress,
 			solvedKeys,
-			resumedAfterBreak: false
+			resumedAfterBreak: false,
+			masteredMoveIds
 		});
 		// Shared-credit-aware AND deferred-sibling-aware (GitHub issue #172) —
 		// matching `computeBlockedKeys`, which is what actually decides what
 		// auto-advance would have served here anyway.
-		const ceilingReached = isCeilingReachedAnywhere(variations, solvedKeys, teachingProgress, ceilingMoveCount);
+		const ceilingReached = isCeilingReachedAnywhere(variations, solvedKeys, teachingProgress, ceilingMoveCount, masteredMoveIds);
 		if (isLockedForTier(picked.path, masteredPlies, ceilingMoveCount, ceilingReached)) {
 			throw error(403, 'This line is locked until you finish your current tier');
 		}

@@ -139,12 +139,29 @@ export function buildPracticeView(
 				solvedKeys,
 				resumedAfterBreak
 			});
-			const step = resolveTeachingStep(
-				active.path,
-				effectiveTaughtPlies,
-				effectiveMasteredPlies,
-				ceilingPlyFor(active.path, ceilingMoveCount)
-			);
+			// `pickActiveVariation`'s own last-resort fallback ("if everything
+			// remaining is solved or blocked, serve the first unsolved one
+			// anyway") can still hand back a variation that IS in
+			// `blockedKeys` — deliberately, so Learn always has SOMETHING to
+			// show rather than a dead end. Before GitHub issue #172, every
+			// blocked variation was genuinely paused (masteredPlies already at
+			// its own ceiling), so resolving it normally was harmless — it
+			// only ever re-served already-known content, isFinalPass/paused,
+			// nothing new. #172 widened "blocked" to also cover DEFERRED
+			// siblings, which are NOT yet at their own ceiling and genuinely
+			// have new content to teach — resolving one of those normally
+			// would silently re-open exactly the loophole #172 exists to
+			// close, the moment it's ever reached via this fallback. Clamping
+			// the ceiling to wherever this variation currently stands
+			// (`effectiveMasteredPlies`) makes `resolveTeachingStep` treat it
+			// as "already at the ceiling" regardless of why it's blocked,
+			// serving its known content as a final/paused pass and asking for
+			// nothing new — matching a genuinely-paused variation's behavior
+			// exactly, for a case that should never teach new content either.
+			const ceilingPly = blockedKeys.has(active.variationKey)
+				? effectiveMasteredPlies
+				: ceilingPlyFor(active.path, ceilingMoveCount);
+			const step = resolveTeachingStep(active.path, effectiveTaughtPlies, effectiveMasteredPlies, ceilingPly);
 			attempt = {
 				path: step.path,
 				variationKey: active.variationKey,

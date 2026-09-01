@@ -6,7 +6,7 @@ import { fetchAllChapterExclusions, loadRepertoireVariations } from '$lib/server
 import { loadSolvedKeys, loadTeachingProgress } from '$lib/server/practice-progress';
 import { moveSequenceLabel, UNTAGGED_CHAPTER } from '$lib/mastery/variations';
 import { teachingCeilingMoveCount } from '$lib/mastery/chapterLevels';
-import { isLockedForTier, isCeilingReachedAnywhere, knownProgressFor } from '$lib/mastery/teaching';
+import { isLockedForTier, isCeilingReachedAnywhere, knownProgressFor, computeMasteredMoveIds } from '$lib/mastery/teaching';
 
 // A null byte can't appear in a Postgres `text` value or a variation key (a
 // `>`-joined chain of UUIDs), so joining a (chapter, variationKey) pair on it
@@ -59,12 +59,16 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 
 	const ceilingMoveCount = teachingCeilingMoveCount(variations, solvedKeys);
 	const excludedPairs = new Set(chapterExclusions.map((r) => `${r.chapter_name}${PAIR_SEP}${r.variation_key}`));
+	// Computed once, not once per row — `knownProgressFor` below and
+	// `isCeilingReachedAnywhere` would otherwise each independently re-derive
+	// the same whole-repertoire set, an O(n) scan repeated per row.
+	const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, solvedKeys);
 	// GitHub issue #172: once the ceiling has genuinely been reached by any
 	// one variation, a deferred sibling (would also merely pause there, not
 	// solve, and already carries some shared credit toward it) shows as
 	// locked too — matching `computeBlockedKeys`, what actually decides what
 	// Learn would serve.
-	const ceilingReached = isCeilingReachedAnywhere(variations, solvedKeys, teachingProgress, ceilingMoveCount);
+	const ceilingReached = isCeilingReachedAnywhere(variations, solvedKeys, teachingProgress, ceilingMoveCount, masteredMoveIds);
 
 	return json(
 		variations.map((v) => {
@@ -79,7 +83,8 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 				variations,
 				teachingProgress,
 				solvedKeys,
-				resumedAfterBreak: false
+				resumedAfterBreak: false,
+				masteredMoveIds
 			}).masteredPlies;
 			return {
 				variationKey: v.variationKey,

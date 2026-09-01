@@ -765,4 +765,39 @@ describe('isLockedForTier (GitHub issue #172)', () => {
 		];
 		expect(isLockedForTier(path, 0, 1, true)).toBe(false);
 	});
+
+	it('does not lock a sibling with only minimal shared credit (e.g. just an opening move) relative to a long remaining path, even when ceilingReached is true', () => {
+		// Regression for a real risk: in a same-starting-move repertoire, the
+		// very first edge is typically ONE shared row reused by nearly every
+		// variation, so `masteredPlies > 0` alone would defer almost the
+		// whole repertoire the instant anything paused. This variation has
+		// only its first ply credited (a stand-in for "shares just the
+		// opening move") and plenty of its OWN, genuinely fresh content
+		// beyond it — long enough (40 plies) that it would merely pause at a
+		// real Bronze ceiling (9 player moves -> ply 17), but its very next
+		// teaching batch (3 player moves from ply 1, landing at ply 7) falls
+		// well short of that ceiling, so it must NOT defer yet.
+		const path: VariationStep[] = Array.from({ length: 40 }, (_, i) => ({
+			moveId: `m${i}`,
+			san: `m${i}`,
+			fromFen: 'x',
+			toFen: 'y',
+			isPlayerTurn: i % 2 === 0
+		}));
+		expect(isLockedForTier(path, 1, 9, true)).toBe(false);
+	});
+
+	it('locks a sibling whose next batch WOULD reach the ceiling, even with only a little more credit needed', () => {
+		// Same shape as above, but masteredPlies is now one short of the
+		// ceiling itself (ply 16 of 17) — the very next batch necessarily
+		// reaches/crosses it, so this genuinely is "just the last sliver."
+		const path: VariationStep[] = Array.from({ length: 40 }, (_, i) => ({
+			moveId: `m${i}`,
+			san: `m${i}`,
+			fromFen: 'x',
+			toFen: 'y',
+			isPlayerTurn: i % 2 === 0
+		}));
+		expect(isLockedForTier(path, 16, 9, true)).toBe(true);
+	});
 });

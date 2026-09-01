@@ -407,6 +407,41 @@ describe('applyAttemptResult with a ceilingMoveCount', () => {
 		expect(fromCalls).toHaveLength(0);
 		expect(upsertCalls).toHaveLength(0);
 	});
+
+	it("never credits a DEFERRED sibling's own new content, even if it's the one actually being recorded (GitHub issue #172)", async () => {
+		// `a`/`b` share their first 10 plies (5 player moves) and each add
+		// their own 2-ply branch. `a` is genuinely paused at a ceiling of 6
+		// player moves (ceiling ply 11 — 10 shared plies plus a's own 11th
+		// ply, its own divergent move). `b` shares only the 10 common plies
+		// (its own 11th ply differs from a's), so it's DEFERRED, not
+		// independently paused: it would also merely pause at the same
+		// ceiling, and its next batch (from ply 10) would reach it.
+		//
+		// Recording a clean pass on `b` itself must NOT credit it with its
+		// own new 11th-ply move — mirroring buildPracticeView's own
+		// fallback-safety clamp exactly, since whatever served this attempt
+		// must have gone through the same restriction, or this call
+		// disagrees with what was actually served.
+		const { a, b } = makeSharedPrefixVariations();
+		const { client, upsertCalls } = fakeSupabase({
+			teachingRows: [{ variation_key: 'a', taught_plies: 11, mastered_plies: 11 }]
+		});
+
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'b', false, [a, b], false, [a, b], 6);
+
+		const progressWrite = upsertCalls.find((c) => c.table === 'variation_teaching_progress');
+		// Clamped to exactly the shared floor (10) — NOT 11, which would
+		// mean b's own divergent move got taught here.
+		expect(progressWrite?.rows).toEqual({
+			player_id: 'player-1',
+			repertoire_id: 'rep-1',
+			variation_key: 'b',
+			taught_plies: 10,
+			mastered_plies: 10
+		});
+		// Paused (deferred), never solved.
+		expect(upsertCalls.some((c) => c.table === 'variation_solved')).toBe(false);
+	});
 });
 
 describe('loadVariationUpdatedAt', () => {

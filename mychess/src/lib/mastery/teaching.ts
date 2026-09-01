@@ -225,10 +225,21 @@ export function isCeilingReachedAnywhere(
  * DEFERRED: some sibling sharing part of its credited prefix has already
  * been taught all the way to the ceiling and paused there (`ceilingReached`,
  * from `isCeilingReachedAnywhere`), `path` would ALSO merely pause at the
- * same ceiling rather than solve outright, and `path` already carries SOME
- * shared credit toward it (`masteredPlies > 0` — otherwise it's an
- * unrelated, untouched line Learn should still move on to freely, per the
- * original design's "Learn simply serves something else" guarantee).
+ * same ceiling rather than solve outright, and `path`'s OWN VERY NEXT
+ * teaching batch would reach or cross that same ceiling.
+ *
+ * That last condition is deliberately NOT "masteredPlies > 0" — nearly
+ * every variation in a same-starting-move repertoire shares at least its
+ * opening move with everything else once ANYTHING has been taught at all
+ * (that literal first edge is typically one shared row in the move graph),
+ * so a bare "has any credit" test would defer almost the WHOLE repertoire
+ * the instant anything paused, silently breaking the original design's
+ * "Learn simply serves something else" guarantee for genuinely unrelated,
+ * still-fresh lines. Requiring the next batch to reach the ceiling is what
+ * actually distinguishes "this line's remaining content is just the last
+ * sliver of an already-mostly-taught shared stretch" from "this line
+ * happens to share an opening move but still has a normal amount of its
+ * own, genuinely fresh content left to teach first."
  *
  * The user's own framing, from the grilling session behind this change:
  * a repertoire with several near-identical continuations sharing almost
@@ -252,8 +263,11 @@ export function isLockedForTier(
 ): boolean {
 	if (isPausedAtCeiling(path, masteredPlies, ceilingMoveCount)) return true;
 	if (!ceilingReached || !wouldMerelyPauseAt(path, ceilingMoveCount)) return false;
+	if (masteredPlies <= 0) return false;
 	const ceilingPly = ceilingPlyFor(path, ceilingMoveCount);
-	return masteredPlies > 0 && masteredPlies < ceilingPly;
+	if (masteredPlies >= ceilingPly) return false; // already genuinely paused, handled above
+	const nextBatchEnd = plyAfterPlayerMoves(path as VariationStep[], masteredPlies, TEACHING_BATCH_MOVES);
+	return nextBatchEnd >= ceilingPly;
 }
 
 /**
