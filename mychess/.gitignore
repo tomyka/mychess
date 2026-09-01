@@ -30,3 +30,6 @@ test-results/
 playwright-report/
 # Saved authenticated session (GitHub issue #133) — a live session token, never committed.
 tests/.auth/
+
+# scripts/qa-verify-learn.ts's evidence screenshot (GitHub issue #179) — regenerated every run.
+scratch-qa-verify-learn.png
