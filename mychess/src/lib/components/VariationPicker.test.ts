@@ -469,6 +469,52 @@ describe('VariationPicker', () => {
 		});
 	});
 
+	it('keeps a manually drilled-into group resolving to itself after a float-to-front reorder shifts its position (regression for GitHub issue #178)', async () => {
+		// The MODAL variant is used deliberately: it has no auto-open effect
+		// (that's inline-only), so nothing re-navigates on a
+		// currentVariationKey change — isolating whether `openEntryKey`
+		// itself survives `pickerEntries`' reordering, independent of the
+		// inline rail's own separate re-sync behavior.
+		//
+		// P and Q are both real (2-member) regular groups; P sorts before Q
+		// (tie-broken by first-appearance) and both sort before the solo
+		// `a`. Floating `a` (after both) shifts every earlier entry down by
+		// one, moving Q from index 1 to index 2. Floating a member of P is
+		// a no-op (P is already first), so Q reverts to index 1 — an index
+		// captured as "2" while `a` was active would resolve to the WRONG
+		// entry once P becomes active and Q reverts to index 1.
+		const rows = [
+			row('p1', ['Pe4', 'Pe5', 'Pnf3', 'Pnc6', 'Pbb5', 'Pa6'], []),
+			row('p2', ['Pe4', 'Pe5', 'Pnf3', 'Pnc6', 'Pbb5', 'Pa6'], []),
+			row('q1', ['Qd4', 'Qd5', 'Qc4', 'Qc6', 'Qnf3', 'Qbf5'], []),
+			row('q2', ['Qd4', 'Qd5', 'Qc4', 'Qc6', 'Qnf3', 'Qbf5'], []),
+			row('a', ['Sa1', 'Sa2'], [])
+		];
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
+		vi.stubGlobal('fetch', fetchSpy);
+		const { rerender } = render(VariationPicker, {
+			props: { repertoireId: 'rep-1', onselect: vi.fn(), variant: 'modal', currentVariationKey: 'a' }
+		});
+
+		// `a` floats to the front; Q sits at index 2 behind it and P.
+		await waitFor(() => screen.getByText('label:a'));
+		await fireEvent.click(screen.getByText(/Qd4 Qd5/));
+		expect(screen.getByText('label:q1')).toBeTruthy();
+		expect(screen.getByText('label:q2')).toBeTruthy();
+
+		// Active moves to p1 (inside P). P was already first in the
+		// unfloated base order, so this is a no-op for P's own position —
+		// but it changes what `a` contributes: `a` is no longer floated, so
+		// Q reverts from index 2 to index 1.
+		await rerender({ repertoireId: 'rep-1', onselect: vi.fn(), variant: 'modal', currentVariationKey: 'p1' });
+
+		// Still resolves to Q's own two members — not whatever entry a
+		// stale index (captured as 2) would now point at instead.
+		await waitFor(() => expect(screen.getByText('label:q1')).toBeTruthy());
+		expect(screen.getByText('label:q2')).toBeTruthy();
+		expect(screen.queryByText('label:a')).toBeNull();
+	});
+
 	it('hides excluded variations entirely, so only the one remaining variation can be picked', async () => {
 		const mixed = [
 			row('v1', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7', 'Re1'], ['Ruy Lopez']),

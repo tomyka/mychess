@@ -82,11 +82,17 @@
 
 	let variations = $state<VariationRow[] | null>(null);
 	let openChapter = $state<string | null>(null);
-	// Index into the currently-shown entry list, not the entry's own identity —
-	// an index cleanly distinguishes "nothing opened yet" (`null`) from "the
-	// Other bucket is opened" (an empty-steps group, but a real index), which
-	// two otherwise-equal values couldn't.
-	let openGroupIndex = $state<number | null>(null);
+	// The open entry's own STABLE, content-based identity (see `entryKey`),
+	// not its position in `currentEntries` — GitHub issue #178's float-to-
+	// front made that array's order depend on `currentVariationKey`, so an
+	// index captured at click time can point at a completely different
+	// entry once teaching advances and a different entry gets floated to
+	// the front. Keying by content means `openEntry` below always resolves
+	// to the SAME logical entry regardless of how the list has reordered
+	// since — the entry can even vanish (e.g. its own variation got
+	// solved and left the pool) without pointing at the wrong thing; it
+	// just resolves to `null`.
+	let openEntryKey = $state<string | null>(null);
 	let errorMessage = $state<string | null>(null);
 	// Whether the auto-open below has already run for the current
 	// `currentVariationKey` — otherwise every subsequent load() (e.g. a
@@ -193,6 +199,22 @@
 	 * exactly what's being taught, with everything else still available
 	 * below in its normal browsability order.
 	 */
+	/**
+	 * A stable, content-based identity for one entry — shared by the
+	 * template's own `{#each}` key and `openEntryKey` above, so both agree on
+	 * what makes two entries "the same one" across a reorder. Ceiling entries
+	 * key on their full clipped-prefix moveId chain; regular entries on their
+	 * own SAN chain, or the fixed string `'other'` for the trailing catch-all
+	 * (`steps: []` — `groupByFirstMoves` only ever produces at most one such
+	 * bucket per list, so a fixed string is unambiguous within it, unlike the
+	 * position-dependent `other-${i}` this replaced).
+	 */
+	function entryKey(entry: PickerEntry): string {
+		return entry.kind === 'ceiling'
+			? `ceiling-${entry.group.steps.map((s) => s.moveId).join('>')}`
+			: entry.group.steps.map((s) => s.san).join('>') || 'other';
+	}
+
 	function pickerEntries(chapter: string | null): PickerEntry[] {
 		const rows = rowsForChapter(chapter);
 		// Every row carries the same repertoire-wide ceiling (see the server
@@ -326,9 +348,9 @@
 
 	const activeChapter = $derived(chapters === null ? null : openChapter);
 	const currentEntries = $derived(activeChapter !== null || chapters === null ? pickerEntries(activeChapter) : []);
-	const openEntry = $derived(openGroupIndex !== null ? currentEntries[openGroupIndex] ?? null : null);
+	const openEntry = $derived(openEntryKey !== null ? (currentEntries.find((e) => entryKey(e) === openEntryKey) ?? null) : null);
 	// Only a 'regular' entry can ever be drilled into — a ceiling entry always
-	// selects directly (see the template), so it never sets `openGroupIndex`.
+	// selects directly (see the template), so it never sets `openEntryKey`.
 	const openGroup = $derived(openEntry?.kind === 'regular' ? openEntry.group : null);
 
 	// Inline-only (see the `variant` prop doc comment above): opens straight to
@@ -343,12 +365,11 @@
 		const chapter = chapters === null ? null : row.chapterNames[0] ?? UNTAGGED_CHAPTER;
 		openChapter = chapter;
 		const entries = pickerEntries(chapter);
-		const idx = entries.findIndex((e) => e.group.items.some((r) => r.variationKey === currentVariationKey));
-		const found = idx >= 0 ? entries[idx] : null;
+		const found = entries.find((e) => e.group.items.some((r) => r.variationKey === currentVariationKey)) ?? null;
 		// A ceiling entry (any size) and a regular group-of-one already render
 		// their row directly in the entry list — drilling in would just show
 		// the same row again behind a pointless "Back".
-		openGroupIndex = found && found.kind === 'regular' && !soleVariation(found.group) ? idx : null;
+		openEntryKey = found && found.kind === 'regular' && !soleVariation(found.group) ? entryKey(found) : null;
 	});
 </script>
 
@@ -385,7 +406,7 @@
 		     leaf-row views below, where the icons actually appear, not on the
 		     top-level chapter list. -->
 		<p class="text-xs text-(--color-muted) mb-2">{m.variation_picker_legend()}</p>
-		<button onclick={() => (openGroupIndex = null)} class="text-(--color-accent) text-sm mb-2 hover:underline">{m.variation_picker_back()}</button>
+		<button onclick={() => (openEntryKey = null)} class="text-(--color-accent) text-sm mb-2 hover:underline">{m.variation_picker_back()}</button>
 		<ul class="space-y-1">
 			{#each openGroup.items as row (row.variationKey)}
 				{@const active = isActive(row.variationKey)}
@@ -417,7 +438,7 @@
 			<button onclick={() => (openChapter = null)} class="text-(--color-accent) text-sm mb-2 hover:underline">{m.variation_picker_back()}</button>
 		{/if}
 		<ul class="space-y-1">
-			{#each currentEntries as entry, i (entry.kind === 'ceiling' ? `ceiling-${entry.group.steps.map((s) => s.moveId).join('>')}` : entry.group.steps.map((s) => s.san).join('>') || `other-${i}`)}
+			{#each currentEntries as entry (entryKey(entry))}
 				{#if entry.kind === 'ceiling'}
 					{@const done = ceilingGroupDone(entry.group)}
 					{@const active = groupHasActive(entry.group)}
@@ -461,7 +482,7 @@
 								if (only) {
 									if (!only.locked) onselect(only.variationKey);
 								} else {
-									openGroupIndex = i;
+									openEntryKey = entryKey(entry);
 								}
 							}}
 							use:scrollIntoViewIfActive={active}
