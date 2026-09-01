@@ -207,7 +207,9 @@
 	 * own SAN chain, or the fixed string `'other'` for the trailing catch-all
 	 * (`steps: []` — `groupByFirstMoves` only ever produces at most one such
 	 * bucket per list, so a fixed string is unambiguous within it, unlike the
-	 * position-dependent `other-${i}` this replaced).
+	 * position-dependent `other-${i}` this replaced). Never collides with a
+	 * real group's own key either: SAN grammar (file/rank letters, piece
+	 * letters, `x`/`+`/`#`/`=`/`O-O`) can't spell "other".
 	 */
 	function entryKey(entry: PickerEntry): string {
 		return entry.kind === 'ceiling'
