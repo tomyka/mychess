@@ -401,6 +401,32 @@ describe('VariationPicker', () => {
 			expect(screen.queryByText('label:v2')).toBeNull();
 		});
 
+		it("floats the entry holding the current variation to the very front, ahead of ceiling/frontier groups (GitHub issue #178)", async () => {
+			// `frontier` is long enough to extend past the ceiling (a
+			// ceiling/frontier group, which normally renders FIRST for
+			// browsability — see #165) while `active`, the currently-taught
+			// variation, is short enough to land in the "regular" bucket,
+			// which normally renders AFTER every frontier group. On a
+			// barely-started repertoire this can bury the one thing actually
+			// being taught behind a wall of not-yet-started content — it
+			// must instead be the very first entry shown, regardless of
+			// which bucket it would otherwise land in.
+			const rows = [
+				row('frontier', ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5'], ['Ruy Lopez'], { ceilingMoveCount: 3 }),
+				row('active', ['d4', 'd5'], ['Ruy Lopez'], { ceilingMoveCount: 3 })
+			];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
+			vi.stubGlobal('fetch', fetchSpy);
+			render(VariationPicker, {
+				props: { repertoireId: 'rep-1', onselect: vi.fn(), variant: 'inline', currentVariationKey: 'active' }
+			});
+
+			await waitFor(() => screen.getByText('label:active'));
+
+			const items = screen.getAllByRole('listitem');
+			expect(items[0].textContent).toContain('label:active');
+		});
+
 		it('shows a per-chapter completion indicator', async () => {
 			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => variationsResponse });
 			vi.stubGlobal('fetch', fetchSpy);

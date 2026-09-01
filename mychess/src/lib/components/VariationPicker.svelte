@@ -175,7 +175,23 @@
 	 * The entries shown for one chapter (or the flat pool): every frontier row
 	 * grouped by its ceiling-clipped shared prefix FIRST (the actionable "what
 	 * do I still need to do" content), then everything else through the
-	 * existing fixed-window grouping — unchanged from before this feature.
+	 * existing fixed-window grouping — unchanged from before this feature —
+	 * EXCEPT the entry holding the currently-taught variation (if any), which
+	 * is floated to the very front regardless of which of those two buckets
+	 * it would otherwise land in (GitHub issue #178).
+	 *
+	 * That override exists because "what still needs doing" and "what am I
+	 * being taught RIGHT NOW" are different questions, and on a repertoire
+	 * that's barely started almost everything qualifies as a frontier
+	 * ceiling group — so the one variation actually being taught, often a
+	 * short line that landed in the much shorter "regular" bucket, could sit
+	 * behind a dozen+ not-yet-started ceiling groups. The picker's own
+	 * `scrollIntoViewIfActive` action (#174) already scrolls that entry into
+	 * view, but scrolling only helps once the panel is open — a player's
+	 * first glance still lands on the unrelated content sorted ahead of it.
+	 * Floating it to the front means the very first thing shown is always
+	 * exactly what's being taught, with everything else still available
+	 * below in its normal browsability order.
 	 */
 	function pickerEntries(chapter: string | null): PickerEntry[] {
 		const rows = rowsForChapter(chapter);
@@ -189,10 +205,18 @@
 		const regularRows = rows.filter((r) => !isFrontier(r, ceilingMoveCount));
 		const ceilingGroups = groupByCeilingPrefix(frontierRows, stepsOf, ceilingMoveCount);
 		const regularGroups = groupByFirstMoves(regularRows, stepsOf, FIRST_MOVES_GROUP_PLIES, TOP_N);
-		return [
+		const entries: PickerEntry[] = [
 			...ceilingGroups.map((group) => ({ kind: 'ceiling' as const, group })),
 			...regularGroups.map((group) => ({ kind: 'regular' as const, group }))
 		];
+		if (currentVariationKey !== null) {
+			const activeIndex = entries.findIndex((entry) => entry.group.items.some((r) => r.variationKey === currentVariationKey));
+			if (activeIndex > 0) {
+				const [activeEntry] = entries.splice(activeIndex, 1);
+				entries.unshift(activeEntry);
+			}
+		}
+		return entries;
 	}
 
 	function groupLabel(group: MoveGroup<VariationRow>): string {
