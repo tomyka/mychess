@@ -216,7 +216,16 @@ export async function writeMoves(
   // inserts merge chapter_names instead of being dropped (this call's own
   // chapter name gets added to whatever the row already has), which needs a
   // real upsert rather than `ignoreDuplicates: true`.
-  const moveRows = params.moves.map((move) => ({
+  // `import_order` is this move's own position in the PARSER's array — a
+  // tie-break for moves sharing one `created_at` (a bulk upsert evaluates
+  // `now()` once per statement, so every move in ONE writeMoves() call gets
+  // an IDENTICAL timestamp; `fetchLiveMoves` used to fall back to `id`, a
+  // random UUID, which silently scrambled a chapter's own move order —
+  // verified against a real repertoire where a whole chapter's ~275 moves
+  // shared one timestamp down to the microsecond). Only meaningful WITHIN
+  // this call: `created_at` already separates different chapters/calls
+  // correctly on its own, so this never needs to be globally unique.
+  const moveRows = params.moves.map((move, index) => ({
     repertoire_id: repId,
     from_position: fenToId.get(move.fromFen)!,
     to_position: fenToId.get(move.toFen)!,
@@ -224,7 +233,8 @@ export async function writeMoves(
     move_number: move.move_number,
     is_player_turn: move.is_player_turn,
     annotation: move.annotation,
-    chapter_names: params.chapterLabel ? [params.chapterLabel] : []
+    chapter_names: params.chapterLabel ? [params.chapterLabel] : [],
+    import_order: index
   }));
 
   // A single chapter's own move list shouldn't legitimately repeat the same
@@ -234,7 +244,9 @@ export async function writeMoves(
   // row a second time") — `ignoreDuplicates` tolerated that silently, so
   // switching to a real upsert needs this dedupe to stay safe. Merges
   // chapter_names for any such within-call repeat rather than just keeping
-  // one arbitrarily.
+  // one arbitrarily, and keeps the EARLIEST `import_order` of the two — the
+  // first time this edge was seen is the one that should determine its
+  // ordering, not whichever transposition happened to repeat it later.
   const dedupedMoveRows = Array.from(
     moveRows
       .reduce((map, row) => {
@@ -243,7 +255,11 @@ export async function writeMoves(
         map.set(
           key,
           existing
-            ? { ...row, chapter_names: Array.from(new Set([...existing.chapter_names, ...row.chapter_names])) }
+            ? {
+                ...row,
+                chapter_names: Array.from(new Set([...existing.chapter_names, ...row.chapter_names])),
+                import_order: Math.min(existing.import_order, row.import_order)
+              }
             : row
         );
         return map;
