@@ -6,7 +6,14 @@ import { fetchAllChapterExclusions, loadRepertoireVariations } from '$lib/server
 import { loadSolvedKeys, loadTeachingProgress } from '$lib/server/practice-progress';
 import { moveSequenceLabel, UNTAGGED_CHAPTER } from '$lib/mastery/variations';
 import { teachingCeilingMoveCount } from '$lib/mastery/chapterLevels';
-import { isLockedForTier, isCeilingReachedAnywhere, knownProgressFor, computeMasteredMoveIds } from '$lib/mastery/teaching';
+import {
+	isLockedForTier,
+	isPausedAtCeiling,
+	isCeilingReachedAnywhere,
+	knownProgressFor,
+	computeMasteredMoveIds,
+	computeMasteredPliesMap
+} from '$lib/mastery/teaching';
 
 // A null byte can't appear in a Postgres `text` value or a variation key (a
 // `>`-joined chain of UUIDs), so joining a (chapter, variationKey) pair on it
@@ -26,8 +33,11 @@ const PAIR_SEP = String.fromCharCode(0);
  * does), locked state — whether this UNSOLVED variation is currently paused
  * at the repertoire's teaching-tier ceiling, or deferred because a sibling
  * sharing part of its credited prefix already reached that ceiling (GitHub
- * issue #172, `isLockedForTier`) — and this repertoire's current
- * ceiling itself (`ceilingMoveCount`, the same value repeated on every row
+ * issue #172, `isLockedForTier`) — and a separate `pausedAtCeiling` flag — the
+ * REFINEMENT of `locked` telling the picker WHICH of those two reasons
+ * applies, so it can show a distinct icon for "reached, counts toward
+ * leveling up" vs. "genuinely not reachable yet" (GitHub issue #181) — and
+ * this repertoire's current ceiling itself (`ceilingMoveCount`, the same value repeated on every row
  * rather than a separate top-level field, so the response stays the flat
  * array `VariationSelection.ensureLoaded` also consumes, unchanged). The
  * picker renders a locked row disabled instead of letting the player click
@@ -57,12 +67,16 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		loadTeachingProgress(locals.supabase, user.id, params.id)
 	]);
 
-	const ceilingMoveCount = teachingCeilingMoveCount(variations, solvedKeys);
 	const excludedPairs = new Set(chapterExclusions.map((r) => `${r.chapter_name}${PAIR_SEP}${r.variation_key}`));
 	// Computed once, not once per row — `knownProgressFor` below and
 	// `isCeilingReachedAnywhere` would otherwise each independently re-derive
-	// the same whole-repertoire set, an O(n) scan repeated per row.
+	// the same whole-repertoire set, an O(n) scan repeated per row. Also
+	// reused for `computeMasteredPliesMap` below (GitHub issue #181), so the
+	// teaching ceiling itself and every row's own masteredPlies agree on
+	// exactly the same credit.
 	const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, solvedKeys);
+	const repertoireMasteredPlies = computeMasteredPliesMap(variations, teachingProgress, solvedKeys, masteredMoveIds);
+	const ceilingMoveCount = teachingCeilingMoveCount(variations, repertoireMasteredPlies);
 	// GitHub issue #172: once the ceiling has genuinely been reached by any
 	// one variation, a deferred sibling (would also merely pause there, not
 	// solve, and already carries some shared credit toward it) shows as
@@ -95,6 +109,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 				solved,
 				playerMoveCount: v.playerMoveCount,
 				locked: !solved && isLockedForTier(v.path, masteredPlies, ceilingMoveCount, ceilingReached),
+				pausedAtCeiling: !solved && isPausedAtCeiling(v.path, masteredPlies, ceilingMoveCount),
 				ceilingMoveCount
 			};
 		})
