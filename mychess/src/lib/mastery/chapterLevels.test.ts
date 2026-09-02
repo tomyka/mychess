@@ -271,6 +271,16 @@ describe('currentLevelProgress', () => {
 		// bronze-cap ply so far, not the (later) silver-cap ply -> not ready yet.
 		expect(currentLevelProgress(rows, masteredPlies)).toEqual({ tier: 'silver', ready: 2, total: 3 });
 	});
+
+	it("reports the pool's own real ceiling as complete, not a fabricated next tier, once fully solved with no deeper content", () => {
+		// Nothing exceeds Silver's 18-move cap anywhere in the pool -> once
+		// fully solved, there is no Gold content this pool could ever reach;
+		// reporting `tier: 'gold'` here would be a permanently-stuck, false label
+		// (GitHub issue #181 code-review finding).
+		const rows = [v('a', 15), v('b', 15)];
+		const masteredPlies = masteredFrom(rows, ['a', 'b']);
+		expect(currentLevelProgress(rows, masteredPlies)).toEqual({ tier: 'silver', ready: 2, total: 2 });
+	});
 });
 
 describe('deriveRepertoireLevel', () => {
