@@ -310,8 +310,11 @@ export function computeMasteredPliesMap(
 	masteredMoveIds: ReadonlySet<string> = computeMasteredMoveIds(variations, teachingProgress, solvedKeys)
 ): Map<string, number> {
 	const map = new Map<string, number>();
-	for (const v of variations) {
-		map.set(v.variationKey, solvedKeys.has(v.variationKey) ? v.path.length : sharedMasteredPrefixLength(v.path, masteredMoveIds));
+	for (const variation of variations) {
+		map.set(
+			variation.variationKey,
+			solvedKeys.has(variation.variationKey) ? variation.path.length : sharedMasteredPrefixLength(variation.path, masteredMoveIds)
+		);
 	}
 	return map;
 }
