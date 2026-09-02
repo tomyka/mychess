@@ -302,6 +302,14 @@ export function hasReachedCeiling(path: readonly VariationStep[], masteredPlies:
  * mirrors `knownProgressFor`'s own optional parameter of the same name, for a
  * caller that already computed it for an unrelated reason in the same
  * request (e.g. `/api/repertoires/[id]/variations`).
+ *
+ * Unlike `knownProgressFor`, this has no `resumedAfterBreak` concept — it's
+ * equivalent to calling that function with `resumedAfterBreak: false` for
+ * every variation, without needing its `Math.max(own, sharedFloor)` step: a
+ * variation's own progress is always folded into `masteredMoveIds` first (see
+ * `computeMasteredMoveIds`), so its own prefix is always contained in the
+ * shared one. Not appropriate for a resume-after-break code path, where the
+ * floor must be zeroed instead — no current caller needs that here.
  */
 export function computeMasteredPliesMap(
 	variations: Variation[],
