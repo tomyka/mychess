@@ -271,6 +271,52 @@ export function isLockedForTier(
 }
 
 /**
+ * Whether `path` has been taught at least as far as `ceilingMoveCount`
+ * allows — true both for a variation genuinely PAUSED there
+ * (`isPausedAtCeiling`) and for one whose own true end already lies at or
+ * before the ceiling and has been fully mastered (an ordinary solve). The
+ * single predicate `chapterLevels.ts`'s tier derivation needs (GitHub issue
+ * #181): "is there nothing more THIS tier could currently ask of this
+ * variation" — regardless of whether that's because it's short and done, or
+ * long and capped.
+ */
+export function hasReachedCeiling(path: readonly VariationStep[], masteredPlies: number, ceilingMoveCount: number): boolean {
+	const ceilingPly = ceilingPlyFor(path, ceilingMoveCount);
+	return masteredPlies >= Math.min(path.length, ceilingPly);
+}
+
+/**
+ * Every variation's effective `masteredPlies` — shared-credit-aware, matching
+ * what `knownProgressFor` would return for each individually — computed ONCE
+ * for the whole repertoire (GitHub issue #181). `deriveChapterLevel` needs
+ * this per variation for EVERY tier check, and a caller that derives levels
+ * for many chapters in one request (the Levels page, coach student-progress)
+ * must not recompute `computeMasteredMoveIds` (an O(repertoire) scan) once
+ * per chapter — that would turn an O(n) question into O(chapters × n). Same
+ * solved-gets-full-credit branch as `computeMasteredMoveIds` itself, for the
+ * same reason: a just-solved variation's own `masteredPlies` counter isn't
+ * guaranteed to be caught up in every caller's snapshot, but `solvedKeys`
+ * always is.
+ *
+ * `masteredMoveIds`, when passed, is used as-is instead of being recomputed —
+ * mirrors `knownProgressFor`'s own optional parameter of the same name, for a
+ * caller that already computed it for an unrelated reason in the same
+ * request (e.g. `/api/repertoires/[id]/variations`).
+ */
+export function computeMasteredPliesMap(
+	variations: Variation[],
+	teachingProgress: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number }>,
+	solvedKeys: ReadonlySet<string>,
+	masteredMoveIds: ReadonlySet<string> = computeMasteredMoveIds(variations, teachingProgress, solvedKeys)
+): Map<string, number> {
+	const map = new Map<string, number>();
+	for (const v of variations) {
+		map.set(v.variationKey, solvedKeys.has(v.variationKey) ? v.path.length : sharedMasteredPrefixLength(v.path, masteredMoveIds));
+	}
+	return map;
+}
+
+/**
  * How many of `path`'s LEADING plies have a moveId already in
  * `masteredMoveIds` — stops at the first ply whose moveId isn't there, even
  * if a later ply happens to be mastered too (a gap breaks the prefix). Used

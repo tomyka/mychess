@@ -11,7 +11,9 @@ import {
 	isPausedAtCeiling,
 	computeBlockedKeys,
 	isCeilingReachedAnywhere,
-	isLockedForTier
+	isLockedForTier,
+	hasReachedCeiling,
+	computeMasteredPliesMap
 } from './teaching';
 import type { Variation, VariationStep } from './variations';
 
@@ -799,5 +801,63 @@ describe('isLockedForTier (GitHub issue #172)', () => {
 			isPlayerTurn: i % 2 === 0
 		}));
 		expect(isLockedForTier(path, 16, 9, true)).toBe(true);
+	});
+});
+
+describe('hasReachedCeiling (GitHub issue #181)', () => {
+	it('is true for a short variation once fully solved', () => {
+		const p = path(['e4', 'e5', 'Nf3']); // 2 player moves, ends on the player's own move
+		expect(hasReachedCeiling(p, p.length, 9)).toBe(true);
+	});
+
+	it('is false for a short variation short of its own end', () => {
+		const p = path(['e4', 'e5', 'Nf3']);
+		expect(hasReachedCeiling(p, p.length - 1, 9)).toBe(false);
+	});
+
+	it('is true for a long variation exactly at the ceiling', () => {
+		const p = path(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O']); // 5 player moves
+		const ceilingPly = ceilingPlyFor(p, 2);
+		expect(hasReachedCeiling(p, ceilingPly, 2)).toBe(true);
+	});
+
+	it('is false for a long variation short of the ceiling', () => {
+		const p = path(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O']);
+		const ceilingPly = ceilingPlyFor(p, 2);
+		expect(hasReachedCeiling(p, ceilingPly - 1, 2)).toBe(false);
+	});
+});
+
+describe('computeMasteredPliesMap (GitHub issue #181)', () => {
+	it("matches knownProgressFor's own per-variation result for the same inputs", () => {
+		const long = makeVariation('a', makePath(24));
+		const b = makeVariation('b', makePath(8));
+		const teachingProgress = new Map([
+			['a', { taughtPlies: 5, masteredPlies: 3 }],
+			['b', { taughtPlies: 8, masteredPlies: 8 }]
+		]);
+		const solvedKeys = new Set<string>();
+		const map = computeMasteredPliesMap([long, b], teachingProgress, solvedKeys);
+		expect(map.get('a')).toBe(
+			knownProgressFor({ variation: long, variations: [long, b], teachingProgress, solvedKeys, resumedAfterBreak: false })
+				.masteredPlies
+		);
+		expect(map.get('b')).toBe(8);
+	});
+
+	it('gives a solved variation full credit even if its own stored masteredPlies counter would say less', () => {
+		const p = makePath(6);
+		const v1 = makeVariation('v1', p);
+		const teachingProgress = new Map([['v1', { taughtPlies: 6, masteredPlies: 2 }]]); // stale/lagging counter
+		const map = computeMasteredPliesMap([v1], teachingProgress, new Set(['v1']));
+		expect(map.get('v1')).toBe(p.length);
+	});
+
+	it('reuses a precomputed masteredMoveIds set when passed, instead of recomputing it', () => {
+		const p = makePath(6);
+		const v1 = makeVariation('v1', p);
+		const precomputed = new Set(p.slice(0, 3).map((s) => s.moveId));
+		const map = computeMasteredPliesMap([v1], new Map(), new Set(), precomputed);
+		expect(map.get('v1')).toBe(3);
 	});
 });
