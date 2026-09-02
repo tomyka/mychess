@@ -10,8 +10,16 @@
 //
 //   npx tsx --env-file=.env scripts/debug-lock-state.ts <repertoireId> <playerId>
 import { enumerateVariations, type RawMoveRow, type Variation } from '../src/lib/mastery/variations';
-import { teachingCeilingMoveCount } from '../src/lib/mastery/chapterLevels';
-import { computeMasteredMoveIds, isCeilingReachedAnywhere, isLockedForTier, isPausedAtCeiling, knownProgressFor, ceilingPlyFor } from '../src/lib/mastery/teaching';
+import { teachingCeilingMoveCount, currentLevelProgress } from '../src/lib/mastery/chapterLevels';
+import {
+	computeMasteredMoveIds,
+	computeMasteredPliesMap,
+	isCeilingReachedAnywhere,
+	isLockedForTier,
+	isPausedAtCeiling,
+	knownProgressFor,
+	ceilingPlyFor
+} from '../src/lib/mastery/teaching';
 
 const repertoireId = process.argv[2];
 const playerId = process.argv[3];
@@ -88,10 +96,14 @@ async function main() {
 		console.log(`  progress key=${key}  taught=${p.taughtPlies} mastered=${p.masteredPlies}  | ${label}`);
 	}
 
-	const ceilingMoveCount = teachingCeilingMoveCount(variations, solvedKeys);
 	const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, solvedKeys);
+	const masteredPliesMap = computeMasteredPliesMap(variations, teachingProgress, solvedKeys, masteredMoveIds);
+	const ceilingMoveCount = teachingCeilingMoveCount(variations, masteredPliesMap);
 	const ceilingReached = isCeilingReachedAnywhere(variations, solvedKeys, teachingProgress, ceilingMoveCount, masteredMoveIds);
-	console.log(`ceilingMoveCount=${ceilingMoveCount}  ceilingReached=${ceilingReached}  masteredMoveIds.size=${masteredMoveIds.size}`);
+	const level = currentLevelProgress(variations, masteredPliesMap);
+	console.log(
+		`ceilingMoveCount=${ceilingMoveCount}  ceilingReached=${ceilingReached}  masteredMoveIds.size=${masteredMoveIds.size}  currentLevel=${level.tier} ${level.ready}/${level.total}`
+	);
 
 	for (const v of variations) {
 		const solved = solvedKeys.has(v.variationKey);
