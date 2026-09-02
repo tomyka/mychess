@@ -443,7 +443,9 @@ describe('currentLevelProgress', () => {
 		// tier happen in the exact same computation (see teachingCeilingMoveCount:
 		// the moment a tier is fully achieved, it stops being "current" and the
 		// next tier's cap is reported instead), so "ready === total" at a tier
-		// that has actually cleared is a structural impossibility below platinum.
+		// that has actually cleared, WHILE THE POOL HAS DEEPER CONTENT STILL TO
+		// REACH, cannot happen — see the dedicated "no deeper content" test below
+		// for the one case where ready === total below platinum IS correct.
 		const rows = [v('short', 5), v('long', 15), v('untouched', 9)];
 		const masteredPlies = new Map([
 			['short', rows[0].path.length], // solved
@@ -463,6 +465,23 @@ describe('currentLevelProgress', () => {
 		// At the NEW ceiling (18), 'long' (15 moves) has only reached its
 		// bronze-cap ply so far, not the (later) silver-cap ply -> not ready yet.
 		expect(currentLevelProgress(rows, masteredPlies)).toEqual({ tier: 'silver', ready: 2, total: 3 });
+	});
+
+	// Code-review finding on this task (GitHub issue #181): without this
+	// clamp, a pool whose deepest content structurally tops out below
+	// Platinum would report a fabricated, permanently-stuck tier once fully
+	// solved — teachingCeilingMoveCount's "next tier above achieved" value is
+	// fine for teaching-pace purposes (nothing ever needs to teach past a
+	// variation's own true end regardless of the number returned), but wrong
+	// as a user-facing tier LABEL once there's genuinely nothing deeper to
+	// reach.
+	it("reports the pool's own real ceiling as complete, not a fabricated next tier, once fully solved with no deeper content", () => {
+		// Nothing exceeds Silver's 18-move cap anywhere in the pool -> once
+		// fully solved, there is no Gold content this pool could ever reach;
+		// reporting `tier: 'gold'` here would be a permanently-stuck, false label.
+		const rows = [v('a', 15), v('b', 15)];
+		const masteredPlies = masteredFrom(rows, ['a', 'b']);
+		expect(currentLevelProgress(rows, masteredPlies)).toEqual({ tier: 'silver', ready: 2, total: 2 });
 	});
 });
 
@@ -702,18 +721,31 @@ export function teachingCeilingMoveCount(
  * variation that has already reached the CURRENT ceiling — genuinely nothing
  * more this tier can ask of it, short-and-solved or long-and-paused alike.
  * Once `ready === total`, the next read of `teachingCeilingMoveCount`
- * reflects the raised ceiling; this is the SAME computation exposed as a
- * fraction instead of a boolean, not a second source of truth. Backs the
- * Learn page's "current level" progress bar (GitHub issue #181).
+ * reflects the raised ceiling — UNLESS the achieved tier already equals the
+ * pool's own real ceiling (`chapterCeiling`), in which case there IS no
+ * higher tier this pool could ever have content for, and reporting
+ * `teachingCeilingMoveCount`'s "next tier above achieved" value here would
+ * show a fabricated, permanently-stuck tier name the pool can structurally
+ * never reach (e.g. "Gold: 2/2 ready" forever, for a pool whose deepest
+ * content tops out at Silver). That's harmless for `teachingCeilingMoveCount`
+ * itself — Learn never needs to teach past a variation's own true end
+ * regardless of what number is returned — but it would be actively
+ * misleading surfaced as a tier LABEL on the Learn page's progress bar,
+ * which is the whole reason this function exists (code-review finding,
+ * GitHub issue #181). So this reports the pool's own real, achieved ceiling
+ * as complete instead, once there's genuinely nothing further to reach.
  */
 export function currentLevelProgress(
 	allVariations: readonly ScopedVariation[],
 	masteredPlies: ReadonlyMap<string, number>
 ): { tier: Tier; ready: number; total: number } {
+	const achieved = deriveChapterLevel(allVariations, masteredPlies);
+	const poolCeiling = chapterCeiling(allVariations);
+	if (poolCeiling !== null && achieved === poolCeiling) {
+		return { tier: poolCeiling, ready: allVariations.length, total: allVariations.length };
+	}
 	const ceilingMoveCount = teachingCeilingMoveCount(allVariations, masteredPlies);
 	const ready = allVariations.filter((v) => hasReachedCeiling(v.path, masteredPlies.get(v.variationKey) ?? 0, ceilingMoveCount)).length;
-	// `tierForMoveCount` already falls back to 'platinum' for Infinity (its
-	// own loop's final `return`), so no special-casing is needed here.
 	return { tier: tierForMoveCount(ceilingMoveCount), ready, total: allVariations.length };
 }
 ```
