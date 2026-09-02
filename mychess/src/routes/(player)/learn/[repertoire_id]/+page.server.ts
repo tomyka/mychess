@@ -3,8 +3,8 @@ import type { PageServerLoad } from './$types';
 import { requireAccount } from '$lib/server/auth';
 import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
 import { filterVariations } from '$lib/mastery/variations';
-import { teachingCeilingMoveCount } from '$lib/mastery/chapterLevels';
-import { computeBlockedKeys } from '$lib/mastery/teaching';
+import { teachingCeilingMoveCount, currentLevelProgress } from '$lib/mastery/chapterLevels';
+import { computeBlockedKeys, computeMasteredPliesMap } from '$lib/mastery/teaching';
 import { loadSyncedActiveVariationKey, loadSolvedKeys, loadTeachingProgress } from '$lib/server/practice-progress';
 import { buildPracticeView } from '$lib/mastery/practice';
 
@@ -23,7 +23,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		loadTeachingProgress(supabase, user!.id, repertoireId)
 	]);
 	const variations = filterVariations(allVariations, excludedVariationKeys);
-	const ceilingMoveCount = teachingCeilingMoveCount(allVariations, solvedKeys);
+	// GitHub issue #181: teachingCeilingMoveCount now needs a masteredPlies
+	// map, not solvedKeys directly. currentLevelProgress reuses the exact
+	// same map so the Learn page's new progress bar and the ceiling it's
+	// measuring progress toward can never disagree.
+	const masteredPlies = computeMasteredPliesMap(allVariations, teachingProgress, solvedKeys);
+	const ceilingMoveCount = teachingCeilingMoveCount(allVariations, masteredPlies);
+	const currentLevel = currentLevelProgress(allVariations, masteredPlies);
 	// Threaded into loadSyncedActiveVariationKey so a stored pointer already
 	// paused at the ceiling is resolved past it at THIS stage, rather than
 	// relying solely on buildPracticeView's own later pickActiveVariation call
@@ -32,5 +38,5 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const activeVariationKey = await loadSyncedActiveVariationKey(supabase, user!.id, repertoireId, variations, solvedKeys, blockedKeys);
 
 	const view = buildPracticeView(variations, activeVariationKey, solvedKeys, teachingProgress, ceilingMoveCount);
-	return { repertoire, ...view };
+	return { repertoire, currentLevel, ...view };
 };
