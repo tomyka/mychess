@@ -438,12 +438,19 @@ describe('currentLevelProgress', () => {
 	});
 
 	it('counts a variation as ready once it reaches the current ceiling, solved or merely paused', () => {
-		const rows = [v('short', 5), v('long', 15)];
+		// A third, untouched variation keeps bronze from fully clearing —
+		// otherwise reaching 100% at a tier and moving the ceiling to the NEXT
+		// tier happen in the exact same computation (see teachingCeilingMoveCount:
+		// the moment a tier is fully achieved, it stops being "current" and the
+		// next tier's cap is reported instead), so "ready === total" at a tier
+		// that has actually cleared is a structural impossibility below platinum.
+		const rows = [v('short', 5), v('long', 15), v('untouched', 9)];
 		const masteredPlies = new Map([
 			['short', rows[0].path.length], // solved
 			['long', ceilingPlyFor(rows[1].path, 9)] // paused at the bronze ceiling
+			// 'untouched' has no entry -> masteredPlies 0, keeps bronze from clearing
 		]);
-		expect(currentLevelProgress(rows, masteredPlies)).toEqual({ tier: 'bronze', ready: 2, total: 2 });
+		expect(currentLevelProgress(rows, masteredPlies)).toEqual({ tier: 'bronze', ready: 2, total: 3 });
 	});
 
 	it('reflects the risen ceiling once bronze fully clears', () => {
