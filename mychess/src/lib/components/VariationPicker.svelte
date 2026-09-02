@@ -35,6 +35,14 @@
 		// disables and explains, purely as a courtesy; the real gate is
 		// `/api/practice/select-variation`'s 403 (GitHub issue #163).
 		locked: boolean;
+		// Server-computed, a REFINEMENT of `locked` (never true unless `locked`
+		// is also true): true when this row was taught all the way to the
+		// current tier's move cap and paused there, rather than being
+		// genuinely unreachable for some other reason (a deferred sibling —
+		// GitHub issue #172). Display-only: it changes which icon/tooltip a
+		// locked row shows, never whether it's selectable — `locked` alone
+		// still governs that (GitHub issue #181).
+		pausedAtCeiling: boolean;
 		// This repertoire's current teaching-tier ceiling — the same value on
 		// every row (see the server route's doc comment). Used to decide which
 		// rows extend past what's currently teachable, and to clip their
@@ -266,12 +274,24 @@
 	}
 
 	/**
+	 * Whether every member of a "done" ceiling group is paused-at-ceiling
+	 * SPECIFICALLY, rather than genuinely locked for some other reason — the
+	 * group's own badge shows the paused icon only when this is true for
+	 * every member, matching a leaf row's own paused/locked split (GitHub
+	 * issue #181). Only meaningful when `ceilingGroupDone` is already true.
+	 */
+	function ceilingGroupPaused(group: MoveGroup<VariationRow>): boolean {
+		return group.items.every((r) => r.pausedAtCeiling);
+	}
+
+	/**
 	 * The full locked/learned reason, as a tooltip on a row/group — `undefined`
 	 * (no `title` attribute at all) for a row that's neither. `locked` and
 	 * `solved` are never both true (see `VariationRow.locked`'s own doc
 	 * comment), so this always resolves to at most one reason.
 	 */
-	function statusTitle(locked: boolean, solved: boolean): string | undefined {
+	function statusTitle(locked: boolean, solved: boolean, pausedAtCeiling: boolean = false): string | undefined {
+		if (pausedAtCeiling) return m.variation_picker_paused_reason();
 		if (locked) return m.variation_picker_locked_reason();
 		if (solved) return m.variation_picker_learned_reason();
 		return undefined;
@@ -419,13 +439,15 @@
 							if (!row.locked) onselect(row.variationKey);
 						}}
 						use:scrollIntoViewIfActive={active}
-						title={statusTitle(row.locked, row.solved)}
+						title={statusTitle(row.locked, row.solved, row.pausedAtCeiling)}
 						class="relative block w-full text-left px-3 py-2 pr-8 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) {active
 							? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10'
 							: ''} {row.locked ? 'opacity-50 cursor-not-allowed' : ''}"
 					>
 						{row.label}
-						{#if row.locked}
+						{#if row.pausedAtCeiling}
+							{@render cornerBadge('⏳', 'text-xs', m.variation_picker_paused_reason())}
+						{:else if row.locked}
 							{@render cornerBadge('🔒', 'text-xs', m.variation_picker_locked_reason())}
 						{:else if row.solved}
 							{@render cornerBadge('✓', 'text-green-600 dark:text-green-400 text-sm', m.variation_picker_learned_reason())}
@@ -444,6 +466,7 @@
 				{#if entry.kind === 'ceiling'}
 					{@const done = ceilingGroupDone(entry.group)}
 					{@const active = groupHasActive(entry.group)}
+					{@const paused = done && ceilingGroupPaused(entry.group)}
 					<li>
 						<button
 							disabled={done}
@@ -454,7 +477,7 @@
 								}
 							}}
 							use:scrollIntoViewIfActive={active}
-							title={statusTitle(done, false)}
+							title={done ? statusTitle(true, false, paused) : undefined}
 							class="relative block w-full text-left px-3 py-2 pr-12 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) font-medium {active
 								? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10'
 								: ''} {done ? 'opacity-50 cursor-not-allowed' : ''}"
@@ -464,7 +487,9 @@
 								{#if entry.group.items.length > 1}
 									<span class="text-(--color-muted) text-sm">({entry.group.items.length})</span>
 								{/if}
-								{#if done}
+								{#if paused}
+									<span class="text-xs" role="img" aria-label={m.variation_picker_paused_reason()}>⏳</span>
+								{:else if done}
 									<span class="text-xs" role="img" aria-label={m.variation_picker_locked_reason()}>🔒</span>
 								{/if}
 							</span>
@@ -488,7 +513,7 @@
 								}
 							}}
 							use:scrollIntoViewIfActive={active}
-							title={statusTitle(only?.locked ?? false, only?.solved ?? false)}
+							title={statusTitle(only?.locked ?? false, only?.solved ?? false, only?.pausedAtCeiling ?? false)}
 							class="relative block w-full text-left px-3 py-2 {only ? 'pr-8' : 'pr-12'} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) {only
 								? ''
 								: 'font-medium'} {active ? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10' : ''} {only?.locked
@@ -497,7 +522,9 @@
 						>
 							{only ? only.label : groupLabel(entry.group)}
 							{#if only}
-								{#if only.locked}
+								{#if only.pausedAtCeiling}
+									{@render cornerBadge('⏳', 'text-xs', m.variation_picker_paused_reason())}
+								{:else if only.locked}
 									{@render cornerBadge('🔒', 'text-xs', m.variation_picker_locked_reason())}
 								{:else if only.solved}
 									{@render cornerBadge('✓', 'text-green-600 dark:text-green-400 text-sm', m.variation_picker_learned_reason())}

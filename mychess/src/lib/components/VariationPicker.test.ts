@@ -31,7 +31,7 @@ function row(
 	variationKey: string,
 	sans: string[],
 	chapterNames: string[],
-	opts: { included?: boolean; solved?: boolean; locked?: boolean; ceilingMoveCount?: number } = {}
+	opts: { included?: boolean; solved?: boolean; locked?: boolean; pausedAtCeiling?: boolean; ceilingMoveCount?: number } = {}
 ) {
 	const included = opts.included ?? true;
 	const chapters = chapterNames.length > 0 ? chapterNames : [UNTAGGED_CHAPTER];
@@ -45,6 +45,10 @@ function row(
 		path: path(sans),
 		solved: opts.solved ?? false,
 		locked: opts.locked ?? false,
+		// Defaults to false — no row is paused unless a test explicitly opts
+		// in (GitHub issue #181), so every EXISTING test in this file is
+		// unaffected.
+		pausedAtCeiling: opts.pausedAtCeiling ?? false,
 		// Defaults to Infinity — no row is ever "past the ceiling" unless a test
 		// explicitly opts in, so every EXISTING test in this file (none of which
 		// pass this option) is completely unaffected by ceiling-frontier grouping.
@@ -565,7 +569,7 @@ describe('VariationPicker', () => {
 			expect(onselect).not.toHaveBeenCalled();
 		});
 
-		it('shows a one-line legend explaining the lock/learned icons above the leaf-row list', async () => {
+		it('shows a one-line legend explaining the lock/paused/learned icons above the leaf-row list', async () => {
 			const rows = [row('v1', ['e4', 'e5', 'Nf3'], ['Ruy Lopez'], { locked: true })];
 			vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => rows }));
 			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect: vi.fn(), onclose: vi.fn() } });
@@ -573,7 +577,7 @@ describe('VariationPicker', () => {
 			await waitFor(() => screen.getByText('Ruy Lopez'));
 			await fireEvent.click(screen.getByText('Ruy Lopez'));
 
-			expect(screen.getByText('🔒 locked · ✓ learned')).toBeTruthy();
+			expect(screen.getByText('🔒 locked · ⏳ paused · ✓ learned')).toBeTruthy();
 		});
 
 		it("a mixed bucket (one locked, one not) stays enterable, and shows each row's own lock state", async () => {
@@ -611,6 +615,79 @@ describe('VariationPicker', () => {
 			expect(soleRow).toBeDisabled();
 			await fireEvent.click(soleRow);
 			expect(onselect).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('paused-at-ceiling variations (GitHub issue #181)', () => {
+		it('renders a paused leaf row with a distinct icon and reason, disabled, not selectable', async () => {
+			const mixed = [
+				row('v1', ['e4', 'e5', 'Nf3'], ['Ruy Lopez'], { locked: true, pausedAtCeiling: true }),
+				row('v2', ['d4', 'd5', 'c4'], ['Italian Game'])
+			];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => mixed });
+			vi.stubGlobal('fetch', fetchSpy);
+			const onselect = vi.fn();
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect, onselectchapter: vi.fn(), onclose: vi.fn() } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			await fireEvent.click(screen.getByText('Ruy Lopez'));
+
+			const pausedRow = screen.getByText('label:v1').closest('button')!;
+			expect(pausedRow.textContent).toContain('⏳');
+			expect(pausedRow.textContent).not.toContain('🔒');
+			expect(pausedRow.getAttribute('title')).toBe("Reached this level's limit here — still counts toward leveling up");
+			expect(pausedRow).toBeDisabled();
+			await fireEvent.click(pausedRow);
+			expect(onselect).not.toHaveBeenCalled();
+		});
+
+		it('a locked-but-not-paused row keeps the padlock, not the paused icon', async () => {
+			const rows = [row('v1', ['e4', 'e5', 'Nf3'], ['Ruy Lopez'], { locked: true, pausedAtCeiling: false })];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
+			vi.stubGlobal('fetch', fetchSpy);
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect: vi.fn(), onselectchapter: vi.fn(), onclose: vi.fn() } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			await fireEvent.click(screen.getByText('Ruy Lopez'));
+
+			const lockedRow = screen.getByText('label:v1').closest('button')!;
+			expect(lockedRow.textContent).toContain('🔒');
+			expect(lockedRow.textContent).not.toContain('⏳');
+		});
+
+		it('shows a fully-paused ceiling group with the paused badge, not the padlock', async () => {
+			const rows = [
+				row('v1', ['e4', 'e5', 'Nf3', 'a6', 'Ba4'], ['Ruy Lopez'], { ceilingMoveCount: 3, locked: true, pausedAtCeiling: true }),
+				row('v2', ['e4', 'e5', 'Nf3', 'O-O', 'd3'], ['Ruy Lopez'], { ceilingMoveCount: 3, locked: true, pausedAtCeiling: true })
+			];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
+			vi.stubGlobal('fetch', fetchSpy);
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect: vi.fn(), onselectchapter: vi.fn(), onclose: vi.fn() } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			await fireEvent.click(screen.getByText('Ruy Lopez'));
+
+			const groupButton = screen.getByText('1.e4 e5 2.Nf3').closest('button')!;
+			expect(groupButton.textContent).toContain('⏳');
+			expect(groupButton.textContent).not.toContain('🔒');
+			expect(groupButton.getAttribute('title')).toBe("Reached this level's limit here — still counts toward leveling up");
+		});
+
+		it('shows a ceiling group with a mix of paused and genuinely-locked members with the padlock, not the paused badge', async () => {
+			const rows = [
+				row('v1', ['e4', 'e5', 'Nf3', 'a6', 'Ba4'], ['Ruy Lopez'], { ceilingMoveCount: 3, locked: true, pausedAtCeiling: true }),
+				row('v2', ['e4', 'e5', 'Nf3', 'O-O', 'd3'], ['Ruy Lopez'], { ceilingMoveCount: 3, locked: true, pausedAtCeiling: false })
+			];
+			const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => rows });
+			vi.stubGlobal('fetch', fetchSpy);
+			render(VariationPicker, { props: { repertoireId: 'rep-1', onselect: vi.fn(), onselectchapter: vi.fn(), onclose: vi.fn() } });
+
+			await waitFor(() => screen.getByText('Ruy Lopez'));
+			await fireEvent.click(screen.getByText('Ruy Lopez'));
+
+			const groupButton = screen.getByText('1.e4 e5 2.Nf3').closest('button')!;
+			expect(groupButton.textContent).toContain('🔒');
+			expect(groupButton.textContent).not.toContain('⏳');
 		});
 	});
 
