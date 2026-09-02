@@ -17,6 +17,7 @@ import { recordSession } from '$lib/server/sessions';
 import { grantNewBadges } from '$lib/badges/grant';
 import { buildPracticeView, wasResumedAfterBreak } from '$lib/mastery/practice';
 import { teachingCeilingMoveCount } from '$lib/mastery/chapterLevels';
+import { computeMasteredPliesMap } from '$lib/mastery/teaching';
 
 /**
  * Called once per completed Practice attempt (the whole variation replayed,
@@ -76,16 +77,23 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// concurrently with the other two loads already happening, costs nothing
 	// extra; the solvedKeys read further down (after applyAttemptResult) is a
 	// genuinely different moment in time (post-attempt), not a redundant repeat.
-	const [{ variations: allVariations, excludedVariationKeys }, updatedAtBeforeThisAttempt, solvedKeysBeforeThisAttempt] =
+	// teachingProgressBeforeThisAttempt joins the same Promise.all for the
+	// same reason solvedKeysBeforeThisAttempt does (see the comment above):
+	// teachingCeilingMoveCount now needs a masteredPlies map (GitHub issue
+	// #181), computed from state as it stood BEFORE this attempt's own
+	// outcome is applied below.
+	const [{ variations: allVariations, excludedVariationKeys }, updatedAtBeforeThisAttempt, solvedKeysBeforeThisAttempt, teachingProgressBeforeThisAttempt] =
 		await Promise.all([
 			loadRepertoireVariations(supabase, user.id, repertoireId),
 			loadVariationUpdatedAt(supabase, user.id, repertoireId, variationKey),
-			loadSolvedKeys(supabase, user.id, repertoireId)
+			loadSolvedKeys(supabase, user.id, repertoireId),
+			loadTeachingProgress(supabase, user.id, repertoireId)
 		]);
 	const variations = filterVariations(allVariations, excludedVariationKeys);
 	const today = new Date().toISOString().slice(0, 10);
 	const resumedAfterBreak = wasResumedAfterBreak(updatedAtBeforeThisAttempt, new Date());
-	const ceilingMoveCount = teachingCeilingMoveCount(allVariations, solvedKeysBeforeThisAttempt);
+	const masteredPliesBeforeThisAttempt = computeMasteredPliesMap(allVariations, teachingProgressBeforeThisAttempt, solvedKeysBeforeThisAttempt);
+	const ceilingMoveCount = teachingCeilingMoveCount(allVariations, masteredPliesBeforeThisAttempt);
 
 	await Promise.all([
 		applyAttemptResult(
@@ -115,6 +123,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// must not delay the response to the move the player just made.
 	if (!hadMistake) grantNewBadges(supabase, user.id).catch(() => {});
 
-	const ceilingMoveCountAfterAttempt = teachingCeilingMoveCount(allVariations, solvedKeys);
+	const masteredPliesAfterAttempt = computeMasteredPliesMap(allVariations, teachingProgress, solvedKeys);
+	const ceilingMoveCountAfterAttempt = teachingCeilingMoveCount(allVariations, masteredPliesAfterAttempt);
 	return json(buildPracticeView(variations, activeVariationKey, solvedKeys, teachingProgress, ceilingMoveCountAfterAttempt));
 };
