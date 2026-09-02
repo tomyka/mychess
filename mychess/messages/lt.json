@@ -172,6 +172,7 @@
 		}
 	],
 	"learn_progress_heading": "Pažanga",
+	"learn_level_progress": "{tier}: {ready} / {total} pasiruošę kilti į kitą lygį",
 	"learn_this_line_heading": "Šis variantas",
 	"learn_select_variation_error": "Nepavyko perjungti į tą variantą — bandykite dar kartą.",
 	"learn_select_variation_locked": "Šis variantas užrakintas, kol baigsite dabartinį lygį — jis neprarastas, tik pristabdytas.",

@@ -22,6 +22,14 @@
 
 	let { data } = $props<{ data: any }>();
 
+	type Tier = 'bronze' | 'silver' | 'gold' | 'platinum';
+	const LEVEL_LABEL: Record<Tier, () => string> = {
+		bronze: m.level_bronze,
+		silver: m.level_silver,
+		gold: m.level_gold,
+		platinum: m.level_platinum
+	};
+
 	// How many variations have been solved cleanly since this page loaded —
 	// deliberately NOT reset on an attempt reset: a running session total,
 	// not per-attempt state.
@@ -604,6 +612,19 @@
 						<div
 							class="h-full bg-(--color-accent) rounded-full"
 							style={`width: ${data.total ? (data.solved / data.total) * 100 : 0}%`}
+						></div>
+					</div>
+					<span class="text-(--color-muted) text-sm mt-3 block">
+						{m.learn_level_progress({
+							tier: LEVEL_LABEL[data.currentLevel.tier as Tier](),
+							ready: data.currentLevel.ready,
+							total: data.currentLevel.total
+						})}
+					</span>
+					<div class="h-1.5 rounded-full bg-(--color-border) overflow-hidden mt-2">
+						<div
+							class="h-full bg-purple-500 dark:bg-purple-400 rounded-full"
+							style={`width: ${data.currentLevel.total ? (data.currentLevel.ready / data.currentLevel.total) * 100 : 0}%`}
 						></div>
 					</div>
 					<span class="text-(--color-muted) text-sm mt-3 block">{m.learn_session_count({ count: learnedThisSession })}</span>

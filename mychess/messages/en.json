@@ -162,6 +162,7 @@
 		}
 	],
 	"learn_progress_heading": "Progress",
+	"learn_level_progress": "{tier}: {ready} / {total} ready to level up",
 	"learn_this_line_heading": "This line",
 	"learn_select_variation_error": "Couldn't switch to that variation — try again.",
 	"learn_select_variation_locked": "That line is locked until you finish your current level — it's not lost, just paused.",
