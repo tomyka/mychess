@@ -6,10 +6,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadRepertoireProgressSummaries, type RepertoireProgressSummary } from './repertoire-progress';
 import { loadRepertoireVariations } from './practice-repertoire';
-import { loadSolvedKeys } from './practice-progress';
+import { loadSolvedKeys, loadTeachingProgress } from './practice-progress';
 import { deriveRepertoireStatus, masterableChapters } from '$lib/mastery/repertoireStatus';
 import { filterVariations, rowsInChapterTier } from '$lib/mastery/variations';
 import { isChapterComplete } from '$lib/mastery/chapterLevels';
+import { computeMasteredPliesMap } from '$lib/mastery/teaching';
 
 /**
  * Counts Learned and Mastered repertoires for one player.
@@ -40,9 +41,10 @@ export async function countRepertoireStatuses(
 	const statuses = await Promise.all(
 		fullyLearned.map(async (summary) => {
 			try {
-				const [{ variations: allVariations, excludedVariationKeys }, learnedKeys] = await Promise.all([
+				const [{ variations: allVariations, excludedVariationKeys }, learnedKeys, teachingProgress] = await Promise.all([
 					loadRepertoireVariations(supabase, playerId, summary.id),
-					loadSolvedKeys(supabase, playerId, summary.id)
+					loadSolvedKeys(supabase, playerId, summary.id),
+					loadTeachingProgress(supabase, playerId, summary.id)
 				]);
 				// `deriveRepertoireStatus`'s own "learned" check wants the FILTERED
 				// set (an excluded line is not owed to it, exactly like today) —
@@ -51,9 +53,10 @@ export async function countRepertoireStatuses(
 				// ceiling instead of vanishing from the bracket entirely (see
 				// `isChapterComplete`'s doc comment).
 				const variations = filterVariations(allVariations, excludedVariationKeys);
+				const masteredPlies = computeMasteredPliesMap(allVariations, teachingProgress, learnedKeys);
 				const completedChapters = new Set(
 					masterableChapters(allVariations).filter((chapter) =>
-						isChapterComplete(rowsInChapterTier(allVariations, chapter), learnedKeys)
+						isChapterComplete(rowsInChapterTier(allVariations, chapter), masteredPlies)
 					)
 				);
 				return deriveRepertoireStatus({ variations, learnedKeys, completedChapters });
