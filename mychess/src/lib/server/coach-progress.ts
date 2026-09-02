@@ -6,10 +6,11 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadRepertoireVariations } from './practice-repertoire';
-import { loadSolvedKeys } from './practice-progress';
+import { loadSolvedKeys, loadTeachingProgress } from './practice-progress';
 import { masterableChapters } from '$lib/mastery/repertoireStatus';
 import { rowsInChapterTier } from '$lib/mastery/variations';
 import { deriveChapterLevel, deriveRepertoireLevel, type Tier } from '$lib/mastery/chapterLevels';
+import { computeMasteredPliesMap } from '$lib/mastery/teaching';
 
 export type StudentRepertoireProgress = {
 	repertoireId: string;
@@ -83,12 +84,14 @@ export async function loadStudentRepertoireProgress(
 				// own tier), not silently absent — see `deriveChapterLevel`'s doc
 				// comment. This file has no other use for the variation set, so it
 				// switches entirely rather than also deriving a filtered copy.
-				const [{ variations: allVariations }, learnedKeys] = await Promise.all([
+				const [{ variations: allVariations }, learnedKeys, teachingProgress] = await Promise.all([
 					loadRepertoireVariations(supabase, playerId, repertoireId),
-					loadSolvedKeys(supabase, playerId, repertoireId)
+					loadSolvedKeys(supabase, playerId, repertoireId),
+					loadTeachingProgress(supabase, playerId, repertoireId)
 				]);
+				const masteredPlies = computeMasteredPliesMap(allVariations, teachingProgress, learnedKeys);
 				const chapterLevels = masterableChapters(allVariations).map((chapter) =>
-					deriveChapterLevel(rowsInChapterTier(allVariations, chapter), learnedKeys)
+					deriveChapterLevel(rowsInChapterTier(allVariations, chapter), masteredPlies)
 				);
 				const entry = result.get(repertoireId);
 				if (entry) entry.level = deriveRepertoireLevel(chapterLevels);
