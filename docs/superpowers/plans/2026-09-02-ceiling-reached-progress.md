@@ -1746,13 +1746,14 @@ from its own correctly-timed snapshot."
 
 **Files:**
 - Modify: `mychess/src/lib/server/practice-progress.ts`
+- Modify: `mychess/src/routes/api/practice/attempt/+server.ts`
 - Test: `mychess/src/lib/server/practice-progress.test.ts`
 
-This file already has thorough coverage of `applyAttemptResult` via a hand-rolled `fakeSupabase` mock (25 existing tests) — tracing through them by hand against the rewrite below confirms none regress (the existing "caches a chapter as completed once it reaches its own ceiling" test in particular already proves the local-patch behavior works, since it depends on THIS attempt's own just-written `masteredPlies:25` to complete the chapter — a stale pre-write `masteredPlies:20` would fail it). This task adds one new test making that same property explicit for the OTHER branch the design doc calls out — a re-drill of an *already-solved* variation, where `saveTeachingProgress` never runs at all, so `cacheCompletedChaptersReached` must still see an accurate, freshly-loaded `masteredPlies` for a SIBLING variation's own independent progress.
+This file already has thorough coverage of `applyAttemptResult` via a hand-rolled `fakeSupabase` mock (25 existing tests) — tracing through them by hand against the rewrite below confirms none regress (the existing "caches a chapter as completed once it reaches its own ceiling" test in particular already proves the local-patch behavior works, since it depends on THIS attempt's own just-written `masteredPlies:25` to complete the chapter — a stale pre-write `masteredPlies:20` would fail it). This task adds two new tests: one making that same local-patch property explicit for the OTHER branch the design doc calls out (a re-drill of an *already-solved* variation, where `saveTeachingProgress` never runs at all, so `cacheCompletedChaptersReached` must still see an accurate `masteredPlies` for a SIBLING variation's own independent progress), and a second proving a code-review finding from Task 8: `applyAttemptResult` now accepts an optional, already-loaded `teachingProgress` snapshot from its caller — `/api/practice/attempt` already loads exactly this snapshot (as `teachingProgressBeforeThisAttempt`) for its own pre-attempt ceiling check moments earlier in the same request, and without this parameter, `applyAttemptResult`'s own unconditional `loadTeachingProgress` call below would fetch the identical, paginated, whole-repertoire table a SECOND time on every single clean attempt — a real, avoidable cost on the hottest path in the app, caught during Task 8's review before it ever shipped.
 
-- [ ] **Step 1: Write the new failing test**
+- [ ] **Step 1: Write the new failing tests**
 
-Add this test to `mychess/src/lib/server/practice-progress.test.ts`, inside the existing `describe('applyAttemptResult', ...)` block, directly after the `'caches a chapter as completed once it reaches its own ceiling, without needing literal platinum'` test:
+Add these two tests to `mychess/src/lib/server/practice-progress.test.ts`, inside the existing `describe('applyAttemptResult', ...)` block, directly after the `'caches a chapter as completed once it reaches its own ceiling, without needing literal platinum'` test:
 
 ```ts
 	it('evaluates chapter completion on a re-drill of an already-solved variation too, not just a fresh solve (GitHub issue #181)', async () => {
@@ -1782,12 +1783,37 @@ Add this test to `mychess/src/lib/server/practice-progress.test.ts`, inside the 
 		const cacheWrite = upsertCalls.find((c) => c.table === 'chapter_completed');
 		expect(cacheWrite?.rows).toEqual([{ player_id: 'player-1', repertoire_id: 'rep-1', chapter_name: UNTAGGED_CHAPTER }]);
 	});
+
+	it("uses a preloaded teaching-progress snapshot when the caller supplies one, instead of re-fetching (GitHub issue #181 — Task 8 review finding)", async () => {
+		// teachingRows (what a FRESH loadTeachingProgress call would return)
+		// is deliberately DIFFERENT from `preloaded` (what the caller already
+		// has on hand) — if applyAttemptResult ignored the preloaded snapshot
+		// and fetched fresh instead, it would advance from the fresh row's
+		// counters (5/5, a mid-batch teach pass) instead of the preloaded
+		// ones (25/20, one blind retest away from solved), producing an
+		// observably different write.
+		const { client, upsertCalls } = fakeSupabase({
+			teachingRows: [{ variation_key: 'v1', taught_plies: 5, mastered_plies: 5 }]
+		});
+		const v1 = makeVariation('v1', 25);
+		const preloaded = new Map([['v1', { taughtPlies: 25, masteredPlies: 20, updatedAt: null }]]);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1], false, [v1], Infinity, preloaded);
+
+		expect(upsertCalls[0].rows).toEqual({
+			player_id: 'player-1',
+			repertoire_id: 'rep-1',
+			variation_key: 'v1',
+			taught_plies: 25,
+			mastered_plies: 25 // advanced from the PRELOADED 20 -> solved, not the fresh-fetch's 5
+		});
+		expect(upsertCalls.map((c) => c.table)).toEqual(['variation_teaching_progress', 'variation_solved', 'practice_active_variation']);
+	});
 ```
 
-- [ ] **Step 2: Run the tests to verify the new one fails**
+- [ ] **Step 2: Run the tests to verify the new ones fail**
 
 Run: `cd mychess && npx vitest run src/lib/server/practice-progress.test.ts`
-Expected: FAIL on the new test only (`cacheCompletedChaptersReached` still takes `solvedKeys`, which does not contain `'b'`, so no `chapter_completed` write happens yet). Every other existing test in the file still passes at this point — the current `applyAttemptResult` implementation hasn't changed yet.
+Expected: FAIL on the two new tests (`cacheCompletedChaptersReached` still takes `solvedKeys`, and `applyAttemptResult` doesn't accept a 10th `preloadedTeachingProgress` parameter yet — TypeScript will reject the extra argument, or if `strict` argument-count checking doesn't fail the build under `vitest`'s transform, the call will simply ignore the extra argument and the test will fail on its assertion instead). Every other existing test in the file still passes at this point — the current `applyAttemptResult` implementation hasn't changed yet.
 
 - [ ] **Step 3: Update the import**
 
@@ -1892,7 +1918,16 @@ export async function applyAttemptResult(
 	variations: Variation[],
 	resumedAfterBreak: boolean = false,
 	allVariations: Variation[] = variations,
-	ceilingMoveCount: number = Infinity
+	ceilingMoveCount: number = Infinity,
+	// GitHub issue #181 (Task 8 code-review finding): when the caller already
+	// loaded this exact pre-write snapshot moments earlier in the same request
+	// (e.g. /api/practice/attempt's own pre-attempt ceiling check, via
+	// teachingCeilingMoveCount), passing it in here avoids a second, redundant
+	// whole-repertoire paginated fetch of variation_teaching_progress on every
+	// single clean attempt — this is the hottest path in the app. Defaults to
+	// undefined so every existing caller/test that doesn't have one on hand
+	// keeps its exact current behavior (a fresh load).
+	preloadedTeachingProgress?: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number; updatedAt: string | null }>
 ): Promise<void> {
 	if (hadMistake) return;
 
@@ -1901,12 +1936,15 @@ export async function applyAttemptResult(
 	// `cacheCompletedChaptersReached`'s masteredPlies-based `isChapterComplete`
 	// check now needs a progress snapshot for EVERY branch that reaches it,
 	// including a re-drill of an already-solved variation, not just a fresh
-	// solve — so it's loaded unconditionally here rather than only when
-	// there's teaching progress left to advance.
+	// solve — so it's loaded (or reused from `preloadedTeachingProgress`)
+	// unconditionally here rather than only when there's teaching progress
+	// left to advance. Cloned into a fresh `Map` either way — the local
+	// `.set()` patch below must never mutate a map the caller still holds a
+	// reference to.
 	let progressMap: Map<string, { taughtPlies: number; masteredPlies: number; updatedAt: string | null }> | undefined;
 	if (variation) {
 		const solvedKeys = await loadSolvedKeys(supabase, playerId, repertoireId);
-		progressMap = await loadTeachingProgress(supabase, playerId, repertoireId);
+		progressMap = new Map(preloadedTeachingProgress ?? (await loadTeachingProgress(supabase, playerId, repertoireId)));
 		if (!solvedKeys.has(variationKey)) {
 			const { taughtPlies: effectiveTaughtPlies, masteredPlies: effectiveMasteredPlies } = knownProgressFor({
 				variation,
@@ -1973,27 +2011,78 @@ export async function applyAttemptResult(
 
 - [ ] **Step 6: Verify it compiles**
 
-Run: `cd mychess && npx svelte-check --output human 2>&1 | grep -A3 "practice-progress"`
+Run: `cd mychess && npx svelte-check --output human 2>&1 | grep -A3 "practice-progress.ts"`
 Expected: No output.
 
-- [ ] **Step 7: Run the tests to verify they all pass, including the new one**
+- [ ] **Step 7: Pass the preloaded snapshot from `/api/practice/attempt`**
+
+`mychess/src/routes/api/practice/attempt/+server.ts` (Task 8, already done) already loads exactly the pre-attempt snapshot `applyAttemptResult` needs, as `teachingProgressBeforeThisAttempt`. Thread it through so `applyAttemptResult` reuses it instead of loading its own — this is the fix for the Task 8 code-review finding.
+
+Replace:
+
+```ts
+	await Promise.all([
+		applyAttemptResult(
+			supabase,
+			user.id,
+			repertoireId,
+			variationKey,
+			hadMistake,
+			variations,
+			resumedAfterBreak,
+			allVariations,
+			ceilingMoveCount
+		),
+		touchVariationAttempt(supabase, user.id, repertoireId, variationKey),
+		incrementQuestProgress(supabase, user.id, 'review_cards', today)
+	]);
+```
+
+with:
+
+```ts
+	await Promise.all([
+		applyAttemptResult(
+			supabase,
+			user.id,
+			repertoireId,
+			variationKey,
+			hadMistake,
+			variations,
+			resumedAfterBreak,
+			allVariations,
+			ceilingMoveCount,
+			teachingProgressBeforeThisAttempt
+		),
+		touchVariationAttempt(supabase, user.id, repertoireId, variationKey),
+		incrementQuestProgress(supabase, user.id, 'review_cards', today)
+	]);
+```
+
+Verify: `cd mychess && npx svelte-check --output human 2>&1 | grep -A3 "practice/attempt"`
+Expected: No output.
+
+- [ ] **Step 8: Run the tests to verify they all pass, including the two new ones**
 
 Run: `cd mychess && npx vitest run src/lib/server/practice-progress.test.ts`
-Expected: PASS (all 26 tests — the 25 existing ones plus the new one from Step 1).
+Expected: PASS (all 27 tests — the 25 existing ones plus the two new ones from Step 1).
 
 Then run the full suite as a broader regression check: `cd mychess && npx vitest run`
 Expected: All currently-passing test files still pass. (Files not yet fixed by later tasks — Levels page, coach-progress, repertoire-status-counts — have no `.test.ts` of their own exercising the changed signature directly, so this run should be clean; if it isn't, investigate before proceeding rather than assuming it's expected.)
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add mychess/src/lib/server/practice-progress.ts mychess/src/lib/server/practice-progress.test.ts
+git add mychess/src/lib/server/practice-progress.ts mychess/src/lib/server/practice-progress.test.ts mychess/src/routes/api/practice/attempt/+server.ts
 git commit -m "fix(learn): thread masteredPlies through applyAttemptResult's chapter-completion check (GitHub issue #181)
 
 loadTeachingProgress is now unconditional (was only loaded on the
 not-yet-solved branch), so cacheCompletedChaptersReached always has
 an up-to-date masteredPlies snapshot, including on an already-solved
-re-drill."
+re-drill. applyAttemptResult also now accepts an optional preloaded
+snapshot, and /api/practice/attempt passes the one it already loaded
+for its own pre-attempt ceiling check — avoiding a second, redundant
+whole-repertoire fetch on every clean attempt (Task 8 review finding)."
 ```
 
 ---
