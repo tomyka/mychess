@@ -4,7 +4,7 @@ import type { RequestHandler } from './$types';
 import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
 import { filterVariations } from '$lib/mastery/variations';
 import { teachingCeilingMoveCount } from '$lib/mastery/chapterLevels';
-import { isLockedForTier, isCeilingReachedAnywhere, knownProgressFor, computeMasteredMoveIds } from '$lib/mastery/teaching';
+import { isLockedForTier, isCeilingReachedAnywhere, knownProgressFor, computeMasteredMoveIds, computeMasteredPliesMap } from '$lib/mastery/teaching';
 import { setActiveVariationKey, loadSolvedKeys, loadTeachingProgress } from '$lib/server/practice-progress';
 import { requireApiUser } from '$lib/server/auth';
 import { buildPracticeView } from '$lib/mastery/practice';
@@ -44,7 +44,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		loadSolvedKeys(supabase, user.id, repertoireId),
 		loadTeachingProgress(supabase, user.id, repertoireId)
 	]);
-	const ceilingMoveCount = teachingCeilingMoveCount(allVariations, solvedKeys);
+	// GitHub issue #181: teachingCeilingMoveCount now needs a masteredPlies
+	// map, computed over the UNFILTERED `allVariations` set — distinct from
+	// the FILTERED-pool `masteredMoveIds` computed further below for the
+	// isLockedForTier check, which deliberately uses a different pool (see
+	// that computation's own doc comment).
+	const masteredPliesForCeiling = computeMasteredPliesMap(allVariations, teachingProgress, solvedKeys);
+	const ceilingMoveCount = teachingCeilingMoveCount(allVariations, masteredPliesForCeiling);
 
 	if (!solvedKeys.has(variationKey)) {
 		// Shared-credit-aware (GitHub issue #168) and, deliberately, over the
