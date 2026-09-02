@@ -105,7 +105,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			variations,
 			resumedAfterBreak,
 			allVariations,
-			ceilingMoveCount
+			ceilingMoveCount,
+			teachingProgressBeforeThisAttempt
 		),
 		touchVariationAttempt(supabase, user.id, repertoireId, variationKey),
 		incrementQuestProgress(supabase, user.id, 'review_cards', today)

@@ -2,7 +2,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Variation } from '$lib/mastery/variations';
 import { pickActiveVariation, advanceIfSolved } from '$lib/mastery/variationSequence';
-import { advanceTeachingProgress, knownProgressFor, ceilingPlyFor, computeBlockedKeys } from '$lib/mastery/teaching';
+import { advanceTeachingProgress, knownProgressFor, ceilingPlyFor, computeBlockedKeys, computeMasteredPliesMap } from '$lib/mastery/teaching';
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
 import { masterableChapters } from '$lib/mastery/repertoireStatus';
 import { isInChapterTier, rowsInChapterTier } from '$lib/mastery/variations';
@@ -122,8 +122,9 @@ export async function markVariationSolved(
 /**
  * Writes a `chapter_completed` cache row for every chapter `variation` belongs
  * to that has just newly reached its own ceiling (see `isChapterComplete`),
- * given the up-to-date `solvedKeys` (read AFTER this attempt's
- * `variation_solved` write).
+ * given the up-to-date `masteredPlies` (reflecting this attempt's just-
+ * written `variation_teaching_progress` row, read/patched BEFORE this call —
+ * see `applyAttemptResult`).
  *
  * `allVariations` MUST be the UNFILTERED variation set (excluded variations
  * included) — `isChapterComplete` only blocks correctly on an excluded,
@@ -134,7 +135,7 @@ export async function markVariationSolved(
  * Idempotent (safe to call even when the chapter was already complete) and
  * best-effort: this cache only backs the repertoire list's decorative
  * "Mastered" badge, never the authoritative Levels page or badge counts (both
- * derive fresh from `variation_solved` directly, with no cache) — so a failed
+ * derive fresh from teaching progress directly, with no cache) — so a failed
  * write here must not fail the attempt it's piggybacking on.
  */
 async function cacheCompletedChaptersReached(
@@ -143,11 +144,11 @@ async function cacheCompletedChaptersReached(
 	repertoireId: string,
 	variation: Variation,
 	allVariations: Variation[],
-	solvedKeys: ReadonlySet<string>
+	masteredPlies: ReadonlyMap<string, number>
 ): Promise<void> {
 	const chapters = masterableChapters(allVariations).filter((chapter) => isInChapterTier(variation, chapter));
 	const completedChapters = chapters.filter((chapter) =>
-		isChapterComplete(rowsInChapterTier(allVariations, chapter), solvedKeys)
+		isChapterComplete(rowsInChapterTier(allVariations, chapter), masteredPlies)
 	);
 	if (completedChapters.length === 0) return;
 
@@ -369,15 +370,34 @@ export async function applyAttemptResult(
 	variations: Variation[],
 	resumedAfterBreak: boolean = false,
 	allVariations: Variation[] = variations,
-	ceilingMoveCount: number = Infinity
+	ceilingMoveCount: number = Infinity,
+	// GitHub issue #181 (Task 8 code-review finding): when the caller already
+	// loaded this exact pre-write snapshot moments earlier in the same request
+	// (e.g. /api/practice/attempt's own pre-attempt ceiling check, via
+	// teachingCeilingMoveCount), passing it in here avoids a second, redundant
+	// whole-repertoire paginated fetch of variation_teaching_progress on every
+	// single clean attempt — this is the hottest path in the app. Defaults to
+	// undefined so every existing caller/test that doesn't have one on hand
+	// keeps its exact current behavior (a fresh load).
+	preloadedTeachingProgress?: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number; updatedAt: string | null }>
 ): Promise<void> {
 	if (hadMistake) return;
 
 	const variation = variations.find((v) => v.variationKey === variationKey);
+	// Hoisted out of the `!solvedKeys.has` branch below (GitHub issue #181):
+	// `cacheCompletedChaptersReached`'s masteredPlies-based `isChapterComplete`
+	// check now needs a progress snapshot for EVERY branch that reaches it,
+	// including a re-drill of an already-solved variation, not just a fresh
+	// solve — so it's loaded (or reused from `preloadedTeachingProgress`)
+	// unconditionally here rather than only when there's teaching progress
+	// left to advance. Cloned into a fresh `Map` either way — the local
+	// `.set()` patch below must never mutate a map the caller still holds a
+	// reference to.
+	let progressMap: Map<string, { taughtPlies: number; masteredPlies: number; updatedAt: string | null }> | undefined;
 	if (variation) {
 		const solvedKeys = await loadSolvedKeys(supabase, playerId, repertoireId);
+		progressMap = new Map(preloadedTeachingProgress ?? (await loadTeachingProgress(supabase, playerId, repertoireId)));
 		if (!solvedKeys.has(variationKey)) {
-			const progressMap = await loadTeachingProgress(supabase, playerId, repertoireId);
 			const { taughtPlies: effectiveTaughtPlies, masteredPlies: effectiveMasteredPlies } = knownProgressFor({
 				variation,
 				variations,
@@ -400,21 +420,25 @@ export async function applyAttemptResult(
 			const next = advanceTeachingProgress(variation.path, effectiveTaughtPlies, effectiveMasteredPlies, false, ceilingPly);
 			await saveTeachingProgress(supabase, playerId, repertoireId, variationKey, next.taughtPlies, next.masteredPlies);
 
+			// Patch this variation's just-written counters locally — progressMap
+			// still reflects PRE-write state, and re-fetching would be a
+			// redundant round trip for the one row we already know the new
+			// value of. Every use of progressMap below (including the eventual
+			// cacheCompletedChaptersReached call) sees this patched value.
+			progressMap.set(variationKey, {
+				...(progressMap.get(variationKey) ?? { taughtPlies: 0, masteredPlies: 0, updatedAt: null }),
+				taughtPlies: next.taughtPlies,
+				masteredPlies: next.masteredPlies
+			});
+
 			if (next.pausedAtCeiling) {
 				// Paused, not solved: must NOT markVariationSolved or touch the
 				// completed-chapters cache — but MUST still advance past this
 				// variation, or the active pointer re-serves the same frozen,
 				// paused board forever (GitHub issue #163's central risk — see
-				// the design doc). blockedKeys is recomputed from the JUST-SAVED
-				// progress (progressMap doesn't yet reflect this write), so patch
-				// this one variation's masteredPlies in locally before computing it.
-				const updatedProgress = new Map(progressMap);
-				updatedProgress.set(variationKey, {
-					...(progressMap.get(variationKey) ?? { taughtPlies: 0, masteredPlies: 0, updatedAt: null }),
-					masteredPlies: next.masteredPlies
-				});
-				const blockedKeys = computeBlockedKeys(variations, solvedKeys, updatedProgress, ceilingMoveCount);
-				const nextKey = advanceIfSolved(variationKey, variations, solvedKeys, blockedKeys);
+				// the design doc).
+				const blockedKeysAfter = computeBlockedKeys(variations, solvedKeys, progressMap, ceilingMoveCount);
+				const nextKey = advanceIfSolved(variationKey, variations, solvedKeys, blockedKeysAfter);
 				await setActiveVariationKey(supabase, playerId, repertoireId, nextKey);
 				return;
 			}
@@ -426,7 +450,12 @@ export async function applyAttemptResult(
 	const solvedKeys = await loadSolvedKeys(supabase, playerId, repertoireId);
 	const next = advanceIfSolved(variationKey, variations, solvedKeys);
 	await setActiveVariationKey(supabase, playerId, repertoireId, next);
-	if (variation) {
-		await cacheCompletedChaptersReached(supabase, playerId, repertoireId, variation, allVariations, solvedKeys);
+	if (variation && progressMap) {
+		// GitHub issue #181: isChapterComplete now needs a masteredPlies map,
+		// not solvedKeys directly — computed fresh from the (possibly patched)
+		// progressMap and the just-refreshed post-write solvedKeys, matching
+		// cacheCompletedChaptersReached's own existing "up-to-date" contract.
+		const masteredPlies = computeMasteredPliesMap(allVariations, progressMap, solvedKeys);
+		await cacheCompletedChaptersReached(supabase, playerId, repertoireId, variation, allVariations, masteredPlies);
 	}
 }

@@ -332,6 +332,67 @@ describe('applyAttemptResult', () => {
 		const cacheWrite = upsertCalls.find((c) => c.table === 'chapter_completed');
 		expect(cacheWrite?.rows).toEqual([{ player_id: 'player-1', repertoire_id: 'rep-1', chapter_name: UNTAGGED_CHAPTER }]);
 	});
+
+	it('evaluates chapter completion on a re-drill of an already-solved variation too, not just a fresh solve (GitHub issue #181)', async () => {
+		// a is already solved. b, a sibling sharing a's first 5 player moves,
+		// has independently reached the rest of its own tail via teaching
+		// progress already on file — NOT through this attempt. Re-drilling a
+		// (already solved, so no teaching progress advances for it at all)
+		// must still correctly see b's own progress when deciding whether
+		// their shared chapter is now complete — this is only possible if
+		// progressMap is loaded unconditionally, not just on the
+		// not-yet-solved branch this call never even enters.
+		const { a, b } = makeSharedPrefixVariations();
+		const { client, upsertCalls } = fakeSupabase({
+			solvedKeys: ['a'],
+			teachingRows: [{ variation_key: 'b', taught_plies: 12, mastered_plies: 12 }] // b fully taught/mastered already, never solved
+		});
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'a', false, [a, b]);
+
+		// a re-drilled (bypasses teaching progress entirely) — no
+		// variation_teaching_progress write for it.
+		expect(upsertCalls.some((c) => c.table === 'variation_teaching_progress')).toBe(false);
+		// Both a (solved) and b (already fully mastered per its own stored
+		// progress, even though never itself marked variation_solved) have
+		// reached this chapter's own ceiling (bronze) -> now complete. Under
+		// the OLD, solved-only algorithm this would NOT have completed, since
+		// b was never in variation_solved.
+		const cacheWrite = upsertCalls.find((c) => c.table === 'chapter_completed');
+		expect(cacheWrite?.rows).toEqual([{ player_id: 'player-1', repertoire_id: 'rep-1', chapter_name: UNTAGGED_CHAPTER }]);
+	});
+
+	it("uses a preloaded teaching-progress snapshot when the caller supplies one, instead of re-fetching (GitHub issue #181 — Task 8 review finding)", async () => {
+		// teachingRows (what a FRESH loadTeachingProgress call would return)
+		// is deliberately DIFFERENT from `preloaded` (what the caller already
+		// has on hand) — if applyAttemptResult ignored the preloaded snapshot
+		// and fetched fresh instead, it would advance from the fresh row's
+		// counters (5/5, a mid-batch teach pass) instead of the preloaded
+		// ones (25/20, one blind retest away from solved), producing an
+		// observably different write.
+		const { client, upsertCalls } = fakeSupabase({
+			teachingRows: [{ variation_key: 'v1', taught_plies: 5, mastered_plies: 5 }]
+		});
+		const v1 = makeVariation('v1', 25);
+		const preloaded = new Map([['v1', { taughtPlies: 25, masteredPlies: 20, updatedAt: null }]]);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1], false, [v1], Infinity, preloaded);
+
+		expect(upsertCalls[0].rows).toEqual({
+			player_id: 'player-1',
+			repertoire_id: 'rep-1',
+			variation_key: 'v1',
+			taught_plies: 25,
+			mastered_plies: 25 // advanced from the PRELOADED 20 -> solved, not the fresh-fetch's 5
+		});
+		// v1 is a single-variation chapter that also fully solves here (same
+		// shape as the "caches a chapter as completed" test above), so this
+		// attempt also newly reaches that chapter's own ceiling.
+		expect(upsertCalls.map((c) => c.table)).toEqual([
+			'variation_teaching_progress',
+			'variation_solved',
+			'practice_active_variation',
+			'chapter_completed'
+		]);
+	});
 });
 
 describe('applyAttemptResult with a ceilingMoveCount', () => {
