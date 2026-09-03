@@ -1,29 +1,30 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
+	// `Band` is imported, not re-declared, so a change to the medal ladder
+	// can't silently leave this page behind (GitHub issue #182).
+	import type { Band } from '$lib/mastery/learnUnits';
 
 	let { data } = $props<{ data: any }>();
 
-	type Tier = 'bronze' | 'silver' | 'gold' | 'platinum';
-
-	const LEVEL_LABEL: Record<Tier, () => string> = {
+	const LEVEL_LABEL: Record<Band, () => string> = {
 		bronze: m.level_bronze,
 		silver: m.level_silver,
 		gold: m.level_gold,
 		platinum: m.level_platinum
 	};
 
-	function levelLabel(level: Tier | null): string {
+	function levelLabel(level: Band | null): string {
 		return level ? LEVEL_LABEL[level]() : m.level_none();
 	}
 
-	const LEVEL_BADGE_CLASS: Record<Tier, string> = {
+	const LEVEL_BADGE_CLASS: Record<Band, string> = {
 		bronze: 'border-[#B08D57]/40 bg-[#B08D57]/10 text-[#8a6b3f] dark:text-[#cda876]',
 		silver: 'border-[#A8A8A8]/40 bg-[#A8A8A8]/10 text-[#6b6b6b] dark:text-[#c7c7c7]',
 		gold: 'border-[#D4AF37]/40 bg-[#D4AF37]/10 text-[#8a6d10] dark:text-[#e0c15c]',
 		platinum: 'border-[#E8B923]/40 bg-[#E8B923]/10 text-[#a4790f] dark:text-[#E8B923]'
 	};
 
-	function badgeClass(level: Tier | null): string {
+	function badgeClass(level: Band | null): string {
 		return level ? LEVEL_BADGE_CLASS[level] : 'border-(--color-border) bg-(--color-bg) text-(--color-muted)';
 	}
 </script>

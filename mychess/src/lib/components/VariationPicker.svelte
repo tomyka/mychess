@@ -1,37 +1,16 @@
 <!-- mychess/src/lib/components/VariationPicker.svelte -->
 <script lang="ts">
-	import { groupByFirstMoves, moveSequenceLabel, FIRST_MOVES_GROUP_PLIES, type MoveGroup, type VariationStep } from '$lib/mastery/variations';
-	import type { Band } from '$lib/mastery/learnUnits';
+	import { groupByFirstMoves, moveSequenceLabel, FIRST_MOVES_GROUP_PLIES, type MoveGroup } from '$lib/mastery/variations';
+	import type { Band, LearnChapterView, LearnUnitView, LearnUnitsResponse } from '$lib/mastery/learnUnits';
 	import { m } from '$lib/paraglide/messages';
 
-	/**
-	 * One thing the player can be asked to learn: a distinct clipped prefix of
-	 * the current band, from `/api/repertoires/[id]/learn-units`.
-	 *
-	 * Every unit here is learnable RIGHT NOW (GitHub issue #182). There is no
-	 * locked, paused, deferred or already-learned state to render, so this row
-	 * carries no status at all — a learned unit is simply absent from the
-	 * response, and this component has no disabled state anywhere.
-	 */
-	type LearnUnitRow = {
-		unitKey: string;
-		/** The CLIPPED prefix's label, not any member variation's full line. */
-		label: string;
-		path: VariationStep[];
-		/** The variation to post to `/api/practice/select-variation`. */
-		variationKey: string;
-	};
-
-	type LearnChapterRow = {
-		/** `null` for the flat pool of a repertoire with no chapters anywhere. */
-		chapter: string | null;
-		band: Band | null;
-		level: Band | null;
-		complete: boolean;
-		learnedInBand: number;
-		totalInBand: number;
-		units: LearnUnitRow[];
-	};
+	// The wire types come from `$lib/mastery/learnUnits`, shared with the route
+	// that produces them, so a field rename can't drift between the two.
+	//
+	// Every unit here is learnable RIGHT NOW (GitHub issue #182): there is no
+	// locked, paused, deferred or already-learned state to render, because a
+	// learned unit is simply absent from the response. Hence no status icon and
+	// no `disabled` anywhere in this component.
 
 	const BAND_LABEL: Record<Band, () => string> = {
 		bronze: m.level_bronze,
@@ -70,7 +49,7 @@
 
 	const TOP_N = 5;
 
-	let chapters = $state<LearnChapterRow[] | null>(null);
+	let chapters = $state<LearnChapterView[] | null>(null);
 	let openChapter = $state<string | null>(null);
 	// The open folder's own STABLE, content-based identity (its shared SAN
 	// chain), not its index: the entry list reorders as teaching advances
@@ -100,7 +79,7 @@
 		try {
 			const res = await fetch(`/api/repertoires/${repertoireId}/learn-units`);
 			if (!res.ok) throw new Error('load failed');
-			const data = await res.json();
+			const data = (await res.json()) as LearnUnitsResponse;
 			if (myToken !== loadToken) return;
 			chapters = data.chapters;
 			errorMessage = null;
@@ -170,13 +149,13 @@
 	 * can't collide with a real folder's key, since SAN grammar can't spell
 	 * "other".
 	 */
-	function folderKey(group: MoveGroup<LearnUnitRow>): string {
+	function folderKey(group: MoveGroup<LearnUnitView>): string {
 		return group.steps.map((s) => s.san).join('>') || 'other';
 	}
 
 	const openFolder = $derived(openFolderKey !== null ? (folders.find((g) => folderKey(g) === openFolderKey) ?? null) : null);
 
-	function groupLabel(group: MoveGroup<LearnUnitRow>): string {
+	function groupLabel(group: MoveGroup<LearnUnitView>): string {
 		return group.steps.length > 0 ? moveSequenceLabel(group.steps) : m.variation_picker_other_group_label();
 	}
 
@@ -188,24 +167,19 @@
 	 * one row with a near-identical label. Folders of one are therefore
 	 * selected directly, skipping a tier that carried no new information.
 	 */
-	function soleUnit(group: MoveGroup<LearnUnitRow>): LearnUnitRow | null {
+	function soleUnit(group: MoveGroup<LearnUnitView>): LearnUnitView | null {
 		return group.items.length === 1 ? group.items[0] : null;
-	}
-
-	/** The unit to start teaching when the caller only has a chapter, not a specific unit. */
-	function firstUnit(chapter: LearnChapterRow): LearnUnitRow | undefined {
-		return chapter.units[0];
 	}
 
 	function isActive(variationKey: string): boolean {
 		return currentVariationKey !== null && variationKey === currentVariationKey;
 	}
 
-	function chapterHasActive(chapter: LearnChapterRow): boolean {
+	function chapterHasActive(chapter: LearnChapterView): boolean {
 		return chapter.units.some((u) => isActive(u.variationKey));
 	}
 
-	function groupHasActive(group: MoveGroup<LearnUnitRow>): boolean {
+	function groupHasActive(group: MoveGroup<LearnUnitView>): boolean {
 		return group.items.some((u) => isActive(u.variationKey));
 	}
 
@@ -251,7 +225,7 @@
 	});
 </script>
 
-{#snippet bandChip(chapter: LearnChapterRow)}
+{#snippet bandChip(chapter: LearnChapterView)}
 	{#if chapter.band}
 		<span class="shrink-0 text-xs font-normal text-(--color-muted)">
 			{BAND_LABEL[chapter.band]()} · {chapter.learnedInBand}/{chapter.totalInBand}
@@ -331,7 +305,9 @@
 					<button
 						onclick={() => {
 							openChapter = chapter.chapter;
-							const unit = firstUnit(chapter);
+							// Start teaching the chapter's first unit. Never empty —
+							// `openChapters` only lists chapters that still have one.
+							const unit = chapter.units[0];
 							if (unit) onselectchapter(unit.variationKey);
 						}}
 						class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 font-medium text-(--color-text) flex items-center justify-between gap-2 {chapterHasActive(

@@ -5,7 +5,7 @@ import { requireApiUser } from '$lib/server/auth';
 import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
 import { loadSolvedKeys, loadTeachingProgress } from '$lib/server/practice-progress';
 import { filterVariations, moveSequenceLabel } from '$lib/mastery/variations';
-import { deriveLearnPlan } from '$lib/mastery/learnUnits';
+import { deriveLearnPlan, type LearnUnitsResponse } from '$lib/mastery/learnUnits';
 import { computeMasteredMoveIds } from '$lib/mastery/teaching';
 
 /**
@@ -20,8 +20,8 @@ import { computeMasteredMoveIds } from '$lib/mastery/teaching';
  *
  * Every unit returned here is learnable right now: there is no locked, paused,
  * deferred or already-learned state to render, because a learned unit is
- * simply absent. A chapter with nothing left reports `band: null`,
- * `complete: true` and no units.
+ * simply absent. A chapter with nothing left arrives with an empty `units`,
+ * which is the whole signal.
  *
  * Fetched lazily (only when the picker is opened or the active line changes),
  * not eagerly for every repertoire, to avoid the full-move-fetch cost the
@@ -38,12 +38,10 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	const variations = filterVariations(allVariations, excludedVariationKeys);
 	const plan = deriveLearnPlan(variations, computeMasteredMoveIds(variations, teachingProgress, solvedKeys));
 
-	return json({
+	const body: LearnUnitsResponse = {
 		chapters: plan.chapters.map((state) => ({
 			chapter: state.chapter,
 			band: state.band,
-			level: state.level,
-			complete: state.complete,
 			learnedInBand: state.learnedInBand,
 			totalInBand: state.totalInBand,
 			units: state.units.map((unit) => ({
@@ -59,5 +57,6 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 				variationKey: unit.representativeVariationKey
 			}))
 		}))
-	});
+	};
+	return json(body);
 };

@@ -162,7 +162,7 @@
 		}
 	],
 	"learn_progress_heading": "Progress",
-	"learn_level_progress": "{tier}: {ready} / {total} lines learned",
+	"learn_level_progress": "{band}: {ready} / {total} lines learned",
 	"learn_this_line_heading": "This line",
 	"learn_select_variation_error": "Couldn't switch to that variation — try again.",
 	"learn_finish_session": "Finish session",

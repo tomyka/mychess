@@ -9,6 +9,7 @@
 	import { optimisticSolvedAfterAttempt, type PracticeView } from '$lib/mastery/practice';
 	import { arrowMoveForStep } from '$lib/mastery/teaching';
 	import { moveSequenceLabel, moveSequenceRows, type VariationStep } from '$lib/mastery/variations';
+	import type { Band } from '$lib/mastery/learnUnits';
 	import { positionAt, playerMovesIn, hintSquareFor, makeReviewNav, makeReviewKeyHandler } from '$lib/mastery/playback';
 	import { logMove } from '$lib/moveLog';
 	import { ExploreSession } from '$lib/mastery/explore.svelte';
@@ -22,8 +23,9 @@
 
 	let { data } = $props<{ data: any }>();
 
-	type Tier = 'bronze' | 'silver' | 'gold' | 'platinum';
-	const LEVEL_LABEL: Record<Tier, () => string> = {
+	// `Band` is imported, not re-declared, so a change to the medal ladder
+	// can't silently leave this page behind (GitHub issue #182).
+	const LEVEL_LABEL: Record<Band, () => string> = {
 		bronze: m.level_bronze,
 		silver: m.level_silver,
 		gold: m.level_gold,
@@ -61,7 +63,7 @@
 	let pendingReport: Promise<PracticeView | null> | null = null;
 	let quizSteps = $state<VariationStep[]>([]);
 	let pickerOpen = $state(false);
-	// Set when a POST to /api/practice/select-variation fails (tier lock,
+	// Set when a POST to /api/practice/select-variation fails (a stale unit,
 	// exclusion drift, network hiccup) — surfaced to the player instead of
 	// silently leaving the board on whatever was already being taught, which
 	// used to look exactly like "selecting a variation does nothing" (GitHub
@@ -614,7 +616,7 @@
 					{#if data.currentLevel}
 						<span class="text-(--color-muted) text-sm mt-3 block">
 							{m.learn_level_progress({
-								tier: LEVEL_LABEL[data.currentLevel.tier as Tier](),
+								band: LEVEL_LABEL[data.currentLevel.band as Band](),
 								ready: data.currentLevel.ready,
 								total: data.currentLevel.total
 							})}

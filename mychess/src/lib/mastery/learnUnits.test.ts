@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
+	activeChapterState,
 	bandForMoveCount,
 	chapterLearnState,
-	deriveChapterLevel,
+	completedChapterNames,
 	deriveLearnPlan,
 	deriveRepertoireLevel,
-	isChapterComplete,
+	nextServableVariationKey,
+	servableRepresentativeFor,
 	BAND_MOVE_CAP
 } from './learnUnits';
 import { ceilingPlyFor } from './teaching';
@@ -105,6 +107,44 @@ describe('chapterLearnState — prefix dedupe', () => {
 		expect(state.units).toHaveLength(2);
 	});
 
+	it('extends a unit past the band cap when only the opponent’s reply lies beyond it', () => {
+		// A real PGN shape: a chapter's line ends on the OPPONENT's move.
+		// `ceilingPlyFor` deliberately stops just after the Nth PLAYER move, so
+		// for a 9-player-move line with a trailing opponent ply it lands one ply
+		// short of the path's end. Clipping there would make the bronze unit a
+		// strict prefix, so a clean pass could only ever report `unitComplete`
+		// and never `solved` — `variation_solved` would never be written and the
+		// line could never enter the Practice pool, at ANY band, because the
+		// chapter's own deepest band is already bronze.
+		const rows = [variation(['Deep'], plies('stem', pliesForMoves(9) + 1, pliesForMoves(9) + 1, 'x'))];
+
+		const state = chapterLearnState('Deep', rows, new Set());
+
+		expect(state.band).toBe('bronze');
+		expect(state.units).toHaveLength(1);
+		expect(state.units[0].path).toHaveLength(rows[0].path.length);
+	});
+
+	it('caps such a variation at its full length, so a clean pass solves it outright', () => {
+		const rows = [variation(['Deep'], plies('stem', pliesForMoves(9) + 1, pliesForMoves(9) + 1, 'x'))];
+
+		const plan = deriveLearnPlan(rows, new Set());
+
+		expect(plan.ceilingPlyByVariationKey.get(rows[0].variationKey)).toBe(rows[0].path.length);
+	});
+
+	it('still withholds content when a real PLAYER move lies beyond the cap', () => {
+		// The guard above must not swallow the cap entirely: a 20-move line has
+		// plenty of its own player moves past bronze, and those must stay held
+		// back until a later band.
+		const rows = [variation(['Deep'], plies('stem', pliesForMoves(20), pliesForMoves(20), 'x'))];
+
+		const state = chapterLearnState('Deep', rows, new Set());
+
+		expect(state.units[0].path).toHaveLength(pliesForMoves(9));
+		expect(state.units[0].path.length).toBeLessThan(rows[0].path.length);
+	});
+
 	it('picks the SHORTEST member as representative, so a real variation can finish', () => {
 		const shared = pliesForMoves(9);
 		const long = variation(['Sicilian'], plies('stem', shared, pliesForMoves(20), 'long'));
@@ -177,17 +217,16 @@ describe('chapterLearnState — band advance', () => {
 
 	it('clamps the medal to the chapter’s own deepest content', () => {
 		const rows = [variation(['Short'], plies('stem', pliesForMoves(9), pliesForMoves(9), 'x'))];
-		expect(deriveChapterLevel(rows, mastered(rows))).toBe('bronze');
+		expect(chapterLearnState('Short', rows, mastered(rows)).level).toBe('bronze');
 	});
 
 	it('reaches platinum only for a chapter that genuinely has platinum-length content', () => {
 		const rows = [variation(['Deep'], plies('stem', pliesForMoves(30), pliesForMoves(30), 'x'))];
-		expect(deriveChapterLevel(rows, mastered(rows))).toBe('platinum');
+		expect(chapterLearnState('Deep', rows, mastered(rows)).level).toBe('platinum');
 	});
 
 	it('is neither complete nor levelled for an empty chapter', () => {
-		expect(isChapterComplete([], new Set())).toBe(false);
-		expect(deriveChapterLevel([], new Set())).toBeNull();
+		expect(chapterLearnState('Empty', [], new Set())).toMatchObject({ complete: false, level: null, band: null });
 	});
 });
 
@@ -266,7 +305,151 @@ describe('deriveLearnPlan', () => {
 		expect(plan.chapters[0].complete).toBe(true);
 		expect(plan.servableVariationKeys).toEqual([]);
 		// Sanity: it WOULD have blocked, had it still been in scope.
-		expect(isChapterComplete([kept, excluded], mastered([kept]))).toBe(false);
+		expect(chapterLearnState('A', [kept, excluded], mastered([kept])).complete).toBe(false);
+	});
+});
+
+describe('nextServableVariationKey', () => {
+	const shared = pliesForMoves(9);
+	const line = (chapter: string, tag: string) => variation([chapter], plies(tag, shared, shared, tag));
+
+	it('stays inside the chapter the finished line belongs to', () => {
+		// Chapter B is listed second, so "first servable anywhere" would bounce
+		// the player back to chapter A after every single line.
+		const a1 = line('A', 'a1');
+		const b1 = line('B', 'b1');
+		const b2 = line('B', 'b2');
+		const plan = deriveLearnPlan([a1, b1, b2], mastered([b1]));
+
+		expect(nextServableVariationKey(plan, [a1, b1, b2], b1.variationKey)).toBe(b2.variationKey);
+	});
+
+	it('falls back to another chapter once its own is finished', () => {
+		const a1 = line('A', 'a1');
+		const b1 = line('B', 'b1');
+		const plan = deriveLearnPlan([a1, b1], mastered([b1]));
+
+		expect(nextServableVariationKey(plan, [a1, b1], b1.variationKey)).toBe(a1.variationKey);
+	});
+
+	it('is null once nothing anywhere is servable', () => {
+		const a1 = line('A', 'a1');
+		const plan = deriveLearnPlan([a1], mastered([a1]));
+
+		expect(nextServableVariationKey(plan, [a1], a1.variationKey)).toBeNull();
+	});
+
+	it('never hands back the line just finished, even if its unit somehow remains servable', () => {
+		// A stale plan (derived pre-write) still lists the finished line. The
+		// walk must skip it rather than pointing the player at the same board.
+		const a1 = line('A', 'a1');
+		const a2 = line('A', 'a2');
+		const stalePlan = deriveLearnPlan([a1, a2], new Set());
+
+		expect(nextServableVariationKey(stalePlan, [a1, a2], a1.variationKey)).toBe(a2.variationKey);
+	});
+
+	it('handles an untagged line in a MIXED repertoire, and in a chapterless one', () => {
+		const tagged = line('A', 'a1');
+		const untaggedA = variation([], plies('u1', shared, shared, 'u1'));
+		const untaggedB = variation([], plies('u2', shared, shared, 'u2'));
+
+		const mixed = deriveLearnPlan([tagged, untaggedA, untaggedB], mastered([untaggedA]));
+		expect(nextServableVariationKey(mixed, [tagged, untaggedA, untaggedB], untaggedA.variationKey)).toBe(untaggedB.variationKey);
+
+		const flat = deriveLearnPlan([untaggedA, untaggedB], mastered([untaggedA]));
+		expect(nextServableVariationKey(flat, [untaggedA, untaggedB], untaggedA.variationKey)).toBe(untaggedB.variationKey);
+	});
+});
+
+describe('activeChapterState', () => {
+	const shared = pliesForMoves(9);
+	const line = (chapter: string, tag: string) => variation([chapter], plies(tag, shared, shared, tag));
+
+	it('reports the chapter holding the active line', () => {
+		const a1 = line('A', 'a1');
+		const b1 = line('B', 'b1');
+		const plan = deriveLearnPlan([a1, b1], new Set());
+
+		expect(activeChapterState(plan, [a1, b1], b1.variationKey)?.chapter).toBe('B');
+	});
+
+	it('prefers an UNFINISHED chapter when the active line is cross-referenced by several', () => {
+		// The shared line belongs to both; A is already finished via it, B is not.
+		const shared_line = variation(['A', 'B'], plies('s', shared, shared, 's'));
+		const bOnly = variation(['B'], plies('b', shared, shared, 'b'));
+		const plan = deriveLearnPlan([shared_line, bOnly], mastered([shared_line]));
+
+		expect(activeChapterState(plan, [shared_line, bOnly], shared_line.variationKey)?.chapter).toBe('B');
+	});
+
+	it('falls back to the first unfinished chapter for a stale or absent pointer', () => {
+		const a1 = line('A', 'a1');
+		const plan = deriveLearnPlan([a1], new Set());
+
+		expect(activeChapterState(plan, [a1], 'gone')?.chapter).toBe('A');
+		expect(activeChapterState(plan, [a1], null)?.chapter).toBe('A');
+	});
+
+	it('is null once every chapter is complete, so the progress bar hides instead of showing a full one', () => {
+		const a1 = line('A', 'a1');
+		const plan = deriveLearnPlan([a1], mastered([a1]));
+
+		expect(activeChapterState(plan, [a1], a1.variationKey)).toBeNull();
+	});
+});
+
+describe('servableRepresentativeFor', () => {
+	const shared = pliesForMoves(9);
+
+	it('resolves ANY member of an unlearned unit to that unit’s representative', () => {
+		// The long member is not in `servableVariationKeys` (only representatives
+		// are), so a yes/no check against that list would reject a perfectly
+		// teachable pick — and `pickActiveVariation` would then silently serve
+		// something else.
+		const long = variation(['A'], plies('stem', shared, pliesForMoves(20), 'long'));
+		const short = variation(['A'], plies('stem', shared, shared, 'short'));
+		const plan = deriveLearnPlan([long, short], new Set());
+
+		expect(plan.servableVariationKeys).not.toContain(long.variationKey);
+		expect(servableRepresentativeFor(plan, long.variationKey)).toBe(short.variationKey);
+		expect(servableRepresentativeFor(plan, short.variationKey)).toBe(short.variationKey);
+	});
+
+	it('is null for a variation with nothing left to teach', () => {
+		const rows = [variation(['A'], plies('a', shared, shared, 'a'))];
+		const plan = deriveLearnPlan(rows, mastered(rows));
+
+		expect(servableRepresentativeFor(plan, rows[0].variationKey)).toBeNull();
+	});
+
+	it('is null for a key that matches no variation at all', () => {
+		const rows = [variation(['A'], plies('a', shared, shared, 'a'))];
+		expect(servableRepresentativeFor(deriveLearnPlan(rows, new Set()), 'gone')).toBeNull();
+	});
+});
+
+describe('completedChapterNames', () => {
+	const shared = pliesForMoves(9);
+	const line = (chapter: string, tag: string) => variation([chapter], plies(tag, shared, shared, tag));
+
+	it('names only the complete chapters', () => {
+		const a1 = line('A', 'a1');
+		const b1 = line('B', 'b1');
+		const plan = deriveLearnPlan([a1, b1], mastered([a1]));
+
+		expect([...completedChapterNames(plan)]).toEqual(['A']);
+	});
+
+	it('calls a chapterless repertoire’s flat pool UNTAGGED_CHAPTER, matching masterableChapters', () => {
+		// `deriveRepertoireStatus` compares this set against
+		// `masterableChapters`, which names that bucket UNTAGGED_CHAPTER — a
+		// `null` here would never match and a chapterless repertoire could never
+		// read as Mastered.
+		const rows = [variation([], plies('a', shared, shared, 'a'))];
+		const plan = deriveLearnPlan(rows, mastered(rows));
+
+		expect([...completedChapterNames(plan)]).toEqual([UNTAGGED_CHAPTER]);
 	});
 });
 

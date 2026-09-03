@@ -3,7 +3,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
 import { filterVariations } from '$lib/mastery/variations';
-import { deriveLearnPlan } from '$lib/mastery/learnUnits';
+import { deriveLearnPlan, servableRepresentativeFor } from '$lib/mastery/learnUnits';
 import { computeMasteredMoveIds } from '$lib/mastery/teaching';
 import { setActiveVariationKey, loadSolvedKeys, loadTeachingProgress } from '$lib/server/practice-progress';
 import { requireApiUser } from '$lib/server/auth';
@@ -16,13 +16,20 @@ import { buildPracticeView } from '$lib/mastery/practice';
  * (re-drilling for confidence); it doesn't un-solve anything, and it never
  * re-teaches (see buildPracticeView's already-solved bypass).
  *
- * An UNSOLVED variation with no unlearned learn unit is rejected with 409:
- * there is genuinely nothing left to teach in it right now, so persisting it
- * as active would re-serve a finished board. That can only happen from a stale
- * client — the picker never renders a learned unit — so this is a
- * consistency guard, not a gate the UI is expected to hit. The check must run
- * BEFORE `setActiveVariationKey`, or the dead pick would already be persisted
- * by the time the rejection is thrown.
+ * An unsolved pick is RESOLVED to its learn unit's representative rather than
+ * taken literally (`servableRepresentativeFor`): any member of an unlearned
+ * unit is a legitimate thing to ask for, but the member actually served has to
+ * be the one that can finish (see `LearnUnit`) — and `pickActiveVariation`
+ * would otherwise treat a non-representative member as a stale pointer and
+ * silently serve something else entirely.
+ *
+ * A pick with no unlearned unit at all is rejected with 409: there is
+ * genuinely nothing left to teach in it, so persisting it as active would
+ * re-serve a finished board. That can only happen from a stale client — the
+ * picker never renders a learned unit — so it's a consistency guard, not a
+ * gate the UI is expected to hit. The check must run BEFORE
+ * `setActiveVariationKey`, or the dead pick would already be persisted by the
+ * time the rejection is thrown.
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const { supabase } = locals;
@@ -50,10 +57,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// against a different step than the one it served."
 	const plan = deriveLearnPlan(variations, computeMasteredMoveIds(variations, teachingProgress, solvedKeys));
 
-	if (!solvedKeys.has(variationKey) && !plan.servableVariationKeys.includes(variationKey)) {
+	// An already-solved pick is honoured as-is: that's a deliberate re-drill,
+	// served in full and never re-taught.
+	const target = solvedKeys.has(variationKey) ? variationKey : servableRepresentativeFor(plan, variationKey);
+	if (target === null) {
 		throw error(409, 'That line is already learned');
 	}
 
-	await setActiveVariationKey(supabase, user.id, repertoireId, variationKey);
-	return json(buildPracticeView(variations, variationKey, solvedKeys, teachingProgress, plan, true));
+	await setActiveVariationKey(supabase, user.id, repertoireId, target);
+	return json(buildPracticeView(variations, target, solvedKeys, teachingProgress, plan, true));
 };

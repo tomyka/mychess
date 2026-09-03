@@ -7,9 +7,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadRepertoireVariations } from './practice-repertoire';
 import { loadSolvedKeys, loadTeachingProgress } from './practice-progress';
-import { masterableChapters } from '$lib/mastery/repertoireStatus';
-import { filterVariations, rowsInChapterTier } from '$lib/mastery/variations';
-import { deriveChapterLevel, deriveRepertoireLevel, type Band } from '$lib/mastery/learnUnits';
+import { filterVariations } from '$lib/mastery/variations';
+import { deriveLearnPlan, deriveRepertoireLevel, type Band } from '$lib/mastery/learnUnits';
 import { computeMasteredMoveIds } from '$lib/mastery/teaching';
 
 export type StudentRepertoireProgress = {
@@ -88,11 +87,12 @@ export async function loadStudentRepertoireProgress(
 				]);
 				const variations = filterVariations(allVariations, excludedVariationKeys);
 				const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, learnedKeys);
-				const chapterLevels = masterableChapters(variations).map((chapter) =>
-					deriveChapterLevel(rowsInChapterTier(variations, chapter), masteredMoveIds)
-				);
+				// Straight off the same `deriveLearnPlan` the student's own Learn
+				// page reads, so a coach can never be shown a level the student
+				// isn't actually on.
+				const plan = deriveLearnPlan(variations, masteredMoveIds);
 				const entry = result.get(repertoireId);
-				if (entry) entry.level = deriveRepertoireLevel(chapterLevels);
+				if (entry) entry.level = deriveRepertoireLevel(plan.chapters.map((c) => c.level));
 			} catch (err) {
 				console.error(`loadStudentRepertoireProgress: level lookup failed for repertoire ${repertoireId}:`, err);
 			}

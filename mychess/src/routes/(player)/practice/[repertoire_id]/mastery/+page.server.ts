@@ -3,9 +3,8 @@ import type { PageServerLoad } from './$types';
 import { requireAccount } from '$lib/server/auth';
 import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
 import { loadSolvedKeys, loadTeachingProgress } from '$lib/server/practice-progress';
-import { masterableChapters } from '$lib/mastery/repertoireStatus';
-import { filterVariations, rowsInChapterTier } from '$lib/mastery/variations';
-import { deriveChapterLevel, deriveRepertoireLevel } from '$lib/mastery/learnUnits';
+import { filterVariations, rowsInChapterTier, UNTAGGED_CHAPTER } from '$lib/mastery/variations';
+import { deriveLearnPlan, deriveRepertoireLevel } from '$lib/mastery/learnUnits';
 import { computeMasteredMoveIds } from '$lib/mastery/teaching';
 
 /**
@@ -29,18 +28,23 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	// no longer caps its chapter's band, so a player who trims a line can still
 	// finish the chapter it was in.
 	const variations = filterVariations(allVariations, excludedVariationKeys);
-	// Computed once and reused by every chapter's deriveChapterLevel call below
-	// — recomputing this O(repertoire) scan per chapter would turn an O(n)
-	// question into O(chapters × n).
 	const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, learnedKeys);
+	// The levels come from the SAME `deriveLearnPlan` call Learn itself uses,
+	// rather than a per-chapter derivation of their own — that duplication is
+	// what let this page and Learn disagree about a chapter's band across
+	// GitHub issue #181's five fixes.
+	const plan = deriveLearnPlan(variations, masteredMoveIds);
 
-	const chapters = masterableChapters(variations).map((chapter) => {
+	const chapters = plan.chapters.map((state) => {
+		// `null` is the flat pool of a chapterless repertoire; name it the way
+		// `masterableChapters` does so this page's own labels are unchanged.
+		const chapter = state.chapter ?? UNTAGGED_CHAPTER;
 		const rows = rowsInChapterTier(variations, chapter);
 		return {
 			chapter,
 			total: rows.length,
 			learned: rows.filter((v) => learnedKeys.has(v.variationKey)).length,
-			level: deriveChapterLevel(rows, masteredMoveIds)
+			level: state.level
 		};
 	});
 

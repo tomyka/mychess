@@ -20,7 +20,7 @@ _Avoid_: Practice, drilling with arrows.
 
 **Learn unit**:
 What Learn actually teaches: one chapter's variations clipped to that chapter's current *band* cap, deduplicated by the clipped move-id chain. Many variations collapse onto one unit, and a unit is served through its shortest member (its *representative*), so a unit that ends where a real variation ends finishes that variation. Learned units disappear from Learn; nothing is ever locked, paused or deferred. Lives in `src/lib/mastery/learnUnits.ts` — see docs/superpowers/specs/2026-09-04-learn-units-design.md.
-_Avoid_: calling a unit a variation; "locked", "paused", "deferred", "ceiling", "tier ceiling" (all retired with issue #182).
+_Avoid_: calling a unit a variation; "locked", "paused", "deferred", "tier ceiling", "teaching ceiling" (all retired with issue #182). Bare "ceiling" survives only as a mechanical ply bound (`ceilingPlyFor`, `autoPlayCeiling`) — never as a gate.
 
 **Band**:
 Bronze / Silver / Gold / Platinum, bracketing the player's own move count at 9 / 18 / 27 / unlimited. Gated **per chapter**: a chapter's current band is the lowest band still holding an unlearned unit, and its medal is the highest fully-learned band clamped to its own deepest line.

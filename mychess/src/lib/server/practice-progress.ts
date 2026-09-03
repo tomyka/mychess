@@ -4,9 +4,8 @@ import type { Variation } from '$lib/mastery/variations';
 import { pickActiveVariation } from '$lib/mastery/variationSequence';
 import { advanceTeachingProgress, knownProgressFor, computeMasteredMoveIds } from '$lib/mastery/teaching';
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
-import { masterableChapters } from '$lib/mastery/repertoireStatus';
-import { isInChapterTier, rowsInChapterTier } from '$lib/mastery/variations';
-import { deriveLearnPlan, isChapterComplete, nextServableVariationKey, type LearnPlan } from '$lib/mastery/learnUnits';
+import { isInChapterTier } from '$lib/mastery/variations';
+import { completedChapterNames, deriveLearnPlan, nextServableVariationKey, type LearnPlan } from '$lib/mastery/learnUnits';
 
 /**
  * This player's full solved-variation-key set for one repertoire.
@@ -121,16 +120,10 @@ export async function markVariationSolved(
 
 /**
  * Writes a `chapter_completed` cache row for every chapter `variation` belongs
- * to that has just newly finished (see `isChapterComplete`), given the
- * up-to-date `masteredMoveIds` (reflecting this attempt's just-written
- * `variation_teaching_progress` row, read/patched BEFORE this call — see
- * `applyAttemptResult`).
- *
- * `variations` must be the PRACTICEABLE (exclusion-filtered) set, matching
- * `deriveLearnPlan`. This is the opposite of what the tier-ceiling model
- * required: an excluded line no longer blocks its chapter's completion, so
- * passing the unfiltered set here would keep a chapter the player has
- * deliberately trimmed permanently incomplete.
+ * to that has just newly finished, per the POST-write plan the caller already
+ * derived (`completedChapterNames`) — no second, independently-computed
+ * completeness check, which is what let this cache disagree with the Levels
+ * page before.
  *
  * Idempotent (safe to call even when the chapter was already complete) and
  * best-effort: this cache only backs the repertoire list's decorative
@@ -143,11 +136,10 @@ async function cacheCompletedChaptersReached(
 	playerId: string,
 	repertoireId: string,
 	variation: Variation,
-	variations: Variation[],
-	masteredMoveIds: ReadonlySet<string>
+	plan: LearnPlan
 ): Promise<void> {
-	const chapters = masterableChapters(variations).filter((chapter) => isInChapterTier(variation, chapter));
-	const completedChapters = chapters.filter((chapter) => isChapterComplete(rowsInChapterTier(variations, chapter), masteredMoveIds));
+	const completed = completedChapterNames(plan);
+	const completedChapters = [...completed].filter((chapter) => isInChapterTier(variation, chapter));
 	if (completedChapters.length === 0) return;
 
 	const { error } = await supabase
@@ -427,6 +419,6 @@ export async function applyAttemptResult(
 	const planAfter = deriveLearnPlan(variations, masteredMoveIds);
 	await setActiveVariationKey(supabase, playerId, repertoireId, nextServableVariationKey(planAfter, variations, variationKey));
 	if (variation) {
-		await cacheCompletedChaptersReached(supabase, playerId, repertoireId, variation, variations, masteredMoveIds);
+		await cacheCompletedChaptersReached(supabase, playerId, repertoireId, variation, planAfter);
 	}
 }

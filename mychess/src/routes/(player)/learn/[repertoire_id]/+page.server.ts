@@ -41,10 +41,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	const view = buildPracticeView(variations, activeVariationKey, solvedKeys, teachingProgress, plan);
 	const chapter = activeChapterState(plan, variations, view.attempt?.variationKey ?? activeVariationKey);
-	// Shaped for the page's existing band progress bar. `null` once every
-	// chapter is complete, which hides the bar rather than showing a full one.
+	// Shaped for the page's band progress bar. `null` once every chapter is
+	// complete, which hides the bar rather than showing a permanently full one.
 	const currentLevel =
-		chapter && chapter.band ? { tier: chapter.band, ready: chapter.learnedInBand, total: chapter.totalInBand } : null;
+		chapter && chapter.band ? { band: chapter.band, ready: chapter.learnedInBand, total: chapter.totalInBand } : null;
 
 	return { repertoire, currentLevel, ...view };
 };

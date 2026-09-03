@@ -78,6 +78,30 @@ export type LearnUnit = {
 };
 
 /**
+ * Where a band's cap actually falls within one path — the SINGLE definition of
+ * that, shared by unit construction and by the serving cap
+ * (`ceilingPlyByVariationKey`). Those two disagreeing is the whole class of bug
+ * this module exists to remove.
+ *
+ * `ceilingPlyFor` stops just after the cap-th PLAYER move, deliberately: a
+ * served path has to end on a player move or the attempt can never complete.
+ * But a variation may end with a trailing OPPONENT reply (a PGN chapter whose
+ * line stops on the opponent's move — `enumerateVariations` emits those,
+ * gating only on `playerMoveCount > 0`). Clipping such a path at the cap would
+ * leave a strict prefix with no player move withheld, so a clean pass could
+ * only ever report `unitComplete` and never `solved`: `variation_solved` would
+ * never be written and the line could never enter the Practice pool at ANY
+ * band, since the band it belongs to is already the chapter's deepest.
+ *
+ * So: extend to the path's own end whenever nothing past the cap is the
+ * player's own move. There is genuinely nothing left to withhold there.
+ */
+function bandCapPly(path: readonly VariationStep[], cap: number): number {
+	const ply = ceilingPlyFor(path, cap);
+	return path.slice(ply).some((step) => step.isPlayerTurn) ? ply : path.length;
+}
+
+/**
  * Every distinct clipped prefix among `rows` at one band, in first-appearance
  * order. Compared by `moveId`, not SAN text, matching exactly what the
  * shared-credit mechanic already treats as interchangeable — so a unit's
@@ -94,7 +118,7 @@ function unitsAtBand(rows: readonly Variation[], band: Band, masteredMoveIds: Re
 	const byKey = new Map<string, { path: VariationStep[]; members: Variation[] }>();
 
 	for (const variation of rows) {
-		const path = variation.path.slice(0, ceilingPlyFor(variation.path, cap));
+		const path = variation.path.slice(0, bandCapPly(variation.path, cap));
 		if (path.length === 0) continue;
 		const unitKey = path.map((step) => step.moveId).join('>');
 		let entry = byKey.get(unitKey);
@@ -229,12 +253,12 @@ export type LearnPlan = {
  * where it used to cap the line's whole chapter.
  */
 export function deriveLearnPlan(variations: readonly Variation[], masteredMoveIds: ReadonlySet<string>): LearnPlan {
-	const rows = variations as Variation[];
+	const rows = variations;
 	const tiers = chapterTiers(rows);
 	// Bucketed once, not once per read: `rowsInChapterTier` is an O(n) filter,
 	// and both the per-chapter state below and the cap loop after it need the
 	// same buckets.
-	const rowsByChapter: Array<{ chapter: string | null; rows: Variation[] }> =
+	const rowsByChapter: Array<{ chapter: string | null; rows: readonly Variation[] }> =
 		tiers === null ? [{ chapter: null, rows }] : tiers.map((chapter) => ({ chapter, rows: rowsInChapterTier(rows, chapter) }));
 	const chapters = rowsByChapter.map(({ chapter, rows: chapterRows }) => chapterLearnState(chapter, chapterRows, masteredMoveIds));
 
@@ -247,7 +271,7 @@ export function deriveLearnPlan(variations: readonly Variation[], masteredMoveId
 		// to its own true end, so an uncapped serve is a no-op final pass.
 		const cap = state.band === null ? Infinity : BAND_MOVE_CAP[state.band];
 		for (const variation of rowsByChapter[i].rows) {
-			const ply = ceilingPlyFor(variation.path, cap);
+			const ply = bandCapPly(variation.path, cap);
 			if (ply > (ceilingPlyByVariationKey.get(variation.variationKey) ?? 0)) {
 				ceilingPlyByVariationKey.set(variation.variationKey, ply);
 			}
@@ -280,12 +304,17 @@ export function activeChapterState(
 ): ChapterLearnState | null {
 	const active = activeVariationKey ? variations.find((v) => v.variationKey === activeVariationKey) : undefined;
 	if (active) {
-		const own = plan.chapters.filter(
-			(state) => state.chapter === null || (active.chapterNames.length > 0 ? active.chapterNames.includes(state.chapter) : state.chapter === UNTAGGED_CHAPTER)
+		const own = plan.chapters.find(
+			(state) =>
+				!state.complete &&
+				(state.chapter === null ||
+					(active.chapterNames.length > 0 ? active.chapterNames.includes(state.chapter) : state.chapter === UNTAGGED_CHAPTER))
 		);
-		const match = own.find((state) => !state.complete) ?? own[0];
-		if (match) return match;
+		if (own) return own;
 	}
+	// Deliberately NOT "the active line's chapter even when it's finished": if
+	// nothing anywhere is unfinished there is no chapter being worked in, and
+	// saying otherwise would leave the Learn page's band bar stuck at full.
 	return plan.chapters.find((state) => !state.complete) ?? null;
 }
 
@@ -331,21 +360,67 @@ export function nextServableVariationKey(
 }
 
 /**
- * One chapter's medal — the highest fully-learned band, clamped to the
- * chapter's own deepest content. Null for a chapter with nothing learned yet.
+ * The representative of the still-unlearned unit `variationKey` belongs to, or
+ * `null` when it has none — nothing left to teach in it right now.
  *
- * `chapterVariations` should be the practiceable (filtered) set, matching
- * `deriveLearnPlan`. This is the direct opposite of the requirement the
- * function it replaces carried: excluded lines must NOT be passed, because
- * they no longer block anything.
+ * Resolving to the REPRESENTATIVE, rather than answering yes/no about the key
+ * itself, is what lets a caller accept any member of an unlearned unit while
+ * still serving the member that can actually finish (see `LearnUnit`). A
+ * yes/no check against `servableVariationKeys` would reject a longer member of
+ * a perfectly teachable unit, since only representatives are in that list.
  */
-export function deriveChapterLevel(chapterVariations: readonly Variation[], masteredMoveIds: ReadonlySet<string>): Band | null {
-	return chapterLearnState(null, chapterVariations, masteredMoveIds).level;
+export function servableRepresentativeFor(plan: LearnPlan, variationKey: string): string | null {
+	for (const state of plan.chapters) {
+		for (const unit of state.units) {
+			if (unit.variationKeys.includes(variationKey)) return unit.representativeVariationKey;
+		}
+	}
+	return null;
 }
 
-/** Whether a chapter has learned everything it contains, to every line's own true end. `false` for an empty chapter. */
-export function isChapterComplete(chapterVariations: readonly Variation[], masteredMoveIds: ReadonlySet<string>): boolean {
-	return chapterLearnState(null, chapterVariations, masteredMoveIds).complete;
+/** One learn unit as the picker's endpoint sends it: the CLIPPED prefix, plus the variation to post back. */
+export type LearnUnitView = {
+	unitKey: string;
+	/** The clipped prefix's own label — not any member's full line. */
+	label: string;
+	path: VariationStep[];
+	/** The unit's representative, i.e. what to post to `/api/practice/select-variation`. */
+	variationKey: string;
+};
+
+/**
+ * One chapter as the picker's endpoint sends it. Carries only what the picker
+ * renders: a chapter with nothing left to learn arrives with an empty `units`,
+ * which is the whole signal — there is no separate "complete" flag to keep in
+ * step with it.
+ */
+export type LearnChapterView = {
+	/** `null` for the flat pool of a repertoire with no chapters anywhere. */
+	chapter: string | null;
+	band: Band | null;
+	learnedInBand: number;
+	totalInBand: number;
+	units: LearnUnitView[];
+};
+
+/** The `/api/repertoires/[id]/learn-units` response body. Shared so the route and the picker cannot drift. */
+export type LearnUnitsResponse = { chapters: LearnChapterView[] };
+
+/**
+ * The display names of every COMPLETE chapter in `plan` — the shape both
+ * `deriveRepertoireStatus`'s `completedChapters` argument and the
+ * `chapter_completed` cache want.
+ *
+ * `null` (the flat pool of a chapterless repertoire) maps to
+ * `UNTAGGED_CHAPTER`, matching `masterableChapters`'s own fallback, so the two
+ * agree on what to call that bucket.
+ */
+export function completedChapterNames(plan: LearnPlan): Set<string> {
+	const names = new Set<string>();
+	for (const state of plan.chapters) {
+		if (state.complete) names.add(state.chapter ?? UNTAGGED_CHAPTER);
+	}
+	return names;
 }
 
 /** A repertoire's level: the minimum band across its chapters (null counts as lowest). */

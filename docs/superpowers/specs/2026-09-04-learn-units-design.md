@@ -47,6 +47,17 @@ current band cap, deduplicated by the clipped move-id chain.
 - Its key is that move-id chain — the same `>`-joined format as
   `variationKey`, so a unit reaching a variation's real end *is* that
   variationKey. No new key format, no schema change.
+- **The clip extends to the path's own end whenever nothing past the cap is
+  the player's own move.** `enumerateVariations` emits lines that end on the
+  *opponent's* reply (a PGN chapter stopping there), and the cap lands just
+  after the Nth **player** move. Clipping such a line at the cap would leave a
+  strict prefix with no player move withheld, so a clean pass could only ever
+  report `unitComplete`, never `solved` — `variation_solved` would never be
+  written and the line could never enter the Practice pool at *any* band,
+  since the band it sits in is already its chapter's deepest. One function,
+  `bandCapPly`, owns this and is used by both unit construction and the
+  serving cap; those two disagreeing is the bug class this module exists to
+  remove.
 - Its **representative** is the member variation with the *shortest* path.
   This matters: when a 9-move variation and a 20-move variation share the
   same first 9 moves, they are one bronze unit, and serving the 9-move one
@@ -118,12 +129,36 @@ Its single entry point for the Learn flow:
 deriveLearnPlan(variations, masteredMoveIds): LearnPlan
 ```
 
-returning, per chapter, its band/completeness/unlearned units, plus a
+returning, per chapter, its band/medal/completeness/unlearned units, plus a
 `ceilingPlyByVariationKey` map and an ordered `servableVariationKeys` list.
-Every consumer — the Learn page, the picker endpoint, `buildPracticeView`,
-`applyAttemptResult`, `select-variation` — reads that one value instead of
-recomputing a ceiling of its own. This is the property the old design lacked:
-three call sites each derived their own ceiling and could disagree.
+Every consumer reads that one value instead of deriving anything of its own:
+the Learn page, the picker endpoint, `buildPracticeView`,
+`applyAttemptResult`, `select-variation`, **the Levels page, the coach
+student-progress view and the Mastered badge count**. This is the property the
+old design lacked — eight call sites each deriving their own answer from the
+same inputs, which is what made issue #181 take five commits to land.
+
+Three helpers read off a derived plan rather than re-deriving:
+
+- `completedChapterNames(plan)` — the set `deriveRepertoireStatus` and the
+  `chapter_completed` cache both want, naming a chapterless repertoire's flat
+  pool `UNTAGGED_CHAPTER` to match `masterableChapters`.
+- `activeChapterState(plan, variations, activeKey)` — the chapter being worked
+  in, for the Learn page's band bar. `null` once nothing is unfinished, so the
+  bar hides rather than sitting permanently full.
+- `nextServableVariationKey(plan, variations, finishedKey)` — what to serve
+  next, preferring a unit in a chapter the finished line also belongs to.
+  Without that preference, per-chapter gating would bounce the player back to
+  the first chapter after every single line. Replaces `advanceIfSolved`'s walk
+  (and `nextVariation` with it), which had to skip solved and blocked entries
+  as it went and could revisit a duplicate key forever.
+
+`servableRepresentativeFor(plan, key)` resolves *any* member of an unlearned
+unit to that unit's representative. `select-variation` uses it rather than
+testing membership of `servableVariationKeys`, which holds only
+representatives: a longer member of a perfectly teachable unit would
+otherwise be rejected as "already learned", and `pickActiveVariation` would
+treat it as a stale pointer and silently serve something else.
 
 ### Deletions
 
@@ -132,7 +167,7 @@ three call sites each derived their own ceiling and could disagree.
 | `teaching.ts` | `isPausedAtCeiling`, `isLockedForTier`, `isCeilingReachedAnywhere`, `computeBlockedKeys`, `wouldMerelyPauseAt`, `computeMasteredPliesMap` |
 | `chapterLevels.ts` | whole file (`teachingCeilingMoveCount`, `currentLevelProgress`, `hasReachedCeiling`, `chapterCeiling`, `tierForMoveCount`) |
 | `variations.ts` | `groupByCeilingPrefix` |
-| `variationSequence.ts` | every `blockedKeys` parameter |
+| `variationSequence.ts` | every `blockedKeys` parameter, plus `advanceIfSolved` and `nextVariation` — both left with no callers once the plan owns "what's next" |
 | `VariationPicker.svelte` | legend, 🔒 ⏳ ✓, `statusTitle`, `ceilingGroupDone`, `ceilingGroupPaused`, `isFrontier`, the `PickerEntry` union, every `disabled` |
 | messages | `variation_picker_legend`, `_locked_reason`, `_paused_reason`, `_learned_reason` (all locales) |
 
@@ -146,23 +181,36 @@ next to `includedByChapter`. Split it:
 - `/api/repertoires/[id]/variations` keeps serving the exclusion tree, minus
   the three ceiling fields.
 - `/api/repertoires/[id]/learn-units` is new and serves the picker: per
-  chapter, its band and its unlearned units.
+  chapter, its band, its band progress, and its unlearned units. A finished
+  chapter arrives with an empty `units` — that *is* the signal, so there is no
+  separate `complete` flag to keep in step with it. The wire types
+  (`LearnUnitView`, `LearnChapterView`, `LearnUnitsResponse`) live in
+  `learnUnits.ts` and are shared by the route and the picker, so a field
+  rename can't drift between them.
 
-`select-variation` rejects a variation with no unlearned unit (409, "already
+`select-variation` rejects a pick with no unlearned unit (409, "already
 learned") rather than 403-ing a "locked" one.
 
 ## UI
 
 The picker keeps chapter tier → move-group folders → rows, with folders now
 built over clipped unit paths via the existing `groupByFirstMoves`. Every row
-is clickable. The Learn progress bar shows the active chapter's band and
-`learned/total` within that band.
+is clickable and none is decorated. A chapter with nothing left to learn is
+**omitted from the chapter list** rather than shown as an empty dead end —
+the same rule as within a chapter, where learned content is absent rather
+than disabled. When every chapter is finished the picker says so in one line.
+The Learn progress bar shows the active chapter's band and `learned/total`
+within that band.
 
 ## Testing
 
 - `learnUnits.test.ts`: dedupe, shortest-representative choice, band advance,
   skipped no-new-content band, per-chapter independence, medal clamping,
-  exclusions producing no unit, multi-chapter cap maximisation.
+  exclusions producing no unit, multi-chapter cap maximisation, the
+  opponent's-reply clip extension (and that it does *not* swallow a real
+  player move past the cap), plus `activeChapterState`,
+  `nextServableVariationKey`, `servableRepresentativeFor` and
+  `completedChapterNames`.
 - Updated: `teaching.test.ts`, `practice.test.ts`, `variations.test.ts`,
   `VariationPicker.test.ts`, `learn.test.ts`, `practice-progress.test.ts`.
 - `npm test`, `npm run check`, `npm run lint` all clean.

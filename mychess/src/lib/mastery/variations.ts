@@ -1,4 +1,3 @@
-
 export type RawMoveRow = {
 	id: string;
 	fromPositionId: string;
@@ -240,7 +239,7 @@ export const UNTAGGED_CHAPTER = 'Lines without a chapter';
  * Shared by `RepertoirePracticeRow` and `VariationPicker` so the two can never
  * disagree about what counts as chaptered, or order chapters differently.
  */
-export function chapterTiers(rows: Array<{ chapterNames: string[] }>): string[] | null {
+export function chapterTiers(rows: readonly { chapterNames: string[] }[]): string[] | null {
 	if (rows.every((r) => r.chapterNames.length === 0)) return null;
 	const names: string[] = [];
 	for (const r of rows) {
@@ -264,7 +263,7 @@ export function isInChapterTier(row: { chapterNames: string[] }, tier: string): 
 }
 
 /** `rows` filtered to one tier from `chapterTiers` (see `isInChapterTier`). */
-export function rowsInChapterTier<T extends { chapterNames: string[] }>(rows: T[], tier: string): T[] {
+export function rowsInChapterTier<T extends { chapterNames: string[] }>(rows: readonly T[], tier: string): T[] {
 	return rows.filter((r) => isInChapterTier(r, tier));
 }
 

@@ -7,9 +7,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadRepertoireProgressSummaries, type RepertoireProgressSummary } from './repertoire-progress';
 import { loadRepertoireVariations } from './practice-repertoire';
 import { loadSolvedKeys, loadTeachingProgress } from './practice-progress';
-import { deriveRepertoireStatus, masterableChapters } from '$lib/mastery/repertoireStatus';
-import { filterVariations, rowsInChapterTier } from '$lib/mastery/variations';
-import { isChapterComplete } from '$lib/mastery/learnUnits';
+import { deriveRepertoireStatus } from '$lib/mastery/repertoireStatus';
+import { filterVariations } from '$lib/mastery/variations';
+import { completedChapterNames, deriveLearnPlan } from '$lib/mastery/learnUnits';
 import { computeMasteredMoveIds } from '$lib/mastery/teaching';
 
 /**
@@ -52,10 +52,8 @@ export async function countRepertoireStatuses(
 				// line can still reach Mastered.
 				const variations = filterVariations(allVariations, excludedVariationKeys);
 				const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, learnedKeys);
-				const completedChapters = new Set(
-					masterableChapters(variations).filter((chapter) => isChapterComplete(rowsInChapterTier(variations, chapter), masteredMoveIds))
-				);
-				return deriveRepertoireStatus({ variations, learnedKeys, completedChapters });
+				const plan = deriveLearnPlan(variations, masteredMoveIds);
+				return deriveRepertoireStatus({ variations, learnedKeys, completedChapters: completedChapterNames(plan) });
 			} catch (err) {
 				// A badge count is not worth failing the request that triggered it.
 				// Logged rather than swallowed so a persistent failure is visible.
