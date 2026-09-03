@@ -6,9 +6,12 @@
 // assigns it through the actual assign UI, then drills it through the real
 // `/api/practice/attempt` endpoint (same server code a real player's
 // browser calls) until progress is non-trivial, and finally drives a real
-// browser to `/learn/<id>` to check the rendered picker's active entry sits
-// at the very top of its list (GitHub issue #178) rather than asking a human
-// to reproduce and screenshot the same scenario by hand every time.
+// browser to `/learn/<id>` to check the rendered picker: that its active
+// entry sits at the very top of its list (GitHub issue #178), and that it
+// renders no status icon and no disabled row at all (GitHub issue #182 —
+// every unit shown must be something the player can act on right now).
+// Beats asking a human to reproduce and screenshot the same scenario by hand
+// every time.
 //
 //   npm run qa:verify-learn -- "C:\path\to\repertoire.pgn"
 //
@@ -258,8 +261,12 @@ async function main() {
 			// restyle of the active-row treatment would need this selector
 			// updated alongside it.
 			const rail = playerSession.page.locator('div[class*="lg:w-64"]');
-			const leafButtons = rail.locator('ul > li > button[class*="pr-8"], ul > li > button[class*="pr-12"]');
-			await leafButtons.first().waitFor({ state: 'visible', timeout: 10_000 });
+			// Any row will do to know the rail has loaded — the picker renders
+			// one flat `ul > li > button` list at every level now (chapters,
+			// folders, units), with no class-based distinction between them
+			// (GitHub issue #182 removed the pr-8/pr-12 status-icon padding
+			// variants this used to key on).
+			await rail.locator('ul > li > button').first().waitFor({ state: 'visible', timeout: 10_000 });
 
 			// The float-to-front fix under test (GitHub issue #178) lives in
 			// `pickerEntries` — the top-level list WITHIN a chapter — not in the
@@ -280,18 +287,26 @@ async function main() {
 					await playerSession.page.waitForTimeout(200);
 				}
 
-				const variationsRes = await playerSession.page.request.get(`${BASE_URL}/api/repertoires/${repertoireId}/variations`);
-				if (!variationsRes.ok()) throw new Error(`Fetching variations failed: ${variationsRes.status()}`);
-				const rows = (await variationsRes.json()) as { variationKey: string; chapterNames: string[] }[];
-				const activeRow = rows.find((r) => r.variationKey === expectedActiveKey);
-				const activeChapterName = activeRow?.chapterNames[0] ?? 'Lines without a chapter';
+				// Read the chapter holding the active variation straight off the
+				// endpoint the picker itself renders from, so this script and the
+				// UI can't disagree about which chapter that is.
+				const unitsRes = await playerSession.page.request.get(`${BASE_URL}/api/repertoires/${repertoireId}/learn-units`);
+				if (!unitsRes.ok()) throw new Error(`Fetching learn units failed: ${unitsRes.status()}`);
+				const plan = (await unitsRes.json()) as {
+					chapters: { chapter: string | null; band: string | null; complete: boolean; units: { variationKey: string }[] }[];
+				};
+				const holder = plan.chapters.find((c) => c.units.some((u) => u.variationKey === expectedActiveKey));
+				console.log(
+					'Chapters with units left:',
+					plan.chapters.filter((c) => c.units.length > 0).map((c) => `${c.chapter ?? '(flat)'}[${c.band}] ${c.units.length} unit(s)`)
+				);
 
-				// Chapter buttons also carry a trailing progress badge ("3/5" or
-				// "✓") in the same accessible name, so matching on the whole
-				// button's name would need a fragile prefix match — this matches
-				// the chapter label's own `<span>` exactly instead, then walks up
-				// to its enclosing button.
-				const chapterLabel = rail.getByText(activeChapterName, { exact: true });
+				// Chapter buttons also carry a trailing band badge ("Bronze · 3/4")
+				// in the same accessible name, so matching on the whole button's
+				// name would need a fragile prefix match — this matches the
+				// chapter label's own `<span>` exactly instead, then walks up to
+				// its enclosing button.
+				const chapterLabel = rail.getByText(holder?.chapter ?? 'Lines without a chapter', { exact: true });
 				if (await chapterLabel.isVisible().catch(() => false)) {
 					await chapterLabel.locator('xpath=ancestor::button[1]').click();
 					await playerSession.page.waitForTimeout(200);
@@ -315,6 +330,28 @@ async function main() {
 			const screenshotPath = 'scratch-qa-verify-learn.png';
 			await playerSession.page.screenshot({ path: screenshotPath, fullPage: true });
 			console.log('Screenshot saved to', screenshotPath);
+
+			// The core of GitHub issue #182: the rail offers only things the
+			// player can act on. A learned unit is ABSENT, so there is no status
+			// icon to render and nothing to disable. Checked against the live,
+			// rendered page rather than the component test, because the whole
+			// complaint was about what the real picker actually shows.
+			const railText = (await rail.textContent()) ?? '';
+			const stray = ['🔒', '⏳', '✓'].filter((icon) => railText.includes(icon));
+			if (stray.length > 0) {
+				console.log(`FAIL: the picker still renders status icons ${stray.join(' ')} — every unit shown must be learnable.`);
+				process.exitCode = 1;
+			} else {
+				console.log('PASS: no lock/pause/learned icon anywhere in the picker.');
+			}
+
+			const disabledCount = await rail.locator('ul > li > button[disabled]').count();
+			if (disabledCount > 0) {
+				console.log(`FAIL: ${disabledCount} picker row(s) are disabled — nothing should ever be unclickable.`);
+				process.exitCode = 1;
+			} else {
+				console.log('PASS: no disabled row in the picker.');
+			}
 
 			if (expectedActiveKey === null) {
 				console.log('Repertoire is fully solved — no active entry to check. PASS (trivially).');
