@@ -42,8 +42,16 @@ const BASE_URL = process.env.QA_BASE_URL ?? 'https://mychess.lt';
 const MAX_ATTEMPTS = 30;
 
 const pgnPath = process.argv[2];
-if (!pgnPath) {
+// Reuse an ALREADY-ASSIGNED repertoire instead of importing one, skipping the
+// coach upload/assign half entirely. The default (a PGN path) is still the
+// higher-fidelity run — it re-exercises the real import path too — but when
+// the thing under test is the PICKER rather than the importer, an existing
+// repertoire is both faster and a better sample: it carries real accumulated
+// progress, where a fresh import always starts from zero.
+const existingRepertoireId = process.env.QA_REPERTOIRE_ID ?? null;
+if (!pgnPath && !existingRepertoireId) {
 	console.error('Usage: npm run qa:verify-learn -- "<path-to-pgn>"');
+	console.error('   or: QA_REPERTOIRE_ID=<uuid> npm run qa:verify-learn   (reuse an already-assigned repertoire)');
 	process.exit(1);
 }
 
@@ -155,10 +163,170 @@ async function loginViaMagicLink(email: string) {
 	return { browser, context, page };
 }
 
+/**
+ * The half of this harness that actually checks the fix: drill the
+ * repertoire through the real attempt endpoint, then drive a real browser to
+ * /learn/<id> and read the rendered picker.
+ *
+ * Split out of `main` so it can run against an already-assigned repertoire
+ * (QA_REPERTOIRE_ID) as well as a freshly-imported one — when the thing under
+ * test is the picker, re-importing a PGN first proves nothing extra.
+ */
+async function verifyPicker(repertoireId: string, playerId: string) {
+// --- Player: drill for real, through the real attempt endpoint ---
+const playerSession = await loginViaMagicLink(PLAYER_EMAIL);
+try {
+	await playerSession.page.goto(`${BASE_URL}/learn/${repertoireId}`, { waitUntil: 'networkidle' });
+
+	const initialActive = await rest<{ active_variation_key: string | null }[]>(
+		'GET',
+		`/rest/v1/practice_active_variation?player_id=eq.${playerId}&repertoire_id=eq.${repertoireId}&select=active_variation_key`
+	);
+	let currentKey: string | null = initialActive[0]?.active_variation_key ?? null;
+	if (!currentKey) throw new Error('No active variation after first Learn page load.');
+
+	let attempts = 0;
+	for (; attempts < MAX_ATTEMPTS && currentKey; attempts++) {
+		const res = await playerSession.page.request.post(`${BASE_URL}/api/practice/attempt`, {
+			data: { repertoireId, variationKey: currentKey, hadMistake: false, sessionStart: attempts === 0 }
+		});
+		if (!res.ok()) throw new Error(`Attempt ${attempts} failed: ${res.status()} ${await res.text()}`);
+		const body = (await res.json()) as { attempt: { variationKey: string } | null };
+		currentKey = body.attempt?.variationKey ?? null;
+	}
+	console.log(`Played ${attempts} clean attempts (stopped at ${currentKey ? 'attempt cap' : 'fully solved'}).`);
+
+	await playerSession.page.goto(`${BASE_URL}/learn/${repertoireId}`, { waitUntil: 'networkidle' });
+	const syncedActive = await rest<{ active_variation_key: string | null }[]>(
+		'GET',
+		`/rest/v1/practice_active_variation?player_id=eq.${playerId}&repertoire_id=eq.${repertoireId}&select=active_variation_key`
+	);
+	const expectedActiveKey = syncedActive[0]?.active_variation_key ?? null;
+	console.log('Expected active variation (server-side ground truth):', expectedActiveKey);
+
+	// --- Check the rendered picker ---
+	// No semantic hook (data-testid/aria-current) marks the active row in
+	// VariationPicker.svelte — only its Tailwind `ring-2` class does — so
+	// this reads that class directly rather than adding a test-only
+	// attribute to the component for this one script. Tradeoff: a future
+	// restyle of the active-row treatment would need this selector
+	// updated alongside it.
+	const rail = playerSession.page.locator('div[class*="lg:w-64"]');
+	// Any row will do to know the rail has loaded — the picker renders
+	// one flat `ul > li > button` list at every level now (chapters,
+	// folders, units), with no class-based distinction between them
+	// (GitHub issue #182 removed the pr-8/pr-12 status-icon padding
+	// variants this used to key on).
+	await rail.locator('ul > li > button').first().waitFor({ state: 'visible', timeout: 10_000 });
+
+	// The float-to-front fix under test (GitHub issue #178) lives in
+	// `pickerEntries` — the top-level list WITHIN a chapter — not in the
+	// drilled-in "leaf" view of one multi-item group's own rows, which the
+	// component's auto-open effect lands on instead whenever the active
+	// variation's own entry happens to be a multi-item regular group. Both
+	// views render visually similar button lists, so rather than guess
+	// which one is showing, force a known state: walk back to the
+	// top-level chapter list (however many "Back" clicks that takes), then
+	// click directly into the chapter holding the active variation — a
+	// chapter-heading click only ever sets `openChapter`, never
+	// `openEntryKey` (see VariationPicker.svelte's chapter button onclick),
+	// so this always lands on the entries view, never the leaf view.
+	if (expectedActiveKey !== null) {
+		const backLink = playerSession.page.getByRole('button', { name: '← Back' });
+		for (let i = 0; i < 2 && (await backLink.isVisible().catch(() => false)); i++) {
+			await backLink.click();
+			await playerSession.page.waitForTimeout(200);
+		}
+
+		// Read the chapter holding the active variation straight off the
+		// endpoint the picker itself renders from, so this script and the
+		// UI can't disagree about which chapter that is.
+		const unitsRes = await playerSession.page.request.get(`${BASE_URL}/api/repertoires/${repertoireId}/learn-units`);
+		if (!unitsRes.ok()) throw new Error(`Fetching learn units failed: ${unitsRes.status()}`);
+		const plan = (await unitsRes.json()) as {
+			chapters: { chapter: string | null; band: string | null; complete: boolean; units: { variationKey: string }[] }[];
+		};
+		const holder = plan.chapters.find((c) => c.units.some((u) => u.variationKey === expectedActiveKey));
+		console.log(
+			'Chapters with units left:',
+			plan.chapters.filter((c) => c.units.length > 0).map((c) => `${c.chapter ?? '(flat)'}[${c.band}] ${c.units.length} unit(s)`)
+		);
+
+		// Chapter buttons also carry a trailing band badge ("Bronze · 3/4")
+		// in the same accessible name, so matching on the whole button's
+		// name would need a fragile prefix match — this matches the
+		// chapter label's own `<span>` exactly instead, then walks up to
+		// its enclosing button.
+		const chapterLabel = rail.getByText(holder?.chapter ?? 'Lines without a chapter', { exact: true });
+		if (await chapterLabel.isVisible().catch(() => false)) {
+			await chapterLabel.locator('xpath=ancestor::button[1]').click();
+			await playerSession.page.waitForTimeout(200);
+		}
+		// If the chapter heading isn't visible, the repertoire has no
+		// chapters at all (`chapters === null`) and the entries view is
+		// already the only thing the rail ever shows — nothing to click.
+	}
+
+	const buttons = rail.locator('ul > li > button');
+	const count = await buttons.count();
+	let activeIndex = -1;
+	for (let i = 0; i < count; i++) {
+		const cls = (await buttons.nth(i).getAttribute('class')) ?? '';
+		if (cls.includes('ring-2')) {
+			activeIndex = i;
+			break;
+		}
+	}
+
+	const screenshotPath = 'scratch-qa-verify-learn.png';
+	await playerSession.page.screenshot({ path: screenshotPath, fullPage: true });
+	console.log('Screenshot saved to', screenshotPath);
+
+	// The core of GitHub issue #182: the rail offers only things the
+	// player can act on. A learned unit is ABSENT, so there is no status
+	// icon to render and nothing to disable. Checked against the live,
+	// rendered page rather than the component test, because the whole
+	// complaint was about what the real picker actually shows.
+	const railText = (await rail.textContent()) ?? '';
+	const stray = ['🔒', '⏳', '✓'].filter((icon) => railText.includes(icon));
+	if (stray.length > 0) {
+		console.log(`FAIL: the picker still renders status icons ${stray.join(' ')} — every unit shown must be learnable.`);
+		process.exitCode = 1;
+	} else {
+		console.log('PASS: no lock/pause/learned icon anywhere in the picker.');
+	}
+
+	const disabledCount = await rail.locator('ul > li > button[disabled]').count();
+	if (disabledCount > 0) {
+		console.log(`FAIL: ${disabledCount} picker row(s) are disabled — nothing should ever be unclickable.`);
+		process.exitCode = 1;
+	} else {
+		console.log('PASS: no disabled row in the picker.');
+	}
+
+	if (expectedActiveKey === null) {
+		console.log('Repertoire is fully solved — no active entry to check. PASS (trivially).');
+	} else if (activeIndex === 0) {
+		console.log(`PASS: the active entry (index 0 of ${count}) is floated to the top of the picker.`);
+	} else if (activeIndex === -1) {
+		console.log(`FAIL: no entry in the picker is marked active at all (expected ${expectedActiveKey}).`);
+		process.exitCode = 1;
+	} else {
+		console.log(`FAIL: the active entry is at index ${activeIndex} of ${count}, not the top (expected ${expectedActiveKey}).`);
+		process.exitCode = 1;
+	}
+} finally {
+	await playerSession.browser.close();
+}
+}
+
 async function main() {
-	const pgnText = readFileSync(pgnPath, 'utf8');
-	const repName = basename(pgnPath).replace(/\.[^/.]+$/, '');
-	console.log(`Repertoire: "${repName}" (${pgnText.length} chars) against ${BASE_URL}`);
+	const repName = pgnPath ? basename(pgnPath).replace(/\.[^/.]+$/, '') : null;
+	if (pgnPath) {
+		console.log(`Repertoire: "${repName}" (${readFileSync(pgnPath, 'utf8').length} chars) against ${BASE_URL}`);
+	} else {
+		console.log(`Reusing repertoire ${existingRepertoireId} against ${BASE_URL}`);
+	}
 
 	const coach = await ensureAccount(COACH_EMAIL, {
 		role: 'coach',
@@ -177,10 +345,28 @@ async function main() {
 	await upsert('player_stats', { player_id: player.id }, 'player_id');
 	await upsert('equipped_cosmetics', { player_id: player.id }, 'player_id');
 	await ensureCoachPlayerRelationship(coach.id, player.id);
-	await deleteExistingRepertoire(coach.id, repName);
+	if (repName !== null) await deleteExistingRepertoire(coach.id, repName);
 	console.log('Fixture accounts + relationship ready.');
 
+	// Reuse mode goes straight to the player half. Verified up front that the
+	// repertoire really is assigned to the QA player, so a mistyped id fails
+	// here with a clear message rather than as an empty picker later.
+	if (existingRepertoireId !== null) {
+		const assigned = await rest<{ id: string }[]>(
+			'GET',
+			`/rest/v1/assigned_repertoires?player_id=eq.${player.id}&repertoire_id=eq.${existingRepertoireId}&select=id`
+		);
+		if (assigned.length === 0) {
+			throw new Error(`Repertoire ${existingRepertoireId} is not assigned to ${PLAYER_EMAIL} — assign it first, or pass a PGN path instead.`);
+		}
+		await verifyPicker(existingRepertoireId, player.id);
+		return;
+	}
+
 	// --- Coach: upload + assign, through the real UI ---
+	// Narrowing for the type checker: the reuse branch above already returned,
+	// so reaching here means a PGN path was given and `repName` came from it.
+	if (pgnPath === null || repName === null) throw new Error('unreachable: no PGN path in upload mode');
 	const coachSession = await loginViaMagicLink(COACH_EMAIL);
 	try {
 		await coachSession.page.goto(`${BASE_URL}/coach/pgn`, { waitUntil: 'networkidle' });
@@ -222,151 +408,7 @@ async function main() {
 		if (assignedRows.length === 0) throw new Error('Assign click did not create an assigned_repertoires row.');
 		console.log('Assigned to QA player.');
 
-		// --- Player: drill for real, through the real attempt endpoint ---
-		const playerSession = await loginViaMagicLink(PLAYER_EMAIL);
-		try {
-			await playerSession.page.goto(`${BASE_URL}/learn/${repertoireId}`, { waitUntil: 'networkidle' });
-
-			const initialActive = await rest<{ active_variation_key: string | null }[]>(
-				'GET',
-				`/rest/v1/practice_active_variation?player_id=eq.${player.id}&repertoire_id=eq.${repertoireId}&select=active_variation_key`
-			);
-			let currentKey: string | null = initialActive[0]?.active_variation_key ?? null;
-			if (!currentKey) throw new Error('No active variation after first Learn page load.');
-
-			let attempts = 0;
-			for (; attempts < MAX_ATTEMPTS && currentKey; attempts++) {
-				const res = await playerSession.page.request.post(`${BASE_URL}/api/practice/attempt`, {
-					data: { repertoireId, variationKey: currentKey, hadMistake: false, sessionStart: attempts === 0 }
-				});
-				if (!res.ok()) throw new Error(`Attempt ${attempts} failed: ${res.status()} ${await res.text()}`);
-				const body = (await res.json()) as { attempt: { variationKey: string } | null };
-				currentKey = body.attempt?.variationKey ?? null;
-			}
-			console.log(`Played ${attempts} clean attempts (stopped at ${currentKey ? 'attempt cap' : 'fully solved'}).`);
-
-			await playerSession.page.goto(`${BASE_URL}/learn/${repertoireId}`, { waitUntil: 'networkidle' });
-			const syncedActive = await rest<{ active_variation_key: string | null }[]>(
-				'GET',
-				`/rest/v1/practice_active_variation?player_id=eq.${player.id}&repertoire_id=eq.${repertoireId}&select=active_variation_key`
-			);
-			const expectedActiveKey = syncedActive[0]?.active_variation_key ?? null;
-			console.log('Expected active variation (server-side ground truth):', expectedActiveKey);
-
-			// --- Check the rendered picker ---
-			// No semantic hook (data-testid/aria-current) marks the active row in
-			// VariationPicker.svelte — only its Tailwind `ring-2` class does — so
-			// this reads that class directly rather than adding a test-only
-			// attribute to the component for this one script. Tradeoff: a future
-			// restyle of the active-row treatment would need this selector
-			// updated alongside it.
-			const rail = playerSession.page.locator('div[class*="lg:w-64"]');
-			// Any row will do to know the rail has loaded — the picker renders
-			// one flat `ul > li > button` list at every level now (chapters,
-			// folders, units), with no class-based distinction between them
-			// (GitHub issue #182 removed the pr-8/pr-12 status-icon padding
-			// variants this used to key on).
-			await rail.locator('ul > li > button').first().waitFor({ state: 'visible', timeout: 10_000 });
-
-			// The float-to-front fix under test (GitHub issue #178) lives in
-			// `pickerEntries` — the top-level list WITHIN a chapter — not in the
-			// drilled-in "leaf" view of one multi-item group's own rows, which the
-			// component's auto-open effect lands on instead whenever the active
-			// variation's own entry happens to be a multi-item regular group. Both
-			// views render visually similar button lists, so rather than guess
-			// which one is showing, force a known state: walk back to the
-			// top-level chapter list (however many "Back" clicks that takes), then
-			// click directly into the chapter holding the active variation — a
-			// chapter-heading click only ever sets `openChapter`, never
-			// `openEntryKey` (see VariationPicker.svelte's chapter button onclick),
-			// so this always lands on the entries view, never the leaf view.
-			if (expectedActiveKey !== null) {
-				const backLink = playerSession.page.getByRole('button', { name: '← Back' });
-				for (let i = 0; i < 2 && (await backLink.isVisible().catch(() => false)); i++) {
-					await backLink.click();
-					await playerSession.page.waitForTimeout(200);
-				}
-
-				// Read the chapter holding the active variation straight off the
-				// endpoint the picker itself renders from, so this script and the
-				// UI can't disagree about which chapter that is.
-				const unitsRes = await playerSession.page.request.get(`${BASE_URL}/api/repertoires/${repertoireId}/learn-units`);
-				if (!unitsRes.ok()) throw new Error(`Fetching learn units failed: ${unitsRes.status()}`);
-				const plan = (await unitsRes.json()) as {
-					chapters: { chapter: string | null; band: string | null; complete: boolean; units: { variationKey: string }[] }[];
-				};
-				const holder = plan.chapters.find((c) => c.units.some((u) => u.variationKey === expectedActiveKey));
-				console.log(
-					'Chapters with units left:',
-					plan.chapters.filter((c) => c.units.length > 0).map((c) => `${c.chapter ?? '(flat)'}[${c.band}] ${c.units.length} unit(s)`)
-				);
-
-				// Chapter buttons also carry a trailing band badge ("Bronze · 3/4")
-				// in the same accessible name, so matching on the whole button's
-				// name would need a fragile prefix match — this matches the
-				// chapter label's own `<span>` exactly instead, then walks up to
-				// its enclosing button.
-				const chapterLabel = rail.getByText(holder?.chapter ?? 'Lines without a chapter', { exact: true });
-				if (await chapterLabel.isVisible().catch(() => false)) {
-					await chapterLabel.locator('xpath=ancestor::button[1]').click();
-					await playerSession.page.waitForTimeout(200);
-				}
-				// If the chapter heading isn't visible, the repertoire has no
-				// chapters at all (`chapters === null`) and the entries view is
-				// already the only thing the rail ever shows — nothing to click.
-			}
-
-			const buttons = rail.locator('ul > li > button');
-			const count = await buttons.count();
-			let activeIndex = -1;
-			for (let i = 0; i < count; i++) {
-				const cls = (await buttons.nth(i).getAttribute('class')) ?? '';
-				if (cls.includes('ring-2')) {
-					activeIndex = i;
-					break;
-				}
-			}
-
-			const screenshotPath = 'scratch-qa-verify-learn.png';
-			await playerSession.page.screenshot({ path: screenshotPath, fullPage: true });
-			console.log('Screenshot saved to', screenshotPath);
-
-			// The core of GitHub issue #182: the rail offers only things the
-			// player can act on. A learned unit is ABSENT, so there is no status
-			// icon to render and nothing to disable. Checked against the live,
-			// rendered page rather than the component test, because the whole
-			// complaint was about what the real picker actually shows.
-			const railText = (await rail.textContent()) ?? '';
-			const stray = ['🔒', '⏳', '✓'].filter((icon) => railText.includes(icon));
-			if (stray.length > 0) {
-				console.log(`FAIL: the picker still renders status icons ${stray.join(' ')} — every unit shown must be learnable.`);
-				process.exitCode = 1;
-			} else {
-				console.log('PASS: no lock/pause/learned icon anywhere in the picker.');
-			}
-
-			const disabledCount = await rail.locator('ul > li > button[disabled]').count();
-			if (disabledCount > 0) {
-				console.log(`FAIL: ${disabledCount} picker row(s) are disabled — nothing should ever be unclickable.`);
-				process.exitCode = 1;
-			} else {
-				console.log('PASS: no disabled row in the picker.');
-			}
-
-			if (expectedActiveKey === null) {
-				console.log('Repertoire is fully solved — no active entry to check. PASS (trivially).');
-			} else if (activeIndex === 0) {
-				console.log(`PASS: the active entry (index 0 of ${count}) is floated to the top of the picker.`);
-			} else if (activeIndex === -1) {
-				console.log(`FAIL: no entry in the picker is marked active at all (expected ${expectedActiveKey}).`);
-				process.exitCode = 1;
-			} else {
-				console.log(`FAIL: the active entry is at index ${activeIndex} of ${count}, not the top (expected ${expectedActiveKey}).`);
-				process.exitCode = 1;
-			}
-		} finally {
-			await playerSession.browser.close();
-		}
+		await verifyPicker(repertoireId, player.id);
 	} finally {
 		await coachSession.browser.close();
 	}
