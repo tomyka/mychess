@@ -16,8 +16,8 @@ import { requireApiUser } from '$lib/server/auth';
 import { recordSession } from '$lib/server/sessions';
 import { grantNewBadges } from '$lib/badges/grant';
 import { buildPracticeView, wasResumedAfterBreak } from '$lib/mastery/practice';
-import { teachingCeilingMoveCount } from '$lib/mastery/chapterLevels';
-import { computeMasteredPliesMap } from '$lib/mastery/teaching';
+import { deriveLearnPlan } from '$lib/mastery/learnUnits';
+import { computeMasteredMoveIds } from '$lib/mastery/teaching';
 
 /**
  * Called once per completed Practice attempt (the whole variation replayed,
@@ -63,25 +63,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// just to read one variation's timestamp would be real, avoidable cost on
 	// a hot path for a large repertoire. Independent of `variations`, so it
 	// runs alongside that load rather than after it.
-	// UNFILTERED here (`loadRepertoireVariations`, not the `...Filtered...`
-	// variant): `applyAttemptResult`'s own serving/teaching logic still needs
-	// the FILTERED set (derived below), but its completed-chapters cache write
-	// needs the excluded variations still present, so an excluded, never-solved
-	// line still caps its chapter instead of vanishing from the bracket
-	// entirely — see `isChapterComplete`'s doc comment.
-	// solvedKeysBeforeThisAttempt joins this same Promise.all rather than being
-	// read separately afterward: it's needed to compute the ceiling this attempt
-	// is capped under (GitHub issue #163), which must reflect the solved set as
-	// it stood BEFORE this attempt's own outcome is applied below — the same cap
-	// the request that served this attempt computed it under. Reading it here,
-	// concurrently with the other two loads already happening, costs nothing
-	// extra; the solvedKeys read further down (after applyAttemptResult) is a
-	// genuinely different moment in time (post-attempt), not a redundant repeat.
-	// teachingProgressBeforeThisAttempt joins the same Promise.all for the
-	// same reason solvedKeysBeforeThisAttempt does (see the comment above):
-	// teachingCeilingMoveCount now needs a masteredPlies map (GitHub issue
-	// #181), computed from state as it stood BEFORE this attempt's own
-	// outcome is applied below.
+	// solvedKeysBeforeThisAttempt and teachingProgressBeforeThisAttempt join
+	// this same Promise.all rather than being read separately afterward: both
+	// are needed to derive the learn plan this attempt was SERVED under, which
+	// must reflect state as it stood BEFORE this attempt's own outcome is
+	// applied below. Reading them here, concurrently with the other two loads
+	// already happening, costs nothing extra; the reads further down (after
+	// applyAttemptResult) are a genuinely different moment in time
+	// (post-attempt), not a redundant repeat.
 	const [{ variations: allVariations, excludedVariationKeys }, updatedAtBeforeThisAttempt, solvedKeysBeforeThisAttempt, teachingProgressBeforeThisAttempt] =
 		await Promise.all([
 			loadRepertoireVariations(supabase, user.id, repertoireId),
@@ -89,11 +78,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			loadSolvedKeys(supabase, user.id, repertoireId),
 			loadTeachingProgress(supabase, user.id, repertoireId)
 		]);
+	// FILTERED throughout (GitHub issue #182): an excluded line produces no
+	// learn unit and no longer blocks its chapter's completion, so there is
+	// nothing the unfiltered set is still needed for.
 	const variations = filterVariations(allVariations, excludedVariationKeys);
 	const today = new Date().toISOString().slice(0, 10);
 	const resumedAfterBreak = wasResumedAfterBreak(updatedAtBeforeThisAttempt, new Date());
-	const masteredPliesBeforeThisAttempt = computeMasteredPliesMap(allVariations, teachingProgressBeforeThisAttempt, solvedKeysBeforeThisAttempt);
-	const ceilingMoveCount = teachingCeilingMoveCount(allVariations, masteredPliesBeforeThisAttempt);
+	const planBeforeThisAttempt = deriveLearnPlan(
+		variations,
+		computeMasteredMoveIds(variations, teachingProgressBeforeThisAttempt, solvedKeysBeforeThisAttempt)
+	);
 
 	await Promise.all([
 		applyAttemptResult(
@@ -104,8 +98,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			hadMistake,
 			variations,
 			resumedAfterBreak,
-			allVariations,
-			ceilingMoveCount,
+			planBeforeThisAttempt,
 			teachingProgressBeforeThisAttempt
 		),
 		touchVariationAttempt(supabase, user.id, repertoireId, variationKey),
@@ -124,7 +117,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// must not delay the response to the move the player just made.
 	if (!hadMistake) grantNewBadges(supabase, user.id).catch(() => {});
 
-	const masteredPliesAfterAttempt = computeMasteredPliesMap(allVariations, teachingProgress, solvedKeys);
-	const ceilingMoveCountAfterAttempt = teachingCeilingMoveCount(allVariations, masteredPliesAfterAttempt);
-	return json(buildPracticeView(variations, activeVariationKey, solvedKeys, teachingProgress, ceilingMoveCountAfterAttempt));
+	const planAfterAttempt = deriveLearnPlan(variations, computeMasteredMoveIds(variations, teachingProgress, solvedKeys));
+	return json(buildPracticeView(variations, activeVariationKey, solvedKeys, teachingProgress, planAfterAttempt));
 };

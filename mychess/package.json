@@ -20,7 +20,7 @@
 		"schema:check": "tsx --env-file=.env scripts/schema-check.ts",
 		"epic95:metrics": "tsx --env-file=.env scripts/epic95-metrics.ts",
 		"qa:verify-learn": "tsx --env-file=.env scripts/qa-verify-learn.ts",
-		"debug:lock-state": "tsx --env-file=.env scripts/debug-lock-state.ts"
+		"debug:learn-plan": "tsx --env-file=.env scripts/debug-learn-plan.ts"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

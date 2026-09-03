@@ -1,80 +1,55 @@
 import type { Variation } from './variations';
 
 /**
- * The ONE variation currently active for a repertoire. If `activeVariationKey`
- * matches a real variation, that variation wins outright — even if it's
- * already solved (a player can deliberately re-drill something they've
- * solved) — UNLESS it's currently blocked (unsolved AND has nothing more to
- * teach right now under the current tier ceiling, GitHub issue #163): a
- * stale pointer to a now-paused variation must not keep re-serving the same
- * frozen board forever, so it's treated like "not found" and falls through.
- * Only when there's NO key, the key no longer matches anything, or the match
- * is blocked, does this fall back to the first UNSOLVED-and-unblocked
- * variation in sequence — or, if everything is solved or blocked, the first
- * UNSOLVED one regardless of blocked status — or, if everything is solved,
- * the very first variation overall.
+ * The ONE variation currently active for a repertoire.
+ *
+ * `servableVariationKeys` is the ordered candidate list from
+ * `deriveLearnPlan` — one representative per still-unlearned learn unit, in
+ * chapter order (see `mastery/learnUnits.ts`). It is the whole gate: a
+ * variation absent from it has nothing left to teach right now, so there is
+ * no separate "blocked" concept to keep in sync any more.
+ *
+ * A stored `activeVariationKey` wins outright while it is still servable, or
+ * when it points at an already-solved variation (a deliberate re-drill picked
+ * from the picker). Otherwise it is treated as stale and falls through — a
+ * pointer at a variation whose unit has since been learned must not keep
+ * re-serving the same finished board.
+ *
+ * The fallbacks, in order: the first servable key in the plan's own order;
+ * then, if nothing is servable at all, the first unsolved variation (so Learn
+ * shows *something* rather than a dead end); then the very first variation,
+ * for a fully-finished repertoire.
  */
 export function pickActiveVariation(
 	variations: Variation[],
 	activeVariationKey: string | null,
 	solvedKeys: ReadonlySet<string>,
-	blockedKeys: ReadonlySet<string> = new Set()
+	// Optional rather than defaulted to "every key": omitting it must mean "no
+	// gating at all", which is NOT the same as "everything is servable". With a
+	// default of every key, the plan-ordered walk below would return
+	// `variations[0]` and quietly override the first-unsolved fallback that a
+	// caller without a plan is relying on.
+	servableVariationKeys?: readonly string[]
 ): Variation | null {
 	if (variations.length === 0) return null;
+	const servable = servableVariationKeys ? new Set(servableVariationKeys) : null;
 	if (activeVariationKey) {
 		const found = variations.find((v) => v.variationKey === activeVariationKey);
-		if (found && (solvedKeys.has(found.variationKey) || !blockedKeys.has(found.variationKey))) return found;
+		if (found && (solvedKeys.has(found.variationKey) || servable === null || servable.has(found.variationKey))) return found;
 	}
-	return (
-		variations.find((v) => !solvedKeys.has(v.variationKey) && !blockedKeys.has(v.variationKey)) ??
-		variations.find((v) => !solvedKeys.has(v.variationKey)) ??
-		variations[0]
-	);
-}
-
-/** The variation immediately after `currentKey` in `variations`' own order, or null if it's the last one (or not found). */
-export function nextVariation(variations: Variation[], currentKey: string): Variation | null {
-	const index = variations.findIndex((v) => v.variationKey === currentKey);
-	if (index === -1 || index + 1 >= variations.length) return null;
-	return variations[index + 1];
-}
-
-/**
- * Called right after `activeVariationKey` has just been marked solved, OR
- * paused at its tier ceiling (GitHub issue #163 — see
- * server/practice-progress.ts's `applyAttemptResult`) — the next
- * UNSOLVED-and-unblocked variation in sequence after it, skipping over any
- * later variation that's ALSO already solved or ALSO currently blocked.
- * `null` means every remaining variation is solved or blocked: nothing more
- * is currently servable.
- *
- * `visited` (unchanged from before this task) is what keeps this loop from
- * hanging even in that fully-blocked case.
- *
- * Defence in depth: `nextVariation` resolves a key via `findIndex`, which
- * always lands on the FIRST entry with that key. `enumerateVariations` now
- * guarantees keys are unique, so that's exact — but if a duplicate key ever
- * reappeared upstream, two adjacent copies would make this loop hand each
- * other back forever (verified at 10,000+ iterations before the uniqueness
- * fix), spinning a serverless function until it's killed and losing the
- * attempt. `visited` makes that structurally impossible: any key reached twice
- * ends the walk instead of continuing, at worst returning `null` (treated as
- * "nothing left to advance to") rather than hanging.
- */
-export function advanceIfSolved(
-	activeVariationKey: string,
-	variations: Variation[],
-	solvedKeys: ReadonlySet<string>,
-	blockedKeys: ReadonlySet<string> = new Set()
-): string | null {
-	const visited = new Set<string>([activeVariationKey]);
-	let candidate = nextVariation(variations, activeVariationKey);
-	while (candidate && (solvedKeys.has(candidate.variationKey) || blockedKeys.has(candidate.variationKey))) {
-		if (visited.has(candidate.variationKey)) return null;
-		visited.add(candidate.variationKey);
-		candidate = nextVariation(variations, candidate.variationKey);
+	// Ordered by the PLAN, not by `variations`: the plan walks chapter by
+	// chapter, which is the order the player is actually working through.
+	// Indexed rather than scanned per key — a large repertoire can have
+	// hundreds of servable keys, and a `find` per key would make this
+	// quadratic on the Learn page's hottest load path.
+	if (servableVariationKeys) {
+		const byKey = new Map(variations.map((v) => [v.variationKey, v]));
+		for (const key of servableVariationKeys) {
+			const found = byKey.get(key);
+			if (found) return found;
+		}
 	}
-	return candidate?.variationKey ?? null;
+	return variations.find((v) => !solvedKeys.has(v.variationKey)) ?? variations[0];
 }
 
 /** "M of N variations solved" — the repertoire-wide progress number, independent of which one is currently active. */

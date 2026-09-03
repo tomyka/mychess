@@ -1,62 +1,44 @@
 <!-- mychess/src/lib/components/VariationPicker.svelte -->
 <script lang="ts">
-	import {
-		groupByFirstMoves,
-		groupByCeilingPrefix,
-		moveSequenceLabel,
-		chapterTiers,
-		rowsInChapterTier,
-		FIRST_MOVES_GROUP_PLIES,
-		UNTAGGED_CHAPTER,
-		type MoveGroup,
-		type VariationStep
-	} from '$lib/mastery/variations';
-	import { ceilingPlyFor } from '$lib/mastery/teaching';
+	import { groupByFirstMoves, moveSequenceLabel, FIRST_MOVES_GROUP_PLIES, type MoveGroup, type VariationStep } from '$lib/mastery/variations';
+	import type { Band } from '$lib/mastery/learnUnits';
 	import { m } from '$lib/paraglide/messages';
-	import { isIncludedFor } from '$lib/mastery/variationSelection.svelte';
 
-	type VariationRow = {
-		variationKey: string;
+	/**
+	 * One thing the player can be asked to learn: a distinct clipped prefix of
+	 * the current band, from `/api/repertoires/[id]/learn-units`.
+	 *
+	 * Every unit here is learnable RIGHT NOW (GitHub issue #182). There is no
+	 * locked, paused, deferred or already-learned state to render, so this row
+	 * carries no status at all — a learned unit is simply absent from the
+	 * response, and this component has no disabled state anywhere.
+	 */
+	type LearnUnitRow = {
+		unitKey: string;
+		/** The CLIPPED prefix's label, not any member variation's full line. */
 		label: string;
-		// One entry per chapter this line belongs to (a single UNTAGGED_CHAPTER
-		// entry for a genuinely untagged line) — GitHub issue #86. This picker
-		// is read-only (it never toggles inclusion, only lists what's
-		// practiceable), so it only ever needs the "truly included" aggregate
-		// (`isIncludedFor(row, null)`), never a single chapter's own entry.
-		includedByChapter: Record<string, boolean>;
-		// Every chapter this line belongs to — a line cross-referenced by two
-		// chapters shows under both. Empty means untagged (see UNTAGGED_CHAPTER).
-		chapterNames: string[];
 		path: VariationStep[];
-		solved: boolean;
-		// Server-computed (see `/api/repertoires/[id]/variations`): true when this
-		// variation sits above the player's current level. Never true alongside
-		// `solved` — a solved line is by definition already reachable. This UI
-		// disables and explains, purely as a courtesy; the real gate is
-		// `/api/practice/select-variation`'s 403 (GitHub issue #163).
-		locked: boolean;
-		// Server-computed, a REFINEMENT of `locked` (never true unless `locked`
-		// is also true): true when this row was taught all the way to the
-		// current tier's move cap and paused there, rather than being
-		// genuinely unreachable for some other reason (a deferred sibling —
-		// GitHub issue #172). Display-only: it changes which icon/tooltip a
-		// locked row shows, never whether it's selectable — `locked` alone
-		// still governs that (GitHub issue #181).
-		pausedAtCeiling: boolean;
-		// This repertoire's current teaching-tier ceiling — the same value on
-		// every row (see the server route's doc comment). Used to decide which
-		// rows extend past what's currently teachable, and to clip their
-		// display to that point (GitHub issue #165).
-		ceilingMoveCount: number;
+		/** The variation to post to `/api/practice/select-variation`. */
+		variationKey: string;
 	};
 
-	// One entry in the rendered move-group list: either a fixed-window bucket
-	// from `groupByFirstMoves` (today's behavior, for anything already fully
-	// within reach) or a ceiling-clipped bucket from `groupByCeilingPrefix`
-	// (for variations that currently extend past the teaching ceiling —
-	// GitHub issue #165). A tagged union, not two parallel arrays, so the
-	// template renders one combined list in one pass.
-	type PickerEntry = { kind: 'ceiling'; group: MoveGroup<VariationRow> } | { kind: 'regular'; group: MoveGroup<VariationRow> };
+	type LearnChapterRow = {
+		/** `null` for the flat pool of a repertoire with no chapters anywhere. */
+		chapter: string | null;
+		band: Band | null;
+		level: Band | null;
+		complete: boolean;
+		learnedInBand: number;
+		totalInBand: number;
+		units: LearnUnitRow[];
+	};
+
+	const BAND_LABEL: Record<Band, () => string> = {
+		bronze: m.level_bronze,
+		silver: m.level_silver,
+		gold: m.level_gold,
+		platinum: m.level_platinum
+	};
 
 	let {
 		repertoireId,
@@ -69,17 +51,17 @@
 		repertoireId: string;
 		onselect: (variationKey: string) => void;
 		// Called instead of `onselect` when a CHAPTER heading — not a specific
-		// variation — is clicked, so a chapter click can start teaching a
-		// representative variation without necessarily closing the picker the
-		// way picking a specific variation does (GitHub issue #170). Defaults
-		// to `onselect` for callers that don't care about the distinction.
+		// unit — is clicked, so a chapter click can start teaching a
+		// representative unit without necessarily closing the picker the way
+		// picking a specific unit does (GitHub issue #170). Defaults to
+		// `onselect` for callers that don't care about the distinction.
 		onselectchapter?: (variationKey: string) => void;
 		onclose?: () => void;
 		// 'modal' (default) is the existing overlay, used on mobile everywhere
 		// and as the "Switch variation" entry point on desktop too. 'inline'
 		// renders as a permanent panel instead (GitHub issue #93's desktop
 		// rail) — no backdrop, no close button, and it auto-opens to whatever
-		// tier holds `currentVariationKey` instead of always starting
+		// chapter holds `currentVariationKey` instead of always starting
 		// collapsed, since a permanent panel that's still hiding the current
 		// line behind two clicks isn't earning its keep.
 		variant?: 'modal' | 'inline';
@@ -88,42 +70,19 @@
 
 	const TOP_N = 5;
 
-	let variations = $state<VariationRow[] | null>(null);
+	let chapters = $state<LearnChapterRow[] | null>(null);
 	let openChapter = $state<string | null>(null);
-	// The open entry's own STABLE, content-based identity (see `entryKey`),
-	// not its position in `currentEntries` — GitHub issue #178's float-to-
-	// front made that array's order depend on `currentVariationKey`, so an
-	// index captured at click time can point at a completely different
-	// entry once teaching advances and a different entry gets floated to
-	// the front. Keying by content means `openEntry` below always resolves
-	// to the SAME logical entry regardless of how the list has reordered
-	// since — the entry can even vanish (e.g. its own variation got
-	// solved and left the pool) without pointing at the wrong thing; it
-	// just resolves to `null`.
-	let openEntryKey = $state<string | null>(null);
+	// The open folder's own STABLE, content-based identity (its shared SAN
+	// chain), not its index: the entry list reorders as teaching advances
+	// (see `folders`), so an index captured at click time can point at a
+	// different folder a moment later. Keying by content means this always
+	// resolves to the SAME logical folder, or to `null` once it's gone.
+	let openFolderKey = $state<string | null>(null);
 	let errorMessage = $state<string | null>(null);
 	// Whether the auto-open below has already run for the current
-	// `currentVariationKey` — otherwise every subsequent load() (e.g. a
-	// re-fetch after selecting a variation) would snap the rail back to the
-	// active line even after the player had manually navigated elsewhere.
+	// `currentVariationKey` — otherwise every subsequent load() would snap the
+	// rail back to the active line even after the player navigated elsewhere.
 	let autoOpenedFor = $state<string | null>(null);
-
-	function stepsOf(row: VariationRow): VariationStep[] {
-		return row.path;
-	}
-
-	/**
-	 * A variation whose own path currently extends past what Learn will teach
-	 * — whether it's already paused there or simply hasn't reached it yet —
-	 * so the picker never shows moves beyond the ceiling and never asks the
-	 * player to separately visit several variations that share the exact same
-	 * not-yet-reachable prefix (GitHub issue #165). A solved variation is
-	 * never a frontier row: it's already past anything a ceiling could
-	 * withhold.
-	 */
-	function isFrontier(row: VariationRow, ceilingMoveCount: number): boolean {
-		return !row.solved && ceilingPlyFor(row.path, ceilingMoveCount) < row.path.length;
-	}
 
 	// Bumped on every load() call so an out-of-order response (a slow first
 	// fetch resolving after a newer one already landed) can't overwrite
@@ -131,19 +90,19 @@
 	let loadToken = 0;
 
 	// `_currentVariationKey` is unused inside — `load` always fetches every
-	// row regardless of which one is active — but taking it as a real
-	// argument (rather than a bare `void`'d read in the caller) is what
-	// makes the `$effect` below read as "re-run this when the active
-	// variation changes," matching this codebase's existing pattern for the
-	// same shape of problem (see `requestIfDue(fen)` in `EvalBar.svelte`).
+	// chapter regardless of which unit is active — but taking it as a real
+	// argument (rather than a bare `void`'d read in the caller) is what makes
+	// the `$effect` below read as "re-run this when the active variation
+	// changes," matching this codebase's existing pattern for the same shape
+	// of problem (see `requestIfDue(fen)` in `EvalBar.svelte`).
 	async function load(_currentVariationKey: string | null) {
 		const myToken = ++loadToken;
 		try {
-			const res = await fetch(`/api/repertoires/${repertoireId}/variations`);
+			const res = await fetch(`/api/repertoires/${repertoireId}/learn-units`);
 			if (!res.ok) throw new Error('load failed');
 			const data = await res.json();
 			if (myToken !== loadToken) return;
-			variations = data;
+			chapters = data.chapters;
 			errorMessage = null;
 		} catch {
 			if (myToken !== loadToken) return;
@@ -152,209 +111,114 @@
 	}
 
 	/**
-	 * Re-fetches whenever the active variation changes, not just once at
-	 * mount — GitHub issue #175. The inline rail is resident for the
-	 * player's whole Learn session and never remounts, so without this its
-	 * locked/solved icons go stale as teaching progresses: pausing or
-	 * solving a variation always advances `currentVariationKey` to
-	 * whatever's served next, which is the one reliable signal that ANY
-	 * row's status may have changed. This is exactly what `autoOpenedFor`'s
-	 * own guard above was already built to tolerate ("every subsequent
-	 * load()") — the reactive trigger to actually call it again was simply
-	 * never wired up. A harmless no-op for the modal variant, which
-	 * remounts (and re-fetches) fresh every time it opens.
+	 * Re-fetches whenever the active variation changes, not just once at mount
+	 * — GitHub issue #175. The inline rail is resident for the player's whole
+	 * Learn session and never remounts, so without this its unit list goes
+	 * stale as teaching progresses: finishing a unit always advances
+	 * `currentVariationKey`, which is the one reliable signal that the list has
+	 * changed. Now that learned units DISAPPEAR rather than being re-rendered
+	 * with a tick, a stale list is more visible than it used to be, not less.
+	 * A harmless no-op for the modal variant, which remounts every time it
+	 * opens.
 	 */
 	$effect(() => {
 		load(currentVariationKey);
 	});
 
-	function includedRows(): VariationRow[] {
-		return (variations ?? []).filter((r) => isIncludedFor(r, null));
-	}
+	// Only chapters with something left to learn are offered: a complete
+	// chapter has no unit to click, so listing it would be a dead end. This is
+	// the same rule as within a chapter — learned content is absent, not
+	// disabled.
+	const openChapters = $derived((chapters ?? []).filter((c) => c.units.length > 0));
 
-	// Chapters in first-appearance order, with the untagged bucket last; null
-	// when no row is chaptered at all, which skips the chapter tier entirely in
-	// the template below rather than making each ungrouped row its own group.
-	const chapters = $derived.by(() => chapterTiers(includedRows()));
+	// `null` skips the chapter tier entirely — a repertoire with no chapters
+	// anywhere is one flat pool (the API's single `chapter: null` entry), and a
+	// single named chapter is not worth a click either.
+	const chapterList = $derived(openChapters.length > 1 || openChapters.some((c) => c.chapter !== null) ? openChapters : null);
 
-	// `null` is the flat, chapterless pool (only reachable when `chapters` is
-	// null) — distinct from the untagged bucket WITHIN a chaptered repertoire,
-	// which is a real tier name like any other.
-	function rowsForChapter(chapter: string | null): VariationRow[] {
-		const rows = includedRows();
-		return chapter === null ? rows : rowsInChapterTier(rows, chapter);
-	}
+	const activeChapter = $derived.by(() => {
+		if (chapterList === null) return openChapters[0] ?? null;
+		return openChapters.find((c) => c.chapter === openChapter) ?? null;
+	});
 
 	/**
-	 * The entries shown for one chapter (or the flat pool): every frontier row
-	 * grouped by its ceiling-clipped shared prefix FIRST (the actionable "what
-	 * do I still need to do" content), then everything else through the
-	 * existing fixed-window grouping — unchanged from before this feature —
-	 * EXCEPT the entry holding the currently-taught variation (if any), which
-	 * is floated to the very front regardless of which of those two buckets
-	 * it would otherwise land in (GitHub issue #178).
+	 * The current chapter's units bucketed by their shared opening moves, with
+	 * the folder holding the currently-taught unit floated to the front
+	 * (GitHub issue #178) — "what am I being taught right now" is a different
+	 * question from "what is there to browse", and the answer to the first
+	 * should never be sorted below a dozen answers to the second.
 	 *
-	 * That override exists because "what still needs doing" and "what am I
-	 * being taught RIGHT NOW" are different questions, and on a repertoire
-	 * that's barely started almost everything qualifies as a frontier
-	 * ceiling group — so the one variation actually being taught, often a
-	 * short line that landed in the much shorter "regular" bucket, could sit
-	 * behind a dozen+ not-yet-started ceiling groups. The picker's own
-	 * `scrollIntoViewIfActive` action (#174) already scrolls that entry into
-	 * view, but scrolling only helps once the panel is open — a player's
-	 * first glance still lands on the unrelated content sorted ahead of it.
-	 * Floating it to the front means the very first thing shown is always
-	 * exactly what's being taught, with everything else still available
-	 * below in its normal browsability order.
+	 * Grouping is over the CLIPPED unit paths, so a folder's shared prefix is
+	 * genuinely shared by everything in it.
 	 */
+	const folders = $derived.by(() => {
+		const units = activeChapter?.units ?? [];
+		const groups = groupByFirstMoves(units, (u) => u.path, FIRST_MOVES_GROUP_PLIES, TOP_N);
+		if (currentVariationKey === null) return groups;
+		const activeIndex = groups.findIndex((g) => g.items.some((u) => u.variationKey === currentVariationKey));
+		if (activeIndex <= 0) return groups;
+		const reordered = groups.slice();
+		reordered.unshift(...reordered.splice(activeIndex, 1));
+		return reordered;
+	});
+
 	/**
-	 * A stable, content-based identity for one entry — shared by the
-	 * template's own `{#each}` key and `openEntryKey` above, so both agree on
-	 * what makes two entries "the same one" across a reorder. Ceiling entries
-	 * key on their full clipped-prefix moveId chain; regular entries on their
-	 * own SAN chain, or the fixed string `'other'` for the trailing catch-all
-	 * (`steps: []` — `groupByFirstMoves` only ever produces at most one such
-	 * bucket per list, so a fixed string is unambiguous within it, unlike the
-	 * position-dependent `other-${i}` this replaced). Never collides with a
-	 * real group's own key either: SAN grammar (file/rank letters, piece
-	 * letters, `x`/`+`/`#`/`=`/`O-O`) can't spell "other".
+	 * A stable, content-based identity for one folder — shared by the
+	 * template's `{#each}` key and `openFolderKey`, so both agree on what makes
+	 * two folders "the same one" across a reorder. The fixed string `'other'`
+	 * covers `groupByFirstMoves`'s trailing catch-all bucket (`steps: []`); it
+	 * can't collide with a real folder's key, since SAN grammar can't spell
+	 * "other".
 	 */
-	function entryKey(entry: PickerEntry): string {
-		return entry.kind === 'ceiling'
-			? `ceiling-${entry.group.steps.map((s) => s.moveId).join('>')}`
-			: entry.group.steps.map((s) => s.san).join('>') || 'other';
+	function folderKey(group: MoveGroup<LearnUnitRow>): string {
+		return group.steps.map((s) => s.san).join('>') || 'other';
 	}
 
-	function pickerEntries(chapter: string | null): PickerEntry[] {
-		const rows = rowsForChapter(chapter);
-		// Every row carries the same repertoire-wide ceiling (see the server
-		// route) — read it off the first row rather than a separate prop, so
-		// the response can stay the flat array `VariationSelection` also
-		// consumes. Defaults to Infinity (nothing is ever "past the ceiling")
-		// for an empty chapter, which is never actually rendered.
-		const ceilingMoveCount = rows[0]?.ceilingMoveCount ?? Infinity;
-		const frontierRows = rows.filter((r) => isFrontier(r, ceilingMoveCount));
-		const regularRows = rows.filter((r) => !isFrontier(r, ceilingMoveCount));
-		const ceilingGroups = groupByCeilingPrefix(frontierRows, stepsOf, ceilingMoveCount);
-		const regularGroups = groupByFirstMoves(regularRows, stepsOf, FIRST_MOVES_GROUP_PLIES, TOP_N);
-		const entries: PickerEntry[] = [
-			...ceilingGroups.map((group) => ({ kind: 'ceiling' as const, group })),
-			...regularGroups.map((group) => ({ kind: 'regular' as const, group }))
-		];
-		if (currentVariationKey !== null) {
-			const activeIndex = entries.findIndex((entry) => entry.group.items.some((r) => r.variationKey === currentVariationKey));
-			if (activeIndex > 0) {
-				const [activeEntry] = entries.splice(activeIndex, 1);
-				entries.unshift(activeEntry);
-			}
-		}
-		return entries;
-	}
+	const openFolder = $derived(openFolderKey !== null ? (folders.find((g) => folderKey(g) === openFolderKey) ?? null) : null);
 
-	function groupLabel(group: MoveGroup<VariationRow>): string {
+	function groupLabel(group: MoveGroup<LearnUnitRow>): string {
 		return group.steps.length > 0 ? moveSequenceLabel(group.steps) : m.variation_picker_other_group_label();
 	}
 
 	/**
-	 * The single variation a move-group holds, or null if it holds several.
+	 * The single unit a folder holds, or null if it holds several.
 	 *
-	 * A group's button is labelled with its shared opening moves, so a group of
-	 * one reads as a variation already — drilling into it just showed a list of
-	 * one row with a near-identical label (identical, for any line no longer
-	 * than the grouping window). Groups of one are therefore selected directly
-	 * instead, skipping a tier that carried no new information.
+	 * A folder's button is labelled with its shared opening moves, so a folder
+	 * of one reads as a unit already — drilling into it just showed a list of
+	 * one row with a near-identical label. Folders of one are therefore
+	 * selected directly, skipping a tier that carried no new information.
 	 */
-	function soleVariation(group: MoveGroup<VariationRow>): VariationRow | null {
+	function soleUnit(group: MoveGroup<LearnUnitRow>): LearnUnitRow | null {
 		return group.items.length === 1 ? group.items[0] : null;
 	}
 
-	/** Whether every member of a ceiling group is already paused there — nothing left to practice until the tier ceiling itself advances. */
-	function ceilingGroupDone(group: MoveGroup<VariationRow>): boolean {
-		return group.items.every((r) => r.locked);
-	}
-
-	/**
-	 * Whether every member of a "done" ceiling group is paused-at-ceiling
-	 * SPECIFICALLY, rather than genuinely locked for some other reason — the
-	 * group's own badge shows the paused icon only when this is true for
-	 * every member, matching a leaf row's own paused/locked split (GitHub
-	 * issue #181). Only meaningful when `ceilingGroupDone` is already true.
-	 */
-	function ceilingGroupPaused(group: MoveGroup<VariationRow>): boolean {
-		return group.items.every((r) => r.pausedAtCeiling);
-	}
-
-	/**
-	 * The full locked/learned reason, as a tooltip on a row/group — `undefined`
-	 * (no `title` attribute at all) for a row that's neither. `locked` and
-	 * `solved` are never both true (see `VariationRow.locked`'s own doc
-	 * comment), so this always resolves to at most one reason.
-	 */
-	function statusTitle(locked: boolean, solved: boolean, pausedAtCeiling: boolean = false): string | undefined {
-		if (pausedAtCeiling) return m.variation_picker_paused_reason();
-		if (locked) return m.variation_picker_locked_reason();
-		if (solved) return m.variation_picker_learned_reason();
-		return undefined;
-	}
-
-	/**
-	 * The row to start teaching when the caller only has a SET of rows to
-	 * choose from, not a specific one — a ceiling group's members (GitHub
-	 * issue #165) or a chapter's own rows (GitHub issue #170). Same
-	 * three-tier fallback both callers want: first unsolved-and-unlocked
-	 * (always genuinely selectable), else first unsolved (locked, but at
-	 * least not already done — the server will reject it, which is fine,
-	 * see `applyVariationSelection`'s error handling on the Learn page),
-	 * else just the first row (everything solved — still has to land on
-	 * SOMETHING for a re-drill). Mirrors the repertoire-wide equivalent,
-	 * `pickActiveVariation` in `mastery/variationSequence.ts`, which
-	 * operates over the whole repertoire via separate solved/blocked Sets
-	 * rather than a row array with its own booleans — different enough data
-	 * shape that sharing one implementation across both wasn't worth it.
-	 * `rows` empty only for a chapter heading the picker never actually
-	 * renders (see `chapterTiers`), so the `undefined` case is unreachable
-	 * in practice, not silently swallowed.
-	 */
-	function pickRepresentative(rows: VariationRow[]): VariationRow | undefined {
-		return rows.find((r) => !r.solved && !r.locked) ?? rows.find((r) => !r.solved) ?? rows[0];
-	}
-
-	/** Solved/total across a chapter's own rows — the rail's per-chapter indicator. */
-	function chapterProgress(chapter: string): { solved: number; total: number } {
-		const rows = rowsInChapterTier(includedRows(), chapter);
-		return { solved: rows.filter((r) => r.solved).length, total: rows.length };
+	/** The unit to start teaching when the caller only has a chapter, not a specific unit. */
+	function firstUnit(chapter: LearnChapterRow): LearnUnitRow | undefined {
+		return chapter.units[0];
 	}
 
 	function isActive(variationKey: string): boolean {
 		return currentVariationKey !== null && variationKey === currentVariationKey;
 	}
 
-	function chapterHasActive(chapter: string): boolean {
-		return currentVariationKey !== null && rowsInChapterTier(includedRows(), chapter).some((r) => isActive(r.variationKey));
+	function chapterHasActive(chapter: LearnChapterRow): boolean {
+		return chapter.units.some((u) => isActive(u.variationKey));
 	}
 
-	function groupHasActive(group: MoveGroup<VariationRow>): boolean {
-		return currentVariationKey !== null && group.items.some((r) => isActive(r.variationKey));
+	function groupHasActive(group: MoveGroup<LearnUnitRow>): boolean {
+		return group.items.some((u) => isActive(u.variationKey));
 	}
 
 	/**
-	 * Scrolls a row/group button into view the moment it BECOMES the one
-	 * currently being taught — GitHub issue #174. Ceiling (frontier) groups
-	 * always render before regular ones (see `pickerEntries`'s own doc
-	 * comment), and a chapter can hold a dozen+ of them, several already
-	 * fully paused from an earlier session; the active line can easily be a
-	 * short "regular" group sorted well below all of that. Without this, the
-	 * player opens the picker to a wall of unrelated, often already-resolved
-	 * rows with no cue that what they're actually being taught is further
-	 * down.
+	 * Scrolls a row/folder button into view the moment it BECOMES the one
+	 * currently being taught — GitHub issue #174.
 	 *
-	 * Re-scrolls on a false→true transition (`update`), not just on mount —
-	 * a group that's already open and mounted (e.g. a drilled-in regular
-	 * group) can have the active variation advance to a DIFFERENT row inside
-	 * it, in the same-open, no-remount case a mount-only action would miss.
-	 * Deliberately does NOT re-scroll on every call where `active` stays
-	 * true, or a still-active row would keep fighting the player's own
-	 * manual scrolling on every unrelated reactive update.
+	 * Re-scrolls on a false→true transition (`update`), not just on mount — an
+	 * already-open folder can have the active unit advance to a DIFFERENT row
+	 * inside it, a no-remount case a mount-only action would miss.
+	 * Deliberately does NOT re-scroll on every call where `active` stays true,
+	 * or a still-active row would keep fighting the player's own manual
+	 * scrolling on every unrelated reactive update.
 	 */
 	function scrollIntoViewIfActive(node: HTMLElement, active: boolean) {
 		let wasActive = false;
@@ -368,38 +232,30 @@
 		return { update: maybeScroll };
 	}
 
-	const activeChapter = $derived(chapters === null ? null : openChapter);
-	const currentEntries = $derived(activeChapter !== null || chapters === null ? pickerEntries(activeChapter) : []);
-	const openEntry = $derived(openEntryKey !== null ? (currentEntries.find((e) => entryKey(e) === openEntryKey) ?? null) : null);
-	// Only a 'regular' entry can ever be drilled into — a ceiling entry always
-	// selects directly (see the template), so it never sets `openEntryKey`.
-	const openGroup = $derived(openEntry?.kind === 'regular' ? openEntry.group : null);
-
 	// Inline-only (see the `variant` prop doc comment above): opens straight to
-	// whatever tier holds the active line instead of leaving a permanent panel
-	// sitting on its collapsed top level.
+	// whatever chapter holds the active line instead of leaving a permanent
+	// panel sitting on its collapsed top level.
 	$effect(() => {
-		if (variant !== 'inline' || !currentVariationKey || !variations) return;
+		if (variant !== 'inline' || !currentVariationKey || !chapters) return;
 		if (autoOpenedFor === currentVariationKey) return;
-		const row = variations.find((v) => v.variationKey === currentVariationKey);
-		if (!row) return;
+		const holder = openChapters.find((c) => c.units.some((u) => u.variationKey === currentVariationKey));
+		if (!holder) return;
 		autoOpenedFor = currentVariationKey;
-		const chapter = chapters === null ? null : row.chapterNames[0] ?? UNTAGGED_CHAPTER;
-		openChapter = chapter;
-		const entries = pickerEntries(chapter);
-		const found = entries.find((e) => e.group.items.some((r) => r.variationKey === currentVariationKey)) ?? null;
-		// A ceiling entry (any size) and a regular group-of-one already render
-		// their row directly in the entry list — drilling in would just show
-		// the same row again behind a pointless "Back".
-		openEntryKey = found && found.kind === 'regular' && !soleVariation(found.group) ? entryKey(found) : null;
+		openChapter = holder.chapter;
+		const groups = groupByFirstMoves(holder.units, (u) => u.path, FIRST_MOVES_GROUP_PLIES, TOP_N);
+		const found = groups.find((g) => g.items.some((u) => u.variationKey === currentVariationKey)) ?? null;
+		// A folder of one already renders its row directly in the folder list —
+		// drilling in would just show the same row again behind a pointless
+		// "Back".
+		openFolderKey = found && !soleUnit(found) ? folderKey(found) : null;
 	});
 </script>
 
-{#snippet cornerBadge(icon: string, extraClass: string, label?: string)}
-	{#if label}
-		<span class="absolute top-2 right-2 {extraClass}" role="img" aria-label={label}>{icon}</span>
-	{:else}
-		<span class="absolute top-2 right-2 {extraClass}">{icon}</span>
+{#snippet bandChip(chapter: LearnChapterRow)}
+	{#if chapter.band}
+		<span class="shrink-0 text-xs font-normal text-(--color-muted)">
+			{BAND_LABEL[chapter.band]()} · {chapter.learnedInBand}/{chapter.totalInBand}
+		</span>
 	{/if}
 {/snippet}
 
@@ -411,152 +267,82 @@
 		{/if}
 	</div>
 
-	{#if variations === null}
+	{#if chapters === null}
 		{#if errorMessage}
 			<p class="text-sm text-red-600 dark:text-red-400">{errorMessage}</p>
 		{:else}
 			<p class="text-sm text-(--color-muted)">{m.variation_picker_loading()}</p>
 		{/if}
-	{:else if openGroup}
-		<!-- A corner icon (not inline text) marks a locked/learned row — GitHub
-		     issue #173: an untagged repertoire's rows are full, unshortened move
-		     sequences that can wrap several lines in this narrow rail, and inline
-		     status text sitting in a `justify-between` flex row got vertically
-		     centered against the whole wrapped paragraph instead of anchoring
-		     near the text it describes. A legend spells out what the icons mean
-		     once, since they no longer carry their own label — shown only on the
-		     leaf-row views below, where the icons actually appear, not on the
-		     top-level chapter list. -->
-		<p class="text-xs text-(--color-muted) mb-2">{m.variation_picker_legend()}</p>
-		<button onclick={() => (openEntryKey = null)} class="text-(--color-accent) text-sm mb-2 hover:underline">{m.variation_picker_back()}</button>
+	{:else if openChapters.length === 0}
+		<p class="text-sm text-(--color-muted)">{m.variation_picker_all_learned()}</p>
+	{:else if openFolder}
+		<button onclick={() => (openFolderKey = null)} class="text-(--color-accent) text-sm mb-2 hover:underline">{m.variation_picker_back()}</button>
 		<ul class="space-y-1">
-			{#each openGroup.items as row (row.variationKey)}
-				{@const active = isActive(row.variationKey)}
+			{#each openFolder.items as unit (unit.unitKey)}
+				{@const active = isActive(unit.variationKey)}
 				<li>
 					<button
-						disabled={row.locked}
+						onclick={() => onselect(unit.variationKey)}
+						use:scrollIntoViewIfActive={active}
+						class="block w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) {active
+							? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10'
+							: ''}"
+					>
+						{unit.label}
+					</button>
+				</li>
+			{/each}
+		</ul>
+	{:else if activeChapter}
+		{#if chapterList !== null}
+			<button onclick={() => (openChapter = null)} class="text-(--color-accent) text-sm mb-2 hover:underline">{m.variation_picker_back()}</button>
+		{/if}
+		<ul class="space-y-1">
+			{#each folders as group (folderKey(group))}
+				{@const only = soleUnit(group)}
+				{@const active = only ? isActive(only.variationKey) : groupHasActive(group)}
+				<li>
+					<!-- A folder of one IS a unit, so it selects straight into
+					     teaching and renders like a unit row (own full label, no
+					     count) rather than as a folder holding one item. Folders
+					     of several still drill in. -->
+					<button
 						onclick={() => {
-							if (!row.locked) onselect(row.variationKey);
+							if (only) onselect(only.variationKey);
+							else openFolderKey = folderKey(group);
 						}}
 						use:scrollIntoViewIfActive={active}
-						title={statusTitle(row.locked, row.solved, row.pausedAtCeiling)}
-						class="relative block w-full text-left px-3 py-2 pr-8 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) {active
+						class="relative block w-full text-left px-3 py-2 {only ? '' : 'pr-12 font-medium'} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) {active
 							? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10'
-							: ''} {row.locked ? 'opacity-50 cursor-not-allowed' : ''}"
+							: ''}"
 					>
-						{row.label}
-						{#if row.pausedAtCeiling}
-							{@render cornerBadge('⏳', 'text-xs', m.variation_picker_paused_reason())}
-						{:else if row.locked}
-							{@render cornerBadge('🔒', 'text-xs', m.variation_picker_locked_reason())}
-						{:else if row.solved}
-							{@render cornerBadge('✓', 'text-green-600 dark:text-green-400 text-sm', m.variation_picker_learned_reason())}
+						{only ? only.label : groupLabel(group)}
+						{#if !only}
+							<span class="absolute top-2 right-2 text-(--color-muted) text-sm">({group.items.length})</span>
 						{/if}
 					</button>
 				</li>
 			{/each}
 		</ul>
-	{:else if activeChapter !== null || chapters === null}
-		<p class="text-xs text-(--color-muted) mb-2">{m.variation_picker_legend()}</p>
-		{#if chapters !== null}
-			<button onclick={() => (openChapter = null)} class="text-(--color-accent) text-sm mb-2 hover:underline">{m.variation_picker_back()}</button>
-		{/if}
-		<ul class="space-y-1">
-			{#each currentEntries as entry (entryKey(entry))}
-				{#if entry.kind === 'ceiling'}
-					{@const done = ceilingGroupDone(entry.group)}
-					{@const active = groupHasActive(entry.group)}
-					{@const paused = done && ceilingGroupPaused(entry.group)}
-					<li>
-						<button
-							disabled={done}
-							onclick={() => {
-								if (!done) {
-									const representative = pickRepresentative(entry.group.items);
-									if (representative) onselect(representative.variationKey);
-								}
-							}}
-							use:scrollIntoViewIfActive={active}
-							title={done ? statusTitle(true, false, paused) : undefined}
-							class="relative block w-full text-left px-3 py-2 pr-12 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) font-medium {active
-								? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10'
-								: ''} {done ? 'opacity-50 cursor-not-allowed' : ''}"
-						>
-							{moveSequenceLabel(entry.group.steps)}
-							<span class="absolute top-2 right-2 flex items-center gap-1.5">
-								{#if entry.group.items.length > 1}
-									<span class="text-(--color-muted) text-sm">({entry.group.items.length})</span>
-								{/if}
-								{#if paused}
-									<span class="text-xs" role="img" aria-label={m.variation_picker_paused_reason()}>⏳</span>
-								{:else if done}
-									<span class="text-xs" role="img" aria-label={m.variation_picker_locked_reason()}>🔒</span>
-								{/if}
-							</span>
-						</button>
-					</li>
-				{:else}
-					{@const only = soleVariation(entry.group)}
-					{@const active = only ? isActive(only.variationKey) : groupHasActive(entry.group)}
-					<li>
-						<!-- A group of one IS a variation, so it selects straight into
-						     practice and renders like a variation row (own full label,
-						     solved tick, no count) rather than as a folder holding one
-						     item. Groups of several still drill in. -->
-						<button
-							disabled={only?.locked ?? false}
-							onclick={() => {
-								if (only) {
-									if (!only.locked) onselect(only.variationKey);
-								} else {
-									openEntryKey = entryKey(entry);
-								}
-							}}
-							use:scrollIntoViewIfActive={active}
-							title={statusTitle(only?.locked ?? false, only?.solved ?? false, only?.pausedAtCeiling ?? false)}
-							class="relative block w-full text-left px-3 py-2 {only ? 'pr-8' : 'pr-12'} rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-(--color-text) {only
-								? ''
-								: 'font-medium'} {active ? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10' : ''} {only?.locked
-								? 'opacity-50 cursor-not-allowed'
-								: ''}"
-						>
-							{only ? only.label : groupLabel(entry.group)}
-							{#if only}
-								{#if only.pausedAtCeiling}
-									{@render cornerBadge('⏳', 'text-xs', m.variation_picker_paused_reason())}
-								{:else if only.locked}
-									{@render cornerBadge('🔒', 'text-xs', m.variation_picker_locked_reason())}
-								{:else if only.solved}
-									{@render cornerBadge('✓', 'text-green-600 dark:text-green-400 text-sm', m.variation_picker_learned_reason())}
-								{/if}
-							{:else}
-								{@render cornerBadge(`(${entry.group.items.length})`, 'text-(--color-muted) text-sm')}
-							{/if}
-						</button>
-					</li>
-				{/if}
-			{/each}
-		</ul>
 	{:else}
 		<ul class="space-y-1">
-			{#each chapters ?? [] as chapter (chapter)}
-				{@const progress = variant === 'inline' ? chapterProgress(chapter) : null}
+			{#each chapterList ?? [] as chapter (chapter.chapter)}
 				<li>
 					<button
 						onclick={() => {
-							openChapter = chapter;
-							const representative = pickRepresentative(rowsInChapterTier(includedRows(), chapter));
-							if (representative) onselectchapter(representative.variationKey);
+							openChapter = chapter.chapter;
+							const unit = firstUnit(chapter);
+							if (unit) onselectchapter(unit.variationKey);
 						}}
-						class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 font-medium text-(--color-text) flex items-center justify-between gap-2 {chapterHasActive(chapter)
+						class="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 font-medium text-(--color-text) flex items-center justify-between gap-2 {chapterHasActive(
+							chapter
+						)
 							? 'ring-2 ring-(--color-accent) bg-(--color-accent)/10'
 							: ''}"
 					>
-						<span class="truncate">{chapter}</span>
-						{#if progress}
-							<span class="shrink-0 text-xs font-normal {progress.solved === progress.total ? 'text-green-600 dark:text-green-400' : 'text-(--color-muted)'}">
-								{progress.solved === progress.total ? '✓' : `${progress.solved}/${progress.total}`}
-							</span>
+						<span class="truncate">{chapter.chapter}</span>
+						{#if variant === 'inline'}
+							{@render bandChip(chapter)}
 						{/if}
 					</button>
 				</li>

@@ -42,7 +42,7 @@ function playMove(from: string, to: string) {
 
 beforeEach(() => {
 	cgMock.boards.length = 0;
-	// The permanent desktop rail (#93) fetches its own variation list
+	// The permanent desktop rail (#93) fetches its own learn-unit list
 	// unconditionally on mount, independent of anything a given test is
 	// actually exercising. Only that one endpoint is given a real response —
 	// everything else (e.g. /api/practice/attempt) still rejects exactly as
@@ -53,8 +53,8 @@ beforeEach(() => {
 	vi.stubGlobal(
 		'fetch',
 		vi.fn((url: string) =>
-			typeof url === 'string' && url.includes('/variations')
-				? Promise.resolve({ ok: true, json: async () => [] })
+			typeof url === 'string' && url.includes('/learn-units')
+				? Promise.resolve({ ok: true, json: async () => ({ chapters: [] }) })
 				: Promise.reject(new Error(`unmocked fetch in this test: ${url}`))
 		)
 	);
@@ -312,40 +312,42 @@ describe('learn detail page', () => {
 			]
 		};
 
-		function stubFetch() {
+		/**
+		 * The `/learn-units` response the picker consumes: one chapter per
+		 * variation, each holding a single unlearned unit. Every unit is
+		 * learnable — there is no locked/paused/solved state to stub any more
+		 * (GitHub issue #182).
+		 */
+		const LEARN_UNITS = {
+			chapters: [
+				{
+					chapter: 'Open Games',
+					band: 'bronze',
+					level: null,
+					complete: false,
+					learnedInBand: 0,
+					totalInBand: 1,
+					units: [{ unitKey: 'u1', label: '1.e4', path: v1Attempt.path, variationKey: 'v1' }]
+				},
+				{
+					chapter: "Queen's Pawn",
+					band: 'bronze',
+					level: null,
+					complete: false,
+					learnedInBand: 0,
+					totalInBand: 1,
+					units: [{ unitKey: 'u2', label: '1.d4', path: v2Attempt.path, variationKey: 'v2' }]
+				}
+			]
+		};
+
+		function stubFetch(selectResponse: () => Promise<any> = () => Promise.resolve({ ok: true, json: async () => ({ attempt: v2Attempt, solved: 0, total: 2, allSolved: false }) })) {
 			return vi.fn((url: string) => {
-				if (typeof url === 'string' && url.includes('/variations')) {
-					return Promise.resolve({
-						ok: true,
-						json: async () => [
-							{
-								variationKey: 'v1',
-								label: '1.e4',
-								includedByChapter: { 'Open Games': true },
-								chapterNames: ['Open Games'],
-								path: v1Attempt.path,
-								solved: false,
-								locked: false,
-								ceilingMoveCount: Infinity
-							},
-							{
-								variationKey: 'v2',
-								label: '1.d4',
-								includedByChapter: { "Queen's Pawn": true },
-								chapterNames: ["Queen's Pawn"],
-								path: v2Attempt.path,
-								solved: false,
-								locked: false,
-								ceilingMoveCount: Infinity
-							}
-						]
-					});
+				if (typeof url === 'string' && url.includes('/learn-units')) {
+					return Promise.resolve({ ok: true, json: async () => LEARN_UNITS });
 				}
 				if (typeof url === 'string' && url.includes('/api/practice/select-variation')) {
-					return Promise.resolve({
-						ok: true,
-						json: async () => ({ attempt: v2Attempt, solved: 0, total: 2, allSolved: false })
-					});
+					return selectResponse();
 				}
 				return Promise.reject(new Error(`unmocked fetch in this test: ${url}`));
 			});
@@ -381,43 +383,13 @@ describe('learn detail page', () => {
 			});
 		});
 
-		it('shows the tier-locked message (not the generic error) when select-variation 403s, and leaves the board unchanged', async () => {
-			vi.stubGlobal(
-				'fetch',
-				vi.fn((url: string) => {
-					if (typeof url === 'string' && url.includes('/variations')) {
-						return Promise.resolve({
-							ok: true,
-							json: async () => [
-								{
-									variationKey: 'v1',
-									label: '1.e4',
-									includedByChapter: { 'Open Games': true },
-									chapterNames: ['Open Games'],
-									path: v1Attempt.path,
-									solved: false,
-									locked: false,
-									ceilingMoveCount: Infinity
-								},
-								{
-									variationKey: 'v2',
-									label: '1.d4',
-									includedByChapter: { "Queen's Pawn": true },
-									chapterNames: ["Queen's Pawn"],
-									path: v2Attempt.path,
-									solved: false,
-									locked: true, // tier-locked -> select-variation 403s
-									ceilingMoveCount: Infinity
-								}
-							]
-						});
-					}
-					if (typeof url === 'string' && url.includes('/api/practice/select-variation')) {
-						return Promise.resolve({ ok: false, status: 403 });
-					}
-					return Promise.reject(new Error(`unmocked fetch in this test: ${url}`));
-				})
-			);
+		// The 403 "tier-locked" branch is gone (GitHub issue #182): nothing is
+		// locked any more, so there is no distinct locked message to show. The
+		// server's remaining 409 "already learned" guard is only reachable from a
+		// stale client, and the picker's own re-fetch resolves it — so the generic
+		// retry banner below is the right and only advice.
+		it('shows the try-again error and leaves the board unchanged when select-variation fails', async () => {
+			vi.stubGlobal('fetch', stubFetch(() => Promise.resolve({ ok: false, status: 409 })));
 			render(Practice, {
 				props: {
 					data: {
@@ -433,72 +405,9 @@ describe('learn detail page', () => {
 			await waitFor(() => screen.getByText('← Back'));
 			await fireEvent.click(screen.getByText('← Back'));
 			await fireEvent.click(screen.getByText("Queen's Pawn"));
-			// v2 is locked, so its own leaf row is disabled — the chapter-click
-			// auto-select is what actually fires the (failing) request here.
-
-			// "Try again" would be misleading for a 403 — the tier lock doesn't
-			// clear by retrying, so this must be the distinct locked message,
-			// not the generic learn_select_variation_error banner.
-			await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/locked/i));
-			// Board stays on v1 — the failed request never got applied.
-			expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(v1Attempt.path[0].fromFen);
-		});
-
-		it('shows the generic try-again error (not the locked message) when select-variation fails for a non-403 reason', async () => {
-			vi.stubGlobal(
-				'fetch',
-				vi.fn((url: string) => {
-					if (typeof url === 'string' && url.includes('/variations')) {
-						return Promise.resolve({
-							ok: true,
-							json: async () => [
-								{
-									variationKey: 'v1',
-									label: '1.e4',
-									includedByChapter: { 'Open Games': true },
-									chapterNames: ['Open Games'],
-									path: v1Attempt.path,
-									solved: false,
-									locked: false,
-									ceilingMoveCount: Infinity
-								},
-								{
-									variationKey: 'v2',
-									label: '1.d4',
-									includedByChapter: { "Queen's Pawn": true },
-									chapterNames: ["Queen's Pawn"],
-									path: v2Attempt.path,
-									solved: false,
-									locked: false,
-									ceilingMoveCount: Infinity
-								}
-							]
-						});
-					}
-					if (typeof url === 'string' && url.includes('/api/practice/select-variation')) {
-						return Promise.resolve({ ok: false, status: 404 });
-					}
-					return Promise.reject(new Error(`unmocked fetch in this test: ${url}`));
-				})
-			);
-			render(Practice, {
-				props: {
-					data: {
-						repertoire: { id: 'r1', name: 'Test Repertoire', color: 'white' },
-						solved: 0,
-						total: 2,
-						allSolved: false,
-						attempt: v1Attempt
-					}
-				}
-			});
-
-			await waitFor(() => screen.getByText('← Back'));
-			await fireEvent.click(screen.getByText('← Back'));
-			await fireEvent.click(screen.getByText("Queen's Pawn"));
-			await fireEvent.click(screen.getByText('1.d4'));
 
 			await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/try again/i));
+			// Board stays on v1 — the failed request never got applied.
 			expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(v1Attempt.path[0].fromFen);
 		});
 
@@ -757,15 +666,15 @@ describe('learn detail page', () => {
 		expect(screen.queryByText(/now play it from memory/i)).toBeNull();
 	});
 
-	// GitHub issue #180: a final pass that only reached the teaching-tier
-	// ceiling is a PAUSE, not a solve — before `pausedAtCeiling` was threaded
-	// through to the client, this bumped the sidebar's "learned" count exactly
-	// like a genuine solve, so finishing one teaching batch could make it look
-	// like a whole variation (or two, once the count and the picker's own
-	// deferred-sibling lock disagreed) had just been learned.
-	it('does not bump the learned count for a final pass that only paused at the ceiling', async () => {
+	// GitHub issue #180: a final pass that only finished the served LEARN UNIT
+	// is not a solve — the variation itself isn't done and doesn't enter the
+	// Practice pool. Before `unitComplete` was threaded through to the client,
+	// this bumped the sidebar's "learned" count exactly like a genuine solve,
+	// so finishing one teaching batch could make it look like a whole
+	// variation had just been learned.
+	it('does not bump the learned count for a final pass that only finished the served unit', async () => {
 		vi.useFakeTimers();
-		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true, pausedAtCeiling: true }, 'hang');
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true, unitComplete: true }, 'hang');
 		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
 		playMove('g1', 'f3');
 		await vi.advanceTimersByTimeAsync(500);

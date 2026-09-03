@@ -1,12 +1,12 @@
 // mychess/src/lib/server/practice-progress.ts
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Variation } from '$lib/mastery/variations';
-import { pickActiveVariation, advanceIfSolved } from '$lib/mastery/variationSequence';
-import { advanceTeachingProgress, knownProgressFor, ceilingPlyFor, computeBlockedKeys, computeMasteredPliesMap } from '$lib/mastery/teaching';
+import { pickActiveVariation } from '$lib/mastery/variationSequence';
+import { advanceTeachingProgress, knownProgressFor, computeMasteredMoveIds } from '$lib/mastery/teaching';
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
 import { masterableChapters } from '$lib/mastery/repertoireStatus';
 import { isInChapterTier, rowsInChapterTier } from '$lib/mastery/variations';
-import { isChapterComplete } from '$lib/mastery/chapterLevels';
+import { deriveLearnPlan, isChapterComplete, nextServableVariationKey, type LearnPlan } from '$lib/mastery/learnUnits';
 
 /**
  * This player's full solved-variation-key set for one repertoire.
@@ -121,16 +121,16 @@ export async function markVariationSolved(
 
 /**
  * Writes a `chapter_completed` cache row for every chapter `variation` belongs
- * to that has just newly reached its own ceiling (see `isChapterComplete`),
- * given the up-to-date `masteredPlies` (reflecting this attempt's just-
- * written `variation_teaching_progress` row, read/patched BEFORE this call —
- * see `applyAttemptResult`).
+ * to that has just newly finished (see `isChapterComplete`), given the
+ * up-to-date `masteredMoveIds` (reflecting this attempt's just-written
+ * `variation_teaching_progress` row, read/patched BEFORE this call — see
+ * `applyAttemptResult`).
  *
- * `allVariations` MUST be the UNFILTERED variation set (excluded variations
- * included) — `isChapterComplete` only blocks correctly on an excluded,
- * never-solved variation if it's still present in the array (see that
- * function's doc comment). Passing the filtered set here would silently
- * un-cap a chapter an excluded line should still be blocking.
+ * `variations` must be the PRACTICEABLE (exclusion-filtered) set, matching
+ * `deriveLearnPlan`. This is the opposite of what the tier-ceiling model
+ * required: an excluded line no longer blocks its chapter's completion, so
+ * passing the unfiltered set here would keep a chapter the player has
+ * deliberately trimmed permanently incomplete.
  *
  * Idempotent (safe to call even when the chapter was already complete) and
  * best-effort: this cache only backs the repertoire list's decorative
@@ -143,13 +143,11 @@ async function cacheCompletedChaptersReached(
 	playerId: string,
 	repertoireId: string,
 	variation: Variation,
-	allVariations: Variation[],
-	masteredPlies: ReadonlyMap<string, number>
+	variations: Variation[],
+	masteredMoveIds: ReadonlySet<string>
 ): Promise<void> {
-	const chapters = masterableChapters(allVariations).filter((chapter) => isInChapterTier(variation, chapter));
-	const completedChapters = chapters.filter((chapter) =>
-		isChapterComplete(rowsInChapterTier(allVariations, chapter), masteredPlies)
-	);
+	const chapters = masterableChapters(variations).filter((chapter) => isInChapterTier(variation, chapter));
+	const completedChapters = chapters.filter((chapter) => isChapterComplete(rowsInChapterTier(variations, chapter), masteredMoveIds));
 	if (completedChapters.length === 0) return;
 
 	const { error } = await supabase
@@ -278,14 +276,13 @@ export async function touchVariationAttempt(
  * Returns the RESOLVED key (never null unless there are no variations at
  * all), persisting it if it differs from what was stored.
  *
- * `blockedKeys` (GitHub issue #163's tier ceiling — see `computeBlockedKeys`
- * in `mastery/teaching.ts`) defaults to empty, so every existing caller that
- * doesn't pass one is unaffected. Passing it here means a stored pointer
- * that's now paused at the ceiling gets resolved past at THIS stage rather
- * than relying entirely on `buildPracticeView`'s own later
- * `pickActiveVariation` call to correct it — both call the same pure
- * function, so this is a strictly earlier application of the same rule, not
- * a second, independently-computed one.
+ * `servableVariationKeys` (from `deriveLearnPlan`) defaults to undefined, so a
+ * caller with no plan on hand is unaffected. Passing it means a stored pointer
+ * at a variation whose learn unit has since been learned gets resolved past at
+ * THIS stage rather than relying entirely on `buildPracticeView`'s own later
+ * `pickActiveVariation` call to correct it — both call the same pure function,
+ * so this is a strictly earlier application of the same rule, not a second,
+ * independently-computed one.
  */
 export async function loadSyncedActiveVariationKey(
 	supabase: SupabaseClient,
@@ -293,11 +290,11 @@ export async function loadSyncedActiveVariationKey(
 	repertoireId: string,
 	variations: Variation[],
 	solvedKeys: ReadonlySet<string>,
-	blockedKeys: ReadonlySet<string> = new Set()
+	servableVariationKeys?: readonly string[]
 ): Promise<string | null> {
 	if (variations.length === 0) return null;
 	const stored = await loadActiveVariationKey(supabase, playerId, repertoireId);
-	const resolved = pickActiveVariation(variations, stored, solvedKeys, blockedKeys);
+	const resolved = pickActiveVariation(variations, stored, solvedKeys, servableVariationKeys);
 	if (!resolved) return null;
 	if (resolved.variationKey !== stored) {
 		await setActiveVariationKey(supabase, playerId, repertoireId, resolved.variationKey);
@@ -335,31 +332,24 @@ export async function loadSyncedActiveVariationKey(
  * sends a learned variation straight back to Learn the moment it's failed or
  * hinted, so a lucky one-off pass doesn't get to sit in Practice unchecked.
  *
- * `variations` is this player's PRACTICEABLE (filtered) set — used for
- * everything above: finding the served variation, teaching-progress credit,
- * and picking the next variation to serve. `allVariations`, defaulting to
- * `variations` itself, is the UNFILTERED set, used only for the
- * completed-chapters cache write at the end (`cacheCompletedChaptersReached`)
- * — that computation needs excluded variations still present to correctly
- * block a chapter's completion on them (see `isChapterComplete`'s doc
- * comment). The default keeps every existing caller/test that doesn't care
- * about exclusions unchanged; the one real caller with exclusions to worry
- * about (`/api/practice/attempt`) passes both sets explicitly.
+ * `variations` is this player's PRACTICEABLE (exclusion-filtered) set, used
+ * for everything: finding the served variation, teaching-progress credit,
+ * picking what to serve next, and the completed-chapters cache write. Unlike
+ * the tier-ceiling model this replaces, there is no second unfiltered set —
+ * an excluded line no longer blocks its chapter, so there is nothing for it
+ * to be present for.
  *
- * `ceilingMoveCount` (GitHub issue #163's tier gating) caps how many player
- * moves of a NOT-YET-solved variation this attempt may credit — the same cap
- * `buildPracticeView` applies at serve time (see `mastery/practice.ts`), so
- * what gets recorded here always matches what was actually served. It
- * defaults to `Infinity`, i.e. no cap, so every existing caller/test is
- * unaffected. When a clean pass reaches that cap without reaching the
- * variation's own true end (`next.pausedAtCeiling`), it is NOT solved —
- * `variation_solved` and the completed-chapters cache are both left
- * untouched — but the active pointer still MUST advance to a different,
- * still-servable variation, exactly as a genuine solve does. Skipping that
- * advance would leave `practice_active_variation` pointing at a variation
- * that's now blocked (see `computeBlockedKeys`/`isPausedAtCeiling`), which
- * would re-serve the same frozen, paused board forever — this repo's central
- * "stuck gauntlet" failure mode.
+ * `plan` (from `deriveLearnPlan`) caps how far into a NOT-YET-solved variation
+ * this attempt may credit — the served learn unit's own clipped length, the
+ * same cap `buildPracticeView` applied at serve time, so what gets recorded
+ * always matches what was actually served. When a clean pass reaches that cap
+ * without reaching the variation's own true end (`next.unitComplete`), the
+ * UNIT is learned but the VARIATION is not solved: `variation_solved` and the
+ * completed-chapters cache are both left untouched, so the line stays out of
+ * the Practice pool until a later band serves it to its real end. The active
+ * pointer still MUST advance, exactly as a genuine solve does — leaving it on
+ * a variation whose unit is now learned would re-serve the same finished board
+ * forever, this repo's central "stuck gauntlet" failure mode.
  */
 export async function applyAttemptResult(
 	supabase: SupabaseClient,
@@ -369,30 +359,25 @@ export async function applyAttemptResult(
 	hadMistake: boolean,
 	variations: Variation[],
 	resumedAfterBreak: boolean = false,
-	allVariations: Variation[] = variations,
-	ceilingMoveCount: number = Infinity,
-	// GitHub issue #181 (Task 8 code-review finding): when the caller already
-	// loaded this exact pre-write snapshot moments earlier in the same request
-	// (e.g. /api/practice/attempt's own pre-attempt ceiling check, via
-	// teachingCeilingMoveCount), passing it in here avoids a second, redundant
-	// whole-repertoire paginated fetch of variation_teaching_progress on every
-	// single clean attempt — this is the hottest path in the app. Defaults to
-	// undefined so every existing caller/test that doesn't have one on hand
-	// keeps its exact current behavior (a fresh load).
+	plan: LearnPlan | null = null,
+	// When the caller already loaded this exact pre-write snapshot moments
+	// earlier in the same request (e.g. /api/practice/attempt, which needs it
+	// to derive the plan this attempt was served under), passing it in avoids a
+	// second, redundant whole-repertoire paginated fetch of
+	// variation_teaching_progress on every single clean attempt — the hottest
+	// path in the app. Defaults to undefined so a caller without one on hand
+	// falls back to a fresh load.
 	preloadedTeachingProgress?: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number; updatedAt: string | null }>
 ): Promise<void> {
 	if (hadMistake) return;
 
 	const variation = variations.find((v) => v.variationKey === variationKey);
-	// Hoisted out of the `!solvedKeys.has` branch below (GitHub issue #181):
-	// `cacheCompletedChaptersReached`'s masteredPlies-based `isChapterComplete`
-	// check now needs a progress snapshot for EVERY branch that reaches it,
-	// including a re-drill of an already-solved variation, not just a fresh
-	// solve — so it's loaded (or reused from `preloadedTeachingProgress`)
-	// unconditionally here rather than only when there's teaching progress
-	// left to advance. Cloned into a fresh `Map` either way — the local
-	// `.set()` patch below must never mutate a map the caller still holds a
-	// reference to.
+	// Hoisted out of the `!solvedKeys.has` branch below: the post-write plan and
+	// `cacheCompletedChaptersReached`'s `isChapterComplete` check both need a
+	// progress snapshot in EVERY branch that reaches them, including a re-drill
+	// of an already-solved variation. Cloned into a fresh `Map` either way — the
+	// local `.set()` patch below must never mutate a map the caller still holds
+	// a reference to.
 	let progressMap: Map<string, { taughtPlies: number; masteredPlies: number; updatedAt: string | null }> | undefined;
 	if (variation) {
 		const solvedKeys = await loadSolvedKeys(supabase, playerId, repertoireId);
@@ -405,41 +390,26 @@ export async function applyAttemptResult(
 				solvedKeys,
 				resumedAfterBreak
 			});
-			// Mirrors buildPracticeView's own fallback-safety clamp exactly
-			// (GitHub issue #172, mastery/practice.ts): `variationKey` may have
-			// been served only because pickActiveVariation's last-resort
-			// fallback ignored blocked status (paused OR deferred) — in that
-			// case it must be RECORDED the same restricted way it was SERVED,
-			// or this and the serve step disagree on what happened, which
-			// knownProgressFor's own doc comment calls out as "a real bug that
-			// has happened." Without this, a deferred sibling reached only via
-			// that fallback would get credited for a genuinely fresh batch it
-			// was never actually supposed to be taught.
-			const blockedKeys = computeBlockedKeys(variations, solvedKeys, progressMap, ceilingMoveCount);
-			const ceilingPly = blockedKeys.has(variationKey) ? effectiveMasteredPlies : ceilingPlyFor(variation.path, ceilingMoveCount);
+			const ceilingPly = plan?.ceilingPlyByVariationKey.get(variationKey) ?? variation.path.length;
 			const next = advanceTeachingProgress(variation.path, effectiveTaughtPlies, effectiveMasteredPlies, false, ceilingPly);
 			await saveTeachingProgress(supabase, playerId, repertoireId, variationKey, next.taughtPlies, next.masteredPlies);
 
 			// Patch this variation's just-written counters locally — progressMap
 			// still reflects PRE-write state, and re-fetching would be a
 			// redundant round trip for the one row we already know the new
-			// value of. Every use of progressMap below (including the eventual
-			// cacheCompletedChaptersReached call) sees this patched value.
+			// value of. Every use of progressMap below sees this patched value.
 			progressMap.set(variationKey, {
 				...(progressMap.get(variationKey) ?? { taughtPlies: 0, masteredPlies: 0, updatedAt: null }),
 				taughtPlies: next.taughtPlies,
 				masteredPlies: next.masteredPlies
 			});
 
-			if (next.pausedAtCeiling) {
-				// Paused, not solved: must NOT markVariationSolved or touch the
-				// completed-chapters cache — but MUST still advance past this
-				// variation, or the active pointer re-serves the same frozen,
-				// paused board forever (GitHub issue #163's central risk — see
-				// the design doc).
-				const blockedKeysAfter = computeBlockedKeys(variations, solvedKeys, progressMap, ceilingMoveCount);
-				const nextKey = advanceIfSolved(variationKey, variations, solvedKeys, blockedKeysAfter);
-				await setActiveVariationKey(supabase, playerId, repertoireId, nextKey);
+			if (next.unitComplete) {
+				// The served unit is learned; the variation itself is not
+				// finished. No `variation_solved`, no completed-chapters cache
+				// — but the pointer must still move on.
+				const planAfter = deriveLearnPlan(variations, computeMasteredMoveIds(variations, progressMap, solvedKeys));
+				await setActiveVariationKey(supabase, playerId, repertoireId, nextServableVariationKey(planAfter, variations, variationKey));
 				return;
 			}
 			if (!next.solved) return;
@@ -448,14 +418,15 @@ export async function applyAttemptResult(
 
 	await markVariationSolved(supabase, playerId, repertoireId, variationKey);
 	const solvedKeys = await loadSolvedKeys(supabase, playerId, repertoireId);
-	const next = advanceIfSolved(variationKey, variations, solvedKeys);
-	await setActiveVariationKey(supabase, playerId, repertoireId, next);
-	if (variation && progressMap) {
-		// GitHub issue #181: isChapterComplete now needs a masteredPlies map,
-		// not solvedKeys directly — computed fresh from the (possibly patched)
-		// progressMap and the just-refreshed post-write solvedKeys, matching
-		// cacheCompletedChaptersReached's own existing "up-to-date" contract.
-		const masteredPlies = computeMasteredPliesMap(allVariations, progressMap, solvedKeys);
-		await cacheCompletedChaptersReached(supabase, playerId, repertoireId, variation, allVariations, masteredPlies);
+	// Derived from the (possibly patched) pre-write progress plus the
+	// just-refreshed POST-write solved set, matching
+	// `cacheCompletedChaptersReached`'s "up-to-date" contract. `progressMap` is
+	// undefined only when `variationKey` matched no variation at all — a stale
+	// or foreign key — where solved-only credit is enough to move the pointer.
+	const masteredMoveIds = computeMasteredMoveIds(variations, progressMap ?? new Map(), solvedKeys);
+	const planAfter = deriveLearnPlan(variations, masteredMoveIds);
+	await setActiveVariationKey(supabase, playerId, repertoireId, nextServableVariationKey(planAfter, variations, variationKey));
+	if (variation) {
+		await cacheCompletedChaptersReached(supabase, playerId, repertoireId, variation, variations, masteredMoveIds);
 	}
 }

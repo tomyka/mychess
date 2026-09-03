@@ -1,30 +1,26 @@
-// mychess/scripts/debug-lock-state.ts
+// mychess/scripts/debug-learn-plan.ts
 // One-off diagnostic (not part of the app): replicates
-// src/routes/api/repertoires/[id]/variations/+server.ts's exact locked-state
-// computation against real production data, using the REAL pure mastery
+// src/routes/api/repertoires/[id]/learn-units/+server.ts's exact learn-plan
+// derivation against real production data, using the REAL pure mastery
 // functions imported via relative path (no `$lib` alias resolution outside
 // SvelteKit's Vite context — see tests/global-setup.ts's own note on this),
 // so `toRawMoveRows`/`fetchLiveMoves`'s query is duplicated inline instead of
 // imported (both are already thin, direct DB-shape mappers with zero domain
 // logic of their own).
 //
-//   npx tsx --env-file=.env scripts/debug-lock-state.ts <repertoireId> <playerId>
-import { enumerateVariations, type RawMoveRow, type Variation } from '../src/lib/mastery/variations';
-import { teachingCeilingMoveCount, currentLevelProgress } from '../src/lib/mastery/chapterLevels';
-import {
-	computeMasteredMoveIds,
-	computeMasteredPliesMap,
-	isCeilingReachedAnywhere,
-	isLockedForTier,
-	isPausedAtCeiling,
-	knownProgressFor,
-	ceilingPlyFor
-} from '../src/lib/mastery/teaching';
+// Prints each chapter's current band and its unlearned units, plus the
+// per-variation teaching cap, so a "why am I being shown this line" report can
+// be root-caused from data instead of guessed at (GitHub issues #180, #182).
+//
+//   npx tsx --env-file=.env scripts/debug-learn-plan.ts <repertoireId> <playerId>
+import { enumerateVariations, filterVariations, moveSequenceLabel, type RawMoveRow, type Variation, type VariationStep } from '../src/lib/mastery/variations';
+import { deriveLearnPlan } from '../src/lib/mastery/learnUnits';
+import { computeMasteredMoveIds } from '../src/lib/mastery/teaching';
 
 const repertoireId = process.argv[2];
 const playerId = process.argv[3];
 if (!repertoireId || !playerId) {
-	console.error('Usage: npx tsx --env-file=.env scripts/debug-lock-state.ts <repertoireId> <playerId>');
+	console.error('Usage: npx tsx --env-file=.env scripts/debug-learn-plan.ts <repertoireId> <playerId>');
 	process.exit(1);
 }
 
@@ -70,8 +66,17 @@ async function main() {
 		toFen: m.to_pos?.fen ?? '',
 		chapterNames: [...new Set<string>(m.chapter_names ?? [])]
 	}));
-	const variations: Variation[] = enumerateVariations(moves);
-	console.log(`Loaded ${moves.length} moves -> ${variations.length} variations.`);
+	const allVariations: Variation[] = enumerateVariations(moves);
+
+	// The app derives the plan over the PRACTICEABLE (exclusion-filtered) set,
+	// so this must too — an excluded line produces no learn unit, and reporting
+	// on the unfiltered set would show units the player never actually sees.
+	const exclusionRows = await restAllPages<{ variation_key: string }>(
+		`/rest/v1/variation_practice_exclusions?player_id=eq.${playerId}&repertoire_id=eq.${repertoireId}&select=variation_key`
+	);
+	const excludedVariationKeys = new Set(exclusionRows.map((r) => r.variation_key));
+	const variations = filterVariations(allVariations, excludedVariationKeys);
+	console.log(`Loaded ${moves.length} moves -> ${allVariations.length} variations (${excludedVariationKeys.size} excluded).`);
 
 	const solvedRows = await restAllPages<{ variation_key: string }>(
 		`/rest/v1/variation_solved?player_id=eq.${playerId}&repertoire_id=eq.${repertoireId}&select=variation_key`
@@ -88,39 +93,41 @@ async function main() {
 	console.log(`Solved: ${solvedKeys.size}. Progress rows: ${teachingProgress.size}.`);
 	for (const key of solvedKeys) {
 		const owner = variations.find((v) => v.variationKey === key);
-		console.log(`  solved key=${key} | ${owner ? owner.path.map((s) => s.san).join(' ') : '(no matching variation!)'}`);
+		console.log(`  solved key=${key} | ${owner ? owner.path.map((s: VariationStep) => s.san).join(' ') : '(no matching variation!)'}`);
 	}
 	for (const [key, p] of teachingProgress) {
 		const owner = variations.find((v) => v.variationKey === key);
-		const label = owner ? owner.path.map((s) => s.san).join(' ') : '(no matching variation!)';
+		const label = owner ? owner.path.map((s: VariationStep) => s.san).join(' ') : '(no matching variation!)';
 		console.log(`  progress key=${key}  taught=${p.taughtPlies} mastered=${p.masteredPlies}  | ${label}`);
 	}
 
 	const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, solvedKeys);
-	const masteredPliesMap = computeMasteredPliesMap(variations, teachingProgress, solvedKeys, masteredMoveIds);
-	const ceilingMoveCount = teachingCeilingMoveCount(variations, masteredPliesMap);
-	const ceilingReached = isCeilingReachedAnywhere(variations, solvedKeys, teachingProgress, ceilingMoveCount, masteredMoveIds);
-	const level = currentLevelProgress(variations, masteredPliesMap);
-	console.log(
-		`ceilingMoveCount=${ceilingMoveCount}  ceilingReached=${ceilingReached}  masteredMoveIds.size=${masteredMoveIds.size}  currentLevel=${level.tier} ${level.ready}/${level.total}`
-	);
+	const plan = deriveLearnPlan(variations, masteredMoveIds);
+	console.log(`masteredMoveIds.size=${masteredMoveIds.size}  servable=${plan.servableVariationKeys.length}`);
 
-	for (const v of variations) {
-		const solved = solvedKeys.has(v.variationKey);
-		const { masteredPlies } = knownProgressFor({ variation: v, variations, teachingProgress, solvedKeys, resumedAfterBreak: false, masteredMoveIds });
-		const locked = !solved && isLockedForTier(v.path, masteredPlies, ceilingMoveCount, ceilingReached);
-		const pausedAtCeiling = isPausedAtCeiling(v.path, masteredPlies, ceilingMoveCount);
-		const ceilingPly = ceilingPlyFor(v.path, ceilingMoveCount);
-		if (locked || masteredPlies > 0 || solved) {
-			const label = v.path.map((s) => s.san).join(' ');
-			console.log(
-				`[${solved ? 'SOLVED' : locked ? 'LOCKED' : 'open  '}] plies=${v.path.length} masteredPlies=${masteredPlies} ceilingPly=${ceilingPly} pausedAtCeiling=${pausedAtCeiling} | ${label}`
-			);
+	for (const state of plan.chapters) {
+		const name = state.chapter ?? '(no chapters)';
+		console.log(
+			`\n== ${name}: band=${state.band ?? '-'} level=${state.level ?? '-'} complete=${state.complete} ${state.learnedInBand}/${state.totalInBand} ==`
+		);
+		for (const unit of state.units) {
+			console.log(`  UNIT plies=${unit.path.length} rep=${unit.representativeVariationKey} members=${unit.variationKeys.length} | ${moveSequenceLabel(unit.path)}`);
 		}
+	}
+
+	console.log('\n== per-variation teaching cap ==');
+	for (const v of variations) {
+		const cap = plan.ceilingPlyByVariationKey.get(v.variationKey);
+		const solved = solvedKeys.has(v.variationKey);
+		const progress = teachingProgress.get(v.variationKey);
+		if (!solved && !progress && cap === v.path.length) continue; // untouched and uncapped — nothing to explain
+		console.log(
+			`[${solved ? 'SOLVED' : 'open  '}] plies=${v.path.length} cap=${cap ?? '-'} mastered=${progress?.masteredPlies ?? 0} | ${v.path.map((s: VariationStep) => s.san).join(' ')}`
+		);
 	}
 }
 
 main().catch((e) => {
-	console.error('debug-lock-state failed:', e);
+	console.error('debug-learn-plan failed:', e);
 	process.exit(1);
 });

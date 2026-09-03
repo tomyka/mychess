@@ -2,7 +2,19 @@
 import { describe, it, expect } from 'vitest';
 import { buildPracticeView, optimisticSolvedAfterAttempt } from './practice';
 import { ceilingPlyFor } from './teaching';
+import type { LearnPlan } from './learnUnits';
 import type { Variation, VariationStep } from './variations';
+
+/**
+ * A hand-built plan, so these tests pin `buildPracticeView`'s contract — "cap
+ * each variation at the ply this map says, serve only what this list says" —
+ * without depending on the real band boundaries (9/18/27). `chapters` is empty
+ * because `buildPracticeView` never reads it; only the Learn page's progress
+ * bar does.
+ */
+function planFor(ceilingPlyByVariationKey: Record<string, number>, servableVariationKeys: string[]): LearnPlan {
+	return { chapters: [], ceilingPlyByVariationKey: new Map(Object.entries(ceilingPlyByVariationKey)), servableVariationKeys };
+}
 
 function makeVariation(playerMoveCount: number, prefix: string): Variation {
 	const path: VariationStep[] = [];
@@ -99,7 +111,7 @@ describe('buildPracticeView', () => {
 	it('serves a learned variation when the picker forces it', () => {
 		const a = makeVariation(2, 'a-');
 		const b = makeVariation(2, 'b-');
-		const view = buildPracticeView([a, b], a.variationKey, new Set([a.variationKey]), noTeaching, Infinity, true);
+		const view = buildPracticeView([a, b], a.variationKey, new Set([a.variationKey]), noTeaching, null, true);
 		expect(view.attempt!.variationKey).toBe(a.variationKey);
 	});
 
@@ -132,14 +144,14 @@ describe('buildPracticeView', () => {
 	it('allSolved is false while any variation still has unlearned siblings, re-pick or not', () => {
 		const a = makeVariation(2, 'a-');
 		const b = makeVariation(2, 'b-');
-		const forced = buildPracticeView([a, b], a.variationKey, new Set([a.variationKey]), noTeaching, Infinity, true);
+		const forced = buildPracticeView([a, b], a.variationKey, new Set([a.variationKey]), noTeaching, null, true);
 		expect(forced.attempt!.variationKey).toBe(a.variationKey);
 		expect(forced.allSolved).toBe(false);
 	});
 
 	it('forceAttempt serves a manually re-picked variation even when the whole repertoire is already solved', () => {
 		const a = makeVariation(2, 'a-');
-		const view = buildPracticeView([a], a.variationKey, new Set([a.variationKey]), noTeaching, Infinity, true);
+		const view = buildPracticeView([a], a.variationKey, new Set([a.variationKey]), noTeaching, null, true);
 		expect(view.attempt).not.toBeNull();
 		expect(view.attempt!.variationKey).toBe(a.variationKey);
 		expect(view.allSolved).toBe(true);
@@ -185,7 +197,7 @@ describe('buildPracticeView', () => {
 	it('ignores stale teaching-progress data for an already-solved variation and serves it at full depth with no arrow', () => {
 		const v = makeVariation(15, 'a-'); // 30 plies
 		const progress = new Map([[v.variationKey, { taughtPlies: 20, masteredPlies: 10, updatedAt: null }]]);
-		const view = buildPracticeView([v], v.variationKey, new Set([v.variationKey]), progress, Infinity, true);
+		const view = buildPracticeView([v], v.variationKey, new Set([v.variationKey]), progress, null, true);
 		expect(view.attempt!.path).toHaveLength(30);
 		expect(view.attempt!.arrowPlies).toBeNull();
 		expect(view.attempt!.isFinalPass).toBe(true);
@@ -214,7 +226,7 @@ describe('buildPracticeView', () => {
 
 	it('does not auto-play anything for an already-solved variation\'s own re-drill', () => {
 		const v = makeVariation(3, 'a-');
-		const view = buildPracticeView([v], v.variationKey, new Set([v.variationKey]), noTeaching, Infinity, true);
+		const view = buildPracticeView([v], v.variationKey, new Set([v.variationKey]), noTeaching, null, true);
 		expect(view.attempt!.autoPlayThrough).toBe(0);
 	});
 
@@ -224,7 +236,7 @@ describe('buildPracticeView', () => {
 		const progress = new Map([
 			[v.variationKey, { taughtPlies: 20, masteredPlies: 10, updatedAt: '2026-08-17T11:55:00Z' }] // 5 min ago
 		]);
-		const view = buildPracticeView([v], v.variationKey, new Set(), progress, Infinity, false, now);
+		const view = buildPracticeView([v], v.variationKey, new Set(), progress, null, false, now);
 		expect(view.attempt!.autoPlayThrough).toBe(10);
 	});
 
@@ -234,7 +246,7 @@ describe('buildPracticeView', () => {
 		const progress = new Map([
 			[v.variationKey, { taughtPlies: 20, masteredPlies: 10, updatedAt: '2026-08-17T11:49:00Z' }] // 11 min ago
 		]);
-		const view = buildPracticeView([v], v.variationKey, new Set(), progress, Infinity, false, now);
+		const view = buildPracticeView([v], v.variationKey, new Set(), progress, null, false, now);
 		expect(view.attempt!.autoPlayThrough).toBe(0);
 		// Teaching restarts from ply 0 too, not just auto-play — same truncated
 		// batch/arrow a genuinely fresh variation gets (see the existing
@@ -258,7 +270,7 @@ describe('buildPracticeView', () => {
 			[a.variationKey, { taughtPlies: 0, masteredPlies: 0, updatedAt: '2026-08-17T11:49:00Z' }], // 11 min ago
 			[b.variationKey, { taughtPlies: 10, masteredPlies: 10, updatedAt: '2026-08-17T11:59:00Z' }] // 1 min ago
 		]);
-		const view = buildPracticeView([a, b], a.variationKey, new Set(), progress, Infinity, false, now);
+		const view = buildPracticeView([a, b], a.variationKey, new Set(), progress, null, false, now);
 		expect(view.attempt!.variationKey).toBe(a.variationKey);
 		expect(view.attempt!.autoPlayThrough).toBe(0); // not 10, despite b's fresh mastery of the shared prefix
 		// And teaching restarts from ply 0 rather than resuming past the shared
@@ -271,107 +283,97 @@ describe('buildPracticeView', () => {
 		const v = makeVariation(15, 'a-');
 		const now = new Date('2026-08-17T12:00:00Z');
 		const progress = new Map([[v.variationKey, { taughtPlies: 0, masteredPlies: 0, updatedAt: null }]]);
-		const view = buildPracticeView([v], v.variationKey, new Set(), progress, Infinity, false, now);
+		const view = buildPracticeView([v], v.variationKey, new Set(), progress, null, false, now);
 		expect(view.attempt!.autoPlayThrough).toBe(0);
 		expect(view.attempt!.path).toHaveLength(5);
 	});
 });
 
-describe('buildPracticeView with a ceilingMoveCount', () => {
-	it("is unaffected when ceilingMoveCount is Infinity (the default), matching every existing test in this file", () => {
+describe('buildPracticeView with a learn plan', () => {
+	it('is unaffected when no plan is passed (the default), matching every existing test in this file', () => {
 		// Spot-check two of the scenarios above: a plain untaught long
 		// variation, and one mid-batch via teachingProgress. Both must produce
-		// identical output whether ceilingMoveCount is omitted or passed
-		// explicitly as Infinity.
+		// identical output whether the plan is omitted or passed as null.
 		const v = makeVariation(15, 'a-'); // 30 plies
-		const withDefault = buildPracticeView([v], null, new Set(), noTeaching);
-		const withExplicitInfinity = buildPracticeView([v], null, new Set(), noTeaching, Infinity);
-		expect(withExplicitInfinity).toEqual(withDefault);
+		expect(buildPracticeView([v], null, new Set(), noTeaching, null)).toEqual(buildPracticeView([v], null, new Set(), noTeaching));
 
 		const progress = new Map([[v.variationKey, { taughtPlies: 20, masteredPlies: 10, updatedAt: null }]]);
-		const withDefault2 = buildPracticeView([v], null, new Set(), progress);
-		const withExplicitInfinity2 = buildPracticeView([v], null, new Set(), progress, Infinity);
-		expect(withExplicitInfinity2).toEqual(withDefault2);
+		expect(buildPracticeView([v], null, new Set(), progress, null)).toEqual(buildPracticeView([v], null, new Set(), progress));
 	});
 
-	it("truncates a long unsolved variation's served attempt to the ceiling", () => {
+	it("truncates a long unsolved variation's served attempt to its unit's cap", () => {
 		const v = makeVariation(5, 'a-'); // 5 player moves, 10 plies
-		const ceilingMoveCount = 2;
-		const ceilingPly = ceilingPlyFor(v.path, ceilingMoveCount);
-		// Already mastered right up to the ceiling — the next resolveTeachingStep
-		// call pauses there rather than teaching further.
+		const ceilingPly = ceilingPlyFor(v.path, 2);
+		// Already mastered right up to the cap — the next resolveTeachingStep
+		// call finishes the unit there rather than teaching further.
 		const progress = new Map([[v.variationKey, { taughtPlies: ceilingPly, masteredPlies: ceilingPly, updatedAt: null }]]);
-		const view = buildPracticeView([v], null, new Set(), progress, ceilingMoveCount);
+
+		const view = buildPracticeView([v], null, new Set(), progress, planFor({ [v.variationKey]: ceilingPly }, [v.variationKey]));
+
 		expect(view.attempt).not.toBeNull();
 		expect(view.attempt!.path).toHaveLength(ceilingPly);
 		expect(view.attempt!.path.length).not.toBe(v.path.length);
+		// The UNIT is finished, but the variation is not — so this must not
+		// read as a solve to the caller.
+		expect(view.attempt!.isFinalPass).toBe(true);
+		expect(view.attempt!.unitComplete).toBe(true);
 	});
 
-	it('never applies the ceiling to a deliberate re-drill of an already-solved variation', () => {
-		const v = makeVariation(5, 'a-'); // 10 plies — well past a ceiling of 2 player moves
-		const ceilingMoveCount = 2;
-		const view = buildPracticeView([v], v.variationKey, new Set([v.variationKey]), noTeaching, ceilingMoveCount, true);
+	it('reports unitComplete: false when the cap lands on the variation’s own true end', () => {
+		const v = makeVariation(2, 'a-');
+		const progress = new Map([[v.variationKey, { taughtPlies: v.path.length, masteredPlies: v.path.length, updatedAt: null }]]);
+
+		const view = buildPracticeView([v], null, new Set(), progress, planFor({ [v.variationKey]: v.path.length }, [v.variationKey]));
+
+		expect(view.attempt!.isFinalPass).toBe(true);
+		expect(view.attempt!.unitComplete).toBe(false);
+	});
+
+	it('never applies the cap to a deliberate re-drill of an already-solved variation', () => {
+		const v = makeVariation(5, 'a-'); // 10 plies — well past a cap of 2 player moves
+		const plan = planFor({ [v.variationKey]: ceilingPlyFor(v.path, 2) }, []);
+
+		const view = buildPracticeView([v], v.variationKey, new Set([v.variationKey]), noTeaching, plan, true);
+
 		expect(view.attempt).not.toBeNull();
 		expect(view.attempt!.path).toEqual(v.path);
 	});
 
-	it('skips a blocked (paused) variation when auto-picking the next one to serve', () => {
+	it('serves only what the plan says is servable, skipping a variation whose unit is already learned', () => {
 		const a = makeVariation(5, 'a-');
 		const b = makeVariation(5, 'b-');
-		const ceilingMoveCount = 2;
-		const ceilingPly = ceilingPlyFor(a.path, ceilingMoveCount);
-		const progress = new Map([
-			// a is already paused at the ceiling; b is untouched.
-			[a.variationKey, { taughtPlies: ceilingPly, masteredPlies: ceilingPly, updatedAt: null }]
-		]);
-		const view = buildPracticeView([a, b], null, new Set(), progress, ceilingMoveCount);
+		// a's unit is learned, so it is absent from servableVariationKeys.
+		const plan = planFor({ [a.variationKey]: a.path.length, [b.variationKey]: b.path.length }, [b.variationKey]);
+
+		const view = buildPracticeView([a, b], null, new Set(), noTeaching, plan);
+
 		expect(view.attempt).not.toBeNull();
 		expect(view.attempt!.variationKey).toBe(b.variationKey);
 	});
 
-	it("never teaches a DEFERRED sibling's own new content even when pickActiveVariation's last-resort fallback selects it (GitHub issue #172)", () => {
-		// `a` is genuinely paused at the ceiling (the shared prefix plus its
-		// own one extra move) — that alone makes `ceilingReached` true. `b`
-		// shares only the common prefix with `a` (masteredPlies stops right
-		// where they diverge) and would ALSO merely pause at the same
-		// ceiling, so it's DEFERRED, not independently paused. With both `a`
-		// and `b` now blocked and nothing else in the pool, pickActiveVariation's
-		// fallback ("serve the first unsolved one anyway, ignoring blocked
-		// status") lands on `b` (array order puts it first) — without the
-		// fallback-safety clamp, buildPracticeView would happily teach `b`'s
-		// own never-before-seen move here, reopening the exact loophole #172
-		// closes the moment it's reached via this path.
-		const shared: VariationStep[] = [
-			{ moveId: 'shared-p1', san: 'P1', fromFen: 'f1a', toFen: 'f1b', isPlayerTurn: true },
-			{ moveId: 'shared-o1', san: 'O1', fromFen: 'f1b', toFen: 'f2a', isPlayerTurn: false }
-		];
-		const a: Variation = {
-			leafMoveId: 'a-o2',
-			variationKey: 'a',
-			path: [...shared, { moveId: 'a-p2', san: 'P2', fromFen: 'f2a', toFen: 'f2b', isPlayerTurn: true }, { moveId: 'a-o2', san: 'O2', fromFen: 'f2b', toFen: 'f3a', isPlayerTurn: false }],
-			playerMoveCount: 2,
-			chapterNames: []
-		};
-		const b: Variation = {
-			leafMoveId: 'b-o2',
-			variationKey: 'b',
-			path: [...shared, { moveId: 'b-p2', san: 'P2', fromFen: 'f2a', toFen: 'f2b', isPlayerTurn: true }, { moveId: 'b-o2', san: 'O2', fromFen: 'f2b', toFen: 'f3a', isPlayerTurn: false }],
-			playerMoveCount: 2,
-			chapterNames: []
-		};
-		const ceilingMoveCount = 2; // ceilingPly = 3 for both (they share plies 0-1, diverge at ply 2)
-		const progress = new Map([['a', { taughtPlies: 3, masteredPlies: 3, updatedAt: null }]]);
+	it('follows the plan’s order rather than the variation list’s', () => {
+		const a = makeVariation(3, 'a-');
+		const b = makeVariation(3, 'b-');
+		const plan = planFor({ [a.variationKey]: a.path.length, [b.variationKey]: b.path.length }, [b.variationKey, a.variationKey]);
 
-		// `b` first in array order, so the "everything blocked" fallback lands on it.
-		const view = buildPracticeView([b, a], null, new Set(), progress, ceilingMoveCount);
+		const view = buildPracticeView([a, b], null, new Set(), noTeaching, plan);
+
+		expect(view.attempt!.variationKey).toBe(b.variationKey);
+	});
+
+	it('serves a variation the plan caps at nothing (absent from the map) in full, rather than a zero-length dead end', () => {
+		// Reachable only via pickActiveVariation's last-resort fallback: nothing
+		// is servable, so it serves the first unsolved variation anyway so Learn
+		// shows something. No band claims that variation, so no band is
+		// withholding anything from it either — teaching it in full is right.
+		const v = makeVariation(4, 'a-');
+		const plan = planFor({}, []);
+
+		const view = buildPracticeView([v], null, new Set(), noTeaching, plan);
 
 		expect(view.attempt).not.toBeNull();
-		expect(view.attempt!.variationKey).toBe('b');
-		// Only the shared prefix (2 plies) — b's own divergent move ('b-p2')
-		// must NOT be taught, and there must be no arrow inviting one.
-		expect(view.attempt!.path).toHaveLength(2);
-		expect(view.attempt!.arrowPlies).toBeNull();
-		expect(view.attempt!.isFinalPass).toBe(true);
+		expect(view.attempt!.variationKey).toBe(v.variationKey);
+		expect(view.attempt!.arrowPlies).not.toBeNull();
 	});
 });
 
@@ -405,7 +407,7 @@ describe('buildPracticeView — queue membership comes from splitQueues', () => 
 	// candidates would make it silently do nothing (the bug fixed in 02bb6d6).
 	it('still serves an already-learned variation when a re-drill is forced', () => {
 		const a = makeVariation(2, 'a');
-		const view = buildPracticeView([a], a.variationKey, new Set([a.variationKey]), noTeaching, Infinity, true);
+		const view = buildPracticeView([a], a.variationKey, new Set([a.variationKey]), noTeaching, null, true);
 		expect(view.attempt).not.toBeNull();
 		expect(view.attempt!.variationKey).toBe(a.variationKey);
 	});

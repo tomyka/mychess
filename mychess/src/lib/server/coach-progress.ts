@@ -8,15 +8,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadRepertoireVariations } from './practice-repertoire';
 import { loadSolvedKeys, loadTeachingProgress } from './practice-progress';
 import { masterableChapters } from '$lib/mastery/repertoireStatus';
-import { rowsInChapterTier } from '$lib/mastery/variations';
-import { deriveChapterLevel, deriveRepertoireLevel, type Tier } from '$lib/mastery/chapterLevels';
-import { computeMasteredPliesMap } from '$lib/mastery/teaching';
+import { filterVariations, rowsInChapterTier } from '$lib/mastery/variations';
+import { deriveChapterLevel, deriveRepertoireLevel, type Band } from '$lib/mastery/learnUnits';
+import { computeMasteredMoveIds } from '$lib/mastery/teaching';
 
 export type StudentRepertoireProgress = {
 	repertoireId: string;
 	learned: number;
 	/** This repertoire's current knowledge level (minimum across its chapters), or null if not yet Bronze. */
-	level: Tier | null;
+	level: Band | null;
 	/** Demotions in the requested window — material that isn't sticking. */
 	demotions: number;
 };
@@ -77,21 +77,19 @@ export async function loadStudentRepertoireProgress(
 	await Promise.all(
 		repertoireIds.map(async (repertoireId) => {
 			try {
-				// UNFILTERED on purpose (named `allVariations`, matching the same
-				// naming convention used everywhere else this fix touches): chapter/
-				// tier computation needs an excluded, never-solved variation to
-				// still be present in its bracket (so it blocks the ladder past its
-				// own tier), not silently absent — see `deriveChapterLevel`'s doc
-				// comment. This file has no other use for the variation set, so it
-				// switches entirely rather than also deriving a filtered copy.
-				const [{ variations: allVariations }, learnedKeys, teachingProgress] = await Promise.all([
+				// FILTERED (GitHub issue #182): a line the student has excluded
+				// produces no learn unit and no longer caps its chapter's band, so
+				// the level a coach sees matches the one the student is actually
+				// working toward.
+				const [{ variations: allVariations, excludedVariationKeys }, learnedKeys, teachingProgress] = await Promise.all([
 					loadRepertoireVariations(supabase, playerId, repertoireId),
 					loadSolvedKeys(supabase, playerId, repertoireId),
 					loadTeachingProgress(supabase, playerId, repertoireId)
 				]);
-				const masteredPlies = computeMasteredPliesMap(allVariations, teachingProgress, learnedKeys);
-				const chapterLevels = masterableChapters(allVariations).map((chapter) =>
-					deriveChapterLevel(rowsInChapterTier(allVariations, chapter), masteredPlies)
+				const variations = filterVariations(allVariations, excludedVariationKeys);
+				const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, learnedKeys);
+				const chapterLevels = masterableChapters(variations).map((chapter) =>
+					deriveChapterLevel(rowsInChapterTier(variations, chapter), masteredMoveIds)
 				);
 				const entry = result.get(repertoireId);
 				if (entry) entry.level = deriveRepertoireLevel(chapterLevels);

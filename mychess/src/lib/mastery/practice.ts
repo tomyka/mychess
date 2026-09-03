@@ -1,7 +1,8 @@
 // mychess/src/lib/mastery/practice.ts
 import type { Variation, VariationStep } from './variations';
 import { pickActiveVariation, solvedProgress } from './variationSequence';
-import { resolveTeachingStep, knownProgressFor, autoPlayCeiling, ceilingPlyFor, computeBlockedKeys } from './teaching';
+import { resolveTeachingStep, knownProgressFor, autoPlayCeiling } from './teaching';
+import type { LearnPlan } from './learnUnits';
 import { splitQueues } from './learning';
 
 /**
@@ -25,13 +26,13 @@ export type PracticeView = {
 		variationKey: string;
 		arrowPlies: { from: number; to: number } | null;
 		isFinalPass: boolean;
-		// True only when this pass's `isFinalPass` is true because it hit the
-		// teaching-tier CEILING, not because the variation's own true path
-		// ended — i.e. paused, not genuinely learned (see
-		// `resolveTeachingStep`'s own field of the same name). Callers that
-		// treat "final pass" as "the player just learned this variation" must
-		// also check this is false, or a ceiling pause gets counted as a solve.
-		pausedAtCeiling: boolean;
+		// True only when this pass's `isFinalPass` is true because it finished
+		// the served LEARN UNIT (the clipped prefix), not the variation's own
+		// true path — so the unit leaves the Learn list but the variation does
+		// not enter the Practice pool (see `resolveTeachingStep`'s own field of
+		// the same name). Callers that treat "final pass" as "the player just
+		// finished this whole variation" must also check this is false.
+		unitComplete: boolean;
 		// How many of `path`'s leading plies are already mastered — via this
 		// variation's own progress, OR via a SIBLING variation sharing the
 		// same moves (see computeMasteredMoveIds) — and so should auto-play
@@ -66,19 +67,19 @@ export function wasResumedAfterBreak(updatedAt: string | null, now: Date): boole
  * currently persisted (or `null` if none yet); `solvedKeys` is this player's
  * full solved set for this repertoire; `teachingProgress` is this player's
  * per-variation `{taughtPlies, masteredPlies}` state for this repertoire.
- * `ceilingMoveCount` caps how many player moves of a NOT-YET-solved variation
- * Learn will teach in one go (GitHub issue #163's tier gating) — it defaults
- * to `Infinity`, i.e. no cap, so every caller not yet passing a real ceiling
- * keeps today's exact behavior. It never applies to an already-solved
- * variation's re-drill (forced or picked): that's deliberately served in
- * full, ceiling or not.
+ *
+ * `plan` (see `deriveLearnPlan` in `mastery/learnUnits.ts`) decides both WHICH
+ * variation is servable and HOW FAR into it Learn may teach — the served learn
+ * unit's own clipped length. It defaults to `null`: no gating and no cap, for
+ * callers with nothing to gate on. The cap never applies to an already-solved
+ * variation's re-drill (forced or picked); that's deliberately served in full.
  */
 export function buildPracticeView(
 	variations: Variation[],
 	activeVariationKey: string | null,
 	solvedKeys: ReadonlySet<string>,
 	teachingProgress: ReadonlyMap<string, TeachingProgressEntry>,
-	ceilingMoveCount: number = Infinity,
+	plan: LearnPlan | null = null,
 	forceAttempt: boolean = false,
 	now: Date = new Date()
 ): PracticeView {
@@ -95,9 +96,10 @@ export function buildPracticeView(
 	// filtering learned lines out of the candidates would make the picker appear
 	// to do nothing (the bug fixed in 02bb6d6).
 	const { learn } = splitQueues(variations, solvedKeys);
-	const servable = forceAttempt ? variations : learn;
-	const blockedKeys = computeBlockedKeys(variations, solvedKeys, teachingProgress, ceilingMoveCount);
-	const active = pickActiveVariation(servable, activeVariationKey, solvedKeys, blockedKeys);
+	const candidates = forceAttempt ? variations : learn;
+	const active = plan
+		? pickActiveVariation(candidates, activeVariationKey, solvedKeys, plan.servableVariationKeys)
+		: pickActiveVariation(candidates, activeVariationKey, solvedKeys);
 
 	// allSolved means the REPERTOIRE is done, not just that the (possibly
 	// manually re-picked) active variation happens to be solved — those are
@@ -122,7 +124,7 @@ export function buildPracticeView(
 				variationKey: active.variationKey,
 				arrowPlies: null,
 				isFinalPass: true,
-				pausedAtCeiling: false,
+				unitComplete: false,
 				autoPlayThrough: 0
 			};
 		} else {
@@ -147,35 +149,22 @@ export function buildPracticeView(
 				solvedKeys,
 				resumedAfterBreak
 			});
-			// `pickActiveVariation`'s own last-resort fallback ("if everything
-			// remaining is solved or blocked, serve the first unsolved one
-			// anyway") can still hand back a variation that IS in
-			// `blockedKeys` — deliberately, so Learn always has SOMETHING to
-			// show rather than a dead end. Before GitHub issue #172, every
-			// blocked variation was genuinely paused (masteredPlies already at
-			// its own ceiling), so resolving it normally was harmless — it
-			// only ever re-served already-known content, isFinalPass/paused,
-			// nothing new. #172 widened "blocked" to also cover DEFERRED
-			// siblings, which are NOT yet at their own ceiling and genuinely
-			// have new content to teach — resolving one of those normally
-			// would silently re-open exactly the loophole #172 exists to
-			// close, the moment it's ever reached via this fallback. Clamping
-			// the ceiling to wherever this variation currently stands
-			// (`effectiveMasteredPlies`) makes `resolveTeachingStep` treat it
-			// as "already at the ceiling" regardless of why it's blocked,
-			// serving its known content as a final/paused pass and asking for
-			// nothing new — matching a genuinely-paused variation's behavior
-			// exactly, for a case that should never teach new content either.
-			const ceilingPly = blockedKeys.has(active.variationKey)
-				? effectiveMasteredPlies
-				: ceilingPlyFor(active.path, ceilingMoveCount);
+			// How far the plan says this variation may be taught: its served
+			// learn unit's own clipped length. A variation absent from the map
+			// has no unit in any of its chapters' current bands, which only
+			// happens via `pickActiveVariation`'s last-resort fallback ("if
+			// nothing is servable, serve the first unsolved one anyway", so
+			// Learn shows something rather than a dead end) — clamping to its
+			// full path there is right: there is no band withholding anything
+			// from it, since no band claims it at all.
+			const ceilingPly = plan?.ceilingPlyByVariationKey.get(active.variationKey) ?? active.path.length;
 			const step = resolveTeachingStep(active.path, effectiveTaughtPlies, effectiveMasteredPlies, ceilingPly);
 			attempt = {
 				path: step.path,
 				variationKey: active.variationKey,
 				arrowPlies: step.arrowPlies,
 				isFinalPass: step.isFinalPass,
-				pausedAtCeiling: step.pausedAtCeiling,
+				unitComplete: step.unitComplete,
 				// Clamped, never raw: a variation fully covered by a solved
 				// sibling has masteredPlies == path.length, and auto-playing
 				// that far leaves the player nothing to play and the attempt

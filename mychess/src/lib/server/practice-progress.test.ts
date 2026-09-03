@@ -2,6 +2,18 @@
 import { describe, it, expect } from 'vitest';
 import { applyAttemptResult, touchVariationAttempt, loadVariationUpdatedAt } from './practice-progress';
 import { UNTAGGED_CHAPTER, type Variation } from '$lib/mastery/variations';
+import type { LearnPlan } from '$lib/mastery/learnUnits';
+
+/**
+ * A hand-built plan, pinning the contract `applyAttemptResult` actually
+ * depends on — "credit this variation no further than this ply" — without
+ * tying these tests to the real band boundaries (9/18/27). Note that the plan
+ * `applyAttemptResult` uses to ADVANCE the active pointer afterwards is always
+ * re-derived internally from post-write state; this one only caps the credit.
+ */
+function planFor(ceilingPlyByVariationKey: Record<string, number>, servableVariationKeys: string[]): LearnPlan {
+	return { chapters: [], ceilingPlyByVariationKey: new Map(Object.entries(ceilingPlyByVariationKey)), servableVariationKeys };
+}
 
 function makeVariation(variationKey: string, plies: number): Variation {
 	const path = Array.from({ length: plies }, (_, i) => ({
@@ -289,33 +301,27 @@ describe('applyAttemptResult', () => {
 		]);
 	});
 
-	// Regression coverage for the exclusion-blocking bug: `allVariations` (the
-	// 8th, UNFILTERED parameter) must include an excluded, never-solved
-	// variation for the completed-chapters cache write to correctly stay
-	// blocked by it — passing only the filtered `variations` here would
-	// silently let the chapter sail past that variation's tier.
-	it('does not cache a chapter as completed when an excluded, never-solved variation still caps its own ceiling', async () => {
-		// v1 (silver tier: playerMoveCount 13) is the only PRACTICEABLE variation
-		// — matching what /api/practice/attempt does before calling
-		// applyAttemptResult, having already filtered `excludedVar` out of the
-		// `variations` it passes as the 6th argument. `excludedVar` (gold tier:
-		// playerMoveCount 20) is passed only via the 8th, UNFILTERED argument —
-		// it can never appear in solvedKeys while excluded, which is exactly
-		// what should keep this chapter below its own ceiling (gold) even once
-		// v1 is solved.
+	// The inverse of the behaviour this used to assert (GitHub issue #182): an
+	// excluded variation is no longer passed in at all, and no longer caps the
+	// chapter it was in. "I don't want to learn this line" now means exactly
+	// that, where it used to mean "and nobody may finish this chapter either".
+	it('caches a chapter as completed once every PRACTICEABLE variation in it is finished, ignoring excluded ones', async () => {
+		// Only v1 is practiceable — /api/practice/attempt has already filtered
+		// the excluded line out of the set it passes. Under the tier-ceiling
+		// model the excluded line was passed separately and blocked this write
+		// forever; now it simply isn't in scope.
 		const { client, upsertCalls } = fakeSupabase({
 			teachingRows: [{ variation_key: 'v1', taught_plies: 25, mastered_plies: 20 }]
 		});
 		const v1 = makeVariation('v1', 25);
-		const excludedVar = makeVariation('excludedVar', 40);
-		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1], false, [v1, excludedVar]);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1]);
 
 		expect(upsertCalls.map((c) => c.table)).toEqual([
 			'variation_teaching_progress',
 			'variation_solved',
-			'practice_active_variation'
+			'practice_active_variation',
+			'chapter_completed'
 		]);
-		expect(upsertCalls.some((c) => c.table === 'chapter_completed')).toBe(false);
 	});
 
 	it('caches a chapter as completed once it reaches its own ceiling, without needing literal platinum', async () => {
@@ -374,7 +380,7 @@ describe('applyAttemptResult', () => {
 		});
 		const v1 = makeVariation('v1', 25);
 		const preloaded = new Map([['v1', { taughtPlies: 25, masteredPlies: 20, updatedAt: null }]]);
-		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1], false, [v1], Infinity, preloaded);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1], false, null, preloaded);
 
 		expect(upsertCalls[0].rows).toEqual({
 			player_id: 'player-1',
@@ -395,21 +401,23 @@ describe('applyAttemptResult', () => {
 	});
 });
 
-describe('applyAttemptResult with a ceilingMoveCount', () => {
-	it('a clean pass that only reaches the ceiling does NOT call markVariationSolved (no variation_solved upsert)', async () => {
-		// v1 is 25 plies (13 player moves); a ceilingMoveCount of 4 caps it at
-		// ply 7. Its stored progress is already AT that ceiling ply going into
-		// this call, so this pass's advanceTeachingProgress reports
-		// pausedAtCeiling: true rather than solved.
+describe('applyAttemptResult with a learn plan', () => {
+	it('a clean pass that only finishes the served UNIT does NOT call markVariationSolved (no variation_solved upsert)', async () => {
+		// v1 is 25 plies (13 player moves); its unit is capped at ply 7. Its
+		// stored progress is already AT that cap going into this call, so this
+		// pass's advanceTeachingProgress reports unitComplete: true, not solved.
 		const { client, upsertCalls } = fakeSupabase({
 			teachingRows: [{ variation_key: 'v1', taught_plies: 7, mastered_plies: 7 }]
 		});
 		const v1 = makeVariation('v1', 25);
-		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1], false, [v1], 4);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1], false, planFor({ v1: 7 }, ['v1']));
 
 		expect(upsertCalls.some((c) => c.table === 'variation_solved')).toBe(false);
-		// Progress is still saved (unchanged, since it was already at the
-		// ceiling) even though the variation isn't solved.
+		// The line therefore never enters the Practice pool on this pass — the
+		// unit leaves Learn, the variation stays unfinished.
+		expect(upsertCalls.some((c) => c.table === 'chapter_completed')).toBe(false);
+		// Progress is still saved (unchanged, since it was already at the cap)
+		// even though the variation isn't solved.
 		expect(upsertCalls.find((c) => c.table === 'variation_teaching_progress')?.rows).toEqual({
 			player_id: 'player-1',
 			repertoire_id: 'rep-1',
@@ -419,32 +427,32 @@ describe('applyAttemptResult with a ceilingMoveCount', () => {
 		});
 	});
 
-	it('a clean pass that pauses STILL advances practice_active_variation to a different, still-servable variation', async () => {
-		// v1 is about to pause at the ceiling (same setup as above). v2 is a
-		// short, untouched variation that stays fully servable under the same
-		// ceiling (its whole path fits within 4 player moves).
+	it('a clean pass that finishes a unit STILL advances practice_active_variation to something else', async () => {
+		// Same setup, plus a short untouched variation with a unit of its own.
+		// Leaving the pointer on v1 would re-serve the same finished board
+		// forever — this repo's central "stuck gauntlet" failure mode.
 		const { client, upsertCalls } = fakeSupabase({
 			teachingRows: [{ variation_key: 'v1', taught_plies: 7, mastered_plies: 7 }]
 		});
 		const v1 = makeVariation('v1', 25);
 		const v2 = makeVariation('v2', 4);
-		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1, v2], false, [v1, v2], 4);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1, v2], false, planFor({ v1: 7, v2: 4 }, ['v1', 'v2']));
 
 		const activeWrite = upsertCalls.find((c) => c.table === 'practice_active_variation');
 		expect(activeWrite?.rows).toEqual(expect.objectContaining({ active_variation_key: 'v2' }));
 		expect(upsertCalls.some((c) => c.table === 'variation_solved')).toBe(false);
 	});
 
-	it('a clean pass that genuinely finishes a variation within the ceiling behaves exactly as without a ceiling: marks solved, advances', async () => {
-		// v1's 13 player moves are well within a ceiling of 100, so the ceiling
-		// never binds and this must match the no-ceiling "reaching the end of
-		// the path" behavior exactly: solved, and the active variation advances.
+	it('a clean pass that genuinely finishes a variation within its cap behaves exactly as with no plan: marks solved, advances', async () => {
+		// v1's unit reaches its own true end (ply 25), so the cap never binds
+		// and this must match the no-plan "reaching the end of the path"
+		// behavior exactly: solved, and the active variation advances.
 		const { client, upsertCalls } = fakeSupabase({
 			teachingRows: [{ variation_key: 'v1', taught_plies: 25, mastered_plies: 20 }]
 		});
 		const v1 = makeVariation('v1', 25);
 		const v2 = makeVariation('v2', 4);
-		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1, v2], false, [v1, v2], 100);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', false, [v1, v2], false, planFor({ v1: 25, v2: 4 }, ['v1', 'v2']));
 
 		expect(upsertCalls.map((c) => c.table)).toEqual([
 			'variation_teaching_progress',
@@ -461,47 +469,43 @@ describe('applyAttemptResult with a ceilingMoveCount', () => {
 		expect(upsertCalls[2].rows).toEqual(expect.objectContaining({ active_variation_key: 'v2' }));
 	});
 
-	it('a mistake stays a complete no-op regardless of the ceiling', async () => {
+	it('a mistake stays a complete no-op regardless of the plan', async () => {
 		const { client, fromCalls, upsertCalls } = fakeSupabase();
 		const v1 = makeVariation('v1', 25);
-		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', true, [v1], false, [v1], 4);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'v1', true, [v1], false, planFor({ v1: 7 }, ['v1']));
 		expect(fromCalls).toHaveLength(0);
 		expect(upsertCalls).toHaveLength(0);
 	});
 
-	it("never credits a DEFERRED sibling's own new content, even if it's the one actually being recorded (GitHub issue #172)", async () => {
-		// `a`/`b` share their first 10 plies (5 player moves) and each add
-		// their own 2-ply branch. `a` is genuinely paused at a ceiling of 6
-		// player moves (ceiling ply 11 — 10 shared plies plus a's own 11th
-		// ply, its own divergent move). `b` shares only the 10 common plies
-		// (its own 11th ply differs from a's), so it's DEFERRED, not
-		// independently paused: it would also merely pause at the same
-		// ceiling, and its next batch (from ply 10) would reach it.
+	it("teaches a shared-prefix sibling's own divergent move normally — nothing defers it any more (reverses GitHub issue #172)", async () => {
+		// `a`/`b` share their first 10 plies and each add their own 2-ply
+		// branch; both units are capped at ply 11 (the shared stretch plus each
+		// line's own divergent move). `a` has already been taught to that cap.
 		//
-		// Recording a clean pass on `b` itself must NOT credit it with its
-		// own new 11th-ply move — mirroring buildPracticeView's own
-		// fallback-safety clamp exactly, since whatever served this attempt
-		// must have gone through the same restriction, or this call
-		// disagrees with what was actually served.
+		// The tier-ceiling model treated `b` as a DEFERRED sibling here and
+		// refused to credit its own 11th ply, on the grounds that the shared
+		// stretch had already been "paid for". That deferral is gone: `b`'s own
+		// divergent move is genuinely different content, and its unit is a
+		// distinct prefix that has to be learned like any other. So this pass
+		// teaches it (arrows -> taught_plies advances to the cap), with
+		// mastered_plies still at the shared floor of 10 until the blind retest.
 		const { a, b } = makeSharedPrefixVariations();
 		const { client, upsertCalls } = fakeSupabase({
 			teachingRows: [{ variation_key: 'a', taught_plies: 11, mastered_plies: 11 }]
 		});
 
-		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'b', false, [a, b], false, [a, b], 6);
+		await applyAttemptResult(client as any, 'player-1', 'rep-1', 'b', false, [a, b], false, planFor({ a: 11, b: 11 }, ['b']));
 
 		const progressWrite = upsertCalls.find((c) => c.table === 'variation_teaching_progress');
-		// Clamped to exactly the shared floor (10) — NOT 11, which would
-		// mean b's own divergent move got taught here.
 		expect(progressWrite?.rows).toEqual({
 			player_id: 'player-1',
 			repertoire_id: 'rep-1',
 			variation_key: 'b',
-			taught_plies: 10,
+			taught_plies: 11,
 			mastered_plies: 10
 		});
-		// Paused (deferred), never solved.
-		expect(upsertCalls.some((c) => c.table === 'variation_solved')).toBe(false);
+		// A teach (arrowed) pass never solves and never finishes a unit.
+		expect(upsertCalls.map((c) => c.table)).toEqual(['variation_teaching_progress']);
 	});
 });
 

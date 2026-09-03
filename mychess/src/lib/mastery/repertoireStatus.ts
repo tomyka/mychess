@@ -32,18 +32,17 @@ export function masterableChapters(variations: readonly ScopedVariation[]): stri
 
 /**
  * `learning` while anything is un-learned → `learned` once everything is →
- * `mastered` once every chapter has reached its own ceiling on the
- * knowledge-level ladder (see `isChapterComplete` in
- * `$lib/mastery/chapterLevels`) — not necessarily literally Platinum, since a
- * short chapter can never structurally reach Platinum by design.
+ * `mastered` once every chapter has learned every one of its units, at every
+ * band (see `isChapterComplete` in `$lib/mastery/learnUnits`) — not
+ * necessarily literally Platinum, since a short chapter can never
+ * structurally reach Platinum by design.
  *
  * `variations` is the repertoire's scope as the caller sees it: excluded lines
  * are already filtered out upstream (`loadFilteredRepertoireVariations` /
  * `filterVariations`), so a line a coach excluded cannot hold a repertoire at
  * `learning` forever. `completedChapters` is the set of chapter names for
- * which `isChapterComplete` is currently `true` — computed by the caller (who
- * needs the full, UNFILTERED `playerMoveCount`-bearing variation set to do
- * so, which this module intentionally does not depend on).
+ * which `isChapterComplete` is currently `true` — computed by the caller,
+ * which this module intentionally does not depend on.
  *
  * An empty repertoire is vacuously `learned`, matching the existing
  * `allSolved = solved === total` convention, but never `mastered` — there are no

@@ -3,8 +3,8 @@ import type { PageServerLoad } from './$types';
 import { requireAccount } from '$lib/server/auth';
 import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
 import { filterVariations } from '$lib/mastery/variations';
-import { teachingCeilingMoveCount, currentLevelProgress } from '$lib/mastery/chapterLevels';
-import { computeBlockedKeys, computeMasteredPliesMap } from '$lib/mastery/teaching';
+import { activeChapterState, deriveLearnPlan } from '$lib/mastery/learnUnits';
+import { computeMasteredMoveIds } from '$lib/mastery/teaching';
 import { loadSyncedActiveVariationKey, loadSolvedKeys, loadTeachingProgress } from '$lib/server/practice-progress';
 import { buildPracticeView } from '$lib/mastery/practice';
 
@@ -13,30 +13,38 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const supabase = locals.supabase;
 	const repertoireId = params.repertoire_id;
 
-	// UNFILTERED here (`loadRepertoireVariations`, not `loadFilteredRepertoireVariations`):
-	// the served `variations` still need to be the FILTERED set (unchanged), but
-	// `teachingCeilingMoveCount` (GitHub issue #163) needs the unfiltered set for
-	// the same exclusion-blocking reason `deriveChapterLevel` itself documents.
 	const [{ repertoire, variations: allVariations, excludedVariationKeys }, solvedKeys, teachingProgress] = await Promise.all([
 		loadRepertoireVariations(supabase, user!.id, repertoireId),
 		loadSolvedKeys(supabase, user!.id, repertoireId),
 		loadTeachingProgress(supabase, user!.id, repertoireId)
 	]);
+	// The FILTERED set throughout (GitHub issue #182): an excluded line produces
+	// no learn unit and blocks nothing, so unlike the tier-ceiling model this
+	// replaces there is no reason to keep the unfiltered set around.
 	const variations = filterVariations(allVariations, excludedVariationKeys);
-	// GitHub issue #181: teachingCeilingMoveCount now needs a masteredPlies
-	// map, not solvedKeys directly. currentLevelProgress reuses the exact
-	// same map so the Learn page's new progress bar and the ceiling it's
-	// measuring progress toward can never disagree.
-	const masteredPlies = computeMasteredPliesMap(allVariations, teachingProgress, solvedKeys);
-	const ceilingMoveCount = teachingCeilingMoveCount(allVariations, masteredPlies);
-	const currentLevel = currentLevelProgress(allVariations, masteredPlies);
-	// Threaded into loadSyncedActiveVariationKey so a stored pointer already
-	// paused at the ceiling is resolved past it at THIS stage, rather than
-	// relying solely on buildPracticeView's own later pickActiveVariation call
-	// to self-correct (see loadSyncedActiveVariationKey's doc comment).
-	const blockedKeys = computeBlockedKeys(variations, solvedKeys, teachingProgress, ceilingMoveCount);
-	const activeVariationKey = await loadSyncedActiveVariationKey(supabase, user!.id, repertoireId, variations, solvedKeys, blockedKeys);
+	const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, solvedKeys);
+	// Derived ONCE and threaded through everything below — the servable set, the
+	// per-variation teaching cap, and the progress bar all read this one value,
+	// so they cannot disagree.
+	const plan = deriveLearnPlan(variations, masteredMoveIds);
+	// Threaded in so a stored pointer at an already-learned unit is resolved
+	// past at THIS stage, rather than relying on buildPracticeView's own later
+	// pickActiveVariation call to self-correct.
+	const activeVariationKey = await loadSyncedActiveVariationKey(
+		supabase,
+		user!.id,
+		repertoireId,
+		variations,
+		solvedKeys,
+		plan.servableVariationKeys
+	);
 
-	const view = buildPracticeView(variations, activeVariationKey, solvedKeys, teachingProgress, ceilingMoveCount);
+	const view = buildPracticeView(variations, activeVariationKey, solvedKeys, teachingProgress, plan);
+	const chapter = activeChapterState(plan, variations, view.attempt?.variationKey ?? activeVariationKey);
+	// Shaped for the page's existing band progress bar. `null` once every
+	// chapter is complete, which hides the bar rather than showing a full one.
+	const currentLevel =
+		chapter && chapter.band ? { tier: chapter.band, ready: chapter.learnedInBand, total: chapter.totalInBand } : null;
+
 	return { repertoire, currentLevel, ...view };
 };

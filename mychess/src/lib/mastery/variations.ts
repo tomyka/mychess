@@ -1,4 +1,3 @@
-import { ceilingPlyFor } from './teaching';
 
 export type RawMoveRow = {
 	id: string;
@@ -420,58 +419,4 @@ export function groupByFirstMoves<T>(
 	const otherGroup: MoveGroup<T> | null = otherItems.length > 0 ? { steps: [], items: otherItems } : null;
 
 	return [...namedGroups, ...(otherGroup ? [otherGroup] : [])];
-}
-
-/**
- * Buckets variations that currently extend past the teaching ceiling by their
- * own shared prefix, clipped to exactly where `ceilingMoveCount` lands within
- * each item's own path (`ceilingPlyFor` — never a fixed depth, since a
- * batch's ply length depends on whose move it lands on). Two items land in
- * the same group only when their clipped prefixes are the SAME underlying
- * moves, compared by `moveId` rather than SAN text — matching exactly what
- * `knownProgressFor`'s shared-credit mechanic already treats as
- * interchangeable, so a group's members are always the same set of
- * variations that teaching one of them credits for every other (GitHub issue
- * #165).
- *
- * Unlike `groupByFirstMoves`, there is no fixed window and no top-N cap:
- * every distinct clipped prefix becomes its own group, in first-appearance
- * order. Callers should only pass items whose own path extends past the
- * ceiling (`ceilingPlyFor(path, ceilingMoveCount) < path.length`) — an item
- * that's already fully within the ceiling has nothing to clip, and belongs
- * on the regular (`groupByFirstMoves`) view instead.
- */
-export function groupByCeilingPrefix<T>(
-	items: T[],
-	stepsOf: (item: T) => VariationStep[],
-	ceilingMoveCount: number
-): MoveGroup<T>[] {
-	if (items.length === 0) return [];
-
-	const clippedStepsOf = (item: T) => {
-		const steps = stepsOf(item);
-		return steps.slice(0, ceilingPlyFor(steps, ceilingMoveCount));
-	};
-	const keyOf = (item: T) =>
-		clippedStepsOf(item)
-			.map((s) => s.moveId)
-			.join('>');
-
-	const firstAppearanceOrder: string[] = [];
-	const buckets = new Map<string, T[]>();
-	const stepsByKey = new Map<string, VariationStep[]>();
-	for (const item of items) {
-		const key = keyOf(item);
-		if (!buckets.has(key)) {
-			firstAppearanceOrder.push(key);
-			buckets.set(key, []);
-			stepsByKey.set(key, clippedStepsOf(item));
-		}
-		buckets.get(key)!.push(item);
-	}
-
-	return firstAppearanceOrder.map((key) => ({
-		steps: stepsByKey.get(key)!,
-		items: buckets.get(key)!
-	}));
 }

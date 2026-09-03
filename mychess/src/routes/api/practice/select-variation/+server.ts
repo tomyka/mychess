@@ -3,8 +3,8 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
 import { filterVariations } from '$lib/mastery/variations';
-import { teachingCeilingMoveCount } from '$lib/mastery/chapterLevels';
-import { isLockedForTier, isCeilingReachedAnywhere, knownProgressFor, computeMasteredMoveIds, computeMasteredPliesMap } from '$lib/mastery/teaching';
+import { deriveLearnPlan } from '$lib/mastery/learnUnits';
+import { computeMasteredMoveIds } from '$lib/mastery/teaching';
 import { setActiveVariationKey, loadSolvedKeys, loadTeachingProgress } from '$lib/server/practice-progress';
 import { requireApiUser } from '$lib/server/auth';
 import { buildPracticeView } from '$lib/mastery/practice';
@@ -16,12 +16,13 @@ import { buildPracticeView } from '$lib/mastery/practice';
  * (re-drilling for confidence); it doesn't un-solve anything, and it never
  * re-teaches (see buildPracticeView's already-solved bypass).
  *
- * An UNSOLVED variation already paused at the current tier ceiling (GitHub
- * issue #163) is rejected with 403 — the picker's own disabled UI (a later
- * task) is only a courtesy; this is the real, server-side gate, since a
- * request can always bypass client-side UI. The check must run BEFORE
- * `setActiveVariationKey` below, or a locked variation would already be
- * persisted as active by the time the rejection is thrown.
+ * An UNSOLVED variation with no unlearned learn unit is rejected with 409:
+ * there is genuinely nothing left to teach in it right now, so persisting it
+ * as active would re-serve a finished board. That can only happen from a stale
+ * client — the picker never renders a learned unit — so this is a
+ * consistency guard, not a gate the UI is expected to hit. The check must run
+ * BEFORE `setActiveVariationKey`, or the dead pick would already be persisted
+ * by the time the rejection is thrown.
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const { supabase } = locals;
@@ -35,8 +36,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const { variations: allVariations, excludedVariationKeys } = await loadRepertoireVariations(supabase, user.id, repertoireId);
 	const variations = filterVariations(allVariations, excludedVariationKeys);
-	const picked = variations.find((v) => v.variationKey === variationKey);
-	if (!picked) {
+	if (!variations.some((v) => v.variationKey === variationKey)) {
 		throw error(404, 'Variation not found');
 	}
 
@@ -44,46 +44,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		loadSolvedKeys(supabase, user.id, repertoireId),
 		loadTeachingProgress(supabase, user.id, repertoireId)
 	]);
-	// GitHub issue #181: teachingCeilingMoveCount now needs a masteredPlies
-	// map, computed over the UNFILTERED `allVariations` set — distinct from
-	// the FILTERED-pool `masteredMoveIds` computed further below for the
-	// isLockedForTier check, which deliberately uses a different pool (see
-	// that computation's own doc comment).
-	const masteredPliesForCeiling = computeMasteredPliesMap(allVariations, teachingProgress, solvedKeys);
-	const ceilingMoveCount = teachingCeilingMoveCount(allVariations, masteredPliesForCeiling);
+	// Over the FILTERED pool, which is the same pool `buildPracticeView` below
+	// will use for the same computation — `knownProgressFor`'s doc comment
+	// requires it: the two "must agree exactly, or the server records progress
+	// against a different step than the one it served."
+	const plan = deriveLearnPlan(variations, computeMasteredMoveIds(variations, teachingProgress, solvedKeys));
 
-	if (!solvedKeys.has(variationKey)) {
-		// Shared-credit-aware (GitHub issue #168) and, deliberately, over the
-		// same FILTERED `variations` pool `buildPracticeView` below will
-		// itself use for the exact same computation (mastery/practice.ts) —
-		// not `allVariations`. `knownProgressFor`'s own doc comment requires
-		// this: the two calls "must agree exactly, or the server records
-		// progress against a different step than the one it served." Using
-		// the bigger, unfiltered pool here could credit more shared mastery
-		// than the serve step actually will (excluded siblings can only ever
-		// ADD credit, never remove it), which could reject a pick that
-		// `buildPracticeView` would in fact have served just fine.
-		// Computed once, not once for `knownProgressFor` and again inside
-		// `isCeilingReachedAnywhere` — both would otherwise independently
-		// re-derive the same whole-repertoire set.
-		const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, solvedKeys);
-		const { masteredPlies } = knownProgressFor({
-			variation: picked,
-			variations,
-			teachingProgress,
-			solvedKeys,
-			resumedAfterBreak: false,
-			masteredMoveIds
-		});
-		// Shared-credit-aware AND deferred-sibling-aware (GitHub issue #172) —
-		// matching `computeBlockedKeys`, which is what actually decides what
-		// auto-advance would have served here anyway.
-		const ceilingReached = isCeilingReachedAnywhere(variations, solvedKeys, teachingProgress, ceilingMoveCount, masteredMoveIds);
-		if (isLockedForTier(picked.path, masteredPlies, ceilingMoveCount, ceilingReached)) {
-			throw error(403, 'This line is locked until you finish your current tier');
-		}
+	if (!solvedKeys.has(variationKey) && !plan.servableVariationKeys.includes(variationKey)) {
+		throw error(409, 'That line is already learned');
 	}
 
 	await setActiveVariationKey(supabase, user.id, repertoireId, variationKey);
-	return json(buildPracticeView(variations, variationKey, solvedKeys, teachingProgress, ceilingMoveCount, true));
+	return json(buildPracticeView(variations, variationKey, solvedKeys, teachingProgress, plan, true));
 };

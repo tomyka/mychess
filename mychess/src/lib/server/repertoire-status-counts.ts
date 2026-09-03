@@ -9,8 +9,8 @@ import { loadRepertoireVariations } from './practice-repertoire';
 import { loadSolvedKeys, loadTeachingProgress } from './practice-progress';
 import { deriveRepertoireStatus, masterableChapters } from '$lib/mastery/repertoireStatus';
 import { filterVariations, rowsInChapterTier } from '$lib/mastery/variations';
-import { isChapterComplete } from '$lib/mastery/chapterLevels';
-import { computeMasteredPliesMap } from '$lib/mastery/teaching';
+import { isChapterComplete } from '$lib/mastery/learnUnits';
+import { computeMasteredMoveIds } from '$lib/mastery/teaching';
 
 /**
  * Counts Learned and Mastered repertoires for one player.
@@ -46,18 +46,14 @@ export async function countRepertoireStatuses(
 					loadSolvedKeys(supabase, playerId, summary.id),
 					loadTeachingProgress(supabase, playerId, summary.id)
 				]);
-				// `deriveRepertoireStatus`'s own "learned" check wants the FILTERED
-				// set (an excluded line is not owed to it, exactly like today) —
-				// but chapter completeness needs the UNFILTERED set, so an excluded,
-				// never-solved variation still caps its chapter below its own
-				// ceiling instead of vanishing from the bracket entirely (see
-				// `isChapterComplete`'s doc comment).
+				// FILTERED for both questions (GitHub issue #182): an excluded line
+				// is not owed to `deriveRepertoireStatus`'s "learned" check, and no
+				// longer caps its chapter's band either — so a player who trims a
+				// line can still reach Mastered.
 				const variations = filterVariations(allVariations, excludedVariationKeys);
-				const masteredPlies = computeMasteredPliesMap(allVariations, teachingProgress, learnedKeys);
+				const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, learnedKeys);
 				const completedChapters = new Set(
-					masterableChapters(allVariations).filter((chapter) =>
-						isChapterComplete(rowsInChapterTier(allVariations, chapter), masteredPlies)
-					)
+					masterableChapters(variations).filter((chapter) => isChapterComplete(rowsInChapterTier(variations, chapter), masteredMoveIds))
 				);
 				return deriveRepertoireStatus({ variations, learnedKeys, completedChapters });
 			} catch (err) {

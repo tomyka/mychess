@@ -3,7 +3,6 @@ import {
 	chapterTiers,
 	enumerateVariations,
 	filterVariations,
-	groupByCeilingPrefix,
 	groupByFirstMoves,
 	hasChapterTags,
 	moveIdsInVariationKey,
@@ -638,70 +637,5 @@ describe('groupByFirstMoves', () => {
 
 	it('returns an empty array for an empty item list', () => {
 		expect(groupByFirstMoves([], stepsOf, 5, 5)).toEqual([]);
-	});
-});
-
-describe('groupByCeilingPrefix', () => {
-	function step(san: string, moveId: string): VariationStep {
-		return { moveId, san, fromFen: 'f', toFen: 'f2', isPlayerTurn: true };
-	}
-	function item(id: string, path: VariationStep[]): { id: string; path: VariationStep[] } {
-		return { id, path };
-	}
-	function stepsOf(x: { path: VariationStep[] }): VariationStep[] {
-		return x.path;
-	}
-	function labels(groups: ReturnType<typeof groupByCeilingPrefix>) {
-		return groups.map((g) => g.steps.map((s) => s.san));
-	}
-	function ids(group: ReturnType<typeof groupByCeilingPrefix>[number]) {
-		return group.items.map((v: any) => v.id);
-	}
-
-	// Every ply here is `isPlayerTurn: true`, so `ceilingPlyFor(path, N)` clips
-	// at exactly the Nth ply (see `ceilingPlyFor`'s own doc comment in
-	// `teaching.ts` — it counts PLAYER plies, and every ply here is one).
-	const shared = ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5'].map((san, i) => step(san, `shared-${i}`));
-
-	it('groups two variations that share the same underlying moves up to the ceiling, even though their own paths continue further and differently', () => {
-		const a = item('a', [...shared, step('a6', 'a-5'), step('Ba4', 'a-6')]);
-		const b = item('b', [...shared, step('O-O', 'b-5'), step('d3', 'b-6')]);
-		const groups = groupByCeilingPrefix([a, b], stepsOf, 3);
-		expect(groups).toHaveLength(1);
-		expect(labels(groups)).toEqual([['e4', 'e5', 'Nf3']]);
-		expect(ids(groups[0])).toEqual(['a', 'b']);
-	});
-
-	it('keeps two variations apart when their SAN text matches but the underlying moves do not (no real shared credit)', () => {
-		const a = item('a', ['e4', 'e5', 'Nf3'].map((san, i) => step(san, `a-${i}`)));
-		const b = item('b', ['e4', 'e5', 'Nf3'].map((san, i) => step(san, `b-${i}`)));
-		const groups = groupByCeilingPrefix([a, b], stepsOf, 3);
-		expect(groups).toHaveLength(2);
-		expect(ids(groups[0])).toEqual(['a']);
-		expect(ids(groups[1])).toEqual(['b']);
-	});
-
-	it('clips exactly at the ceiling ply, not at wherever the line actually continues', () => {
-		const a = item('a', [...shared, step('a6', 'a-5')]); // 6 plies total
-		const groups = groupByCeilingPrefix([a], stepsOf, 3);
-		expect(labels(groups)).toEqual([['e4', 'e5', 'Nf3']]);
-	});
-
-	it('uses the full path when the ceiling is not shorter than it (nothing to clip)', () => {
-		const a = item('a', shared); // exactly 5 plies
-		const groups = groupByCeilingPrefix([a], stepsOf, 10);
-		expect(labels(groups)).toEqual([shared.map((s) => s.san)]);
-	});
-
-	it('has no top-N cap — every distinct clipped prefix gets its own group', () => {
-		const items = ['e4', 'd4', 'c4', 'Nf3', 'g3', 'b3', 'f4'].map((san, i) =>
-			item(`v${i}`, [step(san, `m${i}-0`), step('x', `m${i}-1`), step('y', `m${i}-2`), step('z', `m${i}-3`)])
-		);
-		const groups = groupByCeilingPrefix(items, stepsOf, 1);
-		expect(groups).toHaveLength(7); // no "Other" bucket, unlike groupByFirstMoves
-	});
-
-	it('returns an empty array for an empty item list', () => {
-		expect(groupByCeilingPrefix([], stepsOf, 3)).toEqual([]);
 	});
 });

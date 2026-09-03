@@ -104,14 +104,11 @@
 			// pendingReport resolves. Only a FINAL pass can actually learn the
 			// variation — a clean teach pass or an intermediate blind-retest
 			// pass hasn't finished it yet, so it must not bump the count. Nor
-			// can a pass that only reached the teaching-tier CEILING
-			// (`pausedAtCeiling`): that's a genuine pause, not a solve — this
-			// used to be missed entirely (the field wasn't even sent to the
-			// client), which is why `learnedThisSession` and the optimistic
-			// `solved` bump would both fire the moment a variation merely
-			// paused, before the picker marked it (and any deferred sibling)
-			// locked a moment later — see GitHub issue #180.
-			if (attempt.isFinalPass && !attempt.pausedAtCeiling) {
+			// can a pass that only finished the served LEARN UNIT
+			// (`unitComplete`): the unit leaves the Learn list, but the
+			// variation itself isn't done and doesn't enter the Practice pool,
+			// so `data.solved` — a count of finished VARIATIONS — must not move.
+			if (attempt.isFinalPass && !attempt.unitComplete) {
 				data = { ...data, solved: optimisticSolvedAfterAttempt(data, hadMistake) };
 				if (!hadMistake) learnedThisSession++;
 			}
@@ -380,11 +377,11 @@
 				body: JSON.stringify({ repertoireId, variationKey })
 			});
 			if (!res.ok) {
-				// A 403 means the server's own tier-ceiling gate rejected this pick
-				// (see select-variation's doc comment) — distinct from a generic
-				// failure, since "try again" is misleading here: retrying won't
-				// help until the current tier is actually cleared.
-				selectError = res.status === 403 ? m.learn_select_variation_locked() : m.learn_select_variation_error();
+				// Includes the 409 "already learned" consistency guard, which only
+				// a stale client can trigger (the picker never renders a learned
+				// unit) — the re-fetch the picker does on every active-line change
+				// resolves it, so the generic retry message is the right advice.
+				selectError = m.learn_select_variation_error();
 				return;
 			}
 			selectError = null;

@@ -9,11 +9,15 @@ export type TeachingStep = {
 	path: VariationStep[];
 	arrowPlies: { from: number; to: number } | null;
 	isFinalPass: boolean;
-	/** True only when THIS pass reached path's end because of `ceilingPly`,
-	 * not because the variation's own true path ended there. The caller —
-	 * never this module — decides what "paused" means downstream (no
-	 * variation_solved write, still advance past it when picking what's next). */
-	pausedAtCeiling: boolean;
+	/**
+	 * True only when THIS pass reached path's end because of `ceilingPly` —
+	 * i.e. it finished the served LEARN UNIT (the clipped prefix) without
+	 * reaching the variation's own true end. The unit leaves the Learn list
+	 * either way; this flag is what tells the caller NOT to write
+	 * `variation_solved`, so the line doesn't enter the Practice pool until a
+	 * later band serves it to its real end (see `mastery/learnUnits.ts`).
+	 */
+	unitComplete: boolean;
 };
 
 /**
@@ -80,13 +84,14 @@ export function ceilingPlyFor(path: readonly VariationStep[], ceilingMoveCount: 
  * docs/superpowers/specs/2026-08-26-tier-gated-learn-design.md §3 for
  * `ceilingPly`'s rationale (GitHub issue #163).
  *
- * `ceilingPly` defaults to `path.length` — i.e. no cap, today's exact
- * behavior — so every existing caller that doesn't pass one is unaffected.
- * `TEACHING_BATCH_MOVES` (3) divides evenly into every tier boundary this
- * repo's ceilings ever use (9/18/27), so a real ceiling always lands exactly
+ * `ceilingPly` defaults to `path.length` — i.e. no cap — and is the served
+ * learn unit's own clipped length when there is one (see
+ * `LearnPlan.ceilingPlyByVariationKey`).
+ * `TEACHING_BATCH_MOVES` (3) divides evenly into every band boundary this
+ * repo's caps ever use (9/18/27), so a real cap always lands exactly
  * on a batch boundary in the ordinary path; the `Math.min` clamps below exist
- * for the one case that can still disagree — a ceiling that REGRESSED (a
- * coach reconciliation demoting solved content) below progress already made
+ * for the one case that can still disagree — a cap that REGRESSED (a
+ * coach reconciliation demoting learned content) below progress already made
  * under a higher one.
  */
 export function resolveTeachingStep(
@@ -101,18 +106,18 @@ export function resolveTeachingStep(
 			path: path.slice(0, effectiveLength),
 			arrowPlies: null,
 			isFinalPass: true,
-			pausedAtCeiling: effectiveLength < path.length
+			unitComplete: effectiveLength < path.length
 		};
 	}
 	if (taughtPlies === masteredPlies) {
 		const target = Math.min(plyAfterPlayerMoves(path, masteredPlies, TEACHING_BATCH_MOVES), effectiveLength);
 		// See resolveTeachingStep's own prior doc comment (issue #68) for why a
-		// pass that draws arrows is never the final pass, unchanged by the ceiling.
+		// pass that draws arrows is never the final pass, unchanged by the cap.
 		return {
 			path: path.slice(0, target),
 			arrowPlies: { from: masteredPlies, to: target },
 			isFinalPass: false,
-			pausedAtCeiling: false
+			unitComplete: false
 		};
 	}
 	const target = Math.min(taughtPlies, effectiveLength);
@@ -120,7 +125,7 @@ export function resolveTeachingStep(
 		path: path.slice(0, target),
 		arrowPlies: null,
 		isFinalPass: target >= effectiveLength,
-		pausedAtCeiling: target >= effectiveLength && effectiveLength < path.length
+		unitComplete: target >= effectiveLength && effectiveLength < path.length
 	};
 }
 
@@ -129,14 +134,13 @@ export function resolveTeachingStep(
  * re-derives the step that was actually served (via `resolveTeachingStep`)
  * rather than trusting anything the client reports beyond `hadMistake`.
  *
- * `solved` now means genuinely, truly finished — never true for a pass that
- * only reached a ceiling short of the variation's own real end.
- * `pausedAtCeiling` is the caller's signal to do everything a genuine solve
- * does NOT do (no `variation_solved` write, no completed-chapters cache
- * update) while STILL doing the one thing a mid-batch pass does NOT do:
- * advance past this variation when deciding what to serve next (see
- * `variationSequence.ts`'s new `blockedKeys` parameter and
- * `server/practice-progress.ts`'s new branch in `applyAttemptResult`).
+ * `solved` means genuinely, truly finished — never true for a pass that only
+ * reached the served unit's cap, short of the variation's own real end.
+ * `unitComplete` is the caller's signal to do everything a genuine solve does
+ * NOT do (no `variation_solved` write, no completed-chapters cache update)
+ * while STILL doing the one thing a mid-batch pass does NOT do: advance past
+ * this variation when deciding what to serve next (see
+ * `server/practice-progress.ts`'s branch in `applyAttemptResult`).
  */
 export function advanceTeachingProgress(
 	path: VariationStep[],
@@ -144,187 +148,22 @@ export function advanceTeachingProgress(
 	masteredPlies: number,
 	hadMistake: boolean,
 	ceilingPly: number = path.length
-): { taughtPlies: number; masteredPlies: number; solved: boolean; pausedAtCeiling: boolean } {
+): { taughtPlies: number; masteredPlies: number; solved: boolean; unitComplete: boolean } {
 	const step = resolveTeachingStep(path, taughtPlies, masteredPlies, ceilingPly);
 
 	if (hadMistake) {
-		return { taughtPlies, masteredPlies, solved: false, pausedAtCeiling: false };
+		return { taughtPlies, masteredPlies, solved: false, unitComplete: false };
 	}
 	if (step.arrowPlies) {
-		return { taughtPlies: step.arrowPlies.to, masteredPlies, solved: false, pausedAtCeiling: false };
+		return { taughtPlies: step.arrowPlies.to, masteredPlies, solved: false, unitComplete: false };
 	}
 	const masteredNow = step.path.length;
 	return {
 		taughtPlies: Math.max(taughtPlies, masteredNow),
 		masteredPlies: masteredNow,
-		solved: step.isFinalPass && !step.pausedAtCeiling,
-		pausedAtCeiling: step.isFinalPass && step.pausedAtCeiling
+		solved: step.isFinalPass && !step.unitComplete,
+		unitComplete: step.isFinalPass && step.unitComplete
 	};
-}
-
-/**
- * Whether `path` currently has nothing more Learn can teach under
- * `ceilingMoveCount` — already taught as far as the ceiling allows, but not
- * this variation's own true end. Deliberately FALSE for an untouched
- * (`masteredPlies === 0`) long variation: that one is still fully servable,
- * up to the ceiling, on its very next pass — this predicate answers "is
- * there nothing left to do here RIGHT NOW", not "is this variation long".
- */
-export function isPausedAtCeiling(path: readonly VariationStep[], masteredPlies: number, ceilingMoveCount: number): boolean {
-	const ceilingPly = ceilingPlyFor(path, ceilingMoveCount);
-	return masteredPlies >= ceilingPly && ceilingPly < path.length;
-}
-
-/**
- * Whether `path` would merely PAUSE at the ceiling rather than genuinely
- * finish there — i.e. its own true end lies beyond `ceilingMoveCount`. Ply
- * position within `ceilingMoveCount` player moves lands at the SAME index
- * for every variation of consistent starting side-to-move regardless of
- * content (`ceilingPlyFor` counts player-turn plies, which alternate on a
- * fixed parity), so this is really "is `path` longer than the ceiling" —
- * shared by `isCeilingReachedAnywhere` and `isLockedForTier` below so both
- * agree on what counts as "would merely pause" vs. "would solve outright."
- */
-function wouldMerelyPauseAt(path: readonly VariationStep[], ceilingMoveCount: number): boolean {
-	return ceilingPlyFor(path, ceilingMoveCount) < path.length;
-}
-
-/**
- * Whether ANY currently-unsolved variation has already been taught all the
- * way to the tier ceiling and is genuinely paused there (not just eligible
- * to pause) — GitHub issue #172. Feeds `isLockedForTier`'s deferred-sibling
- * check below; expensive to recompute per row (an O(n) scan plus a shared
- * `knownProgressFor` call per candidate), so callers compute it ONCE per
- * request and pass the result to every row, not once per row.
- */
-export function isCeilingReachedAnywhere(
-	variations: Variation[],
-	solvedKeys: ReadonlySet<string>,
-	teachingProgress: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number }>,
-	ceilingMoveCount: number,
-	masteredMoveIds: ReadonlySet<string> = computeMasteredMoveIds(variations, teachingProgress, solvedKeys)
-): boolean {
-	return variations.some((variation) => {
-		if (solvedKeys.has(variation.variationKey)) return false;
-		if (!wouldMerelyPauseAt(variation.path, ceilingMoveCount)) return false;
-		const { masteredPlies } = knownProgressFor({
-			variation,
-			variations,
-			teachingProgress,
-			solvedKeys,
-			resumedAfterBreak: false,
-			masteredMoveIds
-		});
-		return isPausedAtCeiling(variation.path, masteredPlies, ceilingMoveCount);
-	});
-}
-
-/**
- * Whether `path` is locked for the CURRENT tier — either genuinely paused
- * at its own ceiling (`isPausedAtCeiling`), or (GitHub issue #172)
- * DEFERRED: some sibling sharing part of its credited prefix has already
- * been taught all the way to the ceiling and paused there (`ceilingReached`,
- * from `isCeilingReachedAnywhere`), `path` would ALSO merely pause at the
- * same ceiling rather than solve outright, and `path`'s OWN VERY NEXT
- * teaching batch would reach or cross that same ceiling.
- *
- * That last condition is deliberately NOT "masteredPlies > 0" — nearly
- * every variation in a same-starting-move repertoire shares at least its
- * opening move with everything else once ANYTHING has been taught at all
- * (that literal first edge is typically one shared row in the move graph),
- * so a bare "has any credit" test would defer almost the WHOLE repertoire
- * the instant anything paused, silently breaking the original design's
- * "Learn simply serves something else" guarantee for genuinely unrelated,
- * still-fresh lines. Requiring the next batch to reach the ceiling is what
- * actually distinguishes "this line's remaining content is just the last
- * sliver of an already-mostly-taught shared stretch" from "this line
- * happens to share an opening move but still has a normal amount of its
- * own, genuinely fresh content left to teach first."
- *
- * The user's own framing, from the grilling session behind this change:
- * a repertoire with several near-identical continuations sharing almost
- * their entire length used to let Learn front-load ALL of the shared
- * content via one continuation's own teaching, then separately quiz the
- * player on each OTHER continuation's own single divergent final move —
- * one quick quiz per sibling, indefinitely, since each such move is
- * technically still "that sibling's own Nth move," nominally within its
- * own per-path budget. Once the ceiling has genuinely been reached by
- * ANYONE, a pass counts as passed for every variation sharing that
- * stretch, not a fresh per-sibling allowance for its own unique tail — a
- * sibling whose OWN true end is reached in the process (it would SOLVE,
- * not merely pause) is exempt: finishing it is a genuine, permanent piece
- * of knowledge, not more of the same already-covered content.
- */
-export function isLockedForTier(
-	path: readonly VariationStep[],
-	masteredPlies: number,
-	ceilingMoveCount: number,
-	ceilingReached: boolean
-): boolean {
-	if (isPausedAtCeiling(path, masteredPlies, ceilingMoveCount)) return true;
-	if (!ceilingReached || !wouldMerelyPauseAt(path, ceilingMoveCount)) return false;
-	if (masteredPlies <= 0) return false;
-	const ceilingPly = ceilingPlyFor(path, ceilingMoveCount);
-	if (masteredPlies >= ceilingPly) return false; // already genuinely paused, handled above
-	const nextBatchEnd = plyAfterPlayerMoves(path as VariationStep[], masteredPlies, TEACHING_BATCH_MOVES);
-	return nextBatchEnd >= ceilingPly;
-}
-
-/**
- * Whether `path` has been taught at least as far as `ceilingMoveCount`
- * allows — true both for a variation genuinely PAUSED there
- * (`isPausedAtCeiling`) and for one whose own true end already lies at or
- * before the ceiling and has been fully mastered (an ordinary solve). The
- * single predicate `chapterLevels.ts`'s tier derivation needs (GitHub issue
- * #181): "is there nothing more THIS tier could currently ask of this
- * variation" — regardless of whether that's because it's short and done, or
- * long and capped.
- */
-export function hasReachedCeiling(path: readonly VariationStep[], masteredPlies: number, ceilingMoveCount: number): boolean {
-	const ceilingPly = ceilingPlyFor(path, ceilingMoveCount);
-	return masteredPlies >= Math.min(path.length, ceilingPly);
-}
-
-/**
- * Every variation's effective `masteredPlies` — shared-credit-aware, matching
- * what `knownProgressFor` would return for each individually — computed ONCE
- * for the whole repertoire (GitHub issue #181). `deriveChapterLevel` needs
- * this per variation for EVERY tier check, and a caller that derives levels
- * for many chapters in one request (the Levels page, coach student-progress)
- * must not recompute `computeMasteredMoveIds` (an O(repertoire) scan) once
- * per chapter — that would turn an O(n) question into O(chapters × n). Same
- * solved-gets-full-credit branch as `computeMasteredMoveIds` itself, for the
- * same reason: a just-solved variation's own `masteredPlies` counter isn't
- * guaranteed to be caught up in every caller's snapshot, but `solvedKeys`
- * always is.
- *
- * `masteredMoveIds`, when passed, is used as-is instead of being recomputed —
- * mirrors `knownProgressFor`'s own optional parameter of the same name, for a
- * caller that already computed it for an unrelated reason in the same
- * request (e.g. `/api/repertoires/[id]/variations`).
- *
- * Unlike `knownProgressFor`, this has no `resumedAfterBreak` concept — it's
- * equivalent to calling that function with `resumedAfterBreak: false` for
- * every variation, without needing its `Math.max(own, sharedFloor)` step: a
- * variation's own progress is always folded into `masteredMoveIds` first (see
- * `computeMasteredMoveIds`), so its own prefix is always contained in the
- * shared one. Not appropriate for a resume-after-break code path, where the
- * floor must be zeroed instead — no current caller needs that here.
- */
-export function computeMasteredPliesMap(
-	variations: Variation[],
-	teachingProgress: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number }>,
-	solvedKeys: ReadonlySet<string>,
-	masteredMoveIds: ReadonlySet<string> = computeMasteredMoveIds(variations, teachingProgress, solvedKeys)
-): Map<string, number> {
-	const map = new Map<string, number>();
-	for (const variation of variations) {
-		map.set(
-			variation.variationKey,
-			solvedKeys.has(variation.variationKey) ? variation.path.length : sharedMasteredPrefixLength(variation.path, masteredMoveIds)
-		);
-	}
-	return map;
 }
 
 /**
@@ -421,12 +260,12 @@ export function knownProgressFor(args: {
 	solvedKeys: ReadonlySet<string>;
 	resumedAfterBreak: boolean;
 	// Precomputed `computeMasteredMoveIds(variations, teachingProgress, solvedKeys)`,
-	// for a caller (`computeBlockedKeys`) that calls this once per variation
-	// in a repertoire — recomputing the whole-repertoire mastered-moveId set
-	// on every one of those calls would be O(n²) in variation count for no
-	// reason, since the set itself doesn't depend on which variation is being
-	// asked about. Optional so every other caller (asking about exactly one
-	// variation) is unaffected.
+	// for a caller that already has one on hand (every real caller now derives
+	// it once per request to build the learn plan) — recomputing the
+	// whole-repertoire mastered-moveId set here would be a second O(n) scan for
+	// no reason, since the set doesn't depend on which variation is being asked
+	// about. Optional so a caller asking about exactly one variation in
+	// isolation is unaffected.
 	masteredMoveIds?: ReadonlySet<string>;
 }): { taughtPlies: number; masteredPlies: number } {
 	const own = args.teachingProgress.get(args.variation.variationKey) ?? { taughtPlies: 0, masteredPlies: 0 };
@@ -438,57 +277,6 @@ export function knownProgressFor(args: {
 		sharedFloor,
 		resumedAfterBreak: args.resumedAfterBreak
 	});
-}
-
-/**
- * Which currently-unsolved variations have nothing more Learn can teach them
- * right now under `ceilingMoveCount` (see `isPausedAtCeiling`) — used to keep
- * `pickActiveVariation`/`advanceIfSolved` from serving (or re-serving) a
- * variation that's blocked at its tier ceiling. Shared between serve time
- * (`buildPracticeView`, `mastery/practice.ts`) and record time
- * (`applyAttemptResult`, `server/practice-progress.ts`) — those two must
- * agree exactly on what's blocked, never compute it independently, which is
- * why this lives here rather than as a local helper in either caller.
- *
- * Shared-credit-aware (`knownProgressFor`), not each variation's own raw
- * progress row - matching the picker's `locked` display (GitHub issue #165)
- * and `select-variation`'s own rejection (#168): a never-visited variation
- * whose entire visible opening is already mastered via a sibling sharing
- * those moves must be treated as blocked immediately too, or it gets picked
- * as "next" and re-teaches a supposedly-new final move that's actually still
- * within the tier the ceiling already spent on its siblings.
- *
- * Also covers deferred siblings (`isLockedForTier`, GitHub issue #172): once
- * the ceiling has genuinely been reached anywhere, an unsolved variation
- * that would ALSO merely pause there (not solve outright), and already
- * carries some shared credit toward it, is blocked too — not just the one
- * that actually reached it.
- */
-export function computeBlockedKeys(
-	variations: Variation[],
-	solvedKeys: ReadonlySet<string>,
-	teachingProgress: ReadonlyMap<string, { taughtPlies: number; masteredPlies: number }>,
-	ceilingMoveCount: number
-): Set<string> {
-	// Computed once, not once per variation: this set doesn't depend on which
-	// variation is being checked, and recomputing it inside the loop below
-	// would make this function quadratic in variation count.
-	const masteredMoveIds = computeMasteredMoveIds(variations, teachingProgress, solvedKeys);
-	const ceilingReached = isCeilingReachedAnywhere(variations, solvedKeys, teachingProgress, ceilingMoveCount, masteredMoveIds);
-	const blocked = new Set<string>();
-	for (const variation of variations) {
-		if (solvedKeys.has(variation.variationKey)) continue;
-		const { masteredPlies } = knownProgressFor({
-			variation,
-			variations,
-			teachingProgress,
-			solvedKeys,
-			resumedAfterBreak: false,
-			masteredMoveIds
-		});
-		if (isLockedForTier(variation.path, masteredPlies, ceilingMoveCount, ceilingReached)) blocked.add(variation.variationKey);
-	}
-	return blocked;
 }
 
 /**
