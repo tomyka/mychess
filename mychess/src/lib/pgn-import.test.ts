@@ -4,7 +4,9 @@ import {
   chapterName,
   countHeaderValuesAcrossGames,
   planGameImport,
-  resolvePlayerColor
+  resolvePlayerColor,
+  describeChapter,
+  type ImportChapter
 } from './pgn-import';
 
 describe('planMultiImport', () => {
@@ -195,6 +197,88 @@ describe('resolvePlayerColor', () => {
 
   it('returns null when neither side matches', () => {
     expect(resolvePlayerColor({ White: 'a', Black: 'b' }, 'c')).toBeNull();
+  });
+});
+
+describe('describeChapter', () => {
+  /**
+   * A linear chain of `plies` synthetic edges. `describeChapter` walks
+   * fromFen → toFen edges and never validates chess legality, so fake
+   * position strings are the honest way to test depth without hand-writing
+   * 40 legal moves.
+   */
+  function linearChapter(plies: number, name = 'Chapter'): ImportChapter {
+    return {
+      name,
+      ecoCode: null,
+      ecoName: null,
+      moves: Array.from({ length: plies }, (_, i) => ({
+        fromFen: `p${i}`,
+        toFen: `p${i + 1}`,
+        san: `m${i}`,
+        move_number: i + 1,
+        is_player_turn: i % 2 === 0,
+        annotation: null
+      }))
+    };
+  }
+
+  it('counts lines and plies for a real single-line chapter', () => {
+    const plan = planMultiImport('1. e4 e5 *', 'white');
+    if ('error' in plan) throw new Error(plan.error);
+    const description = describeChapter(plan[0]);
+    expect(description.lineCount).toBe(1);
+    expect(description.maxPly).toBe(2);
+    expect(description.avgPly).toBe(2);
+    expect(description.openingLabel).toBe('1.e4 e5');
+  });
+
+  it('flags a deep, barely-branching chapter as game-like', () => {
+    const description = describeChapter(linearChapter(40));
+    expect(description.lineCount).toBe(1);
+    expect(description.maxPly).toBe(40);
+    expect(description.gameLike).toBe(true);
+  });
+
+  it('does not flag a deep chapter that branches widely', () => {
+    // One 40-ply spine plus five sibling leaves off its root — deep, but
+    // six lines, so it is repertoire-shaped rather than a merged game.
+    const chapter = linearChapter(40);
+    for (let i = 0; i < 5; i++) {
+      chapter.moves.push({
+        fromFen: 'p0',
+        toFen: `branch${i}`,
+        san: `b${i}`,
+        move_number: 1,
+        is_player_turn: true,
+        annotation: null
+      });
+    }
+    const description = describeChapter(chapter);
+    expect(description.lineCount).toBe(6);
+    expect(description.gameLike).toBe(false);
+  });
+
+  it('does not flag a shallow single-line chapter', () => {
+    const description = describeChapter(linearChapter(20));
+    expect(description.avgPly).toBe(20);
+    expect(description.gameLike).toBe(false);
+  });
+
+  it('reports zero lines for a chapter the player never moves in', () => {
+    // enumerateVariations only yields lines with playerMoveCount > 0 — such
+    // a chapter can never be drilled or solved, so it contributes nothing.
+    const chapter = linearChapter(4);
+    chapter.moves = chapter.moves.map((m) => ({ ...m, is_player_turn: false }));
+    const description = describeChapter(chapter);
+    expect(description.lineCount).toBe(0);
+    expect(description.gameLike).toBe(false);
+    expect(description.openingLabel).toBe('');
+  });
+
+  it('truncates the opening label to the first eight plies', () => {
+    const description = describeChapter(linearChapter(40));
+    expect(description.openingLabel.split(' ')).toHaveLength(8);
   });
 });
 

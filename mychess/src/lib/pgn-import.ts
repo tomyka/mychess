@@ -1,6 +1,7 @@
 import { parsePgn, type ParsedGame } from './pgn/parser';
 import { detectOpening } from './openings/classify';
 import { ECO_OPENINGS } from './openings/eco-data';
+import { enumerateVariations, moveSequenceLabel, type RawMoveRow } from './mastery/variations';
 
 export type MoveRow = {
   fromFen: string;
@@ -19,6 +20,77 @@ export type ImportChapter = {
 };
 
 export type MultiImportPlan = ImportChapter[] | { error: string };
+
+/**
+ * A chapter looks like whole games rather than repertoire theory when its
+ * lines are long and barely branch. Repertoire theory fans out (many
+ * variations sharing prefixes) and stops well before ply 30; a merged
+ * annotated game is one deep, near-linear path with a handful of side notes.
+ *
+ * Deliberately conservative, and deliberately ADVISORY only — see
+ * `ChapterDescription.gameLike`. A rule that silently deselected a chapter
+ * would lose a coach's lines without them noticing.
+ */
+const GAME_LIKE_MIN_AVG_PLY = 30;
+const GAME_LIKE_MAX_LINES = 4;
+
+/** How many plies of the chapter's first line the review screen previews. */
+const OPENING_LABEL_PLIES = 8;
+
+export type ChapterDescription = {
+  /** Enumerated variations — 0 when the player never moves in this chapter. */
+  lineCount: number;
+  maxPly: number;
+  avgPly: number;
+  /** e.g. "1.e4 e6 2.d4 d5 3.exd5 exd5 4.Nf3 Nf6" — '' when `lineCount` is 0. */
+  openingLabel: string;
+  /**
+   * Advisory hint that this chapter is probably not repertoire (see the
+   * thresholds above). NEVER acted on automatically: the review screen
+   * annotates the row and leaves its checkbox exactly as it was.
+   */
+  gameLike: boolean;
+};
+
+/**
+ * Per-chapter metadata for the import review screen, computed from moves that
+ * are not written yet.
+ *
+ * Reuses the same synthesized-id trick `writeMoves` already applies to run
+ * `enumerateVariations` over unwritten moves (see `$lib/server/pgn-import.ts`):
+ * dedupe on `fromFen|san`, index-derived `id`, empty `chapterNames` — this
+ * chapter is walked alone, so it has no chapter scoping to honour.
+ *
+ * Pure — no I/O — so it is directly testable, and cheap enough to run for
+ * every chapter of a large PGN once, on the transition into the review step.
+ */
+export function describeChapter(chapter: ImportChapter): ChapterDescription {
+  const deduped = Array.from(new Map(chapter.moves.map((m) => [`${m.fromFen}|${m.san}`, m])).values());
+  const rawMoves: RawMoveRow[] = deduped.map((move, index) => ({
+    id: String(index),
+    fromPositionId: move.fromFen,
+    toPositionId: move.toFen,
+    fromFen: move.fromFen,
+    toFen: move.toFen,
+    san: move.san,
+    isPlayerTurn: move.is_player_turn,
+    chapterNames: []
+  }));
+
+  const variations = enumerateVariations(rawMoves);
+  const plies = variations.map((v) => v.path.length);
+  const lineCount = variations.length;
+  const maxPly = lineCount === 0 ? 0 : Math.max(...plies);
+  const avgPly = lineCount === 0 ? 0 : plies.reduce((sum, ply) => sum + ply, 0) / lineCount;
+
+  return {
+    lineCount,
+    maxPly,
+    avgPly,
+    openingLabel: lineCount === 0 ? '' : moveSequenceLabel(variations[0].path.slice(0, OPENING_LABEL_PLIES)),
+    gameLike: lineCount > 0 && lineCount <= GAME_LIKE_MAX_LINES && avgPly >= GAME_LIKE_MIN_AVG_PLY
+  };
+}
 
 /** PGN's own placeholder for an unset header ("?") never counts as usable text. */
 function usableHeader(value: string | undefined): string | null {
