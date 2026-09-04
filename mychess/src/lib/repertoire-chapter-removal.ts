@@ -14,6 +14,12 @@ import {
 	type RawMoveRow,
 	type Variation
 } from '$lib/mastery/variations';
+// Reused deliberately, not incidentally: `masterableChapters` owns the rule
+// that an untagged repertoire still counts as ONE chapter (the implicit
+// UNTAGGED_CHAPTER bucket), and `repertoires.chapter_count` is defined as
+// `masterableChapters(variations).length` — see migration 0069's own comment.
+// Computing chapter_count any other way here would let a removal write a
+// count that disagrees with what every other reader of that column expects.
 import { masterableChapters } from '$lib/mastery/repertoireStatus';
 
 /** One chapter, as the manager page needs to describe it before a removal. */
@@ -145,12 +151,22 @@ export function removedVariationKeys(
 		.map((variation) => variation.variationKey);
 }
 
-/** Whether `namesToRemove` covers every tier the repertoire has. */
+/**
+ * Whether `namesToRemove` covers every tier the repertoire has — the caller
+ * refuses such a removal, because emptying a repertoire is a repertoire
+ * delete, not a chapter removal.
+ */
 export function removesEveryChapter(
 	variations: Variation[],
 	namesToRemove: readonly string[]
 ): boolean {
 	const tiers = chapterTiers(variations);
+	// No tiers at all — an entirely untagged repertoire — vacuously "removes
+	// everything", so the caller refuses. That is the safe default rather than
+	// an oversight: there is no chapter here to remove in the first place, and
+	// `summarizeChapters` returns nothing for this repertoire either, so the
+	// UI never offers a selectable row. A forged request therefore fails
+	// closed instead of committing a write that looks like a no-op.
 	if (tiers === null) return true;
 	const removing = new Set(namesToRemove);
 	return tiers.every((tier) => removing.has(tier));
