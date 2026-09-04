@@ -61,6 +61,14 @@
 
 	let filter = $state('');
 
+	/**
+	 * Per-instance so the filter's `sr-only` label stays correctly associated
+	 * even if a page ever renders two of these lists. A hardcoded id would
+	 * silently break the second instance's label — and this component is
+	 * deliberately shared by two callers, so a third is plausible.
+	 */
+	const filterId = $props.id();
+
 	const selectable = $derived(rows.filter((row) => row.selectable));
 	const visible = $derived(
 		filter.trim() === ''
@@ -78,43 +86,48 @@
 	const filtering = $derived(filter.trim() !== '');
 
 	/**
-	 * Hands the caller a NEW Set rather than mutating the one it owns, so its
-	 * `$derived` counts actually re-run — a mutated Set is the same reference
-	 * and would not invalidate anything.
+	 * Every mutator below builds a NEW Set and hands it straight to `onselect`
+	 * rather than mutating the one the caller owns — a mutated Set is the same
+	 * reference, so the caller's `$derived` counts would never re-run.
+	 *
+	 * That handoff is also why a plain `Set` is correct here and
+	 * `svelte/prefer-svelte-reactivity` is disabled on each construction: the
+	 * Set is mutated ONLY in the few lines between `new Set(...)` and the
+	 * `onselect` call, and never touched again afterwards. Reactivity comes
+	 * from the caller reassigning its `$state` to this new reference, not from
+	 * tracking mutations inside the collection — so `SvelteSet` would buy
+	 * nothing. If a future edit ever mutates one of these Sets AFTER handing
+	 * it over, that reasoning breaks and this needs `SvelteSet` instead.
 	 */
-	function setSelection(next: Set<string>) {
+	function selectAllVisible() {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- see above: mutated only before handoff, never after
+		const next = new Set(selectedIds);
+		for (const row of actionable) next.add(row.id);
 		onselect(next);
 	}
 
-	function selectAllVisible() {
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- mutated only here, before handoff; once passed to setSelection it is never mutated again, so a plain Set is fine even though the caller (and this component, next render) then reads it reactively
-		const next = new Set(selectedIds);
-		for (const row of actionable) next.add(row.id);
-		setSelection(next);
-	}
-
 	function selectNoneVisible() {
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- mutated only here, before handoff; once passed to setSelection it is never mutated again, so a plain Set is fine even though the caller (and this component, next render) then reads it reactively
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- see above: mutated only before handoff, never after
 		const next = new Set(selectedIds);
 		for (const row of actionable) next.delete(row.id);
-		setSelection(next);
+		onselect(next);
 	}
 
 	function invertVisible() {
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- mutated only here, before handoff; once passed to setSelection it is never mutated again, so a plain Set is fine even though the caller (and this component, next render) then reads it reactively
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- see above: mutated only before handoff, never after
 		const next = new Set(selectedIds);
 		for (const row of actionable) {
 			if (next.has(row.id)) next.delete(row.id);
 			else next.add(row.id);
 		}
-		setSelection(next);
+		onselect(next);
 	}
 
 	function toggleRow(id: string) {
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- mutated only here, before handoff; once passed to setSelection it is never mutated again, so a plain Set is fine even though the caller (and this component, next render) then reads it reactively
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- see above: mutated only before handoff, never after
 		const next = new Set(selectedIds);
 		if (!next.delete(id)) next.add(id);
-		setSelection(next);
+		onselect(next);
 	}
 
 	// A partially-selected master checkbox selects everything; a fully
@@ -152,9 +165,9 @@
 			</button>
 
 			<div class="ms-auto">
-				<label class="sr-only" for="chapter_filter">{m.chapter_selection_filter_label()}</label>
+				<label class="sr-only" for={filterId}>{m.chapter_selection_filter_label()}</label>
 				<input
-					id="chapter_filter"
+					id={filterId}
 					type="search"
 					bind:value={filter}
 					placeholder={m.chapter_selection_filter_placeholder()}
