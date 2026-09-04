@@ -10,7 +10,7 @@ export type DirectoryEntry = {
   avatar_id: string;
 };
 
-export type RelationshipEntry = {
+type RelationshipEntry = {
   id: string;
   status: 'pending' | 'active';
   requested_by: string;

@@ -1,6 +1,6 @@
 import { Chess } from 'chess.js';
 
-export interface ParsedMove {
+interface ParsedMove {
   san: string;
   fen: string;       // FEN *after* the move
   parentFen: string; // FEN *before* the move

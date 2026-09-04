@@ -61,7 +61,7 @@ export type PracticeView = {
 };
 
 /** How long since a variation's last attempt counts as "the player took a break" from it. */
-export const RESUME_GAP_MS = 10 * 60 * 1000;
+const RESUME_GAP_MS = 10 * 60 * 1000;
 
 /**
  * True if more than `RESUME_GAP_MS` has passed since `updatedAt`. A variation

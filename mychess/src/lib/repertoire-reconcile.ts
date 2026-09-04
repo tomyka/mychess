@@ -72,7 +72,7 @@ export type ReconciliationPlan = {
 // consumed by both this module's CarryForward kinds and repertoire-diff's
 // classification kinds (which additionally has 'new'). The set's CONTENTS —
 // not its key type — are the single source of truth shared by both.
-export const KEEPS_LEARNED: ReadonlySet<string> = new Set(['unchanged', 'truncated']);
+const KEEPS_LEARNED: ReadonlySet<string> = new Set(['unchanged', 'truncated']);
 
 export function planReconciliation(
 	carries: CarryForward[],

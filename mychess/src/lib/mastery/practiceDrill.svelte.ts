@@ -34,7 +34,7 @@ const LINE_COMPLETE_HOLD_MS = 700;
 /** How long a demoted line holds before the queue advances. */
 const DEMOTED_HOLD_MS = 1600;
 
-export type PracticeDrillCallbacks = {
+type PracticeDrillCallbacks = {
 	onOutcome: (outcome: PracticeOutcome) => void;
 	onAdvance: () => void;
 };

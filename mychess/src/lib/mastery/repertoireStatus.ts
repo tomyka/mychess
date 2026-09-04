@@ -109,7 +109,7 @@ export function deriveRepertoireStatusFromCounts(args: {
 }
 
 /** Display label for a status, used by the repertoire cards. */
-export const STATUS_LABEL: Record<RepertoireStatus, string> = {
+const STATUS_LABEL: Record<RepertoireStatus, string> = {
 	learning: 'Learning',
 	learned: 'Learned',
 	mastered: 'Mastered'
