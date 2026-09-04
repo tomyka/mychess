@@ -306,7 +306,7 @@ describe('PgnImportForm', () => {
 		await continueToReview();
 
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select Line B' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Import 1 chapters' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Import 1 chapter' }));
 
 		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/repertoires'));
 		expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -324,6 +324,57 @@ describe('PgnImportForm', () => {
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Select none' }));
 		expect((screen.getByRole('button', { name: 'Import 0 chapters' }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('does not carry a stale progress list into a later attempt from the same step-1 screen', async () => {
+		// A failed single-chapter import leaves `chapters` populated with one
+		// error-status entry, and never navigates away — nothing else resets
+		// it before this regression test's fix (see `handleSubmit`).
+		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
+		const fetchSpy = vi.fn().mockResolvedValueOnce({ ok: false, json: async () => ({ message: 'boom' }) });
+		vi.stubGlobal('fetch', fetchSpy);
+
+		fillBasicForm('My Rep', '1. e4 e5 *');
+		await fireEvent.click(screen.getByRole('button', { name: 'Create Repertoire' }));
+		await waitFor(() => expect(screen.getByText('boom')).toBeTruthy());
+
+		// Without navigating away, submit a genuinely different, multi-chapter
+		// PGN from the same step-1 screen.
+		fillBasicForm('My Study', '[Event "Line A"]\n\n1. e4 e5 *\n\n[Event "Line B"]\n\n1. d4 d5 *');
+		await continueToReview();
+
+		// The discarded attempt's chapter ("Game 1", the header-less fallback
+		// name) must not still be in the DOM as a stale progress row.
+		expect(screen.queryByText('Game 1')).toBeNull();
+	});
+
+	it('sources ecoCode/ecoName from the first SURVIVING chapter when the first chapter is deselected', async () => {
+		// Every other test that deselects a chapter deselects the second or
+		// middle one, so none of them would catch a regression back to
+		// `plan[0]` here — this one specifically deselects the FIRST chapter.
+		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
+		const fetchSpy = vi
+			.fn()
+			.mockResolvedValueOnce({ ok: true, json: async () => ({ repertoireId: 'r1' }) })
+			.mockResolvedValueOnce({ ok: true, json: async () => ({ repertoireId: 'r1' }) });
+		vi.stubGlobal('fetch', fetchSpy);
+
+		// Distinct openings confirmed via planMultiImport: Line A → C20
+		// (King's Pawn Game), Line B → D00 (Queen's Pawn Game), Line C → A30
+		// (English Opening: Symmetrical Variation).
+		const threeGames =
+			'[Event "Line A"]\n\n1. e4 e5 *\n\n[Event "Line B"]\n\n1. d4 d5 *\n\n[Event "Line C"]\n\n1. c4 c5 *';
+		fillBasicForm('My Study', threeGames);
+		await continueToReview();
+
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select Line A' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Import 2 chapters' }));
+
+		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/repertoires'));
+		const firstBody = JSON.parse(fetchSpy.mock.calls[0][1].body);
+		expect(firstBody.chapterLabel).toBe('Line B'); // Line B is now the first surviving chapter
+		expect(firstBody.ecoCode).toBe('D00');
+		expect(firstBody.ecoName).toBe("Queen's Pawn Game");
 	});
 
 	it('goes back to step 1 without importing', async () => {

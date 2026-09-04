@@ -402,7 +402,18 @@
 	"pgn_import_review_game_like_hint": "{ply} pusėjimų {lines} linijose — atrodo kaip visos partijos, o ne repertuaro teorija",
 	"pgn_import_review_no_lines_hint": "Nėra treniruojamų linijų — čia nėra ko mokytis ar praktikuoti",
 	"pgn_import_review_back": "Pasirinkti kitą failą",
-	"pgn_import_review_import_button": "Importuoti {count} skyrius",
+	"pgn_import_review_import_button": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Importuoti {count} skyrių",
+				"countPlural=few": "Importuoti {count} skyrius",
+				"countPlural=many": "Importuoti {count} skyrių",
+				"countPlural=other": "Importuoti {count} skyrių"
+			}
+		}
+	],
 	"opening_picker_heading": "Pakeisti debiutą",
 	"picker_close_aria": "Uždaryti",
 	"opening_picker_search_placeholder": "Ieškoti debiutų (pvz. Sicilijos, B90)…",

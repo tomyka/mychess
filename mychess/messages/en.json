@@ -372,7 +372,16 @@
 	"pgn_import_review_game_like_hint": "{ply} plies across {lines} lines — looks like whole games, not repertoire theory",
 	"pgn_import_review_no_lines_hint": "No drillable lines — nothing here can be learned or practiced",
 	"pgn_import_review_back": "Choose a different file",
-	"pgn_import_review_import_button": "Import {count} chapters",
+	"pgn_import_review_import_button": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Import {count} chapter",
+				"countPlural=other": "Import {count} chapters"
+			}
+		}
+	],
 	"opening_picker_heading": "Change Opening",
 	"picker_close_aria": "Close",
 	"opening_picker_search_placeholder": "Search openings (e.g. Sicilian, B90)…",

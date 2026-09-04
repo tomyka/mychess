@@ -127,6 +127,12 @@
 	function handleSubmit(e: SubmitEvent) {
 		e.preventDefault();
 		errorMessage = '';
+		// A prior attempt from this same step-1 screen (a failed single-chapter
+		// import, most commonly) can leave a stale one-entry progress list
+		// behind. Clear it here too, not just in `backToForm`, so a fresh
+		// multi-chapter submit never renders the discarded attempt's chapter
+		// on the review screen before Import has even been clicked.
+		chapters = [];
 
 		const trimmedName = name.trim();
 		const trimmedPgn = pgnText.trim();
@@ -165,6 +171,17 @@
 	function importSelected() {
 		void runImport(selectedIndexes.map((index) => plan[index]));
 	}
+
+	/**
+	 * Moves focus to the review heading when the step flips to `'review'`, so
+	 * a screen-reader user gets an actual signal the screen changed under
+	 * them instead of silence. `tabindex="-1"` on the heading (see markup)
+	 * makes it programmatically focusable without adding it to tab order.
+	 */
+	let reviewHeading = $state<HTMLElement | null>(null);
+	$effect(() => {
+		if (step === 'review') reviewHeading?.focus();
+	});
 
 	/**
 	 * Imports one chapter per request instead of one request doing every
@@ -252,9 +269,50 @@
 	<p class="text-red-600 mb-4 bg-red-50 border border-red-200 dark:bg-red-950 dark:border-red-800 dark:text-red-400 px-4 py-2 rounded-xl text-sm">{errorMessage}</p>
 {/if}
 
+<!--
+	Defined once, rendered from both branches below (the review screen and the
+	single-chapter form) — a multi-chapter import runs from the review screen
+	and a single-chapter import still runs from step 1, and each needs its own
+	progress bar. A local snippet costs nothing extra (no component, no prop
+	threading, no new test surface) while keeping this markup in exactly one
+	place to edit.
+-->
+{#snippet importProgress()}
+	{#if chapters.length > 0}
+		<div class="space-y-2">
+			<div class="flex justify-between text-sm text-(--color-muted)">
+				<span>{importing ? m.pgn_import_importing_label() : m.pgn_import_finished_label()}</span>
+				<span>{doneCount} / {chapters.length}</span>
+			</div>
+			<div class="w-full bg-(--color-border) rounded-full h-2 overflow-hidden">
+				<div class="bg-(--color-accent) h-2 transition-all duration-300"
+				     style="width: {(doneCount / chapters.length) * 100}%"></div>
+			</div>
+			{#if chapters.length > 1}
+				<ul class="text-sm space-y-1 max-h-40 overflow-y-auto">
+					{#each chapters as chapter, i (i)}
+						<li class="flex items-center gap-2">
+							<span class="w-4 text-center shrink-0 {statusIconClass(chapter.status)}">
+								{#if chapter.status === 'done'}✓{:else if chapter.status === 'importing'}⚙{:else if chapter.status === 'error'}✗{:else}·{/if}
+							</span>
+							<span class="truncate {chapter.status === 'error' ? 'text-red-600 dark:text-red-400' : 'text-(--color-text)'}">{chapter.name}</span>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
+	{/if}
+{/snippet}
+
 {#if step === 'review'}
 	<div class="space-y-4 rounded-xl border border-(--color-border) bg-(--color-surface) p-5 shadow-sm">
-		<h2 class="text-lg font-bold text-(--color-text)">{m.pgn_import_review_heading()}</h2>
+		<!--
+			`tabindex="-1"` makes the heading programmatically focusable without
+			adding it to tab order; the `$effect` above focuses it whenever
+			`step` becomes 'review', so a screen-reader user gets an actual
+			signal the screen changed under them.
+		-->
+		<h2 bind:this={reviewHeading} tabindex="-1" class="text-lg font-bold text-(--color-text) focus:outline-none">{m.pgn_import_review_heading()}</h2>
 
 		<ChapterSelectionList
 			rows={reviewRows}
@@ -267,30 +325,7 @@
 			})}
 		/>
 
-		{#if chapters.length > 0}
-			<div class="space-y-2">
-				<div class="flex justify-between text-sm text-(--color-muted)">
-					<span>{importing ? m.pgn_import_importing_label() : m.pgn_import_finished_label()}</span>
-					<span>{doneCount} / {chapters.length}</span>
-				</div>
-				<div class="w-full bg-(--color-border) rounded-full h-2 overflow-hidden">
-					<div class="bg-(--color-accent) h-2 transition-all duration-300"
-					     style="width: {(doneCount / chapters.length) * 100}%"></div>
-				</div>
-				{#if chapters.length > 1}
-					<ul class="text-sm space-y-1 max-h-40 overflow-y-auto">
-						{#each chapters as chapter, i (i)}
-							<li class="flex items-center gap-2">
-								<span class="w-4 text-center shrink-0 {statusIconClass(chapter.status)}">
-									{#if chapter.status === 'done'}✓{:else if chapter.status === 'importing'}⚙{:else if chapter.status === 'error'}✗{:else}·{/if}
-								</span>
-								<span class="truncate {chapter.status === 'error' ? 'text-red-600 dark:text-red-400' : 'text-(--color-text)'}">{chapter.name}</span>
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			</div>
-		{/if}
+		{@render importProgress()}
 
 		<div class="flex items-center justify-end gap-3">
 			<button
@@ -387,30 +422,7 @@
 			<p class="text-sm text-(--color-muted) truncate">{m.pgn_import_selected_file({ fileName })}</p>
 		{/if}
 
-		{#if chapters.length > 0}
-			<div class="space-y-2">
-				<div class="flex justify-between text-sm text-(--color-muted)">
-					<span>{importing ? m.pgn_import_importing_label() : m.pgn_import_finished_label()}</span>
-					<span>{doneCount} / {chapters.length}</span>
-				</div>
-				<div class="w-full bg-(--color-border) rounded-full h-2 overflow-hidden">
-					<div class="bg-(--color-accent) h-2 transition-all duration-300"
-					     style="width: {(doneCount / chapters.length) * 100}%"></div>
-				</div>
-				{#if chapters.length > 1}
-					<ul class="text-sm space-y-1 max-h-40 overflow-y-auto">
-						{#each chapters as chapter, i (i)}
-							<li class="flex items-center gap-2">
-								<span class="w-4 text-center shrink-0 {statusIconClass(chapter.status)}">
-									{#if chapter.status === 'done'}✓{:else if chapter.status === 'importing'}⚙{:else if chapter.status === 'error'}✗{:else}·{/if}
-								</span>
-								<span class="truncate {chapter.status === 'error' ? 'text-red-600 dark:text-red-400' : 'text-(--color-text)'}">{chapter.name}</span>
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			</div>
-		{/if}
+		{@render importProgress()}
 
 		<button type="submit" disabled={importing || drivePicking}
 		        class="w-full bg-(--color-accent) text-white py-3 rounded-xl font-bold text-base hover:bg-(--color-accent-hover) transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
