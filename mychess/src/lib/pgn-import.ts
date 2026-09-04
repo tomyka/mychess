@@ -41,6 +41,7 @@ export type ChapterDescription = {
   /** Enumerated variations — 0 when the player never moves in this chapter. */
   lineCount: number;
   maxPly: number;
+  /** Not rounded — round before display (e.g. "14.3 ply"), not "14.333333333333334 ply". */
   avgPly: number;
   /** e.g. "1.e4 e6 2.d4 d5 3.exd5 exd5 4.Nf3 Nf6" — '' when `lineCount` is 0. */
   openingLabel: string;
@@ -53,20 +54,24 @@ export type ChapterDescription = {
 };
 
 /**
- * Per-chapter metadata for the import review screen, computed from moves that
- * are not written yet.
+ * `moves` as `RawMoveRow`s that `enumerateVariations` can walk, for moves
+ * that are NOT written to the database yet and so have no real ids: FENs
+ * stand in for position ids, and the array index stands in for the move id.
  *
- * Reuses the same synthesized-id trick `writeMoves` already applies to run
- * `enumerateVariations` over unwritten moves (see `$lib/server/pgn-import.ts`):
- * dedupe on `fromFen|san`, index-derived `id`, empty `chapterNames` — this
- * chapter is walked alone, so it has no chapter scoping to honour.
+ * `chapterNames` is empty because an unwritten move set is always walked as
+ * ONE chapter in isolation — there is no cross-chapter scoping to honour
+ * until the rows exist. Deduped on `fromFen|san` because a transposition can
+ * repeat the same edge within one chapter, and `enumerateVariations` would
+ * otherwise walk it twice.
  *
- * Pure — no I/O — so it is directly testable, and cheap enough to run for
- * every chapter of a large PGN once, on the transition into the review step.
+ * Shared by `describeChapter` (the import review screen) and `writeMoves`'
+ * eager shape computation (`$lib/server/pgn-import.ts`) so the line count a
+ * coach reads at review time and the `total_variations` the import actually
+ * stores can never be computed two different ways.
  */
-export function describeChapter(chapter: ImportChapter): ChapterDescription {
-  const deduped = Array.from(new Map(chapter.moves.map((m) => [`${m.fromFen}|${m.san}`, m])).values());
-  const rawMoves: RawMoveRow[] = deduped.map((move, index) => ({
+export function toUnwrittenRawMoveRows(moves: MoveRow[]): RawMoveRow[] {
+  const deduped = Array.from(new Map(moves.map((m) => [`${m.fromFen}|${m.san}`, m])).values());
+  return deduped.map((move, index) => ({
     id: String(index),
     fromPositionId: move.fromFen,
     toPositionId: move.toFen,
@@ -76,11 +81,20 @@ export function describeChapter(chapter: ImportChapter): ChapterDescription {
     isPlayerTurn: move.is_player_turn,
     chapterNames: []
   }));
+}
 
-  const variations = enumerateVariations(rawMoves);
+/**
+ * Per-chapter metadata for the import review screen, computed from moves that
+ * are not written yet.
+ *
+ * Pure — no I/O — so it is directly testable, and cheap enough to run for
+ * every chapter of a large PGN once, on the transition into the review step.
+ */
+export function describeChapter(chapter: ImportChapter): ChapterDescription {
+  const variations = enumerateVariations(toUnwrittenRawMoveRows(chapter.moves));
   const plies = variations.map((v) => v.path.length);
   const lineCount = variations.length;
-  const maxPly = lineCount === 0 ? 0 : Math.max(...plies);
+  const maxPly = lineCount === 0 ? 0 : plies.reduce((max, ply) => Math.max(max, ply), 0);
   const avgPly = lineCount === 0 ? 0 : plies.reduce((sum, ply) => sum + ply, 0) / lineCount;
 
   return {

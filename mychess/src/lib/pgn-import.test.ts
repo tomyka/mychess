@@ -6,7 +6,9 @@ import {
   planGameImport,
   resolvePlayerColor,
   describeChapter,
-  type ImportChapter
+  toUnwrittenRawMoveRows,
+  type ImportChapter,
+  type MoveRow
 } from './pgn-import';
 
 describe('planMultiImport', () => {
@@ -279,6 +281,72 @@ describe('describeChapter', () => {
   it('truncates the opening label to the first eight plies', () => {
     const description = describeChapter(linearChapter(40));
     expect(description.openingLabel.split(' ')).toHaveLength(8);
+  });
+
+  it('returns all zero/empty fields for a chapter with no moves at all (e.g. a header-only PGN game)', () => {
+    // Distinct from the "player never moves" test above: here
+    // `enumerateVariations` never runs at all, since there is nothing to
+    // walk — this is what pins down the `lineCount === 0` guards (without
+    // them `Math.max()`/reduce over an empty `plies` array would misbehave).
+    const chapter: ImportChapter = { name: 'Empty', ecoCode: null, ecoName: null, moves: [] };
+    const description = describeChapter(chapter);
+    expect(description.lineCount).toBe(0);
+    expect(description.maxPly).toBe(0);
+    expect(description.avgPly).toBe(0);
+    expect(description.openingLabel).toBe('');
+    expect(description.gameLike).toBe(false);
+  });
+
+  // `branches` independent lines of `plies` plies each, diverging immediately
+  // off a shared root — unlike `linearChapter`'s single spine, this lets a
+  // test control `lineCount` directly while holding every line's length (and
+  // so `avgPly`) equal to `plies`.
+  function branchingChapter(branches: number, plies: number, name = 'Chapter'): ImportChapter {
+    const moves: MoveRow[] = [];
+    for (let b = 0; b < branches; b++) {
+      for (let i = 0; i < plies; i++) {
+        moves.push({
+          fromFen: i === 0 ? 'root' : `b${b}_${i}`,
+          toFen: `b${b}_${i + 1}`,
+          san: `m${b}_${i}`,
+          move_number: i + 1,
+          is_player_turn: i % 2 === 0,
+          annotation: null
+        });
+      }
+    }
+    return { name, ecoCode: null, ecoName: null, moves };
+  }
+
+  it('flags gameLike at the avgPly boundary (exactly 30, inclusive)', () => {
+    const description = describeChapter(linearChapter(30));
+    expect(description.avgPly).toBe(30);
+    expect(description.gameLike).toBe(true);
+  });
+
+  it('flags gameLike at the lineCount boundary (exactly 4, inclusive)', () => {
+    const description = describeChapter(branchingChapter(4, 30));
+    expect(description.lineCount).toBe(4);
+    expect(description.avgPly).toBe(30);
+    expect(description.gameLike).toBe(true);
+  });
+});
+
+describe('toUnwrittenRawMoveRows', () => {
+  it('collapses a repeated fromFen|san edge into one row, with ids as post-dedupe indices', () => {
+    // A transposition (or, here, a duplicate row) can repeat the same edge
+    // within one chapter — `enumerateVariations` would otherwise walk it
+    // twice, and this is the same dedupe `writeMoves` relies on for a
+    // correct `total_variations`.
+    const moves: MoveRow[] = [
+      { fromFen: 'p0', toFen: 'p1', san: 'e4', move_number: 1, is_player_turn: true, annotation: null },
+      { fromFen: 'p0', toFen: 'p1', san: 'e4', move_number: 1, is_player_turn: true, annotation: null },
+      { fromFen: 'p1', toFen: 'p2', san: 'e5', move_number: 2, is_player_turn: false, annotation: null }
+    ];
+    const rows = toUnwrittenRawMoveRows(moves);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ id: '0', fromPositionId: 'p0', toPositionId: 'p1', san: 'e4', chapterNames: [] });
+    expect(rows[1]).toMatchObject({ id: '1', fromPositionId: 'p1', toPositionId: 'p2', san: 'e5' });
   });
 });
 
