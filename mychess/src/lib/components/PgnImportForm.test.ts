@@ -21,6 +21,12 @@ function fillBasicForm(name: string, pgnText: string) {
 	fireEvent.input(screen.getByLabelText('Paste PGN text'), { target: { value: pgnText } });
 }
 
+/** Step 1 → review screen. Only a multi-chapter PGN gets a review screen. */
+async function continueToReview(submitLabel = 'Create Repertoire') {
+	await fireEvent.click(screen.getByRole('button', { name: submitLabel }));
+	await waitFor(() => expect(screen.getByText('Review chapters')).toBeTruthy());
+}
+
 describe('PgnImportForm', () => {
 	it('renders all the expected fields', () => {
 		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
@@ -175,7 +181,8 @@ describe('PgnImportForm', () => {
 
 		const twoGames = '[Event "Line A"]\n\n1. e4 e5 *\n\n[Event "Line B"]\n\n1. d4 d5 *';
 		fillBasicForm('My Study', twoGames);
-		await fireEvent.click(screen.getByRole('button', { name: 'Create Repertoire' }));
+		await continueToReview();
+		await fireEvent.click(screen.getByRole('button', { name: 'Import 2 chapters' }));
 
 		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/repertoires'));
 		expect(fetchSpy).toHaveBeenCalledTimes(2);
@@ -202,7 +209,8 @@ describe('PgnImportForm', () => {
 
 		const twoGames = '[Event "Line A"]\n\n1. e4 e5 *\n\n[Event "Line B"]\n\n1. d4 d5 *';
 		fillBasicForm('My Study', twoGames);
-		await fireEvent.click(screen.getByRole('button', { name: 'Create Repertoire' }));
+		await continueToReview();
+		await fireEvent.click(screen.getByRole('button', { name: 'Import 2 chapters' }));
 
 		await waitFor(() => expect(screen.getByText('Failed to save moves: boom')).toBeTruthy());
 		expect(gotoMock).not.toHaveBeenCalled();
@@ -224,5 +232,110 @@ describe('PgnImportForm', () => {
 		expect(body.existingRepertoireId).toBeUndefined();
 		expect(body.finalize).toBeUndefined();
 		expect(body.chapterLabel).toBeUndefined();
+	});
+
+	it('imports a single-game PGN straight from step 1, with no review screen', async () => {
+		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ repertoireId: 'r1' }) });
+		vi.stubGlobal('fetch', fetchSpy);
+
+		fillBasicForm('My Rep', '1. e4 e5 *');
+		await fireEvent.click(screen.getByRole('button', { name: 'Create Repertoire' }));
+
+		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/repertoires'));
+		expect(screen.queryByText('Review chapters')).toBeNull();
+	});
+
+	it('shows the review screen for a multi-chapter PGN and imports nothing yet', async () => {
+		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
+		const fetchSpy = vi.fn();
+		vi.stubGlobal('fetch', fetchSpy);
+
+		fillBasicForm('My Study', '[Event "Line A"]\n\n1. e4 e5 *\n\n[Event "Line B"]\n\n1. d4 d5 *');
+		await continueToReview();
+
+		expect(screen.getByText('Line A')).toBeTruthy();
+		expect(screen.getByText('Line B')).toBeTruthy();
+		expect(fetchSpy).not.toHaveBeenCalled();
+		expect(gotoMock).not.toHaveBeenCalled();
+	});
+
+	it('starts with every chapter selected, so an untouched review imports the whole file', async () => {
+		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ repertoireId: 'r1' }) }));
+
+		fillBasicForm('My Study', '[Event "Line A"]\n\n1. e4 e5 *\n\n[Event "Line B"]\n\n1. d4 d5 *');
+		await continueToReview();
+
+		expect((screen.getByRole('checkbox', { name: 'Select Line A' }) as HTMLInputElement).checked).toBe(true);
+		expect((screen.getByRole('checkbox', { name: 'Select Line B' }) as HTMLInputElement).checked).toBe(true);
+		expect(screen.getByRole('button', { name: 'Import 2 chapters' })).toBeTruthy();
+	});
+
+	it('imports only the selected chapters', async () => {
+		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
+		const fetchSpy = vi
+			.fn()
+			.mockResolvedValueOnce({ ok: true, json: async () => ({ repertoireId: 'r1' }) })
+			.mockResolvedValueOnce({ ok: true, json: async () => ({ repertoireId: 'r1' }) });
+		vi.stubGlobal('fetch', fetchSpy);
+
+		const threeGames =
+			'[Event "Line A"]\n\n1. e4 e5 *\n\n[Event "Junk"]\n\n1. d4 d5 *\n\n[Event "Line C"]\n\n1. c4 c5 *';
+		fillBasicForm('My Study', threeGames);
+		await continueToReview();
+
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select Junk' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Import 2 chapters' }));
+
+		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/repertoires'));
+		expect(fetchSpy).toHaveBeenCalledTimes(2);
+		const labels = fetchSpy.mock.calls.map((call) => JSON.parse(call[1].body).chapterLabel);
+		expect(labels).toEqual(['Line A', 'Line C']);
+		// finalize is relative to the SELECTED chapters, not the file's.
+		expect(JSON.parse(fetchSpy.mock.calls[0][1].body).finalize).toBe(false);
+		expect(JSON.parse(fetchSpy.mock.calls[1][1].body).finalize).toBeUndefined();
+	});
+
+	it('omits chapterLabel when exactly one chapter of many is selected', async () => {
+		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ repertoireId: 'r1' }) });
+		vi.stubGlobal('fetch', fetchSpy);
+
+		fillBasicForm('My Study', '[Event "Line A"]\n\n1. e4 e5 *\n\n[Event "Line B"]\n\n1. d4 d5 *');
+		await continueToReview();
+
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select Line B' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Import 1 chapters' }));
+
+		await waitFor(() => expect(gotoMock).toHaveBeenCalledWith('/repertoires'));
+		expect(fetchSpy).toHaveBeenCalledTimes(1);
+		const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
+		expect(body.chapterLabel).toBeUndefined(); // one chapter has nothing to group
+		expect(body.finalize).toBeUndefined();
+	});
+
+	it('disables the import button when nothing is selected', async () => {
+		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
+		vi.stubGlobal('fetch', vi.fn());
+
+		fillBasicForm('My Study', '[Event "Line A"]\n\n1. e4 e5 *\n\n[Event "Line B"]\n\n1. d4 d5 *');
+		await continueToReview();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Select none' }));
+		expect((screen.getByRole('button', { name: 'Import 0 chapters' }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('goes back to step 1 without importing', async () => {
+		render(PgnImportForm, { props: { submitLabel: 'Create Repertoire', redirectTo: '/repertoires' } });
+		const fetchSpy = vi.fn();
+		vi.stubGlobal('fetch', fetchSpy);
+
+		fillBasicForm('My Study', '[Event "Line A"]\n\n1. e4 e5 *\n\n[Event "Line B"]\n\n1. d4 d5 *');
+		await continueToReview();
+		await fireEvent.click(screen.getByRole('button', { name: 'Choose a different file' }));
+
+		await waitFor(() => expect(screen.getByLabelText('Repertoire Name')).toBeTruthy());
+		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 });
