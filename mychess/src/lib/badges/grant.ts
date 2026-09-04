@@ -11,7 +11,6 @@ export interface BadgeStatsInput {
   streakDays: number;
   sessionCount: number;
   repertoireCount: number;
-  ttScore: number;
   questsCompleted: number;
   hasUploaded: boolean;
   repertoiresLearned: number;
@@ -81,7 +80,6 @@ export async function grantNewBadges(
     streakDays: p?.streak_days ?? 0,
     sessionCount: sessions.length,
     repertoireCount: (repRes.data ?? []).length,
-    ttScore: 0,
     questsCompleted: (questRes.data ?? []).length,
     hasUploaded: (repRes.data ?? []).length > 0,
     repertoiresLearned: statusCounts.learned,

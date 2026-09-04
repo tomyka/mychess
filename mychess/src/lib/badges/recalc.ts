@@ -5,7 +5,6 @@ export interface BadgeStats {
   streakDays: number;
   sessionCount: number;
   repertoireCount: number;
-  ttScore: number;
   questsCompleted: number;
   hasUploaded: boolean;
   /** Repertoires where every non-excluded variation is learned (epic #95). */
@@ -25,7 +24,6 @@ const RULES: BadgeRule[] = [
   { id: 'first_move',          check: s => s.totalReviews >= 1 },
   { id: 'first_repertoire',    check: s => s.repertoireCount >= 1 },
   { id: 'first_streak_3',      check: s => s.streakDays >= 3 },
-  { id: 'first_time_trial',    check: s => s.ttScore >= 1 },
   // Streak
   { id: 'streak_7',            check: s => s.streakDays >= 7 },
   { id: 'streak_30',           check: s => s.streakDays >= 30 },
@@ -46,9 +44,6 @@ const RULES: BadgeRule[] = [
   { id: 'moves_learned_10',    check: s => s.movesLearned >= 10 },
   { id: 'moves_learned_50',    check: s => s.movesLearned >= 50 },
   { id: 'moves_learned_100',   check: s => s.movesLearned >= 100 },
-  // Time Trial
-  { id: 'speed_demon',         check: s => s.ttScore >= 10 },
-  { id: 'speed_legend',        check: s => s.ttScore >= 20 },
   // Sessions
   { id: 'sessions_10',         check: s => s.sessionCount >= 10 },
   { id: 'sessions_50',         check: s => s.sessionCount >= 50 },

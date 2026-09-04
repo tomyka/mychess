@@ -9,7 +9,6 @@ describe('checkBadgeEligibility', () => {
     streakDays: 0,
     sessionCount: 0,
     repertoireCount: 0,
-    ttScore: 0,
     questsCompleted: 0,
     hasUploaded: false,
     repertoiresLearned: 0,
@@ -35,11 +34,6 @@ describe('checkBadgeEligibility', () => {
   it('grants streak_7 at 7 streak days', () => {
     const result = checkBadgeEligibility({ ...base, streakDays: 7 });
     expect(result).toContain('streak_7');
-  });
-
-  it('grants speed_demon at tt best score >= 10', () => {
-    const result = checkBadgeEligibility({ ...base, ttScore: 10 });
-    expect(result).toContain('speed_demon');
   });
 
   it('grants multi_repertoire at 2+ repertoires', () => {
@@ -72,7 +66,6 @@ describe('epic #95 repertoire badges', () => {
     streakDays: 0,
     sessionCount: 0,
     repertoireCount: 0,
-    ttScore: 0,
     questsCompleted: 0,
     hasUploaded: false,
     repertoiresLearned: 0,
@@ -104,7 +97,6 @@ describe('checkBadgeRevocations', () => {
     streakDays: 0,
     sessionCount: 0,
     repertoireCount: 0,
-    ttScore: 0,
     questsCompleted: 0,
     hasUploaded: false,
     repertoiresLearned: 0,
