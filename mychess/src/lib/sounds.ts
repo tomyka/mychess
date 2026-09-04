@@ -35,11 +35,3 @@ export function playCorrect(): void {
 export function playWrong(): void {
   tone(220, 250, 'sawtooth', 0.2);
 }
-
-/** Triumphant fanfare for level-up or 10-chain */
-export function playLevelUp(): void {
-  tone(523, 100, 'sine');
-  setTimeout(() => tone(659, 100, 'sine'), 110);
-  setTimeout(() => tone(784, 150, 'sine'), 220);
-  setTimeout(() => tone(1047, 300, 'sine'), 380);
-}

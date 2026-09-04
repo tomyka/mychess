@@ -91,7 +91,6 @@
 	"practice_status_demoted": "Atgal į „Mokytis“ — reikia mokytis iš naujo",
 	"practice_status_exploring": "Tyrinėjama — čia niekas neskaičiuojama",
 	"practice_status_need_hint": "Reikia užuominos?",
-	"mastery_untagged_chapter_label": "Variantai be skyriaus",
 	"seo_learn_title": "Mokytis — MyChess",
 	"learn_title": "Mokytis",
 	"learn_intro_prefix": "Dirbkite su nauja medžiaga. Variantas, kurį vieną kartą savarankiškai sužaidžiate iš atminties, perkeliamas į ",
@@ -285,75 +284,6 @@
 		}
 	],
 	"practice_dismiss_coach_notice_label": "Uždaryti trenerio atnaujinimo pranešimą",
-	"seo_drill_title": "Įtvirtinimo režimas — MyChess",
-	"drill_title": "Įtvirtinimo režimas",
-	"drill_back_home": "← Pradžia",
-	"drill_chain_label": "Grandinė: {chain}",
-	"drill_empty_title": "Kol kas nėra įvaldytų ėjimų!",
-	"drill_empty_body": "Toliau praktikuokite repertuarus, kad atrakintumėte Įtvirtinimo režimą.",
-	"drill_go_to_practice": "Eiti į Praktiką",
-	"drill_broken_title": "Grandinė nutrūko!",
-	"drill_best_chain_count": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "Geriausia grandinė: {count} ėjimas",
-				"countPlural=few": "Geriausia grandinė: {count} ėjimai",
-				"countPlural=many": "Geriausia grandinė: {count} ėjimų",
-				"countPlural=other": "Geriausia grandinė: {count} ėjimų"
-			}
-		}
-	],
-	"drill_try_again": "Bandyti dar kartą",
-	"drill_back_to_home": "Atgal į pradžią",
-	"drill_all_done_title": "Viskas atlikta!",
-	"drill_all_moves_drilled_count": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "Jūs įtvirtinote visą {count} ėjimą!",
-				"countPlural=few": "Jūs įtvirtinote visus {count} ėjimus!",
-				"countPlural=many": "Jūs įtvirtinote visus {count} ėjimų!",
-				"countPlural=other": "Jūs įtvirtinote visus {count} ėjimų!"
-			}
-		}
-	],
-	"drill_go_again": "Kartoti dar kartą",
-	"drill_move_progress": "Ėjimas {current} / {total} · Suveskite teisingą ėjimą!",
-	"drill_wrong_move_broken": "Neteisingas ėjimas! Grandinė nutrūko!",
-	"drill_current_chain_label": "Dabartinė grandinė",
-	"drill_best_chain_label": "Geriausia grandinė",
-	"seo_time_trial_title": "Laiko rungtis — MyChess",
-	"time_trial_back_home": "← Pradžia",
-	"time_trial_title": "Laiko rungtis",
-	"time_trial_seconds_display": "{seconds} s",
-	"time_trial_empty_title": "Kol kas nėra ėjimų treniruotei!",
-	"time_trial_empty_body": "Pirmiausia pridėkite ėjimų Praktikos režime.",
-	"time_trial_go_to_practice": "Eiti į Praktiką",
-	"time_trial_finished_title": "Laikas baigėsi!",
-	"time_trial_result_count": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "Per 60 sekundžių atlikote {count} teisingą ėjimą",
-				"countPlural=few": "Per 60 sekundžių atlikote {count} teisingus ėjimus",
-				"countPlural=many": "Per 60 sekundžių atlikote {count} teisingų ėjimų",
-				"countPlural=other": "Per 60 sekundžių atlikote {count} teisingų ėjimų"
-			}
-		}
-	],
-	"time_trial_play_again": "Žaisti dar kartą",
-	"time_trial_back_to_home": "Atgal į pradžią",
-	"time_trial_start_title": "60 sekundžių iššūkis!",
-	"time_trial_start_body": "Atsakykite į tiek debiuto ėjimų, kiek galite, kol nesibaigė laikas!",
-	"time_trial_start_button": "Pradėti!",
-	"time_trial_wrong_move": "Neteisingas ėjimas! Bandykite dar kartą!",
-	"time_trial_play_correct_move": "Suveskite teisingą debiuto ėjimą!",
-	"time_trial_correct_label": "Teisingi",
-	"time_trial_time_label": "Laikas",
 	"seo_repertoires_title": "Repertuarai — MyChess",
 	"repertoires_delete_confirm": "Ištrinti „{name}“? Šio veiksmo anuliuoti nebegalėsite, be to, bus ištrinta visa šio repertuaro praktikos istorija.",
 	"repertoires_assigned_heading": "Priskyrė jūsų treneris",

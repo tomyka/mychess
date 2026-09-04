@@ -7,7 +7,7 @@ import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
  * past PostgREST's `max_rows` cap (see paginate.ts) — the one shared
  * implementation of a query that used to be duplicated, each with its own
  * `retired_at` filter, across practice-repertoire.ts, repertoire-progress.ts,
- * and the drill/time-trial page loads.
+ * and the practice/learn page loads.
  *
  * Retired rows are excluded unconditionally: a retired row is a line a coach
  * removed on a repertoire re-upload, kept around (rather than deleted) only

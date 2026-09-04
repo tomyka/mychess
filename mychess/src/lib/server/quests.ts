@@ -86,7 +86,7 @@ export async function ensureDailyQuests(
  * today or is already completed.
  *
  * Unlike `ensureDailyQuests`, real DB errors are thrown: this is a write, the
- * callers (`/api/drill`, `/api/practice/attempt`, `/api/time-trial`) already
+ * caller (`/api/practice/attempt`) already
  * await it, and a swallowed failure here means progress is lost with nothing to
  * show for it. "No quest row for today" (PGRST116) is a legitimate no-op and
  * stays quiet.
