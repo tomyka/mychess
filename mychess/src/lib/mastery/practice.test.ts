@@ -2,15 +2,16 @@
 import { describe, it, expect } from 'vitest';
 import { buildPracticeView, optimisticSolvedAfterAttempt } from './practice';
 import { ceilingPlyFor } from './teaching';
-import type { LearnPlan } from './learnUnits';
+import type { ChapterLearnState, LearnPlan } from './learnUnits';
 import type { Variation, VariationStep } from './variations';
 
 /**
  * A hand-built plan, so these tests pin `buildPracticeView`'s contract — "cap
  * each variation at the ply this map says, serve only what this list says" —
  * without depending on the real band boundaries (9/18/27). `chapters` is empty
- * because `buildPracticeView` never reads it; only the Learn page's progress
- * bar does.
+ * because these tests are about which variation gets served and how far into
+ * it; the band-progress tests at the bottom of this file supply a real chapter
+ * and assert on `currentLevel` instead.
  */
 function planFor(ceilingPlyByVariationKey: Record<string, number>, servableVariationKeys: string[]): LearnPlan {
 	return { chapters: [], ceilingPlyByVariationKey: new Map(Object.entries(ceilingPlyByVariationKey)), servableVariationKeys };
@@ -410,5 +411,53 @@ describe('buildPracticeView — queue membership comes from splitQueues', () => 
 		const view = buildPracticeView([a], a.variationKey, new Set([a.variationKey]), noTeaching, null, true);
 		expect(view.attempt).not.toBeNull();
 		expect(view.attempt!.variationKey).toBe(a.variationKey);
+	});
+});
+
+// The Learn page's band bar reads `currentLevel` off the same PracticeView the
+// attempt and select-variation endpoints return, so a session that MERGES that
+// report — the normal path, rather than reloading the page — keeps the bar in
+// step with the picker's own chapter chip. It used to be computed only in the
+// page's `load`, which left it frozen at its page-load value for the whole
+// session: the picker said "Bronze · 8/20" while the panel still said "0/20".
+describe('buildPracticeView — the active chapter’s band progress', () => {
+	function planWithChapter(chapter: ChapterLearnState, v: Variation): LearnPlan {
+		return {
+			chapters: [chapter],
+			ceilingPlyByVariationKey: new Map([[v.variationKey, v.path.length]]),
+			servableVariationKeys: [v.variationKey]
+		};
+	}
+
+	it('reports the active chapter’s band and progress within it', () => {
+		const v = makeVariation(3, 'a-');
+		const plan = planWithChapter(
+			{ chapter: 'Chapter 4', band: 'bronze', level: null, complete: false, units: [], learnedInBand: 8, totalInBand: 20 },
+			v
+		);
+
+		const view = buildPracticeView([v], v.variationKey, new Set(), noTeaching, plan);
+
+		expect(view.currentLevel).toEqual({ band: 'bronze', ready: 8, total: 20 });
+	});
+
+	it('reports no band progress once every chapter is complete, so the bar hides rather than sticking at full', () => {
+		const v = makeVariation(3, 'a-');
+		const plan = planWithChapter(
+			{ chapter: 'Chapter 4', band: null, level: 'platinum', complete: true, units: [], learnedInBand: 0, totalInBand: 0 },
+			v
+		);
+
+		const view = buildPracticeView([v], v.variationKey, new Set([v.variationKey]), noTeaching, plan, true);
+
+		expect(view.currentLevel).toBeNull();
+	});
+
+	it('reports no band progress without a plan — there is no band to report on', () => {
+		const v = makeVariation(3, 'a-');
+
+		const view = buildPracticeView([v], v.variationKey, new Set(), noTeaching);
+
+		expect(view.currentLevel).toBeNull();
 	});
 });
