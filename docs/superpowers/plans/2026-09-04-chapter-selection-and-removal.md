@@ -283,7 +283,7 @@ Create `mychess/src/lib/components/ChapterSelectionList.test.ts`:
 
 ```ts
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
 import ChapterSelectionList, { type ChapterRow } from './ChapterSelectionList.svelte';
 
@@ -297,13 +297,28 @@ const ROWS: ChapterRow[] = [
 ];
 
 /**
- * Renders with a real, mutable selection the component writes back into, so a
- * test can assert on what the parent would see rather than on internals.
+ * Renders with a fixed selection plus a spy for the selection the component
+ * asks for next. The component does not own the selection — the caller does —
+ * so a bulk action is asserted on what it REQUESTS, while rendered checkbox
+ * states are asserted from the `selectedIds` it was handed.
+ *
+ * Note this is a plain `.test.ts`, so runes are not available here: `$state`
+ * only compiles in `.svelte` / `.svelte.ts` files. That is a second reason the
+ * component takes a callback instead of `$bindable` — a bindable prop cannot
+ * be observed from a test file like this one at all.
  */
 function renderList(selectedIds: string[], rows: ChapterRow[] = ROWS) {
-	const props = $state({ rows, selectedIds: new Set(selectedIds), summary: '4 chapters' });
-	render(ChapterSelectionList, { props });
-	return props;
+	const onselect = vi.fn();
+	render(ChapterSelectionList, {
+		props: { rows, selectedIds: new Set(selectedIds), summary: '4 chapters', onselect }
+	});
+	return onselect;
+}
+
+/** The one selection the component asked for, sorted for a stable assertion. */
+function requested(onselect: ReturnType<typeof vi.fn>): string[] {
+	expect(onselect).toHaveBeenCalledTimes(1);
+	return [...(onselect.mock.calls[0][0] as Set<string>)].sort();
 }
 
 function master() {
@@ -325,9 +340,13 @@ describe('ChapterSelectionList', () => {
 	});
 
 	it('renders an advisory hint without changing the row selection', () => {
-		const props = renderList(['0', '1', '2', '3']);
+		const onselect = renderList(['0', '1', '2', '3']);
 		expect(screen.getByText('44 plies across 2 lines')).toBeTruthy();
-		expect(props.selectedIds.has('2')).toBe(true);
+		// The flagged row stays checked, and the component asks for nothing.
+		expect(
+			(screen.getByRole('checkbox', { name: 'Select Model games — Kramnik' }) as HTMLInputElement).checked
+		).toBe(true);
+		expect(onselect).not.toHaveBeenCalled();
 	});
 
 	it('is checked when everything is selected and unchecked when nothing is', () => {
@@ -345,24 +364,40 @@ describe('ChapterSelectionList', () => {
 		expect(master().indeterminate).toBe(true);
 	});
 
-	it('Select all selects every row; Select none clears them', async () => {
-		const props = renderList(['0']);
+	it('Select all requests every row', async () => {
+		const onselect = renderList(['0']);
 		await fireEvent.click(screen.getByRole('button', { name: 'Select all' }));
-		expect([...props.selectedIds].sort()).toEqual(['0', '1', '2', '3']);
+		expect(requested(onselect)).toEqual(['0', '1', '2', '3']);
+	});
+
+	it('Select none requests an empty selection', async () => {
+		const onselect = renderList(['0', '1', '2', '3']);
 		await fireEvent.click(screen.getByRole('button', { name: 'Select none' }));
-		expect(props.selectedIds.size).toBe(0);
+		expect(requested(onselect)).toEqual([]);
 	});
 
 	it('Invert flips every row', async () => {
-		const props = renderList(['0', '2']);
+		const onselect = renderList(['0', '2']);
 		await fireEvent.click(screen.getByRole('button', { name: 'Invert' }));
-		expect([...props.selectedIds].sort()).toEqual(['1', '3']);
+		expect(requested(onselect)).toEqual(['1', '3']);
 	});
 
-	it('clicking the master checkbox when partially selected selects everything', async () => {
-		const props = renderList(['0']);
+	it('toggling one row requests only that change', async () => {
+		const onselect = renderList(['0', '1']);
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select 4…Bf5 with 6…Nc6' }));
+		expect(requested(onselect)).toEqual(['0']);
+	});
+
+	it('clicking the master checkbox when partially selected requests everything', async () => {
+		const onselect = renderList(['0']);
 		await fireEvent.click(master());
-		expect(props.selectedIds.size).toBe(4);
+		expect(requested(onselect)).toEqual(['0', '1', '2', '3']);
+	});
+
+	it('clicking the master checkbox when fully selected requests nothing', async () => {
+		const onselect = renderList(['0', '1', '2', '3']);
+		await fireEvent.click(master());
+		expect(requested(onselect)).toEqual([]);
 	});
 
 	it('filters rows by title', async () => {
@@ -373,19 +408,20 @@ describe('ChapterSelectionList', () => {
 		expect(screen.queryByText('1) Rare Moves #1')).toBeNull();
 	});
 
-	it('Select all under an active filter selects only the visible rows', async () => {
-		const props = renderList([]);
+	it('Select all under an active filter requests only the visible rows', async () => {
+		const onselect = renderList([]);
 		await fireEvent.input(screen.getByLabelText('Filter chapters'), { target: { value: 'model games' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Select all 2 matching' }));
-		expect([...props.selectedIds].sort()).toEqual(['2', '3']);
+		expect(requested(onselect)).toEqual(['2', '3']);
 	});
 
 	it('Select all under a filter does not re-select a hidden row the user rejected', async () => {
-		const props = renderList(['0', '1', '3']);
+		// '0' was deliberately left unselected AND is hidden by the filter — the
+		// exact case that makes an unscoped "select all" destructive.
+		const onselect = renderList(['1', '3']);
 		await fireEvent.input(screen.getByLabelText('Filter chapters'), { target: { value: 'model games' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Select all 2 matching' }));
-		// '2' joins; '0' and '1' keep the state they already had; nothing hidden flips.
-		expect([...props.selectedIds].sort()).toEqual(['0', '1', '2', '3']);
+		expect(requested(onselect)).toEqual(['1', '2', '3']);
 	});
 
 	it('says so when a filter matches nothing', async () => {
@@ -403,14 +439,24 @@ describe('ChapterSelectionList', () => {
 		expect(screen.queryByRole('checkbox', { name: 'Select Lines without a chapter' })).toBeNull();
 	});
 
-	it('ignores non-selectable rows in the master aggregate and in bulk actions', async () => {
-		const props = renderList([], [
+	it('ignores non-selectable rows in bulk actions', async () => {
+		const onselect = renderList([], [
 			{ id: '0', title: 'A', metaLine: '1 line', selectable: true },
 			{ id: 'untagged', title: 'Lines without a chapter', metaLine: '5 lines', selectable: false }
 		]);
 		await fireEvent.click(screen.getByRole('button', { name: 'Select all' }));
-		expect([...props.selectedIds]).toEqual(['0']);
+		expect(requested(onselect)).toEqual(['0']);
+	});
+
+	it('ignores non-selectable rows in the master aggregate', () => {
+		// Only the one selectable row is selected, so the master reads fully
+		// checked — the untagged row must not hold it at indeterminate forever.
+		renderList(['0'], [
+			{ id: '0', title: 'A', metaLine: '1 line', selectable: true },
+			{ id: 'untagged', title: 'Lines without a chapter', metaLine: '5 lines', selectable: false }
+		]);
 		expect(master().checked).toBe(true);
+		expect(master().indeterminate).toBe(false);
 	});
 });
 ```
@@ -470,11 +516,21 @@ Create `mychess/src/lib/components/ChapterSelectionList.svelte`:
 
 	type Props = {
 		rows: ChapterRow[];
+		/** The current selection, owned by the caller. Read-only here. */
 		selectedIds: Set<string>;
 		/** One-line count summary above the list, phrased by the caller. */
 		summary: string;
+		/**
+		 * The selection this component would like next. A callback rather than
+		 * `$bindable` deliberately: it is the shape almost every component in
+		 * this repo already uses (`RepertoireDiffReview`'s `ondecisions`,
+		 * `ExploreControls`' `onstop`, `OpeningPicker`'s `onclose`), and it
+		 * keeps the selection owned by exactly one place — the caller, which
+		 * is also the party that derives its counts from it.
+		 */
+		onselect: (next: Set<string>) => void;
 	};
-	let { rows, selectedIds = $bindable(), summary }: Props = $props();
+	let { rows, selectedIds, summary, onselect }: Props = $props();
 
 	let filter = $state('');
 
@@ -495,12 +551,12 @@ Create `mychess/src/lib/components/ChapterSelectionList.svelte`:
 	const filtering = $derived(filter.trim() !== '');
 
 	/**
-	 * Reassigns rather than mutating: `selectedIds` is a plain Set threaded
-	 * through `$bindable`, so a parent's `$derived` over it only re-runs when
-	 * the reference changes.
+	 * Hands the caller a NEW Set rather than mutating the one it owns, so its
+	 * `$derived` counts actually re-run — a mutated Set is the same reference
+	 * and would not invalidate anything.
 	 */
 	function setSelection(next: Set<string>) {
-		selectedIds = next;
+		onselect(next);
 	}
 
 	function selectAllVisible() {
@@ -614,7 +670,7 @@ Create `mychess/src/lib/components/ChapterSelectionList.svelte`:
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `npx vitest run src/lib/components/ChapterSelectionList.test.ts`
-Expected: PASS (14 tests).
+Expected: PASS (18 tests).
 
 If the paraglide messages fail to resolve, run `npm test` once — a full test run regenerates `src/lib/paraglide/`. Do **not** run a bare `paraglide-js compile`, which writes to the wrong directory with the wrong strategy.
 
@@ -939,7 +995,8 @@ Then rename the existing `handleSubmit`'s import loop into:
 
 		<ChapterSelectionList
 			rows={reviewRows}
-			bind:selectedIds
+			{selectedIds}
+			onselect={(next) => (selectedIds = next)}
 			summary={m.pgn_import_review_summary({
 				total: plan.length,
 				selected: selectedIndexes.length,
@@ -2134,7 +2191,8 @@ Create `mychess/src/routes/(coach)/coach/repertoires/[repertoire_id]/chapters/+p
 				<div class="mt-4 space-y-4 rounded-xl border border-(--color-border) bg-(--color-surface) p-5 shadow-sm">
 					<ChapterSelectionList
 						{rows}
-						bind:selectedIds
+						{selectedIds}
+						onselect={(next) => (selectedIds = next)}
 						summary={m.coach_chapters_summary({ total: data.chapters.length, selected: selected.length })}
 					/>
 
