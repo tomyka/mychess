@@ -1,0 +1,218 @@
+// mychess/src/routes/(coach)/coach/repertoires/[repertoire_id]/chapters/+page.server.ts
+//
+// The coach chapter manager (GitHub issue #184): list a repertoire's chapters
+// with the cost of removing each, and remove the chosen ones for every
+// assigned student at once.
+//
+// Same division of labour as the sibling `update` route: every decision lives
+// in the pure module (`$lib/repertoire-chapter-removal`), the atomic write is
+// the RPC's (`apply_repertoire_update`, migration 0074), and this file is the
+// request boundary — validate untrusted input, then sequence the steps in the
+// one order that is safe.
+
+import { error, fail } from '@sveltejs/kit';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Actions, PageServerLoad } from './$types';
+import { requireAccount } from '$lib/server/auth';
+import { enumerateVariations } from '$lib/mastery/variations';
+import { fetchAllMoves, toRawMoveRows } from '$lib/server/practice-repertoire';
+import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from '$lib/server/paginate';
+import { beginUpdate } from '$lib/server/repertoire-update';
+import {
+	planChapterRemoval,
+	removedVariationKeys,
+	removesEveryChapter,
+	summarizeChapters,
+	UNTAGGED_CHAPTER
+} from '$lib/repertoire-chapter-removal';
+
+/**
+ * Every variation key ANY assigned player has progress on, across
+ * `variation_solved` and `variation_teaching_progress` — the two tables whose
+ * rows key off a variation and would be left pointing at retired moves.
+ *
+ * Read-only, for the confirm dialog only: it never gates a removal. A coach
+ * who wants a chapter gone gets it gone; the set is there so they know what
+ * it costs first.
+ *
+ * Fetched ONCE for the whole repertoire (both tables carry `repertoire_id`),
+ * the same way the sibling `update` route reads `variation_solved` for its own
+ * impact preview, rather than once per chapter keyed by an `.in(variation_key,
+ * ...)` filter: `variation_key` is an unbounded-length chain of move UUIDs
+ * (see `variation-practice-settings.ts`'s own comment on why THAT module hashes
+ * it before ever putting it in a filter), so chunking raw keys into a query
+ * string risks the same URL-length "Bad Request" that hashing was introduced
+ * to avoid. Reading by `repertoire_id` and matching in memory sidesteps that
+ * entirely, and both reads page past PostgREST's `max_rows` cap via
+ * `fetchAllPages`, the same as every other multi-row read in this codebase.
+ */
+async function fetchLineKeysWithProgress(supabase: SupabaseClient, repertoireId: string): Promise<Set<string>> {
+	const [solved, teaching] = await Promise.all([
+		fetchAllPages<{ variation_key: string }>(
+			() =>
+				supabase
+					.from('variation_solved')
+					.select('variation_key')
+					.eq('repertoire_id', repertoireId)
+					.order('variation_key', { ascending: true }),
+			() =>
+				supabase
+					.from('variation_solved')
+					.select('id', { count: 'exact', head: true })
+					.eq('repertoire_id', repertoireId),
+			MAX_ROWS_PAGE_SIZE
+		),
+		fetchAllPages<{ variation_key: string }>(
+			() =>
+				supabase
+					.from('variation_teaching_progress')
+					.select('variation_key')
+					.eq('repertoire_id', repertoireId)
+					.order('variation_key', { ascending: true }),
+			() =>
+				supabase
+					.from('variation_teaching_progress')
+					.select('id', { count: 'exact', head: true })
+					.eq('repertoire_id', repertoireId),
+			MAX_ROWS_PAGE_SIZE
+		)
+	]);
+
+	const withProgress = new Set<string>();
+	for (const row of solved) withProgress.add(row.variation_key);
+	for (const row of teaching) withProgress.add(row.variation_key);
+	return withProgress;
+}
+
+export const load: PageServerLoad = async ({ params, locals }) => {
+	// The `(coach)` group's `+layout.server.ts` already gates
+	// `profile.role === 'coach'`, so this only has to require a real account —
+	// re-checking the role here would duplicate the group's guard.
+	await requireAccount(locals);
+
+	const [{ data: repertoire }, { count: assignedStudentCount }] = await Promise.all([
+		locals.supabase
+			.from('repertoires')
+			.select('id, name, color, moves_updated_at')
+			.eq('id', params.repertoire_id)
+			.maybeSingle(),
+		locals.supabase
+			.from('assigned_repertoires')
+			.select('id', { count: 'exact', head: true })
+			.eq('repertoire_id', params.repertoire_id)
+	]);
+
+	// Also covers a repertoire this coach may not read: RLS returns no row, and
+	// "not found" is the right answer either way.
+	if (!repertoire) throw error(404, 'Repertoire not found');
+
+	const variations = enumerateVariations(toRawMoveRows(await fetchAllMoves(locals.supabase, params.repertoire_id)));
+	const impacts = summarizeChapters(variations);
+
+	// One repertoire-wide read, not one per chapter — see
+	// `fetchLineKeysWithProgress`'s own comment on why.
+	const withProgress = await fetchLineKeysWithProgress(locals.supabase, params.repertoire_id);
+
+	const chapters = impacts.map((impact) => ({
+		name: impact.name,
+		lineCount: impact.lineCount,
+		sharedLineCount: impact.sharedLineCount,
+		progressLineCount: impact.exclusiveVariationKeys.filter((key) => withProgress.has(key)).length
+	}));
+
+	return {
+		repertoire,
+		assignedStudentCount: assignedStudentCount ?? 0,
+		chapters,
+		untaggedChapterName: UNTAGGED_CHAPTER
+	};
+};
+
+/** The chapter names the coach chose, validated for shape only. */
+function parseRemoveChapters(raw: FormDataEntryValue | null): { names: string[] } | { error: string } {
+	if (typeof raw !== 'string' || !raw) return { error: 'chapters is required' };
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return { error: 'chapters must be valid JSON' };
+	}
+
+	if (!Array.isArray(parsed)) return { error: 'chapters must be an array' };
+	if (parsed.length === 0) return { error: 'Select at least one chapter to remove' };
+	for (const entry of parsed) {
+		if (typeof entry !== 'string' || !entry) return { error: 'each chapter must be a non-empty string' };
+	}
+
+	return { names: parsed as string[] };
+}
+
+export const actions: Actions = {
+	remove: async ({ params, request, locals }) => {
+		await requireAccount(locals);
+		const supabase = locals.supabase;
+
+		// 1. Validate before touching a row.
+		const fd = await request.formData();
+		const parsed = parseRemoveChapters(fd.get('chapters'));
+		if ('error' in parsed) return fail(400, { error: parsed.error });
+
+		const movesUpdatedAt = fd.get('movesUpdatedAt');
+		if (typeof movesUpdatedAt !== 'string' || !movesUpdatedAt) {
+			return fail(400, { error: 'movesUpdatedAt is required' });
+		}
+
+		// 2. Claim the repertoire — ONE conditional UPDATE that both checks the
+		// shape has not moved since the page was rendered and sets the deferral
+		// flag, so the two cannot be split by a concurrent re-upload apply.
+		const claimed = await beginUpdate(supabase, params.repertoire_id, movesUpdatedAt);
+		if (!claimed) {
+			return fail(409, { error: 'This repertoire changed since you opened this page. Reload and try again.' });
+		}
+
+		// 3. Recompute from the repertoire's live rows, and derive the retire set
+		// from THAT — never from anything the client sent. The client supplies
+		// chapter NAMES; which moves those names cost is decided here. Retiring is
+		// destructive (it takes a line out of every assigned student's shape), so
+		// a forged payload must not be able to retire arbitrary moves.
+		const rawMoves = toRawMoveRows(await fetchAllMoves(supabase, params.repertoire_id));
+		const variations = enumerateVariations(rawMoves);
+
+		// A removal that empties the repertoire is a repertoire delete, not a
+		// chapter removal. Checked server-side as well as in the UI, because the
+		// UI is not the authority. A name the repertoire does not have simply
+		// costs nothing, so this cannot be tricked by padding the list.
+		if (removesEveryChapter(variations, parsed.names)) {
+			return fail(400, {
+				error: 'That would remove every chapter. Delete the repertoire itself instead.'
+			});
+		}
+
+		const plan = planChapterRemoval(rawMoves, parsed.names);
+
+		// 4. The atomic tail: strip the names, drop the orphaned per-chapter
+		// exclusions, retire the moves, refresh the cached shape and clear the
+		// flag — one transaction, under the RPC's own row lock.
+		//
+		// Invoked with the user-scoped `locals.supabase`, never a service-role
+		// client: the RPC denies a caller whose `auth.uid()` is null, and a
+		// `service_role` JWT carries no `sub`.
+		const { error: rpcErr } = await supabase.rpc('apply_repertoire_update', {
+			p_repertoire_id: params.repertoire_id,
+			p_retire_move_ids: plan.retireMoveIds,
+			p_unretire_move_ids: [],
+			p_chapter_renames: [],
+			p_total_variations: plan.totalVariations,
+			p_has_chapters: plan.hasChapters,
+			p_chapter_count: plan.chapterCount,
+			p_remove_chapters: parsed.names
+		});
+		if (rpcErr) return fail(500, { error: rpcErr.message });
+
+		return {
+			removed: parsed.names.length,
+			removedLineCount: removedVariationKeys(variations, parsed.names).length
+		};
+	}
+};
