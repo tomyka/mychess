@@ -1093,6 +1093,49 @@
 	"coach_repertoire_update_cancel_link": "Atšaukti",
 	"coach_repertoire_update_reading_button": "Skaitoma…",
 	"coach_repertoire_update_review_button": "Peržiūrėti pakeitimus",
+	"coach_chapters_heading": "„{name}“ skyriai",
+	"coach_chapters_intro": "Pašalinus skyrių, jo linijos išnyksta iš repertuaro visiems {count} priskirtiems mokiniams. Iš čia to atšaukti negalima — skyrius grįžta iš naujo įkėlus PGN.",
+	"coach_chapters_summary": "Skyrių: {total} · pašalinimui pasirinkta: {selected}",
+	"coach_chapters_meta": "{lines} linijų",
+	"coach_chapters_meta_shared": "{lines} linijų · {shared} bendrų",
+	"coach_chapters_untagged_hint": "Tai ne skyrius — tai repertuaro linijos be skyriaus. Verčiau ištrinkite patį repertuarą.",
+	"coach_chapters_removes_everything": "Taip būtų pašalinti visi skyriai. Verčiau ištrinkite patį repertuarą.",
+	"coach_chapters_none": "Šis repertuaras neturi skyrių. Jo linijos buvo importuotos be skyrių pavadinimų, todėl nėra ko šalinti po vieną.",
+	"coach_chapters_remove_button": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Pašalinti {count} skyrių",
+				"countPlural=few": "Pašalinti {count} skyrius",
+				"countPlural=many": "Pašalinti {count} skyrių",
+				"countPlural=other": "Pašalinti {count} skyrių"
+			}
+		}
+	],
+	"coach_chapters_confirm_heading": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Pašalinti {count} skyrių?",
+				"countPlural=few": "Pašalinti {count} skyrius?",
+				"countPlural=many": "Pašalinti {count} skyrių?",
+				"countPlural=other": "Pašalinti {count} skyrių?"
+			}
+		}
+	],
+	"coach_chapters_confirm_lines": "Bus išimta {lines} linijų visiems {students} priskirtiems mokiniams.",
+	"coach_chapters_confirm_progress": "Iš jų {lines} turi mokinių pažangą — ji išsaugoma, jei skyrius sugrįžtų.",
+	"coach_chapters_confirm_shared": "{lines} linijų taip pat priklauso kitiems skyriams ir liks.",
+	"coach_chapters_confirm_cancel": "Atšaukti",
+	"coach_chapters_confirm_remove": "Pašalinti",
+	"coach_chapters_removed_heading": "Skyriai pašalinti",
+	"coach_chapters_removed_body": "Iš „{name}“ pašalinta {count} skyrių ir {lines} linijų.",
+	"coach_chapters_back_link": "Atgal į repertuarus",
+	"coach_chapters_link": "Skyriai",
+	"coach_chapters_error_fallback": "Pašalinimo nepavyko pritaikyti. Perkraukite ir bandykite dar kartą.",
+	"seo_coach_chapters_title": "Skyriai — {name}",
 	"seo_coach_player_title": "{name} — MyChess",
 	"coach_player_fallback_name": "Mokinys",
 	"coach_player_stats_heading": "Statistika",

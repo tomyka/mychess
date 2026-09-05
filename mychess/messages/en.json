@@ -1005,6 +1005,45 @@
 	"coach_repertoire_update_cancel_link": "Cancel",
 	"coach_repertoire_update_reading_button": "Reading…",
 	"coach_repertoire_update_review_button": "Review changes",
+	"coach_chapters_heading": "Chapters in “{name}”",
+	"coach_chapters_intro": "Removing a chapter takes its lines out of the repertoire for all {count} assigned students. This cannot be undone from here — re-uploading the PGN brings the chapter back.",
+	"coach_chapters_summary": "{total} chapters · {selected} selected for removal",
+	"coach_chapters_meta": "{lines} lines",
+	"coach_chapters_meta_shared": "{lines} lines · {shared} shared",
+	"coach_chapters_untagged_hint": "Not a chapter — these are the repertoire's untagged lines. Delete the repertoire itself instead.",
+	"coach_chapters_removes_everything": "That would remove every chapter. Delete the repertoire itself instead.",
+	"coach_chapters_none": "This repertoire has no chapters. Its lines were imported without chapter titles, so there is nothing to remove one at a time.",
+	"coach_chapters_remove_button": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Remove {count} chapter",
+				"countPlural=other": "Remove {count} chapters"
+			}
+		}
+	],
+	"coach_chapters_confirm_heading": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Remove {count} chapter?",
+				"countPlural=other": "Remove {count} chapters?"
+			}
+		}
+	],
+	"coach_chapters_confirm_lines": "Retires {lines} lines for all {students} assigned students.",
+	"coach_chapters_confirm_progress": "{lines} of them carry student progress — kept, in case the chapter returns.",
+	"coach_chapters_confirm_shared": "{lines} lines also belong to other chapters and will stay.",
+	"coach_chapters_confirm_cancel": "Cancel",
+	"coach_chapters_confirm_remove": "Remove",
+	"coach_chapters_removed_heading": "Chapters removed",
+	"coach_chapters_removed_body": "{count} chapters and {lines} lines were removed from “{name}”.",
+	"coach_chapters_back_link": "Back to repertoires",
+	"coach_chapters_link": "Chapters",
+	"coach_chapters_error_fallback": "That removal could not be applied. Reload and try again.",
+	"seo_coach_chapters_title": "Chapters — {name}",
 	"seo_coach_player_title": "{name} — MyChess",
 	"coach_player_fallback_name": "Student",
 	"coach_player_stats_heading": "Stats",

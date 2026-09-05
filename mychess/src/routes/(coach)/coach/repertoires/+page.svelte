@@ -104,6 +104,10 @@
               >
                 +
               </button>
+              <a href="/coach/repertoires/{rep.id}/chapters"
+                 class="text-sm bg-(--color-accent) text-white px-3 py-1.5 rounded-lg font-medium hover:bg-(--color-accent-hover) focus:bg-(--color-accent-hover) transition-colors shrink-0">
+                {m.coach_chapters_link()}
+              </a>
               <a href="/coach/repertoires/{rep.id}/update"
                  title={m.coach_repertoires_update_title()}
                  class="text-sm bg-(--color-accent) text-white px-3 py-1.5 rounded-lg font-medium hover:bg-(--color-accent-hover) focus:bg-(--color-accent-hover) transition-colors shrink-0">
