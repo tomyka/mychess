@@ -1914,8 +1914,26 @@ Add to `mychess/messages/en.json`:
 	"coach_chapters_untagged_hint": "Not a chapter — these are the repertoire's untagged lines. Delete the repertoire itself instead.",
 	"coach_chapters_removes_everything": "That would remove every chapter. Delete the repertoire itself instead.",
 	"coach_chapters_none": "This repertoire has no chapters. Its lines were imported without chapter titles, so there is nothing to remove one at a time.",
-	"coach_chapters_remove_button": "Remove {count} chapters",
-	"coach_chapters_confirm_heading": "Remove {count} chapters?",
+	"coach_chapters_remove_button": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Remove {count} chapter",
+				"countPlural=other": "Remove {count} chapters"
+			}
+		}
+	],
+	"coach_chapters_confirm_heading": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Remove {count} chapter?",
+				"countPlural=other": "Remove {count} chapters?"
+			}
+		}
+	],
 	"coach_chapters_confirm_lines": "Retires {lines} lines for all {students} assigned students.",
 	"coach_chapters_confirm_progress": "{lines} of them carry student progress — kept, in case the chapter returns.",
 	"coach_chapters_confirm_shared": "{lines} lines also belong to other chapters and will stay.",
@@ -1940,8 +1958,30 @@ Add to `mychess/messages/lt.json`:
 	"coach_chapters_untagged_hint": "Tai ne skyrius — tai repertuaro linijos be skyriaus. Verčiau ištrinkite patį repertuarą.",
 	"coach_chapters_removes_everything": "Taip būtų pašalinti visi skyriai. Verčiau ištrinkite patį repertuarą.",
 	"coach_chapters_none": "Šis repertuaras neturi skyrių. Jo linijos buvo importuotos be skyrių pavadinimų, todėl nėra ko šalinti po vieną.",
-	"coach_chapters_remove_button": "Pašalinti {count} skyrius",
-	"coach_chapters_confirm_heading": "Pašalinti {count} skyrius?",
+	"coach_chapters_remove_button": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Pašalinti {count} skyrių",
+				"countPlural=few": "Pašalinti {count} skyrius",
+				"countPlural=many": "Pašalinti {count} skyrių",
+				"countPlural=other": "Pašalinti {count} skyrių"
+			}
+		}
+	],
+	"coach_chapters_confirm_heading": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Pašalinti {count} skyrių?",
+				"countPlural=few": "Pašalinti {count} skyrius?",
+				"countPlural=many": "Pašalinti {count} skyrių?",
+				"countPlural=other": "Pašalinti {count} skyrių?"
+			}
+		}
+	],
 	"coach_chapters_confirm_lines": "Bus išimta {lines} linijų visiems {students} priskirtiems mokiniams.",
 	"coach_chapters_confirm_progress": "Iš jų {lines} turi mokinių pažangą — ji išsaugoma, jei skyrius sugrįžtų.",
 	"coach_chapters_confirm_shared": "{lines} linijų taip pat priklauso kitiems skyriams ir liks.",
@@ -2006,7 +2046,7 @@ describe('coach chapter manager', () => {
 		renderWith();
 		expect((screen.getByRole('button', { name: 'Remove 0 chapters' }) as HTMLButtonElement).disabled).toBe(true);
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select Rare Moves #1' }));
-		expect((screen.getByRole('button', { name: 'Remove 1 chapters' }) as HTMLButtonElement).disabled).toBe(false);
+		expect((screen.getByRole('button', { name: 'Remove 1 chapter' }) as HTMLButtonElement).disabled).toBe(false);
 	});
 
 	it('refuses a selection covering every chapter', async () => {
@@ -2045,7 +2085,7 @@ describe('coach chapter manager', () => {
 	it('sends the selected chapter names and the shape they were computed against', async () => {
 		renderWith();
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select Tactics warm-up' }));
-		await fireEvent.click(screen.getByRole('button', { name: 'Remove 1 chapters' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove 1 chapter' }));
 
 		const form = screen.getByRole('button', { name: 'Remove' }).closest('form')!;
 		const values = Object.fromEntries(new FormData(form).entries());
