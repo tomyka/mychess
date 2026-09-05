@@ -37,14 +37,31 @@ import {
  *
  * Fetched ONCE for the whole repertoire (both tables carry `repertoire_id`),
  * the same way the sibling `update` route reads `variation_solved` for its own
- * impact preview, rather than once per chapter keyed by an `.in(variation_key,
- * ...)` filter: `variation_key` is an unbounded-length chain of move UUIDs
- * (see `variation-practice-settings.ts`'s own comment on why THAT module hashes
- * it before ever putting it in a filter), so chunking raw keys into a query
- * string risks the same URL-length "Bad Request" that hashing was introduced
- * to avoid. Reading by `repertoire_id` and matching in memory sidesteps that
- * entirely, and both reads page past PostgREST's `max_rows` cap via
- * `fetchAllPages`, the same as every other multi-row read in this codebase.
+ * impact preview, rather than once per chapter keyed by an
+ * `.in('variation_key', ...)` filter.
+ *
+ * Two separate hazards make the filtered version worse, not better:
+ *
+ *   1. `variation_key` is an unbounded-length chain of move UUIDs. Migration
+ *      0049 added `variation_key_hash` because a raw key overflowed Postgres's
+ *      btree row-size limit; SEPARATELY, `variation-practice-settings.ts`
+ *      found that even batches of already-hashed 64-char values could blow the
+ *      query string's own length ceiling ("Bad Request", no Postgres error),
+ *      which is why its own batch size is capped at 100. Raw keys in an
+ *      `.in()` are exposed to the second hazard with no bound at all.
+ *   2. Filtering by key would not actually fetch less. Neither table is
+ *      scoped to one player here, so both return one row per (player, key)
+ *      pair either way — and `load` needs EVERY chapter's count, so the union
+ *      of all chapters' exclusive keys is very nearly the whole repertoire.
+ *      A hashed, chunked version would page through the same rows using many
+ *      more round trips.
+ *
+ * Ordering is `(player_id, variation_key)` — the pair `variation_solved`'s own
+ * unique constraint is built on — NOT `variation_key` alone. Many players
+ * commonly solve the same line, so `variation_key` is not unique across this
+ * result set, and a partial order lets rows tied at a page boundary be skipped
+ * or repeated once the repertoire crosses `MAX_ROWS_PAGE_SIZE`. The sibling
+ * `update` route orders by both columns for exactly this reason.
  */
 async function fetchLineKeysWithProgress(supabase: SupabaseClient, repertoireId: string): Promise<Set<string>> {
 	const [solved, teaching] = await Promise.all([
@@ -54,6 +71,7 @@ async function fetchLineKeysWithProgress(supabase: SupabaseClient, repertoireId:
 					.from('variation_solved')
 					.select('variation_key')
 					.eq('repertoire_id', repertoireId)
+					.order('player_id', { ascending: true })
 					.order('variation_key', { ascending: true }),
 			() =>
 				supabase
@@ -68,6 +86,7 @@ async function fetchLineKeysWithProgress(supabase: SupabaseClient, repertoireId:
 					.from('variation_teaching_progress')
 					.select('variation_key')
 					.eq('repertoire_id', repertoireId)
+					.order('player_id', { ascending: true })
 					.order('variation_key', { ascending: true }),
 			() =>
 				supabase
@@ -106,12 +125,17 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	// "not found" is the right answer either way.
 	if (!repertoire) throw error(404, 'Repertoire not found');
 
-	const variations = enumerateVariations(toRawMoveRows(await fetchAllMoves(locals.supabase, params.repertoire_id)));
-	const impacts = summarizeChapters(variations);
+	// Concurrent: the progress read needs only the repertoire id, so making it
+	// wait on the move fetch would cost a whole round trip on every page load
+	// for nothing. One repertoire-wide progress read, not one per chapter —
+	// see `fetchLineKeysWithProgress`'s own comment on why.
+	const [moves, withProgress] = await Promise.all([
+		fetchAllMoves(locals.supabase, params.repertoire_id),
+		fetchLineKeysWithProgress(locals.supabase, params.repertoire_id)
+	]);
 
-	// One repertoire-wide read, not one per chapter — see
-	// `fetchLineKeysWithProgress`'s own comment on why.
-	const withProgress = await fetchLineKeysWithProgress(locals.supabase, params.repertoire_id);
+	const variations = enumerateVariations(toRawMoveRows(moves));
+	const impacts = summarizeChapters(variations);
 
 	const chapters = impacts.map((impact) => ({
 		name: impact.name,
