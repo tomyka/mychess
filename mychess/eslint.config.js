@@ -14,7 +14,13 @@ export default tseslint.config(
 			'.netlify/',
 			'static/',
 			'node_modules/',
-			'src/lib/openings/eco-data.ts' // generated data file
+			'src/lib/openings/eco-data.ts', // generated data file
+			// Paraglide's compiled message modules, generated into src/ by the
+			// vite plugin and gitignored (.gitignore:26). Same category as
+			// eco-data.ts above, but it only exists once something has built, so
+			// its absence from this list showed up as 601 extra warnings the
+			// moment `npm run lint` followed a build.
+			'src/lib/paraglide/'
 		]
 	},
 	js.configs.recommended,

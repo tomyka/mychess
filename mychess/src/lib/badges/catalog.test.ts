@@ -13,6 +13,9 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+// Both paths are built from `import.meta.dirname` and string literals below —
+// no input reaches them, so security/detect-non-literal-fs-filename has nothing
+// to protect against here.
 const MIGRATIONS = join(import.meta.dirname, '../../../supabase/migrations');
 const RECALC = join(import.meta.dirname, 'recalc.ts');
 
@@ -20,6 +23,7 @@ const RECALC = join(import.meta.dirname, 'recalc.ts');
 function catalogIds(): Set<string> {
 	const ids = new Set<string>();
 	for (const file of readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort()) {
+		// eslint-disable-next-line security/detect-non-literal-fs-filename -- see the note above MIGRATIONS
 		const sql = readFileSync(join(MIGRATIONS, file), 'utf8');
 		if (/truncate\s+public\.badges/i.test(sql)) ids.clear();
 		for (const block of sql.matchAll(/insert into public\.badges\s*\([^)]*\)\s*values(.*?);/gis)) {
