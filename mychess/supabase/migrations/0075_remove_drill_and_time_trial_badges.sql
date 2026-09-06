@@ -1,4 +1,4 @@
--- mychess/supabase/migrations/0074_remove_drill_and_time_trial_badges.sql
+-- mychess/supabase/migrations/0075_remove_drill_and_time_trial_badges.sql
 --
 -- Removes the eight Drill and Time Trial badges from the `badges` catalog.
 -- Same problem and same remedy as `0053_remove_unearnable_badge.sql`:
