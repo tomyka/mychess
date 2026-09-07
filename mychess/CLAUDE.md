@@ -94,6 +94,18 @@ Lint has no tolerated baseline either (issue #91): `npm run lint` is gated in CI
     - **Task** — self-contained, implementation-ready, no separate spec needed. Lightweight body per the bullet above. File with `--label size/small`, matching `small-task.yml`.
     - **Epic** — substantial feature or multi-part initiative that must go through brainstorm → spec → plan before any code. Body is the `prd` skill's output (or a link to it), and the issue is the backlog entry, *not* the spec. File with `--label size/large`, matching `feature-backlog.yml`. Link the child task issues from the epic body as a checklist so the breakdown is visible from one place.
     - When a request is genuinely ambiguous in size, prefer Epic and decompose — an epic that turns out small costs a label edit, whereas a task that turns out large silently skips the spec step.
+  - **`auto-ok` — safe to work unattended (GitHub issue #189, epic #188).** A separate axis from size, because **size is not a proxy for safety**. An issue earns `auto-ok` only if *every* one of these holds:
+    - **Its done-condition is checkable by a command** — `npm test`, `npm run check`, `npm run lint` — not by a human reading output and knowing what the numbers should be.
+    - **It needs no product or UX decision.** Anything ambiguous is settled by the issue body, not by the agent's taste. An issue offering a choice of visual treatments ("a badge, dimmed styling, or a reason string") is not ready.
+    - **It touches no production data**, and creates no account or fixture needing cleanup afterwards.
+    - **It is not security-sensitive.**
+    - **It is a task, not an epic**, and needs no brainstorming first.
+
+    Only a human applies this label — an agent deciding for itself what is safe to do unattended defeats the point. Currently labelled: #185 (review a diff against a written plan), #186 (change two message values), #169 (internal perf refactor whose no-behaviour-change invariant is covered by `teaching.test.ts`).
+
+    **#187 is the canonical counter-example** and is deliberately excluded: it is `size/small`, but its done-condition is read out of `debug:learn-plan` by someone who knows what the numbers should be, it exercises a destructive operation against a real repertoire for the first time, and it ends in a merge decision. Worth re-reading its thread before labelling anything that resembles it.
+
+    `blocked` is its counterpart: an unattended run that stops applies it and comments what it needs.
   - **Closing:** once an issue's own Acceptance Criteria are actually met, close it (`gh issue close <n> --comment "..."`) — don't leave finished work sitting open. Pushing the code isn't sufficient by itself if the issue depends on a manual step outside Claude's control (a migration the user must run, a Supabase Dashboard setting, DNS/SMTP verification) — wait for that confirmation, or ask for it, before closing.
   - **QA/test accounts:** if verifying a task created a throwaway account in the database (e.g. testing a magic-link sign-in, a guest-conversion flow), remove it before treating the task as closed. The `SUPABASE_SERVICE_ROLE_KEY` in `mychess/.env` can delete it directly (see Database & migrations) — narrowly, only the specific account(s) created for that task's testing, never a broader cleanup sweep. Say what was deleted afterward rather than doing it silently.
 - Treat production (mychess.lt / Vercel) as the test environment for this project going forward: commit and push directly to `main` without asking for confirmation first, since `main` auto-deploys via Vercel and the project has no other users yet. This does not extend to destructive git operations (force-push, history rewrites) — those still require asking.
