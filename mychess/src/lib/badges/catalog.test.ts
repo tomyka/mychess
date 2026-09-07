@@ -19,12 +19,49 @@ import { join } from 'node:path';
 const MIGRATIONS = join(import.meta.dirname, '../../../supabase/migrations');
 const RECALC = join(import.meta.dirname, 'recalc.ts');
 
+// Strips SQL line and block comments, leaving string literals alone.
+//
+// Load-bearing, not tidiness: these migrations carry long explanatory headers,
+// and 0075's quotes the statement `truncate public.badges cascade` in prose
+// while explaining why NOT to let a push replay it. Matching that as if it were
+// a real statement cleared the parsed catalog to empty — caught by the
+// non-trivial-size assertion below, which is exactly what that assertion is for.
+function stripComments(sql: string): string {
+	let out = '';
+	let inString = false;
+	for (let i = 0; i < sql.length; i++) {
+		const c = sql[i];
+		if (inString) {
+			out += c;
+			// '' is an escaped quote inside a string, not the end of one.
+			if (c === "'" && sql[i + 1] === "'") out += sql[++i];
+			else if (c === "'") inString = false;
+			continue;
+		}
+		if (c === "'") {
+			inString = true;
+			out += c;
+		} else if (c === '-' && sql[i + 1] === '-') {
+			while (i < sql.length && sql[i] !== '\n') i++;
+			out += '\n';
+		} else if (c === '/' && sql[i + 1] === '*') {
+			i += 2;
+			while (i < sql.length && !(sql[i] === '*' && sql[i + 1] === '/')) i++;
+			i++;
+			out += ' ';
+		} else {
+			out += c;
+		}
+	}
+	return out;
+}
+
 /** The catalog as the migrations leave it: truncates, inserts and deletes applied in order. */
 function catalogIds(): Set<string> {
 	const ids = new Set<string>();
 	for (const file of readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort()) {
 		// eslint-disable-next-line security/detect-non-literal-fs-filename -- see the note above MIGRATIONS
-		const sql = readFileSync(join(MIGRATIONS, file), 'utf8');
+		const sql = stripComments(readFileSync(join(MIGRATIONS, file), 'utf8'));
 		if (/truncate\s+public\.badges/i.test(sql)) ids.clear();
 		for (const block of sql.matchAll(/insert into public\.badges\s*\([^)]*\)\s*values(.*?);/gis)) {
 			for (const row of block[1].matchAll(/^\s*\('([a-z0-9_]+)'/gm)) ids.add(row[1]);

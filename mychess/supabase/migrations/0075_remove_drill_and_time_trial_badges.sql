@@ -31,6 +31,18 @@
 --
 -- If Drill or Time Trial is ever rebuilt, re-add the catalog rows AND their
 -- recalc rules together — that pairing is exactly what went missing here.
+--
+-- APPLIED TO PRODUCTION BY HAND on 2026-09-07, by pasting the statement below
+-- into the SQL editor; the catalog count for these eight ids went 8 -> 0.
+-- Recorded here because nothing else records it: `migrate.yml` is
+-- workflow_dispatch-only, and `supabase_migrations.schema_migrations` returned
+-- no rows at all for versions >= 0070 even though 0070-0073 are demonstrably
+-- live, so the CLI's history is not tracking this project. `supabase db push`
+-- was deliberately NOT used: against an empty history it would replay from
+-- 0001, and `0006_badges.sql`'s second statement is
+-- `truncate public.badges cascade`, which reaches `badges_earned` through its
+-- foreign key and would delete every player's earned badges. Re-running this
+-- file changes nothing — the delete is guarded and idempotent.
 delete from public.badges b
 where b.id in (
   'first_drill',
