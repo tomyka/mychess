@@ -37,3 +37,4 @@ Thumbs.db
 # nothing — the exception has to exclude the directory's contents instead.
 .claude/*
 !.claude/settings.json
+!.claude/commands/
