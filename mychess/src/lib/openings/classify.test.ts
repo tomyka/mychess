@@ -12,6 +12,12 @@ const FIXTURE: Opening[] = [
   { code: 'C20', name: "King's Pawn Game", moves: ['e4', 'e5'] }
 ];
 
+const NAMES_LT: Record<string, string> = {
+  B90: 'Siciliška gynyba, Naidorfo variantas',
+  B20: 'Siciliška gynyba',
+  C20: 'Karaliaus pėstininko debiutas'
+};
+
 describe('detectOpening', () => {
   it('returns the longest matching prefix', () => {
     const moves = ['e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'Nf6', 'Nc3', 'a6', 'e5'];
@@ -63,5 +69,31 @@ describe('searchOpenings', () => {
 
   it('returns an empty array when nothing matches', () => {
     expect(searchOpenings('zzz-no-match', FIXTURE)).toEqual([]);
+  });
+
+  // GitHub issue #200: the picker displays Lithuanian names under `lt`, so it
+  // has to find them by what it displays, not only by the English name.
+  it('matches a Lithuanian name when the table is supplied', () => {
+    const results = searchOpenings('naidorfo', FIXTURE, NAMES_LT);
+    expect(results.map((o) => o.code)).toEqual(['B90']);
+  });
+
+  it('ignores Lithuanian diacritics on both sides', () => {
+    expect(searchOpenings('siciliska', FIXTURE, NAMES_LT).map((o) => o.code)).toEqual(['B90', 'B20']);
+    expect(searchOpenings('Siciliška', FIXTURE, NAMES_LT).map((o) => o.code)).toEqual(['B90', 'B20']);
+  });
+
+  it('ignores diacritics in English names too', () => {
+    const withUmlaut: Opening[] = [{ code: 'E32', name: 'Nimzo-Indian Defense: Sämisch Variation', moves: [] }];
+    expect(searchOpenings('samisch', withUmlaut).map((o) => o.code)).toEqual(['E32']);
+  });
+
+  it('still matches the English name and code when a Lithuanian table is supplied', () => {
+    expect(searchOpenings('najdorf', FIXTURE, NAMES_LT).map((o) => o.code)).toEqual(['B90']);
+    expect(searchOpenings('b20', FIXTURE, NAMES_LT).map((o) => o.code)).toEqual(['B20']);
+  });
+
+  it('matches nothing Lithuanian when no table is supplied', () => {
+    expect(searchOpenings('naidorfo', FIXTURE)).toEqual([]);
   });
 });

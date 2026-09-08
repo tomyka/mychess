@@ -2,6 +2,7 @@
   import { enhance } from '$app/forms';
   import { searchOpenings } from '$lib/openings/classify';
   import { ECO_OPENINGS } from '$lib/openings/eco-data';
+  import { ECO_NAMES_LT } from '$lib/openings/eco-data-lt';
   import { localizedOpeningName } from '$lib/openings/name';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
@@ -9,7 +10,9 @@
   let { repId, onclose } = $props<{ repId: string; onclose: () => void }>();
 
   let query = $state('');
-  const results = $derived(searchOpenings(query, ECO_OPENINGS).slice(0, 30));
+  // The Lithuanian names go in whatever the locale: the list shows them under
+  // `lt`, and searching has to find what it shows (GitHub issue #200).
+  const results = $derived(searchOpenings(query, ECO_OPENINGS, ECO_NAMES_LT).slice(0, 30));
 
   let errorMessage = $state<string | null>(null);
 

@@ -2,6 +2,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
 import OpeningPicker from './OpeningPicker.svelte';
+import { m } from '$lib/paraglide/messages';
 import { baseLocale, overwriteGetLocale } from '$lib/paraglide/runtime';
 
 // `use:enhance` from real SvelteKit needs client-side router/navigation context
@@ -58,6 +59,25 @@ describe('OpeningPicker', () => {
     } finally {
       // Paraglide exposes no way to read the installed getter back, so restore
       // the base locale — which is what every other test in this file assumes.
+      overwriteGetLocale(() => baseLocale);
+    }
+  });
+
+  // GitHub issue #200: what the picker displays under `lt` has to be findable
+  // by typing it, with or without the Lithuanian letters.
+  it('finds an opening by its Lithuanian name under the lt locale', async () => {
+    overwriteGetLocale(() => 'lt');
+    try {
+      render(OpeningPicker, { props: { repId: 'r1', onclose: () => {} } });
+      // Typed without the Lithuanian letters, as an English keyboard would.
+      await fireEvent.input(screen.getByRole('textbox'), { target: { value: 'naidorfo' } });
+
+      // Several codes share the Najdorf family, so this matches more than one.
+      expect(screen.getAllByText(/Naidorfo variantas/).length).toBeGreaterThan(0);
+      // Via the message rather than a literal: this runs under `lt`, so the
+      // "no matches" copy is Lithuanian and shouldn't be hardcoded here.
+      expect(screen.queryByText(m.opening_picker_no_matches())).toBeNull();
+    } finally {
       overwriteGetLocale(() => baseLocale);
     }
   });

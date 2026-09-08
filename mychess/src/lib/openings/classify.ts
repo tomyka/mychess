@@ -22,9 +22,43 @@ export function detectOpening(sanMoves: string[], openings: Opening[]): { code: 
   return best ? { code: best.code, name: best.name } : null;
 }
 
-/** Case-insensitive substring match against code and name. Blank query returns []. */
-export function searchOpenings(query: string, openings: Opening[]): Opening[] {
-  const q = query.trim().toLowerCase();
+/**
+ * Lower-cases and strips diacritics, so a query typed on a keyboard without
+ * Lithuanian letters still finds them — `siciliska` matches `Siciliška`. It
+ * cuts both ways for English names too: `samisch` finds `Sämisch`, `grunfeld`
+ * finds `Grünfeld`.
+ */
+function fold(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+}
+
+/**
+ * Case- and diacritic-insensitive substring match against the code, the
+ * English name, and — when `namesLt` is supplied — the Lithuanian name.
+ * Blank query returns [].
+ *
+ * The Lithuanian table is matched whatever the active locale rather than only
+ * under `lt`: matching more can only find openings the user meant, players
+ * routinely know the standard English names alongside the Lithuanian ones, and
+ * it keeps this function free of any locale argument (GitHub issue #200).
+ *
+ * `namesLt` is passed in rather than imported, matching how `openings` already
+ * arrives here — this module stays independent of the generated data files.
+ */
+export function searchOpenings(
+  query: string,
+  openings: Opening[],
+  namesLt?: Record<string, string>
+): Opening[] {
+  const q = fold(query.trim());
   if (!q) return [];
-  return openings.filter((o) => o.name.toLowerCase().includes(q) || o.code.toLowerCase().includes(q));
+  return openings.filter(
+    (o) =>
+      fold(o.name).includes(q) ||
+      fold(o.code).includes(q) ||
+      (namesLt?.[o.code] !== undefined && fold(namesLt[o.code]).includes(q))
+  );
 }
