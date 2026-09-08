@@ -14,7 +14,34 @@
 //   subagents  — epic #184 averaged ~3 per task (one implementer plus one or
 //                two reviewers). A run spawning far more has usually lost its
 //                way rather than found more work.
-//   wall clock — a runaway loop burns tokens indefinitely otherwise.
+//   wall clock — a runaway loop burns tokens indefinitely otherwise, AND it is
+//                the only available proxy for the 5-hour usage window; see
+//                below.
+//
+// ON THE 5-HOUR USAGE WINDOW. The wall-clock cap exists because stopping at a
+// percentage of the subscription usage limit is NOT possible. Checked against
+// the Claude Code docs rather than assumed:
+//
+//   - No hook event receives usage or rate-limit data. Every event gets only
+//     session_id, prompt_id, transcript_path, cwd, permission_mode, effort,
+//     hook_event_name, agent_id, agent_type.
+//   - No CLI or programmatic read exists. `/usage` has no machine-readable
+//     output, and OpenTelemetry exports token and cost metrics but explicitly
+//     not window consumption.
+//   - No setting stops below 100%, managed or otherwise. The only adjacent one
+//     is `autoContinueAtUsageLimit`, which governs what happens AFTER the limit
+//     is hit — set it false so a session stops rather than silently resuming
+//     when the window resets.
+//
+// `transcript_path` is the one tempting avenue and it measures the wrong thing:
+// it would give this session's own token count, while the limit is account-wide
+// across sessions.
+//
+// So elapsed time is the proxy. The window is 300 minutes; 90% of it is 270.
+// The default below is deliberately lower than that — token throughput is not
+// constant (long context, cache misses, extended thinking all spike it), so a
+// run can cross 90% of the window well before 270 minutes of wall clock. Raise
+// it knowingly, not by habit.
 //
 // It ALSO stops a run when the context window is nearly full, wired as a
 // PreCompact hook on the "auto" matcher. Auto-compaction is what lets a session
@@ -47,7 +74,15 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 const MAX_SUBAGENTS = Number(process.env.BACKLOG_MAX_SUBAGENTS ?? 20);
-const MAX_MINUTES = Number(process.env.BACKLOG_MAX_MINUTES ?? 120);
+
+/**
+ * 225 minutes — 3h45m. Chosen against the 5-hour (300 minute) usage window:
+ * 90% of it is 270 minutes, minus a margin for the fact that token throughput
+ * is not constant, so a spiky run reaches 90% of the window earlier than
+ * 270 minutes of wall clock would suggest. See the note at the top of this file
+ * on why a real percentage cannot be read.
+ */
+const MAX_MINUTES = Number(process.env.BACKLOG_MAX_MINUTES ?? 225);
 
 /** Everything this hook writes goes here, keyed by session. */
 const STATE_DIR = join(tmpdir(), 'mychess-backlog-guard');
