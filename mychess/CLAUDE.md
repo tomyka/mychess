@@ -19,6 +19,15 @@ Run from this directory (`mychess/`):
 - **`npm run setup` — the first thing to run in a fresh worktree or checkout (GitHub issue #192).** A bare `npm install` is not enough on this project's dev machines, and both reasons fail in ways that look like a broken repository rather than a broken environment: `.npmrc` sets `engine-strict=true` against a Node older than some devDependencies want (`EBADENGINE`), and npm's optional-dependency bug (npm/cli#4828) silently drops rolldown's platform-specific native binding, after which vitest and vite die with `Cannot find native binding`. This script installs with the engine override, restores the binding at the version in `package-lock.json` (resolved by matching the lockfile's own `os`/`cpu` entries — nothing is hardcoded), proves rolldown actually loads, and then runs the suite. Add `--no-test` to stop after the binding check.
   - Note the binding repair runs on **every** setup, not just the first: `npm install` drops it again each time, so deleting `node_modules` and reinstalling never fixes it on its own.
   - It distinguishes the two failure kinds deliberately. A failure before the binding loads says *environment problem, not a code problem*. A test failure after it says the opposite — the toolchain is fine and those are real failures. Mislabelling that is exactly what sends someone hunting the wrong bug.
+- `scripts/backlog-run-guard.mjs` — **not run by hand.** A hook that hard-caps what one run may spend (GitHub issue #193). Wire it in `.claude/settings.local.json` on each machine (that directory is gitignored, so it does not follow you between them):
+  ```json
+  "PreCompact":    [{ "matcher": "auto", "hooks": [{ "type": "command", "command": "node mychess/scripts/backlog-run-guard.mjs" }] }],
+  "SubagentStart": [{                    "hooks": [{ "type": "command", "command": "node mychess/scripts/backlog-run-guard.mjs" }] }]
+  ```
+  It refuses a subagent past `BACKLOG_MAX_SUBAGENTS` (default 20), a run past `BACKLOG_MAX_MINUTES` (default 120), and **automatic** compaction — so a session whose context is nearly full stops instead of summarising itself and carrying on. Manual `/compact` is always allowed; `BACKLOG_ALLOW_AUTOCOMPACT=1` permits the automatic kind.
+  - The point of a hook rather than a rule in this file: the harness runs it, so it cannot be reasoned past. Caps written as instructions are checked by the agent against itself, and an agent that has lost the thread is exactly the one that will not check.
+  - It fails **open** on any internal error, deliberately — a guard that failed closed on its own bug would block every subagent in every session, including ordinary supervised work that never asked for a cap.
+  - **It is not a spend cap.** Hooks receive no cost or context-percentage figure, so this counts spawns and minutes, which correlate with spend but are not it. For a real dollar ceiling, launch with `claude --max-budget-usd <n>`.
 - `npm run dev` — dev server (Vite)
 - `npm run build` / `npm run preview` — production build / preview it locally
 - `npm test` / `npm run test:watch` — vitest (unit tests, colocated `*.test.ts` files)
