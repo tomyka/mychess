@@ -1,3 +1,11 @@
+-- @replay-unsafe: `truncate public.badges cascade` below reaches
+-- `badges_earned` through its foreign key, so re-running this file deletes
+-- every player's earned-badge history. It is safe only while this version is
+-- recorded as applied — and per `0075_remove_drill_and_time_trial_badges.sql`'s
+-- note, `supabase_migrations.schema_migrations` returned no rows at all for
+-- versions >= 0070 on this project even though those migrations are live, so
+-- the CLI's history is not tracking it. Against that empty history `db push`
+-- replays from 0001 and reaches this statement. Audited under GitHub issue #195.
 -- Insert 30 badge definitions
 truncate public.badges cascade;
 

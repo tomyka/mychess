@@ -1,3 +1,6 @@
+-- @replay-unsafe: literal YOUR_APP_URL / YOUR_CRON_SECRET placeholders, plus
+-- an unguarded `cron.unschedule` that errors when the job is absent. See the
+-- MANUAL ONLY note below. Audited under #195.
 -- mychess/supabase/migrations/0076_fix_cron_schedule.sql
 --
 -- NOTE ON NUMBERING: authored and APPLIED TO PRODUCTION as `0013_...`, then

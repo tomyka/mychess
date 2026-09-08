@@ -1,3 +1,6 @@
+-- @replay-unsafe: OPTIONAL migration with literal `<PROJECT_REF>` and
+-- `<CRON_SECRET>` placeholders, and it needs pg_net enabled first. See the
+-- DO NOT AUTO-APPLY note below. Audited under #195.
 -- OPTIONAL: schedule the FIDE import monthly via Supabase Cron (pg_cron), for teams
 -- preferring Supabase-side scheduling over the GitHub Action.
 --

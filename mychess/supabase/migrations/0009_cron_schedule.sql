@@ -1,3 +1,5 @@
+-- @replay-unsafe: literal `<PROJECT_REF>` placeholder, substituted by hand
+-- before running. See the DO NOT AUTO-APPLY note below. Audited under #195.
 -- Schedule the tournaments-scrape Edge Function every 6 hours via Supabase Cron (pg_cron).
 -- Requires the pg_net extension and your Edge Function URL.
 --
