@@ -7,6 +7,8 @@
 // Add a probe per migration as new ones land; a probe is just "select these
 // columns, limit 1" and passes only if PostgREST accepts them.
 
+import { readdirSync, readFileSync } from 'node:fs';
+
 const url = process.env.PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -50,6 +52,50 @@ for (const probe of PROBES) {
     failed++;
     console.log(`✗ ${probe.migration}  ${probe.table}: ${res.status} ${(await res.text()).slice(0, 200)}`);
   }
+}
+
+// Every probe above is a `select ... limit 1` through PostgREST, which can only
+// ever observe a table or a column. An RLS policy is invisible to it: the
+// service role bypasses RLS, and `pg_policies` lives in `pg_catalog`, which
+// PostgREST does not expose. So a migration whose entire content is
+// `create policy` has no probe and cannot get one (GitHub issue #196).
+//
+// That is 8 of this repo's migrations, and it recurs every time RLS changes —
+// which is where the coach/player anti-hijack protection lives. Silence about
+// them reads as "verified" when it means "never checked", so they are listed
+// explicitly instead. Derived by scanning rather than hardcoded, so a new
+// policy-only migration appears here without anyone remembering to add it.
+const MIGRATIONS_DIR = new URL('../supabase/migrations/', import.meta.url);
+
+/** DDL a probe above could actually observe through PostgREST. */
+const OBSERVABLE_DDL = /\b(create\s+table|create\s+or\s+replace\s+view|create\s+view|alter\s+table\s+\S+\s+add\s+column|drop\s+table)\b/i;
+
+function policyOnlyMigrations(): string[] {
+  // Both reads are of this repo's own committed migration files, at a path
+  // built from `import.meta.url` — no user input reaches either. Same
+  // justification as `src/lib/badges/catalog.test.ts`, which silences this
+  // rule for the same reason.
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- fixed repo path, see above
+  const names = readdirSync(MIGRATIONS_DIR).filter((n) => n.endsWith('.sql')).sort();
+  return names.filter((name) => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- fixed repo path, see above
+    const sql = readFileSync(new URL(name, MIGRATIONS_DIR), 'utf8')
+      .split('\n')
+      .filter((line) => !line.trimStart().startsWith('--'))
+      .join('\n');
+    return /\bcreate\s+policy\b/i.test(sql) && !OBSERVABLE_DDL.test(sql);
+  });
+}
+
+const unverifiable = policyOnlyMigrations();
+if (unverifiable.length > 0) {
+  console.log('');
+  console.log(`? ${unverifiable.length} migration(s) this script CANNOT verify — policy-only, so no probe can observe them:`);
+  for (const name of unverifiable) console.log(`    ${name}`);
+  console.log('');
+  console.log('  Confirm those by hand in the Supabase SQL editor, e.g. for one table:');
+  console.log("    select policyname, cmd from pg_policies where schemaname = 'public' and tablename = '<table>' order by policyname;");
+  console.log('  Not counted as failures — they are unchecked, not broken (GitHub issue #196).');
 }
 
 console.log('');
