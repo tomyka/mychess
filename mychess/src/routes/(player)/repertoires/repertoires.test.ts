@@ -2,6 +2,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/svelte';
 import Repertoires from './+page.svelte';
+import { baseLocale, overwriteGetLocale } from '$lib/paraglide/runtime';
 
 afterEach(() => cleanup());
 
@@ -24,6 +25,37 @@ describe('repertoires page', () => {
   it('does not suggest asking a coach when repertoires are already assigned', () => {
     render(Repertoires, { props: { data: { repertoires: [], assignedRepertoires: assigned } } });
     expect(screen.queryByText(/Ask your coach to assign one/i)).toBeNull();
+  });
+
+  // GitHub issue #158. `eco_name` is stored in English, so the Lithuanian name
+  // has to come from `eco_code` at render time — this asserts the row's own
+  // stored string is not what reaches the page under `lt`.
+  // Assigned, not owned: the owned list renders `eco_code` alone (line 94),
+  // so the assigned section is the only place on this page carrying a name.
+  it('renders the opening name in Lithuanian under the lt locale', () => {
+    const owned = [
+      {
+        id: 'r1',
+        name: 'Najdorf',
+        color: '#4f46e5',
+        moves: [{ count: 12 }],
+        eco_code: 'B90',
+        eco_name: 'Sicilian Defense: Najdorf Variation'
+      }
+    ];
+
+    render(Repertoires, { props: { data: { repertoires: [], assignedRepertoires: owned } } });
+    expect(screen.getByText(/Sicilian Defense: Najdorf Variation/)).toBeTruthy();
+    cleanup();
+
+    overwriteGetLocale(() => 'lt');
+    try {
+      render(Repertoires, { props: { data: { repertoires: [], assignedRepertoires: owned } } });
+      expect(screen.getByText(/Siciliška gynyba, Naidorfo variantas/)).toBeTruthy();
+      expect(screen.queryByText(/Sicilian Defense: Najdorf Variation/)).toBeNull();
+    } finally {
+      overwriteGetLocale(() => baseLocale);
+    }
   });
 
   it('shows a delete form with the repertoire id for each owned repertoire', () => {
