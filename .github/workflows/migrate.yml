@@ -2,6 +2,18 @@ name: Apply Supabase Migrations
 
 on:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Report what would be applied without applying it'
+        type: boolean
+        required: false
+        # Defaults ON deliberately (GitHub issue #156). Every migration in this
+        # repo's history was applied by hand through the SQL editor, which does
+        # not write to `supabase_migrations.schema_migrations` — so a push
+        # against a stale history table replays already-applied migrations,
+        # some of them destructive. Whoever runs this should have to opt IN to
+        # writing, having first read a dry run.
+        default: true
 
 jobs:
   migrate:
@@ -54,7 +66,25 @@ jobs:
           echo "Add SUPABASE_DB_URL to GitHub secrets (Settings → Secrets → Actions)."
           exit 1
 
+      - name: Show recorded migration history
+        # Printed before anything is applied so a run's log always shows what
+        # the database believed had already been applied. A history table that
+        # stops short of the newest file is the signal that migrations were
+        # applied by hand and the history needs repairing first — see #156.
+        run: |
+          npx supabase migration list --db-url "${{ steps.db-url.outputs.db_url }}" || \
+            echo "⚠ Could not list migration history — continuing so the step below reports too."
+        working-directory: mychess
+
       - name: Push all migrations
         run: |
-          npx supabase db push --db-url "${{ steps.db-url.outputs.db_url }}"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "DRY RUN — reporting only, nothing will be applied."
+            npx supabase db push --dry-run --db-url "${{ steps.db-url.outputs.db_url }}"
+            echo ""
+            echo "Nothing was applied. Re-run with dry_run unchecked to apply."
+          else
+            echo "APPLYING migrations."
+            npx supabase db push --db-url "${{ steps.db-url.outputs.db_url }}"
+          fi
         working-directory: mychess
