@@ -1,0 +1,4 @@
+-- Deliberate version collision with 0075_remove_drill_and_time_trial_badges.sql,
+-- pushed only to prove CI rejects it (GitHub issue #194's last acceptance
+-- criterion). Intentionally contains no DDL: this file must never merge, and if
+-- it somehow ran it would do nothing.
