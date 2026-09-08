@@ -94,8 +94,22 @@ blank names.
 
 ### 3. Rendering
 
-Replace direct `eco_name` / `opening.name` reads with the helper in
-`OpeningPicker.svelte` and the repertoire lists.
+Three call sites, all of them currently rendering the field directly:
+
+| file | line | today |
+| --- | --- | --- |
+| `src/lib/components/OpeningPicker.svelte` | 85 | `{opening.code} — {opening.name}` from `ECO_OPENINGS` |
+| `src/routes/(player)/repertoires/+page.svelte` | 38 | `{rep.eco_code} — {rep.eco_name}` from the row |
+| `src/routes/(coach)/coach/repertoires/+page.svelte` | 88-89 | `{rep.eco_code}` + `— {rep.eco_name}` from the row |
+
+Each becomes a call to the helper. Note the picker reads the in-memory
+`ECO_OPENINGS` list while the two lists read the stored row, so the helper takes
+the English name as an argument rather than looking it up — one signature serves
+both shapes.
+
+`OpeningPicker.svelte:82` also posts `eco_name` as a hidden input, and keeps
+posting the English name: that value is what gets stored, and storage stays
+English by design (below).
 
 `repertoires.eco_name` keeps being written as the English string. It stays a
 record of what was detected at import; display simply stops trusting it under
