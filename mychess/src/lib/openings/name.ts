@@ -1,5 +1,6 @@
 // mychess/src/lib/openings/name.ts
 import { ECO_NAMES_LT } from './eco-data-lt';
+import type { Locale } from '$lib/paraglide/runtime';
 
 /**
  * The opening name to display for a code (GitHub issue #158).
@@ -12,8 +13,10 @@ import { ECO_NAMES_LT } from './eco-data-lt';
  * caller hold it differently: the picker has an `Opening` from `ECO_OPENINGS`,
  * while the repertoire lists have a stored row. One signature serves both.
  *
- * `namesLt` is injectable for tests, defaulting to the generated table — the
- * same shape `detectOpening` uses for `openings`.
+ * `namesLt` is injectable so a unit test never depends on the 500-entry
+ * generated file. It defaults, unlike `detectOpening(sanMoves, openings)`,
+ * whose table is a required argument — here every real caller wants the one
+ * generated table, and only the test wants a stub.
  *
  * Falls back to English per entry. Coverage is complete today (500 of 500), so
  * this matters only if a future `eco:generate` introduces codes that
@@ -24,11 +27,10 @@ import { ECO_NAMES_LT } from './eco-data-lt';
 export function localizedOpeningName(args: {
   code: string | null;
   englishName: string | null;
-  locale: string;
+  locale: Locale;
   namesLt?: Record<string, string>;
 }): string | null {
   const { code, englishName, locale, namesLt = ECO_NAMES_LT } = args;
-  if (!code) return englishName ?? null;
-  if (locale === 'lt') return namesLt[code] ?? englishName ?? null;
-  return englishName ?? null;
+  if (locale !== 'lt' || !code) return englishName;
+  return namesLt[code] ?? englishName;
 }

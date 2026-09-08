@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/svelte';
 import OpeningPicker from './OpeningPicker.svelte';
-import { overwriteGetLocale } from '$lib/paraglide/runtime';
+import { baseLocale, overwriteGetLocale } from '$lib/paraglide/runtime';
 
 // `use:enhance` from real SvelteKit needs client-side router/navigation context
 // that isn't set up in this component-only jsdom render. Stub it so the test can
@@ -56,7 +56,9 @@ describe('OpeningPicker', () => {
       expect(screen.queryByText(/Najdorf/)).toBeNull();
       expect(document.querySelector('input[name="eco_name"][value="Sicilian Defense: Najdorf Variation"]')).toBeTruthy();
     } finally {
-      overwriteGetLocale(() => 'en');
+      // Paraglide exposes no way to read the installed getter back, so restore
+      // the base locale — which is what every other test in this file assumes.
+      overwriteGetLocale(() => baseLocale);
     }
   });
 
