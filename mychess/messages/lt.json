@@ -463,7 +463,7 @@
 	"repertoire_tree_collapse_aria": "Suskleisti {target}",
 	"repertoire_tree_chapter_expand_aria": "Išskleisti skyrių {chapter}",
 	"repertoire_tree_chapter_collapse_aria": "Suskleisti skyrių {chapter}",
-	"repertoire_tree_chapter_include_aria": "Įtraukti {heading} į praktiką",
+	"repertoire_tree_chapter_include_aria": "Įtraukti {heading} į mano Mokymąsi ir Praktiką",
 	"repertoire_tree_movegroup_include_aria": "Įtraukti {group} iš {qualifier} į praktiką",
 	"repertoire_tree_movegroup_expand_aria": "Išskleisti {group} iš {qualifier}",
 	"repertoire_tree_movegroup_collapse_aria": "Suskleisti {group} iš {qualifier}",

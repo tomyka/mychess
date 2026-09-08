@@ -427,7 +427,7 @@
 	"repertoire_tree_collapse_aria": "Collapse {target}",
 	"repertoire_tree_chapter_expand_aria": "Expand {chapter} chapter",
 	"repertoire_tree_chapter_collapse_aria": "Collapse {chapter} chapter",
-	"repertoire_tree_chapter_include_aria": "Include {heading} in practice",
+	"repertoire_tree_chapter_include_aria": "Include {heading} in my Learn and Practice",
 	"repertoire_tree_movegroup_include_aria": "Include {group} in {qualifier} in practice",
 	"repertoire_tree_movegroup_expand_aria": "Expand {group} in {qualifier}",
 	"repertoire_tree_movegroup_collapse_aria": "Collapse {group} in {qualifier}",
