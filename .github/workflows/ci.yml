@@ -20,6 +20,35 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: mychess/package-lock.json
+      # Before `npm ci`, so a collision fails in seconds rather than after a
+      # full install (GitHub issue #194). `supabase db push` keys on the version
+      # parsed from the filename, so two files sharing one version leave one of
+      # each pair permanently unmatched against
+      # `supabase_migrations.schema_migrations` — and it then refuses to push
+      # ANYTHING, with a message that names no files at all (#156). This repo
+      # paid that diagnosis cost four times (0013, 0062, 0074, and the one
+      # 0063's own "NOTE ON NUMBERING" records) before anything checked it.
+      #
+      # Duplicates only. Gaplessness is deliberately NOT asserted: `main` has a
+      # real gap at 0074 from a renumber, and monotonicity is vacuous for a
+      # sorted listing.
+      - name: Check migration versions are unique
+        run: |
+          duplicates=$(ls supabase/migrations | sed 's/_.*//' | sort | uniq -d)
+          if [ -n "$duplicates" ]; then
+            echo "::error::Two or more migrations share a version number."
+            echo ""
+            echo "Colliding files:"
+            for version in $duplicates; do
+              echo "  version $version:"
+              ls supabase/migrations | grep "^${version}_" | sed 's/^/    /'
+            done
+            echo ""
+            echo "Fix: renumber the NEWER file to the next free version, and add a"
+            echo "note in it recording the renumber - 0063, 0076 and 0077 each do."
+            exit 1
+          fi
+          echo "No duplicate migration versions."
       - run: npm ci
       - run: npm test
       # Gated as of #91, when 10 accumulated lint errors (three of them a
