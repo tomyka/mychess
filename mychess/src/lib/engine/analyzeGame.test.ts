@@ -124,3 +124,29 @@ it('rejects and terminates the worker when the signal is aborted mid-analysis', 
 	await expect(promise).rejects.toThrow('Analysis cancelled');
 	expect(worker.terminated).toBe(true);
 });
+
+it('derives its engine URL from the shared build source (GitHub issue #127)', async () => {
+	// Asserting equality with `ENGINE_URL` would prove nothing — a hardcoded
+	// stem is byte-identical to it for the CURRENT build. So swap the shared
+	// source for a different stem and require the Worker URL to follow: that
+	// fails if this module ever writes the stem out itself again, which is the
+	// bug #127's "swappable build" work was supposed to have removed.
+	vi.resetModules();
+	vi.doMock('./version', () => ({
+		ENGINE_BASENAME: 'stockfish-swapped-build',
+		ENGINE_URL: '/stockfish/stockfish-swapped-build.js#stockfish-swapped-build.wasm'
+	}));
+	const { analyzeGame: analyzeWithSwappedBuild } = await import('./analyzeGame');
+
+	vi.stubGlobal('Worker', FakeWorker as unknown as typeof Worker);
+	// Never resolves (no engine messages are emitted); the assertion is about
+	// the URL the Worker was constructed with, so the batch is abandoned.
+	analyzeWithSwappedBuild([FEN1]).catch(() => {});
+
+	expect(FakeWorker.instances[0].url).toBe(
+		'/stockfish/stockfish-swapped-build.js#stockfish-swapped-build.wasm'
+	);
+
+	vi.doUnmock('./version');
+	vi.resetModules();
+});

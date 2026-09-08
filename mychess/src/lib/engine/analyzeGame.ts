@@ -1,3 +1,4 @@
+import { ENGINE_URL } from './version';
 import { parseInfoLine, type EngineScore } from './uci';
 
 export type PositionAnalysis = { score: EngineScore; bestMoveUci: string };
@@ -10,11 +11,10 @@ export type AnalyzeGameOptions = {
 	signal?: AbortSignal;
 };
 
-// Same binary EngineEval.svelte loads — see its comment for why the URL
-// fragment matters (it tells the emscripten bootstrap where the .wasm is,
-// and a bare load with no `,worker` suffix marks this as the top-level
-// engine load rather than a nested multi-threaded worker).
-const DEFAULT_ENGINE_URL = '/stockfish/stockfish-18-lite-single.js#stockfish-18-lite-single.wasm';
+// Same binary the live-eval module loads, from the same single source — see
+// `version.ts` for why the URL fragment matters and why the stem must not be
+// written out twice.
+const DEFAULT_ENGINE_URL = ENGINE_URL;
 const DEFAULT_MOVETIME_MS = 500;
 const DEFAULT_HANDSHAKE_TIMEOUT_MS = 8000;
 
