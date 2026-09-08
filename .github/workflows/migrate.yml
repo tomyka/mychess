@@ -106,12 +106,29 @@ jobs:
           # migrations directory" (remote records 0074, which 389fae7
           # renumbered away locally), and an earlier version of this step
           # reported "Nothing pending" and passed.
+          # One dry-run failure is a KNOWN, resolvable state rather than a broken
+          # one: a local migration sorting before the last recorded remote
+          # version makes the CLI refuse and name `--include-all`. That happens
+          # here whenever a migration was applied by hand and never recorded
+          # (0075, see `eba089c`). The set is still knowable — ask again the way
+          # the CLI itself instructs — because "unknown" would otherwise block
+          # every push for a reason that has nothing to do with replay safety.
+          if [ "$dry_status" -ne 0 ] && printf '%s' "$dry_output" | grep -q 'include-all'; then
+            echo ""
+            echo "Dry run refused an out-of-order migration; re-enumerating with --include-all."
+            set +e
+            dry_output=$(npx supabase db push --dry-run --include-all --db-url "${{ steps.db-url.outputs.db_url }}" 2>&1)
+            dry_status=$?
+            set -e
+            printf '%s\n' "$dry_output"
+          fi
+
           if [ "$dry_status" -ne 0 ]; then
             echo ""
             echo "The pending set is UNKNOWN — \`db push --dry-run\` exited $dry_status."
             echo "Not treating that as 'nothing pending'. Fix the dry run first;"
-            echo "a history mismatch is usually repaired with"
-            echo "  supabase migration repair --status reverted <version>"
+            echo "a history gap for a hand-applied migration is recorded with"
+            echo "  supabase migration repair --status applied <version>"
             if [ "${{ inputs.dry_run }}" = "true" ]; then
               echo "::warning::Dry run — pending set unknown, so a real push would be refused."
               exit 0
