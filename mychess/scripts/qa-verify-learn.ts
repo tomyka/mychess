@@ -378,7 +378,24 @@ async function main() {
 		// defaults to White in the form already, so no extra click needed.
 		await coachSession.page.setInputFiles('#pgn_file', pgnPath);
 		await coachSession.page.getByRole('button', { name: 'Upload Repertoire' }).click();
-		await coachSession.page.waitForURL((u) => u.pathname === '/coach/repertoires', { timeout: 60_000 });
+
+		// A multi-chapter PGN now stops on the review step instead of importing
+		// straight away (GitHub issue #184), so this script has to clear it —
+		// before that change, Upload navigated directly and this wait was the
+		// whole story. A single-game PGN still skips the step entirely, which is
+		// why the button is awaited optionally rather than unconditionally: the
+		// old flow has to keep working.
+		const importButton = coachSession.page.getByRole('button', { name: /^Import \d+ chapters?$/ });
+		try {
+			await importButton.waitFor({ state: 'visible', timeout: 15_000 });
+			const label = await importButton.textContent();
+			console.log(`Review step shown — importing every chapter ("${label?.trim()}").`);
+			await importButton.click();
+		} catch {
+			console.log('No review step (single-chapter PGN) — importing directly.');
+		}
+
+		await coachSession.page.waitForURL((u) => u.pathname === '/coach/repertoires', { timeout: 120_000 });
 
 		const repRows = await rest<{ id: string }[]>(
 			'GET',
