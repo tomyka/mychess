@@ -242,7 +242,6 @@ If any decade throws "yielded no names", stop and re-check the markup against Ta
 
 Run:
 ```bash
-node -e "const {ECO_NAMES_LT:n}=require('fs').readFileSync('src/lib/openings/eco-data-lt.ts','utf8')&&0||{};" 2>/dev/null
 grep -c '":' src/lib/openings/eco-data-lt.ts
 grep -E '"(A00|B90|C60|E60)":' src/lib/openings/eco-data-lt.ts
 ```

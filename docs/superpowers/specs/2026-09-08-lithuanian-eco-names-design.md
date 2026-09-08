@@ -81,12 +81,22 @@ lichess.
 ### 2. One lookup helper
 
 ```ts
-openingName(code: string | null, englishName: string | null, locale: string): string | null
+localizedOpeningName(args: {
+  code: string | null;
+  englishName: string | null;
+  locale: string;
+  namesLt?: Record<string, string>;
+}): string | null
 ```
 
-in `src/lib/openings/`. Returns the Lithuanian name when `locale === 'lt'` and
-the code is present in `ECO_NAMES_LT`; otherwise the English name unchanged.
-Locale comes from Paraglide's `getLocale()`.
+in `src/lib/openings/name.ts`. Returns the Lithuanian name when
+`locale === 'lt'` and the code is present; otherwise the English name
+unchanged. Locale comes from Paraglide's `getLocale()`, passed in by the
+caller so the helper stays pure.
+
+`namesLt` defaults to the generated table and is injectable for tests — the
+same shape `detectOpening(sanMoves, openings)` already uses in `classify.ts`,
+so a unit test never depends on the 500-entry generated file.
 
 Per-entry English fallback is retained even though coverage is complete today —
 it is what keeps a future lichess regeneration that adds codes from rendering
