@@ -1,11 +1,18 @@
 -- @replay-unsafe: `truncate public.badges cascade` below reaches
 -- `badges_earned` through its foreign key, so re-running this file deletes
--- every player's earned-badge history. It is safe only while this version is
--- recorded as applied — and per `0075_remove_drill_and_time_trial_badges.sql`'s
--- note, `supabase_migrations.schema_migrations` returned no rows at all for
--- versions >= 0070 on this project even though those migrations are live, so
--- the CLI's history is not tracking it. Against that empty history `db push`
--- replays from 0001 and reaches this statement. Audited under GitHub issue #195.
+-- every player's earned-badge history. Safe only while this version is
+-- recorded as applied in `supabase_migrations.schema_migrations`.
+--
+-- It IS recorded, and the history table is complete — verified by
+-- `migration list` in run 34220231831, which shows every version 0049-0077
+-- present except 0075. An earlier note here (and in
+-- `0075_remove_drill_and_time_trial_badges.sql`) inferred from a PostgREST
+-- lookup that history held nothing for >= 0070 and that `db push` would
+-- therefore replay from 0001 into this statement. That inference was wrong:
+-- the real pending set is exactly {0075}, which is itself idempotent. The
+-- marker stays because the hazard is real if the history is ever lost or
+-- repaired carelessly, and #198's guard refuses a push that would reach it —
+-- but it is not a live risk today. Audited under GitHub issue #195.
 -- Insert 30 badge definitions
 truncate public.badges cascade;
 
