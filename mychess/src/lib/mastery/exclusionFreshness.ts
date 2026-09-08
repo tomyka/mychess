@@ -13,7 +13,7 @@ export type ExclusionRow = {
 	verifiedAt: string;
 };
 
-export type ExclusionShape = {
+type ExclusionShape = {
 	/**
 	 * The player's filtered variation count, or null when it can't be known
 	 * without a live move fetch — the caller must then enumerate and filter,

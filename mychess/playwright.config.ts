@@ -1,5 +1,23 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// `tests/global-setup.ts` needs PUBLIC_SUPABASE_URL and
+// SUPABASE_SERVICE_ROLE_KEY from mychess/.env, and Playwright loads no .env of
+// its own. The other .env-dependent entry points are npm scripts passing
+// `tsx --env-file=.env` (see package.json), but that flag does not exist on the
+// Playwright CLI and Node refuses it inside NODE_OPTIONS, so the load happens
+// here — which also keeps the bare `npx playwright test` in
+// .github/ISSUE_TEMPLATE/small-task.yml working, rather than only a wrapper
+// script.
+//
+// Swallowed deliberately: a missing .env must fall through to global-setup's
+// own "must be set (see mychess/.env)" error, which says what to do about it,
+// instead of an ENOENT thrown while merely reading this config.
+try {
+	process.loadEnvFile();
+} catch {
+	// no .env here — global-setup reports it properly
+}
+
 export default defineConfig({
 	webServer: {
 		command: 'npm run build && npm run preview',

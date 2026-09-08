@@ -5,11 +5,12 @@
 // mastery sessions outnumbering learn sessions?
 //
 // The table already had a `mode` column — `0001_core_tables.sql:76`, widened by
-// 0005, 0026 and now 0059. What it never had was a working writer: both existing
-// callers (`/api/drill`, `/api/time-trial`) inserted `cards_reviewed`, which has
-// never existed in any migration, and neither checked the error. That is why
-// `sessions` was empty in production, and why `grantNewBadges`' session-count
-// badges were unearnable.
+// 0005, 0026 and now 0059. What it never had was a working writer: the two
+// original callers (`/api/drill`, `/api/time-trial`, both since removed with
+// their unreachable pages) inserted `cards_reviewed`, which has never existed
+// in any migration, and neither checked the error. That is why `sessions` was
+// empty in production, and why `grantNewBadges`' session-count badges were
+// unearnable.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 

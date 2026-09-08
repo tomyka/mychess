@@ -25,7 +25,7 @@ import { chapterTiers, rowsInChapterTier, UNTAGGED_CHAPTER, type Variation, type
 
 export type Band = 'bronze' | 'silver' | 'gold' | 'platinum';
 
-export const BAND_ORDER: readonly Band[] = ['bronze', 'silver', 'gold', 'platinum'];
+const BAND_ORDER: readonly Band[] = ['bronze', 'silver', 'gold', 'platinum'];
 
 /** Inclusive upper bound of each band's own `playerMoveCount`. */
 export const BAND_MOVE_CAP: Record<Band, number> = {

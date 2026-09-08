@@ -91,7 +91,6 @@
 	"practice_status_demoted": "Back to Learn — needs teaching again",
 	"practice_status_exploring": "Exploring — nothing counts here",
 	"practice_status_need_hint": "Need a hint?",
-	"mastery_untagged_chapter_label": "Lines without a chapter",
 	"seo_learn_title": "Learn — MyChess",
 	"learn_title": "Learn",
 	"learn_intro_prefix": "Work through new material. A line you play through once from memory, unaided, moves to ",
@@ -263,69 +262,6 @@
 		}
 	],
 	"practice_dismiss_coach_notice_label": "Dismiss coach update notice",
-	"seo_drill_title": "Drill Mode — MyChess",
-	"drill_title": "Drill Mode",
-	"drill_back_home": "← Home",
-	"drill_chain_label": "Chain: {chain}",
-	"drill_empty_title": "No mastered moves yet!",
-	"drill_empty_body": "Keep practicing repertoires to unlock Drill mode.",
-	"drill_go_to_practice": "Go to Practice",
-	"drill_broken_title": "Chain Broken!",
-	"drill_best_chain_count": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "Best chain: {count} move",
-				"countPlural=other": "Best chain: {count} moves"
-			}
-		}
-	],
-	"drill_try_again": "Try Again",
-	"drill_back_to_home": "Back to Home",
-	"drill_all_done_title": "All Done!",
-	"drill_all_moves_drilled_count": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "You drilled all {count} move!",
-				"countPlural=other": "You drilled all {count} moves!"
-			}
-		}
-	],
-	"drill_go_again": "Go Again",
-	"drill_move_progress": "Move {current} / {total} · Play the correct move!",
-	"drill_wrong_move_broken": "Wrong move! Chain broken!",
-	"drill_current_chain_label": "Current Chain",
-	"drill_best_chain_label": "Best Chain",
-	"seo_time_trial_title": "Time Trial — MyChess",
-	"time_trial_back_home": "← Home",
-	"time_trial_title": "Time Trial",
-	"time_trial_seconds_display": "{seconds}s",
-	"time_trial_empty_title": "No moves to drill yet!",
-	"time_trial_empty_body": "Add moves in Practice mode first.",
-	"time_trial_go_to_practice": "Go to Practice",
-	"time_trial_finished_title": "Time's Up!",
-	"time_trial_result_count": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "You got {count} correct in 60 seconds",
-				"countPlural=other": "You got {count} correct in 60 seconds"
-			}
-		}
-	],
-	"time_trial_play_again": "Play Again",
-	"time_trial_back_to_home": "Back to Home",
-	"time_trial_start_title": "60-Second Challenge!",
-	"time_trial_start_body": "Answer as many opening moves as you can, before time runs out!",
-	"time_trial_start_button": "Start!",
-	"time_trial_wrong_move": "Wrong move! Try again!",
-	"time_trial_play_correct_move": "Play the correct opening move!",
-	"time_trial_correct_label": "Correct",
-	"time_trial_time_label": "Time",
 	"seo_repertoires_title": "Repertoires — MyChess",
 	"repertoires_delete_confirm": "Delete \"{name}\"? This can't be undone and will also delete all practice history for it.",
 	"repertoires_assigned_heading": "Assigned by your coach",

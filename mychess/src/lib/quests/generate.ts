@@ -4,30 +4,36 @@ export interface QuestTemplate {
   target: number;
 }
 
+/**
+ * The daily-task roster.
+ *
+ * Down to one entry: `time_trial`, `drill_streak` and `sessions` were removed
+ * along with the `/drill` and `/time-trial` pages, whose endpoints were their
+ * ONLY progress writers. Both pages had been unreachable — no nav entry, no
+ * link, no `goto` — so those three templates could never advance, and because
+ * the roster was sampled at random the dashboard showed a player two or three
+ * impossible tasks most days.
+ *
+ * A template belongs here only if something reachable calls
+ * `incrementQuestProgress` with its id.
+ */
 export const QUEST_TEMPLATES: QuestTemplate[] = [
   { id: 'review_cards',  description: 'Complete 10 Practice attempts today',       target: 10 },
-  { id: 'time_trial',    description: 'Score 8+ in Time Trial',                    target: 8 },
-  { id: 'sessions',      description: 'Complete 2 training sessions today',        target: 2 },
-  { id: 'drill_streak',  description: 'Get a 5+ move streak in Drill, 3 times today', target: 3 },
 ];
 
-/** Deterministic LCG shuffle seeded on date + playerId string */
-function seededShuffle<T>(arr: T[], seed: string): T[] {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0;
-  }
-  const copy = [...arr];
-  for (let i = copy.length - 1; i > 0; i--) {
-    hash = ((hash * 1664525) + 1013904223) | 0;
-    const j = Math.abs(hash) % (i + 1);
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
-/** Select 3 quests for the given date + player. Deterministic. */
-export function selectDailyQuests(date: string, playerId: string): QuestTemplate[] {
-  const seed = `${date}:${playerId}`;
-  return seededShuffle(QUEST_TEMPLATES, seed).slice(0, 3);
+/**
+ * Today's quests for a player.
+ *
+ * Every template, deliberately: this used to shuffle the roster on a
+ * `date:playerId` seed and take three of four, which existed purely to vary
+ * which subset a player saw. With one earnable template that sampling could
+ * only ever return that template, so it was doing no work — and if the roster
+ * grows again, handing out all of it is both simpler and the behaviour a small
+ * roster wants anyway.
+ *
+ * `date` and `playerId` are still taken so callers don't change and so a
+ * future per-player roster has somewhere to hook in.
+ */
+export function selectDailyQuests(_date: string, _playerId: string): QuestTemplate[] {
+  return [...QUEST_TEMPLATES];
 }

@@ -2,7 +2,7 @@
 import type { Variation, VariationStep } from './variations';
 import { pickActiveVariation, solvedProgress } from './variationSequence';
 import { resolveTeachingStep, knownProgressFor, autoPlayCeiling } from './teaching';
-import type { LearnPlan } from './learnUnits';
+import { activeChapterState, type Band, type LearnPlan } from './learnUnits';
 import { splitQueues } from './learning';
 
 /**
@@ -44,10 +44,24 @@ export type PracticeView = {
 	solved: number;
 	total: number;
 	allSolved: boolean;
+	/**
+	 * The chapter the player is currently working in, shaped for the Learn
+	 * page's band progress bar: which band is being learned and how many of
+	 * its units are done. `null` when there is no band to report on — either
+	 * no `plan` was supplied, or every chapter is complete, which hides the
+	 * bar rather than parking it permanently at full.
+	 *
+	 * Carried on the view, rather than computed by the Learn page's own
+	 * `load`, because a completed attempt MERGES this response into the page's
+	 * data instead of reloading it (see `nextAttempt`). A bar fed from `load`
+	 * alone therefore froze at its page-load value for the whole session,
+	 * disagreeing with the picker's own freshly-fetched chapter chip.
+	 */
+	currentLevel: { band: Band; ready: number; total: number } | null;
 };
 
 /** How long since a variation's last attempt counts as "the player took a break" from it. */
-export const RESUME_GAP_MS = 10 * 60 * 1000;
+const RESUME_GAP_MS = 10 * 60 * 1000;
 
 /**
  * True if more than `RESUME_GAP_MS` has passed since `updatedAt`. A variation
@@ -174,7 +188,16 @@ export function buildPracticeView(
 		}
 	}
 
-	return { attempt, solved, total, allSolved };
+	// Resolved from the SERVED attempt where there is one, so the bar reports on
+	// the chapter the player is actually looking at rather than on whatever
+	// pointer happened to be stored.
+	const activeChapter = plan ? activeChapterState(plan, variations, attempt?.variationKey ?? activeVariationKey) : null;
+	const currentLevel =
+		activeChapter && activeChapter.band
+			? { band: activeChapter.band, ready: activeChapter.learnedInBand, total: activeChapter.totalInBand }
+			: null;
+
+	return { attempt, solved, total, allSolved, currentLevel };
 }
 
 /**

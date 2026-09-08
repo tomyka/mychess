@@ -2,10 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { QUEST_TEMPLATES, selectDailyQuests } from './generate';
 
 describe('QUEST_TEMPLATES', () => {
-  it('has exactly 4 templates', () => {
-    expect(QUEST_TEMPLATES).toHaveLength(4);
-  });
-
   it('each template has required fields', () => {
     for (const t of QUEST_TEMPLATES) {
       expect(t.id).toBeTruthy();
@@ -13,30 +9,32 @@ describe('QUEST_TEMPLATES', () => {
       expect(t.target).toBeGreaterThan(0);
     }
   });
+
+  // The roster's whole invariant now that the unearnable three are gone: a
+  // template is only worth showing if something reachable can advance it. Held
+  // here as a list rather than a count so re-adding a template that no endpoint
+  // writes to fails loudly instead of silently putting an impossible task back
+  // on the dashboard.
+  it('lists only templates a reachable endpoint actually increments', () => {
+    expect(QUEST_TEMPLATES.map((t) => t.id)).toEqual(['review_cards']);
+  });
 });
 
 describe('selectDailyQuests', () => {
-  it('returns exactly 3 quests', () => {
-    const quests = selectDailyQuests('2024-01-15', 'player-uuid-1');
-    expect(quests).toHaveLength(3);
+  it('hands out the whole roster', () => {
+    expect(selectDailyQuests('2024-01-15', 'player-uuid-1').map((q) => q.id)).toEqual(
+      QUEST_TEMPLATES.map((t) => t.id)
+    );
   });
 
-  it('is deterministic for same date + player', () => {
+  it('is deterministic for the same date + player', () => {
     const a = selectDailyQuests('2024-01-15', 'player-uuid-1');
     const b = selectDailyQuests('2024-01-15', 'player-uuid-1');
-    expect(a.map(q => q.id)).toEqual(b.map(q => q.id));
+    expect(a.map((q) => q.id)).toEqual(b.map((q) => q.id));
   });
 
-  it('quest ids are unique within one set', () => {
-    const quests = selectDailyQuests('2024-01-15', 'player-uuid-1');
-    const ids = quests.map(q => q.id);
-    expect(new Set(ids).size).toBe(3);
-  });
-
-  it('varies between different player ids', () => {
-    const a = selectDailyQuests('2024-01-15', 'player-uuid-1');
-    const b = selectDailyQuests('2024-01-15', 'player-uuid-99');
-    // Very likely different with 5 choose 3 possibilities
-    expect(a.map(q => q.id).join()).not.toEqual(b.map(q => q.id).join());
+  it('returns a fresh array, so a caller cannot mutate the roster', () => {
+    selectDailyQuests('2024-01-15', 'p1').push({ id: 'x', description: 'x', target: 1 });
+    expect(QUEST_TEMPLATES.map((t) => t.id)).toEqual(['review_cards']);
   });
 });

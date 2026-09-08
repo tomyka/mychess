@@ -23,7 +23,7 @@ import type { VariationStep } from './variations';
 import { playOpponentReplies } from './playback';
 import { isLastPlayerMove } from './teaching';
 
-export type LearnPhase = 'playing' | 'advancing' | 'autoplay' | 'transition';
+type LearnPhase = 'playing' | 'advancing' | 'autoplay' | 'transition';
 
 /** The correct-move hold, before the board advances past it. */
 const CORRECT_HOLD_MS = 500;
@@ -34,13 +34,13 @@ export const CUE_HOLD_MS = 1200;
 /** How long each already-mastered ply is shown during the autoplay intro. */
 const AUTO_PLAY_STEP_MS = 700;
 
-export type LearnDrillCallbacks = {
+type LearnDrillCallbacks = {
 	onFinalMove: (hadMistake: boolean) => void;
 	onCueRetest: () => void;
 	onAttemptFinished: () => void;
 };
 
-export type LearnDrillStartOptions = {
+type LearnDrillStartOptions = {
 	/** Leading plies already known — auto-played before the player is asked
 	 * to move (see `mastery/teaching.ts`'s `autoPlayCeiling`). */
 	autoPlayThrough: number;

@@ -3,7 +3,7 @@ import type { PageServerLoad } from './$types';
 import { requireAccount } from '$lib/server/auth';
 import { loadRepertoireVariations } from '$lib/server/practice-repertoire';
 import { filterVariations } from '$lib/mastery/variations';
-import { activeChapterState, deriveLearnPlan } from '$lib/mastery/learnUnits';
+import { deriveLearnPlan } from '$lib/mastery/learnUnits';
 import { computeMasteredMoveIds } from '$lib/mastery/teaching';
 import { loadSyncedActiveVariationKey, loadSolvedKeys, loadTeachingProgress } from '$lib/server/practice-progress';
 import { buildPracticeView } from '$lib/mastery/practice';
@@ -39,12 +39,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		plan.servableVariationKeys
 	);
 
+	// `currentLevel` — the page's band progress bar — comes from the view itself
+	// rather than being derived again here. Deriving it here made it a
+	// load-only field, and a completed attempt merges the endpoint's
+	// PracticeView into the page's data instead of reloading, so the bar sat
+	// frozen at its page-load value for a whole session while the picker's own
+	// chapter chip moved.
 	const view = buildPracticeView(variations, activeVariationKey, solvedKeys, teachingProgress, plan);
-	const chapter = activeChapterState(plan, variations, view.attempt?.variationKey ?? activeVariationKey);
-	// Shaped for the page's band progress bar. `null` once every chapter is
-	// complete, which hides the bar rather than showing a permanently full one.
-	const currentLevel =
-		chapter && chapter.band ? { band: chapter.band, ready: chapter.learnedInBand, total: chapter.totalInBand } : null;
 
-	return { repertoire, currentLevel, ...view };
+	return { repertoire, ...view };
 };

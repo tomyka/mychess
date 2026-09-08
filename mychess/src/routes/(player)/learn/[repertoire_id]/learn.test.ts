@@ -683,6 +683,47 @@ describe('learn detail page', () => {
 		expect(screen.getByText('0 learned this session')).toBeTruthy();
 	});
 
+	// The band bar is fed by `data.currentLevel`, and a completed attempt MERGES
+	// the endpoint's PracticeView into `data` rather than reloading the page. So
+	// the bar only tracks the session if the report itself carries the new band
+	// progress: while `currentLevel` came from the page's `load` alone it froze
+	// at its page-load value, and the panel sat at "Bronze: 0 / 20" all session
+	// while the picker's own freshly-fetched chip said "Bronze \u00b7 8/20".
+	it('updates the band progress bar from the merged attempt report', async () => {
+		vi.useFakeTimers();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockImplementation((url: string) => {
+				if (typeof url === 'string' && url.includes('/learn-units')) {
+					return Promise.resolve({ ok: true, json: async () => ({ chapters: [] }) });
+				}
+				return Promise.resolve({
+					ok: true,
+					json: async () => ({ ...RETEST_VIEW, currentLevel: { band: 'bronze', ready: 8, total: 20 } })
+				});
+			})
+		);
+		render(Practice, {
+			props: {
+				data: {
+					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
+					solved: 0,
+					total: 1,
+					allSolved: false,
+					attempt: { ...AUTO_PLAY_ATTEMPT },
+					currentLevel: { band: 'bronze', ready: 0, total: 20 }
+				}
+			}
+		});
+		expect(screen.getByText('Bronze: 0 / 20 lines learned')).toBeTruthy();
+
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
+		playMove('g1', 'f3');
+		await vi.advanceTimersByTimeAsync(500 + 1200 + 50); // hold, cue hold, merged report applied
+
+		expect(screen.getByText('Bronze: 8 / 20 lines learned')).toBeTruthy();
+	});
+
 	it('does not cue a teach pass that had a mistake — the same taught batch comes back, not a blind test', async () => {
 		vi.useFakeTimers();
 		renderAttempt(AUTO_PLAY_ATTEMPT, 'hang');
