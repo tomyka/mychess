@@ -14,7 +14,7 @@ import { error, fail } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Actions, PageServerLoad } from './$types';
 import { requireAccount } from '$lib/server/auth';
-import { enumerateVariations } from '$lib/mastery/variations';
+import { enumerateVariations, type Variation } from '$lib/mastery/variations';
 import { fetchAllMoves, toRawMoveRows } from '$lib/server/practice-repertoire';
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from '$lib/server/paginate';
 import { beginUpdate } from '$lib/server/repertoire-update';
@@ -148,9 +148,46 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		repertoire,
 		assignedStudentCount: assignedStudentCount ?? 0,
 		chapters,
+		lineGroups: lineGroups(variations, withProgress),
 		untaggedChapterName: UNTAGGED_CHAPTER
 	};
 };
+
+/**
+ * Every line collapsed into groups by WHICH chapters claim it, with the count
+ * of lines in each group and how many of those carry student progress.
+ *
+ * The confirm dialog's numbers can only be computed from this, not from
+ * per-chapter figures. `removedVariationKeys` is the authority on what a
+ * removal actually deletes — a line goes iff EVERY chapter claiming it is in
+ * the removal set — so a line shared by two chapters the coach selected
+ * TOGETHER does disappear, while the same line shared with a chapter they
+ * left alone survives. Per-chapter exclusive counts cannot express that
+ * difference: such a line is exclusive to neither chapter, so summing
+ * `lineCount - sharedLineCount` silently omits it (GitHub issue #185).
+ *
+ * Grouping rather than sending one entry per line keeps this small: the
+ * number of distinct chapter-membership sets is on the order of the chapter
+ * count, not the line count.
+ */
+function lineGroups(
+	variations: Variation[],
+	withProgress: ReadonlySet<string>
+): { chapters: string[]; lineCount: number; progressLineCount: number }[] {
+	const groups = new Map<string, { chapters: string[]; lineCount: number; progressLineCount: number }>();
+	for (const variation of variations) {
+		// Same fallback `summarizeChapters` and `removedVariationKeys` use, so
+		// all three agree on which bucket an untagged line belongs to.
+		const claiming =
+			variation.chapterNames.length === 0 ? [UNTAGGED_CHAPTER] : [...variation.chapterNames].sort();
+		const signature = claiming.join('\u0000');
+		const group = groups.get(signature) ?? { chapters: claiming, lineCount: 0, progressLineCount: 0 };
+		group.lineCount += 1;
+		if (withProgress.has(variation.variationKey)) group.progressLineCount += 1;
+		groups.set(signature, group);
+	}
+	return [...groups.values()];
+}
 
 /** The chapter names the coach chose, validated for shape only. */
 function parseRemoveChapters(raw: FormDataEntryValue | null): { names: string[] } | { error: string } {

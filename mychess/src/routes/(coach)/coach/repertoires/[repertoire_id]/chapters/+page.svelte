@@ -30,6 +30,9 @@
 			assignedStudentCount: number;
 			untaggedChapterName: string;
 			chapters: ChapterImpact[];
+			// Lines grouped by which chapters claim them — see `impact` below for
+			// why the confirm dialog cannot be computed without this.
+			lineGroups: { chapters: string[]; lineCount: number; progressLineCount: number }[];
 		};
 	} = $props();
 
@@ -45,18 +48,35 @@
 	const selectedNamesJson = $derived(JSON.stringify(selected.map((chapter) => chapter.name)));
 
 	/**
-	 * Aggregate cost of the current selection. `lineCount - sharedLineCount` is
-	 * each chapter's exclusive lines — the ones that genuinely disappear. Summed
-	 * over exclusive lines only, this cannot double-count: a line two selected
-	 * chapters share is shared, so it is in neither chapter's exclusive count,
-	 * and the server's own `removedVariationKeys` is the authority on the final
-	 * number reported afterwards.
+	 * Aggregate cost of the current selection, computed over `data.lineGroups`
+	 * — lines grouped by which chapters claim them — because per-chapter
+	 * figures cannot express it.
+	 *
+	 * A line goes iff EVERY chapter claiming it is being removed, which is
+	 * `removedVariationKeys`' rule and therefore what the server will actually
+	 * do. So a line two chapters share disappears when BOTH are selected and
+	 * survives when only one is. Summing `lineCount - sharedLineCount` gets the
+	 * first case wrong: that line is exclusive to neither chapter, so it is
+	 * counted in neither total, and the dialog understates the damage while
+	 * also claiming the line "will stay" (GitHub issue #185).
 	 */
-	const exclusiveLines = $derived(
-		selected.reduce((sum, chapter) => sum + (chapter.lineCount - chapter.sharedLineCount), 0)
-	);
-	const sharedLines = $derived(selected.reduce((sum, chapter) => sum + chapter.sharedLineCount, 0));
-	const progressLines = $derived(selected.reduce((sum, chapter) => sum + chapter.progressLineCount, 0));
+	const impact = $derived.by(() => {
+		let removedLines = 0;
+		let stayingSharedLines = 0;
+		let progressLines = 0;
+		for (const group of data.lineGroups) {
+			if (!group.chapters.some((chapter) => selectedIds.has(chapter))) continue;
+			if (group.chapters.every((chapter) => selectedIds.has(chapter))) {
+				removedLines += group.lineCount;
+				progressLines += group.progressLineCount;
+			} else {
+				// Claimed by something the coach is keeping, so it survives —
+				// this is the count the "will stay" sentence is about.
+				stayingSharedLines += group.lineCount;
+			}
+		}
+		return { removedLines, stayingSharedLines, progressLines };
+	});
 
 	// Every chapter selected would empty the repertoire — that is a repertoire
 	// delete, not a chapter removal. The action refuses it too; this only keeps
@@ -141,16 +161,16 @@
 								{m.coach_chapters_confirm_heading({ count: selected.length })}
 							</h2>
 							<p class="text-sm text-(--color-muted)">
-								{m.coach_chapters_confirm_lines({ lines: exclusiveLines, students: data.assignedStudentCount })}
+								{m.coach_chapters_confirm_lines({ lines: impact.removedLines, students: data.assignedStudentCount })}
 							</p>
-							{#if progressLines > 0}
+							{#if impact.progressLines > 0}
 								<p class="text-sm text-(--color-muted)">
-									{m.coach_chapters_confirm_progress({ lines: progressLines })}
+									{m.coach_chapters_confirm_progress({ lines: impact.progressLines })}
 								</p>
 							{/if}
-							{#if sharedLines > 0}
+							{#if impact.stayingSharedLines > 0}
 								<p class="text-sm text-(--color-muted)">
-									{m.coach_chapters_confirm_shared({ lines: sharedLines })}
+									{m.coach_chapters_confirm_shared({ lines: impact.stayingSharedLines })}
 								</p>
 							{/if}
 

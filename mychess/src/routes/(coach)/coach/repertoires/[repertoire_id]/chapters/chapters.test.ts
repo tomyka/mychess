@@ -18,7 +18,21 @@ function renderWith(data: Record<string, unknown> = {}) {
 				chapters: [
 					{ name: 'Rare Moves #1', lineCount: 42, sharedLineCount: 0, progressLineCount: 12 },
 					{ name: 'Model games', lineCount: 61, sharedLineCount: 9, progressLineCount: 11 },
-					{ name: 'Tactics warm-up', lineCount: 9, sharedLineCount: 0, progressLineCount: 0 }
+					// All nine of its lines are the ones "Model games" reports as
+					// shared. The original fixture gave this chapter 0 shared while
+					// "Model games" claimed 9, which no real repertoire can produce:
+					// sharing has two sides, so some other chapter has to account for
+					// them (GitHub issue #185).
+					{ name: 'Tactics warm-up', lineCount: 9, sharedLineCount: 9, progressLineCount: 0 }
+				],
+				// The same lines grouped by which chapters claim them, consistent
+				// with the per-chapter figures above: 42 only in "Rare Moves #1",
+				// 52 only in "Model games", and 9 in both "Model games" and
+				// "Tactics warm-up".
+				lineGroups: [
+					{ chapters: ['Rare Moves #1'], lineCount: 42, progressLineCount: 12 },
+					{ chapters: ['Model games'], lineCount: 52, progressLineCount: 11 },
+					{ chapters: ['Model games', 'Tactics warm-up'], lineCount: 9, progressLineCount: 0 }
 				],
 				...data
 			}
@@ -76,6 +90,25 @@ describe('coach chapter manager', () => {
 		expect(screen.getByText('Retires 94 lines for all 4 assigned students.')).toBeTruthy();
 		expect(screen.getByText('9 lines also belong to other chapters and will stay.')).toBeTruthy();
 		expect(screen.getByText('23 of them carry student progress — kept, in case the chapter returns.')).toBeTruthy();
+	});
+
+	it('counts a shared line as REMOVED when every chapter claiming it is selected', async () => {
+		// The nine lines "Model games" shares are shared with "Tactics warm-up"
+		// and nothing else, so selecting both removes them: a line survives only
+		// while some chapter that is staying still claims it. Summing each
+		// chapter's exclusive lines misses them entirely — they are exclusive to
+		// neither — and then reports them as lines that "will stay", which is the
+		// opposite of what the removal does (GitHub issue #185).
+		renderWith();
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select Model games' }));
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select Tactics warm-up' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove 2 chapters' }));
+
+		// 52 exclusive to "Model games" + the 9 both selected chapters claim.
+		expect(screen.getByText('Retires 61 lines for all 4 assigned students.')).toBeTruthy();
+		// Nothing is left holding them, so there is no "will stay" sentence.
+		expect(screen.queryByText(/will stay/)).toBeNull();
+		expect(screen.getByText('11 of them carry student progress — kept, in case the chapter returns.')).toBeTruthy();
 	});
 
 	it('sends the selected chapter names and the shape they were computed against', async () => {
