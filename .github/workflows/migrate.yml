@@ -93,12 +93,36 @@ jobs:
         # phrasing, so a CLI wording change degrades to "nothing matched"
         # instead of a false pass on a specific header line.
         run: |
-          dry_output=$(npx supabase db push --dry-run --db-url "${{ steps.db-url.outputs.db_url }}" 2>&1) || true
+          set +e
+          dry_output=$(npx supabase db push --dry-run --db-url "${{ steps.db-url.outputs.db_url }}" 2>&1)
+          dry_status=$?
+          set -e
           printf '%s\n' "$dry_output"
+
+          # A failed dry run yields no filenames, which must NOT be read as
+          # "nothing pending" — that is a guard that waves through exactly the
+          # case it cannot see. Observed for real on run 34216193073: the dry
+          # run aborted with "Remote migration versions not found in local
+          # migrations directory" (remote records 0074, which 389fae7
+          # renumbered away locally), and an earlier version of this step
+          # reported "Nothing pending" and passed.
+          if [ "$dry_status" -ne 0 ]; then
+            echo ""
+            echo "The pending set is UNKNOWN — \`db push --dry-run\` exited $dry_status."
+            echo "Not treating that as 'nothing pending'. Fix the dry run first;"
+            echo "a history mismatch is usually repaired with"
+            echo "  supabase migration repair --status reverted <version>"
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "::warning::Dry run — pending set unknown, so a real push would be refused."
+              exit 0
+            fi
+            echo "::error::Refusing to push: could not determine which migrations would be applied."
+            exit 1
+          fi
 
           pending=$(printf '%s\n' "$dry_output" | grep -oE '[0-9]{4}_[A-Za-z0-9_-]+\.sql' | sort -u || true)
           if [ -z "$pending" ]; then
-            echo "Nothing pending — no replay-unsafe migration can be reached."
+            echo "Dry run succeeded and reported no pending migrations — nothing to check."
             exit 0
           fi
 
