@@ -25,7 +25,8 @@
 		onselectchapter = onselect,
 		onclose,
 		variant = 'modal',
-		currentVariationKey = null
+		currentVariationKey = null,
+		attemptsCompleted = 0
 	}: {
 		repertoireId: string;
 		onselect: (variationKey: string) => void;
@@ -45,6 +46,13 @@
 		// line behind two clicks isn't earning its keep.
 		variant?: 'modal' | 'inline';
 		currentVariationKey?: string | null;
+		// Bumped by the Learn page on every COMPLETED attempt, whether or not
+		// the active line moved (GitHub issue #176). `currentVariationKey`
+		// alone is not a sufficient staleness signal: shared move-prefix credit
+		// means progress on the active unit can finish a DIFFERENT sibling unit
+		// outright, removing it from this list, while the active unit is still
+		// being served and the pointer never moves.
+		attemptsCompleted?: number;
 	} = $props();
 
 	const TOP_N = 5;
@@ -68,13 +76,13 @@
 	// fresher data with stale data.
 	let loadToken = 0;
 
-	// `_currentVariationKey` is unused inside — `load` always fetches every
-	// chapter regardless of which unit is active — but taking it as a real
-	// argument (rather than a bare `void`'d read in the caller) is what makes
-	// the `$effect` below read as "re-run this when the active variation
-	// changes," matching this codebase's existing pattern for the same shape
-	// of problem (see `requestIfDue(fen)` in `EvalBar.svelte`).
-	async function load(_currentVariationKey: string | null) {
+	// Both arguments are unused inside — `load` always fetches every chapter
+	// regardless of which unit is active — but taking them as real arguments
+	// (rather than bare `void`'d reads in the caller) is what makes the
+	// `$effect` below read as "re-run this when the active variation changes,
+	// or when any attempt completes," matching this codebase's existing pattern
+	// for the same shape of problem (see `requestIfDue(fen)` in `EvalBar.svelte`).
+	async function load(_currentVariationKey: string | null, _attemptsCompleted: number) {
 		const myToken = ++loadToken;
 		try {
 			const res = await fetch(`/api/repertoires/${repertoireId}/learn-units`);
@@ -90,18 +98,27 @@
 	}
 
 	/**
-	 * Re-fetches whenever the active variation changes, not just once at mount
-	 * — GitHub issue #175. The inline rail is resident for the player's whole
-	 * Learn session and never remounts, so without this its unit list goes
-	 * stale as teaching progresses: finishing a unit always advances
-	 * `currentVariationKey`, which is the one reliable signal that the list has
-	 * changed. Now that learned units DISAPPEAR rather than being re-rendered
-	 * with a tick, a stale list is more visible than it used to be, not less.
+	 * Re-fetches whenever the active variation changes OR any attempt completes,
+	 * not just once at mount — GitHub issues #175 and #176. The inline rail is
+	 * resident for the player's whole Learn session and never remounts, so
+	 * without this its unit list goes stale as teaching progresses. Now that
+	 * learned units DISAPPEAR rather than being re-rendered with a tick, a stale
+	 * list is more visible than it used to be, not less.
+	 *
+	 * `currentVariationKey` alone was the original signal (#175), on the
+	 * reasoning that finishing a unit always advances the active pointer. True
+	 * of the unit being attempted, but not of its siblings: mastered moves are
+	 * credited across every unit that shares them, so progress on the active
+	 * unit can finish a sibling unit outright — removing it from this list —
+	 * while the active unit is still being served and the pointer never moves
+	 * (#176). Clicking such a stale row is what `select-variation`'s 409
+	 * "already learned" guard catches, so it has to stop being reachable here.
+	 *
 	 * A harmless no-op for the modal variant, which remounts every time it
 	 * opens.
 	 */
 	$effect(() => {
-		load(currentVariationKey);
+		load(currentVariationKey, attemptsCompleted);
 	});
 
 	// Only chapters with something left to learn are offered: a complete

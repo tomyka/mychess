@@ -60,6 +60,14 @@
 	// Bumped on every resetForAttempt() call so a stale in-flight nextAttempt()
 	// notices it's been superseded and stops writing to state.
 	let resetToken = 0;
+	// Bumped on every COMPLETED attempt and handed to VariationPicker, which
+	// re-fetches its unit list when it changes (GitHub issue #176). Distinct
+	// from `resetToken`: that one is a non-reactive supersede guard for
+	// in-flight work, this one is a reactive staleness signal for a child.
+	// Needed because an attempt can finish a SIBLING unit via shared
+	// move-prefix credit without advancing the active line, so the picker's
+	// `currentVariationKey` dependency alone never fires.
+	let attemptsCompleted = $state(0);
 	let pendingReport: Promise<PracticeView | null> | null = null;
 	let quizSteps = $state<VariationStep[]>([]);
 	let pickerOpen = $state(false);
@@ -358,6 +366,7 @@
 			await invalidateAll();
 			if (myToken !== resetToken) return;
 		}
+		attemptsCompleted += 1;
 		resetForAttempt();
 	}
 
@@ -382,7 +391,8 @@
 				// Includes the 409 "already learned" consistency guard, which only
 				// a stale client can trigger (the picker never renders a learned
 				// unit) — the re-fetch the picker does on every active-line change
-				// resolves it, so the generic retry message is the right advice.
+				// AND on every completed attempt (#176) resolves it, so the
+				// generic retry message is the right advice.
 				selectError = m.learn_select_variation_error();
 				return;
 			}
@@ -484,6 +494,7 @@
 						onselectchapter={selectChapterRepresentative}
 						variant="inline"
 						currentVariationKey={attempt?.variationKey ?? null}
+						{attemptsCompleted}
 					/>
 				</div>
 			{/if}

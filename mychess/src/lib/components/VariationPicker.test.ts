@@ -2,6 +2,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/svelte';
+import { mount, unmount, flushSync } from 'svelte';
+import { reactiveProps } from './reactive-props.svelte';
 import VariationPicker from './VariationPicker.svelte';
 import { UNTAGGED_CHAPTER } from '$lib/mastery/variations';
 
@@ -453,5 +455,65 @@ describe('VariationPicker', () => {
 			await fireEvent.click(screen.getByText('Italian Game'));
 			expect(onselect).toHaveBeenCalledWith('v3');
 		});
+	});
+});
+
+describe('staleness signals (GitHub issue #176)', () => {
+	/**
+	 * These mount by hand, with props wrapped in `$state`, instead of using
+	 * `render` + `rerender` like every other test here. `rerender` RE-MOUNTS the
+	 * component, so its mount-time `$effect` runs again and a
+	 * "re-fetched after the prop changed" assertion passes even when the
+	 * dependency it claims to prove has been deleted — verified by removing the
+	 * dependency and watching the `rerender` version still pass. Mutating one
+	 * field of a live `$state` props object is what the real parent does, and it
+	 * fails correctly when the dependency is gone.
+	 */
+	function mountPicker(attemptsCompleted: number) {
+		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ chapters: RESPONSE }) });
+		vi.stubGlobal('fetch', fetchSpy);
+		const target = document.createElement('div');
+		document.body.appendChild(target);
+		const props = reactiveProps({
+			repertoireId: 'rep-1',
+			onselect: vi.fn(),
+			onclose: vi.fn(),
+			variant: 'inline' as const,
+			currentVariationKey: 'v1',
+			attemptsCompleted
+		});
+		const app = mount(VariationPicker, { target, props });
+		flushSync();
+		return { app, props, fetchSpy, target };
+	}
+
+	it('re-fetches when an attempt completes even though the active line has not moved', async () => {
+		const { app, props, fetchSpy } = mountPicker(0);
+		await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+
+		// The active line deliberately does NOT move. Mastered moves are credited
+		// across every unit sharing them, so an attempt on the active unit can
+		// finish a SIBLING unit outright — dropping it from the response — while
+		// the active unit is still being served. #175's `currentVariationKey`
+		// dependency alone never fires for that, leaving a row whose click
+		// `select-variation` can only answer with its 409 "already learned" guard.
+		props.attemptsCompleted = 1;
+		flushSync();
+		await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+
+		unmount(app);
+	});
+
+	it('does not re-fetch when neither the active line nor the attempt count changes', async () => {
+		const { app, props, fetchSpy } = mountPicker(3);
+		await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+
+		props.attemptsCompleted = 3;
+		props.currentVariationKey = 'v1';
+		flushSync();
+		await Promise.resolve();
+		expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+		unmount(app);
 	});
 });
