@@ -144,18 +144,20 @@ what is a lookup table. Only locale *detection* comes from Paraglide.
 - Spot-check the 500 generated names — the maintainer reviews the generated file rather than producing translations.
 - Confirm the picker and both repertoire lists render Lithuanian under `lt` and English under `en`.
 
-## Open item: permission to redistribute
+## Resolved: permission to redistribute
 
-Using a handful of Lithuanian chess terms is using terminology. Committing all
-500 of the site's names into the app bundle is redistributing its dataset.
-Individual opening names are factual labels with little protection, but the EU
-sui generis database right covers systematic extraction of a substantial part of
-a database, and both this project and the site are in the EU.
+Raised as an open item, and **decided by the maintainer on 2026-09-09: ship it.**
+The names of chess openings are public information — factual labels for a
+historical taxonomy, not authored content — so no permission is sought.
 
-**Recommendation: ask the site owner for permission and offer credit before
-shipping.** Cheap, and it removes the question. The generator header credits the
-site regardless. This is recorded as a pre-ship item rather than a blocker on
-the implementation work.
+The original concern is kept for the record: individual names carry little
+protection, but the EU sui generis database right covers systematic extraction
+of a substantial part of a database, and both this project and the site are in
+the EU. That was the reason for asking; the maintainer's call is that the names
+themselves are public facts.
+
+The generator header credits šachmatai.lt regardless, in both
+`scripts/generate-eco-data-lt.ts` and the generated file.
 
 ## Non-Goals
 

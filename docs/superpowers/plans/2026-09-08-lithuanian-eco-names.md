@@ -519,4 +519,4 @@ Automated tests cover the parser, the helper and coverage. These two need eyes:
 
 ## Before shipping
 
-- [ ] **Ask šachmatai.lt for permission and offer credit.** 500 names committed into the bundle is redistributing their dataset, not just using terminology, and the EU database right covers systematic extraction of a substantial part of a database. Recorded in the spec's "Open item"; not a blocker on the code, but settle it before this reaches production.
+- [x] **Permission to use šachmatai.lt's names — settled 2026-09-09.** The maintainer's call: chess opening names are public information, so no permission is sought. The generator and generated file credit the site anyway. See the spec's "Resolved: permission to redistribute".
