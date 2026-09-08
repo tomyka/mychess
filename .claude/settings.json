@@ -1,0 +1,49 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git pull *)",
+      "Bash(git push *)",
+      "Bash(git fetch *)",
+      "Bash(git stash *)",
+      "Bash(npm run *)",
+      "Bash(npx vitest *)",
+      "Bash(gh issue *)",
+      "Skill(update-config)"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"process.stdout.write(JSON.stringify({hookSpecificOutput:{hookEventName:'UserPromptSubmit',additionalContext:'Reminder: if this request is a substantive feature, bug, or task (not a trivial confirmation/reply), file it as a GitHub issue in tomyka/mychess via gh issue create before or while doing the work.'}}))\""
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node mychess/scripts/backlog-run-guard.mjs",
+            "statusMessage": "Checking session budget"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node mychess/scripts/backlog-run-guard.mjs",
+            "statusMessage": "Checking subagent budget"
+          }
+        ]
+      }
+    ]
+  }
+}
