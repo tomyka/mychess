@@ -76,6 +76,64 @@ jobs:
             echo "⚠ Could not list migration history — continuing so the step below reports too."
         working-directory: mychess
 
+      - name: Refuse to push a replay-unsafe migration
+        # GitHub issue #198. Four migrations must never be replayed — they carry
+        # a `@replay-unsafe:` marker naming the reason (see #195's audit). The
+        # worst is `0006_badges.sql`, whose `truncate public.badges cascade`
+        # reaches `badges_earned` through its foreign key and would delete every
+        # player's earned-badge history.
+        #
+        # A comment cannot stop `db push`, and the hazard is one unticked
+        # checkbox away: this project's history table does not record the
+        # hand-applied migrations, so against it push offers to replay from
+        # 0001. So the pending set is checked against the markers, and a real
+        # push is refused rather than left to a reviewer noticing.
+        #
+        # Parses filenames out of the dry-run output rather than assuming its
+        # phrasing, so a CLI wording change degrades to "nothing matched"
+        # instead of a false pass on a specific header line.
+        run: |
+          dry_output=$(npx supabase db push --dry-run --db-url "${{ steps.db-url.outputs.db_url }}" 2>&1) || true
+          printf '%s\n' "$dry_output"
+
+          pending=$(printf '%s\n' "$dry_output" | grep -oE '[0-9]{4}_[A-Za-z0-9_-]+\.sql' | sort -u || true)
+          if [ -z "$pending" ]; then
+            echo "Nothing pending — no replay-unsafe migration can be reached."
+            exit 0
+          fi
+
+          unsafe=""
+          for file in $pending; do
+            path="supabase/migrations/$file"
+            [ -f "$path" ] || continue
+            if grep -q '@replay-unsafe' "$path"; then
+              unsafe="$unsafe $file"
+            fi
+          done
+
+          if [ -z "$unsafe" ]; then
+            echo "No pending migration is marked @replay-unsafe."
+            exit 0
+          fi
+
+          echo ""
+          echo "Pending set includes migrations marked @replay-unsafe:"
+          for file in $unsafe; do
+            echo "  $file"
+            awk '/@replay-unsafe/{found=1} found && /^--/{print "    " $0; shown++; if (shown>=6) exit; next} found{exit}' "supabase/migrations/$file"
+          done
+          echo ""
+          echo "Apply these by hand in the Supabase SQL editor instead, substituting"
+          echo "any placeholders first. See GitHub issues #195 and #198."
+
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "::warning::Dry run, so not failing — but a real push would be refused."
+            exit 0
+          fi
+          echo "::error::Refusing to push: the pending set includes replay-unsafe migrations."
+          exit 1
+        working-directory: mychess
+
       - name: Push all migrations
         run: |
           if [ "${{ inputs.dry_run }}" = "true" ]; then
