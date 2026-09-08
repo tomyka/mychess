@@ -88,7 +88,7 @@ export function fullyLearnedChapters(
 /**
  * The repertoire list's cheap approximation of `deriveRepertoireStatus`,
  * using cached counts (`repertoires.chapter_count`, this player's current
- * `chapter_mastery` row count) instead of a full variation enumeration —
+ * `chapter_completed` row count) instead of a full variation enumeration —
  * the list loads far more often than a repertoire's own detail page, so it
  * can't afford `deriveRepertoireStatus`'s move fetch on every load.
  *
