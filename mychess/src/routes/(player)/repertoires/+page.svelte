@@ -1,7 +1,9 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import OpeningPicker from '$lib/components/OpeningPicker.svelte';
+  import { localizedOpeningName } from '$lib/openings/name';
   import { m } from '$lib/paraglide/messages';
+  import { getLocale } from '$lib/paraglide/runtime';
 
   let { data, form } = $props<{ data: { repertoires: any[]; assignedRepertoires: any[] }; form?: any }>();
   let openingModalRepId = $state<string | null>(null);
@@ -35,7 +37,13 @@
                 <h2 class="font-medium text-(--color-text) truncate">{rep.name}</h2>
                 <p class="text-sm text-(--color-muted)">{m.repertoires_moves_count({ count: rep.moves?.[0]?.count ?? 0 })}</p>
                 {#if rep.eco_code}
-                  <p class="text-xs text-indigo-500">{rep.eco_code} — {rep.eco_name}</p>
+                  <p class="text-xs text-indigo-500">
+                    {rep.eco_code} — {localizedOpeningName({
+                      code: rep.eco_code,
+                      englishName: rep.eco_name,
+                      locale: getLocale()
+                    })}
+                  </p>
                 {/if}
               </div>
               <a href={rep.allSolved ? `/practice/${rep.id}` : `/learn/${rep.id}`}

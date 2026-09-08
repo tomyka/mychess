@@ -2,7 +2,9 @@
   import { enhance } from '$app/forms';
   import { searchOpenings } from '$lib/openings/classify';
   import { ECO_OPENINGS } from '$lib/openings/eco-data';
+  import { localizedOpeningName } from '$lib/openings/name';
   import { m } from '$lib/paraglide/messages';
+  import { getLocale } from '$lib/paraglide/runtime';
 
   let { repId, onclose } = $props<{ repId: string; onclose: () => void }>();
 
@@ -82,7 +84,13 @@
               <input type="hidden" name="eco_name" value={opening.name} />
               <button class="w-full text-left text-sm rounded-lg px-3 py-2 hover:bg-indigo-50">
                 <span class="font-medium text-(--color-accent)">{opening.code}</span>
-                <span class="text-(--color-text)"> — {opening.name}</span>
+                <span class="text-(--color-text)">
+                  — {localizedOpeningName({
+                    code: opening.code,
+                    englishName: opening.name,
+                    locale: getLocale()
+                  })}
+                </span>
               </button>
             </form>
           </li>

@@ -1,7 +1,9 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import OpeningPicker from '$lib/components/OpeningPicker.svelte';
+  import { localizedOpeningName } from '$lib/openings/name';
   import { m } from '$lib/paraglide/messages';
+  import { getLocale } from '$lib/paraglide/runtime';
 
   let { data, form } = $props<{ data: { repertoires: any[]; players: any[] }; form: any }>();
   let filter = $state<'all' | 'white' | 'black'>('all');
@@ -86,7 +88,13 @@
                 <p class="text-xs mt-0.5">
                   {#if rep.eco_code}
                     <span class="text-(--color-accent) font-medium">{rep.eco_code}</span>
-                    <span class="text-(--color-muted)"> — {rep.eco_name}</span>
+                    <span class="text-(--color-muted)">
+                      — {localizedOpeningName({
+                        code: rep.eco_code,
+                        englishName: rep.eco_name,
+                        locale: getLocale()
+                      })}
+                    </span>
                   {:else}
                     <span class="text-(--color-muted)">{m.coach_repertoires_unclassified()}</span>
                   {/if}
