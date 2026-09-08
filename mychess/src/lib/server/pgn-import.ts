@@ -1,6 +1,6 @@
 // mychess/src/lib/server/pgn-import.ts
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { planGameImport, type MoveRow } from '$lib/pgn-import';
+import { planGameImport, toUnwrittenRawMoveRows, type MoveRow } from '$lib/pgn-import';
 import { enumerateVariations, hasChapterTags, type RawMoveRow } from '$lib/mastery/variations';
 import { masterableChapters } from '$lib/mastery/repertoireStatus';
 import { fetchAllMoves, toRawMoveRows } from './practice-repertoire';
@@ -123,22 +123,11 @@ export async function writeMoves(
       // again for this repertoire once it's known to be complete (a
       // single-chapter import, or `importGames`, which always hands over
       // every move up front).
-      const dedupedMoves = Array.from(new Map(params.moves.map((m) => [`${m.fromFen}|${m.san}`, m])).values());
-      const rawMoves: RawMoveRow[] = dedupedMoves.map((m, i) => ({
-        id: String(i),
-        fromPositionId: m.fromFen,
-        toPositionId: m.toFen,
-        fromFen: m.fromFen,
-        toFen: m.toFen,
-        san: m.san,
-        isPlayerTurn: m.is_player_turn,
-        chapterNames: []
-      }));
-      const variations = enumerateVariations(rawMoves);
+      const variations = enumerateVariations(toUnwrittenRawMoveRows(params.moves));
       insertColumns.total_variations = variations.length;
-      // `chapterNames` is hardcoded `[]` on `rawMoves` above (this path never
-      // has real chapter tags to check — a single-chapter import, or
-      // `importGames`'s "my games" auto-import), so this is always false
+      // `chapterNames` is hardcoded `[]` inside `toUnwrittenRawMoveRows` (this
+      // path never has real chapter tags to check — a single-chapter import,
+      // or `importGames`'s "my games" auto-import), so this is always false
       // here. Written explicitly (not left null) so this repertoire never
       // needs the lazy has_chapters/chapter_count backfill in
       // `repertoire-progress.ts`.

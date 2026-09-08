@@ -326,6 +326,24 @@
 	"pgn_import_drive_generic_error": "Nepavyko importuoti iš Google Drive.",
 	"pgn_import_missing_fields_error": "Būtina nurodyti pavadinimą ir PGN",
 	"pgn_import_generic_failure": "Importavimas nepavyko",
+	"pgn_import_review_heading": "Peržiūrėti skyrius",
+	"pgn_import_review_summary": "Rasta skyrių: {total} · pasirinkta: {selected} · bus importuota linijų: {lines}",
+	"pgn_import_review_meta": "{lines} linijų · {ply} pusėjimų",
+	"pgn_import_review_game_like_hint": "{ply} pusėjimų {lines} linijose — atrodo kaip visos partijos, o ne repertuaro teorija",
+	"pgn_import_review_no_lines_hint": "Nėra treniruojamų linijų — čia nėra ko mokytis ar praktikuoti",
+	"pgn_import_review_back": "Pasirinkti kitą failą",
+	"pgn_import_review_import_button": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Importuoti {count} skyrių",
+				"countPlural=few": "Importuoti {count} skyrius",
+				"countPlural=many": "Importuoti {count} skyrių",
+				"countPlural=other": "Importuoti {count} skyrių"
+			}
+		}
+	],
 	"opening_picker_heading": "Pakeisti debiutą",
 	"picker_close_aria": "Uždaryti",
 	"opening_picker_search_placeholder": "Ieškoti debiutų (pvz. Sicilijos, B90)…",
@@ -375,7 +393,7 @@
 	"repertoire_tree_collapse_aria": "Suskleisti {target}",
 	"repertoire_tree_chapter_expand_aria": "Išskleisti skyrių {chapter}",
 	"repertoire_tree_chapter_collapse_aria": "Suskleisti skyrių {chapter}",
-	"repertoire_tree_chapter_include_aria": "Įtraukti {heading} į praktiką",
+	"repertoire_tree_chapter_include_aria": "Įtraukti {heading} į mano Mokymąsi ir Praktiką",
 	"repertoire_tree_movegroup_include_aria": "Įtraukti {group} iš {qualifier} į praktiką",
 	"repertoire_tree_movegroup_expand_aria": "Išskleisti {group} iš {qualifier}",
 	"repertoire_tree_movegroup_collapse_aria": "Suskleisti {group} iš {qualifier}",
@@ -897,6 +915,15 @@
 	"seo_coach_pgn_title": "Įkelti repertuarą — MyChess",
 	"coach_pgn_heading": "Įkelti repertuarą",
 	"coach_pgn_submit_label": "Įkelti repertuarą",
+	"chapter_selection_select_all": "Pasirinkti visus",
+	"chapter_selection_select_all_matching": "Pasirinkti visus {count} atitinkančius",
+	"chapter_selection_select_none": "Nepasirinkti nieko",
+	"chapter_selection_invert": "Apversti",
+	"chapter_selection_filter_label": "Filtruoti skyrius",
+	"chapter_selection_filter_placeholder": "Filtruoti skyrius…",
+	"chapter_selection_master_aria": "Pasirinkti visus skyrius",
+	"chapter_selection_row_aria": "Pasirinkti {title}",
+	"chapter_selection_no_matches": "Nė vienas skyrius neatitinka filtro.",
 	"seo_coach_reports_title": "Praktikos ataskaitos — MyChess",
 	"coach_reports_heading": "Praktikos ataskaitos",
 	"coach_reports_subtitle": "Paskutinės 30 dienų · visuose repertuaruose",
@@ -996,6 +1023,49 @@
 	"coach_repertoire_update_cancel_link": "Atšaukti",
 	"coach_repertoire_update_reading_button": "Skaitoma…",
 	"coach_repertoire_update_review_button": "Peržiūrėti pakeitimus",
+	"coach_chapters_heading": "„{name}“ skyriai",
+	"coach_chapters_intro": "Pašalinus skyrių, jo linijos išnyksta iš repertuaro visiems {count} priskirtiems mokiniams. Iš čia to atšaukti negalima — skyrius grįžta iš naujo įkėlus PGN.",
+	"coach_chapters_summary": "Skyrių: {total} · pašalinimui pasirinkta: {selected}",
+	"coach_chapters_meta": "{lines} linijų",
+	"coach_chapters_meta_shared": "{lines} linijų · {shared} bendrų",
+	"coach_chapters_untagged_hint": "Tai ne skyrius — tai repertuaro linijos be skyriaus. Verčiau ištrinkite patį repertuarą.",
+	"coach_chapters_removes_everything": "Taip būtų pašalinti visi skyriai. Verčiau ištrinkite patį repertuarą.",
+	"coach_chapters_none": "Šis repertuaras neturi skyrių. Jo linijos buvo importuotos be skyrių pavadinimų, todėl nėra ko šalinti po vieną.",
+	"coach_chapters_remove_button": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Pašalinti {count} skyrių",
+				"countPlural=few": "Pašalinti {count} skyrius",
+				"countPlural=many": "Pašalinti {count} skyrių",
+				"countPlural=other": "Pašalinti {count} skyrių"
+			}
+		}
+	],
+	"coach_chapters_confirm_heading": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Pašalinti {count} skyrių?",
+				"countPlural=few": "Pašalinti {count} skyrius?",
+				"countPlural=many": "Pašalinti {count} skyrių?",
+				"countPlural=other": "Pašalinti {count} skyrių?"
+			}
+		}
+	],
+	"coach_chapters_confirm_lines": "Bus išimta {lines} linijų visiems {students} priskirtiems mokiniams.",
+	"coach_chapters_confirm_progress": "Iš jų {lines} turi mokinių pažangą — ji išsaugoma, jei skyrius sugrįžtų.",
+	"coach_chapters_confirm_shared": "{lines} linijų taip pat priklauso kitiems skyriams ir liks.",
+	"coach_chapters_confirm_cancel": "Atšaukti",
+	"coach_chapters_confirm_remove": "Pašalinti",
+	"coach_chapters_removed_heading": "Skyriai pašalinti",
+	"coach_chapters_removed_body": "Iš „{name}“ pašalinta {count} skyrių ir {lines} linijų.",
+	"coach_chapters_back_link": "Atgal į repertuarus",
+	"coach_chapters_link": "Skyriai",
+	"coach_chapters_error_fallback": "Pašalinimo nepavyko pritaikyti. Perkraukite ir bandykite dar kartą.",
+	"seo_coach_chapters_title": "Skyriai — {name}",
 	"seo_coach_player_title": "{name} — MyChess",
 	"coach_player_fallback_name": "Mokinys",
 	"coach_player_stats_heading": "Statistika",

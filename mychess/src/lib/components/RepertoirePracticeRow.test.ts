@@ -824,7 +824,7 @@ describe('RepertoirePracticeRow', () => {
 		expect(screen.getByText('label:v2')).toBeTruthy();
 
 		// ...and bulk-selectable, touching only its own untagged rows.
-		await fireEvent.click(screen.getByRole('checkbox', { name: `Include ${UNTAGGED_CHAPTER} in practice` }));
+		await fireEvent.click(screen.getByRole('checkbox', { name: `Include ${UNTAGGED_CHAPTER} in my Learn and Practice` }));
 		await waitFor(() =>
 			expect(fetchSpy).toHaveBeenLastCalledWith('/api/repertoires/rep-1/exclusions', {
 				method: 'POST',

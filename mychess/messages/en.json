@@ -302,6 +302,22 @@
 	"pgn_import_drive_generic_error": "Could not import from Google Drive.",
 	"pgn_import_missing_fields_error": "Name and PGN are required",
 	"pgn_import_generic_failure": "Import failed",
+	"pgn_import_review_heading": "Review chapters",
+	"pgn_import_review_summary": "{total} chapters found · {selected} selected · {lines} lines will import",
+	"pgn_import_review_meta": "{lines} lines · {ply} ply",
+	"pgn_import_review_game_like_hint": "{ply} plies across {lines} lines — looks like whole games, not repertoire theory",
+	"pgn_import_review_no_lines_hint": "No drillable lines — nothing here can be learned or practiced",
+	"pgn_import_review_back": "Choose a different file",
+	"pgn_import_review_import_button": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Import {count} chapter",
+				"countPlural=other": "Import {count} chapters"
+			}
+		}
+	],
 	"opening_picker_heading": "Change Opening",
 	"picker_close_aria": "Close",
 	"opening_picker_search_placeholder": "Search openings (e.g. Sicilian, B90)…",
@@ -347,7 +363,7 @@
 	"repertoire_tree_collapse_aria": "Collapse {target}",
 	"repertoire_tree_chapter_expand_aria": "Expand {chapter} chapter",
 	"repertoire_tree_chapter_collapse_aria": "Collapse {chapter} chapter",
-	"repertoire_tree_chapter_include_aria": "Include {heading} in practice",
+	"repertoire_tree_chapter_include_aria": "Include {heading} in my Learn and Practice",
 	"repertoire_tree_movegroup_include_aria": "Include {group} in {qualifier} in practice",
 	"repertoire_tree_movegroup_expand_aria": "Expand {group} in {qualifier}",
 	"repertoire_tree_movegroup_collapse_aria": "Collapse {group} in {qualifier}",
@@ -823,6 +839,15 @@
 	"seo_coach_pgn_title": "Upload Repertoire — MyChess",
 	"coach_pgn_heading": "Upload Repertoire",
 	"coach_pgn_submit_label": "Upload Repertoire",
+	"chapter_selection_select_all": "Select all",
+	"chapter_selection_select_all_matching": "Select all {count} matching",
+	"chapter_selection_select_none": "Select none",
+	"chapter_selection_invert": "Invert",
+	"chapter_selection_filter_label": "Filter chapters",
+	"chapter_selection_filter_placeholder": "Filter chapters…",
+	"chapter_selection_master_aria": "Select all chapters",
+	"chapter_selection_row_aria": "Select {title}",
+	"chapter_selection_no_matches": "No chapters match that filter.",
 	"seo_coach_reports_title": "Practice Reports — MyChess",
 	"coach_reports_heading": "Practice Reports",
 	"coach_reports_subtitle": "Last 30 days · across all repertoires",
@@ -916,6 +941,45 @@
 	"coach_repertoire_update_cancel_link": "Cancel",
 	"coach_repertoire_update_reading_button": "Reading…",
 	"coach_repertoire_update_review_button": "Review changes",
+	"coach_chapters_heading": "Chapters in “{name}”",
+	"coach_chapters_intro": "Removing a chapter takes its lines out of the repertoire for all {count} assigned students. This cannot be undone from here — re-uploading the PGN brings the chapter back.",
+	"coach_chapters_summary": "{total} chapters · {selected} selected for removal",
+	"coach_chapters_meta": "{lines} lines",
+	"coach_chapters_meta_shared": "{lines} lines · {shared} shared",
+	"coach_chapters_untagged_hint": "Not a chapter — these are the repertoire's untagged lines. Delete the repertoire itself instead.",
+	"coach_chapters_removes_everything": "That would remove every chapter. Delete the repertoire itself instead.",
+	"coach_chapters_none": "This repertoire has no chapters. Its lines were imported without chapter titles, so there is nothing to remove one at a time.",
+	"coach_chapters_remove_button": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Remove {count} chapter",
+				"countPlural=other": "Remove {count} chapters"
+			}
+		}
+	],
+	"coach_chapters_confirm_heading": [
+		{
+			"declarations": ["input count", "local countPlural = count: plural"],
+			"selectors": ["countPlural"],
+			"match": {
+				"countPlural=one": "Remove {count} chapter?",
+				"countPlural=other": "Remove {count} chapters?"
+			}
+		}
+	],
+	"coach_chapters_confirm_lines": "Retires {lines} lines for all {students} assigned students.",
+	"coach_chapters_confirm_progress": "{lines} of them carry student progress — kept, in case the chapter returns.",
+	"coach_chapters_confirm_shared": "{lines} lines also belong to other chapters and will stay.",
+	"coach_chapters_confirm_cancel": "Cancel",
+	"coach_chapters_confirm_remove": "Remove",
+	"coach_chapters_removed_heading": "Chapters removed",
+	"coach_chapters_removed_body": "{count} chapters and {lines} lines were removed from “{name}”.",
+	"coach_chapters_back_link": "Back to repertoires",
+	"coach_chapters_link": "Chapters",
+	"coach_chapters_error_fallback": "That removal could not be applied. Reload and try again.",
+	"seo_coach_chapters_title": "Chapters — {name}",
 	"seo_coach_player_title": "{name} — MyChess",
 	"coach_player_fallback_name": "Student",
 	"coach_player_stats_heading": "Stats",
