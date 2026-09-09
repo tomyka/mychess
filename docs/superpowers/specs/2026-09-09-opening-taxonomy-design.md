@@ -94,6 +94,17 @@ resolveOpening(
 
 Pure, taxonomy injected with a default, mirroring `detectOpening`.
 
+**A side-mismatched override resolves to null.** Decided during Task 2's review,
+which found the case unspecified: an override is looked up by `id`, so
+`opening_id: 'sicilian-najdorf-black'` on a `white` repertoire would otherwise
+return the Black entry and display it as correct.
+
+Null is consistent with the deleted-entry rule above, and never misleads. The
+picker only ever offers entries matching the repertoire's own colour, so a
+mismatch means the colour changed after the override was set, or the row was
+edited directly — and in both cases showing White's preparation on a Black
+repertoire is worse than the ECO-line fallback that null produces.
+
 **Why derive rather than store at import.** A repertoire detected against last
 week's list would keep last week's answer forever, and each list revision would
 need a data migration to catch up. Under derivation, editing the taxonomy
