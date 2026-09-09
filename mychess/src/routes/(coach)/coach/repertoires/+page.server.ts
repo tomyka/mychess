@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const [repsRes, assignedRes, relationships] = await Promise.all([
 		supabase
 			.from('repertoires')
-			.select('id, name, color, eco_code, eco_name, created_at, moves(count)')
+			.select('id, name, color, eco_code, eco_name, opening_id, created_at, moves(count)')
 			.eq('player_id', user!.id)
 			.order('created_at', { ascending: false }),
 		supabase

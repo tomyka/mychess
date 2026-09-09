@@ -98,6 +98,54 @@ describe('repertoires page', () => {
     render(Repertoires, { props: { data: { repertoires: [], assignedRepertoires: assigned } } });
     expect(document.querySelector('form[action="?/delete"]')).toBeNull();
   });
+
+  // GitHub issue #201. Resolution matches on 'white'/'black', not the CSS hex
+  // this page's other fixtures use for `color`, so these use the real values.
+  // The owned list renders `eco_code` alone (no name at all — see line 94), so
+  // the cascade only shows up in the assigned section; these fixtures go under
+  // `assignedRepertoires` accordingly, not `repertoires`.
+  const prepRep = { id: 'r9', name: 'Alapin file', color: 'white', moves: [{ count: 5 }] };
+
+  it('shows the resolved opening instead of the ECO name', () => {
+    render(Repertoires, {
+      props: {
+        data: {
+          repertoires: [],
+          assignedRepertoires: [
+            { ...prepRep, eco_code: 'B22', eco_name: 'Sicilian Defense: Alapin Variation', opening_id: null }
+          ]
+        }
+      }
+    });
+    expect(screen.getByText(/Anti-Sicilian: Alapin/)).toBeTruthy();
+    expect(screen.queryByText(/Sicilian Defense: Alapin Variation/)).toBeNull();
+  });
+
+  it('falls back to the ECO line when no opening resolves', () => {
+    render(Repertoires, {
+      props: {
+        data: {
+          repertoires: [],
+          assignedRepertoires: [{ ...prepRep, eco_code: 'A00', eco_name: 'Amar Opening', opening_id: null }]
+        }
+      }
+    });
+    expect(screen.getByText(/A00 — Amar Opening/)).toBeTruthy();
+  });
+
+  it('honours a stored override over the ECO code', () => {
+    render(Repertoires, {
+      props: {
+        data: {
+          repertoires: [],
+          assignedRepertoires: [
+            { ...prepRep, eco_code: 'B22', eco_name: 'Sicilian Defense: Alapin Variation', opening_id: 'open-sicilian-white' }
+          ]
+        }
+      }
+    });
+    expect(screen.getByText(/Open Sicilian/)).toBeTruthy();
+  });
 });
 
 describe('RepertoirePracticeRow destination', () => {

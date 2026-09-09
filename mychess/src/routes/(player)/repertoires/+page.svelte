@@ -2,6 +2,7 @@
   import { enhance } from '$app/forms';
   import OpeningPicker from '$lib/components/OpeningPicker.svelte';
   import { localizedOpeningName } from '$lib/openings/name';
+  import { resolveOpening, curatedOpeningName } from '$lib/openings/resolve';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
 
@@ -31,12 +32,15 @@
         <h1 class="text-2xl font-bold text-(--color-text) mb-4">{m.repertoires_assigned_heading()}</h1>
         <ul class="space-y-2">
           {#each data.assignedRepertoires as rep (rep.id)}
+            {@const resolvedOpeningName = curatedOpeningName(resolveOpening(rep), getLocale())}
             <li class="flex items-center gap-3 bg-(--color-surface) rounded-xl border border-indigo-200 shadow-sm p-4">
               <span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color ?? '#4f46e5'}"></span>
               <div class="flex-1 min-w-0">
                 <h2 class="font-medium text-(--color-text) truncate">{rep.name}</h2>
                 <p class="text-sm text-(--color-muted)">{m.repertoires_moves_count({ count: rep.moves?.[0]?.count ?? 0 })}</p>
-                {#if rep.eco_code}
+                {#if resolvedOpeningName}
+                  <p class="text-xs text-indigo-500">{resolvedOpeningName}</p>
+                {:else if rep.eco_code}
                   <p class="text-xs text-indigo-500">
                     {rep.eco_code} — {localizedOpeningName({
                       code: rep.eco_code,
