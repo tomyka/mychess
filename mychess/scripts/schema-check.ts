@@ -35,7 +35,8 @@ const PROBES: { migration: string; table: string; select: string; absent?: boole
   { migration: '0070', table: 'variation_chapter_practice_exclusions', select: 'id,player_id,repertoire_id,chapter_name,variation_key,variation_key_hash' },
   // 0071 drops chapter_mastery (0058's table), retired by the knowledge-levels ladder.
   { migration: '0071', table: 'chapter_mastery', select: 'id', absent: true },
-  { migration: '0072', table: 'chapter_completed', select: 'id,player_id,repertoire_id,chapter_name,reached_at' }
+  { migration: '0072', table: 'chapter_completed', select: 'id,player_id,repertoire_id,chapter_name,reached_at' },
+  { migration: '0078', table: 'repertoires', select: 'id,opening_id' }
 ];
 
 let failed = 0;
