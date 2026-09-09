@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { CURATED_OPENINGS } from './taxonomy';
+import { ECO_OPENINGS } from './eco-data';
 
 describe('curated opening taxonomy', () => {
   it('gives every entry a unique id', () => {
@@ -34,6 +35,25 @@ describe('curated opening taxonomy', () => {
   });
 
   it('uses only white or black as the side', () => {
-    expect(CURATED_OPENINGS.filter((o) => o.side !== 'white' && o.side !== 'black')).toEqual([]);
+    expect(
+      CURATED_OPENINGS.filter((o) => o.side !== 'white' && o.side !== 'black').map((o) => o.id)
+    ).toEqual([]);
+  });
+
+  // A typo'd or malformed code (lowercase, wrong length, or one ECO never
+  // assigned) fails silently: resolveOpening matches on exact string
+  // equality, so the entry just never resolves for anyone. No error, no
+  // signal — the feature quietly doesn't work. Cross-checking against the
+  // real ECO table catches well-formed-but-nonexistent codes that a regex
+  // would miss.
+  it('claims only codes that exist in the ECO table', () => {
+    const knownCodes = new Set(ECO_OPENINGS.map((o) => o.code));
+    const unknown: string[] = [];
+    for (const opening of CURATED_OPENINGS) {
+      for (const code of opening.ecoCodes) {
+        if (!knownCodes.has(code)) unknown.push(`${opening.id} claims unknown code ${code}`);
+      }
+    }
+    expect(unknown).toEqual([]);
   });
 });

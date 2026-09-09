@@ -20,7 +20,10 @@
 // gaps, and ECO decades are not contiguous by theme.
 //
 // Guarded by taxonomy.test.ts: unique ids, no two same-side entries claiming
-// one code, every entry carrying a Lithuanian name.
+// one code, every entry carrying a Lithuanian name, every entry carrying at
+// least one code, side restricted to white/black, and every code existing in
+// the real ECO table (eco-data.ts) — that last check lives in the test file
+// only, so this module itself stays free of any import from eco-data.
 
 export type OpeningSide = 'white' | 'black';
 
