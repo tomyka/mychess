@@ -1,5 +1,5 @@
 // mychess/src/lib/openings/resolve.ts
-import { CURATED_OPENINGS, type CuratedOpening } from './taxonomy';
+import { CURATED_OPENINGS, type CuratedOpening, type OpeningSide } from './taxonomy';
 import type { Locale } from '$lib/paraglide/runtime';
 
 /**
@@ -19,20 +19,24 @@ import type { Locale } from '$lib/paraglide/runtime';
  * An override naming a since-deleted entry resolves to null rather than
  * falling back to derivation: the coach's stated answer is gone, and quietly
  * substituting a different opening would be worse than showing the ECO line.
+ * The same reasoning covers an override whose side no longer matches the
+ * repertoire's own colour: the picker only ever offers entries matching that
+ * colour, so a mismatch means the repertoire's colour changed since the
+ * override was set, or the row was edited directly — either way, showing
+ * White's preparation on a Black repertoire is worse than falling back to the
+ * ECO line, which is what null produces.
  */
 export function resolveOpening(
-  repertoire: { eco_code: string | null; color: string | null; opening_id: string | null },
+  repertoire: { eco_code: string | null; color: OpeningSide | null; opening_id: string | null },
   taxonomy: CuratedOpening[] = CURATED_OPENINGS
 ): CuratedOpening | null {
   if (repertoire.opening_id) {
-    return taxonomy.find((opening) => opening.id === repertoire.opening_id) ?? null;
+    const override = taxonomy.find((opening) => opening.id === repertoire.opening_id);
+    return override && override.side === repertoire.color ? override : null;
   }
-  if (!repertoire.eco_code) return null;
-  return (
-    taxonomy.find(
-      (opening) => opening.side === repertoire.color && opening.ecoCodes.includes(repertoire.eco_code as string)
-    ) ?? null
-  );
+  const ecoCode = repertoire.eco_code;
+  if (!ecoCode) return null;
+  return taxonomy.find((opening) => opening.side === repertoire.color && opening.ecoCodes.includes(ecoCode)) ?? null;
 }
 
 /** The display name for a resolved opening, in the active locale. */

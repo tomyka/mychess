@@ -37,6 +37,22 @@ describe('resolveOpening', () => {
     expect(resolveOpening({ eco_code: 'B22', color: 'black', opening_id: null }, TAXONOMY)).toBeNull();
     expect(resolveOpening({ eco_code: 'A00', color: 'white', opening_id: null }, TAXONOMY)).toBeNull();
   });
+
+  it('returns null for an override whose side does not match the repertoire colour', () => {
+    expect(
+      resolveOpening({ eco_code: 'B90', color: 'white', opening_id: 'najdorf-black' }, TAXONOMY)
+    ).toBeNull();
+  });
+
+  it('returns null when the repertoire has no colour, even with a valid ECO code', () => {
+    expect(resolveOpening({ eco_code: 'B22', color: null, opening_id: null }, TAXONOMY)).toBeNull();
+  });
+
+  it('lets a stored override win even when the repertoire has no ECO code', () => {
+    expect(
+      resolveOpening({ eco_code: null, color: 'white', opening_id: 'open-sicilian-white' }, TAXONOMY)?.id
+    ).toBe('open-sicilian-white');
+  });
 });
 
 describe('curatedOpeningName', () => {
