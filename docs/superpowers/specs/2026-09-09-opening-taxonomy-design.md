@@ -124,11 +124,24 @@ two are given distinct jobs:
 - **The opening override answers a different question** — which prep item this
   file is for — and wins whenever set.
 
-New UI, on the coach repertoire list beside the existing "Change" link: a picker
-listing `CURATED_OPENINGS` **filtered to the repertoire's own `color`**, so a
-white file offers only white-side entries, plus an "Auto" choice that clears
-`opening_id` back to derivation. A new `updateRepertoireOpening` action mirrors
-`updateOpening`'s shape, including its `player_id = user!.id` scoping.
+New UI on the coach repertoire list, beside the existing "Change" link:
+**`src/lib/components/CuratedOpeningPicker.svelte`**, a new component rather
+than a change to `OpeningPicker.svelte` — that one searches 500 ECO entries and
+posts `eco_code`/`eco_name`, this one lists a few dozen and posts `opening_id`.
+Sharing them would mean one component serving two different questions, which is
+the confusion this section exists to prevent.
+
+It lists `CURATED_OPENINGS` **filtered to the repertoire's own `color`**, so a
+white file offers only white-side entries, plus an "Auto" choice that posts an
+empty `opening_id` and clears the override back to derivation — the same
+empty-value convention `OpeningPicker` already uses for "Unclassified".
+
+If the taxonomy has no entries for that colour yet, the picker shows only
+"Auto". That is the expected state early on and needs no special copy beyond
+the existing no-matches message.
+
+A new `updateRepertoireOpening` action mirrors `updateOpening`'s shape,
+including its `player_id = user!.id` scoping.
 
 ### Display cascade
 
@@ -172,6 +185,7 @@ everything translated" is no longer answerable from `lt.json` alone. The
 | override wins over derivation | the override taking effect at all |
 | null `opening_id` derives from `(eco_code, color)` | the silent-blank hazard above |
 | null when no code, or no matching entry | the ECO-line fallback |
+| `curatedOpeningName` returns `nameLt` under `lt` and `name` otherwise | the locale switch on the curated names, mirroring #158's `localizedOpeningName` tests |
 | display cascade, both lists | opening name replacing the ECO line, and the fallback surviving |
 
 Both repertoire lists already have `repertoires.test.ts` files (added under
