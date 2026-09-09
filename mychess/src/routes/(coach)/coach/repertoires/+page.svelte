@@ -1,6 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import OpeningPicker from '$lib/components/OpeningPicker.svelte';
+  import CuratedOpeningPicker from '$lib/components/CuratedOpeningPicker.svelte';
   import { localizedOpeningName } from '$lib/openings/name';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
@@ -24,6 +25,11 @@
   );
 
   let openingModalRepId = $state<string | null>(null);
+
+  let prepModalRepId = $state<string | null>(null);
+  const prepModalRep = $derived(
+    prepModalRepId ? data.repertoires.find((r: any) => r.id === prepModalRepId) ?? null : null
+  );
 
   function confirmDelete(e: SubmitEvent, name: string) {
     if (!confirm(m.coach_repertoires_confirm_delete({ name }))) {
@@ -101,6 +107,10 @@
                   <button type="button" onclick={() => (openingModalRepId = rep.id)}
                           class="text-(--color-muted) hover:text-indigo-600 hover:underline ml-1">
                     {m.coach_repertoires_change_button()}
+                  </button>
+                  <button type="button" onclick={() => (prepModalRepId = rep.id)}
+                          class="text-(--color-muted) hover:text-indigo-600 hover:underline ml-1">
+                    {m.coach_repertoires_prep_change_button()}
                   </button>
                 </p>
               </div>
@@ -203,4 +213,12 @@
 
 {#if openingModalRepId}
   <OpeningPicker repId={openingModalRepId} onclose={() => (openingModalRepId = null)} />
+{/if}
+
+{#if prepModalRep}
+  <CuratedOpeningPicker
+    repId={prepModalRep.id}
+    color={prepModalRep.color}
+    onclose={() => (prepModalRepId = null)}
+  />
 {/if}

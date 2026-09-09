@@ -118,5 +118,26 @@ export const actions: Actions = {
 		if (error) return fail(500, { error: error.message });
 
 		return { success: true };
+	},
+
+	// GitHub issue #201. Distinct from `updateOpening` above, which sets the ECO
+	// code: this one records which curated opening the repertoire prepares. An
+	// empty value clears the override and returns the repertoire to derivation.
+	updateRepertoireOpening: async ({ request, locals }) => {
+		const { user } = await requireAccount(locals);
+		const supabase = locals.supabase;
+		const fd = await request.formData();
+		const repId = fd.get('rep_id') as string;
+		const openingId = (fd.get('opening_id') as string) || null;
+		if (!repId) return fail(400, { error: 'No repertoire selected' });
+
+		const { error } = await supabase
+			.from('repertoires')
+			.update({ opening_id: openingId })
+			.eq('id', repId)
+			.eq('player_id', user!.id);
+		if (error) return fail(500, { error: error.message });
+
+		return { success: true };
 	}
 };
