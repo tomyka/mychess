@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { requireAccount } from '$lib/server/auth';
 import { listRelationshipsForCoach } from '$lib/server/coach-players';
+import { CURATED_OPENINGS } from '$lib/openings/taxonomy';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const { user } = await requireAccount(locals);
@@ -123,13 +124,30 @@ export const actions: Actions = {
 	// GitHub issue #201. Distinct from `updateOpening` above, which sets the ECO
 	// code: this one records which curated opening the repertoire prepares. An
 	// empty value clears the override and returns the repertoire to derivation.
-	updateRepertoireOpening: async ({ request, locals }) => {
+	updateCuratedOpening: async ({ request, locals }) => {
 		const { user } = await requireAccount(locals);
 		const supabase = locals.supabase;
 		const fd = await request.formData();
 		const repId = fd.get('rep_id') as string;
 		const openingId = (fd.get('opening_id') as string) || null;
 		if (!repId) return fail(400, { error: 'No repertoire selected' });
+
+		// There's no foreign key on `opening_id` — the taxonomy is guarded by
+		// tests, not a constraint — so this is the one place an id actually
+		// enters the database and the only chance to reject a bogus one. Empty
+		// is the picker's "Auto" choice and must keep clearing the override.
+		//
+		// Deliberately not also checking the entry's `side` against the
+		// repertoire's `color` here: doing so needs the row's colour, which
+		// means a read before the write on every submission, and
+		// `resolveOpening` already falls back to null (the ECO line) for a
+		// side mismatch at render time — see its docstring. The picker itself
+		// only ever offers same-colour entries, so a mismatch here would mean
+		// the row was edited directly or its colour changed after the fact,
+		// which is already handled safely downstream.
+		if (openingId && !CURATED_OPENINGS.some((opening) => opening.id === openingId)) {
+			return fail(400, { error: 'Unknown opening' });
+		}
 
 		const { error } = await supabase
 			.from('repertoires')

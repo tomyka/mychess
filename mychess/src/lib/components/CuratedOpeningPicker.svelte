@@ -67,7 +67,7 @@
         <p class="text-red-600 text-sm bg-red-50 border border-red-200 dark:bg-red-950 dark:border-red-800 dark:text-red-400 rounded-lg px-3 py-2">{errorMessage}</p>
       {/if}
 
-      <form method="POST" action="?/updateRepertoireOpening" use:enhance={handleSubmit}>
+      <form method="POST" action="?/updateCuratedOpening" use:enhance={handleSubmit}>
         <input type="hidden" name="rep_id" value={repId} />
         <input type="hidden" name="opening_id" value="" />
         <button class="w-full text-left text-sm text-(--color-muted) hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg px-3 py-2">
@@ -82,7 +82,7 @@
       <ul class="space-y-1">
         {#each choices as opening (opening.id)}
           <li>
-            <form method="POST" action="?/updateRepertoireOpening" use:enhance={handleSubmit}>
+            <form method="POST" action="?/updateCuratedOpening" use:enhance={handleSubmit}>
               <input type="hidden" name="rep_id" value={repId} />
               <input type="hidden" name="opening_id" value={opening.id} />
               <button class="w-full text-left text-sm rounded-lg px-3 py-2 hover:bg-indigo-50 text-(--color-text)">
