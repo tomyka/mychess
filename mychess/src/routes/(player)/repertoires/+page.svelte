@@ -39,7 +39,7 @@
                 <h2 class="font-medium text-(--color-text) truncate">{rep.name}</h2>
                 <p class="text-sm text-(--color-muted)">{m.repertoires_moves_count({ count: rep.moves?.[0]?.count ?? 0 })}</p>
                 {#if resolvedOpeningName}
-                  <p class="text-xs text-indigo-500">{resolvedOpeningName}</p>
+                  <p class="text-xs text-indigo-500" title={rep.eco_code || undefined}>{resolvedOpeningName}</p>
                 {:else if rep.eco_code}
                   <p class="text-xs text-indigo-500">
                     {rep.eco_code} — {localizedOpeningName({

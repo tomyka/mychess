@@ -95,7 +95,7 @@
                 <p class="text-sm text-(--color-muted)">{m.coach_repertoires_move_count({ count: rep.moves?.[0]?.count ?? 0 })}</p>
                 <p class="text-xs mt-0.5">
                   {#if resolvedOpeningName}
-                    <span class="text-(--color-accent) font-medium">
+                    <span class="text-(--color-accent) font-medium" title={rep.eco_code || undefined}>
                       {resolvedOpeningName}
                     </span>
                   {:else if rep.eco_code}

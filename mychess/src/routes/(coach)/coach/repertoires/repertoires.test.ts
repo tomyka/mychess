@@ -54,19 +54,29 @@ describe('coach repertoires page', () => {
   // GitHub issue #201. B22 + white resolves to the Alapin entry, so the prep
   // name replaces the ECO line rather than sitting beside it.
   it('shows the resolved opening instead of the ECO name', () => {
-    render(Page, {
-      props: {
-        data: {
-          repertoires: [
-            { ...REPERTOIRES[0], eco_code: 'B22', eco_name: 'Sicilian Defense: Alapin Variation', opening_id: null }
-          ],
-          players: []
-        },
-        form: null
-      }
-    });
+    const alapinRep = {
+      repertoires: [
+        { ...REPERTOIRES[0], eco_code: 'B22', eco_name: 'Sicilian Defense: Alapin Variation', opening_id: null }
+      ],
+      players: []
+    };
+
+    render(Page, { props: { data: alapinRep, form: null } });
     expect(screen.getByText(/Anti-Sicilian: Alapin/)).toBeTruthy();
     expect(screen.queryByText(/Sicilian Defense: Alapin Variation/)).toBeNull();
+    cleanup();
+
+    // The curated name has its own locale, distinct from the ECO name's own
+    // `lt` translation — this pins the page's `getLocale()` wiring, not just
+    // `curatedOpeningName`'s own switch (already covered in resolve.test.ts).
+    overwriteGetLocale(() => 'lt');
+    try {
+      render(Page, { props: { data: alapinRep, form: null } });
+      expect(screen.getByText(/Prieš siciliškąją: Alapino variantas/)).toBeTruthy();
+      expect(screen.queryByText(/Anti-Sicilian: Alapin/)).toBeNull();
+    } finally {
+      overwriteGetLocale(() => baseLocale);
+    }
   });
 
   it('falls back to the ECO line when no opening resolves', () => {
