@@ -10,6 +10,12 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-09-opening-taxonomy-design.md`
 
+**No import-path task, deliberately.** #201 asks that import auto-suggest an
+opening, and it already does: the opening derives from `eco_code`, which
+`pgn-import.ts` sets via `detectOpening` today. Nothing in `pgn-import.ts` or
+`api/repertoires/import-chapter` changes. If you go looking for that task, this
+is why it is absent.
+
 **Working directory:** all `npm` commands run from `mychess/`.
 
 **File structure:**
@@ -574,12 +580,49 @@ git commit -m "feat(coach): pick which opening a repertoire prepares (GitHub iss
 ### Task 5: Display cascade in both repertoire lists
 
 **Files:**
+- Modify: `mychess/src/routes/(coach)/coach/repertoires/+page.server.ts:13`
+- Modify: `mychess/src/routes/(player)/repertoires/+page.server.ts:12` and `:17`
 - Modify: `mychess/src/routes/(coach)/coach/repertoires/+page.svelte:89-96`
 - Modify: `mychess/src/routes/(player)/repertoires/+page.svelte:39-46`
 - Modify: `mychess/src/routes/(coach)/coach/repertoires/repertoires.test.ts`
 - Modify: `mychess/src/routes/(player)/repertoires/repertoires.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Select the new column in all three load queries**
+
+Without this the pages never see `opening_id`, `resolveOpening` reads
+`undefined`, and the override silently never applies — the exact silent failure
+`resolve.ts`'s comment warns about. Do this first, because the tests in Step 2
+pass an `opening_id` the page would otherwise ignore.
+
+`mychess/src/routes/(coach)/coach/repertoires/+page.server.ts:13` — from:
+
+```ts
+			.select('id, name, color, eco_code, eco_name, created_at, moves(count)')
+```
+
+to:
+
+```ts
+			.select('id, name, color, eco_code, eco_name, opening_id, created_at, moves(count)')
+```
+
+`mychess/src/routes/(player)/repertoires/+page.server.ts:12` — the same change,
+identical before-and-after strings.
+
+`mychess/src/routes/(player)/repertoires/+page.server.ts:17` — the nested select
+for assigned repertoires, from:
+
+```ts
+			.select('repertoire:repertoire_id ( id, name, color, eco_code, eco_name, moves(count) )')
+```
+
+to:
+
+```ts
+			.select('repertoire:repertoire_id ( id, name, color, eco_code, eco_name, opening_id, moves(count) )')
+```
+
+- [ ] **Step 2: Write the failing tests**
 
 Append to `mychess/src/routes/(coach)/coach/repertoires/repertoires.test.ts`, inside the existing `describe('coach repertoires page', …)` block:
 
@@ -632,14 +675,65 @@ Append to `mychess/src/routes/(coach)/coach/repertoires/repertoires.test.ts`, in
   });
 ```
 
-Add the same three to `mychess/src/routes/(player)/repertoires/repertoires.test.ts`, adjusted to that page's props shape — read the top of the file for how it builds `data`, and reuse its existing fixture spread the way the coach version reuses `REPERTOIRES[0]`.
+Append to `mychess/src/routes/(player)/repertoires/repertoires.test.ts`, inside
+its existing `describe('repertoires page', …)` block. Note this page's props are
+`{ data: { repertoires, assignedRepertoires } }`, and note the **colour value**:
+its existing fixture uses `'#4f46e5'` because the page feeds `color` into a CSS
+background, but resolution matches on `'white'`/`'black'`, so these fixtures must
+use the real values or nothing resolves.
 
-- [ ] **Step 2: Run the tests to verify they fail**
+```ts
+  // GitHub issue #201.
+  const prepRep = { id: 'r9', name: 'Alapin file', color: 'white', moves: [{ count: 5 }] };
+
+  it('shows the resolved opening instead of the ECO name', () => {
+    render(Repertoires, {
+      props: {
+        data: {
+          repertoires: [
+            { ...prepRep, eco_code: 'B22', eco_name: 'Sicilian Defense: Alapin Variation', opening_id: null }
+          ],
+          assignedRepertoires: []
+        }
+      }
+    });
+    expect(screen.getByText(/Anti-Sicilian: Alapin/)).toBeTruthy();
+    expect(screen.queryByText(/Sicilian Defense: Alapin Variation/)).toBeNull();
+  });
+
+  it('falls back to the ECO line when no opening resolves', () => {
+    render(Repertoires, {
+      props: {
+        data: {
+          repertoires: [{ ...prepRep, eco_code: 'A00', eco_name: 'Amar Opening', opening_id: null }],
+          assignedRepertoires: []
+        }
+      }
+    });
+    expect(screen.getByText(/A00 — Amar Opening/)).toBeTruthy();
+  });
+
+  it('honours a stored override over the ECO code', () => {
+    render(Repertoires, {
+      props: {
+        data: {
+          repertoires: [
+            { ...prepRep, eco_code: 'B22', eco_name: 'Sicilian Defense: Alapin Variation', opening_id: 'open-sicilian-white' }
+          ],
+          assignedRepertoires: []
+        }
+      }
+    });
+    expect(screen.getByText(/Open Sicilian/)).toBeTruthy();
+  });
+```
+
+- [ ] **Step 3: Run the tests to verify they fail**
 
 Run: `npx vitest run "src/routes/(coach)/coach/repertoires/repertoires.test.ts"`
 Expected: FAIL — the pages still render the ECO name, so `Anti-Sicilian: Alapin` is not found.
 
-- [ ] **Step 3: Update the coach list**
+- [ ] **Step 4: Update the coach list**
 
 In `mychess/src/routes/(coach)/coach/repertoires/+page.svelte`, add to the imports:
 
@@ -671,7 +765,7 @@ Replace the `<p class="text-xs mt-0.5">` block's ECO branch so the resolved open
 
 Keep the rest of that paragraph — the ECO "Change" button and the new "Prep" button — unchanged.
 
-- [ ] **Step 4: Update the player list**
+- [ ] **Step 5: Update the player list**
 
 In `mychess/src/routes/(player)/repertoires/+page.svelte`, add the same import, then replace the `{#if rep.eco_code}` block with:
 
@@ -689,15 +783,15 @@ In `mychess/src/routes/(player)/repertoires/+page.svelte`, add the same import, 
                 {/if}
 ```
 
-- [ ] **Step 5: Run the full suite**
+- [ ] **Step 6: Run the full suite**
 
 Run: `npm run check && npm run lint && npm test`
 Expected: check 0 errors, lint 0 errors, all tests pass including the 6 new display tests.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add "mychess/src/routes/(coach)/coach/repertoires/+page.svelte" "mychess/src/routes/(player)/repertoires/+page.svelte" "mychess/src/routes/(coach)/coach/repertoires/repertoires.test.ts" "mychess/src/routes/(player)/repertoires/repertoires.test.ts"
+git add "mychess/src/routes/(coach)/coach/repertoires/+page.server.ts" "mychess/src/routes/(player)/repertoires/+page.server.ts" "mychess/src/routes/(coach)/coach/repertoires/+page.svelte" "mychess/src/routes/(player)/repertoires/+page.svelte" "mychess/src/routes/(coach)/coach/repertoires/repertoires.test.ts" "mychess/src/routes/(player)/repertoires/repertoires.test.ts"
 git commit -m "feat(openings): show the curated opening in place of the ECO line (GitHub issue #201)"
 ```
 
