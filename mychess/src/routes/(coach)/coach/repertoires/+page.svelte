@@ -1,7 +1,9 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import OpeningPicker from '$lib/components/OpeningPicker.svelte';
+  import CuratedOpeningPicker from '$lib/components/CuratedOpeningPicker.svelte';
   import { localizedOpeningName } from '$lib/openings/name';
+  import { resolveOpening, curatedOpeningName } from '$lib/openings/resolve';
   import { m } from '$lib/paraglide/messages';
   import { getLocale } from '$lib/paraglide/runtime';
 
@@ -24,6 +26,11 @@
   );
 
   let openingModalRepId = $state<string | null>(null);
+
+  let prepModalRepId = $state<string | null>(null);
+  const prepModalRep = $derived(
+    prepModalRepId ? data.repertoires.find((r: any) => r.id === prepModalRepId) ?? null : null
+  );
 
   function confirmDelete(e: SubmitEvent, name: string) {
     if (!confirm(m.coach_repertoires_confirm_delete({ name }))) {
@@ -79,6 +86,7 @@
     {:else}
       <ul class="space-y-2">
         {#each filtered as rep (rep.id)}
+          {@const resolvedOpeningName = curatedOpeningName(resolveOpening(rep), getLocale())}
           <li class="bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-4">
             <div class="flex items-center gap-3">
               <span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color ?? '#4f46e5'}"></span>
@@ -86,7 +94,11 @@
                 <h2 class="font-medium text-(--color-text) truncate">{rep.name}</h2>
                 <p class="text-sm text-(--color-muted)">{m.coach_repertoires_move_count({ count: rep.moves?.[0]?.count ?? 0 })}</p>
                 <p class="text-xs mt-0.5">
-                  {#if rep.eco_code}
+                  {#if resolvedOpeningName}
+                    <span class="text-(--color-accent) font-medium" title={rep.eco_code || undefined}>
+                      {resolvedOpeningName}
+                    </span>
+                  {:else if rep.eco_code}
                     <span class="text-(--color-accent) font-medium">{rep.eco_code}</span>
                     <span class="text-(--color-muted)">
                       — {localizedOpeningName({
@@ -101,6 +113,10 @@
                   <button type="button" onclick={() => (openingModalRepId = rep.id)}
                           class="text-(--color-muted) hover:text-indigo-600 hover:underline ml-1">
                     {m.coach_repertoires_change_button()}
+                  </button>
+                  <button type="button" onclick={() => (prepModalRepId = rep.id)}
+                          class="text-(--color-muted) hover:text-indigo-600 hover:underline ml-1">
+                    {m.coach_repertoires_prep_change_button()}
                   </button>
                 </p>
               </div>
@@ -203,4 +219,12 @@
 
 {#if openingModalRepId}
   <OpeningPicker repId={openingModalRepId} onclose={() => (openingModalRepId = null)} />
+{/if}
+
+{#if prepModalRep}
+  <CuratedOpeningPicker
+    repId={prepModalRep.id}
+    color={prepModalRep.color}
+    onclose={() => (prepModalRepId = null)}
+  />
 {/if}

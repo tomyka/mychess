@@ -9,12 +9,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const [{ data: repertoires }, { data: assigned }, summaries] = await Promise.all([
 		supabase
 			.from('repertoires')
-			.select('id, name, color, eco_code, eco_name, created_at, moves(count)')
+			.select('id, name, color, eco_code, eco_name, opening_id, created_at, moves(count)')
 			.eq('player_id', user!.id)
 			.order('created_at', { ascending: false }),
 		supabase
 			.from('assigned_repertoires')
-			.select('repertoire:repertoire_id ( id, name, color, eco_code, eco_name, moves(count) )')
+			.select('repertoire:repertoire_id ( id, name, color, eco_code, eco_name, opening_id, moves(count) )')
 			.eq('player_id', user!.id),
 		loadRepertoireProgressSummaries(supabase, user!.id)
 	]);
