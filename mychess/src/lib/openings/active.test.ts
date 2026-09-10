@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { activeByOpening, isActiveRowStale, planActiveOpeningRepoint, REPERTOIRE_OPENING_COLUMNS } from './active';
+import {
+  activeByOpening,
+  isActiveRowStale,
+  planActiveOpeningRepoint,
+  splitOpeningCoverage,
+  REPERTOIRE_OPENING_COLUMNS
+} from './active';
 import type { CuratedOpening } from './taxonomy';
 
 const TAXONOMY: CuratedOpening[] = [
@@ -99,6 +105,37 @@ describe('planActiveOpeningRepoint', () => {
   it('leaves a mapping that already names the destination alone', () => {
     const plan = planActiveOpeningRepoint(rows, 'alapin-white');
     expect(plan).toEqual({ repoint: [], remove: [] });
+  });
+});
+
+describe('splitOpeningCoverage', () => {
+  it('separates what is prepared from what is not', () => {
+    const { covered, gaps } = splitOpeningCoverage(['alapin-white'], TAXONOMY);
+    expect(covered.map((o) => o.id)).toEqual(['alapin-white']);
+    expect(gaps.map((o) => o.id)).toEqual(['najdorf-black']);
+  });
+
+  it('reports every opening as a gap for a student with no preparation', () => {
+    const { covered, gaps } = splitOpeningCoverage([], TAXONOMY);
+    expect(covered).toEqual([]);
+    expect(gaps).toHaveLength(2);
+  });
+
+  // A coach thinks in sides first, so the report is ordered that way rather
+  // than by whatever order the taxonomy happens to be authored in.
+  it('orders by side, then by name', () => {
+    const { gaps } = splitOpeningCoverage([], [
+      { id: 'z-white', name: 'Zed', nameLt: 'Z', side: 'white', ecoCodes: ['A00'] },
+      { id: 'a-white', name: 'Alpha', nameLt: 'A', side: 'white', ecoCodes: ['A01'] },
+      { id: 'm-black', name: 'Mid', nameLt: 'M', side: 'black', ecoCodes: ['A02'] }
+    ]);
+    expect(gaps.map((o) => o.id)).toEqual(['m-black', 'a-white', 'z-white']);
+  });
+
+  it('ignores a prepared id the taxonomy no longer lists', () => {
+    const { covered, gaps } = splitOpeningCoverage(['deleted-entry'], TAXONOMY);
+    expect(covered).toEqual([]);
+    expect(gaps).toHaveLength(2);
   });
 });
 

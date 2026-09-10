@@ -3,7 +3,7 @@ import type { PageServerLoad, Actions } from './$types';
 import { loadRepertoireReport } from '$lib/server/practice-report';
 import { loadStudentRepertoireProgress } from '$lib/server/coach-progress';
 import { activateOpeningIfUnset, loadActiveOpenings, setActiveOpening } from '$lib/server/active-openings';
-import { REPERTOIRE_OPENING_COLUMNS } from '$lib/openings/active';
+import { REPERTOIRE_OPENING_COLUMNS, splitOpeningCoverage } from '$lib/openings/active';
 
 const RANGE_DAYS = 30;
 
@@ -75,6 +75,11 @@ export const load: PageServerLoad = async ({ params, url, locals: { supabase, sa
     assignedReps,
     practiceReports,
     activeRepertoireIds: [...activeOpenings.values()].map((repertoire) => repertoire.id),
+    // GitHub issue #203: which openings this student has no current
+    // preparation for. Derived here, never queried — `repertoires.opening_id`
+    // is null on almost every row because the opening is derived, so a SQL
+    // report would call nearly every prepared opening a gap.
+    coverage: splitOpeningCoverage(activeOpenings.keys()),
     range,
     playerId: params.player_id
   };

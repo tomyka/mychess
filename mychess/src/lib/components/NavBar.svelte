@@ -47,6 +47,7 @@
         <a href="/players" class={linkClass(['/players'])}>{m.nav_players_search()}</a>
         <a href="/learn" class={linkClass(['/learn'])}>{m.nav_learn()}</a>
         <a href="/practice" class={linkClass(['/practice'])}>{m.nav_practice()}</a>
+        <a href="/prep" class={linkClass(['/prep'])}>{m.nav_prep()}</a>
         <a href="/repertoires" class={linkClass(['/repertoires'])}>{m.nav_repertoires()}</a>
         <a href="/games" class={linkClass(['/games'])}>{m.nav_games()}</a>
         <a href="/coaches" class={linkClass(['/coaches'])}>{m.nav_coaches()}</a>

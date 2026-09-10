@@ -12,6 +12,62 @@ const ALAPIN = { id: 'rep-alapin', name: 'Alapin 2025', color: 'white', eco_code
 const OLD_ALAPIN = { id: 'rep-alapin-old', name: 'Alapin 2024', color: 'white', eco_code: 'B22', opening_id: null };
 const UNCLASSIFIED = { id: 'rep-ruy', name: 'Ruy Lopez notes', color: 'white', eco_code: 'C60', opening_id: null };
 
+const OPENING = (id: string, name: string, side: 'white' | 'black') => ({
+  id,
+  name,
+  nameLt: name,
+  side,
+  ecoCodes: ['B22']
+});
+
+// GitHub issue #203: the gap list is what the coach cannot get from the
+// assignment list above it — that shows what a student HAS.
+describe('opening coverage', () => {
+  function renderCoverage(coverage: unknown) {
+    render(Page, {
+      props: {
+        data: {
+          player: { id: 'p1', display_name: 'Student' },
+          stats: null,
+          notes: [],
+          coachReps: [],
+          assignedReps: [],
+          practiceReports: [],
+          activeRepertoireIds: [],
+          coverage,
+          range: '30d',
+          playerId: 'p1'
+        },
+        form: null
+      }
+    });
+  }
+
+  it('names the openings the student has no preparation for', () => {
+    renderCoverage({
+      covered: [OPENING('a', 'Anti-Sicilian: Alapin', 'white')],
+      gaps: [OPENING('b', 'Sicilian: Najdorf', 'black')]
+    });
+
+    expect(screen.getByText('No current preparation for:')).toBeTruthy();
+    expect(screen.getByText('Sicilian: Najdorf')).toBeTruthy();
+    expect(screen.getByText('Anti-Sicilian: Alapin')).toBeTruthy();
+  });
+
+  it('says so when nothing is missing, rather than showing an empty list', () => {
+    renderCoverage({ covered: [OPENING('a', 'Anti-Sicilian: Alapin', 'white')], gaps: [] });
+
+    expect(screen.getByText(/Every listed opening has current preparation/)).toBeTruthy();
+    expect(screen.queryByText('No current preparation for:')).toBeNull();
+  });
+
+  it('says so when the taxonomy lists nothing at all', () => {
+    renderCoverage({ covered: [], gaps: [] });
+
+    expect(screen.getByText(/No openings are listed yet/)).toBeTruthy();
+  });
+});
+
 function renderPage(assigned: unknown[], activeRepertoireIds: string[]) {
   render(Page, {
     props: {

@@ -6,6 +6,10 @@
 
   let { data, form } = $props<{ data: any; form: any }>();
 
+  // `load` always supplies this; the default is for the component tests, which
+  // pass focused fixtures rather than a whole page payload.
+  const coverage = $derived(data.coverage ?? { covered: [], gaps: [] });
+
   let assignModalOpen = $state(false);
   const playerName = $derived(data.player?.display_name ?? m.coach_player_fallback_name());
 
@@ -104,6 +108,45 @@
             </li>
           {/each}
         </ul>
+      {/if}
+    </section>
+
+    <!-- GitHub issue #203: coverage, i.e. which openings this student has no
+         current preparation for. The gap list is the point — a coach can see
+         what is covered from the assignment list above, but not what is
+         missing from it. -->
+    <section class="bg-(--color-surface) border border-(--color-border) rounded-xl shadow-sm p-5">
+      <h2 class="font-semibold text-(--color-text) mb-3">{m.coach_player_coverage_heading()}</h2>
+      {#if coverage.covered.length === 0 && coverage.gaps.length === 0}
+        <p class="text-(--color-muted) text-sm">{m.coach_player_coverage_no_taxonomy()}</p>
+      {:else}
+        {#if coverage.gaps.length > 0}
+          <p class="text-sm text-(--color-muted) mb-2">{m.coach_player_coverage_gaps_label()}</p>
+          <ul class="flex flex-wrap gap-2 mb-4">
+            {#each coverage.gaps as opening (opening.id)}
+              <li
+                class="text-xs px-2 py-1 rounded-full border border-amber-500/40 bg-amber-500/10 text-[#a4790f] dark:text-[#e8b923]"
+              >
+                {curatedOpeningName(opening, getLocale())}
+              </li>
+            {/each}
+          </ul>
+        {:else}
+          <p class="text-sm text-(--color-muted) mb-4">{m.coach_player_coverage_no_gaps()}</p>
+        {/if}
+
+        {#if coverage.covered.length > 0}
+          <p class="text-sm text-(--color-muted) mb-2">{m.coach_player_coverage_covered_label()}</p>
+          <ul class="flex flex-wrap gap-2">
+            {#each coverage.covered as opening (opening.id)}
+              <li
+                class="text-xs px-2 py-1 rounded-full border border-[#6FCF73]/40 bg-[#6FCF73]/10 text-[#4b9e50] dark:text-[#6FCF73]"
+              >
+                {curatedOpeningName(opening, getLocale())}
+              </li>
+            {/each}
+          </ul>
+        {/if}
       {/if}
     </section>
 

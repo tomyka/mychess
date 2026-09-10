@@ -77,6 +77,32 @@ export function planActiveOpeningRepoint(
   };
 }
 
+/**
+ * Which curated openings a student has current preparation for, and which they
+ * do not (GitHub issue #203).
+ *
+ * The gap list is the whole point of the coverage report, and it cannot be a
+ * SQL query: `repertoires.opening_id` is null on almost every row because the
+ * opening is derived, so a database report would count nearly every prepared
+ * opening as a gap. It is derived here instead, from resolved answers.
+ *
+ * Ordered by side then by name so the report reads the way a coach thinks
+ * about it — what this student plays as White, then as Black.
+ */
+export function splitOpeningCoverage(
+  preparedOpeningIds: Iterable<string>,
+  taxonomy: CuratedOpening[] = CURATED_OPENINGS
+): { covered: CuratedOpening[]; gaps: CuratedOpening[] } {
+  const prepared = new Set(preparedOpeningIds);
+  const ordered = [...taxonomy].sort(
+    (a, b) => a.side.localeCompare(b.side) || a.name.localeCompare(b.name)
+  );
+  return {
+    covered: ordered.filter((opening) => prepared.has(opening.id)),
+    gaps: ordered.filter((opening) => !prepared.has(opening.id))
+  };
+}
+
 /** The student's active repertoire per opening, stale rows dropped. */
 export function activeByOpening<T extends ResolvableRepertoire>(
   repertoires: T[],

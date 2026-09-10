@@ -4,6 +4,7 @@
 // derivation lives in src/lib/openings/active.ts; this file is the I/O.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveOpening } from '$lib/openings/resolve';
+import { CURATED_OPENINGS, type CuratedOpening } from '$lib/openings/taxonomy';
 import {
   activeByOpening,
   planActiveOpeningRepoint,
@@ -173,6 +174,48 @@ export async function repointActiveOpenings(supabase: SupabaseClient, repertoire
       console.error(`Failed to resolve an active-opening collision for repertoire ${repertoireId}:`, dropError.message);
     }
   }
+}
+
+/** One opening a student has current preparation for, and the file that is it. */
+export type ActivePreparation = {
+  opening: CuratedOpening;
+  repertoire: ResolvableRepertoire & { name: string };
+};
+
+/**
+ * A student's preparation, by opening rather than by filename — what the prep
+ * view and the coverage report both read (GitHub issue #203).
+ *
+ * Read-only: neither surface records progress, which is epic #119's standing
+ * non-goal, so nothing here writes.
+ *
+ * Openings the taxonomy no longer lists are dropped rather than rendered
+ * nameless, on the same reasoning as the staleness rule — an entry that is
+ * gone cannot be presented as this student's preparation.
+ */
+export async function loadActivePreparation(
+  supabase: SupabaseClient,
+  playerId: string
+): Promise<ActivePreparation[]> {
+  const { data } = await supabase
+    .from('active_opening_repertoires')
+    .select(`opening_id, repertoire_id, repertoire:repertoire_id(name, ${REPERTOIRE_OPENING_COLUMNS})`)
+    .eq('player_id', playerId);
+
+  type Row = ActiveOpeningRow & { repertoire: (ResolvableRepertoire & { name: string }) | null };
+  const rows = (data ?? []) as unknown as Row[];
+
+  const byOpening = activeByOpening(
+    rows.map((row) => row.repertoire).filter((r): r is ResolvableRepertoire & { name: string } => !!r),
+    rows.map((row) => ({ opening_id: row.opening_id, repertoire_id: row.repertoire_id }))
+  );
+
+  const prepared: ActivePreparation[] = [];
+  for (const [openingId, repertoire] of byOpening) {
+    const opening = CURATED_OPENINGS.find((entry) => entry.id === openingId);
+    if (opening) prepared.push({ opening, repertoire });
+  }
+  return prepared;
 }
 
 /**
