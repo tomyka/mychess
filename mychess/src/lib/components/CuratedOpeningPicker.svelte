@@ -18,6 +18,7 @@
   import { m } from '$lib/paraglide/messages';
   import { CURATED_OPENINGS, type OpeningSide } from '$lib/openings/taxonomy';
   import { curatedOpeningName } from '$lib/openings/resolve';
+  import PickerModal from './PickerModal.svelte';
 
   let {
     repId,
@@ -41,57 +42,40 @@
   }
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onclick={onclose}>
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="bg-(--color-surface) rounded-xl shadow-lg max-w-sm w-full max-h-[80vh] overflow-y-auto"
-    onclick={(e) => e.stopPropagation()}
-  >
-    <div class="flex items-center justify-between p-4 border-b border-gray-100">
-      <h2 class="font-semibold text-(--color-text)">{m.curated_opening_picker_heading()}</h2>
-      <button
-        type="button"
-        onclick={onclose}
-        aria-label={m.curated_opening_picker_close_label()}
-        class="text-(--color-muted) hover:text-gray-600 dark:hover:text-gray-400 text-xl leading-none"
-      >
-        &times;
+<PickerModal
+  heading={m.curated_opening_picker_heading()}
+  closeLabel={m.curated_opening_picker_close_label()}
+  {onclose}
+>
+  <div class="space-y-1">
+    {#if errorMessage}
+      <p class="text-red-600 text-sm bg-red-50 border border-red-200 dark:bg-red-950 dark:border-red-800 dark:text-red-400 rounded-lg px-3 py-2">{errorMessage}</p>
+    {/if}
+
+    <form method="POST" action="?/updateCuratedOpening" use:enhance={handleSubmit}>
+      <input type="hidden" name="rep_id" value={repId} />
+      <input type="hidden" name="opening_id" value="" />
+      <button class="w-full text-left text-sm text-(--color-muted) hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg px-3 py-2">
+        {m.curated_opening_picker_auto()}
       </button>
-    </div>
+    </form>
 
-    <div class="p-4 space-y-1">
-      {#if errorMessage}
-        <p class="text-red-600 text-sm bg-red-50 border border-red-200 dark:bg-red-950 dark:border-red-800 dark:text-red-400 rounded-lg px-3 py-2">{errorMessage}</p>
-      {/if}
+    {#if choices.length === 0}
+      <p class="text-sm text-(--color-muted) px-1">{m.curated_opening_picker_none_for_colour()}</p>
+    {/if}
 
-      <form method="POST" action="?/updateCuratedOpening" use:enhance={handleSubmit}>
-        <input type="hidden" name="rep_id" value={repId} />
-        <input type="hidden" name="opening_id" value="" />
-        <button class="w-full text-left text-sm text-(--color-muted) hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg px-3 py-2">
-          {m.curated_opening_picker_auto()}
-        </button>
-      </form>
-
-      {#if choices.length === 0}
-        <p class="text-sm text-(--color-muted) px-1">{m.curated_opening_picker_none_for_colour()}</p>
-      {/if}
-
-      <ul class="space-y-1">
-        {#each choices as opening (opening.id)}
-          <li>
-            <form method="POST" action="?/updateCuratedOpening" use:enhance={handleSubmit}>
-              <input type="hidden" name="rep_id" value={repId} />
-              <input type="hidden" name="opening_id" value={opening.id} />
-              <button class="w-full text-left text-sm rounded-lg px-3 py-2 hover:bg-indigo-50 text-(--color-text)">
-                {curatedOpeningName(opening, getLocale())}
-              </button>
-            </form>
-          </li>
-        {/each}
-      </ul>
-    </div>
+    <ul class="space-y-1">
+      {#each choices as opening (opening.id)}
+        <li>
+          <form method="POST" action="?/updateCuratedOpening" use:enhance={handleSubmit}>
+            <input type="hidden" name="rep_id" value={repId} />
+            <input type="hidden" name="opening_id" value={opening.id} />
+            <button class="w-full text-left text-sm rounded-lg px-3 py-2 hover:bg-indigo-50 text-(--color-text)">
+              {curatedOpeningName(opening, getLocale())}
+            </button>
+          </form>
+        </li>
+      {/each}
+    </ul>
   </div>
-</div>
+</PickerModal>
