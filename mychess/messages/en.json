@@ -996,6 +996,8 @@
 	"coach_player_no_reps_upload_link": "Upload one",
 	"coach_player_no_reps_suffix": "first.",
 	"coach_player_no_assigned": "Nothing assigned yet.",
+	"coach_player_opening_active": "Active",
+	"coach_player_opening_make_active": "Make active",
 	"coach_player_practice_report_heading": "Practice Report",
 	"coach_player_range_30d": "30d",
 	"coach_player_range_all_time": "All time",

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { m } from '$lib/paraglide/messages';
+  import { resolveOpening, curatedOpeningName } from '$lib/openings/resolve';
+  import { getLocale } from '$lib/paraglide/runtime';
 
   let { data, form } = $props<{ data: any; form: any }>();
 
@@ -77,10 +79,28 @@
       {:else}
         <ul class="space-y-2">
           {#each data.assignedReps as a (a.id)}
+            {@const opening = a.repertoire ? resolveOpening(a.repertoire) : null}
+            {@const isActive = !!a.repertoire && (data.activeRepertoireIds ?? []).includes(a.repertoire.id)}
             <li class="flex items-center gap-3 bg-(--color-bg) rounded-lg p-3">
               <span class="w-3 h-3 rounded-full shrink-0"
                     style="background:{a.repertoire?.color === 'black' ? '#1f2937' : '#e5e7eb'}"></span>
               <span class="text-sm text-(--color-text)">{a.repertoire?.name}</span>
+              {#if opening}
+                <span class="text-xs text-(--color-muted)">{curatedOpeningName(opening, getLocale())}</span>
+                {#if isActive}
+                  <span
+                    class="ml-auto text-[0.65rem] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full border border-[#6FCF73]/40 bg-[#6FCF73]/10 text-[#4b9e50] dark:text-[#6FCF73]"
+                    >{m.coach_player_opening_active()}</span
+                  >
+                {:else}
+                  <form method="POST" action="?/setActive" use:enhance class="ml-auto">
+                    <input type="hidden" name="rep_id" value={a.repertoire.id} />
+                    <button type="submit" class="text-xs text-(--color-accent) hover:underline"
+                      >{m.coach_player_opening_make_active()}</button
+                    >
+                  </form>
+                {/if}
+              {/if}
             </li>
           {/each}
         </ul>
