@@ -148,6 +148,7 @@
         <a href="/players" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">{m.nav_players_search()}</a>
         <a href="/learn" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">{m.nav_learn()}</a>
         <a href="/practice" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">{m.nav_practice()}</a>
+        <a href="/prep" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">{m.nav_prep()}</a>
         <a href="/repertoires" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">{m.nav_repertoires()}</a>
         <a href="/games" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">{m.nav_games()}</a>
         <a href="/coaches" onclick={() => mobileMenuOpen = false} class="text-(--color-text)">{m.nav_coaches()}</a>

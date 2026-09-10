@@ -36,7 +36,34 @@ const PROBES: { migration: string; table: string; select: string; absent?: boole
   // 0071 drops chapter_mastery (0058's table), retired by the knowledge-levels ladder.
   { migration: '0071', table: 'chapter_mastery', select: 'id', absent: true },
   { migration: '0072', table: 'chapter_completed', select: 'id,player_id,repertoire_id,chapter_name,reached_at' },
-  { migration: '0078', table: 'repertoires', select: 'id,opening_id' }
+  { migration: '0078', table: 'repertoires', select: 'id,opening_id' },
+  { migration: '0079', table: 'active_opening_repertoires', select: 'player_id,opening_id,repertoire_id,set_by' }
+];
+
+/** Matches nothing, so a probe call resolves the signature without touching a row. */
+const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
+
+// 0080 creates and narrows FUNCTIONS, which a `select ... limit 1` cannot see,
+// so it needs its own probe shape: call each one and treat "function not
+// found" as unapplied. Any other status means it exists — including a
+// permission or argument error, which still proves the signature is there.
+const FUNCTION_PROBES = [
+  { migration: '0080', fn: 'repertoire_opening_source', args: { p_repertoire_id: ZERO_UUID, p_player_id: ZERO_UUID } },
+  { migration: '0080', fn: 'active_opening_sources', args: { p_player_id: ZERO_UUID } },
+  // The narrowed signature: passing the six it now takes fails with "function
+  // not found" while the old eight-argument version is still deployed.
+  {
+    migration: '0080',
+    fn: 'apply_repertoire_update',
+    args: {
+      p_repertoire_id: ZERO_UUID,
+      p_retire_move_ids: [],
+      p_total_variations: 0,
+      p_has_chapters: false,
+      p_chapter_count: 0,
+      p_remove_chapters: []
+    }
+  }
 ];
 
 let failed = 0;
@@ -52,6 +79,23 @@ for (const probe of PROBES) {
   } else {
     failed++;
     console.log(`✗ ${probe.migration}  ${probe.table}: ${res.status} ${(await res.text()).slice(0, 200)}`);
+  }
+}
+
+for (const probe of FUNCTION_PROBES) {
+  const res = await fetch(`${url}/rest/v1/rpc/${probe.fn}`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(probe.args)
+  });
+  // PostgREST answers 404 for a function it cannot resolve — either absent
+  // outright, or present under a different argument list, which for a
+  // narrowing migration is the same thing: not applied.
+  if (res.status === 404) {
+    failed++;
+    console.log(`✗ ${probe.migration}  ${probe.fn}(): not found with this signature — the migration has not been applied`);
+  } else {
+    console.log(`✓ ${probe.migration}  ${probe.fn}()`);
   }
 }
 

@@ -66,10 +66,10 @@ export function isActiveRowStale(
  * A row already naming the destination is left alone, so a no-op edit writes
  * nothing.
  */
-export function planActiveOpeningRepoint(
-  rows: ActiveOpeningRow[],
+export function planActiveOpeningRepoint<T extends ActiveOpeningRow>(
+  rows: T[],
   newOpeningId: string | null
-): { repoint: ActiveOpeningRow[]; remove: ActiveOpeningRow[] } {
+): { repoint: T[]; remove: T[] } {
   if (newOpeningId === null) return { repoint: [], remove: rows };
   return {
     repoint: rows.filter((row) => row.opening_id !== newOpeningId),

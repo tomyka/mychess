@@ -162,3 +162,35 @@ $$;
 
 revoke all on function public.repertoire_opening_source(uuid, uuid) from anon, public;
 grant execute on function public.repertoire_opening_source(uuid, uuid) to authenticated;
+
+-- ===========================================================================
+-- 3. #203 — the coverage report counted a student's own uploads as gaps
+-- ===========================================================================
+--
+-- The same blind spot as #209, on the read side. A coach's coverage report
+-- resolves each active mapping through an embedded join on `repertoires`,
+-- and `repertoires`' RLS hides a repertoire the STUDENT uploaded from their
+-- coach. The row came back with a null embed, was dropped as unverifiable,
+-- and the opening it prepares was then reported to the coach as something
+-- the student has no preparation for — the exact opposite of the truth.
+--
+-- Same shape of fix and same gate as `repertoire_opening_source`, for a
+-- whole student at once rather than one repertoire: `manages_openings_for`
+-- alone is sufficient here, because every row returned already belongs to
+-- that student by definition.
+create or replace function public.active_opening_sources(p_player_id uuid)
+returns table (opening_id text, repertoire_id uuid, eco_code text, color text, override_opening_id text)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select a.opening_id, a.repertoire_id, r.eco_code, r.color, r.opening_id
+  from public.active_opening_repertoires a
+  join public.repertoires r on r.id = a.repertoire_id
+  where a.player_id = p_player_id
+    and public.manages_openings_for(p_player_id);
+$$;
+
+revoke all on function public.active_opening_sources(uuid) from anon, public;
+grant execute on function public.active_opening_sources(uuid) to authenticated;

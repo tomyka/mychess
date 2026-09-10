@@ -133,22 +133,30 @@ export async function repointActiveOpenings(supabase: SupabaseClient, repertoire
     .maybeSingle();
   if (!repertoire) return;
 
+  // `player_id` is selected because every write below is scoped to ONE row by
+  // its full primary key. A statement scoped only by `repertoire_id` spans
+  // every student holding the file, so one student's collision would fail the
+  // whole update — and, worse, a blanket delete would then take every
+  // student's mapping with it.
   const { data } = await supabase
     .from('active_opening_repertoires')
-    .select('opening_id, repertoire_id')
+    .select('player_id, opening_id, repertoire_id')
     .eq('repertoire_id', repertoireId);
-  const rows = (data ?? []) as ActiveOpeningRow[];
+  const rows = (data ?? []) as (ActiveOpeningRow & { player_id: string })[];
   if (rows.length === 0) return;
 
   const opening = resolveOpening(repertoire as unknown as ResolvableRepertoire);
   const { repoint, remove } = planActiveOpeningRepoint(rows, opening?.id ?? null);
 
-  for (const row of remove) {
-    const { error } = await supabase
+  const dropRow = (row: { player_id: string; opening_id: string }) =>
+    supabase
       .from('active_opening_repertoires')
       .delete()
-      .eq('repertoire_id', repertoireId)
+      .eq('player_id', row.player_id)
       .eq('opening_id', row.opening_id);
+
+  for (const row of remove) {
+    const { error } = await dropRow(row);
     if (error) console.error(`Failed to drop the active opening for repertoire ${repertoireId}:`, error.message);
   }
 
@@ -156,20 +164,24 @@ export async function repointActiveOpenings(supabase: SupabaseClient, repertoire
     const { error } = await supabase
       .from('active_opening_repertoires')
       .update({ opening_id: opening!.id, updated_at: new Date().toISOString() })
-      .eq('repertoire_id', repertoireId)
+      .eq('player_id', row.player_id)
       .eq('opening_id', row.opening_id);
     if (!error) continue;
 
-    // The student already has a different active repertoire for the
-    // destination opening, and the primary key refuses a second. Incumbent
-    // wins, matching the rule everywhere else here: a later arrival never
-    // displaces a standing choice. The moving row is dropped rather than left
-    // pointing at an opening this repertoire no longer prepares.
-    const { error: dropError } = await supabase
-      .from('active_opening_repertoires')
-      .delete()
-      .eq('repertoire_id', repertoireId)
-      .eq('opening_id', row.opening_id);
+    // ONLY a unique violation means what the fallback assumes: this student
+    // already has a different active repertoire for the destination opening,
+    // and the primary key refuses a second. Incumbent wins, per the rule set
+    // in #202 that a later arrival never displaces a standing choice.
+    //
+    // Any other error — RLS refusing the write, a transient failure — must
+    // leave the row alone. Deleting on those would destroy the student's
+    // preparation in exactly the situations where nothing was wrong with it.
+    if (error.code !== '23505') {
+      console.error(`Failed to repoint the active opening for repertoire ${repertoireId}:`, error.message);
+      continue;
+    }
+
+    const { error: dropError } = await dropRow(row);
     if (dropError) {
       console.error(`Failed to resolve an active-opening collision for repertoire ${repertoireId}:`, dropError.message);
     }
@@ -233,8 +245,53 @@ export async function loadActiveOpenings(
     .eq('player_id', playerId);
 
   const rows = (data ?? []) as unknown as (ActiveOpeningRow & { repertoire: ResolvableRepertoire | null })[];
+
+  // A row whose embed is null is one whose repertoire the CALLER cannot read
+  // — a coach looking at a repertoire the student uploaded themselves. Left
+  // like this it would be dropped as unverifiable, and the coverage report
+  // would then tell the coach the student has no preparation for an opening
+  // they are in fact prepared for (GitHub issue #203).
+  //
+  // So when any embed is missing, re-read the lot through the gated function,
+  // which resolves them under the same `manages_openings_for` rule the write
+  // policy uses. Only on that path, so the ordinary case costs nothing — and
+  // so this keeps working before migration 0080 is applied, just without the
+  // self-uploaded rows, exactly as it behaves today.
+  if (rows.some((row) => !row.repertoire)) {
+    const gated = await readGatedActiveSources(supabase, playerId);
+    if (gated) return gated;
+  }
+
   return activeByOpening(
     rows.map((row) => row.repertoire).filter((repertoire): repertoire is ResolvableRepertoire => !!repertoire),
+    rows.map((row) => ({ opening_id: row.opening_id, repertoire_id: row.repertoire_id }))
+  );
+}
+
+/** The same map, read through `active_opening_sources`. Null if unavailable. */
+async function readGatedActiveSources(
+  supabase: SupabaseClient,
+  playerId: string
+): Promise<Map<string, ResolvableRepertoire> | null> {
+  const { data, error } = await supabase.rpc('active_opening_sources', { p_player_id: playerId });
+  if (error || !data) return null;
+
+  type GatedRow = {
+    opening_id: string;
+    repertoire_id: string;
+    eco_code: string | null;
+    color: ResolvableRepertoire['color'];
+    override_opening_id: string | null;
+  };
+  const rows = data as GatedRow[];
+
+  return activeByOpening(
+    rows.map((row) => ({
+      id: row.repertoire_id,
+      eco_code: row.eco_code,
+      color: row.color,
+      opening_id: row.override_opening_id
+    })),
     rows.map((row) => ({ opening_id: row.opening_id, repertoire_id: row.repertoire_id }))
   );
 }
