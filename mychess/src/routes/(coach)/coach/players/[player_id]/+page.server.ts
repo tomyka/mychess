@@ -129,16 +129,12 @@ export const actions: Actions = {
     // The first repertoire a student has for an opening becomes their active
     // preparation for it (GitHub issue #202); a later one never displaces it,
     // so a coach holding one student on last season's file keeps them there.
-    // Non-fatal for the same reason as the import path: the assignment itself
-    // succeeded, and failing it over the mapping would be the worse outcome.
-    const activation = await activateOpeningIfUnset(supabase, {
+    // Best-effort, and it logs its own failures — see its doc comment.
+    await activateOpeningIfUnset(supabase, {
       playerId: params.player_id,
       repertoireId: repId,
       setBy: user.id
     });
-    if (activation.error) {
-      console.error(`Failed to set the active opening for repertoire ${repId}:`, activation.error);
-    }
 
     return { success: true };
   },

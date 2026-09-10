@@ -62,12 +62,21 @@ export function setActiveOpening(supabase: SupabaseClient, params: ActivationPar
  *
  * "Does not displace an existing choice" is `ignoreDuplicates`, i.e. a database
  * no-op, rather than a read-then-write that two coaches could race.
+ *
+ * Best-effort by design, and so it returns nothing. Both callers reach it only
+ * after the row they actually care about is written — a repertoire, an
+ * assignment — and failing that work over a mapping would be the far worse
+ * outcome. The swallow-and-log therefore lives here, once, instead of being
+ * copied into every caller.
  */
-export function activateOpeningIfUnset(
+export async function activateOpeningIfUnset(
   supabase: SupabaseClient,
   params: ActivationParams
-): Promise<ActivationResult> {
-  return writeActive(supabase, params, true);
+): Promise<void> {
+  const { error } = await writeActive(supabase, params, true);
+  if (error) {
+    console.error(`Failed to set the active opening for repertoire ${params.repertoireId}:`, error);
+  }
 }
 
 /**

@@ -31,9 +31,15 @@ const headers = { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROL
 
 // PostgREST caps an unbounded select at max_rows (1000 here) and truncates
 // SILENTLY, so every read pages explicitly rather than trusting one call.
+//
+// Every caller must pass its own `order=` in the path. Postgres does not
+// guarantee a stable row order across LIMIT/OFFSET without ORDER BY, so paging
+// an unordered query can skip or duplicate rows — reintroducing, quietly, the
+// same silent truncation this function exists to prevent.
 const PAGE = 1000;
 
 async function fetchAll<T>(path: string): Promise<T[]> {
+	if (!path.includes('order=')) throw new Error(`fetchAll needs an explicit order= for stable paging: ${path}`);
 	const out: T[] = [];
 	for (let offset = 0; ; offset += PAGE) {
 		const url = `${SUPABASE_URL}${path}&limit=${PAGE}&offset=${offset}`;
@@ -50,12 +56,14 @@ type AssignmentRow = { player_id: string; repertoire_id: string; assigned_at: st
 type ActiveRow = { player_id: string; opening_id: string };
 
 const repertoires = await fetchAll<RepertoireRow>(
-	'/rest/v1/repertoires?select=id,player_id,eco_code,color,opening_id,created_at'
+	'/rest/v1/repertoires?select=id,player_id,eco_code,color,opening_id,created_at&order=id'
 );
 const assignments = await fetchAll<AssignmentRow>(
-	'/rest/v1/assigned_repertoires?select=player_id,repertoire_id,assigned_at'
+	'/rest/v1/assigned_repertoires?select=player_id,repertoire_id,assigned_at&order=id'
 );
-const existing = await fetchAll<ActiveRow>('/rest/v1/active_opening_repertoires?select=player_id,opening_id');
+const existing = await fetchAll<ActiveRow>(
+	'/rest/v1/active_opening_repertoires?select=player_id,opening_id&order=player_id,opening_id'
+);
 
 const repertoireById = new Map(repertoires.map((r) => [r.id, r]));
 
@@ -91,7 +99,10 @@ if (!apply) {
 
 for (let i = 0; i < toWrite.length; i += 500) {
 	const chunk = toWrite.slice(i, i + 500);
-	const res = await fetch(`${SUPABASE_URL}/rest/v1/active_opening_repertoires`, {
+	// `on_conflict` names the target explicitly rather than letting PostgREST
+	// fall back to the primary key — the same rule this project applies to
+	// every supabase-js `.upsert()`, and it keeps working if the key changes.
+	const res = await fetch(`${SUPABASE_URL}/rest/v1/active_opening_repertoires?on_conflict=player_id,opening_id`, {
 		method: 'POST',
 		headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'resolution=ignore-duplicates' },
 		body: JSON.stringify(chunk)
