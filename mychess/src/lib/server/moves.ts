@@ -10,10 +10,15 @@ import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
  * and the practice/learn page loads.
  *
  * Retired rows are excluded unconditionally: a retired row is a line a coach
- * removed — today, by removing its chapter — kept around rather than deleted only
- * so that re-adding the line later restores its `reviews`/`move_attempts`
- * history instead of starting it over. It must never resurface as something
- * to enumerate, drill, time-trial, or count.
+ * removed — today, only by removing its chapter. It is retired rather than
+ * deleted so the student's `reviews`/`move_attempts` history against it is not
+ * destroyed, but note that nothing can un-retire a move any more: the flow
+ * that did was removed with the re-upload subsystem (#211), and the surviving
+ * caller of `apply_repertoire_update` always passes an empty
+ * `p_unretire_move_ids`. Retiring is one-way until something restores it.
+ *
+ * A retired row must never resurface as something to enumerate, drill,
+ * time-trial, or count.
  *
  * Ordered by `created_at`, then `import_order`, then `id` (a final
  * tie-break, since `moves.id` is a random UUID and carries no order of its

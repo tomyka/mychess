@@ -770,7 +770,7 @@
 	"coach_repertoires_unassign_button": "Pašalinti",
 	"coach_repertoires_assign_button": "Priskirti",
 	"coach_chapters_heading": "„{name}“ skyriai",
-	"coach_chapters_intro": "Pašalinus skyrių, jo linijos išnyksta iš repertuaro visiems {count} priskirtiems mokiniams. Iš čia to atšaukti negalima — skyrius grįžta iš naujo įkėlus PGN.",
+	"coach_chapters_intro": "Pašalinus skyrių, jo linijos išnyksta iš repertuaro visiems {count} priskirtiems mokiniams. To atšaukti negalima.",
 	"coach_chapters_summary": "Skyrių: {total} · pašalinimui pasirinkta: {selected}",
 	"coach_chapters_meta": "{lines} linijų",
 	"coach_chapters_meta_shared": "{lines} linijų · {shared} bendrų",
@@ -802,7 +802,7 @@
 		}
 	],
 	"coach_chapters_confirm_lines": "Bus išimta {lines} linijų visiems {students} priskirtiems mokiniams.",
-	"coach_chapters_confirm_progress": "Iš jų {lines} turi mokinių pažangą — ji išsaugoma, jei skyrius sugrįžtų.",
+	"coach_chapters_confirm_progress": "Iš jų {lines} turi mokinių pažangą — ji išsaugoma, bet nebebus pasiekiama.",
 	"coach_chapters_confirm_shared": "{lines} linijų taip pat priklauso kitiems skyriams ir liks.",
 	"coach_chapters_confirm_cancel": "Atšaukti",
 	"coach_chapters_confirm_remove": "Pašalinti",

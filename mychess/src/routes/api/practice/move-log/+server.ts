@@ -27,8 +27,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// narrow — "does this move id belong to this repertoire" — and a retired
 	// move still does. Filtering it here would 404 every move a student logs
 	// while finishing a session that was already in flight when their coach
-	// re-uploaded the repertoire, and a session in flight is meant to complete
-	// against the material it loaded (see the re-upload design doc). The log is
+	// reshaped the repertoire, and a session in flight is meant to complete
+	// against the material it loaded. The log is
 	// additive history, so recording an attempt against a line that has since
 	// been retired is a true statement about what happened.
 	const { data: move } = await supabase

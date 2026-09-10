@@ -72,7 +72,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			const variation = byKey.get(variationKey)!;
 			return { variationKey, path: variation.path, chapterNames: variation.chapterNames };
 		}),
-		// Lines a coach's re-upload sent back to review that this student has not
+		// Lines a coach's reshape sent back to review that this student has not
 		// re-learned yet. Self-clearing — see `coachUpdatedLineCount`.
 		coachUpdatedLines,
 		learnedCount: practice.length,

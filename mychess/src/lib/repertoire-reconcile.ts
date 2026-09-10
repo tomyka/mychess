@@ -2,7 +2,7 @@
  * Pure carry-forward arithmetic for a repertoire whose shape a coach changed.
  *
  * Reconciliation is LAZY — it runs on the student's next load, after the new
- * moves are already written — so it never sees the coach's diff. The caller
+ * moves are already written — so it never sees what the coach changed. The caller
  * reconstructs the mapping from the repertoire's live shape versus this
  * student's own stale progress keys and hands it over as `CarryForward[]` plus
  * `SeedNew[]`, which is why this module defines its own input types.
@@ -65,13 +65,11 @@ export type ReconciliationPlan = {
  * The kinds where `learned` survives: the new line sits entirely inside what
  * the student had already learned.
  *
- * Typed as ReadonlySet<string> rather than ReadonlySet<CarryForward['kind']>
- * because the set's CONTENTS, not its key type, are what this rule is. It read
- * against a second, wider set of classification kinds until #211 removed the
- * re-upload; the loose typing is kept because narrowing it now would only have
- * to be undone by the next caller with its own vocabulary.
+ * Was `ReadonlySet<string>` while a second, wider set of classification kinds
+ * also read it; #211 removed that caller, so it is narrowed to the one
+ * vocabulary left.
  */
-const KEEPS_LEARNED: ReadonlySet<string> = new Set(['unchanged', 'truncated']);
+const KEEPS_LEARNED: ReadonlySet<CarryForward['kind']> = new Set(['unchanged', 'truncated']);
 
 export function planReconciliation(
 	carries: CarryForward[],

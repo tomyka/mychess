@@ -722,7 +722,7 @@
 	"coach_repertoires_unassign_button": "Remove",
 	"coach_repertoires_assign_button": "Assign",
 	"coach_chapters_heading": "Chapters in “{name}”",
-	"coach_chapters_intro": "Removing a chapter takes its lines out of the repertoire for all {count} assigned students. This cannot be undone from here — re-uploading the PGN brings the chapter back.",
+	"coach_chapters_intro": "Removing a chapter takes its lines out of the repertoire for all {count} assigned students. This cannot be undone.",
 	"coach_chapters_summary": "{total} chapters · {selected} selected for removal",
 	"coach_chapters_meta": "{lines} lines",
 	"coach_chapters_meta_shared": "{lines} lines · {shared} shared",
@@ -750,7 +750,7 @@
 		}
 	],
 	"coach_chapters_confirm_lines": "Retires {lines} lines for all {students} assigned students.",
-	"coach_chapters_confirm_progress": "{lines} of them carry student progress — kept, in case the chapter returns.",
+	"coach_chapters_confirm_progress": "{lines} of them carry student progress, which is kept but will no longer be reachable.",
 	"coach_chapters_confirm_shared": "{lines} lines also belong to other chapters and will stay.",
 	"coach_chapters_confirm_cancel": "Cancel",
 	"coach_chapters_confirm_remove": "Remove",
