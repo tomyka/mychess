@@ -2,6 +2,8 @@ import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { loadRepertoireReport } from '$lib/server/practice-report';
 import { loadStudentRepertoireProgress } from '$lib/server/coach-progress';
+import { activateOpeningIfUnset, loadActiveOpenings, setActiveOpening } from '$lib/server/active-openings';
+import { REPERTOIRE_OPENING_COLUMNS } from '$lib/openings/active';
 
 const RANGE_DAYS = 30;
 
@@ -13,16 +15,17 @@ export const load: PageServerLoad = async ({ params, url, locals: { supabase, sa
   const now = new Date();
   const sinceIso = range === 'all' ? null : new Date(now.getTime() - RANGE_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-  const [playerRes, statsRes, notesRes, coachRepsRes, assignedRes] = await Promise.all([
+  const [playerRes, statsRes, notesRes, coachRepsRes, assignedRes, activeOpenings] = await Promise.all([
     supabase.from('profiles').select('id, display_name').eq('id', params.player_id).single(),
     supabase.from('player_stats').select('*').eq('player_id', params.player_id).single(),
     supabase.from('coach_notes').select('id, note, created_at').eq('player_id', params.player_id).order('created_at', { ascending: false }).limit(5),
     supabase.from('repertoires').select('id, name, color').eq('player_id', user.id),
     supabase
       .from('assigned_repertoires')
-      .select('id, repertoire:repertoire_id(id, name, color)')
+      .select(`id, repertoire:repertoire_id(name, ${REPERTOIRE_OPENING_COLUMNS})`)
       .eq('coach_id', user.id)
-      .eq('player_id', params.player_id)
+      .eq('player_id', params.player_id),
+    loadActiveOpenings(supabase, params.player_id)
   ]);
 
   const assignedReps = assignedRes.data ?? [];
@@ -71,6 +74,7 @@ export const load: PageServerLoad = async ({ params, url, locals: { supabase, sa
     coachReps: coachRepsRes.data ?? [],
     assignedReps,
     practiceReports,
+    activeRepertoireIds: [...activeOpenings.values()].map((repertoire) => repertoire.id),
     range,
     playerId: params.player_id
   };
@@ -121,6 +125,21 @@ export const actions: Actions = {
       );
 
     if (error) return fail(500, { error: error.message });
+
+    // The first repertoire a student has for an opening becomes their active
+    // preparation for it (GitHub issue #202); a later one never displaces it,
+    // so a coach holding one student on last season's file keeps them there.
+    // Non-fatal for the same reason as the import path: the assignment itself
+    // succeeded, and failing it over the mapping would be the worse outcome.
+    const activation = await activateOpeningIfUnset(supabase, {
+      playerId: params.player_id,
+      repertoireId: repId,
+      setBy: user.id
+    });
+    if (activation.error) {
+      console.error(`Failed to set the active opening for repertoire ${repId}:`, activation.error);
+    }
+
     return { success: true };
   },
 
@@ -140,6 +159,25 @@ export const actions: Actions = {
       .eq('repertoire_id', repId);
 
     if (error) return fail(500, { error: error.message });
+    return { success: true };
+  },
+
+  setActive: async ({ params, request, locals: { supabase, safeGetSession } }) => {
+    const { user } = await safeGetSession();
+    if (!user) return fail(401, { error: 'Unauthorized' });
+
+    const fd = await request.formData();
+    const repId = fd.get('rep_id') as string;
+    if (!repId) return fail(400, { error: 'No repertoire selected' });
+
+    // A repertoire resolving to no curated opening has nothing to be active
+    // for, and RLS independently refuses a repertoire this student cannot see.
+    const { error } = await setActiveOpening(supabase, {
+      playerId: params.player_id,
+      repertoireId: repId,
+      setBy: user.id
+    });
+    if (error) return fail(400, { error });
     return { success: true };
   }
 };
