@@ -277,9 +277,14 @@ describe('buildCarryForwardPlan', () => {
 		return { variationKey: key, taughtPlies: taught, masteredPlies: mastered, cleanPassCount: 0 };
 	}
 
-	it('reads a stale key that became longer as extended', () => {
-		const { carries } = buildCarryForwardPlan(['a>b>c'], progress({ teaching: [teaching('a>b', 2)] }));
-		expect(carries).toEqual([{ kind: 'extended', fromKey: 'a>b', toKey: 'a>b>c', commonPlies: 2 }]);
+	// GitHub issue #215. Chapters share their opening moves — one move row
+	// carries several `chapter_names` — so a line removed with its chapter
+	// always shares a prefix with lines in the chapters that survived. Matching
+	// on shared prefix alone therefore hands the student's progress to a line
+	// the coach never touched, which is the whole bug.
+	it('reads a removed line as removed even when a surviving line shares its opening', () => {
+		const { carries } = buildCarryForwardPlan(['a>b>y'], progress({ teaching: [teaching('a>b>x', 3)] }));
+		expect(carries).toEqual([{ kind: 'removed', fromKey: 'a>b>x', toKey: null, commonPlies: 0 }]);
 	});
 
 	it('reads a stale key that became shorter as truncated', () => {
@@ -287,9 +292,16 @@ describe('buildCarryForwardPlan', () => {
 		expect(carries).toEqual([{ kind: 'truncated', fromKey: 'a>b>c', toKey: 'a>b', commonPlies: 2 }]);
 	});
 
-	it('reads a mid-line change as diverged', () => {
-		const { carries } = buildCarryForwardPlan(['a>b>y'], progress({ teaching: [teaching('a>b>x', 3)] }));
-		expect(carries).toEqual([{ kind: 'diverged', fromKey: 'a>b>x', toKey: 'a>b>y', commonPlies: 2 }]);
+	it('carries onto the LONGEST live prefix when several live lines are prefixes', () => {
+		const { carries } = buildCarryForwardPlan(['a', 'a>b'], progress({ teaching: [teaching('a>b>c', 3)] }));
+		expect(carries).toEqual([{ kind: 'truncated', fromKey: 'a>b>c', toKey: 'a>b', commonPlies: 2 }]);
+	});
+
+	// Nothing adds or un-retires a move any more (see `moves.ts`), so a live
+	// line longer than the stale key is a different line, not that line grown.
+	it('reads a longer live line sharing the whole stale key as removed', () => {
+		const { carries } = buildCarryForwardPlan(['a>b>c'], progress({ teaching: [teaching('a>b', 2)] }));
+		expect(carries).toEqual([{ kind: 'removed', fromKey: 'a>b', toKey: null, commonPlies: 0 }]);
 	});
 
 	it('reads a key sharing nothing as removed', () => {
@@ -319,13 +331,37 @@ describe('buildCarryForwardPlan', () => {
 		expect(carries).toHaveLength(1);
 	});
 
-	it('emits both carries when two stale keys collapse onto one live key', () => {
+	// Used to collapse both onto `a>b>new` as diverged carries, which is how a
+	// re-upload behaved. With only retirement left, `a>b>new` is a line that
+	// already existed and these two are simply gone (#215).
+	it('reads two stale siblings of a surviving line as removed, not collapsed onto it', () => {
 		const { carries } = buildCarryForwardPlan(
 			['a>b>new'],
 			progress({ teaching: [teaching('a>b>x', 3), teaching('a>b>y', 3)] })
 		);
 		expect(carries).toHaveLength(2);
-		expect(carries.every((c) => c.toKey === 'a>b>new')).toBe(true);
+		expect(carries.every((c) => c.kind === 'removed' && c.toKey === null)).toBe(true);
+	});
+
+	// The harm the bug actually did: a learned line in a chapter the coach did
+	// NOT remove lost its badge and gained a demotion, so the student saw the
+	// "your coach updated this repertoire" banner for a line nobody touched.
+	it('leaves an untouched line untouched when a sibling chapter is removed', () => {
+		const { carries, seeds } = buildCarryForwardPlan(
+			['a>b>survivor'],
+			progress({ teaching: [teaching('a>b>removed', 3)], solved: ['a>b>removed'] })
+		);
+		const plan = planReconciliation(carries, seeds, {
+			teaching: [teaching('a>b>removed', 3)],
+			solved: ['a>b>removed'],
+			excluded: [],
+			activeVariationKey: null
+		});
+
+		expect(plan.demotions).toEqual([]);
+		expect(plan.solvedDeletes).toEqual([]);
+		expect(plan.solvedMoves).toEqual([]);
+		expect(plan.teachingUpdates).toEqual([]);
 	});
 
 	it('seeds a new sibling from a shared prefix', () => {
@@ -356,8 +392,8 @@ describe('buildCarryForwardPlan', () => {
 	});
 
 	it('does not seed a live key a carry already maps onto', () => {
-		// a>b>x became a>b>y; the carry moves the row there, so no seed.
-		const { carries, seeds } = buildCarryForwardPlan(['a>b>y'], progress({ teaching: [teaching('a>b>x', 3)] }));
+		// a>b>c was truncated to a>b; the carry moves the row there, so no seed.
+		const { carries, seeds } = buildCarryForwardPlan(['a>b'], progress({ teaching: [teaching('a>b>c', 3)] }));
 		expect(carries).toHaveLength(1);
 		expect(seeds).toEqual([]);
 	});
@@ -368,13 +404,16 @@ describe('buildCarryForwardPlan', () => {
 
 	it('feeds planReconciliation directly', () => {
 		// The two functions compose — this is the whole lazy-reconciliation path.
-		const p = progress({ teaching: [teaching('a>b', 2)], solved: ['a>b'] });
-		const { carries, seeds } = buildCarryForwardPlan(['a>b>c'], p);
+		// A line whose tail was retired: depth clamps to what survives, and the
+		// learned badge follows it, because `truncated` keeps learned.
+		const p = progress({ teaching: [teaching('a>b>c', 3)], solved: ['a>b>c'] });
+		const { carries, seeds } = buildCarryForwardPlan(['a>b'], p);
 		const plan = planReconciliation(carries, seeds, p);
 		expect(plan.teachingUpdates).toEqual([
-			{ fromKey: 'a>b', toKey: 'a>b>c', taughtPlies: 2, masteredPlies: 2, cleanPassCount: 0 }
+			{ fromKey: 'a>b>c', toKey: 'a>b', taughtPlies: 2, masteredPlies: 2, cleanPassCount: 0 }
 		]);
-		expect(plan.demotions).toEqual([{ variationKey: 'a>b>c', cause: 'coach_update' }]);
+		expect(plan.solvedMoves).toEqual([{ fromKey: 'a>b>c', toKey: 'a>b' }]);
+		expect(plan.demotions).toEqual([]);
 	});
 });
 

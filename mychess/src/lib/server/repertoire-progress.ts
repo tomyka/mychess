@@ -708,7 +708,23 @@ export async function loadRepertoireProgressSummaries(
 		const total = enumerated
 			? (variationsByRep.get(r.id) ?? []).length - excluded.size
 			: (cachedTotal ?? fullVariationCount);
-		const solvedCount = [...solved].filter((key) => !excluded.has(key)).length; // stale solved keys (repertoire edited since) simply don't inflate the count below via total's own cap
+		// Solved rows for lines that no longer exist are PARKED, not deleted, so
+		// restoring a removed chapter restores its badges (see
+		// `planReconciliation`'s `removed` branch). Parked rows must not be
+		// counted: after a chapter removal the student's learned count has to
+		// fall to what is actually still there, or they are told they have
+		// learned lines the repertoire no longer contains (GitHub issue #215).
+		//
+		// Only filterable when this load actually established the live shape:
+		// it enumerated the repertoire, or it reconciled it. A repertoire whose
+		// apply is in flight is deliberately in neither set, so it keeps the old
+		// behaviour rather than being filtered against a half-applied shape.
+		// Otherwise `Math.min(solvedCount, total)` below caps the visible number,
+		// which understates rather than invents.
+		const shapeIsSettled = Boolean(enumerated) || reconciledIds.has(r.id);
+		const liveVariations = shapeIsSettled ? variationsByRep.get(r.id) : undefined;
+		const liveKeys = liveVariations && new Set(liveVariations.map((v) => v.variationKey));
+		const solvedCount = [...solved].filter((key) => !excluded.has(key) && (!liveKeys || liveKeys.has(key))).length;
 		const allSolved = total > 0 && Math.min(solvedCount, total) === total;
 
 		// #105: cheap Mastered detection. `chapterCount` null means neither the

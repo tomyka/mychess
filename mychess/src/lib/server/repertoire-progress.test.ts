@@ -457,9 +457,10 @@ describe('loadRepertoireProgressSummaries', () => {
 		expect(calls.chapterCompletedCleared).toEqual([]);
 	});
 
-	it('rewrites an extended line\'s exclusion instead of pruning it', async () => {
-		// THE trap this ordering exists for. The coach extended 'm1>m2' into
-		// 'm1>m2>m4'; the student had excluded that line. Reconciliation rewrites
+	it('rewrites a truncated line\'s exclusion instead of pruning it', async () => {
+		// THE trap this ordering exists for. The coach retired the tail of
+		// 'm1>m2>m4', leaving 'm1>m2'; the student had excluded that line.
+		// Reconciliation rewrites
 		// the key, and `reverifyExclusions` — which deletes by row ID any row whose
 		// key is not live — must see the REWRITTEN key, not the stale in-memory one
 		// it read before reconciliation ran. Reuse that stale copy and the row is
@@ -467,18 +468,18 @@ describe('loadRepertoireProgressSummaries', () => {
 		// is gone for good.
 		const { client, calls, exclusions } = fakeSupabase({
 			repertoire: { ...cachedRepertoire, total_variations: 2 },
-			moves: EXTENDED_MOVES,
-			exclusions: [{ id: 'x1', repertoire_id: 'r1', variation_key: 'm1>m2', verified_at: EPOCH }],
+			moves: MOVES,
+			exclusions: [{ id: 'x1', repertoire_id: 'r1', variation_key: 'm1>m2>m4', verified_at: EPOCH }],
 			reconciledAt: null
 		});
 
 		const [summary] = await loadRepertoireProgressSummaries(client, USER);
 
-		expect(calls.exclusionRekeys).toEqual([{ fromKey: 'm1>m2', toKey: 'm1>m2>m4', verifiedAt: SHAPE_CHANGED }]);
+		expect(calls.exclusionRekeys).toEqual([{ fromKey: 'm1>m2>m4', toKey: 'm1>m2', verifiedAt: SHAPE_CHANGED }]);
 		// The row SURVIVES, carrying its new key — this is the whole assertion.
 		expect(calls.deletedIds).toEqual([]);
 		expect(exclusions).toEqual([
-			{ id: 'x1', repertoire_id: 'r1', variation_key: 'm1>m2>m4', verified_at: SHAPE_CHANGED }
+			{ id: 'x1', repertoire_id: 'r1', variation_key: 'm1>m2', verified_at: SHAPE_CHANGED }
 		]);
 		// And it still counts as an exclusion, against the new shape: 2 live
 		// variations, 1 of them excluded.
@@ -503,8 +504,8 @@ describe('loadRepertoireProgressSummaries', () => {
 		// and then to fall through the exclusion work untouched.
 		const { client, calls } = fakeSupabase({
 			repertoire: cachedRepertoire,
-			moves: EXTENDED_MOVES,
-			solved: ['m1>m2'],
+			moves: MOVES,
+			solved: ['m1>m2>m4'],
 			reconciledAt: null
 		});
 
@@ -515,11 +516,11 @@ describe('loadRepertoireProgressSummaries', () => {
 		// a coach-driven demotion is the one thing allowed to take back an
 		// already-earned completed chapter (migration 0071).
 		expect(calls.chapterCompletedCleared).toEqual(['r1']);
-		// The line was extended, so the learned badge does not survive it.
-		expect(calls.solvedDeletes).toEqual(['m1>m2']);
-		expect(calls.demotions).toEqual([
-			{ player_id: USER, repertoire_id: 'r1', variation_key: 'm1>m2>m4', cause: 'coach_update' }
-		]);
+		// The line was truncated, and a student who learned the long version has
+		// demonstrably learned the short one — so the badge follows the key and
+		// nothing is demoted (GitHub issue #215).
+		expect(calls.solvedDeletes).toEqual([]);
+		expect(calls.demotions).toEqual([]);
 		expect(calls.reconciliationStamps).toHaveLength(1);
 		// No exclusions, so no prune and no stamp — and the repertoire is still
 		// reported rather than dropped out of the summaries.
@@ -527,30 +528,37 @@ describe('loadRepertoireProgressSummaries', () => {
 		expect(calls.stamped).toEqual([]);
 		expect(summary.id).toBe('r1');
 		expect(summary.total).toBe(10);
-		// The demoted badge is gone from the count on THIS load. `solved` is read
-		// before reconciliation runs, so it is RE-READ for any repertoire that
-		// actually reconciled — otherwise this reported 1 here and 0 on the next
-		// load, for no reason the student could see.
-		expect(summary.solved).toBe(0);
+		// `solved` is read before reconciliation runs, so it is RE-READ for any
+		// repertoire that actually reconciled. Here the badge moved to the live
+		// key rather than being lost, and the re-read must see it under the NEW
+		// key — a re-read that returned nothing would report 0 and read to the
+		// student as an unexplained drop.
+		expect(summary.solved).toBe(1);
 	});
 
 	it('reports the post-reconciliation solved count on the load that reconciles', async () => {
-		// Two learned lines, one of which the coach extended out from under the
-		// student: 'm1>m2' is demoted, 'm1>m3' survives. The pre-reconcile read says
-		// 2, the truth after reconciliation is 1 — and a count that reads 2 now and
-		// 1 on the next page load is exactly the unexplained drop this whole feature
-		// exists to avoid. Asserting 1 (not 0) also keeps a re-read that returned
-		// nothing at all from passing this test.
+		// Two learned lines, one of them in a chapter the coach removed: 'm1>gone'
+		// no longer exists in any shape, 'm1>m3' survives. The pre-reconcile read
+		// says 2, the truth after reconciliation is 1 — and a count that reads 2
+		// now and 1 on the next page load is exactly the unexplained drop this
+		// whole feature exists to avoid. Asserting 1 (not 0) also keeps a re-read
+		// that returned nothing at all from passing this test.
+		//
+		// The removed line's `variation_solved` row is deliberately NOT deleted:
+		// it is parked under a key nothing live has, so restoring the chapter
+		// restores the badge with it. It stops being COUNTED, which is the part
+		// the student sees.
 		const { client, calls } = fakeSupabase({
 			repertoire: cachedRepertoire,
-			moves: EXTENDED_MOVES,
-			solved: ['m1>m2', 'm1>m3'],
+			moves: MOVES,
+			solved: ['m1>gone', 'm1>m3'],
 			reconciledAt: null
 		});
 
 		const [summary] = await loadRepertoireProgressSummaries(client, USER);
 
-		expect(calls.solvedDeletes).toEqual(['m1>m2']);
+		expect(calls.solvedDeletes).toEqual([]);
+		expect(calls.demotions).toEqual([]);
 		expect(summary.solved).toBe(1);
 	});
 
@@ -622,8 +630,8 @@ describe('loadRepertoireProgressSummaries', () => {
 		// missing `update_in_progress_at`.
 		const { client, calls, exclusions } = fakeSupabase({
 			assigned: { ...cachedRepertoire, total_variations: 2, update_in_progress_at: null },
-			moves: EXTENDED_MOVES,
-			exclusions: [{ id: 'x1', repertoire_id: 'r1', variation_key: 'm1>m2', verified_at: EPOCH }],
+			moves: MOVES,
+			exclusions: [{ id: 'x1', repertoire_id: 'r1', variation_key: 'm1>m2>m4', verified_at: EPOCH }],
 			reconciledAt: null
 		});
 
@@ -631,7 +639,7 @@ describe('loadRepertoireProgressSummaries', () => {
 
 		expect(calls.reconcileMoveFetches).toEqual(['r1']);
 		expect(calls.deletedIds).toEqual([]);
-		expect(exclusions[0].variation_key).toBe('m1>m2>m4');
+		expect(exclusions[0].variation_key).toBe('m1>m2');
 		expect(summary.excludedVariationCount).toBe(1);
 	});
 

@@ -3,7 +3,14 @@
 // The one number behind the student-facing "your coach updated this
 // repertoire" notice: how many of this student's learned lines a coach's
 // reshape of it sent back to review, and still have not been re-learned.
-// Today the only such reshape is removing a chapter.
+//
+// As of #215 this can only ever count HISTORICAL rows. Removing a chapter is
+// the one reshape left, and reconciliation now classifies its lines as
+// `removed` (rows parked, no demotion) or `truncated` (which keeps the learned
+// badge) — so no new `coach_update` demotion is written by any path. The
+// notice is kept because rows written before that are real and still clear
+// themselves as the student re-learns; it is not kept because anything can
+// still produce one.
 //
 // Reconciliation (`./repertoire-reconcile.ts`) is what produces that state: a
 // line the coach extended or diverged loses its `variation_solved` row and

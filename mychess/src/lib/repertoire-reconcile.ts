@@ -11,6 +11,12 @@
  * DEPTHS, so a line whose end moved keeps every ply the student already had.
  * But `learned` means "replayed this whole line cleanly twice", and a line
  * whose length changed is no longer that line.
+ *
+ * `planReconciliation` still handles the full set of `CarryForward` kinds, but
+ * since #215 `buildCarryForwardPlan` only ever emits `truncated` and `removed`
+ * — retiring moves is the only reshape the product can perform, and it can
+ * only shorten a line or delete it. The planner is left general because it is
+ * the tested arithmetic, not the policy; the policy is in the builder.
  */
 
 /** One existing line, mapped to what it became. `toKey` is null only for `removed`. */
@@ -295,31 +301,44 @@ export function buildCarryForwardPlan(
 
 	for (const fromKey of staleKeys) {
 		const fromPlies = fromKey.split('>');
-		let bestKey: string | null = null;
-		let bestShared = 0;
+
+		// The ONLY live line that is this stale line is one that is a strict
+		// PREFIX of it: the sole reshape the product can still perform is
+		// retiring moves, which shortens a line from its end and never bends it
+		// sideways or lengthens it.
+		//
+		// Matching on longest shared prefix instead — what this did until #215 —
+		// is actively wrong here. Chapters share their opening moves (one move
+		// row carries several `chapter_names`), so a line removed with its
+		// chapter ALWAYS shares a prefix with lines in the chapters that
+		// survived. The old rule therefore reached past the removal and handed
+		// the student's progress to a line the coach never touched, either
+		// carrying a learned badge onto a line they had never seen, or deleting
+		// their `variation_solved` row and demoting them on it.
+		//
+		// A stale key with no live prefix is simply gone. `planReconciliation`
+		// leaves its rows parked under the dead key rather than deleting them,
+		// so restoring the line restores the progress with it.
+		let toKey: string | null = null;
+		let commonPlies = 0;
 		for (const candidate of live) {
+			if (candidate.plies.length >= fromPlies.length) continue;
 			const shared = sharedPrefixLength(fromPlies, candidate.plies);
-			// Strictly greater, so a tie keeps the first live key in the given order.
-			if (shared > bestShared) {
-				bestShared = shared;
-				bestKey = candidate.key;
+			// A prefix, and the longest one — the deepest surviving head of this
+			// line is the one that still means the most.
+			if (shared === candidate.plies.length && shared > commonPlies) {
+				commonPlies = shared;
+				toKey = candidate.key;
 			}
 		}
 
-		// Nothing live shares even the first move: the line is gone, not moved.
-		if (bestKey === null) {
+		if (toKey === null) {
 			carries.push({ kind: 'removed', fromKey, toKey: null, commonPlies: 0 });
 			continue;
 		}
 
-		const toLength = bestKey.split('>').length;
-		// `extended` and `truncated` cannot both hold: that needs equal lengths and
-		// a full shared prefix, i.e. identical keys — impossible when `fromKey` is
-		// stale and `bestKey` is live. So a carry never has toKey === fromKey.
-		const kind: CarryForward['kind'] =
-			bestShared === fromPlies.length ? 'extended' : bestShared === toLength ? 'truncated' : 'diverged';
-		carries.push({ kind, fromKey, toKey: bestKey, commonPlies: bestShared });
-		carryTargets.add(bestKey);
+		carries.push({ kind: 'truncated', fromKey, toKey, commonPlies });
+		carryTargets.add(toKey);
 	}
 
 	// Known lines include the STALE ones — inheriting from a line the coach just
