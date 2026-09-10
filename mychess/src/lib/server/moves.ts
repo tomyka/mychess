@@ -10,7 +10,7 @@ import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
  * and the practice/learn page loads.
  *
  * Retired rows are excluded unconditionally: a retired row is a line a coach
- * removed on a repertoire re-upload, kept around (rather than deleted) only
+ * removed — today, by removing its chapter — kept around rather than deleted only
  * so that re-adding the line later restores its `reviews`/`move_attempts`
  * history instead of starting it over. It must never resurface as something
  * to enumerate, drill, time-trial, or count.

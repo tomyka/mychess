@@ -316,8 +316,8 @@ async function reverifyExclusions(
  * were last verified against it (re-verified here, see `reverifyExclusions`).
  * Neither recurs on subsequent loads.
  *
- * This is also where a coach re-upload is carried forward into each student's
- * own progress (GitHub issue #118): a repertoire whose shape moved since this
+ * This is also where a coach's reshape of a repertoire is carried forward into
+ * each student's own progress: a repertoire whose shape moved since this
  * player last reconciled is reconciled here, before its exclusion rows are
  * re-verified, and likewise only once per shape change.
  */
@@ -430,7 +430,7 @@ export async function loadRepertoireProgressSummaries(
 		)
 		.map((r) => r.id);
 
-	// Lazy carry-forward after a coach re-upload (GitHub issue #118): this
+	// Lazy carry-forward after a coach reshapes a repertoire: this
 	// student is behind whenever the repertoire's shape moved after their last
 	// reconciliation and no apply is in flight. `needsReconciliation` owns BOTH
 	// halves of that test — including the in-flight window, where reconciling
@@ -735,11 +735,11 @@ export async function loadRepertoireProgressSummaries(
 	});
 
 	// Reconciliation is the only place a repertoire's Learned/Mastered status can
-	// drop (a demotion or a raised bar from a coach re-upload) outside of the
+	// drop (a demotion or a raised bar from a coach's reshape) outside of the
 	// player's own drill/practice/time-trial actions, which is where badge
 	// revocation otherwise runs (see grant.ts). Skipped when nothing actually
 	// reconciled, so an ordinary load never pays for this — only the rare
-	// next-load-after-a-coach-re-upload case does. `summaries` is passed straight
+	// next-load-after-a-coach-reshaped-it case does. `summaries` is passed straight
 	// through to grantNewBadges so its own countRepertoireStatuses() call reuses
 	// what THIS call just computed instead of invoking this function again —
 	// countRepertoireStatuses() calls loadRepertoireProgressSummaries() itself

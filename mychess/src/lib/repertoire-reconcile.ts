@@ -5,8 +5,7 @@
  * moves are already written — so it never sees the coach's diff. The caller
  * reconstructs the mapping from the repertoire's live shape versus this
  * student's own stale progress keys and hands it over as `CarryForward[]` plus
- * `SeedNew[]`. That is why this module defines its own input types rather than
- * consuming `VariationDiff` from `./repertoire-diff`.
+ * `SeedNew[]`, which is why this module defines its own input types.
  *
  * The rule: depth is kept, the learned badge is not. Progress stores ply
  * DEPTHS, so a line whose end moved keeps every ply the student already had.
@@ -64,14 +63,14 @@ export type ReconciliationPlan = {
 
 /**
  * The kinds where `learned` survives: the new line sits entirely inside what
- * the student had already learned. Exported so the coach-facing projection
- * counts demotions by the same rule this applies — the number shown before the
- * apply and the change made after it cannot drift apart.
+ * the student had already learned.
+ *
+ * Typed as ReadonlySet<string> rather than ReadonlySet<CarryForward['kind']>
+ * because the set's CONTENTS, not its key type, are what this rule is. It read
+ * against a second, wider set of classification kinds until #211 removed the
+ * re-upload; the loose typing is kept because narrowing it now would only have
+ * to be undone by the next caller with its own vocabulary.
  */
-// Typed as ReadonlySet<string>, not ReadonlySet<CarryForward['kind']>: it is
-// consumed by both this module's CarryForward kinds and repertoire-diff's
-// classification kinds (which additionally has 'new'). The set's CONTENTS —
-// not its key type — are the single source of truth shared by both.
 const KEEPS_LEARNED: ReadonlySet<string> = new Set(['unchanged', 'truncated']);
 
 export function planReconciliation(
@@ -239,76 +238,6 @@ export function planReconciliation(
 	return plan;
 }
 
-/**
- * The minimum a line has to look like for the projection. Structurally
- * satisfied by `VariationDiff` from `./repertoire-diff`, so the coach's review
- * can pass `classifyVariations` output straight in — declared structurally
- * rather than imported to keep this module free of that dependency.
- */
-export type ImpactLine = {
-	kind: 'unchanged' | 'extended' | 'truncated' | 'diverged' | 'new' | 'removed';
-	existingKey: string | null;
-};
-
-export type ImpactCounts = Record<ImpactLine['kind'], number>;
-
-export type Impact = {
-	counts: ImpactCounts;
-	/** Learned lines that will drop back to review, summed across students. */
-	demotedLineCount: number;
-	/**
-	 * Learned lines that will stop being drilled because the coach removed them.
-	 * Their `variation_solved` rows survive — restoring the line restores the
-	 * badge — so this is deliberately NOT folded into `demotedLineCount`.
-	 */
-	removedLearnedCount: number;
-	/** Students losing at least one learned line to a demotion. */
-	affectedPlayerCount: number;
-};
-
-/**
- * The coach's pre-apply projection, derived from the same `KEEPS_LEARNED` rule
- * reconciliation applies — so the number shown before the apply and the change
- * made after it cannot disagree.
- *
- * A projection, not a fact: reconciliation is lazy, so these rows only change
- * on each student's next load. Copy must say "will", never "did".
- */
-export function projectImpact(
-	lines: ImpactLine[],
-	students: Array<{ playerId: string; solved: string[] }>
-): Impact {
-	const counts: ImpactCounts = {
-		unchanged: 0,
-		extended: 0,
-		truncated: 0,
-		diverged: 0,
-		new: 0,
-		removed: 0
-	};
-	for (const line of lines) counts[line.kind]++;
-
-	const demotingKeys = new Set<string>();
-	const removedKeys = new Set<string>();
-	for (const line of lines) {
-		if (!line.existingKey) continue;
-		if (line.kind === 'removed') removedKeys.add(line.existingKey);
-		else if (!KEEPS_LEARNED.has(line.kind)) demotingKeys.add(line.existingKey);
-	}
-
-	let demotedLineCount = 0;
-	let removedLearnedCount = 0;
-	let affectedPlayerCount = 0;
-	for (const student of students) {
-		const demoted = student.solved.filter((k) => demotingKeys.has(k)).length;
-		demotedLineCount += demoted;
-		removedLearnedCount += student.solved.filter((k) => removedKeys.has(k)).length;
-		if (demoted > 0) affectedPlayerCount++;
-	}
-
-	return { counts, demotedLineCount, removedLearnedCount, affectedPlayerCount };
-}
-
 /** Leading move ids two ply chains agree on — how much of the line still means the same thing. */
 function sharedPrefixLength(a: readonly string[], b: readonly string[]): number {
 	const limit = Math.min(a.length, b.length);
@@ -322,7 +251,7 @@ function sharedPrefixLength(a: readonly string[], b: readonly string[]): number 
  * two things lazy reconciliation can still observe: the repertoire's LIVE line
  * set, and this student's own progress keys.
  *
- * Reconstruction is possible at all because move ids survive a re-upload. Moves
+ * Reconstruction is possible at all because move ids survive a reshape. Moves
  * are upserted on `(repertoire_id, from_position, san)`, so a modified line's
  * unchanged head keeps its original ids — a stale key and the line it became
  * therefore share a real move-id prefix, and the length of that prefix is
