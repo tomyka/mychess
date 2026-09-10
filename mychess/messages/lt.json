@@ -759,6 +759,7 @@
 	"coach_repertoires_prep_change_button": "Ruošimas",
 	"curated_opening_picker_heading": "Kuriam debiutui šis ruošimas?",
 	"curated_opening_picker_auto": "Automatiškai — pagal ECO kodą",
+	"curated_opening_picker_auto_current": "dabar {name}",
 	"curated_opening_picker_none_for_colour": "Šiai spalvai debiutų dar nėra.",
 	"curated_opening_picker_close_label": "Uždaryti",
 	"coach_repertoires_assign_title": "Priskirti žaidėjams",

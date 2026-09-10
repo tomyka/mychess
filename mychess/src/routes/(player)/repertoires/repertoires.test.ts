@@ -101,10 +101,35 @@ describe('repertoires page', () => {
 
   // GitHub issue #201. Resolution matches on 'white'/'black', not the CSS hex
   // this page's other fixtures use for `color`, so these use the real values.
-  // The owned list renders `eco_code` alone (no name at all — see line 94), so
-  // the cascade only shows up in the assigned section; these fixtures go under
-  // `assignedRepertoires` accordingly, not `repertoires`.
   const prepRep = { id: 'r9', name: 'Alapin file', color: 'white', moves: [{ count: 5 }] };
+
+  // GitHub issue #205: the owned list used to render `eco_code` alone, so the
+  // SAME repertoire read as "B22" here and "Anti-Sicilian: Alapin" in the
+  // assigned list above. All three surfaces resolve now.
+  it('resolves the opening on the player\'s OWN repertoires, not just assigned ones', () => {
+    render(Repertoires, {
+      props: {
+        data: {
+          repertoires: [{ ...prepRep, eco_code: 'B22', eco_name: 'Sicilian Defense: Alapin Variation', opening_id: null }],
+          assignedRepertoires: []
+        }
+      }
+    });
+    expect(screen.getByText('Anti-Sicilian: Alapin')).toBeTruthy();
+    expect(screen.queryByText('B22')).toBeNull();
+  });
+
+  it('falls back to the bare ECO code on an own repertoire the taxonomy does not claim', () => {
+    render(Repertoires, {
+      props: {
+        data: {
+          repertoires: [{ ...prepRep, eco_code: 'C60', eco_name: 'Ruy Lopez', opening_id: null }],
+          assignedRepertoires: []
+        }
+      }
+    });
+    expect(screen.getByText('C60')).toBeTruthy();
+  });
 
   it('shows the resolved opening instead of the ECO name', () => {
     const alapinData = {

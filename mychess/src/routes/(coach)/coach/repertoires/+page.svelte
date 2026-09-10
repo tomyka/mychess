@@ -220,6 +220,8 @@
   <CuratedOpeningPicker
     repId={prepModalRep.id}
     color={prepModalRep.color}
+    ecoCode={prepModalRep.eco_code ?? null}
+    currentOpeningId={prepModalRep.opening_id ?? null}
     onclose={() => (prepModalRepId = null)}
   />
 {/if}

@@ -17,16 +17,36 @@
   import { getLocale } from '$lib/paraglide/runtime';
   import { m } from '$lib/paraglide/messages';
   import { CURATED_OPENINGS, type OpeningSide } from '$lib/openings/taxonomy';
-  import { curatedOpeningName } from '$lib/openings/resolve';
+  import { curatedOpeningName, resolveOpening } from '$lib/openings/resolve';
   import PickerModal from './PickerModal.svelte';
 
+  // `currentOpeningId` is the STORED override, not the resolved answer. The two
+  // differ on almost every repertoire — the column is null by design and the
+  // opening is derived — and it is the stored value the picker writes, so it is
+  // the stored value that decides which row reads as chosen. Showing the
+  // derived entry as selected would tell a coach they had made a choice they
+  // never made (GitHub issue #205).
   let {
     repId,
     color,
+    ecoCode,
+    currentOpeningId,
     onclose
-  }: { repId: string; color: OpeningSide | null; onclose: () => void } = $props();
+  }: {
+    repId: string;
+    color: OpeningSide | null;
+    ecoCode: string | null;
+    currentOpeningId: string | null;
+    onclose: () => void;
+  } = $props();
 
   const choices = $derived(CURATED_OPENINGS.filter((opening) => opening.side === color));
+
+  // What "Auto" would land on right now, so the row says what it means rather
+  // than leaving the coach to guess what the ECO code derives to.
+  const autoOpening = $derived(resolveOpening({ eco_code: ecoCode, color, opening_id: null }));
+
+  const SELECTED_CLASS = 'bg-indigo-50 text-(--color-accent) font-medium dark:bg-indigo-950';
 
   let errorMessage = $state<string | null>(null);
 
@@ -55,8 +75,22 @@
     <form method="POST" action="?/updateCuratedOpening" use:enhance={handleSubmit}>
       <input type="hidden" name="rep_id" value={repId} />
       <input type="hidden" name="opening_id" value="" />
-      <button class="w-full text-left text-sm text-(--color-muted) hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg px-3 py-2">
-        {m.curated_opening_picker_auto()}
+      <button
+        aria-current={currentOpeningId === null ? 'true' : undefined}
+        class="w-full text-left text-sm rounded-lg px-3 py-2 flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 {currentOpeningId ===
+        null
+          ? SELECTED_CLASS
+          : 'text-(--color-muted)'}"
+      >
+        <span aria-hidden="true" class="w-3 shrink-0">{currentOpeningId === null ? '✓' : ''}</span>
+        <span>
+          {m.curated_opening_picker_auto()}
+          {#if autoOpening}
+            <span class="text-(--color-muted) font-normal"
+              >— {m.curated_opening_picker_auto_current({ name: curatedOpeningName(autoOpening, getLocale()) ?? '' })}</span
+            >
+          {/if}
+        </span>
       </button>
     </form>
 
@@ -70,8 +104,15 @@
           <form method="POST" action="?/updateCuratedOpening" use:enhance={handleSubmit}>
             <input type="hidden" name="rep_id" value={repId} />
             <input type="hidden" name="opening_id" value={opening.id} />
-            <button class="w-full text-left text-sm rounded-lg px-3 py-2 hover:bg-indigo-50 text-(--color-text)">
-              {curatedOpeningName(opening, getLocale())}
+            <button
+              aria-current={currentOpeningId === opening.id ? 'true' : undefined}
+              class="w-full text-left text-sm rounded-lg px-3 py-2 flex items-center gap-2 hover:bg-indigo-50 dark:hover:bg-indigo-950 {currentOpeningId ===
+              opening.id
+                ? SELECTED_CLASS
+                : 'text-(--color-text)'}"
+            >
+              <span aria-hidden="true" class="w-3 shrink-0">{currentOpeningId === opening.id ? '✓' : ''}</span>
+              <span>{curatedOpeningName(opening, getLocale())}</span>
             </button>
           </form>
         </li>

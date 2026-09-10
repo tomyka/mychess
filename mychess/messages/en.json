@@ -711,6 +711,7 @@
 	"coach_repertoires_prep_change_button": "Prep",
 	"curated_opening_picker_heading": "Which opening is this preparation for?",
 	"curated_opening_picker_auto": "Auto — from the ECO code",
+	"curated_opening_picker_auto_current": "currently {name}",
 	"curated_opening_picker_none_for_colour": "No openings listed for this colour yet.",
 	"curated_opening_picker_close_label": "Close",
 	"coach_repertoires_assign_title": "Assign to players",

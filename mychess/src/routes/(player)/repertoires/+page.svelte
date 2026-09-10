@@ -82,6 +82,7 @@
       {:else}
         <ul class="space-y-2">
           {#each data.repertoires as rep (rep.id)}
+            {@const ownOpeningName = curatedOpeningName(resolveOpening(rep), getLocale())}
             <li class="flex items-center gap-3 bg-(--color-surface) rounded-xl border border-(--color-border) shadow-sm p-4 hover:shadow-md transition-shadow">
               <a href={rep.allSolved ? `/practice/${rep.id}` : `/learn/${rep.id}`} class="flex items-center gap-3 flex-1 min-w-0">
                 <span class="w-3 h-3 rounded-full shrink-0" style="background:{rep.color ?? '#4f46e5'}"></span>
@@ -93,9 +94,17 @@
                   {rep.allSolved ? m.repertoires_action_practice() : m.repertoires_action_learn()} →
                 </span>
               </a>
+              <!-- #205's second half. This surface used to show a bare ECO
+                   code while the coach list and the assigned list above both
+                   resolved the curated opening — the same repertoire read as
+                   "B50" here and "Anti-Sicilian: Delayed Alapin" there.
+                   Resolved here too, so all three agree; truncated because
+                   this is a compact button and a curated name is far longer
+                   than a code, with the full value in the title attribute. -->
               <button type="button" onclick={() => (openingModalRepId = rep.id)}
-                      class="text-xs text-indigo-500 hover:underline shrink-0">
-                {rep.eco_code ?? m.repertoires_unclassified_label()}
+                      title={ownOpeningName ?? rep.eco_code ?? undefined}
+                      class="text-xs text-indigo-500 hover:underline shrink-0 truncate max-w-[9rem]">
+                {ownOpeningName ?? rep.eco_code ?? m.repertoires_unclassified_label()}
               </button>
               <form method="POST" action="?/delete" use:enhance onsubmit={(e) => confirmDelete(e, rep.name)}>
                 <input type="hidden" name="rep_id" value={rep.id} />
