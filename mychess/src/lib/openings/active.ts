@@ -78,6 +78,17 @@ export function planActiveOpeningRepoint<T extends ActiveOpeningRow>(
 }
 
 /**
+ * How every opening-oriented surface orders its list: side first, then name.
+ *
+ * One comparator rather than one per surface, because "what do I play as
+ * White, then as Black" is the shape a coach and a student both read in, and
+ * two surfaces disagreeing about it is a difference nobody could explain.
+ */
+export function bySideThenName(a: CuratedOpening, b: CuratedOpening): number {
+  return a.side.localeCompare(b.side) || a.name.localeCompare(b.name);
+}
+
+/**
  * Which curated openings a student has current preparation for, and which they
  * do not (GitHub issue #203).
  *
@@ -94,9 +105,7 @@ export function splitOpeningCoverage(
   taxonomy: CuratedOpening[] = CURATED_OPENINGS
 ): { covered: CuratedOpening[]; gaps: CuratedOpening[] } {
   const prepared = new Set(preparedOpeningIds);
-  const ordered = [...taxonomy].sort(
-    (a, b) => a.side.localeCompare(b.side) || a.name.localeCompare(b.name)
-  );
+  const ordered = [...taxonomy].sort(bySideThenName);
   return {
     covered: ordered.filter((opening) => prepared.has(opening.id)),
     gaps: ordered.filter((opening) => !prepared.has(opening.id))

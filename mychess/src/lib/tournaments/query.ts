@@ -1,14 +1,10 @@
 import type { TournamentFilters } from './types';
-import { SUPPORTED_FEDERATIONS } from './scraper-utils';
 import type { TimeControl, TournamentStatus } from './scraper-utils';
 
 export const DEFAULT_PAGE_SIZE = 20;
 
 const ALL_STATUSES: TournamentStatus[] = ['NOT_STARTED', 'IN_PROGRESS', 'FINISHED'];
 const ALL_TIME_CONTROLS: TimeControl[] = ['STANDARD', 'RAPID', 'BLITZ', 'UNKNOWN'];
-// Derived from the single source of truth so it stays in sync when federations are added
-const ALL_COUNTRIES = SUPPORTED_FEDERATIONS.map(f => f.name);
-
 const ALL_STATUSES_SET = new Set<string>(ALL_STATUSES);
 const ALL_TIME_CONTROLS_SET = new Set<string>(ALL_TIME_CONTROLS);
 

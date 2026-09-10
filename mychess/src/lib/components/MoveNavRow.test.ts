@@ -8,7 +8,6 @@ afterEach(() => cleanup());
 
 const baseProps = {
 	reviewIdx: 2,
-	totalPlies: 10,
 	reviewMoves: 2,
 	totalMoves: 10,
 	isReviewing: true,

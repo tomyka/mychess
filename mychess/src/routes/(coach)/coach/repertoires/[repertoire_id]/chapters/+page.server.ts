@@ -4,7 +4,7 @@
 // with the cost of removing each, and remove the chosen ones for every
 // assigned student at once.
 //
-// Same division of labour as the sibling `update` route: every decision lives
+// The division of labour: every decision lives
 // in the pure module (`$lib/repertoire-chapter-removal`), the atomic write is
 // the RPC's (`apply_repertoire_update`, migration 0074), and this file is the
 // request boundary — validate untrusted input, then sequence the steps in the
@@ -35,10 +35,8 @@ import {
  * who wants a chapter gone gets it gone; the set is there so they know what
  * it costs first.
  *
- * Fetched ONCE for the whole repertoire (both tables carry `repertoire_id`),
- * the same way the sibling `update` route reads `variation_solved` for its own
- * impact preview, rather than once per chapter keyed by an
- * `.in('variation_key', ...)` filter.
+ * Fetched ONCE for the whole repertoire (both tables carry `repertoire_id`)
+ * rather than once per chapter keyed by an `.in('variation_key', ...)` filter.
  *
  * Two separate hazards make the filtered version worse, not better:
  *
@@ -60,8 +58,7 @@ import {
  * unique constraint is built on — NOT `variation_key` alone. Many players
  * commonly solve the same line, so `variation_key` is not unique across this
  * result set, and a partial order lets rows tied at a page boundary be skipped
- * or repeated once the repertoire crosses `MAX_ROWS_PAGE_SIZE`. The sibling
- * `update` route orders by both columns for exactly this reason.
+ * or repeated once the repertoire crosses `MAX_ROWS_PAGE_SIZE`.
  */
 async function fetchLineKeysWithProgress(supabase: SupabaseClient, repertoireId: string): Promise<Set<string>> {
 	const [solved, teaching] = await Promise.all([

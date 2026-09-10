@@ -12,7 +12,6 @@ import {
 	UNTAGGED_CHAPTER,
 	variationScopes,
 	type RawMoveRow,
-	type Variation,
 	type VariationStep
 } from './variations';
 

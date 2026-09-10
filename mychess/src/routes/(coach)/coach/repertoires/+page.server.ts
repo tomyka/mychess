@@ -2,7 +2,7 @@ import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { requireAccount } from '$lib/server/auth';
 import { listRelationshipsForCoach } from '$lib/server/coach-players';
-import { repointActiveOpenings } from '$lib/server/active-openings';
+import { repointActiveOpenings, updateRepertoireEco } from '$lib/server/active-openings';
 import { CURATED_OPENINGS } from '$lib/openings/taxonomy';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -112,17 +112,13 @@ export const actions: Actions = {
 		const ecoName = (fd.get('eco_name') as string) || null;
 		if (!repId) return fail(400, { error: 'No repertoire selected' });
 
-		const { error } = await supabase
-			.from('repertoires')
-			.update({ eco_code: ecoCode, eco_name: ecoName })
-			.eq('id', repId)
-			.eq('player_id', user!.id);
-		if (error) return fail(500, { error: error.message });
-
-		// The ECO code is what `resolveOpening` derives from, so this
-		// reclassifies the repertoire as surely as the curated override below
-		// does, and every student's active mapping must follow it (#210).
-		await repointActiveOpenings(supabase, repId);
+		const { error } = await updateRepertoireEco(supabase, {
+			ownerId: user!.id,
+			repertoireId: repId,
+			ecoCode,
+			ecoName
+		});
+		if (error) return fail(500, { error });
 
 		return { success: true };
 	},

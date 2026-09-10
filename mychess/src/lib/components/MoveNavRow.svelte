@@ -17,7 +17,6 @@
 
 	let {
 		reviewIdx,
-		totalPlies,
 		reviewMoves,
 		totalMoves,
 		isReviewing,
@@ -30,10 +29,9 @@
 		exploreDisabled = false
 	}: {
 		reviewIdx: number;
-		totalPlies: number;
-		// The same two positions counted in the PLAYER's own moves — what the
-		// counter shows. reviewIdx/totalPlies stay plies because that's what the
-		// buttons' own disabled logic is expressed in.
+		// The two positions counted in the PLAYER's own moves — what the counter
+		// shows. `reviewIdx` stays in plies because that is what the buttons' own
+		// disabled logic is expressed in.
 		reviewMoves: number;
 		totalMoves: number;
 		isReviewing: boolean;

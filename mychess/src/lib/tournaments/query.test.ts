@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { buildTournamentFilters, DEFAULT_PAGE_SIZE } from './query';
-import { SUPPORTED_FEDERATIONS } from './scraper-utils';
 
 describe('buildTournamentFilters', () => {
   it('defaults: all statuses, all time controls, Lithuania only, page 1', () => {

@@ -6,8 +6,6 @@ export const SUPPORTED_FEDERATIONS = [
   { code: 'LAT', name: 'Latvia' },
 ] as const;
 
-type FederationCode = (typeof SUPPORTED_FEDERATIONS)[number]['code'];
-
 export interface ScrapedTournamentDetails {
   startDate?: Date;
   endDate?: Date;

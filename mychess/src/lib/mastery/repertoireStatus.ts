@@ -108,9 +108,3 @@ export function deriveRepertoireStatusFromCounts(args: {
 	return currentlyMasteredChapterCount >= chapterCount ? 'mastered' : 'learned';
 }
 
-/** Display label for a status, used by the repertoire cards. */
-const STATUS_LABEL: Record<RepertoireStatus, string> = {
-	learning: 'Learning',
-	learned: 'Learned',
-	mastered: 'Mastered'
-};

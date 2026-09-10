@@ -73,7 +73,11 @@ export default tseslint.config(
 		}
 	},
 	{
-		files: ['**/*.test.ts', 'tests/**'],
+		// `src/lib/testing/**` is shared test scaffolding rather than a test file
+		// by name, and needs the same relaxation for the same reason: a stub that
+		// stands in for a Supabase query builder is `any` at its boundary, and
+		// typing it honestly would mean reimplementing the client's types.
+		files: ['**/*.test.ts', 'tests/**', 'src/lib/testing/**'],
 		rules: {
 			'@typescript-eslint/no-explicit-any': 'off',
 			'security/detect-object-injection': 'off'

@@ -575,7 +575,6 @@
 					{:else}
 						<MoveNavRow
 							{reviewIdx}
-							totalPlies={quizSteps.length}
 							reviewMoves={playerMovesIn(quizSteps, reviewIdx)}
 							totalMoves={playerMovesIn(quizSteps, quizSteps.length)}
 							{isReviewing}
@@ -671,7 +670,6 @@
 					{:else}
 						<MoveNavRow
 							{reviewIdx}
-							totalPlies={quizSteps.length}
 							reviewMoves={playerMovesIn(quizSteps, reviewIdx)}
 							totalMoves={playerMovesIn(quizSteps, quizSteps.length)}
 							{isReviewing}

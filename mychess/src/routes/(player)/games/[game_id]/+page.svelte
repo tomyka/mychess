@@ -186,7 +186,6 @@
 			{:else}
 				<MoveNavRow
 					{reviewIdx}
-					totalPlies={moves.length}
 					reviewMoves={reviewIdx}
 					totalMoves={moves.length}
 					isReviewing={true}

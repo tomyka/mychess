@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { requireAccount } from '$lib/server/auth';
 import { loadActivePreparation } from '$lib/server/active-openings';
+import { bySideThenName } from '$lib/openings/active';
 
 /**
  * The student's pre-game prep view (GitHub issue #203, part C of epic #119):
@@ -17,10 +18,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const preparation = await loadActivePreparation(locals.supabase, user!.id);
 
 	return {
-		// Sorted by side then opening name so White and Black group cleanly and
-		// the order does not shift between loads.
-		preparation: preparation.sort(
-			(a, b) => a.opening.side.localeCompare(b.opening.side) || a.opening.name.localeCompare(b.opening.name)
-		)
+		// The same order the coach's coverage report uses — see `bySideThenName`.
+		preparation: preparation.sort((a, b) => bySideThenName(a.opening, b.opening))
 	};
 };

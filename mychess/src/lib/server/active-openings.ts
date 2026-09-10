@@ -188,6 +188,40 @@ export async function repointActiveOpenings(supabase: SupabaseClient, repertoire
   }
 }
 
+/**
+ * Reclassify a repertoire by its ECO code, and carry its active mappings with
+ * it.
+ *
+ * The owner is the only one who may do this, hence the `player_id` scope — RLS
+ * enforces it too, but the filter turns a policy rejection into a plain
+ * "changed nothing".
+ *
+ * Shared because the coach's repertoire list and the player's own list offer
+ * the identical control and were, until this was extracted, byte-identical
+ * copies down to the comment. Two copies of a write that must be followed by
+ * `repointActiveOpenings` is exactly the shape in which one of them silently
+ * loses that call (#210 was three call sites; the third was found only by
+ * reading the file).
+ */
+export async function updateRepertoireEco(
+  supabase: SupabaseClient,
+  params: { ownerId: string; repertoireId: string; ecoCode: string | null; ecoName: string | null }
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('repertoires')
+    .update({ eco_code: params.ecoCode, eco_name: params.ecoName })
+    .eq('id', params.repertoireId)
+    .eq('player_id', params.ownerId);
+  if (error) return { error: error.message };
+
+  // The ECO code is what `resolveOpening` derives from on almost every
+  // repertoire, so editing it reclassifies the file as surely as the coach's
+  // curated override does, and any active mapping must follow it (#210).
+  await repointActiveOpenings(supabase, params.repertoireId);
+
+  return { error: null };
+}
+
 /** One opening a student has current preparation for, and the file that is it. */
 export type ActivePreparation = {
   opening: CuratedOpening;

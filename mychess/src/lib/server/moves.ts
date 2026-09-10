@@ -13,9 +13,9 @@ import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
  * removed — today, only by removing its chapter. It is retired rather than
  * deleted so the student's `reviews`/`move_attempts` history against it is not
  * destroyed, but note that nothing can un-retire a move any more: the flow
- * that did was removed with the re-upload subsystem (#211), and the surviving
- * caller of `apply_repertoire_update` always passes an empty
- * `p_unretire_move_ids`. Retiring is one-way until something restores it.
+ * that did went with the re-upload subsystem (#211), and migration 0080
+ * dropped the RPC parameter that carried it. Retiring is one-way in the code
+ * and in the schema until something deliberately restores it.
  *
  * A retired row must never resurface as something to enumerate, drill,
  * time-trial, or count.

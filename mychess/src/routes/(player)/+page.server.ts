@@ -1,4 +1,3 @@
-import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { ensureDailyQuests } from '$lib/server/quests';
 import { mapFideRow, ratingsByKind } from '$lib/fide/rank';

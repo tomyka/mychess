@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 import { scrapeTournamentList, scrapeTournamentDetails, scrapePlayers } from './scraper';
-import type { ScrapedTournament } from './types';
 
 export interface ScrapeJobResult {
   found: number;
