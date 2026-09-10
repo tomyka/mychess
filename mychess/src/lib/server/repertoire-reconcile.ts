@@ -1,7 +1,7 @@
 // mychess/src/lib/server/repertoire-reconcile.ts
 //
-// The Supabase I/O for LAZY reconciliation after a coach re-upload (GitHub
-// issue #118): one student, one repertoire, caught up to the repertoire's
+// The Supabase I/O for LAZY reconciliation after a coach reshapes a
+// repertoire: one student, one repertoire, caught up to the repertoire's
 // current shape on their next load. It reads the live shape and this student's
 // own progress, hands both to the pure planner in `$lib/repertoire-reconcile`,
 // and writes back exactly what the plan says. Every decision — what carries,

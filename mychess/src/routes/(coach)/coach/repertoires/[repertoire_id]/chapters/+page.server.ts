@@ -226,7 +226,7 @@ export const actions: Actions = {
 
 		// 2. Claim the repertoire — ONE conditional UPDATE that both checks the
 		// shape has not moved since the page was rendered and sets the deferral
-		// flag, so the two cannot be split by a concurrent re-upload apply.
+		// flag, so the two cannot be split by a concurrent apply.
 		const claimed = await beginUpdate(supabase, params.repertoire_id, movesUpdatedAt);
 		if (!claimed) {
 			return fail(409, { error: 'This repertoire changed since you opened this page. Reload and try again.' });

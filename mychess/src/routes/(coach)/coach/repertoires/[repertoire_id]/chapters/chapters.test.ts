@@ -89,7 +89,7 @@ describe('coach chapter manager', () => {
 		// 42 exclusive + (61 - 9) exclusive = 94; the 9 shared are reported separately.
 		expect(screen.getByText('Retires 94 lines for all 4 assigned students.')).toBeTruthy();
 		expect(screen.getByText('9 lines also belong to other chapters and will stay.')).toBeTruthy();
-		expect(screen.getByText('23 of them carry student progress — kept, in case the chapter returns.')).toBeTruthy();
+		expect(screen.getByText('23 of them carry student progress, which is kept but will no longer be reachable.')).toBeTruthy();
 	});
 
 	it('counts a shared line as REMOVED when every chapter claiming it is selected', async () => {
@@ -108,7 +108,7 @@ describe('coach chapter manager', () => {
 		expect(screen.getByText('Retires 61 lines for all 4 assigned students.')).toBeTruthy();
 		// Nothing is left holding them, so there is no "will stay" sentence.
 		expect(screen.queryByText(/will stay/)).toBeNull();
-		expect(screen.getByText('11 of them carry student progress — kept, in case the chapter returns.')).toBeTruthy();
+		expect(screen.getByText('11 of them carry student progress, which is kept but will no longer be reachable.')).toBeTruthy();
 	});
 
 	it('sends the selected chapter names and the shape they were computed against', async () => {

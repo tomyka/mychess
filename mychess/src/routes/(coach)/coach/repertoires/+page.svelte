@@ -132,11 +132,6 @@
                  class="text-sm bg-(--color-accent) text-white px-3 py-1.5 rounded-lg font-medium hover:bg-(--color-accent-hover) focus:bg-(--color-accent-hover) transition-colors shrink-0">
                 {m.coach_chapters_link()}
               </a>
-              <a href="/coach/repertoires/{rep.id}/update"
-                 title={m.coach_repertoires_update_title()}
-                 class="text-sm bg-(--color-accent) text-white px-3 py-1.5 rounded-lg font-medium hover:bg-(--color-accent-hover) focus:bg-(--color-accent-hover) transition-colors shrink-0">
-                {m.coach_repertoires_update_link()}
-              </a>
               <form method="POST" action="?/delete" use:enhance onsubmit={(e) => confirmDelete(e, rep.name)}>
                 <input type="hidden" name="rep_id" value={rep.id} />
                 <button class="text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-red-700 transition-colors shrink-0">{m.coach_repertoires_delete_button()}</button>

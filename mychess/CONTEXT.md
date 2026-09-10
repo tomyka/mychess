@@ -12,7 +12,7 @@ One full line, root to leaf, enumerated from a repertoire's move graph. Identifi
 _Avoid_: line (fine in prose, but "variation" is the identified, addressable unit).
 
 **Chapter**:
-A named grouping of variations within one PGN upload (from a multi-game or tagged PGN). A variation whose chapter is missing from a re-upload classifies as `removed` unless the coach chooses to keep that chapter.
+A named grouping of variations within one PGN upload (from a multi-game or tagged PGN). A coach can remove a chapter from a repertoire afterwards, in the chapter manager; its moves are retired rather than deleted, and every affected student's progress is carried forward (see *Reconciliation*).
 
 **Learn**:
 The teaching flow at `/learn/[repertoire_id]`: serves a learn unit in batches with arrows, then blind-retests the same batch, advancing until the unit is learned. Historically called "Practice" before #96 moved it here.
@@ -41,4 +41,5 @@ _Avoid_: using "mastery" for the breakdown page — call that "the mastery run" 
 *Solved* is a variation that has passed one full, clean (mistake-free, hint-free) replay in Learn all the way to its own true end — the only thing that writes `variation_solved` and so the only thing that enters the Practice pool. *Learned* is the weaker, unit-level bar: a learn unit whose every move is mastered, which takes it out of Learn without necessarily finishing the variation it was clipped from. Both rest on *mastered*, a ply-level counter (`masteredPlies`) tracking how far into a variation's moves the player has proven themselves, which a variation's siblings can inherit as a shared prefix.
 
 **Reconciliation**:
-Carrying a student's existing progress forward after a coach re-uploads or reshapes a repertoire — matching each of the student's stale progress keys onto the new shape, so learning a variation isn't silently lost just because its move ids changed.
+Carrying a student's existing progress forward after a coach reshapes a repertoire — currently only by removing a chapter — matching each of the student's stale progress keys onto the new shape, so learning a variation isn't silently lost just because its move ids changed. Lazy: it runs on the student's next load, after the new shape is already written, so it never sees what the coach did and reconstructs the mapping from the live shape alone.
+_Avoid_: describing it as part of a re-upload or repertoire "update" flow — that subsystem was removed in #211, and only the chapter manager reshapes a repertoire now.

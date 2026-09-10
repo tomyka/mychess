@@ -1,9 +1,9 @@
 // mychess/src/lib/server/coach-update-notice.ts
 //
 // The one number behind the student-facing "your coach updated this
-// repertoire" notice (GitHub issue #118, the design's Student notification
-// section): how many of this student's learned lines a coach's re-upload sent
-// back to review, and still have not been re-learned.
+// repertoire" notice: how many of this student's learned lines a coach's
+// reshape of it sent back to review, and still have not been re-learned.
+// Today the only such reshape is removing a chapter.
 //
 // Reconciliation (`./repertoire-reconcile.ts`) is what produces that state: a
 // line the coach extended or diverged loses its `variation_solved` row and
@@ -34,7 +34,7 @@ import { loadSolvedKeys } from './practice-progress';
  * actually re-learned hides the notice while the work is still outstanding, and
  * a flag left unset after they were shows a stale number forever. It would also
  * need a migration, a write path on a read-only page load, and a rule for what
- * clears it on the NEXT re-upload. The derived count needs none of that, and
+ * clears it on the NEXT reshape. The derived count needs none of that, and
  * cannot get stuck: it is recomputed from the rows themselves on every load.
  *
  * ## Why the anti-join happens in TypeScript
@@ -61,7 +61,7 @@ import { loadSolvedKeys } from './practice-progress';
  * the same 0 any other read failure yields.
  *
  * `DISTINCT` matters because `variation_demotions` is an append-only audit log:
- * a line demoted by two successive re-uploads has two rows, and counting rows
+ * a line demoted by two successive reshapes has two rows, and counting rows
  * rather than keys would tell the student two lines need review when one does.
  * Deduping is what the `Set` here is for.
  *

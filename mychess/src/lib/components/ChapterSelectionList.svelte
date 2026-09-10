@@ -14,8 +14,7 @@
 <!--
 	A `module` script, not the instance one: only a module-level export is a
 	real component export, which is what lets a consumer write
-	`import ChapterSelectionList, { type ChapterRow } from '…'`. Same shape
-	`RepertoireDiffReview.svelte` uses for `ReviewPreview`/`ReviewDecisions`.
+	`import ChapterSelectionList, { type ChapterRow } from '…'`.
 -->
 <script lang="ts" module>
 	export type ChapterRow = {
@@ -50,8 +49,8 @@
 		/**
 		 * The selection this component would like next. A callback rather than
 		 * `$bindable` deliberately: it is the shape almost every component in
-		 * this repo already uses (`RepertoireDiffReview`'s `ondecisions`,
-		 * `ExploreControls`' `onstop`, `OpeningPicker`'s `onclose`), and it
+		 * this repo already uses (`ExploreControls`' `onstop`,
+		 * `OpeningPicker`'s `onclose`), and it
 		 * keeps the selection owned by exactly one place — the caller, which
 		 * is also the party that derives its counts from it.
 		 */

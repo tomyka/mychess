@@ -174,7 +174,6 @@ export function removesEveryChapter(
 
 /**
  * Re-declared rather than `export { UNTAGGED_CHAPTER } from …` so the route
- * and the page need one import for everything chapter-removal-shaped. Matches
- * how `RepertoireDiffReview.svelte` re-declares its own re-exports.
+ * and the page need one import for everything chapter-removal-shaped.
  */
 export { UNTAGGED_CHAPTER };

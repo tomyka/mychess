@@ -367,196 +367,6 @@
 	"repertoire_tree_movegroup_include_aria": "Include {group} in {qualifier} in practice",
 	"repertoire_tree_movegroup_expand_aria": "Expand {group} in {qualifier}",
 	"repertoire_tree_movegroup_collapse_aria": "Collapse {group} in {qualifier}",
-	"diff_review_heading": "Review update before applying",
-	"diff_review_kind_unchanged": "Unchanged",
-	"diff_review_kind_extended": "Extended",
-	"diff_review_kind_truncated": "Shortened",
-	"diff_review_kind_diverged": "Diverged",
-	"diff_review_kind_new": "New",
-	"diff_review_kind_removed": "Removed",
-	"diff_review_badge_kept": "Kept",
-	"diff_review_chapters_nav_aria": "Chapters",
-	"diff_review_not_in_file": "not in file",
-	"diff_review_chapter_no_lines": "no lines",
-	"diff_review_chapter_absent_empty": "This chapter has no lines left to show — every line it held was matched to a line that stayed.",
-	"diff_review_chapter_empty": "Nothing to show for this chapter.",
-	"diff_review_consequence_unchanged": "No change — every student will keep their progress and their learned badge.",
-	"diff_review_consequence_new_fresh": "New line; students will start it from the first move.",
-	"diff_review_consequence_removed_spared": "This file does not mention its chapter, which you chose to keep — it will stay live and drillable, untouched.",
-	"diff_review_consequence_removed": "Will stop being drilled. Its learned badge is kept, so restoring the line restores it too.",
-	"diff_review_rename_question": "Is “{to}” a rename of “{from}”?",
-	"diff_review_rename_overlap_body": "of “{from}”’s lines turn up under “{to}”. Renaming keeps the chapter and its lines together; treating them as separate chapters lists “{from}” below as a chapter this file does not mention, where you decide whether to keep or retire its lines.",
-	"diff_review_rename_choice_rename": "Rename",
-	"diff_review_rename_choice_separate": "Separate chapter",
-	"diff_review_ambiguous_rename": "“{from}” looks like it became “{to}” — but so does another chapter, so no rename is offered for either. Accepting both would silently merge two chapters into one.",
-	"diff_review_omitted_explainer": "Keep leaves a chapter's lines exactly as they are — this file replaces only the chapters it names, so a kept chapter stays live and drillable and no student loses anything. Remove retires its lines: they stop being drilled, though each student's learned badge is kept in case you restore the chapter later. Keep is the default, so say Remove for each one you actually meant to drop.",
-	"diff_review_omitted_choice_keep": "Keep",
-	"diff_review_omitted_choice_remove": "Remove",
-	"diff_review_footer_note": "Students always see what changed — the banner on their next visit is built from these very changes, so there is nothing to switch off.",
-	"diff_review_cancel_button": "Cancel",
-	"diff_review_applying": "Applying…",
-	"diff_review_apply_button": "Apply update",
-	"diff_review_verdict_and": "and",
-	"diff_review_verdict_no_changes": "This file matches the repertoire exactly — applying it will change no lines and cost no student anything.",
-	"diff_review_verdict_wrapper": "Applying this will {shape}. {cost}",
-	"diff_review_cost_none": "No student will lose a learned badge.",
-	"diff_review_chip_of": "of",
-	"diff_review_untitled_chapter": "Untitled chapter",
-	"diff_review_verdict_add": [
-		{
-			"declarations": ["input n", "local nPlural = n: plural"],
-			"selectors": ["nPlural"],
-			"match": {
-				"nPlural=one": "add {n} line",
-				"nPlural=other": "add {n} lines"
-			}
-		}
-	],
-	"diff_review_verdict_reshape": [
-		{
-			"declarations": ["input n", "local nPlural = n: plural"],
-			"selectors": ["nPlural"],
-			"match": {
-				"nPlural=one": "reshape {n} line",
-				"nPlural=other": "reshape {n} lines"
-			}
-		}
-	],
-	"diff_review_verdict_retire": [
-		{
-			"declarations": ["input n", "local nPlural = n: plural"],
-			"selectors": ["nPlural"],
-			"match": {
-				"nPlural=one": "retire {n} line",
-				"nPlural=other": "retire {n} lines"
-			}
-		}
-	],
-	"diff_review_verdict_spared": [
-		{
-			"declarations": ["input n", "local nPlural = n: plural"],
-			"selectors": ["nPlural"],
-			"match": {
-				"nPlural=one": "leave {n} line in the chapters you kept untouched",
-				"nPlural=other": "leave {n} lines in the chapters you kept untouched"
-			}
-		}
-	],
-	"diff_review_cost_demoted": [
-		{
-			"declarations": [
-				"input demotedLineCount",
-				"input affectedPlayerCount",
-				"input assignedStudentCount",
-				"local countPlural = demotedLineCount: plural"
-			],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "{demotedLineCount} learned line will drop to review, across {affectedPlayerCount} of {assignedStudentCount}",
-				"countPlural=other": "{demotedLineCount} learned lines will drop to review, across {affectedPlayerCount} of {assignedStudentCount}"
-			}
-		}
-	],
-	"diff_review_cost_students_suffix": [
-		{
-			"declarations": ["input assignedStudentCount", "local countPlural = assignedStudentCount: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "student, on each student's next visit.",
-				"countPlural=other": "students, on each student's next visit."
-			}
-		}
-	],
-	"diff_review_chip_demoted_clause": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "learned line will drop to review, across",
-				"countPlural=other": "learned lines will drop to review, across"
-			}
-		}
-	],
-	"diff_review_chip_students_suffix": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "student",
-				"countPlural=other": "students"
-			}
-		}
-	],
-	"diff_review_header_students_assigned": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "student assigned",
-				"countPlural=other": "students assigned"
-			}
-		}
-	],
-	"diff_review_omitted_heading": [
-		{
-			"declarations": ["input n", "local nPlural = n: plural"],
-			"selectors": ["nPlural"],
-			"match": {
-				"nPlural=one": "This file does not mention {n} chapter. Remove it?",
-				"nPlural=other": "This file does not mention {n} chapters. Remove them?"
-			}
-		}
-	],
-	"diff_review_omitted_line_count": [
-		{
-			"declarations": ["input n", "local nPlural = n: plural"],
-			"selectors": ["nPlural"],
-			"match": {
-				"nPlural=one": "{n} line",
-				"nPlural=other": "{n} lines"
-			}
-		}
-	],
-	"diff_review_consequence_extended": [
-		{
-			"declarations": ["input n", "local nPlural = n: plural"],
-			"selectors": ["nPlural"],
-			"match": {
-				"nPlural=one": "{n} more ply at the end; depth will be kept, the learned badge will drop to review.",
-				"nPlural=other": "{n} more plies at the end; depth will be kept, the learned badge will drop to review."
-			}
-		}
-	],
-	"diff_review_consequence_truncated": [
-		{
-			"declarations": ["input n", "local nPlural = n: plural"],
-			"selectors": ["nPlural"],
-			"match": {
-				"nPlural=one": "Shorter by {n} ply; depth will be clamped to the new end and the learned badge kept.",
-				"nPlural=other": "Shorter by {n} plies; depth will be clamped to the new end and the learned badge kept."
-			}
-		}
-	],
-	"diff_review_consequence_diverged": [
-		{
-			"declarations": ["input commonPlies", "input moveNumber", "local countPlural = commonPlies: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "Changes from move {moveNumber}; the first {commonPlies} ply will be kept, the learned badge will drop to review.",
-				"countPlural=other": "Changes from move {moveNumber}; the first {commonPlies} plies will be kept, the learned badge will drop to review."
-			}
-		}
-	],
-	"diff_review_consequence_new_continued": [
-		{
-			"declarations": ["input commonPlies", "local countPlural = commonPlies: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "New line; students will start it at {commonPlies} ply, inherited from what they already know.",
-				"countPlural=other": "New line; students will start it at {commonPlies} plies, inherited from what they already know."
-			}
-		}
-	],
 	"coaches_request_error_active_relationship": "You already have an active relationship.",
 	"coaches_request_error_already_sent": "You already sent a request — waiting for a response.",
 	"coaches_request_error_pending_request": "There is already a pending request between you — respond to it instead.",
@@ -904,8 +714,6 @@
 	"curated_opening_picker_none_for_colour": "No openings listed for this colour yet.",
 	"curated_opening_picker_close_label": "Close",
 	"coach_repertoires_assign_title": "Assign to players",
-	"coach_repertoires_update_link": "Update from file",
-	"coach_repertoires_update_title": "Re-upload a revised PGN over this repertoire",
 	"coach_repertoires_delete_button": "Delete",
 	"coach_repertoires_assigned_to": "Assigned to: {names}",
 	"coach_repertoires_not_assigned": "Not assigned to anyone yet",
@@ -913,41 +721,8 @@
 	"coach_repertoires_no_active_students": "You don't have any active students yet.",
 	"coach_repertoires_unassign_button": "Remove",
 	"coach_repertoires_assign_button": "Assign",
-	"seo_coach_repertoire_update_title": "Update {name} — MyChess",
-	"coach_repertoire_update_applied_heading": "Update applied",
-	"coach_repertoire_update_applied_body": "“{name}” now matches {fileName}. Each student's progress will be carried forward on their next visit, and they will see what changed.",
-	"coach_repertoire_update_back_link": "Back to repertoires",
-	"coach_repertoire_update_apply_error_fallback": "Could not apply the update.",
-	"coach_repertoire_update_heading": "Update “{name}” from a file",
-	"coach_repertoire_update_intro": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "Upload the revised study. Nothing is written until you have read the review and pressed Apply, and {count} student assigned to this repertoire will keep the depth they have already earned.",
-				"countPlural=other": "Upload the revised study. Nothing is written until you have read the review and pressed Apply, and {count} students assigned to this repertoire will keep the depth they have already earned."
-			}
-		}
-	],
-	"coach_repertoire_update_preview_error_fallback": "Could not read that file.",
-	"coach_repertoire_update_file_label": "Revised .pgn file",
-	"coach_repertoire_update_choose_file_button": "Choose File",
-	"coach_repertoire_update_file_read_error": "Could not read that file — try exporting the study again.",
-	"coach_repertoire_update_chapters_read": [
-		{
-			"declarations": ["input count", "local countPlural = count: plural"],
-			"selectors": ["countPlural"],
-			"match": {
-				"countPlural=one": "{count} chapter read from this file.",
-				"countPlural=other": "{count} chapters read from this file."
-			}
-		}
-	],
-	"coach_repertoire_update_cancel_link": "Cancel",
-	"coach_repertoire_update_reading_button": "Reading…",
-	"coach_repertoire_update_review_button": "Review changes",
 	"coach_chapters_heading": "Chapters in “{name}”",
-	"coach_chapters_intro": "Removing a chapter takes its lines out of the repertoire for all {count} assigned students. This cannot be undone from here — re-uploading the PGN brings the chapter back.",
+	"coach_chapters_intro": "Removing a chapter takes its lines out of the repertoire for all {count} assigned students. This cannot be undone.",
 	"coach_chapters_summary": "{total} chapters · {selected} selected for removal",
 	"coach_chapters_meta": "{lines} lines",
 	"coach_chapters_meta_shared": "{lines} lines · {shared} shared",
@@ -975,7 +750,7 @@
 		}
 	],
 	"coach_chapters_confirm_lines": "Retires {lines} lines for all {students} assigned students.",
-	"coach_chapters_confirm_progress": "{lines} of them carry student progress — kept, in case the chapter returns.",
+	"coach_chapters_confirm_progress": "{lines} of them carry student progress, which is kept but will no longer be reachable.",
 	"coach_chapters_confirm_shared": "{lines} lines also belong to other chapters and will stay.",
 	"coach_chapters_confirm_cancel": "Cancel",
 	"coach_chapters_confirm_remove": "Remove",

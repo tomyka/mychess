@@ -11,9 +11,9 @@
 	"compilerOptions": {
 		"noEmit": true,
 		"types": ["node"],
-		// Without this, a script with no imports (anon-audit.ts) is treated as a
-		// global script rather than a module, and its top-level `const url` collides
-		// with every other script's.
+		// Without this, a script with no imports at all is treated as a global
+		// script rather than a module, and its top-level `const url` collides with
+		// every other script's.
 		"moduleDetection": "force",
 		"module": "esnext",
 		"target": "es2022"

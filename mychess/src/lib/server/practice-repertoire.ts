@@ -35,13 +35,16 @@ export async function fetchAllMoves(supabase: SupabaseClient, repertoireId: stri
  * Maps `fetchAllMoves`'s joined-select row shape into `RawMoveRow`s
  * `enumerateVariations` expects.
  *
- * `chapter_names` is de-duplicated here, order preserved. A coach re-upload of
- * a RENAMED chapter can genuinely produce a row holding the same name twice:
- * `writeMoves` MERGES `chapter_names` on conflict (correct for a first
- * multi-chapter import, where a transposing edge really does belong to several
- * chapters), so the upsert adds the new name beside the old one — and
- * `apply_repertoire_update`'s `array_replace(chapter_names, old, new)` then
- * turns the old one into the new one as well, leaving a duplicate.
+ * `chapter_names` is de-duplicated here, order preserved. A row can hold the
+ * same name twice: `writeMoves` MERGES `chapter_names` on conflict, which is
+ * correct for a multi-chapter import where a transposing edge really does
+ * belong to several chapters, but repeats a name if one import carries two
+ * chapters with the same title.
+ *
+ * The mechanism that used to produce these in bulk — `apply_repertoire_update`
+ * rewriting a renamed chapter with `array_replace` — is unreachable since
+ * #211: the one surviving caller always passes an empty `p_chapter_renames`.
+ * The dedupe stays for the import case above and for rows written before that.
  *
  * Normalising on read means nothing downstream has to care how a duplicate
  * arose. Today's consumers happen to tolerate one (`enumerateVariationsScoped`

@@ -1,15 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
 	planReconciliation,
-	projectImpact,
 	type CarryForward,
 	type SeedNew,
 	type PlayerProgress,
 	type TeachingRow,
-	type ImpactLine,
 	buildCarryForwardPlan
 } from './repertoire-reconcile';
-import type { VariationDiff } from './repertoire-diff';
 
 const OLD_KEY = 'm0>m1>m2>m3';
 const NEW_KEY = 'm0>m1>m2>m3>m4>m5';
@@ -272,85 +269,6 @@ describe('planReconciliation — lines collapsing onto one key', () => {
 		expect(new Set(demotionTargets).size).toBe(demotionTargets.length);
 		const insertTargets = plan.teachingInserts.map((i) => i.variationKey);
 		expect(new Set([...insertTargets, ...updateTargets]).size).toBe(insertTargets.length + updateTargets.length);
-	});
-});
-
-describe('projectImpact', () => {
-	const lines: ImpactLine[] = [
-		{ kind: 'unchanged', existingKey: 'u' },
-		{ kind: 'extended', existingKey: 'e' },
-		{ kind: 'truncated', existingKey: 't' },
-		{ kind: 'diverged', existingKey: 'd' },
-		{ kind: 'new', existingKey: null },
-		{ kind: 'removed', existingKey: 'r' }
-	];
-
-	it('counts each classification', () => {
-		expect(projectImpact(lines, []).counts).toEqual({
-			unchanged: 1,
-			extended: 1,
-			truncated: 1,
-			diverged: 1,
-			new: 1,
-			removed: 1
-		});
-	});
-
-	it('counts only students who lose a learned line', () => {
-		const impact = projectImpact(lines, [
-			{ playerId: 'p1', solved: ['e', 'd'] }, // both demoting kinds — loses 2
-			{ playerId: 'p2', solved: ['u', 't'] }, // both keep learned — loses 0
-			{ playerId: 'p3', solved: ['e'] } //        loses 1
-		]);
-		expect(impact.demotedLineCount).toBe(3);
-		expect(impact.affectedPlayerCount).toBe(2);
-	});
-
-	it('does not count a truncated or unchanged line as a demotion', () => {
-		const impact = projectImpact(lines, [{ playerId: 'p1', solved: ['u', 't'] }]);
-		expect(impact.demotedLineCount).toBe(0);
-		expect(impact.affectedPlayerCount).toBe(0);
-	});
-
-	it('counts a removed learned line separately from a demotion', () => {
-		// The row survives so restoring the line restores it, but the line is no
-		// longer drilled — a different fact from "dropped back to review".
-		const impact = projectImpact(lines, [{ playerId: 'p1', solved: ['r'] }]);
-		expect(impact.removedLearnedCount).toBe(1);
-		expect(impact.demotedLineCount).toBe(0);
-		expect(impact.affectedPlayerCount).toBe(0);
-	});
-
-	it('reports no impact when nobody learned an affected line', () => {
-		const impact = projectImpact(lines, [{ playerId: 'p1', solved: ['u'] }]);
-		expect(impact.demotedLineCount).toBe(0);
-		expect(impact.removedLearnedCount).toBe(0);
-		expect(impact.affectedPlayerCount).toBe(0);
-	});
-
-	it('reports zero for no students', () => {
-		const impact = projectImpact(lines, []);
-		expect(impact.demotedLineCount).toBe(0);
-		expect(impact.affectedPlayerCount).toBe(0);
-	});
-
-	it('ignores a solved key that no longer appears in the upload at all', () => {
-		const impact = projectImpact(lines, [{ playerId: 'p1', solved: ['ghost'] }]);
-		expect(impact.demotedLineCount).toBe(0);
-		expect(impact.affectedPlayerCount).toBe(0);
-	});
-
-	it('accepts classifyVariations output directly', () => {
-		// Structural compatibility with VariationDiff is the point — the coach's
-		// projection consumes the classifier's own output with no mapping step.
-		// Hoisted to a variable (rather than passed inline) so TS's excess-property
-		// check on object literals doesn't trip over VariationDiff's extra `sans`/
-		// `previousSans`/`commonPlies` fields — structural assignability is what's under test.
-		const diffs: VariationDiff[] = [
-			{ kind: 'diverged', existingKey: 'd', sans: ['e4'], previousSans: ['d4'], commonPlies: 1 }
-		];
-		const impact = projectImpact(diffs, [{ playerId: 'p1', solved: ['d'] }]);
-		expect(impact.demotedLineCount).toBe(1);
 	});
 });
 
