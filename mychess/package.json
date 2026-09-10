@@ -21,6 +21,7 @@
 		"anon:audit": "tsx --env-file=.env scripts/anon-audit.ts",
 		"anon:purge": "tsx --env-file=.env scripts/anon-purge.ts",
 		"schema:check": "tsx --env-file=.env scripts/schema-check.ts",
+		"openings:backfill-active": "tsx --env-file=.env scripts/backfill-active-openings.ts",
 		"epic95:metrics": "tsx --env-file=.env scripts/epic95-metrics.ts",
 		"qa:verify-learn": "tsx --env-file=.env scripts/qa-verify-learn.ts",
 		"debug:learn-plan": "tsx --env-file=.env scripts/debug-learn-plan.ts"
