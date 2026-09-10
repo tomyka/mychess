@@ -5,6 +5,7 @@ import { enumerateVariations, hasChapterTags, type RawMoveRow } from '$lib/maste
 import { masterableChapters } from '$lib/mastery/repertoireStatus';
 import { fetchAllMoves, toRawMoveRows } from './practice-repertoire';
 import { fetchAllPages } from './paginate';
+import { activateOpeningIfUnset } from './active-openings';
 
 export type GameImportResult = { repertoireId: string | null; gameCount: number; error: string | null };
 
@@ -138,6 +139,20 @@ export async function writeMoves(
     const { data: rep, error: repErr } = await supabase.from('repertoires').insert(insertColumns).select().single();
     if (repErr) return { repertoireId: null, error: repErr.message };
     repId = rep.id;
+
+    // The first repertoire an owner has for an opening becomes their active
+    // preparation for it (GitHub issue #202); a later one never displaces it.
+    // Deliberately non-fatal: the repertoire row is already written, and
+    // failing the whole import over a mapping would be a far worse outcome
+    // than an opening nobody has marked yet.
+    const activation = await activateOpeningIfUnset(supabase, {
+      playerId: params.playerId,
+      repertoireId: repId,
+      setBy: params.playerId
+    });
+    if (activation.error) {
+      console.error(`Failed to set the active opening for repertoire ${repId}:`, activation.error);
+    }
   }
 
   // Batch every write instead of doing 2 upserts + 2 selects + 1 upsert PER
