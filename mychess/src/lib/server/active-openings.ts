@@ -16,6 +16,41 @@ type ActivationParams = { playerId: string; repertoireId: string; setBy: string 
 type ActivationResult = { error: string | null };
 
 /**
+ * The repertoire's four resolvable columns, for someone entitled to set this
+ * student's active opening.
+ *
+ * Tries the caller's own read first, which covers every case where the person
+ * acting owns the repertoire — the overwhelmingly common one. Only when that
+ * returns nothing does it fall back to `repertoire_opening_source`, a
+ * `security definer` read gated on the same two predicates the insert policy
+ * uses (GitHub issue #209).
+ *
+ * That order matters. `repertoires`' RLS does not let a coach see a student's
+ * OWN upload, so the plain read returned nothing and the coach got "Repertoire
+ * not found" for a write the policy would have allowed. Going through the
+ * gated read only on that path means this keeps working unchanged wherever the
+ * plain read already succeeded, including before migration 0080 is applied.
+ */
+async function readOpeningSource(
+  supabase: SupabaseClient,
+  params: ActivationParams
+): Promise<ResolvableRepertoire | null> {
+  const { data: own } = await supabase
+    .from('repertoires')
+    .select(REPERTOIRE_OPENING_COLUMNS)
+    .eq('id', params.repertoireId)
+    .maybeSingle();
+  if (own) return own as unknown as ResolvableRepertoire;
+
+  const { data: gated } = await supabase.rpc('repertoire_opening_source', {
+    p_repertoire_id: params.repertoireId,
+    p_player_id: params.playerId
+  });
+  const row = (gated as ResolvableRepertoire[] | null)?.[0];
+  return row ?? null;
+}
+
+/**
  * Which opening a repertoire prepares is resolved HERE, in application code,
  * and never in SQL. `repertoires.opening_id` holds only a coach's explicit
  * override and is null on almost every row, so a `where opening_id = ...`
@@ -26,14 +61,10 @@ async function writeActive(
   params: ActivationParams,
   ignoreDuplicates: boolean
 ): Promise<ActivationResult> {
-  const { data: repertoire } = await supabase
-    .from('repertoires')
-    .select(REPERTOIRE_OPENING_COLUMNS)
-    .eq('id', params.repertoireId)
-    .maybeSingle();
+  const repertoire = await readOpeningSource(supabase, params);
   if (!repertoire) return { error: 'Repertoire not found' };
 
-  const opening = resolveOpening(repertoire as unknown as ResolvableRepertoire);
+  const opening = resolveOpening(repertoire);
   if (!opening) return { error: 'That repertoire has no curated opening' };
 
   const { error } = await supabase.from('active_opening_repertoires').upsert(

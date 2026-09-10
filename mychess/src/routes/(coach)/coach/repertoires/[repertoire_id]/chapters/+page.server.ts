@@ -262,8 +262,6 @@ export const actions: Actions = {
 		const { error: rpcErr } = await supabase.rpc('apply_repertoire_update', {
 			p_repertoire_id: params.repertoire_id,
 			p_retire_move_ids: plan.retireMoveIds,
-			p_unretire_move_ids: [],
-			p_chapter_renames: [],
 			p_total_variations: plan.totalVariations,
 			p_has_chapters: plan.hasChapters,
 			p_chapter_count: plan.chapterCount,
