@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { requireAccount } from '$lib/server/auth';
 import { listRelationshipsForCoach } from '$lib/server/coach-players';
+import { repointActiveOpenings } from '$lib/server/active-openings';
 import { CURATED_OPENINGS } from '$lib/openings/taxonomy';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -118,6 +119,11 @@ export const actions: Actions = {
 			.eq('player_id', user!.id);
 		if (error) return fail(500, { error: error.message });
 
+		// The ECO code is what `resolveOpening` derives from, so this
+		// reclassifies the repertoire as surely as the curated override below
+		// does, and every student's active mapping must follow it (#210).
+		await repointActiveOpenings(supabase, repId);
+
 		return { success: true };
 	},
 
@@ -155,6 +161,11 @@ export const actions: Actions = {
 			.eq('id', repId)
 			.eq('player_id', user!.id);
 		if (error) return fail(500, { error: error.message });
+
+		// This write changes what `resolveOpening` answers, so every student's
+		// active mapping for this repertoire has to follow it (GitHub issue
+		// #210) — otherwise a correction silently costs them their preparation.
+		await repointActiveOpenings(supabase, repId);
 
 		return { success: true };
 	}

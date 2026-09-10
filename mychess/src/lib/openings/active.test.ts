@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { activeByOpening, isActiveRowStale, REPERTOIRE_OPENING_COLUMNS } from './active';
+import { activeByOpening, isActiveRowStale, planActiveOpeningRepoint, REPERTOIRE_OPENING_COLUMNS } from './active';
 import type { CuratedOpening } from './taxonomy';
 
 const TAXONOMY: CuratedOpening[] = [
@@ -72,6 +72,33 @@ describe('activeByOpening', () => {
     );
 
     expect(map.get('alapin-white')?.name).toBe('My Alapin');
+  });
+});
+
+describe('planActiveOpeningRepoint', () => {
+  const rows = [
+    { opening_id: 'alapin-white', repertoire_id: 'rep-1' },
+    { opening_id: 'alapin-white', repertoire_id: 'rep-1' }
+  ];
+
+  // The coach corrected what the repertoire IS; they said nothing about whose
+  // current preparation it is, so the choice follows rather than evaporating.
+  it('repoints every mapping onto the new opening', () => {
+    const plan = planActiveOpeningRepoint(rows, 'najdorf-black');
+    expect(plan.repoint).toHaveLength(2);
+    expect(plan.remove).toEqual([]);
+  });
+
+  it('removes the mappings when the repertoire now resolves to no opening', () => {
+    const plan = planActiveOpeningRepoint(rows, null);
+    expect(plan.repoint).toEqual([]);
+    expect(plan.remove).toHaveLength(2);
+  });
+
+  // A no-op edit — re-picking the value already stored — must write nothing.
+  it('leaves a mapping that already names the destination alone', () => {
+    const plan = planActiveOpeningRepoint(rows, 'alapin-white');
+    expect(plan).toEqual({ repoint: [], remove: [] });
   });
 });
 

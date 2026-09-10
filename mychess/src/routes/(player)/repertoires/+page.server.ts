@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
+import { repointActiveOpenings } from '$lib/server/active-openings';
 import { requireAccount } from '$lib/server/auth';
 import { loadRepertoireProgressSummaries } from '$lib/server/repertoire-progress';
 
@@ -65,6 +66,11 @@ export const actions: Actions = {
 			.eq('id', repId)
 			.eq('player_id', user!.id);
 		if (error) return fail(500, { error: error.message });
+
+		// The ECO code is what `resolveOpening` derives from on almost every
+		// repertoire, so editing it reclassifies the file just as surely as the
+		// coach's override does — and any active mapping must follow (#210).
+		await repointActiveOpenings(supabase, repId);
 
 		return { success: true };
 	}

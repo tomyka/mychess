@@ -52,6 +52,31 @@ export function isActiveRowStale(
   return resolveOpening(repertoire, taxonomy)?.id !== row.opening_id;
 }
 
+/**
+ * What to do with a repertoire's active mappings once it has been reclassified
+ * (GitHub issue #210).
+ *
+ * Reclassifying is a correction to what a repertoire *is*, and says nothing
+ * about whose current preparation it is — so a mapping follows its repertoire
+ * to the new opening rather than being dropped. Where the repertoire now
+ * resolves to no curated opening there is nothing to follow to, and the row is
+ * removed rather than left behind pointing at an opening this repertoire no
+ * longer prepares.
+ *
+ * A row already naming the destination is left alone, so a no-op edit writes
+ * nothing.
+ */
+export function planActiveOpeningRepoint(
+  rows: ActiveOpeningRow[],
+  newOpeningId: string | null
+): { repoint: ActiveOpeningRow[]; remove: ActiveOpeningRow[] } {
+  if (newOpeningId === null) return { repoint: [], remove: rows };
+  return {
+    repoint: rows.filter((row) => row.opening_id !== newOpeningId),
+    remove: []
+  };
+}
+
 /** The student's active repertoire per opening, stale rows dropped. */
 export function activeByOpening<T extends ResolvableRepertoire>(
   repertoires: T[],

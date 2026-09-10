@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveOpening } from '$lib/openings/resolve';
 import {
   activeByOpening,
+  planActiveOpeningRepoint,
   REPERTOIRE_OPENING_COLUMNS,
   type ActiveOpeningRow,
   type ResolvableRepertoire
@@ -76,6 +77,70 @@ export async function activateOpeningIfUnset(
   const { error } = await writeActive(supabase, params, true);
   if (error) {
     console.error(`Failed to set the active opening for repertoire ${params.repertoireId}:`, error);
+  }
+}
+
+/**
+ * Follow every active mapping for this repertoire to wherever it now resolves
+ * (GitHub issue #210). Call after ANY write that changes what `resolveOpening`
+ * answers — the coach's `opening_id` override, or the owner's `eco_code`.
+ *
+ * Without this the rows keep naming the old opening, read as stale, and are
+ * silently dropped: every student holding that repertoire loses their active
+ * preparation because of what looked like a correction.
+ *
+ * Best-effort and self-logging, like `activateOpeningIfUnset`: the
+ * reclassification itself has already succeeded by the time this runs, and
+ * failing it afterwards would be the worse outcome.
+ */
+export async function repointActiveOpenings(supabase: SupabaseClient, repertoireId: string): Promise<void> {
+  const { data: repertoire } = await supabase
+    .from('repertoires')
+    .select(REPERTOIRE_OPENING_COLUMNS)
+    .eq('id', repertoireId)
+    .maybeSingle();
+  if (!repertoire) return;
+
+  const { data } = await supabase
+    .from('active_opening_repertoires')
+    .select('opening_id, repertoire_id')
+    .eq('repertoire_id', repertoireId);
+  const rows = (data ?? []) as ActiveOpeningRow[];
+  if (rows.length === 0) return;
+
+  const opening = resolveOpening(repertoire as unknown as ResolvableRepertoire);
+  const { repoint, remove } = planActiveOpeningRepoint(rows, opening?.id ?? null);
+
+  for (const row of remove) {
+    const { error } = await supabase
+      .from('active_opening_repertoires')
+      .delete()
+      .eq('repertoire_id', repertoireId)
+      .eq('opening_id', row.opening_id);
+    if (error) console.error(`Failed to drop the active opening for repertoire ${repertoireId}:`, error.message);
+  }
+
+  for (const row of repoint) {
+    const { error } = await supabase
+      .from('active_opening_repertoires')
+      .update({ opening_id: opening!.id, updated_at: new Date().toISOString() })
+      .eq('repertoire_id', repertoireId)
+      .eq('opening_id', row.opening_id);
+    if (!error) continue;
+
+    // The student already has a different active repertoire for the
+    // destination opening, and the primary key refuses a second. Incumbent
+    // wins, matching the rule everywhere else here: a later arrival never
+    // displaces a standing choice. The moving row is dropped rather than left
+    // pointing at an opening this repertoire no longer prepares.
+    const { error: dropError } = await supabase
+      .from('active_opening_repertoires')
+      .delete()
+      .eq('repertoire_id', repertoireId)
+      .eq('opening_id', row.opening_id);
+    if (dropError) {
+      console.error(`Failed to resolve an active-opening collision for repertoire ${repertoireId}:`, dropError.message);
+    }
   }
 }
 
