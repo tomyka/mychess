@@ -47,3 +47,46 @@ describe('MoveNavRow', () => {
 		expect(onExplore).not.toHaveBeenCalled();
 	});
 });
+
+// GitHub issue #217. The hint offer used to be a 48px card above the board on
+// mobile (PracticeStatusStrip's hintable slot). Here it costs no height at all,
+// because this row already exists.
+describe('MoveNavRow hint key', () => {
+	it('does not render a hint button when onhint is omitted', () => {
+		render(MoveNavRow, { props: baseProps });
+		expect(screen.queryByRole('button', { name: 'Need a hint?' })).toBeNull();
+	});
+
+	it('renders a working hint button when onhint is provided', async () => {
+		const onhint = vi.fn();
+		const { getByRole } = render(MoveNavRow, { props: { ...baseProps, onhint } });
+		const button = getByRole('button', { name: 'Need a hint?' });
+		await button.click();
+		expect(onhint).toHaveBeenCalledTimes(1);
+	});
+
+	// Same rule the explore key earned in #161: a caller that offers hints at
+	// all passes a stable `onhint` for the page's lifetime and toggles
+	// `hintDisabled`. Swapping the prop itself would change the column count
+	// (6 vs 7) on every phase change and shift the row under the board.
+	it('keeps the hint button mounted, just disabled, when hintDisabled is set', async () => {
+		const onhint = vi.fn();
+		const { getByRole } = render(MoveNavRow, {
+			props: { ...baseProps, onhint, hintDisabled: true }
+		});
+		const button = getByRole('button', { name: 'Need a hint?' }) as HTMLButtonElement;
+		expect(button.disabled).toBe(true);
+		await button.click();
+		expect(onhint).not.toHaveBeenCalled();
+	});
+
+	// The column count is what the #161 comment is actually protecting, so
+	// assert it rather than trusting the two flags above to imply it.
+	it('grids to seven columns when both the explore and hint keys are present', () => {
+		const { container } = render(MoveNavRow, {
+			props: { ...baseProps, onExplore: vi.fn(), onhint: vi.fn(), hintDisabled: true }
+		});
+		const row = container.querySelector('div.grid') as HTMLElement;
+		expect(row.className).toContain('grid-cols-7');
+	});
+});

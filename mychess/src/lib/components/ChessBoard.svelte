@@ -26,6 +26,18 @@
 		// a pulsing amber ring and a lightbulb badge — never the destination,
 		// so it points at a piece without giving away where it should go.
 		hintSquare?: Key | null;
+		/**
+		 * A short mode note to float on the board's top edge — "exploring",
+		 * "now play it from memory" and the like (GitHub issue #217).
+		 *
+		 * An overlay rather than a row, so it cannot move the board: mobile Learn
+		 * drops `PracticeStatusStrip` because the strip mostly restated feedback
+		 * this component already draws, and the states that DO need words must
+		 * not cost the 48px the strip reserved to stay shift-free (#113).
+		 * `lg:hidden` on the region below keeps it to mobile — desktop still has
+		 * the strip, and two live regions would announce the same thing twice.
+		 */
+		note?: string | null;
 		// The correct move to reveal during a teaching pass — a native
 		// chessground arrow (both orig and dest set), distinct from
 		// hintSquare's origin-only ring. Cleared the instant the move lands
@@ -75,6 +87,7 @@
 		onmove,
 		hintSquare = null,
 		arrowMove = null,
+		note = null,
 		containerFit = false,
 		boxWidth = $bindable(0)
 	}: Props = $props();
@@ -286,4 +299,21 @@
 	{/if}
 	<!-- moveFeedback is drawn by chessground itself via drawable.autoShapes/
 	     feedbackShapes(), not a template block — see buildConfig() above. -->
+
+	<!-- The region itself is permanent and only its contents change: mounting a
+	     live region at the same moment its text appears is the classic way to
+	     get no announcement at all. Costs nothing while empty — it is absolutely
+	     positioned, so it is outside the layout either way. -->
+	<div
+		role="status"
+		class="lg:hidden absolute inset-x-0 top-0 flex justify-center p-2 pointer-events-none"
+	>
+		{#if note}
+			<span
+				class="rounded-full border border-amber-500/80 bg-amber-100/95 px-2.5 py-1 text-xs font-semibold text-amber-800 shadow-md dark:border-amber-400/60 dark:bg-amber-950/95 dark:text-amber-200"
+			>
+				{note}
+			</span>
+		{/if}
+	</div>
 </div>

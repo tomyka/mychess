@@ -26,7 +26,9 @@
 		onforward,
 		onlive,
 		onExplore,
-		exploreDisabled = false
+		exploreDisabled = false,
+		onhint,
+		hintDisabled = false
 	}: {
 		reviewIdx: number;
 		// The two positions counted in the PLAYER's own moves — what the counter
@@ -52,14 +54,33 @@
 		// a different name.
 		onExplore?: () => void;
 		exploreDisabled?: boolean;
+		/**
+		 * Adds a "need a hint?" key (GitHub issue #217). On mobile the offer used
+		 * to be a 48px card above the board — PracticeStatusStrip's hintable slot
+		 * — which is a whole row of height for one button; here it costs none,
+		 * because this row is already on screen.
+		 *
+		 * Same static contract as `onExplore` above, for the same reason: pass a
+		 * stable function for the page's lifetime and toggle `hintDisabled`.
+		 * Swapping this prop between a function and undefined would move the row
+		 * between 6 and 7 columns on every phase change.
+		 */
+		onhint?: () => void;
+		hintDisabled?: boolean;
 	} = $props();
+
+	// Spelled out as whole literals rather than composed, so Tailwind's scanner
+	// actually sees each class.
+	const columnClass = $derived(
+		onExplore && onhint ? 'grid-cols-7' : onExplore || onhint ? 'grid-cols-6' : 'grid-cols-5'
+	);
 
 	const buttonClass =
 		'py-2 rounded-xl bg-(--color-surface) border border-(--color-border) text-(--color-text) disabled:opacity-30 disabled:cursor-not-allowed hover:bg-(--color-border)/40';
 </script>
 
 <div
-	class="grid {onExplore ? 'grid-cols-6' : 'grid-cols-5'} gap-2 mt-4 shrink-0 mx-auto w-full items-center"
+	class="grid {columnClass} gap-2 mt-4 shrink-0 mx-auto w-full items-center"
 	style={boardWidth ? `max-width: ${boardWidth}px` : ''}
 >
 	<button onclick={onstart} disabled={reviewIdx <= 0} aria-label={m.move_nav_jump_to_start()} class={buttonClass}>
@@ -108,6 +129,33 @@
 				<line x1="10.5" y1="7.5" x2="10.5" y2="13.5" />
 				<line x1="7.5" y1="10.5" x2="13.5" y2="10.5" />
 				<line x1="15.3" y1="15.3" x2="20" y2="20" />
+			</svg>
+		</button>
+	{/if}
+	{#if onhint}
+		<button
+			onclick={onhint}
+			disabled={hintDisabled}
+			aria-label={m.practice_status_need_hint()}
+			class={buttonClass}
+		>
+			<!-- A bulb, drawn in the same stroked style as the explore key beside
+			     it rather than as the 💡 the old card used: the emoji rendered at a
+			     different optical weight to the five glyphs it now sits with. The
+			     ring this button raises on the board still carries the emoji. -->
+			<svg
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.8"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				class="w-4 h-4 mx-auto"
+				aria-hidden="true"
+			>
+				<path d="M9 18h6" />
+				<path d="M10 21h4" />
+				<path d="M12 3a6 6 0 0 0-3.5 10.9c.3.2.5.6.5 1V15h6v-.1c0-.4.2-.8.5-1A6 6 0 0 0 12 3z" />
 			</svg>
 		</button>
 	{/if}
