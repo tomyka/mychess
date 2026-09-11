@@ -54,13 +54,13 @@ describe('MoveNavRow', () => {
 describe('MoveNavRow hint key', () => {
 	it('does not render a hint button when onhint is omitted', () => {
 		render(MoveNavRow, { props: baseProps });
-		expect(screen.queryByRole('button', { name: 'Need a hint?' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Show a hint' })).toBeNull();
 	});
 
 	it('renders a working hint button when onhint is provided', async () => {
 		const onhint = vi.fn();
 		const { getByRole } = render(MoveNavRow, { props: { ...baseProps, onhint } });
-		const button = getByRole('button', { name: 'Need a hint?' });
+		const button = getByRole('button', { name: 'Show a hint' });
 		await button.click();
 		expect(onhint).toHaveBeenCalledTimes(1);
 	});
@@ -74,7 +74,7 @@ describe('MoveNavRow hint key', () => {
 		const { getByRole } = render(MoveNavRow, {
 			props: { ...baseProps, onhint, hintDisabled: true }
 		});
-		const button = getByRole('button', { name: 'Need a hint?' }) as HTMLButtonElement;
+		const button = getByRole('button', { name: 'Show a hint' }) as HTMLButtonElement;
 		expect(button.disabled).toBe(true);
 		await button.click();
 		expect(onhint).not.toHaveBeenCalled();

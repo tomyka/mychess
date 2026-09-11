@@ -40,6 +40,26 @@ function playMove(from: string, to: string) {
 	cgMock.boards[cgMock.boards.length - 1].config.movable.events.after(from, to);
 }
 
+/**
+ * The learned/total count, asserted on BOTH surfaces that carry it.
+ *
+ * Desktop's progress panel spells the sentence out; the mobile line below the
+ * board shows the bare "3/5" with the sentence as its accessible name, because
+ * at 412px the full phrasing truncated mid-word once the two controls beside it
+ * took their share (#217). These used to be one `getAllByText(...).length === 2`
+ * assertion, which the compact count would have quietly turned into a
+ * one-surface check.
+ */
+function expectProgress(solved: number, total: number) {
+	const sentence = `${solved} / ${total} variations learned`;
+	// Desktop panel: the sentence as text.
+	expect(screen.getAllByText(sentence).length).toBe(1);
+	// Mobile line: the same sentence as the accessible name, and the bare count
+	// as what is actually on screen.
+	const compact = screen.getByLabelText(sentence);
+	expect(compact.textContent?.replace(/\s+/g, '')).toBe(`${solved}/${total}`);
+}
+
 beforeEach(() => {
 	cgMock.boards.length = 0;
 	// The permanent desktop rail (#93) fetches its own learn-unit list
@@ -175,7 +195,7 @@ describe('learn detail page', () => {
 		expect(screen.queryByText(/Repertoire learned/i)).toBeNull();
 		// The practice chrome renders instead (name appears once in the header).
 		expect(screen.getAllByText('French Defense').length).toBe(1);
-		expect(screen.getAllByText('5 / 5 variations learned').length).toBe(2);
+		expectProgress(5, 5);
 	});
 
 	it('shows the repertoire name and learned/total progress while an attempt is in flight', () => {
@@ -204,7 +224,7 @@ describe('learn detail page', () => {
 		// The repertoire name renders once in the header; progress renders
 		// twice (mobile card + desktop sidebar).
 		expect(screen.getAllByText('French Defense').length).toBe(1);
-		expect(screen.getAllByText('3 / 5 variations learned').length).toBe(2);
+		expectProgress(3, 5);
 	});
 
 	it('shows a "Switch variation" control whenever a repertoire is loaded', () => {
@@ -630,7 +650,11 @@ describe('learn detail page', () => {
 		playMove('g1', 'f3');
 		await vi.advanceTimersByTimeAsync(500); // the correct-move hold
 
-		expect(screen.getByText(/now play it from memory/i)).toBeTruthy();
+		// Asserted through the live region rather than by text: from #217 the cue
+		// renders twice on purpose — once in the sr-only strip that announces it,
+		// and once as the board's own visual pill on mobile. The region is the
+		// single accessible source, so it is the one worth pinning.
+		expect(screen.getByRole('status').textContent).toMatch(/now play it from memory/i);
 		// 'transition' is still the FINISHED pass: nextAttempt() hasn't run, so
 		// nothing has rewound the board yet — the cue lands ahead of the reset,
 		// not after it.
@@ -645,10 +669,10 @@ describe('learn detail page', () => {
 		await vi.advanceTimersByTimeAsync(500 + 1200 + 50); // hold, cue hold, next attempt loads
 
 		expect(phaseNow()).not.toBe('transition'); // the blind retest is now up
-		expect(screen.getByText(/now play it from memory/i)).toBeTruthy();
+		expect(screen.getByRole('status').textContent).toMatch(/now play it from memory/i);
 
 		await vi.advanceTimersByTimeAsync(2000);
-		expect(screen.queryByText(/now play it from memory/i)).toBeNull();
+		expect(screen.getByRole('status').textContent).not.toMatch(/now play it from memory/i);
 	});
 
 	it('does not cue a final pass — that solves the variation instead of re-asking for it', async () => {
@@ -661,7 +685,7 @@ describe('learn detail page', () => {
 		// The optimistic solved bump fires only for a FINAL pass, so seeing the
 		// count move is proof this really was played out as one — the missing cue
 		// below isn't just a move that failed to land.
-		expect(screen.getAllByText('1 / 1 variations learned').length).toBe(2);
+		expectProgress(1, 1);
 		expect(phaseNow()).toBe('advancing');
 		expect(screen.queryByText(/now play it from memory/i)).toBeNull();
 	});
@@ -679,7 +703,7 @@ describe('learn detail page', () => {
 		playMove('g1', 'f3');
 		await vi.advanceTimersByTimeAsync(500);
 
-		expect(screen.getAllByText('0 / 1 variations learned').length).toBe(2);
+		expectProgress(0, 1);
 		expect(screen.getByText('0 learned this session')).toBeTruthy();
 	});
 
@@ -764,7 +788,90 @@ describe('learn detail page', () => {
 		await vi.advanceTimersByTimeAsync(500);
 
 		// A dirty final pass must not bump solved (optimisticSolvedAfterAttempt(hadMistake=true)).
-		expect(screen.getAllByText('0 / 1 variations learned').length).toBe(2);
+		expectProgress(0, 1);
+	});
+
+	// GitHub issue #217. The ring was always the hint; the tap was only the
+	// offer, and on mobile that offer cost a 48px card above the board.
+	it('rings the correct piece on a wrong move, with no tap', async () => {
+		vi.useFakeTimers();
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
+
+		// Nothing is being pointed at yet — the control for the assertion below,
+		// so a ring that was always up could not pass this test.
+		expect(screen.queryByLabelText('Hint: move this piece')).toBeNull();
+
+		playMove('b1', 'c3'); // wrong: Nf3 is the book move here
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(screen.getByLabelText('Hint: move this piece')).toBeTruthy();
+		expect(screen.getByRole('status').textContent).toMatch(/Not that move/i);
+	});
+
+	// The whole reason the reveal sits on the wrong-move branch and not on a
+	// timer: it must not be able to cost a pass anything the mistake had not
+	// already cost it. `advanceTeachingProgress` advances nothing at all on a
+	// dirty pass, so a reveal that fired BEFORE a mistake would silently void a
+	// pass the player was about to get right.
+	it('does not charge the pass twice for the reveal it gave away', async () => {
+		vi.useFakeTimers();
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true }, 'hang');
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
+
+		playMove('b1', 'c3'); // wrong
+		await vi.advanceTimersByTimeAsync(0);
+		playMove('g1', 'f3'); // then the book move
+		await vi.advanceTimersByTimeAsync(500);
+
+		// One mistake reported, not two — and the pass is dirty either way, which
+		// is exactly why the reveal was free.
+		expect(screen.getByText(/1 mistake this attempt/i)).toBeTruthy();
+		expectProgress(0, 1);
+	});
+
+	// Mobile has no visible strip to tap, so the offer lives in the row of
+	// controls already under the board. Static, per the rule the explore key
+	// earned in #161: present at every phase and merely disabled, because
+	// swapping the prop would move the row between 6 and 7 columns.
+	it('keeps a hint key in the controls under the board, enabled only when a hint is on offer', async () => {
+		vi.useFakeTimers();
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
+
+		const key = screen.getByRole('button', { name: 'Show a hint' }) as HTMLButtonElement;
+		expect(key.disabled).toBe(false);
+
+		await fireEvent.click(key);
+		expect(screen.getByLabelText('Hint: move this piece')).toBeTruthy();
+	});
+
+	it('keeps the hint key mounted but disabled where there is nothing to hint', async () => {
+		vi.useFakeTimers();
+		// arrowPlies covers the ply the board lands on, so the move is already
+		// drawn and `hintOffered` is false.
+		renderAttempt(AUTO_PLAY_ATTEMPT);
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
+
+		const key = screen.getByRole('button', { name: 'Show a hint' }) as HTMLButtonElement;
+		expect(key).toBeTruthy(); // still there: disappearing would reflow the row
+		expect(key.disabled).toBe(true);
+	});
+
+	// The strip is hidden from sight on mobile, NOT unmounted. Those ✓/✗ badges
+	// it stopped duplicating are SVG drawn onto a square — worth nothing to a
+	// screen reader — so it has to stay the page's one live region at every
+	// width, while costing no layout height where it is not shown.
+	it('keeps the status strip audible on mobile while taking none of the height', async () => {
+		vi.useFakeTimers();
+		renderAttempt({ ...AUTO_PLAY_ATTEMPT, arrowPlies: null, isFinalPass: true });
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
+
+		const region = screen.getByRole('status');
+		const wrapper = region.parentElement as HTMLElement;
+		expect(wrapper.className).toContain('sr-only');
+		expect(wrapper.className).toContain('lg:not-sr-only');
+		expect(wrapper.className).not.toContain('hidden');
 	});
 
 	it('offers no hint on a ply whose move is already drawn as a teaching arrow', async () => {
@@ -811,7 +918,9 @@ describe('learn detail page', () => {
 		const fenBefore = cgMock.boards[cgMock.boards.length - 1].config.fen;
 		await fireEvent.click(screen.getAllByRole('button', { name: 'Explore this position' })[0]);
 
-		expect(screen.getByText(/Exploring — nothing counts here/i)).toBeTruthy();
+		// Via the live region: #217 also paints this on the board as a pill, so
+		// the copy is deliberately on screen twice at mobile widths.
+		expect(screen.getByRole('status').textContent).toMatch(/Exploring — nothing counts here/i);
 		// A move that would be WRONG in the drill is simply legal here.
 		playMove('b1', 'c3');
 		await vi.advanceTimersByTimeAsync(0);
@@ -827,7 +936,7 @@ describe('learn detail page', () => {
 		// board the excursion was played on, and solves the (final) pass.
 		playMove('g1', 'f3');
 		await vi.advanceTimersByTimeAsync(500);
-		expect(screen.getAllByText('1 / 1 variations learned').length).toBe(2);
+		expectProgress(1, 1);
 	});
 
 	it('undoes explored moves one at a time', async () => {

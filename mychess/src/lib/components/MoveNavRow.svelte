@@ -64,6 +64,12 @@
 		 * stable function for the page's lifetime and toggle `hintDisabled`.
 		 * Swapping this prop between a function and undefined would move the row
 		 * between 6 and 7 columns on every phase change.
+		 *
+		 * Labelled "Show a hint" rather than reusing the strip's "Need a hint?":
+		 * a caller may well have both on screen at once — Learn keeps the strip
+		 * mounted as `sr-only` on mobile so it can go on announcing — and two
+		 * controls answering to one name is a worse outcome for a screen reader
+		 * than two names for two affordances. The strip asks; this one acts.
 		 */
 		onhint?: () => void;
 		hintDisabled?: boolean;
@@ -136,7 +142,7 @@
 		<button
 			onclick={onhint}
 			disabled={hintDisabled}
-			aria-label={m.practice_status_need_hint()}
+			aria-label={m.move_nav_show_hint()}
 			class={buttonClass}
 		>
 			<!-- A bulb, drawn in the same stroked style as the explore key beside

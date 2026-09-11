@@ -11,6 +11,7 @@
 	import { moveSequenceLabel, moveSequenceRows, type VariationStep } from '$lib/mastery/variations';
 	import type { Band } from '$lib/mastery/learnUnits';
 	import { positionAt, playerMovesIn, hintSquareFor, makeReviewNav, makeReviewKeyHandler } from '$lib/mastery/playback';
+	import { boardNoteFor } from '$lib/mastery/boardNote';
 	import { logMove } from '$lib/moveLog';
 	import { ExploreSession } from '$lib/mastery/explore.svelte';
 	import { LearnDrill, CUE_HOLD_MS } from '$lib/mastery/learnDrill.svelte';
@@ -218,6 +219,13 @@
 		return 'blind';
 	});
 
+	// What the mobile board says for itself (GitHub issue #217). Only the states
+	// the board cannot show — exploring, the between-passes cue, the autoplay
+	// intro — come back non-null; the rest are already drawn on the squares. The
+	// pill is `lg:hidden` inside ChessBoard, so computing it on desktop too is
+	// harmless and keeps the two layouts reading from one derivation.
+	const boardNote = $derived(boardNoteFor(stripState));
+
 	/**
 	 * Raises the between-passes cue and keeps it up across the board reset that
 	 * follows. Its timeout is deliberately NOT cleared when a new attempt
@@ -423,23 +431,27 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <main
-	class="min-h-screen lg:min-h-0 lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-(--color-bg) p-4 max-w-7xl mx-auto pb-24 lg:pb-4 flex flex-col"
+	class="min-h-screen lg:min-h-0 lg:h-[calc(100vh-4rem)] lg:overflow-hidden bg-(--color-bg) px-4 pt-0 lg:pt-4 pb-4 max-w-7xl mx-auto flex flex-col"
 	data-phase={drill.phase}
 >
-	<div class="mb-3 flex items-center justify-between gap-3 shrink-0">
+	<!-- Board-first on mobile (GitHub issue #217): while a drill is up this row
+	     is desktop-only, and its mobile counterpart sits below the board instead,
+	     so nothing informational comes between the navbar and the board. The two
+	     branches with no board — learned, and nothing-to-learn — have all the
+	     room in the world, and keep it here at the top.
+
+	     No "Switch variation" button here any more. It was always `lg:hidden` —
+	     desktop switches from the permanent rail beside the board (#93) — so with
+	     the row itself now desktop-only while drilling, it could never render;
+	     the mobile row below owns it. -->
+	<div
+		class="mb-3 items-center justify-between gap-3 shrink-0 {attempt ? 'hidden lg:flex' : 'flex'}"
+	>
 		<a href="/practice" class="text-(--color-muted) text-sm hover:text-(--color-text) shrink-0">{m.learn_all_repertoires_link()}</a>
 		{#if data.repertoire?.name}
 			<h1 class="text-(--color-text) font-bold text-base sm:text-lg truncate text-center flex-1 min-w-0">
 				{data.repertoire.name}
 			</h1>
-		{/if}
-		{#if repertoireId}
-			<button
-				onclick={() => (pickerOpen = true)}
-				class="lg:hidden inline-flex items-center gap-1 text-(--color-accent) text-sm font-medium hover:underline shrink-0"
-			>
-				<span aria-hidden="true">📖</span> {m.learn_switch_variation()}
-			</button>
 		{/if}
 	</div>
 
@@ -476,10 +488,6 @@
 			<a href="/practice" class="text-(--color-accent) hover:underline">{m.learn_back_to_repertoires()}</a>
 		</div>
 	{:else}
-		<div class="p-3 bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm text-center mb-3 shrink-0 lg:hidden">
-			<p class="text-sm font-bold text-(--color-text)">{m.learn_progress_count({ solved: data.solved, total: data.total })}</p>
-		</div>
-
 		<div class="flex flex-col lg:flex-row lg:items-stretch gap-6 lg:flex-1 lg:min-h-0">
 			<!-- Permanent desktop rail (GitHub issue #93): replaces the modal
 			     picker's role there entirely, so the sidebar's own "Switch"
@@ -510,7 +518,23 @@
 				     unmounted on every phase change and moved the board with it
 				     (#113). Passing the callback only while the offer actually
 				     stands is what makes the strip hand the slot over. -->
-				<PracticeStatusStrip state={stripState} onhint={hintOffered ? requestHint : undefined} />
+				<!-- `sr-only` on mobile, not hidden (#217). Visually the strip was
+				     mostly restating what the board already draws — ChessBoard renders
+				     `moveFeedback` as chessground autoShapes, a red cross on the square
+				     a rejected move landed on and a check on one that stuck — so
+				     'wrong'/'correct' were a 48px card repeating a badge already on the
+				     square, and 'blind' captioned an interactive board on the player's
+				     own turn. The states that still need words show as the board's own
+				     `note` pill, and the hint offer is a key in MoveNavRow.
+				     But those badges are SVG drawn on a square: worth nothing to a
+				     screen reader, which is why this is `sr-only` rather than gone. It
+				     stays the page's single live region at every width, announcing the
+				     full set of states, and contributes no layout height on mobile.
+				     Desktop has the column width to spare and keeps the card itself,
+				     `min-h-12` included. -->
+				<div class="sr-only lg:not-sr-only">
+					<PracticeStatusStrip state={stripState} onhint={hintOffered ? requestHint : undefined} />
+				</div>
 
 				<!-- A failed variation switch (tier lock, exclusion drift, network)
 				     used to leave the board on whatever was already being taught with
@@ -527,23 +551,43 @@
 				     (`containerFit` + [container-type:size]), so nesting the bar
 				     inside the board's box would feed its own width back into that
 				     calculation. -->
+				<!-- `-mx-4` cancels the page's own padding on mobile so the board runs
+				     edge to edge (GitHub issue #217): its width is then the viewport,
+				     which is both the widest it can be and a CONSTANT, independent of
+				     whether the eval bar is showing. -->
 				<div
-					class="flex items-start justify-center gap-2 lg:flex-1 lg:min-h-0 lg:[container-type:size]"
+					class="-mx-4 lg:mx-0 flex items-start justify-center gap-0 lg:gap-2 lg:flex-1 lg:min-h-0 lg:[container-type:size]"
 				>
-					<!-- The bar's slot is always here and only its contents change: the
-					     bar while exploring with the engine switched on, nothing the rest
-					     of the time. Mounting the slot conditionally instead moved the
-					     board every time explore opened or closed — 20px sideways on
-					     desktop, and a 40px resize on mobile, where the board is width-
-					     constrained and the control row is capped to its width. Same rule
-					     as #113's status strip: reserve the space, vary the contents. -->
-					<div class="w-8 shrink-0">
+					<!-- Desktop keeps the reserved 32px column: the bar's slot is always
+					     here and only its contents change, because mounting the slot
+					     itself moved the board 20px sideways every time explore opened or
+					     closed. Same rule as #113's status strip — reserve the space, vary
+					     the contents.
+					     Mobile reserves nothing (#217). The column collapses to `w-0` and
+					     the bar is absolutely positioned out of it, landing on the board's
+					     own left edge — anchored to `relative` here rather than to the row,
+					     so it still finds that edge on a short wide viewport where the
+					     board (`w-[min(90vh,100%)]`) is narrower than the row and centred.
+					     With the board's width no longer depending on the bar at all, the
+					     40px resize the reservation was there to prevent cannot happen. -->
+					<div class="w-0 lg:w-8 shrink-0 relative">
 						{#if explore.active && engineEnabled.on}
-							<EvalBar
-								fen={displayFen}
-								orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
-								height={boardWidth}
-							/>
+							<!-- Left edge, matching where it sits on desktop and where every
+							     other chess UI puts it. The cost, accepted knowingly: it
+							     covers chessground's rank labels down that edge while explore
+							     is open with the engine on. The right edge is free of
+							     coordinates, but a zero-width column pinned to the board's
+							     LEFT cannot address the board's right edge, and re-ordering
+							     the column past the board on mobile alone is a lot of
+							     plumbing to move a 10px bar. -->
+							<div class="absolute left-0 top-0 z-10 lg:static lg:z-auto">
+								<EvalBar
+									fen={displayFen}
+									orientation={data.repertoire?.color === 'black' ? 'black' : 'white'}
+									height={boardWidth}
+									compact
+								/>
+							</div>
 						{/if}
 					</div>
 					<ChessBoard
@@ -554,6 +598,7 @@
 						prefs={data.boardPrefs}
 						hintSquare={explore.active ? null : hintSquare}
 						arrowMove={explore.active ? null : arrowMove}
+						note={boardNote}
 						containerFit
 						bind:boxWidth={boardWidth}
 					/>
@@ -585,8 +630,50 @@
 							onlive={reviewToLive}
 							onExplore={startExplore}
 							exploreDisabled={!canExplore}
+							onhint={requestHint}
+							hintDisabled={!hintOffered}
 						/>
 					{/if}
+
+					<!-- The top bar's three mobile rows, folded into one line and moved
+					     below the board (#217). All of it is read between drills rather
+					     than during one, so above the board it was spending the board's
+					     own width and height on something nobody looks at mid-move.
+					     Progress is a count, not a card: the `p-3` bordered box it used
+					     to sit in cost 58px to say "0 / 9". -->
+					<div class="mt-3 flex items-center justify-between gap-3 text-sm">
+						<a href="/practice" class="text-(--color-muted) shrink-0 hover:text-(--color-text)">
+							{m.learn_all_repertoires_link()}
+						</a>
+						<!-- The bare count, not the sentence: "0 / 9 variations learned"
+						     truncated mid-word at 412px once the two controls beside it took
+						     their share. The full phrasing stays as the accessible name, so
+						     nothing is lost to a screen reader, and the rail underneath
+						     carries the same figure for anyone scanning rather than reading
+						     — the shape the desktop panel has always used. -->
+						<span
+							class="flex flex-col items-center gap-1 min-w-0 shrink"
+							aria-label={m.learn_progress_count({ solved: data.solved, total: data.total })}
+						>
+							<span class="text-(--color-muted) tabular-nums leading-none">
+								{data.solved}/{data.total}
+							</span>
+							<span class="h-1 w-14 rounded-full bg-(--color-border) overflow-hidden" aria-hidden="true">
+								<span
+									class="block h-full bg-(--color-accent) rounded-full"
+									style={`width: ${data.total ? (data.solved / data.total) * 100 : 0}%`}
+								></span>
+							</span>
+						</span>
+						{#if repertoireId}
+							<button
+								onclick={() => (pickerOpen = true)}
+								class="inline-flex items-center gap-1 text-(--color-accent) font-medium shrink-0 hover:underline"
+							>
+								<span aria-hidden="true">📖</span> {m.learn_switch_variation()}
+							</button>
+						{/if}
+					</div>
 
 					<!-- Just the moves played so far. -->
 					{#if movesSoFar}

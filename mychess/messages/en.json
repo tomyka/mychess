@@ -75,6 +75,7 @@
 	"move_nav_move_back": "Move back",
 	"move_nav_move_forward": "Move forward",
 	"move_nav_jump_to_current": "Jump to current position",
+	"move_nav_show_hint": "Show a hint",
 	"chessboard_hint_move_this_piece": "Hint: move this piece",
 	"eval_bar_label_score": "Engine evaluation {score}",
 	"eval_bar_label_unavailable": "Engine evaluation unavailable",

@@ -37,29 +37,30 @@ describe('ChessBoard', () => {
 	});
 });
 
-// GitHub issue #217. Mobile Learn has no status strip, so the three states the
-// board cannot show by itself ride on the board as a floating pill.
+// GitHub issue #217. Mobile Learn hides the status strip, so the three states
+// the board cannot show by itself ride on the board as a floating pill.
 describe('the mode note', () => {
 	it('renders the note when one is given', () => {
 		render(ChessBoard, { props: { note: 'Exploring \u2014 nothing counts here' } });
 		expect(screen.getByText('Exploring \u2014 nothing counts here')).toBeTruthy();
 	});
 
-	// Mounting a live region at the same instant its text appears is the classic
-	// way to get no announcement at all, so the region is permanent and only its
-	// contents change. It costs no layout either way \u2014 it is absolutely
-	// positioned \u2014 so there is no reason to unmount it.
-	it('keeps an empty live region mounted when there is no note', () => {
-		render(ChessBoard, { props: {} });
-		const region = screen.getByRole('status');
-		expect(region).toBeTruthy();
-		expect(region.textContent?.trim()).toBe('');
+	it('renders nothing when there is no note', () => {
+		const { container } = render(ChessBoard, { props: {} });
+		expect(container.querySelector('[aria-hidden="true"].absolute.inset-x-0')).toBeNull();
 	});
 
-	// Desktop keeps PracticeStatusStrip, which is itself a role="status" region.
-	// Without this the same sentence would be announced twice there.
-	it('hides the region from desktop, where the strip still speaks', () => {
-		render(ChessBoard, { props: { note: 'Exploring' } });
-		expect(screen.getByRole('status').className).toContain('lg:hidden');
+	// Not a live region, on purpose. The strip stays mounted as `sr-only` on
+	// mobile and remains the single place any of this is announced \u2014 both so the
+	// same sentence is not read out twice, and because the strip announces the
+	// full set rather than this subset: the red cross this pill replaces is drawn
+	// on a square, which is worth nothing to a screen reader.
+	it('is decoration, not an announcement', () => {
+		const { container } = render(ChessBoard, { props: { note: 'Exploring' } });
+		expect(screen.queryByRole('status')).toBeNull();
+		const pill = container.querySelector('[aria-hidden="true"].absolute.inset-x-0') as HTMLElement;
+		expect(pill).toBeTruthy();
+		// Desktop keeps the real strip, so the pill must not double up there.
+		expect(pill.className).toContain('lg:hidden');
 	});
 });

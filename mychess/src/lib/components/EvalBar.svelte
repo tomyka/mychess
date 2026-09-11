@@ -33,7 +33,8 @@
 	let {
 		fen,
 		orientation = 'white',
-		height = 0
+		height = 0,
+		compact = false
 	}: {
 		/** The position to evaluate — the board's own displayed FEN. */
 		fen: string;
@@ -45,6 +46,23 @@
 		// the board's `bind:boxWidth` has measured itself, so a real caller always
 		// has a number by then.
 		height?: number;
+		/**
+		 * Thin and numberless below `lg`, full width above it (GitHub issue #217).
+		 *
+		 * For the Learn board, where mobile runs the board edge to edge and the
+		 * bar sits ON the board's left edge rather than in a column beside it: at
+		 * 32px it would cover most of the a-file, at 10px it still shows who is
+		 * winning without hiding a piece. Desktop keeps its 32px column and the
+		 * number in it.
+		 *
+		 * Done with CSS rather than by mounting a second bar for mobile, so only
+		 * one instance ever retains the engine and requests a search.
+		 *
+		 * The number goes because it cannot be read at that width, not because it
+		 * stops mattering: `role="img"` + `aria-label` on the root carries the
+		 * real evaluation at either width, so a screen reader loses nothing.
+		 */
+		compact?: boolean;
 	} = $props();
 
 	onDestroy(retainEngine());
@@ -104,7 +122,9 @@
 </script>
 
 <div
-	class="relative w-8 shrink-0 flex flex-col rounded-lg overflow-hidden border border-(--color-border)"
+	class="relative shrink-0 flex flex-col overflow-hidden border border-(--color-border) {compact
+		? 'w-2.5 rounded-sm lg:w-8 lg:rounded-lg'
+		: 'w-8 rounded-lg'}"
 	style={`height: ${height}px`}
 	role="img"
 	aria-label={label}
@@ -120,7 +140,9 @@
 	<!-- Dead level, so a near-equal position reads without the number. -->
 	<div class="absolute inset-x-0 top-1/2 h-px bg-(--color-accent)/60"></div>
 	<span
-		class="absolute inset-x-0 text-center text-[0.6rem] font-bold leading-none tabular-nums transition-opacity {engineState.searching
+		class="absolute inset-x-0 text-center text-[0.6rem] font-bold leading-none tabular-nums transition-opacity {compact
+			? 'hidden lg:block'
+			: ''} {engineState.searching
 			? 'opacity-60'
 			: ''} {numberAtBottom
 				? 'bottom-1'
