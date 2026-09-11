@@ -160,11 +160,27 @@ export class LearnDrill {
 			return { correct: true, moveId: step.moveId, isFinalMove };
 		}
 
-		// Not revealed, not locked: the whole attempt stops being clean, but the
-		// player keeps trying the same ply rather than the line ending.
+		// Not locked: the whole attempt stops being clean, but the player keeps
+		// trying the same ply rather than the line ending.
 		this.lastMoveResult = 'wrong';
 		this.attemptHadMistake = true;
 		this.attemptMistakeCount++;
+		// Reveal the piece, no tap (GitHub issue #217). The hint has only ever
+		// been a ring on the from-square — see `hintSquareFor` and ChessBoard's
+		// `hintSquare` — and what used to cost a tap was the OFFER, which on
+		// mobile also cost a 48px card above the board. Being wrong already
+		// spends everything a hint spends (the line above), so doing it here is
+		// free, and whoever just guessed wrong is exactly who needs it.
+		//
+		// Here and NOT on a timer: `advanceTeachingProgress` returns
+		// `taughtPlies`/`masteredPlies` unchanged for a dirty pass, and
+		// `applyAttemptResult` returns early on one — a dirty pass advances
+		// nothing at all. A reveal fired before the player is wrong would
+		// silently void a pass they were about to get right, and on a teach
+		// pass would freeze `taughtPlies` and re-serve the same board forever.
+		// Cleared again by the correct branch above, which scopes a hint to the
+		// ply it was taken on.
+		this.hintRequested = true;
 		return { correct: false, moveId: step.moveId, isFinalMove: false };
 	}
 
