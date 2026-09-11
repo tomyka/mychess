@@ -351,7 +351,12 @@
 		</div>
 	</div>
 {:else}
-	<div class="h-full flex flex-col bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm overflow-y-auto p-4">
+	<!-- `w-full`, not the flex default: as a flex item with `width: auto` this
+	     sizes to its content, which on desktop exceeds the rail's `lg:w-64` and
+	     so fills it by accident. Below the board on mobile (GitHub issue #219)
+	     the labels are narrower than the viewport, and the panel was left
+	     hanging at content width with a dead gutter beside it. -->
+	<div class="h-full w-full flex flex-col bg-(--color-surface) border border-(--color-border) rounded-2xl shadow-sm overflow-y-auto p-4">
 		{@render body()}
 	</div>
 {/if}
