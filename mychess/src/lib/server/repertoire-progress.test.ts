@@ -473,7 +473,11 @@ describe('loadRepertoireProgressSummaries', () => {
 			reconciledAt: null
 		});
 
-		const [summary] = await loadRepertoireProgressSummaries(client, USER);
+		// The badge write goes to a service-role client in production (#221), so
+		// the fake has to be handed in explicitly to stay observable here — and
+		// `createAdminClient()` throws inside a test rather than reaching the real
+		// database, which is what this argument exists to avoid.
+		const [summary] = await loadRepertoireProgressSummaries(client, USER, client);
 
 		expect(calls.exclusionRekeys).toEqual([{ fromKey: 'm1>m2>m4', toKey: 'm1>m2', verifiedAt: SHAPE_CHANGED }]);
 		// The row SURVIVES, carrying its new key — this is the whole assertion.

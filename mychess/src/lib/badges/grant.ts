@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BadgeStats } from './recalc';
 import { checkBadgeEligibility, checkBadgeRevocations } from './recalc';
 import { countRepertoireStatuses } from '$lib/server/repertoire-status-counts';
+import { createAdminClient } from '$lib/server/supabase-admin';
 import type { RepertoireProgressSummary } from '$lib/server/repertoire-progress';
 
 export interface BadgeStatsInput {
@@ -42,7 +43,28 @@ export async function grantNewBadges(
   supabase: SupabaseClient,
   playerId: string,
   overrides: Partial<BadgeStatsInput> = {},
-  progressSummaries?: RepertoireProgressSummary[]
+  progressSummaries?: RepertoireProgressSummary[],
+  /**
+   * The client the two WRITES below go through, defaulting to a service-role
+   * one (GitHub issue #221).
+   *
+   * `badges_earned` has SELECT policies and nothing else, so every write made
+   * with `supabase` — the anon-key client carrying the player's own JWT, which
+   * is what both callers pass — was refused: zero badges had ever been awarded
+   * in production. Opening an INSERT policy instead would have let a player
+   * grant themselves any badge in the catalog by calling PostgREST directly,
+   * since RLS cannot tell our server acting for a player from the player
+   * acting for themselves.
+   *
+   * Reads deliberately stay on `supabase`: they work under RLS today, and
+   * keeping them scoped to the signed-in player is worth more than the tidiness
+   * of one client for everything.
+   *
+   * Injectable only so tests can observe which client each query went to.
+   * Evaluated lazily at the write, so the service key is not required to merely
+   * call this — a repertoire with no badge movement never builds one.
+   */
+  writeClient?: SupabaseClient
 ): Promise<string[]> {
   const [profileRes, playerStatsRes, sessionRes, repRes, questRes, earnedRes] =
     await Promise.all([
@@ -88,25 +110,43 @@ export async function grantNewBadges(
     ...overrides
   });
 
+  const newBadgeIds = checkBadgeEligibility(stats);
+  const revoked = checkBadgeRevocations(stats);
+  // Lazily, and once: building it costs an env read and a client, and most
+  // passes have nothing to write at all.
+  const writes = revoked.length > 0 || newBadgeIds.length > 0 ? (writeClient ?? createAdminClient()) : null;
+
   // Revocations first, so a tier that has fallen is removed even in the same
   // pass that grants something else.
-  const revoked = checkBadgeRevocations(stats);
-  if (revoked.length > 0) {
-    const { error: revokeError } = await supabase
+  if (writes && revoked.length > 0) {
+    // `.select()` so the deleted rows come back and can be counted. Without it
+    // this was the quieter half of #221: RLS narrowed the DELETE to zero
+    // matching rows, PostgREST reports no error for a delete that matched
+    // nothing, so `revokeError` stayed null and revocation silently did nothing
+    // for the life of the bug. A count that doesn't match what we hold is the
+    // only signal such a failure ever gives.
+    const { data: deleted, error: revokeError } = await writes
       .from('badges_earned')
       .delete()
       .eq('player_id', playerId)
-      .in('badge_id', revoked);
+      .in('badge_id', revoked)
+      .select('badge_id');
     if (revokeError) {
       console.error(`grantNewBadges: failed to revoke ${revoked.join(', ')} for player ${playerId}:`, revokeError.message);
+    } else {
+      const held = revoked.filter((id) => stats.earnedIds.has(id));
+      if ((deleted?.length ?? 0) < held.length) {
+        console.error(
+          `grantNewBadges: revoked ${deleted?.length ?? 0} of ${held.length} held badge row(s) for player ${playerId} (${held.join(', ')}) — the delete matched fewer rows than expected`
+        );
+      }
     }
   }
 
-  const newBadgeIds = checkBadgeEligibility(stats);
   if (newBadgeIds.length === 0) return [];
 
   const rows = newBadgeIds.map(id => ({ player_id: playerId, badge_id: id }));
-  const { error } = await supabase.from('badges_earned').insert(rows);
+  const { error } = await writes!.from('badges_earned').insert(rows);
   // A failed insert didn't actually grant anything — surface it (both call
   // sites otherwise swallow the returned promise's rejection too, so this
   // console.error is the only place a real DB failure here would ever be
