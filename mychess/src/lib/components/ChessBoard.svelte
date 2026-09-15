@@ -26,6 +26,22 @@
 		// a pulsing amber ring and a lightbulb badge — never the destination,
 		// so it points at a piece without giving away where it should go.
 		hintSquare?: Key | null;
+		/**
+		 * A short mode note to float on the board's top edge — "exploring",
+		 * "now play it from memory" and the like (GitHub issue #217).
+		 *
+		 * An overlay rather than a row, so it cannot move the board: mobile Learn
+		 * hides `PracticeStatusStrip` because the strip mostly restated feedback
+		 * this component already draws, and the states that DO need words must
+		 * not cost the 48px the strip reserved to stay shift-free (#113).
+		 *
+		 * Purely visual — `aria-hidden`, and deliberately NOT a live region. The
+		 * strip is still mounted on mobile as `sr-only`, so it remains the one
+		 * place any of this is announced, and it announces the full set rather
+		 * than this subset: a red cross drawn on a square is no use at all to a
+		 * screen reader, so dropping 'wrong'/'correct' is a visual decision only.
+		 */
+		note?: string | null;
 		// The correct move to reveal during a teaching pass — a native
 		// chessground arrow (both orig and dest set), distinct from
 		// hintSquare's origin-only ring. Cleared the instant the move lands
@@ -75,6 +91,7 @@
 		onmove,
 		hintSquare = null,
 		arrowMove = null,
+		note = null,
 		containerFit = false,
 		boxWidth = $bindable(0)
 	}: Props = $props();
@@ -286,4 +303,26 @@
 	{/if}
 	<!-- moveFeedback is drawn by chessground itself via drawable.autoShapes/
 	     feedbackShapes(), not a template block — see buildConfig() above. -->
+
+	<!-- aria-hidden, and no role="status": the sr-only strip on the page is the
+	     single live region for all of this, so a second one here would announce
+	     the same sentence twice. Absolutely positioned, so it is outside the
+	     layout and can never move the board. -->
+	{#if note}
+		<!-- `z-20` is load-bearing: chessground gives its own pieces a stacking
+		     order, so without it the pill paints UNDER them and the pieces on the
+		     back rank read straight through the text. Opaque for the same reason
+		     — it sits on a rank that usually has pieces on it, and a translucent
+		     pill over a bishop is unreadable however good the contrast is. -->
+		<div
+			aria-hidden="true"
+			class="lg:hidden absolute inset-x-0 top-0 z-20 flex justify-center p-2 pointer-events-none"
+		>
+			<span
+				class="rounded-full border border-amber-500 bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 shadow-lg dark:border-amber-400/70 dark:bg-amber-900 dark:text-amber-50"
+			>
+				{note}
+			</span>
+		</div>
+	{/if}
 </div>

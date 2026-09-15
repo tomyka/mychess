@@ -175,6 +175,54 @@ describe('LearnDrill', () => {
 			drill.attemptMove('d2', 'd4', 'd4');
 			expect(drill.attemptMistakeCount).toBe(2);
 		});
+
+		// GitHub issue #217. The hint was only ever a ring on the from-square
+		// (`hintSquareFor` -> ChessBoard's `hintSquare`); what cost a tap was the
+		// OFFER. Being wrong already spent everything a hint spends — this same
+		// branch sets `attemptHadMistake` — so revealing the piece here is free,
+		// and a player who has just guessed wrong is exactly who needs it.
+		it('reveals the correct piece with no tap', () => {
+			const { drill } = makeDrill();
+			drill.start(STEPS, { autoPlayThrough: 0, cueRetestEligible: false });
+			expect(drill.hintRequested).toBe(false);
+
+			drill.attemptMove('b1', 'c3', 'Nc3');
+			expect(drill.hintRequested).toBe(true);
+		});
+
+		// The point of doing it HERE and not on a timer: this must not be able to
+		// make a pass any dirtier than the wrong move already made it. A timed
+		// reveal fired before a mistake would void a pass the player was about to
+		// get right, and `advanceTeachingProgress` advances NOTHING on a dirty
+		// pass — not even `taughtPlies`.
+		it('costs the attempt nothing the wrong move had not already spent', () => {
+			const { drill, finalMoves } = makeDrill();
+			drill.start(STEPS, { autoPlayThrough: 0, cueRetestEligible: false });
+			drill.attemptMove('b1', 'c3', 'Nc3'); // wrong at ply 0: dirty, auto-reveals
+
+			// The reveal is not a second mistake.
+			expect(drill.attemptMistakeCount).toBe(1);
+
+			// Still reports exactly what a wrong move alone reports.
+			drill.attemptMove('e2', 'e4', 'e4'); // the book move for ply 0
+			vi.advanceTimersByTime(500);
+			drill.attemptMove('g1', 'f3', 'Nf3'); // the last player move
+			expect(finalMoves).toEqual([true]);
+		});
+
+		// `attemptMove`'s correct branch clears `hintRequested` on purpose — a
+		// hint is scoped to the ply it was taken on. An auto-reveal must inherit
+		// that, or the ring would follow the player to the next ply and point at
+		// a square with no piece on it.
+		it('stops revealing once the ply is answered correctly', () => {
+			const { drill } = makeDrill();
+			drill.start(STEPS, { autoPlayThrough: 0, cueRetestEligible: false });
+			drill.attemptMove('b1', 'c3', 'Nc3');
+			expect(drill.hintRequested).toBe(true);
+
+			drill.attemptMove('e2', 'e4', 'e4'); // the book move for ply 0
+			expect(drill.hintRequested).toBe(false);
+		});
 	});
 
 	describe('requestHint', () => {

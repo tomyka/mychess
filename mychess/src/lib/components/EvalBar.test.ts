@@ -142,3 +142,48 @@ describe('EvalBar', () => {
 		expect(segments(container).map((s) => s.height)).toEqual(['0%', '100%']);
 	});
 });
+
+// GitHub issue #217. On mobile Learn the bar sits ON the board's left edge
+// rather than in a 32px column beside it, so the board can run full width.
+// One instance serves both widths -- mounting a second bar for mobile would
+// retain the engine and request searches twice.
+describe('compact mode', () => {
+	it('is thin below lg and full width above it', () => {
+		const { getByRole } = render(EvalBar, { props: { fen: FEN, height: 380, compact: true } });
+		expect(getByRole('img').className).toContain('w-2.5');
+		expect(getByRole('img').className).toContain('lg:w-8');
+	});
+
+	it('leaves the normal bar at a single width', () => {
+		const { getByRole } = render(EvalBar, { props: { fen: FEN, height: 380 } });
+		expect(getByRole('img').className).toContain('w-8');
+		expect(getByRole('img').className).not.toContain('w-2.5');
+	});
+
+	it('hides the number below lg, where it cannot be read at 10px', () => {
+		engineState.score = { cp: 120 };
+		const { container } = render(EvalBar, { props: { fen: FEN, height: 380, compact: true } });
+		const num = container.querySelector('[role="img"] span') as HTMLElement;
+		expect(num.className).toContain('hidden');
+		expect(num.className).toContain('lg:block');
+	});
+
+	// The control for the assertion above: the same score really does render
+	// "+1.2" unhidden at the normal width, so the compact case is hiding a number
+	// that would otherwise show rather than passing on a score that never came.
+	it('keeps the number unconditionally at the normal width', () => {
+		engineState.score = { cp: 120 };
+		const { container } = render(EvalBar, { props: { fen: FEN, height: 380 } });
+		const num = container.querySelector('[role="img"] span') as HTMLElement;
+		expect(num.textContent?.trim()).toBe('+1.2');
+		expect(num.className).not.toContain('hidden');
+	});
+
+	// role="img" + aria-label on the root carries the evaluation at either width,
+	// so hiding the digits costs a screen reader nothing.
+	it('keeps the evaluation announced without the visible number', () => {
+		engineState.score = { cp: 120 };
+		const { getByRole } = render(EvalBar, { props: { fen: FEN, height: 380, compact: true } });
+		expect(getByRole('img').getAttribute('aria-label')).toBeTruthy();
+	});
+});

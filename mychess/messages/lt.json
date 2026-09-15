@@ -75,6 +75,7 @@
 	"move_nav_move_back": "Ėjimas atgal",
 	"move_nav_move_forward": "Ėjimas pirmyn",
 	"move_nav_jump_to_current": "Peršokti į esamą padėtį",
+	"move_nav_show_hint": "Parodyti užuominą",
 	"chessboard_hint_move_this_piece": "Užuomina: paslinkite šią figūrą",
 	"eval_bar_label_score": "Variklio įvertinimas {score}",
 	"eval_bar_label_unavailable": "Variklio įvertinimas nepasiekiamas",
