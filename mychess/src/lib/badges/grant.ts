@@ -133,13 +133,14 @@ export async function grantNewBadges(
       .select('badge_id');
     if (revokeError) {
       console.error(`grantNewBadges: failed to revoke ${revoked.join(', ')} for player ${playerId}:`, revokeError.message);
-    } else {
-      const held = revoked.filter((id) => stats.earnedIds.has(id));
-      if ((deleted?.length ?? 0) < held.length) {
-        console.error(
-          `grantNewBadges: revoked ${deleted?.length ?? 0} of ${held.length} held badge row(s) for player ${playerId} (${held.join(', ')}) — the delete matched fewer rows than expected`
-        );
-      }
+    } else if ((deleted?.length ?? 0) < revoked.length) {
+      // Compared against `revoked` itself, not a re-filter of it by
+      // `stats.earnedIds`: `checkBadgeRevocations` only ever returns ids the
+      // player is already recorded as holding, so such a filter is a no-op that
+      // reads like a real guard and invites the next reader to trust it.
+      console.error(
+        `grantNewBadges: revoked ${deleted?.length ?? 0} of ${revoked.length} held badge row(s) for player ${playerId} (${revoked.join(', ')}) — the delete matched fewer rows than expected`
+      );
     }
   }
 

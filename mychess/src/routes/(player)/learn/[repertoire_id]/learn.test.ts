@@ -193,8 +193,9 @@ describe('learn detail page', () => {
 			}
 		});
 		expect(screen.queryByText(/Repertoire learned/i)).toBeNull();
-		// The practice chrome renders instead (name appears once in the header).
-		expect(screen.getAllByText('French Defense').length).toBe(1);
+		// The practice chrome renders instead — name in both layouts' rows, as
+		// in the in-flight-attempt test above.
+		expect(screen.getAllByText('French Defense').length).toBe(2);
 		expectProgress(5, 5);
 	});
 
@@ -221,9 +222,12 @@ describe('learn detail page', () => {
 				}
 			}
 		});
-		// The repertoire name renders once in the header; progress renders
-		// twice (mobile card + desktop sidebar).
-		expect(screen.getAllByText('French Defense').length).toBe(1);
+		// Twice, one per layout (#217): the header row above the board is
+		// `hidden lg:flex` while a drill is up, so on mobile the name would
+		// otherwise not render at all — and which repertoire is being drilled is
+		// not something the board itself can tell you. Both are in the DOM at
+		// once here because only CSS separates them; exactly one is ever visible.
+		expect(screen.getAllByText('French Defense').length).toBe(2);
 		expectProgress(3, 5);
 	});
 
@@ -797,6 +801,25 @@ describe('learn detail page', () => {
 
 		expect(screen.getByLabelText('Hint: move this piece')).toBeTruthy();
 		expect(screen.getByRole('status').textContent).toMatch(/Not that move/i);
+	});
+
+	// #217 asked for the automatic reveal on blind plies only — "no auto-reveal
+	// on arrowed teach plies (the move is already drawn)". `hintOffered` has
+	// always refused to OFFER one there, but the wrong-move branch takes a hint
+	// without going through the offer, so the suppression has to be stated where
+	// the ring is drawn or a teach ply gets a pulsing ring stacked on its arrow.
+	it('draws no ring on a wrong move when the move is already under a teaching arrow', async () => {
+		vi.useFakeTimers();
+		// The unmodified fixture: arrowPlies covers plies 2-4 and autoPlayThrough
+		// lands the board on ply 2, so the move being asked for is the arrowed one
+		// — the same setup as the "offers no hint" test above.
+		renderAttempt(AUTO_PLAY_ATTEMPT);
+		await vi.advanceTimersByTimeAsync(AUTO_PLAY_INTRO_MS);
+
+		playMove('b1', 'c3'); // wrong: Nf3 is the move the arrow is drawn for
+		await vi.advanceTimersByTimeAsync(0);
+
+		expect(screen.queryByLabelText('Hint: move this piece')).toBeNull();
 	});
 
 	// The whole reason the reveal sits on the wrong-move branch and not on a

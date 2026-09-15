@@ -181,10 +181,6 @@
 		isEnabled: () => !pickerOpen && !!attempt && !explore.active
 	});
 
-	// Taken has already cost this pass its clean-solve eligibility, so there
-	// is nothing further for the hint to protect.
-	const hintSquare = $derived(hintSquareFor(quizSteps, drill.quizIdx, drill.hintRequested, isReviewing));
-
 	// The current ply's teaching arrow, if this attempt is a teach pass and
 	// we're standing on one of its plies — see arrowMoveForStep for the
 	// player-turn/ply-range/parse-failure guards. Suppressed while reviewing
@@ -197,6 +193,21 @@
 		if (!step) return null;
 		return arrowMoveForStep(step, drill.quizIdx, attempt?.arrowPlies ?? null);
 	});
+
+	// Taken has already cost this pass its clean-solve eligibility, so there
+	// is nothing further for the hint to protect.
+	//
+	// Suppressed on an arrowed ply, and declared after `arrowMove` so it can be
+	// (GitHub issue #217, which asked for "no auto-reveal on arrowed teach plies
+	// — the move is already drawn"). `hintOffered` below has always refused to
+	// OFFER a hint there, but a wrong move now takes one automatically, and that
+	// path has no such guard: without this, guessing wrong on a teach ply drew a
+	// pulsing ring and a 💡 over the from-square of an arrow already showing the
+	// whole move. The drill itself can't make this call — `arrowPlies` is the
+	// attempt's, not the drill's — so the ring is suppressed where it is drawn.
+	const hintSquare = $derived(
+		arrowMove ? null : hintSquareFor(quizSteps, drill.quizIdx, drill.hintRequested, isReviewing)
+	);
 
 	// Whether to offer a hint at all. Not on an arrowed ply: the move is already
 	// drawn on the board there, so offering to point at the piece is noise on a
@@ -659,6 +670,20 @@
 						<a href="/practice" class="text-(--color-muted) shrink-0 hover:text-(--color-text)">
 							{m.learn_all_repertoires_link()}
 						</a>
+						<!-- The repertoire's name, which the row above carries on desktop
+						     and stops rendering at all on mobile once a drill is up. It
+						     belongs on this line for the same reason the count does: the
+						     player has usually arrived from a list of several repertoires,
+						     and which one is being drilled is not recoverable from the
+						     board. Not an `h1` — the desktop row's is the page's heading at
+						     every width, and only one of the two ever renders, but a
+						     heading inside the board column would sit below the controls in
+						     document order and read as a section title for the move list. -->
+						{#if data.repertoire?.name}
+							<span class="font-bold text-(--color-text) truncate min-w-0 flex-1 text-center">
+								{data.repertoire.name}
+							</span>
+						{/if}
 						<!-- The bare count, not the sentence: "0 / 9 variations learned"
 						     truncated mid-word at 412px once the two controls beside it took
 						     their share. The full phrasing stays as the accessible name, so
