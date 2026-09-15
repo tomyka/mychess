@@ -15,7 +15,6 @@ import { incrementQuestProgress } from '$lib/server/quests';
 import { requireApiUser } from '$lib/server/auth';
 import { recordSession } from '$lib/server/sessions';
 import { grantNewBadges } from '$lib/badges/grant';
-import { createAdminClient } from '$lib/server/supabase-admin';
 import { buildPracticeView, wasResumedAfterBreak } from '$lib/mastery/practice';
 import { deriveLearnPlan } from '$lib/mastery/learnUnits';
 import { computeMasteredMoveIds } from '$lib/mastery/teaching';
@@ -116,12 +115,19 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	// only kind that can change a repertoire's status, so it is the only one worth
 	// recalculating for. Fire-and-forget, matching the existing callers: a badge
 	// must not delay the response to the move the player just made.
-	// Service-role client for the writes (GitHub issue #221): `badges_earned`
-	// has SELECT policies and nothing else, so handing this `supabase` — the
-	// player's own RLS-bound client — meant every grant was refused and no badge
-	// had ever been awarded. Built here rather than defaulted deeper down so the
-	// privileged client is visible at the call site.
-	if (!hadMistake) grantNewBadges(supabase, user.id, {}, undefined, createAdminClient()).catch(() => {});
+	// The writes inside go through a service-role client, not this `supabase`
+	// (GitHub issue #221): `badges_earned` has SELECT policies and nothing else,
+	// so handing the grant path the player's own RLS-bound client meant every
+	// grant was refused and no badge had ever been awarded.
+	//
+	// Left to `grantNewBadges`'s own lazy default rather than built here, because
+	// building it here puts it OUTSIDE the `.catch` below: a missing or rotated
+	// `SUPABASE_SERVICE_ROLE_KEY` would then throw synchronously and 500 the
+	// attempt itself, turning a badge that failed to land into a drill the player
+	// cannot finish. Deferred, the same throw is just one more rejected promise
+	// this already swallows — and a pass with no badge movement never builds a
+	// client at all.
+	if (!hadMistake) grantNewBadges(supabase, user.id).catch(() => {});
 
 	const planAfterAttempt = deriveLearnPlan(variations, computeMasteredMoveIds(variations, teachingProgress, solvedKeys));
 	return json(buildPracticeView(variations, activeVariationKey, solvedKeys, teachingProgress, planAfterAttempt));

@@ -123,7 +123,6 @@
 	"seo_learn_repertoire_title": "Learn {name} — MyChess",
 	"learn_repertoire_fallback_name": "Repertoire",
 	"learn_all_repertoires_link": "← All Repertoires",
-	"learn_switch_variation": "Switch variation",
 	"learn_repertoire_learned_title": "Repertoire learned!",
 	"learn_repertoire_learned_body": "Every variation in {name} has been played cleanly. Keep it sharp in Practice.",
 	"learn_practice_this_repertoire": "Practice this repertoire",
