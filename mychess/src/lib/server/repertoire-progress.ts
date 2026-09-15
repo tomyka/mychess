@@ -10,7 +10,7 @@ import {
 import { fetchAllPages, MAX_ROWS_PAGE_SIZE } from './paginate';
 import { fetchLiveMoves } from './moves';
 import { isApplyInFlight, needsReconciliation, reconcilePlayerProgress } from './repertoire-reconcile';
-import { grantNewBadges } from '$lib/badges/grant';
+import { grantNewBadges } from './badges/grant';
 import {
 	deriveRepertoireStatusFromCounts,
 	masterableChapters,
@@ -323,15 +323,7 @@ async function reverifyExclusions(
  */
 export async function loadRepertoireProgressSummaries(
 	supabase: SupabaseClient,
-	userId: string,
-	/**
-	 * Forwarded to `grantNewBadges` for the badge sync that runs after a
-	 * reconciliation (GitHub issue #221). Production leaves it unset and gets a
-	 * service-role client; a test passes its own fake, because `badges_earned`
-	 * writes no longer go through `supabase` and `createAdminClient()` refuses
-	 * to build a privileged client inside a test process.
-	 */
-	badgeWriteClient?: SupabaseClient
+	userId: string
 ): Promise<RepertoireProgressSummary[]> {
 	// `update_in_progress_at` is selected for the two readers that must decline to
 	// act on a half-applied shape — `needsReconciliation` and the exclusion prune
@@ -771,7 +763,7 @@ export async function loadRepertoireProgressSummaries(
 	// otherwise resolve to exactly that when nothing is passed.
 	if (reconciledIds.size > 0) {
 		try {
-			await grantNewBadges(supabase, userId, {}, summaries, badgeWriteClient);
+			await grantNewBadges(supabase, userId, {}, summaries);
 		} catch (err) {
 			console.error(`Failed to run badge grant/revocation after reconciliation for player ${userId}:`, err instanceof Error ? err.message : err);
 		}

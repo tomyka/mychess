@@ -15,7 +15,7 @@ import { incrementQuestProgress } from '$lib/server/quests';
 import { requireApiUser } from '$lib/server/auth';
 import { recordSession } from '$lib/server/sessions';
 import { waitUntil } from '@vercel/functions';
-import { grantNewBadges } from '$lib/badges/grant';
+import { grantNewBadges } from '$lib/server/badges/grant';
 import { createAdminClient } from '$lib/server/supabase-admin';
 import { recordAttemptStats } from '$lib/server/player-stats';
 import { buildPracticeView, wasResumedAfterBreak } from '$lib/mastery/practice';

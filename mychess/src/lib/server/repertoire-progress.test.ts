@@ -1,5 +1,33 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { loadRepertoireProgressSummaries } from './repertoire-progress';
+
+// The reconciliation path calls `grantNewBadges`, whose writes go to a
+// service-role client (#221) that `createAdminClient()` refuses to build inside
+// a test — deliberately, so a unit test can never reach the real database with a
+// key that bypasses every policy. Mocked here rather than injected through
+// `loadRepertoireProgressSummaries`, which used to carry a `badgeWriteClient`
+// parameter existing for no other reason (GitHub issue #223).
+//
+// Badge inserts are recorded here rather than on the fake request client, since
+// that is where they actually go now. Hoisted so the mock factory can close over
+// it, and cleared per test.
+const adminBadgeInserts = vi.hoisted(() => [] as string[]);
+
+vi.mock('./supabase-admin', () => ({
+	createAdminClient: () => ({
+		from: (table: string) => ({
+			insert: (rows: Record<string, unknown>[]) => {
+				if (table === 'badges_earned') adminBadgeInserts.push(...rows.map((r) => r.badge_id as string));
+				return Promise.resolve({ data: null, error: null });
+			},
+			delete: () => ({ eq: () => ({ in: () => ({ select: () => Promise.resolve({ data: [], error: null }) }) }) })
+		})
+	})
+}));
+
+beforeEach(() => {
+	adminBadgeInserts.length = 0;
+});
 
 /**
  * The whole point of the exclusion-freshness work (GitHub issue #52) is WHICH
@@ -90,9 +118,7 @@ describe('loadRepertoireProgressSummaries', () => {
 			/** Per-chapter exclusion rows written by reverifyExclusions' migration/backfill expansion (#86). */
 			chapterExclusionUpserts: [] as Record<string, unknown>[],
 			demotions: [] as Record<string, unknown>[],
-			activeCleared: 0,
-			/** Badge rows granted by grantNewBadges(), i.e. whether badge sync ran at all. */
-			badgesGranted: [] as string[]
+			activeCleared: 0
 		};
 		const moves = opts.moves ?? MOVES;
 		// MUTABLE, and deliberately so: reconciliation rewrites exclusion keys and
@@ -326,7 +352,6 @@ describe('loadRepertoireProgressSummaries', () => {
 							})
 						}),
 						insert: (rows: Record<string, unknown>[]) => {
-							if (table === 'badges_earned') calls.badgesGranted.push(...rows.map((r) => r.badge_id as string));
 							return Promise.resolve({ error: null });
 						},
 						delete: () => ({ eq: () => ({ in: () => Promise.resolve({ error: null }) }) })
@@ -452,7 +477,7 @@ describe('loadRepertoireProgressSummaries', () => {
 		expect(calls.reconcileMoveFetches).toEqual([]);
 		expect(calls.reconciliationStamps).toEqual([]);
 		// No reconciliation, so no reason to re-check badges either.
-		expect(calls.badgesGranted).toEqual([]);
+		expect(adminBadgeInserts).toEqual([]);
 		// ...nor to clear an already-earned chapter_completed cache.
 		expect(calls.chapterCompletedCleared).toEqual([]);
 	});
@@ -473,11 +498,11 @@ describe('loadRepertoireProgressSummaries', () => {
 			reconciledAt: null
 		});
 
-		// The badge write goes to a service-role client in production (#221), so
-		// the fake has to be handed in explicitly to stay observable here — and
-		// `createAdminClient()` throws inside a test rather than reaching the real
-		// database, which is what this argument exists to avoid.
-		const [summary] = await loadRepertoireProgressSummaries(client, USER, client);
+		// The badge sync this triggers writes with a service-role client (#221).
+		// `createAdminClient` is mocked at the top of this file rather than
+		// threaded in as an argument, so the production signature does not carry a
+		// parameter that exists only for tests (GitHub issue #223).
+		const [summary] = await loadRepertoireProgressSummaries(client, USER);
 
 		expect(calls.exclusionRekeys).toEqual([{ fromKey: 'm1>m2>m4', toKey: 'm1>m2', verifiedAt: SHAPE_CHANGED }]);
 		// The row SURVIVES, carrying its new key — this is the whole assertion.
@@ -498,7 +523,7 @@ describe('loadRepertoireProgressSummaries', () => {
 		// eligible, which is besides this test's point but is what proves the
 		// wiring actually fired (see grant.test.ts/recalc.test.ts for the badge
 		// math itself).
-		expect(calls.badgesGranted.length).toBeGreaterThan(0);
+		expect(adminBadgeInserts.length).toBeGreaterThan(0);
 	});
 
 	it('reconciles a repertoire whose exclusions are already verified', async () => {
