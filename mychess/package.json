@@ -54,6 +54,7 @@
 		"@supabase/ssr": "^0.10.3",
 		"@supabase/supabase-js": "^2.106.2",
 		"@tanstack/svelte-query": "^6.1.33",
+		"@vercel/functions": "^3.9.7",
 		"@vite-pwa/sveltekit": "^1.1.0",
 		"cheerio": "^1.1.0",
 		"chess.js": "^1.4.0",

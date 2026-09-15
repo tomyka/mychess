@@ -7,6 +7,8 @@
       "Bash(git stash *)",
       "Bash(npm run *)",
       "Bash(npx vitest *)",
+	  "Bash(node --env-file=*)",     
+	  "Bash(npx tsx --env-file=*)",
       "Bash(gh issue *)",
       "Skill(update-config)"
     ]

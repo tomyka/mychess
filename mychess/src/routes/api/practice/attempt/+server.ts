@@ -14,7 +14,10 @@ import {
 import { incrementQuestProgress } from '$lib/server/quests';
 import { requireApiUser } from '$lib/server/auth';
 import { recordSession } from '$lib/server/sessions';
+import { waitUntil } from '@vercel/functions';
 import { grantNewBadges } from '$lib/badges/grant';
+import { createAdminClient } from '$lib/server/supabase-admin';
+import { recordAttemptStats } from '$lib/server/player-stats';
 import { buildPracticeView, wasResumedAfterBreak } from '$lib/mastery/practice';
 import { deriveLearnPlan } from '$lib/mastery/learnUnits';
 import { computeMasteredMoveIds } from '$lib/mastery/teaching';
@@ -110,25 +113,46 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		loadSolvedKeys(supabase, user.id, repertoireId),
 		loadTeachingProgress(supabase, user.id, repertoireId)
 	]);
-	// Badge recalculation was only ever wired to Drill and Time Trial, so nothing
-	// in the learning flow could grant (or revoke) a badge. A clean attempt is the
-	// only kind that can change a repertoire's status, so it is the only one worth
-	// recalculating for. Fire-and-forget, matching the existing callers: a badge
-	// must not delay the response to the move the player just made.
-	// The writes inside go through a service-role client, not this `supabase`
-	// (GitHub issue #221): `badges_earned` has SELECT policies and nothing else,
-	// so handing the grant path the player's own RLS-bound client meant every
-	// grant was refused and no badge had ever been awarded.
-	//
-	// Left to `grantNewBadges`'s own lazy default rather than built here, because
-	// building it here puts it OUTSIDE the `.catch` below: a missing or rotated
-	// `SUPABASE_SERVICE_ROLE_KEY` would then throw synchronously and 500 the
-	// attempt itself, turning a badge that failed to land into a drill the player
-	// cannot finish. Deferred, the same throw is just one more rejected promise
-	// this already swallows — and a pass with no badge movement never builds a
-	// client at all.
-	if (!hadMistake) grantNewBadges(supabase, user.id).catch(() => {});
+	const masteredBefore = computeMasteredMoveIds(variations, teachingProgressBeforeThisAttempt, solvedKeysBeforeThisAttempt);
+	const masteredAfter = computeMasteredMoveIds(variations, teachingProgress, solvedKeys);
 
-	const planAfterAttempt = deriveLearnPlan(variations, computeMasteredMoveIds(variations, teachingProgress, solvedKeys));
+	// Everything below the response line, kept alive by `waitUntil` (GitHub issue
+	// #224). Both of these are deliberately off the critical path — a badge must
+	// not delay the response to the move the player just made — but a bare
+	// `promise.catch(() => {})` is not merely un-awaited, it is UNPROTECTED: the
+	// function can freeze the moment the response is sent, and this work does a
+	// dozen queries (`grantNewBadges` alone reads six tables, then
+	// `countRepertoireStatuses` walks every fully-learned repertoire) before it
+	// writes anything. Verified against production on 2026-09-15: a QA player
+	// drilled a repertoire to fully solved over 8 clean attempts, earned no
+	// badge, and left NO line in the runtime log — not the RLS violation from
+	// #221, not the insert error `grant.ts` logs, nothing. Eligible, unwritten
+	// and silent is what unfinished work looks like; refused work logs.
+	//
+	// `waitUntil` keeps it off the response's critical path while telling the
+	// platform the invocation is not done, which is the distinction the old
+	// comment here missed.
+	const afterResponse = async () => {
+		// Unconditional, unlike the badge sync below: `total_reviews` counts
+		// attempts made, not attempts passed, and a player who is struggling is
+		// exactly who should still see `review_10` move.
+		await recordAttemptStats(createAdminClient(), user.id, {
+			hadMistake,
+			newlyMasteredMoves: Math.max(0, masteredAfter.size - masteredBefore.size)
+		});
+		// A clean attempt is the only kind that can change a repertoire's status,
+		// so it is the only one worth recalculating badges for.
+		if (!hadMistake) await grantNewBadges(supabase, user.id);
+	};
+	// The `.catch` stays, and still has to: `createAdminClient()` throws on a
+	// missing or rotated `SUPABASE_SERVICE_ROLE_KEY`, and a badge that fails to
+	// land must never become a drill the player cannot finish.
+	waitUntil(
+		afterResponse().catch((err) => {
+			console.error(`attempt: post-response work failed for player ${user.id}:`, err instanceof Error ? err.message : err);
+		})
+	);
+
+	const planAfterAttempt = deriveLearnPlan(variations, masteredAfter);
 	return json(buildPracticeView(variations, activeVariationKey, solvedKeys, teachingProgress, planAfterAttempt));
 };
