@@ -19,11 +19,18 @@
 --
 --    These four are also the REVOCABLE ones, so the rows have to exist for the
 --    delete path to be meaningful too.
-insert into public.badges (id, name, description, icon_url, xp_reward) values
-  ('first_repertoire_learned',  'Repertoire Learned',  'Learn every variation in a repertoire',        '/badges/first_repertoire_learned.svg',  100),
-  ('repertoires_learned_5',     'Five Times Learned',  'Learn every variation in 5 repertoires',       '/badges/repertoires_learned_5.svg',     250),
-  ('first_repertoire_mastered', 'Repertoire Mastered', 'Master every chapter in a repertoire',         '/badges/first_repertoire_mastered.svg', 200),
-  ('repertoires_mastered_5',    'Five Times Mastered', 'Master every chapter in 5 repertoires',        '/badges/repertoires_mastered_5.svg',    500)
+--    Columns are `id, name, description, icon_url` — taken from the LIVE table,
+--    not from 0001, which also declares `xp_reward`. That column went with the
+--    XP removal in 0027 and writing the insert against the migration history
+--    instead of the live shape failed with `column "xp_reward" of relation
+--    "badges" does not exist`. `icon_url` is vestigial — the badges page renders
+--    an emoji, and `static/badges/` is empty — but it is `not null`, so these
+--    follow the same `/badges/<id>.svg` convention the other 18 rows use.
+insert into public.badges (id, name, description, icon_url) values
+  ('first_repertoire_learned',  'Repertoire Learned',  'Learn every variation in a repertoire',  '/badges/first_repertoire_learned.svg'),
+  ('repertoires_learned_5',     'Five Times Learned',  'Learn every variation in 5 repertoires',  '/badges/repertoires_learned_5.svg'),
+  ('first_repertoire_mastered', 'Repertoire Mastered', 'Master every chapter in a repertoire',    '/badges/first_repertoire_mastered.svg'),
+  ('repertoires_mastered_5',    'Five Times Mastered', 'Master every chapter in 5 repertoires',   '/badges/repertoires_mastered_5.svg')
 on conflict (id) do nothing;
 
 -- 2. `update_streak` (migration 0003, deliberately kept by 0051) reads and
