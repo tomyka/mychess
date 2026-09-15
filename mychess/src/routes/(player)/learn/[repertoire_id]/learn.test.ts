@@ -227,33 +227,13 @@ describe('learn detail page', () => {
 		expectProgress(3, 5);
 	});
 
-	it('shows a "Switch variation" control whenever a repertoire is loaded', () => {
-		render(Practice, {
-			props: {
-				data: {
-					repertoire: { id: 'r1', name: 'French Defense', color: 'white' },
-					solved: 0,
-					total: 5,
-					allSolved: false,
-					attempt: {
-						variationKey: 'v1',
-						path: [
-							{
-								moveId: 'm1',
-								san: 'e4',
-								fromFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-								toFen: 'rnbqkbnr/pppppppp/8/8/8/PPPPPPPP/8/RNBQKBNR w KQkq - 0 1',
-								isPlayerTurn: true
-							}
-						]
-					}
-				}
-			}
-		});
-		expect(screen.getByText('Switch variation')).toBeTruthy();
-	});
-
-	it('opens the variation picker when "Switch variation" is clicked', async () => {
+	// GitHub issue #219. There is no "Switch variation" button on the drill
+	// screen any more, at any width: the list it opened is now permanently on
+	// screen — left of the board on desktop since #93, and below it on mobile
+	// since #217 freed the room. One instance serves both, moved with `order`,
+	// so there is exactly one /learn-units fetch per completed attempt rather
+	// than one per breakpoint's copy.
+	it('shows the variation list itself, with no modal to open', async () => {
 		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
 		vi.stubGlobal('fetch', fetchSpy);
 		render(Practice, {
@@ -278,10 +258,15 @@ describe('learn detail page', () => {
 				}
 			}
 		});
-		await fireEvent.click(screen.getByText('Switch variation'));
-		// VariationPicker itself renders a "Close" control unique to it — a
-		// reliable signal the picker actually mounted.
-		expect(screen.getByLabelText('Close')).toBeTruthy();
+
+		expect(screen.queryByText('Switch variation')).toBeNull();
+		// Exactly one picker, not one per breakpoint — a second mounted copy
+		// would re-fetch /learn-units on every completed attempt for the rest of
+		// the session.
+		expect(screen.getAllByText('Choose a variation').length).toBe(1);
+		// Inline, so no modal chrome: VariationPicker only renders a Close
+		// control in its 'modal' variant.
+		expect(screen.queryByLabelText('Close')).toBeNull();
 	});
 
 	it('opens the variation picker when "Re-drill a specific variation" is clicked on the solved screen', async () => {
@@ -431,21 +416,26 @@ describe('learn detail page', () => {
 			expect(cgMock.boards[cgMock.boards.length - 1].config.fen).toBe(v1Attempt.path[0].fromFen);
 		});
 
-		it('clicking a chapter in the mobile modal selects its representative but keeps the modal open', async () => {
+		// The drill screen has no modal left (#219), so `onselectchapter`'s own
+		// semantics — auto-select a representative WITHOUT committing and closing
+		// the way picking a specific unit does — are pinned at the one entry
+		// point that still opens one: the solved screen's "Re-drill a specific
+		// variation".
+		it('clicking a chapter selects its representative but keeps the modal open', async () => {
 			vi.stubGlobal('fetch', stubFetch());
 			render(Practice, {
 				props: {
 					data: {
 						repertoire: { id: 'r1', name: 'Test Repertoire', color: 'white' },
-						solved: 0,
+						solved: 2,
 						total: 2,
-						allSolved: false,
-						attempt: v1Attempt
+						allSolved: true,
+						attempt: null
 					}
 				}
 			});
 
-			await fireEvent.click(screen.getByText('Switch variation'));
+			await fireEvent.click(screen.getByText('Re-drill a specific variation'));
 			await waitFor(() => screen.getByLabelText('Close'));
 			// The modal picker doesn't auto-open to the active chapter the way
 			// the inline rail does, so both chapters are already visible.

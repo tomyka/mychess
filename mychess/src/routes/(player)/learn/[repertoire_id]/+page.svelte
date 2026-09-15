@@ -489,13 +489,27 @@
 		</div>
 	{:else}
 		<div class="flex flex-col lg:flex-row lg:items-stretch gap-6 lg:flex-1 lg:min-h-0">
-			<!-- Permanent desktop rail (GitHub issue #93): replaces the modal
-			     picker's role there entirely, so the sidebar's own "Switch"
-			     button (further down) is gone rather than duplicating it. Mobile
-			     keeps the modal, opened from the top bar's "Switch variation"
-			     button — no viewport width here for a third column. -->
+			<!-- Permanent rail at every width now (GitHub issues #93, #219).
+			     Desktop has had it beside the board since #93; mobile used to
+			     reach the same list only through a modal behind "Switch
+			     variation", because there was no room for it — until #217 gave
+			     the board the full width and moved every other row below it.
+
+			     ONE instance, moved with `order`, not a second copy for mobile:
+			     `hidden` is CSS and does not unmount, so a mobile-only second
+			     VariationPicker would keep its own `$effect` alive and fire a
+			     second /learn-units fetch on every completed attempt, forever.
+			     The container is already `flex-col` below `lg`, so `order-last`
+			     is the whole trick — it falls under the board column there and
+			     sits left of it on desktop exactly as before.
+
+			     `max-h-64` and the component's own `overflow-y-auto` keep it to
+			     the space #217 freed rather than running the page long; on
+			     desktop the height comes from the row, as it always has. -->
 			{#if repertoireId}
-				<div class="hidden lg:flex lg:w-64 lg:shrink-0 lg:min-h-0">
+				<div
+					class="order-last lg:order-none flex w-full max-h-64 lg:max-h-none lg:w-64 lg:shrink-0 lg:min-h-0"
+				>
 					<VariationPicker
 						{repertoireId}
 						onselect={selectVariation}
@@ -665,14 +679,6 @@
 								></span>
 							</span>
 						</span>
-						{#if repertoireId}
-							<button
-								onclick={() => (pickerOpen = true)}
-								class="inline-flex items-center gap-1 text-(--color-accent) font-medium shrink-0 hover:underline"
-							>
-								<span aria-hidden="true">📖</span> {m.learn_switch_variation()}
-							</button>
-						{/if}
 					</div>
 
 					<!-- Just the moves played so far. -->
