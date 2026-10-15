@@ -61,7 +61,7 @@ The identity of a Position: two move orders reaching the same Position share one
 _Avoid_: FEN (as an identity), hash
 
 **Move** (repertoire move):
-One edge of a Repertoire: from a Position, the move the Repertoire plays or expects. Own-side Moves are the ones a Player is drilled on; opponent Moves are the replies the Repertoire prepares against.
+One edge of a Repertoire: from a Position, the move the Repertoire plays or expects. Own-side Moves (in code and specs: **player moves**, `isPlayerMove`) are the ones a Player is drilled on; opponent Moves are the replies the Repertoire prepares against.
 _Avoid_: Ply (fine as a count), node, variation (a Move is not a line)
 
 **Line**:

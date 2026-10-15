@@ -4,6 +4,8 @@
  * Plain readonly values; every function here is pure.
  */
 
+import { sideToMove } from '../position-key';
+
 export type Side = 'white' | 'black';
 export type MarkColor = 'G' | 'R' | 'Y' | 'B';
 export interface Arrow {
@@ -26,7 +28,7 @@ export type ChapterNameSource =
   | { readonly kind: 'custom'; readonly name: string }
   | { readonly kind: 'eco'; readonly eco: string }
   | { readonly kind: 'header'; readonly name: string }
-  | { readonly kind: 'index'; readonly n: number };
+  | { readonly kind: 'index'; readonly number: number };
 
 export interface Chapter {
   readonly id: string;
@@ -55,21 +57,25 @@ export interface RepertoireGraph {
 export const moveKey = (fromKey: string, san: string): string =>
   `${fromKey}|${san}`;
 
-/** A FEN chess.js accepts for a position key; counters do not affect legality. */
-export const fenOf = (key: string): string => `${key} 0 1`;
-
 export function isPlayerMove(
   graph: RepertoireGraph,
   move: RepertoireMove,
 ): boolean {
-  const toMove = move.from.split(' ')[1];
-  return (toMove === 'w') === (graph.side === 'white');
+  return (sideToMove(move.from) === 'w') === (graph.side === 'white');
 }
 
 export function playerKeys(graph: RepertoireGraph): string[] {
   return graph.moves
     .filter((m) => isPlayerMove(graph, m))
     .map((m) => moveKey(m.from, m.san));
+}
+
+/** The chapter with this id, if the repertoire has one. */
+export function chapterOf(
+  graph: RepertoireGraph,
+  chapterId: string,
+): Chapter | undefined {
+  return graph.chapters.find((c) => c.id === chapterId);
 }
 
 function children(
@@ -91,13 +97,14 @@ interface Walk {
 /**
  * Every line of a chapter from its root to a leaf, children in insertion
  * order. A move back to a position already on the line (a repetition) ends
- * the line instead of looping.
+ * the line instead of looping. It enumerates every path, so a chapter with
+ * many transpositions yields exponentially many lines; there is no cap yet.
  */
 export function lines(
   graph: RepertoireGraph,
   chapterId: string,
 ): RepertoireMove[][] {
-  const chapter = graph.chapters.find((c) => c.id === chapterId);
+  const chapter = chapterOf(graph, chapterId);
   if (chapter === undefined) return [];
   const out: RepertoireMove[][] = [];
   const stack: Walk[] = [

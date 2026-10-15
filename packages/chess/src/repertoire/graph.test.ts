@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { positionKey } from '../position-key';
+import { fenOf, positionKey } from '../position-key';
 import {
-  fenOf,
   isPlayerMove,
   lines,
   mainLine,
@@ -45,7 +44,7 @@ const graph: RepertoireGraph = {
       id: 'c1',
       rootKey: START,
       intro: null,
-      nameSource: { kind: 'index', n: 1 },
+      nameSource: { kind: 'index', number: 1 },
     },
   ],
   moves: [

@@ -15,3 +15,11 @@ export function positionKey(fen: string): string {
   }
   return new Chess(trimmed).fen().split(' ').slice(0, 4).join(' ');
 }
+
+/** A FEN chess.js accepts for a position key; counters do not affect legality. */
+export const fenOf = (key: string): string => `${key} 0 1`;
+
+/** The side to move in a position key: its second field. */
+export function sideToMove(key: string): 'w' | 'b' {
+  return key.split(' ')[1] === 'b' ? 'b' : 'w';
+}

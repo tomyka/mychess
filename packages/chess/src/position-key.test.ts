@@ -1,6 +1,6 @@
-import { validateFen } from 'chess.js';
+import { Chess, validateFen } from 'chess.js';
 import { describe, expect, it } from 'vitest';
-import { positionKey } from './position-key';
+import { fenOf, positionKey, sideToMove } from './position-key';
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 const START_KEY = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -';
@@ -54,5 +54,24 @@ describe('positionKey', () => {
     expect(() => positionKey('not a fen')).toThrow(
       `Not a valid FEN: ${reason}`,
     );
+  });
+});
+
+describe('fenOf', () => {
+  it('turns a key back into a FEN chess.js plays from', () => {
+    const key = positionKey(
+      'rnbqkbnr/pppp1ppp/8/8/3Pp3/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 2',
+    );
+    expect(fenOf(key)).toBe(`${key} 0 1`);
+    expect(new Chess(fenOf(key)).move('exd3').san).toBe('exd3');
+  });
+});
+
+describe('sideToMove', () => {
+  it('reads the side to move from a key', () => {
+    expect(sideToMove(START_KEY)).toBe('w');
+    expect(
+      sideToMove('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -'),
+    ).toBe('b');
   });
 });
