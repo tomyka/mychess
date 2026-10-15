@@ -40,5 +40,6 @@ them. You do not own:
 
 Run and quote: `pnpm lint`, `pnpm typecheck`, `pnpm format:check`,
 `pnpm test:component`, and for anything a request reaches, `pnpm build` then
-`pnpm test:feature` (needs Docker). Then message the lead with the files you
+`pnpm test:feature` (needs Docker; the feature and E2E suites are added by
+#249 - until then, say they do not exist yet). Then message the lead with the files you
 changed, the commands and their results, and any open question.

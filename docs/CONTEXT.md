@@ -18,6 +18,10 @@ _Avoid_: Student, learner, trainee
 A capability an Account switches on that lets it link Players, assign Repertoires and see their progress. A Coach is still a Player and may have Coaches of their own.
 _Avoid_: Trainer (reserved for the FIDE trainer title badge), teacher, coach role/account
 
+**Display name**:
+The name an Account shows to others (Coaches, Group members, thread participants): trimmed, never blank, at most 50 characters.
+_Avoid_: Username, nickname, handle
+
 **Coach link**:
 The accepted relationship between one Coach and one Player that grants the Coach access to that Player. A Player may have several Coach links; ending one (unlinking) removes the Coach's access immediately.
 _Avoid_: Connection, follow, relationship, membership

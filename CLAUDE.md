@@ -34,8 +34,8 @@ it, ask the owner.
 | --- | --- | --- |
 | `packages/chess` (`@mychess/chess`) | positions, position keys, move graph, PGN, ECO and taxonomy, FSRS scheduling, reconciliation, deviation detection | `chess.js`, `ts-fsrs`, `zod` |
 | `packages/domain` (`@mychess/domain`) | accounts, coach capability, links, invites, groups, assignments, forks, goals, threads, notifications, entitlements, access rules | `zod`, `@mychess/chess` |
-| `packages/db` (`@mychess/db`) | Drizzle schema, migrations, repositories, test helpers, seeds | `@mychess/domain`, `@mychess/chess`, `drizzle-orm`, `pg` |
-| `packages/integrations` (`@mychess/integrations`) | Lichess, Chess.com, FIDE, LSF, chess-results clients | `@mychess/chess`, `zod` |
+| `packages/db` (`@mychess/db`) | Drizzle schema, migrations, repositories, test helpers, seeds | `@mychess/domain`, `@mychess/chess`, `drizzle-orm`, `pg`, `zod` |
+| `packages/integrations` (`@mychess/integrations`) | Lichess, Chess.com, FIDE (incl. the Lithuania ranking; LSF has no rating of its own, #232), chess-results clients | `@mychess/chess`, `zod` |
 | `apps/web` (`@mychess/web`) | Next.js App Router pages, components, server actions | all packages through their entry points |
 
 Enforced by dependency-cruiser and ESLint. `archive/` is never imported,
@@ -55,6 +55,9 @@ built, linted or tested.
   (reconciliation, Q29).
 - **Refusals are values**, not exceptions: domain methods return a
   `Result`-style success or refusal with a reason the UI can translate.
+  Exceptions are only for programmer errors: a caller passing input it
+  should already have parsed, such as an invalid FEN to `positionKey`.
+  Zod issue messages are message-catalogue keys, not text.
 - **Parse at the edges:** every request body, query result and external API
   response is parsed with zod.
 - **No user-visible string in code:** all text goes through the message

@@ -9,9 +9,7 @@ describe('displayNameSchema', () => {
   it('refuses a blank name', () => {
     const result = displayNameSchema.safeParse('   ');
     expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.message).toBe(
-      'A display name cannot be blank.',
-    );
+    expect(result.error?.issues[0]?.message).toBe('displayName.blank');
   });
 
   it('takes a name of exactly the maximum length', () => {
@@ -24,8 +22,6 @@ describe('displayNameSchema', () => {
       'a'.repeat(DISPLAY_NAME_MAX + 1),
     );
     expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.message).toBe(
-      'A display name has at most 50 characters.',
-    );
+    expect(result.error?.issues[0]?.message).toBe('displayName.tooLong');
   });
 });
