@@ -47,25 +47,42 @@ module.exports = {
       to: { dependencyTypes: ['npm-dev'], dependencyTypesNot: ['type-only'] },
     },
 
-    // The direction of dependencies: web -> db, web -> domain -> chess, and
-    // chess on its own.
+    // The direction of dependencies: web -> db -> domain -> chess, chess on
+    // its own, and integrations beside them, reaching chess but never web or db.
     {
-      name: 'chess-imports-only-chess-js-and-zod',
+      name: 'chess-imports-only-chess-js-ts-fsrs-and-zod',
       severity: 'error',
       comment:
-        'chess imports only chess.js, zod and its own files: no other package, framework, database or I/O.',
+        'chess imports only chess.js, ts-fsrs, zod and its own files: no other package, framework, database or I/O.',
       from: { path: '^packages/chess/src/', pathNot: TEST_FILE },
-      to: { pathNot: ['^packages/chess/src/', npm('chess\\.js|zod')] },
+      to: {
+        pathNot: ['^packages/chess/src/', npm('chess\\.js|ts-fsrs|zod')],
+      },
     },
     {
-      name: 'chess-tests-import-only-chess-js-zod-and-vitest',
+      name: 'chess-tests-import-only-chess-js-ts-fsrs-zod-and-vitest',
       severity: 'error',
-      comment: 'chess tests import only chess.js, zod, vitest and chess files.',
+      comment:
+        'chess tests import only chess.js, ts-fsrs, zod, vitest and chess files.',
       from: { path: `^packages/chess/src/.*${TEST_FILE}` },
       to: {
         pathNot: [
           '^packages/chess/src/',
-          npm('chess\\.js|zod|vitest|@vitest/[^/]+'),
+          npm('chess\\.js|ts-fsrs|zod|vitest|@vitest/[^/]+'),
+        ],
+      },
+    },
+    {
+      name: 'integrations-not-to-web-or-db',
+      severity: 'error',
+      comment:
+        'integrations (external API clients) never depend on web or the database.',
+      from: { path: '^packages/integrations/' },
+      to: {
+        path: [
+          '^apps/',
+          '^packages/db/',
+          npm('next|react|react-dom|pg|drizzle-orm'),
         ],
       },
     },
@@ -132,7 +149,7 @@ module.exports = {
         path: '^(apps|packages)/',
         pathNot: [
           '^$1/',
-          '^packages/(domain|chess)/src/index\\.ts$',
+          '^packages/(domain|chess|integrations)/src/index\\.ts$',
           '^packages/db/src/(index|migrations)\\.ts$',
           '^packages/db/src/testing/index\\.ts$',
         ],
