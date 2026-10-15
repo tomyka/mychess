@@ -24,6 +24,7 @@ a rule to unblock a teammate.
 - Walk the affected persona journeys for the current milestone
   (`docs/personas/*.md`: Coach, Player 0-1400, Player 1400-2000, Player
   2000+) as E2E tests. A slice that changes a journey updates its test.
+  (The feature and E2E suites are added by #249; until then, say so.)
 - Check both locales (LT default, EN) and phone width on anything visible.
 
 **3. Fixtures and seeds.** You own `packages/db/src/seed/personas/` (the

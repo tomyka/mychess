@@ -107,7 +107,7 @@ Laptop (1440x900) for preparation journeys, phone (390x844) for dashboard and me
 |---|---|---|
 | C-M3-1 | Open the group's real-game deviation view after students linked Lichess/Chess.com | Per student: games, first deviation, own mistake vs opponent deviation; Rokas's 4.d4 mistake and Gabija's 9...Bd6 mistake are flagged (Q4, Q30) |
 | C-M3-2 | Link his FIDE ID | FM and FIDE Trainer badges shown on his coach profile (Q34) |
-| C-M3-3 | View students' FIDE ratings and Lithuania ranks on the group page | Ratings from staging fixtures: Gabija FIDE 1720, Dovydas FIDE 2185, each with their Lithuania rank (FIDE-LTU ranking); Rokas "unrated" for FIDE, Lichess rapid 1350 |
+| C-M3-3 | View students' FIDE ratings and Lithuania ranks on the group page | Ratings from staging fixtures: Gabija FIDE 1720, Dovydas FIDE 2185, each with their Lithuania rank (FIDE-LTU ranking); Rokas "unrated" for FIDE, Lichess rapid 1290 |
 | C-M3-4 | Set a results goal for Gabija: no deviations in the next 5 games | Goal tracks imported games and updates on the dashboard (Q32) |
 | C-M3-5 | Find the group's last club tournament (chess-results.com fixture) | Tournament with the three students' results; importable games feed the deviation view |
 | C-M3-6 | Gabija unlinks from him | Access ends immediately: her shared Taimanov and games disappear from his dashboard; she keeps her progress and is offered forks of his assignments (Q26, Q41) |

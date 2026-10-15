@@ -7,7 +7,7 @@ Tiers are QA personas plus soft product defaults (suggested repertoire depth, st
 | Persona | Doc | Issue | Rating | UI language | Main devices | Repertoire depth | Tester agent |
 |---|---|---|---|---|---|---|---|
 | Rimantas Vaitkus, coach (FM, FIDE Trainer) | [coach.md](coach.md) | [#245](https://github.com/tomyka/mychess/issues/245) | FIDE 2205 | LT | Windows laptop, Android phone | Assigns tier-fitting repertoires; group assignment 10-12 moves | [persona-coach](../../.claude/agents/persona-coach.md) |
-| Rokas Petrauskas, player 0-1400 | [u1400.md](u1400.md) | [#246](https://github.com/tomyka/mychess/issues/246) | Lichess rapid 1350, FIDE unrated | LT | Android phone (PWA) | Shallow, about 8 moves | [persona-u1400](../../.claude/agents/persona-u1400.md) |
+| Rokas Petrauskas, player 0-1400 | [u1400.md](u1400.md) | [#246](https://github.com/tomyka/mychess/issues/246) | Lichess rapid 1290, FIDE unrated | LT | Android phone (PWA) | Shallow, about 8 moves | [persona-u1400](../../.claude/agents/persona-u1400.md) |
 | Gabija Navickaitė, player 1400-2000 | [1400-2000.md](1400-2000.md) | [#247](https://github.com/tomyka/mychess/issues/247) | FIDE 1720 | LT, switches to EN | iPhone, MacBook | Main lines, about 12 moves, a few branches | [persona-1400-2000](../../.claude/agents/persona-1400-2000.md) |
 | Dovydas Jankauskas, player 2000+ (also coaches) | [2000plus.md](2000plus.md) | [#248](https://github.com/tomyka/mychess/issues/248) | FIDE 2185 | EN | Desktop, iPad | Deep, 20+ moves, many branches | [persona-2000plus](../../.claude/agents/persona-2000plus.md) |
 
@@ -43,5 +43,5 @@ All three players are in the coach's group "Šeštadienio grupė" and share the 
 ## Open dependencies
 
 - Staging URL and a test-only sign-in path for `@mychess.test` accounts (magic links on staging must be capturable without a real inbox). Until these exist, the tester agents cannot run.
-- Staging fixture adapters for FIDE (incl. the LTU ranking), Lichess, Chess.com and chess-results.com (M3). LSF has no national rating; the Lithuania ranking comes from the FIDE list (#232).
+- Staging fixture adapters for FIDE (incl. the LTU ranking), Lichess, Chess.com and chess-results.com (M3). LSF publishes no rating of its own (#232); showing a FIDE-LTU Lithuania ranking instead is a proposal awaiting the owner (open question 1 in docs/owner-rulings.md).
 - Spec decisions flagged as observations in the docs: two repertoires answering the same position (Rokas), hiding an unwanted group assignment (Dovydas), skipping the learn pass for known material (Dovydas), trusted-coach review of starter repertoires (coach).

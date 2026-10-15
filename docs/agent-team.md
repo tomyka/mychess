@@ -80,7 +80,7 @@ Three to five teammates at a time; each one costs tokens.
 | Auth, invites, coach links, deletion | backend-dev, web-dev, security-reviewer, qa |
 | Training screens, builder, coach dashboard | web-dev, ux-designer, chess-dev or backend-dev, qa |
 | Text-heavy slices (onboarding, emails, digest) | web-dev, i18n-content, qa |
-| Explorer, game import, FIDE and Lithuania ranking, tournaments | integrations-dev, backend-dev, qa, architect |
+| Explorer, game import, FIDE, LSF ratings, tournaments | integrations-dev, backend-dev, qa, architect |
 | End of milestone | qa + persona testers, architect (improve-codebase-architecture) |
 
 ## Pipeline

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { DISPLAY_NAME_MAX, displayNameSchema } from './display-name';
+import {
+  DISPLAY_NAME_ISSUES,
+  DISPLAY_NAME_MAX,
+  displayNameSchema,
+} from './display-name';
 
 describe('displayNameSchema', () => {
   it('trims the name', () => {
@@ -9,7 +13,7 @@ describe('displayNameSchema', () => {
   it('refuses a blank name', () => {
     const result = displayNameSchema.safeParse('   ');
     expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.message).toBe('displayName.blank');
+    expect(result.error?.issues[0]?.message).toBe(DISPLAY_NAME_ISSUES.blank);
   });
 
   it('takes a name of exactly the maximum length', () => {
@@ -22,6 +26,6 @@ describe('displayNameSchema', () => {
       'a'.repeat(DISPLAY_NAME_MAX + 1),
     );
     expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.message).toBe('displayName.tooLong');
+    expect(result.error?.issues[0]?.message).toBe(DISPLAY_NAME_ISSUES.tooLong);
   });
 });

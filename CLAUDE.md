@@ -35,10 +35,10 @@ it, ask the owner.
 | `packages/chess` (`@mychess/chess`) | positions, position keys, move graph, PGN, ECO and taxonomy, FSRS scheduling, reconciliation, deviation detection | `chess.js`, `ts-fsrs`, `zod` |
 | `packages/domain` (`@mychess/domain`) | accounts, coach capability, links, invites, groups, assignments, forks, goals, threads, notifications, entitlements, access rules | `zod`, `@mychess/chess` |
 | `packages/db` (`@mychess/db`) | Drizzle schema, migrations, repositories, test helpers, seeds | `@mychess/domain`, `@mychess/chess`, `drizzle-orm`, `pg`, `zod` |
-| `packages/integrations` (`@mychess/integrations`) | Lichess, Chess.com, FIDE (incl. the Lithuania ranking; LSF has no rating of its own, #232), chess-results clients | `@mychess/chess`, `zod` |
+| `packages/integrations` (`@mychess/integrations`) | Lichess, Chess.com, FIDE, LSF ratings (source pending: open question 1, #232), chess-results clients | `@mychess/chess`, `zod` |
 | `apps/web` (`@mychess/web`) | Next.js App Router pages, components, server actions | all packages through their entry points |
 
-Enforced by dependency-cruiser and ESLint. `archive/` is never imported,
+Enforced by dependency-cruiser and ESLint (the db allow-list is pending, #249). `archive/` is never imported,
 built, linted or tested.
 
 ### Rules
