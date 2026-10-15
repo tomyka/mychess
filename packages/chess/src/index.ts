@@ -1,3 +1,4 @@
+export { checkLimits, PGN_LIMITS, type LimitRefusal } from './pgn/limits';
 export {
   parsePgn,
   type PgnGame,
@@ -6,10 +7,10 @@ export {
   type PgnMove,
   type PgnRefusal,
 } from './pgn/parse-pgn';
-export { positionKey } from './position-key';
+export { fenOf, positionKey, sideToMove } from './position-key';
 export type { Result } from './result';
 export {
-  fenOf,
+  chapterOf,
   isPlayerMove,
   lines,
   mainLine,

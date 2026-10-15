@@ -61,11 +61,12 @@ function unescape(value: string): string {
   return value.replace(/\\(.)/g, '$1');
 }
 
+/**
+ * A brace comment, its whitespace collapsed. Embedded commands such as
+ * `[%cal]` arrows stay in the text; the replay reads them (R-65).
+ */
 function pgnCommentTokens(body: string): Token[] {
-  const text = body
-    .replace(/\[%[^\]]*\]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  const text = body.replace(/\s+/g, ' ').trim();
   return text === '' ? [] : [{ kind: 'pgnComment', text }];
 }
 

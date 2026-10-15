@@ -83,26 +83,20 @@ describe('tokenize', () => {
     ]);
   });
 
-  it('removes embedded commands such as arrows and clocks from comments', () => {
+  it('keeps embedded commands such as arrows for the replay to read', () => {
     expect(
       tokensOf('e4 { [%cal Ge2e4,Rd2d4] main idea [%csl Gd5][%clk 0:05:00] }'),
     ).toEqual([
       { kind: 'san', san: 'e4' },
-      { kind: 'pgnComment', text: 'main idea' },
+      {
+        kind: 'pgnComment',
+        text: '[%cal Ge2e4,Rd2d4] main idea [%csl Gd5][%clk 0:05:00]',
+      },
     ]);
   });
 
-  it('keeps words apart when a command between them is removed', () => {
-    expect(tokensOf('e4 {before[%clk 0:05:00]after}')).toEqual([
-      { kind: 'san', san: 'e4' },
-      { kind: 'pgnComment', text: 'before after' },
-    ]);
-  });
-
-  it('drops comments that are empty once commands are removed', () => {
-    expect(tokensOf('e4 { [%clk 0:05:00] } {}')).toEqual([
-      { kind: 'san', san: 'e4' },
-    ]);
+  it('drops empty comments', () => {
+    expect(tokensOf('e4 {  } {}')).toEqual([{ kind: 'san', san: 'e4' }]);
   });
 
   it('drops rest-of-line comments', () => {

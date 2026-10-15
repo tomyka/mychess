@@ -1,15 +1,20 @@
 import { Chess } from 'chess.js';
 import { positionKey } from '../position-key';
+import type { Arrow, Circle } from '../repertoire/graph';
 import type { Result } from '../result';
+import { parseMarks } from './marks';
 import type { MovetextToken } from './tokenize';
 
 /**
- * What a PGN file says about a move: its `{...}` comments (PGN's own word;
- * not a Thread comment or a note) and its NAGs.
+ * What a PGN file says about a move: the prose of its `{...}` comments
+ * (PGN's own word; not a Thread comment or a note), its NAGs, and the
+ * arrows and circles its comments draw (R-65).
  */
 interface PgnCommentary {
   pgnComments: string[];
   nags: number[];
+  arrows: Arrow[];
+  circles: Circle[];
 }
 
 /** One move as it occurs in a game's movetext, with its PGN commentary. */
@@ -17,6 +22,15 @@ export interface MoveOccurrence extends PgnCommentary {
   from: string;
   to: string;
   san: string;
+}
+
+/**
+ * A game's movetext, replayed: its moves, and its intro, the prose of the
+ * comments before its first move (R-66), or null when there is none.
+ */
+export interface ReplayedMovetext {
+  intro: string | null;
+  moves: MoveOccurrence[];
 }
 
 /** Why a game's movetext cannot be replayed. */
@@ -38,7 +52,12 @@ interface Branch {
   pending: PgnCommentary;
 }
 
-const noCommentary = (): PgnCommentary => ({ pgnComments: [], nags: [] });
+const noCommentary = (): PgnCommentary => ({
+  pgnComments: [],
+  nags: [],
+  arrows: [],
+  circles: [],
+});
 
 const newBranch = (fen: string): Branch => ({
   board: new Chess(fen),
@@ -59,10 +78,13 @@ function tryMove(board: Chess, san: string): string | null {
  * Replays movetext, following every variation: `(` opens a branch from the
  * position before the current branch's last move, `)` resumes the
  * enclosing branch. Comments and NAGs attach to the move they follow, or to
- * the branch's first move when they come before it.
+ * the branch's first move when they come before it. Comments before the
+ * game's first move are its intro instead; marks there have no move to go
+ * on and are dropped.
  */
 class Replay {
   readonly moves: MoveOccurrence[] = [];
+  private readonly introParts: string[] = [];
   private branch: Branch;
   private readonly enclosing: Branch[] = [];
 
@@ -75,7 +97,7 @@ class Replay {
       case 'san':
         return this.play(token.san);
       case 'pgnComment':
-        this.commentary().pgnComments.push(token.text);
+        this.comment(token.text);
         return null;
       case 'nag':
         this.commentary().nags.push(token.nag);
@@ -91,6 +113,22 @@ class Replay {
     return this.enclosing.length > 0
       ? { reason: 'pgn.unbalancedVariation' }
       : null;
+  }
+
+  get intro(): string | null {
+    return this.introParts.length > 0 ? this.introParts.join(' ') : null;
+  }
+
+  private comment(raw: string): void {
+    const { text, arrows, circles } = parseMarks(raw);
+    if (this.moves.length === 0) {
+      if (text !== '') this.introParts.push(text);
+      return;
+    }
+    const commentary = this.commentary();
+    if (text !== '') commentary.pgnComments.push(text);
+    commentary.arrows.push(...arrows);
+    commentary.circles.push(...circles);
   }
 
   private commentary(): PgnCommentary {
@@ -135,7 +173,7 @@ class Replay {
 export function replay(
   rootFen: string,
   body: readonly MovetextToken[],
-): Result<MoveOccurrence[], ReplayRefusal> {
+): Result<ReplayedMovetext, ReplayRefusal> {
   const game = new Replay(rootFen);
   for (const token of body) {
     const refusal = game.apply(token);
@@ -143,6 +181,6 @@ export function replay(
   }
   const refusal = game.finish();
   return refusal === null
-    ? { ok: true, value: game.moves }
+    ? { ok: true, value: { intro: game.intro, moves: game.moves } }
     : { ok: false, refusal };
 }

@@ -4,20 +4,28 @@
  * Ported from v1 (`archive/v1/mychess/src/lib/pgn/parser.ts` and the
  * naming in `pgn-import.ts`), with deliberate differences:
  * - Malformed input is refused as a whole, with a reason, instead of
- *   skipping bad moves and games silently (owner decision pending, #233
- *   q31b).
+ *   skipping bad moves and games silently. `parsePgn` stays strict: the
+ *   owner's ruling to import the valid games and list the broken ones
+ *   (R-64) belongs to the lenient importer, which parses game by game.
  * - A move keeps no colour or ply: both follow from its position key, and
  *   a position reached at different plies is one position.
  * - A game no header names gets `name: null`, not "Game N"; the UI
  *   supplies the fallback text.
- * - PGN comments and NAGs are kept on moves (v1 stripped them). Embedded
- *   commands such as `[%cal]` arrows are still dropped.
+ * - PGN comments and NAGs are kept on moves (v1 stripped them), and so are
+ *   the `[%cal]` arrows and `[%csl]` circles comments draw (R-65). Other
+ *   embedded commands, such as `[%clk]` clocks, are dropped.
+ * - The comments before a game's first move are kept as its intro (R-66).
  */
 import { DEFAULT_POSITION, validateFen } from 'chess.js';
 import { positionKey } from '../position-key';
 import type { Result } from '../result';
 import { gameNames } from './game-names';
-import { replay, type MoveOccurrence, type ReplayRefusal } from './replay';
+import {
+  replay,
+  type MoveOccurrence,
+  type ReplayedMovetext,
+  type ReplayRefusal,
+} from './replay';
 import { splitGames, type PgnHeaders, type RawGame } from './split-games';
 import { tokenize, type UnreadablePgn } from './tokenize';
 
@@ -25,7 +33,7 @@ export type { PgnHeaders } from './split-games';
 
 /**
  * One move of the graph: a SAN move between two position keys, with every
- * PGN comment and NAG it carries anywhere in the file, and the games
+ * PGN comment, NAG, arrow and circle it carries anywhere in the file, and the games
  * (indexes into `PgnGraph.games`) that contain it.
  */
 export interface PgnMove extends MoveOccurrence {
@@ -35,12 +43,14 @@ export interface PgnMove extends MoveOccurrence {
 /**
  * One game of the file that has moves (the importer maps games to
  * Chapters). `name` comes from its headers, or is null when no header
- * names it; `root` is its starting position key.
+ * names it; `root` is its starting position key; `intro` is the prose
+ * before its first move, or null.
  */
 export interface PgnGame {
   name: string | null;
   headers: PgnHeaders;
   root: string;
+  intro: string | null;
 }
 
 /** A PGN file as a position-keyed move graph, grouped by game. */
@@ -59,10 +69,9 @@ export type PgnRefusal =
   | { reason: 'pgn.invalidFen'; game: number }
   | { reason: 'pgn.noMoves' };
 
-interface ReplayedGame {
+interface ReplayedGame extends ReplayedMovetext {
   headers: PgnHeaders;
   root: string;
-  moves: MoveOccurrence[];
 }
 
 function replayGame(
@@ -73,17 +82,13 @@ function replayGame(
   if (!validateFen(fen).ok) {
     return { ok: false, refusal: { reason: 'pgn.invalidFen', game: index } };
   }
-  const moves = replay(fen, game.body);
-  if (!moves.ok) {
-    return { ok: false, refusal: { ...moves.refusal, game: index } };
+  const movetext = replay(fen, game.body);
+  if (!movetext.ok) {
+    return { ok: false, refusal: { ...movetext.refusal, game: index } };
   }
   return {
     ok: true,
-    value: {
-      headers: game.headers,
-      root: positionKey(fen),
-      moves: moves.value,
-    },
+    value: { headers: game.headers, root: positionKey(fen), ...movetext.value },
   };
 }
 
@@ -99,9 +104,15 @@ function replayAll(
   return { ok: true, value: replayed };
 }
 
+/** Appends the values `target` lacks; values are equal when their JSON is. */
 function addAll<T>(target: T[], values: readonly T[]): void {
+  const seen = new Set(target.map((value) => JSON.stringify(value)));
   for (const value of values) {
-    if (!target.includes(value)) target.push(value);
+    const key = JSON.stringify(value);
+    if (!seen.has(key)) {
+      seen.add(key);
+      target.push(value);
+    }
   }
 }
 
@@ -118,10 +129,14 @@ function mergeMove(
     san,
     pgnComments: [],
     nags: [],
+    arrows: [],
+    circles: [],
     games: [],
   };
   addAll(move.pgnComments, occurrence.pgnComments);
   addAll(move.nags, occurrence.nags);
+  addAll(move.arrows, occurrence.arrows);
+  addAll(move.circles, occurrence.circles);
   addAll(move.games, [game]);
   graph.set(id, move);
 }
@@ -139,6 +154,7 @@ function toGraph(replayed: readonly ReplayedGame[]): PgnGraph {
       name: names[i] ?? null,
       headers: game.headers,
       root: game.root,
+      intro: game.intro,
     })),
     moves: [...moves.values()],
   };
