@@ -34,7 +34,7 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | --- | --- | --- | --- | --- |
 | Account | Account | paskyra | v1 `join_needs_profile_body`, `settings_connected_accounts_heading` | |
 | Player | Player | žaidėjas | v1 `nav_players`, `settings_role_player` | Not **mokinys** (student), which v1 used on coach screens (`coach_students_heading`); Student is retired. |
-| Coach | Coach | treneris | v1 `nav_coaches`, `coach_note_title` | Collides with the FIDE trainer title, see "Needs owner decision". |
+| Coach | Coach | treneris | v1 `nav_coaches`, `coach_note_title` | Collides with the FIDE trainer title, adopted (R-74). |
 | Coach (capability switch) | Coach mode (proposed) | trenerio režimas | proposed | v1 had a role choice ("Esu: žaidėjas / treneris", `settings_role_label`); v2 has no coach account, so the role wording does not carry over. |
 | Display name | Display name | rodomas vardas | proposed | v1 asked for first and last name (`welcome_first_name_label` vardas, `welcome_last_name_label` pavardė); v2 has one field. Not **vartotojo vardas** (username). |
 | Coach link | Coach link | ryšys su treneriu | proposed | v1 said "aktyvus ryšys" (`coaches_request_error_active_relationship`). Verbs: link **susieti**, unlink **atsieti**. Not **prisijungti** (v1 `join_*` used it for linking, but it is the sign-in verb). |
@@ -48,7 +48,7 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | --- | --- | --- | --- | --- |
 | Repertoire | Repertoire | repertuaras | v1 `nav_repertoires`, `learn_repertoire_fallback_name` | |
 | Side | Side | spalva | v1 `pgn_import_color_label` | |
-| White / Black (side) | White / Black | baltieji / juodieji | proposed | v1 used **balta / juoda** (`pgn_import_color_white`) and **baltaisiais / juodaisiais** (`prep_as_white`). "As White": **baltaisiais**. See "Needs owner decision". |
+| White / Black (side) | White / Black | baltieji / juodieji | proposed | v1 used **balta / juoda** (`pgn_import_color_white`) and **baltaisiais / juodaisiais** (`prep_as_white`). "As White": **baltaisiais**. Adopted (R-74). |
 | Chapter | Chapter | skyrius | v1 `coach_chapters_link`, `repertoire_tree_chapter_heading` | |
 | Opening (a Chapter's subject) | Opening | debiutas | v1 `opening_picker_heading`, `coach_player_coverage_heading` | |
 | Position | Position | padėtis | v1 `move_nav_jump_to_current`, `learn_explore_position` | Not **pozicija**. |
@@ -138,7 +138,7 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | Accept / Decline | Accept / Decline | priimti / atmesti | v1 `coaches_accept_button` | |
 | Import | Import | importuoti | v1 `pgn_import_importing_label` | |
 
-## Needs owner decision
+## Owner decisions (adopted in R-74, #233)
 
 1. **Coach vs the FIDE trainer title.** CONTEXT reserves "Trainer" for the
    FIDE title badge, but in Lithuanian both are **treneris** (FIDE Trainer =

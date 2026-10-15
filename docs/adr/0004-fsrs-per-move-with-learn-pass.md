@@ -8,7 +8,7 @@ Each own-side Move a Player trains gets its own FSRS schedule (ts-fsrs): one Rev
 
 - The v1 mastery model (learn units, bands, practice pool, solved/learned) is retired, along with its depth gating.
 - Training state is per Move, so every Repertoire change needs Reconciliation (ADR 0005).
-- "Mastered Line/Chapter" (for Mastery goals and progress) is derived from per-Move Review state; the definition is still open (owner-rulings Open question 10).
+- "Mastered Line/Chapter" (for Mastery goals and progress) is derived from per-Move Review state; Mastered = every Move learned and retrievability >= 90% today (R-56). One correct blind retest ends the learn pass (R-55); free play does not change FSRS state.
 
 ## Considered options
 

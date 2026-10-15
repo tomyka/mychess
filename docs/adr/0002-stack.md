@@ -2,7 +2,7 @@
 
 Status: accepted (2026-10-16, #226 Q16, Q37; owner-rulings R-26, R-30)
 
-v2 uses the sportbet_new stack so its factory kit (agent roles, quality gate, hooks, CI) transfers one-to-one: a pnpm monorepo with Next.js 16 in `apps/web` and packages `domain`, `chess` and `db`; Drizzle over Neon Postgres; Auth.js for sign-in (email magic link, Google, and Lichess OAuth, which also links the Lichess account; whether Lichess sign-in ships in M1 or M3 is open question 2 in `docs/owner-rulings.md`).
+v2 uses the sportbet_new stack so its factory kit (agent roles, quality gate, hooks, CI) transfers one-to-one: a pnpm monorepo with Next.js 16 in `apps/web` and packages `domain`, `chess` and `db`; Drizzle over Neon Postgres; Auth.js for sign-in (email magic link, Google, and Lichess OAuth, which also links the Lichess account; Lichess sign-in ships in M1 (R-68)).
 
 ## Consequences
 

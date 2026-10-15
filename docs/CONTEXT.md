@@ -191,13 +191,13 @@ _Avoid_: Phase, release, sprint
 - **Personal notes** are visible only to their author.
 - Unlinking ends a Coach's access immediately; the Player keeps their progress and is offered a Fork.
 
-## Flagged ambiguities
+## Flagged ambiguities (resolved where marked R-n)
 
 - **"Review"** is both the per-Move schedule and the drilling session. Kept deliberately; if it causes confusion, rename the session "review session".
-- **"Line"** is used for progress and Mastery goals, but storage and scheduling are per Move. What "a Line is mastered" means is not yet defined (owner-rulings Open question 10).
-- **Same Move in two Repertoires** (for example, two Coaches assigning overlapping openings): one Review or two is undecided (Open question 7).
-- **"Shared"** for a private Repertoire is undefined (Open question 3).
-- **Fork and training state**: whether a Fork keeps the Player's Reviews is undecided (Open question 4).
+- **"Line"** is used for progress and Mastery goals, but storage and scheduling are per Move. Mastered = every Move learned and FSRS retrievability >= 90% today (R-56).
+- **Same Move in two Repertoires** (for example, two Coaches assigning overlapping openings): one Review per Player, position and Move (R-53); different answers in the same position are trained in context (R-54).
+- **"Shared"** for a private Repertoire means shared with chosen linked Coaches, read-only with progress (R-42).
+- **Fork and training state**: a Fork keeps the Player's Reviews, since Reviews belong to the Player, not the Repertoire (R-43, R-53).
 - **"Trainer"** collides with the FIDE trainer title; use Coach for the capability and "FIDE trainer title" for the badge.
 - **"Tier"** must not be used for Entitlement or subscription levels.
 

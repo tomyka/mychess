@@ -8,7 +8,7 @@ An Assignment gives a Player the Coach's Repertoire itself, not a copy: later Co
 
 - Training state is keyed to Moves of the Coach's Repertoire and must survive edits to it.
 - Reconciliation runs for every Player and Group member the Repertoire is assigned to.
-- Open: whether a Fork carries training state, what happens on unlink if the Fork is declined, and progress on leaving a Group (owner-rulings Open questions 4-6).
+- A Fork carries training state (R-43). On unlink or leaving a Group with the Fork declined, the Repertoire disappears and its Reviews stay dormant; the Fork offer stays open for 30 days (R-44, R-45). A coach deleting their account auto-forks for players (R-49).
 
 ## Considered options
 

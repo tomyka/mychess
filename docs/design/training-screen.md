@@ -94,7 +94,7 @@ own note when it is built. Vocabulary is from `docs/CONTEXT.md`; tokens from
 | Piece selected | `board-selected` on the square, `board-target` dots on legal squares | unchanged |
 | Correct | piece lands, `board-correct` flash on the target square for `duration-feedback`, check icon in the square corner | prompt changes to "correct" in `success` for the same time |
 | Opponent replies | reply slides in (`duration-move`); input locked meanwhile | move appended to the line |
-| Lapse (wrong move) | wrong piece snaps back, `board-wrong` flash, cross icon; then the expected move shown with a `board-arrow` | "not this move" in `error` with an icon; see open question 1 |
+| Lapse (wrong move) | wrong piece snaps back, `board-wrong` flash, cross icon; then the expected move shown with a `board-arrow` | "not this move" in `error` with an icon; the player then replays the expected move (R-59) |
 | Learn pass, shown | expected move as a `board-arrow` | "play the arrow move" |
 | Learn pass, blind retest | no arrow | "now without the arrow" |
 
@@ -201,15 +201,15 @@ the panel.
 - "End session" and every panel button are reachable with Tab after the
   board, in visual order.
 
-## Open questions for the lead
+## Behaviour decided by the owner (#233)
 
-These are product behaviour, not layout, so they need the spec or the owner:
-
-1. **After a lapse**: does the player have to play the expected move before
-   the drill continues, or is it shown and the drill moves on?
-2. **Failed save**: retry automatically in the background and let the drill
-   continue, or block until saved (drawn above as blocking)?
-3. **Hint button** in a review session: is there one, and does using it
-   count as a lapse?
-4. **Session size**: is a review session all Due Moves, or capped (the
-   "12 / 30" in the wireframes assumes a known total)?
+1. **After a lapse** (R-59): the expected move is shown with an arrow and the
+   player must play it before the drill continues.
+2. **Failed save** (R-60): results queue locally and retry in the background;
+   the drill continues and a banner shows unsynced results. The blocking
+   error state drawn above must be redrawn as that banner.
+3. **Hint button** (R-61): review has one; it highlights the piece to move and
+   counts as a lapse.
+4. **Session size** (R-62): 20 Due Moves by default (player setting 10-100),
+   with "continue"; new moves have a separate daily limit (default 10). The
+   "12 / 20" counter uses that known total.

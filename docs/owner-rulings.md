@@ -66,23 +66,50 @@ Domain vocabulary is defined in [CONTEXT.md](CONTEXT.md); architecture decisions
 - **R-40** (Q41, #226, 2026-10-16): GDPR: data export (PGN + JSON) and hard delete. On unlink the coach loses access, the player keeps their progress and is offered a fork.
 - **R-41** (Q8, #226, 2026-10-16): Encryption at rest of repertoires (a v1 feature) is dropped.
 
+## M1 grilling (#233, 2026-10-16)
+
+The open questions from the kickoff, answered by the owner. Q-numbers refer to the numbered items on #233.
+
+### Coach-player
+- **R-42** (Q3): Sharing a player's own repertoire is per coach: the chosen linked coaches see it and the player's progress on it (as if assigned) and can add coach notes, but cannot edit it. Sharing ends on unshare or unlink.
+- **R-43** (Q4): A fork carries the player's training progress. The fork is the player's own repertoire, private unless shared; the coach sees that their assignment was forked, not the fork's content.
+- **R-44** (Q5): Unlink with the fork declined or ignored: the live repertoire disappears from the player's account, the review state stays dormant (it is per position, so it returns if the same moves come back), and the fork offer stays open for 30 days.
+- **R-45** (Q6): Leaving a group (while staying linked) is treated like unlink for that group's assignments (R-44).
+- **R-46** (Q18): A player can pause an assignment: it stays assigned but leaves their reviews and learn queue; the coach sees it as paused. Unpause any time.
+- **R-47** (Q22): After unlink, coach notes on the player's moves go with the repertoire (a fork keeps them read-only); goals the coach set end; the 1:1 thread stays readable for both but closes for new messages; the coach keeps their own private notes about the player.
+- **R-48** (Q23): A linked coach sees all games the player imported, past and future; the player can hide individual games from coaches.
+- **R-49** (Q25): When a coach deletes their account, every player with an assignment from them gets an automatic personal fork (progress and coach notes read-only), is notified, and then the coach's data is hard-deleted.
+- **R-50** (Q26): Group members see each other's display names and messages in the group thread only; never each other's progress, games or ratings.
+- **R-51** (Q12): A passed deadline marks the assignment overdue for the player and on the coach dashboard, with a notification to both (in-app + digest). Nothing is blocked; the coach can extend or clear it.
+- **R-52** (Q13): A coach's edits to a live repertoire produce one batched notification per repertoire per day to every player who has it (including via groups), summarising the change, with an optional coach note.
+
+### Repertoire & training
+- **R-53** (Q7, Q8): Review state belongs to the player + position + move: a move present in several of the player's repertoires is one review card, and positions merge across chapters and repertoires. Chapter stats count every move that appears in the chapter.
+- **R-54** (Q17): When a player's repertoires give different answers in the same position, each review is shown inside one repertoire and expects that repertoire's move; the player and coach see a "two answers" notice; nothing is blocked.
+- **R-55** (Q9): A new move is learned after one correct blind retest in the learn pass (a wrong answer repeats the arrow step); then its first FSRS review is scheduled. Free play does not change FSRS state; its mistakes count as weak-spot data.
+- **R-56** (Q10): Mastered (line or chapter) = every move learned and FSRS retrievability >= 90% today. Weak spot = a move with 2+ lapses in the last 30 days or retrievability < 70%, ranked by lapses. Thresholds are tunable constants.
+- **R-57** (Q11): A results goal ("no deviations in the next N games") is broken only by player mistakes, not by the opponent leaving book.
+- **R-58** (Q19): A player can mark a move, line or chapter "I know this": it skips the learn pass and goes to FSRS review (first review tomorrow). The coach sees skipped moves.
+- **R-59** (Q30a): After a lapse the correct move is shown with an arrow and the player must play it before continuing; the lapse is recorded once.
+- **R-60** (Q30b): Review results that fail to save queue locally and retry in the background; the drill continues; a banner shows unsynced results.
+- **R-61** (Q30c): Review has a hint button (highlights the piece to move); using it counts as a lapse (FSRS Again).
+- **R-62** (Q30d): A review session ends after 20 due moves by default (player setting 10-100) with a "continue" option; new moves to learn have a separate daily limit (default 10).
+- **R-63** (Q31a): An imported game's chapter is named from the šachmatai.lt taxonomy by classifying its moves; otherwise v1's header rule (unique Event, White or Black); otherwise "Chapter N". The uploader can rename.
+- **R-64** (Q31b): A PGN upload imports every valid game and skips broken ones, listing them (game number and reason) before the user confirms. A file with no valid game is refused.
+- **R-65** (Q31c): `[%cal]` and `[%csl]` arrows and circles are kept as annotations on moves and shown in the learn pass and when browsing.
+- **R-66** (Q31d, e): A comment before a game's first move becomes the chapter's intro text. Upload limits: 2 MB, 200 games, variation depth 64; above that the upload is refused, naming the limit.
+
+### Integrations, accounts and platform
+- **R-67** (Q1): "LSF rating" is a Lithuania ranking built from FIDE's monthly list filtered to federation LTU (rank by standard, rapid and blitz), shown next to the FIDE rating. LSF publishes no rating of its own (#232).
+- **R-68** (Q2): Lichess sign-in ships in M1 (with magic link and Google) and also links the account. Chess.com is never a sign-in method, only a linked username for game import.
+- **R-69** (Q24): One account per canonical email: a Google sign-in with a verified email joins the existing account. Lichess is linked only from settings while signed in, never merged by email.
+- **R-70** (Q14): Every account has a "free" entitlement with limits enforced in the domain (coach: up to 30 linked players and 10 groups). No paywall in the MVP.
+- **R-71** (Q15): Before the M1 production launch the lead counts v1 accounts with real activity and shows the owner, who decides then whether to invite them; no data migration is built unless asked.
+- **R-72** (Q20, Q27): Admin is a flag set only by a seed or CLI script, initially for the owner. Only Admins approve and publish starter repertoires.
+- **R-73** (Q21, Q28): Persona accounts sign in on staging through a test-only route that exists only when a staging env flag is set, accepts only `@mychess.test` emails and requires a shared-secret header; a test proves production refuses it.
+- **R-74** (Q29): The Lithuanian terms proposed in `docs/glossary-lt.md` are adopted.
+- **R-75** (Q32): Unattended backlog runs open a PR with the gate green; the next supervised lead session reviews (qa, architect) and merges.
+
 ## Open questions
 
-Details the rulings leave open. Not decided here; each needs an owner answer or lead fact-finding before the slice that depends on it.
-
-1. **LSF ratings source** (R-25): fact-finding done in #232. LŠF publishes no national rating; its ratings page links to the FIDE list filtered to LTU. Proposal: show a Lithuania ranking built from FIDE-LTU data. Needs owner confirmation.
-2. **Lichess sign-in timing** (R-26 vs R-5, R-29): R-5 puts auth in M1 and R-29 ports Lichess OAuth "when M3 starts". Is Lichess sign-in M1 or M3? Is Chess.com linking-only (no sign-in)?
-3. **Sharing a private repertoire** (R-39): what "shared" means for a player's own repertoire (with one coach, all coaches, read-only or assignable) and how it is done.
-4. **Fork and progress** (R-20, R-40): does a fork carry the player's FSRS progress over, and does the coach keep any visibility of a forked copy of their assignment?
-5. **Unlink without fork** (R-40): if the player declines the offered fork, does the live-linked repertoire disappear from their account, and is its progress kept anywhere?
-6. **Leaving a group** (R-16): when a group assignment is removed because the player left, is the player's progress on it kept (for a later re-join) or offered as a fork as on unlink?
-7. **Shared moves across repertoires** (R-19, R-22): if the same move from the same position sits in two of a player's repertoires (for example, assigned by two coaches), is that one review card or two?
-8. **Transposition scope** (R-19): transpositions merge within a repertoire; do they also merge across chapters' boundaries for chapter-level stats, and across repertoires of the same side?
-9. **Learn pass completion** (R-22): what ends the learn pass for a move (one clean blind retest, or more), and how free play affects FSRS state (if at all).
-10. **Mastery goal and weak spots** (R-14, R-17): what counts as a line or chapter being "mastered" under FSRS, and how weak spots are computed.
-11. **Results goal** (R-17, R-24): does "no deviations in the next N games" count only player mistakes, or also opponent-left-book events?
-12. **Missed deadlines** (R-15, R-16): what happens when an assignment deadline passes (notice only, dashboard flag, nothing).
-13. **Coach update notice** (R-23): is the "coach updated" notice a regular notification (in-app + digest), and does it apply to group members too?
-14. **Entitlement seam** (R-3): what the first entitlement checks will gate, if anything, beyond existing as a seam.
-15. **v1 user migration** (R-6): who decides whether v1 users are "real", and when.
-16. **Brand and domain** (R-10): pending before production launch.
+- **Brand and domain** (R-10): pending before the production launch.

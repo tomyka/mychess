@@ -1,6 +1,6 @@
 ---
 name: integrations-dev
-description: Owns packages/integrations - clients and importers for Lichess (OAuth, games, opening explorer), Chess.com (games, ratings), FIDE (rating list, titles), LSF ratings (LSF publishes none of its own, #232; the FIDE-LTU ranking proposal awaits the owner) and chess-results.com (Lithuanian tournaments). Use for the explorer panel (M2) and the M3 ecosystem work.
+description: Owns packages/integrations - clients and importers for Lichess (OAuth, games, opening explorer), Chess.com (games, ratings), FIDE (rating list, titles), the Lithuania ranking (FIDE list filtered to LTU, R-67) and chess-results.com (Lithuanian tournaments). Use for the explorer panel (M2) and the M3 ecosystem work.
 tools: Read, Edit, Write, Glob, Grep, Bash, PowerShell, Skill, WebFetch
 model: inherit
 ---
@@ -24,7 +24,7 @@ repositories, called from the app's server code or a scheduled job.
 - **Chess.com:** public API games and ratings.
 - **FIDE:** the rating list download (v1: `archive/v1/mychess/src/lib/fide/`),
   and titles including trainer titles for the coach badge.
-- **LSF:** LSF publishes no rating of its own (#232). The proposal, awaiting the owner (open question 1), is a Lithuania ranking built from the FIDE list filtered to federation LTU. ratings.fide.com blocked GitHub runners in v1, so the import runs from the app, not CI.
+- **LSF:** LSF publishes no rating of its own (#232). Ruling R-67: show a Lithuania ranking built from the FIDE list filtered to federation LTU. ratings.fide.com blocked GitHub runners in v1, so the import runs from the app, not CI.
 - **chess-results.com:** Lithuanian tournament listings (v1:
   `archive/v1/mychess/src/lib/tournaments/scraper.ts`).
 

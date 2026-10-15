@@ -43,5 +43,5 @@ All three players are in the coach's group "Šeštadienio grupė" and share the 
 ## Open dependencies
 
 - Staging URL and a test-only sign-in path for `@mychess.test` accounts (magic links on staging must be capturable without a real inbox). Until these exist, the tester agents cannot run.
-- Staging fixture adapters for FIDE (incl. the LTU ranking), Lichess, Chess.com and chess-results.com (M3). LSF publishes no rating of its own (#232); showing a FIDE-LTU Lithuania ranking instead is a proposal awaiting the owner (open question 1 in docs/owner-rulings.md).
+- Staging fixture adapters for FIDE (incl. the LTU ranking), Lichess, Chess.com and chess-results.com (M3). LSF publishes no rating of its own (#232); mychess shows a Lithuania ranking from the FIDE-LTU list instead (R-67).
 - Spec decisions flagged as observations in the docs: two repertoires answering the same position (Rokas), hiding an unwanted group assignment (Dovydas), skipping the learn pass for known material (Dovydas), trusted-coach review of starter repertoires (coach).
