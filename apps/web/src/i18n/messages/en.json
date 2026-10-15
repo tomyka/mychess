@@ -1,5 +1,9 @@
 {
   "app": {
     "title": "mychess"
+  },
+  "displayName": {
+    "blank": "Enter a display name.",
+    "tooLong": "A display name can be at most 50 characters."
   }
 }

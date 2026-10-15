@@ -1,5 +1,9 @@
 {
   "app": {
     "title": "mychess"
+  },
+  "displayName": {
+    "blank": "Įveskite rodomą vardą.",
+    "tooLong": "Rodomas vardas negali būti ilgesnis nei 50 simbolių."
   }
 }
