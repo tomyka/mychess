@@ -281,4 +281,17 @@ export default defineConfig(
   },
   {
     files: ['apps/web/src/**/*.ts', 'apps/web/src/**/*.tsx'],
-    ignores: ['*
+    ignores: ['**/*.test.ts', '**/*.test.tsx', 'apps/web/src/test-setup.ts'],
+    rules: restrictImports({
+      regex:
+        '^(pg|drizzle-orm|@mychess/db/testing|@mychess/db/migrations)(/|$)',
+      message:
+        'web reaches the database only through @mychess/db, and never its test helpers or its migrations.',
+    }),
+  },
+  {
+    files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
+    extends: [tseslint.configs.disableTypeChecked],
+  },
+  prettier,
+);
