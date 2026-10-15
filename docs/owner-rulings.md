@@ -109,6 +109,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-73** (Q21, Q28): Persona accounts sign in on staging through a test-only route that exists only when a staging env flag is set, accepts only `@mychess.test` emails and requires a shared-secret header; a test proves production refuses it.
 - **R-74** (Q29): The Lithuanian terms proposed in `docs/glossary-lt.md` are adopted.
 - **R-75** (Q32): Unattended backlog runs open a PR with the gate green; the next supervised lead session reviews (qa, architect) and merges.
+- **R-76** (S2 brainstorm, #252, 2026-10-16): FSRS target retention is 90%, fixed for every player in M1; a player setting can follow later without data changes.
 
 ## Open questions
 
