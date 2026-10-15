@@ -20,6 +20,7 @@ import { DEFAULT_POSITION, validateFen } from 'chess.js';
 import { positionKey } from '../position-key';
 import type { Result } from '../result';
 import { gameNames } from './game-names';
+import { arrowKey, circleKey } from './marks';
 import {
   replay,
   type MoveOccurrence,
@@ -33,11 +34,11 @@ export type { PgnHeaders } from './split-games';
 
 /**
  * One move of the graph: a SAN move between two position keys, with every
- * PGN comment, NAG, arrow and circle it carries anywhere in the file, and the games
- * (indexes into `PgnGraph.games`) that contain it.
+ * PGN comment, NAG, arrow and circle it carries anywhere in the file, and
+ * the games (indexes into `PgnGraph.games`) that contain it.
  */
 export interface PgnMove extends MoveOccurrence {
-  games: number[];
+  readonly games: readonly number[];
 }
 
 /**
@@ -104,16 +105,21 @@ function replayAll(
   return { ok: true, value: replayed };
 }
 
-/** Appends the values `target` lacks; values are equal when their JSON is. */
-function addAll<T>(target: T[], values: readonly T[]): void {
-  const seen = new Set(target.map((value) => JSON.stringify(value)));
+/** `target` followed by the `values` it lacks, compared by `key`. */
+function union<T>(
+  target: readonly T[],
+  values: readonly T[],
+  key: (value: T) => string,
+): T[] {
+  const seen = new Set(target.map(key));
+  const result = [...target];
   for (const value of values) {
-    const key = JSON.stringify(value);
-    if (!seen.has(key)) {
-      seen.add(key);
-      target.push(value);
+    if (!seen.has(key(value))) {
+      seen.add(key(value));
+      result.push(value);
     }
   }
+  return result;
 }
 
 function mergeMove(
@@ -123,7 +129,7 @@ function mergeMove(
 ): void {
   const { from, to, san } = occurrence;
   const id = `${from}|${san}`;
-  const move = graph.get(id) ?? {
+  const move: PgnMove = graph.get(id) ?? {
     from,
     to,
     san,
@@ -133,12 +139,14 @@ function mergeMove(
     circles: [],
     games: [],
   };
-  addAll(move.pgnComments, occurrence.pgnComments);
-  addAll(move.nags, occurrence.nags);
-  addAll(move.arrows, occurrence.arrows);
-  addAll(move.circles, occurrence.circles);
-  addAll(move.games, [game]);
-  graph.set(id, move);
+  graph.set(id, {
+    ...move,
+    pgnComments: union(move.pgnComments, occurrence.pgnComments, String),
+    nags: union(move.nags, occurrence.nags, String),
+    arrows: union(move.arrows, occurrence.arrows, arrowKey),
+    circles: union(move.circles, occurrence.circles, circleKey),
+    games: union(move.games, [game], String),
+  });
 }
 
 function toGraph(replayed: readonly ReplayedGame[]): PgnGraph {

@@ -264,6 +264,20 @@ describe('parsePgn: the game intro (R-66)', () => {
     expect(graphOf('{[%csl Gd4]} 1. e4 *').games[0]?.intro).toBeNull();
   });
 
+  it('drops marks before the first move: there is no move to draw them on', () => {
+    const graph = graphOf('{[%cal Ge2e4]} 1. e4 *');
+    expect(graph.games[0]?.intro).toBeNull();
+    expect(only(graph, 'e4')).toMatchObject({ arrows: [], circles: [] });
+  });
+
+  it('turns a zero-length arrow into a circle on the move', () => {
+    const graph = graphOf('1. e4 {[%cal Ge4e4]} *');
+    expect(only(graph, 'e4')).toMatchObject({
+      arrows: [],
+      circles: [{ square: 'e4', color: 'G' }],
+    });
+  });
+
   it('keeps NAGs before the first move on that move', () => {
     const graph = graphOf('{Intro} $1 1. e4 *');
     expect(graph.games[0]?.intro).toBe('Intro');

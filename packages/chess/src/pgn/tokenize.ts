@@ -48,6 +48,8 @@ const RULES: readonly Rule[] = [
     ],
   },
   { pattern: /\{([^}]*)\}/y, read: (m) => pgnCommentTokens(m[1] ?? '') },
+  // A `;` rest-of-line comment is dropped whole: no prose is kept and any
+  // `[%cal]` / `[%csl]` marks inside it are not read.
   { pattern: /;[^\n]*/y, read: none },
   { pattern: /\$(\d+)/y, read: (m) => [{ kind: 'nag', nag: Number(m[1]) }] },
   { pattern: /\(/y, read: () => [{ kind: 'open' }] },

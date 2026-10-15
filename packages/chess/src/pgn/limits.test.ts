@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { checkLimits, PGN_LIMITS } from './limits';
 
+const games = (n: number): string =>
+  Array.from({ length: n }, () => '[Event "x"]\n\n1. e4 *').join('\n\n');
+
+const nested = (depth: number): string =>
+  `1. e4 ${'( 1. d4 '.repeat(depth)}${')'.repeat(depth)} *`;
+
+/** Runs `check` and returns how long it took, in milliseconds. */
+function timed(check: () => void): number {
+  const start = performance.now();
+  check();
+  return performance.now() - start;
+}
+
 describe('checkLimits', () => {
   it('accepts a small file', () => {
     expect(checkLimits('1. e4 e5 *')).toEqual({ ok: true, value: undefined });
@@ -23,35 +36,25 @@ describe('checkLimits', () => {
     expect(checkLimits(text).ok).toBe(false);
   });
 
-  it('accepts 200 games', () => {
-    const text = Array.from(
-      { length: 200 },
-      () => '[Event "x"]\n\n1. e4 *',
-    ).join('\n\n');
-    expect(checkLimits(text).ok).toBe(true);
+  it('accepts as many games as the limit', () => {
+    expect(checkLimits(games(PGN_LIMITS.games)).ok).toBe(true);
   });
 
-  it('refuses more than 200 games', () => {
-    const text = Array.from(
-      { length: 201 },
-      () => '[Event "x"]\n\n1. e4 *',
-    ).join('\n\n');
-    expect(checkLimits(text)).toEqual({
+  it('refuses more games than the limit', () => {
+    expect(checkLimits(games(PGN_LIMITS.games + 1))).toEqual({
       ok: false,
-      refusal: { reason: 'pgn.tooManyGames', limit: 200 },
+      refusal: { reason: 'pgn.tooManyGames', limit: PGN_LIMITS.games },
     });
   });
 
-  it('accepts variations nested 64 deep', () => {
-    const text = `1. e4 ${'( 1. d4 '.repeat(64)}${')'.repeat(64)} *`;
-    expect(checkLimits(text).ok).toBe(true);
+  it('accepts variations nested as deep as the limit', () => {
+    expect(checkLimits(nested(PGN_LIMITS.depth)).ok).toBe(true);
   });
 
-  it('refuses variations nested deeper than 64', () => {
-    const text = `1. e4 ${'( 1. d4 '.repeat(65)}${')'.repeat(65)} *`;
-    expect(checkLimits(text)).toEqual({
+  it('refuses variations nested deeper than the limit', () => {
+    expect(checkLimits(nested(PGN_LIMITS.depth + 1))).toEqual({
       ok: false,
-      refusal: { reason: 'pgn.tooDeep', limit: 64 },
+      refusal: { reason: 'pgn.tooDeep', limit: PGN_LIMITS.depth },
     });
   });
 
@@ -68,5 +71,38 @@ describe('checkLimits', () => {
   it('ignores parentheses in rest-of-line comments and tag values', () => {
     const text = `[Event "${'('.repeat(100)}"]\n\n1. e4 ; ${'('.repeat(100)}\ne5 *`;
     expect(checkLimits(text).ok).toBe(true);
+  });
+
+  it('reads an escaped quote inside a tag value as part of the value', () => {
+    const text = `[Event "a \\" ${'('.repeat(100)}"]\n\n1. e4 *`;
+    expect(checkLimits(text).ok).toBe(true);
+  });
+
+  it('counts parentheses after a comment closes', () => {
+    expect(checkLimits(`{x} ${nested(PGN_LIMITS.depth + 1)}`).ok).toBe(false);
+    expect(checkLimits(`; x\n${nested(PGN_LIMITS.depth + 1)}`).ok).toBe(false);
+  });
+
+  it('treats an unclosed comment as running to the end of the text', () => {
+    expect(checkLimits(`1. e4 { ${nested(PGN_LIMITS.depth + 1)}`).ok).toBe(
+      true,
+    );
+  });
+
+  it('reads 2 MB of unclosed comments in linear time, without over-counting', () => {
+    const text = '{('.repeat(PGN_LIMITS.bytes / 2 - 1);
+    let ok = false;
+    const ms = timed(() => {
+      ok = checkLimits(text).ok;
+    });
+    expect(ok).toBe(true);
+    expect(ms).toBeLessThan(1000);
+  });
+
+  it('reads 2 MB of unclosed tag values and blank lines in linear time', () => {
+    const quotes = '"\\'.repeat(PGN_LIMITS.bytes / 2 - 1);
+    const blank = `${'\n'.repeat(PGN_LIMITS.bytes - 10)}[Event "x"]`;
+    expect(timed(() => checkLimits(quotes))).toBeLessThan(1000);
+    expect(timed(() => checkLimits(blank))).toBeLessThan(1000);
   });
 });
