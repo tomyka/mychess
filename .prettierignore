@@ -1,0 +1,17 @@
+pnpm-lock.yaml
+packages/db/migrations/
+*.md
+# v1, kept as it was at tag v1-final: outside every gate.
+archive/
+dist
+build
+coverage
+reports
+.stryker-tmp
+.next
+next-env.d.ts
+node_modules
+# Vendored agent skills (markdown and assets), kept as upstream ships them.
+.agents/
+# Opening data files: large generated JSON.
+data/openings/

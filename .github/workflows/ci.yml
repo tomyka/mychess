@@ -1,0 +1,54 @@
+name: CI
+
+# Every push: format, lint, typecheck, build, and every test suite, the db
+# suite on a Testcontainers Postgres (ubuntu-latest has Docker).
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      # A superseded push's check only tests stale code, so cancel it.
+      group: ci-check-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm build
+      - run: pnpm test:unit
+      - run: pnpm test:component
+      - run: pnpm test:db
+
+  # TODO(#234): deploy to staging once its infrastructure exists. Shape, as
+  # sportbet_new's ci.yml: needs [check], runs only for a green push to main
+  # (and a workflow_dispatch redeploy of an earlier SHA), in the `staging`
+  # environment with concurrency group deploy-staging; migrates the staging
+  # database (pnpm --filter @mychess/db build, then node
+  # packages/db/dist/migrate.mjs with DATABASE_URL from a secret), deploys
+  # the web app, then smoke-tests the deployed URL.
+  #
+  # staging:
+  #   needs: [check]
+  #   if: github.ref == 'refs/heads/main'
+  #   runs-on: ubuntu-latest
+  #   environment: staging
+  #   concurrency:
+  #     group: deploy-staging
+  #     cancel-in-progress: false
+  #   steps: []

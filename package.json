@@ -1,0 +1,46 @@
+{
+  "name": "mychess",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint --max-warnings=0 .",
+    "typecheck": "pnpm -r typecheck",
+    "build": "pnpm -r build",
+    "test:unit": "pnpm --filter @mychess/domain --filter @mychess/chess test",
+    "test:db": "pnpm --filter @mychess/db test",
+    "test:component": "pnpm --filter @mychess/web test:component",
+    "check": "node quality/gate.mjs check",
+    "check:all": "node quality/gate.mjs all",
+    "mutation": "node quality/gate.mjs mutation",
+    "mutation:full": "node quality/gate.mjs mutation --full",
+    "fix": "node quality/fix.mjs",
+    "crap": "node quality/crap.mjs --top 20"
+  },
+  "devDependencies": {
+    "@eslint-community/eslint-plugin-eslint-comments": "4.8.1",
+    "@eslint/js": "10.0.1",
+    "@next/eslint-plugin-next": "16.3.6",
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/vitest-runner": "10.0.0",
+    "@types/node": "22.20.5",
+    "@vitest/coverage-v8": "4.1.11",
+    "@vitest/eslint-plugin": "1.6.27",
+    "dependency-cruiser": "18.5.0",
+    "eslint": "10.11.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-sonarjs": "4.2.2",
+    "globals": "17.13.0",
+    "knip": "6.40.0",
+    "prettier": "3.9.9",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.1",
+    "vitest": "4.1.11"
+  }
+}

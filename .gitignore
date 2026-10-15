@@ -11,3 +11,8 @@ reports/
 .DS_Store
 .claude/settings.local.json
 .claude/worktrees/
+*.tsbuildinfo
+next-env.d.ts
+test-results/
+playwright-report/
+.stryker-tmp/

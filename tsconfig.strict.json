@@ -1,0 +1,17 @@
+{
+  "//": "Quality gate: the strictest practical checks, added to each package's own tsconfig.json by its tsconfig.strict.json (apps/*, packages/*, tools/*). Protected from agent edits.",
+  "compilerOptions": {
+    "noEmit": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "useUnknownInCatchVariables": true,
+    "allowUnreachableCode": false,
+    "forceConsistentCasingInFileNames": true
+  }
+}

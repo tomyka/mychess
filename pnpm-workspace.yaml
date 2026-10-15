@@ -1,0 +1,20 @@
+packages:
+  - apps/*
+  - packages/*
+
+saveExact: true
+engineStrict: true
+
+onlyBuiltDependencies:
+  - esbuild
+
+# Optional native speed-ups pulled in by @testcontainers/postgresql (via
+# ssh2, for its tunnelling feature); not needed for the test harness.
+ignoredBuiltDependencies:
+  - cpu-features
+  - protobufjs
+  - ssh2
+  # next-intl's message extractor (unused: catalogues are written by hand);
+  # both ship prebuilt binaries as optional dependencies anyway.
+  - '@parcel/watcher'
+  - '@swc/core'
