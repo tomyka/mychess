@@ -1,40 +1,13 @@
-# Local dev
 node_modules/
-.svelte-kit/
-supabase/.temp/
-build/
+.next/
 dist/
+coverage/
+reports/
 .env
 .env.*
 !.env.example
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Editor
-.vscode/
-.idea/
-
-# Superpowers brainstorming artifacts
-.superpowers/
 .vercel
-
-# Local Claude Code config (worktrees, lock files, per-machine overrides).
-#
-# .claude/settings.json is the ONE exception and is committed deliberately:
-# hooks and permissions belong to the project, not to a machine, and this repo
-# is developed across two of them (Windows and macOS). Leaving it ignored meant
-# every hook and permission had to be re-added by hand on each machine, and
-# drift between them was silent — see GitHub issue #193.
-#
-# settings.local.json stays ignored on purpose. That is where genuinely
-# machine-specific overrides go, and user-scope keys that cannot live in
-# project settings at all (autoContinueAtUsageLimit) belong in
-# ~/.claude/settings.json.
-# NOTE the trailing `/*` rather than `/`. Git cannot re-include a file whose
-# parent DIRECTORY is excluded, so `.claude/` plus a negation silently does
-# nothing — the exception has to exclude the directory's contents instead.
-.claude/*
-!.claude/settings.json
-!.claude/commands/
+*.log
+.DS_Store
+.claude/settings.local.json
+.claude/worktrees/
