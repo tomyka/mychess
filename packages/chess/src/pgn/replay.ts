@@ -3,13 +3,20 @@ import { positionKey } from '../position-key';
 import type { Result } from '../result';
 import type { MovetextToken } from './tokenize';
 
-/** One move as it occurs in a game's movetext, with its annotations. */
-export interface MoveOccurrence {
+/**
+ * What a PGN file says about a move: its `{...}` comments (PGN's own word;
+ * not a Thread comment or a note) and its NAGs.
+ */
+interface PgnCommentary {
+  pgnComments: string[];
+  nags: number[];
+}
+
+/** One move as it occurs in a game's movetext, with its PGN commentary. */
+export interface MoveOccurrence extends PgnCommentary {
   from: string;
   to: string;
   san: string;
-  comments: string[];
-  nags: number[];
 }
 
 /** Why a game's movetext cannot be replayed. */
@@ -18,30 +25,26 @@ export type ReplayRefusal =
   | { reason: 'pgn.unbalancedVariation' }
   | { reason: 'pgn.variationWithoutMove' };
 
-interface Annotations {
-  comments: string[];
-  nags: number[];
-}
-
 /**
- * A line being read: its board, the position before its last move (where a
- * variation branches from), that move's annotations, and annotations
- * waiting for the line's first move.
+ * A branch of the movetext being read (the main line or a variation): its
+ * board, the position before its last move (where a nested variation
+ * branches from), that move's commentary, and commentary waiting for the
+ * branch's first move.
  */
-interface Line {
+interface Branch {
   board: Chess;
   fenBeforeLast: string | null;
-  last: Annotations | null;
-  pending: Annotations;
+  last: PgnCommentary | null;
+  pending: PgnCommentary;
 }
 
-const noAnnotations = (): Annotations => ({ comments: [], nags: [] });
+const noCommentary = (): PgnCommentary => ({ pgnComments: [], nags: [] });
 
-const newLine = (fen: string): Line => ({
+const newBranch = (fen: string): Branch => ({
   board: new Chess(fen),
   fenBeforeLast: null,
   last: null,
-  pending: noAnnotations(),
+  pending: noCommentary(),
 });
 
 function tryMove(board: Chess, san: string): string | null {
@@ -53,29 +56,29 @@ function tryMove(board: Chess, san: string): string | null {
 }
 
 /**
- * Replays movetext, following every variation: `(` branches from the
- * position before the line's last move, `)` resumes the enclosing line.
- * Comments and NAGs attach to the move they follow, or to the line's first
- * move when they come before it.
+ * Replays movetext, following every variation: `(` opens a branch from the
+ * position before the current branch's last move, `)` resumes the
+ * enclosing branch. Comments and NAGs attach to the move they follow, or to
+ * the branch's first move when they come before it.
  */
 class Replay {
   readonly moves: MoveOccurrence[] = [];
-  private line: Line;
-  private readonly enclosing: Line[] = [];
+  private branch: Branch;
+  private readonly enclosing: Branch[] = [];
 
   constructor(rootFen: string) {
-    this.line = newLine(rootFen);
+    this.branch = newBranch(rootFen);
   }
 
   apply(token: MovetextToken): ReplayRefusal | null {
     switch (token.kind) {
       case 'san':
         return this.play(token.san);
-      case 'comment':
-        this.annotations().comments.push(token.text);
+      case 'pgnComment':
+        this.commentary().pgnComments.push(token.text);
         return null;
       case 'nag':
-        this.annotations().nags.push(token.nag);
+        this.commentary().nags.push(token.nag);
         return null;
       case 'open':
         return this.open();
@@ -90,40 +93,40 @@ class Replay {
       : null;
   }
 
-  private annotations(): Annotations {
-    return this.line.last ?? this.line.pending;
+  private commentary(): PgnCommentary {
+    return this.branch.last ?? this.branch.pending;
   }
 
   private play(written: string): ReplayRefusal | null {
-    const { board } = this.line;
+    const { board } = this.branch;
     const fen = board.fen();
     const san = tryMove(board, written);
     if (san === null) return { reason: 'pgn.illegalMove', san: written };
-    const annotations = this.line.pending;
+    const commentary = this.branch.pending;
     this.moves.push({
       from: positionKey(fen),
       to: positionKey(board.fen()),
       san,
-      ...annotations,
+      ...commentary,
     });
-    this.line.pending = noAnnotations();
-    this.line.last = annotations;
-    this.line.fenBeforeLast = fen;
+    this.branch.pending = noCommentary();
+    this.branch.last = commentary;
+    this.branch.fenBeforeLast = fen;
     return null;
   }
 
   private open(): ReplayRefusal | null {
-    const from = this.line.fenBeforeLast;
+    const from = this.branch.fenBeforeLast;
     if (from === null) return { reason: 'pgn.variationWithoutMove' };
-    this.enclosing.push(this.line);
-    this.line = newLine(from);
+    this.enclosing.push(this.branch);
+    this.branch = newBranch(from);
     return null;
   }
 
   private close(): ReplayRefusal | null {
     const outer = this.enclosing.pop();
     if (outer === undefined) return { reason: 'pgn.unbalancedVariation' };
-    this.line = outer;
+    this.branch = outer;
     return null;
   }
 }

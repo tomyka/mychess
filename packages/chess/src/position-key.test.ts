@@ -24,6 +24,22 @@ describe('positionKey', () => {
     ).toBe('rnbqkbnr/pppp1ppp/8/8/3Pp3/8/PPP1PPPP/RNBQKBNR b KQkq d3');
   });
 
+  it('drops an en passant square no pawn can capture on', () => {
+    expect(
+      positionKey(
+        'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1',
+      ),
+    ).toBe('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -');
+  });
+
+  it('keeps a capturable en passant square for the side to move', () => {
+    expect(
+      positionKey(
+        'rnbqkbnr/1pp1pppp/p7/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3',
+      ),
+    ).toBe('rnbqkbnr/1pp1pppp/p7/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6');
+  });
+
   it('tolerates surrounding and repeated whitespace', () => {
     expect(
       positionKey(

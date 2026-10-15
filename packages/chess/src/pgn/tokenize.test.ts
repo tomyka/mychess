@@ -79,7 +79,7 @@ describe('tokenize', () => {
   it('reads brace comments across lines, trimmed and with whitespace collapsed', () => {
     expect(tokensOf('e4 {  best\n  by   test }')).toEqual([
       { kind: 'san', san: 'e4' },
-      { kind: 'comment', text: 'best by test' },
+      { kind: 'pgnComment', text: 'best by test' },
     ]);
   });
 
@@ -88,14 +88,14 @@ describe('tokenize', () => {
       tokensOf('e4 { [%cal Ge2e4,Rd2d4] main idea [%csl Gd5][%clk 0:05:00] }'),
     ).toEqual([
       { kind: 'san', san: 'e4' },
-      { kind: 'comment', text: 'main idea' },
+      { kind: 'pgnComment', text: 'main idea' },
     ]);
   });
 
   it('keeps words apart when a command between them is removed', () => {
     expect(tokensOf('e4 {before[%clk 0:05:00]after}')).toEqual([
       { kind: 'san', san: 'e4' },
-      { kind: 'comment', text: 'before after' },
+      { kind: 'pgnComment', text: 'before after' },
     ]);
   });
 

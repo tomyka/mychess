@@ -1,44 +1,58 @@
-import { validateFen } from 'chess.js';
+/**
+ * PGN import: untrusted PGN text to a position-keyed move graph (R-19).
+ *
+ * Ported from v1 (`archive/v1/mychess/src/lib/pgn/parser.ts` and the
+ * naming in `pgn-import.ts`), with deliberate differences:
+ * - Malformed input is refused as a whole, with a reason, instead of
+ *   skipping bad moves and games silently (owner decision pending, #233
+ *   q31b).
+ * - A move keeps no colour or ply: both follow from its position key, and
+ *   a position reached at different plies is one position.
+ * - A game no header names gets `name: null`, not "Game N"; the UI
+ *   supplies the fallback text.
+ * - PGN comments and NAGs are kept on moves (v1 stripped them). Embedded
+ *   commands such as `[%cal]` arrows are still dropped.
+ */
+import { DEFAULT_POSITION, validateFen } from 'chess.js';
 import { positionKey } from '../position-key';
 import type { Result } from '../result';
-import { chapterNames } from './chapter-names';
+import { gameNames } from './game-names';
 import { replay, type MoveOccurrence, type ReplayRefusal } from './replay';
-import { splitGames, type RawGame } from './split-games';
+import { splitGames, type PgnHeaders, type RawGame } from './split-games';
 import { tokenize, type UnreadablePgn } from './tokenize';
 
-const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+export type { PgnHeaders } from './split-games';
 
 /**
- * One move of the graph: from one position key to another by a SAN move,
- * with every comment and NAG it carries anywhere in the file, and the
- * chapters (indexes into `PgnGraph.chapters`) that contain it.
+ * One move of the graph: a SAN move between two position keys, with every
+ * PGN comment and NAG it carries anywhere in the file, and the games
+ * (indexes into `PgnGraph.games`) that contain it.
  */
-export interface PgnMove {
-  from: string;
-  to: string;
-  san: string;
-  comments: string[];
-  nags: number[];
-  chapters: number[];
+export interface PgnMove extends MoveOccurrence {
+  games: number[];
 }
 
 /**
- * One game of the file with moves. `name` comes from its headers, or is
- * null when no header names it; `root` is its starting position key.
+ * One game of the file that has moves (the importer maps games to
+ * Chapters). `name` comes from its headers, or is null when no header
+ * names it; `root` is its starting position key.
  */
-export interface PgnChapter {
+export interface PgnGame {
   name: string | null;
-  headers: Readonly<Record<string, string>>;
+  headers: PgnHeaders;
   root: string;
 }
 
-/** A PGN file as a position-keyed move graph, grouped into chapters. */
+/** A PGN file as a position-keyed move graph, grouped by game. */
 export interface PgnGraph {
-  chapters: PgnChapter[];
+  games: PgnGame[];
   moves: PgnMove[];
 }
 
-/** Why a PGN file is refused; `game` indexes the games in the file. */
+/**
+ * Why a PGN file is refused. `game` is the 0-based position of the game in
+ * the file, counting games without moves, which `PgnGraph.games` leaves out.
+ */
 export type PgnRefusal =
   | UnreadablePgn
   | (ReplayRefusal & { game: number })
@@ -46,7 +60,7 @@ export type PgnRefusal =
   | { reason: 'pgn.noMoves' };
 
 interface ReplayedGame {
-  headers: Readonly<Record<string, string>>;
+  headers: PgnHeaders;
   root: string;
   moves: MoveOccurrence[];
 }
@@ -55,7 +69,7 @@ function replayGame(
   game: RawGame,
   index: number,
 ): Result<ReplayedGame, PgnRefusal> {
-  const fen = game.headers['FEN']?.trim() ?? START_FEN;
+  const fen = game.headers['FEN']?.trim() ?? DEFAULT_POSITION;
   if (!validateFen(fen).ok) {
     return { ok: false, refusal: { reason: 'pgn.invalidFen', game: index } };
   }
@@ -94,33 +108,34 @@ function addAll<T>(target: T[], values: readonly T[]): void {
 function mergeMove(
   graph: Map<string, PgnMove>,
   occurrence: MoveOccurrence,
-  chapter: number,
+  game: number,
 ): void {
-  const id = `${occurrence.from}|${occurrence.san}`;
+  const { from, to, san } = occurrence;
+  const id = `${from}|${san}`;
   const move = graph.get(id) ?? {
-    from: occurrence.from,
-    to: occurrence.to,
-    san: occurrence.san,
-    comments: [],
+    from,
+    to,
+    san,
+    pgnComments: [],
     nags: [],
-    chapters: [],
+    games: [],
   };
-  addAll(move.comments, occurrence.comments);
+  addAll(move.pgnComments, occurrence.pgnComments);
   addAll(move.nags, occurrence.nags);
-  addAll(move.chapters, [chapter]);
+  addAll(move.games, [game]);
   graph.set(id, move);
 }
 
-function toGraph(games: readonly ReplayedGame[]): PgnGraph {
-  const names = chapterNames(games.map((game) => game.headers));
+function toGraph(replayed: readonly ReplayedGame[]): PgnGraph {
+  const names = gameNames(replayed.map((game) => game.headers));
   const moves = new Map<string, PgnMove>();
-  for (const [chapter, game] of games.entries()) {
+  for (const [index, game] of replayed.entries()) {
     for (const occurrence of game.moves) {
-      mergeMove(moves, occurrence, chapter);
+      mergeMove(moves, occurrence, index);
     }
   }
   return {
-    chapters: games.map((game, i) => ({
+    games: replayed.map((game, i) => ({
       name: names[i] ?? null,
       headers: game.headers,
       root: game.root,
@@ -131,7 +146,7 @@ function toGraph(games: readonly ReplayedGame[]): PgnGraph {
 
 /**
  * Parses untrusted PGN text (one or more games, with variations, comments
- * and NAGs) into a position-keyed move graph: one chapter per game with
+ * and NAGs) into a position-keyed move graph: one entry per game with
  * moves, and transpositions merged into one position, within and across
  * games. Malformed text is refused with a reason, never thrown.
  */

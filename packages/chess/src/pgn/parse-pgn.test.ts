@@ -30,17 +30,17 @@ describe('parsePgn: the move graph', () => {
         from: START,
         to: AFTER_E4,
         san: 'e4',
-        comments: [],
+        pgnComments: [],
         nags: [],
-        chapters: [0],
+        games: [0],
       },
       {
         from: AFTER_E4,
         to: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -',
         san: 'e5',
-        comments: [],
+        pgnComments: [],
         nags: [],
-        chapters: [0],
+        games: [0],
       },
     ]);
   });
@@ -60,7 +60,7 @@ describe('parsePgn: the move graph', () => {
     ]);
   });
 
-  it('resumes the right line after nested variations', () => {
+  it('resumes the right branch after nested variations', () => {
     const graph = graphOf(
       '1. e4 e5 (1... c5 2. Nf3 (2. c3 d5) 2... d6) 2. Nf3 Nc6 *',
     );
@@ -85,20 +85,20 @@ describe('parsePgn: the move graph', () => {
     );
   });
 
-  it('merges a transposition across chapters, listing both chapters', () => {
+  it('merges a transposition across games, listing both games', () => {
     const graph = graphOf(
       '1. d4 Nf6 2. c4 e6 3. Nc3 *\n\n1. c4 e6 2. d4 Nf6 3. Nc3 *',
     );
-    expect(only(graph, 'Nc3').chapters).toEqual([0, 1]);
-    expect(movesNamed(graph, 'd4').map((move) => move.chapters)).toEqual([
+    expect(only(graph, 'Nc3').games).toEqual([0, 1]);
+    expect(movesNamed(graph, 'd4').map((move) => move.games)).toEqual([
       [0],
       [1],
     ]);
   });
 
-  it('lists a chapter once for a move it reaches twice', () => {
+  it('lists a game once for a move it reaches twice', () => {
     const graph = graphOf('1. e4 (1. e4 c5) 1... e5 *');
-    expect(only(graph, 'e4').chapters).toEqual([0]);
+    expect(only(graph, 'e4').games).toEqual([0]);
   });
 
   it('keeps positions apart that differ only in the en passant square', () => {
@@ -126,13 +126,25 @@ describe('parsePgn: the move graph', () => {
     const graph = graphOf(
       '[SetUp "1"]\n[FEN "8/P7/8/8/8/8/8/k6K w - - 0 1"]\n\n1. a8Q *',
     );
-    expect(graph.chapters[0]?.root).toBe('8/P7/8/8/8/8/8/k6K w - -');
+    expect(graph.games[0]?.root).toBe('8/P7/8/8/8/8/8/k6K w - -');
     expect(graph.moves.map((move) => move.san)).toEqual(['a8=Q+']);
   });
 
   it('tolerates spaces around a FEN header value', () => {
     const graph = graphOf('[FEN " 8/P7/8/8/8/8/8/k6K w - - 0 1 "] 1. a8=Q *');
-    expect(graph.chapters[0]?.root).toBe('8/P7/8/8/8/8/8/k6K w - -');
+    expect(graph.games[0]?.root).toBe('8/P7/8/8/8/8/8/k6K w - -');
+  });
+
+  it('merges a FEN header root with the same position reached by moves', () => {
+    const graph = graphOf(
+      [
+        '1. e4 e5 *',
+        '[FEN "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"]',
+        '1... e5 *',
+      ].join('\n'),
+    );
+    expect(graph.games[1]?.root).toBe(AFTER_E4);
+    expect(only(graph, 'e5').games).toEqual([0, 1]);
   });
 
   it('accepts castling written with zeros', () => {
@@ -147,29 +159,29 @@ describe('parsePgn: comments and NAGs', () => {
   it('attaches comments, suffix glyphs and NAGs to the move they follow', () => {
     const graph = graphOf('1. e4! {best by test} $14 e5 *');
     expect(only(graph, 'e4')).toMatchObject({
-      comments: ['best by test'],
+      pgnComments: ['best by test'],
       nags: [1, 14],
     });
-    expect(only(graph, 'e5')).toMatchObject({ comments: [], nags: [] });
+    expect(only(graph, 'e5')).toMatchObject({ pgnComments: [], nags: [] });
   });
 
-  it('attaches a comment before the first move of a line to that move', () => {
+  it('attaches a comment before the first move of a branch to that move', () => {
     const graph = graphOf('{intro} 1. e4 ({or} 1. d4) *');
-    expect(only(graph, 'e4').comments).toEqual(['intro']);
-    expect(only(graph, 'd4').comments).toEqual(['or']);
+    expect(only(graph, 'e4').pgnComments).toEqual(['intro']);
+    expect(only(graph, 'd4').pgnComments).toEqual(['or']);
   });
 
   it('unites the comments and NAGs of a move reached twice, without repeats', () => {
     const graph = graphOf('1. e4 {a} $1 *\n\n1. e4 {a} $1 {b} $3 *');
     expect(only(graph, 'e4')).toMatchObject({
-      comments: ['a', 'b'],
+      pgnComments: ['a', 'b'],
       nags: [1, 3],
     });
   });
 });
 
-describe('parsePgn: chapters', () => {
-  it('makes one chapter per game, keeping its headers', () => {
+describe('parsePgn: games', () => {
+  it('lists each game with its headers', () => {
     const graph = graphOf(
       [
         '[Event "Najdorf"]',
@@ -182,7 +194,7 @@ describe('parsePgn: chapters', () => {
         '1. e4 c6 *',
       ].join('\r\n'),
     );
-    expect(graph.chapters).toEqual([
+    expect(graph.games).toEqual([
       {
         name: 'Najdorf',
         headers: { Event: 'Najdorf', White: '?' },
@@ -194,23 +206,23 @@ describe('parsePgn: chapters', () => {
 
   it('splits games on tags even without a blank line or result', () => {
     const graph = graphOf('[Event "A"]\n1. e4\n[Event "B"]\n1. d4');
-    expect(graph.chapters.map((chapter) => chapter.name)).toEqual(['A', 'B']);
-    expect(only(graph, 'd4').chapters).toEqual([1]);
+    expect(graph.games.map((game) => game.name)).toEqual(['A', 'B']);
+    expect(only(graph, 'd4').games).toEqual([1]);
   });
 
   it('splits header-less games on their results', () => {
     const graph = graphOf('1. e4 * 1. d4 1-0');
-    expect(graph.chapters).toHaveLength(2);
-    expect(only(graph, 'd4').chapters).toEqual([1]);
+    expect(graph.games).toHaveLength(2);
+    expect(only(graph, 'd4').games).toEqual([1]);
   });
 
-  it('skips a game without moves, numbering chapters without it', () => {
+  it('skips a game without moves, numbering games without it', () => {
     const graph = graphOf('[Event "Empty"]\n\n*\n\n[Event "Real"]\n\n1. e4 *');
-    expect(graph.chapters.map((chapter) => chapter.name)).toEqual(['Real']);
-    expect(only(graph, 'e4').chapters).toEqual([0]);
+    expect(graph.games.map((game) => game.name)).toEqual(['Real']);
+    expect(only(graph, 'e4').games).toEqual([0]);
   });
 
-  it('names chapters by White, then Black, when Event is shared by every game', () => {
+  it('names games by White, then Black, when Event is shared by every game', () => {
     const graph = graphOf(
       [
         '[Event "My repertoire"][White "Sicilian"][Black "x"] 1. e4 c5 *',
@@ -218,31 +230,31 @@ describe('parsePgn: chapters', () => {
         '[Event "My repertoire"][White ""][Black ""] 1. e4 e5 *',
       ].join('\n'),
     );
-    expect(graph.chapters.map((chapter) => chapter.name)).toEqual([
+    expect(graph.games.map((game) => game.name)).toEqual([
       'Sicilian',
       'French',
       null,
     ]);
   });
 
-  it('leaves a chapter unnamed when its headers repeat in other games', () => {
+  it('leaves a game unnamed when its headers repeat in other games', () => {
     const graph = graphOf(
       [
         '[White "Me"][Black "You"] 1. e4 *',
         '[White "Me"][Black "You"] 1. d4 *',
       ].join('\n'),
     );
-    expect(graph.chapters.map((chapter) => chapter.name)).toEqual([null, null]);
+    expect(graph.games.map((game) => game.name)).toEqual([null, null]);
   });
 
-  it('passes over the "?" placeholder when naming a chapter', () => {
+  it('passes over the "?" placeholder when naming a game', () => {
     const graph = graphOf('[Event "?"][White "Sicilian"] 1. e4 c5 *');
-    expect(graph.chapters[0]?.name).toBe('Sicilian');
+    expect(graph.games[0]?.name).toBe('Sicilian');
   });
 
-  it('trims a header value before naming a chapter by it', () => {
+  it('trims a header value before naming a game by it', () => {
     const graph = graphOf('[Event "  Scotch  "] 1. e4 *');
-    expect(graph.chapters[0]?.name).toBe('Scotch');
+    expect(graph.games[0]?.name).toBe('Scotch');
   });
 });
 
@@ -285,7 +297,7 @@ describe('parsePgn: refusals', () => {
     });
   });
 
-  it('refuses a variation before any move of its line', () => {
+  it('refuses a variation before any move of its branch', () => {
     expect(parsePgn('(1. d4) 1. e4 *')).toEqual({
       ok: false,
       refusal: { reason: 'pgn.variationWithoutMove', game: 0 },

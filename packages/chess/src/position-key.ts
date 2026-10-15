@@ -1,10 +1,11 @@
-import { validateFen } from 'chess.js';
+import { Chess, validateFen } from 'chess.js';
 
 /**
  * A position's identity, whatever the move counters: the first four FEN
  * fields (placement, side to move, castling rights, en passant square).
- * Two FENs that differ only in the halfmove clock or the move number are
- * the same position, and so the same key.
+ * The FEN is normalised through chess.js first, so an en passant square is
+ * kept only when an en passant capture is legal: a position written by
+ * hand and the same position reached by moves share one key.
  */
 export function positionKey(fen: string): string {
   const trimmed = fen.trim();
@@ -12,5 +13,5 @@ export function positionKey(fen: string): string {
   if (!validation.ok) {
     throw new Error(`Not a valid FEN: ${validation.error ?? trimmed}`);
   }
-  return trimmed.split(/\s+/).slice(0, 4).join(' ');
+  return new Chess(trimmed).fen().split(' ').slice(0, 4).join(' ');
 }

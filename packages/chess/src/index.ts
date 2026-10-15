@@ -1,6 +1,7 @@
 export {
   parsePgn,
-  type PgnChapter,
+  type PgnGame,
+  type PgnHeaders,
   type PgnGraph,
   type PgnMove,
   type PgnRefusal,

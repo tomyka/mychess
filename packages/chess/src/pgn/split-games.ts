@@ -1,8 +1,11 @@
 import type { MovetextToken, Token } from './tokenize';
 
+/** A PGN game's tag pairs, by tag name. */
+export type PgnHeaders = Readonly<Record<string, string>>;
+
 /** One game of a PGN file: its tag pairs and its movetext tokens. */
 export interface RawGame {
-  headers: Readonly<Record<string, string>>;
+  headers: PgnHeaders;
   body: readonly MovetextToken[];
 }
 

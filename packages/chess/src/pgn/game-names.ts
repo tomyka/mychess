@@ -1,4 +1,6 @@
-/** The headers a chapter title is looked for in, in order (ported from v1). */
+import type { PgnHeaders } from './split-games';
+
+/** The headers a game's name is looked for in, in order (ported from v1). */
 const TITLE_HEADERS = ['Event', 'White', 'Black'] as const;
 
 /** A header value, trimmed; blank and PGN's "?" placeholder are no value. */
@@ -8,7 +10,7 @@ function usable(value: string | undefined): string | null {
 }
 
 function countValues(
-  games: readonly Readonly<Record<string, string>>[],
+  games: readonly PgnHeaders[],
   header: string,
 ): Map<string, number> {
   const counts = new Map<string, number>();
@@ -20,13 +22,11 @@ function countValues(
 }
 
 /**
- * Each game's chapter name: the first of Event, White and Black whose value
+ * Each game's name: the first of Event, White and Black whose value
  * no other game in the file shares (exports often stamp every game with the
  * same collection title), or null when none qualifies.
  */
-export function chapterNames(
-  games: readonly Readonly<Record<string, string>>[],
-): (string | null)[] {
+export function gameNames(games: readonly PgnHeaders[]): (string | null)[] {
   const counts = TITLE_HEADERS.map((header) => countValues(games, header));
   return games.map((headers) => {
     for (const [i, header] of TITLE_HEADERS.entries()) {

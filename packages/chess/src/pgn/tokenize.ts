@@ -5,7 +5,7 @@ export type Token =
   | { kind: 'tag'; name: string; value: string }
   | { kind: 'san'; san: string }
   | { kind: 'nag'; nag: number }
-  | { kind: 'comment'; text: string }
+  | { kind: 'pgnComment'; text: string }
   | { kind: 'open' }
   | { kind: 'close' }
   | { kind: 'result' };
@@ -47,7 +47,7 @@ const RULES: readonly Rule[] = [
       { kind: 'tag', name: m[1] ?? '', value: unescape(m[2] ?? '') },
     ],
   },
-  { pattern: /\{([^}]*)\}/y, read: (m) => commentTokens(m[1] ?? '') },
+  { pattern: /\{([^}]*)\}/y, read: (m) => pgnCommentTokens(m[1] ?? '') },
   { pattern: /;[^\n]*/y, read: none },
   { pattern: /\$(\d+)/y, read: (m) => [{ kind: 'nag', nag: Number(m[1]) }] },
   { pattern: /\(/y, read: () => [{ kind: 'open' }] },
@@ -61,12 +61,12 @@ function unescape(value: string): string {
   return value.replace(/\\(.)/g, '$1');
 }
 
-function commentTokens(body: string): Token[] {
+function pgnCommentTokens(body: string): Token[] {
   const text = body
     .replace(/\[%[^\]]*\]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  return text === '' ? [] : [{ kind: 'comment', text }];
+  return text === '' ? [] : [{ kind: 'pgnComment', text }];
 }
 
 /**
