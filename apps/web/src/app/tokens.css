@@ -1,0 +1,142 @@
+/*
+ * mychess design tokens (owner: ux-designer; notes in docs/design/README.md).
+ *
+ * Every colour is a token. Components use the Tailwind utilities these
+ * generate (bg-surface, text-fg-muted, border-border, bg-due-subtle,
+ * text-learned, bg-board-light, rounded-control, min-h-touch, ...) and never
+ * a raw hex value or a Tailwind palette colour (bg-blue-600).
+ *
+ * Themes: each colour is light-dark(<light>, <dark>). The theme follows the
+ * system setting; data-theme="light" or "dark" on <html> overrides it.
+ * Contrast (WCAG 2.2) was checked for every text/background pair listed in
+ * docs/design/README.md; re-check when a value changes.
+ */
+
+@theme {
+  /* ---- Surfaces and text ---- */
+  --color-bg: light-dark(#f6f5f2, #131416); /* page */
+  --color-surface: light-dark(#ffffff, #1c1d20); /* cards, panels, sheets */
+  --color-sunken: light-dark(#eceae5, #0e0f10); /* wells, progress tracks */
+  --color-border: light-dark(#d6d3cc, #3a3b40); /* dividers (decorative) */
+  --color-border-strong: light-dark(#8a867e, #6f6c66); /* inputs, 3:1 */
+  --color-fg: light-dark(#1b1a18, #ecebe7); /* body text */
+  --color-fg-muted: light-dark(#595650, #a8a59e); /* secondary text */
+
+  /* ---- Brand / interactive ---- */
+  --color-accent: light-dark(#2453c4, #86a8ff); /* primary buttons, links */
+  --color-accent-fg: light-dark(#ffffff, #0c1430); /* text on accent */
+  --color-focus: light-dark(#2453c4, #86a8ff); /* focus ring off the board */
+
+  /* ---- Semantic states ----
+   * <state>        text, icons and solid fills
+   * <state>-subtle tinted background behind <state> text
+   * on-state       text on a solid <state> fill
+   * success: a correct move, a saved change
+   * error:   a lapse (wrong move in a drill), a failed request
+   * due:     Reviews whose time has come (CONTEXT.md "Due")
+   * learned: Moves past their Learn pass, now in Review
+   */
+  --color-success: light-dark(#18703a, #5cc985);
+  --color-success-subtle: light-dark(#e2f2e7, #16301f);
+  --color-error: light-dark(#b3261e, #ff8a80);
+  --color-error-subtle: light-dark(#fbe9e7, #3b1714);
+  --color-due: light-dark(#9a5200, #f2a94a);
+  --color-due-subtle: light-dark(#fdf0dc, #36270f);
+  --color-learned: light-dark(#6741b8, #b9a2ff);
+  --color-learned-subtle: light-dark(#efe9fb, #2a2242);
+  --color-on-state: light-dark(#ffffff, #111214);
+
+  /* ---- Board ----
+   * Squares are the classic brown pair, a little dimmer in the dark theme so
+   * the board does not glare. Coordinates use the opposite square colour.
+   * Overlays are translucent so they read on both square colours.
+   */
+  --color-board-light: light-dark(#f0d9b5, #d8c3a0);
+  --color-board-dark: light-dark(#b58863, #a07a59);
+  --color-board-last-move: rgb(205 210 106 / 0.6);
+  --color-board-selected: rgb(20 85 30 / 0.5);
+  --color-board-target: rgb(20 85 30 / 0.35); /* legal-move dot and ring */
+  --color-board-check: rgb(220 30 30 / 0.75); /* radial glow on the king */
+  --color-board-arrow: rgb(21 120 27 / 0.8); /* Learn pass arrows */
+  --color-board-correct: rgb(24 112 58 / 0.55); /* square flash, success */
+  --color-board-wrong: rgb(179 38 30 / 0.55); /* square flash, lapse */
+  --color-board-focus: #0f2e7a; /* keyboard cursor, >= 3:1 on both squares */
+
+  /* ---- Typography ----
+   * System UI stack: no web-font download, full Lithuanian diacritics
+   * (ą č ę ė į š ų ū ž). Move lists use tabular-nums.
+   */
+  --font-sans:
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Helvetica Neue',
+    Arial, sans-serif;
+  --font-mono:
+    ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, Consolas,
+    monospace;
+
+  --text-xs: 0.75rem; /* 12px: board coordinates, fine print */
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem; /* 14px: secondary text, move list */
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem; /* 16px: body, buttons (never smaller on inputs) */
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem; /* 18px: card titles, prompts */
+  --text-lg--line-height: 1.625rem;
+  --text-xl: 1.25rem; /* 20px: section titles */
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.5rem; /* 24px: page titles on phone */
+  --text-2xl--line-height: 2rem;
+  --text-3xl: 1.875rem; /* 30px: page titles on desktop */
+  --text-3xl--line-height: 2.25rem;
+  --text-4xl: 2.25rem; /* 36px: big numbers (due count, done screen) */
+  --text-4xl--line-height: 2.5rem;
+
+  /* ---- Spacing ----
+   * Tailwind's 4px step (p-1 = 4px, p-4 = 16px) is the scale. Named sizes
+   * for the ones the design depends on:
+   */
+  --spacing: 0.25rem;
+  --spacing-touch: 2.75rem; /* 44px: minimum touch target (h-touch, min-w-touch) */
+  --spacing-gutter: 1rem; /* 16px: phone page padding */
+  --spacing-gutter-wide: 2rem; /* 32px: desktop page padding */
+  --spacing-panel: 22.5rem; /* 360px: desktop side panel next to the board */
+
+  /* ---- Radii ---- */
+  --radius-control: 0.5rem; /* buttons, inputs, chips */
+  --radius-card: 0.75rem; /* cards, panels, sheets */
+  --radius-board: 0.25rem; /* the board's outer corners */
+  --radius-pill: 9999px; /* badges, progress bars */
+
+  /* ---- Elevation and motion ---- */
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.06), 0 1px 3px rgb(0 0 0 / 0.1);
+  --shadow-sheet: 0 -4px 16px rgb(0 0 0 / 0.16);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --duration-move: 150ms; /* piece slide */
+  --duration-feedback: 400ms; /* correct/wrong square flash */
+}
+
+/* Theme switch: system by default, <html data-theme="..."> overrides. */
+:root {
+  color-scheme: light dark;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+/* `dark:` follows the same rule as the tokens. Prefer tokens; use dark: only
+   for what a token cannot express (for example swapping an image). */
+@custom-variant dark {
+  &:where([data-theme='dark'], [data-theme='dark'] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(
+      :root:not([data-theme='light']),
+      :root:not([data-theme='light']) *
+    ) {
+      @slot;
+    }
+  }
+}
