@@ -25,7 +25,7 @@ Separate suites: `pnpm test:unit` (domain, chess), `pnpm test:component` (web), 
 
 ## CI
 
-- `.github/workflows/ci.yml`, every push: install, `format:check`, `lint`, `typecheck`, `build`, `test:unit`, `test:component`, `test:db`.
-- `.github/workflows/quality.yml`: `gate.mjs check` on pushes to main and pull requests, plus mutation of the changed files; the full sharded mutation run nightly at 02:17 UTC or on a dispatch with `mutation_full`.
+- `.github/workflows/quality.yml` is the only workflow (#261). On pushes to main and pull requests: `gate.mjs check` (format, lint, typecheck, every test suite with coverage including the db suite, CRAP, dead code, architecture), `pnpm build`, and mutation of the changed files. A newer push to the same ref cancels the running check. The full sharded mutation run is nightly at 02:17 UTC, or on a dispatch with `mutation_full`.
+- Lead habit: push once per finished, reviewed unit of work, not after every fix.
 
 `archive/` (v1) is outside every gate.

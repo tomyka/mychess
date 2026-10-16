@@ -1,15 +1,18 @@
 name: quality
 
-# The quality gates: every push to main and every pull request runs
-# `node quality/gate.mjs check`; each also mutation-tests the source it
+# The one workflow for every push to main and every pull request (#261): it
+# runs `node quality/gate.mjs check` (format, lint, strict typecheck,
+# markers, every vitest project with coverage incl. the db suite, CRAP, dead
+# code, architecture) and `pnpm build`; each also mutation-tests the source it
 # changes (a pull request against its base branch, a push against the commit
 # before it). The full mutation run runs every night at 02:17 UTC, and by
 # hand on a dispatch with mutation_full checked.
 #
 # Run-time notes:
 # - The check job needs Docker: the db vitest project starts its test
-#   Postgres with Testcontainers, as ci.yml's test:db does; ubuntu-latest
-#   has it. Node is .nvmrc's, as in ci.yml.
+#   Postgres with Testcontainers; ubuntu-latest has it. Node is .nvmrc's.
+# - A newer push to the same ref cancels the running check: it only tests
+#   stale code. The nightly mutation jobs are not in that group.
 # - gate.mjs runs one gate at a time per working tree (quality/lock.mjs, the
 #   pid in node_modules/.cache/ts-quality/gate.lock): a second run waits up
 #   to QUALITY_GATE_LOCK_WAIT_MIN minutes (default 30), and a lock whose pid
@@ -38,6 +41,9 @@ jobs:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    concurrency:
+      group: quality-check-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
         with:
@@ -53,6 +59,8 @@ jobs:
         run: node --test "quality/*.test.mjs"
       - name: Static + test gates
         run: node quality/gate.mjs check
+      - name: Build
+        run: pnpm build
       - name: Mutation testing of changed files (pull requests)
         if: github.event_name == 'pull_request'
         run: node quality/gate.mjs mutation --branch
@@ -77,6 +85,14 @@ jobs:
             coverage/
             reports/
           if-no-files-found: ignore
+
+  # TODO(#234): deploy to staging once its infrastructure exists. Shape, as
+  # sportbet_new's ci.yml: needs [check], runs only for a green push to main
+  # (and a workflow_dispatch redeploy of an earlier SHA), in the `staging`
+  # environment with concurrency group deploy-staging; migrates the staging
+  # database (pnpm --filter @mychess/db build, then node
+  # packages/db/dist/migrate.mjs with DATABASE_URL from a secret), deploys
+  # the web app, then smoke-tests the deployed URL.
 
   # The full mutation run: nightly, or by hand with the mutation_full input;
   # a plain dispatch runs only the check job.
