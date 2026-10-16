@@ -3,6 +3,10 @@
 // (`scripts/generate-eco-data-lt.ts`, v1 issue #158). Run from packages/chess
 // on Node 24: `node scripts/generate-eco-lt.mjs`.
 //
+// Each name gets the "safe tidy" of ruling R-77 (`tidyLtName`): whitespace,
+// castling with the letter O, no space after a move number, and the comma
+// before a trailing move qualifier. Wording stays verbatim.
+//
 // Deliberately a separate command from generate-eco.mjs: that one fetches
 // lichess's TSVs, this one scrapes a third party's HTML, which is far more
 // likely to break. A markup change on šachmatai.lt cannot stop the English
@@ -15,6 +19,7 @@ import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseDecadePage } from '../src/openings/eco-lt-parse.ts';
+import { tidyLtName } from '../src/openings/eco-lt-tidy.ts';
 
 const BASE_URL = 'http://www.xn--achmatai-4wb.lt/debiutu_enciklopedija.php';
 const OUT_PATH = fileURLToPath(
@@ -54,7 +59,9 @@ async function main() {
   process.stdout.write('\n');
 
   const sorted = Object.fromEntries(
-    Object.entries(names).sort(([a], [b]) => a.localeCompare(b)),
+    Object.entries(names)
+      .map(([code, name]) => [code, tidyLtName(name)])
+      .sort(([a], [b]) => a.localeCompare(b)),
   );
   writeJson(OUT_PATH, sorted);
   process.stdout.write(
