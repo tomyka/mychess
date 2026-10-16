@@ -52,6 +52,26 @@ The app picks Mailpit with `MAIL_TRANSPORT=mailpit` and sends through
 the app. CI's `e2e` job runs the same two images as
 service containers on the same ports.
 
+## Environments and sign-in (from S1)
+
+Every deployment sets `MYCHESS_ENV`: `staging` on the staging project and
+`production` on production (`local` is the default only off Vercel). On
+Vercel the app refuses to start without it, and refuses `VERCEL_ENV=production`
+with any other value. Staging and production also need an https
+`BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, and a
+`BETTER_AUTH_SECRET` of at least 32 random characters
+(`openssl rand -base64 32`).
+
+The persona sign-in route (`POST /api/test/sign-in`, R-73) is on only where
+`MYCHESS_TEST_SIGNIN=1` and `TEST_SIGNIN_SECRET` are set and the environment is
+not production: set them on staging only, never on production.
+
+Sign-in rate limits are counted per client IP in the `rate_limits` table. The
+app reads the IP from `x-real-ip`, then `x-forwarded-for`, which Vercel
+overwrites with the real client address. Behind any other proxy or CDN these
+headers would be client-controlled (or missing, putting everyone in one
+bucket); configure Better Auth's trusted proxies before putting one in front.
+
 ## Health check
 
 `GET /api/health` answers `200 {"status":"ok","database":"up"}` when the
