@@ -8,6 +8,13 @@
       "when": 1792176021802,
       "tag": "0000_strong_fabian_cortez",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792183776033,
+      "tag": "0001_admin_audit_append_only",
+      "breakpoints": true
     }
   ]
 }

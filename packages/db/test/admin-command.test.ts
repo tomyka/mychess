@@ -1,6 +1,7 @@
+import { userInfo } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { disableAccount, grantAdmin } from '../src';
-import { runAdminCommand } from '../src/bin/admin-command';
+import { cliActor, runAdminCommand } from '../src/bin/admin-command';
 import type * as Client from '../src/client';
 import { useTestDatabase } from '../src/testing';
 import { seedAccount } from './support/accounts';
@@ -27,6 +28,8 @@ vi.mock('../src/client', async (importOriginal) => {
 });
 
 const { db, client, url } = useTestDatabase();
+/** Who the commands record as having acted: the OS user running the tests. */
+const ACTOR = `cli:${userInfo().username}`;
 const argv = process.argv;
 let out: string[];
 let err: string[];
@@ -68,7 +71,7 @@ const audit = async (): Promise<unknown> =>
   ).rows;
 
 describe('runAdminCommand', () => {
-  it('canonicalises the email, grants as actor cli and reports it', async () => {
+  it('canonicalises the email, grants as the OS user and reports it', async () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
     await runWith(['  Ruta@Example.LT '], () =>
       runAdminCommand('admin:grant', 'granted', grantAdmin),
@@ -78,7 +81,7 @@ describe('runAdminCommand', () => {
     expect(process.exitCode).toBeUndefined();
     expect(pools).toEqual({ opened: 1, closed: 1 });
     expect(await audit()).toEqual([
-      { action: 'grant-admin', target_email: 'ruta@example.lt', actor: 'cli' },
+      { action: 'grant-admin', target_email: 'ruta@example.lt', actor: ACTOR },
     ]);
   });
 
@@ -102,7 +105,7 @@ describe('runAdminCommand', () => {
       {
         action: 'disable-account',
         target_email: 'ruta@example.lt',
-        actor: 'cli',
+        actor: ACTOR,
       },
     ]);
   });
@@ -125,5 +128,26 @@ describe('runAdminCommand', () => {
     expect(out).toEqual([]);
     expect(err).toEqual(['admin:disable: account.emailInvalid\n']);
     expect(process.exitCode).toBe(1);
+  });
+});
+
+describe('cliActor', () => {
+  it('names the OS user who ran the command', () => {
+    expect(cliActor(() => ({ username: 'ruta' }))).toBe('cli:ruta');
+  });
+
+  it('falls back to unknown when the OS cannot name the user', () => {
+    const throwing = (): { username: string } => {
+      throw new Error('no passwd entry');
+    };
+    expect(cliActor(throwing)).toBe('cli:unknown');
+  });
+
+  it('falls back to unknown for an empty user name', () => {
+    expect(cliActor(() => ({ username: '' }))).toBe('cli:unknown');
+  });
+
+  it('asks the OS by default', () => {
+    expect(cliActor()).toBe(ACTOR);
   });
 });
