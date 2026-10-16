@@ -54,10 +54,10 @@
       "notLinked": "Neprijungta",
       "link": "Prijungti {provider}",
       "unlink": "Atjungti {provider}",
-      "lichessUnlinked": "Saugumo sumetimais Lichess paskyra atjungta: ji buvo prijungta prieš patvirtinant jūsų el. pašto adresą. Jei tai jūsų Lichess paskyra, galite ją prijungti iš naujo.",
+      "lichessUnlinked": "Dėl saugumo atjungėme Lichess paskyrą: ji buvo prijungta dar nepatvirtinus jūsų el. pašto adreso. Jei tai jūsų Lichess paskyra, prijunkite ją iš naujo.",
       "dismiss": "Supratau",
       "error": {
-        "notFresh": "Saugumo sumetimais prieš prijungdami ar atjungdami paskyrą prisijunkite iš naujo.",
+        "notFresh": "Dėl saugumo prieš prijungdami ar atjungdami paskyrą prisijunkite iš naujo.",
         "linkedElsewhere": "Ši paskyra jau prijungta prie kitos mychess paskyros.",
         "generic": "Nepavyko. Bandykite dar kartą."
       }

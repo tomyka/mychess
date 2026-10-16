@@ -33,7 +33,7 @@
     "displayNameHint": "Others will see this name. You can change it later in settings.",
     "language": "Language",
     "submit": "Save and continue",
-    "deleteAccount": "Delete my account"
+    "deleteAccount": "Delete account"
   },
   "settings": {
     "title": "Settings",
@@ -54,7 +54,7 @@
       "notLinked": "Not connected",
       "link": "Connect {provider}",
       "unlink": "Disconnect {provider}",
-      "lichessUnlinked": "For your security, Lichess was disconnected: it was connected before your email address was confirmed. If it is your Lichess account, you can connect it again.",
+      "lichessUnlinked": "For your security, we disconnected Lichess: it was connected before your email address was confirmed. If this Lichess account is yours, connect it again.",
       "dismiss": "Got it",
       "error": {
         "notFresh": "For your security, sign in again before connecting or disconnecting an account.",

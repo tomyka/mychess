@@ -134,6 +134,8 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | Language (setting) | Language | kalba | approved (R-91) | Language names are shown in their own language: **Lietuvių**, **English**. |
 | Export account data | Download my data | atsisiųsti duomenis | approved (R-91) | Not **eksportuoti**. Section title: **Jūsų duomenys** / "Your data". |
 | Delete account | Delete account | ištrinti paskyrą | v1 `repertoires_delete_button` (verb) | Section title: **Paskyros ištrynimas**. "Permanently": **visam laikui** / "permanently" (not "for good"). |
+| "For your security" (reason given in a notice or refusal) | For your security | dėl saugumo | approved (R-91) | Not **saugumo sumetimais**: longer and bookish. |
+| Dismiss a notice | Got it | supratau | approved (R-91) | |
 | Dashboard | Dashboard | skydelis | v1 `nav_dashboard` | |
 | Settings | Settings | nustatymai | v1 `nav_settings` | |
 | Board | Board | lenta | v1 `settings_board_heading` | |
