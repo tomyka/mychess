@@ -73,7 +73,7 @@ One edge of a Repertoire: from a Position, the move the Repertoire plays or expe
 _Avoid_: Ply (fine as a count), node, variation (a Move is not a line)
 
 **Line**:
-A path of Moves from the starting Position to a leaf. A prose and reporting unit (progress per line, mastery of a line), not the unit of storage or scheduling.
+A path of Moves from a Chapter's starting Position to a leaf, or to a Move that returns to a Position already on the path; that Move ends the line and belongs to it (R-79). The main line follows the first Move added at each Position. A prose and reporting unit (progress per line, mastery of a line), not the unit of storage or scheduling.
 _Avoid_: Variation (retired v1 identity unit)
 
 **Transposition**:
