@@ -52,6 +52,14 @@ _Avoid_: Colour (in prose fine), perspective
 A named part of a Repertoire covering one opening (named from the šachmatai.lt taxonomy).
 _Avoid_: Section, study chapter, folder
 
+**PGN game**:
+One game in an uploaded PGN file. On import each valid PGN game becomes one Chapter (R-63, R-64); a broken one is listed as skipped by its 1-based number in the file. Code inside `packages/chess/src/pgn/` may say "game" for it.
+_Avoid_: Game (outside PGN import code), chapter (before import)
+
+**Answer**:
+The single own-side Move a Repertoire plays in a Position. A Repertoire has at most one answer per Position; a second answer belongs in another Repertoire (R-54) and is refused or skipped on import (`repertoire.secondAnswer`, `pgn.secondAnswer`).
+_Avoid_: Reply (that is the opponent's Move), choice
+
 **Position**:
 A chess position as it arises in a Repertoire, independent of the move order that reached it.
 _Avoid_: Node, FEN (as a domain word)

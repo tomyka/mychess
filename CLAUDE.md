@@ -32,7 +32,7 @@ it, ask the owner.
 
 | Package | Contains | May import |
 | --- | --- | --- |
-| `packages/chess` (`@mychess/chess`) | positions, position keys, move graph, PGN, ECO and taxonomy, FSRS scheduling, reconciliation, deviation detection | `chess.js`, `ts-fsrs`, `zod` |
+| `packages/chess` (`@mychess/chess`) | positions, position keys, move graph, PGN, ECO and taxonomy, FSRS scheduling, reconciliation, deviation detection | `chess.js`, `ts-fsrs`, `zod` (tests also `vitest`, `fast-check`) |
 | `packages/domain` (`@mychess/domain`) | accounts, coach capability, links, invites, groups, assignments, forks, goals, threads, notifications, entitlements, access rules | `zod`, `@mychess/chess` |
 | `packages/db` (`@mychess/db`) | Drizzle schema, migrations, repositories, test helpers, seeds | `@mychess/domain`, `@mychess/chess`, `drizzle-orm`, `pg`, `zod` |
 | `packages/integrations` (`@mychess/integrations`) | Lichess, Chess.com, FIDE, the Lithuania ranking from the FIDE-LTU list (R-67), chess-results clients | `@mychess/chess`, `zod` |
@@ -59,7 +59,8 @@ built, linted or tested.
   should already have parsed, such as an invalid FEN to `positionKey`.
   Zod issue messages are message-catalogue keys, not text.
 - **Parse at the edges:** every request body, query result and external API
-  response is parsed with zod.
+  response is parsed with zod. Build-time generators over trusted, committed
+  source data (for example `packages/chess/scripts/`) are exempt.
 - **No user-visible string in code:** all text goes through the message
   catalogues; Lithuanian is the default locale, English the second.
 - Times are stored in UTC; display in the user's time zone
