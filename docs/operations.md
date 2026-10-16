@@ -20,8 +20,19 @@ Feature and db suites need Docker. The Postgres image every suite uses is
 
 1. Once per machine (and after a Playwright bump):
    `pnpm --filter @mychess/web exec playwright install chromium`.
-2. `pnpm test:e2e`. It builds the app and serves it on
-   `http://127.0.0.1:3100`; a server already on that port is reused.
+2. `docker compose -f infra/compose.yaml up -d` starts Postgres and Mailpit.
+3. `pnpm --filter @mychess/db build && pnpm --filter @mychess/db migrate`
+   applies the migrations (with no `apps/web/.env.local`, export
+   `DATABASE_URL=postgres://mychess:mychess@localhost:5432/mychess` first).
+4. `pnpm test:e2e`. It builds the app and serves it on
+   `http://127.0.0.1:3100`; a server already on that port is reused. The
+   app's variables come from `webServer.env` in `apps/web/playwright.config.ts`:
+   each defaults to the compose services when unset, and they win over
+   `apps/web/.env.local`. The tests run one at a time (`workers: 1`): they
+   share one Mailpit inbox and one database.
+
+CI's `e2e` job does the same: the two images as service containers, the
+migrate step, then `test:e2e` with the variables set on the job.
 
 ### Mail in tests (Mailpit, from S1)
 
