@@ -60,15 +60,15 @@ module.exports = {
       },
     },
     {
-      name: 'chess-tests-import-only-chess-js-ts-fsrs-zod-and-vitest',
+      name: 'chess-tests-import-only-chess-js-ts-fsrs-zod-vitest-and-fast-check',
       severity: 'error',
       comment:
-        'chess tests import only chess.js, ts-fsrs, zod, vitest and chess files.',
+        'chess tests import only chess.js, ts-fsrs, zod, vitest, fast-check and chess files.',
       from: { path: `^packages/chess/src/.*${TEST_FILE}` },
       to: {
         pathNot: [
           '^packages/chess/src/',
-          npm('chess\\.js|ts-fsrs|zod|vitest|@vitest/[^/]+'),
+          npm('chess\\.js|ts-fsrs|zod|vitest|@vitest/[^/]+|fast-check'),
         ],
       },
     },

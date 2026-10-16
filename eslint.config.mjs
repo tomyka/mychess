@@ -219,9 +219,9 @@ export default defineConfig(
   {
     files: ['packages/chess/src/**/*.test.ts'],
     rules: restrictImports({
-      regex: '^(?!(chess\\.js|ts-fsrs|zod|vitest)$)(?!\\.\\.?/)',
+      regex: '^(?!(chess\\.js|ts-fsrs|zod|vitest|fast-check)$)(?!\\.\\.?/)',
       message:
-        'chess tests import only chess.js, ts-fsrs, zod, vitest and chess files.',
+        'chess tests import only chess.js, ts-fsrs, zod, vitest, fast-check and chess files.',
     }),
   },
   {
