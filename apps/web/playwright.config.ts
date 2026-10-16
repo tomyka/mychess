@@ -19,7 +19,7 @@ const fromEnv = (name: string, fallback: string): string =>
 const APP_ENV = {
   DATABASE_URL: fromEnv(
     'DATABASE_URL',
-    'postgres://mychess:mychess@localhost:5432/mychess',
+    'postgres://mychess:mychess@127.0.0.1:5432/mychess',
   ),
   MYCHESS_ENV: fromEnv('MYCHESS_ENV', 'local'),
   BETTER_AUTH_SECRET: fromEnv(
@@ -29,7 +29,7 @@ const APP_ENV = {
   BETTER_AUTH_URL: BASE_URL,
   MAIL_TRANSPORT: fromEnv('MAIL_TRANSPORT', 'mailpit'),
   MAIL_FROM: fromEnv('MAIL_FROM', 'mychess <noreply@mychess.test>'),
-  MAILPIT_URL: fromEnv('MAILPIT_URL', 'http://localhost:8025'),
+  MAILPIT_URL: fromEnv('MAILPIT_URL', 'http://127.0.0.1:8025'),
   LICHESS_CLIENT_ID: fromEnv('LICHESS_CLIENT_ID', 'mychess-local'),
 };
 
