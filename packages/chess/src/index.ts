@@ -1,3 +1,11 @@
+export { exportPgn } from './pgn/export-pgn';
+export {
+  importPgn,
+  type ImportedRepertoire,
+  type ImportRefusal,
+  type Skipped,
+  type SkipReason,
+} from './pgn/import-pgn';
 export { checkLimits, PGN_LIMITS, type LimitRefusal } from './pgn/limits';
 export {
   parsePgn,
