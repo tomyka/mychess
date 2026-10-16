@@ -18,8 +18,8 @@ export const TEST_ENV_VARS: Readonly<Record<string, string>> = {
   LICHESS_CLIENT_ID: 'mychess-test',
 };
 
-function testEnv(): WebEnv {
-  return webEnvSchema.parse(TEST_ENV_VARS);
+function testEnv(vars: Readonly<Record<string, string>>): WebEnv {
+  return webEnvSchema.parse({ ...TEST_ENV_VARS, ...vars });
 }
 
 export interface BuiltAuth {
@@ -28,12 +28,22 @@ export interface BuiltAuth {
   readonly sent: MailMessage[];
 }
 
+export interface TestAuthOptions {
+  /** The fetch Lichess identity calls use. */
+  readonly fetch?: typeof fetch;
+  /** Variables that replace the feature-test ones (TEST_ENV_VARS). */
+  readonly env?: Readonly<Record<string, string>>;
+}
+
 /** Better Auth on the test database, with a mailer that keeps what it sends. */
-export function buildTestAuth(db: Db, fetchImpl?: typeof fetch): BuiltAuth {
+export function buildTestAuth(
+  db: Db,
+  { fetch: fetchImpl, env = {} }: TestAuthOptions = {},
+): BuiltAuth {
   const sent: MailMessage[] = [];
   const auth = createAuth({
     db,
-    env: testEnv(),
+    env: testEnv(env),
     mail: {
       send: (m) => {
         sent.push(m);

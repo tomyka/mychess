@@ -1,5 +1,5 @@
 import type { BetterAuthPlugin } from 'better-auth';
-import { createAuthEndpoint } from 'better-auth/api';
+import { APIError, createAuthEndpoint } from 'better-auth/api';
 import { makeSignature } from 'better-auth/crypto';
 import { z } from 'zod';
 import { PERSONA_DOMAIN } from './test-sign-in';
@@ -60,37 +60,54 @@ async function sessionCookie(
  * router, so only `signInForTest` reaches it. It runs inside Better Auth's
  * endpoint context, so creating the account and the session goes through
  * `validateUserInfo` and the database hooks like any other sign-in: the
- * email is canonical, and a disabled account gets no session.
+ * email is canonical, and a disabled account gets no session. Where the
+ * route answers 404 (`enabled` false) it refuses too, before touching the
+ * database: a second lock should a caller skip the route's check.
  */
-const startTestSession = createAuthEndpoint.serverOnly(
-  { method: 'POST', body: bodySchema },
-  async (ctx) => {
-    const { internalAdapter, authCookies, secret, sessionConfig } = ctx.context;
-    const { email } = ctx.body;
-    const found = await internalAdapter.findUserByEmail(email);
-    const account =
-      found?.user ??
-      (await internalAdapter.createUser(
-        { email, name: '', emailVerified: true },
-        { method: 'test-sign-in' },
-      ));
-    const session = startedSession.parse(
-      await internalAdapter.createSession(account.id),
-    );
-    if (session === null) return { cookie: undefined };
-    return {
-      cookie: await sessionCookie(
-        authCookies.sessionToken,
-        secret,
-        session.token,
-        sessionConfig.expiresIn,
-      ),
-    };
-  },
-);
+const startTestSession = (enabled: boolean) =>
+  createAuthEndpoint.serverOnly(
+    { method: 'POST', body: bodySchema },
+    async (ctx) => {
+      if (!enabled) throw new APIError('NOT_FOUND');
+      const { internalAdapter, authCookies, secret, sessionConfig } =
+        ctx.context;
+      const { email } = ctx.body;
+      const found = await internalAdapter.findUserByEmail(email);
+      const account =
+        found?.user ??
+        (await internalAdapter.createUser(
+          { email, name: '', emailVerified: true },
+          { method: 'test-sign-in' },
+        ));
+      const session = startedSession.parse(
+        await internalAdapter.createSession(account.id),
+      );
+      if (session === null) return { cookie: undefined };
+      return {
+        cookie: await sessionCookie(
+          authCookies.sessionToken,
+          secret,
+          session.token,
+          sessionConfig.expiresIn,
+        ),
+      };
+    },
+  );
 
-/** Registers the server-only persona sign-in endpoint on Better Auth. */
-export const testSignInPlugin = {
-  id: 'mychess-test-sign-in',
-  endpoints: { startTestSession },
-} satisfies BetterAuthPlugin;
+/**
+ * Registers the server-only persona sign-in endpoint on Better Auth;
+ * `enabled` is `testSignInEnabled` for the environment the auth is built on.
+ */
+export function testSignInPlugin(enabled: boolean): TestSignInPlugin {
+  return {
+    id: 'mychess-test-sign-in',
+    endpoints: { startTestSession: startTestSession(enabled) },
+  } satisfies BetterAuthPlugin;
+}
+
+interface TestSignInPlugin {
+  readonly id: 'mychess-test-sign-in';
+  readonly endpoints: {
+    readonly startTestSession: ReturnType<typeof startTestSession>;
+  };
+}

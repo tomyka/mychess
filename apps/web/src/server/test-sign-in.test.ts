@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { testSignIn, type TestSignInDeps } from './test-sign-in';
+import {
+  testSignIn,
+  testSignInEnabled,
+  type TestSignInDeps,
+} from './test-sign-in';
 
 const SECRET = 's'.repeat(32);
 const COOKIE = 'mychess.session_token=v; Path=/; HttpOnly; SameSite=Lax';
@@ -89,5 +93,19 @@ describe('testSignIn (R-73)', () => {
     expect(response.status).toBe(403);
     expect(response.headers.get('set-cookie')).toBeNull();
     expect(d.signIn).toHaveBeenCalledWith('u1@mychess.test');
+  });
+});
+
+describe('testSignInEnabled', () => {
+  it.each([
+    ['local', true, true],
+    ['staging', true, true],
+    ['production', true, false],
+    ['local', false, false],
+    ['staging', false, false],
+  ] as const)('on %s with the switch %s is %s', (env, on, expected) => {
+    expect(
+      testSignInEnabled({ MYCHESS_ENV: env, MYCHESS_TEST_SIGNIN: on }),
+    ).toBe(expected);
   });
 });

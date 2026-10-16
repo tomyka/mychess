@@ -2,9 +2,9 @@ import { disableAccount } from '@mychess/db';
 import { useTestDatabase } from '@mychess/db/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { BASE, TEST_ENV_VARS } from './support/auth';
+import { BASE, buildTestAuth, TEST_ENV_VARS } from './support/auth';
 
-const { url, db, client } = useTestDatabase();
+const { db, client } = useTestDatabase();
 const SECRET = 'persona-secret-persona-secret-persona';
 
 const accountRows = z.array(
@@ -28,18 +28,17 @@ const sessionCount = async (): Promise<unknown> =>
   (await client.query('select count(*)::int as n from sessions')).rows;
 
 /**
- * The route and the auth it uses, loaded fresh on `env`: `getAuth`,
- * `getDb` and `readWebEnv` cache what they read, so each case resets the
- * module registry.
+ * The route and the auth it uses, loaded fresh on `env`: `getAuth` and
+ * `readWebEnv` cache what they read, so each case resets the module
+ * registry. `getDb` answers with this file's own connection (the
+ * environment names an unreachable database), so no case opens a pool it
+ * would leave open.
  */
 async function serverOn(env: Record<string, string>) {
-  for (const [name, value] of Object.entries({
-    ...TEST_ENV_VARS,
-    DATABASE_URL: url,
-    ...env,
-  }))
+  for (const [name, value] of Object.entries({ ...TEST_ENV_VARS, ...env }))
     vi.stubEnv(name, value);
   vi.resetModules();
+  vi.doMock('../../src/server/db', () => ({ getDb: () => db }));
   const route = await import('../../src/app/api/test/sign-in/route');
   const { getAuth } = await import('../../src/server/auth');
   return { POST: route.POST, auth: getAuth() };
@@ -47,9 +46,13 @@ async function serverOn(env: Record<string, string>) {
 
 const STAGING = {
   MYCHESS_ENV: 'staging',
+  BETTER_AUTH_URL: 'https://staging.mychess.test',
   MYCHESS_TEST_SIGNIN: 'true',
   TEST_SIGNIN_SECRET: SECRET,
 };
+
+// A local server with the test sign-in on: plain http, so no Secure cookie.
+const LOCAL = { ...STAGING, MYCHESS_ENV: 'local', BETTER_AUTH_URL: BASE };
 
 const post = (email: string, headers: Record<string, string> = {}) =>
   new Request(`${BASE}/api/test/sign-in`, {
@@ -67,6 +70,7 @@ const cookieHeader = (response: Response) =>
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.doUnmock('../../src/server/db');
 });
 
 describe('POST /api/test/sign-in (R-73)', () => {
@@ -87,7 +91,7 @@ describe('POST /api/test/sign-in (R-73)', () => {
   });
 
   it('sets the session cookie Better Auth itself would set', async () => {
-    const { POST } = await serverOn(STAGING);
+    const { POST } = await serverOn(LOCAL);
     const cookie = (await POST(asPersona('u1@mychess.test'))).headers.get(
       'set-cookie',
     );
@@ -97,10 +101,7 @@ describe('POST /api/test/sign-in (R-73)', () => {
   });
 
   it('marks the cookie Secure when the auth URL is https', async () => {
-    const { POST, auth } = await serverOn({
-      ...STAGING,
-      BETTER_AUTH_URL: 'https://staging.mychess.test',
-    });
+    const { POST, auth } = await serverOn(STAGING);
     const response = await POST(asPersona('u1@mychess.test'));
     expect(response.headers.get('set-cookie')).toMatch(
       /^__Secure-better-auth\.session_token=[^;]+; Max-Age=7776000; Path=\/; HttpOnly; Secure; SameSite=Lax$/,
@@ -168,5 +169,37 @@ describe('POST /api/test/sign-in (R-73)', () => {
     expect(
       await auth.api.getSession({ headers: cookieHeader(before) }),
     ).toBeNull();
+  });
+});
+
+// Defence in depth: the endpoint itself refuses where the route would 404,
+// whoever calls it.
+describe('startTestSession, called directly', () => {
+  it.each([
+    [
+      'a production auth, even with the flag and secret',
+      {
+        ...STAGING,
+        MYCHESS_ENV: 'production',
+        BETTER_AUTH_URL: 'https://mychess.lt',
+      },
+    ],
+    ['an auth without the flag', { ...STAGING, MYCHESS_TEST_SIGNIN: 'false' }],
+  ])('refuses on %s: no account, no session', async (_, env) => {
+    const { auth } = buildTestAuth(db, { env });
+    await expect(
+      auth.api.startTestSession({ body: { email: 'u1@mychess.test' } }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    expect(await accountsInDb()).toEqual([]);
+    expect(await sessionCount()).toEqual([{ n: 0 }]);
+  });
+
+  it('starts a session on a staging auth with the flag', async () => {
+    const { auth } = buildTestAuth(db, { env: STAGING });
+    const { cookie } = await auth.api.startTestSession({
+      body: { email: 'u1@mychess.test' },
+    });
+    expect(cookie).toMatch(/^__Secure-better-auth\.session_token=/);
+    expect(await sessionCount()).toEqual([{ n: 1 }]);
   });
 });

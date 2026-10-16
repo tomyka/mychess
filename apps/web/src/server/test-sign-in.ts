@@ -27,11 +27,16 @@ const sameSecret = (given: string, expected: string): boolean =>
   given.length === expected.length &&
   timingSafeEqual(Buffer.from(given), Buffer.from(expected));
 
+/** Whether the persona sign-in exists: never in production, only when switched on. */
+export function testSignInEnabled(
+  env: Pick<WebEnv, 'MYCHESS_ENV' | 'MYCHESS_TEST_SIGNIN'>,
+): boolean {
+  return env.MYCHESS_ENV !== 'production' && env.MYCHESS_TEST_SIGNIN;
+}
+
 /** The configured secret, or undefined when the route must not exist. */
 function enabledSecret(env: TestSignInDeps['env']): string | undefined {
-  if (env.MYCHESS_ENV === 'production' || !env.MYCHESS_TEST_SIGNIN)
-    return undefined;
-  return env.TEST_SIGNIN_SECRET;
+  return testSignInEnabled(env) ? env.TEST_SIGNIN_SECRET : undefined;
 }
 
 /** The canonical persona email the request names, or undefined. */

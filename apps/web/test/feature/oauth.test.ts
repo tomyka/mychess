@@ -36,7 +36,7 @@ const count = async (table: string): Promise<number> => {
 function setup(who: FakeIdentity): BuiltAuth {
   const fetch = fakeProviderFetch(who);
   vi.stubGlobal('fetch', fetch);
-  return buildTestAuth(db, fetch);
+  return buildTestAuth(db, { fetch });
 }
 
 // The account a cookie header is signed in to, if any.
@@ -84,6 +84,19 @@ const LICHESS = { id: 'ruta', username: 'Ruta', email: 'ruta@example.lt' };
 const BOTH: FakeIdentity = { google: GOOGLE, lichess: LICHESS };
 
 describe('Google', () => {
+  it.each([
+    ['client id', { GOOGLE_CLIENT_ID: '' }],
+    ['client secret', { GOOGLE_CLIENT_SECRET: '' }],
+  ])(
+    'offers no Google sign-in without a %s: refused as unknown, not a server error (A7)',
+    async (_, env) => {
+      const built = buildTestAuth(db, { env });
+      const response = await startOAuth(built, 'google');
+      expect(response.status).toBe(404);
+      expect(await count('accounts')).toBe(0);
+    },
+  );
+
   it('creates an account with the Google name prefilled, not onboarded', async () => {
     const built = setup({ google: GOOGLE });
     const response = await oauthRoundTrip(built, 'google');

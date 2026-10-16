@@ -27,6 +27,7 @@ import { readWebEnv, type WebEnv } from './env';
 import { createMailer, magicLinkMail, type Mailer } from './mail';
 import { googleUserInfo } from './oauth/google';
 import { lichessUserInfo } from './oauth/lichess';
+import { testSignInEnabled } from './test-sign-in';
 import { testSignInPlugin } from './test-sign-in-session';
 
 const DAY = 60 * 60 * 24;
@@ -269,6 +270,45 @@ function lichessPlugin(env: WebEnv, fetchImpl: typeof fetch) {
   });
 }
 
+/**
+ * Google, when both its credentials are set: an empty pair leaves the
+ * provider out, so a Google sign-in is refused as unknown rather than
+ * failing (security A7). Staging and production require both (env.ts).
+ */
+function socialProviders(env: WebEnv) {
+  if (env.GOOGLE_CLIENT_ID === '' || env.GOOGLE_CLIENT_SECRET === '') return {};
+  return {
+    google: {
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+      getUserInfo: googleUserInfo,
+      disableIdTokenSignIn: true,
+    },
+  };
+}
+
+/**
+ * Request limits per client address and path, counted in the database:
+ * in-memory counters do nothing across serverless instances (security A6).
+ * Always on: Better Auth's default turns them off outside NODE_ENV
+ * production. A magic link is mailed at most three times a minute per
+ * address; Better Auth's own rules cover the other sign-in paths.
+ */
+const rateLimitOptions = {
+  enabled: true,
+  storage: 'database',
+  modelName: 'rateLimits',
+  customRules: { '/sign-in/magic-link': { window: 60, max: 3 } },
+} satisfies BetterAuthOptions['rateLimit'];
+
+/**
+ * The client address as Vercel forwards it: Vercel sets both headers to
+ * the client's IP and overwrites any value the client sent.
+ */
+const advancedOptions = {
+  ipAddress: { ipAddressHeaders: ['x-real-ip', 'x-forwarded-for'] },
+} satisfies BetterAuthOptions['advanced'];
+
 function authOptions({ db, env, mail, fetch: fetchImpl = fetch }: AuthDeps) {
   return {
     secret: env.BETTER_AUTH_SECRET,
@@ -279,20 +319,15 @@ function authOptions({ db, env, mail, fetch: fetchImpl = fetch }: AuthDeps) {
     session: sessionOptions,
     account: providerAccountOptions,
     verification: { modelName: 'verifications' },
-    socialProviders: {
-      google: {
-        clientId: env.GOOGLE_CLIENT_ID,
-        clientSecret: env.GOOGLE_CLIENT_SECRET,
-        getUserInfo: googleUserInfo,
-        disableIdTokenSignIn: true,
-      },
-    },
+    socialProviders: socialProviders(env),
+    rateLimit: rateLimitOptions,
+    advanced: advancedOptions,
     hooks: { before: createAuthMiddleware(beforeRequest) },
     databaseHooks: databaseHooks(db),
     plugins: [
       magicLinkPlugin(mail),
       lichessPlugin(env, fetchImpl),
-      testSignInPlugin,
+      testSignInPlugin(testSignInEnabled(env)),
       nextCookies(),
     ],
   } satisfies BetterAuthOptions;

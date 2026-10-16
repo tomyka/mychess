@@ -11,6 +11,14 @@ const base = {
   LICHESS_CLIENT_ID: 'mychess-local',
 };
 
+// What staging and production need on top of the base (security A7).
+const deployed = {
+  ...base,
+  BETTER_AUTH_URL: 'https://staging.mychess.lt',
+  GOOGLE_CLIENT_ID: 'google-client',
+  GOOGLE_CLIENT_SECRET: 'google-secret',
+};
+
 // The base environment with one variable left out.
 function without(key: string): Record<string, string> {
   return Object.fromEntries(
@@ -34,10 +42,11 @@ describe('webEnvSchema', () => {
       webEnvSchema.parse({ ...base, MYCHESS_ENV: 'local' }).MYCHESS_ENV,
     ).toBe('local');
     expect(
-      webEnvSchema.parse({ ...base, MYCHESS_ENV: 'staging' }).MYCHESS_ENV,
+      webEnvSchema.parse({ ...deployed, MYCHESS_ENV: 'staging' }).MYCHESS_ENV,
     ).toBe('staging');
     expect(
-      webEnvSchema.parse({ ...base, MYCHESS_ENV: 'production' }).MYCHESS_ENV,
+      webEnvSchema.parse({ ...deployed, MYCHESS_ENV: 'production' })
+        .MYCHESS_ENV,
     ).toBe('production');
     expect(
       webEnvSchema.safeParse({ ...base, MYCHESS_ENV: 'dev' }).success,
@@ -153,13 +162,80 @@ describe('webEnvSchema', () => {
   });
 });
 
+const issuePaths = (env: Record<string, string>) =>
+  webEnvSchema.safeParse(env).error?.issues.map((issue) => issue.path) ?? [];
+
+describe('webEnvSchema on staging and production (security A7)', () => {
+  it.each(['staging', 'production'])(
+    'takes an https app URL and both Google credentials on %s',
+    (name) => {
+      expect(issuePaths({ ...deployed, MYCHESS_ENV: name })).toEqual([]);
+    },
+  );
+
+  it.each(['staging', 'production'])(
+    'refuses an http app URL on %s',
+    (name) => {
+      expect(
+        issuePaths({
+          ...deployed,
+          MYCHESS_ENV: name,
+          BETTER_AUTH_URL: 'http://staging.mychess.lt',
+        }),
+      ).toEqual([['BETTER_AUTH_URL']]);
+    },
+  );
+
+  it('takes an http app URL locally', () => {
+    expect(
+      issuePaths({ ...deployed, BETTER_AUTH_URL: base.BETTER_AUTH_URL }),
+    ).toEqual([]);
+  });
+
+  it.each([
+    ['staging', 'GOOGLE_CLIENT_ID'],
+    ['staging', 'GOOGLE_CLIENT_SECRET'],
+    ['production', 'GOOGLE_CLIENT_ID'],
+    ['production', 'GOOGLE_CLIENT_SECRET'],
+  ])('needs %s to set %s', (name, key) => {
+    expect(issuePaths({ ...deployed, MYCHESS_ENV: name, [key]: '' })).toEqual([
+      [key],
+    ]);
+  });
+
+  it('lets a local environment leave Google out', () => {
+    expect(
+      issuePaths({
+        ...deployed,
+        GOOGLE_CLIENT_ID: '',
+        GOOGLE_CLIENT_SECRET: '',
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe('webEnvSchema secret', () => {
+  it.each(['local', 'staging', 'production'])(
+    'refuses the .env.example placeholder secret on %s',
+    (name) => {
+      expect(
+        issuePaths({
+          ...deployed,
+          MYCHESS_ENV: name,
+          BETTER_AUTH_SECRET: 'change-me-to-32-or-more-random-characters',
+        }),
+      ).toEqual([['BETTER_AUTH_SECRET']]);
+    },
+  );
+});
+
 describe('readWebEnv', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
   it('parses the process environment', () => {
-    for (const [key, value] of Object.entries(base)) vi.stubEnv(key, value);
+    for (const [key, value] of Object.entries(deployed)) vi.stubEnv(key, value);
     vi.stubEnv('MYCHESS_ENV', 'staging');
     expect(readWebEnv()).toMatchObject({
       MYCHESS_ENV: 'staging',
