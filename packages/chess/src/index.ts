@@ -13,7 +13,6 @@ export {
   chapterOf,
   isPlayerMove,
   moveKey,
-  playerKeys,
   type Arrow,
   type Chapter,
   type ChapterNameSource,
@@ -40,38 +39,26 @@ export {
 } from './openings/classify';
 export type { EcoEntry } from './openings/data/eco';
 export {
+  buildQueue,
   grade,
-  retrievability,
-  startReview,
-  TARGET_RETENTION,
-  type Outcome,
-  type ReviewState,
-} from './training/schedule';
-export {
+  knowThis,
   learnStep,
+  mastered,
+  QUEUE_LIMITS,
+  reconcile,
   startLearn,
+  weakSpots,
   type LearnEvent,
   type LearnState,
-  type LearnStep,
-} from './training/learn';
-export {
-  buildQueue,
-  QUEUE_LIMITS,
+  type Outcome,
   type Queue,
   type QueueInput,
   type QueueItem,
   type QueueLimits,
   type QueueRefusal,
-  type QueueRepertoire,
-} from './training/queue';
-export {
-  mastered,
-  MASTERY_RETENTION,
-  reconcile,
-  WEAK_LAPSES,
-  WEAK_RETENTION,
-  WEAK_WINDOW_DAYS,
-  weakSpots,
   type Reconciliation,
+  type ReviewState,
+  type Scope,
+  type TrainingRepertoire,
   type WeakSpot,
-} from './training/progress';
+} from './training/training';

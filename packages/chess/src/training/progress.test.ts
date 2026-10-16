@@ -1,13 +1,12 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { importPgn } from '../pgn/import-pgn';
+import { playerKeys, type RepertoireGraph } from '../repertoire/graph';
 import {
-  mastered,
   MASTERY_RETENTION,
-  reconcile,
   WEAK_LAPSES,
   WEAK_RETENTION,
   WEAK_WINDOW_DAYS,
-  weakSpots,
 } from './progress';
 import {
   DAY_MS,
@@ -16,6 +15,13 @@ import {
   startReview,
   type ReviewState,
 } from './schedule';
+import {
+  mastered,
+  reconcile,
+  weakSpots,
+  type Scope,
+  type TrainingRepertoire,
+} from './training';
 
 const now = new Date('2026-10-16T08:00:00Z');
 const daysAgo = (days: number) => new Date(now.getTime() - days * DAY_MS);
@@ -24,6 +30,28 @@ const fresh = (key: string): ReviewState => startReview(key, daysAgo(0.5));
 const withLapses = (key: string, at: readonly Date[]): ReviewState => ({
   ...fresh(key),
   lapses: at,
+});
+function must<T>(value: T | undefined): T {
+  if (value === undefined) throw new Error('expected a value');
+  return value;
+}
+const moves = (...keys: string[]): Scope => ({ kind: 'moves', keys });
+
+function graphOf(pgn: string): RepertoireGraph {
+  const r = importPgn(pgn, 'white');
+  if (!r.ok) throw new Error(r.refusal.reason);
+  return r.value.graph;
+}
+const italian = graphOf('1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. c3 Nf6 5. d4 *');
+const held = (graph: RepertoireGraph, active = true): TrainingRepertoire => ({
+  id: 'r',
+  graph,
+  active,
+});
+/** The Italian with only its first  moves. */
+const firstMoves = (n: number): RepertoireGraph => ({
+  ...italian,
+  moves: italian.moves.slice(0, n),
 });
 
 describe('thresholds', () => {
@@ -43,15 +71,15 @@ describe('mastered', () => {
       ['a', fresh('a')],
       ['b', fresh('b')],
     ]);
-    expect(mastered(['a', 'b'], reviews, now)).toBe(true);
-    expect(mastered(['a', 'b', 'c'], reviews, now)).toBe(false);
+    expect(mastered(moves('a', 'b'), reviews, now)).toBe(true);
+    expect(mastered(moves('a', 'b', 'c'), reviews, now)).toBe(false);
     expect(
-      mastered(['a'], reviews, new Date(now.getTime() + 400 * DAY_MS)),
+      mastered(moves('a'), reviews, new Date(now.getTime() + 400 * DAY_MS)),
     ).toBe(false);
   });
 
   it('is false for no keys: nothing to master is not mastered', () => {
-    expect(mastered([], new Map([['a', fresh('a')]]), now)).toBe(false);
+    expect(mastered(moves(), new Map([['a', fresh('a')]]), now)).toBe(false);
   });
 
   it('stays mastered until recall drops below the threshold', () => {
@@ -63,8 +91,8 @@ describe('mastered', () => {
     }
     const last = new Date(at.getTime() - 3_600_000);
     const reviews = new Map([['a', review]]);
-    expect(mastered(['a'], reviews, last)).toBe(true);
-    expect(mastered(['a'], reviews, at)).toBe(false);
+    expect(mastered(moves('a'), reviews, last)).toBe(true);
+    expect(mastered(moves('a'), reviews, at)).toBe(false);
   });
 });
 
@@ -120,19 +148,23 @@ describe('weakSpots', () => {
     ]);
   });
 
-  it('leaves out keys outside currentKeys, so dormant reviews do not count', () => {
+  it('leaves out Reviews the repertoires no longer hold, so dormant ones do not count', () => {
+    const kept = must(playerKeys(italian)[0]);
     const reviews = new Map([
-      ['kept', withLapses('kept', [daysAgo(1), daysAgo(2)])],
+      [kept, withLapses(kept, [daysAgo(1), daysAgo(2)])],
       ['dormant', withLapses('dormant', [daysAgo(1), daysAgo(2)])],
     ]);
     expect(weakSpots(reviews, now).map((s) => s.key)).toEqual([
-      'kept',
+      kept,
       'dormant',
     ]);
+    expect(weakSpots(reviews, now, [held(italian)]).map((s) => s.key)).toEqual([
+      kept,
+    ]);
     expect(
-      weakSpots(reviews, now, new Set(['kept'])).map((s) => s.key),
-    ).toEqual(['kept']);
-    expect(weakSpots(reviews, now, new Set())).toEqual([]);
+      weakSpots(reviews, now, [held(italian, false)]).map((s) => s.key),
+    ).toEqual([kept]);
+    expect(weakSpots(reviews, now, [])).toEqual([]);
   });
 
   it('sorts by recent lapses, most first, then by recall, lowest first', () => {
@@ -158,41 +190,72 @@ describe('weakSpots', () => {
 });
 
 describe('reconcile', () => {
+  const keys = playerKeys(italian);
+  const [e4, nf3] = [must(keys[0]), must(keys[1])];
+
   it('keeps, queues and parks keys', () => {
+    expect(keys.map((k) => k.split('|')[1])).toEqual([
+      'e4',
+      'Nf3',
+      'Bc4',
+      'c3',
+      'd4',
+    ]);
     const reviews = new Map([
-      ['a', fresh('a')],
+      [e4, fresh(e4)],
       ['gone', fresh('gone')],
     ]);
-    expect(reconcile(new Set(['a', 'new']), reviews)).toEqual({
-      kept: ['a'],
-      toLearn: ['new'],
+    expect(reconcile([held(firstMoves(3))], reviews)).toEqual({
+      kept: [e4],
+      toLearn: [nf3],
       dormant: ['gone'],
     });
   });
 
   it('sorts each list', () => {
-    const reviews = new Map(['d', 'b', 'z', 'x'].map((k) => [k, fresh(k)]));
-    expect(reconcile(new Set(['n', 'd', 'm', 'b']), reviews)).toEqual({
-      kept: ['b', 'd'],
-      toLearn: ['m', 'n'],
+    const reviews = new Map(
+      [keys[4], keys[1], 'z', 'x'].map(must).map((k) => [k, fresh(k)]),
+    );
+    expect(reconcile([held(italian)], reviews)).toEqual({
+      kept: [keys[1], keys[4]].sort(),
+      toLearn: [keys[0], keys[2], keys[3]].sort(),
       dormant: ['x', 'z'],
     });
   });
 
+  it('holds the keys of every repertoire, a paused one too', () => {
+    const black = importPgn('1. e4 c6 2. d4 d5 *', 'black');
+    if (!black.ok) throw new Error(black.refusal.reason);
+    const blackKeys = playerKeys(black.value.graph);
+    const reviews = new Map(
+      [...keys, ...blackKeys].map((k) => [k, fresh(k)] as const),
+    );
+    const r = reconcile(
+      [held(italian), { id: 'b', graph: black.value.graph, active: false }],
+      reviews,
+    );
+    expect(r.kept).toEqual([...keys, ...blackKeys].sort());
+    expect(r.dormant).toEqual([]);
+    expect(reconcile([held(italian)], reviews).dormant).toEqual(
+      [...blackKeys].sort(),
+    );
+  });
+
+  const reviewed = fc.uniqueArray(
+    fc.oneof(fc.constantFrom(...keys), fc.string()),
+  );
+
   it('never drops a review whose key still exists', () => {
     expect(() => {
       fc.assert(
-        fc.property(
-          fc.uniqueArray(fc.string()),
-          fc.uniqueArray(fc.string()),
-          (current, reviewed) => {
-            const reviews = new Map(reviewed.map((k) => [k, fresh(k)]));
-            const r = reconcile(new Set(current), reviews);
-            return reviewed
-              .filter((k) => current.includes(k))
-              .every((k) => r.kept.includes(k));
-          },
-        ),
+        fc.property(fc.nat(italian.moves.length), reviewed, (n, done) => {
+          const current = playerKeys(firstMoves(n));
+          const reviews = new Map(done.map((k) => [k, fresh(k)]));
+          const r = reconcile([held(firstMoves(n))], reviews);
+          return done
+            .filter((k) => current.includes(k))
+            .every((k) => r.kept.includes(k));
+        }),
       );
     }).not.toThrow();
   });
@@ -200,21 +263,18 @@ describe('reconcile', () => {
   it('places every key in exactly one list', () => {
     expect(() => {
       fc.assert(
-        fc.property(
-          fc.uniqueArray(fc.string()),
-          fc.uniqueArray(fc.string()),
-          (current, reviewed) => {
-            const r = reconcile(
-              new Set(current),
-              new Map(reviewed.map((k) => [k, fresh(k)])),
-            );
-            const all = [...r.kept, ...r.toLearn, ...r.dormant];
-            return (
-              all.length === new Set([...current, ...reviewed]).size &&
-              new Set(all).size === all.length
-            );
-          },
-        ),
+        fc.property(fc.nat(italian.moves.length), reviewed, (n, done) => {
+          const current = playerKeys(firstMoves(n));
+          const r = reconcile(
+            [held(firstMoves(n))],
+            new Map(done.map((k) => [k, fresh(k)])),
+          );
+          const all = [...r.kept, ...r.toLearn, ...r.dormant];
+          return (
+            all.length === new Set([...current, ...done]).size &&
+            new Set(all).size === all.length
+          );
+        }),
       );
     }).not.toThrow();
   });

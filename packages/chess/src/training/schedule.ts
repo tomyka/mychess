@@ -7,7 +7,7 @@ import {
 } from 'ts-fsrs';
 
 /** R-76: the target retention is fixed, not a user setting. */
-export const TARGET_RETENTION = 0.9;
+const TARGET_RETENTION = 0.9;
 // Fuzz is off so that tests and reviews are deterministic.
 const scheduler = fsrs(
   generatorParameters({

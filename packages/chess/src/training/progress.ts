@@ -1,8 +1,14 @@
 /**
- * Progress maths over Reviews (R-56) and the reconciliation of Reviews
- * with a repertoire after a coach edit (ruling Q30).
+ * Progress over Reviews: mastery of a scope and weak spots (R-56), and the
+ * reconciliation of Reviews with the repertoires after a coach edit (Q30).
  */
 import { DAY_MS, retrievability, type ReviewState } from './schedule';
+import {
+  heldKeys,
+  scopeKeys,
+  type Scope,
+  type TrainingRepertoire,
+} from './scope';
 
 /** R-56: a set of moves is mastered when every move has at least this recall. */
 export const MASTERY_RETENTION = 0.9;
@@ -19,15 +25,16 @@ export interface WeakSpot {
 }
 
 /**
- * Whether every key has a Review that the player still recalls well. No keys
- * is not mastered: there is nothing to master.
+ * Whether the scope is mastered at `now` (R-56): every move it covers has a
+ * Review that the player still recalls well. A scope without moves (an empty
+ * line, an unknown chapter) is not mastered: there is nothing to master.
  */
 export function mastered(
-  keys: Iterable<string>,
+  scope: Scope,
   reviews: ReadonlyMap<string, ReviewState>,
   now: Date,
 ): boolean {
-  const all = [...keys];
+  const all = scopeKeys(scope);
   return (
     all.length > 0 &&
     all.every((key) => {
@@ -42,14 +49,15 @@ export function mastered(
 /**
  * Reviews that lapse often or are fading, the weakest first. A Review whose
  * move a coach edit removed goes dormant (`reconcile`) but keeps its state;
- * pass the repertoire's `currentKeys` to leave such dormant Reviews out.
- * Without `currentKeys` every Review counts.
+ * pass the player's `repertoires` to leave such dormant Reviews out.
+ * Without them every Review counts.
  */
 export function weakSpots(
   reviews: ReadonlyMap<string, ReviewState>,
   now: Date,
-  currentKeys?: ReadonlySet<string>,
+  repertoires?: readonly TrainingRepertoire[],
 ): WeakSpot[] {
+  const currentKeys = repertoires && heldKeys(repertoires);
   const since = now.getTime() - WEAK_WINDOW_DAYS * DAY_MS;
   return [...reviews.values()]
     .filter((review) => currentKeys?.has(review.key) ?? true)
@@ -72,14 +80,17 @@ export interface Reconciliation {
 }
 
 /**
- * Reconciles reviews with a repertoire's current review keys (Q30). A changed
- * move has a new key, so it lands in `toLearn` and its old key goes dormant.
- * The reviews already say what was there before, so no previous keys are needed.
+ * Reconciles the player's Reviews with the repertoires they hold (R-23, R-44,
+ * ruling Q30). A changed move has a new key, so it lands in `toLearn` and
+ * its old key goes dormant. A paused repertoire (R-46) is still held, so its
+ * Reviews are kept. The Reviews already say what was there before, so no
+ * previous version of a repertoire is needed.
  */
 export function reconcile(
-  currentKeys: ReadonlySet<string>,
+  repertoires: readonly TrainingRepertoire[],
   reviews: ReadonlyMap<string, unknown>,
 ): Reconciliation {
+  const currentKeys = heldKeys(repertoires);
   const current = [...currentKeys].sort();
   return {
     kept: current.filter((k) => reviews.has(k)),

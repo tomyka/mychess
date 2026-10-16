@@ -12,6 +12,7 @@ import {
 import { chapterWalks } from '../repertoire/walk';
 import type { Result } from '../result';
 import type { ReviewState } from './schedule';
+import type { TrainingRepertoire } from './scope';
 
 /** R-62: how many Reviews a session holds and how many new moves a day. */
 export interface QueueLimits {
@@ -33,19 +34,8 @@ export interface QueueRefusal {
   readonly limit: keyof QueueLimits;
 }
 
-export interface QueueRepertoire {
-  readonly id: string;
-  readonly graph: RepertoireGraph;
-  /**
-   * False when the repertoire is excluded from training: the player paused
-   * their Assignment of it (R-46). It stays assigned but adds no Reviews and
-   * no new moves.
-   */
-  readonly active: boolean;
-}
-
 export interface QueueInput {
-  readonly repertoires: readonly QueueRepertoire[];
+  readonly repertoires: readonly TrainingRepertoire[];
   /** The player's Reviews by review key. */
   readonly reviews: ReadonlyMap<string, ReviewState>;
   /** New moves already learned today; they count against the allowance. */
@@ -93,7 +83,7 @@ interface Due {
  * the keys in `exclude`.
  */
 function queueItems(
-  repertoires: readonly QueueRepertoire[],
+  repertoires: readonly TrainingRepertoire[],
   exclude: ReadonlySet<string>,
 ): QueueItem[] {
   const seen = new Set(exclude);
