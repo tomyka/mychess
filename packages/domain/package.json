@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@mychess/chess": "workspace:*",
     "zod": "4.6.5"
   },
   "devDependencies": {

@@ -26,16 +26,17 @@ Feature and db suites need Docker. The Postgres image every suite uses is
 ### Mail in tests (Mailpit, from S1)
 
 Staging and production send with Resend; local runs and E2E use Mailpit.
-Nothing sends mail yet, so there is no Mailpit container yet. S1 (magic-link
-sign-in) adds it:
 
-- Locally: `docker run -d --name mychess-mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit`
-  (SMTP on 1025, web UI and API on 8025), or a compose file under `infra/`
-  if S1 needs more than one container.
-- CI: a `services: mailpit` container on the `e2e` job with the same ports.
-- E2E reads the magic link through Mailpit's API
-  (`GET /api/v1/message/latest`). How the app chooses between Resend and
-  Mailpit is S1's spec to decide.
+1. `docker compose -f infra/compose.yaml up -d` starts Postgres and Mailpit
+   (Mailpit's UI on http://localhost:8025).
+2. Copy `apps/web/.env.example` to `apps/web/.env.local`.
+3. `pnpm --filter @mychess/db migrate` applies the migrations.
+4. `pnpm --filter @mychess/web dev` starts the app.
+
+The app picks Mailpit with `MAIL_TRANSPORT=mailpit` and sends through
+`MAILPIT_URL`'s `/api/v1/send`. E2E reads the newest message through
+`GET /api/v1/message/latest`. CI's `e2e` job runs the same two images as
+service containers on the same ports.
 
 ## Health check
 
