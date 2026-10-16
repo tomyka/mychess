@@ -45,8 +45,11 @@ Staging and production send with Resend; local runs and E2E use Mailpit.
 4. `pnpm --filter @mychess/web dev` starts the app.
 
 The app picks Mailpit with `MAIL_TRANSPORT=mailpit` and sends through
-`MAILPIT_URL`'s `/api/v1/send`. E2E reads the newest message through
-`GET /api/v1/message/latest`. CI's `e2e` job runs the same two images as
+`MAILPIT_URL`'s `/api/v1/send`. E2E finds each test's mail by recipient
+(`GET /api/v1/search?query=to:"addr"`, `apps/web/e2e/support/mailpit.ts`). If port
+8025 is taken on your machine, run Mailpit on other ports and export
+`MAILPIT_URL` (for example `http://localhost:18025`); Playwright passes it to
+the app. CI's `e2e` job runs the same two images as
 service containers on the same ports.
 
 ## Health check
