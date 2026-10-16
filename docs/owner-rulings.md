@@ -116,6 +116,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-80** (S1 brainstorm, #251, 2026-10-16): A sign-in lasts 90 days and is renewed on every visit; sessions are stored in the database, so disabling or deleting an account ends them at once.
 - **R-81** (S1 brainstorm, #251, 2026-10-16): First sign-in asks only for the display name (prefilled from Google or Lichess when available) and the language (LT default); everything else is optional later. An invite link continues to its group after this screen.
 - **R-82** (S1 brainstorm, #251, 2026-10-16): Account deletion shows what will be deleted and offers the data export first; the player confirms by typing their display name; deletion is immediate and irreversible, with a confirmation email afterwards.
+- **R-83** (S1 planning, #251, 2026-10-16): Lichess sign-in asks Lichess for the email (`email:read` scope). A first Lichess sign-in whose email already belongs to an account is refused, telling the player to sign in another way and link Lichess from settings (never merged, R-69); otherwise it creates the account with that email.
 
 ## Open questions
 

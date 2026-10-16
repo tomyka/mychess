@@ -15,6 +15,7 @@ Brainstormed with the owner on 2026-10-16.
 | R-73 | Test-only sign-in on staging: a route that exists only with a staging flag, only for `@mychess.test` emails, behind a shared-secret header; a test proves production refuses it |
 | R-40, R-82 | Data export (PGN and JSON) and immediate hard delete, confirmed by typing the display name, with a confirmation email afterwards |
 | R-80 | Sessions last 90 days, renewed on each visit, stored in the database |
+| R-83 | Lichess sign-in reads the Lichess email; an email that already has an account is refused, not merged |
 | R-81 | Onboarding: display name (prefilled from Google or Lichess) and language only |
 | R-27 | Email via Resend on staging and production; Mailpit locally and in E2E |
 | ADR 0010 | Better Auth instead of Auth.js |
@@ -44,7 +45,7 @@ The security checklist on #233 (items 6-10) is part of this spec's acceptance.
 - Better Auth server config in `src/server/auth.ts`:
   - **Magic link**: one-time use, 15 minutes, sent through the mail adapter.
   - **Google**: verified email only; it may join an existing account with the same canonical email.
-  - **Lichess**: generic OAuth with PKCE and minimal scope. It signs in an account previously linked to that Lichess id, or creates a new account. It never merges by email (R-69).
+  - **Lichess**: generic OAuth with PKCE and the `email:read` scope only (R-83). It signs in an account previously linked to that Lichess id, or creates a new account with the Lichess email. If that email already belongs to an account, the sign-in is refused with a message to sign in another way and link Lichess from settings. It never merges by email (R-69).
   - **Linking Lichess from settings**: allowed only while signed in.
 - Mail adapter: Resend when `MAIL_TRANSPORT=resend`, Mailpit SMTP when `smtp`. Message text comes from the catalogues (LT and EN).
 - Pages:
