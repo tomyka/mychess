@@ -23,29 +23,47 @@ export function imported(
   return r.value;
 }
 
-/**
- * The most a linear operation may grow when its input grows fourfold. Linear
- * work grows about 4 times and quadratic work about 16, so 8 tells them apart
- * on any machine, where an absolute time limit depends on the machine.
- */
-export const LINEAR_GROWTH = 8;
+/** How many times larger the large input of {@link growth} is than the small. */
+const GROWTH_FACTOR = 8;
 
-/** The fastest of three runs of `run`, in milliseconds. */
-function fastest(run: () => void): number {
-  let best = Number.POSITIVE_INFINITY;
-  for (let i = 0; i < 3; i++) {
-    const start = performance.now();
+/**
+ * The most a linear operation may grow when its input grows by
+ * {@link GROWTH_FACTOR}. Linear work grows about 8 times and quadratic work
+ * about 64, so 24 tells them apart with room for a loaded machine's noise on
+ * either side, where an absolute time limit depends on the machine.
+ */
+export const LINEAR_GROWTH = 24;
+
+/** Timed samples per input size; the fastest one counts. */
+const SAMPLES = 5;
+
+/** A sample repeats a fast run until this many milliseconds have passed. */
+const MIN_SAMPLE_MS = 20;
+
+/**
+ * One sample of `run`'s time per call, in milliseconds: it calls `run` until
+ * at least {@link MIN_SAMPLE_MS} have passed, so a run far below the timer's
+ * and the scheduler's resolution is still measured over a span they resolve.
+ */
+function sample(run: () => void): number {
+  const start = performance.now();
+  let calls = 0;
+  let elapsed: number;
+  do {
     run();
-    best = Math.min(best, performance.now() - start);
-  }
-  return best;
+    calls++;
+    elapsed = performance.now() - start;
+  } while (elapsed < MIN_SAMPLE_MS);
+  return elapsed / calls;
 }
 
 /**
- * How many times longer `run` takes on the input of size `4 * n` than on the
- * input of size `n`. Both inputs are built before timing, and each size takes
- * the fastest of three runs to cut noise; pick `n` big enough that a run
- * takes some milliseconds.
+ * How many times longer `run` takes on the input of size `GROWTH_FACTOR * n`
+ * than on the input of size `n`. Both inputs are built before timing and the
+ * small one runs once untimed to warm up the code. The sizes then alternate
+ * for {@link SAMPLES} samples each, so a burst of load from elsewhere slows
+ * both alike, and each size counts its fastest sample: load only ever adds
+ * time, so the fastest is the closest to the work itself.
  */
 export function growth<T>(
   inputOf: (n: number) => T,
@@ -53,10 +71,16 @@ export function growth<T>(
   n: number,
 ): number {
   const small = inputOf(n);
-  const large = inputOf(4 * n);
-  const timeOf = (input: T) =>
-    fastest(() => {
-      run(input);
-    });
-  return timeOf(large) / timeOf(small);
+  const large = inputOf(GROWTH_FACTOR * n);
+  const runOn = (input: T) => () => {
+    run(input);
+  };
+  run(small);
+  let fastestSmall = Number.POSITIVE_INFINITY;
+  let fastestLarge = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < SAMPLES; i++) {
+    fastestSmall = Math.min(fastestSmall, sample(runOn(small)));
+    fastestLarge = Math.min(fastestLarge, sample(runOn(large)));
+  }
+  return fastestLarge / fastestSmall;
 }

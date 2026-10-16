@@ -61,10 +61,8 @@ describe('parseMarks', () => {
   it('reads unclosed commands in linear time', () => {
     const comment = (bytes: number) => '[%cal '.repeat(Math.floor(bytes / 6));
     expect(parseMarks(comment(2 * 1024 * 1024)).arrows).toEqual([]);
-    expect(growth(comment, parseMarks, 1024 * 1024)).toBeLessThan(
-      LINEAR_GROWTH,
-    );
-  }, 60_000);
+    expect(growth(comment, parseMarks, 256 * 1024)).toBeLessThan(LINEAR_GROWTH);
+  }, 300_000);
 
   it('ignores malformed entries', () => {
     expect(parseMarks('[%cal Xe2e4,Ge2] [%csl Gz9]')).toEqual({
