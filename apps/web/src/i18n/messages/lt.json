@@ -16,11 +16,11 @@
     "submit": "Siųsti nuorodą",
     "sent": "Nuoroda išsiųsta. Patikrinkite el. paštą ir paspauskite nuorodą laiške (ji galioja 15 minučių).",
     "or": "arba",
-    "google": "Prisijungti per Google",
-    "lichess": "Prisijungti per Lichess",
+    "google": "Prisijungti Google paskyra",
+    "lichess": "Prisijungti Lichess paskyra",
     "deleted": "Jūsų paskyra ištrinta.",
     "error": {
-      "lichessEmailInUse": "Paskyra šiuo el. pašto adresu jau yra. Prisijunkite el. paštu arba per Google, tada nustatymuose prijunkite Lichess.",
+      "lichessEmailInUse": "Šiuo el. pašto adresu paskyra jau sukurta. Prisijunkite el. paštu arba Google paskyra, tada nustatymuose prijunkite Lichess.",
       "linkExpired": "Nuoroda nebegalioja arba jau buvo panaudota. Paprašykite naujos.",
       "tooManyRequests": "Per daug bandymų. Palaukite minutę ir bandykite dar kartą.",
       "generic": "Prisijungti nepavyko. Bandykite dar kartą."
@@ -46,7 +46,7 @@
     },
     "providers": {
       "title": "Prisijungimo būdai",
-      "intro": "Prie paskyros visada galite prisijungti ir el. pašto nuoroda, siunčiama adresu {email}.",
+      "intro": "Visada galite prisijungti ir el. paštu: nuorodą atsiųsime adresu {email}.",
       "google": "Google",
       "lichess": "Lichess",
       "linked": "Prijungta",
@@ -72,7 +72,7 @@
         "providers": "prijungtos Google ir Lichess paskyros;",
         "sessions": "prisijungimai visuose įrenginiuose."
       },
-      "irreversible": "Ištrynus paskyros atkurti nebus galima. Patvirtinimą atsiųsime el. paštu.",
+      "irreversible": "Ištrintos paskyros atkurti nebus galima. Patvirtinimą atsiųsime el. paštu.",
       "exportFirst": "Prieš ištrindami <link>atsisiųskite savo duomenis</link>.",
       "typeName": "Patvirtinkite įrašydami savo rodomą vardą: {name}",
       "confirm": "Ištrinti paskyrą visam laikui"
@@ -90,7 +90,7 @@
   "mail": {
     "magicLink": {
       "subject": "Prisijungimas prie mychess",
-      "body": "Prisijunkite paspaudę nuorodą (galioja 15 minučių):\n{url}\n\nJei neprašėte, ignoruokite šį laišką."
+      "body": "Norėdami prisijungti prie mychess, paspauskite šią nuorodą (ji galioja 15 minučių):\n{url}\n\nJei nuorodos neprašėte, šį laišką galite ignoruoti."
     },
     "deleted": {
       "subject": "Jūsų mychess paskyra ištrinta",

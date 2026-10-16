@@ -124,8 +124,16 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | Concept | EN UI word | LT UI word | Source | Note |
 | --- | --- | --- | --- | --- |
 | Sign in / Sign out | Sign in / Sign out | prisijungti / atsijungti | v1 `nav_sign_in`, `nav_sign_out` | |
-| Magic link | Sign-in link | prisijungimo nuoroda | v1 `login_email_magic_link` | |
-| Email | Email | el. paštas | v1 `login_email_label` | |
+| Magic link | Sign-in link | prisijungimo nuoroda | v1 `login_email_magic_link` | Short form once the context is clear: **nuoroda** / "link". Signing in this way: **prisijungti el. paštu** / "sign in by email". |
+| Email | Email | el. paštas | v1 `login_email_label` | Email address: **el. pašto adresas**. "We will email you": **atsiųsime el. paštu**. |
+| Sign-in method (Google, Lichess, email) | Sign-in method | prisijungimo būdas | proposed | |
+| Sign in with a provider | Sign in with Google | prisijungti Google paskyra | proposed (v1 `login_continue_with_google` "Tęsti su Google") | Instrumental case, as in **prisijungti el. paštu**. Not "per Google" or "su Google": common, but the plain instrumental is the standard way to say "by means of". |
+| Link / unlink a sign-in method | Connect / Disconnect | prijungti / atjungti | v1 `settings_connect_button`, `settings_disconnect_button` | State: **prijungta / neprijungta** ("Connected / Not connected"). Same verbs as the Lichess / Chess.com link above. Not **susieti / atsieti** (those are for the Coach link). |
+| Welcome (first visit) | Welcome! | Sveiki atvykę! | proposed | Greeting with a name: "Sveiki, {name}!" / "Hello, {name}!". |
+| Profile (settings section) | Profile | profilis | proposed | |
+| Language (setting) | Language | kalba | proposed | Language names are shown in their own language: **Lietuvių**, **English**. |
+| Export account data | Download my data | atsisiųsti duomenis | proposed | Not **eksportuoti**. Section title: **Jūsų duomenys** / "Your data". |
+| Delete account | Delete account | ištrinti paskyrą | v1 `repertoires_delete_button` (verb) | Section title: **Paskyros ištrynimas**. "Permanently": **visam laikui** / "permanently" (not "for good"). |
 | Dashboard | Dashboard | skydelis | v1 `nav_dashboard` | |
 | Settings | Settings | nustatymai | v1 `nav_settings` | |
 | Board | Board | lenta | v1 `settings_board_heading` | |

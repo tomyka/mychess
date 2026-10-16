@@ -46,7 +46,7 @@
     },
     "providers": {
       "title": "Sign-in methods",
-      "intro": "You can always sign in with an email link too, sent to {email}.",
+      "intro": "You can always sign in by email too: we send the link to {email}.",
       "google": "Google",
       "lichess": "Lichess",
       "linked": "Connected",
@@ -90,11 +90,11 @@
   "mail": {
     "magicLink": {
       "subject": "Sign in to mychess",
-      "body": "Sign in with this link (valid for 15 minutes):\n{url}\n\nIf you did not ask for it, ignore this email."
+      "body": "To sign in to mychess, open this link (it works for 15 minutes):\n{url}\n\nIf you did not ask for this link, you can ignore this email."
     },
     "deleted": {
-      "subject": "Your mychess account was deleted",
-      "body": "Your account and all its data have been deleted for good."
+      "subject": "Your mychess account has been deleted",
+      "body": "Your account and all its data have been permanently deleted."
     }
   }
 }

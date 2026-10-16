@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
+import { MESSAGES } from '../i18n/locales';
 import { createMailer, deletedMail, magicLinkMail } from './mail';
+
+const { lt, en } = MESSAGES;
 
 const message = {
   to: 'ruta@example.lt',
@@ -43,16 +46,16 @@ describe('magicLinkMail', () => {
       magicLinkMail('lt', 'ruta@example.lt', 'https://app/x?token=t'),
     ).toEqual({
       to: 'ruta@example.lt',
-      subject: 'Prisijungimas prie mychess',
-      text: 'Prisijunkite paspaudę nuorodą (galioja 15 minučių):\nhttps://app/x?token=t\n\nJei neprašėte, ignoruokite šį laišką.',
+      subject: lt.mail.magicLink.subject,
+      text: lt.mail.magicLink.body.replace('{url}', 'https://app/x?token=t'),
     });
   });
 
   it('writes the link into an English message from the catalogue', () => {
     expect(magicLinkMail('en', 'a@b.lt', 'https://app/y')).toEqual({
       to: 'a@b.lt',
-      subject: 'Sign in to mychess',
-      text: 'Sign in with this link (valid for 15 minutes):\nhttps://app/y\n\nIf you did not ask for it, ignore this email.',
+      subject: en.mail.magicLink.subject,
+      text: en.mail.magicLink.body.replace('{url}', 'https://app/y'),
     });
   });
 });
@@ -61,16 +64,16 @@ describe('deletedMail', () => {
   it('tells the person in Lithuanian that the account is gone', () => {
     expect(deletedMail('lt', 'ruta@example.lt')).toEqual({
       to: 'ruta@example.lt',
-      subject: 'Jūsų mychess paskyra ištrinta',
-      text: 'Jūsų paskyra ir visi jos duomenys ištrinti visam laikui.',
+      subject: lt.mail.deleted.subject,
+      text: lt.mail.deleted.body,
     });
   });
 
   it('tells the person in English that the account is gone', () => {
     expect(deletedMail('en', 'a@b.lt')).toEqual({
       to: 'a@b.lt',
-      subject: 'Your mychess account was deleted',
-      text: 'Your account and all its data have been deleted for good.',
+      subject: en.mail.deleted.subject,
+      text: en.mail.deleted.body,
     });
   });
 });
