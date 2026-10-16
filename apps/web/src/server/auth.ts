@@ -27,6 +27,7 @@ import { readWebEnv, type WebEnv } from './env';
 import { createMailer, magicLinkMail, type Mailer } from './mail';
 import { googleUserInfo } from './oauth/google';
 import { lichessUserInfo } from './oauth/lichess';
+import { testSignInPlugin } from './test-sign-in-session';
 
 const DAY = 60 * 60 * 24;
 const LICHESS = 'lichess';
@@ -291,6 +292,7 @@ function authOptions({ db, env, mail, fetch: fetchImpl = fetch }: AuthDeps) {
     plugins: [
       magicLinkPlugin(mail),
       lichessPlugin(env, fetchImpl),
+      testSignInPlugin,
       nextCookies(),
     ],
   } satisfies BetterAuthOptions;
@@ -312,4 +314,19 @@ export function getAuth(): Auth {
     auth = createAuth({ db: getDb(), env, mail: createMailer(env) });
   }
   return auth;
+}
+
+/**
+ * Finds or creates the persona account for a canonical `@mychess.test`
+ * email and starts a session; returns its Set-Cookie, or undefined for a
+ * disabled account. Only the staging test route calls it (R-73).
+ */
+export async function signInForTest(
+  authInstance: Auth,
+  email: string,
+): Promise<string | undefined> {
+  const { cookie } = await authInstance.api.startTestSession({
+    body: { email },
+  });
+  return cookie;
 }

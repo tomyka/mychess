@@ -5,19 +5,21 @@ import type { MailMessage } from '../../../src/server/mail';
 
 export const BASE = 'http://localhost:3000';
 
-function testEnv(over: Record<string, string> = {}): WebEnv {
-  return webEnvSchema.parse({
-    DATABASE_URL: 'postgres://unused:unused@localhost:1/unused',
-    BETTER_AUTH_SECRET: 'feature-test-secret-feature-test-secret',
-    BETTER_AUTH_URL: BASE,
-    MAIL_TRANSPORT: 'mailpit',
-    MAIL_FROM: 'mychess <noreply@mychess.test>',
-    MAILPIT_URL: 'http://localhost:8025',
-    GOOGLE_CLIENT_ID: 'google-client',
-    GOOGLE_CLIENT_SECRET: 'google-secret',
-    LICHESS_CLIENT_ID: 'mychess-test',
-    ...over,
-  });
+/** The variables a feature-test server reads, as the process sees them. */
+export const TEST_ENV_VARS: Readonly<Record<string, string>> = {
+  DATABASE_URL: 'postgres://unused:unused@localhost:1/unused',
+  BETTER_AUTH_SECRET: 'feature-test-secret-feature-test-secret',
+  BETTER_AUTH_URL: BASE,
+  MAIL_TRANSPORT: 'mailpit',
+  MAIL_FROM: 'mychess <noreply@mychess.test>',
+  MAILPIT_URL: 'http://localhost:8025',
+  GOOGLE_CLIENT_ID: 'google-client',
+  GOOGLE_CLIENT_SECRET: 'google-secret',
+  LICHESS_CLIENT_ID: 'mychess-test',
+};
+
+function testEnv(): WebEnv {
+  return webEnvSchema.parse(TEST_ENV_VARS);
 }
 
 export interface BuiltAuth {
