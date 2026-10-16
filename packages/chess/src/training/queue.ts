@@ -9,6 +9,7 @@ import {
   type RepertoireGraph,
   type RepertoireMove,
 } from '../repertoire/graph';
+import { chapterWalks } from '../repertoire/walk';
 import type { Result } from '../result';
 import type { ReviewState } from './schedule';
 
@@ -71,34 +72,14 @@ export interface Queue {
 }
 
 /**
- * A chapter's moves in line order: depth first from the root, children in
- * insertion order. Each position is expanded once, so a transposing chapter
- * costs its size, not its number of lines.
+ * The player moves of every chapter in line order: depth first from the root,
+ * children in insertion order, each move of a chapter once (the chapter walk),
+ * so a transposing chapter costs its size, not its number of lines.
  */
-function chapterMoves(
-  graph: RepertoireGraph,
-  rootKey: string,
-  chapterId: string,
-): RepertoireMove[] {
-  const childrenOf = (key: string) =>
-    graph.moves
-      .filter((m) => m.from === key && m.chapters.includes(chapterId))
-      .reverse();
-  const out: RepertoireMove[] = [];
-  const expanded = new Set([rootKey]);
-  const stack = childrenOf(rootKey);
-  for (let move = stack.pop(); move !== undefined; move = stack.pop()) {
-    out.push(move);
-    if (expanded.has(move.to)) continue;
-    expanded.add(move.to);
-    stack.push(...childrenOf(move.to));
-  }
-  return out;
-}
-
 function playerMoves(graph: RepertoireGraph): RepertoireMove[] {
+  const walks = chapterWalks(graph);
   return graph.chapters
-    .flatMap((c) => chapterMoves(graph, c.rootKey, c.id))
+    .flatMap((c) => walks(c.id).moves())
     .filter((m) => isPlayerMove(graph, m));
 }
 

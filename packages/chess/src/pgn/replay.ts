@@ -6,29 +6,16 @@ import { parseMarks, type CommentMarks } from './marks';
 import type { MovetextToken } from './tokenize';
 
 /**
- * What a PGN file says about a move: the prose of its `{...}` comments
- * (PGN's own word; not a Thread comment or a note), its NAGs, and the
- * arrows and circles its comments draw (R-65).
+ * A move as replayed in its game, with the arrows and circles its PGN
+ * comments draw (R-65), and where it stands in the game's move tree.
+ * `parent` is the index of the move it follows (null for a move from the
+ * game's root), `moveNumber` the FEN full-move number it is played at, and
+ * `uci` the move in coordinates.
  */
-interface PgnCommentary extends Marks {
-  readonly pgnComments: readonly string[];
-  readonly nags: readonly number[];
-}
-
-/** One move as it occurs in a game's movetext, with its PGN commentary. */
-export interface MoveOccurrence extends PgnCommentary {
+export interface ReplayedMove extends Marks {
   readonly from: string;
   readonly to: string;
   readonly san: string;
-}
-
-/**
- * A move as replayed in its game: its occurrence, plus where it stands in
- * the game's move tree. `parent` is the index of the move it follows (null
- * for a move from the game's root), `moveNumber` the FEN full-move number
- * it is played at, and `uci` the move in coordinates.
- */
-export interface ReplayedMove extends MoveOccurrence {
   readonly parent: number | null;
   readonly moveNumber: number;
   readonly uci: string;
@@ -54,8 +41,8 @@ export type ReplayRefusal =
  * board, the position before its last move (where a nested variation
  * branches from), that move's index in the replayed moves and the index of
  * the move it follows (where a nested variation's moves hang from), the
- * index the branch's first move follows (`base`), and commentary waiting
- * for the branch's first move.
+ * index the branch's first move follows (`base`), and marks waiting for the
+ * branch's first move.
  */
 interface Branch {
   board: Chess;
@@ -64,17 +51,10 @@ interface Branch {
   last: number | null;
   lastParent: number | null;
   base: number | null;
-  pending: PgnCommentary;
+  pending: Marks;
 }
 
-type Annotation = <T extends PgnCommentary>(commentary: T) => T;
-
-const noCommentary: PgnCommentary = {
-  pgnComments: [],
-  nags: [],
-  arrows: [],
-  circles: [],
-};
+const noMarks: Marks = { arrows: [], circles: [] };
 
 const newBranch = (fen: string, base: number | null): Branch => ({
   board: new Chess(fen),
@@ -83,22 +63,15 @@ const newBranch = (fen: string, base: number | null): Branch => ({
   last: null,
   lastParent: null,
   base,
-  pending: noCommentary,
+  pending: noMarks,
 });
 
-const withNag =
-  (nag: number): Annotation =>
-  (commentary) => ({ ...commentary, nags: [...commentary.nags, nag] });
-
-const withComment =
-  ({ text, arrows, circles }: CommentMarks): Annotation =>
-  (commentary) => ({
-    ...commentary,
-    pgnComments:
-      text === '' ? commentary.pgnComments : [...commentary.pgnComments, text],
-    arrows: [...commentary.arrows, ...arrows],
-    circles: [...commentary.circles, ...circles],
-  });
+/** `target` with the arrows and circles of `marks` added. */
+const withMarks = <T extends Marks>(target: T, marks: Marks): T => ({
+  ...target,
+  arrows: [...target.arrows, ...marks.arrows],
+  circles: [...target.circles, ...marks.circles],
+});
 
 function tryMove(board: Chess, san: string): Move | null {
   try {
@@ -111,10 +84,11 @@ function tryMove(board: Chess, san: string): Move | null {
 /**
  * Replays movetext, following every variation: `(` opens a branch from the
  * position before the current branch's last move, `)` resumes the
- * enclosing branch. Comments and NAGs attach to the move they follow, or to
- * the branch's first move when they come before it. Comments before the
+ * enclosing branch. The marks a comment draws attach to the move it follows,
+ * or to the branch's first move when it comes before it. Comments before the
  * game's first move are its intro instead; marks there have no move to go
- * on and are dropped.
+ * on and are dropped. The rest of a comment's prose and NAGs are not kept:
+ * a repertoire move holds neither.
  */
 class Replay {
   readonly moves: ReplayedMove[] = [];
@@ -134,7 +108,6 @@ class Replay {
         this.comment(parseMarks(token.text));
         return null;
       case 'nag':
-        this.annotate(withNag(token.nag));
         return null;
       case 'open':
         return this.open();
@@ -154,18 +127,18 @@ class Replay {
   }
 
   private comment(marks: CommentMarks): void {
-    if (this.moves.length > 0) this.annotate(withComment(marks));
+    if (this.moves.length > 0) this.annotate(marks);
     else if (marks.text !== '') this.introParts.push(marks.text);
   }
 
-  /** Annotates the branch's last move, or its first move to come. */
-  private annotate(annotation: Annotation): void {
+  /** Adds marks to the branch's last move, or its first move to come. */
+  private annotate(marks: Marks): void {
     const { last } = this.branch;
     const move = last === null ? undefined : this.moves[last];
     if (last === null || move === undefined) {
-      this.branch.pending = annotation(this.branch.pending);
+      this.branch.pending = withMarks(this.branch.pending, marks);
     } else {
-      this.moves[last] = annotation(move);
+      this.moves[last] = withMarks(move, marks);
     }
   }
 
@@ -187,7 +160,7 @@ class Replay {
       uci: played.from + played.to + (played.promotion ?? ''),
     });
     this.branch.key = to;
-    this.branch.pending = noCommentary;
+    this.branch.pending = noMarks;
     this.branch.last = this.moves.length - 1;
     this.branch.fenBeforeLast = fen;
     this.branch.lastParent = parent;

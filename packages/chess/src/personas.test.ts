@@ -7,7 +7,8 @@
 import { describe, expect, it } from 'vitest';
 import { classify } from './openings/classify';
 import { importPgn, type ImportedRepertoire } from './pgn/import-pgn';
-import { mainLine, type Side } from './repertoire/graph';
+import type { Side } from './repertoire/graph';
+import { mainLine } from './repertoire/walk';
 
 /** One doc line: its label, its movetext and the ECO family it must reach. */
 type Line = readonly [label: string, moves: string, family: RegExp];

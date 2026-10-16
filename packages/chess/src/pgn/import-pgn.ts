@@ -4,24 +4,23 @@
  * is listed with its reason instead of refusing the file.
  *
  * Games are isolated before tokenizing, so text one game's tokenizer cannot
- * read costs only that game. The graph is built with mutable indexes and
- * frozen at the end, so hostile input stays linear (R-66), under the
- * builder's rules: one player answer per position across the repertoire,
- * and a move is stored once per position. Legality is the replay's.
+ * read costs only that game. The moves go through the repertoire's mutable
+ * move store (`RepertoireMoves`), so hostile input stays linear (R-66), under
+ * the repertoire's rules: one player answer per position across the
+ * repertoire, and a move is stored once per position. Legality is the
+ * replay's.
  */
 import { DEFAULT_POSITION, validateFen } from 'chess.js';
 import { classify } from '../openings/classify';
 import { positionKey } from '../position-key';
-import {
-  isPlayerMove,
-  moveKey,
-  type Arrow,
-  type Chapter,
-  type Circle,
-  type RepertoireGraph,
-  type RepertoireMove,
-  type Side,
+import type {
+  Chapter,
+  RepertoireGraph,
+  RepertoireMove,
+  Side,
 } from '../repertoire/graph';
+import { RepertoireMoves, type DraftMove } from '../repertoire/moves';
+import { chapterWalks } from '../repertoire/walk';
 import type { Result } from '../result';
 import { gameNames } from './game-names';
 import { checkLimits, PGN_LIMITS, type LimitRefusal } from './limits';
@@ -173,61 +172,39 @@ function replayRaw(raw: RawGame | null, game: number): Replayed {
   return { ok: true, value: { ...value, ...movetext.value } };
 }
 
-/** A move while the graph is being built: mutable, with its mark identities. */
-interface DraftMove {
-  readonly from: string;
-  readonly to: string;
-  readonly san: string;
-  readonly uci: string;
-  readonly arrows: Arrow[];
-  readonly circles: Circle[];
-  readonly chapters: string[];
-  readonly markKeys: Set<string>;
-}
-
-const draftOf = (move: ReplayedMove): DraftMove => ({
-  from: move.from,
-  to: move.to,
-  san: move.san,
-  uci: move.uci,
-  arrows: [],
-  circles: [],
-  chapters: [],
-  markKeys: new Set(),
-});
-
-/** Adds `values` the draft lacks, by their identity. */
+/** Adds the `values` a move lacks to `target`, by their identity in `seen`. */
 function addMarks<T>(
-  draft: DraftMove,
+  seen: Set<string>,
   target: T[],
   values: readonly T[],
   key: (value: T) => string,
 ): void {
   for (const value of values) {
     const id = key(value);
-    if (!draft.markKeys.has(id)) {
-      draft.markKeys.add(id);
+    if (!seen.has(id)) {
+      seen.add(id);
       target.push(value);
     }
   }
 }
 
 /**
- * A repertoire being built game by game, with indexes by move and by
- * position, so each move costs about the same however large the file.
+ * A repertoire being built game by game. Its moves go through the
+ * repertoire's own store (one move per position, one answer per position),
+ * which keeps each move about as cheap however large the file.
  */
 class RepertoireBuilder {
   private readonly chapters: Chapter[] = [];
-  private readonly moves = new Map<string, DraftMove>();
-  private readonly children = new Map<string, DraftMove[]>();
-  /** The player's answer in each position, by position key. */
-  private readonly answers = new Map<string, string>();
+  private readonly moves: RepertoireMoves;
+  /** Each stored move's mark identities, so marks merge without repeats. */
+  private readonly markKeys = new Map<DraftMove, Set<string>>();
   readonly skipped: Skipped[] = [];
 
   readonly side: Side;
 
   constructor(side: Side) {
     this.side = side;
+    this.moves = new RepertoireMoves(side);
   }
 
   /**
@@ -241,29 +218,23 @@ class RepertoireBuilder {
     const dropped = new Set<number>();
     let kept = 0;
     for (const [index, move] of game.moves.entries()) {
-      if (this.leftOut(game.game, move, dropped)) dropped.add(index);
-      else {
-        this.put(move, chapter.id);
-        kept += 1;
-      }
+      if (this.put(game.game, move, chapter.id, dropped)) kept += 1;
+      else dropped.add(index);
     }
     if (kept > 0) this.chapters.push(chapter);
   }
 
   freeze(): RepertoireGraph {
-    const moves: RepertoireMove[] = [...this.moves.values()].map(
-      ({ from, to, san, uci, arrows, circles, chapters }) => ({
-        from,
-        to,
-        san,
-        uci,
-        arrows,
-        circles,
-        chapters,
-      }),
+    const graph = {
+      side: this.side,
+      chapters: this.chapters,
+      moves: this.moves.list(),
+    };
+    const walks = chapterWalks(graph);
+    const chapters = this.chapters.map((c) =>
+      classified(c, walks(c.id).mainLine()),
     );
-    const chapters = this.chapters.map((c) => this.classified(c));
-    return { side: this.side, chapters, moves };
+    return { ...graph, chapters };
   }
 
   private newChapter(game: GoodGame, name: string | null): Chapter {
@@ -277,73 +248,45 @@ class RepertoireBuilder {
     };
   }
 
-  private leftOut(
+  /** Puts a move into the chapter; false when it is left out. */
+  private put(
     game: number,
     move: ReplayedMove,
+    chapterId: string,
     dropped: ReadonlySet<number>,
   ): boolean {
-    if (move.parent !== null && dropped.has(move.parent)) return true;
-    const answer = isPlayerMove(this, move)
-      ? this.answers.get(move.from)
-      : undefined;
-    if (answer === undefined || answer === move.san) return false;
-    const { san, moveNumber } = move;
-    this.skipped.push({
-      game,
-      reason: 'pgn.secondAnswer',
-      san,
-      move: moveNumber,
-    });
+    if (move.parent !== null && dropped.has(move.parent)) return false;
+    const put = this.moves.put(move, chapterId);
+    if (!put.ok) {
+      const { san, moveNumber } = move;
+      this.skipped.push({
+        game,
+        reason: 'pgn.secondAnswer',
+        san,
+        move: moveNumber,
+      });
+      return false;
+    }
+    const seen = this.markKeys.get(put.value) ?? new Set<string>();
+    this.markKeys.set(put.value, seen);
+    addMarks(seen, put.value.arrows, move.arrows, (a) => `a${arrowKey(a)}`);
+    addMarks(seen, put.value.circles, move.circles, (c) => `c${circleKey(c)}`);
     return true;
   }
+}
 
-  private put(move: ReplayedMove, chapterId: string): void {
-    const key = moveKey(move.from, move.san);
-    let draft = this.moves.get(key);
-    if (draft === undefined) {
-      draft = draftOf(move);
-      this.moves.set(key, draft);
-      this.children.set(move.from, [
-        ...(this.children.get(move.from) ?? []),
-        draft,
-      ]);
-      if (isPlayerMove(this, move)) this.answers.set(move.from, move.san);
-    }
-    if (!draft.chapters.includes(chapterId)) draft.chapters.push(chapterId);
-    addMarks(draft, draft.arrows, move.arrows, (a) => `a${arrowKey(a)}`);
-    addMarks(draft, draft.circles, move.circles, (c) => `c${circleKey(c)}`);
-  }
-
-  /**
-   * A chapter's main line as `mainLine` in the graph module defines it (the
-   * first-inserted child at each position, never back to a position
-   * already on the line), read from the builder's index in linear time.
-   */
-  private mainSans(chapter: Chapter): string[] {
-    const sans: string[] = [];
-    const seen = new Set([chapter.rootKey]);
-    let key = chapter.rootKey;
-    for (;;) {
-      const next = this.children
-        .get(key)
-        ?.find((m) => m.chapters.includes(chapter.id) && !seen.has(m.to));
-      if (next === undefined) return sans;
-      sans.push(next.san);
-      seen.add(next.to);
-      key = next.to;
-    }
-  }
-
-  /**
-   * Names a chapter from the opening taxonomy when its main line, played
-   * from the standard start, reaches an ECO position (R-63: taxonomy first).
-   */
-  private classified(chapter: Chapter): Chapter {
-    if (chapter.rootKey !== START) return chapter;
-    const entry = classify(this.mainSans(chapter));
-    if (entry === null) return chapter;
-    return { ...chapter, nameSource: { kind: 'eco', eco: entry.code } };
-  }
+/**
+ * Names a chapter from the opening taxonomy when its main line, played
+ * from the standard start, reaches an ECO position (R-63: taxonomy first).
+ */
+function classified(
+  chapter: Chapter,
+  mainLine: readonly RepertoireMove[],
+): Chapter {
+  if (chapter.rootKey !== START) return chapter;
+  const entry = classify(mainLine.map((m) => m.san));
+  if (entry === null) return chapter;
+  return { ...chapter, nameSource: { kind: 'eco', eco: entry.code } };
 }
 
 const START = positionKey(DEFAULT_POSITION);

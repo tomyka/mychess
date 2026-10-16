@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { importPgn } from '../pgn/import-pgn';
 import {
   isPlayerMove,
-  lines,
   moveKey,
   playerKeys,
   type RepertoireGraph,
   type Side,
 } from '../repertoire/graph';
+import { lines } from '../repertoire/walk';
 import {
   buildQueue,
   QUEUE_LIMITS,

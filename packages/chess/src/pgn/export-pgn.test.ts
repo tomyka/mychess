@@ -70,6 +70,11 @@ describe('exportPgn', () => {
     );
   });
 
+  it('writes several circles in one command', () => {
+    const graph = graphOf('1. e4 { [%csl Gd4,Re5] } *');
+    expect(exportPgn(graph)).toContain('1. e4 { [%csl Gd4,Re5] } *');
+  });
+
   it('numbers a Black move after a variation, and a FEN start', () => {
     const fen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
     const graph = graphOf(

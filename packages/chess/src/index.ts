@@ -7,21 +7,11 @@ export {
   type SkipReason,
 } from './pgn/import-pgn';
 export { checkLimits, PGN_LIMITS, type LimitRefusal } from './pgn/limits';
-export {
-  parsePgn,
-  type PgnGame,
-  type PgnHeaders,
-  type PgnGraph,
-  type PgnMove,
-  type PgnRefusal,
-} from './pgn/parse-pgn';
 export { fenOf, positionKey, sideToMove } from './position-key';
 export type { Result } from './result';
 export {
   chapterOf,
   isPlayerMove,
-  lines,
-  mainLine,
   moveKey,
   playerKeys,
   type Arrow,
@@ -34,6 +24,7 @@ export {
   type RepertoireMove,
   type Side,
 } from './repertoire/graph';
+export { lines, mainLine } from './repertoire/walk';
 export {
   addMove,
   removeMove,

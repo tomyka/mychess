@@ -11,17 +11,13 @@ import type {
   RepertoireGraph,
   RepertoireMove,
 } from '../repertoire/graph';
+import {
+  chapterWalks,
+  type ChapterWalk,
+  type WalkNode,
+} from '../repertoire/walk';
 
 const START = positionKey(DEFAULT_POSITION);
-
-/** One chapter being written: its moves by the position they leave. */
-interface Walk {
-  readonly children: ReadonlyMap<string, readonly RepertoireMove[]>;
-  /** Whether the chapter's root has Black to move: ply 0 is then move 1 for Black. */
-  readonly blackFirst: boolean;
-  /** Positions whose continuation is already written. */
-  readonly written: Set<string>;
-}
 
 function chapterName(chapter: Chapter): string {
   const source = chapter.nameSource;
@@ -68,16 +64,18 @@ function marks(arrows: readonly Arrow[], circles: readonly Circle[]): string[] {
 /**
  * A move with its number: always before a White move, and before a Black
  * move when `numbered` (the start of a line, or after a variation).
+ * `blackFirst` says the chapter's root has Black to move: ply 0 is then
+ * move 1 for Black.
  */
 function moveText(
-  walk: Walk,
+  blackFirst: boolean,
   move: RepertoireMove,
   ply: number,
   numbered: boolean,
 ): string[] {
   // Numbering starts at 1: a position key has no move counters, so the
   // chapter's FEN tag (`fenOf`) gives the full-move number 1 too.
-  const number = 1 + Math.floor((ply + (walk.blackFirst ? 1 : 0)) / 2);
+  const number = 1 + Math.floor((ply + (blackFirst ? 1 : 0)) / 2);
   const white = sideToMove(move.from) === 'w';
   const san = white
     ? `${String(number)}. ${move.san}`
@@ -88,57 +86,39 @@ function moveText(
 }
 
 /**
- * The movetext from `key` at `ply`: the first move continues the line, the
- * others become variations. A position already written (a transposition
- * or a repetition) ends the line, so each move is written once. The main
- * continuation is walked before the variations, so a variation that
+ * The movetext of `nodes` at `ply`: the first move continues the line, the
+ * others become variations. The chapter walk takes each move once and ends a
+ * line at a position it already walked (a transposition or a repetition), and
+ * it walks the main continuation before the variations, so a variation that
  * transposes into the main line ends there rather than cutting it short.
  */
 function continuation(
-  walk: Walk,
-  key: string,
+  blackFirst: boolean,
+  nodes: readonly WalkNode[],
   ply: number,
   numbered: boolean,
 ): string[] {
-  if (walk.written.has(key)) return [];
-  walk.written.add(key);
-  const [main, ...others] = walk.children.get(key) ?? [];
+  const [main, ...others] = nodes;
   if (main === undefined) return [];
-  const rest = continuation(walk, main.to, ply + 1, others.length > 0);
-  const variations = others.map((move) => {
+  const variations = others.map((node) => {
     const line = [
-      ...moveText(walk, move, ply, true),
-      ...continuation(walk, move.to, ply + 1, false),
+      ...moveText(blackFirst, node.move, ply, true),
+      ...continuation(blackFirst, node.next, ply + 1, false),
     ];
     return `(${line.join(' ')})`;
   });
-  return [...moveText(walk, main, ply, numbered), ...variations, ...rest];
+  return [
+    ...moveText(blackFirst, main.move, ply, numbered),
+    ...variations,
+    ...continuation(blackFirst, main.next, ply + 1, others.length > 0),
+  ];
 }
 
-function childrenIn(
-  graph: RepertoireGraph,
-  chapterId: string,
-): Map<string, RepertoireMove[]> {
-  const children = new Map<string, RepertoireMove[]>();
-  for (const move of graph.moves) {
-    if (move.chapters.includes(chapterId)) {
-      const siblings = children.get(move.from);
-      if (siblings === undefined) children.set(move.from, [move]);
-      else siblings.push(move);
-    }
-  }
-  return children;
-}
-
-function game(graph: RepertoireGraph, chapter: Chapter): string {
-  const walk: Walk = {
-    children: childrenIn(graph, chapter.id),
-    blackFirst: sideToMove(chapter.rootKey) === 'b',
-    written: new Set(),
-  };
+function game(walk: ChapterWalk, chapter: Chapter): string {
+  const blackFirst = sideToMove(chapter.rootKey) === 'b';
   const movetext = [
     ...(chapter.intro === null ? [] : [comment(chapter.intro)]),
-    ...continuation(walk, chapter.rootKey, 0, true),
+    ...continuation(blackFirst, walk.tree(), 0, true),
     '*',
   ];
   return [...headers(chapter), '', movetext.join(' ')].join('\n');
@@ -151,5 +131,8 @@ function game(graph: RepertoireGraph, chapter: Chapter): string {
  * `[%cal]` / `[%csl]` comments, and alternatives as variations.
  */
 export function exportPgn(graph: RepertoireGraph): string {
-  return graph.chapters.map((chapter) => game(graph, chapter)).join('\n\n');
+  const walks = chapterWalks(graph);
+  return graph.chapters
+    .map((chapter) => game(walks(chapter.id), chapter))
+    .join('\n\n');
 }

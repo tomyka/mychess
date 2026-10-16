@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { positionKey } from '../position-key';
 import type { Result } from '../result';
 import { addMove, removeMove, setMarks } from './edit';
-import { lines, type Chapter, type RepertoireGraph } from './graph';
+import type { Chapter, RepertoireGraph } from './graph';
+import { lines } from './walk';
 
 function must<T>(value: T | undefined): T {
   if (value === undefined) throw new Error('expected a value');
@@ -138,10 +139,10 @@ describe('addMove', () => {
     ]);
   });
 
-  it('ends a line at a repetition instead of looping', () => {
+  it('ends a line with the move that repeats a position, not looping', () => {
     const g = build('Nf3', 'Nf6', 'Ng1', 'Ng8');
     expect(g.moves.at(-1)?.to).toBe(START);
-    expect(sansOf(g, 'c1')).toEqual([['Nf3', 'Nf6', 'Ng1']]);
+    expect(sansOf(g, 'c1')).toEqual([['Nf3', 'Nf6', 'Ng1', 'Ng8']]);
   });
 });
 
@@ -197,6 +198,18 @@ describe('setMarks', () => {
   it('sets arrows and circles on a move', () => {
     const r = setMarks(build('e4'), 'c1', { from: START, san: 'e4' }, marks);
     expect(r.ok && r.value.moves[0]).toEqual(expect.objectContaining(marks));
+  });
+
+  it('leaves the marks of the other moves alone', () => {
+    const r = setMarks(
+      build('e4', 'e5'),
+      'c1',
+      { from: START, san: 'e4' },
+      marks,
+    );
+    expect(r.ok && r.value.moves[1]).toEqual(
+      expect.objectContaining({ san: 'e5', arrows: [], circles: [] }),
+    );
   });
 
   it('refuses marks on a move that does not exist', () => {

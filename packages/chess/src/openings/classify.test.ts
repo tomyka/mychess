@@ -13,6 +13,16 @@ describe('classify', () => {
     );
   });
 
+  it('keeps the deeper match when the line repeats back into a shallower one', () => {
+    // 1.Nf3 Nf6 is deeper than 1.Nf3; 2.Ng1 Ng8 3.Nf3 returns to 1.Nf3.
+    const deeper = classify(['Nf3', 'Nf6']);
+    const shallower = classify(['Nf3']);
+    expect(deeper?.moves.length).toBeGreaterThan(shallower?.moves.length ?? 0);
+    expect(classify(['Nf3', 'Nf6', 'Ng1', 'Ng8', 'Nf3'])?.code).toBe(
+      deeper?.code,
+    );
+  });
+
   it('recognises a transposition by position', () => {
     // Queen's Gambit Declined reached via 1.Nf3: the table's D37 line is
     // 1.d4 Nf6 2.c4 e6 3.Nf3 d5 4.Nc3.

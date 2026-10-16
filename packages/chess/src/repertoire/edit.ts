@@ -3,12 +3,13 @@ import { fenOf, positionKey } from '../position-key';
 import type { Result } from '../result';
 import {
   chapterOf,
-  isPlayerMove,
   type Chapter,
   type Marks,
   type RepertoireGraph,
   type RepertoireMove,
 } from './graph';
+import { RepertoireMoves, type PlayedMove } from './moves';
+import { chapterWalks } from './walk';
 
 /** Why a builder edit was refused; each reason is a message-catalogue key. */
 export type EditRefusal =
@@ -28,51 +29,30 @@ const refuse = (reason: EditRefusal['reason']): EditResult => ({
 const same = (move: RepertoireMove, fromKey: string, san: string): boolean =>
   move.from === fromKey && move.san === san;
 
-const movesOf = (graph: RepertoireGraph, chapter: Chapter): RepertoireMove[] =>
-  graph.moves.filter((m) => m.chapters.includes(chapter.id));
+/** The moves a chapter's root reaches. */
+const walkedMoves = (graph: RepertoireGraph, chapter: Chapter) =>
+  chapterWalks(graph)(chapter.id).moves();
 
 /** The positions a chapter reaches: its root and where each of its moves lands. */
 function reachableKeys(graph: RepertoireGraph, chapter: Chapter): Set<string> {
   return new Set([
     chapter.rootKey,
-    ...movesOf(graph, chapter).map((m) => m.to),
+    ...walkedMoves(graph, chapter).map((m) => m.to),
   ]);
 }
 
-function play(fromKey: string, san: string): Move | null {
+function play(fromKey: string, san: string): PlayedMove | null {
+  let played: Move;
   try {
-    return new Chess(fenOf(fromKey)).move(san);
+    played = new Chess(fenOf(fromKey)).move(san);
   } catch {
     return null;
   }
-}
-
-function withChapter(
-  graph: RepertoireGraph,
-  target: RepertoireMove,
-  chapterId: string,
-): RepertoireGraph {
-  if (target.chapters.includes(chapterId)) return graph;
-  const chapters = [...target.chapters, chapterId];
-  return {
-    ...graph,
-    moves: graph.moves.map((m) => (m === target ? { ...m, chapters } : m)),
-  };
-}
-
-function newMove(
-  fromKey: string,
-  played: Move,
-  chapterId: string,
-): RepertoireMove {
   return {
     from: fromKey,
     to: positionKey(played.after),
     san: played.san,
     uci: played.from + played.to + (played.promotion ?? ''),
-    arrows: [],
-    circles: [],
-    chapters: [chapterId],
   };
 }
 
@@ -93,15 +73,10 @@ export function addMove(
     return refuse('repertoire.unknownPosition');
   const played = play(fromKey, san);
   if (played === null) return refuse('repertoire.illegalMove');
-  const existing = graph.moves.find((m) => same(m, fromKey, played.san));
-  if (existing !== undefined)
-    return { ok: true, value: withChapter(graph, existing, chapterId) };
-  const move = newMove(fromKey, played, chapterId);
-  const secondAnswer =
-    isPlayerMove(graph, move) &&
-    graph.moves.some((m) => m.from === fromKey && isPlayerMove(graph, m));
-  if (secondAnswer) return refuse('repertoire.secondAnswer');
-  return { ok: true, value: { ...graph, moves: [...graph.moves, move] } };
+  const moves = new RepertoireMoves(graph.side, graph.moves);
+  const put = moves.put(played, chapterId);
+  if (!put.ok) return put;
+  return { ok: true, value: { ...graph, moves: moves.list() } };
 }
 
 function withoutChapter(
@@ -111,26 +86,9 @@ function withoutChapter(
   return { ...move, chapters: move.chapters.filter((c) => c !== chapterId) };
 }
 
-/** The moves a walk from `rootKey` over `moves` can play. */
-function reachableFrom(
-  rootKey: string,
-  moves: readonly RepertoireMove[],
-): Set<RepertoireMove> {
-  const reached = new Set([rootKey]);
-  const kept = new Set<RepertoireMove>();
-  let frontier = [rootKey];
-  while (frontier.length > 0) {
-    const next = moves.filter((m) => !kept.has(m) && frontier.includes(m.from));
-    next.forEach((m) => kept.add(m));
-    frontier = next.map((m) => m.to).filter((key) => !reached.has(key));
-    frontier.forEach((key) => reached.add(key));
-  }
-  return kept;
-}
-
 /** Moves of a chapter its root no longer reaches leave the chapter. */
 function prune(graph: RepertoireGraph, chapter: Chapter): RepertoireGraph {
-  const kept = reachableFrom(chapter.rootKey, movesOf(graph, chapter));
+  const kept = new Set(walkedMoves(graph, chapter));
   const moves = graph.moves.map((m) =>
     kept.has(m) ? m : withoutChapter(m, chapter.id),
   );
@@ -165,7 +123,9 @@ export function setMarks(
 ): EditResult {
   const chapter = chapterOf(graph, chapterId);
   if (chapter === undefined) return refuse('repertoire.unknownChapter');
-  const target = movesOf(graph, chapter).find((m) => same(m, at.from, at.san));
+  const target = graph.moves.find(
+    (m) => same(m, at.from, at.san) && m.chapters.includes(chapterId),
+  );
   if (target === undefined) return refuse('repertoire.unknownMove');
   const moves = graph.moves.map((m) =>
     m === target ? { ...m, arrows, circles } : m,
