@@ -117,6 +117,7 @@ Three to five teammates at a time; each one costs tokens.
   do not answer goes to the owner through the lead.
 - **No production data** reaches any teammate. Tests and staging use the
   persona seeds.
+- **The working tree is shared.** Teammates never run `git stash`, `git checkout -- <file>`, `git reset` or `git clean`: in a shared tree they move other teammates' uncommitted work. To check whether a failure is yours, run only your own tests.
 - **Never skip, weaken or delete a failing test** to reach green; a failing
   test is the finding.
 - **Silence is not progress.** With every handoff the lead starts a
