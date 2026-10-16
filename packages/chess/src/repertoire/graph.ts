@@ -127,10 +127,35 @@ export function lines(
   return out;
 }
 
-/** A chapter's main line: the first-inserted child at each position. */
+/**
+ * A chapter's main line: the first-inserted child at each position, skipping
+ * a move back onto the line. It equals `lines(...)[0]` but walks one path, so
+ * it stays linear however much the chapter transposes.
+ */
 export function mainLine(
   graph: RepertoireGraph,
   chapterId: string,
 ): RepertoireMove[] {
-  return lines(graph, chapterId)[0] ?? [];
+  const chapter = chapterOf(graph, chapterId);
+  if (chapter === undefined) return [];
+  const path: RepertoireMove[] = [];
+  const seen = new Set([chapter.rootKey]);
+  for (
+    let next = firstChild(graph, chapterId, chapter.rootKey, seen);
+    next !== undefined;
+    next = firstChild(graph, chapterId, next.to, seen)
+  ) {
+    path.push(next);
+    seen.add(next.to);
+  }
+  return path;
+}
+
+function firstChild(
+  graph: RepertoireGraph,
+  chapterId: string,
+  key: string,
+  seen: ReadonlySet<string>,
+): RepertoireMove | undefined {
+  return children(graph, chapterId, key).find((m) => !seen.has(m.to));
 }

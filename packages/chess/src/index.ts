@@ -63,3 +63,22 @@ export {
   type LearnState,
   type LearnStepName,
 } from './training/learn';
+export {
+  buildQueue,
+  QUEUE_LIMITS,
+  type Queue,
+  type QueueInput,
+  type QueueItem,
+  type QueueRepertoire,
+} from './training/queue';
+export {
+  mastered,
+  MASTERY_RETENTION,
+  reconcile,
+  WEAK_LAPSES,
+  WEAK_RETENTION,
+  WEAK_WINDOW_DAYS,
+  weakSpots,
+  type Reconciliation,
+  type WeakSpot,
+} from './training/progress';
