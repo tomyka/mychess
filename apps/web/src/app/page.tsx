@@ -1,11 +1,9 @@
 import type { JSX } from 'react';
-import { useTranslations } from 'next-intl';
+import { requireOnboarded } from '../server/session';
+import { HomeView } from './home-view';
 
-export default function HomePage(): JSX.Element {
-  const t = useTranslations('app');
-  return (
-    <main className="mx-auto max-w-3xl p-8">
-      <h1 className="text-3xl font-bold">{t('title')}</h1>
-    </main>
-  );
+// Signed-out visitors go to sign-in, new accounts to onboarding first.
+export default async function HomePage(): Promise<JSX.Element> {
+  const account = await requireOnboarded();
+  return <HomeView displayName={account.displayName} />;
 }

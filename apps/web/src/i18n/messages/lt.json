@@ -1,6 +1,8 @@
 {
   "app": {
-    "title": "mychess"
+    "title": "mychess",
+    "greeting": "Sveiki, {name}!",
+    "signOut": "Atsijungti"
   },
   "displayName": {
     "blank": "Įveskite rodomą vardą.",

@@ -1,18 +1,36 @@
 import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../i18n/locales';
-import HomePage from './page';
+import { HomeView } from './home-view';
 
-describe('HomePage', () => {
-  it.each(['lt', 'en'] as const)('shows the site title in %s', (locale) => {
-    render(
-      <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
-        <HomePage />
-      </NextIntlClientProvider>,
-    );
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'mychess' }),
-    ).toBeDefined();
-  });
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
+vi.mock('../lib/auth-client', () => ({
+  authClient: { signOut: vi.fn() },
+}));
+
+const greetings = { lt: 'Sveiki, Rūta!', en: 'Hello, Rūta!' } as const;
+const signOut = { lt: 'Atsijungti', en: 'Sign out' } as const;
+
+describe('HomeView', () => {
+  it.each(['lt', 'en'] as const)(
+    'names the site and greets the account in %s',
+    (locale) => {
+      render(
+        <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
+          <HomeView displayName="Rūta" />
+        </NextIntlClientProvider>,
+      );
+      expect(
+        screen.getByRole('heading', { level: 1, name: 'mychess' }),
+      ).toBeDefined();
+      expect(screen.getByText(greetings[locale])).toBeDefined();
+      expect(
+        screen.getByRole('button', { name: signOut[locale] }),
+      ).toBeDefined();
+    },
+  );
 });

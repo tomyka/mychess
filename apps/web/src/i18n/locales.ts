@@ -1,12 +1,6 @@
+import { DEFAULT_LOCALE, LOCALES, type Locale } from '@mychess/domain';
 import en from './messages/en.json';
 import lt from './messages/lt.json';
-
-/** The site's languages: Lithuanian first, English beside it. */
-const LOCALES = ['lt', 'en'] as const;
-
-export type Locale = (typeof LOCALES)[number];
-
-export const DEFAULT_LOCALE: Locale = 'lt';
 
 /** The cookie a visitor's language choice is kept in (next-intl's name). */
 export const LOCALE_COOKIE = 'NEXT_LOCALE';

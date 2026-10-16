@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_LOCALE, MESSAGES, resolveLocale } from './locales';
+import { DEFAULT_LOCALE } from '@mychess/domain';
+import { MESSAGES, resolveLocale } from './locales';
 
 // Every key path in a catalogue, as 'app.title'.
 function keyPaths(messages: object, prefix = ''): string[] {

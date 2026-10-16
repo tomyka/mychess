@@ -1,6 +1,8 @@
 {
   "app": {
-    "title": "mychess"
+    "title": "mychess",
+    "greeting": "Hello, {name}!",
+    "signOut": "Sign out"
   },
   "displayName": {
     "blank": "Enter a display name.",
