@@ -12,7 +12,7 @@ CREATE TABLE "accounts" (
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "accounts_email_unique" UNIQUE("email"),
-	CONSTRAINT "accounts_email_canonical" CHECK ("accounts"."email" = lower(btrim("accounts"."email"))),
+	CONSTRAINT "accounts_email_canonical" CHECK ("accounts"."email" = lower(btrim(normalize("accounts"."email", NFKC))) and "accounts"."email" ~ '^[\x21-\x7e]+$'),
 	CONSTRAINT "accounts_locale_check" CHECK ("accounts"."locale" in ('lt', 'en')),
 	CONSTRAINT "accounts_entitlement_check" CHECK ("accounts"."entitlement" in ('free'))
 );
@@ -41,6 +41,14 @@ CREATE TABLE "provider_accounts" (
 	"password" text,
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "rate_limits" (
+	"id" text PRIMARY KEY NOT NULL,
+	"key" text NOT NULL,
+	"count" integer NOT NULL,
+	"last_request" bigint NOT NULL,
+	CONSTRAINT "rate_limits_key_unique" UNIQUE("key")
 );
 --> statement-breakpoint
 CREATE TABLE "sessions" (

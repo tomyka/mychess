@@ -1,4 +1,10 @@
-import { accounts, providerAccounts, sessions, verifications } from './schema';
+import {
+  accounts,
+  providerAccounts,
+  rateLimits,
+  sessions,
+  verifications,
+} from './schema';
 
 export {
   completeOnboarding,
@@ -28,4 +34,5 @@ export const authSchema = {
   sessions,
   providerAccounts,
   verifications,
+  rateLimits,
 };

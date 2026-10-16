@@ -1,5 +1,5 @@
 // The database schema: every table, as drizzle-kit reads it to generate
-// migrations (drizzle.config.ts). Better Auth's four tables carry our names
+// migrations (drizzle.config.ts). Better Auth's five tables carry our names
 // (src/server/auth.ts in apps/web maps them): its "user" is our Account and
 // its "account" is a provider link.
 import {
@@ -11,9 +11,11 @@ import {
 } from '@mychess/domain';
 import { sql, type SQL } from 'drizzle-orm';
 import {
+  bigint,
   boolean,
   check,
   index,
+  integer,
   pgTable,
   serial,
   text,
@@ -52,10 +54,11 @@ export const accounts = pgTable(
     updatedAt: at('updated_at').notNull(),
   },
   (t) => [
-    // A backstop for canonicalEmail: the NFKC fold is the domain's alone.
+    // A backstop for canonicalEmail: already NFKC-folded, trimmed and lower
+    // case, and printable ASCII only, so no lookalike letter gets through.
     check(
       'accounts_email_canonical',
-      sql`${t.email} = lower(btrim(${t.email}))`,
+      sql`${t.email} = lower(btrim(normalize(${t.email}, NFKC))) and ${t.email} ~ '^[\\x21-\\x7e]+$'`,
     ),
     check('accounts_locale_check', oneOf(t.locale, LOCALES)),
     check('accounts_entitlement_check', oneOf(t.entitlement, ENTITLEMENTS)),
@@ -121,6 +124,18 @@ export const verifications = pgTable(
   },
   (t) => [index('verifications_identifier_idx').on(t.identifier)],
 );
+
+/**
+ * Better Auth's request counters for `rateLimit: { storage: 'database' }`
+ * (in-memory limits do nothing across serverless instances), one per key.
+ */
+export const rateLimits = pgTable('rate_limits', {
+  id: text('id').primaryKey(),
+  key: text('key').notNull().unique(),
+  count: integer('count').notNull(),
+  /** Epoch milliseconds, as Better Auth stores it. */
+  lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
+});
 
 /**
  * Append-only record of every Admin action (security item 8). No foreign

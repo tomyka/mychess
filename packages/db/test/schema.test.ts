@@ -63,6 +63,21 @@ describe('the accounts schema', () => {
     },
   );
 
+  it.each([
+    ['fullwidth letters', 'ｒｕｔａ@example.lt'],
+    ['a Cyrillic a', 'ruta@exаmple.lt'],
+  ])('refuses an email with %s', async (_, email) => {
+    await expect(insertAccount('a1', email)).rejects.toThrow(
+      /accounts_email_canonical/,
+    );
+  });
+
+  it('accepts a canonical email', async () => {
+    await insertAccount('a1', 'ruta@example.lt');
+    const { rows } = await client.query('select email from accounts');
+    expect(rows).toEqual([{ email: 'ruta@example.lt' }]);
+  });
+
   it('refuses a second account with the same email', async () => {
     await insertAccount('a1', 'ruta@example.lt');
     await expect(insertAccount('a2', 'ruta@example.lt')).rejects.toThrow(
@@ -98,5 +113,36 @@ describe('the accounts schema', () => {
       'select count(*)::int as n from admin_audit',
     );
     expect(rows).toEqual([{ n: 1 }]);
+  });
+});
+
+describe('the rate limits schema', () => {
+  const insertLimit = (id: string, key: string, lastRequest: number) =>
+    client.query(
+      `insert into rate_limits (id, key, count, last_request)
+       values ($1, $2, 1, $3)`,
+      [id, key, lastRequest],
+    );
+
+  it('keeps one counter per key, with the last request in epoch milliseconds', async () => {
+    const lastRequest = Date.UTC(2026, 9, 16, 12, 0, 0, 123);
+    await insertLimit('r1', '203.0.113.7/sign-in/magic-link', lastRequest);
+    const { rows } = await client.query(
+      'select key, count, last_request::text as last_request from rate_limits',
+    );
+    expect(rows).toEqual([
+      {
+        key: '203.0.113.7/sign-in/magic-link',
+        count: 1,
+        last_request: String(lastRequest),
+      },
+    ]);
+  });
+
+  it('refuses a second counter for the same key', async () => {
+    await insertLimit('r1', '203.0.113.7/sign-in/magic-link', 1);
+    await expect(
+      insertLimit('r2', '203.0.113.7/sign-in/magic-link', 2),
+    ).rejects.toThrow(/unique/);
   });
 });
