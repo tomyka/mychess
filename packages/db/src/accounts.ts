@@ -141,7 +141,7 @@ export async function exportAccount(
         linkedAt: providerAccounts.createdAt,
       })
       .from(providerAccounts)
-      .where(eq(providerAccounts.accountId, id))
+      .where(eq(providerAccounts.ownerAccountId, id))
       .orderBy(providerAccounts.createdAt, providerAccounts.id),
   );
   return {

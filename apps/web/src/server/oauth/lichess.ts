@@ -20,14 +20,24 @@ export type LichessUserInfo = (tokens: {
   accessToken?: string | undefined;
 }) => Promise<LichessIdentity | null>;
 
-// A Lichess API answer as JSON, or undefined when Lichess refused.
+const TIMEOUT_MS = 10_000;
+
+// A Lichess API answer as JSON, or undefined when Lichess refused, did not
+// answer in time or answered with something that is not JSON.
 async function lichessJson(
   fetchImpl: typeof fetch,
   path: string,
-  init: RequestInit,
+  authorization: string,
 ): Promise<unknown> {
-  const response = await fetchImpl(`${LICHESS}${path}`, init);
-  return response.ok ? response.json() : undefined;
+  try {
+    const response = await fetchImpl(`${LICHESS}${path}`, {
+      headers: { authorization },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    return response.ok ? await response.json() : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -41,10 +51,10 @@ export function lichessUserInfo(
 ): LichessUserInfo {
   return async (tokens) => {
     if (tokens.accessToken === undefined) return null;
-    const init = { headers: { authorization: `Bearer ${tokens.accessToken}` } };
+    const authorization = `Bearer ${tokens.accessToken}`;
     const [account, email] = await Promise.all([
-      lichessJson(fetchImpl, '/api/account', init),
-      lichessJson(fetchImpl, '/api/account/email', init),
+      lichessJson(fetchImpl, '/api/account', authorization),
+      lichessJson(fetchImpl, '/api/account/email', authorization),
     ]);
     const a = accountSchema.safeParse(account);
     const e = emailSchema.safeParse(email);

@@ -189,7 +189,7 @@ describe('exportAccount', () => {
       id: 'p-a1-google',
       providerAccountId: 'google-a1',
       providerId: 'google',
-      accountId: 'a1',
+      ownerAccountId: 'a1',
       accessToken: 'encrypted',
       createdAt: NOW,
       updatedAt: NOW,

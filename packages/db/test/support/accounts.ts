@@ -34,7 +34,7 @@ export async function seedAccount(
     id: `p-${id}`,
     providerAccountId: `lichess-${id}`,
     providerId: 'lichess',
-    accountId: id,
+    ownerAccountId: id,
     accessToken: 'encrypted',
     createdAt: T0,
     updatedAt: T0,

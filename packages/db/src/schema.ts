@@ -86,7 +86,7 @@ export const providerAccounts = pgTable(
     /** The provider's id for the person (Google sub, Lichess username id). */
     providerAccountId: text('provider_account_id').notNull(),
     providerId: text('provider_id').notNull(),
-    accountId: text('account_id')
+    ownerAccountId: text('account_id')
       .notNull()
       .references(() => accounts.id, { onDelete: 'cascade' }),
     accessToken: text('access_token'),
@@ -104,7 +104,7 @@ export const providerAccounts = pgTable(
       t.providerId,
       t.providerAccountId,
     ),
-    index('provider_accounts_account_id_idx').on(t.accountId),
+    index('provider_accounts_account_id_idx').on(t.ownerAccountId),
   ],
 );
 

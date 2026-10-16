@@ -1,6 +1,6 @@
 import { deleteAccount } from '@mychess/db';
 import { useTestDatabase } from '@mychess/db/testing';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
   BASE,
@@ -34,6 +34,10 @@ const lastLink = (built: BuiltAuth): string =>
   /https?:\/\/\S+/.exec(built.sent.at(-1)?.text ?? '')?.[0] ?? '';
 
 const SESSION_TOKEN = /session_token=[^;]+\./;
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('magic-link sign-in', () => {
   it('creates one account, on our defaults, and a session on first use', async () => {
@@ -135,6 +139,36 @@ describe('magic-link sign-in', () => {
     expect(await rows('select count(*)::int as n from sessions')).toEqual([
       { n: 1 },
     ]);
+  });
+
+  it('refuses a link followed after 15 minutes (security item 6)', async () => {
+    const built = buildTestAuth(db);
+    await requestLink(built, { email: 'ruta@example.lt', callbackURL: '/' });
+    vi.useFakeTimers({
+      now: Date.now() + 15 * 60_000 + 1000,
+      toFake: ['Date'],
+    });
+    const late = await built.auth.handler(new Request(lastLink(built)));
+    expect(late.headers.getSetCookie().join()).not.toMatch(SESSION_TOKEN);
+    expect(await rows('select count(*)::int as n from sessions')).toEqual([
+      { n: 0 },
+    ]);
+    expect(await accountRows()).toEqual([]);
+  });
+
+  it('stores the link token hashed, never as mailed', async () => {
+    const built = buildTestAuth(db);
+    await requestLink(built, { email: 'ruta@example.lt', callbackURL: '/' });
+    const token = new URL(lastLink(built)).searchParams.get('token') ?? '';
+    expect(token).not.toBe('');
+    const stored = z
+      .array(z.object({ identifier: z.string(), value: z.string() }))
+      .parse(await rows('select identifier, value from verifications'));
+    expect(stored).toHaveLength(1);
+    for (const { identifier, value } of stored) {
+      expect(identifier).not.toContain(token);
+      expect(value).not.toContain(token);
+    }
   });
 
   it('mails in the locale the sign-in page asked for', async () => {

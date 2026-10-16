@@ -15,6 +15,7 @@ import {
   APIError,
   createAuthMiddleware,
   getAuthoritativeSessionFromCtx,
+  getOAuthState,
 } from 'better-auth/api';
 import { nextCookies } from 'better-auth/next-js';
 import { genericOAuth } from 'better-auth/plugins/generic-oauth';
@@ -75,25 +76,67 @@ type HookAnswer = { context: { body: Record<string, unknown> } } | undefined;
  * this body into the request's, so the name is blanked rather than dropped
  * (an absent key would keep the client's value).
  */
-function canonicalMagicLinkBody(ctx: HookRequest): Promise<HookAnswer> {
-  if (ctx.path !== '/sign-in/magic-link') return Promise.resolve(undefined);
+function canonicalMagicLinkBody(ctx: HookRequest): HookAnswer {
+  if (ctx.path !== '/sign-in/magic-link') return undefined;
   const parsed = requestBody.safeParse(ctx.body);
   const body = parsed.success ? parsed.data : { email: undefined };
   const email = canonicalOrRefuse(body.email);
-  return Promise.resolve({ context: { body: { ...body, email, name: '' } } });
+  return { context: { body: { ...body, email, name: '' } } };
+}
+
+// Request fields that would let the client choose what the provider is
+// asked for, or skip the redirect with its own id token.
+const CLIENT_OAUTH_FIELDS = [
+  'scopes',
+  'additionalParams',
+  'loginHint',
+  'idToken',
+];
+const OAUTH_START_PATHS = new Set(['/sign-in/social', '/link-social']);
+
+const clientOAuthField = (body: unknown): string | undefined => {
+  const parsed = z.looseObject({}).safeParse(body);
+  const keys = parsed.success ? Object.keys(parsed.data) : [];
+  return CLIENT_OAUTH_FIELDS.find((field) => keys.includes(field));
+};
+
+/**
+ * Refuses an OAuth start that names its own scopes, provider parameters,
+ * login hint or id token. Better Auth merges a hook's body into the
+ * request's, so the fields cannot be dropped, only refused.
+ */
+function refuseClientOAuthFields(ctx: HookRequest): void {
+  if (ctx.path === undefined || !OAUTH_START_PATHS.has(ctx.path)) return;
+  const field = clientOAuthField(ctx.body);
+  if (field === undefined) return;
+  throw new APIError('BAD_REQUEST', {
+    code: 'unsupported_oauth_field',
+    message: field,
+  });
+}
+
+// Every request, before Better Auth handles it.
+function beforeRequest(ctx: HookRequest): Promise<HookAnswer> {
+  return Promise.resolve(ctx).then((request) => {
+    refuseClientOAuthFields(request);
+    return canonicalMagicLinkBody(request);
+  });
 }
 
 /**
  * Lichess joins an existing account only from settings, while signed in to
  * that account (R-69, R-83). Better Auth calls this before every provider
  * link: the settings link and the implicit link at sign-in by email alike.
+ * Only a flow started by `/link-social` for this account carries `link` in
+ * its OAuth state, so a plain sign-in by a signed-in person is refused too.
  * A new Lichess sign-up is `create-user`, not a link, so it passes.
  */
 const guardLichessLink: ValidateUserInfo = async ({ user, source }, ctx) => {
   if (source.action !== 'link-account') return;
   if (source.oauth?.providerId !== LICHESS) return;
+  const state = await getOAuthState();
   const current = await getAuthoritativeSessionFromCtx(ctx);
-  if (current !== null && current.user.id === user.id) return;
+  if (state?.link?.userId === user.id && current?.user.id === user.id) return;
   return { error: LICHESS_EMAIL_IN_USE };
 };
 
@@ -133,7 +176,12 @@ const accountFields = {
     defaultValue: DEFAULT_ENTITLEMENT,
     input: false,
   },
-  admin: { type: 'boolean', defaultValue: false, input: false },
+  admin: {
+    type: 'boolean',
+    defaultValue: false,
+    input: false,
+    returned: false,
+  },
   disabledAt: { type: 'date', required: false, input: false },
   onboardedAt: { type: 'date', required: false, input: false },
 } as const;
@@ -154,7 +202,11 @@ const sessionOptions = {
 
 const providerAccountOptions = {
   modelName: 'providerAccounts',
-  fields: { userId: 'accountId', accountId: 'providerAccountId' },
+  // The owner is not `accountId`: Better Auth resolves a mapped field name
+  // that is also one of its own field names to its own field, so a link's
+  // owner would be read as the provider's id and every returning OAuth
+  // sign-in would find the link orphaned.
+  fields: { userId: 'ownerAccountId', accountId: 'providerAccountId' },
   encryptOAuthTokens: true,
   accountLinking: {
     enabled: true,
@@ -165,13 +217,25 @@ const providerAccountOptions = {
 } satisfies BetterAuthOptions['account'];
 
 // Profile changes, deletion and email changes go through our own server
-// actions so the domain rules apply; there are no passwords (decision 8).
+// actions so the domain rules apply; there are no passwords, a magic link
+// proves the email, and provider tokens never leave the server (decision 8).
 const DISABLED_PATHS = [
   '/update-user',
   '/delete-user',
+  '/delete-user/callback',
   '/change-email',
   '/sign-up/email',
   '/sign-in/email',
+  '/verify-email',
+  '/send-verification-email',
+  '/request-password-reset',
+  '/reset-password',
+  '/change-password',
+  '/verify-password',
+  '/update-session',
+  '/get-access-token',
+  '/refresh-token',
+  '/account-info',
 ];
 
 const metadataSchema = z.object({ locale: z.enum(LOCALES) }).partial();
@@ -219,9 +283,10 @@ function authOptions({ db, env, mail, fetch: fetchImpl = fetch }: AuthDeps) {
         clientId: env.GOOGLE_CLIENT_ID,
         clientSecret: env.GOOGLE_CLIENT_SECRET,
         getUserInfo: googleUserInfo,
+        disableIdTokenSignIn: true,
       },
     },
-    hooks: { before: createAuthMiddleware(canonicalMagicLinkBody) },
+    hooks: { before: createAuthMiddleware(beforeRequest) },
     databaseHooks: databaseHooks(db),
     plugins: [
       magicLinkPlugin(mail),
