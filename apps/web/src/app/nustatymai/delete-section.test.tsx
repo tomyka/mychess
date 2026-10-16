@@ -36,9 +36,11 @@ function renderSection(locale: 'lt' | 'en' = 'lt'): void {
   );
 }
 
+// The label as it reads: the catalogue text with the name filled in and
+// its <strong> tag dropped.
 const typedName = () =>
   screen.getByLabelText<HTMLInputElement>(
-    d.typeName.replace('{name}', 'Rūta Jonaitė'),
+    d.typeName.replace('<strong>{name}</strong>', 'Rūta Jonaitė'),
   );
 const confirm = () => screen.getByRole('button', { name: d.confirm });
 const type = (value: string) => {
@@ -68,7 +70,15 @@ describe('DeleteSection (R-82)', () => {
       name: 'atsisiųskite savo duomenis',
     });
     expect(link.getAttribute('href')).toBe('/api/account/export');
+    expect(link.hasAttribute('download')).toBe(true);
     expect(status().textContent).toBe('');
+  });
+
+  it('shows the display name to type in bold', () => {
+    renderSection();
+    expect(
+      screen.getByText('Rūta Jonaitė', { selector: 'label strong' }),
+    ).toBeDefined();
   });
 
   it('keeps the button disabled until the display name is typed', () => {

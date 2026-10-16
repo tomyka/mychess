@@ -74,7 +74,7 @@
       },
       "irreversible": "Ištrintos paskyros atkurti nebus galima. Patvirtinimą atsiųsime el. paštu.",
       "exportFirst": "Prieš ištrindami <link>atsisiųskite savo duomenis</link>.",
-      "typeName": "Patvirtinkite įrašydami savo rodomą vardą: {name}",
+      "typeName": "Patvirtinkite įrašydami savo rodomą vardą: <strong>{name}</strong>",
       "confirm": "Ištrinti paskyrą visam laikui"
     }
   },

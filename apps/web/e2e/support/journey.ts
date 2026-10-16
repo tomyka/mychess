@@ -20,14 +20,19 @@ export const CATALOGUES: Record<Locale, Messages> = { lt, en };
 /** The locale cookie next-intl reads (src/i18n/locales.ts LOCALE_COOKIE). */
 export const LOCALE_COOKIE = 'NEXT_LOCALE';
 
-/** Fills a catalogue message's `{name}`-style placeholders. */
+/**
+ * Fills a catalogue message's `{name}`-style placeholders and drops its
+ * `<tag>` markers, as the rendered text (and its accessible name) reads.
+ */
 export function format(
   message: string,
   values: Record<string, string>,
 ): string {
-  return message.replace(/\{(\w+)\}/g, (whole, key: string) =>
-    Object.hasOwn(values, key) ? String(values[key]) : whole,
-  );
+  return message
+    .replace(/<\/?\w+>/g, '')
+    .replace(/\{(\w+)\}/g, (whole, key: string) =>
+      Object.hasOwn(values, key) ? String(values[key]) : whole,
+    );
 }
 
 /**
@@ -125,9 +130,9 @@ export async function expectGreeting(
   messages: Messages,
   name: string,
 ): Promise<void> {
-  await expect(
-    page.getByText(format(messages.app.greeting, { name })),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+    format(messages.app.greeting, { name }),
+  );
 }
 
 /** A new account, signed in by magic link and onboarded in Lithuanian. */

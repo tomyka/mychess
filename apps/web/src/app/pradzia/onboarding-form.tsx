@@ -3,6 +3,7 @@
 import type { Locale } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX } from 'react';
+import { PRIMARY_BUTTON } from '../buttons';
 import { isNameRefusal, LanguageField, NameField } from '../profile-fields';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
@@ -58,11 +59,7 @@ export function OnboardingForm({
             statusId={statusId}
           />
           <LanguageField legend={t('onboarding.language')} initial={locale} />
-          <button
-            type="submit"
-            disabled={pending}
-            className="min-h-touch rounded-control bg-accent px-4 py-2 text-base font-semibold text-accent-fg disabled:opacity-60"
-          >
+          <button type="submit" disabled={pending} className={PRIMARY_BUTTON}>
             {t('onboarding.submit')}
           </button>
         </form>

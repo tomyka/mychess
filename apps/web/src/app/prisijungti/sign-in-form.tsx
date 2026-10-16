@@ -9,6 +9,8 @@ import {
   signInErrorKey,
   type SignInErrorKey,
 } from '../../lib/sign-in-errors';
+import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
+import { StatusLine, type StatusLineProps } from '../status-line';
 
 export interface SignInFormProps {
   /** The `?error=` code a failed sign-in was sent back with. */
@@ -21,11 +23,9 @@ export interface SignInFormProps {
 
 type Provider = 'google' | 'lichess';
 
-type Tone = 'success' | 'error' | 'info';
-
 interface StatusMessage {
   readonly key: SignInErrorKey | 'signIn.sent' | 'signIn.deleted';
-  readonly tone: Tone;
+  readonly tone: StatusLineProps['tone'];
 }
 
 /** Runs a sign-in request and shows the message it ends with. */
@@ -81,37 +81,6 @@ async function startProvider(
   }
 }
 
-const TONES: Record<Tone, string> = {
-  success: 'bg-success-subtle text-success',
-  error: 'bg-error-subtle text-error',
-  info: 'bg-sunken text-fg',
-};
-
-const BUTTON =
-  'min-h-touch rounded-control px-4 py-2 text-base font-semibold disabled:opacity-60';
-const PROVIDER_BUTTON = `${BUTTON} border border-border-strong bg-surface text-fg`;
-
-/** The polite live region every outcome is announced in. */
-function StatusLine({
-  message,
-}: {
-  readonly message: StatusMessage | null;
-}): JSX.Element {
-  const t = useTranslations();
-  return (
-    <p
-      role="status"
-      className={
-        message === null
-          ? 'sr-only'
-          : `rounded-control px-4 py-3 ${TONES[message.tone]}`
-      }
-    >
-      {message === null ? '' : t(message.key)}
-    </p>
-  );
-}
-
 /** The email field and the button that mails a magic link. */
 function EmailForm({
   busy,
@@ -148,11 +117,7 @@ function EmailForm({
         }}
         className="min-h-touch rounded-control border border-border-strong bg-surface px-3 text-base text-fg"
       />
-      <button
-        type="submit"
-        disabled={busy}
-        className={`${BUTTON} bg-accent text-accent-fg`}
-      >
+      <button type="submit" disabled={busy} className={PRIMARY_BUTTON}>
         {t('submit')}
       </button>
     </form>
@@ -186,7 +151,7 @@ function ProviderButtons({
             key={provider}
             type="button"
             disabled={busy}
-            className={PROVIDER_BUTTON}
+            className={SECONDARY_BUTTON}
             onClick={() => {
               run(() => startProvider(provider));
             }}
@@ -226,7 +191,10 @@ export function SignInForm({
           </h1>
           <p className="text-fg-muted">{t('signIn.intro')}</p>
         </header>
-        <StatusLine message={message} />
+        <StatusLine
+          text={message === null ? null : t(message.key)}
+          tone={message?.tone ?? 'info'}
+        />
         <EmailForm busy={busy} run={run} />
         <ProviderButtons busy={busy} run={run} googleEnabled={googleEnabled} />
       </div>

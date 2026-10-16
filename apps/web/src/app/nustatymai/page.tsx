@@ -7,7 +7,8 @@ import { requireOnboarded } from '../../server/session';
 import { DeleteSection, EXPORT_PATH } from './delete-section';
 import { ProfileForm } from './profile-form';
 import { Providers } from './providers';
-import { SECONDARY_BUTTON, SECTION, SECTION_TITLE, TEXT_LINK } from './styles';
+import { SECONDARY_BUTTON } from '../buttons';
+import { SECTION, SECTION_TITLE, TEXT_LINK } from './styles';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 

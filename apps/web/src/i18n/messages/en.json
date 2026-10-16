@@ -74,7 +74,7 @@
       },
       "irreversible": "A deleted account cannot be restored. We will email you a confirmation.",
       "exportFirst": "Before you delete, <link>download your data</link>.",
-      "typeName": "To confirm, type your display name: {name}",
+      "typeName": "To confirm, type your display name: <strong>{name}</strong>",
       "confirm": "Delete my account permanently"
     }
   },

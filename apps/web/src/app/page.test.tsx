@@ -25,10 +25,12 @@ describe('HomeView', () => {
           <HomeView displayName="Rūta" />
         </NextIntlClientProvider>,
       );
+      // The brand is a label, as on the other pages; the greeting is the
+      // page's one heading, the h1.
+      expect(screen.getByText('mychess').tagName).toBe('P');
       expect(
-        screen.getByRole('heading', { level: 1, name: 'mychess' }),
-      ).toBeDefined();
-      expect(screen.getByText(greetings[locale])).toBeDefined();
+        screen.getAllByRole('heading').map((h) => [h.tagName, h.textContent]),
+      ).toEqual([['H1', greetings[locale]]]);
       expect(
         screen.getByRole('button', { name: signOut[locale] }),
       ).toBeDefined();

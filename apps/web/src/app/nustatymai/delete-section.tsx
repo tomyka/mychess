@@ -3,10 +3,11 @@
 import { canDelete, type Account } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, useState, type JSX } from 'react';
+import { DANGER_BUTTON } from '../buttons';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
 import { deleteAccountAction, type DeleteState } from './actions';
-import { DANGER_BUTTON, DANGER_SECTION, SECTION_TITLE } from './styles';
+import { DANGER_SECTION, SECTION_TITLE } from './styles';
 
 export const EXPORT_PATH = '/api/account/export';
 
@@ -29,7 +30,7 @@ function WhatGoes(): JSX.Element {
       <p>
         {t.rich('exportFirst', {
           link: (chunks) => (
-            <a href={EXPORT_PATH} className="text-accent underline">
+            <a href={EXPORT_PATH} download className="text-accent underline">
               {chunks}
             </a>
           ),
@@ -72,7 +73,11 @@ export function DeleteSection({
         className="flex flex-col gap-3"
       >
         <label htmlFor={fieldId} className="font-medium">
-          {t('settings.delete.typeName', { name: account.displayName })}
+          {t.rich('settings.delete.typeName', {
+            name: account.displayName,
+            // The name to type, set apart from the sentence around it.
+            strong: (chunks) => <strong>{chunks}</strong>,
+          })}
         </label>
         <input
           id={fieldId}

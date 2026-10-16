@@ -7,7 +7,8 @@ import { isNameRefusal, LanguageField, NameField } from '../profile-fields';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
 import { updateProfileAction, type ProfileState } from './actions';
-import { PRIMARY_BUTTON, SECTION, SECTION_TITLE } from './styles';
+import { PRIMARY_BUTTON } from '../buttons';
+import { SECTION, SECTION_TITLE } from './styles';
 
 export interface ProfileFormProps {
   readonly displayName: string;

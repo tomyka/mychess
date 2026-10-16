@@ -12,8 +12,12 @@ export function HomeView({
   const t = useTranslations('app');
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-gutter py-8 sm:px-gutter-wide">
-      <h1 className="text-2xl font-bold sm:text-3xl">{t('title')}</h1>
-      <p className="text-lg">{t('greeting', { name: displayName })}</p>
+      <header className="flex flex-col gap-2">
+        <p className="text-lg font-bold text-accent">{t('title')}</p>
+        <h1 className="text-2xl font-bold sm:text-3xl">
+          {t('greeting', { name: displayName })}
+        </h1>
+      </header>
       <div className="flex flex-wrap items-center gap-4">
         <Link
           href="/nustatymai"

@@ -7,7 +7,8 @@ import { authClient } from '../../lib/auth-client';
 import { linkErrorKey, type LinkErrorKey } from '../../lib/sign-in-errors';
 import type { Provider, ProviderLink } from '../../server/provider-links';
 import { StatusLine } from '../status-line';
-import { SECONDARY_BUTTON, SECTION, SECTION_TITLE } from './styles';
+import { SECONDARY_BUTTON } from '../buttons';
+import { SECTION, SECTION_TITLE } from './styles';
 
 export interface ProvidersProps {
   /** The account's Google and Lichess links. */

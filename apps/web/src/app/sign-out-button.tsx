@@ -4,6 +4,7 @@ import type { JSX } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { authClient } from '../lib/auth-client';
+import { SECONDARY_BUTTON } from './buttons';
 
 /** Ends this browser's session and goes to sign-in. */
 export function SignOutButton(): JSX.Element {
@@ -16,7 +17,7 @@ export function SignOutButton(): JSX.Element {
   return (
     <button
       type="button"
-      className="inline-flex min-h-touch items-center justify-center rounded-control border border-border-strong bg-surface px-4 py-2 text-base font-semibold text-fg"
+      className={SECONDARY_BUTTON}
       onClick={() => void signOut()}
     >
       {t('signOut')}
