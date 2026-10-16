@@ -9,8 +9,10 @@
  * position, checked across the whole repertoire.
  */
 import { DEFAULT_POSITION, validateFen } from 'chess.js';
+import { classify } from '../openings/classify';
 import { positionKey } from '../position-key';
 import {
+  mainLine,
   type Arrow,
   type Chapter,
   type Circle,
@@ -216,6 +218,19 @@ function addGame(fill: Fill, game: GoodGame, name: string | null): void {
   }
 }
 
+const START = positionKey(DEFAULT_POSITION);
+
+/**
+ * Names a chapter from the opening taxonomy when its main line, played from
+ * the standard start, reaches an ECO position (R-63: taxonomy first).
+ */
+function classified(graph: RepertoireGraph, chapter: Chapter): Chapter {
+  if (chapter.rootKey !== START) return chapter;
+  const entry = classify(mainLine(graph, chapter.id).map((m) => m.san));
+  if (entry === null) return chapter;
+  return { ...chapter, nameSource: { kind: 'eco', eco: entry.code } };
+}
+
 function build(side: Side, replayed: readonly Replayed[]): Fill {
   const good = replayed.flatMap((r) => (r.ok ? [r.value] : []));
   const names = gameNames(good.map((game) => game.headers));
@@ -232,7 +247,9 @@ function build(side: Side, replayed: readonly Replayed[]): Fill {
       fill.skipped.push(result.refusal);
     }
   }
-  return fill;
+  const { graph } = fill;
+  const chapters = graph.chapters.map((c) => classified(graph, c));
+  return { ...fill, graph: { ...graph, chapters } };
 }
 
 /**

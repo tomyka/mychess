@@ -37,8 +37,8 @@ describe('importPgn', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.value.graph.chapters.map((c) => c.nameSource)).toEqual([
-      { kind: 'header', name: 'Italian' },
-      { kind: 'header', name: 'Scotch' },
+      { kind: 'eco', eco: 'C50' },
+      { kind: 'eco', eco: 'C44' },
     ]);
     expect(r.value.skipped).toEqual([
       { game: 2, reason: 'pgn.illegalMove', san: 'Ke3' },
@@ -86,8 +86,8 @@ describe('importPgn', () => {
       '[Event "A"]\n\n1. e4 e5 *\n\n[Event "B"]\n\n1. d4 d5 *\n\n[Event "C"]\n\n1. e4 c5 *',
     );
     expect(graph.chapters.map((c) => [c.id, c.nameSource])).toEqual([
-      ['c1', { kind: 'header', name: 'A' }],
-      ['c2', { kind: 'header', name: 'C' }],
+      ['c1', { kind: 'eco', eco: 'C20' }],
+      ['c2', { kind: 'eco', eco: 'B20' }],
     ]);
     expect(skipped).toEqual([
       { game: 2, reason: 'pgn.secondAnswer', san: 'd4' },
@@ -157,9 +157,37 @@ describe('importPgn', () => {
     );
   });
 
+  it('names a chapter by the opening of its main line, else by header', () => {
+    const najdorf = '1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6';
+    const { graph } = imported(
+      `[Event "Mine"]\n\n${najdorf} 6. Be3 (6. Bg5 e6) *\n\n[Event "Odd"]\n\n1. a3 e5 *`,
+      'black',
+    );
+    expect(graph.chapters.map((c) => c.nameSource)).toEqual([
+      { kind: 'eco', eco: 'B90' },
+      { kind: 'header', name: 'Odd' },
+    ]);
+  });
+
+  it('classifies a transposition by position', () => {
+    const { graph } = imported('1. Nf3 d5 2. d4 Nf6 3. c4 e6 4. Nc3 *');
+    expect(graph.chapters.map((c) => c.nameSource)).toEqual([
+      { kind: 'eco', eco: 'D37' },
+    ]);
+  });
+
+  it('does not classify a chapter that starts from a set-up position', () => {
+    const fen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
+    const { graph } = imported(`[FEN "${fen}"]\n\n1... c5 *`);
+    expect(graph.chapters.map((c) => c.nameSource)).toEqual([
+      { kind: 'index', number: 1 },
+    ]);
+  });
+
   it('names a game no header names by its chapter number', () => {
     const { graph } = imported(
-      '[Event "Same"]\n\n1. e4 e5 *\n\n[Event "Same"]\n\n1. e4 c5 *',
+      // 1. a3 matches no ECO entry, so the taxonomy names neither game.
+      '[Event "Same"]\n\n1. a3 e5 *\n\n[Event "Same"]\n\n1. a3 c5 *',
     );
     expect(graph.chapters.map((c) => [c.intro, c.nameSource])).toEqual([
       [null, { kind: 'index', number: 1 }],
@@ -228,8 +256,8 @@ describe('importPgn', () => {
       { game: 4, reason: 'pgn.unreadable' },
     ]);
     expect(graph.chapters.map((c) => c.nameSource)).toEqual([
-      { kind: 'header', name: 'A' },
-      { kind: 'header', name: 'C {' },
+      { kind: 'eco', eco: 'C20' },
+      { kind: 'eco', eco: 'B20' },
     ]);
   });
 

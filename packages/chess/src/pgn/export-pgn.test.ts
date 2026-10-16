@@ -46,7 +46,7 @@ describe('exportPgn', () => {
     );
     if (!r.ok) throw new Error('import failed');
     const pgn = exportPgn(r.value.graph);
-    expect(pgn).toContain('[Event "Italian"]');
+    expect(pgn).toContain('[Event "C40"]');
     expect(pgn).toContain('{ Intro }');
     expect(pgn).toContain('[%cal Gg1f3]');
     expect(pgn).toContain('(1... c5 2. Nf3)');
@@ -58,12 +58,12 @@ describe('exportPgn', () => {
     );
     expect(exportPgn(graph)).toBe(
       [
-        '[Event "Italian"]',
+        '[Event "C40"]',
         '[Result "*"]',
         '',
         '{ Intro } 1. e4 { [%cal Gg1f3,Rf1c4] [%csl Bd5] } e5 (1... c5 2. Nf3) (1... e6) 2. Nf3 *',
         '',
-        '[Event "Sicilian"]',
+        '[Event "B50"]',
         '[Result "*"]',
         '',
         '1. e4 { [%cal Gg1f3,Rf1c4] [%csl Bd5] } c5 2. Nf3 d6 *',
@@ -104,7 +104,8 @@ describe('exportPgn', () => {
   });
 
   it('keeps an escaped name and an intro with a brace through a round trip', () => {
-    const graph = withChapters(imported('1. e4 e5 *'), (c) => ({
+    // 1. a3 matches no ECO entry, so the re-import keeps the header name.
+    const graph = withChapters(imported('1. a3 e5 *'), (c) => ({
       ...c,
       intro: 'Close } early',
       nameSource: { kind: 'custom', name: 'A "B" \\ C' },
@@ -132,7 +133,8 @@ describe('exportPgn', () => {
   });
 
   it('writes a chapter without moves as an empty game', () => {
-    const graph = withChapters(imported('1. e4 *'), (c) => ({
+    // 1. a3 matches no ECO entry, so the chapter keeps its numbered name.
+    const graph = withChapters(imported('1. a3 *'), (c) => ({
       ...c,
       id: 'other',
     }));
