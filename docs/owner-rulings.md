@@ -127,6 +127,8 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-91** (S1 close, #251, 2026-10-17): "Profile" means an Account's display name and language (never the Account itself); "Provider link" is a sign-in method linked to an Account. The S1 Lithuanian terms proposed in docs/glossary-lt.md are approved.
 - **R-92** (S1 close, #251, 2026-10-17): The nightly full mutation run also runs the feature suite, so rules checked only there are mutation-tested; the per-push run stays fast.
 - **R-93** (S1 close, #251, 2026-10-17): The persona test sign-in (R-73) may be enabled on local and staging environments; production always refuses it.
+- **R-94** (S1 close, #270, 2026-10-17): The admin audit email hash (R-88) is keyed: HMAC-SHA-256 with a per-environment secret (`AUDIT_EMAIL_KEY`), so a leaked database alone cannot confirm a guessed email.
+- **R-95** (S1 close, #270, 2026-10-17): Downloading the data export needs a sign-in within the last day, as linking does (R-84).
 
 ## Open questions
 
