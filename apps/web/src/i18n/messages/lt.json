@@ -5,5 +5,15 @@
   "displayName": {
     "blank": "Įveskite rodomą vardą.",
     "tooLong": "Rodomas vardas negali būti ilgesnis nei 50 simbolių."
+  },
+  "mail": {
+    "magicLink": {
+      "subject": "Prisijungimas prie mychess",
+      "body": "Prisijunkite paspaudę nuorodą (galioja 15 minučių):\n{url}\n\nJei neprašėte, ignoruokite šį laišką."
+    },
+    "deleted": {
+      "subject": "Jūsų mychess paskyra ištrinta",
+      "body": "Jūsų paskyra ir visi jos duomenys ištrinti visam laikui."
+    }
   }
 }

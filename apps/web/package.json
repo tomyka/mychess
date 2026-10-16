@@ -13,10 +13,12 @@
   },
   "dependencies": {
     "@mychess/db": "workspace:*",
+    "@mychess/domain": "workspace:*",
     "next": "16.3.6",
     "next-intl": "4.14.9",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",

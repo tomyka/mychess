@@ -5,5 +5,15 @@
   "displayName": {
     "blank": "Enter a display name.",
     "tooLong": "A display name can be at most 50 characters."
+  },
+  "mail": {
+    "magicLink": {
+      "subject": "Sign in to mychess",
+      "body": "Sign in with this link (valid for 15 minutes):\n{url}\n\nIf you did not ask for it, ignore this email."
+    },
+    "deleted": {
+      "subject": "Your mychess account was deleted",
+      "body": "Your account and all its data have been deleted for good."
+    }
   }
 }
