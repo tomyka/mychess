@@ -58,7 +58,8 @@ He owns and assigns tier-fitting repertoires; full lines are in each player's pe
 | "Atmestas valdovės gambitas" (QGD) | Black | Rokas | Individual |
 | "Valdovės gambitas" (Queen's Gambit) | White | Gabija | Individual, deadline 2026-12-15 |
 | "Slavų gynyba" (Slav Defence) | Black | Gabija | Individual, deadline 2026-11-30 |
-| "Naidorfo variantas" (Najdorf: English Attack and 6.Bg5 chapters) | Black | Dovydas | Individual; Dovydas has forked it |
+| "Naidorfo variantas" (Najdorf: English Attack 6...e5, 6.Bg5 and 6.Be2 chapters) | Black | Dovydas | Individual; Dovydas has forked it |
+| "Naidorfo variantas: 6.Be3 e6" (Najdorf: English Attack 6...e6) | Black | Dovydas | Individual; a second answer to 6.Be3, kept in its own repertoire (R-54) |
 | "Karo-Kan gynyba: pagrindai" (Caro-Kann basics) | Black | Group "Šeštadienio grupė" | Group assignment, deadline 2026-12-20 |
 
 Opening titles are working names; the product's canonical LT names come from the šachmatai.lt taxonomy (Q1).
@@ -98,7 +99,7 @@ Laptop (1440x900) for preparation journeys, phone (390x844) for dashboard and me
 | C-M2-2 | Check weak spots and activity on Friday evening on the phone | Gabija's 6.Be2 Taimanov (shared) and Dovydas's English Attack 19...Bb3 show as weak spots; streaks and last activity per student; Gabija's 9-day gap is visible |
 | C-M2-3 | Set goals: habit goal for Rokas, mastery goal for Gabija (Slav by 2026-11-30) | Goals appear on the students' side and on his dashboard with progress (Q32) |
 | C-M2-4 | Answer Rokas's question in a move comment thread; post a group message about Saturday | Thread and group message delivered; students get in-app notification and digest (Q33) |
-| C-M2-5 | See that Dovydas forked "Naidorfo variantas" and shared the fork back | Dashboard shows the assignment as forked; he can view the shared fork; his own edits to the original no longer reach Dovydas |
+| C-M2-5 | See that Dovydas forked "Naidorfo variantas" and shared the fork back | Dashboard shows the assignment as forked; he can view the shared fork; his own edits to the original no longer reach Dovydas; "Naidorfo variantas: 6.Be3 e6" is still live-linked; Dovydas's private "Naidorfo variantas: 6.Be3 Ng4" is not visible (Q26) |
 | C-M2-6 | Review the draft 0-1400 starter repertoire as a trusted coach | He can comment on or approve it if the owner granted that role; otherwise he only sees the published version (Q36) |
 
 ### M3 Ecosystem

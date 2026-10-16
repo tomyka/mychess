@@ -20,8 +20,8 @@ All three players are in the coach's group "Šeštadienio grupė" and share the 
 | Q25 one account, coach is a capability | Coach who also trains | | | Player who also coaches two students |
 | Q2 several coaches | | | Second coach (no assignments) | |
 | Q3/Q28 live assignment, fork, personal notes | Owns assignments | Notes only, blocked edit | Forks the Queen's Gambit | Forks the Najdorf, shares it back |
-| Q26 privacy | Must not see private repertoires | Private London | Shared Taimanov | Private Catalan and Nimzo |
-| Q27 transpositions, several repertoires per side | | Italian transposition, two Black answers to 1.e4 | Taimanov move-order transposition | |
+| Q26 privacy | Must not see private repertoires | Private London | Shared Taimanov | Private Catalan (two repertoires), 6.Be3 Ng4 and Nimzo |
+| Q27 transpositions, several repertoires per side | | Italian transposition, two Black answers to 1.e4 | Taimanov move-order transposition | Second answers kept in separate repertoires: two Catalans (8.Qxc4, 8.a4), three Najdorfs (6.Be3 e5, e6, Ng4) |
 | Q29 coach edits reconcile | Edits Italian, Slav | Receives Italian update | Receives Slav branch | Fork is unaffected |
 | Q31 group assignment inheritance | Group Caro-Kann, remove/re-add | Inherits | Inherits | Inherits, does not want it |
 | Q30 game deviation (M3) | Group deviation view | Own mistake 4.d4 | Own mistake 9...Bd6 | Own mistake at move 17 |
