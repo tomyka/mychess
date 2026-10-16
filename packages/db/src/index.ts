@@ -1,6 +1,17 @@
 import { accounts, providerAccounts, sessions, verifications } from './schema';
 
 export {
+  completeOnboarding,
+  deleteAccount,
+  exportAccount,
+  findAccountByEmail,
+  findAccountById,
+  updateProfile,
+  type AccountExport,
+  type Profile,
+} from './accounts';
+
+export {
   createDb,
   ping,
   type Db,
