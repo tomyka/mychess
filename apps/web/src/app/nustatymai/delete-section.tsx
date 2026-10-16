@@ -6,7 +6,7 @@ import { useActionState, useId, useState, type JSX } from 'react';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
 import { deleteAccountAction, type DeleteState } from './actions';
-import { DANGER_BUTTON, SECTION, SECTION_TITLE } from './styles';
+import { DANGER_BUTTON, DANGER_SECTION, SECTION_TITLE } from './styles';
 
 export const EXPORT_PATH = '/api/account/export';
 
@@ -56,7 +56,7 @@ export function DeleteSection({
   const [state, action, pending] = useActionState(deleteAccountAction, INITIAL);
   const refused = state.refusal !== undefined;
   return (
-    <section aria-labelledby={titleId} className={SECTION}>
+    <section aria-labelledby={titleId} className={DANGER_SECTION}>
       <h2 id={titleId} className={`${SECTION_TITLE} text-error`}>
         {t('settings.delete.title')}
       </h2>

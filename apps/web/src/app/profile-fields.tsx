@@ -75,7 +75,7 @@ export function LanguageField({
           <label
             key={option}
             lang={option}
-            className="flex min-h-touch cursor-pointer items-center gap-3 rounded-control border border-border-strong bg-surface px-3 has-checked:border-accent has-checked:bg-sunken"
+            className="flex min-h-touch cursor-pointer items-center gap-3 rounded-control border border-border-strong bg-surface px-3 has-checked:border-accent has-checked:bg-sunken has-checked:ring-1 has-checked:ring-accent"
           >
             <input
               type="radio"

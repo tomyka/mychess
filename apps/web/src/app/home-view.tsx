@@ -11,11 +11,14 @@ export function HomeView({
 }): JSX.Element {
   const t = useTranslations('app');
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-4 p-4 sm:p-8">
-      <h1 className="text-3xl font-bold">{t('title')}</h1>
-      <p>{t('greeting', { name: displayName })}</p>
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-gutter py-8 sm:px-gutter-wide">
+      <h1 className="text-2xl font-bold sm:text-3xl">{t('title')}</h1>
+      <p className="text-lg">{t('greeting', { name: displayName })}</p>
       <div className="flex flex-wrap items-center gap-4">
-        <Link href="/nustatymai" className="text-accent underline">
+        <Link
+          href="/nustatymai"
+          className="inline-flex min-h-touch items-center text-accent underline"
+        >
           {t('settings')}
         </Link>
         <SignOutButton />

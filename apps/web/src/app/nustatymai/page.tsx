@@ -7,7 +7,7 @@ import { requireOnboarded } from '../../server/session';
 import { DeleteSection, EXPORT_PATH } from './delete-section';
 import { ProfileForm } from './profile-form';
 import { Providers } from './providers';
-import { SECONDARY_BUTTON, SECTION, SECTION_TITLE } from './styles';
+import { SECONDARY_BUTTON, SECTION, SECTION_TITLE, TEXT_LINK } from './styles';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -35,8 +35,8 @@ function ExportSection(): JSX.Element {
 function Header(): JSX.Element {
   const t = useTranslations();
   return (
-    <header className="flex flex-col gap-2">
-      <Link href="/" className="self-start text-accent underline">
+    <header className="flex flex-col gap-1">
+      <Link href="/" className={TEXT_LINK}>
         {t('settings.home')}
       </Link>
       <h1 className="text-2xl font-bold sm:text-3xl">{t('settings.title')}</h1>
