@@ -54,7 +54,7 @@
       "link": "Prijungti {provider}",
       "unlink": "Atjungti {provider}",
       "error": {
-        "notFresh": "Saugumo sumetimais prieš atjungdami prisijunkite iš naujo.",
+        "notFresh": "Saugumo sumetimais prieš prijungdami ar atjungdami paskyrą prisijunkite iš naujo.",
         "linkedElsewhere": "Ši paskyra jau prijungta prie kitos mychess paskyros.",
         "generic": "Nepavyko. Bandykite dar kartą."
       }

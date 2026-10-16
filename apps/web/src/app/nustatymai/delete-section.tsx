@@ -1,6 +1,6 @@
 'use client';
 
-import { canDelete, type Account } from '@mychess/domain';
+import { canDelete } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, useState, type JSX } from 'react';
 import { DANGER_BUTTON } from '../buttons';
@@ -45,9 +45,9 @@ function WhatGoes(): JSX.Element {
  * The button waits for the same check the server makes again.
  */
 export function DeleteSection({
-  account,
+  displayName,
 }: {
-  readonly account: Account;
+  readonly displayName: string;
 }): JSX.Element {
   const t = useTranslations();
   const titleId = useId();
@@ -74,7 +74,7 @@ export function DeleteSection({
       >
         <label htmlFor={fieldId} className="font-medium">
           {t.rich('settings.delete.typeName', {
-            name: account.displayName,
+            name: displayName,
             // The name to type, set apart from the sentence around it.
             strong: (chunks) => <strong>{chunks}</strong>,
           })}
@@ -95,7 +95,7 @@ export function DeleteSection({
         />
         <button
           type="submit"
-          disabled={pending || !canDelete(account, typed).ok}
+          disabled={pending || !canDelete(displayName, typed).ok}
           className={DANGER_BUTTON}
         >
           {t('settings.delete.confirm')}

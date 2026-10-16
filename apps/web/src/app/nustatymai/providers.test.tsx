@@ -129,6 +129,23 @@ describe('Providers', () => {
     expect(client.refresh).not.toHaveBeenCalled();
   });
 
+  it('asks to sign in again when the session is too old to start a link', async () => {
+    client.linkSocial.mockResolvedValue({
+      data: null,
+      error: {
+        status: 403,
+        code: 'SESSION_NOT_FRESH',
+        message: 'SESSION_NOT_FRESH',
+      },
+    });
+    renderProviders();
+    fireEvent.click(button(label(p.link, 'Lichess')));
+    await waitFor(() => {
+      expect(status().textContent).toBe(p.error.notFresh);
+    });
+    expect(client.refresh).not.toHaveBeenCalled();
+  });
+
   it('shows the general error when a link cannot start or the request fails', async () => {
     client.linkSocial.mockResolvedValue({
       data: null,

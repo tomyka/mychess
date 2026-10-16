@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { webEnvSchema } from './env';
 import {
   testSignIn,
   testSignInEnabled,
@@ -6,6 +7,19 @@ import {
 } from './test-sign-in';
 
 const SECRET = 's'.repeat(32);
+
+// A complete deployed environment (src/server/env.ts) without MYCHESS_ENV.
+const DEPLOYED_ENV = {
+  DATABASE_URL: 'postgres://u:p@localhost:5432/mychess',
+  BETTER_AUTH_SECRET: 'x'.repeat(32),
+  BETTER_AUTH_URL: 'https://staging.mychess.lt',
+  MAIL_TRANSPORT: 'resend',
+  RESEND_API_KEY: 're_x',
+  MAIL_FROM: 'mychess <noreply@mychess.test>',
+  LICHESS_CLIENT_ID: 'mychess',
+  GOOGLE_CLIENT_ID: 'google-client',
+  GOOGLE_CLIENT_SECRET: 'google-secret',
+};
 const COOKIE = 'mychess.session_token=v; Path=/; HttpOnly; SameSite=Lax';
 
 const deps = (
@@ -107,5 +121,20 @@ describe('testSignInEnabled', () => {
     expect(
       testSignInEnabled({ MYCHESS_ENV: env, MYCHESS_TEST_SIGNIN: on }),
     ).toBe(expected);
+  });
+
+  // Staging is its own Vercel project; its env as Vercel hands it over.
+  it.each([
+    ['staging', true],
+    ['production', false],
+  ] as const)('on a Vercel deployment named %s is %s', (name, expected) => {
+    const env = webEnvSchema.parse({
+      ...DEPLOYED_ENV,
+      VERCEL: '1',
+      MYCHESS_ENV: name,
+      MYCHESS_TEST_SIGNIN: '1',
+      TEST_SIGNIN_SECRET: SECRET,
+    });
+    expect(testSignInEnabled(env)).toBe(expected);
   });
 });

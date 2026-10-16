@@ -44,17 +44,23 @@ export function clientErrorKey(error: ClientError): SignInErrorKey {
   return signInErrorKey(error.code ?? error.message);
 }
 
+/**
+ * Better Auth's code for a session older than its freshAge (a day); our
+ * link guard answers a link start with it too.
+ */
+export const SESSION_NOT_FRESH = 'SESSION_NOT_FRESH';
+
 /** The catalogue key of every error the settings page's provider links show. */
 export type LinkErrorKey =
   | 'settings.providers.error.notFresh'
   | 'settings.providers.error.linkedElsewhere'
   | 'settings.providers.error.generic';
 
-// Unlinking from a session older than a day answers SESSION_NOT_FRESH; a
-// provider account another mychess account holds comes back from the link
-// callback as `account_already_linked_to_different_user`.
+// Linking or unlinking from a session older than a day answers
+// SESSION_NOT_FRESH; a provider account another mychess account holds comes
+// back from the link callback as `account_already_linked_to_different_user`.
 const LINK_CODES = new Map<string, LinkErrorKey>([
-  ['SESSION_NOT_FRESH', 'settings.providers.error.notFresh'],
+  [SESSION_NOT_FRESH, 'settings.providers.error.notFresh'],
   [
     'account_already_linked_to_different_user',
     'settings.providers.error.linkedElsewhere',

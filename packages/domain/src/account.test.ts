@@ -63,7 +63,7 @@ describe('isOnboarded', () => {
 
 describe('canDelete', () => {
   it('takes the display name typed exactly, ignoring outer spaces', () => {
-    expect(canDelete(account(), '  Rūta ')).toEqual({
+    expect(canDelete('Rūta', '  Rūta ')).toEqual({
       ok: true,
       value: undefined,
     });
@@ -72,7 +72,7 @@ describe('canDelete', () => {
   it.each([['rūta'], ['Ruta'], [''], ['Rūta Rūtaitė']])(
     'refuses %j',
     (typed) => {
-      expect(canDelete(account(), typed)).toEqual({
+      expect(canDelete('Rūta', typed)).toEqual({
         ok: false,
         refusal: { reason: ACCOUNT_REFUSALS.deleteNameMismatch },
       });

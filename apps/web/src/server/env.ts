@@ -6,8 +6,22 @@ const PLACEHOLDER_SECRET = 'change-me-to-32-or-more-random-characters';
 
 const DEPLOYED = new Set(['staging', 'production']);
 
+const LOCAL = 'local';
+
+interface VercelFields {
+  readonly MYCHESS_ENV?: string | undefined;
+  readonly VERCEL?: string | undefined;
+}
+
+/**
+ * The production lock fails closed (security N1): Vercel sets `VERCEL` on
+ * every deployment, and there MYCHESS_ENV has no default, so a deployment
+ * that forgot it refuses to start rather than running as local.
+ */
+const namedOnVercel = (e: VercelFields): boolean =>
+  (e.VERCEL ?? '') === '' || e.MYCHESS_ENV !== undefined;
+
 interface DeployedFields {
-  readonly MYCHESS_ENV: string;
   readonly BETTER_AUTH_URL: string;
   readonly GOOGLE_CLIENT_ID: string;
   readonly GOOGLE_CLIENT_SECRET: string;
@@ -16,8 +30,8 @@ interface DeployedFields {
 /** Staging and production serve over https and offer Google (security A7). */
 const deployedNeeds =
   (key: keyof DeployedFields, ok: (value: string) => boolean) =>
-  (e: DeployedFields): boolean =>
-    !DEPLOYED.has(e.MYCHESS_ENV) || ok(e[key]);
+  (e: DeployedFields & Pick<VercelFields, 'MYCHESS_ENV'>): boolean =>
+    !DEPLOYED.has(e.MYCHESS_ENV ?? LOCAL) || ok(e[key]);
 
 const isHttps = (url: string) => url.startsWith('https://');
 const isSet = (value: string) => value !== '';
@@ -25,7 +39,9 @@ const isSet = (value: string) => value !== '';
 /** Every variable the web app reads (.env.example documents them). */
 export const webEnvSchema = databaseEnvSchema
   .extend({
-    MYCHESS_ENV: z.enum(['local', 'staging', 'production']).default('local'),
+    // No default here: off Vercel it falls back to local below.
+    MYCHESS_ENV: z.enum([LOCAL, 'staging', 'production']).optional(),
+    VERCEL: z.string().optional(),
     BETTER_AUTH_SECRET: z
       .string()
       .min(32)
@@ -64,7 +80,9 @@ export const webEnvSchema = databaseEnvSchema
   })
   .refine(deployedNeeds('GOOGLE_CLIENT_SECRET', isSet), {
     path: ['GOOGLE_CLIENT_SECRET'],
-  });
+  })
+  .refine(namedOnVercel, { path: ['MYCHESS_ENV'] })
+  .transform((e) => ({ ...e, MYCHESS_ENV: e.MYCHESS_ENV ?? LOCAL }));
 
 export type WebEnv = z.infer<typeof webEnvSchema>;
 

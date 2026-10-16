@@ -14,7 +14,12 @@ import {
   signInByMagicLink,
   type BuiltAuth,
 } from './support/auth';
-import { errorCode, fakeProviderFetch, oauthRoundTrip } from './support/oauth';
+import {
+  errorCode,
+  fakeProviderFetch,
+  oauthRoundTrip,
+  startOAuth,
+} from './support/oauth';
 
 interface SetCookie {
   readonly name: string;
@@ -352,6 +357,19 @@ describe('deleteAccountAction', () => {
     ).toEqual({ redirectedTo: '/prisijungti' });
     expect(await tableCount('accounts')).toBe(1);
   });
+
+  // Its display name is still blank, so typing nothing would match it.
+  it('sends an account that has not been through onboarding there and deletes nothing', async () => {
+    request.cookie = await signInByMagicLink(built(), RUTA);
+    const before = await rowsOf(RUTA);
+    expect(await outcomeOf(deleteAccountAction({}, deleteForm('')))).toEqual({
+      redirectedTo: '/pradzia',
+    });
+    expect(await rowsOf(RUTA)).toEqual(before);
+    expect(before).toMatchObject({ accounts: 1, sessions: 1 });
+    expect(request.mailed).toEqual([]);
+    expect(request.set).toEqual([]);
+  });
 });
 
 /** Unlinks `accountId` through Better Auth, as the settings page does. */
@@ -402,6 +420,32 @@ describe('the provider links on settings', () => {
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({ code: 'SESSION_NOT_FRESH' });
     expect(await tableCount('provider_accounts')).toBe(1);
+  });
+
+  it('refuses to start a link from a session older than a day', async () => {
+    request.cookie = await onboarded(RUTA, 'Rūta');
+    await client.query(
+      "update sessions set created_at = now() - interval '25 hours'",
+    );
+    const response = await startOAuth(built(), 'lichess', {
+      cookie: request.cookie,
+      link: true,
+    });
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ code: 'SESSION_NOT_FRESH' });
+    expect(await tableCount('provider_accounts')).toBe(0);
+  });
+
+  it('starts a link from a session younger than a day', async () => {
+    request.cookie = await onboarded(RUTA, 'Rūta');
+    await client.query(
+      "update sessions set created_at = now() - interval '23 hours'",
+    );
+    const response = await startOAuth(built(), 'lichess', {
+      cookie: request.cookie,
+      link: true,
+    });
+    expect(response.status).toBe(200);
   });
 
   it('cannot unlink another account’s link', async () => {

@@ -66,7 +66,7 @@ export default async function SettingsPage({
         error={first(params['error'])}
       />
       <ExportSection />
-      <DeleteSection account={account} />
+      <DeleteSection displayName={account.displayName} />
     </main>
   );
 }

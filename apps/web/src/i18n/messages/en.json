@@ -54,7 +54,7 @@
       "link": "Connect {provider}",
       "unlink": "Disconnect {provider}",
       "error": {
-        "notFresh": "For your security, sign in again before disconnecting.",
+        "notFresh": "For your security, sign in again before connecting or disconnecting an account.",
         "linkedElsewhere": "That account is already connected to another mychess account.",
         "generic": "That did not work. Please try again."
       }

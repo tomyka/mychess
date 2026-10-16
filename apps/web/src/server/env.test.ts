@@ -229,6 +229,27 @@ describe('webEnvSchema secret', () => {
   );
 });
 
+describe('webEnvSchema on Vercel (fails closed)', () => {
+  it('refuses a Vercel deployment that does not name its environment', () => {
+    expect(issuePaths({ ...deployed, VERCEL: '1' })).toEqual([['MYCHESS_ENV']]);
+  });
+
+  it.each(['staging', 'production'])(
+    'takes a Vercel deployment named %s',
+    (name) => {
+      expect(
+        webEnvSchema.parse({ ...deployed, VERCEL: '1', MYCHESS_ENV: name }),
+      ).toMatchObject({ VERCEL: '1', MYCHESS_ENV: name });
+    },
+  );
+
+  it('defaults to local only off Vercel, an empty VERCEL included', () => {
+    expect(webEnvSchema.parse({ ...base, VERCEL: '' }).MYCHESS_ENV).toBe(
+      'local',
+    );
+  });
+});
+
 describe('readWebEnv', () => {
   afterEach(() => {
     vi.unstubAllEnvs();

@@ -22,7 +22,7 @@ import { genericOAuth } from 'better-auth/plugins/generic-oauth';
 import { magicLink } from 'better-auth/plugins/magic-link';
 import { z } from 'zod';
 import { resolveLocale } from '../i18n/locales';
-import { LICHESS_EMAIL_IN_USE } from '../lib/sign-in-errors';
+import { LICHESS_EMAIL_IN_USE, SESSION_NOT_FRESH } from '../lib/sign-in-errors';
 import { getDb } from './db';
 import { googleConfigured, readWebEnv, type WebEnv } from './env';
 import { createMailer, magicLinkMail, type Mailer } from './mail';
@@ -112,12 +112,39 @@ function refuseClientOAuthFields(ctx: HookRequest): void {
   });
 }
 
-// Every request, before Better Auth handles it.
-function beforeRequest(ctx: HookRequest): Promise<HookAnswer> {
-  return Promise.resolve(ctx).then((request) => {
-    refuseClientOAuthFields(request);
-    return canonicalMagicLinkBody(request);
+type HookContext = Parameters<typeof getAuthoritativeSessionFromCtx>[0];
+
+const LINK_PATH = '/link-social';
+const SECOND = 1000;
+
+/** Is a session this old past Better Auth's freshAge (0 turns it off)? */
+const isStale = (createdAt: Date, freshAgeSeconds: number): boolean =>
+  freshAgeSeconds !== 0 &&
+  Date.now() - createdAt.getTime() >= freshAgeSeconds * SECOND;
+
+/**
+ * Linking a provider needs a fresh session, as unlinking does, so a stolen
+ * old session cannot attach the thief's Google or Lichess as a way in. The
+ * same code as unlink's, so settings shows the same message. A request with
+ * no session is left to Better Auth, which refuses it.
+ */
+async function refuseStaleLink(ctx: HookContext): Promise<void> {
+  if (ctx.path !== LINK_PATH) return;
+  const current = await getAuthoritativeSessionFromCtx(ctx);
+  if (current === null) return;
+  const { freshAge } = ctx.context.sessionConfig;
+  if (!isStale(new Date(current.session.createdAt), freshAge)) return;
+  throw new APIError('FORBIDDEN', {
+    code: SESSION_NOT_FRESH,
+    message: SESSION_NOT_FRESH,
   });
+}
+
+// Every request, before Better Auth handles it.
+async function beforeRequest(ctx: HookContext): Promise<HookAnswer> {
+  refuseClientOAuthFields(ctx);
+  await refuseStaleLink(ctx);
+  return canonicalMagicLinkBody(ctx);
 }
 
 /**

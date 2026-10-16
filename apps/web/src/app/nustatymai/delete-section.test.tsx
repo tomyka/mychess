@@ -1,4 +1,3 @@
-import type { Account } from '@mychess/domain';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,22 +15,10 @@ vi.mock('./actions', () => ({ deleteAccountAction: server.action }));
 const lt = MESSAGES.lt;
 const d = lt.settings.delete;
 
-const ACCOUNT: Account = {
-  id: 'a1',
-  email: 'ruta@example.lt',
-  displayName: 'Rūta Jonaitė',
-  locale: 'lt',
-  entitlement: 'free',
-  admin: false,
-  disabledAt: null,
-  onboardedAt: new Date('2026-10-01T10:00:00Z'),
-  createdAt: new Date('2026-10-01T09:00:00Z'),
-};
-
 function renderSection(locale: 'lt' | 'en' = 'lt'): void {
   render(
     <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
-      <DeleteSection account={ACCOUNT} />
+      <DeleteSection displayName="Rūta Jonaitė" />
     </NextIntlClientProvider>,
   );
 }

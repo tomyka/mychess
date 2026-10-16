@@ -12,7 +12,7 @@ import {
   parseProfileInput,
   type ProfileRefusalKey,
 } from '../../server/profile-input';
-import { requireAccount, requireOnboarded } from '../../server/session';
+import { requireOnboarded } from '../../server/session';
 import { signOutHere } from '../../server/sign-out';
 
 /** What the profile form shows after a submit. */
@@ -58,15 +58,20 @@ async function mailDeleted(message: ReturnType<typeof deletedMail>) {
 /**
  * Deletes the account for good once its display name is typed (R-40, R-82),
  * mails the confirmation in its language, and signs this browser out: the
- * session row went with the account, the cookie goes here.
+ * session row went with the account, the cookie goes here. Only an
+ * onboarded account gets here: a blank display name would match a blank
+ * confirmation.
  */
 export async function deleteAccountAction(
   _previous: DeleteState,
   form: FormData,
 ): Promise<DeleteState> {
-  const account = await requireAccount();
+  const account = await requireOnboarded();
   const typed = form.get('typedName');
-  const check = canDelete(account, typeof typed === 'string' ? typed : '');
+  const check = canDelete(
+    account.displayName,
+    typeof typed === 'string' ? typed : '',
+  );
   if (!check.ok) return { refusal: check.refusal.reason };
   await deleteAccount(getDb(), account.id);
   await mailDeleted(deletedMail(account.locale, account.email));

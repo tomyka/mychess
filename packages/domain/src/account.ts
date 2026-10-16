@@ -71,10 +71,10 @@ export function isOnboarded(account: Account): boolean {
 
 /** Deletion is confirmed by typing the display name exactly (R-82). */
 export function canDelete(
-  account: Account,
+  displayName: string,
   typedName: string,
 ): Result<undefined, AccountRefusal> {
-  return typedName.trim() === account.displayName
+  return typedName.trim() === displayName
     ? { ok: true, value: undefined }
     : { ok: false, refusal: { reason: ACCOUNT_REFUSALS.deleteNameMismatch } };
 }

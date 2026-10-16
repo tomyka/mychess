@@ -56,8 +56,7 @@ service containers on the same ports.
 
 Every deployment sets `MYCHESS_ENV`: `staging` on the staging project and
 `production` on production (`local` is the default only off Vercel). On
-Vercel the app refuses to start without it, and refuses `VERCEL_ENV=production`
-with any other value. Staging and production also need an https
+Vercel the app refuses to start without it. Staging and production also need an https
 `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, and a
 `BETTER_AUTH_SECRET` of at least 32 random characters
 (`openssl rand -base64 32`).
