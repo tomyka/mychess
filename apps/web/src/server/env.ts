@@ -68,6 +68,13 @@ export const webEnvSchema = databaseEnvSchema
 
 export type WebEnv = z.infer<typeof webEnvSchema>;
 
+/** Google sign-in is offered only when both its credentials are set (A7). */
+export function googleConfigured(
+  env: Pick<WebEnv, 'GOOGLE_CLIENT_ID' | 'GOOGLE_CLIENT_SECRET'>,
+): boolean {
+  return isSet(env.GOOGLE_CLIENT_ID) && isSet(env.GOOGLE_CLIENT_SECRET);
+}
+
 /** The parsed process environment; throws at start-up when it is incomplete. */
 export function readWebEnv(): WebEnv {
   return webEnvSchema.parse(process.env);

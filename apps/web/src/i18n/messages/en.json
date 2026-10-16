@@ -4,6 +4,26 @@
     "greeting": "Hello, {name}!",
     "signOut": "Sign out"
   },
+  "signIn": {
+    "title": "Sign in",
+    "intro": "Enter your email address and we will send you a sign-in link.",
+    "email": "Email address",
+    "submit": "Send link",
+    "sent": "Link sent. Check your email and open the link in it (it is valid for 15 minutes).",
+    "or": "or",
+    "google": "Sign in with Google",
+    "lichess": "Sign in with Lichess",
+    "deleted": "Your account has been deleted.",
+    "error": {
+      "lichessEmailInUse": "An account with this email address already exists. Sign in by email or with Google, then connect Lichess in settings.",
+      "tooManyRequests": "Too many attempts. Wait a minute and try again.",
+      "generic": "Sign-in failed. Please try again."
+    }
+  },
+  "account": {
+    "emailInvalid": "Enter a valid email address.",
+    "deleteNameMismatch": "The name you typed does not match your display name."
+  },
   "displayName": {
     "blank": "Enter a display name.",
     "tooLong": "A display name can be at most 50 characters."

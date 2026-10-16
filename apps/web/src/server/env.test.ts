@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { readWebEnv, webEnvSchema } from './env';
+import { googleConfigured, readWebEnv, webEnvSchema } from './env';
 
 const base = {
   DATABASE_URL: 'postgres://u:p@localhost:5432/mychess',
@@ -247,5 +247,18 @@ describe('readWebEnv', () => {
     for (const [key, value] of Object.entries(base)) vi.stubEnv(key, value);
     vi.stubEnv('BETTER_AUTH_SECRET', 'short');
     expect(() => readWebEnv()).toThrow();
+  });
+});
+
+describe('googleConfigured', () => {
+  it.each([
+    ['google-client', 'google-secret', true],
+    ['google-client', '', false],
+    ['', 'google-secret', false],
+    ['', '', false],
+  ])('with id %j and secret %j is %s', (id, secret, configured) => {
+    expect(
+      googleConfigured({ GOOGLE_CLIENT_ID: id, GOOGLE_CLIENT_SECRET: secret }),
+    ).toBe(configured);
   });
 });

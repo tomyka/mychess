@@ -4,6 +4,26 @@
     "greeting": "Sveiki, {name}!",
     "signOut": "Atsijungti"
   },
+  "signIn": {
+    "title": "Prisijungimas",
+    "intro": "Įveskite el. pašto adresą ir atsiųsime prisijungimo nuorodą.",
+    "email": "El. pašto adresas",
+    "submit": "Siųsti nuorodą",
+    "sent": "Nuoroda išsiųsta. Patikrinkite el. paštą ir paspauskite nuorodą laiške (ji galioja 15 minučių).",
+    "or": "arba",
+    "google": "Prisijungti per Google",
+    "lichess": "Prisijungti per Lichess",
+    "deleted": "Jūsų paskyra ištrinta.",
+    "error": {
+      "lichessEmailInUse": "Paskyra šiuo el. pašto adresu jau yra. Prisijunkite el. paštu arba per Google, tada nustatymuose prijunkite Lichess.",
+      "tooManyRequests": "Per daug bandymų. Palaukite minutę ir bandykite dar kartą.",
+      "generic": "Prisijungti nepavyko. Bandykite dar kartą."
+    }
+  },
+  "account": {
+    "emailInvalid": "Įveskite teisingą el. pašto adresą.",
+    "deleteNameMismatch": "Įrašytas vardas nesutampa su jūsų rodomu vardu."
+  },
   "displayName": {
     "blank": "Įveskite rodomą vardą.",
     "tooLong": "Rodomas vardas negali būti ilgesnis nei 50 simbolių."

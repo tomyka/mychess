@@ -22,8 +22,9 @@ import { genericOAuth } from 'better-auth/plugins/generic-oauth';
 import { magicLink } from 'better-auth/plugins/magic-link';
 import { z } from 'zod';
 import { resolveLocale } from '../i18n/locales';
+import { LICHESS_EMAIL_IN_USE } from '../lib/sign-in-errors';
 import { getDb } from './db';
-import { readWebEnv, type WebEnv } from './env';
+import { googleConfigured, readWebEnv, type WebEnv } from './env';
 import { createMailer, magicLinkMail, type Mailer } from './mail';
 import { googleUserInfo } from './oauth/google';
 import { lichessUserInfo } from './oauth/lichess';
@@ -32,13 +33,7 @@ import { testSignInPlugin } from './test-sign-in-session';
 
 const DAY = 60 * 60 * 24;
 const LICHESS = 'lichess';
-
-/**
- * The `?error=` code the OAuth callback redirects with when a Lichess
- * sign-in would join an existing account by its email (R-69, R-83). The
- * sign-in page translates it.
- */
-export const LICHESS_EMAIL_IN_USE = 'lichess_email_in_use';
+const SIGN_IN_PATH = '/prisijungti';
 
 export interface AuthDeps {
   readonly db: Db;
@@ -276,7 +271,7 @@ function lichessPlugin(env: WebEnv, fetchImpl: typeof fetch) {
  * failing (security A7). Staging and production require both (env.ts).
  */
 function socialProviders(env: WebEnv) {
-  if (env.GOOGLE_CLIENT_ID === '' || env.GOOGLE_CLIENT_SECRET === '') return {};
+  if (!googleConfigured(env)) return {};
   return {
     google: {
       clientId: env.GOOGLE_CLIENT_ID,
@@ -322,6 +317,9 @@ function authOptions({ db, env, mail, fetch: fetchImpl = fetch }: AuthDeps) {
     socialProviders: socialProviders(env),
     rateLimit: rateLimitOptions,
     advanced: advancedOptions,
+    // An error with no errorCallbackURL of its own lands on our sign-in
+    // page, which translates its code, not on Better Auth's /error page.
+    onAPIError: { errorURL: new URL(SIGN_IN_PATH, env.BETTER_AUTH_URL).href },
     hooks: { before: createAuthMiddleware(beforeRequest) },
     databaseHooks: databaseHooks(db),
     plugins: [

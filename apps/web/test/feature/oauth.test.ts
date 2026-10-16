@@ -1,7 +1,7 @@
 import { useTestDatabase } from '@mychess/db/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { LICHESS_EMAIL_IN_USE } from '../../src/server/auth';
+import { LICHESS_EMAIL_IN_USE } from '../../src/lib/sign-in-errors';
 import {
   buildTestAuth,
   type BuiltAuth,
