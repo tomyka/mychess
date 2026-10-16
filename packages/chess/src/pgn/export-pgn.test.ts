@@ -6,17 +6,16 @@ import { addMove, setMarks } from '../repertoire/edit';
 import type { Chapter, RepertoireGraph, Side } from '../repertoire/graph';
 import { exportPgn } from './export-pgn';
 import { importPgn } from './import-pgn';
+import { imported, must, START } from './test-support';
 
-function must<T>(value: T | undefined): T {
-  if (value === undefined) throw new Error('expected a value');
-  return value;
-}
+/**
+ * Property runs, bounded so each property stays well under two seconds
+ * under coverage instrumentation.
+ */
+const RUNS = { numRuns: 25 };
 
-function imported(text: string, side: Side = 'white'): RepertoireGraph {
-  const r = importPgn(text, side);
-  if (!r.ok) throw new Error(r.refusal.reason);
-  return r.value.graph;
-}
+const graphOf = (text: string, side: Side = 'white'): RepertoireGraph =>
+  imported(text, side).graph;
 
 const normalise = (g: {
   moves: readonly {
@@ -53,7 +52,7 @@ describe('exportPgn', () => {
   });
 
   it('writes the exact text of a chapter', () => {
-    const graph = imported(
+    const graph = graphOf(
       '[Event "Italian"]\n\n{ Intro } 1. e4 { [%cal Gg1f3,Rf1c4] [%csl Bd5] } e5 (1... c5 2. Nf3) (1... e6) 2. Nf3 *\n\n[Event "Sicilian"]\n\n1. e4 c5 2. Nf3 d6 *',
     );
     expect(exportPgn(graph)).toBe(
@@ -73,7 +72,7 @@ describe('exportPgn', () => {
 
   it('numbers a Black move after a variation, and a FEN start', () => {
     const fen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
-    const graph = imported(
+    const graph = graphOf(
       `[FEN "${fen}"]\n\n1... c5 2. Nf3 (2. c3 d5) 2... d6 *`,
       'black',
     );
@@ -90,7 +89,7 @@ describe('exportPgn', () => {
   });
 
   it('names a chapter by its custom name, header name or ECO code', () => {
-    const graph = imported('1. e4 e5 *');
+    const graph = graphOf('1. e4 e5 *');
     const named = (nameSource: Chapter['nameSource']) =>
       exportPgn(withChapters(graph, (c) => ({ ...c, nameSource })));
     expect(named({ kind: 'custom', name: 'My "e4"\\' })).toContain(
@@ -105,36 +104,43 @@ describe('exportPgn', () => {
 
   it('keeps an escaped name and an intro with a brace through a round trip', () => {
     // 1. a3 matches no ECO entry, so the re-import keeps the header name.
-    const graph = withChapters(imported('1. a3 e5 *'), (c) => ({
+    const graph = withChapters(graphOf('1. a3 e5 *'), (c) => ({
       ...c,
       intro: 'Close } early',
       nameSource: { kind: 'custom', name: 'A "B" \\ C' },
     }));
-    const again = must(imported(exportPgn(graph)).chapters[0]);
+    const again = must(graphOf(exportPgn(graph)).chapters[0]);
     expect(again.nameSource).toEqual({ kind: 'header', name: 'A "B" \\ C' });
     expect(again.intro).toBe('Close early');
   });
 
+  it('writes the main line in full when a variation transposes into it', () => {
+    const graph = graphOf('1. e4 e6 (1... d6 2. d4 e6 3. Nc3 Nf6) 2. d4 d6 *');
+    expect(exportPgn(graph)).toContain(
+      '1. e4 e6 (1... d6 2. d4 e6) 2. d4 d6 3. Nc3 Nf6 *',
+    );
+  });
+
   it('writes each position of a transposition once', () => {
-    const graph = imported(
+    const graph = graphOf(
       '1. d4 (1. c4 e6 2. d4 Nf6 3. Nc3 Bb4) 1... Nf6 2. c4 e6 3. Nc3 Bb4 *',
       'black',
     );
     expect(graph.moves).toHaveLength(10);
     expect(exportPgn(graph)).toContain(
-      '1. d4 (1. c4 e6 2. d4 Nf6 3. Nc3 Bb4) 1... Nf6 2. c4 e6 *',
+      '1. d4 (1. c4 e6 2. d4 Nf6) 1... Nf6 2. c4 e6 3. Nc3 Bb4 *',
     );
   });
 
   it('ends a line that repeats a position', () => {
-    const graph = imported('1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 *');
+    const graph = graphOf('1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 *');
     expect(graph.moves).toHaveLength(4);
     expect(exportPgn(graph)).toContain('1. Nf3 Nf6 2. Ng1 Ng8 *');
   });
 
   it('writes a chapter without moves as an empty game', () => {
     // 1. a3 matches no ECO entry, so the chapter keeps its numbered name.
-    const graph = withChapters(imported('1. a3 *'), (c) => ({
+    const graph = withChapters(graphOf('1. a3 *'), (c) => ({
       ...c,
       id: 'other',
     }));
@@ -173,6 +179,7 @@ describe('exportPgn', () => {
               JSON.stringify(normalise(first.value.graph))
           );
         }),
+        RUNS,
       );
     }).not.toThrow();
     expect(() => {
@@ -193,12 +200,12 @@ describe('exportPgn', () => {
           }
           return true;
         }),
+        RUNS,
       );
     }).not.toThrow();
   });
 
   it('round-trips random branching repertoires with marks', () => {
-    const START = positionKey(new Chess().fen());
     const COLORS = ['G', 'R', 'Y', 'B'] as const;
     // Each step: a move choice, and whether (and in which colour) to mark it.
     const step = fc.tuple(fc.nat(40), fc.nat(7));
@@ -290,6 +297,7 @@ describe('exportPgn', () => {
               JSON.stringify(canonical(graph))
           );
         }),
+        RUNS,
       );
     }).not.toThrow();
   });

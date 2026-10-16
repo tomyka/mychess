@@ -1,21 +1,8 @@
+import { Chess } from 'chess.js';
 import { describe, expect, it } from 'vitest';
 import { positionKey } from '../position-key';
-import { importPgn } from './import-pgn';
-
-function must<T>(value: T | undefined): T {
-  if (value === undefined) throw new Error('expected a value');
-  return value;
-}
-
-function imported(text: string, side: 'white' | 'black' = 'white') {
-  const r = importPgn(text, side);
-  if (!r.ok) throw new Error(r.refusal.reason);
-  return r.value;
-}
-
-const START = positionKey(
-  'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-);
+import { importPgn, type ImportedRepertoire } from './import-pgn';
+import { imported, must, START } from './test-support';
 
 const two = `[Event "Italian"]
 
@@ -49,7 +36,7 @@ describe('importPgn', () => {
     const { graph, skipped } = imported(two);
     expect(skipped).toEqual([
       { game: 2, reason: 'pgn.illegalMove', san: 'Ke3' },
-      { game: 3, reason: 'pgn.secondAnswer', san: 'd4' },
+      { game: 3, reason: 'pgn.secondAnswer', san: 'd4', move: 3 },
     ]);
     expect(graph.side).toBe('white');
     expect(graph.chapters.map((c) => [c.id, c.rootKey])).toEqual([
@@ -69,7 +56,7 @@ describe('importPgn', () => {
     const r = importPgn('1. e4 (1. d4) e5 *', 'white');
     expect(r.ok && r.value.graph.moves.map((m) => m.san)).toEqual(['e4', 'e5']);
     expect(r.ok && r.value.skipped).toEqual([
-      { game: 1, reason: 'pgn.secondAnswer', san: 'd4' },
+      { game: 1, reason: 'pgn.secondAnswer', san: 'd4', move: 1 },
     ]);
   });
 
@@ -77,7 +64,7 @@ describe('importPgn', () => {
     const { graph, skipped } = imported('1. e4 (1. d4 d5 2. c4) e5 *');
     expect(graph.moves.map((m) => m.san)).toEqual(['e4', 'e5']);
     expect(skipped).toEqual([
-      { game: 1, reason: 'pgn.secondAnswer', san: 'd4' },
+      { game: 1, reason: 'pgn.secondAnswer', san: 'd4', move: 1 },
     ]);
   });
 
@@ -90,7 +77,7 @@ describe('importPgn', () => {
       ['c2', { kind: 'eco', eco: 'B20' }],
     ]);
     expect(skipped).toEqual([
-      { game: 2, reason: 'pgn.secondAnswer', san: 'd4' },
+      { game: 2, reason: 'pgn.secondAnswer', san: 'd4', move: 1 },
     ]);
   });
 
@@ -100,7 +87,7 @@ describe('importPgn', () => {
     expect(graph.moves.map((m) => m.san)).toEqual(['e4', 'd4', 'e5']);
     const second = imported('1. e4 (1. d4 d5) e5 (1... c5) *', 'black');
     expect(second.skipped).toEqual([
-      { game: 1, reason: 'pgn.secondAnswer', san: 'c5' },
+      { game: 1, reason: 'pgn.secondAnswer', san: 'c5', move: 1 },
     ]);
     expect(second.graph.moves.map((m) => m.san)).toEqual([
       'e4',
@@ -230,8 +217,8 @@ describe('importPgn', () => {
       { game: 3, reason: 'pgn.noMoves' },
       { game: 4, reason: 'pgn.unbalancedVariation' },
       { game: 5, reason: 'pgn.variationWithoutMove' },
-      { game: 7, reason: 'pgn.secondAnswer', san: 'e4' },
-      { game: 8, reason: 'pgn.secondAnswer', san: 'c4' },
+      { game: 7, reason: 'pgn.secondAnswer', san: 'e4', move: 1 },
+      { game: 8, reason: 'pgn.secondAnswer', san: 'c4', move: 1 },
     ]);
     expect(graph.moves.map((m) => m.san)).toEqual(['d4']);
   });
@@ -271,4 +258,146 @@ describe('importPgn', () => {
       graph.moves.filter((m) => m.san === 'Nc3').map((m) => m.chapters),
     ).toEqual([['c1', 'c2']]);
   });
+
+  it('gives a second answer the full-move number of a set-up position', () => {
+    const fen =
+      'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3';
+    const white = imported(
+      `[FEN "${fen}"]\n\n3. Bc4 (3. d4) 3... Bc5 (3... Nf6) *`,
+    );
+    expect(white.skipped).toEqual([
+      { game: 1, reason: 'pgn.secondAnswer', san: 'd4', move: 3 },
+    ]);
+    const black = imported(
+      `[FEN "${fen}"]\n\n3. Bc4 Bc5 (3... Nf6) *`,
+      'black',
+    );
+    expect(black.skipped).toEqual([
+      { game: 1, reason: 'pgn.secondAnswer', san: 'Nf6', move: 3 },
+    ]);
+  });
+
+  it('skips a variation hanging from a move below a second answer', () => {
+    const { graph, skipped } = imported(
+      '1. e4 (1. d4 d5 (1... Nf6 2. c4) 2. c4) e5 *',
+    );
+    expect(graph.moves.map((m) => m.san)).toEqual(['e4', 'e5']);
+    expect(skipped).toEqual([
+      { game: 1, reason: 'pgn.secondAnswer', san: 'd4', move: 1 },
+    ]);
+  });
+
+  it('skips everything below a second answer, whatever the order of the lines', () => {
+    // 1... c5 after 1. e4 e6 2. d4 is a second answer to 2... d5; below it,
+    // 3. d5 exd5 starts from the position 1. d4 c5 2. e4 e6 also reaches.
+    const transpositionFirst = imported(
+      '1. e4 (1. d4 c5 2. e4 e6 3. d5) 1... e6 2. d4 d5 (2... c5 3. d5 exd5) *',
+      'black',
+    );
+    const transpositionLast = imported(
+      '1. d4 (1. e4 e6 2. d4 d5 (2... c5 3. d5 exd5)) 1... c5 2. e4 e6 3. d5 *',
+      'black',
+    );
+    const moves = (r: ImportedRepertoire) =>
+      r.graph.moves.map((m) => `${m.from}|${m.san}`).sort();
+    for (const r of [transpositionFirst, transpositionLast]) {
+      expect(r.skipped).toEqual([
+        { game: 1, reason: 'pgn.secondAnswer', san: 'c5', move: 2 },
+      ]);
+      expect(r.graph.moves.map((m) => m.san)).not.toContain('exd5');
+      expect(r.graph.moves).toHaveLength(9);
+    }
+    expect(moves(transpositionFirst)).toEqual(moves(transpositionLast));
+  });
+
+  it('keeps the variations beside a skipped answer', () => {
+    const { graph, skipped } = imported(
+      '1. e4 e5 2. Nf3 (2. Bc4 Nf6) (2. d4 exd4) 2... Nc6 (2... d6) *',
+      'black',
+    );
+    expect(skipped).toEqual([
+      { game: 1, reason: 'pgn.secondAnswer', san: 'd6', move: 2 },
+    ]);
+    expect(graph.moves.map((m) => m.san)).toEqual([
+      'e4',
+      'e5',
+      'Nf3',
+      'Bc4',
+      'Nf6',
+      'd4',
+      'exd4',
+      'Nc6',
+    ]);
+  });
+
+  it('stores each move with its coordinates, promotion included', () => {
+    const { graph } = imported(
+      '[FEN "8/P7/8/8/8/8/k7/4K3 w - - 0 1"]\n\n1. a8=Q+ Kb3 *',
+    );
+    expect(graph.moves.map((m) => [m.san, m.uci])).toEqual([
+      ['a8=Q+', 'a7a8q'],
+      ['Kb3', 'a2b3'],
+    ]);
+  });
+
+  it('splits a huge line with an unclosed comment in linear time', () => {
+    const text = `1. e4 ${'{ " '.repeat(480_000)}\n[Event "x"]\n\n1. e4 *`;
+    expect(text.length).toBeGreaterThan(1_900_000);
+    const start = performance.now();
+    const r = importPgn(text, 'white');
+    expect(performance.now() - start).toBeLessThan(1000);
+    expect(r).toEqual({ ok: false, refusal: { reason: 'pgn.noValidGames' } });
+  });
+
+  it('imports 200 games of about 1.9 MB in linear time', () => {
+    const text = bigFile();
+    expect(text.length).toBeGreaterThan(1_800_000);
+    expect(text.length).toBeLessThan(2 * 1024 * 1024);
+    const start = performance.now();
+    const r = importPgn(text, 'black');
+    expect(performance.now() - start).toBeLessThan(5000);
+    expect(r.ok && r.value.skipped).toEqual([]);
+    expect(r.ok && r.value.graph.chapters).toHaveLength(200);
+    expect(r.ok && r.value.graph.moves.length).toBeGreaterThan(5000);
+  }, 30_000);
 });
+
+/** A deterministic string hash, to pick the same answer in the same position. */
+function hash(text: string): number {
+  let h = 7;
+  for (let i = 0; i < text.length; i++)
+    h = (h * 31 + text.charCodeAt(i)) % 1_000_003;
+  return h;
+}
+
+/**
+ * 200 annotated games of 30 plies for Black: White's moves are pseudo-random,
+ * Black's answer depends only on the position, so no game has a second
+ * answer. Thousands of distinct moves, every one with a comment and an arrow.
+ */
+function bigFile(): string {
+  let seed = 12_345;
+  const random = (n: number) => {
+    seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
+    return seed % n;
+  };
+  const note = ` { [%cal Ga1a2] ${'n'.repeat(290)} }`;
+  const games: string[] = [];
+  for (let g = 0; g < 200; g++) {
+    const chess = new Chess();
+    const parts: string[] = [];
+    for (let ply = 0; ply < 30; ply++) {
+      const legal = chess.moves();
+      if (legal.length === 0) break;
+      const white = ply % 2 === 0;
+      const pick = white
+        ? random(legal.length)
+        : hash(positionKey(chess.fen())) % legal.length;
+      const san = must(legal[pick]);
+      chess.move(san);
+      parts.push((white ? `${String(ply / 2 + 1)}. ` : '') + san + note);
+    }
+    games.push(`[Event "G${String(g)}"]\n\n${parts.join(' ')} *`);
+  }
+  return games.join('\n\n');
+}

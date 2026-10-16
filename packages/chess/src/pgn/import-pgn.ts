@@ -4,28 +4,30 @@
  * is listed with its reason instead of refusing the file.
  *
  * Games are isolated before tokenizing, so text one game's tokenizer cannot
- * read costs only that game. Moves go in through the builder's `addMove`,
- * so an import obeys the same rules as an edit: one player answer per
- * position, checked across the whole repertoire.
+ * read costs only that game. The graph is built with mutable indexes and
+ * frozen at the end, so hostile input stays linear (R-66), under the
+ * builder's rules: one player answer per position across the repertoire,
+ * and a move is stored once per position. Legality is the replay's.
  */
 import { DEFAULT_POSITION, validateFen } from 'chess.js';
 import { classify } from '../openings/classify';
-import { positionKey } from '../position-key';
+import { positionKey, sideToMove } from '../position-key';
 import {
-  mainLine,
+  moveKey,
   type Arrow,
   type Chapter,
   type Circle,
   type RepertoireGraph,
+  type RepertoireMove,
   type Side,
 } from '../repertoire/graph';
-import { addMove, setMarks } from '../repertoire/edit';
 import type { Result } from '../result';
 import { gameNames } from './game-names';
 import { checkLimits, PGN_LIMITS, type LimitRefusal } from './limits';
+import { arrowKey, circleKey } from './marks';
 import {
   replay,
-  type MoveOccurrence,
+  type ReplayedMove,
   type ReplayedMovetext,
   type ReplayRefusal,
 } from './replay';
@@ -41,14 +43,22 @@ export type SkipReason =
   | 'pgn.secondAnswer';
 
 /**
- * A game left out of the import: its 1-based position among the file's
- * games, why, and the move at fault when one is.
+ * What an import left out, by the game's 1-based position among the file's
+ * games: a whole game, with the move at fault when there is one, or a
+ * second player answer (with its full-move number) and everything below it.
  */
-export interface Skipped {
-  readonly game: number;
-  readonly reason: SkipReason;
-  readonly san?: string;
-}
+export type Skipped =
+  | {
+      readonly game: number;
+      readonly reason: 'pgn.secondAnswer';
+      readonly san: string;
+      readonly move: number;
+    }
+  | {
+      readonly game: number;
+      readonly reason: Exclude<SkipReason, 'pgn.secondAnswer'>;
+      readonly san?: string;
+    };
 
 /** Why a whole file is refused. */
 export type ImportRefusal = LimitRefusal | { reason: 'pgn.noValidGames' };
@@ -67,41 +77,72 @@ interface GoodGame extends ReplayedMovetext {
 
 type Replayed = Result<GoodGame, Skipped>;
 
-/** Tag values, complete brace comments and rest-of-line comments. */
-const CLOSED = /"(?:[^"\\]|\\.)*"|\{[^}]*\}|;.*/g;
-
-/** Whether a brace comment is still open at the end of `line`. */
-function commentOpenAfter(line: string, open: boolean): boolean {
-  let rest = line;
-  if (open) {
-    const close = rest.indexOf('}');
-    if (close < 0) return true;
-    rest = rest.slice(close + 1);
+/**
+ * The index just past a quoted tag value opened at `start`, or the end of
+ * its line when nothing closes it there. A backslash escapes a character.
+ */
+function quoteEnd(text: string, start: number): number {
+  let i = start + 1;
+  while (i < text.length && text.charAt(i) !== '\n') {
+    const ch = text.charAt(i);
+    if (ch === '"') return i + 1;
+    i += ch === '\\' && text.charAt(i + 1) !== '\n' ? 2 : 1;
   }
-  return rest.replace(CLOSED, '').includes('{');
+  return i;
+}
+
+function endOf(text: string, found: number): number {
+  return found < 0 ? text.length : found;
+}
+
+/** The index after the character at `i`, or after the comment or quote it opens. */
+function skip(text: string, i: number): number {
+  switch (text.charAt(i)) {
+    case '{':
+      return endOf(text, text.indexOf('}', i + 1)) + 1;
+    case ';':
+      return endOf(text, text.indexOf('\n', i));
+    case '"':
+      return quoteEnd(text, i);
+    default:
+      return i + 1;
+  }
+}
+
+/** The index of the newline that ends the line at `start`, comments spanning lines included. */
+function lineEnd(text: string, start: number): number {
+  let i = start;
+  while (i < text.length && text.charAt(i) !== '\n') i = skip(text, i);
+  return Math.min(i, text.length);
+}
+
+function firstContent(text: string, start: number, end: number): number {
+  let i = start;
+  while (i < end && ' \t\r'.includes(text.charAt(i))) i += 1;
+  return i;
 }
 
 /**
  * The file's text split where a game may start: at a line beginning with
- * `[` that follows movetext, outside a brace comment.
+ * `[` that follows movetext, outside a comment. A single pass, so hostile
+ * text (an unclosed comment or quote) cannot make it slow.
  */
 function chunks(text: string): string[] {
   const out: string[] = [];
-  let current: string[] = [];
+  let chunkStart = 0;
   let movetext = false;
-  let inComment = false;
-  for (const line of text.split('\n')) {
-    const tagLine = !inComment && line.trimStart().startsWith('[');
+  for (let start = 0; start < text.length;) {
+    const end = lineEnd(text, start);
+    const content = firstContent(text, start, end);
+    const tagLine = content < end && text.charAt(content) === '[';
     if (tagLine && movetext) {
-      out.push(current.join('\n'));
-      current = [];
-      movetext = false;
+      out.push(text.slice(chunkStart, start));
+      chunkStart = start;
     }
-    current.push(line);
-    if (!tagLine && line.trim() !== '') movetext = true;
-    inComment = commentOpenAfter(line, inComment);
+    movetext = tagLine ? false : movetext || content < end;
+    start = end + 1;
   }
-  out.push(current.join('\n'));
+  out.push(text.slice(chunkStart));
   return out;
 }
 
@@ -113,151 +154,225 @@ function rawGames(text: string): (RawGame | null)[] {
   });
 }
 
-const skip = (skipped: Skipped): Replayed => ({ ok: false, refusal: skipped });
+const skipGame = (skipped: Skipped): Replayed => ({
+  ok: false,
+  refusal: skipped,
+});
 
 function replayRaw(raw: RawGame | null, game: number): Replayed {
-  if (raw === null) return skip({ game, reason: 'pgn.unreadable' });
+  if (raw === null) return skipGame({ game, reason: 'pgn.unreadable' });
   const fen = raw.headers['FEN']?.trim() ?? DEFAULT_POSITION;
-  if (!validateFen(fen).ok) return skip({ game, reason: 'pgn.invalidFen' });
+  if (!validateFen(fen).ok) return skipGame({ game, reason: 'pgn.invalidFen' });
   const movetext = replay(fen, raw.body);
-  if (!movetext.ok) return skip({ game, ...movetext.refusal });
+  if (!movetext.ok) return skipGame({ game, ...movetext.refusal });
   if (movetext.value.moves.length === 0) {
-    return skip({ game, reason: 'pgn.noMoves' });
+    return skipGame({ game, reason: 'pgn.noMoves' });
   }
   const value = { game, headers: raw.headers, root: positionKey(fen) };
   return { ok: true, value: { ...value, ...movetext.value } };
 }
 
-/** `values` with `extra` appended, leaving out values already there. */
-function union<T>(values: readonly T[], extra: readonly T[]): T[] {
-  const seen = new Set(values.map((value) => JSON.stringify(value)));
-  const out = [...values];
-  for (const value of extra) {
-    const key = JSON.stringify(value);
-    if (!seen.has(key)) {
-      seen.add(key);
-      out.push(value);
+/** A move while the graph is being built: mutable, with its mark identities. */
+interface DraftMove {
+  readonly from: string;
+  readonly to: string;
+  readonly san: string;
+  readonly uci: string;
+  readonly arrows: Arrow[];
+  readonly circles: Circle[];
+  readonly chapters: string[];
+  readonly markKeys: Set<string>;
+}
+
+const draftOf = (move: ReplayedMove): DraftMove => ({
+  from: move.from,
+  to: move.to,
+  san: move.san,
+  uci: move.uci,
+  arrows: [],
+  circles: [],
+  chapters: [],
+  markKeys: new Set(),
+});
+
+/** Adds `values` the draft lacks, by their identity. */
+function addMarks<T>(
+  draft: DraftMove,
+  target: T[],
+  values: readonly T[],
+  key: (value: T) => string,
+): void {
+  for (const value of values) {
+    const id = key(value);
+    if (!draft.markKeys.has(id)) {
+      draft.markKeys.add(id);
+      target.push(value);
     }
   }
-  return out;
-}
-
-/** Adds an occurrence's arrows and circles to the move's own. */
-function withMarks(
-  graph: RepertoireGraph,
-  chapterId: string,
-  occurrence: MoveOccurrence,
-): RepertoireGraph {
-  const { arrows, circles } = occurrence;
-  if (arrows.length === 0 && circles.length === 0) return graph;
-  const move = graph.moves.find(
-    (m) => m.from === occurrence.from && m.san === occurrence.san,
-  );
-  const marks: { arrows: Arrow[]; circles: Circle[] } = {
-    arrows: union(move?.arrows ?? [], arrows),
-    circles: union(move?.circles ?? [], circles),
-  };
-  const marked = setMarks(graph, chapterId, occurrence, marks);
-  return marked.ok ? marked.value : graph;
-}
-
-/** A chapter being filled from one game, and what was skipped so far. */
-interface Fill {
-  graph: RepertoireGraph;
-  readonly skipped: Skipped[];
 }
 
 /**
- * Adds one move of a game. A second player answer is reported and left out;
- * the moves below a left-out move then start from a position the chapter
- * does not reach, and `addMove` leaves them out too.
+ * A repertoire being built game by game, with indexes by move and by
+ * position, so each move costs about the same however large the file.
  */
-function addOccurrence(
-  fill: Fill,
-  chapterId: string,
-  game: number,
-  occurrence: MoveOccurrence,
-): void {
-  const added = addMove(fill.graph, chapterId, occurrence.from, occurrence.san);
-  if (added.ok) {
-    fill.graph = withMarks(added.value, chapterId, occurrence);
-  } else if (added.refusal.reason === 'repertoire.secondAnswer') {
-    fill.skipped.push({
+class RepertoireBuilder {
+  private readonly chapters: Chapter[] = [];
+  private readonly moves = new Map<string, DraftMove>();
+  private readonly children = new Map<string, DraftMove[]>();
+  /** The player's answer in each position, by position key. */
+  private readonly answers = new Map<string, string>();
+  readonly skipped: Skipped[] = [];
+
+  private readonly side: Side;
+
+  constructor(side: Side) {
+    this.side = side;
+  }
+
+  /**
+   * Adds a game as a chapter. A second player answer is reported and left
+   * out, with every move below it in the game (followed by the replay's
+   * parent links, so a transposition elsewhere cannot let them in). A game
+   * none of whose moves fit adds no chapter.
+   */
+  addGame(game: GoodGame, name: string | null): void {
+    const chapter = this.newChapter(game, name);
+    const dropped = new Set<number>();
+    let kept = 0;
+    for (const [index, move] of game.moves.entries()) {
+      if (this.leftOut(game.game, move, dropped)) dropped.add(index);
+      else {
+        this.put(move, chapter.id);
+        kept += 1;
+      }
+    }
+    if (kept > 0) this.chapters.push(chapter);
+  }
+
+  freeze(): RepertoireGraph {
+    const moves: RepertoireMove[] = [...this.moves.values()].map(
+      ({ from, to, san, uci, arrows, circles, chapters }) => ({
+        from,
+        to,
+        san,
+        uci,
+        arrows,
+        circles,
+        chapters,
+      }),
+    );
+    const chapters = this.chapters.map((c) => this.classified(c));
+    return { side: this.side, chapters, moves };
+  }
+
+  private newChapter(game: GoodGame, name: string | null): Chapter {
+    const number = this.chapters.length + 1;
+    return {
+      id: `c${String(number)}`,
+      rootKey: game.root,
+      intro: game.intro,
+      nameSource:
+        name === null ? { kind: 'index', number } : { kind: 'header', name },
+    };
+  }
+
+  private isPlayerMove(from: string): boolean {
+    return sideToMove(from) === (this.side === 'white' ? 'w' : 'b');
+  }
+
+  private leftOut(
+    game: number,
+    move: ReplayedMove,
+    dropped: ReadonlySet<number>,
+  ): boolean {
+    if (move.parent !== null && dropped.has(move.parent)) return true;
+    const answer = this.isPlayerMove(move.from)
+      ? this.answers.get(move.from)
+      : undefined;
+    if (answer === undefined || answer === move.san) return false;
+    const { san, moveNumber } = move;
+    this.skipped.push({
       game,
       reason: 'pgn.secondAnswer',
-      san: occurrence.san,
+      san,
+      move: moveNumber,
     });
+    return true;
   }
-}
 
-function newChapter(
-  graph: RepertoireGraph,
-  game: GoodGame,
-  name: string | null,
-): Chapter {
-  const number = graph.chapters.length + 1;
-  return {
-    id: `c${String(number)}`,
-    rootKey: game.root,
-    intro: game.intro,
-    nameSource:
-      name === null ? { kind: 'index', number } : { kind: 'header', name },
-  };
-}
-
-/** Adds a game as a chapter; a game none of whose moves fit adds nothing. */
-function addGame(fill: Fill, game: GoodGame, name: string | null): void {
-  const before = fill.graph;
-  const chapter = newChapter(before, game, name);
-  fill.graph = { ...before, chapters: [...before.chapters, chapter] };
-  for (const occurrence of game.moves) {
-    addOccurrence(fill, chapter.id, game.game, occurrence);
+  private put(move: ReplayedMove, chapterId: string): void {
+    const key = moveKey(move.from, move.san);
+    let draft = this.moves.get(key);
+    if (draft === undefined) {
+      draft = draftOf(move);
+      this.moves.set(key, draft);
+      this.children.set(move.from, [
+        ...(this.children.get(move.from) ?? []),
+        draft,
+      ]);
+      if (this.isPlayerMove(move.from)) this.answers.set(move.from, move.san);
+    }
+    if (!draft.chapters.includes(chapterId)) draft.chapters.push(chapterId);
+    addMarks(draft, draft.arrows, move.arrows, (a) => `a${arrowKey(a)}`);
+    addMarks(draft, draft.circles, move.circles, (c) => `c${circleKey(c)}`);
   }
-  if (!fill.graph.moves.some((m) => m.chapters.includes(chapter.id))) {
-    fill.graph = before;
+
+  /**
+   * A chapter's main line as `mainLine` in the graph module defines it (the
+   * first-inserted child at each position, never back to a position
+   * already on the line), read from the builder's index in linear time.
+   */
+  private mainSans(chapter: Chapter): string[] {
+    const sans: string[] = [];
+    const seen = new Set([chapter.rootKey]);
+    let key = chapter.rootKey;
+    for (;;) {
+      const next = this.children
+        .get(key)
+        ?.find((m) => m.chapters.includes(chapter.id) && !seen.has(m.to));
+      if (next === undefined) return sans;
+      sans.push(next.san);
+      seen.add(next.to);
+      key = next.to;
+    }
+  }
+
+  /**
+   * Names a chapter from the opening taxonomy when its main line, played
+   * from the standard start, reaches an ECO position (R-63: taxonomy first).
+   */
+  private classified(chapter: Chapter): Chapter {
+    if (chapter.rootKey !== START) return chapter;
+    const entry = classify(this.mainSans(chapter));
+    if (entry === null) return chapter;
+    return { ...chapter, nameSource: { kind: 'eco', eco: entry.code } };
   }
 }
 
 const START = positionKey(DEFAULT_POSITION);
 
-/**
- * Names a chapter from the opening taxonomy when its main line, played from
- * the standard start, reaches an ECO position (R-63: taxonomy first).
- */
-function classified(graph: RepertoireGraph, chapter: Chapter): Chapter {
-  if (chapter.rootKey !== START) return chapter;
-  const entry = classify(mainLine(graph, chapter.id).map((m) => m.san));
-  if (entry === null) return chapter;
-  return { ...chapter, nameSource: { kind: 'eco', eco: entry.code } };
-}
-
-function build(side: Side, replayed: readonly Replayed[]): Fill {
+function build(side: Side, replayed: readonly Replayed[]): ImportedRepertoire {
   const good = replayed.flatMap((r) => (r.ok ? [r.value] : []));
   const names = gameNames(good.map((game) => game.headers));
-  const fill: Fill = {
-    graph: { side, chapters: [], moves: [] },
-    skipped: [],
-  };
+  const builder = new RepertoireBuilder(side);
   let index = 0;
   for (const result of replayed) {
     if (result.ok) {
-      addGame(fill, result.value, names[index] ?? null);
+      builder.addGame(result.value, names[index] ?? null);
       index += 1;
     } else {
-      fill.skipped.push(result.refusal);
+      builder.skipped.push(result.refusal);
     }
   }
-  const { graph } = fill;
-  const chapters = graph.chapters.map((c) => classified(graph, c));
-  return { ...fill, graph: { ...graph, chapters } };
+  return { graph: builder.freeze(), skipped: builder.skipped };
 }
 
 /**
  * Imports untrusted PGN text as a repertoire for `side`: one chapter per
  * valid game, moves merged by position across chapters, with arrows,
- * circles and each chapter's intro kept. Games that cannot be used are
- * listed in `skipped`; the file is refused only over the upload limits or
- * when no game is usable.
+ * circles and each chapter's intro kept. Games and moves that cannot be
+ * used are listed in `skipped`; the file is refused only over the upload
+ * limits or when no game is usable.
  */
 export function importPgn(
   text: string,
@@ -270,12 +385,12 @@ export function importPgn(
     const limit = PGN_LIMITS.games;
     return { ok: false, refusal: { reason: 'pgn.tooManyGames', limit } };
   }
-  const { graph, skipped } = build(
+  const imported = build(
     side,
     games.map((raw, i) => replayRaw(raw, i + 1)),
   );
-  if (graph.chapters.length === 0) {
+  if (imported.graph.chapters.length === 0) {
     return { ok: false, refusal: { reason: 'pgn.noValidGames' } };
   }
-  return { ok: true, value: { graph, skipped } };
+  return { ok: true, value: imported };
 }

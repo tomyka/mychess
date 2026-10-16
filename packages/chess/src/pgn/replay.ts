@@ -1,4 +1,4 @@
-import { Chess } from 'chess.js';
+import { Chess, type Move } from 'chess.js';
 import { positionKey } from '../position-key';
 import type { Marks } from '../repertoire/graph';
 import type { Result } from '../result';
@@ -23,12 +23,24 @@ export interface MoveOccurrence extends PgnCommentary {
 }
 
 /**
+ * A move as replayed in its game: its occurrence, plus where it stands in
+ * the game's move tree. `parent` is the index of the move it follows (null
+ * for a move from the game's root), `moveNumber` the FEN full-move number
+ * it is played at, and `uci` the move in coordinates.
+ */
+export interface ReplayedMove extends MoveOccurrence {
+  readonly parent: number | null;
+  readonly moveNumber: number;
+  readonly uci: string;
+}
+
+/**
  * A game's movetext, replayed: its moves, and its intro, the prose of the
  * comments before its first move (R-66), or null when there is none.
  */
 export interface ReplayedMovetext {
   intro: string | null;
-  moves: MoveOccurrence[];
+  moves: ReplayedMove[];
 }
 
 /** Why a game's movetext cannot be replayed. */
@@ -40,13 +52,18 @@ export type ReplayRefusal =
 /**
  * A branch of the movetext being read (the main line or a variation): its
  * board, the position before its last move (where a nested variation
- * branches from), that move's index in the replayed moves, and commentary
- * waiting for the branch's first move.
+ * branches from), that move's index in the replayed moves and the index of
+ * the move it follows (where a nested variation's moves hang from), the
+ * index the branch's first move follows (`base`), and commentary waiting
+ * for the branch's first move.
  */
 interface Branch {
   board: Chess;
+  key: string;
   fenBeforeLast: string | null;
   last: number | null;
+  lastParent: number | null;
+  base: number | null;
   pending: PgnCommentary;
 }
 
@@ -59,10 +76,13 @@ const noCommentary: PgnCommentary = {
   circles: [],
 };
 
-const newBranch = (fen: string): Branch => ({
+const newBranch = (fen: string, base: number | null): Branch => ({
   board: new Chess(fen),
+  key: positionKey(fen),
   fenBeforeLast: null,
   last: null,
+  lastParent: null,
+  base,
   pending: noCommentary,
 });
 
@@ -80,9 +100,9 @@ const withComment =
     circles: [...commentary.circles, ...circles],
   });
 
-function tryMove(board: Chess, san: string): string | null {
+function tryMove(board: Chess, san: string): Move | null {
   try {
-    return board.move(san).san;
+    return board.move(san);
   } catch {
     return null;
   }
@@ -97,13 +117,13 @@ function tryMove(board: Chess, san: string): string | null {
  * on and are dropped.
  */
 class Replay {
-  readonly moves: MoveOccurrence[] = [];
+  readonly moves: ReplayedMove[] = [];
   private readonly introParts: string[] = [];
   private branch: Branch;
   private readonly enclosing: Branch[] = [];
 
   constructor(rootFen: string) {
-    this.branch = newBranch(rootFen);
+    this.branch = newBranch(rootFen, null);
   }
 
   apply(token: MovetextToken): ReplayRefusal | null {
@@ -150,27 +170,35 @@ class Replay {
   }
 
   private play(written: string): ReplayRefusal | null {
-    const { board } = this.branch;
+    const { board, key, last, base } = this.branch;
     const fen = board.fen();
-    const san = tryMove(board, written);
-    if (san === null) return { reason: 'pgn.illegalMove', san: written };
+    const moveNumber = board.moveNumber();
+    const played = tryMove(board, written);
+    if (played === null) return { reason: 'pgn.illegalMove', san: written };
+    const parent = last ?? base;
+    const to = positionKey(played.after);
     this.moves.push({
-      from: positionKey(fen),
-      to: positionKey(board.fen()),
-      san,
+      from: key,
+      to,
+      san: played.san,
       ...this.branch.pending,
+      parent,
+      moveNumber,
+      uci: played.from + played.to + (played.promotion ?? ''),
     });
+    this.branch.key = to;
     this.branch.pending = noCommentary;
     this.branch.last = this.moves.length - 1;
     this.branch.fenBeforeLast = fen;
+    this.branch.lastParent = parent;
     return null;
   }
 
   private open(): ReplayRefusal | null {
-    const from = this.branch.fenBeforeLast;
+    const { fenBeforeLast: from, lastParent } = this.branch;
     if (from === null) return { reason: 'pgn.variationWithoutMove' };
     this.enclosing.push(this.branch);
-    this.branch = newBranch(from);
+    this.branch = newBranch(from, lastParent);
     return null;
   }
 

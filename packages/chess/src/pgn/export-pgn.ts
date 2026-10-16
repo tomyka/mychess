@@ -19,9 +19,14 @@ interface Walk {
   readonly children: ReadonlyMap<string, readonly RepertoireMove[]>;
   /** Whether the chapter's root has Black to move: ply 0 is then move 1 for Black. */
   readonly blackFirst: boolean;
+  /** The full-move number of the root, from the FEN the game is set up with. */
+  readonly firstMove: number;
   /** Positions whose continuation is already written. */
   readonly written: Set<string>;
 }
+
+/** A FEN's full-move number, its sixth field. */
+const fullMoveOf = (fen: string): number => Number(fen.split(' ')[5] ?? '1');
 
 function chapterName(chapter: Chapter): string {
   const source = chapter.nameSource;
@@ -75,7 +80,8 @@ function moveText(
   ply: number,
   numbered: boolean,
 ): string[] {
-  const number = Math.floor((ply + (walk.blackFirst ? 1 : 0)) / 2) + 1;
+  const number =
+    walk.firstMove + Math.floor((ply + (walk.blackFirst ? 1 : 0)) / 2);
   const white = sideToMove(move.from) === 'w';
   const san = white
     ? `${String(number)}. ${move.san}`
@@ -88,7 +94,9 @@ function moveText(
 /**
  * The movetext from `key` at `ply`: the first move continues the line, the
  * others become variations. A position already written (a transposition
- * or a repetition) ends the line, so each move is written once.
+ * or a repetition) ends the line, so each move is written once. The main
+ * continuation is walked before the variations, so a variation that
+ * transposes into the main line ends there rather than cutting it short.
  */
 function continuation(
   walk: Walk,
@@ -100,6 +108,7 @@ function continuation(
   walk.written.add(key);
   const [main, ...others] = walk.children.get(key) ?? [];
   if (main === undefined) return [];
+  const rest = continuation(walk, main.to, ply + 1, others.length > 0);
   const variations = others.map((move) => {
     const line = [
       ...moveText(walk, move, ply, true),
@@ -107,11 +116,7 @@ function continuation(
     ];
     return `(${line.join(' ')})`;
   });
-  return [
-    ...moveText(walk, main, ply, numbered),
-    ...variations,
-    ...continuation(walk, main.to, ply + 1, variations.length > 0),
-  ];
+  return [...moveText(walk, main, ply, numbered), ...variations, ...rest];
 }
 
 function childrenIn(
@@ -121,7 +126,9 @@ function childrenIn(
   const children = new Map<string, RepertoireMove[]>();
   for (const move of graph.moves) {
     if (move.chapters.includes(chapterId)) {
-      children.set(move.from, [...(children.get(move.from) ?? []), move]);
+      const siblings = children.get(move.from);
+      if (siblings === undefined) children.set(move.from, [move]);
+      else siblings.push(move);
     }
   }
   return children;
@@ -131,6 +138,7 @@ function game(graph: RepertoireGraph, chapter: Chapter): string {
   const walk: Walk = {
     children: childrenIn(graph, chapter.id),
     blackFirst: sideToMove(chapter.rootKey) === 'b',
+    firstMove: fullMoveOf(fenOf(chapter.rootKey)),
     written: new Set(),
   };
   const movetext = [
