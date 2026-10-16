@@ -70,14 +70,17 @@ type HookAnswer = { context: { body: Record<string, unknown> } } | undefined;
 
 /**
  * The magic-link request with its email canonical, so the verification
- * token records the one form the account is keyed by.
+ * token records the one form the account is keyed by, and with no name:
+ * only Google or Lichess prefill the display name (R-81). Better Auth merges
+ * this body into the request's, so the name is blanked rather than dropped
+ * (an absent key would keep the client's value).
  */
 function canonicalMagicLinkBody(ctx: HookRequest): Promise<HookAnswer> {
   if (ctx.path !== '/sign-in/magic-link') return Promise.resolve(undefined);
   const parsed = requestBody.safeParse(ctx.body);
   const body = parsed.success ? parsed.data : { email: undefined };
   const email = canonicalOrRefuse(body.email);
-  return Promise.resolve({ context: { body: { ...body, email } } });
+  return Promise.resolve({ context: { body: { ...body, email, name: '' } } });
 }
 
 /**

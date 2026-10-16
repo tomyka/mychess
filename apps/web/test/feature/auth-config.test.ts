@@ -70,34 +70,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('the Better Auth configuration', () => {
-  it('maps a magic-link sign-in onto our accounts and sessions tables', async () => {
-    const built = buildTestAuth(db);
-    const cookie = await signInByMagicLink(built, '  Ruta@Example.LT ');
-    const session = await built.auth.api.getSession({
-      headers: new Headers({ cookie }),
-    });
-    expect(session?.user.email).toBe('ruta@example.lt');
-    expect(
-      await rows(
-        'select email, display_name, locale, entitlement, admin from accounts',
-      ),
-    ).toEqual([
-      {
-        email: 'ruta@example.lt',
-        display_name: '',
-        locale: 'lt',
-        entitlement: 'free',
-        admin: false,
-      },
-    ]);
-    expect(
-      await rows(
-        'select count(*)::int as n from sessions s join accounts a on a.id = s.account_id',
-      ),
-    ).toEqual([{ n: 1 }]);
-  });
-
+// Task 9 moves these into oauth.test.ts.
+describe('Lichess under the Better Auth configuration', () => {
   it('refuses a Lichess sign-in whose email already has an account, with its own code', async () => {
     vi.stubGlobal('fetch', fakeLichess);
     const built = buildTestAuth(db, fakeLichess);
@@ -141,21 +115,5 @@ describe('the Better Auth configuration', () => {
         'select a.email, p.provider_id from provider_accounts p join accounts a on a.id = p.account_id',
       ),
     ).toEqual([{ email: 'ruta@example.lt', provider_id: 'lichess' }]);
-  });
-
-  it('refuses a look-alike email before any mail or token', async () => {
-    const built = buildTestAuth(db);
-    const response = await built.auth.handler(
-      new Request(`${BASE}/api/auth/sign-in/magic-link`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', origin: BASE },
-        body: JSON.stringify({ email: 'ruta@exаmple.lt' }),
-      }),
-    );
-    expect(response.status).toBe(400);
-    expect(built.sent).toEqual([]);
-    expect(await rows('select count(*)::int as n from verifications')).toEqual([
-      { n: 0 },
-    ]);
   });
 });
