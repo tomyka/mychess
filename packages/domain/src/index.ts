@@ -24,6 +24,8 @@ export {
   type AdminAction,
   type AdminRefusal,
 } from './admin';
+// Refusals are values (CLAUDE.md); apps read the shape from here.
+export type { Result } from '@mychess/chess';
 export {
   DISPLAY_NAME_MAX,
   displayNameSchema,

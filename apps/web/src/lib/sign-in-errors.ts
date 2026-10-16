@@ -8,15 +8,19 @@ export const LICHESS_EMAIL_IN_USE = 'lichess_email_in_use';
 /** The catalogue key of every error the sign-in page can show. */
 export type SignInErrorKey =
   | 'signIn.error.lichessEmailInUse'
+  | 'signIn.error.linkExpired'
   | 'signIn.error.tooManyRequests'
   | 'signIn.error.generic'
   | 'account.emailInvalid';
 
 // Better Auth names a refused implicit link `account_not_linked`; ours is
-// LICHESS_EMAIL_IN_USE. A Map, so a code such as `constructor` finds nothing.
+// LICHESS_EMAIL_IN_USE. A magic link that expired, was already used or is
+// unknown comes back as `INVALID_TOKEN`. A Map, so a code such as
+// `constructor` finds nothing.
 const KNOWN_CODES = new Map<string, SignInErrorKey>([
   [LICHESS_EMAIL_IN_USE, 'signIn.error.lichessEmailInUse'],
   ['account_not_linked', 'signIn.error.lichessEmailInUse'],
+  ['INVALID_TOKEN', 'signIn.error.linkExpired'],
   ['account.emailInvalid', 'account.emailInvalid'],
 ]);
 

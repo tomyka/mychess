@@ -4,6 +4,10 @@
     "greeting": "Hello, {name}!",
     "signOut": "Sign out"
   },
+  "language": {
+    "lt": "Lietuvių",
+    "en": "English"
+  },
   "signIn": {
     "title": "Sign in",
     "intro": "Enter your email address and we will send you a sign-in link.",
@@ -16,13 +20,23 @@
     "deleted": "Your account has been deleted.",
     "error": {
       "lichessEmailInUse": "An account with this email address already exists. Sign in by email or with Google, then connect Lichess in settings.",
+      "linkExpired": "The link has expired or was already used. Request a new one.",
       "tooManyRequests": "Too many attempts. Wait a minute and try again.",
       "generic": "Sign-in failed. Please try again."
     }
   },
+  "onboarding": {
+    "title": "Welcome!",
+    "intro": "Tell us what to call you and which language to show the site in.",
+    "displayName": "Display name",
+    "displayNameHint": "Others will see this name. You can change it later in settings.",
+    "language": "Language",
+    "submit": "Save and continue"
+  },
   "account": {
     "emailInvalid": "Enter a valid email address.",
-    "deleteNameMismatch": "The name you typed does not match your display name."
+    "deleteNameMismatch": "The name you typed does not match your display name.",
+    "localeInvalid": "Choose a language: Lithuanian or English."
   },
   "displayName": {
     "blank": "Enter a display name.",

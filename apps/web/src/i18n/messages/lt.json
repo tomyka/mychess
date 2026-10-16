@@ -4,6 +4,10 @@
     "greeting": "Sveiki, {name}!",
     "signOut": "Atsijungti"
   },
+  "language": {
+    "lt": "Lietuvių",
+    "en": "English"
+  },
   "signIn": {
     "title": "Prisijungimas",
     "intro": "Įveskite el. pašto adresą ir atsiųsime prisijungimo nuorodą.",
@@ -16,13 +20,23 @@
     "deleted": "Jūsų paskyra ištrinta.",
     "error": {
       "lichessEmailInUse": "Paskyra šiuo el. pašto adresu jau yra. Prisijunkite el. paštu arba per Google, tada nustatymuose prijunkite Lichess.",
+      "linkExpired": "Nuoroda nebegalioja arba jau buvo panaudota. Paprašykite naujos.",
       "tooManyRequests": "Per daug bandymų. Palaukite minutę ir bandykite dar kartą.",
       "generic": "Prisijungti nepavyko. Bandykite dar kartą."
     }
   },
+  "onboarding": {
+    "title": "Sveiki atvykę!",
+    "intro": "Nurodykite, kaip jus vadinti ir kokia kalba rodyti svetainę.",
+    "displayName": "Rodomas vardas",
+    "displayNameHint": "Šį vardą matys kiti. Vėliau jį galėsite pakeisti nustatymuose.",
+    "language": "Kalba",
+    "submit": "Išsaugoti ir tęsti"
+  },
   "account": {
     "emailInvalid": "Įveskite teisingą el. pašto adresą.",
-    "deleteNameMismatch": "Įrašytas vardas nesutampa su jūsų rodomu vardu."
+    "deleteNameMismatch": "Įrašytas vardas nesutampa su jūsų rodomu vardu.",
+    "localeInvalid": "Pasirinkite kalbą: lietuvių arba anglų."
   },
   "displayName": {
     "blank": "Įveskite rodomą vardą.",

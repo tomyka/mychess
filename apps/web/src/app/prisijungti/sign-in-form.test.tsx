@@ -204,7 +204,8 @@ describe('SignInForm', () => {
     ['state_mismatch', lt.signIn.error.generic],
     ['state_not_found', lt.signIn.error.generic],
     ['unable_to_create_user', lt.signIn.error.generic],
-    ['INVALID_TOKEN', lt.signIn.error.generic],
+    ['INVALID_TOKEN', lt.signIn.error.linkExpired],
+    ['invalid_token', lt.signIn.error.generic],
     ['anything', lt.signIn.error.generic],
     ['constructor', lt.signIn.error.generic],
   ])('translates the error code %s', (error, text) => {
