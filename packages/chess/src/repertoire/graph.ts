@@ -57,9 +57,10 @@ export interface RepertoireGraph {
 export const moveKey = (fromKey: string, san: string): string =>
   `${fromKey}|${san}`;
 
+/** Whether `move` is played by the repertoire's side. */
 export function isPlayerMove(
-  graph: RepertoireGraph,
-  move: RepertoireMove,
+  graph: Pick<RepertoireGraph, 'side'>,
+  move: Pick<RepertoireMove, 'from'>,
 ): boolean {
   return (sideToMove(move.from) === 'w') === (graph.side === 'white');
 }

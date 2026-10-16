@@ -15,46 +15,48 @@ const scheduler = fsrs(
     enable_fuzz: false,
   }),
 );
-const DAY = 86_400_000;
+/** One day in milliseconds. */
+export const DAY_MS = 86_400_000;
 
-/** R-61: a hint counts as a lapse. */
-export type Outcome = 'correct' | 'lapse' | 'hint';
+/** A drill's result: a pass or a Lapse. R-61: a hint counts as a Lapse. */
+export type Outcome = 'pass' | 'lapse' | 'hint';
 
-export interface ReviewCard {
+/** The Review of one player move: its FSRS schedule and its Lapses. */
+export interface ReviewState {
   readonly key: string;
   readonly fsrs: Card;
   readonly lapses: readonly Date[];
 }
 
 /** Starts review after the learn pass; R-58: the first review is due the next day. */
-export function startReview(key: string, now: Date): ReviewCard {
+export function startReview(key: string, now: Date): ReviewState {
   const first = scheduler.next(createEmptyCard(now), now, Rating.Good).card;
   return {
     key,
-    fsrs: { ...first, due: new Date(now.getTime() + DAY) },
+    fsrs: { ...first, due: new Date(now.getTime() + DAY_MS) },
     lapses: [],
   };
 }
 
 export function grade(
-  card: ReviewCard,
+  review: ReviewState,
   outcome: Outcome,
   now: Date,
-): ReviewCard {
-  const correct = outcome === 'correct';
+): ReviewState {
+  const passed = outcome === 'pass';
   const next = scheduler.next(
-    card.fsrs,
+    review.fsrs,
     now,
-    correct ? Rating.Good : Rating.Again,
+    passed ? Rating.Good : Rating.Again,
   ).card;
   return {
-    key: card.key,
+    key: review.key,
     fsrs: next,
-    lapses: correct ? card.lapses : [...card.lapses, now],
+    lapses: passed ? review.lapses : [...review.lapses, now],
   };
 }
 
 /** The predicted probability, 0 to 1, that the player recalls the move at `now`. */
-export function retrievability(card: ReviewCard, now: Date): number {
-  return scheduler.get_retrievability(card.fsrs, now, false);
+export function retrievability(review: ReviewState, now: Date): number {
+  return scheduler.get_retrievability(review.fsrs, now, false);
 }

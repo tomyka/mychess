@@ -11,8 +11,9 @@
  */
 import { DEFAULT_POSITION, validateFen } from 'chess.js';
 import { classify } from '../openings/classify';
-import { positionKey, sideToMove } from '../position-key';
+import { positionKey } from '../position-key';
 import {
+  isPlayerMove,
   moveKey,
   type Arrow,
   type Chapter,
@@ -223,7 +224,7 @@ class RepertoireBuilder {
   private readonly answers = new Map<string, string>();
   readonly skipped: Skipped[] = [];
 
-  private readonly side: Side;
+  readonly side: Side;
 
   constructor(side: Side) {
     this.side = side;
@@ -276,17 +277,13 @@ class RepertoireBuilder {
     };
   }
 
-  private isPlayerMove(from: string): boolean {
-    return sideToMove(from) === (this.side === 'white' ? 'w' : 'b');
-  }
-
   private leftOut(
     game: number,
     move: ReplayedMove,
     dropped: ReadonlySet<number>,
   ): boolean {
     if (move.parent !== null && dropped.has(move.parent)) return true;
-    const answer = this.isPlayerMove(move.from)
+    const answer = isPlayerMove(this, move)
       ? this.answers.get(move.from)
       : undefined;
     if (answer === undefined || answer === move.san) return false;
@@ -310,7 +307,7 @@ class RepertoireBuilder {
         ...(this.children.get(move.from) ?? []),
         draft,
       ]);
-      if (this.isPlayerMove(move.from)) this.answers.set(move.from, move.san);
+      if (isPlayerMove(this, move)) this.answers.set(move.from, move.san);
     }
     if (!draft.chapters.includes(chapterId)) draft.chapters.push(chapterId);
     addMarks(draft, draft.arrows, move.arrows, (a) => `a${arrowKey(a)}`);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ECO_LT } from './data/eco-lt';
-import { tidyLtName } from './eco-lt-tidy';
+import { isMoveToken, tidyLtName } from './eco-lt-tidy';
 
 // Real šachmatai.lt names (ruling R-77: a safe tidy only; wording,
 // capitalisation and word forms stay verbatim).
@@ -62,6 +62,7 @@ describe('tidyLtName', () => {
   it('leaves names whose moves are not a trailing qualifier alone', () => {
     for (const name of [
       'Siciliška gynyba, Naidorfo variantas, 7...Be7 Pagrindinė linija',
+      'Siciliška gynyba 7...Re7 Pagrindinė linija',
       'Angliškas debiutas, Keturių žirgų sistema g3 variantas',
       'Atmestas valdovės gambitas, 4.Rg5 Žbd7',
       'Nimcovičiaus gynyba, 4.e3 c5, 5.Že2',
@@ -89,5 +90,35 @@ describe('tidyLtName', () => {
       'Ispaniškoji partija, Modernioji Šteinico gynyba  5.0-0',
     );
     expect(tidyLtName(once)).toBe(once);
+  });
+});
+
+describe('isMoveToken', () => {
+  it('takes moves with and without a number', () => {
+    for (const token of [
+      'c5',
+      'Žbd7',
+      'Rc3+',
+      'bc3',
+      'exd5',
+      'B1e2',
+      'O-O',
+      'O-O-O#',
+      '5.Žf3',
+      '6...Žbd7',
+    ]) {
+      expect([token, isMoveToken(token)]).toEqual([token, true]);
+    }
+  });
+
+  it('takes a short pawn capture between neighbouring files (D44 "dc")', () => {
+    expect(isMoveToken('dc')).toBe(true);
+    expect(isMoveToken('cd')).toBe(true);
+  });
+
+  it('refuses words that only look like squares without a rank', () => {
+    for (const token of ['be', 'su', 'ir', 'ah', 'Ž', 'e9', 'c']) {
+      expect([token, isMoveToken(token)]).toEqual([token, false]);
+    }
   });
 });

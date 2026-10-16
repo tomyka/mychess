@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chapterName, classify, ecoName } from './classify';
+import { chapterName, classify, ecoName, indexByPosition } from './classify';
 
 describe('classify', () => {
   it('finds the deepest ECO match along the line', () => {
@@ -73,5 +73,21 @@ describe('chapter names', () => {
       key: 'chapter.untitled',
       number: 3,
     });
+  });
+});
+
+describe('indexByPosition', () => {
+  it('indexes each line by its final position, the later entry winning', () => {
+    const index = indexByPosition([
+      { code: 'X01', name: 'First', moves: ['Nf3', 'd5', 'd4'] },
+      { code: 'X02', name: 'Second', moves: ['d4', 'd5', 'Nf3'] },
+    ]);
+    expect([...index.values()].map((e) => e.code)).toEqual(['X02']);
+  });
+
+  it('throws at an illegal move: the ECO data is broken', () => {
+    expect(() =>
+      indexByPosition([{ code: 'X99', name: 'Bad', moves: ['e4', 'Ke3'] }]),
+    ).toThrow('ECO X99: illegal move Ke3');
   });
 });

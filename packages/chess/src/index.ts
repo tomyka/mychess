@@ -54,14 +54,14 @@ export {
   startReview,
   TARGET_RETENTION,
   type Outcome,
-  type ReviewCard,
+  type ReviewState,
 } from './training/schedule';
 export {
   learnStep,
   startLearn,
   type LearnEvent,
   type LearnState,
-  type LearnStepName,
+  type LearnStep,
 } from './training/learn';
 export {
   buildQueue,
@@ -69,6 +69,8 @@ export {
   type Queue,
   type QueueInput,
   type QueueItem,
+  type QueueLimits,
+  type QueueRefusal,
   type QueueRepertoire,
 } from './training/queue';
 export {

@@ -88,6 +88,17 @@ describe('exportPgn', () => {
     );
   });
 
+  it('numbers from 1 whatever the source FEN counters, as its FEN tag says', () => {
+    // A position key drops the move counters, so the exported FEN tag ends
+    // "0 1" and the movetext numbering starts at 1 to match it.
+    const fen =
+      'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 12';
+    const graph = graphOf(`[FEN "${fen}"]\n\n12. Bb5 a6 *`, 'white');
+    expect(exportPgn(graph)).toContain(
+      `[FEN "${positionKey(fen)} 0 1"]\n[Result "*"]\n\n1. Bb5 a6 *`,
+    );
+  });
+
   it('names a chapter by its custom name, header name or ECO code', () => {
     const graph = graphOf('1. e4 e5 *');
     const named = (nameSource: Chapter['nameSource']) =>

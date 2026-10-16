@@ -111,6 +111,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-75** (Q32): Unattended backlog runs open a PR with the gate green; the next supervised lead session reviews (qa, architect) and merges.
 - **R-76** (S2 brainstorm, #252, 2026-10-16): FSRS target retention is 90%, fixed for every player in M1; a player setting can follow later without data changes.
 - **R-77** (S2, #252, 2026-10-16): Lithuanian opening names from šachmatai.lt get a safe tidy only in the generator: collapse whitespace, castling as O-O, a comma before a trailing move qualifier, no space after a move number. Wording, capitalisation and word forms stay verbatim.
+- **R-78** (S2 review, #252, 2026-10-16): A lapse or hint on a move keeps the standard FSRS relearning step: the move comes back within minutes the same day until it sticks, and these repeats count toward the session size (R-62).
 
 ## Open questions
 

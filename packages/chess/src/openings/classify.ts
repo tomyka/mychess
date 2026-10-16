@@ -31,16 +31,28 @@ function play(chess: Chess, san: string): boolean {
 }
 
 /**
- * Each ECO line's final position to its entry, built once. When two entries
- * reach one position the later, more specific code wins.
+ * Each ECO line's final position to its entry. When two entries reach one
+ * position the later, more specific code wins. An illegal move means the
+ * generated data is broken, a programmer error, so it throws.
  */
-const BY_POSITION: ReadonlyMap<string, EcoEntry> = new Map(
-  ECO.map((entry) => {
-    const chess = new Chess();
-    for (const san of entry.moves) play(chess, san);
-    return [positionKey(chess.fen()), entry] as const;
-  }),
-);
+export function indexByPosition(
+  entries: readonly EcoEntry[],
+): ReadonlyMap<string, EcoEntry> {
+  return new Map(
+    entries.map((entry) => {
+      const chess = new Chess();
+      for (const san of entry.moves) {
+        if (!play(chess, san)) {
+          throw new Error(`ECO ${entry.code}: illegal move ${san}`);
+        }
+      }
+      return [positionKey(chess.fen()), entry] as const;
+    }),
+  );
+}
+
+/** Built once at module load, so broken ECO data fails at startup. */
+const BY_POSITION = indexByPosition(ECO);
 
 const BY_CODE: ReadonlyMap<string, EcoEntry> = new Map(
   ECO.map((entry) => [entry.code, entry] as const),

@@ -19,14 +19,9 @@ interface Walk {
   readonly children: ReadonlyMap<string, readonly RepertoireMove[]>;
   /** Whether the chapter's root has Black to move: ply 0 is then move 1 for Black. */
   readonly blackFirst: boolean;
-  /** The full-move number of the root, from the FEN the game is set up with. */
-  readonly firstMove: number;
   /** Positions whose continuation is already written. */
   readonly written: Set<string>;
 }
-
-/** A FEN's full-move number, its sixth field. */
-const fullMoveOf = (fen: string): number => Number(fen.split(' ')[5] ?? '1');
 
 function chapterName(chapter: Chapter): string {
   const source = chapter.nameSource;
@@ -80,8 +75,9 @@ function moveText(
   ply: number,
   numbered: boolean,
 ): string[] {
-  const number =
-    walk.firstMove + Math.floor((ply + (walk.blackFirst ? 1 : 0)) / 2);
+  // Numbering starts at 1: a position key has no move counters, so the
+  // chapter's FEN tag (`fenOf`) gives the full-move number 1 too.
+  const number = 1 + Math.floor((ply + (walk.blackFirst ? 1 : 0)) / 2);
   const white = sideToMove(move.from) === 'w';
   const san = white
     ? `${String(number)}. ${move.san}`
@@ -138,7 +134,6 @@ function game(graph: RepertoireGraph, chapter: Chapter): string {
   const walk: Walk = {
     children: childrenIn(graph, chapter.id),
     blackFirst: sideToMove(chapter.rootKey) === 'b',
-    firstMove: fullMoveOf(fenOf(chapter.rootKey)),
     written: new Set(),
   };
   const movetext = [

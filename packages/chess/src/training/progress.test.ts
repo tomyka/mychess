@@ -10,18 +10,18 @@ import {
   weakSpots,
 } from './progress';
 import {
+  DAY_MS,
   grade,
   retrievability,
   startReview,
-  type ReviewCard,
+  type ReviewState,
 } from './schedule';
 
-const DAY = 86_400_000;
 const now = new Date('2026-10-16T08:00:00Z');
-const daysAgo = (days: number) => new Date(now.getTime() - days * DAY);
-const fresh = (key: string): ReviewCard => startReview(key, daysAgo(0.5));
-/** A card with lapses recorded at these times; its schedule stays fresh. */
-const withLapses = (key: string, at: readonly Date[]): ReviewCard => ({
+const daysAgo = (days: number) => new Date(now.getTime() - days * DAY_MS);
+const fresh = (key: string): ReviewState => startReview(key, daysAgo(0.5));
+/** A review with lapses recorded at these times; its schedule stays fresh. */
+const withLapses = (key: string, at: readonly Date[]): ReviewState => ({
   ...fresh(key),
   lapses: at,
 });
@@ -38,35 +38,39 @@ describe('thresholds', () => {
 });
 
 describe('mastered', () => {
-  it('needs a card for every key with recall of at least 0.9', () => {
-    const cards = new Map([
+  it('needs a review for every key with recall of at least 0.9', () => {
+    const reviews = new Map([
       ['a', fresh('a')],
       ['b', fresh('b')],
     ]);
-    expect(mastered(['a', 'b'], cards, now)).toBe(true);
-    expect(mastered(['a', 'b', 'c'], cards, now)).toBe(false);
-    expect(mastered(['a'], cards, new Date(now.getTime() + 400 * DAY))).toBe(
-      false,
-    );
+    expect(mastered(['a', 'b'], reviews, now)).toBe(true);
+    expect(mastered(['a', 'b', 'c'], reviews, now)).toBe(false);
+    expect(
+      mastered(['a'], reviews, new Date(now.getTime() + 400 * DAY_MS)),
+    ).toBe(false);
+  });
+
+  it('is false for no keys: nothing to master is not mastered', () => {
+    expect(mastered([], new Map([['a', fresh('a')]]), now)).toBe(false);
   });
 
   it('stays mastered until recall drops below the threshold', () => {
-    const card = fresh('a');
+    const review = fresh('a');
     // Find the first whole hour at which recall drops below the threshold.
     let at = now;
-    while (retrievability(card, at) >= MASTERY_RETENTION) {
+    while (retrievability(review, at) >= MASTERY_RETENTION) {
       at = new Date(at.getTime() + 3_600_000);
     }
     const last = new Date(at.getTime() - 3_600_000);
-    const cards = new Map([['a', card]]);
-    expect(mastered(['a'], cards, last)).toBe(true);
-    expect(mastered(['a'], cards, at)).toBe(false);
+    const reviews = new Map([['a', review]]);
+    expect(mastered(['a'], reviews, last)).toBe(true);
+    expect(mastered(['a'], reviews, at)).toBe(false);
   });
 });
 
 describe('weakSpots', () => {
   it('ranks keys with two or more lapses in 30 days', () => {
-    // Cards start before their lapses: ts-fsrs refuses to grade in the past.
+    // Reviews start before their lapses: ts-fsrs refuses to grade in the past.
     let a = startReview('a', daysAgo(60));
     a = grade(a, 'lapse', daysAgo(5));
     a = grade(a, 'lapse', daysAgo(2));
@@ -102,18 +106,33 @@ describe('weakSpots', () => {
     ]);
   });
 
-  it('leaves out a card with one recent lapse and good recall', () => {
+  it('leaves out a review with one recent lapse and good recall', () => {
     const one = withLapses('one', [daysAgo(1)]);
     expect(weakSpots(new Map([['one', one]]), now)).toEqual([]);
   });
 
-  it('flags a card whose recall fell below 0.7 without lapses', () => {
-    const card = fresh('a');
-    const later = new Date(now.getTime() + 400 * DAY);
-    expect(retrievability(card, later)).toBeLessThan(WEAK_RETENTION);
-    expect(weakSpots(new Map([['a', card]]), later)).toEqual([
-      { key: 'a', recentLapses: 0, recall: retrievability(card, later) },
+  it('flags a review whose recall fell below 0.7 without lapses', () => {
+    const review = fresh('a');
+    const later = new Date(now.getTime() + 400 * DAY_MS);
+    expect(retrievability(review, later)).toBeLessThan(WEAK_RETENTION);
+    expect(weakSpots(new Map([['a', review]]), later)).toEqual([
+      { key: 'a', recentLapses: 0, recall: retrievability(review, later) },
     ]);
+  });
+
+  it('leaves out keys outside currentKeys, so dormant reviews do not count', () => {
+    const reviews = new Map([
+      ['kept', withLapses('kept', [daysAgo(1), daysAgo(2)])],
+      ['dormant', withLapses('dormant', [daysAgo(1), daysAgo(2)])],
+    ]);
+    expect(weakSpots(reviews, now).map((s) => s.key)).toEqual([
+      'kept',
+      'dormant',
+    ]);
+    expect(
+      weakSpots(reviews, now, new Set(['kept'])).map((s) => s.key),
+    ).toEqual(['kept']);
+    expect(weakSpots(reviews, now, new Set())).toEqual([]);
   });
 
   it('sorts by recent lapses, most first, then by recall, lowest first', () => {
@@ -123,13 +142,13 @@ describe('weakSpots', () => {
       ...startReview(key, daysAgo(300)),
       lapses: lapses(n),
     });
-    const cards = new Map([
+    const reviews = new Map([
       ['two', withLapses('two', lapses(2))],
       ['three', withLapses('three', lapses(3))],
       ['twoOld', older('twoOld', 2)],
       ['zeroOld', older('zeroOld', 0)],
     ]);
-    expect(weakSpots(cards, now).map((s) => s.key)).toEqual([
+    expect(weakSpots(reviews, now).map((s) => s.key)).toEqual([
       'three',
       'twoOld',
       'two',
@@ -140,11 +159,11 @@ describe('weakSpots', () => {
 
 describe('reconcile', () => {
   it('keeps, queues and parks keys', () => {
-    const cards = new Map([
+    const reviews = new Map([
       ['a', fresh('a')],
       ['gone', fresh('gone')],
     ]);
-    expect(reconcile(new Set(['a', 'new']), cards)).toEqual({
+    expect(reconcile(new Set(['a', 'new']), reviews)).toEqual({
       kept: ['a'],
       toLearn: ['new'],
       dormant: ['gone'],
@@ -152,24 +171,24 @@ describe('reconcile', () => {
   });
 
   it('sorts each list', () => {
-    const cards = new Map(['d', 'b', 'z', 'x'].map((k) => [k, fresh(k)]));
-    expect(reconcile(new Set(['n', 'd', 'm', 'b']), cards)).toEqual({
+    const reviews = new Map(['d', 'b', 'z', 'x'].map((k) => [k, fresh(k)]));
+    expect(reconcile(new Set(['n', 'd', 'm', 'b']), reviews)).toEqual({
       kept: ['b', 'd'],
       toLearn: ['m', 'n'],
       dormant: ['x', 'z'],
     });
   });
 
-  it('never drops a card whose key still exists', () => {
+  it('never drops a review whose key still exists', () => {
     expect(() => {
       fc.assert(
         fc.property(
           fc.uniqueArray(fc.string()),
           fc.uniqueArray(fc.string()),
-          (current, carded) => {
-            const cards = new Map(carded.map((k) => [k, fresh(k)]));
-            const r = reconcile(new Set(current), cards);
-            return carded
+          (current, reviewed) => {
+            const reviews = new Map(reviewed.map((k) => [k, fresh(k)]));
+            const r = reconcile(new Set(current), reviews);
+            return reviewed
               .filter((k) => current.includes(k))
               .every((k) => r.kept.includes(k));
           },
@@ -184,14 +203,14 @@ describe('reconcile', () => {
         fc.property(
           fc.uniqueArray(fc.string()),
           fc.uniqueArray(fc.string()),
-          (current, carded) => {
+          (current, reviewed) => {
             const r = reconcile(
               new Set(current),
-              new Map(carded.map((k) => [k, fresh(k)])),
+              new Map(reviewed.map((k) => [k, fresh(k)])),
             );
             const all = [...r.kept, ...r.toLearn, ...r.dormant];
             return (
-              all.length === new Set([...current, ...carded]).size &&
+              all.length === new Set([...current, ...reviewed]).size &&
               new Set(all).size === all.length
             );
           },

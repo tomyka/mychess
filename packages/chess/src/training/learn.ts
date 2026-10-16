@@ -1,13 +1,13 @@
-export type LearnStepName = 'shown' | 'asked' | 'learned';
+export type LearnStep = 'shown' | 'asked' | 'learned';
 export type LearnEvent = 'seen' | 'correct' | 'wrong';
 export interface LearnState {
   readonly key: string;
-  readonly step: LearnStepName;
+  readonly step: LearnStep;
 }
 
 /** Arrow shown, then a blind retest; one correct retest ends the pass (R-55). */
 const NEXT: Readonly<
-  Record<LearnStepName, Partial<Record<LearnEvent, LearnStepName>>>
+  Record<LearnStep, Partial<Record<LearnEvent, LearnStep>>>
 > = {
   shown: { seen: 'asked' },
   asked: { correct: 'learned', wrong: 'shown' },

@@ -9,15 +9,19 @@ import {
   type RepertoireGraph,
   type Side,
 } from '../repertoire/graph';
-import { buildQueue, QUEUE_LIMITS, type QueueInput } from './queue';
-import { startReview, type ReviewCard } from './schedule';
+import {
+  buildQueue,
+  QUEUE_LIMITS,
+  type QueueInput,
+  type QueueLimits,
+} from './queue';
+import { DAY_MS, startReview, type ReviewState } from './schedule';
 
 function must<T>(value: T | undefined): T {
   if (value === undefined) throw new Error('expected a value');
   return value;
 }
 
-const DAY = 86_400_000;
 const now = new Date('2026-10-16T08:00:00Z');
 function graph(pgn: string, side: Side): RepertoireGraph {
   const r = importPgn(pgn, side);
@@ -56,29 +60,110 @@ const wide = graph(
 
 const input = (
   repertoires: QueueInput['repertoires'],
-  cards: ReadonlyMap<string, ReviewCard> = new Map(),
+  reviews: ReadonlyMap<string, ReviewState> = new Map(),
   learnedToday = 0,
-): QueueInput => ({ repertoires, cards, learnedToday });
+): QueueInput => ({ repertoires, reviews, learnedToday });
 
-/** A card for `key` whose first review fell due `daysAgo` days before now. */
-const dueCard = (key: string, daysAgo: number): ReviewCard =>
-  startReview(key, new Date(now.getTime() - (daysAgo + 1) * DAY));
+/** A Review for `key` whose first review fell due `daysAgo` days before now. */
+const dueReview = (key: string, daysAgo: number): ReviewState =>
+  startReview(key, new Date(now.getTime() - (daysAgo + 1) * DAY_MS));
 
-describe('buildQueue', () => {
-  it('offers the player moves without a card as new moves, in line order', () => {
-    const q = buildQueue(
-      input([{ id: 'r1', graph: white, paused: false }]),
+/** The queue for limits that are valid; a refusal fails the test. */
+function queueOf(queueInput: QueueInput, at: Date, limits?: QueueLimits) {
+  const r = buildQueue(queueInput, at, limits);
+  if (!r.ok) throw new Error(r.refusal.reason);
+  return r.value;
+}
+
+describe('queue limits (R-62)', () => {
+  const keys = playerKeys(wide);
+  const allDue = new Map(keys.map((k, i) => [k, dueReview(k, i + 1)]));
+  const wideInput = (exclude?: ReadonlySet<string>): QueueInput => ({
+    ...input([{ id: 'r1', graph: wide, active: true }], allDue),
+    ...(exclude === undefined ? {} : { exclude }),
+  });
+
+  it('defaults to 20 reviews a session and 10 new moves a day', () => {
+    expect(QUEUE_LIMITS).toEqual({ reviews: 20, newPerDay: 10 });
+  });
+
+  it('takes the session size and the daily new-move limit as input', () => {
+    const q = queueOf(wideInput(), now, { reviews: 10, newPerDay: 3 });
+    expect(q.reviews).toHaveLength(10);
+    const fresh = queueOf(
+      input([{ id: 'r1', graph: wide, active: true }]),
+      now,
+      { reviews: 10, newPerDay: 3 },
+    );
+    expect(fresh.newMoves).toHaveLength(3);
+  });
+
+  it('accepts a session size from 10 to 100', () => {
+    for (const reviews of [10, 55, 100]) {
+      expect(buildQueue(wideInput(), now, { reviews, newPerDay: 10 }).ok).toBe(
+        true,
+      );
+    }
+  });
+
+  it('refuses a session size outside 10 to 100 or not whole', () => {
+    for (const reviews of [9, 101, 0, -20, 20.5, Number.NaN]) {
+      expect(buildQueue(wideInput(), now, { reviews, newPerDay: 10 })).toEqual({
+        ok: false,
+        refusal: { reason: 'queue.invalidLimit', limit: 'reviews' },
+      });
+    }
+  });
+
+  it('refuses a daily new-move limit that is negative or not whole', () => {
+    for (const newPerDay of [-1, 2.5, Number.NaN]) {
+      expect(buildQueue(wideInput(), now, { reviews: 20, newPerDay })).toEqual({
+        ok: false,
+        refusal: { reason: 'queue.invalidLimit', limit: 'newPerDay' },
+      });
+    }
+    expect(
+      queueOf(input([{ id: 'r1', graph: wide, active: true }]), now, {
+        reviews: 20,
+        newPerDay: 0,
+      }).newMoves,
+    ).toEqual([]);
+  });
+
+  it('continues a session: keys already reviewed are left out', () => {
+    const first = queueOf(wideInput(), now);
+    expect(first.reviews).toHaveLength(QUEUE_LIMITS.reviews);
+    const seen = new Set(first.reviews.map((i) => i.key));
+    const next = queueOf(wideInput(seen), now);
+    expect(next.reviews.map((i) => i.key)).toEqual(
+      keys.filter((k) => !seen.has(k)),
+    );
+    expect(next.reviews.every((i) => !seen.has(i.key))).toBe(true);
+  });
+
+  it('leaves an excluded key out of the new moves too', () => {
+    const [e4, ...rest] = playerKeys(white);
+    const q = queueOf(
+      {
+        ...input([{ id: 'r1', graph: white, active: true }]),
+        exclude: new Set([must(e4)]),
+      },
       now,
     );
+    expect(q.newMoves.map((i) => i.key)).toEqual(rest);
+    expect(rest.map((k) => k.split('|')[1])).toEqual(['Nf3', 'Bc4']);
+  });
+});
+
+describe('buildQueue', () => {
+  it('offers the player moves without a Review as new moves, in line order', () => {
+    const q = queueOf(input([{ id: 'r1', graph: white, active: true }]), now);
     expect(q.newMoves.map((i) => i.san)).toEqual(['e4', 'Nf3', 'Bc4']);
     expect(q.reviews).toEqual([]);
   });
 
   it('describes each item by key, repertoire, position and move', () => {
-    const q = buildQueue(
-      input([{ id: 'r1', graph: white, paused: false }]),
-      now,
-    );
+    const q = queueOf(input([{ id: 'r1', graph: white, active: true }]), now);
     const first = must(white.moves[0]);
     expect(q.newMoves[0]).toEqual({
       key: moveKey(first.from, 'e4'),
@@ -88,13 +173,13 @@ describe('buildQueue', () => {
     });
   });
 
-  it('offers due cards as reviews, tagged with their repertoire', () => {
+  it('offers due Reviews, tagged with their repertoire', () => {
     const key = moveKey(must(white.moves[0]).from, 'e4');
-    const card = startReview(key, new Date(now.getTime() - 2 * DAY));
-    const q = buildQueue(
+    const review = startReview(key, new Date(now.getTime() - 2 * DAY_MS));
+    const q = queueOf(
       input(
-        [{ id: 'r1', graph: white, paused: false }],
-        new Map([[key, card]]),
+        [{ id: 'r1', graph: white, active: true }],
+        new Map([[key, review]]),
       ),
       now,
     );
@@ -104,14 +189,14 @@ describe('buildQueue', () => {
     expect(q.newMoves.map((i) => i.san)).toEqual(['Nf3', 'Bc4']);
   });
 
-  it('offers a card due exactly now, but not one due later', () => {
+  it('offers a Review due exactly now, but not one due later', () => {
     const [e4, nf3] = playerKeys(white).map(must);
-    const cards = new Map([
-      [must(e4), startReview(must(e4), new Date(now.getTime() - DAY))],
+    const reviews = new Map([
+      [must(e4), startReview(must(e4), new Date(now.getTime() - DAY_MS))],
       [must(nf3), startReview(must(nf3), now)],
     ]);
-    const q = buildQueue(
-      input([{ id: 'r1', graph: white, paused: false }], cards),
+    const q = queueOf(
+      input([{ id: 'r1', graph: white, active: true }], reviews),
       now,
     );
     expect(q.reviews.map((i) => i.san)).toEqual(['e4']);
@@ -122,9 +207,9 @@ describe('buildQueue', () => {
     const keys = playerKeys(wide);
     expect(keys).toHaveLength(QUEUE_LIMITS.reviews + 1);
     // The later a move comes in the graph, the longer it has been due.
-    const cards = new Map(keys.map((k, i) => [k, dueCard(k, i + 1)]));
-    const q = buildQueue(
-      input([{ id: 'r1', graph: wide, paused: false }], cards),
+    const reviews = new Map(keys.map((k, i) => [k, dueReview(k, i + 1)]));
+    const q = queueOf(
+      input([{ id: 'r1', graph: wide, active: true }], reviews),
       now,
     );
     expect(q.reviews.map((i) => i.key)).toEqual(
@@ -133,10 +218,7 @@ describe('buildQueue', () => {
   });
 
   it('caps new moves at the daily allowance, in line order', () => {
-    const q = buildQueue(
-      input([{ id: 'r1', graph: wide, paused: false }]),
-      now,
-    );
+    const q = queueOf(input([{ id: 'r1', graph: wide, active: true }]), now);
     const inLineOrder = [
       ...new Set(
         wide.chapters
@@ -155,11 +237,11 @@ describe('buildQueue', () => {
     );
   });
 
-  it('skips paused repertoires', () => {
-    const q = buildQueue(
+  it('skips repertoires excluded from training (a paused assignment)', () => {
+    const q = queueOf(
       input([
-        { id: 'r1', graph: white, paused: true },
-        { id: 'r2', graph: black, paused: false },
+        { id: 'r1', graph: white, active: false },
+        { id: 'r2', graph: black, active: true },
       ]),
       now,
     );
@@ -167,9 +249,9 @@ describe('buildQueue', () => {
   });
 
   it('subtracts moves already learned today from the new-move allowance', () => {
-    const q = buildQueue(
+    const q = queueOf(
       input(
-        [{ id: 'r1', graph: white, paused: false }],
+        [{ id: 'r1', graph: white, active: true }],
         new Map(),
         QUEUE_LIMITS.newPerDay - 1,
       ),
@@ -179,10 +261,10 @@ describe('buildQueue', () => {
   });
 
   it('shows the same review key once even if two repertoires hold it', () => {
-    const q = buildQueue(
+    const q = queueOf(
       input([
-        { id: 'a', graph: white, paused: false },
-        { id: 'b', graph: white, paused: false },
+        { id: 'a', graph: white, active: true },
+        { id: 'b', graph: white, active: true },
       ]),
       now,
     );
@@ -194,8 +276,8 @@ describe('buildQueue', () => {
       '1. e4 e5 2. Nf3 *\n\n1. e4 c5 2. Nf3 *',
       'white',
     );
-    const q = buildQueue(
-      input([{ id: 'r1', graph: twoChapters, paused: false }]),
+    const q = queueOf(
+      input([{ id: 'r1', graph: twoChapters, active: true }]),
       now,
     );
     expect(q.newMoves.map((i) => i.san)).toEqual(['e4', 'Nf3', 'Nf3']);
@@ -204,18 +286,15 @@ describe('buildQueue', () => {
 
   it('offers a player move that returns to an earlier position', () => {
     const back = graph('1. Nf3 Nf6 2. Ng1 Ng8 *', 'black');
-    const q = buildQueue(
-      input([{ id: 'r1', graph: back, paused: false }]),
-      now,
-    );
+    const q = queueOf(input([{ id: 'r1', graph: back, active: true }]), now);
     expect(q.newMoves.map((i) => i.san)).toEqual(['Nf6', 'Ng8']);
   });
 
   it('keeps answers from different sides apart', () => {
-    const q = buildQueue(
+    const q = queueOf(
       input([
-        { id: 'w', graph: white, paused: false },
-        { id: 'b', graph: black, paused: false },
+        { id: 'w', graph: white, active: true },
+        { id: 'b', graph: black, active: true },
       ]),
       now,
     );
@@ -257,44 +336,51 @@ describe('buildQueue', () => {
     };
     const keys = playerKeys(diamond);
     expect(keys).toHaveLength(40);
-    // Every player move but the deepest second choice has a card not yet due.
+    // Every player move but the deepest second choice has a review not yet due.
     const deepest = moveKey(at(38), 'b38');
-    const cards = new Map(
+    const reviews = new Map(
       keys
         .filter((k) => k !== deepest)
         .map((k) => [k, startReview(k, now)] as const),
     );
-    const q = buildQueue(
-      input([{ id: 'r1', graph: diamond, paused: false }], cards),
+    const q = queueOf(
+      input([{ id: 'r1', graph: diamond, active: true }], reviews),
       now,
     );
     expect(q.newMoves.map((i) => i.san)).toEqual(['b38']);
     expect(q.reviews).toEqual([]);
   }, 1000);
 
-  it('never exceeds its limits', () => {
+  it('fills up to its limits and never past them', () => {
     expect(() => {
       fc.assert(
-        fc.property(fc.nat(30), fc.nat(5), (learnedToday, daysAgo) => {
-          const cards = new Map(
-            playerKeys(wide)
-              .slice(0, 12)
-              .map((k) => [k, dueCard(k, daysAgo)]),
-          );
-          const q = buildQueue(
-            input(
-              [{ id: 'r1', graph: wide, paused: false }],
-              cards,
-              learnedToday,
-            ),
-            now,
-          );
-          return (
-            q.newMoves.length <=
-              Math.max(0, QUEUE_LIMITS.newPerDay - learnedToday) &&
-            q.reviews.length <= QUEUE_LIMITS.reviews
-          );
-        }),
+        fc.property(
+          fc.nat(30),
+          fc.nat(5),
+          fc.integer({ min: 10, max: 100 }),
+          fc.nat(15),
+          (learnedToday, daysAgo, sessionSize, newPerDay) => {
+            const reviews = new Map(
+              playerKeys(wide)
+                .slice(0, 12)
+                .map((k) => [k, dueReview(k, daysAgo)]),
+            );
+            const q = queueOf(
+              input(
+                [{ id: 'r1', graph: wide, active: true }],
+                reviews,
+                learnedToday,
+              ),
+              now,
+              { reviews: sessionSize, newPerDay },
+            );
+            return (
+              q.newMoves.length ===
+                Math.max(0, Math.min(9, newPerDay - learnedToday)) &&
+              q.reviews.length === Math.min(12, sessionSize)
+            );
+          },
+        ),
       );
     }).not.toThrow();
   });
