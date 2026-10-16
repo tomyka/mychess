@@ -11,9 +11,11 @@
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
     "build": "node build.mjs",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "migrate": "node --env-file-if-exists=../../apps/web/.env.local dist/migrate.mjs"
   },
   "dependencies": {
+    "@mychess/domain": "workspace:*",
     "drizzle-orm": "0.45.3",
     "pg": "8.23.0",
     "zod": "4.6.5"

@@ -1,0 +1,93 @@
+import { describe, expect, it } from 'vitest';
+import { useTestDatabase } from '../src/testing';
+
+const { client } = useTestDatabase();
+
+const insertAccount = (id: string, email: string) =>
+  client.query(
+    `insert into accounts (id, email, display_name, created_at, updated_at)
+     values ($1, $2, '', now(), now())`,
+    [id, email],
+  );
+
+describe('the accounts schema', () => {
+  it('defaults a new account to Lithuanian, free, not admin, not onboarded', async () => {
+    await insertAccount('a1', 'ruta@example.lt');
+    const { rows } = await client.query(
+      'select locale, entitlement, admin, disabled_at, onboarded_at from accounts',
+    );
+    expect(rows).toEqual([
+      {
+        locale: 'lt',
+        entitlement: 'free',
+        admin: false,
+        disabled_at: null,
+        onboarded_at: null,
+      },
+    ]);
+  });
+
+  it('refuses a locale outside Lithuanian and English', async () => {
+    await expect(
+      client.query(
+        `insert into accounts (id, email, display_name, locale, created_at, updated_at)
+         values ('a1', 'ruta@example.lt', '', 'de', now(), now())`,
+      ),
+    ).rejects.toThrow(/check/);
+  });
+
+  it('refuses an entitlement that does not exist', async () => {
+    await expect(
+      client.query(
+        `insert into accounts (id, email, display_name, entitlement, created_at, updated_at)
+         values ('a1', 'ruta@example.lt', '', 'pro', now(), now())`,
+      ),
+    ).rejects.toThrow(/check/);
+  });
+
+  it('refuses an audit row for an unknown admin action', async () => {
+    await expect(
+      client.query(
+        `insert into admin_audit (action, target_account_id, target_email, actor, at)
+         values ('delete-everything', 'a1', 'ruta@example.lt', 'cli', now())`,
+      ),
+    ).rejects.toThrow(/check/);
+  });
+
+  it('refuses a second account with the same email', async () => {
+    await insertAccount('a1', 'ruta@example.lt');
+    await expect(insertAccount('a2', 'ruta@example.lt')).rejects.toThrow(
+      /unique/,
+    );
+  });
+
+  it('removes sessions and provider links with their account', async () => {
+    await insertAccount('a1', 'ruta@example.lt');
+    await client.query(
+      `insert into sessions (id, token, account_id, expires_at, created_at, updated_at)
+       values ('s1', 't1', 'a1', now() + interval '1 day', now(), now())`,
+    );
+    await client.query(
+      `insert into provider_accounts (id, provider_account_id, provider_id, account_id, created_at, updated_at)
+       values ('p1', 'lichess-ruta', 'lichess', 'a1', now(), now())`,
+    );
+    await client.query(`delete from accounts where id = 'a1'`);
+    const { rows } = await client.query(
+      'select (select count(*) from sessions)::int as s, (select count(*) from provider_accounts)::int as p',
+    );
+    expect(rows).toEqual([{ s: 0, p: 0 }]);
+  });
+
+  it('keeps audit rows after the account is gone (no cascade)', async () => {
+    await insertAccount('a1', 'ruta@example.lt');
+    await client.query(
+      `insert into admin_audit (action, target_account_id, target_email, actor, at)
+       values ('grant-admin', 'a1', 'ruta@example.lt', 'cli', now())`,
+    );
+    await client.query(`delete from accounts where id = 'a1'`);
+    const { rows } = await client.query(
+      'select count(*)::int as n from admin_audit',
+    );
+    expect(rows).toEqual([{ n: 1 }]);
+  });
+});
