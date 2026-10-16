@@ -163,7 +163,9 @@ describe('exportPgn', () => {
     expect(exportPgn(graph)).toBe('[Event "Chapter 1"]\n[Result "*"]\n\n*');
   });
 
-  it('round-trips random legal repertoires', () => {
+  // Hundreds of import/export round trips: about 2s alone, over 5s when the
+  // gate's suites share the machine, so the timeout is only a sanity bound.
+  it('round-trips random legal repertoires', { timeout: 30_000 }, () => {
     const line = fc
       .array(fc.nat(40), { minLength: 1, maxLength: 12 })
       .map((choices) => {
