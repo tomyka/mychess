@@ -5,6 +5,13 @@
  */
 export const LICHESS_EMAIL_IN_USE = 'lichess_email_in_use';
 
+/**
+ * The `?error=` code for any other provider identity refused from joining
+ * an existing account by its email; the sign-in page shows the general
+ * message for it.
+ */
+export const JOIN_REFUSED = 'join_refused';
+
 /** The catalogue key of every error the sign-in page can show. */
 export type SignInErrorKey =
   | 'signIn.error.lichessEmailInUse'

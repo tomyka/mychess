@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import { MESSAGES } from '../../i18n/locales';
 import SettingsPage from './page';
 
@@ -11,10 +12,12 @@ const server = vi.hoisted(() => {
     google: { GOOGLE_CLIENT_ID: string; GOOGLE_CLIENT_SECRET: string };
     links: { id: string; provider: 'google' | 'lichess' }[];
     lichessUnlinked: boolean;
+    fresh: boolean;
   } = {
     google: { GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'secret' },
     links: [],
     lichessUnlinked: false,
+    fresh: true,
   };
   return state;
 });
@@ -22,6 +25,7 @@ const server = vi.hoisted(() => {
 // requireOnboarded never returns for a signed-out or new account;
 // session-helpers.test.ts covers that.
 vi.mock('../../server/session', () => ({
+  hasFreshSession: () => Promise.resolve(server.fresh),
   requireOnboarded: () =>
     Promise.resolve({
       id: 'a1',
@@ -58,6 +62,23 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: vi.fn() }),
 }));
 
+// The delete section as it is, keeping the account each render hands it:
+// a client component, so whatever it is given reaches the browser.
+const handed = vi.hoisted(() => {
+  const state: { accounts: unknown[] } = { accounts: [] };
+  return state;
+});
+vi.mock('./delete-section', async (original) => {
+  const actual = await original<typeof import('./delete-section')>();
+  return {
+    ...actual,
+    DeleteSection: (props: Parameters<typeof actual.DeleteSection>[0]) => {
+      handed.accounts.push(props.account);
+      return actual.DeleteSection(props);
+    },
+  };
+});
+
 vi.mock('./actions', () => ({
   updateProfileAction: vi.fn(),
   deleteAccountAction: vi.fn(),
@@ -84,6 +105,7 @@ beforeEach(() => {
   server.google = { GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'secret' };
   server.links = [];
   server.lichessUnlinked = false;
+  server.fresh = true;
 });
 
 describe('the settings page', () => {
@@ -146,6 +168,31 @@ describe('the settings page', () => {
     expect(within(providers).getByRole('note').textContent).toContain(
       s.providers.lichessUnlinked,
     );
+  });
+
+  it('hands the delete section only what deciding a deletion needs', async () => {
+    handed.accounts = [];
+    await renderPage();
+    const [account] = handed.accounts;
+    expect(Object.keys(z.object({}).loose().parse(account)).sort()).toEqual([
+      'displayName',
+      'email',
+      'onboardedAt',
+    ]);
+    expect(account).toMatchObject({
+      displayName: 'Rūta Jonaitė',
+      email: 'ruta@example.lt',
+    });
+  });
+
+  it('asks a session older than a day to sign in again instead of offering the export (R-95)', async () => {
+    server.fresh = false;
+    await renderPage();
+    const data = screen.getByRole('region', { name: s.export.title });
+    expect(
+      within(data).queryByRole('link', { name: s.export.download }),
+    ).toBeNull();
+    expect(within(data).getByRole('note').textContent).toBe(s.export.notFresh);
   });
 
   it('says nothing about Lichess otherwise', async () => {

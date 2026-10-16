@@ -1,5 +1,5 @@
 import { disableAccount } from '@mychess/db';
-import { useTestDatabase } from '@mychess/db/testing';
+import { TEST_AUDIT_EMAIL_KEY, useTestDatabase } from '@mychess/db/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { buildTestAuth, signInByMagicLink } from './support/auth';
@@ -56,7 +56,12 @@ describe('sessions (R-80)', () => {
   it('end at once when the account is disabled, and no new one starts (security item 8)', async () => {
     const built = buildTestAuth(db);
     const cookie = await signInByMagicLink(built, 'ruta@example.lt');
-    await disableAccount(db, 'ruta@example.lt', 'cli', new Date());
+    await disableAccount(db, {
+      email: 'ruta@example.lt',
+      actor: 'cli',
+      now: new Date(),
+      key: TEST_AUDIT_EMAIL_KEY,
+    });
     expect(
       await built.auth.api.getSession({ headers: new Headers({ cookie }) }),
     ).toBeNull();

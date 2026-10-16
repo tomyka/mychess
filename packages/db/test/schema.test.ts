@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { auditEmailHash } from '../src';
-import { useTestDatabase } from '../src/testing';
+import { TEST_AUDIT_EMAIL_KEY, useTestDatabase } from '../src/testing';
 
 const { client } = useTestDatabase();
 
@@ -11,7 +11,7 @@ const insertAccount = (id: string, email: string) =>
     [id, email],
   );
 
-const RUTA_HASH = auditEmailHash('ruta@example.lt');
+const RUTA_HASH = auditEmailHash('ruta@example.lt', TEST_AUDIT_EMAIL_KEY);
 
 const insertAudit = (action: string, hash: string) =>
   client.query(

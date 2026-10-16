@@ -6,15 +6,21 @@ import { cache } from 'react';
 import { ROUTES } from '../lib/routes';
 import { getAuth } from './auth';
 import { getDb } from './db';
+import { isFreshSession } from './session-freshness';
 
 /**
- * The signed-in, enabled account of this request, or null (one lookup per
- * request). The request's headers are read first: a page prerendered at
- * build time stops there, before the auth needs any environment.
+ * This request's session, or null (one lookup per request). The request's
+ * headers are read first: a page prerendered at build time stops there,
+ * before the auth needs any environment.
  */
-export const getAccount = cache(async (): Promise<Account | null> => {
+const getSession = cache(async () => {
   const requestHeaders = await headers();
-  const session = await getAuth().api.getSession({ headers: requestHeaders });
+  return getAuth().api.getSession({ headers: requestHeaders });
+});
+
+/** The signed-in, enabled account of this request, or null. */
+export const getAccount = cache(async (): Promise<Account | null> => {
+  const session = await getSession();
   if (session === null) return null;
   const account = await findAccountById(getDb(), session.user.id);
   return account === undefined || isDisabled(account) ? null : account;
@@ -32,4 +38,15 @@ export async function requireOnboarded(): Promise<Account> {
   const account = await requireAccount();
   if (!isOnboarded(account)) redirect(ROUTES.onboarding);
   return account;
+}
+
+/**
+ * Did this request's session start within the last day? Downloading the
+ * data export needs that, as linking a provider does (R-84, R-95).
+ */
+export async function hasFreshSession(): Promise<boolean> {
+  const session = await getSession();
+  return (
+    session !== null && isFreshSession(new Date(session.session.createdAt))
+  );
 }

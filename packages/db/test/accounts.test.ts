@@ -44,6 +44,7 @@ describe('findAccountById / findAccountByEmail', () => {
     expect(account).toEqual({
       id: 'a1',
       email: 'ruta@example.lt',
+      emailVerified: true,
       displayName: 'a1',
       locale: 'lt',
       entitlement: 'free',
@@ -55,6 +56,14 @@ describe('findAccountById / findAccountByEmail', () => {
     expect(await findAccountByEmail(db, 'ruta@example.lt')).toEqual(account);
     expect(await findAccountByEmail(db, 'jonas@example.lt')).toMatchObject({
       id: 'a2',
+    });
+  });
+
+  it('says whether the email was proven (R-87)', async () => {
+    await seedAccount(db, 'a1', 'ruta@example.lt');
+    await client.query('update accounts set email_verified = false');
+    expect(await findAccountById(db, 'a1')).toMatchObject({
+      emailVerified: false,
     });
   });
 

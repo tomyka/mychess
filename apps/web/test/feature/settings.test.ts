@@ -400,6 +400,19 @@ describe('deleteAccountAction', () => {
     expect(request.mailed).toEqual([deletedMail('lt', RUTA)]);
     expect(sessionCookieCleared()).toBe(true);
   });
+
+  // An account a Lichess sign-up created names an address nobody proved:
+  // mychess does not mail it (R-87).
+  it('deletes an account whose email was never proven without mailing it', async () => {
+    request.cookie = await onboarded(RUTA, 'Rūta');
+    await client.query('update accounts set email_verified = false');
+    expect(
+      await outcomeOf(deleteAccountAction({}, deleteForm('Rūta'))),
+    ).toEqual({ redirectedTo: '/prisijungti?deleted=1' });
+    expect(await tableCount('accounts')).toBe(0);
+    expect(request.mailed).toEqual([]);
+    expect(sessionCookieCleared()).toBe(true);
+  });
 });
 
 /** Unlinks `accountId` through Better Auth, as the settings page does. */

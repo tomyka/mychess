@@ -5,14 +5,15 @@ import {
   findAccountById,
   grantAdmin,
 } from '../src';
-import { useTestDatabase } from '../src/testing';
+import { TEST_AUDIT_EMAIL_KEY, useTestDatabase } from '../src/testing';
 import { seedAccount } from './support/accounts';
 
 const { db, client } = useTestDatabase();
 const T0 = new Date('2026-10-16T08:00:00Z');
 const NOW = new Date('2026-10-16T09:00:00Z');
+/** HMAC-SHA-256 of Rūta's email under the test key (R-94). */
 const RUTA_HASH =
-  'cade0ed8e54971329a51ec35d4e62651c18fa134c22619f504ba27dd38afcca0';
+  '35ce2f43ee9848c6b83aaa75f6a4297adba1a0b738502cf5622809e5ade2f231';
 
 /**
  * Every column of every audit row but the serial id, so a test sees any
@@ -41,13 +42,18 @@ const expectNoPlainEmail = async (): Promise<void> => {
   expect(JSON.stringify(await audit())).not.toMatch(/ruta|example/);
 };
 
-describe('the audit row (R-88)', () => {
-  it('stores the hash an operator recomputes with auditEmailHash', async () => {
+describe('the audit row (R-88, R-94)', () => {
+  it('stores the keyed hash an operator recomputes with auditEmailHash', async () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
-    await grantAdmin(db, 'ruta@example.lt', 'cli', NOW);
+    await grantAdmin(db, {
+      email: 'ruta@example.lt',
+      actor: 'cli',
+      now: NOW,
+      key: TEST_AUDIT_EMAIL_KEY,
+    });
     const rows = await audit();
     expect(rows.map((row) => row['target_email_hash'])).toEqual([
-      auditEmailHash('ruta@example.lt'),
+      auditEmailHash('ruta@example.lt', TEST_AUDIT_EMAIL_KEY),
     ]);
     await expectNoPlainEmail();
   });
@@ -68,7 +74,14 @@ describe('grantAdmin', () => {
   it('sets the flag and writes exactly one audit row', async () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
     await seedAccount(db, 'a2', 'jonas@example.lt');
-    expect(await grantAdmin(db, 'ruta@example.lt', 'cli', NOW)).toEqual({
+    expect(
+      await grantAdmin(db, {
+        email: 'ruta@example.lt',
+        actor: 'cli',
+        now: NOW,
+        key: TEST_AUDIT_EMAIL_KEY,
+      }),
+    ).toEqual({
       ok: true,
       value: undefined,
     });
@@ -87,7 +100,14 @@ describe('grantAdmin', () => {
 
   it('refuses an unknown email and writes nothing', async () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
-    expect(await grantAdmin(db, 'nobody@example.lt', 'cli', NOW)).toEqual({
+    expect(
+      await grantAdmin(db, {
+        email: 'nobody@example.lt',
+        actor: 'cli',
+        now: NOW,
+        key: TEST_AUDIT_EMAIL_KEY,
+      }),
+    ).toEqual({
       ok: false,
       refusal: { reason: 'admin.accountNotFound' },
     });
@@ -102,7 +122,14 @@ describe('disableAccount', () => {
   it('stamps the account, deletes its sessions at once and audits once', async () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
     await seedAccount(db, 'a2', 'jonas@example.lt');
-    expect(await disableAccount(db, 'ruta@example.lt', 'ops', NOW)).toEqual({
+    expect(
+      await disableAccount(db, {
+        email: 'ruta@example.lt',
+        actor: 'ops',
+        now: NOW,
+        key: TEST_AUDIT_EMAIL_KEY,
+      }),
+    ).toEqual({
       ok: true,
       value: undefined,
     });
@@ -122,7 +149,14 @@ describe('disableAccount', () => {
       `update accounts set disabled_at = $1, updated_at = $1 where id = 'a1'`,
       [T0],
     );
-    expect(await disableAccount(db, 'ruta@example.lt', 'ops', NOW)).toEqual({
+    expect(
+      await disableAccount(db, {
+        email: 'ruta@example.lt',
+        actor: 'ops',
+        now: NOW,
+        key: TEST_AUDIT_EMAIL_KEY,
+      }),
+    ).toEqual({
       ok: false,
       refusal: { reason: 'admin.alreadyDisabled' },
     });
@@ -135,7 +169,14 @@ describe('disableAccount', () => {
 
   it('refuses an unknown email, keeps every session and writes nothing', async () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
-    expect(await disableAccount(db, 'nobody@example.lt', 'cli', NOW)).toEqual({
+    expect(
+      await disableAccount(db, {
+        email: 'nobody@example.lt',
+        actor: 'cli',
+        now: NOW,
+        key: TEST_AUDIT_EMAIL_KEY,
+      }),
+    ).toEqual({
       ok: false,
       refusal: { reason: 'admin.accountNotFound' },
     });

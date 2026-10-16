@@ -65,7 +65,8 @@
     "export": {
       "title": "Your data",
       "intro": "Download all your account data as a JSON file.",
-      "download": "Download my data"
+      "download": "Download my data",
+      "notFresh": "For your security, sign in again before downloading your data."
     },
     "delete": {
       "title": "Delete account",

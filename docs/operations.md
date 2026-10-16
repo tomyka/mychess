@@ -65,6 +65,12 @@ The persona sign-in route (`POST /api/test/sign-in`, R-73) is on only where
 `MYCHESS_TEST_SIGNIN=1` and `TEST_SIGNIN_SECRET` are set and the environment is
 not production: set them on staging only, never on production.
 
+The admin CLI (`admin:grant`, `admin:disable`) keys the email hash in its
+audit rows with `AUDIT_EMAIL_KEY` (R-94; at least 32 random characters,
+`openssl rand -base64 32`) and refuses to run without it. Set it per
+environment, never the same value on staging and production, and keep it
+stable: rotating it breaks "was this email audited" lookups for older rows.
+
 Sign-in rate limits are counted per client IP in the `rate_limits` table. The
 app reads the IP from `x-real-ip`, then `x-forwarded-for`, which Vercel
 overwrites with the real client address. Behind any other proxy or CDN these

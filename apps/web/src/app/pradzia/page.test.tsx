@@ -48,6 +48,24 @@ vi.mock('../../server/session', () => ({
     }),
 }));
 
+// The disclosure as it is, keeping the account each render hands it: it
+// passes it to a client component, so whatever it is given reaches the browser.
+const handed = vi.hoisted(() => {
+  const state: { accounts: unknown[] } = { accounts: [] };
+  return state;
+});
+vi.mock('./delete-disclosure', async (original) => {
+  const actual = await original<typeof import('./delete-disclosure')>();
+  return {
+    DeleteDisclosure: (
+      props: Parameters<typeof actual.DeleteDisclosure>[0],
+    ) => {
+      handed.accounts.push(props.account);
+      return actual.DeleteDisclosure(props);
+    },
+  };
+});
+
 vi.mock('./actions', () => ({ completeOnboardingAction: vi.fn() }));
 vi.mock('../nustatymai/actions', () => ({ deleteAccountAction: vi.fn() }));
 
@@ -104,5 +122,14 @@ describe('the onboarding page', () => {
     expect(
       screen.getByRole('button', { hidden: true, name: d.confirm }),
     ).toBeDefined();
+  });
+
+  it('hands the delete disclosure only what deciding a deletion needs', async () => {
+    server.account = { displayName: 'Ruta J', locale: 'lt', onboardedAt: null };
+    handed.accounts = [];
+    await renderPage('lt');
+    expect(handed.accounts).toStrictEqual([
+      { displayName: 'Ruta J', email: 'ruta@example.lt', onboardedAt: null },
+    ]);
   });
 });

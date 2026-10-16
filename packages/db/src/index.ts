@@ -16,7 +16,7 @@ export {
   type AccountExport,
 } from './accounts';
 
-export { disableAccount, grantAdmin } from './admin';
+export { disableAccount, grantAdmin, type AdminInput } from './admin';
 export { auditEmailHash } from './audit-email';
 
 export {

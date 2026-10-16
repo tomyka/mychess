@@ -1,7 +1,11 @@
 'use server';
 
 import { deleteAccount, updateProfile } from '@mychess/db';
-import { canDelete, type AccountRefusal } from '@mychess/domain';
+import {
+  canDelete,
+  hasProvenEmail,
+  type AccountRefusal,
+} from '@mychess/domain';
 import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { ROUTES } from '../../lib/routes';
@@ -60,8 +64,9 @@ async function mailDeleted(message: ReturnType<typeof deletedMail>) {
 /**
  * Deletes the account for good once it is confirmed (R-40, R-82): by its
  * display name, or by its email before onboarding (R-86), as the domain's
- * canDelete decides. Mails the confirmation in its language and signs this
- * browser out: the session row went with the account, the cookie goes here.
+ * canDelete decides. Mails the confirmation in its language, only to a
+ * proven address (R-87), and signs this browser out: the session row went
+ * with the account, the cookie goes here.
  */
 export async function deleteAccountAction(
   _previous: DeleteState,
@@ -72,7 +77,8 @@ export async function deleteAccountAction(
   const check = canDelete(account, typeof typed === 'string' ? typed : '');
   if (!check.ok) return { refusal: check.refusal.reason };
   await deleteAccount(getDb(), account.id);
-  await mailDeleted(deletedMail(account.locale, account.email));
+  if (hasProvenEmail(account))
+    await mailDeleted(deletedMail(account.locale, account.email));
   await signOutHere();
   redirect(`${ROUTES.signIn}?deleted=1`);
 }

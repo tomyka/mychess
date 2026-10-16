@@ -4,6 +4,15 @@ import type { grantAdmin } from '../admin';
 import { createDb } from '../client';
 import { databaseEnvSchema } from '../config';
 import type { Result } from '@mychess/chess';
+import { z } from 'zod';
+
+/**
+ * The admin CLI's environment: the database, plus the key its audit rows'
+ * email hashes are keyed with (R-94), a per-environment random secret.
+ */
+const adminEnvSchema = databaseEnvSchema.extend({
+  AUDIT_EMAIL_KEY: z.string().min(32),
+});
 
 /** `grantAdmin` or `disableAccount`: one audited Admin change. */
 type AdminCommand = (
@@ -27,16 +36,18 @@ export function cliActor(
 }
 
 /**
- * The body of the admin:grant and admin:disable scripts: canonicalises the
- * email in argv[2], runs `change` as the `cliActor`, prints `admin: <done>
- * <email>` or the refusal reason on stderr with exit code 1.
+ * The body of the admin:grant and admin:disable scripts: reads
+ * DATABASE_URL and AUDIT_EMAIL_KEY (throwing before any connection when
+ * either is missing or invalid), canonicalises the email in argv[2], runs
+ * `change` as the `cliActor` with the key, prints `admin: <done> <email>` or
+ * the refusal reason on stderr with exit code 1.
  */
 export async function runAdminCommand(
   command: string,
   done: string,
   change: AdminCommand,
 ): Promise<void> {
-  const env = databaseEnvSchema.parse(process.env);
+  const env = adminEnvSchema.parse(process.env);
   const email = canonicalEmail(process.argv[2] ?? '');
   if (!email.ok) {
     process.stderr.write(`${command}: ${email.refusal.reason}\n`);
@@ -45,7 +56,12 @@ export async function runAdminCommand(
   }
   const { db, close } = createDb(env.DATABASE_URL);
   try {
-    const result = await change(db, email.value, cliActor(), new Date());
+    const result = await change(db, {
+      email: email.value,
+      actor: cliActor(),
+      now: new Date(),
+      key: env.AUDIT_EMAIL_KEY,
+    });
     if (result.ok) {
       process.stdout.write(`admin: ${done} ${email.value}\n`);
     } else {

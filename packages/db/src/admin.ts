@@ -14,13 +14,19 @@ import { accounts, adminAudit, sessions } from './schema';
 
 type AdminResult = Result<undefined, AdminRefusal>;
 
-/** One audit row's facts, minus the target id the lookup finds. */
-interface AuditEntry {
-  readonly action: AdminAction;
+/** What the CLI passes an Admin change: whom, by whom, when, and the hash key. */
+export interface AdminInput {
   /** Canonical email of the target account. */
   readonly email: string;
   readonly actor: string;
   readonly now: Date;
+  /** The environment's AUDIT_EMAIL_KEY the audit row's email hash is keyed with (R-94). */
+  readonly key: string;
+}
+
+/** One audit row's facts, minus the target id the lookup finds. */
+interface AuditEntry extends AdminInput {
+  readonly action: AdminAction;
 }
 
 /** An Admin change: the domain check that may refuse it, then the write. */
@@ -52,7 +58,7 @@ async function audited(
     await tx.insert(adminAudit).values({
       action: entry.action,
       targetAccountId: account.id,
-      targetEmailHash: auditEmailHash(entry.email),
+      targetEmailHash: auditEmailHash(entry.email, entry.key),
       actor: entry.actor,
       at: entry.now,
     });
@@ -61,22 +67,20 @@ async function audited(
 }
 
 /** Makes an account an Admin (R-72); only the CLI calls this. */
-export function grantAdmin(
-  db: Db,
-  email: string,
-  actor: string,
-  now: Date,
-): Promise<AdminResult> {
-  const entry = { action: 'grant-admin', email, actor, now } as const;
-  return audited(db, entry, {
-    check: allowed,
-    apply: async (tx, id) => {
-      await tx
-        .update(accounts)
-        .set({ admin: true, updatedAt: now })
-        .where(eq(accounts.id, id));
+export function grantAdmin(db: Db, input: AdminInput): Promise<AdminResult> {
+  return audited(
+    db,
+    { ...input, action: 'grant-admin' },
+    {
+      check: allowed,
+      apply: async (tx, id) => {
+        await tx
+          .update(accounts)
+          .set({ admin: true, updatedAt: input.now })
+          .where(eq(accounts.id, id));
+      },
     },
-  });
+  );
 }
 
 /**
@@ -85,19 +89,20 @@ export function grantAdmin(
  */
 export function disableAccount(
   db: Db,
-  email: string,
-  actor: string,
-  now: Date,
+  input: AdminInput,
 ): Promise<AdminResult> {
-  const entry = { action: 'disable-account', email, actor, now } as const;
-  return audited(db, entry, {
-    check: canDisable,
-    apply: async (tx, id) => {
-      await tx
-        .update(accounts)
-        .set({ disabledAt: now, updatedAt: now })
-        .where(eq(accounts.id, id));
-      await tx.delete(sessions).where(eq(sessions.accountId, id));
+  return audited(
+    db,
+    { ...input, action: 'disable-account' },
+    {
+      check: canDisable,
+      apply: async (tx, id) => {
+        await tx
+          .update(accounts)
+          .set({ disabledAt: input.now, updatedAt: input.now })
+          .where(eq(accounts.id, id));
+        await tx.delete(sessions).where(eq(sessions.accountId, id));
+      },
     },
-  });
+  );
 }

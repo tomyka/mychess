@@ -195,6 +195,26 @@ describe('Google proving the email of an account Lichess created', () => {
     expect(unlinkedNotice(cookieFrom(response))).toBe(await onlyAccountId());
   });
 
+  it('changes nothing of a disabled account: it opens no session either (R-80)', async () => {
+    const built = setup(BOTH);
+    const lichessSession = await lichessSignUp(built);
+    await client.query('update accounts set disabled_at = now()');
+    const response = await oauthRoundTrip(built, 'google');
+    expect(errorCode(response)).not.toBeNull();
+    expect(
+      await rows(
+        'select provider_id, provider_account_id from provider_accounts',
+      ),
+    ).toEqual([{ provider_id: 'lichess', provider_account_id: 'ruta' }]);
+    expect(await count('sessions')).toBe(1);
+    expect(await sessionOf(built, lichessSession)).toBe(await onlyAccountId());
+    expect(await rows('select email_verified from accounts')).toEqual([
+      { email_verified: false },
+    ]);
+    expect(unlinkedNotice(cookieFrom(response))).toBeUndefined();
+    expect(await signedInAs(built, response)).toBeUndefined();
+  });
+
   it('leaves Lichess no way back in by email afterwards', async () => {
     const built = setup(BOTH);
     await lichessSignUp(built);

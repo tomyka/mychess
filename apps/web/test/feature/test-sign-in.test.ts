@@ -1,5 +1,5 @@
 import { disableAccount } from '@mychess/db';
-import { useTestDatabase } from '@mychess/db/testing';
+import { TEST_AUDIT_EMAIL_KEY, useTestDatabase } from '@mychess/db/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { BASE, buildTestAuth, TEST_ENV_VARS } from './support/auth';
@@ -161,7 +161,12 @@ describe('POST /api/test/sign-in (R-73)', () => {
   it('refuses a disabled persona (403) and starts no session (security item 8)', async () => {
     const { POST, auth } = await serverOn(STAGING);
     const before = await POST(asPersona('u1@mychess.test'));
-    await disableAccount(db, 'u1@mychess.test', 'cli', new Date());
+    await disableAccount(db, {
+      email: 'u1@mychess.test',
+      actor: 'cli',
+      now: new Date(),
+      key: TEST_AUDIT_EMAIL_KEY,
+    });
     const response = await POST(asPersona('u1@mychess.test'));
     expect(response.status).toBe(403);
     expect(response.headers.get('set-cookie')).toBeNull();

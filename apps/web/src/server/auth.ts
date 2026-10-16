@@ -30,16 +30,17 @@ import { LICHESS_EMAIL_IN_USE, SESSION_NOT_FRESH } from '../lib/sign-in-errors';
 import { getDb } from './db';
 import { googleConfigured, readWebEnv, type WebEnv } from './env';
 import { createMailer, magicLinkMail, type Mailer } from './mail';
+import { implicitJoin } from './implicit-join';
 import { googleUserInfo } from './oauth/google';
 import { noteLichessUnlinked } from './lichess-unlinked';
 import { lichessUserInfo } from './oauth/lichess';
+import { FRESH_AGE_SECONDS, isFreshSession } from './session-freshness';
 import { linkWithLocale, signUpLocale } from './sign-up-locale';
 import { testSignInEnabled } from './test-sign-in';
 import { testSignInPlugin } from './test-sign-in-session';
 
 const DAY = 60 * 60 * 24;
 const LICHESS: Provider = 'lichess';
-const GOOGLE: Provider = 'google';
 
 export interface AuthDeps {
   readonly db: Db;
@@ -121,12 +122,6 @@ function refuseClientOAuthFields(ctx: HookRequest): void {
 type HookContext = Parameters<typeof getAuthoritativeSessionFromCtx>[0];
 
 const LINK_PATH = '/link-social';
-const SECOND = 1000;
-
-/** Is a session this old past Better Auth's freshAge (0 turns it off)? */
-const isStale = (createdAt: Date, freshAgeSeconds: number): boolean =>
-  freshAgeSeconds !== 0 &&
-  Date.now() - createdAt.getTime() >= freshAgeSeconds * SECOND;
 
 /**
  * Linking a provider needs a fresh session, as unlinking does, so a stolen
@@ -138,8 +133,7 @@ async function refuseStaleLink(ctx: HookContext): Promise<void> {
   if (ctx.path !== LINK_PATH) return;
   const current = await getAuthoritativeSessionFromCtx(ctx);
   if (current === null) return;
-  const { freshAge } = ctx.context.sessionConfig;
-  if (!isStale(new Date(current.session.createdAt), freshAge)) return;
+  if (isFreshSession(new Date(current.session.createdAt))) return;
   throw new APIError('FORBIDDEN', {
     code: SESSION_NOT_FRESH,
     message: SESSION_NOT_FRESH,
@@ -153,44 +147,68 @@ async function beforeRequest(ctx: HookContext): Promise<HookAnswer> {
   return canonicalMagicLinkBody(ctx);
 }
 
+type UserInfo = Parameters<ValidateUserInfo>[0];
+type UserInfoAnswer = Awaited<ReturnType<ValidateUserInfo>>;
+
 /**
- * Lichess joins an existing account only from settings, while signed in to
- * that account (R-69, R-83). Better Auth calls this before every provider
- * link: the settings link and the implicit link at sign-in by email alike.
- * Only a flow started by `/link-social` for this account carries `link` in
- * its OAuth state, so a plain sign-in by a signed-in person is refused too.
- * A new Lichess sign-up is `create-user`, not a link, so it passes.
+ * A link from settings (`/link-social` put `link` in the OAuth state). Lichess
+ * joins only while signed in to that very account (R-69, R-83); Better Auth
+ * itself joins any other provider to the session's account only.
  */
-const guardLichessLink: ValidateUserInfo = async ({ user, source }, ctx) => {
-  if (source.action !== 'link-account') return;
+async function linkFromSettings(
+  { user, source }: UserInfo,
+  ctx: HookContext,
+  linkUserId: string,
+): Promise<UserInfoAnswer> {
   if (source.oauth?.providerId !== LICHESS) return;
-  const state = await getOAuthState();
   const current = await getAuthoritativeSessionFromCtx(ctx);
-  if (state?.link?.userId === user.id && current?.user.id === user.id) return;
+  if (linkUserId === user.id && current?.user.id === user.id) return;
   return { error: LICHESS_EMAIL_IN_USE };
-};
+}
 
 /**
- * A Google sign-in with a verified email proves the mailbox, as a magic
- * link does (R-87). Better Auth calls this before joining Google to the
- * account with that email; if that account is unproven (a Lichess sign-up
- * under the address), Better Auth's own magic-link clean-up ends the
- * access it gathered before the proof (provider links and sessions) and
- * marks the email verified, so Google joins an account the mailbox owner
- * alone holds. A link from settings proves nothing about the account's
- * own email and is left alone.
+ * A provider joining the account with its email at sign-in, denied unless
+ * implicitJoin allows it. A verified Google email proves the mailbox, as a
+ * magic link does (R-87): if the account is unproven (a Lichess sign-up
+ * under the address), Better Auth's own magic-link clean-up ends the access
+ * it gathered before the proof (provider links and sessions) and marks the
+ * email verified, so Google joins an account the mailbox owner alone holds.
  */
-const proveEmailByGoogle: ValidateUserInfo = async ({ user, source }, ctx) => {
-  if (source.action !== 'link-account') return;
-  if (source.oauth?.providerId !== GOOGLE) return;
-  if (user.emailVerified !== true || typeof user.id !== 'string') return;
-  if ((await getOAuthState())?.link !== undefined) return;
-  await revokeUnprovenAccountAccess(ctx, user.id);
-};
+async function joinByEmail(
+  db: Db,
+  { user, source }: UserInfo,
+  ctx: HookContext,
+): Promise<UserInfoAnswer> {
+  const account =
+    typeof user.id === 'string'
+      ? await findAccountById(db, user.id)
+      : undefined;
+  const decision = implicitJoin({
+    providerId: source.oauth?.providerId,
+    emailVerified: user.emailVerified,
+    account,
+  });
+  if (decision.kind === 'refuse') return { error: decision.code };
+  await revokeUnprovenAccountAccess(ctx, decision.accountId);
+  return undefined;
+}
 
-/** Every provider identity, before it joins or creates an account. */
-const validateUserInfo: ValidateUserInfo = async (data, ctx) =>
-  (await guardLichessLink(data, ctx)) ?? (await proveEmailByGoogle(data, ctx));
+/**
+ * Every provider identity, before it joins or creates an account. Better
+ * Auth calls it before every provider link: the settings link and the
+ * implicit link at sign-in by email alike; only the former carries `link`
+ * in its OAuth state, so a plain sign-in by a signed-in person is an
+ * implicit join too. A new sign-up is `create-user`, not a link, and passes.
+ */
+function validateUserInfo(db: Db): ValidateUserInfo {
+  return async (data, ctx) => {
+    if (data.source.action !== 'link-account') return;
+    const link = (await getOAuthState())?.link;
+    return link === undefined
+      ? joinByEmail(db, data, ctx)
+      : linkFromSettings(data, ctx, link.userId);
+  };
+}
 
 /**
  * A disabled account opens no session (security item 8). An account our
@@ -245,18 +263,23 @@ const accountFields = {
   onboardedAt: { type: 'date', required: false, input: false },
 } as const;
 
-const userOptions = {
-  modelName: 'accounts',
-  fields: { name: 'displayName' },
-  additionalFields: accountFields,
-  validateUserInfo,
-} satisfies UserOptions;
+function userOptions(db: Db) {
+  return {
+    modelName: 'accounts',
+    fields: { name: 'displayName' },
+    additionalFields: accountFields,
+    validateUserInfo: validateUserInfo(db),
+  } satisfies UserOptions;
+}
 
 const sessionOptions = {
   modelName: 'sessions',
   fields: { userId: 'accountId' },
   expiresIn: 90 * DAY,
   updateAge: DAY,
+  // Unlinking checks it; linking (refuseStaleLink) and the export check
+  // the same age through isFreshSession (R-84, R-95).
+  freshAge: FRESH_AGE_SECONDS,
 } satisfies BetterAuthOptions['session'];
 
 const providerAccountOptions = {
@@ -270,8 +293,8 @@ const providerAccountOptions = {
   accountLinking: {
     enabled: true,
     trustedProviders: [LICHESS],
-    // An unproven account may be joined: Lichess never is (guardLichessLink)
-    // and Google first ends its unproven access (proveEmailByGoogle, R-87).
+    // An unproven account may be joined: only Google is, and it first ends
+    // the unproven access (validateUserInfo, implicitJoin, R-87).
     requireLocalEmailVerified: false,
     allowDifferentEmails: true,
     allowUnlinkingAll: true,
@@ -376,7 +399,7 @@ function authOptions({ db, env, mail, fetch: fetchImpl = fetch }: AuthDeps) {
     baseURL: env.BETTER_AUTH_URL,
     database: drizzleAdapter(db, { provider: 'pg', schema: authSchema }),
     disabledPaths: DISABLED_PATHS,
-    user: userOptions,
+    user: userOptions(db),
     session: sessionOptions,
     account: providerAccountOptions,
     verification: { modelName: 'verifications' },

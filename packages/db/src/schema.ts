@@ -148,14 +148,14 @@ export const adminAudit = pgTable(
     id: serial('id').primaryKey(),
     action: text('action', { enum: ADMIN_ACTIONS }).notNull(),
     targetAccountId: text('target_account_id').notNull(),
-    /** auditEmailHash of the target's canonical email. */
+    /** auditEmailHash (keyed, R-94) of the target's canonical email. */
     targetEmailHash: text('target_email_hash').notNull(),
     actor: text('actor').notNull(),
     at: at('at').notNull(),
   },
   (t) => [
     check('admin_audit_action_check', oneOf(t.action, ADMIN_ACTIONS)),
-    // A backstop for auditEmailHash: a hex SHA-256, so no address fits.
+    // A backstop for auditEmailHash: a hex HMAC-SHA-256, so no address fits.
     check(
       'admin_audit_target_email_hash_check',
       sql`${t.targetEmailHash} ~ '^[0-9a-f]{64}$'`,

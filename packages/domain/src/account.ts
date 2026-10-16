@@ -32,6 +32,9 @@ export interface AccountRefusal {
 export const accountSchema = z.object({
   id: z.string().min(1),
   email: z.string().min(1),
+  // Has the person proved they hold the mailbox (a magic link or a
+  // verified Google email)? A Lichess sign-up has not (R-87).
+  emailVerified: z.boolean(),
   // Loose on read: a Google or Lichess prefill may be blank or longer than
   // DISPLAY_NAME_MAX until onboarding sets a name through profileSchema.
   displayName: z.string(),
@@ -75,11 +78,31 @@ export function isDisabled(account: Account): boolean {
   return account.disabledAt !== null;
 }
 
+/**
+ * Has the mailbox been proven (R-87)? mychess mails only a proven address:
+ * an account a Lichess sign-up created names an address nobody proved.
+ */
+export function hasProvenEmail(account: Account): boolean {
+  return account.emailVerified;
+}
+
 /** What deciding a deletion needs to know about the account. */
 export type DeletableAccount = Pick<
   Account,
   'displayName' | 'email' | 'onboardedAt'
 >;
+
+/**
+ * Only what deciding a deletion needs, so a page hands a client component
+ * no more of the account than that.
+ */
+export function deletableAccount(account: DeletableAccount): DeletableAccount {
+  return {
+    displayName: account.displayName,
+    email: account.email,
+    onboardedAt: account.onboardedAt,
+  };
+}
 
 const sameEmail = (email: string, typed: string): boolean => {
   const canonical = canonicalEmail(typed);

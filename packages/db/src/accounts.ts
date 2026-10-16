@@ -13,6 +13,7 @@ import { accounts, providerAccounts, sessions, verifications } from './schema';
 const columns = {
   id: accounts.id,
   email: accounts.email,
+  emailVerified: accounts.emailVerified,
   displayName: accounts.displayName,
   locale: accounts.locale,
   entitlement: accounts.entitlement,

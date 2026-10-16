@@ -5,12 +5,12 @@ import {
   findAccountById,
   grantAdmin,
 } from '../src';
-import { useTestDatabase } from '../src/testing';
+import { TEST_AUDIT_EMAIL_KEY, useTestDatabase } from '../src/testing';
 import { seedAccount } from './support/accounts';
 
 const { db, client } = useTestDatabase();
 const NOW = new Date('2026-10-16T09:00:00Z');
-const RUTA_HASH = auditEmailHash('ruta@example.lt');
+const RUTA_HASH = auditEmailHash('ruta@example.lt', TEST_AUDIT_EMAIL_KEY);
 
 const insertAudit = () =>
   client.query(
@@ -59,7 +59,12 @@ describe('admin_audit is append-only', () => {
 
   it('does not stop an audited account from being deleted', async () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
-    await grantAdmin(db, 'ruta@example.lt', 'cli:ruta', NOW);
+    await grantAdmin(db, {
+      email: 'ruta@example.lt',
+      actor: 'cli:ruta',
+      now: NOW,
+      key: TEST_AUDIT_EMAIL_KEY,
+    });
     await deleteAccount(db, 'a1');
     expect(await findAccountById(db, 'a1')).toBeUndefined();
     expect(await auditRows()).toEqual([ROW]);

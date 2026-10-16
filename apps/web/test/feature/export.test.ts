@@ -3,6 +3,7 @@ import { useTestDatabase } from '@mychess/db/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { GET } from '../../src/app/api/account/export/route';
+import { SESSION_NOT_FRESH } from '../../src/lib/sign-in-errors';
 import {
   buildTestAuth,
   signInByMagicLink,
@@ -108,6 +109,27 @@ describe('the data export (R-40)', () => {
       'ipAddress',
       'userAgent',
     ]);
+  });
+
+  // A stolen old session cannot take the data away (R-95, as R-84 for links).
+  it('refuses a session signed in more than a day ago: 403, no data', async () => {
+    request.cookie = await signInByMagicLink(built(), 'ruta@example.lt');
+    await client.query(
+      "update sessions set created_at = now() - interval '25 hours'",
+    );
+    const response = await GET();
+    expect(response.status).toBe(403);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('content-disposition')).toBeNull();
+    expect(await response.json()).toStrictEqual({ code: SESSION_NOT_FRESH });
+  });
+
+  it('downloads for a session signed in less than a day ago', async () => {
+    request.cookie = await signInByMagicLink(built(), 'ruta@example.lt');
+    await client.query(
+      "update sessions set created_at = now() - interval '23 hours'",
+    );
+    expect((await GET()).status).toBe(200);
   });
 
   it('answers 401 for a disabled account', async () => {

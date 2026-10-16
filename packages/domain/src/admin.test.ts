@@ -5,6 +5,7 @@ import { ADMIN_ACTIONS, ADMIN_REFUSALS, canDisable } from './admin';
 const account = (over: Partial<Account> = {}): Account => ({
   id: 'a1',
   email: 'ruta@example.lt',
+  emailVerified: true,
   displayName: 'Rūta',
   locale: 'lt',
   entitlement: 'free',

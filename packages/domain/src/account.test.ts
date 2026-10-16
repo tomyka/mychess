@@ -9,7 +9,9 @@ import {
   profileSchema,
   canDelete,
   canonicalEmail,
+  deletableAccount,
   entitlementLimits,
+  hasProvenEmail,
   isDisabled,
   isOnboarded,
   type Account,
@@ -18,6 +20,7 @@ import {
 const account = (over: Partial<Account> = {}): Account => ({
   id: 'a1',
   email: 'ruta@example.lt',
+  emailVerified: true,
   displayName: 'Rūta',
   locale: 'lt',
   entitlement: 'free',
@@ -71,6 +74,26 @@ describe('isDisabled', () => {
     expect(
       isDisabled(account({ disabledAt: new Date('2026-10-16T09:00:00Z') })),
     ).toBe(true);
+  });
+});
+
+describe('hasProvenEmail', () => {
+  it('is true once a magic link or Google proved the mailbox', () => {
+    expect(hasProvenEmail(account())).toBe(true);
+  });
+
+  it('is false for an account a Lichess sign-up created (R-87)', () => {
+    expect(hasProvenEmail(account({ emailVerified: false }))).toBe(false);
+  });
+});
+
+describe('deletableAccount', () => {
+  it('keeps only what deciding a deletion needs', () => {
+    expect(deletableAccount(account())).toStrictEqual({
+      displayName: 'Rūta',
+      email: 'ruta@example.lt',
+      onboardedAt: new Date('2026-10-16T08:00:00Z'),
+    });
   });
 });
 
@@ -209,6 +232,7 @@ describe('accountSchema', () => {
     ['an empty email', { email: '' }],
     ['an unknown locale', { locale: 'de' }],
     ['an unknown entitlement', { entitlement: 'pro' }],
+    ['a missing email proof', { emailVerified: null }],
     ['a missing creation time', { createdAt: null }],
   ])('refuses %s', (_, over) => {
     expect(accountSchema.safeParse({ ...account(), ...over }).success).toBe(

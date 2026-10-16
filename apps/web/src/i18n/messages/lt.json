@@ -65,7 +65,8 @@
     "export": {
       "title": "Jūsų duomenys",
       "intro": "Atsisiųskite visus savo paskyros duomenis JSON faile.",
-      "download": "Atsisiųsti duomenis"
+      "download": "Atsisiųsti duomenis",
+      "notFresh": "Dėl saugumo prieš atsisiųsdami duomenis prisijunkite iš naujo."
     },
     "delete": {
       "title": "Paskyros ištrynimas",

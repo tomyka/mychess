@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { auditEmailHash, disableAccount, grantAdmin } from '../src';
 import { cliActor, runAdminCommand } from '../src/bin/admin-command';
 import type * as Client from '../src/client';
-import { useTestDatabase } from '../src/testing';
+import { TEST_AUDIT_EMAIL_KEY, useTestDatabase } from '../src/testing';
 import { seedAccount } from './support/accounts';
 
 /** How many connections the command opened, and how many it closed. */
@@ -28,7 +28,7 @@ vi.mock('../src/client', async (importOriginal) => {
 });
 
 const { db, client, url } = useTestDatabase();
-const RUTA_HASH = auditEmailHash('ruta@example.lt');
+const RUTA_HASH = auditEmailHash('ruta@example.lt', TEST_AUDIT_EMAIL_KEY);
 /** Who the commands record as having acted: the OS user running the tests. */
 const ACTOR = `cli:${userInfo().username}`;
 const argv = process.argv;
@@ -41,6 +41,7 @@ beforeEach(() => {
   pools.opened = 0;
   pools.closed = 0;
   vi.stubEnv('DATABASE_URL', url);
+  vi.stubEnv('AUDIT_EMAIL_KEY', TEST_AUDIT_EMAIL_KEY);
   vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
     out.push(String(chunk));
     return true;
@@ -119,6 +120,68 @@ describe('runAdminCommand', () => {
     expect(err).toEqual(['admin:grant: admin.accountNotFound\n']);
     expect(process.exitCode).toBe(1);
     expect(pools).toEqual({ opened: 1, closed: 1 });
+  });
+
+  it('hashes with the environment key, not a built-in one', async () => {
+    const otherKey = 'z'.repeat(32);
+    vi.stubEnv('AUDIT_EMAIL_KEY', otherKey);
+    await seedAccount(db, 'a1', 'ruta@example.lt');
+    await runWith(['ruta@example.lt'], () =>
+      runAdminCommand('admin:grant', 'granted', grantAdmin),
+    );
+    expect(await audit()).toEqual([
+      {
+        action: 'grant-admin',
+        target_email_hash: auditEmailHash('ruta@example.lt', otherKey),
+        actor: ACTOR,
+      },
+    ]);
+  });
+
+  it('passes the change the canonical email, actor, time and key', async () => {
+    const change = vi.fn(grantAdmin);
+    await seedAccount(db, 'a1', 'ruta@example.lt');
+    const before = Date.now();
+    await runWith(['Ruta@Example.LT'], () =>
+      runAdminCommand('admin:grant', 'granted', change),
+    );
+    expect(change).toHaveBeenCalledOnce();
+    const input = change.mock.calls[0]?.[1];
+    expect(input).toMatchObject({
+      email: 'ruta@example.lt',
+      actor: ACTOR,
+      key: TEST_AUDIT_EMAIL_KEY,
+    });
+    expect(input?.now.getTime()).toBeGreaterThanOrEqual(before);
+    expect(input?.now.getTime()).toBeLessThanOrEqual(Date.now());
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['shorter than 32 characters', 'k'.repeat(31)],
+  ])(
+    'refuses to run with AUDIT_EMAIL_KEY %s, before opening a connection',
+    async (_case, key) => {
+      vi.stubEnv('AUDIT_EMAIL_KEY', key);
+      const change = vi.fn(grantAdmin);
+      await expect(
+        runWith(['ruta@example.lt'], () =>
+          runAdminCommand('admin:grant', 'granted', change),
+        ),
+      ).rejects.toThrow(/AUDIT_EMAIL_KEY/);
+      expect(change).not.toHaveBeenCalled();
+      expect(pools).toEqual({ opened: 0, closed: 0 });
+      expect(out).toEqual([]);
+    },
+  );
+
+  it('accepts a key of exactly 32 characters', async () => {
+    vi.stubEnv('AUDIT_EMAIL_KEY', 'k'.repeat(32));
+    await seedAccount(db, 'a1', 'ruta@example.lt');
+    await runWith(['ruta@example.lt'], () =>
+      runAdminCommand('admin:grant', 'granted', grantAdmin),
+    );
+    expect(out).toEqual(['admin: granted ruta@example.lt\n']);
   });
 
   it('refuses a missing email before touching the database', async () => {

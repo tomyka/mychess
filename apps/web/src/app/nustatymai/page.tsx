@@ -1,3 +1,4 @@
+import { deletableAccount } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { JSX } from 'react';
@@ -5,7 +6,7 @@ import { ROUTES } from '../../lib/routes';
 import { googleConfigured, readWebEnv } from '../../server/env';
 import { showLichessUnlinked } from '../../server/lichess-unlinked';
 import { linkedProviders } from '../../server/provider-links';
-import { requireOnboarded } from '../../server/session';
+import { hasFreshSession, requireOnboarded } from '../../server/session';
 import { DeleteSection, EXPORT_PATH } from './delete-section';
 import { LichessUnlinkedNotice } from './lichess-unlinked-notice';
 import { ProfileForm } from './profile-form';
@@ -18,8 +19,11 @@ type SearchParams = Record<string, string | string[] | undefined>;
 const first = (value: string | string[] | undefined): string | undefined =>
   Array.isArray(value) ? value[0] : value;
 
-/** The data export: a plain download link (R-40). */
-function ExportSection(): JSX.Element {
+/**
+ * The data export: a plain download link (R-40), or, for a session signed
+ * in more than a day ago, a note to sign in again first (R-95).
+ */
+function ExportSection({ fresh }: { readonly fresh: boolean }): JSX.Element {
   const t = useTranslations('settings.export');
   return (
     <section aria-labelledby="settings-export" className={SECTION}>
@@ -27,11 +31,17 @@ function ExportSection(): JSX.Element {
         {t('title')}
       </h2>
       <p className="text-fg-muted">{t('intro')}</p>
-      <div>
-        <a href={EXPORT_PATH} download className={SECONDARY_BUTTON}>
-          {t('download')}
-        </a>
-      </div>
+      {fresh ? (
+        <div>
+          <a href={EXPORT_PATH} download className={SECONDARY_BUTTON}>
+            {t('download')}
+          </a>
+        </div>
+      ) : (
+        <p role="note" className="rounded-control bg-sunken px-4 py-3 text-fg">
+          {t('notFresh')}
+        </p>
+      )}
     </section>
   );
 }
@@ -72,8 +82,8 @@ export default async function SettingsPage({
       >
         {lichessUnlinked ? <LichessUnlinkedNotice /> : null}
       </Providers>
-      <ExportSection />
-      <DeleteSection account={account} />
+      <ExportSection fresh={await hasFreshSession()} />
+      <DeleteSection account={deletableAccount(account)} />
     </main>
   );
 }
