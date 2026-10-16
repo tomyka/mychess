@@ -4,6 +4,8 @@ import type { Locale } from '@mychess/domain';
 import { useLocale, useTranslations } from 'next-intl';
 import { useId, useState, type JSX, type SubmitEvent } from 'react';
 import { authClient } from '../../lib/auth-client';
+import { offeredProviders, type Provider } from '../../lib/providers';
+import { ROUTES } from '../../lib/routes';
 import {
   clientErrorKey,
   signInErrorKey,
@@ -21,8 +23,6 @@ export interface SignInFormProps {
   readonly googleEnabled: boolean;
 }
 
-type Provider = 'google' | 'lichess';
-
 interface StatusMessage {
   readonly key: SignInErrorKey | 'signIn.sent' | 'signIn.deleted';
   readonly tone: StatusLineProps['tone'];
@@ -34,9 +34,9 @@ type Run = (action: () => Promise<StatusMessage | null>) => void;
 // Where Better Auth sends the browser: home, onboarding for a new account,
 // or back here with `?error=`.
 const URLS = {
-  callbackURL: '/',
-  newUserCallbackURL: '/pradzia',
-  errorCallbackURL: '/prisijungti',
+  callbackURL: ROUTES.home,
+  newUserCallbackURL: ROUTES.onboarding,
+  errorCallbackURL: ROUTES.signIn,
 } as const;
 
 const SENT: StatusMessage = { key: 'signIn.sent', tone: 'success' };
@@ -135,9 +135,7 @@ function ProviderButtons({
   readonly googleEnabled: boolean;
 }): JSX.Element {
   const t = useTranslations('signIn');
-  const providers: Provider[] = googleEnabled
-    ? ['google', 'lichess']
-    : ['lichess'];
+  const providers = offeredProviders(googleEnabled);
   return (
     <>
       <div className="flex items-center gap-3 text-sm text-fg-muted">

@@ -8,6 +8,7 @@ export {
   canDelete,
   canonicalEmail,
   entitlementLimits,
+  isDisabled,
   isOnboarded,
   profileSchema,
   type Account,
@@ -27,6 +28,7 @@ export {
 // Refusals are values (CLAUDE.md); apps read the shape from here.
 export type { Result } from '@mychess/chess';
 export {
+  DISPLAY_NAME_ISSUES,
   DISPLAY_NAME_MAX,
   displayNameSchema,
   type DisplayName,

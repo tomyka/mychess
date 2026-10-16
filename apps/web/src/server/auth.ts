@@ -3,6 +3,7 @@ import {
   canonicalEmail,
   DEFAULT_ENTITLEMENT,
   DEFAULT_LOCALE,
+  isDisabled,
   LOCALES,
 } from '@mychess/domain';
 import {
@@ -22,6 +23,8 @@ import { genericOAuth } from 'better-auth/plugins/generic-oauth';
 import { magicLink } from 'better-auth/plugins/magic-link';
 import { z } from 'zod';
 import { resolveLocale } from '../i18n/locales';
+import type { Provider } from '../lib/providers';
+import { ROUTES } from '../lib/routes';
 import { LICHESS_EMAIL_IN_USE, SESSION_NOT_FRESH } from '../lib/sign-in-errors';
 import { getDb } from './db';
 import { googleConfigured, readWebEnv, type WebEnv } from './env';
@@ -32,8 +35,7 @@ import { testSignInEnabled } from './test-sign-in';
 import { testSignInPlugin } from './test-sign-in-session';
 
 const DAY = 60 * 60 * 24;
-const LICHESS = 'lichess';
-const SIGN_IN_PATH = '/prisijungti';
+const LICHESS: Provider = 'lichess';
 
 export interface AuthDeps {
   readonly db: Db;
@@ -171,7 +173,7 @@ const guardLichessLink: ValidateUserInfo = async ({ user, source }, ctx) => {
  */
 async function isNotDisabled(db: Db, accountId: string): Promise<boolean> {
   const account = await findAccountById(db, accountId);
-  return (account?.disabledAt ?? null) === null;
+  return account === undefined || !isDisabled(account);
 }
 
 function databaseHooks(db: Db): DatabaseHooks {
@@ -346,7 +348,7 @@ function authOptions({ db, env, mail, fetch: fetchImpl = fetch }: AuthDeps) {
     advanced: advancedOptions,
     // An error with no errorCallbackURL of its own lands on our sign-in
     // page, which translates its code, not on Better Auth's /error page.
-    onAPIError: { errorURL: new URL(SIGN_IN_PATH, env.BETTER_AUTH_URL).href },
+    onAPIError: { errorURL: new URL(ROUTES.signIn, env.BETTER_AUTH_URL).href },
     hooks: { before: createAuthMiddleware(beforeRequest) },
     databaseHooks: databaseHooks(db),
     plugins: [

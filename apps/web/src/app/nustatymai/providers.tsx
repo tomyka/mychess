@@ -4,8 +4,10 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useId, useState, type JSX } from 'react';
 import { authClient } from '../../lib/auth-client';
+import { offeredProviders, type Provider } from '../../lib/providers';
+import { ROUTES } from '../../lib/routes';
 import { linkErrorKey, type LinkErrorKey } from '../../lib/sign-in-errors';
-import type { Provider, ProviderLink } from '../../server/provider-links';
+import type { ProviderLink } from '../../server/provider-links';
 import { StatusLine } from '../status-line';
 import { SECONDARY_BUTTON } from '../buttons';
 import { SECTION, SECTION_TITLE } from './styles';
@@ -23,8 +25,8 @@ export interface ProvidersProps {
 
 // Where Better Auth sends the browser after a link, whether it worked or not.
 const BACK_HERE = {
-  callbackURL: '/nustatymai',
-  errorCallbackURL: '/nustatymai',
+  callbackURL: ROUTES.settings,
+  errorCallbackURL: ROUTES.settings,
 } as const;
 
 /** The error a request ended with, or null when it went through. */
@@ -50,11 +52,6 @@ async function unlink(accountId: string): Promise<Outcome> {
   }
 }
 
-const NAMES: Record<Provider, string> = {
-  google: 'Google',
-  lichess: 'Lichess',
-};
-
 interface RowProps {
   readonly provider: Provider;
   readonly link: ProviderLink | undefined;
@@ -72,11 +69,11 @@ function ProviderRow({
   onUnlink,
 }: RowProps): JSX.Element {
   const t = useTranslations('settings.providers');
-  const name = { provider: NAMES[provider] };
+  const name = { provider: t(provider) };
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 py-3">
       <div className="flex flex-col">
-        <span className="font-medium">{t(provider)}</span>
+        <span className="font-medium">{name.provider}</span>
         <span className="text-sm text-fg-muted">
           {current === undefined ? t('notLinked') : t('linked')}
         </span>
@@ -122,9 +119,7 @@ export function Providers({
       if (outcome === null && refresh) router.refresh();
     });
   };
-  const providers: Provider[] = googleEnabled
-    ? ['google', 'lichess']
-    : ['lichess'];
+  const providers = offeredProviders(googleEnabled);
   return (
     <section aria-labelledby={titleId} className={SECTION}>
       <h2 id={titleId} className={SECTION_TITLE}>

@@ -3,6 +3,7 @@
 import { completeOnboarding } from '@mychess/db';
 import { isOnboarded } from '@mychess/domain';
 import { redirect } from 'next/navigation';
+import { ROUTES } from '../../lib/routes';
 import { getDb } from '../../server/db';
 import { rememberLocale } from '../../server/locale-cookie';
 import {
@@ -26,10 +27,10 @@ export async function completeOnboardingAction(
   form: FormData,
 ): Promise<OnboardingState> {
   const account = await requireAccount();
-  if (isOnboarded(account)) redirect('/');
+  if (isOnboarded(account)) redirect(ROUTES.home);
   const profile = parseProfileInput(form);
   if (!profile.ok) return { refusal: profile.refusal.reason };
   await completeOnboarding(getDb(), account.id, profile.value, new Date());
   await rememberLocale(profile.value.locale);
-  redirect('/');
+  redirect(ROUTES.home);
 }

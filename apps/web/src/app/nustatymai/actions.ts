@@ -4,6 +4,7 @@ import { deleteAccount, updateProfile } from '@mychess/db';
 import { canDelete, type AccountRefusal } from '@mychess/domain';
 import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { ROUTES } from '../../lib/routes';
 import { getMailer } from '../../server/auth';
 import { getDb } from '../../server/db';
 import { rememberLocale } from '../../server/locale-cookie';
@@ -58,9 +59,10 @@ async function mailDeleted(message: ReturnType<typeof deletedMail>) {
 /**
  * Deletes the account for good once its display name is typed (R-40, R-82),
  * mails the confirmation in its language, and signs this browser out: the
- * session row went with the account, the cookie goes here. Only an
- * onboarded account gets here: a blank display name would match a blank
- * confirmation.
+ * session row went with the account, the cookie goes here. The domain's
+ * canDelete refuses a blank display name; whether an account that has not
+ * been through onboarding may delete is an open owner question, so for now
+ * only an onboarded account gets here.
  */
 export async function deleteAccountAction(
   _previous: DeleteState,
@@ -76,5 +78,5 @@ export async function deleteAccountAction(
   await deleteAccount(getDb(), account.id);
   await mailDeleted(deletedMail(account.locale, account.email));
   await signOutHere();
-  redirect('/prisijungti?deleted=1');
+  redirect(`${ROUTES.signIn}?deleted=1`);
 }

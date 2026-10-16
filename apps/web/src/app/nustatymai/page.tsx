@@ -1,6 +1,7 @@
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { JSX } from 'react';
+import { ROUTES } from '../../lib/routes';
 import { googleConfigured, readWebEnv } from '../../server/env';
 import { linkedProviders } from '../../server/provider-links';
 import { requireOnboarded } from '../../server/session';
@@ -37,7 +38,7 @@ function Header(): JSX.Element {
   const t = useTranslations();
   return (
     <header className="flex flex-col gap-1">
-      <Link href="/" className={TEXT_LINK}>
+      <Link href={ROUTES.home} className={TEXT_LINK}>
         {t('settings.home')}
       </Link>
       <h1 className="text-2xl font-bold sm:text-3xl">{t('settings.title')}</h1>

@@ -6,7 +6,7 @@ import { databaseEnvSchema } from '../config';
 import type { Result } from '@mychess/chess';
 
 /** `grantAdmin` or `disableAccount`: one audited Admin change. */
-type AdminChange = (
+type AdminCommand = (
   ...args: Parameters<typeof grantAdmin>
 ) => Promise<Result<undefined, AdminRefusal>>;
 
@@ -34,7 +34,7 @@ export function cliActor(
 export async function runAdminCommand(
   command: string,
   done: string,
-  change: AdminChange,
+  change: AdminCommand,
 ): Promise<void> {
   const env = databaseEnvSchema.parse(process.env);
   const email = canonicalEmail(process.argv[2] ?? '');

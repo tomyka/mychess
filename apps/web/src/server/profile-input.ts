@@ -1,23 +1,33 @@
-import { profileSchema, type Profile, type Result } from '@mychess/domain';
+import {
+  ACCOUNT_REFUSALS,
+  DISPLAY_NAME_ISSUES,
+  profileSchema,
+  type Profile,
+  type Result,
+} from '@mychess/domain';
 
 /** The catalogue key of every refusal a profile form can show. */
 export type ProfileRefusalKey =
-  'displayName.blank' | 'displayName.tooLong' | 'account.localeInvalid';
+  | (typeof DISPLAY_NAME_ISSUES)[keyof typeof DISPLAY_NAME_ISSUES]
+  | typeof ACCOUNT_REFUSALS.localeInvalid;
 
 export interface ProfileRefusal {
   readonly reason: ProfileRefusalKey;
 }
 
-const KEYS = new Map<string, ProfileRefusalKey>([
-  ['displayName.blank', 'displayName.blank'],
-  ['displayName.tooLong', 'displayName.tooLong'],
-  ['account.localeInvalid', 'account.localeInvalid'],
-]);
+const KEYS: readonly ProfileRefusalKey[] = [
+  ...Object.values(DISPLAY_NAME_ISSUES),
+  ACCOUNT_REFUSALS.localeInvalid,
+];
+
+const isRefusalKey = (
+  message: string | undefined,
+): message is ProfileRefusalKey => KEYS.some((key) => key === message);
 
 // The language refusal covers every locale issue; a name that is not text
 // at all (missing, or a file) is the only other issue, and reads as blank.
 const refusalKey = (message: string | undefined): ProfileRefusalKey =>
-  KEYS.get(message ?? '') ?? 'displayName.blank';
+  isRefusalKey(message) ? message : DISPLAY_NAME_ISSUES.blank;
 
 /** The display name and language from a form, parsed at the edge. */
 export function parseProfileInput(

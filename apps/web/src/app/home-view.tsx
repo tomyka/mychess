@@ -1,6 +1,7 @@
 import type { JSX } from 'react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
+import { ROUTES } from '../lib/routes';
 import { SignOutButton } from './sign-out-button';
 
 /** The home page for a signed-in, onboarded account. */
@@ -20,7 +21,7 @@ export function HomeView({
       </header>
       <div className="flex flex-wrap items-center gap-4">
         <Link
-          href="/nustatymai"
+          href={ROUTES.settings}
           className="inline-flex min-h-touch items-center text-accent underline"
         >
           {t('settings')}

@@ -69,12 +69,20 @@ export function isOnboarded(account: Account): boolean {
   return account.onboardedAt !== null;
 }
 
-/** Deletion is confirmed by typing the display name exactly (R-82). */
+/** Has an Admin disabled the account (R-80)? It then opens no session. */
+export function isDisabled(account: Account): boolean {
+  return account.disabledAt !== null;
+}
+
+/**
+ * Deletion is confirmed by typing the display name exactly (R-82). A blank
+ * name can never be typed, so it never confirms a deletion.
+ */
 export function canDelete(
   displayName: string,
   typedName: string,
 ): Result<undefined, AccountRefusal> {
-  return typedName.trim() === displayName
+  return displayName.trim() !== '' && typedName.trim() === displayName
     ? { ok: true, value: undefined }
     : { ok: false, refusal: { reason: ACCOUNT_REFUSALS.deleteNameMismatch } };
 }

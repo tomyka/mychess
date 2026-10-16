@@ -1,10 +1,7 @@
 import { headers } from 'next/headers';
 import { z } from 'zod';
+import { isProvider, type Provider } from '../lib/providers';
 import { getAuth } from './auth';
-
-/** The providers settings can link and unlink. */
-const PROVIDERS = ['google', 'lichess'] as const;
-export type Provider = (typeof PROVIDERS)[number];
 
 /** One provider linked to the signed-in account. */
 export interface ProviderLink {
@@ -16,9 +13,6 @@ export interface ProviderLink {
 const linkRowsSchema = z.array(
   z.looseObject({ id: z.string().min(1), providerId: z.string() }),
 );
-
-const isProvider = (value: string): value is Provider =>
-  PROVIDERS.some((provider) => provider === value);
 
 /**
  * The Google and Lichess links of this request's account, as Better Auth

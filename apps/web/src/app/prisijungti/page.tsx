@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 import { redirect } from 'next/navigation';
+import { ROUTES } from '../../lib/routes';
 import { googleConfigured, readWebEnv } from '../../server/env';
 import { getAccount } from '../../server/session';
 import { SignInForm } from './sign-in-form';
@@ -16,7 +17,7 @@ export default async function SignInPage({
 }: {
   readonly searchParams: Promise<SearchParams>;
 }): Promise<JSX.Element> {
-  if ((await getAccount()) !== null) redirect('/');
+  if ((await getAccount()) !== null) redirect(ROUTES.home);
   const params = await searchParams;
   return (
     <SignInForm

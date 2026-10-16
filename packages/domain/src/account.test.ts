@@ -10,6 +10,7 @@ import {
   canDelete,
   canonicalEmail,
   entitlementLimits,
+  isDisabled,
   isOnboarded,
   type Account,
 } from './account';
@@ -61,6 +62,18 @@ describe('isOnboarded', () => {
   });
 });
 
+describe('isDisabled', () => {
+  it('is false for an active account', () => {
+    expect(isDisabled(account())).toBe(false);
+  });
+
+  it('is true once an admin disabled it (R-80)', () => {
+    expect(
+      isDisabled(account({ disabledAt: new Date('2026-10-16T09:00:00Z') })),
+    ).toBe(true);
+  });
+});
+
 describe('canDelete', () => {
   it('takes the display name typed exactly, ignoring outer spaces', () => {
     expect(canDelete('Rūta', '  Rūta ')).toEqual({
@@ -78,6 +91,19 @@ describe('canDelete', () => {
       });
     },
   );
+
+  // A blank name can never be typed: a blank confirmation must not match it.
+  it.each([
+    ['', ''],
+    ['', '   '],
+    ['   ', ''],
+    ['   ', '   '],
+  ])('refuses a blank display name %j confirmed by %j', (name, typed) => {
+    expect(canDelete(name, typed)).toEqual({
+      ok: false,
+      refusal: { reason: ACCOUNT_REFUSALS.deleteNameMismatch },
+    });
+  });
 });
 
 describe('entitlementLimits', () => {

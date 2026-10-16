@@ -1,5 +1,5 @@
 import type { Result } from '@mychess/chess';
-import type { Account } from './account';
+import { isDisabled, type Account } from './account';
 
 /** The audited Admin actions (R-72, R-80); one audit row each. */
 export const ADMIN_ACTIONS = ['grant-admin', 'disable-account'] as const;
@@ -20,7 +20,7 @@ export interface AdminRefusal {
  * second audit row and move the disable time.
  */
 export function canDisable(account: Account): Result<undefined, AdminRefusal> {
-  return account.disabledAt === null
-    ? { ok: true, value: undefined }
-    : { ok: false, refusal: { reason: ADMIN_REFUSALS.alreadyDisabled } };
+  return isDisabled(account)
+    ? { ok: false, refusal: { reason: ADMIN_REFUSALS.alreadyDisabled } }
+    : { ok: true, value: undefined };
 }
