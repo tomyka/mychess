@@ -73,6 +73,10 @@ test('an English visitor gets the mail in English and, choosing English, the Eng
   expect(mail.Subject).toBe(en.mail.magicLink.subject);
 
   await page.goto(linkIn(mail.Text));
+  // The new account starts in the language it asked in (R-85).
+  await expect(page).toHaveURL(/\/pradzia$/);
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await expect(page.getByRole('radio', { name: en.language.en })).toBeChecked();
   await onboard(page, { name: 'Dovydas', locale: 'en' });
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await expectGreeting(page, en, 'Dovydas');

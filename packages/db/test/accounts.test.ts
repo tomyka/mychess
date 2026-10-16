@@ -7,7 +7,7 @@ import {
   findAccountById,
   updateProfile,
 } from '../src';
-import { providerAccounts } from '../src/schema';
+import { providerAccounts, sessions } from '../src/schema';
 import { useTestDatabase } from '../src/testing';
 import { seedAccount, seedVerification } from './support/accounts';
 
@@ -194,7 +194,7 @@ describe('exportAccount', () => {
       createdAt: NOW,
       updatedAt: NOW,
     });
-    const data = await exportAccount(db, 'a1');
+    const data = await exportAccount(db, 'a1', NOW);
     expect(data).toEqual({
       account: {
         email: 'ruta@example.lt',
@@ -208,6 +208,14 @@ describe('exportAccount', () => {
       linkedProviders: [
         { provider: 'lichess', linkedAt: '2026-10-16T08:00:00.000Z' },
         { provider: 'google', linkedAt: '2026-10-16T09:00:00.000Z' },
+      ],
+      sessions: [
+        {
+          ipAddress: null,
+          userAgent: null,
+          createdAt: '2026-10-16T08:00:00.000Z',
+          expiresAt: '2027-01-14T08:00:00.000Z',
+        },
       ],
     });
     expect(JSON.stringify(data)).not.toMatch(/encrypted|jonas|t-a1/);
@@ -224,7 +232,7 @@ describe('exportAccount', () => {
       { displayName: 'Rūta', locale: 'en' },
       NOW,
     );
-    expect((await exportAccount(db, 'a1'))?.account).toEqual({
+    expect((await exportAccount(db, 'a1', NOW))?.account).toEqual({
       email: 'ruta@example.lt',
       displayName: 'Rūta',
       locale: 'en',
@@ -235,8 +243,61 @@ describe('exportAccount', () => {
     });
   });
 
+  it("holds only the requester's active sessions, oldest first, never a token (R-89)", async () => {
+    await seedAccount(db, 'a1', 'ruta@example.lt');
+    await seedAccount(db, 'a2', 'jonas@example.lt');
+    await db.insert(sessions).values([
+      {
+        id: 's-a1-phone',
+        token: 'secret-phone',
+        accountId: 'a1',
+        expiresAt: new Date('2026-10-23T09:00:00Z'),
+        ipAddress: '192.0.2.7',
+        userAgent: 'Firefox',
+        createdAt: new Date('2026-10-16T07:00:00Z'),
+        updatedAt: NOW,
+      },
+      {
+        id: 's-a1-expired',
+        token: 'secret-expired',
+        accountId: 'a1',
+        expiresAt: new Date('2026-10-16T08:59:59Z'),
+        ipAddress: '192.0.2.8',
+        userAgent: 'Old browser',
+        createdAt: new Date('2026-10-01T09:00:00Z'),
+        updatedAt: NOW,
+      },
+      {
+        id: 's-a1-ends-now',
+        token: 'secret-ends-now',
+        accountId: 'a1',
+        expiresAt: NOW,
+        createdAt: new Date('2026-10-02T09:00:00Z'),
+        updatedAt: NOW,
+      },
+    ]);
+    const data = await exportAccount(db, 'a1', NOW);
+    expect(data?.sessions).toEqual([
+      {
+        ipAddress: '192.0.2.7',
+        userAgent: 'Firefox',
+        createdAt: '2026-10-16T07:00:00.000Z',
+        expiresAt: '2026-10-23T09:00:00.000Z',
+      },
+      {
+        ipAddress: null,
+        userAgent: null,
+        createdAt: '2026-10-16T08:00:00.000Z',
+        expiresAt: '2027-01-14T08:00:00.000Z',
+      },
+    ]);
+    expect(JSON.stringify(data)).not.toMatch(
+      /secret|t-a1|t-a2|s-a1|Old browser|192\.0\.2\.8/,
+    );
+  });
+
   it('returns undefined for an unknown account', async () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
-    expect(await exportAccount(db, 'nobody')).toBeUndefined();
+    expect(await exportAccount(db, 'nobody', NOW)).toBeUndefined();
   });
 });

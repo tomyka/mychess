@@ -1,18 +1,57 @@
 import { describe, expect, it } from 'vitest';
-import { disableAccount, findAccountById, grantAdmin } from '../src';
+import {
+  auditEmailHash,
+  disableAccount,
+  findAccountById,
+  grantAdmin,
+} from '../src';
 import { useTestDatabase } from '../src/testing';
 import { seedAccount } from './support/accounts';
 
 const { db, client } = useTestDatabase();
 const T0 = new Date('2026-10-16T08:00:00Z');
 const NOW = new Date('2026-10-16T09:00:00Z');
+const RUTA_HASH =
+  'cade0ed8e54971329a51ec35d4e62651c18fa134c22619f504ba27dd38afcca0';
 
-const audit = async (): Promise<unknown> =>
+/**
+ * Every column of every audit row but the serial id, so a test sees any
+ * column that would hold the address (R-88).
+ */
+const audit = async (): Promise<Record<string, unknown>[]> =>
   (
-    await client.query(
-      'select action, target_account_id, target_email, actor, at from admin_audit order by id',
+    await client.query<Record<string, unknown>>(
+      'select * from admin_audit order by id',
     )
-  ).rows;
+  ).rows.map((row) =>
+    Object.fromEntries(Object.entries(row).filter(([key]) => key !== 'id')),
+  );
+
+/** One full audit row about Rūta's account. */
+const rutaRow = (action: string, actor: string): Record<string, unknown> => ({
+  action,
+  target_account_id: 'a1',
+  target_email_hash: RUTA_HASH,
+  actor,
+  at: NOW,
+});
+
+/** The audit rows hold the target's id and hash, never its address. */
+const expectNoPlainEmail = async (): Promise<void> => {
+  expect(JSON.stringify(await audit())).not.toMatch(/ruta|example/);
+};
+
+describe('the audit row (R-88)', () => {
+  it('stores the hash an operator recomputes with auditEmailHash', async () => {
+    await seedAccount(db, 'a1', 'ruta@example.lt');
+    await grantAdmin(db, 'ruta@example.lt', 'cli', NOW);
+    const rows = await audit();
+    expect(rows.map((row) => row['target_email_hash'])).toEqual([
+      auditEmailHash('ruta@example.lt'),
+    ]);
+    await expectNoPlainEmail();
+  });
+});
 
 const accountFlags = async (): Promise<unknown> =>
   (
@@ -42,15 +81,8 @@ describe('grantAdmin', () => {
       { account_id: 'a1' },
       { account_id: 'a2' },
     ]);
-    expect(await audit()).toEqual([
-      {
-        action: 'grant-admin',
-        target_account_id: 'a1',
-        target_email: 'ruta@example.lt',
-        actor: 'cli',
-        at: NOW,
-      },
-    ]);
+    expect(await audit()).toEqual([rutaRow('grant-admin', 'cli')]);
+    await expectNoPlainEmail();
   });
 
   it('refuses an unknown email and writes nothing', async () => {
@@ -80,15 +112,8 @@ describe('disableAccount', () => {
       { id: 'a2', admin: false, disabled_at: null, updated_at: T0 },
     ]);
     expect(await sessionOwners()).toEqual([{ account_id: 'a2' }]);
-    expect(await audit()).toEqual([
-      {
-        action: 'disable-account',
-        target_account_id: 'a1',
-        target_email: 'ruta@example.lt',
-        actor: 'ops',
-        at: NOW,
-      },
-    ]);
+    expect(await audit()).toEqual([rutaRow('disable-account', 'ops')]);
+    await expectNoPlainEmail();
   });
 
   it('refuses an account that is already disabled, changes nothing and writes no audit row', async () => {

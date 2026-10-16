@@ -188,3 +188,64 @@ describe('magic-link sign-in', () => {
     ]);
   });
 });
+
+// The language a new account starts in (R-85).
+describe('a new account from a magic link', () => {
+  const localeRows = () => rows('select locale from accounts');
+
+  // Follows the last link mailed, from a browser carrying `cookie`.
+  const follow = (built: BuiltAuth, cookie = '') =>
+    built.auth.handler(new Request(lastLink(built), { headers: { cookie } }));
+
+  it('starts in the language the sign-in page was in when it asked', async () => {
+    const built = buildTestAuth(db);
+    await requestLink(built, {
+      email: 'ruta@example.lt',
+      callbackURL: '/',
+      metadata: { locale: 'en' },
+    });
+    // Opened on another device: no locale cookie there.
+    await follow(built);
+    expect(await localeRows()).toEqual([{ locale: 'en' }]);
+  });
+
+  it('starts in the locale cookie of the browser that opens the link when the request named none', async () => {
+    const built = buildTestAuth(db);
+    await requestLink(built, { email: 'ruta@example.lt', callbackURL: '/' });
+    await follow(built, 'NEXT_LOCALE=en');
+    expect(await localeRows()).toEqual([{ locale: 'en' }]);
+  });
+
+  it.each([
+    ['no cookie', ''],
+    ['an unknown language', 'NEXT_LOCALE=de'],
+  ])('starts in Lithuanian with %s', async (_, cookie) => {
+    const built = buildTestAuth(db);
+    await requestLink(built, { email: 'ruta@example.lt', callbackURL: '/' });
+    await follow(built, cookie);
+    expect(await localeRows()).toEqual([{ locale: 'lt' }]);
+  });
+
+  it('falls back to the locale cookie when the link names an unknown language', async () => {
+    const built = buildTestAuth(db);
+    await requestLink(built, { email: 'ruta@example.lt', callbackURL: '/' });
+    const link = new URL(lastLink(built));
+    link.searchParams.set('lang', 'de');
+    await built.auth.handler(
+      new Request(link, { headers: { cookie: 'NEXT_LOCALE=en' } }),
+    );
+    expect(await localeRows()).toEqual([{ locale: 'en' }]);
+  });
+
+  it('leaves an existing account in its own language', async () => {
+    const built = buildTestAuth(db);
+    await signInByMagicLink(built, 'ruta@example.lt');
+    await requestLink(built, {
+      email: 'ruta@example.lt',
+      callbackURL: '/',
+      metadata: { locale: 'en' },
+    });
+    await follow(built, 'NEXT_LOCALE=en');
+    expect(await localeRows()).toEqual([{ locale: 'lt' }]);
+  });
+});

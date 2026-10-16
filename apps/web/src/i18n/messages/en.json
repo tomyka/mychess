@@ -32,7 +32,8 @@
     "displayName": "Display name",
     "displayNameHint": "Others will see this name. You can change it later in settings.",
     "language": "Language",
-    "submit": "Save and continue"
+    "submit": "Save and continue",
+    "deleteAccount": "Delete my account"
   },
   "settings": {
     "title": "Settings",
@@ -53,6 +54,8 @@
       "notLinked": "Not connected",
       "link": "Connect {provider}",
       "unlink": "Disconnect {provider}",
+      "lichessUnlinked": "For your security, Lichess was disconnected: it was connected before your email address was confirmed. If it is your Lichess account, you can connect it again.",
+      "dismiss": "Got it",
       "error": {
         "notFresh": "For your security, sign in again before connecting or disconnecting an account.",
         "linkedElsewhere": "That account is already connected to another mychess account.",
@@ -75,12 +78,14 @@
       "irreversible": "A deleted account cannot be restored. We will email you a confirmation.",
       "exportFirst": "Before you delete, <link>download your data</link>.",
       "typeName": "To confirm, type your display name: <strong>{name}</strong>",
+      "typeEmail": "To confirm, type your email address: <strong>{email}</strong>",
       "confirm": "Delete my account permanently"
     }
   },
   "account": {
     "emailInvalid": "Enter a valid email address.",
     "deleteNameMismatch": "The name you typed does not match your display name.",
+    "deleteEmailMismatch": "The address you typed does not match your email address.",
     "localeInvalid": "Choose a language: Lithuanian or English."
   },
   "displayName": {

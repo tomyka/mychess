@@ -1,3 +1,4 @@
+import type { DeletableAccount } from '@mychess/domain';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,23 +16,41 @@ vi.mock('./actions', () => ({ deleteAccountAction: server.action }));
 const lt = MESSAGES.lt;
 const d = lt.settings.delete;
 
-function renderSection(locale: 'lt' | 'en' = 'lt'): void {
+const ONBOARDED: DeletableAccount = {
+  displayName: 'Rūta Jonaitė',
+  email: 'ruta@example.lt',
+  onboardedAt: new Date('2026-10-16T08:00:00Z'),
+};
+
+// Not yet through onboarding: the Google name is only a prefill (R-86).
+const FRESH: DeletableAccount = {
+  displayName: 'Ruta J',
+  email: 'ruta@example.lt',
+  onboardedAt: null,
+};
+
+function renderSection(
+  locale: 'lt' | 'en' = 'lt',
+  account: DeletableAccount = ONBOARDED,
+): void {
   render(
     <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
-      <DeleteSection displayName="Rūta Jonaitė" />
+      <DeleteSection account={account} />
     </NextIntlClientProvider>,
   );
 }
 
-// The label as it reads: the catalogue text with the name filled in and
+// The label as it reads: the catalogue text with the value filled in and
 // its <strong> tag dropped.
-const typedName = () =>
+const field = (label: string, key: string, value: string) =>
   screen.getByLabelText<HTMLInputElement>(
-    d.typeName.replace('<strong>{name}</strong>', 'Rūta Jonaitė'),
+    label.replace(`<strong>{${key}}</strong>`, value),
   );
+const typedName = () => field(d.typeName, 'name', 'Rūta Jonaitė');
+const typedEmail = () => field(d.typeEmail, 'email', 'ruta@example.lt');
 const confirm = () => screen.getByRole('button', { name: d.confirm });
-const type = (value: string) => {
-  fireEvent.change(typedName(), { target: { value } });
+const type = (value: string, input = typedName()) => {
+  fireEvent.change(input, { target: { value } });
 };
 const status = () => screen.getByRole('status');
 
@@ -75,6 +94,8 @@ describe('DeleteSection (R-82)', () => {
     expect(confirm().hasAttribute('disabled')).toBe(true);
     type('rūta jonaitė');
     expect(confirm().hasAttribute('disabled')).toBe(true);
+    type('ruta@example.lt');
+    expect(confirm().hasAttribute('disabled')).toBe(true);
     type(' Rūta Jonaitė ');
     expect(confirm().hasAttribute('disabled')).toBe(false);
     type('Rūta Jonaitė!');
@@ -90,7 +111,7 @@ describe('DeleteSection (R-82)', () => {
     });
     const form = server.action.mock.lastCall?.[1];
     expect(Object.fromEntries(form?.entries() ?? [])).toEqual({
-      typedName: 'Rūta Jonaitė',
+      confirmation: 'Rūta Jonaitė',
     });
   });
 
@@ -106,14 +127,22 @@ describe('DeleteSection (R-82)', () => {
     expect(typedName().getAttribute('aria-invalid')).toBe('true');
   });
 
+  // The action is settled at the end: React entangles async transitions,
+  // so one left pending would hold back every later test's.
   it('cannot send twice while deleting', async () => {
-    server.action.mockReturnValue(new Promise(() => undefined));
+    let settle: (state: DeleteState) => void = () => undefined;
+    server.action.mockReturnValue(
+      new Promise((resolve) => {
+        settle = resolve;
+      }),
+    );
     renderSection();
     type('Rūta Jonaitė');
     fireEvent.click(confirm());
     await waitFor(() => {
       expect(confirm().hasAttribute('disabled')).toBe(true);
     });
+    settle({});
   });
 
   it('speaks English on the English page', () => {
@@ -123,5 +152,40 @@ describe('DeleteSection (R-82)', () => {
     expect(
       screen.getByRole('link', { name: 'download your data' }),
     ).toBeDefined();
+  });
+});
+
+describe('DeleteSection for an account not yet onboarded (R-86)', () => {
+  it('asks for the email address, shown in bold, not the prefilled name', () => {
+    renderSection('lt', FRESH);
+    expect(
+      screen.getByText('ruta@example.lt', { selector: 'label strong' }),
+    ).toBeDefined();
+    expect(typedEmail().getAttribute('type')).toBe('email');
+    expect(screen.queryByText('Ruta J')).toBeNull();
+  });
+
+  it('keeps the button disabled until the email is typed, in any case', () => {
+    renderSection('lt', FRESH);
+    type('Ruta J', typedEmail());
+    expect(confirm().hasAttribute('disabled')).toBe(true);
+    type('jonas@example.lt', typedEmail());
+    expect(confirm().hasAttribute('disabled')).toBe(true);
+    type(' Ruta@Example.LT ', typedEmail());
+    expect(confirm().hasAttribute('disabled')).toBe(false);
+  });
+
+  it('sends the typed email and shows the server’s refusal', async () => {
+    server.action.mockResolvedValue({ refusal: 'account.deleteEmailMismatch' });
+    renderSection('lt', FRESH);
+    type('ruta@example.lt', typedEmail());
+    fireEvent.click(confirm());
+    await waitFor(() => {
+      expect(status().textContent).toBe(lt.account.deleteEmailMismatch);
+    });
+    const form = server.action.mock.lastCall?.[1];
+    expect(Object.fromEntries(form?.entries() ?? [])).toEqual({
+      confirmation: 'ruta@example.lt',
+    });
   });
 });

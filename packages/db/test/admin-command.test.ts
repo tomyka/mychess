@@ -1,6 +1,6 @@
 import { userInfo } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { disableAccount, grantAdmin } from '../src';
+import { auditEmailHash, disableAccount, grantAdmin } from '../src';
 import { cliActor, runAdminCommand } from '../src/bin/admin-command';
 import type * as Client from '../src/client';
 import { useTestDatabase } from '../src/testing';
@@ -28,6 +28,7 @@ vi.mock('../src/client', async (importOriginal) => {
 });
 
 const { db, client, url } = useTestDatabase();
+const RUTA_HASH = auditEmailHash('ruta@example.lt');
 /** Who the commands record as having acted: the OS user running the tests. */
 const ACTOR = `cli:${userInfo().username}`;
 const argv = process.argv;
@@ -66,7 +67,7 @@ const runWith = (args: string[], run: () => Promise<void>): Promise<void> => {
 const audit = async (): Promise<unknown> =>
   (
     await client.query(
-      'select action, target_email, actor from admin_audit order by id',
+      'select action, target_email_hash, actor from admin_audit order by id',
     )
   ).rows;
 
@@ -81,7 +82,7 @@ describe('runAdminCommand', () => {
     expect(process.exitCode).toBeUndefined();
     expect(pools).toEqual({ opened: 1, closed: 1 });
     expect(await audit()).toEqual([
-      { action: 'grant-admin', target_email: 'ruta@example.lt', actor: ACTOR },
+      { action: 'grant-admin', target_email_hash: RUTA_HASH, actor: ACTOR },
     ]);
   });
 
@@ -104,7 +105,7 @@ describe('runAdminCommand', () => {
     expect(await audit()).toEqual([
       {
         action: 'disable-account',
-        target_email: 'ruta@example.lt',
+        target_email_hash: RUTA_HASH,
         actor: ACTOR,
       },
     ]);

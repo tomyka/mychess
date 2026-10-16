@@ -13,6 +13,7 @@ export {
   profileSchema,
   type Account,
   type AccountRefusal,
+  type DeletableAccount,
   type Entitlement,
   type EntitlementLimits,
   type Locale,

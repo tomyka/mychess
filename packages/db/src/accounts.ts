@@ -5,10 +5,10 @@ import {
   type Locale,
   type Profile,
 } from '@mychess/domain';
-import { eq, sql, type SQL } from 'drizzle-orm';
+import { and, eq, gt, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Executor } from './client';
-import { accounts, providerAccounts, verifications } from './schema';
+import { accounts, providerAccounts, sessions, verifications } from './schema';
 
 const columns = {
   id: accounts.id,
@@ -112,6 +112,13 @@ export interface AccountExport {
     readonly provider: string;
     readonly linkedAt: string;
   }[];
+  /** The account's active sessions, oldest first (R-89); never a token. */
+  readonly sessions: readonly {
+    readonly ipAddress: string | null;
+    readonly userAgent: string | null;
+    readonly createdAt: string;
+    readonly expiresAt: string;
+  }[];
 }
 
 const exportRowSchema = accountSchema.extend({
@@ -122,10 +129,49 @@ const linkRowsSchema = z.array(
   z.object({ provider: z.string().min(1), linkedAt: z.date() }),
 );
 
-/** The requester's own data (R-40, security item 9); never tokens. */
+const sessionRowsSchema = z.array(
+  z.object({
+    ipAddress: z.string().nullable(),
+    userAgent: z.string().nullable(),
+    createdAt: z.date(),
+    expiresAt: z.date(),
+  }),
+);
+
+/** The sessions of `id` that have not expired at `now`, oldest first. */
+async function activeSessions(
+  db: Executor,
+  id: string,
+  now: Date,
+): Promise<AccountExport['sessions']> {
+  const rows = sessionRowsSchema.parse(
+    await db
+      .select({
+        ipAddress: sessions.ipAddress,
+        userAgent: sessions.userAgent,
+        createdAt: sessions.createdAt,
+        expiresAt: sessions.expiresAt,
+      })
+      .from(sessions)
+      .where(and(eq(sessions.accountId, id), gt(sessions.expiresAt, now)))
+      .orderBy(sessions.createdAt, sessions.id),
+  );
+  return rows.map((row) => ({
+    ipAddress: row.ipAddress,
+    userAgent: row.userAgent,
+    createdAt: row.createdAt.toISOString(),
+    expiresAt: row.expiresAt.toISOString(),
+  }));
+}
+
+/**
+ * The requester's own data (R-40, security item 9), with the sessions
+ * active at `now` (R-89); never tokens.
+ */
 export async function exportAccount(
   db: Executor,
   id: string,
+  now: Date,
 ): Promise<AccountExport | undefined> {
   const [row] = await db
     .select({ ...columns, image: accounts.image })
@@ -158,5 +204,6 @@ export async function exportAccount(
       provider: link.provider,
       linkedAt: link.linkedAt.toISOString(),
     })),
+    sessions: await activeSessions(db, id, now),
   };
 }

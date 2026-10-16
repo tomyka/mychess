@@ -4,8 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
   deleteAccountAction,
+  dismissLichessUnlinkedAction,
   updateProfileAction,
 } from '../../src/app/nustatymai/actions';
+import { showLichessUnlinked } from '../../src/server/lichess-unlinked';
 import { deletedMail } from '../../src/server/mail';
 import { linkedProviders } from '../../src/server/provider-links';
 import {
@@ -60,8 +62,18 @@ vi.mock('next/headers', () => ({
   headers: () => Promise.resolve(new Headers({ cookie: request.cookie })),
   cookies: () =>
     Promise.resolve({
+      get: (name: string) => {
+        const value = request.cookie
+          .split('; ')
+          .find((pair) => pair.startsWith(`${name}=`))
+          ?.slice(name.length + 1);
+        return value === undefined ? undefined : { name, value };
+      },
       set: (name: string, value: string, options: Record<string, unknown>) => {
         request.set.push({ name, value, options });
+      },
+      delete: (name: string) => {
+        request.set.push({ name, value: '', options: { deleted: true } });
       },
     }),
 }));
@@ -153,9 +165,9 @@ function profileForm(displayName: string, locale: string): FormData {
   return data;
 }
 
-function deleteForm(typedName: string): FormData {
+function deleteForm(confirmation: string): FormData {
   const data = new FormData();
-  data.set('typedName', typedName);
+  data.set('confirmation', confirmation);
   return data;
 }
 
@@ -358,17 +370,35 @@ describe('deleteAccountAction', () => {
     expect(await tableCount('accounts')).toBe(1);
   });
 
-  // Its display name is still blank, so typing nothing would match it.
-  it('sends an account that has not been through onboarding there and deletes nothing', async () => {
+  // Not through onboarding yet: no name of its own, so it confirms with its
+  // email instead (R-86); a blank name typed blank never matches.
+  it.each([
+    ['nothing', ''],
+    ['another address', JONAS],
+    ['the name', 'Ruta'],
+  ])(
+    'refuses an account not yet onboarded that types %s, deleting nothing',
+    async (_, typed) => {
+      request.cookie = await signInByMagicLink(built(), RUTA);
+      const before = await rowsOf(RUTA);
+      expect(
+        await outcomeOf(deleteAccountAction({}, deleteForm(typed))),
+      ).toEqual({ refusal: 'account.deleteEmailMismatch' });
+      expect(await rowsOf(RUTA)).toEqual(before);
+      expect(before).toMatchObject({ accounts: 1, sessions: 1 });
+      expect(request.mailed).toEqual([]);
+      expect(request.set).toEqual([]);
+    },
+  );
+
+  it('deletes an account not yet onboarded once its email is typed, in any case (R-86)', async () => {
     request.cookie = await signInByMagicLink(built(), RUTA);
-    const before = await rowsOf(RUTA);
-    expect(await outcomeOf(deleteAccountAction({}, deleteForm('')))).toEqual({
-      redirectedTo: '/pradzia',
-    });
-    expect(await rowsOf(RUTA)).toEqual(before);
-    expect(before).toMatchObject({ accounts: 1, sessions: 1 });
-    expect(request.mailed).toEqual([]);
-    expect(request.set).toEqual([]);
+    expect(
+      await outcomeOf(deleteAccountAction({}, deleteForm(' Ruta@Example.LT '))),
+    ).toEqual({ redirectedTo: '/prisijungti?deleted=1' });
+    expect(await rowsOf(RUTA)).toMatchObject({ accounts: 0, sessions: 0 });
+    expect(request.mailed).toEqual([deletedMail('lt', RUTA)]);
+    expect(sessionCookieCleared()).toBe(true);
   });
 });
 
@@ -407,6 +437,10 @@ describe('the provider links on settings', () => {
     const response = await unlink(row?.id ?? '');
     expect(response.status).toBe(200);
     expect(await tableCount('provider_accounts')).toBe(0);
+    // Unlinked by hand: no notice that it was done for security (R-90).
+    expect(response.headers.getSetCookie().join()).not.toContain(
+      'lichess_unlinked',
+    );
     expect(await linkedProviders()).toEqual([]);
   });
 
@@ -474,5 +508,73 @@ describe('the provider links on settings', () => {
 
   it('lists nothing for a signed-out visitor', async () => {
     expect(await linkedProviders()).toEqual([]);
+  });
+});
+
+// Proving the email ended an unproven account's Lichess link: settings says
+// so, until Lichess is connected again or the notice is dismissed (R-90).
+describe('the Lichess-disconnected notice', () => {
+  /**
+   * Rūta's address signed up with Lichess, then proven by magic link, so
+   * the Lichess link ended; returns the owner's cookie with the notice.
+   */
+  async function provenAfterLichess(): Promise<string> {
+    const fetch = fakeProviderFetch({
+      lichess: { id: 'ruta', username: 'Ruta', email: RUTA },
+    });
+    vi.stubGlobal('fetch', fetch);
+    request.built = buildTestAuth(db, { fetch });
+    await oauthRoundTrip(built(), 'lichess');
+    return signInByMagicLink(built(), RUTA);
+  }
+
+  const shown = async (): Promise<boolean> =>
+    showLichessUnlinked(await accountId(RUTA), await linkedProviders());
+
+  it('is shown to the account whose Lichess link the proof ended', async () => {
+    request.cookie = await provenAfterLichess();
+    expect(request.cookie).toContain('mychess.lichess_unlinked=');
+    expect(await shown()).toBe(true);
+  });
+
+  it('is not shown to another account signed in on the same browser', async () => {
+    const notice = (await provenAfterLichess())
+      .split('; ')
+      .filter((c) => c.startsWith('mychess.lichess_unlinked='));
+    request.cookie = [await onboarded(JONAS, 'Jonas'), ...notice].join('; ');
+    expect(
+      await showLichessUnlinked(
+        await accountId(JONAS),
+        await linkedProviders(),
+      ),
+    ).toBe(false);
+  });
+
+  it('is not shown without the notice cookie', async () => {
+    request.cookie = await onboarded(RUTA, 'Rūta');
+    expect(await shown()).toBe(false);
+  });
+
+  it('is not shown once Lichess is connected again', async () => {
+    request.cookie = await provenAfterLichess();
+    await oauthRoundTrip(built(), 'lichess', {
+      cookie: request.cookie,
+      link: true,
+    });
+    expect(await linkedProviders()).toMatchObject([{ provider: 'lichess' }]);
+    expect(await shown()).toBe(false);
+  });
+
+  it('is dismissed: the cookie goes and the page refreshes', async () => {
+    request.cookie = await provenAfterLichess();
+    await dismissLichessUnlinkedAction();
+    expect(request.set).toEqual([
+      {
+        name: 'mychess.lichess_unlinked',
+        value: '',
+        options: { deleted: true },
+      },
+    ]);
+    expect(request.refreshed).toBe(1);
   });
 });

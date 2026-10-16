@@ -8,7 +8,8 @@ export const LOCALE_COOKIE = 'NEXT_LOCALE';
 /** Every language's message catalogue; lt.json is the reference shape. */
 export const MESSAGES: Record<Locale, typeof lt> = { lt, en };
 
-function isLocale(value: string): value is Locale {
+/** Is `value` one of the site's languages? */
+export function isLocale(value: string): value is Locale {
   return LOCALES.some((locale) => locale === value);
 }
 

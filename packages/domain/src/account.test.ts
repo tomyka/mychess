@@ -75,33 +75,68 @@ describe('isDisabled', () => {
 });
 
 describe('canDelete', () => {
-  it('takes the display name typed exactly, ignoring outer spaces', () => {
-    expect(canDelete('Rūta', '  Rūta ')).toEqual({
-      ok: true,
-      value: undefined,
+  describe('an onboarded account confirms with its display name (R-82)', () => {
+    it('takes the display name typed exactly, ignoring outer spaces', () => {
+      expect(canDelete(account(), '  Rūta ')).toEqual({
+        ok: true,
+        value: undefined,
+      });
     });
-  });
 
-  it.each([['rūta'], ['Ruta'], [''], ['Rūta Rūtaitė']])(
-    'refuses %j',
-    (typed) => {
-      expect(canDelete('Rūta', typed)).toEqual({
+    it.each([['rūta'], ['Ruta'], [''], ['Rūta Rūtaitė'], ['ruta@example.lt']])(
+      'refuses %j',
+      (typed) => {
+        expect(canDelete(account(), typed)).toEqual({
+          ok: false,
+          refusal: { reason: ACCOUNT_REFUSALS.deleteNameMismatch },
+        });
+      },
+    );
+
+    // A blank name can never be typed: a blank confirmation must not match it.
+    it.each([
+      ['', ''],
+      ['', '   '],
+      ['   ', ''],
+      ['   ', '   '],
+    ])('refuses a blank display name %j confirmed by %j', (name, typed) => {
+      expect(canDelete(account({ displayName: name }), typed)).toEqual({
         ok: false,
         refusal: { reason: ACCOUNT_REFUSALS.deleteNameMismatch },
       });
-    },
-  );
+    });
+  });
 
-  // A blank name can never be typed: a blank confirmation must not match it.
-  it.each([
-    ['', ''],
-    ['', '   '],
-    ['   ', ''],
-    ['   ', '   '],
-  ])('refuses a blank display name %j confirmed by %j', (name, typed) => {
-    expect(canDelete(name, typed)).toEqual({
-      ok: false,
-      refusal: { reason: ACCOUNT_REFUSALS.deleteNameMismatch },
+  describe('an account not yet onboarded confirms with its email (R-86)', () => {
+    const fresh = (over: Partial<Account> = {}) =>
+      account({ onboardedAt: null, displayName: 'Ruta J', ...over });
+
+    it.each([
+      ['ruta@example.lt'],
+      ['  Ruta@Example.LT '],
+      ['ｒｕｔａ@ｅｘａｍｐｌｅ.ｌｔ'],
+    ])('takes %j, compared in its canonical form', (typed) => {
+      expect(canDelete(fresh(), typed)).toEqual({ ok: true, value: undefined });
+    });
+
+    it.each([
+      ['the prefilled display name', 'Ruta J'],
+      ['another address', 'jonas@example.lt'],
+      ['a Cyrillic look-alike', 'ruta@exаmple.lt'],
+      ['nothing', ''],
+      ['spaces', '   '],
+    ])('refuses %s', (_, typed) => {
+      expect(canDelete(fresh(), typed)).toEqual({
+        ok: false,
+        refusal: { reason: ACCOUNT_REFUSALS.deleteEmailMismatch },
+      });
+    });
+
+    it('refuses a blank confirmation for a blank display name', () => {
+      expect(canDelete(fresh({ displayName: '' }), '')).toEqual({
+        ok: false,
+        refusal: { reason: ACCOUNT_REFUSALS.deleteEmailMismatch },
+      });
     });
   });
 });
@@ -128,6 +163,7 @@ describe('account constants', () => {
     expect(ACCOUNT_REFUSALS).toEqual({
       emailInvalid: 'account.emailInvalid',
       deleteNameMismatch: 'account.deleteNameMismatch',
+      deleteEmailMismatch: 'account.deleteEmailMismatch',
       localeInvalid: 'account.localeInvalid',
     });
   });

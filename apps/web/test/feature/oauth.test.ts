@@ -64,6 +64,10 @@ async function onlyAccountId(): Promise<string> {
   return only.id;
 }
 
+// The account the Lichess-disconnected notice was left for (R-90), if any.
+const unlinkedNotice = (cookie: string): string | undefined =>
+  /(?:^|; )mychess\.lichess_unlinked=([^;]*)/.exec(cookie)?.[1];
+
 const accessTokens = async (): Promise<string[]> =>
   z
     .array(z.object({ access_token: z.string() }))
@@ -157,6 +161,105 @@ describe('Google', () => {
     });
     expect(response.status).toBe(400);
     expect(await count('accounts')).toBe(0);
+  });
+});
+
+// A Google sign-in with a verified email proves the mailbox, as a magic
+// link does (R-87): whatever reached an account before its email was
+// proven (a Lichess sign-up with that address) ends, and Google joins.
+describe('Google proving the email of an account Lichess created', () => {
+  // Someone signs up with Lichess under Rūta's address: the account is
+  // unproven, with a Lichess link and a session. Returns that session.
+  async function lichessSignUp(built: BuiltAuth): Promise<string> {
+    const cookie = cookieFrom(await oauthRoundTrip(built, 'lichess'));
+    expect(await rows('select email_verified from accounts')).toEqual([
+      { email_verified: false },
+    ]);
+    expect(await sessionOf(built, cookie)).toBe(await onlyAccountId());
+    return cookie;
+  }
+
+  it('ends the Lichess link and its sessions, proves the email and lets Google in', async () => {
+    const built = setup(BOTH);
+    const lichessSession = await lichessSignUp(built);
+    const response = await oauthRoundTrip(built, 'google');
+    expect(errorCode(response)).toBeNull();
+    expect(await rows('select provider_id from provider_accounts')).toEqual([
+      { provider_id: 'google' },
+    ]);
+    expect(await rows('select email_verified from accounts')).toEqual([
+      { email_verified: true },
+    ]);
+    expect(await sessionOf(built, lichessSession)).toBeUndefined();
+    expect(await signedInAs(built, response)).toBe(await onlyAccountId());
+    expect(unlinkedNotice(cookieFrom(response))).toBe(await onlyAccountId());
+  });
+
+  it('leaves Lichess no way back in by email afterwards', async () => {
+    const built = setup(BOTH);
+    await lichessSignUp(built);
+    await oauthRoundTrip(built, 'google');
+    const again = await oauthRoundTrip(built, 'lichess');
+    expect(errorCode(again)).toBe(LICHESS_EMAIL_IN_USE);
+    expect(await signedInAs(built, again)).toBeUndefined();
+    expect(await rows('select provider_id from provider_accounts')).toEqual([
+      { provider_id: 'google' },
+    ]);
+  });
+
+  it('keeps the Lichess link of an account whose email was already proven', async () => {
+    const built = setup({
+      google: GOOGLE,
+      lichess: { ...LICHESS, email: 'other@example.lt' },
+    });
+    const cookie = await signInByMagicLink(built, 'ruta@example.lt');
+    await oauthRoundTrip(built, 'lichess', { cookie, link: true });
+    const response = await oauthRoundTrip(built, 'google');
+    expect(errorCode(response)).toBeNull();
+    expect(
+      await rows(
+        'select provider_id from provider_accounts order by provider_id',
+      ),
+    ).toEqual([{ provider_id: 'google' }, { provider_id: 'lichess' }]);
+    expect(await sessionOf(built, cookie)).toBe(await onlyAccountId());
+    expect(unlinkedNotice(cookieFrom(response))).toBeUndefined();
+  });
+
+  it('leaves the account alone when Google is linked from its own settings', async () => {
+    const built = setup(BOTH);
+    // Only the session: the sign-up also expired its OAuth state cookie.
+    const cookie = (await lichessSignUp(built))
+      .split('; ')
+      .filter((c) => c.includes('session_token='))
+      .join('; ');
+    const response = await oauthRoundTrip(built, 'google', {
+      cookie,
+      link: true,
+    });
+    expect(errorCode(response)).toBeNull();
+    expect(
+      await rows(
+        'select provider_id from provider_accounts order by provider_id',
+      ),
+    ).toEqual([{ provider_id: 'google' }, { provider_id: 'lichess' }]);
+    expect(await sessionOf(built, cookie)).toBe(await onlyAccountId());
+  });
+
+  it('does not let a second Lichess identity in by email either (R-69)', async () => {
+    const who: FakeIdentity = { lichess: LICHESS };
+    const built = setup(who);
+    const first = await lichessSignUp(built);
+    who.lichess = { ...LICHESS, id: 'impostor', username: 'Impostor' };
+    const response = await oauthRoundTrip(built, 'lichess');
+    expect(errorCode(response)).toBe(LICHESS_EMAIL_IN_USE);
+    expect(await signedInAs(built, response)).toBeUndefined();
+    expect(
+      await rows('select provider_account_id from provider_accounts'),
+    ).toEqual([{ provider_account_id: 'ruta' }]);
+    expect(await rows('select email_verified from accounts')).toEqual([
+      { email_verified: false },
+    ]);
+    expect(await sessionOf(built, first)).toBe(await onlyAccountId());
   });
 });
 
@@ -310,5 +413,34 @@ describe('Lichess', () => {
     expect(await count('provider_accounts')).toBe(0);
     expect(await sessionOf(built, lichessSession)).toBeUndefined();
     expect(await sessionOf(built, owner)).toBe(await onlyAccountId());
+    // Settings will say why Lichess is gone (R-90).
+    expect(unlinkedNotice(owner)).toBe(await onlyAccountId());
+  });
+});
+
+// The language a new account starts in: the one the browser was using (R-85).
+describe('a new account from a provider', () => {
+  const localeRows = () => rows('select locale from accounts');
+
+  it.each<[Provider, string, string]>([
+    ['google', 'NEXT_LOCALE=en', 'en'],
+    ['lichess', 'NEXT_LOCALE=en', 'en'],
+    ['google', '', 'lt'],
+    ['google', 'NEXT_LOCALE=de', 'lt'],
+  ])(
+    'from %s with the cookie %j starts in %s',
+    async (provider, cookie, locale) => {
+      const built = setup(BOTH);
+      const response = await oauthRoundTrip(built, provider, { cookie });
+      expect(errorCode(response)).toBeNull();
+      expect(await localeRows()).toEqual([{ locale }]);
+    },
+  );
+
+  it('leaves an existing account in its own language', async () => {
+    const built = setup({ google: GOOGLE });
+    await oauthRoundTrip(built, 'google');
+    await oauthRoundTrip(built, 'google', { cookie: 'NEXT_LOCALE=en' });
+    expect(await localeRows()).toEqual([{ locale: 'lt' }]);
   });
 });

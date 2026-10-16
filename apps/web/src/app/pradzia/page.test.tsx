@@ -49,6 +49,7 @@ vi.mock('../../server/session', () => ({
 }));
 
 vi.mock('./actions', () => ({ completeOnboardingAction: vi.fn() }));
+vi.mock('../nustatymai/actions', () => ({ deleteAccountAction: vi.fn() }));
 
 beforeEach(() => {
   server.account = { displayName: '', locale: 'lt', onboardedAt: null };
@@ -84,5 +85,24 @@ describe('the onboarding page', () => {
     expect(
       screen.getByRole<HTMLInputElement>('radio', { name: 'English' }).checked,
     ).toBe(true);
+  });
+
+  it('offers to delete the account, confirmed by its email (R-86)', async () => {
+    server.account = { displayName: 'Ruta J', locale: 'lt', onboardedAt: null };
+    await renderPage('lt');
+    const d = MESSAGES.lt.settings.delete;
+    const disclosure = screen.getByText(MESSAGES.lt.onboarding.deleteAccount, {
+      selector: 'summary',
+    });
+    expect(disclosure.closest('details')?.open).toBe(false);
+    expect(
+      screen.getByRole('heading', { level: 2, hidden: true, name: d.title }),
+    ).toBeDefined();
+    expect(
+      screen.getByText('ruta@example.lt', { selector: 'label strong' }),
+    ).toBeDefined();
+    expect(
+      screen.getByRole('button', { hidden: true, name: d.confirm }),
+    ).toBeDefined();
   });
 });

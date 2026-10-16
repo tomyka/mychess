@@ -1,8 +1,14 @@
 'use client';
 
-import { canDelete } from '@mychess/domain';
+import { canDelete, type DeletableAccount } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
-import { useActionState, useId, useState, type JSX } from 'react';
+import {
+  useActionState,
+  useId,
+  useState,
+  type JSX,
+  type ReactNode,
+} from 'react';
 import { DANGER_BUTTON } from '../buttons';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
@@ -14,6 +20,9 @@ export const EXPORT_PATH = '/api/account/export';
 const INITIAL: DeleteState = {};
 
 const ITEMS = ['account', 'providers', 'sessions'] as const;
+
+// The value set apart from the sentence around it.
+const strong = (chunks: ReactNode) => <strong>{chunks}</strong>;
 
 /** What deleting removes, and the export offered before it (R-82). */
 function WhatGoes(): JSX.Element {
@@ -41,13 +50,35 @@ function WhatGoes(): JSX.Element {
 }
 
 /**
- * Deleting the account (R-40, R-82): confirmed by typing the display name.
- * The button waits for the same check the server makes again.
+ * What to type: the display name (R-82), or the email address for an
+ * account that has not been through onboarding (R-86).
+ */
+function ConfirmLabel({
+  account,
+  htmlFor,
+}: {
+  readonly account: DeletableAccount;
+  readonly htmlFor: string;
+}): JSX.Element {
+  const t = useTranslations('settings.delete');
+  return (
+    <label htmlFor={htmlFor} className="font-medium">
+      {account.onboardedAt === null
+        ? t.rich('typeEmail', { email: account.email, strong })
+        : t.rich('typeName', { name: account.displayName, strong })}
+    </label>
+  );
+}
+
+/**
+ * Deleting the account (R-40, R-82, R-86): confirmed by typing the display
+ * name, or the email before onboarding. The button waits for the same
+ * domain check the server makes again.
  */
 export function DeleteSection({
-  displayName,
+  account,
 }: {
-  readonly displayName: string;
+  readonly account: DeletableAccount;
 }): JSX.Element {
   const t = useTranslations();
   const titleId = useId();
@@ -56,6 +87,7 @@ export function DeleteSection({
   const [typed, setTyped] = useState('');
   const [state, action, pending] = useActionState(deleteAccountAction, INITIAL);
   const refused = state.refusal !== undefined;
+  const byEmail = account.onboardedAt === null;
   return (
     <section aria-labelledby={titleId} className={DANGER_SECTION}>
       <h2 id={titleId} className={`${SECTION_TITLE} text-error`}>
@@ -72,18 +104,13 @@ export function DeleteSection({
         onSubmit={submitByHand(action)}
         className="flex flex-col gap-3"
       >
-        <label htmlFor={fieldId} className="font-medium">
-          {t.rich('settings.delete.typeName', {
-            name: displayName,
-            // The name to type, set apart from the sentence around it.
-            strong: (chunks) => <strong>{chunks}</strong>,
-          })}
-        </label>
+        <ConfirmLabel account={account} htmlFor={fieldId} />
         <input
           id={fieldId}
-          type="text"
-          name="typedName"
+          type={byEmail ? 'email' : 'text'}
+          name="confirmation"
           autoComplete="off"
+          autoCapitalize={byEmail ? 'none' : undefined}
           spellCheck={false}
           value={typed}
           onChange={(event) => {
@@ -95,7 +122,7 @@ export function DeleteSection({
         />
         <button
           type="submit"
-          disabled={pending || !canDelete(displayName, typed).ok}
+          disabled={pending || !canDelete(account, typed).ok}
           className={DANGER_BUTTON}
         >
           {t('settings.delete.confirm')}

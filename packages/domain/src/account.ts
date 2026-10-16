@@ -20,6 +20,7 @@ export const DEFAULT_ENTITLEMENT: Entitlement = 'free';
 export const ACCOUNT_REFUSALS = {
   emailInvalid: 'account.emailInvalid',
   deleteNameMismatch: 'account.deleteNameMismatch',
+  deleteEmailMismatch: 'account.deleteEmailMismatch',
   localeInvalid: 'account.localeInvalid',
 } as const;
 
@@ -74,17 +75,41 @@ export function isDisabled(account: Account): boolean {
   return account.disabledAt !== null;
 }
 
+/** What deciding a deletion needs to know about the account. */
+export type DeletableAccount = Pick<
+  Account,
+  'displayName' | 'email' | 'onboardedAt'
+>;
+
+const sameEmail = (email: string, typed: string): boolean => {
+  const canonical = canonicalEmail(typed);
+  return canonical.ok && canonical.value === email;
+};
+
+const sameName = (displayName: string, typed: string): boolean =>
+  displayName.trim() !== '' && typed.trim() === displayName;
+
+const refuse = (
+  reason: AccountRefusal['reason'],
+): Result<undefined, AccountRefusal> => ({ ok: false, refusal: { reason } });
+
 /**
- * Deletion is confirmed by typing the display name exactly (R-82). A blank
- * name can never be typed, so it never confirms a deletion.
+ * Deletion is confirmed by typing the display name exactly (R-82); a blank
+ * name can never be typed, so it never confirms one. An account that has
+ * not been through onboarding has no name of its own yet, so it confirms
+ * with its email address instead, in its canonical form (R-86).
  */
 export function canDelete(
-  displayName: string,
-  typedName: string,
+  account: DeletableAccount,
+  typed: string,
 ): Result<undefined, AccountRefusal> {
-  return displayName.trim() !== '' && typedName.trim() === displayName
+  if (account.onboardedAt === null)
+    return sameEmail(account.email, typed)
+      ? { ok: true, value: undefined }
+      : refuse(ACCOUNT_REFUSALS.deleteEmailMismatch);
+  return sameName(account.displayName, typed)
     ? { ok: true, value: undefined }
-    : { ok: false, refusal: { reason: ACCOUNT_REFUSALS.deleteNameMismatch } };
+    : refuse(ACCOUNT_REFUSALS.deleteNameMismatch);
 }
 
 /** What an entitlement allows a coach to have. */

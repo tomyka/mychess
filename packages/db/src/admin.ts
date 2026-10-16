@@ -8,6 +8,7 @@ import {
 } from '@mychess/domain';
 import { eq } from 'drizzle-orm';
 import { findAccountByEmail } from './accounts';
+import { auditEmailHash } from './audit-email';
 import type { Db, Tx } from './client';
 import { accounts, adminAudit, sessions } from './schema';
 
@@ -51,7 +52,7 @@ async function audited(
     await tx.insert(adminAudit).values({
       action: entry.action,
       targetAccountId: account.id,
-      targetEmail: entry.email,
+      targetEmailHash: auditEmailHash(entry.email),
       actor: entry.actor,
       at: entry.now,
     });

@@ -3,9 +3,11 @@ import Link from 'next/link';
 import type { JSX } from 'react';
 import { ROUTES } from '../../lib/routes';
 import { googleConfigured, readWebEnv } from '../../server/env';
+import { showLichessUnlinked } from '../../server/lichess-unlinked';
 import { linkedProviders } from '../../server/provider-links';
 import { requireOnboarded } from '../../server/session';
 import { DeleteSection, EXPORT_PATH } from './delete-section';
+import { LichessUnlinkedNotice } from './lichess-unlinked-notice';
 import { ProfileForm } from './profile-form';
 import { Providers } from './providers';
 import { SECONDARY_BUTTON } from '../buttons';
@@ -47,7 +49,8 @@ function Header(): JSX.Element {
 }
 
 // Signed-out visitors go to sign-in, new accounts to onboarding first;
-// a failed provider link comes back here with `?error=`.
+// a failed provider link comes back here with `?error=`. Settings says
+// why Lichess is gone when proving the email ended its link (R-90).
 export default async function SettingsPage({
   searchParams,
 }: {
@@ -55,6 +58,7 @@ export default async function SettingsPage({
 }): Promise<JSX.Element> {
   const account = await requireOnboarded();
   const links = await linkedProviders();
+  const lichessUnlinked = await showLichessUnlinked(account.id, links);
   const params = await searchParams;
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-gutter py-8 sm:px-gutter-wide">
@@ -65,9 +69,11 @@ export default async function SettingsPage({
         googleEnabled={googleConfigured(readWebEnv())}
         email={account.email}
         error={first(params['error'])}
-      />
+      >
+        {lichessUnlinked ? <LichessUnlinkedNotice /> : null}
+      </Providers>
       <ExportSection />
-      <DeleteSection displayName={account.displayName} />
+      <DeleteSection account={account} />
     </main>
   );
 }

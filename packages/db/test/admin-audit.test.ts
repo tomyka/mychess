@@ -1,28 +1,35 @@
 import { describe, expect, it } from 'vitest';
-import { deleteAccount, findAccountById, grantAdmin } from '../src';
+import {
+  auditEmailHash,
+  deleteAccount,
+  findAccountById,
+  grantAdmin,
+} from '../src';
 import { useTestDatabase } from '../src/testing';
 import { seedAccount } from './support/accounts';
 
 const { db, client } = useTestDatabase();
 const NOW = new Date('2026-10-16T09:00:00Z');
+const RUTA_HASH = auditEmailHash('ruta@example.lt');
 
 const insertAudit = () =>
   client.query(
-    `insert into admin_audit (action, target_account_id, target_email, actor, at)
-     values ('grant-admin', 'a1', 'ruta@example.lt', 'cli:ruta', now())`,
+    `insert into admin_audit (action, target_account_id, target_email_hash, actor, at)
+     values ('grant-admin', 'a1', $1, 'cli:ruta', now())`,
+    [RUTA_HASH],
   );
 
 const auditRows = async (): Promise<unknown> =>
   (
     await client.query(
-      'select action, target_account_id, target_email, actor from admin_audit order by id',
+      'select action, target_account_id, target_email_hash, actor from admin_audit order by id',
     )
   ).rows;
 
 const ROW = {
   action: 'grant-admin',
   target_account_id: 'a1',
-  target_email: 'ruta@example.lt',
+  target_email_hash: RUTA_HASH,
   actor: 'cli:ruta',
 };
 

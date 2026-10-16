@@ -17,6 +17,7 @@ export {
 } from './accounts';
 
 export { disableAccount, grantAdmin } from './admin';
+export { auditEmailHash } from './audit-email';
 
 export {
   createDb,

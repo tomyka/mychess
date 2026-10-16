@@ -2,7 +2,7 @@
 
 import type { Locale } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
-import { useActionState, useId, type JSX } from 'react';
+import { useActionState, useId, type JSX, type ReactNode } from 'react';
 import { PRIMARY_BUTTON } from '../buttons';
 import { isNameRefusal, LanguageField, NameField } from '../profile-fields';
 import { StatusLine } from '../status-line';
@@ -14,6 +14,8 @@ export interface OnboardingFormProps {
   readonly displayName: string;
   /** The language the page is shown in; Lithuanian for a new account. */
   readonly locale: Locale;
+  /** Shown below the form: the way to delete the account instead (R-86). */
+  readonly children?: ReactNode;
 }
 
 const INITIAL: OnboardingState = {};
@@ -22,6 +24,7 @@ const INITIAL: OnboardingState = {};
 export function OnboardingForm({
   displayName,
   locale,
+  children,
 }: OnboardingFormProps): JSX.Element {
   const t = useTranslations();
   const statusId = useId();
@@ -30,7 +33,7 @@ export function OnboardingForm({
     INITIAL,
   );
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-gutter py-8 sm:px-gutter-wide">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 px-gutter py-8 sm:px-gutter-wide">
       <div className="flex flex-col gap-6 sm:rounded-card sm:border sm:border-border sm:bg-surface sm:p-8 sm:shadow-card">
         <header className="flex flex-col gap-2">
           <p className="text-lg font-bold text-accent">{t('app.title')}</p>
@@ -64,6 +67,7 @@ export function OnboardingForm({
           </button>
         </form>
       </div>
+      {children}
     </main>
   );
 }

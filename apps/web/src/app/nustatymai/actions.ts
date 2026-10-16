@@ -7,13 +7,14 @@ import { redirect } from 'next/navigation';
 import { ROUTES } from '../../lib/routes';
 import { getMailer } from '../../server/auth';
 import { getDb } from '../../server/db';
+import { forgetLichessUnlinked } from '../../server/lichess-unlinked';
 import { rememberLocale } from '../../server/locale-cookie';
 import { deletedMail } from '../../server/mail';
 import {
   parseProfileInput,
   type ProfileRefusalKey,
 } from '../../server/profile-input';
-import { requireOnboarded } from '../../server/session';
+import { requireAccount, requireOnboarded } from '../../server/session';
 import { signOutHere } from '../../server/sign-out';
 
 /** What the profile form shows after a submit. */
@@ -57,26 +58,28 @@ async function mailDeleted(message: ReturnType<typeof deletedMail>) {
 }
 
 /**
- * Deletes the account for good once its display name is typed (R-40, R-82),
- * mails the confirmation in its language, and signs this browser out: the
- * session row went with the account, the cookie goes here. The domain's
- * canDelete refuses a blank display name; whether an account that has not
- * been through onboarding may delete is an open owner question, so for now
- * only an onboarded account gets here.
+ * Deletes the account for good once it is confirmed (R-40, R-82): by its
+ * display name, or by its email before onboarding (R-86), as the domain's
+ * canDelete decides. Mails the confirmation in its language and signs this
+ * browser out: the session row went with the account, the cookie goes here.
  */
 export async function deleteAccountAction(
   _previous: DeleteState,
   form: FormData,
 ): Promise<DeleteState> {
-  const account = await requireOnboarded();
-  const typed = form.get('typedName');
-  const check = canDelete(
-    account.displayName,
-    typeof typed === 'string' ? typed : '',
-  );
+  const account = await requireAccount();
+  const typed = form.get('confirmation');
+  const check = canDelete(account, typeof typed === 'string' ? typed : '');
   if (!check.ok) return { refusal: check.refusal.reason };
   await deleteAccount(getDb(), account.id);
   await mailDeleted(deletedMail(account.locale, account.email));
   await signOutHere();
   redirect(`${ROUTES.signIn}?deleted=1`);
+}
+
+/** Dismisses the note that Lichess was disconnected for security (R-90). */
+export async function dismissLichessUnlinkedAction(): Promise<void> {
+  await requireAccount();
+  await forgetLichessUnlinked();
+  refresh();
 }

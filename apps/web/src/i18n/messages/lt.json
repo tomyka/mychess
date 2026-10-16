@@ -32,7 +32,8 @@
     "displayName": "Rodomas vardas",
     "displayNameHint": "Šį vardą matys kiti. Vėliau jį galėsite pakeisti nustatymuose.",
     "language": "Kalba",
-    "submit": "Išsaugoti ir tęsti"
+    "submit": "Išsaugoti ir tęsti",
+    "deleteAccount": "Ištrinti paskyrą"
   },
   "settings": {
     "title": "Nustatymai",
@@ -53,6 +54,8 @@
       "notLinked": "Neprijungta",
       "link": "Prijungti {provider}",
       "unlink": "Atjungti {provider}",
+      "lichessUnlinked": "Saugumo sumetimais Lichess paskyra atjungta: ji buvo prijungta prieš patvirtinant jūsų el. pašto adresą. Jei tai jūsų Lichess paskyra, galite ją prijungti iš naujo.",
+      "dismiss": "Supratau",
       "error": {
         "notFresh": "Saugumo sumetimais prieš prijungdami ar atjungdami paskyrą prisijunkite iš naujo.",
         "linkedElsewhere": "Ši paskyra jau prijungta prie kitos mychess paskyros.",
@@ -75,12 +78,14 @@
       "irreversible": "Ištrintos paskyros atkurti nebus galima. Patvirtinimą atsiųsime el. paštu.",
       "exportFirst": "Prieš ištrindami <link>atsisiųskite savo duomenis</link>.",
       "typeName": "Patvirtinkite įrašydami savo rodomą vardą: <strong>{name}</strong>",
+      "typeEmail": "Patvirtinkite įrašydami savo el. pašto adresą: <strong>{email}</strong>",
       "confirm": "Ištrinti paskyrą visam laikui"
     }
   },
   "account": {
     "emailInvalid": "Įveskite teisingą el. pašto adresą.",
     "deleteNameMismatch": "Įrašytas vardas nesutampa su jūsų rodomu vardu.",
+    "deleteEmailMismatch": "Įrašytas adresas nesutampa su jūsų el. pašto adresu.",
     "localeInvalid": "Pasirinkite kalbą: lietuvių arba anglų."
   },
   "displayName": {

@@ -12,6 +12,7 @@ import {
   type BetterAuthOptions,
 } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { revokeUnprovenAccountAccess } from 'better-auth/db';
 import {
   APIError,
   createAuthMiddleware,
@@ -30,12 +31,15 @@ import { getDb } from './db';
 import { googleConfigured, readWebEnv, type WebEnv } from './env';
 import { createMailer, magicLinkMail, type Mailer } from './mail';
 import { googleUserInfo } from './oauth/google';
+import { noteLichessUnlinked } from './lichess-unlinked';
 import { lichessUserInfo } from './oauth/lichess';
+import { linkWithLocale, signUpLocale } from './sign-up-locale';
 import { testSignInEnabled } from './test-sign-in';
 import { testSignInPlugin } from './test-sign-in-session';
 
 const DAY = 60 * 60 * 24;
 const LICHESS: Provider = 'lichess';
+const GOOGLE: Provider = 'google';
 
 export interface AuthDeps {
   readonly db: Db;
@@ -167,6 +171,28 @@ const guardLichessLink: ValidateUserInfo = async ({ user, source }, ctx) => {
 };
 
 /**
+ * A Google sign-in with a verified email proves the mailbox, as a magic
+ * link does (R-87). Better Auth calls this before joining Google to the
+ * account with that email; if that account is unproven (a Lichess sign-up
+ * under the address), Better Auth's own magic-link clean-up ends the
+ * access it gathered before the proof (provider links and sessions) and
+ * marks the email verified, so Google joins an account the mailbox owner
+ * alone holds. A link from settings proves nothing about the account's
+ * own email and is left alone.
+ */
+const proveEmailByGoogle: ValidateUserInfo = async ({ user, source }, ctx) => {
+  if (source.action !== 'link-account') return;
+  if (source.oauth?.providerId !== GOOGLE) return;
+  if (user.emailVerified !== true || typeof user.id !== 'string') return;
+  if ((await getOAuthState())?.link !== undefined) return;
+  await revokeUnprovenAccountAccess(ctx, user.id);
+};
+
+/** Every provider identity, before it joins or creates an account. */
+const validateUserInfo: ValidateUserInfo = async (data, ctx) =>
+  (await guardLichessLink(data, ctx)) ?? (await proveEmailByGoogle(data, ctx));
+
+/**
  * A disabled account opens no session (security item 8). An account our
  * connection cannot see yet is one Better Auth is creating in this request;
  * the sessions table's foreign key still demands it exists.
@@ -180,9 +206,15 @@ function databaseHooks(db: Db): DatabaseHooks {
   return {
     user: {
       create: {
-        before: (account) =>
+        // Canonical email (security item 6); the language the person was
+        // using (R-85).
+        before: (account, ctx) =>
           Promise.resolve({
-            data: { ...account, email: canonicalOrRefuse(account.email) },
+            data: {
+              ...account,
+              email: canonicalOrRefuse(account.email),
+              locale: signUpLocale(ctx),
+            },
           }),
       },
     },
@@ -191,6 +223,7 @@ function databaseHooks(db: Db): DatabaseHooks {
         before: (session) => isNotDisabled(db, session.userId),
       },
     },
+    account: { delete: { before: noteLichessUnlinked } },
   };
 }
 
@@ -216,7 +249,7 @@ const userOptions = {
   modelName: 'accounts',
   fields: { name: 'displayName' },
   additionalFields: accountFields,
-  validateUserInfo: guardLichessLink,
+  validateUserInfo,
 } satisfies UserOptions;
 
 const sessionOptions = {
@@ -237,6 +270,9 @@ const providerAccountOptions = {
   accountLinking: {
     enabled: true,
     trustedProviders: [LICHESS],
+    // An unproven account may be joined: Lichess never is (guardLichessLink)
+    // and Google first ends its unproven access (proveEmailByGoogle, R-87).
+    requireLocalEmailVerified: false,
     allowDifferentEmails: true,
     allowUnlinkingAll: true,
   },
@@ -272,8 +308,9 @@ function magicLinkPlugin(mail: Mailer) {
     storeToken: 'hashed',
     sendMagicLink: async ({ email, url, metadata }) => {
       const parsed = metadataSchema.safeParse(metadata ?? {});
-      const locale = resolveLocale(parsed.success ? parsed.data.locale : '');
-      await mail.send(magicLinkMail(locale, email, url));
+      const asked = parsed.success ? parsed.data.locale : undefined;
+      const link = linkWithLocale(url, asked);
+      await mail.send(magicLinkMail(resolveLocale(asked), email, link));
     },
   });
 }

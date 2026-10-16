@@ -5,6 +5,7 @@ import {
   CATALOGUES,
   expectGreeting,
   format,
+  freshEmail,
   LOCALE_COOKIE,
   newDevice,
   newOnboardedAccount,
@@ -133,4 +134,33 @@ test('deleting needs the exact display name, mails a confirmation, and frees the
   });
   await page.goto(linkIn(again.Text));
   await expect(page).toHaveURL(/\/pradzia$/);
+});
+
+test('an account that has not finished onboarding deletes itself by typing its email (R-86)', async ({
+  page,
+  request,
+}) => {
+  const email = freshEmail();
+  await signIn(page, request, lt, email);
+  await expect(page).toHaveURL(/\/pradzia$/);
+
+  await page.getByText(lt.onboarding.deleteAccount, { exact: true }).click();
+  const typed = page.getByLabel(
+    format(lt.settings.delete.typeEmail, { email }),
+    { exact: true },
+  );
+  const confirm = page.getByRole('button', {
+    name: lt.settings.delete.confirm,
+  });
+  await expect(confirm).toBeDisabled();
+  await typed.fill('e2e-someone-else@mychess.test');
+  await expect(confirm).toBeDisabled();
+  await typed.fill(email.toUpperCase());
+  await expect(confirm).toBeEnabled();
+
+  const mail = await nextMailTo(request, email, async () => {
+    await confirm.click();
+    await expect(page).toHaveURL(/\/prisijungti\?deleted=1$/);
+  });
+  expect(mail.Subject).toBe(lt.mail.deleted.subject);
 });

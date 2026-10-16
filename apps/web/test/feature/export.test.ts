@@ -70,11 +70,44 @@ describe('the data export (R-40)', () => {
     expect(body).toEqual(
       JSON.parse(
         JSON.stringify(
-          await exportAccount(db, await accountId('ruta@example.lt')),
+          await exportAccount(
+            db,
+            await accountId('ruta@example.lt'),
+            new Date(),
+          ),
         ),
       ),
     );
     expect(body).toMatchObject({ account: { email: 'ruta@example.lt' } });
+  });
+
+  it('lists the requester’s active session, never its token (R-89)', async () => {
+    request.cookie = await signInByMagicLink(built(), 'ruta@example.lt');
+    const token = /session_token=([^.;]+)/.exec(request.cookie)?.[1] ?? '';
+    expect(token).not.toBe('');
+    const response = await GET();
+    const text = await response.text();
+    expect(text).not.toContain(token);
+    // Exactly these fields: strict, so a token field would fail the parse.
+    const { sessions } = z
+      .object({
+        sessions: z.array(
+          z.strictObject({
+            ipAddress: z.string().nullable(),
+            userAgent: z.string().nullable(),
+            createdAt: z.iso.datetime(),
+            expiresAt: z.iso.datetime(),
+          }),
+        ),
+      })
+      .parse(JSON.parse(text));
+    expect(sessions).toHaveLength(1);
+    expect(Object.keys(sessions[0] ?? {}).sort()).toEqual([
+      'createdAt',
+      'expiresAt',
+      'ipAddress',
+      'userAgent',
+    ]);
   });
 
   it('answers 401 for a disabled account', async () => {

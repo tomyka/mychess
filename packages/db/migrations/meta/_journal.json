@@ -15,6 +15,13 @@
       "when": 1792183776033,
       "tag": "0001_admin_audit_append_only",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792186468220,
+      "tag": "0002_admin_audit_email_hash",
+      "breakpoints": true
     }
   ]
 }

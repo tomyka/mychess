@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,9 +10,11 @@ const server = vi.hoisted(() => {
   const state: {
     google: { GOOGLE_CLIENT_ID: string; GOOGLE_CLIENT_SECRET: string };
     links: { id: string; provider: 'google' | 'lichess' }[];
+    lichessUnlinked: boolean;
   } = {
     google: { GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'secret' },
     links: [],
+    lichessUnlinked: false,
   };
   return state;
 });
@@ -38,6 +40,11 @@ vi.mock('../../server/provider-links', () => ({
   linkedProviders: () => Promise.resolve(server.links),
 }));
 
+vi.mock('../../server/lichess-unlinked', () => ({
+  showLichessUnlinked: (accountId: string) =>
+    Promise.resolve(accountId === 'a1' && server.lichessUnlinked),
+}));
+
 vi.mock('../../server/env', async (original) => ({
   ...(await original<typeof import('../../server/env')>()),
   readWebEnv: () => server.google,
@@ -54,6 +61,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('./actions', () => ({
   updateProfileAction: vi.fn(),
   deleteAccountAction: vi.fn(),
+  dismissLichessUnlinkedAction: vi.fn(),
 }));
 
 type Search = Record<string, string | string[] | undefined>;
@@ -75,6 +83,7 @@ const s = MESSAGES.lt.settings;
 beforeEach(() => {
   server.google = { GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'secret' };
   server.links = [];
+  server.lichessUnlinked = false;
 });
 
 describe('the settings page', () => {
@@ -128,5 +137,19 @@ describe('the settings page', () => {
     expect(
       screen.getByRole('button', { name: 'Prijungti Lichess' }),
     ).toBeDefined();
+  });
+
+  it('says why Lichess is gone when proving the email ended its link (R-90)', async () => {
+    server.lichessUnlinked = true;
+    await renderPage();
+    const providers = screen.getByRole('region', { name: s.providers.title });
+    expect(within(providers).getByRole('note').textContent).toContain(
+      s.providers.lichessUnlinked,
+    );
+  });
+
+  it('says nothing about Lichess otherwise', async () => {
+    await renderPage();
+    expect(screen.queryByRole('note')).toBeNull();
   });
 });

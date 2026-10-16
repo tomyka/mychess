@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
-import { useId, useState, type JSX } from 'react';
+import { useId, useState, type JSX, type ReactNode } from 'react';
 import { authClient } from '../../lib/auth-client';
 import { offeredProviders, type Provider } from '../../lib/providers';
 import { ROUTES } from '../../lib/routes';
@@ -21,6 +21,8 @@ export interface ProvidersProps {
   readonly email: string;
   /** The `?error=` code a failed link was sent back with. */
   readonly error?: string | undefined;
+  /** A notice about the links, shown above them (R-90). */
+  readonly children?: ReactNode;
 }
 
 // Where Better Auth sends the browser after a link, whether it worked or not.
@@ -102,6 +104,7 @@ export function Providers({
   googleEnabled,
   email,
   error,
+  children,
 }: ProvidersProps): JSX.Element {
   const t = useTranslations();
   const router = useRouter();
@@ -128,6 +131,7 @@ export function Providers({
       <p className="text-fg-muted">
         {t('settings.providers.intro', { email })}
       </p>
+      {children}
       <StatusLine text={failure === null ? null : t(failure)} tone="error" />
       <ul className="flex flex-col divide-y divide-border">
         {providers.map((provider) => (

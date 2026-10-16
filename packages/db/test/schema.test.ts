@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { auditEmailHash } from '../src';
 import { useTestDatabase } from '../src/testing';
 
 const { client } = useTestDatabase();
@@ -8,6 +9,15 @@ const insertAccount = (id: string, email: string) =>
     `insert into accounts (id, email, display_name, created_at, updated_at)
      values ($1, $2, '', now(), now())`,
     [id, email],
+  );
+
+const RUTA_HASH = auditEmailHash('ruta@example.lt');
+
+const insertAudit = (action: string, hash: string) =>
+  client.query(
+    `insert into admin_audit (action, target_account_id, target_email_hash, actor, at)
+     values ($1, 'a1', $2, 'cli', now())`,
+    [action, hash],
   );
 
 describe('the accounts schema', () => {
@@ -46,13 +56,28 @@ describe('the accounts schema', () => {
   });
 
   it('refuses an audit row for an unknown admin action', async () => {
-    await expect(
-      client.query(
-        `insert into admin_audit (action, target_account_id, target_email, actor, at)
-         values ('delete-everything', 'a1', 'ruta@example.lt', 'cli', now())`,
-      ),
-    ).rejects.toThrow(/check/);
+    await expect(insertAudit('delete-everything', RUTA_HASH)).rejects.toThrow(
+      /admin_audit_action_check/,
+    );
   });
+
+  it.each([
+    ['the plain address', 'ruta@example.lt'],
+    ['an upper-case hash', RUTA_HASH.toUpperCase()],
+    ['a short hash', RUTA_HASH.slice(1)],
+    [
+      'a hash with a trailing newline',
+      `${RUTA_HASH}
+`,
+    ],
+  ])(
+    'refuses an audit row holding %s instead of the hash (R-88)',
+    async (_, hash) => {
+      await expect(insertAudit('grant-admin', hash)).rejects.toThrow(
+        /admin_audit_target_email_hash_check/,
+      );
+    },
+  );
 
   it.each([['Ruta@Example.lt'], [' ruta@example.lt'], ['ruta@example.lt ']])(
     'refuses the non-canonical email %j',
@@ -104,10 +129,7 @@ describe('the accounts schema', () => {
 
   it('keeps audit rows after the account is gone (no cascade)', async () => {
     await insertAccount('a1', 'ruta@example.lt');
-    await client.query(
-      `insert into admin_audit (action, target_account_id, target_email, actor, at)
-       values ('grant-admin', 'a1', 'ruta@example.lt', 'cli', now())`,
-    );
+    await insertAudit('grant-admin', RUTA_HASH);
     await client.query(`delete from accounts where id = 'a1'`);
     const { rows } = await client.query(
       'select count(*)::int as n from admin_audit',
