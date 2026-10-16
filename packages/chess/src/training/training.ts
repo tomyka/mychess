@@ -15,7 +15,9 @@
  *    Review.
  * 3. `buildQueue` offers it again when its Review is Due; `grade` records the
  *    drill: a pass, or a Lapse (a wrong move, or a hint, R-61). A Lapse brings
- *    the move back within minutes the same day (R-78).
+ *    the move back within minutes the same day (R-78); "continue" offers it
+ *    again once it is Due, while `exclude` only holds back new moves already
+ *    shown this session.
  * 4. `mastered` (a set of moves, a line or a chapter) and `weakSpots` read
  *    progress (R-56); `reconcile` sorts the Reviews after a coach edit or an
  *    unlink (R-23, R-44).

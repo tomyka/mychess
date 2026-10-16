@@ -41,8 +41,11 @@ export interface QueueInput {
   /** New moves already learned today; they count against the allowance. */
   readonly learnedToday: number;
   /**
-   * Keys already reviewed in this session. "Continue" (R-62) builds the
-   * queue again with them left out, so the next batch holds other moves.
+   * Keys already shown for learning in this session: "continue" (R-62)
+   * leaves them out of the new moves, so the next batch teaches other moves.
+   * It never holds back a Review: a Review graded this session is offered
+   * again only when it is Due again, as a Lapse is within minutes (R-78), and
+   * that repeat counts toward the session size.
    */
   readonly exclude?: ReadonlySet<string>;
 }
@@ -78,15 +81,9 @@ interface Due {
   readonly due: number;
 }
 
-/**
- * Every player move of the active repertoires, each key once, leaving out
- * the keys in `exclude`.
- */
-function queueItems(
-  repertoires: readonly TrainingRepertoire[],
-  exclude: ReadonlySet<string>,
-): QueueItem[] {
-  const seen = new Set(exclude);
+/** Every player move of the active repertoires, each key once. */
+function queueItems(repertoires: readonly TrainingRepertoire[]): QueueItem[] {
+  const seen = new Set<string>();
   const items: QueueItem[] = [];
   for (const r of repertoires.filter((x) => x.active)) {
     for (const m of playerMoves(r.graph)) {
@@ -128,13 +125,12 @@ export function buildQueue(
   }
   const due: Due[] = [];
   const fresh: QueueItem[] = [];
-  for (const item of queueItems(
-    input.repertoires,
-    input.exclude ?? new Set(),
-  )) {
+  const shown = input.exclude ?? new Set();
+  for (const item of queueItems(input.repertoires)) {
     const review = input.reviews.get(item.key);
-    if (review === undefined) fresh.push(item);
-    else if (review.fsrs.due.getTime() <= now.getTime()) {
+    if (review === undefined) {
+      if (!shown.has(item.key)) fresh.push(item);
+    } else if (review.fsrs.due.getTime() <= now.getTime()) {
       due.push({ item, due: review.fsrs.due.getTime() });
     }
   }

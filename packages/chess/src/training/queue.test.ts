@@ -15,7 +15,13 @@ import {
   type QueueInput,
   type QueueLimits,
 } from './queue';
-import { DAY_MS, startReview, type ReviewState } from './schedule';
+import {
+  DAY_MS,
+  grade,
+  startReview,
+  type Outcome,
+  type ReviewState,
+} from './schedule';
 
 function must<T>(value: T | undefined): T {
   if (value === undefined) throw new Error('expected a value');
@@ -130,18 +136,59 @@ describe('queue limits (R-62)', () => {
     ).toEqual([]);
   });
 
-  it('continues a session: keys already reviewed are left out', () => {
+  /** The reviews after grading every key of `batch` with `outcome` at `at`. */
+  const graded = (
+    batch: readonly { readonly key: string }[],
+    outcome: (key: string) => Outcome,
+    at: Date,
+  ): Map<string, ReviewState> => {
+    const next = new Map(allDue);
+    for (const { key } of batch) {
+      next.set(key, grade(must(allDue.get(key)), outcome(key), at));
+    }
+    return next;
+  };
+
+  it('continues a session: graded reviews are no longer due, so the next batch holds other moves', () => {
     const first = queueOf(wideInput(), now);
     expect(first.reviews).toHaveLength(QUEUE_LIMITS.reviews);
     const seen = new Set(first.reviews.map((i) => i.key));
-    const next = queueOf(wideInput(seen), now);
+    const next = queueOf(
+      {
+        ...input(
+          [{ id: 'r1', graph: wide, active: true }],
+          graded(first.reviews, () => 'pass', now),
+        ),
+        exclude: seen,
+      },
+      now,
+    );
     expect(next.reviews.map((i) => i.key)).toEqual(
       keys.filter((k) => !seen.has(k)),
     );
-    expect(next.reviews.every((i) => !seen.has(i.key))).toBe(true);
   });
 
-  it('leaves an excluded key out of the new moves too', () => {
+  it('continues a session with a lapsed move once it is due again (R-78)', () => {
+    const first = queueOf(wideInput(), now);
+    const lapsed = must(first.reviews[0]).key;
+    const reviews = graded(
+      first.reviews,
+      (key) => (key === lapsed ? 'lapse' : 'pass'),
+      now,
+    );
+    const dueAgain = must(reviews.get(lapsed)).fsrs.due;
+    expect(dueAgain.getTime() - now.getTime()).toBeLessThan(3_600_000);
+    const next = queueOf(
+      {
+        ...input([{ id: 'r1', graph: wide, active: true }], reviews),
+        exclude: new Set(first.reviews.map((i) => i.key)),
+      },
+      dueAgain,
+    );
+    expect(next.reviews.map((i) => i.key)).toContain(lapsed);
+  });
+
+  it('leaves a key shown for learning this session out of the new moves', () => {
     const [e4, ...rest] = playerKeys(white);
     const q = queueOf(
       {

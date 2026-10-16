@@ -44,7 +44,9 @@ export function learnStep(
 /**
  * "I know this" (R-58): the scope's moves skip the learn pass and start their
  * Reviews at `now`, in line order. A move already in review keeps its state,
- * so it is not among the Reviews returned.
+ * so it is not among the Reviews returned. The Reviews look like learned
+ * ones: the caller must record that they came from "I know this", since the
+ * coach sees skipped moves (R-58).
  */
 export function knowThis(
   scope: Scope,
