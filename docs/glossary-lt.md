@@ -36,7 +36,7 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | Player | Player | žaidėjas | v1 `nav_players`, `settings_role_player` | Not **mokinys** (student), which v1 used on coach screens (`coach_students_heading`); Student is retired. |
 | Coach | Coach | treneris | v1 `nav_coaches`, `coach_note_title` | Collides with the FIDE trainer title, adopted (R-74). |
 | Coach (capability switch) | Coach mode (proposed) | trenerio režimas | proposed | v1 had a role choice ("Esu: žaidėjas / treneris", `settings_role_label`); v2 has no coach account, so the role wording does not carry over. |
-| Display name | Display name | rodomas vardas | proposed | v1 asked for first and last name (`welcome_first_name_label` vardas, `welcome_last_name_label` pavardė); v2 has one field. Not **vartotojo vardas** (username). |
+| Display name | Display name | rodomas vardas | approved (R-91) | v1 asked for first and last name (`welcome_first_name_label` vardas, `welcome_last_name_label` pavardė); v2 has one field. Not **vartotojo vardas** (username). |
 | Coach link | Coach link | ryšys su treneriu | proposed | v1 said "aktyvus ryšys" (`coaches_request_error_active_relationship`). Verbs: link **susieti**, unlink **atsieti**. Not **prisijungti** (v1 `join_*` used it for linking, but it is the sign-in verb). |
 | Invite | Invite | kvietimas | v1 `coach_invite_heading`, `coach_dashboard_invite_links_heading` | Invite link: **kvietimo nuoroda**. Verb: **pakviesti**. |
 | Group | Group | grupė | proposed | Not **klasė**, **komanda**, **klubas** (CONTEXT avoid list). |
@@ -126,13 +126,13 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | Sign in / Sign out | Sign in / Sign out | prisijungti / atsijungti | v1 `nav_sign_in`, `nav_sign_out` | |
 | Magic link | Sign-in link | prisijungimo nuoroda | v1 `login_email_magic_link` | Short form once the context is clear: **nuoroda** / "link". Signing in this way: **prisijungti el. paštu** / "sign in by email". |
 | Email | Email | el. paštas | v1 `login_email_label` | Email address: **el. pašto adresas**. "We will email you": **atsiųsime el. paštu**. |
-| Sign-in method (Google, Lichess, email) | Sign-in method | prisijungimo būdas | proposed | |
-| Sign in with a provider | Sign in with Google | prisijungti Google paskyra | proposed (v1 `login_continue_with_google` "Tęsti su Google") | Instrumental case, as in **prisijungti el. paštu**. Not "per Google" or "su Google": common, but the plain instrumental is the standard way to say "by means of". |
+| Sign-in method (Google, Lichess, email) | Sign-in method | prisijungimo būdas | approved (R-91) | |
+| Sign in with a provider | Sign in with Google | prisijungti Google paskyra | approved (R-91) (v1 `login_continue_with_google` "Tęsti su Google") | Instrumental case, as in **prisijungti el. paštu**. Not "per Google" or "su Google": common, but the plain instrumental is the standard way to say "by means of". |
 | Link / unlink a sign-in method | Connect / Disconnect | prijungti / atjungti | v1 `settings_connect_button`, `settings_disconnect_button` | State: **prijungta / neprijungta** ("Connected / Not connected"). Same verbs as the Lichess / Chess.com link above. Not **susieti / atsieti** (those are for the Coach link). |
-| Welcome (first visit) | Welcome! | Sveiki atvykę! | proposed | Greeting with a name: "Sveiki, {name}!" / "Hello, {name}!". |
-| Profile (settings section) | Profile | profilis | proposed | |
-| Language (setting) | Language | kalba | proposed | Language names are shown in their own language: **Lietuvių**, **English**. |
-| Export account data | Download my data | atsisiųsti duomenis | proposed | Not **eksportuoti**. Section title: **Jūsų duomenys** / "Your data". |
+| Welcome (first visit) | Welcome! | Sveiki atvykę! | approved (R-91) | Greeting with a name: "Sveiki, {name}!" / "Hello, {name}!". |
+| Profile (settings section) | Profile | profilis | approved (R-91) | |
+| Language (setting) | Language | kalba | approved (R-91) | Language names are shown in their own language: **Lietuvių**, **English**. |
+| Export account data | Download my data | atsisiųsti duomenis | approved (R-91) | Not **eksportuoti**. Section title: **Jūsų duomenys** / "Your data". |
 | Delete account | Delete account | ištrinti paskyrą | v1 `repertoires_delete_button` (verb) | Section title: **Paskyros ištrynimas**. "Permanently": **visam laikui** / "permanently" (not "for good"). |
 | Dashboard | Dashboard | skydelis | v1 `nav_dashboard` | |
 | Settings | Settings | nustatymai | v1 `nav_settings` | |

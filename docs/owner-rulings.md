@@ -117,6 +117,16 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-81** (S1 brainstorm, #251, 2026-10-16): First sign-in asks only for the display name (prefilled from Google or Lichess when available) and the language (LT default); everything else is optional later. An invite link continues to its group after this screen.
 - **R-82** (S1 brainstorm, #251, 2026-10-16): Account deletion shows what will be deleted and offers the data export first; the player confirms by typing their display name; deletion is immediate and irreversible, with a confirmation email afterwards.
 - **R-83** (S1 planning, #251, 2026-10-16): Lichess sign-in asks Lichess for the email (`email:read` scope). A first Lichess sign-in whose email already belongs to an account is refused, telling the player to sign in another way and link Lichess from settings (never merged, R-69); otherwise it creates the account with that email.
+- **R-84** (S1 close, #251, 2026-10-17): Linking Google or Lichess from settings needs a sign-in within the last day, as unlinking does.
+- **R-85** (S1 close, #251, 2026-10-17): A new account starts in the language the person was using when they asked for the magic link or signed in with Google or Lichess; Lithuanian when that is unknown. Onboarding can change it.
+- **R-86** (S1 close, #251, 2026-10-17): An account that has not finished onboarding can delete itself, confirming by typing its email address instead of the display name.
+- **R-87** (S1 close, #251, 2026-10-17): A Google sign-in with a verified email proves the mailbox like a magic link: if the account with that email is unproven (created by Lichess), its unproven access ends (provider links and sessions) and Google joins it.
+- **R-88** (S1 close, #251, 2026-10-17): Admin audit rows keep the target account id but store a one-way hash of the email, not the address.
+- **R-89** (S1 close, #251, 2026-10-17): The data export includes the account's active sessions (IP address, user agent, created and expiry times), never their tokens.
+- **R-90** (S1 close, #251, 2026-10-17): When proving the email ends an unproven account's Lichess link, the settings page tells the player Lichess was disconnected for security and can be connected again.
+- **R-91** (S1 close, #251, 2026-10-17): "Profile" means an Account's display name and language (never the Account itself); "Provider link" is a sign-in method linked to an Account. The S1 Lithuanian terms proposed in docs/glossary-lt.md are approved.
+- **R-92** (S1 close, #251, 2026-10-17): The nightly full mutation run also runs the feature suite, so rules checked only there are mutation-tested; the per-push run stays fast.
+- **R-93** (S1 close, #251, 2026-10-17): The persona test sign-in (R-73) may be enabled on local and staging environments; production always refuses it.
 
 ## Open questions
 

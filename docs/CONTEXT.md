@@ -8,7 +8,7 @@ Opening training for Lithuanian chess players: players learn and review opening 
 
 **Account**:
 One signed-in person. Every account is a Player; there is no separate coach account.
-_Avoid_: User (in domain talk), profile, coach account, student account
+_Avoid_: User (in domain talk), profile (for the Account itself), coach account, student account
 
 **Player**:
 An Account in its role as someone who trains. Every Account is a Player, including every Coach.
@@ -33,6 +33,14 @@ _Avoid_: Referral, join code
 **Group**:
 A Coach's named set of linked Players, used to assign to and message several Players at once. Belongs to one Coach.
 _Avoid_: Class, team, club (clubs are a separate, post-MVP concept)
+
+**Profile**:
+An Account's display name and language, the part a person edits in settings and on onboarding (R-91). Never the Account itself.
+_Avoid_: Account settings (in domain talk), user profile
+
+**Provider link**:
+A sign-in method other than the magic link (Google or Lichess) linked to an Account. Created at sign-up or from settings while signed in; never by matching emails (R-69).
+_Avoid_: Connection, social account, OAuth account
 
 **Admin**:
 The owner's operator capability: disabling Accounts, publishing Starter repertoires, triggering integration imports, viewing usage, all recorded in an audit log. Not a Coach power.
