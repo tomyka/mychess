@@ -12,9 +12,12 @@
     "test": "vitest run",
     "build": "node build.mjs",
     "db:generate": "drizzle-kit generate",
-    "migrate": "node --env-file-if-exists=../../apps/web/.env.local dist/migrate.mjs"
+    "migrate": "node --env-file-if-exists=../../apps/web/.env.local dist/migrate.mjs",
+    "admin:grant": "node --env-file-if-exists=../../apps/web/.env.local dist/admin-grant.mjs",
+    "admin:disable": "node --env-file-if-exists=../../apps/web/.env.local dist/admin-disable.mjs"
   },
   "dependencies": {
+    "@mychess/chess": "workspace:*",
     "@mychess/domain": "workspace:*",
     "drizzle-orm": "0.45.3",
     "pg": "8.23.0",

@@ -142,6 +142,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@mychess/chess':
+        specifier: workspace:*
+        version: link:../chess
       '@mychess/domain':
         specifier: workspace:*
         version: link:../domain

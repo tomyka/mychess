@@ -11,6 +11,8 @@ export {
   type Profile,
 } from './accounts';
 
+export { disableAccount, grantAdmin, type AdminRefusal } from './admin';
+
 export {
   createDb,
   ping,

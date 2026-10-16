@@ -3,7 +3,11 @@
 import { build } from 'esbuild';
 
 await build({
-  entryPoints: ['src/bin/migrate.ts'],
+  entryPoints: [
+    'src/bin/migrate.ts',
+    'src/bin/admin-grant.ts',
+    'src/bin/admin-disable.ts',
+  ],
   bundle: true,
   platform: 'node',
   format: 'esm',
