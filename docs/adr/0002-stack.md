@@ -1,6 +1,6 @@
 # Stack: Next.js 16 pnpm monorepo, Drizzle, Neon, Auth.js
 
-Status: accepted (2026-10-16, #226 Q16, Q37; owner-rulings R-26, R-30)
+Status: accepted (2026-10-16, #226 Q16, Q37; owner-rulings R-26, R-30). Sign-in library amended by ADR 0010 (Better Auth instead of Auth.js).
 
 v2 uses the sportbet_new stack so its factory kit (agent roles, quality gate, hooks, CI) transfers one-to-one: a pnpm monorepo with Next.js 16 in `apps/web` and packages `domain`, `chess` and `db`; Drizzle over Neon Postgres; Auth.js for sign-in (email magic link, Google, and Lichess OAuth, which also links the Lichess account; Lichess sign-in ships in M1 (R-68)).
 

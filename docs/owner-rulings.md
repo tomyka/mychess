@@ -50,7 +50,7 @@ Domain vocabulary is defined in [CONTEXT.md](CONTEXT.md); architecture decisions
 
 - **R-28** (Q12, #226, 2026-10-16): Tag the last v1 main `v1-final`; one commit moves v1 into `archive/v1/`, excluded from build/lint/CI; v2 lives at the repo root; no history rewrite.
 - **R-29** (Q14, #226, 2026-10-16): Port from v1, re-implemented with tests: opening data, LT names, generators, taxonomy, LT chess terminology; chess core (PGN parser, board wrapper, pieces/themes); integrations (FIDE, chess-results scraper, Lichess/Chess.com OAuth) when M3 starts. Leave archived: Stockfish analysis, gamification, Google Drive picker.
-- **R-30** (Q16, #226, 2026-10-16): Stack as sportbet_new: pnpm monorepo, Next.js 16 in `apps/web`, `packages/{domain,chess,db}`, Drizzle, Neon Postgres, Auth.js (magic link + Google).
+- **R-30** (Q16, #226, 2026-10-16): Stack as sportbet_new: pnpm monorepo, Next.js 16 in `apps/web`, `packages/{domain,chess,db}`, Drizzle, Neon Postgres, Auth.js (magic link + Google); the sign-in library is now Better Auth (ADR 0010, S1).
 - **R-31** (Q17, #226, 2026-10-16): Ten technical agent roles plus the lead: architect, backend-dev, web-dev, qa, security-reviewer, devops, chess-dev, ux-designer, i18n-content, integrations-dev.
 - **R-32** (Q18, #226, 2026-10-16): Personas live in `docs/personas/`, with seeded staging accounts and E2E fixtures carrying tier-matched repertoires, plus four persona subagents that explore staging in character each milestone.
 - **R-33** (Q19, #226, 2026-10-16): Use the sportbet quality kit. CI enforces the full gate including mutation testing; the post-edit hook stays on; the Stop hook runs a fast gate (no mutation).
@@ -113,6 +113,9 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-77** (S2, #252, 2026-10-16): Lithuanian opening names from šachmatai.lt get a safe tidy only in the generator: collapse whitespace, castling as O-O, a comma before a trailing move qualifier, no space after a move number. Wording, capitalisation and word forms stay verbatim.
 - **R-78** (S2 review, #252, 2026-10-16): A lapse or hint on a move keeps the standard FSRS relearning step: the move comes back within minutes the same day until it sticks, and these repeats count toward the session size (R-62).
 - **R-79** (#260, 2026-10-16): A line ends at a leaf or at a move that returns to a position already on it; that move belongs to the line, so it is trained and counts for mastery. The main line follows the first move added at each position.
+- **R-80** (S1 brainstorm, #251, 2026-10-16): A sign-in lasts 90 days and is renewed on every visit; sessions are stored in the database, so disabling or deleting an account ends them at once.
+- **R-81** (S1 brainstorm, #251, 2026-10-16): First sign-in asks only for the display name (prefilled from Google or Lichess when available) and the language (LT default); everything else is optional later. An invite link continues to its group after this screen.
+- **R-82** (S1 brainstorm, #251, 2026-10-16): Account deletion shows what will be deleted and offers the data export first; the player confirms by typing their display name; deletion is immediate and irreversible, with a confirmation email afterwards.
 
 ## Open questions
 
