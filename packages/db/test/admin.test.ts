@@ -91,6 +91,23 @@ describe('disableAccount', () => {
     ]);
   });
 
+  it('refuses an account that is already disabled, changes nothing and writes no audit row', async () => {
+    await seedAccount(db, 'a1', 'ruta@example.lt');
+    await client.query(
+      `update accounts set disabled_at = $1, updated_at = $1 where id = 'a1'`,
+      [T0],
+    );
+    expect(await disableAccount(db, 'ruta@example.lt', 'ops', NOW)).toEqual({
+      ok: false,
+      refusal: { reason: 'admin.alreadyDisabled' },
+    });
+    expect(await accountFlags()).toEqual([
+      { id: 'a1', admin: false, disabled_at: T0, updated_at: T0 },
+    ]);
+    expect(await sessionOwners()).toEqual([{ account_id: 'a1' }]);
+    expect(await audit()).toEqual([]);
+  });
+
   it('refuses an unknown email, keeps every session and writes nothing', async () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
     expect(await disableAccount(db, 'nobody@example.lt', 'cli', NOW)).toEqual({

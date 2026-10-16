@@ -1,5 +1,12 @@
-import { accountSchema, type Account, type Locale } from '@mychess/domain';
+import {
+  accountSchema,
+  type Account,
+  type Entitlement,
+  type Locale,
+  type Profile,
+} from '@mychess/domain';
 import { eq, sql, type SQL } from 'drizzle-orm';
+import { z } from 'zod';
 import type { Executor } from './client';
 import { accounts, providerAccounts, verifications } from './schema';
 
@@ -35,42 +42,46 @@ export function findAccountByEmail(
   return findOne(db, eq(accounts.email, email));
 }
 
-export interface Profile {
-  readonly displayName: string;
-  readonly locale: Locale;
+/** The profile write both onboarding and settings make. */
+interface ProfileChange extends Profile {
+  readonly updatedAt: Date;
+  readonly onboardedAt?: Date;
 }
 
-export async function updateProfile(
+async function setProfile(
+  db: Executor,
+  id: string,
+  change: ProfileChange,
+): Promise<void> {
+  await db.update(accounts).set(change).where(eq(accounts.id, id));
+}
+
+export function updateProfile(
   db: Executor,
   id: string,
   profile: Profile,
   now: Date,
 ): Promise<void> {
-  await db
-    .update(accounts)
-    .set({ ...profile, updatedAt: now })
-    .where(eq(accounts.id, id));
+  return setProfile(db, id, { ...profile, updatedAt: now });
 }
 
-export async function completeOnboarding(
+export function completeOnboarding(
   db: Executor,
   id: string,
   profile: Profile,
   now: Date,
 ): Promise<void> {
-  await db
-    .update(accounts)
-    .set({ ...profile, onboardedAt: now, updatedAt: now })
-    .where(eq(accounts.id, id));
+  return setProfile(db, id, { ...profile, onboardedAt: now, updatedAt: now });
 }
 
 /**
- * A verification row whose value is a JSON object naming `email`. Values
- * that are not valid JSON (OAuth state, plain tokens) never match and never
- * make the query fail.
+ * A verification row whose value is a JSON object naming `email`, compared
+ * after lowercasing and trimming (the token holds the address as typed).
+ * Values that are not valid JSON (OAuth state, plain tokens) never match and
+ * never make the query fail.
  */
 const namesEmail = (email: string): SQL =>
-  sql`case when pg_input_is_valid(${verifications.value}, 'jsonb') then ${verifications.value}::jsonb ->> 'email' end = ${email}`;
+  sql`case when pg_input_is_valid(${verifications.value}, 'jsonb') then lower(btrim(${verifications.value}::jsonb ->> 'email')) end = ${email}`;
 
 /**
  * Hard delete (R-40, R-82): the account and, by cascade, its sessions and
@@ -91,7 +102,10 @@ export interface AccountExport {
     readonly email: string;
     readonly displayName: string;
     readonly locale: Locale;
-    readonly entitlement: string;
+    readonly image: string | null;
+    readonly entitlement: Entitlement;
+    /** ISO time, or null before onboarding. */
+    readonly onboardedAt: string | null;
     readonly createdAt: string;
   };
   readonly linkedProviders: readonly {
@@ -100,27 +114,44 @@ export interface AccountExport {
   }[];
 }
 
+const exportRowSchema = accountSchema.extend({
+  image: z.string().nullable(),
+});
+
+const linkRowsSchema = z.array(
+  z.object({ provider: z.string().min(1), linkedAt: z.date() }),
+);
+
 /** The requester's own data (R-40, security item 9); never tokens. */
 export async function exportAccount(
   db: Executor,
   id: string,
 ): Promise<AccountExport | undefined> {
-  const account = await findAccountById(db, id);
-  if (account === undefined) return undefined;
-  const links = await db
-    .select({
-      provider: providerAccounts.providerId,
-      linkedAt: providerAccounts.createdAt,
-    })
-    .from(providerAccounts)
-    .where(eq(providerAccounts.accountId, id))
-    .orderBy(providerAccounts.createdAt, providerAccounts.id);
+  const [row] = await db
+    .select({ ...columns, image: accounts.image })
+    .from(accounts)
+    .where(eq(accounts.id, id))
+    .limit(1);
+  if (row === undefined) return undefined;
+  const account = exportRowSchema.parse(row);
+  const links = linkRowsSchema.parse(
+    await db
+      .select({
+        provider: providerAccounts.providerId,
+        linkedAt: providerAccounts.createdAt,
+      })
+      .from(providerAccounts)
+      .where(eq(providerAccounts.accountId, id))
+      .orderBy(providerAccounts.createdAt, providerAccounts.id),
+  );
   return {
     account: {
       email: account.email,
       displayName: account.displayName,
       locale: account.locale,
+      image: account.image,
       entitlement: account.entitlement,
+      onboardedAt: account.onboardedAt?.toISOString() ?? null,
       createdAt: account.createdAt.toISOString(),
     },
     linkedProviders: links.map((link) => ({

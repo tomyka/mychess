@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   ACCOUNT_REFUSALS,
+  DEFAULT_ENTITLEMENT,
+  DEFAULT_LOCALE,
   ENTITLEMENTS,
   LOCALES,
   accountSchema,
+  profileSchema,
   canDelete,
   canonicalEmail,
   entitlementLimits,
@@ -99,7 +102,38 @@ describe('account constants', () => {
     expect(ACCOUNT_REFUSALS).toEqual({
       emailInvalid: 'account.emailInvalid',
       deleteNameMismatch: 'account.deleteNameMismatch',
+      localeInvalid: 'account.localeInvalid',
     });
+  });
+
+  it('starts a new account in Lithuanian on the free entitlement (R-1, R-70)', () => {
+    expect(DEFAULT_LOCALE).toBe('lt');
+    expect(DEFAULT_ENTITLEMENT).toBe('free');
+  });
+});
+
+describe('profileSchema', () => {
+  it('trims the display name and keeps the locale', () => {
+    expect(
+      profileSchema.parse({ displayName: '  Rūta ', locale: 'en' }),
+    ).toEqual({ displayName: 'Rūta', locale: 'en' });
+  });
+
+  it.each([
+    ['a blank name', { displayName: '   ', locale: 'lt' }, 'displayName.blank'],
+    [
+      'a name over 50 characters',
+      { displayName: 'x'.repeat(51), locale: 'lt' },
+      'displayName.tooLong',
+    ],
+    [
+      'an unknown locale',
+      { displayName: 'Rūta', locale: 'de' },
+      'account.localeInvalid',
+    ],
+  ])('refuses %s with its catalogue key', (_, input, key) => {
+    const result = profileSchema.safeParse(input);
+    expect(result.error?.issues.map((issue) => issue.message)).toEqual([key]);
   });
 });
 

@@ -54,6 +54,15 @@ describe('the accounts schema', () => {
     ).rejects.toThrow(/check/);
   });
 
+  it.each([['Ruta@Example.lt'], [' ruta@example.lt'], ['ruta@example.lt ']])(
+    'refuses the non-canonical email %j',
+    async (email) => {
+      await expect(insertAccount('a1', email)).rejects.toThrow(
+        /accounts_email_canonical/,
+      );
+    },
+  );
+
   it('refuses a second account with the same email', async () => {
     await insertAccount('a1', 'ruta@example.lt');
     await expect(insertAccount('a2', 'ruta@example.lt')).rejects.toThrow(

@@ -2,7 +2,13 @@
 // migrations (drizzle.config.ts). Better Auth's four tables carry our names
 // (src/server/auth.ts in apps/web maps them): its "user" is our Account and
 // its "account" is a provider link.
-import { ENTITLEMENTS, LOCALES } from '@mychess/domain';
+import {
+  ADMIN_ACTIONS,
+  DEFAULT_ENTITLEMENT,
+  DEFAULT_LOCALE,
+  ENTITLEMENTS,
+  LOCALES,
+} from '@mychess/domain';
 import { sql, type SQL } from 'drizzle-orm';
 import {
   boolean,
@@ -26,8 +32,6 @@ const at = (name: string) => timestamp(name, { withTimezone: true });
 const oneOf = (column: PgColumn, values: readonly string[]): SQL =>
   sql`${column} in (${sql.raw(values.map((value) => `'${value}'`).join(', '))})`;
 
-const ADMIN_ACTIONS = ['grant-admin', 'disable-account'] as const;
-
 export const accounts = pgTable(
   'accounts',
   {
@@ -37,10 +41,10 @@ export const accounts = pgTable(
     emailVerified: boolean('email_verified').notNull().default(false),
     displayName: text('display_name').notNull(),
     image: text('image'),
-    locale: text('locale', { enum: LOCALES }).notNull().default('lt'),
+    locale: text('locale', { enum: LOCALES }).notNull().default(DEFAULT_LOCALE),
     entitlement: text('entitlement', { enum: ENTITLEMENTS })
       .notNull()
-      .default('free'),
+      .default(DEFAULT_ENTITLEMENT),
     admin: boolean('admin').notNull().default(false),
     disabledAt: at('disabled_at'),
     onboardedAt: at('onboarded_at'),
@@ -48,6 +52,11 @@ export const accounts = pgTable(
     updatedAt: at('updated_at').notNull(),
   },
   (t) => [
+    // A backstop for canonicalEmail: the NFKC fold is the domain's alone.
+    check(
+      'accounts_email_canonical',
+      sql`${t.email} = lower(btrim(${t.email}))`,
+    ),
     check('accounts_locale_check', oneOf(t.locale, LOCALES)),
     check('accounts_entitlement_check', oneOf(t.entitlement, ENTITLEMENTS)),
   ],

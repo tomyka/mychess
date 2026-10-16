@@ -12,6 +12,7 @@ CREATE TABLE "accounts" (
 	"created_at" timestamp with time zone NOT NULL,
 	"updated_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "accounts_email_unique" UNIQUE("email"),
+	CONSTRAINT "accounts_email_canonical" CHECK ("accounts"."email" = lower(btrim("accounts"."email"))),
 	CONSTRAINT "accounts_locale_check" CHECK ("accounts"."locale" in ('lt', 'en')),
 	CONSTRAINT "accounts_entitlement_check" CHECK ("accounts"."entitlement" in ('free'))
 );

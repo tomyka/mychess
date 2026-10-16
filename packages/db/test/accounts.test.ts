@@ -161,6 +161,14 @@ describe('deleteAccount', () => {
     ]);
   });
 
+  it('removes a token whose email differs only in case and outer spaces', async () => {
+    await seedAccount(db, 'a1', 'ruta@example.lt');
+    await seedVerification(db, 'v-mixed', '{"email":"  Ruta@Example.LT "}');
+    await seedVerification(db, 'v-other', '{"email":" Jonas@Example.lt"}');
+    await deleteAccount(db, 'a1');
+    expect(await verificationIds()).toEqual(['v-other']);
+  });
+
   it('does nothing for an unknown account', async () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
     await deleteAccount(db, 'nobody');
@@ -192,7 +200,9 @@ describe('exportAccount', () => {
         email: 'ruta@example.lt',
         displayName: 'a1',
         locale: 'lt',
+        image: null,
         entitlement: 'free',
+        onboardedAt: null,
         createdAt: '2026-10-16T08:00:00.000Z',
       },
       linkedProviders: [
@@ -201,6 +211,28 @@ describe('exportAccount', () => {
       ],
     });
     expect(JSON.stringify(data)).not.toMatch(/encrypted|jonas|t-a1/);
+  });
+
+  it('holds the picture and the onboarding time once they are set', async () => {
+    await seedAccount(db, 'a1', 'ruta@example.lt');
+    await client.query(
+      `update accounts set image = 'https://example.lt/ruta.png' where id = 'a1'`,
+    );
+    await completeOnboarding(
+      db,
+      'a1',
+      { displayName: 'Rūta', locale: 'en' },
+      NOW,
+    );
+    expect((await exportAccount(db, 'a1'))?.account).toEqual({
+      email: 'ruta@example.lt',
+      displayName: 'Rūta',
+      locale: 'en',
+      image: 'https://example.lt/ruta.png',
+      entitlement: 'free',
+      onboardedAt: '2026-10-16T09:00:00.000Z',
+      createdAt: '2026-10-16T08:00:00.000Z',
+    });
   });
 
   it('returns undefined for an unknown account', async () => {

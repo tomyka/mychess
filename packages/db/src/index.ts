@@ -8,10 +8,9 @@ export {
   findAccountById,
   updateProfile,
   type AccountExport,
-  type Profile,
 } from './accounts';
 
-export { disableAccount, grantAdmin, type AdminRefusal } from './admin';
+export { disableAccount, grantAdmin } from './admin';
 
 export {
   createDb,

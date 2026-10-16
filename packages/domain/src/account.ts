@@ -1,18 +1,26 @@
 import type { Result } from '@mychess/chess';
 import { z } from 'zod';
+import { displayNameSchema } from './display-name';
 
 /** The site's languages: Lithuanian first (R-1). */
 export const LOCALES = ['lt', 'en'] as const;
 export type Locale = (typeof LOCALES)[number];
 
+/** A new account's language until onboarding picks one (R-1). */
+export const DEFAULT_LOCALE: Locale = 'lt';
+
 /** Commercial levels; everything is free in the MVP (R-3, R-70). */
 export const ENTITLEMENTS = ['free'] as const;
 export type Entitlement = (typeof ENTITLEMENTS)[number];
+
+/** Every new account's entitlement (R-70). */
+export const DEFAULT_ENTITLEMENT: Entitlement = 'free';
 
 /** Message-catalogue keys for account refusals; the UI translates them. */
 export const ACCOUNT_REFUSALS = {
   emailInvalid: 'account.emailInvalid',
   deleteNameMismatch: 'account.deleteNameMismatch',
+  localeInvalid: 'account.localeInvalid',
 } as const;
 
 export interface AccountRefusal {
@@ -23,6 +31,8 @@ export interface AccountRefusal {
 export const accountSchema = z.object({
   id: z.string().min(1),
   email: z.string().min(1),
+  // Loose on read: a Google or Lichess prefill may be blank or longer than
+  // DISPLAY_NAME_MAX until onboarding sets a name through profileSchema.
   displayName: z.string(),
   locale: z.enum(LOCALES),
   entitlement: z.enum(ENTITLEMENTS),
@@ -32,6 +42,13 @@ export const accountSchema = z.object({
   createdAt: z.date(),
 });
 export type Account = z.infer<typeof accountSchema>;
+
+/** The name and language a person sets at onboarding and in settings. */
+export const profileSchema = z.object({
+  displayName: displayNameSchema,
+  locale: z.enum(LOCALES, ACCOUNT_REFUSALS.localeInvalid),
+});
+export type Profile = z.infer<typeof profileSchema>;
 
 const emailSchema = z.email();
 

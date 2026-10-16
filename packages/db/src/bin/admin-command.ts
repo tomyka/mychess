@@ -1,5 +1,5 @@
-import { canonicalEmail } from '@mychess/domain';
-import type { AdminRefusal, grantAdmin } from '../admin';
+import { canonicalEmail, type AdminRefusal } from '@mychess/domain';
+import type { grantAdmin } from '../admin';
 import { createDb } from '../client';
 import { databaseEnvSchema } from '../config';
 import type { Result } from '@mychess/chess';

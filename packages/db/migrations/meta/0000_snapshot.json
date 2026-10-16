@@ -1,5 +1,5 @@
 {
-  "id": "e62cdcfb-4c67-408f-afdb-28e7b240fdd7",
+  "id": "d0f912c0-04e6-4a77-8fa9-cfce2037e78d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -99,6 +99,10 @@
       },
       "policies": {},
       "checkConstraints": {
+        "accounts_email_canonical": {
+          "name": "accounts_email_canonical",
+          "value": "\"accounts\".\"email\" = lower(btrim(\"accounts\".\"email\"))"
+        },
         "accounts_locale_check": {
           "name": "accounts_locale_check",
           "value": "\"accounts\".\"locale\" in ('lt', 'en')"
