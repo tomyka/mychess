@@ -16,7 +16,7 @@ team's working rules are in `docs/agent-team.md` and the code rules in
 - `docs/glossary-lt.md`: chess and product terms in Lithuanian (for example
   repertoire = repertuaras), so the app uses one word for one thing, matching
   `docs/CONTEXT.md`.
-- `data/openings/lt/`: Lithuanian opening names. They come from
+- Lithuanian opening names (`packages/chess/src/openings/data/eco-lt.json`, generated; you review them and propose changes to the tidy rules in `eco-lt-tidy.ts`, R-77, which chess-dev implements). They come from
   šachmatai.lt's own taxonomy (v1:
   `archive/v1/mychess/src/lib/openings/eco-data-lt.ts` and its generator) and
   are not translated by you.

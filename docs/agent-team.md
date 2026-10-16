@@ -46,10 +46,10 @@ Vendored in this repo (`.agents/skills/`, pinned in `skills-lock.json`):
 | lead (main session) | the plan, the task list, commits, GitHub issues | anything, but delegates | always |
 | `architect` | `CLAUDE.md` rules, `docs/adr/`, `docs/CONTEXT.md`, codebase health | nothing in the repo | every slice |
 | `backend-dev` | `packages/domain`, `packages/db` | those folders | almost every slice |
-| `chess-dev` | `packages/chess`, `data/openings/` | those folders | repertoire, training, PGN, deviation |
+| `chess-dev` | `packages/chess` (incl. generated opening data) | those folders | repertoire, training, PGN, deviation |
 | `web-dev` | `apps/web` (pages, components, actions, board) | that folder | every slice with a screen |
 | `ux-designer` | tokens, global styles, `docs/design/`, visual sign-off | those | every slice with a screen |
-| `i18n-content` | `apps/web/src/i18n/messages/`, `docs/glossary-lt.md`, `data/openings/lt/`, email copy | those | every slice with visible text |
+| `i18n-content` | `apps/web/src/i18n/messages/`, `docs/glossary-lt.md`, review of the Lithuanian opening names (R-77), email copy | those | every slice with visible text |
 | `integrations-dev` | `packages/integrations` | that folder | explorer (M2), M3 ecosystem |
 | `qa` | acceptance criteria, persona journeys, E2E, fixtures, persona seeds | tests, fixtures, seeds | every slice |
 | `security-reviewer` | privacy, auth, invites, admin, secrets | nothing | auth, coach access, deletion, admin, OAuth |
