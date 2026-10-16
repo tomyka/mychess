@@ -98,6 +98,22 @@ describe('RepertoireMoves', () => {
     expect(marked.circles).toHaveLength(1);
   });
 
+  it('hands out copies: a later put does not change a list already taken', () => {
+    const moves = new RepertoireMoves('white');
+    moves.put(e4, 'c1');
+    const taken = moves.list();
+    const put = moves.put(e4, 'c2');
+    if (!put.ok) throw new Error(put.refusal.reason);
+    put.value.arrows.push({ from: 'g1', to: 'f3', color: 'G' });
+    put.value.circles.push({ square: 'd5', color: 'R' });
+    expect(taken).toEqual([stored(e4, ['c1'])]);
+    expect(moves.list()[0]).toEqual({
+      ...stored(e4, ['c1', 'c2']),
+      arrows: [{ from: 'g1', to: 'f3', color: 'G' }],
+      circles: [{ square: 'd5', color: 'R' }],
+    });
+  });
+
   it('returns the stored move, so its marks can be added to', () => {
     const moves = new RepertoireMoves('white');
     const put = moves.put(e4, 'c1');

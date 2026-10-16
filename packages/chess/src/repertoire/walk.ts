@@ -14,10 +14,10 @@
 import { chapterOf, type RepertoireGraph, type RepertoireMove } from './graph';
 
 /** A move of the walk that takes each move once, with the moves it continues into. */
-export interface WalkNode {
+export interface WalkedMove {
   readonly move: RepertoireMove;
   /** Empty when the move lands on a position the walk already walked from. */
-  readonly next: readonly WalkNode[];
+  readonly next: readonly WalkedMove[];
 }
 
 /** The walks over one chapter. */
@@ -35,7 +35,7 @@ export interface ChapterWalk {
    * subtree before the next child. A move into a position already walked
    * from has no `next`.
    */
-  tree(): WalkNode[];
+  tree(): WalkedMove[];
   /** `tree()` in order (each move before its `next`): the chapter's line order. */
   moves(): RepertoireMove[];
 }
@@ -79,12 +79,19 @@ interface Path {
   readonly done: boolean;
 }
 
+/**
+ * The repetition rule every walk shares: a move onto a position already on
+ * the path is the path's last move.
+ */
+const endsLine = (onPath: ReadonlySet<string>, move: RepertoireMove): boolean =>
+  onPath.has(move.to);
+
 function extend(path: Path, move: RepertoireMove): Path {
   return {
     key: move.to,
     moves: [...path.moves, move],
     onPath: new Set([...path.onPath, move.to]),
-    done: path.onPath.has(move.to),
+    done: endsLine(path.onPath, move),
   };
 }
 
@@ -108,24 +115,24 @@ function mainLineFrom(rootKey: string, children: Children): RepertoireMove[] {
     const [first] = children(key);
     if (first === undefined) return line;
     line.push(first);
-    if (onPath.has(first.to)) return line;
+    if (endsLine(onPath, first)) return line;
     onPath.add(first.to);
     key = first.to;
   }
 }
 
 interface Walked {
-  readonly tree: WalkNode[];
+  readonly tree: WalkedMove[];
   readonly moves: RepertoireMove[];
 }
 
-/** A move waiting to be walked, and the list its node joins. */
+/** A move waiting to be walked, and the list it joins once walked. */
 interface Pending {
   readonly move: RepertoireMove;
-  readonly into: WalkNode[];
+  readonly into: WalkedMove[];
 }
 
-const pending = (moves: readonly RepertoireMove[], into: WalkNode[]) =>
+const pending = (moves: readonly RepertoireMove[], into: WalkedMove[]) =>
   moves.map((move): Pending => ({ move, into })).reverse();
 
 /**
@@ -134,12 +141,12 @@ const pending = (moves: readonly RepertoireMove[], into: WalkNode[]) =>
  * first move into it reaches.
  */
 function walkOnce(rootKey: string, children: Children): Walked {
-  const tree: WalkNode[] = [];
+  const tree: WalkedMove[] = [];
   const moves: RepertoireMove[] = [];
   const walked = new Set([rootKey]);
   const stack = pending(children(rootKey), tree);
   for (let top = stack.pop(); top !== undefined; top = stack.pop()) {
-    const next: WalkNode[] = [];
+    const next: WalkedMove[] = [];
     top.into.push({ move: top.move, next });
     moves.push(top.move);
     if (!walked.has(top.move.to)) {

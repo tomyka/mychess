@@ -18,13 +18,11 @@ const COMMAND = /\[%[^\][]*\]/g;
 const isMarkColor = (value: string): value is MarkColor =>
   value === 'G' || value === 'R' || value === 'Y' || value === 'B';
 
-/** The identity of an arrow, for merging marks without repeats. */
-export const arrowKey = (arrow: Arrow): string =>
-  `${arrow.color}${arrow.from}${arrow.to}`;
-
-/** The identity of a circle, for merging marks without repeats. */
-export const circleKey = (circle: Circle): string =>
-  `${circle.color}${circle.square}`;
+/** The identity of an arrow or a circle, for merging marks without repeats. */
+export const markKey = (mark: Arrow | Circle): string =>
+  'square' in mark
+    ? `c${mark.color}${mark.square}`
+    : `a${mark.color}${mark.from}${mark.to}`;
 
 /** The comma-separated entries of every `[%name ...]` command in `comment`. */
 function entries(comment: string, name: 'cal' | 'csl'): string[] {

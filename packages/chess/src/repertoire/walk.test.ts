@@ -2,7 +2,7 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { positionKey } from '../position-key';
 import type { RepertoireGraph, RepertoireMove } from './graph';
-import { chapterWalks, lines, mainLine, type WalkNode } from './walk';
+import { chapterWalks, lines, mainLine, type WalkedMove } from './walk';
 
 const START = positionKey(
   'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
@@ -83,11 +83,11 @@ const sansOfLines = (all: readonly (readonly RepertoireMove[])[]) =>
 
 /** A walk tree as nested SANs: `[san, next]`. */
 type Shape = readonly [string, readonly Shape[]];
-const shape = (nodes: readonly WalkNode[]): Shape[] =>
-  nodes.map((n) => [n.move.san, shape(n.next)]);
+const shape = (walked: readonly WalkedMove[]): Shape[] =>
+  walked.map((w) => [w.move.san, shape(w.next)]);
 
-const flatten = (nodes: readonly WalkNode[]): RepertoireMove[] =>
-  nodes.flatMap((n) => [n.move, ...flatten(n.next)]);
+const flatten = (walked: readonly WalkedMove[]): RepertoireMove[] =>
+  walked.flatMap((w) => [w.move, ...flatten(w.next)]);
 
 const walkOf = (graph: RepertoireGraph, chapterId = 'c1') =>
   chapterWalks(graph)(chapterId);

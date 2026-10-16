@@ -14,7 +14,7 @@ import type {
 import {
   chapterWalks,
   type ChapterWalk,
-  type WalkNode,
+  type WalkedMove,
 } from '../repertoire/walk';
 
 const START = positionKey(DEFAULT_POSITION);
@@ -63,19 +63,15 @@ function marks(arrows: readonly Arrow[], circles: readonly Circle[]): string[] {
 
 /**
  * A move with its number: always before a White move, and before a Black
- * move when `numbered` (the start of a line, or after a variation).
- * `blackFirst` says the chapter's root has Black to move: ply 0 is then
- * move 1 for Black.
+ * move when `numbered` (the start of a line, or after a variation). `ply`
+ * counts half-moves from White's first move, so it gives the move number.
  */
 function moveText(
-  blackFirst: boolean,
   move: RepertoireMove,
   ply: number,
   numbered: boolean,
 ): string[] {
-  // Numbering starts at 1: a position key has no move counters, so the
-  // chapter's FEN tag (`fenOf`) gives the full-move number 1 too.
-  const number = 1 + Math.floor((ply + (blackFirst ? 1 : 0)) / 2);
+  const number = 1 + Math.floor(ply / 2);
   const white = sideToMove(move.from) === 'w';
   const san = white
     ? `${String(number)}. ${move.san}`
@@ -86,39 +82,45 @@ function moveText(
 }
 
 /**
- * The movetext of `nodes` at `ply`: the first move continues the line, the
+ * The movetext of `walked` at `ply`: the first move continues the line, the
  * others become variations. The chapter walk takes each move once and ends a
  * line at a position it already walked (a transposition or a repetition), and
  * it walks the main continuation before the variations, so a variation that
  * transposes into the main line ends there rather than cutting it short.
  */
 function continuation(
-  blackFirst: boolean,
-  nodes: readonly WalkNode[],
+  walked: readonly WalkedMove[],
   ply: number,
   numbered: boolean,
 ): string[] {
-  const [main, ...others] = nodes;
+  const [main, ...others] = walked;
   if (main === undefined) return [];
-  const variations = others.map((node) => {
+  const variations = others.map((alternative) => {
     const line = [
-      ...moveText(blackFirst, node.move, ply, true),
-      ...continuation(blackFirst, node.next, ply + 1, false),
+      ...moveText(alternative.move, ply, true),
+      ...continuation(alternative.next, ply + 1, false),
     ];
     return `(${line.join(' ')})`;
   });
   return [
-    ...moveText(blackFirst, main.move, ply, numbered),
+    ...moveText(main.move, ply, numbered),
     ...variations,
-    ...continuation(blackFirst, main.next, ply + 1, others.length > 0),
+    ...continuation(main.next, ply + 1, others.length > 0),
   ];
 }
 
+/**
+ * The ply of a chapter's first move. Numbering starts at move 1: a position
+ * key has no move counters, so the chapter's FEN tag (`fenOf`) says move 1
+ * too, and a root with Black to move starts at Black's half of it.
+ */
+const firstPly = (chapter: Chapter): number =>
+  sideToMove(chapter.rootKey) === 'b' ? 1 : 0;
+
 function game(walk: ChapterWalk, chapter: Chapter): string {
-  const blackFirst = sideToMove(chapter.rootKey) === 'b';
   const movetext = [
     ...(chapter.intro === null ? [] : [comment(chapter.intro)]),
-    ...continuation(blackFirst, walk.tree(), 0, true),
+    ...continuation(walk.tree(), firstPly(chapter), true),
     '*',
   ];
   return [...headers(chapter), '', movetext.join(' ')].join('\n');

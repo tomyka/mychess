@@ -119,6 +119,14 @@ describe('addMove', () => {
     ).toHaveLength(2);
   });
 
+  it('returns the graph itself when the chapter already has the move', () => {
+    const g = build('e4', 'e5');
+    for (const san of ['e4', 'e2e4']) {
+      const r = addMove(g, 'c1', START, san);
+      expect(r.ok && r.value).toBe(g);
+    }
+  });
+
   it('adds the chapter to an existing move instead of duplicating it', () => {
     const r = addMove(withC2(build('e4')), 'c2', START, 'e4');
     expect(r.ok && r.value.moves).toEqual([

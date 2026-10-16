@@ -6,7 +6,7 @@
  * import both put their moves through it, so the rules live here only.
  *
  * Mutable and indexed, so each move costs about the same however large the
- * repertoire; `list()` hands the moves out in insertion order.
+ * repertoire; `list()` hands out copies of the moves in insertion order.
  */
 import type { Result } from '../result';
 import {
@@ -87,9 +87,12 @@ export class RepertoireMoves {
     return { ok: true, value: draft };
   }
 
-  /** Every stored move, in the order it was first stored. */
+  /**
+   * Every stored move, in the order it was first stored, as copies: a later
+   * `put` does not change a list already handed out.
+   */
   list(): RepertoireMove[] {
-    return [...this.byKey.values()];
+    return [...this.byKey.values()].map((move) => draftOf(move, move));
   }
 
   private isPlayerMove(move: PlayedMove): boolean {

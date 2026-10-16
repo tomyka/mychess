@@ -14,7 +14,9 @@ import { DEFAULT_POSITION, validateFen } from 'chess.js';
 import { classify } from '../openings/classify';
 import { positionKey } from '../position-key';
 import type {
+  Arrow,
   Chapter,
+  Circle,
   RepertoireGraph,
   RepertoireMove,
   Side,
@@ -24,7 +26,7 @@ import { chapterWalks } from '../repertoire/walk';
 import type { Result } from '../result';
 import { gameNames } from './game-names';
 import { checkLimits, PGN_LIMITS, type LimitRefusal } from './limits';
-import { arrowKey, circleKey } from './marks';
+import { markKey } from './marks';
 import {
   replay,
   type ReplayedMove,
@@ -172,15 +174,14 @@ function replayRaw(raw: RawGame | null, game: number): Replayed {
   return { ok: true, value: { ...value, ...movetext.value } };
 }
 
-/** Adds the `values` a move lacks to `target`, by their identity in `seen`. */
-function addMarks<T>(
+/** Adds the marks a move lacks to `target`, by their `markKey` in `seen`. */
+function addMarks<T extends Arrow | Circle>(
   seen: Set<string>,
   target: T[],
   values: readonly T[],
-  key: (value: T) => string,
 ): void {
   for (const value of values) {
-    const id = key(value);
+    const id = markKey(value);
     if (!seen.has(id)) {
       seen.add(id);
       target.push(value);
@@ -269,8 +270,8 @@ class RepertoireBuilder {
     }
     const seen = this.markKeys.get(put.value) ?? new Set<string>();
     this.markKeys.set(put.value, seen);
-    addMarks(seen, put.value.arrows, move.arrows, (a) => `a${arrowKey(a)}`);
-    addMarks(seen, put.value.circles, move.circles, (c) => `c${circleKey(c)}`);
+    addMarks(seen, put.value.arrows, move.arrows);
+    addMarks(seen, put.value.circles, move.circles);
     return true;
   }
 }

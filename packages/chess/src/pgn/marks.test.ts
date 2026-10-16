@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseMarks } from './marks';
+import { markKey, parseMarks } from './marks';
 
 describe('parseMarks', () => {
   it('reads arrows and circles and returns the rest of the comment', () => {
@@ -67,6 +67,38 @@ describe('parseMarks', () => {
   it('ignores malformed entries', () => {
     expect(parseMarks('[%cal Xe2e4,Ge2] [%csl Gz9]')).toEqual({
       text: '',
+      arrows: [],
+      circles: [],
+    });
+  });
+});
+
+describe('markKey', () => {
+  it('tells marks apart by kind, colour and squares', () => {
+    const keys = [
+      markKey({ from: 'e2', to: 'e4', color: 'G' }),
+      markKey({ from: 'e2', to: 'e4', color: 'R' }),
+      markKey({ from: 'e4', to: 'e2', color: 'G' }),
+      markKey({ square: 'e2', color: 'G' }),
+      markKey({ square: 'e4', color: 'G' }),
+      markKey({ square: 'e2', color: 'R' }),
+    ];
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it('gives the same mark the same key', () => {
+    expect(markKey({ from: 'g1', to: 'f3', color: 'B' })).toBe(
+      markKey({ color: 'B', to: 'f3', from: 'g1' }),
+    );
+    expect(markKey({ square: 'd5', color: 'Y' })).toBe(
+      markKey({ color: 'Y', square: 'd5' }),
+    );
+  });
+});
+
+describe('parseMarks: malformed entries', () => {
+  it('skips an entry with anything before or after its squares', () => {
+    expect(parseMarks('[%cal Ge2e4x,xGe2e4] [%csl Gd4x,xGd4]')).toMatchObject({
       arrows: [],
       circles: [],
     });

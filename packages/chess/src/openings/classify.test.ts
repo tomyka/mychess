@@ -13,14 +13,16 @@ describe('classify', () => {
     );
   });
 
-  it('keeps the deeper match when the line repeats back into a shallower one', () => {
-    // 1.Nf3 Nf6 is deeper than 1.Nf3; 2.Ng1 Ng8 3.Nf3 returns to 1.Nf3.
-    const deeper = classify(['Nf3', 'Nf6']);
-    const shallower = classify(['Nf3']);
-    expect(deeper?.moves.length).toBeGreaterThan(shallower?.moves.length ?? 0);
-    expect(classify(['Nf3', 'Nf6', 'Ng1', 'Ng8', 'Nf3'])?.code).toBe(
-      deeper?.code,
-    );
+  it('ignores a repetition back into a shallower opening', () => {
+    // 1.Nf3 Nf6 is A05; 2.Ng1 Ng8 3.Nf3 returns to 1.Nf3 (A04), already reached.
+    expect(classify(['Nf3'])?.code).toBe('A04');
+    expect(classify(['Nf3', 'Nf6', 'Ng1', 'Ng8', 'Nf3'])?.code).toBe('A05');
+  });
+
+  it('takes a later match with fewer moves after a lost tempo', () => {
+    // 1.Nf3 Nf6 (A05) 2.Ng1 Ng8 3.e4 reaches 1.e4 (B00, one move) further on.
+    expect(classify(['Nf3', 'Nf6'])?.code).toBe('A05');
+    expect(classify(['Nf3', 'Nf6', 'Ng1', 'Ng8', 'e4'])?.code).toBe('B00');
   });
 
   it('recognises a transposition by position', () => {

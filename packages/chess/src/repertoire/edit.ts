@@ -33,7 +33,12 @@ const same = (move: RepertoireMove, fromKey: string, san: string): boolean =>
 const walkedMoves = (graph: RepertoireGraph, chapter: Chapter) =>
   chapterWalks(graph)(chapter.id).moves();
 
-/** The positions a chapter reaches: its root and where each of its moves lands. */
+/**
+ * The positions a chapter reaches: its root and where each of its moves lands.
+ * Every move of a chapter is reachable from its root: `addMove` adds only from
+ * a position the chapter reaches, and `removeMove` prunes what its root no
+ * longer reaches. So the walk's moves are all of the chapter's moves.
+ */
 function reachableKeys(graph: RepertoireGraph, chapter: Chapter): Set<string> {
   return new Set([
     chapter.rootKey,
@@ -73,6 +78,10 @@ export function addMove(
     return refuse('repertoire.unknownPosition');
   const played = play(fromKey, san);
   if (played === null) return refuse('repertoire.illegalMove');
+  const held = graph.moves.some(
+    (m) => same(m, fromKey, played.san) && m.chapters.includes(chapterId),
+  );
+  if (held) return { ok: true, value: graph };
   const moves = new RepertoireMoves(graph.side, graph.moves);
   const put = moves.put(played, chapterId);
   if (!put.ok) return put;

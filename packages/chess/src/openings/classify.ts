@@ -58,25 +58,21 @@ const BY_CODE: ReadonlyMap<string, EcoEntry> = new Map(
   ECO.map((entry) => [entry.code, entry] as const),
 );
 
-/** Whichever entry has more moves; `current` on a tie. */
-function deeper(current: EcoEntry | null, next: EcoEntry | undefined) {
-  if (next === undefined) return current;
-  if (current === null) return next;
-  return next.moves.length > current.moves.length ? next : current;
-}
-
 /**
- * The deepest ECO entry (the one with the most moves) whose position a line
- * from the standard start reaches, or null. A line that repeats back into a
- * shallower ECO position keeps the deeper entry. An illegal move ends the
- * line there.
+ * The deepest ECO entry along a line from the standard start: the match
+ * furthest along it, or null. A position the line already reached earlier
+ * (a repetition) is not a new match, so returning to a shallower opening
+ * keeps the one found further on. An illegal move ends the line there.
  */
 export function classify(sans: readonly string[]): EcoEntry | null {
   const chess = new Chess();
+  const reached = new Set<string>();
   let found: EcoEntry | null = null;
   for (const san of sans) {
     if (!play(chess, san)) break;
-    found = deeper(found, BY_POSITION.get(positionKey(chess.fen())));
+    const key = positionKey(chess.fen());
+    if (!reached.has(key)) found = BY_POSITION.get(key) ?? found;
+    reached.add(key);
   }
   return found;
 }
