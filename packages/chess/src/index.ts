@@ -40,3 +40,26 @@ export {
   setMarks,
   type EditRefusal,
 } from './repertoire/edit';
+export {
+  chapterName,
+  classify,
+  ecoName,
+  type ChapterName,
+  type Locale,
+} from './openings/classify';
+export type { EcoEntry } from './openings/data/eco';
+export {
+  grade,
+  retrievability,
+  startReview,
+  TARGET_RETENTION,
+  type Outcome,
+  type ReviewCard,
+} from './training/schedule';
+export {
+  learnStep,
+  startLearn,
+  type LearnEvent,
+  type LearnState,
+  type LearnStepName,
+} from './training/learn';

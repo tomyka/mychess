@@ -12,7 +12,8 @@
     "eco:generate:lt": "node scripts/generate-eco-lt.mjs"
   },
   "dependencies": {
-    "chess.js": "1.4.0"
+    "chess.js": "1.4.0",
+    "ts-fsrs": "5.4.2"
   },
   "devDependencies": {
     "fast-check": "4.10.2",
