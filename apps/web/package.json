@@ -5,20 +5,25 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "start": "next start",
     "typecheck": "tsc --noEmit -p .",
-    "test:component": "vitest run --config vitest.component.config.ts"
+    "test:component": "vitest run --config vitest.component.config.ts",
+    "test:feature": "vitest run --config vitest.feature.config.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@mychess/db": "workspace:*",
     "next": "16.3.6",
     "next-intl": "4.14.9",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@tailwindcss/postcss": "4.3.3",
     "@testing-library/dom": "10.4.2",
     "@testing-library/react": "16.3.3",
-    "@types/node": "26.6.3",
+    "@types/node": "24.19.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.1",

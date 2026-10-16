@@ -117,6 +117,39 @@ module.exports = {
       to: { path: ['^apps/', npm('next|react|react-dom')] },
     },
     {
+      name: 'db-imports-only-domain-chess-drizzle-pg-and-zod',
+      severity: 'error',
+      comment:
+        'db imports only @mychess/domain, @mychess/chess, drizzle-orm, pg, zod, Node built-ins and its own files.',
+      from: {
+        path: '^packages/db/src/',
+        pathNot: [TEST_FILE, '^packages/db/src/testing/'],
+      },
+      to: {
+        dependencyTypesNot: ['core'],
+        pathNot: [
+          '^packages/(db|domain|chess)/src/',
+          npm('drizzle-orm|pg|zod'),
+        ],
+      },
+    },
+    {
+      name: 'db-test-code-imports-only-db-deps-vitest-and-testcontainers',
+      severity: 'error',
+      comment:
+        "db's test entry (src/testing) and tests import only what db imports, plus vitest and Testcontainers.",
+      from: {
+        path: ['^packages/db/src/testing/', `^packages/db/src/.*${TEST_FILE}`],
+      },
+      to: {
+        dependencyTypesNot: ['core'],
+        pathNot: [
+          '^packages/(db|domain|chess)/src/',
+          npm('drizzle-orm|pg|zod|vitest|@vitest/[^/]+|@testcontainers/[^/]+'),
+        ],
+      },
+    },
+    {
       name: 'web-reaches-the-database-only-through-db',
       severity: 'error',
       comment:

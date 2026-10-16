@@ -13,9 +13,6 @@ export const MIGRATIONS_FOLDER = fileURLToPath(
   new URL('../migrations', import.meta.url),
 );
 
-/** The Postgres image every test suite runs on, bumped deliberately. */
-export const POSTGRES_IMAGE = 'postgres:18.6';
-
 export async function runMigrations(
   url: string,
   migrationsFolder: string,

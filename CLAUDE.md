@@ -38,7 +38,7 @@ it, ask the owner.
 | `packages/integrations` (`@mychess/integrations`) | Lichess, Chess.com, FIDE, the Lithuania ranking from the FIDE-LTU list (R-67), chess-results clients | `@mychess/chess`, `zod` |
 | `apps/web` (`@mychess/web`) | Next.js App Router pages, components, server actions | all packages through their entry points |
 
-Enforced by dependency-cruiser and ESLint (the db allow-list is pending, #249). `archive/` is never imported,
+Enforced by dependency-cruiser and ESLint. `archive/` is never imported,
 built, linted or tested.
 
 ### Rules

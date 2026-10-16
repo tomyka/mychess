@@ -5,11 +5,10 @@ import { afterAll, beforeEach, inject } from 'vitest';
 import { z } from 'zod';
 import { connect, type Db } from '../client';
 import { databaseUrlSchema } from '../config';
-import {
-  MIGRATIONS_FOLDER,
-  POSTGRES_IMAGE,
-  runMigrations,
-} from '../migrations';
+import { MIGRATIONS_FOLDER, runMigrations } from '../migrations';
+
+/** The Postgres image every test suite runs on, bumped deliberately. */
+const POSTGRES_IMAGE = 'postgres:18.6';
 
 declare module 'vitest' {
   export interface ProvidedContext {

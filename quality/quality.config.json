@@ -5,7 +5,12 @@
     "packages/*/src/**/*.{ts,tsx,mts,cts}"
   ],
   "testGlobs": ["**/*.{test,spec}.{ts,tsx,mts,cts}"],
-  "testsOutsideGate": [],
+  "testsOutsideGate": [
+    {
+      "glob": "apps/web/e2e/**",
+      "reason": "Playwright E2E (apps/web test:e2e): drives next build + next start in a browser; runs in CI's e2e job, not as a vitest project."
+    }
+  ],
   "coverage": {
     "lines": 80,
     "branches": 75,
