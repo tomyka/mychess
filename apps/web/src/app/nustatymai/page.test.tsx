@@ -193,6 +193,19 @@ describe('the settings page', () => {
       within(data).queryByRole('link', { name: s.export.download }),
     ).toBeNull();
     expect(within(data).getByRole('note').textContent).toBe(s.export.notFresh);
+    const deletion = screen.getByRole('region', { name: s.delete.title });
+    expect(within(deletion).queryByRole('link')).toBeNull();
+    expect(within(deletion).getByRole('note').textContent).toBe(
+      s.export.notFresh,
+    );
+  });
+
+  it('links the export from the delete section for a fresh session', async () => {
+    await renderPage();
+    const deletion = screen.getByRole('region', { name: s.delete.title });
+    expect(within(deletion).getByRole('link').getAttribute('href')).toBe(
+      '/api/account/export',
+    );
   });
 
   it('says nothing about Lichess otherwise', async () => {

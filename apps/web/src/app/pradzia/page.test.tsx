@@ -21,10 +21,12 @@ interface SignedIn {
 }
 
 // The account the mocked session hands over (requireAccount never returns
-// for a signed-out visitor; session-helpers.test.ts covers that).
+// for a signed-out visitor; session-helpers.test.ts covers that), and
+// whether the session is fresh enough to export (R-95).
 const server = vi.hoisted(() => {
-  const state: { account: SignedIn } = {
+  const state: { account: SignedIn; fresh: boolean } = {
     account: { displayName: '', locale: 'lt', onboardedAt: null },
+    fresh: true,
   };
   return state;
 });
@@ -36,6 +38,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('../../server/session', () => ({
+  hasFreshSession: () => Promise.resolve(server.fresh),
   requireAccount: () =>
     Promise.resolve({
       id: 'a1',
@@ -71,6 +74,7 @@ vi.mock('../nustatymai/actions', () => ({ deleteAccountAction: vi.fn() }));
 
 beforeEach(() => {
   server.account = { displayName: '', locale: 'lt', onboardedAt: null };
+  server.fresh = true;
 });
 
 async function renderPage(locale: 'lt' | 'en'): Promise<void> {
@@ -122,6 +126,20 @@ describe('the onboarding page', () => {
     expect(
       screen.getByRole('button', { hidden: true, name: d.confirm }),
     ).toBeDefined();
+    expect(
+      screen
+        .getByRole('link', { hidden: true, name: 'atsisiųskite savo duomenis' })
+        .getAttribute('href'),
+    ).toBe('/api/account/export');
+  });
+
+  it('asks a session older than a day to sign in again before exporting (R-95)', async () => {
+    server.fresh = false;
+    await renderPage('lt');
+    expect(screen.queryByRole('link', { hidden: true })).toBeNull();
+    expect(screen.getByRole('note', { hidden: true }).textContent).toBe(
+      MESSAGES.lt.settings.export.notFresh,
+    );
   });
 
   it('hands the delete disclosure only what deciding a deletion needs', async () => {

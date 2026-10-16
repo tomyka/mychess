@@ -2,7 +2,7 @@ import { deletableAccount, isOnboarded } from '@mychess/domain';
 import { redirect } from 'next/navigation';
 import type { JSX } from 'react';
 import { ROUTES } from '../../lib/routes';
-import { requireAccount } from '../../server/session';
+import { hasFreshSession, requireAccount } from '../../server/session';
 import { DeleteDisclosure } from './delete-disclosure';
 import { OnboardingForm } from './onboarding-form';
 
@@ -14,7 +14,10 @@ export default async function OnboardingPage(): Promise<JSX.Element> {
   if (isOnboarded(account)) redirect(ROUTES.home);
   return (
     <OnboardingForm displayName={account.displayName} locale={account.locale}>
-      <DeleteDisclosure account={deletableAccount(account)} />
+      <DeleteDisclosure
+        account={deletableAccount(account)}
+        canExport={await hasFreshSession()}
+      />
     </OnboardingForm>
   );
 }

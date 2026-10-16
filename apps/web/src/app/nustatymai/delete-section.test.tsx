@@ -32,10 +32,11 @@ const FRESH: DeletableAccount = {
 function renderSection(
   locale: 'lt' | 'en' = 'lt',
   account: DeletableAccount = ONBOARDED,
+  canExport = true,
 ): void {
   render(
     <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
-      <DeleteSection account={account} />
+      <DeleteSection account={account} canExport={canExport} />
     </NextIntlClientProvider>,
   );
 }
@@ -77,7 +78,18 @@ describe('DeleteSection (R-82)', () => {
     });
     expect(link.getAttribute('href')).toBe('/api/account/export');
     expect(link.hasAttribute('download')).toBe(true);
+    expect(screen.queryByRole('note')).toBeNull();
     expect(status().textContent).toBe('');
+  });
+
+  it('asks a session older than a day to sign in again instead of linking the export (R-95)', () => {
+    renderSection('lt', ONBOARDED, false);
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.queryByText(/atsisiųskite savo duomenis/u)).toBeNull();
+    expect(screen.getByRole('note').textContent).toBe(
+      lt.settings.export.notFresh,
+    );
+    expect(screen.getByText(d.irreversible)).toBeDefined();
   });
 
   it('shows the display name to type in bold', () => {

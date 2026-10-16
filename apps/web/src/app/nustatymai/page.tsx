@@ -7,7 +7,7 @@ import { googleConfigured, readWebEnv } from '../../server/env';
 import { showLichessUnlinked } from '../../server/lichess-unlinked';
 import { linkedProviders } from '../../server/provider-links';
 import { hasFreshSession, requireOnboarded } from '../../server/session';
-import { DeleteSection, EXPORT_PATH } from './delete-section';
+import { DeleteSection, EXPORT_PATH, ExportNotFresh } from './delete-section';
 import { LichessUnlinkedNotice } from './lichess-unlinked-notice';
 import { ProfileForm } from './profile-form';
 import { Providers } from './providers';
@@ -38,9 +38,7 @@ function ExportSection({ fresh }: { readonly fresh: boolean }): JSX.Element {
           </a>
         </div>
       ) : (
-        <p role="note" className="rounded-control bg-sunken px-4 py-3 text-fg">
-          {t('notFresh')}
-        </p>
+        <ExportNotFresh />
       )}
     </section>
   );
@@ -70,6 +68,7 @@ export default async function SettingsPage({
   const links = await linkedProviders();
   const lichessUnlinked = await showLichessUnlinked(account.id, links);
   const params = await searchParams;
+  const fresh = await hasFreshSession();
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-gutter py-8 sm:px-gutter-wide">
       <Header />
@@ -82,8 +81,8 @@ export default async function SettingsPage({
       >
         {lichessUnlinked ? <LichessUnlinkedNotice /> : null}
       </Providers>
-      <ExportSection fresh={await hasFreshSession()} />
-      <DeleteSection account={deletableAccount(account)} />
+      <ExportSection fresh={fresh} />
+      <DeleteSection account={deletableAccount(account)} canExport={fresh} />
     </main>
   );
 }

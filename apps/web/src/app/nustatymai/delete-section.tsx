@@ -24,8 +24,42 @@ const ITEMS = ['account', 'providers', 'sessions'] as const;
 // The value set apart from the sentence around it.
 const strong = (chunks: ReactNode) => <strong>{chunks}</strong>;
 
+/**
+ * In place of the export for a session signed in more than a day ago: the
+ * route refuses it, so ask for a fresh sign-in first (R-95).
+ */
+export function ExportNotFresh(): JSX.Element {
+  const t = useTranslations('settings.export');
+  return (
+    <p role="note" className="rounded-control bg-sunken px-4 py-3 text-fg">
+      {t('notFresh')}
+    </p>
+  );
+}
+
+/** The export offered before deleting (R-82), when the session may export. */
+function ExportFirst({
+  canExport,
+}: {
+  readonly canExport: boolean;
+}): JSX.Element {
+  const t = useTranslations('settings.delete');
+  if (!canExport) return <ExportNotFresh />;
+  return (
+    <p>
+      {t.rich('exportFirst', {
+        link: (chunks) => (
+          <a href={EXPORT_PATH} download className="text-accent underline">
+            {chunks}
+          </a>
+        ),
+      })}
+    </p>
+  );
+}
+
 /** What deleting removes, and the export offered before it (R-82). */
-function WhatGoes(): JSX.Element {
+function WhatGoes({ canExport }: { readonly canExport: boolean }): JSX.Element {
   const t = useTranslations('settings.delete');
   return (
     <>
@@ -36,15 +70,7 @@ function WhatGoes(): JSX.Element {
         ))}
       </ul>
       <p className="font-medium">{t('irreversible')}</p>
-      <p>
-        {t.rich('exportFirst', {
-          link: (chunks) => (
-            <a href={EXPORT_PATH} download className="text-accent underline">
-              {chunks}
-            </a>
-          ),
-        })}
-      </p>
+      <ExportFirst canExport={canExport} />
     </>
   );
 }
@@ -73,12 +99,15 @@ function ConfirmLabel({
 /**
  * Deleting the account (R-40, R-82, R-86): confirmed by typing the display
  * name, or the email before onboarding. The button waits for the same
- * domain check the server makes again.
+ * domain check the server makes again. `canExport` is whether the session
+ * is fresh enough to download the data first (R-95).
  */
 export function DeleteSection({
   account,
+  canExport,
 }: {
   readonly account: DeletableAccount;
+  readonly canExport: boolean;
 }): JSX.Element {
   const t = useTranslations();
   const titleId = useId();
@@ -93,7 +122,7 @@ export function DeleteSection({
       <h2 id={titleId} className={`${SECTION_TITLE} text-error`}>
         {t('settings.delete.title')}
       </h2>
-      <WhatGoes />
+      <WhatGoes canExport={canExport} />
       <StatusLine
         id={statusId}
         text={state.refusal === undefined ? null : t(state.refusal)}
