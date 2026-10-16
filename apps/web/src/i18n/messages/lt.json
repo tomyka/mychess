@@ -2,7 +2,8 @@
   "app": {
     "title": "mychess",
     "greeting": "Sveiki, {name}!",
-    "signOut": "Atsijungti"
+    "signOut": "Atsijungti",
+    "settings": "Nustatymai"
   },
   "language": {
     "lt": "Lietuvių",
@@ -32,6 +33,50 @@
     "displayNameHint": "Šį vardą matys kiti. Vėliau jį galėsite pakeisti nustatymuose.",
     "language": "Kalba",
     "submit": "Išsaugoti ir tęsti"
+  },
+  "settings": {
+    "title": "Nustatymai",
+    "home": "Į pradžią",
+    "profile": {
+      "title": "Profilis",
+      "displayName": "Rodomas vardas",
+      "language": "Kalba",
+      "submit": "Išsaugoti",
+      "saved": "Išsaugota."
+    },
+    "providers": {
+      "title": "Prisijungimo būdai",
+      "intro": "Prie paskyros visada galite prisijungti ir el. pašto nuoroda, siunčiama adresu {email}.",
+      "google": "Google",
+      "lichess": "Lichess",
+      "linked": "Prijungta",
+      "notLinked": "Neprijungta",
+      "link": "Prijungti {provider}",
+      "unlink": "Atjungti {provider}",
+      "error": {
+        "notFresh": "Saugumo sumetimais prieš atjungdami prisijunkite iš naujo.",
+        "linkedElsewhere": "Ši paskyra jau prijungta prie kitos mychess paskyros.",
+        "generic": "Nepavyko. Bandykite dar kartą."
+      }
+    },
+    "export": {
+      "title": "Jūsų duomenys",
+      "intro": "Atsisiųskite visus savo paskyros duomenis JSON faile.",
+      "download": "Atsisiųsti duomenis"
+    },
+    "delete": {
+      "title": "Paskyros ištrynimas",
+      "whatGoes": "Visam laikui bus ištrinta:",
+      "items": {
+        "account": "paskyra, rodomas vardas ir el. pašto adresas;",
+        "providers": "prijungtos Google ir Lichess paskyros;",
+        "sessions": "prisijungimai visuose įrenginiuose."
+      },
+      "irreversible": "Ištrynus paskyros atkurti nebus galima. Patvirtinimą atsiųsime el. paštu.",
+      "exportFirst": "Prieš ištrindami <link>atsisiųskite savo duomenis</link>.",
+      "typeName": "Patvirtinkite įrašydami savo rodomą vardą: {name}",
+      "confirm": "Ištrinti paskyrą visam laikui"
+    }
   },
   "account": {
     "emailInvalid": "Įveskite teisingą el. pašto adresą.",

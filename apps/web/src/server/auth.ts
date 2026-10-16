@@ -338,14 +338,19 @@ export function createAuth(deps: AuthDeps): Auth {
   return betterAuth(authOptions(deps));
 }
 
+let mailer: Mailer | undefined;
+
+/** The app's mailer, built on first use: one per server process. */
+export function getMailer(): Mailer {
+  mailer ??= createMailer(readWebEnv());
+  return mailer;
+}
+
 let auth: Auth | undefined;
 
 /** The app's Better Auth instance, built on first use. */
 export function getAuth(): Auth {
-  if (auth === undefined) {
-    const env = readWebEnv();
-    auth = createAuth({ db: getDb(), env, mail: createMailer(env) });
-  }
+  auth ??= createAuth({ db: getDb(), env: readWebEnv(), mail: getMailer() });
   return auth;
 }
 

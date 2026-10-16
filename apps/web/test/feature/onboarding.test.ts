@@ -134,6 +134,27 @@ describe('completeOnboardingAction', () => {
     ).toEqual({ refusal: 'account.localeInvalid' });
   });
 
+  it('sends an onboarded account home without writing anything', async () => {
+    request.cookie = await signInByMagicLink(built(), 'ruta@example.lt');
+    await outcomeOf(completeOnboardingAction({}, form('Rūta', 'en')));
+    const stored = async (): Promise<unknown[]> =>
+      (
+        await client.query<Record<string, unknown>>(
+          'select display_name, locale, onboarded_at, updated_at from accounts',
+        )
+      ).rows;
+    const before = await stored();
+    request.set = [];
+    expect(
+      await outcomeOf(completeOnboardingAction({}, form('Jonas', 'lt'))),
+    ).toEqual({ redirectedTo: '/' });
+    expect(await stored()).toEqual(before);
+    expect(before).toEqual([
+      expect.objectContaining({ display_name: 'Rūta', locale: 'en' }),
+    ]);
+    expect(request.set).toEqual([]);
+  });
+
   it('sends a signed-out visitor to sign-in', async () => {
     expect(
       await outcomeOf(completeOnboardingAction({}, form('Rūta', 'en'))),

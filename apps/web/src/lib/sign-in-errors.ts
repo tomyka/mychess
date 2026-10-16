@@ -43,3 +43,25 @@ export function clientErrorKey(error: ClientError): SignInErrorKey {
   if (error.status === TOO_MANY_REQUESTS) return 'signIn.error.tooManyRequests';
   return signInErrorKey(error.code ?? error.message);
 }
+
+/** The catalogue key of every error the settings page's provider links show. */
+export type LinkErrorKey =
+  | 'settings.providers.error.notFresh'
+  | 'settings.providers.error.linkedElsewhere'
+  | 'settings.providers.error.generic';
+
+// Unlinking from a session older than a day answers SESSION_NOT_FRESH; a
+// provider account another mychess account holds comes back from the link
+// callback as `account_already_linked_to_different_user`.
+const LINK_CODES = new Map<string, LinkErrorKey>([
+  ['SESSION_NOT_FRESH', 'settings.providers.error.notFresh'],
+  [
+    'account_already_linked_to_different_user',
+    'settings.providers.error.linkedElsewhere',
+  ],
+]);
+
+/** The message for a failed link or unlink; the general one if unknown. */
+export function linkErrorKey(code: string | undefined): LinkErrorKey {
+  return LINK_CODES.get(code ?? '') ?? 'settings.providers.error.generic';
+}

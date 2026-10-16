@@ -2,7 +2,8 @@
   "app": {
     "title": "mychess",
     "greeting": "Hello, {name}!",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "settings": "Settings"
   },
   "language": {
     "lt": "Lietuvių",
@@ -32,6 +33,50 @@
     "displayNameHint": "Others will see this name. You can change it later in settings.",
     "language": "Language",
     "submit": "Save and continue"
+  },
+  "settings": {
+    "title": "Settings",
+    "home": "Back to home",
+    "profile": {
+      "title": "Profile",
+      "displayName": "Display name",
+      "language": "Language",
+      "submit": "Save",
+      "saved": "Saved."
+    },
+    "providers": {
+      "title": "Sign-in methods",
+      "intro": "You can always sign in with an email link too, sent to {email}.",
+      "google": "Google",
+      "lichess": "Lichess",
+      "linked": "Connected",
+      "notLinked": "Not connected",
+      "link": "Connect {provider}",
+      "unlink": "Disconnect {provider}",
+      "error": {
+        "notFresh": "For your security, sign in again before disconnecting.",
+        "linkedElsewhere": "That account is already connected to another mychess account.",
+        "generic": "That did not work. Please try again."
+      }
+    },
+    "export": {
+      "title": "Your data",
+      "intro": "Download all your account data as a JSON file.",
+      "download": "Download my data"
+    },
+    "delete": {
+      "title": "Delete account",
+      "whatGoes": "This permanently deletes:",
+      "items": {
+        "account": "your account, display name and email address;",
+        "providers": "your connected Google and Lichess accounts;",
+        "sessions": "your sign-ins on every device."
+      },
+      "irreversible": "A deleted account cannot be restored. We will email you a confirmation.",
+      "exportFirst": "Before you delete, <link>download your data</link>.",
+      "typeName": "To confirm, type your display name: {name}",
+      "confirm": "Delete my account permanently"
+    }
   },
   "account": {
     "emailInvalid": "Enter a valid email address.",

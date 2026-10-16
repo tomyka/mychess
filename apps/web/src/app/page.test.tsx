@@ -14,6 +14,7 @@ vi.mock('../lib/auth-client', () => ({
 
 const greetings = { lt: 'Sveiki, Rūta!', en: 'Hello, Rūta!' } as const;
 const signOut = { lt: 'Atsijungti', en: 'Sign out' } as const;
+const settings = { lt: 'Nustatymai', en: 'Settings' } as const;
 
 describe('HomeView', () => {
   it.each(['lt', 'en'] as const)(
@@ -31,6 +32,11 @@ describe('HomeView', () => {
       expect(
         screen.getByRole('button', { name: signOut[locale] }),
       ).toBeDefined();
+      expect(
+        screen
+          .getByRole('link', { name: settings[locale] })
+          .getAttribute('href'),
+      ).toBe('/nustatymai');
     },
   );
 });
