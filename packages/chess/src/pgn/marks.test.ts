@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { markKey, parseMarks } from './marks';
+import { growth, LINEAR_GROWTH } from './test-support';
 
 describe('parseMarks', () => {
   it('reads arrows and circles and returns the rest of the comment', () => {
@@ -57,12 +58,13 @@ describe('parseMarks', () => {
     ]);
   });
 
-  it('reads 2 MB of unclosed commands in linear time', () => {
-    const comment = '[%cal '.repeat(Math.floor((2 * 1024 * 1024) / 6));
-    const start = performance.now();
-    expect(parseMarks(comment).arrows).toEqual([]);
-    expect(performance.now() - start).toBeLessThan(1000);
-  });
+  it('reads unclosed commands in linear time', () => {
+    const comment = (bytes: number) => '[%cal '.repeat(Math.floor(bytes / 6));
+    expect(parseMarks(comment(2 * 1024 * 1024)).arrows).toEqual([]);
+    expect(growth(comment, parseMarks, 1024 * 1024)).toBeLessThan(
+      LINEAR_GROWTH,
+    );
+  }, 60_000);
 
   it('ignores malformed entries', () => {
     expect(parseMarks('[%cal Xe2e4,Ge2] [%csl Gz9]')).toEqual({

@@ -1,18 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { checkLimits, PGN_LIMITS } from './limits';
+import { growth, LINEAR_GROWTH } from './test-support';
 
 const games = (n: number): string =>
   Array.from({ length: n }, () => '[Event "x"]\n\n1. e4 *').join('\n\n');
 
 const nested = (depth: number): string =>
   `1. e4 ${'( 1. d4 '.repeat(depth)}${')'.repeat(depth)} *`;
-
-/** Runs `check` and returns how long it took, in milliseconds. */
-function timed(check: () => void): number {
-  const start = performance.now();
-  check();
-  return performance.now() - start;
-}
 
 describe('checkLimits', () => {
   it('accepts a small file', () => {
@@ -89,20 +83,23 @@ describe('checkLimits', () => {
     );
   });
 
-  it('reads 2 MB of unclosed comments in linear time, without over-counting', () => {
-    const text = '{('.repeat(PGN_LIMITS.bytes / 2 - 1);
-    let ok = false;
-    const ms = timed(() => {
-      ok = checkLimits(text).ok;
-    });
-    expect(ok).toBe(true);
-    expect(ms).toBeLessThan(1000);
-  });
+  it('reads unclosed comments in linear time, without over-counting', () => {
+    const comments = (bytes: number) => '{('.repeat(bytes / 2 - 1);
+    expect(checkLimits(comments(PGN_LIMITS.bytes)).ok).toBe(true);
+    const ratio = growth(comments, checkLimits, PGN_LIMITS.bytes / 4);
+    expect(ratio).toBeLessThan(LINEAR_GROWTH);
+  }, 60_000);
 
-  it('reads 2 MB of unclosed tag values and blank lines in linear time', () => {
-    const quotes = '"\\'.repeat(PGN_LIMITS.bytes / 2 - 1);
-    const blank = `${'\n'.repeat(PGN_LIMITS.bytes - 10)}[Event "x"]`;
-    expect(timed(() => checkLimits(quotes))).toBeLessThan(1000);
-    expect(timed(() => checkLimits(blank))).toBeLessThan(1000);
-  });
+  it('reads unclosed tag values and blank lines in linear time', () => {
+    const quotes = (bytes: number) => '"\\'.repeat(bytes / 2 - 1);
+    // Just under the size limit, so the whole text is read, not refused.
+    const blank = (bytes: number) => `${'\n'.repeat(bytes - 20)}[Event "x"]`;
+    for (const text of [quotes, blank]) {
+      expect(text(PGN_LIMITS.bytes).length).toBeLessThan(PGN_LIMITS.bytes);
+      expect(checkLimits(text(PGN_LIMITS.bytes)).ok).toBe(true);
+      expect(growth(text, checkLimits, PGN_LIMITS.bytes / 4)).toBeLessThan(
+        LINEAR_GROWTH,
+      );
+    }
+  }, 60_000);
 });

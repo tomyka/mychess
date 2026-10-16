@@ -356,7 +356,8 @@ describe('buildQueue', () => {
 
   it('walks a heavily transposing repertoire without enumerating its lines', () => {
     // Abstract positions, alternately White and Black to move; two moves lead
-    // from each to the next, so the chapter has 2^40 lines.
+    // from each to the next, so the chapter has 2^40 lines: enumerating them
+    // never finishes, so the timeout is only a sanity bound.
     const at = (i: number) => `p${String(i)} ${i % 2 === 0 ? 'w' : 'b'}`;
     const moves = Array.from({ length: 40 }, (_, i) =>
       ['a', 'b'].map((letter) => ({
@@ -396,7 +397,7 @@ describe('buildQueue', () => {
     );
     expect(q.newMoves.map((i) => i.san)).toEqual(['b38']);
     expect(q.reviews).toEqual([]);
-  }, 1000);
+  }, 60_000);
 
   it('fills up to its limits and never past them', () => {
     expect(() => {

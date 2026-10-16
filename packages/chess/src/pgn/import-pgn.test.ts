@@ -8,7 +8,7 @@ import {
   type Side,
 } from '../repertoire/graph';
 import { importPgn, type ImportedRepertoire } from './import-pgn';
-import { imported, must, START } from './test-support';
+import { growth, imported, LINEAR_GROWTH, must, START } from './test-support';
 
 const two = `[Event "Italian"]
 
@@ -356,25 +356,29 @@ describe('importPgn', () => {
   });
 
   it('splits a huge line with an unclosed comment in linear time', () => {
-    const text = `1. e4 ${'{ " '.repeat(480_000)}\n[Event "x"]\n\n1. e4 *`;
-    expect(text.length).toBeGreaterThan(1_900_000);
-    const start = performance.now();
-    const r = importPgn(text, 'white');
-    expect(performance.now() - start).toBeLessThan(1000);
-    expect(r).toEqual({ ok: false, refusal: { reason: 'pgn.noValidGames' } });
-  });
+    const text = (repeats: number) =>
+      `1. e4 ${'{ " '.repeat(repeats)}\n[Event "x"]\n\n1. e4 *`;
+    const largest = text(480_000);
+    expect(largest.length).toBeGreaterThan(1_900_000);
+    expect(importPgn(largest, 'white')).toEqual({
+      ok: false,
+      refusal: { reason: 'pgn.noValidGames' },
+    });
+    const ratio = growth(text, (t) => importPgn(t, 'white'), 120_000);
+    expect(ratio).toBeLessThan(LINEAR_GROWTH);
+  }, 60_000);
 
   it('imports 200 games of about 1.9 MB in linear time', () => {
-    const text = bigFile();
+    const text = bigFile(200);
     expect(text.length).toBeGreaterThan(1_800_000);
     expect(text.length).toBeLessThan(2 * 1024 * 1024);
-    const start = performance.now();
     const r = importPgn(text, 'black');
-    expect(performance.now() - start).toBeLessThan(5000);
     expect(r.ok && r.value.skipped).toEqual([]);
     expect(r.ok && r.value.graph.chapters).toHaveLength(200);
     expect(r.ok && r.value.graph.moves.length).toBeGreaterThan(5000);
-  }, 30_000);
+    const ratio = growth(bigFile, (t) => importPgn(t, 'black'), 50);
+    expect(ratio).toBeLessThan(LINEAR_GROWTH);
+  }, 120_000);
 });
 
 // Ported from the strict parsePgn's tests when it was deleted (#260): the
@@ -739,11 +743,12 @@ function hash(text: string): number {
 }
 
 /**
- * 200 annotated games of 30 plies for Black: White's moves are pseudo-random,
- * Black's answer depends only on the position, so no game has a second
- * answer. Thousands of distinct moves, every one with a comment and an arrow.
+ * `count` annotated games of 30 plies for Black (200 make about 1.9 MB):
+ * White's moves are pseudo-random, Black's answer depends only on the
+ * position, so no game has a second answer. Thousands of distinct moves,
+ * every one with a comment and an arrow.
  */
-function bigFile(): string {
+function bigFile(count: number): string {
   let seed = 12_345;
   const random = (n: number) => {
     seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
@@ -751,7 +756,7 @@ function bigFile(): string {
   };
   const note = ` { [%cal Ga1a2] ${'n'.repeat(290)} }`;
   const games: string[] = [];
-  for (let g = 0; g < 200; g++) {
+  for (let g = 0; g < count; g++) {
     const chess = new Chess();
     const parts: string[] = [];
     for (let ply = 0; ply < 30; ply++) {

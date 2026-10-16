@@ -69,7 +69,11 @@ const synthetic = (
   ),
 });
 
-/** Two moves lead from each position to the next: 2^40 lines. */
+/**
+ * Two moves lead from each position to the next: 2^40 lines, which no walk
+ * that enumerates them finishes on any machine, while a linear walk takes
+ * milliseconds. Tests over it have a sanity timeout, not a time limit.
+ */
 const diamond = synthetic(
   Array.from({ length: 40 }, (_, i) => [
     [i, i + 1, `a${String(i)}`] as const,
@@ -156,7 +160,7 @@ describe('mainLine', () => {
     expect(sans(mainLine(diamond, 'c1'))).toEqual(
       Array.from({ length: 40 }, (_, i) => `a${String(i)}`),
     );
-  }, 1000);
+  }, 60_000);
 
   it('skips a child of another chapter', () => {
     const g = synthetic(
@@ -225,7 +229,7 @@ describe('the walk that takes each move once', () => {
     const walk = walkOf(diamond);
     expect(walk.moves()).toHaveLength(80);
     expect(flatten(walk.tree())).toHaveLength(80);
-  }, 1000);
+  }, 60_000);
 });
 
 /** The chapter's moves its root reaches, found breadth first. */
