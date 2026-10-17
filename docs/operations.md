@@ -34,6 +34,15 @@ Feature and db suites need Docker. The Postgres image every suite uses is
 CI's `e2e` job does the same: the two images as service containers, the
 migrate step, then `test:e2e` with the variables set on the job.
 
+### Migrations squashed before the first deployment
+
+The S1 migrations were squashed on 2026-10-17, before any database was
+deployed (#271): `0000` is the whole schema, `0001` the `admin_audit`
+append-only trigger. A local compose database migrated before that date has
+the old history and must be reset:
+`docker compose -f infra/compose.yaml down -v && docker compose -f infra/compose.yaml up -d`,
+then migrate as in step 3 above.
+
 ### Mail in tests (Mailpit, from S1)
 
 Staging and production send with Resend; local runs and E2E use Mailpit.

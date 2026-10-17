@@ -5,22 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1792176021802,
-      "tag": "0000_strong_fabian_cortez",
+      "when": 1792223390865,
+      "tag": "0000_brainy_vampiro",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1792183776033,
+      "when": 1792223400886,
       "tag": "0001_admin_audit_append_only",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1792186468220,
-      "tag": "0002_admin_audit_email_hash",
       "breakpoints": true
     }
   ]

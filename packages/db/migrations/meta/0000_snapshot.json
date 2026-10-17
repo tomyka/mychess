@@ -1,5 +1,5 @@
 {
-  "id": "01b5f390-dbaa-4ec5-bd3a-0f4521d1bbdc",
+  "id": "d1d7dbc0-1abf-48b3-9726-abf71bbcee6f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -136,8 +136,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "target_email": {
-          "name": "target_email",
+        "target_email_hash": {
+          "name": "target_email_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -164,6 +164,10 @@
         "admin_audit_action_check": {
           "name": "admin_audit_action_check",
           "value": "\"admin_audit\".\"action\" in ('grant-admin', 'disable-account')"
+        },
+        "admin_audit_target_email_hash_check": {
+          "name": "admin_audit_target_email_hash_check",
+          "value": "\"admin_audit\".\"target_email_hash\" ~ '^[0-9a-f]{64}$'"
         }
       },
       "isRLSEnabled": false

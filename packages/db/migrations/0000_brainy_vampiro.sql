@@ -21,10 +21,11 @@ CREATE TABLE "admin_audit" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"action" text NOT NULL,
 	"target_account_id" text NOT NULL,
-	"target_email" text NOT NULL,
+	"target_email_hash" text NOT NULL,
 	"actor" text NOT NULL,
 	"at" timestamp with time zone NOT NULL,
-	CONSTRAINT "admin_audit_action_check" CHECK ("admin_audit"."action" in ('grant-admin', 'disable-account'))
+	CONSTRAINT "admin_audit_action_check" CHECK ("admin_audit"."action" in ('grant-admin', 'disable-account')),
+	CONSTRAINT "admin_audit_target_email_hash_check" CHECK ("admin_audit"."target_email_hash" ~ '^[0-9a-f]{64}$')
 );
 --> statement-breakpoint
 CREATE TABLE "provider_accounts" (
