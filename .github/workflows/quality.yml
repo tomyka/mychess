@@ -55,6 +55,10 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Security checklist item 10 (#233): no secret in any commit. The full
+      # history is checked out above (fetch-depth 0).
+      - name: Secret scan
+        run: docker run --rm -v "$GITHUB_WORKSPACE:/repo" zricethezav/gitleaks:v8.28.0 git /repo --no-banner --redact
       - name: The kit's own tests
         run: node --test "quality/*.test.mjs"
       - name: Static + test gates
@@ -89,8 +93,12 @@ jobs:
   # Playwright against a production build (apps/web test:e2e: next build,
   # next start on port 3100), desktop Chromium and a Pixel 7 profile, both on
   # Chromium. Only after a green check; a newer push to the same ref cancels
-  # it, as it does the check. From S1 it also gets a Mailpit service
-  # container for the magic-link tests (docs/operations.md).
+  # it, as it does the check. It has infra/compose.yaml's two services as
+  # service containers on the same ports: Postgres 18.6, migrated before the
+  # run, and Mailpit, which receives the magic-link mail the tests read
+  # (docs/operations.md). The app runs as MYCHESS_ENV=local without Google;
+  # its BETTER_AUTH_SECRET is a fixed CI-only value, not a secret: it signs
+  # only this job's throwaway sessions.
   e2e:
     needs: check
     if: github.event_name == 'push' || github.event_name == 'pull_request'
@@ -99,6 +107,31 @@ jobs:
     concurrency:
       group: quality-e2e-${{ github.ref }}
       cancel-in-progress: true
+    services:
+      postgres:
+        image: postgres:18.6
+        env:
+          POSTGRES_USER: mychess
+          POSTGRES_PASSWORD: mychess
+          POSTGRES_DB: mychess
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U mychess -d mychess"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      mailpit:
+        image: axllent/mailpit:v1.27
+        ports: ['1025:1025', '8025:8025']
+    env:
+      DATABASE_URL: postgres://mychess:mychess@127.0.0.1:5432/mychess
+      MYCHESS_ENV: local
+      BETTER_AUTH_SECRET: e2e-ci-value-e2e-ci-value-e2e-ci-value-00
+      BETTER_AUTH_URL: http://127.0.0.1:3100
+      MAIL_TRANSPORT: mailpit
+      MAIL_FROM: mychess <noreply@mychess.test>
+      MAILPIT_URL: http://127.0.0.1:8025
+      LICHESS_CLIENT_ID: mychess-ci
     steps:
       - uses: actions/checkout@v7
         with:
@@ -111,6 +144,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Install Chromium for Playwright
         run: pnpm --filter @mychess/web exec playwright install --with-deps --only-shell chromium
+      - name: Migrate the E2E database
+        run: pnpm --filter @mychess/db build && pnpm --filter @mychess/db migrate
       - name: E2E
         run: pnpm --filter @mychess/web test:e2e
       - uses: actions/upload-artifact@v7
