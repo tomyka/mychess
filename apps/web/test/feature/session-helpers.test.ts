@@ -1,59 +1,26 @@
-import { completeOnboarding } from '@mychess/db';
-import { useTestDatabase } from '@mychess/db/testing';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import requestConfig from '../../src/i18n/request';
 import {
   getAccount,
   requireAccount,
   requireOnboarded,
 } from '../../src/server/session';
-import {
-  buildTestAuth,
-  signInByMagicLink,
-  type BuiltAuth,
-} from './support/auth';
+import { onboard } from './support/auth';
+import { signIn, useRequestHarness } from './support/harness';
+import { built, outcomeOf, request, setRequestCookie } from './support/request';
 
-// What the mocked Next.js request carries, and the auth it is checked against.
-const request = vi.hoisted(() => {
-  const state: {
-    cookie: string;
-    localeCookie?: string;
-    built?: BuiltAuth;
-  } = { cookie: '' };
-  return state;
-});
-
-function built(): BuiltAuth {
-  if (request.built === undefined) throw new Error('no test auth was built');
-  return request.built;
-}
-
-/** The error the mocked `redirect` throws, naming where it sends. */
-class Redirected extends Error {
-  readonly to: string;
-
-  constructor(to: string) {
-    super(`redirect to ${to}`);
-    this.to = to;
-  }
-}
-
-vi.mock('next/headers', () => ({
-  headers: () => Promise.resolve(new Headers({ cookie: request.cookie })),
-  cookies: () =>
-    Promise.resolve({
-      get: (name: string) =>
-        name === 'NEXT_LOCALE' && request.localeCookie !== undefined
-          ? { name, value: request.localeCookie }
-          : undefined,
-    }),
-}));
-
-vi.mock('next/navigation', () => ({
-  redirect: (to: string) => {
-    throw new Redirected(to);
-  },
-}));
+vi.mock('next/headers', async () =>
+  (await import('./support/request')).nextHeaders(),
+);
+vi.mock('next/navigation', async () =>
+  (await import('./support/request')).nextNavigation(),
+);
+vi.mock('../../src/server/db', async () =>
+  (await import('./support/request')).serverDb(),
+);
+vi.mock('../../src/server/auth', async (original) =>
+  (await import('./support/request')).serverAuth(original),
+);
 
 // Outside a React server build next-intl's getRequestConfig refuses to run;
 // the request config is the function it wraps.
@@ -61,58 +28,33 @@ vi.mock('next-intl/server', () => ({
   getRequestConfig: <T>(config: T): T => config,
 }));
 
-vi.mock('../../src/server/db', () => ({ getDb: () => db }));
+const { db, client } = useRequestHarness();
 
-vi.mock('../../src/server/auth', async (original) => ({
-  ...(await original<typeof import('../../src/server/auth')>()),
-  getAuth: () => built().auth,
-}));
-
-const { db, client } = useTestDatabase();
-
-beforeEach(() => {
-  request.built = buildTestAuth(db);
-  request.cookie = '';
-  delete request.localeCookie;
-});
-
-async function signIn(email: string): Promise<void> {
-  request.cookie = await signInByMagicLink(built(), email);
-}
-
-async function onboard(locale: 'lt' | 'en'): Promise<string> {
-  const account = await requireAccount();
-  await completeOnboarding(
-    db,
-    account.id,
-    { displayName: 'Rūta', locale },
-    new Date(),
-  );
-  return account.id;
-}
-
-const redirectOf = (promise: Promise<unknown>): Promise<string> =>
-  promise.then(
-    () => 'no redirect',
-    (error: unknown) => (error instanceof Redirected ? error.to : 'other'),
-  );
+const onboardAs = (locale: 'lt' | 'en'): Promise<string> =>
+  onboard(built(), db, request.cookie, { displayName: 'Rūta', locale });
 
 describe('the session helpers', () => {
   it('send a signed-out visitor to sign-in', async () => {
     expect(await getAccount()).toBeNull();
-    expect(await redirectOf(requireAccount())).toBe('/prisijungti');
-    expect(await redirectOf(requireOnboarded())).toBe('/prisijungti');
+    expect(await outcomeOf(requireAccount())).toEqual({
+      redirectedTo: '/prisijungti',
+    });
+    expect(await outcomeOf(requireOnboarded())).toEqual({
+      redirectedTo: '/prisijungti',
+    });
   });
 
   it('send a new account to onboarding (R-81)', async () => {
-    await signIn('ruta@example.lt');
+    request.cookie = await signIn('ruta@example.lt');
     expect(await requireAccount()).toMatchObject({ email: 'ruta@example.lt' });
-    expect(await redirectOf(requireOnboarded())).toBe('/pradzia');
+    expect(await outcomeOf(requireOnboarded())).toEqual({
+      redirectedTo: '/pradzia',
+    });
   });
 
   it('let an onboarded account through', async () => {
-    await signIn('ruta@example.lt');
-    const id = await onboard('en');
+    request.cookie = await signIn('ruta@example.lt');
+    const id = await onboardAs('en');
     expect(await requireOnboarded()).toMatchObject({
       id,
       displayName: 'Rūta',
@@ -121,13 +63,15 @@ describe('the session helpers', () => {
   });
 
   it('read a disabled account as signed out, even with its session left', async () => {
-    await signIn('ruta@example.lt');
+    request.cookie = await signIn('ruta@example.lt');
     await client.query('update accounts set disabled_at = now()');
     expect(
       (await client.query('select count(*)::int as n from sessions')).rows,
     ).toEqual([{ n: 1 }]);
     expect(await getAccount()).toBeNull();
-    expect(await redirectOf(requireAccount())).toBe('/prisijungti');
+    expect(await outcomeOf(requireAccount())).toEqual({
+      redirectedTo: '/prisijungti',
+    });
   });
 });
 
@@ -138,16 +82,16 @@ const requestLocale = async (): Promise<string | undefined> =>
 describe('the request locale', () => {
   it('follows the cookie while signed out', async () => {
     expect(await requestLocale()).toBe('lt');
-    request.localeCookie = 'en';
+    setRequestCookie('NEXT_LOCALE', 'en');
     expect(await requestLocale()).toBe('en');
   });
 
   it("is the account's once signed in, whatever the cookie says", async () => {
-    await signIn('ruta@example.lt');
-    request.localeCookie = 'en';
+    request.cookie = await signIn('ruta@example.lt');
+    setRequestCookie('NEXT_LOCALE', 'en');
     expect(await requestLocale()).toBe('lt');
-    await onboard('en');
-    request.localeCookie = 'lt';
+    await onboardAs('en');
+    setRequestCookie('NEXT_LOCALE', 'lt');
     expect(await requestLocale()).toBe('en');
   });
 });

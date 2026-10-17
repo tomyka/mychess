@@ -1,6 +1,10 @@
 import { useTestDatabase } from '@mychess/db/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BASE, buildTestAuth, type BuiltAuth } from './support/auth';
+import {
+  buildTestAuth,
+  type BuiltAuth,
+  requestMagicLink,
+} from './support/auth';
 
 const { db, client } = useTestDatabase();
 
@@ -10,13 +14,7 @@ function requestLink(
   email: string,
   ip: Record<string, string>,
 ): Promise<Response> {
-  return built.auth.handler(
-    new Request(`${BASE}/api/auth/sign-in/magic-link`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', origin: BASE, ...ip },
-      body: JSON.stringify({ email, callbackURL: '/' }),
-    }),
-  );
+  return requestMagicLink(built, { email, callbackURL: '/' }, ip);
 }
 
 const forwardedFor = (ip: string) => ({ 'x-forwarded-for': ip });

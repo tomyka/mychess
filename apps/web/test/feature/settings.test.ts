@@ -1,6 +1,4 @@
-import { completeOnboarding } from '@mychess/db';
-import { useTestDatabase } from '@mychess/db/testing';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
   deleteAccountAction,
@@ -10,153 +8,48 @@ import {
 import { showLichessUnlinked } from '../../src/server/lichess-unlinked';
 import { deletedMail } from '../../src/server/mail';
 import { linkedProviders } from '../../src/server/provider-links';
+import { BASE, requestMagicLink } from './support/auth';
 import {
-  BASE,
-  buildTestAuth,
-  signInByMagicLink,
-  type BuiltAuth,
-} from './support/auth';
+  onboarded,
+  rebuildAuth,
+  signIn,
+  useRequestHarness,
+} from './support/harness';
 import {
   errorCode,
   fakeProviderFetch,
   oauthRoundTrip,
   startOAuth,
 } from './support/oauth';
+import { built, outcomeOf, request } from './support/request';
 
-interface SetCookie {
-  readonly name: string;
-  readonly value: string;
-  readonly options: Record<string, unknown>;
-}
+vi.mock('next/headers', async () =>
+  (await import('./support/request')).nextHeaders(),
+);
+vi.mock('next/navigation', async () =>
+  (await import('./support/request')).nextNavigation(),
+);
+vi.mock('next/cache', async () =>
+  (await import('./support/request')).nextCache(),
+);
+vi.mock('../../src/server/db', async () =>
+  (await import('./support/request')).serverDb(),
+);
+vi.mock('../../src/server/auth', async (original) =>
+  (await import('./support/request')).serverAuth(original),
+);
 
-// What the mocked Next.js request carries, what the action set and mailed,
-// and whether it asked the browser to refresh.
-const request = vi.hoisted(() => {
-  const state: {
-    cookie: string;
-    set: SetCookie[];
-    mailed: unknown[];
-    mailFails: boolean;
-    refreshed: number;
-    built?: BuiltAuth;
-  } = { cookie: '', set: [], mailed: [], mailFails: false, refreshed: 0 };
-  return state;
-});
-
-function built(): BuiltAuth {
-  if (request.built === undefined) throw new Error('no test auth was built');
-  return request.built;
-}
-
-/** The error the mocked `redirect` throws, naming where it sends. */
-class Redirected extends Error {
-  readonly to: string;
-
-  constructor(to: string) {
-    super(`redirect to ${to}`);
-    this.to = to;
-  }
-}
-
-vi.mock('next/headers', () => ({
-  headers: () => Promise.resolve(new Headers({ cookie: request.cookie })),
-  cookies: () =>
-    Promise.resolve({
-      get: (name: string) => {
-        const value = request.cookie
-          .split('; ')
-          .find((pair) => pair.startsWith(`${name}=`))
-          ?.slice(name.length + 1);
-        return value === undefined ? undefined : { name, value };
-      },
-      set: (name: string, value: string, options: Record<string, unknown>) => {
-        request.set.push({ name, value, options });
-      },
-      delete: (name: string) => {
-        request.set.push({ name, value: '', options: { deleted: true } });
-      },
-    }),
-}));
-
-vi.mock('next/navigation', () => ({
-  redirect: (to: string) => {
-    throw new Redirected(to);
-  },
-}));
-
-vi.mock('next/cache', () => ({
-  refresh: () => {
-    request.refreshed += 1;
-  },
-}));
-
-vi.mock('../../src/server/db', () => ({ getDb: () => db }));
-
-vi.mock('../../src/server/auth', async (original) => ({
-  ...(await original<typeof import('../../src/server/auth')>()),
-  getAuth: () => built().auth,
-  getMailer: () => ({
-    send: (message: unknown) => {
-      if (request.mailFails) return Promise.reject(new Error('mail: down'));
-      request.mailed.push(message);
-      return Promise.resolve();
-    },
-  }),
-}));
-
-const { db, client } = useTestDatabase();
+const { client, sql } = useRequestHarness();
 
 const RUTA = 'ruta@example.lt';
 const JONAS = 'jonas@example.lt';
-
-beforeEach(() => {
-  request.built = buildTestAuth(db);
-  request.cookie = '';
-  request.set = [];
-  request.mailed = [];
-  request.mailFails = false;
-  request.refreshed = 0;
-});
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
-const outcomeOf = (promise: Promise<unknown>): Promise<unknown> =>
-  promise.then(
-    (state) => state,
-    (error: unknown) =>
-      error instanceof Redirected ? { redirectedTo: error.to } : error,
-  );
-
 const idRows = z.array(z.object({ id: z.string() }));
-
-async function accountId(email: string): Promise<string> {
-  const { rows } = await client.query(
-    'select id from accounts where email = $1',
-    [email],
-  );
-  const [row] = idRows.parse(rows);
-  if (row === undefined) throw new Error(`no account ${email}`);
-  return row.id;
-}
-
-/** Signs `email` in by magic link and onboards it as `displayName`. */
-async function onboarded(
-  email: string,
-  displayName: string,
-  locale: 'lt' | 'en' = 'lt',
-): Promise<string> {
-  const cookie = await signInByMagicLink(built(), email);
-  await completeOnboarding(
-    db,
-    await accountId(email),
-    { displayName, locale },
-    new Date(),
-  );
-  return cookie;
-}
 
 function profileForm(displayName: string, locale: string): FormData {
   const data = new FormData();
@@ -221,7 +114,7 @@ describe('updateProfileAction', () => {
   });
 
   it('sends an account that has not been through onboarding there first', async () => {
-    request.cookie = await signInByMagicLink(built(), RUTA);
+    request.cookie = await signIn(RUTA);
     expect(
       await outcomeOf(updateProfileAction({}, profileForm('Rūta', 'en'))),
     ).toEqual({ redirectedTo: '/pradzia' });
@@ -254,28 +147,15 @@ async function rowsOf(email: string): Promise<Record<string, number>> {
   return z.array(z.record(z.string(), z.number())).parse(rows)[0] ?? {};
 }
 
-const tableCount = async (table: string): Promise<number> => {
-  const { rows } = await client.query(
-    `select count(*)::int as n from ${table}`,
-  );
-  return z.array(z.object({ n: z.number() })).parse(rows)[0]?.n ?? 0;
-};
-
 /**
  * Mails a magic link to `email` and leaves it unused; from its own address,
  * so the sign-ins around it stay under the magic-link rate limit.
  */
 async function pendingMagicLink(email: string): Promise<void> {
-  await built().auth.handler(
-    new Request(`${BASE}/api/auth/sign-in/magic-link`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        origin: BASE,
-        'x-real-ip': '203.0.113.7',
-      },
-      body: JSON.stringify({ email, callbackURL: '/' }),
-    }),
+  await requestMagicLink(
+    built(),
+    { email, callbackURL: '/' },
+    { 'x-real-ip': '203.0.113.7' },
   );
 }
 
@@ -289,7 +169,7 @@ async function twoAccounts(): Promise<string> {
     lichess: { id: 'ruta', username: 'Ruta', email: 'lichess@example.lt' },
   });
   vi.stubGlobal('fetch', fetch);
-  request.built = buildTestAuth(db, { fetch });
+  rebuildAuth({ fetch });
   const jonas = await onboarded(JONAS, 'Jonas');
   await pendingMagicLink(JONAS);
   request.cookie = await onboarded(RUTA, 'Rūta Jonaitė', 'en');
@@ -339,7 +219,7 @@ describe('deleteAccountAction', () => {
       providerAccounts: 0,
       verifications: 0,
     });
-    expect(await tableCount('provider_accounts')).toBe(0);
+    expect(await sql.count('provider_accounts')).toBe(0);
     expect(await rowsOf(JONAS)).toEqual(jonasBefore);
     expect(jonasBefore).toMatchObject({ accounts: 1, sessions: 1 });
     expect(request.mailed).toEqual([deletedMail('en', RUTA)]);
@@ -355,7 +235,7 @@ describe('deleteAccountAction', () => {
     expect(
       await outcomeOf(deleteAccountAction({}, deleteForm('Rūta'))),
     ).toEqual({ redirectedTo: '/prisijungti?deleted=1' });
-    expect(await tableCount('accounts')).toBe(0);
+    expect(await sql.count('accounts')).toBe(0);
     expect(logged).toHaveBeenCalledTimes(1);
     expect(String(logged.mock.calls)).toContain('mail: down');
     expect(String(logged.mock.calls)).not.toContain(RUTA);
@@ -367,7 +247,7 @@ describe('deleteAccountAction', () => {
     expect(
       await outcomeOf(deleteAccountAction({}, deleteForm('Rūta'))),
     ).toEqual({ redirectedTo: '/prisijungti' });
-    expect(await tableCount('accounts')).toBe(1);
+    expect(await sql.count('accounts')).toBe(1);
   });
 
   // Not through onboarding yet: no name of its own, so it confirms with its
@@ -379,7 +259,7 @@ describe('deleteAccountAction', () => {
   ])(
     'refuses an account not yet onboarded that types %s, deleting nothing',
     async (_, typed) => {
-      request.cookie = await signInByMagicLink(built(), RUTA);
+      request.cookie = await signIn(RUTA);
       const before = await rowsOf(RUTA);
       expect(
         await outcomeOf(deleteAccountAction({}, deleteForm(typed))),
@@ -392,7 +272,7 @@ describe('deleteAccountAction', () => {
   );
 
   it('deletes an account not yet onboarded once its email is typed, in any case (R-86)', async () => {
-    request.cookie = await signInByMagicLink(built(), RUTA);
+    request.cookie = await signIn(RUTA);
     expect(
       await outcomeOf(deleteAccountAction({}, deleteForm(' Ruta@Example.LT '))),
     ).toEqual({ redirectedTo: '/prisijungti?deleted=1' });
@@ -409,7 +289,7 @@ describe('deleteAccountAction', () => {
     expect(
       await outcomeOf(deleteAccountAction({}, deleteForm('Rūta'))),
     ).toEqual({ redirectedTo: '/prisijungti?deleted=1' });
-    expect(await tableCount('accounts')).toBe(0);
+    expect(await sql.count('accounts')).toBe(0);
     expect(request.mailed).toEqual([]);
     expect(sessionCookieCleared()).toBe(true);
   });
@@ -449,7 +329,7 @@ describe('the provider links on settings', () => {
     ]);
     const response = await unlink(row?.id ?? '');
     expect(response.status).toBe(200);
-    expect(await tableCount('provider_accounts')).toBe(0);
+    expect(await sql.count('provider_accounts')).toBe(0);
     // Unlinked by hand: no notice that it was done for security (R-90).
     expect(response.headers.getSetCookie().join()).not.toContain(
       'lichess_unlinked',
@@ -466,7 +346,7 @@ describe('the provider links on settings', () => {
     const response = await unlink(link?.id ?? '');
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({ code: 'SESSION_NOT_FRESH' });
-    expect(await tableCount('provider_accounts')).toBe(1);
+    expect(await sql.count('provider_accounts')).toBe(1);
   });
 
   it('refuses to start a link from a session older than a day', async () => {
@@ -480,7 +360,7 @@ describe('the provider links on settings', () => {
     });
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({ code: 'SESSION_NOT_FRESH' });
-    expect(await tableCount('provider_accounts')).toBe(0);
+    expect(await sql.count('provider_accounts')).toBe(0);
   });
 
   it('starts a link from a session younger than a day', async () => {
@@ -501,7 +381,7 @@ describe('the provider links on settings', () => {
     request.cookie = jonas;
     const response = await unlink(link?.id ?? '');
     expect(response.status).toBe(400);
-    expect(await tableCount('provider_accounts')).toBe(1);
+    expect(await sql.count('provider_accounts')).toBe(1);
   });
 
   it('sends a link that another account holds back to settings with its code', async () => {
@@ -516,7 +396,7 @@ describe('the provider links on settings', () => {
     expect(errorCode(response)).toBe(
       'account_already_linked_to_different_user',
     );
-    expect(await tableCount('provider_accounts')).toBe(1);
+    expect(await sql.count('provider_accounts')).toBe(1);
   });
 
   it('lists nothing for a signed-out visitor', async () => {
@@ -536,13 +416,13 @@ describe('the Lichess-disconnected notice', () => {
       lichess: { id: 'ruta', username: 'Ruta', email: RUTA },
     });
     vi.stubGlobal('fetch', fetch);
-    request.built = buildTestAuth(db, { fetch });
+    rebuildAuth({ fetch });
     await oauthRoundTrip(built(), 'lichess');
-    return signInByMagicLink(built(), RUTA);
+    return signIn(RUTA);
   }
 
   const shown = async (): Promise<boolean> =>
-    showLichessUnlinked(await accountId(RUTA), await linkedProviders());
+    showLichessUnlinked(await sql.accountId(RUTA), await linkedProviders());
 
   it('is shown to the account whose Lichess link the proof ended', async () => {
     request.cookie = await provenAfterLichess();
@@ -557,7 +437,7 @@ describe('the Lichess-disconnected notice', () => {
     request.cookie = [await onboarded(JONAS, 'Jonas'), ...notice].join('; ');
     expect(
       await showLichessUnlinked(
-        await accountId(JONAS),
+        await sql.accountId(JONAS),
         await linkedProviders(),
       ),
     ).toBe(false);

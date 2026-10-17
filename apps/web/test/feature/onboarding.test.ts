@@ -1,72 +1,22 @@
-import { useTestDatabase } from '@mychess/db/testing';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { completeOnboardingAction } from '../../src/app/pradzia/actions';
-import {
-  buildTestAuth,
-  signInByMagicLink,
-  type BuiltAuth,
-} from './support/auth';
+import { signIn, useRequestHarness } from './support/harness';
+import { outcomeOf, request } from './support/request';
 
-interface SetCookie {
-  readonly name: string;
-  readonly value: string;
-  readonly options: Record<string, unknown>;
-}
+vi.mock('next/headers', async () =>
+  (await import('./support/request')).nextHeaders(),
+);
+vi.mock('next/navigation', async () =>
+  (await import('./support/request')).nextNavigation(),
+);
+vi.mock('../../src/server/db', async () =>
+  (await import('./support/request')).serverDb(),
+);
+vi.mock('../../src/server/auth', async (original) =>
+  (await import('./support/request')).serverAuth(original),
+);
 
-// What the mocked Next.js request carries, and the cookies the action set.
-const request = vi.hoisted(() => {
-  const state: { cookie: string; set: SetCookie[]; built?: BuiltAuth } = {
-    cookie: '',
-    set: [],
-  };
-  return state;
-});
-
-function built(): BuiltAuth {
-  if (request.built === undefined) throw new Error('no test auth was built');
-  return request.built;
-}
-
-/** The error the mocked `redirect` throws, naming where it sends. */
-class Redirected extends Error {
-  readonly to: string;
-
-  constructor(to: string) {
-    super(`redirect to ${to}`);
-    this.to = to;
-  }
-}
-
-vi.mock('next/headers', () => ({
-  headers: () => Promise.resolve(new Headers({ cookie: request.cookie })),
-  cookies: () =>
-    Promise.resolve({
-      set: (name: string, value: string, options: Record<string, unknown>) => {
-        request.set.push({ name, value, options });
-      },
-    }),
-}));
-
-vi.mock('next/navigation', () => ({
-  redirect: (to: string) => {
-    throw new Redirected(to);
-  },
-}));
-
-vi.mock('../../src/server/db', () => ({ getDb: () => db }));
-
-vi.mock('../../src/server/auth', async (original) => ({
-  ...(await original<typeof import('../../src/server/auth')>()),
-  getAuth: () => built().auth,
-}));
-
-const { db, client } = useTestDatabase();
-
-beforeEach(() => {
-  request.built = buildTestAuth(db);
-  request.cookie = '';
-  request.set = [];
-});
+const { client } = useRequestHarness();
 
 function form(displayName: string, locale: string): FormData {
   const data = new FormData();
@@ -74,13 +24,6 @@ function form(displayName: string, locale: string): FormData {
   data.set('locale', locale);
   return data;
 }
-
-const outcomeOf = (promise: Promise<unknown>): Promise<unknown> =>
-  promise.then(
-    (state) => state,
-    (error: unknown) =>
-      error instanceof Redirected ? { redirectedTo: error.to } : error,
-  );
 
 async function storedAccount(): Promise<unknown> {
   const { rows } = await client.query(
@@ -93,7 +36,7 @@ async function storedAccount(): Promise<unknown> {
 
 describe('completeOnboardingAction', () => {
   it('stores the name and language, marks the account onboarded and goes home (R-81)', async () => {
-    request.cookie = await signInByMagicLink(built(), 'ruta@example.lt');
+    request.cookie = await signIn('ruta@example.lt');
     expect(
       await outcomeOf(completeOnboardingAction({}, form(' Rūta ', 'en'))),
     ).toEqual({ redirectedTo: '/' });
@@ -103,7 +46,7 @@ describe('completeOnboardingAction', () => {
   });
 
   it('keeps the language in the locale cookie for after sign-out', async () => {
-    request.cookie = await signInByMagicLink(built(), 'ruta@example.lt');
+    request.cookie = await signIn('ruta@example.lt');
     await outcomeOf(completeOnboardingAction({}, form('Rūta', 'en')));
     expect(request.set).toEqual([
       {
@@ -115,7 +58,7 @@ describe('completeOnboardingAction', () => {
   });
 
   it('refuses a blank name and stores nothing', async () => {
-    request.cookie = await signInByMagicLink(built(), 'ruta@example.lt');
+    request.cookie = await signIn('ruta@example.lt');
     const before = await storedAccount();
     expect(
       await outcomeOf(completeOnboardingAction({}, form('  ', 'en'))),
@@ -128,14 +71,14 @@ describe('completeOnboardingAction', () => {
   });
 
   it('refuses a language the site does not have', async () => {
-    request.cookie = await signInByMagicLink(built(), 'ruta@example.lt');
+    request.cookie = await signIn('ruta@example.lt');
     expect(
       await outcomeOf(completeOnboardingAction({}, form('Rūta', 'de'))),
     ).toEqual({ refusal: 'account.localeInvalid' });
   });
 
   it('sends an onboarded account home without writing anything', async () => {
-    request.cookie = await signInByMagicLink(built(), 'ruta@example.lt');
+    request.cookie = await signIn('ruta@example.lt');
     await outcomeOf(completeOnboardingAction({}, form('Rūta', 'en')));
     const stored = async (): Promise<unknown[]> =>
       (

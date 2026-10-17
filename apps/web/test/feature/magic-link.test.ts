@@ -3,35 +3,19 @@ import { useTestDatabase } from '@mychess/db/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
-  BASE,
   buildTestAuth,
   type BuiltAuth,
+  mailedLink,
+  requestMagicLink,
   signInByMagicLink,
 } from './support/auth';
+import { sqlOn } from './support/rows';
 
 const { db, client } = useTestDatabase();
-const rows = async (sql: string): Promise<unknown[]> => {
-  const result = await client.query<Record<string, unknown>>(sql);
-  return result.rows;
-};
+const { rows } = sqlOn(client);
 const accountRows = () => rows('select email from accounts order by email');
 
-// Asks for a magic link without following it.
-function requestLink(
-  built: BuiltAuth,
-  body: Record<string, unknown>,
-): Promise<Response> {
-  return built.auth.handler(
-    new Request(`${BASE}/api/auth/sign-in/magic-link`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', origin: BASE },
-      body: JSON.stringify(body),
-    }),
-  );
-}
-
-const lastLink = (built: BuiltAuth): string =>
-  /https?:\/\/\S+/.exec(built.sent.at(-1)?.text ?? '')?.[0] ?? '';
+const lastLink = (built: BuiltAuth): string => mailedLink(built) ?? '';
 
 const SESSION_TOKEN = /session_token=[^;]+\./;
 
@@ -88,7 +72,7 @@ describe('magic-link sign-in', () => {
   it('stores a mixed-case token under the canonical email, so hard delete finds it', async () => {
     const built = buildTestAuth(db);
     await signInByMagicLink(built, 'ruta@example.lt');
-    await requestLink(built, { email: '  Ruta@Example.LT ' });
+    await requestMagicLink(built, { email: '  Ruta@Example.LT ' });
     const values = z
       .array(z.object({ value: z.string() }))
       .parse(await rows('select value from verifications'));
@@ -109,7 +93,9 @@ describe('magic-link sign-in', () => {
 
   it('refuses a Cyrillic look-alike without sending mail, a token or an account', async () => {
     const built = buildTestAuth(db);
-    const response = await requestLink(built, { email: 'ruta@exаmple.lt' });
+    const response = await requestMagicLink(built, {
+      email: 'ruta@exаmple.lt',
+    });
     expect(response.status).toBe(400);
     expect(built.sent).toEqual([]);
     expect(await rows('select count(*)::int as n from verifications')).toEqual([
@@ -120,7 +106,7 @@ describe('magic-link sign-in', () => {
 
   it('does not let the request name the new account (R-81)', async () => {
     const built = buildTestAuth(db);
-    await requestLink(built, {
+    await requestMagicLink(built, {
       email: 'ruta@example.lt',
       name: 'Evil <script>',
       callbackURL: '/',
@@ -143,7 +129,10 @@ describe('magic-link sign-in', () => {
 
   it('refuses a link followed after 15 minutes (security item 6)', async () => {
     const built = buildTestAuth(db);
-    await requestLink(built, { email: 'ruta@example.lt', callbackURL: '/' });
+    await requestMagicLink(built, {
+      email: 'ruta@example.lt',
+      callbackURL: '/',
+    });
     vi.useFakeTimers({
       now: Date.now() + 15 * 60_000 + 1000,
       toFake: ['Date'],
@@ -158,7 +147,10 @@ describe('magic-link sign-in', () => {
 
   it('stores the link token hashed, never as mailed', async () => {
     const built = buildTestAuth(db);
-    await requestLink(built, { email: 'ruta@example.lt', callbackURL: '/' });
+    await requestMagicLink(built, {
+      email: 'ruta@example.lt',
+      callbackURL: '/',
+    });
     const token = new URL(lastLink(built)).searchParams.get('token') ?? '';
     expect(token).not.toBe('');
     const stored = z
@@ -173,7 +165,7 @@ describe('magic-link sign-in', () => {
 
   it('mails in the locale the sign-in page asked for', async () => {
     const built = buildTestAuth(db);
-    await requestLink(built, {
+    await requestMagicLink(built, {
       email: 'ruta@example.lt',
       metadata: { locale: 'en' },
     });
@@ -182,7 +174,7 @@ describe('magic-link sign-in', () => {
 
   it('mails in Lithuanian when no locale was asked for', async () => {
     const built = buildTestAuth(db);
-    await requestLink(built, { email: 'ruta@example.lt' });
+    await requestMagicLink(built, { email: 'ruta@example.lt' });
     expect(built.sent.map((m) => m.subject)).toEqual([
       'Prisijungimas prie mychess',
     ]);
@@ -199,7 +191,7 @@ describe('a new account from a magic link', () => {
 
   it('starts in the language the sign-in page was in when it asked', async () => {
     const built = buildTestAuth(db);
-    await requestLink(built, {
+    await requestMagicLink(built, {
       email: 'ruta@example.lt',
       callbackURL: '/',
       metadata: { locale: 'en' },
@@ -211,7 +203,10 @@ describe('a new account from a magic link', () => {
 
   it('starts in the locale cookie of the browser that opens the link when the request named none', async () => {
     const built = buildTestAuth(db);
-    await requestLink(built, { email: 'ruta@example.lt', callbackURL: '/' });
+    await requestMagicLink(built, {
+      email: 'ruta@example.lt',
+      callbackURL: '/',
+    });
     await follow(built, 'NEXT_LOCALE=en');
     expect(await localeRows()).toEqual([{ locale: 'en' }]);
   });
@@ -221,14 +216,20 @@ describe('a new account from a magic link', () => {
     ['an unknown language', 'NEXT_LOCALE=de'],
   ])('starts in Lithuanian with %s', async (_, cookie) => {
     const built = buildTestAuth(db);
-    await requestLink(built, { email: 'ruta@example.lt', callbackURL: '/' });
+    await requestMagicLink(built, {
+      email: 'ruta@example.lt',
+      callbackURL: '/',
+    });
     await follow(built, cookie);
     expect(await localeRows()).toEqual([{ locale: 'lt' }]);
   });
 
   it('falls back to the locale cookie when the link names an unknown language', async () => {
     const built = buildTestAuth(db);
-    await requestLink(built, { email: 'ruta@example.lt', callbackURL: '/' });
+    await requestMagicLink(built, {
+      email: 'ruta@example.lt',
+      callbackURL: '/',
+    });
     const link = new URL(lastLink(built));
     link.searchParams.set('lang', 'de');
     await built.auth.handler(
@@ -240,7 +241,7 @@ describe('a new account from a magic link', () => {
   it('leaves an existing account in its own language', async () => {
     const built = buildTestAuth(db);
     await signInByMagicLink(built, 'ruta@example.lt');
-    await requestLink(built, {
+    await requestMagicLink(built, {
       email: 'ruta@example.lt',
       callbackURL: '/',
       metadata: { locale: 'en' },

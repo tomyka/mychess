@@ -1,7 +1,5 @@
-import { expect, test } from '@playwright/test';
-
-// The locale cookie next-intl reads (src/i18n/locales.ts LOCALE_COOKIE).
-const LOCALE_COOKIE = 'NEXT_LOCALE';
+import { expect } from '@playwright/test';
+import { LOCALE_COOKIE, test } from './support/journey';
 
 test('a signed-out visitor to the home page lands on sign-in, in Lithuanian by default', async ({
   page,

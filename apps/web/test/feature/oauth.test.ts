@@ -18,18 +18,10 @@ import {
   startedFlow,
   startOAuth,
 } from './support/oauth';
+import { sqlOn } from './support/rows';
 
 const { db, client } = useTestDatabase();
-const rows = async (sql: string): Promise<unknown[]> => {
-  const result = await client.query<Record<string, unknown>>(sql);
-  return result.rows;
-};
-const count = async (table: string): Promise<number> => {
-  const [row] = z
-    .array(z.object({ n: z.number() }))
-    .parse(await rows(`select count(*)::int as n from ${table}`));
-  return row?.n ?? 0;
-};
+const { rows, count } = sqlOn(client);
 
 // Better Auth's token exchange uses the global fetch; Lichess's identity
 // calls use the one createAuth is given. Both answer as `who`.

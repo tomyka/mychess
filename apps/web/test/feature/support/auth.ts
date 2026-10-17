@@ -1,4 +1,4 @@
-import type { Db } from '@mychess/db';
+import { completeOnboarding, type Db } from '@mychess/db';
 import { createAuth, type Auth } from '../../../src/server/auth';
 import { webEnvSchema, type WebEnv } from '../../../src/server/env';
 import type { MailMessage } from '../../../src/server/mail';
@@ -63,19 +63,69 @@ export function cookieFrom(response: Response): string {
     .join('; ');
 }
 
+/**
+ * Asks for a magic link with `body` (an email and options), from a client
+ * with `headers` (such as its address), without following it.
+ */
+export function requestMagicLink(
+  built: BuiltAuth,
+  body: Record<string, unknown>,
+  headers: Record<string, string> = {},
+): Promise<Response> {
+  return built.auth.handler(
+    new Request(`${BASE}/api/auth/sign-in/magic-link`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: BASE, ...headers },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+/** The link in the last mail `built` sent, if any. */
+export function mailedLink(built: BuiltAuth): string | undefined {
+  return /https?:\/\/\S+/.exec(built.sent.at(-1)?.text ?? '')?.[0];
+}
+
 /** Requests a magic link for `email` and follows it; returns the signed-in cookie. */
 export async function signInByMagicLink(
   built: BuiltAuth,
   email: string,
 ): Promise<string> {
-  await built.auth.handler(
-    new Request(`${BASE}/api/auth/sign-in/magic-link`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', origin: BASE },
-      body: JSON.stringify({ email, callbackURL: '/' }),
-    }),
-  );
-  const link = /https?:\/\/\S+/.exec(built.sent.at(-1)?.text ?? '')?.[0];
+  await requestMagicLink(built, { email, callbackURL: '/' });
+  const link = mailedLink(built);
   if (link === undefined) throw new Error('no magic link was mailed');
   return cookieFrom(await built.auth.handler(new Request(link)));
+}
+
+/** What onboarding asks for (R-81). */
+export interface Profile {
+  readonly displayName: string;
+  readonly locale: 'lt' | 'en';
+}
+
+/** Onboards the account `cookie` is signed in to; returns its id. */
+export async function onboard(
+  built: BuiltAuth,
+  db: Db,
+  cookie: string,
+  profile: Profile,
+): Promise<string> {
+  const session = await built.auth.api.getSession({
+    headers: new Headers({ cookie }),
+  });
+  if (session === null) throw new Error('the cookie is not signed in');
+  await completeOnboarding(db, session.user.id, profile, new Date());
+  return session.user.id;
+}
+
+/** Signs `email` in by magic link and onboards it; returns the cookie. */
+export async function signInOnboarded(
+  built: BuiltAuth,
+  db: Db,
+  email: string,
+  profile: Profile,
+): Promise<string> {
+  const cookie = await signInByMagicLink(built, email);
+  await onboard(built, db, cookie, profile);
+  return cookie;
 }
