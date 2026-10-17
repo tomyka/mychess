@@ -129,6 +129,13 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-93** (S1 close, #251, 2026-10-17): The persona test sign-in (R-73) may be enabled on local and staging environments; production always refuses it.
 - **R-94** (S1 close, #270, 2026-10-17): The admin audit email hash (R-88) is keyed: HMAC-SHA-256 with a per-environment secret (`AUDIT_EMAIL_KEY`), so a leaked database alone cannot confirm a guessed email.
 - **R-95** (S1 close, #270, 2026-10-17): Downloading the data export needs a sign-in within the last day, as linking does (R-84).
+- **R-96** (S3/S4 brainstorm, #253 #254, 2026-10-17): Slices reshuffled: sharing a player's own repertoire with a linked coach (R-42) moves from S3 to S4; the fork offer on unlink (R-44) moves from S4 to S5. S3 adds PGN export of a repertoire.
+- **R-97** (S3/S4 brainstorm, #253 #254, 2026-10-17): The board is chessground (GPL-3.0); the web app's code is GPL-3.0-compatible and the repository stays public.
+- **R-98** (S3/S4 brainstorm, #253 #254, 2026-10-17): Two kinds of invite, both unguessable and revocable: a personal invite (single use, for one player) and a group invite (one link usable by many until it expires or is revoked, within the coach's player limit).
+- **R-99** (S3/S4 brainstorm, #253 #254, 2026-10-17): An invite is valid for 7 days.
+- **R-100** (S3/S4 brainstorm, #253 #254, 2026-10-17): Switching the coach capability off is refused while any player is linked; the page lists the players to unlink first.
+- **R-101** (S3/S4 brainstorm, #253 #254, 2026-10-17): A PGN upload creates a new repertoire (side chosen) or adds to an existing repertoire of that side; added games become new chapters and their positions merge into the graph.
+- **R-102** (S3/S4 brainstorm, #253 #254, 2026-10-17): On a player's own repertoire, move comments (from PGN or written in the builder) belong to the repertoire: they are exported and a sharing coach sees them. Personal notes are separate and always private (R-21). On a coach's repertoire the coach's comments are Coach notes.
 
 ## Open questions
 
