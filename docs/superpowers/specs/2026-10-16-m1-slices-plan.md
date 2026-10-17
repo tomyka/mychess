@@ -26,6 +26,8 @@ spec; the spec may sharpen it but not drop items.
 | S7 Coach progress | Per player and assignment: learned, due, mastered, overdue, paused, skipped moves; group overview | R-14, R-56 | S5, S6 | The coach persona sees each player's state matching the seeded history |
 | S8 M1 exit | Persona seeds on staging; persona tester agents run the M1 journeys; `improve-codebase-architecture` over M1; v1 user count for R-71; owner promotes to production | R-32, R-71 | all | Tester findings triaged into issues; owner promotion |
 
+Reshuffle (R-96, 2026-10-17): sharing an own repertoire with a coach (R-42) moves from S3 to S4; the fork offer on unlink (R-44) moves from S4 to S5; S3 adds PGN export. S4's sharing tasks need S3's repertoire tables.
+
 Order: S1 and S2 in parallel; then S3 and S4 in parallel; then S5, S6, S7,
 S8. S6 can start on own repertoires as soon as S3 lands.
 
