@@ -1,4 +1,5 @@
 import { exportAccount } from '@mychess/db';
+import { chapterTitleIn } from '../../../../server/chapter-names';
 import { getDb } from '../../../../server/db';
 import { SESSION_NOT_FRESH } from '../../../../lib/sign-in-errors';
 import { getAccount, hasFreshSession } from '../../../../server/session';
@@ -22,7 +23,9 @@ export async function GET(): Promise<Response> {
       { code: SESSION_NOT_FRESH },
       { status: 403, headers: NO_STORE },
     );
-  const data = await exportAccount(getDb(), account.id, new Date());
+  const data = await exportAccount(getDb(), account.id, new Date(), {
+    chapterTitle: chapterTitleIn(account.locale),
+  });
   if (data === undefined) return unauthorized();
   return Response.json(data, {
     headers: {

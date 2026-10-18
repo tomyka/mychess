@@ -19,7 +19,7 @@ export const EXPORT_PATH = '/api/account/export';
 
 const INITIAL: DeleteState = {};
 
-const ITEMS = ['account', 'providers', 'sessions'] as const;
+const ITEMS = ['account', 'providers', 'repertoires', 'sessions'] as const;
 
 // The value set apart from the sentence around it.
 const strong = (chunks: ReactNode) => <strong>{chunks}</strong>;

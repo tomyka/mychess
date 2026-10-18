@@ -70,8 +70,12 @@ describe('DeleteSection (R-82)', () => {
     expect(items).toEqual([
       d.items.account,
       d.items.providers,
+      d.items.repertoires,
       d.items.sessions,
     ]);
+    expect(d.items.repertoires).toBe(
+      'repertuarai, jų skyriai, ėjimai, komentarai ir asmeninės pastabos;',
+    );
     expect(screen.getByText(d.irreversible)).toBeDefined();
     const link = screen.getByRole('link', {
       name: 'atsisiųskite savo duomenis',
@@ -161,6 +165,7 @@ describe('DeleteSection (R-82)', () => {
     renderSection('en');
     const e = MESSAGES.en.settings.delete;
     expect(screen.getByRole('button', { name: e.confirm })).toBeDefined();
+    expect(screen.getByText(e.items.repertoires)).toBeDefined();
     expect(
       screen.getByRole('link', { name: 'download your data' }),
     ).toBeDefined();

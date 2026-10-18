@@ -8,7 +8,7 @@ import {
 import { createTranslator } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 import { MESSAGES } from '../i18n/locales';
-import { chapterTitle, ecoNamesOf } from './chapter-names';
+import { chapterTitle, chapterTitleIn, ecoNamesOf } from './chapter-names';
 
 const chapter = (id: string, nameSource: ChapterNameSource): Chapter => ({
   id,
@@ -53,6 +53,20 @@ describe('chapterTitle', () => {
       'Chapter 4',
       ecoName('B46', 'en'),
     ]);
+  });
+});
+
+describe('chapterTitleIn', () => {
+  it('is chapterTitle with the locale’s own catalogue', () => {
+    expect(GRAPH.chapters.map(chapterTitleIn('lt'))).toEqual(
+      GRAPH.chapters.map(chapterTitle(translator('lt'), 'lt')),
+    );
+    expect(GRAPH.chapters.map(chapterTitleIn('en'))).toEqual(
+      GRAPH.chapters.map(chapterTitle(translator('en'), 'en')),
+    );
+    expect(
+      chapterTitleIn('en')(chapter('c9', { kind: 'index', number: 9 })),
+    ).toBe('Chapter 9');
   });
 });
 

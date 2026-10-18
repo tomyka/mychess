@@ -1,10 +1,19 @@
 // Repertoires for feature tests, written straight through the repository so
 // a test drives only the action or loader it is about.
-import type { Side } from '@mychess/chess';
+import type { ChapterNameSource, Side } from '@mychess/chess';
 import { createRepertoire, findAccountByEmail, type Db } from '@mychess/db';
-import { graphOf } from '../../fixtures/repertoires';
+import { graphOf, TAIMANOV } from '../../fixtures/repertoires';
 
 export { LONDON, TAIMANOV } from '../../fixtures/repertoires';
+
+/** The Taimanov without its [Event] tag: its chapter is named after its opening (R-63). */
+export const UNTITLED_TAIMANOV = TAIMANOV.split('\n').slice(2).join('\n');
+
+/** The ECO code a chapter is named after; throws for any other name. */
+export function ecoOf(source: ChapterNameSource | undefined): string {
+  if (source?.kind !== 'eco') throw new Error('not an ECO chapter');
+  return source.eco;
+}
 
 export interface SeededRepertoire {
   /** The PGN to import, or null for an empty repertoire without chapters. */

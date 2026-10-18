@@ -97,6 +97,7 @@
       "items": {
         "account": "your account, display name and email address;",
         "providers": "your connected Google and Lichess accounts;",
+        "repertoires": "your repertoires, their chapters, moves, comments and personal notes;",
         "sessions": "your sign-ins on every device."
       },
       "irreversible": "A deleted account cannot be restored. We will email you a confirmation.",

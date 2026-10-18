@@ -97,6 +97,7 @@
       "items": {
         "account": "paskyra, rodomas vardas ir el. pašto adresas;",
         "providers": "prijungtos Google ir Lichess paskyros;",
+        "repertoires": "repertuarai, jų skyriai, ėjimai, komentarai ir asmeninės pastabos;",
         "sessions": "prisijungimai visuose įrenginiuose."
       },
       "irreversible": "Ištrintos paskyros atkurti nebus galima. Patvirtinimą atsiųsime el. paštu.",
