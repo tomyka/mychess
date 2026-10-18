@@ -2,7 +2,9 @@
 // legal moves join two squares, and whether the chapter has it.
 import {
   chapterChildren,
+  removeMove,
   type BoardMove,
+  type Marks,
   type RepertoireGraph,
   type RepertoireMove,
 } from '@mychess/chess';
@@ -35,4 +37,68 @@ export function moveNumber(ply: number, whiteFirst: boolean): string {
   const half = ply + (whiteFirst ? 0 : 1);
   const number = String(Math.floor(half / 2) + 1);
   return half % 2 === 0 ? `${number}.` : `${number}...`;
+}
+
+const movesIn = (graph: RepertoireGraph, chapterId: string): number =>
+  graph.moves.filter((m) => m.chapters.includes(chapterId)).length;
+
+/**
+ * How many of the chapter's moves after `move` removing it takes along:
+ * those only it reached (the chess `removeMove` decides, as a preview).
+ */
+export function removalCount(
+  graph: RepertoireGraph,
+  chapterId: string,
+  move: RepertoireMove,
+): number {
+  const preview = removeMove(graph, chapterId, move.from, move.san);
+  if (!preview.ok) return 0;
+  const gone = movesIn(graph, chapterId) - movesIn(preview.value, chapterId);
+  return Math.max(gone - 1, 0);
+}
+
+/** A chapter and the moves from its root. */
+export interface Place {
+  readonly chapterId: string | null;
+  readonly path: readonly RepertoireMove[];
+}
+
+/** Where the screen goes after a move is added: on to it, in its chapter. */
+export function placeAdded(
+  graph: RepertoireGraph,
+  at: Place,
+  played: { readonly from: string; readonly san: string },
+): Place {
+  const { from, san } = played;
+  const { chapterId, path } = at;
+  // A first move started the only chapter (R-111).
+  const chapter = chapterId ?? graph.chapters.at(-1)?.id ?? null;
+  const added = graph.moves.find(
+    (m) =>
+      m.from === from &&
+      m.san === san &&
+      chapter !== null &&
+      m.chapters.includes(chapter),
+  );
+  return {
+    chapterId: chapter,
+    path: added === undefined ? path : [...path, added],
+  };
+}
+
+/** Whether draw mode's tap from `from` to `to` left an arrow or circle there. */
+export function markChange(
+  marks: Marks,
+  from: string,
+  to: string,
+): { kind: 'arrow' | 'circle'; added: boolean } {
+  if (from === to)
+    return {
+      kind: 'circle',
+      added: marks.circles.some((c) => c.square === from),
+    };
+  return {
+    kind: 'arrow',
+    added: marks.arrows.some((a) => a.from === from && a.to === to),
+  };
 }

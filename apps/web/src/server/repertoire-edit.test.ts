@@ -29,6 +29,7 @@ const request = (op: unknown, over: Record<string, unknown> = {}) => ({
 
 const VALID_OPS: readonly EditOp[] = [
   { kind: 'addMove', chapterId: 'c1', from: START_KEY, san: 'd4' },
+  { kind: 'addMove', chapterId: null, from: START_KEY, san: 'd4' },
   { kind: 'removeMove', chapterId: 'c1', from: START_KEY, san: 'd4' },
   {
     kind: 'setMarks',
@@ -193,6 +194,38 @@ describe('applyEdit', () => {
     const added = value(applyEdit(g, { kind: 'addChapter' }));
     expect(added).toEqual(addChapter(g, START_KEY).graph);
     expect(added.chapters.at(-1)?.rootKey).toBe(START_KEY);
+  });
+
+  it('starts chapter one with the first move of an empty repertoire (R-111)', () => {
+    const empty: RepertoireGraph = { side: 'black', chapters: [], moves: [] };
+    const started = addChapter(empty, START_KEY);
+    const first = applyEdit(empty, {
+      kind: 'addMove',
+      chapterId: null,
+      from: START_KEY,
+      san: 'e4',
+    });
+    expect(first).toEqual(
+      addMove(started.graph, started.chapterId, START_KEY, 'e4'),
+    );
+    expect(value(first).chapters.map((c) => c.id)).toEqual(['c1']);
+  });
+
+  it('refuses a move without a chapter where there are chapters, and an illegal first move', () => {
+    expect(
+      applyEdit(g, {
+        kind: 'addMove',
+        chapterId: null,
+        from: START_KEY,
+        san: 'e4',
+      }),
+    ).toEqual({ ok: false, refusal: { reason: 'repertoire.unknownChapter' } });
+    expect(
+      applyEdit(
+        { side: 'white', chapters: [], moves: [] },
+        { kind: 'addMove', chapterId: null, from: START_KEY, san: 'e5' },
+      ),
+    ).toEqual({ ok: false, refusal: { reason: 'repertoire.illegalMove' } });
   });
 
   it('passes the chess refusals through', () => {

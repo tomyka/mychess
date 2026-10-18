@@ -3,9 +3,11 @@
 // The repertoire page's actions. Each authenticates, parses its input, asks
 // ownRepertoire (the domain's access rule, enforced again by the owner
 // filter in the query), then saves. The viewer is always the session account.
+import type { RepertoireGraph } from '@mychess/chess';
 import {
   deleteRepertoire,
   renameRepertoire,
+  saveRepertoireEdit,
   setPersonalNote,
 } from '@mychess/db';
 import {
@@ -18,7 +20,9 @@ import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { repertoireDeletedRoute } from '../../../lib/routes';
+import { ecoNamesOf } from '../../../server/chapter-names';
 import { getDb } from '../../../server/db';
+import { applyEdit, editRequestSchema } from '../../../server/repertoire-edit';
 import { ownRepertoire } from '../../../server/repertoires';
 import { requireOnboarded } from '../../../server/session';
 
@@ -144,4 +148,64 @@ export async function deleteRepertoireAction(
   if (!own.ok) return { refusal: own.refusal.reason };
   await deleteRepertoire(getDb(), own.value.repertoire.id, account.id);
   redirect(repertoireDeletedRoute);
+}
+
+/** What one builder edit came to: the saved graph, or a catalogue key. */
+export type EditOutcome =
+  | {
+      readonly ok: true;
+      readonly graph: RepertoireGraph;
+      readonly version: number;
+      /** The opening names the edited chapters are now named after (R-104). */
+      readonly ecoNames: Readonly<Record<string, string>>;
+    }
+  | { readonly ok: false; readonly refusal: string };
+
+const refused = (refusal: string): EditOutcome => ({ ok: false, refusal });
+
+const EDIT_ISSUES: readonly string[] = [
+  REPERTOIRE_ISSUES.chapterNameBlank,
+  REPERTOIRE_ISSUES.chapterNameTooLong,
+  REPERTOIRE_ISSUES.commentTooLong,
+];
+
+/** A name or comment issue is said so; anything else reads as an invalid edit. */
+const editIssue = (error: z.ZodError): string => {
+  const message = error.issues[0]?.message ?? '';
+  return EDIT_ISSUES.includes(message) ? message : 'repertoire.invalidEdit';
+};
+
+/**
+ * One builder edit (authenticate, load, call the chess function that
+ * decides, save). An older version than the stored one is refused before
+ * anything is computed, and the save refuses a race in its own transaction.
+ */
+export async function editRepertoireAction(
+  input: unknown,
+): Promise<EditOutcome> {
+  const account = await requireOnboarded();
+  const request = editRequestSchema.safeParse(input);
+  if (!request.success) return refused(editIssue(request.error));
+  const own = await ownRepertoire(account, request.data.repertoireId, 'edit');
+  if (!own.ok) return refused(own.refusal.reason);
+  const { repertoire, graph } = own.value;
+  if (repertoire.version !== request.data.version)
+    return refused(REPERTOIRE_REFUSALS.stale);
+  const edited = applyEdit(graph, request.data.op);
+  if (!edited.ok) return refused(edited.refusal.reason);
+  const saved = await saveRepertoireEdit(getDb(), {
+    id: repertoire.id,
+    ownerId: account.id,
+    expectedVersion: repertoire.version,
+    before: graph,
+    after: edited.value,
+    now: new Date(),
+  });
+  if (!saved.ok) return refused(saved.refusal.reason);
+  return {
+    ok: true,
+    graph: edited.value,
+    version: saved.value.version,
+    ecoNames: ecoNamesOf(edited.value, account.locale),
+  };
 }

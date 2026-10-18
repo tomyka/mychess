@@ -109,4 +109,11 @@ describe('MoveList', () => {
       screen.getByText(MESSAGES.en.repertoires.panel.noMoves),
     ).toBeDefined();
   });
+
+  it('asks for the first move of an empty chapter in builder mode', () => {
+    renderList({ chapterId: 'c9', building: true });
+    expect(
+      screen.getByText(MESSAGES.en.repertoires.builder.playFirst),
+    ).toBeDefined();
+  });
 });

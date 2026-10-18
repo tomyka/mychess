@@ -1,9 +1,13 @@
 import type { Config } from '@lichess-org/chessground/config';
 import type { Key } from '@lichess-org/chessground/types';
 import {
+  addChapter,
   addMove,
+  editComment,
   fenOf,
   moveKey,
+  removeMove,
+  setMarks,
   START_KEY,
   type RepertoireGraph,
 } from '@mychess/chess';
@@ -19,7 +23,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../../i18n/locales';
 import { chapterTitle, ecoNamesOf } from '../../../server/chapter-names';
-import type { NoteOutcome } from './actions';
+import type { EditOutcome, NoteOutcome } from './actions';
 import { RepertoireScreen } from './repertoire-screen';
 
 const ground = vi.hoisted(() => {
@@ -42,11 +46,13 @@ vi.mock('@lichess-org/chessground', () => ({
 
 const server = vi.hoisted(() => ({
   saveNote: vi.fn<(input: unknown) => Promise<NoteOutcome>>(),
+  edit: vi.fn<(input: unknown) => Promise<EditOutcome>>(),
   refresh: vi.fn<() => void>(),
 }));
 
 vi.mock('./actions', () => ({
   savePersonalNoteAction: server.saveNote,
+  editRepertoireAction: server.edit,
   renameRepertoireAction: vi.fn(),
   deleteRepertoireAction: vi.fn(),
 }));
@@ -98,6 +104,7 @@ beforeEach(() => {
   ground.set.mockReset();
   server.saveNote.mockReset().mockResolvedValue({ ok: true });
   server.refresh.mockReset();
+  server.edit.mockReset();
 });
 
 describe('RepertoireScreen: browsing', () => {
@@ -261,5 +268,243 @@ describe('RepertoireScreen: an empty repertoire', () => {
     await waitFor(() => {
       expect(ground.created.at(-1)?.orientation).toBe('black');
     });
+  });
+});
+
+/** What the action answers for an edit that `result` decided. */
+function savedAs(
+  result: { ok: true; value: RepertoireGraph } | { ok: false },
+  version = 4,
+): EditOutcome {
+  if (!result.ok) throw new Error('refused');
+  return {
+    ok: true,
+    graph: result.value,
+    version,
+    ecoNames: ecoNamesOf(result.value, 'lt'),
+  };
+}
+
+const b = r.builder;
+const modeSwitch = () => screen.getByRole('switch', { name: r.mode.build });
+const named = (name: string | RegExp) => screen.getByRole('button', { name });
+
+function building(graph: RepertoireGraph = GRAPH): void {
+  renderScreen(graph);
+  if (modeSwitch().getAttribute('aria-checked') === 'false')
+    fireEvent.click(modeSwitch());
+}
+
+/** A press on the (mocked) board, as chessground reports it. */
+function press(square: Key): void {
+  act(() => {
+    ground.created.at(-1)?.events?.select?.(square);
+  });
+}
+
+describe('RepertoireScreen: builder mode', () => {
+  it('switches between browsing and building', () => {
+    renderScreen();
+    expect(modeSwitch().getAttribute('aria-checked')).toBe('false');
+    expect(screen.queryByRole('button', { name: b.draw })).toBeNull();
+    fireEvent.click(modeSwitch());
+    expect(modeSwitch().getAttribute('aria-checked')).toBe('true');
+    expect(named(b.draw)).toBeDefined();
+  });
+
+  it('saves a move the chapter does not have, from the current position', async () => {
+    const afterD4 = must(GRAPH.moves[0]).to;
+    server.edit.mockResolvedValue(savedAs(addMove(GRAPH, 'c1', afterD4, 'e5')));
+    building();
+    fireEvent.click(named(r.nav.forward));
+    ground.set.mockClear();
+    boardMove('e7', 'e5');
+    expect(server.edit).toHaveBeenCalledWith({
+      repertoireId: ID,
+      version: 3,
+      op: { kind: 'addMove', chapterId: 'c1', from: afterD4, san: 'e5' },
+    });
+    expect(ground.set.mock.calls.map(([config]) => config.fen)).not.toContain(
+      fenOf(afterD4),
+    );
+    await waitFor(() => {
+      expect(current()).toBe('e5');
+    });
+  });
+
+  it('goes to a move the chapter already has without saving', () => {
+    building();
+    boardMove('d2', 'd4');
+    expect(current()).toBe('d4');
+    expect(server.edit).not.toHaveBeenCalled();
+  });
+
+  it('shows a refusal in words and puts the piece back', async () => {
+    server.edit.mockResolvedValue({
+      ok: false,
+      refusal: 'repertoire.secondAnswer',
+    });
+    building();
+    ground.set.mockClear();
+    boardMove('e2', 'e4');
+    expect(await screen.findByText(lt.repertoire.secondAnswer)).toBeDefined();
+    expect(ground.set.mock.calls.map(([config]) => config.fen)).toContain(
+      fenOf(START_KEY),
+    );
+    expect(current()).toBeUndefined();
+  });
+
+  it('offers Reload and stops editing when the repertoire changed elsewhere', async () => {
+    server.edit.mockResolvedValue({ ok: false, refusal: 'repertoire.stale' });
+    building();
+    boardMove('e2', 'e4');
+    expect(
+      await screen.findByRole('button', { name: r.stale.reload }),
+    ).toBeDefined();
+    fireEvent.click(named(r.nav.forward));
+    expect(named(b.remove)).toHaveProperty('disabled', true);
+  });
+
+  it('removes the current move after the confirmation and says so', async () => {
+    server.edit.mockResolvedValue(
+      savedAs(removeMove(GRAPH, 'c1', START_KEY, 'd4')),
+    );
+    building();
+    fireEvent.click(named(r.nav.forward));
+    fireEvent.click(named(b.remove));
+    expect(screen.getByText(/Pašalinti 1\. d4 ir 8/)).toBeDefined();
+    fireEvent.click(named(b.removeSubmit));
+    expect(server.edit).toHaveBeenCalledWith({
+      repertoireId: ID,
+      version: 3,
+      op: { kind: 'removeMove', chapterId: 'c1', from: START_KEY, san: 'd4' },
+    });
+    expect(await screen.findByText(b.removeDone)).toBeDefined();
+    expect(current()).toBeUndefined();
+  });
+
+  it('draws an arrow by tapping two squares in draw mode, marking the first', async () => {
+    const marks = {
+      arrows: [
+        { from: 'c1', to: 'f4', color: 'G' },
+        { from: 'e2', to: 'e4', color: 'R' },
+      ],
+      circles: [],
+    } as const;
+    server.edit.mockResolvedValue(
+      savedAs(setMarks(GRAPH, 'c1', { from: START_KEY, san: 'd4' }, marks)),
+    );
+    building();
+    fireEvent.click(named(r.nav.forward));
+    fireEvent.click(named(b.draw));
+    fireEvent.click(named(r.colors.R));
+    press('e2');
+    expect(ground.set).toHaveBeenLastCalledWith({
+      highlight: { custom: new Map([['e2', 'selected']]) },
+    });
+    expect(screen.getByText('Nuo e2')).toBeDefined();
+    press('e4');
+    expect(server.edit).toHaveBeenCalledWith({
+      repertoireId: ID,
+      version: 3,
+      op: {
+        kind: 'setMarks',
+        chapterId: 'c1',
+        from: START_KEY,
+        san: 'd4',
+        marks,
+      },
+    });
+    expect(
+      await screen.findByText('Rodyklė e2–e4, raudona, pridėta'),
+    ).toBeDefined();
+  });
+
+  it('takes no board move in draw mode, and Done leaves it', () => {
+    building();
+    fireEvent.click(named(r.nav.forward));
+    fireEvent.click(named(b.draw));
+    const picking = ground.set.mock.calls
+      .map(([config]) => config)
+      .filter((config) => config.draggable?.enabled === false)
+      .at(-1);
+    expect(picking?.movable?.dests).toEqual(new Map());
+    expect(picking?.selectable).toEqual({ enabled: false });
+    fireEvent.click(named(b.drawDone));
+    expect(named(b.draw)).toBeDefined();
+  });
+
+  it('saves the comment through the action', async () => {
+    server.edit.mockResolvedValue(
+      savedAs(editComment(GRAPH, moveKey(START_KEY, 'd4'), 'Tvirta')),
+    );
+    building();
+    fireEvent.click(named(r.nav.forward));
+    fireEvent.change(screen.getByRole('textbox', { name: b.commentLabel }), {
+      target: { value: 'Tvirta' },
+    });
+    fireEvent.click(named(b.commentSave));
+    expect(await screen.findByText(b.commentSaved)).toBeDefined();
+    expect(server.edit).toHaveBeenCalledWith({
+      repertoireId: ID,
+      version: 3,
+      op: {
+        kind: 'editComment',
+        moveKey: moveKey(START_KEY, 'd4'),
+        comment: 'Tvirta',
+      },
+    });
+  });
+
+  it('adds a chapter and opens it', async () => {
+    server.edit.mockResolvedValue({
+      ok: true,
+      graph: addChapter(GRAPH, START_KEY).graph,
+      version: 4,
+      ecoNames: ecoNamesOf(GRAPH, 'lt'),
+    });
+    building();
+    fireEvent.click(named(/1 skyrius iš 2/));
+    fireEvent.click(named(r.chapters.add));
+    expect(server.edit).toHaveBeenCalledWith({
+      repertoireId: ID,
+      version: 3,
+      op: { kind: 'addChapter' },
+    });
+    expect(
+      await screen.findByRole('button', { name: /3 skyrius iš 3/ }),
+    ).toBeDefined();
+    expect(screen.getByText(b.playFirst)).toBeDefined();
+  });
+});
+
+describe('RepertoireScreen: the first move of an empty repertoire (R-111)', () => {
+  it('starts chapter one with the first move, in one save', async () => {
+    const empty: RepertoireGraph = { side: 'white', chapters: [], moves: [] };
+    const started = addChapter(empty, START_KEY).graph;
+    server.edit.mockResolvedValue(
+      savedAs(addMove(started, 'c1', START_KEY, 'd4'), 2),
+    );
+    renderScreen(empty, 'Naujas');
+    expect(modeSwitch().getAttribute('aria-checked')).toBe('true');
+    boardMove('d2', 'd4');
+    expect(server.edit).toHaveBeenCalledTimes(1);
+    expect(server.edit).toHaveBeenCalledWith({
+      repertoireId: ID,
+      version: 3,
+      op: { kind: 'addMove', chapterId: null, from: START_KEY, san: 'd4' },
+    });
+    expect(
+      await screen.findByRole('button', { name: /1 skyrius iš 1/ }),
+    ).toBeDefined();
+    expect(current()).toBe('d4');
+  });
+
+  it('offers the builder from browse mode', () => {
+    renderScreen({ side: 'white', chapters: [], moves: [] }, 'Naujas');
+    fireEvent.click(modeSwitch());
+    expect(screen.getByText(r.panel.emptyBrowse)).toBeDefined();
+    fireEvent.click(named(r.mode.toBuild));
+    expect(modeSwitch().getAttribute('aria-checked')).toBe('true');
   });
 });

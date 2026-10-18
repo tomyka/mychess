@@ -2,6 +2,7 @@ import type { DrawShape } from '@lichess-org/chessground/draw';
 import { describe, expect, it, vi } from 'vitest';
 import {
   boardConfig,
+  boardUpdate,
   cursorConfig,
   markBrushes,
   mountConfig,
@@ -22,6 +23,8 @@ const view = (over: Partial<BoardView> = {}): BoardView => ({
   shapes: [ARROW],
   autoShapes: [CIRCLE],
   drawing: true,
+  picking: false,
+  picked: null,
   revision: 0,
   ...over,
 });
@@ -77,7 +80,52 @@ describe('boardConfig', () => {
   });
 });
 
+describe('boardConfig: picking squares (draw mode)', () => {
+  it('neither selects nor drags a piece, so a press only chooses a square', () => {
+    const config = boardConfig(view({ picking: true }));
+    expect(config.draggable).toEqual({ enabled: false, showGhost: true });
+    expect(config.selectable).toEqual({ enabled: false });
+  });
+});
+
+describe('boardUpdate', () => {
+  it('passes the position when it or the revision changed', () => {
+    expect(boardUpdate(view(), null).fen).toBe(START);
+    expect(boardUpdate(view(), { fen: 'x', revision: 0 }).fen).toBe(START);
+    expect(
+      boardUpdate(view({ revision: 2 }), { fen: START, revision: 1 }).fen,
+    ).toBe(START);
+  });
+
+  it('leaves the pieces alone when only the rest changed, so a piece being saved stays', () => {
+    const update = boardUpdate(view({ dests: new Map() }), {
+      fen: START,
+      revision: 0,
+    });
+    expect(update).not.toHaveProperty('fen');
+    expect(update.movable?.dests).toEqual(new Map());
+    expect(update.drawable?.shapes).toEqual([ARROW]);
+  });
+});
+
 describe('cursorConfig', () => {
+  it('marks draw mode’s first square as selected, beside the cursor', () => {
+    expect(cursorConfig('e4', 'd2')).toEqual({
+      highlight: {
+        custom: new Map([
+          ['e4', 'cursor'],
+          ['d2', 'selected'],
+        ]),
+      },
+    });
+    expect(cursorConfig('e4', 'e4')).toEqual({
+      highlight: { custom: new Map([['e4', 'cursor selected']]) },
+    });
+    expect(cursorConfig(null, 'd2')).toEqual({
+      highlight: { custom: new Map([['d2', 'selected']]) },
+    });
+  });
+
   it('marks the cursor square with the cursor class', () => {
     expect(cursorConfig('e4')).toEqual({
       highlight: { custom: new Map([['e4', 'cursor']]) },

@@ -1,7 +1,8 @@
 'use client';
 
 import type { RepertoireMove } from '@mychess/chess';
-import { useTranslations } from 'next-intl';
+import { COMMENT_MAX } from '@mychess/domain';
+import { useMessages, useTranslations } from 'next-intl';
 import {
   useId,
   useState,
@@ -9,9 +10,21 @@ import {
   type JSX,
   type KeyboardEvent,
 } from 'react';
+import { isMessageKey } from '../../../i18n/message-key';
 import { SECONDARY_BUTTON } from '../../buttons';
 import { StatusLine } from '../../status-line';
 import type { NoteOutcome } from './actions';
+
+/** What saving a field came to: saved, or a catalogue key. */
+export type FieldOutcome =
+  { readonly ok: true } | { readonly ok: false; readonly refusal: string };
+
+/** The builder's comment field (absent while browsing). */
+export interface CommentEditor {
+  /** Saving, or the repertoire changed elsewhere. */
+  readonly disabled: boolean;
+  readonly onSave: (text: string) => Promise<FieldOutcome>;
+}
 
 export interface MovePanelProps {
   /** The chapter's intro (R-66), shown at its root. */
@@ -21,6 +34,8 @@ export interface MovePanelProps {
   /** The viewer's Personal note on the move; '' for none. */
   readonly note: string;
   readonly onSaveNote: (text: string) => Promise<NoteOutcome>;
+  /** Builder mode: the comment is a field (R-102, R-105). */
+  readonly commentEditor?: CommentEditor | undefined;
 }
 
 const LABEL = 'text-sm font-semibold text-fg-muted';
@@ -51,17 +66,17 @@ function MarksText({
   );
 }
 
-type NoteStatus = 'idle' | 'saved' | NoteRefusal | 'repertoires.failed';
-type NoteRefusal = Extract<NoteOutcome, { ok: false }>['refusal'];
+/** 'idle', 'saved', or the catalogue key of a refusal. */
+type FieldStatus = string;
 
-/** Saves through `onSaveNote` and keeps what the status line says. */
-function useNoteSave(onSaveNote: MovePanelProps['onSaveNote']) {
-  const [status, setStatus] = useState<NoteStatus>('idle');
+/** Saves through `onSave` and keeps what the field's status line says. */
+function useFieldSave(onSave: (text: string) => Promise<FieldOutcome>) {
+  const [status, setStatus] = useState<FieldStatus>('idle');
   const [pending, startTransition] = useTransition();
   const save = (text: string): void => {
     startTransition(async () => {
       try {
-        const outcome = await onSaveNote(text);
+        const outcome = await onSave(text);
         setStatus(outcome.ok ? 'saved' : outcome.refusal);
       } catch {
         setStatus('repertoires.failed');
@@ -70,6 +85,24 @@ function useNoteSave(onSaveNote: MovePanelProps['onSaveNote']) {
   };
   return { status, pending, save };
 }
+
+/** What a field's status line says: `saved` on success, else the refusal. */
+function useStatusText(status: FieldStatus, saved: string): string | null {
+  const t = useTranslations();
+  const messages = useMessages();
+  if (status === 'idle') return null;
+  if (status === 'saved') return saved;
+  return isMessageKey(messages, status) ? t(status) : t('repertoires.failed');
+}
+
+/** Ctrl/Cmd + Enter in a textarea saves it (docs/design, Keyboard). */
+const saveOnCtrlEnter =
+  (save: () => void) =>
+  (event: KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return;
+    event.preventDefault();
+    save();
+  };
 
 /**
  * The viewer's private note on the move (R-21): a sunken well with a lock,
@@ -87,13 +120,12 @@ function PersonalNote({
   const hintId = useId();
   const statusId = useId();
   const [text, setText] = useState(initial);
-  const { status, pending, save } = useNoteSave(onSaveNote);
+  const { status, pending, save } = useFieldSave(onSaveNote);
+  const said = useStatusText(status, t('repertoires.note.saved'));
   const refused = status !== 'idle' && status !== 'saved';
-  function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
-    if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return;
-    event.preventDefault();
+  const onKeyDown = saveOnCtrlEnter(() => {
     save(text);
-  }
+  });
   return (
     <div className="flex flex-col gap-2 rounded-card bg-sunken p-3">
       <NoteHeading fieldId={fieldId} hintId={hintId} />
@@ -121,14 +153,123 @@ function PersonalNote({
       </button>
       <StatusLine
         id={statusId}
-        text={
-          status === 'idle'
-            ? null
-            : t(status === 'saved' ? 'repertoires.note.saved' : status)
-        }
+        text={said}
         tone={status === 'saved' ? 'success' : 'error'}
       />
     </div>
+  );
+}
+
+/** The count shown from this many characters on. */
+const COUNT_FROM = 1800;
+
+/** The comment's hint (R-105) and, near the limit, its length. */
+function CommentHint({
+  id,
+  length,
+}: {
+  readonly id: string;
+  readonly length: number;
+}): JSX.Element {
+  const t = useTranslations('repertoires.builder');
+  return (
+    <div className="flex flex-wrap justify-between gap-x-3 text-sm text-fg-muted">
+      <span id={id}>{t('commentHint')}</span>
+      {length >= COUNT_FROM ? (
+        <span className={length >= COMMENT_MAX ? 'text-error' : ''}>
+          {t('commentCount', { count: length, max: COMMENT_MAX })}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The builder's comment (R-102): one paragraph (R-105, the hint says so),
+ * a count near the limit, Save, and its own status line.
+ */
+function CommentField({
+  initial,
+  editor,
+}: {
+  readonly initial: string;
+  readonly editor: CommentEditor;
+}): JSX.Element {
+  const t = useTranslations('repertoires.builder');
+  const fieldId = useId();
+  const hintId = useId();
+  const statusId = useId();
+  const [text, setText] = useState(initial);
+  const { status, pending, save } = useFieldSave(editor.onSave);
+  const said = useStatusText(status, t('commentSaved'));
+  const refused = status !== 'idle' && status !== 'saved';
+  const disabled = pending || editor.disabled;
+  const onKeyDown = saveOnCtrlEnter(() => {
+    if (!disabled) save(text);
+  });
+  return (
+    <div className="flex flex-col gap-2">
+      <label htmlFor={fieldId} className={LABEL}>
+        {t('commentLabel')}
+      </label>
+      <textarea
+        id={fieldId}
+        rows={4}
+        value={text}
+        onChange={(event) => {
+          setText(event.target.value);
+        }}
+        onKeyDown={onKeyDown}
+        aria-describedby={refused ? `${hintId} ${statusId}` : hintId}
+        aria-invalid={refused ? true : undefined}
+        className="rounded-control border border-border-strong bg-surface p-3 text-base text-fg aria-invalid:border-error"
+      />
+      <CommentHint id={hintId} length={text.length} />
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          save(text);
+        }}
+        className={`${SECONDARY_BUTTON} self-start`}
+      >
+        {t('commentSave')}
+      </button>
+      <StatusLine
+        id={statusId}
+        text={said}
+        tone={status === 'saved' ? 'success' : 'error'}
+      />
+    </div>
+  );
+}
+
+/** The comment as text (browsing) or as the builder's field. */
+function Comment({
+  move,
+  editor,
+}: {
+  readonly move: RepertoireMove;
+  readonly editor: CommentEditor | undefined;
+}): JSX.Element {
+  const t = useTranslations('repertoires.panel');
+  if (editor !== undefined)
+    return (
+      <CommentField
+        key={`${move.from}|${move.san}`}
+        initial={move.comment ?? ''}
+        editor={editor}
+      />
+    );
+  return (
+    <>
+      <p className={LABEL}>{t('comment')}</p>
+      {move.comment === null ? (
+        <p className="text-fg-muted">{t('noComment')}</p>
+      ) : (
+        <p>{move.comment}</p>
+      )}
+    </>
   );
 }
 
@@ -177,6 +318,7 @@ export function MovePanel({
   move,
   note,
   onSaveNote,
+  commentEditor,
 }: MovePanelProps): JSX.Element | null {
   const t = useTranslations('repertoires.panel');
   if (move === null)
@@ -189,12 +331,7 @@ export function MovePanel({
   return (
     <section aria-label={t('comment')} className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
-        <p className={LABEL}>{t('comment')}</p>
-        {move.comment === null ? (
-          <p className="text-fg-muted">{t('noComment')}</p>
-        ) : (
-          <p>{move.comment}</p>
-        )}
+        <Comment move={move} editor={commentEditor} />
         <MarksText move={move} />
       </div>
       <PersonalNote

@@ -17,6 +17,10 @@ export interface BoardView {
   readonly autoShapes: readonly DrawShape[];
   /** Mouse drawing on (builder). */
   readonly drawing: boolean;
+  /** Draw mode: a press chooses a square; no piece is selected or dragged. */
+  readonly picking: boolean;
+  /** Draw mode's first chosen square, marked until the second. */
+  readonly picked: Key | null;
   /** Bumped to put the pieces back after a move the page did not take. */
   readonly revision: number;
 }
@@ -28,8 +32,12 @@ export interface BoardView {
  * view's.
  */
 export function boardConfig(view: BoardView): Config {
+  return { fen: view.fen, ...withoutPosition(view) };
+}
+
+/** Everything of a view but the position: the pieces stay as they are. */
+function withoutPosition(view: BoardView): Config {
   return {
-    fen: view.fen,
     orientation: view.orientation,
     turnColor: view.turnColor,
     check: view.check,
@@ -43,8 +51,8 @@ export function boardConfig(view: BoardView): Config {
       dests: new Map([...view.dests].map(([from, to]) => [from, [...to]])),
     },
     premovable: { enabled: false },
-    draggable: { enabled: true, showGhost: true },
-    selectable: { enabled: true },
+    draggable: { enabled: !view.picking, showGhost: true },
+    selectable: { enabled: !view.picking },
     drawable: {
       enabled: view.drawing,
       visible: true,
@@ -56,17 +64,41 @@ export function boardConfig(view: BoardView): Config {
   };
 }
 
+/** What the board last showed: a new position or revision is passed again. */
+export type ShownPosition = Pick<BoardView, 'fen' | 'revision'>;
+
 /**
- * The keyboard cursor as a custom square class (board.css `square.cursor`),
- * or no class while it is hidden. Kept apart from `boardConfig` so moving the
- * cursor does not pass `fen` and put back a piece the page is still saving.
+ * The configuration for a new view of a live board. The position is passed
+ * only when it or the revision changed: passing it puts every piece back,
+ * and a piece just played must stay on its square while the page saves it
+ * (docs/design/repertoire-screen.md, Saving).
  */
-export function cursorConfig(cursor: Key | null): Config {
-  return {
-    highlight: {
-      custom: new Map(cursor === null ? [] : [[cursor, 'cursor']]),
-    },
-  };
+export function boardUpdate(
+  view: BoardView,
+  shown: ShownPosition | null,
+): Config {
+  const same =
+    shown !== null &&
+    shown.fen === view.fen &&
+    shown.revision === view.revision;
+  return same ? withoutPosition(view) : boardConfig(view);
+}
+
+/**
+ * The keyboard cursor (board.css `square.cursor`) and draw mode's first
+ * square (`square.selected`: chessground marks only a selected piece) as
+ * custom square classes. Kept apart from `boardConfig` so moving the cursor
+ * does not pass `fen` and put back a piece the page is still saving.
+ */
+export function cursorConfig(
+  cursor: Key | null,
+  picked: Key | null = null,
+): Config {
+  const custom = new Map<Key, string>();
+  if (cursor !== null) custom.set(cursor, 'cursor');
+  if (picked !== null)
+    custom.set(picked, picked === cursor ? 'cursor selected' : 'selected');
+  return { highlight: { custom } };
 }
 
 const brush = (key: string, color: string) => ({
@@ -116,7 +148,10 @@ export function mountConfig(
   const base = boardConfig(view);
   return {
     ...base,
-    highlight: { ...base.highlight, ...cursorConfig(cursor).highlight },
+    highlight: {
+      ...base.highlight,
+      ...cursorConfig(cursor, view.picked).highlight,
+    },
     animation: { enabled: !options.reducedMotion, duration: MOVE_DURATION },
     movable: {
       ...base.movable,

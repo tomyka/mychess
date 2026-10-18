@@ -1,27 +1,28 @@
 'use client';
 
-import type { Key } from '@lichess-org/chessground/types';
 import {
   chapterChildren,
   chapterOf,
   moveKey,
   sideToMove,
+  START_KEY,
   type RepertoireGraph,
   type Side,
 } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useReducer, type ActionDispatch, type JSX } from 'react';
-import { chapterLabel } from '../../../lib/chapter-label';
+import { useReducer, useState, type ActionDispatch, type JSX } from 'react';
 import { importIntoRoute } from '../../../lib/routes';
 import { Board } from '../../board/board';
 import { MoveInput } from '../../board/move-input';
 import { PromotionPicker } from '../../board/promotion-picker';
-import { pieceAt } from '../../board/squares';
 import { SECONDARY_BUTTON } from '../../buttons';
-import { moveNumber } from './board-play';
+import { moveNumber, removalCount } from './board-play';
+import { Announcer, useBoardWords } from './board-words';
+import { BuilderBar } from './builder-bar';
 import { ChapterList } from './chapter-list';
+import { ModeSwitch } from './mode-switch';
 import { MoveList } from './move-list';
 import { MovePanel } from './move-panel';
 import { NavButtons } from './nav-buttons';
@@ -35,10 +36,19 @@ import {
 } from './screen-state';
 import { ScreenStatus } from './screen-status';
 import {
-  useBrowsePlay,
+  chapterBuilder,
+  commentEditor,
+  useAddMove,
+  useDrawing,
+  useEdit,
+  useRemoveMove,
+  type Edit,
+} from './use-builder';
+import {
+  useBoardPlay,
   useNotes,
   useScreenBoard,
-  type BrowsePlay,
+  type BoardPlay,
   type Notes,
   type ScreenBoard,
 } from './use-screen';
@@ -59,58 +69,6 @@ export interface RepertoireScreenProps {
 
 type Dispatch = ActionDispatch<[action: ScreenAction]>;
 
-/** The board's accessible name and its cursor announcement. */
-function useBoardWords(
-  props: RepertoireScreenProps,
-  state: ScreenState,
-  fen: string,
-) {
-  const t = useTranslations();
-  const chapter =
-    state.chapterId === null
-      ? undefined
-      : chapterOf(state.graph, state.chapterId);
-  const { name } = props.repertoire;
-  return {
-    label:
-      chapter === undefined
-        ? t('repertoires.board.labelNoChapter', { name })
-        : t('repertoires.board.label', {
-            name,
-            chapter: chapterLabel(t, props.ecoNames)(chapter),
-          }),
-    describe: (square: Key): string => {
-      const piece = pieceAt(fen, square);
-      return t('board.cursor', {
-        square,
-        piece:
-          piece === null
-            ? t('board.empty')
-            : t(`board.pieces.${piece.color}.${piece.role}`),
-      });
-    },
-  };
-}
-
-/** The last step for screen readers: "6. Be2", and "end of line" at a leaf. */
-function Announcer({ state }: { readonly state: ScreenState }): JSX.Element {
-  const t = useTranslations('repertoires.nav');
-  const last = state.path.at(-1);
-  let text = '';
-  if (last !== undefined && state.chapterId !== null) {
-    const root = chapterOf(state.graph, state.chapterId)?.rootKey ?? last.from;
-    const move = `${moveNumber(state.path.length - 1, sideToMove(root) === 'w')} ${last.san}`;
-    const leaf =
-      chapterChildren(state.graph)(state.chapterId)(last.to).length === 0;
-    text = leaf ? t('endOfLine', { move }) : move;
-  }
-  return (
-    <p aria-live="polite" className="sr-only">
-      {text}
-    </p>
-  );
-}
-
 /** The typed-move field (or the promotion choice) and the step buttons. */
 function BoardRow({
   state,
@@ -121,7 +79,7 @@ function BoardRow({
   readonly state: ScreenState;
   readonly dispatch: Dispatch;
   readonly board: ScreenBoard;
-  readonly play: BrowsePlay;
+  readonly play: BoardPlay;
 }): JSX.Element {
   if (play.promotion !== null)
     return (
@@ -142,7 +100,9 @@ function BoardRow({
     <div className="flex shrink-0 items-center gap-2 px-gutter py-2 lg:px-0">
       <MoveInput
         onTyped={play.onTyped}
-        disabled={state.saving || state.chapterId === null}
+        disabled={
+          state.saving || (state.chapterId === null && state.mode !== 'build')
+        }
       />
       <NavButtons
         atRoot={state.path.length === 0}
@@ -165,21 +125,34 @@ function BoardRow({
 function EmptyRepertoire({
   id,
   mode,
+  onBuild,
 }: {
   readonly id: string;
   readonly mode: ScreenState['mode'];
+  readonly onBuild: () => void;
 }): JSX.Element {
-  const t = useTranslations('repertoires.panel');
+  const t = useTranslations('repertoires');
   if (mode === 'browse')
-    return <p className="text-fg-muted">{t('emptyBrowse')}</p>;
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-fg-muted">{t('panel.emptyBrowse')}</p>
+        <button
+          type="button"
+          onClick={onBuild}
+          className={`${SECONDARY_BUTTON} self-start`}
+        >
+          {t('mode.toBuild')}
+        </button>
+      </div>
+    );
   return (
     <div className="flex flex-col gap-3">
-      <p>{t('emptyBuild')}</p>
+      <p>{t('panel.emptyBuild')}</p>
       <Link
         href={importIntoRoute(id)}
         className={`${SECONDARY_BUTTON} self-start`}
       >
-        {t('addFromPgn')}
+        {t('panel.addFromPgn')}
       </Link>
     </div>
   );
@@ -187,20 +160,27 @@ function EmptyRepertoire({
 
 /** The chapter's intro, or the current move's comment and note, or the empty state. */
 function PositionSection({
-  props,
-  state,
+  screen,
   notes,
 }: {
-  readonly props: RepertoireScreenProps;
-  readonly state: ScreenState;
+  readonly screen: Screen;
   readonly notes: Notes;
 }): JSX.Element | null {
+  const { props, state, dispatch, edit } = screen;
   const chapter =
     state.chapterId === null
       ? undefined
       : chapterOf(state.graph, state.chapterId);
   if (chapter === undefined)
-    return <EmptyRepertoire id={props.repertoire.id} mode={state.mode} />;
+    return (
+      <EmptyRepertoire
+        id={props.repertoire.id}
+        mode={state.mode}
+        onBuild={() => {
+          dispatch({ type: 'mode', mode: 'build' });
+        }}
+      />
+    );
   const last = state.path.at(-1);
   const key = last === undefined ? '' : moveKey(last.from, last.san);
   return (
@@ -209,6 +189,7 @@ function PositionSection({
       move={last ?? null}
       note={notes.notes[key] ?? ''}
       onSaveNote={notes.save(key)}
+      commentEditor={commentEditor(state, edit)}
     />
   );
 }
@@ -233,19 +214,26 @@ function PhoneActions({
   );
 }
 
-/** The scrolling part of the panel: status, chapters, position, moves. */
-function PanelBody({
-  props,
-  state,
-  dispatch,
-  notes,
-}: {
+/** The screen's state and what changes it, as the panel's parts need them. */
+interface Screen {
   readonly props: RepertoireScreenProps;
   readonly state: ScreenState;
   readonly dispatch: Dispatch;
+  readonly edit: Edit;
+  /** The opening names the chapters are named after, as of the last save. */
+  readonly ecoNames: Readonly<Record<string, string>>;
+}
+
+/** The scrolling part of the panel: status, chapters, position, moves. */
+function PanelBody({
+  screen,
+  notes,
+}: {
+  readonly screen: Screen;
   readonly notes: Notes;
 }): JSX.Element {
   const router = useRouter();
+  const { props, state, dispatch, edit } = screen;
   const { id, name } = props.repertoire;
   const chapter =
     state.chapterId === null
@@ -263,13 +251,14 @@ function PanelBody({
       <ChapterList
         chapters={state.graph.chapters}
         chapterId={state.chapterId}
-        ecoNames={props.ecoNames}
+        ecoNames={screen.ecoNames}
         onSelect={(chapterId) => {
           dispatch({ type: 'chapter', chapterId });
         }}
+        builder={chapterBuilder(state, edit)}
       />
       <div className="lg:order-1">
-        <PositionSection props={props} state={state} notes={notes} />
+        <PositionSection screen={screen} notes={notes} />
       </div>
       {chapter === undefined ? null : (
         <MoveList
@@ -277,6 +266,7 @@ function PanelBody({
           chapterId={state.chapterId}
           path={state.path}
           notes={notes.notes}
+          building={state.mode === 'build'}
           onGoto={(path) => {
             dispatch({ type: 'goto', path });
           }}
@@ -288,22 +278,95 @@ function PanelBody({
 }
 
 /**
- * The repertoire page, browsing (docs/design/repertoire-screen.md, section
- * 2): on a phone the top bar, board and board row stay put and the panel
- * scrolls below; on a desktop the board and the panel sit side by side.
+ * The builder row under the board row, once there is a chapter: remove the
+ * current move, draw (docs/design/repertoire-screen.md, Phone, builder).
  */
-export function RepertoireScreen(props: RepertoireScreenProps): JSX.Element {
+function ScreenBuilderBar({
+  screen,
+}: {
+  readonly screen: Screen;
+}): JSX.Element | null {
+  const { state, dispatch, edit } = screen;
+  const onRemove = useRemoveMove(state, edit);
+  if (state.mode !== 'build' || state.chapterId === null) return null;
+  const last = state.path.at(-1);
+  const root = chapterOf(state.graph, state.chapterId)?.rootKey ?? START_KEY;
+  const label =
+    last === undefined
+      ? null
+      : `${moveNumber(state.path.length - 1, sideToMove(root) === 'w')} ${last.san}`;
+  return (
+    <div className="shrink-0 px-gutter pb-2 lg:px-0">
+      <BuilderBar
+        move={label}
+        count={
+          last === undefined
+            ? 0
+            : removalCount(state.graph, state.chapterId, last)
+        }
+        disabled={state.saving || state.stale}
+        drawMode={state.drawMode}
+        drawColor={state.drawColor}
+        onRemove={onRemove}
+        onDraw={(on) => {
+          dispatch({ type: 'draw', on });
+        }}
+        onColor={(color) => {
+          dispatch({ type: 'drawColor', color });
+        }}
+      />
+    </div>
+  );
+}
+
+/** The screen's state, its edits and the board's handlers. */
+function useRepertoireScreen(props: RepertoireScreenProps) {
   const { repertoire } = props;
   const [state, dispatch] = useReducer(screenReducer, props, (p) =>
     initialState(p.graph, p.repertoire.version),
   );
+  const [ecoNames, setEcoNames] = useState(props.ecoNames);
+  const edit = useEdit(repertoire.id, state, dispatch, setEcoNames);
   const board = useScreenBoard(state, repertoire.side);
-  const play = useBrowsePlay(state, dispatch, board);
+  const addMove = useAddMove(state, edit, board.key);
+  const play = useBoardPlay(
+    state,
+    dispatch,
+    board,
+    state.mode === 'build' ? addMove : null,
+  );
+  const drawing = useDrawing(state, dispatch, edit);
+  const screen: Screen = { props, state, dispatch, edit, ecoNames };
+  return { screen, board, play, drawing };
+}
+
+/**
+ * The repertoire page (docs/design/repertoire-screen.md, section 2), browse
+ * and builder: on a phone the top bar, board, board row and builder row
+ * stay put and the panel scrolls below; on a desktop the board and the
+ * panel sit side by side.
+ */
+export function RepertoireScreen(props: RepertoireScreenProps): JSX.Element {
+  const { repertoire } = props;
+  const { screen, board, play, drawing } = useRepertoireScreen(props);
+  const { state, dispatch } = screen;
   const notes = useNotes(repertoire.id, props.notes);
-  const words = useBoardWords(props, state, board.view.fen);
+  const words = useBoardWords(
+    repertoire.name,
+    state,
+    board.view.fen,
+    screen.ecoNames,
+  );
   return (
     <main className="flex h-dvh flex-col lg:mx-auto lg:h-auto lg:max-w-6xl lg:gap-6 lg:px-gutter-wide lg:py-8">
-      <RepertoireHeader id={repertoire.id} name={repertoire.name} />
+      <RepertoireHeader id={repertoire.id} name={repertoire.name}>
+        <ModeSwitch
+          building={state.mode === 'build'}
+          onChange={(building) => {
+            dispatch({ type: 'mode', mode: building ? 'build' : 'browse' });
+          }}
+        />
+      </RepertoireHeader>
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-start lg:justify-center lg:gap-8">
         <div className="shrink-0 lg:w-[min(calc(100dvh-12rem),42rem)]">
           <Board
@@ -311,6 +374,9 @@ export function RepertoireScreen(props: RepertoireScreenProps): JSX.Element {
             label={words.label}
             describe={words.describe}
             onMove={play.onMove}
+            onSquare={drawing.onSquare}
+            onShapes={drawing.onShapes}
+            onEscape={drawing.onEscape}
           />
         </div>
         <div className="flex min-h-0 flex-1 flex-col lg:max-h-[calc(100dvh-12rem)] lg:w-panel lg:flex-none lg:rounded-card lg:bg-surface lg:p-4 lg:shadow-card">
@@ -320,15 +386,14 @@ export function RepertoireScreen(props: RepertoireScreenProps): JSX.Element {
             board={board}
             play={play}
           />
-          <PanelBody
-            props={props}
-            state={state}
-            dispatch={dispatch}
-            notes={notes}
-          />
+          <ScreenBuilderBar screen={screen} />
+          <PanelBody screen={screen} notes={notes} />
         </div>
       </div>
       <Announcer state={state} />
+      <p aria-live="polite" className="sr-only">
+        {drawing.said}
+      </p>
     </main>
   );
 }

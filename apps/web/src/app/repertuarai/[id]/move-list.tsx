@@ -21,6 +21,8 @@ export interface MoveListProps {
   /** The viewer's Personal notes by move key. */
   readonly notes: Readonly<Record<string, string>>;
   readonly onGoto: (path: readonly RepertoireMove[]) => void;
+  /** Builder mode: an empty chapter asks for its first move. */
+  readonly building?: boolean;
 }
 
 /** A move chip, or the variations that branch off before the next one. */
@@ -215,7 +217,11 @@ export function MoveList(props: MoveListProps): JSX.Element {
       className="flex flex-wrap items-center gap-x-1"
     >
       {tree.length === 0 ? (
-        <p className="text-fg-muted">{t('panel.noMoves')}</p>
+        <p className="text-fg-muted">
+          {props.building === true
+            ? t('builder.playFirst')
+            : t('panel.noMoves')}
+        </p>
       ) : (
         <Tokens tokens={lineTokens(tree, 0, [])} depth={0} context={context} />
       )}

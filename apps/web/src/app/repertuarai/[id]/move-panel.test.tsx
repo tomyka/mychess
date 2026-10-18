@@ -4,7 +4,11 @@ import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../i18n/locales';
 import type { NoteOutcome } from './actions';
-import { MovePanel, type MovePanelProps } from './move-panel';
+import {
+  MovePanel,
+  type FieldOutcome,
+  type MovePanelProps,
+} from './move-panel';
 
 const BF4: RepertoireMove = {
   from: 'rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq -',
@@ -110,5 +114,72 @@ describe('MovePanel', () => {
     onSaveNote.mockRejectedValue(new Error('offline'));
     fireEvent.click(screen.getByRole('button', { name: p.note.save }));
     expect(await screen.findByText(p.failed)).toBeDefined();
+  });
+});
+
+describe('MovePanel in builder mode', () => {
+  const builder = (
+    over: Partial<NonNullable<MovePanelProps['commentEditor']>> = {},
+  ) => ({
+    disabled: false,
+    onSave: vi
+      .fn<(text: string) => Promise<FieldOutcome>>()
+      .mockResolvedValue({ ok: true }),
+    ...over,
+  });
+  const commentField = () =>
+    screen.getByRole<HTMLTextAreaElement>('textbox', {
+      name: p.builder.commentLabel,
+    });
+
+  it('edits the comment in a field with the one-paragraph hint, and says it saved', async () => {
+    const editor = builder();
+    renderPanel({ move: BF4, commentEditor: editor });
+    expect(commentField().value).toBe('The London bishop');
+    expect(screen.getByText(p.builder.commentHint)).toBeDefined();
+    fireEvent.change(commentField(), { target: { value: 'Develop first' } });
+    fireEvent.click(
+      screen.getByRole('button', { name: p.builder.commentSave }),
+    );
+    expect(await screen.findByText(p.builder.commentSaved)).toBeDefined();
+    expect(editor.onSave).toHaveBeenCalledWith('Develop first');
+  });
+
+  it('shows a refusal under the field and marks it invalid', async () => {
+    renderPanel({
+      move: BF4,
+      commentEditor: builder({
+        onSave: vi.fn().mockResolvedValue({
+          ok: false,
+          refusal: 'comment.tooLong',
+        }),
+      }),
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: p.builder.commentSave }),
+    );
+    expect(await screen.findByText(MESSAGES.en.comment.tooLong)).toBeDefined();
+    expect(commentField().getAttribute('aria-invalid')).toBe('true');
+  });
+
+  it('counts the characters from 1,800 on', () => {
+    renderPanel({ move: BF4, commentEditor: builder() });
+    fireEvent.change(commentField(), { target: { value: 'a'.repeat(1799) } });
+    expect(screen.queryByText(/\/ 2,000/)).toBeNull();
+    fireEvent.change(commentField(), { target: { value: 'a'.repeat(1850) } });
+    expect(screen.getByText('1,850 / 2,000')).toBeDefined();
+  });
+
+  it('cannot save while the screen is saving', () => {
+    renderPanel({ move: BF4, commentEditor: builder({ disabled: true }) });
+    expect(
+      screen.getByRole('button', { name: p.builder.commentSave }),
+    ).toHaveProperty('disabled', true);
+  });
+
+  it('keeps the chapter intro read-only (R-112)', () => {
+    renderPanel({ commentEditor: builder() });
+    expect(screen.getByText('The London: solid and quick.')).toBeDefined();
+    expect(screen.queryByRole('textbox')).toBeNull();
   });
 });

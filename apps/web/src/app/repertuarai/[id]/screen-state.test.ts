@@ -222,6 +222,102 @@ describe('screenReducer: builder controls', () => {
       drawFrom: null,
     });
   });
+
+  const drawingAtD5 = run(
+    START,
+    { type: 'mode', mode: 'build' },
+    { type: 'goto', path: line(['d4', 'd5']) },
+    { type: 'draw', on: true },
+    { type: 'drawFrom', square: 'e4' },
+  );
+
+  it('forgets the first square on every step, and stays drawing on a move', () => {
+    expect(run(drawingAtD5, { type: 'back' })).toMatchObject({
+      drawMode: true,
+      drawFrom: null,
+    });
+    expect(run(drawingAtD5, { type: 'forward' })).toMatchObject({
+      drawMode: true,
+      drawFrom: null,
+    });
+  });
+
+  it('leaves draw mode at a chapter root (marks belong to a move) and in browse mode', () => {
+    expect(run(drawingAtD5, { type: 'goto', path: [] }).drawMode).toBe(false);
+    expect(
+      run(drawingAtD5, { type: 'chapter', chapterId: 'c2' }).drawMode,
+    ).toBe(false);
+    expect(run(drawingAtD5, { type: 'mode', mode: 'browse' })).toMatchObject({
+      mode: 'browse',
+      drawMode: false,
+      drawFrom: null,
+    });
+  });
+});
+
+describe('screenReducer: builder saves', () => {
+  it('clears the saving message when a save lands, or says the one given', () => {
+    const waiting = run(
+      START,
+      { type: 'saving' },
+      {
+        type: 'say',
+        message: { key: 'repertoires.builder.saving', tone: 'info' },
+      },
+    );
+    expect(
+      run(waiting, { type: 'saved', graph: GRAPH, version: 5 }).message,
+    ).toBeNull();
+    const removed = {
+      key: 'repertoires.builder.removed',
+      tone: 'success',
+    } as const;
+    expect(
+      run(waiting, {
+        type: 'saved',
+        graph: GRAPH,
+        version: 5,
+        message: removed,
+      }).message,
+    ).toEqual(removed);
+  });
+
+  it('can leave the repertoire without a chapter after the last one went', () => {
+    const empty: RepertoireGraph = { side: 'white', chapters: [], moves: [] };
+    const saved = run(run(START, { type: 'goto', path: line(['d4']) }), {
+      type: 'saved',
+      graph: empty,
+      version: 5,
+      chapterId: null,
+    });
+    expect(saved).toMatchObject({ chapterId: null, path: [] });
+  });
+
+  it('settles a save a field shows itself, keeping the message', () => {
+    const settled = run(
+      START,
+      { type: 'say', message: { key: 'x.y', tone: 'info' } },
+      { type: 'saving' },
+      { type: 'settled' },
+    );
+    expect(settled).toMatchObject({
+      saving: false,
+      message: { key: 'x.y', tone: 'info' },
+    });
+  });
+
+  it('drops "Saving" when a field’s save settles', () => {
+    const settled = run(
+      START,
+      { type: 'saving' },
+      {
+        type: 'say',
+        message: { key: 'repertoires.builder.saving', tone: 'info' },
+      },
+      { type: 'settled' },
+    );
+    expect(settled.message).toBeNull();
+  });
 });
 
 describe('keepPath', () => {

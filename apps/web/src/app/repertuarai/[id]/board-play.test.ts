@@ -1,7 +1,20 @@
-import { legalMoves, START_KEY } from '@mychess/chess';
+import {
+  addChapter,
+  addMove,
+  chapterChildren,
+  legalMoves,
+  START_KEY,
+} from '@mychess/chess';
 import { describe, expect, it } from 'vitest';
 import { graphOf, LONDON } from '../../../../test/fixtures/repertoires';
-import { childBySan, moveNumber, movesBetween } from './board-play';
+import {
+  childBySan,
+  markChange,
+  moveNumber,
+  movesBetween,
+  placeAdded,
+  removalCount,
+} from './board-play';
 
 const GRAPH = graphOf(LONDON);
 const PROMOTING = '8/1P6/8/8/8/8/8/k6K w - -';
@@ -54,5 +67,102 @@ describe('moveNumber', () => {
       '2.',
       '2...',
     ]);
+  });
+});
+
+describe('removalCount', () => {
+  const children = chapterChildren(GRAPH)('c1');
+  const d4 = children(START_KEY)[0];
+  const d5 = children(d4?.to ?? '')[0];
+  const bf4 = children(d5?.to ?? '')[0];
+
+  it('counts the chapter’s moves after the move that go with it', () => {
+    if (d4 === undefined || bf4 === undefined) throw new Error('no moves');
+    expect(removalCount(GRAPH, 'c1', bf4)).toBe(6);
+    expect(removalCount(GRAPH, 'c1', d4)).toBe(8);
+  });
+
+  it('counts nothing after a line’s last move, and nothing in another chapter', () => {
+    const c3 = GRAPH.moves.find((m) => m.san === 'c3');
+    if (c3 === undefined || d4 === undefined) throw new Error('no c3');
+    expect(removalCount(GRAPH, 'c1', c3)).toBe(0);
+    expect(removalCount(GRAPH, 'c9', d4)).toBe(0);
+  });
+});
+
+describe('placeAdded', () => {
+  it('goes on along the path to the move just added', () => {
+    const d4 = childBySan(GRAPH, 'c1', START_KEY, 'd4');
+    if (d4 === undefined) throw new Error('no d4');
+    const d5 = childBySan(GRAPH, 'c1', d4.to, 'd5');
+    expect(
+      placeAdded(
+        GRAPH,
+        { chapterId: 'c1', path: [d4] },
+        { from: d4.to, san: 'd5' },
+      ),
+    ).toEqual({
+      chapterId: 'c1',
+      path: [d4, d5],
+    });
+  });
+
+  it('opens the chapter a first move started (R-111)', () => {
+    const empty = { side: 'white' as const, chapters: [], moves: [] };
+    const started = addChapter(empty, START_KEY);
+    const added = addMove(started.graph, 'c1', START_KEY, 'e4');
+    if (!added.ok) throw new Error('refused');
+    expect(
+      placeAdded(
+        added.value,
+        { chapterId: null, path: [] },
+        { from: START_KEY, san: 'e4' },
+      ),
+    ).toEqual({
+      chapterId: 'c1',
+      path: [added.value.moves[0]],
+    });
+  });
+
+  it('stays where it was when the move is not there', () => {
+    expect(
+      placeAdded(
+        GRAPH,
+        { chapterId: 'c1', path: [] },
+        { from: START_KEY, san: 'e4' },
+      ),
+    ).toEqual({
+      chapterId: 'c1',
+      path: [],
+    });
+  });
+});
+
+describe('markChange', () => {
+  const marks = {
+    arrows: [{ from: 'e2', to: 'e4', color: 'G' as const }],
+    circles: [{ square: 'd4', color: 'R' as const }],
+  };
+
+  it('tells an arrow added or removed', () => {
+    expect(markChange(marks, 'e2', 'e4')).toEqual({
+      kind: 'arrow',
+      added: true,
+    });
+    expect(markChange(marks, 'g1', 'f3')).toEqual({
+      kind: 'arrow',
+      added: false,
+    });
+  });
+
+  it('tells a circle added or removed', () => {
+    expect(markChange(marks, 'd4', 'd4')).toEqual({
+      kind: 'circle',
+      added: true,
+    });
+    expect(markChange(marks, 'e4', 'e4')).toEqual({
+      kind: 'circle',
+      added: false,
+    });
   });
 });

@@ -10,7 +10,6 @@ import './board.css';
 import {
   useEffect,
   useEffectEvent,
-  useMemo,
   useRef,
   useState,
   type FocusEvent,
@@ -19,11 +18,12 @@ import {
   type RefObject,
 } from 'react';
 import {
-  boardConfig,
+  boardUpdate,
   cursorConfig,
   markBrushes,
   mountConfig,
   type BoardView,
+  type ShownPosition,
 } from './board-config';
 import { cursorStart, stepCursor } from './cursor';
 
@@ -72,7 +72,6 @@ function useGround(
 ): RefObject<Api | null> {
   const api = useRef<Api | null>(null);
   const { view } = props;
-  const config = useMemo(() => boardConfig(view), [view]);
 
   const moved = useEffectEvent((orig: Key, dest: Key) => {
     props.onMove(orig, dest);
@@ -118,13 +117,26 @@ function useGround(
       api.current = null;
     };
   }, [host]);
+  useViewUpdates(api, view);
+  const { picked } = view;
   useEffect(() => {
-    api.current?.set(config);
-  }, [config]);
-  useEffect(() => {
-    api.current?.set(cursorConfig(cursor));
-  }, [cursor]);
+    api.current?.set(cursorConfig(cursor, picked));
+  }, [cursor, picked]);
   return api;
+}
+
+/**
+ * Passes each new view to the live board; the position only when it or the
+ * revision changed, so a piece just played stays while the page saves it.
+ */
+function useViewUpdates(api: RefObject<Api | null>, view: BoardView): void {
+  const shown = useRef<ShownPosition | null>(null);
+  useEffect(() => {
+    const ground = api.current;
+    if (ground === null) return;
+    ground.set(boardUpdate(view, shown.current));
+    shown.current = { fen: view.fen, revision: view.revision };
+  }, [api, view]);
 }
 
 /**

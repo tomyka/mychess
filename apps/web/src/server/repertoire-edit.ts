@@ -21,7 +21,13 @@ const san = z.string().min(1).max(10);
 
 /** One builder edit, as the client sends it (parsed at the edge). */
 const editOpSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('addMove'), chapterId, from, san }),
+  // A null chapter is the first move of a repertoire without chapters (R-111).
+  z.object({
+    kind: z.literal('addMove'),
+    chapterId: chapterId.nullable(),
+    from,
+    san,
+  }),
   z.object({ kind: z.literal('removeMove'), chapterId, from, san }),
   z.object({
     kind: z.literal('setMarks'),
@@ -52,14 +58,31 @@ export const editRequestSchema = z.object({
   op: editOpSchema,
 });
 
-/** The chess function that decides each edit (the action only routes to it). */
-export function applyEdit(
+type EditResult = Result<RepertoireGraph, EditRefusal>;
+
+/**
+ * Adds a move to a chapter; with no chapter, in a repertoire that has none,
+ * it starts chapter one from the standard start and adds the move to it in
+ * the same edit, so it is saved once (R-111).
+ */
+function addTo(
   graph: RepertoireGraph,
-  op: EditOp,
-): Result<RepertoireGraph, EditRefusal> {
+  chapterId: string | null,
+  fromKey: string,
+  san: string,
+): EditResult {
+  if (chapterId !== null) return addMove(graph, chapterId, fromKey, san);
+  if (graph.chapters.length > 0)
+    return { ok: false, refusal: { reason: 'repertoire.unknownChapter' } };
+  const started = addChapter(graph, START_KEY);
+  return addMove(started.graph, started.chapterId, fromKey, san);
+}
+
+/** The chess function that decides each edit (the action only routes to it). */
+export function applyEdit(graph: RepertoireGraph, op: EditOp): EditResult {
   switch (op.kind) {
     case 'addMove':
-      return addMove(graph, op.chapterId, op.from, op.san);
+      return addTo(graph, op.chapterId, op.from, op.san);
     case 'removeMove':
       return removeMove(graph, op.chapterId, op.from, op.san);
     case 'setMarks':

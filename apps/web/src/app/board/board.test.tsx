@@ -54,6 +54,8 @@ const view = (over: Partial<BoardView> = {}): BoardView => ({
   shapes: [ARROW],
   autoShapes: [],
   drawing: true,
+  picking: false,
+  picked: null,
   revision: 0,
   ...over,
 });
@@ -120,6 +122,28 @@ describe('Board', () => {
     expect(ground.set).toHaveBeenLastCalledWith(
       expect.objectContaining({ fen: AFTER_E4 }),
     );
+  });
+
+  it('leaves a played piece on its square while only the rest of the view changes', () => {
+    const { rerender } = render(<Board {...props()} />);
+    rerender(
+      <Board
+        {...props({ view: view({ dests: new Map([['e2', ['e4']]]) }) })}
+      />,
+    );
+    expect(ground.set).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ fen: START }),
+    );
+    rerender(<Board {...props({ view: view({ revision: 1 }) })} />);
+    expect(ground.set).toHaveBeenLastCalledWith(
+      expect.objectContaining({ fen: START }),
+    );
+  });
+
+  it('marks draw mode’s first square', () => {
+    const { rerender } = render(<Board {...props()} />);
+    rerender(<Board {...props({ view: view({ picked: 'd2' }) })} />);
+    expect(lastCustom()).toEqual(new Map([['d2', 'selected']]));
   });
 
   it('reports a move to the latest move handler', () => {

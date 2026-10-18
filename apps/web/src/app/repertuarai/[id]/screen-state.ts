@@ -16,6 +16,9 @@ export interface ScreenMessage {
   readonly values?: Readonly<Record<string, string | number>>;
 }
 
+/** What the status line says while a save takes long (docs/design, Saving). */
+export const SAVING = 'repertoires.builder.saving';
+
 export interface ScreenState {
   readonly graph: RepertoireGraph;
   readonly version: number;
@@ -54,7 +57,10 @@ type SaveAction =
       readonly graph: RepertoireGraph;
       readonly version: number;
       readonly path?: readonly RepertoireMove[];
-      readonly chapterId?: string;
+      /** The chapter to show; null when the last chapter went. */
+      readonly chapterId?: string | null;
+      /** What to say; the status line clears without one. */
+      readonly message?: ScreenMessage;
     }
   | {
       readonly type: 'refused';
@@ -62,6 +68,8 @@ type SaveAction =
       readonly values?: Readonly<Record<string, string | number>>;
     }
   | { readonly type: 'say'; readonly message: ScreenMessage | null }
+  /** A field's save was refused; the field says so itself. */
+  | { readonly type: 'settled' }
   | { readonly type: 'reset' };
 
 export type ScreenAction = NavigationAction | BuilderAction | SaveAction;
@@ -127,7 +135,17 @@ function forward(state: ScreenState): ScreenState {
   return next === undefined ? state : { ...state, path: [...state.path, next] };
 }
 
+/** Draw mode forgets its first square on every step, and ends at a root. */
+function stepped(state: ScreenState): ScreenState {
+  const drawMode = state.drawMode && state.path.length > 0;
+  return { ...state, drawMode, drawFrom: null };
+}
+
 function navigate(state: ScreenState, action: NavigationAction): ScreenState {
+  return stepped(moved(state, action));
+}
+
+function moved(state: ScreenState, action: NavigationAction): ScreenState {
   switch (action.type) {
     case 'chapter':
       return { ...state, chapterId: action.chapterId, path: [] };
@@ -145,7 +163,9 @@ function navigate(state: ScreenState, action: NavigationAction): ScreenState {
 function builder(state: ScreenState, action: BuilderAction): ScreenState {
   switch (action.type) {
     case 'mode':
-      return { ...state, mode: action.mode };
+      return action.mode === 'build'
+        ? { ...state, mode: action.mode }
+        : { ...state, mode: action.mode, drawMode: false, drawFrom: null };
     case 'draw':
       return { ...state, drawMode: action.on, drawFrom: null };
     case 'drawColor':
@@ -159,15 +179,17 @@ function saved(
   state: ScreenState,
   action: Extract<SaveAction, { type: 'saved' }>,
 ): ScreenState {
-  const chapterId = action.chapterId ?? state.chapterId;
-  return {
+  const chapterId =
+    action.chapterId === undefined ? state.chapterId : action.chapterId;
+  return stepped({
     ...state,
     graph: action.graph,
     version: action.version,
     chapterId,
     path: keepPath(action.graph, chapterId, action.path ?? state.path),
     saving: false,
-  };
+    message: action.message ?? null,
+  });
 }
 
 function refused(
@@ -196,6 +218,12 @@ function save(state: ScreenState, action: SaveAction): ScreenState {
       return refused(state, action);
     case 'say':
       return { ...state, message: action.message };
+    case 'settled':
+      return {
+        ...state,
+        saving: false,
+        message: state.message?.key === SAVING ? null : state.message,
+      };
     case 'reset':
       return { ...state, revision: state.revision + 1 };
   }
