@@ -360,21 +360,29 @@ export const repertoireMoves = pgTable(
       t.fromKey,
       t.san,
     ),
+    // The target of move_chapters_move_fk.
+    unique('repertoire_moves_id_repertoire_unique').on(t.id, t.repertoireId),
   ],
 );
 
-/** Which chapters hold a move (a move may be in several). */
+/**
+ * Which chapters hold a move (a move may be in several). Both foreign keys
+ * carry `repertoire_id`, so a link's move and chapter are of one repertoire.
+ */
 export const moveChapters = pgTable(
   'move_chapters',
   {
-    moveId: uuid('move_id')
-      .notNull()
-      .references(() => repertoireMoves.id, { onDelete: 'cascade' }),
+    moveId: uuid('move_id').notNull(),
     repertoireId: uuid('repertoire_id').notNull(),
     chapterId: text('chapter_id').notNull(),
   },
   (t) => [
     primaryKey({ columns: [t.moveId, t.chapterId] }),
+    foreignKey({
+      name: 'move_chapters_move_fk',
+      columns: [t.moveId, t.repertoireId],
+      foreignColumns: [repertoireMoves.id, repertoireMoves.repertoireId],
+    }).onDelete('cascade'),
     foreignKey({
       name: 'move_chapters_chapter_fk',
       columns: [t.repertoireId, t.chapterId],

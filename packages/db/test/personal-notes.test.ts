@@ -1,4 +1,5 @@
 import { moveKey, removeMove, START_KEY } from '@mychess/chess';
+import { REPERTOIRE_REFUSALS } from '@mychess/domain';
 import { describe, expect, it } from 'vitest';
 import {
   createRepertoire,
@@ -14,6 +15,11 @@ import { graphOf, LONDON, T0, T1 } from './support/repertoires';
 const { db, client } = useTestDatabase();
 
 const D4 = moveKey(START_KEY, 'd4');
+const DONE = { ok: true, value: undefined };
+const NOT_FOUND = {
+  ok: false,
+  refusal: { reason: REPERTOIRE_REFUSALS.notFound },
+};
 
 async function london(): Promise<string> {
   await seedAccount(db, 'rokas', 'rokas@example.lt');
@@ -57,16 +63,60 @@ describe('setPersonalNote and listPersonalNotes', () => {
     expect(await noteRows()).toEqual([]);
   });
 
-  it("never lists another player's note, and keeps each player's own", async () => {
+  it('says a note was set or removed', async () => {
+    const id = await london();
+    expect(await note('rokas', id, 'Nepamiršti d3')).toEqual(DONE);
+    expect(await note('rokas', id, '')).toEqual(DONE);
+  });
+
+  it.each([
+    ['sets', 'Rimantas'],
+    ['removes', ''],
+  ])(
+    "refuses a player who %s a note on someone else's repertoire, and writes nothing",
+    async (_, text) => {
+      const id = await london();
+      await seedAccount(db, 'rimantas', 'rimantas@example.lt');
+      await note('rokas', id, 'Rokas');
+      expect(await note('rimantas', id, text)).toEqual(NOT_FOUND);
+      expect(await noteRows()).toEqual([
+        {
+          player_account_id: 'rokas',
+          move_key: D4,
+          text: 'Rokas',
+          updated_at: T0,
+        },
+      ]);
+    },
+  );
+
+  it.each([
+    ['a missing repertoire', '00000000-0000-4000-8000-000000000001'],
+    ['an id that is no uuid', 'not-a-uuid'],
+  ])('refuses a note on %s as not found', async (_, id) => {
+    await london();
+    expect(await note('rokas', id, 'Nepamiršti')).toEqual(NOT_FOUND);
+    expect(await noteRows()).toEqual([]);
+  });
+
+  it("never lists another player's note, nor notes on a repertoire the player may not view", async () => {
     const id = await london();
     await seedAccount(db, 'rimantas', 'rimantas@example.lt');
     await note('rokas', id, 'Rokas');
     expect(await listPersonalNotes(db, 'rimantas', id)).toEqual({});
-    await note('rimantas', id, 'Rimantas');
+    // A row no write path makes today: the read still filters by access.
+    await client.query(
+      `insert into personal_notes (player_account_id, repertoire_id, move_key, text, updated_at)
+       values ('rimantas', $1, $2, 'Rimantas', $3)`,
+      [id, D4, T0],
+    );
+    expect(await listPersonalNotes(db, 'rimantas', id)).toEqual({});
     expect(await listPersonalNotes(db, 'rokas', id)).toEqual({ [D4]: 'Rokas' });
-    expect(await listPersonalNotes(db, 'rimantas', id)).toEqual({
-      [D4]: 'Rimantas',
-    });
+  });
+
+  it('lists nothing for an id that is no uuid', async () => {
+    await london();
+    expect(await listPersonalNotes(db, 'rokas', 'not-a-uuid')).toEqual({});
   });
 
   it('keeps a note when its move is removed, and drops it with the repertoire', async () => {

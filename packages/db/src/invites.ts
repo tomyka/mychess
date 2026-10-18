@@ -15,7 +15,7 @@ import {
   type NewInvite,
   type Result,
 } from '@mychess/domain';
-import { and, desc, eq, gt, isNull } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, not, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { findAccountById, lockAccountById } from './accounts';
 import type { Db, Executor, Tx } from './client';
@@ -59,22 +59,29 @@ export interface CreatedInvite {
 }
 
 /**
- * The coach's open invites at `now`: those `inviteState` calls active,
- * that is not revoked, not used (only a personal invite is ever used) and
- * not yet expired.
+ * Open at `now`: what `inviteState` calls active, that is not revoked, not
+ * used (only a personal invite is ever used, invites_used_personal) and
+ * not yet expired. Never null (expires_at is not null), so `not` of it is
+ * exactly the closed invites.
  */
+const openAt = (now: Date): SQL =>
+  sql`(${isNull(invites.revokedAt)} and ${isNull(invites.usedAt)} and ${gt(invites.expiresAt, now)})`;
+
+/** The coach's open invites at `now`. */
 const openInvitesOf = (coachId: string, now: Date) =>
-  and(
-    eq(invites.coachId, coachId),
-    isNull(invites.revokedAt),
-    isNull(invites.usedAt),
-    gt(invites.expiresAt, now),
-  );
+  and(eq(invites.coachId, coachId), openAt(now));
+
+/** The coach's closed invites at `now`: revoked, used or expired. */
+const closedInvitesOf = (coachId: string, now: Date) =>
+  and(eq(invites.coachId, coachId), not(openAt(now)));
 
 const countSchema = z.number().int().nonnegative();
 
-/** How many open invites `coachId` has at `now` (R-114). */
-async function openInviteCount(
+/**
+ * How many open invites `coachId` has at `now` (R-114). Exported for the
+ * test that ties openInvitesOf to the domain's inviteState.
+ */
+export async function openInviteCount(
   db: Executor,
   coachId: string,
   now: Date,
@@ -333,13 +340,13 @@ export async function previewInvite(
   };
 }
 
-/** The coach's invites with their groups' names, to order and limit. */
-const coachInviteQuery = (db: Executor, coachId: string) =>
+/** The invites `where` picks, with their groups' names, to order and limit. */
+const namedInviteQuery = (db: Executor, where: SQL | undefined) =>
   db
     .select(namedInviteColumns)
     .from(invites)
     .leftJoin(groups, eq(groups.id, invites.groupId))
-    .where(eq(invites.coachId, coachId))
+    .where(where)
     .$dynamic();
 
 const namedInvitesSchema = z.array(namedInviteSchema);
@@ -350,7 +357,10 @@ export async function allCoachInvites(
   coachId: string,
 ): Promise<NamedInvite[]> {
   return namedInvitesSchema.parse(
-    await coachInviteQuery(db, coachId).orderBy(invites.createdAt, invites.id),
+    await namedInviteQuery(db, eq(invites.coachId, coachId)).orderBy(
+      invites.createdAt,
+      invites.id,
+    ),
   );
 }
 
@@ -364,21 +374,34 @@ export interface CoachInvite {
   readonly createdAt: Date;
 }
 
-/** The most invites the list shows. */
-const INVITE_LIST_MAX = 50;
+/**
+ * The most closed (revoked, used or expired) invites the list shows. Open
+ * invites are never capped here: R-114 already holds them to 50, and the
+ * coach must see each one to revoke it.
+ */
+const CLOSED_INVITE_LIST_MAX = 50;
 
-/** The coach's invites, newest first, with their state at `now`. */
+const newestFirst = (a: NamedInvite, b: NamedInvite): number =>
+  b.createdAt.getTime() - a.createdAt.getTime() || (a.id < b.id ? 1 : -1);
+
+/**
+ * The coach's invites, newest first, with their state at `now`: every open
+ * one, and the newest closed ones up to CLOSED_INVITE_LIST_MAX.
+ */
 export async function coachInvites(
   db: Executor,
   coachId: string,
   now: Date,
 ): Promise<CoachInvite[]> {
-  const rows = namedInvitesSchema.parse(
-    await coachInviteQuery(db, coachId)
-      .orderBy(desc(invites.createdAt), desc(invites.id))
-      .limit(INVITE_LIST_MAX),
+  const open = namedInvitesSchema.parse(
+    await namedInviteQuery(db, openInvitesOf(coachId, now)),
   );
-  return rows.map((row) => ({
+  const closed = namedInvitesSchema.parse(
+    await namedInviteQuery(db, closedInvitesOf(coachId, now))
+      .orderBy(desc(invites.createdAt), desc(invites.id))
+      .limit(CLOSED_INVITE_LIST_MAX),
+  );
+  return [...open, ...closed].sort(newestFirst).map((row) => ({
     id: row.id,
     kind: row.kind,
     groupName: row.groupName,

@@ -16,7 +16,10 @@ function batches<T>(items: readonly T[]): T[][] {
   return out;
 }
 
-/** A row's move key, as SQL: position keys and SAN never contain `|`. */
+/**
+ * A row's move key, as SQL. Mirrors `moveKey` in @mychess/chess
+ * (`<position key>|<SAN>`, neither part holding a `|`): change both together.
+ */
 const keyColumn = sql<string>`${repertoireMoves.fromKey} || '|' || ${repertoireMoves.san}`;
 const ofRepertoire = (id: string) => eq(repertoireMoves.repertoireId, id);
 const topSchema = z.array(z.object({ top: z.number().nullable() }));

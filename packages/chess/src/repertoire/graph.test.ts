@@ -4,6 +4,7 @@ import {
   isPlayerMove,
   moveKey,
   playerKeys,
+  splitMoveKey,
   type RepertoireGraph,
 } from './graph';
 
@@ -56,6 +57,22 @@ const graph: RepertoireGraph = {
 describe('repertoire graph', () => {
   it('keys a move by its position and SAN', () => {
     expect(moveKey(START, 'e4')).toBe(`${START}|e4`);
+  });
+
+  it('splits a move key back into its position key and SAN', () => {
+    expect(splitMoveKey(moveKey(START, 'Nf3'))).toEqual({
+      fromKey: START,
+      san: 'Nf3',
+    });
+  });
+
+  it.each([
+    ['no separator', START],
+    ['two separators', `${START}|e4|e5`],
+    ['an empty position key', '|e4'],
+    ['an empty SAN', `${START}|`],
+  ])('throws on a string with %s, which moveKey never makes', (_, key) => {
+    expect(() => splitMoveKey(key)).toThrow(`not a move key: ${key}`);
   });
 
   it('turns a position key into a FEN chess.js accepts', () => {

@@ -457,6 +457,36 @@ describe('the repertoire tables', () => {
     expect(rows).toEqual([{ l: 0, m: 1 }]);
   });
 
+  it("refuses a chapter link naming another repertoire than its move's", async () => {
+    await account('a1');
+    const rep = await repertoire('a1');
+    const other = await repertoire('a1');
+    await chapter(other);
+    const moveId = await move(rep, 'e4');
+    await expect(
+      client.query(
+        `insert into move_chapters (move_id, repertoire_id, chapter_id) values ($1, $2, 'c1')`,
+        [moveId, other],
+      ),
+    ).rejects.toThrow(/move_chapters_move_fk/);
+  });
+
+  it('removes a chapter link with its move', async () => {
+    await account('a1');
+    const rep = await repertoire('a1');
+    await chapter(rep);
+    const moveId = await move(rep, 'e4');
+    await client.query(
+      `insert into move_chapters (move_id, repertoire_id, chapter_id) values ($1, $2, 'c1')`,
+      [moveId, rep],
+    );
+    await client.query(`delete from repertoire_moves where id = $1`, [moveId]);
+    const { rows } = await client.query(
+      'select count(*)::int as l from move_chapters',
+    );
+    expect(rows).toEqual([{ l: 0 }]);
+  });
+
   it('indexes personal notes by repertoire, so a repertoire delete does not scan them', async () => {
     const { rows } = await client.query<{ leading: string }>(
       `select a.attname as leading

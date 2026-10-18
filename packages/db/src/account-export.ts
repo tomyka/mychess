@@ -6,7 +6,13 @@ import {
   type InviteState,
   type Locale,
 } from '@mychess/domain';
-import { exportPgn, fenOf, type Chapter, type Side } from '@mychess/chess';
+import {
+  exportPgn,
+  fenOf,
+  splitMoveKey,
+  type Chapter,
+  type Side,
+} from '@mychess/chess';
 import { and, asc, eq, gt } from 'drizzle-orm';
 import { z } from 'zod';
 import { accountColumns } from './accounts';
@@ -229,12 +235,11 @@ async function exportedNotes(
       ),
   );
   return rows.map((row) => {
-    // A move key is `<position key>|<SAN>`; neither part holds a `|`.
-    const cut = row.moveKey.lastIndexOf('|');
+    const { fromKey, san } = splitMoveKey(row.moveKey);
     return {
       repertoire: row.repertoire,
-      position: fenOf(row.moveKey.slice(0, cut)),
-      san: row.moveKey.slice(cut + 1),
+      position: fenOf(fromKey),
+      san,
       text: row.text,
       updatedAt: row.updatedAt.toISOString(),
     };

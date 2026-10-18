@@ -1,0 +1,1 @@
+ALTER TABLE "repertoire_moves" ADD CONSTRAINT "repertoire_moves_id_repertoire_unique" UNIQUE("id","repertoire_id");

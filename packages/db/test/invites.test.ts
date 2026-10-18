@@ -1,9 +1,11 @@
 import {
   COACH_REFUSALS,
   INVITE_REFUSALS,
+  inviteState,
   type InviteKind,
 } from '@mychess/domain';
 import { describe, expect, it } from 'vitest';
+import { allCoachInvites, openInviteCount } from '../src/invites';
 import {
   acceptInvite,
   coachInvites,
@@ -156,15 +158,24 @@ describe('createInvite', () => {
   });
 });
 
-/** Seeds `count` personal invites of `coachId` with these columns. */
+/**
+ * Seeds `count` personal invites of `coachId` with these columns, made one
+ * second apart from `createdAt` (T0 by default).
+ */
 async function seedInvites(
   coachId: string,
   count: number,
-  state: { expiresAt?: Date; revokedAt?: Date; usedAt?: Date } = {},
+  state: {
+    expiresAt?: Date;
+    revokedAt?: Date;
+    usedAt?: Date;
+    createdAt?: Date;
+  } = {},
 ): Promise<void> {
   await client.query(
     `insert into invites (coach_id, kind, token_hash, expires_at, revoked_at, used_at, created_at)
-     select $1, 'personal', md5($1 || $2 || i) || md5(i::text || $2 || $1), $3, $4, $5, $6
+     select $1, 'personal', md5($1 || $2 || i) || md5(i::text || $2 || $1), $3, $4, $5,
+       $6::timestamptz + i * interval '1 second'
      from generate_series(1, $7::int) as i`,
     [
       coachId,
@@ -172,7 +183,7 @@ async function seedInvites(
       state.expiresAt ?? at(WEEK),
       state.revokedAt ?? null,
       state.usedAt ?? null,
-      T0,
+      state.createdAt ?? T0,
       count,
     ],
   );
@@ -254,6 +265,50 @@ describe('createInvite at the open invite limit (R-114: 50)', () => {
       expect(await openInvitesOf(coach)).toEqual([{ n: 50 }]);
     },
   );
+});
+
+describe("the SQL open-invite filter and the domain's inviteState", () => {
+  // Every state inviteState knows, with the expiry boundaries. A used group
+  // invite cannot be stored (invites_used_personal), so it is not here.
+  const table: [
+    string,
+    { expiresAt?: Date; revokedAt?: Date; usedAt?: Date },
+  ][] = [
+    ['personal, active', {}],
+    ['group, active', {}],
+    ['personal, expires 1 ms after now', { expiresAt: at(1) }],
+    ['personal, expires at now', { expiresAt: NOW }],
+    ['group, expired before now', { expiresAt: at(-1) }],
+    ['personal, used', { usedAt: T0 }],
+    ['personal, used and expired', { usedAt: T0, expiresAt: at(-1) }],
+    ['personal, revoked', { revokedAt: T0 }],
+    ['group, revoked', { revokedAt: T0 }],
+    ['personal, revoked and used', { revokedAt: T0, usedAt: T0 }],
+  ];
+
+  it('counts as open exactly the invites inviteState calls active', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    const groupId = await seedGroup(db, 'c', 'Mano');
+    for (const [i, [name, s]] of table.entries())
+      await client.query(
+        `insert into invites (coach_id, kind, group_id, token_hash, expires_at, revoked_at, used_at, created_at)
+         values ('c', $1, $2, md5($3) || md5($3 || 'x'), $4, $5, $6, $7)`,
+        [
+          name.startsWith('group') ? 'group' : 'personal',
+          name.startsWith('group') ? groupId : null,
+          String(i),
+          s.expiresAt ?? at(WEEK),
+          s.revokedAt ?? null,
+          s.usedAt ?? null,
+          T0,
+        ],
+      );
+    const active = (await allCoachInvites(db, 'c')).filter(
+      (row) => inviteState(row, NOW) === 'active',
+    );
+    expect(active).toHaveLength(3);
+    expect(await openInviteCount(db, 'c', NOW)).toBe(active.length);
+  });
 });
 
 describe('acceptInvite', () => {
@@ -669,5 +724,34 @@ describe('coachInvites', () => {
       expect(text).not.toContain(made.token);
       expect(text).not.toContain(made.hash);
     }
+  });
+
+  const statesOf = (list: readonly { state: string }[]) =>
+    list.reduce<Record<string, number>>(
+      (n, i) => ({ ...n, [i.state]: (n[i.state] ?? 0) + 1 }),
+      {},
+    );
+
+  it('lists every open invite, however many newer closed ones there are (R-114)', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    await seedInvites('c', 30);
+    await seedInvites('c', 30, { revokedAt: T0, createdAt: at(-1000) });
+    const list = await coachInvites(db, 'c', NOW);
+    expect(statesOf(list)).toEqual({ active: 30, revoked: 30 });
+    expect(list.map((i) => i.createdAt)).toEqual(
+      list.map((i) => i.createdAt).sort((a, b) => b.getTime() - a.getTime()),
+    );
+  });
+
+  it('lists only the 50 newest closed invites, dropping the oldest closed one', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    await seedInvites('c', 1);
+    await seedInvites('c', 49, { revokedAt: T0, createdAt: at(-1000) });
+    await seedInvites('c', 1, { usedAt: T0, createdAt: at(-500) });
+    // The oldest closed invite: expired, and made before the others.
+    await seedInvites('c', 1, { expiresAt: NOW, createdAt: at(-WEEK) });
+    const list = await coachInvites(db, 'c', NOW);
+    expect(statesOf(list)).toEqual({ active: 1, revoked: 49, used: 1 });
+    expect(list.at(-1)?.state).toBe('active');
   });
 });

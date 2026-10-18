@@ -59,6 +59,17 @@ export interface RepertoireGraph {
 export const moveKey = (fromKey: string, san: string): string =>
   `${fromKey}|${san}`;
 
+/**
+ * The position key and SAN of a key `moveKey` made; neither part holds a
+ * `|`. Anything else is a programmer error and throws.
+ */
+export function splitMoveKey(key: string): { fromKey: string; san: string } {
+  const [fromKey, san, ...rest] = key.split('|');
+  if (!fromKey || !san || rest.length > 0)
+    throw new Error(`not a move key: ${key}`);
+  return { fromKey, san };
+}
+
 /** Whether `move` is played by the repertoire's side. */
 export function isPlayerMove(
   graph: Pick<RepertoireGraph, 'side'>,

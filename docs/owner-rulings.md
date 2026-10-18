@@ -146,7 +146,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-110** (S3/S4 planning, #253 #254, 2026-10-18): A personal invite may optionally name a group; a group invite always names one.
 - **R-111** (S3/S4 resume, #253, 2026-10-18): In a repertoire with no chapters, the first move played in the builder creates the first chapter and saves the move in it, in one step; there is no separate "Add chapter" step first.
 - **R-112** (S3/S4 resume, #253, 2026-10-18): Chapter intros are read-only in S3: the builder shows an imported intro but cannot edit it.
-- **R-113** (S3/S4 resume, #254, 2026-10-18): While Coach mode is off, the coach's groups are read-only: renaming, deleting and changing members are refused until Coach mode is on again.
+- **R-113** (S3/S4 resume, #254, 2026-10-18): While Coach mode is off, the coach's groups are read-only: renaming, deleting and changing members are refused until Coach mode is on again. With Coach mode off there is no coach dashboard: the groups are kept out of sight until Coach mode is on again.
 - **R-114** (S3/S4 resume, #254, 2026-10-18): A coach has at most 50 open invites; creating another is refused until one expires, is used or is revoked.
 
 ## Open questions

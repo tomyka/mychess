@@ -84,9 +84,10 @@ export function renameGroup(
 /**
  * Deletes the coach's own group while Coach mode is on (R-113); its
  * memberships and invites go with it (cascade). Locks the coach row
- * first, the lock order acceptInvite documents: an accept of one of the group's invites holds the invite and
- * then wants the group, so deleting the group (which then wants the
- * invite) without the coach row first could deadlock with it.
+ * first, the lock order acceptInvite documents: an accept of one of the
+ * group's invites holds the invite and then wants the group, so deleting
+ * the group (which then wants the invite) without the coach row first
+ * could deadlock with it.
  */
 export function deleteGroup(
   db: Db,

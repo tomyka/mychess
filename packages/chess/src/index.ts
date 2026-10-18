@@ -13,6 +13,7 @@ export {
   chapterOf,
   isPlayerMove,
   moveKey,
+  splitMoveKey,
   type Arrow,
   type Chapter,
   type ChapterNameSource,
