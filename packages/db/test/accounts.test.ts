@@ -393,6 +393,38 @@ describe('exportAccount', () => {
     expect(movesOf(graphOf(pgn))).toEqual(movesOf(stored));
   });
 
+  it('exports a note stored under a malformed move key by its raw key', async () => {
+    await seedAccount(db, 'a1', 'ruta@example.lt');
+    const id = await createRepertoire(db, {
+      ownerId: 'a1',
+      side: 'white',
+      name: 'Londono sistema',
+      graph: graphOf(LONDON),
+      now: RT0,
+    });
+    for (const key of ['be brūkšnio', `${START_KEY}|d4|d5`, '|d4']) {
+      await client.query(
+        `insert into personal_notes (player_account_id, repertoire_id, move_key, text, updated_at)
+         values ('a1', $1, $2, 'Blogas raktas', $3)`,
+        [id, key, RT0],
+      );
+    }
+    const data = await exportAccount(db, 'a1', NOW);
+    const exported = data?.personalNotes.map((n) => [
+      n.position,
+      n.san,
+      n.text,
+    ]);
+    expect(exported).toHaveLength(3);
+    expect(exported).toEqual(
+      expect.arrayContaining([
+        ['be brūkšnio', '', 'Blogas raktas'],
+        [`${START_KEY}|d4|d5`, '', 'Blogas raktas'],
+        ['|d4', '', 'Blogas raktas'],
+      ]),
+    );
+  });
+
   it('returns undefined for an unknown account', async () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
     expect(await exportAccount(db, 'nobody', NOW)).toBeUndefined();

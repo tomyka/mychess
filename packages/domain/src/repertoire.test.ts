@@ -1,3 +1,4 @@
+import { moveKey } from '@mychess/chess';
 import { describe, expect, it } from 'vitest';
 import {
   CHAPTER_NAME_MAX,
@@ -8,6 +9,7 @@ import {
   REPERTOIRE_REFUSALS,
   canEditRepertoire,
   canViewRepertoire,
+  canWritePersonalNote,
   chapterNameSchema,
   commentSchema,
   personalNoteSchema,
@@ -188,4 +190,31 @@ describe('canViewRepertoire and canEditRepertoire (S3: the owner only)', () => {
       expect(rule({ id: '' }, { ownerId: '' }).ok).toBe(true);
     },
   );
+});
+
+describe('canWritePersonalNote (R-21, decision 11)', () => {
+  const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -';
+  const graph = { moves: [{ from: START, san: 'd4' }] };
+  const D4 = moveKey(START, 'd4');
+
+  it('lets a note be written on a move of the repertoire', () => {
+    expect(canWritePersonalNote(graph, D4, 'Mano planas')).toEqual({
+      ok: true,
+      value: undefined,
+    });
+  });
+
+  it('refuses writing a note on a key that is not a move of it', () => {
+    for (const key of [moveKey(START, 'e4'), 'x', `${D4}|e5`]) {
+      expect(canWritePersonalNote(graph, key, 'Mano planas')).toEqual({
+        ok: false,
+        refusal: { reason: 'repertoire.notFound' },
+      });
+    }
+  });
+
+  it('lets a note be removed from any key, a removed move included', () => {
+    expect(canWritePersonalNote(graph, moveKey(START, 'e4'), '').ok).toBe(true);
+    expect(canWritePersonalNote({ moves: [] }, 'x', '').ok).toBe(true);
+  });
 });

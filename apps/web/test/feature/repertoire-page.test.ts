@@ -122,6 +122,40 @@ describe('savePersonalNoteAction (R-21)', () => {
     expect(await notes()).toEqual([]);
   });
 
+  it('refuses a note on a key that is not a move of the repertoire', async () => {
+    const { rokas, london } = await cast();
+    actAs(rokas);
+    for (const key of [moveKey(START_KEY, 'e4'), 'x', `${D4}|d5`]) {
+      expect(
+        await savePersonalNoteAction({
+          repertoireId: london,
+          moveKey: key,
+          text: 'Mano',
+        }),
+      ).toEqual({ ok: false, refusal: 'repertoire.notFound' });
+    }
+    expect(await notes()).toEqual([]);
+  });
+
+  it('removes a note left on a key that is no longer a move (decision 11)', async () => {
+    const { rokas, london } = await cast();
+    actAs(rokas);
+    const gone = moveKey(START_KEY, 'e4');
+    await sql.rows(
+      `insert into personal_notes (player_account_id, repertoire_id, move_key, text, updated_at)
+       values ($1, $2, $3, 'Senas', now())`,
+      [rokas.id, london, gone],
+    );
+    expect(
+      await savePersonalNoteAction({
+        repertoireId: london,
+        moveKey: gone,
+        text: '',
+      }),
+    ).toEqual({ ok: true });
+    expect(await notes()).toEqual([]);
+  });
+
   it('refuses a note of 2,001 characters', async () => {
     const { rokas, london } = await cast();
     actAs(rokas);

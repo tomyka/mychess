@@ -1,6 +1,6 @@
 import { mergeInto, summarize, importPgn } from '@mychess/chess';
 import { loadRepertoire } from '@mychess/db';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
   confirmImportAction,
@@ -247,6 +247,11 @@ describe('previewImportAction', () => {
       { refusal: 'pgn.tooDeep', limit: 64 },
     ],
     [
+      'more than 50,000 half-moves (R-119)',
+      game('Nf3 Nf6 Ng1 Ng8 '.repeat(64)).repeat(200),
+      { refusal: 'pgn.tooManyMoves', limit: 50_000 },
+    ],
+    [
       'a file with no valid game',
       game('1. e4 e5 2. Ke3 *'),
       { refusal: 'pgn.noValidGames' },
@@ -417,5 +422,56 @@ describe('confirmImportAction', () => {
       ),
     ).toEqual({ redirectedTo: '/prisijungti' });
     expect(await repertoireCount()).toBe(0);
+  });
+});
+
+describe('the import rate limit (R-119)', () => {
+  const T0 = new Date('2026-10-19T08:00:00Z');
+  const preview = () => previewImportAction({ text: TAIMANOV, side: 'black' });
+  const confirm = (name: string) =>
+    outcomeOf(
+      confirmImportAction({
+        text: TAIMANOV,
+        side: 'black',
+        target: { kind: 'new', name },
+      }),
+    );
+  const TOO_MANY = { ok: false, refusal: 'pgn.tooManyImports', limit: 10 };
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(T0);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('refuses the 11th preview or confirm in a minute and imports nothing', async () => {
+    const { gabija } = await cast();
+    actAs(gabija);
+    for (let i = 0; i < 5; i++) expect((await preview()).ok).toBe(true);
+    for (let i = 0; i < 5; i++) await confirm(`Importas ${String(i)}`);
+    expect(await repertoireCount()).toBe(8);
+    vi.setSystemTime(new Date(T0.getTime() + 59_000));
+    expect(await confirm('Vienuoliktas')).toEqual(TOO_MANY);
+    expect(await preview()).toEqual(TOO_MANY);
+    expect(await repertoireCount()).toBe(8);
+  });
+
+  it('counts each account on its own', async () => {
+    const { gabija } = await cast();
+    actAs(gabija);
+    for (let i = 0; i < 10; i++) await preview();
+    expect(await preview()).toEqual(TOO_MANY);
+    actAs(await person(sql, 'ona@example.lt', 'Ona'));
+    expect((await preview()).ok).toBe(true);
+  });
+
+  it('allows imports again a minute after the last one allowed', async () => {
+    const { gabija } = await cast();
+    actAs(gabija);
+    for (let i = 0; i < 10; i++) await preview();
+    vi.setSystemTime(new Date(T0.getTime() + 60_000));
+    expect((await preview()).ok).toBe(true);
   });
 });

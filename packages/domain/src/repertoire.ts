@@ -1,4 +1,10 @@
-import { normalizeComment, sideSchema, type Result } from '@mychess/chess';
+import {
+  moveKey,
+  normalizeComment,
+  sideSchema,
+  type RepertoireMove,
+  type Result,
+} from '@mychess/chess';
 import { z } from 'zod';
 import type { Account } from './account';
 
@@ -92,6 +98,23 @@ export function canViewRepertoire(
   repertoire: Pick<Repertoire, 'ownerId'>,
 ): RepertoireAccess {
   return owns(viewer, repertoire) ? ALLOWED : NOT_FOUND;
+}
+
+/**
+ * May a Personal note with `text` be saved on `key` of `graph`? A note is
+ * written only on a move of the repertoire; removing one ('') is allowed
+ * on any key, so a note left on a removed move can still go (decision 11).
+ * Any other key reads as not found, like any other malformed request.
+ */
+export function canWritePersonalNote(
+  graph: { readonly moves: readonly Pick<RepertoireMove, 'from' | 'san'>[] },
+  key: string,
+  text: string,
+): RepertoireAccess {
+  if (text === '') return ALLOWED;
+  return graph.moves.some((m) => moveKey(m.from, m.san) === key)
+    ? ALLOWED
+    : NOT_FOUND;
 }
 
 /** Who may change a repertoire's moves, chapters and comments. S3: its owner only. */

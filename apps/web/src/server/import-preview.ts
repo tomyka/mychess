@@ -4,7 +4,9 @@
 // trusts a preview. Adding to a repertoire goes through ownRepertoire (the
 // domain's access rule, enforced again by the owner filter in the query),
 // is refused when nothing in the file can be added (R-115), and is saved
-// against the version the preview showed (decision 6).
+// against the version the preview showed (decision 6). An account runs at
+// most ten previews or confirms a minute between them (R-119), counted
+// before the text is read.
 import {
   chapterName,
   importPgn,
@@ -20,11 +22,14 @@ import {
   type Skipped,
 } from '@mychess/chess';
 import {
+  countRateLimited,
   createRepertoire,
   saveRepertoireEdit,
   type LoadedRepertoire,
 } from '@mychess/db';
 import {
+  IMPORT_RATE_LIMIT,
+  importRateKey,
   REPERTOIRE_ISSUES,
   REPERTOIRE_REFUSALS,
   repertoireNameSchema,
@@ -63,6 +68,8 @@ export type ImportRefusalKey =
   | 'pgn.tooLarge'
   | 'pgn.tooManyGames'
   | 'pgn.tooDeep'
+  | 'pgn.tooManyMoves'
+  | typeof IMPORT_RATE_LIMIT.reason
   | 'pgn.noValidGames'
   | NothingToAdd['reason']
   | typeof PGN_UNREADABLE
@@ -75,7 +82,10 @@ export type ImportRefusalKey =
 export interface ImportRefused {
   readonly ok: false;
   readonly refusal: ImportRefusalKey;
-  /** The R-66 limit the file breaks (bytes, games or depth). */
+  /**
+   * The limit broken: the file's (R-66, R-119: bytes, games, depth or
+   * half-moves) or the imports a minute (R-119).
+   */
   readonly limit?: number;
 }
 
@@ -145,6 +155,20 @@ function requestRefused(error: z.ZodError): ImportRefused {
   const reason =
     REQUEST_KEYS.find((key) => key === message) ?? REPERTOIRE_REFUSALS.notFound;
   return refused({ reason });
+}
+
+/** Counts one preview or confirm of `account`; refused over the R-119 limit. */
+async function withinRateLimit(
+  account: Account,
+  now: Date,
+): Promise<ImportRefused | null> {
+  const counted = await countRateLimited(
+    getDb(),
+    importRateKey(account.id),
+    IMPORT_RATE_LIMIT,
+    now,
+  );
+  return counted.ok ? null : refused(counted.refusal);
 }
 
 type ImportedFile =
@@ -230,7 +254,10 @@ async function mergeIntoOwn(
 export async function previewImport(
   account: Account,
   input: unknown,
+  now: Date,
 ): Promise<PreviewOutcome> {
+  const limited = await withinRateLimit(account, now);
+  if (limited !== null) return limited;
   const request = previewRequestSchema.safeParse(input);
   if (!request.success) return requestRefused(request.error);
   const imported = importFile(request.data);
@@ -282,6 +309,8 @@ export async function confirmImport(
   input: unknown,
   now: Date,
 ): Promise<ConfirmOutcome> {
+  const limited = await withinRateLimit(account, now);
+  if (limited !== null) return limited;
   const request = confirmRequestSchema.safeParse(input);
   if (!request.success) return requestRefused(request.error);
   const imported = importFile(request.data);

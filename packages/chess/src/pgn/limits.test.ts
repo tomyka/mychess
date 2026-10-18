@@ -52,6 +52,62 @@ describe('checkLimits', () => {
     });
   });
 
+  it('accepts as many half-moves as the limit', () => {
+    expect(checkLimits('e4 '.repeat(PGN_LIMITS.plies)).ok).toBe(true);
+  });
+
+  it('refuses more half-moves than the limit, counting variations', () => {
+    const text = `${'e4 '.repeat(PGN_LIMITS.plies - 1)}( d4 ) e5`;
+    expect(checkLimits(text)).toEqual({
+      ok: false,
+      refusal: { reason: 'pgn.tooManyMoves', limit: PGN_LIMITS.plies },
+    });
+  });
+
+  it('counts castling with zeros and moves glued to their numbers', () => {
+    const half = PGN_LIMITS.plies / 2;
+    const text = `${'1.e4 '.repeat(half)}${'1...0-0 '.repeat(half)}`;
+    expect(checkLimits(text).ok).toBe(true);
+    expect(checkLimits(`${text}a6`)).toEqual({
+      ok: false,
+      refusal: { reason: 'pgn.tooManyMoves', limit: PGN_LIMITS.plies },
+    });
+  });
+
+  it('does not count move numbers, results, NAGs, comments or tag pairs', () => {
+    const noise =
+      '[Black "Nf3 Nf6"]\n[Event "x"]\n1. 0-1 1-0 1/2-1/2 * $1 !! {Nf3 Nf6} ; Nf3 Nf6\n';
+    const text = `${noise.repeat(20)}${'e4 '.repeat(PGN_LIMITS.plies)}`;
+    expect(checkLimits(text).ok).toBe(true);
+    expect(checkLimits(`${text}e5`)).toEqual({
+      ok: false,
+      refusal: { reason: 'pgn.tooManyMoves', limit: PGN_LIMITS.plies },
+    });
+  });
+
+  it('counts the moves on the line after an unclosed tag bracket', () => {
+    const text = `[\n${'e4 '.repeat(PGN_LIMITS.plies + 1)}`;
+    expect(checkLimits(text)).toEqual({
+      ok: false,
+      refusal: { reason: 'pgn.tooManyMoves', limit: PGN_LIMITS.plies },
+    });
+  });
+
+  it('refuses 2 MB of games shuffling knights back and forth (R-119)', () => {
+    const shuffle = 'Nf3 Nf6 Ng1 Ng8 ';
+    const cycles = Math.floor(
+      (PGN_LIMITS.bytes / PGN_LIMITS.games - 20) / shuffle.length,
+    );
+    const game = `[Event "x"]\n\n${shuffle.repeat(cycles)}*\n`;
+    const text = game.repeat(PGN_LIMITS.games);
+    expect(text.length).toBeLessThanOrEqual(PGN_LIMITS.bytes);
+    expect(text.length).toBeGreaterThan(PGN_LIMITS.bytes - 10_000);
+    expect(checkLimits(text)).toEqual({
+      ok: false,
+      refusal: { reason: 'pgn.tooManyMoves', limit: PGN_LIMITS.plies },
+    });
+  });
+
   it('measures depth, not the number of variations', () => {
     const text = `1. e4 ${'( 1. d4 ) '.repeat(100)}*`;
     expect(checkLimits(text).ok).toBe(true);

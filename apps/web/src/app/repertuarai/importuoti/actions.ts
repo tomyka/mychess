@@ -18,7 +18,7 @@ export async function previewImportAction(
   input: unknown,
 ): Promise<PreviewOutcome> {
   const account = await requireOnboarded();
-  return previewImport(account, input);
+  return previewImport(account, input, new Date());
 }
 
 /**

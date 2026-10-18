@@ -130,6 +130,14 @@ describe('importPgn', () => {
     });
   });
 
+  it('refuses a file of more than 50,000 half-moves before replaying it', () => {
+    const game = `[Event "x"]\n\n${'Nf3 Nf6 Ng1 Ng8 '.repeat(64)}*\n`;
+    expect(importPgn(game.repeat(200), 'white')).toEqual({
+      ok: false,
+      refusal: { reason: 'pgn.tooManyMoves', limit: 50_000 },
+    });
+  });
+
   it('caps the games it actually splits, Event tags or not', () => {
     const games = (n: number) => '1. e4 e5 *\n'.repeat(n);
     expect(importPgn(games(201), 'white')).toEqual({

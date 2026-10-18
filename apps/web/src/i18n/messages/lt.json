@@ -286,6 +286,8 @@
     "tooLarge": "Failas didesnis nei {limit} MB.",
     "tooManyGames": "Faile daugiau nei {limit} partijų.",
     "tooDeep": "Variantai įdėti per giliai: leidžiama iki {limit} lygių.",
+    "tooManyMoves": "Faile daugiau nei 50 000 pusėjimių.",
+    "tooManyImports": "Per daug bandymų importuoti: ne daugiau kaip {limit} per minutę. Palaukite minutę ir bandykite dar kartą.",
     "noValidGames": "Faile nerasta nė vienos tinkamos partijos.",
     "nothingToAdd": "Iš šio failo prie repertuaro nėra ką pridėti: kiekviena partija jame atsakoma kitaip."
   },

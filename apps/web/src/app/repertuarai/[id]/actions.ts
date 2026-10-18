@@ -11,6 +11,7 @@ import {
   setPersonalNote,
 } from '@mychess/db';
 import {
+  canWritePersonalNote,
   personalNoteSchema,
   REPERTOIRE_ISSUES,
   REPERTOIRE_REFUSALS,
@@ -55,6 +56,8 @@ const noteIssue = (error: z.ZodError): Extract<NoteOutcome, { ok: false }> => ({
 /**
  * Sets or (with '') removes the viewer's own private note on a move of a
  * repertoire they may view (R-21: a note is the viewer's, in either mode).
+ * A note is written only on a move of the repertoire; removing one works
+ * on any key (decision 11).
  */
 export async function savePersonalNoteAction(
   input: unknown,
@@ -65,6 +68,8 @@ export async function savePersonalNoteAction(
   const { repertoireId, moveKey, text } = request.data;
   const own = await ownRepertoire(account, repertoireId, 'view');
   if (!own.ok) return { ok: false, refusal: own.refusal.reason };
+  const onMove = canWritePersonalNote(own.value.graph, moveKey, text);
+  if (!onMove.ok) return { ok: false, refusal: onMove.refusal.reason };
   // The write checks access again in its own transaction: a repertoire
   // deleted since ownRepertoire read it is refused there.
   const saved = await setPersonalNote(getDb(), {

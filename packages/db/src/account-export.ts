@@ -6,13 +6,7 @@ import {
   type InviteState,
   type Locale,
 } from '@mychess/domain';
-import {
-  exportPgn,
-  fenOf,
-  splitMoveKey,
-  type Chapter,
-  type Side,
-} from '@mychess/chess';
+import { exportPgn, fenOf, type Chapter, type Side } from '@mychess/chess';
 import { and, asc, eq, gt } from 'drizzle-orm';
 import { z } from 'zod';
 import { accountColumns } from './accounts';
@@ -89,8 +83,12 @@ export interface AccountExport {
   /** The account's personal notes (R-21), by repertoire name and move. */
   readonly personalNotes: readonly {
     readonly repertoire: string;
-    /** The position the move is played from, as a FEN (fenOf). */
+    /**
+     * The position the move is played from, as a FEN (fenOf); for a
+     * malformed stored key, the key as stored.
+     */
     readonly position: string;
+    /** The move's SAN; '' for a malformed stored key. */
     readonly san: string;
     readonly text: string;
     readonly updatedAt: string;
@@ -200,11 +198,23 @@ async function exportedRepertoires(
 const noteRowsSchema = z.array(
   z.object({
     repertoire: z.string(),
-    moveKey: z.string().includes('|'),
+    moveKey: z.string(),
     text: z.string(),
     updatedAt: z.date(),
   }),
 );
+
+/**
+ * Where a note's move is played from, as a FEN, and its SAN. A key that is
+ * not a move key (a bad row) is exported as it is stored, with no SAN, so
+ * it can never break the export.
+ */
+function notedMove(key: string): { position: string; san: string } {
+  const [fromKey, san, ...rest] = key.split('|');
+  return fromKey && san && rest.length === 0
+    ? { position: fenOf(fromKey), san }
+    : { position: key, san: '' };
+}
 
 /** The account's personal notes, by repertoire (oldest first), then move key. */
 async function exportedNotes(
@@ -228,16 +238,12 @@ async function exportedNotes(
         asc(personalNotes.moveKey),
       ),
   );
-  return rows.map((row) => {
-    const { fromKey, san } = splitMoveKey(row.moveKey);
-    return {
-      repertoire: row.repertoire,
-      position: fenOf(fromKey),
-      san,
-      text: row.text,
-      updatedAt: row.updatedAt.toISOString(),
-    };
-  });
+  return rows.map((row) => ({
+    repertoire: row.repertoire,
+    ...notedMove(row.moveKey),
+    text: row.text,
+    updatedAt: row.updatedAt.toISOString(),
+  }));
 }
 
 /**

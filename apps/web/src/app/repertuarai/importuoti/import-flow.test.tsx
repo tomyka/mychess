@@ -184,6 +184,31 @@ describe('ImportFlow', () => {
     expect(screen.getByRole('button', { name: i.preview })).toBeDefined();
   });
 
+  it('says a file of too many half-moves and too many imports a minute are refused (R-119)', async () => {
+    server.preview.mockResolvedValueOnce({
+      ok: false,
+      refusal: 'pgn.tooManyMoves',
+      limit: 50_000,
+    });
+    renderFlow();
+    chooseFile();
+    fireEvent.click(screen.getByRole('button', { name: i.preview }));
+    expect(
+      await screen.findByText('Faile daugiau nei 50 000 pusėjimių.'),
+    ).toBeDefined();
+    server.preview.mockResolvedValueOnce({
+      ok: false,
+      refusal: 'pgn.tooManyImports',
+      limit: 10,
+    });
+    fireEvent.click(screen.getByRole('button', { name: i.preview }));
+    expect(
+      await screen.findByText(
+        'Per daug bandymų importuoti: ne daugiau kaip 10 per minutę. Palaukite minutę ir bandykite dar kartą.',
+      ),
+    ).toBeDefined();
+  });
+
   it('re-runs the preview against the chosen repertoire', async () => {
     renderFlow();
     await previewAsBlack();

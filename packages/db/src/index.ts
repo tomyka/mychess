@@ -76,6 +76,7 @@ export {
   setPersonalNote,
   type PersonalNoteInput,
 } from './personal-notes';
+export { countRateLimited } from './rate-limits';
 export {
   createRepertoire,
   deleteRepertoire,

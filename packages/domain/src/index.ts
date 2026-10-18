@@ -82,6 +82,13 @@ export {
   type DisplayName,
 } from './display-name';
 export {
+  IMPORT_RATE_LIMIT,
+  countRequest,
+  importRateKey,
+  type RateRefusal,
+  type RateRule,
+} from './rate-limit';
+export {
   CHAPTER_NAME_MAX,
   COMMENT_MAX,
   PERSONAL_NOTE_MAX,
@@ -90,6 +97,7 @@ export {
   REPERTOIRE_REFUSALS,
   canEditRepertoire,
   canViewRepertoire,
+  canWritePersonalNote,
   chapterNameSchema,
   commentSchema,
   personalNoteSchema,

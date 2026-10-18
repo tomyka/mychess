@@ -286,6 +286,8 @@
     "tooLarge": "The file is larger than {limit} MB.",
     "tooManyGames": "The file has more than {limit} games.",
     "tooDeep": "Variations are nested too deep: at most {limit} levels.",
+    "tooManyMoves": "The file has more than 50,000 half-moves.",
+    "tooManyImports": "Too many import attempts: at most {limit} a minute. Wait a minute and try again.",
     "noValidGames": "No valid game was found in the file.",
     "nothingToAdd": "Nothing in this file can be added to the repertoire: it answers every game differently."
   },
