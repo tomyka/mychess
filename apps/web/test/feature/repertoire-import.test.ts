@@ -154,7 +154,8 @@ describe('previewImportAction', () => {
     const merged = mergeInto(graphOf(TAIMANOV, 'black'), imported.value);
     if (!merged.ok) throw new Error('fixture does not merge');
     expect(outcome.preview.summary).toEqual(summarize(merged.value.graph));
-    expect(outcome.preview.chapters).toHaveLength(2);
+    // Game 1 adds no new move, so it adds no chapter (R-117).
+    expect(outcome.preview.chapters).toHaveLength(1);
     expect(outcome.preview.skipped).toEqual([
       { game: 1, reason: 'pgn.secondAnswer', san: 'a6', move: 5 },
     ]);
@@ -162,7 +163,7 @@ describe('previewImportAction', () => {
       id: taimanov,
       name: 'Taimanovas',
       version: 1,
-      added: { chapters: 2, moves: 2 },
+      added: { chapters: 1, moves: 2 },
     });
     expect(outcome.preview.refusal).toBeNull();
     expect((await stored(taimanov, gabija)).repertoire.version).toBe(1);
@@ -340,7 +341,7 @@ describe('confirmImportAction', () => {
     });
     const loaded = await stored(taimanov, gabija);
     expect(loaded.repertoire.version).toBe(2);
-    expect(loaded.graph.chapters.map((c) => c.id)).toEqual(['c1', 'c2', 'c3']);
+    expect(loaded.graph.chapters.map((c) => c.id)).toEqual(['c1', 'c2']);
     const before = graphOf(TAIMANOV, 'black');
     expect(loaded.graph.moves).toHaveLength(before.moves.length + 2);
     expect(await repertoireCount()).toBe(3);

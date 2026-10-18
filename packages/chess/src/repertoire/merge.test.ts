@@ -70,7 +70,7 @@ describe('mergeInto (R-101)', () => {
     const existing = graphOf('1. e4 { Mine [%cal Gg1f3] } e5 Nf3 *');
     const { graph } = merged(
       existing,
-      '1. e4 { Theirs [%cal Rd2d4] } e5 { New [%csl Gd4] } Nf3 { [%cal Bf1c4] } *',
+      '1. e4 { Theirs [%cal Rd2d4] } e5 { New [%csl Gd4] } Nf3 { [%cal Bf1c4] } Nc6 *',
     );
     const e4 = must(graph.moves.find((m) => m.san === 'e4'));
     expect([e4.comment, e4.arrows, e4.circles]).toEqual([
@@ -111,8 +111,11 @@ describe('mergeInto (R-101)', () => {
     ]);
     expect(r.graph.moves.some((m) => m.san === 'Nf6')).toBe(false);
     expect(r.graph.moves.some((m) => m.san === 'd3')).toBe(false);
-    // Game A kept 1. e4 e5, so it is a chapter; game B is the next.
-    expect(r.graph.chapters.map((c) => c.id)).toEqual(['c1', 'c2', 'c3']);
+    // Game A kept only 1. e4 e5, already there, so game B is the one chapter (R-117).
+    expect(r.graph.chapters.map((c) => c.id)).toEqual(['c1', 'c2']);
+    expect(lines(r.graph, 'c2').map((l) => l.map((m) => m.san))).toEqual([
+      ['e4', 'c5', 'Nf3'],
+    ]);
   });
 
   it('numbers a Black second answer by its full move', () => {
@@ -140,6 +143,45 @@ describe('mergeInto (R-101)', () => {
     const r = merged(existing, '1. d4 d5 *');
     expect(r.graph.chapters.map((c) => c.id)).toEqual(['c1']);
     expect(r.graph.moves).toEqual(existing.moves);
+  });
+
+  it('adds no chapter for a game whose kept moves are all there already (R-117)', () => {
+    // 1... a6 is a second answer; 1. e4 is there, so nothing is new.
+    const existing = graphOf('1. e4 c5 *', 'black');
+    const r = merged(existing, '1. e4 a6 *', 'black');
+    expect(r.skipped).toEqual([
+      { game: 1, reason: 'pgn.secondAnswer', san: 'a6', move: 1 },
+    ]);
+    expect(r.graph).toEqual(existing);
+  });
+
+  it('adds no chapter for a game the repertoire already has, and takes nothing from it (R-117)', () => {
+    const existing = graphOf('1. e4 e5 2. Nf3 *');
+    const r = merged(existing, '1. e4 { Theirs [%cal Gd2d4] } e5 *');
+    expect(r.skipped).toEqual([]);
+    expect(r.graph).toEqual(existing);
+  });
+
+  it('drops a game with nothing new, numbering and naming the games after it as if it were not there', () => {
+    const existing = graphOf('1. a3 a6 *');
+    const r = merged(
+      existing,
+      '1. a3 *\n\n[Event "Mine"]\n\n1. a3 h6 *\n\n1. a3 a6 2. h3 *',
+    );
+    expect(r.graph.chapters.map((c) => [c.id, c.nameSource])).toEqual([
+      ['c1', { kind: 'index', number: 1 }],
+      ['c2', { kind: 'header', name: 'Mine' }],
+      ['c3', { kind: 'index', number: 3 }],
+    ]);
+    const a3 = must(r.graph.moves.find((m) => m.san === 'a3'));
+    expect(a3.chapters).toEqual(['c1', 'c2', 'c3']);
+  });
+
+  it('judges a game by the existing repertoire, not by the games before it in the file', () => {
+    // Game 2 is within game 1, but both are new to the repertoire.
+    const existing = graphOf('1. d4 d5 *', 'black');
+    const r = merged(existing, '1. e4 e5 2. Nf3 *\n\n1. e4 e5 *', 'black');
+    expect(r.graph.chapters.map((c) => c.id)).toEqual(['c1', 'c2', 'c3']);
   });
 
   it('leaves out what only a refused move reached, but not a position a kept move reaches', () => {
@@ -238,8 +280,12 @@ describe('mergeInto (R-101)', () => {
       { kind: 'header', name: 'Mine' },
       { kind: 'eco', eco: 'C23' },
     ]);
-    // For White, 2. Bc4 is a second answer, so that chapter is only 1. e4 e5.
-    const white = merged(graphOf('1. e4 e5 2. Nf3 *'), '1. e4 e5 2. Bc4 *');
+    // For White, 2. Bc4 is a second answer, so that chapter's main line is
+    // only 1. e4 e5; its 1... c5 2. Nf3 is what it adds.
+    const white = merged(
+      graphOf('1. e4 e5 2. Nf3 *'),
+      '1. e4 e5 (1... c5 2. Nf3) 2. Bc4 *',
+    );
     expect(white.graph.chapters.map((c) => c.nameSource)).toEqual([
       { kind: 'eco', eco: 'C40' },
       { kind: 'eco', eco: 'C20' },
@@ -267,7 +313,10 @@ describe('mergeInto (R-101)', () => {
     // so White's 2. Bc4 is move 2, as export would number it.
     const fen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1';
     const existing = graphOf('1. e4 e5 2. Nf3 *');
-    const r = merged(existing, `[FEN "${fen}"]\n\n1... e5 2. Bc4 *`);
+    const r = merged(
+      existing,
+      `[FEN "${fen}"]\n\n1... e5 (1... c5 2. Nf3) 2. Bc4 *`,
+    );
     const added = must(r.graph.chapters[1]);
     expect(added.rootKey).toBe(must(existing.moves[0]).to);
     expect(added.rootKey).not.toBe(START);
@@ -276,6 +325,7 @@ describe('mergeInto (R-101)', () => {
     ]);
     expect(lines(r.graph, 'c2').map((l) => l.map((m) => m.san))).toEqual([
       ['e5'],
+      ['c5', 'Nf3'],
     ]);
   });
 });
@@ -352,6 +402,55 @@ describe('mergeInto: properties', () => {
               complete &&
               reachable(r.value.graph) &&
               oneAnswer(r.value.graph)
+            );
+          },
+        ),
+        { numRuns: 25 },
+      );
+    }).not.toThrow();
+  });
+
+  it('adds nothing when a repertoire is merged into itself (R-117)', () => {
+    expect(() => {
+      fc.assert(
+        fc.property(
+          fc.constantFrom<Side>('white', 'black'),
+          games,
+          (side, a) => {
+            const existing = graphOf(pgnOf(a), side);
+            const r = mergeInto(existing, imported(pgnOf(a), side));
+            expect(r).toEqual({
+              ok: true,
+              value: { graph: existing, skipped: [] },
+            });
+          },
+        ),
+        { numRuns: 25 },
+      );
+    }).not.toThrow();
+  });
+
+  it('adds a chapter only with a move the repertoire did not have (R-117)', () => {
+    expect(() => {
+      fc.assert(
+        fc.property(
+          fc.constantFrom<Side>('white', 'black'),
+          games,
+          games,
+          (side, a, b) => {
+            const existing = graphOf(pgnOf(a), side);
+            const r = mergeInto(existing, imported(pgnOf(b), side));
+            if (!r.ok) return false;
+            const before = keysOf(existing);
+            const added = r.value.graph.chapters.slice(
+              existing.chapters.length,
+            );
+            return added.every((c) =>
+              r.value.graph.moves.some(
+                (m) =>
+                  m.chapters.includes(c.id) &&
+                  !before.has(moveKey(m.from, m.san)),
+              ),
             );
           },
         ),

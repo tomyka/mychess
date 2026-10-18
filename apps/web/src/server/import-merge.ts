@@ -18,7 +18,7 @@ export interface NothingToAdd {
 
 /**
  * What merging `before` into `after` adds. A merge adds an imported game
- * as a chapter unless every move of it was refused, so a merge without a
+ * as a chapter only when it adds a new move (R-117), so a merge without a
  * new chapter adds nothing and is refused (R-115).
  */
 export function mergeAddition(

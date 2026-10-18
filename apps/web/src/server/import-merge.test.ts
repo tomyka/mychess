@@ -33,11 +33,12 @@ describe('mergeAddition', () => {
     expect(after.moves.length - BEFORE.moves.length).toBeGreaterThan(0);
   });
 
-  it('adds a chapter even when every move of it is already there', () => {
+  it('refuses a file whose games add no new move (R-117)', () => {
     const after = merged(BEFORE, game('1. d4 d5 2. Bf4 *'));
+    expect(after).toEqual(BEFORE);
     expect(mergeAddition(BEFORE, after)).toEqual({
-      ok: true,
-      value: { chapters: 1, moves: 0, firstChapterId: 'c3' },
+      ok: false,
+      refusal: { reason: 'pgn.nothingToAdd' },
     });
   });
 

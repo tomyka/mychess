@@ -10,6 +10,7 @@ import type { ImportedRepertoire, Skipped } from '../pgn/import-pgn';
 import { sideToMove } from '../position-key';
 import type { Result } from '../result';
 import {
+  moveKey,
   nextChapterId,
   nextChapterNumber,
   type Chapter,
@@ -54,43 +55,85 @@ function fillIn(draft: DraftMove, imported: RepertoireMove): void {
   }
 }
 
+/** A refused second answer, by its game and full-move number (R-54). */
+const secondAnswer = (
+  { san }: RepertoireMove,
+  ply: number,
+  game: number,
+): Skipped => ({
+  game,
+  reason: 'pgn.secondAnswer',
+  san,
+  move: 1 + Math.floor(ply / 2),
+});
+
+/**
+ * Walks a chapter position by position from its root (each position once,
+ * its moves in their imported order), going on past a move only when `keep`
+ * keeps it, so a refused move's continuation is reached only if another kept
+ * move leads there.
+ */
+function walk(
+  root: string,
+  children: Children,
+  keep: (move: RepertoireMove, ply: number) => boolean,
+): void {
+  const queue: Visit[] = [{ key: root, ply: firstPly(root) }];
+  const seen = new Set([root]);
+  // The iterator re-reads the length, so this walks the queue as it grows.
+  for (const visit of queue) {
+    for (const move of children(visit.key)) {
+      if (!keep(move, visit.ply) || seen.has(move.to)) continue;
+      seen.add(move.to);
+      queue.push({ key: move.to, ply: visit.ply + 1 });
+    }
+  }
+}
+
 class Merge {
   readonly skipped: Skipped[] = [];
   private readonly side: Side;
   private readonly moves: RepertoireMoves;
   private readonly chapters: Chapter[];
   private readonly existing: number;
+  /** The move keys of the existing repertoire, before anything is merged. */
+  private readonly before: ReadonlySet<string>;
 
   constructor(existing: RepertoireGraph) {
     this.side = existing.side;
     this.moves = new RepertoireMoves(existing.side, existing.moves);
     this.chapters = [...existing.chapters];
     this.existing = existing.chapters.length;
+    this.before = new Set(existing.moves.map((m) => moveKey(m.from, m.san)));
   }
 
   /**
-   * Adds one imported chapter, position by position from its root (each
-   * position once, its moves in their imported order), so a refused move's
-   * continuation is reached only if another kept move leads there. A
-   * chapter none of whose moves fit is not added.
+   * Adds one imported chapter if it keeps a move the existing repertoire
+   * lacks (R-117). A chapter whose moves are all refused or already in the
+   * existing repertoire is not added and changes nothing, but its refused
+   * moves are reported. It is judged against the existing repertoire, not
+   * the chapters added before it, as a new repertoire keeps every game.
    */
   add(source: Chapter, children: Children, game: number): void {
-    const chapter = this.renamed(source);
-    const root = source.rootKey;
-    const queue: Visit[] = [{ key: root, ply: firstPly(root) }];
-    const seen = new Set([root]);
-    let kept = 0;
-    // The iterator re-reads the length, so this walks the queue as it grows.
-    for (const visit of queue) {
-      for (const move of children(visit.key)) {
-        if (!this.put(move, chapter.id, game, visit.ply)) continue;
-        kept += 1;
-        if (seen.has(move.to)) continue;
-        seen.add(move.to);
-        queue.push({ key: move.to, ply: visit.ply + 1 });
+    const refused: Skipped[] = [];
+    let fresh = 0;
+    walk(source.rootKey, children, (move, ply) => {
+      if (this.moves.refuses(move)) {
+        refused.push(secondAnswer(move, ply, game));
+        return false;
       }
+      if (!this.before.has(moveKey(move.from, move.san))) fresh += 1;
+      return true;
+    });
+    if (fresh === 0) {
+      this.skipped.push(...refused);
+      return;
     }
-    if (kept > 0) this.chapters.push(chapter);
+    const chapter = this.renamed(source);
+    walk(source.rootKey, children, (move, ply) =>
+      this.put(move, chapter.id, game, ply),
+    );
+    this.chapters.push(chapter);
   }
 
   /**
@@ -130,14 +173,7 @@ class Merge {
   ): boolean {
     const put = this.moves.put(move, chapterId);
     if (!put.ok) {
-      const number = 1 + Math.floor(ply / 2);
-      const { san } = move;
-      this.skipped.push({
-        game,
-        reason: 'pgn.secondAnswer',
-        san,
-        move: number,
-      });
+      this.skipped.push(secondAnswer(move, ply, game));
       return false;
     }
     fillIn(put.value, move);

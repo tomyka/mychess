@@ -80,7 +80,7 @@ export class RepertoireMoves {
         existing.chapters.push(chapterId);
       return { ok: true, value: existing };
     }
-    if (this.isPlayerMove(move) && this.occupied.has(move.from)) {
+    if (this.refuses(move)) {
       return { ok: false, refusal: { reason: 'repertoire.secondAnswer' } };
     }
     const draft = draftOf(move, {
@@ -92,6 +92,15 @@ export class RepertoireMoves {
     draft.chapters.push(chapterId);
     this.store(draft);
     return { ok: true, value: draft };
+  }
+
+  /**
+   * Whether `put` would refuse `move` as a second answer, without putting
+   * it: a move already stored is never refused.
+   */
+  refuses(move: PlayedMove): boolean {
+    if (this.byKey.has(moveKey(move.from, move.san))) return false;
+    return this.isPlayerMove(move) && this.occupied.has(move.from);
   }
 
   /**

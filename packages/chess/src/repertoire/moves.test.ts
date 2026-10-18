@@ -120,6 +120,17 @@ describe('RepertoireMoves', () => {
     });
   });
 
+  it('tells whether a put would refuse a move, without putting it', () => {
+    const moves = new RepertoireMoves('black', [stored(e4, ['c1'])]);
+    expect(moves.refuses(e4)).toBe(false);
+    expect(moves.refuses(d4)).toBe(false);
+    expect(moves.refuses(c5)).toBe(false);
+    moves.put(e5, 'c1');
+    expect(moves.refuses(e5)).toBe(false);
+    expect(moves.refuses(c5)).toBe(true);
+    expect(moves.list()).toEqual([stored(e4, ['c1']), stored(e5, ['c1'])]);
+  });
+
   it('returns the stored move, so its marks can be added to', () => {
     const moves = new RepertoireMoves('white');
     const put = moves.put(e4, 'c1');
