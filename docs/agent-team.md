@@ -108,6 +108,12 @@ Three to five teammates at a time; each one costs tokens.
 
 ## Working rules
 
+- **Keep the owner's machine light (#273).** At most two working agents run
+  at once. A teammate runs only its own package's tests (for example
+  `pnpm --filter @mychess/db test`); the lead runs `node quality/gate.mjs
+  check` once before each commit. Nobody runs `node quality/gate.mjs
+  mutation` locally: CI mutation-tests every push and runs the full set
+  nightly.
 - **Only the lead commits and pushes.** Work lands on `main` (trunk-based).
   A teammate reports the files it changed, the commands it ran and their
   results.
