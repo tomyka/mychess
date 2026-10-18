@@ -105,18 +105,23 @@ export function currentKey(
   return chapterOf(state.graph, state.chapterId)?.rootKey ?? null;
 }
 
-/** The page as it opens: the first chapter at its root (builder mode without one). */
+/**
+ * The page as it opens: the chapter asked for, else the first one, at its
+ * root (builder mode without one).
+ */
 export function initialState(
   graph: RepertoireGraph,
   version: number,
+  chapterId: string | null = null,
 ): ScreenState {
-  const first = graph.chapters[0];
+  const opened =
+    graph.chapters.find((c) => c.id === chapterId) ?? graph.chapters[0];
   return {
     graph,
     version,
-    chapterId: first?.id ?? null,
+    chapterId: opened?.id ?? null,
     path: [],
-    mode: first === undefined ? 'build' : 'browse',
+    mode: opened === undefined ? 'build' : 'browse',
     drawMode: false,
     drawColor: 'G',
     drawFrom: null,

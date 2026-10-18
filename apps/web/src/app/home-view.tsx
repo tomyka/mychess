@@ -8,7 +8,7 @@ const LINK = 'inline-flex min-h-touch items-center text-accent underline';
 
 /**
  * The home page for a signed-in, onboarded account; a coach also gets the
- * way to the coach area (C-M1-1).
+ * way to the coach dashboard (C-M1-1).
  */
 export function HomeView({
   displayName,

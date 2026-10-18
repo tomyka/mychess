@@ -1,4 +1,6 @@
+import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
+import { SlowStatus } from '../../slow-status';
 
 const LINE = 'h-5 rounded-control bg-sunken';
 
@@ -11,8 +13,10 @@ const BOARD_FRAME = {
 
 // The repertoire page while it loads (docs/design/repertoire-screen.md,
 // States): the real board frame without pieces and skeleton lines for the
-// top bar, the chapter row, the comment and the move list.
+// top bar, the chapter row, the comment and the move list; after about a
+// second, one "Loading" line.
 export default function RepertoireLoading(): JSX.Element {
+  const t = useTranslations('repertoires');
   return (
     <main
       aria-busy="true"
@@ -32,6 +36,7 @@ export default function RepertoireLoading(): JSX.Element {
           <div className={`${LINE} w-full`} />
           <div className={`${LINE} w-3/4`} />
           <div className={`${LINE} w-full`} />
+          <SlowStatus text={t('loading')} />
         </div>
       </div>
     </main>

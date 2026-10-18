@@ -76,6 +76,22 @@ describe('initialState', () => {
     expect(empty.chapterId).toBeNull();
     expect(currentKey(empty)).toBeNull();
   });
+
+  it('opens the chapter asked for, browsing, at its root', () => {
+    const second = initialState(GRAPH, 4, 'c2');
+    expect(second.chapterId).toBe('c2');
+    expect(second.mode).toBe('browse');
+    expect(currentKey(second)).toBe(START_KEY);
+  });
+
+  it('falls back to the first chapter for a chapter it does not have', () => {
+    expect(initialState(GRAPH, 4, 'c9').chapterId).toBe('c1');
+    expect(initialState(GRAPH, 4, null).chapterId).toBe('c1');
+    const empty = initialState({ side: 'white', chapters: [], moves: [] }, 1);
+    expect(
+      initialState({ side: 'white', chapters: [], moves: [] }, 1, 'c1'),
+    ).toEqual(empty);
+  });
 });
 
 describe('screenReducer: moving through a chapter', () => {

@@ -17,6 +17,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import { createTranslator, NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -187,7 +188,7 @@ describe('RepertoireScreen: browsing', () => {
 
   it('opens another chapter at its root', () => {
     renderScreen();
-    fireEvent.click(screen.getByRole('button', { name: /1 skyrius iš 2/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Skyrius 1 iš 2/ }));
     const second = screen
       .getAllByRole('button')
       .find(
@@ -197,7 +198,7 @@ describe('RepertoireScreen: browsing', () => {
     if (second === undefined) throw new Error('no second chapter');
     fireEvent.click(second);
     expect(
-      screen.getByRole('button', { name: /2 skyrius iš 2/ }),
+      screen.getByRole('button', { name: /Skyrius 2 iš 2/ }),
     ).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: r.nav.forward }));
     fireEvent.click(screen.getByRole('button', { name: r.nav.forward }));
@@ -229,6 +230,7 @@ describe('RepertoireScreen: browsing', () => {
   it('saves a personal note on the current move and keeps it', async () => {
     renderScreen();
     fireEvent.click(screen.getByRole('button', { name: r.nav.forward }));
+    fireEvent.click(screen.getByRole('button', { name: r.note.label }));
     fireEvent.change(screen.getByLabelText(r.note.label), {
       target: { value: 'Mano planas' },
     });
@@ -255,16 +257,20 @@ describe('RepertoireScreen: browsing', () => {
 describe('RepertoireScreen: an empty repertoire', () => {
   it('invites the first move or a PGN, with no chapters to choose', async () => {
     renderScreen({ side: 'black', chapters: [], moves: [] }, 'Taimanovas');
-    expect(screen.getByText(r.panel.emptyBuild)).toBeDefined();
+    const empty = screen.getByText(r.panel.emptyBuild).parentElement;
+    if (empty === null) throw new Error('no empty state');
+    // The same words as the header's "Add from PGN": one action, one name.
     expect(
-      screen
-        .getByRole('link', { name: r.panel.addFromPgn })
+      within(empty)
+        .getByRole('link', { name: r.header.importInto })
         .getAttribute('href'),
     ).toBe(`/repertuarai/importuoti?i=${ID}`);
     expect(
       screen.getByRole('application', { name: 'Šachmatų lenta, Taimanovas' }),
     ).toBeDefined();
-    expect(screen.queryByRole('button', { name: /skyrius iš/ })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /Skyrius [0-9]+ iš/ }),
+    ).toBeNull();
     await waitFor(() => {
       expect(ground.created.at(-1)?.orientation).toBe('black');
     });
@@ -464,7 +470,7 @@ describe('RepertoireScreen: builder mode', () => {
       ecoNames: ecoNamesOf(GRAPH, 'lt'),
     });
     building();
-    fireEvent.click(named(/1 skyrius iš 2/));
+    fireEvent.click(named(/Skyrius 1 iš 2/));
     fireEvent.click(named(r.chapters.add));
     expect(server.edit).toHaveBeenCalledWith({
       repertoireId: ID,
@@ -472,7 +478,7 @@ describe('RepertoireScreen: builder mode', () => {
       op: { kind: 'addChapter' },
     });
     expect(
-      await screen.findByRole('button', { name: /3 skyrius iš 3/ }),
+      await screen.findByRole('button', { name: /Skyrius 3 iš 3/ }),
     ).toBeDefined();
     expect(screen.getByText(b.playFirst)).toBeDefined();
   });
@@ -495,7 +501,7 @@ describe('RepertoireScreen: the first move of an empty repertoire (R-111)', () =
       op: { kind: 'addMove', chapterId: null, from: START_KEY, san: 'd4' },
     });
     expect(
-      await screen.findByRole('button', { name: /1 skyrius iš 1/ }),
+      await screen.findByRole('button', { name: /Skyrius 1 iš 1/ }),
     ).toBeDefined();
     expect(current()).toBe('d4');
   });

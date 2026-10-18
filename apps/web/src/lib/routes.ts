@@ -18,17 +18,24 @@ export const ROUTES = {
 export const invitePath = (token: string): string =>
   `/k/${encodeURIComponent(token)}`;
 
-/** One linked player's page in the coach area. */
+/** One linked player's page in the coach dashboard. */
 export const coachPlayerPath = (playerId: string): string =>
   `${ROUTES.coach}/zaidejai/${encodeURIComponent(playerId)}`;
 
-/** One group's page in the coach area. */
+/** One group's page in the coach dashboard. */
 export const coachGroupPath = (groupId: string): string =>
   `${ROUTES.coach}/grupes/${encodeURIComponent(groupId)}`;
 
 /** One repertoire's page (browse and builder). */
 export const repertoireRoute = (id: string): string =>
   `${ROUTES.repertoires}/${id}`;
+
+/** The query parameter a repertoire's page opens on a chapter by. */
+export const CHAPTER_PARAM = 'chapter';
+
+/** One repertoire's page, opened on one of its chapters. */
+export const repertoireChapterRoute = (id: string, chapterId: string): string =>
+  `${repertoireRoute(id)}?${CHAPTER_PARAM}=${encodeURIComponent(chapterId)}`;
 
 /** One repertoire's PGN download. */
 export const repertoireExportRoute = (id: string): string =>

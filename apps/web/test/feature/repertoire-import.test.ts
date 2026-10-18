@@ -52,6 +52,9 @@ const INTO_TAIMANOV = [
   game('1. e4 c5 2. Nf3 e6 3. c3 d5 *'),
 ].join('\n');
 
+/** White games Gabija's London (1. d4) answers differently on move 1. */
+const NOT_LONDON = [game('1. e4 e5 *'), game('1. c4 e5 *')].join('\n');
+
 interface Cast {
   readonly gabija: Person;
   /** Gabija's Taimanov (Black, one chapter). */
@@ -105,6 +108,7 @@ const previewSchema = z.object({
     chapters: z.array(z.unknown()),
     skipped: z.array(z.unknown()),
     target: z.unknown(),
+    refusal: z.string().nullable(),
   }),
 });
 
@@ -160,7 +164,43 @@ describe('previewImportAction', () => {
       version: 1,
       added: { chapters: 2, moves: 2 },
     });
+    expect(outcome.preview.refusal).toBeNull();
     expect((await stored(taimanov, gabija)).repertoire.version).toBe(1);
+  });
+
+  it('shows the merge but refuses it when nothing in the file can be added (R-115)', async () => {
+    const { gabija, london } = await cast();
+    actAs(gabija);
+    const outcome = previewSchema.parse(
+      await previewImportAction({
+        text: NOT_LONDON,
+        side: 'white',
+        into: london,
+      }),
+    );
+    expect(outcome.preview.refusal).toBe('pgn.nothingToAdd');
+    expect(outcome.preview.chapters).toEqual([]);
+    expect(outcome.preview.skipped).toEqual([
+      { game: 1, reason: 'pgn.secondAnswer', san: 'e4', move: 1 },
+      { game: 2, reason: 'pgn.secondAnswer', san: 'c4', move: 1 },
+    ]);
+    expect(outcome.preview.target).toEqual({
+      id: london,
+      name: 'Londonas',
+      version: 1,
+      added: { chapters: 0, moves: 0 },
+    });
+  });
+
+  it('lets a new repertoire take a file nothing of which fits an existing one', async () => {
+    const { gabija } = await cast();
+    actAs(gabija);
+    const outcome = previewSchema.parse(
+      await previewImportAction({ text: NOT_LONDON, side: 'white' }),
+    );
+    expect(outcome.preview.refusal).toBeNull();
+    // 1. c4 is a second answer to 1. e4 within the file itself (R-54).
+    expect(outcome.preview.chapters).toHaveLength(1);
   });
 
   it('refuses a repertoire of the other side and one that is not hers', async () => {
@@ -252,7 +292,7 @@ describe('confirmImportAction', () => {
       `select id from repertoires where name = 'Sicilietiška'`,
     );
     const { id } = z.object({ id: z.uuid() }).parse(rows[0]);
-    expect(outcome).toEqual({ redirectedTo: `/repertuarai/${id}` });
+    expect(outcome).toEqual({ redirectedTo: `/repertuarai/${id}?chapter=c1` });
     const loaded = await stored(id, gabija);
     expect(loaded.repertoire.side).toBe('black');
     expect(loaded.graph).toEqual(graphOf(SICILIANS_WITH_BROKEN, 'black'));
@@ -294,13 +334,30 @@ describe('confirmImportAction', () => {
         target: { kind: 'existing', id: taimanov, version: 1 },
       }),
     );
-    expect(outcome).toEqual({ redirectedTo: `/repertuarai/${taimanov}` });
+    // It opens on the first chapter the import added (screen note).
+    expect(outcome).toEqual({
+      redirectedTo: `/repertuarai/${taimanov}?chapter=c2`,
+    });
     const loaded = await stored(taimanov, gabija);
     expect(loaded.repertoire.version).toBe(2);
     expect(loaded.graph.chapters.map((c) => c.id)).toEqual(['c1', 'c2', 'c3']);
     const before = graphOf(TAIMANOV, 'black');
     expect(loaded.graph.moves).toHaveLength(before.moves.length + 2);
     expect(await repertoireCount()).toBe(3);
+  });
+
+  it('refuses a file nothing of which can be added and writes nothing (R-115)', async () => {
+    const { gabija, london } = await cast();
+    actAs(gabija);
+    const before = await stored(london, gabija);
+    expect(
+      await confirmImportAction({
+        text: NOT_LONDON,
+        side: 'white',
+        target: { kind: 'existing', id: london, version: 1 },
+      }),
+    ).toEqual({ ok: false, refusal: 'pgn.nothingToAdd' });
+    expect(await stored(london, gabija)).toEqual(before);
   });
 
   it('refuses a stale version and writes nothing', async () => {

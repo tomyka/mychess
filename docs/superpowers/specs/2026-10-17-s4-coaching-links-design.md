@@ -73,7 +73,7 @@ The security checklist on #233, items 1 to 5, is part of this spec's acceptance.
 ### Web (`apps/web`)
 
 - **Settings:** a "Coach mode" switch. When switching off is refused, it shows the players to unlink first.
-- **Coach area, `/treneris`:**
+- **Coach dashboard, `/treneris`:**
   - players (display name, groups, unlink);
   - groups (create, rename, delete, members);
   - invites (create a personal or group invite, copy the link, see its state, revoke);

@@ -44,6 +44,11 @@ function renderPanel(over: Partial<MovePanelProps> = {}) {
 const noteField = () =>
   screen.getByLabelText<HTMLTextAreaElement>(p.note.label);
 
+/** Opens an empty note's field with its "My note" button (R-116). */
+const openNote = () => {
+  fireEvent.click(screen.getByRole('button', { name: p.note.label }));
+};
+
 describe('MovePanel', () => {
   it('shows the chapter intro at the root, and no note there', () => {
     renderPanel();
@@ -70,8 +75,27 @@ describe('MovePanel', () => {
     expect(screen.queryByText(/Arrows/)).toBeNull();
   });
 
+  it('shows an empty note as one "My note" button that opens the field (R-116)', () => {
+    renderPanel({ move: BF4 });
+    expect(screen.queryByLabelText(p.note.label)).toBeNull();
+    expect(screen.queryByRole('button', { name: p.note.save })).toBeNull();
+    // The hint still says who sees it before the field opens.
+    const hint = screen.getByText(p.note.private);
+    expect(
+      screen
+        .getByRole('button', { name: p.note.label })
+        .getAttribute('aria-describedby'),
+    ).toBe(hint.id);
+    openNote();
+    expect(noteField().value).toBe('');
+    expect(document.activeElement).toBe(noteField());
+    expect(screen.queryByRole('button', { name: p.note.label })).toBeNull();
+  });
+
   it('labels the private note and describes it as only the player’s', () => {
     renderPanel({ move: BF4, note: 'Remember h3' });
+    // A written note stays open (R-116).
+    expect(screen.queryByRole('button', { name: p.note.label })).toBeNull();
     expect(noteField().value).toBe('Remember h3');
     const hint = screen.getByText(p.note.private);
     expect(noteField().getAttribute('aria-describedby')).toContain(hint.id);
@@ -79,6 +103,7 @@ describe('MovePanel', () => {
 
   it('saves the note and says so', async () => {
     const onSaveNote = renderPanel({ move: BF4 });
+    openNote();
     fireEvent.change(noteField(), { target: { value: 'Play h3 first' } });
     fireEvent.click(screen.getByRole('button', { name: p.note.save }));
     expect(onSaveNote).toHaveBeenCalledWith('Play h3 first');
@@ -87,6 +112,7 @@ describe('MovePanel', () => {
 
   it('saves with Ctrl+Enter in the note', async () => {
     const onSaveNote = renderPanel({ move: BF4 });
+    openNote();
     fireEvent.change(noteField(), { target: { value: 'Quick' } });
     fireEvent.keyDown(noteField(), { key: 'Enter', ctrlKey: true });
     await waitFor(() => {
@@ -100,6 +126,7 @@ describe('MovePanel', () => {
       ok: false,
       refusal: 'personalNote.tooLong',
     });
+    openNote();
     fireEvent.change(noteField(), { target: { value: 'x'.repeat(2001) } });
     fireEvent.click(screen.getByRole('button', { name: p.note.save }));
     expect(
@@ -112,6 +139,7 @@ describe('MovePanel', () => {
   it('says a failed request can be tried again', async () => {
     const onSaveNote = renderPanel({ move: BF4 });
     onSaveNote.mockRejectedValue(new Error('offline'));
+    openNote();
     fireEvent.click(screen.getByRole('button', { name: p.note.save }));
     expect(await screen.findByText(p.failed)).toBeDefined();
   });

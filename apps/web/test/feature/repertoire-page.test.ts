@@ -62,13 +62,17 @@ const notes = (): Promise<unknown[]> =>
 const names = (): Promise<unknown[]> =>
   sql.rows('select name, version from repertoires order by name');
 
+/** What Next passes the page for a repertoire's path without a query. */
+const pageProps = (id: string) => ({
+  params: Promise.resolve({ id }),
+  searchParams: Promise.resolve({}),
+});
+
 describe('the repertoire page', () => {
   it('renders for the owner with the graph and notes', async () => {
     const { rokas, london } = await cast();
     actAs(rokas);
-    const page = await RepertoirePage({
-      params: Promise.resolve({ id: london }),
-    });
+    const page = await RepertoirePage(pageProps(london));
     expect(isValidElement(page)).toBe(true);
     const data = await repertoirePageData(london);
     expect(data.repertoire).toMatchObject({
@@ -84,26 +88,20 @@ describe('the repertoire page', () => {
   it('is not found for another account’s repertoire and a malformed id', async () => {
     const { gabija, london } = await cast();
     actAs(gabija);
-    expect(
-      await outcomeOf(
-        RepertoirePage({ params: Promise.resolve({ id: london }) }),
-      ),
-    ).toEqual({ notFound: true });
-    expect(
-      await outcomeOf(
-        RepertoirePage({ params: Promise.resolve({ id: 'not-a-uuid' }) }),
-      ),
-    ).toEqual({ notFound: true });
+    expect(await outcomeOf(RepertoirePage(pageProps(london)))).toEqual({
+      notFound: true,
+    });
+    expect(await outcomeOf(RepertoirePage(pageProps('not-a-uuid')))).toEqual({
+      notFound: true,
+    });
   });
 
   it('sends a signed-out visitor to sign-in', async () => {
     const { london } = await cast();
     request.cookie = '';
-    expect(
-      await outcomeOf(
-        RepertoirePage({ params: Promise.resolve({ id: london }) }),
-      ),
-    ).toEqual({ redirectedTo: '/prisijungti' });
+    expect(await outcomeOf(RepertoirePage(pageProps(london)))).toEqual({
+      redirectedTo: '/prisijungti',
+    });
   });
 });
 

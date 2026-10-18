@@ -2,8 +2,9 @@
 // the confirm action. Both re-import the uploaded text, so every R-66 limit
 // is checked on the server whatever the browser did, and the confirm never
 // trusts a preview. Adding to a repertoire goes through ownRepertoire (the
-// domain's access rule, enforced again by the owner filter in the query)
-// and is saved against the version the preview showed (decision 6).
+// domain's access rule, enforced again by the owner filter in the query),
+// is refused when nothing in the file can be added (R-115), and is saved
+// against the version the preview showed (decision 6).
 import {
   chapterName,
   importPgn,
@@ -31,6 +32,7 @@ import {
 } from '@mychess/domain';
 import { z } from 'zod';
 import { getDb } from './db';
+import { mergeAddition, type NothingToAdd } from './import-merge';
 import { ownRepertoire } from './repertoires';
 
 /** The existing repertoire a preview was merged into. */
@@ -50,6 +52,8 @@ export interface ImportPreview {
   readonly chapters: readonly ChapterName[];
   readonly skipped: readonly Skipped[];
   readonly target: ImportTarget | null;
+  /** Why Import is refused for this target (R-115), or null. */
+  readonly refusal: NothingToAdd['reason'] | null;
 }
 
 const PGN_UNREADABLE = 'pgn.unreadable';
@@ -60,6 +64,7 @@ export type ImportRefusalKey =
   | 'pgn.tooManyGames'
   | 'pgn.tooDeep'
   | 'pgn.noValidGames'
+  | NothingToAdd['reason']
   | typeof PGN_UNREADABLE
   | 'repertoire.sideMismatch'
   | (typeof REPERTOIRE_REFUSALS)[keyof typeof REPERTOIRE_REFUSALS]
@@ -77,8 +82,14 @@ export interface ImportRefused {
 export type PreviewOutcome =
   { readonly ok: true; readonly preview: ImportPreview } | ImportRefused;
 
-export type ConfirmOutcome =
-  { readonly ok: true; readonly id: string } | ImportRefused;
+/** An import done: the repertoire, and the first chapter it brought. */
+interface Imported {
+  readonly ok: true;
+  readonly id: string;
+  readonly chapterId: string | null;
+}
+
+export type ConfirmOutcome = Imported | ImportRefused;
 
 const REQUEST_KEYS: readonly ImportRefusalKey[] = [
   PGN_UNREADABLE,
@@ -136,11 +147,11 @@ function requestRefused(error: z.ZodError): ImportRefused {
   return refused({ reason });
 }
 
-type Imported =
+type ImportedFile =
   { readonly ok: true; readonly value: ImportedRepertoire } | ImportRefused;
 
 /** The uploaded text imported for `side`, or the R-66 / R-64 refusal. */
-function importFile(file: z.infer<typeof previewRequestSchema>): Imported {
+function importFile(file: z.infer<typeof previewRequestSchema>): ImportedFile {
   const imported = importPgn(file.text, file.side);
   return imported.ok ? imported : refused(imported.refusal);
 }
@@ -158,6 +169,7 @@ function newPreview(
     chapters: namesOf(imported.graph.chapters, locale),
     skipped: imported.skipped,
     target: null,
+    refusal: null,
   };
 }
 
@@ -171,6 +183,7 @@ function mergedPreview(
   const before = loaded.graph;
   const after = merged.graph;
   const { id, name, version } = loaded.repertoire;
+  const addition = mergeAddition(before, after);
   return {
     summary: summarize(after),
     chapters: namesOf(after.chapters.slice(before.chapters.length), locale),
@@ -181,11 +194,11 @@ function mergedPreview(
       id,
       name,
       version,
-      added: {
-        chapters: after.chapters.length - before.chapters.length,
-        moves: after.moves.length - before.moves.length,
-      },
+      added: addition.ok
+        ? { chapters: addition.value.chapters, moves: addition.value.moves }
+        : { chapters: 0, moves: 0 },
     },
+    refusal: addition.ok ? null : addition.refusal.reason,
   };
 }
 
@@ -244,6 +257,8 @@ async function importInto(
 ): Promise<ConfirmOutcome> {
   const merge = await mergeIntoOwn(account, target.id, imported);
   if (!merge.ok) return merge;
+  const addition = mergeAddition(merge.loaded.graph, merge.merged.graph);
+  if (!addition.ok) return refused(addition.refusal);
   // The save bumps only the previewed version, in the same transaction it
   // writes in: a repertoire changed since the preview (or since the load
   // above) is refused as stale and nothing is written.
@@ -254,7 +269,8 @@ async function importInto(
     after: merge.merged.graph,
     now,
   });
-  return saved.ok ? { ok: true, id: target.id } : refused(saved.refusal);
+  if (!saved.ok) return refused(saved.refusal);
+  return { ok: true, id: target.id, chapterId: addition.value.firstChapterId };
 }
 
 /**
@@ -281,5 +297,9 @@ export async function confirmImport(
     graph: imported.value.graph,
     now,
   });
-  return { ok: true, id };
+  return {
+    ok: true,
+    id,
+    chapterId: imported.value.graph.chapters[0]?.id ?? null,
+  };
 }

@@ -1,6 +1,10 @@
 'use client';
 
-import type { InviteKind, InviteState } from '@mychess/domain';
+import {
+  OPEN_INVITE_LIMIT,
+  type InviteKind,
+  type InviteState,
+} from '@mychess/domain';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useActionState, useId, useState, type JSX } from 'react';
 import { DISPLAY_TIME_ZONE } from '../../lib/time-zone';
@@ -133,7 +137,11 @@ function InviteForm({
   return (
     <div className="flex flex-col gap-4">
       <StatusLine
-        text={state.refusal === undefined ? null : t(state.refusal)}
+        text={
+          state.refusal === undefined
+            ? null
+            : t(state.refusal, { limit: OPEN_INVITE_LIMIT })
+        }
         tone="error"
       />
       <form

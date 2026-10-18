@@ -171,6 +171,21 @@ describe('InvitesSection: making an invite (R-98, R-110)', () => {
     ).toBe(true);
     expect(screen.queryByLabelText(i.link)).toBeNull();
   });
+
+  it('names the open-invite limit when it is reached (R-114)', async () => {
+    server.create.mockResolvedValue({ refusal: 'coach.inviteLimit' });
+    renderSection();
+    fireEvent.click(createButton());
+    const said = MESSAGES.lt.coach.inviteLimit.replace('{limit}', '50');
+    await waitFor(() => {
+      expect(
+        screen.getAllByRole('status').some((line) => line.textContent === said),
+      ).toBe(true);
+    });
+    // The limit comes from OPEN_INVITE_LIMIT, not from the catalogue text.
+    expect(MESSAGES.lt.coach.inviteLimit).toContain('{limit}');
+    expect(MESSAGES.en.coach.inviteLimit).toContain('{limit}');
+  });
 });
 
 describe('InvitesSection: the invite list', () => {

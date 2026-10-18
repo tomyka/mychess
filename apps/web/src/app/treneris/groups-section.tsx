@@ -10,7 +10,7 @@ import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
 import { createGroupAction, type CreateGroupState } from './actions';
 
-/** One of the coach's groups as the coach area lists them. */
+/** One of the coach's groups as the coach dashboard lists them. */
 export interface CoachGroupRow {
   readonly id: string;
   readonly name: string;

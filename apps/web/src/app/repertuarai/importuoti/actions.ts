@@ -4,7 +4,7 @@
 // input to the import use cases, which parse it, re-import the text and
 // check access. The owner is always the session account.
 import { redirect } from 'next/navigation';
-import { repertoireRoute } from '../../../lib/routes';
+import { repertoireChapterRoute, repertoireRoute } from '../../../lib/routes';
 import {
   confirmImport,
   previewImport,
@@ -21,12 +21,19 @@ export async function previewImportAction(
   return previewImport(account, input);
 }
 
-/** Imports the upload and opens the repertoire; a refusal is returned. */
+/**
+ * Imports the upload and opens the repertoire on the first chapter it
+ * brought; a refusal is returned.
+ */
 export async function confirmImportAction(
   input: unknown,
 ): Promise<ImportRefused> {
   const account = await requireOnboarded();
   const done = await confirmImport(account, input, new Date());
   if (!done.ok) return done;
-  redirect(repertoireRoute(done.id));
+  redirect(
+    done.chapterId === null
+      ? repertoireRoute(done.id)
+      : repertoireChapterRoute(done.id, done.chapterId),
+  );
 }

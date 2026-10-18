@@ -1,5 +1,6 @@
 import { START_KEY, type Chapter } from '@mychess/chess';
 import {
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -40,7 +41,7 @@ function renderList(chapterId = 'c2', chapters = CHAPTERS) {
   return onSelect;
 }
 
-const disclosure = () => screen.getByRole('button', { name: /2 skyrius iš 3/ });
+const disclosure = () => screen.getByRole('button', { name: /Skyrius 2 iš 3/ });
 
 describe('ChapterList', () => {
   it('shows the chosen chapter and where it is among them, closed', () => {
@@ -48,6 +49,25 @@ describe('ChapterList', () => {
     expect(disclosure().getAttribute('aria-expanded')).toBe('false');
     expect(disclosure().textContent).toContain('Prieš karaliaus indą');
     expect(screen.queryByRole('list')).toBeNull();
+  });
+
+  it('starts open on a desktop, but closed for a single chapter (R-116)', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query === '(min-width: 1024px)',
+    }));
+    try {
+      renderList();
+      expect(disclosure().getAttribute('aria-expanded')).toBe('true');
+      cleanup();
+      renderList('c1', CHAPTERS.slice(0, 1));
+      expect(
+        screen
+          .getByRole('button', { name: /Skyrius 1 iš 1/ })
+          .getAttribute('aria-expanded'),
+      ).toBe('false');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('lists every chapter by its title when opened', () => {
@@ -58,7 +78,7 @@ describe('ChapterList', () => {
     expect(rows.map((row) => row.textContent)).toEqual([
       'Londono sistema',
       'Prieš karaliaus indą',
-      '3 skyrius',
+      'Skyrius 3',
     ]);
     expect(rows[1]?.getAttribute('aria-current')).toBe('true');
     expect(rows[0]?.getAttribute('aria-current')).toBeNull();
@@ -67,7 +87,7 @@ describe('ChapterList', () => {
   it('selects a chapter, closes the list and returns focus to the disclosure', () => {
     const onSelect = renderList();
     fireEvent.click(disclosure());
-    fireEvent.click(screen.getByRole('button', { name: '3 skyrius' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Skyrius 3' }));
     expect(onSelect).toHaveBeenCalledWith('c3');
     expect(screen.queryByRole('list')).toBeNull();
     expect(document.activeElement).toBe(disclosure());
@@ -118,7 +138,7 @@ describe('ChapterList in builder mode', () => {
   it('names each row’s rename and delete after its chapter', () => {
     renderBuilder();
     expect(named('Pervadinti skyrių „Londono sistema“')).toBeDefined();
-    expect(named('Ištrinti skyrių „3 skyrius“')).toBeDefined();
+    expect(named('Ištrinti skyrių „Skyrius 3“')).toBeDefined();
   });
 
   it('adds a chapter from the end of the list and closes it', () => {
@@ -131,14 +151,14 @@ describe('ChapterList in builder mode', () => {
 
   it('renames in place, and Escape cancels back to the rename button', async () => {
     const builder = renderBuilder();
-    fireEvent.click(named('Pervadinti skyrių „3 skyrius“'));
+    fireEvent.click(named('Pervadinti skyrių „Skyrius 3“'));
     const field = screen.getByRole<HTMLInputElement>('textbox', {
       name: c.renameLabel,
     });
-    expect(field.value).toBe('3 skyrius');
+    expect(field.value).toBe('Skyrius 3');
     fireEvent.keyDown(field, { key: 'Escape' });
-    expect(document.activeElement).toBe(named('Pervadinti skyrių „3 skyrius“'));
-    fireEvent.click(named('Pervadinti skyrių „3 skyrius“'));
+    expect(document.activeElement).toBe(named('Pervadinti skyrių „Skyrius 3“'));
+    fireEvent.click(named('Pervadinti skyrių „Skyrius 3“'));
     fireEvent.change(screen.getByRole('textbox', { name: c.renameLabel }), {
       target: { value: 'Sistema su h3' },
     });
@@ -156,7 +176,7 @@ describe('ChapterList in builder mode', () => {
         refusal: 'chapter.nameBlank',
       }),
     });
-    fireEvent.click(named('Pervadinti skyrių „3 skyrius“'));
+    fireEvent.click(named('Pervadinti skyrių „Skyrius 3“'));
     fireEvent.click(named(c.renameSubmit));
     expect(
       await screen.findByText(MESSAGES.lt.chapter.nameBlank),
@@ -190,11 +210,11 @@ describe('ChapterList in builder mode', () => {
   it('disables every chapter edit while saving', () => {
     renderBuilder({ disabled: true });
     expect(named(c.add)).toHaveProperty('disabled', true);
-    expect(named('Ištrinti skyrių „3 skyrius“')).toHaveProperty(
+    expect(named('Ištrinti skyrių „Skyrius 3“')).toHaveProperty(
       'disabled',
       true,
     );
-    expect(named('Pervadinti skyrių „3 skyrius“')).toHaveProperty(
+    expect(named('Pervadinti skyrių „Skyrius 3“')).toHaveProperty(
       'disabled',
       true,
     );

@@ -24,7 +24,16 @@ const BYTES_PER_MB = 1024 * 1024;
 const shownLimit = ({ key, limit }: FlowMessage): number | undefined =>
   key === 'pgn.tooLarge' && limit !== undefined ? limit / BYTES_PER_MB : limit;
 
-/** The flow's one status line: a refusal, or what a slow wait is for. */
+/** Why Import is refused for the previewed target (R-115), or null. */
+function previewRefusal({ preview }: Flow): FlowMessage | null {
+  const refusal = preview?.refusal ?? null;
+  return refusal === null ? null : { key: refusal };
+}
+
+/**
+ * The flow's one status line: a refusal (the last request's, else the
+ * preview's), or what a slow wait is for.
+ */
 function FlowStatus({
   id,
   flow,
@@ -35,7 +44,8 @@ function FlowStatus({
   const t = useTranslations();
   const messages = useMessages();
   const again = useRef<HTMLButtonElement>(null);
-  const { message, slow, stale } = flow;
+  const { slow, stale } = flow;
+  const message = flow.message ?? previewRefusal(flow);
   useEffect(() => {
     if (stale) again.current?.focus();
   }, [stale]);
@@ -70,7 +80,7 @@ function ConfirmBar({ flow }: { readonly flow: Flow }): JSX.Element {
     <div className="fixed inset-x-0 bottom-0 z-10 bg-surface px-gutter pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-sheet md:static md:z-auto md:bg-transparent md:p-0 md:shadow-none">
       <button
         type="button"
-        disabled={flow.pending}
+        disabled={flow.pending || previewRefusal(flow) !== null}
         onClick={flow.confirm}
         className={`${PRIMARY_BUTTON} w-full`}
       >

@@ -65,6 +65,8 @@ export interface RepertoireScreenProps {
   readonly notes: Readonly<Record<string, string>>;
   /** The opening names the chapters are named after (decision 17). */
   readonly ecoNames: Readonly<Record<string, string>>;
+  /** The chapter to open on; null or unknown opens the first. */
+  readonly chapterId?: string | null;
 }
 
 type Dispatch = ActionDispatch<[action: ScreenAction]>;
@@ -152,7 +154,7 @@ function EmptyRepertoire({
         href={importIntoRoute(id)}
         className={`${SECONDARY_BUTTON} self-start`}
       >
-        {t('panel.addFromPgn')}
+        {t('header.importInto')}
       </Link>
     </div>
   );
@@ -341,7 +343,7 @@ function ScreenBuilderBar({
 function useRepertoireScreen(props: RepertoireScreenProps) {
   const { repertoire } = props;
   const [state, dispatch] = useReducer(screenReducer, props, (p) =>
-    initialState(p.graph, p.repertoire.version),
+    initialState(p.graph, p.repertoire.version, p.chapterId ?? null),
   );
   const [ecoNames, setEcoNames] = useState(props.ecoNames);
   const edit = useEdit(repertoire.id, state, dispatch, setEcoNames);

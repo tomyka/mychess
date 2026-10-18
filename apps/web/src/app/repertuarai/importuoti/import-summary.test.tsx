@@ -26,6 +26,7 @@ const PREVIEW: ImportPreview = {
     { game: 9, reason: 'pgn.noMoves' },
   ],
   target: null,
+  refusal: null,
 };
 
 function renderSummary(
@@ -48,8 +49,8 @@ describe('ImportSummary', () => {
     for (const text of [
       '6 skyriai',
       '7 variantai',
-      '88 pozicijos',
-      '3 perstatos',
+      '88 padėtys',
+      '3 ėjimų perstatymai',
       '1 ėjimas',
     ]) {
       expect(screen.getByText(text)).toBeDefined();
@@ -63,7 +64,7 @@ describe('ImportSummary', () => {
       within(list)
         .getAllByRole('listitem')
         .map((item) => item.textContent),
-    ).toEqual(['Sicilijos gynyba, Taimanovo variantas', '2 skyrius']);
+    ).toEqual(['Sicilijos gynyba, Taimanovo variantas', 'Skyrius 2']);
   });
 
   it('lists the skipped games with their reason and move', () => {
@@ -76,9 +77,9 @@ describe('ImportSummary', () => {
         .getAllByRole('listitem')
         .map((item) => item.textContent),
     ).toEqual([
-      '7 partija: neleistinas ėjimas, Nxe4',
-      '8 partija: antras atsakymas toje pačioje pozicijoje, 5...a6',
-      '9 partija: partijoje nėra ėjimų',
+      'Partija 7: neleistinas ėjimas, Nxe4',
+      'Partija 8: antras atsakymas toje pačioje padėtyje, 5...a6',
+      'Partija 9: partijoje nėra ėjimų',
     ]);
   });
 
@@ -92,14 +93,14 @@ describe('ImportSummary', () => {
     );
     expect(
       screen.getByText(
-        '1 partija: antras atsakymas toje pačioje pozicijoje, 2. Bf4',
+        'Partija 1: antras atsakymas toje pačioje padėtyje, 2. Bf4',
       ),
     ).toBeDefined();
   });
 
   it('says every game is valid when none was skipped', () => {
     renderSummary({ ...PREVIEW, skipped: [] });
-    expect(screen.getByText('Visos 2 partijos tinkamos')).toBeDefined();
+    expect(screen.getByText('Visos partijos tinkamos (2)')).toBeDefined();
     expect(screen.queryByRole('list', { name: /Praleistos/ })).toBeNull();
   });
 

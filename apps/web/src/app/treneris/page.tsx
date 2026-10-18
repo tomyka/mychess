@@ -20,7 +20,7 @@ function Header(): JSX.Element {
   );
 }
 
-// The coach area (plan decision 11): only the coach's own players, groups
+// The coach dashboard (plan decision 11): only the coach's own players, groups
 // and invites, read through the loader. Without Coach mode the loader
 // sends the account to settings, where the switch is.
 export default async function CoachPage(): Promise<JSX.Element> {

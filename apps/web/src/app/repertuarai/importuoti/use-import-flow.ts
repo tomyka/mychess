@@ -3,7 +3,6 @@ import {
   useEffect,
   useReducer,
   useRef,
-  useState,
   useTransition,
   type Dispatch,
   type RefObject,
@@ -13,6 +12,7 @@ import type {
   ImportRefusalKey,
   ImportRefused,
 } from '../../../server/import-preview';
+import { useSlow } from '../../use-slow';
 import { confirmImportAction, previewImportAction } from './actions';
 
 /** One of the account's repertoires the upload can be added to. */
@@ -78,9 +78,6 @@ const TARGET_GONE: ReadonlySet<ImportRefusalKey> = new Set([
   'repertoire.sideMismatch',
 ]);
 
-/** How long a wait lasts before the status line says what is happening. */
-const SLOW_MS = 1000;
-
 const messageOf = (refused: ImportRefused): FlowMessage =>
   refused.limit === undefined
     ? { key: refused.refusal }
@@ -135,22 +132,6 @@ function fileRefusal(file: File | null): FlowMessage | null {
   return file.size > PGN_LIMITS.bytes
     ? { key: 'pgn.tooLarge', limit: PGN_LIMITS.bytes }
     : null;
-}
-
-/** True once `pending` has lasted about a second. */
-function useSlow(pending: boolean): boolean {
-  const [slow, setSlow] = useState(false);
-  useEffect(() => {
-    if (!pending) return undefined;
-    const timer = setTimeout(() => {
-      setSlow(true);
-    }, SLOW_MS);
-    return () => {
-      clearTimeout(timer);
-      setSlow(false);
-    };
-  }, [pending]);
-  return pending && slow;
 }
 
 interface StepFocus {

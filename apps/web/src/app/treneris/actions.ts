@@ -1,6 +1,6 @@
 'use server';
 
-// The coach area's actions. Each starts with requireCoach(): the coach is
+// The coach dashboard's actions. Each starts with requireCoach(): the coach is
 // always the session account, never an id from the form (checklist 4).
 import {
   addMember,
@@ -24,11 +24,11 @@ import {
   type GroupNameIssue,
   type InviteIssue,
 } from '../../server/coach-input';
+import { accountIdSchema } from '../../server/account-id';
 import { requireCoach } from '../../server/coaching';
 import { getDb } from '../../server/db';
 import { readWebEnv } from '../../server/env';
 
-const playerIdSchema = z.string().min(1).max(100);
 /** A group or invite id from a form. */
 const idSchema = z.uuid();
 
@@ -84,7 +84,7 @@ export async function renameGroupAction(
 }
 
 /**
- * Deletes one of the coach's own groups and goes back to the coach area;
+ * Deletes one of the coach's own groups and goes back to the coach dashboard;
  * any other group changes nothing.
  */
 export async function deleteGroupAction(form: FormData): Promise<void> {
@@ -100,7 +100,7 @@ export async function deleteGroupAction(form: FormData): Promise<void> {
 
 const membershipSchema = z.object({
   groupId: idSchema,
-  playerId: playerIdSchema,
+  playerId: accountIdSchema,
 });
 
 /** The membership a form names, for the session coach; null if malformed. */
@@ -131,7 +131,7 @@ export async function removeMemberAction(form: FormData): Promise<void> {
 /** The coach ends a Coach link to one of their players. */
 export async function unlinkPlayerAction(form: FormData): Promise<void> {
   const coach = await requireCoach();
-  const playerId = playerIdSchema.safeParse(form.get('playerId'));
+  const playerId = accountIdSchema.safeParse(form.get('playerId'));
   if (playerId.success) await unlink(getDb(), coach.id, playerId.data);
   refresh();
 }

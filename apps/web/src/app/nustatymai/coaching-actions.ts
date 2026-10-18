@@ -10,10 +10,10 @@ import {
 import type { CoachRefusal } from '@mychess/domain';
 import { refresh } from 'next/cache';
 import { z } from 'zod';
+import { accountIdSchema } from '../../server/account-id';
 import { getDb } from '../../server/db';
 import { requireOnboarded } from '../../server/session';
 
-const coachIdSchema = z.string().min(1).max(100);
 const groupIdSchema = z.uuid();
 
 /** Switches Coach mode on for the session account (R-11, R-13). */
@@ -63,7 +63,7 @@ export async function stopCoachingAction(): Promise<StopCoachingState> {
  */
 export async function unlinkCoachAction(form: FormData): Promise<void> {
   const player = await requireOnboarded();
-  const coachId = coachIdSchema.safeParse(form.get('coachId'));
+  const coachId = accountIdSchema.safeParse(form.get('coachId'));
   if (coachId.success) await unlink(getDb(), coachId.data, player.id);
   refresh();
 }

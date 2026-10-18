@@ -74,7 +74,7 @@ describe('DeleteSection (R-82)', () => {
       d.items.sessions,
     ]);
     expect(d.items.repertoires).toBe(
-      'repertuarai, jų skyriai, ėjimai, komentarai ir asmeninės pastabos;',
+      'repertuarai, jų skyriai, ėjimai, komentarai ir asmeniniai užrašai;',
     );
     expect(screen.getByText(d.irreversible)).toBeDefined();
     const link = screen.getByRole('link', {

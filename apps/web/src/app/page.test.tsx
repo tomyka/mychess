@@ -50,8 +50,8 @@ describe('HomeView', () => {
     },
   );
 
-  // C-M1-1: the coach area appears alongside the player's own area.
-  it('links a coach to the coach area', () => {
+  // C-M1-1: the coach dashboard appears alongside the player's own area.
+  it('links a coach to the coach dashboard', () => {
     render(
       <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
         <HomeView displayName="Jonas" isCoach />

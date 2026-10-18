@@ -1,4 +1,5 @@
 import { createInvite, inviteTokenHash } from '@mychess/db';
+import { OPEN_INVITE_LIMIT } from '@mychess/domain';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
@@ -151,6 +152,26 @@ describe('createInviteAction (R-98, R-99, R-110)', () => {
     expect(await sql.rows('select coach_id as "coachId" from invites')).toEqual(
       [{ coachId: jonas.id }],
     );
+  });
+
+  it('refuses a 51st open invite and makes nothing (R-114)', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const now = new Date();
+    for (let made = 0; made < OPEN_INVITE_LIMIT; made += 1) {
+      const invite = await createInvite(testDb(), {
+        coachId: jonas.id,
+        kind: 'personal',
+        groupId: null,
+        now,
+      });
+      if (!invite.ok) throw new Error(invite.refusal.reason);
+    }
+    actAs(jonas);
+    expect(
+      await outcomeOf(createInviteAction({}, formOf({ kind: 'personal' }))),
+    ).toEqual({ refusal: 'coach.inviteLimit' });
+    expect(await sql.count('invites')).toBe(OPEN_INVITE_LIMIT);
+    expect(request.refreshed).toBe(0);
   });
 
   it('sends an account without Coach mode to settings', async () => {

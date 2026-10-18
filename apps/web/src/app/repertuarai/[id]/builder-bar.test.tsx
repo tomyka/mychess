@@ -41,7 +41,7 @@ describe('BuilderBar: removing a move', () => {
     fireEvent.click(button(b.remove));
     expect(
       screen.getByText(
-        'Pašalinti 6...a6 ir 14 po jo einančių ėjimų, kuriuos pasiekia tik jis?',
+        'Pašalinti 6...a6 ir 14 tolesnių ėjimų, pasiekiamų tik per jį?',
       ),
     ).toBeDefined();
     expect(document.activeElement).toBe(button(b.removeCancel));

@@ -1,4 +1,4 @@
-import { useTranslations } from 'next-intl';
+import { useFormatter, useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useId, type JSX } from 'react';
 import { coachPlayerPath } from '../../lib/routes';
@@ -6,7 +6,7 @@ import { ConfirmedAction } from '../confirmed-action';
 import { SECTION, SECTION_TITLE, TEXT_LINK } from '../nustatymai/styles';
 import { unlinkPlayerAction } from './actions';
 
-/** One linked player as the coach area lists them. */
+/** One linked player as the coach dashboard lists them. */
 export interface CoachPlayerRow {
   readonly id: string;
   readonly displayName: string;
@@ -20,7 +20,9 @@ function PlayerRow({
   readonly player: CoachPlayerRow;
 }): JSX.Element {
   const t = useTranslations('coach.players');
+  const format = useFormatter();
   const nameId = useId();
+  const groups = player.groups.map((group) => group.name);
   return (
     <li className="flex flex-col gap-2 border-t border-border pt-4 first:border-t-0 first:pt-0">
       <Link
@@ -31,10 +33,10 @@ function PlayerRow({
         {player.displayName}
       </Link>
       <p className="text-fg-muted">
-        {player.groups.length === 0
+        {groups.length === 0
           ? t('noGroups')
           : t('groups', {
-              groups: player.groups.map((group) => group.name).join(', '),
+              groups: format.list(groups, { type: 'conjunction' }),
             })}
       </p>
       <ConfirmedAction

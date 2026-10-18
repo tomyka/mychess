@@ -34,6 +34,7 @@ const PREVIEW: ImportPreview = {
   chapters: [{ kind: 'text', text: 'Taimanov' }],
   skipped: [],
   target: null,
+  refusal: null,
 };
 
 const MERGED: ImportPreview = {
@@ -66,6 +67,19 @@ async function previewAsBlack(): Promise<void> {
   fireEvent.click(screen.getByRole('radio', { name: c.black }));
   fireEvent.click(screen.getByRole('button', { name: i.preview }));
   await screen.findByRole('heading', { name: i.summaryTitle });
+}
+
+/**
+ * The Import button once the preview's transition has settled: it is
+ * disabled while a preview is pending, which can outlast the first render
+ * of the summary when the machine is busy.
+ */
+async function enabledConfirm(): Promise<HTMLElement> {
+  const button = screen.getByRole('button', { name: i.confirm });
+  await waitFor(() => {
+    expect(button.hasAttribute('disabled')).toBe(false);
+  });
+  return button;
 }
 
 /** The repertoire a preview request names in `into`, if any. */
@@ -101,9 +115,11 @@ describe('ImportFlow', () => {
       side: 'black',
       into: undefined,
     });
-    expect(document.activeElement).toBe(heading);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(heading);
+    });
     expect(screen.getByText('1 skyrius')).toBeDefined();
-    expect(screen.getByText('taimanov.pgn · Juodaisiais')).toBeDefined();
+    expect(screen.getByText('taimanov.pgn · Juodieji')).toBeDefined();
     expect(screen.queryByRole('button', { name: i.preview })).toBeNull();
   });
 
@@ -141,7 +157,9 @@ describe('ImportFlow', () => {
     ).toBeDefined();
     settle({ ok: true, preview: PREVIEW });
     await screen.findByRole('heading', { name: i.summaryTitle });
-    expect(screen.queryByText(i.reading)).toBeNull();
+    await waitFor(() => {
+      expect(screen.queryByText(i.reading)).toBeNull();
+    });
   });
 
   it('asks for a file before reading one', () => {
@@ -191,7 +209,9 @@ describe('ImportFlow', () => {
     await previewAsBlack();
     fireEvent.click(screen.getByRole('button', { name: i.change }));
     expect(screen.queryByRole('heading', { name: i.summaryTitle })).toBeNull();
-    expect(document.activeElement).toBe(screen.getByLabelText(i.file));
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByLabelText(i.file));
+    });
     expect(screen.getByRole('button', { name: i.preview })).toBeDefined();
   });
 
@@ -221,7 +241,7 @@ describe('ImportFlow', () => {
     fireEvent.change(screen.getByLabelText(i.name), {
       target: { value: 'Taimanovas' },
     });
-    fireEvent.click(screen.getByRole('button', { name: i.confirm }));
+    fireEvent.click(await enabledConfirm());
     await waitFor(() => {
       expect(server.confirm).toHaveBeenCalledWith({
         text: PGN,
@@ -238,7 +258,7 @@ describe('ImportFlow', () => {
     });
     renderFlow();
     await previewAsBlack();
-    fireEvent.click(screen.getByRole('button', { name: i.confirm }));
+    fireEvent.click(await enabledConfirm());
     await screen.findByText(MESSAGES.lt.repertoire.nameBlank);
     expect(screen.getByLabelText(i.name).getAttribute('aria-invalid')).toBe(
       'true',
@@ -250,7 +270,7 @@ describe('ImportFlow', () => {
     await previewAsBlack();
     fireEvent.click(screen.getByRole('radio', { name: i.targetExisting }));
     await screen.findByText(/Prideda 2 skyrius/);
-    fireEvent.click(screen.getByRole('button', { name: i.confirm }));
+    fireEvent.click(await enabledConfirm());
     await waitFor(() => {
       expect(server.confirm).toHaveBeenCalledWith({
         text: PGN,
@@ -260,7 +280,9 @@ describe('ImportFlow', () => {
     });
     const again = await screen.findByRole('button', { name: i.previewAgain });
     expect(screen.getByText(MESSAGES.lt.repertoire.stale)).toBeDefined();
-    expect(document.activeElement).toBe(again);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(again);
+    });
     server.preview.mockClear();
     fireEvent.click(again);
     await waitFor(() => {
@@ -273,6 +295,39 @@ describe('ImportFlow', () => {
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: i.previewAgain })).toBeNull();
     });
+  });
+
+  it('disables Import and says why when nothing can be added (R-115)', async () => {
+    renderFlow();
+    await previewAsBlack();
+    const confirm = await enabledConfirm();
+    server.preview.mockResolvedValue({
+      ok: true,
+      preview: {
+        ...MERGED,
+        chapters: [],
+        target: {
+          id: 'r-black',
+          name: 'Taimanovas',
+          version: 4,
+          added: { chapters: 0, moves: 0 },
+        },
+        refusal: 'pgn.nothingToAdd',
+      },
+    });
+    fireEvent.click(screen.getByRole('radio', { name: i.targetExisting }));
+    const said = await screen.findByText(MESSAGES.lt.pgn.nothingToAdd);
+    expect(said.getAttribute('role')).toBe('status');
+    expect(confirm.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(confirm);
+    expect(server.confirm).not.toHaveBeenCalled();
+    // A new repertoire can still take the file.
+    server.preview.mockResolvedValue({ ok: true, preview: PREVIEW });
+    fireEvent.click(screen.getByRole('radio', { name: i.targetNew }));
+    await waitFor(() => {
+      expect(screen.queryByText(MESSAGES.lt.pgn.nothingToAdd)).toBeNull();
+    });
+    await enabledConfirm();
   });
 
   it('resets the target when the repertoire is gone', async () => {

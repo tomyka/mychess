@@ -32,7 +32,7 @@ describe('ScreenStatus', () => {
       values: { move: '4. Nf3' },
     });
     expect(screen.getByRole('status').textContent).toBe(
-      '4. Nf3, linijos pabaiga',
+      '4. Nf3, varianto pabaiga',
     );
   });
 

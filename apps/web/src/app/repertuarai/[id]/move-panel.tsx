@@ -4,7 +4,9 @@ import type { RepertoireMove } from '@mychess/chess';
 import { COMMENT_MAX } from '@mychess/domain';
 import { useMessages, useTranslations } from 'next-intl';
 import {
+  useEffect,
   useId,
+  useRef,
   useState,
   useTransition,
   type JSX,
@@ -104,9 +106,32 @@ const saveOnCtrlEnter =
     save();
   };
 
+/** An empty note's one "My note" button, which opens the field (R-116). */
+function NoteOpener({ onOpen }: { readonly onOpen: () => void }): JSX.Element {
+  const t = useTranslations('repertoires.note');
+  const hintId = useId();
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-describedby={hintId}
+        className={`${SECONDARY_BUTTON} gap-2`}
+      >
+        <LockIcon />
+        {t('label')}
+      </button>
+      <span id={hintId} className="text-sm text-fg-muted">
+        {t('private')}
+      </span>
+    </div>
+  );
+}
+
 /**
- * The viewer's private note on the move (R-21): a sunken well with a lock,
- * visibly apart from the comment. An empty note deletes it.
+ * The viewer's private note on the move (R-21). Empty, it is one "My
+ * note" button that opens the field; written, the field shows at once
+ * (R-116).
  */
 function PersonalNote({
   initial,
@@ -115,10 +140,46 @@ function PersonalNote({
   readonly initial: string;
   readonly onSaveNote: MovePanelProps['onSaveNote'];
 }): JSX.Element {
+  const [open, setOpen] = useState(initial !== '');
+  if (!open)
+    return (
+      <NoteOpener
+        onOpen={() => {
+          setOpen(true);
+        }}
+      />
+    );
+  return (
+    <NoteField
+      initial={initial}
+      onSaveNote={onSaveNote}
+      focused={initial === ''}
+    />
+  );
+}
+
+/**
+ * The note's field: a sunken well with a lock, visibly apart from the
+ * comment. An empty note deletes it. `focused`: opened by its button, so
+ * the field takes the focus.
+ */
+function NoteField({
+  initial,
+  onSaveNote,
+  focused,
+}: {
+  readonly initial: string;
+  readonly onSaveNote: MovePanelProps['onSaveNote'];
+  readonly focused: boolean;
+}): JSX.Element {
   const t = useTranslations();
   const fieldId = useId();
   const hintId = useId();
   const statusId = useId();
+  const field = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (focused) field.current?.focus();
+  }, [focused]);
   const [text, setText] = useState(initial);
   const { status, pending, save } = useFieldSave(onSaveNote);
   const said = useStatusText(status, t('repertoires.note.saved'));
@@ -130,6 +191,7 @@ function PersonalNote({
     <div className="flex flex-col gap-2 rounded-card bg-sunken p-3">
       <NoteHeading fieldId={fieldId} hintId={hintId} />
       <textarea
+        ref={field}
         id={fieldId}
         rows={3}
         value={text}

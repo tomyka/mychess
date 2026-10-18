@@ -46,7 +46,7 @@ vi.mock('./actions', () => ({
 
 const c = MESSAGES.lt.coach;
 
-describe('the coach area', () => {
+describe('the coach dashboard', () => {
   it('shows the players, groups and invites sections and a way home', async () => {
     render(
       <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>

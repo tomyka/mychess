@@ -67,10 +67,20 @@ describe('PlayersList', () => {
     ]);
     expect(
       playerItem('Rokas').getByText(
-        'Grupės: Sekmadienio grupė, Šeštadienio grupė',
+        'Grupės: Sekmadienio grupė ir Šeštadienio grupė',
       ),
     ).toBeDefined();
     expect(playerItem('Gabija').getByText(p.noGroups)).toBeDefined();
+  });
+
+  it('joins the group names as the locale joins a list', () => {
+    const three = [...ROKAS.groups, { id: 'g-3', name: 'Jaunimas' }];
+    renderList([{ ...ROKAS, groups: three }], 'en');
+    expect(
+      playerItem('Rokas').getByText(
+        'Groups: Sekmadienio grupė, Šeštadienio grupė, and Jaunimas',
+      ),
+    ).toBeDefined();
   });
 
   it('unlinks a player only after the confirm step', async () => {

@@ -5,6 +5,7 @@ import {
   importIntoRoute,
   invitePath,
   repertoireDeletedRoute,
+  repertoireChapterRoute,
   repertoireExportRoute,
   repertoireRoute,
   ROUTES,
@@ -16,7 +17,7 @@ describe('ROUTES', () => {
     expect(ROUTES.repertoireImport).toBe('/repertuarai/importuoti');
   });
 
-  it('names the coach area and the "Mano treneriai" section of settings', () => {
+  it('names the coach dashboard and the "Mano treneriai" section of settings', () => {
     expect(ROUTES.coach).toBe('/treneris');
     expect(ROUTES.myCoaches).toBe('/nustatymai#treneriai');
   });
@@ -33,14 +34,14 @@ describe('invitePath', () => {
 });
 
 describe('coachPlayerPath', () => {
-  it('is the coach area player page for the id, encoded', () => {
+  it('is the coach dashboard player page for the id, encoded', () => {
     expect(coachPlayerPath('p1')).toBe('/treneris/zaidejai/p1');
     expect(coachPlayerPath('a/b')).toBe('/treneris/zaidejai/a%2Fb');
   });
 });
 
 describe('coachGroupPath', () => {
-  it('is the coach area group page for the id, encoded', () => {
+  it('is the coach dashboard group page for the id, encoded', () => {
     expect(coachGroupPath('g1')).toBe('/treneris/grupes/g1');
     expect(coachGroupPath('a b')).toBe('/treneris/grupes/a%20b');
   });
@@ -49,6 +50,17 @@ describe('coachGroupPath', () => {
 describe('repertoireRoute', () => {
   it('is the repertoire list path followed by the id', () => {
     expect(repertoireRoute('3f1c')).toBe('/repertuarai/3f1c');
+  });
+});
+
+describe('repertoireChapterRoute', () => {
+  it('opens the repertoire on one chapter, the id encoded as a query value', () => {
+    expect(repertoireChapterRoute('3f1c', 'c3')).toBe(
+      '/repertuarai/3f1c?chapter=c3',
+    );
+    expect(repertoireChapterRoute('3f1c', 'a&b')).toBe(
+      '/repertuarai/3f1c?chapter=a%26b',
+    );
   });
 });
 

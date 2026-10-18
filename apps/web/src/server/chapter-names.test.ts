@@ -39,7 +39,7 @@ describe('chapterTitle', () => {
       ecoName('D02', 'lt'),
       'Mano Londonas',
       'London vs KID',
-      '4 skyrius',
+      'Skyrius 4',
       ecoName('B46', 'lt'),
     ]);
   });

@@ -39,12 +39,17 @@ function Chevron({ open }: { readonly open: boolean }): JSX.Element {
   );
 }
 
-/** Open on a desktop, closed on a phone; closing returns focus to the trigger. */
-function useDisclosure() {
+/**
+ * Open on a desktop, closed on a phone, and closed for a single chapter
+ * (R-116); closing returns focus to the trigger. `several` counts only as
+ * the list first shows.
+ */
+function useDisclosure(several: boolean) {
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const startsOpen = useRef(several);
   useEffect(() => {
-    if (isWide()) setOpen(true);
+    if (startsOpen.current && isWide()) setOpen(true);
   }, []);
   const close = () => {
     setOpen(false);
@@ -134,7 +139,7 @@ export function ChapterList({
 }: ChapterListProps): JSX.Element | null {
   const t = useTranslations();
   const listId = useId();
-  const { open, setOpen, trigger, close } = useDisclosure();
+  const { open, setOpen, trigger, close } = useDisclosure(chapters.length > 1);
   const index = chapters.findIndex((c) => c.id === chapterId);
   const chapter = chapters[index];
   if (chapter === undefined) return null;
