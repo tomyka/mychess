@@ -155,7 +155,8 @@ function useReturnFocus(step: Step): {
   const remove = useRef<HTMLButtonElement>(null);
   const from = useRef<Step>(step);
   useEffect(() => {
-    if (step === 'idle' && from.current === 'renaming') rename.current?.focus();
+    if (step !== 'renaming' && from.current === 'renaming')
+      rename.current?.focus();
     if (step === 'idle' && from.current === 'deleting') remove.current?.focus();
     from.current = step;
   }, [step]);
@@ -166,11 +167,13 @@ function useReturnFocus(step: Step): {
 function ActionButtons({
   id,
   focus,
+  renameRef,
   onRename,
   onDelete,
 }: {
   readonly id: string;
   readonly focus: ReturnType<typeof useReturnFocus>;
+  readonly renameRef: RefObject<HTMLButtonElement | null>;
   readonly onRename: () => void;
   readonly onDelete: () => void;
 }): JSX.Element {
@@ -178,7 +181,7 @@ function ActionButtons({
   return (
     <div className="flex flex-wrap gap-2">
       <button
-        ref={focus.rename}
+        ref={renameRef}
         type="button"
         onClick={onRename}
         className={SECONDARY_BUTTON}
@@ -203,12 +206,27 @@ function ActionButtons({
   );
 }
 
+/** Where Rename opens its field when not in place of the buttons. */
+interface RenameElsewhere {
+  /** Opens the field (the header's: in place of the h1). */
+  readonly onRename: () => void;
+  /** The Rename button, for focus to return to when the field closes. */
+  readonly renameRef: RefObject<HTMLButtonElement | null>;
+}
+
 /**
  * The repertoire's own actions (docs/design/repertoire-screen.md): rename,
  * download PGN, add from PGN and delete, the last two-step and inline.
- * Shown in the header on a desktop and in the panel on a phone.
+ * Shown in the header on a desktop and in the panel on a phone. Rename
+ * opens in place of the buttons, unless `elsewhere` says where it opens.
  */
-export function RepertoireActions({ id, name }: Repertoire): JSX.Element {
+export function RepertoireActions({
+  id,
+  name,
+  elsewhere,
+}: Repertoire & {
+  readonly elsewhere?: RenameElsewhere;
+}): JSX.Element {
   const t = useTranslations('repertoires.header');
   const [step, setStep] = useState<Step>('idle');
   const focus = useReturnFocus(step);
@@ -233,9 +251,13 @@ export function RepertoireActions({ id, name }: Repertoire): JSX.Element {
       <ActionButtons
         id={id}
         focus={focus}
-        onRename={() => {
-          setStep('renaming');
-        }}
+        renameRef={elsewhere?.renameRef ?? focus.rename}
+        onRename={
+          elsewhere?.onRename ??
+          (() => {
+            setStep('renaming');
+          })
+        }
         onDelete={() => {
           setStep('deleting');
         }}
@@ -249,8 +271,34 @@ export function RepertoireActions({ id, name }: Repertoire): JSX.Element {
 }
 
 /**
+ * The header's rename (desktop): the field takes the h1's place, and focus
+ * goes back to Rename when it closes.
+ */
+function useHeaderRename() {
+  const [step, setStep] = useState<Step>('idle');
+  const focus = useReturnFocus(step);
+  const elsewhere: RenameElsewhere = {
+    onRename: () => {
+      setStep('renaming');
+    },
+    renameRef: focus.rename,
+  };
+  return {
+    step,
+    elsewhere,
+    done: () => {
+      setStep('renamed');
+    },
+    cancel: () => {
+      setStep('idle');
+    },
+  };
+}
+
+/**
  * The top bar on a phone (back, the name on one line, the mode switch) and
- * the header on a desktop (back link, the name, the actions, the switch).
+ * the header on a desktop (back link, the name, the actions, the switch at
+ * the right end). On a desktop Rename turns the h1 into the name field.
  */
 export function RepertoireHeader({
   id,
@@ -258,6 +306,8 @@ export function RepertoireHeader({
   children,
 }: Repertoire & { readonly children?: ReactNode }): JSX.Element {
   const t = useTranslations('repertoires.header');
+  const rename = useHeaderRename();
+  const renaming = rename.step === 'renaming';
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-1 px-gutter py-1 lg:px-0 lg:py-0">
       <Link
@@ -276,16 +326,32 @@ export function RepertoireHeader({
         </svg>
         <span className="max-lg:sr-only">{t('back')}</span>
       </Link>
+      {renaming ? (
+        <div className="hidden min-w-0 flex-1 lg:flex lg:max-w-xl">
+          <RenameForm
+            id={id}
+            name={name}
+            onDone={rename.done}
+            onCancel={rename.cancel}
+          />
+        </div>
+      ) : null}
       <h1
         title={name}
-        className="min-w-0 flex-1 truncate text-lg font-semibold lg:flex-none lg:whitespace-normal lg:text-3xl lg:font-bold"
+        className={`min-w-0 flex-1 truncate text-lg font-semibold lg:flex-none lg:whitespace-normal lg:text-3xl lg:font-bold ${renaming ? 'lg:hidden' : ''}`}
       >
         {name}
       </h1>
-      <div className="hidden lg:flex">
-        <RepertoireActions id={id} name={name} />
+      <div
+        className={renaming ? 'hidden' : 'hidden lg:flex lg:flex-col lg:gap-2'}
+      >
+        <RepertoireActions id={id} name={name} elsewhere={rename.elsewhere} />
+        <StatusLine
+          text={rename.step === 'renamed' ? t('renamed') : null}
+          tone="success"
+        />
       </div>
-      {children}
+      <div className="lg:ml-auto">{children}</div>
     </header>
   );
 }

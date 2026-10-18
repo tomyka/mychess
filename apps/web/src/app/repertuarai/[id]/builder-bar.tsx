@@ -94,7 +94,11 @@ function Check(): JSX.Element {
   );
 }
 
-/** The four colour buttons: a swatch, the name beside it on a desktop. */
+/**
+ * The four colour buttons: a swatch at every width (the names beside them
+ * wrapped the row to three lines in the 360px desktop panel); the name is
+ * the accessible name and the tooltip.
+ */
 function ColorButtons({
   chosen,
   chosenRef,
@@ -116,7 +120,8 @@ function ColorButtons({
           onClick={() => {
             onColor(color);
           }}
-          className="inline-flex min-h-touch min-w-touch items-center gap-2 rounded-control lg:pr-2"
+          title={t(`colors.${color}`)}
+          className="inline-flex min-h-touch min-w-touch items-center rounded-control"
         >
           <span
             className={`inline-flex size-touch items-center justify-center rounded-control ${SWATCH[color]} ${color === chosen ? 'ring-2 ring-fg' : ''}`}
@@ -127,7 +132,7 @@ function ColorButtons({
               </span>
             ) : null}
           </span>
-          <span className="max-lg:sr-only">{t(`colors.${color}`)}</span>
+          <span className="sr-only">{t(`colors.${color}`)}</span>
         </button>
       ))}
     </div>

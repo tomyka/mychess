@@ -112,8 +112,9 @@ function MoveChip({
   const showNumber = token.numbered || !number.endsWith('...');
   const weight = isPlayerMove(context.graph, move) ? 'font-semibold' : '';
   const tone = isCurrent ? 'bg-accent text-accent-fg' : 'text-fg';
+  // The number and its move wrap as one, so "6." never ends a line alone.
   return (
-    <>
+    <span className="inline-flex items-center gap-x-1 whitespace-nowrap">
       {showNumber ? (
         <span aria-hidden="true" className="text-fg-muted tabular-nums">
           {number}
@@ -132,7 +133,7 @@ function MoveChip({
         {move.san}
         <MoveGlyphs comment={move.comment !== null} note={hasNote} />
       </button>
-    </>
+    </span>
   );
 }
 

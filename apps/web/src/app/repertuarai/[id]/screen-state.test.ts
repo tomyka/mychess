@@ -223,6 +223,31 @@ describe('screenReducer: builder controls', () => {
     });
   });
 
+  it('clears the status line on a mode switch, unless the repertoire is stale', () => {
+    const message = {
+      key: 'repertoires.board.notInRepertoire',
+      tone: 'info',
+    } as const;
+    const said = run(START, { type: 'say', message });
+    expect(run(said, { type: 'mode', mode: 'build' }).message).toBeNull();
+    expect(
+      run(
+        said,
+        { type: 'mode', mode: 'build' },
+        { type: 'say', message },
+        {
+          type: 'mode',
+          mode: 'browse',
+        },
+      ).message,
+    ).toBeNull();
+    const stale = run(START, { type: 'refused', reason: 'repertoire.stale' });
+    expect(run(stale, { type: 'mode', mode: 'build' }).message).toEqual({
+      key: 'repertoire.stale',
+      tone: 'error',
+    });
+  });
+
   const drawingAtD5 = run(
     START,
     { type: 'mode', mode: 'build' },

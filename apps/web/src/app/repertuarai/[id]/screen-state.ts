@@ -162,10 +162,20 @@ function moved(state: ScreenState, action: NavigationAction): ScreenState {
 
 function builder(state: ScreenState, action: BuilderAction): ScreenState {
   switch (action.type) {
-    case 'mode':
+    case 'mode': {
+      // A message about the other mode ("switch to builder to add it") no
+      // longer fits; the stale message stays until the page reloads.
+      const message = state.stale ? state.message : null;
       return action.mode === 'build'
-        ? { ...state, mode: action.mode }
-        : { ...state, mode: action.mode, drawMode: false, drawFrom: null };
+        ? { ...state, mode: action.mode, message }
+        : {
+            ...state,
+            mode: action.mode,
+            message,
+            drawMode: false,
+            drawFrom: null,
+          };
+    }
     case 'draw':
       return { ...state, drawMode: action.on, drawFrom: null };
     case 'drawColor':

@@ -75,6 +75,26 @@ function Card({
 
 const EMPTY_KEY = { white: 'emptyWhite', black: 'emptyBlack' } as const;
 
+/**
+ * The side's king beside its heading: the side's fill in both themes, an
+ * outline that stands out from the page (tokens.css, piece glyphs).
+ */
+function King({ side }: { readonly side: Side }): JSX.Element {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={`size-6 shrink-0 stroke-piece-outline ${side === 'white' ? 'fill-piece-white' : 'fill-piece-black'}`}
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    >
+      <path d="M12 2.5v4M10 4.5h4" fill="none" />
+      <path d="M12 8.5c-2-2.5-7-2-7 2.5 0 2.5 2 4 2 6.5h10c0-2.5 2-4 2-6.5 0-4.5-5-5-7-2.5z" />
+      <path d="M6.5 17.5h11v3.5h-11z" />
+    </svg>
+  );
+}
+
 function SideGroup({
   side,
   items,
@@ -88,7 +108,11 @@ function SideGroup({
   const titleId = useId();
   return (
     <section aria-labelledby={titleId} className="flex flex-col gap-3">
-      <h2 id={titleId} className="text-lg font-semibold">
+      <h2
+        id={titleId}
+        className="flex items-center gap-2 text-lg font-semibold"
+      >
+        <King side={side} />
         {t(side)}
       </h2>
       {items.length === 0 ? (

@@ -20,8 +20,9 @@ Sketches use English placeholders; the copy comes from i18n-content (Task
 - **Nothing overlays the board** (`training-screen.md`): no menus, toasts,
   dialogs or confirmations over it. Confirmations, the promotion choice and
   every message sit in the panel, inline, pushing content down.
-- **One status line per screen** (`StatusLine`, `role="status"`) at the top
-  of the panel for refusals and outcomes of board actions. Field saves (the
+- **One status line per screen** (`StatusLine`, `role="status"`) for
+  refusals and outcomes of board actions; on the repertoire page it sits
+  under the board row and the builder row, outside the scrolling panel. Field saves (the
   comment, the personal note, a rename) have their own status line under
   the field. Refusals are catalogue keys, shown in the `error` tone with the
   words, never colour alone.
@@ -152,7 +153,7 @@ repertoire with no chapters opens in builder mode.
 +--------------------------------------+
 | [Type a move   ][>]  [|<] [<] [>]    |  board row 56px: move field +
 +--------------------------------------+  submit, then start/back/forward
-|  (status line, when there is one)    |  ---- the panel scrolls below ----
+|  (status line, when there is one)    |  fixed too; the panel scrolls below
 |                                      |
 |  Chapter 2 of 6                  [v] |  chapter disclosure, 44px+:
 |  Sicilian, Taimanov: 5.Nc3           |  chapter title, clamp 2 lines
@@ -302,8 +303,9 @@ has a draw mode for touch and keyboard (plan decision 16).
 - **Colour buttons:** a filled swatch in the mark token (below), 44x44, in
   the PGN order green, red, yellow, blue; accessible name is the colour name;
   `aria-pressed` on the chosen one, which also shows a 2px `fg` ring and a
-  check mark (not colour alone). Desktop shows the colour name beside each
-  swatch; the phone shows the swatch only (the row has no room in LT).
+  check mark (not colour alone). Both widths show the swatch only, with the
+  colour name as accessible name and tooltip (`title`): names beside the
+  swatches wrapped the 360px desktop panel's row to three lines.
   Green is chosen when draw mode opens.
 - While draw mode is on, the board takes no moves (empty dests): a tap
   chooses a square. First tap: `board-selected` on that square and the live
@@ -324,22 +326,23 @@ has a draw mode for touch and keyboard (plan decision 16).
 +------------------------------------------------------------------------------+  actions wrap
 |                                                                              |
 |  +------------------------------------------+  +--------------------------+  |
-|  |                                          |  | (status line)            |  |
 |  |                                          |  | [Move      ][>][|<][<][>] |  |  board row
 |  |                                          |  | [Remove move] [Draw]     |  |  builder only
+|  |                                          |  | (status line)            |  |
 |  |                                          |  | Chapter 1 of 2       [^] |  |  open by default;
 |  |                                          |  |  > London System: 2..Nf6 |  |  max 5 rows tall,
 |  |              B O A R D                   |  |    King's Indian Attack  |  |  scrolls inside
 |  |   min(100dvh - header - 2*32,            |  |--------------------------|  |
-|  |       100vw - panel - 3*32)              |  | 1. d4 d5 2. Bf4 Nf6      |  |  move list:
-|  |   = 664px at 1280 x 800                  |  | 3. e3 [e6] 4. Nf3 c5     |  |  flex-1, scrolls
-|  |                                          |  | |  3... c5 4. c3 Nc6     |  |  inside, current
-|  |                                          |  |--------------------------|  |  move kept in view
-|  |                                          |  | COMMENT                  |  |
-|  |                                          |  | Solid: ...e6 and ...c5.  |  |
+|  |       100vw - panel - 3*32)              |  | COMMENT                  |  |
+|  |   = 664px at 1280 x 800                  |  | Solid: ...e6 and ...c5.  |  |
 |  |                                          |  | [lock] MY NOTE           |  |
 |  |                                          |  | [______________________] |  |
 |  |                                          |  | [ Save note ]            |  |
+|  |                                          |  |--------------------------|  |
+|  |                                          |  | 1. d4 d5 2. Bf4 Nf6      |  |  move list:
+|  |                                          |  | 3. e3 [e6] 4. Nf3 c5     |  |  flex-1, scrolls
+|  |                                          |  | |  3... c5 4. c3 Nc6     |  |  inside, current
+|  |                                          |  |                          |  |  move kept in view
 |  +------------------------------------------+  +--------------------------+  |
 |    <---------------- 664 ----------------->  32  <---- panel 360 ----->      |
 +------------------------------------------------------------------------------+
@@ -357,12 +360,16 @@ has a draw mode for touch and keyboard (plan decision 16).
   confirmation under the header row (below).
 - The board row heads the panel, so the typed-move field follows the board
   in tab order at both widths (plan Task 11).
-- On desktop the comment and note sit below the move list, as the move list
-  is the thing scanned most when browsing; on the phone they come first
-  because the fixed board leaves little room and the comment is what the
-  current position is about.
-- Draw mode on desktop: the builder row becomes the four colours with their
-  names, then Done; the hint is the first line under it.
+- The panel's order is the same at both widths, and the DOM follows it:
+  status line, chapter disclosure, comment and note, move list. (The first
+  draft put the move list above the comment on desktop with CSS `order`,
+  which made Tab reach the comment before the moves, WCAG 2.4.3.) On
+  desktop the move list is its own scroller (`flex-1`, at least `min-h-40`),
+  so stepping scrolls the moves and the comment above them stays in view;
+  the panel as a whole scrolls only when the builder's fields leave the
+  list less than that.
+- Draw mode on desktop: the builder row becomes the four colours, then
+  Done; the hint is the first line under it.
 - **640-1024px:** the panel moves under the board as on the phone; the board
   is capped at the viewport height minus the top bar.
 
@@ -448,10 +455,9 @@ Tab order follows the visual order at both widths:
   forward, [builder row], panel top to bottom.
 - **Desktop:** back link, rename, download, add from PGN, delete, mode
   switch, board, move field, submit, start, back, forward, [builder row],
-  status line action (Reload, when stale), chapter disclosure and list, move
-  list, comment, note. The status line sits visually above the board row but
-  is only focusable when it holds a button, and focus moves to that button
-  when it appears.
+  status line action (Reload, when stale), chapter disclosure and list,
+  comment, note, move list. The status line is only focusable when it holds
+  a button, and focus moves to that button when it appears.
 
 The board itself:
 
@@ -703,3 +709,33 @@ at 320px (40px squares, tap-tap still works).
 1. **First move in an empty repertoire** creates "Chapter 1" on its own
    (R-111; Empty repertoire state and Builder, above).
 2. **Chapter intros** stay read-only in S3 (R-112).
+
+## Decided at the built-screen review (ux-designer, 2026-10-18)
+
+Design decisions only; no product rule changes.
+
+1. **Panel order** is one DOM order at both widths (desktop section above).
+2. **Status line** sits under the board row and the builder row, outside the
+   scrolling panel, at both widths: a refusal stays in view however far the
+   panel has scrolled, and its place in Tab order is where it is seen.
+3. **Repertoire actions render twice** (header from `lg`, panel below it),
+   one of them `display: none`. Accepted: the hidden copy is out of the
+   accessibility tree and Tab order, and choosing in script would flash on
+   hydration.
+4. **Desktop rename** replaces the h1 with the name field, Save and Cancel;
+   the actions row hides meanwhile; focus returns to Rename on close.
+   "Saved" shows under the actions.
+5. **Mode switch on the phone** shows a pencil and the switch; the label is
+   the accessible name only (`max-sm:sr-only`). "Kūrimo režimas" beside the
+   switch left the repertoire name about 12 characters in the top bar. From
+   `sm` the label shows, and on desktop the switch sits at the header's
+   right end.
+6. **Draw hint** stays in the builder row, in the fixed region, not in the
+   scrolling panel: while drawing the player looks at the board, and a hint
+   at the top of a scrolled panel would be out of view.
+7. **Move list:** a move number and its move wrap as one (`whitespace-nowrap`
+   pair), so "6." never ends a line alone.
+8. **Switching mode** clears the status line (its message was about the
+   other mode), except the stale message.
+9. **Side headings** in Mano repertuarai show a king glyph (inline SVG,
+   `piece-*` tokens, `aria-hidden`).

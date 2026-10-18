@@ -224,7 +224,31 @@ interface Screen {
   readonly ecoNames: Readonly<Record<string, string>>;
 }
 
-/** The scrolling part of the panel: status, chapters, position, moves. */
+/**
+ * The page's status line, under the board row and the builder row and
+ * outside the scrolling panel, so a refusal is seen however far the panel
+ * has scrolled.
+ */
+function PanelStatus({ state }: { readonly state: ScreenState }): JSX.Element {
+  const router = useRouter();
+  return (
+    <div className="shrink-0 px-gutter lg:px-0">
+      <ScreenStatus
+        message={state.message}
+        stale={state.stale}
+        onReload={() => {
+          router.refresh();
+        }}
+      />
+    </div>
+  );
+}
+
+/**
+ * The scrolling part of the panel: chapters, then the position (comment
+ * and note), then the moves. The DOM order is the visual order at every
+ * width, so Tab follows what the eye sees (WCAG 2.4.3).
+ */
 function PanelBody({
   screen,
   notes,
@@ -232,7 +256,6 @@ function PanelBody({
   readonly screen: Screen;
   readonly notes: Notes;
 }): JSX.Element {
-  const router = useRouter();
   const { props, state, dispatch, edit } = screen;
   const { id, name } = props.repertoire;
   const chapter =
@@ -241,13 +264,6 @@ function PanelBody({
       : chapterOf(state.graph, state.chapterId);
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-gutter py-3 lg:px-0">
-      <ScreenStatus
-        message={state.message}
-        stale={state.stale}
-        onReload={() => {
-          router.refresh();
-        }}
-      />
       <ChapterList
         chapters={state.graph.chapters}
         chapterId={state.chapterId}
@@ -257,20 +273,22 @@ function PanelBody({
         }}
         builder={chapterBuilder(state, edit)}
       />
-      <div className="lg:order-1">
-        <PositionSection screen={screen} notes={notes} />
-      </div>
+      <PositionSection screen={screen} notes={notes} />
       {chapter === undefined ? null : (
-        <MoveList
-          graph={state.graph}
-          chapterId={state.chapterId}
-          path={state.path}
-          notes={notes.notes}
-          building={state.mode === 'build'}
-          onGoto={(path) => {
-            dispatch({ type: 'goto', path });
-          }}
-        />
+        // On a desktop the moves scroll on their own, so stepping keeps the
+        // comment above them in view; on a phone the whole panel scrolls.
+        <div className="lg:min-h-40 lg:flex-1 lg:overflow-y-auto">
+          <MoveList
+            graph={state.graph}
+            chapterId={state.chapterId}
+            path={state.path}
+            notes={notes.notes}
+            building={state.mode === 'build'}
+            onGoto={(path) => {
+              dispatch({ type: 'goto', path });
+            }}
+          />
+        </div>
       )}
       <PhoneActions id={id} name={name} />
     </div>
@@ -387,6 +405,7 @@ export function RepertoireScreen(props: RepertoireScreenProps): JSX.Element {
             play={play}
           />
           <ScreenBuilderBar screen={screen} />
+          <PanelStatus state={state} />
           <PanelBody screen={screen} notes={notes} />
         </div>
       </div>

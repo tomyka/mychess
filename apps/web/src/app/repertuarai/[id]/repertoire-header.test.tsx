@@ -53,6 +53,30 @@ describe('RepertoireHeader', () => {
       screen.getByRole('link', { name: h.back }).getAttribute('href'),
     ).toBe('/repertuarai');
   });
+
+  it('renames in place of the name and says it was saved', async () => {
+    renderWith(<RepertoireHeader id={ID} name="Londono sistema" />);
+    fireEvent.click(button(h.rename));
+    const field = screen.getByLabelText<HTMLInputElement>(h.renameLabel);
+    expect(field.value).toBe('Londono sistema');
+    expect(document.activeElement).toBe(field);
+    expect(field.closest('header')?.firstElementChild?.nextElementSibling).toBe(
+      field.closest('form')?.parentElement,
+    );
+    fireEvent.change(field, { target: { value: 'Londonas' } });
+    fireEvent.click(button(h.renameSubmit));
+    expect(await screen.findByText(h.renamed)).toBeDefined();
+    expect(screen.queryByLabelText(h.renameLabel)).toBeNull();
+    expect(document.activeElement).toBe(button(h.rename));
+  });
+
+  it('cancels the header rename and returns focus to Rename', () => {
+    renderWith(<RepertoireHeader id={ID} name="Londono sistema" />);
+    fireEvent.click(button(h.rename));
+    fireEvent.click(button(h.renameCancel));
+    expect(screen.queryByLabelText(h.renameLabel)).toBeNull();
+    expect(document.activeElement).toBe(button(h.rename));
+  });
 });
 
 describe('RepertoireActions', () => {

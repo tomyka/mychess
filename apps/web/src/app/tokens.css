@@ -46,6 +46,16 @@
   --color-learned-subtle: light-dark(#efe9fb, #2a2242);
   --color-on-state: light-dark(#ffffff, #111214);
 
+  /* ---- Piece glyphs off the board ----
+   * A side's king beside a heading (Mano repertuarai). The fill keeps the
+   * side's colour in both themes, so "Black" is a black king even on the
+   * dark page; the outline follows the theme so both kings stand out from
+   * the page (3:1 or more against bg).
+   */
+  --color-piece-white: #ffffff;
+  --color-piece-black: #000000;
+  --color-piece-outline: light-dark(#000000, #ecebe7);
+
   /* ---- Typography ----
    * System UI stack: no web-font download, full Lithuanian diacritics
    * (ą č ę ė į š ų ū ž). Move lists use tabular-nums.

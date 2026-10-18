@@ -27,7 +27,19 @@ export function ModeSwitch({
       }}
       className="inline-flex min-h-touch items-center gap-2 rounded-control px-2 font-semibold"
     >
-      <span>{t('build')}</span>
+      {/* On a phone the long LT label would squeeze the name: a pencil shows instead. */}
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="size-5 sm:hidden"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      >
+        <path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4" />
+      </svg>
+      <span className="max-sm:sr-only">{t('build')}</span>
       <span
         aria-hidden="true"
         className={`relative inline-flex h-6 w-10 shrink-0 rounded-full border border-border-strong ${building ? 'bg-accent' : 'bg-sunken'}`}

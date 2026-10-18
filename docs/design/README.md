@@ -73,6 +73,7 @@ inside Tailwind 4's `@theme`, so each one is also a utility class.
 | Interactive | `accent`, `accent-fg`, `focus` | primary buttons, links, focus ring |
 | States | `success`, `error`, `due`, `learned`, each with `-subtle`, plus `on-state` | see below |
 | Board | `board-light`, `board-dark`, `board-last-move`, `board-selected`, `board-target`, `board-check`, `board-arrow`, `board-correct`, `board-wrong`, `board-focus`, `board-mark-{green,red,yellow,blue}` | the board only; a separate `@theme static` block |
+| Piece glyphs | `piece-white`, `piece-black`, `piece-outline` (`fill-piece-white`, `stroke-piece-outline`) | a side's king off the board (Mano repertuarai headings): the fill is the side's colour in both themes, the outline follows the theme |
 | Type | `font-sans`, `font-mono`, `text-xs` ... `text-4xl` | system UI stack, 12-36px |
 | Spacing | 4px scale, plus `touch` (44px), `gutter` (16px), `gutter-wide` (32px), `panel` (360px) | `min-h-touch`, `px-gutter`, `w-panel` |
 | Radii | `control`, `card`, `board`, `pill` | `rounded-control`, ... |
@@ -113,6 +114,7 @@ same rule, but prefer tokens: a component should need no `dark:` class.
 | `board-focus` on light / dark square | 9.0 / 3.9 | 7.2 / 3.2 |
 | `board-mark-green` / `-red` / `-blue` on light square | 4.1 / 6.7 / 8.6 | 3.3 / 5.4 / 6.9 |
 | `board-mark-yellow` on light square | 1.8 | 1.5 |
+| `piece-outline` on `bg` (king glyph, 2026-10-18) | 19.0 | 15.5 |
 
 Board coordinates (opposite square colour on a square, about 2.3:1), the
 mark colours on dark squares (1.2 - 3.8) and yellow marks are supplementary,
