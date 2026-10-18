@@ -2,9 +2,9 @@
 
 How mychess looks and behaves. Owned by the `ux-designer` role
 (`docs/agent-team.md`). Screen notes live next to this file, one per screen
-(`training-screen.md`, ...); the lead attaches the relevant note to a slice
-plan, `web-dev` builds from it, and `ux-designer` signs off the result with
-screenshots.
+(`training-screen.md`, `repertoire-screen.md`, ...); the lead attaches the
+relevant note to a slice plan, `web-dev` builds from it, and `ux-designer`
+signs off the result with screenshots.
 
 ## References
 
