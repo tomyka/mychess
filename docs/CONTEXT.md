@@ -102,13 +102,17 @@ _Avoid_: Copy, share, subscription
 A Player's personal, editable copy of an assigned Repertoire, cut off from the Coach's later edits. The only way for a Player to change or add Moves to something they were assigned.
 _Avoid_: Clone, copy, duplicate
 
+**Comment**:
+Text on a Move of a Repertoire, from PGN or written in the builder. It belongs to the Repertoire: it is exported with it and seen by whoever may see the Repertoire (R-102, one paragraph per R-105). On a Coach's own Repertoire it is a Coach note.
+_Avoid_: Annotation, note (a Personal note is private)
+
 **Personal note**:
 A Player's private note on a Move or Position of any Repertoire they train, including a live-linked one. Never visible to the Coach.
-_Avoid_: Annotation, comment
+_Avoid_: Annotation, comment (a Comment belongs to the Repertoire)
 
 **Coach note**:
-A Coach's note on a Move of a Repertoire they own, shown to Players they assigned it to.
-_Avoid_: Annotation, comment (a Comment is a Thread)
+A Coach's note on a Move of a Repertoire they own, shown to Players they assigned it to; or on a Repertoire a Player shared with them, shown read-only to that Player with the Coach's name (R-42, R-107).
+_Avoid_: Annotation, comment (a Comment belongs to the Repertoire; discussion is a Thread)
 
 **Reconciliation**:
 Carrying a Player's training state across a change to a live-linked Repertoire: unchanged Moves keep their state, new Moves become to-learn, removed Moves leave review, a changed Move starts fresh. Followed by a "coach updated" Notification.
