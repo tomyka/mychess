@@ -28,6 +28,48 @@ export {
   type AdminAction,
   type AdminRefusal,
 } from './admin';
+export {
+  ACCESS_REFUSALS,
+  canCoachSee,
+  type AccessRefusal,
+  type CoachAccessFacts,
+  type CoachSubject,
+} from './coach-access';
+export {
+  COACH_REFUSALS,
+  GROUP_NAME_ISSUES,
+  GROUP_NAME_MAX,
+  canCreateGroup,
+  canInvite,
+  canStopCoaching,
+  groupNameSchema,
+  isCoach,
+  type CoachFacts,
+  type CoachRefusal,
+  type CoachState,
+  type StopCoaching,
+} from './coach';
+export {
+  INVITE_ISSUES,
+  INVITE_KINDS,
+  INVITE_REFUSALS,
+  INVITE_STATES,
+  INVITE_TTL_MS,
+  canAccept,
+  inviteExpiry,
+  inviteSchema,
+  inviteState,
+  inviteTokenSchema,
+  newInviteSchema,
+  type AcceptCounts,
+  type Acceptance,
+  type Invite,
+  type InviteKind,
+  type InviteRefusal,
+  type InviteState,
+  type InvitingCoach,
+  type NewInvite,
+} from './invite';
 // Refusals are values (CLAUDE.md); apps read the shape from here.
 export type { Result } from '@mychess/chess';
 export {
