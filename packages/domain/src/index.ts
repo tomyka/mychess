@@ -78,3 +78,21 @@ export {
   displayNameSchema,
   type DisplayName,
 } from './display-name';
+export {
+  CHAPTER_NAME_MAX,
+  COMMENT_MAX,
+  PERSONAL_NOTE_MAX,
+  REPERTOIRE_ISSUES,
+  REPERTOIRE_NAME_MAX,
+  REPERTOIRE_REFUSALS,
+  canEditRepertoire,
+  canViewRepertoire,
+  chapterNameSchema,
+  commentSchema,
+  personalNoteSchema,
+  repertoireNameSchema,
+  repertoireSchema,
+  type Repertoire,
+  type RepertoireAccessRefusal,
+} from './repertoire';
+export type { Side } from '@mychess/chess';
