@@ -3,6 +3,51 @@ import { describe, expect, it } from 'vitest';
 import { ECO } from './data/eco';
 import { ECO_LT } from './data/eco-lt';
 
+interface LineNode {
+  readonly children: Map<string, LineNode>;
+  readonly ends: number[];
+}
+
+const lineNode = (): LineNode => ({ children: new Map(), ends: [] });
+
+/**
+ * The indexes of the lines that are not legal from the start. The lines
+ * share long prefixes, so they are replayed as one tree: every position is
+ * reached once, which keeps this test fast under coverage and load.
+ */
+function illegalLines(lines: readonly (readonly string[])[]): Set<number> {
+  const root = lineNode();
+  lines.forEach((moves, index) => {
+    let node = root;
+    for (const san of moves) {
+      const next = node.children.get(san) ?? lineNode();
+      node.children.set(san, next);
+      node = next;
+    }
+    node.ends.push(index);
+  });
+  const illegal = new Set<number>();
+  const game = new Chess();
+  const allEnds = (node: LineNode): number[] => [
+    ...node.ends,
+    ...[...node.children.values()].flatMap(allEnds),
+  ];
+  const walk = (node: LineNode): void => {
+    for (const [san, child] of node.children) {
+      try {
+        game.move(san);
+      } catch {
+        allEnds(child).forEach((index) => illegal.add(index));
+        continue;
+      }
+      walk(child);
+      game.undo();
+    }
+  };
+  walk(root);
+  return illegal;
+}
+
 describe('ECO table', () => {
   it('has one entry for every code from A00 to E99, in order', () => {
     const codes = ['A', 'B', 'C', 'D', 'E'].flatMap((volume) =>
@@ -15,15 +60,11 @@ describe('ECO table', () => {
   });
 
   it('gives every entry an English name and a line legal from the start', () => {
-    const broken = ECO.filter((entry) => {
-      const game = new Chess();
-      try {
-        entry.moves.forEach((san) => game.move(san));
-      } catch {
-        return true;
-      }
-      return entry.name.trim() === '' || entry.moves.length === 0;
-    }).map((entry) => entry.code);
+    const illegal = illegalLines(ECO.map((entry) => entry.moves));
+    const broken = ECO.filter(
+      (entry, i) =>
+        illegal.has(i) || entry.name.trim() === '' || entry.moves.length === 0,
+    ).map((entry) => entry.code);
     expect(broken).toEqual([]);
   });
 
