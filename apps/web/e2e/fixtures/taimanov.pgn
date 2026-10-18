@@ -1,0 +1,69 @@
+[Event "English Attack"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "Gabija"]
+[Result "*"]
+
+{Taimanovo variantas: juodieji stato Qc7 ir a6, o žirgą laiko c6.} 1. e4 c5 2. Nf3 e6 3. d4 cxd4 4. Nxd4 Nc6 5. Nc3 Qc7 6. Be3 a6 7. Qd2 (7. Bd3 Nf6 8. O-O (8. Qe2 b5) 8... Ne5) 7... Nf6 8. O-O-O Bb4 9. f3 Ne5 {Juodieji spaudžia c4 langelį.} 10. Nb3 b5 11. Qe1 Be7 12. f4 Nc4 *
+
+[Event "6.Be2"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "Gabija"]
+[Result "*"]
+
+1. e4 c5 2. Nf3 e6 3. d4 cxd4 4. Nxd4 Nc6 5. Nc3 Qc7 6. Be2 a6 7. O-O Nf6 8. Be3 Bb4 {jei 9.Na4, tai Be7} 9. Na4 Be7 {[%cal Gb4e7]} 10. Nxc6 bxc6 11. Nb6 Rb8 12. Nxc8 Qxc8 *
+
+[Event "6.g3"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "Gabija"]
+[Result "*"]
+
+1. e4 c5 2. Nf3 e6 3. d4 cxd4 4. Nxd4 Nc6 5. Nc3 Qc7 6. g3 a6 7. Bg2 Nf6 8. O-O Be7 9. Re1 d6 10. Nxc6 bxc6 11. e5 dxe5 12. Rxe5 O-O *
+
+[Event "3.Nc3 move order"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "Gabija"]
+[Result "*"]
+
+1. e4 c5 2. Nf3 e6 3. Nc3 Nc6 4. d4 cxd4 5. Nxd4 Qc7 6. Be3 a6 7. Qd2 Nf6 8. O-O-O Bb4 9. f3 Ne5 10. Nb3 b5 *
+
+[Event "Alapin"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "Gabija"]
+[Result "*"]
+
+1. e4 c5 2. c3 d5 {Aktyviausias atsakymas.} 3. exd5 Qxd5 4. d4 Nf6 5. Nf3 e6 6. Be2 Nc6 7. O-O cxd4 8. cxd4 Be7 9. Nc3 Qd6 10. Be3 O-O 11. Qd2 b6 12. Rad1 Bb7 *
+
+[Event "Smith-Morra"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "Gabija"]
+[Result "*"]
+
+1. e4 c5 2. d4 cxd4 3. c3 d5 4. exd5 Qxd5 5. cxd4 Nc6 6. Nf3 Bg4 7. Nc3 Bxf3 8. gxf3 Qxd4 9. Qxd4 Nxd4 10. Nb5 Nc6 11. Nc7+ Kd7 12. Nxa8 e5 *
+
+[Event "Klaidinga partija"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "?"]
+[Black "Gabija"]
+[Result "*"]
+
+1. e4 c5 2. Nf3 e6 3. d4 cxd4 4. Nxd4 Nc6 5. Nc3 Qc7 6. Bxh7 *
