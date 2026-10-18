@@ -8,7 +8,11 @@ import {
   renameGroupAction,
   unlinkPlayerAction,
 } from '../../src/app/treneris/actions';
-import { coachGroupData, coachHomeData } from '../../src/server/coach-pages';
+import {
+  coachGroupData,
+  coachHomeData,
+  coachPlayerData,
+} from '../../src/server/coach-pages';
 import {
   actAs,
   coachPerson,
@@ -238,10 +242,12 @@ describe('unlinkPlayerAction (spec: either side may unlink)', () => {
     const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
     await link(jonas.id, rokas.id, groupId);
     actAs(jonas);
-    await outcomeOf(unlinkPlayerAction(formOf({ playerId: rokas.id })));
+    // Back to the dashboard: the player's page would now be 404.
+    expect(
+      await outcomeOf(unlinkPlayerAction(formOf({ playerId: rokas.id }))),
+    ).toEqual({ redirectedTo: '/treneris' });
     expect(await links()).toEqual([]);
     expect(await memberships()).toEqual([]);
-    expect(request.refreshed).toBe(1);
   });
 
   it('never ends another coach’s link (checklist 4)', async () => {
@@ -249,10 +255,83 @@ describe('unlinkPlayerAction (spec: either side may unlink)', () => {
     const gabija = await person(sql, 'gabija@example.lt', 'Gabija');
     await link(ona.id, gabija.id);
     actAs(await coachPerson(sql, 'jonas@example.lt', 'Jonas'));
-    await outcomeOf(
-      unlinkPlayerAction(formOf({ playerId: gabija.id, coachId: ona.id })),
-    );
+    expect(
+      await outcomeOf(
+        unlinkPlayerAction(formOf({ playerId: gabija.id, coachId: ona.id })),
+      ),
+    ).toBeUndefined();
     expect(await links()).toEqual([{ coach: 'Ona', player: 'Gabija' }]);
+    expect(request.refreshed).toBe(1);
+  });
+});
+
+describe('coachGroupData (the group page)', () => {
+  it('lists the members and, to add, the coach’s other linked players only', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const ona = await coachPerson(sql, 'ona@example.lt', 'Ona');
+    const rokas = await person(sql, 'rokas@example.lt', 'Rokas');
+    const gabija = await person(sql, 'gabija@example.lt', 'Gabija');
+    const ruta = await person(sql, 'ruta@example.lt', 'Rūta');
+    const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
+    await link(jonas.id, rokas.id, groupId);
+    await link(jonas.id, gabija.id);
+    await link(ona.id, ruta.id);
+    actAs(jonas);
+    const group = await outcomeOf(coachGroupData(groupId));
+    expect(group).toMatchObject({
+      id: groupId,
+      name: 'Šeštadienio grupė',
+      members: [{ id: rokas.id, displayName: 'Rokas' }],
+    });
+    expect(z.object({ addable: z.unknown() }).parse(group).addable).toEqual([
+      { id: gabija.id, displayName: 'Gabija' },
+    ]);
+  });
+
+  it('sends an account without Coach mode to settings (R-113)', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
+    await sql.rows('update accounts set coach_since = null where id = $1', [
+      jonas.id,
+    ]);
+    actAs(jonas);
+    expect(await outcomeOf(coachGroupData(groupId))).toEqual({
+      redirectedTo: '/nustatymai',
+    });
+  });
+});
+
+describe('coachPlayerData (the player page)', () => {
+  it('shows the display name and the coach’s own groups only, never the email', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const ona = await coachPerson(sql, 'ona@example.lt', 'Ona');
+    const rokas = await person(sql, 'rokas@example.lt', 'Rokas');
+    const mine = await groupOf(jonas.id, 'Šeštadienio grupė');
+    const onas = await groupOf(ona.id, 'Onos grupė');
+    await link(jonas.id, rokas.id, mine);
+    await link(ona.id, rokas.id, onas);
+    actAs(jonas);
+    const data = await outcomeOf(coachPlayerData(rokas.id));
+    expect(data).toMatchObject({
+      id: rokas.id,
+      displayName: 'Rokas',
+      groups: [{ id: mine, name: 'Šeštadienio grupė' }],
+    });
+    expect(
+      Object.keys(z.record(z.string(), z.unknown()).parse(data)).sort(),
+    ).toEqual(['displayName', 'groups', 'id', 'linkedAt']);
+    expect(JSON.stringify(data)).not.toContain('rokas@example.lt');
+  });
+
+  it('is not found for a player not linked to the coach, or a malformed id (checklist 1)', async () => {
+    const ona = await coachPerson(sql, 'ona@example.lt', 'Ona');
+    const gabija = await person(sql, 'gabija@example.lt', 'Gabija');
+    await link(ona.id, gabija.id);
+    actAs(await coachPerson(sql, 'jonas@example.lt', 'Jonas'));
+    expect(await outcomeOf(coachPlayerData(gabija.id))).toEqual({
+      notFound: true,
+    });
+    expect(await outcomeOf(coachPlayerData(''))).toEqual({ notFound: true });
   });
 });
 

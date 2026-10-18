@@ -2,11 +2,14 @@ import { createInvite, inviteTokenHash } from '@mychess/db';
 import { OPEN_INVITE_LIMIT } from '@mychess/domain';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
+import { acceptInviteAction } from '../../src/app/k/[token]/actions';
+import InvitePage from '../../src/app/k/[token]/page';
 import {
   createInviteAction,
   revokeInviteAction,
 } from '../../src/app/treneris/actions';
-import { TEST_ENV_VARS } from './support/auth';
+import { coachGroupData } from '../../src/server/coach-pages';
+import { cookieFrom, onboard, TEST_ENV_VARS } from './support/auth';
 import {
   actAs,
   coachPerson,
@@ -14,8 +17,9 @@ import {
   groupOf,
   person,
 } from './support/coaching';
-import { useRequestHarness } from './support/harness';
-import { outcomeOf, request, testDb } from './support/request';
+import { rebuildAuth, signIn, useRequestHarness } from './support/harness';
+import { fakeProviderFetch, oauthRoundTrip } from './support/oauth';
+import { built, outcomeOf, request, testDb } from './support/request';
 
 vi.mock('next/headers', async () =>
   (await import('./support/request')).nextHeaders(),
@@ -43,6 +47,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 const LINK = /^http:\/\/localhost:3000\/k\/([A-Za-z0-9_-]{43})$/u;
@@ -222,5 +227,220 @@ describe('revokeInviteAction (R-98)', () => {
       { coach: 'Ona', revoked: false },
     ]);
     expect(request.refreshed).toBe(3);
+  });
+});
+
+// The player half (Task A14): the invite page and accepting.
+
+/** A fresh invite of `coachId`; its raw token. */
+async function inviteOf(
+  coachId: string,
+  kind: 'personal' | 'group',
+  groupId: string | null = null,
+): Promise<string> {
+  const made = await createInvite(testDb(), {
+    coachId,
+    kind,
+    groupId,
+    now: new Date(),
+  });
+  if (!made.ok) throw new Error(`no invite: ${made.refusal.reason}`);
+  return made.value.token;
+}
+
+const invitePage = (token: string): Promise<unknown> =>
+  outcomeOf(InvitePage({ params: Promise.resolve({ token }) }));
+
+/** What the page hands its view: the preview of accepting. */
+const previewOf = (page: unknown): unknown =>
+  z.object({ props: z.object({ preview: z.unknown() }) }).parse(page).props
+    .preview;
+
+const accept = (fields: Readonly<Record<string, string>>): Promise<unknown> =>
+  outcomeOf(acceptInviteAction({}, formOf(fields)));
+
+const links = (): Promise<unknown[]> =>
+  sql.rows(
+    `select c.display_name as coach, p.display_name as player
+       from coach_links l
+       join accounts c on c.id = l.coach_id
+       join accounts p on p.id = l.player_id
+      order by 1, 2`,
+  );
+
+const memberships = (): Promise<unknown[]> =>
+  sql.rows(
+    `select g.name as group, p.display_name as player
+       from group_members m
+       join groups g on g.id = m.group_id
+       join accounts p on p.id = m.player_id
+      order by 1, 2`,
+  );
+
+const MY_COACHES = '/nustatymai#treneriai';
+const WELL_FORMED = 'B'.repeat(43);
+
+describe('the invite page /k/[token] (R-81, plan decision 8)', () => {
+  it('sends a signed-out visitor to sign-in, and back to the invite after', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const token = await inviteOf(jonas.id, 'personal');
+    request.cookie = '';
+    expect(await invitePage(token)).toEqual({
+      redirectedTo: `/prisijungti?next=%2Fk%2F${token}`,
+    });
+  });
+
+  it('sends a signed-in account through onboarding, and back to the invite after', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const token = await inviteOf(jonas.id, 'personal');
+    request.cookie = await signIn('rokas@example.lt');
+    expect(await invitePage(token)).toEqual({
+      redirectedTo: `/pradzia?next=%2Fk%2F${token}`,
+    });
+  });
+
+  it('carries no return path for a malformed token', async () => {
+    expect(await invitePage('not-a-token')).toEqual({
+      redirectedTo: '/prisijungti',
+    });
+    expect(await invitePage(`${WELL_FORMED}?x=//evil.example`)).toEqual({
+      redirectedTo: '/prisijungti',
+    });
+  });
+
+  it('shows the coach and the group, and never accepts on a GET', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
+    const token = await inviteOf(jonas.id, 'group', groupId);
+    actAs(await person(sql, 'rokas@example.lt', 'Rokas'));
+    expect(previewOf(await invitePage(token))).toEqual({
+      ok: true,
+      value: {
+        coachDisplayName: 'Jonas',
+        groupName: 'Šeštadienio grupė',
+        kind: 'group',
+      },
+    });
+    expect(await sql.count('coach_links')).toBe(0);
+    expect(await sql.count('group_members')).toBe(0);
+  });
+
+  it('says only "not valid" for a malformed or unknown token', async () => {
+    actAs(await person(sql, 'rokas@example.lt', 'Rokas'));
+    const invalid = { ok: false, refusal: { reason: 'invite.invalid' } };
+    expect(previewOf(await invitePage('short'))).toEqual(invalid);
+    expect(previewOf(await invitePage(WELL_FORMED))).toEqual(invalid);
+  });
+});
+
+describe('acceptInviteAction (R-12, R-98, checklist 4 and 5)', () => {
+  it('links the player into the group and lands on "Mano treneriai"', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
+    const token = await inviteOf(jonas.id, 'group', groupId);
+    actAs(await person(sql, 'rokas@example.lt', 'Rokas'));
+    expect(await accept({ token })).toEqual({ redirectedTo: MY_COACHES });
+    expect(await links()).toEqual([{ coach: 'Jonas', player: 'Rokas' }]);
+    expect(await memberships()).toEqual([
+      { group: 'Šeštadienio grupė', player: 'Rokas' },
+    ]);
+  });
+
+  it('refuses a malformed, unknown, expired, revoked or used token alike, and links nobody', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const expired = await inviteOf(jonas.id, 'personal');
+    await sql.rows(
+      `update invites set expires_at = now() - interval '1 minute'
+        where token_hash = $1`,
+      [inviteTokenHash(expired)],
+    );
+    const revoked = await inviteOf(jonas.id, 'personal');
+    await sql.rows(
+      'update invites set revoked_at = now() where token_hash = $1',
+      [inviteTokenHash(revoked)],
+    );
+    const used = await inviteOf(jonas.id, 'personal');
+    actAs(await person(sql, 'gabija@example.lt', 'Gabija'));
+    expect(await accept({ token: used })).toEqual({
+      redirectedTo: MY_COACHES,
+    });
+    actAs(await person(sql, 'rokas@example.lt', 'Rokas'));
+    const invalid = { refusal: 'invite.invalid' };
+    for (const token of ['short', WELL_FORMED, expired, revoked, used])
+      expect(await accept({ token })).toEqual(invalid);
+    expect(await accept({})).toEqual(invalid);
+    expect(await links()).toEqual([{ coach: 'Jonas', player: 'Gabija' }]);
+  });
+
+  it('refuses an invite of a disabled coach as "not valid" (R-108)', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const token = await inviteOf(jonas.id, 'personal');
+    await sql.rows('update accounts set disabled_at = now() where id = $1', [
+      jonas.id,
+    ]);
+    actAs(await person(sql, 'rokas@example.lt', 'Rokas'));
+    expect(previewOf(await invitePage(token))).toEqual({
+      ok: false,
+      refusal: { reason: 'invite.invalid' },
+    });
+    expect(await accept({ token })).toEqual({ refusal: 'invite.invalid' });
+    expect(await sql.count('coach_links')).toBe(0);
+  });
+
+  it('refuses the coach’s own invite', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const token = await inviteOf(jonas.id, 'personal');
+    actAs(jonas);
+    expect(await accept({ token })).toEqual({ refusal: 'invite.ownInvite' });
+    expect(await sql.count('coach_links')).toBe(0);
+  });
+
+  it('links the session account, never a playerId the form carries (checklist 4)', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const gabija = await person(sql, 'gabija@example.lt', 'Gabija');
+    const token = await inviteOf(jonas.id, 'personal');
+    actAs(await person(sql, 'rokas@example.lt', 'Rokas'));
+    expect(await accept({ token, playerId: gabija.id })).toEqual({
+      redirectedTo: MY_COACHES,
+    });
+    expect(await links()).toEqual([{ coach: 'Jonas', player: 'Rokas' }]);
+  });
+
+  it('sends a signed-out visitor to sign-in and links nobody', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const token = await inviteOf(jonas.id, 'personal');
+    request.cookie = '';
+    expect(await accept({ token })).toEqual({ redirectedTo: '/prisijungti' });
+    expect(await sql.count('coach_links')).toBe(0);
+  });
+
+  it('links a player who signed in with Google, without a second account (G-M1-1)', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
+    const token = await inviteOf(jonas.id, 'group', groupId);
+    const fetch = fakeProviderFetch({
+      google: {
+        sub: 'g-1',
+        email: 'gabija@example.lt',
+        email_verified: true,
+        name: 'Gabija',
+      },
+    });
+    vi.stubGlobal('fetch', fetch);
+    rebuildAuth({ fetch });
+    const cookie = cookieFrom(await oauthRoundTrip(built(), 'google'));
+    await onboard(built(), testDb(), cookie, {
+      displayName: 'Gabija',
+      locale: 'lt',
+    });
+    request.cookie = cookie;
+    expect(await accept({ token })).toEqual({ redirectedTo: MY_COACHES });
+    expect(await sql.count(`accounts where email = 'gabija@example.lt'`)).toBe(
+      1,
+    );
+    actAs(jonas);
+    expect(await outcomeOf(coachGroupData(groupId))).toMatchObject({
+      members: [{ displayName: 'Gabija' }],
+    });
   });
 });

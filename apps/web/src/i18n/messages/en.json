@@ -170,12 +170,45 @@
         "used": "Used",
         "revoked": "Revoked"
       }
+    },
+    "notFound": "This page does not exist or is not open to you.",
+    "back": "Back to the coach dashboard",
+    "player": {
+      "linkedSince": "Linked since {date}",
+      "groupsTitle": "Groups"
+    },
+    "group": {
+      "save": "Save",
+      "saved": "Saved.",
+      "membersTitle": "Players in the group",
+      "noMembers": "No players in this group yet.",
+      "remove": "Remove",
+      "removeNamed": "Remove {name} from the group",
+      "addTitle": "Add a player",
+      "addLabel": "Player",
+      "add": "Add",
+      "allIn": "Every player linked to you is already in this group.",
+      "delete": "Delete group",
+      "deleteConfirm": "Delete the group {name}? Its players stay linked to you, and its invites stop working.",
+      "confirmDelete": "Yes, delete",
+      "cancel": "Cancel"
     }
   },
   "invite": {
     "kindInvalid": "Choose a kind of invite.",
     "groupRequired": "Choose a group for a group invite.",
-    "groupInvalid": "Choose a group from the list."
+    "groupInvalid": "Choose a group from the list.",
+    "title": "Invite from a coach",
+    "fromCoach": "Coach: {coach}",
+    "toGroup": "Group: {group}",
+    "explain": "If you accept, your account is linked to the coach’s. The coach will see your display name and can put you in their groups. You can unlink at any time in settings.",
+    "accept": "Accept invite",
+    "notNow": "Not now",
+    "home": "Home",
+    "invalid": "This invite is not valid. Ask your coach for a new link.",
+    "ownInvite": "This is your own invite. Send the link to a player.",
+    "coachFull": "This coach cannot link any more players. Let your coach know.",
+    "notCoach": "This invite is not valid. Ask your coach for a new link."
   },
   "mail": {
     "magicLink": {

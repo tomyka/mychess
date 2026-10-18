@@ -128,11 +128,16 @@ export async function removeMemberAction(form: FormData): Promise<void> {
   refresh();
 }
 
-/** The coach ends a Coach link to one of their players. */
+/**
+ * The coach ends a Coach link to one of their players and goes back to the
+ * coach dashboard (the player's page is then 404); any other player changes
+ * nothing.
+ */
 export async function unlinkPlayerAction(form: FormData): Promise<void> {
   const coach = await requireCoach();
   const playerId = accountIdSchema.safeParse(form.get('playerId'));
-  if (playerId.success) await unlink(getDb(), coach.id, playerId.data);
+  if (playerId.success && (await unlink(getDb(), coach.id, playerId.data)).ok)
+    redirect(ROUTES.coach);
   refresh();
 }
 

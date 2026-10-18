@@ -49,14 +49,34 @@ export async function coachPlayerData(
   return (await coachPlayer(getDb(), coach.id, parsed.data)) ?? notFound();
 }
 
+/** A linked player the coach can put into a group. */
+interface AddablePlayer {
+  readonly id: string;
+  readonly displayName: string;
+}
+
+/** A group's page: the group, its members, and who else could join it. */
+export interface CoachGroupPage extends CoachGroup {
+  /** The coach's linked players not yet in the group, by display name. */
+  readonly addable: readonly AddablePlayer[];
+}
+
 /**
  * One of the coach's own groups. A group is the coach's own data, not a
  * player's, so the query filtering on the coach is the check; any other
- * group is 404.
+ * group is 404. The players to add are the coach's own linked players.
  */
-export async function coachGroupData(rawGroupId: unknown): Promise<CoachGroup> {
+export async function coachGroupData(
+  rawGroupId: unknown,
+): Promise<CoachGroupPage> {
   const coach = await requireCoach();
   const parsed = z.uuid().safeParse(rawGroupId);
   if (!parsed.success) notFound();
-  return (await coachGroup(getDb(), coach.id, parsed.data)) ?? notFound();
+  const db = getDb();
+  const group = (await coachGroup(db, coach.id, parsed.data)) ?? notFound();
+  const members = new Set(group.members.map((member) => member.id));
+  const addable = (await coachPlayers(db, coach.id))
+    .filter((player) => !members.has(player.id))
+    .map(({ id, displayName }) => ({ id, displayName }));
+  return { ...group, addable };
 }

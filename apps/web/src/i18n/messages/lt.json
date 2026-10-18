@@ -170,12 +170,45 @@
         "used": "Panaudotas",
         "revoked": "Atšauktas"
       }
+    },
+    "notFound": "Šio puslapio nėra arba jis jums neprieinamas.",
+    "back": "Atgal į trenerio skydelį",
+    "player": {
+      "linkedSince": "Susieta nuo {date}",
+      "groupsTitle": "Grupės"
+    },
+    "group": {
+      "save": "Išsaugoti",
+      "saved": "Išsaugota.",
+      "membersTitle": "Grupės žaidėjai",
+      "noMembers": "Grupėje dar nėra žaidėjų.",
+      "remove": "Pašalinti",
+      "removeNamed": "Pašalinti iš grupės: {name}",
+      "addTitle": "Pridėti žaidėją",
+      "addLabel": "Žaidėjas",
+      "add": "Pridėti",
+      "allIn": "Visi su jumis susieti žaidėjai jau yra šioje grupėje.",
+      "delete": "Ištrinti grupę",
+      "deleteConfirm": "Ištrinti grupę „{name}“? Jos žaidėjai liks susieti su jumis, o šios grupės kvietimai nebegalios.",
+      "confirmDelete": "Taip, ištrinti",
+      "cancel": "Atšaukti"
     }
   },
   "invite": {
     "kindInvalid": "Pasirinkite kvietimo rūšį.",
     "groupRequired": "Grupės kvietimui pasirinkite grupę.",
-    "groupInvalid": "Pasirinkite grupę iš sąrašo."
+    "groupInvalid": "Pasirinkite grupę iš sąrašo.",
+    "title": "Trenerio kvietimas",
+    "fromCoach": "Treneris: {coach}",
+    "toGroup": "Grupė: {group}",
+    "explain": "Priėmę kvietimą susiesite savo paskyrą su trenerio paskyra. Treneris matys jūsų vardą ir galės įtraukti jus į savo grupes. Atsieti galėsite bet kada nustatymuose.",
+    "accept": "Priimti kvietimą",
+    "notNow": "Ne dabar",
+    "home": "Į pradžią",
+    "invalid": "Šis kvietimas negalioja. Paprašykite trenerio naujos nuorodos.",
+    "ownInvite": "Tai jūsų pačių kvietimas. Nusiųskite nuorodą žaidėjui.",
+    "coachFull": "Šis treneris daugiau žaidėjų susieti nebegali. Praneškite apie tai treneriui.",
+    "notCoach": "Šis kvietimas negalioja. Paprašykite trenerio naujos nuorodos."
   },
   "mail": {
     "magicLink": {
