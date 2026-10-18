@@ -14,11 +14,13 @@ import {
 } from '../src';
 import { useTestDatabase } from '../src/testing';
 import {
+  openTransaction,
   seedCoach,
   seedGroup,
   seedLink,
   seedLinks,
   seedPlayer,
+  someoneWaitsForALock,
   T0,
 } from './support/coaching';
 
@@ -256,6 +258,25 @@ describe('acceptInvite', () => {
     await seedPlayer(db, 'p1', 'p1@example.lt');
     const { token } = await invite();
     expect(await accept(token, 'p1')).toEqual(refused(INVITE_REFUSALS.invalid));
+  });
+
+  it('refuses an invite whose coach is not the coach it locked', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    await seedCoach(db, 'c2', 'coach2@example.lt');
+    await seedPlayer(db, 'p1', 'p1@example.lt');
+    const { hash } = await invite();
+    // acceptInvite learns coach 'c' unlocked, then waits for c's row; the
+    // invite moves to 'c2' meanwhile, so c's lock no longer covers it.
+    const holding = await openTransaction(client, [
+      `select id from accounts where id = 'c' for no key update`,
+    ]);
+    const accepting = accept(hash, 'p1');
+    await someoneWaitsForALock(client);
+    await holding.finish(`update invites set coach_id = 'c2'`);
+    expect(await accepting).toEqual(refused(INVITE_REFUSALS.invalid));
+    expect(await query('select coach_id, player_id from coach_links')).toEqual(
+      [],
+    );
   });
 
   it("refuses the coach's own invite", async () => {

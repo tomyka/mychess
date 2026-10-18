@@ -114,15 +114,19 @@ async function inviteCoachId(
   return row === undefined ? undefined : coachIdSchema.parse(row).coachId;
 }
 
-/** The invite with this hash, locked for the rest of `tx` (single use). */
+/**
+ * The invite with this hash, locked for the rest of `tx` (single use), if
+ * it is still `coachId`'s: the coach whose row `tx` already holds.
+ */
 async function lockInvite(
   tx: Tx,
   tokenHash: string,
+  coachId: string,
 ): Promise<Invite | undefined> {
   const [row] = await tx
     .select(inviteColumns)
     .from(invites)
-    .where(eq(invites.tokenHash, tokenHash))
+    .where(and(eq(invites.tokenHash, tokenHash), eq(invites.coachId, coachId)))
     .for('update');
   return row === undefined ? undefined : inviteSchema.parse(row);
 }
@@ -156,8 +160,9 @@ export interface AcceptedInvite {
  * Accepts an invite as `playerId` (the session account, never a client
  * value): locks the coach, then the invite, then counts, so two accepts
  * can never exceed the player limit or use a personal invite twice (plan
- * decision 1). The coach is learnt from an unlocked read first; an
- * invite's coach never changes, and the locked read sees its latest state.
+ * decision 1). The coach is learnt from an unlocked read first; the locked
+ * read takes the invite only if it is still that coach's, so the coach row
+ * held is always the invite's coach's.
  *
  * Lock order everywhere: the coach's account row, then that coach's invite
  * rows (createInvite, stopCoaching, deleteGroup do the same). Every
@@ -176,7 +181,7 @@ export function acceptInvite(
     if (coachId === undefined) return INVALID;
     const coach = await lockAccountById(tx, coachId);
     if (coach === undefined) return INVALID;
-    const invite = await lockInvite(tx, tokenHash);
+    const invite = await lockInvite(tx, tokenHash, coachId);
     if (invite === undefined) return INVALID;
     const check = await decide(tx, invite, coach, { playerId, now });
     if (!check.ok) return check;
