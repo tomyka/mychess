@@ -22,7 +22,7 @@ describe('HomeView', () => {
     (locale) => {
       render(
         <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
-          <HomeView displayName="Rūta" />
+          <HomeView displayName="Rūta" isCoach={false} />
         </NextIntlClientProvider>,
       );
       // The brand is a label, as on the other pages; the greeting is the
@@ -39,6 +39,26 @@ describe('HomeView', () => {
           .getByRole('link', { name: settings[locale] })
           .getAttribute('href'),
       ).toBe('/nustatymai');
+      expect(
+        screen.queryByRole('link', { name: MESSAGES[locale].app.coachArea }),
+      ).toBeNull();
     },
   );
+
+  // C-M1-1: the coach area appears alongside the player's own area.
+  it('links a coach to the coach area', () => {
+    render(
+      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+        <HomeView displayName="Jonas" isCoach />
+      </NextIntlClientProvider>,
+    );
+    expect(
+      screen
+        .getByRole('link', { name: MESSAGES.lt.app.coachArea })
+        .getAttribute('href'),
+    ).toBe('/treneris');
+    expect(
+      screen.getByRole('link', { name: settings.lt }).getAttribute('href'),
+    ).toBe('/nustatymai');
+  });
 });

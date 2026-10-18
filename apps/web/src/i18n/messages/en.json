@@ -3,7 +3,8 @@
     "title": "mychess",
     "greeting": "Hello, {name}!",
     "signOut": "Sign out",
-    "settings": "Settings"
+    "settings": "Settings",
+    "coachArea": "Coach dashboard"
   },
   "language": {
     "lt": "Lietuvių",
@@ -44,6 +45,27 @@
       "language": "Language",
       "submit": "Save",
       "saved": "Saved."
+    },
+    "coachMode": {
+      "title": "Coach mode",
+      "intro": "With Coach mode on you can invite players and keep them in groups.",
+      "on": "Coach mode is on.",
+      "off": "Coach mode is off.",
+      "switchOn": "Switch Coach mode on",
+      "switchOff": "Switch Coach mode off",
+      "offNote": "Switching Coach mode off revokes your open invites and keeps your groups.",
+      "unlinkFirst": "Unlink these players first:"
+    },
+    "myCoaches": {
+      "title": "My coaches",
+      "empty": "You are not linked to a coach yet. A coach can send you an invite link.",
+      "groups": "Groups",
+      "leaveGroup": "Leave group",
+      "leaveGroupNamed": "Leave the group “{group}”",
+      "unlink": "Unlink",
+      "unlinkConfirm": "Unlink from this coach? {name} will no longer see your data, and you will leave their groups.",
+      "confirmUnlink": "Yes, unlink",
+      "cancel": "Cancel"
     },
     "providers": {
       "title": "Sign-in methods",
@@ -92,6 +114,65 @@
   "displayName": {
     "blank": "Enter a display name.",
     "tooLong": "A display name can be at most 50 characters."
+  },
+  "groupName": {
+    "blank": "Enter a group name.",
+    "tooLong": "A group name can be at most 60 characters."
+  },
+  "coach": {
+    "title": "Coach dashboard",
+    "home": "Home",
+    "notCoach": "Switch Coach mode on in settings first.",
+    "stillLinked": "Coach mode cannot be switched off while players are linked to you.",
+    "groupLimit": "You cannot create any more groups.",
+    "groupNotFound": "Group not found.",
+    "notLinked": "This player is not linked to you.",
+    "players": {
+      "title": "Players",
+      "empty": "No player is linked to you yet. Create an invite and send the link to a player.",
+      "groups": "Groups: {groups}",
+      "noGroups": "Not in any group",
+      "unlink": "Unlink",
+      "unlinkConfirm": "Unlink this player? {name} will leave your groups, and you will no longer see their data.",
+      "confirmUnlink": "Yes, unlink",
+      "cancel": "Cancel"
+    },
+    "groups": {
+      "title": "Groups",
+      "empty": "No groups yet.",
+      "name": "Group name",
+      "create": "Create group",
+      "members": "{count, plural, one {# player} other {# players}}"
+    },
+    "invites": {
+      "title": "Invites",
+      "intro": "An invite link is valid for 7 days. A personal invite can be accepted by one player, a group invite by many.",
+      "kind": "Kind of invite",
+      "personal": "Personal invite",
+      "group": "Group invite",
+      "groupLabel": "Group",
+      "noGroup": "No group",
+      "create": "Create invite",
+      "link": "Invite link",
+      "linkOnce": "Copy the link now: it cannot be shown again.",
+      "copy": "Copy",
+      "copied": "Copied.",
+      "empty": "No invites yet.",
+      "groupName": "Group: {group}",
+      "expires": "Valid until {date}",
+      "revoke": "Revoke",
+      "state": {
+        "active": "Active",
+        "expired": "Expired",
+        "used": "Used",
+        "revoked": "Revoked"
+      }
+    }
+  },
+  "invite": {
+    "kindInvalid": "Choose a kind of invite.",
+    "groupRequired": "Choose a group for a group invite.",
+    "groupInvalid": "Choose a group from the list."
   },
   "mail": {
     "magicLink": {

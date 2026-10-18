@@ -21,9 +21,11 @@ taxonomy (`data/openings/lt/`) and are not translated.
   email. Do not switch to a synonym for variety.
 - Address the user with the polite plural (**jūs**: "Įveskite", "Jūsų"), as
   v1 did throughout.
-- Plurals have three forms (`one`, `few`, `many`): 1, 21, 31 ...
-  **repertuaras**; 2-9, 22-29 ... **repertuarai**; 0, 10-20, 25-30 ...
-  **repertuarų**. Every counted string in `lt.json` carries all three.
+- Plurals of a whole count have three forms, ICU `one`, `few`, `other`:
+  1, 21, 31 ... (not 11) **repertuaras**; 2-9, 22-29 ... (not 12-19)
+  **repertuarai**; 0, 10-20, 30, 40 ... **repertuarų**. Every counted
+  string in `lt.json` carries all three. CLDR's `many` is for fractions
+  only and never applies to a count; `other` is required by ICU.
 - Lithuanian quotation marks are „...“, not "...". Dashes: " — ".
 - Words in the "Avoid" column of CONTEXT.md have Lithuanian counterparts to
   avoid as well; they are listed in the note column where v1 used them.
@@ -38,7 +40,7 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | Coach (capability switch) | Coach mode (proposed) | trenerio režimas | proposed | v1 had a role choice ("Esu: žaidėjas / treneris", `settings_role_label`); v2 has no coach account, so the role wording does not carry over. |
 | Display name | Display name | rodomas vardas | approved (R-91) | v1 asked for first and last name (`welcome_first_name_label` vardas, `welcome_last_name_label` pavardė); v2 has one field. Not **vartotojo vardas** (username). |
 | Coach link | Coach link | ryšys su treneriu | proposed | v1 said "aktyvus ryšys" (`coaches_request_error_active_relationship`). Verbs: link **susieti**, unlink **atsieti**. Not **prisijungti** (v1 `join_*` used it for linking, but it is the sign-in verb). |
-| Invite | Invite | kvietimas | v1 `coach_invite_heading`, `coach_dashboard_invite_links_heading` | Invite link: **kvietimo nuoroda**. Verb: **pakviesti**. |
+| Invite | Invite | kvietimas | v1 `coach_invite_heading`, `coach_dashboard_invite_links_heading` | Invite link: **kvietimo nuoroda**. Verb: **pakviesti**. Kinds: **asmeninis kvietimas** / **grupės kvietimas** ("Personal invite" / "Group invite"). States: **galioja**, **nebegalioja**, **panaudotas**, **atšauktas** ("Active", "Expired", "Used", "Revoked"). Revoke: **atšaukti** (same verb as Cancel; only used on an invite row). |
 | Group | Group | grupė | proposed | Not **klasė**, **komanda**, **klubas** (CONTEXT avoid list). |
 | Admin | Admin | administratorius | proposed | |
 
@@ -78,7 +80,7 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | Learn pass | Learn | mokytis (nav), mokymasis (noun) | v1 `nav_learn`, `repertoires_action_learn` | |
 | Review | Review | kartojimas (noun), kartoti (verb) | v1 `coach_player_stat_reviews` | Not **praktika** (v1 `nav_practice`; Practice is retired). Not **peržiūra** (that is "preview/look over"). |
 | Review session | Review session | kartojimo sesija | proposed (v1 `practice_this_session_heading` **sesija**) | |
-| Due | Due | laikas kartoti (status), kartotini (count) | proposed | "12 due": **12 kartotinų** (one: kartotinas, few: kartotini, many: kartotinų). |
+| Due | Due | laikas kartoti (status), kartotini (count) | proposed | "12 due": **12 kartotinų** (one: kartotinas, few: kartotini, other: kartotinų). |
 | Lapse | Lapse | suklydimas | proposed | Not **klaida** (kept for Player mistake and for game analysis) and not **pažeminimas** (demotion, v1). |
 | Learned (state) | Learned | išmokta | v1 `repertoire_row_status_learned` | |
 | Free play | Free play | laisvas žaidimas | proposed | |
@@ -108,7 +110,8 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | Notification | Notification | pranešimas | proposed (v1 `practice_dismiss_coach_notice_label`) | |
 | Digest | Daily digest | dienos suvestinė | proposed | Not **naujienlaiškis** (newsletter). |
 | Weak spot | Weak spot | silpnoji vieta | proposed | v1 had "klaidų vietos" (`coach_player_hotspots_heading`) for a similar view. |
-| Coach dashboard | Coach dashboard | trenerio skydelis | v1 `coach_dashboard_heading` | |
+| Coach dashboard | Coach dashboard | trenerio skydelis | v1 `coach_dashboard_heading` | The coach's own pages at `/treneris` (players, groups, invites; later flags, goals, overdue assignments). The S4 spec calls it "Coach area"; the UI does not: one place, one word, as in v1, whose coach dashboard held the same players and invite links. Not **trenerio sritis**. |
+| My coaches (player's settings section) | My coaches | Mano treneriai | S4 spec | |
 | Progress | Progress | pažanga | v1 `learn_progress_heading` | |
 
 ## Product structure

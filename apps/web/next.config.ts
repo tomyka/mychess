@@ -6,10 +6,13 @@ import createNextIntlPlugin from 'next-intl/plugin';
 const workspaceRoot = path.resolve(process.cwd(), '../..');
 
 // On every page in every environment: no other site may frame one
-// (clickjacking), and no browser may guess a response's type.
+// (clickjacking), no browser may guess a response's type, and no URL is
+// sent to another site as the referrer: an invite link carries its token
+// in the path (/k/<token>).
 const SECURITY_HEADERS = [
   { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'same-origin' },
 ];
 
 const config: NextConfig = {

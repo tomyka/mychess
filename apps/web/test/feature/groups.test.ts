@@ -1,0 +1,284 @@
+import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+import {
+  addMemberAction,
+  createGroupAction,
+  deleteGroupAction,
+  removeMemberAction,
+  renameGroupAction,
+  unlinkPlayerAction,
+} from '../../src/app/treneris/actions';
+import { coachGroupData, coachHomeData } from '../../src/server/coach-pages';
+import {
+  actAs,
+  coachPerson,
+  formOf,
+  groupOf,
+  link,
+  person,
+} from './support/coaching';
+import { useRequestHarness } from './support/harness';
+import { outcomeOf, request } from './support/request';
+
+vi.mock('next/headers', async () =>
+  (await import('./support/request')).nextHeaders(),
+);
+vi.mock('next/navigation', async () =>
+  (await import('./support/request')).nextNavigation(),
+);
+vi.mock('next/cache', async () =>
+  (await import('./support/request')).nextCache(),
+);
+vi.mock('../../src/server/db', async () =>
+  (await import('./support/request')).serverDb(),
+);
+vi.mock('../../src/server/auth', async (original) =>
+  (await import('./support/request')).serverAuth(original),
+);
+
+const { sql } = useRequestHarness();
+
+const groupNames = (): Promise<unknown[]> =>
+  sql.rows(
+    `select a.display_name as coach, g.name
+       from groups g join accounts a on a.id = g.coach_id
+      order by 1, 2`,
+  );
+
+const memberships = (): Promise<unknown[]> =>
+  sql.rows(
+    `select g.name as group, p.display_name as player
+       from group_members m
+       join groups g on g.id = m.group_id
+       join accounts p on p.id = m.player_id
+      order by 1, 2`,
+  );
+
+const links = (): Promise<unknown[]> =>
+  sql.rows(
+    `select c.display_name as coach, p.display_name as player
+       from coach_links l
+       join accounts c on c.id = l.coach_id
+       join accounts p on p.id = l.player_id
+      order by 1, 2`,
+  );
+
+describe('createGroupAction (R-12, R-70)', () => {
+  it('makes the trimmed group and refreshes the page', async () => {
+    actAs(await coachPerson(sql, 'jonas@example.lt', 'Jonas'));
+    const state = await outcomeOf(
+      createGroupAction({}, formOf({ name: '  Šeštadienio grupė ' })),
+    );
+    expect(await groupNames()).toEqual([
+      { coach: 'Jonas', name: 'Šeštadienio grupė' },
+    ]);
+    // The new group's id keys the form, so it comes back empty.
+    expect(state).toEqual({
+      createdId: (await sql.rows('select id from groups'))
+        .map((row) => z.object({ id: z.uuid() }).parse(row).id)
+        .at(0),
+    });
+    expect(request.refreshed).toBe(1);
+  });
+
+  it('refuses a blank name', async () => {
+    actAs(await coachPerson(sql, 'jonas@example.lt', 'Jonas'));
+    expect(
+      await outcomeOf(createGroupAction({}, formOf({ name: '   ' }))),
+    ).toEqual({ refusal: 'groupName.blank' });
+    expect(await outcomeOf(createGroupAction({}, new FormData()))).toEqual({
+      refusal: 'groupName.blank',
+    });
+    expect(await groupNames()).toEqual([]);
+  });
+
+  it('refuses the 11th group', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    for (let n = 1; n <= 10; n += 1)
+      await groupOf(jonas.id, `Grupė ${String(n)}`);
+    actAs(jonas);
+    expect(
+      await outcomeOf(createGroupAction({}, formOf({ name: 'Grupė 11' }))),
+    ).toEqual({ refusal: 'coach.groupLimit' });
+    expect(await sql.count('groups')).toBe(10);
+  });
+
+  it('sends an account without Coach mode to settings, where the switch is', async () => {
+    actAs(await person(sql, 'rokas@example.lt', 'Rokas'));
+    expect(
+      await outcomeOf(createGroupAction({}, formOf({ name: 'Grupė' }))),
+    ).toEqual({ redirectedTo: '/nustatymai' });
+    expect(await outcomeOf(coachHomeData())).toEqual({
+      redirectedTo: '/nustatymai',
+    });
+    expect(await groupNames()).toEqual([]);
+  });
+
+  it('sends a signed-out visitor to sign-in', async () => {
+    expect(
+      await outcomeOf(createGroupAction({}, formOf({ name: 'Grupė' }))),
+    ).toEqual({ redirectedTo: '/prisijungti' });
+  });
+});
+
+describe('renameGroupAction and deleteGroupAction', () => {
+  it('rename and delete the coach’s own group', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
+    actAs(jonas);
+    expect(
+      await outcomeOf(
+        renameGroupAction({}, formOf({ groupId, name: ' Sekmadienio grupė ' })),
+      ),
+    ).toEqual({ saved: true });
+    expect(await groupNames()).toEqual([
+      { coach: 'Jonas', name: 'Sekmadienio grupė' },
+    ]);
+    expect(await outcomeOf(deleteGroupAction(formOf({ groupId })))).toEqual({
+      redirectedTo: '/treneris',
+    });
+    expect(await groupNames()).toEqual([]);
+  });
+
+  it('refuse a blank new name', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
+    actAs(jonas);
+    expect(
+      await outcomeOf(renameGroupAction({}, formOf({ groupId, name: ' ' }))),
+    ).toEqual({ refusal: 'groupName.blank' });
+    expect(await groupNames()).toEqual([
+      { coach: 'Jonas', name: 'Šeštadienio grupė' },
+    ]);
+  });
+
+  it('change nothing for another coach’s group', async () => {
+    const ona = await coachPerson(sql, 'ona@example.lt', 'Ona');
+    const onas = await groupOf(ona.id, 'Onos grupė');
+    actAs(await coachPerson(sql, 'jonas@example.lt', 'Jonas'));
+    expect(
+      await outcomeOf(
+        renameGroupAction({}, formOf({ groupId: onas, name: 'Mano' })),
+      ),
+    ).toEqual({ refusal: 'coach.groupNotFound' });
+    expect(
+      await outcomeOf(deleteGroupAction(formOf({ groupId: onas }))),
+    ).toBeUndefined();
+    expect(
+      await outcomeOf(deleteGroupAction(formOf({ groupId: 'not-a-uuid' }))),
+    ).toBeUndefined();
+    expect(await groupNames()).toEqual([{ coach: 'Ona', name: 'Onos grupė' }]);
+    expect(await outcomeOf(coachGroupData(onas))).toEqual({ notFound: true });
+    expect(await outcomeOf(coachGroupData('not-a-uuid'))).toEqual({
+      notFound: true,
+    });
+  });
+});
+
+describe('addMemberAction and removeMemberAction (R-12)', () => {
+  it('put a linked player into the coach’s group and take them out again', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const rokas = await person(sql, 'rokas@example.lt', 'Rokas');
+    await link(jonas.id, rokas.id);
+    const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
+    actAs(jonas);
+    await outcomeOf(addMemberAction(formOf({ groupId, playerId: rokas.id })));
+    expect(await memberships()).toEqual([
+      { group: 'Šeštadienio grupė', player: 'Rokas' },
+    ]);
+    expect(await outcomeOf(coachGroupData(groupId))).toMatchObject({
+      name: 'Šeštadienio grupė',
+      members: [{ id: rokas.id, displayName: 'Rokas' }],
+    });
+    await outcomeOf(
+      removeMemberAction(formOf({ groupId, playerId: rokas.id })),
+    );
+    expect(await memberships()).toEqual([]);
+    expect(await links()).toEqual([{ coach: 'Jonas', player: 'Rokas' }]);
+  });
+
+  it('never add a player who is not linked, or into another coach’s group', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const ona = await coachPerson(sql, 'ona@example.lt', 'Ona');
+    const rokas = await person(sql, 'rokas@example.lt', 'Rokas');
+    const gabija = await person(sql, 'gabija@example.lt', 'Gabija');
+    await link(jonas.id, rokas.id);
+    await link(ona.id, gabija.id);
+    const mine = await groupOf(jonas.id, 'Jono grupė');
+    const onas = await groupOf(ona.id, 'Onos grupė');
+    actAs(jonas);
+    await outcomeOf(
+      addMemberAction(formOf({ groupId: mine, playerId: gabija.id })),
+    );
+    await outcomeOf(
+      addMemberAction(formOf({ groupId: onas, playerId: rokas.id })),
+    );
+    expect(await memberships()).toEqual([]);
+  });
+
+  it('never take a player out of another coach’s group', async () => {
+    const ona = await coachPerson(sql, 'ona@example.lt', 'Ona');
+    const gabija = await person(sql, 'gabija@example.lt', 'Gabija');
+    const onas = await groupOf(ona.id, 'Onos grupė');
+    await link(ona.id, gabija.id, onas);
+    actAs(await coachPerson(sql, 'jonas@example.lt', 'Jonas'));
+    await outcomeOf(
+      removeMemberAction(formOf({ groupId: onas, playerId: gabija.id })),
+    );
+    expect(await memberships()).toEqual([
+      { group: 'Onos grupė', player: 'Gabija' },
+    ]);
+  });
+});
+
+describe('unlinkPlayerAction (spec: either side may unlink)', () => {
+  it('ends the coach’s own link and the player’s memberships with it', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const rokas = await person(sql, 'rokas@example.lt', 'Rokas');
+    const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
+    await link(jonas.id, rokas.id, groupId);
+    actAs(jonas);
+    await outcomeOf(unlinkPlayerAction(formOf({ playerId: rokas.id })));
+    expect(await links()).toEqual([]);
+    expect(await memberships()).toEqual([]);
+    expect(request.refreshed).toBe(1);
+  });
+
+  it('never ends another coach’s link (checklist 4)', async () => {
+    const ona = await coachPerson(sql, 'ona@example.lt', 'Ona');
+    const gabija = await person(sql, 'gabija@example.lt', 'Gabija');
+    await link(ona.id, gabija.id);
+    actAs(await coachPerson(sql, 'jonas@example.lt', 'Jonas'));
+    await outcomeOf(
+      unlinkPlayerAction(formOf({ playerId: gabija.id, coachId: ona.id })),
+    );
+    expect(await links()).toEqual([{ coach: 'Ona', player: 'Gabija' }]);
+  });
+});
+
+describe('coachHomeData', () => {
+  it('lists the coach’s own players, groups and invites only', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const ona = await coachPerson(sql, 'ona@example.lt', 'Ona');
+    const rokas = await person(sql, 'rokas@example.lt', 'Rokas');
+    const gabija = await person(sql, 'gabija@example.lt', 'Gabija');
+    const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
+    await groupOf(ona.id, 'Onos grupė');
+    await link(jonas.id, rokas.id, groupId);
+    await link(ona.id, gabija.id);
+    actAs(jonas);
+    expect(await outcomeOf(coachHomeData())).toMatchObject({
+      players: [
+        {
+          id: rokas.id,
+          displayName: 'Rokas',
+          groups: [{ id: groupId, name: 'Šeštadienio grupė' }],
+        },
+      ],
+      groups: [{ id: groupId, name: 'Šeštadienio grupė', memberCount: 1 }],
+      invites: [
+        { kind: 'personal', groupName: 'Šeštadienio grupė', state: 'used' },
+      ],
+    });
+  });
+});

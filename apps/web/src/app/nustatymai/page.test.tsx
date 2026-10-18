@@ -13,11 +13,22 @@ const server = vi.hoisted(() => {
     links: { id: string; provider: 'google' | 'lichess' }[];
     lichessUnlinked: boolean;
     fresh: boolean;
+    coachSince: Date | null;
+    coaches: {
+      id: string;
+      displayName: string;
+      linkedAt: Date;
+      groups: { id: string; name: string }[];
+    }[];
+    coachesOf: string[];
   } = {
     google: { GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'secret' },
     links: [],
     lichessUnlinked: false,
     fresh: true,
+    coachSince: null,
+    coaches: [],
+    coachesOf: [],
   };
   return state;
 });
@@ -36,7 +47,7 @@ vi.mock('../../server/session', () => ({
       admin: false,
       disabledAt: null,
       onboardedAt: new Date(),
-      coachSince: null,
+      coachSince: server.coachSince,
       createdAt: new Date(),
     }),
 }));
@@ -80,6 +91,24 @@ vi.mock('./delete-section', async (original) => {
   };
 });
 
+vi.mock('../../server/db', () => ({ getDb: () => ({}) }));
+
+// The player's coaches, as the repository lists them for the account asked.
+vi.mock('@mychess/db', async (original) => ({
+  ...(await original<typeof import('@mychess/db')>()),
+  playerCoaches: (_db: unknown, playerId: string) => {
+    server.coachesOf.push(playerId);
+    return Promise.resolve(server.coaches);
+  },
+}));
+
+vi.mock('./coaching-actions', () => ({
+  startCoachingAction: vi.fn(),
+  stopCoachingAction: vi.fn(),
+  unlinkCoachAction: vi.fn(),
+  leaveGroupAction: vi.fn(),
+}));
+
 vi.mock('./actions', () => ({
   updateProfileAction: vi.fn(),
   deleteAccountAction: vi.fn(),
@@ -107,10 +136,13 @@ beforeEach(() => {
   server.links = [];
   server.lichessUnlinked = false;
   server.fresh = true;
+  server.coachSince = null;
+  server.coaches = [];
+  server.coachesOf = [];
 });
 
 describe('the settings page', () => {
-  it('has the profile, sign-in methods, data and delete sections, and a way home', async () => {
+  it('has the profile, Coach mode, coaches, sign-in methods, data and delete sections, and a way home', async () => {
     await renderPage();
     expect(
       screen.getByRole('heading', { level: 1, name: s.title }),
@@ -121,6 +153,8 @@ describe('the settings page', () => {
         .map((heading) => heading.textContent),
     ).toEqual([
       s.profile.title,
+      s.coachMode.title,
+      s.myCoaches.title,
       s.providers.title,
       s.export.title,
       s.delete.title,
@@ -207,6 +241,44 @@ describe('the settings page', () => {
     expect(within(deletion).getByRole('link').getAttribute('href')).toBe(
       '/api/account/export',
     );
+  });
+
+  it('shows Coach mode as off for an account that has not switched it on', async () => {
+    await renderPage();
+    const coachMode = screen.getByRole('region', { name: s.coachMode.title });
+    expect(within(coachMode).getByText(s.coachMode.off)).toBeDefined();
+    expect(
+      within(coachMode).getByRole('button', { name: s.coachMode.switchOn }),
+    ).toBeDefined();
+  });
+
+  it('shows Coach mode as on for a coach (R-11)', async () => {
+    server.coachSince = new Date('2026-10-17T08:00:00Z');
+    await renderPage();
+    const coachMode = screen.getByRole('region', { name: s.coachMode.title });
+    expect(within(coachMode).getByText(s.coachMode.on)).toBeDefined();
+    expect(
+      within(coachMode).getByRole('button', { name: s.coachMode.switchOff }),
+    ).toBeDefined();
+  });
+
+  it('lists the session account’s own coaches with their groups', async () => {
+    server.coaches = [
+      {
+        id: 'c-1',
+        displayName: 'Jonas',
+        linkedAt: new Date(),
+        groups: [{ id: 'g-1', name: 'Šeštadienio grupė' }],
+      },
+    ];
+    await renderPage();
+    expect(server.coachesOf).toEqual(['a1']);
+    const coaches = screen.getByRole('region', { name: s.myCoaches.title });
+    expect(coaches.id).toBe('treneriai');
+    expect(
+      within(coaches).getByRole('heading', { level: 3, name: 'Jonas' }),
+    ).toBeDefined();
+    expect(within(coaches).getByText('Šeštadienio grupė')).toBeDefined();
   });
 
   it('says nothing about Lichess otherwise', async () => {

@@ -135,6 +135,25 @@ describe('Better Auth keeps the return path', () => {
     expect(landing(again)).toBe(onSite(INVITE));
   });
 
+  it('refuses a mailed link whose callback was changed to another site, and signs nobody in', async () => {
+    const asked = await requestMagicLink(built(), {
+      email: RUTA,
+      callbackURL: INVITE,
+      newUserCallbackURL: VIA_ONBOARDING,
+    });
+    expect(asked.status).toBe(200);
+    const link = mailedLink(built());
+    if (link === undefined) throw new Error('no magic link was mailed');
+    const tampered = new URL(link);
+    tampered.searchParams.set('callbackURL', 'https://evil.example/');
+    const opened = await built().auth.handler(new Request(tampered));
+    expect(opened.status).toBe(403);
+    expect(opened.headers.get('location')).toBeNull();
+    expect(opened.headers.get('set-cookie')).toBeNull();
+    expect(await sql.count('sessions')).toBe(0);
+    expect(await sql.count('accounts')).toBe(0);
+  });
+
   it('refuses a callback off the site and mails nothing', async () => {
     const asked = await requestMagicLink(built(), {
       email: RUTA,

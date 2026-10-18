@@ -4,11 +4,18 @@ import Link from 'next/link';
 import { ROUTES } from '../lib/routes';
 import { SignOutButton } from './sign-out-button';
 
-/** The home page for a signed-in, onboarded account. */
+const LINK = 'inline-flex min-h-touch items-center text-accent underline';
+
+/**
+ * The home page for a signed-in, onboarded account; a coach also gets the
+ * way to the coach area (C-M1-1).
+ */
 export function HomeView({
   displayName,
+  isCoach,
 }: {
   readonly displayName: string;
+  readonly isCoach: boolean;
 }): JSX.Element {
   const t = useTranslations('app');
   return (
@@ -20,10 +27,12 @@ export function HomeView({
         </h1>
       </header>
       <div className="flex flex-wrap items-center gap-4">
-        <Link
-          href={ROUTES.settings}
-          className="inline-flex min-h-touch items-center text-accent underline"
-        >
+        {isCoach ? (
+          <Link href={ROUTES.coach} className={LINK}>
+            {t('coachArea')}
+          </Link>
+        ) : null}
+        <Link href={ROUTES.settings} className={LINK}>
           {t('settings')}
         </Link>
         <SignOutButton />

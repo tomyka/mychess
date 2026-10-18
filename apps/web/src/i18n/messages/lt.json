@@ -3,7 +3,8 @@
     "title": "mychess",
     "greeting": "Sveiki, {name}!",
     "signOut": "Atsijungti",
-    "settings": "Nustatymai"
+    "settings": "Nustatymai",
+    "coachArea": "Trenerio skydelis"
   },
   "language": {
     "lt": "Lietuvių",
@@ -44,6 +45,27 @@
       "language": "Kalba",
       "submit": "Išsaugoti",
       "saved": "Išsaugota."
+    },
+    "coachMode": {
+      "title": "Trenerio režimas",
+      "intro": "Įjungę trenerio režimą galėsite kviesti žaidėjus ir burti juos į grupes.",
+      "on": "Trenerio režimas įjungtas.",
+      "off": "Trenerio režimas išjungtas.",
+      "switchOn": "Įjungti trenerio režimą",
+      "switchOff": "Išjungti trenerio režimą",
+      "offNote": "Išjungus trenerio režimą, jūsų galiojantys kvietimai bus atšaukti, o grupės liks.",
+      "unlinkFirst": "Pirmiausia atsiekite šiuos žaidėjus:"
+    },
+    "myCoaches": {
+      "title": "Mano treneriai",
+      "empty": "Su jumis dar nesusietas nė vienas treneris. Treneris gali atsiųsti jums kvietimo nuorodą.",
+      "groups": "Grupės",
+      "leaveGroup": "Palikti grupę",
+      "leaveGroupNamed": "Palikti grupę „{group}“",
+      "unlink": "Atsieti",
+      "unlinkConfirm": "Atsieti nuo šio trenerio? {name} nebematys jūsų duomenų, o jūs nebebūsite šio trenerio grupėse.",
+      "confirmUnlink": "Taip, atsieti",
+      "cancel": "Atšaukti"
     },
     "providers": {
       "title": "Prisijungimo būdai",
@@ -92,6 +114,65 @@
   "displayName": {
     "blank": "Įveskite rodomą vardą.",
     "tooLong": "Rodomas vardas negali būti ilgesnis nei 50 simbolių."
+  },
+  "groupName": {
+    "blank": "Įveskite grupės pavadinimą.",
+    "tooLong": "Grupės pavadinimas negali būti ilgesnis nei 60 simbolių."
+  },
+  "coach": {
+    "title": "Trenerio skydelis",
+    "home": "Į pradžią",
+    "notCoach": "Pirmiausia nustatymuose įjunkite trenerio režimą.",
+    "stillLinked": "Trenerio režimo negalima išjungti, kol su jumis susieti žaidėjai.",
+    "groupLimit": "Daugiau grupių sukurti nebegalite.",
+    "groupNotFound": "Grupė nerasta.",
+    "notLinked": "Šis žaidėjas su jumis nesusietas.",
+    "players": {
+      "title": "Žaidėjai",
+      "empty": "Su jumis dar nesusietas nė vienas žaidėjas. Sukurkite kvietimą ir nusiųskite nuorodą žaidėjui.",
+      "groups": "Grupės: {groups}",
+      "noGroups": "Nė vienoje grupėje",
+      "unlink": "Atsieti",
+      "unlinkConfirm": "Atsieti šį žaidėją? {name} nebebus jūsų grupėse, o jūs nebematysite šio žaidėjo duomenų.",
+      "confirmUnlink": "Taip, atsieti",
+      "cancel": "Atšaukti"
+    },
+    "groups": {
+      "title": "Grupės",
+      "empty": "Grupių dar nėra.",
+      "name": "Grupės pavadinimas",
+      "create": "Sukurti grupę",
+      "members": "{count, plural, one {# žaidėjas} few {# žaidėjai} other {# žaidėjų}}"
+    },
+    "invites": {
+      "title": "Kvietimai",
+      "intro": "Kvietimo nuoroda galioja 7 dienas. Asmeninį kvietimą gali priimti vienas žaidėjas, grupės kvietimą — daug žaidėjų.",
+      "kind": "Kvietimo rūšis",
+      "personal": "Asmeninis kvietimas",
+      "group": "Grupės kvietimas",
+      "groupLabel": "Grupė",
+      "noGroup": "Be grupės",
+      "create": "Sukurti kvietimą",
+      "link": "Kvietimo nuoroda",
+      "linkOnce": "Nukopijuokite nuorodą dabar: vėliau jos parodyti nebegalėsime.",
+      "copy": "Kopijuoti",
+      "copied": "Nukopijuota.",
+      "empty": "Kvietimų dar nėra.",
+      "groupName": "Grupė: {group}",
+      "expires": "Galioja iki {date}",
+      "revoke": "Atšaukti",
+      "state": {
+        "active": "Galioja",
+        "expired": "Nebegalioja",
+        "used": "Panaudotas",
+        "revoked": "Atšauktas"
+      }
+    }
+  },
+  "invite": {
+    "kindInvalid": "Pasirinkite kvietimo rūšį.",
+    "groupRequired": "Grupės kvietimui pasirinkite grupę.",
+    "groupInvalid": "Pasirinkite grupę iš sąrašo."
   },
   "mail": {
     "magicLink": {

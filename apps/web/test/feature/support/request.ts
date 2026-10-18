@@ -102,13 +102,25 @@ export class Redirected extends Error {
   }
 }
 
-/** What `promise` came to: its value, `{ redirectedTo }`, or the error. */
+/** The error the mocked `notFound` throws: the page answers 404. */
+export class NotFound extends Error {
+  constructor() {
+    super('not found');
+  }
+}
+
+/** What a thrown navigation stands for in an outcome; anything else as is. */
+function navigationOutcome(error: unknown): unknown {
+  if (error instanceof Redirected) return { redirectedTo: error.to };
+  return error instanceof NotFound ? { notFound: true } : error;
+}
+
+/**
+ * What `promise` came to: its value, `{ redirectedTo }`,
+ * `{ notFound: true }`, or the error.
+ */
 export const outcomeOf = (promise: Promise<unknown>): Promise<unknown> =>
-  promise.then(
-    (state) => state,
-    (error: unknown) =>
-      error instanceof Redirected ? { redirectedTo: error.to } : error,
-  );
+  promise.then((state) => state, navigationOutcome);
 
 /** The cookie store the mocked `cookies()` answers with. */
 interface CookieStore {
@@ -148,11 +160,20 @@ export function nextHeaders(): {
   };
 }
 
-/** The body of a `next/navigation` mock whose `redirect` throws Redirected. */
-export function nextNavigation(): { redirect: (to: string) => never } {
+/**
+ * The body of a `next/navigation` mock whose `redirect` throws Redirected
+ * and whose `notFound` throws NotFound.
+ */
+export function nextNavigation(): {
+  redirect: (to: string) => never;
+  notFound: () => never;
+} {
   return {
     redirect: (to: string) => {
       throw new Redirected(to);
+    },
+    notFound: () => {
+      throw new NotFound();
     },
   };
 }
