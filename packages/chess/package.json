@@ -3,6 +3,7 @@
   "private": true,
   "license": "AGPL-3.0-or-later",
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
   },
@@ -14,7 +15,8 @@
   },
   "dependencies": {
     "chess.js": "1.4.0",
-    "ts-fsrs": "5.4.2"
+    "ts-fsrs": "5.4.2",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "fast-check": "4.10.2",

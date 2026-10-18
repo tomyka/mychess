@@ -2,7 +2,14 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { positionKey } from '../position-key';
 import type { RepertoireGraph, RepertoireMove } from './graph';
-import { chapterWalks, lines, mainLine, type WalkedMove } from './walk';
+import {
+  chapterChildren,
+  chapterTree,
+  chapterWalks,
+  lines,
+  mainLine,
+  type WalkedMove,
+} from './walk';
 
 const START = positionKey(
   'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
@@ -32,6 +39,7 @@ const move = (
   uci: '',
   arrows: [],
   circles: [],
+  comment: null,
   chapters,
 });
 
@@ -324,5 +332,36 @@ describe('the walks agree on random small graphs', () => {
     expect(
       forBoth((g, id) => lines(g, id).every((line) => endsRightly(g, line))),
     ).not.toThrow();
+  });
+});
+
+describe('chapterTree and chapterChildren', () => {
+  it('chapterTree is the walk that takes each move once', () => {
+    expect(shape(chapterTree(italian, 'c1'))).toEqual([
+      [
+        'e4',
+        [
+          ['e5', [['Nf3', []]]],
+          ['c5', []],
+        ],
+      ],
+    ]);
+    expect(chapterTree(italian, 'c9')).toEqual([]);
+  });
+
+  it('chapterChildren gives a chapter its moves from a position, in insertion order', () => {
+    const g = synthetic(
+      [
+        [0, 1, 'a'],
+        [0, 2, 'b'],
+        [0, 3, 'c'],
+      ],
+      (i) => (i === 1 ? 'c2' : 'c1'),
+    );
+    const children = chapterChildren(g);
+    expect(sans(children('c1')('p0'))).toEqual(['a', 'c']);
+    expect(sans(children('c2')('p0'))).toEqual(['b']);
+    expect(children('c9')('p0')).toEqual([]);
+    expect(children('c1')('p1')).toEqual([]);
   });
 });

@@ -5,14 +5,19 @@ import type { Result } from '../result';
 import { parseMarks, type CommentMarks } from './marks';
 import type { MovetextToken } from './tokenize';
 
+/** What PGN comments add to a move: arrows, circles (R-65) and prose (R-102). */
+interface Annotation extends Marks {
+  readonly comment: string | null;
+}
+
 /**
- * A move as replayed in its game, with the arrows and circles its PGN
- * comments draw (R-65), and where it stands in the game's move tree.
+ * A move as replayed in its game, with the arrows, circles and prose of its
+ * PGN comments, and where it stands in the game's move tree.
  * `parent` is the index of the move it follows (null for a move from the
  * game's root), `moveNumber` the FEN full-move number it is played at, and
  * `uci` the move in coordinates.
  */
-export interface ReplayedMove extends Marks {
+export interface ReplayedMove extends Annotation {
   readonly from: string;
   readonly to: string;
   readonly san: string;
@@ -41,8 +46,8 @@ export type ReplayRefusal =
  * board, the position before its last move (where a nested variation
  * branches from), that move's index in the replayed moves and the index of
  * the move it follows (where a nested variation's moves hang from), the
- * index the branch's first move follows (`base`), and marks waiting for the
- * branch's first move.
+ * index the branch's first move follows (`base`), and the annotation
+ * waiting for the branch's first move.
  */
 interface Branch {
   board: Chess;
@@ -51,10 +56,10 @@ interface Branch {
   last: number | null;
   lastParent: number | null;
   base: number | null;
-  pending: Marks;
+  pending: Annotation;
 }
 
-const noMarks: Marks = { arrows: [], circles: [] };
+const noAnnotation: Annotation = { arrows: [], circles: [], comment: null };
 
 const newBranch = (fen: string, base: number | null): Branch => ({
   board: new Chess(fen),
@@ -63,14 +68,19 @@ const newBranch = (fen: string, base: number | null): Branch => ({
   last: null,
   lastParent: null,
   base,
-  pending: noMarks,
+  pending: noAnnotation,
 });
 
-/** `target` with the arrows and circles of `marks` added. */
-const withMarks = <T extends Marks>(target: T, marks: Marks): T => ({
+/** `kept` and `more` joined by a space; blank text adds nothing. */
+const joinText = (kept: string | null, more: string): string | null =>
+  more === '' ? kept : kept === null ? more : `${kept} ${more}`;
+
+/** `target` with a comment's marks and prose added. */
+const annotated = <T extends Annotation>(target: T, add: CommentMarks): T => ({
   ...target,
-  arrows: [...target.arrows, ...marks.arrows],
-  circles: [...target.circles, ...marks.circles],
+  arrows: [...target.arrows, ...add.arrows],
+  circles: [...target.circles, ...add.circles],
+  comment: joinText(target.comment, add.text),
 });
 
 function tryMove(board: Chess, san: string): Move | null {
@@ -84,11 +94,10 @@ function tryMove(board: Chess, san: string): Move | null {
 /**
  * Replays movetext, following every variation: `(` opens a branch from the
  * position before the current branch's last move, `)` resumes the
- * enclosing branch. The marks a comment draws attach to the move it follows,
- * or to the branch's first move when it comes before it. Comments before the
- * game's first move are its intro instead; marks there have no move to go
- * on and are dropped. The rest of a comment's prose and NAGs are not kept:
- * a repertoire move holds neither.
+ * enclosing branch. The marks and prose of a comment attach to the move it
+ * follows, or to the branch's first move when it comes before it. Comments
+ * before the game's first move are its intro instead; marks there have no
+ * move and are dropped. NAGs are not kept.
  */
 class Replay {
   readonly moves: ReplayedMove[] = [];
@@ -131,14 +140,14 @@ class Replay {
     else if (marks.text !== '') this.introParts.push(marks.text);
   }
 
-  /** Adds marks to the branch's last move, or its first move to come. */
-  private annotate(marks: Marks): void {
+  /** Annotates the branch's last move, or its first move to come. */
+  private annotate(marks: CommentMarks): void {
     const { last } = this.branch;
     const move = last === null ? undefined : this.moves[last];
     if (last === null || move === undefined) {
-      this.branch.pending = withMarks(this.branch.pending, marks);
+      this.branch.pending = annotated(this.branch.pending, marks);
     } else {
-      this.moves[last] = withMarks(move, marks);
+      this.moves[last] = annotated(move, marks);
     }
   }
 
@@ -160,7 +169,7 @@ class Replay {
       uci: played.from + played.to + (played.promotion ?? ''),
     });
     this.branch.key = to;
-    this.branch.pending = noMarks;
+    this.branch.pending = noAnnotation;
     this.branch.last = this.moves.length - 1;
     this.branch.fenBeforeLast = fen;
     this.branch.lastParent = parent;

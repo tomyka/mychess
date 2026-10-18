@@ -27,7 +27,13 @@ const c5 = { from: AFTER_E4, to: AFTER_C5, san: 'c5', uci: 'c7c5' };
 const stored = (
   move: typeof e4,
   chapters: readonly string[],
-): RepertoireMove => ({ ...move, arrows: [], circles: [], chapters });
+): RepertoireMove => ({
+  ...move,
+  arrows: [],
+  circles: [],
+  comment: null,
+  chapters,
+});
 
 const secondAnswer = {
   ok: false,

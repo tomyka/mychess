@@ -1,4 +1,4 @@
-import { Chess, validateFen } from 'chess.js';
+import { Chess, DEFAULT_POSITION, validateFen } from 'chess.js';
 
 /**
  * A position's identity, whatever the move counters: the first four FEN
@@ -23,3 +23,6 @@ export const fenOf = (key: string): string => `${key} 0 1`;
 export function sideToMove(key: string): 'w' | 'b' {
   return key.split(' ')[1] === 'b' ? 'b' : 'w';
 }
+
+/** The standard start position's key: where builder chapters start. */
+export const START_KEY = positionKey(DEFAULT_POSITION);

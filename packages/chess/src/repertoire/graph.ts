@@ -44,6 +44,8 @@ export interface RepertoireMove {
   readonly uci: string;
   readonly arrows: readonly Arrow[];
   readonly circles: readonly Circle[];
+  /** The move's comment (R-102): part of the repertoire, exported with it. */
+  readonly comment: string | null;
   readonly chapters: readonly string[];
 }
 
@@ -77,4 +79,22 @@ export function chapterOf(
   chapterId: string,
 ): Chapter | undefined {
   return graph.chapters.find((c) => c.id === chapterId);
+}
+
+const CHAPTER_ID = /^c(\d+)$/;
+
+/** A chapter id no chapter of `chapters` has: `c` and the next number. */
+export function nextChapterId(
+  chapters: readonly Pick<Chapter, 'id'>[],
+): string {
+  const used = chapters.map((c) => Number(CHAPTER_ID.exec(c.id)?.[1] ?? 0));
+  return `c${String(Math.max(0, ...used) + 1)}`;
+}
+
+/** The number a new "Chapter N" takes: past every chapter and every number used. */
+export function nextChapterNumber(chapters: readonly Chapter[]): number {
+  const numbers = chapters.flatMap((c) =>
+    c.nameSource.kind === 'index' ? [c.nameSource.number] : [],
+  );
+  return Math.max(chapters.length, ...numbers) + 1;
 }

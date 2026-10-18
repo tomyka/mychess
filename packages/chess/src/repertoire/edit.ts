@@ -1,14 +1,19 @@
 import { Chess, type Move } from 'chess.js';
 import { fenOf, positionKey } from '../position-key';
 import type { Result } from '../result';
+import { normalizeComment } from './comment';
 import {
   chapterOf,
+  moveKey,
+  nextChapterId,
+  nextChapterNumber,
   type Chapter,
   type Marks,
   type RepertoireGraph,
   type RepertoireMove,
 } from './graph';
 import { RepertoireMoves, type PlayedMove } from './moves';
+import { renamedByMoves } from './naming';
 import { chapterWalks } from './walk';
 
 /** Why a builder edit was refused; each reason is a message-catalogue key. */
@@ -64,7 +69,8 @@ function play(fromKey: string, san: string): PlayedMove | null {
 /**
  * Adds `san` from `fromKey` to a chapter. The move is stored once per
  * position: a move another chapter already has gains this chapter. The
- * player keeps one answer per position in a repertoire.
+ * player keeps one answer per position in a repertoire. The chapter's name
+ * follows its moves (R-104, `renamedByMoves`).
  */
 export function addMove(
   graph: RepertoireGraph,
@@ -85,7 +91,8 @@ export function addMove(
   const moves = new RepertoireMoves(graph.side, graph.moves);
   const put = moves.put(played, chapterId);
   if (!put.ok) return put;
-  return { ok: true, value: { ...graph, moves: moves.list() } };
+  const value = { ...graph, moves: moves.list() };
+  return { ok: true, value: renamedByMoves(value, chapterId) };
 }
 
 function withoutChapter(
@@ -107,7 +114,8 @@ function prune(graph: RepertoireGraph, chapter: Chapter): RepertoireGraph {
 /**
  * Takes `san` from `fromKey` out of a chapter, with every move of the chapter
  * that only it reached. A move still reachable another way (a transposition)
- * or used by another chapter stays.
+ * or used by another chapter stays. The chapter's name follows its moves
+ * (R-104, `renamedByMoves`).
  */
 export function removeMove(
   graph: RepertoireGraph,
@@ -120,7 +128,8 @@ export function removeMove(
   const moves = graph.moves.map((m) =>
     same(m, fromKey, san) ? withoutChapter(m, chapterId) : m,
   );
-  return { ok: true, value: prune({ ...graph, moves }, chapter) };
+  const value = prune({ ...graph, moves }, chapter);
+  return { ok: true, value: renamedByMoves(value, chapterId) };
 }
 
 /** Replaces the arrows and circles on one move of a chapter. */
@@ -140,4 +149,71 @@ export function setMarks(
     m === target ? { ...m, arrows, circles } : m,
   );
   return { ok: true, value: { ...graph, moves } };
+}
+
+/**
+ * Sets the comment of a move (R-102), in the form PGN carries
+ * (`normalizeComment`, R-105); blank text removes it. The comment belongs to
+ * the move, so every chapter holding the move shows it.
+ */
+export function editComment(
+  graph: RepertoireGraph,
+  key: string,
+  text: string,
+): EditResult {
+  const target = graph.moves.find((m) => moveKey(m.from, m.san) === key);
+  if (target === undefined) return refuse('repertoire.unknownMove');
+  const comment = normalizeComment(text);
+  const moves = graph.moves.map((m) => (m === target ? { ...m, comment } : m));
+  return { ok: true, value: { ...graph, moves } };
+}
+
+/**
+ * Removes a chapter and every move only it used. A move another chapter
+ * holds stays; that chapter's moves are still reachable from its own root.
+ */
+export function removeChapter(
+  graph: RepertoireGraph,
+  chapterId: string,
+): EditResult {
+  if (chapterOf(graph, chapterId) === undefined)
+    return refuse('repertoire.unknownChapter');
+  const moves = graph.moves
+    .map((m) => withoutChapter(m, chapterId))
+    .filter((m) => m.chapters.length > 0);
+  const chapters = graph.chapters.filter((c) => c.id !== chapterId);
+  return { ok: true, value: { ...graph, chapters, moves } };
+}
+
+/**
+ * Adds an empty chapter starting at `rootKey`, numbered "Chapter N" until
+ * its moves classify (R-104).
+ */
+export function addChapter(
+  graph: RepertoireGraph,
+  rootKey: string,
+): { readonly graph: RepertoireGraph; readonly chapterId: string } {
+  const chapterId = nextChapterId(graph.chapters);
+  const chapter: Chapter = {
+    id: chapterId,
+    rootKey,
+    intro: null,
+    nameSource: { kind: 'index', number: nextChapterNumber(graph.chapters) },
+  };
+  const chapters = [...graph.chapters, chapter];
+  return { graph: { ...graph, chapters }, chapterId };
+}
+
+/** Names a chapter as its owner typed it; the domain checked the name. */
+export function renameChapter(
+  graph: RepertoireGraph,
+  chapterId: string,
+  name: string,
+): EditResult {
+  if (chapterOf(graph, chapterId) === undefined)
+    return refuse('repertoire.unknownChapter');
+  const chapters = graph.chapters.map((c): Chapter =>
+    c.id === chapterId ? { ...c, nameSource: { kind: 'custom', name } } : c,
+  );
+  return { ok: true, value: { ...graph, chapters } };
 }

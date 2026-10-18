@@ -367,6 +367,7 @@ describe('buildQueue', () => {
         uci: '',
         arrows: [],
         circles: [],
+        comment: null,
         chapters: ['c1'],
       })),
     ).flat();

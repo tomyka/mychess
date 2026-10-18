@@ -2,8 +2,13 @@ import { Chess } from 'chess.js';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { positionKey } from '../position-key';
-import { addMove, setMarks } from '../repertoire/edit';
-import type { Chapter, RepertoireGraph, Side } from '../repertoire/graph';
+import { addMove, editComment, setMarks } from '../repertoire/edit';
+import {
+  moveKey,
+  type Chapter,
+  type RepertoireGraph,
+  type Side,
+} from '../repertoire/graph';
 import { exportPgn } from './export-pgn';
 import { importPgn } from './import-pgn';
 import { imported, must, START } from './test-support';
@@ -23,12 +28,20 @@ const normalise = (g: {
     san: string;
     arrows: unknown;
     circles: unknown;
+    comment: string | null;
     chapters: readonly string[];
   }[];
 }) =>
   g.moves
     .map((m) =>
-      JSON.stringify([m.from, m.san, m.arrows, m.circles, m.chapters]),
+      JSON.stringify([
+        m.from,
+        m.san,
+        m.arrows,
+        m.circles,
+        m.comment,
+        m.chapters,
+      ]),
     )
     .sort();
 
@@ -67,6 +80,36 @@ describe('exportPgn', () => {
         '',
         '1. e4 { [%cal Gg1f3,Rf1c4] [%csl Bd5] } c5 2. Nf3 d6 *',
       ].join('\n'),
+    );
+  });
+
+  it('writes a comment before the marks in one brace comment', () => {
+    const graph = graphOf('1. e4 { Best [%cal Gg1f3] } e5 { Solid } *');
+    expect(exportPgn(graph)).toContain(
+      '1. e4 { Best [%cal Gg1f3] } e5 { Solid } *',
+    );
+  });
+
+  it('writes a comment with arrows and circles in that order', () => {
+    const graph = graphOf('1. e4 { [%csl Gd4] Best [%cal Gg1f3] } *');
+    expect(exportPgn(graph)).toContain(
+      '1. e4 { Best [%cal Gg1f3] [%csl Gd4] } *',
+    );
+  });
+
+  it('names chapters through the title option', () => {
+    const graph = graphOf('1. e4 e5 *');
+    const titled = exportPgn(graph, {
+      title: (c) => `Atvirasis debiutas ${c.id}`,
+    });
+    expect(titled).toContain('[Event "Atvirasis debiutas c1"]');
+    expect(titled).not.toContain('C20');
+  });
+
+  it('escapes a title like any tag value', () => {
+    const graph = graphOf('1. e4 e5 *');
+    expect(exportPgn(graph, { title: () => 'A "B"' })).toContain(
+      '[Event "A \\"B\\""]',
     );
   });
 
@@ -223,100 +266,136 @@ describe('exportPgn', () => {
     }).not.toThrow();
   });
 
-  it('round-trips random branching repertoires with marks', () => {
-    const COLORS = ['G', 'R', 'Y', 'B'] as const;
-    // Each step: a move choice, and whether (and in which colour) to mark it.
-    const step = fc.tuple(fc.nat(40), fc.nat(7));
-    const branch = fc.tuple(
-      fc.nat(2),
-      fc.array(step, { minLength: 1, maxLength: 10 }),
-    );
-    const repertoire = fc.tuple(
-      fc.constantFrom<Side>('white', 'black'),
-      fc.array(branch, { minLength: 1, maxLength: 8 }),
-    );
+  // About 0.5s alone; every builder move also names its chapter from the
+  // taxonomy (R-104), so under the gate's shared load it can pass 5s. The
+  // timeout is a sanity bound, as for the property above.
+  it(
+    'round-trips random branching repertoires with marks',
+    {
+      timeout: 30_000,
+    },
+    () => {
+      const COLORS = ['G', 'R', 'Y', 'B'] as const;
+      const COMMENTS = [
+        'Idea: d4',
+        'Kodėl ne?',
+        'Plan { braces } [%cal Ge2e4] gone',
+      ] as const;
+      // Each step: a move choice, and whether (and in which colour) to mark it.
+      const step = fc.tuple(fc.nat(40), fc.nat(7));
+      const branch = fc.tuple(
+        fc.nat(2),
+        fc.array(step, { minLength: 1, maxLength: 10 }),
+      );
+      const repertoire = fc.tuple(
+        fc.constantFrom<Side>('white', 'black'),
+        fc.array(branch, { minLength: 1, maxLength: 8 }),
+      );
 
-    const addLine = (
-      start: RepertoireGraph,
-      chapterId: string,
-      steps: readonly (readonly [number, number])[],
-    ): RepertoireGraph => {
-      let graph = start;
-      const chess = new Chess();
-      for (const [choice, mark] of steps) {
-        const legal = chess.moves({ verbose: true });
-        if (legal.length === 0) break;
-        const move = must(legal[choice % legal.length]);
-        const from = positionKey(chess.fen());
-        const added = addMove(graph, chapterId, from, move.san);
-        if (!added.ok) break;
-        graph = added.value;
-        chess.move(move.san);
+      /** The squares a move is played between. */
+      interface Square {
+        readonly from: string;
+        readonly to: string;
+      }
+
+      /** `graph` with a step's arrows, circles and comment on the move just added. */
+      const annotate = (
+        graph: RepertoireGraph,
+        chapterId: string,
+        at: { readonly from: string; readonly san: string },
+        { squares, mark }: { readonly squares: Square; readonly mark: number },
+      ): RepertoireGraph => {
+        let annotated = graph;
         const color = COLORS[mark];
         if (color !== undefined) {
-          const arrows = [{ from: move.from, to: move.to, color }];
-          const circles = mark % 2 === 0 ? [{ square: move.to, color }] : [];
-          const marked = setMarks(
-            graph,
-            chapterId,
-            { from, san: move.san },
-            {
-              arrows,
-              circles,
-            },
-          );
-          if (marked.ok) graph = marked.value;
+          const arrows = [{ from: squares.from, to: squares.to, color }];
+          const circles = mark % 2 === 0 ? [{ square: squares.to, color }] : [];
+          const marked = setMarks(annotated, chapterId, at, {
+            arrows,
+            circles,
+          });
+          if (marked.ok) annotated = marked.value;
         }
-      }
-      return graph;
-    };
+        if (mark % 2 === 0) return annotated;
+        const text = COMMENTS[mark % COMMENTS.length] ?? '';
+        const commented = editComment(
+          annotated,
+          moveKey(at.from, at.san),
+          text,
+        );
+        if (!commented.ok) throw new Error(commented.refusal.reason);
+        return commented.value;
+      };
 
-    /** Each move with its chapters as indexes, so renumbered ids compare equal. */
-    const canonical = (graph: RepertoireGraph) => {
-      const ids = graph.chapters.map((c) => c.id);
-      return graph.moves
-        .map((m) =>
-          JSON.stringify([
-            m.from,
-            m.san,
-            m.arrows,
-            m.circles,
-            m.chapters.map((c) => ids.indexOf(c)).sort(),
-          ]),
-        )
-        .sort();
-    };
+      const addLine = (
+        start: RepertoireGraph,
+        chapterId: string,
+        steps: readonly (readonly [number, number])[],
+      ): RepertoireGraph => {
+        let graph = start;
+        const chess = new Chess();
+        for (const [choice, mark] of steps) {
+          const legal = chess.moves({ verbose: true });
+          if (legal.length === 0) break;
+          const move = must(legal[choice % legal.length]);
+          const from = positionKey(chess.fen());
+          const added = addMove(graph, chapterId, from, move.san);
+          if (!added.ok) break;
+          chess.move(move.san);
+          const at = { from, san: move.san };
+          graph = annotate(added.value, chapterId, at, { squares: move, mark });
+        }
+        return graph;
+      };
 
-    expect(() => {
-      fc.assert(
-        fc.property(repertoire, ([side, branches]) => {
-          const chapters: Chapter[] = [1, 2, 3].map((number) => ({
-            id: `c${String(number)}`,
-            rootKey: START,
-            intro: null,
-            nameSource: { kind: 'index', number },
-          }));
-          let graph: RepertoireGraph = { side, chapters, moves: [] };
-          for (const [chapter, steps] of branches) {
-            graph = addLine(graph, `c${String(chapter + 1)}`, steps);
-          }
-          // A chapter without moves exports as an empty game, which the import skips.
-          graph = {
-            ...graph,
-            chapters: graph.chapters.filter((c) =>
-              graph.moves.some((m) => m.chapters.includes(c.id)),
-            ),
-          };
-          const again = importPgn(exportPgn(graph), side);
-          return (
-            again.ok &&
-            again.value.skipped.length === 0 &&
-            JSON.stringify(canonical(again.value.graph)) ===
-              JSON.stringify(canonical(graph))
-          );
-        }),
-        RUNS,
-      );
-    }).not.toThrow();
-  });
+      /** Each move with its chapters as indexes, so renumbered ids compare equal. */
+      const canonical = (graph: RepertoireGraph) => {
+        const ids = graph.chapters.map((c) => c.id);
+        return graph.moves
+          .map((m) =>
+            JSON.stringify([
+              m.from,
+              m.san,
+              m.arrows,
+              m.circles,
+              m.comment,
+              m.chapters.map((c) => ids.indexOf(c)).sort(),
+            ]),
+          )
+          .sort();
+      };
+
+      expect(() => {
+        fc.assert(
+          fc.property(repertoire, ([side, branches]) => {
+            const chapters: Chapter[] = [1, 2, 3].map((number) => ({
+              id: `c${String(number)}`,
+              rootKey: START,
+              intro: null,
+              nameSource: { kind: 'index', number },
+            }));
+            let graph: RepertoireGraph = { side, chapters, moves: [] };
+            for (const [chapter, steps] of branches) {
+              graph = addLine(graph, `c${String(chapter + 1)}`, steps);
+            }
+            // A chapter without moves exports as an empty game, which the import skips.
+            graph = {
+              ...graph,
+              chapters: graph.chapters.filter((c) =>
+                graph.moves.some((m) => m.chapters.includes(c.id)),
+              ),
+            };
+            const again = importPgn(exportPgn(graph), side);
+            return (
+              again.ok &&
+              again.value.skipped.length === 0 &&
+              JSON.stringify(canonical(again.value.graph)) ===
+                JSON.stringify(canonical(graph))
+            );
+          }),
+          RUNS,
+        );
+      }).not.toThrow();
+    },
+  );
 });

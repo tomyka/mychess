@@ -11,17 +11,16 @@
  * replay's.
  */
 import { DEFAULT_POSITION, validateFen } from 'chess.js';
-import { classify } from '../openings/classify';
 import { positionKey } from '../position-key';
 import type {
   Arrow,
   Chapter,
   Circle,
   RepertoireGraph,
-  RepertoireMove,
   Side,
 } from '../repertoire/graph';
 import { RepertoireMoves, type DraftMove } from '../repertoire/moves';
+import { taxonomyNamed } from '../repertoire/naming';
 import { chapterWalks } from '../repertoire/walk';
 import type { Result } from '../result';
 import { gameNames } from './game-names';
@@ -68,6 +67,8 @@ export type ImportRefusal = LimitRefusal | { reason: 'pgn.noValidGames' };
 export interface ImportedRepertoire {
   readonly graph: RepertoireGraph;
   readonly skipped: readonly Skipped[];
+  /** Each chapter's game: its 1-based number among the file's games (R-64). */
+  readonly games: Readonly<Record<string, number>>;
 }
 
 /** A game that replayed: what becomes a chapter. */
@@ -200,6 +201,7 @@ class RepertoireBuilder {
   /** Each stored move's mark identities, so marks merge without repeats. */
   private readonly markKeys = new Map<DraftMove, Set<string>>();
   readonly skipped: Skipped[] = [];
+  readonly games: Record<string, number> = {};
 
   readonly side: Side;
 
@@ -222,7 +224,10 @@ class RepertoireBuilder {
       if (this.put(game.game, move, chapter.id, dropped)) kept += 1;
       else dropped.add(index);
     }
-    if (kept > 0) this.chapters.push(chapter);
+    if (kept > 0) {
+      this.chapters.push(chapter);
+      this.games[chapter.id] = game.game;
+    }
   }
 
   freeze(): RepertoireGraph {
@@ -233,7 +238,7 @@ class RepertoireBuilder {
     };
     const walks = chapterWalks(graph);
     const chapters = this.chapters.map((c) =>
-      classified(c, walks(c.id).mainLine()),
+      taxonomyNamed(c, walks(c.id).mainLine()),
     );
     return { ...graph, chapters };
   }
@@ -272,25 +277,10 @@ class RepertoireBuilder {
     this.markKeys.set(put.value, seen);
     addMarks(seen, put.value.arrows, move.arrows);
     addMarks(seen, put.value.circles, move.circles);
+    put.value.comment ??= move.comment;
     return true;
   }
 }
-
-/**
- * Names a chapter from the opening taxonomy when its main line, played
- * from the standard start, reaches an ECO position (R-63: taxonomy first).
- */
-function classified(
-  chapter: Chapter,
-  mainLine: readonly RepertoireMove[],
-): Chapter {
-  if (chapter.rootKey !== START) return chapter;
-  const entry = classify(mainLine.map((m) => m.san));
-  if (entry === null) return chapter;
-  return { ...chapter, nameSource: { kind: 'eco', eco: entry.code } };
-}
-
-const START = positionKey(DEFAULT_POSITION);
 
 function build(side: Side, replayed: readonly Replayed[]): ImportedRepertoire {
   const good = replayed.flatMap((r) => (r.ok ? [r.value] : []));
@@ -305,7 +295,11 @@ function build(side: Side, replayed: readonly Replayed[]): ImportedRepertoire {
       builder.skipped.push(result.refusal);
     }
   }
-  return { graph: builder.freeze(), skipped: builder.skipped };
+  return {
+    graph: builder.freeze(),
+    skipped: builder.skipped,
+    games: builder.games,
+  };
 }
 
 /**

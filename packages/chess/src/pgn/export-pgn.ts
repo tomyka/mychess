@@ -2,12 +2,9 @@
  * PGN export of a repertoire: one game per chapter, which `importPgn` reads
  * back into the same moves, marks and chapters.
  */
-import { DEFAULT_POSITION } from 'chess.js';
-import { fenOf, positionKey, sideToMove } from '../position-key';
+import { fenOf, sideToMove, START_KEY } from '../position-key';
 import type {
-  Arrow,
   Chapter,
-  Circle,
   RepertoireGraph,
   RepertoireMove,
 } from '../repertoire/graph';
@@ -16,8 +13,6 @@ import {
   type ChapterWalk,
   type WalkedMove,
 } from '../repertoire/walk';
-
-const START = positionKey(DEFAULT_POSITION);
 
 function chapterName(chapter: Chapter): string {
   const source = chapter.nameSource;
@@ -34,23 +29,29 @@ function chapterName(chapter: Chapter): string {
 
 const tagValue = (value: string): string => value.replace(/[\\"]/g, '\\$&');
 
-function headers(chapter: Chapter): string[] {
+/** How export names a chapter's game; the default is the name source itself. */
+export interface ExportOptions {
+  readonly title?: (chapter: Chapter) => string;
+}
+
+type Title = (chapter: Chapter) => string;
+
+function headers(chapter: Chapter, title: Title): string[] {
   const setUp =
-    chapter.rootKey === START
+    chapter.rootKey === START_KEY
       ? []
       : ['[SetUp "1"]', `[FEN "${fenOf(chapter.rootKey)}"]`];
-  return [
-    `[Event "${tagValue(chapterName(chapter))}"]`,
-    ...setUp,
-    '[Result "*"]',
-  ];
+  return [`[Event "${tagValue(title(chapter))}"]`, ...setUp, '[Result "*"]'];
 }
 
 /** A brace comment; a `}` inside would end it early, so it is dropped. */
 const comment = (text: string): string => `{ ${text.replace(/\}/g, '')} }`;
 
-function marks(arrows: readonly Arrow[], circles: readonly Circle[]): string[] {
-  const commands = [
+/** A move's comment and marks as one brace comment, or nothing. */
+function annotation(move: RepertoireMove): string[] {
+  const { arrows, circles } = move;
+  const parts = [
+    ...(move.comment === null ? [] : [move.comment]),
     ...(arrows.length > 0
       ? [`[%cal ${arrows.map((a) => a.color + a.from + a.to).join(',')}]`]
       : []),
@@ -58,7 +59,7 @@ function marks(arrows: readonly Arrow[], circles: readonly Circle[]): string[] {
       ? [`[%csl ${circles.map((c) => c.color + c.square).join(',')}]`]
       : []),
   ];
-  return commands.length > 0 ? [comment(commands.join(' '))] : [];
+  return parts.length > 0 ? [comment(parts.join(' '))] : [];
 }
 
 /**
@@ -78,7 +79,7 @@ function moveText(
     : numbered
       ? `${String(number)}... ${move.san}`
       : move.san;
-  return [san, ...marks(move.arrows, move.circles)];
+  return [san, ...annotation(move)];
 }
 
 /**
@@ -117,24 +118,30 @@ function continuation(
 const firstPly = (chapter: Chapter): number =>
   sideToMove(chapter.rootKey) === 'b' ? 1 : 0;
 
-function game(walk: ChapterWalk, chapter: Chapter): string {
+function game(walk: ChapterWalk, chapter: Chapter, title: Title): string {
   const movetext = [
     ...(chapter.intro === null ? [] : [comment(chapter.intro)]),
     ...continuation(walk.tree(), firstPly(chapter), true),
     '*',
   ];
-  return [...headers(chapter), '', movetext.join(' ')].join('\n');
+  return [...headers(chapter, title), '', movetext.join(' ')].join('\n');
 }
 
 /**
  * Writes a repertoire as PGN: one game per chapter, named by an `Event`
  * tag, with a `FEN` tag when the chapter does not start from the initial
- * position, its intro before the first move, arrows and circles as
- * `[%cal]` / `[%csl]` comments, and alternatives as variations.
+ * position, its intro before the first move, each move's comment and its
+ * arrows and circles (`[%cal]` / `[%csl]`) in one brace comment, and
+ * alternatives as variations. `options.title` names each game; by default
+ * the chapter's name source itself.
  */
-export function exportPgn(graph: RepertoireGraph): string {
+export function exportPgn(
+  graph: RepertoireGraph,
+  options: ExportOptions = {},
+): string {
   const walks = chapterWalks(graph);
+  const title = options.title ?? chapterName;
   return graph.chapters
-    .map((chapter) => game(walks(chapter.id), chapter))
+    .map((chapter) => game(walks(chapter.id), chapter, title))
     .join('\n\n');
 }

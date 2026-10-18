@@ -41,7 +41,7 @@ export interface ChapterWalk {
 }
 
 /** The chapter's children of `key`, in insertion order. */
-type Children = (key: string) => readonly RepertoireMove[];
+export type Children = (key: string) => readonly RepertoireMove[];
 
 const NO_WALK: ChapterWalk = {
   lines: () => [],
@@ -198,4 +198,23 @@ export function mainLine(
   chapterId: string,
 ): RepertoireMove[] {
   return chapterWalks(graph)(chapterId).mainLine();
+}
+
+/**
+ * A chapter's children of each position, in insertion order, with the
+ * position index built once for the whole repertoire.
+ */
+export function chapterChildren(
+  graph: RepertoireGraph,
+): (chapterId: string) => Children {
+  const index = indexByPosition(graph);
+  return (chapterId) => childrenIn(index, chapterId);
+}
+
+/** The move list's shape: see `ChapterWalk.tree`. */
+export function chapterTree(
+  graph: RepertoireGraph,
+  chapterId: string,
+): WalkedMove[] {
+  return chapterWalks(graph)(chapterId).tree();
 }

@@ -423,6 +423,7 @@ describe('importPgn: replaying moves into the graph', () => {
         uci: 'e2e4',
         arrows: [],
         circles: [],
+        comment: null,
         chapters: ['c1'],
       },
       {
@@ -432,6 +433,7 @@ describe('importPgn: replaying moves into the graph', () => {
         uci: 'e7e5',
         arrows: [],
         circles: [],
+        comment: null,
         chapters: ['c1'],
       },
     ]);
@@ -777,3 +779,64 @@ function bigFile(count: number): string {
   }
   return games.join('\n\n');
 }
+
+describe('importPgn: move comments (R-102)', () => {
+  const commentOf = (text: string, san: string) =>
+    must(imported(text).graph.moves.find((m) => m.san === san)).comment;
+
+  it('keeps the comment after a move, without its marks', () => {
+    const text = '1. e4 { Best by test } e5 { Solid [%cal Gg1f3] } 2. Nf3 *';
+    expect(commentOf(text, 'e4')).toBe('Best by test');
+    expect(commentOf(text, 'e5')).toBe('Solid');
+    expect(commentOf(text, 'Nf3')).toBeNull();
+  });
+
+  it('joins several comments after one move', () => {
+    expect(commentOf('1. e4 { Best } { by test } *', 'e4')).toBe(
+      'Best by test',
+    );
+  });
+
+  it('adds nothing for a comment that only draws marks', () => {
+    expect(commentOf('1. e4 { Best } { [%csl Gd4] } *', 'e4')).toBe('Best');
+    expect(commentOf('1. e4 { [%csl Gd4] } { Best } *', 'e4')).toBe('Best');
+  });
+
+  it('gives a variation move its comment', () => {
+    expect(commentOf('1. e4 e5 (1... c5 { Sicilian }) 2. Nf3 *', 'c5')).toBe(
+      'Sicilian',
+    );
+  });
+
+  it('gives a comment before a variation move to that move', () => {
+    const text = '1. e4 e5 ({ Sharper } 1... c5) 2. Nf3 *';
+    expect(commentOf(text, 'c5')).toBe('Sharper');
+    expect(commentOf(text, 'e4')).toBeNull();
+  });
+
+  it('keeps the chapter intro apart from the first move comment', () => {
+    const { graph } = imported('{ Intro } 1. e4 { After } *');
+    expect(must(graph.chapters[0]).intro).toBe('Intro');
+    expect(must(graph.moves[0]).comment).toBe('After');
+  });
+
+  it('keeps the first comment when two games share a move (decision 3)', () => {
+    const text =
+      '[Event "A"]\n\n1. e4 { first } e5 *\n\n[Event "B"]\n\n1. e4 { second } c5 *';
+    expect(commentOf(text, 'e4')).toBe('first');
+  });
+
+  it('takes a later game comment when the first game had none', () => {
+    const text =
+      '[Event "A"]\n\n1. e4 e5 *\n\n[Event "B"]\n\n1. e4 { second } c5 *';
+    expect(commentOf(text, 'e4')).toBe('second');
+  });
+
+  it('names the game of each chapter', () => {
+    const r = imported(
+      '[Event "A"]\n\n1. e4 *\n\n[Event "B"]\n\n1. e4 Qxe2 *\n\n[Event "C"]\n\n1. d4 *',
+      'black',
+    );
+    expect(r.games).toEqual({ c1: 1, c2: 3 });
+  });
+});

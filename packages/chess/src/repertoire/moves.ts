@@ -26,10 +26,11 @@ export interface PlayedMove {
   readonly uci: string;
 }
 
-/** A stored move whose marks and chapters can still grow. */
+/** A stored move whose marks and chapters can still grow, and whose comment can be set. */
 export interface DraftMove extends PlayedMove {
   readonly arrows: Arrow[];
   readonly circles: Circle[];
+  comment: string | null;
   readonly chapters: string[];
 }
 
@@ -39,15 +40,16 @@ export interface SecondAnswer {
 
 const draftOf = (
   { from, to, san, uci }: PlayedMove,
-  marks: Pick<RepertoireMove, 'arrows' | 'circles' | 'chapters'>,
+  rest: Pick<RepertoireMove, 'arrows' | 'circles' | 'comment' | 'chapters'>,
 ): DraftMove => ({
   from,
   to,
   san,
   uci,
-  arrows: [...marks.arrows],
-  circles: [...marks.circles],
-  chapters: [...marks.chapters],
+  arrows: [...rest.arrows],
+  circles: [...rest.circles],
+  comment: rest.comment,
+  chapters: [...rest.chapters],
 });
 
 export class RepertoireMoves {
@@ -81,7 +83,12 @@ export class RepertoireMoves {
     if (this.isPlayerMove(move) && this.occupied.has(move.from)) {
       return { ok: false, refusal: { reason: 'repertoire.secondAnswer' } };
     }
-    const draft = draftOf(move, { arrows: [], circles: [], chapters: [] });
+    const draft = draftOf(move, {
+      arrows: [],
+      circles: [],
+      comment: null,
+      chapters: [],
+    });
     draft.chapters.push(chapterId);
     this.store(draft);
     return { ok: true, value: draft };

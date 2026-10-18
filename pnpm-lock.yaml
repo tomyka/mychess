@@ -138,6 +138,9 @@ importers:
       ts-fsrs:
         specifier: 5.4.2
         version: 5.4.2
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
     devDependencies:
       fast-check:
         specifier: 4.10.2
