@@ -6,6 +6,13 @@ import { z } from 'zod';
 import { connect, type Db } from '../client';
 import { databaseUrlSchema } from '../config';
 import { MIGRATIONS_FOLDER, runMigrations } from '../migrations';
+import {
+  createDatabase,
+  databaseUrlOn,
+  dropDatabase,
+  freshDatabaseName,
+  testServerUrl,
+} from './server-database';
 
 /** The Postgres image every test suite runs on, bumped deliberately. */
 const POSTGRES_IMAGE = 'postgres:18.6';
@@ -19,27 +26,56 @@ declare module 'vitest' {
 
 export interface TestDatabase {
   readonly url: string;
-  /** Stops the container. Safe to call more than once. */
+  /** Drops the database or stops its container. Safe to call more than once. */
   readonly stop: () => Promise<void>;
 }
 
 /**
- * A migrated, empty Postgres in a throwaway container. A global setup
- * starts one and hands its `url` to the test files as `databaseUrl`
+ * A migrated, empty Postgres database. A global setup starts one and hands
+ * its `url` to the test files as `databaseUrl`
  * (`project.provide('databaseUrl', database.url)`).
+ *
+ * With `TEST_POSTGRES_URL` set (an admin URL to a long-lived server, such as
+ * infra/compose.yaml's), it is a fresh database on that server, dropped by
+ * `stop`; otherwise a throwaway Testcontainers container.
  */
 export async function startTestDatabase(): Promise<TestDatabase> {
+  const serverUrl = testServerUrl(process.env);
+  return serverUrl === undefined
+    ? startContainerDatabase()
+    : startServerDatabase(serverUrl);
+}
+
+async function startContainerDatabase(): Promise<TestDatabase> {
   const container = await new PostgreSqlContainer(POSTGRES_IMAGE).start();
+  return migrated(container.getConnectionUri(), () => container.stop());
+}
+
+async function startServerDatabase(serverUrl: string): Promise<TestDatabase> {
+  const name = freshDatabaseName();
+  await createDatabase(serverUrl, name);
+  return migrated(databaseUrlOn(serverUrl, name), () =>
+    dropDatabase(serverUrl, name),
+  );
+}
+
+/**
+ * Migrates the database at `url` and pairs it with a `stop` that runs
+ * `release` once, however often it is called. A database that never gets
+ * migrated is released at once rather than leaked past setup.
+ */
+async function migrated(
+  url: string,
+  release: () => Promise<unknown>,
+): Promise<TestDatabase> {
   let stopping: Promise<unknown> | undefined;
   const stop = async () => {
-    stopping ??= container.stop();
+    stopping ??= release();
     await stopping;
   };
-  const url = container.getConnectionUri();
   try {
     await runMigrations(url, MIGRATIONS_FOLDER);
   } catch (error) {
-    // A container that starts but never gets used must not leak past setup.
     await stop();
     throw error;
   }

@@ -16,6 +16,21 @@ rulings Q20, Q21, Q40 in `docs/owner-rulings.md`.
 Feature and db suites need Docker. The Postgres image every suite uses is
 `POSTGRES_IMAGE` in `packages/db/src/testing/database.ts`.
 
+By default each suite (and each mutation worker) starts its own
+Testcontainers Postgres. Locally you can run them all on one server
+instead: start the compose Postgres
+(`docker compose -f infra/compose.yaml up -d postgres`) and
+
+```sh
+export TEST_POSTGRES_URL=postgres://mychess:mychess@127.0.0.1:5432/postgres
+```
+
+`startTestDatabase` (`@mychess/db/testing`) then creates a fresh database
+`test_<random hex>` on that server per suite, migrates it, and drops it when
+the suite ends. The variable is optional; a value that is not a
+`postgres://` URL is refused rather than ignored. CI does not set it and
+keeps using containers.
+
 ### Running E2E locally
 
 1. Once per machine (and after a Playwright bump):
