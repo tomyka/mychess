@@ -20,10 +20,11 @@ const en = MESSAGES.en;
 function renderForm(
   displayName = 'Rūta Jonaitė',
   locale: 'lt' | 'en' = 'lt',
+  next: string | null = null,
 ): void {
   render(
     <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
-      <OnboardingForm displayName={displayName} locale={locale} />
+      <OnboardingForm displayName={displayName} locale={locale} next={next} />
     </NextIntlClientProvider>,
   );
 }
@@ -83,6 +84,16 @@ describe('OnboardingForm', () => {
       expect(server.action).toHaveBeenCalledTimes(1);
     });
     expect(submitted()).toEqual({ displayName: 'Rūta', locale: 'en' });
+  });
+
+  it('sends the return path along when there is one (R-81)', async () => {
+    const next = `/k/${'A'.repeat(42)}_`;
+    renderForm('Rūta', 'lt', next);
+    submit();
+    await waitFor(() => {
+      expect(server.action).toHaveBeenCalledTimes(1);
+    });
+    expect(submitted()).toEqual({ displayName: 'Rūta', locale: 'lt', next });
   });
 
   it('shows a refusal in the page language and marks the name field', async () => {

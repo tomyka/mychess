@@ -218,3 +218,45 @@ describe('SignInForm', () => {
     expect(status().textContent).toBe(lt.signIn.deleted);
   });
 });
+
+describe('SignInForm with a return path (R-81)', () => {
+  const TOKEN = 'A'.repeat(42) + '_';
+  const NEXT = `/k/${TOKEN}`;
+  const BACK = {
+    callbackURL: NEXT,
+    newUserCallbackURL: `/pradzia?next=%2Fk%2F${TOKEN}`,
+    errorCallbackURL: `/prisijungti?next=%2Fk%2F${TOKEN}`,
+  };
+
+  it('sends the magic link back to the invite, through onboarding for a new account', async () => {
+    renderForm({ next: NEXT });
+    await submitEmail('ruta@example.lt');
+    expect(client.magicLink).toHaveBeenCalledWith({
+      email: 'ruta@example.lt',
+      ...BACK,
+      metadata: { locale: 'lt' },
+    });
+  });
+
+  it.each([
+    ['google', lt.signIn.google],
+    ['lichess', lt.signIn.lichess],
+  ] as const)(
+    'sends a %s sign-in back to the invite',
+    async (provider, label) => {
+      renderForm({ next: NEXT });
+      fireEvent.click(screen.getByRole('button', { name: label }));
+      await waitFor(() => {
+        expect(client.social).toHaveBeenCalledWith({ provider, ...BACK });
+      });
+    },
+  );
+
+  it('keeps the plain destinations with no return path', async () => {
+    renderForm({ next: null });
+    await submitEmail('ruta@example.lt');
+    expect(client.magicLink).toHaveBeenCalledWith(
+      expect.objectContaining(URLS),
+    );
+  });
+});

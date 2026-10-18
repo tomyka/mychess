@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
+import type { JSX } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/locales';
 import OnboardingPage from './page';
@@ -46,6 +47,7 @@ vi.mock('../../server/session', () => ({
       entitlement: 'free',
       admin: false,
       disabledAt: null,
+      coachSince: null,
       createdAt: new Date(),
       ...server.account,
     }),
@@ -77,8 +79,16 @@ beforeEach(() => {
   server.fresh = true;
 });
 
-async function renderPage(locale: 'lt' | 'en'): Promise<void> {
-  const element = await OnboardingPage();
+type Search = Record<string, string | string[] | undefined>;
+
+const page = (search: Search = {}): Promise<JSX.Element> =>
+  OnboardingPage({ searchParams: Promise.resolve(search) });
+
+async function renderPage(
+  locale: 'lt' | 'en',
+  search: Search = {},
+): Promise<void> {
+  const element = await page(search);
   render(
     <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
       {element}
@@ -86,10 +96,36 @@ async function renderPage(locale: 'lt' | 'en'): Promise<void> {
   );
 }
 
+const NEXT = `/k/${'A'.repeat(42)}_`;
+const hiddenNext = () =>
+  document.querySelector<HTMLInputElement>('input[type="hidden"][name="next"]');
+
 describe('the onboarding page', () => {
   it('sends an onboarded account home', async () => {
     server.account.onboardedAt = new Date();
-    await expect(OnboardingPage()).rejects.toMatchObject({ to: '/' });
+    await expect(page()).rejects.toMatchObject({ to: '/' });
+  });
+
+  it('sends an onboarded account to the invite it was on its way to (R-81)', async () => {
+    server.account.onboardedAt = new Date();
+    await expect(page({ next: NEXT })).rejects.toMatchObject({ to: NEXT });
+  });
+
+  it('sends an onboarded account home for a return path that is not an invite', async () => {
+    server.account.onboardedAt = new Date();
+    await expect(page({ next: '//evil.example' })).rejects.toMatchObject({
+      to: '/',
+    });
+  });
+
+  it('hands the first return path to the form as a hidden field', async () => {
+    await renderPage('lt', { next: [NEXT, '/nustatymai'] });
+    expect(hiddenNext()?.value).toBe(NEXT);
+  });
+
+  it('hands the form no return path that is not an invite', async () => {
+    await renderPage('lt', { next: 'https://evil.example/' });
+    expect(document.querySelector('input[name="next"]')).toBeNull();
   });
 
   it("prefills the provider's name and the account's language", async () => {

@@ -73,6 +73,21 @@ describe('the sign-in page', () => {
     await expect(page()).rejects.toMatchObject({ to: '/' });
   });
 
+  it('sends a signed-in account to the invite it was on its way to (R-81)', async () => {
+    server.account = { id: 'a1' };
+    const next = `/k/${'A'.repeat(42)}_`;
+    await expect(page({ next })).rejects.toMatchObject({ to: next });
+  });
+
+  it.each([
+    ['an absolute URL', 'https://evil.example/'],
+    ['a protocol-relative URL', '//evil.example'],
+    ['another page', '/nustatymai'],
+  ])('sends a signed-in account home for %s', async (_, next) => {
+    server.account = { id: 'a1' };
+    await expect(page({ next })).rejects.toMatchObject({ to: '/' });
+  });
+
   it('shows the error code it was sent back with', async () => {
     await renderPage({ error: 'lichess_email_in_use' });
     expect(screen.getByRole('status').textContent).toBe(

@@ -9,7 +9,22 @@ export const ROUTES = {
   settings: '/nustatymai',
   repertoires: '/repertuarai',
   repertoireImport: '/repertuarai/importuoti',
+  coach: '/treneris',
+  /** The "Mano treneriai" section of settings (plan decision 12). */
+  myCoaches: '/nustatymai#treneriai',
 } as const;
+
+/** An invite link's page; the token is one path segment. */
+export const invitePath = (token: string): string =>
+  `/k/${encodeURIComponent(token)}`;
+
+/** One linked player's page in the coach area. */
+export const coachPlayerPath = (playerId: string): string =>
+  `${ROUTES.coach}/zaidejai/${encodeURIComponent(playerId)}`;
+
+/** One group's page in the coach area. */
+export const coachGroupPath = (groupId: string): string =>
+  `${ROUTES.coach}/grupes/${encodeURIComponent(groupId)}`;
 
 /** One repertoire's page (browse and builder). */
 export const repertoireRoute = (id: string): string =>

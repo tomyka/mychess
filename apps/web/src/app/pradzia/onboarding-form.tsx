@@ -14,6 +14,11 @@ export interface OnboardingFormProps {
   readonly displayName: string;
   /** The language the page is shown in; Lithuanian for a new account. */
   readonly locale: Locale;
+  /**
+   * The invite to go on to once onboarded (R-81), sent back as a hidden
+   * field; the action checks it again, as it is client input.
+   */
+  readonly next?: string | null;
   /** Shown below the form: the way to delete the account instead (R-86). */
   readonly children?: ReactNode;
 }
@@ -24,6 +29,7 @@ const INITIAL: OnboardingState = {};
 export function OnboardingForm({
   displayName,
   locale,
+  next = null,
   children,
 }: OnboardingFormProps): JSX.Element {
   const t = useTranslations();
@@ -62,6 +68,9 @@ export function OnboardingForm({
             statusId={statusId}
           />
           <LanguageField legend={t('onboarding.language')} initial={locale} />
+          {next === null ? null : (
+            <input type="hidden" name="next" value={next} />
+          )}
           <button type="submit" disabled={pending} className={PRIMARY_BUTTON}>
             {t('onboarding.submit')}
           </button>

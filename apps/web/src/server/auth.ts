@@ -388,9 +388,14 @@ const rateLimitOptions = {
 /**
  * The client address as Vercel forwards it: Vercel sets both headers to
  * the client's IP and overwrites any value the client sent.
+ *
+ * The origin and callback-URL checks are on everywhere. Better Auth turns
+ * them off by default when NODE_ENV is "test", which would let the feature
+ * suite pass a foreign `callbackURL` that production refuses (R-81).
  */
 const advancedOptions = {
   ipAddress: { ipAddressHeaders: ['x-real-ip', 'x-forwarded-for'] },
+  disableOriginCheck: false,
 } satisfies BetterAuthOptions['advanced'];
 
 function authOptions({ db, env, mail, fetch: fetchImpl = fetch }: AuthDeps) {

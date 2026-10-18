@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useId, useState, type JSX, type SubmitEvent } from 'react';
 import { authClient } from '../../lib/auth-client';
 import { offeredProviders, type Provider } from '../../lib/providers';
+import { onboardingPath, signInPath } from '../../lib/return-path';
 import { ROUTES } from '../../lib/routes';
 import {
   clientErrorKey,
@@ -21,6 +22,8 @@ export interface SignInFormProps {
   readonly deleted: boolean;
   /** Google is offered only when the server has its credentials. */
   readonly googleEnabled: boolean;
+  /** Where to go back to after signing in: an invite page, or none. */
+  readonly next?: string | null;
 }
 
 interface StatusMessage {
@@ -31,13 +34,21 @@ interface StatusMessage {
 /** Runs a sign-in request and shows the message it ends with. */
 type Run = (action: () => Promise<StatusMessage | null>) => void;
 
-// Where Better Auth sends the browser: home, onboarding for a new account,
-// or back here with `?error=`.
-const URLS = {
-  callbackURL: ROUTES.home,
-  newUserCallbackURL: ROUTES.onboarding,
-  errorCallbackURL: ROUTES.signIn,
-} as const;
+/** Where Better Auth sends the browser after a sign-in. */
+interface CallbackUrls {
+  readonly callbackURL: string;
+  readonly newUserCallbackURL: string;
+  readonly errorCallbackURL: string;
+}
+
+// Home, or the invite the person was on its way to (R-81); a new account
+// goes through onboarding first; a failure comes back here with `?error=`.
+// Each carries the return path on.
+const callbackUrls = (next: string | null): CallbackUrls => ({
+  callbackURL: next ?? ROUTES.home,
+  newUserCallbackURL: onboardingPath(next),
+  errorCallbackURL: signInPath(next),
+});
 
 const SENT: StatusMessage = { key: 'signIn.sent', tone: 'success' };
 const GENERIC: StatusMessage = { key: 'signIn.error.generic', tone: 'error' };
@@ -56,11 +67,12 @@ function initialMessage(
 async function requestMagicLink(
   email: string,
   locale: Locale,
+  urls: CallbackUrls,
 ): Promise<StatusMessage> {
   try {
     const { error } = await authClient.signIn.magicLink({
       email,
-      ...URLS,
+      ...urls,
       metadata: { locale },
     });
     return error === null ? SENT : failed(clientErrorKey(error));
@@ -72,9 +84,10 @@ async function requestMagicLink(
 /** Starts a provider sign-in; on success the browser leaves this page. */
 async function startProvider(
   provider: Provider,
+  urls: CallbackUrls,
 ): Promise<StatusMessage | null> {
   try {
-    const { error } = await authClient.signIn.social({ provider, ...URLS });
+    const { error } = await authClient.signIn.social({ provider, ...urls });
     return error === null ? null : GENERIC;
   } catch {
     return GENERIC;
@@ -85,9 +98,11 @@ async function startProvider(
 function EmailForm({
   busy,
   run,
+  urls,
 }: {
   readonly busy: boolean;
   readonly run: Run;
+  readonly urls: CallbackUrls;
 }): JSX.Element {
   const t = useTranslations('signIn');
   const locale = useLocale();
@@ -97,7 +112,7 @@ function EmailForm({
   // not the browser's.
   const submit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-    run(() => requestMagicLink(email, locale));
+    run(() => requestMagicLink(email, locale, urls));
   };
   return (
     <form noValidate className="flex flex-col gap-3" onSubmit={submit}>
@@ -128,10 +143,12 @@ function EmailForm({
 function ProviderButtons({
   busy,
   run,
+  urls,
   googleEnabled,
 }: {
   readonly busy: boolean;
   readonly run: Run;
+  readonly urls: CallbackUrls;
   readonly googleEnabled: boolean;
 }): JSX.Element {
   const t = useTranslations('signIn');
@@ -151,7 +168,7 @@ function ProviderButtons({
             disabled={busy}
             className={SECONDARY_BUTTON}
             onClick={() => {
-              run(() => startProvider(provider));
+              run(() => startProvider(provider, urls));
             }}
           >
             {t(provider)}
@@ -167,8 +184,10 @@ export function SignInForm({
   error,
   deleted,
   googleEnabled,
+  next = null,
 }: SignInFormProps): JSX.Element {
   const t = useTranslations();
+  const urls = callbackUrls(next);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(() => initialMessage(error, deleted));
   const run: Run = (action) => {
@@ -193,8 +212,13 @@ export function SignInForm({
           text={message === null ? null : t(message.key)}
           tone={message?.tone ?? 'info'}
         />
-        <EmailForm busy={busy} run={run} />
-        <ProviderButtons busy={busy} run={run} googleEnabled={googleEnabled} />
+        <EmailForm busy={busy} run={run} urls={urls} />
+        <ProviderButtons
+          busy={busy}
+          run={run}
+          urls={urls}
+          googleEnabled={googleEnabled}
+        />
       </div>
     </main>
   );
