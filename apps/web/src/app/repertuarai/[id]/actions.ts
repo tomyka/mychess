@@ -120,12 +120,14 @@ export async function renameRepertoireAction(
   }
   const own = await ownRepertoire(account, request.data.repertoireId, 'edit');
   if (!own.ok) return { refusal: own.refusal.reason };
-  await renameRepertoire(getDb(), {
+  // The write checks ownership again: a repertoire deleted since is refused.
+  const renamed = await renameRepertoire(getDb(), {
     id: request.data.repertoireId,
     ownerId: account.id,
     name: request.data.name,
     now: new Date(),
   });
+  if (!renamed.ok) return { refusal: renamed.refusal.reason };
   refresh();
   return { saved: true };
 }
@@ -146,7 +148,12 @@ export async function deleteRepertoireAction(
   const account = await requireOnboarded();
   const own = await ownRepertoire(account, form.get('repertoireId'), 'edit');
   if (!own.ok) return { refusal: own.refusal.reason };
-  await deleteRepertoire(getDb(), own.value.repertoire.id, account.id);
+  const deleted = await deleteRepertoire(
+    getDb(),
+    own.value.repertoire.id,
+    account.id,
+  );
+  if (!deleted.ok) return { refusal: deleted.refusal.reason };
   redirect(repertoireDeletedRoute);
 }
 
@@ -197,7 +204,6 @@ export async function editRepertoireAction(
     id: repertoire.id,
     ownerId: account.id,
     expectedVersion: repertoire.version,
-    before: graph,
     after: edited.value,
     now: new Date(),
   });

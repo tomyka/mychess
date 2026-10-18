@@ -131,7 +131,6 @@ describe('setPersonalNote and listPersonalNotes', () => {
       id,
       ownerId: 'rokas',
       expectedVersion: 1,
-      before,
       after: without.value,
       now: T1,
     });

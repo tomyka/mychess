@@ -8,12 +8,13 @@ import {
   REPERTOIRE_REFUSALS,
   repertoireSchema,
   type Repertoire,
+  type RepertoireAccessRefusal,
   type Result,
 } from '@mychess/domain';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Executor } from '../client';
-import { refusal } from '../results';
+import { DONE, refusal } from '../results';
 import {
   chapters,
   moveChapters,
@@ -163,23 +164,54 @@ export async function loadRepertoire(
   );
 }
 
+/** All of `ownerId`'s repertoires with their graphs, oldest first, read in one snapshot. */
+export async function loadRepertoires(
+  db: Executor,
+  ownerId: string,
+): Promise<LoadedRepertoire[]> {
+  return db.transaction(
+    async (tx) => {
+      const owned = z
+        .array(repertoireSchema)
+        .parse(
+          await tx
+            .select(metaColumns)
+            .from(repertoires)
+            .where(eq(repertoires.ownerAccountId, ownerId))
+            .orderBy(asc(repertoires.createdAt), asc(repertoires.id)),
+        );
+      const loaded: LoadedRepertoire[] = [];
+      for (const repertoire of owned)
+        loaded.push({
+          repertoire,
+          graph: await graphRows(tx, repertoire.id, repertoire.side),
+        });
+      return loaded;
+    },
+    { isolationLevel: 'repeatable read' },
+  );
+}
+
 export interface RepertoireEdit {
   readonly id: string;
   readonly ownerId: string;
-  /** The version `before` was loaded at. */
+  /** The version the caller computed `after` from. */
   readonly expectedVersion: number;
-  readonly before: RepertoireGraph;
   readonly after: RepertoireGraph;
   readonly now: Date;
 }
 
-const versionRowsSchema = z.array(z.object({ version: z.number().int() }));
+const versionRowsSchema = z.array(
+  z.object({ version: z.number().int(), side: sideSchema }),
+);
 
 /**
  * Saves an edit (a builder edit or an import into the repertoire, decision
- * 6): bumps the version only from `expectedVersion`, then writes the
- * minimal diff, in one transaction. A stale version (or a repertoire not
- * this owner's) is refused and nothing is written.
+ * 6): bumps the version only from `expectedVersion`, which locks the row,
+ * then reads the stored graph and writes the minimal diff to `after`, in one
+ * transaction. The stored graph is read here, never taken from the caller,
+ * so the diff is always against what is stored. A stale version (or a
+ * repertoire not this owner's) is refused and nothing is written.
  */
 export async function saveRepertoireEdit(
   db: Executor,
@@ -198,10 +230,11 @@ export async function saveRepertoireEdit(
             eq(repertoires.version, edit.expectedVersion),
           ),
         )
-        .returning({ version: repertoires.version }),
+        .returning({ version: repertoires.version, side: repertoires.side }),
     );
     if (row === undefined) return refusal(REPERTOIRE_REFUSALS.stale);
-    await writeDiff(tx, edit.id, diffRepertoire(edit.before, edit.after));
+    const before = await graphRows(tx, edit.id, row.side);
+    await writeDiff(tx, edit.id, diffRepertoire(before, edit.after));
     return { ok: true, value: { version: row.version } };
   });
 }
@@ -263,11 +296,17 @@ export interface RepertoireRename {
   readonly now: Date;
 }
 
-/** Renames the owner's repertoire; false when it is not theirs. No version bump (decision 10). */
+type RepertoireAccess = Result<undefined, RepertoireAccessRefusal>;
+
+/** DONE when exactly the owner's repertoire was changed, else not found. */
+const accessOf = (rows: readonly unknown[]): RepertoireAccess =>
+  rows.length === 1 ? DONE : refusal(REPERTOIRE_REFUSALS.notFound);
+
+/** Renames the owner's repertoire; not found when it is not theirs. No version bump (decision 10). */
 export async function renameRepertoire(
   db: Executor,
   rename: RepertoireRename,
-): Promise<boolean> {
+): Promise<RepertoireAccess> {
   const rows = idRowsSchema.parse(
     await db
       .update(repertoires)
@@ -275,20 +314,20 @@ export async function renameRepertoire(
       .where(ownedBy(rename.id, rename.ownerId))
       .returning({ id: repertoires.id }),
   );
-  return rows.length === 1;
+  return accessOf(rows);
 }
 
-/** Deletes the owner's repertoire (its rows go by cascade); false when it is not theirs. */
+/** Deletes the owner's repertoire (its rows go by cascade); not found when it is not theirs. */
 export async function deleteRepertoire(
   db: Executor,
   id: string,
   ownerId: string,
-): Promise<boolean> {
+): Promise<RepertoireAccess> {
   const rows = idRowsSchema.parse(
     await db
       .delete(repertoires)
       .where(ownedBy(id, ownerId))
       .returning({ id: repertoires.id }),
   );
-  return rows.length === 1;
+  return accessOf(rows);
 }

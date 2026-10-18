@@ -82,6 +82,26 @@ describe('findAccountById / findAccountByEmail', () => {
     });
   });
 
+  it("exports the requester's repertoires oldest first, whatever order they were stored in", async () => {
+    await seedAccount(db, 'a1', 'ruta@example.lt');
+    const later = new Date('2026-10-17T09:00:00Z');
+    const stored = async (name: string, now: Date) =>
+      createRepertoire(db, {
+        ownerId: 'a1',
+        side: 'white',
+        name,
+        graph: graphOf('1. d4 *'),
+        now,
+      });
+    await stored('Antrasis', later);
+    await stored('Pirmasis', RT0);
+    const data = await exportAccount(db, 'a1', NOW);
+    expect(data?.repertoires.map((r) => [r.name, r.createdAt])).toEqual([
+      ['Pirmasis', '2026-10-17T08:00:00.000Z'],
+      ['Antrasis', '2026-10-17T09:00:00.000Z'],
+    ]);
+  });
+
   it('returns undefined for an unknown account', async () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
     expect(await findAccountById(db, 'nobody')).toBeUndefined();

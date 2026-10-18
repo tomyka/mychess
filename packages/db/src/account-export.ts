@@ -20,7 +20,7 @@ import type { Executor } from './client';
 import { playerCoaches } from './coaching';
 import { coachGroups } from './groups';
 import { allCoachInvites } from './invites';
-import { listRepertoires, loadRepertoire } from './repertoires/repository';
+import { loadRepertoires } from './repertoires/repository';
 import {
   accounts,
   personalNotes,
@@ -189,18 +189,12 @@ async function exportedRepertoires(
 ): Promise<AccountExport['repertoires']> {
   const pgnOptions =
     options.chapterTitle === undefined ? {} : { title: options.chapterTitle };
-  const out: AccountExport['repertoires'][number][] = [];
-  for (const item of await listRepertoires(db, id)) {
-    const loaded = await loadRepertoire(db, item.id, id);
-    if (loaded !== undefined)
-      out.push({
-        name: loaded.repertoire.name,
-        side: loaded.repertoire.side,
-        createdAt: loaded.repertoire.createdAt.toISOString(),
-        pgn: exportPgn(loaded.graph, pgnOptions),
-      });
-  }
-  return out;
+  return (await loadRepertoires(db, id)).map(({ repertoire, graph }) => ({
+    name: repertoire.name,
+    side: repertoire.side,
+    createdAt: repertoire.createdAt.toISOString(),
+    pgn: exportPgn(graph, pgnOptions),
+  }));
 }
 
 const noteRowsSchema = z.array(

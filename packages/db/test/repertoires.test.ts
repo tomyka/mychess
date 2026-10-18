@@ -91,7 +91,6 @@ describe('saveRepertoireEdit', () => {
       id,
       ownerId: 'rokas',
       expectedVersion: 1,
-      before,
       after: edited.value,
       now: T1,
     });
@@ -118,7 +117,6 @@ describe('saveRepertoireEdit', () => {
       id,
       ownerId: 'rokas',
       expectedVersion: 1,
-      before,
       after: after.value,
       now: T1,
     });
@@ -142,12 +140,34 @@ describe('saveRepertoireEdit', () => {
       id,
       ownerId: 'rokas',
       expectedVersion: 1,
-      before: empty,
       after: played.value,
       now: T1,
     });
     expect(saved).toEqual({ ok: true, value: { version: 2 } });
     expect(await rokasGraph(id)).toEqual(played.value);
+  });
+
+  it('diffs against the stored graph, so a wrong graph from the caller cannot corrupt it', async () => {
+    await seedAccount(db, 'rokas', 'rokas@example.lt');
+    const id = await london();
+    const stored = await rokasGraph(id);
+    const kid = stored.moves.find(
+      (m) => m.san === 'Nf6' && m.chapters.includes('c2'),
+    );
+    const after = removeMove(stored, 'c2', must(kid).from, 'Nf6');
+    if (!after.ok) throw new Error(after.refusal.reason);
+    // A caller still sending a 'before' (here: claiming nothing changed) is ignored.
+    const edit = {
+      id,
+      ownerId: 'rokas',
+      expectedVersion: 1,
+      before: after.value,
+      after: after.value,
+      now: T1,
+    };
+    const saved = await saveRepertoireEdit(db, edit);
+    expect(saved).toEqual({ ok: true, value: { version: 2 } });
+    expect(canonical(await rokasGraph(id))).toEqual(canonical(after.value));
   });
 
   it('refuses a stale version and changes nothing', async () => {
@@ -164,7 +184,6 @@ describe('saveRepertoireEdit', () => {
       id,
       ownerId: 'rokas',
       expectedVersion: 1,
-      before,
       after: edited.value,
       now: T1,
     });
@@ -172,7 +191,6 @@ describe('saveRepertoireEdit', () => {
       id,
       ownerId: 'rokas',
       expectedVersion: 1,
-      before,
       after: before,
       now: T1,
     });
@@ -192,7 +210,6 @@ describe('saveRepertoireEdit', () => {
       id,
       ownerId: 'rimantas',
       expectedVersion: 1,
-      before,
       after: { ...before, moves: [] },
       now: T1,
     });
@@ -225,6 +242,7 @@ describe('listRepertoires, renameRepertoire, deleteRepertoire', () => {
     await seedAccount(db, 'rokas', 'rokas@example.lt');
     await seedAccount(db, 'rimantas', 'rimantas@example.lt');
     const id = await london();
+    const notFound = { ok: false, refusal: { reason: 'repertoire.notFound' } };
     expect(
       await renameRepertoire(db, {
         id,
@@ -232,8 +250,8 @@ describe('listRepertoires, renameRepertoire, deleteRepertoire', () => {
         name: 'x',
         now: T1,
       }),
-    ).toBe(false);
-    expect(await deleteRepertoire(db, id, 'rimantas')).toBe(false);
+    ).toEqual(notFound);
+    expect(await deleteRepertoire(db, id, 'rimantas')).toEqual(notFound);
     expect(
       await renameRepertoire(db, {
         id,
@@ -241,12 +259,16 @@ describe('listRepertoires, renameRepertoire, deleteRepertoire', () => {
         name: 'London',
         now: T1,
       }),
-    ).toBe(true);
+    ).toEqual({ ok: true, value: undefined });
     expect((await loadRepertoire(db, id, 'rokas'))?.repertoire).toMatchObject({
       name: 'London',
       version: 1,
     });
-    expect(await deleteRepertoire(db, id, 'rokas')).toBe(true);
+    expect(await deleteRepertoire(db, id, 'rokas')).toEqual({
+      ok: true,
+      value: undefined,
+    });
+    expect(await deleteRepertoire(db, id, 'rokas')).toEqual(notFound);
     expect(
       await client.query('select count(*)::int as n from repertoire_moves'),
     ).toMatchObject({ rows: [{ n: 0 }] });

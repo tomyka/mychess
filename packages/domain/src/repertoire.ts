@@ -15,6 +15,7 @@ export const REPERTOIRE_ISSUES = {
   chapterNameTooLong: 'chapter.nameTooLong',
   commentTooLong: 'comment.tooLong',
   personalNoteTooLong: 'personalNote.tooLong',
+  sideInvalid: 'repertoire.sideInvalid',
 } as const;
 
 const boundedName = (max: number, blank: string, tooLong: string) =>

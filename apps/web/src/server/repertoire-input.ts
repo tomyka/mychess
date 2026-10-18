@@ -6,15 +6,11 @@ import {
 } from '@mychess/domain';
 import { z } from 'zod';
 
-/**
- * The refusals the "new repertoire" form shows. `sideInvalid` is not in the
- * domain's REPERTOIRE_ISSUES yet (plan Task 15 asks backend-dev to add it);
- * until then the key is named here.
- */
+/** The refusals the "new repertoire" form shows. */
 const NEW_REPERTOIRE_ISSUES = {
   nameBlank: REPERTOIRE_ISSUES.nameBlank,
   nameTooLong: REPERTOIRE_ISSUES.nameTooLong,
-  sideInvalid: 'repertoire.sideInvalid',
+  sideInvalid: REPERTOIRE_ISSUES.sideInvalid,
 } as const;
 
 export type NewRepertoireRefusalKey =

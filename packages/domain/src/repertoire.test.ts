@@ -38,6 +38,7 @@ describe('the limits', () => {
       chapterNameTooLong: 'chapter.nameTooLong',
       commentTooLong: 'comment.tooLong',
       personalNoteTooLong: 'personalNote.tooLong',
+      sideInvalid: 'repertoire.sideInvalid',
     });
     expect(REPERTOIRE_REFUSALS).toEqual({
       notFound: 'repertoire.notFound',
