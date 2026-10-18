@@ -39,6 +39,7 @@ export {
   COACH_REFUSALS,
   GROUP_NAME_ISSUES,
   GROUP_NAME_MAX,
+  canAddMember,
   canCreateGroup,
   canInvite,
   canStopCoaching,
@@ -47,7 +48,7 @@ export {
   type CoachFacts,
   type CoachRefusal,
   type CoachState,
-  type StopCoaching,
+  type MembershipFacts,
 } from './coach';
 export {
   INVITE_ISSUES,

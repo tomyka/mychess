@@ -7,13 +7,16 @@ import {
 } from './schema';
 
 export {
+  exportAccount,
+  type AccountExport,
+  type CoachingExport,
+} from './account-export';
+export {
   completeOnboarding,
   deleteAccount,
-  exportAccount,
   findAccountByEmail,
   findAccountById,
   updateProfile,
-  type AccountExport,
 } from './accounts';
 
 export { disableAccount, grantAdmin, type AdminInput } from './admin';
@@ -27,7 +30,45 @@ export {
   type Executor,
   type Tx,
 } from './client';
+export {
+  coachAccessFacts,
+  coachPlayer,
+  coachPlayers,
+  playerCoaches,
+  startCoaching,
+  stopCoaching,
+  unlink,
+  type GroupRef,
+  type LinkedAccount,
+} from './coaching';
 export { databaseEnvSchema, databaseUrlSchema } from './config';
+export {
+  addMember,
+  coachGroup,
+  coachGroups,
+  createGroup,
+  deleteGroup,
+  leaveGroup,
+  removeMember,
+  renameGroup,
+  type CoachGroup,
+  type CoachGroupSummary,
+  type GroupMember,
+  type Membership,
+} from './groups';
+export { inviteTokenHash } from './invite-token';
+export {
+  acceptInvite,
+  coachInvites,
+  createInvite,
+  previewInvite,
+  revokeInvite,
+  type AcceptedInvite,
+  type CoachInvite,
+  type CreatedInvite,
+  type InvitePreview,
+  type InviteRequest,
+} from './invites';
 
 /** Better Auth's tables, keyed by the model names auth.ts maps them to. */
 export const authSchema = {

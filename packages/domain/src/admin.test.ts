@@ -12,6 +12,7 @@ const account = (over: Partial<Account> = {}): Account => ({
   admin: false,
   disabledAt: null,
   onboardedAt: null,
+  coachSince: null,
   createdAt: new Date('2026-10-16T08:00:00Z'),
   ...over,
 });

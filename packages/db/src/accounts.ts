@@ -1,16 +1,10 @@
-import {
-  accountSchema,
-  type Account,
-  type Entitlement,
-  type Locale,
-  type Profile,
-} from '@mychess/domain';
-import { and, eq, gt, sql, type SQL } from 'drizzle-orm';
-import { z } from 'zod';
-import type { Executor } from './client';
-import { accounts, providerAccounts, sessions, verifications } from './schema';
+import { accountSchema, type Account, type Profile } from '@mychess/domain';
+import { eq, sql, type SQL } from 'drizzle-orm';
+import type { Executor, Tx } from './client';
+import { accounts, verifications } from './schema';
 
-const columns = {
+/** The Account columns, as accountSchema parses them. */
+export const accountColumns = {
   id: accounts.id,
   email: accounts.email,
   emailVerified: accounts.emailVerified,
@@ -20,11 +14,35 @@ const columns = {
   admin: accounts.admin,
   disabledAt: accounts.disabledAt,
   onboardedAt: accounts.onboardedAt,
+  coachSince: accounts.coachSince,
   createdAt: accounts.createdAt,
 };
 
 async function findOne(db: Executor, where: SQL): Promise<Account | undefined> {
-  const [row] = await db.select(columns).from(accounts).where(where).limit(1);
+  const [row] = await db
+    .select(accountColumns)
+    .from(accounts)
+    .where(where)
+    .limit(1);
+  return row === undefined ? undefined : accountSchema.parse(row);
+}
+
+/**
+ * The account, with its row locked against other lockers and updates for
+ * the rest of `tx` (FOR NO KEY UPDATE). Every transaction that adds a
+ * coach's invite, link or group, or switches Coach mode off, takes this
+ * lock on the coach, so counts read after it are final (plan decision 1).
+ * It does not block the KEY SHARE locks foreign-key checks take.
+ */
+export async function lockAccountById(
+  tx: Tx,
+  id: string,
+): Promise<Account | undefined> {
+  const [row] = await tx
+    .select(accountColumns)
+    .from(accounts)
+    .where(eq(accounts.id, id))
+    .for('no key update');
   return row === undefined ? undefined : accountSchema.parse(row);
 }
 
@@ -87,7 +105,11 @@ const namesEmail = (email: string): SQL =>
 /**
  * Hard delete (R-40, R-82): the account and, by cascade, its sessions and
  * provider links; its pending magic-link tokens are matched by email.
- * Later slices extend the cascade with the rows they add.
+ * S4's coaching rows go by cascade too: a coach's links, groups, group
+ * memberships and invites; a player's links and memberships. A personal
+ * invite the player used stays with the coach, without the player
+ * (`used_by` set null). Later slices extend the cascade with the rows
+ * they add.
  */
 export async function deleteAccount(db: Executor, id: string): Promise<void> {
   await db.transaction(async (tx) => {
@@ -96,115 +118,4 @@ export async function deleteAccount(db: Executor, id: string): Promise<void> {
     await tx.delete(verifications).where(namesEmail(account.email));
     await tx.delete(accounts).where(eq(accounts.id, id));
   });
-}
-
-export interface AccountExport {
-  readonly account: {
-    readonly email: string;
-    readonly displayName: string;
-    readonly locale: Locale;
-    readonly image: string | null;
-    readonly entitlement: Entitlement;
-    /** ISO time, or null before onboarding. */
-    readonly onboardedAt: string | null;
-    readonly createdAt: string;
-  };
-  readonly linkedProviders: readonly {
-    readonly provider: string;
-    readonly linkedAt: string;
-  }[];
-  /** The account's active sessions, oldest first (R-89); never a token. */
-  readonly sessions: readonly {
-    readonly ipAddress: string | null;
-    readonly userAgent: string | null;
-    readonly createdAt: string;
-    readonly expiresAt: string;
-  }[];
-}
-
-const exportRowSchema = accountSchema.extend({
-  image: z.string().nullable(),
-});
-
-const linkRowsSchema = z.array(
-  z.object({ provider: z.string().min(1), linkedAt: z.date() }),
-);
-
-const sessionRowsSchema = z.array(
-  z.object({
-    ipAddress: z.string().nullable(),
-    userAgent: z.string().nullable(),
-    createdAt: z.date(),
-    expiresAt: z.date(),
-  }),
-);
-
-/** The sessions of `id` that have not expired at `now`, oldest first. */
-async function activeSessions(
-  db: Executor,
-  id: string,
-  now: Date,
-): Promise<AccountExport['sessions']> {
-  const rows = sessionRowsSchema.parse(
-    await db
-      .select({
-        ipAddress: sessions.ipAddress,
-        userAgent: sessions.userAgent,
-        createdAt: sessions.createdAt,
-        expiresAt: sessions.expiresAt,
-      })
-      .from(sessions)
-      .where(and(eq(sessions.accountId, id), gt(sessions.expiresAt, now)))
-      .orderBy(sessions.createdAt, sessions.id),
-  );
-  return rows.map((row) => ({
-    ipAddress: row.ipAddress,
-    userAgent: row.userAgent,
-    createdAt: row.createdAt.toISOString(),
-    expiresAt: row.expiresAt.toISOString(),
-  }));
-}
-
-/**
- * The requester's own data (R-40, security item 9), with the sessions
- * active at `now` (R-89); never tokens.
- */
-export async function exportAccount(
-  db: Executor,
-  id: string,
-  now: Date,
-): Promise<AccountExport | undefined> {
-  const [row] = await db
-    .select({ ...columns, image: accounts.image })
-    .from(accounts)
-    .where(eq(accounts.id, id))
-    .limit(1);
-  if (row === undefined) return undefined;
-  const account = exportRowSchema.parse(row);
-  const links = linkRowsSchema.parse(
-    await db
-      .select({
-        provider: providerAccounts.providerId,
-        linkedAt: providerAccounts.createdAt,
-      })
-      .from(providerAccounts)
-      .where(eq(providerAccounts.ownerAccountId, id))
-      .orderBy(providerAccounts.createdAt, providerAccounts.id),
-  );
-  return {
-    account: {
-      email: account.email,
-      displayName: account.displayName,
-      locale: account.locale,
-      image: account.image,
-      entitlement: account.entitlement,
-      onboardedAt: account.onboardedAt?.toISOString() ?? null,
-      createdAt: account.createdAt.toISOString(),
-    },
-    linkedProviders: links.map((link) => ({
-      provider: link.provider,
-      linkedAt: link.linkedAt.toISOString(),
-    })),
-    sessions: await activeSessions(db, id, now),
-  };
 }

@@ -3,6 +3,7 @@ import {
   COACH_REFUSALS,
   GROUP_NAME_ISSUES,
   GROUP_NAME_MAX,
+  canAddMember,
   canCreateGroup,
   canInvite,
   canStopCoaching,
@@ -40,11 +41,8 @@ describe('isCoach', () => {
 });
 
 describe('canStopCoaching (R-100, R-109)', () => {
-  it('allows switching off with no linked player and revokes the open invites', () => {
-    expect(canStopCoaching(0)).toStrictEqual({
-      ok: true,
-      value: { revokeOpenInvites: true },
-    });
+  it('allows switching off with no linked player', () => {
+    expect(canStopCoaching(0)).toStrictEqual(ok);
   });
   it.each([1, 30])('refuses with %i linked players', (count) => {
     expect(canStopCoaching(count)).toStrictEqual(
@@ -75,6 +73,25 @@ describe('canInvite', () => {
   });
   it('refuses an account without Coach mode', () => {
     expect(canInvite(notCoach)).toStrictEqual(refused(COACH_REFUSALS.notCoach));
+  });
+});
+
+describe('canAddMember (R-12)', () => {
+  it("allows a linked player into the coach's own group", () => {
+    expect(canAddMember({ ownsGroup: true, linked: true })).toStrictEqual(ok);
+  });
+  it.each([true, false])(
+    "refuses a group that is not the coach's own (linked: %s)",
+    (linked) => {
+      expect(canAddMember({ ownsGroup: false, linked })).toStrictEqual(
+        refused(COACH_REFUSALS.groupNotFound),
+      );
+    },
+  );
+  it('refuses a player who is not linked to the coach', () => {
+    expect(canAddMember({ ownsGroup: true, linked: false })).toStrictEqual(
+      refused(COACH_REFUSALS.notLinked),
+    );
   });
 });
 

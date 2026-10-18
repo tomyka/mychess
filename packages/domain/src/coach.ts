@@ -44,22 +44,27 @@ export function isCoach(account: CoachState): boolean {
 }
 
 /**
- * What switching Coach mode off does besides clearing it (R-109): the
- * coach's open invites are revoked at once; the groups are kept. "Open" is
- * an invite whose `inviteState` is `active`, so used and expired invites
- * keep their state.
+ * Coach mode goes off only once no player is linked (R-100). Switching it
+ * off always revokes the coach's open invites (those whose `inviteState`
+ * is `active`) and keeps the groups (R-109); the repository does both in
+ * the same transaction.
  */
-export interface StopCoaching {
-  readonly revokeOpenInvites: true;
+export function canStopCoaching(linkCount: number): CoachResult {
+  return linkCount === 0 ? OK : refuse(COACH_REFUSALS.stillLinked);
 }
 
-/** Coach mode goes off only once no player is linked (R-100, R-109). */
-export function canStopCoaching(
-  linkCount: number,
-): Result<StopCoaching, CoachRefusal> {
-  return linkCount === 0
-    ? { ok: true, value: { revokeOpenInvites: true } }
-    : refuse(COACH_REFUSALS.stillLinked);
+/** What adding a player to a group depends on, loaded by the caller. */
+export interface MembershipFacts {
+  /** Is the group one of the coach's own? */
+  readonly ownsGroup: boolean;
+  /** Is the player linked to the coach now? */
+  readonly linked: boolean;
+}
+
+/** A coach puts only a linked player, and only into an own group (R-12). */
+export function canAddMember(facts: MembershipFacts): CoachResult {
+  if (!facts.ownsGroup) return refuse(COACH_REFUSALS.groupNotFound);
+  return facts.linked ? OK : refuse(COACH_REFUSALS.notLinked);
 }
 
 /** A coach may have as many groups as the entitlement allows (R-70). */

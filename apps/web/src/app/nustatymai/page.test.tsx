@@ -36,6 +36,7 @@ vi.mock('../../server/session', () => ({
       admin: false,
       disabledAt: null,
       onboardedAt: new Date(),
+      coachSince: null,
       createdAt: new Date(),
     }),
 }));

@@ -43,6 +43,8 @@ export const accountSchema = z.object({
   admin: z.boolean(),
   disabledAt: z.date().nullable(),
   onboardedAt: z.date().nullable(),
+  // When Coach mode was switched on (R-11, R-13); null while it is off.
+  coachSince: z.date().nullable(),
   createdAt: z.date(),
 });
 export type Account = z.infer<typeof accountSchema>;

@@ -1,15 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import {
+  acceptInvite,
   completeOnboarding,
+  createInvite,
   deleteAccount,
   exportAccount,
   findAccountByEmail,
   findAccountById,
+  inviteTokenHash,
+  revokeInvite,
   updateProfile,
 } from '../src';
 import { providerAccounts, sessions } from '../src/schema';
 import { useTestDatabase } from '../src/testing';
 import { seedAccount, seedVerification } from './support/accounts';
+import { seedCoach, seedGroup, seedPlayer } from './support/coaching';
 
 const { db, client } = useTestDatabase();
 const T0 = new Date('2026-10-16T08:00:00Z');
@@ -51,6 +56,7 @@ describe('findAccountById / findAccountByEmail', () => {
       admin: false,
       disabledAt: null,
       onboardedAt: null,
+      coachSince: null,
       createdAt: T0,
     });
     expect(await findAccountByEmail(db, 'ruta@example.lt')).toEqual(account);
@@ -212,6 +218,7 @@ describe('exportAccount', () => {
         image: null,
         entitlement: 'free',
         onboardedAt: null,
+        coachSince: null,
         createdAt: '2026-10-16T08:00:00.000Z',
       },
       linkedProviders: [
@@ -226,6 +233,7 @@ describe('exportAccount', () => {
           expiresAt: '2027-01-14T08:00:00.000Z',
         },
       ],
+      coaching: { coaches: [], groups: [], invites: [] },
     });
     expect(JSON.stringify(data)).not.toMatch(/encrypted|jonas|t-a1/);
   });
@@ -248,6 +256,7 @@ describe('exportAccount', () => {
       image: 'https://example.lt/ruta.png',
       entitlement: 'free',
       onboardedAt: '2026-10-16T09:00:00.000Z',
+      coachSince: null,
       createdAt: '2026-10-16T08:00:00.000Z',
     });
   });
@@ -308,5 +317,152 @@ describe('exportAccount', () => {
   it('returns undefined for an unknown account', async () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
     expect(await exportAccount(db, 'nobody', NOW)).toBeUndefined();
+  });
+});
+
+describe('coaching rows on delete and export', () => {
+  const LATER = new Date('2026-10-16T10:00:00Z');
+  const WEEK = 7 * 24 * 60 * 60 * 1000;
+
+  const coachingCounts = async (): Promise<unknown> =>
+    (
+      await client.query(`select
+        (select count(*) from coach_links)::int as links,
+        (select count(*) from groups)::int as groups,
+        (select count(*) from group_members)::int as members,
+        (select count(*) from invites)::int as invites`)
+    ).rows[0];
+
+  const at = (seconds: number) => new Date(NOW.getTime() + seconds * 1000);
+  const iso = (seconds: number) => at(seconds).toISOString();
+  const expiry = (seconds: number) =>
+    new Date(at(seconds).getTime() + WEEK).toISOString();
+
+  async function invite(
+    kind: 'personal' | 'group',
+    groupId: string | null,
+    now: Date,
+  ) {
+    const made = await createInvite(db, { coachId: 'c', kind, groupId, now });
+    if (!made.ok) throw new Error(made.refusal.reason);
+    return { ...made.value, hash: inviteTokenHash(made.value.token) };
+  }
+
+  /**
+   * Coach c (display name "Treneris") with players p1 and p2 in "Mano";
+   * p1 used a personal invite, a group invite is open, and one more
+   * personal invite is revoked.
+   */
+  async function seedCoaching() {
+    await seedCoach(db, 'c', 'c@example.lt');
+    await seedPlayer(db, 'p1', 'p1@example.lt');
+    await seedPlayer(db, 'p2', 'p2@example.lt');
+    await client.query(
+      `update accounts set display_name = 'Treneris' where id = 'c'`,
+    );
+    const groupId = await seedGroup(db, 'c', 'Mano');
+    const personal = await invite('personal', null, at(0));
+    const group = await invite('group', groupId, at(1));
+    const revoked = await invite('personal', null, at(2));
+    await acceptInvite(db, personal.hash, 'p1', NOW);
+    await acceptInvite(db, group.hash, 'p1', NOW);
+    await acceptInvite(db, group.hash, 'p2', LATER);
+    await revokeInvite(db, 'c', revoked.inviteId, LATER);
+    return { personal, group, revoked };
+  }
+
+  it('deleting a coach removes their links, groups, memberships and invites, and no player', async () => {
+    await seedCoaching();
+    await deleteAccount(db, 'c');
+    expect(await coachingCounts()).toEqual({
+      links: 0,
+      groups: 0,
+      members: 0,
+      invites: 0,
+    });
+    expect(await findAccountById(db, 'p1')).toBeDefined();
+    expect(await findAccountById(db, 'p2')).toBeDefined();
+  });
+
+  it('deleting a player removes their link and memberships and keeps the used invite without them', async () => {
+    await seedCoaching();
+    await deleteAccount(db, 'p1');
+    expect(
+      (await client.query('select player_id from coach_links')).rows,
+    ).toEqual([{ player_id: 'p2' }]);
+    expect(
+      (await client.query('select player_id from group_members')).rows,
+    ).toEqual([{ player_id: 'p2' }]);
+    expect(
+      (
+        await client.query(
+          `select used_by, used_at from invites where kind = 'personal' and used_at is not null`,
+        )
+      ).rows,
+    ).toEqual([{ used_by: null, used_at: NOW }]);
+    expect(await coachingCounts()).toMatchObject({ groups: 1, invites: 3 });
+  });
+
+  it("exports a player's coach links with their groups (R-106)", async () => {
+    await seedCoaching();
+    const data = await exportAccount(db, 'p1', LATER);
+    expect(data?.account.coachSince).toBeNull();
+    expect(data?.coaching).toEqual({
+      coaches: [
+        {
+          displayName: 'Treneris',
+          linkedAt: NOW.toISOString(),
+          groups: ['Mano'],
+        },
+      ],
+      groups: [],
+      invites: [],
+    });
+  });
+
+  it("exports a coach's groups and invites with their state and dates, never a token (R-106)", async () => {
+    const { personal, group, revoked } = await seedCoaching();
+    const data = await exportAccount(db, 'c', LATER);
+    expect(data?.account.coachSince).toBe(T0.toISOString());
+    expect(data?.coaching).toEqual({
+      coaches: [],
+      groups: [{ name: 'Mano', createdAt: T0.toISOString() }],
+      invites: [
+        {
+          kind: 'personal',
+          groupName: null,
+          state: 'used',
+          createdAt: iso(0),
+          expiresAt: expiry(0),
+          revokedAt: null,
+          usedAt: NOW.toISOString(),
+        },
+        {
+          kind: 'group',
+          groupName: 'Mano',
+          state: 'active',
+          createdAt: iso(1),
+          expiresAt: expiry(1),
+          revokedAt: null,
+          usedAt: null,
+        },
+        {
+          kind: 'personal',
+          groupName: null,
+          state: 'revoked',
+          createdAt: iso(2),
+          expiresAt: expiry(2),
+          revokedAt: LATER.toISOString(),
+          usedAt: null,
+        },
+      ],
+    });
+    const text = JSON.stringify(data);
+    for (const made of [personal, group, revoked]) {
+      expect(text).not.toContain(made.token);
+      expect(text).not.toContain(made.hash);
+      expect(text).not.toContain(made.inviteId);
+    }
+    expect(text).not.toMatch(/p1|p2/);
   });
 });

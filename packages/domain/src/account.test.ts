@@ -27,6 +27,7 @@ const account = (over: Partial<Account> = {}): Account => ({
   admin: false,
   disabledAt: null,
   onboardedAt: new Date('2026-10-16T08:00:00Z'),
+  coachSince: null,
   createdAt: new Date('2026-10-16T08:00:00Z'),
   ...over,
 });
@@ -227,6 +228,13 @@ describe('accountSchema', () => {
     expect(accountSchema.parse(account())).toEqual(account());
   });
 
+  it('keeps when Coach mode was switched on (R-11)', () => {
+    const coachSince = new Date('2026-10-17T08:00:00Z');
+    expect(accountSchema.parse(account({ coachSince }))).toMatchObject({
+      coachSince,
+    });
+  });
+
   it.each([
     ['an empty id', { id: '' }],
     ['an empty email', { email: '' }],
@@ -234,6 +242,7 @@ describe('accountSchema', () => {
     ['an unknown entitlement', { entitlement: 'pro' }],
     ['a missing email proof', { emailVerified: null }],
     ['a missing creation time', { createdAt: null }],
+    ['a missing Coach mode state', { coachSince: undefined }],
   ])('refuses %s', (_, over) => {
     expect(accountSchema.safeParse({ ...account(), ...over }).success).toBe(
       false,

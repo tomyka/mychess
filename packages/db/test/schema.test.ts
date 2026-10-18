@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { auditEmailHash } from '../src';
 import { TEST_AUDIT_EMAIL_KEY, useTestDatabase } from '../src/testing';
 
@@ -166,5 +166,201 @@ describe('the rate limits schema', () => {
     await expect(
       insertLimit('r2', '203.0.113.7/sign-in/magic-link', 2),
     ).rejects.toThrow(/unique/);
+  });
+});
+
+describe('the coaching schema', () => {
+  const HASH_A = 'a'.repeat(64);
+  const HASH_B = 'b'.repeat(64);
+
+  const link = (coachId: string, playerId: string) =>
+    client.query(
+      `insert into coach_links (coach_id, player_id, created_at) values ($1, $2, now())`,
+      [coachId, playerId],
+    );
+
+  const group = async (coachId: string, name: string): Promise<string> => {
+    const { rows } = await client.query<{ id: string }>(
+      `insert into groups (coach_id, name, created_at) values ($1, $2, now()) returning id`,
+      [coachId, name],
+    );
+    const id = rows[0]?.id;
+    if (id === undefined) throw new Error('no group id');
+    return id;
+  };
+
+  const member = (groupId: string, coachId: string, playerId: string) =>
+    client.query(
+      `insert into group_members (group_id, coach_id, player_id, joined_at) values ($1, $2, $3, now())`,
+      [groupId, coachId, playerId],
+    );
+
+  const invite = (
+    over: { kind?: string; groupId?: string | null; hash?: string } = {},
+  ) =>
+    client.query(
+      `insert into invites (coach_id, kind, group_id, token_hash, expires_at, created_at)
+       values ('c', $1, $2, $3, now(), now())`,
+      [over.kind ?? 'personal', over.groupId ?? null, over.hash ?? HASH_A],
+    );
+
+  const count = async (table: string): Promise<number> => {
+    const { rows } = await client.query<{ n: number }>(
+      `select count(*)::int as n from ${table}`,
+    );
+    return rows[0]?.n ?? -1;
+  };
+
+  beforeEach(async () => {
+    await insertAccount('c', 'coach@example.lt');
+    await insertAccount('c2', 'coach2@example.lt');
+    await insertAccount('p1', 'p1@example.lt');
+    await insertAccount('p2', 'p2@example.lt');
+  });
+
+  it('starts every account with Coach mode off', async () => {
+    const { rows } = await client.query(
+      `select coach_since from accounts where id = 'c'`,
+    );
+    expect(rows).toEqual([{ coach_since: null }]);
+  });
+
+  it('refuses a coach linking to themselves', async () => {
+    await expect(link('c', 'c')).rejects.toThrow(/coach_links_not_self/);
+  });
+
+  it('refuses a second link for the same pair', async () => {
+    await link('c', 'p1');
+    await expect(link('c', 'p1')).rejects.toThrow(/duplicate key/);
+  });
+
+  it('refuses a group invite without a group (R-110)', async () => {
+    await expect(invite({ kind: 'group' })).rejects.toThrow(
+      /invites_group_kind/,
+    );
+  });
+
+  it('refuses an invite kind that does not exist', async () => {
+    await expect(invite({ kind: 'public' })).rejects.toThrow(
+      /invites_kind_check/,
+    );
+  });
+
+  it.each([
+    ['not hex', 'not-hex'],
+    ['upper case', 'A'.repeat(64)],
+    ['too short', 'a'.repeat(63)],
+  ])('refuses a token hash that is %s', async (_, hash) => {
+    await expect(invite({ hash })).rejects.toThrow(/invites_token_hash_check/);
+  });
+
+  it('refuses two invites with the same token hash', async () => {
+    await invite();
+    await expect(invite()).rejects.toThrow(/duplicate key/);
+  });
+
+  it('refuses a used group invite', async () => {
+    const groupId = await group('c', 'Šeštadienio grupė');
+    await invite({ kind: 'group', groupId });
+    await expect(
+      client.query(`update invites set used_at = now()`),
+    ).rejects.toThrow(/invites_used_personal/);
+  });
+
+  it("refuses an invite naming another coach's group", async () => {
+    const groupId = await group('c2', 'Kita');
+    await expect(invite({ kind: 'group', groupId })).rejects.toThrow(
+      /invites_group_fk/,
+    );
+  });
+
+  it.each([
+    ['blank', '   '],
+    ['empty', ''],
+    ['untrimmed', ' Grupė'],
+    ['too long', 'g'.repeat(61)],
+  ])('refuses a %s group name', async (_, name) => {
+    await expect(group('c', name)).rejects.toThrow(/groups_name_check/);
+  });
+
+  it('accepts a group name of 60 characters', async () => {
+    await group('c', 'g'.repeat(60));
+    expect(await count('groups')).toBe(1);
+  });
+
+  it('refuses a member who is not linked to the coach', async () => {
+    const groupId = await group('c', 'Šeštadienio grupė');
+    await expect(member(groupId, 'c', 'p2')).rejects.toThrow(
+      /group_members_link_fk/,
+    );
+  });
+
+  it("refuses a member put into another coach's group", async () => {
+    await link('c', 'p1');
+    const foreign = await group('c2', 'Kita');
+    await expect(member(foreign, 'c', 'p1')).rejects.toThrow(
+      /group_members_group_fk/,
+    );
+  });
+
+  it("removes the player from that coach's groups only when the link ends", async () => {
+    await link('c', 'p1');
+    await link('c2', 'p1');
+    await member(await group('c', 'Mano'), 'c', 'p1');
+    await member(await group('c2', 'Kita'), 'c2', 'p1');
+    await client.query(
+      `delete from coach_links where coach_id = 'c' and player_id = 'p1'`,
+    );
+    const { rows } = await client.query(
+      'select coach_id, player_id from group_members',
+    );
+    expect(rows).toEqual([{ coach_id: 'c2', player_id: 'p1' }]);
+  });
+
+  it('removes a group with its members and invites', async () => {
+    await link('c', 'p1');
+    const groupId = await group('c', 'Mano');
+    await member(groupId, 'c', 'p1');
+    await invite({ kind: 'group', groupId });
+    await invite({ kind: 'personal', groupId, hash: HASH_B });
+    await client.query('delete from groups');
+    expect(await count('group_members')).toBe(0);
+    expect(await count('invites')).toBe(0);
+    expect(await count('coach_links')).toBe(1);
+  });
+
+  it("removes a coach's links, groups, members and invites with the account", async () => {
+    await link('c', 'p1');
+    await link('p2', 'c');
+    const groupId = await group('c', 'Mano');
+    await member(groupId, 'c', 'p1');
+    await invite({ kind: 'group', groupId });
+    await client.query(`delete from accounts where id = 'c'`);
+    expect(await count('coach_links')).toBe(0);
+    expect(await count('groups')).toBe(0);
+    expect(await count('group_members')).toBe(0);
+    expect(await count('invites')).toBe(0);
+  });
+
+  it('indexes the invites by their user, which deleting an account looks up', async () => {
+    const { rows } = await client.query(
+      `select indexdef from pg_indexes where tablename = 'invites' and indexname = 'invites_used_by_idx'`,
+    );
+    expect(rows).toEqual([
+      {
+        indexdef:
+          'CREATE INDEX invites_used_by_idx ON public.invites USING btree (used_by)',
+      },
+    ]);
+  });
+
+  it('keeps a personal invite whose user is deleted, without the user', async () => {
+    await invite();
+    await client.query(`update invites set used_at = now(), used_by = 'p1'`);
+    await client.query(`delete from accounts where id = 'p1'`);
+    const { rows } = await client.query(
+      'select used_by, used_at is not null as used from invites',
+    );
+    expect(rows).toEqual([{ used_by: null, used: true }]);
   });
 });
