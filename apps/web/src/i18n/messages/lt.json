@@ -234,12 +234,26 @@
     "unknownPosition": "Šios pozicijos skyriuje nėra.",
     "secondAnswer": "Šioje pozicijoje jau turite atsakymą. Pirmiausia pašalinkite jį.",
     "unknownMove": "Šio ėjimo nebėra.",
-    "invalidEdit": "Šio pakeitimo išsaugoti nepavyko."
+    "invalidEdit": "Šio pakeitimo išsaugoti nepavyko.",
+    "sideMismatch": "Šis repertuaras kitos spalvos nei failas."
   },
   "chapter": {
     "untitled": "{number} skyrius",
     "nameBlank": "Įveskite skyriaus pavadinimą.",
     "nameTooLong": "Pavadinimas per ilgas: daugiausia 80 simbolių."
+  },
+  "pgn": {
+    "unreadable": "failo dalies nepavyko perskaityti",
+    "illegalMove": "neleistinas ėjimas",
+    "unbalancedVariation": "nesuporuoti variantų skliaustai",
+    "variationWithoutMove": "variantas be ėjimo prieš jį",
+    "invalidFen": "netinkama pradinė pozicija (FEN)",
+    "noMoves": "partijoje nėra ėjimų",
+    "secondAnswer": "antras atsakymas toje pačioje pozicijoje",
+    "tooLarge": "Failas didesnis nei {limit} MB.",
+    "tooManyGames": "Faile daugiau nei {limit} partijų.",
+    "tooDeep": "Variantai įdėti giliau nei {limit} lygių.",
+    "noValidGames": "Faile nerasta nė vienos tinkamos partijos."
   },
   "personalNote": {
     "tooLong": "Užrašas per ilgas: daugiausia 2 000 simbolių."
@@ -368,6 +382,45 @@
       "commentSaved": "Išsaugota",
       "saving": "Saugoma",
       "playFirst": "Atlikite pirmą ėjimą lentoje"
+    },
+    "import": {
+      "title": "Importuoti PGN",
+      "intro": "Iki 2 MB ir 200 partijų.",
+      "back": "Mano repertuarai",
+      "fileTitle": "Failas ir spalva",
+      "file": "Pasirinkite PGN failą",
+      "fileHint": "arba nutempkite jį čia",
+      "fileChosen": "{name} · {size} KB",
+      "noFile": "Pasirinkite PGN failą.",
+      "side": "Spalva",
+      "preview": "Rodyti, kas faile",
+      "reading": "Skaitomas failas",
+      "chosen": "{name} · {side}",
+      "change": "Keisti",
+      "summaryTitle": "Kas yra faile",
+      "summary": {
+        "chapters": "{count, plural, one {# skyrius} few {# skyriai} other {# skyrių}}",
+        "lines": "{count, plural, one {# variantas} few {# variantai} other {# variantų}}",
+        "positions": "{count, plural, one {# pozicija} few {# pozicijos} other {# pozicijų}}",
+        "transpositions": "{count, plural, one {# perstata} few {# perstatos} other {# perstatų}}",
+        "moves": "{count, plural, one {# ėjimas} few {# ėjimai} other {# ėjimų}}"
+      },
+      "chaptersTitle": "Skyriai",
+      "skippedTitle": "Praleistos partijos ({count})",
+      "skippedNone": "{count, plural, one {# partija tinkama} few {Visos # partijos tinkamos} other {Visos # partijų tinkamos}}",
+      "skippedItem": "{game} partija: {reason}",
+      "skippedMove": "{game} partija: {reason}, {move}",
+      "skippedAll": "Rodyti visas ({count})",
+      "targetTitle": "Kur importuoti",
+      "targetNew": "Naujas repertuaras",
+      "targetExisting": "Pridėti prie esamo",
+      "name": "Pavadinimas",
+      "existing": "Repertuaras",
+      "added": "Prideda {chapters, plural, one {# skyrių} few {# skyrius} other {# skyrių}} ir {moves, plural, one {# ėjimą} few {# ėjimus} other {# ėjimų}} prie „{name}“.",
+      "updating": "Atnaujinama",
+      "confirm": "Importuoti",
+      "importing": "Importuojama",
+      "previewAgain": "Peržiūrėti dar kartą"
     }
   },
   "comment": {

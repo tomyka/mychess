@@ -234,12 +234,26 @@
     "unknownPosition": "This position is not in the chapter.",
     "secondAnswer": "You already have an answer in this position. Remove it first.",
     "unknownMove": "This move no longer exists.",
-    "invalidEdit": "This change could not be saved."
+    "invalidEdit": "This change could not be saved.",
+    "sideMismatch": "This repertoire is of the other side."
   },
   "chapter": {
     "untitled": "Chapter {number}",
     "nameBlank": "Enter a name for the chapter.",
     "nameTooLong": "The name is too long: at most 80 characters."
+  },
+  "pgn": {
+    "unreadable": "part of the file could not be read",
+    "illegalMove": "illegal move",
+    "unbalancedVariation": "unbalanced variation brackets",
+    "variationWithoutMove": "a variation with no move before it",
+    "invalidFen": "invalid starting position (FEN)",
+    "noMoves": "the game has no moves",
+    "secondAnswer": "a second answer in the same position",
+    "tooLarge": "The file is larger than {limit} MB.",
+    "tooManyGames": "The file has more than {limit} games.",
+    "tooDeep": "Variations are nested deeper than {limit}.",
+    "noValidGames": "No valid game was found in the file."
   },
   "personalNote": {
     "tooLong": "The note is too long: at most 2,000 characters."
@@ -368,6 +382,45 @@
       "commentSaved": "Saved",
       "saving": "Saving",
       "playFirst": "Play the first move on the board"
+    },
+    "import": {
+      "title": "Import PGN",
+      "intro": "Up to 2 MB and 200 games.",
+      "back": "My repertoires",
+      "fileTitle": "File and side",
+      "file": "Choose PGN file",
+      "fileHint": "or drop it here",
+      "fileChosen": "{name} · {size} KB",
+      "noFile": "Choose a PGN file.",
+      "side": "Side",
+      "preview": "Show what is inside",
+      "reading": "Reading the file",
+      "chosen": "{name} · {side}",
+      "change": "Change",
+      "summaryTitle": "What the file holds",
+      "summary": {
+        "chapters": "{count, plural, one {# chapter} other {# chapters}}",
+        "lines": "{count, plural, one {# line} other {# lines}}",
+        "positions": "{count, plural, one {# position} other {# positions}}",
+        "transpositions": "{count, plural, one {# transposition} other {# transpositions}}",
+        "moves": "{count, plural, one {# move} other {# moves}}"
+      },
+      "chaptersTitle": "Chapters",
+      "skippedTitle": "Skipped games ({count})",
+      "skippedNone": "{count, plural, one {The game is valid} other {All # games are valid}}",
+      "skippedItem": "Game {game}: {reason}",
+      "skippedMove": "Game {game}: {reason}, {move}",
+      "skippedAll": "Show all {count}",
+      "targetTitle": "Where to",
+      "targetNew": "New repertoire",
+      "targetExisting": "Add to an existing one",
+      "name": "Name",
+      "existing": "Repertoire",
+      "added": "Adds {chapters, plural, one {# chapter} other {# chapters}} and {moves, plural, one {# move} other {# moves}} to {name}.",
+      "updating": "Updating",
+      "confirm": "Import",
+      "importing": "Importing",
+      "previewAgain": "Preview again"
     }
   },
   "comment": {
