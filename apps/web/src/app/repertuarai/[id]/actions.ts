@@ -1,0 +1,147 @@
+'use server';
+
+// The repertoire page's actions. Each authenticates, parses its input, asks
+// ownRepertoire (the domain's access rule, enforced again by the owner
+// filter in the query), then saves. The viewer is always the session account.
+import {
+  deleteRepertoire,
+  renameRepertoire,
+  setPersonalNote,
+} from '@mychess/db';
+import {
+  personalNoteSchema,
+  REPERTOIRE_ISSUES,
+  REPERTOIRE_REFUSALS,
+  repertoireNameSchema,
+} from '@mychess/domain';
+import { refresh } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { z } from 'zod';
+import { repertoireDeletedRoute } from '../../../lib/routes';
+import { getDb } from '../../../server/db';
+import { ownRepertoire } from '../../../server/repertoires';
+import { requireOnboarded } from '../../../server/session';
+
+type NotFoundKey = typeof REPERTOIRE_REFUSALS.notFound;
+
+/** What saving a Personal note came to. */
+export type NoteOutcome =
+  | { readonly ok: true }
+  | {
+      readonly ok: false;
+      readonly refusal:
+        typeof REPERTOIRE_ISSUES.personalNoteTooLong | NotFoundKey;
+    };
+
+const noteRequestSchema = z.object({
+  repertoireId: z.uuid(),
+  moveKey: z.string().min(1).max(120),
+  text: personalNoteSchema,
+});
+
+/** A note too long is said so; any other malformed request reads as not found. */
+const noteIssue = (error: z.ZodError): Extract<NoteOutcome, { ok: false }> => ({
+  ok: false,
+  refusal:
+    error.issues[0]?.message === REPERTOIRE_ISSUES.personalNoteTooLong
+      ? REPERTOIRE_ISSUES.personalNoteTooLong
+      : REPERTOIRE_REFUSALS.notFound,
+});
+
+/**
+ * Sets or (with '') removes the viewer's own private note on a move of a
+ * repertoire they may view (R-21: a note is the viewer's, in either mode).
+ */
+export async function savePersonalNoteAction(
+  input: unknown,
+): Promise<NoteOutcome> {
+  const account = await requireOnboarded();
+  const request = noteRequestSchema.safeParse(input);
+  if (!request.success) return noteIssue(request.error);
+  const { repertoireId, moveKey, text } = request.data;
+  const own = await ownRepertoire(account, repertoireId, 'view');
+  if (!own.ok) return { ok: false, refusal: own.refusal.reason };
+  // The write checks access again in its own transaction: a repertoire
+  // deleted since ownRepertoire read it is refused there.
+  const saved = await setPersonalNote(getDb(), {
+    playerId: account.id,
+    repertoireId,
+    moveKey,
+    text,
+    now: new Date(),
+  });
+  return saved.ok ? { ok: true } : { ok: false, refusal: saved.refusal.reason };
+}
+
+/** What the rename form shows after a submit. */
+export interface RenameState {
+  readonly refusal?:
+    | typeof REPERTOIRE_ISSUES.nameBlank
+    | typeof REPERTOIRE_ISSUES.nameTooLong
+    | NotFoundKey;
+  readonly saved?: boolean;
+}
+
+const renameSchema = z.object({
+  repertoireId: z.uuid(REPERTOIRE_REFUSALS.notFound),
+  name: repertoireNameSchema,
+});
+
+const RENAME_KEYS: readonly NonNullable<RenameState['refusal']>[] = [
+  REPERTOIRE_ISSUES.nameBlank,
+  REPERTOIRE_ISSUES.nameTooLong,
+  REPERTOIRE_REFUSALS.notFound,
+];
+
+/** A form field as text; a missing one is empty. */
+const field = (form: FormData, name: string): string => {
+  const value = form.get(name);
+  return typeof value === 'string' ? value : '';
+};
+
+/** Renames the owner's repertoire (no version bump, decision 10). */
+export async function renameRepertoireAction(
+  _previous: RenameState,
+  form: FormData,
+): Promise<RenameState> {
+  const account = await requireOnboarded();
+  const request = renameSchema.safeParse({
+    repertoireId: field(form, 'repertoireId'),
+    name: field(form, 'name'),
+  });
+  if (!request.success) {
+    const message = request.error.issues[0]?.message;
+    const refusal = RENAME_KEYS.find((key) => key === message);
+    return { refusal: refusal ?? REPERTOIRE_REFUSALS.notFound };
+  }
+  const own = await ownRepertoire(account, request.data.repertoireId, 'edit');
+  if (!own.ok) return { refusal: own.refusal.reason };
+  await renameRepertoire(getDb(), {
+    id: request.data.repertoireId,
+    ownerId: account.id,
+    name: request.data.name,
+    now: new Date(),
+  });
+  refresh();
+  return { saved: true };
+}
+
+/** What the delete confirmation shows after a submit. */
+export interface DeleteState {
+  readonly refusal?: NotFoundKey;
+}
+
+/**
+ * Deletes the owner's repertoire with its chapters, moves and the notes on
+ * it, then goes to Mano repertuarai, which says it was deleted.
+ */
+export async function deleteRepertoireAction(
+  _previous: DeleteState,
+  form: FormData,
+): Promise<DeleteState> {
+  const account = await requireOnboarded();
+  const own = await ownRepertoire(account, form.get('repertoireId'), 'edit');
+  if (!own.ok) return { refusal: own.refusal.reason };
+  await deleteRepertoire(getDb(), own.value.repertoire.id, account.id);
+  redirect(repertoireDeletedRoute);
+}

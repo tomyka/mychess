@@ -40,6 +40,11 @@ describe('HomeView', () => {
           .getAttribute('href'),
       ).toBe('/nustatymai');
       expect(
+        screen
+          .getByRole('link', { name: MESSAGES[locale].app.repertoires })
+          .getAttribute('href'),
+      ).toBe('/repertuarai');
+      expect(
         screen.queryByRole('link', { name: MESSAGES[locale].app.coachArea }),
       ).toBeNull();
     },

@@ -4,7 +4,8 @@
     "greeting": "Hello, {name}!",
     "signOut": "Sign out",
     "settings": "Settings",
-    "coachArea": "Coach dashboard"
+    "coachArea": "Coach dashboard",
+    "repertoires": "My repertoires"
   },
   "language": {
     "lt": "Lietuvių",
@@ -220,5 +221,109 @@
       "n": "Knight",
       "cancel": "Cancel"
     }
+  },
+  "repertoire": {
+    "nameBlank": "Enter a name for the repertoire.",
+    "nameTooLong": "The name is too long: at most 80 characters.",
+    "sideInvalid": "Choose White or Black.",
+    "notFound": "This repertoire does not exist or is not yours.",
+    "stale": "This repertoire changed in another window. Reload to see the latest version."
+  },
+  "chapter": {
+    "untitled": "Chapter {number}"
+  },
+  "personalNote": {
+    "tooLong": "The note is too long: at most 2,000 characters."
+  },
+  "repertoires": {
+    "list": {
+      "title": "My repertoires",
+      "intro": "Build your openings or import PGN.",
+      "home": "Home",
+      "white": "White",
+      "black": "Black",
+      "emptyWhite": "No White repertoire yet.",
+      "emptyBlack": "No Black repertoire yet.",
+      "empty": "You have no repertoires yet.",
+      "meta": "{chapters, plural, one {# chapter} other {# chapters}} · {moves, plural, one {# move} other {# moves}}",
+      "changed": "Changed {date}",
+      "importTitle": "Have a PGN file?",
+      "importIntro": "Upload a PGN file and see what it holds before saving.",
+      "import": "Import PGN"
+    },
+    "create": {
+      "title": "New repertoire",
+      "name": "Name",
+      "side": "Side",
+      "white": "White",
+      "black": "Black",
+      "submit": "Create"
+    },
+    "header": {
+      "back": "My repertoires",
+      "section": "Repertoire",
+      "rename": "Rename",
+      "renameLabel": "Repertoire name",
+      "renameSubmit": "Save",
+      "renameCancel": "Cancel",
+      "renamed": "Saved",
+      "download": "Download PGN",
+      "importInto": "Add from PGN",
+      "delete": "Delete",
+      "deleteQuestion": "Delete {name}? Its chapters, moves, comments and your notes on it are deleted. This cannot be undone.",
+      "deleteConfirm": "Delete for good",
+      "deleteCancel": "Cancel",
+      "deleted": "The repertoire was deleted."
+    },
+    "chapters": {
+      "title": "Chapters",
+      "empty": "No chapters yet.",
+      "position": "Chapter {index} of {count}"
+    },
+    "nav": {
+      "start": "To the start",
+      "back": "Back",
+      "forward": "Forward",
+      "endOfLine": "{move}, end of line"
+    },
+    "panel": {
+      "intro": "Chapter intro",
+      "comment": "Comment",
+      "noComment": "No comment",
+      "noMoves": "No moves yet",
+      "emptyBuild": "Play the first move on the board, or add games from PGN.",
+      "emptyBrowse": "This repertoire has no moves yet.",
+      "addFromPgn": "Add games from PGN",
+      "arrows": "Arrows: {list}",
+      "circles": "Circles: {list}",
+      "arrow": "{from} to {to}, {color}",
+      "circle": "{square}, {color}"
+    },
+    "colors": {
+      "G": "green",
+      "R": "red",
+      "Y": "yellow",
+      "B": "blue"
+    },
+    "moves": {
+      "title": "Moves",
+      "hasComment": "has a comment",
+      "hasNote": "has my note"
+    },
+    "note": {
+      "label": "My note",
+      "private": "Only you see this",
+      "save": "Save note",
+      "saved": "Saved"
+    },
+    "board": {
+      "label": "Chess board, {name}, {chapter}",
+      "labelNoChapter": "Chess board, {name}",
+      "notInRepertoire": "This move is not in the chapter. Switch to builder to add it."
+    },
+    "stale": {
+      "reload": "Reload"
+    },
+    "failed": "That did not work. Try again."
   }
 }

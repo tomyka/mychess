@@ -27,6 +27,9 @@ export function HomeView({
         </h1>
       </header>
       <div className="flex flex-wrap items-center gap-4">
+        <Link href={ROUTES.repertoires} className={LINK}>
+          {t('repertoires')}
+        </Link>
         {isCoach ? (
           <Link href={ROUTES.coach} className={LINK}>
             {t('coachArea')}

@@ -4,7 +4,8 @@
     "greeting": "Sveiki, {name}!",
     "signOut": "Atsijungti",
     "settings": "Nustatymai",
-    "coachArea": "Trenerio skydelis"
+    "coachArea": "Trenerio skydelis",
+    "repertoires": "Mano repertuarai"
   },
   "language": {
     "lt": "Lietuvių",
@@ -220,5 +221,109 @@
       "n": "Žirgas",
       "cancel": "Atšaukti"
     }
+  },
+  "repertoire": {
+    "nameBlank": "Įveskite repertuaro pavadinimą.",
+    "nameTooLong": "Pavadinimas per ilgas: daugiausia 80 simbolių.",
+    "sideInvalid": "Pasirinkite baltuosius arba juoduosius.",
+    "notFound": "Šio repertuaro nėra arba jis ne jūsų.",
+    "stale": "Šis repertuaras pakeistas kitame lange. Įkelkite iš naujo, kad matytumėte naujausią versiją."
+  },
+  "chapter": {
+    "untitled": "{number} skyrius"
+  },
+  "personalNote": {
+    "tooLong": "Užrašas per ilgas: daugiausia 2 000 simbolių."
+  },
+  "repertoires": {
+    "list": {
+      "title": "Mano repertuarai",
+      "intro": "Kurkite savo debiutus arba importuokite PGN.",
+      "home": "Pradžia",
+      "white": "Baltaisiais",
+      "black": "Juodaisiais",
+      "emptyWhite": "Repertuaro baltaisiais dar nėra.",
+      "emptyBlack": "Repertuaro juodaisiais dar nėra.",
+      "empty": "Repertuarų dar neturite.",
+      "meta": "{chapters, plural, one {# skyrius} few {# skyriai} other {# skyrių}} · {moves, plural, one {# ėjimas} few {# ėjimai} other {# ėjimų}}",
+      "changed": "Pakeista {date}",
+      "importTitle": "Turite PGN failą?",
+      "importIntro": "Įkelkite PGN failą ir pažiūrėkite, kas jame yra, prieš išsaugodami.",
+      "import": "Importuoti PGN"
+    },
+    "create": {
+      "title": "Naujas repertuaras",
+      "name": "Pavadinimas",
+      "side": "Spalva",
+      "white": "Baltaisiais",
+      "black": "Juodaisiais",
+      "submit": "Sukurti"
+    },
+    "header": {
+      "back": "Mano repertuarai",
+      "section": "Repertuaras",
+      "rename": "Pervadinti",
+      "renameLabel": "Repertuaro pavadinimas",
+      "renameSubmit": "Išsaugoti",
+      "renameCancel": "Atšaukti",
+      "renamed": "Išsaugota",
+      "download": "Atsisiųsti PGN",
+      "importInto": "Pridėti iš PGN",
+      "delete": "Ištrinti",
+      "deleteQuestion": "Ištrinti „{name}“? Jo skyriai, ėjimai, komentarai ir jūsų užrašai bus ištrinti. To atšaukti negalima.",
+      "deleteConfirm": "Ištrinti visam laikui",
+      "deleteCancel": "Atšaukti",
+      "deleted": "Repertuaras ištrintas."
+    },
+    "chapters": {
+      "title": "Skyriai",
+      "empty": "Skyrių dar nėra.",
+      "position": "{index} skyrius iš {count}"
+    },
+    "nav": {
+      "start": "Į pradžią",
+      "back": "Atgal",
+      "forward": "Pirmyn",
+      "endOfLine": "{move}, linijos pabaiga"
+    },
+    "panel": {
+      "intro": "Skyriaus įžanga",
+      "comment": "Komentaras",
+      "noComment": "Komentaro nėra",
+      "noMoves": "Ėjimų dar nėra",
+      "emptyBuild": "Atlikite pirmą ėjimą lentoje arba pridėkite partijų iš PGN.",
+      "emptyBrowse": "Šiame repertuare dar nėra ėjimų.",
+      "addFromPgn": "Pridėti partijų iš PGN",
+      "arrows": "Rodyklės: {list}",
+      "circles": "Apskritimai: {list}",
+      "arrow": "{from} į {to}, {color}",
+      "circle": "{square}, {color}"
+    },
+    "colors": {
+      "G": "žalia",
+      "R": "raudona",
+      "Y": "geltona",
+      "B": "mėlyna"
+    },
+    "moves": {
+      "title": "Ėjimai",
+      "hasComment": "yra komentaras",
+      "hasNote": "yra mano užrašas"
+    },
+    "note": {
+      "label": "Mano užrašas",
+      "private": "Matote tik jūs",
+      "save": "Išsaugoti užrašą",
+      "saved": "Išsaugota"
+    },
+    "board": {
+      "label": "Šachmatų lenta, {name}, {chapter}",
+      "labelNoChapter": "Šachmatų lenta, {name}",
+      "notInRepertoire": "Šio ėjimo skyriuje nėra. Įjunkite kūrimo režimą, kad jį pridėtumėte."
+    },
+    "stale": {
+      "reload": "Įkelti iš naujo"
+    },
+    "failed": "Nepavyko. Bandykite dar kartą."
   }
 }

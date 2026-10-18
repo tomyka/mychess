@@ -37,3 +37,6 @@ export const repertoireExportRoute = (id: string): string =>
 /** The import page with an existing repertoire chosen as the target. */
 export const importIntoRoute = (id: string): string =>
   `${ROUTES.repertoireImport}?i=${encodeURIComponent(id)}`;
+
+/** Mano repertuarai after a delete: its status line says so. */
+export const repertoireDeletedRoute = `${ROUTES.repertoires}?deleted=1`;

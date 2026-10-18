@@ -4,6 +4,7 @@ import {
   coachPlayerPath,
   importIntoRoute,
   invitePath,
+  repertoireDeletedRoute,
   repertoireExportRoute,
   repertoireRoute,
   ROUTES,
@@ -66,5 +67,11 @@ describe('importIntoRoute', () => {
     expect(importIntoRoute('a&b c')).toBe(
       '/repertuarai/importuoti?i=a%26b%20c',
     );
+  });
+});
+
+describe('repertoireDeletedRoute', () => {
+  it('is the repertoire list, told a repertoire was deleted', () => {
+    expect(repertoireDeletedRoute).toBe('/repertuarai?deleted=1');
   });
 });
