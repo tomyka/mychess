@@ -21,6 +21,9 @@ const config: NextConfig = {
   // this repo's agent rules live in its own CLAUDE.md and docs/.
   agentRules: false,
   reactStrictMode: true,
+  // A PGN upload is posted as text to a server action: up to 2 MB (R-66)
+  // plus the form's own overhead. The action re-checks every limit.
+  experimental: { serverActions: { bodySizeLimit: '3mb' } },
   headers: () =>
     Promise.resolve([{ source: '/:path*', headers: SECURITY_HEADERS }]),
 };
