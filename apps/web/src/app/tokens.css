@@ -3,7 +3,7 @@
  *
  * Every colour is a token. Components use the Tailwind utilities these
  * generate (bg-surface, text-fg-muted, border-border, bg-due-subtle,
- * text-learned, bg-board-light, rounded-control, min-h-touch, ...) and never
+ * text-learned, bg-accent, rounded-control, min-h-touch, ...) and never
  * a raw hex value or a Tailwind palette colour (bg-blue-600).
  *
  * Themes: each colour is light-dark(<light>, <dark>). The theme follows the
@@ -45,22 +45,6 @@
   --color-learned: light-dark(#6741b8, #b9a2ff);
   --color-learned-subtle: light-dark(#efe9fb, #2a2242);
   --color-on-state: light-dark(#ffffff, #111214);
-
-  /* ---- Board ----
-   * Squares are the classic brown pair, a little dimmer in the dark theme so
-   * the board does not glare. Coordinates use the opposite square colour.
-   * Overlays are translucent so they read on both square colours.
-   */
-  --color-board-light: light-dark(#f0d9b5, #d8c3a0);
-  --color-board-dark: light-dark(#b58863, #a07a59);
-  --color-board-last-move: rgb(205 210 106 / 0.6);
-  --color-board-selected: rgb(20 85 30 / 0.5);
-  --color-board-target: rgb(20 85 30 / 0.35); /* legal-move dot and ring */
-  --color-board-check: rgb(220 30 30 / 0.75); /* radial glow on the king */
-  --color-board-arrow: rgb(21 120 27 / 0.8); /* Learn pass arrows */
-  --color-board-correct: rgb(24 112 58 / 0.55); /* square flash, success */
-  --color-board-wrong: rgb(179 38 30 / 0.55); /* square flash, lapse */
-  --color-board-focus: #0f2e7a; /* keyboard cursor, >= 3:1 on both squares */
 
   /* ---- Typography ----
    * System UI stack: no web-font download, full Lithuanian diacritics
@@ -112,6 +96,43 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --duration-move: 150ms; /* piece slide */
   --duration-feedback: 400ms; /* correct/wrong square flash */
+}
+
+/*
+ * The board tokens are read by chessground's stylesheet (board/board.css) and
+ * by script (the mark colours become chessground brushes), never through a
+ * utility class. Tailwind emits only the theme variables a utility uses, so
+ * this group is static: every variable is always emitted.
+ */
+@theme static {
+  /* ---- Board ----
+   * Squares are the classic brown pair, a little dimmer in the dark theme so
+   * the board does not glare. Coordinates use the opposite square colour.
+   * Overlays are translucent so they read on both square colours.
+   */
+  --color-board-light: light-dark(#f0d9b5, #d8c3a0);
+  --color-board-dark: light-dark(#b58863, #a07a59);
+  --color-board-last-move: rgb(205 210 106 / 0.6);
+  --color-board-selected: rgb(20 85 30 / 0.5);
+  --color-board-target: rgb(20 85 30 / 0.35); /* legal-move dot and ring */
+  --color-board-check: rgb(220 30 30 / 0.75); /* radial glow on the king */
+  --color-board-arrow: rgb(21 120 27 / 0.8); /* Learn pass arrows */
+  --color-board-correct: rgb(24 112 58 / 0.55); /* square flash, success */
+  --color-board-wrong: rgb(179 38 30 / 0.55); /* square flash, lapse */
+  --color-board-focus: #0f2e7a; /* keyboard cursor, >= 3:1 on both squares */
+
+  /* Arrows and circles drawn on a move ([%cal] / [%csl], builder draw mode).
+   * The board reads these from script into chessground's brushes g, r, y, b,
+   * so they are plain colours, the same in both themes. They are the colours
+   * players know from lichess and PGN. An arrow always crosses light squares:
+   * green, red and blue reach 3:1 there; yellow and most dark-square pairs do
+   * not. The marks are supplementary: the panel repeats them as text for
+   * screen readers (docs/design/repertoire-screen.md, Board styling).
+   */
+  --color-board-mark-green: #15781b;
+  --color-board-mark-red: #882020;
+  --color-board-mark-yellow: #e68f00;
+  --color-board-mark-blue: #003088;
 }
 
 /* Theme switch: system by default, <html data-theme="..."> overrides. */
