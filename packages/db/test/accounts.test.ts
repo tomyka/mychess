@@ -1,8 +1,16 @@
+import {
+  fenOf,
+  moveKey,
+  START_KEY,
+  type RepertoireGraph,
+} from '@mychess/chess';
 import { describe, expect, it } from 'vitest';
 import {
   acceptInvite,
   completeOnboarding,
   createInvite,
+  createRepertoire,
+  setPersonalNote,
   deleteAccount,
   exportAccount,
   findAccountByEmail,
@@ -15,6 +23,7 @@ import { providerAccounts, sessions } from '../src/schema';
 import { useTestDatabase } from '../src/testing';
 import { seedAccount, seedVerification } from './support/accounts';
 import { seedCoach, seedGroup, seedPlayer } from './support/coaching';
+import { graphOf, LONDON, T0 as RT0 } from './support/repertoires';
 
 const { db, client } = useTestDatabase();
 const T0 = new Date('2026-10-16T08:00:00Z');
@@ -234,6 +243,8 @@ describe('exportAccount', () => {
         },
       ],
       coaching: { coaches: [], groups: [], invites: [] },
+      repertoires: [],
+      personalNotes: [],
     });
     expect(JSON.stringify(data)).not.toMatch(/encrypted|jonas|t-a1/);
   });
@@ -312,6 +323,54 @@ describe('exportAccount', () => {
     expect(JSON.stringify(data)).not.toMatch(
       /secret|t-a1|t-a2|s-a1|Old browser|192\.0\.2\.8/,
     );
+  });
+
+  it("holds the requester's repertoires as PGN and their personal notes, never another account's (R-40, R-21)", async () => {
+    await seedAccount(db, 'a1', 'ruta@example.lt');
+    await seedAccount(db, 'a2', 'jonas@example.lt');
+    const stored = graphOf(LONDON);
+    const id = await createRepertoire(db, {
+      ownerId: 'a1',
+      side: 'white',
+      name: 'Londono sistema',
+      graph: stored,
+      now: RT0,
+    });
+    await createRepertoire(db, {
+      ownerId: 'a2',
+      side: 'black',
+      name: 'Jono Sicilija',
+      graph: graphOf('1. e4 c5 *', 'black'),
+      now: RT0,
+    });
+    await setPersonalNote(db, {
+      playerId: 'a1',
+      repertoireId: id,
+      moveKey: moveKey(START_KEY, 'd4'),
+      text: 'Nepamiršti',
+      now: RT0,
+    });
+    const data = await exportAccount(db, 'a1', NOW, {
+      chapterTitle: (c) => c.id,
+    });
+    expect(data?.repertoires.map((r) => [r.name, r.side, r.createdAt])).toEqual(
+      [['Londono sistema', 'white', '2026-10-17T08:00:00.000Z']],
+    );
+    expect(data?.personalNotes).toEqual([
+      {
+        repertoire: 'Londono sistema',
+        position: fenOf(START_KEY),
+        san: 'd4',
+        text: 'Nepamiršti',
+        updatedAt: '2026-10-17T08:00:00.000Z',
+      },
+    ]);
+    expect(JSON.stringify(data)).not.toMatch(/Jono Sicilija/);
+    const pgn = data?.repertoires[0]?.pgn ?? '';
+    expect(pgn).toContain('[Event "c1"]');
+    const movesOf = (graph: RepertoireGraph) =>
+      graph.moves.map((m) => [m.from, m.san, m.comment]);
+    expect(movesOf(graphOf(pgn))).toEqual(movesOf(stored));
   });
 
   it('returns undefined for an unknown account', async () => {

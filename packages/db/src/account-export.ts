@@ -6,14 +6,22 @@ import {
   type InviteState,
   type Locale,
 } from '@mychess/domain';
-import { and, eq, gt } from 'drizzle-orm';
+import { exportPgn, fenOf, type Chapter, type Side } from '@mychess/chess';
+import { and, asc, eq, gt } from 'drizzle-orm';
 import { z } from 'zod';
 import { accountColumns } from './accounts';
 import type { Executor } from './client';
 import { playerCoaches } from './coaching';
 import { coachGroups } from './groups';
 import { allCoachInvites } from './invites';
-import { accounts, providerAccounts, sessions } from './schema';
+import { listRepertoires, loadRepertoire } from './repertoires/repository';
+import {
+  accounts,
+  personalNotes,
+  providerAccounts,
+  repertoires,
+  sessions,
+} from './schema';
 
 /** The account's coaching data (R-106); never a token, its hash or an id. */
 export interface CoachingExport {
@@ -65,6 +73,30 @@ export interface AccountExport {
     readonly expiresAt: string;
   }[];
   readonly coaching: CoachingExport;
+  /** The account's repertoires, each as PGN (R-40), oldest first. */
+  readonly repertoires: readonly {
+    readonly name: string;
+    readonly side: Side;
+    readonly createdAt: string;
+    readonly pgn: string;
+  }[];
+  /** The account's personal notes (R-21), by repertoire name and move. */
+  readonly personalNotes: readonly {
+    readonly repertoire: string;
+    /** The position the move is played from, as a FEN (fenOf). */
+    readonly position: string;
+    readonly san: string;
+    readonly text: string;
+    readonly updatedAt: string;
+  }[];
+}
+
+export interface AccountExportOptions {
+  /**
+   * How a chapter's PGN game is titled: its display name in the account's
+   * language (decision 14). The default is the name source itself.
+   */
+  readonly chapterTitle?: (chapter: Chapter) => string;
 }
 
 const exportRowSchema = accountSchema.extend({
@@ -143,14 +175,82 @@ async function coaching(
   };
 }
 
+/** The account's own repertoires, oldest first, each as PGN (R-40). */
+async function exportedRepertoires(
+  db: Executor,
+  id: string,
+  options: AccountExportOptions,
+): Promise<AccountExport['repertoires']> {
+  const pgnOptions =
+    options.chapterTitle === undefined ? {} : { title: options.chapterTitle };
+  const out: AccountExport['repertoires'][number][] = [];
+  for (const item of await listRepertoires(db, id)) {
+    const loaded = await loadRepertoire(db, item.id, id);
+    if (loaded !== undefined)
+      out.push({
+        name: loaded.repertoire.name,
+        side: loaded.repertoire.side,
+        createdAt: loaded.repertoire.createdAt.toISOString(),
+        pgn: exportPgn(loaded.graph, pgnOptions),
+      });
+  }
+  return out;
+}
+
+const noteRowsSchema = z.array(
+  z.object({
+    repertoire: z.string(),
+    moveKey: z.string().includes('|'),
+    text: z.string(),
+    updatedAt: z.date(),
+  }),
+);
+
+/** The account's personal notes, by repertoire (oldest first), then move key. */
+async function exportedNotes(
+  db: Executor,
+  id: string,
+): Promise<AccountExport['personalNotes']> {
+  const rows = noteRowsSchema.parse(
+    await db
+      .select({
+        repertoire: repertoires.name,
+        moveKey: personalNotes.moveKey,
+        text: personalNotes.text,
+        updatedAt: personalNotes.updatedAt,
+      })
+      .from(personalNotes)
+      .innerJoin(repertoires, eq(repertoires.id, personalNotes.repertoireId))
+      .where(eq(personalNotes.playerAccountId, id))
+      .orderBy(
+        asc(repertoires.createdAt),
+        asc(repertoires.id),
+        asc(personalNotes.moveKey),
+      ),
+  );
+  return rows.map((row) => {
+    // A move key is `<position key>|<SAN>`; neither part holds a `|`.
+    const cut = row.moveKey.lastIndexOf('|');
+    return {
+      repertoire: row.repertoire,
+      position: fenOf(row.moveKey.slice(0, cut)),
+      san: row.moveKey.slice(cut + 1),
+      text: row.text,
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  });
+}
+
 /**
  * The requester's own data (R-40, security item 9), with the sessions
- * active at `now` (R-89) and the coaching data (R-106); never tokens.
+ * active at `now` (R-89), the coaching data (R-106), the repertoires as
+ * PGN and the personal notes (R-21); never tokens.
  */
 export async function exportAccount(
   db: Executor,
   id: string,
   now: Date,
+  options: AccountExportOptions = {},
 ): Promise<AccountExport | undefined> {
   const [row] = await db
     .select({ ...accountColumns, image: accounts.image })
@@ -186,5 +286,7 @@ export async function exportAccount(
     })),
     sessions: await activeSessions(db, id, now),
     coaching: await coaching(db, id, now),
+    repertoires: await exportedRepertoires(db, id, options),
+    personalNotes: await exportedNotes(db, id),
   };
 }

@@ -9,6 +9,7 @@ import {
 export {
   exportAccount,
   type AccountExport,
+  type AccountExportOptions,
   type CoachingExport,
 } from './account-export';
 export {
@@ -69,6 +70,25 @@ export {
   type InvitePreview,
   type InviteRequest,
 } from './invites';
+
+export {
+  listPersonalNotes,
+  setPersonalNote,
+  type PersonalNoteInput,
+} from './personal-notes';
+export {
+  createRepertoire,
+  deleteRepertoire,
+  listRepertoires,
+  loadRepertoire,
+  renameRepertoire,
+  saveRepertoireEdit,
+  type LoadedRepertoire,
+  type NewRepertoire,
+  type RepertoireEdit,
+  type RepertoireListItem,
+  type RepertoireRename,
+} from './repertoires/repository';
 
 /** Better Auth's tables, keyed by the model names auth.ts maps them to. */
 export const authSchema = {

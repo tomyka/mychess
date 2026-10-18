@@ -364,3 +364,107 @@ describe('the coaching schema', () => {
     expect(rows).toEqual([{ used_by: null, used: true }]);
   });
 });
+
+describe('the repertoire tables', () => {
+  const account = (id: string) =>
+    client.query(
+      `insert into accounts (id, email, display_name, created_at, updated_at)
+       values ($1, $1 || '@example.lt', $1, now(), now())`,
+      [id],
+    );
+  const repertoire = async (owner: string): Promise<string> =>
+    (
+      await client.query<{ id: string }>(
+        `insert into repertoires (owner_account_id, side, name, created_at, updated_at)
+         values ($1, 'white', 'London', now(), now()) returning id`,
+        [owner],
+      )
+    ).rows[0]?.id ?? '';
+  const chapter = (rep: string) =>
+    client.query(
+      `insert into chapters (repertoire_id, chapter_id, root_key, name_source, ord)
+       values ($1, 'c1', 'start', '{"kind":"index","number":1}', 0)`,
+      [rep],
+    );
+  const move = async (rep: string, san: string): Promise<string> =>
+    (
+      await client.query<{ id: string }>(
+        `insert into repertoire_moves (repertoire_id, from_key, san, to_key, uci, ord)
+         values ($1, 'start', $2, 'after', 'e2e4', 0) returning id`,
+        [rep, san],
+      )
+    ).rows[0]?.id ?? '';
+
+  it('starts a repertoire at version 1 and refuses an unknown side', async () => {
+    await account('a1');
+    const id = await repertoire('a1');
+    expect(
+      (
+        await client.query('select version from repertoires where id = $1', [
+          id,
+        ])
+      ).rows,
+    ).toEqual([{ version: 1 }]);
+    await expect(
+      client.query(
+        `insert into repertoires (owner_account_id, side, name, created_at, updated_at)
+         values ('a1', 'red', 'x', now(), now())`,
+      ),
+    ).rejects.toThrow(/check/);
+  });
+
+  it('stores a move once per position and SAN in a repertoire', async () => {
+    await account('a1');
+    const rep = await repertoire('a1');
+    await move(rep, 'e4');
+    await expect(move(rep, 'e4')).rejects.toThrow(/unique/);
+  });
+
+  it('removes every repertoire row with the account (S1 hard delete)', async () => {
+    await account('a1');
+    const rep = await repertoire('a1');
+    await chapter(rep);
+    const moveId = await move(rep, 'e4');
+    await client.query(
+      `insert into move_chapters (move_id, repertoire_id, chapter_id) values ($1, $2, 'c1')`,
+      [moveId, rep],
+    );
+    await client.query(
+      `insert into personal_notes (player_account_id, repertoire_id, move_key, text, updated_at)
+       values ('a1', $1, 'start|e4', 'note', now())`,
+      [rep],
+    );
+    await client.query(`delete from accounts where id = 'a1'`);
+    const { rows } = await client.query(`select
+      (select count(*) from repertoires)::int as r, (select count(*) from chapters)::int as c,
+      (select count(*) from repertoire_moves)::int as m, (select count(*) from move_chapters)::int as l,
+      (select count(*) from personal_notes)::int as n`);
+    expect(rows).toEqual([{ r: 0, c: 0, m: 0, l: 0, n: 0 }]);
+  });
+
+  it('removes a chapter link with its chapter, and keeps the move', async () => {
+    await account('a1');
+    const rep = await repertoire('a1');
+    await chapter(rep);
+    const moveId = await move(rep, 'e4');
+    await client.query(
+      `insert into move_chapters (move_id, repertoire_id, chapter_id) values ($1, $2, 'c1')`,
+      [moveId, rep],
+    );
+    await client.query(`delete from chapters where repertoire_id = $1`, [rep]);
+    const { rows } = await client.query(`select
+      (select count(*) from move_chapters)::int as l, (select count(*) from repertoire_moves)::int as m`);
+    expect(rows).toEqual([{ l: 0, m: 1 }]);
+  });
+
+  it('indexes personal notes by repertoire, so a repertoire delete does not scan them', async () => {
+    const { rows } = await client.query<{ leading: string }>(
+      `select a.attname as leading
+       from pg_index i
+       join pg_class t on t.oid = i.indrelid
+       join pg_attribute a on a.attrelid = t.oid and a.attnum = i.indkey[0]
+       where t.relname = 'personal_notes'`,
+    );
+    expect(rows.map((r) => r.leading)).toContain('repertoire_id');
+  });
+});
