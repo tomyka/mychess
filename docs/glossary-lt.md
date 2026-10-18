@@ -51,16 +51,25 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | Repertoire | Repertoire | repertuaras | v1 `nav_repertoires`, `learn_repertoire_fallback_name` | |
 | Side | Side | spalva | v1 `pgn_import_color_label` | |
 | White / Black (side) | White / Black | baltieji / juodieji | proposed | v1 used **balta / juoda** (`pgn_import_color_white`) and **baltaisiais / juodaisiais** (`prep_as_white`). "As White": **baltaisiais**. Adopted (R-74). |
-| Chapter | Chapter | skyrius | v1 `coach_chapters_link`, `repertoire_tree_chapter_heading` | |
+| Chapter | Chapter | skyrius | v1 `coach_chapters_link`, `repertoire_tree_chapter_heading` | Plural: skyrius / skyriai / skyrių. A chapter too short to classify: **Skyrius N** / "Chapter N" (R-104); its place in the list: **Skyrius 2 iš 5** / "Chapter 2 of 5". |
+| Chapter intro | Chapter intro | skyriaus įžanga | proposed | The PGN comment before a chapter's first move (read-only in S3, R-112). |
 | Opening (a Chapter's subject) | Opening | debiutas | v1 `opening_picker_heading`, `coach_player_coverage_heading` | |
-| Position | Position | padėtis | v1 `move_nav_jump_to_current`, `learn_explore_position` | Not **pozicija**. |
-| Move | Move | ėjimas | v1 `repertoires_moves_count`, `games_moves_heading` | Plural: ėjimas / ėjimai / ėjimų. |
+| Position | Position | padėtis | v1 `move_nav_jump_to_current`, `learn_explore_position` | Not **pozicija**. Plural: padėtis / padėtys / padėčių; "in this position": **šioje padėtyje**. Starting position (FEN): **pradinė padėtis**. |
+| Move | Move | ėjimas | v1 `repertoires_moves_count`, `games_moves_heading` | Plural: ėjimas / ėjimai / ėjimų. Play a move: **atlikti ėjimą**. Legal / illegal: **leistinas / neleistinas**. |
 | Ply | Ply | pusėjimis | v1 `pgn_import_review_meta` | Counts only. |
-| Line | Line | variantas | v1 `practice_session_line_progress`, `repertoire_tree_line_count` | v1 used both **variantas** and **linija** (`coach_chapters_meta`, `pgn_import_review_summary`); **variantas** is the chess word. Not **linija**. |
-| Transposition | Transposition | ėjimų perstatymas | proposed | |
+| Line | Line | variantas | v1 `practice_session_line_progress`, `repertoire_tree_line_count` | v1 used both **variantas** and **linija** (`coach_chapters_meta`, `pgn_import_review_summary`); **variantas** is the chess word. Not **linija**. Plural: variantas / variantai / variantų. "End of line": **varianto pabaiga**. A PGN variation in parentheses is also **variantas**; nested: **įdėtas variantas**. |
+| Transposition | Transposition | ėjimų perstatymas | proposed | Plural: ėjimų perstatymas / perstatymai / perstatymų. Not **perstata**. |
+| Comment (on a Move) | Comment | komentaras | proposed (Task 1 question 4) | Belongs to the repertoire and is exported with it (R-102). Distinct from **asmeninis užrašas** (private) and **trenerio pastaba**. Takes **komentaras** away from comment threads: a move comment thread becomes **pokalbis apie ėjimą** (see Thread). Owner to confirm. |
+| Builder | Edit | redaguoti (switch), redagavimas (the mode) | proposed | The switch on the repertoire screen reads **Redaguoti** / "Edit"; "turn it on": **įjungti redagavimą**. Not **kūrimo režimas**: the mode also removes moves and edits comments, which is editing, and the design sketch says "Edit". |
+| Draw (marks on the board) | Draw / Done | piešti / baigti | proposed | The touch draw mode of the builder. |
+| Mark | Mark | žymė | proposed | An arrow or a circle on a move. Arrow: **rodyklė**; circle: **apskritimas**. Colours as adjectives: **žalia, raudona, geltona, mėlyna**. |
 | Starter repertoire | Starter repertoire | pradinis repertuaras | proposed | Not **šablonas** (template). |
 | Hint | Hint | užuomina | v1 `move_nav_show_hint` | |
-| PGN | PGN | PGN | v1 `pgn_import_pgn_text_label` | Not translated. |
+| PGN | PGN | PGN | v1 `pgn_import_pgn_text_label` | Not translated. File: **PGN failas**. Upload: **įkelti**; import: **importuoti**; drop a file: **nutempti**. |
+| Import summary | What the file holds | Kas yra faile | proposed | The R-64 preview before saving: chapters, lines, positions, transpositions, moves. |
+| Skipped game | Skipped game | praleista partija | proposed | Listed as **Partija N: {priežastis}** / "Game N: {reason}"; the reason is a lowercase fragment. Not "N partija", which reads as a count. |
+| Download PGN | Download PGN | atsisiųsti PGN | proposed | Not **eksportuoti**, as for the data export. |
+| Side picker options | White / Black | Baltieji / Juodieji | R-74 | Options under **Spalva**; list headings and "No repertoire as White" use **baltaisiais / juodaisiais**. |
 
 ## Assignment and ownership
 
@@ -69,7 +78,7 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | Assignment | Assignment | priskyrimas | proposed (verb from v1 `coach_repertoires_assign_button` **priskirti**) | "Assigned by your coach": **priskyrė jūsų treneris** (v1 `repertoires_assigned_heading`). |
 | Deadline (of an Assignment) | Deadline | terminas | proposed | |
 | Fork | Make my own copy (proposed) | asmeninė kopija | proposed | Verb: **pasidaryti asmeninę kopiją**. EN UI word is also unsettled; "Fork" is a developer word. Not **klonas**. |
-| Personal note | Personal note | asmeninė pastaba | proposed | Not **komentaras** (a comment is a Thread). |
+| Personal note | Personal note (UI: "My note") | asmeninis užrašas (UI: **Mano užrašas**) | R-116 (was proposed **asmeninė pastaba**) | R-116 names the button "Mano užrašas", so the UI uses **užrašas** throughout; **pastaba** stays for the Coach note, which keeps the two apart. Not **komentaras** (a Comment belongs to the repertoire). |
 | Coach note | Coach note | trenerio pastaba | v1 `coach_note_title` | |
 | Reconciliation | (not shown) | (not shown) | - | The UI shows only its Notification: "Your coach updated this repertoire" / **Jūsų treneris atnaujino šį repertuarą** (v1 `practice_coach_update_notice`). |
 
@@ -106,7 +115,7 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | Habit goal | Habit goal | įpročio tikslas | proposed | |
 | Mastery goal | Mastery goal | įvaldymo tikslas | proposed (v1 `repertoire_row_status_mastered` **įvaldyta**) | |
 | Results goal | Results goal | rezultatų tikslas | proposed | |
-| Thread | Conversation (proposed) | pokalbis | proposed | 1:1 thread: **pokalbis**; group thread: **grupės pokalbis**; move comment thread: **komentarai** (prie ėjimo). A single message: **žinutė**. Not **čatas**. |
+| Thread | Conversation (proposed) | pokalbis | proposed | 1:1 thread: **pokalbis**; group thread: **grupės pokalbis**; move comment thread: **pokalbis apie ėjimą** (proposed; was **komentarai**, now the word for a move Comment). A single message: **žinutė**. Not **čatas**. |
 | Notification | Notification | pranešimas | proposed (v1 `practice_dismiss_coach_notice_label`) | |
 | Digest | Daily digest | dienos suvestinė | proposed | Not **naujienlaiškis** (newsletter). |
 | Weak spot | Weak spot | silpnoji vieta | proposed | v1 had "klaidų vietos" (`coach_player_hotspots_heading`) for a similar view. |
@@ -143,6 +152,9 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | Settings | Settings | nustatymai | v1 `nav_settings` | |
 | Board | Board | lenta | v1 `settings_board_heading` | |
 | Piece | Piece | figūra | v1 `chessboard_hint_move_this_piece` | |
+| King, queen, rook, bishop, knight, pawn | King ... pawn | karalius, valdovė, bokštas, rikis, žirgas, pėstininkas | proposed | Standard Lithuanian chess names. Not **karalienė**, not **arklys**. With a side: **baltasis karalius**, **baltoji valdovė**, **juodasis žirgas**. |
+| Promotion | Promote to | pėstininko virsmas | proposed | Dialog title; the options are the piece names in the nominative. |
+| Square | Square | langelis | proposed | An empty square: **tuščias** (langelis). |
 | Rating | Rating | reitingas | v1 `fide_lookup_rating_row_label` | |
 | Classical / Rapid / Blitz | Classical / Rapid / Blitz | klasikinis / greitasis / žaibo | v1 `tournaments_tc_*` (blitz proposed) | v1 left **Blitz** and **Bullet** untranslated; proposed **žaibo** (šachmatai) for blitz. |
 | Tournament | Tournament | turnyras | v1 `nav_tournaments` | M3. |

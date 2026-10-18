@@ -148,6 +148,10 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-112** (S3/S4 resume, #253, 2026-10-18): Chapter intros are read-only in S3: the builder shows an imported intro but cannot edit it.
 - **R-113** (S3/S4 resume, #254, 2026-10-18): While Coach mode is off, the coach's groups are read-only: renaming, deleting and changing members are refused until Coach mode is on again. With Coach mode off there is no coach dashboard: the groups are kept out of sight until Coach mode is on again.
 - **R-114** (S3/S4 resume, #254, 2026-10-18): A coach has at most 50 open invites; creating another is refused until one expires, is used or is revoked.
+- **R-115** (S3 review, #253, 2026-10-18): Importing a PGN into an existing repertoire is refused when nothing in the file can be added (every game refused against it); the repertoire is not touched.
+- **R-116** (S3 review, #253, 2026-10-18): On the repertoire page an empty personal note shows as a single "Mano užrašas" button that opens the field (a written note stays open), and a repertoire with one chapter starts with its chapter list closed.
+- **R-117** (S3 review, #253, 2026-10-19): When importing into an existing repertoire, a game that adds no new move (its moves are all refused or already there) adds no chapter; if no game adds a move, the import is refused (R-115).
+- **R-118** (S3 review, #253, 2026-10-19): Lithuanian terms: a move Comment is "komentaras" (a move thread is "pokalbis apie ėjimą"); the repertoire edit mode is "Redaguoti" / "Edit"; a Personal note is "užrašas" ("Mano užrašas"); an untitled chapter is "Skyrius N".
 
 ## Open questions
 
