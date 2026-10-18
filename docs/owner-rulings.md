@@ -144,6 +144,8 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-108** (S3/S4 planning, #253 #254, 2026-10-18): Invites from a disabled coach account are refused with the generic "not valid" message.
 - **R-109** (S3/S4 planning, #253 #254, 2026-10-18): When a coach with no linked players switches Coach mode off, their open invites are revoked at once and their groups are kept.
 - **R-110** (S3/S4 planning, #253 #254, 2026-10-18): A personal invite may optionally name a group; a group invite always names one.
+- **R-111** (S3/S4 resume, #253, 2026-10-18): In a repertoire with no chapters, the first move played in the builder creates the first chapter and saves the move in it, in one step; there is no separate "Add chapter" step first.
+- **R-112** (S3/S4 resume, #253, 2026-10-18): Chapter intros are read-only in S3: the builder shows an imported intro but cannot edit it.
 
 ## Open questions
 

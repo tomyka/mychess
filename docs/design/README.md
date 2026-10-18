@@ -72,7 +72,7 @@ inside Tailwind 4's `@theme`, so each one is also a utility class.
 | Text | `fg`, `fg-muted` (`text-fg-muted`) | body, secondary |
 | Interactive | `accent`, `accent-fg`, `focus` | primary buttons, links, focus ring |
 | States | `success`, `error`, `due`, `learned`, each with `-subtle`, plus `on-state` | see below |
-| Board | `board-light`, `board-dark`, `board-last-move`, `board-selected`, `board-target`, `board-check`, `board-arrow`, `board-correct`, `board-wrong`, `board-focus` | the board only |
+| Board | `board-light`, `board-dark`, `board-last-move`, `board-selected`, `board-target`, `board-check`, `board-arrow`, `board-correct`, `board-wrong`, `board-focus`, `board-mark-{green,red,yellow,blue}` | the board only; a separate `@theme static` block |
 | Type | `font-sans`, `font-mono`, `text-xs` ... `text-4xl` | system UI stack, 12-36px |
 | Spacing | 4px scale, plus `touch` (44px), `gutter` (16px), `gutter-wide` (32px), `panel` (360px) | `min-h-touch`, `px-gutter`, `w-panel` |
 | Radii | `control`, `card`, `board`, `pill` | `rounded-control`, ... |
@@ -111,10 +111,13 @@ same rule, but prefer tokens: a component should need no `dark:` class.
 | `on-state` on each solid state | 5.9 - 6.9 | 8.2 - 9.4 |
 | `border-strong` on `bg` / `surface` | 3.3 / 3.6 | 3.5 / 3.2 |
 | `board-focus` on light / dark square | 9.0 / 3.9 | 7.2 / 3.2 |
+| `board-mark-green` / `-red` / `-blue` on light square | 4.1 / 6.7 / 8.6 | 3.3 / 5.4 / 6.9 |
+| `board-mark-yellow` on light square | 1.8 | 1.5 |
 
-Board coordinates (opposite square colour on a square, about 2.3:1) are
-supplementary, as on every chess site; the move list and the screen-reader
-labels carry the same information.
+Board coordinates (opposite square colour on a square, about 2.3:1), the
+mark colours on dark squares (1.2 - 3.8) and yellow marks are supplementary,
+as on every chess site; the move list and the screen-reader labels (which
+list each move's arrows and circles) carry the same information.
 
 ## Sign-off
 

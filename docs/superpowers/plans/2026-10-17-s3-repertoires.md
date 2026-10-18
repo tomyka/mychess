@@ -92,7 +92,7 @@ None of these is a product rule; the ones marked **(owner)** are put to the owne
 | `packages/chess/src/pgn/replay.ts`, `import-pgn.ts`, `export-pgn.ts` | comments in and out; `games`; `title` option |
 | `packages/domain/src/repertoire.ts` | name/comment/note schemas, `repertoireSchema`, refusals, `canViewRepertoire`, `canEditRepertoire` |
 | `packages/db/src/schema.ts` | tables `repertoires`, `chapters`, `repertoireMoves`, `moveChapters`, `personalNotes` |
-| `packages/db/migrations/0002_*.sql` | generated |
+| `packages/db/migrations/0003_*.sql` | generated (S4 Part A took 0002) |
 | `packages/db/src/repertoires/diff.ts` | `diffRepertoire` (pure) |
 | `packages/db/src/repertoires/rows.ts` | row schemas, `graphOf` |
 | `packages/db/src/repertoires/write.ts` | `writeDiff` |
@@ -1126,7 +1126,7 @@ Export all of these from `src/index.ts`, plus `export type { Side } from '@myche
 
 ### Task 7: Repertoire tables and migration (backend-dev) - SECURITY
 
-**Files:** Modify `packages/db/src/schema.ts`, `packages/db/test/schema.test.ts`. Create `packages/db/migrations/0002_*.sql` and its snapshot (generated).
+**Files:** Modify `packages/db/src/schema.ts`, `packages/db/test/schema.test.ts`. Create `packages/db/migrations/0003_*.sql` and its snapshot (generated).
 
 - [ ] **Step 1: Write the failing tests** in `test/schema.test.ts` (new `describe`; reuse its raw-SQL style):
 
@@ -1328,7 +1328,7 @@ export const personalNotes = pgTable(
 
 Import `SIDES, type Arrow, type ChapterNameSource, type Circle` from `@mychess/chess`. If drizzle-kit refuses `.default([])` on `jsonb`, use `.default(sql\`'[]'::jsonb\`)` and report it.
 
-- [ ] **Step 4:** `pnpm --filter @mychess/db db:generate`. Review the SQL: five tables, the `repertoires_side_check`, the unique `repertoire_moves_position_idx`, cascades on `owner_account_id`, every `repertoire_id`, `move_chapters.move_id`, `move_chapters_chapter_fk` and `personal_notes.player_account_id`; uuid defaults `gen_random_uuid()`. It must be `0002_<generated name>.sql` (after `0001_admin_audit_append_only`). Commit it unedited.
+- [ ] **Step 4:** `pnpm --filter @mychess/db db:generate`. Review the SQL: five tables, the `repertoires_side_check`, the unique `repertoire_moves_position_idx`, cascades on `owner_account_id`, every `repertoire_id`, `move_chapters.move_id`, `move_chapters_chapter_fk` and `personal_notes.player_account_id`; uuid defaults `gen_random_uuid()`. It must be `0003_<generated name>.sql` (after S4 Part A's `0002_*`). Commit it unedited.
 - [ ] **Step 5:** `pnpm --filter @mychess/db test`, then `node quality/gate.mjs check`. Expected: PASS.
 
 ### Task 8: The diff between two graphs (backend-dev)
@@ -2827,7 +2827,7 @@ export default async function RepertoirePage({ params }: { readonly params: Prom
 **Files:** Modify `apps/web/src/app/repertuarai/[id]/actions.ts`, `repertoire-screen.tsx`, `chapter-list.tsx`, `move-panel.tsx`, `screen-state.ts` and their tests. Create `builder-bar.tsx`, `builder-bar.test.tsx`, `apps/web/test/feature/repertoire-edit.test.ts`. Modify both catalogues.
 
 - [ ] **Step 1: Write the failing feature tests** `repertoire-edit.test.ts` (Rokas onboarded; `seedRepertoire` with an empty chapterless repertoire and with `LONDON`):
-  - `addChapter` on an empty repertoire returns `{ ok: true, version: 2, graph }` with one chapter `c1` "Chapter 1"; then `addMove` `d4` from the start returns version 3 and the stored graph has the move;
+  - `addMove` `d4` from the start on an empty, chapterless repertoire creates chapter `c1` "Chapter 1" and the move in one save (R-111): `{ ok: true, version: 2, graph }` with one chapter holding `d4`; `addChapter` on a repertoire with chapters still adds the next one;
   - an illegal move returns `{ ok: false, refusal: 'repertoire.illegalMove' }` and the version stays;
   - a second answer returns `repertoire.secondAnswer`;
   - `removeMove` of `Bf4` in the London's first chapter removes the moves only it reached and keeps the KID chapter's `Bf4` (`2. Bf4` is a different position there: check by `from`);

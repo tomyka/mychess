@@ -243,7 +243,11 @@ repertoire with no chapters opens in builder mode.
   "Saving" (`info`). A refusal (a second Answer, an illegal move) shows in
   the status line and the piece goes back.
 - **At an empty chapter root** the position section says "Play the first
-  move on the board" instead of the intro.
+  move on the board" instead of the intro. In a repertoire with no chapters,
+  the first move played creates "Chapter 1" and adds the move to it, in one
+  save; there is no separate "Add chapter" step first.
+- **Chapter intros are read-only in S3:** the builder shows an imported
+  intro (R-66) at the root but has no field to edit it.
 - **Comment:** a textarea labelled "Comment", 4 rows, with the R-105 hint
   and, from 1,800 characters, a count "1,850 / 2,000" (`fg-muted`, `error`
   at the limit). Save sends it; "Saved" shows in its own status line.
@@ -427,7 +431,7 @@ has a draw mode for touch and keyboard (plan decision 16).
 | --- | --- | --- |
 | **Loading** (`loading.tsx`) | the real board frame with `board-light`/`board-dark` squares and no pieces, not focusable | top bar with a skeleton name; skeleton lines (`bg-sunken`) for the chapter row, comment and move list; after about 1s one "Loading" line (`text-sm fg-muted`) |
 | **Not found** (another account's id, a bad id) | none | the app's 404 page: "This repertoire does not exist or is not yours" and a link to My repertoires. Same text for both cases (plan decision 12) |
-| **Empty repertoire** (no chapters; opens in builder) | start position, not movable, not dimmed | "This repertoire has no chapters yet." then [ Add chapter ] (`PRIMARY_BUTTON`) and [ Add games from PGN ] (`SECONDARY_BUTTON`). Draw and remove are hidden. Browse mode shows the same text and offers "Switch to builder" |
+| **Empty repertoire** (no chapters; opens in builder) | start position, movable in builder mode | "Play the first move on the board, or add games from PGN." with [ Add games from PGN ] (`SECONDARY_BUTTON`). The first move played creates "Chapter 1" on its own (R-111) and saves the move in it; the chapter disclosure then appears with that chapter selected. Draw and remove are hidden until there is a move. Browse mode shows "This repertoire has no moves yet" and offers "Switch to builder" |
 | **Empty chapter** | start position (or the chapter root) | browse: "No moves yet"; builder: "Play the first move on the board" |
 | **Saving** | not movable, piece on its target square | after about 1s, "Saving" in the status line (`info`) |
 | **Saved** | new position, last move highlighted | the move list shows the move as current; no message for a move; "Saved" for a comment, note or rename; "Removed" for a removal |
@@ -653,8 +657,7 @@ selectors with tokens (plan Task 13):
   `b` (opacity 1, line width 10, chessground's own), replacing the defaults.
   The tokens are therefore plain colours, not `light-dark()` pairs (as every
   board overlay already is), and the Learn pass `board-arrow` stays separate.
-- **Token additions** (ux-designer, before Task 13 starts; not in this
-  change, which is docs only):
+- **Mark tokens** (in `tokens.css`):
 
   | Token | Value | Contrast on light square, light / dark theme | On dark square |
   | --- | --- | --- | --- |
@@ -668,11 +671,13 @@ selectors with tokens (plan Task 13):
   red and blue reach 3:1; yellow does not and dark squares mostly do not.
   As with coordinates, the marks are supplementary: the panel carries the
   same marks as text for screen readers, and the move itself is in the
-  move list. Tailwind 4 may leave out theme variables that no utility
-  class uses, and these are read only from `board.css` and from script:
-  web-dev confirms in Task 13 that every `--color-board-*` variable reaches
-  the browser; if any is missing, ux-designer moves the board group into a
-  `@theme static` block.
+  move list.
+- **Board tokens are `@theme static`.** Tailwind 4.3.3 emits only the theme
+  variables a utility class uses (checked on a production build: no
+  `--color-board-*` variable reached the CSS). The board group is read from
+  `board.css` and from script, never through a utility, so `tokens.css`
+  keeps it in its own `@theme static` block, which always emits every
+  variable. Do not move board tokens back into the main `@theme` block.
 - **Motion:** piece animation `duration-move` (150ms). Chessground animates
   in script, so the global reduced-motion CSS does not reach it: the board
   passes `animation.enabled: false` when `prefers-reduced-motion: reduce`
@@ -693,12 +698,8 @@ merged summary, a refused file). Plus a keyboard pass (board cursor, typed
 move, panel order, draw mode by keyboard), a 200% zoom check, and the board
 at 320px (40px squares, tap-tap still works).
 
-## Open questions (not decided here)
+## Decided after the first draft (owner, 2026-10-18)
 
-1. **First move in an empty repertoire.** A move needs a chapter, so an
-   empty repertoire asks for [ Add chapter ] first. Should the first move
-   played on an empty repertoire create "Chapter 1" by itself? That is a
-   product rule for the owner; the note follows the plan (explicit add) until
-   then.
-2. **Editing a chapter intro** in the builder is not in the S3 plan (only
-   imported intros, R-66); the builder shows the intro read-only at the root.
+1. **First move in an empty repertoire** creates "Chapter 1" on its own
+   (R-111; Empty repertoire state and Builder, above).
+2. **Chapter intros** stay read-only in S3 (R-112).
