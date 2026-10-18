@@ -136,6 +136,14 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-100** (S3/S4 brainstorm, #253 #254, 2026-10-17): Switching the coach capability off is refused while any player is linked; the page lists the players to unlink first.
 - **R-101** (S3/S4 brainstorm, #253 #254, 2026-10-17): A PGN upload creates a new repertoire (side chosen) or adds to an existing repertoire of that side; added games become new chapters and their positions merge into the graph.
 - **R-102** (S3/S4 brainstorm, #253 #254, 2026-10-17): On a player's own repertoire, move comments (from PGN or written in the builder) belong to the repertoire: they are exported and a sharing coach sees them. Personal notes are separate and always private (R-21). On a coach's repertoire the coach's comments are Coach notes.
+- **R-103** (S3/S4 planning, #253 #254, 2026-10-18): mychess is licensed AGPL-3.0-or-later (compatible with chessground's GPL-3.0-or-later, R-97); the repository has a LICENSE file.
+- **R-104** (S3/S4 planning, #253 #254, 2026-10-18): A chapter made in the builder is named from the šachmatai.lt taxonomy by its moves, like an imported one (R-63); "Skyrius N" only while it is too short to classify.
+- **R-105** (S3/S4 planning, #253 #254, 2026-10-18): Move comments are kept as one paragraph: line breaks become spaces, so a PGN export re-imports identically.
+- **R-106** (S3/S4 planning, #253 #254, 2026-10-18): The data export (R-40) includes coaching data: the player's coach links and shares; for a coach, their groups, invites (state and dates, never tokens) and the coach notes they wrote.
+- **R-107** (S3/S4 planning, #253 #254, 2026-10-18): A player sees the Coach notes a coach added to the player's shared repertoire, read-only and marked with the coach's name; they go when sharing ends.
+- **R-108** (S3/S4 planning, #253 #254, 2026-10-18): Invites from a disabled coach account are refused with the generic "not valid" message.
+- **R-109** (S3/S4 planning, #253 #254, 2026-10-18): When a coach with no linked players switches Coach mode off, their open invites are revoked at once and their groups are kept.
+- **R-110** (S3/S4 planning, #253 #254, 2026-10-18): A personal invite may optionally name a group; a group invite always names one.
 
 ## Open questions
 
