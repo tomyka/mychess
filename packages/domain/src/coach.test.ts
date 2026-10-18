@@ -3,7 +3,9 @@ import {
   COACH_REFUSALS,
   GROUP_NAME_ISSUES,
   GROUP_NAME_MAX,
+  OPEN_INVITE_LIMIT,
   canAddMember,
+  canChangeGroups,
   canCreateGroup,
   canInvite,
   canStopCoaching,
@@ -27,6 +29,7 @@ describe('COACH_REFUSALS', () => {
       groupLimit: 'coach.groupLimit',
       groupNotFound: 'coach.groupNotFound',
       notLinked: 'coach.notLinked',
+      inviteLimit: 'coach.inviteLimit',
     });
   });
 });
@@ -67,12 +70,36 @@ describe('canCreateGroup (R-70: 10 groups)', () => {
   });
 });
 
-describe('canInvite', () => {
-  it('allows a coach', () => {
-    expect(canInvite(coach)).toStrictEqual(ok);
+describe('canInvite (R-12, R-114: 50 open invites)', () => {
+  it('allows at most 50 open invites', () => {
+    expect(OPEN_INVITE_LIMIT).toBe(50);
   });
-  it('refuses an account without Coach mode', () => {
-    expect(canInvite(notCoach)).toStrictEqual(refused(COACH_REFUSALS.notCoach));
+  it.each([0, 49])('allows a coach with %i open invites', (open) => {
+    expect(canInvite(coach, open)).toStrictEqual(ok);
+  });
+  it.each([50, 51])('refuses a coach with %i open invites', (open) => {
+    expect(canInvite(coach, open)).toStrictEqual(
+      refused(COACH_REFUSALS.inviteLimit),
+    );
+  });
+  it.each([0, 50])(
+    'refuses an account without Coach mode (%i open invites)',
+    (open) => {
+      expect(canInvite(notCoach, open)).toStrictEqual(
+        refused(COACH_REFUSALS.notCoach),
+      );
+    },
+  );
+});
+
+describe('canChangeGroups (R-113)', () => {
+  it('allows a coach in Coach mode', () => {
+    expect(canChangeGroups(coach)).toStrictEqual(ok);
+  });
+  it('refuses while Coach mode is off: the groups are read-only', () => {
+    expect(canChangeGroups(notCoach)).toStrictEqual(
+      refused(COACH_REFUSALS.notCoach),
+    );
   });
 });
 

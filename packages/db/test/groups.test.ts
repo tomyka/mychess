@@ -273,6 +273,103 @@ describe('addMember and removeMember', () => {
   });
 });
 
+describe('while Coach mode is off the groups are read-only (R-113)', () => {
+  const NOT_COACH = refused(COACH_REFUSALS.notCoach);
+
+  /**
+   * Coach c with group "Mano" holding p, and q linked but not in it.
+   * Coach mode then goes off underneath (a state stopCoaching reaches with
+   * no links; the links here make each refusal the Coach mode one).
+   */
+  async function seedOffCoach(): Promise<string> {
+    await seedCoach(db, 'c', 'c@example.lt');
+    await seedPlayer(db, 'p', 'p@example.lt');
+    await seedPlayer(db, 'q', 'q@example.lt');
+    await seedLink(db, 'c', 'p');
+    await seedLink(db, 'c', 'q');
+    const groupId = await seedGroup(db, 'c', 'Mano');
+    await seedMember(db, 'c', groupId, 'p');
+    await client.query(`update accounts set coach_since = null where id = 'c'`);
+    return groupId;
+  }
+
+  const changes = {
+    rename: (groupId: string) => renameGroup(db, 'c', groupId, 'Nauja'),
+    delete: (groupId: string) => deleteGroup(db, 'c', groupId),
+    add: (groupId: string) =>
+      addMember(db, { coachId: 'c', groupId, playerId: 'q' }, NOW),
+    remove: (groupId: string) =>
+      removeMember(db, { coachId: 'c', groupId, playerId: 'p' }),
+  };
+
+  it.each(Object.entries(changes))('refuses to %s', async (_, change) => {
+    const groupId = await seedOffCoach();
+    expect(await change(groupId)).toEqual(NOT_COACH);
+    expect(await query('select id, name from groups')).toEqual([
+      { id: groupId, name: 'Mano' },
+    ]);
+    expect(await query('select player_id from group_members')).toEqual([
+      { player_id: 'p' },
+    ]);
+  });
+
+  it.each(Object.entries(changes))(
+    'refuses to %s once Coach mode went off while it waited for the coach row',
+    async (_, change) => {
+      await seedCoach(db, 'c', 'c@example.lt');
+      await seedPlayer(db, 'p', 'p@example.lt');
+      await seedPlayer(db, 'q', 'q@example.lt');
+      await seedLink(db, 'c', 'p');
+      await seedLink(db, 'c', 'q');
+      const groupId = await seedGroup(db, 'c', 'Mano');
+      await seedMember(db, 'c', groupId, 'p');
+      const stopping = await openTransaction(client, [
+        `select id from accounts where id = 'c' for no key update`,
+      ]);
+      const changing = change(groupId);
+      await someoneWaitsForALock(client);
+      await stopping.finish(
+        `update accounts set coach_since = null where id = 'c'`,
+      );
+      expect(await changing).toEqual(NOT_COACH);
+      expect(await query('select name from groups')).toEqual([
+        { name: 'Mano' },
+      ]);
+      expect(await query('select player_id from group_members')).toEqual([
+        { player_id: 'p' },
+      ]);
+    },
+  );
+
+  it('refuses an unknown coach account', async () => {
+    const groupId = await seedOffCoach();
+    expect(await renameGroup(db, 'nobody', groupId, 'X')).toEqual(NOT_COACH);
+    expect(await deleteGroup(db, 'nobody', groupId)).toEqual(NOT_COACH);
+  });
+
+  it('still lets the player leave the group', async () => {
+    const groupId = await seedOffCoach();
+    expect(await leaveGroup(db, 'p', groupId)).toEqual(OK);
+    expect(await members()).toEqual([]);
+  });
+
+  it('allows the changes again once Coach mode is back on', async () => {
+    const groupId = await seedOffCoach();
+    await client.query(
+      `update accounts set coach_since = now() where id = 'c'`,
+    );
+    expect(await changes.rename(groupId)).toEqual(OK);
+    expect(await changes.add(groupId)).toEqual(OK);
+    expect(await changes.remove(groupId)).toEqual(OK);
+    expect(await query('select name from groups')).toEqual([{ name: 'Nauja' }]);
+    expect(await query('select player_id from group_members')).toEqual([
+      { player_id: 'q' },
+    ]);
+    expect(await changes.delete(groupId)).toEqual(OK);
+    expect(await query('select id from groups')).toEqual([]);
+  });
+});
+
 describe('leaveGroup', () => {
   it('removes only that membership and keeps the Coach link (R-45)', async () => {
     await seedCoach(db, 'c', 'c@example.lt');

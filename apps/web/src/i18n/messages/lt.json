@@ -125,6 +125,7 @@
     "notCoach": "Pirmiausia nustatymuose įjunkite trenerio režimą.",
     "stillLinked": "Trenerio režimo negalima išjungti, kol su jumis susieti žaidėjai.",
     "groupLimit": "Daugiau grupių sukurti nebegalite.",
+    "inviteLimit": "Turite 50 galiojančių kvietimų. Atšaukite vieną iš jų arba palaukite, kol kuris nors nebegalios.",
     "groupNotFound": "Grupė nerasta.",
     "notLinked": "Šis žaidėjas su jumis nesusietas.",
     "players": {
@@ -182,6 +183,42 @@
     "deleted": {
       "subject": "Jūsų mychess paskyra ištrinta",
       "body": "Jūsų paskyra ir visi jos duomenys ištrinti visam laikui."
+    }
+  },
+  "board": {
+    "label": "Šachmatų lenta",
+    "cursor": "{square}, {piece}",
+    "empty": "tuščias",
+    "pieces": {
+      "white": {
+        "king": "baltasis karalius",
+        "queen": "baltoji valdovė",
+        "rook": "baltasis bokštas",
+        "bishop": "baltasis rikis",
+        "knight": "baltasis žirgas",
+        "pawn": "baltasis pėstininkas"
+      },
+      "black": {
+        "king": "juodasis karalius",
+        "queen": "juodoji valdovė",
+        "rook": "juodasis bokštas",
+        "bishop": "juodasis rikis",
+        "knight": "juodasis žirgas",
+        "pawn": "juodasis pėstininkas"
+      }
+    },
+    "moveInput": {
+      "label": "Įveskite ėjimą",
+      "submit": "Atlikti ėjimą",
+      "unknown": "Tokio ėjimo šioje padėtyje nėra."
+    },
+    "promotion": {
+      "title": "Paversti į",
+      "q": "Valdovė",
+      "r": "Bokštas",
+      "b": "Rikis",
+      "n": "Žirgas",
+      "cancel": "Atšaukti"
     }
   }
 }

@@ -9,6 +9,7 @@ export const COACH_REFUSALS = {
   groupLimit: 'coach.groupLimit',
   groupNotFound: 'coach.groupNotFound',
   notLinked: 'coach.notLinked',
+  inviteLimit: 'coach.inviteLimit',
 } as const;
 
 export interface CoachRefusal {
@@ -78,8 +79,29 @@ export function canCreateGroup(
     : refuse(COACH_REFUSALS.groupLimit);
 }
 
-/** Only a coach issues invites (R-12). */
-export function canInvite(coach: CoachFacts): CoachResult {
+/**
+ * The most open invites a coach may have (R-114); open is what
+ * `inviteState` calls active: not revoked, not used, not expired. The
+ * ruling sets it for every coach, not per entitlement.
+ */
+export const OPEN_INVITE_LIMIT = 50;
+
+/**
+ * Only a coach issues invites (R-12), and only while fewer than
+ * OPEN_INVITE_LIMIT of the coach's invites are open (R-114).
+ */
+export function canInvite(coach: CoachState, openInvites: number): CoachResult {
+  if (!isCoach(coach)) return refuse(COACH_REFUSALS.notCoach);
+  return openInvites < OPEN_INVITE_LIMIT
+    ? OK
+    : refuse(COACH_REFUSALS.inviteLimit);
+}
+
+/**
+ * While Coach mode is off the coach's groups are read-only (R-113):
+ * renaming, deleting and changing members wait until it is on again.
+ */
+export function canChangeGroups(coach: CoachState): CoachResult {
   return isCoach(coach) ? OK : refuse(COACH_REFUSALS.notCoach);
 }
 

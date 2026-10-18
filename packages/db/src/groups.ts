@@ -1,5 +1,6 @@
 import {
   canAddMember,
+  canChangeGroups,
   canCreateGroup,
   COACH_REFUSALS,
   type CoachRefusal,
@@ -8,7 +9,7 @@ import {
 import { and, count, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { lockAccountById } from './accounts';
-import type { Db, Executor } from './client';
+import type { Db, Executor, Tx } from './client';
 import { groupCount, holdGroup, holdLink, isUuid } from './coach-queries';
 import { DONE, refusal } from './results';
 import { accounts, groupMembers, groups } from './schema';
@@ -16,6 +17,18 @@ import { accounts, groupMembers, groups } from './schema';
 type GroupResult = Result<undefined, CoachRefusal>;
 
 const GROUP_NOT_FOUND = refusal(COACH_REFUSALS.groupNotFound);
+const NOT_COACH = refusal(COACH_REFUSALS.notCoach);
+
+/**
+ * May the coach change its groups now? Locks the coach row first, the lock
+ * order acceptInvite documents, so Coach mode cannot go off (stopCoaching
+ * locks the same row) until `tx` ends; while it is off the groups are
+ * read-only (R-113).
+ */
+async function mayChangeGroups(tx: Tx, coachId: string): Promise<GroupResult> {
+  const coach = await lockAccountById(tx, coachId);
+  return coach === undefined ? NOT_COACH : canChangeGroups(coach);
+}
 
 const groupIs = (coachId: string, groupId: string) =>
   and(eq(groups.id, groupId), eq(groups.coachId, coachId));
@@ -34,7 +47,7 @@ export function createGroup(
 ): Promise<Result<string, CoachRefusal>> {
   return db.transaction(async (tx) => {
     const coach = await lockAccountById(tx, coachId);
-    if (coach === undefined) return refusal(COACH_REFUSALS.notCoach);
+    if (coach === undefined) return NOT_COACH;
     const allowed = canCreateGroup(coach, await groupCount(tx, coachId));
     if (!allowed.ok) return allowed;
     const [row] = await tx
@@ -45,26 +58,33 @@ export function createGroup(
   });
 }
 
-/** Renames the coach's own group; any other group is not found. */
-export async function renameGroup(
-  db: Executor,
+/**
+ * Renames the coach's own group while Coach mode is on (R-113); any other
+ * group is not found.
+ */
+export function renameGroup(
+  db: Db,
   coachId: string,
   groupId: string,
   name: string,
 ): Promise<GroupResult> {
-  if (!isUuid(groupId)) return GROUP_NOT_FOUND;
-  const renamed = await db
-    .update(groups)
-    .set({ name })
-    .where(groupIs(coachId, groupId))
-    .returning({ id: groups.id });
-  return renamed.length === 1 ? DONE : GROUP_NOT_FOUND;
+  if (!isUuid(groupId)) return Promise.resolve(GROUP_NOT_FOUND);
+  return db.transaction(async (tx) => {
+    const allowed = await mayChangeGroups(tx, coachId);
+    if (!allowed.ok) return allowed;
+    const renamed = await tx
+      .update(groups)
+      .set({ name })
+      .where(groupIs(coachId, groupId))
+      .returning({ id: groups.id });
+    return renamed.length === 1 ? DONE : GROUP_NOT_FOUND;
+  });
 }
 
 /**
- * Deletes the coach's own group; its memberships and invites go with it
- * (cascade). Locks the coach row first, the lock order acceptInvite
- * documents: an accept of one of the group's invites holds the invite and
+ * Deletes the coach's own group while Coach mode is on (R-113); its
+ * memberships and invites go with it (cascade). Locks the coach row
+ * first, the lock order acceptInvite documents: an accept of one of the group's invites holds the invite and
  * then wants the group, so deleting the group (which then wants the
  * invite) without the coach row first could deadlock with it.
  */
@@ -75,7 +95,8 @@ export function deleteGroup(
 ): Promise<GroupResult> {
   if (!isUuid(groupId)) return Promise.resolve(GROUP_NOT_FOUND);
   return db.transaction(async (tx) => {
-    await lockAccountById(tx, coachId);
+    const allowed = await mayChangeGroups(tx, coachId);
+    if (!allowed.ok) return allowed;
     const deleted = await tx
       .delete(groups)
       .where(groupIs(coachId, groupId))
@@ -92,8 +113,9 @@ export interface Membership {
 }
 
 /**
- * Puts a linked player into the coach's own group (R-12). The group and
- * the link are held, so a deleteGroup or an unlink waits for this insert
+ * Puts a linked player into the coach's own group (R-12) while Coach mode
+ * is on (R-113). The coach row is locked first, then the group and the
+ * link are held, so a deleteGroup or an unlink waits for this insert
  * and then removes it too.
  */
 export function addMember(
@@ -102,6 +124,8 @@ export function addMember(
   now: Date,
 ): Promise<GroupResult> {
   return db.transaction(async (tx) => {
+    const coaching = await mayChangeGroups(tx, coachId);
+    if (!coaching.ok) return coaching;
     const allowed = canAddMember({
       ownsGroup: await holdGroup(tx, coachId, groupId),
       linked: await holdLink(tx, coachId, playerId),
@@ -116,14 +140,17 @@ export function addMember(
 }
 
 /**
- * Takes a player out of the coach's own group; the link stays. Like adding
- * twice, removing a player who is not in the group changes nothing.
+ * Takes a player out of the coach's own group while Coach mode is on
+ * (R-113); the link stays. Like adding twice, removing a player who is not
+ * in the group changes nothing.
  */
 export function removeMember(
   db: Db,
   { coachId, groupId, playerId }: Membership,
 ): Promise<GroupResult> {
   return db.transaction(async (tx) => {
+    const allowed = await mayChangeGroups(tx, coachId);
+    if (!allowed.ok) return allowed;
     if (!(await holdGroup(tx, coachId, groupId))) return GROUP_NOT_FOUND;
     await tx
       .delete(groupMembers)
@@ -138,7 +165,8 @@ export function removeMember(
 }
 
 /**
- * The player leaves a group and stays linked to its coach (R-45). A group
+ * The player leaves a group and stays linked to its coach (R-45), whether
+ * or not the coach is in Coach mode (R-113 binds only the coach). A group
  * the player is not in is not found.
  */
 export async function leaveGroup(

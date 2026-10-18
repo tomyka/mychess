@@ -156,6 +156,106 @@ describe('createInvite', () => {
   });
 });
 
+/** Seeds `count` personal invites of `coachId` with these columns. */
+async function seedInvites(
+  coachId: string,
+  count: number,
+  state: { expiresAt?: Date; revokedAt?: Date; usedAt?: Date } = {},
+): Promise<void> {
+  await client.query(
+    `insert into invites (coach_id, kind, token_hash, expires_at, revoked_at, used_at, created_at)
+     select $1, 'personal', md5($1 || $2 || i) || md5(i::text || $2 || $1), $3, $4, $5, $6
+     from generate_series(1, $7::int) as i`,
+    [
+      coachId,
+      JSON.stringify(state),
+      state.expiresAt ?? at(WEEK),
+      state.revokedAt ?? null,
+      state.usedAt ?? null,
+      T0,
+      count,
+    ],
+  );
+}
+
+const openInvitesOf = async (coachId: string): Promise<unknown[]> =>
+  query(
+    `select count(*)::int as n from invites
+     where coach_id = $1 and revoked_at is null and used_at is null and expires_at > $2`,
+    [coachId, NOW],
+  );
+
+const personal = (coachId: string) => ({
+  coachId,
+  kind: 'personal' as const,
+  groupId: null,
+  now: NOW,
+});
+
+describe('createInvite at the open invite limit (R-114: 50)', () => {
+  it('refuses the 51st open invite and inserts nothing', async () => {
+    await seedCoach(db, 'c', 'c@example.lt');
+    await seedInvites('c', 49);
+    expect((await createInvite(db, personal('c'))).ok).toBe(true);
+    expect(await createInvite(db, personal('c'))).toEqual(
+      refused(COACH_REFUSALS.inviteLimit),
+    );
+    expect(await query('select count(*)::int as n from invites')).toEqual([
+      { n: 50 },
+    ]);
+  });
+
+  it('counts neither revoked, used nor expired invites, nor those of another coach', async () => {
+    await seedCoach(db, 'c', 'c@example.lt');
+    await seedCoach(db, 'd', 'd@example.lt');
+    await seedInvites('c', 49);
+    await seedInvites('c', 1, { revokedAt: T0 });
+    await seedInvites('c', 1, { usedAt: T0 });
+    // Expired at the very moment of the request: inviteState says expired.
+    await seedInvites('c', 1, { expiresAt: NOW });
+    await seedInvites('d', 50);
+    expect((await createInvite(db, personal('c'))).ok).toBe(true);
+    expect(await openInvitesOf('c')).toEqual([{ n: 50 }]);
+  });
+
+  it('counts an invite that expires just after the request', async () => {
+    await seedCoach(db, 'c', 'c@example.lt');
+    await seedInvites('c', 49);
+    await seedInvites('c', 1, { expiresAt: at(1) });
+    expect(await createInvite(db, personal('c'))).toEqual(
+      refused(COACH_REFUSALS.inviteLimit),
+    );
+  });
+
+  it('refuses an account without Coach mode before counting', async () => {
+    await seedPlayer(db, 'p', 'p@example.lt');
+    await seedInvites('p', 50);
+    expect(await createInvite(db, personal('p'))).toEqual(
+      refused(COACH_REFUSALS.notCoach),
+    );
+  });
+
+  // Each run starts from scratch, so an unlocked count that slips through
+  // once is caught on another run.
+  it.each([1, 2, 3, 4, 5])(
+    'ends with exactly 50 open invites when two creations race at 49, run %i',
+    async (run) => {
+      const coach = `c${String(run)}`;
+      await seedCoach(db, coach, `${coach}@example.lt`);
+      await seedInvites(coach, 49);
+      const results = await Promise.all([
+        createInvite(db, personal(coach)),
+        createInvite(db, personal(coach)),
+      ]);
+      expect(results.filter((r) => r.ok)).toHaveLength(1);
+      expect(results.filter((r) => !r.ok)).toEqual([
+        refused(COACH_REFUSALS.inviteLimit),
+      ]);
+      expect(await openInvitesOf(coach)).toEqual([{ n: 50 }]);
+    },
+  );
+});
+
 describe('acceptInvite', () => {
   it('links the player through a group invite, adds the membership and keeps the invite open (R-98)', async () => {
     await seedCoach(db, 'c', 'coach@example.lt');

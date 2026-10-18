@@ -59,8 +59,36 @@ export interface CreatedInvite {
 }
 
 /**
+ * The coach's open invites at `now`: those `inviteState` calls active,
+ * that is not revoked, not used (only a personal invite is ever used) and
+ * not yet expired.
+ */
+const openInvitesOf = (coachId: string, now: Date) =>
+  and(
+    eq(invites.coachId, coachId),
+    isNull(invites.revokedAt),
+    isNull(invites.usedAt),
+    gt(invites.expiresAt, now),
+  );
+
+const countSchema = z.number().int().nonnegative();
+
+/** How many open invites `coachId` has at `now` (R-114). */
+async function openInviteCount(
+  db: Executor,
+  coachId: string,
+  now: Date,
+): Promise<number> {
+  return countSchema.parse(
+    await db.$count(invites, openInvitesOf(coachId, now)),
+  );
+}
+
+/**
  * May the coach make this invite? Locks the coach row (plan decision 1)
- * and holds the group row, so neither changes before the invite is in.
+ * before counting the open invites, so two creations at the limit cannot
+ * both pass (R-114), and holds the group row, so neither changes before
+ * the invite is in.
  */
 async function mayInvite(
   tx: Tx,
@@ -68,7 +96,10 @@ async function mayInvite(
 ): Promise<Result<undefined, CoachRefusal>> {
   const coach = await lockAccountById(tx, request.coachId);
   if (coach === undefined) return refusal(COACH_REFUSALS.notCoach);
-  const allowed = canInvite(coach);
+  const allowed = canInvite(
+    coach,
+    await openInviteCount(tx, request.coachId, request.now),
+  );
   if (!allowed.ok || request.groupId === null) return allowed;
   return (await holdGroup(tx, request.coachId, request.groupId))
     ? allowed
@@ -218,11 +249,9 @@ async function join(
 }
 
 /**
- * Revokes the coach's open invites at `now` (R-109): those `inviteState`
- * calls active, that is not revoked, not used (only a personal invite is
- * ever used) and not expired. The caller holds the coach row (the lock
- * order acceptInvite documents), so no invite of the coach is made or
- * accepted until `tx` ends.
+ * Revokes the coach's open invites at `now` (R-109). The caller holds the
+ * coach row (the lock order acceptInvite documents), so no invite of the
+ * coach is made or accepted until `tx` ends.
  */
 export async function revokeOpenInvites(
   tx: Tx,
@@ -232,14 +261,7 @@ export async function revokeOpenInvites(
   await tx
     .update(invites)
     .set({ revokedAt: now })
-    .where(
-      and(
-        eq(invites.coachId, coachId),
-        isNull(invites.revokedAt),
-        isNull(invites.usedAt),
-        gt(invites.expiresAt, now),
-      ),
-    );
+    .where(openInvitesOf(coachId, now));
 }
 
 /** Revokes the coach's own invite; anything else is "not valid". */

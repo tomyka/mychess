@@ -125,6 +125,7 @@
     "notCoach": "Switch Coach mode on in settings first.",
     "stillLinked": "Coach mode cannot be switched off while players are linked to you.",
     "groupLimit": "You cannot create any more groups.",
+    "inviteLimit": "You have 50 open invites. Revoke one or wait until one expires.",
     "groupNotFound": "Group not found.",
     "notLinked": "This player is not linked to you.",
     "players": {
@@ -182,6 +183,42 @@
     "deleted": {
       "subject": "Your mychess account has been deleted",
       "body": "Your account and all its data have been permanently deleted."
+    }
+  },
+  "board": {
+    "label": "Chess board",
+    "cursor": "{square}, {piece}",
+    "empty": "empty",
+    "pieces": {
+      "white": {
+        "king": "white king",
+        "queen": "white queen",
+        "rook": "white rook",
+        "bishop": "white bishop",
+        "knight": "white knight",
+        "pawn": "white pawn"
+      },
+      "black": {
+        "king": "black king",
+        "queen": "black queen",
+        "rook": "black rook",
+        "bishop": "black bishop",
+        "knight": "black knight",
+        "pawn": "black pawn"
+      }
+    },
+    "moveInput": {
+      "label": "Type a move",
+      "submit": "Play the move",
+      "unknown": "There is no such move in this position."
+    },
+    "promotion": {
+      "title": "Promote to",
+      "q": "Queen",
+      "r": "Rook",
+      "b": "Bishop",
+      "n": "Knight",
+      "cancel": "Cancel"
     }
   }
 }
