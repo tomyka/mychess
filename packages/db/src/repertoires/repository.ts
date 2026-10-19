@@ -16,7 +16,7 @@ import {
   type RepertoireAccessRefusal,
   type Result,
 } from '@mychess/domain';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Executor } from '../client';
 import { DONE, refusal } from '../results';
@@ -92,7 +92,7 @@ export async function createRepertoire(
   });
 }
 
-/** The graph of repertoire `id` (its owner already checked), read on `tx`. */
+/** The graph of repertoire `id` (its access already checked), read on `tx`. */
 async function graphRows(
   tx: Executor,
   id: string,
@@ -139,6 +139,29 @@ async function graphRows(
 }
 
 /**
+ * The one repertoire `where` selects, with its graph, read on `tx`, or
+ * undefined. `where` is the access filter: loadRepertoire's owner filter,
+ * or sharedRepertoireForCoach's share (shares.ts). Run it in a snapshot
+ * transaction so the row and graph agree. Package-internal.
+ */
+export async function loadRepertoireRows(
+  tx: Executor,
+  where: SQL | undefined,
+): Promise<LoadedRepertoire | undefined> {
+  const [row] = await tx
+    .select(metaColumns)
+    .from(repertoires)
+    .where(where)
+    .limit(1);
+  if (row === undefined) return undefined;
+  const repertoire = repertoireSchema.parse(row);
+  return {
+    repertoire,
+    graph: await graphRows(tx, repertoire.id, repertoire.side),
+  };
+}
+
+/**
  * The repertoire `id` of `ownerId` with its graph, read in one snapshot, or
  * undefined (missing or someone else's: the query filters by owner, as the
  * domain's access rule does). `id` must be a uuid (parse it first).
@@ -148,19 +171,9 @@ export async function loadRepertoire(
   id: string,
   ownerId: string,
 ): Promise<LoadedRepertoire | undefined> {
-  return db.transaction(
-    async (tx) => {
-      const [row] = await tx
-        .select(metaColumns)
-        .from(repertoires)
-        .where(ownedBy(id, ownerId))
-        .limit(1);
-      if (row === undefined) return undefined;
-      const repertoire = repertoireSchema.parse(row);
-      return { repertoire, graph: await graphRows(tx, id, repertoire.side) };
-    },
-    { isolationLevel: 'repeatable read' },
-  );
+  return db.transaction((tx) => loadRepertoireRows(tx, ownedBy(id, ownerId)), {
+    isolationLevel: 'repeatable read',
+  });
 }
 
 /** All of `ownerId`'s repertoires with their graphs, oldest first, read in one snapshot. */

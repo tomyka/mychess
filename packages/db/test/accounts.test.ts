@@ -11,6 +11,8 @@ import {
   createInvite,
   createRepertoire,
   setPersonalNote,
+  shareRepertoire,
+  upsertCoachNote,
   deleteAccount,
   exportAccount,
   findAccountByEmail,
@@ -262,7 +264,13 @@ describe('exportAccount', () => {
           expiresAt: '2027-01-14T08:00:00.000Z',
         },
       ],
-      coaching: { coaches: [], groups: [], invites: [] },
+      coaching: {
+        coaches: [],
+        groups: [],
+        invites: [],
+        shares: [],
+        coachNotes: [],
+      },
       repertoires: [],
       personalNotes: [],
     });
@@ -528,7 +536,61 @@ describe('coaching rows on delete and export', () => {
       ],
       groups: [],
       invites: [],
+      shares: [],
+      coachNotes: [],
     });
+  });
+
+  it("exports a player's shares and a coach's notes, each to its own account only (R-106)", async () => {
+    await seedCoaching();
+    const id = await createRepertoire(db, {
+      ownerId: 'p1',
+      side: 'white',
+      name: 'Londono sistema',
+      graph: graphOf(LONDON),
+      now: RT0,
+    });
+    expect(
+      await shareRepertoire(db, {
+        ownerId: 'p1',
+        repertoireId: id,
+        coachId: 'c',
+        now: LATER,
+      }),
+    ).toEqual({ ok: true, value: undefined });
+    const d4 = moveKey(START_KEY, 'd4');
+    for (const [text, now] of [
+      ['Pirmas', NOW],
+      ['Antras', LATER],
+    ] as const)
+      await upsertCoachNote(db, {
+        coachId: 'c',
+        playerId: 'p1',
+        repertoireId: id,
+        moveKey: d4,
+        text,
+        now,
+      });
+    const player = await exportAccount(db, 'p1', LATER);
+    expect(player?.coaching.shares).toEqual([
+      {
+        repertoire: 'Londono sistema',
+        coach: 'Treneris',
+        sharedAt: LATER.toISOString(),
+      },
+    ]);
+    expect(player?.coaching.coachNotes).toEqual([]);
+    const coach = await exportAccount(db, 'c', LATER);
+    expect(coach?.coaching.shares).toEqual([]);
+    expect(coach?.coaching.coachNotes).toEqual([
+      {
+        position: fenOf(START_KEY),
+        san: 'd4',
+        text: 'Antras',
+        createdAt: NOW.toISOString(),
+        updatedAt: LATER.toISOString(),
+      },
+    ]);
   });
 
   it("exports a coach's groups and invites with their state and dates, never a token (R-106)", async () => {
@@ -567,6 +629,8 @@ describe('coaching rows on delete and export', () => {
           usedAt: null,
         },
       ],
+      shares: [],
+      coachNotes: [],
     });
     const text = JSON.stringify(data);
     for (const made of [personal, group, revoked]) {

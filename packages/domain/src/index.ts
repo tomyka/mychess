@@ -107,4 +107,16 @@ export {
   type Repertoire,
   type RepertoireAccessRefusal,
 } from './repertoire';
+export {
+  COACH_NOTE_ISSUES,
+  COACH_NOTE_MAX,
+  COACH_NOTE_REFUSALS,
+  SHARE_REFUSALS,
+  canShare,
+  canWriteCoachNote,
+  coachNoteSchema,
+  type CoachNoteRefusal,
+  type CoachNoteTarget,
+  type ShareRefusal,
+} from './sharing';
 export type { Side } from '@mychess/chess';

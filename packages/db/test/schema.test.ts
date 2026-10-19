@@ -498,3 +498,224 @@ describe('the repertoire tables', () => {
     expect(rows.map((r) => r.leading)).toContain('repertoire_id');
   });
 });
+
+describe('the sharing tables', () => {
+  const account = (id: string) =>
+    client.query(
+      `insert into accounts (id, email, display_name, created_at, updated_at)
+       values ($1, $1 || '@example.lt', $1, now(), now())`,
+      [id],
+    );
+  const link = (coachId: string, playerId: string) =>
+    client.query(
+      `insert into coach_links (coach_id, player_id, created_at) values ($1, $2, now())`,
+      [coachId, playerId],
+    );
+  const repertoire = async (owner: string): Promise<string> => {
+    const { rows } = await client.query<{ id: string }>(
+      `insert into repertoires (owner_account_id, side, name, created_at, updated_at)
+       values ($1, 'black', 'Taimanov', now(), now()) returning id`,
+      [owner],
+    );
+    const id = rows[0]?.id;
+    if (id === undefined) throw new Error('no repertoire id');
+    return id;
+  };
+  const share = (rep: string, playerId: string, coachId: string) =>
+    client.query(
+      `insert into repertoire_shares (repertoire_id, player_id, coach_id, created_at)
+       values ($1, $2, $3, now())`,
+      [rep, playerId, coachId],
+    );
+  const note = (coachId: string, rep: string, text = 'Žiūrėk į d5') =>
+    client.query(
+      `insert into coach_notes (coach_id, repertoire_id, move_key, text, created_at, updated_at)
+       values ($1, $2, 'start|e4', $3, now(), now())`,
+      [coachId, rep, text],
+    );
+  const counts = async (): Promise<unknown> =>
+    (
+      await client.query(`select
+        (select count(*) from repertoire_shares)::int as shares,
+        (select count(*) from coach_notes)::int as notes`)
+    ).rows[0];
+
+  beforeEach(async () => {
+    for (const id of ['coach', 'coach2', 'gabija', 'rokas']) await account(id);
+    await link('coach', 'gabija');
+    await link('coach', 'rokas');
+    await link('coach2', 'gabija');
+  });
+
+  it('shares a repertoire once per coach', async () => {
+    const rep = await repertoire('gabija');
+    await share(rep, 'gabija', 'coach');
+    await expect(share(rep, 'gabija', 'coach')).rejects.toThrow(
+      /repertoire_shares_pk/,
+    );
+  });
+
+  it('refuses a share with a coach who is not linked to the owner', async () => {
+    const rep = await repertoire('rokas');
+    await expect(share(rep, 'rokas', 'coach2')).rejects.toThrow(
+      /repertoire_shares_link_fk/,
+    );
+  });
+
+  it('refuses a share naming a player who does not own the repertoire', async () => {
+    const rep = await repertoire('rokas');
+    await expect(share(rep, 'gabija', 'coach')).rejects.toThrow(
+      /repertoire_shares_owner_fk/,
+    );
+  });
+
+  it("ends that coach's shares of that player only when the link ends", async () => {
+    const taimanov = await repertoire('gabija');
+    const london = await repertoire('rokas');
+    await share(taimanov, 'gabija', 'coach');
+    await share(taimanov, 'gabija', 'coach2');
+    await share(london, 'rokas', 'coach');
+    await client.query(
+      `delete from coach_links where coach_id = 'coach' and player_id = 'gabija'`,
+    );
+    const { rows } = await client.query(
+      'select repertoire_id, coach_id from repertoire_shares order by coach_id',
+    );
+    expect(rows).toEqual([
+      { repertoire_id: london, coach_id: 'coach' },
+      { repertoire_id: taimanov, coach_id: 'coach2' },
+    ]);
+  });
+
+  it('removes the shares and coach notes with the repertoire', async () => {
+    const rep = await repertoire('gabija');
+    await share(rep, 'gabija', 'coach');
+    await note('coach', rep);
+    await client.query('delete from repertoires where id = $1', [rep]);
+    expect(await counts()).toEqual({ shares: 0, notes: 0 });
+  });
+
+  it("removes a coach's shares and notes with the coach's account", async () => {
+    const rep = await repertoire('gabija');
+    await share(rep, 'gabija', 'coach');
+    await share(rep, 'gabija', 'coach2');
+    await note('coach', rep);
+    await note('coach2', rep);
+    await client.query(`delete from accounts where id = 'coach'`);
+    const { rows } = await client.query(`select
+      (select array_agg(coach_id) from repertoire_shares) as shares,
+      (select array_agg(coach_id) from coach_notes) as notes`);
+    expect(rows).toEqual([{ shares: ['coach2'], notes: ['coach2'] }]);
+  });
+
+  it("removes the shares and notes with the owner's account", async () => {
+    const rep = await repertoire('gabija');
+    await share(rep, 'gabija', 'coach');
+    await note('coach', rep);
+    await client.query(`delete from accounts where id = 'gabija'`);
+    expect(await counts()).toEqual({ shares: 0, notes: 0 });
+  });
+
+  it('keeps one note per coach and move', async () => {
+    const rep = await repertoire('gabija');
+    await share(rep, 'gabija', 'coach');
+    await share(rep, 'gabija', 'coach2');
+    await note('coach', rep);
+    await note('coach2', rep);
+    await expect(note('coach', rep)).rejects.toThrow(
+      /coach_notes_coach_move_unique/,
+    );
+  });
+
+  it.each([
+    ['blank', '   '],
+    ['empty', ''],
+    ['untrimmed', ' d5 '],
+    ['too long', 'a'.repeat(2001)],
+  ])('refuses a note text that is %s', async (_, text) => {
+    const rep = await repertoire('gabija');
+    await share(rep, 'gabija', 'coach');
+    await expect(note('coach', rep, text)).rejects.toThrow(
+      /coach_notes_text_check/,
+    );
+  });
+
+  it('accepts a note of 2000 characters', async () => {
+    const rep = await repertoire('gabija');
+    await share(rep, 'gabija', 'coach');
+    await note('coach', rep, 'a'.repeat(2000));
+    expect(await counts()).toEqual({ shares: 1, notes: 1 });
+  });
+
+  it('refuses a note on a repertoire not shared with its coach (R-124)', async () => {
+    const rep = await repertoire('gabija');
+    await share(rep, 'gabija', 'coach2');
+    await expect(note('coach', rep)).rejects.toThrow(/coach_notes_share_fk/);
+  });
+
+  it("removes a coach's notes on a repertoire when that share ends (R-124)", async () => {
+    const taimanov = await repertoire('gabija');
+    const other = await repertoire('gabija');
+    await share(taimanov, 'gabija', 'coach');
+    await share(taimanov, 'gabija', 'coach2');
+    await share(other, 'gabija', 'coach');
+    await note('coach', taimanov);
+    await note('coach2', taimanov);
+    await note('coach', other);
+    await client.query(
+      `delete from repertoire_shares where repertoire_id = $1 and coach_id = 'coach'`,
+      [taimanov],
+    );
+    const { rows } = await client.query(
+      'select repertoire_id, coach_id from coach_notes order by coach_id',
+    );
+    expect(rows).toEqual([
+      { repertoire_id: other, coach_id: 'coach' },
+      { repertoire_id: taimanov, coach_id: 'coach2' },
+    ]);
+  });
+
+  it("removes a coach's notes on all of that player's repertoires on unlink (R-124)", async () => {
+    const taimanov = await repertoire('gabija');
+    const london = await repertoire('gabija');
+    const rokas = await repertoire('rokas');
+    for (const rep of [taimanov, london]) {
+      await share(rep, 'gabija', 'coach');
+      await share(rep, 'gabija', 'coach2');
+      await note('coach', rep);
+      await note('coach2', rep);
+    }
+    await share(rokas, 'rokas', 'coach');
+    await note('coach', rokas);
+    await client.query(
+      `delete from coach_links where coach_id = 'coach' and player_id = 'gabija'`,
+    );
+    const { rows } = await client.query(
+      'select repertoire_id, coach_id from coach_notes order by coach_id, repertoire_id',
+    );
+    expect(rows).toEqual([
+      { repertoire_id: rokas, coach_id: 'coach' },
+      ...[taimanov, london]
+        .sort()
+        .map((id) => ({ repertoire_id: id, coach_id: 'coach2' })),
+    ]);
+  });
+
+  it('indexes the cascades: shares by link, notes by repertoire', async () => {
+    const { rows } = await client.query<{ table: string; leading: string }>(
+      `select t.relname as table, a.attname as leading
+       from pg_index i
+       join pg_class t on t.oid = i.indrelid
+       join pg_attribute a on a.attrelid = t.oid and a.attnum = i.indkey[0]
+       where t.relname in ('repertoire_shares', 'coach_notes')`,
+    );
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        { table: 'repertoire_shares', leading: 'coach_id' },
+        { table: 'repertoire_shares', leading: 'repertoire_id' },
+        { table: 'coach_notes', leading: 'coach_id' },
+        { table: 'coach_notes', leading: 'repertoire_id' },
+      ]),
+    );
+  });
+});

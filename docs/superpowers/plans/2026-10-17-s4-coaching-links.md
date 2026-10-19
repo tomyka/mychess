@@ -1367,6 +1367,12 @@ S3 names this part relies on, **confirmed against S3's code in Task B1 (main at 
 - latest migration: `0005_amused_galactus`; Part B's is generated as `0006_*`.
 - related open work: #276 (one edit-a-repertoire module), #278 (one repertoire access scope: Part B is the first widening of who may view, so keep the share predicate in one place).
 
+**As built in B2-B4 (2026-10-20), for B5 and B6.** Read the code over the snippets below where they differ:
+- domain `packages/domain/src/sharing.ts`: `canShare` (also refuses sharing with oneself), `coachNoteSchema` with `COACH_NOTE_ISSUES`, `COACH_NOTE_MAX = COMMENT_MAX`, `canWriteCoachNote` and `COACH_NOTE_REFUSALS` (`coachNote.moveNotFound`).
+- db `packages/db/src/shares.ts`: `shareRepertoire(db, ShareRequest)`, `unshareRepertoire(db, ShareTarget)`, `sharedWithCoach`, `upsertCoachNote(db, CoachNoteInput)`, `deleteCoachNote`, `coachNotesOn(db, ownerId, repertoireId)` (owner only, every coach's notes with names, R-107), `sharedRepertoireForCoach` (graph plus **only that coach's own notes**, R-125). One share predicate, `sharedTo(coachId, playerId)`, sits behind every coach-facing read. The coach-access facts test lives in `packages/db/test/shares.test.ts`.
+- schema: `coach_notes` references `repertoire_shares` (`coach_notes_share_fk`, cascade), so ending a share by unshare or unlink deletes that coach's notes (R-124). Migrations: `0006_wandering_terrax` (the `repertoires_id_owner_unique` key alone) then `0007_bright_vapor` (the tables): drizzle-kit orders a composite foreign key before the unique key it needs, so the key is generated first.
+- the server actions (B5, B6) take the coach or player from the session and parse `text` with `coachNoteSchema`, `repertoireId` and `moveKey` before calling the repository (`upsertCoachNote` relies on it; the CHECK is only a backstop). Export: R-126.
+
 ### Task B1: Confirm S3's names (lead)
 
 - [x] **Step 1:** Read S3's merged code and fill in every **[S3 TBC]** above in this file: table and column names, the repository function names and return types, whether `loadRepertoire` returns personal notes, the board component, the repertoire page path, and S3's latest migration number. Commit the updated plan before Task B2.
@@ -1456,7 +1462,7 @@ If S3 exports its comment limit as a constant, use it instead of `2000` **[S3 TB
 
 **Files:** Modify `packages/db/src/schema.ts`, `packages/db/test/schema.test.ts`. Create the generated migration (next number after S3's) and its snapshot.
 
-- [ ] **Step 1: Write the failing schema tests:** a share for a coach not linked to the owner rejects (`repertoire_shares_link_fk`); a share naming a player who is not the repertoire's owner rejects (`repertoire_shares_owner_fk`); unlinking removes the coach's shares of that player and keeps the coach's notes (R-47: notes go with the repertoire); deleting the repertoire removes its shares and notes; deleting the coach's account removes the shares and notes (spec: cascades from an account).
+- [ ] **Step 1: Write the failing schema tests:** a share for a coach not linked to the owner rejects (`repertoire_shares_link_fk`); a share naming a player who is not the repertoire's owner rejects (`repertoire_shares_owner_fk`); unlinking removes the coach's shares of that player and, through them, the coach's notes (R-124, superseding the earlier R-47 reading: `coach_notes_share_fk` cascades from the share); deleting the repertoire removes its shares and notes; deleting the coach's account removes the shares and notes (spec: cascades from an account).
 - [ ] **Step 2:** Run: FAIL.
 - [ ] **Step 3: Implement.** On S3's `repertoires` table add `unique('repertoires_id_owner_unique').on(t.id, t.ownerAccountId)` **[S3 TBC: column name]**, then:
 
@@ -1489,7 +1495,7 @@ export const repertoireShares = pgTable(
   ],
 );
 
-/** A coach's note on a move of a repertoire shared with them (R-42, R-47). */
+/** A coach's note on a move of a repertoire shared with them (R-42, R-124: it lives only as long as the share). */
 export const coachNotes = pgTable(
   'coach_notes',
   {
@@ -1525,7 +1531,7 @@ export const coachNotes = pgTable(
   - `coachAccessFacts` now returns the shared ids;
   - `upsertCoachNote(db, coachId, playerId, repertoireId, moveKey, text, now)` writes a note on a move of a repertoire shared with the coach; refuses `access.notShared` for an unshared one and `coachNote.moveNotFound` for a move key not in the repertoire; a second upsert replaces the text; `deleteCoachNote` removes only the coach's own note;
   - `coachNotesOn(db, repertoireId)` returns the notes with each coach's display name (for the owner's view and for the coach's view);
-  - after unlink, the notes are still returned for the owner (R-47) and the coach's `sharedWithCoach` is empty;
+  - after unlink or unshare, that coach's notes are gone (R-124) and the coach's `sharedWithCoach` is empty;
   - `deleteAccount` of the coach removes the shares and notes; of the owner, the repertoire (S3 cascade) and with it the shares and notes.
 - [ ] **Step 2:** Run: FAIL.
 - [ ] **Step 3: Implement.** `shareRepertoire` runs in a transaction: read the repertoire's owner, check the link (`isLinked` from `coach-queries.ts`), `canShare(ownerId, repertoire, coachId, linked)`, then insert with `onConflictDoNothing()` (the composite foreign keys are the backstop). The coach-facing reads join the link every time:

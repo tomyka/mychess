@@ -42,6 +42,13 @@ export {
   type GroupRef,
   type LinkedAccount,
 } from './coaching';
+export {
+  coachNotesOn,
+  deleteCoachNote,
+  upsertCoachNote,
+  type CoachNote,
+  type CoachNoteInput,
+} from './coach-notes';
 export { databaseEnvSchema, databaseUrlSchema } from './config';
 export {
   addMember,
@@ -90,6 +97,17 @@ export {
   type RepertoireListItem,
   type RepertoireRename,
 } from './repertoires/repository';
+export {
+  shareRepertoire,
+  sharedCoachIds,
+  sharedRepertoireForCoach,
+  sharedWithCoach,
+  unshareRepertoire,
+  type SharedRepertoire,
+  type SharedRepertoireItem,
+  type ShareRequest,
+  type ShareTarget,
+} from './shares';
 
 /** Better Auth's tables, keyed by the model names auth.ts maps them to. */
 export const authSchema = {

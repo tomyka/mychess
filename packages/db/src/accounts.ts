@@ -109,8 +109,10 @@ const namesEmail = (email: string): SQL =>
  * memberships and invites; a player's links and memberships. A personal
  * invite the player used stays with the coach, without the player
  * (`used_by` set null). S3's repertoires go by cascade too, with their
- * chapters, moves, chapter links and personal notes. Later slices extend
- * the cascade with the rows they add.
+ * chapters, moves, chapter links and personal notes. S4's shares and the
+ * coach notes under them go too: a coach's through their links, a player's
+ * through their links and repertoires (R-124: a note lives only under its
+ * share). Later slices extend the cascade with the rows they add.
  */
 export async function deleteAccount(db: Executor, id: string): Promise<void> {
   await db.transaction(async (tx) => {

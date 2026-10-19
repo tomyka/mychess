@@ -14,6 +14,7 @@ import { isLinked, linkCount } from './coach-queries';
 import { revokeOpenInvites } from './invites';
 import { DONE, refusal } from './results';
 import { accounts, coachLinks, groupMembers, groups } from './schema';
+import { sharedRepertoireIds } from './shares';
 
 /** Switches Coach mode on (R-11); a second call keeps the first time. */
 export async function startCoaching(
@@ -182,7 +183,8 @@ export function playerCoaches(
 /**
  * Ends a Coach link, from either side (spec, lead decision). The foreign
  * keys onto coach_links remove the coach's group memberships (and, from
- * Part B, shares) for this player in the same statement (plan decision 2).
+ * Part B, shares and through them the coach's notes, R-124) for this
+ * player in the same statement (plan decision 2).
  */
 export async function unlink(
   db: Executor,
@@ -204,9 +206,8 @@ export async function coachAccessFacts(
   coachId: string,
   playerId: string,
 ): Promise<CoachAccessFacts> {
-  // Part B (Task B4) fills the shares from repertoire_shares.
   return {
     linked: await isLinked(db, coachId, playerId),
-    sharedRepertoireIds: new Set<string>(),
+    sharedRepertoireIds: await sharedRepertoireIds(db, coachId, playerId),
   };
 }

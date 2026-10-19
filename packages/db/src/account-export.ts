@@ -21,6 +21,8 @@ import { playerCoaches } from './coaching';
 import { coachGroups } from './groups';
 import { allCoachInvites } from './invites';
 import { loadRepertoires } from './repertoires/repository';
+import { notesWrittenBy } from './coach-notes';
+import { sharesOfOwner } from './shares';
 import {
   accounts,
   personalNotes,
@@ -51,6 +53,21 @@ export interface CoachingExport {
     readonly expiresAt: string;
     readonly revokedAt: string | null;
     readonly usedAt: string | null;
+  }[];
+  /** As a player: the account's repertoires shared, with each coach's name. */
+  readonly shares: readonly {
+    readonly repertoire: string;
+    readonly coach: string;
+    readonly sharedAt: string;
+  }[];
+  /** As a coach: the notes the account wrote, oldest first, by move. */
+  readonly coachNotes: readonly {
+    /** As in personalNotes: the FEN the move is played from, or the raw key. */
+    readonly position: string;
+    readonly san: string;
+    readonly text: string;
+    readonly createdAt: string;
+    readonly updatedAt: string;
   }[];
 }
 
@@ -154,6 +171,28 @@ async function activeSessions(
   }));
 }
 
+/** The account's shares as a player and notes as a coach (R-106). */
+async function sharing(
+  db: Executor,
+  id: string,
+): Promise<Pick<CoachingExport, 'shares' | 'coachNotes'>> {
+  const shares = await sharesOfOwner(db, id);
+  const notes = await notesWrittenBy(db, id);
+  return {
+    shares: shares.map((share) => ({
+      repertoire: share.repertoire,
+      coach: share.coach,
+      sharedAt: share.sharedAt.toISOString(),
+    })),
+    coachNotes: notes.map((note) => ({
+      ...notedMove(note.moveKey),
+      text: note.text,
+      createdAt: note.createdAt.toISOString(),
+      updatedAt: note.updatedAt.toISOString(),
+    })),
+  };
+}
+
 /** The account's coaching data at `now` (R-106). */
 async function coaching(
   db: Executor,
@@ -164,6 +203,7 @@ async function coaching(
   const groups = await coachGroups(db, id);
   const invites = await allCoachInvites(db, id);
   return {
+    ...(await sharing(db, id)),
     coaches: coaches.map((coach) => ({
       displayName: coach.displayName,
       linkedAt: coach.linkedAt.toISOString(),

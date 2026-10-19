@@ -1,0 +1,1 @@
+ALTER TABLE "repertoires" ADD CONSTRAINT "repertoires_id_owner_unique" UNIQUE("id","owner_account_id");
