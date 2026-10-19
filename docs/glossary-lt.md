@@ -42,6 +42,7 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | Coach link | Coach link | ryšys su treneriu | proposed | v1 said "aktyvus ryšys" (`coaches_request_error_active_relationship`). Verbs: link **susieti**, unlink **atsieti**. Not **prisijungti** (v1 `join_*` used it for linking, but it is the sign-in verb). |
 | Invite | Invite | kvietimas | v1 `coach_invite_heading`, `coach_dashboard_invite_links_heading` | Invite link: **kvietimo nuoroda**. Verb: **pakviesti**. Kinds: **asmeninis kvietimas** / **grupės kvietimas** ("Personal invite" / "Group invite"). States: **galioja**, **nebegalioja**, **panaudotas**, **atšauktas** ("Active", "Expired", "Used", "Revoked"). Revoke: **atšaukti** (same verb as Cancel; only used on an invite row). |
 | Group | Group | grupė | proposed | Not **klasė**, **komanda**, **klubas** (CONTEXT avoid list). |
+| Group member | Player in the group | grupės žaidėjas | approved (R-120) | Only Players are members of a Group, so the UI says **žaidėjas** and never **narys** (member): one word for one person. Heading: **Grupės žaidėjai** / "Players in the group"; count: **# žaidėjas / žaidėjai / žaidėjų**. Add / remove: **pridėti** / **pašalinti iš grupės**. |
 | Admin | Admin | administratorius | proposed | |
 
 ## Repertoires
@@ -51,16 +52,16 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | Repertoire | Repertoire | repertuaras | v1 `nav_repertoires`, `learn_repertoire_fallback_name` | |
 | Side | Side | spalva | v1 `pgn_import_color_label` | |
 | White / Black (side) | White / Black | baltieji / juodieji | proposed | v1 used **balta / juoda** (`pgn_import_color_white`) and **baltaisiais / juodaisiais** (`prep_as_white`). "As White": **baltaisiais**. Adopted (R-74). |
-| Chapter | Chapter | skyrius | v1 `coach_chapters_link`, `repertoire_tree_chapter_heading` | Plural: skyrius / skyriai / skyrių. A chapter too short to classify: **Skyrius N** / "Chapter N" (R-104); its place in the list: **Skyrius 2 iš 5** / "Chapter 2 of 5". |
+| Chapter | Chapter | skyrius | v1 `coach_chapters_link`, `repertoire_tree_chapter_heading` | Plural: skyrius / skyriai / skyrių. A chapter too short to classify: **Skyrius N** / "Chapter N" (R-104, approved R-118); its place in the list: **Skyrius 2 iš 5** / "Chapter 2 of 5". |
 | Chapter intro | Chapter intro | skyriaus įžanga | proposed | The PGN comment before a chapter's first move (read-only in S3, R-112). |
 | Opening (a Chapter's subject) | Opening | debiutas | v1 `opening_picker_heading`, `coach_player_coverage_heading` | |
 | Position | Position | padėtis | v1 `move_nav_jump_to_current`, `learn_explore_position` | Not **pozicija**. Plural: padėtis / padėtys / padėčių; "in this position": **šioje padėtyje**. Starting position (FEN): **pradinė padėtis**. |
 | Move | Move | ėjimas | v1 `repertoires_moves_count`, `games_moves_heading` | Plural: ėjimas / ėjimai / ėjimų. Play a move: **atlikti ėjimą**. Legal / illegal: **leistinas / neleistinas**. |
-| Ply | Ply | pusėjimis | v1 `pgn_import_review_meta` | Counts only. |
+| Ply | Half-move | pusėjimis (gen. pl. pusėjimių) | approved (R-120) | Counts only; player-facing English says "half-move", not "ply". |
 | Line | Line | variantas | v1 `practice_session_line_progress`, `repertoire_tree_line_count` | v1 used both **variantas** and **linija** (`coach_chapters_meta`, `pgn_import_review_summary`); **variantas** is the chess word. Not **linija**. Plural: variantas / variantai / variantų. "End of line": **varianto pabaiga**. A PGN variation in parentheses is also **variantas**; nested: **įdėtas variantas**. |
 | Transposition | Transposition | ėjimų perstatymas | proposed | Plural: ėjimų perstatymas / perstatymai / perstatymų. Not **perstata**. |
-| Comment (on a Move) | Comment | komentaras | proposed (Task 1 question 4) | Belongs to the repertoire and is exported with it (R-102). Distinct from **asmeninis užrašas** (private) and **trenerio pastaba**. Takes **komentaras** away from comment threads: a move comment thread becomes **pokalbis apie ėjimą** (see Thread). Owner to confirm. |
-| Builder | Edit | redaguoti (switch), redagavimas (the mode) | proposed | The switch on the repertoire screen reads **Redaguoti** / "Edit"; "turn it on": **įjungti redagavimą**. Not **kūrimo režimas**: the mode also removes moves and edits comments, which is editing, and the design sketch says "Edit". |
+| Comment (on a Move) | Comment | komentaras | approved (R-118) | Belongs to the repertoire and is exported with it (R-102). Distinct from **asmeninis užrašas** (private) and **trenerio pastaba**. Takes **komentaras** away from comment threads: a move comment thread becomes **pokalbis apie ėjimą** (see Thread). |
+| Builder | Edit | redaguoti (switch), redagavimas (the mode) | approved (R-118) | The switch on the repertoire screen reads **Redaguoti** / "Edit"; "turn it on": **įjungti redagavimą**. Not **kūrimo režimas**: the mode also removes moves and edits comments, which is editing, and the design sketch says "Edit". |
 | Draw (marks on the board) | Draw / Done | piešti / baigti | proposed | The touch draw mode of the builder. |
 | Mark | Mark | žymė | proposed | An arrow or a circle on a move. Arrow: **rodyklė**; circle: **apskritimas**. Colours as adjectives: **žalia, raudona, geltona, mėlyna**. |
 | Starter repertoire | Starter repertoire | pradinis repertuaras | proposed | Not **šablonas** (template). |
@@ -78,7 +79,7 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | Assignment | Assignment | priskyrimas | proposed (verb from v1 `coach_repertoires_assign_button` **priskirti**) | "Assigned by your coach": **priskyrė jūsų treneris** (v1 `repertoires_assigned_heading`). |
 | Deadline (of an Assignment) | Deadline | terminas | proposed | |
 | Fork | Make my own copy (proposed) | asmeninė kopija | proposed | Verb: **pasidaryti asmeninę kopiją**. EN UI word is also unsettled; "Fork" is a developer word. Not **klonas**. |
-| Personal note | Personal note (UI: "My note") | asmeninis užrašas (UI: **Mano užrašas**) | R-116 (was proposed **asmeninė pastaba**) | R-116 names the button "Mano užrašas", so the UI uses **užrašas** throughout; **pastaba** stays for the Coach note, which keeps the two apart. Not **komentaras** (a Comment belongs to the repertoire). |
+| Personal note | Personal note (UI: "My note") | asmeninis užrašas (UI: **Mano užrašas**) | approved (R-116, R-118; was proposed **asmeninė pastaba**) | R-116 names the button "Mano užrašas", so the UI uses **užrašas** throughout; **pastaba** stays for the Coach note, which keeps the two apart. Not **komentaras** (a Comment belongs to the repertoire). |
 | Coach note | Coach note | trenerio pastaba | v1 `coach_note_title` | |
 | Reconciliation | (not shown) | (not shown) | - | The UI shows only its Notification: "Your coach updated this repertoire" / **Jūsų treneris atnaujino šį repertuarą** (v1 `practice_coach_update_notice`). |
 
@@ -115,7 +116,7 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | Habit goal | Habit goal | įpročio tikslas | proposed | |
 | Mastery goal | Mastery goal | įvaldymo tikslas | proposed (v1 `repertoire_row_status_mastered` **įvaldyta**) | |
 | Results goal | Results goal | rezultatų tikslas | proposed | |
-| Thread | Conversation (proposed) | pokalbis | proposed | 1:1 thread: **pokalbis**; group thread: **grupės pokalbis**; move comment thread: **pokalbis apie ėjimą** (proposed; was **komentarai**, now the word for a move Comment). A single message: **žinutė**. Not **čatas**. |
+| Thread | Conversation (proposed) | pokalbis | proposed | 1:1 thread: **pokalbis**; group thread: **grupės pokalbis**; move comment thread: **pokalbis apie ėjimą** (approved, R-118; was **komentarai**, now the word for a move Comment). A single message: **žinutė**. Not **čatas**. |
 | Notification | Notification | pranešimas | proposed (v1 `practice_dismiss_coach_notice_label`) | |
 | Digest | Daily digest | dienos suvestinė | proposed | Not **naujienlaiškis** (newsletter). |
 | Weak spot | Weak spot | silpnoji vieta | proposed | v1 had "klaidų vietos" (`coach_player_hotspots_heading`) for a similar view. |

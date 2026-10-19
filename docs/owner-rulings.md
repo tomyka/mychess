@@ -153,6 +153,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-117** (S3 review, #253, 2026-10-19): When importing into an existing repertoire, a game that adds no new move (its moves are all refused or already there) adds no chapter; if no game adds a move, the import is refused (R-115).
 - **R-118** (S3 review, #253, 2026-10-19): Lithuanian terms: a move Comment is "komentaras" (a move thread is "pokalbis apie ėjimą"); the repertoire edit mode is "Redaguoti" / "Edit"; a Personal note is "užrašas" ("Mano užrašas"); an untitled chapter is "Skyrius N".
 - **R-119** (S3 security review, #253, 2026-10-19): A PGN upload also has a limit of 50,000 half-moves in total (extends R-66), and an account may run at most 10 import previews or confirms a minute.
+- **R-120** (S3/S4 language review, #253 #254, 2026-10-19): Terms: a ply is "pusėjimis" in Lithuanian and "half-move" in player-facing English; a Player in a coach's Group is "grupės žaidėjas" ("Grupės žaidėjai").
 
 ## Open questions
 

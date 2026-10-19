@@ -189,7 +189,7 @@
       "add": "Add",
       "allIn": "Every player linked to you is already in this group.",
       "delete": "Delete group",
-      "deleteConfirm": "Delete the group {name}? Its players stay linked to you, and its invites stop working.",
+      "deleteConfirm": "Delete the group “{name}”? Its players stay linked to you, and its invites stop working.",
       "confirmDelete": "Yes, delete",
       "cancel": "Cancel"
     }
@@ -286,10 +286,10 @@
     "tooLarge": "The file is larger than {limit} MB.",
     "tooManyGames": "The file has more than {limit} games.",
     "tooDeep": "Variations are nested too deep: at most {limit} levels.",
-    "tooManyMoves": "The file has more than 50,000 half-moves.",
+    "tooManyMoves": "The file has more than {limit, number} half-moves.",
     "tooManyImports": "Too many import attempts: at most {limit} a minute. Wait a minute and try again.",
     "noValidGames": "No valid game was found in the file.",
-    "nothingToAdd": "Nothing in this file can be added to the repertoire: it answers every game differently."
+    "nothingToAdd": "Nothing new to add from this file: each of its games is already in the repertoire or answers a position differently."
   },
   "personalNote": {
     "tooLong": "The note is too long: at most 2,000 characters."

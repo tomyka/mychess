@@ -127,7 +127,7 @@
     "notCoach": "Pirmiausia nustatymuose įjunkite trenerio režimą.",
     "stillLinked": "Trenerio režimo negalima išjungti, kol su jumis susieti žaidėjai.",
     "groupLimit": "Daugiau grupių sukurti nebegalite.",
-    "inviteLimit": "Pasiekėte galiojančių kvietimų ribą ({limit}). Naują kvietimą galėsite sukurti, kai kuris nors iš jų nebegalios, bus panaudotas arba atšauktas.",
+    "inviteLimit": "Pasiekėte galiojančių kvietimų ribą ({limit}). Naują kvietimą galėsite sukurti, kai vienas iš jų nustos galioti, bus panaudotas arba atšauktas.",
     "groupNotFound": "Grupė nerasta.",
     "notLinked": "Šis žaidėjas su jumis nesusietas.",
     "players": {
@@ -201,7 +201,7 @@
     "title": "Trenerio kvietimas",
     "fromCoach": "Treneris: {coach}",
     "toGroup": "Grupė: {group}",
-    "explain": "Priėmę kvietimą susiesite savo paskyrą su trenerio paskyra. Treneris matys jūsų vardą ir galės įtraukti jus į savo grupes. Atsieti galėsite bet kada nustatymuose.",
+    "explain": "Priėmę kvietimą susiesite savo paskyrą su trenerio paskyra. Treneris matys jūsų rodomą vardą ir galės įtraukti jus į savo grupes. Atsieti galėsite bet kada nustatymuose.",
     "accept": "Priimti kvietimą",
     "notNow": "Ne dabar",
     "home": "Į pradžią",
@@ -286,13 +286,13 @@
     "tooLarge": "Failas didesnis nei {limit} MB.",
     "tooManyGames": "Faile daugiau nei {limit} partijų.",
     "tooDeep": "Variantai įdėti per giliai: leidžiama iki {limit} lygių.",
-    "tooManyMoves": "Faile daugiau nei 50 000 pusėjimių.",
+    "tooManyMoves": "Faile daugiau nei {limit, number} pusėjimių.",
     "tooManyImports": "Per daug bandymų importuoti: ne daugiau kaip {limit} per minutę. Palaukite minutę ir bandykite dar kartą.",
     "noValidGames": "Faile nerasta nė vienos tinkamos partijos.",
-    "nothingToAdd": "Iš šio failo prie repertuaro nėra ką pridėti: kiekviena partija jame atsakoma kitaip."
+    "nothingToAdd": "Iš šio failo nėra ko naujo pridėti: kiekviena jo partija jau yra repertuare arba kurioje nors padėtyje atsako kitaip."
   },
   "personalNote": {
-    "tooLong": "Užrašas per ilgas: daugiausia 2 000 simbolių."
+    "tooLong": "Užrašas per ilgas: daugiausia 2 000 simbolių."
   },
   "repertoires": {
     "list": {
@@ -460,6 +460,6 @@
     }
   },
   "comment": {
-    "tooLong": "Komentaras per ilgas: daugiausia 2 000 simbolių."
+    "tooLong": "Komentaras per ilgas: daugiausia 2 000 simbolių."
   }
 }
