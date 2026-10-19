@@ -1357,17 +1357,19 @@ it('covers every coach page', () => {
 
 **Starts only when** S3 (#253) is on `main` with its repertoire tables, its repository and its board component. The S3 names below are taken from the S3 spec (`2026-10-17-s3-repertoires-design.md`) and are **to be confirmed against S3's code** in Task B1; where S3 chose differently, use S3's names and keep the shape. Marked **[S3 TBC]**.
 
-S3 names this part relies on:
-- table `repertoires` with columns `id` and the owner account (spec: "owner account") **[S3 TBC: `owner_id`?]**;
-- table `repertoire_moves` with `repertoire`, `from key`, `san` **[S3 TBC]**, and `moveKey(fromKey, san)` from `@mychess/chess` (`${fromKey}|${san}`, verified in `packages/chess/src/repertoire/graph.ts:57`);
-- table `personal_notes` (player, repertoire, move key, text) **[S3 TBC]**: the coach view must never read it (checklist 2);
-- `loadRepertoire(db, id)` returning the graph (with move comments, R-102) and metadata **[S3 TBC: whether it also returns personal notes; if it does, the coach view uses a variant without them]**;
-- the domain's `canViewRepertoire(viewer, repertoire)` (S3: "S4 adds viewing for a shared coach") **[S3 TBC]**;
-- the board component and the repertoire page route **[S3 TBC: path and component name]**.
+S3 names this part relies on, **confirmed against S3's code in Task B1 (main at aaed1e2, 2026-10-19)**. Every **[S3 TBC]** marker below resolves to these:
+- table `repertoires` (`packages/db/src/schema.ts`): `id` uuid (`defaultRandom`), owner column `ownerAccountId` / `owner_account_id` (text, cascade on account delete), `side`, `name`, `version`. So Task B3's unique is `unique('repertoires_id_owner_unique').on(t.id, t.ownerAccountId)` and the share foreign key's columns are `[repertoires.id, repertoires.ownerAccountId]`.
+- table `repertoire_moves`: `id` uuid, `repertoireId`, `fromKey`, `san`, `toKey`, `uci`, `comment`. Move keys come from `moveKey(fromKey, san)` in `@mychess/chess`; `parseMoveKey` is the non-throwing reader.
+- table `personal_notes`: player, `repertoireId` (cascade), move key, text. The coach view must never read it (checklist 2). `packages/db/src/personal-notes.ts`: `setPersonalNote` (Result, owner-checked in its transaction), `listPersonalNotes`.
+- `loadRepertoire(db, id, ownerId)` (`packages/db/src/repertoires/repository.ts`) returns `LoadedRepertoire = { repertoire: Repertoire, graph: RepertoireGraph }`: graph with move comments (R-102), **no personal notes** (they come from `listPersonalNotes`). It filters by owner, so the coach path needs a sibling loader that filters through the share join instead (Task B4 `sharedRepertoireForCoach`), reusing the private `graphRows(tx, id, side)` and `metaColumns`.
+- domain `canViewRepertoire(viewer, repertoire)` and `canEditRepertoire` in `packages/domain/src/repertoire.ts` are owner-only; leave them so. The coach path goes through `canCoachSee` with the `repertoire` subject (Task A3). `COMMENT_MAX = 2000` is exported there; Task B2 uses it for `COACH_NOTE_MAX`.
+- web: the board is `Board` in `apps/web/src/app/board/board.tsx`; the player's repertoire page is `/repertuarai/[id]` (`apps/web/src/app/repertuarai/[id]/`, `repertoire-screen.tsx`, header in `repertoire-header.tsx`), loaded through `ownRepertoire` in `apps/web/src/server/repertoires.ts`. "Share with coach" goes in that folder.
+- latest migration: `0005_amused_galactus`; Part B's is generated as `0006_*`.
+- related open work: #276 (one edit-a-repertoire module), #278 (one repertoire access scope: Part B is the first widening of who may view, so keep the share predicate in one place).
 
 ### Task B1: Confirm S3's names (lead)
 
-- [ ] **Step 1:** Read S3's merged code and fill in every **[S3 TBC]** above in this file: table and column names, the repository function names and return types, whether `loadRepertoire` returns personal notes, the board component, the repertoire page path, and S3's latest migration number. Commit the updated plan before Task B2.
+- [x] **Step 1:** Read S3's merged code and fill in every **[S3 TBC]** above in this file: table and column names, the repository function names and return types, whether `loadRepertoire` returns personal notes, the board component, the repertoire page path, and S3's latest migration number. Commit the updated plan before Task B2.
 
 ### Task B2: Sharing rules in the domain (backend-dev) - SECURITY
 
@@ -1456,7 +1458,7 @@ If S3 exports its comment limit as a constant, use it instead of `2000` **[S3 TB
 
 - [ ] **Step 1: Write the failing schema tests:** a share for a coach not linked to the owner rejects (`repertoire_shares_link_fk`); a share naming a player who is not the repertoire's owner rejects (`repertoire_shares_owner_fk`); unlinking removes the coach's shares of that player and keeps the coach's notes (R-47: notes go with the repertoire); deleting the repertoire removes its shares and notes; deleting the coach's account removes the shares and notes (spec: cascades from an account).
 - [ ] **Step 2:** Run: FAIL.
-- [ ] **Step 3: Implement.** On S3's `repertoires` table add `unique('repertoires_id_owner_unique').on(t.id, t.ownerId)` **[S3 TBC: column name]**, then:
+- [ ] **Step 3: Implement.** On S3's `repertoires` table add `unique('repertoires_id_owner_unique').on(t.id, t.ownerAccountId)` **[S3 TBC: column name]**, then:
 
 ```ts
 /**
@@ -1476,7 +1478,7 @@ export const repertoireShares = pgTable(
     foreignKey({
       name: 'repertoire_shares_owner_fk',
       columns: [t.repertoireId, t.playerId],
-      foreignColumns: [repertoires.id, repertoires.ownerId], // [S3 TBC]
+      foreignColumns: [repertoires.id, repertoires.ownerAccountId],
     }).onDelete('cascade'),
     foreignKey({
       name: 'repertoire_shares_link_fk',
