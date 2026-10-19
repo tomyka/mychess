@@ -100,6 +100,9 @@ Three to five teammates at a time; each one costs tokens.
 5. **Each task goes:** developer (test first) -> `qa` (criteria, persona
    journeys) -> `architect` (`mp-code-review`) -> `security-reviewer` if marked
    -> `ux-designer` and `i18n-content` if visible -> the lead commits.
+   The architect's review runs on each task's diff before it is committed,
+   not on a batch at the slice's end: in S3, product rules that had
+   slipped into `apps/web` surfaced only at the slice-close review.
 6. **Each slice ends** with `improve-codebase-architecture` (owner picks the
    "deepen" follow-ups), a `retro`, and closing the issue with the commit
    range and CI result.

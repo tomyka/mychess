@@ -157,6 +157,9 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-121** (S3 close, #253, 2026-10-19): For reconciliation (R-23), a changed Move means a Move added or removed; editing a Move's comment, arrows or circles never resets a player's training on it.
 - **R-122** (S3 close, #253, 2026-10-19): R-117 judges each imported game against the repertoire and the earlier games of the same file: a game that adds no move beyond them adds no chapter.
 - **R-123** (S3 close, #253, 2026-10-19): Exporting a repertoire and importing it again keeps its moves, comments and marks; chapter names may be re-derived from the taxonomy on import (R-63, R-104).
+- **R-124** (S4 Part B, #254, 2026-10-20): A coach's notes on a player's shared repertoire are deleted when that sharing ends, by unsharing or by unlinking (R-107); R-47's "notes are kept" applies to assigned repertoires, not shared ones.
+- **R-125** (S4 Part B, #254, 2026-10-20): A coach sees only their own notes on a shared repertoire; the player sees every coach's notes, each marked with the coach's name.
+- **R-126** (S4 Part B, #254, 2026-10-20): In the data export (R-106) a coach's notes list position, move, text and dates without the player or repertoire; a player's export does not include notes coaches wrote on the player's repertoires.
 
 ## Open questions
 

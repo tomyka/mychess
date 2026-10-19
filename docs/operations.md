@@ -49,6 +49,24 @@ keeps using containers.
 CI's `e2e` job does the same: the two images as service containers, the
 migrate step, then `test:e2e` with the variables set on the job.
 
+**On the owner's machine** (S3/S4 retro) other projects often hold the
+default ports: port 3100 may be another app's `next start` (which
+Playwright would reuse), 8025 another Mailpit, and the compose
+`infra-mailpit-1` can stay in "Created". Then:
+
+- run a throwaway Mailpit on another port and point the app at it:
+  `docker run -d --name mychess-qa-mailpit -p 127.0.0.1:18025:8025 axllent/mailpit:v1.27`,
+  `MAILPIT_URL=http://127.0.0.1:18025` (the app sends through Mailpit's HTTP
+  API, so no SMTP port is needed);
+- serve the app on a free port (for example 3101) through a scratch
+  Playwright config that imports `apps/web/playwright.config.ts` and
+  overrides only the port, never by editing the repo config;
+- while teammates have uncommitted work in the main checkout, run E2E
+  against a clean `git archive HEAD` copy in a scratch folder (no git
+  worktree, no `node_modules` junction);
+- afterwards delete the `e2e-*@mychess.test` accounts (they cascade), stop
+  the server and remove the Mailpit container.
+
 ### Migrations squashed before the first deployment
 
 The S1 migrations were squashed on 2026-10-17, before any database was
