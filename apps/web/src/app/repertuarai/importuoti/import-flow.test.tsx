@@ -201,7 +201,12 @@ describe('ImportFlow', () => {
       refusal: 'pgn.tooManyImports',
       limit: 10,
     });
-    fireEvent.click(screen.getByRole('button', { name: i.preview }));
+    // The first request's transition may still hold the button disabled.
+    const again = screen.getByRole('button', { name: i.preview });
+    await waitFor(() => {
+      expect(again.hasAttribute('disabled')).toBe(false);
+    });
+    fireEvent.click(again);
     expect(
       await screen.findByText(
         'Per daug bandymų importuoti: ne daugiau kaip 10 per minutę. Palaukite minutę ir bandykite dar kartą.',
