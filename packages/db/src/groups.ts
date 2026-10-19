@@ -10,7 +10,8 @@ import { and, count, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { lockAccountById } from './accounts';
 import type { Db, Executor, Tx } from './client';
-import { groupCount, holdGroup, holdLink, isUuid } from './coach-queries';
+import { groupCount, holdGroup, holdLink } from './coach-queries';
+import { isUuid } from './ids';
 import { DONE, refusal } from './results';
 import { accounts, groupMembers, groups } from './schema';
 

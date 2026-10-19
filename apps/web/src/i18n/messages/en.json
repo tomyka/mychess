@@ -164,6 +164,7 @@
       "groupName": "Group: {group}",
       "expires": "Valid until {date}",
       "revoke": "Revoke",
+      "revokeInvalid": "This invite can no longer be revoked: it has been used, has expired or was already revoked.",
       "state": {
         "active": "Active",
         "expired": "Expired",
@@ -207,8 +208,7 @@
     "home": "Home",
     "invalid": "This invite is not valid. Ask your coach for a new link.",
     "ownInvite": "This is your own invite. Send the link to a player.",
-    "coachFull": "This coach cannot link any more players. Let your coach know.",
-    "notCoach": "This invite is not valid. Ask your coach for a new link."
+    "coachFull": "This coach cannot link any more players. Let your coach know."
   },
   "mail": {
     "magicLink": {
@@ -289,7 +289,8 @@
     "tooManyMoves": "The file has more than {limit, number} half-moves.",
     "tooManyImports": "Too many import attempts: at most {limit} a minute. Wait a minute and try again.",
     "noValidGames": "No valid game was found in the file.",
-    "nothingToAdd": "Nothing new to add from this file: each of its games is already in the repertoire or answers a position differently."
+    "nothingToAdd": "Nothing new to add from this file: each of its games is already in the repertoire or answers a position differently.",
+    "fileNameFallback": "repertoire"
   },
   "personalNote": {
     "tooLong": "The note is too long: at most 2,000 characters."

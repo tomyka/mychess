@@ -454,12 +454,13 @@ describe('acceptInvite', () => {
     expect(await linksOf('c')).toBe(0);
   });
 
-  it('refuses an invite from an account that left Coach mode', async () => {
+  it('refuses an invite from an account that left Coach mode as not valid', async () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedPlayer(db, 'p1', 'p1@example.lt');
     const { hash } = await invite();
     await client.query(`update accounts set coach_since = null`);
-    expect(await accept(hash, 'p1')).toEqual(refused(INVITE_REFUSALS.notCoach));
+    expect(await accept(hash, 'p1')).toEqual(refused(INVITE_REFUSALS.invalid));
+    expect(await linksOf('c')).toBe(0);
   });
 
   it('refuses the 31st player (R-70)', async () => {
@@ -607,6 +608,38 @@ describe('revokeInvite', () => {
     expect(await query('select revoked_at from invites')).toEqual([
       { revoked_at: NOW },
     ]);
+  });
+
+  it('refuses a used invite and leaves it used', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    await seedPlayer(db, 'p1', 'p1@example.lt');
+    const { hash, inviteId } = await invite();
+    expect((await accept(hash, 'p1')).ok).toBe(true);
+    const before = await query('select * from invites');
+    expect(await revokeInvite(db, 'c', inviteId, at(1000))).toEqual(
+      refused(INVITE_REFUSALS.invalid),
+    );
+    expect(await query('select * from invites')).toEqual(before);
+  });
+
+  it('refuses an expired invite and leaves it expired', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    const { inviteId } = await invite();
+    expect(await revokeInvite(db, 'c', inviteId, at(WEEK))).toEqual(
+      refused(INVITE_REFUSALS.invalid),
+    );
+    expect(await query('select revoked_at from invites')).toEqual([
+      { revoked_at: null },
+    ]);
+  });
+
+  it('revokes a group invite that has been used, as it stays open', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    await seedPlayer(db, 'p1', 'p1@example.lt');
+    const groupId = await seedGroup(db, 'c', 'Grupė');
+    const { hash, inviteId } = await invite('group', groupId);
+    expect((await accept(hash, 'p1')).ok).toBe(true);
+    expect((await revokeInvite(db, 'c', inviteId, at(1000))).ok).toBe(true);
   });
 });
 

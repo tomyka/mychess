@@ -3,6 +3,7 @@ import {
   IMPORT_RATE_LIMIT,
   countRequest,
   importRateKey,
+  type RateCounter,
   type RateRule,
 } from './rate-limit';
 
@@ -14,35 +15,46 @@ const RULE: RateRule<'x.tooMany'> = {
 const T0 = 1_000_000;
 
 describe('countRequest', () => {
-  it('allows a first request and starts the count at one', () => {
+  it('allows a first request and opens a window at it', () => {
     expect(countRequest(undefined, RULE, T0)).toEqual({
       ok: true,
-      value: { count: 1, lastRequest: T0 },
+      value: { count: 1, windowStart: T0 },
     });
   });
 
-  it('counts requests within the window up to the maximum', () => {
-    const counter = { count: 2, lastRequest: T0 };
+  it('counts requests within the window up to the maximum, keeping its start', () => {
+    const counter = { count: 2, windowStart: T0 };
     expect(countRequest(counter, RULE, T0 + 1000)).toEqual({
       ok: true,
-      value: { count: 3, lastRequest: T0 + 1000 },
+      value: { count: 3, windowStart: T0 },
     });
   });
 
   it('refuses a request over the maximum within the window, naming it', () => {
-    const counter = { count: 3, lastRequest: T0 };
+    const counter = { count: 3, windowStart: T0 };
     expect(countRequest(counter, RULE, T0 + RULE.windowMs - 1)).toEqual({
       ok: false,
       refusal: { reason: 'x.tooMany', limit: 3 },
     });
   });
 
-  it('starts again once a whole window has passed since the last request', () => {
-    const counter = { count: 3, lastRequest: T0 };
+  it('opens a new window once a whole window has passed since its start', () => {
+    const counter = { count: 3, windowStart: T0 };
     expect(countRequest(counter, RULE, T0 + RULE.windowMs)).toEqual({
       ok: true,
-      value: { count: 1, lastRequest: T0 + RULE.windowMs },
+      value: { count: 1, windowStart: T0 + RULE.windowMs },
     });
+  });
+
+  it('never refuses a steady pace under the maximum, however long it lasts', () => {
+    const rule: RateRule<'x.tooMany'> = { ...RULE, max: 10 };
+    let counter: RateCounter | undefined;
+    for (let ms = 0; ms < 10 * 60_000; ms += 30_000) {
+      const counted = countRequest(counter, rule, T0 + ms);
+      if (!counted.ok) throw new Error(`refused at ${String(ms)} ms`);
+      counter = counted.value;
+    }
+    expect(counter).toEqual({ count: 2, windowStart: T0 + 9 * 60_000 });
   });
 });
 

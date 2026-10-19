@@ -1,5 +1,7 @@
+'use client';
+
 import { useTranslations } from 'next-intl';
-import { useId, type JSX } from 'react';
+import { useActionState, useId, type JSX } from 'react';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../../buttons';
 import { ConfirmedAction } from '../../../confirmed-action';
 import { SECTION, SECTION_TITLE } from '../../../nustatymai/styles';
@@ -8,7 +10,9 @@ import {
   addMemberAction,
   deleteGroupAction,
   removeMemberAction,
+  type CoachActionState,
 } from '../../actions';
+import { RefusalLine } from '../../refusal-line';
 import { COACH_PAGE, SubpageHeader } from '../../subpage-header';
 import { RenameGroupForm } from './rename-group-form';
 
@@ -27,19 +31,26 @@ export interface CoachGroupPageData {
   readonly addable: readonly GroupPlayer[];
 }
 
+const INITIAL: CoachActionState = {};
+
+/** A form's dispatch, as useActionState hands it over. */
+type Dispatch = (form: FormData) => void;
+
 /** One member, with Remove (the link stays). */
 function MemberRow({
   groupId,
   member,
+  remove,
 }: {
   readonly groupId: string;
   readonly member: GroupPlayer;
+  readonly remove: Dispatch;
 }): JSX.Element {
   const t = useTranslations('coach.group');
   return (
     <li className="flex items-center justify-between gap-3">
       <span className="min-w-0 break-words">{member.displayName}</span>
-      <form action={removeMemberAction} className="shrink-0">
+      <form action={remove} className="shrink-0">
         <input type="hidden" name="groupId" value={groupId} />
         <input type="hidden" name="playerId" value={member.id} />
         <PendingButton
@@ -53,7 +64,7 @@ function MemberRow({
   );
 }
 
-/** The group's members, each with Remove. */
+/** The group's members, each with Remove, and a refused Remove. */
 function Members({
   group,
 }: {
@@ -61,17 +72,24 @@ function Members({
 }): JSX.Element {
   const t = useTranslations('coach.group');
   const titleId = useId();
+  const [state, remove] = useActionState(removeMemberAction, INITIAL);
   return (
     <section aria-labelledby={titleId} className={SECTION}>
       <h2 id={titleId} className={SECTION_TITLE}>
         {t('membersTitle')}
       </h2>
+      <RefusalLine state={state} />
       {group.members.length === 0 ? (
         <p className="text-fg-muted">{t('noMembers')}</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {group.members.map((member) => (
-            <MemberRow key={member.id} groupId={group.id} member={member} />
+            <MemberRow
+              key={member.id}
+              groupId={group.id}
+              member={member}
+              remove={remove}
+            />
           ))}
         </ul>
       )}
@@ -82,16 +100,15 @@ function Members({
 /** The picker of linked players not yet in the group (R-12). */
 function AddPicker({
   group,
+  add,
 }: {
   readonly group: CoachGroupPageData;
+  readonly add: Dispatch;
 }): JSX.Element {
   const t = useTranslations('coach.group');
   const fieldId = useId();
   return (
-    <form
-      action={addMemberAction}
-      className="flex flex-col gap-3 sm:flex-row sm:items-end"
-    >
+    <form action={add} className="flex flex-col gap-3 sm:flex-row sm:items-end">
       <input type="hidden" name="groupId" value={group.id} />
       <div className="flex grow flex-col gap-2">
         <label htmlFor={fieldId} className="font-medium">
@@ -128,7 +145,7 @@ function NobodyToAdd({
   );
 }
 
-/** "Add a player": the picker, or why there is no one to add. */
+/** "Add a player": the picker, or why there is no one to add; a refused Add. */
 function AddMember({
   group,
 }: {
@@ -136,15 +153,17 @@ function AddMember({
 }): JSX.Element {
   const t = useTranslations('coach.group');
   const titleId = useId();
+  const [state, add] = useActionState(addMemberAction, INITIAL);
   return (
     <section aria-labelledby={titleId} className={SECTION}>
       <h2 id={titleId} className={SECTION_TITLE}>
         {t('addTitle')}
       </h2>
+      <RefusalLine state={state} />
       {group.addable.length === 0 ? (
         <NobodyToAdd group={group} />
       ) : (
-        <AddPicker group={group} />
+        <AddPicker group={group} add={add} />
       )}
     </section>
   );

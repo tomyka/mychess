@@ -209,13 +209,19 @@ describe('revokeInviteAction (R-98)', () => {
     actAs(jonas);
     expect(
       await outcomeOf(
-        revokeInviteAction(formOf({ inviteId: mine.value.inviteId })),
+        revokeInviteAction({}, formOf({ inviteId: mine.value.inviteId })),
       ),
-    ).toBeUndefined();
-    await outcomeOf(
-      revokeInviteAction(formOf({ inviteId: onas.value.inviteId })),
-    );
-    await outcomeOf(revokeInviteAction(formOf({ inviteId: 'not-a-uuid' })));
+    ).toEqual({});
+    expect(
+      await outcomeOf(
+        revokeInviteAction({}, formOf({ inviteId: onas.value.inviteId })),
+      ),
+    ).toEqual({ refusal: 'invite.invalid' });
+    expect(
+      await outcomeOf(
+        revokeInviteAction({}, formOf({ inviteId: 'not-a-uuid' })),
+      ),
+    ).toEqual({ refusal: 'invite.invalid' });
     expect(
       await sql.rows(
         `select a.display_name as coach, i.revoked_at is not null as revoked
@@ -227,6 +233,33 @@ describe('revokeInviteAction (R-98)', () => {
       { coach: 'Ona', revoked: false },
     ]);
     expect(request.refreshed).toBe(3);
+  });
+
+  it('refuses to revoke a used invite and leaves it used', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const rokas = await person(sql, 'rokas@example.lt', 'Rokas');
+    const made = await createInvite(testDb(), {
+      coachId: jonas.id,
+      kind: 'personal',
+      groupId: null,
+      now: new Date(),
+    });
+    if (!made.ok) throw new Error('no invite');
+    actAs(rokas);
+    expect(
+      await outcomeOf(
+        acceptInviteAction({}, formOf({ token: made.value.token })),
+      ),
+    ).toEqual({ redirectedTo: '/nustatymai#treneriai' });
+    actAs(jonas);
+    expect(
+      await outcomeOf(
+        revokeInviteAction({}, formOf({ inviteId: made.value.inviteId })),
+      ),
+    ).toEqual({ refusal: 'invite.invalid' });
+    expect(
+      await sql.rows('select used_by, revoked_at is null as open from invites'),
+    ).toEqual([{ used_by: rokas.id, open: true }]);
   });
 });
 

@@ -1,5 +1,6 @@
 import {
   canAccept,
+  canRevoke,
   canInvite,
   COACH_REFUSALS,
   INVITE_REFUSALS,
@@ -19,7 +20,8 @@ import { and, desc, eq, gt, isNull, not, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { findAccountById, lockAccountById } from './accounts';
 import type { Db, Executor, Tx } from './client';
-import { holdGroup, isLinked, isUuid, linkCount } from './coach-queries';
+import { countSchema, holdGroup, isLinked, linkCount } from './coach-queries';
+import { isUuid } from './ids';
 import { inviteTokenHash, newInviteToken } from './invite-token';
 import { DONE, refusal } from './results';
 import { coachLinks, groupMembers, groups, invites } from './schema';
@@ -74,8 +76,6 @@ const openInvitesOf = (coachId: string, now: Date) =>
 /** The coach's closed invites at `now`: revoked, used or expired. */
 const closedInvitesOf = (coachId: string, now: Date) =>
   and(eq(invites.coachId, coachId), not(openAt(now)));
-
-const countSchema = z.number().int().nonnegative();
 
 /**
  * How many open invites `coachId` has at `now` (R-114). Exported for the
@@ -271,7 +271,12 @@ export async function revokeOpenInvites(
     .where(openInvitesOf(coachId, now));
 }
 
-/** Revokes the coach's own invite; anything else is "not valid". */
+/**
+ * Revokes the coach's own invite while it is open: the domain's canRevoke
+ * decides on the locked row, and the UPDATE is restricted to open invites
+ * again. A used, expired, revoked or someone else's invite is "not valid"
+ * and stays as it is.
+ */
 export async function revokeInvite(
   db: Executor,
   coachId: string,
@@ -279,18 +284,21 @@ export async function revokeInvite(
   now: Date,
 ): Promise<Result<undefined, InviteRefusal>> {
   if (!isUuid(inviteId)) return INVALID;
-  const revoked = await db
-    .update(invites)
-    .set({ revokedAt: now })
-    .where(
-      and(
-        eq(invites.id, inviteId),
-        eq(invites.coachId, coachId),
-        isNull(invites.revokedAt),
-      ),
-    )
-    .returning({ id: invites.id });
-  return revoked.length === 1 ? DONE : INVALID;
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select(inviteColumns)
+      .from(invites)
+      .where(and(eq(invites.id, inviteId), eq(invites.coachId, coachId)))
+      .for('update');
+    if (row === undefined || !canRevoke(inviteSchema.parse(row), now))
+      return INVALID;
+    const revoked = await tx
+      .update(invites)
+      .set({ revokedAt: now })
+      .where(and(eq(invites.id, inviteId), openInvitesOf(coachId, now)))
+      .returning({ id: invites.id });
+    return revoked.length === 1 ? DONE : INVALID;
+  });
 }
 
 /** The invite with this hash and its group's name, unlocked. */

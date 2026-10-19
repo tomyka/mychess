@@ -90,7 +90,6 @@ describe('InviteView', () => {
 
   it.each([
     ['invite.invalid', i.invalid],
-    ['invite.notCoach', i.invalid],
     ['invite.ownInvite', i.ownInvite],
     ['invite.coachFull', i.coachFull],
   ] as const)('says %s without a way to accept', (reason, text) => {

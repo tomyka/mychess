@@ -186,7 +186,11 @@ describe('addMemberAction and removeMemberAction (R-12)', () => {
     await link(jonas.id, rokas.id);
     const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
     actAs(jonas);
-    await outcomeOf(addMemberAction(formOf({ groupId, playerId: rokas.id })));
+    expect(
+      await outcomeOf(
+        addMemberAction({}, formOf({ groupId, playerId: rokas.id })),
+      ),
+    ).toEqual({});
     expect(await memberships()).toEqual([
       { group: 'Šeštadienio grupė', player: 'Rokas' },
     ]);
@@ -194,9 +198,11 @@ describe('addMemberAction and removeMemberAction (R-12)', () => {
       name: 'Šeštadienio grupė',
       members: [{ id: rokas.id, displayName: 'Rokas' }],
     });
-    await outcomeOf(
-      removeMemberAction(formOf({ groupId, playerId: rokas.id })),
-    );
+    expect(
+      await outcomeOf(
+        removeMemberAction({}, formOf({ groupId, playerId: rokas.id })),
+      ),
+    ).toEqual({});
     expect(await memberships()).toEqual([]);
     expect(await links()).toEqual([{ coach: 'Jonas', player: 'Rokas' }]);
   });
@@ -211,12 +217,24 @@ describe('addMemberAction and removeMemberAction (R-12)', () => {
     const mine = await groupOf(jonas.id, 'Jono grupė');
     const onas = await groupOf(ona.id, 'Onos grupė');
     actAs(jonas);
-    await outcomeOf(
-      addMemberAction(formOf({ groupId: mine, playerId: gabija.id })),
-    );
-    await outcomeOf(
-      addMemberAction(formOf({ groupId: onas, playerId: rokas.id })),
-    );
+    expect(
+      await outcomeOf(
+        addMemberAction({}, formOf({ groupId: mine, playerId: gabija.id })),
+      ),
+    ).toEqual({ refusal: 'coach.notLinked' });
+    expect(
+      await outcomeOf(
+        addMemberAction({}, formOf({ groupId: onas, playerId: rokas.id })),
+      ),
+    ).toEqual({ refusal: 'coach.groupNotFound' });
+    expect(
+      await outcomeOf(
+        addMemberAction({}, formOf({ groupId: 'x', playerId: rokas.id })),
+      ),
+    ).toEqual({ refusal: 'coach.groupNotFound' });
+    expect(
+      await outcomeOf(addMemberAction({}, formOf({ groupId: mine }))),
+    ).toEqual({ refusal: 'coach.notLinked' });
     expect(await memberships()).toEqual([]);
   });
 
@@ -226,9 +244,11 @@ describe('addMemberAction and removeMemberAction (R-12)', () => {
     const onas = await groupOf(ona.id, 'Onos grupė');
     await link(ona.id, gabija.id, onas);
     actAs(await coachPerson(sql, 'jonas@example.lt', 'Jonas'));
-    await outcomeOf(
-      removeMemberAction(formOf({ groupId: onas, playerId: gabija.id })),
-    );
+    expect(
+      await outcomeOf(
+        removeMemberAction({}, formOf({ groupId: onas, playerId: gabija.id })),
+      ),
+    ).toEqual({ refusal: 'coach.groupNotFound' });
     expect(await memberships()).toEqual([
       { group: 'Onos grupė', player: 'Gabija' },
     ]);
@@ -244,7 +264,7 @@ describe('unlinkPlayerAction (spec: either side may unlink)', () => {
     actAs(jonas);
     // Back to the dashboard: the player's page would now be 404.
     expect(
-      await outcomeOf(unlinkPlayerAction(formOf({ playerId: rokas.id }))),
+      await outcomeOf(unlinkPlayerAction({}, formOf({ playerId: rokas.id }))),
     ).toEqual({ redirectedTo: '/treneris' });
     expect(await links()).toEqual([]);
     expect(await memberships()).toEqual([]);
@@ -257,11 +277,17 @@ describe('unlinkPlayerAction (spec: either side may unlink)', () => {
     actAs(await coachPerson(sql, 'jonas@example.lt', 'Jonas'));
     expect(
       await outcomeOf(
-        unlinkPlayerAction(formOf({ playerId: gabija.id, coachId: ona.id })),
+        unlinkPlayerAction(
+          {},
+          formOf({ playerId: gabija.id, coachId: ona.id }),
+        ),
       ),
-    ).toBeUndefined();
+    ).toEqual({ refusal: 'coach.notLinked' });
+    expect(await outcomeOf(unlinkPlayerAction({}, new FormData()))).toEqual({
+      refusal: 'coach.notLinked',
+    });
     expect(await links()).toEqual([{ coach: 'Ona', player: 'Gabija' }]);
-    expect(request.refreshed).toBe(1);
+    expect(request.refreshed).toBe(2);
   });
 });
 

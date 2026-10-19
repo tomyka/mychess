@@ -2,19 +2,11 @@
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Executor, Tx } from './client';
+import { isUuid } from './ids';
 import { coachLinks, groups } from './schema';
 
-const uuidSchema = z.uuid();
-const countSchema = z.number().int().nonnegative();
-
-/**
- * Could `id` name a row keyed by a uuid? Ids reach the repositories from
- * forms and URLs; a malformed one names nothing, and Postgres would fail
- * on it rather than find no row.
- */
-export function isUuid(id: string): boolean {
-  return uuidSchema.safeParse(id).success;
-}
+/** A row count as `$count` returns it. */
+export const countSchema = z.number().int().nonnegative();
 
 /**
  * Is `groupId` a group of `coachId`? If so, the group row is held (FOR KEY

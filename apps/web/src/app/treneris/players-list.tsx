@@ -1,10 +1,13 @@
+'use client';
+
 import { useFormatter, useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { useId, type JSX } from 'react';
+import { useActionState, useId, type JSX } from 'react';
 import { coachPlayerPath } from '../../lib/routes';
 import { ConfirmedAction } from '../confirmed-action';
 import { SECTION, SECTION_TITLE, TEXT_LINK } from '../nustatymai/styles';
-import { unlinkPlayerAction } from './actions';
+import { unlinkPlayerAction, type CoachActionState } from './actions';
+import { RefusalLine } from './refusal-line';
 
 /** One linked player as the coach dashboard lists them. */
 export interface CoachPlayerRow {
@@ -13,11 +16,15 @@ export interface CoachPlayerRow {
   readonly groups: readonly { readonly id: string; readonly name: string }[];
 }
 
+const INITIAL: CoachActionState = {};
+
 /** One player: the name (to their page), their groups, and Unlink. */
 function PlayerRow({
   player,
+  unlink,
 }: {
   readonly player: CoachPlayerRow;
+  readonly unlink: (form: FormData) => void;
 }): JSX.Element {
   const t = useTranslations('coach.players');
   const format = useFormatter();
@@ -40,7 +47,7 @@ function PlayerRow({
             })}
       </p>
       <ConfirmedAction
-        action={unlinkPlayerAction}
+        action={unlink}
         fields={{ playerId: player.id }}
         describedBy={nameId}
         label={t('unlink')}
@@ -52,7 +59,7 @@ function PlayerRow({
   );
 }
 
-/** The coach's linked players, by display name (R-12). */
+/** The coach's linked players, by display name (R-12); a refused Unlink. */
 export function PlayersList({
   players,
 }: {
@@ -60,17 +67,19 @@ export function PlayersList({
 }): JSX.Element {
   const t = useTranslations('coach.players');
   const titleId = useId();
+  const [state, unlink] = useActionState(unlinkPlayerAction, INITIAL);
   return (
     <section aria-labelledby={titleId} className={SECTION}>
       <h2 id={titleId} className={SECTION_TITLE}>
         {t('title')}
       </h2>
+      <RefusalLine state={state} />
       {players.length === 0 ? (
         <p className="text-fg-muted">{t('empty')}</p>
       ) : (
         <ul className="flex flex-col gap-4">
           {players.map((player) => (
-            <PlayerRow key={player.id} player={player} />
+            <PlayerRow key={player.id} player={player} unlink={unlink} />
           ))}
         </ul>
       )}

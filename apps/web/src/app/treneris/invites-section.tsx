@@ -17,6 +17,7 @@ import {
   createInviteAction,
   revokeInviteAction,
   type CreateInviteState,
+  type RevokeInviteState,
 } from './actions';
 
 /** One of the coach's invites as the list shows it; never its token. */
@@ -35,6 +36,11 @@ export interface InviteGroupOption {
 }
 
 const INITIAL: CreateInviteState = {};
+
+const NOT_REVOKED: RevokeInviteState = {};
+
+/** A form's dispatch, as useActionState hands it over. */
+type Dispatch = (form: FormData) => void;
 
 const FIELD =
   'min-h-touch rounded-control border border-border-strong bg-surface px-3 text-base text-fg';
@@ -187,12 +193,14 @@ function Expiry({ invite }: { readonly invite: CoachInviteRow }): JSX.Element {
 /** An active invite's Revoke button. */
 function RevokeForm({
   invite,
+  revoke,
 }: {
   readonly invite: CoachInviteRow;
+  readonly revoke: Dispatch;
 }): JSX.Element {
   const t = useTranslations('coach.invites');
   return (
-    <form action={revokeInviteAction} className="shrink-0">
+    <form action={revoke} className="shrink-0">
       <input type="hidden" name="inviteId" value={invite.id} />
       <PendingButton className={SECONDARY_BUTTON}>{t('revoke')}</PendingButton>
     </form>
@@ -205,8 +213,10 @@ function RevokeForm({
  */
 function InviteRow({
   invite,
+  revoke,
 }: {
   readonly invite: CoachInviteRow;
+  readonly revoke: Dispatch;
 }): JSX.Element {
   const t = useTranslations('coach.invites');
   const active = invite.state === 'active';
@@ -226,8 +236,39 @@ function InviteRow({
           {active ? <Expiry invite={invite} /> : null}
         </p>
       </div>
-      {active ? <RevokeForm invite={invite} /> : null}
+      {active ? <RevokeForm invite={invite} revoke={revoke} /> : null}
     </li>
+  );
+}
+
+/**
+ * The coach's invites with their state, and a refused Revoke. revokeInvite
+ * refuses only as "not valid": the invite was used, expired or revoked
+ * since the list was shown, which is what the line says to the coach.
+ */
+function InviteList({
+  invites,
+}: {
+  readonly invites: readonly CoachInviteRow[];
+}): JSX.Element {
+  const t = useTranslations('coach.invites');
+  const [state, revoke] = useActionState(revokeInviteAction, NOT_REVOKED);
+  return (
+    <>
+      <StatusLine
+        text={state.refusal === undefined ? null : t('revokeInvalid')}
+        tone="error"
+      />
+      {invites.length === 0 ? (
+        <p className="text-fg-muted">{t('empty')}</p>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {invites.map((invite) => (
+            <InviteRow key={invite.id} invite={invite} revoke={revoke} />
+          ))}
+        </ul>
+      )}
+    </>
   );
 }
 
@@ -248,15 +289,7 @@ export function InvitesSection({
       </h2>
       <p className="text-fg-muted">{t('intro')}</p>
       <InviteForm groups={groups} />
-      {invites.length === 0 ? (
-        <p className="text-fg-muted">{t('empty')}</p>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {invites.map((invite) => (
-            <InviteRow key={invite.id} invite={invite} />
-          ))}
-        </ul>
-      )}
+      <InviteList invites={invites} />
     </section>
   );
 }

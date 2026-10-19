@@ -136,15 +136,21 @@ const COACH_ACTIONS: Readonly<
     renameGroupAction({}, formOf({ groupId: ids.group, name: 'Pagrobta' })),
   deleteGroupAction: (ids) => deleteGroupAction(formOf({ groupId: ids.group })),
   addMemberAction: (ids) =>
-    addMemberAction(formOf({ groupId: ids.group, playerId: ids.gabija.id })),
+    addMemberAction(
+      {},
+      formOf({ groupId: ids.group, playerId: ids.gabija.id }),
+    ),
   removeMemberAction: (ids) =>
-    removeMemberAction(formOf({ groupId: ids.group, playerId: ids.rokas.id })),
+    removeMemberAction(
+      {},
+      formOf({ groupId: ids.group, playerId: ids.rokas.id }),
+    ),
   unlinkPlayerAction: (ids) =>
-    unlinkPlayerAction(formOf({ playerId: ids.rokas.id })),
+    unlinkPlayerAction({}, formOf({ playerId: ids.rokas.id })),
   createInviteAction: (ids) =>
     createInviteAction({}, formOf({ kind: 'group', groupId: ids.group })),
   revokeInviteAction: (ids) =>
-    revokeInviteAction(formOf({ inviteId: ids.invite })),
+    revokeInviteAction({}, formOf({ inviteId: ids.invite })),
 };
 
 /** The actions that name something of Rimantas's (all but a new group). */
@@ -218,10 +224,13 @@ describe('a coach who is not linked (checklist 1)', () => {
       const ids = await setUp();
       const before = await coachingRows();
       actAs(ids.dovydas);
-      // A form action answers nothing; a stateful one, "group not found".
-      expect([undefined, { refusal: 'coach.groupNotFound' }]).toContainEqual(
-        await outcomeOf(act(ids)),
-      );
+      // A form action answers nothing; a stateful one, its refusal.
+      expect([
+        undefined,
+        { refusal: 'coach.groupNotFound' },
+        { refusal: 'coach.notLinked' },
+        { refusal: 'invite.invalid' },
+      ]).toContainEqual(await outcomeOf(act(ids)));
       expect(await coachingRows()).toEqual(before);
     },
   );
@@ -232,6 +241,7 @@ describe('a coach who is not linked (checklist 1)', () => {
     actAs(ids.dovydas);
     await outcomeOf(
       addMemberAction(
+        {},
         formOf({ groupId: ids.dovydasGroup, playerId: ids.rokas.id }),
       ),
     );
@@ -295,7 +305,9 @@ describe('access ends with the link (checklist 3)', () => {
       displayName: 'Rokas Petrauskas',
     });
     expect(
-      await outcomeOf(unlinkPlayerAction(formOf({ playerId: ids.rokas.id }))),
+      await outcomeOf(
+        unlinkPlayerAction({}, formOf({ playerId: ids.rokas.id })),
+      ),
     ).toEqual({ redirectedTo: '/treneris' });
     expect(await outcomeOf(coachPlayerData(ids.rokas.id))).toEqual({
       notFound: true,
@@ -315,10 +327,11 @@ describe('ids in a form never pick whose data changes (checklist 4)', () => {
     expect(
       await outcomeOf(
         unlinkPlayerAction(
+          {},
           formOf({ playerId: ids.gabija.id, coachId: ids.dovydas.id }),
         ),
       ),
-    ).toBeUndefined();
+    ).toEqual({ refusal: 'coach.notLinked' });
     expect(await links()).toEqual([
       { coach: 'Dovydas', player: 'Gabija' },
       { coach: 'Rimantas Vaitkus', player: 'Rokas Petrauskas' },
@@ -329,7 +342,10 @@ describe('ids in a form never pick whose data changes (checklist 4)', () => {
     const ids = await setUp();
     actAs(ids.rimantas);
     await outcomeOf(
-      addMemberAction(formOf({ groupId: ids.group, playerId: ids.gabija.id })),
+      addMemberAction(
+        {},
+        formOf({ groupId: ids.group, playerId: ids.gabija.id }),
+      ),
     );
     expect(await memberships()).toEqual([
       { group: 'Dovydo grupė', player: 'Gabija' },
@@ -342,6 +358,7 @@ describe('ids in a form never pick whose data changes (checklist 4)', () => {
     actAs(ids.rimantas);
     await outcomeOf(
       removeMemberAction(
+        {},
         formOf({ groupId: ids.dovydasGroup, playerId: ids.gabija.id }),
       ),
     );

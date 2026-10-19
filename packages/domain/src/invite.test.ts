@@ -6,6 +6,7 @@ import {
   INVITE_STATES,
   INVITE_TTL_MS,
   canAccept,
+  canRevoke,
   inviteExpiry,
   inviteSchema,
   inviteState,
@@ -58,7 +59,6 @@ describe('invite vocabulary', () => {
       invalid: 'invite.invalid',
       ownInvite: 'invite.ownInvite',
       coachFull: 'invite.coachFull',
-      notCoach: 'invite.notCoach',
     });
     expect(INVITE_ISSUES).toStrictEqual({
       kindInvalid: 'invite.kindInvalid',
@@ -107,6 +107,24 @@ describe('inviteState', () => {
   });
 });
 
+describe('canRevoke', () => {
+  it.each<[string, Invite, Date, boolean]>([
+    ['revocable: an active invite', invite(), BEFORE_EXPIRY, true],
+    ['revocable: an active personal invite', personal(), T0, true],
+    ['revocable: a group invite after use', invite({ usedAt: T0 }), T0, true],
+    ['not revocable: an expired invite', invite(), AT_EXPIRY, false],
+    [
+      'not revocable: a used personal invite',
+      personal({ usedAt: T0 }),
+      T0,
+      false,
+    ],
+    ['not revocable: a revoked invite', invite({ revokedAt: T0 }), T0, false],
+  ])('%s', (_, subject, now, revocable) => {
+    expect(canRevoke(subject, now)).toBe(revocable);
+  });
+});
+
 describe('canAccept', () => {
   const attempt = (over: Partial<Acceptance> = {}): Acceptance => ({
     playerId: 'player',
@@ -146,10 +164,10 @@ describe('canAccept', () => {
     ).toStrictEqual(refused(INVITE_REFUSALS.ownInvite));
   });
 
-  it('refuses when the coach switched Coach mode off', () => {
+  it('refuses an invite from a coach out of Coach mode as not valid', () => {
     const offCoach = { ...coach, coachSince: null };
     expect(canAccept(invite(), attempt({ coach: offCoach }), T0)).toStrictEqual(
-      refused(INVITE_REFUSALS.notCoach),
+      refused(INVITE_REFUSALS.invalid),
     );
   });
 

@@ -8,10 +8,14 @@ import {
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/locales';
+import type { CoachActionState } from './actions';
 import { PlayersList, type CoachPlayerRow } from './players-list';
 
 const server = vi.hoisted(() => ({
-  unlink: vi.fn<(form: FormData) => Promise<void>>(),
+  unlink:
+    vi.fn<
+      (previous: CoachActionState, form: FormData) => Promise<CoachActionState>
+    >(),
 }));
 
 vi.mock('./actions', () => ({ unlinkPlayerAction: server.unlink }));
@@ -43,7 +47,7 @@ const playerItem = (name: string) =>
   within(screen.getByRole('link', { name }).closest('li') ?? document.body);
 
 beforeEach(() => {
-  server.unlink.mockReset().mockResolvedValue(undefined);
+  server.unlink.mockReset().mockResolvedValue({});
 });
 
 describe('PlayersList', () => {
@@ -96,8 +100,23 @@ describe('PlayersList', () => {
       expect(server.unlink).toHaveBeenCalledTimes(1);
     });
     expect(
-      Object.fromEntries(server.unlink.mock.lastCall?.[0].entries() ?? []),
+      Object.fromEntries(server.unlink.mock.lastCall?.[1].entries() ?? []),
     ).toEqual({ playerId: 'p-2' });
+  });
+
+  it('shows a refused Unlink in the players section', async () => {
+    server.unlink.mockResolvedValue({ refusal: 'coach.notLinked' });
+    renderList([ROKAS, GABIJA]);
+    const players = within(screen.getByRole('region', { name: p.title }));
+    expect(players.getByRole('status').textContent).toBe('');
+    const gabija = playerItem('Gabija');
+    fireEvent.click(gabija.getByRole('button', { name: p.unlink }));
+    fireEvent.click(gabija.getByRole('button', { name: p.confirmUnlink }));
+    await waitFor(() => {
+      expect(players.getByRole('status').textContent).toBe(
+        MESSAGES.lt.coach.notLinked,
+      );
+    });
   });
 
   it('speaks English on the English page', () => {

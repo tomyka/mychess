@@ -120,7 +120,7 @@ describe('the PGN download (R-96, decision 13)', () => {
       'application/x-chess-pgn; charset=utf-8',
     );
     expect(response.headers.get('content-disposition')).toBe(
-      contentDisposition('Sicilijos gynyba, Taimanovo variantas'),
+      contentDisposition('Sicilijos gynyba, Taimanovo variantas', 'lt'),
     );
     const stored = await storedGraph(taimanov, rokas.id);
     expect(await reimported(response, 'black')).toEqual(canonical(stored));
@@ -171,6 +171,12 @@ describe('the PGN download (R-96, decision 13)', () => {
     const response = await download(london);
     expect(response.headers.get('content-disposition')).toBe(
       'attachment; filename="repertuaras.pgn"; filename*=UTF-8\'\'%3F%3F%3F.pgn',
+    );
+    await client.query(
+      "update accounts set locale = 'en' where email = 'rokas@example.lt'",
+    );
+    expect((await download(london)).headers.get('content-disposition')).toBe(
+      'attachment; filename="repertoire.pgn"; filename*=UTF-8\'\'%3F%3F%3F.pgn',
     );
   });
 });

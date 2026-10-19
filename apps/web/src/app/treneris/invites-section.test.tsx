@@ -8,7 +8,7 @@ import {
 import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/locales';
-import type { CreateInviteState } from './actions';
+import type { CreateInviteState, RevokeInviteState } from './actions';
 import { InvitesSection, type CoachInviteRow } from './invites-section';
 
 const server = vi.hoisted(() => ({
@@ -19,7 +19,13 @@ const server = vi.hoisted(() => ({
         form: FormData,
       ) => Promise<CreateInviteState>
     >(),
-  revoke: vi.fn<(form: FormData) => Promise<void>>(),
+  revoke:
+    vi.fn<
+      (
+        previous: RevokeInviteState,
+        form: FormData,
+      ) => Promise<RevokeInviteState>
+    >(),
 }));
 
 vi.mock('./actions', () => ({
@@ -93,7 +99,7 @@ const writeText = vi.fn<(text: string) => Promise<void>>();
 
 beforeEach(() => {
   server.create.mockReset().mockResolvedValue({ link: LINK });
-  server.revoke.mockReset().mockResolvedValue(undefined);
+  server.revoke.mockReset().mockResolvedValue({});
   writeText.mockReset().mockResolvedValue(undefined);
   Object.defineProperty(navigator, 'clipboard', {
     value: { writeText },
@@ -213,8 +219,19 @@ describe('InvitesSection: the invite list', () => {
       expect(server.revoke).toHaveBeenCalledTimes(1);
     });
     expect(
-      Object.fromEntries(server.revoke.mock.lastCall?.[0].entries() ?? []),
+      Object.fromEntries(server.revoke.mock.lastCall?.[1].entries() ?? []),
     ).toEqual({ inviteId: 'i-1' });
+  });
+
+  it('says so when an invite can no longer be revoked', async () => {
+    server.revoke.mockResolvedValue({ refusal: 'invite.invalid' });
+    renderSection(INVITES);
+    fireEvent.click(screen.getByRole('button', { name: i.revoke }));
+    await waitFor(() => {
+      expect(
+        screen.getAllByRole('status').map((line) => line.textContent),
+      ).toContain(i.revokeInvalid);
+    });
   });
 
   it('speaks English on the English page', () => {

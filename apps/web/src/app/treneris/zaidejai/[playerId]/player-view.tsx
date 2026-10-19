@@ -1,11 +1,14 @@
+'use client';
+
 import { useFormatter, useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { useId, type JSX } from 'react';
+import { useActionState, useId, type JSX } from 'react';
 import { coachGroupPath } from '../../../../lib/routes';
 import { DISPLAY_TIME_ZONE } from '../../../../lib/time-zone';
 import { ConfirmedAction } from '../../../confirmed-action';
 import { SECTION, SECTION_TITLE, TEXT_LINK } from '../../../nustatymai/styles';
-import { unlinkPlayerAction } from '../../actions';
+import { unlinkPlayerAction, type CoachActionState } from '../../actions';
+import { RefusalLine } from '../../refusal-line';
 import { COACH_PAGE, SubpageHeader } from '../../subpage-header';
 
 /**
@@ -49,6 +52,8 @@ function PlayerGroups({
   );
 }
 
+const INITIAL: CoachActionState = {};
+
 /** One linked player's page in the coach dashboard (plan decision 11). */
 export function PlayerView({
   player,
@@ -58,6 +63,7 @@ export function PlayerView({
   const t = useTranslations('coach');
   const format = useFormatter();
   const nameId = useId();
+  const [state, unlink] = useActionState(unlinkPlayerAction, INITIAL);
   const date = format.dateTime(player.linkedAt, {
     dateStyle: 'medium',
     timeZone: DISPLAY_TIME_ZONE,
@@ -68,8 +74,9 @@ export function PlayerView({
         <p className="text-fg-muted">{t('player.linkedSince', { date })}</p>
       </SubpageHeader>
       <PlayerGroups groups={player.groups} />
+      <RefusalLine state={state} />
       <ConfirmedAction
-        action={unlinkPlayerAction}
+        action={unlink}
         fields={{ playerId: player.id }}
         describedBy={nameId}
         label={t('players.unlink')}

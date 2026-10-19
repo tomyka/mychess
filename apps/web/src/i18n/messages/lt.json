@@ -164,6 +164,7 @@
       "groupName": "Grupė: {group}",
       "expires": "Galioja iki {date}",
       "revoke": "Atšaukti",
+      "revokeInvalid": "Šio kvietimo atšaukti nebegalima: jis jau panaudotas, nebegalioja arba jau atšauktas.",
       "state": {
         "active": "Galioja",
         "expired": "Nebegalioja",
@@ -207,8 +208,7 @@
     "home": "Į pradžią",
     "invalid": "Šis kvietimas negalioja. Paprašykite trenerio naujos nuorodos.",
     "ownInvite": "Tai jūsų pačių kvietimas. Nusiųskite nuorodą žaidėjui.",
-    "coachFull": "Šis treneris daugiau žaidėjų susieti nebegali. Praneškite apie tai treneriui.",
-    "notCoach": "Šis kvietimas negalioja. Paprašykite trenerio naujos nuorodos."
+    "coachFull": "Šis treneris daugiau žaidėjų susieti nebegali. Praneškite apie tai treneriui."
   },
   "mail": {
     "magicLink": {
@@ -289,7 +289,8 @@
     "tooManyMoves": "Faile daugiau nei {limit, number} pusėjimių.",
     "tooManyImports": "Per daug bandymų importuoti: ne daugiau kaip {limit} per minutę. Palaukite minutę ir bandykite dar kartą.",
     "noValidGames": "Faile nerasta nė vienos tinkamos partijos.",
-    "nothingToAdd": "Iš šio failo nėra ko naujo pridėti: kiekviena jo partija jau yra repertuare arba kurioje nors padėtyje atsako kitaip."
+    "nothingToAdd": "Iš šio failo nėra ko naujo pridėti: kiekviena jo partija jau yra repertuare arba kurioje nors padėtyje atsako kitaip.",
+    "fileNameFallback": "repertuaras"
   },
   "personalNote": {
     "tooLong": "Užrašas per ilgas: daugiausia 2 000 simbolių."

@@ -23,13 +23,12 @@ export type InvitePreviewResult = Result<InvitePreview, InviteRefusal>;
 type RefusalKey = InviteRefusal['reason'];
 
 /**
- * The text of each refusal. A disabled coach's invite is already
- * `invalid` (R-108); `notCoach` reads the same, so a refusal says no more
- * than that the invite cannot be used.
+ * The text of each refusal. An invite from a disabled coach (R-108) or one
+ * out of Coach mode is already `invalid`, so a refusal says no more than
+ * that the invite cannot be used.
  */
 const REFUSAL_TEXT = {
   'invite.invalid': 'invalid',
-  'invite.notCoach': 'invalid',
   'invite.ownInvite': 'ownInvite',
   'invite.coachFull': 'coachFull',
 } as const satisfies Record<RefusalKey, string>;

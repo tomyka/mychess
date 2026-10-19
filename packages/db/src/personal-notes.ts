@@ -16,7 +16,7 @@ import {
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Executor } from './client';
-import { isUuid } from './coach-queries';
+import { isUuid } from './ids';
 import { DONE, refusal } from './results';
 import { personalNotes, repertoires } from './schema';
 

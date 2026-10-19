@@ -59,6 +59,7 @@ export {
   INVITE_STATES,
   INVITE_TTL_MS,
   canAccept,
+  canRevoke,
   inviteExpiry,
   inviteSchema,
   inviteState,

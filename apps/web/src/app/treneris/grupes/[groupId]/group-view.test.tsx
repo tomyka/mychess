@@ -8,7 +8,7 @@ import {
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../../i18n/locales';
-import type { RenameGroupState } from '../../actions';
+import type { CoachActionState, RenameGroupState } from '../../actions';
 import { GroupView, type CoachGroupPageData } from './group-view';
 
 const server = vi.hoisted(() => ({
@@ -16,8 +16,13 @@ const server = vi.hoisted(() => ({
     vi.fn<
       (previous: RenameGroupState, form: FormData) => Promise<RenameGroupState>
     >(),
-  remove: vi.fn<(form: FormData) => Promise<void>>(),
-  add: vi.fn<(form: FormData) => Promise<void>>(),
+  remove:
+    vi.fn<
+      (previous: CoachActionState, form: FormData) => Promise<CoachActionState>
+    >(),
+  add: vi.fn<
+    (previous: CoachActionState, form: FormData) => Promise<CoachActionState>
+  >(),
   delete: vi.fn<(form: FormData) => Promise<void>>(),
 }));
 
@@ -61,11 +66,15 @@ const fieldsOf = (form: FormData | undefined): Record<string, unknown> =>
 const nameField = () => screen.getByLabelText<HTMLInputElement>(c.groups.name);
 const members = () =>
   within(screen.getByRole('region', { name: g.membersTitle }));
+const adding = () => within(screen.getByRole('region', { name: g.addTitle }));
+/** The texts of the page's status lines (rename, members, adding). */
+const statuses = () =>
+  screen.getAllByRole('status').map((status) => status.textContent);
 
 beforeEach(() => {
   server.rename.mockReset().mockResolvedValue({ saved: true });
-  server.remove.mockReset().mockResolvedValue(undefined);
-  server.add.mockReset().mockResolvedValue(undefined);
+  server.remove.mockReset().mockResolvedValue({});
+  server.add.mockReset().mockResolvedValue({});
   server.delete.mockReset().mockResolvedValue(undefined);
 });
 
@@ -93,7 +102,7 @@ describe('GroupView', () => {
       name: 'Sekmadienio grupė',
     });
     await waitFor(() => {
-      expect(screen.getByRole('status').textContent).toBe(g.saved);
+      expect(statuses()).toContain(g.saved);
     });
   });
 
@@ -103,9 +112,7 @@ describe('GroupView', () => {
     fireEvent.change(nameField(), { target: { value: ' ' } });
     fireEvent.click(screen.getByRole('button', { name: g.save }));
     await waitFor(() => {
-      expect(screen.getByRole('status').textContent).toBe(
-        MESSAGES.lt.groupName.blank,
-      );
+      expect(statuses()).toContain(MESSAGES.lt.groupName.blank);
     });
     expect(nameField().value).toBe(' ');
     expect(nameField().getAttribute('aria-invalid')).toBe('true');
@@ -126,9 +133,23 @@ describe('GroupView', () => {
     await waitFor(() => {
       expect(server.remove).toHaveBeenCalledTimes(1);
     });
-    expect(fieldsOf(server.remove.mock.lastCall?.[0])).toEqual({
+    expect(fieldsOf(server.remove.mock.lastCall?.[1])).toEqual({
       groupId: 'g-1',
       playerId: 'p-2',
+    });
+    expect(members().getByRole('status').textContent).toBe('');
+  });
+
+  it('shows a refused Remove in the members section', async () => {
+    server.remove.mockResolvedValue({ refusal: 'coach.notCoach' });
+    renderView(GROUP);
+    fireEvent.click(
+      members().getByRole('button', {
+        name: g.removeNamed.replace('{name}', 'Rokas'),
+      }),
+    );
+    await waitFor(() => {
+      expect(members().getByRole('status').textContent).toBe(c.notCoach);
     });
   });
 
@@ -150,9 +171,19 @@ describe('GroupView', () => {
     await waitFor(() => {
       expect(server.add).toHaveBeenCalledTimes(1);
     });
-    expect(fieldsOf(server.add.mock.lastCall?.[0])).toEqual({
+    expect(fieldsOf(server.add.mock.lastCall?.[1])).toEqual({
       groupId: 'g-1',
       playerId: 'p-4',
+    });
+    expect(adding().getByRole('status').textContent).toBe('');
+  });
+
+  it('shows a refused Add in the adding section', async () => {
+    server.add.mockResolvedValue({ refusal: 'coach.notLinked' });
+    renderView(GROUP);
+    fireEvent.click(screen.getByRole('button', { name: g.add }));
+    await waitFor(() => {
+      expect(adding().getByRole('status').textContent).toBe(c.notLinked);
     });
   });
 

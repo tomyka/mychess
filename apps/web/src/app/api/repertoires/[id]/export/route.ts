@@ -29,7 +29,10 @@ export async function GET(
     headers: {
       ...NO_STORE,
       'content-type': 'application/x-chess-pgn; charset=utf-8',
-      'content-disposition': contentDisposition(own.value.repertoire.name),
+      'content-disposition': contentDisposition(
+        own.value.repertoire.name,
+        account.locale,
+      ),
     },
   });
 }

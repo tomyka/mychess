@@ -5,8 +5,8 @@ import { DANGER_BUTTON, SECONDARY_BUTTON } from './buttons';
 import { PendingButton } from './pending-button';
 
 export interface ConfirmedActionProps {
-  /** The server action the confirmed form posts to. */
-  readonly action: (form: FormData) => Promise<void>;
+  /** The server action the confirmed form posts to, or useActionState's dispatch. */
+  readonly action: (form: FormData) => void | Promise<void>;
   /** The hidden fields the form sends. */
   readonly fields: Readonly<Record<string, string>>;
   /** The first button's label. */

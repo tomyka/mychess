@@ -1,13 +1,13 @@
 /**
- * Request limits counted per key, as Better Auth counts its own in the
- * rate_limits table (security A6): a counter keeps the requests since the
- * last quiet window and the time of the last one allowed.
+ * Request limits counted per key in fixed windows, stored in Better Auth's
+ * rate_limits table (security A6): a counter keeps the requests allowed in
+ * the current window and the time that window opened.
  */
 import type { Result } from '@mychess/chess';
 
 /**
- * At most `max` requests, the count restarting after `windowMs` of quiet;
- * a request over it is refused with `reason`, a message-catalogue key.
+ * At most `max` requests in a window of `windowMs`; a request over it is
+ * refused with `reason`, a message-catalogue key.
  */
 export interface RateRule<R extends string = string> {
   readonly windowMs: number;
@@ -15,10 +15,10 @@ export interface RateRule<R extends string = string> {
   readonly reason: R;
 }
 
-/** A key's stored count; `lastRequest` is epoch milliseconds. */
+/** A key's stored count; `windowStart` is epoch milliseconds. */
 export interface RateCounter {
   readonly count: number;
-  readonly lastRequest: number;
+  readonly windowStart: number;
 }
 
 /** A request over its rule's limit. */
@@ -41,19 +41,24 @@ export const importRateKey = (accountId: string): string =>
 /**
  * Counts a request at `now` (epoch milliseconds) against `counter` (none
  * yet: undefined): the counter to store when it is allowed, or the refusal.
- * Better Auth's rule: a whole window since the last allowed request starts
- * the count again; otherwise a count at the maximum refuses.
+ * A fixed window (R-119 "at most ten a minute"): a request a whole window
+ * after the window opened opens a new one; otherwise a count at the maximum
+ * refuses. Better Auth's own rule (a window of quiet since the last allowed
+ * request) would refuse a steady pace under the maximum.
  */
 export function countRequest<R extends string>(
   counter: RateCounter | undefined,
   rule: RateRule<R>,
   now: number,
 ): Result<RateCounter, RateRefusal<R>> {
-  if (counter === undefined || now - counter.lastRequest >= rule.windowMs) {
-    return { ok: true, value: { count: 1, lastRequest: now } };
+  if (counter === undefined || now >= counter.windowStart + rule.windowMs) {
+    return { ok: true, value: { count: 1, windowStart: now } };
   }
   if (counter.count >= rule.max) {
     return { ok: false, refusal: { reason: rule.reason, limit: rule.max } };
   }
-  return { ok: true, value: { count: counter.count + 1, lastRequest: now } };
+  return {
+    ok: true,
+    value: { count: counter.count + 1, windowStart: counter.windowStart },
+  };
 }

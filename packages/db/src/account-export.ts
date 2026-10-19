@@ -6,7 +6,13 @@ import {
   type InviteState,
   type Locale,
 } from '@mychess/domain';
-import { exportPgn, fenOf, type Chapter, type Side } from '@mychess/chess';
+import {
+  exportPgn,
+  fenOf,
+  parseMoveKey,
+  type Chapter,
+  type Side,
+} from '@mychess/chess';
 import { and, asc, eq, gt } from 'drizzle-orm';
 import { z } from 'zod';
 import { accountColumns } from './accounts';
@@ -210,10 +216,10 @@ const noteRowsSchema = z.array(
  * it can never break the export.
  */
 function notedMove(key: string): { position: string; san: string } {
-  const [fromKey, san, ...rest] = key.split('|');
-  return fromKey && san && rest.length === 0
-    ? { position: fenOf(fromKey), san }
-    : { position: key, san: '' };
+  const parts = parseMoveKey(key);
+  return parts === null
+    ? { position: key, san: '' }
+    : { position: fenOf(parts.fromKey), san: parts.san };
 }
 
 /** The account's personal notes, by repertoire (oldest first), then move key. */

@@ -15,6 +15,7 @@ const at = (ms: number) => new Date(T0.getTime() + ms);
 const ALLOWED = { ok: true, value: undefined };
 const REFUSED = { ok: false, refusal: { reason: 'x.tooMany', limit: 2 } };
 
+/** last_request holds the window's start for these counters. */
 const rows = async (): Promise<unknown> =>
   (
     await client.query(
@@ -28,7 +29,7 @@ describe('countRateLimited', () => {
     expect(await countRateLimited(db, 'k', RULE, at(1000))).toEqual(ALLOWED);
     expect(await countRateLimited(db, 'k', RULE, at(2000))).toEqual(REFUSED);
     expect(await rows()).toEqual([
-      { key: 'k', count: 2, last_request: String(T0.getTime() + 1000) },
+      { key: 'k', count: 2, last_request: String(T0.getTime()) },
     ]);
   });
 
@@ -39,9 +40,9 @@ describe('countRateLimited', () => {
     expect(await countRateLimited(db, 'a', RULE, T0)).toEqual(REFUSED);
   });
 
-  it('starts again a whole window after the last allowed request', async () => {
+  it('opens a new window a whole window after the last one opened', async () => {
     await countRateLimited(db, 'k', RULE, T0);
-    await countRateLimited(db, 'k', RULE, T0);
+    await countRateLimited(db, 'k', RULE, at(RULE.windowMs - 1));
     expect(await countRateLimited(db, 'k', RULE, at(RULE.windowMs))).toEqual(
       ALLOWED,
     );
@@ -52,6 +53,15 @@ describe('countRateLimited', () => {
         last_request: String(T0.getTime() + RULE.windowMs),
       },
     ]);
+  });
+
+  it('never refuses a steady pace at the maximum a window', async () => {
+    const outcomes = [];
+    for (let ms = 0; ms < 10 * RULE.windowMs; ms += RULE.windowMs / 2) {
+      outcomes.push(await countRateLimited(db, 'k', RULE, at(ms)));
+    }
+    expect(outcomes).toHaveLength(20);
+    expect(outcomes.every((o) => o.ok)).toBe(true);
   });
 
   it('never lets concurrent requests past the maximum', async () => {

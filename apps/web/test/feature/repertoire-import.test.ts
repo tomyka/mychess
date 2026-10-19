@@ -467,11 +467,24 @@ describe('the import rate limit (R-119)', () => {
     expect((await preview()).ok).toBe(true);
   });
 
-  it('allows imports again a minute after the last one allowed', async () => {
+  it('allows imports again a minute after the minute opened', async () => {
     const { gabija } = await cast();
     actAs(gabija);
-    for (let i = 0; i < 10; i++) await preview();
+    await preview();
+    vi.setSystemTime(new Date(T0.getTime() + 59_000));
+    for (let i = 0; i < 9; i++) await preview();
     vi.setSystemTime(new Date(T0.getTime() + 60_000));
     expect((await preview()).ok).toBe(true);
+  });
+
+  it('never refuses a steady two a minute', async () => {
+    const { gabija } = await cast();
+    actAs(gabija);
+    const outcomes = [];
+    for (let s = 0; s < 600; s += 30) {
+      vi.setSystemTime(new Date(T0.getTime() + s * 1000));
+      outcomes.push((await preview()).ok);
+    }
+    expect(outcomes).toEqual(Array.from({ length: 20 }, () => true));
   });
 });

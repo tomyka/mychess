@@ -148,7 +148,10 @@ export const rateLimits = pgTable('rate_limits', {
   id: text('id').primaryKey(),
   key: text('key').notNull().unique(),
   count: integer('count').notNull(),
-  /** Epoch milliseconds, as Better Auth stores it. */
+  /**
+   * Epoch milliseconds, as Better Auth stores it. For our own fixed-window
+   * counters (rate-limits.ts) it is the time the window opened.
+   */
   lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
 });
 

@@ -15,14 +15,13 @@ export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Message-catalogue keys for invite refusals. Expired, used, revoked and
- * unknown tokens, and invites from a disabled coach (R-108), all give
- * `invalid`, so a refusal reveals nothing more.
+ * unknown tokens, and invites from a disabled coach (R-108) or from one out
+ * of Coach mode, all give `invalid`, so a refusal reveals nothing more.
  */
 export const INVITE_REFUSALS = {
   invalid: 'invite.invalid',
   ownInvite: 'invite.ownInvite',
   coachFull: 'invite.coachFull',
-  notCoach: 'invite.notCoach',
 } as const;
 
 export interface InviteRefusal {
@@ -75,11 +74,23 @@ export function inviteExpiry(createdAt: Date): Date {
   return new Date(createdAt.getTime() + INVITE_TTL_MS);
 }
 
-/** Revoked beats used beats expired; a group invite is never "used". */
+/**
+ * Revoked beats used beats expired; a group invite is never "used".
+ * packages/db's `openAt` (invites.ts) restates "active" in SQL: a new
+ * state, or a change to what makes one, is changed in both.
+ */
 export function inviteState(invite: Invite, now: Date): InviteState {
   if (invite.revokedAt !== null) return 'revoked';
   if (invite.kind === 'personal' && invite.usedAt !== null) return 'used';
   return now.getTime() < invite.expiresAt.getTime() ? 'active' : 'expired';
+}
+
+/**
+ * May the coach revoke `invite` now? Only an open (active) one: a used,
+ * expired or already revoked invite stays as it is.
+ */
+export function canRevoke(invite: Invite, now: Date): boolean {
+  return inviteState(invite, now) === 'active';
 }
 
 /** What accepting needs to know about the coach behind the invite. */
@@ -99,9 +110,14 @@ const refuse = (reason: InviteRefusal['reason']): AcceptResult => ({
   refusal: { reason },
 });
 
-/** An invite is valid while active and while its coach is not disabled (R-108). */
+/**
+ * An invite is valid while active and while its coach is neither disabled
+ * (R-108) nor out of Coach mode.
+ */
 const isValid = (invite: Invite, coach: InvitingCoach, now: Date): boolean =>
-  inviteState(invite, now) === 'active' && coach.disabledAt === null;
+  inviteState(invite, now) === 'active' &&
+  coach.disabledAt === null &&
+  isCoach(coach);
 
 /** An already linked player needs no new link, so the limit does not apply. */
 const hasRoom = (coach: InvitingCoach, counts: AcceptCounts): boolean =>
@@ -125,6 +141,5 @@ export function canAccept(
 ): AcceptResult {
   if (!isValid(invite, coach, now)) return refuse(INVITE_REFUSALS.invalid);
   if (playerId === invite.coachId) return refuse(INVITE_REFUSALS.ownInvite);
-  if (!isCoach(coach)) return refuse(INVITE_REFUSALS.notCoach);
   return hasRoom(coach, counts) ? OK : refuse(INVITE_REFUSALS.coachFull);
 }
