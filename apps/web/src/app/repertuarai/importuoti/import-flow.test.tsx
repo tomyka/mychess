@@ -194,7 +194,7 @@ describe('ImportFlow', () => {
     chooseFile();
     fireEvent.click(screen.getByRole('button', { name: i.preview }));
     expect(
-      await screen.findByText('Faile daugiau nei 50 000 pusėjimių.'),
+      await screen.findByText(/^Faile daugiau nei 50\s000 pusėjimių\.$/),
     ).toBeDefined();
     server.preview.mockResolvedValueOnce({
       ok: false,
@@ -344,6 +344,8 @@ describe('ImportFlow', () => {
     const said = await screen.findByText(MESSAGES.lt.pgn.nothingToAdd);
     expect(said.getAttribute('role')).toBe('status');
     expect(confirm.hasAttribute('disabled')).toBe(true);
+    // The target card does not promise "adds 0 chapters and 0 moves".
+    expect(screen.queryByText(/„Taimanovas“/)).toBeNull();
     fireEvent.click(confirm);
     expect(server.confirm).not.toHaveBeenCalled();
     // A new repertoire can still take the file.

@@ -436,7 +436,7 @@ has a draw mode for touch and keyboard (plan decision 16).
 
 | State | Board | Panel |
 | --- | --- | --- |
-| **Loading** (`loading.tsx`) | the real board frame with `board-light`/`board-dark` squares and no pieces, not focusable | top bar with a skeleton name; skeleton lines (`bg-sunken`) for the chapter row, comment and move list; after about 1s one "Loading" line (`text-sm fg-muted`) |
+| **Loading** (`loading.tsx`) | the real board frame with `board-light`/`board-dark` squares and no pieces, not focusable | top bar with a skeleton name; skeleton lines (`bg-sunken`) for the chapter row, comment and move list; after about 1s one "Loading" line (`text-sm fg-muted`), revealed by CSS (`animate-reveal-late`) so a first, server-streamed load shows it too; the live region gets the text from the client timer |
 | **Not found** (another account's id, a bad id) | none | the app's 404 page: "This repertoire does not exist or is not yours" and a link to My repertoires. Same text for both cases (plan decision 12) |
 | **Empty repertoire** (no chapters; opens in builder) | start position, movable in builder mode | "Play the first move on the board, or add games from PGN." with [ Add games from PGN ] (`SECONDARY_BUTTON`). The first move played creates "Chapter 1" on its own (R-111) and saves the move in it; the chapter disclosure then appears with that chapter selected. Draw and remove are hidden until there is a move. Browse mode shows "This repertoire has no moves yet" and offers "Switch to builder" |
 | **Empty chapter** | start position (or the chapter root) | browse: "No moves yet"; builder: "Play the first move on the board" |

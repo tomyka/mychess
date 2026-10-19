@@ -126,7 +126,7 @@ function Previewed({
             name={flow.name}
             nameInvalid={nameInvalid}
             statusId={statusId}
-            added={preview.target}
+            added={preview.refusal === null ? preview.target : null}
             onTarget={flow.chooseTarget}
             onName={(name) => {
               flow.dispatch({ type: 'set', patch: { name } });

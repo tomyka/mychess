@@ -69,28 +69,32 @@ function RenameForm({
       className="flex w-full flex-col gap-2"
     >
       <input type="hidden" name="repertoireId" value={id} />
-      <label htmlFor={fieldId} className="font-medium">
+      {/* On a wide screen the field takes the title's one row, so the
+          board below does not move: the label is read, not shown. */}
+      <label htmlFor={fieldId} className="font-medium lg:sr-only">
         {t('repertoires.header.renameLabel')}
       </label>
-      <input
-        id={fieldId}
-        type="text"
-        name="name"
-        autoComplete="off"
-        defaultValue={name}
-        autoFocus
-        onKeyDown={onKeyDown}
-        aria-invalid={refused ? true : undefined}
-        aria-describedby={refused ? statusId : undefined}
-        className={FIELD}
-      />
-      <div className="flex flex-wrap gap-2">
-        <button type="submit" disabled={pending} className={PRIMARY_BUTTON}>
-          {t('repertoires.header.renameSubmit')}
-        </button>
-        <button type="button" onClick={onCancel} className={SECONDARY_BUTTON}>
-          {t('repertoires.header.renameCancel')}
-        </button>
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+        <input
+          id={fieldId}
+          type="text"
+          name="name"
+          autoComplete="off"
+          defaultValue={name}
+          autoFocus
+          onKeyDown={onKeyDown}
+          aria-invalid={refused ? true : undefined}
+          aria-describedby={refused ? statusId : undefined}
+          className={`${FIELD} lg:min-w-0 lg:flex-1`}
+        />
+        <div className="flex flex-wrap gap-2 lg:flex-nowrap">
+          <button type="submit" disabled={pending} className={PRIMARY_BUTTON}>
+            {t('repertoires.header.renameSubmit')}
+          </button>
+          <button type="button" onClick={onCancel} className={SECONDARY_BUTTON}>
+            {t('repertoires.header.renameCancel')}
+          </button>
+        </div>
       </div>
       <StatusLine
         id={statusId}

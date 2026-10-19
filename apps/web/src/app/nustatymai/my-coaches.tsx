@@ -28,9 +28,9 @@ const SECTION_ID = 'treneriai';
 function GroupRow({ group }: { readonly group: MyCoachGroup }): JSX.Element {
   const t = useTranslations('settings.myCoaches');
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3">
-      <span>{group.name}</span>
-      <form action={leaveGroupAction}>
+    <li className="flex items-center justify-between gap-3">
+      <span className="min-w-0 break-words">{group.name}</span>
+      <form action={leaveGroupAction} className="shrink-0">
         <input type="hidden" name="groupId" value={group.id} />
         <PendingButton
           className={SECONDARY_BUTTON}

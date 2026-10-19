@@ -106,6 +106,20 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --duration-move: 150ms; /* piece slide */
   --duration-feedback: 400ms; /* correct/wrong square flash */
+
+  /* A slow wait's line ("Loading") shows after about a second (no spinner
+     first). Pure CSS, so it also shows in a server-streamed loading page
+     whose fallback React never hydrates. Not motion: reduced motion keeps it. */
+  --animate-reveal-late: reveal-late 0s linear 1s both;
+
+  @keyframes reveal-late {
+    from {
+      visibility: hidden;
+    }
+    to {
+      visibility: visible;
+    }
+  }
 }
 
 /*

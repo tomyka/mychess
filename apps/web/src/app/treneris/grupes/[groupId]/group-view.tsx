@@ -37,9 +37,9 @@ function MemberRow({
 }): JSX.Element {
   const t = useTranslations('coach.group');
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3">
-      <span>{member.displayName}</span>
-      <form action={removeMemberAction}>
+    <li className="flex items-center justify-between gap-3">
+      <span className="min-w-0 break-words">{member.displayName}</span>
+      <form action={removeMemberAction} className="shrink-0">
         <input type="hidden" name="groupId" value={groupId} />
         <input type="hidden" name="playerId" value={member.id} />
         <PendingButton

@@ -35,7 +35,7 @@ function CountTiles({
 }): JSX.Element {
   const t = useTranslations('repertoires.import.summary');
   return (
-    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+    <ul className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-3">
       {COUNTS.map((count) => (
         <li
           key={count}
@@ -62,10 +62,14 @@ function ChapterNames({
       </h3>
       <ol aria-labelledby={titleId} className="list-decimal pl-6">
         {names.map((name, index) => (
-          <li key={index} className="line-clamp-2">
-            {name.kind === 'text'
-              ? name.text
-              : t(name.key, { number: name.number })}
+          // The clamp sits on an inner span: on the <li> it would replace
+          // the list-item display and hide the number.
+          <li key={index}>
+            <span className="line-clamp-2">
+              {name.kind === 'text'
+                ? name.text
+                : t(name.key, { number: name.number })}
+            </span>
           </li>
         ))}
       </ol>
@@ -153,7 +157,35 @@ export interface ImportSummaryProps {
   readonly headingRef?: RefObject<HTMLHeadingElement | null>;
 }
 
-/** Step 2: what the file holds (R-64), or the merge with the chosen repertoire. */
+/** The counts, the chapters it brings and how many games were read. */
+function Accepted({
+  preview,
+}: {
+  readonly preview: ImportPreview;
+}): JSX.Element {
+  const t = useTranslations('repertoires.import');
+  return (
+    <>
+      <CountTiles summary={preview.summary} />
+      {preview.chapters.length === 0 ? null : (
+        <ChapterNames names={preview.chapters} />
+      )}
+      {preview.skipped.length === 0 ? (
+        <StatusLine
+          text={t('skippedNone', { count: preview.chapters.length })}
+          tone="success"
+        />
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * Step 2: what the file holds (R-64), or the merge with the chosen
+ * repertoire. When nothing can be added (R-115) the counts would only be
+ * the target's own, so it shows just the games left out and why; the
+ * refusal itself is step 3's status line.
+ */
 export function ImportSummary({
   preview,
   side,
@@ -172,14 +204,8 @@ export function ImportSummary({
         <StepNumber n={2} />
         {t('summaryTitle')}
       </h2>
-      <CountTiles summary={preview.summary} />
-      <ChapterNames names={preview.chapters} />
-      {preview.skipped.length === 0 ? (
-        <StatusLine
-          text={t('skippedNone', { count: preview.chapters.length })}
-          tone="success"
-        />
-      ) : (
+      {preview.refusal === null ? <Accepted preview={preview} /> : null}
+      {preview.skipped.length === 0 ? null : (
         <SkippedGames skipped={preview.skipped} side={side} />
       )}
     </section>

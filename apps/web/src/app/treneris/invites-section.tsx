@@ -40,7 +40,7 @@ const FIELD =
   'min-h-touch rounded-control border border-border-strong bg-surface px-3 text-base text-fg';
 
 const CHOICE =
-  'flex min-h-touch cursor-pointer items-center gap-3 rounded-control border border-border-strong bg-surface px-3 has-checked:border-accent has-checked:bg-sunken';
+  'flex min-h-touch cursor-pointer items-center gap-3 rounded-control border border-border-strong bg-surface px-3 has-checked:border-accent has-checked:bg-sunken has-checked:ring-1 has-checked:ring-accent';
 
 /** The link just made, shown once with a Copy button (plan decision 5). */
 function FreshLink({ link }: { readonly link: string }): JSX.Element {
@@ -89,11 +89,22 @@ function KindField(): JSX.Element {
       <legend className="mb-2 font-medium">{t('kind')}</legend>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className={CHOICE}>
-          <input type="radio" name="kind" value="personal" defaultChecked />
+          <input
+            type="radio"
+            name="kind"
+            value="personal"
+            defaultChecked
+            className="size-5 accent-accent"
+          />
           {t('personal')}
         </label>
         <label className={CHOICE}>
-          <input type="radio" name="kind" value="group" />
+          <input
+            type="radio"
+            name="kind"
+            value="group"
+            className="size-5 accent-accent"
+          />
           {t('group')}
         </label>
       </div>
@@ -162,46 +173,60 @@ function InviteForm({
   );
 }
 
-/** When an active invite stops being valid, and its Revoke button. */
-function ActiveInvite({
-  invite,
-}: {
-  readonly invite: CoachInviteRow;
-}): JSX.Element {
+/** When an active invite stops being valid. */
+function Expiry({ invite }: { readonly invite: CoachInviteRow }): JSX.Element {
   const t = useTranslations('coach.invites');
   const format = useFormatter();
   const date = format.dateTime(invite.expiresAt, {
     dateStyle: 'medium',
     timeZone: DISPLAY_TIME_ZONE,
   });
-  return (
-    <>
-      <span className="text-fg-muted">{t('expires', { date })}</span>
-      <form action={revokeInviteAction}>
-        <input type="hidden" name="inviteId" value={invite.id} />
-        <PendingButton className={SECONDARY_BUTTON}>
-          {t('revoke')}
-        </PendingButton>
-      </form>
-    </>
-  );
+  return <span>{t('expires', { date })}</span>;
 }
 
-/** One invite: kind, group, state; an active one also expiry and Revoke. */
-function InviteRow({
+/** An active invite's Revoke button. */
+function RevokeForm({
   invite,
 }: {
   readonly invite: CoachInviteRow;
 }): JSX.Element {
   const t = useTranslations('coach.invites');
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border pt-3 first:border-t-0 first:pt-0">
-      <span className="font-medium">{t(invite.kind)}</span>
-      {invite.groupName === null ? null : (
-        <span>{t('groupName', { group: invite.groupName })}</span>
-      )}
-      <span>{t(`state.${invite.state}`)}</span>
-      {invite.state === 'active' ? <ActiveInvite invite={invite} /> : null}
+    <form action={revokeInviteAction} className="shrink-0">
+      <input type="hidden" name="inviteId" value={invite.id} />
+      <PendingButton className={SECONDARY_BUTTON}>{t('revoke')}</PendingButton>
+    </form>
+  );
+}
+
+/**
+ * One invite: kind and group on the first line, state (and an active
+ * one's expiry) on the second; an active one's Revoke at the row's end.
+ */
+function InviteRow({
+  invite,
+}: {
+  readonly invite: CoachInviteRow;
+}): JSX.Element {
+  const t = useTranslations('coach.invites');
+  const active = invite.state === 'active';
+  return (
+    <li className="flex items-center justify-between gap-3 border-t border-border pt-3 first:border-t-0 first:pt-0">
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="flex flex-wrap gap-x-3">
+          <span className="font-medium">{t(invite.kind)}</span>
+          {invite.groupName === null ? null : (
+            <span className="break-words">
+              {t('groupName', { group: invite.groupName })}
+            </span>
+          )}
+        </p>
+        <p className="flex flex-wrap gap-x-3 text-fg-muted">
+          <span>{t(`state.${invite.state}`)}</span>
+          {active ? <Expiry invite={invite} /> : null}
+        </p>
+      </div>
+      {active ? <RevokeForm invite={invite} /> : null}
     </li>
   );
 }

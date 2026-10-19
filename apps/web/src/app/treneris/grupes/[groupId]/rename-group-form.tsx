@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX } from 'react';
-import { PRIMARY_BUTTON } from '../../../buttons';
+import { SECONDARY_BUTTON } from '../../../buttons';
 import { StatusLine } from '../../../status-line';
 import { submitByHand } from '../../../submit-by-hand';
 import { renameGroupAction, type RenameGroupState } from '../../actions';
@@ -51,7 +51,7 @@ export function RenameGroupForm({
             className="min-h-touch rounded-control border border-border-strong bg-surface px-3 text-base text-fg aria-invalid:border-error"
           />
         </div>
-        <button type="submit" disabled={pending} className={PRIMARY_BUTTON}>
+        <button type="submit" disabled={pending} className={SECONDARY_BUTTON}>
           {t('coach.group.save')}
         </button>
       </form>

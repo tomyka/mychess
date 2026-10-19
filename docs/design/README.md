@@ -77,7 +77,7 @@ inside Tailwind 4's `@theme`, so each one is also a utility class.
 | Type | `font-sans`, `font-mono`, `text-xs` ... `text-4xl` | system UI stack, 12-36px |
 | Spacing | 4px scale, plus `touch` (44px), `gutter` (16px), `gutter-wide` (32px), `panel` (360px) | `min-h-touch`, `px-gutter`, `w-panel` |
 | Radii | `control`, `card`, `board`, `pill` | `rounded-control`, ... |
-| Elevation, motion | `shadow-card`, `shadow-sheet`, `ease-standard`, `duration-move`, `duration-feedback` | |
+| Elevation, motion | `shadow-card`, `shadow-sheet`, `ease-standard`, `duration-move`, `duration-feedback`, `animate-reveal-late` | `animate-reveal-late` shows a slow wait's line after about 1s by CSS alone, so it also works in a streamed loading page React never hydrates |
 
 ### Semantic states
 

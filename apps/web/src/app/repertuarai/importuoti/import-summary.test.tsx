@@ -104,6 +104,38 @@ describe('ImportSummary', () => {
     expect(screen.queryByRole('list', { name: /Praleistos/ })).toBeNull();
   });
 
+  it('leaves out an empty chapter list', () => {
+    renderSummary({ ...PREVIEW, chapters: [] });
+    expect(screen.queryByRole('list', { name: i.chaptersTitle })).toBeNull();
+  });
+
+  it('shows only the skipped games when nothing can be added (R-115)', () => {
+    renderSummary({
+      ...PREVIEW,
+      chapters: [],
+      skipped: [{ game: 1, reason: 'pgn.secondAnswer', san: 'd6', move: 2 }],
+      refusal: 'pgn.nothingToAdd',
+    });
+    expect(screen.queryByText('6 skyriai')).toBeNull();
+    expect(screen.queryByRole('list', { name: i.chaptersTitle })).toBeNull();
+    expect(
+      screen.getByText(
+        'Partija 1: antras atsakymas toje pačioje padėtyje, 2...d6',
+      ),
+    ).toBeDefined();
+  });
+
+  it('says nothing about valid games when nothing can be added (R-115)', () => {
+    renderSummary({
+      ...PREVIEW,
+      chapters: [],
+      skipped: [],
+      refusal: 'pgn.nothingToAdd',
+    });
+    expect(screen.queryByText(/Visos partijos tinkamos/)).toBeNull();
+    expect(screen.queryByText('6 skyriai')).toBeNull();
+  });
+
   it('shows the first 10 skipped games and the rest on request', () => {
     const skipped: Skipped[] = Array.from({ length: 12 }, (_, n) => ({
       game: n + 1,
