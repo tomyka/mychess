@@ -31,7 +31,7 @@ Brainstormed with the owner on 2026-10-17.
 
 ### Chess (`packages/chess`)
 
-- `RepertoireMove` gains `comment: string | null`. `importPgn` keeps the comment after a move. Today it drops move comments; arrows, circles and intros are already kept. `exportPgn` writes the comments back. Exporting and then re-importing gives an identical graph, comments included (persona G-M1-6).
+- `RepertoireMove` gains `comment: string | null`. `importPgn` keeps the comment after a move. Today it drops move comments; arrows, circles and intros are already kept. `exportPgn` writes the comments back. Exporting and then re-importing keeps the moves, comments and marks; chapter names may be re-derived from the taxonomy (R-123, persona G-M1-6).
 - `mergeInto(graph, imported)`: adds an imported graph's chapters and moves to an existing graph of the same side. Positions merge. A move that both graphs share keeps the existing graph's comment and marks unless it had none. Chapter ids stay unique.
 - `editComment(graph, moveKey, text)`: a pure edit beside `setMarks`.
 - `removeChapter(graph, chapterId)`: removes the chapter and the moves only it uses.
@@ -85,6 +85,6 @@ Brainstormed with the owner on 2026-10-17.
 ## Done means
 
 - Each persona's own repertoires can be imported or built on a phone and a desktop, in LT and EN.
-- Exporting and re-importing gives an identical repertoire, comments included.
+- Exporting and re-importing keeps the moves, comments and marks (R-123).
 - An account can never read or change another account's repertoire (tests).
 - The gate and CI are green, and the architect, qa, ux-designer and i18n-content have reviewed the slice.

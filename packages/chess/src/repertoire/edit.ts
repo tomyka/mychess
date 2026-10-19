@@ -1,5 +1,5 @@
 import { Chess, type Move } from 'chess.js';
-import { fenOf, positionKey } from '../position-key';
+import { fenOf, positionKey, START_KEY } from '../position-key';
 import type { Result } from '../result';
 import { normalizeComment } from './comment';
 import {
@@ -216,4 +216,84 @@ export function renameChapter(
     c.id === chapterId ? { ...c, nameSource: { kind: 'custom', name } } : c,
   );
   return { ok: true, value: { ...graph, chapters } };
+}
+
+/**
+ * Adds the first move of a repertoire without chapters: it starts chapter
+ * one from the standard start and adds the move to it in the same edit, so
+ * it is saved once (R-111). A repertoire that has chapters takes a move only
+ * into one of them.
+ */
+export function addFirstMove(
+  graph: RepertoireGraph,
+  fromKey: string,
+  san: string,
+): EditResult {
+  if (graph.chapters.length > 0) return refuse('repertoire.unknownChapter');
+  const started = addChapter(graph, START_KEY);
+  return addMove(started.graph, started.chapterId, fromKey, san);
+}
+
+/** One builder edit; the caller parsed it at its edge. */
+export type EditOp =
+  | {
+      readonly kind: 'addMove';
+      /** Null for the first move of a repertoire without chapters (R-111). */
+      readonly chapterId: string | null;
+      readonly from: string;
+      readonly san: string;
+    }
+  | {
+      readonly kind: 'removeMove';
+      readonly chapterId: string;
+      readonly from: string;
+      readonly san: string;
+    }
+  | {
+      readonly kind: 'setMarks';
+      readonly chapterId: string;
+      readonly from: string;
+      readonly san: string;
+      readonly marks: Marks;
+    }
+  | {
+      readonly kind: 'editComment';
+      readonly moveKey: string;
+      readonly comment: string;
+    }
+  | { readonly kind: 'addChapter' }
+  | {
+      readonly kind: 'renameChapter';
+      readonly chapterId: string;
+      readonly name: string;
+    }
+  | { readonly kind: 'removeChapter'; readonly chapterId: string };
+
+/** A move edit's target: into its chapter, or as the first move (R-111). */
+const addTo = (
+  graph: RepertoireGraph,
+  op: Extract<EditOp, { kind: 'addMove' }>,
+): EditResult =>
+  op.chapterId === null
+    ? addFirstMove(graph, op.from, op.san)
+    : addMove(graph, op.chapterId, op.from, op.san);
+
+/** Applies one builder edit with the function that decides it. */
+export function applyEdit(graph: RepertoireGraph, op: EditOp): EditResult {
+  switch (op.kind) {
+    case 'addMove':
+      return addTo(graph, op);
+    case 'removeMove':
+      return removeMove(graph, op.chapterId, op.from, op.san);
+    case 'setMarks':
+      return setMarks(graph, op.chapterId, op, op.marks);
+    case 'editComment':
+      return editComment(graph, op.moveKey, op.comment);
+    case 'addChapter':
+      return { ok: true, value: addChapter(graph, START_KEY).graph };
+    case 'renameChapter':
+      return renameChapter(graph, op.chapterId, op.name);
+    case 'removeChapter':
+      return removeChapter(graph, op.chapterId);
+  }
 }

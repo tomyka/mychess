@@ -1,4 +1,4 @@
-import type { Side } from '@mychess/chess';
+import { SIDES, type Side } from '@mychess/chess';
 import {
   useFormatter,
   useLocale,
@@ -19,8 +19,6 @@ export interface RepertoireCard {
   readonly moves: number;
   readonly updatedAt: Date;
 }
-
-const SIDES: readonly Side[] = ['white', 'black'];
 
 /** The calendar day of `date` in the display time zone, as `YYYY-MM-DD`. */
 const dayOf = (date: Date): string =>

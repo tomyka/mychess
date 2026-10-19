@@ -18,6 +18,7 @@ import {
   type ImportedRepertoire,
   type Locale,
   type MergedRepertoire,
+  type NothingToAdd,
   type RepertoireSummary,
   type Skipped,
 } from '@mychess/chess';
@@ -37,7 +38,6 @@ import {
 } from '@mychess/domain';
 import { z } from 'zod';
 import { getDb } from './db';
-import { mergeAddition, type NothingToAdd } from './import-merge';
 import { ownRepertoire } from './repertoires';
 
 /** The existing repertoire a preview was merged into. */
@@ -207,7 +207,7 @@ function mergedPreview(
   const before = loaded.graph;
   const after = merged.graph;
   const { id, name, version } = loaded.repertoire;
-  const addition = mergeAddition(before, after);
+  const addition = merged.added;
   return {
     summary: summarize(after),
     chapters: namesOf(after.chapters.slice(before.chapters.length), locale),
@@ -284,7 +284,7 @@ async function importInto(
 ): Promise<ConfirmOutcome> {
   const merge = await mergeIntoOwn(account, target.id, imported);
   if (!merge.ok) return merge;
-  const addition = mergeAddition(merge.loaded.graph, merge.merged.graph);
+  const addition = merge.merged.added;
   if (!addition.ok) return refused(addition.refusal);
   // The save bumps only the previewed version, in the same transaction it
   // writes in: a repertoire changed since the preview (or since the load

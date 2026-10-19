@@ -11,8 +11,10 @@ export { fenOf, positionKey, sideToMove, START_KEY } from './position-key';
 export type { Result } from './result';
 export {
   chapterOf,
+  emptyGraph,
   isPlayerMove,
   moveKey,
+  parseMoveKey,
   splitMoveKey,
   type Arrow,
   type Chapter,
@@ -27,8 +29,10 @@ export {
 export { normalizeComment } from './repertoire/comment';
 export {
   mergeInto,
+  type MergeAddition,
   type MergedRepertoire,
   type MergeRefusal,
+  type NothingToAdd,
 } from './repertoire/merge';
 export {
   chapterChildren,
@@ -55,12 +59,15 @@ export {
 } from './legal-moves';
 export {
   addChapter,
+  addFirstMove,
   addMove,
+  applyEdit,
   editComment,
   removeChapter,
   removeMove,
   renameChapter,
   setMarks,
+  type EditOp,
   type EditRefusal,
 } from './repertoire/edit';
 export {

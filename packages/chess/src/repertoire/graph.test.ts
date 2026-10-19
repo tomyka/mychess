@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { fenOf, positionKey } from '../position-key';
 import {
+  emptyGraph,
   isPlayerMove,
   moveKey,
+  parseMoveKey,
   playerKeys,
   splitMoveKey,
   type RepertoireGraph,
@@ -74,6 +76,29 @@ describe('repertoire graph', () => {
   ])('throws on a string with %s, which moveKey never makes', (_, key) => {
     expect(() => splitMoveKey(key)).toThrow(`not a move key: ${key}`);
   });
+
+  it('parses a move key into its position key and SAN', () => {
+    expect(parseMoveKey(moveKey(START, 'Nf3'))).toEqual({
+      fromKey: START,
+      san: 'Nf3',
+    });
+  });
+
+  it.each([
+    ['no separator', START],
+    ['two separators', `${START}|e4|e5`],
+    ['an empty position key', '|e4'],
+    ['an empty SAN', `${START}|`],
+  ])('parses a string with %s as no move key, without throwing', (_, key) => {
+    expect(parseMoveKey(key)).toBeNull();
+  });
+
+  it.each(['white', 'black'] as const)(
+    'starts an empty %s repertoire with no chapters and no moves',
+    (side) => {
+      expect(emptyGraph(side)).toEqual({ side, chapters: [], moves: [] });
+    },
+  );
 
   it('turns a position key into a FEN chess.js accepts', () => {
     expect(fenOf(START)).toBe(`${START} 0 1`);

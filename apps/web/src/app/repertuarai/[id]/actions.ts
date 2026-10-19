@@ -3,7 +3,7 @@
 // The repertoire page's actions. Each authenticates, parses its input, asks
 // ownRepertoire (the domain's access rule, enforced again by the owner
 // filter in the query), then saves. The viewer is always the session account.
-import type { RepertoireGraph } from '@mychess/chess';
+import { applyEdit, type RepertoireGraph } from '@mychess/chess';
 import {
   deleteRepertoire,
   renameRepertoire,
@@ -23,7 +23,7 @@ import { z } from 'zod';
 import { repertoireDeletedRoute } from '../../../lib/routes';
 import { ecoNamesOf } from '../../../server/chapter-names';
 import { getDb } from '../../../server/db';
-import { applyEdit, editRequestSchema } from '../../../server/repertoire-edit';
+import { editRequestSchema } from '../../../server/repertoire-edit';
 import { ownRepertoire } from '../../../server/repertoires';
 import { requireOnboarded } from '../../../server/session';
 

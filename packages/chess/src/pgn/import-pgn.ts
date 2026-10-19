@@ -61,14 +61,24 @@ export type Skipped =
       readonly san?: string;
     };
 
+/**
+ * A second player answer left out (R-54): `san` at full move `move` of the
+ * file's game number `game`.
+ */
+export const secondAnswer = (
+  game: number,
+  san: string,
+  move: number,
+): Skipped => ({ game, reason: 'pgn.secondAnswer', san, move });
+
 /** Why a whole file is refused. */
 export type ImportRefusal = LimitRefusal | { reason: 'pgn.noValidGames' };
 
 export interface ImportedRepertoire {
   readonly graph: RepertoireGraph;
   readonly skipped: readonly Skipped[];
-  /** Each chapter's game: its 1-based number among the file's games (R-64). */
-  readonly games: Readonly<Record<string, number>>;
+  /** Each chapter's PGN game: its 1-based number among the file's games (R-64). */
+  readonly pgnGames: Readonly<Record<string, number>>;
 }
 
 /** A game that replayed: what becomes a chapter. */
@@ -201,7 +211,7 @@ class RepertoireBuilder {
   /** Each stored move's mark identities, so marks merge without repeats. */
   private readonly markKeys = new Map<DraftMove, Set<string>>();
   readonly skipped: Skipped[] = [];
-  readonly games: Record<string, number> = {};
+  readonly pgnGames: Record<string, number> = {};
 
   readonly side: Side;
 
@@ -226,7 +236,7 @@ class RepertoireBuilder {
     }
     if (kept > 0) {
       this.chapters.push(chapter);
-      this.games[chapter.id] = game.game;
+      this.pgnGames[chapter.id] = game.game;
     }
   }
 
@@ -264,13 +274,7 @@ class RepertoireBuilder {
     if (move.parent !== null && dropped.has(move.parent)) return false;
     const put = this.moves.put(move, chapterId);
     if (!put.ok) {
-      const { san, moveNumber } = move;
-      this.skipped.push({
-        game,
-        reason: 'pgn.secondAnswer',
-        san,
-        move: moveNumber,
-      });
+      this.skipped.push(secondAnswer(game, move.san, move.moveNumber));
       return false;
     }
     const seen = this.markKeys.get(put.value) ?? new Set<string>();
@@ -298,7 +302,7 @@ function build(side: Side, replayed: readonly Replayed[]): ImportedRepertoire {
   return {
     graph: builder.freeze(),
     skipped: builder.skipped,
-    games: builder.games,
+    pgnGames: builder.pgnGames,
   };
 }
 

@@ -7,6 +7,7 @@ import type { DrawShape } from '@lichess-org/chessground/draw';
 import type { Key } from '@lichess-org/chessground/types';
 import {
   moveKey,
+  type EditOp,
   type MarkColor,
   type Marks,
   type RepertoireGraph,
@@ -14,7 +15,6 @@ import {
 } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import { useState, type ActionDispatch } from 'react';
-import type { EditOp } from '../../../server/repertoire-edit';
 import { marksOf, toggleMark } from '../../board/shapes';
 import { editRepertoireAction } from './actions';
 import { markChange, placeAdded } from './board-play';

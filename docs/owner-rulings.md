@@ -154,6 +154,9 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-118** (S3 review, #253, 2026-10-19): Lithuanian terms: a move Comment is "komentaras" (a move thread is "pokalbis apie ėjimą"); the repertoire edit mode is "Redaguoti" / "Edit"; a Personal note is "užrašas" ("Mano užrašas"); an untitled chapter is "Skyrius N".
 - **R-119** (S3 security review, #253, 2026-10-19): A PGN upload also has a limit of 50,000 half-moves in total (extends R-66), and an account may run at most 10 import previews or confirms a minute.
 - **R-120** (S3/S4 language review, #253 #254, 2026-10-19): Terms: a ply is "pusėjimis" in Lithuanian and "half-move" in player-facing English; a Player in a coach's Group is "grupės žaidėjas" ("Grupės žaidėjai").
+- **R-121** (S3 close, #253, 2026-10-19): For reconciliation (R-23), a changed Move means a Move added or removed; editing a Move's comment, arrows or circles never resets a player's training on it.
+- **R-122** (S3 close, #253, 2026-10-19): R-117 judges each imported game against the repertoire and the earlier games of the same file: a game that adds no move beyond them adds no chapter.
+- **R-123** (S3 close, #253, 2026-10-19): Exporting a repertoire and importing it again keeps its moves, comments and marks; chapter names may be re-derived from the taxonomy on import (R-63, R-104).
 
 ## Open questions
 

@@ -3,14 +3,24 @@ import { positionKey } from '../position-key';
 import type { Result } from '../result';
 import {
   addChapter,
+  addFirstMove,
   addMove,
+  applyEdit,
   editComment,
   removeChapter,
   removeMove,
   renameChapter,
   setMarks,
+  type EditOp,
+  type EditRefusal,
 } from './edit';
-import { moveKey, type Chapter, type RepertoireGraph } from './graph';
+import {
+  emptyGraph,
+  moveKey,
+  type Chapter,
+  type Marks,
+  type RepertoireGraph,
+} from './graph';
 import { lines } from './walk';
 
 function must<T>(value: T | undefined): T {
@@ -455,5 +465,115 @@ describe('a built chapter takes its name from its moves (R-104)', () => {
     const g = mustAdd(addMove(black, 'c2', START, 'e4'));
     expect(nameOf(g, 'c1')).toEqual({ kind: 'index', number: 1 });
     expect(nameOf(g, 'c2')).toEqual({ kind: 'eco', eco: 'B00' });
+  });
+});
+
+describe('addFirstMove (R-111)', () => {
+  it('starts chapter one from the standard start with the first move of an empty repertoire', () => {
+    const none = emptyGraph('black');
+    const started = addChapter(none, START);
+    const first = addFirstMove(none, START, 'e4');
+    expect(first).toEqual(
+      addMove(started.graph, started.chapterId, START, 'e4'),
+    );
+    const g = mustAdd(first);
+    expect(g.chapters.map((c) => [c.id, c.rootKey])).toEqual([['c1', START]]);
+    expect(sansOf(g, 'c1')).toEqual([['e4']]);
+  });
+
+  it('refuses where the repertoire has chapters, an illegal first move and another position', () => {
+    expect(addFirstMove(build('e4'), START, 'd4')).toEqual(unknownChapter);
+    expect(addFirstMove(emptyGraph('white'), START, 'e5')).toEqual({
+      ok: false,
+      refusal: { reason: 'repertoire.illegalMove' },
+    });
+    const afterE4 = must(build('e4').moves[0]).to;
+    expect(addFirstMove(emptyGraph('black'), afterE4, 'e5')).toEqual({
+      ok: false,
+      refusal: { reason: 'repertoire.unknownPosition' },
+    });
+  });
+});
+
+describe('applyEdit', () => {
+  const g = withC2(build('d4', 'd5', 'Bf4'));
+  const afterD4 = must(g.moves[0]).to;
+  const marks: Marks = {
+    arrows: [{ from: 'c1', to: 'f4', color: 'G' }],
+    circles: [{ square: 'd4', color: 'R' }],
+  };
+
+  it('routes each edit to the function that decides it', () => {
+    const cases: readonly [EditOp, Result<RepertoireGraph, EditRefusal>][] = [
+      [
+        { kind: 'addMove', chapterId: 'c2', from: START, san: 'd4' },
+        addMove(g, 'c2', START, 'd4'),
+      ],
+      [
+        { kind: 'addMove', chapterId: 'c1', from: afterD4, san: 'Nf6' },
+        addMove(g, 'c1', afterD4, 'Nf6'),
+      ],
+      [
+        { kind: 'removeMove', chapterId: 'c1', from: afterD4, san: 'd5' },
+        removeMove(g, 'c1', afterD4, 'd5'),
+      ],
+      [
+        { kind: 'setMarks', chapterId: 'c1', from: START, san: 'd4', marks },
+        setMarks(g, 'c1', { from: START, san: 'd4' }, marks),
+      ],
+      [
+        { kind: 'editComment', moveKey: moveKey(START, 'd4'), comment: 'New' },
+        editComment(g, moveKey(START, 'd4'), 'New'),
+      ],
+      [
+        { kind: 'renameChapter', chapterId: 'c2', name: 'KID' },
+        renameChapter(g, 'c2', 'KID'),
+      ],
+      [{ kind: 'removeChapter', chapterId: 'c2' }, removeChapter(g, 'c2')],
+    ];
+    for (const [op, expected] of cases) {
+      const applied = applyEdit(g, op);
+      expect(applied).toEqual(expected);
+      expect(applied.ok).toBe(true);
+    }
+  });
+
+  it('adds a chapter from the standard start', () => {
+    const added = mustAdd(applyEdit(g, { kind: 'addChapter' }));
+    expect(added).toEqual(addChapter(g, START).graph);
+    expect(added.chapters.at(-1)?.rootKey).toBe(START);
+  });
+
+  it('adds a move without a chapter as the first move (R-111)', () => {
+    expect(
+      applyEdit(emptyGraph('white'), {
+        kind: 'addMove',
+        chapterId: null,
+        from: START,
+        san: 'd4',
+      }),
+    ).toEqual(addFirstMove(emptyGraph('white'), START, 'd4'));
+    expect(
+      applyEdit(g, {
+        kind: 'addMove',
+        chapterId: null,
+        from: START,
+        san: 'e4',
+      }),
+    ).toEqual(unknownChapter);
+  });
+
+  it('passes the refusals through', () => {
+    expect(
+      applyEdit(g, {
+        kind: 'addMove',
+        chapterId: 'c1',
+        from: START,
+        san: 'Ke2',
+      }),
+    ).toEqual({ ok: false, refusal: { reason: 'repertoire.illegalMove' } });
+    expect(applyEdit(g, { kind: 'removeChapter', chapterId: 'c9' })).toEqual(
+      unknownChapter,
+    );
   });
 });

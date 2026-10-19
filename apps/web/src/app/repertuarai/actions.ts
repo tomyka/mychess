@@ -2,6 +2,7 @@
 
 // Mano repertuarai's actions. The owner is always the session account,
 // never an id from the form.
+import { emptyGraph } from '@mychess/chess';
 import { createRepertoire } from '@mychess/db';
 import { redirect } from 'next/navigation';
 import { repertoireRoute } from '../../lib/routes';
@@ -30,7 +31,7 @@ export async function createRepertoireAction(
     ownerId: account.id,
     side,
     name,
-    graph: { side, chapters: [], moves: [] },
+    graph: emptyGraph(side),
     now: new Date(),
   });
   redirect(repertoireRoute(id));

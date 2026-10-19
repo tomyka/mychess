@@ -845,6 +845,6 @@ describe('importPgn: move comments (R-102)', () => {
       '[Event "A"]\n\n1. e4 *\n\n[Event "B"]\n\n1. e4 Qxe2 *\n\n[Event "C"]\n\n1. d4 *',
       'black',
     );
-    expect(r.games).toEqual({ c1: 1, c2: 3 });
+    expect(r.pgnGames).toEqual({ c1: 1, c2: 3 });
   });
 });

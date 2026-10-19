@@ -55,19 +55,40 @@ export interface RepertoireGraph {
   readonly moves: readonly RepertoireMove[];
 }
 
+/** A new repertoire of `side`: no chapters and no moves yet. */
+export const emptyGraph = (side: Side): RepertoireGraph => ({
+  side,
+  chapters: [],
+  moves: [],
+});
+
 /** A move's identity; for a player move it is also its review key. */
 export const moveKey = (fromKey: string, san: string): string =>
   `${fromKey}|${san}`;
 
+/** A move key's parts: the position key and SAN, neither holding a `|`. */
+export interface MoveKeyParts {
+  readonly fromKey: string;
+  readonly san: string;
+}
+
 /**
- * The position key and SAN of a key `moveKey` made; neither part holds a
- * `|`. Anything else is a programmer error and throws.
+ * The position key and SAN of `key`, or null when `key` is not one `moveKey`
+ * could have made (for example a bad stored row).
  */
-export function splitMoveKey(key: string): { fromKey: string; san: string } {
+export function parseMoveKey(key: string): MoveKeyParts | null {
   const [fromKey, san, ...rest] = key.split('|');
-  if (!fromKey || !san || rest.length > 0)
-    throw new Error(`not a move key: ${key}`);
-  return { fromKey, san };
+  return fromKey && san && rest.length === 0 ? { fromKey, san } : null;
+}
+
+/**
+ * The position key and SAN of a key `moveKey` made. Anything else is a
+ * programmer error and throws.
+ */
+export function splitMoveKey(key: string): MoveKeyParts {
+  const parts = parseMoveKey(key);
+  if (parts === null) throw new Error(`not a move key: ${key}`);
+  return parts;
 }
 
 /** Whether `move` is played by the repertoire's side. */

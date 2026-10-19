@@ -3,7 +3,12 @@
  * id: the domain decides who may see a repertoire (canViewRepertoire), and
  * the query enforces it again (CLAUDE.md, decision 12).
  */
-import { sideSchema, type RepertoireGraph, type Side } from '@mychess/chess';
+import {
+  emptyGraph,
+  sideSchema,
+  type RepertoireGraph,
+  type Side,
+} from '@mychess/chess';
 import {
   REPERTOIRE_REFUSALS,
   repertoireSchema,
@@ -47,12 +52,6 @@ const metaColumns = {
 
 const ownedBy = (id: string, ownerId: string) =>
   and(eq(repertoires.id, id), eq(repertoires.ownerAccountId, ownerId));
-
-const emptyGraph = (side: Side): RepertoireGraph => ({
-  side,
-  chapters: [],
-  moves: [],
-});
 
 const idRowsSchema = z.array(z.object({ id: z.uuid() }));
 
