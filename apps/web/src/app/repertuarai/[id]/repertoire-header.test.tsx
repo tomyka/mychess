@@ -67,7 +67,9 @@ describe('RepertoireHeader', () => {
     fireEvent.click(button(h.renameSubmit));
     expect(await screen.findByText(h.renamed)).toBeDefined();
     expect(screen.queryByLabelText(h.renameLabel)).toBeNull();
-    expect(document.activeElement).toBe(button(h.rename));
+    await waitFor(() => {
+      expect(document.activeElement).toBe(button(h.rename));
+    });
   });
 
   it('cancels the header rename and returns focus to Rename', () => {
