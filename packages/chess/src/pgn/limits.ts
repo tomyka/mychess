@@ -21,26 +21,6 @@ export interface LimitRefusal {
 }
 
 /**
- * Text where parentheses and moves do not count, by the character that
- * opens it and the one that closes it: brace comments, rest-of-line
- * comments and quoted tag values. Text left open runs to the end.
- */
-const SKIPPED = new Map([
-  ['{', '}'],
-  [';', '\n'],
-  ['"', '"'],
-]);
-
-/** Characters that end a word of movetext; '.' parts a move from its number. */
-const WORD_BREAK = /[\s(){};$[\]".]/;
-
-/**
- * What a move starts with: a letter (SAN and the O-O castling) or the
- * 0-0 castling. Move numbers, results and NAGs start otherwise.
- */
-const MOVE_START = /[A-Za-z]|0-0/y;
-
-/**
  * A fast pre-check that counts `[Event` tags at line starts. `importPgn`
  * applies the same cap to the games it actually splits, so a file without
  * Event tags is still capped.
@@ -50,66 +30,40 @@ function countGames(text: string): number {
 }
 
 /**
- * The index of the character that closes the skipped text opened at
- * `start`, or the text's length when nothing closes it. A backslash in a
- * quoted value escapes the next character.
+ * The movetext tokens the limits look at, in one native regular-expression
+ * pass, so a 2 MB file costs a few thousand matches rather than two million
+ * steps. In order: brace comments, rest-of-line comments, tag pairs (to `]`
+ * or the line's end, quoted values whole), quoted text, parentheses, and
+ * words of movetext ('.' parts a move from its number). Text left open runs
+ * to the end. Comments, tags and quotes are matched only to be skipped.
  */
-function skipEnd(text: string, start: number, closer: string): number {
-  let i = start + 1;
-  while (i < text.length && text.charAt(i) !== closer) {
-    i += closer === '"' && text.charAt(i) === '\\' ? 2 : 1;
-  }
-  return i;
-}
+const TOKEN =
+  /\{[^}]*\}?|;[^\n]*|\[(?:[^\]\n"]|"(?:[^"\\\n]|\\.)*"?)*|"(?:[^"\\]|\\.)*"?|[()]|[^\s(){};$[\]".]+/g;
 
-/** What one pass over the text has seen so far. */
+/**
+ * What a move starts with: a letter (SAN and the O-O castling) or the
+ * 0-0 castling. Move numbers, results and NAGs start otherwise.
+ */
+const MOVE_START = /^(?:[A-Za-z]|0-0)/;
+
+/** The deepest variation nesting and the half-moves. */
 interface Scan {
   depth: number;
   maxDepth: number;
   plies: number;
-  /** Inside a tag pair's brackets, which end at `]` or the line's end. */
-  inTag: boolean;
-  inWord: boolean;
 }
 
-/** Follows variation nesting and tag-pair brackets. */
-function bracket(scan: Scan, ch: string): void {
-  if (ch === '(') scan.maxDepth = Math.max(scan.maxDepth, ++scan.depth);
-  else if (ch === ')') scan.depth = Math.max(0, scan.depth - 1);
-  else if (ch === '[') scan.inTag = true;
-  else if (ch === ']' || ch === '\n') scan.inTag = false;
-}
-
-/** Counts a move at the start of each movetext word outside tag pairs. */
-function word(scan: Scan, text: string, i: number): void {
-  const breaks = WORD_BREAK.test(text.charAt(i));
-  MOVE_START.lastIndex = i;
-  if (!breaks && !scan.inWord && !scan.inTag && MOVE_START.test(text)) {
-    scan.plies++;
-  }
-  scan.inWord = !breaks;
+/** Follows one token: a parenthesis changes the depth, a move counts. */
+function follow(scan: Scan, token: string): void {
+  if (token === '(') scan.maxDepth = Math.max(scan.maxDepth, ++scan.depth);
+  else if (token === ')') scan.depth = Math.max(0, scan.depth - 1);
+  else if (MOVE_START.test(token)) scan.plies++;
 }
 
 /** The deepest variation nesting and the half-moves, in one pass. */
 function scanText(text: string): Scan {
-  const scan: Scan = {
-    depth: 0,
-    maxDepth: 0,
-    plies: 0,
-    inTag: false,
-    inWord: false,
-  };
-  for (let i = 0; i < text.length; i++) {
-    const closer = SKIPPED.get(text.charAt(i));
-    if (closer === undefined) {
-      bracket(scan, text.charAt(i));
-      word(scan, text, i);
-    } else {
-      i = skipEnd(text, i, closer);
-      scan.inWord = false;
-      if (closer === '\n') scan.inTag = false;
-    }
-  }
+  const scan: Scan = { depth: 0, maxDepth: 0, plies: 0 };
+  for (const [token] of text.matchAll(TOKEN)) follow(scan, token);
   return scan;
 }
 
