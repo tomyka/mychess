@@ -23,7 +23,8 @@ export default async function RepertoirePage({
 }): Promise<JSX.Element> {
   const { id } = await params;
   const chapter = chapterQuery.safeParse((await searchParams)[CHAPTER_PARAM]);
-  const { repertoire, graph, notes, ecoNames } = await repertoirePageData(id);
+  const { repertoire, graph, notes, ecoNames, sharing, coachNotes } =
+    await repertoirePageData(id);
   return (
     <RepertoireScreen
       key={repertoire.version}
@@ -37,6 +38,8 @@ export default async function RepertoirePage({
       notes={notes}
       ecoNames={ecoNames}
       chapterId={chapter.success ? chapter.data : null}
+      sharing={sharing}
+      coachNotes={coachNotes}
     />
   );
 }

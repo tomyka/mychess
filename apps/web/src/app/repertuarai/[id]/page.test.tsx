@@ -36,6 +36,8 @@ vi.mock('./actions', () => ({
   deleteRepertoireAction: vi.fn(),
 }));
 
+vi.mock('./sharing-actions', () => ({ setSharesAction: vi.fn() }));
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: vi.fn() }),
 }));
@@ -56,6 +58,8 @@ const LONDON_DATA: RepertoirePageData = {
   graph: graphOf(LONDON),
   notes: {},
   ecoNames: {},
+  sharing: { coaches: [], sharedWith: [] },
+  coachNotes: [],
 };
 
 const NO_QUERY = Promise.resolve({});

@@ -342,10 +342,11 @@ describe('coachPlayerData (the player page)', () => {
       id: rokas.id,
       displayName: 'Rokas',
       groups: [{ id: mine, name: 'Šeštadienio grupė' }],
+      repertoires: [],
     });
     expect(
       Object.keys(z.record(z.string(), z.unknown()).parse(data)).sort(),
-    ).toEqual(['displayName', 'groups', 'id', 'linkedAt']);
+    ).toEqual(['displayName', 'groups', 'id', 'linkedAt', 'repertoires']);
     expect(JSON.stringify(data)).not.toContain('rokas@example.lt');
   });
 

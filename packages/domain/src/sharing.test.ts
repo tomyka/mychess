@@ -6,6 +6,7 @@ import {
   COACH_NOTE_MAX,
   COACH_NOTE_REFUSALS,
   SHARE_REFUSALS,
+  canChangeShares,
   canShare,
   canWriteCoachNote,
   coachNoteSchema,
@@ -31,6 +32,18 @@ describe('the sharing keys and limits', () => {
 
   it('caps a coach note like a move comment', () => {
     expect(COACH_NOTE_MAX).toBe(COMMENT_MAX);
+  });
+});
+
+describe('canChangeShares (R-42)', () => {
+  it('lets the owner change who an own repertoire is shared with', () => {
+    expect(canChangeShares('gabija', { ownerId: 'gabija' })).toEqual(ok);
+  });
+
+  it("refuses someone else's repertoire", () => {
+    expect(canChangeShares('gabija', { ownerId: 'rokas' })).toEqual(
+      refused(SHARE_REFUSALS.notOwner),
+    );
   });
 });
 

@@ -2,9 +2,13 @@
 // decided in the domain (canViewRepertoire, canEditRepertoire) and enforced
 // again by the queries, which filter by owner (CLAUDE.md, decision 12).
 import {
+  coachNotesOn,
   listPersonalNotes,
   listRepertoires,
   loadRepertoire,
+  playerCoaches,
+  sharedCoachIds,
+  type CoachNote,
   type LoadedRepertoire,
   type RepertoireListItem,
 } from '@mychess/db';
@@ -56,6 +60,21 @@ export async function myRepertoires(): Promise<RepertoireListItem[]> {
   return listRepertoires(getDb(), account.id);
 }
 
+/** A coach the owner can share the repertoire with: one linked to them. */
+export interface ShareCoach {
+  readonly id: string;
+  readonly displayName: string;
+}
+
+/** The owner's linked coaches, and which of them it is shared with (R-42). */
+export interface RepertoireSharing {
+  readonly coaches: readonly ShareCoach[];
+  readonly sharedWith: readonly string[];
+}
+
+/** A Coach note as the owner reads it: on a move, with the coach's name (R-107). */
+export type OwnerCoachNote = Omit<CoachNote, 'updatedAt'>;
+
 /** What the repertoire page shows. */
 export interface RepertoirePageData {
   readonly repertoire: Repertoire;
@@ -64,6 +83,39 @@ export interface RepertoirePageData {
   readonly notes: Readonly<Record<string, string>>;
   /** The names of the openings its chapters are named after (decision 17). */
   readonly ecoNames: Readonly<Record<string, string>>;
+  readonly sharing: RepertoireSharing;
+  /** Every coach's notes on it, read-only (R-107, R-125). */
+  readonly coachNotes: readonly OwnerCoachNote[];
+}
+
+/** The owner's coaches and shares of repertoire `id`. */
+async function sharingOf(
+  ownerId: string,
+  id: string,
+): Promise<RepertoireSharing> {
+  const db = getDb();
+  const coaches = await playerCoaches(db, ownerId);
+  return {
+    coaches: coaches.map((coach) => ({
+      id: coach.id,
+      displayName: coach.displayName,
+    })),
+    sharedWith: await sharedCoachIds(db, ownerId, id),
+  };
+}
+
+/** The coach notes on the owner's repertoire `id`, as the page shows them. */
+async function ownerCoachNotes(
+  ownerId: string,
+  id: string,
+): Promise<OwnerCoachNote[]> {
+  const notes = await coachNotesOn(getDb(), ownerId, id);
+  return notes.map(({ coachId, coachName, moveKey, text }) => ({
+    coachId,
+    coachName,
+    moveKey,
+    text,
+  }));
 }
 
 /** One repertoire's page; anything the account may not view is 404. */
@@ -79,5 +131,7 @@ export async function repertoirePageData(
     graph,
     notes: await listPersonalNotes(getDb(), account.id, repertoire.id),
     ecoNames: ecoNamesOf(graph, account.locale),
+    sharing: await sharingOf(account.id, repertoire.id),
+    coachNotes: await ownerCoachNotes(account.id, repertoire.id),
   };
 }

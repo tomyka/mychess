@@ -8,14 +8,15 @@
  */
 import { sideSchema } from '@mychess/chess';
 import {
+  canChangeShares,
   canShare,
   SHARE_REFUSALS,
   type Result,
   type ShareRefusal,
 } from '@mychess/domain';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, notInArray } from 'drizzle-orm';
 import { z } from 'zod';
-import type { Executor } from './client';
+import type { Executor, Tx } from './client';
 import { holdLink } from './coach-queries';
 import { coachOwnNotes, type CoachNote } from './coach-notes';
 import { isUuid } from './ids';
@@ -70,6 +71,103 @@ export async function shareRepertoire(
       })
       .onConflictDoNothing();
     return DONE;
+  });
+}
+
+/** Who the owner wants a repertoire shared with: exactly these coaches. */
+export interface SharesRequest {
+  /** The account sharing: the session's, never one a client names. */
+  readonly ownerId: string;
+  readonly repertoireId: string;
+  readonly coachIds: readonly string[];
+  readonly now: Date;
+}
+
+/** What setShares came to: how many coaches it is shared with now. */
+export interface SharesSet {
+  readonly shared: number;
+  /** The first coach refused (not linked), whom it is not shared with. */
+  readonly refusal?: ShareRefusal;
+}
+
+/** Holds each coach's link to the owner, in id order; which are linked. */
+async function holdLinks(
+  tx: Tx,
+  coachIds: readonly string[],
+  ownerId: string,
+): Promise<Set<string>> {
+  const linked = new Set<string>();
+  for (const coachId of coachIds)
+    if (await holdLink(tx, coachId, ownerId)) linked.add(coachId);
+  return linked;
+}
+
+/** Makes the owner's shares of a repertoire exactly `coachIds`. */
+async function applyShares(
+  tx: Tx,
+  request: SharesRequest,
+  coachIds: readonly string[],
+): Promise<number> {
+  const mine = and(
+    eq(repertoireShares.repertoireId, request.repertoireId),
+    eq(repertoireShares.playerId, request.ownerId),
+  );
+  await tx
+    .delete(repertoireShares)
+    .where(and(mine, notInArray(repertoireShares.coachId, [...coachIds])));
+  if (coachIds.length > 0)
+    await tx
+      .insert(repertoireShares)
+      .values(
+        coachIds.map((coachId) => ({
+          repertoireId: request.repertoireId,
+          playerId: request.ownerId,
+          coachId,
+          createdAt: request.now,
+        })),
+      )
+      .onConflictDoNothing();
+  return tx.$count(repertoireShares, mine);
+}
+
+/**
+ * Shares the owner's repertoire with exactly the coaches named, in one
+ * transaction (R-42): the others' shares end, and their notes with them
+ * (R-124). Someone else's repertoire is refused and nothing changes, even
+ * with no coach named. Each coach is decided by canShare; one refused (not
+ * linked) is left out and named in the outcome. The links and then the
+ * repertoire are held, the order an unlink and an account delete take them.
+ */
+export async function setShares(
+  db: Executor,
+  request: SharesRequest,
+): Promise<Result<SharesSet, ShareRefusal>> {
+  const wanted = [...new Set(request.coachIds)].sort();
+  return db.transaction(async (tx) => {
+    const linked = await holdLinks(tx, wanted, request.ownerId);
+    const ownerId = await holdRepertoireOwner(tx, request.repertoireId);
+    if (ownerId === undefined) return refusal(SHARE_REFUSALS.notOwner);
+    const owned = canChangeShares(request.ownerId, { ownerId });
+    if (!owned.ok) return owned;
+    const checks = wanted.map((coachId) => ({
+      coachId,
+      check: canShare(
+        request.ownerId,
+        { ownerId },
+        coachId,
+        linked.has(coachId),
+      ),
+    }));
+    const allowed = checks.filter((c) => c.check.ok).map((c) => c.coachId);
+    const shared = await applyShares(tx, request, allowed);
+    const refused = checks.map((c) => c.check).find((check) => !check.ok);
+    return {
+      ok: true,
+      value:
+        refused === undefined
+          ? { shared }
+          : { shared, refusal: refused.refusal },
+    };
   });
 }
 

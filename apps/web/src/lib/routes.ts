@@ -22,6 +22,13 @@ export const invitePath = (token: string): string =>
 export const coachPlayerPath = (playerId: string): string =>
   `${ROUTES.coach}/zaidejai/${encodeURIComponent(playerId)}`;
 
+/** A player's repertoire shared with the coach, in the coach dashboard. */
+export const coachSharedRepertoirePath = (
+  playerId: string,
+  repertoireId: string,
+): string =>
+  `${coachPlayerPath(playerId)}/repertuarai/${encodeURIComponent(repertoireId)}`;
+
 /** One group's page in the coach dashboard. */
 export const coachGroupPath = (groupId: string): string =>
   `${ROUTES.coach}/grupes/${encodeURIComponent(groupId)}`;

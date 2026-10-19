@@ -16,6 +16,8 @@ import { isMessageKey } from '../../../i18n/message-key';
 import { SECONDARY_BUTTON } from '../../buttons';
 import { StatusLine } from '../../status-line';
 import type { NoteOutcome } from './actions';
+import { CoachNotes, type MoveCoachNote } from './coach-notes';
+import { PANEL_LABEL } from './panel-styles';
 
 /** What saving a field came to: saved, or a catalogue key. */
 export type FieldOutcome =
@@ -38,12 +40,12 @@ export interface MovePanelProps {
   readonly onSaveNote: (text: string) => Promise<NoteOutcome>;
   /** Builder mode: the comment is a field (R-102, R-105). */
   readonly commentEditor?: CommentEditor | undefined;
+  /** The coaches' notes on the move, read-only (R-107). */
+  readonly coachNotes?: readonly MoveCoachNote[];
 }
 
-const LABEL = 'text-sm font-semibold text-fg-muted';
-
 /** The move's arrows and circles as words, so the marks are not colour only. */
-function MarksText({
+export function MarksText({
   move,
 }: {
   readonly move: RepertoireMove;
@@ -271,7 +273,7 @@ function CommentField({
   });
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={fieldId} className={LABEL}>
+      <label htmlFor={fieldId} className={PANEL_LABEL}>
         {t('commentLabel')}
       </label>
       <textarea
@@ -307,7 +309,7 @@ function CommentField({
 }
 
 /** The comment as text (browsing) or as the builder's field. */
-function Comment({
+export function Comment({
   move,
   editor,
 }: {
@@ -325,7 +327,7 @@ function Comment({
     );
   return (
     <>
-      <p className={LABEL}>{t('comment')}</p>
+      <p className={PANEL_LABEL}>{t('comment')}</p>
       {move.comment === null ? (
         <p className="text-fg-muted">{t('noComment')}</p>
       ) : (
@@ -347,7 +349,7 @@ function NoteHeading({
   return (
     <div className="flex flex-wrap items-center gap-x-2">
       <LockIcon />
-      <label htmlFor={fieldId} className={LABEL}>
+      <label htmlFor={fieldId} className={PANEL_LABEL}>
         {t('label')}
       </label>
       <span id={hintId} className="text-sm text-fg-muted">
@@ -373,7 +375,7 @@ function LockIcon(): JSX.Element {
 /**
  * The position section (docs/design/repertoire-screen.md): at the chapter
  * root its intro; on a move its comment, its marks as text for screen
- * readers, and the viewer's private note.
+ * readers, the coaches' notes (read-only) and the viewer's private note.
  */
 export function MovePanel({
   intro,
@@ -381,12 +383,13 @@ export function MovePanel({
   note,
   onSaveNote,
   commentEditor,
+  coachNotes = [],
 }: MovePanelProps): JSX.Element | null {
   const t = useTranslations('repertoires.panel');
   if (move === null)
     return intro === null ? null : (
       <section aria-label={t('intro')} className="flex flex-col gap-1">
-        <p className={LABEL}>{t('intro')}</p>
+        <p className={PANEL_LABEL}>{t('intro')}</p>
         <p>{intro}</p>
       </section>
     );
@@ -396,6 +399,7 @@ export function MovePanel({
         <Comment move={move} editor={commentEditor} />
         <MarksText move={move} />
       </div>
+      <CoachNotes notes={coachNotes} />
       <PersonalNote
         key={`${move.from}|${move.san}`}
         initial={note}

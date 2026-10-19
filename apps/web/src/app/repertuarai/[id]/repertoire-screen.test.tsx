@@ -25,7 +25,10 @@ import { graphOf, LONDON } from '../../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../../i18n/locales';
 import { chapterTitle, ecoNamesOf } from '../../../server/chapter-names';
 import type { EditOutcome, NoteOutcome } from './actions';
-import { RepertoireScreen } from './repertoire-screen';
+import {
+  RepertoireScreen,
+  type RepertoireScreenProps,
+} from './repertoire-screen';
 
 const ground = vi.hoisted(() => {
   const created: Config[] = [];
@@ -58,6 +61,8 @@ vi.mock('./actions', () => ({
   deleteRepertoireAction: vi.fn(),
 }));
 
+vi.mock('./sharing-actions', () => ({ setSharesAction: vi.fn() }));
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: server.refresh }),
 }));
@@ -72,9 +77,12 @@ const GRAPH = graphOf(LONDON);
 const lt = MESSAGES.lt;
 const r = lt.repertoires;
 
+type Coaching = Partial<Pick<RepertoireScreenProps, 'sharing' | 'coachNotes'>>;
+
 function renderScreen(
   graph: RepertoireGraph = GRAPH,
   name = 'Londono sistema',
+  coaching: Coaching = {},
 ) {
   render(
     <NextIntlClientProvider locale="lt" messages={lt}>
@@ -83,6 +91,8 @@ function renderScreen(
         graph={graph}
         notes={{}}
         ecoNames={ecoNamesOf(graph, 'lt')}
+        sharing={coaching.sharing ?? { coaches: [], sharedWith: [] }}
+        coachNotes={coaching.coachNotes ?? []}
       />
     </NextIntlClientProvider>,
   );
@@ -149,6 +159,42 @@ describe('RepertoireScreen: browsing', () => {
     expect(screen.getByText('Solid')).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: r.nav.start }));
     expect(current()).toBeUndefined();
+  });
+
+  it('shows the coaches’ notes on the current move only (R-107)', () => {
+    renderScreen(GRAPH, 'Londono sistema', {
+      coachNotes: [
+        {
+          coachId: 'c-1',
+          coachName: 'Rimantas',
+          moveKey: moveKey(START_KEY, 'd4'),
+          text: 'Pirmiausia Bf4',
+        },
+      ],
+    });
+    expect(screen.queryByText('Pirmiausia Bf4')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: r.nav.forward }));
+    expect(
+      screen.getByRole('list', { name: lt.coachNote.list }).textContent,
+    ).toBe('Trenerio pastaba — RimantasPirmiausia Bf4');
+    fireEvent.click(screen.getByRole('button', { name: r.nav.forward }));
+    expect(screen.queryByText('Pirmiausia Bf4')).toBeNull();
+  });
+
+  it('offers sharing with the linked coaches', () => {
+    renderScreen(GRAPH, 'Londono sistema', {
+      sharing: {
+        coaches: [{ id: 'c-1', displayName: 'Rimantas' }],
+        sharedWith: ['c-1'],
+      },
+    });
+    expect(
+      screen.getByRole('heading', { level: 2, name: lt.share.title }),
+    ).toBeDefined();
+    expect(screen.getByRole('checkbox', { name: 'Rimantas' })).toHaveProperty(
+      'checked',
+      true,
+    );
   });
 
   it('goes to a move played on the board when the chapter has it', () => {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   coachGroupPath,
   coachPlayerPath,
+  coachSharedRepertoirePath,
   importIntoRoute,
   invitePath,
   repertoireDeletedRoute,
@@ -37,6 +38,17 @@ describe('coachPlayerPath', () => {
   it('is the coach dashboard player page for the id, encoded', () => {
     expect(coachPlayerPath('p1')).toBe('/treneris/zaidejai/p1');
     expect(coachPlayerPath('a/b')).toBe('/treneris/zaidejai/a%2Fb');
+  });
+});
+
+describe('coachSharedRepertoirePath', () => {
+  it('is the player page’s repertoire page for the ids, encoded', () => {
+    expect(coachSharedRepertoirePath('p1', 'r1')).toBe(
+      '/treneris/zaidejai/p1/repertuarai/r1',
+    );
+    expect(coachSharedRepertoirePath('a/b', 'c d')).toBe(
+      '/treneris/zaidejai/a%2Fb/repertuarai/c%20d',
+    );
   });
 });
 

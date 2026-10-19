@@ -1,8 +1,7 @@
 'use client';
 
 // The repertoire page's hooks: the board's view of the screen state, what a
-// move played on the board or typed does while browsing, and the viewer's
-// Personal notes.
+// move played on the board or typed does while browsing.
 import type { Key } from '@lichess-org/chessground/types';
 import {
   fenOf,
@@ -19,7 +18,6 @@ import { useMemo, useState, type ActionDispatch } from 'react';
 import type { BoardView } from '../../board/board-config';
 import { shapesOf } from '../../board/shapes';
 import { destsOf, isKey, squaresOf } from '../../board/squares';
-import { savePersonalNoteAction, type NoteOutcome } from './actions';
 import { childBySan, movesBetween } from './board-play';
 import {
   currentKey,
@@ -162,45 +160,5 @@ export function useBoardPlay(
       setPromotion(null);
       dispatch({ type: 'reset' });
     },
-  };
-}
-
-/** `notes` with the note on `key` set, or removed when `text` is empty. */
-function withNote(
-  notes: Readonly<Record<string, string>>,
-  key: string,
-  text: string,
-): Record<string, string> {
-  const next = Object.fromEntries(
-    Object.entries(notes).filter(([k]) => k !== key),
-  );
-  return text === '' ? next : { ...next, [key]: text };
-}
-
-/** The viewer's notes, and a saver for the note on one move. */
-export interface Notes {
-  readonly notes: Readonly<Record<string, string>>;
-  readonly save: (moveKey: string) => (text: string) => Promise<NoteOutcome>;
-}
-
-/** The viewer's Personal notes, saved through the action (R-21). */
-export function useNotes(
-  repertoireId: string,
-  initial: Readonly<Record<string, string>>,
-): Notes {
-  const [notes, setNotes] = useState(initial);
-  return {
-    notes,
-    save:
-      (moveKey: string) =>
-      async (text: string): Promise<NoteOutcome> => {
-        const outcome = await savePersonalNoteAction({
-          repertoireId,
-          moveKey,
-          text,
-        });
-        if (outcome.ok) setNotes((now) => withNote(now, moveKey, text.trim()));
-        return outcome;
-      },
   };
 }

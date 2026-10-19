@@ -112,6 +112,7 @@ export {
   COACH_NOTE_MAX,
   COACH_NOTE_REFUSALS,
   SHARE_REFUSALS,
+  canChangeShares,
   canShare,
   canWriteCoachNote,
   coachNoteSchema,

@@ -9,8 +9,9 @@ export default async function CoachPlayerPage({
 }: {
   readonly params: Promise<{ playerId: string }>;
 }): Promise<JSX.Element> {
-  const { id, displayName, linkedAt, groups } = await coachPlayerData(
-    (await params).playerId,
+  const { id, displayName, linkedAt, groups, repertoires } =
+    await coachPlayerData((await params).playerId);
+  return (
+    <PlayerView player={{ id, displayName, linkedAt, groups, repertoires }} />
   );
-  return <PlayerView player={{ id, displayName, linkedAt, groups }} />;
 }

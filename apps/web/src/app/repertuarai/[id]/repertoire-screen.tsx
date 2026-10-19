@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  chapterChildren,
   chapterOf,
   moveKey,
   sideToMove,
@@ -14,27 +13,30 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useReducer, useState, type ActionDispatch, type JSX } from 'react';
 import { importIntoRoute } from '../../../lib/routes';
+import type {
+  OwnerCoachNote,
+  RepertoireSharing,
+} from '../../../server/repertoires';
 import { Board } from '../../board/board';
-import { MoveInput } from '../../board/move-input';
-import { PromotionPicker } from '../../board/promotion-picker';
 import { SECONDARY_BUTTON } from '../../buttons';
 import { moveNumber, removalCount } from './board-play';
 import { Announcer, useBoardWords } from './board-words';
+import { BoardRow } from './board-row';
 import { BuilderBar } from './builder-bar';
 import { ChapterList } from './chapter-list';
 import { ModeSwitch } from './mode-switch';
+import { PANEL_LABEL } from './panel-styles';
 import { MoveList } from './move-list';
 import { MovePanel } from './move-panel';
-import { NavButtons } from './nav-buttons';
 import { RepertoireActions, RepertoireHeader } from './repertoire-header';
 import {
-  currentKey,
   initialState,
   screenReducer,
   type ScreenAction,
   type ScreenState,
 } from './screen-state';
 import { ScreenStatus } from './screen-status';
+import { ShareWithCoach } from './share-with-coach';
 import {
   chapterBuilder,
   commentEditor,
@@ -44,14 +46,8 @@ import {
   useRemoveMove,
   type Edit,
 } from './use-builder';
-import {
-  useBoardPlay,
-  useNotes,
-  useScreenBoard,
-  type BoardPlay,
-  type Notes,
-  type ScreenBoard,
-} from './use-screen';
+import { useNotes, type Notes } from './use-notes';
+import { useBoardPlay, useScreenBoard } from './use-screen';
 
 export interface RepertoireScreenProps {
   readonly repertoire: {
@@ -67,61 +63,13 @@ export interface RepertoireScreenProps {
   readonly ecoNames: Readonly<Record<string, string>>;
   /** The chapter to open on; null or unknown opens the first. */
   readonly chapterId?: string | null;
+  /** The owner's linked coaches and the shares (R-42). */
+  readonly sharing: RepertoireSharing;
+  /** Every coach's notes on it, read-only (R-107). */
+  readonly coachNotes: readonly OwnerCoachNote[];
 }
 
 type Dispatch = ActionDispatch<[action: ScreenAction]>;
-
-/** The typed-move field (or the promotion choice) and the step buttons. */
-function BoardRow({
-  state,
-  dispatch,
-  board,
-  play,
-}: {
-  readonly state: ScreenState;
-  readonly dispatch: Dispatch;
-  readonly board: ScreenBoard;
-  readonly play: BoardPlay;
-}): JSX.Element {
-  if (play.promotion !== null)
-    return (
-      <div className="shrink-0 px-gutter py-2 lg:px-0">
-        <PromotionPicker
-          color={board.view.turnColor}
-          onPick={play.pick}
-          onCancel={play.cancel}
-        />
-      </div>
-    );
-  const key = currentKey(state);
-  const canForward =
-    key !== null &&
-    state.chapterId !== null &&
-    chapterChildren(state.graph)(state.chapterId)(key).length > 0;
-  return (
-    <div className="flex shrink-0 items-center gap-2 px-gutter py-2 lg:px-0">
-      <MoveInput
-        onTyped={play.onTyped}
-        disabled={
-          state.saving || (state.chapterId === null && state.mode !== 'build')
-        }
-      />
-      <NavButtons
-        atRoot={state.path.length === 0}
-        atEnd={!canForward}
-        onStart={() => {
-          dispatch({ type: 'goto', path: [] });
-        }}
-        onBack={() => {
-          dispatch({ type: 'back' });
-        }}
-        onForward={() => {
-          dispatch({ type: 'forward' });
-        }}
-      />
-    </div>
-  );
-}
 
 /** A repertoire without chapters: play the first move, or add games from PGN. */
 function EmptyRepertoire({
@@ -192,6 +140,7 @@ function PositionSection({
       note={notes.notes[key] ?? ''}
       onSaveNote={notes.save(key)}
       commentEditor={commentEditor(state, edit)}
+      coachNotes={props.coachNotes.filter((n) => n.moveKey === key)}
     />
   );
 }
@@ -210,7 +159,7 @@ function PhoneActions({
       aria-label={t('section')}
       className="flex flex-col gap-2 lg:hidden"
     >
-      <h2 className="text-sm font-semibold text-fg-muted">{t('section')}</h2>
+      <h2 className={PANEL_LABEL}>{t('section')}</h2>
       <RepertoireActions id={id} name={name} />
     </section>
   );
@@ -293,6 +242,7 @@ function PanelBody({
         </div>
       )}
       <PhoneActions id={id} name={name} />
+      <ShareWithCoach repertoireId={id} sharing={props.sharing} />
     </div>
   );
 }

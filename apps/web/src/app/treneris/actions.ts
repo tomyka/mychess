@@ -6,11 +6,13 @@ import {
   addMember,
   createGroup,
   createInvite,
+  deleteCoachNote,
   deleteGroup,
   removeMember,
   renameGroup,
   revokeInvite,
   unlink,
+  upsertCoachNote,
   type Membership,
 } from '@mychess/db';
 import {
@@ -25,8 +27,11 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { invitePath, ROUTES } from '../../lib/routes';
 import {
+  parseCoachNote,
+  parseCoachNoteMove,
   parseGroupName,
   parseNewInvite,
+  type CoachNoteRefusalKey,
   type GroupNameIssue,
   type InviteIssue,
 } from '../../server/coach-input';
@@ -233,4 +238,46 @@ export async function revokeInviteAction(
     : INVALID_INVITE;
   refresh();
   return revoked.ok ? {} : { refusal: revoked.refusal.reason };
+}
+
+/** What saving or deleting a coach note came to: done, or its refusal. */
+export interface CoachNoteState {
+  readonly refusal?: CoachNoteRefusalKey;
+}
+
+/**
+ * Writes or replaces the coach's note on a move of a player's repertoire
+ * shared with the coach (R-42). The repository decides with the domain's
+ * canWriteCoachNote on facts it holds while writing; any other repertoire
+ * is refused and nothing is written.
+ */
+export async function saveCoachNoteAction(
+  input: unknown,
+): Promise<CoachNoteState> {
+  const coach = await requireCoach();
+  const note = parseCoachNote(input);
+  if (!note.ok) return { refusal: note.refusal.reason };
+  const saved = await upsertCoachNote(getDb(), {
+    coachId: coach.id,
+    ...note.value,
+    now: new Date(),
+  });
+  return saved.ok ? {} : { refusal: saved.refusal.reason };
+}
+
+/**
+ * Removes the coach's own note on a move of a repertoire shared with the
+ * coach; the repository decides (canCoachSee) in the delete's transaction.
+ */
+export async function deleteCoachNoteAction(
+  input: unknown,
+): Promise<CoachNoteState> {
+  const coach = await requireCoach();
+  const move = parseCoachNoteMove(input);
+  if (!move.ok) return { refusal: move.refusal.reason };
+  const removed = await deleteCoachNote(getDb(), {
+    coachId: coach.id,
+    ...move.value,
+  });
+  return removed.ok ? {} : { refusal: removed.refusal.reason };
 }

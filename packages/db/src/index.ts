@@ -48,6 +48,7 @@ export {
   upsertCoachNote,
   type CoachNote,
   type CoachNoteInput,
+  type CoachNoteRemoval,
 } from './coach-notes';
 export { databaseEnvSchema, databaseUrlSchema } from './config';
 export {
@@ -98,6 +99,7 @@ export {
   type RepertoireRename,
 } from './repertoires/repository';
 export {
+  setShares,
   shareRepertoire,
   sharedCoachIds,
   sharedRepertoireForCoach,
@@ -106,6 +108,8 @@ export {
   type SharedRepertoire,
   type SharedRepertoireItem,
   type ShareRequest,
+  type SharesRequest,
+  type SharesSet,
   type ShareTarget,
 } from './shares';
 

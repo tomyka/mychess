@@ -6,14 +6,19 @@ import {
   coachInvites,
   coachPlayer,
   coachPlayers,
+  sharedRepertoireForCoach,
+  sharedWithCoach,
   type CoachGroup,
   type CoachGroupSummary,
   type CoachInvite,
   type LinkedAccount,
+  type SharedRepertoireItem,
 } from '@mychess/db';
+import type { RepertoireGraph, Side } from '@mychess/chess';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { accountIdSchema } from './account-id';
+import { ecoNamesOf } from './chapter-names';
 import { assertCoachMaySee, requireCoach } from './coaching';
 import { getDb } from './db';
 
@@ -35,18 +40,88 @@ export async function coachHomeData(): Promise<CoachHomeData> {
   };
 }
 
+/** One linked player's page. */
+export interface CoachPlayerPage extends LinkedAccount {
+  /** The player's repertoires shared with this coach, by name (R-42). */
+  readonly repertoires: readonly SharedRepertoireItem[];
+}
+
 /**
- * One linked player's page: the display name and the coach's own groups
- * (subject `profile`). Anything else, an unlinked player included, is 404.
+ * One linked player's page: the display name, the coach's own groups
+ * (subject `profile`) and the repertoires the player shares with the
+ * coach. Anything else, an unlinked player included, is 404.
  */
 export async function coachPlayerData(
   rawPlayerId: unknown,
-): Promise<LinkedAccount> {
+): Promise<CoachPlayerPage> {
   const coach = await requireCoach();
   const parsed = accountIdSchema.safeParse(rawPlayerId);
   if (!parsed.success) notFound();
   await assertCoachMaySee(coach, parsed.data, { kind: 'profile' });
-  return (await coachPlayer(getDb(), coach.id, parsed.data)) ?? notFound();
+  const db = getDb();
+  const player = (await coachPlayer(db, coach.id, parsed.data)) ?? notFound();
+  return {
+    ...player,
+    repertoires: await sharedWithCoach(db, coach.id, parsed.data),
+  };
+}
+
+/** A player's repertoire as the coach it is shared with sees it (R-42). */
+export interface SharedRepertoirePage {
+  readonly player: { readonly id: string; readonly displayName: string };
+  readonly repertoire: {
+    readonly id: string;
+    readonly name: string;
+    readonly side: Side;
+  };
+  /** With its move comments (R-102); never the player's personal notes. */
+  readonly graph: RepertoireGraph;
+  /** The coach's own notes on it by move key (R-125). */
+  readonly notes: Readonly<Record<string, string>>;
+  /** The names of the openings its chapters are named after. */
+  readonly ecoNames: Readonly<Record<string, string>>;
+}
+
+const sharedIdsSchema = z.object({
+  playerId: accountIdSchema,
+  repertoireId: z.uuid(),
+});
+
+/**
+ * A player's repertoire shared with the coach, read-only (subject
+ * `repertoire`). Not shared with this coach, a player not linked, an id
+ * that does not exist or a malformed one: all 404 (plan decision 4).
+ */
+export async function sharedRepertoireData(
+  rawPlayerId: unknown,
+  rawRepertoireId: unknown,
+): Promise<SharedRepertoirePage> {
+  const coach = await requireCoach();
+  const parsed = sharedIdsSchema.safeParse({
+    playerId: rawPlayerId,
+    repertoireId: rawRepertoireId,
+  });
+  if (!parsed.success) notFound();
+  const { playerId, repertoireId } = parsed.data;
+  await assertCoachMaySee(coach, playerId, {
+    kind: 'repertoire',
+    repertoireId,
+  });
+  const db = getDb();
+  const shared =
+    (await sharedRepertoireForCoach(db, coach.id, playerId, repertoireId)) ??
+    notFound();
+  const player = (await coachPlayer(db, coach.id, playerId)) ?? notFound();
+  const { id, name, side } = shared.repertoire;
+  return {
+    player: { id: player.id, displayName: player.displayName },
+    repertoire: { id, name, side },
+    graph: shared.graph,
+    notes: Object.fromEntries(
+      shared.notes.map((note) => [note.moveKey, note.text]),
+    ),
+    ecoNames: ecoNamesOf(shared.graph, coach.locale),
+  };
 }
 
 /** A linked player the coach can put into a group. */

@@ -14,6 +14,7 @@ import {
   deleteRepertoire,
   sharedCoachIds,
   setPersonalNote,
+  setShares,
   shareRepertoire,
   sharedRepertoireForCoach,
   sharedWithCoach,
@@ -328,6 +329,15 @@ describe('upsertCoachNote', () => {
 });
 
 describe('deleteCoachNote', () => {
+  const remove = (over: Partial<CoachNoteInput>) =>
+    deleteCoachNote(db, {
+      coachId: 'rimantas',
+      playerId: 'gabija',
+      repertoireId: UNKNOWN_ID,
+      moveKey: E4,
+      ...over,
+    });
+
   it("removes only the coach's own note", async () => {
     const { taimanov } = await seedCoaching();
     await share('gabija', taimanov, 'rimantas');
@@ -337,25 +347,157 @@ describe('deleteCoachNote', () => {
       db,
       note({ coachId: 'dovydas', repertoireId: taimanov, text: 'Gerai' }),
     );
-    await deleteCoachNote(db, {
-      coachId: 'dovydas',
-      repertoireId: taimanov,
-      moveKey: E4,
-    });
-    await deleteCoachNote(db, {
-      coachId: 'egle',
-      repertoireId: taimanov,
-      moveKey: E4,
-    });
+    expect(
+      await remove({ coachId: 'dovydas', repertoireId: taimanov }),
+    ).toEqual(ok);
     expect(await noteRows()).toEqual([
       { coach_id: 'rimantas', move_key: E4, text: 'Po 2...e6 žiūrėk į d5' },
     ]);
-    await deleteCoachNote(db, {
-      coachId: 'rimantas',
-      repertoireId: 'not-a-uuid',
-      moveKey: E4,
-    });
+  });
+
+  it.each([
+    [
+      'a coach not linked to the player',
+      { coachId: 'egle' },
+      ACCESS_REFUSALS.notLinked,
+    ],
+    [
+      'a player who does not own it',
+      { playerId: 'rokas' },
+      ACCESS_REFUSALS.notShared,
+    ],
+    [
+      'a repertoire that does not exist',
+      { repertoireId: UNKNOWN_ID },
+      ACCESS_REFUSALS.notShared,
+    ],
+    [
+      'a malformed repertoire id',
+      { repertoireId: 'not-a-uuid' },
+      ACCESS_REFUSALS.notShared,
+    ],
+  ] as const)('refuses %s and removes nothing', async (_case, over, reason) => {
+    const { taimanov } = await seedCoaching();
+    await share('gabija', taimanov, 'rimantas');
+    await upsertCoachNote(db, note({ repertoireId: taimanov }));
+    expect(await remove({ repertoireId: taimanov, ...over })).toEqual(
+      refused(reason),
+    );
     expect(await noteRows()).toHaveLength(1);
+  });
+
+  it('refuses a repertoire shared only with another coach', async () => {
+    const { gabijaLondon } = await seedCoaching();
+    await share('gabija', gabijaLondon, 'dovydas');
+    expect(await remove({ repertoireId: gabijaLondon })).toEqual(
+      refused(ACCESS_REFUSALS.notShared),
+    );
+  });
+
+  it('waits for an unshare in progress and then is refused', async () => {
+    const { taimanov } = await seedCoaching();
+    await share('gabija', taimanov, 'rimantas');
+    await upsertCoachNote(db, note({ repertoireId: taimanov }));
+    const unsharing = await openTransaction(client, [
+      `delete from repertoire_shares where coach_id = 'rimantas'`,
+    ]);
+    const removing = remove({ repertoireId: taimanov });
+    await someoneWaitsForALock(client);
+    await unsharing.finish();
+    expect(await removing).toEqual(refused(ACCESS_REFUSALS.notShared));
+  });
+});
+
+describe('setShares (R-42)', () => {
+  const set = (
+    ownerId: string,
+    repertoireId: string,
+    coachIds: readonly string[],
+  ) => setShares(db, { ownerId, repertoireId, coachIds, now: T0 });
+
+  it('shares with exactly the coaches named, and says how many', async () => {
+    const { taimanov } = await seedCoaching();
+    expect(await set('gabija', taimanov, ['rimantas'])).toEqual({
+      ok: true,
+      value: { shared: 1 },
+    });
+    expect(
+      await set('gabija', taimanov, ['dovydas', 'rimantas', 'dovydas']),
+    ).toEqual({ ok: true, value: { shared: 2 } });
+    expect(await set('gabija', taimanov, ['dovydas'])).toEqual({
+      ok: true,
+      value: { shared: 1 },
+    });
+    expect(await sharedCoachIds(db, 'gabija', taimanov)).toEqual(['dovydas']);
+    expect(await set('gabija', taimanov, [])).toEqual({
+      ok: true,
+      value: { shared: 0 },
+    });
+    expect(await sharedCoachIds(db, 'gabija', taimanov)).toEqual([]);
+  });
+
+  it('ends a share and its coach notes together (R-124)', async () => {
+    const { taimanov } = await seedCoaching();
+    await set('gabija', taimanov, ['rimantas', 'dovydas']);
+    await upsertCoachNote(db, note({ repertoireId: taimanov }));
+    await set('gabija', taimanov, ['dovydas']);
+    expect(await noteRows()).toEqual([]);
+  });
+
+  it('shares with the linked coaches named and refuses the others', async () => {
+    const { taimanov } = await seedCoaching();
+    expect(
+      await set('gabija', taimanov, ['egle', 'rimantas', 'gabija']),
+    ).toEqual({
+      ok: true,
+      value: {
+        shared: 1,
+        refusal: { reason: SHARE_REFUSALS.notLinked },
+      },
+    });
+    expect(await sharedCoachIds(db, 'gabija', taimanov)).toEqual(['rimantas']);
+  });
+
+  it.each([
+    ['with coaches', ['rimantas']],
+    ['with none', []],
+  ])(
+    "refuses someone else's repertoire %s and changes nothing",
+    async (_case, coachIds) => {
+      const { rokasLondon } = await seedCoaching();
+      await share('rokas', rokasLondon, 'rimantas');
+      expect(await set('gabija', rokasLondon, coachIds)).toEqual(
+        refused(SHARE_REFUSALS.notOwner),
+      );
+      expect(await sharedCoachIds(db, 'rokas', rokasLondon)).toEqual([
+        'rimantas',
+      ]);
+    },
+  );
+
+  it.each([UNKNOWN_ID, 'not-a-uuid'])(
+    'refuses a repertoire that does not exist (%s)',
+    async (id) => {
+      await seedCoaching();
+      expect(await set('gabija', id, [])).toEqual(
+        refused(SHARE_REFUSALS.notOwner),
+      );
+    },
+  );
+
+  it('waits on the link before the repertoire, the order a deleteAccount takes them', async () => {
+    const { taimanov } = await seedCoaching();
+    const deleting = await openTransaction(client, [
+      `select 1 from coach_links where coach_id = 'rimantas' and player_id = 'gabija' for update`,
+    ]);
+    const sharing = set('gabija', taimanov, ['rimantas']);
+    await someoneWaitsForALock(client);
+    await deleting.finish(`delete from accounts where id = 'gabija'`);
+    expect(await sharing).toEqual(refused(SHARE_REFUSALS.notOwner));
+    expect(
+      (await client.query('select count(*)::int as n from repertoire_shares'))
+        .rows,
+    ).toEqual([{ n: 0 }]);
   });
 });
 

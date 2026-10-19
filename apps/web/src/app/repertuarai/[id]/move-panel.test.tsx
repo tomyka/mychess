@@ -69,6 +69,29 @@ describe('MovePanel', () => {
     expect(screen.queryByText('The London: solid and quick.')).toBeNull();
   });
 
+  it('shows each coach’s note on the move, read-only, with the coach’s name (R-107)', () => {
+    renderPanel({
+      move: BF4,
+      coachNotes: [
+        { coachId: 'c-1', coachName: 'Dovydas', text: 'Watch for ...Qb6' },
+        { coachId: 'c-2', coachName: 'Rimantas', text: 'Play h3 first' },
+      ],
+    });
+    const notes = screen.getByRole('list', { name: 'Coach notes' });
+    expect(
+      [...notes.querySelectorAll('li')].map((item) => item.textContent),
+    ).toEqual([
+      'Coach note from DovydasWatch for ...Qb6',
+      'Coach note from RimantasPlay h3 first',
+    ]);
+    expect(notes.querySelector('textarea, input, button')).toBeNull();
+  });
+
+  it('shows no coach notes where there are none', () => {
+    renderPanel({ move: BF4 });
+    expect(screen.queryByRole('list', { name: 'Coach notes' })).toBeNull();
+  });
+
   it('says when a move has no comment', () => {
     renderPanel({ move: { ...BF4, comment: null, arrows: [], circles: [] } });
     expect(screen.getByText(p.panel.noComment)).toBeDefined();

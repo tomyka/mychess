@@ -20,6 +20,19 @@ export interface ShareRefusal {
 const ALLOWED: Result<undefined, never> = { ok: true, value: undefined };
 
 /**
+ * Only the owner changes who a repertoire is shared with (R-42), so a
+ * request naming someone else's repertoire changes nothing at all.
+ */
+export function canChangeShares(
+  actorId: string,
+  repertoire: { readonly ownerId: string },
+): Result<undefined, ShareRefusal> {
+  return repertoire.ownerId === actorId
+    ? ALLOWED
+    : { ok: false, refusal: { reason: SHARE_REFUSALS.notOwner } };
+}
+
+/**
  * Only the owner shares, only an own repertoire, and only with a coach
  * linked to them (R-42); there is no link to oneself. The coach then sees
  * it read-only through canCoachSee.
@@ -30,8 +43,8 @@ export function canShare(
   coachId: string,
   linked: boolean,
 ): Result<undefined, ShareRefusal> {
-  if (repertoire.ownerId !== actorId)
-    return { ok: false, refusal: { reason: SHARE_REFUSALS.notOwner } };
+  const owned = canChangeShares(actorId, repertoire);
+  if (!owned.ok) return owned;
   return linked && coachId !== actorId
     ? ALLOWED
     : { ok: false, refusal: { reason: SHARE_REFUSALS.notLinked } };

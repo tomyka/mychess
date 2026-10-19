@@ -6,6 +6,7 @@
  */
 import { parseMoveKey } from '@mychess/chess';
 import {
+  canCoachSee,
   canWriteCoachNote,
   type AccessRefusal,
   type CoachAccessFacts,
@@ -117,24 +118,41 @@ export async function upsertCoachNote(
   });
 }
 
+/** Which coach note to remove: the coach's own, on a move of the player's repertoire. */
+export type CoachNoteRemoval = Pick<
+  CoachNoteInput,
+  'coachId' | 'playerId' | 'repertoireId' | 'moveKey'
+>;
+
 /**
- * Removes the coach's own note on a move; anyone else's is untouched. Once
- * the share has ended there is none left to remove (R-124).
+ * Removes the coach's own note on a move of a repertoire shared with them;
+ * anyone else's is untouched. Decided by canCoachSee in one transaction
+ * with the facts, held as upsertCoachNote holds them, so an unshare or
+ * unlink in progress is waited for and then refused (R-124).
  */
 export async function deleteCoachNote(
   db: Executor,
-  note: Pick<CoachNoteInput, 'coachId' | 'repertoireId' | 'moveKey'>,
-): Promise<void> {
-  if (!isUuid(note.repertoireId)) return;
-  await db
-    .delete(coachNotes)
-    .where(
-      and(
-        eq(coachNotes.coachId, note.coachId),
-        eq(coachNotes.repertoireId, note.repertoireId),
-        eq(coachNotes.moveKey, note.moveKey),
-      ),
+  note: CoachNoteRemoval,
+): Promise<Result<undefined, AccessRefusal>> {
+  return db.transaction(async (tx) => {
+    const check = canCoachSee(
+      note.coachId,
+      note.playerId,
+      { kind: 'repertoire', repertoireId: note.repertoireId },
+      await holdNoteFacts(tx, note),
     );
+    if (!check.ok) return check;
+    await tx
+      .delete(coachNotes)
+      .where(
+        and(
+          eq(coachNotes.coachId, note.coachId),
+          eq(coachNotes.repertoireId, note.repertoireId),
+          eq(coachNotes.moveKey, note.moveKey),
+        ),
+      );
+    return DONE;
+  });
 }
 
 /** A Coach note as a view shows it: on a move, with its coach's display name. */

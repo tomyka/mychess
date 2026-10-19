@@ -3,7 +3,11 @@
 import { useFormatter, useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useActionState, useId, type JSX } from 'react';
-import { coachGroupPath } from '../../../../lib/routes';
+import type { SharedRepertoireItem } from '@mychess/db';
+import {
+  coachGroupPath,
+  coachSharedRepertoirePath,
+} from '../../../../lib/routes';
 import { DISPLAY_TIME_ZONE } from '../../../../lib/time-zone';
 import { ConfirmedAction } from '../../../confirmed-action';
 import { SECTION, SECTION_TITLE, TEXT_LINK } from '../../../nustatymai/styles';
@@ -20,6 +24,8 @@ export interface CoachPlayerPageData {
   readonly displayName: string;
   readonly linkedAt: Date;
   readonly groups: readonly { readonly id: string; readonly name: string }[];
+  /** The player's repertoires shared with this coach (R-42). */
+  readonly repertoires: readonly SharedRepertoireItem[];
 }
 
 /** The coach's groups the player is in, each to its page. */
@@ -52,6 +58,46 @@ function PlayerGroups({
   );
 }
 
+/** The player's repertoires shared with the coach, each to its read-only page. */
+function SharedRepertoires({
+  player,
+}: {
+  readonly player: CoachPlayerPageData;
+}): JSX.Element {
+  const t = useTranslations();
+  const titleId = useId();
+  return (
+    <section aria-labelledby={titleId} className={SECTION}>
+      <h2 id={titleId} className={SECTION_TITLE}>
+        {t('coach.shared.title')}
+      </h2>
+      {player.repertoires.length === 0 ? (
+        <p className="text-fg-muted">
+          {t('coach.shared.empty', { name: player.displayName })}
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {player.repertoires.map((repertoire) => (
+            <li key={repertoire.id}>
+              <Link
+                href={coachSharedRepertoirePath(player.id, repertoire.id)}
+                className="flex min-h-touch flex-col justify-center"
+              >
+                <span className="text-accent underline">{repertoire.name}</span>
+                <span className="text-sm text-fg-muted">
+                  {repertoire.side === 'white'
+                    ? t('repertoires.list.white')
+                    : t('repertoires.list.black')}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 const INITIAL: CoachActionState = {};
 
 /** One linked player's page in the coach dashboard (plan decision 11). */
@@ -73,6 +119,7 @@ export function PlayerView({
       <SubpageHeader title={player.displayName} titleId={nameId}>
         <p className="text-fg-muted">{t('player.linkedSince', { date })}</p>
       </SubpageHeader>
+      <SharedRepertoires player={player} />
       <PlayerGroups groups={player.groups} />
       <RefusalLine state={state} />
       <ConfirmedAction

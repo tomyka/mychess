@@ -193,6 +193,18 @@
       "deleteConfirm": "Delete the group “{name}”? Its players stay linked to you, and its invites stop working.",
       "confirmDelete": "Yes, delete",
       "cancel": "Cancel"
+    },
+    "shared": {
+      "title": "Shared repertoires",
+      "empty": "{name} has not shared a repertoire with you yet.",
+      "back": "Back to {name}",
+      "readOnly": "Read-only: you can write coach notes, but not change the repertoire.",
+      "note": "My coach note",
+      "noteHint": "You and {name} see this",
+      "saveNote": "Save note",
+      "deleteNote": "Delete note",
+      "noteSaved": "Saved",
+      "noteDeleted": "Note deleted"
     }
   },
   "invite": {
@@ -462,5 +474,27 @@
   },
   "comment": {
     "tooLong": "The comment is too long: at most 2,000 characters."
+  },
+  "share": {
+    "title": "Share with a coach",
+    "intro": "The coaches you tick see this repertoire and its comments and can add coach notes, but cannot change it. They never see your personal notes.",
+    "noCoach": "You can share only with a coach you are linked to. You link to a coach by accepting their invite.",
+    "coaches": "Coaches",
+    "save": "Save",
+    "sharedWith": "{count, plural, one {Shared with # coach} other {Shared with # coaches}}",
+    "notShared": "Not shared",
+    "notOwner": "This repertoire does not exist or is not yours.",
+    "notLinked": "You are not linked to this coach."
+  },
+  "coachNote": {
+    "byCoach": "Coach note from {name}",
+    "list": "Coach notes",
+    "blank": "Write a note.",
+    "tooLong": "The note is too long: at most 2,000 characters.",
+    "moveNotFound": "This move is no longer in the repertoire."
+  },
+  "access": {
+    "notLinked": "This player is not linked to you.",
+    "notShared": "This repertoire is not shared with you."
   }
 }

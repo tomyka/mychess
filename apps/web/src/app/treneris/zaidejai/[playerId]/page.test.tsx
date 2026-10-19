@@ -2,12 +2,12 @@ import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../../i18n/locales';
-import type { LinkedAccount } from '@mychess/db';
+import type { CoachPlayerPage as PlayerPageData } from '../../../../server/coach-pages';
 import CoachNotFound from '../../not-found';
 import CoachPlayerPage from './page';
 
 const loader = vi.hoisted(() => ({
-  player: vi.fn<(id: unknown) => Promise<LinkedAccount>>(),
+  player: vi.fn<(id: unknown) => Promise<PlayerPageData>>(),
 }));
 
 // The loader's access check (404 for a player not linked to the coach)
@@ -35,6 +35,7 @@ describe('the coach dashboard’s player page', () => {
       displayName: 'Rokas',
       linkedAt: new Date('2026-10-18T08:00:00Z'),
       groups: [{ id: 'g-1', name: 'Šeštadienio grupė' }],
+      repertoires: [{ id: 'r-1', name: 'Taimanovas', side: 'black' }],
     });
     renderIn(
       await CoachPlayerPage({ params: Promise.resolve({ playerId: 'p-1' }) }),
@@ -46,6 +47,9 @@ describe('the coach dashboard’s player page', () => {
     expect(
       screen.getByRole('link', { name: 'Šeštadienio grupė' }),
     ).toBeDefined();
+    expect(
+      screen.getByRole('link', { name: /Taimanovas/ }).getAttribute('href'),
+    ).toBe('/treneris/zaidejai/p-1/repertuarai/r-1');
   });
 
   it('reads the same for anything the coach may not see (plan decision 4)', () => {

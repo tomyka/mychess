@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../../i18n/locales';
@@ -24,6 +30,10 @@ const ROKAS: CoachPlayerPageData = {
   groups: [
     { id: 'g-1', name: 'Sekmadienio grupė' },
     { id: 'g-2', name: 'Šeštadienio grupė' },
+  ],
+  repertoires: [
+    { id: 'r-1', name: 'Londono sistema', side: 'white' },
+    { id: 'r-2', name: 'Taimanovas', side: 'black' },
   ],
 };
 
@@ -60,7 +70,7 @@ describe('PlayerView', () => {
       screen.getByRole('heading', { level: 2, name: c.player.groupsTitle }),
     ).toBeDefined();
     expect(
-      screen
+      within(screen.getByRole('region', { name: c.player.groupsTitle }))
         .getAllByRole('listitem')
         .map((item) => [
           item.textContent,
@@ -72,10 +82,36 @@ describe('PlayerView', () => {
     ]);
   });
 
+  it('links each repertoire the player shares with the coach to its page (R-42)', () => {
+    renderView(ROKAS);
+    const section = within(
+      screen.getByRole('region', { name: c.shared.title }),
+    );
+    expect(
+      section
+        .getAllByRole('link')
+        .map((link) => [link.textContent, link.getAttribute('href')]),
+    ).toEqual([
+      ['Londono sistemaBaltaisiais', '/treneris/zaidejai/p-1/repertuarai/r-1'],
+      ['TaimanovasJuodaisiais', '/treneris/zaidejai/p-1/repertuarai/r-2'],
+    ]);
+  });
+
+  it('says when the player shares no repertoire with the coach', () => {
+    renderView({ ...ROKAS, repertoires: [] });
+    expect(
+      screen.getByText('Rokas dar nebendrina su jumis nė vieno repertuaro.'),
+    ).toBeDefined();
+  });
+
   it('says when the player is in none of the coach’s groups', () => {
     renderView({ ...ROKAS, groups: [] });
     expect(screen.getByText(c.players.noGroups)).toBeDefined();
-    expect(screen.queryAllByRole('listitem')).toEqual([]);
+    expect(
+      within(
+        screen.getByRole('region', { name: c.player.groupsTitle }),
+      ).queryAllByRole('listitem'),
+    ).toEqual([]);
   });
 
   it('unlinks the player only after the confirm step', async () => {

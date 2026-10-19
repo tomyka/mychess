@@ -193,6 +193,18 @@
       "deleteConfirm": "Ištrinti grupę „{name}“? Jos žaidėjai liks susieti su jumis, o šios grupės kvietimai nebegalios.",
       "confirmDelete": "Taip, ištrinti",
       "cancel": "Atšaukti"
+    },
+    "shared": {
+      "title": "Bendrinami repertuarai",
+      "empty": "{name} dar nebendrina su jumis nė vieno repertuaro.",
+      "back": "Atgal: {name}",
+      "readOnly": "Tik peržiūra: galite rašyti trenerio pastabas, bet negalite keisti repertuaro.",
+      "note": "Mano trenerio pastaba",
+      "noteHint": "Matote jūs ir {name}",
+      "saveNote": "Išsaugoti pastabą",
+      "deleteNote": "Ištrinti pastabą",
+      "noteSaved": "Išsaugota",
+      "noteDeleted": "Pastaba ištrinta"
     }
   },
   "invite": {
@@ -462,5 +474,27 @@
   },
   "comment": {
     "tooLong": "Komentaras per ilgas: daugiausia 2 000 simbolių."
+  },
+  "share": {
+    "title": "Bendrinti su treneriu",
+    "intro": "Pažymėti treneriai matys šį repertuarą ir jo komentarus ir galės pridėti trenerio pastabų, bet negalės jo keisti. Jūsų asmeninių užrašų jie nematys.",
+    "noCoach": "Bendrinti galite tik su treneriu, su kuriuo esate susieti. Susieti galite priėmę trenerio kvietimą.",
+    "coaches": "Treneriai",
+    "save": "Išsaugoti",
+    "sharedWith": "{count, plural, one {Bendrinama su # treneriu} few {Bendrinama su # treneriais} other {Bendrinama su # trenerių}}",
+    "notShared": "Nebendrinama",
+    "notOwner": "Šio repertuaro nėra arba jis ne jūsų.",
+    "notLinked": "Su šiuo treneriu nesate susieti."
+  },
+  "coachNote": {
+    "byCoach": "Trenerio pastaba — {name}",
+    "list": "Trenerių pastabos",
+    "blank": "Įrašykite pastabą.",
+    "tooLong": "Pastaba per ilga: daugiausia 2 000 simbolių.",
+    "moveNotFound": "Šio ėjimo repertuare nebėra."
+  },
+  "access": {
+    "notLinked": "Šis žaidėjas su jumis nesusietas.",
+    "notShared": "Šis repertuaras su jumis nebendrinamas."
   }
 }

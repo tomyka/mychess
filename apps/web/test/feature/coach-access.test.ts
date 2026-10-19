@@ -2,28 +2,34 @@
 // Every coach page loader and every coach action is driven as a coach who
 // is not linked, as an account without Coach mode, and signed out; and the
 // access ends on the next request after an unlink from either side.
-import { createInvite } from '@mychess/db';
+import { moveKey, START_KEY } from '@mychess/chess';
+import { createInvite, setPersonalNote, shareRepertoire } from '@mychess/db';
 import { readdirSync } from 'node:fs';
 import { dirname, join, posix, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { unlinkCoachAction } from '../../src/app/nustatymai/coaching-actions';
+import { setSharesAction } from '../../src/app/repertuarai/[id]/sharing-actions';
 import * as coachActions from '../../src/app/treneris/actions';
 import {
   addMemberAction,
   createGroupAction,
   createInviteAction,
+  deleteCoachNoteAction,
   deleteGroupAction,
   removeMemberAction,
   renameGroupAction,
   revokeInviteAction,
+  saveCoachNoteAction,
   unlinkPlayerAction,
 } from '../../src/app/treneris/actions';
 import {
   coachGroupData,
   coachHomeData,
   coachPlayerData,
+  sharedRepertoireData,
 } from '../../src/server/coach-pages';
+import { repertoirePageData } from '../../src/server/repertoires';
 import { TEST_ENV_VARS } from './support/auth';
 import {
   actAs,
@@ -36,6 +42,7 @@ import {
 } from './support/coaching';
 import { useRequestHarness } from './support/harness';
 import { outcomeOf, request, testDb } from './support/request';
+import { LONDON, seedRepertoire } from './support/repertoires';
 
 vi.mock('next/headers', async () =>
   (await import('./support/request')).nextHeaders(),
@@ -81,6 +88,10 @@ interface Ids {
   readonly dovydasGroup: string;
   /** An open personal invite of Rimantas. */
   readonly invite: string;
+  /** Rokas's London, shared with Rimantas; Rokas's note on 1. d4. */
+  readonly london: string;
+  /** Rokas's other repertoire, shared with nobody. */
+  readonly unshared: string;
 }
 
 async function openInvite(coachId: string): Promise<string> {
@@ -92,6 +103,42 @@ async function openInvite(coachId: string): Promise<string> {
   });
   if (!made.ok) throw new Error(`no invite: ${made.refusal.reason}`);
   return made.value.inviteId;
+}
+
+const D4 = moveKey(START_KEY, 'd4');
+
+/** The text of Rokas's personal note, which no coach may ever read (R-21). */
+const PERSONAL_NOTE = 'Rokas: tik man';
+
+/** Rokas's London shared with Rimantas, with Rokas's note, and an unshared one. */
+async function rokasRepertoires(
+  rokas: Person,
+  rimantas: Person,
+): Promise<{ london: string; unshared: string }> {
+  const seed = (name: string) =>
+    seedRepertoire(testDb(), 'rokas@example.lt', {
+      pgn: LONDON,
+      side: 'white',
+      name,
+    });
+  const london = await seed('Londono sistema');
+  const unshared = await seed('Privatus');
+  const now = new Date();
+  const shared = await shareRepertoire(testDb(), {
+    ownerId: rokas.id,
+    repertoireId: london,
+    coachId: rimantas.id,
+    now,
+  });
+  const noted = await setPersonalNote(testDb(), {
+    playerId: rokas.id,
+    repertoireId: london,
+    moveKey: D4,
+    text: PERSONAL_NOTE,
+    now,
+  });
+  if (!shared.ok || !noted.ok) throw new Error('no shared London');
+  return { london, unshared };
 }
 
 async function setUp(): Promise<Ids> {
@@ -108,7 +155,18 @@ async function setUp(): Promise<Ids> {
   await link(rimantas.id, rokas.id, group);
   await link(dovydas.id, gabija.id, dovydasGroup);
   const invite = await openInvite(rimantas.id);
-  return { rimantas, rokas, dovydas, gabija, group, dovydasGroup, invite };
+  const { london, unshared } = await rokasRepertoires(rokas, rimantas);
+  return {
+    rimantas,
+    rokas,
+    dovydas,
+    gabija,
+    group,
+    dovydasGroup,
+    invite,
+    london,
+    unshared,
+  };
 }
 
 // Every page under src/app/treneris has one entry; the guard below fails
@@ -117,7 +175,8 @@ const COACH_PAGES: Readonly<Record<string, (ids: Ids) => Promise<unknown>>> = {
   treneris: () => coachHomeData(),
   'treneris/zaidejai/[playerId]': (ids) => coachPlayerData(ids.rokas.id),
   'treneris/grupes/[groupId]': (ids) => coachGroupData(ids.group),
-  // Part B adds 'treneris/zaidejai/[playerId]/repertuarai/[repertoireId]'.
+  'treneris/zaidejai/[playerId]/repertuarai/[repertoireId]': (ids) =>
+    sharedRepertoireData(ids.rokas.id, ids.london),
 };
 
 /** The loaders that take a player or a group: Rimantas's ones. */
@@ -151,6 +210,19 @@ const COACH_ACTIONS: Readonly<
     createInviteAction({}, formOf({ kind: 'group', groupId: ids.group })),
   revokeInviteAction: (ids) =>
     revokeInviteAction({}, formOf({ inviteId: ids.invite })),
+  saveCoachNoteAction: (ids) =>
+    saveCoachNoteAction({
+      playerId: ids.rokas.id,
+      repertoireId: ids.london,
+      moveKey: D4,
+      text: 'Trenerio pastaba',
+    }),
+  deleteCoachNoteAction: (ids) =>
+    deleteCoachNoteAction({
+      playerId: ids.rokas.id,
+      repertoireId: ids.london,
+      moveKey: D4,
+    }),
 };
 
 /** The actions that name something of Rimantas's (all but a new group). */
@@ -165,6 +237,8 @@ async function coachingRows(): Promise<unknown> {
     members: await sql.rows('select * from group_members order by 1, 2'),
     groups: await sql.rows('select * from groups order by 1'),
     invites: await sql.rows('select * from invites order by 1'),
+    shares: await sql.rows('select * from repertoire_shares order by 1, 3'),
+    notes: await sql.rows('select * from coach_notes order by 1'),
   };
 }
 
@@ -230,6 +304,7 @@ describe('a coach who is not linked (checklist 1)', () => {
         { refusal: 'coach.groupNotFound' },
         { refusal: 'coach.notLinked' },
         { refusal: 'invite.invalid' },
+        { refusal: 'access.notLinked' },
       ]).toContainEqual(await outcomeOf(act(ids)));
       expect(await coachingRows()).toEqual(before);
     },
@@ -441,4 +516,103 @@ describe('signed out', () => {
       expect(await coachingRows()).toEqual(before);
     },
   );
+});
+
+describe('a shared repertoire (checklist 2-3)', () => {
+  /** The coach notes as coach name and text. */
+  const notes = (): Promise<unknown[]> =>
+    sql.rows(
+      `select a.display_name as coach, n.text
+         from coach_notes n join accounts a on a.id = n.coach_id
+        order by 1, 2`,
+    );
+
+  it('is 404 for a linked coach when it is not shared with them', async () => {
+    const ids = await setUp();
+    const before = await coachingRows();
+    actAs(ids.rimantas);
+    expect(
+      await outcomeOf(sharedRepertoireData(ids.rokas.id, ids.unshared)),
+    ).toEqual({ notFound: true });
+    expect(
+      await outcomeOf(
+        saveCoachNoteAction({
+          playerId: ids.rokas.id,
+          repertoireId: ids.unshared,
+          moveKey: D4,
+          text: 'Pastaba',
+        }),
+      ),
+    ).toEqual({ refusal: 'access.notShared' });
+    expect(await coachingRows()).toEqual(before);
+  });
+
+  it('shows the move comments but never the player’s personal notes (R-21, R-102)', async () => {
+    const ids = await setUp();
+    actAs(ids.rimantas);
+    const data = JSON.stringify(
+      await outcomeOf(sharedRepertoireData(ids.rokas.id, ids.london)),
+    );
+    expect(data).toContain('Solid');
+    expect(data).not.toContain(PERSONAL_NOTE);
+  });
+
+  it('is 404 on the next request after the player unshares, and the notes go (R-124)', async () => {
+    const ids = await setUp();
+    actAs(ids.rimantas);
+    expect(
+      await outcomeOf(
+        saveCoachNoteAction({
+          playerId: ids.rokas.id,
+          repertoireId: ids.london,
+          moveKey: D4,
+          text: 'Pastaba',
+        }),
+      ),
+    ).toEqual({});
+    expect(await notes()).toEqual([
+      { coach: 'Rimantas Vaitkus', text: 'Pastaba' },
+    ]);
+    actAs(ids.rokas);
+    expect(
+      await outcomeOf(
+        setSharesAction({}, formOf({ repertoireId: ids.london })),
+      ),
+    ).toEqual({ shared: 0 });
+    actAs(ids.rimantas);
+    expect(
+      await outcomeOf(sharedRepertoireData(ids.rokas.id, ids.london)),
+    ).toEqual({ notFound: true });
+    expect(await outcomeOf(coachPlayerData(ids.rokas.id))).toMatchObject({
+      repertoires: [],
+    });
+    expect(await notes()).toEqual([]);
+  });
+
+  it('is 404 on the next request after the player unlinks, and the notes go (R-124)', async () => {
+    const ids = await setUp();
+    actAs(ids.rimantas);
+    expect(
+      await outcomeOf(sharedRepertoireData(ids.rokas.id, ids.london)),
+    ).toMatchObject({ repertoire: { name: 'Londono sistema' } });
+    expect(
+      await outcomeOf(
+        saveCoachNoteAction({
+          playerId: ids.rokas.id,
+          repertoireId: ids.london,
+          moveKey: D4,
+          text: 'Pastaba',
+        }),
+      ),
+    ).toEqual({});
+    actAs(ids.rokas);
+    expect((await repertoirePageData(ids.london)).coachNotes).toHaveLength(1);
+    await outcomeOf(unlinkCoachAction(formOf({ coachId: ids.rimantas.id })));
+    expect((await repertoirePageData(ids.london)).coachNotes).toEqual([]);
+    actAs(ids.rimantas);
+    expect(
+      await outcomeOf(sharedRepertoireData(ids.rokas.id, ids.london)),
+    ).toEqual({ notFound: true });
+    expect(await sql.rows('select * from repertoire_shares')).toEqual([]);
+  });
 });

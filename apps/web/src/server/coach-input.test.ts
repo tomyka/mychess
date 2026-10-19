@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { parseGroupName, parseNewInvite } from './coach-input';
+import {
+  parseCoachNote,
+  parseCoachNoteMove,
+  parseGroupName,
+  parseNewInvite,
+} from './coach-input';
 
 const GROUP = '0b7f3c2e-8a1d-4e5f-9a6b-1c2d3e4f5a6b';
 
@@ -89,5 +94,67 @@ describe('parseNewInvite (R-110)', () => {
       ok: false,
       refusal: { reason },
     });
+  });
+});
+
+const REPERTOIRE = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
+const TARGET = { playerId: 'p-1', repertoireId: REPERTOIRE, moveKey: 'k|e4' };
+
+describe('parseCoachNoteMove', () => {
+  it('takes a player, a repertoire and a move key', () => {
+    expect(parseCoachNoteMove({ ...TARGET, coachId: 'c-9' })).toEqual({
+      ok: true,
+      value: TARGET,
+    });
+  });
+
+  it.each([
+    ['no player', { ...TARGET, playerId: '' }, 'access.notLinked'],
+    [
+      'a player id too long',
+      { ...TARGET, playerId: 'p'.repeat(101) },
+      'access.notLinked',
+    ],
+    [
+      'a malformed repertoire',
+      { ...TARGET, repertoireId: 'nėra' },
+      'access.notShared',
+    ],
+    ['no move key', { ...TARGET, moveKey: '' }, 'coachNote.moveNotFound'],
+    [
+      'a move key too long',
+      { ...TARGET, moveKey: 'k'.repeat(121) },
+      'coachNote.moveNotFound',
+    ],
+    ['no object', null, 'access.notShared'],
+  ])('refuses %s', (_, input, reason) => {
+    expect(parseCoachNoteMove(input)).toEqual({
+      ok: false,
+      refusal: { reason },
+    });
+  });
+});
+
+describe('parseCoachNote', () => {
+  it('trims the text', () => {
+    expect(parseCoachNote({ ...TARGET, text: '  Bf4 pirmiau  ' })).toEqual({
+      ok: true,
+      value: { ...TARGET, text: 'Bf4 pirmiau' },
+    });
+  });
+
+  it('keeps a note of 2000 characters', () => {
+    expect(
+      parseCoachNote({ ...TARGET, text: 'a'.repeat(2000) }),
+    ).toHaveProperty('ok', true);
+  });
+
+  it.each([
+    ['blank', { ...TARGET, text: '  ' }, 'coachNote.blank'],
+    ['too long', { ...TARGET, text: 'a'.repeat(2001) }, 'coachNote.tooLong'],
+    ['not text', { ...TARGET, text: 5 }, 'coachNote.blank'],
+    ['without a target', { text: 'Pastaba' }, 'access.notLinked'],
+  ])('refuses a note that is %s', (_, input, reason) => {
+    expect(parseCoachNote(input)).toEqual({ ok: false, refusal: { reason } });
   });
 });
