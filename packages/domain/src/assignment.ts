@@ -131,10 +131,15 @@ export const ASSIGNMENT_ISSUES = {
   deadlineInvalid: 'assignment.deadlineInvalid',
 } as const;
 
-/** A deadline: a calendar date, `YYYY-MM-DD` (plan decision 10). */
-export const deadlineSchema = z.iso.date({
-  error: ASSIGNMENT_ISSUES.deadlineInvalid,
-});
+/**
+ * A deadline: a calendar date, `YYYY-MM-DD` (plan decision 10), in the
+ * years 2000-9999, so that Postgres's `date` always stores it.
+ */
+export const deadlineSchema = z.iso
+  .date({ error: ASSIGNMENT_ISSUES.deadlineInvalid, abort: true })
+  .refine((date) => date >= '2000', {
+    error: ASSIGNMENT_ISSUES.deadlineInvalid,
+  });
 
 /** One group assignment as one member has it. */
 export interface GroupDeadline {

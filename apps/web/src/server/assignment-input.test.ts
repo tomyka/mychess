@@ -95,6 +95,7 @@ describe('parseAssignForm', () => {
     ['an unknown kind', { target: 'coach:jonas' }, 'assignment.notLinked'],
     ['a malformed repertoire', { repertoireId: 'x' }, 'assignment.notFound'],
     ['a bad date', { deadline: '30.11.2026' }, 'assignment.deadlineInvalid'],
+    ['year zero', { deadline: '0000-01-01' }, 'assignment.deadlineInvalid'],
   ])('refuses %s with its key', (_name, change, reason) => {
     expect(parseAssignForm(formOf({ ...valid, ...change }))).toEqual({
       ok: false,

@@ -156,6 +156,18 @@ describe('deadlineSchema (plan decision 10)', () => {
     },
   );
 
+  it.each([
+    ['0000-01-01', false],
+    ['1999-12-31', false],
+    ['2000-01-01', true],
+    ['9999-12-31', true],
+  ])('limits %s to the years 2000-9999 (accepted: %s)', (input, accepted) => {
+    const result = deadlineSchema.safeParse(input);
+    expect(
+      result.success ? result.data : result.error.issues.map((i) => i.message),
+    ).toStrictEqual(accepted ? input : ['assignment.deadlineInvalid']);
+  });
+
   it('refuses a non-string with the same key', () => {
     const bad = deadlineSchema.safeParse(20261130);
     expect(
