@@ -3,12 +3,24 @@
 // is not linked, as an account without Coach mode, and signed out; and the
 // access ends on the next request after an unlink from either side.
 import { moveKey, START_KEY } from '@mychess/chess';
-import { createInvite, setPersonalNote, shareRepertoire } from '@mychess/db';
-import { readdirSync } from 'node:fs';
-import { dirname, join, posix, sep } from 'node:path';
+import {
+  assign,
+  createInvite,
+  setPersonalNote,
+  shareRepertoire,
+} from '@mychess/db';
+import { readdirSync, readFileSync } from 'node:fs';
+import { dirname, join, posix, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import { unlinkCoachAction } from '../../src/app/nustatymai/coaching-actions';
+import * as assignActions from '../../src/app/repertuarai/[id]/assign-actions';
+import {
+  assignAction,
+  setDeadlineAction,
+  unassignAction,
+} from '../../src/app/repertuarai/[id]/assign-actions';
 import { setSharesAction } from '../../src/app/repertuarai/[id]/sharing-actions';
 import * as coachActions from '../../src/app/treneris/actions';
 import {
@@ -92,6 +104,10 @@ interface Ids {
   readonly london: string;
   /** Rokas's other repertoire, shared with nobody. */
   readonly unshared: string;
+  /** Rimantas's own repertoire, assigned to his group. */
+  readonly assigned: string;
+  /** That assignment. */
+  readonly assignment: string;
 }
 
 async function openInvite(coachId: string): Promise<string> {
@@ -141,6 +157,37 @@ async function rokasRepertoires(
   return { london, unshared };
 }
 
+const assignmentRowsSchema = z.tuple([z.object({ id: z.uuid() })]);
+
+/** Rimantas's own London, assigned to his group; it and the assignment. */
+async function rimantasAssignment(
+  rimantas: Person,
+  groupId: string,
+): Promise<{ assigned: string; assignment: string }> {
+  const assigned = await seedRepertoire(testDb(), 'rimantas@example.lt', {
+    pgn: LONDON,
+    side: 'white',
+    name: 'Rimanto Londonas',
+  });
+  const made = await assign(
+    testDb(),
+    {
+      coachId: rimantas.id,
+      repertoireId: assigned,
+      target: { kind: 'group', groupId },
+      deadline: null,
+    },
+    new Date(),
+  );
+  if (!made.ok) throw new Error(`not assigned: ${made.refusal.reason}`);
+  const [row] = assignmentRowsSchema.parse(
+    await sql.rows('select id from assignments where repertoire_id = $1', [
+      assigned,
+    ]),
+  );
+  return { assigned, assignment: row.id };
+}
+
 async function setUp(): Promise<Ids> {
   const rimantas = await coachPerson(
     sql,
@@ -156,6 +203,7 @@ async function setUp(): Promise<Ids> {
   await link(dovydas.id, gabija.id, dovydasGroup);
   const invite = await openInvite(rimantas.id);
   const { london, unshared } = await rokasRepertoires(rokas, rimantas);
+  const { assigned, assignment } = await rimantasAssignment(rimantas, group);
   return {
     rimantas,
     rokas,
@@ -166,6 +214,8 @@ async function setUp(): Promise<Ids> {
     invite,
     london,
     unshared,
+    assigned,
+    assignment,
   };
 }
 
@@ -225,10 +275,71 @@ const COACH_ACTIONS: Readonly<
     }),
 };
 
+// The assign panel's actions (S5 C2), each aimed at Rimantas's own
+// repertoire and its assignment to his group.
+const ASSIGN_ACTIONS: Readonly<
+  Record<keyof typeof assignActions, (ids: Ids) => Promise<unknown>>
+> = {
+  assignAction: (ids) =>
+    assignAction(
+      {},
+      formOf({
+        repertoireId: ids.assigned,
+        target: `player:${ids.rokas.id}`,
+        deadline: '',
+      }),
+    ),
+  unassignAction: (ids) =>
+    unassignAction({}, formOf({ assignmentId: ids.assignment })),
+  setDeadlineAction: (ids) =>
+    setDeadlineAction(
+      {},
+      formOf({ assignmentId: ids.assignment, deadline: '2026-12-31' }),
+    ),
+};
+
+// Every 'use server' module under src that calls requireCoach, by its path
+// from src, with its exports and the table that drives each one. The guard
+// below fails when such a module, or an action in one, has no entry.
+const COACH_ACTION_MODULES: Readonly<
+  Record<
+    string,
+    {
+      readonly exports: object;
+      readonly table: Readonly<Record<string, unknown>>;
+    }
+  >
+> = {
+  'app/treneris/actions.ts': { exports: coachActions, table: COACH_ACTIONS },
+  'app/repertuarai/[id]/assign-actions.ts': {
+    exports: assignActions,
+    table: ASSIGN_ACTIONS,
+  },
+};
+
+/** Every driven coach action. */
+const ALL_COACH_ACTIONS = { ...COACH_ACTIONS, ...ASSIGN_ACTIONS };
+
 /** The actions that name something of Rimantas's (all but a new group). */
-const ACTIONS_ON_RIMANTAS = Object.entries(COACH_ACTIONS).filter(
+const ACTIONS_ON_RIMANTAS = Object.entries(ALL_COACH_ACTIONS).filter(
   ([action]) => action !== 'createGroupAction',
 );
+
+const SRC = join(APP, '..');
+
+/** The 'use server' modules under src that call requireCoach, from src. */
+function coachActionModules(): string[] {
+  return readdirSync(SRC, { recursive: true, encoding: 'utf8' })
+    .filter((file) => /\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file))
+    .filter((file) => {
+      const source = readFileSync(join(SRC, file), 'utf8');
+      return (
+        /^['"]use server['"];?\s*$/m.test(source) &&
+        /\brequireCoach\b/.test(source)
+      );
+    })
+    .map((file) => relative(SRC, join(SRC, file)).split(sep).join('/'));
+}
 
 /** Every row of the coaching tables, to compare before and after. */
 async function coachingRows(): Promise<unknown> {
@@ -239,6 +350,11 @@ async function coachingRows(): Promise<unknown> {
     invites: await sql.rows('select * from invites order by 1'),
     shares: await sql.rows('select * from repertoire_shares order by 1, 3'),
     notes: await sql.rows('select * from coach_notes order by 1'),
+    assignments: await sql.rows('select * from assignments order by 1'),
+    assignmentPlayers: await sql.rows(
+      'select * from assignment_players order by 1, 2',
+    ),
+    offers: await sql.rows('select * from fork_offers order by 1'),
   };
 }
 
@@ -275,11 +391,20 @@ describe('the access table (plan decision 14)', () => {
     expect(new Set(pages)).toEqual(new Set(Object.keys(COACH_PAGES)));
   });
 
-  it('covers every coach action', () => {
-    expect(new Set(Object.keys(coachActions))).toEqual(
-      new Set(Object.keys(COACH_ACTIONS)),
+  it('covers every server action module that calls requireCoach', () => {
+    expect(new Set(coachActionModules())).toEqual(
+      new Set(Object.keys(COACH_ACTION_MODULES)),
     );
   });
+
+  it.each(Object.entries(COACH_ACTION_MODULES))(
+    'covers every action of %s',
+    (_module, { exports, table }) => {
+      expect(new Set(Object.keys(exports))).toEqual(
+        new Set(Object.keys(table)),
+      );
+    },
+  );
 });
 
 describe('a coach who is not linked (checklist 1)', () => {
@@ -305,8 +430,24 @@ describe('a coach who is not linked (checklist 1)', () => {
         { refusal: 'coach.notLinked' },
         { refusal: 'invite.invalid' },
         { refusal: 'access.notLinked' },
+        { refusal: 'assignment.notFound' },
       ]).toContainEqual(await outcomeOf(act(ids)));
       expect(await coachingRows()).toEqual(before);
+    },
+  );
+
+  it.each(Object.entries(ASSIGN_ACTIONS))(
+    '%s on another coach’s repertoire or assignment is assignment.notFound; for its coach it saves',
+    async (_action, act) => {
+      const ids = await setUp();
+      const before = await coachingRows();
+      actAs(ids.dovydas);
+      expect(await outcomeOf(act(ids))).toEqual({
+        refusal: 'assignment.notFound',
+      });
+      expect(await coachingRows()).toEqual(before);
+      actAs(ids.rimantas);
+      expect(await outcomeOf(act(ids))).toEqual({ saved: 1 });
     },
   );
 
@@ -485,7 +626,7 @@ describe('ids in a form never pick whose data changes (checklist 4)', () => {
 /** Every coach page loader and action, as name and call. */
 const EVERY_ENTRY = [
   ...Object.entries(COACH_PAGES),
-  ...Object.entries(COACH_ACTIONS),
+  ...Object.entries(ALL_COACH_ACTIONS),
 ];
 
 describe('without Coach mode', () => {

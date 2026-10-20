@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   ASSIGNMENT_ISSUES,
   ASSIGNMENT_REFUSALS,
+  assignableTargets,
   assignmentStatus,
   canAssign,
+  canChangeAssignment,
   canFork,
   canUseAssignment,
   deadlineSchema,
@@ -345,5 +347,93 @@ describe('isTrainingActive (R-46)', () => {
   it('is active unless paused', () => {
     expect(isTrainingActive(null)).toBe(true);
     expect(isTrainingActive(new Date('2026-10-20T09:00:00Z'))).toBe(false);
+  });
+});
+
+describe('canChangeAssignment (R-51, R-113)', () => {
+  const since = new Date('2026-10-01T00:00:00Z');
+  it.each([
+    ['allows the coach’s own assignment', since, true, ok],
+    ['refuses with Coach mode off', null, true, refused('assignment.notCoach')],
+    [
+      'refuses with Coach mode off before looking for the assignment',
+      null,
+      false,
+      refused('assignment.notCoach'),
+    ],
+    [
+      'reads someone else’s or a missing assignment as not found',
+      since,
+      false,
+      refused('assignment.notFound'),
+    ],
+  ] as const)('%s', (_, coachSince, found, expected) => {
+    expect(canChangeAssignment({ coachSince, found })).toStrictEqual(expected);
+  });
+});
+
+describe('assignableTargets (R-15, R-16, R-134)', () => {
+  const ann = { id: 'ann', displayName: 'Ann' };
+  const bob = { id: 'bob', displayName: 'Bob' };
+  const red = { id: 'red', name: 'Red' };
+  const blue = { id: 'blue', name: 'Blue' };
+  const players = [ann, bob];
+  const groups = [red, blue];
+
+  it.each([
+    ['offers everyone when it is assigned to no one', [], players, groups],
+    [
+      'leaves out a player it is assigned to',
+      [{ kind: 'player', id: 'ann' }],
+      [bob],
+      groups,
+    ],
+    [
+      'leaves out a group it is assigned to',
+      [{ kind: 'group', id: 'blue' }],
+      players,
+      [red],
+    ],
+    [
+      'does not mistake a group for a player with the same id',
+      [{ kind: 'group', id: 'ann' }],
+      players,
+      groups,
+    ],
+    [
+      'does not mistake a player for a group with the same id',
+      [{ kind: 'player', id: 'red' }],
+      players,
+      groups,
+    ],
+    [
+      'offers no one once everyone has it',
+      [
+        { kind: 'player', id: 'ann' },
+        { kind: 'player', id: 'bob' },
+        { kind: 'group', id: 'red' },
+        { kind: 'group', id: 'blue' },
+      ],
+      [],
+      [],
+    ],
+  ] as const)('%s', (_, assigned, expectedPlayers, expectedGroups) => {
+    expect(assignableTargets(players, groups, assigned)).toStrictEqual({
+      players: expectedPlayers,
+      groups: expectedGroups,
+    });
+  });
+
+  it('keeps a player who has it only through a group assignable individually (R-134)', () => {
+    // Ann is in Red, which has it; only an assignment to Ann takes her out.
+    expect(
+      assignableTargets([ann], [red], [{ kind: 'group', id: 'red' }]),
+    ).toStrictEqual({ players: [ann], groups: [] });
+  });
+
+  it('keeps the candidates in their order, as the same objects', () => {
+    const { players: left } = assignableTargets([bob, ann], [], []);
+    expect(left).toStrictEqual([bob, ann]);
+    expect(left[0]).toBe(bob);
   });
 });

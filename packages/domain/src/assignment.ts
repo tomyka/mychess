@@ -72,6 +72,60 @@ export function canAssign(
     : OK;
 }
 
+/** What changing one of a coach's assignments depends on, read under lock. */
+export interface ChangeAssignmentFacts extends CoachState {
+  /** The assignment exists and is this coach's own. */
+  readonly found: boolean;
+}
+
+/**
+ * A coach changes (moves or clears the deadline of) only their own
+ * assignment, and only while in Coach mode (R-51, R-113). Another coach's
+ * assignment reads as missing.
+ */
+export function canChangeAssignment(
+  facts: ChangeAssignmentFacts,
+): AssignmentResult {
+  if (!isCoach(facts)) return refuse(ASSIGNMENT_REFUSALS.notCoach);
+  return facts.found ? OK : refuse(ASSIGNMENT_REFUSALS.notFound);
+}
+
+/** Whom an existing assignment of the repertoire went to. */
+export interface AssignedTarget {
+  readonly kind: AssignmentTarget['kind'];
+  readonly id: string;
+}
+
+/** The candidates still offered for one repertoire. */
+export interface AssignableTargets<P, G> {
+  readonly players: readonly P[];
+  readonly groups: readonly G[];
+}
+
+/**
+ * The coach's linked players and groups this repertoire is not yet
+ * assigned to as that target, in their order: canAssign's alreadyAssigned
+ * rule. A player who has it only through a group stays assignable
+ * individually (R-16, R-134).
+ */
+export function assignableTargets<
+  P extends { readonly id: string },
+  G extends { readonly id: string },
+>(
+  players: readonly P[],
+  groups: readonly G[],
+  assigned: readonly AssignedTarget[],
+): AssignableTargets<P, G> {
+  const taken = (kind: AssignedTarget['kind']): ReadonlySet<string> =>
+    new Set(assigned.flatMap((a) => (a.kind === kind ? [a.id] : [])));
+  const takenPlayers = taken('player');
+  const takenGroups = taken('group');
+  return {
+    players: players.filter((player) => !takenPlayers.has(player.id)),
+    groups: groups.filter((group) => !takenGroups.has(group.id)),
+  };
+}
+
 /** Message-catalogue keys for invalid assignment input. */
 export const ASSIGNMENT_ISSUES = {
   deadlineInvalid: 'assignment.deadlineInvalid',

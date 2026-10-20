@@ -8,6 +8,7 @@
 import {
   ASSIGNMENT_REFUSALS,
   canAssign,
+  canChangeAssignment,
   type AssignmentRefusal,
   type AssignmentTarget,
   type Result,
@@ -16,7 +17,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { lockAccountById } from '../accounts';
 import { assignmentPlayers, assignments } from '../assignment-schema';
-import type { Db, Executor, Tx } from '../client';
+import type { Db, Tx } from '../client';
 import {
   countSchema,
   holdGroup,
@@ -305,24 +306,42 @@ export interface DeadlineChange extends AssignmentRef {
   readonly deadline: string | null;
 }
 
+/** Is it the coach's own assignment? Holds its row for the rest of `tx`. */
+async function holdOwnAssignment(
+  tx: Tx,
+  { coachId, assignmentId }: AssignmentRef,
+): Promise<boolean> {
+  if (!isUuid(assignmentId)) return false;
+  const rows = await tx
+    .select({ id: assignments.id })
+    .from(assignments)
+    .where(
+      and(eq(assignments.id, assignmentId), eq(assignments.coachId, coachId)),
+    )
+    .for('update');
+  return rows.length > 0;
+}
+
 /**
  * Extends, moves or clears the deadline of the coach's own assignment
- * (R-51); another coach's assignment is not found.
+ * (R-51) while in Coach mode (R-113); canChangeAssignment decides under the
+ * coach row's lock. Another coach's assignment is not found.
  */
-export async function setDeadline(
-  db: Executor,
+export function setDeadline(
+  db: Db,
   change: DeadlineChange,
 ): Promise<AssignmentResult> {
-  if (!isUuid(change.assignmentId)) return NOT_FOUND;
-  const updated = await db
-    .update(assignments)
-    .set({ deadline: change.deadline })
-    .where(
-      and(
-        eq(assignments.id, change.assignmentId),
-        eq(assignments.coachId, change.coachId),
-      ),
-    )
-    .returning({ id: assignments.id });
-  return updated.length === 1 ? DONE : NOT_FOUND;
+  return db.transaction(async (tx) => {
+    const coach = await lockAccountById(tx, change.coachId);
+    const allowed = canChangeAssignment({
+      coachSince: coach?.coachSince ?? null,
+      found: await holdOwnAssignment(tx, change),
+    });
+    if (!allowed.ok) return allowed;
+    await tx
+      .update(assignments)
+      .set({ deadline: change.deadline })
+      .where(eq(assignments.id, change.assignmentId));
+    return DONE;
+  });
 }

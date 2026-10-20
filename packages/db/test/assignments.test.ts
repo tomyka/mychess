@@ -701,6 +701,34 @@ describe('setDeadline', () => {
     ).toEqual(OK);
     expect(await deadline()).toEqual({ deadline: null });
   });
+
+  it('refuses with Coach mode off and leaves the deadline (R-113)', async () => {
+    await assignTo({ playerId: 'p' }, '2026-11-01');
+    const id = await assignmentId({ playerId: 'p' });
+    await query(`update accounts set coach_since = null where id = 'c'`);
+    expect(
+      await setDeadline(db, {
+        coachId: 'c',
+        assignmentId: id,
+        deadline: '2026-11-30',
+      }),
+    ).toEqual(refused('assignment.notCoach'));
+    expect(await query('select deadline::text from assignments')).toEqual([
+      { deadline: '2026-11-01' },
+    ]);
+  });
+
+  it('refuses an unknown coach as not a coach', async () => {
+    await assignTo({ playerId: 'p' });
+    const id = await assignmentId({ playerId: 'p' });
+    expect(
+      await setDeadline(db, {
+        coachId: 'nobody',
+        assignmentId: id,
+        deadline: null,
+      }),
+    ).toEqual(refused('assignment.notCoach'));
+  });
 });
 
 describe('coachAssignments', () => {
