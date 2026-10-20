@@ -719,3 +719,217 @@ describe('the sharing tables', () => {
     );
   });
 });
+
+describe('the assignment tables', () => {
+  const account = (id: string) =>
+    client.query(
+      `insert into accounts (id, email, display_name, created_at, updated_at)
+       values ($1, $1 || '@example.lt', $1, now(), now())`,
+      [id],
+    );
+  const link = (coachId: string, playerId: string) =>
+    client.query(
+      `insert into coach_links (coach_id, player_id, created_at) values ($1, $2, now())`,
+      [coachId, playerId],
+    );
+  const returningId = async (
+    text: string,
+    values: readonly unknown[],
+  ): Promise<string> => {
+    const { rows } = await client.query<{ id: string }>(text, [...values]);
+    const id = rows[0]?.id;
+    if (id === undefined) throw new Error('no id');
+    return id;
+  };
+  const repertoire = (owner: string) =>
+    returningId(
+      `insert into repertoires (owner_account_id, side, name, created_at, updated_at)
+       values ($1, 'black', 'Karo-Kan gynyba', now(), now()) returning id`,
+      [owner],
+    );
+  const group = (coachId: string) =>
+    returningId(
+      `insert into groups (coach_id, name, created_at) values ($1, 'Šeštadienio grupė', now()) returning id`,
+      [coachId],
+    );
+  const assign = (
+    coachId: string,
+    rep: string,
+    target: { player?: string; group?: string },
+  ) =>
+    client.query(
+      `insert into assignments (coach_id, repertoire_id, player_id, group_id, assigned_version, created_at)
+       values ($1, $2, $3, $4, 1, now())`,
+      [coachId, rep, target.player ?? null, target.group ?? null],
+    );
+  const offer = (rep: string, forkId: string | null = null) =>
+    client.query(
+      `insert into fork_offers (player_id, repertoire_id, coach_name, name, side, snapshot, reason, created_at, expires_at, fork_id)
+       values ('p', $1, 'Treneris', 'Karo-Kan gynyba', 'black', '{}', 'unassigned', now(), now() + interval '30 days', $2)`,
+      [rep, forkId],
+    );
+  const count = async (table: string): Promise<number> => {
+    const { rows } = await client.query<{ n: number }>(
+      `select count(*)::int as n from ${table}`,
+    );
+    return rows[0]?.n ?? -1;
+  };
+
+  let rep = '';
+  let g = '';
+  let h = '';
+
+  beforeEach(async () => {
+    for (const id of ['c', 'd', 'p', 'u']) await account(id);
+    await link('c', 'p');
+    rep = await repertoire('c');
+    g = await group('c');
+    h = await group('d');
+    await client.query(
+      `insert into group_members (group_id, coach_id, player_id, joined_at) values ($1, 'c', 'p', now())`,
+      [g],
+    );
+  });
+
+  it('refuses an assignment to both a player and a group', async () => {
+    await expect(assign('c', rep, { player: 'p', group: g })).rejects.toThrow(
+      /assignments_one_target/,
+    );
+  });
+
+  it('refuses an assignment to neither a player nor a group', async () => {
+    await expect(assign('c', rep, {})).rejects.toThrow(
+      /assignments_one_target/,
+    );
+  });
+
+  it("refuses an assignment of another coach's repertoire", async () => {
+    await link('d', 'p');
+    await expect(assign('d', rep, { player: 'p' })).rejects.toThrow(
+      /assignments_repertoire_fk/,
+    );
+  });
+
+  it('refuses an assignment to a player who is not linked', async () => {
+    await expect(assign('c', rep, { player: 'u' })).rejects.toThrow(
+      /assignments_link_fk/,
+    );
+  });
+
+  it("refuses an assignment to another coach's group", async () => {
+    await expect(assign('c', rep, { group: h })).rejects.toThrow(
+      /assignments_group_fk/,
+    );
+  });
+
+  it('assigns a repertoire to a player and to a group at most once each', async () => {
+    await assign('c', rep, { player: 'p' });
+    await assign('c', rep, { group: g });
+    await expect(assign('c', rep, { player: 'p' })).rejects.toThrow(
+      /assignments_player_unique/,
+    );
+    await expect(assign('c', rep, { group: g })).rejects.toThrow(
+      /assignments_group_unique/,
+    );
+  });
+
+  it('ends the player assignment, and only it, when the link ends', async () => {
+    await assign('c', rep, { player: 'p' });
+    await assign('c', rep, { group: g });
+    await client.query(
+      `delete from coach_links where coach_id = 'c' and player_id = 'p'`,
+    );
+    const { rows } = await client.query(
+      'select player_id, group_id from assignments',
+    );
+    expect(rows).toEqual([{ player_id: null, group_id: g }]);
+  });
+
+  it('ends the group assignment, and only it, with the group', async () => {
+    await assign('c', rep, { player: 'p' });
+    await assign('c', rep, { group: g });
+    await client.query('delete from groups where id = $1', [g]);
+    const { rows } = await client.query(
+      'select player_id, group_id from assignments',
+    );
+    expect(rows).toEqual([{ player_id: 'p', group_id: null }]);
+  });
+
+  it('removes assignments, changes and player state with the repertoire, and keeps the fork offer', async () => {
+    await assign('c', rep, { player: 'p' });
+    await assign('c', rep, { group: g });
+    await client.query(
+      `insert into repertoire_changes (repertoire_id, version, changes, created_at)
+       values ($1, 2, '{"added":[],"removed":[]}', now())`,
+      [rep],
+    );
+    await client.query(
+      `insert into assignment_players (player_id, repertoire_id, paused_at) values ('p', $1, now())`,
+      [rep],
+    );
+    await offer(rep);
+    await client.query('delete from repertoires where id = $1', [rep]);
+    expect(await count('assignments')).toBe(0);
+    expect(await count('repertoire_changes')).toBe(0);
+    expect(await count('assignment_players')).toBe(0);
+    const { rows } = await client.query(
+      'select player_id, repertoire_id from fork_offers',
+    );
+    expect(rows).toEqual([{ player_id: 'p', repertoire_id: null }]);
+  });
+
+  it('keeps an accepted fork offer when the fork is deleted, without the fork', async () => {
+    const fork = await repertoire('p');
+    await offer(rep, fork);
+    await client.query('delete from repertoires where id = $1', [fork]);
+    const { rows } = await client.query(
+      'select repertoire_id, fork_id from fork_offers',
+    );
+    expect(rows).toEqual([{ repertoire_id: rep, fork_id: null }]);
+  });
+
+  it('refuses a fork offer with an unknown reason', async () => {
+    await expect(
+      client.query(
+        `insert into fork_offers (player_id, coach_name, name, side, snapshot, reason, created_at, expires_at)
+         values ('p', 'Treneris', 'x', 'black', '{}', 'expired', now(), now())`,
+      ),
+    ).rejects.toThrow(/fork_offers_reason_check/);
+  });
+
+  it("removes a fork's coach notes with the fork", async () => {
+    const fork = await repertoire('p');
+    await client.query(
+      `insert into fork_coach_notes (repertoire_id, move_key, text, coach_name)
+       values ($1, 'start|e4', 'Žiūrėk į d5', 'Treneris')`,
+      [fork],
+    );
+    await client.query('delete from repertoires where id = $1', [fork]);
+    expect(await count('fork_coach_notes')).toBe(0);
+  });
+
+  it('indexes the cascades of the assignment tables', async () => {
+    const { rows } = await client.query<{ table: string; leading: string }>(
+      `select t.relname as table, a.attname as leading
+       from pg_index i
+       join pg_class t on t.oid = i.indrelid
+       join pg_attribute a on a.attrelid = t.oid and a.attnum = i.indkey[0]
+       where i.indpred is null
+         and t.relname in ('assignments', 'assignment_players', 'repertoire_changes', 'fork_offers', 'fork_coach_notes')`,
+    );
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        { table: 'assignments', leading: 'repertoire_id' },
+        { table: 'assignments', leading: 'coach_id' },
+        { table: 'assignments', leading: 'group_id' },
+        { table: 'assignment_players', leading: 'player_id' },
+        { table: 'assignment_players', leading: 'repertoire_id' },
+        { table: 'repertoire_changes', leading: 'repertoire_id' },
+        { table: 'fork_offers', leading: 'player_id' },
+        { table: 'fork_offers', leading: 'repertoire_id' },
+        { table: 'fork_offers', leading: 'fork_id' },
+        { table: 'fork_coach_notes', leading: 'repertoire_id' },
+      ]),
+    );
+  });
+});

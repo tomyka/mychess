@@ -57,6 +57,13 @@
       "when": 1792446716800,
       "tag": "0007_bright_vapor",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792505154202,
+      "tag": "0008_rapid_black_knight",
+      "breakpoints": true
     }
   ]
 }

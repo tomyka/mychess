@@ -94,7 +94,7 @@ None of these is a product rule. The possible product rules are listed under "Sp
    - the name is the source name, unchanged.
 
    Reviews are untouched (R-43, R-53). A live fork sets `assignment_players.forked_at`. An accepted offer sets `fork_offers.accepted_at` and `fork_id`.
-8. **Assigning again after a fork** (R-128): creating an assignment row clears `forked_at` for every player that row reaches. A forked player re-added through a group that still has the assignment stays forked: the row is not new.
+8. **Assigning again after a fork** (R-128): creating an assignment row clears `forked_at` for every player that row reaches. A forked player keeps "forked" only while some assignment row still reaches them. Once none does (they left the group, or were unassigned), `dropStaleState` deletes their state, and anything that reaches them later (a re-add to the group, a new assignment) reaches them live, next to their fork. R-128 allows this: the coach gives it again.
 9. **A coach's account delete (R-49)** forks for every player with a live, non-forked assignment from that coach, in the same transaction and before the account row is deleted. Its fork notes carry the coach's display name, so they survive the cascade. The coach's open offers to others stay: they hold snapshots, and `repertoire_id` is set to null.
 10. **Deadlines are `YYYY-MM-DD` strings** compared as strings. "Today" is `vilniusDay(now)`. A join date is the Vilnius day of `group_members.joined_at`.
 11. **Routes:**

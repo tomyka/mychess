@@ -1,5 +1,6 @@
-// The database schema: every table, as drizzle-kit reads it to generate
-// migrations (drizzle.config.ts). Better Auth's five tables carry our names
+// The database schema: the core tables, as drizzle-kit reads them to
+// generate migrations (drizzle.config.ts; S5's assignment tables are in
+// assignment-schema.ts). Better Auth's five tables carry our names
 // (src/server/auth.ts in apps/web maps them): its "user" is our Account and
 // its "account" is a provider link.
 import {
@@ -18,7 +19,7 @@ import {
   type ChapterNameSource,
   type Circle,
 } from '@mychess/chess';
-import { sql, type SQL } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
@@ -31,22 +32,11 @@ import {
   primaryKey,
   serial,
   text,
-  timestamp,
   unique,
   uniqueIndex,
   uuid,
-  type PgColumn,
 } from 'drizzle-orm/pg-core';
-
-const at = (name: string) => timestamp(name, { withTimezone: true });
-
-/**
- * `column in ('a', 'b')` with the values inlined, for a CHECK constraint
- * built from the same list as the column's enum, so the two cannot drift.
- * The values are our own constants, never input.
- */
-const oneOf = (column: PgColumn, values: readonly string[]): SQL =>
-  sql`${column} in (${sql.raw(values.map((value) => `'${value}'`).join(', '))})`;
+import { at, oneOf } from './schema-columns';
 
 export const accounts = pgTable(
   'accounts',
