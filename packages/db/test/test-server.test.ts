@@ -50,27 +50,37 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+// Two databases are created and migrated here: the work the suite's global
+// setup does once, so it gets a hook's budget (vitest.config.ts
+// hookTimeout), not a plain test's 30 s. On a loaded Docker host the plain
+// timeout ran out (#285).
+const MIGRATING_TWICE = 120_000;
+
 describe('startTestDatabase with TEST_POSTGRES_URL', () => {
-  it('creates a fresh migrated database per call on that server, and stop() drops it', async () => {
-    vi.stubEnv('TEST_POSTGRES_URL', serverUrl);
-    const first = await startTestDatabase();
-    const second = await startTestDatabase();
-    try {
-      expect(first.url).not.toBe(second.url);
-      for (const database of [first, second]) {
-        const url = new URL(database.url);
-        expect(url.host).toBe(new URL(serverUrl).host);
-        expect(databaseName(database)).toMatch(/^test_[0-9a-f]{16}$/);
-        expect(await databaseExists(databaseName(database))).toBe(true);
-        expect(await migrationCount(database.url)).toBeGreaterThan(0);
+  it(
+    'creates a fresh migrated database per call on that server, and stop() drops it',
+    async () => {
+      vi.stubEnv('TEST_POSTGRES_URL', serverUrl);
+      const first = await startTestDatabase();
+      const second = await startTestDatabase();
+      try {
+        expect(first.url).not.toBe(second.url);
+        for (const database of [first, second]) {
+          const url = new URL(database.url);
+          expect(url.host).toBe(new URL(serverUrl).host);
+          expect(databaseName(database)).toMatch(/^test_[0-9a-f]{16}$/);
+          expect(await databaseExists(databaseName(database))).toBe(true);
+          expect(await migrationCount(database.url)).toBeGreaterThan(0);
+        }
+      } finally {
+        await first.stop();
+        await second.stop();
       }
-    } finally {
-      await first.stop();
-      await second.stop();
-    }
-    expect(await databaseExists(databaseName(first))).toBe(false);
-    expect(await databaseExists(databaseName(second))).toBe(false);
-  });
+      expect(await databaseExists(databaseName(first))).toBe(false);
+      expect(await databaseExists(databaseName(second))).toBe(false);
+    },
+    MIGRATING_TWICE,
+  );
 
   it('drops the database even with a connection still open, and stops more than once safely', async () => {
     vi.stubEnv('TEST_POSTGRES_URL', serverUrl);
