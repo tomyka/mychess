@@ -4,8 +4,16 @@ import { useId, type JSX } from 'react';
 import { assignedRepertoirePath } from '../lib/routes';
 import type { HomeAssignment } from '../server/assignment-pages';
 import { AssignmentBadges } from './assignment-badges';
-import { SECTION, SECTION_TITLE, TEXT_LINK } from './nustatymai/styles';
+import { SECTION, SECTION_TITLE } from './nustatymai/styles';
 import { useDeadline } from './use-deadline';
+
+/**
+ * The repertoire's name as a link one text line high, so the lines under
+ * it sit at the same gap as each other; its hit area still reaches 44px
+ * (24px line + 10px above and below).
+ */
+const ITEM_LINK =
+  "relative self-start font-semibold text-accent underline after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-['']";
 
 /** One assignment: its page, who assigned it, the deadline and the badges. */
 function AssignmentItem({
@@ -20,7 +28,7 @@ function AssignmentItem({
     <li className="flex flex-col gap-1">
       <Link
         href={assignedRepertoirePath(assignment.repertoireId)}
-        className={`${TEXT_LINK} font-semibold`}
+        className={ITEM_LINK}
       >
         {assignment.name}
       </Link>

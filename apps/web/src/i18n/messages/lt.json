@@ -389,7 +389,8 @@
       "title": "Ėjimai",
       "hasComment": "yra komentaras",
       "hasNote": "yra mano užrašas",
-      "hasCoachNote": "yra mano trenerio pastaba"
+      "hasCoachNote": "yra mano trenerio pastaba",
+      "hasKeptCoachNote": "yra trenerio pastaba"
     },
     "note": {
       "label": "Mano užrašas",
@@ -528,7 +529,8 @@
       "added": "Pridėta: {moves}",
       "removed": "Pašalinta: {moves}",
       "commentsChanged": "{count, plural, one {Pakeisti # ėjimo komentarai ar žymės} few {Pakeisti # ėjimų komentarai ar žymės} other {Pakeisti # ėjimų komentarai ar žymės}}",
-      "deletedChapters": "Ištrinti skyriai"
+      "deletedChapters": "Ištrinti skyriai",
+      "chapter": "Skyrius {number} — {name}"
     },
     "deadlineOn": "Terminas: {date}",
     "noDeadline": "Be termino",
@@ -562,7 +564,7 @@
       "clearDeadline": "Panaikinti terminą",
       "deadlineSaved": "Terminas išsaugotas.",
       "unassign": "Panaikinti priskyrimą",
-      "unassignQuestion": "Panaikinti priskyrimą: {name}? Repertuaras dings iš žaidėjų sąrašų, o per {days, plural, one {# dieną} few {# dienas} other {# dienų}} jie galės pasilikti asmeninę kopiją. Žaidėjai, kuriems jis priskirtas ir kitu būdu, jį pasiliks.",
+      "unassignQuestion": "{kind, select, player {Panaikinti priskyrimą: {name}? Repertuaras dings iš žaidėjo sąrašo, o per {days, plural, one {# dieną} few {# dienas} other {# dienų}} jis galės pasilikti asmeninę kopiją.} other {Panaikinti priskyrimą: {name}? Repertuaras dings iš žaidėjų sąrašų, o per {days, plural, one {# dieną} few {# dienas} other {# dienų}} jie galės pasilikti asmeninę kopiją. Žaidėjai, kuriems jis priskirtas ir kitu būdu, jį pasiliks.}}",
       "unassignConfirm": "Panaikinti priskyrimą",
       "unassignCancel": "Palikti"
     },

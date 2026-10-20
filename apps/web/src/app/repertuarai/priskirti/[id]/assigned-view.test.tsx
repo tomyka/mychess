@@ -148,18 +148,25 @@ describe('AssignedView (R-21, R-102)', () => {
     expect(noteField()?.value).toBe('Mano planas');
   });
 
-  it('pauses the assignment', async () => {
+  it('pauses the assignment, and the header says so at once', async () => {
     renderView();
+    const header = screen.getByRole('banner');
+    expect(within(header).queryByText(a.badge.paused)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: a.pause.pause }));
     expect(
       await screen.findByRole('button', { name: a.pause.resume }),
     ).toBeDefined();
+    expect(within(header).getByText(a.badge.paused)).toBeDefined();
   });
 
-  it('opens paused when the assignment is paused', () => {
+  it('opens paused when the assignment is paused, a badge under who assigned it', () => {
     renderView({ paused: true });
     expect(screen.getByRole('button', { name: a.pause.resume })).toBeDefined();
-    expect(screen.getByText(a.pause.paused)).toBeDefined();
+    expect(screen.getByText(a.pause.pausedHint)).toBeDefined();
+    const assignedBy = within(screen.getByRole('banner')).getByText(
+      'Priskyrė Jonas',
+    );
+    expect(assignedBy.nextElementSibling?.textContent).toBe(a.badge.paused);
   });
 
   it('marks the version it shows seen (R-133)', async () => {

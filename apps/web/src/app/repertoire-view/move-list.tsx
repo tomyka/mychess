@@ -26,6 +26,11 @@ export interface MoveListProps {
    * on a shared repertoire (a pen; docs/design/coach-shared-repertoire.md).
    */
   readonly noteKind?: NoteKind | undefined;
+  /**
+   * The moves carrying a coach note the repertoire kept as a fork (R-47):
+   * a pen, next to the viewer's own mark.
+   */
+  readonly keptNoteMoves?: ReadonlySet<string> | undefined;
   readonly onGoto: (path: readonly RepertoireMove[]) => void;
   /** Builder mode: an empty chapter asks for its first move. */
   readonly building?: boolean;
@@ -33,6 +38,11 @@ export interface MoveListProps {
 
 /** Whose notes the list marks: see `MoveListProps.noteKind`. */
 type NoteKind = 'personal' | 'coach';
+
+/** A mark after a SAN: the viewer's own note, or a fork's kept coach note. */
+type NoteMark = NoteKind | 'kept';
+
+const NO_KEPT_NOTES: ReadonlySet<string> = new Set();
 
 /** A move chip, or the variations that branch off before the next one. */
 type Token =
@@ -92,25 +102,37 @@ interface ListContext {
   readonly current: string;
   readonly notedMoves: Readonly<Record<string, string>>;
   readonly noteKind: NoteKind;
+  readonly keptNoteMoves: ReadonlySet<string>;
   readonly onGoto: (path: readonly RepertoireMove[]) => void;
 }
+
+/** What each mark means, as the chip's name says it. */
+const MARK_WORD = {
+  personal: 'hasNote',
+  coach: 'hasCoachNote',
+  kept: 'hasKeptCoachNote',
+} as const;
 
 /** The chip's accessible name: number and SAN, then what the move carries. */
 function useChipLabel(
   text: string,
   comment: boolean,
-  note: NoteKind | null,
+  marks: readonly NoteMark[],
 ): string {
-  const t = useTranslations();
-  const noteWord =
-    note === 'coach'
-      ? t('repertoires.moves.hasCoachNote')
-      : t('repertoires.moves.hasNote');
+  const t = useTranslations('repertoires.moves');
   return [
     text,
-    ...(comment ? [t('repertoires.moves.hasComment')] : []),
-    ...(note === null ? [] : [noteWord]),
+    ...(comment ? [t('hasComment')] : []),
+    ...marks.map((mark) => t(MARK_WORD[mark])),
   ].join(', ');
+}
+
+/** The marks of the move `key`: the viewer's own note, then a kept one. */
+function marksOf(context: ListContext, key: string): NoteMark[] {
+  return [
+    ...(context.notedMoves[key] === undefined ? [] : [context.noteKind]),
+    ...(context.keptNoteMoves.has(key) ? ['kept' as const] : []),
+  ];
 }
 
 function MoveChip({
@@ -124,14 +146,11 @@ function MoveChip({
   const { move } = token;
   const number = moveNumber(token.ply, context.whiteFirst);
   const isCurrent = pathId(token.path) === context.current;
-  const note =
-    context.notedMoves[moveKey(move.from, move.san)] === undefined
-      ? null
-      : context.noteKind;
+  const marks = marksOf(context, moveKey(move.from, move.san));
   const label = useChipLabel(
     `${number} ${move.san}`,
     move.comment !== null,
-    note,
+    marks,
   );
   useEffect(() => {
     const chip = ref.current;
@@ -161,27 +180,33 @@ function MoveChip({
         className={`inline-flex min-h-touch min-w-touch items-center justify-center gap-1 rounded-control px-2 text-base tabular-nums ${weight} ${tone}`}
       >
         {move.san}
-        <MoveGlyphs comment={move.comment !== null} note={note} />
+        <MoveGlyphs comment={move.comment !== null} marks={marks} />
       </button>
     </span>
   );
 }
 
-/** The note marks: a lock for a private Personal note, a pen for a coach's own. */
-const NOTE_GLYPH: Readonly<Record<NoteKind, string>> = {
+const PEN = 'M11 1.5l3.5 3.5-8.5 8.5H2.5V10zM2 15h12v-1H2z';
+
+/**
+ * The note marks: a lock for a private Personal note, a pen for a coach's
+ * note, the viewing coach's own or one a fork kept.
+ */
+const NOTE_GLYPH: Readonly<Record<NoteMark, string>> = {
   personal: 'M5 7V5a3 3 0 0 1 6 0v2h1v7H4V7zm2 0h2V5a1 1 0 0 0-2 0z',
-  coach: 'M11 1.5l3.5 3.5-8.5 8.5H2.5V10zM2 15h12v-1H2z',
+  coach: PEN,
+  kept: PEN,
 };
 
 /** The small comment and note marks after a SAN; their meaning is in the chip's name. */
 function MoveGlyphs({
   comment,
-  note,
+  marks,
 }: {
   readonly comment: boolean;
-  readonly note: NoteKind | null;
+  readonly marks: readonly NoteMark[];
 }): JSX.Element | null {
-  if (!comment && note === null) return null;
+  if (!comment && marks.length === 0) return null;
   return (
     <span aria-hidden="true" className="flex gap-0.5 text-xs">
       {comment ? (
@@ -189,16 +214,17 @@ function MoveGlyphs({
           <path d="M2 3h12v8H6l-3 3v-3H2z" />
         </svg>
       ) : null}
-      {note === null ? null : (
+      {marks.map((mark) => (
         <svg
+          key={mark}
           viewBox="0 0 16 16"
           className="size-3"
           fill="currentColor"
-          data-note={note}
+          data-note={mark}
         >
-          <path d={NOTE_GLYPH[note]} />
+          <path d={NOTE_GLYPH[mark]} />
         </svg>
-      )}
+      ))}
     </span>
   );
 }
@@ -252,6 +278,7 @@ export function MoveList(props: MoveListProps): JSX.Element {
     current: pathId(path),
     notedMoves,
     noteKind: props.noteKind ?? 'personal',
+    keptNoteMoves: props.keptNoteMoves ?? NO_KEPT_NOTES,
     onGoto,
   };
   return (

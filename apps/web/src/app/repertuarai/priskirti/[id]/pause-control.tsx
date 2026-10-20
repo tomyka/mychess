@@ -5,7 +5,23 @@ import { useActionState, type JSX } from 'react';
 import { SECONDARY_BUTTON } from '../../../buttons';
 import { PendingButton } from '../../../pending-button';
 import { StatusLine } from '../../../status-line';
-import { pauseAction } from './actions';
+import { pauseAction, type PauseState } from './actions';
+
+/** The assignment's paused state and the form action that toggles it. */
+export interface PauseHandle {
+  readonly state: PauseState;
+  readonly toggle: (form: FormData) => void;
+}
+
+/**
+ * The paused state, from `paused` (as the page loaded) and then from each
+ * toggle, so everything that shows it (the header's badge, the control)
+ * agrees.
+ */
+export function usePause(paused: boolean): PauseHandle {
+  const [state, toggle] = useActionState(pauseAction, { paused });
+  return { state, toggle };
+}
 
 /**
  * Pause or resume the assignment (R-46): while paused, "Paused" and what it
@@ -14,14 +30,13 @@ import { pauseAction } from './actions';
  */
 export function PauseControl({
   repertoireId,
-  paused,
+  pause,
 }: {
   readonly repertoireId: string;
-  /** The state the page loaded with. */
-  readonly paused: boolean;
+  readonly pause: PauseHandle;
 }): JSX.Element {
   const t = useTranslations();
-  const [state, toggle] = useActionState(pauseAction, { paused });
+  const { state, toggle } = pause;
   return (
     <form action={toggle} className="flex flex-col gap-2">
       <input type="hidden" name="repertoireId" value={repertoireId} />

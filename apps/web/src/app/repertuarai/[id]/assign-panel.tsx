@@ -309,6 +309,7 @@ function Unassign({
         label={t('unassign')}
         question={t('unassignQuestion', {
           name: assignment.target.name,
+          kind: assignment.target.kind,
           days: FORK_OFFER_DAYS,
         })}
         confirm={t('unassignConfirm')}

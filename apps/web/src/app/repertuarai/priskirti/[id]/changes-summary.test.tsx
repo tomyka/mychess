@@ -86,7 +86,7 @@ describe('ChangesSummary (R-133)', () => {
       within(region).getByRole('heading', { level: 2, name: lt.title }),
     ).toBeDefined();
     const chapter = within(region).getByRole('heading', { level: 3 });
-    expect(chapter.textContent).toBe('Londono sistema');
+    expect(chapter.textContent).toBe('Skyrius 1 — Londono sistema');
     expect(within(region).getByText('Pridėta: 2. Bf4')).toBeDefined();
     // A removed move is no longer in the graph: no move number for it.
     expect(within(region).getByText('Pašalinta: c4')).toBeDefined();
@@ -125,7 +125,10 @@ describe('ChangesSummary (R-133)', () => {
     const headings = within(summary())
       .getAllByRole('heading', { level: 3 })
       .map((h) => h.textContent);
-    expect(headings).toEqual(['Londono sistema', 'Ferzio pėstininko partija']);
+    expect(headings).toEqual([
+      'Skyrius 1 — Londono sistema',
+      'Skyrius 2 — Ferzio pėstininko partija',
+    ]);
     // Within a chapter, in the order they are played.
     expect(screen.getByText('Pridėta: 2. Bf4 ir 4. Nf3')).toBeDefined();
     expect(screen.getByText('Pridėta: 2. Bf4')).toBeDefined();
@@ -158,6 +161,59 @@ describe('ChangesSummary (R-133)', () => {
     expect(
       screen.getByText('Pašalinta: 2. Bf4, 4. Nf3, Nf6 ir d5'),
     ).toBeDefined();
+  });
+
+  it('tells two chapters named after the same opening apart by number', () => {
+    const afterD5 = keyAfter(LONDON_GRAPH, 'd4', 'd5');
+    const afterNf6 = keyAfter(LONDON_GRAPH, 'd4', 'Nf6');
+    render(
+      <NextIntlClientProvider locale="en" messages={MESSAGES.en}>
+        <ChangesSummary
+          graph={LONDON_GRAPH}
+          changes={{
+            added: [
+              {
+                moveKey: moveKey(afterD5, 'Bf4'),
+                chapterId: chapterId(LONDON_GRAPH, 0),
+              },
+              {
+                moveKey: moveKey(afterNf6, 'Bf4'),
+                chapterId: chapterId(LONDON_GRAPH, 1),
+              },
+            ],
+            removed: [],
+            annotated: 0,
+          }}
+          ecoNames={{ D00: 'London System', A45: 'London System' }}
+        />
+      </NextIntlClientProvider>,
+    );
+    expect(
+      screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent),
+    ).toEqual(['Chapter 1 — London System', 'Chapter 2 — London System']);
+  });
+
+  it('does not repeat the number of a chapter named by its number', () => {
+    const afterD5 = keyAfter(LONDON_GRAPH, 'd4', 'd5');
+    const graph: RepertoireGraph = {
+      ...LONDON_GRAPH,
+      chapters: LONDON_GRAPH.chapters.map((chapter, index) => ({
+        ...chapter,
+        nameSource: { kind: 'index', number: index + 1 },
+      })),
+    };
+    renderSummary(
+      {
+        ...NONE,
+        added: [
+          { moveKey: moveKey(afterD5, 'Bf4'), chapterId: chapterId(graph, 0) },
+        ],
+      },
+      graph,
+    );
+    expect(
+      within(summary()).getByRole('heading', { level: 3 }).textContent,
+    ).toBe('Skyrius 1');
   });
 
   it('numbers Black’s moves with an ellipsis', () => {
@@ -211,7 +267,10 @@ describe('ChangesSummary (R-133)', () => {
     const headings = within(summary())
       .getAllByRole('heading', { level: 3 })
       .map((h) => h.textContent);
-    expect(headings).toEqual(['Londono sistema', lt.deletedChapters]);
+    expect(headings).toEqual([
+      'Skyrius 1 — Londono sistema',
+      lt.deletedChapters,
+    ]);
     expect(screen.getByText('Pašalinta: e4 ir c4')).toBeDefined();
   });
 

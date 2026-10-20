@@ -25,6 +25,8 @@ export interface PanelContent {
   /** The moves the move list marks as carrying the viewer's own note. */
   readonly notedMoves: Readonly<Record<string, string>>;
   readonly noteKind?: MoveListProps['noteKind'];
+  /** The moves carrying a coach note kept by a fork (R-47). */
+  readonly keptNoteMoves?: MoveListProps['keptNoteMoves'];
   /** What follows the moves (the owner's actions and sharing). */
   readonly footer?: ReactNode;
 }
@@ -85,6 +87,7 @@ export function RepertoirePanel({
             path={state.path}
             notedMoves={content.notedMoves}
             noteKind={content.noteKind}
+            keptNoteMoves={content.keptNoteMoves}
             building={state.mode === 'build'}
             onGoto={(path) => {
               dispatch({ type: 'goto', path });

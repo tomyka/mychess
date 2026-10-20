@@ -389,7 +389,8 @@
       "title": "Moves",
       "hasComment": "has a comment",
       "hasNote": "has my note",
-      "hasCoachNote": "has my coach note"
+      "hasCoachNote": "has my coach note",
+      "hasKeptCoachNote": "has a coach note"
     },
     "note": {
       "label": "My note",
@@ -528,7 +529,8 @@
       "added": "Added: {moves}",
       "removed": "Removed: {moves}",
       "commentsChanged": "{count, plural, one {Comments or marks changed on # move} other {Comments or marks changed on # moves}}",
-      "deletedChapters": "Deleted chapters"
+      "deletedChapters": "Deleted chapters",
+      "chapter": "Chapter {number} — {name}"
     },
     "deadlineOn": "Deadline: {date}",
     "noDeadline": "No deadline",
@@ -562,7 +564,7 @@
       "clearDeadline": "Clear deadline",
       "deadlineSaved": "Deadline saved.",
       "unassign": "Unassign",
-      "unassignQuestion": "Unassign it from {name}? The repertoire leaves the players’ lists, and they have {days, plural, one {# day} other {# days}} to keep their own copy. Anyone who has it another way keeps it.",
+      "unassignQuestion": "{kind, select, player {Unassign it from {name}? The repertoire leaves their list, and they have {days, plural, one {# day} other {# days}} to keep their own copy.} other {Unassign it from {name}? The repertoire leaves the players’ lists, and they have {days, plural, one {# day} other {# days}} to keep their own copy. Anyone who has it another way keeps it.}}",
       "unassignConfirm": "Unassign",
       "unassignCancel": "Keep it"
     },

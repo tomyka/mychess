@@ -104,6 +104,31 @@ describe('MoveList', () => {
     expect(coach.querySelector('[data-note="personal"]')).toBeNull();
   });
 
+  it('marks a coach note a fork kept with a pen, next to the owner’s lock (R-47)', () => {
+    const d5 = LONDON_GRAPH.moves.find((m) => m.san === 'd5');
+    const d4 = LONDON_GRAPH.moves.find((m) => m.san === 'd4');
+    const d5Key = moveKey(d5?.from ?? '', 'd5');
+    renderList({
+      notedMoves: { [d5Key]: 'Mine' },
+      keptNoteMoves: new Set([d5Key, moveKey(d4?.from ?? '', 'd4')]),
+    });
+    const both = chip(
+      `1... d5, has my note, ${MESSAGES.en.repertoires.moves.hasKeptCoachNote}`,
+    );
+    expect(
+      Array.from(both.querySelectorAll('[data-note]'), (mark) =>
+        mark.getAttribute('data-note'),
+      ),
+    ).toEqual(['personal', 'kept']);
+    const kept = chip(
+      `1. d4, has a comment, ${MESSAGES.en.repertoires.moves.hasKeptCoachNote}`,
+    );
+    expect(
+      kept.querySelector('[data-note="kept"] path')?.getAttribute('d'),
+    ).toBe(both.querySelector('[data-note="kept"] path')?.getAttribute('d'));
+    expect(kept.querySelector('[data-note="personal"]')).toBeNull();
+  });
+
   it('numbers Black’s moves after a nested variation', () => {
     renderList({ graph: graphOf(TAIMANOV, 'black'), chapterId: 'c1' });
     const list = screen.getByRole('region', {

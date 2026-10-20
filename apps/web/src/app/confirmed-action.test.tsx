@@ -42,6 +42,15 @@ describe('ConfirmedAction', () => {
     expect(action).not.toHaveBeenCalled();
   });
 
+  it('moves focus to Cancel when it asks, and back to the button when cancelled', () => {
+    renderStep(vi.fn(() => Promise.resolve()));
+    button(LABELS.label).focus();
+    fireEvent.click(button(LABELS.label));
+    expect(document.activeElement).toBe(button(LABELS.cancel));
+    fireEvent.click(button(LABELS.cancel));
+    expect(document.activeElement).toBe(button(LABELS.label));
+  });
+
   it('sends its fields once confirmed', async () => {
     const action = vi.fn<(form: FormData) => Promise<void>>(() =>
       Promise.resolve(),

@@ -335,6 +335,17 @@ describe('AssignPanel: the assignments (R-46, R-51, R-128, R-132)', () => {
     });
   });
 
+  it('asks about one player in the singular', () => {
+    renderPanel({ ...PEOPLE, assignments: [TO_ROKAS] });
+    const rokas = row('Rokas');
+    fireEvent.click(within(rokas).getByRole('button', { name: p.unassign }));
+    expect(
+      within(rokas).getByText(
+        'Panaikinti priskyrimą: Rokas? Repertuaras dings iš žaidėjo sąrašo, o per 30 dienų jis galės pasilikti asmeninę kopiją.',
+      ),
+    ).toBeDefined();
+  });
+
   it('shows an unassign refusal', async () => {
     server.unassign.mockResolvedValue({ refusal: 'assignment.notFound' });
     renderPanel({ ...PEOPLE, assignments: [TO_ROKAS] });

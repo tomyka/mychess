@@ -187,6 +187,7 @@ function ownerPanel(screen: Screen, notes: Notes): PanelContent {
       />
     ),
     notedMoves: notes.byMove,
+    keptNoteMoves: new Set(props.forkNotes.map((note) => note.moveKey)),
     footer: (
       <>
         <PhoneActions

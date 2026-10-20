@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type JSX } from 'react';
+import { useEffect, useRef, useState, type JSX, type RefObject } from 'react';
 import { DANGER_BUTTON, PRIMARY_BUTTON, SECONDARY_BUTTON } from './buttons';
 import { PendingButton } from './pending-button';
 
@@ -27,6 +27,25 @@ export interface ConfirmedActionProps {
 const CONFIRM_BUTTON = { danger: DANGER_BUTTON, primary: PRIMARY_BUTTON };
 
 /**
+ * Focus follows the step, as in the repertoire's delete: on Cancel once it
+ * asks, back on the first button once cancelled; nothing on first render.
+ */
+function useStepFocus(asking: boolean): {
+  readonly ask: RefObject<HTMLButtonElement | null>;
+  readonly cancel: RefObject<HTMLButtonElement | null>;
+} {
+  const ask = useRef<HTMLButtonElement>(null);
+  const cancel = useRef<HTMLButtonElement>(null);
+  const before = useRef(asking);
+  useEffect(() => {
+    if (asking === before.current) return;
+    before.current = asking;
+    (asking ? cancel : ask).current?.focus();
+  }, [asking]);
+  return { ask, cancel };
+}
+
+/**
  * An action that needs a confirm step, such as unlinking: the first button
  * only asks; the confirm button posts the form.
  */
@@ -41,9 +60,11 @@ export function ConfirmedAction({
   tone = 'danger',
 }: ConfirmedActionProps): JSX.Element {
   const [asking, setAsking] = useState(false);
+  const focus = useStepFocus(asking);
   if (!asking)
     return (
       <button
+        ref={focus.ask}
         type="button"
         aria-describedby={describedBy}
         onClick={() => {
@@ -65,6 +86,7 @@ export function ConfirmedAction({
           {confirm}
         </PendingButton>
         <button
+          ref={focus.cancel}
           type="button"
           onClick={() => {
             setAsking(false);

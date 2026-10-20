@@ -219,6 +219,15 @@ describe('RepertoireScreen: browsing', () => {
     expect(notes.querySelector('textarea')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: r.nav.forward }));
     expect(screen.queryByText('Visada Bf4')).toBeNull();
+    // The move list marks the kept note with a pen; a sharing coach's
+    // note is not marked on the owner's list.
+    expect(
+      screen
+        .getByRole('button', {
+          name: `1. d4, ${r.moves.hasComment}, ${r.moves.hasKeptCoachNote}`,
+        })
+        .querySelector('[data-note="kept"]'),
+    ).not.toBeNull();
   });
 
   it('offers sharing with the linked coaches', () => {

@@ -17,7 +17,8 @@ import {
 import { markSeenAction, setPersonalNoteAction } from './actions';
 import { ChangesSummary } from './changes-summary';
 import { ForkCopy, type ForkAction } from './fork-copy';
-import { PauseControl } from './pause-control';
+import { AssignmentBadges } from '../../../assignment-badges';
+import { PauseControl, usePause, type PauseHandle } from './pause-control';
 
 /**
  * The way home, the repertoire's name and who assigned it
@@ -25,8 +26,11 @@ import { PauseControl } from './pause-control';
  */
 function AssignedHeader({
   data,
+  paused,
 }: {
   readonly data: AssignedRepertoirePage;
+  /** The pause as it is now, which may have changed since the page loaded. */
+  readonly paused: boolean;
 }): JSX.Element {
   const t = useTranslations('assignment.page');
   return (
@@ -42,6 +46,9 @@ function AssignedHeader({
         <p className="truncate text-sm text-fg-muted">
           {t('assignedBy', { name: data.coachName })}
         </p>
+        <AssignmentBadges
+          flags={{ overdue: false, paused, forked: false, updated: false }}
+        />
       </div>
     </HeaderFrame>
   );
@@ -50,15 +57,17 @@ function AssignedHeader({
 /** Pause or resume, then "make my own copy". */
 function AssignmentActions({
   data,
+  pause,
   forkAction,
 }: {
   readonly data: AssignedRepertoirePage;
+  readonly pause: PauseHandle;
   readonly forkAction: ForkAction;
 }): JSX.Element {
   const { id, name } = data.repertoire;
   return (
     <div className="flex flex-col gap-4 border-t border-border pt-4">
-      <PauseControl repertoireId={id} paused={data.paused} />
+      <PauseControl repertoireId={id} pause={pause} />
       <ForkCopy repertoireId={id} name={name} action={forkAction} />
     </div>
   );
@@ -72,7 +81,7 @@ function AssignmentActions({
 function useAssignedPanel(
   data: AssignedRepertoirePage,
   notes: Notes,
-  forkAction: ForkAction,
+  actions: { readonly pause: PauseHandle; readonly forkAction: ForkAction },
 ): PanelContent {
   const t = useTranslations();
   return {
@@ -95,7 +104,7 @@ function useAssignedPanel(
       />
     ),
     notedMoves: notes.byMove,
-    footer: <AssignmentActions data={data} forkAction={forkAction} />,
+    footer: <AssignmentActions data={data} {...actions} />,
   };
 }
 
@@ -118,7 +127,8 @@ export function AssignedView({
   const notes = useNotes(data.personalNotes, (moveKey, text) =>
     setPersonalNoteAction({ repertoireId: id, moveKey, text }),
   );
-  const panel = useAssignedPanel(data, notes, forkAction);
+  const pause = usePause(data.paused);
+  const panel = useAssignedPanel(data, notes, { pause, forkAction });
   useEffect(() => {
     markSeenAction({ repertoireId: id, seenVersion: version }).catch(
       () => undefined,
@@ -126,7 +136,7 @@ export function AssignedView({
   }, [id, version]);
   return (
     <RepertoireShell
-      header={<AssignedHeader data={data} />}
+      header={<AssignedHeader data={data} paused={pause.state.paused} />}
       name={data.repertoire.name}
       ecoNames={data.ecoNames}
       view={view}

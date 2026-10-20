@@ -1,9 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
+import type { JSX } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../../i18n/locales';
 import type { PauseState } from './actions';
-import { PauseControl } from './pause-control';
+import { PauseControl, usePause } from './pause-control';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 const p = MESSAGES.lt.assignment.pause;
@@ -14,10 +15,15 @@ const server = vi.hoisted(() => ({
 
 vi.mock('./actions', () => ({ pauseAction: server.pause }));
 
+/** The control with its state, as the page holds it. */
+function Control({ paused }: { readonly paused: boolean }): JSX.Element {
+  return <PauseControl repertoireId={ID} pause={usePause(paused)} />;
+}
+
 function renderControl(paused: boolean, locale: 'lt' | 'en' = 'lt'): void {
   render(
     <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
-      <PauseControl repertoireId={ID} paused={paused} />
+      <Control paused={paused} />
     </NextIntlClientProvider>,
   );
 }

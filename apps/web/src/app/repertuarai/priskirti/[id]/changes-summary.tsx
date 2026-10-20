@@ -17,6 +17,8 @@ import { moveNumber } from '../../../repertoire-view';
 /** The moves one chapter gained and lost; `chapter` undefined: deleted since. */
 interface ChapterChanges {
   readonly chapter: Chapter | undefined;
+  /** Its place in the repertoire, from 1, as the chapter list counts. */
+  readonly number: number;
   readonly added: readonly string[];
   readonly removed: readonly string[];
 }
@@ -55,7 +57,7 @@ function byChapter(
 ): ChapterChanges[] {
   const known = new Set(graph.chapters.map((chapter) => chapter.id));
   const groups: (Chapter | undefined)[] = [...graph.chapters, undefined];
-  return groups.flatMap((chapter) => {
+  return groups.flatMap((chapter, index) => {
     const inGroup = (link: MoveLink): boolean =>
       chapter === undefined
         ? !known.has(link.chapterId)
@@ -65,8 +67,25 @@ function byChapter(
     const removed = moves(changes.removed.filter(inGroup));
     return added.length + removed.length === 0
       ? []
-      : [{ chapter, added, removed }];
+      : [{ chapter, number: index + 1, added, removed }];
   });
+}
+
+/**
+ * A chapter's heading: "Chapter N — its name", so two chapters named after
+ * the same opening are told apart; just "Chapter N" when that is its name.
+ */
+function useHeading(
+  ecoNames: Readonly<Record<string, string>>,
+): (changes: ChapterChanges) => string {
+  const t = useTranslations();
+  return ({ chapter, number }) => {
+    if (chapter === undefined) return t('assignment.changes.deletedChapters');
+    const name = chapterLabel(t, ecoNames)(chapter);
+    return chapter.nameSource.kind === 'index'
+      ? name
+      : t('assignment.changes.chapter', { number, name });
+  };
 }
 
 /** One chapter's heading and its added and removed moves. */
@@ -81,14 +100,11 @@ function ChapterLines({
   const format = useFormatter();
   const list = (moves: readonly string[]): string =>
     format.list(moves, { type: 'conjunction' });
-  const { chapter, added, removed } = changes;
+  const heading = useHeading(ecoNames);
+  const { added, removed } = changes;
   return (
     <li className="flex flex-col gap-1">
-      <h3 className="font-semibold">
-        {chapter === undefined
-          ? t('assignment.changes.deletedChapters')
-          : chapterLabel(t, ecoNames)(chapter)}
-      </h3>
+      <h3 className="font-semibold">{heading(changes)}</h3>
       {added.length === 0 ? null : (
         <p>{t('assignment.changes.added', { moves: list(added) })}</p>
       )}
