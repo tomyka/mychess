@@ -328,18 +328,3 @@ export async function renameRepertoire(
   );
   return accessOf(rows);
 }
-
-/** Deletes the owner's repertoire (its rows go by cascade); not found when it is not theirs. */
-export async function deleteRepertoire(
-  db: Executor,
-  id: string,
-  ownerId: string,
-): Promise<RepertoireAccess> {
-  const rows = idRowsSchema.parse(
-    await db
-      .delete(repertoires)
-      .where(ownedBy(id, ownerId))
-      .returning({ id: repertoires.id }),
-  );
-  return accessOf(rows);
-}

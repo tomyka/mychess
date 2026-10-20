@@ -9,6 +9,7 @@ import { and, eq, sql, type SQL } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 import { lockAccountById } from './accounts';
+import { changeAssignments } from './assignments/change';
 import type { Db, Executor } from './client';
 import { isLinked, linkCount } from './coach-queries';
 import { revokeOpenInvites } from './invites';
@@ -184,20 +185,35 @@ export function playerCoaches(
  * Ends a Coach link, from either side (spec, lead decision). The foreign
  * keys onto coach_links remove the coach's group memberships (and, from
  * Part B, shares and through them the coach's notes, R-124) for this
- * player in the same statement (plan decision 2).
+ * player in the same statement (plan decision 2), and with them the
+ * coach's assignments to the player: each repertoire the player loses gets
+ * an `unlinked` fork offer (R-44). Locks the coach row first, the S4 lock
+ * order, so no assignment or membership of the pair changes meanwhile.
  */
-export async function unlink(
+export function unlink(
   db: Executor,
   coachId: string,
   playerId: string,
+  now: Date,
 ): Promise<Result<undefined, CoachRefusal>> {
-  const removed = await db
-    .delete(coachLinks)
-    .where(
-      and(eq(coachLinks.coachId, coachId), eq(coachLinks.playerId, playerId)),
-    )
-    .returning({ playerId: coachLinks.playerId });
-  return removed.length === 1 ? DONE : refusal(COACH_REFUSALS.notLinked);
+  return db.transaction(async (tx) => {
+    await lockAccountById(tx, coachId);
+    const removed = await changeAssignments(
+      tx,
+      { playerIds: [playerId], reason: 'unlinked', now },
+      () =>
+        tx
+          .delete(coachLinks)
+          .where(
+            and(
+              eq(coachLinks.coachId, coachId),
+              eq(coachLinks.playerId, playerId),
+            ),
+          )
+          .returning({ playerId: coachLinks.playerId }),
+    );
+    return removed.length === 1 ? DONE : refusal(COACH_REFUSALS.notLinked);
+  });
 }
 
 /** The facts canCoachSee decides on, read fresh on every request (checklist 3). */

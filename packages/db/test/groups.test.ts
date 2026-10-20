@@ -12,6 +12,11 @@ import {
 } from '../src';
 import { useTestDatabase } from '../src/testing';
 import {
+  offersOf,
+  seedAssignment,
+  seedRepertoire,
+} from './support/assignments';
+import {
   openTransaction,
   seedCoach,
   seedGroup,
@@ -146,16 +151,16 @@ describe('renameGroup and deleteGroup', () => {
        values ('c', 'group', $1, $2, now(), now())`,
       [own, 'a'.repeat(64)],
     );
-    expect(await deleteGroup(db, 'c', foreign)).toEqual(NOT_FOUND);
-    expect(await deleteGroup(db, 'c', 'not-a-uuid')).toEqual(NOT_FOUND);
-    expect(await deleteGroup(db, 'c', own)).toEqual(OK);
+    expect(await deleteGroup(db, 'c', foreign, NOW)).toEqual(NOT_FOUND);
+    expect(await deleteGroup(db, 'c', 'not-a-uuid', NOW)).toEqual(NOT_FOUND);
+    expect(await deleteGroup(db, 'c', own, NOW)).toEqual(OK);
     expect(await query('select id from groups')).toEqual([{ id: foreign }]);
     expect(await members()).toEqual([]);
     expect(await query('select id from invites')).toEqual([]);
     expect(await query('select player_id from coach_links')).toEqual([
       { player_id: 'p' },
     ]);
-    expect(await deleteGroup(db, 'c', own)).toEqual(NOT_FOUND);
+    expect(await deleteGroup(db, 'c', own, NOW)).toEqual(NOT_FOUND);
   });
 });
 
@@ -248,21 +253,33 @@ describe('addMember and removeMember', () => {
     await seedMember(db, 'c', own, 'p');
     await seedMember(db, 'd', foreign, 'p');
     expect(
-      await removeMember(db, { coachId: 'c', groupId: foreign, playerId: 'p' }),
+      await removeMember(
+        db,
+        { coachId: 'c', groupId: foreign, playerId: 'p' },
+        NOW,
+      ),
     ).toEqual(NOT_FOUND);
     expect(
-      await removeMember(db, {
-        coachId: 'c',
-        groupId: 'not-a-uuid',
-        playerId: 'p',
-      }),
+      await removeMember(
+        db,
+        { coachId: 'c', groupId: 'not-a-uuid', playerId: 'p' },
+        NOW,
+      ),
     ).toEqual(NOT_FOUND);
     expect(
-      await removeMember(db, { coachId: 'c', groupId: own, playerId: 'p' }),
+      await removeMember(
+        db,
+        { coachId: 'c', groupId: own, playerId: 'p' },
+        NOW,
+      ),
     ).toEqual(OK);
     // Like adding twice: removing again changes nothing.
     expect(
-      await removeMember(db, { coachId: 'c', groupId: own, playerId: 'p' }),
+      await removeMember(
+        db,
+        { coachId: 'c', groupId: own, playerId: 'p' },
+        NOW,
+      ),
     ).toEqual(OK);
     expect(await query('select group_id from group_members')).toEqual([
       { group_id: foreign },
@@ -295,11 +312,11 @@ describe('while Coach mode is off the groups are read-only (R-113)', () => {
 
   const changes = {
     rename: (groupId: string) => renameGroup(db, 'c', groupId, 'Nauja'),
-    delete: (groupId: string) => deleteGroup(db, 'c', groupId),
+    delete: (groupId: string) => deleteGroup(db, 'c', groupId, NOW),
     add: (groupId: string) =>
       addMember(db, { coachId: 'c', groupId, playerId: 'q' }, NOW),
     remove: (groupId: string) =>
-      removeMember(db, { coachId: 'c', groupId, playerId: 'p' }),
+      removeMember(db, { coachId: 'c', groupId, playerId: 'p' }, NOW),
   };
 
   it.each(Object.entries(changes))('refuses to %s', async (_, change) => {
@@ -344,12 +361,12 @@ describe('while Coach mode is off the groups are read-only (R-113)', () => {
   it('refuses an unknown coach account', async () => {
     const groupId = await seedOffCoach();
     expect(await renameGroup(db, 'nobody', groupId, 'X')).toEqual(NOT_COACH);
-    expect(await deleteGroup(db, 'nobody', groupId)).toEqual(NOT_COACH);
+    expect(await deleteGroup(db, 'nobody', groupId, NOW)).toEqual(NOT_COACH);
   });
 
   it('still lets the player leave the group', async () => {
     const groupId = await seedOffCoach();
-    expect(await leaveGroup(db, 'p', groupId)).toEqual(OK);
+    expect(await leaveGroup(db, 'p', groupId, NOW)).toEqual(OK);
     expect(await members()).toEqual([]);
   });
 
@@ -382,9 +399,9 @@ describe('leaveGroup', () => {
     await seedMember(db, 'c', first, 'p');
     await seedMember(db, 'c', second, 'p');
     await seedMember(db, 'c', first, 'q');
-    expect(await leaveGroup(db, 'p', first)).toEqual(OK);
-    expect(await leaveGroup(db, 'p', first)).toEqual(NOT_FOUND);
-    expect(await leaveGroup(db, 'p', 'not-a-uuid')).toEqual(NOT_FOUND);
+    expect(await leaveGroup(db, 'p', first, NOW)).toEqual(OK);
+    expect(await leaveGroup(db, 'p', first, NOW)).toEqual(NOT_FOUND);
+    expect(await leaveGroup(db, 'p', 'not-a-uuid', NOW)).toEqual(NOT_FOUND);
     expect(
       await query(
         'select group_id, player_id from group_members order by player_id, group_id',
@@ -444,5 +461,87 @@ describe('coachGroups and coachGroup', () => {
     expect(await coachGroup(db, 'c', foreign)).toBeUndefined();
     expect(await coachGroup(db, 'c', UNKNOWN)).toBeUndefined();
     expect(await coachGroup(db, 'c', 'not-a-uuid')).toBeUndefined();
+  });
+});
+
+describe("group changes and the group's assignments (R-16, R-45)", () => {
+  const LATER = new Date('2026-10-17T09:00:00Z');
+
+  async function seedAssigned(): Promise<{ groupId: string; rep: string }> {
+    await seedCoach(db, 'c', 'c@example.lt');
+    for (const id of ['p', 'q']) {
+      await seedPlayer(db, id, `${id}@example.lt`);
+      await seedLink(db, 'c', id);
+    }
+    const groupId = await seedGroup(db, 'c', 'Mano');
+    await seedMember(db, 'c', groupId, 'p');
+    await seedMember(db, 'c', groupId, 'q');
+    const rep = await seedRepertoire(db, 'c', T0);
+    await seedAssignment(db, {
+      coachId: 'c',
+      repertoireId: rep,
+      target: { groupId },
+      now: T0,
+    });
+    return { groupId, rep };
+  }
+
+  const leftGroup = (playerId: string, rep: string) => ({
+    playerId,
+    repertoireId: rep,
+    reason: 'leftGroup',
+    closedAt: null,
+  });
+
+  it('offers a fork to a player who leaves the group', async () => {
+    const { groupId, rep } = await seedAssigned();
+    expect(await leaveGroup(db, 'p', groupId, NOW)).toEqual(OK);
+    expect(await offersOf(db)).toEqual([leftGroup('p', rep)]);
+  });
+
+  it('offers a fork to a player the coach removes', async () => {
+    const { groupId, rep } = await seedAssigned();
+    expect(
+      await removeMember(db, { coachId: 'c', groupId, playerId: 'q' }, NOW),
+    ).toEqual(OK);
+    expect(await offersOf(db)).toEqual([leftGroup('q', rep)]);
+  });
+
+  it('offers a fork to every member when the group is deleted', async () => {
+    const { groupId, rep } = await seedAssigned();
+    expect(await deleteGroup(db, 'c', groupId, NOW)).toEqual(OK);
+    expect(await offersOf(db)).toEqual([
+      leftGroup('p', rep),
+      leftGroup('q', rep),
+    ]);
+    expect(await query('select id from assignments')).toEqual([]);
+  });
+
+  it('closes the open offer of a player added back (lead decision 4)', async () => {
+    const { groupId, rep } = await seedAssigned();
+    await leaveGroup(db, 'p', groupId, NOW);
+    expect(
+      await addMember(db, { coachId: 'c', groupId, playerId: 'p' }, LATER),
+    ).toEqual(OK);
+    expect(await offersOf(db)).toEqual([
+      { ...leftGroup('p', rep), closedAt: LATER },
+    ]);
+  });
+
+  it('makes a leaving player wait for the coach row, so a group assignment made meanwhile is offered too', async () => {
+    const { groupId, rep } = await seedAssigned();
+    const second = await seedRepertoire(db, 'c', T0);
+    const assigning = await openTransaction(client, [
+      `select id from accounts where id = 'c' for no key update`,
+      `insert into assignments (coach_id, repertoire_id, group_id, assigned_version, created_at)
+       values ('c', '${second}', '${groupId}', 1, now())`,
+    ]);
+    const leaving = leaveGroup(db, 'p', groupId, NOW);
+    await someoneWaitsForALock(client);
+    await assigning.finish();
+    expect(await leaving).toEqual(OK);
+    expect(
+      (await offersOf(db)).map((offer) => offer.repertoireId).sort(),
+    ).toEqual([rep, second].sort());
   });
 });

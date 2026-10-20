@@ -141,7 +141,7 @@ describe('setPersonalNote and listPersonalNotes', () => {
     expect(await listPersonalNotes(db, 'rokas', id)).toEqual({
       [D4]: 'Nepamiršti',
     });
-    await deleteRepertoire(db, id, 'rokas');
+    await deleteRepertoire(db, id, 'rokas', T1);
     expect(await noteRows()).toEqual([]);
   });
 });

@@ -103,7 +103,7 @@ export async function deleteGroupAction(form: FormData): Promise<void> {
   const groupId = idSchema.safeParse(form.get('groupId'));
   if (
     groupId.success &&
-    (await deleteGroup(getDb(), coach.id, groupId.data)).ok
+    (await deleteGroup(getDb(), coach.id, groupId.data, new Date())).ok
   )
     redirect(ROUTES.coach);
   refresh();
@@ -160,7 +160,7 @@ export async function removeMemberAction(
   const coach = await requireCoach();
   const membership = membershipOf(coach.id, form);
   const removed = membership.ok
-    ? await removeMember(getDb(), membership.value)
+    ? await removeMember(getDb(), membership.value, new Date())
     : membership;
   refresh();
   return refused(removed);
@@ -181,7 +181,7 @@ export async function unlinkPlayerAction(
     refresh();
     return { refusal: COACH_REFUSALS.notLinked };
   }
-  const unlinked = await unlink(getDb(), coach.id, playerId.data);
+  const unlinked = await unlink(getDb(), coach.id, playerId.data, new Date());
   if (unlinked.ok) redirect(ROUTES.coach);
   refresh();
   return refused(unlinked);

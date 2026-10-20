@@ -21,6 +21,14 @@ export {
 } from './accounts';
 
 export { disableAccount, grantAdmin, type AdminInput } from './admin';
+export {
+  assign,
+  setDeadline,
+  unassign,
+  type AssignmentRef,
+  type AssignRequest,
+  type DeadlineChange,
+} from './assignments/assign';
 export { auditEmailHash } from './audit-email';
 
 export {
@@ -85,9 +93,9 @@ export {
   type PersonalNoteInput,
 } from './personal-notes';
 export { countRateLimited } from './rate-limits';
+export { deleteRepertoire } from './repertoires/delete';
 export {
   createRepertoire,
-  deleteRepertoire,
   listRepertoires,
   loadRepertoire,
   renameRepertoire,

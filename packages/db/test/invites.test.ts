@@ -14,7 +14,13 @@ import {
   previewInvite,
   revokeInvite,
 } from '../src';
+import { forkOffers } from '../src/assignment-schema';
 import { useTestDatabase } from '../src/testing';
+import {
+  offersOf,
+  seedAssignment,
+  seedRepertoire,
+} from './support/assignments';
 import {
   openTransaction,
   seedCoach,
@@ -786,5 +792,46 @@ describe('coachInvites', () => {
     const list = await coachInvites(db, 'c', NOW);
     expect(statesOf(list)).toEqual({ active: 1, revoked: 49, used: 1 });
     expect(list.at(-1)?.state).toBe('active');
+  });
+});
+
+describe("acceptInvite and the group's assignments", () => {
+  it("gives the group's assignments and closes the player's open offer (R-16, lead decision 4)", async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    await seedPlayer(db, 'p1', 'p1@example.lt');
+    await seedLink(db, 'c', 'p1');
+    const groupId = await seedGroup(db, 'c', 'Šeštadienio grupė');
+    const rep = await seedRepertoire(db, 'c', T0);
+    await seedAssignment(db, {
+      coachId: 'c',
+      repertoireId: rep,
+      target: { groupId },
+      now: T0,
+    });
+    // An offer from an assignment p1 lost earlier.
+    await db.insert(forkOffers).values({
+      playerId: 'p1',
+      repertoireId: rep,
+      coachName: 'Name c',
+      name: 'Londono sistema',
+      side: 'white',
+      snapshot: {},
+      reason: 'unassigned',
+      createdAt: T0,
+      expiresAt: at(WEEK),
+    });
+    const { hash } = await invite('group', groupId);
+    expect(await accept(hash, 'p1')).toEqual({
+      ok: true,
+      value: { coachId: 'c', groupId },
+    });
+    expect(await offersOf(db)).toEqual([
+      {
+        playerId: 'p1',
+        repertoireId: rep,
+        reason: 'unassigned',
+        closedAt: NOW,
+      },
+    ]);
   });
 });

@@ -205,7 +205,7 @@ describe('sharedWithCoach (checklist 1-2)', () => {
       repertoireId: taimanov,
       coachId: 'rimantas',
     });
-    await unlink(db, 'dovydas', 'gabija');
+    await unlink(db, 'dovydas', 'gabija', T1);
     expect(await sharedWithCoach(db, 'rimantas', 'gabija')).toEqual([]);
     expect(await sharedWithCoach(db, 'dovydas', 'gabija')).toEqual([]);
   });
@@ -220,7 +220,7 @@ describe('coachAccessFacts', () => {
       linked: true,
       sharedRepertoireIds: new Set([taimanov]),
     });
-    await unlink(db, 'rimantas', 'gabija');
+    await unlink(db, 'rimantas', 'gabija', T1);
     expect(await coachAccessFacts(db, 'rimantas', 'gabija')).toEqual({
       linked: false,
       sharedRepertoireIds: new Set(),
@@ -588,7 +588,7 @@ describe('sharedRepertoireForCoach (checklist 2)', () => {
     expect(await load('rimantas', 'rokas', taimanov)).toBeUndefined();
     expect(await load('dovydas', 'gabija', taimanov)).toBeUndefined();
     expect(await load('rimantas', 'gabija', 'not-a-uuid')).toBeUndefined();
-    await unlink(db, 'rimantas', 'gabija');
+    await unlink(db, 'rimantas', 'gabija', T1);
     expect(await load('rimantas', 'gabija', taimanov)).toBeUndefined();
   });
 });
@@ -624,7 +624,7 @@ describe('deleting with shares and notes', () => {
     );
     await deleteAccount(db, 'gabija');
     expect(await counts()).toEqual({ shares: 1, notes: 1 });
-    await deleteRepertoire(db, rokasLondon, 'rokas');
+    await deleteRepertoire(db, rokasLondon, 'rokas', T1);
     expect(await counts()).toEqual({ shares: 0, notes: 0 });
   });
 });
@@ -656,7 +656,7 @@ describe('ending a share ends its coach notes (R-124)', () => {
 
   it("unlinking deletes the coach's notes on the player's repertoires", async () => {
     const taimanov = await notedTwice();
-    await unlink(db, 'rimantas', 'gabija');
+    await unlink(db, 'rimantas', 'gabija', T1);
     expect(
       (await coachNotesOn(db, 'gabija', taimanov)).map((n) => n.coachId),
     ).toEqual(['dovydas']);

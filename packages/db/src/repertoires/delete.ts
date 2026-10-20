@@ -1,0 +1,44 @@
+/**
+ * Deleting a repertoire, which may be assigned (R-131). Kept apart from
+ * repository.ts: it unassigns through the assignments module, which reads
+ * repertoires through repository.ts.
+ */
+import {
+  REPERTOIRE_REFUSALS,
+  type RepertoireAccessRefusal,
+  type Result,
+} from '@mychess/domain';
+import { and, eq } from 'drizzle-orm';
+import { lockAccountById } from '../accounts';
+import { unassignAll } from '../assignments/assign';
+import type { Executor } from '../client';
+import { countSchema } from '../coach-queries';
+import { DONE, refusal } from '../results';
+import { repertoires } from '../schema';
+
+/**
+ * Deletes the owner's repertoire (its rows go by cascade); not found when
+ * it is not theirs. An assigned one is unassigned from everyone first, in
+ * the same transaction, so each player's fork offer keeps a snapshot of it
+ * (R-131, plan decision 5). Locks the owner's account row first, the S4
+ * lock order, so no assignment of it is made meanwhile.
+ */
+export function deleteRepertoire(
+  db: Executor,
+  id: string,
+  ownerId: string,
+  now: Date,
+): Promise<Result<undefined, RepertoireAccessRefusal>> {
+  const owned = and(
+    eq(repertoires.id, id),
+    eq(repertoires.ownerAccountId, ownerId),
+  );
+  return db.transaction(async (tx) => {
+    await lockAccountById(tx, ownerId);
+    const found = countSchema.parse(await tx.$count(repertoires, owned));
+    if (found === 0) return refusal(REPERTOIRE_REFUSALS.notFound);
+    await unassignAll(tx, id, now);
+    await tx.delete(repertoires).where(owned);
+    return DONE;
+  });
+}

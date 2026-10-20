@@ -2,7 +2,14 @@ import { moveKey } from '@mychess/chess';
 import { forkOfferExpiry } from '@mychess/domain';
 import { and, eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createRepertoire, loadRepertoire } from '../src';
+import {
+  addMember,
+  assign,
+  createRepertoire,
+  loadRepertoire,
+  setDeadline,
+  unassign,
+} from '../src';
 import {
   assignmentPlayers,
   assignments,
@@ -23,6 +30,7 @@ import {
   seedMember,
   seedPlayer,
 } from './support/coaching';
+import { offersOf } from './support/assignments';
 import { graphOf } from './support/repertoires';
 
 const { db, client } = useTestDatabase();
@@ -368,5 +376,287 @@ describe('changeAssignments', () => {
       { player_id: 'p', closed_at: LATER },
       { player_id: 'q', closed_at: null },
     ]);
+  });
+});
+const OK = { ok: true, value: undefined };
+const refused = (reason: string) => ({ ok: false, refusal: { reason } });
+
+const toPlayer = (playerId: string) => ({ kind: 'player', playerId }) as const;
+const toGroup = (groupId: string) => ({ kind: 'group', groupId }) as const;
+
+const assignRows = () =>
+  query(
+    `select coach_id, repertoire_id, player_id, group_id, deadline::text, assigned_version, created_at
+     from assignments order by player_id nulls first`,
+  );
+
+async function assignmentId(
+  target: { playerId: string } | { groupId: string },
+): Promise<string> {
+  const [row] = await db
+    .select({ id: assignments.id })
+    .from(assignments)
+    .where(
+      'playerId' in target
+        ? eq(assignments.playerId, target.playerId)
+        : eq(assignments.groupId, target.groupId),
+    );
+  if (row === undefined) throw new Error('no such assignment');
+  return row.id;
+}
+
+describe('assign', () => {
+  it("assigns the coach's repertoire to a linked player at its current version", async () => {
+    await db.update(repertoires).set({ version: 3 });
+    expect(
+      await assign(
+        db,
+        {
+          coachId: 'c',
+          repertoireId: rep,
+          target: toPlayer('p'),
+          deadline: '2026-11-30',
+        },
+        NOW,
+      ),
+    ).toEqual(OK);
+    expect(await assignRows()).toEqual([
+      {
+        coach_id: 'c',
+        repertoire_id: rep,
+        player_id: 'p',
+        group_id: null,
+        deadline: '2026-11-30',
+        assigned_version: 3,
+        created_at: NOW,
+      },
+    ]);
+  });
+
+  it("assigns it to the coach's own group, without a deadline", async () => {
+    expect(
+      await assign(
+        db,
+        { coachId: 'c', repertoireId: rep, target: toGroup(g), deadline: null },
+        NOW,
+      ),
+    ).toEqual(OK);
+    expect(await assignRows()).toEqual([
+      expect.objectContaining({ player_id: null, group_id: g, deadline: null }),
+    ]);
+    expect(await liveRepertoireIds(db, 'q')).toEqual(new Set([rep]));
+  });
+
+  it.each([
+    ['with Coach mode off', 'notCoach'],
+    ["another coach's repertoire", 'foreignRepertoire'],
+    ['a missing repertoire', 'missing'],
+    ['a malformed repertoire id', 'malformed'],
+    ['an unlinked player', 'unlinked'],
+    ["another coach's group", 'foreignGroup'],
+    ['a malformed group id', 'malformedGroup'],
+    ['the same target twice', 'twice'],
+  ] as const)('refuses %s and writes nothing', async (_, kase) => {
+    await seedCoach(db, 'd', 'd@example.lt');
+    await seedLink(db, 'd', 'p');
+    const foreignRep = await createRepertoire(db, {
+      ownerId: 'd',
+      side: 'white',
+      name: 'Kito',
+      graph: graphOf(PGN),
+      now: NOW,
+    });
+    const foreignGroup = await seedGroup(db, 'd', 'Kita');
+    await seedPlayer(db, 'x', 'x@example.lt');
+    await assignTo({ playerId: 'p' });
+    const cases = {
+      notCoach: [rep, toPlayer('q'), 'assignment.notCoach'],
+      foreignRepertoire: [foreignRep, toPlayer('q'), 'assignment.notFound'],
+      missing: [
+        '00000000-0000-4000-8000-000000000000',
+        toPlayer('q'),
+        'assignment.notFound',
+      ],
+      malformed: ['not-a-uuid', toPlayer('q'), 'assignment.notFound'],
+      unlinked: [rep, toPlayer('x'), 'assignment.notLinked'],
+      foreignGroup: [rep, toGroup(foreignGroup), 'assignment.groupNotFound'],
+      malformedGroup: [rep, toGroup('not-a-uuid'), 'assignment.groupNotFound'],
+      twice: [rep, toPlayer('p'), 'assignment.alreadyAssigned'],
+    } as const;
+    const [repertoireId, target, reason] = cases[kase];
+    if (kase === 'notCoach')
+      await query(`update accounts set coach_since = null where id = 'c'`);
+    const before = await assignRows();
+    expect(
+      await assign(
+        db,
+        { coachId: 'c', repertoireId, target, deadline: null },
+        NOW,
+      ),
+    ).toEqual(refused(reason));
+    expect(await assignRows()).toEqual(before);
+  });
+
+  it('refuses assigning to oneself', async () => {
+    expect(
+      await assign(
+        db,
+        {
+          coachId: 'c',
+          repertoireId: rep,
+          target: toPlayer('c'),
+          deadline: null,
+        },
+        NOW,
+      ),
+    ).toEqual(refused('assignment.notLinked'));
+    expect(await assignRows()).toEqual([]);
+  });
+
+  it("closes the player's open fork offer for it (C-M1-6)", async () => {
+    await assignTo({ groupId: g });
+    await removeFromGroup('p');
+    expect(
+      await assign(
+        db,
+        {
+          coachId: 'c',
+          repertoireId: rep,
+          target: toPlayer('p'),
+          deadline: null,
+        },
+        LATER,
+      ),
+    ).toEqual(OK);
+    expect(await offersOf(db)).toEqual([
+      {
+        playerId: 'p',
+        repertoireId: rep,
+        reason: 'leftGroup',
+        closedAt: LATER,
+      },
+    ]);
+  });
+
+  it('gives a forked repertoire back live to every player the new row reaches (plan decision 8)', async () => {
+    await assignTo({ playerId: 'p' });
+    await setState('p', { forkedAt: NOW, pausedAt: NOW });
+    expect(
+      await assign(
+        db,
+        { coachId: 'c', repertoireId: rep, target: toGroup(g), deadline: null },
+        LATER,
+      ),
+    ).toEqual(OK);
+    expect(await liveRepertoireIds(db, 'p')).toEqual(new Set([rep]));
+    expect(
+      await query(
+        'select player_id, forked_at, paused_at from assignment_players',
+      ),
+    ).toEqual([{ player_id: 'p', forked_at: null, paused_at: NOW }]);
+    expect(await offersOf(db)).toEqual([]);
+  });
+
+  it('reaches a player who joins the group later (R-16)', async () => {
+    await assign(
+      db,
+      { coachId: 'c', repertoireId: rep, target: toGroup(g), deadline: null },
+      NOW,
+    );
+    expect(
+      await addMember(db, { coachId: 'c', groupId: g, playerId: 'n' }, LATER),
+    ).toEqual(OK);
+    expect(await liveRepertoireIds(db, 'n')).toEqual(new Set([rep]));
+  });
+});
+
+describe('unassign', () => {
+  it('ends the assignment and offers a fork to each player who lost it (R-130)', async () => {
+    await assignTo({ groupId: g });
+    await assignTo({ playerId: 'p' });
+    const id = await assignmentId({ groupId: g });
+    expect(
+      await unassign(db, { coachId: 'c', assignmentId: id }, LATER),
+    ).toEqual(OK);
+    expect(await assignRows()).toEqual([
+      expect.objectContaining({ player_id: 'p' }),
+    ]);
+    // p still has it individually (R-16).
+    expect(await offersOf(db)).toEqual([
+      {
+        playerId: 'q',
+        repertoireId: rep,
+        reason: 'unassigned',
+        closedAt: null,
+      },
+    ]);
+  });
+
+  it('ends an individual assignment', async () => {
+    await assignTo({ playerId: 'n' });
+    const id = await assignmentId({ playerId: 'n' });
+    expect(
+      await unassign(db, { coachId: 'c', assignmentId: id }, LATER),
+    ).toEqual(OK);
+    expect(await assignRows()).toEqual([]);
+    expect(await offersOf(db)).toEqual([
+      {
+        playerId: 'n',
+        repertoireId: rep,
+        reason: 'unassigned',
+        closedAt: null,
+      },
+    ]);
+  });
+
+  it.each([
+    ["another coach's assignment", 'foreign'],
+    ['a malformed id', 'malformed'],
+  ] as const)('refuses %s and changes nothing', async (_, kase) => {
+    await seedCoach(db, 'd', 'd@example.lt');
+    await assignTo({ groupId: g });
+    const id = await assignmentId({ groupId: g });
+    const ref =
+      kase === 'foreign'
+        ? { coachId: 'd', assignmentId: id }
+        : { coachId: 'c', assignmentId: 'not-a-uuid' };
+    expect(await unassign(db, ref, LATER)).toEqual(
+      refused('assignment.notFound'),
+    );
+    expect(await assignRows()).toHaveLength(1);
+    expect(await offersOf(db)).toEqual([]);
+  });
+});
+
+describe('setDeadline', () => {
+  it("extends or clears the coach's own assignment's deadline only (R-51)", async () => {
+    await seedCoach(db, 'd', 'd@example.lt');
+    await assignTo({ groupId: g }, '2026-11-01');
+    const id = await assignmentId({ groupId: g });
+    const deadline = async () =>
+      (await query('select deadline::text from assignments'))[0];
+    expect(
+      await setDeadline(db, {
+        coachId: 'c',
+        assignmentId: id,
+        deadline: '2026-11-30',
+      }),
+    ).toEqual(OK);
+    expect(await deadline()).toEqual({ deadline: '2026-11-30' });
+    expect(
+      await setDeadline(db, { coachId: 'd', assignmentId: id, deadline: null }),
+    ).toEqual(refused('assignment.notFound'));
+    expect(
+      await setDeadline(db, {
+        coachId: 'c',
+        assignmentId: 'not-a-uuid',
+        deadline: null,
+      }),
+    ).toEqual(refused('assignment.notFound'));
+    expect(await deadline()).toEqual({ deadline: '2026-11-30' });
+    expect(
+      await setDeadline(db, { coachId: 'c', assignmentId: id, deadline: null }),
+    ).toEqual(OK);
+    expect(await deadline()).toEqual({ deadline: null });
   });
 });

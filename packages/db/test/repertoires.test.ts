@@ -17,7 +17,17 @@ import {
   renameRepertoire,
   saveRepertoireEdit,
 } from '../src';
+import { forkOffers } from '../src/assignment-schema';
+import { snapshotSchema } from '../src/assignments/snapshot';
 import { useTestDatabase } from '../src/testing';
+import { offersOf, seedAssignment } from './support/assignments';
+import {
+  seedCoach,
+  seedGroup,
+  seedLink,
+  seedMember,
+  seedPlayer,
+} from './support/coaching';
 import { seedAccount } from './support/accounts';
 import { canonical, graphOf, LONDON, T0, T1 } from './support/repertoires';
 
@@ -251,7 +261,7 @@ describe('listRepertoires, renameRepertoire, deleteRepertoire', () => {
         now: T1,
       }),
     ).toEqual(notFound);
-    expect(await deleteRepertoire(db, id, 'rimantas')).toEqual(notFound);
+    expect(await deleteRepertoire(db, id, 'rimantas', T1)).toEqual(notFound);
     expect(
       await renameRepertoire(db, {
         id,
@@ -264,11 +274,11 @@ describe('listRepertoires, renameRepertoire, deleteRepertoire', () => {
       name: 'London',
       version: 1,
     });
-    expect(await deleteRepertoire(db, id, 'rokas')).toEqual({
+    expect(await deleteRepertoire(db, id, 'rokas', T1)).toEqual({
       ok: true,
       value: undefined,
     });
-    expect(await deleteRepertoire(db, id, 'rokas')).toEqual(notFound);
+    expect(await deleteRepertoire(db, id, 'rokas', T1)).toEqual(notFound);
     expect(
       await client.query('select count(*)::int as n from repertoire_moves'),
     ).toMatchObject({ rows: [{ n: 0 }] });
@@ -282,5 +292,55 @@ describe('listRepertoires, renameRepertoire, deleteRepertoire', () => {
       (select count(*) from repertoires)::int + (select count(*) from chapters)::int +
       (select count(*) from repertoire_moves)::int + (select count(*) from move_chapters)::int as n`);
     expect(rows).toEqual([{ n: 0 }]);
+  });
+});
+
+describe('deleteRepertoire of an assigned repertoire (R-131)', () => {
+  it('unassigns it from everyone first, each with a fork offer that keeps its snapshot', async () => {
+    await seedCoach(db, 'c', 'c@example.lt');
+    for (const id of ['p', 'q']) {
+      await seedPlayer(db, id, `${id}@example.lt`);
+      await seedLink(db, 'c', id);
+    }
+    const groupId = await seedGroup(db, 'c', 'Mano');
+    await seedMember(db, 'c', groupId, 'q');
+    const id = await london('c');
+    await seedAssignment(db, {
+      coachId: 'c',
+      repertoireId: id,
+      target: { playerId: 'p' },
+      now: T0,
+    });
+    await seedAssignment(db, {
+      coachId: 'c',
+      repertoireId: id,
+      target: { groupId },
+      now: T0,
+    });
+    const graph = must(await loadRepertoire(db, id, 'c')).graph;
+    expect(await deleteRepertoire(db, id, 'p', T1)).toEqual({
+      ok: false,
+      refusal: { reason: 'repertoire.notFound' },
+    });
+    expect(await offersOf(db)).toEqual([]);
+    expect(await deleteRepertoire(db, id, 'c', T1)).toEqual({
+      ok: true,
+      value: undefined,
+    });
+    expect(await offersOf(db)).toEqual([
+      { playerId: 'p', repertoireId: null, reason: 'deleted', closedAt: null },
+      { playerId: 'q', repertoireId: null, reason: 'deleted', closedAt: null },
+    ]);
+    const snapshots = await db
+      .select({
+        snapshot: forkOffers.snapshot,
+        createdAt: forkOffers.createdAt,
+      })
+      .from(forkOffers);
+    for (const { snapshot, createdAt } of snapshots) {
+      expect(snapshotSchema.parse(snapshot).graph).toEqual(graph);
+      expect(createdAt).toEqual(T1);
+    }
+    expect(await loadRepertoire(db, id, 'c')).toBeUndefined();
   });
 });

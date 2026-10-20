@@ -19,6 +19,7 @@ import {
 import { and, desc, eq, gt, isNull, not, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { findAccountById, lockAccountById } from './accounts';
+import { changeAssignments } from './assignments/change';
 import type { Db, Executor, Tx } from './client';
 import { countSchema, holdGroup, isLinked, linkCount } from './coach-queries';
 import { isUuid } from './ids';
@@ -231,7 +232,11 @@ export function acceptInvite(
   });
 }
 
-/** The link (unless there is one), the membership and the use, as accepted. */
+/**
+ * The link (unless there is one), the membership and the use, as accepted.
+ * The membership gives the player the group's assignments (R-16), closing
+ * any open fork offer for them (lead decision 4).
+ */
 async function join(
   tx: Tx,
   invite: Invite,
@@ -243,11 +248,17 @@ async function join(
     .insert(coachLinks)
     .values({ coachId, playerId, createdAt: now })
     .onConflictDoNothing();
+  // Only gains happen here, so the reason is never stored.
   if (groupId !== null)
-    await tx
-      .insert(groupMembers)
-      .values({ groupId, coachId, playerId, joinedAt: now })
-      .onConflictDoNothing();
+    await changeAssignments(
+      tx,
+      { playerIds: [playerId], reason: 'leftGroup', now },
+      () =>
+        tx
+          .insert(groupMembers)
+          .values({ groupId, coachId, playerId, joinedAt: now })
+          .onConflictDoNothing(),
+    );
   if (invite.kind === 'personal')
     await tx
       .update(invites)

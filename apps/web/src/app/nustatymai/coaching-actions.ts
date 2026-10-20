@@ -64,7 +64,8 @@ export async function stopCoachingAction(): Promise<StopCoachingState> {
 export async function unlinkCoachAction(form: FormData): Promise<void> {
   const player = await requireOnboarded();
   const coachId = accountIdSchema.safeParse(form.get('coachId'));
-  if (coachId.success) await unlink(getDb(), coachId.data, player.id);
+  if (coachId.success)
+    await unlink(getDb(), coachId.data, player.id, new Date());
   refresh();
 }
 
@@ -72,6 +73,7 @@ export async function unlinkCoachAction(form: FormData): Promise<void> {
 export async function leaveGroupAction(form: FormData): Promise<void> {
   const player = await requireOnboarded();
   const groupId = groupIdSchema.safeParse(form.get('groupId'));
-  if (groupId.success) await leaveGroup(getDb(), player.id, groupId.data);
+  if (groupId.success)
+    await leaveGroup(getDb(), player.id, groupId.data, new Date());
   refresh();
 }

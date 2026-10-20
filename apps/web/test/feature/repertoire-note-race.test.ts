@@ -44,6 +44,7 @@ vi.mock('../../src/server/repertoires', async (importOriginal) => {
           testDb(),
           own.value.repertoire.id,
           own.value.repertoire.ownerId,
+          new Date(),
         );
       return own;
     },

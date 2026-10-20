@@ -9,6 +9,7 @@ import {
 import { and, count, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { lockAccountById } from './accounts';
+import { changeAssignments } from './assignments/change';
 import type { Db, Executor, Tx } from './client';
 import { groupCount, holdGroup, holdLink } from './coach-queries';
 import { isUuid } from './ids';
@@ -82,10 +83,37 @@ export function renameGroup(
   });
 }
 
+const playerRowsSchema = z.array(z.object({ playerId: z.string().min(1) }));
+
+/** The members of the coach's group, read under the coach row's lock. */
+async function memberIds(
+  tx: Tx,
+  coachId: string,
+  groupId: string,
+): Promise<string[]> {
+  const rows = playerRowsSchema.parse(
+    await tx
+      .select({ playerId: groupMembers.playerId })
+      .from(groupMembers)
+      .where(
+        and(
+          eq(groupMembers.groupId, groupId),
+          eq(groupMembers.coachId, coachId),
+        ),
+      ),
+  );
+  return rows.map((row) => row.playerId);
+}
+
+/** The membership rows of `playerId` in `groupId`. */
+const membershipIs = (groupId: string, playerId: string) =>
+  and(eq(groupMembers.groupId, groupId), eq(groupMembers.playerId, playerId));
+
 /**
  * Deletes the coach's own group while Coach mode is on (R-113); its
- * memberships and invites go with it (cascade). Locks the coach row
- * first, the lock order acceptInvite documents: an accept of one of the
+ * memberships, invites and assignments go with it (cascade), and each
+ * member who loses a repertoire gets a fork offer (R-45). Locks the coach
+ * row first, the lock order acceptInvite documents: an accept of one of the
  * group's invites holds the invite and then wants the group, so deleting
  * the group (which then wants the invite) without the coach row first
  * could deadlock with it.
@@ -94,15 +122,22 @@ export function deleteGroup(
   db: Db,
   coachId: string,
   groupId: string,
+  now: Date,
 ): Promise<GroupResult> {
   if (!isUuid(groupId)) return Promise.resolve(GROUP_NOT_FOUND);
   return db.transaction(async (tx) => {
     const allowed = await mayChangeGroups(tx, coachId);
     if (!allowed.ok) return allowed;
-    const deleted = await tx
-      .delete(groups)
-      .where(groupIs(coachId, groupId))
-      .returning({ id: groups.id });
+    const players = await memberIds(tx, coachId, groupId);
+    const deleted = await changeAssignments(
+      tx,
+      { playerIds: players, reason: 'leftGroup', now },
+      () =>
+        tx
+          .delete(groups)
+          .where(groupIs(coachId, groupId))
+          .returning({ id: groups.id }),
+    );
     return deleted.length === 1 ? DONE : GROUP_NOT_FOUND;
   });
 }
@@ -116,9 +151,10 @@ export interface Membership {
 
 /**
  * Puts a linked player into the coach's own group (R-12) while Coach mode
- * is on (R-113). The coach row is locked first, then the group and the
- * link are held, so a deleteGroup or an unlink waits for this insert
- * and then removes it too.
+ * is on (R-113); the player gets the group's assignments (R-16), closing
+ * any open fork offer for them (lead decision 4). The coach row is locked
+ * first, then the group and the link are held, so a deleteGroup or an
+ * unlink waits for this insert and then removes it too.
  */
 export function addMember(
   db: Db,
@@ -133,60 +169,90 @@ export function addMember(
       linked: await holdLink(tx, coachId, playerId),
     });
     if (!allowed.ok) return allowed;
-    await tx
-      .insert(groupMembers)
-      .values({ groupId, coachId, playerId, joinedAt: now })
-      .onConflictDoNothing();
+    // Only gains happen here, so the reason is never stored.
+    await changeAssignments(
+      tx,
+      { playerIds: [playerId], reason: 'leftGroup', now },
+      () =>
+        tx
+          .insert(groupMembers)
+          .values({ groupId, coachId, playerId, joinedAt: now })
+          .onConflictDoNothing(),
+    );
     return allowed;
   });
 }
 
 /**
  * Takes a player out of the coach's own group while Coach mode is on
- * (R-113); the link stays. Like adding twice, removing a player who is not
- * in the group changes nothing.
+ * (R-113); the link stays, and each repertoire the player loses gets a
+ * fork offer (R-45). Like adding twice, removing a player who is not in
+ * the group changes nothing.
  */
 export function removeMember(
   db: Db,
   { coachId, groupId, playerId }: Membership,
+  now: Date,
 ): Promise<GroupResult> {
   return db.transaction(async (tx) => {
     const allowed = await mayChangeGroups(tx, coachId);
     if (!allowed.ok) return allowed;
     if (!(await holdGroup(tx, coachId, groupId))) return GROUP_NOT_FOUND;
-    await tx
-      .delete(groupMembers)
-      .where(
-        and(
-          eq(groupMembers.groupId, groupId),
-          eq(groupMembers.playerId, playerId),
-        ),
-      );
+    await changeAssignments(
+      tx,
+      { playerIds: [playerId], reason: 'leftGroup', now },
+      () => tx.delete(groupMembers).where(membershipIs(groupId, playerId)),
+    );
     return DONE;
   });
 }
 
-/**
- * The player leaves a group and stays linked to its coach (R-45), whether
- * or not the coach is in Coach mode (R-113 binds only the coach). A group
- * the player is not in is not found.
- */
-export async function leaveGroup(
+const coachRowsSchema = z.array(z.object({ coachId: z.string().min(1) }));
+
+/** The coach of the group `playerId` is in, read without a lock. */
+async function membershipCoach(
   db: Executor,
   playerId: string,
   groupId: string,
+): Promise<string | undefined> {
+  const [row] = coachRowsSchema.parse(
+    await db
+      .select({ coachId: groupMembers.coachId })
+      .from(groupMembers)
+      .where(membershipIs(groupId, playerId)),
+  );
+  return row?.coachId;
+}
+
+/**
+ * The player leaves a group and stays linked to its coach (R-45), whether
+ * or not the coach is in Coach mode (R-113 binds only the coach); each
+ * repertoire the player loses gets a fork offer. A group the player is not
+ * in is not found. Locks the group's coach row first, the S4 lock order,
+ * so no assignment to the group is made while the player leaves.
+ */
+export function leaveGroup(
+  db: Executor,
+  playerId: string,
+  groupId: string,
+  now: Date,
 ): Promise<GroupResult> {
-  if (!isUuid(groupId)) return GROUP_NOT_FOUND;
-  const left = await db
-    .delete(groupMembers)
-    .where(
-      and(
-        eq(groupMembers.groupId, groupId),
-        eq(groupMembers.playerId, playerId),
-      ),
-    )
-    .returning({ playerId: groupMembers.playerId });
-  return left.length === 1 ? DONE : GROUP_NOT_FOUND;
+  if (!isUuid(groupId)) return Promise.resolve(GROUP_NOT_FOUND);
+  return db.transaction(async (tx) => {
+    const coachId = await membershipCoach(tx, playerId, groupId);
+    if (coachId === undefined) return GROUP_NOT_FOUND;
+    await lockAccountById(tx, coachId);
+    const left = await changeAssignments(
+      tx,
+      { playerIds: [playerId], reason: 'leftGroup', now },
+      () =>
+        tx
+          .delete(groupMembers)
+          .where(membershipIs(groupId, playerId))
+          .returning({ playerId: groupMembers.playerId }),
+    );
+    return left.length === 1 ? DONE : GROUP_NOT_FOUND;
+  });
 }
 
 /** One row of the coach's group list. */

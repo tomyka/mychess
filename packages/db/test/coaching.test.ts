@@ -14,6 +14,11 @@ import {
 } from '../src';
 import { useTestDatabase } from '../src/testing';
 import {
+  offersOf,
+  seedAssignment,
+  seedRepertoire,
+} from './support/assignments';
+import {
   openTransaction,
   seedCoach,
   seedGroup,
@@ -335,7 +340,7 @@ describe('playerCoaches', () => {
 describe('unlink', () => {
   it("ends the link and the player's memberships in that coach's groups only (R-39)", async () => {
     const { foreign } = await seedTwoCoaches();
-    expect(await unlink(db, 'c', 'ruta')).toEqual({
+    expect(await unlink(db, 'c', 'ruta', NOW)).toEqual({
       ok: true,
       value: undefined,
     });
@@ -351,17 +356,71 @@ describe('unlink', () => {
     expect(await query('select count(*)::int as n from groups')).toEqual([
       { n: 3 },
     ]);
-    expect(await unlink(db, 'c', 'ruta')).toEqual(
+    expect(await unlink(db, 'c', 'ruta', NOW)).toEqual(
       refused(COACH_REFUSALS.notLinked),
     );
   });
 
   it('does nothing for the pair the other way round', async () => {
     await seedTwoCoaches();
-    expect(await unlink(db, 'ruta', 'c')).toEqual(
+    expect(await unlink(db, 'ruta', 'c', NOW)).toEqual(
       refused(COACH_REFUSALS.notLinked),
     );
     expect(await coachPlayer(db, 'c', 'ruta')).toBeDefined();
+  });
+
+  it("ends the coach's assignments to the player with a fork offer (R-44)", async () => {
+    const { saturday: group } = await seedTwoCoaches();
+    const rep = await seedRepertoire(db, 'c', T0);
+    await seedAssignment(db, {
+      coachId: 'c',
+      repertoireId: rep,
+      target: { playerId: 'ruta' },
+      now: T0,
+    });
+    await seedAssignment(db, {
+      coachId: 'c',
+      repertoireId: rep,
+      target: { groupId: group },
+      now: T0,
+    });
+    expect(await unlink(db, 'c', 'ruta', NOW)).toEqual({
+      ok: true,
+      value: undefined,
+    });
+    expect(await offersOf(db)).toEqual([
+      {
+        playerId: 'ruta',
+        repertoireId: rep,
+        reason: 'unlinked',
+        closedAt: null,
+      },
+    ]);
+    expect(await query('select player_id, group_id from assignments')).toEqual([
+      { player_id: null, group_id: group },
+    ]);
+  });
+
+  it('waits for the coach row, so an assignment made meanwhile is offered too', async () => {
+    await seedTwoCoaches();
+    const rep = await seedRepertoire(db, 'c', T0);
+    const assigning = await openTransaction(client, [
+      `select id from accounts where id = 'c' for no key update`,
+      `insert into assignments (coach_id, repertoire_id, player_id, assigned_version, created_at)
+       values ('c', '${rep}', 'ruta', 1, now())`,
+    ]);
+    const unlinking = unlink(db, 'c', 'ruta', NOW);
+    await someoneWaitsForALock(client);
+    await assigning.finish();
+    expect(await unlinking).toEqual({ ok: true, value: undefined });
+    expect(await offersOf(db)).toEqual([
+      {
+        playerId: 'ruta',
+        repertoireId: rep,
+        reason: 'unlinked',
+        closedAt: null,
+      },
+    ]);
   });
 });
 
@@ -379,7 +438,7 @@ describe('coachAccessFacts', () => {
     expect(await coachAccessFacts(db, 'd', 'jonas')).toMatchObject({
       linked: false,
     });
-    await unlink(db, 'c', 'ruta');
+    await unlink(db, 'c', 'ruta', NOW);
     expect(await coachAccessFacts(db, 'c', 'ruta')).toMatchObject({
       linked: false,
     });
