@@ -76,6 +76,17 @@ the old history and must be reset:
 `docker compose -f infra/compose.yaml down -v && docker compose -f infra/compose.yaml up -d`,
 then migrate as in step 3 above.
 
+### A composite foreign key onto a new unique key (drizzle-kit order)
+
+When one schema change adds a unique key and a composite foreign key that
+points at it, drizzle-kit 0.31 writes the foreign key first and Postgres
+refuses the migration ("there is no unique constraint matching given
+keys"). Generated migrations are never hand-edited, so generate twice:
+first the schema with only the unique key (`pnpm --filter @mychess/db
+db:generate`), then the rest. That is why 0004/0005 and 0006/0007 come in
+pairs. Delete an uncommitted generated pair (SQL, snapshots, journal
+entries) before regenerating it.
+
 ### Mail in tests (Mailpit, from S1)
 
 Staging and production send with Resend; local runs and E2E use Mailpit.
