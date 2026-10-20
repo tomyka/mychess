@@ -79,7 +79,10 @@ const lt = MESSAGES.lt;
 const r = lt.repertoires;
 
 type Coaching = Partial<
-  Pick<RepertoireScreenProps, 'sharing' | 'coachNotes' | 'forkNotes'>
+  Pick<
+    RepertoireScreenProps,
+    'sharing' | 'coachNotes' | 'forkNotes' | 'assignedPlayers' | 'assignPanel'
+  >
 >;
 
 function renderScreen(
@@ -97,6 +100,8 @@ function renderScreen(
         sharing={coaching.sharing ?? { coaches: [], sharedWith: [] }}
         coachNotes={coaching.coachNotes ?? []}
         forkNotes={coaching.forkNotes ?? []}
+        assignedPlayers={coaching.assignedPlayers}
+        assignPanel={coaching.assignPanel}
       />
     </NextIntlClientProvider>,
   );
@@ -230,6 +235,28 @@ describe('RepertoireScreen: browsing', () => {
       'checked',
       true,
     );
+  });
+
+  it('puts the assign panel last and counts its players on delete (R-131)', () => {
+    renderScreen(GRAPH, 'Londono sistema', {
+      assignedPlayers: 2,
+      assignPanel: <section aria-label="Assign slot" />,
+    });
+    const slot = screen.getByRole('region', { name: 'Assign slot' });
+    expect(slot.previousElementSibling?.getAttribute('aria-labelledby')).toBe(
+      screen.getByRole('heading', { level: 2, name: lt.share.title }).id,
+    );
+    // The phone's and the desktop's Delete both ask with the count.
+    for (const remove of screen.getAllByRole('button', {
+      name: r.header.delete,
+    })) {
+      fireEvent.click(remove);
+    }
+    expect(
+      screen.getAllByText(
+        'Šį repertuarą turi 2 žaidėjai; jie galės pasilikti asmeninę kopiją 30 dienų.',
+      ),
+    ).toHaveLength(2);
   });
 
   it('goes to a move played on the board when the chapter has it', () => {

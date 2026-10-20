@@ -529,6 +529,53 @@
       "removed": "Removed: {moves}",
       "commentsChanged": "{count, plural, one {# comment changed} other {# comments changed}}",
       "deletedChapters": "Deleted chapters"
+    },
+    "deadlineOn": "Deadline: {date}",
+    "noDeadline": "No deadline",
+    "badge": {
+      "overdue": "Overdue",
+      "paused": "Paused",
+      "forked": "Made their own copy",
+      "updated": "Updated"
+    },
+    "deleteHolders": "{count, plural, one {# player has this repertoire; they can keep their own copy for 30 days.} other {# players have this repertoire; they can keep their own copy for 30 days.}}",
+    "panel": {
+      "title": "Assign to players",
+      "intro": "An assigned repertoire reaches your players with every change you make to it later.",
+      "target": "Assign to",
+      "choose": "Choose a player or a group",
+      "players": "Players",
+      "groups": "Groups",
+      "pickTarget": "Choose a player or a group.",
+      "deadline": "Deadline (optional)",
+      "assign": "Assign",
+      "assigned": "Assigned.",
+      "nobody": "You have no linked players or groups to assign it to.",
+      "everyone": "This repertoire is already assigned to all your players and groups.",
+      "list": "Assigned to",
+      "none": "Not assigned to anyone yet.",
+      "group": "Group",
+      "emptyGroup": "No players in this group yet.",
+      "playerDeadline": "deadline {date}",
+      "newDeadline": "New deadline",
+      "changeDeadline": "Change deadline",
+      "clearDeadline": "Clear deadline",
+      "deadlineSaved": "Deadline saved.",
+      "unassign": "Unassign",
+      "unassignQuestion": "Unassign it from {name}? The repertoire leaves the players’ lists, and they can keep their own copy for 30 days. Anyone who has it another way keeps it.",
+      "unassignConfirm": "Unassign",
+      "unassignCancel": "Keep it"
+    },
+    "home": {
+      "title": "From my coach"
     }
+  },
+  "forkOffer": {
+    "notOpen": "This offer is no longer open.",
+    "title": "Copies you can keep",
+    "intro": "These repertoires are no longer assigned to you. You can keep your own copy, with your notes.",
+    "daysLeft": "{count, plural, one {# day left} other {# days left}}",
+    "keep": "Keep a copy",
+    "decline": "No, thanks"
   }
 }

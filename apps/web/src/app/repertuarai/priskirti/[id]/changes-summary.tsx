@@ -21,23 +21,31 @@ interface ChapterChanges {
   readonly removed: readonly string[];
 }
 
+/** Where a move the chapter does not have sorts: after every move it has. */
+const UNKNOWN_PLY = Number.MAX_SAFE_INTEGER;
+
 /**
- * A changed move as the move list writes it, `2. Bf4` or `1... c5`; just
- * its SAN when the chapter does not have it (a removed move).
+ * One chapter's changed moves in the order they are played (by ply), those
+ * it does not have (a removed move) last in the order they came; each as
+ * the move list writes it, `2. Bf4` or `1... c5`, or just its SAN when the
+ * chapter does not have it.
  */
-function moveLabels(
+function chapterMoves(
   graph: RepertoireGraph,
   chapter: Chapter | undefined,
-): (key: string) => string {
+): (links: readonly MoveLink[]) => string[] {
   const plies: ReadonlyMap<string, number> =
     chapter === undefined ? new Map() : chapterPlies(graph, chapter.id);
   const whiteFirst =
     chapter !== undefined && sideToMove(chapter.rootKey) === 'w';
-  return (key) => {
-    const { san } = splitMoveKey(key);
-    const ply = plies.get(key);
+  const plyOf = (link: MoveLink): number =>
+    plies.get(link.moveKey) ?? UNKNOWN_PLY;
+  const label = ({ moveKey }: MoveLink): string => {
+    const { san } = splitMoveKey(moveKey);
+    const ply = plies.get(moveKey);
     return ply === undefined ? san : `${moveNumber(ply, whiteFirst)} ${san}`;
   };
+  return (links) => links.toSorted((a, b) => plyOf(a) - plyOf(b)).map(label);
 }
 
 /** The changes by chapter, in the repertoire's order; deleted chapters last. */
@@ -52,11 +60,9 @@ function byChapter(
       chapter === undefined
         ? !known.has(link.chapterId)
         : link.chapterId === chapter.id;
-    const label = moveLabels(graph, chapter);
-    const added = changes.added.filter(inGroup).map((l) => label(l.moveKey));
-    const removed = changes.removed
-      .filter(inGroup)
-      .map((l) => label(l.moveKey));
+    const moves = chapterMoves(graph, chapter);
+    const added = moves(changes.added.filter(inGroup));
+    const removed = moves(changes.removed.filter(inGroup));
     return added.length + removed.length === 0
       ? []
       : [{ chapter, added, removed }];

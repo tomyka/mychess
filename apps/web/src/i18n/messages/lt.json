@@ -529,6 +529,53 @@
       "removed": "Pašalinta: {moves}",
       "commentsChanged": "{count, plural, one {# komentaras pakeistas} few {# komentarai pakeisti} other {# komentarų pakeista}}",
       "deletedChapters": "Ištrinti skyriai"
+    },
+    "deadlineOn": "Terminas: {date}",
+    "noDeadline": "Be termino",
+    "badge": {
+      "overdue": "Pavėluota",
+      "paused": "Pristabdyta",
+      "forked": "Pasidarė asmeninę kopiją",
+      "updated": "Atnaujinta"
+    },
+    "deleteHolders": "{count, plural, one {Šį repertuarą turi # žaidėjas; jis galės pasilikti asmeninę kopiją 30 dienų.} few {Šį repertuarą turi # žaidėjai; jie galės pasilikti asmeninę kopiją 30 dienų.} other {Šį repertuarą turi # žaidėjų; jie galės pasilikti asmeninę kopiją 30 dienų.}}",
+    "panel": {
+      "title": "Priskirti žaidėjams",
+      "intro": "Priskirtas repertuaras pasiekia žaidėjus kartu su visais vėlesniais jūsų pakeitimais.",
+      "target": "Kam priskirti",
+      "choose": "Pasirinkite žaidėją arba grupę",
+      "players": "Žaidėjai",
+      "groups": "Grupės",
+      "pickTarget": "Pasirinkite žaidėją arba grupę.",
+      "deadline": "Terminas (nebūtinas)",
+      "assign": "Priskirti",
+      "assigned": "Priskirta.",
+      "nobody": "Neturite susietų žaidėjų ar grupių, kuriems galėtumėte priskirti.",
+      "everyone": "Šis repertuaras jau priskirtas visiems jūsų žaidėjams ir grupėms.",
+      "list": "Kam priskirta",
+      "none": "Šis repertuaras dar niekam nepriskirtas.",
+      "group": "Grupė",
+      "emptyGroup": "Grupėje dar nėra žaidėjų.",
+      "playerDeadline": "terminas {date}",
+      "newDeadline": "Naujas terminas",
+      "changeDeadline": "Keisti terminą",
+      "clearDeadline": "Panaikinti terminą",
+      "deadlineSaved": "Terminas išsaugotas.",
+      "unassign": "Atšaukti priskyrimą",
+      "unassignQuestion": "Atšaukti „{name}“ priskyrimą? Repertuaras dings iš žaidėjų sąrašo, o jie 30 dienų galės pasilikti asmeninę kopiją. Kam jis priskirtas ir kitu būdu, tie jį pasiliks.",
+      "unassignConfirm": "Atšaukti priskyrimą",
+      "unassignCancel": "Palikti"
+    },
+    "home": {
+      "title": "Iš mano trenerio"
     }
+  },
+  "forkOffer": {
+    "notOpen": "Šis pasiūlymas nebegalioja.",
+    "title": "Galite pasilikti kopiją",
+    "intro": "Šie repertuarai jums nebepriskirti. Galite pasilikti asmeninę jų kopiją su savo užrašais.",
+    "daysLeft": "{count, plural, one {Liko # diena} few {Liko # dienos} other {Liko # dienų}}",
+    "keep": "Pasilikti kopiją",
+    "decline": "Ne, ačiū"
   }
 }

@@ -12,6 +12,11 @@ vi.mock('../lib/auth-client', () => ({
   authClient: { signOut: vi.fn() },
 }));
 
+vi.mock('./fork-offer-actions', () => ({
+  acceptForkOfferAction: vi.fn(),
+  declineForkOfferAction: vi.fn(),
+}));
+
 const greetings = { lt: 'Sveiki, Rūta!', en: 'Hello, Rūta!' } as const;
 const signOut = { lt: 'Atsijungti', en: 'Sign out' } as const;
 const settings = { lt: 'Nustatymai', en: 'Settings' } as const;
@@ -22,7 +27,12 @@ describe('HomeView', () => {
     (locale) => {
       render(
         <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
-          <HomeView displayName="Rūta" isCoach={false} />
+          <HomeView
+            displayName="Rūta"
+            isCoach={false}
+            fromCoach={[]}
+            offers={[]}
+          />
         </NextIntlClientProvider>,
       );
       // The brand is a label, as on the other pages; the greeting is the
@@ -54,7 +64,7 @@ describe('HomeView', () => {
   it('links a coach to the coach dashboard', () => {
     render(
       <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
-        <HomeView displayName="Jonas" isCoach />
+        <HomeView displayName="Jonas" isCoach fromCoach={[]} offers={[]} />
       </NextIntlClientProvider>,
     );
     expect(
@@ -65,5 +75,42 @@ describe('HomeView', () => {
     expect(
       screen.getByRole('link', { name: settings.lt }).getAttribute('href'),
     ).toBe('/nustatymai');
+  });
+
+  it('shows what a coach assigned and the copies left to keep (R-15, R-44)', () => {
+    render(
+      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+        <HomeView
+          displayName="Rokas"
+          isCoach={false}
+          fromCoach={[
+            {
+              repertoireId: '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10',
+              name: 'Londono sistema',
+              coachName: 'Jonas',
+              deadline: null,
+              paused: false,
+              updated: true,
+              overdue: false,
+            },
+          ]}
+          offers={[
+            {
+              id: 'o-1',
+              name: 'Karo-Kan gynyba: pagrindai',
+              coachName: 'Jonas',
+              daysLeft: 30,
+            },
+          ]}
+        />
+      </NextIntlClientProvider>,
+    );
+    expect(
+      screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent),
+    ).toEqual([MESSAGES.lt.assignment.home.title, MESSAGES.lt.forkOffer.title]);
+    expect(screen.getByRole('link', { name: 'Londono sistema' })).toBeDefined();
+    expect(
+      screen.getByRole('button', { name: MESSAGES.lt.forkOffer.keep }),
+    ).toBeDefined();
   });
 });

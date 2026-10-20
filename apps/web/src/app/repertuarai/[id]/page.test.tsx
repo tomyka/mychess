@@ -1,8 +1,9 @@
 import { act, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../../i18n/locales';
+import type { CoachAssignData } from '../../../server/coach-assignments';
 import type { RepertoirePageData } from '../../../server/repertoires';
 import RepertoireLoading from './loading';
 import RepertoireNotFound from './not-found';
@@ -12,6 +13,7 @@ const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 
 const loader = vi.hoisted(() => ({
   data: vi.fn<(id: unknown) => Promise<RepertoirePageData>>(),
+  assign: vi.fn<(id: string) => Promise<CoachAssignData>>(),
 }));
 
 // The loader's access check (404 for anything not the viewer's) and its
@@ -37,6 +39,19 @@ vi.mock('./actions', () => ({
 }));
 
 vi.mock('./sharing-actions', () => ({ setSharesAction: vi.fn() }));
+
+// Which assignments it reads, and for whom, is the loader's own test.
+vi.mock('../../../server/coach-assignments', () => ({
+  coachAssignData: loader.assign,
+}));
+
+vi.mock('./assign-actions', () => ({
+  assignAction: vi.fn(),
+  unassignAction: vi.fn(),
+  setDeadlineAction: vi.fn(),
+}));
+
+const NOT_COACHING: CoachAssignData = { assignedPlayers: 0, panel: null };
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: vi.fn() }),
@@ -73,6 +88,10 @@ function renderIn(element: React.ReactNode): void {
   );
 }
 
+beforeEach(() => {
+  loader.assign.mockReset().mockResolvedValue(NOT_COACHING);
+});
+
 describe('the repertoire page', () => {
   it('opens on the chapter the query names, else on the first (screen note)', async () => {
     loader.data.mockResolvedValue(LONDON_DATA);
@@ -108,6 +127,30 @@ describe('the repertoire page', () => {
       screen.getByRole('heading', { level: 1, name: 'Londono sistema' }),
     ).toBeDefined();
     expect(screen.getByRole('application')).toBeDefined();
+  });
+
+  it('shows the assign panel only in Coach mode (R-15)', async () => {
+    loader.data.mockResolvedValue(LONDON_DATA);
+    const page = () =>
+      RepertoirePage({
+        params: Promise.resolve({ id: ID }),
+        searchParams: NO_QUERY,
+      });
+    const title = MESSAGES.lt.assignment.panel.title;
+    const { unmount } = render(
+      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+        {await page()}
+      </NextIntlClientProvider>,
+    );
+    expect(screen.queryByRole('heading', { name: title })).toBeNull();
+    unmount();
+    loader.assign.mockResolvedValue({
+      assignedPlayers: 0,
+      panel: { players: [], groups: [], assignments: [] },
+    });
+    renderIn(await page());
+    expect(loader.assign).toHaveBeenCalledWith(ID);
+    expect(screen.getByRole('heading', { name: title })).toBeDefined();
   });
 
   it('says the same thing for a missing and a foreign repertoire', () => {

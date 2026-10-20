@@ -33,6 +33,11 @@ interface Repertoire {
   readonly name: string;
 }
 
+/** How many players have it by assignment, whom a delete leaves a copy (R-131). */
+interface Holders {
+  readonly assignedPlayers?: number | undefined;
+}
+
 const FIELD =
   'min-h-touch rounded-control border border-border-strong bg-surface px-3 text-base text-fg aria-invalid:border-error';
 
@@ -108,8 +113,9 @@ function RenameForm({
 function DeleteConfirm({
   id,
   name,
+  assignedPlayers = 0,
   onCancel,
-}: Repertoire & { readonly onCancel: () => void }): JSX.Element {
+}: Repertoire & Holders & { readonly onCancel: () => void }): JSX.Element {
   const t = useTranslations();
   const cancel = useRef<HTMLButtonElement>(null);
   const [state, action, pending] = useActionState<DeleteState, FormData>(
@@ -126,6 +132,9 @@ function DeleteConfirm({
     >
       <input type="hidden" name="repertoireId" value={id} />
       <p>{t('repertoires.header.deleteQuestion', { name })}</p>
+      {assignedPlayers === 0 ? null : (
+        <p>{t('assignment.deleteHolders', { count: assignedPlayers })}</p>
+      )}
       <div className="flex flex-wrap gap-2">
         <button type="submit" disabled={pending} className={DANGER_BUTTON}>
           {t('repertoires.header.deleteConfirm')}
@@ -227,10 +236,12 @@ interface RenameElsewhere {
 export function RepertoireActions({
   id,
   name,
+  assignedPlayers,
   elsewhere,
-}: Repertoire & {
-  readonly elsewhere?: RenameElsewhere;
-}): JSX.Element {
+}: Repertoire &
+  Holders & {
+    readonly elsewhere?: RenameElsewhere;
+  }): JSX.Element {
   const t = useTranslations('repertoires.header');
   const [step, setStep] = useState<Step>('idle');
   const focus = useReturnFocus(step);
@@ -249,7 +260,14 @@ export function RepertoireActions({
       />
     );
   if (step === 'deleting')
-    return <DeleteConfirm id={id} name={name} onCancel={idle} />;
+    return (
+      <DeleteConfirm
+        id={id}
+        name={name}
+        assignedPlayers={assignedPlayers}
+        onCancel={idle}
+      />
+    );
   return (
     <div className="flex flex-col gap-2">
       <ActionButtons
@@ -299,6 +317,29 @@ function useHeaderRename() {
   };
 }
 
+/** Back to Mano repertuarai: an arrow on a phone, a text link on a desktop. */
+function BackLink(): JSX.Element {
+  const t = useTranslations('repertoires.header');
+  return (
+    <Link
+      href={ROUTES.repertoires}
+      className="inline-flex min-h-touch min-w-touch items-center gap-1 text-accent lg:basis-full lg:underline"
+    >
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="size-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <path d="M15 6l-6 6 6 6" />
+      </svg>
+      <span className="max-lg:sr-only">{t('back')}</span>
+    </Link>
+  );
+}
+
 /**
  * The top bar on a phone (back, the name on one line, the mode switch) and
  * the header on a desktop (back link, the name, the actions, the switch at
@@ -307,29 +348,15 @@ function useHeaderRename() {
 export function RepertoireHeader({
   id,
   name,
+  assignedPlayers,
   children,
-}: Repertoire & { readonly children?: ReactNode }): JSX.Element {
+}: Repertoire & Holders & { readonly children?: ReactNode }): JSX.Element {
   const t = useTranslations('repertoires.header');
   const rename = useHeaderRename();
   const renaming = rename.step === 'renaming';
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-1 px-gutter py-1 lg:px-0 lg:py-0">
-      <Link
-        href={ROUTES.repertoires}
-        className="inline-flex min-h-touch min-w-touch items-center gap-1 text-accent lg:basis-full lg:underline"
-      >
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 24 24"
-          className="size-5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M15 6l-6 6 6 6" />
-        </svg>
-        <span className="max-lg:sr-only">{t('back')}</span>
-      </Link>
+      <BackLink />
       {renaming ? (
         <div className="hidden min-w-0 flex-1 lg:flex lg:max-w-xl">
           <RenameForm
@@ -349,7 +376,12 @@ export function RepertoireHeader({
       <div
         className={renaming ? 'hidden' : 'hidden lg:flex lg:flex-col lg:gap-2'}
       >
-        <RepertoireActions id={id} name={name} elsewhere={rename.elsewhere} />
+        <RepertoireActions
+          id={id}
+          name={name}
+          assignedPlayers={assignedPlayers}
+          elsewhere={rename.elsewhere}
+        />
         <StatusLine
           text={rename.step === 'renamed' ? t('renamed') : null}
           tone="success"

@@ -4,7 +4,7 @@ import type { RepertoireGraph, Side } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, type JSX } from 'react';
+import { useState, type JSX, type ReactNode } from 'react';
 import { importIntoRoute } from '../../../lib/routes';
 import type {
   ForkNote,
@@ -59,6 +59,10 @@ export interface RepertoireScreenProps {
   readonly coachNotes: readonly OwnerCoachNote[];
   /** On a fork, the notes it kept from the coach who assigned it (R-47). */
   readonly forkNotes: readonly ForkNote[];
+  /** How many players have it by assignment, for the delete dialog (R-131). */
+  readonly assignedPlayers?: number | undefined;
+  /** The assign panel, in Coach mode only (R-15); last in the panel. */
+  readonly assignPanel?: ReactNode;
 }
 
 type ScreenState = RepertoireView['state'];
@@ -105,9 +109,11 @@ function EmptyRepertoire({
 function PhoneActions({
   id,
   name,
+  assignedPlayers,
 }: {
   readonly id: string;
   readonly name: string;
+  readonly assignedPlayers?: number | undefined;
 }): JSX.Element {
   const t = useTranslations('repertoires.header');
   return (
@@ -116,7 +122,11 @@ function PhoneActions({
       className="flex flex-col gap-2 lg:hidden"
     >
       <h2 className={PANEL_LABEL}>{t('section')}</h2>
-      <RepertoireActions id={id} name={name} />
+      <RepertoireActions
+        id={id}
+        name={name}
+        assignedPlayers={assignedPlayers}
+      />
     </section>
   );
 }
@@ -179,8 +189,13 @@ function ownerPanel(screen: Screen, notes: Notes): PanelContent {
     notedMoves: notes.byMove,
     footer: (
       <>
-        <PhoneActions id={id} name={name} />
+        <PhoneActions
+          id={id}
+          name={name}
+          assignedPlayers={props.assignedPlayers}
+        />
         <ShareWithCoach repertoireId={id} sharing={props.sharing} />
+        {props.assignPanel}
       </>
     ),
   };
@@ -252,7 +267,11 @@ export function RepertoireScreen(props: RepertoireScreenProps): JSX.Element {
   return (
     <RepertoireShell
       header={
-        <RepertoireHeader id={repertoire.id} name={repertoire.name}>
+        <RepertoireHeader
+          id={repertoire.id}
+          name={repertoire.name}
+          assignedPlayers={props.assignedPlayers}
+        >
           <ModeSwitch
             building={state.mode === 'build'}
             onChange={(building) => {

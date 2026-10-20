@@ -1,7 +1,12 @@
-import type { AssignedRepertoire, ChangesSince } from '@mychess/db';
+import type {
+  AssignedRepertoire,
+  ChangesSince,
+  OpenForkOffer,
+  PlayerAssignment,
+} from '@mychess/db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../test/fixtures/repertoires';
-import { assignedRepertoireData } from './assignment-pages';
+import { assignedRepertoireData, homeAssignments } from './assignment-pages';
 import { ecoNamesOf } from './chapter-names';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
@@ -15,11 +20,15 @@ const server = vi.hoisted(() => ({
   assigned:
     vi.fn<(db: unknown, playerId: string, id: string) => Promise<unknown>>(),
   changes: vi.fn<(db: unknown, request: unknown) => Promise<unknown>>(),
+  mine: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  offers: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
 }));
 
 vi.mock('@mychess/db', () => ({
   assignedRepertoireForPlayer: server.assigned,
   changesSince: server.changes,
+  playerAssignments: server.mine,
+  openForkOffers: server.offers,
 }));
 
 vi.mock('./db', () => ({ getDb: () => DB }));
@@ -111,5 +120,64 @@ describe('assignedRepertoireData', () => {
   it('is 404 when the assignment ended between the two reads', async () => {
     server.changes.mockResolvedValue(undefined);
     await expect(assignedRepertoireData(ID)).rejects.toBeInstanceOf(NotFound);
+  });
+});
+
+const MINE: PlayerAssignment = {
+  repertoireId: ID,
+  name: 'Londono sistema',
+  side: 'white',
+  coachId: 'jonas',
+  coachName: 'Jonas',
+  deadline: '2026-11-30',
+  paused: false,
+  updated: true,
+  done: false,
+  overdue: false,
+};
+
+const OFFER: OpenForkOffer = {
+  id: 'o-1',
+  repertoireId: null,
+  name: 'Karo-Kan gynyba: pagrindai',
+  side: 'black',
+  coachName: 'Rimantas',
+  reason: 'deleted',
+  expiresAt: NOW,
+  daysLeft: 12,
+};
+
+describe('homeAssignments', () => {
+  it('reads the session player’s assignments and open offers, now', async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
+    try {
+      server.mine.mockResolvedValue([MINE]);
+      server.offers.mockResolvedValue([OFFER]);
+      expect(await homeAssignments()).toEqual({
+        fromCoach: [
+          {
+            repertoireId: ID,
+            name: 'Londono sistema',
+            coachName: 'Jonas',
+            deadline: '2026-11-30',
+            paused: false,
+            updated: true,
+            overdue: false,
+          },
+        ],
+        offers: [
+          {
+            id: 'o-1',
+            name: 'Karo-Kan gynyba: pagrindai',
+            coachName: 'Rimantas',
+            daysLeft: 12,
+          },
+        ],
+      });
+      expect(server.mine).toHaveBeenCalledWith(DB, 'rokas', NOW);
+      expect(server.offers).toHaveBeenCalledWith(DB, 'rokas', NOW);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

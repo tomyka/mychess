@@ -1,8 +1,16 @@
-// The player's page of a repertoire they have by assignment (plan decisions
-// 11 and 12). The page reads the database only through this loader, which
-// starts from the session account: an id from the path never decides whose
-// assignment is read.
-import { assignedRepertoireForPlayer, changesSince } from '@mychess/db';
+// What a player sees of their assignments: the page of a repertoire they
+// have by assignment (plan decisions 11 and 12), and "From my coach" and
+// the fork offers on home. The pages read the database only through these
+// loaders, which start from the session account: an id from the path never
+// decides whose assignment is read.
+import {
+  assignedRepertoireForPlayer,
+  changesSince,
+  openForkOffers,
+  playerAssignments,
+  type OpenForkOffer,
+  type PlayerAssignment,
+} from '@mychess/db';
 import type { MoveChanges, RepertoireGraph, Side } from '@mychess/chess';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
@@ -64,5 +72,67 @@ export async function assignedRepertoireData(
     paused: assigned.paused,
     ecoNames: ecoNamesOf(assigned.graph, player.locale),
     changes: since.changes,
+  };
+}
+
+/** One repertoire on home's "From my coach" (R-15, R-51, R-133). */
+export type HomeAssignment = Pick<
+  PlayerAssignment,
+  | 'repertoireId'
+  | 'name'
+  | 'coachName'
+  | 'deadline'
+  | 'paused'
+  | 'updated'
+  | 'overdue'
+>;
+
+/** One open fork offer on home (R-44, R-130). */
+export type HomeForkOffer = Pick<
+  OpenForkOffer,
+  'id' | 'name' | 'coachName' | 'daysLeft'
+>;
+
+export interface HomeAssignments {
+  readonly fromCoach: readonly HomeAssignment[];
+  readonly offers: readonly HomeForkOffer[];
+}
+
+/**
+ * The session player's live assignments, with their badges decided by the
+ * domain (assignmentStatus), and their open fork offers, both as of now.
+ */
+export async function homeAssignments(): Promise<HomeAssignments> {
+  const player = await requireOnboarded();
+  const db = getDb();
+  const now = new Date();
+  const mine = await playerAssignments(db, player.id, now);
+  const offers = await openForkOffers(db, player.id, now);
+  return {
+    fromCoach: mine.map(
+      ({
+        repertoireId,
+        name,
+        coachName,
+        deadline,
+        paused,
+        updated,
+        overdue,
+      }) => ({
+        repertoireId,
+        name,
+        coachName,
+        deadline,
+        paused,
+        updated,
+        overdue,
+      }),
+    ),
+    offers: offers.map(({ id, name, coachName, daysLeft }) => ({
+      id,
+      name,
+      coachName,
+      daysLeft,
+    })),
   };
 }

@@ -144,6 +144,32 @@ describe('RepertoireActions', () => {
     expect(screen.queryByRole('button', { name: h.deleteConfirm })).toBeNull();
     expect(document.activeElement).toBe(button(h.delete));
     expect(server.remove).not.toHaveBeenCalled();
+    // Nobody has it by assignment: nothing is said about copies.
+    expect(screen.queryByText(/30 dien/u)).toBeNull();
+  });
+
+  it('says how many players have it and that they can keep a copy (R-131)', () => {
+    renderWith(
+      <RepertoireActions id={ID} name="Londono sistema" assignedPlayers={3} />,
+    );
+    fireEvent.click(button(h.delete));
+    expect(
+      screen.getByText(
+        'Šį repertuarą turi 3 žaidėjai; jie galės pasilikti asmeninę kopiją 30 dienų.',
+      ),
+    ).toBeDefined();
+  });
+
+  it('says it in the header’s delete too', () => {
+    renderWith(
+      <RepertoireHeader id={ID} name="Londono sistema" assignedPlayers={1} />,
+    );
+    fireEvent.click(button(h.delete));
+    expect(
+      screen.getByText(
+        'Šį repertuarą turi 1 žaidėjas; jis galės pasilikti asmeninę kopiją 30 dienų.',
+      ),
+    ).toBeDefined();
   });
 
   it('deletes for good on the second step', async () => {

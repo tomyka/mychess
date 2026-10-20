@@ -126,9 +126,38 @@ describe('ChangesSummary (R-133)', () => {
       .getAllByRole('heading', { level: 3 })
       .map((h) => h.textContent);
     expect(headings).toEqual(['Londono sistema', 'Ferzio pėstininko partija']);
-    expect(screen.getByText('Pridėta: 4. Nf3 ir 2. Bf4')).toBeDefined();
+    // Within a chapter, in the order they are played.
+    expect(screen.getByText('Pridėta: 2. Bf4 ir 4. Nf3')).toBeDefined();
     expect(screen.getByText('Pridėta: 2. Bf4')).toBeDefined();
     expect(screen.queryByText(/Pašalinta/)).toBeNull();
+  });
+
+  it('puts the moves the chapter does not have after those it has, as they came', () => {
+    const afterD5 = keyAfter(LONDON_GRAPH, 'd4', 'd5');
+    const afterE6 = keyAfter(
+      LONDON_GRAPH,
+      'd4',
+      'd5',
+      'Bf4',
+      'Nf6',
+      'e3',
+      'e6',
+    );
+    const elsewhere = 'rnbqkbnr/pppppppp/8/8/8/5N2/PPPPPPPP/RNBQKB1R b KQkq -';
+    const chapter = chapterId(LONDON_GRAPH, 0);
+    renderSummary({
+      added: [],
+      removed: [
+        { moveKey: moveKey(elsewhere, 'Nf6'), chapterId: chapter },
+        { moveKey: moveKey(afterE6, 'Nf3'), chapterId: chapter },
+        { moveKey: moveKey(elsewhere, 'd5'), chapterId: chapter },
+        { moveKey: moveKey(afterD5, 'Bf4'), chapterId: chapter },
+      ],
+      annotated: 0,
+    });
+    expect(
+      screen.getByText('Pašalinta: 2. Bf4, 4. Nf3, Nf6 ir d5'),
+    ).toBeDefined();
   });
 
   it('numbers Black’s moves with an ellipsis', () => {

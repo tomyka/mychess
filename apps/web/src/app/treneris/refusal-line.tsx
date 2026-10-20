@@ -2,14 +2,14 @@
 
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
+import type { MessageKey } from '../../i18n/message-key';
 import { StatusLine } from '../status-line';
-import type { CoachActionState } from './actions';
 
 /** A refused coach action, in the section it was asked in. */
 export function RefusalLine({
   state,
 }: {
-  readonly state: CoachActionState;
+  readonly state: { readonly refusal?: MessageKey };
 }): JSX.Element {
   const t = useTranslations();
   return (
