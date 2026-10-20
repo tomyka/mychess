@@ -18,7 +18,8 @@
  *    the move back within minutes the same day (R-78); "continue" offers it
  *    again once it is Due, while `exclude` only holds back new moves already
  *    shown this session.
- * 4. `mastered` (a set of moves, a line or a chapter) and `weakSpots` read
+ * 4. `mastered` (a set of moves, a line or a chapter), `allLearned` (a
+ *    whole repertoire, R-129) and `weakSpots` read
  *    progress (R-56); `reconcile` sorts the Reviews after a coach edit or an
  *    unlink (R-23, R-44).
  *
@@ -26,7 +27,7 @@
  */
 export { knowThis, learnStep, startLearn } from './learn';
 export type { LearnEvent, LearnState } from './learn';
-export { mastered, reconcile, weakSpots } from './progress';
+export { allLearned, mastered, reconcile, weakSpots } from './progress';
 export type { Reconciliation, WeakSpot } from './progress';
 export { buildQueue, QUEUE_LIMITS } from './queue';
 export type {

@@ -1,8 +1,15 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { importPgn } from '../pgn/import-pgn';
-import { playerKeys, type RepertoireGraph } from '../repertoire/graph';
+import { addMove, removeMove } from '../repertoire/edit';
 import {
+  emptyGraph,
+  moveKey,
+  playerKeys,
+  type RepertoireGraph,
+} from '../repertoire/graph';
+import {
+  allLearned,
   MASTERY_RETENTION,
   WEAK_LAPSES,
   WEAK_RETENTION,
@@ -241,6 +248,22 @@ describe('reconcile', () => {
     );
   });
 
+  it('after a coach replaces a player move of an assigned repertoire, queues the new move and parks the old (C-M2-1)', () => {
+    const d4 = must(italian.moves.find((m) => m.san === 'd4'));
+    const chapterId = must(italian.chapters[0]).id;
+    const removed = removeMove(italian, chapterId, d4.from, 'd4');
+    if (!removed.ok) throw new Error(removed.refusal.reason);
+    const edited = addMove(removed.value, chapterId, d4.from, 'd3');
+    if (!edited.ok) throw new Error(edited.refusal.reason);
+    const reviews = new Map(keys.map((k) => [k, fresh(k)]));
+    const d4Key = moveKey(d4.from, 'd4');
+    expect(reconcile([held(edited.value)], reviews)).toEqual({
+      kept: keys.filter((k) => k !== d4Key).sort(),
+      toLearn: [moveKey(d4.from, 'd3')],
+      dormant: [d4Key],
+    });
+  });
+
   const reviewed = fc.uniqueArray(
     fc.oneof(fc.constantFrom(...keys), fc.string()),
   );
@@ -277,5 +300,34 @@ describe('reconcile', () => {
         }),
       );
     }).not.toThrow();
+  });
+});
+
+describe('allLearned (R-129)', () => {
+  const keys = playerKeys(italian);
+
+  it('is true when every player move is learned, opponent moves aside', () => {
+    expect(keys).toHaveLength(5);
+    expect(allLearned(italian, new Set(keys))).toBe(true);
+  });
+
+  it('is false when one player move is not learned', () => {
+    expect(allLearned(italian, new Set(keys.slice(1)))).toBe(false);
+    expect(allLearned(italian, new Set(keys.slice(0, -1)))).toBe(false);
+  });
+
+  it('is false when only opponent moves are learned', () => {
+    const opponent = italian.moves
+      .filter((m) => !keys.includes(moveKey(m.from, m.san)))
+      .map((m) => moveKey(m.from, m.san));
+    expect(allLearned(italian, new Set(opponent))).toBe(false);
+  });
+
+  it('is true for a repertoire with no player moves (nothing to learn)', () => {
+    expect(allLearned(emptyGraph('white'), new Set())).toBe(true);
+  });
+
+  it('ignores learned keys the repertoire does not hold', () => {
+    expect(allLearned(italian, new Set([...keys, 'x|y']))).toBe(true);
   });
 });

@@ -2,6 +2,7 @@
  * Progress over Reviews: mastery of a scope and weak spots (R-56), and the
  * reconciliation of Reviews with the repertoires after a coach edit (Q30).
  */
+import { playerKeys, type RepertoireGraph } from '../repertoire/graph';
 import { DAY_MS, retrievability, type ReviewState } from './schedule';
 import {
   heldKeys,
@@ -68,6 +69,18 @@ export function weakSpots(
     }))
     .filter((s) => s.recentLapses >= WEAK_LAPSES || s.recall < WEAK_RETENTION)
     .sort((a, b) => b.recentLapses - a.recentLapses || a.recall - b.recall);
+}
+
+/**
+ * Whether every player move of `graph` is learned (R-129: an Assignment is
+ * done). `learned` holds the keys with a Review: the learn pass passed or
+ * "I know this" (R-58). Nothing to learn counts as done.
+ */
+export function allLearned(
+  graph: RepertoireGraph,
+  learned: ReadonlySet<string>,
+): boolean {
+  return playerKeys(graph).every((k) => learned.has(k));
 }
 
 export interface Reconciliation {
