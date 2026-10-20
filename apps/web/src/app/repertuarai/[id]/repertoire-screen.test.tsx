@@ -78,7 +78,9 @@ const GRAPH = graphOf(LONDON);
 const lt = MESSAGES.lt;
 const r = lt.repertoires;
 
-type Coaching = Partial<Pick<RepertoireScreenProps, 'sharing' | 'coachNotes'>>;
+type Coaching = Partial<
+  Pick<RepertoireScreenProps, 'sharing' | 'coachNotes' | 'forkNotes'>
+>;
 
 function renderScreen(
   graph: RepertoireGraph = GRAPH,
@@ -94,6 +96,7 @@ function renderScreen(
         ecoNames={ecoNamesOf(graph, 'lt')}
         sharing={coaching.sharing ?? { coaches: [], sharedWith: [] }}
         coachNotes={coaching.coachNotes ?? []}
+        forkNotes={coaching.forkNotes ?? []}
       />
     </NextIntlClientProvider>,
   );
@@ -180,6 +183,37 @@ describe('RepertoireScreen: browsing', () => {
     ).toBe('Trenerio pastaba — RimantasPirmiausia Bf4');
     fireEvent.click(screen.getByRole('button', { name: r.nav.forward }));
     expect(screen.queryByText('Pirmiausia Bf4')).toBeNull();
+  });
+
+  it('shows the notes a fork kept from its coach, read-only, before any sharing coach’s (R-43, R-47)', () => {
+    renderScreen(GRAPH, 'Londono sistema', {
+      forkNotes: [
+        {
+          moveKey: moveKey(START_KEY, 'd4'),
+          text: 'Visada Bf4',
+          coachName: 'Jonas',
+        },
+      ],
+      coachNotes: [
+        {
+          coachId: 'c-1',
+          coachName: 'Rimantas',
+          moveKey: moveKey(START_KEY, 'd4'),
+          text: 'Pirmiausia Bf4',
+        },
+      ],
+    });
+    fireEvent.click(screen.getByRole('button', { name: r.nav.forward }));
+    const notes = screen.getByRole('list', { name: lt.coachNote.list });
+    expect(
+      [...notes.querySelectorAll('li')].map((li) => li.textContent),
+    ).toEqual([
+      'Trenerio pastaba — JonasVisada Bf4',
+      'Trenerio pastaba — RimantasPirmiausia Bf4',
+    ]);
+    expect(notes.querySelector('textarea')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: r.nav.forward }));
+    expect(screen.queryByText('Visada Bf4')).toBeNull();
   });
 
   it('offers sharing with the linked coaches', () => {

@@ -60,6 +60,7 @@ const LONDON_DATA: RepertoirePageData = {
   ecoNames: {},
   sharing: { coaches: [], sharedWith: [] },
   coachNotes: [],
+  forkNotes: [],
 };
 
 const NO_QUERY = Promise.resolve({});

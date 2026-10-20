@@ -76,7 +76,7 @@ export async function deleteAccountAction(
   const typed = form.get('confirmation');
   const check = canDelete(account, typeof typed === 'string' ? typed : '');
   if (!check.ok) return { refusal: check.refusal.reason };
-  await deleteAccount(getDb(), account.id);
+  await deleteAccount(getDb(), account.id, new Date());
   if (hasProvenEmail(account))
     await mailDeleted(deletedMail(account.locale, account.email));
   await signOutHere();

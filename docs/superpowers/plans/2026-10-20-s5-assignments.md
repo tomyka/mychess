@@ -1329,7 +1329,7 @@ for (const { playerId, repertoireId } of await liveAssigneesOfCoach(tx, id, now)
   - **`ChangesSummary`:**
     - while `updated` is true, it lists the added and removed moves by chapter name (SAN with move numbers, using the existing move-label helper) and "N komentarų pakeista";
     - it renders nothing when there are no changes.
-  - **Opening the page** calls `markSeen` after the data is read, so the summary shows once (R-133).
+  - **Opening the page** calls `markSeen` after the data is read, so the summary shows once (R-133). As built: the view calls `markSeenAction` from the client once it opens, with the version it shows, so a server render nobody sees (a prefetch) cannot turn "Updated" off.
 
 - [ ] **Step 2: Implement.** `actions.ts` has `pauseAction`, `forkAction` and `setPersonalNoteAction`, which reuses `setPersonalNote`. Each action:
   - takes the player from the session;
@@ -1442,4 +1442,6 @@ These are not implemented; they are raised at the slice close.
 
 1. **The data export (R-40, R-106)** does not list a player's assignments (coach, repertoire name, deadline) or open fork offers. Should it?
 2. **A forked player's personal notes on the coach's repertoire** stay behind on it, dormant, after the fork copies them. Should they be deleted at fork time?
+4. **A fork's read-only coach notes in the player's data export:** R-126 says a player's export leaves out notes coaches wrote on the player's repertoires. A fork is the player's own repertoire, so its coach notes are left out of the export as well. Should a fork's coach notes be exported?
+5. **R-49 after a re-assignment:** a player who forked and was later assigned the repertoire again is live again (R-128), so when the coach deletes their account they get a second fork. Is that intended, or should one fork per repertoire be the limit?
 3. **A player who joins a group after its assignment** starts from the assignment's version (decision 2), so coach edits made before they joined show as "Updated". Should the join version be the starting point instead?

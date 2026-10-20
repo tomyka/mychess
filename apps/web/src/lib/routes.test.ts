@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  assignedRepertoirePath,
   coachGroupPath,
   coachPlayerPath,
   coachSharedRepertoirePath,
@@ -62,6 +63,13 @@ describe('coachGroupPath', () => {
 describe('repertoireRoute', () => {
   it('is the repertoire list path followed by the id', () => {
     expect(repertoireRoute('3f1c')).toBe('/repertuarai/3f1c');
+  });
+});
+
+describe('assignedRepertoirePath', () => {
+  it('is the assigned repertoires path followed by the id, encoded', () => {
+    expect(assignedRepertoirePath('3f1c')).toBe('/repertuarai/priskirti/3f1c');
+    expect(assignedRepertoirePath('a/b')).toBe('/repertuarai/priskirti/a%2Fb');
   });
 });
 

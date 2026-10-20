@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 import {
+  HeaderFrame,
   RepertoireLoadingShell,
   SKELETON_LINE,
 } from '../../../../../repertoire-view';
@@ -13,7 +14,7 @@ export default function SharedRepertoireLoading(): JSX.Element {
   return (
     <RepertoireLoadingShell
       header={
-        <div className="flex items-center gap-x-3 px-gutter py-1 lg:flex-col lg:items-start lg:gap-1 lg:px-0 lg:py-0">
+        <HeaderFrame element="div">
           <div className="flex min-h-touch min-w-touch items-center">
             <div className={`${SKELETON_LINE} w-5 lg:w-48`} />
           </div>
@@ -21,7 +22,7 @@ export default function SharedRepertoireLoading(): JSX.Element {
             <div className="h-6 w-56 rounded-control bg-sunken lg:h-9" />
             <div className={`${SKELETON_LINE} w-32 lg:hidden`} />
           </div>
-        </div>
+        </HeaderFrame>
       }
     />
   );

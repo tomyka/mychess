@@ -13,6 +13,9 @@ export { useBuilderView } from './use-builder-view';
 export { RepertoireLoadingShell, SKELETON_LINE } from './loading-shell';
 export { PANEL_LABEL } from './panel-styles';
 
+// A read-only view's top bar: its frame and the way back.
+export { BackLink, HeaderFrame } from './view-header';
+
 // Notes on moves: the viewer's Personal note, the coaches' notes, and notes
 // kept by move key.
 export { PersonalNote, type NoteOutcome } from './personal-note';
@@ -20,13 +23,17 @@ export { useNotes, type Notes } from './use-notes';
 export { useNotesByMove } from './notes-by-move';
 export { CoachNotes, type MoveCoachNote } from './coach-notes';
 
+// Move labels: the number written before a move, `6.` or `6...`, as the
+// move list writes it (the "what changed" summary uses it too).
+export { moveNumber } from './board-play';
+
 // The builder block: only the owner's builder hooks
 // (repertuarai/[id]/use-builder.ts) use these, to turn the screen state into
 // edits (where a new move lands, what a mark change says, the remove bar)
 // and to fill the panel's builder fields.
 export { SAVING, type ScreenMessage } from './screen-state';
 export { canMark } from './use-screen';
-export { markChange, moveNumber, placeAdded, removalCount } from './board-play';
+export { markChange, placeAdded, removalCount } from './board-play';
 export type { ChapterBuilder } from './chapter-list';
 export type { CommentEditor } from './comment';
 export type { FieldOutcome } from './field-save';

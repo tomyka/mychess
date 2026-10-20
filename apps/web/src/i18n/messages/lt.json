@@ -497,5 +497,38 @@
   "access": {
     "notLinked": "Šis žaidėjas su jumis nesusietas.",
     "notShared": "Šis repertuaras su jumis nebendrinamas."
+  },
+  "assignment": {
+    "notFound": "Šio repertuaro nėra arba jis jums nepasiekiamas.",
+    "notCoach": "Priskirti repertuarus galite tik įjungę trenerio režimą.",
+    "notLinked": "Šis žaidėjas su jumis nesusietas.",
+    "groupNotFound": "Šios grupės nėra arba ji ne jūsų.",
+    "alreadyAssigned": "Šis repertuaras jau priskirtas.",
+    "deadlineInvalid": "Įveskite tinkamą termino datą.",
+    "page": {
+      "back": "Atgal į pradžią",
+      "assignedBy": "Priskyrė {name}",
+      "notFound": "Šis repertuaras jums nepriskirtas",
+      "home": "Į pradžią"
+    },
+    "pause": {
+      "pause": "Pristabdyti",
+      "resume": "Tęsti",
+      "paused": "Pristabdyta",
+      "pausedHint": "Kol priskyrimas pristabdytas, šio repertuaro nėra jūsų kartojimuose ir mokymosi eilėje."
+    },
+    "fork": {
+      "label": "Pasidaryti asmeninę kopiją",
+      "question": "Pasidaryti asmeninę „{name}“ kopiją? Kopija bus jūsų ir galėsite ją keisti, bet trenerio pakeitimai jos nebepasieks. Šis priskyrimas dings iš jūsų sąrašo.",
+      "confirm": "Pasidaryti kopiją",
+      "cancel": "Atšaukti"
+    },
+    "changes": {
+      "title": "Treneris atnaujino šį repertuarą",
+      "added": "Pridėta: {moves}",
+      "removed": "Pašalinta: {moves}",
+      "commentsChanged": "{count, plural, one {# komentaras pakeistas} few {# komentarai pakeisti} other {# komentarų pakeista}}",
+      "deletedChapters": "Ištrinti skyriai"
+    }
   }
 }

@@ -37,6 +37,10 @@ export const coachGroupPath = (groupId: string): string =>
 export const repertoireRoute = (id: string): string =>
   `${ROUTES.repertoires}/${id}`;
 
+/** A repertoire the player has by assignment, as they see it (decision 11). */
+export const assignedRepertoirePath = (id: string): string =>
+  `${ROUTES.repertoires}/priskirti/${encodeURIComponent(id)}`;
+
 /** The query parameter a repertoire's page opens on a chapter by. */
 export const CHAPTER_PARAM = 'chapter';
 

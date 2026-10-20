@@ -1,11 +1,12 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import Link from 'next/link';
 import type { JSX } from 'react';
 import { coachPlayerPath } from '../../../../../../lib/routes';
 import type { SharedRepertoirePage } from '../../../../../../server/coach-pages';
 import {
+  BackLink,
+  HeaderFrame,
   RepertoireShell,
   useBrowseView,
   useNotesByMove,
@@ -26,25 +27,11 @@ function SharedHeader({
 }): JSX.Element {
   const t = useTranslations('coach.shared');
   return (
-    <header className="flex items-center gap-x-3 px-gutter py-1 lg:flex-col lg:items-start lg:gap-1 lg:px-0 lg:py-0">
-      <Link
+    <HeaderFrame>
+      <BackLink
         href={coachPlayerPath(data.player.id)}
-        className="inline-flex min-h-touch min-w-touch shrink-0 items-center gap-1 text-accent lg:underline"
-      >
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 24 24"
-          className="size-5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M15 6l-6 6 6 6" />
-        </svg>
-        <span className="max-lg:sr-only">
-          {t('back', { name: data.player.displayName })}
-        </span>
-      </Link>
+        label={t('back', { name: data.player.displayName })}
+      />
       <div className="flex min-w-0 flex-1 flex-col lg:flex-none">
         <h1
           title={data.repertoire.name}
@@ -59,7 +46,7 @@ function SharedHeader({
           {data.player.displayName}
         </p>
       </div>
-    </header>
+    </HeaderFrame>
   );
 }
 

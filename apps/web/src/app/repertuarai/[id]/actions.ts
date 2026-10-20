@@ -12,7 +12,6 @@ import {
 } from '@mychess/db';
 import {
   canWritePersonalNote,
-  personalNoteSchema,
   REPERTOIRE_ISSUES,
   REPERTOIRE_REFUSALS,
   repertoireNameSchema,
@@ -23,27 +22,13 @@ import { z } from 'zod';
 import { repertoireDeletedRoute } from '../../../lib/routes';
 import { ecoNamesOf } from '../../../server/chapter-names';
 import { getDb } from '../../../server/db';
+import { parsePersonalNote } from '../../../server/personal-note-input';
 import { editRequestSchema } from '../../../server/repertoire-edit';
 import { ownRepertoire } from '../../../server/repertoires';
 import { requireOnboarded } from '../../../server/session';
 import type { NoteOutcome } from '../../repertoire-view';
 
 type NotFoundKey = typeof REPERTOIRE_REFUSALS.notFound;
-
-const noteRequestSchema = z.object({
-  repertoireId: z.uuid(),
-  moveKey: z.string().min(1).max(120),
-  text: personalNoteSchema,
-});
-
-/** A note too long is said so; any other malformed request reads as not found. */
-const noteIssue = (error: z.ZodError): Extract<NoteOutcome, { ok: false }> => ({
-  ok: false,
-  refusal:
-    error.issues[0]?.message === REPERTOIRE_ISSUES.personalNoteTooLong
-      ? REPERTOIRE_ISSUES.personalNoteTooLong
-      : REPERTOIRE_REFUSALS.notFound,
-});
 
 /**
  * Sets or (with '') removes the viewer's own private note on a move of a
@@ -55,9 +40,9 @@ export async function savePersonalNoteAction(
   input: unknown,
 ): Promise<NoteOutcome> {
   const account = await requireOnboarded();
-  const request = noteRequestSchema.safeParse(input);
-  if (!request.success) return noteIssue(request.error);
-  const { repertoireId, moveKey, text } = request.data;
+  const request = parsePersonalNote(input);
+  if (!request.ok) return { ok: false, refusal: request.refusal.reason };
+  const { repertoireId, moveKey, text } = request.value;
   const own = await ownRepertoire(account, repertoireId, 'view');
   if (!own.ok) return { ok: false, refusal: own.refusal.reason };
   const onMove = canWritePersonalNote(own.value.graph, moveKey, text);

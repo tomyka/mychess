@@ -2,7 +2,11 @@
 
 // The viewer's private note on a move (R-21), the same on every view that
 // shows it: the owner's repertoire and an assigned one.
-import { REPERTOIRE_ISSUES, REPERTOIRE_REFUSALS } from '@mychess/domain';
+import {
+  ASSIGNMENT_REFUSALS,
+  REPERTOIRE_ISSUES,
+  REPERTOIRE_REFUSALS,
+} from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useEffect, useId, useRef, useState, type JSX } from 'react';
 import { SECONDARY_BUTTON } from '../buttons';
@@ -10,14 +14,18 @@ import { StatusLine } from '../status-line';
 import { saveOnCtrlEnter, useFieldSave, useStatusText } from './field-save';
 import { PANEL_LABEL } from './panel-styles';
 
-/** What saving a Personal note came to. */
+/**
+ * What saving a Personal note came to. Not found is the page's own: the
+ * owner's repertoire, or an assignment no longer the viewer's.
+ */
 export type NoteOutcome =
   | { readonly ok: true }
   | {
       readonly ok: false;
       readonly refusal:
         | typeof REPERTOIRE_ISSUES.personalNoteTooLong
-        | typeof REPERTOIRE_REFUSALS.notFound;
+        | typeof REPERTOIRE_REFUSALS.notFound
+        | typeof ASSIGNMENT_REFUSALS.notFound;
     };
 
 /** Saves the note's text; '' deletes it. */

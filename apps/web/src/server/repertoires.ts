@@ -3,12 +3,14 @@
 // again by the queries, which filter by owner (CLAUDE.md, decision 12).
 import {
   coachNotesOn,
+  forkCoachNotesOn,
   listPersonalNotes,
   listRepertoires,
   loadRepertoire,
   playerCoaches,
   sharedCoachIds,
   type CoachNote,
+  type ForkCoachNote,
   type LoadedRepertoire,
   type RepertoireListItem,
 } from '@mychess/db';
@@ -75,6 +77,9 @@ export interface RepertoireSharing {
 /** A Coach note as the owner reads it: on a move, with the coach's name (R-107). */
 export type OwnerCoachNote = Omit<CoachNote, 'updatedAt'>;
 
+/** A note a fork kept from the coach who assigned it, with their name (R-47). */
+export type ForkNote = ForkCoachNote;
+
 /** What the repertoire page shows. */
 export interface RepertoirePageData {
   readonly repertoire: Repertoire;
@@ -86,6 +91,11 @@ export interface RepertoirePageData {
   readonly sharing: RepertoireSharing;
   /** Every coach's notes on it, read-only (R-107, R-125). */
   readonly coachNotes: readonly OwnerCoachNote[];
+  /**
+   * On the owner's fork of an assignment, the coach's notes it kept,
+   * read-only (R-43, R-49); none on any other repertoire.
+   */
+  readonly forkNotes: readonly ForkNote[];
 }
 
 /** The owner's coaches and shares of repertoire `id`. */
@@ -133,5 +143,6 @@ export async function repertoirePageData(
     ecoNames: ecoNamesOf(graph, account.locale),
     sharing: await sharingOf(account.id, repertoire.id),
     coachNotes: await ownerCoachNotes(account.id, repertoire.id),
+    forkNotes: await forkCoachNotesOn(getDb(), account.id, repertoire.id),
   };
 }

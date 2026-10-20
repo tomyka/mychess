@@ -497,5 +497,38 @@
   "access": {
     "notLinked": "This player is not linked to you.",
     "notShared": "This repertoire is not shared with you."
+  },
+  "assignment": {
+    "notFound": "This repertoire does not exist or is not available to you.",
+    "notCoach": "Turn on Coach mode to assign repertoires.",
+    "notLinked": "This player is not linked to you.",
+    "groupNotFound": "This group does not exist or is not yours.",
+    "alreadyAssigned": "This repertoire is already assigned there.",
+    "deadlineInvalid": "Enter a valid deadline date.",
+    "page": {
+      "back": "Back to home",
+      "assignedBy": "Assigned by {name}",
+      "notFound": "This repertoire is not assigned to you",
+      "home": "Go to home"
+    },
+    "pause": {
+      "pause": "Pause",
+      "resume": "Resume",
+      "paused": "Paused",
+      "pausedHint": "While the assignment is paused, this repertoire is left out of your reviews and learning queue."
+    },
+    "fork": {
+      "label": "Make my own copy",
+      "question": "Make your own copy of “{name}”? The copy is yours to change, but your coach's edits will no longer reach it. This assignment leaves your list.",
+      "confirm": "Make my copy",
+      "cancel": "Cancel"
+    },
+    "changes": {
+      "title": "Your coach updated this repertoire",
+      "added": "Added: {moves}",
+      "removed": "Removed: {moves}",
+      "commentsChanged": "{count, plural, one {# comment changed} other {# comments changed}}",
+      "deletedChapters": "Deleted chapters"
+    }
   }
 }

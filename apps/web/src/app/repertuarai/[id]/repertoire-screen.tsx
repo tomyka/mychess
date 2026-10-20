@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useState, type JSX } from 'react';
 import { importIntoRoute } from '../../../lib/routes';
 import type {
+  ForkNote,
   OwnerCoachNote,
   RepertoireSharing,
 } from '../../../server/repertoires';
@@ -16,6 +17,7 @@ import {
   RepertoireShell,
   useBuilderView,
   useNotes,
+  type MoveCoachNote,
   type Notes,
   type PanelContent,
   type RepertoireView,
@@ -55,6 +57,8 @@ export interface RepertoireScreenProps {
   readonly sharing: RepertoireSharing;
   /** Every coach's notes on it, read-only (R-107). */
   readonly coachNotes: readonly OwnerCoachNote[];
+  /** On a fork, the notes it kept from the coach who assigned it (R-47). */
+  readonly forkNotes: readonly ForkNote[];
 }
 
 type ScreenState = RepertoireView['state'];
@@ -128,6 +132,23 @@ interface Screen {
 }
 
 /**
+ * The coaches' notes on one move, read-only: the one a fork kept from its
+ * coach first (no account: that coach may be gone, R-49), then each sharing
+ * coach's.
+ */
+function coachNotesOn(
+  props: RepertoireScreenProps,
+  key: string,
+): MoveCoachNote[] {
+  return [
+    ...props.forkNotes
+      .filter((note) => note.moveKey === key)
+      .map(({ coachName, text }) => ({ coachId: null, coachName, text })),
+    ...props.coachNotes.filter((note) => note.moveKey === key),
+  ];
+}
+
+/**
  * What the owner puts in the panel: the builder's chapter and comment
  * fields, the coaches' notes and the Personal note under each move, and the
  * repertoire's actions and sharing last.
@@ -150,7 +171,7 @@ function ownerPanel(screen: Screen, notes: Notes): PanelContent {
     renderNotes: (key) => (
       <OwnerNotes
         key={key}
-        coachNotes={props.coachNotes.filter((n) => n.moveKey === key)}
+        coachNotes={coachNotesOn(props, key)}
         note={notes.byMove[key] ?? ''}
         onSaveNote={notes.save(key)}
       />
