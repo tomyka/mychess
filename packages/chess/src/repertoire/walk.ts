@@ -11,7 +11,12 @@
  * move once also stops at a position it has already walked from (a
  * transposition), so it costs the chapter's size, not its number of lines.
  */
-import { chapterOf, type RepertoireGraph, type RepertoireMove } from './graph';
+import {
+  chapterOf,
+  moveKey,
+  type RepertoireGraph,
+  type RepertoireMove,
+} from './graph';
 
 /** A move of the walk that takes each move once, with the moves it continues into. */
 export interface WalkedMove {
@@ -217,4 +222,28 @@ export function chapterTree(
   chapterId: string,
 ): WalkedMove[] {
   return chapterWalks(graph)(chapterId).tree();
+}
+
+/**
+ * How many half-moves after the chapter's root each of its moves is played,
+ * by move key: its depth in `chapterTree`, so the move list's numbering.
+ * After a transposition that is the depth along the first path the walk took
+ * into the position, not the shortest one. Keys are in the walk's order; an
+ * unknown chapter has none.
+ */
+export function chapterPlies(
+  graph: RepertoireGraph,
+  chapterId: string,
+): ReadonlyMap<string, number> {
+  const plies = new Map<string, number>();
+  const stack = chapterTree(graph, chapterId)
+    .map((walked) => ({ walked, ply: 0 }))
+    .reverse();
+  for (let top = stack.pop(); top !== undefined; top = stack.pop()) {
+    const { walked, ply } = top;
+    plies.set(moveKey(walked.move.from, walked.move.san), ply);
+    for (const next of [...walked.next].reverse())
+      stack.push({ walked: next, ply: ply + 1 });
+  }
+  return plies;
 }

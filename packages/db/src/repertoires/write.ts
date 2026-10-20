@@ -14,7 +14,7 @@ import { chapters, moveChapters, repertoireMoves } from '../schema';
 /** Rows per statement: far under Postgres's 65,535 parameters. */
 const BATCH = 500;
 
-function batches<T>(items: readonly T[]): T[][] {
+export function batches<T>(items: readonly T[]): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += BATCH)
     out.push(items.slice(i, i + BATCH));

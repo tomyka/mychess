@@ -1,7 +1,7 @@
 import { accountSchema, type Account, type Profile } from '@mychess/domain';
-import { eq, sql, type SQL } from 'drizzle-orm';
+import { eq, type SQL } from 'drizzle-orm';
 import type { Executor, Tx } from './client';
-import { accounts, verifications } from './schema';
+import { accounts } from './schema';
 
 /** The Account columns, as accountSchema parses them. */
 export const accountColumns = {
@@ -91,34 +91,4 @@ export function completeOnboarding(
   now: Date,
 ): Promise<void> {
   return setProfile(db, id, { ...profile, onboardedAt: now, updatedAt: now });
-}
-
-/**
- * A verification row whose value is a JSON object naming `email`, compared
- * after lowercasing and trimming (the token holds the address as typed).
- * Values that are not valid JSON (OAuth state, plain tokens) never match and
- * never make the query fail.
- */
-const namesEmail = (email: string): SQL =>
-  sql`case when pg_input_is_valid(${verifications.value}, 'jsonb') then lower(btrim(${verifications.value}::jsonb ->> 'email')) end = ${email}`;
-
-/**
- * Hard delete (R-40, R-82): the account and, by cascade, its sessions and
- * provider links; its pending magic-link tokens are matched by email.
- * S4's coaching rows go by cascade too: a coach's links, groups, group
- * memberships and invites; a player's links and memberships. A personal
- * invite the player used stays with the coach, without the player
- * (`used_by` set null). S3's repertoires go by cascade too, with their
- * chapters, moves, chapter links and personal notes. S4's shares and the
- * coach notes under them go too: a coach's through their links, a player's
- * through their links and repertoires (R-124: a note lives only under its
- * share). Later slices extend the cascade with the rows they add.
- */
-export async function deleteAccount(db: Executor, id: string): Promise<void> {
-  await db.transaction(async (tx) => {
-    const account = await findAccountById(tx, id);
-    if (account === undefined) return;
-    await tx.delete(verifications).where(namesEmail(account.email));
-    await tx.delete(accounts).where(eq(accounts.id, id));
-  });
 }

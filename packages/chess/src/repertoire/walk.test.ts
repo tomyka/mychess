@@ -1,9 +1,10 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { positionKey } from '../position-key';
-import type { RepertoireGraph, RepertoireMove } from './graph';
+import { moveKey, type RepertoireGraph, type RepertoireMove } from './graph';
 import {
   chapterChildren,
+  chapterPlies,
   chapterTree,
   chapterWalks,
   lines,
@@ -333,6 +334,90 @@ describe('the walks agree on random small graphs', () => {
       forBoth((g, id) => lines(g, id).every((line) => endsRightly(g, line))),
     ).not.toThrow();
   });
+});
+
+describe('chapterPlies', () => {
+  const entries = (plies: ReadonlyMap<string, number>) =>
+    [...plies].map(([key, ply]) => [key.split('|')[1], ply]);
+
+  it('numbers each move by its depth in the chapter tree, keyed by move key', () => {
+    const plies = chapterPlies(italian, 'c1');
+    expect(plies.get(moveKey(START, 'e4'))).toBe(0);
+    expect(plies.get(moveKey(AFTER_E4, 'e5'))).toBe(1);
+    expect(plies.get(moveKey(AFTER_E4, 'c5'))).toBe(1);
+    expect(plies.get(moveKey(AFTER_E5, 'Nf3'))).toBe(2);
+    expect(plies.size).toBe(4);
+  });
+
+  it('numbers a move after a transposition by the first path the walk takes, not the shortest', () => {
+    // p0 -a-> p1 -b-> p2 -c-> p3 -e-> p4, and the shortcut p0 -d-> p3
+    // inserted later: breadth first numbers e at ply 1, the move list at 3.
+    const g = synthetic([
+      [0, 1, 'a'],
+      [1, 2, 'b'],
+      [2, 3, 'c'],
+      [0, 3, 'd'],
+      [3, 4, 'e'],
+    ]);
+    expect(entries(chapterPlies(g, 'c1'))).toEqual([
+      ['a', 0],
+      ['b', 1],
+      ['c', 2],
+      ['e', 3],
+      ['d', 0],
+    ]);
+  });
+
+  it('gives a move into a position already walked its own depth', () => {
+    const g = synthetic([
+      [0, 1, 'a'],
+      [0, 1, 'b'],
+      [1, 2, 'c'],
+    ]);
+    expect(entries(chapterPlies(g, 'c1'))).toEqual([
+      ['a', 0],
+      ['c', 1],
+      ['b', 0],
+    ]);
+  });
+
+  it('leaves out other chapters and is empty for an unknown chapter', () => {
+    const g = synthetic(
+      [
+        [0, 1, 'x'],
+        [1, 2, 'y'],
+      ],
+      (i) => (i === 1 ? 'c2' : 'c1'),
+    );
+    expect(entries(chapterPlies(g, 'c1'))).toEqual([['x', 0]]);
+    expect(chapterPlies(italian, 'nope').size).toBe(0);
+  });
+
+  it('agrees with the chapter tree on random small graphs', () => {
+    const depths = (
+      walked: readonly WalkedMove[],
+      ply: number,
+    ): [string, number][] =>
+      walked.flatMap((w): [string, number][] => [
+        [moveKey(w.move.from, w.move.san), ply],
+        ...depths(w.next, ply + 1),
+      ]);
+    const edge = fc.tuple(fc.nat(5), fc.nat(5));
+    fc.assert(
+      fc.property(fc.array(edge, { maxLength: 12 }), (raw) => {
+        const g = synthetic(
+          raw.map(([from, to], i) => [from, to, `m${String(i)}`] as const),
+        );
+        expect([...chapterPlies(g, 'c1')]).toEqual(
+          depths(chapterTree(g, 'c1'), 0),
+        );
+      }),
+    );
+  });
+
+  it('takes a heavily transposing chapter in its size', () => {
+    expect(chapterPlies(diamond, 'c1').get(moveKey('p39', 'b39'))).toBe(39);
+  }, 60_000);
 });
 
 describe('chapterTree and chapterChildren', () => {

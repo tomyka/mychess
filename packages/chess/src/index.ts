@@ -44,6 +44,7 @@ export {
 } from './repertoire/merge';
 export {
   chapterChildren,
+  chapterPlies,
   chapterTree,
   lines,
   mainLine,

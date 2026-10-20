@@ -154,6 +154,11 @@ export function pauseAssignment(
   );
 }
 
+/** A player's parsed report of the version a page showed them. */
+export interface SeenRequest extends PlayerRepertoire {
+  readonly seenVersion: number;
+}
+
 /**
  * The player has seen the repertoire at `seenVersion`, the version the
  * page showed: "Updated" goes off unless the coach saved a later one
@@ -162,9 +167,7 @@ export function pauseAssignment(
  */
 export function markSeen(
   db: Db,
-  playerId: string,
-  repertoireId: string,
-  seenVersion: number,
+  { playerId, repertoireId, seenVersion }: SeenRequest,
 ): Promise<AssignmentResult> {
   const key = { playerId, repertoireId };
   const current = sql`(select ${repertoires.version} from ${repertoires} where ${repertoires.id} = ${repertoireId})`;

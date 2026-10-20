@@ -12,9 +12,9 @@ export {
   type AccountExportOptions,
   type CoachingExport,
 } from './account-export';
+export { deleteAccount } from './account-delete';
 export {
   completeOnboarding,
-  deleteAccount,
   findAccountByEmail,
   findAccountById,
   updateProfile,
@@ -29,6 +29,23 @@ export {
   type AssignRequest,
   type DeadlineChange,
 } from './assignments/assign';
+export {
+  assignedPlayerCount,
+  coachAssignments,
+  type CoachAssignment,
+  type CoachAssignmentPlayer,
+} from './assignments/coach';
+export {
+  forkAssignment,
+  forkCoachNotesOn,
+  type ForkCoachNote,
+  type ForkRequest,
+} from './assignments/fork';
+export {
+  acceptForkOffer,
+  declineForkOffer,
+  type ForkOfferRef,
+} from './assignments/offer-answers';
 export { openForkOffers, type OpenForkOffer } from './assignments/offers';
 export {
   assignedRepertoireForPlayer,
@@ -36,6 +53,7 @@ export {
   playerAssignments,
   trainingRepertoires,
   type AssignedRepertoire,
+  type ChangesRequest,
   type ChangesSince,
   type PlayerAssignment,
 } from './assignments/player';
@@ -43,6 +61,7 @@ export {
   markSeen,
   pauseAssignment,
   type PauseRequest,
+  type SeenRequest,
 } from './assignments/player-state';
 export { auditEmailHash } from './audit-email';
 

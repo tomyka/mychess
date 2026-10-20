@@ -9,9 +9,7 @@
 import {
   allLearned,
   netMoveChanges,
-  type ChapterNameSource,
   type MoveChanges,
-  type RepertoireGraph,
   type Side,
   type TrainingRepertoire,
 } from '@mychess/chess';
@@ -22,7 +20,7 @@ import {
   isUpdated,
   seenFloor,
 } from '@mychess/domain';
-import { and, asc, eq, gt, inArray, max } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, lte, max } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Executor } from '../client';
 import { isUuid } from '../ids';
@@ -40,7 +38,7 @@ import { moveChangesSchema } from './move-changes';
 const SNAPSHOT = { isolationLevel: 'repeatable read' } as const;
 
 /** Until S6 writes Reviews, no move is learned (R-129). */
-const NOTHING_LEARNED: ReadonlySet<string> = new Set();
+export const NOTHING_LEARNED: ReadonlySet<string> = new Set();
 
 /** One repertoire a player has from their coach, for "From my coach". */
 export interface PlayerAssignment {
@@ -273,43 +271,35 @@ export function assignedRepertoireForPlayer(
 export interface ChangesSince {
   /** The net of every change since, by move and chapter. */
   readonly changes: MoveChanges;
+}
+
+/** The player, the repertoire and the version their page showed. */
+export interface ChangesRequest {
+  /** The session account, never a client value. */
+  readonly playerId: string;
+  readonly repertoireId: string;
   /**
-   * The name of each chapter the changes name, from the current graph; a
-   * chapter deleted since is absent.
+   * The repertoire version the page read with its graph: changes after it
+   * wait for the next visit, so the summary matches the graph shown.
    */
-  readonly chapters: Readonly<Record<string, ChapterNameSource>>;
+  readonly upToVersion: number;
 }
 
 const changeRowsSchema = z.array(z.object({ changes: moveChangesSchema }));
 
-function chapterNames(
-  graph: RepertoireGraph,
-  changes: MoveChanges,
-): Record<string, ChapterNameSource> {
-  const named = new Set(
-    [...changes.added, ...changes.removed].map((link) => link.chapterId),
-  );
-  return Object.fromEntries(
-    graph.chapters
-      .filter((chapter) => named.has(chapter.id))
-      .map((chapter) => [chapter.id, chapter.nameSource]),
-  );
-}
-
 /**
- * The net changes to the player's live assignment since the version they
- * last saw, never before the one assigned (seenFloor), in version order;
- * undefined unless it is theirs.
+ * The net changes to the player's live assignment after the version they
+ * last saw, never before the one assigned (seenFloor), up to and including
+ * `upToVersion`, in version order; undefined unless it is theirs.
  */
 export function changesSince(
   db: Executor,
-  playerId: string,
-  repertoireId: string,
+  { playerId, repertoireId, upToVersion }: ChangesRequest,
 ): Promise<ChangesSince | undefined> {
   if (!isUuid(repertoireId)) return Promise.resolve(undefined);
   return db.transaction(async (tx) => {
-    const opened = await openLive(tx, playerId, repertoireId);
-    if (opened === undefined) return undefined;
+    const assignment = await usableAssignment(tx, playerId, repertoireId);
+    if (assignment === undefined) return undefined;
     const rows = changeRowsSchema.parse(
       await tx
         .select({ changes: repertoireChanges.changes })
@@ -320,13 +310,13 @@ export function changesSince(
               repertoireChanges.repertoireId,
               liveId(tx, playerId, repertoireId),
             ),
-            gt(repertoireChanges.version, seenFloor(opened.assignment)),
+            gt(repertoireChanges.version, seenFloor(assignment)),
+            lte(repertoireChanges.version, upToVersion),
           ),
         )
         .orderBy(asc(repertoireChanges.version)),
     );
-    const changes = netMoveChanges(rows.map((row) => row.changes));
-    return { changes, chapters: chapterNames(opened.loaded.graph, changes) };
+    return { changes: netMoveChanges(rows.map((row) => row.changes)) };
   }, SNAPSHOT);
 }
 

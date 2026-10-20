@@ -5,10 +5,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   addMember,
   assign,
+  assignedPlayerCount,
+  coachAssignments,
   createRepertoire,
   loadRepertoire,
   setDeadline,
   unassign,
+  unlink,
 } from '../src';
 import {
   assignmentPlayers,
@@ -697,5 +700,120 @@ describe('setDeadline', () => {
       await setDeadline(db, { coachId: 'c', assignmentId: id, deadline: null }),
     ).toEqual(OK);
     expect(await deadline()).toEqual({ deadline: null });
+  });
+});
+
+describe('coachAssignments', () => {
+  const player = (
+    playerId: string,
+    state: Partial<{
+      deadline: string | null;
+      paused: boolean;
+      forked: boolean;
+      overdue: boolean;
+    }> = {},
+  ) => ({
+    playerId,
+    displayName: `Name ${playerId}`,
+    deadline: null,
+    paused: false,
+    forked: false,
+    done: false,
+    overdue: false,
+    ...state,
+  });
+
+  it('lists each assignment row with the players it reaches and their own deadline and badges', async () => {
+    await assignTo({ groupId: g }, '2026-10-19');
+    await assignTo({ playerId: 'p' }, '2026-11-01');
+    await assignTo({ playerId: 'n' }, '2026-10-19');
+    await setState('p', { pausedAt: NOW });
+    await setState('q', { forkedAt: NOW });
+    const p = player('p', { deadline: '2026-11-01', paused: true });
+    const listed = await coachAssignments(db, 'c', rep, NOW);
+    expect(
+      listed.toSorted((a, b) => a.target.name.localeCompare(b.target.name)),
+    ).toEqual([
+      {
+        id: await assignmentId({ playerId: 'n' }),
+        target: { kind: 'player', id: 'n', name: 'Name n' },
+        deadline: '2026-10-19',
+        players: [player('n', { deadline: '2026-10-19', overdue: true })],
+      },
+      {
+        id: await assignmentId({ playerId: 'p' }),
+        target: { kind: 'player', id: 'p', name: 'Name p' },
+        deadline: '2026-11-01',
+        players: [p],
+      },
+      {
+        id: await assignmentId({ groupId: g }),
+        target: { kind: 'group', id: g, name: 'Šeštadienio grupė' },
+        deadline: '2026-10-19',
+        players: [p, player('q', { deadline: '2026-10-19', forked: true })],
+      },
+    ]);
+  });
+
+  it("is empty for another coach's repertoire, or one not the coach's", async () => {
+    await seedCoach(db, 'd', 'd@example.lt');
+    await assignTo({ groupId: g });
+    const own = await createRepertoire(db, {
+      ownerId: 'd',
+      side: 'white',
+      name: 'Kita',
+      graph: graphOf(PGN),
+      now: NOW,
+    });
+    expect(await coachAssignments(db, 'd', rep, NOW)).toEqual([]);
+    expect(await coachAssignments(db, 'c', own, NOW)).toEqual([]);
+    expect(await coachAssignments(db, 'c', 'not-a-uuid', NOW)).toEqual([]);
+    expect(await coachAssignments(db, 'p', rep, NOW)).toEqual([]);
+  });
+
+  it('lists only the players linked now', async () => {
+    await assignTo({ groupId: g });
+    await assignTo({ playerId: 'p' });
+    expect(await unlink(db, 'c', 'p', NOW)).toEqual(OK);
+    expect(await coachAssignments(db, 'c', rep, NOW)).toEqual([
+      {
+        id: await assignmentId({ groupId: g }),
+        target: { kind: 'group', id: g, name: 'Šeštadienio grupė' },
+        deadline: null,
+        players: [player('q')],
+      },
+    ]);
+  });
+
+  it('lists a group with no members with no players', async () => {
+    const empty = await seedGroup(db, 'c', 'Tuščia');
+    await assignTo({ groupId: empty });
+    expect(await coachAssignments(db, 'c', rep, NOW)).toMatchObject([
+      { target: { kind: 'group', id: empty, name: 'Tuščia' }, players: [] },
+    ]);
+  });
+});
+
+describe('assignedPlayerCount', () => {
+  it('counts the distinct players any row of the repertoire reaches (R-131)', async () => {
+    expect(await assignedPlayerCount(db, 'c', rep)).toBe(0);
+    await assignTo({ groupId: g });
+    await assignTo({ playerId: 'p' });
+    expect(await assignedPlayerCount(db, 'c', rep)).toBe(2);
+    await assignTo({ playerId: 'n' });
+    expect(await assignedPlayerCount(db, 'c', rep)).toBe(3);
+  });
+
+  it('leaves out a player who forked it: they get no offer when it is deleted', async () => {
+    await assignTo({ groupId: g });
+    await setState('q', { forkedAt: NOW });
+    expect(await assignedPlayerCount(db, 'c', rep)).toBe(1);
+  });
+
+  it("is 0 for another coach's or a malformed repertoire id", async () => {
+    await seedCoach(db, 'd', 'd@example.lt');
+    await assignTo({ groupId: g });
+    expect(await assignedPlayerCount(db, 'd', rep)).toBe(0);
+    expect(await assignedPlayerCount(db, 'c', 'not-a-uuid')).toBe(0);
   });
 });

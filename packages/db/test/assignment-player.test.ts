@@ -188,7 +188,9 @@ describe('playerAssignments', () => {
     expect(await playerAssignments(db, 'p', NOW)).toMatchObject([
       { updated: true },
     ]);
-    expect(await markSeen(db, 'p', rep, 2)).toEqual(OK);
+    expect(
+      await markSeen(db, { playerId: 'p', repertoireId: rep, seenVersion: 2 }),
+    ).toEqual(OK);
     expect(await playerAssignments(db, 'p', NOW)).toMatchObject([
       { updated: false },
     ]);
@@ -206,9 +208,14 @@ describe('playerAssignments', () => {
     expect(await playerAssignments(db, 'n', NOW)).toMatchObject([
       { updated: false },
     ]);
-    expect(await changesSince(db, 'n', rep)).toEqual({
+    expect(
+      await changesSince(db, {
+        playerId: 'n',
+        repertoireId: rep,
+        upToVersion: 99,
+      }),
+    ).toEqual({
       changes: { added: [], removed: [], annotated: 0 },
-      chapters: {},
     });
   });
 
@@ -424,7 +431,9 @@ describe('markSeen', () => {
   it('sets the seen version to the version the page showed', async () => {
     await assignTo(toGroup(g));
     await coachEdit(addE3);
-    expect(await markSeen(db, 'p', rep, 2)).toEqual(OK);
+    expect(
+      await markSeen(db, { playerId: 'p', repertoireId: rep, seenVersion: 2 }),
+    ).toEqual(OK);
     expect(await stateRows()).toEqual([
       { player_id: 'p', paused_at: null, seen_version: 2, forked_at: null },
     ]);
@@ -435,18 +444,28 @@ describe('markSeen', () => {
     await coachEdit(addE3);
     // The page showed version 2; the coach saves version 3 before markSeen.
     await coachEdit(commentD4);
-    expect(await markSeen(db, 'p', rep, 2)).toEqual(OK);
+    expect(
+      await markSeen(db, { playerId: 'p', repertoireId: rep, seenVersion: 2 }),
+    ).toEqual(OK);
     expect(await playerAssignments(db, 'p', NOW)).toMatchObject([
       { updated: true },
     ]);
-    expect(await changesSince(db, 'p', rep)).toMatchObject({
+    expect(
+      await changesSince(db, {
+        playerId: 'p',
+        repertoireId: rep,
+        upToVersion: 99,
+      }),
+    ).toMatchObject({
       changes: { added: [], removed: [], annotated: 1 },
     });
   });
 
   it('never stores a version below zero', async () => {
     await assignTo(toGroup(g));
-    expect(await markSeen(db, 'p', rep, -5)).toEqual(OK);
+    expect(
+      await markSeen(db, { playerId: 'p', repertoireId: rep, seenVersion: -5 }),
+    ).toEqual(OK);
     expect(await stateRows()).toEqual([
       { player_id: 'p', paused_at: null, seen_version: 0, forked_at: null },
     ]);
@@ -455,10 +474,10 @@ describe('markSeen', () => {
   it('never lowers the seen version, nor sets it above the current one', async () => {
     await assignTo(toGroup(g));
     await coachEdit(addE3);
-    await markSeen(db, 'p', rep, 2);
+    await markSeen(db, { playerId: 'p', repertoireId: rep, seenVersion: 2 });
     await coachEdit(commentD4);
-    await markSeen(db, 'p', rep, 1);
-    await markSeen(db, 'q', rep, 99);
+    await markSeen(db, { playerId: 'p', repertoireId: rep, seenVersion: 1 });
+    await markSeen(db, { playerId: 'q', repertoireId: rep, seenVersion: 99 });
     expect(await stateRows()).toEqual([
       { player_id: 'p', paused_at: null, seen_version: 2, forked_at: null },
       { player_id: 'q', paused_at: null, seen_version: 3, forked_at: null },
@@ -467,8 +486,16 @@ describe('markSeen', () => {
 
   it('refuses a repertoire not assigned to the player and writes nothing', async () => {
     await assignTo(toGroup(g));
-    expect(await markSeen(db, 'n', rep, 1)).toEqual(NOT_FOUND);
-    expect(await markSeen(db, 'p', 'not-a-uuid', 1)).toEqual(NOT_FOUND);
+    expect(
+      await markSeen(db, { playerId: 'n', repertoireId: rep, seenVersion: 1 }),
+    ).toEqual(NOT_FOUND);
+    expect(
+      await markSeen(db, {
+        playerId: 'p',
+        repertoireId: 'not-a-uuid',
+        seenVersion: 1,
+      }),
+    ).toEqual(NOT_FOUND);
     expect(await stateRows()).toEqual([]);
   });
 });
@@ -483,7 +510,13 @@ describe('changesSince', () => {
     const { graph } = await coachCopy();
     const chapter = must(graph.chapters[0]);
     const before = graphOf(PGN);
-    expect(await changesSince(db, 'p', rep)).toEqual({
+    expect(
+      await changesSince(db, {
+        playerId: 'p',
+        repertoireId: rep,
+        upToVersion: 99,
+      }),
+    ).toEqual({
       changes: {
         added: [
           {
@@ -499,18 +532,22 @@ describe('changesSince', () => {
         ],
         annotated: 1,
       },
-      chapters: { [chapter.id]: chapter.nameSource },
     });
   });
 
   it('starts from the version the player last saw', async () => {
     await assignTo(toGroup(g));
     await coachEdit(addE3);
-    await markSeen(db, 'p', rep, 2);
+    await markSeen(db, { playerId: 'p', repertoireId: rep, seenVersion: 2 });
     await coachEdit(commentD4);
-    expect(await changesSince(db, 'p', rep)).toEqual({
+    expect(
+      await changesSince(db, {
+        playerId: 'p',
+        repertoireId: rep,
+        upToVersion: 99,
+      }),
+    ).toEqual({
       changes: { added: [], removed: [], annotated: 1 },
-      chapters: {},
     });
   });
 
@@ -519,17 +556,66 @@ describe('changesSince', () => {
     await assignTo(toPlayer('n'));
     await coachEdit(addE3);
     await coachEdit(removeE3);
-    expect(await changesSince(db, 'n', rep)).toEqual({
+    expect(
+      await changesSince(db, {
+        playerId: 'n',
+        repertoireId: rep,
+        upToVersion: 99,
+      }),
+    ).toEqual({
       changes: { added: [], removed: [], annotated: 0 },
-      chapters: {},
     });
+  });
+
+  it('stops at the version the page showed, so a later edit is not mixed in', async () => {
+    await assignTo(toGroup(g));
+    await coachEdit(addE3);
+    await coachEdit(commentD4);
+    const { graph } = await coachCopy();
+    expect(
+      await changesSince(db, {
+        playerId: 'p',
+        repertoireId: rep,
+        upToVersion: 2,
+      }),
+    ).toEqual({
+      changes: {
+        added: [
+          {
+            moveKey: moveKey(moveOf(graph, 'e3').from, 'e3'),
+            chapterId: chapterOf(graph),
+          },
+        ],
+        removed: [],
+        annotated: 0,
+      },
+    });
+    expect(
+      await changesSince(db, {
+        playerId: 'p',
+        repertoireId: rep,
+        upToVersion: 1,
+      }),
+    ).toEqual({ changes: { added: [], removed: [], annotated: 0 } });
   });
 
   it('gives nothing for a repertoire not assigned to the player', async () => {
     await assignTo(toGroup(g));
     await coachEdit(addE3);
-    expect(await changesSince(db, 'n', rep)).toBeUndefined();
-    expect(await changesSince(db, 'p', 'not-a-uuid')).toBeUndefined();
+    expect(
+      await changesSince(db, {
+        playerId: 'n',
+        repertoireId: rep,
+        upToVersion: 99,
+      }),
+    ).toBeUndefined();
+    expect(
+      await changesSince(db, {
+        playerId: 'p',
+        repertoireId: 'not-a-uuid',
+        upToVersion: 99,
+      }),
+    ).toBeUndefined();
   });
 });
 
