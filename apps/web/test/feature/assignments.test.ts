@@ -42,6 +42,8 @@ import {
   assignedRepertoireData,
   homeAssignments,
 } from '../../src/server/assignment-pages';
+import { coachAssignData } from '../../src/server/coach-assignments';
+import { sharedRepertoireData } from '../../src/server/coach-pages';
 import { repertoirePageData } from '../../src/server/repertoires';
 import {
   actAs,
@@ -79,6 +81,9 @@ const E4 = moveKey(START_KEY, 'e4');
 
 /** Rokas's personal note on 1. d4 of the London he is assigned. */
 const ROKAS_NOTE = 'Rokas: tik man';
+
+/** Rokas's personal note on his fork alone. */
+const FORK_NOTE = 'Rokas: tik mano kopijoje';
 
 /** The refusal every player action on this page answers with. */
 const NOT_ASSIGNED = 'assignment.notFound';
@@ -634,6 +639,42 @@ describe('the coach’s comments on their own repertoire (R-102, R-47)', () => {
     expect(await outcomeOf(repertoirePageData(forkId))).toEqual({
       notFound: true,
     });
+    expect(await state()).toEqual(before);
+  });
+
+  it('the assigning coach never sees the player’s fork, only that it was forked (R-43)', async () => {
+    const { rimantas, rokas, london } = await cast();
+    actAs(rokas);
+    await outcomeOf(forkAction({}, formOf({ repertoireId: london })));
+    const forkId = await rokasFork();
+    const forkNote = await setPersonalNote(testDb(), {
+      playerId: rokas.id,
+      repertoireId: forkId,
+      moveKey: D4,
+      text: FORK_NOTE,
+      now: new Date(),
+    });
+    expect(forkNote.ok).toBe(true);
+    const before = await state();
+    actAs(rimantas);
+    expect(await outcomeOf(repertoirePageData(forkId))).toEqual({
+      notFound: true,
+    });
+    expect(await outcomeOf(sharedRepertoireData(rokas.id, forkId))).toEqual({
+      notFound: true,
+    });
+    const panel = await coachAssignData(london);
+    expect(panel.panel?.assignments).toMatchObject([
+      {
+        target: { kind: 'player', id: rokas.id, name: 'Rokas' },
+        players: [{ playerId: rokas.id, displayName: 'Rokas', forked: true }],
+      },
+    ]);
+    expect(panel.panel?.assignments[0]?.players).toHaveLength(1);
+    const shown = JSON.stringify(panel);
+    expect(shown).not.toContain(forkId);
+    expect(shown).not.toContain(FORK_NOTE);
+    expect(shown).not.toContain(ROKAS_NOTE);
     expect(await state()).toEqual(before);
   });
 });

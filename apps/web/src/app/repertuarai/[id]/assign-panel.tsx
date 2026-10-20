@@ -96,15 +96,16 @@ function TargetSelect({
 function AssignForm({
   repertoireId,
   offer,
+  assigning,
 }: {
   readonly repertoireId: string;
   readonly offer: Offer;
+  readonly assigning: Assigning;
 }): JSX.Element {
   const t = useTranslations('assignment.panel');
   const targetId = useId();
   const dateId = useId();
-  const [state, action, pending] = useActionState(assignAction, INITIAL);
-  const outcome = useOutcome(state, t('assigned'));
+  const [state, action, pending] = assigning;
   return (
     <>
       {/* Keyed by the saves, so it comes back empty after each. */}
@@ -135,12 +136,16 @@ function AssignForm({
           {t('assign')}
         </button>
       </form>
-      <StatusLine text={outcome.text} tone={outcome.tone} />
     </>
   );
 }
 
-/** The form, or why there is no one to offer. */
+/** The assign action's state, dispatch and pending flag (useActionState). */
+type Assigning = ReturnType<typeof useAssigning>;
+
+const useAssigning = () => useActionState(assignAction, INITIAL);
+
+/** The form, or why there is no one to offer; under it, the last outcome. */
 function AssignNew({
   repertoireId,
   data,
@@ -149,13 +154,26 @@ function AssignNew({
   readonly data: AssignPanelData;
 }): JSX.Element {
   const t = useTranslations('assignment.panel');
-  if (data.players.length + data.groups.length > 0)
-    return <AssignForm repertoireId={repertoireId} offer={data} />;
-  // Assigned to someone and no one left: it is everyone's already.
+  const assigning = useAssigning();
+  const outcome = useOutcome(assigning[0], t('assigned'));
   return (
-    <p className="text-fg-muted">
-      {data.assignments.length === 0 ? t('nobody') : t('everyone')}
-    </p>
+    <>
+      {data.players.length + data.groups.length > 0 ? (
+        <AssignForm
+          repertoireId={repertoireId}
+          offer={data}
+          assigning={assigning}
+        />
+      ) : (
+        // Assigned to someone and no one left: it is everyone's already.
+        <p className="text-fg-muted">
+          {data.assignments.length === 0 ? t('nobody') : t('everyone')}
+        </p>
+      )}
+      {/* Here, not in the form, so "Assigned" stays once the last target
+          is taken and the form goes. */}
+      <StatusLine text={outcome.text} tone={outcome.tone} />
+    </>
   );
 }
 

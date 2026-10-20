@@ -177,6 +177,30 @@ describe('AssignPanel: assigning (R-15, R-16)', () => {
     });
   });
 
+  it('still says it was assigned once the last target is taken', async () => {
+    const panel = (data: AssignPanelData) => (
+      <NextIntlClientProvider locale="lt" messages={lt}>
+        <AssignPanel repertoireId={ID} data={data} />
+      </NextIntlClientProvider>
+    );
+    const { rerender } = render(
+      panel({ players: [], groups: PEOPLE.groups, assignments: [TO_ROKAS] }),
+    );
+    fireEvent.change(screen.getByLabelText(p.target), {
+      target: { value: `group:${GROUP}` },
+    });
+    fireEvent.click(screen.getByRole('button', { name: p.assign }));
+    expect(await screen.findByText(p.assigned)).toBeDefined();
+    // The page refreshes: no one is left to offer, so the form goes.
+    rerender(
+      panel({ players: [], groups: [], assignments: [TO_ROKAS, TO_GROUP] }),
+    );
+    expect(screen.getByText(p.everyone)).toBeDefined();
+    expect(screen.queryByRole('button', { name: p.assign })).toBeNull();
+    const status = screen.getByText(p.assigned);
+    expect(status.getAttribute('role')).toBe('status');
+  });
+
   it('shows a refusal value', async () => {
     server.assign.mockResolvedValue({ refusal: 'assignment.alreadyAssigned' });
     renderPanel();
