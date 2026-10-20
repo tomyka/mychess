@@ -161,6 +161,13 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-125** (S4 Part B, #254, 2026-10-20): A coach sees only their own notes on a shared repertoire; the player sees every coach's notes, each marked with the coach's name.
 - **R-126** (S4 Part B, #254, 2026-10-20): In the data export (R-106) a coach's notes list position, move, text and dates without the player or repertoire; a player's export does not include notes coaches wrote on the player's repertoires.
 - **R-127** (S4 Part B language review, #254, 2026-10-20): Sharing a repertoire with a coach is "bendrinti" ("bendrinama su # treneriu / treneriais / trenerių", "nebendrinama", "nebebendrinti", "Bendrinami repertuarai"); a coach's own note field is "Mano pastaba" / "My coach note", shown to the player as "Trenerio pastaba — {name}".
+- **R-128** (S5 brainstorm, #255, 2026-10-20): A fork replaces the live assignment: the live repertoire leaves the player's list, the coach sees the assignment as "forked", and the coach's later edits no longer reach that player. The coach may assign it again.
+- **R-129** (S5 brainstorm, #255, 2026-10-20): An assignment is done when every own-side move has been learned (learn pass finished or "I know this"). A done assignment is never overdue; a coach edit that adds moves makes it not done again.
+- **R-130** (S5 brainstorm, #255, 2026-10-20): A coach unassigning a repertoire works like unlink (R-44): it disappears from the player's list, its Reviews go dormant, and a fork offer stays open for 30 days. Players who also have it individually keep it (R-16).
+- **R-131** (S5 brainstorm, #255, 2026-10-20): A coach may delete an assigned repertoire. Deleting unassigns it from everyone first (R-130); the confirm dialog says how many players have it.
+- **R-132** (S5 brainstorm, #255, 2026-10-20): A paused assignment whose deadline passes is still overdue; the coach sees both and can extend or clear the deadline.
+- **R-133** (S5 brainstorm, #255, 2026-10-20): An assigned repertoire shows "Updated" after a coach edit until the player opens it; opening it shows what changed since their last visit (moves added and removed, by chapter).
+- **R-134** (S5 brainstorm, #255, 2026-10-20): When a player has a repertoire both individually and through a group, the individual assignment's deadline (or its absence) applies.
 
 ## Open questions
 
