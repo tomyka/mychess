@@ -90,15 +90,24 @@ export async function typeMove(
 export const disclosure = (page: Page): Locator =>
   page.locator('button[aria-controls][aria-expanded]').first();
 
-/** Opens the chapter list if closed and chooses row `index` titled `title`. */
+/**
+ * Opens the chapter list if closed and chooses row `index` titled `title`.
+ * Right after a reload a click can land before the page hydrates and be
+ * lost, so opening is retried until the list says it is open.
+ */
 export async function chooseChapter(
   page: Page,
   title: string,
   index = 0,
 ): Promise<void> {
   const trigger = disclosure(page);
-  if ((await trigger.getAttribute('aria-expanded')) === 'false')
-    await trigger.click();
+  await expect(async () => {
+    if ((await trigger.getAttribute('aria-expanded')) === 'false')
+      await trigger.click();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true', {
+      timeout: 1_000,
+    });
+  }).toPass();
   await page
     .getByRole('button', { name: title, exact: true })
     .nth(index)

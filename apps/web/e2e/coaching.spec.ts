@@ -18,12 +18,15 @@ import {
 } from './support/coaching';
 import {
   CATALOGUES,
+  chooseEnglish,
   freshEmail,
   newDevice,
   newOnboardedAccount,
   onboard,
   signIn,
   test,
+  type Locale,
+  type Messages,
 } from './support/journey';
 
 const { lt, en } = CATALOGUES;
@@ -42,18 +45,24 @@ async function onDevice(
   return context.newPage();
 }
 
-/** C-M1-1: Rimantas switches Coach mode on, makes the group and its invite. */
+/**
+ * C-M1-1: Rimantas, in `locale`, switches Coach mode on, makes the group
+ * and its invite.
+ */
 async function coachInvitesGroup(
   page: Page,
   request: APIRequestContext,
+  locale: Locale,
 ): Promise<string> {
+  const messages = CATALOGUES[locale];
   await newOnboardedAccount(page, request, COACH);
-  await switchOnCoachMode(page, lt);
-  await page.getByRole('link', { name: lt.settings.home }).click();
-  await page.getByRole('link', { name: lt.app.coachArea }).click();
+  if (locale === 'en') await chooseEnglish(page);
+  await switchOnCoachMode(page, messages);
+  await page.getByRole('link', { name: messages.settings.home }).click();
+  await page.getByRole('link', { name: messages.app.coachArea }).click();
   await expect(page).toHaveURL(/\/treneris$/);
-  await createGroup(page, lt, GROUP);
-  return createInvite(page, lt, { kind: 'group', group: GROUP });
+  await createGroup(page, messages, GROUP);
+  return createInvite(page, messages, { kind: 'group', group: GROUP });
 }
 
 /** U1-M1-1, G-M1-1, D-M1-1: three players accept; returns Rokas's page. */
@@ -89,8 +98,15 @@ async function threePlayersAccept(
   return rokas;
 }
 
-/** Checklist 3: after Rokas unlinks, his page is not found for the coach. */
-async function unlinkEndsAccess(coach: Page, rokas: Page): Promise<void> {
+/**
+ * Checklist 3: after Rokas unlinks (in Lithuanian), his page is not found
+ * for the coach, who reads `messages`.
+ */
+async function unlinkEndsAccess(
+  coach: Page,
+  rokas: Page,
+  messages: Messages,
+): Promise<void> {
   await coach.goto('/treneris');
   await coach
     .getByRole('link', { name: 'Rokas Petrauskas', exact: true })
@@ -102,41 +118,46 @@ async function unlinkEndsAccess(coach: Page, rokas: Page): Promise<void> {
   await rokas.getByRole('button', { name: t.confirmUnlink }).click();
   await expect(rokas.getByText(t.empty)).toBeVisible();
   await coach.reload();
-  await expect(coach.getByText(lt.coach.notFound)).toBeVisible();
+  await expect(coach.getByText(messages.coach.notFound)).toBeVisible();
   await expect(coach.getByText('Rokas Petrauskas')).toHaveCount(0);
 }
 
-test('C-M1-1, U1-M1-1, G-M1-1: one group invite brings three players into the group; unlink ends access', async ({
-  page,
-  request,
-  browser,
-}) => {
-  test.setTimeout(240_000);
-  const devices: BrowserContext[] = [];
-  try {
-    const link = await coachInvitesGroup(page, request);
-    const rokas = await threePlayersAccept(browser, devices, request, link);
+// The coach's side in both languages (spec, E2E: "in LT and EN"); the
+// players' languages are fixed by their journeys.
+for (const locale of ['lt', 'en'] as const) {
+  test(`C-M1-1 (coach in ${locale}), U1-M1-1, G-M1-1: one group invite brings three players into the group; unlink ends access`, async ({
+    page,
+    request,
+    browser,
+  }) => {
+    test.setTimeout(240_000);
+    const messages = CATALOGUES[locale];
+    const devices: BrowserContext[] = [];
+    try {
+      const link = await coachInvitesGroup(page, request, locale);
+      const rokas = await threePlayersAccept(browser, devices, request, link);
 
-    await page.reload();
-    await page.getByRole('link', { name: GROUP, exact: true }).click();
-    await expect(page).toHaveURL(/\/treneris\/grupes\//);
-    for (const name of PLAYERS)
-      await expect(page.getByText(name, { exact: true })).toBeVisible();
+      await page.reload();
+      await page.getByRole('link', { name: GROUP, exact: true }).click();
+      await expect(page).toHaveURL(/\/treneris\/grupes\//);
+      for (const name of PLAYERS)
+        await expect(page.getByText(name, { exact: true })).toBeVisible();
 
-    await unlinkEndsAccess(page, rokas);
+      await unlinkEndsAccess(page, rokas, messages);
 
-    // R-100: Coach mode stays on while Gabija and Dovydas are linked.
-    await page.goto('/nustatymai');
-    await page
-      .getByRole('button', { name: lt.settings.coachMode.switchOff })
-      .click();
-    await expect(page.getByText(lt.coach.stillLinked)).toBeVisible();
-    for (const name of PLAYERS.slice(1))
-      await expect(page.getByRole('link', { name })).toBeVisible();
-  } finally {
-    for (const device of devices) await device.close();
-  }
-});
+      // R-100: Coach mode stays on while Gabija and Dovydas are linked.
+      await page.goto('/nustatymai');
+      await page
+        .getByRole('button', { name: messages.settings.coachMode.switchOff })
+        .click();
+      await expect(page.getByText(messages.coach.stillLinked)).toBeVisible();
+      for (const name of PLAYERS.slice(1))
+        await expect(page.getByRole('link', { name })).toBeVisible();
+    } finally {
+      for (const device of devices) await device.close();
+    }
+  });
+}
 
 test('a revoked invite says only that it is not valid, and offers no Accept', async ({
   page,

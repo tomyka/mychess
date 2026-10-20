@@ -10,6 +10,7 @@ import { expect, type Page } from '@playwright/test';
 import { playOnBoard, type BoardHand } from './support/board';
 import {
   CATALOGUES,
+  chooseEnglish,
   format,
   newDevice,
   newOnboardedAccount,
@@ -29,7 +30,7 @@ import {
   typeMove,
 } from './support/repertoires';
 
-const { lt, en } = CATALOGUES;
+const { lt } = CATALOGUES;
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`fixtures/${name}`, import.meta.url));
@@ -89,15 +90,6 @@ async function importAsNew(
   await page.getByRole('button', { name: t.confirm, exact: true }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(name);
   return page.url();
-}
-
-/** In Lithuanian settings, switches the account to English, then home. */
-async function chooseEnglish(page: Page): Promise<void> {
-  await page.getByRole('link', { name: lt.app.settings }).click();
-  await page.getByRole('radio', { name: en.language.en }).check();
-  await page.getByRole('button', { name: lt.settings.profile.submit }).click();
-  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-  await page.getByRole('link', { name: en.settings.home }).click();
 }
 
 // Rokas's two London lines after 1.d4 d5 2.Bf4 and after 1.d4

@@ -135,6 +135,15 @@ export async function expectGreeting(
   );
 }
 
+/** From home, in Lithuanian settings, switches the account to English, then home. */
+export async function chooseEnglish(page: Page): Promise<void> {
+  await page.getByRole('link', { name: lt.app.settings }).click();
+  await page.getByRole('radio', { name: en.language.en }).check();
+  await page.getByRole('button', { name: lt.settings.profile.submit }).click();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await page.getByRole('link', { name: en.settings.home }).click();
+}
+
 /** A new account, signed in by magic link and onboarded in Lithuanian. */
 export async function newOnboardedAccount(
   page: Page,
