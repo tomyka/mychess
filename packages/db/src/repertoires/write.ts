@@ -1,10 +1,15 @@
-/** Writes a RepertoireDiff for one repertoire. Call it inside a transaction. */
-import { moveKey, type Chapter, type RepertoireMove } from '@mychess/chess';
+/** Writes the GraphChanges of one edit to one repertoire. Call it inside a transaction. */
+import {
+  moveKey,
+  type Chapter,
+  type GraphChanges,
+  type MoveLink,
+  type RepertoireMove,
+} from '@mychess/chess';
 import { and, eq, inArray, max, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Executor } from '../client';
 import { chapters, moveChapters, repertoireMoves } from '../schema';
-import type { MoveLink, RepertoireDiff } from './diff';
 
 /** Rows per statement: far under Postgres's 65,535 parameters. */
 const BATCH = 500;
@@ -243,27 +248,27 @@ const linksOf = (moves: readonly RepertoireMove[]): MoveLink[] =>
  * point at them, so one save can add a repertoire's first chapter with its
  * first move (R-111).
  */
-export async function writeDiff(
+export async function writeChanges(
   tx: Executor,
   repertoireId: string,
-  diff: RepertoireDiff,
+  changes: GraphChanges,
 ): Promise<void> {
-  await deleteMoves(tx, repertoireId, diff.removedMoveKeys);
-  await deleteLinks(tx, repertoireId, diff.removedLinks);
-  await deleteChapters(tx, repertoireId, diff.removedChapterIds);
-  await insertChapters(tx, repertoireId, diff.addedChapters);
-  await updateChapters(tx, repertoireId, diff.changedChapters);
-  const newIds = await insertMoves(tx, repertoireId, diff.addedMoves);
-  await updateMoves(tx, repertoireId, diff.changedMoves);
+  await deleteMoves(tx, repertoireId, changes.removedMoveKeys);
+  await deleteLinks(tx, repertoireId, changes.removedLinks);
+  await deleteChapters(tx, repertoireId, changes.removedChapterIds);
+  await insertChapters(tx, repertoireId, changes.addedChapters);
+  await updateChapters(tx, repertoireId, changes.changedChapters);
+  const newIds = await insertMoves(tx, repertoireId, changes.addedMoves);
+  await updateMoves(tx, repertoireId, changes.annotatedMoves);
   const keptIds = await moveIds(
     tx,
     repertoireId,
-    diff.addedLinks.map((l) => l.moveKey),
+    changes.addedLinks.map((l) => l.moveKey),
   );
   await insertLinks(
     tx,
     repertoireId,
-    [...linksOf(diff.addedMoves), ...diff.addedLinks],
+    [...linksOf(changes.addedMoves), ...changes.addedLinks],
     new Map([...newIds, ...keptIds]),
   );
 }

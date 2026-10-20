@@ -26,6 +26,14 @@ export {
   type RepertoireMove,
   type Side,
 } from './repertoire/graph';
+export {
+  graphChanges,
+  netMoveChanges,
+  playerMoveChanges,
+  type GraphChanges,
+  type MoveChanges,
+  type MoveLink,
+} from './repertoire/changes';
 export { normalizeComment } from './repertoire/comment';
 export {
   mergeInto,
@@ -46,6 +54,7 @@ export {
   chapterNameSourceSchema,
   circleSchema,
   marksInputSchema,
+  repertoireGraphSchema,
   sideSchema,
   SIDES,
 } from './repertoire/schema';
@@ -79,6 +88,7 @@ export {
 } from './openings/classify';
 export type { EcoEntry } from './openings/data/eco';
 export {
+  allLearned,
   buildQueue,
   grade,
   knowThis,

@@ -5,6 +5,7 @@
  */
 import {
   emptyGraph,
+  graphChanges,
   sideSchema,
   type RepertoireGraph,
   type Side,
@@ -26,14 +27,13 @@ import {
   repertoireMoves,
   repertoires,
 } from '../schema';
-import { diffRepertoire } from './diff';
 import {
   chapterRowsSchema,
   graphOf,
   linkRowsSchema,
   moveRowsSchema,
 } from './rows';
-import { writeDiff } from './write';
+import { writeChanges } from './write';
 
 export interface LoadedRepertoire {
   readonly repertoire: Repertoire;
@@ -83,10 +83,10 @@ export async function createRepertoire(
         .returning({ id: repertoires.id }),
     );
     if (row === undefined) throw new Error('createRepertoire: no row returned');
-    await writeDiff(
+    await writeChanges(
       tx,
       row.id,
-      diffRepertoire(emptyGraph(input.side), input.graph),
+      graphChanges(emptyGraph(input.side), input.graph),
     );
     return row.id;
   });
@@ -246,7 +246,7 @@ export async function saveRepertoireEdit(
     );
     if (row === undefined) return refusal(REPERTOIRE_REFUSALS.stale);
     const before = await graphRows(tx, edit.id, row.side);
-    await writeDiff(tx, edit.id, diffRepertoire(before, edit.after));
+    await writeChanges(tx, edit.id, graphChanges(before, edit.after));
     return { ok: true, value: { version: row.version } };
   });
 }
