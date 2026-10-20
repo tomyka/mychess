@@ -6,7 +6,10 @@
 import type { DrawShape } from '@lichess-org/chessground/draw';
 import type { Key } from '@lichess-org/chessground/types';
 import {
+  chapterOf,
   moveKey,
+  sideToMove,
+  START_KEY,
   type EditOp,
   type MarkColor,
   type Marks,
@@ -14,23 +17,25 @@ import {
   type RepertoireMove,
 } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
-import { useState, type ActionDispatch } from 'react';
+import { useState } from 'react';
 import { marksOf, toggleMark } from '../../board/shapes';
 import { editRepertoireAction } from './actions';
 import {
   canMark,
   markChange,
+  moveNumber,
   placeAdded,
+  removalCount,
   SAVING,
   type ChapterBuilder,
   type CommentEditor,
   type FieldOutcome,
-  type ScreenAction,
+  type RepertoireView,
   type ScreenMessage,
-  type ScreenState,
 } from '../../repertoire-view';
 
-type Dispatch = ActionDispatch<[action: ScreenAction]>;
+type ScreenState = RepertoireView['state'];
+type Dispatch = RepertoireView['dispatch'];
 
 /** Where the screen goes once an edit is saved. */
 interface Placement {
@@ -58,7 +63,7 @@ const FAILED = 'repertoires.failed';
  * in the status line and puts the pieces back; a field shows its own,
  * unless the repertoire changed elsewhere, which the whole screen shows.
  */
-export function useEdit(
+export function editor(
   repertoireId: string,
   state: ScreenState,
   dispatch: Dispatch,
@@ -100,7 +105,7 @@ export function useEdit(
 }
 
 /** A new move played on the board or typed, saved where the screen is. */
-export function useAddMove(
+export function addMove(
   state: ScreenState,
   edit: Edit,
   from: string,
@@ -200,6 +205,22 @@ export function useRemoveMove(state: ScreenState, edit: Edit): () => void {
         }),
       },
     );
+  };
+}
+
+/** The move the builder bar removes, as "12. Nf3", and how many go with it. */
+export function removalTarget(state: ScreenState): {
+  readonly move: string | null;
+  readonly count: number;
+} {
+  const last = state.path.at(-1);
+  if (last === undefined || state.chapterId === null)
+    return { move: null, count: 0 };
+  const root = chapterOf(state.graph, state.chapterId)?.rootKey ?? START_KEY;
+  const number = moveNumber(state.path.length - 1, sideToMove(root) === 'w');
+  return {
+    move: `${number} ${last.san}`,
+    count: removalCount(state.graph, state.chapterId, last),
   };
 }
 

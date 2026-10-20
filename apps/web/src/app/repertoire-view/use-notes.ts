@@ -1,8 +1,7 @@
 'use client';
 
 // The viewer's Personal notes on a repertoire view (R-21).
-import { useState } from 'react';
-import { withNote } from './notes-by-move';
+import { useNotesByMove } from './notes-by-move';
 import type { NoteOutcome } from './personal-note';
 
 /** The viewer's notes by move key, and a saver for the note on one move. */
@@ -19,14 +18,14 @@ export function useNotes(
   initial: Readonly<Record<string, string>>,
   saveNote: SaveNote,
 ): Notes {
-  const [byMove, setByMove] = useState(initial);
+  const notes = useNotesByMove(initial);
   return {
-    byMove,
+    byMove: notes.byMove,
     save:
       (moveKey: string) =>
       async (text: string): Promise<NoteOutcome> => {
         const outcome = await saveNote(moveKey, text);
-        if (outcome.ok) setByMove((now) => withNote(now, moveKey, text.trim()));
+        if (outcome.ok) notes.set(moveKey, text.trim());
         return outcome;
       },
   };

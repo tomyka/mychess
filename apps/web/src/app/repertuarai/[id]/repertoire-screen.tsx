@@ -1,16 +1,10 @@
 'use client';
 
-import {
-  chapterOf,
-  sideToMove,
-  START_KEY,
-  type RepertoireGraph,
-  type Side,
-} from '@mychess/chess';
+import type { RepertoireGraph, Side } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useReducer, useState, type ActionDispatch, type JSX } from 'react';
+import { useState, type JSX } from 'react';
 import { importIntoRoute } from '../../../lib/routes';
 import type {
   OwnerCoachNote,
@@ -18,32 +12,27 @@ import type {
 } from '../../../server/repertoires';
 import { SECONDARY_BUTTON } from '../../buttons';
 import {
-  initialState,
-  moveNumber,
   PANEL_LABEL,
-  removalCount,
   RepertoireShell,
-  screenReducer,
-  useBoardPlay,
+  useBuilderView,
   useNotes,
-  useScreenBoard,
   type Notes,
   type PanelContent,
-  type ScreenAction,
-  type ScreenState,
+  type RepertoireView,
 } from '../../repertoire-view';
 import { savePersonalNoteAction } from './actions';
 import { BuilderBar } from './builder-bar';
 import { ModeSwitch } from './mode-switch';
-import { OwnerNotes } from './move-panel';
+import { OwnerNotes } from './owner-notes';
 import { RepertoireActions, RepertoireHeader } from './repertoire-header';
 import { ShareWithCoach } from './share-with-coach';
 import {
+  addMove,
   chapterBuilder,
   commentEditor,
-  useAddMove,
+  editor,
+  removalTarget,
   useDrawing,
-  useEdit,
   useRemoveMove,
   type Edit,
 } from './use-builder';
@@ -68,7 +57,8 @@ export interface RepertoireScreenProps {
   readonly coachNotes: readonly OwnerCoachNote[];
 }
 
-type Dispatch = ActionDispatch<[action: ScreenAction]>;
+type ScreenState = RepertoireView['state'];
+type Dispatch = RepertoireView['dispatch'];
 
 /** A repertoire without chapters: play the first move, or add games from PGN. */
 function EmptyRepertoire({
@@ -187,21 +177,12 @@ function ScreenBuilderBar({
   const { state, dispatch, edit } = screen;
   const onRemove = useRemoveMove(state, edit);
   if (state.mode !== 'build' || state.chapterId === null) return null;
-  const last = state.path.at(-1);
-  const root = chapterOf(state.graph, state.chapterId)?.rootKey ?? START_KEY;
-  const label =
-    last === undefined
-      ? null
-      : `${moveNumber(state.path.length - 1, sideToMove(root) === 'w')} ${last.san}`;
+  const { move, count } = removalTarget(state);
   return (
     <div className="shrink-0 px-gutter pb-2 lg:px-0">
       <BuilderBar
-        move={label}
-        count={
-          last === undefined
-            ? 0
-            : removalCount(state.graph, state.chapterId, last)
-        }
+        move={move}
+        count={count}
         disabled={state.saving || state.stale}
         drawMode={state.drawMode}
         drawColor={state.drawColor}
@@ -219,23 +200,20 @@ function ScreenBuilderBar({
 
 /** The screen's state, its edits and the board's handlers. */
 function useRepertoireScreen(props: RepertoireScreenProps) {
-  const { repertoire } = props;
-  const [state, dispatch] = useReducer(screenReducer, props, (p) =>
-    initialState(p.graph, p.repertoire.version, p.chapterId ?? null),
-  );
+  const { repertoire, graph, chapterId } = props;
   const [ecoNames, setEcoNames] = useState(props.ecoNames);
-  const edit = useEdit(repertoire.id, state, dispatch, setEcoNames);
-  const board = useScreenBoard(state, repertoire.side);
-  const addMove = useAddMove(state, edit, board.key);
-  const play = useBoardPlay(
-    state,
-    dispatch,
-    board,
-    state.mode === 'build' ? addMove : null,
+  const editOf = (state: ScreenState, dispatch: Dispatch): Edit =>
+    editor(repertoire.id, state, dispatch, setEcoNames);
+  const view = useBuilderView(
+    { graph, version: repertoire.version, chapterId },
+    repertoire.side,
+    (state, dispatch, from) => addMove(state, editOf(state, dispatch), from),
   );
+  const { state, dispatch } = view;
+  const edit = editOf(state, dispatch);
   const drawing = useDrawing(state, dispatch, edit);
   const screen: Screen = { props, state, dispatch, edit, ecoNames };
-  return { screen, board, play, drawing };
+  return { screen, view, drawing };
 }
 
 /**
@@ -244,7 +222,7 @@ function useRepertoireScreen(props: RepertoireScreenProps) {
  */
 export function RepertoireScreen(props: RepertoireScreenProps): JSX.Element {
   const { repertoire } = props;
-  const { screen, board, play, drawing } = useRepertoireScreen(props);
+  const { screen, view, drawing } = useRepertoireScreen(props);
   const { state, dispatch } = screen;
   const notes = useNotes(props.notes, (moveKey, text) =>
     savePersonalNoteAction({ repertoireId: repertoire.id, moveKey, text }),
@@ -264,7 +242,7 @@ export function RepertoireScreen(props: RepertoireScreenProps): JSX.Element {
       }
       name={repertoire.name}
       ecoNames={screen.ecoNames}
-      view={{ state, dispatch, board, play }}
+      view={view}
       panel={ownerPanel(screen, notes)}
       drawing={drawing}
       toolbar={<ScreenBuilderBar screen={screen} />}

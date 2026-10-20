@@ -3,30 +3,29 @@
 // assigned view are built from. Everything outside this folder imports from
 // here, never from the parts.
 
-// The view: shell, panel content, a browse-only view, the loading state.
+// The view: shell, panel content, the browse-only and builder views, the
+// loading state.
 export { RepertoireShell } from './repertoire-shell';
 export type { PanelContent } from './repertoire-panel';
-export { PositionBody } from './position-body';
+export type { RepertoireView } from './view';
 export { useBrowseView } from './use-browse-view';
+export { useBuilderView } from './use-builder-view';
 export { RepertoireLoadingShell, SKELETON_LINE } from './loading-shell';
 export { PANEL_LABEL } from './panel-styles';
 
-// Notes on moves: the viewer's Personal note, the coaches' notes.
+// Notes on moves: the viewer's Personal note, the coaches' notes, and notes
+// kept by move key.
 export { PersonalNote, type NoteOutcome } from './personal-note';
 export { useNotes, type Notes } from './use-notes';
+export { useNotesByMove } from './notes-by-move';
 export { CoachNotes, type MoveCoachNote } from './coach-notes';
-export { withNote } from './notes-by-move';
 
-// What a view that edits (the owner's builder) drives the screen with.
-export {
-  initialState,
-  SAVING,
-  screenReducer,
-  type ScreenAction,
-  type ScreenMessage,
-  type ScreenState,
-} from './screen-state';
-export { canMark, useBoardPlay, useScreenBoard } from './use-screen';
+// The builder block: only the owner's builder hooks
+// (repertuarai/[id]/use-builder.ts) use these, to turn the screen state into
+// edits (where a new move lands, what a mark change says, the remove bar)
+// and to fill the panel's builder fields.
+export { SAVING, type ScreenMessage } from './screen-state';
+export { canMark } from './use-screen';
 export { markChange, moveNumber, placeAdded, removalCount } from './board-play';
 export type { ChapterBuilder } from './chapter-list';
 export type { CommentEditor } from './comment';

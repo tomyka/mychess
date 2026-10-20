@@ -2,13 +2,13 @@
 
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { useState, type JSX } from 'react';
+import type { JSX } from 'react';
 import { coachPlayerPath } from '../../../../../../lib/routes';
 import type { SharedRepertoirePage } from '../../../../../../server/coach-pages';
 import {
   RepertoireShell,
   useBrowseView,
-  withNote,
+  useNotesByMove,
   type PanelContent,
 } from '../../../../../repertoire-view';
 import { CoachNoteForm } from './coach-note-form';
@@ -65,13 +65,13 @@ function SharedHeader({
 
 /** The coach's notes by move key, and a saver that keeps them current. */
 function useCoachNotes(initial: Readonly<Record<string, string>>) {
-  const [byMove, setByMove] = useState(initial);
+  const notes = useNotesByMove(initial);
   return {
-    byMove,
+    byMove: notes.byMove,
     onChange:
       (key: string) =>
       (text: string): void => {
-        setByMove((now) => withNote(now, key, text));
+        notes.set(key, text);
       },
   };
 }

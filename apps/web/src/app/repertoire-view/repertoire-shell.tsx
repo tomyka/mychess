@@ -58,18 +58,6 @@ function PanelStatus({
 /** A view that never edits is never stale, so has nothing to reload. */
 const noReload = (): void => undefined;
 
-/** The board's drawing handlers, when the view draws. */
-const drawingHandlers = (
-  drawing: Drawing | undefined,
-): Pick<BoardProps, 'onSquare' | 'onShapes' | 'onEscape'> =>
-  drawing === undefined
-    ? {}
-    : {
-        onSquare: drawing.onSquare,
-        onShapes: drawing.onShapes,
-        onEscape: drawing.onEscape,
-      };
-
 /**
  * A repertoire page (docs/design/repertoire-screen.md, section 2): on a
  * phone the top bar, board, board row and toolbar stay put and the panel
@@ -86,6 +74,7 @@ export function RepertoireShell({
   onReload = noReload,
 }: RepertoireShellProps): JSX.Element {
   const { state, dispatch, board, play } = view;
+  const { said, ...handlers }: Partial<Drawing> = drawing ?? {};
   const words = useBoardWords(name, state, board.view.fen, ecoNames);
   return (
     <main className="flex h-dvh flex-col lg:mx-auto lg:h-auto lg:max-w-6xl lg:gap-6 lg:px-gutter-wide lg:py-8">
@@ -97,7 +86,7 @@ export function RepertoireShell({
             label={words.label}
             describe={words.describe}
             onMove={play.onMove}
-            {...drawingHandlers(drawing)}
+            {...handlers}
           />
         </div>
         <div className="flex min-h-0 flex-1 flex-col lg:max-h-[calc(100dvh-12rem)] lg:w-panel lg:flex-none lg:rounded-card lg:bg-surface lg:p-4 lg:shadow-card">
@@ -113,9 +102,9 @@ export function RepertoireShell({
         </div>
       </div>
       <Announcer state={state} />
-      {drawing === undefined ? null : (
+      {said === undefined ? null : (
         <p aria-live="polite" className="sr-only">
-          {drawing.said}
+          {said}
         </p>
       )}
     </main>
