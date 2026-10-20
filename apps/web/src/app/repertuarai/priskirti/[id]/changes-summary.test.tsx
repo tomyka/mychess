@@ -215,11 +215,11 @@ describe('ChangesSummary (R-133)', () => {
     expect(screen.getByText('Pašalinta: e4 ir c4')).toBeDefined();
   });
 
-  it('counts the changed comments, in Lithuanian plural forms', () => {
+  it('counts the moves whose comments or marks changed, in Lithuanian plural forms', () => {
     for (const [count, text] of [
-      [1, '1 komentaras pakeistas'],
-      [3, '3 komentarai pakeisti'],
-      [10, '10 komentarų pakeista'],
+      [1, 'Pakeisti 1 ėjimo komentarai ar žymės'],
+      [3, 'Pakeisti 3 ėjimų komentarai ar žymės'],
+      [10, 'Pakeisti 10 ėjimų komentarai ar žymės'],
     ] as const) {
       const { unmount } = renderSummary({ ...NONE, annotated: count });
       expect(within(summary()).getByText(text)).toBeDefined();
@@ -235,6 +235,8 @@ describe('ChangesSummary (R-133)', () => {
         name: 'Your coach updated this repertoire',
       }),
     ).toBeDefined();
-    expect(screen.getByText('2 comments changed')).toBeDefined();
+    expect(
+      screen.getByText('Comments or marks changed on 2 moves'),
+    ).toBeDefined();
   });
 });

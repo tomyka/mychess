@@ -527,7 +527,7 @@
       "title": "Your coach updated this repertoire",
       "added": "Added: {moves}",
       "removed": "Removed: {moves}",
-      "commentsChanged": "{count, plural, one {# comment changed} other {# comments changed}}",
+      "commentsChanged": "{count, plural, one {Comments or marks changed on # move} other {Comments or marks changed on # moves}}",
       "deletedChapters": "Deleted chapters"
     },
     "deadlineOn": "Deadline: {date}",
@@ -538,7 +538,7 @@
       "forked": "Made their own copy",
       "updated": "Updated"
     },
-    "deleteHolders": "{count, plural, one {# player has this repertoire; they can keep their own copy for {days, plural, one {# day} other {# days}}.} other {# players have this repertoire; they can keep their own copy for {days, plural, one {# day} other {# days}}.}}",
+    "deleteHolders": "{count, plural, one {# player has this repertoire and has {days, plural, one {# day} other {# days}} to keep their own copy.} other {# players have this repertoire; each has {days, plural, one {# day} other {# days}} to keep their own copy.}}",
     "panel": {
       "title": "Assign to players",
       "intro": "An assigned repertoire reaches your players with every change you make to it later.",
@@ -562,7 +562,7 @@
       "clearDeadline": "Clear deadline",
       "deadlineSaved": "Deadline saved.",
       "unassign": "Unassign",
-      "unassignQuestion": "Unassign it from {name}? The repertoire leaves the players’ lists, and they can keep their own copy for {days, plural, one {# day} other {# days}}. Anyone who has it another way keeps it.",
+      "unassignQuestion": "Unassign it from {name}? The repertoire leaves the players’ lists, and they have {days, plural, one {# day} other {# days}} to keep their own copy. Anyone who has it another way keeps it.",
       "unassignConfirm": "Unassign",
       "unassignCancel": "Keep it"
     },

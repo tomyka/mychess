@@ -254,7 +254,7 @@ describe('RepertoireScreen: browsing', () => {
     }
     expect(
       screen.getAllByText(
-        'Šį repertuarą turi 2 žaidėjai; jie galės pasilikti asmeninę kopiją 30 dienų.',
+        'Šį repertuarą turi 2 žaidėjai. Per 30 dienų jie galės pasilikti asmeninę kopiją.',
       ),
     ).toHaveLength(2);
   });

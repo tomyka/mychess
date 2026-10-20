@@ -503,7 +503,7 @@
     "notCoach": "Priskirti repertuarus galite tik įjungę trenerio režimą.",
     "notLinked": "Šis žaidėjas su jumis nesusietas.",
     "groupNotFound": "Šios grupės nėra arba ji ne jūsų.",
-    "alreadyAssigned": "Šis repertuaras jau priskirtas.",
+    "alreadyAssigned": "Šiam žaidėjui ar grupei šis repertuaras jau priskirtas.",
     "deadlineInvalid": "Įveskite tinkamą termino datą.",
     "page": {
       "back": "Atgal į pradžią",
@@ -515,7 +515,7 @@
       "pause": "Pristabdyti",
       "resume": "Tęsti",
       "paused": "Pristabdyta",
-      "pausedHint": "Kol priskyrimas pristabdytas, šio repertuaro nėra jūsų kartojimuose ir mokymosi eilėje."
+      "pausedHint": "Kol priskyrimas pristabdytas, šis repertuaras neįtraukiamas į jūsų kartojimus ir mokymosi eilę."
     },
     "fork": {
       "label": "Pasidaryti asmeninę kopiją",
@@ -524,21 +524,21 @@
       "cancel": "Atšaukti"
     },
     "changes": {
-      "title": "Treneris atnaujino šį repertuarą",
+      "title": "Jūsų treneris atnaujino šį repertuarą",
       "added": "Pridėta: {moves}",
       "removed": "Pašalinta: {moves}",
-      "commentsChanged": "{count, plural, one {# komentaras pakeistas} few {# komentarai pakeisti} other {# komentarų pakeista}}",
+      "commentsChanged": "{count, plural, one {Pakeisti # ėjimo komentarai ar žymės} few {Pakeisti # ėjimų komentarai ar žymės} other {Pakeisti # ėjimų komentarai ar žymės}}",
       "deletedChapters": "Ištrinti skyriai"
     },
     "deadlineOn": "Terminas: {date}",
     "noDeadline": "Be termino",
     "badge": {
-      "overdue": "Pavėluota",
+      "overdue": "Pradelsta",
       "paused": "Pristabdyta",
       "forked": "Pasidarė asmeninę kopiją",
       "updated": "Atnaujinta"
     },
-    "deleteHolders": "{count, plural, one {Šį repertuarą turi # žaidėjas; jis galės pasilikti asmeninę kopiją {days, plural, one {# dieną} few {# dienas} other {# dienų}}.} few {Šį repertuarą turi # žaidėjai; jie galės pasilikti asmeninę kopiją {days, plural, one {# dieną} few {# dienas} other {# dienų}}.} other {Šį repertuarą turi # žaidėjų; jie galės pasilikti asmeninę kopiją {days, plural, one {# dieną} few {# dienas} other {# dienų}}.}}",
+    "deleteHolders": "{count, plural, =1 {Šį repertuarą turi # žaidėjas. Per {days, plural, one {# dieną} few {# dienas} other {# dienų}} jis galės pasilikti asmeninę kopiją.} one {Šį repertuarą turi # žaidėjas. Per {days, plural, one {# dieną} few {# dienas} other {# dienų}} jie galės pasilikti asmeninę kopiją.} few {Šį repertuarą turi # žaidėjai. Per {days, plural, one {# dieną} few {# dienas} other {# dienų}} jie galės pasilikti asmeninę kopiją.} other {Šį repertuarą turi # žaidėjų. Per {days, plural, one {# dieną} few {# dienas} other {# dienų}} jie galės pasilikti asmeninę kopiją.}}",
     "panel": {
       "title": "Priskirti žaidėjams",
       "intro": "Priskirtas repertuaras pasiekia žaidėjus kartu su visais vėlesniais jūsų pakeitimais.",
@@ -561,18 +561,18 @@
       "changeDeadline": "Keisti terminą",
       "clearDeadline": "Panaikinti terminą",
       "deadlineSaved": "Terminas išsaugotas.",
-      "unassign": "Atšaukti priskyrimą",
-      "unassignQuestion": "Atšaukti „{name}“ priskyrimą? Repertuaras dings iš žaidėjų sąrašo, o jie {days, plural, one {# dieną} few {# dienas} other {# dienų}} galės pasilikti asmeninę kopiją. Kam jis priskirtas ir kitu būdu, tie jį pasiliks.",
-      "unassignConfirm": "Atšaukti priskyrimą",
+      "unassign": "Panaikinti priskyrimą",
+      "unassignQuestion": "Panaikinti priskyrimą: {name}? Repertuaras dings iš žaidėjų sąrašų, o per {days, plural, one {# dieną} few {# dienas} other {# dienų}} jie galės pasilikti asmeninę kopiją. Žaidėjai, kuriems jis priskirtas ir kitu būdu, jį pasiliks.",
+      "unassignConfirm": "Panaikinti priskyrimą",
       "unassignCancel": "Palikti"
     },
     "home": {
-      "title": "Iš mano trenerio"
+      "title": "Jums priskirti repertuarai"
     }
   },
   "forkOffer": {
     "notOpen": "Šis pasiūlymas nebegalioja.",
-    "title": "Galite pasilikti kopiją",
+    "title": "Kopijos, kurias galite pasilikti",
     "intro": "Šie repertuarai jums nebepriskirti. Galite pasilikti asmeninę jų kopiją su savo užrašais.",
     "daysLeft": "{count, plural, one {Liko # diena} few {Liko # dienos} other {Liko # dienų}}",
     "keep": "Pasilikti kopiją",

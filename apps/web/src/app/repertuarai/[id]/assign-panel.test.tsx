@@ -323,7 +323,7 @@ describe('AssignPanel: the assignments (R-46, R-51, R-128, R-132)', () => {
     fireEvent.click(within(group).getByRole('button', { name: p.unassign }));
     expect(
       within(group).getByText(
-        'Atšaukti „Šeštadienio grupė“ priskyrimą? Repertuaras dings iš žaidėjų sąrašo, o jie 30 dienų galės pasilikti asmeninę kopiją. Kam jis priskirtas ir kitu būdu, tie jį pasiliks.',
+        'Panaikinti priskyrimą: Šeštadienio grupė? Repertuaras dings iš žaidėjų sąrašų, o per 30 dienų jie galės pasilikti asmeninę kopiją. Žaidėjai, kuriems jis priskirtas ir kitu būdu, jį pasiliks.',
       ),
     ).toBeDefined();
     expect(server.unassign).not.toHaveBeenCalled();

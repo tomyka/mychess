@@ -76,9 +76,13 @@ taxonomy (`data/openings/lt/`) and are not translated.
 
 | Domain term | EN UI word | LT UI word | Source | Note |
 | --- | --- | --- | --- | --- |
-| Assignment | Assignment | priskyrimas | proposed (verb from v1 `coach_repertoires_assign_button` **priskirti**) | "Assigned by your coach": **priskyrė jūsų treneris** (v1 `repertoires_assigned_heading`). |
-| Deadline (of an Assignment) | Deadline | terminas | proposed | |
-| Fork | Make my own copy (proposed) | asmeninė kopija | proposed | Verb: **pasidaryti asmeninę kopiją**. EN UI word is also unsettled; "Fork" is a developer word. Not **klonas**. |
+| Assignment | Assignment | priskyrimas | proposed (verb from v1 `coach_repertoires_assign_button` **priskirti**) | Assign: **priskirti**; unassign: **panaikinti priskyrimą** / "Unassign" (not **atšaukti**, which is the dialog's Cancel; its cancel reads **Palikti** / "Keep it"). A row's assigner: **Priskyrė {name}** / "Assigned by {name}". The player's home section: **Jums priskirti repertuarai** / "From my coach" (not "Iš mano trenerio": a player may have several coaches; v1's **Priskyrė jūsų treneris** would repeat each row's "Priskyrė {name}"). |
+| Deadline (of an Assignment) | Deadline | terminas | proposed | **Terminas: {date}** / "Deadline: {date}"; **Be termino** / "No deadline"; change / clear: **keisti terminą** / **panaikinti terminą**. |
+| Overdue (badge) | Overdue | pradelsta | proposed | The standard word for a passed deadline (pradelstas terminas). Not **pavėluota** (late, of an arrival). Not used for a Due review. |
+| Paused (badge) | Paused | pristabdyta | proposed | Verbs: **pristabdyti** / **tęsti** ("Pause" / "Resume"). |
+| Updated (badge) | Updated | atnaujinta | proposed | Until the player opens it (R-133). What changed: **Pridėta: …**, **Pašalinta: …**, **Pakeisti # ėjimo / ėjimų komentarai ar žymės**; moves of chapters the coach deleted go under **Ištrinti skyriai** / "Deleted chapters". |
+| Fork | Own copy; make my own copy (proposed) | asmeninė kopija | proposed | Verb: **pasidaryti asmeninę kopiją** / "Make my own copy". The coach's badge for a player who forked: **Pasidarė asmeninę kopiją** / "Made their own copy". "Fork" is a developer word in both languages. Not **klonas**. |
+| Fork offer | Copies you can keep | pasiūlymas pasilikti kopiją | proposed | Section: **Kopijos, kurias galite pasilikti**; accept: **Pasilikti kopiją** / "Keep a copy"; decline: **Ne, ačiū** / "No, thanks"; time left: **Liko # diena / dienos / dienų**; "within 30 days": **per # dieną / dienas / dienų** (not "pasilikti … 30 dienų", which reads as keeping it only for 30 days). |
 | Personal note | Personal note (UI: "My note") | asmeninis užrašas (UI: **Mano užrašas**) | approved (R-116, R-118; was proposed **asmeninė pastaba**) | R-116 names the button "Mano užrašas", so the UI uses **užrašas** throughout; **pastaba** stays for the Coach note, which keeps the two apart. Not **komentaras** (a Comment belongs to the repertoire). |
 | Share (an own Repertoire with a linked Coach) | Share with a coach / Shared with N coaches / Not shared | bendrinti (su treneriu) / bendrinama su # treneriu, treneriais, trenerių / nebendrinama | approved (R-127) | The standard software verb (Google, Microsoft): **bendrinti**. Not **dalintis / pasidalinti** (v1 `coach_invite_share_label` used it for passing on a link, which is ordinary speech, not this access). State: **bendrinamas** (adj.), **bendrinama** (status line); stop sharing: **nebebendrinti**. Coach's list: **Bendrinami repertuarai** / "Shared repertoires". After **su** the count is instrumental for one and few (treneriu, treneriais) and genitive plural for other (0, 10-20: trenerių). |
 | Coach note | Coach note (coach's own view: "My coach note") | trenerio pastaba (coach's own view: **Mano pastaba**) | v1 `coach_note_title` | Same word on an assigned and on a shared Repertoire (CONTEXT). Distinct from **komentaras** (Comment, R-118) and **užrašas** (Personal note). Shown to the player with the name after a dash, nominative: **Trenerio pastaba — {name}**. The coach's own label is **Mano pastaba**, not "Mano trenerio pastaba", which reads as "my coach's note". |
@@ -180,7 +184,8 @@ taxonomy (`data/openings/lt/`) and are not translated.
 4. **Lapse = suklydimas.** Needs a word distinct from Player mistake
    (**klaida**). Proposal: **suklydimas**.
 5. **Fork** has no settled word in either language. Proposal: EN "Make my
-   own copy", LT **asmeninė kopija**.
+   own copy", LT **asmeninė kopija**. (S5 uses it in the UI; see the
+   Assignment and ownership table, still **proposed**.)
 6. **Thread** in the UI: EN "Conversation", LT **pokalbis**. CONTEXT lists
    "conversation" under Avoid for domain talk; this is only the screen word.
 7. **Due** count wording: **kartotini** ("12 kartotinų").

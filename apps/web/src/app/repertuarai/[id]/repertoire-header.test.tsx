@@ -155,7 +155,7 @@ describe('RepertoireActions', () => {
     fireEvent.click(button(h.delete));
     expect(
       screen.getByText(
-        'Šį repertuarą turi 3 žaidėjai; jie galės pasilikti asmeninę kopiją 30 dienų.',
+        'Šį repertuarą turi 3 žaidėjai. Per 30 dienų jie galės pasilikti asmeninę kopiją.',
       ),
     ).toBeDefined();
   });
@@ -167,7 +167,7 @@ describe('RepertoireActions', () => {
     fireEvent.click(button(h.delete));
     expect(
       screen.getByText(
-        'Šį repertuarą turi 1 žaidėjas; jis galės pasilikti asmeninę kopiją 30 dienų.',
+        'Šį repertuarą turi 1 žaidėjas. Per 30 dienų jis galės pasilikti asmeninę kopiją.',
       ),
     ).toBeDefined();
   });
