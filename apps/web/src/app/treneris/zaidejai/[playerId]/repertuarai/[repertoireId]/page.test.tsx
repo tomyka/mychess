@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -7,6 +7,7 @@ import {
 } from '../../../../../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../../../../../i18n/locales';
 import type { SharedRepertoirePage } from '../../../../../../server/coach-pages';
+import SharedRepertoireLoading from './loading';
 import CoachSharedRepertoirePage from './page';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
@@ -61,5 +62,35 @@ describe('the coach’s page of a shared repertoire', () => {
     ).toBeDefined();
     expect(screen.getByText(MESSAGES.lt.coach.shared.readOnly)).toBeDefined();
     expect(screen.getByRole('application')).toBeDefined();
+  });
+});
+
+describe('the coach’s page of a shared repertoire while it loads', () => {
+  const renderLoading = () =>
+    render(
+      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+        <SharedRepertoireLoading />
+      </NextIntlClientProvider>,
+    );
+
+  it('shows a busy board frame with no board', () => {
+    renderLoading();
+    expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('true');
+    expect(screen.queryByRole('application')).toBeNull();
+  });
+
+  it('says it is loading only after about a second', () => {
+    vi.useFakeTimers();
+    try {
+      renderLoading();
+      const line = screen.getByRole('status');
+      expect(line.textContent).toBe('');
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(line.textContent).toBe(MESSAGES.lt.repertoires.loading);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

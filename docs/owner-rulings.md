@@ -160,6 +160,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-124** (S4 Part B, #254, 2026-10-20): A coach's notes on a player's shared repertoire are deleted when that sharing ends, by unsharing or by unlinking (R-107); R-47's "notes are kept" applies to assigned repertoires, not shared ones.
 - **R-125** (S4 Part B, #254, 2026-10-20): A coach sees only their own notes on a shared repertoire; the player sees every coach's notes, each marked with the coach's name.
 - **R-126** (S4 Part B, #254, 2026-10-20): In the data export (R-106) a coach's notes list position, move, text and dates without the player or repertoire; a player's export does not include notes coaches wrote on the player's repertoires.
+- **R-127** (S4 Part B language review, #254, 2026-10-20): Sharing a repertoire with a coach is "bendrinti" ("bendrinama su # treneriu / treneriais / trenerių", "nebendrinama", "nebebendrinti", "Bendrinami repertuarai"); a coach's own note field is "Mano pastaba" / "My coach note", shown to the player as "Trenerio pastaba — {name}".
 
 ## Open questions
 

@@ -1,5 +1,5 @@
 import { moveKey, type RepertoireMove } from '@mychess/chess';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -90,6 +90,22 @@ describe('MoveList', () => {
     expect(chip('1... d5, has my note').className).not.toContain(
       'font-semibold',
     );
+  });
+
+  it('marks a Personal note with a lock, and a coach’s own note with a pen', () => {
+    const d5 = LONDON_GRAPH.moves.find((m) => m.san === 'd5');
+    const notes = { [moveKey(d5?.from ?? '', 'd5')]: 'Mine' };
+    renderList({ notes });
+    expect(
+      chip('1... d5, has my note').querySelector('[data-note="personal"]'),
+    ).not.toBeNull();
+    cleanup();
+    renderList({ notes, noteKind: 'coach' });
+    const coach = chip(
+      `1... d5, ${MESSAGES.en.repertoires.moves.hasCoachNote}`,
+    );
+    expect(coach.querySelector('[data-note="coach"]')).not.toBeNull();
+    expect(coach.querySelector('[data-note="personal"]')).toBeNull();
   });
 
   it('numbers Black’s moves after a nested variation', () => {

@@ -388,7 +388,8 @@
     "moves": {
       "title": "Moves",
       "hasComment": "has a comment",
-      "hasNote": "has my note"
+      "hasNote": "has my note",
+      "hasCoachNote": "has my coach note"
     },
     "note": {
       "label": "My note",
@@ -477,7 +478,7 @@
   },
   "share": {
     "title": "Share with a coach",
-    "intro": "The coaches you tick see this repertoire and its comments and can add coach notes, but cannot change it. They never see your personal notes.",
+    "intro": "The coaches you tick see this repertoire and its comments and can write coach notes, but cannot change it. They never see your personal notes.",
     "noCoach": "You can share only with a coach you are linked to. You link to a coach by accepting their invite.",
     "coaches": "Coaches",
     "save": "Save",

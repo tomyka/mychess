@@ -32,16 +32,18 @@ import { CoachNoteForm } from './coach-note-form';
 
 type Dispatch = ActionDispatch<[action: ScreenAction]>;
 
-/** No move list marks: the coach has no Personal notes here. */
-const NO_NOTES: Readonly<Record<string, string>> = {};
-
 /** The screen as it opens: browsing, even a repertoire without chapters. */
 const opened = (data: SharedRepertoirePage): ScreenState => ({
   ...initialState(data.graph, 0),
   mode: 'browse',
 });
 
-/** The way back to the player, the name and what the coach may do here. */
+/**
+ * The way back to the player and the repertoire's name: on a phone one top
+ * bar (back, the name, the player's name under it) so the board stays high;
+ * on a desktop the back link spelled out over the name
+ * (docs/design/coach-shared-repertoire.md).
+ */
 function SharedHeader({
   data,
 }: {
@@ -49,20 +51,39 @@ function SharedHeader({
 }): JSX.Element {
   const t = useTranslations('coach.shared');
   return (
-    <header className="flex flex-col gap-1 px-gutter py-2 lg:px-0 lg:py-0">
+    <header className="flex items-center gap-x-3 px-gutter py-1 lg:flex-col lg:items-start lg:gap-1 lg:px-0 lg:py-0">
       <Link
         href={coachPlayerPath(data.player.id)}
-        className="inline-flex min-h-touch items-center self-start text-accent underline"
+        className="inline-flex min-h-touch min-w-touch shrink-0 items-center gap-1 text-accent lg:underline"
       >
-        {t('back', { name: data.player.displayName })}
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="size-5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M15 6l-6 6 6 6" />
+        </svg>
+        <span className="max-lg:sr-only">
+          {t('back', { name: data.player.displayName })}
+        </span>
       </Link>
-      <h1
-        title={data.repertoire.name}
-        className="truncate text-lg font-semibold lg:whitespace-normal lg:text-3xl lg:font-bold"
-      >
-        {data.repertoire.name}
-      </h1>
-      <p className="text-sm text-fg-muted">{t('readOnly')}</p>
+      <div className="flex min-w-0 flex-1 flex-col lg:flex-none">
+        <h1
+          title={data.repertoire.name}
+          className="truncate text-lg font-semibold lg:whitespace-normal lg:text-3xl lg:font-bold"
+        >
+          {data.repertoire.name}
+        </h1>
+        <p
+          aria-hidden="true"
+          className="truncate text-sm text-fg-muted lg:hidden"
+        >
+          {data.player.displayName}
+        </p>
+      </div>
     </header>
   );
 }
@@ -137,9 +158,11 @@ function SharedPanelBody({
   readonly state: ScreenState;
   readonly dispatch: Dispatch;
 }): JSX.Element {
+  const t = useTranslations('coach.shared');
   const notes = useCoachNotes(data.notes);
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-gutter py-3 lg:px-0">
+      <p className="text-sm text-fg-muted">{t('readOnly')}</p>
       <ChapterList
         chapters={state.graph.chapters}
         chapterId={state.chapterId}
@@ -155,7 +178,8 @@ function SharedPanelBody({
             graph={state.graph}
             chapterId={state.chapterId}
             path={state.path}
-            notes={NO_NOTES}
+            notes={notes.notes}
+            noteKind="coach"
             onGoto={(path) => {
               dispatch({ type: 'goto', path });
             }}

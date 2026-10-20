@@ -18,12 +18,21 @@ export interface MoveListProps {
   readonly chapterId: string | null;
   /** The moves to the shown position; its last one is the current move. */
   readonly path: readonly RepertoireMove[];
-  /** The viewer's Personal notes by move key. */
+  /** The viewer's own notes by move key: Personal notes, or a coach's own. */
   readonly notes: Readonly<Record<string, string>>;
+  /**
+   * Whose notes `notes` are, and so their mark: the owner's private
+   * Personal notes (a lock, the default) or the viewing coach's own notes
+   * on a shared repertoire (a pen; docs/design/coach-shared-repertoire.md).
+   */
+  readonly noteKind?: NoteKind;
   readonly onGoto: (path: readonly RepertoireMove[]) => void;
   /** Builder mode: an empty chapter asks for its first move. */
   readonly building?: boolean;
 }
+
+/** Whose notes the list marks: see `MoveListProps.noteKind`. */
+type NoteKind = 'personal' | 'coach';
 
 /** A move chip, or the variations that branch off before the next one. */
 type Token =
@@ -82,7 +91,26 @@ interface ListContext {
   readonly whiteFirst: boolean;
   readonly current: string;
   readonly notes: Readonly<Record<string, string>>;
+  readonly noteKind: NoteKind;
   readonly onGoto: (path: readonly RepertoireMove[]) => void;
+}
+
+/** The chip's accessible name: number and SAN, then what the move carries. */
+function useChipLabel(
+  text: string,
+  comment: boolean,
+  note: NoteKind | null,
+): string {
+  const t = useTranslations();
+  const noteWord =
+    note === 'coach'
+      ? t('repertoires.moves.hasCoachNote')
+      : t('repertoires.moves.hasNote');
+  return [
+    text,
+    ...(comment ? [t('repertoires.moves.hasComment')] : []),
+    ...(note === null ? [] : [noteWord]),
+  ].join(', ');
 }
 
 function MoveChip({
@@ -92,17 +120,19 @@ function MoveChip({
   readonly token: Extract<Token, { kind: 'move' }>;
   readonly context: ListContext;
 }): JSX.Element {
-  const t = useTranslations('repertoires.moves');
   const ref = useRef<HTMLButtonElement>(null);
   const { move } = token;
   const number = moveNumber(token.ply, context.whiteFirst);
   const isCurrent = pathId(token.path) === context.current;
-  const hasNote = context.notes[moveKey(move.from, move.san)] !== undefined;
-  const label = [
+  const note =
+    context.notes[moveKey(move.from, move.san)] === undefined
+      ? null
+      : context.noteKind;
+  const label = useChipLabel(
     `${number} ${move.san}`,
-    ...(move.comment === null ? [] : [t('hasComment')]),
-    ...(hasNote ? [t('hasNote')] : []),
-  ].join(', ');
+    move.comment !== null,
+    note,
+  );
   useEffect(() => {
     const chip = ref.current;
     if (isCurrent && typeof chip?.scrollIntoView === 'function')
@@ -131,11 +161,17 @@ function MoveChip({
         className={`inline-flex min-h-touch min-w-touch items-center justify-center gap-1 rounded-control px-2 text-base tabular-nums ${weight} ${tone}`}
       >
         {move.san}
-        <MoveGlyphs comment={move.comment !== null} note={hasNote} />
+        <MoveGlyphs comment={move.comment !== null} note={note} />
       </button>
     </span>
   );
 }
+
+/** The note marks: a lock for a private Personal note, a pen for a coach's own. */
+const NOTE_GLYPH: Readonly<Record<NoteKind, string>> = {
+  personal: 'M5 7V5a3 3 0 0 1 6 0v2h1v7H4V7zm2 0h2V5a1 1 0 0 0-2 0z',
+  coach: 'M11 1.5l3.5 3.5-8.5 8.5H2.5V10zM2 15h12v-1H2z',
+};
 
 /** The small comment and note marks after a SAN; their meaning is in the chip's name. */
 function MoveGlyphs({
@@ -143,9 +179,9 @@ function MoveGlyphs({
   note,
 }: {
   readonly comment: boolean;
-  readonly note: boolean;
+  readonly note: NoteKind | null;
 }): JSX.Element | null {
-  if (!comment && !note) return null;
+  if (!comment && note === null) return null;
   return (
     <span aria-hidden="true" className="flex gap-0.5 text-xs">
       {comment ? (
@@ -153,11 +189,16 @@ function MoveGlyphs({
           <path d="M2 3h12v8H6l-3 3v-3H2z" />
         </svg>
       ) : null}
-      {note ? (
-        <svg viewBox="0 0 16 16" className="size-3" fill="currentColor">
-          <path d="M5 7V5a3 3 0 0 1 6 0v2h1v7H4V7zm2 0h2V5a1 1 0 0 0-2 0z" />
+      {note === null ? null : (
+        <svg
+          viewBox="0 0 16 16"
+          className="size-3"
+          fill="currentColor"
+          data-note={note}
+        >
+          <path d={NOTE_GLYPH[note]} />
         </svg>
-      ) : null}
+      )}
     </span>
   );
 }
@@ -210,6 +251,7 @@ export function MoveList(props: MoveListProps): JSX.Element {
     whiteFirst: root === undefined || sideToMove(root) === 'w',
     current: pathId(path),
     notes,
+    noteKind: props.noteKind ?? 'personal',
     onGoto,
   };
   return (

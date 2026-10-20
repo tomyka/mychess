@@ -199,7 +199,7 @@
       "empty": "{name} dar nebendrina su jumis nė vieno repertuaro.",
       "back": "Atgal: {name}",
       "readOnly": "Tik peržiūra: galite rašyti trenerio pastabas, bet negalite keisti repertuaro.",
-      "note": "Mano trenerio pastaba",
+      "note": "Mano pastaba",
       "noteHint": "Matote jūs ir {name}",
       "saveNote": "Išsaugoti pastabą",
       "deleteNote": "Ištrinti pastabą",
@@ -388,7 +388,8 @@
     "moves": {
       "title": "Ėjimai",
       "hasComment": "yra komentaras",
-      "hasNote": "yra mano užrašas"
+      "hasNote": "yra mano užrašas",
+      "hasCoachNote": "yra mano trenerio pastaba"
     },
     "note": {
       "label": "Mano užrašas",
@@ -477,8 +478,8 @@
   },
   "share": {
     "title": "Bendrinti su treneriu",
-    "intro": "Pažymėti treneriai matys šį repertuarą ir jo komentarus ir galės pridėti trenerio pastabų, bet negalės jo keisti. Jūsų asmeninių užrašų jie nematys.",
-    "noCoach": "Bendrinti galite tik su treneriu, su kuriuo esate susieti. Susieti galite priėmę trenerio kvietimą.",
+    "intro": "Pažymėti treneriai matys šį repertuarą su komentarais ir galės rašyti trenerio pastabas, bet negalės jo keisti. Jūsų asmeninių užrašų jie nematys.",
+    "noCoach": "Bendrinti galite tik su treneriu, su kuriuo esate susieti. Su treneriu susiesite priėmę jo kvietimą.",
     "coaches": "Treneriai",
     "save": "Išsaugoti",
     "sharedWith": "{count, plural, one {Bendrinama su # treneriu} few {Bendrinama su # treneriais} other {Bendrinama su # trenerių}}",

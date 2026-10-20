@@ -162,6 +162,26 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
     expect(noteField()?.value).toBe('Atsakymas į d5');
   });
 
+  it('marks the moves carrying the coach’s own note in the move list, a saved one too', async () => {
+    renderView();
+    const d4 = screen.getByRole('button', {
+      name: `1. d4, ${lt.repertoires.moves.hasComment}, ${lt.repertoires.moves.hasCoachNote}`,
+    });
+    expect(d4.querySelector('[data-note="coach"]')).not.toBeNull();
+    expect(document.querySelector('[data-note="personal"]')).toBeNull();
+    forward();
+    forward();
+    const field = noteField();
+    if (field === null) throw new Error('no note field');
+    fireEvent.change(field, { target: { value: 'Atsakymas į d5' } });
+    fireEvent.click(screen.getByRole('button', { name: s.saveNote }));
+    expect(
+      await screen.findByRole('button', {
+        name: `1... d5, ${lt.repertoires.moves.hasCoachNote}`,
+      }),
+    ).toBeDefined();
+  });
+
   it('goes to a move the chapter has, played on the board or typed', () => {
     renderView();
     boardMove('d2', 'd4');
