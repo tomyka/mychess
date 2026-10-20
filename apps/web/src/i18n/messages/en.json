@@ -538,7 +538,7 @@
       "forked": "Made their own copy",
       "updated": "Updated"
     },
-    "deleteHolders": "{count, plural, one {# player has this repertoire; they can keep their own copy for 30 days.} other {# players have this repertoire; they can keep their own copy for 30 days.}}",
+    "deleteHolders": "{count, plural, one {# player has this repertoire; they can keep their own copy for {days, plural, one {# day} other {# days}}.} other {# players have this repertoire; they can keep their own copy for {days, plural, one {# day} other {# days}}.}}",
     "panel": {
       "title": "Assign to players",
       "intro": "An assigned repertoire reaches your players with every change you make to it later.",
@@ -562,7 +562,7 @@
       "clearDeadline": "Clear deadline",
       "deadlineSaved": "Deadline saved.",
       "unassign": "Unassign",
-      "unassignQuestion": "Unassign it from {name}? The repertoire leaves the players’ lists, and they can keep their own copy for 30 days. Anyone who has it another way keeps it.",
+      "unassignQuestion": "Unassign it from {name}? The repertoire leaves the players’ lists, and they can keep their own copy for {days, plural, one {# day} other {# days}}. Anyone who has it another way keeps it.",
       "unassignConfirm": "Unassign",
       "unassignCancel": "Keep it"
     },

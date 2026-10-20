@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   assignAction,
+  clearDeadlineAction,
   setDeadlineAction,
   unassignAction,
   type AssignmentActionState,
@@ -161,16 +162,14 @@ describe('setDeadlineAction (R-51)', () => {
     expect(server.refresh).toHaveBeenCalledTimes(1);
   });
 
-  it('clears it with an empty date', async () => {
-    await setDeadlineAction(
-      FRESH,
-      formOf({ assignmentId: ASSIGNMENT, deadline: '' }),
-    );
-    expect(server.setDeadline).toHaveBeenCalledWith(DB, {
-      coachId: 'jonas',
-      assignmentId: ASSIGNMENT,
-      deadline: null,
-    });
+  it('refuses an empty date: clearing is its own action', async () => {
+    expect(
+      await setDeadlineAction(
+        FRESH,
+        formOf({ assignmentId: ASSIGNMENT, deadline: '' }),
+      ),
+    ).toEqual({ refusal: 'assignment.deadlineInvalid' });
+    expect(server.setDeadline).not.toHaveBeenCalled();
   });
 
   it('refuses a bad date without asking the database', async () => {
@@ -181,5 +180,39 @@ describe('setDeadlineAction (R-51)', () => {
       ),
     ).toEqual({ refusal: 'assignment.deadlineInvalid' });
     expect(server.setDeadline).not.toHaveBeenCalled();
+  });
+});
+
+describe('clearDeadlineAction (R-51)', () => {
+  it('clears the session coach’s deadline, whatever date the form sends', async () => {
+    expect(
+      await clearDeadlineAction(
+        FRESH,
+        formOf({ assignmentId: ASSIGNMENT, deadline: '2026-12-15' }),
+      ),
+    ).toEqual({ saved: 1 });
+    expect(server.setDeadline).toHaveBeenCalledWith(DB, {
+      coachId: 'jonas',
+      assignmentId: ASSIGNMENT,
+      deadline: null,
+    });
+    expect(server.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses a malformed id as not found', async () => {
+    expect(
+      await clearDeadlineAction(FRESH, formOf({ assignmentId: 'x' })),
+    ).toEqual({ refusal: 'assignment.notFound' });
+    expect(server.setDeadline).not.toHaveBeenCalled();
+  });
+
+  it('passes on the database’s refusal', async () => {
+    server.setDeadline.mockResolvedValue({
+      ok: false,
+      refusal: { reason: 'assignment.notCoach' },
+    });
+    expect(
+      await clearDeadlineAction(FRESH, formOf({ assignmentId: ASSIGNMENT })),
+    ).toEqual({ refusal: 'assignment.notCoach' });
   });
 });

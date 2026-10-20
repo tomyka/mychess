@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useActionState, useId, type JSX } from 'react';
+import { useId, type JSX } from 'react';
 import type { HomeForkOffer } from '../server/assignment-pages';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from './buttons';
 import {
@@ -11,6 +11,7 @@ import {
 } from './fork-offer-actions';
 import { SECTION, SECTION_TITLE } from './nustatymai/styles';
 import { RefusalLine } from './treneris/refusal-line';
+import { useLatestAction } from './use-latest-action';
 
 const INITIAL: ForkOfferState = {};
 
@@ -49,12 +50,7 @@ function AnswerForm({
 function OfferItem({ offer }: { readonly offer: HomeForkOffer }): JSX.Element {
   const t = useTranslations();
   const nameId = useId();
-  const [kept, keep, keeping] = useActionState(acceptForkOfferAction, INITIAL);
-  const [declined, decline, declining] = useActionState(
-    declineForkOfferAction,
-    INITIAL,
-  );
-  const pending = keeping || declining;
+  const { state, pending, using } = useLatestAction(INITIAL);
   return (
     <li className="flex flex-col gap-2">
       <h3 id={nameId} className="font-semibold">
@@ -67,7 +63,7 @@ function OfferItem({ offer }: { readonly offer: HomeForkOffer }): JSX.Element {
       <div className="flex flex-wrap gap-2">
         <AnswerForm
           offerId={offer.id}
-          action={keep}
+          action={using(acceptForkOfferAction)}
           pending={pending}
           describedBy={nameId}
           className={PRIMARY_BUTTON}
@@ -75,14 +71,14 @@ function OfferItem({ offer }: { readonly offer: HomeForkOffer }): JSX.Element {
         />
         <AnswerForm
           offerId={offer.id}
-          action={decline}
+          action={using(declineForkOfferAction)}
           pending={pending}
           describedBy={nameId}
           className={SECONDARY_BUTTON}
           label={t('forkOffer.decline')}
         />
       </div>
-      <RefusalLine state={kept.refusal === undefined ? declined : kept} />
+      <RefusalLine state={state} />
     </li>
   );
 }

@@ -18,6 +18,7 @@ import { unlinkCoachAction } from '../../src/app/nustatymai/coaching-actions';
 import * as assignActions from '../../src/app/repertuarai/[id]/assign-actions';
 import {
   assignAction,
+  clearDeadlineAction,
   setDeadlineAction,
   unassignAction,
 } from '../../src/app/repertuarai/[id]/assign-actions';
@@ -296,6 +297,8 @@ const ASSIGN_ACTIONS: Readonly<
       {},
       formOf({ assignmentId: ids.assignment, deadline: '2026-12-31' }),
     ),
+  clearDeadlineAction: (ids) =>
+    clearDeadlineAction({}, formOf({ assignmentId: ids.assignment })),
 };
 
 // Every 'use server' module under src that calls requireCoach, by its path

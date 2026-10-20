@@ -3,10 +3,10 @@ import type { JSX } from 'react';
 
 /** The flags an assignment can show as badges (R-46, R-51, R-128, R-133). */
 export interface BadgeFlags {
-  readonly overdue?: boolean;
-  readonly paused?: boolean;
-  readonly forked?: boolean;
-  readonly updated?: boolean;
+  readonly overdue: boolean;
+  readonly paused: boolean;
+  readonly forked: boolean;
+  readonly updated: boolean;
 }
 
 /** Each badge in the order it shows, with its colours. */
@@ -27,7 +27,7 @@ export function AssignmentBadges({
   readonly flags: BadgeFlags;
 }): JSX.Element | null {
   const t = useTranslations('assignment.badge');
-  const on = BADGES.filter(([flag]) => flags[flag] === true);
+  const on = BADGES.filter(([flag]) => flags[flag]);
   if (on.length === 0) return null;
   return (
     <ul className="flex flex-wrap gap-1">

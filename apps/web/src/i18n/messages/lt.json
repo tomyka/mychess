@@ -538,7 +538,7 @@
       "forked": "Pasidarė asmeninę kopiją",
       "updated": "Atnaujinta"
     },
-    "deleteHolders": "{count, plural, one {Šį repertuarą turi # žaidėjas; jis galės pasilikti asmeninę kopiją 30 dienų.} few {Šį repertuarą turi # žaidėjai; jie galės pasilikti asmeninę kopiją 30 dienų.} other {Šį repertuarą turi # žaidėjų; jie galės pasilikti asmeninę kopiją 30 dienų.}}",
+    "deleteHolders": "{count, plural, one {Šį repertuarą turi # žaidėjas; jis galės pasilikti asmeninę kopiją {days, plural, one {# dieną} few {# dienas} other {# dienų}}.} few {Šį repertuarą turi # žaidėjai; jie galės pasilikti asmeninę kopiją {days, plural, one {# dieną} few {# dienas} other {# dienų}}.} other {Šį repertuarą turi # žaidėjų; jie galės pasilikti asmeninę kopiją {days, plural, one {# dieną} few {# dienas} other {# dienų}}.}}",
     "panel": {
       "title": "Priskirti žaidėjams",
       "intro": "Priskirtas repertuaras pasiekia žaidėjus kartu su visais vėlesniais jūsų pakeitimais.",
@@ -562,7 +562,7 @@
       "clearDeadline": "Panaikinti terminą",
       "deadlineSaved": "Terminas išsaugotas.",
       "unassign": "Atšaukti priskyrimą",
-      "unassignQuestion": "Atšaukti „{name}“ priskyrimą? Repertuaras dings iš žaidėjų sąrašo, o jie 30 dienų galės pasilikti asmeninę kopiją. Kam jis priskirtas ir kitu būdu, tie jį pasiliks.",
+      "unassignQuestion": "Atšaukti „{name}“ priskyrimą? Repertuaras dings iš žaidėjų sąrašo, o jie {days, plural, one {# dieną} few {# dienas} other {# dienų}} galės pasilikti asmeninę kopiją. Kam jis priskirtas ir kitu būdu, tie jį pasiliks.",
       "unassignConfirm": "Atšaukti priskyrimą",
       "unassignCancel": "Palikti"
     },

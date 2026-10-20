@@ -133,7 +133,7 @@ describe('parseAssignmentRef', () => {
 });
 
 describe('parseDeadlineForm', () => {
-  it('reads a new deadline, or an empty one as cleared', () => {
+  it('reads a new deadline', () => {
     expect(
       parseDeadlineForm(
         formOf({ assignmentId: ASSIGNMENT, deadline: '2026-12-01' }),
@@ -142,11 +142,18 @@ describe('parseDeadlineForm', () => {
       ok: true,
       value: { assignmentId: ASSIGNMENT, deadline: '2026-12-01' },
     });
+  });
+
+  it('refuses an empty date: clearing is its own action', () => {
     expect(
       parseDeadlineForm(formOf({ assignmentId: ASSIGNMENT, deadline: '' })),
     ).toEqual({
-      ok: true,
-      value: { assignmentId: ASSIGNMENT, deadline: null },
+      ok: false,
+      refusal: { reason: 'assignment.deadlineInvalid' },
+    });
+    expect(parseDeadlineForm(formOf({ assignmentId: ASSIGNMENT }))).toEqual({
+      ok: false,
+      refusal: { reason: 'assignment.deadlineInvalid' },
     });
   });
 

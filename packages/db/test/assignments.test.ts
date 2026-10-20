@@ -668,6 +668,30 @@ describe('unassign', () => {
     expect(await assignRows()).toHaveLength(1);
     expect(await offersOf(db)).toEqual([]);
   });
+
+  it.each([
+    ['with Coach mode off', 'c'],
+    ['an unknown coach', 'nobody'],
+  ] as const)(
+    'refuses %s as not a coach and changes nothing (R-113)',
+    async (_, coachId) => {
+      await assignTo({ groupId: g });
+      const id = await assignmentId({ groupId: g });
+      await query(`update accounts set coach_since = null where id = 'c'`);
+      expect(await unassign(db, { coachId, assignmentId: id }, LATER)).toEqual(
+        refused('assignment.notCoach'),
+      );
+      expect(await assignRows()).toHaveLength(1);
+      expect(await offersOf(db)).toEqual([]);
+    },
+  );
+
+  it('refuses a malformed id with Coach mode off as not a coach', async () => {
+    await query(`update accounts set coach_since = null where id = 'c'`);
+    expect(
+      await unassign(db, { coachId: 'c', assignmentId: 'not-a-uuid' }, LATER),
+    ).toEqual(refused('assignment.notCoach'));
+  });
 });
 
 describe('setDeadline', () => {

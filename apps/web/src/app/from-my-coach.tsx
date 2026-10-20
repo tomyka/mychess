@@ -30,7 +30,14 @@ function AssignmentItem({
       {deadline === null ? null : (
         <span>{t('deadlineOn', { date: date(deadline) })}</span>
       )}
-      <AssignmentBadges flags={assignment} />
+      <AssignmentBadges
+        flags={{
+          overdue: assignment.overdue,
+          paused: assignment.paused,
+          forked: false,
+          updated: assignment.updated,
+        }}
+      />
     </li>
   );
 }

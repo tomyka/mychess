@@ -125,6 +125,20 @@ describe('ForkOffers (R-44, R-130)', () => {
     expect(await screen.findByText(f.notOpen)).toBeDefined();
   });
 
+  it('shows the latest answer, not an earlier refusal', async () => {
+    server.accept.mockResolvedValue({ refusal: 'forkOffer.notOpen' });
+    renderOffers([LONDON]);
+    fireEvent.click(screen.getByRole('button', { name: f.keep }));
+    expect(await screen.findByText(f.notOpen)).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: f.decline }));
+    await waitFor(() => {
+      expect(server.decline).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(screen.queryByText(f.notOpen)).toBeNull();
+    });
+  });
+
   it('is not shown without offers', () => {
     renderOffers([]);
     expect(document.body.textContent).toBe('');

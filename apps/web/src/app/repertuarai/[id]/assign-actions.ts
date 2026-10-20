@@ -65,7 +65,7 @@ export async function unassignAction(
   return settled(previous, ended);
 }
 
-/** Moves or (with an empty date) clears one of the coach's own deadlines. */
+/** Moves one of the coach's own deadlines; an empty date is refused. */
 export async function setDeadlineAction(
   previous: AssignmentActionState,
   form: FormData,
@@ -78,4 +78,20 @@ export async function setDeadlineAction(
     ...request.value,
   });
   return settled(previous, moved);
+}
+
+/** Clears one of the coach's own deadlines (R-51). */
+export async function clearDeadlineAction(
+  previous: AssignmentActionState,
+  form: FormData,
+): Promise<AssignmentActionState> {
+  const coach = await requireCoach();
+  const request = parseAssignmentRef(form);
+  if (!request.ok) return { refusal: request.refusal.reason };
+  const cleared = await setDeadline(getDb(), {
+    coachId: coach.id,
+    ...request.value,
+    deadline: null,
+  });
+  return settled(previous, cleared);
 }

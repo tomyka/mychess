@@ -1,5 +1,6 @@
 'use client';
 
+import { FORK_OFFER_DAYS } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import {
@@ -133,7 +134,12 @@ function DeleteConfirm({
       <input type="hidden" name="repertoireId" value={id} />
       <p>{t('repertoires.header.deleteQuestion', { name })}</p>
       {assignedPlayers === 0 ? null : (
-        <p>{t('assignment.deleteHolders', { count: assignedPlayers })}</p>
+        <p>
+          {t('assignment.deleteHolders', {
+            count: assignedPlayers,
+            days: FORK_OFFER_DAYS,
+          })}
+        </p>
       )}
       <div className="flex flex-wrap gap-2">
         <button type="submit" disabled={pending} className={DANGER_BUTTON}>

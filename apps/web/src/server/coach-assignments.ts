@@ -8,25 +8,26 @@ import {
   coachPlayers,
   type CoachAssignment,
 } from '@mychess/db';
-import { isCoach } from '@mychess/domain';
+import { assignableTargets, isCoach } from '@mychess/domain';
 import { getDb } from './db';
 import { requireOnboarded } from './session';
 
-export type { CoachAssignment, CoachAssignmentPlayer } from '@mychess/db';
-
 /** A linked player the coach can assign to. */
-export interface AssignablePlayer {
+interface AssignablePlayer {
   readonly id: string;
   readonly displayName: string;
 }
 
 /** One of the coach's groups they can assign to. */
-export interface AssignableGroup {
+interface AssignableGroup {
   readonly id: string;
   readonly name: string;
 }
 
-/** The assign panel: whom it can go to, and whom it went to. */
+/**
+ * The assign panel: whom it can still go to (assignableTargets: those it
+ * is not yet assigned to), and whom it went to.
+ */
 export interface AssignPanelData {
   readonly players: readonly AssignablePlayer[];
   readonly groups: readonly AssignableGroup[];
@@ -48,11 +49,18 @@ async function panelOf(
   const db = getDb();
   const players = await coachPlayers(db, coachId);
   const groups = await coachGroups(db, coachId);
-  return {
-    players: players.map(({ id, displayName }) => ({ id, displayName })),
-    groups: groups.map(({ id, name }) => ({ id, name })),
-    assignments: await coachAssignments(db, coachId, repertoireId, new Date()),
-  };
+  const assignments = await coachAssignments(
+    db,
+    coachId,
+    repertoireId,
+    new Date(),
+  );
+  const offer = assignableTargets(
+    players.map(({ id, displayName }) => ({ id, displayName })),
+    groups.map(({ id, name }) => ({ id, name })),
+    assignments.map((assignment) => assignment.target),
+  );
+  return { ...offer, assignments };
 }
 
 /**

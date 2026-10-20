@@ -422,4 +422,26 @@ describe('deleteRepertoire of an assigned repertoire (R-131)', () => {
     }
     expect(await loadRepertoire(db, id, 'c')).toBeUndefined();
   });
+
+  it('still unassigns and deletes it with Coach mode off', async () => {
+    await seedCoach(db, 'c', 'c@example.lt');
+    await seedPlayer(db, 'p', 'p@example.lt');
+    await seedLink(db, 'c', 'p');
+    const id = await london('c');
+    await seedAssignment(db, {
+      coachId: 'c',
+      repertoireId: id,
+      target: { playerId: 'p' },
+      now: T0,
+    });
+    await client.query(`update accounts set coach_since = null where id = 'c'`);
+    expect(await deleteRepertoire(db, id, 'c', T1)).toEqual({
+      ok: true,
+      value: undefined,
+    });
+    expect(await offersOf(db)).toEqual([
+      { playerId: 'p', repertoireId: null, reason: 'deleted', closedAt: null },
+    ]);
+    expect(await loadRepertoire(db, id, 'c')).toBeUndefined();
+  });
 });

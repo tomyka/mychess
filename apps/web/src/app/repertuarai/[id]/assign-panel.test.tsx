@@ -8,10 +8,8 @@ import {
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../i18n/locales';
-import type {
-  AssignPanelData,
-  CoachAssignment,
-} from '../../../server/coach-assignments';
+import type { CoachAssignment } from '@mychess/db';
+import type { AssignPanelData } from '../../../server/coach-assignments';
 import type { AssignmentActionState } from './assign-actions';
 import { AssignPanel } from './assign-panel';
 
@@ -24,12 +22,14 @@ const server = vi.hoisted(() => ({
   assign: vi.fn<Action>(),
   unassign: vi.fn<Action>(),
   deadline: vi.fn<Action>(),
+  clear: vi.fn<Action>(),
 }));
 
 vi.mock('./assign-actions', () => ({
   assignAction: server.assign,
   unassignAction: server.unassign,
   setDeadlineAction: server.deadline,
+  clearDeadlineAction: server.clear,
 }));
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
@@ -120,6 +120,7 @@ beforeEach(() => {
   server.assign.mockReset().mockResolvedValue({ saved: 1 });
   server.unassign.mockReset().mockResolvedValue({ saved: 1 });
   server.deadline.mockReset().mockResolvedValue({ saved: 1 });
+  server.clear.mockReset().mockResolvedValue({ saved: 1 });
 });
 
 describe('AssignPanel: assigning (R-15, R-16)', () => {
@@ -186,8 +187,12 @@ describe('AssignPanel: assigning (R-15, R-16)', () => {
     expect(screen.queryByText(p.assigned)).toBeNull();
   });
 
-  it('leaves out the players and groups it is already assigned to', () => {
-    renderPanel({ ...PEOPLE, assignments: [TO_GROUP, TO_ROKAS] });
+  it('offers what the loader left assignable, leaving out an empty kind', () => {
+    renderPanel({
+      players: [{ id: 'egle', displayName: 'Eglė' }],
+      groups: [],
+      assignments: [TO_GROUP, TO_ROKAS],
+    });
     expect(options()).toEqual([p.choose, 'Eglė']);
     expect(screen.queryByRole('group', { name: p.groups })).toBeNull();
   });
@@ -199,11 +204,7 @@ describe('AssignPanel: assigning (R-15, R-16)', () => {
   });
 
   it('says when it is already everyone’s', () => {
-    renderPanel({
-      players: [PEOPLE.players[0] ?? { id: '', displayName: '' }],
-      groups: PEOPLE.groups,
-      assignments: [TO_GROUP, TO_ROKAS],
-    });
+    renderPanel({ players: [], groups: [], assignments: [TO_GROUP, TO_ROKAS] });
     expect(screen.getByText(p.everyone)).toBeDefined();
     expect(screen.queryByRole('button', { name: p.assign })).toBeNull();
   });
@@ -294,11 +295,12 @@ describe('AssignPanel: the assignments (R-46, R-51, R-128, R-132)', () => {
       }),
     );
     await waitFor(() => {
-      expect(sent(server.deadline)).toEqual({
-        assignmentId: 'a-group',
-        deadline: '',
-      });
+      expect(sent(server.clear)).toEqual({ assignmentId: 'a-group' });
     });
+    expect(server.deadline).not.toHaveBeenCalled();
+    expect(
+      await within(row('Šeštadienio grupė')).findByText(p.deadlineSaved),
+    ).toBeDefined();
   });
 
   it('shows a deadline refusal in its row', async () => {
@@ -321,7 +323,7 @@ describe('AssignPanel: the assignments (R-46, R-51, R-128, R-132)', () => {
     fireEvent.click(within(group).getByRole('button', { name: p.unassign }));
     expect(
       within(group).getByText(
-        p.unassignQuestion.replace('{name}', 'Šeštadienio grupė'),
+        'Atšaukti „Šeštadienio grupė“ priskyrimą? Repertuaras dings iš žaidėjų sąrašo, o jie 30 dienų galės pasilikti asmeninę kopiją. Kam jis priskirtas ir kitu būdu, tie jį pasiliks.',
       ),
     ).toBeDefined();
     expect(server.unassign).not.toHaveBeenCalled();

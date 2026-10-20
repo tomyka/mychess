@@ -29,6 +29,7 @@ import {
 import AssignedRepertoirePage from '../../src/app/repertuarai/priskirti/[id]/page';
 import {
   assignAction,
+  clearDeadlineAction,
   setDeadlineAction,
   unassignAction,
 } from '../../src/app/repertuarai/[id]/assign-actions';
@@ -812,7 +813,14 @@ describe('assignAction', () => {
   });
 });
 
-describe('unassignAction and setDeadlineAction', () => {
+/** The actions on one existing assignment, each taking its form. */
+const ASSIGNMENT_ACTS = {
+  unassign: (form: FormData) => unassignAction({}, form),
+  deadline: (form: FormData) => setDeadlineAction({}, form),
+  clear: (form: FormData) => clearDeadlineAction({}, form),
+} as const;
+
+describe('unassignAction, setDeadlineAction and clearDeadlineAction', () => {
   it('end and move the coach’s own assignment', async () => {
     const { rimantas, rokas, london } = await cast();
     const assignment = await assignmentId(london, rokas.id);
@@ -837,30 +845,78 @@ describe('unassignAction and setDeadlineAction', () => {
     expect(await assignmentRows()).toEqual(CAST_ASSIGNMENTS.slice(1));
   });
 
+  it('clearDeadlineAction clears only the deadline of the assignment named', async () => {
+    const { rimantas, rokas, gabija, london, taimanov } = await cast();
+    const rokasLondon = await assignmentId(london, rokas.id);
+    const gabijaTaimanov = await assignmentId(taimanov, gabija.id);
+    actAs(rimantas);
+    for (const id of [rokasLondon, gabijaTaimanov])
+      await outcomeOf(
+        setDeadlineAction(
+          {},
+          formOf({ assignmentId: id, deadline: '2026-12-31' }),
+        ),
+      );
+    expect(
+      await outcomeOf(
+        clearDeadlineAction({}, formOf({ assignmentId: rokasLondon })),
+      ),
+    ).toEqual({ saved: 1 });
+    expect(await assignmentRows()).toEqual([
+      CAST_ASSIGNMENTS[0],
+      { ...CAST_ASSIGNMENTS[1], deadline: '2026-12-31' },
+      CAST_ASSIGNMENTS[2],
+    ]);
+  });
+
+  it('setDeadlineAction refuses an empty date (assignment.deadlineInvalid) and changes nothing', async () => {
+    const people = await cast();
+    const { dovydas } = await secondCoach();
+    const assignment = await assignmentId(people.london, people.rokas.id);
+    const before = await state();
+    for (const who of [people.rimantas, dovydas]) {
+      actAs(who);
+      for (const deadline of ['', 'rytoj', '2026-02-30'])
+        expect(
+          await outcomeOf(
+            setDeadlineAction(
+              {},
+              formOf({ assignmentId: assignment, deadline }),
+            ),
+          ),
+        ).toEqual({ refusal: 'assignment.deadlineInvalid' });
+    }
+    expect(await state()).toEqual(before);
+  });
+
   it.each([
     ['unassignAction', 'unassign'],
     ['setDeadlineAction', 'deadline'],
+    ['clearDeadlineAction', 'clear'],
   ] as const)(
     '%s with another coach’s assignment id changes nothing, coachId or not',
     async (_action, which) => {
       const people = await cast();
       const { dovydas } = await secondCoach();
       const assignment = await assignmentId(people.london, people.rokas.id);
+      actAs(people.rimantas);
+      await outcomeOf(
+        setDeadlineAction(
+          {},
+          formOf({ assignmentId: assignment, deadline: '2026-12-31' }),
+        ),
+      );
       const before = await state();
       actAs(dovydas);
       for (const extra of [{}, { coachId: people.rimantas.id }]) {
         const form = formOf({
           assignmentId: assignment,
-          deadline: '2026-12-31',
+          deadline: '2027-01-31',
           ...extra,
         });
-        expect(
-          await outcomeOf(
-            which === 'unassign'
-              ? unassignAction({}, form)
-              : setDeadlineAction({}, form),
-          ),
-        ).toEqual({ refusal: 'assignment.notFound' });
+        expect(await outcomeOf(ASSIGNMENT_ACTS[which](form))).toEqual({
+          refusal: 'assignment.notFound',
+        });
       }
       expect(await state()).toEqual(before);
     },
@@ -871,13 +927,11 @@ describe('unassignAction and setDeadlineAction', () => {
     const before = await state();
     actAs(rimantas);
     for (const id of ['nėra', '', randomUUID()]) {
-      const form = formOf({ assignmentId: id, deadline: '' });
-      expect(await outcomeOf(unassignAction({}, form))).toEqual({
-        refusal: 'assignment.notFound',
-      });
-      expect(await outcomeOf(setDeadlineAction({}, form))).toEqual({
-        refusal: 'assignment.notFound',
-      });
+      const form = formOf({ assignmentId: id, deadline: '2026-12-31' });
+      for (const act of Object.values(ASSIGNMENT_ACTS))
+        expect(await outcomeOf(act(form))).toEqual({
+          refusal: 'assignment.notFound',
+        });
     }
     expect(await state()).toEqual(before);
   });
@@ -897,6 +951,7 @@ async function everyAssignAction(
         {},
         formOf({ assignmentId: assignment, deadline: '2026-12-31' }),
       ),
+    () => clearDeadlineAction({}, formOf({ assignmentId: assignment })),
   ];
 }
 
@@ -928,6 +983,8 @@ describe('the assign actions without Coach mode or signed out', () => {
           {},
           formOf({ assignmentId: dovydasAssignment, deadline: '2026-12-31' }),
         ),
+      () =>
+        clearDeadlineAction({}, formOf({ assignmentId: dovydasAssignment })),
     ];
     for (const act of acts)
       expect(await outcomeOf(act())).toEqual({ redirectedTo: '/nustatymai' });

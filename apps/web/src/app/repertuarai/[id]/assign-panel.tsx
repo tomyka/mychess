@@ -1,15 +1,11 @@
 'use client';
 
+import type { CoachAssignment, CoachAssignmentPlayer } from '@mychess/db';
+import { FORK_OFFER_DAYS } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX } from 'react';
 import { targetField } from '../../../lib/assign-target';
-import type {
-  AssignableGroup,
-  AssignablePlayer,
-  AssignPanelData,
-  CoachAssignment,
-  CoachAssignmentPlayer,
-} from '../../../server/coach-assignments';
+import type { AssignPanelData } from '../../../server/coach-assignments';
 import { AssignmentBadges } from '../../assignment-badges';
 import { SECONDARY_BUTTON } from '../../buttons';
 import { ConfirmedAction } from '../../confirmed-action';
@@ -18,8 +14,10 @@ import { StatusLine } from '../../status-line';
 import { submitByHand } from '../../submit-by-hand';
 import { RefusalLine } from '../../treneris/refusal-line';
 import { useDeadline } from '../../use-deadline';
+import { useLatestAction } from '../../use-latest-action';
 import {
   assignAction,
+  clearDeadlineAction,
   setDeadlineAction,
   unassignAction,
   type AssignmentActionState,
@@ -41,23 +39,16 @@ function useOutcome(
   return { text: state.saved === undefined ? null : saved, tone: 'success' };
 }
 
-/** Whom the repertoire is not yet assigned to: those the picker offers. */
-function candidates(data: AssignPanelData): {
-  players: readonly AssignablePlayer[];
-  groups: readonly AssignableGroup[];
-} {
-  const taken = new Set(
-    data.assignments.map((a) => targetField(a.target.kind, a.target.id)),
-  );
-  return {
-    players: data.players.filter(
-      (player) => !taken.has(targetField('player', player.id)),
-    ),
-    groups: data.groups.filter(
-      (group) => !taken.has(targetField('group', group.id)),
-    ),
-  };
-}
+/** Whom the picker offers: those it is not yet assigned to (the loader's). */
+type Offer = Pick<AssignPanelData, 'players' | 'groups'>;
+
+/** The badges a coach sees on one player (R-46, R-51, R-128). */
+const coachBadges = ({ overdue, paused, forked }: CoachAssignmentPlayer) => ({
+  overdue,
+  paused,
+  forked,
+  updated: false,
+});
 
 /** The picker: the players, then the groups, each under its label. */
 function TargetSelect({
@@ -65,7 +56,7 @@ function TargetSelect({
   players,
   groups,
   invalid,
-}: ReturnType<typeof candidates> & {
+}: Offer & {
   readonly id: string;
   readonly invalid: boolean;
 }): JSX.Element {
@@ -107,7 +98,7 @@ function AssignForm({
   offer,
 }: {
   readonly repertoireId: string;
-  readonly offer: ReturnType<typeof candidates>;
+  readonly offer: Offer;
 }): JSX.Element {
   const t = useTranslations('assignment.panel');
   const targetId = useId();
@@ -158,12 +149,14 @@ function AssignNew({
   readonly data: AssignPanelData;
 }): JSX.Element {
   const t = useTranslations('assignment.panel');
-  const offer = candidates(data);
-  if (data.players.length + data.groups.length === 0)
-    return <p className="text-fg-muted">{t('nobody')}</p>;
-  if (offer.players.length + offer.groups.length === 0)
-    return <p className="text-fg-muted">{t('everyone')}</p>;
-  return <AssignForm repertoireId={repertoireId} offer={offer} />;
+  if (data.players.length + data.groups.length > 0)
+    return <AssignForm repertoireId={repertoireId} offer={data} />;
+  // Assigned to someone and no one left: it is everyone's already.
+  return (
+    <p className="text-fg-muted">
+      {data.assignments.length === 0 ? t('nobody') : t('everyone')}
+    </p>
+  );
 }
 
 /** A row's own deadline, or that it has none. */
@@ -205,7 +198,7 @@ function GroupPlayer({
           {t('playerDeadline', { date: date(own) })}
         </span>
       )}
-      <AssignmentBadges flags={player} />
+      <AssignmentBadges flags={coachBadges(player)} />
     </li>
   );
 }
@@ -219,7 +212,9 @@ function Reached({
   const t = useTranslations('assignment.panel');
   if (assignment.target.kind === 'player') {
     const [player] = assignment.players;
-    return player === undefined ? null : <AssignmentBadges flags={player} />;
+    return player === undefined ? null : (
+      <AssignmentBadges flags={coachBadges(player)} />
+    );
   }
   if (assignment.players.length === 0)
     return <p className="text-sm text-fg-muted">{t('emptyGroup')}</p>;
@@ -246,14 +241,14 @@ function DeadlineForms({
 }): JSX.Element {
   const t = useTranslations('assignment.panel');
   const dateId = useId();
-  const [state, action, pending] = useActionState(setDeadlineAction, INITIAL);
+  const { state, pending, using } = useLatestAction(INITIAL);
   const outcome = useOutcome(state, t('deadlineSaved'));
   return (
     <div className="flex flex-col gap-2">
       <form
         key={assignment.deadline ?? ''}
         noValidate
-        onSubmit={submitByHand(action)}
+        onSubmit={submitByHand(using(setDeadlineAction))}
         className="flex flex-wrap items-end gap-2"
       >
         <input type="hidden" name="assignmentId" value={assignment.id} />
@@ -279,9 +274,8 @@ function DeadlineForms({
         </button>
       </form>
       {assignment.deadline === null ? null : (
-        <form onSubmit={submitByHand(action)}>
+        <form onSubmit={submitByHand(using(clearDeadlineAction))}>
           <input type="hidden" name="assignmentId" value={assignment.id} />
-          <input type="hidden" name="deadline" value="" />
           <button
             type="submit"
             disabled={pending}
@@ -313,7 +307,10 @@ function Unassign({
         action={action}
         fields={{ assignmentId: assignment.id }}
         label={t('unassign')}
-        question={t('unassignQuestion', { name: assignment.target.name })}
+        question={t('unassignQuestion', {
+          name: assignment.target.name,
+          days: FORK_OFFER_DAYS,
+        })}
         confirm={t('unassignConfirm')}
         cancel={t('unassignCancel')}
         describedBy={describedBy}

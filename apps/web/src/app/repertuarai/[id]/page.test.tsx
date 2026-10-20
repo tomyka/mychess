@@ -49,6 +49,7 @@ vi.mock('./assign-actions', () => ({
   assignAction: vi.fn(),
   unassignAction: vi.fn(),
   setDeadlineAction: vi.fn(),
+  clearDeadlineAction: vi.fn(),
 }));
 
 const NOT_COACHING: CoachAssignData = { assignedPlayers: 0, panel: null };

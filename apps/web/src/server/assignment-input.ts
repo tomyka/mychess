@@ -37,8 +37,9 @@ export const assignInputSchema = z.object({
 
 export const assignmentIdSchema = z.object({ assignmentId: z.uuid() });
 
+/** A new deadline; an empty one is refused, as clearing is its own action. */
 export const deadlineInputSchema = assignmentIdSchema.extend({
-  deadline: optionalDeadline,
+  deadline: deadlineSchema,
 });
 
 type Parsed<T> = Result<T, { readonly reason: AssignmentInputKey }>;
@@ -88,7 +89,7 @@ export function parseAssignForm(form: FormData): Parsed<AssignInput> {
   });
 }
 
-/** An unassign form: which assignment. */
+/** An unassign or clear-deadline form: which assignment. */
 export function parseAssignmentRef(
   form: FormData,
 ): Parsed<z.infer<typeof assignmentIdSchema>> {
@@ -97,7 +98,7 @@ export function parseAssignmentRef(
   });
 }
 
-/** A deadline form: which assignment and its new deadline (empty clears it). */
+/** A change-deadline form: which assignment and its new deadline. */
 export function parseDeadlineForm(
   form: FormData,
 ): Parsed<z.infer<typeof deadlineInputSchema>> {

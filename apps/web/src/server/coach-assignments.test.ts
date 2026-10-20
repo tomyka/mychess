@@ -66,8 +66,9 @@ describe('coachAssignData', () => {
   it('reads the session coach’s assignments, players and groups', async () => {
     expect(await coachAssignData(ID)).toEqual({
       assignedPlayers: 3,
+      // Rokas has it already: only the group is offered.
       panel: {
-        players: [{ id: 'rokas', displayName: 'Rokas' }],
+        players: [],
         groups: [{ id: GROUP, name: 'Šeštadienio grupė' }],
         assignments: [ASSIGNMENT],
       },
@@ -76,6 +77,26 @@ describe('coachAssignData', () => {
     expect(server.count).toHaveBeenCalledWith(DB, 'jonas', ID);
     expect(server.players).toHaveBeenCalledWith(DB, 'jonas');
     expect(server.groups).toHaveBeenCalledWith(DB, 'jonas');
+  });
+
+  it('offers only the players and groups it is not yet assigned to', async () => {
+    server.players.mockResolvedValue([
+      { id: 'rokas', displayName: 'Rokas', linkedAt: NOW, groups: [] },
+      { id: 'egle', displayName: 'Eglė', linkedAt: NOW, groups: [] },
+    ]);
+    server.assignments.mockResolvedValue([
+      ASSIGNMENT,
+      {
+        id: 'a-2',
+        target: { kind: 'group', id: GROUP, name: 'Šeštadienio grupė' },
+        deadline: null,
+        players: [],
+      },
+    ]);
+    const data = await coachAssignData(ID);
+    expect(data.panel?.players).toEqual([{ id: 'egle', displayName: 'Eglė' }]);
+    expect(data.panel?.groups).toEqual([]);
+    expect(data.panel?.assignments).toHaveLength(2);
   });
 
   it('has no panel with Coach mode off, but still counts the players', async () => {

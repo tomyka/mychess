@@ -221,36 +221,66 @@ export interface AssignmentRef {
   readonly assignmentId: string;
 }
 
+type TargetRow = z.infer<typeof targetRowSchema>;
+
 /**
- * Ends the coach's own assignment (R-130): each player who no longer has
- * the repertoire through any assignment gets a 30-day fork offer. Another
- * coach's assignment is not found and stays.
+ * The coach's own assignment, its row held (FOR UPDATE) for the rest of
+ * `tx`; another coach's assignment or a malformed id is not found.
+ */
+async function holdOwnAssignment(
+  tx: Tx,
+  { coachId, assignmentId }: AssignmentRef,
+): Promise<TargetRow | undefined> {
+  if (!isUuid(assignmentId)) return undefined;
+  const [row] = z.array(targetRowSchema).parse(
+    await tx
+      .select({
+        id: assignments.id,
+        playerId: assignments.playerId,
+        groupId: assignments.groupId,
+      })
+      .from(assignments)
+      .where(
+        and(eq(assignments.id, assignmentId), eq(assignments.coachId, coachId)),
+      )
+      .for('update'),
+  );
+  return row;
+}
+
+/**
+ * canChangeAssignment on the facts read under the coach row's lock (R-113):
+ * the coach's own assignment, held, while in Coach mode.
+ */
+async function decideChange(
+  tx: Tx,
+  ref: AssignmentRef,
+): Promise<Result<TargetRow, AssignmentRefusal>> {
+  const coach = await lockAccountById(tx, ref.coachId);
+  const row = await holdOwnAssignment(tx, ref);
+  const allowed = canChangeAssignment({
+    coachSince: coach?.coachSince ?? null,
+    found: row !== undefined,
+  });
+  if (!allowed.ok) return allowed;
+  return row === undefined ? NOT_FOUND : { ok: true, value: row };
+}
+
+/**
+ * Ends the coach's own assignment (R-130) while in Coach mode (R-113);
+ * canChangeAssignment decides under the coach row's lock. Each player who
+ * no longer has the repertoire through any assignment gets a 30-day fork
+ * offer. Another coach's assignment is not found and stays.
  */
 export function unassign(
   db: Db,
   ref: AssignmentRef,
   now: Date,
 ): Promise<AssignmentResult> {
-  if (!isUuid(ref.assignmentId)) return Promise.resolve(NOT_FOUND);
   return db.transaction(async (tx) => {
-    await lockAccountById(tx, ref.coachId);
-    const [row] = z.array(targetRowSchema).parse(
-      await tx
-        .select({
-          id: assignments.id,
-          playerId: assignments.playerId,
-          groupId: assignments.groupId,
-        })
-        .from(assignments)
-        .where(
-          and(
-            eq(assignments.id, ref.assignmentId),
-            eq(assignments.coachId, ref.coachId),
-          ),
-        )
-        .for('update'),
-    );
-    if (row === undefined) return NOT_FOUND;
+    const decided = await decideChange(tx, ref);
+    if (!decided.ok) return decided;
+    const row = decided.value;
     const players = await playersReached(tx, [row]);
     await changeAssignments(
       tx,
@@ -306,22 +336,6 @@ export interface DeadlineChange extends AssignmentRef {
   readonly deadline: string | null;
 }
 
-/** Is it the coach's own assignment? Holds its row for the rest of `tx`. */
-async function holdOwnAssignment(
-  tx: Tx,
-  { coachId, assignmentId }: AssignmentRef,
-): Promise<boolean> {
-  if (!isUuid(assignmentId)) return false;
-  const rows = await tx
-    .select({ id: assignments.id })
-    .from(assignments)
-    .where(
-      and(eq(assignments.id, assignmentId), eq(assignments.coachId, coachId)),
-    )
-    .for('update');
-  return rows.length > 0;
-}
-
 /**
  * Extends, moves or clears the deadline of the coach's own assignment
  * (R-51) while in Coach mode (R-113); canChangeAssignment decides under the
@@ -332,16 +346,12 @@ export function setDeadline(
   change: DeadlineChange,
 ): Promise<AssignmentResult> {
   return db.transaction(async (tx) => {
-    const coach = await lockAccountById(tx, change.coachId);
-    const allowed = canChangeAssignment({
-      coachSince: coach?.coachSince ?? null,
-      found: await holdOwnAssignment(tx, change),
-    });
-    if (!allowed.ok) return allowed;
+    const decided = await decideChange(tx, change);
+    if (!decided.ok) return decided;
     await tx
       .update(assignments)
       .set({ deadline: change.deadline })
-      .where(eq(assignments.id, change.assignmentId));
+      .where(eq(assignments.id, decided.value.id));
     return DONE;
   });
 }
