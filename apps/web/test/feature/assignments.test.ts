@@ -2,6 +2,9 @@
 // The assigned page answers 404 to anyone the repertoire is not assigned to
 // now, and the player's actions on it act only for the session account:
 // someone else's ids and forged playerId or coachId fields change nothing.
+// The coach's assign, unassign and deadline actions act only on the session
+// coach's own repertoires, links, groups and assignments; the fork offer
+// answers and home's lists only on the session player's own.
 // Every refusal is checked against the whole assignment state of the
 // database, before and after.
 import { moveKey, START_KEY } from '@mychess/chess';
@@ -9,6 +12,7 @@ import {
   assign,
   leaveGroup,
   setPersonalNote,
+  stopCoaching,
   unassign,
   unlink,
 } from '@mychess/db';
@@ -23,8 +27,20 @@ import {
   setPersonalNoteAction,
 } from '../../src/app/repertuarai/priskirti/[id]/actions';
 import AssignedRepertoirePage from '../../src/app/repertuarai/priskirti/[id]/page';
+import {
+  assignAction,
+  setDeadlineAction,
+  unassignAction,
+} from '../../src/app/repertuarai/[id]/assign-actions';
+import {
+  acceptForkOfferAction,
+  declineForkOfferAction,
+} from '../../src/app/fork-offer-actions';
 import { repertoireRoute } from '../../src/lib/routes';
-import { assignedRepertoireData } from '../../src/server/assignment-pages';
+import {
+  assignedRepertoireData,
+  homeAssignments,
+} from '../../src/server/assignment-pages';
 import { repertoirePageData } from '../../src/server/repertoires';
 import {
   actAs,
@@ -618,5 +634,477 @@ describe('the coach’s comments on their own repertoire (R-102, R-47)', () => {
       notFound: true,
     });
     expect(await state()).toEqual(before);
+  });
+});
+
+/** Dovydas: a second coach, with his own group and London assigned to it. */
+interface SecondCoach {
+  readonly dovydas: Person;
+  /** "Dovydo grupė", with no members. */
+  readonly dovydasGroup: string;
+  /** Dovydas's London, assigned to his group. */
+  readonly dovydasLondon: string;
+  /** That assignment. */
+  readonly dovydasAssignment: string;
+}
+
+async function secondCoach(): Promise<SecondCoach> {
+  const dovydas = await coachPerson(sql, 'dovydas@example.lt', 'Dovydas');
+  const dovydasGroup = await groupOf(dovydas.id, 'Dovydo grupė');
+  const dovydasLondon = await seedRepertoire(testDb(), 'dovydas@example.lt', {
+    pgn: LONDON,
+    side: 'white',
+    name: 'Dovydo Londonas',
+  });
+  await assignTo(dovydas.id, dovydasLondon, {
+    kind: 'group',
+    groupId: dovydasGroup,
+  });
+  const dovydasAssignment = await oneId(
+    'select id from assignments where group_id = $1',
+    [dovydasGroup],
+  );
+  return { dovydas, dovydasGroup, dovydasLondon, dovydasAssignment };
+}
+
+/** The assign panel's form: the repertoire, the picked target, the deadline. */
+const assignForm = (
+  repertoireId: string,
+  target: string,
+  deadline = '',
+  extra: Readonly<Record<string, string>> = {},
+): FormData => formOf({ repertoireId, target, deadline, ...extra });
+
+/** Every assignment by coach, repertoire, target and deadline. */
+const assignmentRows = (): Promise<unknown[]> =>
+  sql.rows(
+    `select c.display_name as coach, r.name as repertoire,
+            coalesce(p.display_name, g.name) as target,
+            s.deadline::text as deadline
+       from assignments s
+       join accounts c on c.id = s.coach_id
+       join repertoires r on r.id = s.repertoire_id
+       left join accounts p on p.id = s.player_id
+       left join groups g on g.id = s.group_id
+      order by 1, 2, 3`,
+  );
+
+/** The assignments the cast starts with. */
+const CAST_ASSIGNMENTS = [
+  {
+    coach: 'Rimantas',
+    repertoire: 'Londono sistema',
+    target: 'Rokas',
+    deadline: null,
+  },
+  {
+    coach: 'Rimantas',
+    repertoire: 'Taimanovas',
+    target: 'Gabija',
+    deadline: null,
+  },
+  {
+    coach: 'Rimantas',
+    repertoire: 'Taimanovas',
+    target: 'Šeštadienio grupė',
+    deadline: null,
+  },
+];
+
+describe('assignAction', () => {
+  it('assigns the coach’s own repertoire to a linked player', async () => {
+    const { rimantas, gabija, london } = await cast();
+    actAs(rimantas);
+    expect(
+      await outcomeOf(
+        assignAction(
+          {},
+          assignForm(london, `player:${gabija.id}`, '2026-12-31'),
+        ),
+      ),
+    ).toEqual({ saved: 1 });
+    expect(await assignmentRows()).toEqual([
+      {
+        coach: 'Rimantas',
+        repertoire: 'Londono sistema',
+        target: 'Gabija',
+        deadline: '2026-12-31',
+      },
+      ...CAST_ASSIGNMENTS,
+    ]);
+  });
+
+  it('refuses another account’s repertoire (assignment.notFound)', async () => {
+    const people = await cast();
+    const { dovydasLondon } = await secondCoach();
+    const before = await state();
+    actAs(people.rimantas);
+    expect(
+      await outcomeOf(
+        assignAction(
+          {},
+          assignForm(dovydasLondon, `player:${people.rokas.id}`),
+        ),
+      ),
+    ).toEqual({ refusal: 'assignment.notFound' });
+    expect(await state()).toEqual(before);
+  });
+
+  it('refuses a player the coach is not linked to (assignment.notLinked)', async () => {
+    const { rimantas, jonas, london } = await cast();
+    const before = await state();
+    actAs(rimantas);
+    expect(
+      await outcomeOf(
+        assignAction({}, assignForm(london, `player:${jonas.id}`)),
+      ),
+    ).toEqual({ refusal: 'assignment.notLinked' });
+    expect(await state()).toEqual(before);
+  });
+
+  it('refuses another coach’s group (assignment.groupNotFound)', async () => {
+    const { rimantas, london } = await cast();
+    const { dovydasGroup } = await secondCoach();
+    const before = await state();
+    actAs(rimantas);
+    expect(
+      await outcomeOf(
+        assignAction({}, assignForm(london, `group:${dovydasGroup}`)),
+      ),
+    ).toEqual({ refusal: 'assignment.groupNotFound' });
+    expect(await state()).toEqual(before);
+  });
+
+  it('refuses a malformed form and changes nothing', async () => {
+    const { rimantas, rokas, group, london } = await cast();
+    const before = await state();
+    actAs(rimantas);
+    for (const [form, refusal] of [
+      [assignForm('nėra', `player:${rokas.id}`), 'assignment.notFound'],
+      [assignForm(london, 'player:'), 'assignment.notLinked'],
+      [assignForm(london, 'group:nėra'), 'assignment.groupNotFound'],
+      [assignForm(london, ''), 'assignment.panel.pickTarget'],
+      [
+        assignForm(london, `group:${group}`, 'rytoj'),
+        'assignment.deadlineInvalid',
+      ],
+    ] as const)
+      expect(await outcomeOf(assignAction({}, form))).toEqual({ refusal });
+    expect(await state()).toEqual(before);
+  });
+
+  it('a coachId in the form never assigns as that coach', async () => {
+    const people = await cast();
+    const { dovydas } = await secondCoach();
+    const before = await state();
+    actAs(dovydas);
+    expect(
+      await outcomeOf(
+        assignAction(
+          {},
+          assignForm(people.london, `player:${people.gabija.id}`, '', {
+            coachId: people.rimantas.id,
+          }),
+        ),
+      ),
+    ).toEqual({ refusal: 'assignment.notFound' });
+    expect(await state()).toEqual(before);
+  });
+});
+
+describe('unassignAction and setDeadlineAction', () => {
+  it('end and move the coach’s own assignment', async () => {
+    const { rimantas, rokas, london } = await cast();
+    const assignment = await assignmentId(london, rokas.id);
+    actAs(rimantas);
+    expect(
+      await outcomeOf(
+        setDeadlineAction(
+          {},
+          formOf({ assignmentId: assignment, deadline: '2026-12-31' }),
+        ),
+      ),
+    ).toEqual({ saved: 1 });
+    expect(await assignmentRows()).toContainEqual({
+      coach: 'Rimantas',
+      repertoire: 'Londono sistema',
+      target: 'Rokas',
+      deadline: '2026-12-31',
+    });
+    expect(
+      await outcomeOf(unassignAction({}, formOf({ assignmentId: assignment }))),
+    ).toEqual({ saved: 1 });
+    expect(await assignmentRows()).toEqual(CAST_ASSIGNMENTS.slice(1));
+  });
+
+  it.each([
+    ['unassignAction', 'unassign'],
+    ['setDeadlineAction', 'deadline'],
+  ] as const)(
+    '%s with another coach’s assignment id changes nothing, coachId or not',
+    async (_action, which) => {
+      const people = await cast();
+      const { dovydas } = await secondCoach();
+      const assignment = await assignmentId(people.london, people.rokas.id);
+      const before = await state();
+      actAs(dovydas);
+      for (const extra of [{}, { coachId: people.rimantas.id }]) {
+        const form = formOf({
+          assignmentId: assignment,
+          deadline: '2026-12-31',
+          ...extra,
+        });
+        expect(
+          await outcomeOf(
+            which === 'unassign'
+              ? unassignAction({}, form)
+              : setDeadlineAction({}, form),
+          ),
+        ).toEqual({ refusal: 'assignment.notFound' });
+      }
+      expect(await state()).toEqual(before);
+    },
+  );
+
+  it('refuse a malformed or unknown id and change nothing', async () => {
+    const { rimantas } = await cast();
+    const before = await state();
+    actAs(rimantas);
+    for (const id of ['nėra', '', randomUUID()]) {
+      const form = formOf({ assignmentId: id, deadline: '' });
+      expect(await outcomeOf(unassignAction({}, form))).toEqual({
+        refusal: 'assignment.notFound',
+      });
+      expect(await outcomeOf(setDeadlineAction({}, form))).toEqual({
+        refusal: 'assignment.notFound',
+      });
+    }
+    expect(await state()).toEqual(before);
+  });
+});
+
+/** Each assign action, aimed at Rimantas's London and its assignment to Rokas. */
+async function everyAssignAction(
+  people: Cast,
+): Promise<(() => Promise<unknown>)[]> {
+  const assignment = await assignmentId(people.london, people.rokas.id);
+  return [
+    () =>
+      assignAction({}, assignForm(people.london, `player:${people.gabija.id}`)),
+    () => unassignAction({}, formOf({ assignmentId: assignment })),
+    () =>
+      setDeadlineAction(
+        {},
+        formOf({ assignmentId: assignment, deadline: '2026-12-31' }),
+      ),
+  ];
+}
+
+describe('the assign actions without Coach mode or signed out', () => {
+  it('send a player without Coach mode to settings and change nothing', async () => {
+    const people = await cast();
+    const before = await state();
+    actAs(people.rokas);
+    for (const act of await everyAssignAction(people))
+      expect(await outcomeOf(act())).toEqual({ redirectedTo: '/nustatymai' });
+    expect(await state()).toEqual(before);
+  });
+
+  it('send a coach who switched Coach mode off to settings, on their own repertoire too', async () => {
+    await cast();
+    const { dovydas, dovydasGroup, dovydasLondon, dovydasAssignment } =
+      await secondCoach();
+    expect((await stopCoaching(testDb(), dovydas.id, new Date())).ok).toBe(
+      true,
+    );
+    const before = await state();
+    actAs(dovydas);
+    const acts = [
+      () =>
+        assignAction({}, assignForm(dovydasLondon, `group:${dovydasGroup}`)),
+      () => unassignAction({}, formOf({ assignmentId: dovydasAssignment })),
+      () =>
+        setDeadlineAction(
+          {},
+          formOf({ assignmentId: dovydasAssignment, deadline: '2026-12-31' }),
+        ),
+    ];
+    for (const act of acts)
+      expect(await outcomeOf(act())).toEqual({ redirectedTo: '/nustatymai' });
+    expect(await state()).toEqual(before);
+  });
+
+  it('send a signed-out visitor to sign-in and change nothing', async () => {
+    const people = await cast();
+    const before = await state();
+    request.cookie = '';
+    for (const act of await everyAssignAction(people))
+      expect(await outcomeOf(act())).toEqual({ redirectedTo: '/prisijungti' });
+    expect(await state()).toEqual(before);
+  });
+});
+
+/** Rimantas unassigns Rokas's London: the id of Rokas's open offer. */
+async function rokasOffer(people: Cast): Promise<string> {
+  const done = await unassign(
+    testDb(),
+    {
+      coachId: people.rimantas.id,
+      assignmentId: await assignmentId(people.london, people.rokas.id),
+    },
+    new Date(),
+  );
+  if (!done.ok) throw new Error(`not unassigned: ${done.refusal.reason}`);
+  return oneId('select id from fork_offers where player_id = $1', [
+    people.rokas.id,
+  ]);
+}
+
+describe('the fork offer answers', () => {
+  it('keeping a copy goes to the new fork, and the offer leaves home', async () => {
+    const people = await cast();
+    const offer = await rokasOffer(people);
+    actAs(people.rokas);
+    expect(await homeAssignments()).toMatchObject({
+      offers: [{ id: offer, name: 'Londono sistema', coachName: 'Rimantas' }],
+    });
+    expect(
+      await outcomeOf(acceptForkOfferAction({}, formOf({ offerId: offer }))),
+    ).toEqual({ redirectedTo: repertoireRoute(await rokasFork()) });
+    expect((await homeAssignments()).offers).toEqual([]);
+  });
+
+  it('declining takes the offer off home, and it cannot be kept after', async () => {
+    const people = await cast();
+    const offer = await rokasOffer(people);
+    actAs(people.rokas);
+    expect(
+      await outcomeOf(declineForkOfferAction({}, formOf({ offerId: offer }))),
+    ).toEqual({});
+    expect((await homeAssignments()).offers).toEqual([]);
+    const before = await state();
+    expect(
+      await outcomeOf(acceptForkOfferAction({}, formOf({ offerId: offer }))),
+    ).toEqual({ refusal: 'forkOffer.notOpen' });
+    expect(await state()).toEqual(before);
+  });
+
+  it.each([
+    ['a linked player it is not for', 'gabija'],
+    ['an account with no coach', 'jonas'],
+    ['the coach who made it', 'rimantas'],
+  ] as const)(
+    'with someone else’s offer id change nothing, as %s, playerId or not',
+    async (_who, name) => {
+      const people = await cast();
+      const offer = await rokasOffer(people);
+      const before = await state();
+      actAs(people[name]);
+      for (const extra of [{}, { playerId: people.rokas.id }]) {
+        const form = formOf({ offerId: offer, ...extra });
+        expect(await outcomeOf(acceptForkOfferAction({}, form))).toEqual({
+          refusal: 'forkOffer.notOpen',
+        });
+        expect(await outcomeOf(declineForkOfferAction({}, form))).toEqual({
+          refusal: 'forkOffer.notOpen',
+        });
+      }
+      expect(await state()).toEqual(before);
+    },
+  );
+
+  it('refuse a malformed or unknown offer id and change nothing', async () => {
+    const people = await cast();
+    await rokasOffer(people);
+    const before = await state();
+    actAs(people.rokas);
+    for (const id of ['nėra', '', randomUUID()]) {
+      const form = formOf({ offerId: id });
+      expect(await outcomeOf(acceptForkOfferAction({}, form))).toEqual({
+        refusal: 'forkOffer.notOpen',
+      });
+      expect(await outcomeOf(declineForkOfferAction({}, form))).toEqual({
+        refusal: 'forkOffer.notOpen',
+      });
+    }
+    expect(await state()).toEqual(before);
+  });
+
+  it('send a signed-out visitor to sign-in and change nothing', async () => {
+    const people = await cast();
+    const offer = await rokasOffer(people);
+    const before = await state();
+    request.cookie = '';
+    const acts = [
+      () => acceptForkOfferAction({}, formOf({ offerId: offer })),
+      () => declineForkOfferAction({}, formOf({ offerId: offer })),
+    ];
+    for (const act of acts)
+      expect(await outcomeOf(act())).toEqual({ redirectedTo: '/prisijungti' });
+    expect(await state()).toEqual(before);
+  });
+});
+
+/** Home's lists for `who`, as "name (coach)". */
+async function homeNames(who: Person): Promise<unknown> {
+  actAs(who);
+  const home = await homeAssignments();
+  return {
+    fromCoach: home.fromCoach.map((one) => `${one.name} (${one.coachName})`),
+    offers: home.offers.map((one) => `${one.name} (${one.coachName})`),
+  };
+}
+
+describe('home’s "From my coach" and fork offers', () => {
+  it('list only the session player’s own assignments and offers', async () => {
+    const people = await cast();
+    await secondCoach();
+    await rokasOffer(people);
+    const before = await state();
+    expect(await homeNames(people.rokas)).toEqual({
+      fromCoach: ['Taimanovas (Rimantas)'],
+      offers: ['Londono sistema (Rimantas)'],
+    });
+    expect(await homeNames(people.gabija)).toEqual({
+      fromCoach: ['Taimanovas (Rimantas)'],
+      offers: [],
+    });
+    expect(await homeNames(people.jonas)).toEqual({
+      fromCoach: [],
+      offers: [],
+    });
+    expect(await homeNames(people.rimantas)).toEqual({
+      fromCoach: [],
+      offers: [],
+    });
+    expect(await state()).toEqual(before);
+  });
+
+  it('show the session player’s own pause, not another player’s', async () => {
+    const people = await cast();
+    actAs(people.gabija);
+    await outcomeOf(
+      pauseAction(
+        { paused: false },
+        pauseForm(people.taimanov, true, { playerId: people.rokas.id }),
+      ),
+    );
+    expect((await homeAssignments()).fromCoach).toMatchObject([
+      { repertoireId: people.taimanov, paused: true },
+    ]);
+    actAs(people.rokas);
+    const rokas = await homeAssignments();
+    expect(rokas.fromCoach).toHaveLength(2);
+    expect(rokas.fromCoach).toContainEqual(
+      expect.objectContaining({ repertoireId: people.taimanov, paused: false }),
+    );
+  });
+
+  it('send a signed-out visitor to sign-in', async () => {
+    await cast();
+    request.cookie = '';
+    expect(await outcomeOf(homeAssignments())).toEqual({
+      redirectedTo: '/prisijungti',
+    });
   });
 });
