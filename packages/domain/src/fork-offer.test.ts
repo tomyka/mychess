@@ -4,6 +4,7 @@ import {
   FORK_OFFER_REASONS,
   FORK_OFFER_REFUSALS,
   canAnswerForkOffer,
+  forkOfferDaysLeft,
   forkOfferExpiry,
   forkOfferState,
   type ForkOfferFacts,
@@ -115,5 +116,18 @@ describe('FORK_OFFER_REASONS', () => {
       'leftGroup',
       'deleted',
     ]);
+  });
+});
+
+describe('forkOfferDaysLeft', () => {
+  it.each<[string, Date, number]>([
+    ['30 when just made', created, 30],
+    ['30 a moment later', new Date(created.getTime() + 1), 30],
+    ['29 after a whole day', new Date('2026-10-21T10:00:00Z'), 29],
+    ['1 in its last moment', new Date(expiry.getTime() - 1), 1],
+    ['0 at its expiry', expiry, 0],
+    ['0 after its expiry', new Date('2026-12-01T00:00:00Z'), 0],
+  ])('is %s', (_, now, days) => {
+    expect(forkOfferDaysLeft(forkOfferExpiry(created), now)).toBe(days);
   });
 });

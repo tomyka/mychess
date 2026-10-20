@@ -29,6 +29,21 @@ export {
   type AssignRequest,
   type DeadlineChange,
 } from './assignments/assign';
+export { openForkOffers, type OpenForkOffer } from './assignments/offers';
+export {
+  assignedRepertoireForPlayer,
+  changesSince,
+  playerAssignments,
+  trainingRepertoires,
+  type AssignedRepertoire,
+  type ChangesSince,
+  type PlayerAssignment,
+} from './assignments/player';
+export {
+  markSeen,
+  pauseAssignment,
+  type PauseRequest,
+} from './assignments/player-state';
 export { auditEmailHash } from './audit-email';
 
 export {

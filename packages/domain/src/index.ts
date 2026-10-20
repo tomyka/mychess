@@ -37,6 +37,9 @@ export {
   canUseAssignment,
   deadlineSchema,
   effectiveDeadline,
+  isTrainingActive,
+  isUpdated,
+  seenFloor,
   type AssignFacts,
   type AssignmentStatusFacts,
   type AssignmentHold,
@@ -45,6 +48,7 @@ export {
   type AssignmentTarget,
   type DeadlineSources,
   type GroupDeadline,
+  type SeenFacts,
 } from './assignment';
 export { HOME_TIME_ZONE, vilniusDay } from './calendar';
 export {
@@ -52,6 +56,7 @@ export {
   FORK_OFFER_REASONS,
   FORK_OFFER_REFUSALS,
   canAnswerForkOffer,
+  forkOfferDaysLeft,
   forkOfferExpiry,
   forkOfferState,
   type ForkOfferFacts,
@@ -128,6 +133,7 @@ export {
   REPERTOIRE_NAME_MAX,
   REPERTOIRE_REFUSALS,
   canEditRepertoire,
+  canKeepPersonalNotes,
   canViewRepertoire,
   canWritePersonalNote,
   chapterNameSchema,

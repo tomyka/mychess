@@ -252,7 +252,7 @@ async function join(
   if (groupId !== null)
     await changeAssignments(
       tx,
-      { playerIds: [playerId], reason: 'leftGroup', now },
+      { coachId, playerIds: [playerId], reason: 'leftGroup', now },
       () =>
         tx
           .insert(groupMembers)

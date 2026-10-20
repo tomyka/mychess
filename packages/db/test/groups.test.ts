@@ -507,6 +507,24 @@ describe("group changes and the group's assignments (R-16, R-45)", () => {
     expect(await offersOf(db)).toEqual([leftGroup('q', rep)]);
   });
 
+  it('settles nothing when the player removed is not in the group', async () => {
+    const { groupId, rep } = await seedAssigned();
+    await seedPlayer(db, 'n', 'n@example.lt');
+    await seedLink(db, 'c', 'n');
+    // State no assignment reaches: only a real change would tidy it away.
+    await query(
+      `insert into assignment_players (player_id, repertoire_id, paused_at) values ('n', $1, now())`,
+      [rep],
+    );
+    expect(
+      await removeMember(db, { coachId: 'c', groupId, playerId: 'n' }, NOW),
+    ).toEqual(OK);
+    expect(await query('select player_id from assignment_players')).toEqual([
+      { player_id: 'n' },
+    ]);
+    expect(await offersOf(db)).toEqual([]);
+  });
+
   it('offers a fork to every member when the group is deleted', async () => {
     const { groupId, rep } = await seedAssigned();
     expect(await deleteGroup(db, 'c', groupId, NOW)).toEqual(OK);

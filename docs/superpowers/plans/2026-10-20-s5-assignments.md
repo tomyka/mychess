@@ -1442,3 +1442,4 @@ These are not implemented; they are raised at the slice close.
 
 1. **The data export (R-40, R-106)** does not list a player's assignments (coach, repertoire name, deadline) or open fork offers. Should it?
 2. **A forked player's personal notes on the coach's repertoire** stay behind on it, dormant, after the fork copies them. Should they be deleted at fork time?
+3. **A player who joins a group after its assignment** starts from the assignment's version (decision 2), so coach edits made before they joined show as "Updated". Should the join version be the starting point instead?

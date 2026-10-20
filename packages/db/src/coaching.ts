@@ -200,7 +200,7 @@ export function unlink(
     await lockAccountById(tx, coachId);
     const removed = await changeAssignments(
       tx,
-      { playerIds: [playerId], reason: 'unlinked', now },
+      { coachId, playerIds: [playerId], reason: 'unlinked', now },
       () =>
         tx
           .delete(coachLinks)

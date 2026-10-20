@@ -83,7 +83,7 @@ const removeFromGroup = (playerId: string, at: Date = NOW) =>
   db.transaction((tx) =>
     changeAssignments(
       tx,
-      { playerIds: [playerId], reason: 'leftGroup', now: at },
+      { coachId: 'c', playerIds: [playerId], reason: 'leftGroup', now: at },
       () =>
         tx
           .delete(groupMembers)
@@ -100,7 +100,7 @@ const addToGroup = (playerId: string, at: Date) =>
   db.transaction((tx) =>
     changeAssignments(
       tx,
-      { playerIds: [playerId], reason: 'leftGroup', now: at },
+      { coachId: 'c', playerIds: [playerId], reason: 'leftGroup', now: at },
       () =>
         tx
           .insert(groupMembers)
@@ -242,11 +242,50 @@ describe('changeAssignments', () => {
     );
   });
 
+  it("settles only the acting coach's repertoires, whatever another coach changes meanwhile", async () => {
+    await seedCoach(db, 'd', 'd@example.lt');
+    await seedLink(db, 'd', 'p');
+    const theirs = await createRepertoire(db, {
+      ownerId: 'd',
+      side: 'white',
+      name: 'Kito trenerio',
+      graph: graphOf(PGN),
+      now: NOW,
+    });
+    await db.insert(assignments).values({
+      coachId: 'd',
+      repertoireId: theirs,
+      playerId: 'p',
+      assignedVersion: 1,
+      createdAt: NOW,
+    });
+    // Coach d's unassign lands between c's two reads (as if concurrent).
+    await db.transaction((tx) =>
+      changeAssignments(
+        tx,
+        { coachId: 'c', playerIds: ['p'], reason: 'leftGroup', now: NOW },
+        async () => {
+          await tx
+            .delete(groupMembers)
+            .where(
+              and(eq(groupMembers.groupId, g), eq(groupMembers.playerId, 'p')),
+            );
+          await tx
+            .delete(assignments)
+            .where(eq(assignments.repertoireId, theirs));
+        },
+      ),
+    );
+    expect(await offers()).toEqual([
+      { playerId: 'p', repertoireId: rep, closedAt: null },
+    ]);
+  });
+
   it('settles a player named twice once', async () => {
     await db.transaction((tx) =>
       changeAssignments(
         tx,
-        { playerIds: ['p', 'p'], reason: 'leftGroup', now: NOW },
+        { coachId: 'c', playerIds: ['p', 'p'], reason: 'leftGroup', now: NOW },
         () =>
           tx
             .delete(groupMembers)
@@ -265,7 +304,7 @@ describe('changeAssignments', () => {
       db.transaction((tx) =>
         changeAssignments(
           tx,
-          { playerIds: ['p'], reason: 'deleted', now: NOW },
+          { coachId: 'c', playerIds: ['p'], reason: 'deleted', now: NOW },
           () => tx.delete(repertoires).where(eq(repertoires.id, rep)),
         ),
       ),
@@ -277,7 +316,7 @@ describe('changeAssignments', () => {
     const result = await db.transaction((tx) =>
       changeAssignments(
         tx,
-        { playerIds: ['p'], reason: 'unassigned', now: NOW },
+        { coachId: 'c', playerIds: ['p'], reason: 'unassigned', now: NOW },
         () => Promise.resolve(42),
       ),
     );

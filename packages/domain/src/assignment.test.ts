@@ -8,6 +8,9 @@ import {
   canUseAssignment,
   deadlineSchema,
   effectiveDeadline,
+  isTrainingActive,
+  isUpdated,
+  seenFloor,
   type AssignFacts,
   type AssignmentTarget,
 } from './assignment';
@@ -306,5 +309,41 @@ describe('canUseAssignment and canFork (R-46, R-128)', () => {
   ])('decides %j', (hold, expected) => {
     expect(canUseAssignment(hold)).toStrictEqual(expected);
     expect(canFork(hold)).toStrictEqual(expected);
+  });
+});
+
+describe('seenFloor and isUpdated (R-133)', () => {
+  it.each([
+    ['the assigned version when never seen', null, 3, 3],
+    ['the seen version when later', 5, 3, 5],
+    ['the assigned version over an older seen one', 2, 3, 3],
+  ] as const)('starts from %s', (_, seenVersion, assignedVersion, floor) => {
+    expect(seenFloor({ seenVersion, assignedVersion })).toBe(floor);
+  });
+
+  it.each([
+    [
+      'a change after the floor',
+      { seenVersion: 2, assignedVersion: 1 },
+      3,
+      true,
+    ],
+    ['no change after it', { seenVersion: 3, assignedVersion: 1 }, 3, false],
+    ['no change at all', { seenVersion: null, assignedVersion: 1 }, 0, false],
+    [
+      'only changes before the assignment, even if seen earlier',
+      { seenVersion: 1, assignedVersion: 4 },
+      3,
+      false,
+    ],
+  ] as const)('is updated for %s', (_, facts, latest, updated) => {
+    expect(isUpdated(facts, latest)).toBe(updated);
+  });
+});
+
+describe('isTrainingActive (R-46)', () => {
+  it('is active unless paused', () => {
+    expect(isTrainingActive(null)).toBe(true);
+    expect(isTrainingActive(new Date('2026-10-20T09:00:00Z'))).toBe(false);
   });
 });

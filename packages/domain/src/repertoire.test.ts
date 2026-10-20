@@ -8,6 +8,7 @@ import {
   REPERTOIRE_NAME_MAX,
   REPERTOIRE_REFUSALS,
   canEditRepertoire,
+  canKeepPersonalNotes,
   canViewRepertoire,
   canWritePersonalNote,
   chapterNameSchema,
@@ -216,5 +217,32 @@ describe('canWritePersonalNote (R-21, decision 11)', () => {
   it('lets a note be removed from any key, a removed move included', () => {
     expect(canWritePersonalNote(graph, moveKey(START, 'e4'), '').ok).toBe(true);
     expect(canWritePersonalNote({ moves: [] }, 'x', '').ok).toBe(true);
+  });
+});
+
+describe('canKeepPersonalNotes (R-21)', () => {
+  const repertoire = { ownerId: 'coach' };
+  const none = { assigned: false, forked: false };
+  const notFound = { ok: false, refusal: { reason: 'repertoire.notFound' } };
+
+  it.each([
+    ['their own repertoire', 'coach', none, { ok: true, value: undefined }],
+    [
+      'one assigned to them live',
+      'rokas',
+      { assigned: true, forked: false },
+      { ok: true, value: undefined },
+    ],
+    ['not one assigned to others', 'rokas', none, notFound],
+    [
+      'not one they forked (R-128)',
+      'rokas',
+      { assigned: true, forked: true },
+      notFound,
+    ],
+  ] as const)('lets a player keep notes on %s', (_, id, hold, expected) => {
+    expect(canKeepPersonalNotes({ id }, repertoire, hold)).toStrictEqual(
+      expected,
+    );
   });
 });

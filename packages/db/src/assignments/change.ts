@@ -5,15 +5,23 @@
  * repertoire delete) runs its change through `changeAssignments`.
  */
 import { forkOfferExpiry, type ForkOfferReason } from '@mychess/domain';
-import { and, eq, gt, isNull, notInArray } from 'drizzle-orm';
+import { and, eq, notInArray } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Tx } from '../client';
 import { assignmentPlayers, forkOffers } from '../assignment-schema';
 import { accounts } from '../schema';
-import { effectiveAssignments, liveRepertoireIds } from './effective';
+import { effectiveAssignments } from './effective';
+import { openAt } from './offers';
 import { takeSnapshot } from './snapshot';
 
 export interface AssignmentChange {
+  /**
+   * The coach whose assignments the change touches, their account row
+   * locked by the caller. Only their repertoires are offered or closed:
+   * another coach's, changing concurrently under their own lock, are
+   * theirs to settle.
+   */
+  readonly coachId: string;
   /** Every player the change may give or take a repertoire from; repeats count once. */
   readonly playerIds: readonly string[];
   /** Why a lost repertoire was lost, stored on its fork offer. */
@@ -23,14 +31,24 @@ export interface AssignmentChange {
 
 const nameRowsSchema = z.array(z.object({ displayName: z.string() }));
 
-/** Each player's live repertoire ids (not forked; R-128). */
+/** Each player's live repertoire ids (not forked; R-128) from `coachId`. */
 async function liveIdsOf(
   tx: Tx,
   playerIds: ReadonlySet<string>,
+  coachId: string,
 ): Promise<Map<string, Set<string>>> {
   const ids = new Map<string, Set<string>>();
-  for (const playerId of playerIds)
-    ids.set(playerId, await liveRepertoireIds(tx, playerId));
+  for (const playerId of playerIds) {
+    const live = await effectiveAssignments(tx, playerId);
+    ids.set(
+      playerId,
+      new Set(
+        live
+          .filter((assignment) => assignment.coachId === coachId)
+          .map((assignment) => assignment.repertoireId),
+      ),
+    );
+  }
   return ids;
 }
 
@@ -71,11 +89,7 @@ async function offerFork(
   });
 }
 
-/**
- * The player has it again: their open offer for it closes (lead decision
- * 4). "Open" mirrors the domain's forkOfferState: not accepted, declined
- * or closed, and now < expires_at.
- */
+/** The player has it again: their open offer for it closes (lead decision 4). */
 async function closeOffers(
   tx: Tx,
   playerId: string,
@@ -89,10 +103,7 @@ async function closeOffers(
       and(
         eq(forkOffers.playerId, playerId),
         eq(forkOffers.repertoireId, repertoireId),
-        isNull(forkOffers.acceptedAt),
-        isNull(forkOffers.declinedAt),
-        isNull(forkOffers.closedAt),
-        gt(forkOffers.expiresAt, now),
+        openAt(now),
       ),
     );
 }
@@ -136,8 +147,8 @@ async function settlePlayer(
 }
 
 /**
- * Reads which repertoires each of `change.playerIds` has live, runs
- * `apply`, reads again, writes a fork offer for each repertoire lost and
+ * Reads which of `change.coachId`'s repertoires each of `change.playerIds`
+ * has live, runs `apply`, reads again, writes a fork offer for each one lost and
  * closes the offer of each one regained. Call it inside the transaction
  * that makes the change; returns what `apply` returns.
  */
@@ -147,9 +158,9 @@ export async function changeAssignments<T>(
   apply: () => Promise<T>,
 ): Promise<T> {
   const playerIds = new Set(change.playerIds);
-  const before = await liveIdsOf(tx, playerIds);
+  const before = await liveIdsOf(tx, playerIds, change.coachId);
   const result = await apply();
-  const after = await liveIdsOf(tx, playerIds);
+  const after = await liveIdsOf(tx, playerIds, change.coachId);
   for (const playerId of playerIds)
     await settlePlayer(
       tx,

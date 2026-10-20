@@ -36,6 +36,13 @@ export type ForkOfferState =
 export const forkOfferExpiry = (now: Date): Date =>
   new Date(now.getTime() + FORK_OFFER_DAYS * DAY_MS);
 
+/**
+ * Whole days, rounded up, until an offer expiring at `expiresAt` expires:
+ * 30 when just made, 1 in its last day, 0 once expired.
+ */
+export const forkOfferDaysLeft = (expiresAt: Date, now: Date): number =>
+  Math.max(0, Math.ceil((expiresAt.getTime() - now.getTime()) / DAY_MS));
+
 /** Where an offer stands at `now`: an answer wins over expiry. */
 export function forkOfferState(
   offer: ForkOfferFacts,

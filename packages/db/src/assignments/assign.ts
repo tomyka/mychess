@@ -17,7 +17,12 @@ import { z } from 'zod';
 import { lockAccountById } from '../accounts';
 import { assignmentPlayers, assignments } from '../assignment-schema';
 import type { Db, Executor, Tx } from '../client';
-import { countSchema, holdGroup, holdLink } from '../coach-queries';
+import {
+  countSchema,
+  holdGroup,
+  holdLink,
+  playerRowsSchema,
+} from '../coach-queries';
 import { isUuid } from '../ids';
 import { DONE, refusal } from '../results';
 import { groupMembers, repertoires } from '../schema';
@@ -43,8 +48,6 @@ const targetRowSchema = z.object({
   playerId: z.string().min(1).nullable(),
   groupId: z.uuid().nullable(),
 });
-
-const playerRowsSchema = z.array(z.object({ playerId: z.string().min(1) }));
 
 /** Every player the rows reach: their own player, or their group's members. */
 async function playersReached(
@@ -194,7 +197,7 @@ export function assign(
     const players = await playersReached(tx, [columns]);
     await changeAssignments(
       tx,
-      { playerIds: players, reason: 'unassigned', now },
+      { coachId: req.coachId, playerIds: players, reason: 'unassigned', now },
       async () => {
         await tx.insert(assignments).values({
           ...columns,
@@ -250,7 +253,7 @@ export function unassign(
     const players = await playersReached(tx, [row]);
     await changeAssignments(
       tx,
-      { playerIds: players, reason: 'unassigned', now },
+      { coachId: ref.coachId, playerIds: players, reason: 'unassigned', now },
       () => tx.delete(assignments).where(eq(assignments.id, row.id)),
     );
     return DONE;
@@ -260,11 +263,15 @@ export function unassign(
 /**
  * Ends every assignment of the repertoire, each player who loses it getting
  * a `deleted` fork offer, before the repertoire is deleted in the same
- * transaction (R-131, plan decision 5). The caller holds the owner's row.
+ * transaction (R-131, plan decision 5). The caller holds the owner's row;
+ * only the owner's repertoires are settled (changeAssignments).
  */
 export async function unassignAll(
   tx: Tx,
-  repertoireId: string,
+  {
+    ownerId,
+    repertoireId,
+  }: { readonly ownerId: string; readonly repertoireId: string },
   now: Date,
 ): Promise<void> {
   const rows = z.array(targetRowSchema).parse(
@@ -281,7 +288,12 @@ export async function unassignAll(
   if (rows.length === 0) return;
   await changeAssignments(
     tx,
-    { playerIds: await playersReached(tx, rows), reason: 'deleted', now },
+    {
+      coachId: ownerId,
+      playerIds: await playersReached(tx, rows),
+      reason: 'deleted',
+      now,
+    },
     () =>
       tx.delete(assignments).where(eq(assignments.repertoireId, repertoireId)),
   );

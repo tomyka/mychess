@@ -8,20 +8,24 @@ import {
   type RepertoireAccessRefusal,
   type Result,
 } from '@mychess/domain';
-import { and, eq } from 'drizzle-orm';
 import { lockAccountById } from '../accounts';
 import { unassignAll } from '../assignments/assign';
 import type { Executor } from '../client';
 import { countSchema } from '../coach-queries';
+import { isUuid } from '../ids';
 import { DONE, refusal } from '../results';
 import { repertoires } from '../schema';
+import { ownedBy } from './repository';
+
+const NOT_FOUND = refusal(REPERTOIRE_REFUSALS.notFound);
 
 /**
  * Deletes the owner's repertoire (its rows go by cascade); not found when
- * it is not theirs. An assigned one is unassigned from everyone first, in
- * the same transaction, so each player's fork offer keeps a snapshot of it
- * (R-131, plan decision 5). Locks the owner's account row first, the S4
- * lock order, so no assignment of it is made meanwhile.
+ * it is not theirs or `id` is no uuid. An assigned one is unassigned from
+ * everyone first, in the same transaction, so each player's fork offer
+ * keeps a snapshot of it (R-131, plan decision 5). Locks the owner's
+ * account row first, the S4 lock order, so no assignment of it is made
+ * meanwhile.
  */
 export function deleteRepertoire(
   db: Executor,
@@ -29,15 +33,13 @@ export function deleteRepertoire(
   ownerId: string,
   now: Date,
 ): Promise<Result<undefined, RepertoireAccessRefusal>> {
-  const owned = and(
-    eq(repertoires.id, id),
-    eq(repertoires.ownerAccountId, ownerId),
-  );
+  if (!isUuid(id)) return Promise.resolve(NOT_FOUND);
+  const owned = ownedBy(id, ownerId);
   return db.transaction(async (tx) => {
     await lockAccountById(tx, ownerId);
     const found = countSchema.parse(await tx.$count(repertoires, owned));
-    if (found === 0) return refusal(REPERTOIRE_REFUSALS.notFound);
-    await unassignAll(tx, id, now);
+    if (found === 0) return NOT_FOUND;
+    await unassignAll(tx, { ownerId, repertoireId: id }, now);
     await tx.delete(repertoires).where(owned);
     return DONE;
   });

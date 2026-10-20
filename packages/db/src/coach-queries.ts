@@ -8,6 +8,11 @@ import { coachLinks, groups } from './schema';
 /** A row count as `$count` returns it. */
 export const countSchema = z.number().int().nonnegative();
 
+/** Player ids as a `select({ playerId })` returns them. */
+export const playerRowsSchema = z.array(
+  z.object({ playerId: z.string().min(1) }),
+);
+
 /**
  * Is `groupId` a group of `coachId`? If so, the group row is held (FOR KEY
  * SHARE) for the rest of `tx`: a deleteGroup waits until `tx` ends, and

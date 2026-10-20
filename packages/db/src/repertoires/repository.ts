@@ -6,6 +6,7 @@
 import {
   emptyGraph,
   graphChanges,
+  playerMoveChanges,
   sideSchema,
   type RepertoireGraph,
   type Side,
@@ -19,6 +20,7 @@ import {
 } from '@mychess/domain';
 import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
+import { recordChanges } from '../assignments/move-changes';
 import type { Executor } from '../client';
 import { DONE, refusal } from '../results';
 import {
@@ -50,7 +52,8 @@ const metaColumns = {
   updatedAt: repertoires.updatedAt,
 };
 
-const ownedBy = (id: string, ownerId: string) =>
+/** Repertoire `id` if `ownerId` owns it, as SQL. Package-internal. */
+export const ownedBy = (id: string, ownerId: string): SQL | undefined =>
   and(eq(repertoires.id, id), eq(repertoires.ownerAccountId, ownerId));
 
 const idRowsSchema = z.array(z.object({ id: z.uuid() }));
@@ -247,6 +250,12 @@ export async function saveRepertoireEdit(
     if (row === undefined) return refusal(REPERTOIRE_REFUSALS.stale);
     const before = await graphRows(tx, edit.id, row.side);
     await writeChanges(tx, edit.id, graphChanges(before, edit.after));
+    await recordChanges(tx, {
+      repertoireId: edit.id,
+      version: row.version,
+      changes: playerMoveChanges(before, edit.after),
+      now: edit.now,
+    });
     return { ok: true, value: { version: row.version } };
   });
 }

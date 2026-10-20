@@ -3,7 +3,9 @@ import {
   addMove,
   editComment,
   moveKey,
+  playerMoveChanges,
   removeMove,
+  renameChapter,
   START_KEY,
   type RepertoireGraph,
 } from '@mychess/chess';
@@ -230,6 +232,80 @@ describe('saveRepertoireEdit', () => {
   });
 });
 
+/** Every repertoire_changes row, in version order. */
+async function changeRows(): Promise<unknown[]> {
+  const { rows } = await client.query<Record<string, unknown>>(
+    'select repertoire_id, version, changes, created_at from repertoire_changes order by version',
+  );
+  return rows;
+}
+
+function ok(result: ReturnType<typeof addMove>): RepertoireGraph {
+  if (!result.ok) throw new Error(result.refusal.reason);
+  return result.value;
+}
+
+/** Rokas's London `id` after `edit`, saved from version 1 at T1. */
+async function saveEdit(
+  id: string,
+  edit: (graph: RepertoireGraph) => RepertoireGraph,
+): Promise<{ before: RepertoireGraph; after: RepertoireGraph }> {
+  const before = await rokasGraph(id);
+  const after = edit(before);
+  const saved = await saveRepertoireEdit(db, {
+    id,
+    ownerId: 'rokas',
+    expectedVersion: 1,
+    after,
+    now: T1,
+  });
+  expect(saved).toEqual({ ok: true, value: { version: 2 } });
+  return { before, after };
+}
+
+describe('saveRepertoireEdit writes what changed for players (R-133)', () => {
+  it('writes the player move changes of an edit at its new version', async () => {
+    await seedAccount(db, 'rokas', 'rokas@example.lt');
+    const id = await london();
+    const { before, after } = await saveEdit(id, (graph) => {
+      // 4... Bd6 (the opponent's) and 5. Bd3 (the player's) after 4. Nf3.
+      const nf3 = must(
+        graph.moves.find((m) => m.san === 'Nf3' && m.chapters.includes('c1')),
+      );
+      const bd6 = ok(addMove(graph, 'c1', nf3.to, 'Bd6'));
+      const reply = must(bd6.moves.find((m) => m.san === 'Bd6'));
+      return ok(addMove(bd6, 'c1', reply.to, 'Bd3'));
+    });
+    const changes = playerMoveChanges(before, after);
+    expect(changes.added).toHaveLength(1);
+    expect(await changeRows()).toEqual([
+      { repertoire_id: id, version: 2, changes, created_at: T1 },
+    ]);
+  });
+
+  it('writes nothing for a chapter rename', async () => {
+    await seedAccount(db, 'rokas', 'rokas@example.lt');
+    const id = await london();
+    await saveEdit(id, (graph) => ok(renameChapter(graph, 'c1', 'Pagrindai')));
+    expect(await changeRows()).toEqual([]);
+  });
+
+  it('writes a comment edit as one annotated move', async () => {
+    await seedAccount(db, 'rokas', 'rokas@example.lt');
+    const id = await london();
+    await saveEdit(id, (graph) => {
+      const d4 = must(graph.moves.find((m) => m.san === 'd4'));
+      return ok(editComment(graph, moveKey(d4.from, 'd4'), 'Geriausias'));
+    });
+    expect(await changeRows()).toEqual([
+      expect.objectContaining({
+        version: 2,
+        changes: { added: [], removed: [], annotated: 1 },
+      }),
+    ]);
+  });
+});
+
 describe('listRepertoires, renameRepertoire, deleteRepertoire', () => {
   it("lists only the owner's repertoires with chapter and move counts", async () => {
     await seedAccount(db, 'rokas', 'rokas@example.lt');
@@ -279,6 +355,9 @@ describe('listRepertoires, renameRepertoire, deleteRepertoire', () => {
       value: undefined,
     });
     expect(await deleteRepertoire(db, id, 'rokas', T1)).toEqual(notFound);
+    expect(await deleteRepertoire(db, 'not-a-uuid', 'rokas', T1)).toEqual(
+      notFound,
+    );
     expect(
       await client.query('select count(*)::int as n from repertoire_moves'),
     ).toMatchObject({ rows: [{ n: 0 }] });

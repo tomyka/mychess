@@ -11,7 +11,12 @@ import { z } from 'zod';
 import { lockAccountById } from './accounts';
 import { changeAssignments } from './assignments/change';
 import type { Db, Executor, Tx } from './client';
-import { groupCount, holdGroup, holdLink } from './coach-queries';
+import {
+  groupCount,
+  holdGroup,
+  holdLink,
+  playerRowsSchema,
+} from './coach-queries';
 import { isUuid } from './ids';
 import { DONE, refusal } from './results';
 import { accounts, groupMembers, groups } from './schema';
@@ -83,8 +88,6 @@ export function renameGroup(
   });
 }
 
-const playerRowsSchema = z.array(z.object({ playerId: z.string().min(1) }));
-
 /** The members of the coach's group, read under the coach row's lock. */
 async function memberIds(
   tx: Tx,
@@ -109,6 +112,22 @@ async function memberIds(
 const membershipIs = (groupId: string, playerId: string) =>
   and(eq(groupMembers.groupId, groupId), eq(groupMembers.playerId, playerId));
 
+/** Is `playerId` in `groupId`? If so, the membership row is locked (FOR UPDATE) until `tx` ends. */
+async function lockMembership(
+  tx: Tx,
+  groupId: string,
+  playerId: string,
+): Promise<boolean> {
+  const rows = playerRowsSchema.parse(
+    await tx
+      .select({ playerId: groupMembers.playerId })
+      .from(groupMembers)
+      .where(membershipIs(groupId, playerId))
+      .for('update'),
+  );
+  return rows.length === 1;
+}
+
 /**
  * Deletes the coach's own group while Coach mode is on (R-113); its
  * memberships, invites and assignments go with it (cascade), and each
@@ -131,7 +150,7 @@ export function deleteGroup(
     const players = await memberIds(tx, coachId, groupId);
     const deleted = await changeAssignments(
       tx,
-      { playerIds: players, reason: 'leftGroup', now },
+      { coachId, playerIds: players, reason: 'leftGroup', now },
       () =>
         tx
           .delete(groups)
@@ -172,7 +191,7 @@ export function addMember(
     // Only gains happen here, so the reason is never stored.
     await changeAssignments(
       tx,
-      { playerIds: [playerId], reason: 'leftGroup', now },
+      { coachId, playerIds: [playerId], reason: 'leftGroup', now },
       () =>
         tx
           .insert(groupMembers)
@@ -198,9 +217,11 @@ export function removeMember(
     const allowed = await mayChangeGroups(tx, coachId);
     if (!allowed.ok) return allowed;
     if (!(await holdGroup(tx, coachId, groupId))) return GROUP_NOT_FOUND;
+    // Removing a non-member changes nothing, so nothing is settled.
+    if (!(await lockMembership(tx, groupId, playerId))) return DONE;
     await changeAssignments(
       tx,
-      { playerIds: [playerId], reason: 'leftGroup', now },
+      { coachId, playerIds: [playerId], reason: 'leftGroup', now },
       () => tx.delete(groupMembers).where(membershipIs(groupId, playerId)),
     );
     return DONE;
@@ -244,7 +265,7 @@ export function leaveGroup(
     await lockAccountById(tx, coachId);
     const left = await changeAssignments(
       tx,
-      { playerIds: [playerId], reason: 'leftGroup', now },
+      { coachId, playerIds: [playerId], reason: 'leftGroup', now },
       () =>
         tx
           .delete(groupMembers)

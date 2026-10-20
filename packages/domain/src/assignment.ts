@@ -179,3 +179,29 @@ export function canUseAssignment(hold: AssignmentHold): AssignmentResult {
 export function canFork(hold: AssignmentHold): AssignmentResult {
   return canUseAssignment(hold);
 }
+
+/** What a player's "Updated" flag on one assignment depends on. */
+export interface SeenFacts {
+  /** The version the player last opened; null if never. */
+  readonly seenVersion: number | null;
+  /** The repertoire's version when assigned (the lowest, across its rows). */
+  readonly assignedVersion: number;
+}
+
+/**
+ * The version after which a coach's change is news to the player: the one
+ * they last saw, never before the one they were assigned (R-133).
+ */
+export const seenFloor = (facts: SeenFacts): number =>
+  Math.max(facts.seenVersion ?? 0, facts.assignedVersion);
+
+/**
+ * "Updated" (R-133): the coach changed it, for players, after the floor.
+ * `latestVersion` is the version of the latest such change, 0 for none.
+ */
+export const isUpdated = (facts: SeenFacts, latestVersion: number): boolean =>
+  latestVersion > seenFloor(facts);
+
+/** A paused assignment leaves training (R-46); anything else trains. */
+export const isTrainingActive = (pausedAt: Date | null): boolean =>
+  pausedAt === null;
