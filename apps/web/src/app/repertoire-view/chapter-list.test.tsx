@@ -9,9 +9,9 @@ import {
 } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../i18n/locales';
+import { MESSAGES } from '../../i18n/locales';
 import { ChapterList, type ChapterBuilder } from './chapter-list';
-import type { FieldOutcome } from './move-panel';
+import type { FieldOutcome } from './field-save';
 
 const at = (id: string, nameSource: Chapter['nameSource']): Chapter => ({
   id,

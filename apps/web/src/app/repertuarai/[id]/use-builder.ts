@@ -17,16 +17,18 @@ import { useTranslations } from 'next-intl';
 import { useState, type ActionDispatch } from 'react';
 import { marksOf, toggleMark } from '../../board/shapes';
 import { editRepertoireAction } from './actions';
-import { markChange, placeAdded } from './board-play';
-import type { ChapterBuilder } from './chapter-row';
-import type { CommentEditor, FieldOutcome } from './move-panel';
 import {
+  canMark,
+  markChange,
+  placeAdded,
   SAVING,
+  type ChapterBuilder,
+  type CommentEditor,
+  type FieldOutcome,
   type ScreenAction,
   type ScreenMessage,
   type ScreenState,
-} from './screen-state';
-import { canMark } from './use-screen';
+} from '../../repertoire-view';
 
 type Dispatch = ActionDispatch<[action: ScreenAction]>;
 

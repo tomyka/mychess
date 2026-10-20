@@ -6,8 +6,8 @@ import type { Key } from '@lichess-org/chessground/types';
 import { chapterChildren, chapterOf, sideToMove } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
-import { chapterLabel } from '../../../lib/chapter-label';
-import { pieceAt } from '../../board/squares';
+import { chapterLabel } from '../../lib/chapter-label';
+import { pieceAt } from '../board/squares';
 import { moveNumber } from './board-play';
 import type { ScreenState } from './screen-state';
 

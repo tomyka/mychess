@@ -19,13 +19,13 @@ export interface MoveListProps {
   /** The moves to the shown position; its last one is the current move. */
   readonly path: readonly RepertoireMove[];
   /** The viewer's own notes by move key: Personal notes, or a coach's own. */
-  readonly notes: Readonly<Record<string, string>>;
+  readonly notedMoves: Readonly<Record<string, string>>;
   /**
-   * Whose notes `notes` are, and so their mark: the owner's private
+   * Whose notes `notedMoves` are, and so their mark: the owner's private
    * Personal notes (a lock, the default) or the viewing coach's own notes
    * on a shared repertoire (a pen; docs/design/coach-shared-repertoire.md).
    */
-  readonly noteKind?: NoteKind;
+  readonly noteKind?: NoteKind | undefined;
   readonly onGoto: (path: readonly RepertoireMove[]) => void;
   /** Builder mode: an empty chapter asks for its first move. */
   readonly building?: boolean;
@@ -90,7 +90,7 @@ interface ListContext {
   readonly graph: RepertoireGraph;
   readonly whiteFirst: boolean;
   readonly current: string;
-  readonly notes: Readonly<Record<string, string>>;
+  readonly notedMoves: Readonly<Record<string, string>>;
   readonly noteKind: NoteKind;
   readonly onGoto: (path: readonly RepertoireMove[]) => void;
 }
@@ -125,7 +125,7 @@ function MoveChip({
   const number = moveNumber(token.ply, context.whiteFirst);
   const isCurrent = pathId(token.path) === context.current;
   const note =
-    context.notes[moveKey(move.from, move.san)] === undefined
+    context.notedMoves[moveKey(move.from, move.san)] === undefined
       ? null
       : context.noteKind;
   const label = useChipLabel(
@@ -243,14 +243,14 @@ function Tokens({
  */
 export function MoveList(props: MoveListProps): JSX.Element {
   const t = useTranslations('repertoires');
-  const { graph, chapterId, path, notes, onGoto } = props;
+  const { graph, chapterId, path, notedMoves, onGoto } = props;
   const tree = chapterId === null ? [] : chapterTree(graph, chapterId);
   const root = tree[0]?.move.from;
   const context: ListContext = {
     graph,
     whiteFirst: root === undefined || sideToMove(root) === 'w',
     current: pathId(path),
-    notes,
+    notedMoves,
     noteKind: props.noteKind ?? 'personal',
     onGoto,
   };

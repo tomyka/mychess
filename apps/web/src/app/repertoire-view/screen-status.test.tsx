@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../../i18n/locales';
+import { MESSAGES } from '../../i18n/locales';
 import type { ScreenMessage } from './screen-state';
 import { ScreenStatus } from './screen-status';
 

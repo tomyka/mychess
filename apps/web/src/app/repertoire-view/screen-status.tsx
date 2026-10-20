@@ -2,9 +2,9 @@
 
 import { useMessages, useTranslations } from 'next-intl';
 import { useEffect, useRef, type JSX } from 'react';
-import { isMessageKey } from '../../../i18n/message-key';
-import { SECONDARY_BUTTON } from '../../buttons';
-import { StatusLine } from '../../status-line';
+import { isMessageKey } from '../../i18n/message-key';
+import { SECONDARY_BUTTON } from '../buttons';
+import { StatusLine } from '../status-line';
 import type { ScreenMessage } from './screen-state';
 
 export interface ScreenStatusProps {

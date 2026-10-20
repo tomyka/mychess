@@ -1,5 +1,5 @@
 import type { JSX } from 'react';
-import { RepertoireLoadingShell, SKELETON_LINE } from './loading-shell';
+import { RepertoireLoadingShell, SKELETON_LINE } from '../../repertoire-view';
 
 // The repertoire page while it loads (docs/design/repertoire-screen.md,
 // States): the top bar's skeleton over the shared loading shell.

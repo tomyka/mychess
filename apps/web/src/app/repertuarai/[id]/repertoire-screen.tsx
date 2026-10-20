@@ -2,7 +2,6 @@
 
 import {
   chapterOf,
-  moveKey,
   sideToMove,
   START_KEY,
   type RepertoireGraph,
@@ -17,25 +16,27 @@ import type {
   OwnerCoachNote,
   RepertoireSharing,
 } from '../../../server/repertoires';
-import { Board } from '../../board/board';
 import { SECONDARY_BUTTON } from '../../buttons';
-import { moveNumber, removalCount } from './board-play';
-import { Announcer, useBoardWords } from './board-words';
-import { BoardRow } from './board-row';
-import { BuilderBar } from './builder-bar';
-import { ChapterList } from './chapter-list';
-import { ModeSwitch } from './mode-switch';
-import { PANEL_LABEL } from './panel-styles';
-import { MoveList } from './move-list';
-import { MovePanel } from './move-panel';
-import { RepertoireActions, RepertoireHeader } from './repertoire-header';
 import {
   initialState,
+  moveNumber,
+  PANEL_LABEL,
+  removalCount,
+  RepertoireShell,
   screenReducer,
+  useBoardPlay,
+  useNotes,
+  useScreenBoard,
+  type Notes,
+  type PanelContent,
   type ScreenAction,
   type ScreenState,
-} from './screen-state';
-import { ScreenStatus } from './screen-status';
+} from '../../repertoire-view';
+import { savePersonalNoteAction } from './actions';
+import { BuilderBar } from './builder-bar';
+import { ModeSwitch } from './mode-switch';
+import { OwnerNotes } from './move-panel';
+import { RepertoireActions, RepertoireHeader } from './repertoire-header';
 import { ShareWithCoach } from './share-with-coach';
 import {
   chapterBuilder,
@@ -46,8 +47,6 @@ import {
   useRemoveMove,
   type Edit,
 } from './use-builder';
-import { useNotes, type Notes } from './use-notes';
-import { useBoardPlay, useScreenBoard } from './use-screen';
 
 export interface RepertoireScreenProps {
   readonly repertoire: {
@@ -108,43 +107,6 @@ function EmptyRepertoire({
   );
 }
 
-/** The chapter's intro, or the current move's comment and note, or the empty state. */
-function PositionSection({
-  screen,
-  notes,
-}: {
-  readonly screen: Screen;
-  readonly notes: Notes;
-}): JSX.Element | null {
-  const { props, state, dispatch, edit } = screen;
-  const chapter =
-    state.chapterId === null
-      ? undefined
-      : chapterOf(state.graph, state.chapterId);
-  if (chapter === undefined)
-    return (
-      <EmptyRepertoire
-        id={props.repertoire.id}
-        mode={state.mode}
-        onBuild={() => {
-          dispatch({ type: 'mode', mode: 'build' });
-        }}
-      />
-    );
-  const last = state.path.at(-1);
-  const key = last === undefined ? '' : moveKey(last.from, last.san);
-  return (
-    <MovePanel
-      intro={chapter.intro}
-      move={last ?? null}
-      note={notes.notes[key] ?? ''}
-      onSaveNote={notes.save(key)}
-      commentEditor={commentEditor(state, edit)}
-      coachNotes={props.coachNotes.filter((n) => n.moveKey === key)}
-    />
-  );
-}
-
 /** The repertoire's actions at the end of the panel, on a phone only. */
 function PhoneActions({
   id,
@@ -176,75 +138,41 @@ interface Screen {
 }
 
 /**
- * The page's status line, under the board row and the builder row and
- * outside the scrolling panel, so a refusal is seen however far the panel
- * has scrolled.
+ * What the owner puts in the panel: the builder's chapter and comment
+ * fields, the coaches' notes and the Personal note under each move, and the
+ * repertoire's actions and sharing last.
  */
-function PanelStatus({ state }: { readonly state: ScreenState }): JSX.Element {
-  const router = useRouter();
-  return (
-    <div className="shrink-0 px-gutter lg:px-0">
-      <ScreenStatus
-        message={state.message}
-        stale={state.stale}
-        onReload={() => {
-          router.refresh();
-        }}
-      />
-    </div>
-  );
-}
-
-/**
- * The scrolling part of the panel: chapters, then the position (comment
- * and note), then the moves. The DOM order is the visual order at every
- * width, so Tab follows what the eye sees (WCAG 2.4.3).
- */
-function PanelBody({
-  screen,
-  notes,
-}: {
-  readonly screen: Screen;
-  readonly notes: Notes;
-}): JSX.Element {
+function ownerPanel(screen: Screen, notes: Notes): PanelContent {
   const { props, state, dispatch, edit } = screen;
   const { id, name } = props.repertoire;
-  const chapter =
-    state.chapterId === null
-      ? undefined
-      : chapterOf(state.graph, state.chapterId);
-  return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-gutter py-3 lg:px-0">
-      <ChapterList
-        chapters={state.graph.chapters}
-        chapterId={state.chapterId}
-        ecoNames={screen.ecoNames}
-        onSelect={(chapterId) => {
-          dispatch({ type: 'chapter', chapterId });
+  return {
+    chapterBuilder: chapterBuilder(state, edit),
+    empty: (
+      <EmptyRepertoire
+        id={id}
+        mode={state.mode}
+        onBuild={() => {
+          dispatch({ type: 'mode', mode: 'build' });
         }}
-        builder={chapterBuilder(state, edit)}
       />
-      <PositionSection screen={screen} notes={notes} />
-      {chapter === undefined ? null : (
-        // On a desktop the moves scroll on their own, so stepping keeps the
-        // comment above them in view; on a phone the whole panel scrolls.
-        <div className="lg:min-h-40 lg:flex-1 lg:overflow-y-auto">
-          <MoveList
-            graph={state.graph}
-            chapterId={state.chapterId}
-            path={state.path}
-            notes={notes.notes}
-            building={state.mode === 'build'}
-            onGoto={(path) => {
-              dispatch({ type: 'goto', path });
-            }}
-          />
-        </div>
-      )}
-      <PhoneActions id={id} name={name} />
-      <ShareWithCoach repertoireId={id} sharing={props.sharing} />
-    </div>
-  );
+    ),
+    commentEditor: commentEditor(state, edit),
+    renderNotes: (key) => (
+      <OwnerNotes
+        key={key}
+        coachNotes={props.coachNotes.filter((n) => n.moveKey === key)}
+        note={notes.byMove[key] ?? ''}
+        onSaveNote={notes.save(key)}
+      />
+    ),
+    notedMoves: notes.byMove,
+    footer: (
+      <>
+        <PhoneActions id={id} name={name} />
+        <ShareWithCoach repertoireId={id} sharing={props.sharing} />
+      </>
+    ),
+  };
 }
 
 /**
@@ -312,59 +240,37 @@ function useRepertoireScreen(props: RepertoireScreenProps) {
 
 /**
  * The repertoire page (docs/design/repertoire-screen.md, section 2), browse
- * and builder: on a phone the top bar, board, board row and builder row
- * stay put and the panel scrolls below; on a desktop the board and the
- * panel sit side by side.
+ * and builder, on the repertoire-view shell.
  */
 export function RepertoireScreen(props: RepertoireScreenProps): JSX.Element {
   const { repertoire } = props;
   const { screen, board, play, drawing } = useRepertoireScreen(props);
   const { state, dispatch } = screen;
-  const notes = useNotes(repertoire.id, props.notes);
-  const words = useBoardWords(
-    repertoire.name,
-    state,
-    board.view.fen,
-    screen.ecoNames,
+  const notes = useNotes(props.notes, (moveKey, text) =>
+    savePersonalNoteAction({ repertoireId: repertoire.id, moveKey, text }),
   );
+  const router = useRouter();
   return (
-    <main className="flex h-dvh flex-col lg:mx-auto lg:h-auto lg:max-w-6xl lg:gap-6 lg:px-gutter-wide lg:py-8">
-      <RepertoireHeader id={repertoire.id} name={repertoire.name}>
-        <ModeSwitch
-          building={state.mode === 'build'}
-          onChange={(building) => {
-            dispatch({ type: 'mode', mode: building ? 'build' : 'browse' });
-          }}
-        />
-      </RepertoireHeader>
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-start lg:justify-center lg:gap-8">
-        <div className="shrink-0 lg:w-[min(calc(100dvh-12rem),42rem)]">
-          <Board
-            view={board.view}
-            label={words.label}
-            describe={words.describe}
-            onMove={play.onMove}
-            onSquare={drawing.onSquare}
-            onShapes={drawing.onShapes}
-            onEscape={drawing.onEscape}
+    <RepertoireShell
+      header={
+        <RepertoireHeader id={repertoire.id} name={repertoire.name}>
+          <ModeSwitch
+            building={state.mode === 'build'}
+            onChange={(building) => {
+              dispatch({ type: 'mode', mode: building ? 'build' : 'browse' });
+            }}
           />
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col lg:max-h-[calc(100dvh-12rem)] lg:w-panel lg:flex-none lg:rounded-card lg:bg-surface lg:p-4 lg:shadow-card">
-          <BoardRow
-            state={state}
-            dispatch={dispatch}
-            board={board}
-            play={play}
-          />
-          <ScreenBuilderBar screen={screen} />
-          <PanelStatus state={state} />
-          <PanelBody screen={screen} notes={notes} />
-        </div>
-      </div>
-      <Announcer state={state} />
-      <p aria-live="polite" className="sr-only">
-        {drawing.said}
-      </p>
-    </main>
+        </RepertoireHeader>
+      }
+      name={repertoire.name}
+      ecoNames={screen.ecoNames}
+      view={{ state, dispatch, board, play }}
+      panel={ownerPanel(screen, notes)}
+      drawing={drawing}
+      toolbar={<ScreenBuilderBar screen={screen} />}
+      onReload={() => {
+        router.refresh();
+      }}
+    />
   );
 }

@@ -3,8 +3,8 @@
 import type { Chapter } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import { useEffect, useId, useRef, useState, type JSX } from 'react';
-import { chapterLabel } from '../../../lib/chapter-label';
-import { SECONDARY_BUTTON } from '../../buttons';
+import { chapterLabel } from '../../lib/chapter-label';
+import { SECONDARY_BUTTON } from '../buttons';
 import { ChapterRow, type ChapterBuilder } from './chapter-row';
 
 export type { ChapterBuilder } from './chapter-row';

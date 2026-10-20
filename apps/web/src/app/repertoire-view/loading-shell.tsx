@@ -1,6 +1,6 @@
 import { useTranslations } from 'next-intl';
 import type { JSX, ReactNode } from 'react';
-import { SlowStatus } from '../../slow-status';
+import { SlowStatus } from '../slow-status';
 
 /** A skeleton line: one line of text not there yet. */
 export const SKELETON_LINE = 'h-5 rounded-control bg-sunken';

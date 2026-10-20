@@ -1,42 +1,17 @@
 'use client';
 
-import { chapterOf, moveKey } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { useReducer, useState, type ActionDispatch, type JSX } from 'react';
+import { useState, type JSX } from 'react';
 import { coachPlayerPath } from '../../../../../../lib/routes';
 import type { SharedRepertoirePage } from '../../../../../../server/coach-pages';
-import { Board } from '../../../../../board/board';
-import { BoardRow } from '../../../../../repertuarai/[id]/board-row';
 import {
-  Announcer,
-  useBoardWords,
-} from '../../../../../repertuarai/[id]/board-words';
-import { ChapterList } from '../../../../../repertuarai/[id]/chapter-list';
-import { Comment, MarksText } from '../../../../../repertuarai/[id]/move-panel';
-import { MoveList } from '../../../../../repertuarai/[id]/move-list';
-import {
-  initialState,
-  screenReducer,
-  type ScreenAction,
-  type ScreenState,
-} from '../../../../../repertuarai/[id]/screen-state';
-import { ScreenStatus } from '../../../../../repertuarai/[id]/screen-status';
-import {
-  useBoardPlay,
-  useScreenBoard,
-} from '../../../../../repertuarai/[id]/use-screen';
-import { PANEL_LABEL } from '../../../../../repertuarai/[id]/panel-styles';
-import { withNote } from '../../../../../repertuarai/[id]/notes-by-move';
+  RepertoireShell,
+  useBrowseView,
+  withNote,
+  type PanelContent,
+} from '../../../../../repertoire-view';
 import { CoachNoteForm } from './coach-note-form';
-
-type Dispatch = ActionDispatch<[action: ScreenAction]>;
-
-/** The screen as it opens: browsing, even a repertoire without chapters. */
-const opened = (data: SharedRepertoirePage): ScreenState => ({
-  ...initialState(data.graph, 0),
-  mode: 'browse',
-});
 
 /**
  * The way back to the player and the repertoire's name: on a phone one top
@@ -90,49 +65,30 @@ function SharedHeader({
 
 /** The coach's notes by move key, and a saver that keeps them current. */
 function useCoachNotes(initial: Readonly<Record<string, string>>) {
-  const [notes, setNotes] = useState(initial);
+  const [byMove, setByMove] = useState(initial);
   return {
-    notes,
+    byMove,
     onChange:
       (key: string) =>
       (text: string): void => {
-        setNotes((now) => withNote(now, key, text));
+        setByMove((now) => withNote(now, key, text));
       },
   };
 }
 
-/** The chapter's intro, or the move's comment and the coach's note on it. */
-function SharedPosition({
-  data,
-  state,
-  notes,
-}: {
-  readonly data: SharedRepertoirePage;
-  readonly state: ScreenState;
-  readonly notes: ReturnType<typeof useCoachNotes>;
-}): JSX.Element | null {
-  const t = useTranslations('repertoires.panel');
-  const chapter =
-    state.chapterId === null
-      ? undefined
-      : chapterOf(state.graph, state.chapterId);
-  if (chapter === undefined)
-    return <p className="text-fg-muted">{t('emptyBrowse')}</p>;
-  const move = state.path.at(-1);
-  if (move === undefined)
-    return chapter.intro === null ? null : (
-      <section aria-label={t('intro')} className="flex flex-col gap-1">
-        <p className={PANEL_LABEL}>{t('intro')}</p>
-        <p>{chapter.intro}</p>
-      </section>
-    );
-  const key = moveKey(move.from, move.san);
-  return (
-    <section aria-label={t('comment')} className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <Comment move={move} editor={undefined} />
-        <MarksText move={move} />
-      </div>
+/**
+ * What the coach sees in the panel: "read-only" over the chapters, the
+ * coach's own note under each move's comment, marked in the move list.
+ */
+function useSharedPanel(data: SharedRepertoirePage): PanelContent {
+  const t = useTranslations();
+  const notes = useCoachNotes(data.notes);
+  return {
+    lead: <p className="text-sm text-fg-muted">{t('coach.shared.readOnly')}</p>,
+    empty: (
+      <p className="text-fg-muted">{t('repertoires.panel.emptyBrowse')}</p>
+    ),
+    renderNotes: (key) => (
       <CoachNoteForm
         key={key}
         target={{
@@ -141,53 +97,13 @@ function SharedPosition({
           moveKey: key,
         }}
         playerName={data.player.displayName}
-        initial={notes.notes[key] ?? ''}
+        initial={notes.byMove[key] ?? ''}
         onChange={notes.onChange(key)}
       />
-    </section>
-  );
-}
-
-/** Chapters, the position and the moves, scrolling under the board row. */
-function SharedPanelBody({
-  data,
-  state,
-  dispatch,
-}: {
-  readonly data: SharedRepertoirePage;
-  readonly state: ScreenState;
-  readonly dispatch: Dispatch;
-}): JSX.Element {
-  const t = useTranslations('coach.shared');
-  const notes = useCoachNotes(data.notes);
-  return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-gutter py-3 lg:px-0">
-      <p className="text-sm text-fg-muted">{t('readOnly')}</p>
-      <ChapterList
-        chapters={state.graph.chapters}
-        chapterId={state.chapterId}
-        ecoNames={data.ecoNames}
-        onSelect={(chapterId) => {
-          dispatch({ type: 'chapter', chapterId });
-        }}
-      />
-      <SharedPosition data={data} state={state} notes={notes} />
-      {state.chapterId === null ? null : (
-        <div className="lg:min-h-40 lg:flex-1 lg:overflow-y-auto">
-          <MoveList
-            graph={state.graph}
-            chapterId={state.chapterId}
-            path={state.path}
-            notes={notes.notes}
-            noteKind="coach"
-            onGoto={(path) => {
-              dispatch({ type: 'goto', path });
-            }}
-          />
-        </div>
-      )}
-    </div>
-  );
+    ),
+    notedMoves: notes.byMove,
+    noteKind: 'coach',
+  };
 }
 
 /**
@@ -201,45 +117,15 @@ export function SharedRepertoireView({
 }: {
   readonly data: SharedRepertoirePage;
 }): JSX.Element {
-  const [state, dispatch] = useReducer(screenReducer, data, opened);
-  const board = useScreenBoard(state, data.repertoire.side);
-  const play = useBoardPlay(state, dispatch, board, null);
-  const words = useBoardWords(
-    data.repertoire.name,
-    state,
-    board.view.fen,
-    data.ecoNames,
-  );
+  const view = useBrowseView(data.graph, data.repertoire.side);
+  const panel = useSharedPanel(data);
   return (
-    <main className="flex h-dvh flex-col lg:mx-auto lg:h-auto lg:max-w-6xl lg:gap-6 lg:px-gutter-wide lg:py-8">
-      <SharedHeader data={data} />
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-start lg:justify-center lg:gap-8">
-        <div className="shrink-0 lg:w-[min(calc(100dvh-12rem),42rem)]">
-          <Board
-            view={board.view}
-            label={words.label}
-            describe={words.describe}
-            onMove={play.onMove}
-          />
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col lg:max-h-[calc(100dvh-12rem)] lg:w-panel lg:flex-none lg:rounded-card lg:bg-surface lg:p-4 lg:shadow-card">
-          <BoardRow
-            state={state}
-            dispatch={dispatch}
-            board={board}
-            play={play}
-          />
-          <div className="shrink-0 px-gutter lg:px-0">
-            <ScreenStatus
-              message={state.message}
-              stale={false}
-              onReload={() => undefined}
-            />
-          </div>
-          <SharedPanelBody data={data} state={state} dispatch={dispatch} />
-        </div>
-      </div>
-      <Announcer state={state} />
-    </main>
+    <RepertoireShell
+      header={<SharedHeader data={data} />}
+      name={data.repertoire.name}
+      ecoNames={data.ecoNames}
+      view={view}
+      panel={panel}
+    />
   );
 }

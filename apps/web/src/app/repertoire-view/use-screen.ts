@@ -15,9 +15,9 @@ import {
   type Side,
 } from '@mychess/chess';
 import { useMemo, useState, type ActionDispatch } from 'react';
-import type { BoardView } from '../../board/board-config';
-import { shapesOf } from '../../board/shapes';
-import { destsOf, isKey, squaresOf } from '../../board/squares';
+import type { BoardView } from '../board/board-config';
+import { shapesOf } from '../board/shapes';
+import { destsOf, isKey, squaresOf } from '../board/squares';
 import { childBySan, movesBetween } from './board-play';
 import {
   currentKey,

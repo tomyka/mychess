@@ -2,8 +2,8 @@
 
 import { chapterChildren } from '@mychess/chess';
 import type { ActionDispatch, JSX } from 'react';
-import { MoveInput } from '../../board/move-input';
-import { PromotionPicker } from '../../board/promotion-picker';
+import { MoveInput } from '../board/move-input';
+import { PromotionPicker } from '../board/promotion-picker';
 import { NavButtons } from './nav-buttons';
 import {
   currentKey,

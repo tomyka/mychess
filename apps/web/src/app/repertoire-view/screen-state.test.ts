@@ -8,7 +8,7 @@ import {
   type RepertoireMove,
 } from '@mychess/chess';
 import { describe, expect, it } from 'vitest';
-import { graphOf, LONDON } from '../../../../test/fixtures/repertoires';
+import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import {
   currentKey,
   initialState,

@@ -6,7 +6,7 @@ import {
   START_KEY,
 } from '@mychess/chess';
 import { describe, expect, it } from 'vitest';
-import { graphOf, LONDON } from '../../../../test/fixtures/repertoires';
+import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import {
   childBySan,
   markChange,

@@ -2,12 +2,8 @@ import { moveKey, type RepertoireMove } from '@mychess/chess';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  graphOf,
-  LONDON,
-  TAIMANOV,
-} from '../../../../test/fixtures/repertoires';
-import { MESSAGES } from '../../../i18n/locales';
+import { graphOf, LONDON, TAIMANOV } from '../../../test/fixtures/repertoires';
+import { MESSAGES } from '../../i18n/locales';
 import { MoveList, type MoveListProps } from './move-list';
 
 const LONDON_GRAPH = graphOf(LONDON);
@@ -20,7 +16,7 @@ function renderList(over: Partial<MoveListProps> = {}) {
         graph={LONDON_GRAPH}
         chapterId="c1"
         path={[]}
-        notes={{}}
+        notedMoves={{}}
         onGoto={onGoto}
         {...over}
       />
@@ -85,7 +81,7 @@ describe('MoveList', () => {
 
   it('names a move with a comment or a note, and weighs the side’s own moves', () => {
     const d5 = LONDON_GRAPH.moves.find((m) => m.san === 'd5');
-    renderList({ notes: { [moveKey(d5?.from ?? '', 'd5')]: 'Mine' } });
+    renderList({ notedMoves: { [moveKey(d5?.from ?? '', 'd5')]: 'Mine' } });
     expect(chip('1. d4, has a comment').className).toContain('font-semibold');
     expect(chip('1... d5, has my note').className).not.toContain(
       'font-semibold',
@@ -95,12 +91,12 @@ describe('MoveList', () => {
   it('marks a Personal note with a lock, and a coach’s own note with a pen', () => {
     const d5 = LONDON_GRAPH.moves.find((m) => m.san === 'd5');
     const notes = { [moveKey(d5?.from ?? '', 'd5')]: 'Mine' };
-    renderList({ notes });
+    renderList({ notedMoves: notes });
     expect(
       chip('1... d5, has my note').querySelector('[data-note="personal"]'),
     ).not.toBeNull();
     cleanup();
-    renderList({ notes, noteKind: 'coach' });
+    renderList({ notedMoves: notes, noteKind: 'coach' });
     const coach = chip(
       `1... d5, ${MESSAGES.en.repertoires.moves.hasCoachNote}`,
     );

@@ -6,7 +6,7 @@ import type { RepertoireSharing } from '../../../server/repertoires';
 import { SECONDARY_BUTTON } from '../../buttons';
 import { StatusLine } from '../../status-line';
 import { submitByHand } from '../../submit-by-hand';
-import { PANEL_LABEL } from './panel-styles';
+import { PANEL_LABEL } from '../../repertoire-view';
 import { setSharesAction, type ShareState } from './sharing-actions';
 
 /**

@@ -2,7 +2,7 @@ import type { JSX } from 'react';
 import {
   RepertoireLoadingShell,
   SKELETON_LINE,
-} from '../../../../../repertuarai/[id]/loading-shell';
+} from '../../../../../repertoire-view';
 
 // The coach's read-only view of a shared repertoire while it loads
 // (docs/design/coach-shared-repertoire.md, States): its header's skeleton

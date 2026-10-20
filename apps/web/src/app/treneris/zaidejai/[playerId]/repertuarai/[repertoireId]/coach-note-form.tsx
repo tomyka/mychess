@@ -10,7 +10,7 @@ import {
   saveCoachNoteAction,
   type CoachNoteState,
 } from '../../../../actions';
-import { PANEL_LABEL } from '../../../../../repertuarai/[id]/panel-styles';
+import { PANEL_LABEL } from '../../../../../repertoire-view';
 
 export interface CoachNoteFormProps {
   /** The player's repertoire and the move the note is on. */

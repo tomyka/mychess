@@ -26,17 +26,9 @@ import { getDb } from '../../../server/db';
 import { editRequestSchema } from '../../../server/repertoire-edit';
 import { ownRepertoire } from '../../../server/repertoires';
 import { requireOnboarded } from '../../../server/session';
+import type { NoteOutcome } from '../../repertoire-view';
 
 type NotFoundKey = typeof REPERTOIRE_REFUSALS.notFound;
-
-/** What saving a Personal note came to. */
-export type NoteOutcome =
-  | { readonly ok: true }
-  | {
-      readonly ok: false;
-      readonly refusal:
-        typeof REPERTOIRE_ISSUES.personalNoteTooLong | NotFoundKey;
-    };
 
 const noteRequestSchema = z.object({
   repertoireId: z.uuid(),
@@ -157,6 +149,7 @@ export async function deleteRepertoireAction(
     getDb(),
     own.value.repertoire.id,
     account.id,
+    new Date(),
   );
   if (!deleted.ok) return { refusal: deleted.refusal.reason };
   redirect(repertoireDeletedRoute);

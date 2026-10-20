@@ -24,7 +24,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../../i18n/locales';
 import { chapterTitle, ecoNamesOf } from '../../../server/chapter-names';
-import type { EditOutcome, NoteOutcome } from './actions';
+import type { NoteOutcome } from '../../repertoire-view';
+import type { EditOutcome } from './actions';
 import {
   RepertoireScreen,
   type RepertoireScreenProps,

@@ -3,12 +3,13 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../i18n/locales';
-import type { NoteOutcome } from './actions';
 import {
-  MovePanel,
+  PositionBody,
+  type CommentEditor,
   type FieldOutcome,
-  type MovePanelProps,
-} from './move-panel';
+  type NoteOutcome,
+} from '../../repertoire-view';
+import { OwnerNotes, type OwnerNotesProps } from './move-panel';
 
 const BF4: RepertoireMove = {
   from: 'rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq -',
@@ -23,18 +24,38 @@ const BF4: RepertoireMove = {
 
 const p = MESSAGES.en.repertoires;
 
-function renderPanel(over: Partial<MovePanelProps> = {}) {
+/** The owner's position section: the position body with the owner's notes. */
+interface PanelProps extends Partial<Omit<OwnerNotesProps, 'onSaveNote'>> {
+  readonly intro?: string | null;
+  readonly move?: RepertoireMove | null;
+  readonly commentEditor?: CommentEditor;
+}
+
+function renderPanel(over: PanelProps = {}) {
   const onSaveNote = vi
     .fn<(text: string) => Promise<NoteOutcome>>()
     .mockResolvedValue({ ok: true });
+  const {
+    intro = 'The London: solid and quick.',
+    move = null,
+    note = '',
+    coachNotes = [],
+    commentEditor,
+  } = over;
   render(
     <NextIntlClientProvider locale="en" messages={MESSAGES.en}>
-      <MovePanel
-        intro="The London: solid and quick."
-        move={null}
-        note=""
-        onSaveNote={onSaveNote}
-        {...over}
+      <PositionBody
+        intro={intro}
+        move={move}
+        commentEditor={commentEditor}
+        renderNotes={(key) => (
+          <OwnerNotes
+            key={key}
+            coachNotes={coachNotes}
+            note={note}
+            onSaveNote={onSaveNote}
+          />
+        )}
       />
     </NextIntlClientProvider>,
   );
@@ -49,7 +70,7 @@ const openNote = () => {
   fireEvent.click(screen.getByRole('button', { name: p.note.label }));
 };
 
-describe('MovePanel', () => {
+describe('OwnerNotes under the position', () => {
   it('shows the chapter intro at the root, and no note there', () => {
     renderPanel();
     expect(screen.getByText('The London: solid and quick.')).toBeDefined();
@@ -168,10 +189,8 @@ describe('MovePanel', () => {
   });
 });
 
-describe('MovePanel in builder mode', () => {
-  const builder = (
-    over: Partial<NonNullable<MovePanelProps['commentEditor']>> = {},
-  ) => ({
+describe('OwnerNotes under the position in builder mode', () => {
+  const builder = (over: Partial<CommentEditor> = {}) => ({
     disabled: false,
     onSave: vi
       .fn<(text: string) => Promise<FieldOutcome>>()

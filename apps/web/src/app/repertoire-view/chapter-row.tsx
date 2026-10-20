@@ -12,10 +12,10 @@ import {
   type KeyboardEvent,
   type RefObject,
 } from 'react';
-import { isMessageKey } from '../../../i18n/message-key';
-import { DANGER_BUTTON, SECONDARY_BUTTON } from '../../buttons';
-import { StatusLine } from '../../status-line';
-import type { FieldOutcome } from './move-panel';
+import { isMessageKey } from '../../i18n/message-key';
+import { DANGER_BUTTON, SECONDARY_BUTTON } from '../buttons';
+import { StatusLine } from '../status-line';
+import type { FieldOutcome } from './field-save';
 
 /** What the chapter list can change in builder mode. */
 export interface ChapterBuilder {
