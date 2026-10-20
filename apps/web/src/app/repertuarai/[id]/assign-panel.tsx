@@ -369,7 +369,7 @@ export function AssignPanel({
       </h2>
       <p className="text-sm text-fg-muted">{t('intro')}</p>
       <AssignNew repertoireId={repertoireId} data={data} />
-      <h3 id={listId} className={PANEL_LABEL}>
+      <h3 id={listId} className={`${PANEL_LABEL} mt-4`}>
         {t('list')}
       </h3>
       {data.assignments.length === 0 ? (

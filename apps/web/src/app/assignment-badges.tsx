@@ -9,12 +9,17 @@ export interface BadgeFlags {
   readonly updated: boolean;
 }
 
-/** Each badge in the order it shows, with its colours. */
+/**
+ * Each badge in the order it shows, with its colours. Every badge has a
+ * border so all are one height; the neutral ones show it, as `sunken` alone
+ * is the page colour on a phone. `learned` and `due` stay the progress
+ * colours (docs/design/README.md), so "forked" is neutral.
+ */
 const BADGES = [
-  ['overdue', 'bg-error-subtle text-error'],
-  ['paused', 'bg-sunken text-fg'],
-  ['forked', 'bg-learned-subtle text-learned'],
-  ['updated', 'bg-accent text-accent-fg'],
+  ['overdue', 'border-transparent bg-error-subtle text-error'],
+  ['paused', 'border-border-strong bg-sunken text-fg'],
+  ['forked', 'border-border-strong text-fg-muted'],
+  ['updated', 'border-transparent bg-accent text-accent-fg'],
 ] as const;
 
 /**
@@ -34,7 +39,7 @@ export function AssignmentBadges({
       {on.map(([flag, colours]) => (
         <li
           key={flag}
-          className={`rounded-full px-2 py-0.5 text-sm font-semibold ${colours}`}
+          className={`rounded-pill border px-2 py-0.5 text-sm font-semibold ${colours}`}
         >
           {t(flag)}
         </li>

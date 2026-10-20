@@ -40,6 +40,7 @@ export function ForkCopy({
         question={t('assignment.fork.question', { name })}
         confirm={t('assignment.fork.confirm')}
         cancel={t('assignment.fork.cancel')}
+        tone="primary"
       />
       <StatusLine
         text={state.refusal === undefined ? null : t(state.refusal)}

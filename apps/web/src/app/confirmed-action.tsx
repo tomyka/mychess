@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type JSX } from 'react';
-import { DANGER_BUTTON, SECONDARY_BUTTON } from './buttons';
+import { DANGER_BUTTON, PRIMARY_BUTTON, SECONDARY_BUTTON } from './buttons';
 import { PendingButton } from './pending-button';
 
 export interface ConfirmedActionProps {
@@ -17,7 +17,14 @@ export interface ConfirmedActionProps {
   readonly cancel: string;
   /** The id of what the first button acts on, such as a name heading. */
   readonly describedBy?: string;
+  /**
+   * The confirm button's weight: `danger` (the default) when the action
+   * destroys or takes away; `primary` when it only creates, as a fork does.
+   */
+  readonly tone?: 'danger' | 'primary';
 }
+
+const CONFIRM_BUTTON = { danger: DANGER_BUTTON, primary: PRIMARY_BUTTON };
 
 /**
  * An action that needs a confirm step, such as unlinking: the first button
@@ -31,6 +38,7 @@ export function ConfirmedAction({
   confirm,
   cancel,
   describedBy,
+  tone = 'danger',
 }: ConfirmedActionProps): JSX.Element {
   const [asking, setAsking] = useState(false);
   if (!asking)
@@ -53,7 +61,9 @@ export function ConfirmedAction({
       ))}
       <p className="font-medium">{question}</p>
       <div className="flex flex-wrap gap-3">
-        <PendingButton className={DANGER_BUTTON}>{confirm}</PendingButton>
+        <PendingButton className={CONFIRM_BUTTON[tone]}>
+          {confirm}
+        </PendingButton>
         <button
           type="button"
           onClick={() => {

@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ConfirmedAction } from './confirmed-action';
 
@@ -60,5 +66,24 @@ describe('ConfirmedAction', () => {
     expect(screen.queryByText(LABELS.question)).toBeNull();
     expect(button(LABELS.label)).toBeDefined();
     expect(action).not.toHaveBeenCalled();
+  });
+
+  it('confirms in the danger colour unless the action only creates', () => {
+    const action = vi.fn(() => Promise.resolve());
+    renderStep(action);
+    fireEvent.click(button(LABELS.label));
+    expect(button(LABELS.confirm).className).toContain('bg-error');
+    cleanup();
+    render(
+      <ConfirmedAction
+        action={action}
+        fields={{}}
+        tone="primary"
+        {...LABELS}
+      />,
+    );
+    fireEvent.click(button(LABELS.label));
+    expect(button(LABELS.confirm).className).toContain('bg-accent');
+    expect(button(LABELS.confirm).className).not.toContain('bg-error');
   });
 });
