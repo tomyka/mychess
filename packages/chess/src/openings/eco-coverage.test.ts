@@ -48,6 +48,14 @@ function illegalLines(lines: readonly (readonly string[])[]): Set<number> {
   return illegal;
 }
 
+// The tree replay is already the least work: about 1,100 chess.js moves for
+// the 500 lines (4,818 moves replayed one by one). It runs in about 130 ms
+// alone and 400 ms under coverage, but a gate run with coverage and a web
+// build on the same machine still passed vitest's 5 s default (#287). Each
+// chess.js move generates every legal move and two FENs, so the test is
+// CPU-bound and gets a budget that survives a starved machine.
+const REPLAYING_THE_ECO_TREE = 30_000;
+
 describe('ECO table', () => {
   it('has one entry for every code from A00 to E99, in order', () => {
     const codes = ['A', 'B', 'C', 'D', 'E'].flatMap((volume) =>
@@ -59,14 +67,20 @@ describe('ECO table', () => {
     expect(ECO.map((entry) => entry.code)).toEqual(codes);
   });
 
-  it('gives every entry an English name and a line legal from the start', () => {
-    const illegal = illegalLines(ECO.map((entry) => entry.moves));
-    const broken = ECO.filter(
-      (entry, i) =>
-        illegal.has(i) || entry.name.trim() === '' || entry.moves.length === 0,
-    ).map((entry) => entry.code);
-    expect(broken).toEqual([]);
-  });
+  it(
+    'gives every entry an English name and a line legal from the start',
+    () => {
+      const illegal = illegalLines(ECO.map((entry) => entry.moves));
+      const broken = ECO.filter(
+        (entry, i) =>
+          illegal.has(i) ||
+          entry.name.trim() === '' ||
+          entry.moves.length === 0,
+      ).map((entry) => entry.code);
+      expect(broken).toEqual([]);
+    },
+    REPLAYING_THE_ECO_TREE,
+  );
 
   it('keeps known entries', () => {
     expect(ECO.find((entry) => entry.code === 'B90')).toEqual({

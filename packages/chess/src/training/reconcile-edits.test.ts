@@ -6,7 +6,7 @@
  */
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { legalMoves } from '../legal-moves';
+import { legalMoves, type BoardMove } from '../legal-moves';
 import { importPgn } from '../pgn/import-pgn';
 import { netMoveChanges, playerMoveChanges } from '../repertoire/changes';
 import { addMove, removeMove } from '../repertoire/edit';
@@ -50,6 +50,20 @@ type Step = readonly [add: boolean, chapter: number, at: number, pick: number];
 const pickFrom = <T>(items: readonly T[], n: number): T | undefined =>
   items[n % Math.max(items.length, 1)];
 
+/**
+ * `legalMoves`, once per position. The edits keep revisiting the few
+ * positions of the base repertoires, and chess.js builds two FENs for every
+ * legal move, so generating them again is the bulk of the edits' cost (#287).
+ */
+const movesAt = new Map<string, readonly BoardMove[]>();
+function legalMovesAt(key: string): readonly BoardMove[] {
+  const known = movesAt.get(key);
+  if (known !== undefined) return known;
+  const moves = legalMoves(key);
+  movesAt.set(key, moves);
+  return moves;
+}
+
 /** Adds a legal move from a position the chapter reaches; a refusal is no edit. */
 function addStep(
   graph: RepertoireGraph,
@@ -63,7 +77,7 @@ function addStep(
       .map((m) => m.to),
   ];
   const from = pickFrom(reached, at) ?? chapter.rootKey;
-  const move = pickFrom(legalMoves(from), pick);
+  const move = pickFrom(legalMovesAt(from), pick);
   if (move === undefined) return graph;
   const r = addMove(graph, chapter.id, from, move.san);
   return r.ok ? r.value : graph;
@@ -127,6 +141,14 @@ const edited = (base: RepertoireGraph, steps: readonly Step[]): Edited => {
   return { before: base, after: path[path.length - 1] ?? base, path };
 };
 
+// Each property makes 100 edit sequences of up to 8 builder edits, and every
+// edit plays its move and classifies the chapter's main line through chess.js.
+// With `legalMovesAt` that is about 0.4 s per test under coverage on an idle
+// machine (1.5 s without it). A gate run with coverage and other work on the
+// machine still passed vitest's 5 s default (#287), so each test gets a
+// budget that survives a starved machine.
+const EDITING_A_HUNDRED_TIMES = 30_000;
+
 /** Runs a property over arbitrary edits of each base repertoire. */
 function forAnyEdit(check: (e: Edited) => void): void {
   fc.assert(
@@ -138,54 +160,70 @@ function forAnyEdit(check: (e: Edited) => void): void {
 }
 
 describe('reconcile across arbitrary coach edits (R-23, R-53, R-121)', () => {
-  it('keeps the keys held before and after, queues the new ones and parks the removed ones', () => {
-    forAnyEdit(({ before, after }) => {
-      const was = heldBy(before);
-      const now = heldBy(after);
-      const reviews = new Map([...was].map((k) => [k, k]));
-      expect(
-        reconcile([{ id: 'r', graph: after, active: true }], reviews),
-      ).toEqual({
-        kept: [...now].filter((k) => was.has(k)).sort(),
-        toLearn: minus(now, was),
-        dormant: minus(was, now),
+  it(
+    'keeps the keys held before and after, queues the new ones and parks the removed ones',
+    () => {
+      forAnyEdit(({ before, after }) => {
+        const was = heldBy(before);
+        const now = heldBy(after);
+        const reviews = new Map([...was].map((k) => [k, k]));
+        expect(
+          reconcile([{ id: 'r', graph: after, active: true }], reviews),
+        ).toEqual({
+          kept: [...now].filter((k) => was.has(k)).sort(),
+          toLearn: minus(now, was),
+          dormant: minus(was, now),
+        });
       });
-    });
-  });
+    },
+    EDITING_A_HUNDRED_TIMES,
+  );
 
-  it('names the same added and removed keys in the edit as reconcile does', () => {
-    forAnyEdit(({ before, after }) => {
-      const r = reconcile(
-        [{ id: 'r', graph: after, active: true }],
-        new Map([...heldBy(before)].map((k) => [k, k])),
-      );
-      const changes = playerMoveChanges(before, after);
-      expect(sortedKeys(changes.added)).toEqual(r.toLearn);
-      expect(sortedKeys(changes.removed)).toEqual(r.dormant);
-    });
-  });
+  it(
+    'names the same added and removed keys in the edit as reconcile does',
+    () => {
+      forAnyEdit(({ before, after }) => {
+        const r = reconcile(
+          [{ id: 'r', graph: after, active: true }],
+          new Map([...heldBy(before)].map((k) => [k, k])),
+        );
+        const changes = playerMoveChanges(before, after);
+        expect(sortedKeys(changes.added)).toEqual(r.toLearn);
+        expect(sortedKeys(changes.removed)).toEqual(r.dormant);
+      });
+    },
+    EDITING_A_HUNDRED_TIMES,
+  );
 
-  it('nets the step-by-step changes to the same keys, a key removed and re-added included', () => {
-    forAnyEdit(({ before, after, path }) => {
-      const steps = path
-        .slice(1)
-        .map((graph, i) => playerMoveChanges(path[i] ?? before, graph));
-      const net = netMoveChanges(steps);
-      expect(sortedKeys(net.added)).toEqual(
-        minus(heldBy(after), heldBy(before)),
-      );
-      expect(sortedKeys(net.removed)).toEqual(
-        minus(heldBy(before), heldBy(after)),
-      );
-    });
-  });
+  it(
+    'nets the step-by-step changes to the same keys, a key removed and re-added included',
+    () => {
+      forAnyEdit(({ before, after, path }) => {
+        const steps = path
+          .slice(1)
+          .map((graph, i) => playerMoveChanges(path[i] ?? before, graph));
+        const net = netMoveChanges(steps);
+        expect(sortedKeys(net.added)).toEqual(
+          minus(heldBy(after), heldBy(before)),
+        );
+        expect(sortedKeys(net.removed)).toEqual(
+          minus(heldBy(before), heldBy(after)),
+        );
+      });
+    },
+    EDITING_A_HUNDRED_TIMES,
+  );
 
-  it('holds exactly the keys its chapters cover', () => {
-    forAnyEdit(({ after }) => {
-      const covered = after.chapters.flatMap((c) =>
-        scopeKeys({ kind: 'chapter', graph: after, chapterId: c.id }),
-      );
-      expect(new Set(covered)).toEqual(heldBy(after));
-    });
-  });
+  it(
+    'holds exactly the keys its chapters cover',
+    () => {
+      forAnyEdit(({ after }) => {
+        const covered = after.chapters.flatMap((c) =>
+          scopeKeys({ kind: 'chapter', graph: after, chapterId: c.id }),
+        );
+        expect(new Set(covered)).toEqual(heldBy(after));
+      });
+    },
+    EDITING_A_HUNDRED_TIMES,
+  );
 });
