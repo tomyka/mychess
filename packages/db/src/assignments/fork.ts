@@ -214,3 +214,44 @@ export async function forkCoachNotesOn(
       .orderBy(asc(forkCoachNotes.moveKey)),
   );
 }
+
+/** A fork coach note with the name of the fork it is kept in. */
+export interface PlayerForkCoachNote extends ForkCoachNote {
+  readonly repertoire: string;
+}
+
+const playerNoteRowsSchema = z.array(
+  z.object({
+    repertoire: z.string(),
+    moveKey: z.string().min(1),
+    text: z.string(),
+    coachName: z.string(),
+  }),
+);
+
+/**
+ * The coach notes kept in every fork `playerId` owns (R-141), by fork
+ * (oldest first), then move key; the statement filters by owner.
+ */
+export async function forkCoachNotesOf(
+  db: Executor,
+  playerId: string,
+): Promise<PlayerForkCoachNote[]> {
+  return playerNoteRowsSchema.parse(
+    await db
+      .select({
+        repertoire: repertoires.name,
+        moveKey: forkCoachNotes.moveKey,
+        text: forkCoachNotes.text,
+        coachName: forkCoachNotes.coachName,
+      })
+      .from(forkCoachNotes)
+      .innerJoin(repertoires, eq(repertoires.id, forkCoachNotes.repertoireId))
+      .where(eq(repertoires.ownerAccountId, playerId))
+      .orderBy(
+        asc(repertoires.createdAt),
+        asc(repertoires.id),
+        asc(forkCoachNotes.moveKey),
+      ),
+  );
+}

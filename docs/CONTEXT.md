@@ -102,6 +102,22 @@ _Avoid_: Copy, share, subscription
 A Player's personal, editable copy of an assigned Repertoire, cut off from the Coach's later edits. The only way for a Player to change or add Moves to something they were assigned.
 _Avoid_: Clone, copy, duplicate
 
+**Fork offer**:
+A 30-day offer to keep a Fork of an Assignment that ended for a Player (unassigned, unlinked, left the Group, or the Repertoire deleted). It holds a snapshot taken when the Assignment ended, so later Coach edits or deletes do not change what the Player can keep (R-44, R-130, R-131).
+_Avoid_: Copy offer, export
+
+**Deadline** (of an Assignment):
+A calendar date by which the Player should have learned every Move (R-129). Passed and not done, the Assignment is **overdue** for the Player and the Coach (R-51); nothing is blocked. Not the same as a Review being Due.
+_Avoid_: Due date (collides with Due)
+
+**Paused** (Assignment):
+A Player's pause of an Assignment: it stays assigned but adds no Reviews and no new Moves until resumed (R-46). A paused Assignment can still be overdue (R-132).
+_Avoid_: Suspended, archived
+
+**Updated** (Assignment):
+The flag a Player sees on an assigned Repertoire after the Coach changed its Moves, Comments or marks since the Player last opened it (R-133, R-136).
+_Avoid_: New, changed
+
 **Comment**:
 Text on a Move of a Repertoire, from PGN or written in the builder. It belongs to the Repertoire: it is exported with it and seen by whoever may see the Repertoire (R-102, one paragraph per R-105). On a Coach's own Repertoire it is a Coach note.
 _Avoid_: Annotation, note (a Personal note is private)

@@ -129,6 +129,11 @@ Three to five teammates at a time; each one costs tokens.
 - **The working tree is shared.** Teammates never run `git stash`, `git checkout -- <file>`, `git reset` or `git clean`: in a shared tree they move other teammates' uncommitted work. To check whether a failure is yours, run only your own tests.
 - **Never skip, weaken or delete a failing test** to reach green; a failing
   test is the finding.
+- **The lead commits only on the gate's exit code**: `node quality/gate.mjs
+  check > gate.log 2>&1 && git commit ...`. A pipe (`gate | tail && git
+  commit`) hides a failure and the commit goes through (S5, e7d9de8).
+- **No command that can wait on stdin** (a bare `cat`, an interactive
+  prompt): it hangs the teammate's shell, and stopping it may be refused (S5).
 - **Silence is not progress.** With every handoff the lead starts a
   background timer (about 20 minutes); when it fires it checks the teammate
   is alive (`ListAgents`) and restarts a stalled one with the same brief plus

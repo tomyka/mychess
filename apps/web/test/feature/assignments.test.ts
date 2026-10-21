@@ -11,6 +11,7 @@ import { moveKey, START_KEY } from '@mychess/chess';
 import {
   assign,
   leaveGroup,
+  listPersonalNotes,
   setPersonalNote,
   stopCoaching,
   unassign,
@@ -27,6 +28,7 @@ import {
   setPersonalNoteAction,
 } from '../../src/app/repertuarai/priskirti/[id]/actions';
 import AssignedRepertoirePage from '../../src/app/repertuarai/priskirti/[id]/page';
+import { savePersonalNoteAction } from '../../src/app/repertuarai/[id]/actions';
 import {
   assignAction,
   clearDeadlineAction,
@@ -594,6 +596,134 @@ describe('forged playerId and coachId fields act for the session player only', (
         seen_version: 1,
       },
     ]);
+  });
+});
+
+/** Every personal note as owner, repertoire, move key and text. */
+const personalNoteRows = (): Promise<unknown[]> =>
+  sql.rows(
+    `select a.display_name as player, r.name as repertoire, n.move_key, n.text
+       from personal_notes n
+       join accounts a on a.id = n.player_account_id
+       join repertoires r on r.id = n.repertoire_id
+      order by 1, 2, 3`,
+  );
+
+describe('savePersonalNoteAction on an assigned repertoire (R-21, Q26)', () => {
+  it('saves the assigned player’s own note on the coach’s live repertoire', async () => {
+    const { rokas, london } = await cast();
+    actAs(rokas);
+    expect(
+      await outcomeOf(
+        savePersonalNoteAction({
+          repertoireId: london,
+          moveKey: D4,
+          text: 'Rokas: nauja',
+        }),
+      ),
+    ).toEqual({ ok: true });
+    expect(await personalNoteRows()).toEqual([
+      {
+        player: 'Rokas',
+        repertoire: 'Londono sistema',
+        move_key: D4,
+        text: 'Rokas: nauja',
+      },
+    ]);
+  });
+
+  it.each([
+    [
+      'after the unlink',
+      async ({ rimantas, rokas }: Cast) => {
+        expect(
+          (await unlink(testDb(), rimantas.id, rokas.id, new Date())).ok,
+        ).toBe(true);
+      },
+    ],
+    [
+      'after the player forked it',
+      async ({ rokas, london }: Cast) => {
+        actAs(rokas);
+        await outcomeOf(forkAction({}, formOf({ repertoireId: london })));
+        await rokasFork();
+      },
+    ],
+  ])(
+    'refuses the player’s note %s (repertoire.notFound) and writes nothing',
+    async (_when, lose) => {
+      const people = await cast();
+      await lose(people);
+      const before = await state();
+      actAs(people.rokas);
+      for (const text of ['Rokas: po to', ''])
+        expect(
+          await outcomeOf(
+            savePersonalNoteAction({
+              repertoireId: people.london,
+              moveKey: D4,
+              text,
+            }),
+          ),
+        ).toEqual({ ok: false, refusal: 'repertoire.notFound' });
+      expect(await state()).toEqual(before);
+    },
+  );
+
+  it('refuses an account it is not assigned to and writes nothing', async () => {
+    const { gabija, jonas, london } = await cast();
+    const before = await state();
+    for (const who of [gabija, jonas]) {
+      actAs(who);
+      expect(
+        await outcomeOf(
+          savePersonalNoteAction({
+            repertoireId: london,
+            moveKey: D4,
+            text: 'Svetima',
+          }),
+        ),
+      ).toEqual({ ok: false, refusal: 'repertoire.notFound' });
+    }
+    expect(await state()).toEqual(before);
+  });
+
+  it('keeps the owning coach’s note under the coach, never shown to the player', async () => {
+    const { rimantas, rokas, london } = await cast();
+    const coachText = 'Rimantas: tik man';
+    actAs(rimantas);
+    expect(
+      await outcomeOf(
+        savePersonalNoteAction({
+          repertoireId: london,
+          moveKey: D4,
+          text: coachText,
+        }),
+      ),
+    ).toEqual({ ok: true });
+    expect(await personalNoteRows()).toEqual([
+      {
+        player: 'Rimantas',
+        repertoire: 'Londono sistema',
+        move_key: D4,
+        text: coachText,
+      },
+      {
+        player: 'Rokas',
+        repertoire: 'Londono sistema',
+        move_key: D4,
+        text: ROKAS_NOTE,
+      },
+    ]);
+    const before = await state();
+    expect(await listPersonalNotes(testDb(), rokas.id, london)).toEqual({
+      [D4]: ROKAS_NOTE,
+    });
+    actAs(rokas);
+    const assigned = await assignedRepertoireData(london);
+    expect(assigned.personalNotes).toEqual({ [D4]: ROKAS_NOTE });
+    expect(JSON.stringify(assigned)).not.toContain(coachText);
+    expect(await state()).toEqual(before);
   });
 });
 

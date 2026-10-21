@@ -16,6 +16,9 @@ import {
 import { and, asc, eq, gt } from 'drizzle-orm';
 import { z } from 'zod';
 import { accountColumns } from './accounts';
+import { forkCoachNotesOf } from './assignments/fork';
+import { openForkOffers } from './assignments/offers';
+import { playerAssignments } from './assignments/player';
 import type { Executor } from './client';
 import { playerCoaches } from './coaching';
 import { coachGroups } from './groups';
@@ -69,6 +72,20 @@ export interface CoachingExport {
     readonly createdAt: string;
     readonly updatedAt: string;
   }[];
+  /** As a player: the repertoires assigned live, by name (R-139). */
+  readonly assignments: readonly {
+    readonly repertoire: string;
+    readonly coach: string;
+    /** The effective deadline (R-134), `YYYY-MM-DD`, or null. */
+    readonly deadline: string | null;
+    readonly paused: boolean;
+  }[];
+  /** As a player: the fork offers open at the export, newest first (R-139). */
+  readonly forkOffers: readonly {
+    readonly repertoire: string;
+    readonly coach: string;
+    readonly expiresAt: string;
+  }[];
 }
 
 export interface AccountExport {
@@ -115,6 +132,17 @@ export interface AccountExport {
     readonly san: string;
     readonly text: string;
     readonly updatedAt: string;
+  }[];
+  /**
+   * The read-only coach notes kept in the account's forks (R-141), by fork
+   * name and move, as coachNotes are (R-126).
+   */
+  readonly forkCoachNotes: readonly {
+    readonly repertoire: string;
+    readonly position: string;
+    readonly san: string;
+    readonly text: string;
+    readonly coach: string;
   }[];
 }
 
@@ -193,7 +221,30 @@ async function sharing(
   };
 }
 
-/** The account's coaching data at `now` (R-106). */
+/** The account's assignments and fork offers as a player at `now` (R-139). */
+async function assigned(
+  db: Executor,
+  id: string,
+  now: Date,
+): Promise<Pick<CoachingExport, 'assignments' | 'forkOffers'>> {
+  const live = await playerAssignments(db, id, now);
+  const offers = await openForkOffers(db, id, now);
+  return {
+    assignments: live.map((assignment) => ({
+      repertoire: assignment.name,
+      coach: assignment.coachName,
+      deadline: assignment.deadline,
+      paused: assignment.paused,
+    })),
+    forkOffers: offers.map((offer) => ({
+      repertoire: offer.name,
+      coach: offer.coachName,
+      expiresAt: offer.expiresAt.toISOString(),
+    })),
+  };
+}
+
+/** The account's coaching data at `now` (R-106, R-139). */
 async function coaching(
   db: Executor,
   id: string,
@@ -204,6 +255,7 @@ async function coaching(
   const invites = await allCoachInvites(db, id);
   return {
     ...(await sharing(db, id)),
+    ...(await assigned(db, id, now)),
     coaches: coaches.map((coach) => ({
       displayName: coach.displayName,
       linkedAt: coach.linkedAt.toISOString(),
@@ -292,10 +344,24 @@ async function exportedNotes(
   }));
 }
 
+/** The coach notes of the account's own forks (R-141), never their ids. */
+async function exportedForkNotes(
+  db: Executor,
+  id: string,
+): Promise<AccountExport['forkCoachNotes']> {
+  return (await forkCoachNotesOf(db, id)).map((note) => ({
+    repertoire: note.repertoire,
+    ...notedMove(note.moveKey),
+    text: note.text,
+    coach: note.coachName,
+  }));
+}
+
 /**
  * The requester's own data (R-40, security item 9), with the sessions
- * active at `now` (R-89), the coaching data (R-106), the repertoires as
- * PGN and the personal notes (R-21); never tokens.
+ * active at `now` (R-89), the coaching data (R-106, R-139), the
+ * repertoires as PGN, the personal notes (R-21) and the coach notes of
+ * their forks (R-141); never tokens.
  */
 export async function exportAccount(
   db: Executor,
@@ -339,5 +405,6 @@ export async function exportAccount(
     coaching: await coaching(db, id, now),
     repertoires: await exportedRepertoires(db, id, options),
     personalNotes: await exportedNotes(db, id),
+    forkCoachNotes: await exportedForkNotes(db, id),
   };
 }

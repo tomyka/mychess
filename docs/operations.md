@@ -97,6 +97,13 @@ Staging and production send with Resend; local runs and E2E use Mailpit.
 3. `pnpm --filter @mychess/db migrate` applies the migrations.
 4. `pnpm --filter @mychess/web dev` starts the app.
 
+If another project's container already holds port 8025, compose starts
+Mailpit with no published ports and every magic link fails with a 500
+(`fetch failed` to `:8025`). Check `docker ps` first; if 8025 is taken,
+start Mailpit with a compose override that publishes `127.0.0.1:8026:8025`
+and set `MAILPIT_URL=http://localhost:8026` in `.env.local`. E2E reads
+`MAILPIT_URL` too (S5).
+
 The app picks Mailpit with `MAIL_TRANSPORT=mailpit` and sends through
 `MAILPIT_URL`'s `/api/v1/send`. E2E finds each test's mail by recipient
 (`GET /api/v1/search?query=to:"addr"`, `apps/web/e2e/support/mailpit.ts`). If port

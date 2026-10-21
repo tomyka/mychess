@@ -1,5 +1,6 @@
 import {
   addMove,
+  fenOf,
   moveKey,
   START_KEY,
   type RepertoireGraph,
@@ -20,6 +21,7 @@ import {
   listPersonalNotes,
   loadRepertoire,
   openForkOffers,
+  pauseAssignment,
   playerAssignments,
   saveRepertoireEdit,
   setPersonalNote,
@@ -505,15 +507,81 @@ describe("a coach's account delete (R-49)", () => {
 });
 
 describe('the data export', () => {
-  it("lists a player's forks without the coach's notes in them (R-126)", async () => {
+  it("lists a player's assignments with the coach, effective deadline and pause; a coach's none (R-139)", async () => {
+    expect(
+      await assign(
+        db,
+        {
+          coachId: 'c',
+          repertoireId: rep,
+          target: toPlayer('p'),
+          deadline: '2026-11-01',
+        },
+        NOW,
+      ),
+    ).toEqual(OK);
     await assignTo(toGroup(g));
-    await fork('p');
+    await pauseAssignment(
+      db,
+      { playerId: 'p', repertoireId: rep, paused: true },
+      NOW,
+    );
+    const exported = async (id: string) =>
+      must(await exportAccount(db, id, LATER)).coaching.assignments;
+    const assigned = { repertoire: 'Londono sistema', coach: 'Name c' };
+    expect(await exported('p')).toEqual([
+      { ...assigned, deadline: '2026-11-01', paused: true },
+    ]);
+    expect(await exported('q')).toEqual([
+      { ...assigned, deadline: null, paused: false },
+    ]);
+    expect(await exported('c')).toEqual([]);
+  });
+
+  it("lists a player's open fork offers with the coach and expiry (R-139)", async () => {
+    await assignTo(toPlayer('n'));
+    const [row] = await db.select({ id: assignments.id }).from(assignments);
+    await unassign(db, { coachId: 'c', assignmentId: must(row).id }, NOW);
+    const exported = async () =>
+      must(await exportAccount(db, 'n', LATER)).coaching;
+    expect(await exported()).toMatchObject({
+      assignments: [],
+      forkOffers: [
+        {
+          repertoire: 'Londono sistema',
+          coach: 'Name c',
+          expiresAt: forkOfferExpiry(NOW).toISOString(),
+        },
+      ],
+    });
+    const offerId = await offerOf('n');
+    expect(
+      await declineForkOffer(db, { playerId: 'n', offerId }, LATER),
+    ).toEqual(OK);
+    expect((await exported()).forkOffers).toEqual([]);
+  });
+
+  it("holds the coach notes of a player's own forks, never another player's (R-141)", async () => {
+    await assignTo(toGroup(g));
+    const forkId = await fork('p');
     const player = must(await exportAccount(db, 'p', LATER));
     expect(player.repertoires.map((r) => r.name)).toEqual(['Londono sistema']);
-    expect(Object.keys(player)).not.toContain('forkCoachNotes');
-    expect(JSON.stringify(player)).not.toContain(COMMENT);
-    expect(
-      JSON.stringify(must(await exportAccount(db, 'c', LATER))),
-    ).not.toContain('forkCoachNotes');
+    expect(player.forkCoachNotes).toEqual([
+      {
+        repertoire: 'Londono sistema',
+        position: fenOf(START_KEY),
+        san: 'd4',
+        text: COMMENT,
+        coach: 'Name c',
+      },
+    ]);
+    const text = JSON.stringify(player);
+    expect(text).not.toContain(forkId);
+    expect(text).not.toContain(rep);
+    for (const id of ['q', 'c']) {
+      const other = must(await exportAccount(db, id, LATER));
+      expect(other.forkCoachNotes).toEqual([]);
+      expect(other.coaching.coachNotes).toEqual([]);
+    }
   });
 });

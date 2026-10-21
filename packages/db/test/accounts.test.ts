@@ -270,9 +270,12 @@ describe('exportAccount', () => {
         invites: [],
         shares: [],
         coachNotes: [],
+        assignments: [],
+        forkOffers: [],
       },
       repertoires: [],
       personalNotes: [],
+      forkCoachNotes: [],
     });
     expect(JSON.stringify(data)).not.toMatch(/encrypted|jonas|t-a1/);
   });
@@ -538,6 +541,8 @@ describe('coaching rows on delete and export', () => {
       invites: [],
       shares: [],
       coachNotes: [],
+      assignments: [],
+      forkOffers: [],
     });
   });
 
@@ -631,6 +636,8 @@ describe('coaching rows on delete and export', () => {
       ],
       shares: [],
       coachNotes: [],
+      assignments: [],
+      forkOffers: [],
     });
     const text = JSON.stringify(data);
     for (const made of [personal, group, revoked]) {
