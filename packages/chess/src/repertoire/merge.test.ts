@@ -551,6 +551,6 @@ describe('mergeInto: cost', () => {
     });
     const merge = ({ existing, incoming }: ReturnType<typeof inputOf>) =>
       mergeInto(existing, incoming);
-    expect(growth(inputOf, merge, 10)).toBeLessThan(LINEAR_GROWTH);
+    expect(growth(inputOf, merge, 5)).toBeLessThan(LINEAR_GROWTH);
   }, 300_000);
 });

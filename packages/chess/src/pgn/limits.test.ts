@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkLimits, PGN_LIMITS } from './limits';
-import { growth, LINEAR_GROWTH } from './test-support';
+import { growth, GROWTH_FACTOR, LINEAR_GROWTH } from './test-support';
 
 const games = (n: number): string =>
   Array.from({ length: n }, () => '[Event "x"]\n\n1. e4 *').join('\n\n');
@@ -142,7 +142,11 @@ describe('checkLimits', () => {
   it('reads unclosed comments in linear time, without over-counting', () => {
     const comments = (bytes: number) => '{('.repeat(bytes / 2 - 1);
     expect(checkLimits(comments(PGN_LIMITS.bytes)).ok).toBe(true);
-    const ratio = growth(comments, checkLimits, PGN_LIMITS.bytes / 8);
+    const ratio = growth(
+      comments,
+      checkLimits,
+      PGN_LIMITS.bytes / GROWTH_FACTOR,
+    );
     expect(ratio).toBeLessThan(LINEAR_GROWTH);
   }, 300_000);
 
@@ -153,9 +157,9 @@ describe('checkLimits', () => {
     for (const text of [quotes, blank]) {
       expect(text(PGN_LIMITS.bytes).length).toBeLessThan(PGN_LIMITS.bytes);
       expect(checkLimits(text(PGN_LIMITS.bytes)).ok).toBe(true);
-      expect(growth(text, checkLimits, PGN_LIMITS.bytes / 8)).toBeLessThan(
-        LINEAR_GROWTH,
-      );
+      expect(
+        growth(text, checkLimits, PGN_LIMITS.bytes / GROWTH_FACTOR),
+      ).toBeLessThan(LINEAR_GROWTH);
     }
   }, 300_000);
 });

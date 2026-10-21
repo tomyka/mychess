@@ -23,19 +23,35 @@ export function imported(
   return r.value;
 }
 
-/** How many times larger the large input of {@link growth} is than the small. */
-const GROWTH_FACTOR = 8;
+/**
+ * How many times larger the large input of {@link growth} is than the small.
+ * Sixteen rather than eight (#292): linear work then grows about 16 times and
+ * quadratic about 256, a gap wide enough for a bound with a factor of four of
+ * room on either side.
+ */
+export const GROWTH_FACTOR = 16;
 
 /**
  * The most a linear operation may grow when its input grows by
- * {@link GROWTH_FACTOR}. Linear work grows about 8 times and quadratic work
- * about 64, so 24 tells them apart with room for a loaded machine's noise on
- * either side, where an absolute time limit depends on the machine.
+ * {@link GROWTH_FACTOR}: 64, the geometric middle of linear (16) and
+ * quadratic (256) growth. A loaded machine has inflated a linear ratio by
+ * more than three times (#292: 26 where about 8 was expected at the old
+ * factor of eight), so the bound keeps four times of room above linear, and
+ * as much below quadratic. A ratio is used rather than an absolute time
+ * limit, which would depend on the machine.
  */
-export const LINEAR_GROWTH = 24;
+export const LINEAR_GROWTH = 64;
 
-/** Timed samples per input size; the fastest one counts. */
+/** Timed samples per input size in one measurement; the fastest one counts. */
 const SAMPLES = 5;
+
+/**
+ * At most this many measurements in one {@link growth}: a ratio at or above
+ * {@link LINEAR_GROWTH} is measured again, so one stretch of load cannot fail
+ * a linear operation, while quadratic work stays above the bound on every
+ * measurement.
+ */
+const ATTEMPTS = 3;
 
 /** A sample repeats a fast run until this many milliseconds have passed. */
 const MIN_SAMPLE_MS = 20;
@@ -58,12 +74,34 @@ function sample(run: () => void): number {
 }
 
 /**
+ * One measurement of how many times longer `run` takes on `large` than on
+ * `small`. The sizes alternate for {@link SAMPLES} samples each, so a burst
+ * of load from elsewhere slows both alike, and each size counts its fastest
+ * sample: load only ever adds time, so the fastest is the closest to the work
+ * itself.
+ */
+function measure<T>(run: (input: T) => unknown, small: T, large: T): number {
+  const runOn = (input: T) => () => {
+    run(input);
+  };
+  let fastestSmall = Number.POSITIVE_INFINITY;
+  let fastestLarge = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < SAMPLES; i++) {
+    fastestSmall = Math.min(fastestSmall, sample(runOn(small)));
+    fastestLarge = Math.min(fastestLarge, sample(runOn(large)));
+  }
+  return fastestLarge / fastestSmall;
+}
+
+/**
  * How many times longer `run` takes on the input of size `GROWTH_FACTOR * n`
  * than on the input of size `n`. Both inputs are built before timing and the
- * small one runs once untimed to warm up the code. The sizes then alternate
- * for {@link SAMPLES} samples each, so a burst of load from elsewhere slows
- * both alike, and each size counts its fastest sample: load only ever adds
- * time, so the fastest is the closest to the work itself.
+ * small one runs once untimed to warm up the code. It returns the first
+ * measurement below {@link LINEAR_GROWTH}, or the smallest of
+ * {@link ATTEMPTS} measurements when none is: load that slows the large input
+ * more than the small one (memory bandwidth, cache, garbage collection) comes
+ * and goes, so a later measurement escapes it, while quadratic work grows
+ * past the bound every time.
  */
 export function growth<T>(
   inputOf: (n: number) => T,
@@ -72,15 +110,10 @@ export function growth<T>(
 ): number {
   const small = inputOf(n);
   const large = inputOf(GROWTH_FACTOR * n);
-  const runOn = (input: T) => () => {
-    run(input);
-  };
   run(small);
-  let fastestSmall = Number.POSITIVE_INFINITY;
-  let fastestLarge = Number.POSITIVE_INFINITY;
-  for (let i = 0; i < SAMPLES; i++) {
-    fastestSmall = Math.min(fastestSmall, sample(runOn(small)));
-    fastestLarge = Math.min(fastestLarge, sample(runOn(large)));
+  let smallest = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < ATTEMPTS && smallest >= LINEAR_GROWTH; i++) {
+    smallest = Math.min(smallest, measure(run, small, large));
   }
-  return fastestLarge / fastestSmall;
+  return smallest;
 }

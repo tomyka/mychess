@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { markKey, parseMarks } from './marks';
-import { growth, LINEAR_GROWTH } from './test-support';
+import { growth, GROWTH_FACTOR, LINEAR_GROWTH } from './test-support';
 
 describe('parseMarks', () => {
   it('reads arrows and circles and returns the rest of the comment', () => {
@@ -60,8 +60,11 @@ describe('parseMarks', () => {
 
   it('reads unclosed commands in linear time', () => {
     const comment = (bytes: number) => '[%cal '.repeat(Math.floor(bytes / 6));
-    expect(parseMarks(comment(2 * 1024 * 1024)).arrows).toEqual([]);
-    expect(growth(comment, parseMarks, 256 * 1024)).toBeLessThan(LINEAR_GROWTH);
+    const largest = 2 * 1024 * 1024;
+    expect(parseMarks(comment(largest)).arrows).toEqual([]);
+    expect(growth(comment, parseMarks, largest / GROWTH_FACTOR)).toBeLessThan(
+      LINEAR_GROWTH,
+    );
   }, 300_000);
 
   it('ignores malformed entries', () => {

@@ -8,7 +8,14 @@ import {
   type Side,
 } from '../repertoire/graph';
 import { importPgn, type ImportedRepertoire } from './import-pgn';
-import { growth, imported, LINEAR_GROWTH, must, START } from './test-support';
+import {
+  growth,
+  GROWTH_FACTOR,
+  imported,
+  LINEAR_GROWTH,
+  must,
+  START,
+} from './test-support';
 
 const two = `[Event "Italian"]
 
@@ -366,13 +373,18 @@ describe('importPgn', () => {
   it('splits a huge line with an unclosed comment in linear time', () => {
     const text = (repeats: number) =>
       `1. e4 ${'{ " '.repeat(repeats)}\n[Event "x"]\n\n1. e4 *`;
-    const largest = text(480_000);
+    const repeats = 480_000;
+    const largest = text(repeats);
     expect(largest.length).toBeGreaterThan(1_900_000);
     expect(importPgn(largest, 'white')).toEqual({
       ok: false,
       refusal: { reason: 'pgn.noValidGames' },
     });
-    const ratio = growth(text, (t) => importPgn(t, 'white'), 60_000);
+    const ratio = growth(
+      text,
+      (t) => importPgn(t, 'white'),
+      repeats / GROWTH_FACTOR,
+    );
     expect(ratio).toBeLessThan(LINEAR_GROWTH);
   }, 300_000);
 
@@ -384,10 +396,10 @@ describe('importPgn', () => {
     expect(r.ok && r.value.skipped).toEqual([]);
     expect(r.ok && r.value.graph.chapters).toHaveLength(200);
     expect(r.ok && r.value.graph.moves.length).toBeGreaterThan(5000);
-    // 10 games against 80 rather than 25 against 200: the growth is the
-    // same proof, and six runs of the full file would take most of a minute
-    // on a loaded CI runner.
-    const ratio = growth(bigFile, (t) => importPgn(t, 'black'), 10);
+    // 5 games against 80 rather than 12 against 200: the growth is the
+    // same proof, and repeated runs of the full file would take most of a
+    // minute on a loaded CI runner.
+    const ratio = growth(bigFile, (t) => importPgn(t, 'black'), 5);
     expect(ratio).toBeLessThan(LINEAR_GROWTH);
   }, 300_000);
 });
