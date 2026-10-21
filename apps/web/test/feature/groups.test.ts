@@ -238,6 +238,20 @@ describe('addMemberAction and removeMemberAction (R-12)', () => {
     expect(await memberships()).toEqual([]);
   });
 
+  it('read a malformed group before a malformed player, and add no one', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const rokas = await person(sql, 'rokas@example.lt', 'Rokas');
+    await link(jonas.id, rokas.id);
+    await groupOf(jonas.id, 'Jono grupė');
+    actAs(jonas);
+    expect(
+      await outcomeOf(
+        addMemberAction({}, formOf({ groupId: 'x', playerId: '' })),
+      ),
+    ).toEqual({ refusal: 'coach.groupNotFound' });
+    expect(await memberships()).toEqual([]);
+  });
+
   it('never take a player out of another coach’s group', async () => {
     const ona = await coachPerson(sql, 'ona@example.lt', 'Ona');
     const gabija = await person(sql, 'gabija@example.lt', 'Gabija');

@@ -40,6 +40,12 @@ const editOpSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('removeChapter'), chapterId }),
 ]) satisfies z.ZodType<EditOp>;
 
+/**
+ * The catalogue key a malformed edit request reads as, unless its first
+ * issue is one the domain names (a chapter name or a comment).
+ */
+export const INVALID_EDIT = 'repertoire.invalidEdit';
+
 /** A builder edit with the repertoire and the version the client holds. */
 export const editRequestSchema = z.object({
   repertoireId: z.uuid(),

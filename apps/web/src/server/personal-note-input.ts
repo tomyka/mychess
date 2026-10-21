@@ -20,6 +20,9 @@ type PersonalNoteIssue =
   | typeof REPERTOIRE_ISSUES.personalNoteTooLong
   | typeof REPERTOIRE_REFUSALS.notFound;
 
+/** The issues a malformed request is said to have; any other is not found. */
+const NOTE_ISSUES = [REPERTOIRE_ISSUES.personalNoteTooLong] as const;
+
 const noteRequestSchema = z.object({
   repertoireId: z.uuid(),
   moveKey: z.string().min(1).max(120),
@@ -38,7 +41,7 @@ export function parsePersonalNote(
   if (parsed.success) return { ok: true, value: parsed.data };
   const reason = refusalOf<PersonalNoteIssue>(
     parsed.error,
-    [REPERTOIRE_ISSUES.personalNoteTooLong],
+    NOTE_ISSUES,
     REPERTOIRE_REFUSALS.notFound,
   );
   return { ok: false, refusal: { reason } };

@@ -28,7 +28,10 @@ import { ecoNamesOf } from '../../../server/chapter-names';
 import { getDb } from '../../../server/db';
 import { refusalOf } from '../../../server/parse-refusal';
 import { parsePersonalNote } from '../../../server/personal-note-input';
-import { editRequestSchema } from '../../../server/repertoire-edit';
+import {
+  editRequestSchema,
+  INVALID_EDIT,
+} from '../../../server/repertoire-edit';
 import { ownRepertoire } from '../../../server/repertoires';
 import { requireOnboarded } from '../../../server/session';
 import type { NoteOutcome } from '../../repertoire-view';
@@ -157,8 +160,6 @@ const EDIT_ISSUES = [
   REPERTOIRE_ISSUES.chapterNameTooLong,
   REPERTOIRE_ISSUES.commentTooLong,
 ] as const;
-
-const INVALID_EDIT = 'repertoire.invalidEdit';
 
 /** Every catalogue key a builder edit can be refused with. */
 type EditRefusalKey =

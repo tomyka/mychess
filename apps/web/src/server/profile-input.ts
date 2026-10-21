@@ -21,10 +21,11 @@ const KEYS: readonly ProfileRefusalKey[] = [
   ACCOUNT_REFUSALS.localeInvalid,
 ];
 
-// The language refusal covers every locale issue; a name that is not text
-// at all (missing, or a file) is the only other issue, and reads as blank.
-
-/** The display name and language from a form, parsed at the edge. */
+/**
+ * The display name and language from a form, parsed at the edge. The
+ * language refusal covers every locale issue; a name that is not text at
+ * all (missing, or a file) is the only other issue, and reads as blank.
+ */
 export function parseProfileInput(
   form: FormData,
 ): Result<Profile, ProfileRefusal> {

@@ -23,6 +23,11 @@ export type FieldRefusal<K extends MessageKey> = K | ((error: z.ZodError) => K);
  * What the first issue's field reads as: the entry of `fields` named by the
  * longest prefix of its dotted path (`target.groupId`, then `target`), else
  * `fallback`.
+ *
+ * The field names are plain strings, not checked against the schema's
+ * shape: typing every dotted path of a zod schema costs more than it
+ * catches here. A misspelt or renamed field reads as `fallback`, so each
+ * caller's tests pin one refusal per field it names.
  */
 export function refusalAt<K extends MessageKey>(
   error: z.ZodError,
@@ -40,7 +45,7 @@ export function refusalAt<K extends MessageKey>(
 }
 
 /** What a form shows after a result: nothing, or the refusal's reason. */
-export function refusalState<R extends { readonly reason: string }>(
+export function refusalState<R extends { readonly reason: MessageKey }>(
   result: Result<unknown, R>,
 ): { readonly refusal?: R['reason'] } {
   return result.ok ? {} : { refusal: result.refusal.reason };
