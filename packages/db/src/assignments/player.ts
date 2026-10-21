@@ -33,8 +33,9 @@ import {
   ownedBy,
   type LoadedRepertoire,
 } from '../repertoires/repository';
-import { accounts, personalNotes, repertoires } from '../schema';
+import { personalNotes, repertoires } from '../schema';
 import { moveChangesSchema } from './move-changes';
+import { namesOf } from './names';
 import { assignmentFacts, liveRepertoire } from './reach';
 
 const SNAPSHOT = { isolationLevel: 'repeatable read' } as const;
@@ -92,25 +93,6 @@ export interface PlayerAssignment {
   readonly done: boolean;
   /** assignmentStatus at `now` (R-51, R-132). */
   readonly overdue: boolean;
-}
-
-const nameRowsSchema = z.array(
-  z.object({ id: z.string().min(1), displayName: z.string() }),
-);
-
-/** Display names by account id. */
-async function namesOf(
-  db: Executor,
-  ids: readonly string[],
-): Promise<Map<string, string>> {
-  if (ids.length === 0) return new Map();
-  const rows = nameRowsSchema.parse(
-    await db
-      .select({ id: accounts.id, displayName: accounts.displayName })
-      .from(accounts)
-      .where(inArray(accounts.id, [...new Set(ids)])),
-  );
-  return new Map(rows.map((row) => [row.id, row.displayName]));
 }
 
 const latestRowsSchema = z.array(

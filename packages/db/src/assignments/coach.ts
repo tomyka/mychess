@@ -1,33 +1,29 @@
 /**
  * What a coach reads of their own assignments of one repertoire (R-46,
  * R-51, R-128, R-131). The domain decides access (canViewRepertoire: the
- * coach's own repertoire) and the badges (assignmentStatus); every
- * statement filters again on `assignments.coach_id` and the repertoire's
- * owner, and lists a player only while they are linked to the coach.
+ * coach's own repertoire), the badges (assignmentStatusOf) and who has it
+ * live (canUseAssignment); every statement filters again on
+ * `assignments.coach_id`, and the rows on the repertoire's owner. A player
+ * is listed only while they are linked to the coach (the link check in
+ * reach.ts). A fixed number of statements, whatever the number of players.
  */
 import { allLearned } from '@mychess/chess';
 import {
-  assignmentStatus,
+  assignmentStatusOf,
+  canUseAssignment,
   canViewRepertoire,
-  effectiveDeadline,
-  isTrainingActive,
+  type AssignmentFacts,
 } from '@mychess/domain';
-import { and, asc, eq, isNotNull, sql } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { assignmentPlayers, assignments } from '../assignment-schema';
-import { playerRowsSchema } from '../coach-queries';
+import { assignments } from '../assignment-schema';
 import type { Executor } from '../client';
 import { isUuid } from '../ids';
 import { loadRepertoireRows, ownedBy } from '../repertoires/repository';
-import {
-  accounts,
-  coachLinks,
-  groupMembers,
-  groups,
-  repertoires,
-} from '../schema';
-import { effectiveAssignments } from './effective';
+import { accounts, groups, repertoires } from '../schema';
+import { namesOf } from './names';
 import { NOTHING_LEARNED } from './player';
+import { assignmentFacts } from './reach';
 
 const SNAPSHOT = { isolationLevel: 'repeatable read' } as const;
 
@@ -103,93 +99,43 @@ async function rowsOf(
   );
 }
 
-const reachRowsSchema = z.array(
-  z.object({
-    assignmentId: z.uuid(),
-    playerId: z.string().min(1),
-    displayName: z.string(),
-  }),
-);
-type Reach = z.infer<typeof reachRowsSchema>[number];
-
-/** A player row's player, or one member of a group row. */
-const reachedPlayer = sql`coalesce(${groupMembers.playerId}, ${assignments.playerId})`;
-
-/** Each linked player each row reaches: its own player, or its group's members. */
-async function reachOf(
-  db: Executor,
-  coachId: string,
-  repertoireId: string,
-): Promise<Reach[]> {
-  return reachRowsSchema.parse(
-    await db
-      .select({
-        assignmentId: assignments.id,
-        playerId: coachLinks.playerId,
-        displayName: accounts.displayName,
-      })
-      .from(assignments)
-      .innerJoin(repertoires, eq(repertoires.id, assignments.repertoireId))
-      .leftJoin(groupMembers, eq(groupMembers.groupId, assignments.groupId))
-      .innerJoin(
-        coachLinks,
-        and(
-          eq(coachLinks.coachId, assignments.coachId),
-          eq(coachLinks.playerId, reachedPlayer),
-        ),
-      )
-      .innerJoin(accounts, eq(accounts.id, coachLinks.playerId))
-      .where(ofCoach(coachId, repertoireId)),
-  );
+/** A reached player as the coach sees them, with the rows reaching them. */
+interface Listed {
+  readonly facts: AssignmentFacts;
+  readonly player: CoachAssignmentPlayer;
 }
 
-/** One player's state on the repertoire, decided by the domain. */
-async function playerState(
+/** Each reached player's name and badges at `now` (assignmentStatusOf). */
+async function listedOf(
   db: Executor,
-  reach: Reach,
-  { repertoireId, done, now }: StateFacts,
-): Promise<CoachAssignmentPlayer> {
-  const held = await effectiveAssignments(db, reach.playerId, {
-    withForked: true,
-  });
-  const assignment = held.find((a) => a.repertoireId === repertoireId);
-  const deadline =
-    assignment === undefined ? null : effectiveDeadline(assignment.sources);
-  const status = assignmentStatus(
-    {
-      deadline,
-      done,
-      paused: !isTrainingActive(assignment?.pausedAt ?? null),
-      forked: (assignment?.forkedAt ?? null) !== null,
+  facts: readonly AssignmentFacts[],
+  { done, now }: { readonly done: boolean; readonly now: Date },
+): Promise<Listed[]> {
+  const names = await namesOf(
+    db,
+    facts.map((one) => one.playerId),
+  );
+  return facts.map((one) => ({
+    facts: one,
+    player: {
+      playerId: one.playerId,
+      displayName: names.get(one.playerId) ?? '',
+      ...assignmentStatusOf(one, { done, now }),
     },
-    now,
-  );
-  return {
-    playerId: reach.playerId,
-    displayName: reach.displayName,
-    deadline,
-    ...status,
-  };
+  }));
 }
 
-interface StateFacts {
-  readonly repertoireId: string;
-  readonly done: boolean;
-  readonly now: Date;
-}
-
-/** Each reached player's state, by player id, read once per player. */
-async function statesOf(
-  db: Executor,
-  reach: readonly Reach[],
-  facts: StateFacts,
-): Promise<Map<string, CoachAssignmentPlayer>> {
-  const states = new Map<string, CoachAssignmentPlayer>();
-  for (const one of reach)
-    if (!states.has(one.playerId))
-      states.set(one.playerId, await playerState(db, one, facts));
-  return states;
-}
+/** The listed players that row `assignmentId` reaches, by name. */
+const reachedBy = (
+  listed: readonly Listed[],
+  assignmentId: string,
+): CoachAssignmentPlayer[] =>
+  listed
+    .filter(({ facts }) =>
+      facts.reaches.some((reach) => reach.assignmentId === assignmentId),
+    )
+    .map(({ player }) => player)
+    .toSorted(byName);
 
 function targetOf(row: Row): CoachAssignment['target'] {
   return row.groupId === null
@@ -219,38 +165,19 @@ export function coachAssignments(
       !canViewRepertoire({ id: coachId }, loaded.repertoire).ok
     )
       return [];
-    const reach = await reachOf(tx, coachId, repertoireId);
-    const done = allLearned(loaded.graph, NOTHING_LEARNED);
-    const states = await statesOf(tx, reach, { repertoireId, done, now });
-    return (await rowsOf(tx, coachId, repertoireId)).map((row) => ({
+    const rows = await rowsOf(tx, coachId, repertoireId);
+    const listed = await listedOf(
+      tx,
+      await assignmentFacts(tx, { coachId, repertoireId }),
+      { done: allLearned(loaded.graph, NOTHING_LEARNED), now },
+    );
+    return rows.map((row) => ({
       id: row.id,
       target: targetOf(row),
       deadline: row.deadline,
-      players: reach
-        .filter((one) => one.assignmentId === row.id)
-        .flatMap((one) => states.get(one.playerId) ?? [])
-        .toSorted(byName),
+      players: reachedBy(listed, row.id),
     }));
   }, SNAPSHOT);
-}
-
-/** The players who forked the repertoire (R-128). */
-async function forkedPlayers(
-  db: Executor,
-  repertoireId: string,
-): Promise<Set<string>> {
-  const rows = playerRowsSchema.parse(
-    await db
-      .select({ playerId: assignmentPlayers.playerId })
-      .from(assignmentPlayers)
-      .where(
-        and(
-          eq(assignmentPlayers.repertoireId, repertoireId),
-          isNotNull(assignmentPlayers.forkedAt),
-        ),
-      ),
-  );
-  return new Set(rows.map((row) => row.playerId));
 }
 
 /**
@@ -266,10 +193,7 @@ export async function assignedPlayerCount(
 ): Promise<number> {
   if (!isUuid(repertoireId)) return 0;
   return db.transaction(async (tx) => {
-    const reach = await reachOf(tx, coachId, repertoireId);
-    const forked = await forkedPlayers(tx, repertoireId);
-    return new Set(
-      reach.map((one) => one.playerId).filter((id) => !forked.has(id)),
-    ).size;
+    const facts = await assignmentFacts(tx, { coachId, repertoireId });
+    return facts.filter((one) => canUseAssignment(one).ok).length;
   }, SNAPSHOT);
 }

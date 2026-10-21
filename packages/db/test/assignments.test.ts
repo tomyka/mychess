@@ -31,6 +31,7 @@ import {
 } from './support/coaching';
 import { liveRepertoireIds, offersOf } from './support/assignments';
 import { graphOf } from './support/repertoires';
+import { countStatements } from './support/statements';
 
 const { db, client } = useTestDatabase();
 
@@ -796,5 +797,267 @@ describe('assignedPlayerCount', () => {
     await assignTo({ groupId: g });
     expect(await assignedPlayerCount(db, 'd', rep)).toBe(0);
     expect(await assignedPlayerCount(db, 'c', 'not-a-uuid')).toBe(0);
+  });
+});
+
+/** A new group of `c` with `size` new linked players `<prefix>1`..; returns both. */
+async function groupOf(
+  prefix: string,
+  size: number,
+): Promise<{ groupId: string; members: string[] }> {
+  const groupId = await seedGroup(db, 'c', `Grupė ${prefix}`);
+  const members = Array.from(
+    { length: size },
+    (_, i) => prefix + String(i + 1),
+  );
+  for (const id of members) {
+    await seedPlayer(db, id, `${id}@example.lt`);
+    await seedLink(db, 'c', id);
+    await seedMember(db, 'c', groupId, id);
+  }
+  return { groupId, members };
+}
+
+describe('changeAssignments over a batch', () => {
+  /** The members join or leave the group in one change. */
+  const moveMembers = (
+    groupId: string,
+    members: readonly string[],
+    join: boolean,
+    at: Date,
+  ) =>
+    db.transaction((tx) =>
+      changeAssignments(
+        tx,
+        { coachId: 'c', playerIds: members, reason: 'leftGroup', now: at },
+        () =>
+          join
+            ? tx.insert(groupMembers).values(
+                members.map((playerId) => ({
+                  groupId,
+                  coachId: 'c',
+                  playerId,
+                  joinedAt: at,
+                })),
+              )
+            : tx.delete(groupMembers).where(eq(groupMembers.groupId, groupId)),
+      ),
+    );
+
+  /** An open `unassigned` offer of `rep` to each player. */
+  const seedOffers = (players: readonly string[]) =>
+    db.insert(forkOffers).values(
+      players.map((playerId) => ({
+        playerId,
+        repertoireId: rep,
+        coachName: 'Name c',
+        name: 'Londono sistema',
+        side: 'white' as const,
+        snapshot: {},
+        reason: 'unassigned' as const,
+        createdAt: NOW,
+        expiresAt: forkOfferExpiry(NOW),
+      })),
+    );
+
+  const closedAtOf = async (players: readonly string[]) =>
+    (await offersOf(db))
+      .filter((offer) => players.includes(offer.playerId))
+      .map((offer) => offer.closedAt);
+
+  it('closes the offers of a batch that gains, in as many statements for five players as for one', async () => {
+    const one = await groupOf('a', 1);
+    const five = await groupOf('b', 5);
+    await assignTo({ groupId: one.groupId });
+    await assignTo({ groupId: five.groupId });
+    await moveMembers(one.groupId, one.members, false, NOW);
+    await moveMembers(five.groupId, five.members, false, NOW);
+    const forOne = await countStatements(() =>
+      moveMembers(one.groupId, one.members, true, LATER),
+    );
+    const forFive = await countStatements(() =>
+      moveMembers(five.groupId, five.members, true, LATER),
+    );
+    expect(forFive).toBe(forOne);
+    expect(await closedAtOf([...one.members, ...five.members])).toEqual(
+      Array.from({ length: 6 }, () => LATER),
+    );
+  });
+
+  it('offers each member their own snapshot, in as many statements for five players as for one (R-130)', async () => {
+    const one = await groupOf('a', 1);
+    const five = await groupOf('b', 5);
+    for (const playerId of [...one.members, ...five.members])
+      await db.insert(personalNotes).values({
+        playerAccountId: playerId,
+        repertoireId: rep,
+        moveKey: NOTE_KEY,
+        text: `Pastaba ${playerId}`,
+        updatedAt: NOW,
+      });
+    await assignTo({ groupId: one.groupId });
+    await assignTo({ groupId: five.groupId });
+    const idOne = await assignmentId({ groupId: one.groupId });
+    const idFive = await assignmentId({ groupId: five.groupId });
+    const forOne = await countStatements(() =>
+      unassign(db, { coachId: 'c', assignmentId: idOne }, LATER),
+    );
+    const forFive = await countStatements(() =>
+      unassign(db, { coachId: 'c', assignmentId: idFive }, LATER),
+    );
+    expect(forFive).toBe(forOne);
+    const loaded = await loadRepertoire(db, rep, 'c');
+    const rows = await db.select().from(forkOffers);
+    expect(
+      rows
+        .map((offer) => ({
+          playerId: offer.playerId,
+          reason: offer.reason,
+          snapshot: snapshotSchema.parse(offer.snapshot),
+        }))
+        .toSorted((a, b) => a.playerId.localeCompare(b.playerId)),
+    ).toEqual(
+      [...one.members, ...five.members].map((playerId) => ({
+        playerId,
+        reason: 'unassigned',
+        snapshot: {
+          graph: loaded?.graph,
+          personalNotes: [{ moveKey: NOTE_KEY, text: `Pastaba ${playerId}` }],
+        },
+      })),
+    );
+  });
+
+  it('gives a forked repertoire back to a whole group, in as many statements for five players as for one (R-128)', async () => {
+    const one = await groupOf('a', 1);
+    const five = await groupOf('b', 5);
+    const everyone = [...one.members, ...five.members];
+    for (const playerId of everyone)
+      await setState(playerId, { forkedAt: NOW });
+    await seedOffers(everyone);
+    const assignGroup = (groupId: string) =>
+      assign(
+        db,
+        {
+          coachId: 'c',
+          repertoireId: rep,
+          target: toGroup(groupId),
+          deadline: null,
+        },
+        LATER,
+      );
+    const forOne = await countStatements(() => assignGroup(one.groupId));
+    const forFive = await countStatements(() => assignGroup(five.groupId));
+    expect(forFive).toBe(forOne);
+    expect(
+      await query(
+        'select player_id, forked_at from assignment_players order by player_id',
+      ),
+    ).toEqual(everyone.map((id) => ({ player_id: id, forked_at: null })));
+    expect(await closedAtOf(everyone)).toEqual(everyone.map(() => LATER));
+  });
+
+  it('writes the offers by player in the order named, then by repertoire id', async () => {
+    const other = await createRepertoire(db, {
+      ownerId: 'c',
+      side: 'white',
+      name: 'Kita',
+      graph: graphOf(PGN),
+      now: NOW,
+    });
+    await assignTo({ groupId: g });
+    await db.insert(assignments).values({
+      coachId: 'c',
+      repertoireId: other,
+      groupId: g,
+      assignedVersion: 1,
+      createdAt: NOW,
+    });
+    await moveMembers(g, ['q', 'p'], false, LATER);
+    const [low, high] = [rep, other].toSorted();
+    expect(
+      await query('select player_id, repertoire_id from fork_offers'),
+    ).toEqual([
+      { player_id: 'q', repertoire_id: low },
+      { player_id: 'q', repertoire_id: high },
+      { player_id: 'p', repertoire_id: low },
+      { player_id: 'p', repertoire_id: high },
+    ]);
+  });
+});
+
+describe('the coach reads over a batch', () => {
+  /** A repertoire of `c` assigned to a new group of `size`, its first and third members forked. */
+  async function assignedGroup(prefix: string, size: number) {
+    const group = await groupOf(prefix, size);
+    const repertoireId = await createRepertoire(db, {
+      ownerId: 'c',
+      side: 'white',
+      name: `Repertuaras ${prefix}`,
+      graph: graphOf(PGN),
+      now: NOW,
+    });
+    await db.insert(assignments).values({
+      coachId: 'c',
+      repertoireId,
+      groupId: group.groupId,
+      deadline: '2026-10-19',
+      assignedVersion: 1,
+      createdAt: NOW,
+    });
+    const forked = group.members.filter((_, i) => i % 2 === 0 && i > 0);
+    for (const playerId of forked)
+      await db
+        .insert(assignmentPlayers)
+        .values({ playerId, repertoireId, forkedAt: NOW });
+    return { ...group, repertoireId, forked };
+  }
+
+  it('lists a group row of five players in as many statements as of one', async () => {
+    const one = await assignedGroup('a', 1);
+    const five = await assignedGroup('b', 5);
+    const forOne = await countStatements(() =>
+      coachAssignments(db, 'c', one.repertoireId, NOW),
+    );
+    const forFive = await countStatements(() =>
+      coachAssignments(db, 'c', five.repertoireId, NOW),
+    );
+    expect(forFive).toBe(forOne);
+    const listed = await coachAssignments(db, 'c', five.repertoireId, NOW);
+    expect(listed).toEqual([
+      {
+        id: await assignmentId({ groupId: five.groupId }),
+        target: { kind: 'group', id: five.groupId, name: 'Grupė b' },
+        deadline: '2026-10-19',
+        players: five.members.map((playerId) => ({
+          playerId,
+          displayName: `Name ${playerId}`,
+          deadline: '2026-10-19',
+          paused: false,
+          done: false,
+          ...(five.forked.includes(playerId)
+            ? { forked: true, overdue: false }
+            : { forked: false, overdue: true }),
+        })),
+      },
+    ]);
+  });
+
+  it('counts the live players of five in as many statements as of one', async () => {
+    const one = await assignedGroup('a', 1);
+    const five = await assignedGroup('b', 5);
+    let counts: number[] = [];
+    const forOne = await countStatements(async () => {
+      counts = [await assignedPlayerCount(db, 'c', one.repertoireId)];
+    });
+    const forFive = await countStatements(async () => {
+      counts = [
+        ...counts,
+        await assignedPlayerCount(db, 'c', five.repertoireId),
+      ];
+    });
+    expect(forFive).toBe(forOne);
+    expect(counts).toEqual([1, 5 - five.forked.length]);
+    expect(five.forked).toHaveLength(2);
   });
 });

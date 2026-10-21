@@ -28,13 +28,14 @@ import {
   type Column,
   type SQL,
 } from 'drizzle-orm';
-import { QueryBuilder } from 'drizzle-orm/pg-core';
+import type { SelectedFields } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 import type { Executor, Tx } from '../client';
 import { assignmentPlayers, assignments } from '../assignment-schema';
 import { playerRowsSchema } from '../coach-queries';
 import { isUuid } from '../ids';
 import { coachLinks, groupMembers, repertoires } from '../schema';
+import { inPairs, pairKey, uniquePairs } from './pairs';
 
 /**
  * Whose assignments to read: some players, a coach's, or both, optionally
@@ -81,6 +82,25 @@ const groupRowReaching = (filter: PlayerFilter): SQL | undefined =>
   and(filter(groupMembers.playerId), linked(groupMembers.playerId));
 
 const memberJoin = eq(groupMembers.groupId, assignments.groupId);
+
+/** The player rows reaching the players `filter` keeps, as `fields`. */
+const ownReach = (db: Executor, fields: SelectedFields, filter: PlayerFilter) =>
+  db.select(fields).from(assignments).where(ownRowReaching(filter));
+
+/**
+ * The group rows reaching a member `filter` keeps, joined to the
+ * membership, as `fields`.
+ */
+const groupReach = (
+  db: Executor,
+  fields: SelectedFields,
+  filter: PlayerFilter,
+) =>
+  db
+    .select(fields)
+    .from(assignments)
+    .innerJoin(groupMembers, memberJoin)
+    .where(groupRowReaching(filter));
 
 const inScope =
   (scope: ReachScope): PlayerFilter =>
@@ -138,27 +158,6 @@ const stateColumns = {
 /** The player's own row has no join time. */
 const noJoin = sql<Date | null>`null::timestamptz`;
 
-const ownRows = (db: Executor, filter: PlayerFilter) =>
-  db
-    .select({
-      ...reachColumns,
-      playerId: assignments.playerId,
-      joinedAt: noJoin,
-    })
-    .from(assignments)
-    .where(ownRowReaching(filter));
-
-const groupRows = (db: Executor, filter: PlayerFilter) =>
-  db
-    .select({
-      ...reachColumns,
-      playerId: groupMembers.playerId,
-      joinedAt: groupMembers.joinedAt,
-    })
-    .from(assignments)
-    .innerJoin(groupMembers, memberJoin)
-    .where(groupRowReaching(filter));
-
 /**
  * The rows reaching the players `filter` keeps: two statements, as FOR KEY
  * SHARE cannot go with a union. `hold` locks them (the group statement both
@@ -169,14 +168,37 @@ async function reachRows(
   filter: PlayerFilter,
   hold: boolean,
 ): Promise<ReachRow[]> {
-  const own = ownRows(db, filter);
-  const viaGroups = groupRows(db, filter);
+  const own = ownReach(
+    db,
+    { ...reachColumns, playerId: assignments.playerId, joinedAt: noJoin },
+    filter,
+  );
+  const viaGroups = groupReach(
+    db,
+    {
+      ...reachColumns,
+      playerId: groupMembers.playerId,
+      joinedAt: groupMembers.joinedAt,
+    },
+    filter,
+  );
   const ownFound = await (hold ? own.for('key share') : own);
   const groupFound = await (hold ? viaGroups.for('key share') : viaGroups);
   return reachRowsSchema.parse([...ownFound, ...groupFound]);
 }
 
-const unique = (ids: readonly string[]): string[] => [...new Set(ids)];
+/** The players' states on `pairs`, whether or not anything reaches them. */
+const stateQuery = (db: Executor, pairs: readonly ReachKey[]) =>
+  db
+    .select(stateColumns)
+    .from(assignmentPlayers)
+    .where(
+      inPairs(
+        assignmentPlayers.playerId,
+        assignmentPlayers.repertoireId,
+        pairs,
+      ),
+    );
 
 /** The players' states on the pairs `rows` found; unlocked. */
 async function statesOf(
@@ -184,27 +206,8 @@ async function statesOf(
   rows: readonly ReachRow[],
 ): Promise<StateRow[]> {
   if (rows.length === 0) return [];
-  return stateRowsSchema.parse(
-    await db
-      .select(stateColumns)
-      .from(assignmentPlayers)
-      .where(
-        and(
-          inArray(
-            assignmentPlayers.playerId,
-            unique(rows.map((r) => r.playerId)),
-          ),
-          inArray(
-            assignmentPlayers.repertoireId,
-            unique(rows.map((r) => r.repertoireId)),
-          ),
-        ),
-      ),
-  );
+  return stateRowsSchema.parse(await stateQuery(db, uniquePairs(rows)));
 }
-
-const pairKey = (pair: { playerId: string; repertoireId: string }): string =>
-  JSON.stringify([pair.playerId, pair.repertoireId]);
 
 const compare = (a: string, b: string): number => Number(a > b) - Number(a < b);
 
@@ -300,16 +303,7 @@ export async function holdAssignment(
     true,
   );
   const states = stateRowsSchema.parse(
-    await tx
-      .select(stateColumns)
-      .from(assignmentPlayers)
-      .where(
-        and(
-          eq(assignmentPlayers.playerId, key.playerId),
-          eq(assignmentPlayers.repertoireId, key.repertoireId),
-        ),
-      )
-      .for('update'),
+    await stateQuery(tx, [key]).for('update'),
   );
   return factsOf(rows, states)[0];
 }
@@ -325,15 +319,9 @@ export function liveRepertoire(
   repertoireId: string,
 ): SQL | undefined {
   const filter = inScope({ playerIds: [playerId], repertoireId });
-  const own = db
-    .select({ id: assignments.repertoireId })
-    .from(assignments)
-    .where(ownRowReaching(filter));
-  const viaGroups = db
-    .select({ id: assignments.repertoireId })
-    .from(assignments)
-    .innerJoin(groupMembers, memberJoin)
-    .where(groupRowReaching(filter));
+  const id = { id: assignments.repertoireId };
+  const own = ownReach(db, id, filter);
+  const viaGroups = groupReach(db, id, filter);
   const forked = db
     .select({ id: assignmentPlayers.repertoireId })
     .from(assignmentPlayers)
@@ -350,9 +338,6 @@ export function liveRepertoire(
   );
 }
 
-/** Builds the stale-state subqueries, which need no executor. */
-const qb = new QueryBuilder();
-
 /** A row for the same player and repertoire as the `assignment_players` row. */
 const sameStatePair: PlayerFilter = (player) =>
   and(
@@ -365,22 +350,14 @@ const sameStatePair: PlayerFilter = (player) =>
  * more, forked or not, whoever's: the stale state a change drops (plan
  * decision 4).
  */
-export const unreachedState = (playerIds: readonly string[]): SQL | undefined =>
+export const unreachedState = (
+  db: Executor,
+  playerIds: readonly string[],
+): SQL | undefined =>
   and(
     inArray(assignmentPlayers.playerId, [...playerIds]),
-    notExists(
-      qb
-        .select({ one: sql`1` })
-        .from(assignments)
-        .where(ownRowReaching(sameStatePair)),
-    ),
-    notExists(
-      qb
-        .select({ one: sql`1` })
-        .from(assignments)
-        .innerJoin(groupMembers, memberJoin)
-        .where(groupRowReaching(sameStatePair)),
-    ),
+    notExists(ownReach(db, { one: sql`1` }, sameStatePair)),
+    notExists(groupReach(db, { one: sql`1` }, sameStatePair)),
   );
 
 /**

@@ -70,7 +70,9 @@ async function holdNotesAccess(
   tx: Tx,
   playerId: string,
   repertoireId: string,
-): Promise<{ ownerId: string; hold: AssignmentFacts | undefined } | undefined> {
+): Promise<
+  { ownerId: string; facts: AssignmentFacts | undefined } | undefined
+> {
   const [own] = ownerRowsSchema.parse(
     await tx
       .select({ ownerId: repertoires.ownerAccountId })
@@ -79,15 +81,15 @@ async function holdNotesAccess(
       .for('key share'),
   );
   // Their own repertoire: no assignment is needed, so none is read.
-  if (own !== undefined) return { ownerId: own.ownerId, hold: undefined };
-  const hold = await holdAssignment(tx, { playerId, repertoireId });
+  if (own !== undefined) return { ownerId: own.ownerId, facts: undefined };
+  const facts = await holdAssignment(tx, { playerId, repertoireId });
   const [row] = ownerRowsSchema.parse(
     await tx
       .select({ ownerId: repertoires.ownerAccountId })
       .from(repertoires)
       .where(eq(repertoires.id, repertoireId)),
   );
-  return row === undefined ? undefined : { ownerId: row.ownerId, hold };
+  return row === undefined ? undefined : { ownerId: row.ownerId, facts };
 }
 
 /** May `playerId` keep notes on repertoire `repertoireId`? */
@@ -100,7 +102,7 @@ async function mayKeepNotes(
   const held = await holdNotesAccess(tx, playerId, repertoireId);
   return held === undefined
     ? NOT_FOUND
-    : canKeepPersonalNotes({ id: playerId }, held, held.hold);
+    : canKeepPersonalNotes({ id: playerId }, held, held.facts);
 }
 
 const moveRowsSchema = z.array(z.object({ from: z.string(), san: z.string() }));

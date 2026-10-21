@@ -2,8 +2,9 @@
  * A coach assigns their own repertoire to a linked player or one of their
  * groups, ends an assignment and moves its deadline (R-15, R-16, R-51,
  * R-130). Every change of who has what runs through changeAssignments in
- * the same transaction (plan decision 5). Lock order, as in S4: the coach's
- * account row first, then the rest.
+ * the same transaction (plan decision 5), which also gives a forked
+ * repertoire back live on an assign (R-128). Lock order, as in S4 and
+ * unchanged: the coach's account row first, then the rest.
  */
 import {
   ASSIGNMENT_REFUSALS,
@@ -13,33 +14,23 @@ import {
   type AssignmentTarget,
   type Result,
 } from '@mychess/domain';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { lockAccountById } from '../accounts';
-import { assignmentPlayers, assignments } from '../assignment-schema';
+import { assignments } from '../assignment-schema';
 import type { Db, Tx } from '../client';
-import {
-  countSchema,
-  holdGroup,
-  holdLink,
-  playerRowsSchema,
-} from '../coach-queries';
+import { countSchema, holdGroup, holdLink } from '../coach-queries';
 import { isUuid } from '../ids';
 import { DONE, refusal } from '../results';
-import { groupMembers, repertoires } from '../schema';
+import { repertoires } from '../schema';
 import { changeAssignments } from './change';
+import { playersReached, type ReachTarget } from './reach';
 
 type AssignmentResult = Result<undefined, AssignmentRefusal>;
 
 const NOT_FOUND = refusal(ASSIGNMENT_REFUSALS.notFound);
 
-/** An assignment's target as its columns: exactly one is set. */
-interface TargetColumns {
-  readonly playerId: string | null;
-  readonly groupId: string | null;
-}
-
-const targetColumns = (target: AssignmentTarget): TargetColumns =>
+const targetColumns = (target: AssignmentTarget): ReachTarget =>
   target.kind === 'player'
     ? { playerId: target.playerId, groupId: null }
     : { playerId: null, groupId: target.groupId };
@@ -49,27 +40,6 @@ const targetRowSchema = z.object({
   playerId: z.string().min(1).nullable(),
   groupId: z.uuid().nullable(),
 });
-
-/** Every player the rows reach: their own player, or their group's members. */
-async function playersReached(
-  tx: Tx,
-  rows: readonly TargetColumns[],
-): Promise<string[]> {
-  const direct = rows.flatMap((row) =>
-    row.playerId === null ? [] : [row.playerId],
-  );
-  const groupIds = rows.flatMap((row) =>
-    row.groupId === null ? [] : [row.groupId],
-  );
-  if (groupIds.length === 0) return direct;
-  const members = playerRowsSchema.parse(
-    await tx
-      .select({ playerId: groupMembers.playerId })
-      .from(groupMembers)
-      .where(inArray(groupMembers.groupId, groupIds)),
-  );
-  return [...direct, ...members.map((member) => member.playerId)];
-}
 
 const repertoireRowsSchema = z.array(
   z.object({ ownerId: z.string().min(1), version: z.number().int() }),
@@ -161,30 +131,10 @@ async function decideAssign(
 }
 
 /**
- * R-128, plan decision 8: an assignment given again reaches a player who
- * forked the repertoire live again.
- */
-async function clearForks(
-  tx: Tx,
-  playerIds: readonly string[],
-  repertoireId: string,
-): Promise<void> {
-  if (playerIds.length === 0) return;
-  await tx
-    .update(assignmentPlayers)
-    .set({ forkedAt: null })
-    .where(
-      and(
-        eq(assignmentPlayers.repertoireId, repertoireId),
-        inArray(assignmentPlayers.playerId, [...playerIds]),
-      ),
-    );
-}
-
-/**
  * Assigns the coach's own repertoire to a linked player or one of the
  * coach's groups (canAssign decides). Closes the open fork offers of the
- * players it gives the repertoire back to (lead decision 4).
+ * players it gives the repertoire back to (lead decision 4), and makes it
+ * live again for those who forked it (R-128).
  */
 export function assign(
   db: Db,
@@ -195,21 +145,24 @@ export function assign(
     const decided = await decideAssign(tx, req);
     if (!decided.ok) return decided;
     const columns = targetColumns(req.target);
-    const players = await playersReached(tx, [columns]);
     await changeAssignments(
       tx,
-      { coachId: req.coachId, playerIds: players, reason: 'unassigned', now },
-      async () => {
-        await tx.insert(assignments).values({
+      {
+        coachId: req.coachId,
+        playerIds: await playersReached(tx, [columns]),
+        reason: 'unassigned',
+        now,
+        given: req.repertoireId,
+      },
+      () =>
+        tx.insert(assignments).values({
           ...columns,
           coachId: req.coachId,
           repertoireId: req.repertoireId,
           deadline: req.deadline,
           assignedVersion: decided.value,
           createdAt: now,
-        });
-        await clearForks(tx, players, req.repertoireId);
-      },
+        }),
     );
     return DONE;
   });

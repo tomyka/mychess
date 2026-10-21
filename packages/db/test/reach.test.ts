@@ -400,7 +400,7 @@ describe('unreachedState (the stale-state condition)', () => {
         repertoireId: assignmentPlayers.repertoireId,
       })
       .from(assignmentPlayers)
-      .where(unreachedState(['p', 'n']));
+      .where(unreachedState(db, ['p', 'n']));
     expect(
       new Set(stale.map((s) => `${s.playerId}/${s.repertoireId}`)),
     ).toEqual(new Set([`n/${rep}`, `p/${other}`]));

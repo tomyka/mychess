@@ -29,6 +29,7 @@ import {
   unassign,
 } from '../src';
 import { assignments } from '../src/assignment-schema';
+import { forkForDeletingCoach } from '../src/assignments/coach-delete';
 import { repertoires } from '../src/schema';
 import { useTestDatabase } from '../src/testing';
 import {
@@ -41,6 +42,7 @@ import {
   someoneWaitsForALock,
 } from './support/coaching';
 import { canonical, graphOf } from './support/repertoires';
+import { countStatements } from './support/statements';
 
 const { db, client } = useTestDatabase();
 
@@ -604,5 +606,74 @@ describe('the data export', () => {
       expect(other.forkCoachNotes).toEqual([]);
       expect(other.coaching.coachNotes).toEqual([]);
     }
+  });
+});
+
+describe("a coach's account delete over a batch (R-49)", () => {
+  /** Coach `coachId` with a repertoire assigned to a group of `size` new players. */
+  async function coachWithGroup(coachId: string, size: number) {
+    await seedCoach(db, coachId, `${coachId}@example.lt`);
+    const groupId = await seedGroup(db, coachId, `Grupė ${coachId}`);
+    const repertoireId = await createRepertoire(db, {
+      ownerId: coachId,
+      side: 'white',
+      name: `Repertuaras ${coachId}`,
+      graph: graphOf(PGN),
+      now: NOW,
+    });
+    const members = Array.from(
+      { length: size },
+      (_, i) => coachId + '-' + String(i + 1),
+    );
+    for (const playerId of members) {
+      await seedPlayer(db, playerId, `${playerId}@example.lt`);
+      await seedLink(db, coachId, playerId);
+      await seedMember(db, coachId, groupId, playerId);
+    }
+    await db.insert(assignments).values({
+      coachId,
+      repertoireId,
+      groupId,
+      assignedVersion: 1,
+      createdAt: NOW,
+    });
+    return { repertoireId, members };
+  }
+
+  const forksOf = (playerIds: readonly string[]) =>
+    query(
+      'select owner_account_id from repertoires where owner_account_id = any($1) order by owner_account_id',
+      [playerIds],
+    );
+
+  it('reads the live assignments of five players in as many statements as of one, then forks each', async () => {
+    const single = await coachWithGroup('e', 1);
+    const fifth = await coachWithGroup('f', 5);
+    const probe = await coachWithGroup('h', 1);
+    const [probePlayer] = probe.members;
+    const oneFork = await countStatements(() =>
+      db.transaction((tx) =>
+        forkAssignment(
+          tx,
+          { playerId: must(probePlayer), repertoireId: probe.repertoireId },
+          LATER,
+        ),
+      ),
+    );
+    const forOne = await countStatements(() =>
+      db.transaction((tx) => forkForDeletingCoach(tx, 'e', LATER)),
+    );
+    const forFive = await countStatements(() =>
+      db.transaction((tx) => forkForDeletingCoach(tx, 'f', LATER)),
+    );
+    // Each fork is a savepoint and its writes; the reads before them are fixed.
+    const perFork = oneFork - 2;
+    expect(perFork).toBeGreaterThan(2);
+    expect(forFive - forOne).toBe(4 * perFork);
+    expect(await forksOf([...single.members, ...fifth.members])).toEqual(
+      [...single.members, ...fifth.members].map((id) => ({
+        owner_account_id: id,
+      })),
+    );
   });
 });
