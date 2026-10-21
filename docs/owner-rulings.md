@@ -168,6 +168,13 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-132** (S5 brainstorm, #255, 2026-10-20): A paused assignment whose deadline passes is still overdue; the coach sees both and can extend or clear the deadline.
 - **R-133** (S5 brainstorm, #255, 2026-10-20): An assigned repertoire shows "Updated" after a coach edit until the player opens it; opening it shows what changed since their last visit (moves added and removed, by chapter).
 - **R-134** (S5 brainstorm, #255, 2026-10-20): When a player has a repertoire both individually and through a group, the individual assignment's deadline (or its absence) applies.
+- **R-135** (S5 close, #255, 2026-10-21): S5 terms (docs/glossary-lt.md): Assignment "priskyrimas" (unassign "Panaikinti priskyrimą"); Deadline "terminas"; Overdue "Pradelsta"; Paused "Pristabdyta"; Updated "Atnaujinta"; Fork "asmeninė kopija" / "own copy" ("Pasidaryti asmeninę kopiją" / "Make my own copy"); fork offers "Kopijos, kurias galite pasilikti" / "Copies you can keep"; the home section "Jums priskirti repertuarai".
+- **R-136** (S5 close, #255, 2026-10-21): A player who reaches an assignment through a group they joined later sees "Updated" (R-133) only for coach edits made after they joined.
+- **R-137** (S5 close, #255, 2026-10-21): When a coach deletes their account, every live assignment gets its automatic fork (R-49), even if the player forked the same repertoire before and was assigned it again.
+- **R-138** (S5 close, #255, 2026-10-21): With Coach mode off, a coach's assignments are frozen like groups (R-113): unassigning and changing deadlines are refused. Deleting their own repertoire still works and unassigns it from everyone (R-131).
+- **R-139** (S5 close, #255, 2026-10-21): A player's data export (R-40) also lists their assignments (coach, repertoire name, effective deadline, paused) and their open fork offers (repertoire name, coach, expiry).
+- **R-140** (S5 close, #255, 2026-10-21): When a player forks, their personal notes are copied into the fork and the originals stay on the coach's repertoire, dormant and private; they return if it is assigned again.
+- **R-141** (S5 close, #255, 2026-10-21): A fork's read-only coach notes are part of the player's own copy and are in the player's data export (an exception to R-126, which covers notes on shared repertoires).
 
 ## Open questions
 

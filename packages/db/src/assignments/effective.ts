@@ -5,6 +5,7 @@
  */
 import {
   vilniusDay,
+  type AssignmentStart,
   type DeadlineSources,
   type GroupDeadline,
 } from '@mychess/domain';
@@ -18,8 +19,8 @@ export interface EffectiveAssignment {
   readonly repertoireId: string;
   readonly coachId: string;
   readonly sources: DeadlineSources;
-  /** The lowest assigned_version among its rows. */
-  readonly assignedVersion: number;
+  /** Each row's assigned version and the player's join time (R-133, R-136). */
+  readonly starts: readonly AssignmentStart[];
   readonly pausedAt: Date | null;
   readonly seenVersion: number | null;
   readonly forkedAt: Date | null;
@@ -124,7 +125,10 @@ function merge(
     repertoireId: first.repertoireId,
     coachId: first.coachId,
     sources: sourcesOf(rows),
-    assignedVersion: Math.min(...rows.map((row) => row.assignedVersion)),
+    starts: rows.map(({ assignedVersion, joinedAt }) => ({
+      assignedVersion,
+      joinedAt,
+    })),
     pausedAt: state.pausedAt,
     seenVersion: state.seenVersion,
     forkedAt: state.forkedAt,

@@ -32,6 +32,7 @@ import {
   seedLink,
   seedMember,
   seedPlayer,
+  T0,
 } from './support/coaching';
 import { offersOf } from './support/assignments';
 import { graphOf } from './support/repertoires';
@@ -150,7 +151,10 @@ describe('effectiveAssignments', () => {
           individual: { deadline: '2026-11-01' },
           groups: [{ deadline: '2026-10-30', joinedDay: JOIN_DAY }],
         },
-        assignedVersion: 1,
+        starts: [
+          { assignedVersion: 3, joinedAt: null },
+          { assignedVersion: 1, joinedAt: T0 },
+        ],
         pausedAt: null,
         seenVersion: null,
         forkedAt: null,
@@ -158,14 +162,14 @@ describe('effectiveAssignments', () => {
     ]);
   });
 
-  it('keeps the lowest assigned version and has no individual source for a group-only assignment', async () => {
+  it('keeps the assigned version and join time and has no individual source for a group-only assignment (R-136)', async () => {
     await assignTo({ groupId: g }, null, 4);
     const [only] = await effectiveAssignments(db, 'q');
     expect(only?.sources).toEqual({
       groups: [{ deadline: null, joinedDay: JOIN_DAY }],
     });
     expect(only?.sources).not.toHaveProperty('individual');
-    expect(only?.assignedVersion).toBe(4);
+    expect(only?.starts).toEqual([{ assignedVersion: 4, joinedAt: T0 }]);
   });
 
   it('carries an individual assignment without a deadline', async () => {

@@ -18,9 +18,10 @@ import {
   effectiveDeadline,
   isTrainingActive,
   isUpdated,
-  seenFloor,
+  newsOf,
+  type ChangeStamp,
 } from '@mychess/domain';
-import { and, asc, eq, gt, inArray, lte, max } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, lte } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Executor } from '../client';
 import { isUuid } from '../ids';
@@ -78,26 +79,36 @@ async function namesOf(
 }
 
 const latestRowsSchema = z.array(
-  z.object({ repertoireId: z.uuid(), latest: z.number().int().nullable() }),
+  z.object({
+    repertoireId: z.uuid(),
+    version: z.number().int(),
+    createdAt: z.date(),
+  }),
 );
 
-/** The version of each repertoire's latest change for players. */
+/** Each repertoire's latest change for players: its version and time. */
 async function latestChanges(
   db: Executor,
   ids: readonly string[],
-): Promise<Map<string, number>> {
+): Promise<Map<string, ChangeStamp>> {
   if (ids.length === 0) return new Map();
   const rows = latestRowsSchema.parse(
     await db
-      .select({
+      .selectDistinctOn([repertoireChanges.repertoireId], {
         repertoireId: repertoireChanges.repertoireId,
-        latest: max(repertoireChanges.version),
+        version: repertoireChanges.version,
+        createdAt: repertoireChanges.createdAt,
       })
       .from(repertoireChanges)
       .where(inArray(repertoireChanges.repertoireId, [...ids]))
-      .groupBy(repertoireChanges.repertoireId),
+      .orderBy(
+        asc(repertoireChanges.repertoireId),
+        desc(repertoireChanges.version),
+      ),
   );
-  return new Map(rows.map((row) => [row.repertoireId, row.latest ?? 0]));
+  return new Map(
+    rows.map(({ repertoireId, ...stamp }) => [repertoireId, stamp]),
+  );
 }
 
 /**
@@ -123,7 +134,7 @@ interface ItemFacts {
   readonly assignment: EffectiveAssignment;
   readonly loaded: LoadedRepertoire;
   readonly coachName: string;
-  readonly latest: number;
+  readonly latest: ChangeStamp | undefined;
 }
 
 /** What the domain says of a live assignment at `now` (R-16, R-46, R-51, R-129, R-134). */
@@ -188,7 +199,7 @@ export function playerAssignments(
           {
             ...entry,
             coachName: names.get(entry.assignment.coachId) ?? '',
-            latest: latest.get(entry.assignment.repertoireId) ?? 0,
+            latest: latest.get(entry.assignment.repertoireId),
           },
           now,
         ),
@@ -307,12 +318,19 @@ export interface ChangesRequest {
   readonly upToVersion: number;
 }
 
-const changeRowsSchema = z.array(z.object({ changes: moveChangesSchema }));
+const changeRowsSchema = z.array(
+  z.object({
+    version: z.number().int(),
+    createdAt: z.date(),
+    changes: moveChangesSchema,
+  }),
+);
 
 /**
- * The net changes to the player's live assignment after the version they
- * last saw, never before the one assigned (seenFloor), up to and including
- * `upToVersion`, in version order; undefined unless it is theirs.
+ * The net of the changes to the player's live assignment that are news to
+ * them (newsOf: after the version they last saw and after they had it,
+ * R-133, R-136), up to and including `upToVersion`, in version order;
+ * undefined unless it is theirs.
  */
 export function changesSince(
   db: Executor,
@@ -324,7 +342,11 @@ export function changesSince(
     if (assignment === undefined) return undefined;
     const rows = changeRowsSchema.parse(
       await tx
-        .select({ changes: repertoireChanges.changes })
+        .select({
+          version: repertoireChanges.version,
+          createdAt: repertoireChanges.createdAt,
+          changes: repertoireChanges.changes,
+        })
         .from(repertoireChanges)
         .where(
           and(
@@ -332,13 +354,14 @@ export function changesSince(
               repertoireChanges.repertoireId,
               liveId(tx, playerId, repertoireId),
             ),
-            gt(repertoireChanges.version, seenFloor(assignment)),
+            gt(repertoireChanges.version, assignment.seenVersion ?? 0),
             lte(repertoireChanges.version, upToVersion),
           ),
         )
         .orderBy(asc(repertoireChanges.version)),
     );
-    return { changes: netMoveChanges(rows.map((row) => row.changes)) };
+    const news = newsOf(assignment, rows);
+    return { changes: netMoveChanges(news.map((row) => row.changes)) };
   }, SNAPSHOT);
 }
 

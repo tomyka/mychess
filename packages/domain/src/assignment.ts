@@ -239,27 +239,63 @@ export function canFork(hold: AssignmentHold): AssignmentResult {
   return canUseAssignment(hold);
 }
 
+/**
+ * One row through which a player has a repertoire, as "Updated" sees it:
+ * the player has it from the later of the two.
+ */
+export interface AssignmentStart {
+  /** The repertoire's version when this row assigned it. */
+  readonly assignedVersion: number;
+  /** When the player joined the group; null for an individual row. */
+  readonly joinedAt: Date | null;
+}
+
 /** What a player's "Updated" flag on one assignment depends on. */
 export interface SeenFacts {
   /** The version the player last opened; null if never. */
   readonly seenVersion: number | null;
-  /** The repertoire's version when assigned (the lowest, across its rows). */
-  readonly assignedVersion: number;
+  /** Every row through which the player has the repertoire. */
+  readonly starts: readonly AssignmentStart[];
+}
+
+/** A coach's change for players: its version and when it was made. */
+export interface ChangeStamp {
+  readonly version: number;
+  readonly createdAt: Date;
 }
 
 /**
- * The version after which a coach's change is news to the player: the one
- * they last saw, never before the one they were assigned (R-133).
+ * The change came after the player had the repertoire through `start`:
+ * after its assigned version and, through a group, after they joined
+ * (R-136).
  */
-export const seenFloor = (facts: SeenFacts): number =>
-  Math.max(facts.seenVersion ?? 0, facts.assignedVersion);
+const isAfterStart = (change: ChangeStamp, start: AssignmentStart): boolean =>
+  change.version > start.assignedVersion &&
+  (start.joinedAt === null || change.createdAt > start.joinedAt);
 
 /**
- * "Updated" (R-133): the coach changed it, for players, after the floor.
- * `latestVersion` is the version of the latest such change, 0 for none.
+ * A change is news to the player (R-133) when it is after the version they
+ * last saw and after they had the repertoire through some row (R-136).
  */
-export const isUpdated = (facts: SeenFacts, latestVersion: number): boolean =>
-  latestVersion > seenFloor(facts);
+const isNews = (facts: SeenFacts, change: ChangeStamp): boolean =>
+  change.version > (facts.seenVersion ?? 0) &&
+  facts.starts.some((start) => isAfterStart(change, start));
+
+/** The changes that are news to the player (R-133, R-136), in order. */
+export const newsOf = <T extends ChangeStamp>(
+  facts: SeenFacts,
+  changes: readonly T[],
+): T[] => changes.filter((change) => isNews(facts, change));
+
+/**
+ * "Updated" (R-133): the coach's latest change for players is news. A
+ * repertoire's versions and their times rise together, so when the latest
+ * is not news, no earlier one is.
+ */
+export const isUpdated = (
+  facts: SeenFacts,
+  latest: ChangeStamp | undefined,
+): boolean => latest !== undefined && isNews(facts, latest);
 
 /** A paused assignment leaves training (R-46); anything else trains. */
 export const isTrainingActive = (pausedAt: Date | null): boolean =>

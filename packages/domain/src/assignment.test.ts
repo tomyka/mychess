@@ -12,8 +12,11 @@ import {
   effectiveDeadline,
   isTrainingActive,
   isUpdated,
-  seenFloor,
+  newsOf,
   type AssignFacts,
+  type AssignmentStart,
+  type ChangeStamp,
+  type SeenFacts,
   type AssignmentTarget,
 } from './assignment';
 
@@ -326,32 +329,127 @@ describe('canUseAssignment and canFork (R-46, R-128)', () => {
   });
 });
 
-describe('seenFloor and isUpdated (R-133)', () => {
-  it.each([
-    ['the assigned version when never seen', null, 3, 3],
-    ['the seen version when later', 5, 3, 5],
-    ['the assigned version over an older seen one', 2, 3, 3],
-  ] as const)('starts from %s', (_, seenVersion, assignedVersion, floor) => {
-    expect(seenFloor({ seenVersion, assignedVersion })).toBe(floor);
+describe('newsOf and isUpdated (R-133, R-136)', () => {
+  const joined = new Date('2026-10-10T12:00:00Z');
+  const before = new Date('2026-10-09T12:00:00Z');
+  const after = new Date('2026-10-11T12:00:00Z');
+  const change = (version: number, createdAt: Date): ChangeStamp => ({
+    version,
+    createdAt,
   });
+  const individually = (assignedVersion: number): AssignmentStart => ({
+    assignedVersion,
+    joinedAt: null,
+  });
+  const viaGroup = (
+    assignedVersion: number,
+    joinedAt: Date,
+  ): AssignmentStart => ({ assignedVersion, joinedAt });
+  const seen = (
+    seenVersion: number | null,
+    ...starts: AssignmentStart[]
+  ): SeenFacts => ({ seenVersion, starts });
 
   it.each([
     [
-      'a change after the floor',
-      { seenVersion: 2, assignedVersion: 1 },
-      3,
+      'a change after the assignment, never seen',
+      seen(null, individually(1)),
+      change(2, before),
       true,
     ],
-    ['no change after it', { seenVersion: 3, assignedVersion: 1 }, 3, false],
-    ['no change at all', { seenVersion: null, assignedVersion: 1 }, 0, false],
     [
-      'only changes before the assignment, even if seen earlier',
-      { seenVersion: 1, assignedVersion: 4 },
-      3,
+      'a change at the assigned version',
+      seen(null, individually(2)),
+      change(2, after),
       false,
     ],
-  ] as const)('is updated for %s', (_, facts, latest, updated) => {
-    expect(isUpdated(facts, latest)).toBe(updated);
+    [
+      'a change after the seen version',
+      seen(2, individually(1)),
+      change(3, before),
+      true,
+    ],
+    [
+      'a change at the seen version',
+      seen(3, individually(1)),
+      change(3, after),
+      false,
+    ],
+    [
+      'a change before the assignment, even if seen earlier',
+      seen(1, individually(4)),
+      change(3, after),
+      false,
+    ],
+    [
+      'a group change after the player joined',
+      seen(null, viaGroup(1, joined)),
+      change(2, after),
+      true,
+    ],
+    [
+      'a group change before the player joined (R-136)',
+      seen(null, viaGroup(1, joined)),
+      change(2, before),
+      false,
+    ],
+    [
+      'a group change at the moment the player joined',
+      seen(null, viaGroup(1, joined)),
+      change(2, joined),
+      false,
+    ],
+    [
+      'a group change after joining but not after the group was assigned',
+      seen(null, viaGroup(3, joined)),
+      change(3, after),
+      false,
+    ],
+    [
+      'a change before joining when also assigned individually',
+      seen(null, viaGroup(1, joined), individually(1)),
+      change(2, before),
+      true,
+    ],
+    [
+      'a change counted by a second group joined earlier',
+      seen(null, viaGroup(1, after), viaGroup(1, before)),
+      change(2, joined),
+      true,
+    ],
+    [
+      'a change neither group counts: one joined later, one assigned later',
+      seen(null, viaGroup(1, after), viaGroup(3, before)),
+      change(2, joined),
+      false,
+    ],
+    [
+      'a change already seen though made after joining',
+      seen(4, viaGroup(1, joined)),
+      change(4, after),
+      false,
+    ],
+    ['a change with no start at all', seen(null), change(2, after), false],
+  ] as const)('decides %s', (_, facts, stamp, news) => {
+    expect(newsOf(facts, [stamp])).toStrictEqual(news ? [stamp] : []);
+    expect(isUpdated(facts, stamp)).toBe(news);
+  });
+
+  it('keeps the rows that are news, in their order', () => {
+    const rows = [
+      { ...change(2, before), tag: 'a' },
+      { ...change(3, after), tag: 'b' },
+      { ...change(4, after), tag: 'c' },
+    ];
+    expect(newsOf(seen(3, viaGroup(1, joined)), rows)).toStrictEqual([rows[2]]);
+    expect(newsOf(seen(null, viaGroup(1, joined)), rows)).toStrictEqual([
+      rows[1],
+      rows[2],
+    ]);
+  });
+
+  it('is not updated without any change', () => {
+    expect(isUpdated(seen(null, individually(1)), undefined)).toBe(false);
   });
 });
 

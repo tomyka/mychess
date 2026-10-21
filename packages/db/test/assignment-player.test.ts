@@ -34,7 +34,7 @@ import {
 } from '../src/assignment-schema';
 import { liveRepertoire } from '../src/assignments/access';
 import { loadRepertoireRows } from '../src/repertoires/repository';
-import { personalNotes } from '../src/schema';
+import { groupMembers, personalNotes } from '../src/schema';
 import { useTestDatabase } from '../src/testing';
 import {
   openTransaction,
@@ -95,8 +95,8 @@ type Edit = (graph: RepertoireGraph) => {
   value?: RepertoireGraph;
 };
 
-/** The coach saves `edit` of R on top of the stored version. */
-async function coachEdit(edit: Edit): Promise<void> {
+/** The coach saves `edit` of R on top of the stored version, at `now`. */
+async function coachEdit(edit: Edit, now = LATER): Promise<void> {
   const { repertoire, graph } = await coachCopy();
   const after = must(edit(graph).value);
   const saved = await saveRepertoireEdit(db, {
@@ -104,7 +104,7 @@ async function coachEdit(edit: Edit): Promise<void> {
     ownerId: 'c',
     expectedVersion: repertoire.version,
     after,
-    now: LATER,
+    now,
   });
   expect(saved.ok).toBe(true);
 }
@@ -262,6 +262,71 @@ describe('playerAssignments', () => {
     await forkFor('p');
     expect(await playerAssignments(db, 'p', NOW)).toEqual([]);
     expect(await playerAssignments(db, 'n', NOW)).toEqual([]);
+  });
+});
+
+describe('a player who joins a group after its assignment (R-136)', () => {
+  const HOUR_MS = 3_600_000;
+  const JOINED = new Date(LATER.getTime() + HOUR_MS);
+  const AFTER_JOINING = new Date(LATER.getTime() + 2 * HOUR_MS);
+
+  const nJoins = () =>
+    db
+      .insert(groupMembers)
+      .values({ groupId: g, coachId: 'c', playerId: 'n', joinedAt: JOINED });
+  const changesOfN = () =>
+    changesSince(db, { playerId: 'n', repertoireId: rep, upToVersion: 99 });
+
+  beforeEach(async () => {
+    await assignTo(toGroup(g));
+  });
+
+  it('is not updated by an edit made before they joined, and nothing changed', async () => {
+    await coachEdit(addE3);
+    await nJoins();
+    expect(await playerAssignments(db, 'n', NOW)).toMatchObject([
+      { updated: false },
+    ]);
+    expect(await changesOfN()).toEqual({
+      changes: { added: [], removed: [], annotated: 0 },
+    });
+    expect(await playerAssignments(db, 'p', NOW)).toMatchObject([
+      { updated: true },
+    ]);
+  });
+
+  it('is updated by an edit after they joined, with only that edit', async () => {
+    await coachEdit(addE3);
+    await nJoins();
+    await coachEdit(commentD4, AFTER_JOINING);
+    expect(await playerAssignments(db, 'n', NOW)).toMatchObject([
+      { updated: true },
+    ]);
+    expect(await changesOfN()).toEqual({
+      changes: { added: [], removed: [], annotated: 1 },
+    });
+  });
+
+  it('counts an edit before they joined when also assigned individually before it', async () => {
+    await assignTo(toPlayer('n'));
+    await coachEdit(addE3);
+    await nJoins();
+    expect(await playerAssignments(db, 'n', NOW)).toMatchObject([
+      { updated: true },
+    ]);
+    const { graph } = await coachCopy();
+    expect(await changesOfN()).toEqual({
+      changes: {
+        added: [
+          {
+            moveKey: moveKey(moveOf(graph, 'e3').from, 'e3'),
+            chapterId: chapterOf(graph),
+          },
+        ],
+        removed: [],
+        annotated: 0,
+      },
+    });
   });
 });
 
