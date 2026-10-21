@@ -33,11 +33,13 @@ export {
   ASSIGNMENT_REFUSALS,
   assignableTargets,
   assignmentStatus,
+  assignmentStatusOf,
   canAssign,
   canChangeAssignment,
   canFork,
   canUseAssignment,
   deadlineSchema,
+  deadlineSources,
   effectiveDeadline,
   isTrainingActive,
   isUpdated,
@@ -47,7 +49,9 @@ export {
   type AssignedTarget,
   type ChangeAssignmentFacts,
   type AssignmentStatusFacts,
+  type AssignmentFacts,
   type AssignmentHold,
+  type AssignmentReach,
   type AssignmentRefusal,
   type AssignmentStart,
   type AssignmentStatus,
@@ -57,6 +61,12 @@ export {
   type GroupDeadline,
   type SeenFacts,
 } from './assignment';
+export {
+  settleAssignmentChange,
+  type PlayerRepertoire,
+  type Settlement,
+  type SettlementFacts,
+} from './assignment-settlement';
 export { HOME_TIME_ZONE, vilniusDay } from './calendar';
 export {
   FORK_OFFER_DAYS,

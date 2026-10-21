@@ -300,3 +300,69 @@ export const isUpdated = (
 /** A paused assignment leaves training (R-46); anything else trains. */
 export const isTrainingActive = (pausedAt: Date | null): boolean =>
   pausedAt === null;
+
+/**
+ * One assignment row through which a player has a repertoire. `joinedAt`
+ * (from AssignmentStart) is null for the player's own row and the join time
+ * for a group row.
+ */
+export interface AssignmentReach extends AssignmentStart {
+  readonly assignmentId: string;
+  /** The row's own deadline, `YYYY-MM-DD`, or null. */
+  readonly deadline: string | null;
+}
+
+/** What is known of one player's assignment of one repertoire (R-16, R-46, R-128). */
+export interface AssignmentFacts {
+  readonly playerId: string;
+  readonly repertoireId: string;
+  /** The repertoire's owner; every reaching row is theirs (assignments_repertoire_fk). */
+  readonly coachId: string;
+  readonly reaches: readonly AssignmentReach[];
+  readonly pausedAt: Date | null;
+  readonly seenVersion: number | null;
+  readonly forkedAt: Date | null;
+}
+
+/**
+ * The deadline sources of the rows through which a player has a
+ * repertoire (R-16, R-134): the player's own row is the individual source,
+ * each group row a group source on the member's Vilnius join day.
+ */
+export function deadlineSources(
+  reaches: readonly AssignmentReach[],
+): DeadlineSources {
+  const groups: GroupDeadline[] = reaches.flatMap((reach) =>
+    reach.joinedAt === null
+      ? []
+      : [{ deadline: reach.deadline, joinedDay: vilniusDay(reach.joinedAt) }],
+  );
+  const individual = reaches.find((reach) => reach.joinedAt === null);
+  return individual === undefined
+    ? { groups }
+    : { individual: { deadline: individual.deadline }, groups };
+}
+
+/**
+ * The one status rule for the player's and the coach's reads: the
+ * effective deadline (R-16, R-134) and the badges on it (R-128, R-129,
+ * R-132). `done` is the caller's (every player move learned).
+ */
+export function assignmentStatusOf(
+  facts: AssignmentFacts,
+  { done, now }: { readonly done: boolean; readonly now: Date },
+): AssignmentStatus & { readonly deadline: string | null } {
+  const deadline = effectiveDeadline(deadlineSources(facts.reaches));
+  return {
+    deadline,
+    ...assignmentStatus(
+      {
+        deadline,
+        done,
+        paused: !isTrainingActive(facts.pausedAt),
+        forked: facts.forkedAt !== null,
+      },
+      now,
+    ),
+  };
+}

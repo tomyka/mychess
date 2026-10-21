@@ -4,21 +4,26 @@ import {
   ASSIGNMENT_REFUSALS,
   assignableTargets,
   assignmentStatus,
+  assignmentStatusOf,
   canAssign,
   canChangeAssignment,
   canFork,
   canUseAssignment,
   deadlineSchema,
+  deadlineSources,
   effectiveDeadline,
   isTrainingActive,
   isUpdated,
   newsOf,
   type AssignFacts,
+  type AssignmentFacts,
+  type AssignmentReach,
   type AssignmentStart,
   type ChangeStamp,
   type SeenFacts,
   type AssignmentTarget,
 } from './assignment';
+import { vilniusDay } from './calendar';
 
 const ok = { ok: true, value: undefined };
 const refused = (reason: string) => ({ ok: false, refusal: { reason } });
@@ -546,4 +551,197 @@ describe('assignableTargets (R-15, R-16, R-134)', () => {
     expect(left).toStrictEqual([bob, ann]);
     expect(left[0]).toBe(bob);
   });
+});
+
+describe('deadlineSources (R-16, R-134)', () => {
+  const joinedAt = new Date('2026-10-10T12:00:00Z');
+  const reach = (over: Partial<AssignmentReach> = {}): AssignmentReach => ({
+    assignmentId: 'a-1',
+    deadline: '2026-11-01',
+    assignedVersion: 1,
+    joinedAt: null,
+    ...over,
+  });
+
+  it('takes the individual row and each group row with its join day', () => {
+    expect(
+      deadlineSources([
+        reach({ deadline: '2026-11-01' }),
+        reach({ assignmentId: 'a-2', deadline: '2026-10-30', joinedAt }),
+      ]),
+    ).toStrictEqual({
+      individual: { deadline: '2026-11-01' },
+      groups: [{ deadline: '2026-10-30', joinedDay: vilniusDay(joinedAt) }],
+    });
+  });
+
+  it('counts the join day in Vilnius, not UTC', () => {
+    expect(
+      deadlineSources([reach({ joinedAt: new Date('2026-10-15T22:30:00Z') })])
+        .groups,
+    ).toStrictEqual([{ deadline: '2026-11-01', joinedDay: '2026-10-16' }]);
+  });
+
+  it('has no individual source with group rows only', () => {
+    const sources = deadlineSources([
+      reach({ deadline: null, joinedAt }),
+      reach({ assignmentId: 'a-2', joinedAt }),
+    ]);
+    expect(sources).not.toHaveProperty('individual');
+    expect(sources.groups).toStrictEqual([
+      { deadline: null, joinedDay: '2026-10-10' },
+      { deadline: '2026-11-01', joinedDay: '2026-10-10' },
+    ]);
+  });
+
+  it('keeps an individual row without a deadline', () => {
+    expect(deadlineSources([reach({ deadline: null })])).toStrictEqual({
+      individual: { deadline: null },
+      groups: [],
+    });
+  });
+
+  it('is empty without reaches', () => {
+    expect(deadlineSources([])).toStrictEqual({ groups: [] });
+  });
+});
+
+describe('assignmentStatusOf (R-16, R-129, R-132, R-134, R-128)', () => {
+  const now = new Date('2026-11-02T10:00:00Z'); // 2 Nov in Vilnius
+  const individual = (deadline: string | null): AssignmentReach => ({
+    assignmentId: 'a-1',
+    deadline,
+    assignedVersion: 1,
+    joinedAt: null,
+  });
+  const viaGroup = (
+    deadline: string | null,
+    joinedAt: Date,
+  ): AssignmentReach => ({
+    assignmentId: 'a-2',
+    deadline,
+    assignedVersion: 1,
+    joinedAt,
+  });
+  const record = (over: Partial<AssignmentFacts> = {}): AssignmentFacts => ({
+    playerId: 'p',
+    repertoireId: 'r',
+    coachId: 'c',
+    reaches: [individual('2026-11-01')],
+    pausedAt: null,
+    seenVersion: null,
+    forkedAt: null,
+    ...over,
+  });
+  const PAUSED = new Date('2026-10-20T10:00:00Z');
+
+  const cases: readonly [
+    string,
+    AssignmentFacts,
+    boolean,
+    ReturnType<typeof assignmentStatusOf>,
+  ][] = [
+    [
+      'an individual deadline passed and not done is overdue',
+      record(),
+      false,
+      {
+        deadline: '2026-11-01',
+        overdue: true,
+        paused: false,
+        done: false,
+        forked: false,
+      },
+    ],
+    [
+      'done is never overdue (R-129)',
+      record(),
+      true,
+      {
+        deadline: '2026-11-01',
+        overdue: false,
+        paused: false,
+        done: true,
+        forked: false,
+      },
+    ],
+    [
+      'paused and passed is overdue and paused (R-132)',
+      record({ pausedAt: PAUSED }),
+      false,
+      {
+        deadline: '2026-11-01',
+        overdue: true,
+        paused: true,
+        done: false,
+        forked: false,
+      },
+    ],
+    [
+      'forked shows only forked, with the deadline still given (R-128)',
+      record({ pausedAt: PAUSED, forkedAt: PAUSED }),
+      true,
+      {
+        deadline: '2026-11-01',
+        overdue: false,
+        paused: false,
+        done: false,
+        forked: true,
+      },
+    ],
+    [
+      'a group deadline before the join day moves to the join day (R-16)',
+      record({
+        reaches: [viaGroup('2026-10-20', new Date('2026-11-03T08:00:00Z'))],
+      }),
+      false,
+      {
+        deadline: '2026-11-03',
+        overdue: false,
+        paused: false,
+        done: false,
+        forked: false,
+      },
+    ],
+    [
+      'an individual deadline of null wins over a group deadline (R-134)',
+      record({
+        reaches: [
+          individual(null),
+          viaGroup('2026-10-20', new Date('2026-10-01T08:00:00Z')),
+        ],
+      }),
+      false,
+      {
+        deadline: null,
+        overdue: false,
+        paused: false,
+        done: false,
+        forked: false,
+      },
+    ],
+  ];
+
+  it.each(cases)('%s', (_name, facts, done, expected) => {
+    expect(assignmentStatusOf(facts, { done, now })).toStrictEqual(expected);
+  });
+
+  it.each(cases)(
+    'agrees with effectiveDeadline and assignmentStatus: %s',
+    (_name, facts, done) => {
+      const deadline = effectiveDeadline(deadlineSources(facts.reaches));
+      expect(assignmentStatusOf(facts, { done, now })).toStrictEqual({
+        deadline,
+        ...assignmentStatus(
+          {
+            deadline,
+            done,
+            paused: !isTrainingActive(facts.pausedAt),
+            forked: facts.forkedAt !== null,
+          },
+          now,
+        ),
+      });
+    },
+  );
 });
