@@ -8,6 +8,7 @@ import type { Key } from '@lichess-org/chessground/types';
 import {
   chapterOf,
   moveKey,
+  removalCount,
   sideToMove,
   START_KEY,
   type EditOp,
@@ -25,7 +26,6 @@ import {
   markChange,
   moveNumber,
   placeAdded,
-  removalCount,
   SAVING,
   type ChapterBuilder,
   type CommentEditor,
@@ -220,7 +220,7 @@ export function removalTarget(state: ScreenState): {
   const number = moveNumber(state.path.length - 1, sideToMove(root) === 'w');
   return {
     move: `${number} ${last.san}`,
-    count: removalCount(state.graph, state.chapterId, last),
+    count: removalCount(state.graph, state.chapterId, last.from, last.san),
   };
 }
 

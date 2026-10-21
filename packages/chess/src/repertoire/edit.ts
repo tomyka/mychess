@@ -10,11 +10,10 @@ import {
   type Chapter,
   type Marks,
   type RepertoireGraph,
-  type RepertoireMove,
 } from './graph';
 import { RepertoireMoves, type PlayedMove } from './moves';
 import { renamedByMoves } from './naming';
-import { chapterWalks } from './walk';
+import { same, walkedMoves, withoutChapter, withoutMove } from './remove';
 
 /** Why a builder edit was refused; each reason is a message-catalogue key. */
 export type EditRefusal =
@@ -30,13 +29,6 @@ const refuse = (reason: EditRefusal['reason']): EditResult => ({
   ok: false,
   refusal: { reason },
 });
-
-const same = (move: RepertoireMove, fromKey: string, san: string): boolean =>
-  move.from === fromKey && move.san === san;
-
-/** The moves a chapter's root reaches. */
-const walkedMoves = (graph: RepertoireGraph, chapter: Chapter) =>
-  chapterWalks(graph)(chapter.id).moves();
 
 /**
  * The positions a chapter reaches: its root and where each of its moves lands.
@@ -95,27 +87,11 @@ export function addMove(
   return { ok: true, value: renamedByMoves(value, chapterId) };
 }
 
-function withoutChapter(
-  move: RepertoireMove,
-  chapterId: string,
-): RepertoireMove {
-  return { ...move, chapters: move.chapters.filter((c) => c !== chapterId) };
-}
-
-/** Moves of a chapter its root no longer reaches leave the chapter. */
-function prune(graph: RepertoireGraph, chapter: Chapter): RepertoireGraph {
-  const kept = new Set(walkedMoves(graph, chapter));
-  const moves = graph.moves.map((m) =>
-    kept.has(m) ? m : withoutChapter(m, chapter.id),
-  );
-  return { ...graph, moves: moves.filter((m) => m.chapters.length > 0) };
-}
-
 /**
  * Takes `san` from `fromKey` out of a chapter, with every move of the chapter
  * that only it reached. A move still reachable another way (a transposition)
- * or used by another chapter stays. The chapter's name follows its moves
- * (R-104, `renamedByMoves`).
+ * or used by another chapter stays (`withoutMove`). The chapter's name
+ * follows its moves (R-104, `renamedByMoves`).
  */
 export function removeMove(
   graph: RepertoireGraph,
@@ -125,10 +101,7 @@ export function removeMove(
 ): EditResult {
   const chapter = chapterOf(graph, chapterId);
   if (chapter === undefined) return refuse('repertoire.unknownChapter');
-  const moves = graph.moves.map((m) =>
-    same(m, fromKey, san) ? withoutChapter(m, chapterId) : m,
-  );
-  const value = prune({ ...graph, moves }, chapter);
+  const value = withoutMove(graph, chapter, fromKey, san);
   return { ok: true, value: renamedByMoves(value, chapterId) };
 }
 

@@ -1,10 +1,4 @@
-import {
-  addChapter,
-  addMove,
-  chapterChildren,
-  legalMoves,
-  START_KEY,
-} from '@mychess/chess';
+import { addChapter, addMove, legalMoves, START_KEY } from '@mychess/chess';
 import { describe, expect, it } from 'vitest';
 import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import {
@@ -13,7 +7,6 @@ import {
   moveNumber,
   movesBetween,
   placeAdded,
-  removalCount,
 } from './board-play';
 
 const GRAPH = graphOf(LONDON);
@@ -67,26 +60,6 @@ describe('moveNumber', () => {
       '2.',
       '2...',
     ]);
-  });
-});
-
-describe('removalCount', () => {
-  const children = chapterChildren(GRAPH)('c1');
-  const d4 = children(START_KEY)[0];
-  const d5 = children(d4?.to ?? '')[0];
-  const bf4 = children(d5?.to ?? '')[0];
-
-  it('counts the chapter’s moves after the move that go with it', () => {
-    if (d4 === undefined || bf4 === undefined) throw new Error('no moves');
-    expect(removalCount(GRAPH, 'c1', bf4)).toBe(6);
-    expect(removalCount(GRAPH, 'c1', d4)).toBe(8);
-  });
-
-  it('counts nothing after a line’s last move, and nothing in another chapter', () => {
-    const c3 = GRAPH.moves.find((m) => m.san === 'c3');
-    if (c3 === undefined || d4 === undefined) throw new Error('no c3');
-    expect(removalCount(GRAPH, 'c1', c3)).toBe(0);
-    expect(removalCount(GRAPH, 'c9', d4)).toBe(0);
   });
 });
 

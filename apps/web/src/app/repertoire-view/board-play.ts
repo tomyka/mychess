@@ -2,7 +2,6 @@
 // legal moves join two squares, and whether the chapter has it.
 import {
   chapterChildren,
-  removeMove,
   type BoardMove,
   type Marks,
   type RepertoireGraph,
@@ -37,24 +36,6 @@ export function moveNumber(ply: number, whiteFirst: boolean): string {
   const half = ply + (whiteFirst ? 0 : 1);
   const number = String(Math.floor(half / 2) + 1);
   return half % 2 === 0 ? `${number}.` : `${number}...`;
-}
-
-const movesIn = (graph: RepertoireGraph, chapterId: string): number =>
-  graph.moves.filter((m) => m.chapters.includes(chapterId)).length;
-
-/**
- * How many of the chapter's moves after `move` removing it takes along:
- * those only it reached (the chess `removeMove` decides, as a preview).
- */
-export function removalCount(
-  graph: RepertoireGraph,
-  chapterId: string,
-  move: RepertoireMove,
-): number {
-  const preview = removeMove(graph, chapterId, move.from, move.san);
-  if (!preview.ok) return 0;
-  const gone = movesIn(graph, chapterId) - movesIn(preview.value, chapterId);
-  return Math.max(gone - 1, 0);
 }
 
 /** A chapter and the moves from its root. */

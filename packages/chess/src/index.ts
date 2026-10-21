@@ -59,6 +59,7 @@ export {
   sideSchema,
   SIDES,
 } from './repertoire/schema';
+export { removalCount } from './repertoire/remove';
 export { summarize, type RepertoireSummary } from './repertoire/summary';
 export {
   findLegalMove,

@@ -33,7 +33,7 @@ export { moveNumber } from './board-play';
 // and to fill the panel's builder fields.
 export { SAVING, type ScreenMessage } from './screen-state';
 export { canMark } from './use-screen';
-export { markChange, placeAdded, removalCount } from './board-play';
+export { markChange, placeAdded } from './board-play';
 export type { ChapterBuilder } from './chapter-list';
 export type { CommentEditor } from './comment';
 export type { FieldOutcome } from './field-save';
