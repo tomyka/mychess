@@ -5,6 +5,7 @@ import {
 } from '@mychess/domain';
 import { z } from 'zod';
 import { accountIdSchema } from './account-id';
+import { refusalAt } from './parse-refusal';
 
 /** The share form: the repertoire and the coaches ticked. */
 export interface SharesForm {
@@ -28,9 +29,10 @@ export function parseShares(form: FormData): Result<SharesForm, ShareRefusal> {
     coachIds: form.getAll('coachIds'),
   });
   if (parsed.success) return { ok: true, value: parsed.data };
-  const reason =
-    parsed.error.issues[0]?.path[0] === 'coachIds'
-      ? SHARE_REFUSALS.notLinked
-      : SHARE_REFUSALS.notOwner;
+  const reason = refusalAt<ShareRefusal['reason']>(
+    parsed.error,
+    { coachIds: SHARE_REFUSALS.notLinked },
+    SHARE_REFUSALS.notOwner,
+  );
   return { ok: false, refusal: { reason } };
 }

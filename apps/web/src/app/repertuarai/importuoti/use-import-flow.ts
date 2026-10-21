@@ -78,10 +78,10 @@ const TARGET_GONE: ReadonlySet<ImportRefusalKey> = new Set([
   'repertoire.sideMismatch',
 ]);
 
-const messageOf = (refused: ImportRefused): FlowMessage =>
-  refused.limit === undefined
-    ? { key: refused.refusal }
-    : { key: refused.refusal, limit: refused.limit };
+const messageOf = ({ refusal }: ImportRefused): FlowMessage =>
+  'limit' in refusal
+    ? { key: refusal.reason, limit: refusal.limit }
+    : { key: refusal.reason };
 
 /** The flow's start: opened from a repertoire, its side and it as the target. */
 function initialFlow(fixed: ImportOption | null): FlowState {
@@ -118,8 +118,10 @@ function reduceFlow(state: FlowState, event: FlowEvent): FlowState {
       return {
         ...state,
         message: messageOf(event.refused),
-        stale: event.refused.refusal === 'repertoire.stale',
-        target: TARGET_GONE.has(event.refused.refusal) ? NEW : state.target,
+        stale: event.refused.refusal.reason === 'repertoire.stale',
+        target: TARGET_GONE.has(event.refused.refusal.reason)
+          ? NEW
+          : state.target,
       };
     case 'change':
       return { ...state, ...CLEARED, upload: null, preview: null };

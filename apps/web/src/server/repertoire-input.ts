@@ -5,6 +5,7 @@ import {
   type Result,
 } from '@mychess/domain';
 import { z } from 'zod';
+import { refusalOf } from './parse-refusal';
 
 /** The refusals the "new repertoire" form shows. */
 const NEW_REPERTOIRE_ISSUES = {
@@ -41,8 +42,6 @@ export function parseNewRepertoire(
     side: text(form.get('side')),
   });
   if (parsed.success) return { ok: true, value: parsed.data };
-  const message = parsed.error.issues[0]?.message;
-  const reason =
-    KEYS.find((key) => key === message) ?? NEW_REPERTOIRE_ISSUES.nameBlank;
+  const reason = refusalOf(parsed.error, KEYS, NEW_REPERTOIRE_ISSUES.nameBlank);
   return { ok: false, refusal: { reason } };
 }

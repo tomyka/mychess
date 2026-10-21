@@ -5,6 +5,7 @@ import {
   type Result,
 } from '@mychess/domain';
 import { z } from 'zod';
+import { refusalOf } from './parse-refusal';
 
 /** A request to set (or, with '', remove) a Personal note on a move (R-21). */
 export interface PersonalNoteRequest {
@@ -35,9 +36,10 @@ export function parsePersonalNote(
 ): Result<PersonalNoteRequest, { readonly reason: PersonalNoteIssue }> {
   const parsed = noteRequestSchema.safeParse(input);
   if (parsed.success) return { ok: true, value: parsed.data };
-  const reason =
-    parsed.error.issues[0]?.message === REPERTOIRE_ISSUES.personalNoteTooLong
-      ? REPERTOIRE_ISSUES.personalNoteTooLong
-      : REPERTOIRE_REFUSALS.notFound;
+  const reason = refusalOf<PersonalNoteIssue>(
+    parsed.error,
+    [REPERTOIRE_ISSUES.personalNoteTooLong],
+    REPERTOIRE_REFUSALS.notFound,
+  );
   return { ok: false, refusal: { reason } };
 }

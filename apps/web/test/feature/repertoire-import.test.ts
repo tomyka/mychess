@@ -213,48 +213,48 @@ describe('previewImportAction', () => {
         side: 'black',
         into: london,
       }),
-    ).toEqual({ ok: false, refusal: 'repertoire.sideMismatch' });
+    ).toEqual({ ok: false, refusal: { reason: 'repertoire.sideMismatch' } });
     expect(
       await previewImportAction({
         text: INTO_TAIMANOV,
         side: 'black',
         into: foreign,
       }),
-    ).toEqual({ ok: false, refusal: 'repertoire.notFound' });
+    ).toEqual({ ok: false, refusal: { reason: 'repertoire.notFound' } });
     expect(
       await previewImportAction({
         text: INTO_TAIMANOV,
         side: 'black',
         into: 'not-a-uuid',
       }),
-    ).toEqual({ ok: false, refusal: 'repertoire.notFound' });
+    ).toEqual({ ok: false, refusal: { reason: 'repertoire.notFound' } });
   });
 
   it.each([
     [
       'a file over 2 MB',
       'a'.repeat(2 * 1024 * 1024 + 1),
-      { refusal: 'pgn.tooLarge', limit: 2097152 },
+      { refusal: { reason: 'pgn.tooLarge', limit: 2097152 } },
     ],
     [
       'more than 200 games',
       game('1. e4 *').repeat(201),
-      { refusal: 'pgn.tooManyGames', limit: 200 },
+      { refusal: { reason: 'pgn.tooManyGames', limit: 200 } },
     ],
     [
       'variations nested deeper than 64',
       `1. e4 ${'(1. d4 '.repeat(65)}${')'.repeat(65)} *`,
-      { refusal: 'pgn.tooDeep', limit: 64 },
+      { refusal: { reason: 'pgn.tooDeep', limit: 64 } },
     ],
     [
       'more than 50,000 half-moves (R-119)',
       game('Nf3 Nf6 Ng1 Ng8 '.repeat(64)).repeat(200),
-      { refusal: 'pgn.tooManyMoves', limit: 50_000 },
+      { refusal: { reason: 'pgn.tooManyMoves', limit: 50_000 } },
     ],
     [
       'a file with no valid game',
       game('1. e4 e5 2. Ke3 *'),
-      { refusal: 'pgn.noValidGames' },
+      { refusal: { reason: 'pgn.noValidGames' } },
     ],
   ])('refuses %s, naming the limit', async (_, text, refused) => {
     actAs(await person(sql, 'gabija@example.lt', 'Gabija'));
@@ -268,11 +268,11 @@ describe('previewImportAction', () => {
     actAs(await person(sql, 'gabija@example.lt', 'Gabija'));
     expect(await previewImportAction({ text: TAIMANOV, side: 'red' })).toEqual({
       ok: false,
-      refusal: 'repertoire.sideInvalid',
+      refusal: { reason: 'repertoire.sideInvalid' },
     });
     expect(await previewImportAction({ side: 'white' })).toEqual({
       ok: false,
-      refusal: 'pgn.unreadable',
+      refusal: { reason: 'pgn.unreadable' },
     });
   });
 
@@ -313,7 +313,7 @@ describe('confirmImportAction', () => {
         side: 'black',
         target: { kind: 'new', name: '   ' },
       }),
-    ).toEqual({ ok: false, refusal: 'repertoire.nameBlank' });
+    ).toEqual({ ok: false, refusal: { reason: 'repertoire.nameBlank' } });
     expect(await repertoireCount()).toBe(3);
   });
 
@@ -326,7 +326,10 @@ describe('confirmImportAction', () => {
         side: 'black',
         target: { kind: 'new', name: 'Per daug' },
       }),
-    ).toEqual({ ok: false, refusal: 'pgn.tooManyGames', limit: 200 });
+    ).toEqual({
+      ok: false,
+      refusal: { reason: 'pgn.tooManyGames', limit: 200 },
+    });
     expect(await repertoireCount()).toBe(3);
   });
 
@@ -362,7 +365,7 @@ describe('confirmImportAction', () => {
         side: 'white',
         target: { kind: 'existing', id: london, version: 1 },
       }),
-    ).toEqual({ ok: false, refusal: 'pgn.nothingToAdd' });
+    ).toEqual({ ok: false, refusal: { reason: 'pgn.nothingToAdd' } });
     expect(await stored(london, gabija)).toEqual(before);
   });
 
@@ -383,7 +386,7 @@ describe('confirmImportAction', () => {
         side: 'black',
         target: { kind: 'existing', id: taimanov, version: 1 },
       }),
-    ).toEqual({ ok: false, refusal: 'repertoire.stale' });
+    ).toEqual({ ok: false, refusal: { reason: 'repertoire.stale' } });
     expect(await stored(taimanov, gabija)).toEqual(after);
   });
 
@@ -396,14 +399,14 @@ describe('confirmImportAction', () => {
         side: 'black',
         target: { kind: 'existing', id: foreign, version: 1 },
       }),
-    ).toEqual({ ok: false, refusal: 'repertoire.notFound' });
+    ).toEqual({ ok: false, refusal: { reason: 'repertoire.notFound' } });
     expect(
       await confirmImportAction({
         text: INTO_TAIMANOV,
         side: 'black',
         target: { kind: 'existing', id: london, version: 1 },
       }),
-    ).toEqual({ ok: false, refusal: 'repertoire.sideMismatch' });
+    ).toEqual({ ok: false, refusal: { reason: 'repertoire.sideMismatch' } });
     expect(
       (await sql.rows('select version from repertoires order by 1')).map(
         (row) => z.object({ version: z.number() }).parse(row).version,
@@ -436,7 +439,10 @@ describe('the import rate limit (R-119)', () => {
         target: { kind: 'new', name },
       }),
     );
-  const TOO_MANY = { ok: false, refusal: 'pgn.tooManyImports', limit: 10 };
+  const TOO_MANY = {
+    ok: false,
+    refusal: { reason: 'pgn.tooManyImports', limit: 10 },
+  };
 
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });

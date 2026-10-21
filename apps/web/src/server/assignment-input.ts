@@ -11,6 +11,7 @@ import {
 import { z } from 'zod';
 import { targetFromField } from '../lib/assign-target';
 import { accountIdSchema } from './account-id';
+import { refusalAt } from './parse-refusal';
 
 /** The catalogue key for an assign form sent with nothing picked. */
 export const ASSIGN_PICK_TARGET = 'assignment.panel.pickTarget';
@@ -54,14 +55,16 @@ const refuse = <T>(reason: AssignmentInputKey): Parsed<T> => ({
  * malformed group is not found and a malformed player not linked, as on
  * the coach dashboard; any other id is not found.
  */
-function issueKey(error: z.ZodError): AssignmentInputKey {
-  const [field, inner] = error.issues[0]?.path ?? [];
-  if (field === 'deadline') return ASSIGNMENT_ISSUES.deadlineInvalid;
-  if (field !== 'target') return ASSIGNMENT_REFUSALS.notFound;
-  return inner === 'groupId'
-    ? ASSIGNMENT_REFUSALS.groupNotFound
-    : ASSIGNMENT_REFUSALS.notLinked;
-}
+const issueKey = (error: z.ZodError): AssignmentInputKey =>
+  refusalAt<AssignmentInputKey>(
+    error,
+    {
+      deadline: ASSIGNMENT_ISSUES.deadlineInvalid,
+      'target.groupId': ASSIGNMENT_REFUSALS.groupNotFound,
+      target: ASSIGNMENT_REFUSALS.notLinked,
+    },
+    ASSIGNMENT_REFUSALS.notFound,
+  );
 
 function parse<T>(schema: z.ZodType<T>, input: unknown): Parsed<T> {
   const parsed = schema.safeParse(input);

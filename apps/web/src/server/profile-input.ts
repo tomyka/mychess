@@ -5,6 +5,7 @@ import {
   type Profile,
   type Result,
 } from '@mychess/domain';
+import { refusalOf } from './parse-refusal';
 
 /** The catalogue key of every refusal a profile form can show. */
 export type ProfileRefusalKey =
@@ -20,14 +21,8 @@ const KEYS: readonly ProfileRefusalKey[] = [
   ACCOUNT_REFUSALS.localeInvalid,
 ];
 
-const isRefusalKey = (
-  message: string | undefined,
-): message is ProfileRefusalKey => KEYS.some((key) => key === message);
-
 // The language refusal covers every locale issue; a name that is not text
 // at all (missing, or a file) is the only other issue, and reads as blank.
-const refusalKey = (message: string | undefined): ProfileRefusalKey =>
-  isRefusalKey(message) ? message : DISPLAY_NAME_ISSUES.blank;
 
 /** The display name and language from a form, parsed at the edge. */
 export function parseProfileInput(
@@ -41,6 +36,8 @@ export function parseProfileInput(
     ? { ok: true, value: parsed.data }
     : {
         ok: false,
-        refusal: { reason: refusalKey(parsed.error.issues[0]?.message) },
+        refusal: {
+          reason: refusalOf(parsed.error, KEYS, DISPLAY_NAME_ISSUES.blank),
+        },
       };
 }

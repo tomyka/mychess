@@ -38,6 +38,7 @@ import {
 import { accountIdSchema } from '../../server/account-id';
 import { requireCoach } from '../../server/coaching';
 import { getDb } from '../../server/db';
+import { refusalAt, refusalState } from '../../server/parse-refusal';
 import { readWebEnv } from '../../server/env';
 
 /** A group or invite id from a form. */
@@ -114,9 +115,10 @@ export interface CoachActionState {
   readonly refusal?: CoachRefusal['reason'];
 }
 
-/** A refusal as the form shows it. */
-const refused = (result: Result<undefined, CoachRefusal>): CoachActionState =>
-  result.ok ? {} : { refusal: result.refusal.reason };
+const membershipSchema = z.object({
+  groupId: idSchema,
+  playerId: accountIdSchema,
+});
 
 /**
  * The membership a form names, for the session coach. A malformed group
@@ -126,16 +128,17 @@ function membershipOf(
   coachId: string,
   form: FormData,
 ): Result<Membership, CoachRefusal> {
-  const groupId = idSchema.safeParse(form.get('groupId'));
-  if (!groupId.success)
-    return { ok: false, refusal: { reason: COACH_REFUSALS.groupNotFound } };
-  const playerId = accountIdSchema.safeParse(form.get('playerId'));
-  if (!playerId.success)
-    return { ok: false, refusal: { reason: COACH_REFUSALS.notLinked } };
-  return {
-    ok: true,
-    value: { coachId, groupId: groupId.data, playerId: playerId.data },
-  };
+  const parsed = membershipSchema.safeParse({
+    groupId: form.get('groupId'),
+    playerId: form.get('playerId'),
+  });
+  if (parsed.success) return { ok: true, value: { coachId, ...parsed.data } };
+  const reason = refusalAt<CoachRefusal['reason']>(
+    parsed.error,
+    { playerId: COACH_REFUSALS.notLinked },
+    COACH_REFUSALS.groupNotFound,
+  );
+  return { ok: false, refusal: { reason } };
 }
 
 /** Puts a linked player into one of the coach's own groups (R-12). */
@@ -149,7 +152,7 @@ export async function addMemberAction(
     ? await addMember(getDb(), membership.value, new Date())
     : membership;
   refresh();
-  return refused(added);
+  return refusalState(added);
 }
 
 /** Takes a player out of one of the coach's own groups; the link stays. */
@@ -163,7 +166,7 @@ export async function removeMemberAction(
     ? await removeMember(getDb(), membership.value, new Date())
     : membership;
   refresh();
-  return refused(removed);
+  return refusalState(removed);
 }
 
 /**
@@ -184,7 +187,7 @@ export async function unlinkPlayerAction(
   const unlinked = await unlink(getDb(), coach.id, playerId.data, new Date());
   if (unlinked.ok) redirect(ROUTES.coach);
   refresh();
-  return refused(unlinked);
+  return refusalState(unlinked);
 }
 
 /** What the invite form shows after a submit. */
@@ -237,7 +240,7 @@ export async function revokeInviteAction(
     ? await revokeInvite(getDb(), coach.id, inviteId.data, new Date())
     : INVALID_INVITE;
   refresh();
-  return revoked.ok ? {} : { refusal: revoked.refusal.reason };
+  return refusalState(revoked);
 }
 
 /** What saving or deleting a coach note came to: done, or its refusal. */
@@ -262,7 +265,7 @@ export async function saveCoachNoteAction(
     ...note.value,
     now: new Date(),
   });
-  return saved.ok ? {} : { refusal: saved.refusal.reason };
+  return refusalState(saved);
 }
 
 /**
@@ -279,5 +282,5 @@ export async function deleteCoachNoteAction(
     coachId: coach.id,
     ...move.value,
   });
-  return removed.ok ? {} : { refusal: removed.refusal.reason };
+  return refusalState(removed);
 }

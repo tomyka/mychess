@@ -14,6 +14,7 @@ import {
 } from '@mychess/domain';
 import { z } from 'zod';
 import { accountIdSchema } from './account-id';
+import { refusalAt, refusalOf } from './parse-refusal';
 
 /** The catalogue key of every refusal a group name field can show. */
 export type GroupNameIssue =
@@ -21,15 +22,6 @@ export type GroupNameIssue =
 
 /** The catalogue key of every refusal the invite form can show (R-110). */
 export type InviteIssue = (typeof INVITE_ISSUES)[keyof typeof INVITE_ISSUES];
-
-/** One of `keys` if `message` is one, else `fallback`. */
-function issueKey<K extends string>(
-  keys: readonly K[],
-  message: string | undefined,
-  fallback: K,
-): K {
-  return keys.find((key) => key === message) ?? fallback;
-}
 
 const GROUP_NAME_KEYS = Object.values(GROUP_NAME_ISSUES);
 const INVITE_KEYS = Object.values(INVITE_ISSUES);
@@ -41,9 +33,9 @@ export function parseGroupName(
   const raw = form.get('name');
   const parsed = groupNameSchema.safeParse(typeof raw === 'string' ? raw : '');
   if (parsed.success) return { ok: true, value: parsed.data };
-  const reason = issueKey(
+  const reason = refusalOf(
+    parsed.error,
     GROUP_NAME_KEYS,
-    parsed.error.issues[0]?.message,
     GROUP_NAME_ISSUES.blank,
   );
   return { ok: false, refusal: { reason } };
@@ -62,9 +54,9 @@ export function parseNewInvite(
     groupId: groupField(form.get('groupId')),
   });
   if (parsed.success) return { ok: true, value: parsed.data };
-  const reason = issueKey(
+  const reason = refusalOf(
+    parsed.error,
     INVITE_KEYS,
-    parsed.error.issues[0]?.message,
     INVITE_ISSUES.kindInvalid,
   );
   return { ok: false, refusal: { reason } };
@@ -108,15 +100,17 @@ const COACH_NOTE_KEYS = Object.values(COACH_NOTE_ISSUES);
  * not shared and a move not found, as an id that does not exist would; the
  * text says what is wrong with it.
  */
-function coachNoteIssue(error: z.ZodError): CoachNoteRefusalKey {
-  const issue = error.issues[0];
-  const field = issue?.path[0];
-  if (field === 'text')
-    return issueKey(COACH_NOTE_KEYS, issue?.message, COACH_NOTE_ISSUES.blank);
-  if (field === 'playerId') return ACCESS_REFUSALS.notLinked;
-  if (field === 'moveKey') return COACH_NOTE_REFUSALS.moveNotFound;
-  return ACCESS_REFUSALS.notShared;
-}
+const coachNoteIssue = (error: z.ZodError): CoachNoteRefusalKey =>
+  refusalAt<CoachNoteRefusalKey>(
+    error,
+    {
+      text: (textError) =>
+        refusalOf(textError, COACH_NOTE_KEYS, COACH_NOTE_ISSUES.blank),
+      playerId: ACCESS_REFUSALS.notLinked,
+      moveKey: COACH_NOTE_REFUSALS.moveNotFound,
+    },
+    ACCESS_REFUSALS.notShared,
+  );
 
 /** `schema`'s parse of `input`, or the refusal its first issue reads as. */
 function parseNote<T>(schema: z.ZodType<T>, input: unknown): CoachNoteParse<T> {

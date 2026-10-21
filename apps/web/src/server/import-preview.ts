@@ -16,6 +16,7 @@ import {
   type Chapter,
   type ChapterName,
   type ImportedRepertoire,
+  type LimitRefusal,
   type Locale,
   type MergedRepertoire,
   type NothingToAdd,
@@ -35,9 +36,11 @@ import {
   REPERTOIRE_REFUSALS,
   repertoireNameSchema,
   type Account,
+  type RateRefusal,
 } from '@mychess/domain';
 import { z } from 'zod';
 import { getDb } from './db';
+import { refusalOf } from './parse-refusal';
 import { ownRepertoire } from './repertoires';
 
 /** The existing repertoire a preview was merged into. */
@@ -65,10 +68,7 @@ const PGN_UNREADABLE = 'pgn.unreadable';
 
 /** Every refusal an import can come to; each is a message-catalogue key. */
 export type ImportRefusalKey =
-  | 'pgn.tooLarge'
-  | 'pgn.tooManyGames'
-  | 'pgn.tooDeep'
-  | 'pgn.tooManyMoves'
+  | LimitRefusal['reason']
   | typeof IMPORT_RATE_LIMIT.reason
   | 'pgn.noValidGames'
   | NothingToAdd['reason']
@@ -79,14 +79,25 @@ export type ImportRefusalKey =
   | typeof REPERTOIRE_ISSUES.nameTooLong
   | typeof REPERTOIRE_ISSUES.sideInvalid;
 
+/** A limit an import breaks: the file's (R-66) or the imports a minute (R-119). */
+type LimitKey = LimitRefusal['reason'] | typeof IMPORT_RATE_LIMIT.reason;
+
+/** A refusal that names no limit. */
+type PlainKey = Exclude<ImportRefusalKey, LimitKey>;
+
+/**
+ * Why an import is refused, in the shape the domain gives it: a key, and
+ * the limit broken when it is a limit (bytes, games, depth or half-moves,
+ * R-66, R-119; or the imports a minute, R-119).
+ */
+type ImportRefusal =
+  | LimitRefusal
+  | RateRefusal<typeof IMPORT_RATE_LIMIT.reason>
+  | { readonly reason: PlainKey };
+
 export interface ImportRefused {
   readonly ok: false;
-  readonly refusal: ImportRefusalKey;
-  /**
-   * The limit broken: the file's (R-66, R-119: bytes, games, depth or
-   * half-moves) or the imports a minute (R-119).
-   */
-  readonly limit?: number;
+  readonly refusal: ImportRefusal;
 }
 
 export type PreviewOutcome =
@@ -101,7 +112,7 @@ interface Imported {
 
 export type ConfirmOutcome = Imported | ImportRefused;
 
-const REQUEST_KEYS: readonly ImportRefusalKey[] = [
+const REQUEST_KEYS: readonly PlainKey[] = [
   PGN_UNREADABLE,
   REPERTOIRE_ISSUES.nameBlank,
   REPERTOIRE_ISSUES.nameTooLong,
@@ -141,21 +152,16 @@ type ExistingTarget = Extract<
   { kind: 'existing' }
 >;
 
-const refused = (refusal: {
-  readonly reason: ImportRefusalKey;
-  readonly limit?: number;
-}): ImportRefused =>
-  refusal.limit === undefined
-    ? { ok: false, refusal: refusal.reason }
-    : { ok: false, refusal: refusal.reason, limit: refusal.limit };
+const refused = (refusal: ImportRefusal): ImportRefused => ({
+  ok: false,
+  refusal,
+});
 
 /** A malformed request's refusal: its first known issue, else not found. */
-function requestRefused(error: z.ZodError): ImportRefused {
-  const message = error.issues[0]?.message;
-  const reason =
-    REQUEST_KEYS.find((key) => key === message) ?? REPERTOIRE_REFUSALS.notFound;
-  return refused({ reason });
-}
+const requestRefused = (error: z.ZodError): ImportRefused =>
+  refused({
+    reason: refusalOf(error, REQUEST_KEYS, REPERTOIRE_REFUSALS.notFound),
+  });
 
 /** Counts one preview or confirm of `account`; refused over the R-119 limit. */
 async function withinRateLimit(

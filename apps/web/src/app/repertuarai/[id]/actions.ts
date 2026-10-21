@@ -3,7 +3,11 @@
 // The repertoire page's actions. Each authenticates, parses its input, asks
 // ownRepertoire (the domain's access rule, enforced again by the owner
 // filter in the query), then saves. The viewer is always the session account.
-import { applyEdit, type RepertoireGraph } from '@mychess/chess';
+import {
+  applyEdit,
+  type EditRefusal,
+  type RepertoireGraph,
+} from '@mychess/chess';
 import {
   deleteRepertoire,
   renameRepertoire,
@@ -14,6 +18,7 @@ import {
   REPERTOIRE_ISSUES,
   REPERTOIRE_REFUSALS,
   repertoireNameSchema,
+  type RepertoireAccessRefusal,
 } from '@mychess/domain';
 import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -21,6 +26,7 @@ import { z } from 'zod';
 import { repertoireDeletedRoute } from '../../../lib/routes';
 import { ecoNamesOf } from '../../../server/chapter-names';
 import { getDb } from '../../../server/db';
+import { refusalOf } from '../../../server/parse-refusal';
 import { parsePersonalNote } from '../../../server/personal-note-input';
 import { editRequestSchema } from '../../../server/repertoire-edit';
 import { ownRepertoire } from '../../../server/repertoires';
@@ -87,9 +93,13 @@ export async function renameRepertoireAction(
     name: field(form, 'name'),
   });
   if (!request.success) {
-    const message = request.error.issues[0]?.message;
-    const refusal = RENAME_KEYS.find((key) => key === message);
-    return { refusal: refusal ?? REPERTOIRE_REFUSALS.notFound };
+    return {
+      refusal: refusalOf(
+        request.error,
+        RENAME_KEYS,
+        REPERTOIRE_REFUSALS.notFound,
+      ),
+    };
   }
   const own = await ownRepertoire(account, request.data.repertoireId, 'edit');
   if (!own.ok) return { refusal: own.refusal.reason };
@@ -140,21 +150,32 @@ export type EditOutcome =
       /** The opening names the edited chapters are now named after (R-104). */
       readonly ecoNames: Readonly<Record<string, string>>;
     }
-  | { readonly ok: false; readonly refusal: string };
+  | { readonly ok: false; readonly refusal: EditRefusalKey };
 
-const refused = (refusal: string): EditOutcome => ({ ok: false, refusal });
-
-const EDIT_ISSUES: readonly string[] = [
+const EDIT_ISSUES = [
   REPERTOIRE_ISSUES.chapterNameBlank,
   REPERTOIRE_ISSUES.chapterNameTooLong,
   REPERTOIRE_ISSUES.commentTooLong,
-];
+] as const;
+
+const INVALID_EDIT = 'repertoire.invalidEdit';
+
+/** Every catalogue key a builder edit can be refused with. */
+type EditRefusalKey =
+  | (typeof EDIT_ISSUES)[number]
+  | typeof INVALID_EDIT
+  | RepertoireAccessRefusal['reason']
+  | EditRefusal['reason']
+  | typeof REPERTOIRE_REFUSALS.stale;
+
+const refused = (refusal: EditRefusalKey): EditOutcome => ({
+  ok: false,
+  refusal,
+});
 
 /** A name or comment issue is said so; anything else reads as an invalid edit. */
-const editIssue = (error: z.ZodError): string => {
-  const message = error.issues[0]?.message ?? '';
-  return EDIT_ISSUES.includes(message) ? message : 'repertoire.invalidEdit';
-};
+const editIssue = (error: z.ZodError): EditRefusalKey =>
+  refusalOf<EditRefusalKey>(error, EDIT_ISSUES, INVALID_EDIT);
 
 /**
  * One builder edit (authenticate, load, call the chess function that

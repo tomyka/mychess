@@ -97,7 +97,7 @@ beforeEach(() => {
   );
   server.confirm
     .mockReset()
-    .mockResolvedValue({ ok: false, refusal: 'repertoire.stale' });
+    .mockResolvedValue({ ok: false, refusal: { reason: 'repertoire.stale' } });
 });
 
 describe('ImportFlow', () => {
@@ -172,8 +172,7 @@ describe('ImportFlow', () => {
   it('names the limit a refused file breaks and keeps step 1 open', async () => {
     server.preview.mockResolvedValue({
       ok: false,
-      refusal: 'pgn.tooManyGames',
-      limit: 200,
+      refusal: { reason: 'pgn.tooManyGames', limit: 200 },
     });
     renderFlow();
     chooseFile();
@@ -187,8 +186,7 @@ describe('ImportFlow', () => {
   it('says a file of too many half-moves and too many imports a minute are refused (R-119)', async () => {
     server.preview.mockResolvedValueOnce({
       ok: false,
-      refusal: 'pgn.tooManyMoves',
-      limit: 50_000,
+      refusal: { reason: 'pgn.tooManyMoves', limit: 50_000 },
     });
     renderFlow();
     chooseFile();
@@ -198,8 +196,7 @@ describe('ImportFlow', () => {
     ).toBeDefined();
     server.preview.mockResolvedValueOnce({
       ok: false,
-      refusal: 'pgn.tooManyImports',
-      limit: 10,
+      refusal: { reason: 'pgn.tooManyImports', limit: 10 },
     });
     // The first request's transition may still hold the button disabled.
     const again = screen.getByRole('button', { name: i.preview });
@@ -284,7 +281,7 @@ describe('ImportFlow', () => {
   it('marks the name when the server refuses it', async () => {
     server.confirm.mockResolvedValue({
       ok: false,
-      refusal: 'repertoire.nameBlank',
+      refusal: { reason: 'repertoire.nameBlank' },
     });
     renderFlow();
     await previewAsBlack();
@@ -367,7 +364,7 @@ describe('ImportFlow', () => {
     await previewAsBlack();
     server.preview.mockResolvedValue({
       ok: false,
-      refusal: 'repertoire.notFound',
+      refusal: { reason: 'repertoire.notFound' },
     });
     fireEvent.click(screen.getByRole('radio', { name: i.targetExisting }));
     expect(
