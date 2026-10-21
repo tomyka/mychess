@@ -3,7 +3,7 @@
  * a change (plan decision 8) and the state reads. Internal to the package.
  */
 import type { PlayerRepertoire } from '@mychess/domain';
-import { and, eq, or, sql, type Column, type SQL } from 'drizzle-orm';
+import { sql, type Column, type SQL } from 'drizzle-orm';
 
 /** A pair as a map key. */
 export const pairKey = (pair: PlayerRepertoire): string =>
@@ -22,16 +22,15 @@ export const uniquePairs = (
 ];
 
 /**
- * The rows whose `player` and `repertoire` columns are one of `pairs`;
- * no row for no pairs.
+ * The rows whose `player` (text) and `repertoire` (uuid) columns are one of
+ * `pairs`; no row for no pairs. The pairs are bound as two arrays, so any
+ * number of them fits in one statement's bind parameters.
  */
 export const inPairs = (
   player: Column,
   repertoire: Column,
   pairs: readonly PlayerRepertoire[],
 ): SQL =>
-  or(
-    ...pairs.map((pair) =>
-      and(eq(player, pair.playerId), eq(repertoire, pair.repertoireId)),
-    ),
-  ) ?? sql`false`;
+  sql`(${player}, ${repertoire}) in (select * from unnest(${sql.param(
+    pairs.map((pair) => pair.playerId),
+  )}::text[], ${sql.param(pairs.map((pair) => pair.repertoireId))}::uuid[]))`;

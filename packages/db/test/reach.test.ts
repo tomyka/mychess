@@ -304,6 +304,53 @@ describe('assignmentFacts for a batch', () => {
     expect(one).toBeGreaterThan(0);
     expect(five).toBe(one);
   });
+
+  it("sends as many statements for a coach's five players as for one", async () => {
+    /** Coach `coachId`, their repertoire assigned to a group of `size` players. */
+    async function coachWithGroup(coachId: string, size: number) {
+      await seedCoach(db, coachId, `${coachId}@example.lt`);
+      const groupId = await seedGroup(db, coachId, `Grupė ${coachId}`);
+      const repertoireId = await createRepertoire(db, {
+        ownerId: coachId,
+        side: 'white',
+        name: `Repertuaras ${coachId}`,
+        graph: graphOf(PGN),
+        now: NOW,
+      });
+      for (let i = 1; i <= size; i += 1) {
+        const playerId = `${coachId}-${String(i)}`;
+        await seedPlayer(db, playerId, `${playerId}@example.lt`);
+        await seedLink(db, coachId, playerId);
+        await seedMember(db, coachId, groupId, playerId);
+        await db
+          .insert(assignmentPlayers)
+          .values({ playerId, repertoireId, seenVersion: 1 });
+      }
+      await db.insert(assignments).values({
+        coachId,
+        repertoireId,
+        groupId,
+        assignedVersion: 1,
+        createdAt: NOW,
+      });
+    }
+    await coachWithGroup('d', 1);
+    await coachWithGroup('e', 5);
+    let facts: AssignmentFacts[] = [];
+    const one = await countStatements(() =>
+      db.transaction((tx) => assignmentFacts(tx, { coachId: 'd' })),
+    );
+    const five = await countStatements(async () => {
+      facts = await db.transaction((tx) =>
+        assignmentFacts(tx, { coachId: 'e' }),
+      );
+    });
+    expect(one).toBeGreaterThan(2);
+    expect(five).toBe(one);
+    expect(facts.map((f) => [f.playerId, f.seenVersion])).toEqual(
+      ['e-1', 'e-2', 'e-3', 'e-4', 'e-5'].map((id) => [id, 1]),
+    );
+  });
 });
 
 describe('holdAssignment', () => {

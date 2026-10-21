@@ -91,6 +91,18 @@ async function notesOf(
   );
 }
 
+/** The notes by `pairKey`, each pair's in the order read. */
+function notesByPair(
+  notes: z.infer<typeof pairNotesSchema>,
+): Map<string, Snapshot['personalNotes'][number][]> {
+  const byPair = new Map<string, Snapshot['personalNotes'][number][]>();
+  for (const { moveKey, text, ...pair } of notes) {
+    const key = pairKey(pair);
+    byPair.set(key, [...(byPair.get(key) ?? []), { moveKey, text }]);
+  }
+  return byPair;
+}
+
 /**
  * Each pair's repertoire and the player's snapshot of it, read on `tx`, by
  * `pairKey`; a pair whose repertoire is gone has none. Each repertoire is
@@ -101,25 +113,28 @@ export async function takeSnapshots(
   pairs: readonly PlayerRepertoire[],
 ): Promise<Map<string, Taken>> {
   const loaded = await loadEach(tx, pairs);
-  const kept = uniquePairs(pairs).filter((pair) =>
-    loaded.has(pair.repertoireId),
-  );
-  const notes = await notesOf(tx, kept);
-  const taken = new Map<string, Taken>();
-  for (const pair of kept) {
+  const kept = uniquePairs(pairs).flatMap((pair) => {
     const one = loaded.get(pair.repertoireId);
-    if (one === undefined) continue;
-    taken.set(pairKey(pair), {
-      repertoire: one.repertoire,
-      snapshot: {
-        graph: one.graph,
-        personalNotes: notes
-          .filter((note) => pairKey(note) === pairKey(pair))
-          .map(({ moveKey, text }) => ({ moveKey, text })),
+    return one === undefined ? [] : [{ pair, one }];
+  });
+  const notes = notesByPair(
+    await notesOf(
+      tx,
+      kept.map(({ pair }) => pair),
+    ),
+  );
+  return new Map(
+    kept.map(({ pair, one }) => [
+      pairKey(pair),
+      {
+        repertoire: one.repertoire,
+        snapshot: {
+          graph: one.graph,
+          personalNotes: notes.get(pairKey(pair)) ?? [],
+        },
       },
-    });
-  }
-  return taken;
+    ]),
+  );
 }
 
 /**

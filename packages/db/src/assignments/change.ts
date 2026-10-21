@@ -13,6 +13,7 @@ import {
 import { and } from 'drizzle-orm';
 import type { Tx } from '../client';
 import { assignmentPlayers, forkOffers } from '../assignment-schema';
+import { chunksOf, FORK_OFFER_CHUNK } from './batch';
 import { namesOf } from './names';
 import { openAt } from './offers';
 import { inPairs, pairKey } from './pairs';
@@ -70,7 +71,7 @@ async function snapshotsOf(
 
 /**
  * A 30-day offer to keep what the player had, one per lost pair in plan
- * order, in one insert (R-44, R-45, R-130, R-131).
+ * order, inserted FORK_OFFER_CHUNK at a time (R-44, R-45, R-130, R-131).
  */
 async function offerForks(
   tx: Tx,
@@ -83,23 +84,23 @@ async function offerForks(
     tx,
     taken.map((one) => one.repertoire.ownerId),
   );
-  await tx.insert(forkOffers).values(
-    taken.map(({ pair, repertoire, snapshot }) => {
-      const coachName = names.get(repertoire.ownerId);
-      if (coachName === undefined)
-        throw new Error('offerFork: the coach is gone');
-      return {
-        ...pair,
-        coachName,
-        name: repertoire.name,
-        side: repertoire.side,
-        snapshot,
-        reason,
-        createdAt: now,
-        expiresAt: forkOfferExpiry(now),
-      };
-    }),
-  );
+  const rows = taken.map(({ pair, repertoire, snapshot }) => {
+    const coachName = names.get(repertoire.ownerId);
+    if (coachName === undefined)
+      throw new Error('offerFork: the coach is gone');
+    return {
+      ...pair,
+      coachName,
+      name: repertoire.name,
+      side: repertoire.side,
+      snapshot,
+      reason,
+      createdAt: now,
+      expiresAt: forkOfferExpiry(now),
+    };
+  });
+  for (const chunk of chunksOf(rows, FORK_OFFER_CHUNK))
+    await tx.insert(forkOffers).values(chunk);
 }
 
 /** The players have them again: their open offers close (lead decision 4). */
@@ -138,7 +139,8 @@ async function dropStaleState(
  * offer for each one lost, the offer of each one regained closed, and an
  * assign's forks cleared. Call it inside the transaction that makes the
  * change; returns what `apply` returns. A fixed number of statements
- * whatever the number of players.
+ * whatever the number of players, plus one repertoire load per lost
+ * repertoire and one fork-offer insert per FORK_OFFER_CHUNK lost pairs.
  */
 export async function changeAssignments<T>(
   tx: Tx,

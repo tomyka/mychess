@@ -3,7 +3,8 @@
  * R-51, R-128, R-131). The domain decides access (canViewRepertoire: the
  * coach's own repertoire), the badges (assignmentStatusOf) and who has it
  * live (canUseAssignment); every statement filters again on
- * `assignments.coach_id`, and the rows on the repertoire's owner. A player
+ * `assignments.coach_id`, and the rows on the repertoire's owner, which
+ * assignments_repertoire_fk already guarantees is the coach. A player
  * is listed only while they are linked to the coach (the link check in
  * reach.ts). A fixed number of statements, whatever the number of players.
  */
@@ -115,14 +116,20 @@ async function listedOf(
     db,
     facts.map((one) => one.playerId),
   );
-  return facts.map((one) => ({
-    facts: one,
-    player: {
-      playerId: one.playerId,
-      displayName: names.get(one.playerId) ?? '',
-      ...assignmentStatusOf(one, { done, now }),
-    },
-  }));
+  return facts.map((one) => {
+    // The reached player's account cascades away with their link.
+    const displayName = names.get(one.playerId);
+    if (displayName === undefined)
+      throw new Error('coachAssignments: the player is gone');
+    return {
+      facts: one,
+      player: {
+        playerId: one.playerId,
+        displayName,
+        ...assignmentStatusOf(one, { done, now }),
+      },
+    };
+  });
 }
 
 /** The listed players that row `assignmentId` reaches, by name. */
