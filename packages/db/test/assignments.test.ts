@@ -19,10 +19,6 @@ import {
   forkOffers,
 } from '../src/assignment-schema';
 import { changeAssignments } from '../src/assignments/change';
-import {
-  effectiveAssignments,
-  liveRepertoireIds,
-} from '../src/assignments/effective';
 import { snapshotSchema } from '../src/assignments/snapshot';
 import { groupMembers, personalNotes, repertoires } from '../src/schema';
 import { useTestDatabase } from '../src/testing';
@@ -32,17 +28,14 @@ import {
   seedLink,
   seedMember,
   seedPlayer,
-  T0,
 } from './support/coaching';
-import { offersOf } from './support/assignments';
+import { liveRepertoireIds, offersOf } from './support/assignments';
 import { graphOf } from './support/repertoires';
 
 const { db, client } = useTestDatabase();
 
 const NOW = new Date('2026-10-20T09:00:00Z');
 const LATER = new Date('2026-10-21T09:00:00Z');
-/** seedMember's T0 (2026-10-16T08:00Z), as a Vilnius day. */
-const JOIN_DAY = '2026-10-16';
 /** R, with a coach comment on 1. d4. */
 const PGN = '1. d4 { Treneris: tvirtas centras } d5 2. Bf4 Nf6 *';
 const NOTE_KEY = moveKey(
@@ -136,74 +129,6 @@ beforeEach(async () => {
     name: 'Londono sistema',
     graph: graphOf(PGN),
     now: NOW,
-  });
-});
-
-describe('effectiveAssignments', () => {
-  it('lists a repertoire assigned individually and through a group once, with both deadlines (R-16, R-134)', async () => {
-    await assignTo({ groupId: g }, '2026-10-30', 1);
-    await assignTo({ playerId: 'p' }, '2026-11-01', 3);
-    expect(await effectiveAssignments(db, 'p')).toEqual([
-      {
-        repertoireId: rep,
-        coachId: 'c',
-        sources: {
-          individual: { deadline: '2026-11-01' },
-          groups: [{ deadline: '2026-10-30', joinedDay: JOIN_DAY }],
-        },
-        starts: [
-          { assignedVersion: 3, joinedAt: null },
-          { assignedVersion: 1, joinedAt: T0 },
-        ],
-        pausedAt: null,
-        seenVersion: null,
-        forkedAt: null,
-      },
-    ]);
-  });
-
-  it('keeps the assigned version and join time and has no individual source for a group-only assignment (R-136)', async () => {
-    await assignTo({ groupId: g }, null, 4);
-    const [only] = await effectiveAssignments(db, 'q');
-    expect(only?.sources).toEqual({
-      groups: [{ deadline: null, joinedDay: JOIN_DAY }],
-    });
-    expect(only?.sources).not.toHaveProperty('individual');
-    expect(only?.starts).toEqual([{ assignedVersion: 4, joinedAt: T0 }]);
-  });
-
-  it('carries an individual assignment without a deadline', async () => {
-    await assignTo({ playerId: 'n' }, null, 2);
-    const [only] = await effectiveAssignments(db, 'n');
-    expect(only?.sources).toEqual({
-      individual: { deadline: null },
-      groups: [],
-    });
-  });
-
-  it('is empty for a linked player outside the group', async () => {
-    await assignTo({ groupId: g });
-    expect(await effectiveAssignments(db, 'n')).toEqual([]);
-    expect(await liveRepertoireIds(db, 'n')).toEqual(new Set());
-  });
-
-  it("carries the player's own state on it", async () => {
-    await assignTo({ groupId: g });
-    await setState('p', { pausedAt: NOW, seenVersion: 2 });
-    await setState('q', { seenVersion: 5 });
-    const [p] = await effectiveAssignments(db, 'p');
-    expect(p).toMatchObject({ pausedAt: NOW, seenVersion: 2, forkedAt: null });
-  });
-
-  it('drops a forked one unless asked for it (R-128)', async () => {
-    await assignTo({ groupId: g });
-    await setState('p', { forkedAt: NOW });
-    expect(await liveRepertoireIds(db, 'p')).toEqual(new Set());
-    expect(await effectiveAssignments(db, 'p')).toEqual([]);
-    expect(
-      await effectiveAssignments(db, 'p', { withForked: true }),
-    ).toMatchObject([{ repertoireId: rep, forkedAt: NOW }]);
-    expect(await liveRepertoireIds(db, 'q')).toEqual(new Set([rep]));
   });
 });
 

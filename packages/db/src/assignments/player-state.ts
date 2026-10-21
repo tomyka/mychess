@@ -1,27 +1,27 @@
 /**
  * A player's own writes on a repertoire they have by assignment: pause
  * (R-46) and seen (R-133). Each runs in one transaction that first holds
- * (FOR KEY SHARE) every row the assignment reaches the player through: the
- * assignment row, and the membership for a group row. An unassign, unlink,
- * group leave or repertoire delete therefore waits until the write ends and
- * then drops the state it wrote (changeAssignments' dropStaleState), or
- * came first and leaves nothing to hold. No account row is locked here, so
+ * (holdAssignment in reach.ts, FOR KEY SHARE) every row the assignment
+ * reaches the player through: the assignment row, and the membership for a
+ * group row. An unassign, unlink, group leave or repertoire delete
+ * therefore waits until the write ends and then drops the state it wrote
+ * (changeAssignments' dropStaleState), or came first and leaves nothing to
+ * hold. No account row is locked here, so
  * the S4 lock order (the coach's account row first) cannot invert.
  */
 import {
   ASSIGNMENT_REFUSALS,
   canUseAssignment,
-  type AssignmentHold,
   type AssignmentRefusal,
   type Result,
 } from '@mychess/domain';
-import { and, eq, sql, type SQL } from 'drizzle-orm';
-import { z } from 'zod';
+import { sql, type SQL } from 'drizzle-orm';
 import type { Db, Tx } from '../client';
-import { assignmentPlayers, assignments } from '../assignment-schema';
+import { assignmentPlayers } from '../assignment-schema';
 import { isUuid } from '../ids';
 import { DONE, refusal } from '../results';
-import { groupMembers, repertoires } from '../schema';
+import { repertoires } from '../schema';
+import { holdAssignment } from './reach';
 
 type AssignmentResult = Result<undefined, AssignmentRefusal>;
 
@@ -32,64 +32,6 @@ interface PlayerRepertoire {
   /** The session account, never a client value. */
   readonly playerId: string;
   readonly repertoireId: string;
-}
-
-const idRowsSchema = z.array(z.object({ id: z.uuid() }));
-const forkRowsSchema = z.array(z.object({ forkedAt: z.date().nullable() }));
-
-/** Holds the rows reaching the player; true if any does. */
-async function holdReach(tx: Tx, key: PlayerRepertoire): Promise<boolean> {
-  const individual = idRowsSchema.parse(
-    await tx
-      .select({ id: assignments.id })
-      .from(assignments)
-      .where(
-        and(
-          eq(assignments.repertoireId, key.repertoireId),
-          eq(assignments.playerId, key.playerId),
-        ),
-      )
-      .for('key share'),
-  );
-  const viaGroups = idRowsSchema.parse(
-    await tx
-      .select({ id: assignments.id })
-      .from(assignments)
-      .innerJoin(groupMembers, eq(groupMembers.groupId, assignments.groupId))
-      .where(
-        and(
-          eq(assignments.repertoireId, key.repertoireId),
-          eq(groupMembers.playerId, key.playerId),
-        ),
-      )
-      .for('key share'),
-  );
-  return individual.length + viaGroups.length > 0;
-}
-
-const stateIs = (key: PlayerRepertoire) =>
-  and(
-    eq(assignmentPlayers.playerId, key.playerId),
-    eq(assignmentPlayers.repertoireId, key.repertoireId),
-  );
-
-/**
- * The facts canUseAssignment decides on, with the rows that reach the
- * player held (FOR KEY SHARE) until `tx` ends. Package-internal.
- */
-export async function holdAssignment(
-  tx: Tx,
-  key: PlayerRepertoire,
-): Promise<AssignmentHold> {
-  const assigned = await holdReach(tx, key);
-  const [state] = forkRowsSchema.parse(
-    await tx
-      .select({ forkedAt: assignmentPlayers.forkedAt })
-      .from(assignmentPlayers)
-      .where(stateIs(key))
-      .for('update'),
-  );
-  return { assigned, forked: (state?.forkedAt ?? null) !== null };
 }
 
 type StateColumns = Partial<{

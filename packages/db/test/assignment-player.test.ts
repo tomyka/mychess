@@ -32,7 +32,7 @@ import {
   assignments,
   forkOffers,
 } from '../src/assignment-schema';
-import { liveRepertoire } from '../src/assignments/access';
+import { liveRepertoire } from '../src/assignments/reach';
 import { loadRepertoireRows } from '../src/repertoires/repository';
 import { groupMembers, personalNotes } from '../src/schema';
 import { useTestDatabase } from '../src/testing';

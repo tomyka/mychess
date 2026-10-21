@@ -215,30 +215,6 @@ export function assignmentStatus(
   };
 }
 
-/** A player's hold on one assigned repertoire, read fresh. */
-export interface AssignmentHold {
-  readonly assigned: boolean;
-  readonly forked: boolean;
-}
-
-/**
- * A player opens, pauses or marks seen only a repertoire assigned to them
- * now and not forked (R-46, R-128); anything else reads as missing.
- */
-export function canUseAssignment(hold: AssignmentHold): AssignmentResult {
-  return hold.assigned && !hold.forked
-    ? OK
-    : refuse(ASSIGNMENT_REFUSALS.notFound);
-}
-
-/**
- * A player forks only a live assignment they have: assigned now and not
- * already forked (R-20, R-128).
- */
-export function canFork(hold: AssignmentHold): AssignmentResult {
-  return canUseAssignment(hold);
-}
-
 /**
  * One row through which a player has a repertoire, as "Updated" sees it:
  * the player has it from the later of the two.
@@ -322,6 +298,29 @@ export interface AssignmentFacts {
   readonly pausedAt: Date | null;
   readonly seenVersion: number | null;
   readonly forkedAt: Date | null;
+}
+
+/**
+ * A player opens, pauses or marks seen only a repertoire assigned to them
+ * now (some row reaches them) and not forked (R-46, R-128); anything else,
+ * no record included, reads as missing.
+ */
+export function canUseAssignment(
+  facts: AssignmentFacts | undefined,
+): AssignmentResult {
+  return facts !== undefined &&
+    facts.reaches.length > 0 &&
+    facts.forkedAt === null
+    ? OK
+    : refuse(ASSIGNMENT_REFUSALS.notFound);
+}
+
+/**
+ * A player forks only a live assignment they have: assigned now and not
+ * already forked (R-20, R-128).
+ */
+export function canFork(facts: AssignmentFacts | undefined): AssignmentResult {
+  return canUseAssignment(facts);
 }
 
 /**

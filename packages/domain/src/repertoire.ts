@@ -7,7 +7,7 @@ import {
 } from '@mychess/chess';
 import { z } from 'zod';
 import type { Account } from './account';
-import { canUseAssignment, type AssignmentHold } from './assignment';
+import { canUseAssignment, type AssignmentFacts } from './assignment';
 
 export const REPERTOIRE_NAME_MAX = 80;
 export const CHAPTER_NAME_MAX = 80;
@@ -109,7 +109,7 @@ export function canViewRepertoire(
 export function canKeepPersonalNotes(
   player: Pick<Account, 'id'>,
   repertoire: Pick<Repertoire, 'ownerId'>,
-  assignment: AssignmentHold,
+  assignment: AssignmentFacts | undefined,
 ): RepertoireAccess {
   return owns(player, repertoire) || canUseAssignment(assignment).ok
     ? ALLOWED

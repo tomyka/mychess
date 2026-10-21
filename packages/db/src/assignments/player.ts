@@ -1,7 +1,7 @@
 /**
  * What a player reads of the repertoires they have by assignment (R-16,
  * R-46, R-128, R-133, R-134). The domain decides access: each read keeps
- * only the assignments canUseAssignment allows (usableAssignments). The
+ * only the assignmentFacts canUseAssignment allows (usableAssignments). The
  * query enforces it again: every statement filters by the session player
  * and reads the repertoire, its notes and its changes only through
  * liveRepertoire. Each runs in one repeatable-read snapshot.
@@ -14,12 +14,14 @@ import {
   type TrainingRepertoire,
 } from '@mychess/chess';
 import {
-  assignmentStatus,
-  effectiveDeadline,
+  assignmentStatusOf,
+  canUseAssignment,
   isTrainingActive,
   isUpdated,
   newsOf,
+  type AssignmentFacts,
   type ChangeStamp,
+  type SeenFacts,
 } from '@mychess/domain';
 import { and, asc, desc, eq, gt, inArray, lte } from 'drizzle-orm';
 import { z } from 'zod';
@@ -32,11 +34,44 @@ import {
   type LoadedRepertoire,
 } from '../repertoires/repository';
 import { accounts, personalNotes, repertoires } from '../schema';
-import { liveRepertoire, usableAssignment, usableAssignments } from './access';
-import type { EffectiveAssignment } from './effective';
 import { moveChangesSchema } from './move-changes';
+import { assignmentFacts, liveRepertoire } from './reach';
 
 const SNAPSHOT = { isolationLevel: 'repeatable read' } as const;
+
+/**
+ * The player's assignments canUseAssignment lets them use (assigned now,
+ * not forked), by repertoire id; of one repertoire when `repertoireId` is given.
+ */
+async function usableAssignments(
+  db: Executor,
+  playerId: string,
+  repertoireId?: string,
+): Promise<AssignmentFacts[]> {
+  const facts = await assignmentFacts(
+    db,
+    repertoireId === undefined
+      ? { playerIds: [playerId] }
+      : { playerIds: [playerId], repertoireId },
+  );
+  return facts.filter((one) => canUseAssignment(one).ok);
+}
+
+/** The player's usable assignment of `repertoireId`, else undefined. */
+async function usableAssignment(
+  db: Executor,
+  playerId: string,
+  repertoireId: string,
+): Promise<AssignmentFacts | undefined> {
+  const [usable] = await usableAssignments(db, playerId, repertoireId);
+  return usable;
+}
+
+/** What "Updated" and the news of a change depend on (R-133, R-136). */
+const seenFacts = (assignment: AssignmentFacts): SeenFacts => ({
+  seenVersion: assignment.seenVersion,
+  starts: assignment.reaches,
+});
 
 /** Until S6 writes Reviews, no move is learned (R-129). */
 export const NOTHING_LEARNED: ReadonlySet<string> = new Set();
@@ -118,7 +153,7 @@ async function latestChanges(
 async function loadLive(
   tx: Executor,
   playerId: string,
-): Promise<{ assignment: EffectiveAssignment; loaded: LoadedRepertoire }[]> {
+): Promise<{ assignment: AssignmentFacts; loaded: LoadedRepertoire }[]> {
   const live = [];
   for (const assignment of await usableAssignments(tx, playerId)) {
     const loaded = await loadRepertoireRows(
@@ -131,7 +166,7 @@ async function loadLive(
 }
 
 interface ItemFacts {
-  readonly assignment: EffectiveAssignment;
+  readonly assignment: AssignmentFacts;
   readonly loaded: LoadedRepertoire;
   readonly coachName: string;
   readonly latest: ChangeStamp | undefined;
@@ -147,17 +182,17 @@ function statusOf(
   {
     assignment,
     loaded,
-  }: { assignment: EffectiveAssignment; loaded: LoadedRepertoire },
+  }: { assignment: AssignmentFacts; loaded: LoadedRepertoire },
   now: Date,
 ): LiveStatus {
-  const deadline = effectiveDeadline(assignment.sources);
-  const paused = !isTrainingActive(assignment.pausedAt);
   const done = allLearned(loaded.graph, NOTHING_LEARNED);
-  const status = assignmentStatus(
-    { deadline, done, paused, forked: false },
-    now,
-  );
-  return { deadline, paused, done, overdue: status.overdue };
+  const status = assignmentStatusOf(assignment, { done, now });
+  return {
+    deadline: status.deadline,
+    paused: status.paused,
+    done: status.done,
+    overdue: status.overdue,
+  };
 }
 
 function itemOf(facts: ItemFacts, now: Date): PlayerAssignment {
@@ -168,7 +203,7 @@ function itemOf(facts: ItemFacts, now: Date): PlayerAssignment {
     side: loaded.repertoire.side,
     coachId: assignment.coachId,
     coachName: facts.coachName,
-    updated: isUpdated(assignment, facts.latest),
+    updated: isUpdated(seenFacts(assignment), facts.latest),
     ...statusOf(facts, now),
   };
 }
@@ -259,7 +294,7 @@ async function openLive(
   playerId: string,
   repertoireId: string,
 ): Promise<
-  { assignment: EffectiveAssignment; loaded: LoadedRepertoire } | undefined
+  { assignment: AssignmentFacts; loaded: LoadedRepertoire } | undefined
 > {
   const assignment = await usableAssignment(tx, playerId, repertoireId);
   if (assignment === undefined) return undefined;
@@ -360,7 +395,7 @@ export function changesSince(
         )
         .orderBy(asc(repertoireChanges.version)),
     );
-    const news = newsOf(assignment, rows);
+    const news = newsOf(seenFacts(assignment), rows);
     return { changes: netMoveChanges(news.map((row) => row.changes)) };
   }, SNAPSHOT);
 }

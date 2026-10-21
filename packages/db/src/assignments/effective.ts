@@ -157,12 +157,3 @@ export async function effectiveAssignments(
     })
     .filter((assignment) => withForked || assignment.forkedAt === null);
 }
-
-/** The ids of the repertoires `playerId` has live (not forked). */
-export async function liveRepertoireIds(
-  db: Executor,
-  playerId: string,
-): Promise<Set<string>> {
-  const live = await effectiveAssignments(db, playerId);
-  return new Set(live.map((assignment) => assignment.repertoireId));
-}

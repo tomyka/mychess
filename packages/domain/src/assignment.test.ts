@@ -323,14 +323,37 @@ describe('assignmentStatus', () => {
 });
 
 describe('canUseAssignment and canFork (R-46, R-128)', () => {
+  const FORKED_AT = new Date('2026-10-20T09:00:00Z');
+  const held = (over: Partial<AssignmentFacts> = {}): AssignmentFacts => ({
+    playerId: 'p',
+    repertoireId: 'r',
+    coachId: 'c',
+    reaches: [
+      { assignmentId: 'a', deadline: null, assignedVersion: 1, joinedAt: null },
+    ],
+    pausedAt: null,
+    seenVersion: null,
+    forkedAt: null,
+    ...over,
+  });
+
   it.each([
-    [{ assigned: true, forked: false }, ok],
-    [{ assigned: false, forked: false }, refused('assignment.notFound')],
-    [{ assigned: true, forked: true }, refused('assignment.notFound')],
-    [{ assigned: false, forked: true }, refused('assignment.notFound')],
-  ])('decides %j', (hold, expected) => {
-    expect(canUseAssignment(hold)).toStrictEqual(expected);
-    expect(canFork(hold)).toStrictEqual(expected);
+    ['assigned, not forked', held(), ok],
+    ['no record', undefined, refused('assignment.notFound')],
+    ['not assigned', held({ reaches: [] }), refused('assignment.notFound')],
+    [
+      'assigned and forked',
+      held({ forkedAt: FORKED_AT }),
+      refused('assignment.notFound'),
+    ],
+    [
+      'not assigned and forked',
+      held({ reaches: [], forkedAt: FORKED_AT }),
+      refused('assignment.notFound'),
+    ],
+  ])('decides %s', (_, facts, expected) => {
+    expect(canUseAssignment(facts)).toStrictEqual(expected);
+    expect(canFork(facts)).toStrictEqual(expected);
   });
 });
 

@@ -1,7 +1,9 @@
+import { canUseAssignment } from '@mychess/domain';
 import { asc } from 'drizzle-orm';
 import { z } from 'zod';
 import { createRepertoire, type Db } from '../../src';
 import { assignments, forkOffers } from '../../src/assignment-schema';
+import { assignmentFacts } from '../../src/assignments/reach';
 import { graphOf } from './repertoires';
 
 /** A repertoire of `ownerId`, with a coach comment on 1. d4; returns its id. */
@@ -60,3 +62,16 @@ export const offersOf = (db: Db): Promise<OfferRow[]> =>
     })
     .from(forkOffers)
     .orderBy(asc(forkOffers.playerId), asc(forkOffers.createdAt));
+
+/** The ids of the repertoires `playerId` has live (canUseAssignment). */
+export async function liveRepertoireIds(
+  db: Db,
+  playerId: string,
+): Promise<Set<string>> {
+  const facts = await assignmentFacts(db, { playerIds: [playerId] });
+  return new Set(
+    facts
+      .filter((one) => canUseAssignment(one).ok)
+      .map((one) => one.repertoireId),
+  );
+}

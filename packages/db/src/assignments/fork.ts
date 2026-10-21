@@ -23,7 +23,7 @@ import { refusal } from '../results';
 import { createRepertoire } from '../repertoires/repository';
 import { batches } from '../repertoires/write';
 import { personalNotes, repertoires } from '../schema';
-import { holdAssignment } from './player-state';
+import { holdAssignment } from './reach';
 import { takeSnapshot, type Snapshot } from './snapshot';
 
 /** What a fork is made of: a live repertoire's snapshot, or an offer's. */

@@ -50,7 +50,6 @@ export {
   type ChangeAssignmentFacts,
   type AssignmentStatusFacts,
   type AssignmentFacts,
-  type AssignmentHold,
   type AssignmentReach,
   type AssignmentRefusal,
   type AssignmentStart,

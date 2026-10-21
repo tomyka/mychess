@@ -1,5 +1,6 @@
 import { moveKey } from '@mychess/chess';
 import { describe, expect, it } from 'vitest';
+import type { AssignmentFacts } from './assignment';
 import {
   CHAPTER_NAME_MAX,
   COMMENT_MAX,
@@ -222,7 +223,19 @@ describe('canWritePersonalNote (R-21, decision 11)', () => {
 
 describe('canKeepPersonalNotes (R-21)', () => {
   const repertoire = { ownerId: 'coach' };
-  const none = { assigned: false, forked: false };
+  const none = undefined;
+  const live: AssignmentFacts = {
+    playerId: 'rokas',
+    repertoireId: 'r',
+    coachId: 'coach',
+    reaches: [
+      { assignmentId: 'a', deadline: null, assignedVersion: 1, joinedAt: null },
+    ],
+    pausedAt: null,
+    seenVersion: null,
+    forkedAt: null,
+  };
+  const forked = { ...live, forkedAt: new Date('2026-10-20T09:00:00Z') };
   const notFound = { ok: false, refusal: { reason: 'repertoire.notFound' } };
 
   it.each([
@@ -230,16 +243,11 @@ describe('canKeepPersonalNotes (R-21)', () => {
     [
       'one assigned to them live',
       'rokas',
-      { assigned: true, forked: false },
+      live,
       { ok: true, value: undefined },
     ],
     ['not one assigned to others', 'rokas', none, notFound],
-    [
-      'not one they forked (R-128)',
-      'rokas',
-      { assigned: true, forked: true },
-      notFound,
-    ],
+    ['not one they forked (R-128)', 'rokas', forked, notFound],
   ] as const)('lets a player keep notes on %s', (_, id, hold, expected) => {
     expect(canKeepPersonalNotes({ id }, repertoire, hold)).toStrictEqual(
       expected,

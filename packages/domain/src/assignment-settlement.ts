@@ -45,10 +45,9 @@ const isLive = (
   given: string | undefined,
 ): boolean =>
   facts.coachId === coachId &&
-  canUseAssignment({
-    assigned: facts.reaches.length > 0,
-    forked: facts.repertoireId !== given && facts.forkedAt !== null,
-  }).ok;
+  canUseAssignment(
+    facts.repertoireId === given ? { ...facts, forkedAt: null } : facts,
+  ).ok;
 
 function liveSet(
   facts: readonly AssignmentFacts[],

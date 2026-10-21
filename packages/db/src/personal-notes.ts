@@ -16,15 +16,14 @@ import {
   canUseAssignment,
   canWritePersonalNote,
   REPERTOIRE_REFUSALS,
-  type AssignmentHold,
+  type AssignmentFacts,
   type AssignmentRefusal,
   type RepertoireAccessRefusal,
   type Result,
 } from '@mychess/domain';
 import { and, eq, or, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
-import { liveRepertoire } from './assignments/access';
-import { holdAssignment } from './assignments/player-state';
+import { holdAssignment, liveRepertoire } from './assignments/reach';
 import type { Executor, Tx } from './client';
 import { isUuid } from './ids';
 import { ownedBy } from './repertoires/repository';
@@ -43,9 +42,6 @@ export interface PersonalNoteInput {
 type NoteAccess = Result<undefined, RepertoireAccessRefusal>;
 
 const NOT_FOUND = refusal(REPERTOIRE_REFUSALS.notFound);
-
-/** No assignment reaches the player: what an owner's own repertoire has. */
-const NO_ASSIGNMENT: AssignmentHold = { assigned: false, forked: false };
 
 /**
  * The repertoires `playerId` keeps notes on, as SQL: their own, or one an
@@ -74,7 +70,7 @@ async function holdNotesAccess(
   tx: Tx,
   playerId: string,
   repertoireId: string,
-): Promise<{ ownerId: string; hold: AssignmentHold } | undefined> {
+): Promise<{ ownerId: string; hold: AssignmentFacts | undefined } | undefined> {
   const [own] = ownerRowsSchema.parse(
     await tx
       .select({ ownerId: repertoires.ownerAccountId })
@@ -82,7 +78,8 @@ async function holdNotesAccess(
       .where(ownedBy(repertoireId, playerId))
       .for('key share'),
   );
-  if (own !== undefined) return { ownerId: own.ownerId, hold: NO_ASSIGNMENT };
+  // Their own repertoire: no assignment is needed, so none is read.
+  if (own !== undefined) return { ownerId: own.ownerId, hold: undefined };
   const hold = await holdAssignment(tx, { playerId, repertoireId });
   const [row] = ownerRowsSchema.parse(
     await tx
