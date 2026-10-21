@@ -123,6 +123,7 @@ export {
 
 export {
   listPersonalNotes,
+  setAssignedPersonalNote,
   setPersonalNote,
   type PersonalNoteInput,
 } from './personal-notes';

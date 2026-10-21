@@ -43,6 +43,12 @@ const lt = MESSAGES.lt;
 const a = lt.assignment;
 const GRAPH = graphOf(LONDON);
 
+const day = (iso: string): string =>
+  new Intl.DateTimeFormat('lt', {
+    dateStyle: 'long',
+    timeZone: 'Europe/Vilnius',
+  }).format(new Date(`${iso}T12:00:00Z`));
+
 /** Rokas's London as his coach Jonas assigned it, nothing changed since. */
 const DATA: AssignedRepertoirePage = {
   repertoire: { id: ID, name: 'Londono sistema', side: 'white', version: 4 },
@@ -50,6 +56,8 @@ const DATA: AssignedRepertoirePage = {
   graph: GRAPH,
   personalNotes: {},
   paused: false,
+  deadline: null,
+  overdue: false,
   ecoNames: {},
   changes: { added: [], removed: [], annotated: 0 },
 };
@@ -59,7 +67,7 @@ const fork =
 
 function renderView(over: Partial<AssignedRepertoirePage> = {}): void {
   render(
-    <NextIntlClientProvider locale="lt" messages={lt}>
+    <NextIntlClientProvider locale="lt" messages={lt} timeZone="Europe/Vilnius">
       <AssignedView data={{ ...DATA, ...over }} forkAction={fork} />
     </NextIntlClientProvider>,
   );
@@ -167,6 +175,25 @@ describe('AssignedView (R-21, R-102)', () => {
       'Priskyrė Jonas',
     );
     expect(assignedBy.nextElementSibling?.textContent).toBe(a.badge.paused);
+  });
+
+  it('shows the deadline under who assigned it, and overdue once it passed (R-16, R-51)', () => {
+    renderView({ deadline: '2026-10-19', overdue: true });
+    const header = screen.getByRole('banner');
+    const deadline = within(header).getByText(
+      a.deadlineOn.replace('{date}', day('2026-10-19')),
+    );
+    expect(within(header).getByText('Priskyrė Jonas').nextElementSibling).toBe(
+      deadline,
+    );
+    expect(deadline.nextElementSibling?.textContent).toBe(a.badge.overdue);
+  });
+
+  it('shows neither a deadline nor overdue without a deadline', () => {
+    renderView();
+    const header = screen.getByRole('banner');
+    expect(within(header).queryByText(/Terminas/u)).toBeNull();
+    expect(within(header).queryByText(a.badge.overdue)).toBeNull();
   });
 
   it('marks the version it shows seen (R-133)', async () => {

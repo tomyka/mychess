@@ -1,6 +1,5 @@
 import { moveKey, START_KEY } from '@mychess/chess';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { graphOf, LONDON } from '../../../../../test/fixtures/repertoires';
 import {
   forkAction,
   markSeenAction,
@@ -17,7 +16,6 @@ const NOT_FOUND = { ok: false, refusal: { reason: 'assignment.notFound' } };
 const server = vi.hoisted(() => ({
   pause: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   seen: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
-  assigned: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   setNote: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   fork: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
 }));
@@ -41,8 +39,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@mychess/db', () => ({
   pauseAssignment: server.pause,
   markSeen: server.seen,
-  assignedRepertoireForPlayer: server.assigned,
-  setPersonalNote: server.setNote,
+  setAssignedPersonalNote: server.setNote,
   forkAssignment: server.fork,
 }));
 
@@ -66,7 +63,6 @@ beforeEach(() => {
   vi.useFakeTimers({ now: new Date('2026-10-20T08:00:00Z'), toFake: ['Date'] });
   server.pause.mockReset().mockResolvedValue({ ok: true, value: undefined });
   server.seen.mockReset().mockResolvedValue({ ok: true, value: undefined });
-  server.assigned.mockReset().mockResolvedValue({ graph: graphOf(LONDON) });
   server.setNote.mockReset().mockResolvedValue({ ok: true, value: undefined });
   server.fork
     .mockReset()
@@ -199,7 +195,6 @@ describe('setPersonalNoteAction (R-21)', () => {
     expect(
       await setPersonalNoteAction({ ...NOTE, playerId: 'gabija' }),
     ).toEqual({ ok: true });
-    expect(server.assigned).toHaveBeenCalledWith(DB, 'rokas', ID);
     expect(server.setNote).toHaveBeenCalledWith(DB, {
       playerId: 'rokas',
       repertoireId: ID,
@@ -219,33 +214,21 @@ describe('setPersonalNoteAction (R-21)', () => {
     );
   });
 
-  it('refuses a repertoire not assigned to the player, writing nothing', async () => {
-    server.assigned.mockResolvedValue(undefined);
-    expect(await setPersonalNoteAction(NOTE)).toEqual({
-      ok: false,
-      refusal: 'assignment.notFound',
-    });
-    expect(server.setNote).not.toHaveBeenCalled();
-  });
-
-  it('refuses a key that is not a move of the repertoire, writing nothing', async () => {
+  it('reads a malformed request as not assigned, writing nothing', async () => {
     expect(
-      await setPersonalNoteAction({
-        ...NOTE,
-        moveKey: moveKey(START_KEY, 'e4'),
-      }),
+      await setPersonalNoteAction({ ...NOTE, repertoireId: 'not-a-uuid' }),
     ).toEqual({ ok: false, refusal: 'assignment.notFound' });
     expect(server.setNote).not.toHaveBeenCalled();
   });
 
-  it('says a note too long is too long, reading nothing', async () => {
+  it('says a note too long is too long, writing nothing', async () => {
     expect(
       await setPersonalNoteAction({ ...NOTE, text: 'x'.repeat(2001) }),
     ).toEqual({ ok: false, refusal: 'personalNote.tooLong' });
-    expect(server.assigned).not.toHaveBeenCalled();
+    expect(server.setNote).not.toHaveBeenCalled();
   });
 
-  it('passes on the write’s own refusal (the assignment ended meanwhile)', async () => {
+  it('reads the write’s refusal as not assigned (not theirs, ended, or not one of its moves)', async () => {
     server.setNote.mockResolvedValue({
       ok: false,
       refusal: { reason: 'repertoire.notFound' },

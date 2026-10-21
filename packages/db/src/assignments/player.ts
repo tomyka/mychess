@@ -126,8 +126,19 @@ interface ItemFacts {
   readonly latest: number;
 }
 
-function itemOf(facts: ItemFacts, now: Date): PlayerAssignment {
-  const { assignment, loaded } = facts;
+/** What the domain says of a live assignment at `now` (R-16, R-46, R-51, R-129, R-134). */
+type LiveStatus = Pick<
+  PlayerAssignment,
+  'deadline' | 'paused' | 'done' | 'overdue'
+>;
+
+function statusOf(
+  {
+    assignment,
+    loaded,
+  }: { assignment: EffectiveAssignment; loaded: LoadedRepertoire },
+  now: Date,
+): LiveStatus {
   const deadline = effectiveDeadline(assignment.sources);
   const paused = !isTrainingActive(assignment.pausedAt);
   const done = allLearned(loaded.graph, NOTHING_LEARNED);
@@ -135,17 +146,19 @@ function itemOf(facts: ItemFacts, now: Date): PlayerAssignment {
     { deadline, done, paused, forked: false },
     now,
   );
+  return { deadline, paused, done, overdue: status.overdue };
+}
+
+function itemOf(facts: ItemFacts, now: Date): PlayerAssignment {
+  const { assignment, loaded } = facts;
   return {
     repertoireId: assignment.repertoireId,
     name: loaded.repertoire.name,
     side: loaded.repertoire.side,
     coachId: assignment.coachId,
     coachName: facts.coachName,
-    deadline,
-    paused,
     updated: isUpdated(assignment, facts.latest),
-    done,
-    overdue: status.overdue,
+    ...statusOf(facts, now),
   };
 }
 
@@ -190,6 +203,10 @@ export interface AssignedRepertoire extends LoadedRepertoire {
   /** The player's own notes on it, by move key. */
   readonly personalNotes: Readonly<Record<string, string>>;
   readonly paused: boolean;
+  /** effectiveDeadline: `YYYY-MM-DD` or null (R-16, R-134). */
+  readonly deadline: string | null;
+  /** assignmentStatus at `now` (R-51). */
+  readonly overdue: boolean;
 }
 
 const noteRowsSchema = z.array(
@@ -244,25 +261,30 @@ async function openLive(
 
 /**
  * Repertoire `repertoireId` as `playerId` has it by assignment, with the
- * coach's comments (R-102), the coach's name and the player's own notes;
- * undefined unless it is assigned to them now and not forked.
+ * coach's comments (R-102), the coach's name, the player's own notes and
+ * its deadline and overdue as of `now`; undefined unless it is assigned to
+ * them now and not forked.
  */
 export function assignedRepertoireForPlayer(
   db: Executor,
   playerId: string,
   repertoireId: string,
+  now: Date,
 ): Promise<AssignedRepertoire | undefined> {
   if (!isUuid(repertoireId)) return Promise.resolve(undefined);
   return db.transaction(async (tx) => {
     const opened = await openLive(tx, playerId, repertoireId);
     if (opened === undefined) return undefined;
-    const { assignment, loaded } = opened;
+    const { loaded } = opened;
     const names = await namesOf(tx, [loaded.repertoire.ownerId]);
+    const { paused, deadline, overdue } = statusOf(opened, now);
     return {
       ...loaded,
       coachName: names.get(loaded.repertoire.ownerId) ?? '',
       personalNotes: await notesOf(tx, playerId, repertoireId),
-      paused: !isTrainingActive(assignment.pausedAt),
+      paused,
+      deadline,
+      overdue,
     };
   }, SNAPSHOT);
 }

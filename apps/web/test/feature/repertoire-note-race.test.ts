@@ -1,13 +1,13 @@
 // The repertoire page's actions when the repertoire is deleted between the
 // action's access check and its write: the write's own check refuses it,
-// and the action passes the refusal on.
+// and the action passes the refusal on. (savePersonalNoteAction has no such
+// gap: setPersonalNote checks access and the move in its one transaction,
+// covered in packages/db/test/personal-notes.test.ts.)
 import { deleteRepertoire } from '@mychess/db';
-import { moveKey, START_KEY } from '@mychess/chess';
 import { describe, expect, it, vi } from 'vitest';
 import {
   deleteRepertoireAction,
   renameRepertoireAction,
-  savePersonalNoteAction,
 } from '../../src/app/repertuarai/[id]/actions';
 import type * as Repertoires from '../../src/server/repertoires';
 import { actAs, formOf, person } from './support/coaching';
@@ -52,25 +52,6 @@ vi.mock('../../src/server/repertoires', async (importOriginal) => {
 });
 
 const { sql } = useRequestHarness();
-
-describe('savePersonalNoteAction, repertoire deleted mid-request', () => {
-  it('passes on the write’s refusal and stores no note', async () => {
-    actAs(await person(sql, 'rokas@example.lt', 'Rokas'));
-    const london = await seedRepertoire(testDb(), 'rokas@example.lt', {
-      pgn: LONDON,
-      side: 'white',
-      name: 'Londono sistema',
-    });
-    expect(
-      await savePersonalNoteAction({
-        repertoireId: london,
-        moveKey: moveKey(START_KEY, 'd4'),
-        text: 'Mano planas',
-      }),
-    ).toEqual({ ok: false, refusal: 'repertoire.notFound' });
-    expect(await sql.count('personal_notes')).toBe(0);
-  });
-});
 
 describe('renameRepertoireAction and deleteRepertoireAction, repertoire deleted mid-request', () => {
   it('passes on the write’s refusal: no rename, no refresh, no redirect', async () => {

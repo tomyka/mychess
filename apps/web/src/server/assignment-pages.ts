@@ -34,6 +34,10 @@ export interface AssignedRepertoirePage {
   /** The player's own notes on it, by move key (R-21). */
   readonly personalNotes: Readonly<Record<string, string>>;
   readonly paused: boolean;
+  /** The effective deadline, `YYYY-MM-DD`, or null (R-16, R-134). */
+  readonly deadline: string | null;
+  /** Decided by the domain's assignmentStatus as of the page load (R-51). */
+  readonly overdue: boolean;
   /** The names of the openings its chapters are named after. */
   readonly ecoNames: Readonly<Record<string, string>>;
   /** What changed since the player last opened it; empty when nothing did. */
@@ -53,8 +57,12 @@ export async function assignedRepertoireData(
   if (!parsed.success) notFound();
   const db = getDb();
   const assigned =
-    (await assignedRepertoireForPlayer(db, player.id, parsed.data)) ??
-    notFound();
+    (await assignedRepertoireForPlayer(
+      db,
+      player.id,
+      parsed.data,
+      new Date(),
+    )) ?? notFound();
   const { id, name, side, version } = assigned.repertoire;
   // Up to the version read with the graph, so the summary matches what the
   // page shows; a later edit waits for the next visit.
@@ -70,6 +78,8 @@ export async function assignedRepertoireData(
     graph: assigned.graph,
     personalNotes: assigned.personalNotes,
     paused: assigned.paused,
+    deadline: assigned.deadline,
+    overdue: assigned.overdue,
     ecoNames: ecoNamesOf(assigned.graph, player.locale),
     changes: since.changes,
   };

@@ -18,11 +18,12 @@ import { markSeenAction, setPersonalNoteAction } from './actions';
 import { ChangesSummary } from './changes-summary';
 import { ForkCopy, type ForkAction } from './fork-copy';
 import { AssignmentBadges } from '../../../assignment-badges';
+import { useDeadline } from '../../../use-deadline';
 import { PauseControl, usePause, type PauseHandle } from './pause-control';
 
 /**
- * The way home, the repertoire's name and who assigned it
- * (docs/design/coach-shared-repertoire.md's top bar).
+ * The way home, the repertoire's name, who assigned it, its deadline and
+ * badges (docs/design/coach-shared-repertoire.md's top bar).
  */
 function AssignedHeader({
   data,
@@ -32,10 +33,12 @@ function AssignedHeader({
   /** The pause as it is now, which may have changed since the page loaded. */
   readonly paused: boolean;
 }): JSX.Element {
-  const t = useTranslations('assignment.page');
+  const t = useTranslations('assignment');
+  const date = useDeadline();
+  const { deadline } = data;
   return (
     <HeaderFrame>
-      <BackLink href={ROUTES.home} label={t('back')} />
+      <BackLink href={ROUTES.home} label={t('page.back')} />
       <div className="flex min-w-0 flex-1 flex-col lg:flex-none">
         <h1
           title={data.repertoire.name}
@@ -44,10 +47,18 @@ function AssignedHeader({
           {data.repertoire.name}
         </h1>
         <p className="truncate text-sm text-fg-muted">
-          {t('assignedBy', { name: data.coachName })}
+          {t('page.assignedBy', { name: data.coachName })}
         </p>
+        {deadline === null ? null : (
+          <p className="text-sm">{t('deadlineOn', { date: date(deadline) })}</p>
+        )}
         <AssignmentBadges
-          flags={{ overdue: false, paused, forked: false, updated: false }}
+          flags={{
+            overdue: data.overdue,
+            paused,
+            forked: false,
+            updated: false,
+          }}
         />
       </div>
     </HeaderFrame>

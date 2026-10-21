@@ -99,6 +99,23 @@ describe('setPersonalNote and listPersonalNotes', () => {
     expect(await noteRows()).toEqual([]);
   });
 
+  it('refuses a note on a move the repertoire does not have, and writes nothing (decision 11)', async () => {
+    const id = await london();
+    const e4 = moveKey(START_KEY, 'e4');
+    const write = (key: string, text: string) =>
+      setPersonalNote(db, {
+        playerId: 'rokas',
+        repertoireId: id,
+        moveKey: key,
+        text,
+        now: T0,
+      });
+    expect(await write(e4, 'Ne šito')).toEqual(NOT_FOUND);
+    expect(await write('ne-raktas', 'Ne šito')).toEqual(NOT_FOUND);
+    expect(await noteRows()).toEqual([]);
+    expect(await write(e4, '')).toEqual(DONE);
+  });
+
   it("never lists another player's note, nor notes on a repertoire the player may not view", async () => {
     const id = await london();
     await seedAccount(db, 'rimantas', 'rimantas@example.lt');

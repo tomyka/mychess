@@ -58,6 +58,8 @@ describe('the assigned repertoire page', () => {
       graph: graphOf(LONDON),
       personalNotes: {},
       paused: false,
+      deadline: null,
+      overdue: false,
       ecoNames: {},
       changes: { added: [], removed: [], annotated: 0 },
     });

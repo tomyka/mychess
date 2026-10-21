@@ -11,7 +11,6 @@ import {
   setPersonalNote,
 } from '@mychess/db';
 import {
-  canWritePersonalNote,
   REPERTOIRE_ISSUES,
   REPERTOIRE_REFUSALS,
   repertoireNameSchema,
@@ -32,9 +31,10 @@ type NotFoundKey = typeof REPERTOIRE_REFUSALS.notFound;
 
 /**
  * Sets or (with '') removes the viewer's own private note on a move of a
- * repertoire they may view (R-21: a note is the viewer's, in either mode).
- * A note is written only on a move of the repertoire; removing one works
- * on any key (decision 11).
+ * repertoire they may keep notes on (R-21: a note is the viewer's, in
+ * either mode). setPersonalNote decides, in its own transaction, that they
+ * may and that the note is on one of its moves; removing one works on any
+ * key (decision 11).
  */
 export async function savePersonalNoteAction(
   input: unknown,
@@ -42,18 +42,9 @@ export async function savePersonalNoteAction(
   const account = await requireOnboarded();
   const request = parsePersonalNote(input);
   if (!request.ok) return { ok: false, refusal: request.refusal.reason };
-  const { repertoireId, moveKey, text } = request.value;
-  const own = await ownRepertoire(account, repertoireId, 'view');
-  if (!own.ok) return { ok: false, refusal: own.refusal.reason };
-  const onMove = canWritePersonalNote(own.value.graph, moveKey, text);
-  if (!onMove.ok) return { ok: false, refusal: onMove.refusal.reason };
-  // The write checks access again in its own transaction: a repertoire
-  // deleted since ownRepertoire read it is refused there.
   const saved = await setPersonalNote(getDb(), {
+    ...request.value,
     playerId: account.id,
-    repertoireId,
-    moveKey,
-    text,
     now: new Date(),
   });
   return saved.ok ? { ok: true } : { ok: false, refusal: saved.refusal.reason };

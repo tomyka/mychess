@@ -18,7 +18,9 @@ class NotFound extends Error {}
 
 const server = vi.hoisted(() => ({
   assigned:
-    vi.fn<(db: unknown, playerId: string, id: string) => Promise<unknown>>(),
+    vi.fn<
+      (db: unknown, playerId: string, id: string, now: Date) => Promise<unknown>
+    >(),
   changes: vi.fn<(db: unknown, request: unknown) => Promise<unknown>>(),
   mine: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   offers: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
@@ -62,6 +64,8 @@ const ASSIGNED: AssignedRepertoire = {
   coachName: 'Jonas',
   personalNotes: { 'k|d4': 'Mano planas' },
   paused: true,
+  deadline: '2026-10-19',
+  overdue: true,
 };
 
 const CHANGES: ChangesSince = {
@@ -73,14 +77,18 @@ const CHANGES: ChangesSince = {
 };
 
 beforeEach(() => {
+  vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
   server.assigned.mockReset().mockResolvedValue(ASSIGNED);
   server.changes.mockReset().mockResolvedValue(CHANGES);
+  return () => {
+    vi.useRealTimers();
+  };
 });
 
 describe('assignedRepertoireData', () => {
-  it('loads the repertoire for the session player, with what changed since their last visit', async () => {
+  it('loads the repertoire for the session player as of now, with what changed since their last visit', async () => {
     const data = await assignedRepertoireData(ID);
-    expect(server.assigned).toHaveBeenCalledWith(DB, 'rokas', ID);
+    expect(server.assigned).toHaveBeenCalledWith(DB, 'rokas', ID, NOW);
     // Only the changes up to the version shown: they match the graph.
     expect(server.changes).toHaveBeenCalledWith(DB, {
       playerId: 'rokas',
@@ -98,6 +106,8 @@ describe('assignedRepertoireData', () => {
       graph: GRAPH,
       personalNotes: { 'k|d4': 'Mano planas' },
       paused: true,
+      deadline: '2026-10-19',
+      overdue: true,
       // In the player's own language.
       ecoNames: ecoNamesOf(GRAPH, 'en'),
       changes: CHANGES.changes,

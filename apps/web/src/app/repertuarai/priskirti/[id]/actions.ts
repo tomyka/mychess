@@ -6,17 +6,12 @@
 // (canUseAssignment, canFork, R-128). Anything refused reads as one thing on
 // this page: not assigned to you.
 import {
-  assignedRepertoireForPlayer,
   forkAssignment,
   markSeen,
   pauseAssignment,
-  setPersonalNote,
+  setAssignedPersonalNote,
 } from '@mychess/db';
-import {
-  ASSIGNMENT_REFUSALS,
-  canWritePersonalNote,
-  REPERTOIRE_ISSUES,
-} from '@mychess/domain';
+import { ASSIGNMENT_REFUSALS, REPERTOIRE_ISSUES } from '@mychess/domain';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { repertoireRoute } from '../../../../lib/routes';
@@ -122,8 +117,9 @@ const NOTE_NOT_ASSIGNED: NoteOutcome = { ok: false, refusal: NOT_ASSIGNED };
 
 /**
  * Sets or (with '') removes the session player's private note on a move of
- * a repertoire assigned to them live (R-21). A note is written only on a
- * move of the repertoire as assigned; the write checks access again.
+ * a repertoire assigned to them live (R-21). setAssignedPersonalNote
+ * decides, in its own transaction, that it is their live assignment and
+ * that the note is on one of its moves; any refusal reads as not assigned.
  */
 export async function setPersonalNoteAction(
   input: unknown,
@@ -134,21 +130,9 @@ export async function setPersonalNoteAction(
     return request.refusal.reason === REPERTOIRE_ISSUES.personalNoteTooLong
       ? { ok: false, refusal: request.refusal.reason }
       : NOTE_NOT_ASSIGNED;
-  const { repertoireId, moveKey, text } = request.value;
-  const db = getDb();
-  const assigned = await assignedRepertoireForPlayer(
-    db,
-    player.id,
-    repertoireId,
-  );
-  if (assigned === undefined) return NOTE_NOT_ASSIGNED;
-  if (!canWritePersonalNote(assigned.graph, moveKey, text).ok)
-    return NOTE_NOT_ASSIGNED;
-  const saved = await setPersonalNote(db, {
+  const saved = await setAssignedPersonalNote(getDb(), {
+    ...request.value,
     playerId: player.id,
-    repertoireId,
-    moveKey,
-    text,
     now: new Date(),
   });
   return saved.ok ? { ok: true } : NOTE_NOT_ASSIGNED;

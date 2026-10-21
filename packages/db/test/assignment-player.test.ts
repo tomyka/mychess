@@ -21,6 +21,7 @@ import {
   playerAssignments,
   removeMember,
   saveRepertoireEdit,
+  setAssignedPersonalNote,
   setPersonalNote,
   trainingRepertoires,
   unassign,
@@ -279,17 +280,51 @@ describe('assignedRepertoireForPlayer', () => {
   it("gives the player the repertoire with the coach's comments and only their own notes (R-21, R-102)", async () => {
     await assignTo(toGroup(g));
     const { repertoire, graph } = await coachCopy();
-    const got = await assignedRepertoireForPlayer(db, 'p', rep);
+    const got = await assignedRepertoireForPlayer(db, 'p', rep, NOW);
     expect(got).toEqual({
       repertoire,
       graph,
       coachName: 'Name c',
       personalNotes: { k: 'Pastaba p' },
       paused: false,
+      deadline: null,
+      overdue: false,
     });
     expect(moveOf(must(got).graph, 'd4').comment).toBe(
       'Treneris: tvirtas centras',
     );
+  });
+
+  it('gives the effective deadline, overdue from the Vilnius day after it (R-16, R-51, R-134)', async () => {
+    await assignTo(toGroup(g), '2026-10-19');
+    await assignTo(toPlayer('p'), '2026-10-25');
+    expect(await assignedRepertoireForPlayer(db, 'q', rep, NOW)).toMatchObject({
+      deadline: '2026-10-19',
+      overdue: true,
+    });
+    expect(await assignedRepertoireForPlayer(db, 'p', rep, NOW)).toMatchObject({
+      deadline: '2026-10-25',
+      overdue: false,
+    });
+  });
+
+  it('is not overdue once done, nor on the deadline day itself (R-51)', async () => {
+    const opponentOnly = await createRepertoire(db, {
+      ownerId: 'c',
+      side: 'black',
+      name: 'Tik varžovo',
+      graph: graphOf('1. d4 *', 'black'),
+      now: NOW,
+    });
+    await assignTo(toPlayer('n'), '2026-10-01', opponentOnly);
+    expect(
+      await assignedRepertoireForPlayer(db, 'n', opponentOnly, NOW),
+    ).toMatchObject({ deadline: '2026-10-01', overdue: false });
+    await assignTo(toPlayer('p'), '2026-10-20');
+    expect(await assignedRepertoireForPlayer(db, 'p', rep, NOW)).toMatchObject({
+      deadline: '2026-10-20',
+      overdue: false,
+    });
   });
 
   it('says when the player paused it', async () => {
@@ -299,7 +334,7 @@ describe('assignedRepertoireForPlayer', () => {
       { playerId: 'p', repertoireId: rep, paused: true },
       NOW,
     );
-    expect(await assignedRepertoireForPlayer(db, 'p', rep)).toMatchObject({
+    expect(await assignedRepertoireForPlayer(db, 'p', rep, NOW)).toMatchObject({
       paused: true,
     });
   });
@@ -327,7 +362,7 @@ describe('assignedRepertoireForPlayer', () => {
       malformed: 'not-a-uuid',
     };
     expect(
-      await assignedRepertoireForPlayer(db, playerId, ids[which]),
+      await assignedRepertoireForPlayer(db, playerId, ids[which], NOW),
     ).toBeUndefined();
   });
 
@@ -335,7 +370,67 @@ describe('assignedRepertoireForPlayer', () => {
     await assignTo(toGroup(g));
     await forkFor('p');
     await assignTo(toPlayer('p'));
-    expect(await assignedRepertoireForPlayer(db, 'p', rep)).toBeDefined();
+    expect(await assignedRepertoireForPlayer(db, 'p', rep, NOW)).toBeDefined();
+  });
+});
+
+describe('setAssignedPersonalNote (R-21)', () => {
+  const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -';
+  const write = (
+    playerId: string,
+    text: string,
+    { repertoireId = rep, san = 'd4' } = {},
+  ) =>
+    setAssignedPersonalNote(db, {
+      playerId,
+      repertoireId,
+      moveKey: moveKey(START, san),
+      text,
+      now: NOW,
+    });
+  const noteRows = () =>
+    query(
+      'select player_account_id, text from personal_notes order by player_account_id',
+    );
+
+  it('sets and removes the note on a move of a live assignment', async () => {
+    await assignTo(toGroup(g));
+    expect(await write('p', 'Pastaba p')).toEqual(OK);
+    expect(await noteRows()).toEqual([
+      { player_account_id: 'p', text: 'Pastaba p' },
+    ]);
+    expect(await write('p', '')).toEqual(OK);
+    expect(await noteRows()).toEqual([]);
+  });
+
+  it.each([
+    ['the coach who owns it', 'c'],
+    ['a player it is not assigned to', 'n'],
+  ])('refuses %s as not assigned, and writes nothing', async (_, who) => {
+    await assignTo(toGroup(g));
+    for (const text of ['Svetima', ''])
+      expect(await write(who, text)).toEqual(NOT_FOUND);
+    expect(await noteRows()).toEqual([]);
+  });
+
+  it('refuses a forked assignment and an id that is no uuid', async () => {
+    await assignTo(toGroup(g));
+    await forkFor('p');
+    expect(await write('p', 'Vėliau')).toEqual(NOT_FOUND);
+    expect(await write('q', 'Vėliau', { repertoireId: 'not-a-uuid' })).toEqual(
+      NOT_FOUND,
+    );
+    expect(await noteRows()).toEqual([]);
+  });
+
+  it('refuses a note on a move the repertoire does not have, removing one on any key (decision 11)', async () => {
+    await assignTo(toGroup(g));
+    expect(await write('p', 'Ne šito', { san: 'e4' })).toEqual({
+      ok: false,
+      refusal: { reason: 'repertoire.notFound' },
+    });
+    expect(await noteRows()).toEqual([]);
+    expect(await write('p', '', { san: 'e4' })).toEqual(OK);
   });
 });
 
@@ -782,6 +877,25 @@ describe('personal notes on an assigned repertoire (R-21)', () => {
     await forkFor('p');
     expect(await note('p', 'Vėliau')).toEqual(NOTE_REFUSED);
     expect(await listPersonalNotes(db, 'p', rep)).toEqual({});
+  });
+
+  it('refuses a note on a move the assigned repertoire does not have, and writes nothing (decision 11)', async () => {
+    await assignTo(toGroup(g));
+    const e4 = moveKey(
+      'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -',
+      'e4',
+    );
+    const write = (text: string) =>
+      setPersonalNote(db, {
+        playerId: 'p',
+        repertoireId: rep,
+        moveKey: e4,
+        text,
+        now: NOW,
+      });
+    expect(await write('Ne šito')).toEqual(NOTE_REFUSED);
+    expect(await noteRows()).toEqual([]);
+    expect(await write('')).toEqual(OK);
   });
 
   it('waits for a group leave in progress and then refuses the note', async () => {
