@@ -504,6 +504,27 @@ describe("a coach's account delete (R-49)", () => {
     expect(await ownedIds('n')).toEqual([]);
     expect(await playerAssignments(db, 'n', NOW)).toHaveLength(1);
   });
+
+  it("runs again when a player's concurrent delete deadlocks with it (#286)", async () => {
+    await assignTo(toPlayer('p'));
+    await assignTo(toPlayer('n'));
+    // The player's delete holds p's row; the coach's delete waits for it to
+    // fork for p; the player's transaction then asks for the coach's row.
+    const deletingPlayer = await openTransaction(client, [
+      `delete from accounts where id = 'p'`,
+    ]);
+    const deletingCoach = deleteAccount(db, 'c', LATER);
+    await someoneWaitsForALock(client);
+    await deletingPlayer.finish(
+      `select 1 from accounts where id = 'c' for update`,
+    );
+    await deletingCoach;
+    expect(await query('select id from accounts order by id')).toEqual([
+      { id: 'n' },
+      { id: 'q' },
+    ]);
+    expect(await ownedIds('n')).toHaveLength(1);
+  });
 });
 
 describe('the data export', () => {

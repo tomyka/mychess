@@ -6,8 +6,12 @@
 import { eq, sql, type SQL } from 'drizzle-orm';
 import { lockAccountById } from './accounts';
 import { forkForDeletingCoach } from './assignments/coach-delete';
-import type { Executor } from './client';
+import type { Db } from './client';
+import { retryOnConflict } from './retry-on-conflict';
 import { accounts, verifications } from './schema';
+
+/** Runs of the delete transaction before a deadlock or serialization failure is thrown (#286). */
+const DELETE_ATTEMPTS = 3;
 
 /**
  * A verification row whose value is a JSON object naming `email`, compared
@@ -39,17 +43,27 @@ const namesEmail = (email: string): SQL =>
  * fork offers it made to others stay, with `repertoire_id` set null: they
  * hold their snapshots. Later slices extend the cascade with the rows they
  * add.
+ *
+ * A concurrent delete can deadlock with it (a coach's auto-fork against
+ * their player's own delete, #286); Postgres rolls the whole transaction
+ * back, and it runs again, up to DELETE_ATTEMPTS times. It takes the
+ * database, not a transaction: a retry inside a caller's transaction could
+ * not recover it.
  */
 export async function deleteAccount(
-  db: Executor,
+  db: Db,
   id: string,
   now: Date = new Date(),
 ): Promise<void> {
-  await db.transaction(async (tx) => {
-    const account = await lockAccountById(tx, id);
-    if (account === undefined) return;
-    await forkForDeletingCoach(tx, id, now);
-    await tx.delete(verifications).where(namesEmail(account.email));
-    await tx.delete(accounts).where(eq(accounts.id, id));
-  });
+  await retryOnConflict(
+    () =>
+      db.transaction(async (tx) => {
+        const account = await lockAccountById(tx, id);
+        if (account === undefined) return;
+        await forkForDeletingCoach(tx, id, now);
+        await tx.delete(verifications).where(namesEmail(account.email));
+        await tx.delete(accounts).where(eq(accounts.id, id));
+      }),
+    DELETE_ATTEMPTS,
+  );
 }
