@@ -147,8 +147,9 @@ many client addresses; a refused request gets a 429 as the per-IP limit does
 and mails nothing.
 
 That limit and the PGN import's are our own counters, in the
-`request_counters` table, keyed by a SHA-256 hash of the inbox (never the
-address) or by the account id. They are not in `rate_limits`: Better Auth
+`request_counters` table, keyed by a SHA-256 hash of the inbox or by the
+account id. The hash is unsalted, so a guessed address can be matched to its
+row; rows last at most an hour (the prune below). They are not in `rate_limits`: Better Auth
 deletes its rows older than its own longest window (a minute) whenever one of
 its keys opens a new window, which would cut our hour short.
 
