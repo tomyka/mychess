@@ -15,7 +15,8 @@
     "db:generate": "drizzle-kit generate",
     "migrate": "node --env-file-if-exists=../../apps/web/.env.local dist/migrate.mjs",
     "admin:grant": "node --env-file-if-exists=../../apps/web/.env.local dist/admin-grant.mjs",
-    "admin:disable": "node --env-file-if-exists=../../apps/web/.env.local dist/admin-disable.mjs"
+    "admin:disable": "node --env-file-if-exists=../../apps/web/.env.local dist/admin-disable.mjs",
+    "rate-limits:prune": "node --env-file-if-exists=../../apps/web/.env.local dist/rate-limits-prune.mjs"
   },
   "dependencies": {
     "@mychess/chess": "workspace:*",

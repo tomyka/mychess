@@ -126,7 +126,7 @@ export {
   setPersonalNote,
   type PersonalNoteInput,
 } from './personal-notes';
-export { countRateLimited } from './rate-limits';
+export { countRateLimited, pruneRateLimits } from './rate-limits';
 export { deleteRepertoire } from './repertoires/delete';
 export {
   createRepertoire,

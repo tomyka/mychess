@@ -34,6 +34,32 @@ export const IMPORT_RATE_LIMIT = {
   reason: 'pgn.tooManyImports',
 } as const satisfies RateRule;
 
+/**
+ * A sign-in magic link is mailed at most three times a minute per client
+ * address (security A6). Better Auth counts it, as a custom rule whose
+ * window is in seconds.
+ */
+export const MAGIC_LINK_RATE_LIMIT = { windowMs: 60_000, max: 3 } as const;
+
+/**
+ * The longest window of Better Auth 1.7's built-in rules: 10 s by default
+ * and for sign-in, 60 s for password reset, verification email and the
+ * magic-link plugin. Recheck when upgrading Better Auth.
+ */
+const BETTER_AUTH_LONGEST_WINDOW_MS = 60_000;
+
+/**
+ * How long a rate_limits row can still decide a request: the longest window
+ * of any limit. A row whose last request (or, for our counters, window
+ * start) is older only opens a new window, as no row would, so deleting it
+ * changes no decision.
+ */
+export const RATE_LIMIT_RETENTION_MS = Math.max(
+  BETTER_AUTH_LONGEST_WINDOW_MS,
+  MAGIC_LINK_RATE_LIMIT.windowMs,
+  IMPORT_RATE_LIMIT.windowMs,
+);
+
 /** The one counter an account's previews and confirms share (R-119). */
 export const importRateKey = (accountId: string): string =>
   `pgn-import:${accountId}`;

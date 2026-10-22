@@ -5,6 +5,7 @@ import {
   DEFAULT_LOCALE,
   isDisabled,
   LOCALES,
+  MAGIC_LINK_RATE_LIMIT,
 } from '@mychess/domain';
 import {
   betterAuth,
@@ -383,7 +384,12 @@ const rateLimitOptions = {
   enabled: true,
   storage: 'database',
   modelName: 'rateLimits',
-  customRules: { '/sign-in/magic-link': { window: 60, max: 3 } },
+  customRules: {
+    '/sign-in/magic-link': {
+      window: MAGIC_LINK_RATE_LIMIT.windowMs / 1000,
+      max: MAGIC_LINK_RATE_LIMIT.max,
+    },
+  },
 } satisfies BetterAuthOptions['rateLimit'];
 
 /**

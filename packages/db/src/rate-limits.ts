@@ -8,13 +8,14 @@
  * opened, not the time of the last request.
  */
 import {
+  RATE_LIMIT_RETENTION_MS,
   countRequest,
   ok,
   type RateRefusal,
   type RateRule,
   type Result,
 } from '@mychess/domain';
-import { eq, sql } from 'drizzle-orm';
+import { eq, lt, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Executor } from './client';
@@ -23,6 +24,9 @@ import { rateLimits } from './schema';
 const counterRowsSchema = z.array(
   z.object({ count: z.number().int(), windowStart: z.number() }),
 );
+
+/** A DELETE's outcome as node-postgres reports it. */
+const deletedSchema = z.object({ rowCount: z.number().int() });
 
 /**
  * Counts a request for `key` at `now` under `rule`: allowed (and counted)
@@ -61,4 +65,23 @@ export async function countRateLimited<R extends string>(
       .where(eq(rateLimits.key, key));
     return ok();
   });
+}
+
+/**
+ * Deletes the rate_limits rows that can no longer decide a request at
+ * `now`: those whose last request is older than RATE_LIMIT_RETENTION_MS,
+ * the longest window of any limit (#262). Better Auth keeps one row per
+ * client address and path, and deletes stale ones only as a side effect of
+ * some key opening a new window, so a scheduled prune bounds the table.
+ * Returns how many rows it deleted.
+ */
+export async function pruneRateLimits(
+  db: Executor,
+  now: Date,
+): Promise<number> {
+  const cutoff = now.getTime() - RATE_LIMIT_RETENTION_MS;
+  const deleted = deletedSchema.parse(
+    await db.delete(rateLimits).where(lt(rateLimits.lastRequest, cutoff)),
+  );
+  return deleted.rowCount;
 }

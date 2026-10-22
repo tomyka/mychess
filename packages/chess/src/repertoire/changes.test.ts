@@ -69,7 +69,7 @@ describe('graphChanges', () => {
     expect({ ...d, addedMoves: [], changedChapters: [] }).toEqual(EMPTY);
   });
 
-  it('finds a changed comment and changed marks as annotations, nothing else', () => {
+  it('finds a changed comment and changed marks as comment changes, nothing else', () => {
     let after = ok(editComment(base, keyOf('e4'), 'Best'));
     after = ok(
       setMarks(
@@ -86,7 +86,7 @@ describe('graphChanges', () => {
     expect({ ...d, commentChanges: [] }).toEqual(EMPTY);
   });
 
-  it('finds changed circles alone as an annotation', () => {
+  it('finds changed circles alone as a comment change', () => {
     const after = ok(
       setMarks(
         base,
@@ -168,7 +168,7 @@ describe('graphChanges', () => {
 });
 
 describe('playerMoveChanges', () => {
-  it('lists added and removed player moves with their chapters, and counts annotations', () => {
+  it('lists added and removed player moves with their chapters, and counts comment changes', () => {
     let after = ok(addMove(base, 'c1', toOf(base, 'Nf3'), 'Nc6'));
     after = ok(addMove(after, 'c1', toOf(after, 'Nc6'), 'Bb5'));
     after = ok(removeMove(after, 'c2', START, 'e4'));

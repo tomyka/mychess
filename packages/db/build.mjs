@@ -7,6 +7,7 @@ await build({
     'src/bin/migrate.ts',
     'src/bin/admin-grant.ts',
     'src/bin/admin-disable.ts',
+    'src/bin/rate-limits-prune.ts',
   ],
   bundle: true,
   platform: 'node',
