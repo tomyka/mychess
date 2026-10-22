@@ -180,6 +180,23 @@ describe('settleAssignmentChange (#289)', () => {
       ).toStrictEqual({ ...NOTHING, close: [pair('p', 'r1')] });
     });
 
+    it('unforks the players in the order the change names them', () => {
+      const forked = (player: string): AssignmentFacts =>
+        facts({ player, repertoire: 'r', forkedAt: FORKED_AT });
+      expect(
+        settle({
+          playerIds: ['q', 'p'],
+          before: [forked('p'), forked('q')],
+          after: [forked('p'), forked('q')],
+          given: 'r',
+        }),
+      ).toStrictEqual({
+        unfork: [pair('q', 'r'), pair('p', 'r')],
+        offer: [],
+        close: [pair('q', 'r'), pair('p', 'r')],
+      });
+    });
+
     it('unforks nothing for a player who had it live', () => {
       const live = facts({ player: 'p', repertoire: 'r' });
       expect(

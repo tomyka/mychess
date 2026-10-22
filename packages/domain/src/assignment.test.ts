@@ -148,6 +148,15 @@ describe('canAssign (R-15, R-16; plan decision 1)', () => {
       canAssign('coach', { kind: 'group', groupId: 'coach' }, facts()),
     ).toStrictEqual(ok);
   });
+
+  it('never reads a group as oneself, whatever else the target carries', () => {
+    const groupRow = {
+      kind: 'group',
+      groupId: 'g1',
+      playerId: 'coach',
+    } as const;
+    expect(canAssign('coach', groupRow, facts())).toStrictEqual(ok);
+  });
 });
 
 describe('deadlineSchema (plan decision 10)', () => {
@@ -457,6 +466,12 @@ describe('newsOf and isUpdated (R-133, R-136)', () => {
       seen(4, viaGroup(1, joined)),
       change(4, after),
       false,
+    ],
+    [
+      'a change after an individual assignment, whatever its time',
+      seen(null, individually(1)),
+      change(2, new Date(0)),
+      true,
     ],
     ['a change with no start at all', seen(null), change(2, after), false],
   ] as const)('decides %s', (_, facts, stamp, news) => {

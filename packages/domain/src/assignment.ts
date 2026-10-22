@@ -111,7 +111,7 @@ export function assignableTargets<
   assigned: readonly AssignedTarget[],
 ): AssignableTargets<P, G> {
   const taken = (kind: AssignedTarget['kind']): ReadonlySet<string> =>
-    new Set(assigned.flatMap((a) => (a.kind === kind ? [a.id] : [])));
+    new Set(assigned.filter((a) => a.kind === kind).map((a) => a.id));
   const takenPlayers = taken('player');
   const takenGroups = taken('group');
   return {
@@ -131,7 +131,7 @@ export const ASSIGNMENT_ISSUES = {
  */
 export const deadlineSchema = z.iso
   .date({ error: ASSIGNMENT_ISSUES.deadlineInvalid, abort: true })
-  .refine((date) => date >= '2000', {
+  .refine((date) => date >= '2000-01-01', {
     error: ASSIGNMENT_ISSUES.deadlineInvalid,
   });
 
@@ -150,7 +150,6 @@ export interface DeadlineSources {
 }
 
 const later = (a: string, b: string): string => (a > b ? a : b);
-const earlier = (a: string, b: string): string => (a < b ? a : b);
 
 /**
  * The deadline a player has: the individual one if assigned individually
@@ -162,8 +161,7 @@ export function effectiveDeadline(sources: DeadlineSources): string | null {
   const dated = sources.groups.flatMap((g) =>
     g.deadline === null ? [] : [later(g.deadline, g.joinedDay)],
   );
-  const [first, ...rest] = dated;
-  return first === undefined ? null : rest.reduce(earlier, first);
+  return dated.toSorted()[0] ?? null;
 }
 
 /** What a player's badges on one assignment depend on. */
