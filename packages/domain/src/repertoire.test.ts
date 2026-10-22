@@ -12,12 +12,15 @@ import {
   canKeepPersonalNotes,
   canUseScope,
   canViewRepertoire,
+  assignedScope,
   canWritePersonalNote,
   chapterNameSchema,
   commentSchema,
+  ownScope,
   personalNoteSchema,
   repertoireNameSchema,
   repertoireSchema,
+  sharedScope,
   type RepertoireScope,
 } from './repertoire';
 
@@ -194,6 +197,21 @@ describe('canViewRepertoire and canEditRepertoire (S3: the owner only)', () => {
       expect(rule({ id: '' }, { ownerId: '' }).ok).toBe(true);
     },
   );
+});
+
+describe('the scope builders (#278: one spelling per scope)', () => {
+  it('build each kind from its ids', () => {
+    expect(ownScope('gabija')).toEqual({ kind: 'own', ownerId: 'gabija' });
+    expect(sharedScope('rimantas', 'gabija')).toEqual({
+      kind: 'shared',
+      coachId: 'rimantas',
+      playerId: 'gabija',
+    });
+    expect(assignedScope('rokas')).toEqual({
+      kind: 'assigned',
+      playerId: 'rokas',
+    });
+  });
 });
 
 describe('canUseScope (#278: view through any scope, edit only as the owner)', () => {

@@ -9,6 +9,7 @@
  */
 import { sideSchema } from '@mychess/chess';
 import {
+  sharedScope,
   canChangeShares,
   canShare,
   ok,
@@ -30,10 +31,6 @@ import {
 import { repertoireScope } from './repertoires/scope';
 import { accounts, repertoireShares, repertoires } from './schema';
 import { holdRepertoireOwner, sharedIds } from './share-scope';
-
-/** The `shared` scope: `playerId`'s repertoires shared with `coachId`. */
-const shared = (coachId: string, playerId: string) =>
-  ({ kind: 'shared', coachId, playerId }) as const;
 
 /** A share's three parts. */
 export interface ShareTarget {
@@ -243,7 +240,7 @@ export async function sharedWithCoach(
         side: repertoires.side,
       })
       .from(repertoires)
-      .where(repertoireScope(db, shared(coachId, playerId), 'view'))
+      .where(repertoireScope(db, sharedScope(coachId, playerId), 'view'))
       .orderBy(asc(repertoires.name), asc(repertoires.id)),
   );
 }
@@ -268,27 +265,36 @@ export interface SharedRepertoire extends LoadedRepertoire {
  * and the coach's own notes; never personal notes (checklist 2). Undefined
  * unless it is shared with this coach through an active link.
  */
-export async function sharedRepertoireForCoach(
+export function sharedRepertoireForCoach(
   db: Executor,
   coachId: string,
   playerId: string,
   repertoireId: string,
 ): Promise<SharedRepertoire | undefined> {
-  if (!isUuid(repertoireId)) return undefined;
   return db.transaction(
-    async (tx) => {
-      const loaded = await loadRepertoireRows(
-        tx,
-        repertoireScope(tx, shared(coachId, playerId), 'view', repertoireId),
-      );
-      if (loaded === undefined) return undefined;
-      return {
-        ...loaded,
-        notes: await coachOwnNotes(tx, coachId, repertoireId),
-      };
-    },
+    (tx) => loadShared(tx, coachId, playerId, repertoireId),
     { isolationLevel: 'repeatable read' },
   );
+}
+
+/**
+ * The shared repertoire and the coach's notes on it, read on `tx` (whose
+ * snapshot the caller chose); undefined unless shared with this coach
+ * through an active link, or the id is malformed.
+ */
+export async function loadShared(
+  tx: Tx,
+  coachId: string,
+  playerId: string,
+  repertoireId: string,
+): Promise<SharedRepertoire | undefined> {
+  if (!isUuid(repertoireId)) return undefined;
+  const loaded = await loadRepertoireRows(
+    tx,
+    repertoireScope(tx, sharedScope(coachId, playerId), 'view', repertoireId),
+  );
+  if (loaded === undefined) return undefined;
+  return { ...loaded, notes: await coachOwnNotes(tx, coachId, repertoireId) };
 }
 
 const ownShareRowsSchema = z.array(

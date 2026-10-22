@@ -17,6 +17,7 @@ import {
   setShares,
   shareRepertoire,
   sharedRepertoireForCoach,
+  sharedRepertoireSnapshot,
   sharedWithCoach,
   unlink,
   unshareRepertoire,
@@ -590,6 +591,53 @@ describe('sharedRepertoireForCoach (checklist 2)', () => {
     expect(await load('rimantas', 'gabija', 'not-a-uuid')).toBeUndefined();
     await unlink(db, 'rimantas', 'gabija', T1);
     expect(await load('rimantas', 'gabija', taimanov)).toBeUndefined();
+  });
+});
+
+describe('sharedRepertoireSnapshot (#278: the coach page in one snapshot)', () => {
+  it('reads the access facts, the shared repertoire and the player together', async () => {
+    const { taimanov } = await seedCoaching();
+    await share('gabija', taimanov, 'rimantas');
+    await upsertCoachNote(db, note({ repertoireId: taimanov }));
+    const snapshot = await sharedRepertoireSnapshot(
+      db,
+      'rimantas',
+      'gabija',
+      taimanov,
+    );
+    expect(snapshot.facts).toEqual({
+      linked: true,
+      sharedRepertoireIds: new Set([taimanov]),
+    });
+    expect(snapshot.player).toMatchObject({
+      id: 'gabija',
+      displayName: 'Name gabija',
+    });
+    expect(snapshot.shared?.repertoire).toMatchObject({
+      id: taimanov,
+      name: 'Taimanovas',
+    });
+    expect(snapshot.shared?.notes.map((n) => n.coachId)).toEqual(['rimantas']);
+  });
+
+  it('reads no repertoire unshared or malformed, and nothing once unlinked', async () => {
+    const { taimanov, gabijaLondon, rokasLondon } = await seedCoaching();
+    await share('gabija', taimanov, 'rimantas');
+    const read = (id: string) =>
+      sharedRepertoireSnapshot(db, 'rimantas', 'gabija', id);
+    expect(await read(gabijaLondon)).toMatchObject({
+      facts: { linked: true },
+      player: { id: 'gabija' },
+      shared: undefined,
+    });
+    expect((await read(rokasLondon)).shared).toBeUndefined();
+    expect((await read('not-a-uuid')).shared).toBeUndefined();
+    await unlink(db, 'rimantas', 'gabija', T1);
+    expect(await read(taimanov)).toEqual({
+      facts: { linked: false, sharedRepertoireIds: new Set() },
+      player: undefined,
+      shared: undefined,
+    });
   });
 });
 

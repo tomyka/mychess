@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   IMPORT_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
-  RATE_LIMIT_RETENTION_MS,
   countRequest,
   importRateKey,
   type RateCounter,
@@ -78,25 +77,5 @@ describe('the import limit (R-119)', () => {
 describe('the magic-link limit (security A6)', () => {
   it('mails a sign-in link at most three times a minute', () => {
     expect(MAGIC_LINK_RATE_LIMIT).toEqual({ windowMs: 60_000, max: 3 });
-  });
-});
-
-describe('RATE_LIMIT_RETENTION_MS', () => {
-  it('is the longest window of any limit: a minute', () => {
-    expect(RATE_LIMIT_RETENTION_MS).toBe(60_000);
-    expect(RATE_LIMIT_RETENTION_MS).toBeGreaterThanOrEqual(
-      IMPORT_RATE_LIMIT.windowMs,
-    );
-    expect(RATE_LIMIT_RETENTION_MS).toBeGreaterThanOrEqual(
-      MAGIC_LINK_RATE_LIMIT.windowMs,
-    );
-  });
-
-  it('outlives every counter: one older counts like no counter at all', () => {
-    const now = T0 + RATE_LIMIT_RETENTION_MS + 1;
-    const stale = { count: IMPORT_RATE_LIMIT.max, windowStart: T0 };
-    expect(countRequest(stale, IMPORT_RATE_LIMIT, now)).toEqual(
-      countRequest(undefined, IMPORT_RATE_LIMIT, now),
-    );
   });
 });

@@ -6,7 +6,7 @@ import {
   coachInvites,
   coachPlayer,
   coachPlayers,
-  sharedRepertoireForCoach,
+  sharedRepertoireSnapshot,
   sharedWithCoach,
   type CoachGroup,
   type CoachGroupSummary,
@@ -20,7 +20,11 @@ import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { accountIdSchema } from './account-id';
 import { ecoNamesOf } from './chapter-names';
-import { assertCoachMaySee, requireCoach } from './coaching';
+import {
+  assertCoachMaySee,
+  assertCoachMaySeeBy,
+  requireCoach,
+} from './coaching';
 import { getDb } from './db';
 
 /** What the coach dashboard's home shows: the coach's own players, groups, invites. */
@@ -90,8 +94,9 @@ const sharedIdsSchema = z.object({
 
 /**
  * A player's repertoire shared with the coach, read-only (subject
- * `repertoire`). Not shared with this coach, a player not linked, an id
- * that does not exist or a malformed one: all 404 (plan decision 4).
+ * `repertoire`), read in one snapshot with the facts that decide it
+ * (#278). Not shared with this coach, a player not linked, an id that does
+ * not exist or a malformed one: all 404 (plan decision 4).
  */
 export async function sharedRepertoireData(
   rawPlayerId: unknown,
@@ -104,15 +109,20 @@ export async function sharedRepertoireData(
   });
   if (!parsed.success) notFound();
   const { playerId, repertoireId } = parsed.data;
-  await assertCoachMaySee(coach, playerId, {
-    kind: 'repertoire',
+  const snapshot = await sharedRepertoireSnapshot(
+    getDb(),
+    coach.id,
+    playerId,
     repertoireId,
-  });
-  const db = getDb();
-  const shared =
-    (await sharedRepertoireForCoach(db, coach.id, playerId, repertoireId)) ??
-    notFound();
-  const player = (await coachPlayer(db, coach.id, playerId)) ?? notFound();
+  );
+  assertCoachMaySeeBy(
+    coach,
+    playerId,
+    { kind: 'repertoire', repertoireId },
+    snapshot.facts,
+  );
+  const shared = snapshot.shared ?? notFound();
+  const player = snapshot.player ?? notFound();
   const { id, name, side } = shared.repertoire;
   return {
     player: { id: player.id, displayName: player.displayName },

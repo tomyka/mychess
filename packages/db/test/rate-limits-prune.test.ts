@@ -1,7 +1,12 @@
-import { RATE_LIMIT_RETENTION_MS } from '@mychess/domain';
+import {
+  IMPORT_RATE_LIMIT,
+  MAGIC_LINK_RATE_LIMIT,
+  countRequest,
+} from '@mychess/domain';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { pruneRateLimits } from '../src';
 import { runRateLimitsPrune } from '../src/bin/rate-limits-command';
+import { RATE_LIMIT_RETENTION_MS } from '../src/rate-limits';
 import { useTestDatabase } from '../src/testing';
 
 const { db, client, url } = useTestDatabase();
@@ -25,6 +30,27 @@ const keys = async (): Promise<string[]> =>
       'select key from rate_limits order by key',
     )
   ).rows.map((r) => r.key);
+
+describe('RATE_LIMIT_RETENTION_MS', () => {
+  it('is the longest window of any limit: a minute', () => {
+    expect(RATE_LIMIT_RETENTION_MS).toBe(60_000);
+    expect(RATE_LIMIT_RETENTION_MS).toBeGreaterThanOrEqual(
+      IMPORT_RATE_LIMIT.windowMs,
+    );
+    expect(RATE_LIMIT_RETENTION_MS).toBeGreaterThanOrEqual(
+      MAGIC_LINK_RATE_LIMIT.windowMs,
+    );
+  });
+
+  it('outlives every counter: one older counts like no counter at all', () => {
+    const t0 = 1_000_000;
+    const now = t0 + RATE_LIMIT_RETENTION_MS + 1;
+    const stale = { count: IMPORT_RATE_LIMIT.max, windowStart: t0 };
+    expect(countRequest(stale, IMPORT_RATE_LIMIT, now)).toEqual(
+      countRequest(undefined, IMPORT_RATE_LIMIT, now),
+    );
+  });
+});
 
 describe('pruneRateLimits', () => {
   it('deletes rows older than the longest window and keeps the rest', async () => {

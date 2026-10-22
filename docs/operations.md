@@ -142,7 +142,7 @@ The table keeps one row per client IP and path (and per account for the PGN
 import limit), so it grows with every new address. `pnpm --filter
 @mychess/db rate-limits:prune` (after `pnpm --filter @mychess/db build`)
 deletes the rows whose last request is older than the longest rate-limit
-window, `RATE_LIMIT_RETENTION_MS` in `packages/domain/src/rate-limit.ts`,
+window, `RATE_LIMIT_RETENTION_MS` in `packages/db/src/rate-limits.ts`,
 and prints `rate-limits: pruned <n>`. Deleting them changes no limit
 decision. It needs only `DATABASE_URL`; run it from a scheduled job (hourly
 is plenty) once staging and production exist (#234). A new limit with a

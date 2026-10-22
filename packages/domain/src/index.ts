@@ -141,7 +141,6 @@ export {
 export {
   IMPORT_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
-  RATE_LIMIT_RETENTION_MS,
   countRequest,
   importRateKey,
   type RateRefusal,
@@ -158,6 +157,9 @@ export {
   canKeepPersonalNotes,
   canUseScope,
   canViewRepertoire,
+  assignedScope,
+  ownScope,
+  sharedScope,
   canWritePersonalNote,
   chapterNameSchema,
   commentSchema,

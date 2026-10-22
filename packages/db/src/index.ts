@@ -78,11 +78,13 @@ export {
   coachPlayer,
   coachPlayers,
   playerCoaches,
+  sharedRepertoireSnapshot,
   startCoaching,
   stopCoaching,
   unlink,
   type GroupRef,
   type LinkedAccount,
+  type SharedRepertoireSnapshot,
 } from './coaching';
 export {
   coachNotesOn,

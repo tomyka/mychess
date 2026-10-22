@@ -1,4 +1,10 @@
-import type { RepertoirePurpose, RepertoireScope } from '@mychess/domain';
+import {
+  assignedScope as assigned,
+  ownScope as own,
+  sharedScope as shared,
+  type RepertoirePurpose,
+  type RepertoireScope,
+} from '@mychess/domain';
 import { asc } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { shareRepertoire, unlink } from '../src';
@@ -7,7 +13,14 @@ import { repertoireScope } from '../src/repertoires/scope';
 import { repertoires } from '../src/schema';
 import { useTestDatabase } from '../src/testing';
 import { seedAssignment, seedRepertoire } from './support/assignments';
-import { seedCoach, seedLink, seedPlayer, T0 } from './support/coaching';
+import {
+  seedCoach,
+  seedGroup,
+  seedLink,
+  seedMember,
+  seedPlayer,
+  T0,
+} from './support/coaching';
 
 const { db } = useTestDatabase();
 
@@ -63,17 +76,6 @@ async function selected(
   return rows.map((row) => row.id);
 }
 
-const own = (ownerId: string): RepertoireScope => ({ kind: 'own', ownerId });
-const shared = (coachId: string, playerId: string): RepertoireScope => ({
-  kind: 'shared',
-  coachId,
-  playerId,
-});
-const assigned = (playerId: string): RepertoireScope => ({
-  kind: 'assigned',
-  playerId,
-});
-
 const sorted = (...ids: string[]) => [...ids].sort();
 
 describe('repertoireScope: own', () => {
@@ -87,6 +89,10 @@ describe('repertoireScope: own', () => {
   it('selects nothing of anyone else', async () => {
     for (const id of ['rimantas', 'rokas', 'simas', 'egle'])
       expect(await selected(own(id), 'view', taimanov)).toEqual([]);
+  });
+
+  it("lets no one edit someone else's repertoire by its id", async () => {
+    expect(await selected(own('rimantas'), 'edit', taimanov)).toEqual([]);
   });
 });
 
@@ -103,6 +109,12 @@ describe('repertoireScope: shared', () => {
   it('selects nothing for a linked coach it is not shared with, an unlinked coach or a stranger', async () => {
     for (const coachId of ['dovydas', 'egle', 'simas'])
       expect(await selected(shared(coachId, 'gabija'), 'view')).toEqual([]);
+  });
+
+  it('selects nothing of a repertoire the player did not share, asked for by its id', async () => {
+    expect(
+      await selected(shared('rimantas', 'gabija'), 'view', gabijaOther),
+    ).toEqual([]);
   });
 
   it("selects nothing of another player's repertoires", async () => {
@@ -127,6 +139,26 @@ describe('repertoireScope: assigned', () => {
   it('selects nothing for a forked player, an unassigned one or a stranger', async () => {
     for (const playerId of ['fausta', 'gabija', 'simas', 'rimantas'])
       expect(await selected(assigned(playerId), 'view', london)).toEqual([]);
+  });
+
+  it('selects nothing, with no id named, for a forked player, an unassigned one or the coach', async () => {
+    for (const playerId of ['fausta', 'gabija', 'rimantas'])
+      expect(await selected(assigned(playerId), 'view')).toEqual([]);
+  });
+
+  it('selects a repertoire assigned to a group the player is in', async () => {
+    const group = await seedGroup(db, 'rimantas', 'Juniors');
+    await seedMember(db, 'rimantas', group, 'gabija');
+    await seedAssignment(db, {
+      coachId: 'rimantas',
+      repertoireId: london,
+      target: { groupId: group },
+      now: T0,
+    });
+    expect(await selected(assigned('gabija'), 'view')).toEqual([london]);
+    expect(await selected(assigned('gabija'), 'view', london)).toEqual([
+      london,
+    ]);
   });
 });
 

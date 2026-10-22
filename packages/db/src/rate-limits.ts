@@ -8,7 +8,8 @@
  * opened, not the time of the last request.
  */
 import {
-  RATE_LIMIT_RETENTION_MS,
+  IMPORT_RATE_LIMIT,
+  MAGIC_LINK_RATE_LIMIT,
   countRequest,
   ok,
   type RateRefusal,
@@ -20,6 +21,25 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Executor } from './client';
 import { rateLimits } from './schema';
+
+/**
+ * The longest window of Better Auth 1.7's built-in rules: 10 s by default
+ * and for sign-in, 60 s for password reset, verification email and the
+ * magic-link plugin. Recheck when upgrading Better Auth.
+ */
+const BETTER_AUTH_LONGEST_WINDOW_MS = 60_000;
+
+/**
+ * How long a rate_limits row can still decide a request: the longest window
+ * of any limit. A row whose last request (or, for our counters, window
+ * start) is older only opens a new window, as no row would, so deleting it
+ * changes no decision. A new limit with a longer window joins this list.
+ */
+export const RATE_LIMIT_RETENTION_MS = Math.max(
+  BETTER_AUTH_LONGEST_WINDOW_MS,
+  MAGIC_LINK_RATE_LIMIT.windowMs,
+  IMPORT_RATE_LIMIT.windowMs,
+);
 
 const counterRowsSchema = z.array(
   z.object({ count: z.number().int(), windowStart: z.number() }),

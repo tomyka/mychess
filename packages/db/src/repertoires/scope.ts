@@ -28,17 +28,11 @@ const only = (id: string | undefined): SQL | undefined =>
 const sharedIdsOf = (
   db: Executor,
   scope: Extract<RepertoireScope, { kind: 'shared' }>,
-  id: string | undefined,
 ) =>
   db
     .select({ id: repertoireShares.repertoireId })
     .from(repertoireShares)
-    .where(
-      and(
-        sharedTo(scope.coachId, scope.playerId),
-        id === undefined ? undefined : eq(repertoireShares.repertoireId, id),
-      ),
-    );
+    .where(sharedTo(scope.coachId, scope.playerId));
 
 /**
  * The repertoires `scope` reaches for `purpose`, as a filter on
@@ -57,7 +51,7 @@ export function repertoireScope(
     case 'own':
       return and(only(id), eq(repertoires.ownerAccountId, scope.ownerId));
     case 'shared':
-      return and(only(id), inArray(repertoires.id, sharedIdsOf(db, scope, id)));
+      return and(only(id), inArray(repertoires.id, sharedIdsOf(db, scope)));
     case 'assigned':
       return liveRepertoire(db, scope.playerId, id);
   }

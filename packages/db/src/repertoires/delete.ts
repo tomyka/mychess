@@ -4,6 +4,7 @@
  * repertoires through repository.ts.
  */
 import {
+  ownScope,
   ok,
   refuse,
   REPERTOIRE_REFUSALS,
@@ -36,7 +37,7 @@ export function deleteRepertoire(
 ): Promise<Result<undefined, RepertoireAccessRefusal>> {
   if (!isUuid(id)) return Promise.resolve(NOT_FOUND);
   return db.transaction(async (tx) => {
-    const owned = repertoireScope(tx, { kind: 'own', ownerId }, 'edit', id);
+    const owned = repertoireScope(tx, ownScope(ownerId), 'edit', id);
     await lockAccountById(tx, ownerId);
     const found = countSchema.parse(await tx.$count(repertoires, owned));
     if (found === 0) return NOT_FOUND;

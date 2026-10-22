@@ -17,7 +17,11 @@ import type { Db, Executor } from './client';
 import { isLinked, linkCount } from './coach-queries';
 import { revokeOpenInvites } from './invites';
 import { accounts, coachLinks, groupMembers, groups } from './schema';
-import { sharedRepertoireIds } from './shares';
+import {
+  loadShared,
+  sharedRepertoireIds,
+  type SharedRepertoire,
+} from './shares';
 
 /** Switches Coach mode on (R-11); a second call keeps the first time. */
 export async function startCoaching(
@@ -226,4 +230,36 @@ export async function coachAccessFacts(
     linked: await isLinked(db, coachId, playerId),
     sharedRepertoireIds: await sharedRepertoireIds(db, coachId, playerId),
   };
+}
+
+/** What the coach's page of a shared repertoire reads, from one snapshot. */
+export interface SharedRepertoireSnapshot {
+  /** The facts canCoachSee decides on (subject `repertoire`). */
+  readonly facts: CoachAccessFacts;
+  /** The player, when linked to the coach. */
+  readonly player: LinkedAccount | undefined;
+  /** The repertoire, when shared with the coach through an active link. */
+  readonly shared: SharedRepertoire | undefined;
+}
+
+/**
+ * Everything the coach's page of a player's shared repertoire reads, in
+ * one repeatable-read transaction (#278), so the link is read once: the
+ * access facts the domain decides on (canCoachSee) and the repertoire and
+ * the player, each filtered by the same link again.
+ */
+export function sharedRepertoireSnapshot(
+  db: Executor,
+  coachId: string,
+  playerId: string,
+  repertoireId: string,
+): Promise<SharedRepertoireSnapshot> {
+  return db.transaction(
+    async (tx) => ({
+      facts: await coachAccessFacts(tx, coachId, playerId),
+      player: await coachPlayer(tx, coachId, playerId),
+      shared: await loadShared(tx, coachId, playerId, repertoireId),
+    }),
+    { isolationLevel: 'repeatable read' },
+  );
 }

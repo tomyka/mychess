@@ -15,6 +15,8 @@ import {
   type TrainingRepertoire,
 } from '@mychess/chess';
 import {
+  ownScope,
+  assignedScope,
   assignmentBadges,
   assignmentStatusOf,
   canUseAssignment,
@@ -41,9 +43,6 @@ import { namesOf } from './names';
 import { assignmentFacts } from './reach';
 
 const SNAPSHOT = { isolationLevel: 'repeatable read' } as const;
-
-/** The `own` scope of `playerId`. */
-const own = (playerId: string) => ({ kind: 'own', ownerId: playerId }) as const;
 
 /**
  * The player's assignments canUseAssignment lets them use (assigned now,
@@ -149,7 +148,7 @@ async function loadLive(
       tx,
       repertoireScope(
         tx,
-        { kind: 'assigned', playerId },
+        assignedScope(playerId),
         'view',
         assignment.repertoireId,
       ),
@@ -264,9 +263,7 @@ const liveId = (db: Executor, playerId: string, repertoireId: string) =>
   db
     .select({ id: repertoires.id })
     .from(repertoires)
-    .where(
-      repertoireScope(db, { kind: 'assigned', playerId }, 'view', repertoireId),
-    );
+    .where(repertoireScope(db, assignedScope(playerId), 'view', repertoireId));
 
 async function notesOf(
   db: Executor,
@@ -302,7 +299,7 @@ async function openLive(
   if (assignment === undefined) return undefined;
   const loaded = await loadRepertoireRows(
     tx,
-    repertoireScope(tx, { kind: 'assigned', playerId }, 'view', repertoireId),
+    repertoireScope(tx, assignedScope(playerId), 'view', repertoireId),
   );
   return loaded === undefined ? undefined : { assignment, loaded };
 }
@@ -413,14 +410,14 @@ async function ownTraining(
     await tx
       .select({ id: repertoires.id })
       .from(repertoires)
-      .where(repertoireScope(tx, own(playerId), 'view'))
+      .where(repertoireScope(tx, ownScope(playerId), 'view'))
       .orderBy(asc(repertoires.createdAt), asc(repertoires.id)),
   );
   const out: TrainingRepertoire[] = [];
   for (const { id } of owned) {
     const loaded = await loadRepertoireRows(
       tx,
-      repertoireScope(tx, own(playerId), 'view', id),
+      repertoireScope(tx, ownScope(playerId), 'view', id),
     );
     if (loaded !== undefined)
       out.push({ id, graph: loaded.graph, active: true });

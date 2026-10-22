@@ -8,6 +8,7 @@
  */
 import { moveKey, type RepertoireGraph, type Side } from '@mychess/chess';
 import {
+  ownScope,
   ASSIGNMENT_REFUSALS,
   canFork,
   ok,
@@ -209,7 +210,7 @@ export async function forkCoachNotesOn(
         repertoires,
         and(
           eq(repertoires.id, forkCoachNotes.repertoireId),
-          repertoireScope(db, { kind: 'own', ownerId: playerId }, 'view'),
+          repertoireScope(db, ownScope(playerId), 'view'),
         ),
       )
       .where(eq(forkCoachNotes.repertoireId, forkId))
@@ -249,7 +250,7 @@ export async function forkCoachNotesOf(
       })
       .from(forkCoachNotes)
       .innerJoin(repertoires, eq(repertoires.id, forkCoachNotes.repertoireId))
-      .where(repertoireScope(db, { kind: 'own', ownerId: playerId }, 'view'))
+      .where(repertoireScope(db, ownScope(playerId), 'view'))
       .orderBy(
         asc(repertoires.createdAt),
         asc(repertoires.id),

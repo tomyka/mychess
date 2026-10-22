@@ -3,6 +3,7 @@ import {
   canCoachSee,
   isCoach,
   type Account,
+  type CoachAccessFacts,
   type CoachSubject,
 } from '@mychess/domain';
 import { notFound, redirect } from 'next/navigation';
@@ -32,5 +33,19 @@ export async function assertCoachMaySee(
   subject: CoachSubject,
 ): Promise<void> {
   const facts = await coachAccessFacts(getDb(), coach.id, playerId);
+  assertCoachMaySeeBy(coach, playerId, subject, facts);
+}
+
+/**
+ * The same decision on facts the caller has already read on this request,
+ * such as from one snapshot with the data they guard: a refusal is a plain
+ * 404 (plan decision 4).
+ */
+export function assertCoachMaySeeBy(
+  coach: Account,
+  playerId: string,
+  subject: CoachSubject,
+  facts: CoachAccessFacts,
+): void {
   if (!canCoachSee(coach.id, playerId, subject, facts).ok) notFound();
 }

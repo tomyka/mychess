@@ -11,6 +11,8 @@
  * decision 12).
  */
 import {
+  ownScope,
+  assignedScope,
   ASSIGNMENT_REFUSALS,
   canKeepPersonalNotes,
   canUseAssignment,
@@ -44,9 +46,6 @@ type NoteAccess = Result<undefined, RepertoireAccessRefusal>;
 
 const NOT_FOUND = refuse(REPERTOIRE_REFUSALS.notFound);
 
-/** The `own` scope of `playerId`. */
-const own = (playerId: string) => ({ kind: 'own', ownerId: playerId }) as const;
-
 /**
  * The repertoires `playerId` keeps notes on, as SQL: their own, or one
  * assigned to them live (the `own` and `assigned` scopes).
@@ -58,8 +57,8 @@ const notesAllowedFor = (
   repertoireId: string,
 ): SQL | undefined =>
   or(
-    repertoireScope(db, own(playerId), 'view', repertoireId),
-    repertoireScope(db, { kind: 'assigned', playerId }, 'view', repertoireId),
+    repertoireScope(db, ownScope(playerId), 'view', repertoireId),
+    repertoireScope(db, assignedScope(playerId), 'view', repertoireId),
   );
 
 const ownerRowsSchema = z.array(z.object({ ownerId: z.string() }));
@@ -81,7 +80,7 @@ async function holdNotesAccess(
     await tx
       .select({ ownerId: repertoires.ownerAccountId })
       .from(repertoires)
-      .where(repertoireScope(tx, own(playerId), 'view', repertoireId))
+      .where(repertoireScope(tx, ownScope(playerId), 'view', repertoireId))
       .for('key share'),
   );
   // Their own repertoire: no assignment is needed, so none is read.

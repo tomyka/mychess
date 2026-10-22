@@ -6,6 +6,7 @@
  */
 import { parseMoveKey } from '@mychess/chess';
 import {
+  ownScope,
   canCoachSee,
   canWriteCoachNote,
   ok,
@@ -216,7 +217,7 @@ export async function coachNotesOn(
   return notesWhere(
     db,
     repertoireId,
-    repertoireScope(db, { kind: 'own', ownerId }, 'view'),
+    repertoireScope(db, ownScope(ownerId), 'view'),
   );
 }
 

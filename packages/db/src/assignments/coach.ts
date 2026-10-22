@@ -11,6 +11,7 @@
  */
 import { allLearned } from '@mychess/chess';
 import {
+  ownScope,
   assignmentBadges,
   assignmentStatusOf,
   canUseAssignment,
@@ -64,7 +65,7 @@ const ofCoach = (db: Executor, coachId: string, repertoireId: string) =>
   and(
     eq(assignments.coachId, coachId),
     eq(assignments.repertoireId, repertoireId),
-    repertoireScope(db, { kind: 'own', ownerId: coachId }, 'view'),
+    repertoireScope(db, ownScope(coachId), 'view'),
   );
 
 const rowsSchema = z.array(
@@ -182,12 +183,7 @@ export function coachAssignments(
   return db.transaction(async (tx) => {
     const loaded = await loadRepertoireRows(
       tx,
-      repertoireScope(
-        tx,
-        { kind: 'own', ownerId: coachId },
-        'view',
-        repertoireId,
-      ),
+      repertoireScope(tx, ownScope(coachId), 'view', repertoireId),
     );
     if (
       loaded === undefined ||

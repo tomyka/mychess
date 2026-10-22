@@ -13,6 +13,7 @@ import {
   type Side,
 } from '@mychess/chess';
 import {
+  ownScope,
   ok,
   refuse,
   REPERTOIRE_REFUSALS,
@@ -54,9 +55,6 @@ const metaColumns = {
   createdAt: repertoires.createdAt,
   updatedAt: repertoires.updatedAt,
 };
-
-/** The `own` scope of `ownerId`. */
-const own = (ownerId: string) => ({ kind: 'own', ownerId }) as const;
 
 const idRowsSchema = z.array(z.object({ id: z.uuid() }));
 
@@ -178,7 +176,10 @@ export async function loadRepertoire(
 ): Promise<LoadedRepertoire | undefined> {
   return db.transaction(
     (tx) =>
-      loadRepertoireRows(tx, repertoireScope(tx, own(ownerId), 'view', id)),
+      loadRepertoireRows(
+        tx,
+        repertoireScope(tx, ownScope(ownerId), 'view', id),
+      ),
     { isolationLevel: 'repeatable read' },
   );
 }
@@ -194,7 +195,7 @@ export async function loadRepertoires(
         await tx
           .select(metaColumns)
           .from(repertoires)
-          .where(repertoireScope(tx, own(ownerId), 'view'))
+          .where(repertoireScope(tx, ownScope(ownerId), 'view'))
           .orderBy(asc(repertoires.createdAt), asc(repertoires.id)),
       );
       const loaded: LoadedRepertoire[] = [];
@@ -243,7 +244,7 @@ export async function saveRepertoireEdit(
         .set({ version: sql`${repertoires.version} + 1`, updatedAt: edit.now })
         .where(
           and(
-            repertoireScope(tx, own(edit.ownerId), 'edit', edit.id),
+            repertoireScope(tx, ownScope(edit.ownerId), 'edit', edit.id),
             eq(repertoires.version, edit.expectedVersion),
           ),
         )
@@ -306,7 +307,7 @@ export async function listRepertoires(
         updatedAt: repertoires.updatedAt,
       })
       .from(repertoires)
-      .where(repertoireScope(db, own(ownerId), 'view'))
+      .where(repertoireScope(db, ownScope(ownerId), 'view'))
       .orderBy(asc(repertoires.createdAt), asc(repertoires.id)),
   );
 }
@@ -334,7 +335,7 @@ export async function renameRepertoire(
     await db
       .update(repertoires)
       .set({ name: rename.name, updatedAt: rename.now })
-      .where(repertoireScope(db, own(rename.ownerId), 'edit', rename.id))
+      .where(repertoireScope(db, ownScope(rename.ownerId), 'edit', rename.id))
       .returning({ id: repertoires.id }),
   );
   return accessOf(rows);

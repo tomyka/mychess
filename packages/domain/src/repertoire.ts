@@ -83,10 +83,11 @@ type RepertoireAccess = Result<undefined, RepertoireAccessRefusal>;
 
 const NOT_FOUND: RepertoireAccess = refuse(REPERTOIRE_REFUSALS.notFound);
 
-const owns = (
+/** The one owner check: only the owner reaches it; anyone else, not found. */
+const ownerOnly = (
   viewer: Pick<Account, 'id'>,
   repertoire: Pick<Repertoire, 'ownerId'>,
-) => viewer.id === repertoire.ownerId;
+): RepertoireAccess => (viewer.id === repertoire.ownerId ? ok() : NOT_FOUND);
 
 /**
  * How an account reaches a repertoire (Q26, R-39), one kind per way:
@@ -109,6 +110,24 @@ export type RepertoireScope =
     }
   | { readonly kind: 'assigned'; readonly playerId: string };
 
+/** The owner's own repertoires (R-39). */
+export const ownScope = (ownerId: string): RepertoireScope => ({
+  kind: 'own',
+  ownerId,
+});
+
+/** A player's repertoires shared with a linked coach (R-42). */
+export const sharedScope = (
+  coachId: string,
+  playerId: string,
+): RepertoireScope => ({ kind: 'shared', coachId, playerId });
+
+/** The coach repertoires live for a player through an assignment (R-16). */
+export const assignedScope = (playerId: string): RepertoireScope => ({
+  kind: 'assigned',
+  playerId,
+});
+
 /** What an account does with a repertoire it reaches. */
 export type RepertoirePurpose = 'view' | 'edit';
 
@@ -130,12 +149,7 @@ export function canUseScope(
  * owner (R-39). A coach sees a shared one through canCoachSee and a player
  * an assigned one through canUseAssignment, never through this rule.
  */
-export function canViewRepertoire(
-  viewer: Pick<Account, 'id'>,
-  repertoire: Pick<Repertoire, 'ownerId'>,
-): RepertoireAccess {
-  return owns(viewer, repertoire) ? ok() : NOT_FOUND;
-}
+export const canViewRepertoire: typeof ownerOnly = ownerOnly;
 
 /**
  * May a player keep Personal notes on a repertoire? On their own, and on
@@ -147,7 +161,7 @@ export function canKeepPersonalNotes(
   repertoire: Pick<Repertoire, 'ownerId'>,
   assignment: AssignmentFacts | undefined,
 ): RepertoireAccess {
-  return owns(player, repertoire) || canUseAssignment(assignment).ok
+  return ownerOnly(player, repertoire).ok || canUseAssignment(assignment).ok
     ? ok()
     : NOT_FOUND;
 }
@@ -173,9 +187,4 @@ export function canWritePersonalNote(
  * Who may change a repertoire's moves, chapters and comments: its owner
  * only, as no other scope edits (canUseScope).
  */
-export function canEditRepertoire(
-  viewer: Pick<Account, 'id'>,
-  repertoire: Pick<Repertoire, 'ownerId'>,
-): RepertoireAccess {
-  return owns(viewer, repertoire) ? ok() : NOT_FOUND;
-}
+export const canEditRepertoire: typeof ownerOnly = ownerOnly;
