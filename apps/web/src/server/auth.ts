@@ -34,6 +34,7 @@ import { implicitJoin } from './implicit-join';
 import { googleUserInfo } from './oauth/google';
 import { noteLichessUnlinked } from './lichess-unlinked';
 import { lichessUserInfo } from './oauth/lichess';
+import { endUnlinkedProviderSession } from './provider-session';
 import { FRESH_AGE_SECONDS, isFreshSession } from './session-freshness';
 import { linkWithLocale, signUpLocale } from './sign-up-locale';
 import { testSignInEnabled } from './test-sign-in';
@@ -239,6 +240,7 @@ function databaseHooks(db: Db): DatabaseHooks {
     session: {
       create: {
         before: (session) => isNotDisabled(db, session.userId),
+        after: endUnlinkedProviderSession,
       },
     },
     account: { delete: { before: noteLichessUnlinked } },
