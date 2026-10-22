@@ -4,7 +4,7 @@
  * only the assignmentFacts canUseAssignment allows (usableAssignments). The
  * query enforces it again: every statement filters by the session player
  * and reads the repertoire, its notes and its changes only through
- * liveRepertoire. Each runs in one repeatable-read snapshot.
+ * the `assigned` repertoireScope. Each runs in one repeatable-read snapshot.
  */
 import {
   allLearned,
@@ -33,14 +33,17 @@ import { isUuid } from '../ids';
 import { repertoireChanges } from '../assignment-schema';
 import {
   loadRepertoireRows,
-  ownedBy,
   type LoadedRepertoire,
 } from '../repertoires/repository';
+import { repertoireScope } from '../repertoires/scope';
 import { personalNotes, repertoires } from '../schema';
 import { namesOf } from './names';
-import { assignmentFacts, liveRepertoire } from './reach';
+import { assignmentFacts } from './reach';
 
 const SNAPSHOT = { isolationLevel: 'repeatable read' } as const;
+
+/** The `own` scope of `playerId`. */
+const own = (playerId: string) => ({ kind: 'own', ownerId: playerId }) as const;
 
 /**
  * The player's assignments canUseAssignment lets them use (assigned now,
@@ -134,7 +137,7 @@ async function latestChanges(
 
 /**
  * Each assignment the player may use (canUseAssignment) with its
- * repertoire, loaded through liveRepertoire.
+ * repertoire, loaded through the `assigned` repertoireScope.
  */
 async function loadLive(
   tx: Executor,
@@ -144,7 +147,12 @@ async function loadLive(
   for (const assignment of await usableAssignments(tx, playerId)) {
     const loaded = await loadRepertoireRows(
       tx,
-      liveRepertoire(tx, playerId, assignment.repertoireId),
+      repertoireScope(
+        tx,
+        { kind: 'assigned', playerId },
+        'view',
+        assignment.repertoireId,
+      ),
     );
     if (loaded !== undefined) live.push({ assignment, loaded });
   }
@@ -256,7 +264,9 @@ const liveId = (db: Executor, playerId: string, repertoireId: string) =>
   db
     .select({ id: repertoires.id })
     .from(repertoires)
-    .where(liveRepertoire(db, playerId, repertoireId));
+    .where(
+      repertoireScope(db, { kind: 'assigned', playerId }, 'view', repertoireId),
+    );
 
 async function notesOf(
   db: Executor,
@@ -292,7 +302,7 @@ async function openLive(
   if (assignment === undefined) return undefined;
   const loaded = await loadRepertoireRows(
     tx,
-    liveRepertoire(tx, playerId, repertoireId),
+    repertoireScope(tx, { kind: 'assigned', playerId }, 'view', repertoireId),
   );
   return loaded === undefined ? undefined : { assignment, loaded };
 }
@@ -399,16 +409,19 @@ async function ownTraining(
   tx: Executor,
   playerId: string,
 ): Promise<TrainingRepertoire[]> {
-  const own = ownRowsSchema.parse(
+  const owned = ownRowsSchema.parse(
     await tx
       .select({ id: repertoires.id })
       .from(repertoires)
-      .where(eq(repertoires.ownerAccountId, playerId))
+      .where(repertoireScope(tx, own(playerId), 'view'))
       .orderBy(asc(repertoires.createdAt), asc(repertoires.id)),
   );
   const out: TrainingRepertoire[] = [];
-  for (const { id } of own) {
-    const loaded = await loadRepertoireRows(tx, ownedBy(id, playerId));
+  for (const { id } of owned) {
+    const loaded = await loadRepertoireRows(
+      tx,
+      repertoireScope(tx, own(playerId), 'view', id),
+    );
     if (loaded !== undefined)
       out.push({ id, graph: loaded.graph, active: true });
   }

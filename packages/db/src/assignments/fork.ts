@@ -22,6 +22,7 @@ import { assignmentPlayers, forkCoachNotes } from '../assignment-schema';
 import type { Executor, Tx } from '../client';
 import { isUuid } from '../ids';
 import { createRepertoire } from '../repertoires/repository';
+import { repertoireScope } from '../repertoires/scope';
 import { batches } from '../repertoires/write';
 import { personalNotes, repertoires } from '../schema';
 import { holdAssignment } from './reach';
@@ -208,7 +209,7 @@ export async function forkCoachNotesOn(
         repertoires,
         and(
           eq(repertoires.id, forkCoachNotes.repertoireId),
-          eq(repertoires.ownerAccountId, playerId),
+          repertoireScope(db, { kind: 'own', ownerId: playerId }, 'view'),
         ),
       )
       .where(eq(forkCoachNotes.repertoireId, forkId))
@@ -248,7 +249,7 @@ export async function forkCoachNotesOf(
       })
       .from(forkCoachNotes)
       .innerJoin(repertoires, eq(repertoires.id, forkCoachNotes.repertoireId))
-      .where(eq(repertoires.ownerAccountId, playerId))
+      .where(repertoireScope(db, { kind: 'own', ownerId: playerId }, 'view'))
       .orderBy(
         asc(repertoires.createdAt),
         asc(repertoires.id),

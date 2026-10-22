@@ -1,7 +1,8 @@
 /**
  * A Player's repertoires (S3). Every query filters by owner as well as by
- * id: the domain decides who may see a repertoire (canViewRepertoire), and
- * the query enforces it again (CLAUDE.md, decision 12).
+ * id through repertoireScope (scope.ts): the domain decides who may see or
+ * change a repertoire (canViewRepertoire, canEditRepertoire), and the
+ * query enforces it again (CLAUDE.md, decision 12).
  */
 import {
   emptyGraph,
@@ -36,6 +37,7 @@ import {
   linkRowsSchema,
   moveRowsSchema,
 } from './rows';
+import { repertoireScope } from './scope';
 import { writeChanges } from './write';
 
 export interface LoadedRepertoire {
@@ -53,9 +55,8 @@ const metaColumns = {
   updatedAt: repertoires.updatedAt,
 };
 
-/** Repertoire `id` if `ownerId` owns it, as SQL. Package-internal. */
-export const ownedBy = (id: string, ownerId: string): SQL | undefined =>
-  and(eq(repertoires.id, id), eq(repertoires.ownerAccountId, ownerId));
+/** The `own` scope of `ownerId`. */
+const own = (ownerId: string) => ({ kind: 'own', ownerId }) as const;
 
 const idRowsSchema = z.array(z.object({ id: z.uuid() }));
 
@@ -144,8 +145,8 @@ async function graphRows(
 
 /**
  * The one repertoire `where` selects, with its graph, read on `tx`, or
- * undefined. `where` is the access filter: loadRepertoire's owner filter,
- * or sharedRepertoireForCoach's share (shares.ts). Run it in a snapshot
+ * undefined. `where` is the access filter, a repertoireScope (scope.ts).
+ * Run it in a snapshot
  * transaction so the row and graph agree. Package-internal.
  */
 export async function loadRepertoireRows(
@@ -175,9 +176,11 @@ export async function loadRepertoire(
   id: string,
   ownerId: string,
 ): Promise<LoadedRepertoire | undefined> {
-  return db.transaction((tx) => loadRepertoireRows(tx, ownedBy(id, ownerId)), {
-    isolationLevel: 'repeatable read',
-  });
+  return db.transaction(
+    (tx) =>
+      loadRepertoireRows(tx, repertoireScope(tx, own(ownerId), 'view', id)),
+    { isolationLevel: 'repeatable read' },
+  );
 }
 
 /** All of `ownerId`'s repertoires with their graphs, oldest first, read in one snapshot. */
@@ -187,15 +190,13 @@ export async function loadRepertoires(
 ): Promise<LoadedRepertoire[]> {
   return db.transaction(
     async (tx) => {
-      const owned = z
-        .array(repertoireSchema)
-        .parse(
-          await tx
-            .select(metaColumns)
-            .from(repertoires)
-            .where(eq(repertoires.ownerAccountId, ownerId))
-            .orderBy(asc(repertoires.createdAt), asc(repertoires.id)),
-        );
+      const owned = z.array(repertoireSchema).parse(
+        await tx
+          .select(metaColumns)
+          .from(repertoires)
+          .where(repertoireScope(tx, own(ownerId), 'view'))
+          .orderBy(asc(repertoires.createdAt), asc(repertoires.id)),
+      );
       const loaded: LoadedRepertoire[] = [];
       for (const repertoire of owned)
         loaded.push({
@@ -242,7 +243,7 @@ export async function saveRepertoireEdit(
         .set({ version: sql`${repertoires.version} + 1`, updatedAt: edit.now })
         .where(
           and(
-            ownedBy(edit.id, edit.ownerId),
+            repertoireScope(tx, own(edit.ownerId), 'edit', edit.id),
             eq(repertoires.version, edit.expectedVersion),
           ),
         )
@@ -305,7 +306,7 @@ export async function listRepertoires(
         updatedAt: repertoires.updatedAt,
       })
       .from(repertoires)
-      .where(eq(repertoires.ownerAccountId, ownerId))
+      .where(repertoireScope(db, own(ownerId), 'view'))
       .orderBy(asc(repertoires.createdAt), asc(repertoires.id)),
   );
 }
@@ -333,7 +334,7 @@ export async function renameRepertoire(
     await db
       .update(repertoires)
       .set({ name: rename.name, updatedAt: rename.now })
-      .where(ownedBy(rename.id, rename.ownerId))
+      .where(repertoireScope(db, own(rename.ownerId), 'edit', rename.id))
       .returning({ id: repertoires.id }),
   );
   return accessOf(rows);

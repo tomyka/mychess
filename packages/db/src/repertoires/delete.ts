@@ -16,7 +16,7 @@ import type { Executor } from '../client';
 import { countSchema } from '../coach-queries';
 import { isUuid } from '../ids';
 import { repertoires } from '../schema';
-import { ownedBy } from './repository';
+import { repertoireScope } from './scope';
 
 const NOT_FOUND = refuse(REPERTOIRE_REFUSALS.notFound);
 
@@ -35,8 +35,8 @@ export function deleteRepertoire(
   now: Date,
 ): Promise<Result<undefined, RepertoireAccessRefusal>> {
   if (!isUuid(id)) return Promise.resolve(NOT_FOUND);
-  const owned = ownedBy(id, ownerId);
   return db.transaction(async (tx) => {
+    const owned = repertoireScope(tx, { kind: 'own', ownerId }, 'edit', id);
     await lockAccountById(tx, ownerId);
     const found = countSchema.parse(await tx.$count(repertoires, owned));
     if (found === 0) return NOT_FOUND;

@@ -10,6 +10,7 @@ import {
   REPERTOIRE_REFUSALS,
   canEditRepertoire,
   canKeepPersonalNotes,
+  canUseScope,
   canViewRepertoire,
   canWritePersonalNote,
   chapterNameSchema,
@@ -17,6 +18,7 @@ import {
   personalNoteSchema,
   repertoireNameSchema,
   repertoireSchema,
+  type RepertoireScope,
 } from './repertoire';
 
 const issue = (r: {
@@ -190,6 +192,45 @@ describe('canViewRepertoire and canEditRepertoire (S3: the owner only)', () => {
     (rule) => {
       expect(rule({ id: 'Rokas' }, repertoire).ok).toBe(false);
       expect(rule({ id: '' }, { ownerId: '' }).ok).toBe(true);
+    },
+  );
+});
+
+describe('canUseScope (#278: view through any scope, edit only as the owner)', () => {
+  const own: RepertoireScope = { kind: 'own', ownerId: 'gabija' };
+  const shared: RepertoireScope = {
+    kind: 'shared',
+    coachId: 'rimantas',
+    playerId: 'gabija',
+  };
+  const assigned: RepertoireScope = { kind: 'assigned', playerId: 'rokas' };
+
+  it.each([own, shared, assigned])('lets $kind view', (scope) => {
+    expect(canUseScope(scope, 'view')).toEqual({ ok: true, value: undefined });
+  });
+
+  it('lets the owner edit', () => {
+    expect(canUseScope(own, 'edit')).toEqual({ ok: true, value: undefined });
+  });
+
+  it.each([shared, assigned])(
+    'refuses editing through $kind as not found (R-42; S5: read-only)',
+    (scope) => {
+      expect(canUseScope(scope, 'edit')).toEqual({
+        ok: false,
+        refusal: { reason: 'repertoire.notFound' },
+      });
+    },
+  );
+});
+
+describe('canViewRepertoire and canEditRepertoire are the own scope only', () => {
+  it.each([canViewRepertoire, canEditRepertoire])(
+    'refuse a coach it is shared with and a player it is assigned to',
+    (rule) => {
+      const repertoire = { ownerId: 'gabija' };
+      expect(rule({ id: 'rimantas' }, repertoire).ok).toBe(false);
+      expect(rule({ id: 'rokas' }, repertoire).ok).toBe(false);
     },
   );
 });

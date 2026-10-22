@@ -1,5 +1,5 @@
 // Reads the coaching repositories share. Internal to the package.
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql, type Column, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Executor, Tx } from './client';
 import { isUuid } from './ids';
@@ -52,6 +52,15 @@ export async function linkCount(
     await db.$count(coachLinks, eq(coachLinks.coachId, coachId)),
   );
 }
+
+/**
+ * A Coach link from the coach in `coach` to the player in `player` exists
+ * now, as SQL: the second line behind the link foreign keys wherever a
+ * share or an assignment reaches a player. Being a WHERE subquery, it locks
+ * nothing.
+ */
+export const linkExists = (coach: Column, player: Column): SQL =>
+  sql`exists (select 1 from ${coachLinks} where ${coachLinks.coachId} = ${coach} and ${coachLinks.playerId} = ${player})`;
 
 const linkIs = (coachId: string, playerId: string) =>
   and(eq(coachLinks.coachId, coachId), eq(coachLinks.playerId, playerId));

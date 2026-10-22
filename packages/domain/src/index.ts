@@ -140,6 +140,8 @@ export {
 } from './display-name';
 export {
   IMPORT_RATE_LIMIT,
+  MAGIC_LINK_RATE_LIMIT,
+  RATE_LIMIT_RETENTION_MS,
   countRequest,
   importRateKey,
   type RateRefusal,
@@ -154,6 +156,7 @@ export {
   REPERTOIRE_REFUSALS,
   canEditRepertoire,
   canKeepPersonalNotes,
+  canUseScope,
   canViewRepertoire,
   canWritePersonalNote,
   chapterNameSchema,
@@ -163,6 +166,8 @@ export {
   repertoireSchema,
   type Repertoire,
   type RepertoireAccessRefusal,
+  type RepertoirePurpose,
+  type RepertoireScope,
 } from './repertoire';
 export {
   COACH_NOTE_ISSUES,

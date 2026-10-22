@@ -20,6 +20,7 @@ import { z } from 'zod';
 import type { Executor, Tx } from './client';
 import { holdLink } from './coach-queries';
 import { isUuid } from './ids';
+import { repertoireScope } from './repertoires/scope';
 import { accounts, coachNotes, repertoireMoves, repertoires } from './schema';
 import { holdRepertoireOwner, sharedIds } from './share-scope';
 
@@ -212,7 +213,11 @@ export async function coachNotesOn(
   repertoireId: string,
 ): Promise<CoachNote[]> {
   if (!isUuid(repertoireId)) return [];
-  return notesWhere(db, repertoireId, eq(repertoires.ownerAccountId, ownerId));
+  return notesWhere(
+    db,
+    repertoireId,
+    repertoireScope(db, { kind: 'own', ownerId }, 'view'),
+  );
 }
 
 /** The coach's own notes on a repertoire shared with them (R-125); run inside the share's read. */

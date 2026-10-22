@@ -1,7 +1,8 @@
 /**
  * A Player's own repertoires shared with linked coaches (R-42). The domain
  * decides (canShare, canCoachSee); every coach-facing query enforces it
- * again through sharedTo (share-scope.ts), the one share predicate: a share
+ * again through the `shared` repertoireScope (repertoires/scope.ts), built
+ * on sharedTo (share-scope.ts), the one share predicate: a share
  * counts only for this coach and this player, and only through an active
  * Coach link (checklist 1-3). Nothing here reads personal_notes
  * (checklist 2). The notes on a share are in coach-notes.ts.
@@ -16,7 +17,7 @@ import {
   type Result,
   type ShareRefusal,
 } from '@mychess/domain';
-import { and, asc, eq, inArray, notInArray } from 'drizzle-orm';
+import { and, asc, eq, notInArray } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Executor, Tx } from './client';
 import { holdLink } from './coach-queries';
@@ -26,8 +27,13 @@ import {
   loadRepertoireRows,
   type LoadedRepertoire,
 } from './repertoires/repository';
+import { repertoireScope } from './repertoires/scope';
 import { accounts, repertoireShares, repertoires } from './schema';
-import { holdRepertoireOwner, sharedIds, sharedTo } from './share-scope';
+import { holdRepertoireOwner, sharedIds } from './share-scope';
+
+/** The `shared` scope: `playerId`'s repertoires shared with `coachId`. */
+const shared = (coachId: string, playerId: string) =>
+  ({ kind: 'shared', coachId, playerId }) as const;
 
 /** A share's three parts. */
 export interface ShareTarget {
@@ -236,9 +242,8 @@ export async function sharedWithCoach(
         name: repertoires.name,
         side: repertoires.side,
       })
-      .from(repertoireShares)
-      .innerJoin(repertoires, eq(repertoires.id, repertoireShares.repertoireId))
-      .where(sharedTo(coachId, playerId))
+      .from(repertoires)
+      .where(repertoireScope(db, shared(coachId, playerId), 'view'))
       .orderBy(asc(repertoires.name), asc(repertoires.id)),
   );
 }
@@ -272,18 +277,9 @@ export async function sharedRepertoireForCoach(
   if (!isUuid(repertoireId)) return undefined;
   return db.transaction(
     async (tx) => {
-      const shared = tx
-        .select({ id: repertoireShares.repertoireId })
-        .from(repertoireShares)
-        .where(
-          and(
-            sharedTo(coachId, playerId),
-            eq(repertoireShares.repertoireId, repertoireId),
-          ),
-        );
       const loaded = await loadRepertoireRows(
         tx,
-        inArray(repertoires.id, shared),
+        repertoireScope(tx, shared(coachId, playerId), 'view', repertoireId),
       );
       if (loaded === undefined) return undefined;
       return {

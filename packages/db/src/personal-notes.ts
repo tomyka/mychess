@@ -25,10 +25,10 @@ import {
 } from '@mychess/domain';
 import { and, eq, or, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
-import { holdAssignment, liveRepertoire } from './assignments/reach';
+import { holdAssignment } from './assignments/reach';
 import type { Executor, Tx } from './client';
 import { isUuid } from './ids';
-import { ownedBy } from './repertoires/repository';
+import { repertoireScope } from './repertoires/scope';
 import { personalNotes, repertoireMoves, repertoires } from './schema';
 
 export interface PersonalNoteInput {
@@ -44,10 +44,13 @@ type NoteAccess = Result<undefined, RepertoireAccessRefusal>;
 
 const NOT_FOUND = refuse(REPERTOIRE_REFUSALS.notFound);
 
+/** The `own` scope of `playerId`. */
+const own = (playerId: string) => ({ kind: 'own', ownerId: playerId }) as const;
+
 /**
- * The repertoires `playerId` keeps notes on, as SQL: their own, or one an
- * assignment reaches them through live. canKeepPersonalNotes is the rule,
- * this filter enforces it again.
+ * The repertoires `playerId` keeps notes on, as SQL: their own, or one
+ * assigned to them live (the `own` and `assigned` scopes).
+ * canKeepPersonalNotes is the rule, this filter enforces it again.
  */
 const notesAllowedFor = (
   db: Executor,
@@ -55,8 +58,8 @@ const notesAllowedFor = (
   repertoireId: string,
 ): SQL | undefined =>
   or(
-    ownedBy(repertoireId, playerId),
-    liveRepertoire(db, playerId, repertoireId),
+    repertoireScope(db, own(playerId), 'view', repertoireId),
+    repertoireScope(db, { kind: 'assigned', playerId }, 'view', repertoireId),
   );
 
 const ownerRowsSchema = z.array(z.object({ ownerId: z.string() }));
@@ -74,15 +77,15 @@ async function holdNotesAccess(
 ): Promise<
   { ownerId: string; facts: AssignmentFacts | undefined } | undefined
 > {
-  const [own] = ownerRowsSchema.parse(
+  const [owned] = ownerRowsSchema.parse(
     await tx
       .select({ ownerId: repertoires.ownerAccountId })
       .from(repertoires)
-      .where(ownedBy(repertoireId, playerId))
+      .where(repertoireScope(tx, own(playerId), 'view', repertoireId))
       .for('key share'),
   );
   // Their own repertoire: no assignment is needed, so none is read.
-  if (own !== undefined) return { ownerId: own.ownerId, facts: undefined };
+  if (owned !== undefined) return { ownerId: owned.ownerId, facts: undefined };
   const facts = await holdAssignment(tx, { playerId, repertoireId });
   const [row] = ownerRowsSchema.parse(
     await tx

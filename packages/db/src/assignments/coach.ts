@@ -23,7 +23,8 @@ import { z } from 'zod';
 import { assignments } from '../assignment-schema';
 import type { Executor } from '../client';
 import { isUuid } from '../ids';
-import { loadRepertoireRows, ownedBy } from '../repertoires/repository';
+import { loadRepertoireRows } from '../repertoires/repository';
+import { repertoireScope } from '../repertoires/scope';
 import { accounts, groups, repertoires } from '../schema';
 import { namesOf } from './names';
 import { NOTHING_LEARNED } from './player';
@@ -59,11 +60,11 @@ export interface CoachAssignment {
 }
 
 /** The coach's assignments of their own repertoire, as SQL. */
-const ofCoach = (coachId: string, repertoireId: string) =>
+const ofCoach = (db: Executor, coachId: string, repertoireId: string) =>
   and(
     eq(assignments.coachId, coachId),
     eq(assignments.repertoireId, repertoireId),
-    eq(repertoires.ownerAccountId, coachId),
+    repertoireScope(db, { kind: 'own', ownerId: coachId }, 'view'),
   );
 
 const rowsSchema = z.array(
@@ -98,7 +99,7 @@ async function rowsOf(
       .innerJoin(repertoires, eq(repertoires.id, assignments.repertoireId))
       .leftJoin(accounts, eq(accounts.id, assignments.playerId))
       .leftJoin(groups, eq(groups.id, assignments.groupId))
-      .where(ofCoach(coachId, repertoireId))
+      .where(ofCoach(db, coachId, repertoireId))
       .orderBy(asc(assignments.createdAt), asc(assignments.id)),
   );
 }
@@ -179,7 +180,15 @@ export function coachAssignments(
 ): Promise<CoachAssignment[]> {
   if (!isUuid(repertoireId)) return Promise.resolve([]);
   return db.transaction(async (tx) => {
-    const loaded = await loadRepertoireRows(tx, ownedBy(repertoireId, coachId));
+    const loaded = await loadRepertoireRows(
+      tx,
+      repertoireScope(
+        tx,
+        { kind: 'own', ownerId: coachId },
+        'view',
+        repertoireId,
+      ),
+    );
     if (
       loaded === undefined ||
       !canViewRepertoire({ id: coachId }, loaded.repertoire).ok

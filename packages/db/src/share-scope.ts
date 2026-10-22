@@ -1,13 +1,15 @@
 /**
  * The one share predicate and the reads built on it (issue #278): which
- * shares a coach may use, held or not. shares.ts and coach-notes.ts use
- * these; nothing else spells the share condition. Internal to the package.
+ * shares a coach may use, held or not. repertoires/scope.ts, shares.ts and
+ * coach-notes.ts use these; nothing else spells the share condition.
+ * Internal to the package.
  */
-import { and, eq, sql, type SQL } from 'drizzle-orm';
+import { and, eq, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Executor, Tx } from './client';
+import { linkExists } from './coach-queries';
 import { isUuid } from './ids';
-import { coachLinks, repertoireShares, repertoires } from './schema';
+import { repertoireShares, repertoires } from './schema';
 
 /**
  * The shares `coachId` may use of `playerId`'s repertoires: theirs, to this
@@ -18,7 +20,7 @@ export const sharedTo = (coachId: string, playerId: string): SQL | undefined =>
   and(
     eq(repertoireShares.coachId, coachId),
     eq(repertoireShares.playerId, playerId),
-    sql`exists (select 1 from ${coachLinks} where ${coachLinks.coachId} = ${repertoireShares.coachId} and ${coachLinks.playerId} = ${repertoireShares.playerId})`,
+    linkExists(repertoireShares.coachId, repertoireShares.playerId),
   );
 
 const ownerRowsSchema = z.array(z.object({ ownerId: z.string().min(1) }));

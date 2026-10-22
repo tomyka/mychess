@@ -36,9 +36,9 @@ import type { SelectedFields } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 import type { Executor, Tx } from '../client';
 import { assignmentPlayers, assignments } from '../assignment-schema';
-import { playerRowsSchema } from '../coach-queries';
+import { linkExists, playerRowsSchema } from '../coach-queries';
 import { isUuid } from '../ids';
-import { coachLinks, groupMembers, repertoires } from '../schema';
+import { groupMembers, repertoires } from '../schema';
 import { inIds, inPairs, pairKey, uniquePairs } from './pairs';
 
 /**
@@ -63,8 +63,7 @@ export interface ReachTarget {
 type PlayerFilter = (player: Column) => SQL | undefined;
 
 /** The coach of the row is linked to `player` (the second line). */
-const linked = (player: Column): SQL =>
-  sql`exists (select 1 from ${coachLinks} where ${coachLinks.coachId} = ${assignments.coachId} and ${coachLinks.playerId} = ${player})`;
+const linked = (player: Column): SQL => linkExists(assignments.coachId, player);
 
 /** A player row reaching the players `filter` keeps. */
 const ownRowReaching = (filter: PlayerFilter): SQL | undefined =>
@@ -308,14 +307,18 @@ export async function holdAssignment(
 /**
  * Repertoire `repertoireId` if it is live for `playerId`, as a filter on
  * `repertoires.id` (R-16, R-128): the query-level line beside
- * canUseAssignment.
+ * canUseAssignment. Without `repertoireId`, every repertoire live for them.
  */
 export function liveRepertoire(
   db: Executor,
   playerId: string,
-  repertoireId: string,
+  repertoireId?: string,
 ): SQL | undefined {
-  const filter = inScope({ playerIds: [playerId], repertoireId });
+  const filter = inScope(
+    repertoireId === undefined
+      ? { playerIds: [playerId] }
+      : { playerIds: [playerId], repertoireId },
+  );
   const id = { id: assignments.repertoireId };
   const own = ownReach(db, id, filter);
   const viaGroups = groupReach(db, id, filter);
@@ -329,7 +332,7 @@ export function liveRepertoire(
       ),
     );
   return and(
-    eq(repertoires.id, repertoireId),
+    repertoireId === undefined ? undefined : eq(repertoires.id, repertoireId),
     or(inArray(repertoires.id, own), inArray(repertoires.id, viaGroups)),
     notInArray(repertoires.id, forked),
   );

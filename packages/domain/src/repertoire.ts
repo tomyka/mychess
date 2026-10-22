@@ -89,8 +89,46 @@ const owns = (
 ) => viewer.id === repertoire.ownerId;
 
 /**
- * Who may see a repertoire. S3: its owner only (R-39: own repertoires are
- * private). S4 adds a coach it is shared with; S5 adds assigned ones.
+ * How an account reaches a repertoire (Q26, R-39), one kind per way:
+ *
+ * - `own`: the owner's own repertoire, private unless shared (R-39);
+ * - `shared`: a player's repertoire shared with a linked coach (R-42),
+ *   decided by canCoachSee;
+ * - `assigned`: a coach's repertoire live for a player it is assigned to
+ *   (R-16, R-128), decided by canUseAssignment.
+ *
+ * Each kind is one query filter in @mychess/db (repertoireScope), so the
+ * query enforces again what the domain decides, and each is written once.
+ */
+export type RepertoireScope =
+  | { readonly kind: 'own'; readonly ownerId: string }
+  | {
+      readonly kind: 'shared';
+      readonly coachId: string;
+      readonly playerId: string;
+    }
+  | { readonly kind: 'assigned'; readonly playerId: string };
+
+/** What an account does with a repertoire it reaches. */
+export type RepertoirePurpose = 'view' | 'edit';
+
+/**
+ * What a scope allows: viewing through any, editing only through `own`. A
+ * shared repertoire is read-only for its coach (R-42) and an assigned one
+ * for its player (S5 spec: the assigned view is read-only; their own copy
+ * is a fork, R-43). Anything else reads as not found.
+ */
+export function canUseScope(
+  scope: RepertoireScope,
+  purpose: RepertoirePurpose,
+): RepertoireAccess {
+  return purpose === 'view' || scope.kind === 'own' ? ok() : NOT_FOUND;
+}
+
+/**
+ * May `viewer` see the repertoire as its owner (the `own` scope)? Only the
+ * owner (R-39). A coach sees a shared one through canCoachSee and a player
+ * an assigned one through canUseAssignment, never through this rule.
  */
 export function canViewRepertoire(
   viewer: Pick<Account, 'id'>,
@@ -131,7 +169,10 @@ export function canWritePersonalNote(
     : NOT_FOUND;
 }
 
-/** Who may change a repertoire's moves, chapters and comments. S3: its owner only. */
+/**
+ * Who may change a repertoire's moves, chapters and comments: its owner
+ * only, as no other scope edits (canUseScope).
+ */
 export function canEditRepertoire(
   viewer: Pick<Account, 'id'>,
   repertoire: Pick<Repertoire, 'ownerId'>,
