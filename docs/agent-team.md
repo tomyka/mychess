@@ -115,8 +115,7 @@ Three to five teammates at a time; each one costs tokens.
   at once. A teammate runs only its own package's tests (for example
   `pnpm --filter @mychess/db test`); the lead runs `node quality/gate.mjs
   check` once before each commit. Nobody runs `node quality/gate.mjs
-  mutation` locally: CI mutation-tests every push and runs the full set
-  nightly.
+  mutation` unless the owner asks: mutation testing is off (#295).
 - **Only the lead commits and pushes.** Work lands on `main` (trunk-based).
   A teammate reports the files it changed, the commands it ran and their
   results.

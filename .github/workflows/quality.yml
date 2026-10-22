@@ -3,16 +3,14 @@ name: quality
 # The one workflow for every push to main and every pull request (#261): it
 # runs `node quality/gate.mjs check` (format, lint, strict typecheck,
 # markers, every vitest project with coverage incl. the db suite, CRAP, dead
-# code, architecture) and `pnpm build`; each also mutation-tests the source it
-# changes (a pull request against its base branch, a push against the commit
-# before it). The full mutation run runs every night at 02:17 UTC, and by
-# hand on a dispatch with mutation_full checked.
+# code, architecture) and `pnpm build`. Mutation testing does not run in CI (#295, owner
+# 2026-10-23); `node quality/gate.mjs mutation` runs it locally.
 #
 # Run-time notes:
 # - The check job needs Docker: the db vitest project starts its test
 #   Postgres with Testcontainers; ubuntu-latest has it. Node is .nvmrc's.
 # - A newer push to the same ref cancels the running check: it only tests
-#   stale code. The nightly mutation jobs are not in that group.
+#   stale code.
 # - gate.mjs runs one gate at a time per working tree (quality/lock.mjs, the
 #   pid in node_modules/.cache/ts-quality/gate.lock): a second run waits up
 #   to QUALITY_GATE_LOCK_WAIT_MIN minutes (default 30), and a lock whose pid
@@ -25,13 +23,6 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
-    inputs:
-      mutation_full:
-        description: 'Also run the full mutation run'
-        type: boolean
-        default: false
-  schedule:
-    - cron: '17 2 * * *'
 
 permissions:
   contents: read
@@ -65,22 +56,6 @@ jobs:
         run: node quality/gate.mjs check
       - name: Build
         run: pnpm build
-      - name: Mutation testing of changed files (pull requests)
-        if: github.event_name == 'pull_request'
-        run: node quality/gate.mjs mutation --branch
-      # A push to main mutation-tests what it changed since the commit before
-      # it. A first push of the branch has no such commit (all zeros) and a
-      # force push may have dropped it; the nightly full run covers both.
-      - name: Mutation testing of changed files (pushes)
-        if: github.event_name == 'push'
-        env:
-          BEFORE: ${{ github.event.before }}
-        run: |
-          if git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-            node quality/gate.mjs mutation --branch --base "$BEFORE"
-          else
-            echo "::notice::No commit before this push ($BEFORE); the nightly full mutation run covers it."
-          fi
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -164,149 +139,3 @@ jobs:
   # database (pnpm --filter @mychess/db build, then node
   # packages/db/dist/migrate.mjs with DATABASE_URL from a secret), deploys
   # the web app, then smoke-tests the deployed URL.
-
-  # The full mutation run: nightly, or by hand with the mutation_full input;
-  # a plain dispatch runs only the check job.
-  #
-  # It runs in shards, one matrix job each: mutation-plan reads the count
-  # (quality.config.json mutation.fullShards), every shard splits the source
-  # files the same way (gate.mjs --shard i/N: Stryker's instrumenter counts
-  # each file's mutants, each is priced by what that file's mutants cost last
-  # run, and the heaviest file goes to the lightest shard) and mutation-tests
-  # its own, and mutation-merge merges their reports, checks the total against
-  # breakFull and saves the profile the next split prices by.
-  #
-  # Each shard keeps Stryker's incremental file in the Actions cache, so a
-  # night re-tests only what changed. The key starts afresh every ISO week and
-  # whenever the lockfile or a test or mutation config changes: Stryker's
-  # incremental mode does not see those, nor a change in one source file that
-  # alters how another file's mutants are tested, so at worst a result is a
-  # week old.
-  mutation-plan:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mutation_full)
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      shards: ${{ steps.plan.outputs.shards }}
-      total: ${{ steps.plan.outputs.total }}
-      week: ${{ steps.plan.outputs.week }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          sparse-checkout: quality/quality.config.json
-          sparse-checkout-cone-mode: false
-          persist-credentials: false
-      # The week is read once, so a run past Sunday midnight keeps one key.
-      - id: plan
-        run: |
-          total=$(node -p "require('./quality/quality.config.json').mutation.fullShards")
-          echo "total=$total" >> "$GITHUB_OUTPUT"
-          echo "shards=$(node -p "JSON.stringify(Array.from({ length: $total }, (_, i) => i + 1))")" >> "$GITHUB_OUTPUT"
-          echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
-      # The split weighs each file by what its mutants cost last time
-      # (reports/mutation-profile.json, written by mutation-merge). It is
-      # restored once here and handed to every shard as an artifact, so all
-      # shards split by the same profile even if a newer one is saved while
-      # this run is going. With none yet, an empty one.
-      - name: Restore the previous run's mutant profile
-        uses: actions/cache/restore@v6
-        with:
-          path: reports/mutation-profile.json
-          key: mutation-profile-${{ github.run_id }}
-          restore-keys: mutation-profile-
-      - run: mkdir -p reports && { test -f reports/mutation-profile.json || echo '{"files":{}}' > reports/mutation-profile.json; }
-      - uses: actions/upload-artifact@v7
-        with:
-          name: mutation-profile
-          path: reports/mutation-profile.json
-
-  mutation-full:
-    needs: mutation-plan
-    runs-on: ubuntu-latest
-    timeout-minutes: 360
-    strategy:
-      # Every shard runs to the end, so one slow shard costs only itself.
-      fail-fast: false
-      matrix:
-        shard: ${{ fromJSON(needs.mutation-plan.outputs.shards) }}
-    env:
-      SHARD: ${{ matrix.shard }}/${{ needs.mutation-plan.outputs.total }}
-      SHARD_NAME: shard-${{ matrix.shard }}-of-${{ needs.mutation-plan.outputs.total }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      # Before the install, so hashFiles does not walk node_modules. Saved
-      # when the shard succeeds, under this run's key; restored from the
-      # newest key of this shard, week and configuration.
-      - name: Restore this shard's incremental results
-        uses: actions/cache@v6
-        with:
-          path: reports/stryker-incremental-${{ env.SHARD_NAME }}.json
-          key: mutation-incremental-${{ needs.mutation-plan.outputs.week }}-${{ hashFiles('pnpm-lock.yaml', 'stryker.config.mjs', '**/vitest*.config.ts', 'quality/quality.config.json') }}-${{ env.SHARD_NAME }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            mutation-incremental-${{ needs.mutation-plan.outputs.week }}-${{ hashFiles('pnpm-lock.yaml', 'stryker.config.mjs', '**/vitest*.config.ts', 'quality/quality.config.json') }}-${{ env.SHARD_NAME }}-
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - uses: actions/download-artifact@v8
-        with:
-          name: mutation-profile
-          path: reports
-      # Stryker's progress streams to this log (a line every 10 seconds).
-      - name: Full mutation run, this shard
-        run: node quality/gate.mjs mutation --full --shard "$SHARD"
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: mutation-${{ env.SHARD_NAME }}
-          path: reports/mutation-shards/${{ env.SHARD_NAME }}.json
-          # A missing shard report fails the merge, which names it.
-          if-no-files-found: ignore
-
-  # Runs when a shard failed too, to say which shard reports are missing.
-  mutation-merge:
-    needs: [mutation-plan, mutation-full]
-    if: ${{ !cancelled() && needs.mutation-plan.result == 'success' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      # For the report page: mutation-testing-elements, from Stryker.
-      - run: pnpm install --frozen-lockfile
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: mutation-shard-*
-          path: reports/mutation-shards
-          merge-multiple: true
-      # The profile this run split by: the merge updates it from the shards'
-      # reports (a failed shard's files keep their entries) before it checks
-      # anything, and it is saved even when the score or a shard fails.
-      - uses: actions/download-artifact@v8
-        with:
-          name: mutation-profile
-          path: reports
-      - name: Merge the shards and check the total
-        run: node quality/gate.mjs mutation --merge
-      - name: Save the mutant profile for the next run's split
-        if: always() && hashFiles('reports/mutation-profile.json') != ''
-        uses: actions/cache/save@v6
-        with:
-          path: reports/mutation-profile.json
-          key: mutation-profile-${{ github.run_id }}-${{ github.run_attempt }}
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: mutation-report
-          path: reports/mutation/
-          if-no-files-found: ignore

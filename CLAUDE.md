@@ -79,10 +79,10 @@ details.
   what is left.
 - When you finish, the Stop hook runs the fast gate: format, lint, strict
   typecheck, suppression markers, tests with coverage thresholds, CRAP, dead
-  code (knip) and architecture (dependency-cruiser). Mutation testing runs in
-  CI, not in the Stop hook.
-- CI (`.github/workflows/quality.yml`) runs the gate plus mutation of changed
-  files on every push, and the full sharded mutation run nightly.
+  code (knip) and architecture (dependency-cruiser).
+- CI (`.github/workflows/quality.yml`) runs the gate and the build on every
+  push. Mutation testing runs nowhere automatically (owner, #295); run it by
+  hand with `node quality/gate.mjs mutation`.
 
 Rules:
 
