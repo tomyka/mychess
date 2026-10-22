@@ -1,11 +1,11 @@
-import { moveKey, removeMove, START_KEY } from '@mychess/chess';
+import { moveKey, START_KEY } from '@mychess/chess';
 import { REPERTOIRE_REFUSALS } from '@mychess/domain';
 import { describe, expect, it } from 'vitest';
 import {
   createRepertoire,
   deleteRepertoire,
+  editRepertoire,
   listPersonalNotes,
-  saveRepertoireEdit,
   setPersonalNote,
 } from '../src';
 import { useTestDatabase } from '../src/testing';
@@ -139,18 +139,22 @@ describe('setPersonalNote and listPersonalNotes', () => {
   it('keeps a note when its move is removed, and drops it with the repertoire', async () => {
     const id = await london();
     await note('rokas', id, 'Nepamiršti');
-    const before = graphOf(LONDON);
-    const without1 = removeMove(before, 'c1', START_KEY, 'd4');
-    if (!without1.ok) throw new Error(without1.refusal.reason);
-    const without = removeMove(without1.value, 'c2', START_KEY, 'd4');
-    if (!without.ok) throw new Error(without.refusal.reason);
-    await saveRepertoireEdit(db, {
-      id,
-      ownerId: 'rokas',
-      expectedVersion: 1,
-      after: without.value,
-      now: T1,
-    });
+    for (const [chapterId, expectedVersion] of [
+      ['c1', 1],
+      ['c2', 2],
+    ] as const)
+      expect(
+        await editRepertoire(db, {
+          id,
+          viewer: { id: 'rokas' },
+          expectedVersion,
+          change: {
+            kind: 'edit',
+            op: { kind: 'removeMove', chapterId, from: START_KEY, san: 'd4' },
+          },
+          now: T1,
+        }),
+      ).toMatchObject({ ok: true });
     expect(
       (await client.query('select count(*)::int as n from repertoire_moves'))
         .rows,

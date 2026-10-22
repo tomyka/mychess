@@ -9,6 +9,7 @@ import {
   REPERTOIRE_NAME_MAX,
   REPERTOIRE_REFUSALS,
   canEditRepertoire,
+  canEditRepertoireAt,
   canKeepPersonalNotes,
   canUseScope,
   canViewRepertoire,
@@ -197,6 +198,29 @@ describe('canViewRepertoire and canEditRepertoire (S3: the owner only)', () => {
       expect(rule({ id: '' }, { ownerId: '' }).ok).toBe(true);
     },
   );
+});
+
+describe('canEditRepertoireAt (#276: the owner first, then the version)', () => {
+  const repertoire = { ownerId: 'rokas', version: 3 };
+  const stale = { ok: false, refusal: { reason: 'repertoire.stale' } };
+  const notFound = { ok: false, refusal: { reason: 'repertoire.notFound' } };
+
+  it.each([
+    ['the owner at the version', 'rokas', 3, { ok: true, value: undefined }],
+    ['the owner at an older version', 'rokas', 2, stale],
+    ['the owner at a newer version', 'rokas', 4, stale],
+    ['another account at the version', 'rimantas', 3, notFound],
+    [
+      'another account at a wrong version (no version leaks)',
+      'rimantas',
+      2,
+      notFound,
+    ],
+  ])('%s', (_case, viewer, expectedVersion, expected) => {
+    expect(
+      canEditRepertoireAt({ id: viewer }, repertoire, expectedVersion),
+    ).toEqual(expected);
+  });
 });
 
 describe('the scope builders (#278: one spelling per scope)', () => {

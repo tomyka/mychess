@@ -161,6 +161,7 @@ export {
   REPERTOIRE_NAME_MAX,
   REPERTOIRE_REFUSALS,
   canEditRepertoire,
+  canEditRepertoireAt,
   canKeepPersonalNotes,
   canUseScope,
   canViewRepertoire,
@@ -177,6 +178,7 @@ export {
   type RepertoireAccessRefusal,
   type RepertoirePurpose,
   type RepertoireScope,
+  type RepertoireStaleRefusal,
 } from './repertoire';
 export {
   COACH_NOTE_ISSUES,
@@ -194,6 +196,8 @@ export {
 export {
   CLIENT_OAUTH_FIELDS,
   FRESH_AGE_SECONDS,
+  GOOGLE,
+  LICHESS,
   PROVIDERS,
   SIGN_IN_REFUSALS,
   canLinkProvider,

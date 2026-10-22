@@ -95,8 +95,11 @@ export async function createRepertoire(
   });
 }
 
-/** The graph of repertoire `id` (its access already checked), read on `tx`. */
-async function graphRows(
+/**
+ * The graph of repertoire `id` (its access already checked), read on `tx`.
+ * Package-internal.
+ */
+export async function graphRows(
   tx: Executor,
   id: string,
   side: Side,
@@ -139,6 +142,27 @@ async function graphRows(
       .where(eq(moveChapters.repertoireId, id)),
   );
   return graphOf(side, chapterRows, moveRows, links);
+}
+
+/**
+ * The one repertoire `where` selects, without its graph, locked FOR NO KEY
+ * UPDATE until `tx` ends, or undefined. The strength an UPDATE of the row's
+ * version takes: an edit waits for a fork's FOR SHARE read and for a delete,
+ * and never for an assign's or a personal note's FOR KEY SHARE (#276
+ * decision 2). `where` is the access filter, a repertoireScope (scope.ts).
+ * Package-internal.
+ */
+export async function lockForEdit(
+  tx: Executor,
+  where: SQL | undefined,
+): Promise<Repertoire | undefined> {
+  const [row] = await tx
+    .select(metaColumns)
+    .from(repertoires)
+    .where(where)
+    .limit(1)
+    .for('no key update');
+  return row === undefined ? undefined : repertoireSchema.parse(row);
 }
 
 /**

@@ -1,5 +1,4 @@
 import {
-  addMove,
   fenOf,
   moveKey,
   START_KEY,
@@ -15,6 +14,7 @@ import {
   declineForkOffer,
   deleteAccount,
   deleteRepertoire,
+  editRepertoire,
   exportAccount,
   forkAssignment,
   forkCoachNotesOn,
@@ -23,7 +23,6 @@ import {
   openForkOffers,
   pauseAssignment,
   playerAssignments,
-  saveRepertoireEdit,
   setPersonalNote,
   trainingRepertoires,
   unassign,
@@ -306,13 +305,16 @@ describe('acceptForkOffer', () => {
     ).toEqual(OK);
     const { repertoire, graph } = must(await loadRepertoire(db, rep, 'c'));
     const nf6 = must(graph.moves.find((m) => m.san === 'Nf6'));
-    const edited = addMove(graph, must(graph.chapters[0]).id, nf6.to, 'e3');
+    const chapterId = must(graph.chapters[0]).id;
     expect(
-      await saveRepertoireEdit(db, {
+      await editRepertoire(db, {
         id: rep,
-        ownerId: 'c',
+        viewer: { id: 'c' },
         expectedVersion: repertoire.version,
-        after: must(edited.ok ? edited.value : undefined),
+        change: {
+          kind: 'edit',
+          op: { kind: 'addMove', chapterId, from: nf6.to, san: 'e3' },
+        },
         now: NOW,
       }),
     ).toMatchObject({ ok: true });

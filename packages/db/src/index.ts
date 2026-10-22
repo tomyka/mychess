@@ -131,6 +131,12 @@ export {
 export { countRateLimited, pruneRateLimits } from './rate-limits';
 export { deleteRepertoire } from './repertoires/delete';
 export {
+  editRepertoire,
+  type EditedRepertoire,
+  type EditRepertoireRefusal,
+  type RepertoireEditRequest,
+} from './repertoires/edit';
+export {
   createRepertoire,
   listRepertoires,
   loadRepertoire,

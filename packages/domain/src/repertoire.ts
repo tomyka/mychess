@@ -188,3 +188,25 @@ export function canWritePersonalNote(
  * only, as no other scope edits (canUseScope).
  */
 export const canEditRepertoire: typeof ownerOnly = ownerOnly;
+
+/** An edit computed from a version the repertoire has moved past (S3 decision 6). */
+export interface RepertoireStaleRefusal {
+  readonly reason: typeof REPERTOIRE_REFUSALS.stale;
+}
+
+/**
+ * May `viewer` save an edit computed from `expectedVersion`? The owner
+ * first (canEditRepertoire, decision 12), so a stranger never learns the
+ * version; then the version (S3 decision 6).
+ */
+export function canEditRepertoireAt(
+  viewer: Pick<Account, 'id'>,
+  repertoire: Pick<Repertoire, 'ownerId' | 'version'>,
+  expectedVersion: number,
+): Result<undefined, RepertoireAccessRefusal | RepertoireStaleRefusal> {
+  const allowed = canEditRepertoire(viewer, repertoire);
+  if (!allowed.ok) return allowed;
+  return repertoire.version === expectedVersion
+    ? ok()
+    : refuse(REPERTOIRE_REFUSALS.stale);
+}

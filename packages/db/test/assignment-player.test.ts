@@ -1,8 +1,6 @@
 import {
-  addMove,
-  editComment,
   moveKey,
-  removeMove,
+  type EditOp,
   type RepertoireGraph,
   type RepertoireMove,
 } from '@mychess/chess';
@@ -13,6 +11,7 @@ import {
   assignedRepertoireForPlayer,
   changesSince,
   createRepertoire,
+  editRepertoire,
   listPersonalNotes,
   loadRepertoire,
   markSeen,
@@ -20,7 +19,6 @@ import {
   pauseAssignment,
   playerAssignments,
   removeMember,
-  saveRepertoireEdit,
   setAssignedPersonalNote,
   setPersonalNote,
   trainingRepertoires,
@@ -90,20 +88,17 @@ async function assignTo(
 const coachCopy = async (): Promise<LoadedRepertoire> =>
   must(await loadRepertoire(db, rep, 'c'));
 
-type Edit = (graph: RepertoireGraph) => {
-  ok: boolean;
-  value?: RepertoireGraph;
-};
+/** A builder edit of R, built from its stored graph. */
+type Edit = (graph: RepertoireGraph) => EditOp;
 
 /** The coach saves `edit` of R on top of the stored version, at `now`. */
 async function coachEdit(edit: Edit, now = LATER): Promise<void> {
   const { repertoire, graph } = await coachCopy();
-  const after = must(edit(graph).value);
-  const saved = await saveRepertoireEdit(db, {
+  const saved = await editRepertoire(db, {
     id: rep,
-    ownerId: 'c',
+    viewer: { id: 'c' },
     expectedVersion: repertoire.version,
-    after,
+    change: { kind: 'edit', op: edit(graph) },
     now,
   });
   expect(saved.ok).toBe(true);
@@ -115,18 +110,37 @@ const chapterOf = (graph: RepertoireGraph): string =>
   must(graph.chapters[0]).id;
 
 /** Adds 3. e3 after 2... Nf6: a new player move. */
-const addE3: Edit = (graph) =>
-  addMove(graph, chapterOf(graph), moveOf(graph, 'Nf6').to, 'e3');
-const removeE3: Edit = (graph) =>
-  removeMove(graph, chapterOf(graph), moveOf(graph, 'e3').from, 'e3');
+const addE3: Edit = (graph) => ({
+  kind: 'addMove',
+  chapterId: chapterOf(graph),
+  from: moveOf(graph, 'Nf6').to,
+  san: 'e3',
+});
+const removeE3: Edit = (graph) => ({
+  kind: 'removeMove',
+  chapterId: chapterOf(graph),
+  from: moveOf(graph, 'e3').from,
+  san: 'e3',
+});
 /** Removes 2. Bf4 and the moves after it. */
-const removeBf4: Edit = (graph) =>
-  removeMove(graph, chapterOf(graph), moveOf(graph, 'Bf4').from, 'Bf4');
+const removeBf4: Edit = (graph) => ({
+  kind: 'removeMove',
+  chapterId: chapterOf(graph),
+  from: moveOf(graph, 'Bf4').from,
+  san: 'Bf4',
+});
 /** Adds 2. c4 where 2. Bf4 was: one answer per position (after removeBf4). */
-const addC4: Edit = (graph) =>
-  addMove(graph, chapterOf(graph), moveOf(graph, 'd5').to, 'c4');
-const commentD4: Edit = (graph) =>
-  editComment(graph, moveKey(moveOf(graph, 'd4').from, 'd4'), 'Pakeista');
+const addC4: Edit = (graph) => ({
+  kind: 'addMove',
+  chapterId: chapterOf(graph),
+  from: moveOf(graph, 'd5').to,
+  san: 'c4',
+});
+const commentD4: Edit = (graph) => ({
+  kind: 'editComment',
+  moveKey: moveKey(moveOf(graph, 'd4').from, 'd4'),
+  comment: 'Pakeista',
+});
 
 const forkFor = (playerId: string, repertoireId = rep) =>
   db
@@ -675,7 +689,8 @@ describe('changesSince', () => {
     await coachEdit(addE3);
     // Removing 2. Bf4 takes 3. e3 with it: added then removed, no change.
     await coachEdit(removeBf4);
-    await coachEdit((graph) => commentD4(must(addC4(graph).value)));
+    await coachEdit(addC4);
+    await coachEdit(commentD4);
     const { graph } = await coachCopy();
     const chapter = must(graph.chapters[0]);
     const before = graphOf(PGN);
