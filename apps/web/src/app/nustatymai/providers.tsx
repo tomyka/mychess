@@ -1,10 +1,11 @@
 'use client';
 
+import type { Provider } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useId, useState, type JSX, type ReactNode } from 'react';
 import { authClient } from '../../lib/auth-client';
-import { offeredProviders, type Provider } from '../../lib/providers';
+import { offeredProviders } from '../../lib/providers';
 import { ROUTES } from '../../lib/routes';
 import { linkErrorKey, type LinkErrorKey } from '../../lib/sign-in-errors';
 import type { ProviderLink } from '../../server/provider-links';

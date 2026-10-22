@@ -1,12 +1,16 @@
 import { findAccountById } from '@mychess/db';
-import { isDisabled, isOnboarded, type Account } from '@mychess/domain';
+import {
+  isDisabled,
+  isFreshSession,
+  isOnboarded,
+  type Account,
+} from '@mychess/domain';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
 import { ROUTES } from '../lib/routes';
 import { getAuth } from './auth';
 import { getDb } from './db';
-import { isFreshSession } from './session-freshness';
 
 /**
  * This request's session, or null (one lookup per request). The request's
@@ -47,6 +51,7 @@ export async function requireOnboarded(): Promise<Account> {
 export async function hasFreshSession(): Promise<boolean> {
   const session = await getSession();
   return (
-    session !== null && isFreshSession(new Date(session.session.createdAt))
+    session !== null &&
+    isFreshSession(new Date(session.session.createdAt), new Date())
   );
 }

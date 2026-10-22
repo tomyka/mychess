@@ -1,5 +1,8 @@
 import { timingSafeEqual } from 'node:crypto';
-import { canonicalEmail } from '@mychess/domain';
+import {
+  personaEmail as canonicalPersonaEmail,
+  personaSignInAvailable,
+} from '@mychess/domain';
 import type { BetterAuthPlugin } from 'better-auth';
 import { APIError, createAuthEndpoint } from 'better-auth/api';
 import { setSessionCookie } from 'better-auth/cookies';
@@ -16,24 +19,25 @@ import type { WebEnv } from './env';
 
 type SwitchEnv = Pick<WebEnv, 'MYCHESS_ENV' | 'MYCHESS_TEST_SIGNIN'>;
 
-/** The only domain the persona sign-in accepts (docs/personas/). */
-const PERSONA_DOMAIN = '@mychess.test';
-
-const NOT_A_PERSONA = 'testSignIn.notAPersona';
-
-/** A persona's canonical email: the one `@mychess.test` check. */
+/**
+ * A persona's canonical email, as the domain decides it (R-73); a refusal
+ * becomes the issue, its reason the message.
+ */
 const personaEmail = z.string().transform((raw, ctx) => {
-  const email = canonicalEmail(raw);
-  if (email.ok && email.value.endsWith(PERSONA_DOMAIN)) return email.value;
-  ctx.addIssue({ code: 'custom', message: NOT_A_PERSONA });
+  const email = canonicalPersonaEmail(raw);
+  if (email.ok) return email.value;
+  ctx.addIssue({ code: 'custom', message: email.refusal.reason });
   return z.NEVER;
 });
 
 const testSignInBody = z.object({ email: personaEmail });
 
-/** Whether the persona sign-in exists: never in production, only when switched on. */
+/** Whether the persona sign-in exists, as the domain decides it (R-73, R-93). */
 const enabled = (env: SwitchEnv): boolean =>
-  env.MYCHESS_ENV !== 'production' && env.MYCHESS_TEST_SIGNIN;
+  personaSignInAvailable({
+    production: env.MYCHESS_ENV === 'production',
+    switchedOn: env.MYCHESS_TEST_SIGNIN,
+  });
 
 // Better Auth types the session as always created, but a database hook that
 // refuses it (a disabled account) makes it null.
@@ -119,7 +123,7 @@ async function requestedPersona(
 
 /**
  * `POST /api/test/sign-in`: absent (404) in production and unless the flag
- * and secret are set; otherwise only a `@mychess.test` email with the shared
+ * and secret are set; otherwise only a persona email with the shared
  * secret in `x-test-secret` (403 for anything else, and for a disabled
  * account). A signed-in persona gets Better Auth's own session cookie.
  */

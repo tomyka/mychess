@@ -1,11 +1,17 @@
 import { authSchema, findAccountById, type Db } from '@mychess/db';
 import {
-  canonicalEmail,
+  canLinkProvider,
+  canOpenSession,
+  canStartOAuth,
+  decideProviderJoin,
   DEFAULT_ENTITLEMENT,
   DEFAULT_LOCALE,
-  isDisabled,
+  FRESH_AGE_SECONDS,
   LOCALES,
   MAGIC_LINK_RATE_LIMIT,
+  type ProviderJoin,
+  magicLinkRequest,
+  signInEmail,
 } from '@mychess/domain';
 import {
   betterAuth,
@@ -15,7 +21,6 @@ import {
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { revokeUnprovenAccountAccess } from 'better-auth/db';
 import {
-  APIError,
   createAuthMiddleware,
   getAuthoritativeSessionFromCtx,
   getOAuthState,
@@ -25,23 +30,19 @@ import { genericOAuth } from 'better-auth/plugins/generic-oauth';
 import { magicLink } from 'better-auth/plugins/magic-link';
 import { z } from 'zod';
 import { resolveLocale } from '../i18n/locales';
-import type { Provider } from '../lib/providers';
 import { ROUTES } from '../lib/routes';
-import { LICHESS_EMAIL_IN_USE, SESSION_NOT_FRESH } from '../lib/sign-in-errors';
+import { refusalCode, refusalError } from './auth-refusal';
 import { getDb } from './db';
 import { googleConfigured, readWebEnv, type WebEnv } from './env';
 import { createMailer, magicLinkMail, type Mailer } from './mail';
-import { implicitJoin } from './implicit-join';
 import { googleUserInfo } from './oauth/google';
 import { noteLichessUnlinked } from './lichess-unlinked';
-import { lichessUserInfo } from './oauth/lichess';
+import { LICHESS_PROVIDER_ID, lichessUserInfo } from './oauth/lichess';
 import { endUnlinkedProviderSession } from './provider-session';
-import { FRESH_AGE_SECONDS, isFreshSession } from './session-freshness';
 import { linkWithLocale, signUpLocale } from './sign-up-locale';
 import { testSignInPlugin } from './test-sign-in';
 
 const DAY = 60 * 60 * 24;
-const LICHESS: Provider = 'lichess';
 
 export interface AuthDeps {
   readonly db: Db;
@@ -54,16 +55,6 @@ export interface AuthDeps {
 type UserOptions = NonNullable<BetterAuthOptions['user']>;
 type ValidateUserInfo = NonNullable<UserOptions['validateUserInfo']>;
 type DatabaseHooks = NonNullable<BetterAuthOptions['databaseHooks']>;
-
-/** Folds the email Better Auth was handed, or refuses it (security item 6). */
-function canonicalOrRefuse(raw: unknown): string {
-  const email = canonicalEmail(typeof raw === 'string' ? raw : '');
-  if (!email.ok) {
-    const { reason } = email.refusal;
-    throw new APIError('BAD_REQUEST', { code: reason, message: reason });
-  }
-  return email.value;
-}
 
 const requestBody = z.looseObject({ email: z.unknown() });
 
@@ -85,24 +76,17 @@ function canonicalMagicLinkBody(ctx: HookRequest): HookAnswer {
   if (ctx.path !== '/sign-in/magic-link') return undefined;
   const parsed = requestBody.safeParse(ctx.body);
   const body = parsed.success ? parsed.data : { email: undefined };
-  const email = canonicalOrRefuse(body.email);
-  return { context: { body: { ...body, email, name: '' } } };
+  const request = magicLinkRequest(body.email);
+  if (!request.ok) throw refusalError(request.refusal);
+  return { context: { body: { ...body, ...request.value } } };
 }
 
-// Request fields that would let the client choose what the provider is
-// asked for, or skip the redirect with its own id token.
-const CLIENT_OAUTH_FIELDS = [
-  'scopes',
-  'additionalParams',
-  'loginHint',
-  'idToken',
-];
 const OAUTH_START_PATHS = new Set(['/sign-in/social', '/link-social']);
 
-const clientOAuthField = (body: unknown): string | undefined => {
+/** The fields a request body names; none when it is not an object. */
+const fieldsOf = (body: unknown): string[] => {
   const parsed = z.looseObject({}).safeParse(body);
-  const keys = parsed.success ? Object.keys(parsed.data) : [];
-  return CLIENT_OAUTH_FIELDS.find((field) => keys.includes(field));
+  return parsed.success ? Object.keys(parsed.data) : [];
 };
 
 /**
@@ -112,12 +96,8 @@ const clientOAuthField = (body: unknown): string | undefined => {
  */
 function refuseClientOAuthFields(ctx: HookRequest): void {
   if (ctx.path === undefined || !OAUTH_START_PATHS.has(ctx.path)) return;
-  const field = clientOAuthField(ctx.body);
-  if (field === undefined) return;
-  throw new APIError('BAD_REQUEST', {
-    code: 'unsupported_oauth_field',
-    message: field,
-  });
+  const start = canStartOAuth(fieldsOf(ctx.body));
+  if (!start.ok) throw refusalError(start.refusal);
 }
 
 type HookContext = Parameters<typeof getAuthoritativeSessionFromCtx>[0];
@@ -134,11 +114,8 @@ async function refuseStaleLink(ctx: HookContext): Promise<void> {
   if (ctx.path !== LINK_PATH) return;
   const current = await getAuthoritativeSessionFromCtx(ctx);
   if (current === null) return;
-  if (isFreshSession(new Date(current.session.createdAt))) return;
-  throw new APIError('FORBIDDEN', {
-    code: SESSION_NOT_FRESH,
-    message: SESSION_NOT_FRESH,
-  });
+  const link = canLinkProvider(new Date(current.session.createdAt), new Date());
+  if (!link.ok) throw refusalError(link.refusal);
 }
 
 // Every request, before Better Auth handles it.
@@ -151,46 +128,69 @@ async function beforeRequest(ctx: HookContext): Promise<HookAnswer> {
 type UserInfo = Parameters<ValidateUserInfo>[0];
 type UserInfoAnswer = Awaited<ReturnType<ValidateUserInfo>>;
 
+/** The account Better Auth is about to link the identity to, if it names one. */
+const idOf = (user: UserInfo['user']): string | undefined =>
+  typeof user.id === 'string' ? user.id : undefined;
+
 /**
- * A link from settings (`/link-social` put `link` in the OAuth state). Lichess
- * joins only while signed in to that very account (R-69, R-83); Better Auth
- * itself joins any other provider to the session's account only.
+ * A link from settings (`/link-social` put `link` in the OAuth state). The
+ * domain lets Lichess join only while signed in to that very account (R-69,
+ * R-83); Better Auth itself joins any other provider to the session's
+ * account only. The session is read for Lichess alone, the one link the
+ * domain checks against it.
  */
-async function linkFromSettings(
+async function settingsJoin(
   { user, source }: UserInfo,
   ctx: HookContext,
-  linkUserId: string,
-): Promise<UserInfoAnswer> {
-  if (source.oauth?.providerId !== LICHESS) return;
-  const current = await getAuthoritativeSessionFromCtx(ctx);
-  if (linkUserId === user.id && current?.user.id === user.id) return;
-  return { error: LICHESS_EMAIL_IN_USE };
+  linkAccountId: string,
+): Promise<ProviderJoin> {
+  const provider = source.oauth?.providerId;
+  const current =
+    provider === LICHESS_PROVIDER_ID
+      ? await getAuthoritativeSessionFromCtx(ctx)
+      : null;
+  return {
+    via: 'settings',
+    provider,
+    linkAccountId,
+    targetAccountId: idOf(user),
+    sessionAccountId: current?.user.id,
+  };
+}
+
+/** A provider joining the account with its email at sign-in. */
+async function emailJoin(
+  db: Db,
+  { user, source }: UserInfo,
+): Promise<ProviderJoin> {
+  const accountId = idOf(user);
+  const account =
+    accountId === undefined ? undefined : await findAccountById(db, accountId);
+  return {
+    via: 'email',
+    provider: source.oauth?.providerId,
+    emailVerified: user.emailVerified,
+    account,
+  };
 }
 
 /**
- * A provider joining the account with its email at sign-in, denied unless
- * implicitJoin allows it. A verified Google email proves the mailbox, as a
- * magic link does (R-87): if the account is unproven (a Lichess sign-up
- * under the address), Better Auth's own magic-link clean-up ends the access
- * it gathered before the proof (provider links and sessions) and marks the
- * email verified, so Google joins an account the mailbox owner alone holds.
+ * The domain's answer to a join, denied unless allowed (A1). A verified
+ * Google email proves the mailbox, as a magic link does (R-87): if the
+ * account is unproven (a Lichess sign-up under the address), Better Auth's
+ * own magic-link clean-up ends the access it gathered before the proof
+ * (provider links and sessions) and marks the email verified, so Google
+ * joins an account the mailbox owner alone holds. The clean-up re-reads the
+ * account under its own lock, so it runs for every allowed proof.
  */
-async function joinByEmail(
-  db: Db,
-  { user, source }: UserInfo,
+async function answerJoin(
+  join: ProviderJoin,
   ctx: HookContext,
 ): Promise<UserInfoAnswer> {
-  const account =
-    typeof user.id === 'string'
-      ? await findAccountById(db, user.id)
-      : undefined;
-  const decision = implicitJoin({
-    providerId: source.oauth?.providerId,
-    emailVerified: user.emailVerified,
-    account,
-  });
-  if (decision.kind === 'refuse') return { error: decision.code };
-  await revokeUnprovenAccountAccess(ctx, decision.accountId);
+  const decision = decideProviderJoin(join);
+  if (!decision.ok) return { error: refusalCode(decision.refusal) };
+  if (decision.value.kind === 'proveEmail')
+    await revokeUnprovenAccountAccess(ctx, decision.value.accountId);
   return undefined;
 }
 
@@ -205,9 +205,11 @@ function validateUserInfo(db: Db): ValidateUserInfo {
   return async (data, ctx) => {
     if (data.source.action !== 'link-account') return;
     const link = (await getOAuthState())?.link;
-    return link === undefined
-      ? joinByEmail(db, data, ctx)
-      : linkFromSettings(data, ctx, link.userId);
+    const join =
+      link === undefined
+        ? await emailJoin(db, data)
+        : await settingsJoin(data, ctx, link.userId);
+    return answerJoin(join, ctx);
   };
 }
 
@@ -216,9 +218,16 @@ function validateUserInfo(db: Db): ValidateUserInfo {
  * connection cannot see yet is one Better Auth is creating in this request;
  * the sessions table's foreign key still demands it exists.
  */
-async function isNotDisabled(db: Db, accountId: string): Promise<boolean> {
+async function mayOpenSession(db: Db, accountId: string): Promise<boolean> {
   const account = await findAccountById(db, accountId);
-  return account === undefined || !isDisabled(account);
+  return account === undefined || canOpenSession(account).ok;
+}
+
+/** The email a new account is keyed by, or the request's refusal (item 6). */
+function newAccountEmail(raw: unknown): string {
+  const email = signInEmail(raw);
+  if (!email.ok) throw refusalError(email.refusal);
+  return email.value;
 }
 
 function databaseHooks(db: Db): DatabaseHooks {
@@ -231,7 +240,7 @@ function databaseHooks(db: Db): DatabaseHooks {
           Promise.resolve({
             data: {
               ...account,
-              email: canonicalOrRefuse(account.email),
+              email: newAccountEmail(account.email),
               locale: signUpLocale(ctx),
             },
           }),
@@ -239,7 +248,7 @@ function databaseHooks(db: Db): DatabaseHooks {
     },
     session: {
       create: {
-        before: (session) => isNotDisabled(db, session.userId),
+        before: (session) => mayOpenSession(db, session.userId),
         after: endUnlinkedProviderSession,
       },
     },
@@ -294,9 +303,9 @@ const providerAccountOptions = {
   encryptOAuthTokens: true,
   accountLinking: {
     enabled: true,
-    trustedProviders: [LICHESS],
+    trustedProviders: [LICHESS_PROVIDER_ID],
     // An unproven account may be joined: only Google is, and it first ends
-    // the unproven access (validateUserInfo, implicitJoin, R-87).
+    // the unproven access (validateUserInfo, decideProviderJoin, R-87).
     requireLocalEmailVerified: false,
     allowDifferentEmails: true,
     allowUnlinkingAll: true,
@@ -344,7 +353,7 @@ function lichessPlugin(env: WebEnv, fetchImpl: typeof fetch) {
   return genericOAuth({
     config: [
       {
-        providerId: LICHESS,
+        providerId: LICHESS_PROVIDER_ID,
         clientId: env.LICHESS_CLIENT_ID,
         authorizationUrl: 'https://lichess.org/oauth',
         tokenUrl: 'https://lichess.org/api/token',

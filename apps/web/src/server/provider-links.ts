@@ -1,6 +1,6 @@
+import { isProvider, type Provider } from '@mychess/domain';
 import { headers } from 'next/headers';
 import { z } from 'zod';
-import { isProvider, type Provider } from '../lib/providers';
 import { getAuth } from './auth';
 
 /** One provider linked to the signed-in account. */

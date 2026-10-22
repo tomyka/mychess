@@ -1,4 +1,8 @@
+import type { Provider } from '@mychess/domain';
 import { z } from 'zod';
+
+/** The provider id Lichess sign-ins and links carry in Better Auth. */
+export const LICHESS_PROVIDER_ID = 'lichess' satisfies Provider;
 
 const accountSchema = z.object({
   id: z.string().min(1),
@@ -43,8 +47,8 @@ async function lichessJson(
 /**
  * The Lichess identity behind an access token (scope `email:read`, R-83).
  * Lichess does not say the email is verified, so it is reported unverified;
- * the Lichess link guard in auth.ts keeps it from joining an existing
- * account by email (R-69, R-83).
+ * the domain's sign-in rules (`decideProviderJoin`) keep it from joining an
+ * existing account by email (R-69, R-83).
  */
 export function lichessUserInfo(
   fetchImpl: typeof fetch = fetch,

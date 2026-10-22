@@ -1,3 +1,4 @@
+import { providerSessionStands } from '@mychess/domain';
 import type { BetterAuthOptions } from 'better-auth';
 import { APIError } from 'better-auth/api';
 import { z } from 'zod';
@@ -41,7 +42,8 @@ export const endUnlinkedProviderSession: AfterCreate = async (session, ctx) => {
   const { token, userId } = createdSession.parse(session);
   const { internalAdapter } = ctx.context;
   const links = await internalAdapter.findAccounts(userId);
-  if (links.some((link) => link.providerId === provider)) return;
+  const linked = links.map((link) => link.providerId);
+  if (providerSessionStands(provider, linked)) return;
   await internalAdapter.deleteSession(token);
   throw new APIError('UNAUTHORIZED', {
     code: SESSION_REFUSED,

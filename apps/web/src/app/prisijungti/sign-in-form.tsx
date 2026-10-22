@@ -1,10 +1,10 @@
 'use client';
 
-import type { Locale } from '@mychess/domain';
+import type { Locale, Provider } from '@mychess/domain';
 import { useLocale, useTranslations } from 'next-intl';
 import { useId, useState, type JSX, type SubmitEvent } from 'react';
 import { authClient } from '../../lib/auth-client';
-import { offeredProviders, type Provider } from '../../lib/providers';
+import { offeredProviders } from '../../lib/providers';
 import { onboardingPath, signInPath } from '../../lib/return-path';
 import { ROUTES } from '../../lib/routes';
 import {
