@@ -45,7 +45,7 @@ const day = (iso: string): string =>
     timeZone: 'Europe/Vilnius',
   }).format(new Date(`${iso}T12:00:00Z`));
 
-const STILL = { paused: false, forked: false, done: false, overdue: false };
+const STILL = { paused: false, forked: false, overdue: false, updated: false };
 
 const TO_GROUP: CoachAssignment = {
   id: 'a-group',
@@ -56,16 +56,13 @@ const TO_GROUP: CoachAssignment = {
       playerId: 'egle',
       displayName: 'Eglė',
       deadline: '2026-12-05',
-      ...STILL,
-      paused: true,
-      overdue: true,
+      badges: { ...STILL, paused: true, overdue: true },
     },
     {
       playerId: 'marta',
       displayName: 'Marta',
       deadline: null,
-      ...STILL,
-      forked: true,
+      badges: { ...STILL, forked: true },
     },
   ],
 };
@@ -79,8 +76,7 @@ const TO_ROKAS: CoachAssignment = {
       playerId: 'rokas',
       displayName: 'Rokas',
       deadline: null,
-      ...STILL,
-      paused: true,
+      badges: { ...STILL, paused: true },
     },
   ],
 };

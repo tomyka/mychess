@@ -88,13 +88,7 @@ export async function assignedRepertoireData(
 /** One repertoire on home's "From my coach" (R-15, R-51, R-133). */
 export type HomeAssignment = Pick<
   PlayerAssignment,
-  | 'repertoireId'
-  | 'name'
-  | 'coachName'
-  | 'deadline'
-  | 'paused'
-  | 'updated'
-  | 'overdue'
+  'repertoireId' | 'name' | 'coachName' | 'deadline' | 'badges'
 >;
 
 /** One open fork offer on home (R-44, R-130). */
@@ -110,7 +104,8 @@ export interface HomeAssignments {
 
 /**
  * The session player's live assignments, with their badges decided by the
- * domain (assignmentStatus), and their open fork offers, both as of now.
+ * domain (assignmentStatus, assignmentBadges), and their open fork offers,
+ * both as of now.
  */
 export async function homeAssignments(): Promise<HomeAssignments> {
   const player = await requireOnboarded();
@@ -120,22 +115,12 @@ export async function homeAssignments(): Promise<HomeAssignments> {
   const offers = await openForkOffers(db, player.id, now);
   return {
     fromCoach: mine.map(
-      ({
+      ({ repertoireId, name, coachName, deadline, badges }) => ({
         repertoireId,
         name,
         coachName,
         deadline,
-        paused,
-        updated,
-        overdue,
-      }) => ({
-        repertoireId,
-        name,
-        coachName,
-        deadline,
-        paused,
-        updated,
-        overdue,
+        badges,
       }),
     ),
     offers: offers.map(({ id, name, coachName, daysLeft }) => ({

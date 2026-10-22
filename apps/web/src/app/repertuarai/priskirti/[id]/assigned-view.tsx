@@ -56,11 +56,9 @@ function AssignedHeader({
         <AssignmentBadges
           flags={assignmentBadges({
             audience: 'player',
+            opened: true,
             overdue: data.overdue,
             paused,
-            // Opening the repertoire is what clears "Updated"; this page
-            // shows what changed instead (R-133).
-            updated: false,
           })}
         />
       </div>

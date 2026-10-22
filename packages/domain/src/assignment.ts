@@ -218,8 +218,9 @@ export interface BadgeSet {
 }
 
 /**
- * What one audience's badges come from: the player's "From my coach" and
- * page, or the coach's list of the players an assignment reaches.
+ * What one audience's badges come from: the player's "From my coach", the
+ * player's page of the assignment they have opened, or the coach's list of
+ * the players an assignment reaches.
  */
 export type BadgeFacts =
   | {
@@ -230,6 +231,16 @@ export type BadgeFacts =
       readonly updated: boolean;
     }
   | {
+      readonly audience: 'player';
+      /**
+       * The player is on the assignment's page: opening it is what clears
+       * "Updated", and the page shows what changed instead (R-133).
+       */
+      readonly opened: true;
+      readonly overdue: boolean;
+      readonly paused: boolean;
+    }
+  | {
       readonly audience: 'coach';
       readonly overdue: boolean;
       readonly paused: boolean;
@@ -238,15 +249,16 @@ export type BadgeFacts =
 
 /**
  * The full badge set an audience sees (S5 spec). The player sees overdue,
- * paused and "Updated"; never forked, as a forked repertoire leaves their
- * list (R-128). The coach sees overdue, paused and forked; "Updated" is
- * the player's own (R-133).
+ * paused and "Updated", the last not once they have opened it; never
+ * forked, as a forked repertoire leaves their list (R-128). The coach sees
+ * overdue, paused and forked; "Updated" is the player's own (R-133).
  */
 export function assignmentBadges(facts: BadgeFacts): BadgeSet {
   const { overdue, paused } = facts;
-  return facts.audience === 'player'
-    ? { overdue, paused, forked: false, updated: facts.updated }
-    : { overdue, paused, forked: facts.forked, updated: false };
+  if (facts.audience === 'coach')
+    return { overdue, paused, forked: facts.forked, updated: false };
+  const updated = 'opened' in facts ? false : facts.updated;
+  return { overdue, paused, forked: false, updated };
 }
 
 /**

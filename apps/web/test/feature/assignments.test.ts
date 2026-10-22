@@ -797,7 +797,13 @@ describe('the coach’s comments on their own repertoire (R-102, R-47)', () => {
     expect(panel.panel?.assignments).toMatchObject([
       {
         target: { kind: 'player', id: rokas.id, name: 'Rokas' },
-        players: [{ playerId: rokas.id, displayName: 'Rokas', forked: true }],
+        players: [
+          {
+            playerId: rokas.id,
+            displayName: 'Rokas',
+            badges: { forked: true },
+          },
+        ],
       },
     ]);
     expect(panel.panel?.assignments[0]?.players).toHaveLength(1);
@@ -1318,14 +1324,15 @@ describe('home’s "From my coach" and fork offers', () => {
       ),
     );
     expect((await homeAssignments()).fromCoach).toMatchObject([
-      { repertoireId: people.taimanov, paused: true },
+      { repertoireId: people.taimanov, badges: { paused: true } },
     ]);
     actAs(people.rokas);
     const rokas = await homeAssignments();
     expect(rokas.fromCoach).toHaveLength(2);
-    expect(rokas.fromCoach).toContainEqual(
-      expect.objectContaining({ repertoireId: people.taimanov, paused: false }),
-    );
+    expect(
+      rokas.fromCoach.find((one) => one.repertoireId === people.taimanov)
+        ?.badges.paused,
+    ).toBe(false);
   });
 
   it('send a signed-out visitor to sign-in', async () => {

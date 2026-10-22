@@ -20,9 +20,7 @@ const LONDON: HomeAssignment = {
   name: 'Londono sistema',
   coachName: 'Jonas',
   deadline: '2026-11-30',
-  overdue: true,
-  paused: true,
-  updated: true,
+  badges: { overdue: true, paused: true, forked: false, updated: true },
 };
 
 const CARO: HomeAssignment = {
@@ -30,9 +28,7 @@ const CARO: HomeAssignment = {
   name: 'Karo-Kan gynyba: pagrindai',
   coachName: 'Rimantas',
   deadline: null,
-  overdue: false,
-  paused: false,
-  updated: false,
+  badges: { overdue: false, paused: false, forked: false, updated: false },
 };
 
 function renderList(

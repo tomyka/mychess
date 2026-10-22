@@ -169,9 +169,13 @@ describe('playerAssignments', () => {
         coachName: 'Name c',
         deadline: '2026-11-01',
         paused: false,
-        updated: false,
         done: false,
-        overdue: false,
+        badges: {
+          overdue: false,
+          paused: false,
+          forked: false,
+          updated: false,
+        },
       },
     ]);
   });
@@ -179,7 +183,7 @@ describe('playerAssignments', () => {
   it('is overdue from the Vilnius day after the effective deadline (R-16, R-51)', async () => {
     await assignTo(toGroup(g), '2026-10-19');
     expect(await playerAssignments(db, 'q', NOW)).toMatchObject([
-      { deadline: '2026-10-19', overdue: true },
+      { deadline: '2026-10-19', badges: { overdue: true } },
     ]);
   });
 
@@ -187,16 +191,16 @@ describe('playerAssignments', () => {
     await assignTo(toGroup(g));
     await coachEdit(addE3);
     expect(await playerAssignments(db, 'p', NOW)).toMatchObject([
-      { updated: true },
+      { badges: { updated: true } },
     ]);
     expect(
       await markSeen(db, { playerId: 'p', repertoireId: rep, seenVersion: 2 }),
     ).toEqual(OK);
     expect(await playerAssignments(db, 'p', NOW)).toMatchObject([
-      { updated: false },
+      { badges: { updated: false } },
     ]);
     expect(await playerAssignments(db, 'q', NOW)).toMatchObject([
-      { updated: true },
+      { badges: { updated: true } },
     ]);
   });
 
@@ -207,7 +211,7 @@ describe('playerAssignments', () => {
       .insert(assignmentPlayers)
       .values({ playerId: 'n', repertoireId: rep, seenVersion: 1 });
     expect(await playerAssignments(db, 'n', NOW)).toMatchObject([
-      { updated: false },
+      { badges: { updated: false } },
     ]);
     expect(
       await changesSince(db, {
@@ -224,7 +228,7 @@ describe('playerAssignments', () => {
     await coachEdit(addE3);
     await assignTo(toPlayer('n'));
     expect(await playerAssignments(db, 'n', NOW)).toMatchObject([
-      { updated: false },
+      { badges: { updated: false } },
     ]);
   });
 
@@ -236,10 +240,10 @@ describe('playerAssignments', () => {
       NOW,
     );
     expect(await playerAssignments(db, 'p', NOW)).toMatchObject([
-      { paused: true },
+      { paused: true, badges: { paused: true } },
     ]);
     expect(await playerAssignments(db, 'q', NOW)).toMatchObject([
-      { paused: false },
+      { paused: false, badges: { paused: false } },
     ]);
   });
 
@@ -253,7 +257,12 @@ describe('playerAssignments', () => {
     });
     await assignTo(toPlayer('n'), '2026-10-01', opponentOnly);
     expect(await playerAssignments(db, 'n', NOW)).toMatchObject([
-      { repertoireId: opponentOnly, side: 'black', done: true, overdue: false },
+      {
+        repertoireId: opponentOnly,
+        side: 'black',
+        done: true,
+        badges: { overdue: false },
+      },
     ]);
   });
 
@@ -285,13 +294,13 @@ describe('a player who joins a group after its assignment (R-136)', () => {
     await coachEdit(addE3);
     await nJoins();
     expect(await playerAssignments(db, 'n', NOW)).toMatchObject([
-      { updated: false },
+      { badges: { updated: false } },
     ]);
     expect(await changesOfN()).toEqual({
       changes: { added: [], removed: [], commentsChanged: 0 },
     });
     expect(await playerAssignments(db, 'p', NOW)).toMatchObject([
-      { updated: true },
+      { badges: { updated: true } },
     ]);
   });
 
@@ -300,7 +309,7 @@ describe('a player who joins a group after its assignment (R-136)', () => {
     await nJoins();
     await coachEdit(commentD4, AFTER_JOINING);
     expect(await playerAssignments(db, 'n', NOW)).toMatchObject([
-      { updated: true },
+      { badges: { updated: true } },
     ]);
     expect(await changesOfN()).toEqual({
       changes: { added: [], removed: [], commentsChanged: 1 },
@@ -312,7 +321,7 @@ describe('a player who joins a group after its assignment (R-136)', () => {
     await coachEdit(addE3);
     await nJoins();
     expect(await playerAssignments(db, 'n', NOW)).toMatchObject([
-      { updated: true },
+      { badges: { updated: true } },
     ]);
     const { graph } = await coachCopy();
     expect(await changesOfN()).toEqual({
@@ -608,7 +617,7 @@ describe('markSeen', () => {
       await markSeen(db, { playerId: 'p', repertoireId: rep, seenVersion: 2 }),
     ).toEqual(OK);
     expect(await playerAssignments(db, 'p', NOW)).toMatchObject([
-      { updated: true },
+      { badges: { updated: true } },
     ]);
     expect(
       await changesSince(db, {

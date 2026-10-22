@@ -1,4 +1,3 @@
-import { assignmentBadges } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useId, type JSX } from 'react';
@@ -39,14 +38,7 @@ function AssignmentItem({
       {deadline === null ? null : (
         <span>{t('deadlineOn', { date: date(deadline) })}</span>
       )}
-      <AssignmentBadges
-        flags={assignmentBadges({
-          audience: 'player',
-          overdue: assignment.overdue,
-          paused: assignment.paused,
-          updated: assignment.updated,
-        })}
-      />
+      <AssignmentBadges flags={assignment.badges} />
     </li>
   );
 }

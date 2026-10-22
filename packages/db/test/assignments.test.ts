@@ -688,7 +688,10 @@ describe('setDeadline', () => {
 describe('coachAssignments', () => {
   const player = (
     playerId: string,
-    state: Partial<{
+    {
+      deadline = null,
+      ...badges
+    }: Partial<{
       deadline: string | null;
       paused: boolean;
       forked: boolean;
@@ -697,12 +700,14 @@ describe('coachAssignments', () => {
   ) => ({
     playerId,
     displayName: `Name ${playerId}`,
-    deadline: null,
-    paused: false,
-    forked: false,
-    done: false,
-    overdue: false,
-    ...state,
+    deadline,
+    badges: {
+      overdue: false,
+      paused: false,
+      forked: false,
+      updated: false,
+      ...badges,
+    },
   });
 
   it('lists each assignment row with the players it reaches and their own deadline and badges', async () => {
@@ -1033,11 +1038,13 @@ describe('the coach reads over a batch', () => {
           playerId,
           displayName: `Name ${playerId}`,
           deadline: '2026-10-19',
-          paused: false,
-          done: false,
-          ...(five.forked.includes(playerId)
-            ? { forked: true, overdue: false }
-            : { forked: false, overdue: true }),
+          badges: {
+            paused: false,
+            updated: false,
+            ...(five.forked.includes(playerId)
+              ? { forked: true, overdue: false }
+              : { forked: false, overdue: true }),
+          },
         })),
       },
     ]);

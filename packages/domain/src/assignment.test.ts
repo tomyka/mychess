@@ -785,6 +785,15 @@ describe('assignmentBadges (R-46, R-51, R-128, R-133)', () => {
     },
   );
 
+  it.each(bits.flatMap((a) => bits.map((b) => [a, b] as const)))(
+    'the player on the opened page sees overdue and paused, never updated: %s %s',
+    (overdue, paused) => {
+      expect(
+        assignmentBadges({ audience: 'player', opened: true, overdue, paused }),
+      ).toStrictEqual({ overdue, paused, forked: false, updated: false });
+    },
+  );
+
   it.each(combos)(
     'the coach sees overdue, paused and forked, never updated: %s %s %s',
     (overdue, paused, forked) => {

@@ -1,8 +1,9 @@
 /**
  * What a coach reads of their own assignments of one repertoire (R-46,
  * R-51, R-128, R-131). The domain decides access (canViewRepertoire: the
- * coach's own repertoire), the badges (assignmentStatusOf) and who has it
- * live (canUseAssignment); every statement filters again on
+ * coach's own repertoire), the badges (assignmentStatusOf, then
+ * assignmentBadges) and who has it live (canUseAssignment); every
+ * statement filters again on
  * `assignments.coach_id`, and the rows on the repertoire's owner, which
  * assignments_repertoire_fk already guarantees is the coach. A player
  * is listed only while they are linked to the coach (the link check in
@@ -10,10 +11,12 @@
  */
 import { allLearned } from '@mychess/chess';
 import {
+  assignmentBadges,
   assignmentStatusOf,
   canUseAssignment,
   canViewRepertoire,
   type AssignmentFacts,
+  type BadgeSet,
 } from '@mychess/domain';
 import { and, asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -34,11 +37,11 @@ export interface CoachAssignmentPlayer {
   readonly displayName: string;
   /** effectiveDeadline across every row reaching the player (R-16, R-134). */
   readonly deadline: string | null;
-  /** The status assignmentBadges reads, from assignmentStatus at `now` (R-51, R-128, R-132). */
-  readonly paused: boolean;
-  readonly forked: boolean;
-  readonly done: boolean;
-  readonly overdue: boolean;
+  /**
+   * What the coach sees on them (assignmentBadges), from assignmentStatus
+   * at `now`: overdue and paused, or forked alone (R-46, R-51, R-128, R-132).
+   */
+  readonly badges: BadgeSet;
 }
 
 /** One assignment row of the coach's repertoire. */
@@ -121,12 +124,22 @@ async function listedOf(
     const displayName = names.get(one.playerId);
     if (displayName === undefined)
       throw new Error('coachAssignments: the player is gone');
+    const { deadline, overdue, paused, forked } = assignmentStatusOf(one, {
+      done,
+      now,
+    });
     return {
       facts: one,
       player: {
         playerId: one.playerId,
         displayName,
-        ...assignmentStatusOf(one, { done, now }),
+        deadline,
+        badges: assignmentBadges({
+          audience: 'coach',
+          overdue,
+          paused,
+          forked,
+        }),
       },
     };
   });

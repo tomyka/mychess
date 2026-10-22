@@ -89,9 +89,12 @@ describe('HomeView', () => {
               name: 'Londono sistema',
               coachName: 'Jonas',
               deadline: null,
-              paused: false,
-              updated: true,
-              overdue: false,
+              badges: {
+                overdue: false,
+                paused: false,
+                forked: false,
+                updated: true,
+              },
             },
           ]}
           offers={[

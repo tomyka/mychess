@@ -141,9 +141,8 @@ const MINE: PlayerAssignment = {
   coachName: 'Jonas',
   deadline: '2026-11-30',
   paused: false,
-  updated: true,
   done: false,
-  overdue: false,
+  badges: { overdue: false, paused: false, forked: false, updated: true },
 };
 
 const OFFER: OpenForkOffer = {
@@ -170,9 +169,12 @@ describe('homeAssignments', () => {
             name: 'Londono sistema',
             coachName: 'Jonas',
             deadline: '2026-11-30',
-            paused: false,
-            updated: true,
-            overdue: false,
+            badges: {
+              overdue: false,
+              paused: false,
+              forked: false,
+              updated: true,
+            },
           },
         ],
         offers: [

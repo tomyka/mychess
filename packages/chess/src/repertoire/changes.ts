@@ -29,10 +29,10 @@ export interface GraphChanges {
   readonly addedMoves: readonly RepertoireMove[];
   readonly removedMoveKeys: readonly string[];
   /**
-   * Kept moves whose comment or marks changed: an annotation, never a change
+   * Kept moves whose comment or marks changed: a Comment change, never a change
    * to the moves a player trains (R-121).
    */
-  readonly annotatedMoves: readonly RepertoireMove[];
+  readonly commentChanges: readonly RepertoireMove[];
   /** Links added to kept moves. */
   readonly addedLinks: readonly MoveLink[];
   /** Links removed from kept moves of kept chapters (others go by cascade). */
@@ -40,7 +40,7 @@ export interface GraphChanges {
 }
 
 const keyOf = (m: RepertoireMove): string => moveKey(m.from, m.san);
-const annotationOf = (m: RepertoireMove): string =>
+const commentOf = (m: RepertoireMove): string =>
   JSON.stringify([m.comment, m.arrows, m.circles]);
 const faceOf = (c: Chapter): string => JSON.stringify([c.nameSource, c.intro]);
 
@@ -93,8 +93,8 @@ function moveChanges(before: RepertoireGraph, after: RepertoireGraph) {
     removedMoveKeys: before.moves
       .filter((m) => !newKeys.has(keyOf(m)))
       .map(keyOf),
-    annotatedMoves: kept
-      .filter((p) => annotationOf(p.before) !== annotationOf(p.after))
+    commentChanges: kept
+      .filter((p) => commentOf(p.before) !== commentOf(p.after))
       .map((p) => p.after),
     addedLinks: kept.flatMap((p) => linksBeyond(p.after, p.before, () => true)),
     removedLinks: kept.flatMap((p) =>
@@ -151,7 +151,7 @@ export function playerMoveChanges(
       before,
       before.moves.filter((m) => removed.has(keyOf(m))),
     ),
-    commentsChanged: c.annotatedMoves.length,
+    commentsChanged: c.commentChanges.length,
   };
 }
 

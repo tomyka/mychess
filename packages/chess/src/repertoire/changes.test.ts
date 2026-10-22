@@ -46,7 +46,7 @@ const EMPTY = {
   changedChapters: [],
   addedMoves: [],
   removedMoveKeys: [],
-  annotatedMoves: [],
+  commentChanges: [],
   addedLinks: [],
   removedLinks: [],
 };
@@ -81,9 +81,9 @@ describe('graphChanges', () => {
     );
     const d = graphChanges(base, after);
     expect(
-      d.annotatedMoves.map((m) => [m.san, m.comment, m.arrows.length]),
+      d.commentChanges.map((m) => [m.san, m.comment, m.arrows.length]),
     ).toEqual([['e4', 'Best', 1]]);
-    expect({ ...d, annotatedMoves: [] }).toEqual(EMPTY);
+    expect({ ...d, commentChanges: [] }).toEqual(EMPTY);
   });
 
   it('finds changed circles alone as an annotation', () => {
@@ -95,7 +95,7 @@ describe('graphChanges', () => {
         { arrows: [], circles: [{ square: 'e4', color: 'R' }] },
       ),
     );
-    expect(graphChanges(base, after).annotatedMoves.map((m) => m.san)).toEqual([
+    expect(graphChanges(base, after).commentChanges.map((m) => m.san)).toEqual([
       'e4',
     ]);
   });

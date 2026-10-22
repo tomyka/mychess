@@ -259,7 +259,7 @@ export async function writeChanges(
   await insertChapters(tx, repertoireId, changes.addedChapters);
   await updateChapters(tx, repertoireId, changes.changedChapters);
   const newIds = await insertMoves(tx, repertoireId, changes.addedMoves);
-  await updateMoves(tx, repertoireId, changes.annotatedMoves);
+  await updateMoves(tx, repertoireId, changes.commentChanges);
   const keptIds = await moveIds(
     tx,
     repertoireId,

@@ -15,12 +15,14 @@ import {
   type TrainingRepertoire,
 } from '@mychess/chess';
 import {
+  assignmentBadges,
   assignmentStatusOf,
   canUseAssignment,
   isTrainingActive,
   isUpdated,
   newsOf,
   type AssignmentFacts,
+  type BadgeSet,
   type ChangeStamp,
   type SeenFacts,
 } from '@mychess/domain';
@@ -87,12 +89,14 @@ export interface PlayerAssignment {
   /** effectiveDeadline: `YYYY-MM-DD` or null (R-16, R-134). */
   readonly deadline: string | null;
   readonly paused: boolean;
-  /** The coach changed it since the player last opened it (R-133). */
-  readonly updated: boolean;
   /** Every player move learned (R-129). */
   readonly done: boolean;
-  /** assignmentStatus at `now` (R-51, R-132). */
-  readonly overdue: boolean;
+  /**
+   * What the player sees on it at `now` (assignmentBadges): overdue
+   * (R-51, R-132), paused (R-46) and "Updated", a coach change they have
+   * not opened (R-133).
+   */
+  readonly badges: BadgeSet;
 }
 
 const latestRowsSchema = z.array(
@@ -155,10 +159,12 @@ interface ItemFacts {
 }
 
 /** What the domain says of a live assignment at `now` (R-16, R-46, R-51, R-129, R-134). */
-type LiveStatus = Pick<
-  PlayerAssignment,
-  'deadline' | 'paused' | 'done' | 'overdue'
->;
+interface LiveStatus {
+  readonly deadline: string | null;
+  readonly paused: boolean;
+  readonly done: boolean;
+  readonly overdue: boolean;
+}
 
 function statusOf(
   {
@@ -179,14 +185,18 @@ function statusOf(
 
 function itemOf(facts: ItemFacts, now: Date): PlayerAssignment {
   const { assignment, loaded } = facts;
+  const { deadline, paused, done, overdue } = statusOf(facts, now);
+  const updated = isUpdated(seenFacts(assignment), facts.latest);
   return {
     repertoireId: assignment.repertoireId,
     name: loaded.repertoire.name,
     side: loaded.repertoire.side,
     coachId: assignment.coachId,
     coachName: facts.coachName,
-    updated: isUpdated(seenFacts(assignment), facts.latest),
-    ...statusOf(facts, now),
+    deadline,
+    paused,
+    done,
+    badges: assignmentBadges({ audience: 'player', overdue, paused, updated }),
   };
 }
 
