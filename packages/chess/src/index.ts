@@ -35,6 +35,12 @@ export {
   type MoveChanges,
   type MoveLink,
 } from './repertoire/changes';
+export {
+  applyChange,
+  type AppliedChange,
+  type ChangeRefusal,
+  type RepertoireChange,
+} from './repertoire/apply-change';
 export { normalizeComment } from './repertoire/comment';
 export {
   mergeInto,
