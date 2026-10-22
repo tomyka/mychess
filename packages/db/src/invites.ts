@@ -1,12 +1,14 @@
 import {
   canAccept,
-  canRevoke,
   canInvite,
+  canRevoke,
   COACH_REFUSALS,
   INVITE_REFUSALS,
   inviteExpiry,
   inviteSchema,
   inviteState,
+  ok,
+  refuse,
   type CoachRefusal,
   type Invite,
   type InviteKind,
@@ -23,8 +25,11 @@ import { changeAssignments } from './assignments/change';
 import type { Db, Executor, Tx } from './client';
 import { countSchema, holdGroup, isLinked, linkCount } from './coach-queries';
 import { isUuid } from './ids';
-import { inviteTokenHash, newInviteToken } from './invite-token';
-import { DONE, refusal } from './results';
+import {
+  inviteTokenHash,
+  newInviteToken,
+  parsedTokenHash,
+} from './invite-token';
 import { coachLinks, groupMembers, groups, invites } from './schema';
 
 const inviteColumns = {
@@ -46,7 +51,7 @@ export type NamedInvite = z.infer<typeof namedInviteSchema>;
 
 const namedInviteColumns = { ...inviteColumns, groupName: groups.name };
 
-const INVALID = refusal(INVITE_REFUSALS.invalid);
+const INVALID = refuse(INVITE_REFUSALS.invalid);
 
 /** A coach's parsed request for an invite (newInviteSchema), and when. */
 export interface InviteRequest extends NewInvite {
@@ -103,7 +108,7 @@ async function mayInvite(
   request: InviteRequest,
 ): Promise<Result<undefined, CoachRefusal>> {
   const coach = await lockAccountById(tx, request.coachId);
-  if (coach === undefined) return refusal(COACH_REFUSALS.notCoach);
+  if (coach === undefined) return refuse(COACH_REFUSALS.notCoach);
   const allowed = canInvite(
     coach,
     await openInviteCount(tx, request.coachId, request.now),
@@ -111,7 +116,7 @@ async function mayInvite(
   if (!allowed.ok || request.groupId === null) return allowed;
   return (await holdGroup(tx, request.coachId, request.groupId))
     ? allowed
-    : refusal(COACH_REFUSALS.groupNotFound);
+    : refuse(COACH_REFUSALS.groupNotFound);
 }
 
 /** Makes an invite; the raw token is returned here once and never stored. */
@@ -134,7 +139,7 @@ export function createInvite(
         createdAt: request.now,
       })
       .returning({ id: invites.id });
-    return { ok: true, value: { token, inviteId: z.uuid().parse(row?.id) } };
+    return ok({ token, inviteId: z.uuid().parse(row?.id) });
   });
 }
 
@@ -208,13 +213,18 @@ export interface AcceptedInvite {
  * transaction that locks a coach's invites holds the coach row first, so
  * two of them queue on the coach row and none waits for the coach row
  * while holding an invite: no deadlock.
+ *
+ * `token` is the raw token the link carries; a malformed one is refused
+ * without a lookup.
  */
 export function acceptInvite(
   db: Db,
-  tokenHash: string,
+  token: string,
   playerId: string,
   now: Date,
 ): Promise<Result<AcceptedInvite, InviteRefusal>> {
+  const tokenHash = parsedTokenHash(token);
+  if (tokenHash === undefined) return Promise.resolve(INVALID);
   return db.transaction(async (tx) => {
     const coachId = await inviteCoachId(tx, tokenHash);
     if (coachId === undefined) return INVALID;
@@ -225,10 +235,7 @@ export function acceptInvite(
     const check = await decide(tx, invite, coach, { playerId, now });
     if (!check.ok) return check;
     await join(tx, invite, playerId, now);
-    return {
-      ok: true,
-      value: { coachId: invite.coachId, groupId: invite.groupId },
-    };
+    return ok({ coachId: invite.coachId, groupId: invite.groupId });
   });
 }
 
@@ -308,7 +315,7 @@ export async function revokeInvite(
       .set({ revokedAt: now })
       .where(and(eq(invites.id, inviteId), openInvitesOf(coachId, now)))
       .returning({ id: invites.id });
-    return revoked.length === 1 ? DONE : INVALID;
+    return revoked.length === 1 ? ok() : INVALID;
   });
 }
 
@@ -335,28 +342,29 @@ export interface InvitePreview {
 
 /**
  * What accepting would do, without locks or changes: the coach and the
- * group on success, or the refusal accepting would give now.
+ * group on success, or the refusal accepting would give now. `token` is
+ * the raw token the link carries; a malformed one is refused without a
+ * lookup.
  */
 export async function previewInvite(
   db: Executor,
-  tokenHash: string,
+  token: string,
   playerId: string,
   now: Date,
 ): Promise<Result<InvitePreview, InviteRefusal>> {
+  const tokenHash = parsedTokenHash(token);
+  if (tokenHash === undefined) return INVALID;
   const invite = await findNamedInvite(db, tokenHash);
   if (invite === undefined) return INVALID;
   const coach = await findAccountById(db, invite.coachId);
   if (coach === undefined) return INVALID;
   const check = await decide(db, invite, coach, { playerId, now });
   if (!check.ok) return check;
-  return {
-    ok: true,
-    value: {
-      coachDisplayName: coach.displayName,
-      groupName: invite.groupName,
-      kind: invite.kind,
-    },
-  };
+  return ok({
+    coachDisplayName: coach.displayName,
+    groupName: invite.groupName,
+    kind: invite.kind,
+  });
 }
 
 /** The invites `where` picks, with their groups' names, to order and limit. */

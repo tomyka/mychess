@@ -8,15 +8,9 @@ import {
   coachPlayers,
   type CoachAssignment,
 } from '@mychess/db';
-import { assignableTargets, isCoach } from '@mychess/domain';
+import { assignableTargets, isCoach, type AccountRef } from '@mychess/domain';
 import { getDb } from './db';
 import { requireOnboarded } from './session';
-
-/** A linked player the coach can assign to. */
-interface AssignablePlayer {
-  readonly id: string;
-  readonly displayName: string;
-}
 
 /** One of the coach's groups they can assign to. */
 interface AssignableGroup {
@@ -29,7 +23,7 @@ interface AssignableGroup {
  * is not yet assigned to), and whom it went to.
  */
 export interface AssignPanelData {
-  readonly players: readonly AssignablePlayer[];
+  readonly players: readonly AccountRef[];
   readonly groups: readonly AssignableGroup[];
   readonly assignments: readonly CoachAssignment[];
 }

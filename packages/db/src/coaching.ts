@@ -1,6 +1,9 @@
 import {
   canStopCoaching,
   COACH_REFUSALS,
+  ok,
+  refuse,
+  type AccountRef,
   type CoachAccessFacts,
   type CoachRefusal,
   type Result,
@@ -13,7 +16,6 @@ import { changeAssignments } from './assignments/change';
 import type { Db, Executor } from './client';
 import { isLinked, linkCount } from './coach-queries';
 import { revokeOpenInvites } from './invites';
-import { DONE, refusal } from './results';
 import { accounts, coachLinks, groupMembers, groups } from './schema';
 import { sharedRepertoireIds } from './shares';
 
@@ -47,7 +49,7 @@ export function stopCoaching(
 ): Promise<Result<undefined, CoachRefusal>> {
   return db.transaction(async (tx) => {
     const coach = await lockAccountById(tx, coachId);
-    if (coach === undefined) return refusal(COACH_REFUSALS.notCoach);
+    if (coach === undefined) return refuse(COACH_REFUSALS.notCoach);
     const check = canStopCoaching(await linkCount(tx, coachId));
     if (!check.ok) return check;
     await revokeOpenInvites(tx, coachId, now);
@@ -55,7 +57,7 @@ export function stopCoaching(
       .update(accounts)
       .set({ coachSince: null, updatedAt: now })
       .where(eq(accounts.id, coachId));
-    return DONE;
+    return ok();
   });
 }
 
@@ -70,9 +72,7 @@ export interface GroupRef {
  * (coachPlayers) or a player's coach (playerCoaches), with the groups of
  * that coach the player is in.
  */
-export interface LinkedAccount {
-  readonly id: string;
-  readonly displayName: string;
+export interface LinkedAccount extends AccountRef {
   readonly linkedAt: Date;
   readonly groups: readonly GroupRef[];
 }
@@ -212,7 +212,7 @@ export function unlink(
           )
           .returning({ playerId: coachLinks.playerId }),
     );
-    return removed.length === 1 ? DONE : refusal(COACH_REFUSALS.notLinked);
+    return removed.length === 1 ? ok() : refuse(COACH_REFUSALS.notLinked);
   });
 }
 

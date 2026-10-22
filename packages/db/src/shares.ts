@@ -10,6 +10,8 @@ import { sideSchema } from '@mychess/chess';
 import {
   canChangeShares,
   canShare,
+  ok,
+  refuse,
   SHARE_REFUSALS,
   type Result,
   type ShareRefusal,
@@ -24,7 +26,6 @@ import {
   loadRepertoireRows,
   type LoadedRepertoire,
 } from './repertoires/repository';
-import { DONE, refusal } from './results';
 import { accounts, repertoireShares, repertoires } from './schema';
 import { holdRepertoireOwner, sharedIds, sharedTo } from './share-scope';
 
@@ -53,7 +54,7 @@ export async function shareRepertoire(
   return db.transaction(async (tx) => {
     const linked = await holdLink(tx, request.coachId, request.ownerId);
     const ownerId = await holdRepertoireOwner(tx, request.repertoireId);
-    if (ownerId === undefined) return refusal(SHARE_REFUSALS.notOwner);
+    if (ownerId === undefined) return refuse(SHARE_REFUSALS.notOwner);
     const check = canShare(
       request.ownerId,
       { ownerId },
@@ -70,7 +71,7 @@ export async function shareRepertoire(
         createdAt: request.now,
       })
       .onConflictDoNothing();
-    return DONE;
+    return ok();
   });
 }
 
@@ -146,7 +147,7 @@ export async function setShares(
   return db.transaction(async (tx) => {
     const linked = await holdLinks(tx, wanted, request.ownerId);
     const ownerId = await holdRepertoireOwner(tx, request.repertoireId);
-    if (ownerId === undefined) return refusal(SHARE_REFUSALS.notOwner);
+    if (ownerId === undefined) return refuse(SHARE_REFUSALS.notOwner);
     const owned = canChangeShares(request.ownerId, { ownerId });
     if (!owned.ok) return owned;
     const checks = wanted.map((coachId) => ({
@@ -161,13 +162,9 @@ export async function setShares(
     const allowed = checks.filter((c) => c.check.ok).map((c) => c.coachId);
     const shared = await applyShares(tx, request, allowed);
     const refused = checks.map((c) => c.check).find((check) => !check.ok);
-    return {
-      ok: true,
-      value:
-        refused === undefined
-          ? { shared }
-          : { shared, refusal: refused.refusal },
-    };
+    return ok(
+      refused === undefined ? { shared } : { shared, refusal: refused.refusal },
+    );
   });
 }
 

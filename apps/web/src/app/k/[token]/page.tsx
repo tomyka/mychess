@@ -1,4 +1,4 @@
-import { inviteTokenHash, previewInvite } from '@mychess/db';
+import { previewInvite } from '@mychess/db';
 import {
   INVITE_REFUSALS,
   inviteTokenSchema,
@@ -36,11 +36,6 @@ export default async function InvitePage({
   const preview =
     token === null
       ? NOT_VALID
-      : await previewInvite(
-          getDb(),
-          inviteTokenHash(token),
-          account.id,
-          new Date(),
-        );
+      : await previewInvite(getDb(), token, account.id, new Date());
   return <InviteView token={token ?? ''} preview={preview} />;
 }

@@ -19,6 +19,7 @@ import {
   canViewRepertoire,
   REPERTOIRE_REFUSALS,
   type Account,
+  type AccountRef,
   type Repertoire,
   type RepertoireAccessRefusal,
   type Result,
@@ -62,15 +63,12 @@ export async function myRepertoires(): Promise<RepertoireListItem[]> {
   return listRepertoires(getDb(), account.id);
 }
 
-/** A coach the owner can share the repertoire with: one linked to them. */
-export interface ShareCoach {
-  readonly id: string;
-  readonly displayName: string;
-}
-
-/** The owner's linked coaches, and which of them it is shared with (R-42). */
+/**
+ * The owner's linked coaches (those it can be shared with), and which of
+ * them it is shared with (R-42).
+ */
 export interface RepertoireSharing {
-  readonly coaches: readonly ShareCoach[];
+  readonly coaches: readonly AccountRef[];
   readonly sharedWith: readonly string[];
 }
 

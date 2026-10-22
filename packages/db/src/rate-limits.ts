@@ -9,6 +9,7 @@
  */
 import {
   countRequest,
+  ok,
   type RateRefusal,
   type RateRule,
   type Result,
@@ -17,7 +18,6 @@ import { eq, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Executor } from './client';
-import { DONE } from './results';
 import { rateLimits } from './schema';
 
 const counterRowsSchema = z.array(
@@ -59,6 +59,6 @@ export async function countRateLimited<R extends string>(
         lastRequest: counted.value.windowStart,
       })
       .where(eq(rateLimits.key, key));
-    return DONE;
+    return ok();
   });
 }

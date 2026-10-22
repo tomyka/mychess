@@ -1,4 +1,4 @@
-import type { Result } from '@mychess/chess';
+import { ok, refuse, type Result } from '@mychess/chess';
 import { z } from 'zod';
 import { displayNameSchema } from './display-name';
 
@@ -49,6 +49,12 @@ export const accountSchema = z.object({
 });
 export type Account = z.infer<typeof accountSchema>;
 
+/**
+ * Another account as a list or page names it (a linked coach or player, a
+ * group member): its id and display name, never more of the Account.
+ */
+export type AccountRef = Readonly<Pick<Account, 'id' | 'displayName'>>;
+
 /** The name and language a person sets at onboarding and in settings. */
 export const profileSchema = z.object({
   displayName: displayNameSchema,
@@ -66,8 +72,8 @@ const emailSchema = z.email();
 export function canonicalEmail(raw: string): Result<string, AccountRefusal> {
   const folded = raw.normalize('NFKC').trim().toLowerCase();
   return emailSchema.safeParse(folded).success
-    ? { ok: true, value: folded }
-    : { ok: false, refusal: { reason: ACCOUNT_REFUSALS.emailInvalid } };
+    ? ok(folded)
+    : refuse(ACCOUNT_REFUSALS.emailInvalid);
 }
 
 /** Has the account been through the onboarding screen (R-81)? */
@@ -114,10 +120,6 @@ const sameEmail = (email: string, typed: string): boolean => {
 const sameName = (displayName: string, typed: string): boolean =>
   displayName.trim() !== '' && typed.trim() === displayName;
 
-const refuse = (
-  reason: AccountRefusal['reason'],
-): Result<undefined, AccountRefusal> => ({ ok: false, refusal: { reason } });
-
 /**
  * Deletion is confirmed by typing the display name exactly (R-82); a blank
  * name can never be typed, so it never confirms one. An account that has
@@ -130,10 +132,10 @@ export function canDelete(
 ): Result<undefined, AccountRefusal> {
   if (account.onboardedAt === null)
     return sameEmail(account.email, typed)
-      ? { ok: true, value: undefined }
+      ? ok()
       : refuse(ACCOUNT_REFUSALS.deleteEmailMismatch);
   return sameName(account.displayName, typed)
-    ? { ok: true, value: undefined }
+    ? ok()
     : refuse(ACCOUNT_REFUSALS.deleteNameMismatch);
 }
 

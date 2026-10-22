@@ -6,12 +6,12 @@ import {
   coachPlayer,
   coachPlayers,
   createInvite,
-  inviteTokenHash,
   playerCoaches,
   startCoaching,
   stopCoaching,
   unlink,
 } from '../src';
+import { inviteTokenHash } from '../src/invite-token';
 import { useTestDatabase } from '../src/testing';
 import {
   offersOf,
@@ -46,6 +46,7 @@ const coachSince = (id: string) =>
 
 const refused = (reason: string) => ({ ok: false, refusal: { reason } });
 
+/** A personal invite of `coachId`; returns its raw token. */
 async function personalInvite(coachId: string, now = NOW): Promise<string> {
   const made = await createInvite(db, {
     coachId,
@@ -54,7 +55,7 @@ async function personalInvite(coachId: string, now = NOW): Promise<string> {
     now,
   });
   if (!made.ok) throw new Error(made.refusal.reason);
-  return inviteTokenHash(made.value.token);
+  return made.value.token;
 }
 
 describe('startCoaching', () => {
@@ -79,14 +80,14 @@ describe('stopCoaching', () => {
     await seedCoach(db, 'c', 'c@example.lt');
     await seedPlayer(db, 'p', 'p@example.lt');
     await seedLink(db, 'c', 'p');
-    const hash = await personalInvite('c');
+    const token = await personalInvite('c');
     expect(await stopCoaching(db, 'c', NOW)).toEqual(
       refused(COACH_REFUSALS.stillLinked),
     );
     expect(await coachSince('c')).toEqual([{ coach_since: T0 }]);
     expect(
       await query('select revoked_at from invites where token_hash = $1', [
-        hash,
+        inviteTokenHash(token),
       ]),
     ).toEqual([{ revoked_at: null }]);
   });
@@ -115,8 +116,10 @@ describe('stopCoaching', () => {
       ),
     ).toEqual([{ coach_since: null, updated_at: LATER }]);
     expect(await coachSince('c2')).toEqual([{ coach_since: T0 }]);
-    const revokedAt = (hash: string) =>
-      query('select revoked_at from invites where token_hash = $1', [hash]);
+    const revokedAt = (token: string) =>
+      query('select revoked_at from invites where token_hash = $1', [
+        inviteTokenHash(token),
+      ]);
     expect(await revokedAt(open)).toEqual([{ revoked_at: LATER }]);
     expect(await revokedAt(expired)).toEqual([{ revoked_at: null }]);
     expect(await revokedAt(used)).toEqual([{ revoked_at: null }]);
@@ -132,12 +135,12 @@ describe('stopCoaching', () => {
 
   it('keeps the first revocation time of an invite already revoked', async () => {
     await seedCoach(db, 'c', 'c@example.lt');
-    const hash = await personalInvite('c');
+    const token = await personalInvite('c');
     await client.query('update invites set revoked_at = $1', [NOW]);
     await stopCoaching(db, 'c', LATER);
     expect(
       await query('select revoked_at from invites where token_hash = $1', [
-        hash,
+        inviteTokenHash(token),
       ]),
     ).toEqual([{ revoked_at: NOW }]);
   });
@@ -210,10 +213,10 @@ describe('stopCoaching', () => {
       const coach = `c${String(run)}`;
       await seedCoach(db, coach, `${coach}@example.lt`);
       await seedPlayer(db, `${coach}-p`, `${coach}-p@example.lt`);
-      const hash = await personalInvite(coach);
+      const token = await personalInvite(coach);
       const [stop, accept] = await Promise.all([
         stopCoaching(db, coach, NOW),
-        acceptInvite(db, hash, `${coach}-p`, NOW),
+        acceptInvite(db, token, `${coach}-p`, NOW),
       ]);
       const outcome = {
         stop,

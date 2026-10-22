@@ -12,27 +12,22 @@
 import {
   ASSIGNMENT_REFUSALS,
   canUseAssignment,
+  ok,
+  refuse,
   type AssignmentRefusal,
+  type PlayerRepertoire,
   type Result,
 } from '@mychess/domain';
 import { sql, type SQL } from 'drizzle-orm';
 import type { Db, Tx } from '../client';
 import { assignmentPlayers } from '../assignment-schema';
 import { isUuid } from '../ids';
-import { DONE, refusal } from '../results';
 import { repertoires } from '../schema';
 import { holdAssignment } from './reach';
 
 type AssignmentResult = Result<undefined, AssignmentRefusal>;
 
-const NOT_FOUND = refusal(ASSIGNMENT_REFUSALS.notFound);
-
-/** The player and one repertoire: the key of their state on it. */
-interface PlayerRepertoire {
-  /** The session account, never a client value. */
-  readonly playerId: string;
-  readonly repertoireId: string;
-}
+const NOT_FOUND = refuse(ASSIGNMENT_REFUSALS.notFound);
 
 type StateColumns = Partial<{
   pausedAt: Date | null;
@@ -72,7 +67,7 @@ function onOwnAssignment(
     const allowed = canUseAssignment(await holdAssignment(tx, key));
     if (!allowed.ok) return allowed;
     await write(tx);
-    return DONE;
+    return ok();
   });
 }
 

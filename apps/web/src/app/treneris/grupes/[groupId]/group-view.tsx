@@ -1,5 +1,6 @@
 'use client';
 
+import type { AccountRef } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX } from 'react';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../../buttons';
@@ -16,19 +17,13 @@ import { RefusalLine } from '../../refusal-line';
 import { COACH_PAGE, SubpageHeader } from '../../subpage-header';
 import { RenameGroupForm } from './rename-group-form';
 
-/** A player as the group page names them. */
-interface GroupPlayer {
-  readonly id: string;
-  readonly displayName: string;
-}
-
 /** One of the coach's groups, its members, and the linked players to add. */
 export interface CoachGroupPageData {
   readonly id: string;
   readonly name: string;
-  readonly members: readonly GroupPlayer[];
+  readonly members: readonly AccountRef[];
   /** The coach's linked players not yet in the group. */
-  readonly addable: readonly GroupPlayer[];
+  readonly addable: readonly AccountRef[];
 }
 
 const INITIAL: CoachActionState = {};
@@ -43,7 +38,7 @@ function MemberRow({
   remove,
 }: {
   readonly groupId: string;
-  readonly member: GroupPlayer;
+  readonly member: AccountRef;
   readonly remove: Dispatch;
 }): JSX.Element {
   const t = useTranslations('coach.group');

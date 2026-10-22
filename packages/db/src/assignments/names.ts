@@ -1,8 +1,8 @@
 /** Account display names for the assignment reads. Internal to the package. */
-import { inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Executor } from '../client';
 import { accounts } from '../schema';
+import { inIds } from './pairs';
 
 const nameRowsSchema = z.array(
   z.object({ id: z.string().min(1), displayName: z.string() }),
@@ -18,7 +18,7 @@ export async function namesOf(
     await db
       .select({ id: accounts.id, displayName: accounts.displayName })
       .from(accounts)
-      .where(inArray(accounts.id, [...new Set(ids)])),
+      .where(inIds(accounts.id, [...new Set(ids)])),
   );
   return new Map(rows.map((row) => [row.id, row.displayName]));
 }

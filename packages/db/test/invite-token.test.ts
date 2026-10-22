@@ -1,6 +1,10 @@
 import { inviteTokenSchema } from '@mychess/domain';
 import { describe, expect, it } from 'vitest';
-import { inviteTokenHash, newInviteToken } from '../src/invite-token';
+import {
+  inviteTokenHash,
+  newInviteToken,
+  parsedTokenHash,
+} from '../src/invite-token';
 
 describe('newInviteToken', () => {
   it('makes a well-formed token, a different one each time (checklist 5)', () => {
@@ -18,4 +22,18 @@ describe('inviteTokenHash', () => {
       'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
     );
   });
+});
+
+describe('parsedTokenHash', () => {
+  it("is a well-formed token's hash", () => {
+    const token = newInviteToken();
+    expect(parsedTokenHash(token)).toBe(inviteTokenHash(token));
+  });
+
+  it.each(['', 'abc', 'a'.repeat(44), `${'a'.repeat(42)}=`])(
+    'is nothing for the malformed token %j',
+    (token) => {
+      expect(parsedTokenHash(token)).toBeUndefined();
+    },
+  );
 });

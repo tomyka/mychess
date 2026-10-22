@@ -8,6 +8,7 @@ import { parseMoveKey } from '@mychess/chess';
 import {
   canCoachSee,
   canWriteCoachNote,
+  ok,
   type AccessRefusal,
   type CoachAccessFacts,
   type CoachNoteRefusal,
@@ -19,7 +20,6 @@ import { z } from 'zod';
 import type { Executor, Tx } from './client';
 import { holdLink } from './coach-queries';
 import { isUuid } from './ids';
-import { DONE } from './results';
 import { accounts, coachNotes, repertoireMoves, repertoires } from './schema';
 import { holdRepertoireOwner, sharedIds } from './share-scope';
 
@@ -114,7 +114,7 @@ export async function upsertCoachNote(
         ],
         set: { text: note.text, updatedAt: note.now },
       });
-    return DONE;
+    return ok();
   });
 }
 
@@ -151,7 +151,7 @@ export async function deleteCoachNote(
           eq(coachNotes.moveKey, note.moveKey),
         ),
       );
-    return DONE;
+    return ok();
   });
 }
 

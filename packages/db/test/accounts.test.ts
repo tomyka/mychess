@@ -17,10 +17,10 @@ import {
   exportAccount,
   findAccountByEmail,
   findAccountById,
-  inviteTokenHash,
   revokeInvite,
   updateProfile,
 } from '../src';
+import { inviteTokenHash } from '../src/invite-token';
 import { providerAccounts, sessions } from '../src/schema';
 import { useTestDatabase } from '../src/testing';
 import { seedAccount, seedVerification } from './support/accounts';
@@ -486,9 +486,9 @@ describe('coaching rows on delete and export', () => {
     const personal = await invite('personal', null, at(0));
     const group = await invite('group', groupId, at(1));
     const revoked = await invite('personal', null, at(2));
-    await acceptInvite(db, personal.hash, 'p1', NOW);
-    await acceptInvite(db, group.hash, 'p1', NOW);
-    await acceptInvite(db, group.hash, 'p2', LATER);
+    await acceptInvite(db, personal.token, 'p1', NOW);
+    await acceptInvite(db, group.token, 'p1', NOW);
+    await acceptInvite(db, group.token, 'p2', LATER);
     await revokeInvite(db, 'c', revoked.inviteId, LATER);
     return { personal, group, revoked };
   }

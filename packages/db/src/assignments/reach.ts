@@ -15,7 +15,11 @@
  * order (the coach's account row first) cannot invert. Internal to the
  * package.
  */
-import type { AssignmentFacts, AssignmentReach } from '@mychess/domain';
+import type {
+  AssignmentFacts,
+  AssignmentReach,
+  PlayerRepertoire,
+} from '@mychess/domain';
 import {
   and,
   eq,
@@ -35,7 +39,7 @@ import { assignmentPlayers, assignments } from '../assignment-schema';
 import { playerRowsSchema } from '../coach-queries';
 import { isUuid } from '../ids';
 import { coachLinks, groupMembers, repertoires } from '../schema';
-import { inPairs, pairKey, uniquePairs } from './pairs';
+import { inIds, inPairs, pairKey, uniquePairs } from './pairs';
 
 /**
  * Whose assignments to read: some players, a coach's, or both, optionally
@@ -48,13 +52,6 @@ export type ReachScope =
       readonly repertoireId?: string;
     }
   | { readonly coachId: string; readonly repertoireId?: string };
-
-/** The player and one repertoire: the key of their state on it. */
-export interface ReachKey {
-  /** The session account, never a client value. */
-  readonly playerId: string;
-  readonly repertoireId: string;
-}
 
 /** An assignment's target as its columns: exactly one is set. */
 export interface ReachTarget {
@@ -106,7 +103,7 @@ const inScope =
   (scope: ReachScope): PlayerFilter =>
   (player) =>
     and(
-      'playerIds' in scope ? inArray(player, [...scope.playerIds]) : undefined,
+      'playerIds' in scope ? inIds(player, scope.playerIds) : undefined,
       scope.coachId === undefined
         ? undefined
         : eq(assignments.coachId, scope.coachId),
@@ -188,7 +185,7 @@ async function reachRows(
 }
 
 /** The players' states on `pairs`, whether or not anything reaches them. */
-const stateQuery = (db: Executor, pairs: readonly ReachKey[]) =>
+const stateQuery = (db: Executor, pairs: readonly PlayerRepertoire[]) =>
   db
     .select(stateColumns)
     .from(assignmentPlayers)
@@ -294,7 +291,7 @@ export async function assignmentFacts(
  */
 export async function holdAssignment(
   tx: Tx,
-  key: ReachKey,
+  key: PlayerRepertoire,
 ): Promise<AssignmentFacts | undefined> {
   if (!isUuid(key.repertoireId)) return undefined;
   const rows = await reachRows(
@@ -355,7 +352,7 @@ export const unreachedState = (
   playerIds: readonly string[],
 ): SQL | undefined =>
   and(
-    inArray(assignmentPlayers.playerId, [...playerIds]),
+    inIds(assignmentPlayers.playerId, playerIds),
     notExists(ownReach(db, { one: sql`1` }, sameStatePair)),
     notExists(groupReach(db, { one: sql`1` }, sameStatePair)),
   );

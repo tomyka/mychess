@@ -1,6 +1,6 @@
 import { Chess, type Move } from 'chess.js';
 import { fenOf, positionKey, START_KEY } from '../position-key';
-import type { Result } from '../result';
+import { ok, refuse, type Result } from '../result';
 import { normalizeComment } from './comment';
 import {
   chapterOf,
@@ -24,11 +24,6 @@ export type EditRefusal =
   | { reason: 'repertoire.unknownMove' };
 
 type EditResult = Result<RepertoireGraph, EditRefusal>;
-
-const refuse = (reason: EditRefusal['reason']): EditResult => ({
-  ok: false,
-  refusal: { reason },
-});
 
 /**
  * The positions a chapter reaches: its root and where each of its moves lands.
@@ -79,12 +74,12 @@ export function addMove(
   const held = graph.moves.some(
     (m) => same(m, fromKey, played.san) && m.chapters.includes(chapterId),
   );
-  if (held) return { ok: true, value: graph };
+  if (held) return ok(graph);
   const moves = new RepertoireMoves(graph.side, graph.moves);
   const put = moves.put(played, chapterId);
   if (!put.ok) return put;
   const value = { ...graph, moves: moves.list() };
-  return { ok: true, value: renamedByMoves(value, chapterId) };
+  return ok(renamedByMoves(value, chapterId));
 }
 
 /**
@@ -102,7 +97,7 @@ export function removeMove(
   const chapter = chapterOf(graph, chapterId);
   if (chapter === undefined) return refuse('repertoire.unknownChapter');
   const value = withoutMove(graph, chapter, fromKey, san);
-  return { ok: true, value: renamedByMoves(value, chapterId) };
+  return ok(renamedByMoves(value, chapterId));
 }
 
 /** Replaces the arrows and circles on one move of a chapter. */
@@ -121,7 +116,7 @@ export function setMarks(
   const moves = graph.moves.map((m) =>
     m === target ? { ...m, arrows, circles } : m,
   );
-  return { ok: true, value: { ...graph, moves } };
+  return ok({ ...graph, moves });
 }
 
 /**
@@ -138,7 +133,7 @@ export function editComment(
   if (target === undefined) return refuse('repertoire.unknownMove');
   const comment = normalizeComment(text);
   const moves = graph.moves.map((m) => (m === target ? { ...m, comment } : m));
-  return { ok: true, value: { ...graph, moves } };
+  return ok({ ...graph, moves });
 }
 
 /**
@@ -155,7 +150,7 @@ export function removeChapter(
     .map((m) => withoutChapter(m, chapterId))
     .filter((m) => m.chapters.length > 0);
   const chapters = graph.chapters.filter((c) => c.id !== chapterId);
-  return { ok: true, value: { ...graph, chapters, moves } };
+  return ok({ ...graph, chapters, moves });
 }
 
 /**
@@ -188,7 +183,7 @@ export function renameChapter(
   const chapters = graph.chapters.map((c): Chapter =>
     c.id === chapterId ? { ...c, nameSource: { kind: 'custom', name } } : c,
   );
-  return { ok: true, value: { ...graph, chapters } };
+  return ok({ ...graph, chapters });
 }
 
 /**
@@ -263,7 +258,7 @@ export function applyEdit(graph: RepertoireGraph, op: EditOp): EditResult {
     case 'editComment':
       return editComment(graph, op.moveKey, op.comment);
     case 'addChapter':
-      return { ok: true, value: addChapter(graph, START_KEY).graph };
+      return ok(addChapter(graph, START_KEY).graph);
     case 'renameChapter':
       return renameChapter(graph, op.chapterId, op.name);
     case 'removeChapter':

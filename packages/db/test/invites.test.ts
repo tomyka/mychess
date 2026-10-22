@@ -10,11 +10,11 @@ import {
   acceptInvite,
   coachInvites,
   createInvite,
-  inviteTokenHash,
   previewInvite,
   revokeInvite,
 } from '../src';
 import { forkOffers } from '../src/assignment-schema';
+import { inviteTokenHash } from '../src/invite-token';
 import { useTestDatabase } from '../src/testing';
 import {
   offersOf,
@@ -31,6 +31,7 @@ import {
   someoneWaitsForALock,
   T0,
 } from './support/coaching';
+import { countStatements } from './support/statements';
 
 const { db, client } = useTestDatabase();
 
@@ -55,8 +56,8 @@ async function invite(
   return { ...made.value, hash: inviteTokenHash(made.value.token) };
 }
 
-const accept = (hash: string, playerId: string, now = NOW) =>
-  acceptInvite(db, hash, playerId, now);
+const accept = (token: string, playerId: string, now = NOW) =>
+  acceptInvite(db, token, playerId, now);
 
 const query = async (
   text: string,
@@ -323,12 +324,12 @@ describe('acceptInvite', () => {
     await seedPlayer(db, 'p1', 'p1@example.lt');
     await seedPlayer(db, 'p2', 'p2@example.lt');
     const groupId = await seedGroup(db, 'c', 'Šeštadienio grupė');
-    const { hash } = await invite('group', groupId);
-    expect(await accept(hash, 'p1')).toEqual({
+    const { token } = await invite('group', groupId);
+    expect(await accept(token, 'p1')).toEqual({
       ok: true,
       value: { coachId: 'c', groupId },
     });
-    expect(await accept(hash, 'p2')).toEqual({
+    expect(await accept(token, 'p2')).toEqual({
       ok: true,
       value: { coachId: 'c', groupId },
     });
@@ -357,12 +358,12 @@ describe('acceptInvite', () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedPlayer(db, 'p1', 'p1@example.lt');
     await seedPlayer(db, 'p2', 'p2@example.lt');
-    const { hash } = await invite();
-    expect(await accept(hash, 'p1')).toEqual({
+    const { token } = await invite();
+    expect(await accept(token, 'p1')).toEqual({
       ok: true,
       value: { coachId: 'c', groupId: null },
     });
-    expect(await accept(hash, 'p2', at(1000))).toEqual(
+    expect(await accept(token, 'p2', at(1000))).toEqual(
       refused(INVITE_REFUSALS.invalid),
     );
     expect(await query('select used_at, used_by from invites')).toEqual([
@@ -378,8 +379,8 @@ describe('acceptInvite', () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedPlayer(db, 'p1', 'p1@example.lt');
     const groupId = await seedGroup(db, 'c', 'Mano');
-    const { hash } = await invite('personal', groupId);
-    expect(await accept(hash, 'p1')).toEqual({
+    const { token } = await invite('personal', groupId);
+    expect(await accept(token, 'p1')).toEqual({
       ok: true,
       value: { coachId: 'c', groupId },
     });
@@ -395,13 +396,13 @@ describe('acceptInvite', () => {
   ])('refuses an invite that is %s and changes nothing', async (_, how) => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedPlayer(db, 'p1', 'p1@example.lt');
-    const { hash, inviteId } = await invite();
+    const { token, inviteId } = await invite();
     if (how === 'revoked') await revokeInvite(db, 'c', inviteId, NOW);
     const before = await query('select * from invites');
     const result =
       how === 'expired'
-        ? await accept(hash, 'p1', at(WEEK))
-        : await accept(how === 'unknown' ? 'f'.repeat(64) : hash, 'p1');
+        ? await accept(token, 'p1', at(WEEK))
+        : await accept(how === 'unknown' ? 'f'.repeat(43) : token, 'p1');
     expect(result).toEqual(refused(INVITE_REFUSALS.invalid));
     expect(await query('select * from invites')).toEqual(before);
     expect(await linksOf('c')).toBe(0);
@@ -410,28 +411,38 @@ describe('acceptInvite', () => {
   it('accepts an invite just before its expiry', async () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedPlayer(db, 'p1', 'p1@example.lt');
-    const { hash } = await invite();
-    expect((await accept(hash, 'p1', at(WEEK - 1))).ok).toBe(true);
+    const { token } = await invite();
+    expect((await accept(token, 'p1', at(WEEK - 1))).ok).toBe(true);
   });
 
-  it('refuses the raw token in place of its hash', async () => {
+  it('refuses the stored hash in place of the token', async () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedPlayer(db, 'p1', 'p1@example.lt');
-    const { token } = await invite();
-    expect(await accept(token, 'p1')).toEqual(refused(INVITE_REFUSALS.invalid));
+    const { hash } = await invite();
+    expect(await accept(hash, 'p1')).toEqual(refused(INVITE_REFUSALS.invalid));
+    expect(await linksOf('c')).toBe(0);
+  });
+
+  it('refuses a malformed token without a lookup', async () => {
+    let result: unknown;
+    const sent = await countStatements(async () => {
+      result = await accept('not a token', 'p1');
+    });
+    expect(result).toEqual(refused(INVITE_REFUSALS.invalid));
+    expect(sent).toBe(0);
   });
 
   it('refuses an invite whose coach is not the coach it locked', async () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedCoach(db, 'c2', 'coach2@example.lt');
     await seedPlayer(db, 'p1', 'p1@example.lt');
-    const { hash } = await invite();
+    const { token } = await invite();
     // acceptInvite learns coach 'c' unlocked, then waits for c's row; the
     // invite moves to 'c2' meanwhile, so c's lock no longer covers it.
     const holding = await openTransaction(client, [
       `select id from accounts where id = 'c' for no key update`,
     ]);
-    const accepting = accept(hash, 'p1');
+    const accepting = accept(token, 'p1');
     await someoneWaitsForALock(client);
     await holding.finish(`update invites set coach_id = 'c2'`);
     expect(await accepting).toEqual(refused(INVITE_REFUSALS.invalid));
@@ -442,8 +453,10 @@ describe('acceptInvite', () => {
 
   it("refuses the coach's own invite", async () => {
     await seedCoach(db, 'c', 'coach@example.lt');
-    const { hash } = await invite();
-    expect(await accept(hash, 'c')).toEqual(refused(INVITE_REFUSALS.ownInvite));
+    const { token } = await invite();
+    expect(await accept(token, 'c')).toEqual(
+      refused(INVITE_REFUSALS.ownInvite),
+    );
     expect(await query('select used_by from invites')).toEqual([
       { used_by: null },
     ]);
@@ -452,20 +465,20 @@ describe('acceptInvite', () => {
   it('refuses an invite from a disabled coach as not valid (R-108)', async () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedPlayer(db, 'p1', 'p1@example.lt');
-    const { hash } = await invite();
+    const { token } = await invite();
     await client.query(`update accounts set disabled_at = $1 where id = 'c'`, [
       NOW,
     ]);
-    expect(await accept(hash, 'p1')).toEqual(refused(INVITE_REFUSALS.invalid));
+    expect(await accept(token, 'p1')).toEqual(refused(INVITE_REFUSALS.invalid));
     expect(await linksOf('c')).toBe(0);
   });
 
   it('refuses an invite from an account that left Coach mode as not valid', async () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedPlayer(db, 'p1', 'p1@example.lt');
-    const { hash } = await invite();
+    const { token } = await invite();
     await client.query(`update accounts set coach_since = null`);
-    expect(await accept(hash, 'p1')).toEqual(refused(INVITE_REFUSALS.invalid));
+    expect(await accept(token, 'p1')).toEqual(refused(INVITE_REFUSALS.invalid));
     expect(await linksOf('c')).toBe(0);
   });
 
@@ -473,8 +486,8 @@ describe('acceptInvite', () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedLinks(db, 'c', 30);
     await seedPlayer(db, 'p1', 'p1@example.lt');
-    const { hash } = await invite();
-    expect(await accept(hash, 'p1')).toEqual(
+    const { token } = await invite();
+    expect(await accept(token, 'p1')).toEqual(
       refused(INVITE_REFUSALS.coachFull),
     );
     expect(await linksOf('c')).toBe(30);
@@ -487,8 +500,8 @@ describe('acceptInvite', () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedLinks(db, 'c', 30);
     const groupId = await seedGroup(db, 'c', 'Mano');
-    const { hash } = await invite('group', groupId);
-    expect(await accept(hash, 'c-p-1')).toEqual({
+    const { token } = await invite('group', groupId);
+    expect(await accept(token, 'c-p-1')).toEqual({
       ok: true,
       value: { coachId: 'c', groupId },
     });
@@ -507,8 +520,8 @@ describe('acceptInvite', () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedPlayer(db, 'p1', 'p1@example.lt');
     await seedLink(db, 'c', 'p1');
-    const { hash } = await invite();
-    expect((await accept(hash, 'p1')).ok).toBe(true);
+    const { token } = await invite();
+    expect((await accept(token, 'p1')).ok).toBe(true);
     expect(await query('select used_by from invites')).toEqual([
       { used_by: 'p1' },
     ]);
@@ -518,9 +531,9 @@ describe('acceptInvite', () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedPlayer(db, 'p1', 'p1@example.lt');
     const groupId = await seedGroup(db, 'c', 'Mano');
-    const { hash } = await invite('group', groupId);
-    await accept(hash, 'p1');
-    expect((await accept(hash, 'p1', at(1000))).ok).toBe(true);
+    const { token } = await invite('group', groupId);
+    await accept(token, 'p1');
+    expect((await accept(token, 'p1', at(1000))).ok).toBe(true);
     expect(await query('select joined_at from group_members')).toEqual([
       { joined_at: NOW },
     ]);
@@ -539,8 +552,8 @@ describe('acceptInvite', () => {
       const first = await invite('personal', null, coach);
       const second = await invite('personal', null, coach);
       const results = await Promise.all([
-        accept(first.hash, `${coach}-a`),
-        accept(second.hash, `${coach}-b`),
+        accept(first.token, `${coach}-a`),
+        accept(second.token, `${coach}-b`),
       ]);
       expect(results.filter((r) => r.ok)).toHaveLength(1);
       expect(results.filter((r) => !r.ok)).toEqual([
@@ -557,10 +570,10 @@ describe('acceptInvite', () => {
       await seedCoach(db, coach, `${coach}@example.lt`);
       await seedPlayer(db, `${coach}-a`, `${coach}-a@example.lt`);
       await seedPlayer(db, `${coach}-b`, `${coach}-b@example.lt`);
-      const { hash } = await invite('personal', null, coach);
+      const { token } = await invite('personal', null, coach);
       const results = await Promise.all([
-        accept(hash, `${coach}-a`),
-        accept(hash, `${coach}-b`),
+        accept(token, `${coach}-a`),
+        accept(token, `${coach}-b`),
       ]);
       expect(results.filter((r) => r.ok)).toHaveLength(1);
       expect(results.filter((r) => !r.ok)).toEqual([
@@ -619,8 +632,8 @@ describe('revokeInvite', () => {
   it('refuses a used invite and leaves it used', async () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedPlayer(db, 'p1', 'p1@example.lt');
-    const { hash, inviteId } = await invite();
-    expect((await accept(hash, 'p1')).ok).toBe(true);
+    const { token, inviteId } = await invite();
+    expect((await accept(token, 'p1')).ok).toBe(true);
     const before = await query('select * from invites');
     expect(await revokeInvite(db, 'c', inviteId, at(1000))).toEqual(
       refused(INVITE_REFUSALS.invalid),
@@ -643,8 +656,8 @@ describe('revokeInvite', () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedPlayer(db, 'p1', 'p1@example.lt');
     const groupId = await seedGroup(db, 'c', 'Grupė');
-    const { hash, inviteId } = await invite('group', groupId);
-    expect((await accept(hash, 'p1')).ok).toBe(true);
+    const { token, inviteId } = await invite('group', groupId);
+    expect((await accept(token, 'p1')).ok).toBe(true);
     expect((await revokeInvite(db, 'c', inviteId, at(1000))).ok).toBe(true);
   });
 });
@@ -654,8 +667,8 @@ describe('previewInvite', () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedPlayer(db, 'p1', 'p1@example.lt');
     const groupId = await seedGroup(db, 'c', 'Šeštadienio grupė');
-    const { hash } = await invite('group', groupId);
-    expect(await previewInvite(db, hash, 'p1', NOW)).toEqual({
+    const { token } = await invite('group', groupId);
+    expect(await previewInvite(db, token, 'p1', NOW)).toEqual({
       ok: true,
       value: {
         coachDisplayName: 'Name c',
@@ -669,8 +682,8 @@ describe('previewInvite', () => {
   it('shows a personal invite without a group', async () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedPlayer(db, 'p1', 'p1@example.lt');
-    const { hash } = await invite();
-    expect(await previewInvite(db, hash, 'p1', NOW)).toEqual({
+    const { token } = await invite();
+    expect(await previewInvite(db, token, 'p1', NOW)).toEqual({
       ok: true,
       value: { coachDisplayName: 'Name c', groupName: null, kind: 'personal' },
     });
@@ -682,10 +695,10 @@ describe('previewInvite', () => {
       await seedCoach(db, 'c', 'coach@example.lt');
       await seedPlayer(db, 'p1', 'p1@example.lt');
       await seedPlayer(db, 'p2', 'p2@example.lt');
-      const { hash, inviteId } = await invite();
-      if (how === 'used') await accept(hash, 'p2');
+      const { token, inviteId } = await invite();
+      if (how === 'used') await accept(token, 'p2');
       if (how === 'revoked') await revokeInvite(db, 'c', inviteId, NOW);
-      const asked = how === 'unknown' ? 'e'.repeat(64) : hash;
+      const asked = how === 'unknown' ? 'e'.repeat(43) : token;
       const now = how === 'expired' ? at(WEEK) : NOW;
       expect(await previewInvite(db, asked, 'p1', now)).toEqual(
         refused(INVITE_REFUSALS.invalid),
@@ -693,18 +706,36 @@ describe('previewInvite', () => {
     },
   );
 
+  it('refuses the stored hash in place of the token', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    await seedPlayer(db, 'p1', 'p1@example.lt');
+    const { hash } = await invite();
+    expect(await previewInvite(db, hash, 'p1', NOW)).toEqual(
+      refused(INVITE_REFUSALS.invalid),
+    );
+  });
+
+  it('refuses a malformed token without a lookup', async () => {
+    let result: unknown;
+    const sent = await countStatements(async () => {
+      result = await previewInvite(db, 'not a token', 'p1', NOW);
+    });
+    expect(result).toEqual(refused(INVITE_REFUSALS.invalid));
+    expect(sent).toBe(0);
+  });
+
   it("passes the coach's other refusals through", async () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedLinks(db, 'c', 30);
     await seedPlayer(db, 'p1', 'p1@example.lt');
-    const { hash } = await invite();
-    expect(await previewInvite(db, hash, 'c', NOW)).toEqual(
+    const { token } = await invite();
+    expect(await previewInvite(db, token, 'c', NOW)).toEqual(
       refused(INVITE_REFUSALS.ownInvite),
     );
-    expect(await previewInvite(db, hash, 'p1', NOW)).toEqual(
+    expect(await previewInvite(db, token, 'p1', NOW)).toEqual(
       refused(INVITE_REFUSALS.coachFull),
     );
-    expect(await previewInvite(db, hash, 'c-p-1', NOW)).toMatchObject({
+    expect(await previewInvite(db, token, 'c-p-1', NOW)).toMatchObject({
       ok: true,
     });
   });
@@ -721,7 +752,7 @@ describe('coachInvites', () => {
     const revoked = await invite('group', groupId, 'c', at(2000));
     const open = await invite('group', groupId, 'c', at(3000));
     await invite('personal', null, 'c2', at(4000));
-    await accept(used.hash, 'p1', at(1000));
+    await accept(used.token, 'p1', at(1000));
     await revokeInvite(db, 'c', revoked.inviteId, at(2500));
     const list = await coachInvites(db, 'c', at(5000));
     expect(list).toEqual([
@@ -820,8 +851,8 @@ describe("acceptInvite and the group's assignments", () => {
       createdAt: T0,
       expiresAt: at(WEEK),
     });
-    const { hash } = await invite('group', groupId);
-    expect(await accept(hash, 'p1')).toEqual({
+    const { token } = await invite('group', groupId);
+    expect(await accept(token, 'p1')).toEqual({
       ok: true,
       value: { coachId: 'c', groupId },
     });

@@ -10,6 +10,8 @@ import { moveKey, type RepertoireGraph, type Side } from '@mychess/chess';
 import {
   ASSIGNMENT_REFUSALS,
   canFork,
+  ok,
+  refuse,
   type AssignmentRefusal,
   type Result,
 } from '@mychess/domain';
@@ -19,7 +21,6 @@ import { lockAccountById } from '../accounts';
 import { assignmentPlayers, forkCoachNotes } from '../assignment-schema';
 import type { Executor, Tx } from '../client';
 import { isUuid } from '../ids';
-import { refusal } from '../results';
 import { createRepertoire } from '../repertoires/repository';
 import { batches } from '../repertoires/write';
 import { personalNotes, repertoires } from '../schema';
@@ -93,7 +94,7 @@ export interface ForkRequest {
 
 type ForkResult = Result<{ forkId: string }, AssignmentRefusal>;
 
-const NOT_FOUND = refusal(ASSIGNMENT_REFUSALS.notFound);
+const NOT_FOUND = refuse(ASSIGNMENT_REFUSALS.notFound);
 
 const ownerRowsSchema = z.array(z.object({ ownerId: z.string().min(1) }));
 
@@ -166,7 +167,7 @@ export function forkAssignment(
       now,
     });
     await markForked(tx, req, now);
-    return { ok: true, value: { forkId } };
+    return ok({ forkId });
   });
 }
 

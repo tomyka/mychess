@@ -1,6 +1,6 @@
 'use server';
 
-import { acceptInvite, inviteTokenHash } from '@mychess/db';
+import { acceptInvite } from '@mychess/db';
 import {
   INVITE_REFUSALS,
   inviteTokenSchema,
@@ -19,7 +19,7 @@ export interface AcceptState {
 /**
  * Accepts the invite as the session account, never an id the form carries
  * (checklist 4), and only on a POST (plan decision 8). The token is
- * checked for its format before it is hashed (plan decision 6). On
+ * checked for its format before it is looked up (plan decision 6). On
  * success the player lands on "Mano treneriai" (plan decision 12).
  */
 export async function acceptInviteAction(
@@ -31,7 +31,7 @@ export async function acceptInviteAction(
   if (!token.success) return { refusal: INVITE_REFUSALS.invalid };
   const accepted = await acceptInvite(
     getDb(),
-    inviteTokenHash(token.data),
+    token.data,
     player.id,
     new Date(),
   );

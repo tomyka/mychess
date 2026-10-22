@@ -64,7 +64,7 @@ async function snapshotsOf(
   return pairs.map((pair) => {
     const one = taken.get(pairKey(pair));
     if (one === undefined)
-      throw new Error('offerFork: the repertoire is gone; unassign it first');
+      throw new Error('snapshotsOf: the repertoire is gone; unassign it first');
     return { ...one, pair };
   });
 }
@@ -87,7 +87,7 @@ async function offerForks(
   const rows = taken.map(({ pair, repertoire, snapshot }) => {
     const coachName = names.get(repertoire.ownerId);
     if (coachName === undefined)
-      throw new Error('offerFork: the coach is gone');
+      throw new Error('offerForks: the coach is gone');
     return {
       ...pair,
       coachName,

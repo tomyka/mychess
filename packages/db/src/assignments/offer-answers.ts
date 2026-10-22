@@ -7,6 +7,8 @@
 import {
   canAnswerForkOffer,
   FORK_OFFER_REFUSALS,
+  ok,
+  refuse,
   type ForkOfferRefusal,
   type Result,
 } from '@mychess/domain';
@@ -15,7 +17,6 @@ import { z } from 'zod';
 import { forkOffers } from '../assignment-schema';
 import type { Executor, Tx } from '../client';
 import { isUuid } from '../ids';
-import { DONE, refusal } from '../results';
 import { SIDES } from '@mychess/chess';
 import { writeFork } from './fork';
 import { snapshotSchema } from './snapshot';
@@ -26,7 +27,7 @@ export interface ForkOfferRef {
   readonly offerId: string;
 }
 
-const NOT_OPEN = refusal(FORK_OFFER_REFUSALS.notOpen);
+const NOT_OPEN = refuse(FORK_OFFER_REFUSALS.notOpen);
 
 const offerRowsSchema = z.array(
   z.object({
@@ -76,7 +77,7 @@ function onOpenOffer<T>(
     if (offer === undefined) return NOT_OPEN;
     const allowed = canAnswerForkOffer(offer, now);
     if (!allowed.ok) return allowed;
-    return { ok: true, value: await answer(tx, offer) };
+    return ok(await answer(tx, offer));
   });
 }
 
@@ -116,5 +117,5 @@ export async function declineForkOffer(
   const answered = await onOpenOffer(db, ref, now, async (tx) => {
     await tx.update(forkOffers).set({ declinedAt: now }).where(isOffer(ref));
   });
-  return answered.ok ? DONE : answered;
+  return answered.ok ? ok() : answered;
 }

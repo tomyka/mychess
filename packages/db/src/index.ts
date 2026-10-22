@@ -107,7 +107,6 @@ export {
   type GroupMember,
   type Membership,
 } from './groups';
-export { inviteTokenHash } from './invite-token';
 export {
   acceptInvite,
   coachInvites,

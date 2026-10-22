@@ -4,6 +4,7 @@ import { useFormatter, useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useActionState, useId, type JSX } from 'react';
 import type { SharedRepertoireItem } from '@mychess/db';
+import type { AccountRef } from '@mychess/domain';
 import {
   coachGroupPath,
   coachSharedRepertoirePath,
@@ -19,9 +20,7 @@ import { COACH_PAGE, SubpageHeader } from '../../subpage-header';
  * What the coach sees of a linked player (subject `profile`): the display
  * name, when they linked and the coach's own groups; never the email.
  */
-export interface CoachPlayerPageData {
-  readonly id: string;
-  readonly displayName: string;
+export interface CoachPlayerPageData extends AccountRef {
   readonly linkedAt: Date;
   readonly groups: readonly { readonly id: string; readonly name: string }[];
   /** The player's repertoires shared with this coach (R-42). */

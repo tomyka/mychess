@@ -1,4 +1,4 @@
-import type { Result } from '@mychess/chess';
+import { ok, refuse, type Result } from '@mychess/chess';
 import { z } from 'zod';
 import { entitlementLimits, type Account } from './account';
 import { isCoach, type CoachFacts } from './coach';
@@ -104,12 +104,6 @@ export interface AcceptCounts {
 
 type AcceptResult = Result<undefined, InviteRefusal>;
 
-const OK: AcceptResult = { ok: true, value: undefined };
-const refuse = (reason: InviteRefusal['reason']): AcceptResult => ({
-  ok: false,
-  refusal: { reason },
-});
-
 /**
  * An invite is valid while active and while its coach is neither disabled
  * (R-108) nor out of Coach mode.
@@ -141,5 +135,5 @@ export function canAccept(
 ): AcceptResult {
   if (!isValid(invite, coach, now)) return refuse(INVITE_REFUSALS.invalid);
   if (playerId === invite.coachId) return refuse(INVITE_REFUSALS.ownInvite);
-  return hasRoom(coach, counts) ? OK : refuse(INVITE_REFUSALS.coachFull);
+  return hasRoom(coach, counts) ? ok() : refuse(INVITE_REFUSALS.coachFull);
 }

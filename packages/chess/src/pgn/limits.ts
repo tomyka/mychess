@@ -4,7 +4,7 @@
  * limit it breaks. Every check is a single linear pass, so hostile text
  * cannot make it slow.
  */
-import type { Result } from '../result';
+import { ok, refuse, type Result } from '../result';
 
 export const PGN_LIMITS = {
   bytes: 2 * 1024 * 1024,
@@ -67,28 +67,20 @@ function scanText(text: string): Scan {
   return scan;
 }
 
-const refuse = (
-  reason: LimitRefusal['reason'],
-  limit: number,
-): Result<undefined, LimitRefusal> => ({
-  ok: false,
-  refusal: { reason, limit },
-});
-
 /** Refuses PGN text over the upload limits (R-66, R-119). */
 export function checkLimits(text: string): Result<undefined, LimitRefusal> {
   if (new TextEncoder().encode(text).length > PGN_LIMITS.bytes) {
-    return refuse('pgn.tooLarge', PGN_LIMITS.bytes);
+    return refuse('pgn.tooLarge', { limit: PGN_LIMITS.bytes });
   }
   if (countGames(text) > PGN_LIMITS.games) {
-    return refuse('pgn.tooManyGames', PGN_LIMITS.games);
+    return refuse('pgn.tooManyGames', { limit: PGN_LIMITS.games });
   }
   const scan = scanText(text);
   if (scan.maxDepth > PGN_LIMITS.depth) {
-    return refuse('pgn.tooDeep', PGN_LIMITS.depth);
+    return refuse('pgn.tooDeep', { limit: PGN_LIMITS.depth });
   }
   if (scan.plies > PGN_LIMITS.plies) {
-    return refuse('pgn.tooManyMoves', PGN_LIMITS.plies);
+    return refuse('pgn.tooManyMoves', { limit: PGN_LIMITS.plies });
   }
-  return { ok: true, value: undefined };
+  return ok();
 }

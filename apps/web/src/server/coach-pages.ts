@@ -15,6 +15,7 @@ import {
   type SharedRepertoireItem,
 } from '@mychess/db';
 import type { RepertoireGraph, Side } from '@mychess/chess';
+import type { AccountRef } from '@mychess/domain';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { accountIdSchema } from './account-id';
@@ -124,16 +125,10 @@ export async function sharedRepertoireData(
   };
 }
 
-/** A linked player the coach can put into a group. */
-interface AddablePlayer {
-  readonly id: string;
-  readonly displayName: string;
-}
-
 /** A group's page: the group, its members, and who else could join it. */
 export interface CoachGroupPage extends CoachGroup {
   /** The coach's linked players not yet in the group, by display name. */
-  readonly addable: readonly AddablePlayer[];
+  readonly addable: readonly AccountRef[];
 }
 
 /**

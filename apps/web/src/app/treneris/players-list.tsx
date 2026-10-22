@@ -1,5 +1,6 @@
 'use client';
 
+import type { AccountRef } from '@mychess/domain';
 import { useFormatter, useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useActionState, useId, type JSX } from 'react';
@@ -10,9 +11,7 @@ import { unlinkPlayerAction, type CoachActionState } from './actions';
 import { RefusalLine } from './refusal-line';
 
 /** One linked player as the coach dashboard lists them. */
-export interface CoachPlayerRow {
-  readonly id: string;
-  readonly displayName: string;
+export interface CoachPlayerRow extends AccountRef {
   readonly groups: readonly { readonly id: string; readonly name: string }[];
 }
 

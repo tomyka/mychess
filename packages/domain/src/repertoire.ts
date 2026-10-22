@@ -1,6 +1,8 @@
 import {
   moveKey,
   normalizeComment,
+  ok,
+  refuse,
   sideSchema,
   type RepertoireMove,
   type Result,
@@ -79,11 +81,7 @@ export interface RepertoireAccessRefusal {
 
 type RepertoireAccess = Result<undefined, RepertoireAccessRefusal>;
 
-const ALLOWED: RepertoireAccess = { ok: true, value: undefined };
-const NOT_FOUND: RepertoireAccess = {
-  ok: false,
-  refusal: { reason: REPERTOIRE_REFUSALS.notFound },
-};
+const NOT_FOUND: RepertoireAccess = refuse(REPERTOIRE_REFUSALS.notFound);
 
 const owns = (
   viewer: Pick<Account, 'id'>,
@@ -98,7 +96,7 @@ export function canViewRepertoire(
   viewer: Pick<Account, 'id'>,
   repertoire: Pick<Repertoire, 'ownerId'>,
 ): RepertoireAccess {
-  return owns(viewer, repertoire) ? ALLOWED : NOT_FOUND;
+  return owns(viewer, repertoire) ? ok() : NOT_FOUND;
 }
 
 /**
@@ -112,7 +110,7 @@ export function canKeepPersonalNotes(
   assignment: AssignmentFacts | undefined,
 ): RepertoireAccess {
   return owns(player, repertoire) || canUseAssignment(assignment).ok
-    ? ALLOWED
+    ? ok()
     : NOT_FOUND;
 }
 
@@ -127,9 +125,9 @@ export function canWritePersonalNote(
   key: string,
   text: string,
 ): RepertoireAccess {
-  if (text === '') return ALLOWED;
+  if (text === '') return ok();
   return graph.moves.some((m) => moveKey(m.from, m.san) === key)
-    ? ALLOWED
+    ? ok()
     : NOT_FOUND;
 }
 
@@ -138,5 +136,5 @@ export function canEditRepertoire(
   viewer: Pick<Account, 'id'>,
   repertoire: Pick<Repertoire, 'ownerId'>,
 ): RepertoireAccess {
-  return owns(viewer, repertoire) ? ALLOWED : NOT_FOUND;
+  return owns(viewer, repertoire) ? ok() : NOT_FOUND;
 }

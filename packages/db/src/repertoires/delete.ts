@@ -4,6 +4,8 @@
  * repertoires through repository.ts.
  */
 import {
+  ok,
+  refuse,
   REPERTOIRE_REFUSALS,
   type RepertoireAccessRefusal,
   type Result,
@@ -13,11 +15,10 @@ import { unassignAll } from '../assignments/assign';
 import type { Executor } from '../client';
 import { countSchema } from '../coach-queries';
 import { isUuid } from '../ids';
-import { DONE, refusal } from '../results';
 import { repertoires } from '../schema';
 import { ownedBy } from './repository';
 
-const NOT_FOUND = refusal(REPERTOIRE_REFUSALS.notFound);
+const NOT_FOUND = refuse(REPERTOIRE_REFUSALS.notFound);
 
 /**
  * Deletes the owner's repertoire (its rows go by cascade); not found when
@@ -41,6 +42,6 @@ export function deleteRepertoire(
     if (found === 0) return NOT_FOUND;
     await unassignAll(tx, { ownerId, repertoireId: id }, now);
     await tx.delete(repertoires).where(owned);
-    return DONE;
+    return ok();
   });
 }

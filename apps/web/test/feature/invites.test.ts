@@ -1,4 +1,5 @@
-import { createInvite, inviteTokenHash } from '@mychess/db';
+import { createInvite } from '@mychess/db';
+import { inviteTokenHash } from '@mychess/db/testing';
 import { OPEN_INVITE_LIMIT } from '@mychess/domain';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';

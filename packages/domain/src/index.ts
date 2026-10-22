@@ -14,6 +14,7 @@ export {
   isOnboarded,
   profileSchema,
   type Account,
+  type AccountRef,
   type AccountRefusal,
   type DeletableAccount,
   type Entitlement,
@@ -127,7 +128,7 @@ export {
   type NewInvite,
 } from './invite';
 // Refusals are values (CLAUDE.md); apps read the shape from here.
-export type { Result } from '@mychess/chess';
+export { ok, refuse, type Result } from '@mychess/chess';
 export {
   DISPLAY_NAME_ISSUES,
   DISPLAY_NAME_MAX,

@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { unassign } from '../src';
 import { assignmentPlayers } from '../src/assignment-schema';
 import type * as Batch from '../src/assignments/batch';
+import { changeAssignments } from '../src/assignments/change';
+import { namesOf } from '../src/assignments/names';
 import { inPairs } from '../src/assignments/pairs';
+import { assignmentFacts } from '../src/assignments/reach';
 import { useTestDatabase } from '../src/testing';
 import {
   offersOf,
@@ -31,6 +34,8 @@ const NOW = new Date('2026-10-20T09:00:00Z');
 const LATER = new Date('2026-10-21T09:00:00Z');
 /** Above Postgres's 65,535 bind parameters at two per pair. */
 const MANY_PAIRS = 40_000;
+/** Above Postgres's 65,535 bind parameters at one per id. */
+const MANY_IDS = 70_000;
 
 let rep = '';
 
@@ -128,5 +133,58 @@ describe('inPairs above the bind-parameter ceiling', () => {
           ),
         ),
     ).toEqual([]);
+  });
+});
+
+describe('player id lists above the bind-parameter ceiling', () => {
+  /** `p` among many unknown players: above 65,535 at one per id. */
+  const manyIds = (): string[] => [
+    ...Array.from({ length: MANY_IDS }, (_, i) => `x${String(i)}`),
+    'p',
+  ];
+
+  beforeEach(async () => {
+    await seedPlayer(db, 'p', 'p@example.lt');
+    await seedLink(db, 'c', 'p');
+  });
+
+  it('reads the facts of a batch of players in a fixed number of statements', async () => {
+    await seedAssignment(db, {
+      coachId: 'c',
+      repertoireId: rep,
+      target: { playerId: 'p' },
+      now: NOW,
+    });
+    let facts: { playerId: string; repertoireId: string }[] = [];
+    const sent = await countStatements(async () => {
+      facts = await assignmentFacts(db, { playerIds: manyIds() });
+    });
+    expect(sent).toBe(3);
+    expect(
+      facts.map(({ playerId, repertoireId }) => ({ playerId, repertoireId })),
+    ).toEqual([{ playerId: 'p', repertoireId: rep }]);
+  });
+
+  it("drops a batch of players' stale state in one change", async () => {
+    await db
+      .insert(assignmentPlayers)
+      .values({ playerId: 'p', repertoireId: rep, seenVersion: 1 });
+    await db.transaction((tx) =>
+      changeAssignments(
+        tx,
+        { coachId: 'c', playerIds: manyIds(), reason: 'unassigned', now: NOW },
+        () => Promise.resolve(),
+      ),
+    );
+    expect(await db.select().from(assignmentPlayers)).toEqual([]);
+  });
+
+  it('names a batch of accounts in one statement', async () => {
+    let names = new Map<string, string>();
+    const sent = await countStatements(async () => {
+      names = await namesOf(db, [...manyIds(), 'c']);
+    });
+    expect(sent).toBe(1);
+    expect([...names.keys()].sort()).toEqual(['c', 'p']);
   });
 });

@@ -8,7 +8,7 @@ export {
 } from './pgn/import-pgn';
 export { checkLimits, PGN_LIMITS, type LimitRefusal } from './pgn/limits';
 export { fenOf, positionKey, sideToMove, START_KEY } from './position-key';
-export type { Result } from './result';
+export { ok, refuse, type Result } from './result';
 export {
   chapterOf,
   emptyGraph,

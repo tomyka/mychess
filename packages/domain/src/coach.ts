@@ -1,4 +1,4 @@
-import type { Result } from '@mychess/chess';
+import { ok, refuse, type Result } from '@mychess/chess';
 import { z } from 'zod';
 import { entitlementLimits, type Entitlement } from './account';
 
@@ -17,14 +17,6 @@ export interface CoachRefusal {
 }
 
 type CoachResult = Result<undefined, CoachRefusal>;
-
-const OK: CoachResult = { ok: true, value: undefined };
-const refuse = <T>(
-  reason: CoachRefusal['reason'],
-): Result<T, CoachRefusal> => ({
-  ok: false,
-  refusal: { reason },
-});
 
 /**
  * An account's Coach mode state: when it switched Coach mode on (R-11,
@@ -51,7 +43,7 @@ export function isCoach(account: CoachState): boolean {
  * the same transaction.
  */
 export function canStopCoaching(linkCount: number): CoachResult {
-  return linkCount === 0 ? OK : refuse(COACH_REFUSALS.stillLinked);
+  return linkCount === 0 ? ok() : refuse(COACH_REFUSALS.stillLinked);
 }
 
 /** What adding a player to a group depends on, loaded by the caller. */
@@ -65,7 +57,7 @@ export interface MembershipFacts {
 /** A coach puts only a linked player, and only into an own group (R-12). */
 export function canAddMember(facts: MembershipFacts): CoachResult {
   if (!facts.ownsGroup) return refuse(COACH_REFUSALS.groupNotFound);
-  return facts.linked ? OK : refuse(COACH_REFUSALS.notLinked);
+  return facts.linked ? ok() : refuse(COACH_REFUSALS.notLinked);
 }
 
 /** A coach may have as many groups as the entitlement allows (R-70). */
@@ -75,7 +67,7 @@ export function canCreateGroup(
 ): CoachResult {
   if (!isCoach(coach)) return refuse(COACH_REFUSALS.notCoach);
   return groupCount < entitlementLimits(coach.entitlement).coachGroups
-    ? OK
+    ? ok()
     : refuse(COACH_REFUSALS.groupLimit);
 }
 
@@ -93,7 +85,7 @@ export const OPEN_INVITE_LIMIT = 50;
 export function canInvite(coach: CoachState, openInvites: number): CoachResult {
   if (!isCoach(coach)) return refuse(COACH_REFUSALS.notCoach);
   return openInvites < OPEN_INVITE_LIMIT
-    ? OK
+    ? ok()
     : refuse(COACH_REFUSALS.inviteLimit);
 }
 
@@ -102,7 +94,7 @@ export function canInvite(coach: CoachState, openInvites: number): CoachResult {
  * renaming, deleting and changing members wait until it is on again.
  */
 export function canChangeGroups(coach: CoachState): CoachResult {
-  return isCoach(coach) ? OK : refuse(COACH_REFUSALS.notCoach);
+  return isCoach(coach) ? ok() : refuse(COACH_REFUSALS.notCoach);
 }
 
 /** The most characters a group name may have. */

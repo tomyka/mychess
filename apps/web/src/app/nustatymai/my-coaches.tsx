@@ -1,5 +1,6 @@
 'use client';
 
+import type { AccountRef } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useId, type JSX } from 'react';
 import { SECONDARY_BUTTON } from '../buttons';
@@ -15,9 +16,7 @@ interface MyCoachGroup {
 }
 
 /** A coach the player is linked to, with the player's groups of that coach. */
-export interface MyCoach {
-  readonly id: string;
-  readonly displayName: string;
+export interface MyCoach extends AccountRef {
   readonly groups: readonly MyCoachGroup[];
 }
 

@@ -5,7 +5,6 @@ import {
   acceptInvite,
   createGroup,
   createInvite,
-  inviteTokenHash,
   startCoaching,
 } from '@mychess/db';
 import { cookieFrom, mailedLink, onboard, requestMagicLink } from './auth';
@@ -87,7 +86,7 @@ export async function link(
   if (!made.ok) throw new Error(`no invite: ${made.refusal.reason}`);
   const accepted = await acceptInvite(
     testDb(),
-    inviteTokenHash(made.value.token),
+    made.value.token,
     playerId,
     now,
   );

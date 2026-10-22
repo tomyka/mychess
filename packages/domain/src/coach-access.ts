@@ -1,4 +1,4 @@
-import type { Result } from '@mychess/chess';
+import { ok, refuse, type Result } from '@mychess/chess';
 
 /** Message-catalogue keys; the web answers both with 404 (plan decision 4). */
 export const ACCESS_REFUSALS = {
@@ -25,12 +25,6 @@ export interface CoachAccessFacts {
 
 type AccessResult = Result<undefined, AccessRefusal>;
 
-const OK: AccessResult = { ok: true, value: undefined };
-const refuse = (reason: AccessRefusal['reason']): AccessResult => ({
-  ok: false,
-  refusal: { reason },
-});
-
 /**
  * The one access rule for coach-facing reads (ADR 0006, R-39, checklist
  * 1-3): nothing without an active Coach link; the display name with the
@@ -44,8 +38,8 @@ export function canCoachSee(
 ): AccessResult {
   if (coachId === playerId || !facts.linked)
     return refuse(ACCESS_REFUSALS.notLinked);
-  if (subject.kind === 'profile') return OK;
+  if (subject.kind === 'profile') return ok();
   return facts.sharedRepertoireIds.has(subject.repertoireId)
-    ? OK
+    ? ok()
     : refuse(ACCESS_REFUSALS.notShared);
 }

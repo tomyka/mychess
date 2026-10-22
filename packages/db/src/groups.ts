@@ -3,6 +3,9 @@ import {
   canChangeGroups,
   canCreateGroup,
   COACH_REFUSALS,
+  ok,
+  refuse,
+  type AccountRef,
   type CoachRefusal,
   type Result,
 } from '@mychess/domain';
@@ -18,13 +21,12 @@ import {
   playerRowsSchema,
 } from './coach-queries';
 import { isUuid } from './ids';
-import { DONE, refusal } from './results';
 import { accounts, groupMembers, groups } from './schema';
 
 type GroupResult = Result<undefined, CoachRefusal>;
 
-const GROUP_NOT_FOUND = refusal(COACH_REFUSALS.groupNotFound);
-const NOT_COACH = refusal(COACH_REFUSALS.notCoach);
+const GROUP_NOT_FOUND = refuse(COACH_REFUSALS.groupNotFound);
+const NOT_COACH = refuse(COACH_REFUSALS.notCoach);
 
 /**
  * May the coach change its groups now? Locks the coach row first, the lock
@@ -61,7 +63,7 @@ export function createGroup(
       .insert(groups)
       .values({ coachId, name, createdAt: now })
       .returning({ id: groups.id });
-    return { ok: true, value: z.uuid().parse(row?.id) };
+    return ok(z.uuid().parse(row?.id));
   });
 }
 
@@ -84,7 +86,7 @@ export function renameGroup(
       .set({ name })
       .where(groupIs(coachId, groupId))
       .returning({ id: groups.id });
-    return renamed.length === 1 ? DONE : GROUP_NOT_FOUND;
+    return renamed.length === 1 ? ok() : GROUP_NOT_FOUND;
   });
 }
 
@@ -157,7 +159,7 @@ export function deleteGroup(
           .where(groupIs(coachId, groupId))
           .returning({ id: groups.id }),
     );
-    return deleted.length === 1 ? DONE : GROUP_NOT_FOUND;
+    return deleted.length === 1 ? ok() : GROUP_NOT_FOUND;
   });
 }
 
@@ -218,13 +220,13 @@ export function removeMember(
     if (!allowed.ok) return allowed;
     if (!(await holdGroup(tx, coachId, groupId))) return GROUP_NOT_FOUND;
     // Removing a non-member changes nothing, so nothing is settled.
-    if (!(await lockMembership(tx, groupId, playerId))) return DONE;
+    if (!(await lockMembership(tx, groupId, playerId))) return ok();
     await changeAssignments(
       tx,
       { coachId, playerIds: [playerId], reason: 'leftGroup', now },
       () => tx.delete(groupMembers).where(membershipIs(groupId, playerId)),
     );
-    return DONE;
+    return ok();
   });
 }
 
@@ -272,7 +274,7 @@ export function leaveGroup(
           .where(membershipIs(groupId, playerId))
           .returning({ playerId: groupMembers.playerId }),
     );
-    return left.length === 1 ? DONE : GROUP_NOT_FOUND;
+    return left.length === 1 ? ok() : GROUP_NOT_FOUND;
   });
 }
 
@@ -315,9 +317,7 @@ export async function coachGroups(
 }
 
 /** A member of a group, as its coach sees them. */
-export interface GroupMember {
-  readonly id: string;
-  readonly displayName: string;
+export interface GroupMember extends AccountRef {
   readonly joinedAt: Date;
 }
 

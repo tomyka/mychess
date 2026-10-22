@@ -7,7 +7,7 @@ import {
   stopCoaching,
   unlink,
 } from '@mychess/db';
-import type { CoachRefusal } from '@mychess/domain';
+import type { AccountRef, CoachRefusal } from '@mychess/domain';
 import { refresh } from 'next/cache';
 import { z } from 'zod';
 import { accountIdSchema } from '../../server/account-id';
@@ -23,17 +23,11 @@ export async function startCoachingAction(): Promise<void> {
   refresh();
 }
 
-/** A player the coach must unlink before switching Coach mode off. */
-export interface LinkedPlayer {
-  readonly id: string;
-  readonly displayName: string;
-}
-
 /** What the Coach mode switch shows after switching off was asked for. */
 export interface StopCoachingState {
   readonly refusal?: CoachRefusal['reason'];
   /** The players to unlink first (R-100). */
-  readonly players?: readonly LinkedPlayer[];
+  readonly players?: readonly AccountRef[];
 }
 
 /**

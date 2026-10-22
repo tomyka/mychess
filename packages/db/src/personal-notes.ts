@@ -15,6 +15,8 @@ import {
   canKeepPersonalNotes,
   canUseAssignment,
   canWritePersonalNote,
+  ok,
+  refuse,
   REPERTOIRE_REFUSALS,
   type AssignmentFacts,
   type AssignmentRefusal,
@@ -27,7 +29,6 @@ import { holdAssignment, liveRepertoire } from './assignments/reach';
 import type { Executor, Tx } from './client';
 import { isUuid } from './ids';
 import { ownedBy } from './repertoires/repository';
-import { DONE, refusal } from './results';
 import { personalNotes, repertoireMoves, repertoires } from './schema';
 
 export interface PersonalNoteInput {
@@ -41,7 +42,7 @@ export interface PersonalNoteInput {
 
 type NoteAccess = Result<undefined, RepertoireAccessRefusal>;
 
-const NOT_FOUND = refusal(REPERTOIRE_REFUSALS.notFound);
+const NOT_FOUND = refuse(REPERTOIRE_REFUSALS.notFound);
 
 /**
  * The repertoires `playerId` keeps notes on, as SQL: their own, or one an
@@ -180,7 +181,7 @@ function writeChecked<R extends { readonly reason: string }>(
     const onMove = await mayWriteOnMove(tx, note);
     if (!onMove.ok) return onMove;
     await writeNote(tx, note);
-    return DONE;
+    return ok();
   });
 }
 
@@ -199,7 +200,7 @@ export function setPersonalNote(
   );
 }
 
-const NOT_ASSIGNED = refusal(ASSIGNMENT_REFUSALS.notFound);
+const NOT_ASSIGNED = refuse(ASSIGNMENT_REFUSALS.notFound);
 
 /**
  * Sets or removes one player's private note on a move (R-21) of a

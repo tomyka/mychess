@@ -12,6 +12,8 @@ import {
   type Side,
 } from '@mychess/chess';
 import {
+  ok,
+  refuse,
   REPERTOIRE_REFUSALS,
   repertoireSchema,
   type Repertoire,
@@ -22,7 +24,6 @@ import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { recordChanges } from '../assignments/move-changes';
 import type { Executor } from '../client';
-import { DONE, refusal } from '../results';
 import {
   chapters,
   moveChapters,
@@ -247,7 +248,7 @@ export async function saveRepertoireEdit(
         )
         .returning({ version: repertoires.version, side: repertoires.side }),
     );
-    if (row === undefined) return refusal(REPERTOIRE_REFUSALS.stale);
+    if (row === undefined) return refuse(REPERTOIRE_REFUSALS.stale);
     const before = await graphRows(tx, edit.id, row.side);
     await writeChanges(tx, edit.id, graphChanges(before, edit.after));
     await recordChanges(tx, {
@@ -256,7 +257,7 @@ export async function saveRepertoireEdit(
       changes: playerMoveChanges(before, edit.after),
       now: edit.now,
     });
-    return { ok: true, value: { version: row.version } };
+    return ok({ version: row.version });
   });
 }
 
@@ -319,9 +320,9 @@ export interface RepertoireRename {
 
 type RepertoireAccess = Result<undefined, RepertoireAccessRefusal>;
 
-/** DONE when exactly the owner's repertoire was changed, else not found. */
+/** Success when exactly the owner's repertoire was changed, else not found. */
 const accessOf = (rows: readonly unknown[]): RepertoireAccess =>
-  rows.length === 1 ? DONE : refusal(REPERTOIRE_REFUSALS.notFound);
+  rows.length === 1 ? ok() : refuse(REPERTOIRE_REFUSALS.notFound);
 
 /** Renames the owner's repertoire; not found when it is not theirs. No version bump (decision 10). */
 export async function renameRepertoire(

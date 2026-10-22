@@ -1,5 +1,6 @@
 'use client';
 
+import type { AccountRef } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useActionState, useId, type JSX } from 'react';
@@ -10,7 +11,6 @@ import { StatusLine } from '../status-line';
 import {
   startCoachingAction,
   stopCoachingAction,
-  type LinkedPlayer,
   type StopCoachingState,
 } from './coaching-actions';
 import { SECTION, SECTION_TITLE, TEXT_LINK } from './styles';
@@ -21,7 +21,7 @@ const INITIAL: StopCoachingState = {};
 function UnlinkFirst({
   players,
 }: {
-  readonly players: readonly LinkedPlayer[];
+  readonly players: readonly AccountRef[];
 }): JSX.Element {
   const t = useTranslations('settings.coachMode');
   return (

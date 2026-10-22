@@ -1,4 +1,4 @@
-import type { Result } from '@mychess/chess';
+import { ok, refuse, type Result } from '@mychess/chess';
 import { z } from 'zod';
 import {
   canCoachSee,
@@ -17,8 +17,6 @@ export interface ShareRefusal {
   readonly reason: (typeof SHARE_REFUSALS)[keyof typeof SHARE_REFUSALS];
 }
 
-const ALLOWED: Result<undefined, never> = { ok: true, value: undefined };
-
 /**
  * Only the owner changes who a repertoire is shared with (R-42), so a
  * request naming someone else's repertoire changes nothing at all.
@@ -28,8 +26,8 @@ export function canChangeShares(
   repertoire: { readonly ownerId: string },
 ): Result<undefined, ShareRefusal> {
   return repertoire.ownerId === actorId
-    ? ALLOWED
-    : { ok: false, refusal: { reason: SHARE_REFUSALS.notOwner } };
+    ? ok()
+    : refuse(SHARE_REFUSALS.notOwner);
 }
 
 /**
@@ -46,8 +44,8 @@ export function canShare(
   const owned = canChangeShares(actorId, repertoire);
   if (!owned.ok) return owned;
   return linked && coachId !== actorId
-    ? ALLOWED
-    : { ok: false, refusal: { reason: SHARE_REFUSALS.notLinked } };
+    ? ok()
+    : refuse(SHARE_REFUSALS.notLinked);
 }
 
 /** The same limit as a move comment (plan, spec gap 6). */
@@ -100,10 +98,5 @@ export function canWriteCoachNote(
     facts,
   );
   if (!access.ok) return access;
-  return moveExists
-    ? ALLOWED
-    : {
-        ok: false,
-        refusal: { reason: COACH_NOTE_REFUSALS.moveNotFound },
-      };
+  return moveExists ? ok() : refuse(COACH_NOTE_REFUSALS.moveNotFound);
 }

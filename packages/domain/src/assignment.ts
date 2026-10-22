@@ -1,4 +1,4 @@
-import type { Result } from '@mychess/chess';
+import { ok, refuse, type Result } from '@mychess/chess';
 import { z } from 'zod';
 import { vilniusDay } from './calendar';
 import { isCoach, type CoachState } from './coach';
@@ -17,12 +17,6 @@ export interface AssignmentRefusal {
 }
 
 type AssignmentResult = Result<undefined, AssignmentRefusal>;
-
-const OK: AssignmentResult = { ok: true, value: undefined };
-const refuse = (reason: AssignmentRefusal['reason']): AssignmentResult => ({
-  ok: false,
-  refusal: { reason },
-});
 
 /** Whom an Assignment gives a repertoire to (R-15, R-16). */
 export type AssignmentTarget =
@@ -69,7 +63,7 @@ export function canAssign(
   }
   return facts.alreadyAssigned
     ? refuse(ASSIGNMENT_REFUSALS.alreadyAssigned)
-    : OK;
+    : ok();
 }
 
 /** What changing one of a coach's assignments depends on, read under lock. */
@@ -87,7 +81,7 @@ export function canChangeAssignment(
   facts: ChangeAssignmentFacts,
 ): AssignmentResult {
   if (!isCoach(facts)) return refuse(ASSIGNMENT_REFUSALS.notCoach);
-  return facts.found ? OK : refuse(ASSIGNMENT_REFUSALS.notFound);
+  return facts.found ? ok() : refuse(ASSIGNMENT_REFUSALS.notFound);
 }
 
 /** Whom an existing assignment of the repertoire went to. */
@@ -311,7 +305,7 @@ export function canUseAssignment(
   return facts !== undefined &&
     facts.reaches.length > 0 &&
     facts.forkedAt === null
-    ? OK
+    ? ok()
     : refuse(ASSIGNMENT_REFUSALS.notFound);
 }
 

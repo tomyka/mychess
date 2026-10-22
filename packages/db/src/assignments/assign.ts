@@ -10,6 +10,8 @@ import {
   ASSIGNMENT_REFUSALS,
   canAssign,
   canChangeAssignment,
+  ok,
+  refuse,
   type AssignmentRefusal,
   type AssignmentTarget,
   type Result,
@@ -21,14 +23,13 @@ import { assignments } from '../assignment-schema';
 import type { Db, Tx } from '../client';
 import { countSchema, holdGroup, holdLink } from '../coach-queries';
 import { isUuid } from '../ids';
-import { DONE, refusal } from '../results';
 import { repertoires } from '../schema';
 import { changeAssignments } from './change';
 import { playersReached, type ReachTarget } from './reach';
 
 type AssignmentResult = Result<undefined, AssignmentRefusal>;
 
-const NOT_FOUND = refusal(ASSIGNMENT_REFUSALS.notFound);
+const NOT_FOUND = refuse(ASSIGNMENT_REFUSALS.notFound);
 
 const targetColumns = (target: AssignmentTarget): ReachTarget =>
   target.kind === 'player'
@@ -125,9 +126,7 @@ async function decideAssign(
       (await isAssigned(tx, req.repertoireId, req.target)),
   });
   if (!allowed.ok) return allowed;
-  return repertoire === undefined
-    ? NOT_FOUND
-    : { ok: true, value: repertoire.version };
+  return repertoire === undefined ? NOT_FOUND : ok(repertoire.version);
 }
 
 /**
@@ -164,7 +163,7 @@ export function assign(
           createdAt: now,
         }),
     );
-    return DONE;
+    return ok();
   });
 }
 
@@ -216,7 +215,7 @@ async function decideChange(
     found: row !== undefined,
   });
   if (!allowed.ok) return allowed;
-  return row === undefined ? NOT_FOUND : { ok: true, value: row };
+  return row === undefined ? NOT_FOUND : ok(row);
 }
 
 /**
@@ -240,7 +239,7 @@ export function unassign(
       { coachId: ref.coachId, playerIds: players, reason: 'unassigned', now },
       () => tx.delete(assignments).where(eq(assignments.id, row.id)),
     );
-    return DONE;
+    return ok();
   });
 }
 
@@ -305,6 +304,6 @@ export function setDeadline(
       .update(assignments)
       .set({ deadline: change.deadline })
       .where(eq(assignments.id, decided.value.id));
-    return DONE;
+    return ok();
   });
 }
