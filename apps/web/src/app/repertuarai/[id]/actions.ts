@@ -1,17 +1,17 @@
 'use server';
 
-// The repertoire page's actions. Each authenticates, parses its input, asks
-// ownRepertoire (the domain's access rule, enforced again by the owner
-// filter in the query), then saves. The viewer is always the session account.
-import {
-  applyEdit,
-  type EditRefusal,
-  type RepertoireGraph,
-} from '@mychess/chess';
+// The repertoire page's actions. Each authenticates, parses its input and
+// hands it to the use case that decides. A builder edit decides in
+// editRepertoire (the owner and the version through the domain, the change
+// through chess, under the row lock it takes through the own scope). Rename
+// and delete first ask ownRepertoire (the domain's access rule, enforced
+// again by the owner filter in the query), then save. The viewer is always
+// the session account.
+import type { EditRefusal, RepertoireGraph } from '@mychess/chess';
 import {
   deleteRepertoire,
+  editRepertoire,
   renameRepertoire,
-  saveRepertoireEdit,
   setPersonalNote,
 } from '@mychess/db';
 import {
@@ -179,9 +179,9 @@ const editIssue = (error: z.ZodError): EditRefusalKey =>
   refusalOf<EditRefusalKey>(error, EDIT_ISSUES, INVALID_EDIT);
 
 /**
- * One builder edit (authenticate, load, call the chess function that
- * decides, save). An older version than the stored one is refused before
- * anything is computed, and the save refuses a race in its own transaction.
+ * One builder edit: authenticate, parse, and let editRepertoire decide and
+ * save it in one transaction (not found, then stale, then the chess
+ * refusal; nothing is written on any refusal).
  */
 export async function editRepertoireAction(
   input: unknown,
@@ -189,25 +189,20 @@ export async function editRepertoireAction(
   const account = await requireOnboarded();
   const request = editRequestSchema.safeParse(input);
   if (!request.success) return refused(editIssue(request.error));
-  const own = await ownRepertoire(account, request.data.repertoireId, 'edit');
-  if (!own.ok) return refused(own.refusal.reason);
-  const { repertoire, graph } = own.value;
-  if (repertoire.version !== request.data.version)
-    return refused(REPERTOIRE_REFUSALS.stale);
-  const edited = applyEdit(graph, request.data.op);
-  if (!edited.ok) return refused(edited.refusal.reason);
-  const saved = await saveRepertoireEdit(getDb(), {
-    id: repertoire.id,
-    ownerId: account.id,
-    expectedVersion: repertoire.version,
-    after: edited.value,
+  const { repertoireId, version, op } = request.data;
+  const edited = await editRepertoire(getDb(), {
+    id: repertoireId,
+    viewer: account,
+    expectedVersion: version,
+    change: { kind: 'edit', op },
     now: new Date(),
   });
-  if (!saved.ok) return refused(saved.refusal.reason);
+  if (!edited.ok) return refused(edited.refusal.reason);
+  const { graph } = edited.value;
   return {
     ok: true,
-    graph: edited.value,
-    version: saved.value.version,
-    ecoNames: ecoNamesOf(edited.value, account.locale),
+    graph,
+    version: edited.value.version,
+    ecoNames: ecoNamesOf(graph, account.locale),
   };
 }

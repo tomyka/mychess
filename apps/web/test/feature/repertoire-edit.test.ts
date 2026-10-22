@@ -7,7 +7,7 @@ import {
   type RepertoireGraph,
   type RepertoireMove,
 } from '@mychess/chess';
-import { loadRepertoire } from '@mychess/db';
+import { deleteRepertoire, loadRepertoire } from '@mychess/db';
 import { describe, expect, it, vi } from 'vitest';
 import { editRepertoireAction } from '../../src/app/repertuarai/[id]/actions';
 import { ecoNamesOf } from '../../src/server/chapter-names';
@@ -305,6 +305,18 @@ describe('editRepertoireAction: refusals that change nothing', () => {
     const now = await stored(london, rokas);
     expect(now.version).toBe(1);
     expect(now.graph.chapters).toHaveLength(2);
+  });
+
+  it('refuses a repertoire deleted since the client loaded it as not found, not stale (#276)', async () => {
+    const { rokas, london } = await cast();
+    actAs(rokas);
+    await deleteRepertoire(testDb(), london, rokas.id, new Date());
+    expect(await edit(london, 1, { kind: 'addChapter' })).toEqual({
+      ok: false,
+      refusal: 'repertoire.notFound',
+    });
+    expect(await sql.count('repertoires')).toBe(1);
+    expect(await sql.count('repertoire_changes')).toBe(0);
   });
 
   it('refuses a malformed request without touching the database', async () => {

@@ -141,10 +141,8 @@ export {
   listRepertoires,
   loadRepertoire,
   renameRepertoire,
-  saveRepertoireEdit,
   type LoadedRepertoire,
   type NewRepertoire,
-  type RepertoireEdit,
   type RepertoireListItem,
   type RepertoireRename,
 } from './repertoires/repository';

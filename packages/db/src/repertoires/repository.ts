@@ -7,7 +7,6 @@
 import {
   emptyGraph,
   graphChanges,
-  playerMoveChanges,
   sideSchema,
   type RepertoireGraph,
   type Side,
@@ -22,9 +21,8 @@ import {
   type RepertoireAccessRefusal,
   type Result,
 } from '@mychess/domain';
-import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
+import { asc, eq, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
-import { recordChanges } from '../assignments/move-changes';
 import type { Executor } from '../client';
 import {
   chapters,
@@ -232,59 +230,6 @@ export async function loadRepertoires(
     },
     { isolationLevel: 'repeatable read' },
   );
-}
-
-export interface RepertoireEdit {
-  readonly id: string;
-  readonly ownerId: string;
-  /** The version the caller computed `after` from. */
-  readonly expectedVersion: number;
-  readonly after: RepertoireGraph;
-  readonly now: Date;
-}
-
-const versionRowsSchema = z.array(
-  z.object({ version: z.number().int(), side: sideSchema }),
-);
-
-/**
- * Saves an edit (a builder edit or an import into the repertoire, decision
- * 6): bumps the version only from `expectedVersion`, which locks the row,
- * then reads the stored graph and writes the minimal diff to `after`, in one
- * transaction. The stored graph is read here, never taken from the caller,
- * so the diff is always against what is stored. A stale version (or a
- * repertoire not this owner's) is refused and nothing is written.
- */
-export async function saveRepertoireEdit(
-  db: Executor,
-  edit: RepertoireEdit,
-): Promise<
-  Result<{ version: number }, { reason: typeof REPERTOIRE_REFUSALS.stale }>
-> {
-  return db.transaction(async (tx) => {
-    const [row] = versionRowsSchema.parse(
-      await tx
-        .update(repertoires)
-        .set({ version: sql`${repertoires.version} + 1`, updatedAt: edit.now })
-        .where(
-          and(
-            repertoireScope(tx, ownScope(edit.ownerId), 'edit', edit.id),
-            eq(repertoires.version, edit.expectedVersion),
-          ),
-        )
-        .returning({ version: repertoires.version, side: repertoires.side }),
-    );
-    if (row === undefined) return refuse(REPERTOIRE_REFUSALS.stale);
-    const before = await graphRows(tx, edit.id, row.side);
-    await writeChanges(tx, edit.id, graphChanges(before, edit.after));
-    await recordChanges(tx, {
-      repertoireId: edit.id,
-      version: row.version,
-      changes: playerMoveChanges(before, edit.after),
-      now: edit.now,
-    });
-    return ok({ version: row.version });
-  });
 }
 
 export interface RepertoireListItem {

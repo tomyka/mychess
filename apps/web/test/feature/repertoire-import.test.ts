@@ -1,5 +1,5 @@
 import { mergeInto, summarize, importPgn } from '@mychess/chess';
-import { loadRepertoire } from '@mychess/db';
+import { deleteRepertoire, loadRepertoire } from '@mychess/db';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
@@ -388,6 +388,51 @@ describe('confirmImportAction', () => {
       }),
     ).toEqual({ ok: false, refusal: { reason: 'repertoire.stale' } });
     expect(await stored(taimanov, gabija)).toEqual(after);
+  });
+
+  it('refuses a stale version before it merges, so a stale file that adds nothing or is of the other side reads as stale (#276)', async () => {
+    const { gabija, taimanov } = await cast();
+    actAs(gabija);
+    await outcomeOf(
+      confirmImportAction({
+        text: INTO_TAIMANOV,
+        side: 'black',
+        target: { kind: 'existing', id: taimanov, version: 1 },
+      }),
+    );
+    const after = await stored(taimanov, gabija);
+    // Every game is in it now (R-117), but the version is checked first.
+    expect(
+      await confirmImportAction({
+        text: INTO_TAIMANOV,
+        side: 'black',
+        target: { kind: 'existing', id: taimanov, version: 1 },
+      }),
+    ).toEqual({ ok: false, refusal: { reason: 'repertoire.stale' } });
+    // A White file into this Black repertoire, also checked after the version.
+    expect(
+      await confirmImportAction({
+        text: NOT_LONDON,
+        side: 'white',
+        target: { kind: 'existing', id: taimanov, version: 1 },
+      }),
+    ).toEqual({ ok: false, refusal: { reason: 'repertoire.stale' } });
+    expect(await stored(taimanov, gabija)).toEqual(after);
+  });
+
+  it('refuses a repertoire deleted since the preview as not found, not stale (#276)', async () => {
+    const { gabija, taimanov } = await cast();
+    actAs(gabija);
+    await deleteRepertoire(testDb(), taimanov, gabija.id, new Date());
+    expect(
+      await confirmImportAction({
+        text: INTO_TAIMANOV,
+        side: 'black',
+        target: { kind: 'existing', id: taimanov, version: 1 },
+      }),
+    ).toEqual({ ok: false, refusal: { reason: 'repertoire.notFound' } });
+    expect(await repertoireCount()).toBe(2);
+    expect(await sql.count('repertoire_changes')).toBe(0);
   });
 
   it('refuses another account’s repertoire and one of the other side', async () => {

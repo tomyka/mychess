@@ -1,12 +1,14 @@
 // The PGN import's use cases (R-64, R-66, R-101), shared by the preview and
 // the confirm action. Both re-import the uploaded text, so every R-66 limit
 // is checked on the server whatever the browser did, and the confirm never
-// trusts a preview. Adding to a repertoire goes through ownRepertoire (the
-// domain's access rule, enforced again by the owner filter in the query),
-// is refused when nothing in the file can be added (R-115), and is saved
-// against the version the preview showed (decision 6). An account runs at
-// most ten previews or confirms a minute between them (R-119), counted
-// before the text is read.
+// trusts a preview. The preview of adding to a repertoire reads it through
+// ownRepertoire (the domain's access rule, enforced again by the owner
+// filter in the query) and merges in memory. The confirm decides in
+// editRepertoire under the row lock: owner, then the version the preview
+// showed (decision 6), then the merge, refused when nothing in the file can
+// be added (R-115). An account runs at most ten previews or confirms a
+// minute between them (R-119), counted before the text is read; the file is
+// parsed and checked against its limits (R-66) before the lock is taken.
 import {
   chapterName,
   importPgn,
@@ -26,7 +28,7 @@ import {
 import {
   countRateLimited,
   createRepertoire,
-  saveRepertoireEdit,
+  editRepertoire,
   type LoadedRepertoire,
 } from '@mychess/db';
 import {
@@ -240,7 +242,11 @@ type Merged =
     }
   | ImportRefused;
 
-/** `imported` merged into the account's repertoire `id`, which it may edit. */
+/**
+ * The preview's merge: `imported` merged in memory into the account's
+ * repertoire `id`, which it may edit. Nothing is saved; the confirm decides
+ * again in editRepertoire.
+ */
 async function mergeIntoOwn(
   account: Account,
   id: string,
@@ -281,29 +287,27 @@ export async function previewImport(
   };
 }
 
-/** Adds `imported` to an existing repertoire, refused if it changed since the preview. */
+/**
+ * Adds `imported` to an existing repertoire. editRepertoire decides and
+ * saves it under the row lock: not found, then stale (changed since the
+ * preview), then the merge's refusal (the other side, or nothing to add,
+ * R-115); nothing is written on any refusal.
+ */
 async function importInto(
   account: Account,
   target: ExistingTarget,
   imported: ImportedRepertoire,
   now: Date,
 ): Promise<ConfirmOutcome> {
-  const merge = await mergeIntoOwn(account, target.id, imported);
-  if (!merge.ok) return merge;
-  const addition = merge.merged.added;
-  if (!addition.ok) return refused(addition.refusal);
-  // The save bumps only the previewed version, in the same transaction it
-  // writes in: a repertoire changed since the preview (or since the load
-  // above) is refused as stale and nothing is written.
-  const saved = await saveRepertoireEdit(getDb(), {
-    id: merge.loaded.repertoire.id,
-    ownerId: account.id,
+  const edited = await editRepertoire(getDb(), {
+    id: target.id,
+    viewer: account,
     expectedVersion: target.version,
-    after: merge.merged.graph,
+    change: { kind: 'import', imported },
     now,
   });
-  if (!saved.ok) return refused(saved.refusal);
-  return { ok: true, id: target.id, chapterId: addition.value.firstChapterId };
+  if (!edited.ok) return refused(edited.refusal);
+  return { ok: true, id: target.id, chapterId: edited.value.firstChapterId };
 }
 
 /**

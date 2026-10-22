@@ -7,8 +7,8 @@ const from = z.string().min(1).max(100);
 const san = z.string().min(1).max(10);
 
 /**
- * One builder edit, as the client sends it (parsed at the edge); chess's
- * `applyEdit` decides it.
+ * One builder edit, as the client sends it (parsed at the edge);
+ * `editRepertoire` decides it, through chess's `applyChange`.
  */
 const editOpSchema = z.discriminatedUnion('kind', [
   // A null chapter is the first move of a repertoire without chapters (R-111).
