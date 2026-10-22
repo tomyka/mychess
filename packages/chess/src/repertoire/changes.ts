@@ -113,13 +113,20 @@ export function graphChanges(
 
 /**
  * Player moves an edit added or removed, each once per chapter it is in, and
- * how many moves' annotations changed (R-121, R-133).
+ * how many moves' Comment or marks changed (R-121, R-133).
  */
 export interface MoveChanges {
   readonly added: readonly MoveLink[];
   readonly removed: readonly MoveLink[];
-  readonly annotated: number;
+  readonly commentsChanged: number;
 }
+
+/**
+ * True when an edit changed nothing a player trains: no move added or
+ * removed and no move's Comment or marks changed (a chapter rename alone).
+ */
+export const nothingChanged = (changes: MoveChanges): boolean =>
+  changes.added.length + changes.removed.length + changes.commentsChanged === 0;
 
 const playerLinks = (
   graph: RepertoireGraph,
@@ -144,7 +151,7 @@ export function playerMoveChanges(
       before,
       before.moves.filter((m) => removed.has(keyOf(m))),
     ),
-    annotated: c.annotatedMoves.length,
+    commentsChanged: c.annotatedMoves.length,
   };
 }
 
@@ -166,20 +173,20 @@ function fold(from: LinksByKey, into: LinksByKey, against: LinksByKey): void {
 
 /**
  * The net of several edits in order: a move added then removed, or removed
- * then added back, is no change. Annotation counts add up.
+ * then added back, is no change. The counts of changed comments add up.
  */
 export function netMoveChanges(steps: readonly MoveChanges[]): MoveChanges {
   const added: LinksByKey = new Map();
   const removed: LinksByKey = new Map();
-  let annotated = 0;
+  let commentsChanged = 0;
   for (const step of steps) {
     fold(byKey(step.added), added, removed);
     fold(byKey(step.removed), removed, added);
-    annotated += step.annotated;
+    commentsChanged += step.commentsChanged;
   }
   return {
     added: [...added.values()].flat(),
     removed: [...removed.values()].flat(),
-    annotated,
+    commentsChanged,
   };
 }

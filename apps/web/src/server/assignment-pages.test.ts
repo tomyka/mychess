@@ -72,7 +72,7 @@ const CHANGES: ChangesSince = {
   changes: {
     added: [{ moveKey: 'k|d4', chapterId: 'c1' }],
     removed: [],
-    annotated: 2,
+    commentsChanged: 2,
   },
 };
 

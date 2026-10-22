@@ -8,6 +8,7 @@
  */
 import {
   allLearned,
+  moveChangesSchema,
   netMoveChanges,
   type MoveChanges,
   type Side,
@@ -34,7 +35,6 @@ import {
   type LoadedRepertoire,
 } from '../repertoires/repository';
 import { personalNotes, repertoires } from '../schema';
-import { moveChangesSchema } from './move-changes';
 import { namesOf } from './names';
 import { assignmentFacts, liveRepertoire } from './reach';
 

@@ -106,7 +106,8 @@ export const assignmentPlayers = pgTable(
 
 /**
  * What one graph edit changed for players (R-133; plan decision 3): chess's
- * MoveChanges as JSON, untyped here so every reader parses it.
+ * MoveChanges as JSON, untyped here so every reader parses it with chess's
+ * moveChangesSchema.
  */
 export const repertoireChanges = pgTable(
   'repertoire_changes',

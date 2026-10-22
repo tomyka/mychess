@@ -59,7 +59,7 @@ const DATA: AssignedRepertoirePage = {
   deadline: null,
   overdue: false,
   ecoNames: {},
-  changes: { added: [], removed: [], annotated: 0 },
+  changes: { added: [], removed: [], commentsChanged: 0 },
 };
 
 const fork =
@@ -207,7 +207,7 @@ describe('AssignedView (R-21, R-102)', () => {
   });
 
   it('shows what the coach changed since the last visit, if anything', () => {
-    renderView({ changes: { added: [], removed: [], annotated: 2 } });
+    renderView({ changes: { added: [], removed: [], commentsChanged: 2 } });
     expect(screen.getByRole('region', { name: a.changes.title })).toBeDefined();
   });
 

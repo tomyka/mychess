@@ -41,7 +41,7 @@ const ECO_NAMES = {
   A45: 'Ferzio pėstininko partija',
 };
 
-const NONE: MoveChanges = { added: [], removed: [], annotated: 0 };
+const NONE: MoveChanges = { added: [], removed: [], commentsChanged: 0 };
 
 function renderSummary(
   changes: MoveChanges,
@@ -79,7 +79,7 @@ describe('ChangesSummary (R-133)', () => {
           chapterId: chapterId(LONDON_GRAPH, 0),
         },
       ],
-      annotated: 0,
+      commentsChanged: 0,
     });
     const region = summary();
     expect(
@@ -120,7 +120,7 @@ describe('ChangesSummary (R-133)', () => {
         },
       ],
       removed: [],
-      annotated: 0,
+      commentsChanged: 0,
     });
     const headings = within(summary())
       .getAllByRole('heading', { level: 3 })
@@ -156,7 +156,7 @@ describe('ChangesSummary (R-133)', () => {
         { moveKey: moveKey(elsewhere, 'd5'), chapterId: chapter },
         { moveKey: moveKey(afterD5, 'Bf4'), chapterId: chapter },
       ],
-      annotated: 0,
+      commentsChanged: 0,
     });
     expect(
       screen.getByText('Pašalinta: 2. Bf4, 4. Nf3, Nf6 ir d5'),
@@ -182,7 +182,7 @@ describe('ChangesSummary (R-133)', () => {
               },
             ],
             removed: [],
-            annotated: 0,
+            commentsChanged: 0,
           }}
           ecoNames={{ D00: 'London System', A45: 'London System' }}
         />
@@ -227,7 +227,7 @@ describe('ChangesSummary (R-133)', () => {
           },
         ],
         removed: [],
-        annotated: 0,
+        commentsChanged: 0,
       },
       TAIMANOV_GRAPH,
     );
@@ -244,7 +244,7 @@ describe('ChangesSummary (R-133)', () => {
           chapterId: chapterId(LONDON_GRAPH, 0),
         },
       ],
-      annotated: 0,
+      commentsChanged: 0,
     });
     expect(screen.getByText('Pašalinta: Nf6')).toBeDefined();
   });
@@ -262,7 +262,7 @@ describe('ChangesSummary (R-133)', () => {
         { moveKey: moveKey(START_KEY, 'e4'), chapterId: 'gone-1' },
         { moveKey: moveKey(START_KEY, 'c4'), chapterId: 'gone-2' },
       ],
-      annotated: 0,
+      commentsChanged: 0,
     });
     const headings = within(summary())
       .getAllByRole('heading', { level: 3 })
@@ -280,7 +280,7 @@ describe('ChangesSummary (R-133)', () => {
       [3, 'Pakeisti 3 ėjimų komentarai ar žymės'],
       [10, 'Pakeisti 10 ėjimų komentarai ar žymės'],
     ] as const) {
-      const { unmount } = renderSummary({ ...NONE, annotated: count });
+      const { unmount } = renderSummary({ ...NONE, commentsChanged: count });
       expect(within(summary()).getByText(text)).toBeDefined();
       expect(screen.queryByRole('heading', { level: 3 })).toBeNull();
       unmount();
@@ -288,7 +288,7 @@ describe('ChangesSummary (R-133)', () => {
   });
 
   it('speaks English on the English page', () => {
-    renderSummary({ ...NONE, annotated: 2 }, LONDON_GRAPH, 'en');
+    renderSummary({ ...NONE, commentsChanged: 2 }, LONDON_GRAPH, 'en');
     expect(
       screen.getByRole('heading', {
         name: 'Your coach updated this repertoire',

@@ -216,7 +216,7 @@ describe('playerAssignments', () => {
         upToVersion: 99,
       }),
     ).toEqual({
-      changes: { added: [], removed: [], annotated: 0 },
+      changes: { added: [], removed: [], commentsChanged: 0 },
     });
   });
 
@@ -288,7 +288,7 @@ describe('a player who joins a group after its assignment (R-136)', () => {
       { updated: false },
     ]);
     expect(await changesOfN()).toEqual({
-      changes: { added: [], removed: [], annotated: 0 },
+      changes: { added: [], removed: [], commentsChanged: 0 },
     });
     expect(await playerAssignments(db, 'p', NOW)).toMatchObject([
       { updated: true },
@@ -303,7 +303,7 @@ describe('a player who joins a group after its assignment (R-136)', () => {
       { updated: true },
     ]);
     expect(await changesOfN()).toEqual({
-      changes: { added: [], removed: [], annotated: 1 },
+      changes: { added: [], removed: [], commentsChanged: 1 },
     });
   });
 
@@ -324,7 +324,7 @@ describe('a player who joins a group after its assignment (R-136)', () => {
           },
         ],
         removed: [],
-        annotated: 0,
+        commentsChanged: 0,
       },
     });
   });
@@ -617,7 +617,7 @@ describe('markSeen', () => {
         upToVersion: 99,
       }),
     ).toMatchObject({
-      changes: { added: [], removed: [], annotated: 1 },
+      changes: { added: [], removed: [], commentsChanged: 1 },
     });
   });
 
@@ -690,7 +690,7 @@ describe('changesSince', () => {
             chapterId: chapter.id,
           },
         ],
-        annotated: 1,
+        commentsChanged: 1,
       },
     });
   });
@@ -707,7 +707,7 @@ describe('changesSince', () => {
         upToVersion: 99,
       }),
     ).toEqual({
-      changes: { added: [], removed: [], annotated: 1 },
+      changes: { added: [], removed: [], commentsChanged: 1 },
     });
   });
 
@@ -723,7 +723,7 @@ describe('changesSince', () => {
         upToVersion: 99,
       }),
     ).toEqual({
-      changes: { added: [], removed: [], annotated: 0 },
+      changes: { added: [], removed: [], commentsChanged: 0 },
     });
   });
 
@@ -747,7 +747,7 @@ describe('changesSince', () => {
           },
         ],
         removed: [],
-        annotated: 0,
+        commentsChanged: 0,
       },
     });
     expect(
@@ -756,7 +756,26 @@ describe('changesSince', () => {
         repertoireId: rep,
         upToVersion: 1,
       }),
-    ).toEqual({ changes: { added: [], removed: [], annotated: 0 } });
+    ).toEqual({ changes: { added: [], removed: [], commentsChanged: 0 } });
+  });
+
+  it('reads a row stored before the rename, which says annotated', async () => {
+    await assignTo(toGroup(g));
+    await coachEdit(commentD4);
+    await query(
+      `update repertoire_changes set changes = (changes - 'commentsChanged')
+         || jsonb_build_object('annotated', changes -> 'commentsChanged')`,
+    );
+    expect(await query('select changes from repertoire_changes')).toEqual([
+      { changes: { added: [], removed: [], annotated: 1 } },
+    ]);
+    expect(
+      await changesSince(db, {
+        playerId: 'p',
+        repertoireId: rep,
+        upToVersion: 99,
+      }),
+    ).toEqual({ changes: { added: [], removed: [], commentsChanged: 1 } });
   });
 
   it('gives nothing for a repertoire not assigned to the player', async () => {

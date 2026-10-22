@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { importPgn } from '../pgn/import-pgn';
+import type { MoveChanges } from './changes';
 import type { Arrow, ChapterNameSource, Circle, Side } from './graph';
 import {
   arrowSchema,
   chapterNameSourceSchema,
   circleSchema,
   marksInputSchema,
+  moveChangesSchema,
   repertoireGraphSchema,
   sideSchema,
   SIDES,
@@ -141,5 +143,48 @@ describe('repertoireGraphSchema', () => {
     ['no moves list', { side: g.side, chapters: g.chapters }],
   ])('refuses %s', (_name, value) => {
     expect(ok(repertoireGraphSchema)(value)).toBe(false);
+  });
+});
+
+describe('moveChangesSchema', () => {
+  const link = { moveKey: 'k', chapterId: 'c1' };
+  const row = { added: [link], removed: [], commentsChanged: 2 };
+
+  it('parses a stored row', () => {
+    const parsed: MoveChanges = moveChangesSchema.parse(row);
+    expect(parsed).toStrictEqual(row);
+  });
+
+  it('reads an old row that still counts comments as annotated', () => {
+    expect(
+      moveChangesSchema.parse({ added: [], removed: [link], annotated: 3 }),
+    ).toStrictEqual({ added: [], removed: [link], commentsChanged: 3 });
+  });
+
+  it('keeps the new name when a row has both', () => {
+    expect(moveChangesSchema.parse({ ...row, annotated: 5 })).toStrictEqual(
+      row,
+    );
+  });
+
+  it.each([
+    ['a negative count', { ...row, commentsChanged: -1 }],
+    ['a fractional count', { ...row, commentsChanged: 1.5 }],
+    ['a negative old count', { added: [], removed: [], annotated: -1 }],
+    ['no count', { added: [], removed: [] }],
+    [
+      'a link without a move key',
+      { ...row, added: [{ ...link, moveKey: '' }] },
+    ],
+    [
+      'a link without a chapter',
+      { ...row, removed: [{ ...link, chapterId: '' }] },
+    ],
+    ['no added list', { removed: [], commentsChanged: 0 }],
+    ['null', null],
+    ['an array', [row]],
+    ['a string', 'row'],
+  ])('refuses %s', (_name, value) => {
+    expect(ok(moveChangesSchema)(value)).toBe(false);
   });
 });

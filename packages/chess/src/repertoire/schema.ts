@@ -1,5 +1,6 @@
 /** The repertoire's shapes as zod schemas, for parsing at the edges (db rows, edit requests). */
 import { z } from 'zod';
+import type { MoveChanges } from './changes';
 import type { RepertoireGraph } from './graph';
 
 export const SIDES = ['white', 'black'] as const;
@@ -47,6 +48,34 @@ const moveSchema = z.object({
   comment: z.string().nullable(),
   chapters: z.array(z.string().min(1)),
 });
+
+const moveLinkSchema = z.object({
+  moveKey: z.string().min(1),
+  chapterId: z.string().min(1),
+});
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+/** A row stored before the rename counts changed comments as `annotated`. */
+const renameAnnotated = (value: unknown): unknown => {
+  if (!isRecord(value) || 'commentsChanged' in value) return value;
+  const { annotated, ...rest } = value;
+  return { ...rest, commentsChanged: annotated };
+};
+
+/**
+ * What one edit changed for players, for parsing one stored as JSON
+ * (`repertoire_changes.changes`); reads old rows that say `annotated`.
+ */
+export const moveChangesSchema = z.preprocess(
+  renameAnnotated,
+  z.object({
+    added: z.array(moveLinkSchema),
+    removed: z.array(moveLinkSchema),
+    commentsChanged: z.number().int().nonnegative(),
+  }),
+) satisfies z.ZodType<MoveChanges>;
 
 /** A whole repertoire graph, for parsing one stored as JSON (a fork offer's snapshot). */
 export const repertoireGraphSchema = z.object({

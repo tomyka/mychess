@@ -61,7 +61,7 @@ describe('the assigned repertoire page', () => {
       deadline: null,
       overdue: false,
       ecoNames: {},
-      changes: { added: [], removed: [], annotated: 0 },
+      changes: { added: [], removed: [], commentsChanged: 0 },
     });
     renderLt(
       await AssignedRepertoirePageView({

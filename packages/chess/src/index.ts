@@ -29,6 +29,7 @@ export {
 export {
   graphChanges,
   netMoveChanges,
+  nothingChanged,
   playerMoveChanges,
   type GraphChanges,
   type MoveChanges,
@@ -55,6 +56,7 @@ export {
   chapterNameSourceSchema,
   circleSchema,
   marksInputSchema,
+  moveChangesSchema,
   repertoireGraphSchema,
   sideSchema,
   SIDES,

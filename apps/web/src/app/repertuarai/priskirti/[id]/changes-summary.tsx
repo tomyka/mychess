@@ -137,7 +137,7 @@ export function ChangesSummary({
   const t = useTranslations('assignment.changes');
   const titleId = useId();
   const chapters = byChapter(graph, changes);
-  if (chapters.length === 0 && changes.annotated === 0) return null;
+  if (chapters.length === 0 && changes.commentsChanged === 0) return null;
   return (
     <section
       aria-labelledby={titleId}
@@ -157,8 +157,8 @@ export function ChangesSummary({
           ))}
         </ul>
       )}
-      {changes.annotated === 0 ? null : (
-        <p>{t('commentsChanged', { count: changes.annotated })}</p>
+      {changes.commentsChanged === 0 ? null : (
+        <p>{t('commentsChanged', { count: changes.commentsChanged })}</p>
       )}
     </section>
   );

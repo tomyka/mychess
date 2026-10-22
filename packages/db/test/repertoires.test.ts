@@ -290,7 +290,7 @@ describe('saveRepertoireEdit writes what changed for players (R-133)', () => {
     expect(await changeRows()).toEqual([]);
   });
 
-  it('writes a comment edit as one annotated move', async () => {
+  it('writes a comment edit as one move whose comment changed', async () => {
     await seedAccount(db, 'rokas', 'rokas@example.lt');
     const id = await london();
     await saveEdit(id, (graph) => {
@@ -300,7 +300,7 @@ describe('saveRepertoireEdit writes what changed for players (R-133)', () => {
     expect(await changeRows()).toEqual([
       expect.objectContaining({
         version: 2,
-        changes: { added: [], removed: [], annotated: 1 },
+        changes: { added: [], removed: [], commentsChanged: 1 },
       }),
     ]);
   });

@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { importPgn } from '../pgn/import-pgn';
 import type { Result } from '../result';
-import { graphChanges, netMoveChanges, playerMoveChanges } from './changes';
+import {
+  graphChanges,
+  netMoveChanges,
+  nothingChanged,
+  playerMoveChanges,
+} from './changes';
 import {
   addMove,
   editComment,
@@ -174,7 +179,7 @@ describe('playerMoveChanges', () => {
       c.added.map((l) => [splitMoveKey(l.moveKey).san, l.chapterId]),
     ).toEqual([['Bb5', 'c1']]);
     expect(c.removed).toEqual([]); // e4 stays: chapter c1 still holds it
-    expect(c.annotated).toBe(1);
+    expect(c.commentsChanged).toBe(1);
   });
 
   it('lists a removed player move once per chapter it was in', () => {
@@ -212,7 +217,7 @@ describe('playerMoveChanges', () => {
     expect(playerMoveChanges(base, base)).toEqual({
       added: [],
       removed: [],
-      annotated: 0,
+      commentsChanged: 0,
     });
   });
 });
@@ -223,10 +228,14 @@ describe('netMoveChanges', () => {
   it('drops a move added and then removed, and a move removed and then added back', () => {
     expect(
       netMoveChanges([
-        { added: [link('a')], removed: [link('b')], annotated: 1 },
-        { added: [link('b'), link('c')], removed: [link('a')], annotated: 2 },
+        { added: [link('a')], removed: [link('b')], commentsChanged: 1 },
+        {
+          added: [link('b'), link('c')],
+          removed: [link('a')],
+          commentsChanged: 2,
+        },
       ]),
-    ).toEqual({ added: [link('c')], removed: [], annotated: 3 });
+    ).toEqual({ added: [link('c')], removed: [], commentsChanged: 3 });
   });
 
   it('keeps every chapter link of a move, from its last step', () => {
@@ -235,30 +244,56 @@ describe('netMoveChanges', () => {
         {
           added: [link('a', 'c1'), link('a', 'c2')],
           removed: [],
-          annotated: 0,
+          commentsChanged: 0,
         },
       ]),
     ).toEqual({
       added: [link('a', 'c1'), link('a', 'c2')],
       removed: [],
-      annotated: 0,
+      commentsChanged: 0,
     });
   });
 
   it('keeps a move removed in a later step', () => {
     expect(
       netMoveChanges([
-        { added: [link('a')], removed: [], annotated: 0 },
-        { added: [], removed: [link('b', 'c2')], annotated: 0 },
+        { added: [link('a')], removed: [], commentsChanged: 0 },
+        { added: [], removed: [link('b', 'c2')], commentsChanged: 0 },
       ]),
-    ).toEqual({ added: [link('a')], removed: [link('b', 'c2')], annotated: 0 });
+    ).toEqual({
+      added: [link('a')],
+      removed: [link('b', 'c2')],
+      commentsChanged: 0,
+    });
   });
 
   it('is empty for no steps', () => {
     expect(netMoveChanges([])).toEqual({
       added: [],
       removed: [],
-      annotated: 0,
+      commentsChanged: 0,
     });
+  });
+});
+
+describe('nothingChanged', () => {
+  const link = { moveKey: 'k', chapterId: 'c1' };
+  const NONE = { added: [], removed: [], commentsChanged: 0 };
+
+  it('holds for a chapter rename, which changes no player move', () => {
+    const renamed = ok(renameChapter(base, 'c1', 'Pagrindai'));
+    expect(nothingChanged(playerMoveChanges(base, renamed))).toBe(true);
+  });
+
+  it.each([
+    ['a move added', { ...NONE, added: [link] }],
+    ['a move removed', { ...NONE, removed: [link] }],
+    ['a comment changed', { ...NONE, commentsChanged: 1 }],
+  ])('fails for %s', (_, changes) => {
+    expect(nothingChanged(changes)).toBe(false);
+  });
+
+  it('holds for no change at all', () => {
+    expect(nothingChanged(NONE)).toBe(true);
   });
 });
