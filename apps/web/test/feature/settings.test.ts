@@ -237,7 +237,8 @@ describe('deleteAccountAction', () => {
     ).toEqual({ redirectedTo: '/prisijungti?deleted=1' });
     expect(await sql.count('accounts')).toBe(0);
     expect(logged).toHaveBeenCalledTimes(1);
-    expect(String(logged.mock.calls)).toContain('mail: down');
+    expect(String(logged.mock.calls)).toContain('confirmation mail not sent');
+    expect(String(logged.mock.calls)).not.toContain('mail: down');
     expect(String(logged.mock.calls)).not.toContain(RUTA);
     expect(sessionCookieCleared()).toBe(true);
   });

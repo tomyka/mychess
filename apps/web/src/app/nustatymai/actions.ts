@@ -48,12 +48,16 @@ export interface DeleteState {
 }
 
 // The account is already gone, so a failed confirmation mail must not undo
-// the redirect; the log names no address (no personal data in logs).
+// the redirect. The log keeps only the error's kind: a transport's error
+// object or message can carry the address (no personal data in logs).
 async function mailDeleted(message: ReturnType<typeof deletedMail>) {
   try {
     await getMailer().send(message);
   } catch (error) {
-    console.error('account deletion: confirmation mail not sent', error);
+    console.error(
+      'account deletion: confirmation mail not sent',
+      error instanceof Error ? error.name : typeof error,
+    );
   }
 }
 

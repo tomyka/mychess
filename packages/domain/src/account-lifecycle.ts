@@ -17,7 +17,7 @@ import { ADMIN_REFUSALS, type AdminRefusal } from './admin';
  */
 
 /** Has the account been through the onboarding screen (R-81)? */
-export function isOnboarded(account: Account): boolean {
+export function isOnboarded(account: Pick<Account, 'onboardedAt'>): boolean {
   return account.onboardedAt !== null;
 }
 
@@ -37,7 +37,7 @@ export function accountStage(
   account: Pick<Account, 'onboardedAt' | 'disabledAt'>,
 ): AccountStage {
   if (isDisabled(account)) return 'disabled';
-  return account.onboardedAt === null ? 'notOnboarded' : 'onboarded';
+  return isOnboarded(account) ? 'onboarded' : 'notOnboarded';
 }
 
 /** What the person types to confirm deleting their account. */
