@@ -3,10 +3,17 @@
  * R-49 auto-fork reaches the assignments module, which locks accounts
  * through accounts.ts.
  */
+import type { Result } from '@mychess/chess';
+import {
+  decideDeletion,
+  type Account,
+  type AccountDeletion,
+  type AccountRefusal,
+} from '@mychess/domain';
 import { eq, sql, type SQL } from 'drizzle-orm';
 import { lockAccountById } from './accounts';
 import { forkForDeletingCoach } from './assignments/coach-delete';
-import type { Db } from './client';
+import type { Db, Tx } from './client';
 import { retryOnConflict } from './retry-on-conflict';
 import { accounts, verifications } from './schema';
 
@@ -59,11 +66,56 @@ export async function deleteAccount(
     () =>
       db.transaction(async (tx) => {
         const account = await lockAccountById(tx, id);
-        if (account === undefined) return;
-        await forkForDeletingCoach(tx, id, now);
-        await tx.delete(verifications).where(namesEmail(account.email));
-        await tx.delete(accounts).where(eq(accounts.id, id));
+        if (account !== undefined) await removeLocked(tx, account, now);
       }),
     DELETE_ATTEMPTS,
   );
+}
+
+/** What the person asked: delete account `id`, confirmed by `typed`. */
+export interface DeletionRequest {
+  readonly id: string;
+  readonly typed: string;
+  readonly now: Date;
+}
+
+/**
+ * The person's own delete (R-40): decided by the domain on the locked
+ * account row, then, when it confirms, the same hard delete as
+ * `deleteAccount`, in the same transaction. The display name confirms it
+ * (R-82), or the email for an account not yet onboarded (R-86); the answer
+ * says where the confirmation mail goes, only to a proven address (R-87). A
+ * refusal deletes nothing.
+ *
+ * The account row is locked first (the S4 lock order), so an account
+ * onboarded since the caller read it is decided as it now stands, and of
+ * two confirmations that race the second finds no account: it is answered
+ * without a mail. It runs again on a deadlock, as `deleteAccount` (#286).
+ */
+export function deleteConfirmedAccount(
+  db: Db,
+  request: DeletionRequest,
+): Promise<Result<AccountDeletion, AccountRefusal>> {
+  return retryOnConflict(
+    () =>
+      db.transaction(async (tx) => {
+        const account = await lockAccountById(tx, request.id);
+        const decision = decideDeletion(account, request.typed);
+        if (decision.ok && account !== undefined)
+          await removeLocked(tx, account, request.now);
+        return decision;
+      }),
+    DELETE_ATTEMPTS,
+  );
+}
+
+/** The delete itself, on an account whose row `tx` has locked. */
+async function removeLocked(
+  tx: Tx,
+  account: Account,
+  now: Date,
+): Promise<void> {
+  await forkForDeletingCoach(tx, account.id, now);
+  await tx.delete(verifications).where(namesEmail(account.email));
+  await tx.delete(accounts).where(eq(accounts.id, account.id));
 }

@@ -39,7 +39,6 @@ export {
 export {
   ADMIN_ACTIONS,
   ADMIN_REFUSALS,
-  canDisable,
   type AdminAction,
   type AdminRefusal,
 } from './admin';

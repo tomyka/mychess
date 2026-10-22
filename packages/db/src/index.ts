@@ -12,7 +12,11 @@ export {
   type AccountExportOptions,
   type CoachingExport,
 } from './account-export';
-export { deleteAccount } from './account-delete';
+export {
+  deleteAccount,
+  deleteConfirmedAccount,
+  type DeletionRequest,
+} from './account-delete';
 export {
   completeOnboarding,
   findAccountByEmail,

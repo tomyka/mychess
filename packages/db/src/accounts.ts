@@ -1,4 +1,11 @@
-import { accountSchema, type Account, type Profile } from '@mychess/domain';
+import { ok, type Result } from '@mychess/chess';
+import {
+  accountSchema,
+  decideOnboarding,
+  type Account,
+  type OnboardingRefusal,
+  type Profile,
+} from '@mychess/domain';
 import { eq, type SQL } from 'drizzle-orm';
 import type { Executor, Tx } from './client';
 import { accounts } from './schema';
@@ -34,14 +41,29 @@ async function findOne(db: Executor, where: SQL): Promise<Account | undefined> {
  * lock on the coach, so counts read after it are final (plan decision 1).
  * It does not block the KEY SHARE locks foreign-key checks take.
  */
-export async function lockAccountById(
+export function lockAccountById(
   tx: Tx,
   id: string,
 ): Promise<Account | undefined> {
+  return lockOne(tx, eq(accounts.id, id));
+}
+
+/**
+ * The account with this email, its row locked as `lockAccountById` locks it.
+ * `email` must already be canonical (domain canonicalEmail).
+ */
+export function lockAccountByEmail(
+  tx: Tx,
+  email: string,
+): Promise<Account | undefined> {
+  return lockOne(tx, eq(accounts.email, email));
+}
+
+async function lockOne(tx: Tx, where: SQL): Promise<Account | undefined> {
   const [row] = await tx
     .select(accountColumns)
     .from(accounts)
-    .where(eq(accounts.id, id))
+    .where(where)
     .for('no key update');
   return row === undefined ? undefined : accountSchema.parse(row);
 }
@@ -84,11 +106,31 @@ export function updateProfile(
   return setProfile(db, id, { ...profile, updatedAt: now });
 }
 
+/**
+ * Onboarding happens once (R-81), decided on the locked account row: of two
+ * submits that race, one writes and the other is refused
+ * `lifecycle.alreadyOnboarded`; a disabled or deleted account is refused
+ * `lifecycle.accountClosed` (R-80). A refusal writes nothing. On a `Tx` the
+ * transaction is a savepoint.
+ */
 export function completeOnboarding(
   db: Executor,
   id: string,
   profile: Profile,
   now: Date,
-): Promise<void> {
-  return setProfile(db, id, { ...profile, onboardedAt: now, updatedAt: now });
+): Promise<Result<undefined, OnboardingRefusal>> {
+  return db.transaction(async (tx) => {
+    const decision = decideOnboarding(
+      await lockAccountById(tx, id),
+      profile,
+      now,
+    );
+    if (!decision.ok) return decision;
+    await setProfile(tx, id, {
+      ...decision.value.profile,
+      onboardedAt: decision.value.onboardedAt,
+      updatedAt: now,
+    });
+    return ok();
+  });
 }

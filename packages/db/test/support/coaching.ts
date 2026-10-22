@@ -119,14 +119,17 @@ export async function openTransaction(
 
 const waitingSchema = z.array(z.object({ n: z.number() }));
 
-/** Resolves once some session of this database waits for a row lock. */
-export async function someoneWaitsForALock(pool: pg.Pool): Promise<void> {
+/** Resolves once `count` sessions of this database (one by default) wait for a row lock. */
+export async function someoneWaitsForALock(
+  pool: pg.Pool,
+  count = 1,
+): Promise<void> {
   for (let attempt = 0; attempt < 200; attempt += 1) {
     const { rows } = await pool.query(
       `select count(*)::int as n from pg_stat_activity
        where datname = current_database() and wait_event_type = 'Lock'`,
     );
-    if ((waitingSchema.parse(rows)[0]?.n ?? 0) > 0) return;
+    if ((waitingSchema.parse(rows)[0]?.n ?? 0) >= count) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error('nobody waited for a lock');
