@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   IMPORT_RATE_LIMIT,
+  MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
   countRequest,
   importRateKey,
+  magicLinkEmailRateKey,
   type RateCounter,
   type RateRule,
 } from './rate-limit';
@@ -77,5 +79,62 @@ describe('the import limit (R-119)', () => {
 describe('the magic-link limit (security A6)', () => {
   it('mails a sign-in link at most three times a minute', () => {
     expect(MAGIC_LINK_RATE_LIMIT).toEqual({ windowMs: 60_000, max: 3 });
+  });
+});
+
+describe('the magic-link limit per email (#264)', () => {
+  it('mails one address a sign-in link at most five times an hour, refused as too many requests', () => {
+    expect(MAGIC_LINK_EMAIL_RATE_LIMIT).toEqual({
+      windowMs: 3_600_000,
+      max: 5,
+      reason: 'signIn.error.tooManyRequests',
+    });
+  });
+
+  // A stand-in digest that shows what was digested.
+  const digest = (inbox: string) => `<${inbox}>`;
+
+  it('keys the counter on the digest of the address, never the address itself', () => {
+    expect(magicLinkEmailRateKey('a@example.lt', digest)).toBe(
+      'magic-link-email:<a@example.lt>',
+    );
+  });
+
+  it('counts each address on its own', () => {
+    expect(magicLinkEmailRateKey('b@example.lt', digest)).not.toBe(
+      magicLinkEmailRateKey('a@example.lt', digest),
+    );
+    expect(magicLinkEmailRateKey('a@example.com', digest)).not.toBe(
+      magicLinkEmailRateKey('a@example.lt', digest),
+    );
+  });
+
+  it.each([
+    ['a+1@example.lt', '<a@example.lt>'],
+    ['a+news+2@example.lt', '<a@example.lt>'],
+    ['a+@example.lt', '<a@example.lt>'],
+  ])('counts %s against its inbox with no plus suffix', (email, digested) => {
+    expect(magicLinkEmailRateKey(email, digest)).toBe(
+      `magic-link-email:${digested}`,
+    );
+  });
+
+  it('keeps a plus that starts the local part, as it names no suffix', () => {
+    expect(magicLinkEmailRateKey('+a@example.lt', digest)).toBe(
+      'magic-link-email:<+a@example.lt>',
+    );
+  });
+
+  it('leaves a plus outside the local part alone', () => {
+    expect(magicLinkEmailRateKey('a@ex+ample.lt', digest)).toBe(
+      'magic-link-email:<a@ex+ample.lt>',
+    );
+  });
+
+  it('never shares a key with the import counters', () => {
+    expect(magicLinkEmailRateKey('a', digest)).not.toBe(importRateKey('a'));
+    expect(magicLinkEmailRateKey('a', digest).startsWith('pgn-import:')).toBe(
+      false,
+    );
   });
 });

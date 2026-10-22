@@ -15,11 +15,11 @@ const at = (ms: number) => new Date(T0.getTime() + ms);
 const ALLOWED = { ok: true, value: undefined };
 const REFUSED = { ok: false, refusal: { reason: 'x.tooMany', limit: 2 } };
 
-/** last_request holds the window's start for these counters. */
+/** Our counters, in their own table: Better Auth never prunes it. */
 const rows = async (): Promise<unknown> =>
   (
     await client.query(
-      'select key, count, last_request from rate_limits order by key',
+      'select key, count, window_start from request_counters order by key',
     )
   ).rows;
 
@@ -29,8 +29,15 @@ describe('countRateLimited', () => {
     expect(await countRateLimited(db, 'k', RULE, at(1000))).toEqual(ALLOWED);
     expect(await countRateLimited(db, 'k', RULE, at(2000))).toEqual(REFUSED);
     expect(await rows()).toEqual([
-      { key: 'k', count: 2, last_request: String(T0.getTime()) },
+      { key: 'k', count: 2, window_start: String(T0.getTime()) },
     ]);
+  });
+
+  it("writes nothing to Better Auth's rate_limits table", async () => {
+    await countRateLimited(db, 'k', RULE, T0);
+    expect(
+      (await client.query('select count(*)::int as n from rate_limits')).rows,
+    ).toEqual([{ n: 0 }]);
   });
 
   it('counts each key on its own', async () => {
@@ -50,7 +57,7 @@ describe('countRateLimited', () => {
       {
         key: 'k',
         count: 1,
-        last_request: String(T0.getTime() + RULE.windowMs),
+        window_start: String(T0.getTime() + RULE.windowMs),
       },
     ]);
   });

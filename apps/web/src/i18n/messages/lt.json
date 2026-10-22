@@ -24,7 +24,7 @@
     "error": {
       "lichessEmailInUse": "Šiuo el. pašto adresu paskyra jau sukurta. Prisijunkite el. paštu arba Google paskyra, tada nustatymuose prijunkite Lichess.",
       "linkExpired": "Nuoroda nebegalioja arba jau buvo panaudota. Paprašykite naujos.",
-      "tooManyRequests": "Per daug bandymų. Palaukite minutę ir bandykite dar kartą.",
+      "tooManyRequests": "Per daug bandymų. Bandykite vėliau.",
       "generic": "Prisijungti nepavyko. Bandykite dar kartą."
     }
   },

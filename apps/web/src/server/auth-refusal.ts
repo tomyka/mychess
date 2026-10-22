@@ -1,5 +1,6 @@
 import type {
   AccountRefusal,
+  RateRefusal,
   SignInRefusal,
   SignInRefusalReason,
 } from '@mychess/domain';
@@ -63,6 +64,16 @@ export function refusalError(
     ? ANSWERS[reason]
     : { status: 'BAD_REQUEST' as const, code: reason };
   return new APIError(status, { code, message: messageOf(refusal, code) });
+}
+
+/**
+ * A request over one of our own limits as the error a request hook throws:
+ * 429, as Better Auth's own limits answer, so the sign-in page shows the
+ * same message; the reason is code and message.
+ */
+export function rateRefusalError(refusal: RateRefusal): APIError {
+  const { reason } = refusal;
+  return new APIError('TOO_MANY_REQUESTS', { code: reason, message: reason });
 }
 
 /** A refused provider join as `validateUserInfo`'s `?error=` code. */

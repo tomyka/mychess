@@ -150,9 +150,11 @@ export {
 } from './display-name';
 export {
   IMPORT_RATE_LIMIT,
+  MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
   countRequest,
   importRateKey,
+  magicLinkEmailRateKey,
   type RateRefusal,
   type RateRule,
 } from './rate-limit';

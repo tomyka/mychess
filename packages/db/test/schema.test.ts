@@ -169,6 +169,32 @@ describe('the rate limits schema', () => {
   });
 });
 
+describe('the request counters schema', () => {
+  const insertCounter = (key: string, windowStart: number) =>
+    client.query(
+      'insert into request_counters (key, count, window_start) values ($1, 1, $2)',
+      [key, windowStart],
+    );
+
+  it('keeps one counter per key, with its window start in epoch milliseconds', async () => {
+    const windowStart = Date.UTC(2026, 9, 16, 12, 0, 0, 123);
+    await insertCounter('pgn-import:a1', windowStart);
+    const { rows } = await client.query(
+      'select key, count, window_start::text as window_start from request_counters',
+    );
+    expect(rows).toEqual([
+      { key: 'pgn-import:a1', count: 1, window_start: String(windowStart) },
+    ]);
+  });
+
+  it('refuses a second counter for the same key', async () => {
+    await insertCounter('pgn-import:a1', 1);
+    await expect(insertCounter('pgn-import:a1', 2)).rejects.toThrow(
+      /unique|duplicate/,
+    );
+  });
+});
+
 describe('the coaching schema', () => {
   const HASH_A = 'a'.repeat(64);
   const HASH_B = 'b'.repeat(64);

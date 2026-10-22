@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { refusalCode, refusalError } from './auth-refusal';
+import { rateRefusalError, refusalCode, refusalError } from './auth-refusal';
 
 const answerOf = (error: ReturnType<typeof refusalError>) => ({
   status: error.statusCode,
@@ -59,5 +59,19 @@ describe('refusalCode', () => {
     expect(
       refusalCode({ reason: 'signIn.clientOAuthField', field: 'scopes' }),
     ).toBe('unsupported_oauth_field');
+  });
+});
+
+describe('rateRefusalError', () => {
+  it('answers a request over a limit with 429 and its reason as code and message, as the sign-in page translates', () => {
+    expect(
+      answerOf(
+        rateRefusalError({ reason: 'signIn.error.tooManyRequests', limit: 5 }),
+      ),
+    ).toEqual({
+      status: 429,
+      code: 'signIn.error.tooManyRequests',
+      message: 'signIn.error.tooManyRequests',
+    });
   });
 });

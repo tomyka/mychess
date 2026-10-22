@@ -1,14 +1,13 @@
 /**
- * Request counters in Better Auth's rate_limits table (security A6), for
- * limits Better Auth does not cover, such as the PGN import's (R-119).
- * The domain's countRequest decides; this counts atomically per key.
- *
- * These counters are fixed windows, so for their keys (never Better Auth's)
- * the last_request column holds the epoch milliseconds the current window
- * opened, not the time of the last request.
+ * Our request counters (security A6), for limits Better Auth does not
+ * cover, such as the PGN import's (R-119) and the magic link's per email
+ * (#264). The domain's countRequest decides; this counts atomically per
+ * key, in the request_counters table: Better Auth's rate_limits table is
+ * pruned by Better Auth itself at its own one-minute horizon.
  */
 import {
   IMPORT_RATE_LIMIT,
+  MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
   countRequest,
   ok,
@@ -17,10 +16,9 @@ import {
   type Result,
 } from '@mychess/domain';
 import { eq, lt, sql } from 'drizzle-orm';
-import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Executor } from './client';
-import { rateLimits } from './schema';
+import { rateLimits, requestCounters } from './schema';
 
 /**
  * The longest window of Better Auth 1.7's built-in rules: 10 s by default
@@ -30,14 +28,22 @@ import { rateLimits } from './schema';
 const BETTER_AUTH_LONGEST_WINDOW_MS = 60_000;
 
 /**
- * How long a rate_limits row can still decide a request: the longest window
- * of any limit. A row whose last request (or, for our counters, window
- * start) is older only opens a new window, as no row would, so deleting it
- * changes no decision. A new limit with a longer window joins this list.
+ * How long a rate_limits row can still decide a request: the longest
+ * window of Better Auth's rules, ours on its paths included. A row whose
+ * last request is older only opens a new window, as no row would, so
+ * deleting it changes no decision.
  */
-export const RATE_LIMIT_RETENTION_MS = Math.max(
+export const BETTER_AUTH_RETENTION_MS = Math.max(
   BETTER_AUTH_LONGEST_WINDOW_MS,
   MAGIC_LINK_RATE_LIMIT.windowMs,
+);
+
+/**
+ * How long a request_counters row can still decide a request: the longest
+ * window of our own limits. A new limit counted here joins this list.
+ */
+export const REQUEST_COUNTER_RETENTION_MS = Math.max(
+  MAGIC_LINK_EMAIL_RATE_LIMIT.windowMs,
   IMPORT_RATE_LIMIT.windowMs,
 );
 
@@ -63,45 +69,52 @@ export async function countRateLimited<R extends string>(
     // A new key starts in a window long closed.
     const [row] = counterRowsSchema.parse(
       await tx
-        .insert(rateLimits)
-        .values({ id: randomUUID(), key, count: 0, lastRequest: 0 })
+        .insert(requestCounters)
+        .values({ key, count: 0, windowStart: 0 })
         .onConflictDoUpdate({
-          target: rateLimits.key,
+          target: requestCounters.key,
           set: { key: sql`excluded.key` },
         })
         .returning({
-          count: rateLimits.count,
-          windowStart: rateLimits.lastRequest,
+          count: requestCounters.count,
+          windowStart: requestCounters.windowStart,
         }),
     );
     const counted = countRequest(row, rule, now.getTime());
     if (!counted.ok) return counted;
     await tx
-      .update(rateLimits)
-      .set({
-        count: counted.value.count,
-        lastRequest: counted.value.windowStart,
-      })
-      .where(eq(rateLimits.key, key));
+      .update(requestCounters)
+      .set(counted.value)
+      .where(eq(requestCounters.key, key));
     return ok();
   });
 }
 
 /**
- * Deletes the rate_limits rows that can no longer decide a request at
- * `now`: those whose last request is older than RATE_LIMIT_RETENTION_MS,
- * the longest window of any limit (#262). Better Auth keeps one row per
- * client address and path, and deletes stale ones only as a side effect of
- * some key opening a new window, so a scheduled prune bounds the table.
- * Returns how many rows it deleted.
+ * Deletes the rows that can no longer decide a request at `now`: Better
+ * Auth's rate_limits rows older than BETTER_AUTH_RETENTION_MS and our
+ * request_counters rows older than REQUEST_COUNTER_RETENTION_MS (#262).
+ * Better Auth keeps one row per client address and path, and deletes stale
+ * ones only as a side effect of some key opening a new window; our
+ * counters it never touches. A scheduled prune bounds both tables.
+ * Returns how many rows it deleted from the two together.
  */
 export async function pruneRateLimits(
   db: Executor,
   now: Date,
 ): Promise<number> {
-  const cutoff = now.getTime() - RATE_LIMIT_RETENTION_MS;
-  const deleted = deletedSchema.parse(
-    await db.delete(rateLimits).where(lt(rateLimits.lastRequest, cutoff)),
+  const at = now.getTime();
+  const auth = deletedSchema.parse(
+    await db
+      .delete(rateLimits)
+      .where(lt(rateLimits.lastRequest, at - BETTER_AUTH_RETENTION_MS)),
   );
-  return deleted.rowCount;
+  const ours = deletedSchema.parse(
+    await db
+      .delete(requestCounters)
+      .where(
+        lt(requestCounters.windowStart, at - REQUEST_COUNTER_RETENTION_MS),
+      ),
+  );
+  return auth.rowCount + ours.rowCount;
 }

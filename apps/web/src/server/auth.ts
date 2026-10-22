@@ -1,4 +1,9 @@
-import { authSchema, findAccountById, type Db } from '@mychess/db';
+import {
+  authSchema,
+  countRateLimited,
+  findAccountById,
+  type Db,
+} from '@mychess/db';
 import {
   canLinkProvider,
   canOpenSession,
@@ -10,8 +15,10 @@ import {
   GOOGLE,
   LICHESS,
   LOCALES,
+  MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
   type ProviderJoin,
+  magicLinkEmailRateKey,
   magicLinkRequest,
   signInEmail,
 } from '@mychess/domain';
@@ -30,10 +37,11 @@ import {
 import { nextCookies } from 'better-auth/next-js';
 import { genericOAuth } from 'better-auth/plugins/generic-oauth';
 import { magicLink } from 'better-auth/plugins/magic-link';
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { resolveLocale } from '../i18n/locales';
 import { ROUTES } from '../lib/routes';
-import { refusalCode, refusalError } from './auth-refusal';
+import { rateRefusalError, refusalCode, refusalError } from './auth-refusal';
 import { getDb } from './db';
 import { googleConfigured, readWebEnv, type WebEnv } from './env';
 import { createMailer, magicLinkMail, type Mailer } from './mail';
@@ -74,13 +82,45 @@ type HookAnswer = { context: { body: Record<string, unknown> } } | undefined;
  * this body into the request's, so the name is blanked rather than dropped
  * (an absent key would keep the client's value).
  */
-function canonicalMagicLinkBody(ctx: HookRequest): HookAnswer {
-  if (ctx.path !== '/sign-in/magic-link') return undefined;
-  const parsed = requestBody.safeParse(ctx.body);
+function canonicalMagicLinkBody(raw: unknown) {
+  const parsed = requestBody.safeParse(raw);
   const body = parsed.success ? parsed.data : { email: undefined };
   const request = magicLinkRequest(body.email);
   if (!request.ok) throw refusalError(request.refusal);
-  return { context: { body: { ...body, ...request.value } } };
+  return { ...body, ...request.value };
+}
+
+/** A one-way hash, so the counter table never holds an address (#264). */
+const sha256 = (text: string): string =>
+  createHash('sha256').update(text).digest('hex');
+
+/**
+ * Counts a link to `email` against its inbox's limit, whether or not an
+ * account has it, so neither the count nor the refusal tells whether one
+ * exists (#264).
+ */
+async function refuseFloodedInbox(db: Db, email: string): Promise<void> {
+  const counted = await countRateLimited(
+    db,
+    magicLinkEmailRateKey(email, sha256),
+    MAGIC_LINK_EMAIL_RATE_LIMIT,
+    new Date(),
+  );
+  if (!counted.ok) throw rateRefusalError(counted.refusal);
+}
+
+/**
+ * A magic-link request made canonical, then counted against its inbox
+ * before anything is mailed.
+ */
+async function countedMagicLinkBody(
+  db: Db,
+  ctx: HookRequest,
+): Promise<HookAnswer> {
+  if (ctx.path !== '/sign-in/magic-link') return undefined;
+  const body = canonicalMagicLinkBody(ctx.body);
+  await refuseFloodedInbox(db, body.email);
+  return { context: { body } };
 }
 
 const OAUTH_START_PATHS = new Set(['/sign-in/social', '/link-social']);
@@ -120,11 +160,16 @@ async function refuseStaleLink(ctx: HookContext): Promise<void> {
   if (!link.ok) throw refusalError(link.refusal);
 }
 
-// Every request, before Better Auth handles it.
-async function beforeRequest(ctx: HookContext): Promise<HookAnswer> {
-  refuseClientOAuthFields(ctx);
-  await refuseStaleLink(ctx);
-  return canonicalMagicLinkBody(ctx);
+/**
+ * Every request, before Better Auth handles it and after Better Auth's own
+ * per-client-address limits.
+ */
+function beforeRequest(db: Db) {
+  return async (ctx: HookContext): Promise<HookAnswer> => {
+    refuseClientOAuthFields(ctx);
+    await refuseStaleLink(ctx);
+    return countedMagicLinkBody(db, ctx);
+  };
 }
 
 type UserInfo = Parameters<ValidateUserInfo>[0];
@@ -387,7 +432,8 @@ function socialProviders(env: WebEnv) {
  * in-memory counters do nothing across serverless instances (security A6).
  * Always on: Better Auth's default turns them off outside NODE_ENV
  * production. A magic link is mailed at most three times a minute per
- * address; Better Auth's own rules cover the other sign-in paths.
+ * address; Better Auth's own rules cover the other sign-in paths. The
+ * per-email magic-link limit is ours (countedMagicLinkBody, #264).
  */
 const rateLimitOptions = {
   enabled: true,
@@ -430,7 +476,7 @@ function authOptions({ db, env, mail, fetch: fetchImpl = fetch }: AuthDeps) {
     // An error with no errorCallbackURL of its own lands on our sign-in
     // page, which translates its code, not on Better Auth's /error page.
     onAPIError: { errorURL: new URL(ROUTES.signIn, env.BETTER_AUTH_URL).href },
-    hooks: { before: createAuthMiddleware(beforeRequest) },
+    hooks: { before: createAuthMiddleware(beforeRequest(db)) },
     databaseHooks: databaseHooks(db),
     plugins: [
       magicLinkPlugin(mail),

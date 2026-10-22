@@ -24,7 +24,7 @@
     "error": {
       "lichessEmailInUse": "An account with this email address already exists. Sign in by email or with Google, then connect Lichess in settings.",
       "linkExpired": "The link has expired or was already used. Request a new one.",
-      "tooManyRequests": "Too many attempts. Wait a minute and try again.",
+      "tooManyRequests": "Too many attempts. Please try again later.",
       "generic": "Sign-in failed. Please try again."
     }
   },
