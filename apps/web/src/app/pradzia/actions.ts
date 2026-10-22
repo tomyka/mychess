@@ -1,8 +1,9 @@
 'use server';
 
 import { completeOnboarding } from '@mychess/db';
-import { isOnboarded } from '@mychess/domain';
+import { accountStage } from '@mychess/domain';
 import { redirect } from 'next/navigation';
+import { onboardingRefusalPath } from '../../lib/onboarding-redirect';
 import { returnPath } from '../../lib/return-path';
 import { ROUTES } from '../../lib/routes';
 import { getDb } from '../../server/db';
@@ -23,6 +24,9 @@ export interface OnboardingState {
  * on to the invite in the form's `next`. An account that has been through
  * onboarding already goes there untouched: settings is where its name and
  * language change. `next` is client input, so it is checked again here.
+ * The domain decides again on the locked row: a submit that lost a race
+ * goes on without writing, and an account closed meanwhile goes to
+ * sign-in (R-80); neither remembers the locale.
  */
 export async function completeOnboardingAction(
   _previous: OnboardingState,
@@ -30,10 +34,16 @@ export async function completeOnboardingAction(
 ): Promise<OnboardingState> {
   const account = await requireAccount();
   const next = returnPath(form.get('next'));
-  if (isOnboarded(account)) redirect(next ?? ROUTES.home);
+  if (accountStage(account) === 'onboarded') redirect(next ?? ROUTES.home);
   const profile = parseProfileInput(form);
   if (!profile.ok) return { refusal: profile.refusal.reason };
-  await completeOnboarding(getDb(), account.id, profile.value, new Date());
+  const done = await completeOnboarding(
+    getDb(),
+    account.id,
+    profile.value,
+    new Date(),
+  );
+  if (!done.ok) redirect(onboardingRefusalPath(done.refusal, next));
   await rememberLocale(profile.value.locale);
   redirect(next ?? ROUTES.home);
 }

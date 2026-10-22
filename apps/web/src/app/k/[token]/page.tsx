@@ -1,8 +1,8 @@
 import { previewInvite } from '@mychess/db';
 import {
   INVITE_REFUSALS,
+  accountStage,
   inviteTokenSchema,
-  isOnboarded,
 } from '@mychess/domain';
 import { redirect } from 'next/navigation';
 import type { JSX } from 'react';
@@ -32,7 +32,7 @@ export default async function InvitePage({
   const back = token === null ? null : invitePath(token);
   const account = await getAccount();
   if (account === null) redirect(signInPath(back));
-  if (!isOnboarded(account)) redirect(onboardingPath(back));
+  if (accountStage(account) !== 'onboarded') redirect(onboardingPath(back));
   const preview =
     token === null
       ? NOT_VALID

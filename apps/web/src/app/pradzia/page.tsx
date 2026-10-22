@@ -1,4 +1,4 @@
-import { deletableAccount, isOnboarded } from '@mychess/domain';
+import { accountStage, deletableAccount } from '@mychess/domain';
 import { redirect } from 'next/navigation';
 import type { JSX } from 'react';
 import { returnPath } from '../../lib/return-path';
@@ -23,7 +23,7 @@ export default async function OnboardingPage({
 }): Promise<JSX.Element> {
   const account = await requireAccount();
   const next = returnPath(first((await searchParams)['next']));
-  if (isOnboarded(account)) redirect(next ?? ROUTES.home);
+  if (accountStage(account) === 'onboarded') redirect(next ?? ROUTES.home);
   return (
     <OnboardingForm
       displayName={account.displayName}

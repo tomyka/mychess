@@ -1,6 +1,10 @@
 'use client';
 
-import { canDelete, type DeletableAccount } from '@mychess/domain';
+import {
+  canDelete,
+  deleteConfirmation,
+  type DeletableAccount,
+} from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import {
   useActionState,
@@ -89,7 +93,7 @@ function ConfirmLabel({
   const t = useTranslations('settings.delete');
   return (
     <label htmlFor={htmlFor} className="font-medium">
-      {account.onboardedAt === null
+      {deleteConfirmation(account) === 'email'
         ? t.rich('typeEmail', { email: account.email, strong })
         : t.rich('typeName', { name: account.displayName, strong })}
     </label>
@@ -116,7 +120,7 @@ export function DeleteSection({
   const [typed, setTyped] = useState('');
   const [state, action, pending] = useActionState(deleteAccountAction, INITIAL);
   const refused = state.refusal !== undefined;
-  const byEmail = account.onboardedAt === null;
+  const byEmail = deleteConfirmation(account) === 'email';
   return (
     <section aria-labelledby={titleId} className={DANGER_SECTION}>
       <h2 id={titleId} className={`${SECTION_TITLE} text-error`}>

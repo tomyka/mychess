@@ -1,11 +1,7 @@
 'use server';
 
-import { deleteAccount, updateProfile } from '@mychess/db';
-import {
-  canDelete,
-  hasProvenEmail,
-  type AccountRefusal,
-} from '@mychess/domain';
+import { deleteConfirmedAccount, updateProfile } from '@mychess/db';
+import type { AccountRefusal } from '@mychess/domain';
 import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { ROUTES } from '../../lib/routes';
@@ -63,10 +59,11 @@ async function mailDeleted(message: ReturnType<typeof deletedMail>) {
 
 /**
  * Deletes the account for good once it is confirmed (R-40, R-82): by its
- * display name, or by its email before onboarding (R-86), as the domain's
- * canDelete decides. Mails the confirmation in its language, only to a
- * proven address (R-87), and signs this browser out: the session row went
- * with the account, the cookie goes here.
+ * display name, or by its email before onboarding (R-86). The domain
+ * decides on the locked row, as it is deleted: whether the typed text
+ * confirms, and whether the confirmation mail goes, in its language and
+ * only to a proven address (R-87). Then signs this browser out: the
+ * session row went with the account, the cookie goes here.
  */
 export async function deleteAccountAction(
   _previous: DeleteState,
@@ -74,11 +71,14 @@ export async function deleteAccountAction(
 ): Promise<DeleteState> {
   const account = await requireAccount();
   const typed = form.get('confirmation');
-  const check = canDelete(account, typeof typed === 'string' ? typed : '');
-  if (!check.ok) return { refusal: check.refusal.reason };
-  await deleteAccount(getDb(), account.id, new Date());
-  if (hasProvenEmail(account))
-    await mailDeleted(deletedMail(account.locale, account.email));
+  const deletion = await deleteConfirmedAccount(getDb(), {
+    id: account.id,
+    typed: typeof typed === 'string' ? typed : '',
+    now: new Date(),
+  });
+  if (!deletion.ok) return { refusal: deletion.refusal.reason };
+  const mail = deletion.value.confirmationMail;
+  if (mail !== null) await mailDeleted(deletedMail(mail.locale, mail.to));
   await signOutHere();
   redirect(`${ROUTES.signIn}?deleted=1`);
 }

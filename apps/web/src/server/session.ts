@@ -1,10 +1,5 @@
 import { findAccountById } from '@mychess/db';
-import {
-  isDisabled,
-  isFreshSession,
-  isOnboarded,
-  type Account,
-} from '@mychess/domain';
+import { accountStage, isFreshSession, type Account } from '@mychess/domain';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { cache } from 'react';
@@ -22,12 +17,17 @@ const getSession = cache(async () => {
   return getAuth().api.getSession({ headers: requestHeaders });
 });
 
-/** The signed-in, enabled account of this request, or null. */
+/**
+ * The signed-in, enabled account of this request, or null: a disabled
+ * account reads as signed out (R-80).
+ */
 export const getAccount = cache(async (): Promise<Account | null> => {
   const session = await getSession();
   if (session === null) return null;
   const account = await findAccountById(getDb(), session.user.id);
-  return account === undefined || isDisabled(account) ? null : account;
+  return account === undefined || accountStage(account) === 'disabled'
+    ? null
+    : account;
 });
 
 /** Signed-out visitors go to sign-in. */
@@ -40,7 +40,7 @@ export async function requireAccount(): Promise<Account> {
 /** Signed-in but not onboarded accounts go to onboarding first (R-81). */
 export async function requireOnboarded(): Promise<Account> {
   const account = await requireAccount();
-  if (!isOnboarded(account)) redirect(ROUTES.onboarding);
+  if (accountStage(account) !== 'onboarded') redirect(ROUTES.onboarding);
   return account;
 }
 
