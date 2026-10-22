@@ -2,10 +2,10 @@ import { ok, refuse, type Result } from '@mychess/chess';
 import {
   ACCOUNT_REFUSALS,
   canonicalEmail,
-  isDisabled,
   type Account,
   type AccountRefusal,
 } from './account';
+import { isDisabled } from './account-lifecycle';
 
 /**
  * The sign-in rules of an Account, as pure decisions. The auth adapter

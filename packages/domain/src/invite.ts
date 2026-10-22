@@ -1,6 +1,7 @@
 import { ok, refuse, type Result } from '@mychess/chess';
 import { z } from 'zod';
 import { entitlementLimits, type Account } from './account';
+import { isDisabled } from './account-lifecycle';
 import { isCoach, type CoachFacts } from './coach';
 
 /** A personal invite is single use; a group invite is multi-use (R-98). */
@@ -109,9 +110,7 @@ type AcceptResult = Result<undefined, InviteRefusal>;
  * (R-108) nor out of Coach mode.
  */
 const isValid = (invite: Invite, coach: InvitingCoach, now: Date): boolean =>
-  inviteState(invite, now) === 'active' &&
-  coach.disabledAt === null &&
-  isCoach(coach);
+  inviteState(invite, now) === 'active' && !isDisabled(coach) && isCoach(coach);
 
 /** An already linked player needs no new link, so the limit does not apply. */
 const hasRoom = (coach: InvitingCoach, counts: AcceptCounts): boolean =>

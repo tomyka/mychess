@@ -7,13 +7,9 @@ import {
   LOCALES,
   accountSchema,
   profileSchema,
-  canDelete,
   canonicalEmail,
-  deletableAccount,
   entitlementLimits,
   hasProvenEmail,
-  isDisabled,
-  isOnboarded,
   type Account,
 } from './account';
 
@@ -56,28 +52,6 @@ describe('canonicalEmail', () => {
   });
 });
 
-describe('isOnboarded', () => {
-  it('is true once onboarding was completed', () => {
-    expect(isOnboarded(account())).toBe(true);
-  });
-
-  it('is false before, even with a prefilled name', () => {
-    expect(isOnboarded(account({ onboardedAt: null }))).toBe(false);
-  });
-});
-
-describe('isDisabled', () => {
-  it('is false for an active account', () => {
-    expect(isDisabled(account())).toBe(false);
-  });
-
-  it('is true once an admin disabled it (R-80)', () => {
-    expect(
-      isDisabled(account({ disabledAt: new Date('2026-10-16T09:00:00Z') })),
-    ).toBe(true);
-  });
-});
-
 describe('hasProvenEmail', () => {
   it('is true once a magic link or Google proved the mailbox', () => {
     expect(hasProvenEmail(account())).toBe(true);
@@ -85,83 +59,6 @@ describe('hasProvenEmail', () => {
 
   it('is false for an account a Lichess sign-up created (R-87)', () => {
     expect(hasProvenEmail(account({ emailVerified: false }))).toBe(false);
-  });
-});
-
-describe('deletableAccount', () => {
-  it('keeps only what deciding a deletion needs', () => {
-    expect(deletableAccount(account())).toStrictEqual({
-      displayName: 'Rūta',
-      email: 'ruta@example.lt',
-      onboardedAt: new Date('2026-10-16T08:00:00Z'),
-    });
-  });
-});
-
-describe('canDelete', () => {
-  describe('an onboarded account confirms with its display name (R-82)', () => {
-    it('takes the display name typed exactly, ignoring outer spaces', () => {
-      expect(canDelete(account(), '  Rūta ')).toEqual({
-        ok: true,
-        value: undefined,
-      });
-    });
-
-    it.each([['rūta'], ['Ruta'], [''], ['Rūta Rūtaitė'], ['ruta@example.lt']])(
-      'refuses %j',
-      (typed) => {
-        expect(canDelete(account(), typed)).toEqual({
-          ok: false,
-          refusal: { reason: ACCOUNT_REFUSALS.deleteNameMismatch },
-        });
-      },
-    );
-
-    // A blank name can never be typed: a blank confirmation must not match it.
-    it.each([
-      ['', ''],
-      ['', '   '],
-      ['   ', ''],
-      ['   ', '   '],
-    ])('refuses a blank display name %j confirmed by %j', (name, typed) => {
-      expect(canDelete(account({ displayName: name }), typed)).toEqual({
-        ok: false,
-        refusal: { reason: ACCOUNT_REFUSALS.deleteNameMismatch },
-      });
-    });
-  });
-
-  describe('an account not yet onboarded confirms with its email (R-86)', () => {
-    const fresh = (over: Partial<Account> = {}) =>
-      account({ onboardedAt: null, displayName: 'Ruta J', ...over });
-
-    it.each([
-      ['ruta@example.lt'],
-      ['  Ruta@Example.LT '],
-      ['ｒｕｔａ@ｅｘａｍｐｌｅ.ｌｔ'],
-    ])('takes %j, compared in its canonical form', (typed) => {
-      expect(canDelete(fresh(), typed)).toEqual({ ok: true, value: undefined });
-    });
-
-    it.each([
-      ['the prefilled display name', 'Ruta J'],
-      ['another address', 'jonas@example.lt'],
-      ['a Cyrillic look-alike', 'ruta@exаmple.lt'],
-      ['nothing', ''],
-      ['spaces', '   '],
-    ])('refuses %s', (_, typed) => {
-      expect(canDelete(fresh(), typed)).toEqual({
-        ok: false,
-        refusal: { reason: ACCOUNT_REFUSALS.deleteEmailMismatch },
-      });
-    });
-
-    it('refuses a blank confirmation for a blank display name', () => {
-      expect(canDelete(fresh({ displayName: '' }), '')).toEqual({
-        ok: false,
-        refusal: { reason: ACCOUNT_REFUSALS.deleteEmailMismatch },
-      });
-    });
   });
 });
 

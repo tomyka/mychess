@@ -76,67 +76,12 @@ export function canonicalEmail(raw: string): Result<string, AccountRefusal> {
     : refuse(ACCOUNT_REFUSALS.emailInvalid);
 }
 
-/** Has the account been through the onboarding screen (R-81)? */
-export function isOnboarded(account: Account): boolean {
-  return account.onboardedAt !== null;
-}
-
-/** Has an Admin disabled the account (R-80)? It then opens no session. */
-export function isDisabled(account: Account): boolean {
-  return account.disabledAt !== null;
-}
-
 /**
  * Has the mailbox been proven (R-87)? mychess mails only a proven address:
  * an account a Lichess sign-up created names an address nobody proved.
  */
 export function hasProvenEmail(account: Account): boolean {
   return account.emailVerified;
-}
-
-/** What deciding a deletion needs to know about the account. */
-export type DeletableAccount = Pick<
-  Account,
-  'displayName' | 'email' | 'onboardedAt'
->;
-
-/**
- * Only what deciding a deletion needs, so a page hands a client component
- * no more of the account than that.
- */
-export function deletableAccount(account: DeletableAccount): DeletableAccount {
-  return {
-    displayName: account.displayName,
-    email: account.email,
-    onboardedAt: account.onboardedAt,
-  };
-}
-
-const sameEmail = (email: string, typed: string): boolean => {
-  const canonical = canonicalEmail(typed);
-  return canonical.ok && canonical.value === email;
-};
-
-const sameName = (displayName: string, typed: string): boolean =>
-  displayName.trim() !== '' && typed.trim() === displayName;
-
-/**
- * Deletion is confirmed by typing the display name exactly (R-82); a blank
- * name can never be typed, so it never confirms one. An account that has
- * not been through onboarding has no name of its own yet, so it confirms
- * with its email address instead, in its canonical form (R-86).
- */
-export function canDelete(
-  account: DeletableAccount,
-  typed: string,
-): Result<undefined, AccountRefusal> {
-  if (account.onboardedAt === null)
-    return sameEmail(account.email, typed)
-      ? ok()
-      : refuse(ACCOUNT_REFUSALS.deleteEmailMismatch);
-  return sameName(account.displayName, typed)
-    ? ok()
-    : refuse(ACCOUNT_REFUSALS.deleteNameMismatch);
 }
 
 /** What an entitlement allows a coach to have. */
