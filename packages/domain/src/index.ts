@@ -147,6 +147,13 @@ export {
   type RateRule,
 } from './rate-limit';
 export {
+  PERSONA_EMAIL_DOMAIN,
+  PERSONA_REFUSALS,
+  personaEmail,
+  personaSignInAvailable,
+  type PersonaRefusal,
+} from './persona-sign-in';
+export {
   CHAPTER_NAME_MAX,
   COMMENT_MAX,
   PERSONAL_NOTE_MAX,
@@ -184,4 +191,27 @@ export {
   type CoachNoteTarget,
   type ShareRefusal,
 } from './sharing';
+export {
+  CLIENT_OAUTH_FIELDS,
+  FRESH_AGE_SECONDS,
+  PROVIDERS,
+  SIGN_IN_REFUSALS,
+  canLinkProvider,
+  canOpenSession,
+  canStartOAuth,
+  decideProviderJoin,
+  isFreshSession,
+  isProvider,
+  leavesLichessNotice,
+  magicLinkRequest,
+  providerSessionStands,
+  showsLichessNotice,
+  signInEmail,
+  type JoinAllowed,
+  type LinkEnd,
+  type Provider,
+  type ProviderJoin,
+  type SignInRefusal,
+  type SignInRefusalReason,
+} from './sign-in';
 export type { Side } from '@mychess/chess';
