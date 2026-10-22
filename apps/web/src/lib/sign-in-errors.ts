@@ -12,6 +12,18 @@ export const LICHESS_EMAIL_IN_USE = 'lichess_email_in_use';
  */
 export const JOIN_REFUSED = 'join_refused';
 
+/**
+ * Better Auth's own code for a session it refused (a disabled account gets
+ * it too); the sign-in page shows the general message for it.
+ */
+export const SESSION_REFUSED = 'unable_to_create_session';
+
+/**
+ * The code an OAuth start is refused with when its request names a field
+ * the client may not choose (security item 7); the field is the message.
+ */
+export const UNSUPPORTED_OAUTH_FIELD = 'unsupported_oauth_field';
+
 /** The catalogue key of every error the sign-in page can show. */
 export type SignInErrorKey =
   | 'signIn.error.lichessEmailInUse'

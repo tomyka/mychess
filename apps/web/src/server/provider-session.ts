@@ -2,6 +2,7 @@ import { providerSessionStands } from '@mychess/domain';
 import type { BetterAuthOptions } from 'better-auth';
 import { APIError } from 'better-auth/api';
 import { z } from 'zod';
+import { SESSION_REFUSED } from '../lib/sign-in-errors';
 
 type SessionHooks = NonNullable<
   NonNullable<BetterAuthOptions['databaseHooks']>['session']
@@ -17,12 +18,6 @@ const createdSession = z.looseObject({
   token: z.string().min(1),
   userId: z.string().min(1),
 });
-
-/**
- * Better Auth's own code for a session it refused (a disabled account gets
- * it too); the sign-in page shows the general message for it.
- */
-const SESSION_REFUSED = 'unable_to_create_session';
 
 /**
  * Better Auth's hook after a session is written: a session a provider

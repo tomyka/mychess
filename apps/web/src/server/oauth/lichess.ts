@@ -1,8 +1,4 @@
-import type { Provider } from '@mychess/domain';
 import { z } from 'zod';
-
-/** The provider id Lichess sign-ins and links carry in Better Auth. */
-export const LICHESS_PROVIDER_ID = 'lichess' satisfies Provider;
 
 const accountSchema = z.object({
   id: z.string().min(1),

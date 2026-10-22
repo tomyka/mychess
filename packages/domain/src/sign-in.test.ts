@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Account } from './account';
 import {
   FRESH_AGE_SECONDS,
+  GOOGLE,
+  LICHESS,
   PROVIDERS,
   SIGN_IN_REFUSALS,
   canLinkProvider,
@@ -51,6 +53,10 @@ describe('sign-in refusals', () => {
 describe('providers (R-68)', () => {
   it('lists Google, then Lichess', () => {
     expect(PROVIDERS).toEqual(['google', 'lichess']);
+  });
+
+  it('names each provider by the id Better Auth carries', () => {
+    expect([GOOGLE, LICHESS]).toEqual(['google', 'lichess']);
   });
 
   it.each(['google', 'lichess'])('knows %j', (id) => {

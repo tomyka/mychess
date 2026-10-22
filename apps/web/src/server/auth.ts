@@ -7,6 +7,8 @@ import {
   DEFAULT_ENTITLEMENT,
   DEFAULT_LOCALE,
   FRESH_AGE_SECONDS,
+  GOOGLE,
+  LICHESS,
   LOCALES,
   MAGIC_LINK_RATE_LIMIT,
   type ProviderJoin,
@@ -37,7 +39,7 @@ import { googleConfigured, readWebEnv, type WebEnv } from './env';
 import { createMailer, magicLinkMail, type Mailer } from './mail';
 import { googleUserInfo } from './oauth/google';
 import { noteLichessUnlinked } from './lichess-unlinked';
-import { LICHESS_PROVIDER_ID, lichessUserInfo } from './oauth/lichess';
+import { lichessUserInfo } from './oauth/lichess';
 import { endUnlinkedProviderSession } from './provider-session';
 import { linkWithLocale, signUpLocale } from './sign-up-locale';
 import { testSignInPlugin } from './test-sign-in';
@@ -139,16 +141,14 @@ const idOf = (user: UserInfo['user']): string | undefined =>
  * account only. The session is read for Lichess alone, the one link the
  * domain checks against it.
  */
-async function settingsJoin(
+async function settingsJoinRequest(
   { user, source }: UserInfo,
   ctx: HookContext,
   linkAccountId: string,
 ): Promise<ProviderJoin> {
   const provider = source.oauth?.providerId;
   const current =
-    provider === LICHESS_PROVIDER_ID
-      ? await getAuthoritativeSessionFromCtx(ctx)
-      : null;
+    provider === LICHESS ? await getAuthoritativeSessionFromCtx(ctx) : null;
   return {
     via: 'settings',
     provider,
@@ -159,7 +159,7 @@ async function settingsJoin(
 }
 
 /** A provider joining the account with its email at sign-in. */
-async function emailJoin(
+async function emailJoinRequest(
   db: Db,
   { user, source }: UserInfo,
 ): Promise<ProviderJoin> {
@@ -207,8 +207,8 @@ function validateUserInfo(db: Db): ValidateUserInfo {
     const link = (await getOAuthState())?.link;
     const join =
       link === undefined
-        ? await emailJoin(db, data)
-        : await settingsJoin(data, ctx, link.userId);
+        ? await emailJoinRequest(db, data)
+        : await settingsJoinRequest(data, ctx, link.userId);
     return answerJoin(join, ctx);
   };
 }
@@ -303,7 +303,7 @@ const providerAccountOptions = {
   encryptOAuthTokens: true,
   accountLinking: {
     enabled: true,
-    trustedProviders: [LICHESS_PROVIDER_ID],
+    trustedProviders: [LICHESS],
     // An unproven account may be joined: only Google is, and it first ends
     // the unproven access (validateUserInfo, decideProviderJoin, R-87).
     requireLocalEmailVerified: false,
@@ -353,7 +353,7 @@ function lichessPlugin(env: WebEnv, fetchImpl: typeof fetch) {
   return genericOAuth({
     config: [
       {
-        providerId: LICHESS_PROVIDER_ID,
+        providerId: LICHESS,
         clientId: env.LICHESS_CLIENT_ID,
         authorizationUrl: 'https://lichess.org/oauth',
         tokenUrl: 'https://lichess.org/api/token',
@@ -373,7 +373,7 @@ function lichessPlugin(env: WebEnv, fetchImpl: typeof fetch) {
 function socialProviders(env: WebEnv) {
   if (!googleConfigured(env)) return {};
   return {
-    google: {
+    [GOOGLE]: {
       clientId: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
       getUserInfo: googleUserInfo,

@@ -14,7 +14,9 @@ import {
  */
 
 /** The OAuth providers an account signs in with and links (R-68, R-69, R-83). */
-export const PROVIDERS = ['google', 'lichess'] as const;
+export const GOOGLE = 'google';
+export const LICHESS = 'lichess';
+export const PROVIDERS = [GOOGLE, LICHESS] as const;
 export type Provider = (typeof PROVIDERS)[number];
 
 export const isProvider = (value: string): value is Provider =>
@@ -120,9 +122,6 @@ export function canOpenSession(
 ): Result<undefined, SignInRefusal> {
   return isDisabled(account) ? refuse(SIGN_IN_REFUSALS.accountDisabled) : ok();
 }
-
-const GOOGLE: Provider = 'google';
-const LICHESS: Provider = 'lichess';
 
 /**
  * A provider identity about to join an existing account: from settings

@@ -1,8 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import {
-  personaEmail as canonicalPersonaEmail,
-  personaSignInAvailable,
-} from '@mychess/domain';
+import { personaEmail, personaSignInAvailable } from '@mychess/domain';
 import type { BetterAuthPlugin } from 'better-auth';
 import { APIError, createAuthEndpoint } from 'better-auth/api';
 import { setSessionCookie } from 'better-auth/cookies';
@@ -23,14 +20,14 @@ type SwitchEnv = Pick<WebEnv, 'MYCHESS_ENV' | 'MYCHESS_TEST_SIGNIN'>;
  * A persona's canonical email, as the domain decides it (R-73); a refusal
  * becomes the issue, its reason the message.
  */
-const personaEmail = z.string().transform((raw, ctx) => {
-  const email = canonicalPersonaEmail(raw);
+const personaEmailField = z.string().transform((raw, ctx) => {
+  const email = personaEmail(raw);
   if (email.ok) return email.value;
   ctx.addIssue({ code: 'custom', message: email.refusal.reason });
   return z.NEVER;
 });
 
-const testSignInBody = z.object({ email: personaEmail });
+const testSignInBody = z.object({ email: personaEmailField });
 
 /** Whether the persona sign-in exists, as the domain decides it (R-73, R-93). */
 const enabled = (env: SwitchEnv): boolean =>

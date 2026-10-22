@@ -8,6 +8,8 @@ import {
   JOIN_REFUSED,
   LICHESS_EMAIL_IN_USE,
   SESSION_NOT_FRESH,
+  SESSION_REFUSED,
+  UNSUPPORTED_OAUTH_FIELD,
 } from '../lib/sign-in-errors';
 
 interface WireAnswer {
@@ -32,11 +34,13 @@ const ANSWERS: Record<SignInRefusalReason, WireAnswer> = {
   'signIn.sessionNotFresh': { status: 'FORBIDDEN', code: SESSION_NOT_FRESH },
   'signIn.clientOAuthField': {
     status: 'BAD_REQUEST',
-    code: 'unsupported_oauth_field',
+    code: UNSUPPORTED_OAUTH_FIELD,
   },
+  // Documentation only: the session hook returns false and Better Auth
+  // itself answers with this status and code; no refusalError is built here.
   'signIn.accountDisabled': {
     status: 'UNAUTHORIZED',
-    code: 'unable_to_create_session',
+    code: SESSION_REFUSED,
   },
 };
 
