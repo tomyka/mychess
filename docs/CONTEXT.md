@@ -39,7 +39,7 @@ An Account's display name and language, the part a person edits in settings and 
 _Avoid_: Account settings (in domain talk), user profile
 
 **Provider link**:
-A sign-in method other than the magic link (Google or Lichess) linked to an Account. Created at sign-up or from settings while signed in; never by matching emails (R-69).
+A sign-in method other than the magic link (Google or Lichess) linked to an Account. Created at sign-up or from settings while signed in; Lichess never by matching emails (R-69); Google only with a verified email (R-87).
 _Avoid_: Connection, social account, OAuth account
 
 **Admin**:
