@@ -1,5 +1,6 @@
 'use client';
 
+import { assignmentBadges } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useEffect, type JSX } from 'react';
 import { ROUTES } from '../../../../lib/routes';
@@ -53,12 +54,14 @@ function AssignedHeader({
           <p className="text-sm">{t('deadlineOn', { date: date(deadline) })}</p>
         )}
         <AssignmentBadges
-          flags={{
+          flags={assignmentBadges({
+            audience: 'player',
             overdue: data.overdue,
             paused,
-            forked: false,
+            // Opening the repertoire is what clears "Updated"; this page
+            // shows what changed instead (R-133).
             updated: false,
-          }}
+          })}
         />
       </div>
     </HeaderFrame>

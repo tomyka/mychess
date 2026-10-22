@@ -34,7 +34,7 @@ export interface CoachAssignmentPlayer {
   readonly displayName: string;
   /** effectiveDeadline across every row reaching the player (R-16, R-134). */
   readonly deadline: string | null;
-  /** The badges, from assignmentStatus at `now` (R-51, R-128, R-132). */
+  /** The status assignmentBadges reads, from assignmentStatus at `now` (R-51, R-128, R-132). */
   readonly paused: boolean;
   readonly forked: boolean;
   readonly done: boolean;

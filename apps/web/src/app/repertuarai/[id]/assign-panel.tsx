@@ -1,7 +1,7 @@
 'use client';
 
 import type { CoachAssignment, CoachAssignmentPlayer } from '@mychess/db';
-import { FORK_OFFER_DAYS } from '@mychess/domain';
+import { assignmentBadges, FORK_OFFER_DAYS } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX } from 'react';
 import { targetField } from '../../../lib/assign-target';
@@ -42,13 +42,9 @@ function useOutcome(
 /** Whom the picker offers: those it is not yet assigned to (the loader's). */
 type Offer = Pick<AssignPanelData, 'players' | 'groups'>;
 
-/** The badges a coach sees on one player (R-46, R-51, R-128). */
-const coachBadges = ({ overdue, paused, forked }: CoachAssignmentPlayer) => ({
-  overdue,
-  paused,
-  forked,
-  updated: false,
-});
+/** The badges a coach sees on one player (assignmentBadges). */
+const coachBadges = ({ overdue, paused, forked }: CoachAssignmentPlayer) =>
+  assignmentBadges({ audience: 'coach', overdue, paused, forked });
 
 /** The picker: the players, then the groups, each under its label. */
 function TargetSelect({

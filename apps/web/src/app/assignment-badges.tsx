@@ -1,13 +1,6 @@
+import type { BadgeSet } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
-
-/** The flags an assignment can show as badges (R-46, R-51, R-128, R-133). */
-export interface BadgeFlags {
-  readonly overdue: boolean;
-  readonly paused: boolean;
-  readonly forked: boolean;
-  readonly updated: boolean;
-}
 
 /**
  * Each badge in the order it shows, with its colours. Every badge has a
@@ -24,12 +17,12 @@ const BADGES = [
 
 /**
  * An assignment's badges as one wrapping row; nothing when none is on.
- * What they mean is decided elsewhere (the domain's assignmentStatus).
+ * Which are on is decided by the domain (assignmentBadges).
  */
 export function AssignmentBadges({
   flags,
 }: {
-  readonly flags: BadgeFlags;
+  readonly flags: BadgeSet;
 }): JSX.Element | null {
   const t = useTranslations('assignment.badge');
   const on = BADGES.filter(([flag]) => flags[flag]);

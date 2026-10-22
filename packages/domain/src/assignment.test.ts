@@ -3,6 +3,7 @@ import {
   ASSIGNMENT_ISSUES,
   ASSIGNMENT_REFUSALS,
   assignableTargets,
+  assignmentBadges,
   assignmentStatus,
   assignmentStatusOf,
   canAssign,
@@ -767,4 +768,42 @@ describe('assignmentStatusOf (R-16, R-129, R-132, R-134, R-128)', () => {
       });
     },
   );
+});
+
+describe('assignmentBadges (R-46, R-51, R-128, R-133)', () => {
+  const bits = [false, true] as const;
+  const combos = bits.flatMap((a) =>
+    bits.flatMap((b) => bits.map((c) => [a, b, c] as const)),
+  );
+
+  it.each(combos)(
+    'the player sees overdue, paused and updated, never forked: %s %s %s',
+    (overdue, paused, updated) => {
+      expect(
+        assignmentBadges({ audience: 'player', overdue, paused, updated }),
+      ).toStrictEqual({ overdue, paused, forked: false, updated });
+    },
+  );
+
+  it.each(combos)(
+    'the coach sees overdue, paused and forked, never updated: %s %s %s',
+    (overdue, paused, forked) => {
+      expect(
+        assignmentBadges({ audience: 'coach', overdue, paused, forked }),
+      ).toStrictEqual({ overdue, paused, forked, updated: false });
+    },
+  );
+
+  it('a forked status reaches the coach as forked alone (R-128)', () => {
+    const status = assignmentStatus(
+      { deadline: '2026-01-01', done: false, paused: true, forked: true },
+      new Date('2026-11-02T10:00:00Z'),
+    );
+    expect(assignmentBadges({ audience: 'coach', ...status })).toStrictEqual({
+      overdue: false,
+      paused: false,
+      forked: true,
+      updated: false,
+    });
+  });
 });
