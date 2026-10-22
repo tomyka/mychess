@@ -54,6 +54,14 @@ const STAGING = {
 // A local server with the test sign-in on: plain http, so no Secure cookie.
 const LOCAL = { ...STAGING, MYCHESS_ENV: 'local', BETTER_AUTH_URL: BASE };
 
+// Production as it may run: the secret set, the switch off.
+const PRODUCTION = {
+  ...STAGING,
+  MYCHESS_ENV: 'production',
+  BETTER_AUTH_URL: 'https://mychess.test',
+  MYCHESS_TEST_SIGNIN: 'false',
+};
+
 const post = (email: string, headers: Record<string, string> = {}) =>
   new Request(`${BASE}/api/test/sign-in`, {
     method: 'POST',
@@ -128,13 +136,21 @@ describe('POST /api/test/sign-in (R-73)', () => {
     },
   );
 
-  it('answers 404 in production even with the flag and secret, and creates nothing', async () => {
-    const { POST } = await serverOn({ ...STAGING, MYCHESS_ENV: 'production' });
+  it('answers 404 in production, even with the secret, and creates nothing', async () => {
+    const { POST } = await serverOn(PRODUCTION);
     const response = await POST(asPersona('u1@mychess.test'));
     expect(response.status).toBe(404);
     expect(response.headers.get('set-cookie')).toBeNull();
     expect(await accountsInDb()).toEqual([]);
     expect(await sessionCount()).toEqual([{ n: 0 }]);
+  });
+
+  // R-73, R-93: production refuses the switch itself, before any request.
+  it('refuses to start a production server with the flag on', async () => {
+    await expect(
+      serverOn({ ...PRODUCTION, MYCHESS_TEST_SIGNIN: 'true' }),
+    ).rejects.toThrow(/MYCHESS_TEST_SIGNIN/);
+    expect(await accountsInDb()).toEqual([]);
   });
 
   it('answers 404 without the flag', async () => {
@@ -181,14 +197,7 @@ describe('POST /api/test/sign-in (R-73)', () => {
 // whoever calls it.
 describe('startTestSession, called directly', () => {
   it.each([
-    [
-      'a production auth, even with the flag and secret',
-      {
-        ...STAGING,
-        MYCHESS_ENV: 'production',
-        BETTER_AUTH_URL: 'https://mychess.lt',
-      },
-    ],
+    ['a production auth', PRODUCTION],
     ['an auth without the flag', { ...STAGING, MYCHESS_TEST_SIGNIN: 'false' }],
   ])('refuses on %s: no account, no session', async (_, env) => {
     const { auth } = buildTestAuth(db, { env });
@@ -201,10 +210,22 @@ describe('startTestSession, called directly', () => {
 
   it('starts a session on a staging auth with the flag', async () => {
     const { auth } = buildTestAuth(db, { env: STAGING });
-    const { cookie } = await auth.api.startTestSession({
+    const { headers } = await auth.api.startTestSession({
       body: { email: 'u1@mychess.test' },
+      returnHeaders: true,
     });
-    expect(cookie).toMatch(/^__Secure-better-auth\.session_token=/);
+    expect(headers.get('set-cookie')).toMatch(
+      /^__Secure-better-auth\.session_token=/,
+    );
     expect(await sessionCount()).toEqual([{ n: 1 }]);
+  });
+
+  it('refuses a non-persona email itself: no account, no session', async () => {
+    const { auth } = buildTestAuth(db, { env: STAGING });
+    await expect(
+      auth.api.startTestSession({ body: { email: 'ruta@example.lt' } }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(await accountsInDb()).toEqual([]);
+    expect(await sessionCount()).toEqual([{ n: 0 }]);
   });
 });

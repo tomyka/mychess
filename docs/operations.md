@@ -123,7 +123,8 @@ Vercel the app refuses to start without it. Staging and production also need an 
 
 The persona sign-in route (`POST /api/test/sign-in`, R-73) is on only where
 `MYCHESS_TEST_SIGNIN=1` and `TEST_SIGNIN_SECRET` are set and the environment is
-not production: set them on staging only, never on production.
+not production: set them on staging only, never on production. A production
+deployment with `MYCHESS_TEST_SIGNIN` on refuses to start (#268).
 
 The admin CLI (`admin:grant`, `admin:disable`) keys the email hash in its
 audit rows with `AUDIT_EMAIL_KEY` (R-94; at least 32 random characters,

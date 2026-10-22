@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { webEnvSchema } from './env';
-import {
-  testSignIn,
-  testSignInEnabled,
-  type TestSignInDeps,
-} from './test-sign-in';
+import { testSignIn, type TestSignInDeps } from './test-sign-in';
 
 const SECRET = 's'.repeat(32);
 
@@ -22,18 +18,30 @@ const DEPLOYED_ENV = {
 };
 const COOKIE = 'mychess.session_token=v; Path=/; HttpOnly; SameSite=Lax';
 
+type StartTestSession = TestSignInDeps['auth']['api']['startTestSession'];
+
+/** The headers the session start answers with: its cookie, or none. */
+const answer = (cookie: string | undefined) =>
+  new Headers(cookie === undefined ? {} : { 'set-cookie': cookie });
+
 const deps = (
   over: Partial<TestSignInDeps['env']> = {},
   cookie: { readonly value: string | undefined } = { value: COOKIE },
-): TestSignInDeps => ({
-  env: {
-    MYCHESS_ENV: 'staging',
-    MYCHESS_TEST_SIGNIN: true,
-    TEST_SIGNIN_SECRET: SECRET,
-    ...over,
-  },
-  signIn: vi.fn<TestSignInDeps['signIn']>().mockResolvedValue(cookie.value),
-});
+) => {
+  const startTestSession = vi
+    .fn<StartTestSession>()
+    .mockResolvedValue({ headers: answer(cookie.value) });
+  const d: TestSignInDeps = {
+    env: {
+      MYCHESS_ENV: 'staging',
+      MYCHESS_TEST_SIGNIN: true,
+      TEST_SIGNIN_SECRET: SECRET,
+      ...over,
+    },
+    auth: { api: { startTestSession } },
+  };
+  return { ...d, startTestSession };
+};
 
 const request = (body: string, headers: Record<string, string> = {}) =>
   new Request('http://x/api/test/sign-in', {
@@ -50,7 +58,10 @@ describe('testSignIn (R-73)', () => {
     const d = deps();
     const response = await testSignIn(post(' U1@MyChess.test '), d);
     expect(response.status).toBe(204);
-    expect(d.signIn).toHaveBeenCalledWith('u1@mychess.test');
+    expect(d.startTestSession).toHaveBeenCalledWith({
+      body: { email: 'u1@mychess.test' },
+      returnHeaders: true,
+    });
     expect(response.headers.get('set-cookie')).toBe(COOKIE);
   });
 
@@ -70,13 +81,14 @@ describe('testSignIn (R-73)', () => {
     const response = await testSignIn(post('u1@mychess.test'), d);
     expect(response.status).toBe(404);
     expect(response.headers.get('set-cookie')).toBeNull();
-    expect(d.signIn).not.toHaveBeenCalled();
+    expect(d.startTestSession).not.toHaveBeenCalled();
   });
 
   it.each([
     ['a wrong secret', post('u1@mychess.test', 'x'.repeat(32))],
     ['a shorter secret', post('u1@mychess.test', 's'.repeat(31))],
     ['a longer secret', post('u1@mychess.test', 's'.repeat(33))],
+    ['a non-ASCII secret', post('u1@mychess.test', 'é'.repeat(32))],
     ['no secret header', request(JSON.stringify({ email: 'u1@mychess.test' }))],
     ['another domain', post('ruta@example.lt')],
     ['a look-alike domain', post('u1@mychess.test.evil.lt')],
@@ -90,6 +102,10 @@ describe('testSignIn (R-73)', () => {
       }),
     ],
     [
+      'an email that is not a string',
+      request(JSON.stringify({ email: 1 }), { 'x-test-secret': SECRET }),
+    ],
+    [
       'a body that is not JSON',
       request('u1@mychess.test', { 'x-test-secret': SECRET }),
     ],
@@ -98,7 +114,7 @@ describe('testSignIn (R-73)', () => {
     const response = await testSignIn(r, d);
     expect(response.status).toBe(403);
     expect(response.headers.get('set-cookie')).toBeNull();
-    expect(d.signIn).not.toHaveBeenCalled();
+    expect(d.startTestSession).not.toHaveBeenCalled();
   });
 
   it('answers 403 when the account may not sign in (disabled)', async () => {
@@ -106,35 +122,35 @@ describe('testSignIn (R-73)', () => {
     const response = await testSignIn(post('u1@mychess.test'), d);
     expect(response.status).toBe(403);
     expect(response.headers.get('set-cookie')).toBeNull();
-    expect(d.signIn).toHaveBeenCalledWith('u1@mychess.test');
-  });
-});
-
-describe('testSignInEnabled', () => {
-  it.each([
-    ['local', true, true],
-    ['staging', true, true],
-    ['production', true, false],
-    ['local', false, false],
-    ['staging', false, false],
-  ] as const)('on %s with the switch %s is %s', (env, on, expected) => {
-    expect(
-      testSignInEnabled({ MYCHESS_ENV: env, MYCHESS_TEST_SIGNIN: on }),
-    ).toBe(expected);
+    expect(d.startTestSession).toHaveBeenCalledOnce();
   });
 
   // Staging is its own Vercel project; its env as Vercel hands it over.
-  it.each([
-    ['staging', true],
-    ['production', false],
-  ] as const)('on a Vercel deployment named %s is %s', (name, expected) => {
+  it('is on for a Vercel deployment named staging', async () => {
     const env = webEnvSchema.parse({
       ...DEPLOYED_ENV,
       VERCEL: '1',
-      MYCHESS_ENV: name,
+      MYCHESS_ENV: 'staging',
       MYCHESS_TEST_SIGNIN: '1',
       TEST_SIGNIN_SECRET: SECRET,
     });
-    expect(testSignInEnabled(env)).toBe(expected);
+    const response = await testSignIn(post('u1@mychess.test'), {
+      ...deps(),
+      env,
+    });
+    expect(response.status).toBe(204);
+  });
+
+  it('cannot be switched on for a Vercel deployment named production', () => {
+    const result = webEnvSchema.safeParse({
+      ...DEPLOYED_ENV,
+      VERCEL: '1',
+      MYCHESS_ENV: 'production',
+      MYCHESS_TEST_SIGNIN: '1',
+      TEST_SIGNIN_SECRET: SECRET,
+    });
+    expect(result.error?.issues.map((issue) => issue.path)).toEqual([
+      ['MYCHESS_TEST_SIGNIN'],
+    ]);
   });
 });

@@ -203,6 +203,46 @@ describe('webEnvSchema on staging and production (security A7)', () => {
     ]);
   });
 
+  // R-73, R-93: production refuses the persona sign-in at start-up, not
+  // only at request time.
+  it.each(['1', 'true'])(
+    'refuses the test sign-in switched on (%s) in production',
+    (on) => {
+      expect(
+        issuePaths({
+          ...deployed,
+          MYCHESS_ENV: 'production',
+          MYCHESS_TEST_SIGNIN: on,
+          TEST_SIGNIN_SECRET: 's'.repeat(32),
+        }),
+      ).toEqual([['MYCHESS_TEST_SIGNIN']]);
+    },
+  );
+
+  it('takes production with the test sign-in switched off', () => {
+    expect(
+      issuePaths({
+        ...deployed,
+        MYCHESS_ENV: 'production',
+        MYCHESS_TEST_SIGNIN: '0',
+      }),
+    ).toEqual([]);
+  });
+
+  it.each(['local', 'staging'])(
+    'takes the test sign-in switched on with its secret on %s',
+    (name) => {
+      expect(
+        issuePaths({
+          ...deployed,
+          MYCHESS_ENV: name,
+          MYCHESS_TEST_SIGNIN: '1',
+          TEST_SIGNIN_SECRET: 's'.repeat(32),
+        }),
+      ).toEqual([]);
+    },
+  );
+
   it('lets a local environment leave Google out', () => {
     expect(
       issuePaths({

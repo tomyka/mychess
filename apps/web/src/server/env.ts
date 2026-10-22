@@ -72,6 +72,10 @@ export const webEnvSchema = databaseEnvSchema
   .refine((e) => !e.MYCHESS_TEST_SIGNIN || e.TEST_SIGNIN_SECRET !== undefined, {
     path: ['TEST_SIGNIN_SECRET'],
   })
+  // Production refuses the persona sign-in at start-up (R-73, R-93).
+  .refine((e) => !e.MYCHESS_TEST_SIGNIN || e.MYCHESS_ENV !== 'production', {
+    path: ['MYCHESS_TEST_SIGNIN'],
+  })
   .refine(deployedNeeds('BETTER_AUTH_URL', isHttps), {
     path: ['BETTER_AUTH_URL'],
   })

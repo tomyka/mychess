@@ -37,8 +37,7 @@ import { lichessUserInfo } from './oauth/lichess';
 import { endUnlinkedProviderSession } from './provider-session';
 import { FRESH_AGE_SECONDS, isFreshSession } from './session-freshness';
 import { linkWithLocale, signUpLocale } from './sign-up-locale';
-import { testSignInEnabled } from './test-sign-in';
-import { testSignInPlugin } from './test-sign-in-session';
+import { testSignInPlugin } from './test-sign-in';
 
 const DAY = 60 * 60 * 24;
 const LICHESS: Provider = 'lichess';
@@ -421,7 +420,7 @@ function authOptions({ db, env, mail, fetch: fetchImpl = fetch }: AuthDeps) {
     plugins: [
       magicLinkPlugin(mail),
       lichessPlugin(env, fetchImpl),
-      testSignInPlugin(testSignInEnabled(env)),
+      testSignInPlugin(env),
       nextCookies(),
     ],
   } satisfies BetterAuthOptions;
@@ -448,19 +447,4 @@ let auth: Auth | undefined;
 export function getAuth(): Auth {
   auth ??= createAuth({ db: getDb(), env: readWebEnv(), mail: getMailer() });
   return auth;
-}
-
-/**
- * Finds or creates the persona account for a canonical `@mychess.test`
- * email and starts a session; returns its Set-Cookie, or undefined for a
- * disabled account. Only the staging test route calls it (R-73).
- */
-export async function signInForTest(
-  authInstance: Auth,
-  email: string,
-): Promise<string | undefined> {
-  const { cookie } = await authInstance.api.startTestSession({
-    body: { email },
-  });
-  return cookie;
 }
