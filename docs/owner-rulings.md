@@ -175,6 +175,12 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-139** (S5 close, #255, 2026-10-21): A player's data export (R-40) also lists their assignments (coach, repertoire name, effective deadline, paused) and their open fork offers (repertoire name, coach, expiry).
 - **R-140** (S5 close, #255, 2026-10-21): When a player forks, their personal notes are copied into the fork and the originals stay on the coach's repertoire, dormant and private; they return if it is assigned again.
 - **R-141** (S5 close, #255, 2026-10-21): A fork's read-only coach notes are part of the player's own copy and are in the player's data export (an exception to R-126, which covers notes on shared repertoires).
+- **R-142** (S6 brainstorm, #256, 2026-10-23): Review runs at two scopes: "today's review" on home over every repertoire the player trains (most urgent first), and per repertoire from its page. Session size and the daily new-move limit are per player.
+- **R-143** (S6 brainstorm, #256, 2026-10-23): A review item opens at its position with the line so far shown; after a correct answer the opponent replies, and if the next own move on that line is also in the session it is asked at once, otherwise the next item loads.
+- **R-144** (S6 brainstorm, #256, 2026-10-23): The learn pass goes through a line twice: first from the start with arrows on new moves (opponent moves automatic, learned own moves played ungraded), then blind; a wrong new move goes back to its arrow. The daily limit may cut a line; it continues the next day.
+- **R-145** (S6 brainstorm, #256, 2026-10-23): New moves started from home come from assignments with a deadline (earliest first), then other assignments, then own repertoires, each in line order; from a repertoire page, only that repertoire.
+- **R-146** (S6 brainstorm, #256, 2026-10-23): Players set the session size (10-100, default 20) and new moves a day (0-50, default 10; 0 = review only). The day runs midnight to midnight in the player's time zone.
+- **R-147** (S6 brainstorm, #256, 2026-10-23): "I know this" on a line or chapter confirms with the move count; "Learn again" returns skipped moves never reviewed to "to learn". Skipped moves do not count toward the daily new-move limit.
 
 ## Open questions
 
