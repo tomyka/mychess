@@ -11,6 +11,8 @@ import {
   repertoireExportRoute,
   repertoireRoute,
   ROUTES,
+  trainingPath,
+  trainingResultsRoute,
 } from './routes';
 
 describe('ROUTES', () => {
@@ -105,5 +107,25 @@ describe('importIntoRoute', () => {
 describe('repertoireDeletedRoute', () => {
   it('is the repertoire list, told a repertoire was deleted', () => {
     expect(repertoireDeletedRoute).toBe('/repertuarai?deleted=1');
+  });
+});
+
+describe('trainingPath', () => {
+  it('is the training page in a mode, over every repertoire', () => {
+    expect(ROUTES.training).toBe('/treniruote');
+    expect(trainingPath('review')).toBe('/treniruote?mode=review');
+    expect(trainingPath('learn')).toBe('/treniruote?mode=learn');
+  });
+
+  it('scopes it to one repertoire, the id encoded as a query value', () => {
+    expect(trainingPath('learn', 'a&b c')).toBe(
+      '/treniruote?mode=learn&r=a%26b%20c',
+    );
+  });
+});
+
+describe('trainingResultsRoute', () => {
+  it('is the results endpoint', () => {
+    expect(trainingResultsRoute).toBe('/api/training/results');
   });
 });

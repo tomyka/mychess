@@ -10,6 +10,8 @@ export const ROUTES = {
   repertoires: '/repertuarai',
   repertoireImport: '/repertuarai/importuoti',
   coach: '/treneris',
+  /** The training page (S6 plan decision 9); trainingPath builds its links. */
+  training: '/treniruote',
   /** The "Mano treneriai" section of settings (plan decision 12). */
   myCoaches: '/nustatymai#treneriai',
 } as const;
@@ -55,6 +57,19 @@ export const repertoireExportRoute = (id: string): string =>
 /** The import page with an existing repertoire chosen as the target. */
 export const importIntoRoute = (id: string): string =>
   `${ROUTES.repertoireImport}?i=${encodeURIComponent(id)}`;
+
+/** What a training session does: drill due Reviews or learn new Moves. */
+export type TrainingMode = 'review' | 'learn';
+
+/** The training page; `repertoireId` scopes it to one repertoire (R-142). */
+export const trainingPath = (
+  mode: TrainingMode,
+  repertoireId?: string,
+): string =>
+  `${ROUTES.training}?mode=${mode}${repertoireId === undefined ? '' : `&r=${encodeURIComponent(repertoireId)}`}`;
+
+/** Where the browser posts its queued training results. */
+export const trainingResultsRoute = '/api/training/results';
 
 /** Mano repertuarai after a delete: its status line says so. */
 export const repertoireDeletedRoute = `${ROUTES.repertoires}?deleted=1`;
