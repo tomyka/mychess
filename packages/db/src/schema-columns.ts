@@ -1,5 +1,5 @@
 // Column and constraint helpers shared by the schema files (schema.ts,
-// assignment-schema.ts).
+// assignment-schema.ts, training-schema.ts).
 import { sql, type SQL } from 'drizzle-orm';
 import {
   timestamp,
@@ -18,3 +18,7 @@ export const at = (name: string): PgTimestampBuilderInitial<string> =>
  */
 export const oneOf = (column: PgColumn, values: readonly string[]): SQL =>
   sql`${column} in (${sql.raw(values.map((value) => `'${value}'`).join(', '))})`;
+
+/** `column between min and max` with the bounds inlined, for a CHECK constraint. */
+export const between = (column: PgColumn, min: number, max: number): SQL =>
+  sql`${column} between ${sql.raw(String(min))} and ${sql.raw(String(max))}`;

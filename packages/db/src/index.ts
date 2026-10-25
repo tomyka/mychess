@@ -164,6 +164,17 @@ export {
   type SharesSet,
   type ShareTarget,
 } from './shares';
+export {
+  trainingEntries,
+  type TrainingRepertoireEntry,
+} from './training/entries';
+export {
+  learnedBetween,
+  learnedKeys,
+  reviewsOf,
+  type StoredReview,
+} from './training/reviews';
+export { setTrainingSettings, trainingSettings } from './training/settings';
 
 /** Better Auth's tables, keyed by the model names auth.ts maps them to. */
 export const authSchema = {

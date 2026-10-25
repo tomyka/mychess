@@ -401,11 +401,11 @@ export function changesSince(
 
 const ownRowsSchema = z.array(z.object({ id: z.uuid() }));
 
-/** The player's own repertoires, oldest first; always active. */
-async function ownTraining(
+/** The player's own repertoires, oldest first, loaded through the `own` scope. */
+async function ownLoaded(
   tx: Executor,
   playerId: string,
-): Promise<TrainingRepertoire[]> {
+): Promise<LoadedRepertoire[]> {
   const owned = ownRowsSchema.parse(
     await tx
       .select({ id: repertoires.id })
@@ -413,16 +413,38 @@ async function ownTraining(
       .where(repertoireScope(tx, ownScope(playerId), 'view'))
       .orderBy(asc(repertoires.createdAt), asc(repertoires.id)),
   );
-  const out: TrainingRepertoire[] = [];
+  const out: LoadedRepertoire[] = [];
   for (const { id } of owned) {
     const loaded = await loadRepertoireRows(
       tx,
       repertoireScope(tx, ownScope(playerId), 'view', id),
     );
-    if (loaded !== undefined)
-      out.push({ id, graph: loaded.graph, active: true });
+    if (loaded !== undefined) out.push(loaded);
   }
   return out;
+}
+
+/**
+ * What `playerId` trains, loaded (S6's seam, lead decision 9): their own
+ * repertoires oldest first, and those they have live by assignment
+ * (usableAssignments: a forked one is absent, R-128). Exported for
+ * training/entries.ts only, not from the package index; run it inside the
+ * caller's SNAPSHOT transaction.
+ */
+export async function trainingSources(
+  tx: Executor,
+  playerId: string,
+): Promise<{
+  readonly own: LoadedRepertoire[];
+  readonly assigned: {
+    assignment: AssignmentFacts;
+    loaded: LoadedRepertoire;
+  }[];
+}> {
+  return {
+    own: await ownLoaded(tx, playerId),
+    assigned: await loadLive(tx, playerId),
+  };
 }
 
 /**
@@ -435,14 +457,18 @@ export function trainingRepertoires(
   playerId: string,
 ): Promise<TrainingRepertoire[]> {
   return db.transaction(async (tx) => {
-    const own = await ownTraining(tx, playerId);
-    const assigned = (await loadLive(tx, playerId)).map(
-      ({ assignment, loaded }) => ({
+    const { own, assigned } = await trainingSources(tx, playerId);
+    return [
+      ...own.map(({ repertoire, graph }) => ({
+        id: repertoire.id,
+        graph,
+        active: true,
+      })),
+      ...assigned.map(({ assignment, loaded }) => ({
         id: assignment.repertoireId,
         graph: loaded.graph,
         active: isTrainingActive(assignment.pausedAt),
-      }),
-    );
-    return [...own, ...assigned];
+      })),
+    ];
   }, SNAPSHOT);
 }

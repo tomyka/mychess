@@ -71,6 +71,13 @@
       "when": 1792705138256,
       "tag": "0009_common_wallflower",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792952898254,
+      "tag": "0010_past_katie_power",
+      "breakpoints": true
     }
   ]
 }

@@ -1,8 +1,7 @@
-// The database schema: the core tables, as drizzle-kit reads them to
-// generate migrations (drizzle.config.ts; S5's assignment tables are in
-// assignment-schema.ts). Better Auth's five tables carry our names
-// (src/server/auth.ts in apps/web maps them): its "user" is our Account and
-// its "account" is a provider link.
+// The core tables, as drizzle-kit reads them (drizzle.config.ts; S5's are in
+// assignment-schema.ts, S6's in training-schema.ts). Better Auth's five tables
+// carry our names (apps/web src/server/auth.ts maps them): its "user" is our
+// Account and its "account" is a provider link.
 import {
   ADMIN_ACTIONS,
   COACH_NOTE_MAX,
@@ -36,7 +35,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { at, oneOf } from './schema-columns';
+import { at, between, oneOf } from './schema-columns';
 
 export const accounts = pgTable(
   'accounts',
@@ -56,6 +55,9 @@ export const accounts = pgTable(
     onboardedAt: at('onboarded_at'),
     /** When Coach mode was switched on (R-11); null while it is off. */
     coachSince: at('coach_since'),
+    /** R-62, R-146: Reviews per session (10-100), new moves a day (0-50). */
+    sessionSize: integer('session_size').notNull().default(20),
+    newPerDay: integer('new_per_day').notNull().default(10),
     createdAt: at('created_at').notNull(),
     updatedAt: at('updated_at').notNull(),
   },
@@ -68,6 +70,8 @@ export const accounts = pgTable(
     ),
     check('accounts_locale_check', oneOf(t.locale, LOCALES)),
     check('accounts_entitlement_check', oneOf(t.entitlement, ENTITLEMENTS)),
+    check('accounts_session_size_check', between(t.sessionSize, 10, 100)),
+    check('accounts_new_per_day_check', between(t.newPerDay, 0, 50)),
   ],
 );
 
