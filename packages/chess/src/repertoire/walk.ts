@@ -43,6 +43,11 @@ export interface ChapterWalk {
   tree(): WalkedMove[];
   /** `tree()` in order (each move before its `next`): the chapter's line order. */
   moves(): RepertoireMove[];
+  /**
+   * Every root-to-leaf path of `tree()`, depth first: each tree move once per
+   * path through it, so a path through a transposition ends there.
+   */
+  paths(): RepertoireMove[][];
 }
 
 /** The chapter's children of `key`, in insertion order. */
@@ -53,6 +58,7 @@ const NO_WALK: ChapterWalk = {
   mainLine: () => [],
   tree: () => [],
   moves: () => [],
+  paths: () => [],
 };
 
 function indexByPosition(
@@ -162,14 +168,41 @@ function walkOnce(rootKey: string, children: Children): Walked {
   return { tree, moves };
 }
 
+/** A tree move, and the path from the root to just before it. */
+interface PathFrame {
+  readonly walked: WalkedMove;
+  readonly before: readonly RepertoireMove[];
+}
+
+const framesOf = (
+  next: readonly WalkedMove[],
+  before: readonly RepertoireMove[],
+): PathFrame[] =>
+  next.map((walked): PathFrame => ({ walked, before })).reverse();
+
+/** Every root-to-leaf path of a walk tree, depth first, on a stack. */
+function treePaths(tree: readonly WalkedMove[]): RepertoireMove[][] {
+  const out: RepertoireMove[][] = [];
+  const stack = framesOf(tree, []);
+  for (let top = stack.pop(); top !== undefined; top = stack.pop()) {
+    const { move, next } = top.walked;
+    const path = [...top.before, move];
+    if (next.length === 0) out.push(path);
+    stack.push(...framesOf(next, path));
+  }
+  return out;
+}
+
 function walkFrom(rootKey: string, children: Children): ChapterWalk {
   let walked: Walked | undefined;
+  let paths: RepertoireMove[][] | undefined;
   const once = (): Walked => (walked ??= walkOnce(rootKey, children));
   return {
     lines: () => linesFrom(rootKey, children),
     mainLine: () => mainLineFrom(rootKey, children),
     tree: () => once().tree,
     moves: () => once().moves,
+    paths: () => (paths ??= treePaths(once().tree)),
   };
 }
 
@@ -236,14 +269,11 @@ export function chapterPlies(
   chapterId: string,
 ): ReadonlyMap<string, number> {
   const plies = new Map<string, number>();
-  const stack = chapterTree(graph, chapterId)
-    .map((walked) => ({ walked, ply: 0 }))
-    .reverse();
-  for (let top = stack.pop(); top !== undefined; top = stack.pop()) {
-    const { walked, ply } = top;
-    plies.set(moveKey(walked.move.from, walked.move.san), ply);
-    for (const next of [...walked.next].reverse())
-      stack.push({ walked: next, ply: ply + 1 });
+  for (const path of chapterWalks(graph)(chapterId).paths()) {
+    path.forEach((move, ply) => {
+      const key = moveKey(move.from, move.san);
+      if (!plies.has(key)) plies.set(key, ply);
+    });
   }
   return plies;
 }

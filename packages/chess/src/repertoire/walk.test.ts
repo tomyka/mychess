@@ -232,12 +232,30 @@ describe('the walk that takes each move once', () => {
   it('is empty for an unknown chapter', () => {
     expect(walkOf(italian, 'nope').moves()).toEqual([]);
     expect(walkOf(italian, 'nope').tree()).toEqual([]);
+    expect(walkOf(italian, 'nope').paths()).toEqual([]);
+  });
+
+  it('paths gives every root-to-leaf path of the tree, depth first', () => {
+    expect(sansOfLines(walkOf(italian).paths())).toEqual([
+      ['e4', 'e5', 'Nf3'],
+      ['e4', 'c5'],
+    ]);
+  });
+
+  it('paths ends a path at a move into a position already walked', () => {
+    const g = synthetic([
+      [0, 1, 'a'],
+      [0, 1, 'b'],
+      [1, 2, 'c'],
+    ]);
+    expect(sansOfLines(walkOf(g).paths())).toEqual([['a', 'c'], ['b']]);
   });
 
   it('takes a heavily transposing chapter in its size, not its lines', () => {
     const walk = walkOf(diamond);
     expect(walk.moves()).toHaveLength(80);
     expect(flatten(walk.tree())).toHaveLength(80);
+    expect(walk.paths()).toHaveLength(41);
   }, 60_000);
 });
 
@@ -312,6 +330,25 @@ describe('the walks agree on random small graphs', () => {
           new Set(moves).size === moves.length &&
           JSON.stringify([...moves].sort()) ===
             JSON.stringify([...reachable(g, id)].sort())
+        );
+      }),
+    ).not.toThrow();
+  });
+
+  it('the paths are the tree, each tree move once per path through it', () => {
+    /** The tree's root-to-leaf paths, recursively, as the reference. */
+    const treePaths = (walked: readonly WalkedMove[]): string[][] =>
+      walked.flatMap((w) =>
+        w.next.length === 0
+          ? [[w.move.san]]
+          : treePaths(w.next).map((rest) => [w.move.san, ...rest]),
+      );
+    expect(
+      forBoth((g, id) => {
+        const walk = walkOf(g, id);
+        return (
+          JSON.stringify(sansOfLines(walk.paths())) ===
+          JSON.stringify(treePaths(walk.tree()))
         );
       }),
     ).not.toThrow();

@@ -1,3 +1,4 @@
+import { QUEUE_LIMITS } from '@mychess/chess';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_TRAINING_SETTINGS,
@@ -6,10 +7,10 @@ import {
   SECONDS_PER_REVIEW,
   acceptResult,
   canRecord,
-  clampAnsweredAt,
   learnOrder,
   resultBatchSchema,
   trainingSettingsSchema,
+  type StoredFacts,
   type TrainingEntry,
 } from './training';
 
@@ -71,6 +72,13 @@ describe('trainingSettingsSchema', () => {
       DEFAULT_TRAINING_SETTINGS,
     );
   });
+
+  it("takes its defaults from the chess queue's limits", () => {
+    expect(DEFAULT_TRAINING_SETTINGS).toEqual({
+      sessionSize: QUEUE_LIMITS.reviews,
+      newPerDay: QUEUE_LIMITS.newPerDay,
+    });
+  });
 });
 
 describe('SECONDS_PER_REVIEW', () => {
@@ -129,32 +137,6 @@ describe('resultBatchSchema', () => {
   );
 });
 
-describe('clampAnsweredAt', () => {
-  const now = new Date('2026-10-23T12:00:00Z');
-
-  it('keeps a result window of seven days', () => {
-    expect(RESULT_MAX_AGE_MS).toBe(7 * 24 * 60 * 60 * 1000);
-  });
-
-  it('clamps a time in the future to now', () => {
-    expect(clampAnsweredAt(new Date('2026-10-23T12:00:01Z'), now)).toEqual(now);
-  });
-
-  it('clamps a time more than seven days back to seven days back', () => {
-    expect(clampAnsweredAt(new Date('2026-10-01T00:00:00Z'), now)).toEqual(
-      new Date('2026-10-16T12:00:00Z'),
-    );
-  });
-
-  it.each([
-    '2026-10-16T12:00:00Z',
-    '2026-10-20T08:30:00Z',
-    '2026-10-23T12:00:00Z',
-  ])('keeps %s, inside the window', (at) => {
-    expect(clampAnsweredAt(new Date(at), now)).toEqual(new Date(at));
-  });
-});
-
 describe('canRecord', () => {
   it('refuses a repertoire the player does not train now', () => {
     expect(canRecord('pass', { repertoire: undefined })).toEqual({
@@ -192,28 +174,37 @@ describe('canRecord', () => {
 });
 
 describe('acceptResult', () => {
-  const at = new Date('2026-10-23T12:00:00Z');
-  const row = (lastReview: string) =>
-    ({ exists: true, lastReview: new Date(lastReview) }) as const;
+  const now = new Date('2026-10-23T12:00:00Z');
+  const at = now;
+  const row = (lastReview: string | null): StoredFacts => ({
+    exists: true,
+    lastReview: lastReview === null ? null : new Date(lastReview),
+  });
+  const accepted = (verdict: 'apply' | 'stale', when: Date = at) => ({
+    ok: true,
+    value: { verdict, at: when },
+  });
+
+  it('keeps a result window of seven days', () => {
+    expect(RESULT_MAX_AGE_MS).toBe(7 * 24 * 60 * 60 * 1000);
+  });
 
   it('applies a learned move that has no review yet', () => {
-    expect(acceptResult('learned', at, { exists: false })).toEqual({
-      ok: true,
-      value: 'apply',
-    });
+    expect(acceptResult('learned', at, { exists: false }, now)).toEqual(
+      accepted('apply'),
+    );
   });
 
   it('keeps a learned move that already has a review as stale', () => {
-    expect(acceptResult('learned', at, row('2026-10-01T00:00:00Z'))).toEqual({
-      ok: true,
-      value: 'stale',
-    });
+    expect(
+      acceptResult('learned', at, row('2026-10-01T00:00:00Z'), now),
+    ).toEqual(accepted('stale'));
   });
 
   it.each(['pass', 'lapse', 'hint'] as const)(
     'refuses a %s for a move not learned',
     (kind) => {
-      expect(acceptResult(kind, at, { exists: false })).toEqual({
+      expect(acceptResult(kind, at, { exists: false }, now)).toEqual({
         ok: false,
         refusal: { reason: 'training.notLearned' },
       });
@@ -221,21 +212,82 @@ describe('acceptResult', () => {
   );
 
   it('keeps a result earlier than the last review as stale', () => {
-    expect(acceptResult('lapse', at, row('2026-10-23T12:00:00.001Z'))).toEqual({
-      ok: true,
-      value: 'stale',
-    });
+    expect(
+      acceptResult('lapse', at, row('2026-10-23T12:00:00.001Z'), now),
+    ).toEqual(accepted('stale'));
   });
 
   it.each(['2026-10-23T12:00:00Z', '2026-10-23T11:59:59.999Z'])(
     'applies a result at or after the last review (%s)',
     (lastReview) => {
-      expect(acceptResult('pass', at, row(lastReview))).toEqual({
-        ok: true,
-        value: 'apply',
-      });
+      expect(acceptResult('pass', at, row(lastReview), now)).toEqual(
+        accepted('apply'),
+      );
     },
   );
+
+  it('applies a graded result for a review with no last graded time', () => {
+    expect(
+      acceptResult('hint', new Date('2026-10-01T00:00:00Z'), row(null), now),
+    ).toEqual(accepted('apply', new Date('2026-10-16T12:00:00Z')));
+  });
+
+  it('clamps a time in the future to now', () => {
+    expect(
+      acceptResult(
+        'learned',
+        new Date('2026-10-23T12:00:01Z'),
+        {
+          exists: false,
+        },
+        now,
+      ),
+    ).toEqual(accepted('apply', now));
+  });
+
+  it('clamps a time thirty days back to seven days back', () => {
+    expect(
+      acceptResult(
+        'learned',
+        new Date('2026-09-23T12:00:00Z'),
+        {
+          exists: false,
+        },
+        now,
+      ),
+    ).toEqual(accepted('apply', new Date('2026-10-16T12:00:00Z')));
+  });
+
+  it.each([
+    '2026-10-16T12:00:00Z',
+    '2026-10-20T08:30:00Z',
+    '2026-10-23T12:00:00Z',
+  ])('keeps %s, inside the window', (when) => {
+    expect(
+      acceptResult('learned', new Date(when), { exists: false }, now),
+    ).toEqual(accepted('apply', new Date(when)));
+  });
+
+  it('judges staleness on the clamped time, not the time sent', () => {
+    // Sent after the last review, but clamped to now, which is before it.
+    expect(
+      acceptResult(
+        'pass',
+        new Date('2026-10-23T13:00:00Z'),
+        row('2026-10-23T12:30:00Z'),
+        now,
+      ),
+    ).toEqual(accepted('stale', now));
+    // Sent before the last review, but clamped up to it.
+    expect(
+      acceptResult(
+        'pass',
+        new Date('2026-09-01T00:00:00Z'),
+        row('2026-10-16T12:00:00Z'),
+        now,
+      ),
+    ).toEqual(accepted('apply', new Date('2026-10-16T12:00:00Z')));
+  });
 });
 
 describe('learnOrder', () => {

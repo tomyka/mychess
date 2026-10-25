@@ -1,11 +1,11 @@
 /**
- * The learn pass's lines (R-144, R-145): what to teach next, as whole lines
- * from a chapter's root, so each new move is learned in context. The
+ * The lines to learn (R-144, R-145): the new moves to learn next, as whole
+ * lines from a chapter's root, so each new move is learned in context. The
  * caller orders the repertoires (domain learnOrder) and gives the allowance
  * left today (R-62, R-146).
  *
- * Each root-to-leaf path of a chapter's walk tree is a candidate line; the
- * walk tree takes each move once, so the candidates cost the chapter's size.
+ * Each path of a chapter's walk tree (`ChapterWalk.paths`) is a candidate
+ * line, so each move is learned on the path the walk takes to it.
  * A path through a transposition ends there; the moves after it are on the
  * path the walk took first.
  */
@@ -16,10 +16,10 @@ import {
   type RepertoireGraph,
   type RepertoireMove,
 } from '../repertoire/graph';
-import { chapterWalks, type WalkedMove } from '../repertoire/walk';
+import { chapterWalks } from '../repertoire/walk';
 import type { TrainingRepertoire } from './scope';
 
-/** `known`: a player move learned before, or taught earlier in this plan. */
+/** `known`: a player move learned before, or planned earlier in this plan. */
 export type LearnStepKind = 'opponent' | 'known' | 'new';
 
 export interface LearnPlanStep {
@@ -36,28 +36,9 @@ export interface LearnLine {
   readonly steps: readonly LearnPlanStep[];
 }
 
-interface Frame {
-  readonly walked: WalkedMove;
-  readonly path: readonly RepertoireMove[];
-}
-
-/** Every root-to-leaf path of a walk tree, depth first. */
-function treePaths(tree: readonly WalkedMove[]): RepertoireMove[][] {
-  const out: RepertoireMove[][] = [];
-  const stack: Frame[] = tree.map((walked) => ({ walked, path: [] })).reverse();
-  for (let top = stack.pop(); top !== undefined; top = stack.pop()) {
-    const { move, next } = top.walked;
-    const path = [...top.path, move];
-    if (next.length === 0) out.push(path);
-    for (const child of [...next].reverse())
-      stack.push({ walked: child, path });
-  }
-  return out;
-}
-
 interface Planner {
-  /** Keys learned before or taught in this plan. */
-  readonly taught: Set<string>;
+  /** Keys learned before or planned to learn in this plan. */
+  readonly planned: Set<string>;
   /** New moves the allowance still allows. */
   left: number;
 }
@@ -69,9 +50,9 @@ function stepOf(
 ): LearnPlanStep {
   const key = moveKey(move.from, move.san);
   if (!isPlayerMove(graph, move)) return { kind: 'opponent', move, key };
-  if (planner.taught.has(key) || planner.left === 0)
+  if (planner.planned.has(key) || planner.left === 0)
     return { kind: 'known', move, key };
-  planner.taught.add(key);
+  planner.planned.add(key);
   planner.left -= 1;
   return { kind: 'new', move, key };
 }
@@ -99,22 +80,22 @@ function* candidateLines(
   for (const repertoire of repertoires.filter((r) => r.active)) {
     const walks = chapterWalks(repertoire.graph);
     for (const chapter of repertoire.graph.chapters) {
-      for (const path of treePaths(walks(chapter.id).tree()))
+      for (const path of walks(chapter.id).paths())
         yield { repertoire, chapter, path };
     }
   }
 }
 
 /**
- * The lines to teach, at most `limit` new moves in all, over the active
- * repertoires in the given order. Keys in `learned` are never taught again.
+ * The lines to learn, at most `limit` new moves in all, over the active
+ * repertoires in the given order. Keys in `learned` are never planned again.
  */
 export function learnPlan(
   repertoires: readonly TrainingRepertoire[],
   learned: ReadonlySet<string>,
   limit: number,
 ): LearnLine[] {
-  const planner: Planner = { taught: new Set(learned), left: limit };
+  const planner: Planner = { planned: new Set(learned), left: limit };
   const plan: LearnLine[] = [];
   for (const { repertoire, chapter, path } of candidateLines(repertoires)) {
     if (planner.left <= 0) break;

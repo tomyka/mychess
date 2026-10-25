@@ -42,15 +42,15 @@ const keyOf = (line: LearnLine, san: string): string => {
 const stepOf = (s: LearnSessionState, san: string) =>
   s.states.get(keyOf(s.line, san))?.step;
 
-/** Plays each step's right move (or advances an opponent step) through one pass. */
-function runPass(s: LearnSessionState): {
+/** Plays each step's right move (or advances an opponent step) through one round. */
+function runRound(s: LearnSessionState): {
   state: LearnSessionState;
   emits: LearnEmit[];
 } {
   const emits: LearnEmit[] = [];
-  const pass = s.pass;
+  const round = s.round;
   let state = s;
-  while (!state.done && state.pass === pass) {
+  while (!state.done && state.round === round) {
     const step = currentLearnStep(state);
     if (step === undefined) throw new Error('no step');
     if (step.kind === 'opponent') {
@@ -63,13 +63,13 @@ function runPass(s: LearnSessionState): {
   }
   return { state, emits };
 }
-const blindStart = (line: LearnLine) => runPass(startLearnSession(line)).state;
+const blindStart = (line: LearnLine) => runRound(startLearnSession(line)).state;
 
 describe('learnSession', () => {
-  it('starts the arrows pass at the first step with the arrow on', () => {
+  it('starts the arrows round at the first step with the arrow on', () => {
     const s = startLearnSession(first);
     expect(s).toMatchObject({
-      pass: 'arrows',
+      round: 'arrows',
       index: 0,
       arrow: true,
       done: false,
@@ -86,8 +86,9 @@ describe('learnSession', () => {
     expect(t.correct).toBe(true);
     expect(t.emit).toBeNull();
     expect(t.state.index).toBe(1);
-    expect(t.state.arrow).toBe(true);
+    expect(t.state.arrow).toBe(false);
     expect(stepOf(t.state, 'e4')).toBe('asked');
+    expect(advanceLearn(t.state).arrow).toBe(true);
   });
   it('advances an opponent step, and nothing else', () => {
     const atReply = playLearn(startLearnSession(first), 'e4', now).state;
@@ -109,10 +110,10 @@ describe('learnSession', () => {
     expect(t).toEqual({ state: s, emit: null, correct: false });
     expect(t.state).toBe(s);
   });
-  it('turns to the blind pass after the last arrow step', () => {
-    const { state, emits } = runPass(startLearnSession(first));
+  it('turns to the blind round after the last arrow step', () => {
+    const { state, emits } = runRound(startLearnSession(first));
     expect(state).toMatchObject({
-      pass: 'blind',
+      round: 'blind',
       index: 0,
       arrow: false,
       done: false,
@@ -155,8 +156,8 @@ describe('learnSession', () => {
     expect(learned.emit).toEqual({ kind: 'learned', key: keyOf(first, 'Nf3') });
     expect(learned.state.index).toBe(3);
   });
-  it('ends when the blind pass ends, each new key learned once', () => {
-    const { state, emits } = runPass(blindStart(first));
+  it('ends when the blind round ends, each new key learned once', () => {
+    const { state, emits } = runRound(blindStart(first));
     expect(state.done).toBe(true);
     expect(state.arrow).toBe(false);
     expect(currentLearnStep(state)).toBeUndefined();
@@ -168,7 +169,7 @@ describe('learnSession', () => {
     );
   });
   it('play and advance change nothing once done', () => {
-    const { state } = runPass(blindStart(first));
+    const { state } = runRound(blindStart(first));
     expect(playLearn(state, 'e4', now)).toEqual({
       state,
       emit: null,
@@ -176,7 +177,7 @@ describe('learnSession', () => {
     });
     expect(advanceLearn(state)).toBe(state);
   });
-  it('a known step goes on in the arrows pass without a learn state', () => {
+  it('a known step goes on in the arrows round without a learn state', () => {
     const t = playLearn(startLearnSession(second), 'e4', now);
     expect(t.correct).toBe(true);
     expect(t.state.index).toBe(1);
@@ -200,8 +201,79 @@ describe('learnSession', () => {
     expect(fixed.state.arrow).toBe(false);
     expect(fixed.state.index).toBe(3);
   });
+  it('starts a line that opens with a known step without an arrow (R-144)', () => {
+    const s = startLearnSession(second);
+    expect(currentLearnStep(s)?.kind).toBe('known');
+    expect(s).toMatchObject({ round: 'arrows', index: 0, arrow: false });
+  });
+  it('in the arrows round shows an arrow on new steps only (R-144)', () => {
+    const arrows: [string, boolean][] = [];
+    let s = startLearnSession(second);
+    while (s.round === 'arrows') {
+      const step = currentLearnStep(s);
+      if (step === undefined) throw new Error('no step');
+      arrows.push([`${step.kind}:${step.move.san}`, s.arrow]);
+      s =
+        step.kind === 'opponent'
+          ? advanceLearn(s)
+          : playLearn(s, step.move.san, now).state;
+    }
+    expect(arrows).toEqual([
+      ['known:e4', false],
+      ['opponent:e5', false],
+      ['known:Nf3', false],
+      ['opponent:Nc6', false],
+      ['known:Bc4', false],
+      ['opponent:Nf6', false],
+      ['new:d3', true],
+    ]);
+  });
+  it('a wrong move on a known step in the arrows round shows its arrow, the right one goes on', () => {
+    const s = startLearnSession(second);
+    const wrong = playLearn(s, 'd4', now);
+    expect(wrong).toMatchObject({ emit: null, correct: false });
+    expect(wrong.state).toMatchObject({
+      round: 'arrows',
+      index: 0,
+      arrow: true,
+    });
+    expect(wrong.state.states).toBe(s.states);
+
+    const again = playLearn(wrong.state, 'd4', now);
+    expect(again.correct).toBe(false);
+    expect(again.state).toBe(wrong.state);
+
+    const right = playLearn(wrong.state, 'e4', now);
+    expect(right).toMatchObject({ emit: null, correct: true });
+    expect(right.state).toMatchObject({ index: 1, arrow: false });
+    expect(right.state.states).toEqual(s.states);
+  });
+  it('a wrong move on a new step in the arrows round changes nothing', () => {
+    let s = startLearnSession(second);
+    while (currentLearnStep(s)?.kind !== 'new') {
+      const step = currentLearnStep(s);
+      if (step === undefined) throw new Error('no step');
+      s =
+        step.kind === 'opponent'
+          ? advanceLearn(s)
+          : playLearn(s, step.move.san, now).state;
+    }
+    const t = playLearn(s, 'h3', now);
+    expect(t).toEqual({ state: s, emit: null, correct: false });
+  });
+  it('an empty line starts done', () => {
+    const empty: LearnLine = { ...first, steps: [] };
+    const s = startLearnSession(empty);
+    expect(s).toMatchObject({ done: true, arrow: false });
+    expect(currentLearnStep(s)).toBeUndefined();
+    expect(playLearn(s, 'e4', now)).toEqual({
+      state: s,
+      emit: null,
+      correct: false,
+    });
+  });
   it('emits only the new move of a line with known steps', () => {
-    const { emits } = runPass(blindStart(second));
+    const { emits } = runRound(blindStart(second));
     expect(emits).toEqual([{ kind: 'learned', key: keyOf(second, 'd3') }]);
   });
 });

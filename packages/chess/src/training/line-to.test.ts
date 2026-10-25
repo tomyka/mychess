@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { importPgn } from '../pgn/import-pgn';
 import { moveKey, type RepertoireGraph } from '../repertoire/graph';
-import { lineTo } from './line-to';
+import { lineTo, linesTo } from './line-to';
 
 function graph(pgn: string): RepertoireGraph {
   const r = importPgn(pgn, 'white');
@@ -65,5 +65,21 @@ describe('lineTo', () => {
     expect(line?.chapterId).toBe(second?.id);
     expect(line?.rootKey).toBe(second?.rootKey);
     expect(sans(line)).toEqual(['e4', 'c5', 'Nc3']);
+  });
+});
+
+describe('linesTo', () => {
+  it('holds the line to every move of the graph, as lineTo gives it', () => {
+    const two = graph('1. e4 e5 2. Nf3 *\n\n1. e4 c5 2. Nc3 *');
+    const all = linesTo(two);
+    const keys = two.moves.map((m) => moveKey(m.from, m.san));
+    expect([...all.keys()].sort()).toEqual([...keys].sort());
+    for (const key of keys) expect(all.get(key)).toEqual(lineTo(two, key));
+  });
+  it('puts a move both chapters hold in the first chapter', () => {
+    const two = graph('1. e4 e5 2. Nf3 *\n\n1. e4 c5 2. Nc3 *');
+    expect(linesTo(two).get(keyIn(two, 'e4'))?.chapterId).toBe(
+      two.chapters[0]?.id,
+    );
   });
 });

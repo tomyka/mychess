@@ -80,6 +80,25 @@ describe('dayStart', () => {
       '2026-10-23T00:00:00.000Z',
     );
   });
+
+  it.each([
+    ['in the middle of the day', '2018-11-04T15:00:00Z'],
+    ['at the first instant of the day', '2018-11-04T03:00:00Z'],
+  ])(
+    'begins a day whose midnight the clocks skip when they go forward, %s',
+    (_, at) => {
+      // Sao Paulo went from UTC-3 to UTC-2 at local midnight: 01:00 local.
+      expect(iso(dayStart(new Date(at), 'America/Sao_Paulo'))).toBe(
+        '2018-11-04T03:00:00.000Z',
+      );
+    },
+  );
+
+  it('begins the day before a skipped midnight at its own midnight', () => {
+    expect(
+      iso(dayStart(new Date('2018-11-04T02:59:59Z'), 'America/Sao_Paulo')),
+    ).toBe('2018-11-03T03:00:00.000Z');
+  });
 });
 
 describe('dayEnd', () => {

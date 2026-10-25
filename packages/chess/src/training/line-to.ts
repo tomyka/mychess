@@ -8,7 +8,7 @@ import {
   type RepertoireGraph,
   type RepertoireMove,
 } from '../repertoire/graph';
-import { chapterWalks, type WalkedMove } from '../repertoire/walk';
+import { chapterWalks } from '../repertoire/walk';
 
 export interface LineTo {
   readonly chapterId: string;
@@ -17,35 +17,29 @@ export interface LineTo {
   readonly moves: readonly RepertoireMove[];
 }
 
-interface Frame {
-  readonly walked: WalkedMove;
-  readonly path: readonly RepertoireMove[];
-}
-
-function pathIn(
-  tree: readonly WalkedMove[],
-  key: string,
-): RepertoireMove[] | undefined {
-  const stack: Frame[] = tree.map((walked) => ({ walked, path: [] })).reverse();
-  for (let top = stack.pop(); top !== undefined; top = stack.pop()) {
-    const { move, next } = top.walked;
-    const path = [...top.path, move];
-    if (moveKey(move.from, move.san) === key) return path;
-    for (const child of [...next].reverse())
-      stack.push({ walked: child, path });
+/**
+ * The line so far to every move of the graph, by move key: the first walk
+ * path, chapters in order, that holds the move, cut after it. Built once, it
+ * answers every move of a repertoire.
+ */
+export function linesTo(graph: RepertoireGraph): ReadonlyMap<string, LineTo> {
+  const out = new Map<string, LineTo>();
+  const walks = chapterWalks(graph);
+  for (const { id: chapterId, rootKey } of graph.chapters) {
+    for (const path of walks(chapterId).paths()) {
+      path.forEach((move, at) => {
+        const key = moveKey(move.from, move.san);
+        if (!out.has(key))
+          out.set(key, { chapterId, rootKey, moves: path.slice(0, at + 1) });
+      });
+    }
   }
-  return undefined;
+  return out;
 }
 
 export function lineTo(
   graph: RepertoireGraph,
   key: string,
 ): LineTo | undefined {
-  const walks = chapterWalks(graph);
-  for (const chapter of graph.chapters) {
-    const moves = pathIn(walks(chapter.id).tree(), key);
-    if (moves !== undefined)
-      return { chapterId: chapter.id, rootKey: chapter.rootKey, moves };
-  }
-  return undefined;
+  return linesTo(graph).get(key);
 }

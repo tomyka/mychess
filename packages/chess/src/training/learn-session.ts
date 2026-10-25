@@ -1,18 +1,21 @@
 /**
- * The learn session (R-144, R-55): one LearnLine played in two passes. The
- * `arrows` pass shows each player move's arrow; the `blind` pass asks them
- * without it. A new move runs its learn pass (`learnStep`) and is emitted
- * once learned, so the caller records it; a known move is played for context
- * and never graded. The browser drives it; it holds no clock of its own.
+ * The learn session (R-144, R-55): one LearnLine played twice from its start,
+ * the line's learn pass. In the `arrows` round each new move shows its arrow;
+ * in the `blind` round it is asked without one. A new move runs its learn
+ * pass (`learnStep`) and is emitted once learned, so the caller records it. A
+ * known move is played for context, never graded and shown without an arrow;
+ * a wrong move on it shows its arrow until the right one is played. The
+ * browser drives it; it holds no clock of its own.
  */
 import type { LearnLine, LearnPlanStep } from './learn-plan';
 import { learnStep, startLearn, type LearnState } from './learn';
 
-export type LearnPass = 'arrows' | 'blind';
+/** The two rounds of a line's learn pass: with arrows, then blind. */
+export type LearnRound = 'arrows' | 'blind';
 
 export interface LearnSessionState {
   readonly line: LearnLine;
-  readonly pass: LearnPass;
+  readonly round: LearnRound;
   /** The step to play next. */
   readonly index: number;
   /** Show the expected move's arrow. */
@@ -38,21 +41,32 @@ export const currentLearnStep = (
   s: LearnSessionState,
 ): LearnPlanStep | undefined => s.line.steps[s.index];
 
+/** R-144: up front, only a new step in the arrows round shows its arrow. */
+const arrowAt = (line: LearnLine, round: LearnRound, index: number): boolean =>
+  round === 'arrows' && line.steps[index]?.kind === 'new';
+
 export function startLearnSession(line: LearnLine): LearnSessionState {
   const states = new Map<string, LearnState>();
   for (const step of line.steps) {
     if (step.kind === 'new') states.set(step.key, startLearn(step.key));
   }
-  return { line, pass: 'arrows', index: 0, arrow: true, states, done: false };
+  return {
+    line,
+    round: 'arrows',
+    index: 0,
+    arrow: arrowAt(line, 'arrows', 0),
+    states,
+    done: line.steps.length === 0,
+  };
 }
 
-/** The next step; past the last, the blind pass or the end. */
+/** The next step; past the last, the blind round or the end. */
 function moveOn(s: LearnSessionState): LearnSessionState {
   const index = s.index + 1;
   if (index < s.line.steps.length)
-    return { ...s, index, arrow: s.pass === 'arrows' };
-  if (s.pass === 'arrows')
-    return { ...s, pass: 'blind', index: 0, arrow: false };
+    return { ...s, index, arrow: arrowAt(s.line, s.round, index) };
+  if (s.round === 'arrows')
+    return { ...s, round: 'blind', index: 0, arrow: false };
   return { ...s, index, arrow: false, done: true };
 }
 
@@ -61,8 +75,9 @@ const withState = (
   state: LearnState,
 ): ReadonlyMap<string, LearnState> => new Map(s.states).set(state.key, state);
 
-const unchanged = (s: LearnSessionState): LearnTransition => ({
-  state: s,
+/** A move that was not the expected one: no emit, `state` as given. */
+const wrong = (state: LearnSessionState): LearnTransition => ({
+  state,
   emit: null,
   correct: false,
 });
@@ -72,6 +87,9 @@ const goOn = (
   emit: LearnEmit | null = null,
 ): LearnTransition => ({ state: moveOn(s), emit, correct: true });
 
+const showArrow = (s: LearnSessionState): LearnSessionState =>
+  s.arrow ? s : { ...s, arrow: true };
+
 /** An opponent step, once the UI has animated it. */
 export function advanceLearn(s: LearnSessionState): LearnSessionState {
   return !s.done && currentLearnStep(s)?.kind === 'opponent' ? moveOn(s) : s;
@@ -80,28 +98,24 @@ export function advanceLearn(s: LearnSessionState): LearnSessionState {
 const learnStateOf = (s: LearnSessionState, key: string): LearnState =>
   s.states.get(key) ?? startLearn(key);
 
-/** Arrows pass: a wrong move snaps back; a right new move has been seen. */
-function playArrows(
+/** A known move, in either round: no grade; a wrong move shows its arrow. */
+const playKnown = (s: LearnSessionState, right: boolean): LearnTransition =>
+  right ? goOn(s) : wrong(showArrow(s));
+
+/** Arrows round, new move: wrong changes nothing; right marks it seen. */
+function arrowsNew(
   s: LearnSessionState,
   step: LearnPlanStep,
   right: boolean,
   now: Date,
 ): LearnTransition {
-  if (!right) return unchanged(s);
-  if (step.kind !== 'new') return goOn(s);
+  if (!right) return wrong(s);
   const seen = learnStep(learnStateOf(s, step.key), 'seen', now);
   return goOn({ ...s, states: withState(s, seen) });
 }
 
-/** Blind pass, known move: no grade; a wrong move shows its arrow. */
-function blindKnown(s: LearnSessionState, right: boolean): LearnTransition {
-  return right
-    ? goOn(s)
-    : { state: { ...s, arrow: true }, emit: null, correct: false };
-}
-
 /**
- * Blind pass, new move: while its arrow is shown, the right move asks it
+ * Blind round, new move: while its arrow is shown, the right move asks it
  * blind again at the same step; asked blind, the right move learns it and a
  * wrong one shows the arrow again.
  */
@@ -113,27 +127,15 @@ function blindNew(
 ): LearnTransition {
   const before = learnStateOf(s, step.key);
   if (before.step === 'shown') {
-    if (!right) return unchanged(s);
+    if (!right) return wrong(s);
     const asked = learnStep(before, 'seen', now);
     const state = { ...s, arrow: false, states: withState(s, asked) };
     return { state, emit: null, correct: true };
   }
   const after = learnStep(before, right ? 'correct' : 'wrong', now);
   const states = withState(s, after);
-  if (!right)
-    return { state: { ...s, arrow: true, states }, emit: null, correct: false };
+  if (!right) return wrong({ ...s, arrow: true, states });
   return goOn({ ...s, states }, { kind: 'learned', key: step.key });
-}
-
-function playBlind(
-  s: LearnSessionState,
-  step: LearnPlanStep,
-  right: boolean,
-  now: Date,
-): LearnTransition {
-  return step.kind === 'new'
-    ? blindNew(s, step, right, now)
-    : blindKnown(s, right);
 }
 
 /** The player's move at a player step; anywhere else it changes nothing. */
@@ -143,10 +145,10 @@ export function playLearn(
   now: Date,
 ): LearnTransition {
   const step = currentLearnStep(s);
-  if (s.done || step === undefined || step.kind === 'opponent')
-    return unchanged(s);
+  if (s.done || step === undefined || step.kind === 'opponent') return wrong(s);
   const right = san === step.move.san;
-  return s.pass === 'arrows'
-    ? playArrows(s, step, right, now)
-    : playBlind(s, step, right, now);
+  if (step.kind === 'known') return playKnown(s, right);
+  return s.round === 'arrows'
+    ? arrowsNew(s, step, right, now)
+    : blindNew(s, step, right, now);
 }

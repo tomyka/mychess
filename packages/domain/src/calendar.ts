@@ -11,6 +11,7 @@ const DAY = new Intl.DateTimeFormat('en-CA', {
 /** The calendar day of `at` in Vilnius, as `YYYY-MM-DD` (plan decision 10). */
 export const vilniusDay = (at: Date): string => DAY.format(at);
 
+const SECOND_MS = 1000;
 const MINUTE_MS = 60_000;
 const HOUR_MS = 3_600_000;
 
@@ -64,19 +65,49 @@ function offsetMinutes(at: Date, timeZone: string): number {
   return Math.round((local - wholeSeconds) / MINUTE_MS);
 }
 
+/** The local calendar day of `at` in `timeZone`, as its UTC midnight. */
+function localDay(at: number, timeZone: string): number {
+  const { year, month, day } = wallClock(new Date(at), timeZone);
+  return Date.UTC(year, month - 1, day);
+}
+
+/**
+ * The first whole second of `day` (a local day, as its UTC midnight), given
+ * `before`, an instant of an earlier day, and `within`, one of `day`, both
+ * whole seconds: a binary search over the seconds between them.
+ */
+function firstSecondOf(
+  day: number,
+  before: number,
+  within: number,
+  timeZone: string,
+): number {
+  let lo = before;
+  let hi = within;
+  while (hi - lo > SECOND_MS) {
+    const mid = lo + Math.floor((hi - lo) / 2 / SECOND_MS) * SECOND_MS;
+    if (localDay(mid, timeZone) < day) lo = mid;
+    else hi = mid;
+  }
+  return hi;
+}
+
 /**
  * The instant the calendar day of `at` begins in `timeZone` (R-146): its
  * local midnight, at the offset in force then. The offset is read twice, so
  * a change of offset between UTC midnight and local midnight is followed.
+ * Where the clocks skip local midnight (America/Sao_Paulo, 2018-11-04), the
+ * day begins at the change: the first instant whose local day is that day.
  */
 export function dayStart(at: Date, timeZone: string = HOME_TIME_ZONE): Date {
-  const { year, month, day } = wallClock(at, timeZone);
-  const midnightUtc = Date.UTC(year, month - 1, day);
-  const guess =
-    midnightUtc - offsetMinutes(new Date(midnightUtc), timeZone) * MINUTE_MS;
-  return new Date(
-    midnightUtc - offsetMinutes(new Date(guess), timeZone) * MINUTE_MS,
-  );
+  const day = localDay(at.getTime(), timeZone);
+  const offsetAt = (instant: number): number =>
+    offsetMinutes(new Date(instant), timeZone) * MINUTE_MS;
+  const guess = day - offsetAt(day);
+  const start = day - offsetAt(guess);
+  if (localDay(start, timeZone) === day) return new Date(start);
+  // `start` fell in the day before; local midnight at its offset is in `day`.
+  return new Date(firstSecondOf(day, start, day - offsetAt(start), timeZone));
 }
 
 /** The instant the next calendar day begins: days are 23 to 25 hours. */

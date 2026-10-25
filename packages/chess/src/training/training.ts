@@ -26,8 +26,8 @@
  *
  * Two sessions drive the browser's training screens. The learn session
  * (`startLearnSession`, `playLearn`, `advanceLearn`, `currentLearnStep`)
- * plays a `learnPlan` line in an arrows pass then a blind pass and emits
- * each new move once learned (R-144, R-55). The review session
+ * plays a `learnPlan` line's learn pass, an arrows round then a blind
+ * round, and emits each new move once learned (R-144, R-55). The review session
  * (`startReviewSession`, `answerReview`, `hintReview`, `nextReview`,
  * `reviewCounts`) asks the queue's Reviews after their line so far, chains
  * into the next Due move of the same repertoire (R-143, R-54) and emits one
@@ -65,7 +65,7 @@ export {
 } from './learn-session';
 export type {
   LearnEmit,
-  LearnPass,
+  LearnRound,
   LearnSessionState,
   LearnTransition,
 } from './learn-session';

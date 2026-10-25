@@ -127,7 +127,7 @@ export {
   type LearnEmit,
   type LearnEvent,
   type LearnLine,
-  type LearnPass,
+  type LearnRound,
   type LearnPlanStep,
   type LearnSessionState,
   type LearnStepKind,

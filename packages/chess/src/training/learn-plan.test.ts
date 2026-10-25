@@ -60,7 +60,7 @@ describe('learnPlan', () => {
     );
     expect(first?.steps[0]?.key).toBe(keyOf(italian, 'e4'));
   });
-  it('does not teach a shared move twice (U1-M1-4)', () => {
+  it('does not plan a shared move twice (U1-M1-4)', () => {
     const [, second] = learnPlan([rep('r', italian)], new Set(), 10);
     expect(steps(second)).toEqual([
       'known:e4',
@@ -123,21 +123,21 @@ describe('learnPlan', () => {
     .filter((m) => isPlayerMove(italian, m))
     .map((m) => moveKey(m.from, m.san));
 
-  it('teaches min(limit, unlearned) moves, each once, none learned', () => {
+  it('plans min(limit, unlearned) moves, each once, none learned', () => {
     fc.assert(
       fc.property(
         fc.subarray(playerKeys),
         fc.integer({ min: 0, max: 10 }),
         (learnedKeys, limit) => {
           const learned = new Set(learnedKeys);
-          const taught = learnPlan([rep('r', italian)], learned, limit)
+          const planned = learnPlan([rep('r', italian)], learned, limit)
             .flatMap((l) => l.steps)
             .filter((s) => s.kind === 'new')
             .map((s) => s.key);
           const unlearned = playerKeys.length - learned.size;
-          expect(taught).toHaveLength(Math.min(limit, unlearned));
-          expect(new Set(taught).size).toBe(taught.length);
-          expect(taught.filter((k) => learned.has(k))).toEqual([]);
+          expect(planned).toHaveLength(Math.min(limit, unlearned));
+          expect(new Set(planned).size).toBe(planned.length);
+          expect(planned.filter((k) => learned.has(k))).toEqual([]);
         },
       ),
     );

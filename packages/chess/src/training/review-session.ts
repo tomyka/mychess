@@ -12,7 +12,7 @@ import {
   type RepertoireMove,
 } from '../repertoire/graph';
 import { chapterChildren } from '../repertoire/walk';
-import { lineTo, type LineTo } from './line-to';
+import { linesTo, type LineTo } from './line-to';
 import type { QueueItem } from './queue';
 import type { Outcome } from './schedule';
 import type { TrainingRepertoire } from './scope';
@@ -64,13 +64,28 @@ const graphOf = (
   repertoireId: string,
 ) => repertoires.find((r) => r.id === repertoireId)?.graph;
 
+/** An item's line so far; undefined when no repertoire holds it. */
+type LineOf = (item: QueueItem) => LineTo | undefined;
+
+/**
+ * Finds items' lines over `repertoires`, indexing each repertoire's lines
+ * once, on its first item: one call walks each repertoire once.
+ */
+function lineFinder(repertoires: readonly TrainingRepertoire[]): LineOf {
+  const indexes = new Map<string, ReadonlyMap<string, LineTo>>();
+  const indexOf = (repertoireId: string) => {
+    const graph = graphOf(repertoires, repertoireId);
+    if (graph === undefined) return undefined;
+    const index = indexes.get(repertoireId) ?? linesTo(graph);
+    indexes.set(repertoireId, index);
+    return index;
+  };
+  return (item) => indexOf(item.repertoireId)?.get(item.key);
+}
+
 /** The item asked after its line so far; undefined when no repertoire holds it. */
-function viewOf(
-  item: QueueItem,
-  repertoires: readonly TrainingRepertoire[],
-): ReviewItemView | undefined {
-  const graph = graphOf(repertoires, item.repertoireId);
-  const line = graph && lineTo(graph, item.key);
+function viewOf(item: QueueItem, lineOf: LineOf): ReviewItemView | undefined {
+  const line = lineOf(item);
   return line && { item, line, reply: null };
 }
 
@@ -78,20 +93,18 @@ function viewOf(
 const held = (
   order: readonly QueueItem[],
   outcomes: ReadonlyMap<string, Outcome>,
-  repertoires: readonly TrainingRepertoire[],
+  lineOf: LineOf,
 ): QueueItem[] =>
-  order.filter(
-    (i) => outcomes.has(i.key) || viewOf(i, repertoires) !== undefined,
-  );
+  order.filter((i) => outcomes.has(i.key) || lineOf(i) !== undefined);
 
 /** The first unanswered item in order. */
 function firstOpen(
   order: readonly QueueItem[],
   outcomes: ReadonlyMap<string, Outcome>,
-  repertoires: readonly TrainingRepertoire[],
+  lineOf: LineOf,
 ): ReviewItemView | null {
   const open = order.find((i) => !outcomes.has(i.key));
-  return (open && viewOf(open, repertoires)) ?? null;
+  return (open && viewOf(open, lineOf)) ?? null;
 }
 
 const asking = (
@@ -111,8 +124,9 @@ export function startReviewSession(
   repertoires: readonly TrainingRepertoire[],
 ): ReviewSessionState {
   const outcomes = new Map<string, Outcome>();
-  const order = held(items, outcomes, repertoires);
-  return asking(order, outcomes, firstOpen(order, outcomes, repertoires));
+  const lineOf = lineFinder(repertoires);
+  const order = held(items, outcomes, lineOf);
+  return asking(order, outcomes, firstOpen(order, outcomes, lineOf));
 }
 
 interface Chained {
@@ -189,7 +203,8 @@ export function nextReview(
 ): ReviewSessionState {
   if (s.phase !== 'correct' || s.current === null) return s;
   const view = s.current;
-  const order = held(s.order, s.outcomes, repertoires);
+  const lineOf = lineFinder(repertoires);
+  const order = held(s.order, s.outcomes, lineOf);
   const chained = chainFrom({ ...s, order }, view, repertoires);
   if (chained !== undefined)
     return asking(
@@ -197,7 +212,7 @@ export function nextReview(
       s.outcomes,
       chained,
     );
-  return asking(order, s.outcomes, firstOpen(order, s.outcomes, repertoires));
+  return asking(order, s.outcomes, firstOpen(order, s.outcomes, lineOf));
 }
 
 const still = (state: ReviewSessionState): ReviewTransition => ({

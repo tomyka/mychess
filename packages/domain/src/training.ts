@@ -3,7 +3,13 @@
  * the result batch the browser sends and when a result applies (S6
  * decisions 2-6), and the order new moves are taught in (R-145).
  */
-import { ok, refuse, type Result } from '@mychess/chess';
+import {
+  QUEUE_LIMITS,
+  ok,
+  refuse,
+  type Outcome,
+  type Result,
+} from '@mychess/chess';
 import { z } from 'zod';
 
 /** Message-catalogue keys for the settings form's issues; the UI translates them. */
@@ -26,16 +32,36 @@ export const trainingSettingsSchema = z.object({
   newPerDay: wholeNumber(0, 50, TRAINING_ISSUES.newPerDay),
 });
 export type TrainingSettings = z.infer<typeof trainingSettingsSchema>;
+/** R-62's defaults, as the chess queue keeps them. */
 export const DEFAULT_TRAINING_SETTINGS: TrainingSettings = {
-  sessionSize: 20,
-  newPerDay: 10,
+  sessionSize: QUEUE_LIMITS.reviews,
+  newPerDay: QUEUE_LIMITS.newPerDay,
 };
 
 /** Estimated time per Due Move on home (spec "Today" block); tunable. */
 export const SECONDS_PER_REVIEW = 8;
 
-export const RESULT_KINDS = ['learned', 'pass', 'lapse', 'hint'] as const;
-export type ResultKind = (typeof RESULT_KINDS)[number];
+/** A learned move, or a graded answer (the chess core's Outcome). */
+export type ResultKind = 'learned' | Outcome;
+
+/**
+ * A tuple of every member of `T`: the compiler refuses one with a value
+ * outside `T` or one that leaves a member of `T` out.
+ */
+const everyOf =
+  <T extends string>() =>
+  <const K extends readonly [T, ...T[]]>(
+    kinds: K & ([T] extends [K[number]] ? unknown : never),
+  ): K =>
+    kinds;
+
+/** Every ResultKind, at run time, for zod and the database's check. */
+export const RESULT_KINDS = everyOf<ResultKind>()([
+  'learned',
+  'pass',
+  'lapse',
+  'hint',
+]);
 
 /** One answer the browser queued (S6 decision 1). */
 export const trainingResultSchema = z.object({
@@ -56,7 +82,7 @@ export const resultBatchSchema = z
 export const RESULT_MAX_AGE_MS = 7 * 86_400_000;
 
 /** `answeredAt` inside [now - 7 days, now]. */
-export const clampAnsweredAt = (at: Date, now: Date): Date =>
+const clampAnsweredAt = (at: Date, now: Date): Date =>
   new Date(
     Math.min(
       now.getTime(),
@@ -101,24 +127,45 @@ export function canRecord(
   return ok();
 }
 
-/** The stored Review a result meets: none, or its last graded time. */
+/**
+ * The stored Review a result meets: none, or one with its last graded
+ * time, null when it has not been graded yet.
+ */
 export type StoredFacts =
   | { readonly exists: false }
-  | { readonly exists: true; readonly lastReview: Date };
+  | { readonly exists: true; readonly lastReview: Date | null };
+
+/** Whether a result applies, and the instant to grade and log it at. */
+export interface ResultAcceptance {
+  readonly verdict: 'apply' | 'stale';
+  /** `answeredAt` clamped to [now - 7 days, now]. */
+  readonly at: Date;
+}
+
+/** A graded result earlier than the last graded time cannot be replayed. */
+const gradedVerdict = (at: Date, lastReview: Date | null) =>
+  lastReview !== null && at.getTime() < lastReview.getTime()
+    ? 'stale'
+    : 'apply';
 
 /**
- * S6 decisions 2-3: apply, or keep only as a stale log entry. A move is
- * learned once; a graded result earlier than the last review is stale,
- * as FSRS cannot replay out of order.
+ * S6 decisions 2-3: apply, or keep only as a stale log entry. `answeredAt`
+ * is first clamped to [now - 7 days, now]; the caller grades and logs at
+ * the clamped instant returned. A move is learned once; a graded result
+ * earlier than the last review is stale, as FSRS cannot replay out of order.
  */
 export function acceptResult(
   kind: ResultKind,
-  at: Date,
+  answeredAt: Date,
   stored: StoredFacts,
-): Result<'apply' | 'stale', TrainingRefusal> {
-  if (kind === 'learned') return ok(stored.exists ? 'stale' : 'apply');
+  now: Date,
+): Result<ResultAcceptance, TrainingRefusal> {
+  const at = clampAnsweredAt(answeredAt, now);
+  if (kind === 'learned') {
+    return ok({ verdict: stored.exists ? 'stale' : 'apply', at });
+  }
   if (!stored.exists) return refuse(TRAINING_REFUSALS.notLearned);
-  return ok(at.getTime() < stored.lastReview.getTime() ? 'stale' : 'apply');
+  return ok({ verdict: gradedVerdict(at, stored.lastReview), at });
 }
 
 /** A repertoire as the learn order sees it (R-145). */

@@ -18,7 +18,10 @@ import type { TrainingRepertoire } from './scope';
 export interface QueueLimits {
   /** Reviews per session: a player setting, a whole number from 10 to 100. */
   readonly reviews: number;
-  /** New moves per day: a whole number, 0 or more. */
+  /**
+   * New moves per day: a whole number, 0 or more (the player setting allows
+   * 0 to 50, R-146).
+   */
   readonly newPerDay: number;
 }
 
