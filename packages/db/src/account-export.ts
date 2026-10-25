@@ -6,16 +6,11 @@ import {
   type InviteState,
   type Locale,
 } from '@mychess/domain';
-import {
-  exportPgn,
-  fenOf,
-  parseMoveKey,
-  type Chapter,
-  type Side,
-} from '@mychess/chess';
+import { exportPgn, type Chapter, type Side } from '@mychess/chess';
 import { and, asc, eq, gt } from 'drizzle-orm';
 import { z } from 'zod';
 import { accountColumns } from './accounts';
+import { iso, notedMove } from './export-values';
 import { forkCoachNotesOf } from './assignments/fork';
 import { openForkOffers } from './assignments/offers';
 import { playerAssignments } from './assignments/player';
@@ -33,6 +28,7 @@ import {
   repertoires,
   sessions,
 } from './schema';
+import { exportedTraining, type TrainingExport } from './training/export';
 
 /** The account's coaching data (R-106); never a token, its hash or an id. */
 export interface CoachingExport {
@@ -144,6 +140,7 @@ export interface AccountExport {
     readonly text: string;
     readonly coach: string;
   }[];
+  readonly training: TrainingExport;
 }
 
 export interface AccountExportOptions {
@@ -170,8 +167,6 @@ const sessionRowsSchema = z.array(
     expiresAt: z.date(),
   }),
 );
-
-const iso = (at: Date | null): string | null => at?.toISOString() ?? null;
 
 /** The sessions of `id` that have not expired at `now`, oldest first. */
 async function activeSessions(
@@ -302,18 +297,6 @@ const noteRowsSchema = z.array(
   }),
 );
 
-/**
- * Where a note's move is played from, as a FEN, and its SAN. A key that is
- * not a move key (a bad row) is exported as it is stored, with no SAN, so
- * it can never break the export.
- */
-function notedMove(key: string): { position: string; san: string } {
-  const parts = parseMoveKey(key);
-  return parts === null
-    ? { position: key, san: '' }
-    : { position: fenOf(parts.fromKey), san: parts.san };
-}
-
 /** The account's personal notes, by repertoire (oldest first), then move key. */
 async function exportedNotes(
   db: Executor,
@@ -361,7 +344,7 @@ async function exportedForkNotes(
  * The requester's own data (R-40, security item 9), with the sessions
  * active at `now` (R-89), the coaching data (R-106, R-139), the
  * repertoires as PGN, the personal notes (R-21) and the coach notes of
- * their forks (R-141); never tokens.
+ * their forks (R-141) and their training (S6); never tokens.
  */
 export async function exportAccount(
   db: Executor,
@@ -406,5 +389,6 @@ export async function exportAccount(
     repertoires: await exportedRepertoires(db, id, options),
     personalNotes: await exportedNotes(db, id),
     forkCoachNotes: await exportedForkNotes(db, id),
+    training: await exportedTraining(db, id),
   };
 }

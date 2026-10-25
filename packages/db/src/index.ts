@@ -168,6 +168,13 @@ export {
   trainingEntries,
   type TrainingRepertoireEntry,
 } from './training/entries';
+export { type TrainingExport } from './training/export';
+export {
+  knowCount,
+  learnAgain,
+  markKnown,
+  type KnowScope,
+} from './training/know';
 export {
   learnedBetween,
   learnedKeys,

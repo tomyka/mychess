@@ -14,6 +14,7 @@ import {
   editRepertoire,
   listPersonalNotes,
   loadRepertoire,
+  markKnown,
   markSeen,
   openForkOffers,
   pauseAssignment,
@@ -261,7 +262,7 @@ describe('playerAssignments', () => {
     ]);
   });
 
-  it('is done only for a repertoire without player moves until S6 (R-129)', async () => {
+  it('is done for a repertoire without player moves (R-129)', async () => {
     const opponentOnly = await createRepertoire(db, {
       ownerId: 'c',
       side: 'black',
@@ -278,6 +279,36 @@ describe('playerAssignments', () => {
         badges: { overdue: false },
       },
     ]);
+  });
+
+  it('is done once every player move is learned or skipped, until the coach adds one (R-129)', async () => {
+    await assignTo(toPlayer('p'), '2026-10-01');
+    await assignTo(toPlayer('q'), '2026-10-01');
+    const chapterId = chapterOf((await coachCopy()).graph);
+    expect(
+      await markKnown(
+        db,
+        'p',
+        { kind: 'chapter', repertoireId: rep, chapterId },
+        NOW,
+      ),
+    ).toBe(2);
+    expect(await playerAssignments(db, 'p', NOW)).toMatchObject([
+      { done: true, badges: { overdue: false } },
+    ]);
+    expect(await assignedRepertoireForPlayer(db, 'p', rep, NOW)).toMatchObject({
+      overdue: false,
+    });
+    expect(await playerAssignments(db, 'q', NOW)).toMatchObject([
+      { done: false, badges: { overdue: true } },
+    ]);
+    await coachEdit(addE3);
+    expect(await playerAssignments(db, 'p', LATER)).toMatchObject([
+      { done: false, badges: { overdue: true } },
+    ]);
+    expect(
+      await assignedRepertoireForPlayer(db, 'p', rep, LATER),
+    ).toMatchObject({ overdue: true });
   });
 
   it('leaves out a forked repertoire and lists nothing for a player without assignments', async () => {

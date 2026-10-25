@@ -9,7 +9,7 @@
  * is listed only while they are linked to the coach (the link check in
  * reach.ts). A fixed number of statements, whatever the number of players.
  */
-import { allLearned } from '@mychess/chess';
+import { allLearned, type RepertoireGraph } from '@mychess/chess';
 import {
   ownScope,
   assignmentBadges,
@@ -27,8 +27,8 @@ import { isUuid } from '../ids';
 import { loadRepertoireRows } from '../repertoires/repository';
 import { repertoireScope } from '../repertoires/scope';
 import { accounts, groups, repertoires } from '../schema';
+import { learnedKeys } from '../training/reviews';
 import { namesOf } from './names';
-import { NOTHING_LEARNED } from './player';
 import { assignmentFacts } from './reach';
 
 const SNAPSHOT = { isolationLevel: 'repeatable read' } as const;
@@ -111,21 +111,25 @@ interface Listed {
   readonly player: CoachAssignmentPlayer;
 }
 
-/** Each reached player's name and badges at `now` (assignmentStatusOf). */
+/**
+ * Each reached player's name and badges at `now` (assignmentStatusOf), done
+ * when they learned every player move of `graph` (R-129). One read of the
+ * learned sets for every player.
+ */
 async function listedOf(
   db: Executor,
   facts: readonly AssignmentFacts[],
-  { done, now }: { readonly done: boolean; readonly now: Date },
+  { graph, now }: { readonly graph: RepertoireGraph; readonly now: Date },
 ): Promise<Listed[]> {
-  const names = await namesOf(
-    db,
-    facts.map((one) => one.playerId),
-  );
+  const playerIds = facts.map((one) => one.playerId);
+  const names = await namesOf(db, playerIds);
+  const learned = await learnedKeys(db, playerIds);
   return facts.map((one) => {
     // The reached player's account cascades away with their link.
     const displayName = names.get(one.playerId);
     if (displayName === undefined)
       throw new Error('coachAssignments: the player is gone');
+    const done = allLearned(graph, learned.get(one.playerId) ?? new Set());
     const { deadline, overdue, paused, forked } = assignmentStatusOf(one, {
       done,
       now,
@@ -194,7 +198,7 @@ export function coachAssignments(
     const listed = await listedOf(
       tx,
       await assignmentFacts(tx, { coachId, repertoireId }),
-      { done: allLearned(loaded.graph, NOTHING_LEARNED), now },
+      { graph: loaded.graph, now },
     );
     return rows.map((row) => ({
       id: row.id,

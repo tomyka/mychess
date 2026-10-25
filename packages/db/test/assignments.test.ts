@@ -1,4 +1,4 @@
-import { moveKey } from '@mychess/chess';
+import { moveKey, startReview } from '@mychess/chess';
 import { forkOfferExpiry } from '@mychess/domain';
 import { and, eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -32,6 +32,7 @@ import {
 import { liveRepertoireIds, offersOf } from './support/assignments';
 import { graphOf } from './support/repertoires';
 import { countStatements } from './support/statements';
+import { keysOf, writeReview } from './support/training';
 
 const { db, client } = useTestDatabase();
 
@@ -738,6 +739,25 @@ describe('coachAssignments', () => {
         target: { kind: 'group', id: g, name: 'Šeštadienio grupė' },
         deadline: '2026-10-19',
         players: [p, player('q', { deadline: '2026-10-19', forked: true })],
+      },
+    ]);
+  });
+
+  it('shows a player who learned or skipped every player move as done: not overdue (R-129)', async () => {
+    await assignTo({ groupId: g }, '2026-10-19');
+    const [d4 = '', bf4 = ''] = keysOf(graphOf(PGN));
+    await writeReview(db, 'p', startReview(d4, NOW), { learnedAt: NOW });
+    await writeReview(db, 'p', startReview(bf4, NOW), { skippedAt: NOW });
+    await writeReview(db, 'q', startReview(d4, NOW), { learnedAt: NOW });
+    expect(await coachAssignments(db, 'c', rep, NOW)).toEqual([
+      {
+        id: await assignmentId({ groupId: g }),
+        target: { kind: 'group', id: g, name: 'Šeštadienio grupė' },
+        deadline: '2026-10-19',
+        players: [
+          player('p', { deadline: '2026-10-19' }),
+          player('q', { deadline: '2026-10-19', overdue: true }),
+        ],
       },
     ]);
   });

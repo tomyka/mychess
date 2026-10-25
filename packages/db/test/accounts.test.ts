@@ -1,7 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import {
   fenOf,
+  grade,
   moveKey,
   START_KEY,
+  startReview,
   type RepertoireGraph,
 } from '@mychess/chess';
 import { describe, expect, it } from 'vitest';
@@ -23,9 +26,11 @@ import {
 import { inviteTokenHash } from '../src/invite-token';
 import { providerAccounts, sessions } from '../src/schema';
 import { useTestDatabase } from '../src/testing';
+import { reviewResults } from '../src/training-schema';
 import { seedAccount, seedVerification } from './support/accounts';
 import { seedCoach, seedGroup, seedPlayer } from './support/coaching';
 import { graphOf, LONDON, T0 as RT0 } from './support/repertoires';
+import { writeReview } from './support/training';
 
 const { db, client } = useTestDatabase();
 const T0 = new Date('2026-10-16T08:00:00Z');
@@ -276,6 +281,7 @@ describe('exportAccount', () => {
       repertoires: [],
       personalNotes: [],
       forkCoachNotes: [],
+      training: { reviews: [], results: [] },
     });
     expect(JSON.stringify(data)).not.toMatch(/encrypted|jonas|t-a1/);
   });
@@ -434,6 +440,72 @@ describe('exportAccount', () => {
         ['|d4', '', 'Blogas raktas'],
       ]),
     );
+  });
+
+  it("exports the account's own Reviews and training results, as positions and moves (R-40)", async () => {
+    await seedAccount(db, 'a1', 'ruta@example.lt');
+    await seedAccount(db, 'a2', 'jonas@example.lt');
+    const d4 = moveKey(START_KEY, 'd4');
+    const e4 = moveKey(START_KEY, 'e4');
+    const learned = startReview(d4, T0);
+    const lapsed = grade(startReview(e4, T0), 'lapse', NOW);
+    await writeReview(db, 'a1', learned, { learnedAt: T0 });
+    await writeReview(db, 'a1', lapsed, { skippedAt: T0 });
+    await writeReview(db, 'a2', startReview(d4, NOW), { learnedAt: NOW });
+    const results = [
+      ['a1', d4, 'learned', T0, true],
+      ['a1', e4, 'lapse', NOW, false],
+      ['a2', d4, 'pass', NOW, true],
+    ] as const;
+    for (const [playerId, key, kind, answeredAt, applied] of results)
+      await db.insert(reviewResults).values({
+        resultId: randomUUID(),
+        playerId,
+        moveKey: key,
+        repertoireId: randomUUID(),
+        kind,
+        answeredAt,
+        applied,
+        receivedAt: NOW,
+      });
+    const data = await exportAccount(db, 'a1', NOW);
+    const start = fenOf(START_KEY);
+    expect(data?.training).toEqual({
+      reviews: [
+        {
+          position: start,
+          san: 'd4',
+          due: learned.fsrs.due.toISOString(),
+          learnedAt: T0.toISOString(),
+          skippedAt: null,
+          lapseTimes: [],
+        },
+        {
+          position: start,
+          san: 'e4',
+          due: lapsed.fsrs.due.toISOString(),
+          learnedAt: null,
+          skippedAt: T0.toISOString(),
+          lapseTimes: [NOW.toISOString()],
+        },
+      ],
+      results: [
+        {
+          position: start,
+          san: 'd4',
+          kind: 'learned',
+          answeredAt: T0.toISOString(),
+          applied: true,
+        },
+        {
+          position: start,
+          san: 'e4',
+          kind: 'lapse',
+          answeredAt: NOW.toISOString(),
+          applied: false,
+        },
+      ],
+    });
   });
 
   it('returns undefined for an unknown account', async () => {

@@ -39,6 +39,7 @@ import {
 } from '../repertoires/repository';
 import { repertoireScope } from '../repertoires/scope';
 import { personalNotes, repertoires } from '../schema';
+import { learnedKeys } from '../training/reviews';
 import { namesOf } from './names';
 import { assignmentFacts } from './reach';
 
@@ -77,9 +78,6 @@ const seenFacts = (assignment: AssignmentFacts): SeenFacts => ({
   seenVersion: assignment.seenVersion,
   starts: assignment.reaches,
 });
-
-/** Until S6 writes Reviews, no move is learned (R-129). */
-export const NOTHING_LEARNED: ReadonlySet<string> = new Set();
 
 /** One repertoire a player has from their coach, for "From my coach". */
 export interface PlayerAssignment {
@@ -163,6 +161,16 @@ interface ItemFacts {
   readonly loaded: LoadedRepertoire;
   readonly coachName: string;
   readonly latest: ChangeStamp | undefined;
+  /** The player's learned set (R-129). */
+  readonly learned: ReadonlySet<string>;
+}
+
+/** The player's learned set (R-129): the keys they learned or skipped. */
+async function learnedOf(
+  db: Executor,
+  playerId: string,
+): Promise<ReadonlySet<string>> {
+  return (await learnedKeys(db, [playerId])).get(playerId) ?? new Set();
 }
 
 /** What the domain says of a live assignment at `now` (R-16, R-46, R-51, R-129, R-134). */
@@ -178,9 +186,10 @@ function statusOf(
     assignment,
     loaded,
   }: { assignment: AssignmentFacts; loaded: LoadedRepertoire },
+  learned: ReadonlySet<string>,
   now: Date,
 ): LiveStatus {
-  const done = allLearned(loaded.graph, NOTHING_LEARNED);
+  const done = allLearned(loaded.graph, learned);
   const status = assignmentStatusOf(assignment, { done, now });
   return {
     deadline: status.deadline,
@@ -192,7 +201,11 @@ function statusOf(
 
 function itemOf(facts: ItemFacts, now: Date): PlayerAssignment {
   const { assignment, loaded } = facts;
-  const { deadline, paused, done, overdue } = statusOf(facts, now);
+  const { deadline, paused, done, overdue } = statusOf(
+    facts,
+    facts.learned,
+    now,
+  );
   const updated = isUpdated(seenFacts(assignment), facts.latest);
   return {
     repertoireId: assignment.repertoireId,
@@ -227,6 +240,7 @@ export function playerAssignments(
       tx,
       live.map(({ assignment }) => assignment.repertoireId),
     );
+    const learned = await learnedOf(tx, playerId);
     return live
       .map((entry) =>
         itemOf(
@@ -234,6 +248,7 @@ export function playerAssignments(
             ...entry,
             coachName: names.get(entry.assignment.coachId) ?? '',
             latest: latest.get(entry.assignment.repertoireId),
+            learned,
           },
           now,
         ),
@@ -322,7 +337,11 @@ export function assignedRepertoireForPlayer(
     if (opened === undefined) return undefined;
     const { loaded } = opened;
     const names = await namesOf(tx, [loaded.repertoire.ownerId]);
-    const { paused, deadline, overdue } = statusOf(opened, now);
+    const { paused, deadline, overdue } = statusOf(
+      opened,
+      await learnedOf(tx, playerId),
+      now,
+    );
     return {
       ...loaded,
       coachName: names.get(loaded.repertoire.ownerId) ?? '',
