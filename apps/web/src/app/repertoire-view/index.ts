@@ -31,6 +31,10 @@ export { CoachNotes, type MoveCoachNote } from './coach-notes';
 // move list writes it (the "what changed" summary uses it too).
 export { moveNumber } from './board-play';
 
+// A move played on the board: the legal moves joining its two squares (one,
+// or four promotions). The training drills take moves the same way.
+export { movesBetween } from './board-play';
+
 // The builder block: only the owner's builder hooks
 // (repertuarai/[id]/use-builder.ts) use these, to turn the screen state into
 // edits (where a new move lands, what a mark change says, the remove bar)

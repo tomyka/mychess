@@ -118,10 +118,10 @@ function useGround(
     };
   }, [host]);
   useViewUpdates(api, view);
-  const { picked } = view;
+  const { picked, marked } = view;
   useEffect(() => {
-    api.current?.set(cursorConfig(cursor, picked));
-  }, [cursor, picked]);
+    api.current?.set(cursorConfig(cursor, picked, marked));
+  }, [cursor, picked, marked]);
   return api;
 }
 

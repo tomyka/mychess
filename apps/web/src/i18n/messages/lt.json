@@ -633,6 +633,24 @@
     "sync": {
       "unsynced": "{count, plural, one {# rezultatas dar neišsaugotas.} few {# rezultatai dar neišsaugoti.} other {# rezultatų dar neišsaugota.}} Bandysime dar kartą patys.",
       "retry": "Bandyti dabar"
+    },
+    "review": {
+      "prompt": "Jūsų ėjimas",
+      "toMove": {
+        "white": "Ėjimas baltųjų",
+        "black": "Ėjimas juodųjų"
+      },
+      "replied": "Varžovas suėjo {move}.",
+      "correct": "Teisingai",
+      "lapse": "Ne šis ėjimas. Sužaiskite ėjimą, kurį rodo rodyklė.",
+      "hinted": "Užuomina: eikite paryškinta figūra.",
+      "hint": "Užuomina",
+      "end": "Baigti sesiją",
+      "line": "Iki šiol sužaista",
+      "twoAnswers": {
+        "title": "Kituose jūsų repertuaruose čia žaidžiamas kitas ėjimas:",
+        "item": "{name}: {move}"
+      }
     }
   }
 }

@@ -4,13 +4,12 @@ import { describe, expect, it, vi } from 'vitest';
 import type { TrainingData } from '../../server/training';
 import type { DrillProps, FrameParts } from './drill';
 import { LearnDrill } from './learn-drill';
-import { ReviewDrill } from './review-drill';
 
-// Until C5 and C6 build them, each drill draws only the frame: the start
+// Until C6 builds it, the learn drill draws only the frame: the start
 // position (no board of its own) and an empty panel.
 const props = (frame: (parts: FrameParts) => JSX.Element): DrillProps => ({
   data: {
-    mode: 'review',
+    mode: 'learn',
     entries: [],
     others: [],
     reviews: [],
@@ -25,15 +24,12 @@ const props = (frame: (parts: FrameParts) => JSX.Element): DrillProps => ({
   frame,
 });
 
-describe.each([
-  ['review', ReviewDrill],
-  ['learn', LearnDrill],
-] as const)('the %s drill placeholder', (_, Drill) => {
+describe('the learn drill placeholder', () => {
   it('draws the frame with no board of its own and an empty panel', () => {
     const frame = vi.fn((parts: FrameParts) => (
       <div>{parts.board ?? 'still'}</div>
     ));
-    render(<Drill {...props(frame)} />);
+    render(<LearnDrill {...props(frame)} />);
     expect(frame).toHaveBeenCalledWith({ panel: null });
     expect(screen.getByText('still')).toBeDefined();
   });

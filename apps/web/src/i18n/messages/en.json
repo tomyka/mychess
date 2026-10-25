@@ -633,6 +633,24 @@
     "sync": {
       "unsynced": "{count, plural, one {# result is not saved yet.} other {# results are not saved yet.}} We'll keep trying.",
       "retry": "Try now"
+    },
+    "review": {
+      "prompt": "Your move",
+      "toMove": {
+        "white": "White to move",
+        "black": "Black to move"
+      },
+      "replied": "Opponent played {move}.",
+      "correct": "Correct",
+      "lapse": "Not this move. Play the move the arrow shows.",
+      "hinted": "Hint: move the highlighted piece.",
+      "hint": "Hint",
+      "end": "End session",
+      "line": "Line so far",
+      "twoAnswers": {
+        "title": "Your other repertoires play another move here:",
+        "item": "{name}: {move}"
+      }
     }
   }
 }

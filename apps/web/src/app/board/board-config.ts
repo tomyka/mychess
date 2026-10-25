@@ -23,6 +23,11 @@ export interface BoardView {
   readonly picked: Key | null;
   /** Bumped to put the pieces back after a move the page did not take. */
   readonly revision: number;
+  /**
+   * Classes on squares (board.css): a training answer's flash, a hint's
+   * piece. Absent, none.
+   */
+  readonly marked?: ReadonlyMap<Key, string>;
 }
 
 /**
@@ -84,20 +89,27 @@ export function boardUpdate(
   return same ? withoutPosition(view) : boardConfig(view);
 }
 
+const NONE_MARKED: ReadonlyMap<Key, string> = new Map();
+
 /**
  * The keyboard cursor (board.css `square.cursor`) and draw mode's first
  * square (`square.selected`: chessground marks only a selected piece) as
- * custom square classes. Kept apart from `boardConfig` so moving the cursor
- * does not pass `fen` and put back a piece the page is still saving.
+ * custom square classes, after the view's own (`marked`). Kept apart from
+ * `boardConfig` so moving the cursor does not pass `fen` and put back a
+ * piece the page is still saving.
  */
 export function cursorConfig(
   cursor: Key | null,
   picked: Key | null = null,
+  marked: ReadonlyMap<Key, string> = NONE_MARKED,
 ): Config {
-  const custom = new Map<Key, string>();
-  if (cursor !== null) custom.set(cursor, 'cursor');
-  if (picked !== null)
-    custom.set(picked, picked === cursor ? 'cursor selected' : 'selected');
+  const custom = new Map<Key, string>(marked);
+  const add = (square: Key, name: string): void => {
+    const before = custom.get(square);
+    custom.set(square, before === undefined ? name : `${before} ${name}`);
+  };
+  if (cursor !== null) add(cursor, 'cursor');
+  if (picked !== null) add(picked, 'selected');
   return { highlight: { custom } };
 }
 
@@ -119,6 +131,8 @@ export function markBrushes(read: (token: string) => string): DrawBrushes {
     red: brush('r', read('--color-board-mark-red')),
     yellow: brush('y', read('--color-board-mark-yellow')),
     blue: brush('b', read('--color-board-mark-blue')),
+    // The training screen's expected move (docs/design/training-screen.md).
+    arrow: brush('a', read('--color-board-arrow')),
   };
 }
 
@@ -136,7 +150,7 @@ export interface MountOptions {
 }
 
 /** The `duration-move` token (tokens.css), in milliseconds. */
-const MOVE_DURATION = 150;
+export const MOVE_DURATION = 150;
 
 /** The configuration a board is created with: view, cursor, brushes, handlers. */
 export function mountConfig(
@@ -150,7 +164,7 @@ export function mountConfig(
     ...base,
     highlight: {
       ...base.highlight,
-      ...cursorConfig(cursor, view.picked).highlight,
+      ...cursorConfig(cursor, view.picked, view.marked).highlight,
     },
     animation: { enabled: !options.reducedMotion, duration: MOVE_DURATION },
     movable: {

@@ -7,7 +7,7 @@ import { chapterChildren, chapterOf, sideToMove } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
 import { chapterLabel } from '../../lib/chapter-label';
-import { pieceAt } from '../board/squares';
+import { useSquareWords } from '../board/square-words';
 import { moveNumber } from './board-play';
 import type { ScreenState } from './screen-state';
 
@@ -25,6 +25,7 @@ export function useBoardWords(
   ecoNames: Readonly<Record<string, string>>,
 ): BoardWords {
   const t = useTranslations();
+  const describe = useSquareWords(fen);
   const chapter =
     state.chapterId === null
       ? undefined
@@ -37,16 +38,7 @@ export function useBoardWords(
             name,
             chapter: chapterLabel(t, ecoNames)(chapter),
           }),
-    describe: (square: Key): string => {
-      const piece = pieceAt(fen, square);
-      return t('board.cursor', {
-        square,
-        piece:
-          piece === null
-            ? t('board.empty')
-            : t(`board.pieces.${piece.color}.${piece.role}`),
-      });
-    },
+    describe,
   };
 }
 

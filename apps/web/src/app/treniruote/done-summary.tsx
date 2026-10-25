@@ -8,7 +8,7 @@ import { useReviewTime } from './review-time';
 import type { RepertoireProgress } from './session-progress';
 
 /** What a session did: a review's outcomes, or the moves a learn pass taught. */
-type SessionCounts =
+export type SessionCounts =
   | {
       readonly kind: 'review';
       readonly reviewed: number;

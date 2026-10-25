@@ -1,4 +1,5 @@
 import type { DrawShape } from '@lichess-org/chessground/draw';
+import type { Key } from '@lichess-org/chessground/types';
 import { describe, expect, it, vi } from 'vitest';
 import {
   boardConfig,
@@ -132,13 +133,28 @@ describe('cursorConfig', () => {
     });
   });
 
+  it('adds the view’s own square classes, the cursor and selection after them', () => {
+    const marked = new Map<Key, string>([
+      ['e4', 'correct'],
+      ['d2', 'hint'],
+    ]);
+    expect(cursorConfig('e4', null, marked)).toEqual({
+      highlight: {
+        custom: new Map([
+          ['e4', 'correct cursor'],
+          ['d2', 'hint'],
+        ]),
+      },
+    });
+  });
+
   it('marks no square when the cursor is hidden', () => {
     expect(cursorConfig(null)).toEqual({ highlight: { custom: new Map() } });
   });
 });
 
 describe('markBrushes', () => {
-  it('reads the four mark tokens into the brushes chessground draws with', () => {
+  it('reads the four mark tokens and the training arrow into the brushes chessground draws with', () => {
     const read = vi.fn((name: string) => ` ${name}-value `);
     expect(markBrushes(read)).toEqual({
       green: {
@@ -162,6 +178,12 @@ describe('markBrushes', () => {
       blue: {
         key: 'b',
         color: '--color-board-mark-blue-value',
+        opacity: 1,
+        lineWidth: 10,
+      },
+      arrow: {
+        key: 'a',
+        color: '--color-board-arrow-value',
         opacity: 1,
         lineWidth: 10,
       },
