@@ -12,7 +12,8 @@
  *    asked blind; a wrong answer shows the arrow again. The `learned` state
  *    carries the move's first Review, due the next day. `knowThis` (R-58)
  *    skips the pass for a move, a line or a chapter, with the same first
- *    Review.
+ *    Review. `startReview` is exported for the server, which records a learn
+ *    pass the browser finished (S6 decision 1).
  * 3. `buildQueue` offers it again when its Review is Due; `grade` records the
  *    drill: a pass, or a Lapse (a wrong move, or a hint, R-61). A Lapse brings
  *    the move back within minutes the same day (R-78); "continue" offers it
@@ -37,6 +38,7 @@ export type {
   QueueLimits,
   QueueRefusal,
 } from './queue';
-export { grade } from './schedule';
+export { grade, startReview } from './schedule';
 export type { Outcome, ReviewState } from './schedule';
 export type { Scope, TrainingRepertoire } from './scope';
+export { reviewStateSchema, unreviewed } from './stored-review';
