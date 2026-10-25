@@ -18,7 +18,7 @@ import { MESSAGES } from '../../i18n/locales';
 import type { TrainingData } from '../../server/training';
 import type { FrameParts } from './drill';
 import { ReviewDrill } from './review-drill';
-import type { DrillClock } from './use-review-drill';
+import type { DrillClock } from './drill-input';
 
 const T = MESSAGES.lt.training;
 const MOVE_INPUT = MESSAGES.lt.board.moveInput.label;

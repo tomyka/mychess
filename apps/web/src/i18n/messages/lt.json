@@ -651,6 +651,13 @@
         "title": "Kituose jūsų repertuaruose čia žaidžiamas kitas ėjimas:",
         "item": "{name}: {move}"
       }
+    },
+    "learn": {
+      "arrows": "Sužaiskite ėjimą, kurį rodo rodyklė",
+      "blind": "Dabar be rodyklės",
+      "wrong": "Ne šis ėjimas. Sužaiskite ėjimą, kurį rodo rodyklė.",
+      "correct": "Teisingai",
+      "known": "Šį ėjimą jau mokate: sužaiskite jį."
     }
   }
 }

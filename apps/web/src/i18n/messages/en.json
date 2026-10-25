@@ -651,6 +651,13 @@
         "title": "Your other repertoires play another move here:",
         "item": "{name}: {move}"
       }
+    },
+    "learn": {
+      "arrows": "Play the arrow move",
+      "blind": "Now without the arrow",
+      "wrong": "Not this move. Play the move the arrow shows.",
+      "correct": "Correct",
+      "known": "You know this move: play it."
     }
   }
 }

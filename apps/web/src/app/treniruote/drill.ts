@@ -4,6 +4,7 @@
 // summary, and draws itself through `frame`.
 import type { JSX, ReactNode } from 'react';
 import type { TrainingData } from '../../server/training';
+import type { DrillClock } from './drill-input';
 import type { ResultSync } from './use-result-sync';
 
 /** The parts of the screen a drill fills (docs/design/training-screen.md). */
@@ -37,4 +38,6 @@ export interface DrillProps {
   readonly links: TrainingLinks;
   /** Draws the screen around the drill's parts, with the banner and the way back. */
   readonly frame: (parts: FrameParts) => JSX.Element;
+  /** The drill's time and result ids; the browser's by default. */
+  readonly clock?: DrillClock;
 }

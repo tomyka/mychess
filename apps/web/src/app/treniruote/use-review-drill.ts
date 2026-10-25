@@ -1,13 +1,10 @@
 'use client';
 
-import type { Key } from '@lichess-org/chessground/types';
 import {
   answerReview,
-  findLegalMove,
   hintReview,
   legalMoves,
   type BoardMove,
-  type Promotion,
   type ReviewEmit,
   type ReviewState,
   type Side,
@@ -22,7 +19,14 @@ import {
 } from 'react';
 import type { TrainingData } from '../../server/training';
 import { MOVE_DURATION, type BoardView } from '../board/board-config';
-import { movesBetween } from '../repertoire-view';
+import {
+  BROWSER_CLOCK,
+  FEEDBACK_MS,
+  useMoveInput,
+  useTimer,
+  type DrillClock,
+  type MoveInput,
+} from './drill-input';
 import {
   advanced,
   afterAnswer,
@@ -42,32 +46,11 @@ import {
 import { dueReviews, repertoiresOf, reviewsOf } from './training-start';
 import type { ResultSync } from './use-result-sync';
 
-/** The `duration-feedback` token (tokens.css): a square's answer flash. */
-const FEEDBACK_MS = 400;
-
 /** The longest wait `setTimeout` keeps (about 24.8 days). */
 const MAX_TIMER_MS = 2 ** 31 - 1;
 
-/** The drill's time and result ids, so a test can fix them. */
-export interface DrillClock {
-  now(): Date;
-  newId(): string;
-}
-
-const BROWSER_CLOCK: DrillClock = {
-  now: () => new Date(),
-  newId: () => crypto.randomUUID(),
-};
-
 /** What the player does on the board and in the panel. */
-interface DrillInput {
-  /** A pawn's move to the last rank, waiting for its piece. */
-  readonly promotion: readonly BoardMove[] | null;
-  readonly onMove: (orig: Key, dest: Key) => void;
-  /** Whether the typed move was taken (the field clears only then). */
-  readonly onTyped: (text: string) => boolean;
-  readonly pick: (piece: Promotion) => void;
-  readonly cancel: () => void;
+interface DrillInput extends MoveInput {
   readonly hint: () => void;
   /** A new session over what is due now (R-62's "continue"). */
   readonly restart: () => void;
@@ -88,17 +71,6 @@ const putBack = (s: DrillState): DrillState => ({
   ...s,
   revision: s.revision + 1,
 });
-
-/** Runs `step` after `ms` while `on` holds; a change of `on` or `step` resets it. */
-function useTimer(on: boolean, ms: number, step: () => void): void {
-  useEffect(() => {
-    if (!on) return undefined;
-    const timer = setTimeout(step, ms);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [on, ms, step]);
-}
 
 /**
  * The drill's timed steps: after the correct flash the next item, then the
@@ -192,41 +164,27 @@ interface InputContext {
 /** Each answer is recorded once it is made and graded in the local Reviews. */
 function useDrillInput(c: InputContext): DrillInput {
   const { state, setState, clock } = c;
-  const [promotion, setPromotion] = useState<readonly BoardMove[] | null>(null);
   const record = recorder(c.sync, clock);
-
-  function play(move: BoardMove): void {
-    const now = clock.now();
-    const answer = answerReview(state.session, move.san);
-    record(answer.emit, now);
-    setState(afterAnswer(state, move, answer, now));
-  }
-
-  return {
-    promotion,
-    onMove(orig, dest) {
-      const options = movesBetween(c.legal, orig, dest);
-      const [only] = options;
-      if (options.length > 1) setPromotion(options);
-      else if (only !== undefined && canPlay(state)) play(only);
-      else setState(putBack);
+  const input = useMoveInput({
+    position: shownKey(state),
+    legal: c.legal,
+    canPlay: canPlay(state),
+    play(move) {
+      const now = clock.now();
+      const answer = answerReview(state.session, move.san);
+      record(answer.emit, now);
+      setState(afterAnswer(state, move, answer, now));
     },
-    onTyped(text) {
-      if (!canPlay(state)) return false;
-      const move = findLegalMove(shownKey(state), text);
-      if (move === null) setState({ ...state, unknownTyped: true });
-      else play(move);
-      return move !== null;
-    },
-    pick(piece) {
-      const move = promotion?.find((m) => m.promotion === piece);
-      setPromotion(null);
-      if (move !== undefined) play(move);
-    },
-    cancel() {
-      setPromotion(null);
+    putBack() {
       setState(putBack);
     },
+    unknown() {
+      setState({ ...state, unknownTyped: true });
+    },
+  });
+
+  return {
+    ...input,
     hint() {
       if (!canHint(state)) return;
       const now = clock.now();
@@ -235,7 +193,6 @@ function useDrillInput(c: InputContext): DrillInput {
       setState(afterHint(state, hinted, now));
     },
     restart() {
-      setPromotion(null);
       const due = dueReviews(c.data, state.reviews, clock.now());
       setState(
         startDrill(due, c.repertoires, state.reviews, state.revision + 1),

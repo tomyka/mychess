@@ -2,7 +2,7 @@ import { moveKey, playerKeys, START_KEY, startReview } from '@mychess/chess';
 import { describe, expect, it } from 'vitest';
 import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import type { TrainingData } from '../../server/training';
-import { startState } from './training-start';
+import { learnLines, newKeys, startState } from './training-start';
 
 const NOW = new Date('2026-10-25T08:00:00Z');
 const LATER = new Date('2026-10-26T08:00:00Z');
@@ -137,5 +137,27 @@ describe('where a training session starts', () => {
     expect(() =>
       startState(data({ settings: { sessionSize: 5, newPerDay: 10 } })),
     ).toThrow();
+  });
+});
+
+describe('the lines a learn session teaches', () => {
+  it('teaches up to today’s allowance, from the first own move', () => {
+    const lines = learnLines(data({ learnedToday: 7 }));
+    expect(newKeys(lines)).toHaveLength(3);
+    expect(newKeys(lines)[0]).toBe(D4);
+  });
+
+  it('plans no move learned before again', () => {
+    const lines = learnLines(data({ learned: [D4] }));
+    expect(newKeys(lines)).not.toContain(D4);
+    expect(newKeys(lines)).toHaveLength(LONDON_KEYS.length - 1);
+  });
+
+  it('teaches nothing once today’s allowance is used', () => {
+    expect(learnLines(data({ learnedToday: 10 }))).toEqual([]);
+  });
+
+  it('teaches nothing once every move is learned', () => {
+    expect(learnLines(data({ learned: LONDON_KEYS }))).toEqual([]);
   });
 });

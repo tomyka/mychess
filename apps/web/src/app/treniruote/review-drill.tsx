@@ -6,15 +6,13 @@ import Link from 'next/link';
 import { useMemo, type JSX } from 'react';
 import type { TrainingData } from '../../server/training';
 import { Board } from '../board/board';
-import { MoveInput } from '../board/move-input';
-import { PromotionPicker } from '../board/promotion-picker';
 import { useSquareWords } from '../board/square-words';
 import { SECONDARY_BUTTON } from '../buttons';
 import { DoneSummary } from './done-summary';
 import type { DrillProps, FrameParts } from './drill';
+import { LineSoFar, MoveRow, ToMove } from './drill-panel';
 import {
   canHint,
-  lineText,
   playedMoves,
   replyText,
   sessionCounts,
@@ -22,16 +20,7 @@ import {
 } from './review-drill-state';
 import { toLearn } from './training-start';
 import { TwoAnswersNotice, type NamedRepertoire } from './two-answers-notice';
-import {
-  useReviewDrill,
-  type DrillClock,
-  type ReviewDrill as Drill,
-} from './use-review-drill';
-
-export interface ReviewDrillProps extends DrillProps {
-  /** The drill's time and result ids; the browser's by default. */
-  readonly clock?: DrillClock;
-}
+import { useReviewDrill, type ReviewDrill as Drill } from './use-review-drill';
 
 type StatusKey = 'correct' | 'lapse' | 'hinted' | 'prompt';
 
@@ -63,13 +52,7 @@ function Status({ drill }: { readonly drill: Drill }): JSX.Element {
       : replyText(state.shown);
   return (
     <div aria-live="polite" className="flex flex-col gap-1">
-      <p className="flex items-center gap-2 text-sm text-fg-muted">
-        <span
-          aria-hidden="true"
-          className={`size-3 rounded-full border border-border-strong ${drill.view.turnColor === 'white' ? 'bg-white' : 'bg-black'}`}
-        />
-        {t(`training.review.toMove.${drill.view.turnColor}`)}
-      </p>
+      <ToMove color={drill.view.turnColor} />
       {reply === null ? null : (
         <p>{t('training.review.replied', { move: reply })}</p>
       )}
@@ -79,36 +62,6 @@ function Status({ drill }: { readonly drill: Drill }): JSX.Element {
       {state.unknownTyped ? (
         <p className="text-error">{t('board.moveInput.unknown')}</p>
       ) : null}
-    </div>
-  );
-}
-
-/** The typed-move field, or the promotion choice in its place. */
-function MoveRow({ drill }: { readonly drill: Drill }): JSX.Element {
-  if (drill.promotion !== null)
-    return (
-      <PromotionPicker
-        color={drill.view.turnColor}
-        onPick={drill.pick}
-        onCancel={drill.cancel}
-      />
-    );
-  return <MoveInput onTyped={drill.onTyped} />;
-}
-
-/** The moves so far on the item's line, newest last. */
-function LineSoFar({ state }: { readonly state: DrillState }): JSX.Element {
-  const t = useTranslations('training.review');
-  const moves = playedMoves(state);
-  const rootKey = state.shown?.line.rootKey;
-  return (
-    <div>
-      <h2 className="sr-only">{t('line')}</h2>
-      {rootKey === undefined || moves.length === 0 ? null : (
-        <p className="overflow-x-auto text-sm whitespace-nowrap text-fg-muted tabular-nums">
-          {lineText(moves, rootKey)}
-        </p>
-      )}
     </div>
   );
 }
@@ -125,7 +78,7 @@ function ReviewPanel({
   return (
     <>
       <Status drill={drill} />
-      <MoveRow drill={drill} />
+      <MoveRow input={drill} color={drill.view.turnColor} />
       <button
         type="button"
         onClick={drill.hint}
@@ -134,7 +87,10 @@ function ReviewPanel({
       >
         {t('hint')}
       </button>
-      <LineSoFar state={drill.state} />
+      <LineSoFar
+        moves={playedMoves(drill.state)}
+        rootKey={drill.state.shown?.line.rootKey}
+      />
       {item === undefined ? null : (
         <TwoAnswersNotice item={item} repertoires={named} />
       )}
@@ -168,7 +124,7 @@ export function ReviewDrill({
   links,
   frame,
   clock,
-}: ReviewDrillProps): JSX.Element {
+}: DrillProps): JSX.Element {
   const t = useTranslations();
   const drill = useReviewDrill(data, sync, clock);
   const describe = useSquareWords(drill.view.fen);

@@ -28,12 +28,7 @@ import type { BoardView } from '../board/board-config';
 import { destsOf, isKey, squaresOf } from '../board/squares';
 import { moveNumber } from '../repertoire-view';
 import type { SessionCounts } from './done-summary';
-
-/** A square's answer flash (docs/design/training-screen.md, Move feedback). */
-interface Flash {
-  readonly square: string;
-  readonly kind: 'correct' | 'wrong';
-}
+import type { Flash } from './drill-input';
 
 export interface DrillState {
   readonly session: ReviewSessionState;
@@ -212,22 +207,6 @@ export function sessionCounts(session: ReviewSessionState): SessionCounts {
     correct,
     lapses: outcomes.length - correct,
   };
-}
-
-/** Moves from `rootKey` as a line is written: `1. d4 d5 2. Bf4`. */
-export function lineText(
-  moves: readonly RepertoireMove[],
-  rootKey: string,
-): string {
-  const whiteFirst = sideToMove(rootKey) === 'w';
-  return moves
-    .map((move, ply) => {
-      const white = (ply + (whiteFirst ? 0 : 1)) % 2 === 0;
-      return white || ply === 0
-        ? `${moveNumber(ply, whiteFirst)} ${move.san}`
-        : move.san;
-    })
-    .join(' ');
 }
 
 /** The opponent's reply before the asked move, numbered: `1... d5`. */

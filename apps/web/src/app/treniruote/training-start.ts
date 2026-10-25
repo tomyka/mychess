@@ -6,6 +6,7 @@ import {
   buildQueue,
   learnPlan,
   playerKeys,
+  type LearnLine,
   type QueueItem,
   type ReviewState,
   type TrainingRepertoire,
@@ -60,12 +61,22 @@ export function dueReviews(
   return queue.value.reviews;
 }
 
+/**
+ * The lines a learn session teaches (R-144, R-145), in the entries' learn
+ * order, up to what is left of today's allowance.
+ */
+export const learnLines = (data: TrainingData): LearnLine[] =>
+  learnPlan(repertoiresOf(data), new Set(data.learned), allowance(data));
+
+/** The new moves in `lines`. */
+export const newKeys = (lines: readonly LearnLine[]): string[] =>
+  lines.flatMap((line) =>
+    line.steps.filter((step) => step.kind === 'new').map((step) => step.key),
+  );
+
 /** The new moves a learn session would teach now. */
-export function toLearn(data: TrainingData): number {
-  return learnPlan(repertoiresOf(data), new Set(data.learned), allowance(data))
-    .flatMap((line) => line.steps)
-    .filter((step) => step.kind === 'new').length;
-}
+export const toLearn = (data: TrainingData): number =>
+  newKeys(learnLines(data)).length;
 
 /** Does an active repertoire hold an own move not learned yet? */
 function anyLeft(data: TrainingData): boolean {
