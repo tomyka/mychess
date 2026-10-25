@@ -51,6 +51,7 @@ export type {
 } from './queue';
 export { grade, startReview } from './schedule';
 export type { Outcome, ReviewState } from './schedule';
+export { heldKeys } from './scope';
 export type { Scope, TrainingRepertoire } from './scope';
 export { reviewStateSchema, unreviewed } from './stored-review';
 export { lineTo } from './line-to';

@@ -242,6 +242,7 @@ export {
   TRAINING_REFUSALS,
   acceptResult,
   canRecord,
+  clampAnsweredAt,
   learnOrder,
   resultBatchSchema,
   trainingResultSchema,

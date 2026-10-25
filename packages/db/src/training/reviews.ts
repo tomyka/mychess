@@ -64,6 +64,52 @@ function toReviewState(row: ReviewRow): ReviewState {
   });
 }
 
+/**
+ * A ReviewState as `reviews` columns: the FSRS card and the lapse history.
+ * Parsed rather than read field by field: ts-fsrs marks `elapsed_days`
+ * deprecated, yet it is still stored.
+ */
+const cardColumnsSchema = z
+  .object({
+    due: z.date(),
+    stability: z.number(),
+    difficulty: z.number(),
+    elapsed_days: z.number().int(),
+    scheduled_days: z.number().int(),
+    learning_steps: z.number().int(),
+    reps: z.number().int(),
+    lapses: z.number().int(),
+    state: z.number().int(),
+    last_review: z.date().optional(),
+  })
+  .transform((card) => ({
+    due: card.due,
+    stability: card.stability,
+    difficulty: card.difficulty,
+    elapsedDays: card.elapsed_days,
+    scheduledDays: card.scheduled_days,
+    learningSteps: card.learning_steps,
+    reps: card.reps,
+    lapses: card.lapses,
+    state: card.state,
+    lastReview: card.last_review ?? null,
+  }));
+
+/** The columns that store a Review: its key, card and lapse history. */
+export type ReviewColumns = z.output<typeof cardColumnsSchema> & {
+  readonly moveKey: string;
+  readonly lapseTimes: Date[];
+};
+
+/** The columns that store `review` (its key, card and lapse history). */
+export function reviewRow(review: ReviewState): ReviewColumns {
+  return {
+    moveKey: review.key,
+    ...cardColumnsSchema.parse(review.fsrs),
+    lapseTimes: [...review.lapses],
+  };
+}
+
 /** A Review and how it entered training: a learn pass or "I know this". */
 export interface StoredReview {
   readonly review: ReviewState;
@@ -94,6 +140,31 @@ export async function reviewsOf(
       },
     ]),
   );
+}
+
+/**
+ * The player's Reviews of `keys`, by key, each row held FOR UPDATE for the
+ * rest of `tx`. Locked in key order, so two batches never deadlock.
+ */
+export async function lockReviews(
+  tx: Executor,
+  playerId: string,
+  keys: readonly string[],
+): Promise<Map<string, ReviewState>> {
+  const rows = z.array(reviewRowSchema).parse(
+    await tx
+      .select(reviewColumns)
+      .from(reviews)
+      .where(
+        and(
+          eq(reviews.playerId, playerId),
+          inArray(reviews.moveKey, [...keys]),
+        ),
+      )
+      .orderBy(reviews.moveKey)
+      .for('update'),
+  );
+  return new Map(rows.map((row) => [row.moveKey, toReviewState(row)]));
 }
 
 const keyRowsSchema = z.array(

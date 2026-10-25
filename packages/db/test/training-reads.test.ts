@@ -1,7 +1,6 @@
 import { grade, startReview, type ReviewState } from '@mychess/chess';
 import { DEFAULT_TRAINING_SETTINGS } from '@mychess/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { z } from 'zod';
 import {
   assign,
   createRepertoire,
@@ -15,9 +14,9 @@ import {
 } from '../src';
 import { assignmentPlayers } from '../src/assignment-schema';
 import { useTestDatabase } from '../src/testing';
-import { reviews } from '../src/training-schema';
 import { seedCoach, seedLink, seedPlayer } from './support/coaching';
 import { graphOf } from './support/repertoires';
+import { writeReview } from './support/training';
 
 const { db, client } = useTestDatabase();
 
@@ -60,55 +59,6 @@ describe('trainingSettings', () => {
   });
 });
 
-type Entered = { learnedAt: Date } | { skippedAt: Date };
-
-/**
- * An FSRS card as `reviews` columns. Parsed rather than read field by
- * field: ts-fsrs marks `elapsed_days` deprecated, yet it is still stored.
- */
-const cardColumns = z
-  .object({
-    due: z.date(),
-    stability: z.number(),
-    difficulty: z.number(),
-    elapsed_days: z.number(),
-    scheduled_days: z.number(),
-    learning_steps: z.number(),
-    reps: z.number(),
-    lapses: z.number(),
-    state: z.number(),
-    last_review: z.date().optional(),
-  })
-  .transform((card) => ({
-    due: card.due,
-    stability: card.stability,
-    difficulty: card.difficulty,
-    elapsedDays: card.elapsed_days,
-    scheduledDays: card.scheduled_days,
-    learningSteps: card.learning_steps,
-    reps: card.reps,
-    lapses: card.lapses,
-    state: card.state,
-    lastReview: card.last_review ?? null,
-  }));
-
-/** Writes `review` for `playerId` directly, as the result recorder will. */
-async function writeReview(
-  playerId: string,
-  review: ReviewState,
-  entered: Entered,
-): Promise<void> {
-  await db.insert(reviews).values({
-    playerId,
-    moveKey: review.key,
-    ...cardColumns.parse(review.fsrs),
-    lapseTimes: [...review.lapses],
-    ...entered,
-    createdAt: NOW,
-    updatedAt: NOW,
-  });
-}
-
 /** A Review learned at NOW, lapsed twice and passed once after. */
 function drilled(key: string): ReviewState {
   const first = grade(startReview(key, NOW), 'lapse', LATER);
@@ -125,7 +75,7 @@ describe('reviewsOf', () => {
   it('reads a Review back equal to the one written, lapses in order', async () => {
     const review = drilled('k1');
     expect(review.lapses).toHaveLength(2);
-    await writeReview('p', review, { learnedAt: NOW });
+    await writeReview(db, 'p', review, { learnedAt: NOW });
     expect(await reviewsOf(db, 'p')).toEqual(
       new Map([['k1', { review, learnedAt: NOW, skippedAt: null }]]),
     );
@@ -133,8 +83,8 @@ describe('reviewsOf', () => {
 
   it("reads only the player's own Reviews, skipped ones too", async () => {
     const skipped = startReview('k2', NOW);
-    await writeReview('p', skipped, { skippedAt: NOW });
-    await writeReview('q', startReview('k3', NOW), { learnedAt: NOW });
+    await writeReview(db, 'p', skipped, { skippedAt: NOW });
+    await writeReview(db, 'q', startReview('k3', NOW), { learnedAt: NOW });
     expect(await reviewsOf(db, 'p')).toEqual(
       new Map([['k2', { review: skipped, learnedAt: null, skippedAt: NOW }]]),
     );
@@ -149,10 +99,10 @@ describe('learnedKeys (R-129)', () => {
   });
 
   it('gives each player their learned and skipped keys, and only theirs', async () => {
-    await writeReview('p', startReview('a', NOW), { learnedAt: NOW });
-    await writeReview('p', startReview('b', NOW), { skippedAt: NOW });
-    await writeReview('q', startReview('c', NOW), { learnedAt: NOW });
-    await writeReview('r', startReview('d', NOW), { learnedAt: NOW });
+    await writeReview(db, 'p', startReview('a', NOW), { learnedAt: NOW });
+    await writeReview(db, 'p', startReview('b', NOW), { skippedAt: NOW });
+    await writeReview(db, 'q', startReview('c', NOW), { learnedAt: NOW });
+    await writeReview(db, 'r', startReview('d', NOW), { learnedAt: NOW });
     expect(await learnedKeys(db, ['p', 'q', 'n'])).toEqual(
       new Map([
         ['p', new Set(['a', 'b'])],
@@ -163,7 +113,7 @@ describe('learnedKeys (R-129)', () => {
   });
 
   it('reads nothing for no players', async () => {
-    await writeReview('p', startReview('a', NOW), { learnedAt: NOW });
+    await writeReview(db, 'p', startReview('a', NOW), { learnedAt: NOW });
     expect(await learnedKeys(db, [])).toEqual(new Map());
   });
 });
@@ -177,12 +127,18 @@ describe('learnedBetween (R-147)', () => {
   });
 
   it('counts the moves learned in [from, to): not skipped, not the end, not another player', async () => {
-    await writeReview('p', startReview('before', NOW), { learnedAt: at(-1) });
-    await writeReview('p', startReview('start', NOW), { learnedAt: at(0) });
-    await writeReview('p', startReview('inside', NOW), { learnedAt: at(5) });
-    await writeReview('p', startReview('skipped', NOW), { skippedAt: at(5) });
-    await writeReview('p', startReview('end', NOW), { learnedAt: at(24) });
-    await writeReview('q', startReview('other', NOW), { learnedAt: at(5) });
+    await writeReview(db, 'p', startReview('before', NOW), {
+      learnedAt: at(-1),
+    });
+    await writeReview(db, 'p', startReview('start', NOW), { learnedAt: at(0) });
+    await writeReview(db, 'p', startReview('inside', NOW), {
+      learnedAt: at(5),
+    });
+    await writeReview(db, 'p', startReview('skipped', NOW), {
+      skippedAt: at(5),
+    });
+    await writeReview(db, 'p', startReview('end', NOW), { learnedAt: at(24) });
+    await writeReview(db, 'q', startReview('other', NOW), { learnedAt: at(5) });
     expect(await learnedBetween(db, 'p', at(0), at(24))).toBe(2);
   });
 });

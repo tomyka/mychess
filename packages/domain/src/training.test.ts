@@ -7,6 +7,7 @@ import {
   SECONDS_PER_REVIEW,
   acceptResult,
   canRecord,
+  clampAnsweredAt,
   learnOrder,
   resultBatchSchema,
   trainingSettingsSchema,
@@ -287,6 +288,19 @@ describe('acceptResult', () => {
         now,
       ),
     ).toEqual(accepted('apply', new Date('2026-10-16T12:00:00Z')));
+  });
+});
+
+describe('clampAnsweredAt', () => {
+  const now = new Date('2026-10-23T12:00:00Z');
+
+  it.each([
+    ['2026-10-23T12:00:01Z', '2026-10-23T12:00:00Z'],
+    ['2026-09-23T12:00:00Z', '2026-10-16T12:00:00Z'],
+    ['2026-10-16T12:00:00Z', '2026-10-16T12:00:00Z'],
+    ['2026-10-20T08:30:00Z', '2026-10-20T08:30:00Z'],
+  ])('places %s at %s, inside [now - 7 days, now]', (sent, placed) => {
+    expect(clampAnsweredAt(new Date(sent), now)).toEqual(new Date(placed));
   });
 });
 

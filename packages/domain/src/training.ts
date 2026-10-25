@@ -81,8 +81,11 @@ export const resultBatchSchema = z
 /** How far back a queued result may be dated (S6 decision 2). */
 export const RESULT_MAX_AGE_MS = 7 * 86_400_000;
 
-/** `answeredAt` inside [now - 7 days, now]. */
-const clampAnsweredAt = (at: Date, now: Date): Date =>
+/**
+ * `answeredAt` inside [now - 7 days, now]: the instant a result is ordered,
+ * graded and logged at (S6 decision 2).
+ */
+export const clampAnsweredAt = (at: Date, now: Date): Date =>
   new Date(
     Math.min(
       now.getTime(),

@@ -174,7 +174,13 @@ export {
   reviewsOf,
   type StoredReview,
 } from './training/reviews';
+export { recordResults, type ResultAnswer } from './training/results';
 export { setTrainingSettings, trainingSettings } from './training/settings';
+export {
+  trainingSnapshot,
+  type TrainingScope,
+  type TrainingSnapshot,
+} from './training/snapshot';
 
 /** Better Auth's tables, keyed by the model names auth.ts maps them to. */
 export const authSchema = {
