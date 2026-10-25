@@ -104,3 +104,14 @@ export function countRequest<R extends string>(
     value: { count: counter.count + 1, windowStart: counter.windowStart },
   };
 }
+
+/** Result batches an account may post a minute (S6, security A6). */
+export const TRAINING_RATE_LIMIT = {
+  windowMs: 60_000,
+  max: 120,
+  reason: 'training.tooManyResults',
+} as const satisfies RateRule;
+
+/** The one counter of an account's result batches. */
+export const trainingRateKey = (accountId: string): string =>
+  `training:${accountId}`;

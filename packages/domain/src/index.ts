@@ -80,7 +80,7 @@ export {
   type Settlement,
   type SettlementFacts,
 } from './assignment-settlement';
-export { HOME_TIME_ZONE, vilniusDay } from './calendar';
+export { HOME_TIME_ZONE, dayEnd, dayStart, vilniusDay } from './calendar';
 export {
   FORK_OFFER_DAYS,
   FORK_OFFER_REASONS,
@@ -152,9 +152,11 @@ export {
   IMPORT_RATE_LIMIT,
   MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
+  TRAINING_RATE_LIMIT,
   countRequest,
   importRateKey,
   magicLinkEmailRateKey,
+  trainingRateKey,
   type RateRefusal,
   type RateRule,
 } from './rate-limit';
@@ -230,4 +232,27 @@ export {
   type SignInRefusal,
   type SignInRefusalReason,
 } from './sign-in';
+export {
+  DEFAULT_TRAINING_SETTINGS,
+  MAX_RESULT_BATCH,
+  RESULT_KINDS,
+  RESULT_MAX_AGE_MS,
+  SECONDS_PER_REVIEW,
+  TRAINING_ISSUES,
+  TRAINING_REFUSALS,
+  acceptResult,
+  canRecord,
+  clampAnsweredAt,
+  learnOrder,
+  resultBatchSchema,
+  trainingResultSchema,
+  trainingSettingsSchema,
+  type RecordFacts,
+  type ResultKind,
+  type StoredFacts,
+  type TrainingEntry,
+  type TrainingRefusal,
+  type TrainingResult,
+  type TrainingSettings,
+} from './training';
 export type { Side } from '@mychess/chess';

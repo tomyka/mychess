@@ -3,9 +3,11 @@ import {
   IMPORT_RATE_LIMIT,
   MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
+  TRAINING_RATE_LIMIT,
   countRequest,
   importRateKey,
   magicLinkEmailRateKey,
+  trainingRateKey,
   type RateCounter,
   type RateRule,
 } from './rate-limit';
@@ -136,5 +138,19 @@ describe('the magic-link limit per email (#264)', () => {
     expect(magicLinkEmailRateKey('a', digest).startsWith('pgn-import:')).toBe(
       false,
     );
+  });
+});
+
+describe('TRAINING_RATE_LIMIT', () => {
+  it('allows 120 result batches a minute per account (S6, security A6)', () => {
+    expect(TRAINING_RATE_LIMIT).toEqual({
+      windowMs: 60_000,
+      max: 120,
+      reason: 'training.tooManyResults',
+    });
+  });
+
+  it('counts each account under its own key', () => {
+    expect(trainingRateKey('a')).toBe('training:a');
   });
 });
