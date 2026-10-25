@@ -32,7 +32,7 @@ describe('TodayBlock (U1-M1-3)', () => {
     ).toBeDefined();
     expect(screen.getByText('12 kartotinų · apie 2 min.')).toBeDefined();
     expect(link(lt.start)).toBe('/treniruote?mode=review');
-    expect(link('Išmokti 3 naujus ėjimus')).toBe('/treniruote?mode=learn');
+    expect(link('Mokytis 3 naujų ėjimų')).toBe('/treniruote?mode=learn');
     // The next review time is for when nothing is due.
     expect(screen.queryByText(/Kitas kartojimas/)).toBeNull();
   });
@@ -62,7 +62,7 @@ describe('TodayBlock (U1-M1-3)', () => {
       screen.getByText('Kitas kartojimas: spalio 27 d. 08:30'),
     ).toBeDefined();
     expect(screen.queryByRole('link', { name: lt.start })).toBeNull();
-    expect(link('Išmokti 2 naujus ėjimus')).toBe('/treniruote?mode=learn');
+    expect(link('Mokytis 2 naujų ėjimų')).toBe('/treniruote?mode=learn');
   });
 
   it('says only that nothing is due with nothing scheduled or to learn', () => {

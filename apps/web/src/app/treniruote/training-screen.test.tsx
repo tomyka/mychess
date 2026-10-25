@@ -113,7 +113,7 @@ describe('the training screen with nothing due', () => {
     expect(screen.getByText(/^Kitas kartojimas:/).textContent).toContain(
       '10:00',
     );
-    expect(href('Išmokti 3 naujus ėjimus')).toBe(
+    expect(href('Mokytis 3 naujų ėjimų')).toBe(
       `/treniruote?mode=learn&r=${ID}`,
     );
     expect(
@@ -128,7 +128,7 @@ describe('the training screen with nothing due', () => {
     );
     expect(heading(T.empty.nothingDue.title)).toBeDefined();
     expect(screen.queryByText(/^Kitas kartojimas:/)).toBeNull();
-    expect(screen.queryByRole('link', { name: /Išmokti/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /^Mokytis \d/ })).toBeNull();
   });
 
   it('shows the start position dimmed and out of reach', () => {

@@ -99,6 +99,32 @@ function queueItems(repertoires: readonly TrainingRepertoire[]): QueueItem[] {
   return items;
 }
 
+/** The Review of `key` if it is due at `now`. */
+function dueAt(
+  reviews: ReadonlyMap<string, ReviewState>,
+  key: string,
+  now: Date,
+): ReviewState | undefined {
+  const review = reviews.get(key);
+  return review !== undefined && review.fsrs.due.getTime() <= now.getTime()
+    ? review
+    : undefined;
+}
+
+/**
+ * How many Reviews are due at `now` across the active repertoires, each key
+ * once and not cut at a session size: the same moves `buildQueue` offers as
+ * Reviews before its cap.
+ */
+export function dueCount(
+  input: Pick<QueueInput, 'repertoires' | 'reviews'>,
+  now: Date,
+): number {
+  return queueItems(input.repertoires).filter(
+    (item) => dueAt(input.reviews, item.key, now) !== undefined,
+  ).length;
+}
+
 /** Which limit, if any, is out of the range R-62 allows. */
 function invalidLimit(limits: QueueLimits): keyof QueueLimits | null {
   const { reviews, newPerDay } = limits;
@@ -130,11 +156,11 @@ export function buildQueue(
   const fresh: QueueItem[] = [];
   const shown = input.exclude ?? new Set();
   for (const item of queueItems(input.repertoires)) {
-    const review = input.reviews.get(item.key);
-    if (review === undefined) {
-      if (!shown.has(item.key)) fresh.push(item);
-    } else if (review.fsrs.due.getTime() <= now.getTime()) {
+    const review = dueAt(input.reviews, item.key, now);
+    if (review !== undefined) {
       due.push({ item, due: review.fsrs.due.getTime() });
+    } else if (!input.reviews.has(item.key) && !shown.has(item.key)) {
+      fresh.push(item);
     }
   }
   const allowance = Math.max(0, limits.newPerDay - input.learnedToday);

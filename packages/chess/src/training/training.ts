@@ -41,7 +41,7 @@ export { knowThis, learnStep, startLearn } from './learn';
 export type { LearnEvent, LearnState } from './learn';
 export { allLearned, mastered, reconcile, weakSpots } from './progress';
 export type { Reconciliation, WeakSpot } from './progress';
-export { buildQueue, QUEUE_LIMITS } from './queue';
+export { buildQueue, dueCount, QUEUE_LIMITS } from './queue';
 export type {
   Queue,
   QueueInput,

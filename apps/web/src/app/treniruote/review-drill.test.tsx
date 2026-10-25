@@ -201,7 +201,7 @@ describe('the review drill', () => {
     ).toBeDefined();
     expect(counter()).toBe('0 / 2');
     expect(panel()).toContain(T.review.prompt);
-    expect(panel()).toContain(T.review.toMove.white);
+    expect(panel()).toContain(T.drill.toMove.white);
     expect(lastWith('orientation')).toBe('white');
     expect(lastWith('fen')).toBe(fenOf(START_KEY));
   });
@@ -321,7 +321,7 @@ describe('the review drill', () => {
   it('ends the session at any time, the results already recorded', () => {
     renderDrill();
     type('d4');
-    const end = screen.getByRole('link', { name: T.review.end });
+    const end = screen.getByRole('link', { name: T.drill.end });
     expect(end.getAttribute('href')).toBe('/repertuarai/x');
     expect(kinds()).toEqual(['pass']);
   });
@@ -347,7 +347,7 @@ describe('the review drill', () => {
     expect(
       screen.getByRole('link', { name: T.done.learn }).getAttribute('href'),
     ).toBe('/treniruote?mode=learn');
-    expect(screen.queryByRole('link', { name: T.review.end })).toBeNull();
+    expect(screen.queryByRole('link', { name: T.drill.end })).toBeNull();
   });
 
   it('offers Continue once a lapse is due again, and starts a new session over it', () => {
@@ -436,7 +436,7 @@ describe('the review drill in a Black repertoire', () => {
     );
     expect(lastWith('orientation')).toBe('black');
     expect(lastWith('lastMove')).toEqual(['e2', 'e4']);
-    expect(panel()).toContain(T.review.toMove.black);
+    expect(panel()).toContain(T.drill.toMove.black);
     expect(panel()).toContain('1. e4');
     type('c5');
     expect(kinds()).toEqual(['pass']);

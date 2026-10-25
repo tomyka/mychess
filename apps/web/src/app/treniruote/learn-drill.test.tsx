@@ -306,7 +306,7 @@ describe('the learn drill, blind round', () => {
     renderDrill();
     arrowsRound();
     play('d4');
-    const end = screen.getByRole('link', { name: T.review.end });
+    const end = screen.getByRole('link', { name: T.drill.end });
     expect(end.getAttribute('href')).toBe('/repertuarai/x');
     expect(learnedKeys()).toEqual([D4]);
   });
@@ -387,7 +387,7 @@ describe('the learn drill in a Black repertoire', () => {
     expect(panel()).not.toContain(T.learn.correct);
     wait(150);
     expect(arrows()).toEqual(['c7c5']);
-    expect(panel()).toContain(MESSAGES.lt.training.review.toMove.black);
+    expect(panel()).toContain(MESSAGES.lt.training.drill.toMove.black);
     type('c5');
     expect(panel()).toContain(T.learn.correct);
   });

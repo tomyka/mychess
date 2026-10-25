@@ -125,7 +125,7 @@ export function LearnDrill({
     ),
     actions: (
       <Link href={links.back} className={SECONDARY_BUTTON}>
-        {t('training.review.end')}
+        {t('training.drill.end')}
       </Link>
     ),
   });

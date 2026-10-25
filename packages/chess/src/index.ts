@@ -104,6 +104,7 @@ export {
   answerReview,
   buildQueue,
   currentLearnStep,
+  dueCount,
   grade,
   hintReview,
   knowThis,

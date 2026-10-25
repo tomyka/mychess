@@ -14,7 +14,7 @@ type Color = 'white' | 'black';
 
 /** The side-to-move dot and its words. */
 export function ToMove({ color }: { readonly color: Color }): JSX.Element {
-  const t = useTranslations('training.review');
+  const t = useTranslations('training.drill');
   return (
     <p className="flex items-center gap-2 text-sm text-fg-muted">
       <span
@@ -66,7 +66,7 @@ export function LineSoFar({
   readonly moves: readonly RepertoireMove[];
   readonly rootKey: string | undefined;
 }): JSX.Element {
-  const t = useTranslations('training.review');
+  const t = useTranslations('training.drill');
   return (
     <div>
       <h2 className="sr-only">{t('line')}</h2>

@@ -1,9 +1,10 @@
 // What a training snapshot holds to drill now: the due Reviews and the new
 // moves today's allowance leaves. The rules are chess's (buildQueue,
-// learnPlan); these only run them over the snapshot's plain data, the same
-// way on the server (home's counts) and in the browser (the drills).
+// dueCount, learnPlan); these only run them over the snapshot's plain data,
+// the same way on the server (home's counts) and in the browser (the drills).
 import {
   buildQueue,
+  dueCount,
   learnPlan,
   type LearnLine,
   type QueueItem,
@@ -65,25 +66,6 @@ export const newKeys = (lines: readonly LearnLine[]): string[] =>
 export const toLearn = (data: TrainingData): number =>
   newKeys(learnLines(data)).length;
 
-/**
- * Every Review due at `now`, not cut at the session size: the queue is
- * built over the Reviews a session's worth at a time, so each run's due
- * ones fit in it, and the runs' counts add up.
- */
-function allDue(data: TrainingData): number {
-  const size = data.settings.sessionSize;
-  let due = 0;
-  for (let start = 0; start < data.reviews.length; start += size) {
-    const run = data.reviews.slice(start, start + size);
-    due += dueReviews(
-      data,
-      new Map(run.map((r) => [r.key, r])),
-      data.now,
-    ).length;
-  }
-  return due;
-}
-
 /** What a page shows before training starts (U1-M1-3). */
 export interface TrainingCounts {
   /** Every Review due now, across the data's active repertoires. */
@@ -94,6 +76,9 @@ export interface TrainingCounts {
 
 /** The due and to-learn counts of `data`. */
 export const trainingCounts = (data: TrainingData): TrainingCounts => ({
-  due: allDue(data),
+  due: dueCount(
+    { repertoires: repertoiresOf(data), reviews: reviewsOf(data) },
+    data.now,
+  ),
   toLearn: toLearn(data),
 });

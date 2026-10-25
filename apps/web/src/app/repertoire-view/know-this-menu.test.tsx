@@ -78,7 +78,7 @@ describe('KnowThisMenu (R-58, R-147)', () => {
     fireEvent.click(toggle());
     server.count.mockResolvedValue(counts(0, 0));
     fireEvent.click(await screen.findByRole('button', { name: lt.knowMove }));
-    await screen.findByText('1 ėjimas pažymėtas kaip žinomas.');
+    await screen.findByText('Pažymėta, kad žinote 1 ėjimą.');
     expect(sent(server.mark)).toEqual(MOVE);
     // Counted again: nothing left to mark.
     await screen.findByText(lt.nothing);
@@ -92,13 +92,13 @@ describe('KnowThisMenu (R-58, R-147)', () => {
     fireEvent.click(await screen.findByRole('button', { name: lt.knowLine }));
     expect(
       screen.getByText(
-        'Pažymėti 5 ėjimus kaip žinomus? Mokytis jų nereikės, pirmasis kartojimas bus rytoj.',
+        'Pažymėti, kad žinote 5 ėjimus? Mokytis jų nereikės, pirmasis kartojimas bus rytoj.',
       ),
     ).toBeDefined();
     expect(server.mark).not.toHaveBeenCalled();
     server.mark.mockResolvedValue({ ok: true, changed: 5 });
     fireEvent.click(screen.getByRole('button', { name: lt.confirm }));
-    await screen.findByText('5 ėjimai pažymėti kaip žinomi.');
+    await screen.findByText('Pažymėta, kad žinote 5 ėjimus.');
     expect(sent(server.mark)).toEqual(LINE);
   });
 
@@ -120,7 +120,7 @@ describe('KnowThisMenu (R-58, R-147)', () => {
         name: 'Mokytis iš naujo (2 ėjimai)',
       }),
     );
-    await screen.findByText('2 ėjimai grąžinti mokytis.');
+    await screen.findByText('2 ėjimai grąžinti mokytis iš naujo.');
     expect(sent(server.again)).toEqual(LINE);
     expect(server.mark).not.toHaveBeenCalled();
   });

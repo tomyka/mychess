@@ -592,7 +592,7 @@
     "back": "Back",
     "counter": "{done} / {total}",
     "loading": "Loading training…",
-    "notFound": "This training is not there, or it is not yours.",
+    "notFound": "There is no such training, or it is not open to you.",
     "home": "Home",
     "empty": {
       "nothingDue": {
@@ -631,31 +631,33 @@
       "done": "Done"
     },
     "sync": {
-      "unsynced": "{count, plural, one {# result is not saved yet.} other {# results are not saved yet.}} We'll keep trying.",
+      "unsynced": "{count, plural, one {# result is not saved yet.} other {# results are not saved yet.}} We will keep trying.",
       "retry": "Try now"
     },
-    "review": {
-      "prompt": "Your move",
+    "drill": {
       "toMove": {
         "white": "White to move",
         "black": "Black to move"
       },
+      "line": "Line so far",
+      "end": "End session"
+    },
+    "review": {
+      "prompt": "Your move",
       "replied": "Opponent played {move}.",
       "correct": "Correct",
-      "lapse": "Not this move. Play the move the arrow shows.",
+      "lapse": "Not that move. Play the move the arrow shows.",
       "hinted": "Hint: move the highlighted piece.",
       "hint": "Hint",
-      "end": "End session",
-      "line": "Line so far",
       "twoAnswers": {
         "title": "Your other repertoires play another move here:",
         "item": "{name}: {move}"
       }
     },
     "learn": {
-      "arrows": "Play the arrow move",
+      "arrows": "Play the move the arrow shows",
       "blind": "Now without the arrow",
-      "wrong": "Not this move. Play the move the arrow shows.",
+      "wrong": "Not that move. Play the move the arrow shows.",
       "correct": "Correct",
       "known": "You know this move: play it."
     },

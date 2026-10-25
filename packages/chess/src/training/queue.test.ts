@@ -1,4 +1,5 @@
 import fc from 'fast-check';
+import { Chess } from 'chess.js';
 import { describe, expect, it } from 'vitest';
 import { importPgn } from '../pgn/import-pgn';
 import {
@@ -11,6 +12,7 @@ import {
 import { lines } from '../repertoire/walk';
 import {
   buildQueue,
+  dueCount,
   QUEUE_LIMITS,
   type QueueInput,
   type QueueLimits,
@@ -428,6 +430,126 @@ describe('buildQueue', () => {
                 Math.max(0, Math.min(9, newPerDay - learnedToday)) &&
               q.reviews.length === Math.min(12, sessionSize)
             );
+          },
+        ),
+      );
+    }).not.toThrow();
+  });
+});
+
+/** A number picked by the board alone, so a position always picks the same. */
+const boardPick = (fen: string): number =>
+  Array.from({ length: (fen.split(' ')[0] ?? '').length }, (_, i) =>
+    fen.charCodeAt(i),
+  ).reduce((sum, code) => sum + code, 0);
+
+/**
+ * Ten long games as chapters of one White repertoire, so it holds over 100
+ * White moves. Black's moves differ from game to game; White's answer
+ * depends on the position only, as a repertoire holds one answer per position.
+ */
+function longGames(): RepertoireGraph {
+  const chapters = Array.from({ length: 10 }, (_, game) => {
+    const chess = new Chess();
+    for (let ply = 0; ply < 60 && !chess.isGameOver(); ply += 1) {
+      const moves = chess.moves();
+      const pick =
+        chess.turn() === 'w' ? boardPick(chess.fen()) : game * 7 + ply * 3;
+      chess.move(must(moves[pick % moves.length]));
+    }
+    return `${chess
+      .history()
+      .map((san, i) => (i % 2 === 0 ? `${String(i / 2 + 1)}. ${san}` : san))
+      .join(' ')} *`;
+  });
+  return graph(chapters.join('\n\n'), 'white');
+}
+
+describe('dueCount', () => {
+  const [e4 = '', nf3 = ''] = playerKeys(white);
+  const only = (g: RepertoireGraph, active = true) => [
+    { id: 'r1', graph: g, active },
+  ];
+
+  it('counts the Reviews due at now, not those due later nor new moves', () => {
+    const reviews = new Map([
+      [e4, startReview(e4, new Date(now.getTime() - DAY_MS))],
+      [nf3, startReview(nf3, now)],
+    ]);
+    expect(dueCount({ repertoires: only(white), reviews }, now)).toBe(1);
+  });
+
+  it('counts a Review due exactly now', () => {
+    const reviews = new Map([[e4, startReview(e4, now)]]);
+    const due = must(reviews.get(e4)).fsrs.due;
+    expect(dueCount({ repertoires: only(white), reviews }, due)).toBe(1);
+    expect(
+      dueCount(
+        { repertoires: only(white), reviews },
+        new Date(due.getTime() - 1),
+      ),
+    ).toBe(0);
+  });
+
+  it('counts a key held by two repertoires once', () => {
+    const reviews = new Map([[e4, dueReview(e4, 1)]]);
+    const repertoires = [
+      { id: 'a', graph: white, active: true },
+      { id: 'b', graph: white, active: true },
+    ];
+    expect(dueCount({ repertoires, reviews }, now)).toBe(1);
+  });
+
+  it('ignores paused repertoires and Reviews no active repertoire holds', () => {
+    const blackKey = must(playerKeys(black)[0]);
+    const reviews = new Map([
+      [e4, dueReview(e4, 1)],
+      [blackKey, dueReview(blackKey, 1)],
+    ]);
+    const repertoires = [
+      { id: 'r1', graph: white, active: false },
+      { id: 'r2', graph: wide, active: true },
+    ];
+    expect(dueCount({ repertoires, reviews }, now)).toBe(0);
+  });
+
+  it('is not capped at the largest session size', () => {
+    const big = longGames();
+    const keys = new Set(playerKeys(big));
+    expect(keys.size).toBeGreaterThan(100);
+    const reviews = new Map([...keys].map((k) => [k, dueReview(k, 1)]));
+    expect(dueCount({ repertoires: only(big), reviews }, now)).toBe(keys.size);
+  });
+
+  it("equals buildQueue's review count when they fit in a session", () => {
+    const graphs = [white, black, wide];
+    const allKeys = [...new Set(graphs.flatMap(playerKeys))];
+    expect(() => {
+      fc.assert(
+        fc.property(
+          fc.array(fc.boolean(), { minLength: 3, maxLength: 3 }),
+          fc.array(fc.option(fc.integer({ min: -3, max: 3 })), {
+            minLength: allKeys.length,
+            maxLength: allKeys.length,
+          }),
+          (active, offsets) => {
+            const repertoires = graphs.map((g, i) => ({
+              id: `r${String(i)}`,
+              graph: g,
+              active: active[i] ?? false,
+            }));
+            const reviews = new Map<string, ReviewState>();
+            allKeys.forEach((k, i) => {
+              const days = offsets[i];
+              if (days !== null && days !== undefined) {
+                reviews.set(k, dueReview(k, days));
+              }
+            });
+            const q = queueOf(input(repertoires, reviews), now, {
+              reviews: 100,
+              newPerDay: 0,
+            });
+            return dueCount({ repertoires, reviews }, now) === q.reviews.length;
           },
         ),
       );

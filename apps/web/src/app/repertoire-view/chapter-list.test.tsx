@@ -273,7 +273,7 @@ describe('ChapterList for a player who trains it (R-58, R-147)', () => {
         name: MESSAGES.lt.training.know.knowChapter,
       }),
     );
-    expect(screen.getByText(/^Pažymėti 12 ėjimų kaip žinomus?/u)).toBeDefined();
+    expect(screen.getByText(/^Pažymėti, kad žinote 12 ėjimų?/u)).toBeDefined();
     const form = server.count.mock.lastCall?.[0];
     expect(form === undefined ? {} : Object.fromEntries(form)).toEqual({
       kind: 'chapter',
