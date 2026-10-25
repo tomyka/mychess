@@ -7,6 +7,7 @@ import {
   startReview,
   type RepertoireGraph,
 } from '@mychess/chess';
+import type { TrainingResult } from '@mychess/domain';
 import { and, eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -17,6 +18,7 @@ import {
   learnedBetween,
   markKnown,
   pauseAssignment,
+  recordResults,
   reviewsOf,
   type KnowScope,
 } from '../src';
@@ -233,6 +235,29 @@ describe('markKnown (R-58)', () => {
     await learned(BF4);
     await markKnown(db, 'p', chapter(), NOW);
     expect(await learnedBetween(db, 'p', EARLIER, LATER)).toBe(1);
+  });
+
+  it('waits for a batch learning the same moves in another order, without a deadlock', async () => {
+    // Holding inserts into reviews back lines both up at their first
+    // insert, so without serialising they would cross.
+    const hold = await openTransaction(client, [
+      'lock table reviews in share mode',
+    ]);
+    const learn = (moveKey: string, minutes: number): TrainingResult => ({
+      resultId: randomUUID(),
+      kind: 'learned',
+      moveKey,
+      repertoireId: own,
+      answeredAt: new Date(NOW.getTime() - minutes * 60_000),
+    });
+    const batch = recordResults(db, 'p', [learn(E3, 2), learn(D4, 1)], NOW);
+    const known = markKnown(db, 'p', chapter(), NOW);
+    await someoneWaitsForALock(client, 2);
+    await hold.finish();
+    const [answers, added] = await Promise.all([batch, known]);
+    const applied = answers.filter((a) => a.status === 'applied').length;
+    expect(applied + (added ?? 0)).toBe(3);
+    expect(await keysIn()).toEqual([D4, BF4, E3].sort());
   });
 });
 

@@ -7,6 +7,7 @@ import { loadTraining, parseTrainingSearch } from './training';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 const OTHER = '0b6c2a4e-1f3d-4e5a-8b7c-9d0e1f2a3b4c';
+const THIRD = '5e2d9c1b-7a3f-4b6e-8d0c-1f2e3a4b5c6d';
 const DB = { name: 'the db' };
 const NOW = new Date('2026-10-20T08:00:00Z');
 
@@ -64,6 +65,7 @@ const SNAPSHOT: TrainingSnapshot = {
       side: 'white',
     },
   ],
+  others: [{ id: THIRD, name: 'Kito', side: 'white', graph: LONDON_GRAPH }],
   reviews: new Map([
     ['k1|d4', review('k1|d4')],
     ['k2|Bf4', review('k2|Bf4')],
@@ -131,6 +133,7 @@ describe('loadTraining', () => {
           id: OTHER,
           name: 'Taimanovas',
           side: 'black',
+          kind: 'assigned',
           active: false,
           graph: TAIMANOV_GRAPH,
         },
@@ -138,10 +141,12 @@ describe('loadTraining', () => {
           id: ID,
           name: 'Londono sistema',
           side: 'white',
+          kind: 'own',
           active: true,
           graph: LONDON_GRAPH,
         },
       ],
+      others: [{ id: THIRD, name: 'Kito', side: 'white', graph: LONDON_GRAPH }],
       reviews: [review('k1|d4'), review('k2|Bf4')],
       learned: ['k1|d4', 'k2|Bf4'],
       learnedToday: 3,

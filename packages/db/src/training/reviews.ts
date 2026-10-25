@@ -65,11 +65,11 @@ function toReviewState(row: ReviewRow): ReviewState {
 }
 
 /**
- * A ReviewState as `reviews` columns: the FSRS card and the lapse history.
+ * A ReviewState's FSRS state as its FSRS columns in `reviews`.
  * Parsed rather than read field by field: ts-fsrs marks `elapsed_days`
  * deprecated, yet it is still stored.
  */
-const cardColumnsSchema = z
+const fsrsColumnsSchema = z
   .object({
     due: z.date(),
     stability: z.number(),
@@ -82,30 +82,30 @@ const cardColumnsSchema = z
     state: z.number().int(),
     last_review: z.date().optional(),
   })
-  .transform((card) => ({
-    due: card.due,
-    stability: card.stability,
-    difficulty: card.difficulty,
-    elapsedDays: card.elapsed_days,
-    scheduledDays: card.scheduled_days,
-    learningSteps: card.learning_steps,
-    reps: card.reps,
-    lapses: card.lapses,
-    state: card.state,
-    lastReview: card.last_review ?? null,
+  .transform((fsrs) => ({
+    due: fsrs.due,
+    stability: fsrs.stability,
+    difficulty: fsrs.difficulty,
+    elapsedDays: fsrs.elapsed_days,
+    scheduledDays: fsrs.scheduled_days,
+    learningSteps: fsrs.learning_steps,
+    reps: fsrs.reps,
+    lapses: fsrs.lapses,
+    state: fsrs.state,
+    lastReview: fsrs.last_review ?? null,
   }));
 
-/** The columns that store a Review: its key, card and lapse history. */
-export type ReviewColumns = z.output<typeof cardColumnsSchema> & {
+/** The columns that store a Review: its key, FSRS columns and lapse history. */
+export type ReviewColumns = z.output<typeof fsrsColumnsSchema> & {
   readonly moveKey: string;
   readonly lapseTimes: Date[];
 };
 
-/** The columns that store `review` (its key, card and lapse history). */
+/** The columns that store `review` (its key, FSRS columns and lapse history). */
 export function reviewRow(review: ReviewState): ReviewColumns {
   return {
     moveKey: review.key,
-    ...cardColumnsSchema.parse(review.fsrs),
+    ...fsrsColumnsSchema.parse(review.fsrs),
     lapseTimes: [...review.lapses],
   };
 }
@@ -173,11 +173,13 @@ const keyRowsSchema = z.array(
 
 /**
  * Keys learned or skipped: the R-129 learned set, one per requested player
- * (empty when they have none).
+ * (empty when they have none). Given `keys`, only those are read: a
+ * repertoire's player moves are all a done check needs.
  */
 export async function learnedKeys(
   db: Executor,
   playerIds: readonly string[],
+  keys?: readonly string[],
 ): Promise<Map<string, ReadonlySet<string>>> {
   const sets = new Map(playerIds.map((id) => [id, new Set<string>()]));
   if (playerIds.length === 0) return sets;
@@ -185,7 +187,12 @@ export async function learnedKeys(
     await db
       .select({ playerId: reviews.playerId, moveKey: reviews.moveKey })
       .from(reviews)
-      .where(inArray(reviews.playerId, [...playerIds])),
+      .where(
+        and(
+          inArray(reviews.playerId, [...playerIds]),
+          keys && inArray(reviews.moveKey, [...keys]),
+        ),
+      ),
   );
   for (const { playerId, moveKey } of rows) sets.get(playerId)?.add(moveKey);
   return sets;

@@ -112,6 +112,21 @@ describe('learnedKeys (R-129)', () => {
     );
   });
 
+  it('reads only the keys asked for, when given', async () => {
+    await writeReview(db, 'p', startReview('a', NOW), { learnedAt: NOW });
+    await writeReview(db, 'p', startReview('b', NOW), { skippedAt: NOW });
+    await writeReview(db, 'q', startReview('c', NOW), { learnedAt: NOW });
+    expect(await learnedKeys(db, ['p', 'q'], ['b', 'c', 'z'])).toEqual(
+      new Map([
+        ['p', new Set(['b'])],
+        ['q', new Set(['c'])],
+      ]),
+    );
+    expect(await learnedKeys(db, ['p'], [])).toEqual(
+      new Map([['p', new Set()]]),
+    );
+  });
+
   it('reads nothing for no players', async () => {
     await writeReview(db, 'p', startReview('a', NOW), { learnedAt: NOW });
     expect(await learnedKeys(db, [])).toEqual(new Map());

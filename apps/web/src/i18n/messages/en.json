@@ -579,5 +579,60 @@
     "daysLeft": "{count, plural, one {# day left} other {# days left}}",
     "keep": "Keep a copy",
     "decline": "No, thanks"
+  },
+  "training": {
+    "title": {
+      "review": "Today's review",
+      "learn": "New moves"
+    },
+    "mode": {
+      "review": "Review",
+      "learn": "Learn"
+    },
+    "back": "Back",
+    "counter": "{done} / {total}",
+    "loading": "Loading training…",
+    "notFound": "This training is not there, or it is not yours.",
+    "home": "Home",
+    "empty": {
+      "nothingDue": {
+        "title": "Nothing due now",
+        "next": "Next review: {when}",
+        "learn": "{count, plural, one {Learn # new move} other {Learn # new moves}}"
+      },
+      "limitReached": {
+        "title": "Today's new moves are done",
+        "body": "You can learn new moves again tomorrow."
+      },
+      "nothingLeft": {
+        "title": "Every move is learned",
+        "body": "There are no new moves left to learn."
+      },
+      "noMoves": {
+        "title": "Nothing to train",
+        "body": "This repertoire has no moves for your side yet. Add some by editing the repertoire, or import a PGN.",
+        "bodyAll": "Your repertoires have no moves for your side yet.",
+        "edit": "Edit the repertoire",
+        "import": "Import a PGN",
+        "repertoires": "My repertoires",
+        "bodyAssigned": "This assigned repertoire has no moves for your side yet."
+      }
+    },
+    "done": {
+      "title": "Session done",
+      "reviewed": "reviewed",
+      "correct": "correct",
+      "lapses": "lapses",
+      "learned": "learned",
+      "next": "Next review: {when}",
+      "progress": "{learned} learned · {due} due · {toLearn} to learn",
+      "continue": "Continue",
+      "learn": "Learn new moves",
+      "done": "Done"
+    },
+    "sync": {
+      "unsynced": "{count, plural, one {# result is not saved yet.} other {# results are not saved yet.}} We'll keep trying.",
+      "retry": "Try now"
+    }
   }
 }

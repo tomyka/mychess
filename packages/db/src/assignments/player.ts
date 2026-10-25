@@ -10,7 +10,9 @@ import {
   allLearned,
   moveChangesSchema,
   netMoveChanges,
+  playerKeys,
   type MoveChanges,
+  type RepertoireGraph,
   type Side,
   type TrainingRepertoire,
 } from '@mychess/chess';
@@ -165,12 +167,17 @@ interface ItemFacts {
   readonly learned: ReadonlySet<string>;
 }
 
-/** The player's learned set (R-129): the keys they learned or skipped. */
+/**
+ * The player's learned set (R-129) among the player moves of `graphs`:
+ * the keys of them they learned or skipped.
+ */
 async function learnedOf(
   db: Executor,
   playerId: string,
+  graphs: readonly RepertoireGraph[],
 ): Promise<ReadonlySet<string>> {
-  return (await learnedKeys(db, [playerId])).get(playerId) ?? new Set();
+  const keys = [...new Set(graphs.flatMap((graph) => playerKeys(graph)))];
+  return (await learnedKeys(db, [playerId], keys)).get(playerId) ?? new Set();
 }
 
 /** What the domain says of a live assignment at `now` (R-16, R-46, R-51, R-129, R-134). */
@@ -240,7 +247,11 @@ export function playerAssignments(
       tx,
       live.map(({ assignment }) => assignment.repertoireId),
     );
-    const learned = await learnedOf(tx, playerId);
+    const learned = await learnedOf(
+      tx,
+      playerId,
+      live.map(({ loaded }) => loaded.graph),
+    );
     return live
       .map((entry) =>
         itemOf(
@@ -339,7 +350,7 @@ export function assignedRepertoireForPlayer(
     const names = await namesOf(tx, [loaded.repertoire.ownerId]);
     const { paused, deadline, overdue } = statusOf(
       opened,
-      await learnedOf(tx, playerId),
+      await learnedOf(tx, playerId, [loaded.graph]),
       now,
     );
     return {

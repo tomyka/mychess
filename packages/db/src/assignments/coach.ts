@@ -9,7 +9,7 @@
  * is listed only while they are linked to the coach (the link check in
  * reach.ts). A fixed number of statements, whatever the number of players.
  */
-import { allLearned, type RepertoireGraph } from '@mychess/chess';
+import { allLearned, playerKeys, type RepertoireGraph } from '@mychess/chess';
 import {
   ownScope,
   assignmentBadges,
@@ -114,7 +114,7 @@ interface Listed {
 /**
  * Each reached player's name and badges at `now` (assignmentStatusOf), done
  * when they learned every player move of `graph` (R-129). One read of the
- * learned sets for every player.
+ * learned sets for every player, of the repertoire's player moves only.
  */
 async function listedOf(
   db: Executor,
@@ -123,7 +123,7 @@ async function listedOf(
 ): Promise<Listed[]> {
   const playerIds = facts.map((one) => one.playerId);
   const names = await namesOf(db, playerIds);
-  const learned = await learnedKeys(db, playerIds);
+  const learned = await learnedKeys(db, playerIds, playerKeys(graph));
   return facts.map((one) => {
     // The reached player's account cascades away with their link.
     const displayName = names.get(one.playerId);

@@ -27,6 +27,7 @@ import {
   reviewsOf,
   type StoredReview,
 } from './reviews';
+import { serialiseTraining } from './serialise';
 
 /** What the player marks: one move, one line of a chapter, or a chapter. */
 export type KnowScope =
@@ -152,6 +153,7 @@ export function markKnown(
   now: Date,
 ): Promise<number | undefined> {
   return db.transaction(async (tx) => {
+    await serialiseTraining(tx, playerId);
     const resolved = await resolve(tx, playerId, scope);
     if (resolved === undefined) return undefined;
     const locked = await lockReviews(tx, playerId, resolved.keys);
@@ -187,6 +189,7 @@ export function learnAgain(
   scope: KnowScope,
 ): Promise<number | undefined> {
   return db.transaction(async (tx) => {
+    await serialiseTraining(tx, playerId);
     const resolved = await resolve(tx, playerId, scope);
     if (resolved === undefined) return undefined;
     await lockReviews(tx, playerId, resolved.keys);

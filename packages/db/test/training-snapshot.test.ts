@@ -95,6 +95,14 @@ describe('trainingSnapshot', () => {
     expect(snapshot?.reviews.get(D4)).toEqual(d4);
   });
 
+  it('carries no others for every repertoire: the entries hold them all', async () => {
+    await repertoireOf('p', 'Mano');
+    await assignToP(await repertoireOf('c', 'Trenerio', KINGS));
+    const snapshot = await trainingSnapshot(db, 'p', ALL, NOW);
+    expect(snapshot?.entries).toHaveLength(2);
+    expect(snapshot?.others).toEqual([]);
+  });
+
   it('leaves out the reviews of a key no training repertoire holds: dormant (R-44)', async () => {
     await repertoireOf('p', 'Mano');
     await learned(D4);
@@ -166,6 +174,32 @@ describe('trainingSnapshot', () => {
         [D4, NF3].sort(),
       );
       expect(snapshot?.nextDue).toEqual(d4.fsrs.due);
+    });
+
+    it('carries every other training repertoire, paused included, for the two answers notice (S6 decision 6)', async () => {
+      const own = await repertoireOf('p', 'Mano');
+      const kings = await repertoireOf('c', 'Trenerio', KINGS);
+      const london = await repertoireOf('c', 'Londonas', QUEENS);
+      await assignToP(kings);
+      await assignToP(london);
+      const paused = await pauseAssignment(
+        db,
+        { playerId: 'p', repertoireId: kings, paused: true },
+        NOW,
+      );
+      expect(paused.ok).toBe(true);
+      const snapshot = await trainingSnapshot(
+        db,
+        'p',
+        { kind: 'repertoire', repertoireId: own },
+        NOW,
+      );
+      expect(
+        snapshot?.others.toSorted((a, b) => a.name.localeCompare(b.name)),
+      ).toEqual([
+        { id: london, name: 'Londonas', side: 'white', graph: QUEENS },
+        { id: kings, name: 'Trenerio', side: 'white', graph: KINGS },
+      ]);
     });
 
     it("gives undefined for another player's repertoire", async () => {

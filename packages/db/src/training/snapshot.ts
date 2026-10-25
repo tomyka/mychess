@@ -4,7 +4,12 @@
  * player's limits, read in one snapshot. The browser builds the queue and
  * the learn plan from it with chess's pure functions.
  */
-import { heldKeys, type ReviewState } from '@mychess/chess';
+import {
+  heldKeys,
+  type RepertoireGraph,
+  type ReviewState,
+  type Side,
+} from '@mychess/chess';
 import { dayEnd, dayStart, type TrainingSettings } from '@mychess/domain';
 import type { Executor } from '../client';
 import { isUuid } from '../ids';
@@ -19,9 +24,24 @@ export type TrainingScope =
   | { readonly kind: 'all' }
   | { readonly kind: 'repertoire'; readonly repertoireId: string };
 
+/** Another repertoire the player trains, for the "two answers" notice. */
+export interface OtherTrainingRepertoire {
+  readonly id: string;
+  readonly name: string;
+  readonly side: Side;
+  readonly graph: RepertoireGraph;
+}
+
 export interface TrainingSnapshot {
   /** In learnOrder (R-145), paused ones included; one repertoire when scoped to it. */
   readonly entries: readonly TrainingRepertoireEntry[];
+  /**
+   * Every other repertoire the player trains, paused ones included, so a
+   * scoped session still finds the other held repertoires that play a
+   * different move in a position (S6 decision 6). Empty for every
+   * repertoire: the entries hold them all.
+   */
+  readonly others: readonly OtherTrainingRepertoire[];
   /**
    * Reviews of keys the player's training repertoires hold (all of them,
    * paused ones included, so a held key is never dormant), by key: dormant
@@ -46,6 +66,20 @@ function scoped(
   const named = entries.filter((e) => e.repertoire.id === scope.repertoireId);
   return named.length === 0 ? undefined : named;
 }
+
+/** The entries of `all` that `entries` leaves out, as others. */
+const othersOf = (
+  all: readonly TrainingRepertoireEntry[],
+  entries: readonly TrainingRepertoireEntry[],
+): OtherTrainingRepertoire[] =>
+  all
+    .filter((entry) => !entries.includes(entry))
+    .map(({ repertoire, name, side }) => ({
+      id: repertoire.id,
+      name,
+      side,
+      graph: repertoire.graph,
+    }));
 
 /** The earliest due among `reviews` of keys `held`, or null. */
 function earliestDue(
@@ -98,6 +132,7 @@ export async function trainingSnapshot(
     const active = entries.filter((e) => e.repertoire.active);
     return {
       entries,
+      others: othersOf(all, entries),
       reviews,
       learned: new Set(reviews.keys()),
       learnedToday: await learnedBetween(

@@ -34,8 +34,18 @@ interface TrainingDataEntry {
   readonly id: string;
   readonly name: string;
   readonly side: Side;
+  /** The player's own, or assigned by a coach: which page it lives on. */
+  readonly kind: 'own' | 'assigned';
   /** False while its assignment is paused: no new Moves from it. */
   readonly active: boolean;
+  readonly graph: RepertoireGraph;
+}
+
+/** Another repertoire the player trains, for the "two answers" notice. */
+interface TrainingDataOther {
+  readonly id: string;
+  readonly name: string;
+  readonly side: Side;
   readonly graph: RepertoireGraph;
 }
 
@@ -44,6 +54,13 @@ export interface TrainingData {
   readonly mode: TrainingMode;
   /** In the learn order (R-145). */
   readonly entries: readonly TrainingDataEntry[];
+  /**
+   * Every other repertoire the player trains, paused ones included, when
+   * the session is scoped to one: where the browser finds the other held
+   * repertoires that play a different move (S6 decision 6). Empty for
+   * every repertoire.
+   */
+  readonly others: readonly TrainingDataOther[];
   /** The held Reviews (dormant ones left out). */
   readonly reviews: readonly ReviewState[];
   /** Keys learned or skipped among them. */
@@ -71,12 +88,19 @@ export async function loadTraining(
   if (snapshot === undefined) return undefined;
   return {
     mode,
-    entries: snapshot.entries.map(({ repertoire, name, side }) => ({
+    entries: snapshot.entries.map(({ repertoire, name, side, kind }) => ({
       id: repertoire.id,
       name,
       side,
+      kind,
       active: repertoire.active,
       graph: repertoire.graph,
+    })),
+    others: snapshot.others.map(({ id, name, side, graph }) => ({
+      id,
+      name,
+      side,
+      graph,
     })),
     reviews: [...snapshot.reviews.values()],
     learned: [...snapshot.learned],

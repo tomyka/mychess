@@ -185,6 +185,7 @@ export { recordResults, type ResultAnswer } from './training/results';
 export { setTrainingSettings, trainingSettings } from './training/settings';
 export {
   trainingSnapshot,
+  type OtherTrainingRepertoire,
   type TrainingScope,
   type TrainingSnapshot,
 } from './training/snapshot';

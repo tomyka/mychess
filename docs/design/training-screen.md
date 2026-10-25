@@ -154,10 +154,13 @@ Two cases, both in the panel, never over the board:
 1. **The session could not load.** Board as in Loading, panel shows an
    `error` icon, one line of what failed, and `[ Try again ]` (accent) plus
    `[ Back ]`. Focus moves to the message.
-2. **A result could not be saved** (drilling is online-only, R-7). An
-   `error-subtle` banner at the top of the panel says so; the drill does not
-   continue until the result is saved or the player retries. See open
-   question 2.
+2. **A result could not be saved yet** (R-60). The result waits in the
+   browser's queue, which retries in the background, and the drill goes
+   on. An `error-subtle` banner at the top of the panel says how many
+   results are not saved yet and offers `[ Try now ]` (secondary). Its line
+   is a `role="status"` region, always present and empty while every result
+   is saved, so a screen reader hears it when results start to wait. Focus
+   does not move. The banner goes when the queue is empty.
 
 ### Done
 
@@ -206,8 +209,8 @@ the panel.
 1. **After a lapse** (R-59): the expected move is shown with an arrow and the
    player must play it before the drill continues.
 2. **Failed save** (R-60): results queue locally and retry in the background;
-   the drill continues and a banner shows unsynced results. The blocking
-   error state drawn above must be redrawn as that banner.
+   the drill continues and a banner shows unsynced results (Error case 2
+   above).
 3. **Hint button** (R-61): review has one; it highlights the piece to move and
    counts as a lapse.
 4. **Session size** (R-62): 20 Due Moves by default (player setting 10-100),

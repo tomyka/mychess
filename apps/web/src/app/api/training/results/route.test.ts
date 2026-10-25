@@ -54,14 +54,16 @@ const result = (n: number) => ({
   answeredAt: '2026-10-20T07:59:00.000Z',
 });
 
-const post = (body: string) =>
+const post = (body: string, headers: HeadersInit = JSON_BODY) =>
   POST(
     new Request('http://x/api/training/results', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers,
       body,
     }),
   );
+
+const JSON_BODY = { 'content-type': 'application/json' };
 
 beforeEach(() => {
   vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
@@ -156,6 +158,29 @@ describe('POST /api/training/results', () => {
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(await response.json()).toEqual({ reason: 'training.badBatch' });
     expect(server.record).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['text/plain', { 'content-type': 'text/plain' }],
+    ['a form', { 'content-type': 'application/x-www-form-urlencoded' }],
+  ])(
+    'is 415 for %s, after counting and before recording',
+    async (_name, headers) => {
+      const response = await post(JSON.stringify([result(1)]), headers);
+      expect(response.status).toBe(415);
+      expect(response.headers.get('cache-control')).toBe('no-store');
+      expect(await response.json()).toEqual({ reason: 'training.badBatch' });
+      expect(server.counted).toHaveBeenCalledOnce();
+      expect(server.record).not.toHaveBeenCalled();
+    },
+  );
+
+  it('takes JSON with a charset', async () => {
+    const response = await post(JSON.stringify([result(1)]), {
+      'content-type': 'Application/JSON; charset=utf-8',
+    });
+    expect(response.status).toBe(200);
+    expect(server.record).toHaveBeenCalledOnce();
   });
 
   it('takes the largest batch', async () => {

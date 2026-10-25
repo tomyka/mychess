@@ -10,7 +10,11 @@ export type { PanelContent } from './repertoire-panel';
 export type { RepertoireView } from './view';
 export { useBrowseView } from './use-browse-view';
 export { useBuilderView } from './use-builder-view';
-export { RepertoireLoadingShell, SKELETON_LINE } from './loading-shell';
+export {
+  EMPTY_BOARD,
+  RepertoireLoadingShell,
+  SKELETON_LINE,
+} from './loading-shell';
 export { PANEL_LABEL } from './panel-styles';
 
 // A read-only view's top bar: its frame and the way back.

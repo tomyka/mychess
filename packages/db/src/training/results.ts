@@ -26,6 +26,7 @@ import type { Executor, Tx } from '../client';
 import { reviewResults, reviews } from '../training-schema';
 import { trainingEntries } from './entries';
 import { lockReviews, reviewRow } from './reviews';
+import { serialiseTraining } from './serialise';
 
 /** What became of one result of a batch. */
 export type ResultAnswer =
@@ -134,7 +135,7 @@ async function learn(
   return 'applied';
 }
 
-/** Grades a locked Review and stores its new card and lapse history. */
+/** Grades a locked Review and stores its new FSRS columns and lapse history. */
 async function regrade(
   rec: Recording,
   decision: Extract<Decision, { kind: 'grade' }>,
@@ -182,9 +183,16 @@ const inAnswerOrder = (batch: readonly TrainingResult[], now: Date) =>
 
 const idRowsSchema = z.array(z.object({ resultId: z.string() }));
 
-/** The batch's result ids already in the log. */
+/**
+ * The batch's result ids this player already logged. Another account's ids
+ * are not read, so no id can be probed through a `duplicate` answer. Should
+ * a result collide with another account's id (client uuids make that
+ * practically impossible), it applies normally and the log insert's
+ * conflict clause drops its row.
+ */
 async function loggedIds(
   tx: Tx,
+  playerId: string,
   batch: readonly TrainingResult[],
 ): Promise<Set<string>> {
   const rows = idRowsSchema.parse(
@@ -192,9 +200,12 @@ async function loggedIds(
       .select({ resultId: reviewResults.resultId })
       .from(reviewResults)
       .where(
-        inArray(
-          reviewResults.resultId,
-          batch.map((r) => r.resultId),
+        and(
+          eq(reviewResults.playerId, playerId),
+          inArray(
+            reviewResults.resultId,
+            batch.map((r) => r.resultId),
+          ),
         ),
       ),
   );
@@ -225,7 +236,8 @@ async function trainedBy(
  * the batch's order. Results apply in answer order, `answeredAt` clamped
  * to [now - 7 days, now]; a result id already recorded, or seen earlier in
  * the batch, is a duplicate and nothing is done for it. Every other result
- * is logged, applied or not.
+ * is logged, applied or not. The player's training writes run one at a
+ * time (serialiseTraining).
  */
 export function recordResults(
   db: Executor,
@@ -235,6 +247,7 @@ export function recordResults(
 ): Promise<ResultAnswer[]> {
   if (batch.length === 0) return Promise.resolve([]);
   return db.transaction(async (tx) => {
+    await serialiseTraining(tx, playerId);
     const rec: Recording = {
       tx,
       playerId,
@@ -246,7 +259,7 @@ export function recordResults(
         [...new Set(batch.map((r) => r.moveKey))].sort(),
       ),
     };
-    const seen = await loggedIds(tx, batch);
+    const seen = await loggedIds(tx, playerId, batch);
     const answers: { index: number; answer: ResultAnswer }[] = [];
     const log: (typeof reviewResults.$inferInsert)[] = [];
     for (const { result, index, at } of inAnswerOrder(batch, now)) {

@@ -579,5 +579,60 @@
     "daysLeft": "{count, plural, one {Liko # diena} few {Liko # dienos} other {Liko # dienų}}",
     "keep": "Pasilikti kopiją",
     "decline": "Ne, ačiū"
+  },
+  "training": {
+    "title": {
+      "review": "Šiandienos kartojimas",
+      "learn": "Nauji ėjimai"
+    },
+    "mode": {
+      "review": "Kartojimas",
+      "learn": "Mokymasis"
+    },
+    "back": "Atgal",
+    "counter": "{done} / {total}",
+    "loading": "Kraunama treniruotė…",
+    "notFound": "Šios treniruotės nėra arba ji jums nepasiekiama.",
+    "home": "Į pradžią",
+    "empty": {
+      "nothingDue": {
+        "title": "Šiuo metu kartoti nieko nereikia",
+        "next": "Kitas kartojimas: {when}",
+        "learn": "{count, plural, one {Išmokti # naują ėjimą} few {Išmokti # naujus ėjimus} other {Išmokti # naujų ėjimų}}"
+      },
+      "limitReached": {
+        "title": "Šiandienos naujų ėjimų riba pasiekta",
+        "body": "Naujų ėjimų vėl galėsite mokytis rytoj."
+      },
+      "nothingLeft": {
+        "title": "Visi ėjimai išmokti",
+        "body": "Naujų ėjimų mokytis nebeliko."
+      },
+      "noMoves": {
+        "title": "Nėra ką treniruoti",
+        "body": "Šiame repertuare dar nėra jūsų spalvos ėjimų. Pridėkite jų redaguodami repertuarą arba importuokite PGN.",
+        "bodyAll": "Jūsų repertuaruose dar nėra jūsų spalvos ėjimų.",
+        "edit": "Redaguoti repertuarą",
+        "import": "Importuoti PGN",
+        "repertoires": "Mano repertuarai",
+        "bodyAssigned": "Šiame priskirtame repertuare dar nėra jūsų spalvos ėjimų."
+      }
+    },
+    "done": {
+      "title": "Sesija baigta",
+      "reviewed": "pakartota",
+      "correct": "teisingai",
+      "lapses": "suklydimai",
+      "learned": "išmokta",
+      "next": "Kitas kartojimas: {when}",
+      "progress": "{learned} išmokta · {due, plural, one {# kartotinas} few {# kartotini} other {# kartotinų}} · {toLearn} liko išmokti",
+      "continue": "Tęsti",
+      "learn": "Mokytis naujų ėjimų",
+      "done": "Baigti"
+    },
+    "sync": {
+      "unsynced": "{count, plural, one {# rezultatas dar neišsaugotas.} few {# rezultatai dar neišsaugoti.} other {# rezultatų dar neišsaugota.}} Bandysime dar kartą patys.",
+      "retry": "Bandyti dabar"
+    }
   }
 }

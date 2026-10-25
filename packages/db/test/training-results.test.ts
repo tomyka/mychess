@@ -331,6 +331,46 @@ describe('recordResults', () => {
     expect(await logOf()).toMatchObject([{ applied: false }]);
   });
 
+  it("applies a result whose id another player logged, not a duplicate: their log row stays and this one's is skipped", async () => {
+    await seedPlayer(db, 'q', 'q@example.lt');
+    const theirs = await createRepertoire(db, {
+      ownerId: 'q',
+      side: 'white',
+      name: 'Kito',
+      graph: QUEENS,
+      now: NOW,
+    });
+    const learn = result('learned', D4);
+    expect(
+      await recordResults(db, 'q', [{ ...learn, repertoireId: theirs }], NOW),
+    ).toEqual([answer(learn, 'applied')]);
+    expect(await record([learn])).toEqual([answer(learn, 'applied')]);
+    expect(await reviewOf(D4)).toBeDefined();
+    expect(await logOf()).toMatchObject([{ player_id: 'q' }]);
+  });
+
+  it('serialises two batches learning the same new moves in opposite order, without a deadlock', async () => {
+    // Holding inserts into reviews back lines both batches up at their
+    // first insert, so without serialising they would cross.
+    const hold = await openTransaction(client, [
+      'lock table reviews in share mode',
+    ]);
+    const first = record([result('learned', D4, 2), result('learned', BF4, 1)]);
+    const second = record([
+      result('learned', BF4, 2),
+      result('learned', D4, 1),
+    ]);
+    await someoneWaitsForALock(client, 2);
+    await hold.finish();
+    const statuses = (await Promise.all([first, second]))
+      .flat()
+      .map((a) => a.status)
+      .sort();
+    expect(statuses).toEqual(['applied', 'applied', 'stale', 'stale']);
+    expect(await reviewOf(D4)).toBeDefined();
+    expect(await reviewOf(BF4)).toBeDefined();
+  });
+
   it('locks every touched review in one statement and logs the batch in one insert', async () => {
     await learned(D4);
     await learned(BF4);
