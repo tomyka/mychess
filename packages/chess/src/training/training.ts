@@ -42,3 +42,7 @@ export { grade, startReview } from './schedule';
 export type { Outcome, ReviewState } from './schedule';
 export type { Scope, TrainingRepertoire } from './scope';
 export { reviewStateSchema, unreviewed } from './stored-review';
+export { lineTo } from './line-to';
+export type { LineTo } from './line-to';
+export { learnPlan } from './learn-plan';
+export type { LearnLine, LearnPlanStep, LearnStepKind } from './learn-plan';
