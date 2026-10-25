@@ -658,6 +658,48 @@
       "wrong": "Ne šis ėjimas. Sužaiskite ėjimą, kurį rodo rodyklė.",
       "correct": "Teisingai",
       "known": "Šį ėjimą jau mokate: sužaiskite jį."
+    },
+    "notTrained": "To pakeisti negalima: šio repertuaro netreniruojate, jis pristabdytas arba pasikeitė.",
+    "today": {
+      "title": "Šiandienos kartojimas",
+      "due": "{count, plural, one {# kartotinas} few {# kartotini} other {# kartotinų}} · apie {minutes} min.",
+      "start": "Pradėti kartojimą",
+      "learn": "{count, plural, one {Išmokti # naują ėjimą} few {Išmokti # naujus ėjimus} other {Išmokti # naujų ėjimų}}",
+      "nothingDue": "Šiuo metu kartoti nieko nereikia.",
+      "next": "Kitas kartojimas: {when}"
+    },
+    "repertoire": {
+      "review": "Kartoti ({count})",
+      "learn": "Mokytis ({count})"
+    },
+    "know": {
+      "section": "Treniruotė",
+      "move": "Šis ėjimas: {move}",
+      "line": "Šis variantas",
+      "toggle": "Žinau arba mokytis iš naujo: {subject}",
+      "loading": "Skaičiuojama…",
+      "knowMove": "Žinau šį ėjimą",
+      "knowLine": "Žinau šį variantą",
+      "knowChapter": "Žinau šį skyrių",
+      "question": "{count, plural, one {Pažymėti # ėjimą kaip žinomą?} few {Pažymėti # ėjimus kaip žinomus?} other {Pažymėti # ėjimų kaip žinomus?}} Mokytis jų nereikės, pirmasis kartojimas bus rytoj.",
+      "confirm": "Pažymėti",
+      "cancel": "Atšaukti",
+      "again": "{count, plural, one {Mokytis iš naujo (# ėjimas)} few {Mokytis iš naujo (# ėjimai)} other {Mokytis iš naujo (# ėjimų)}}",
+      "nothing": "Visi šie ėjimai jau kartojami.",
+      "marked": "{count, plural, one {# ėjimas pažymėtas kaip žinomas.} few {# ėjimai pažymėti kaip žinomi.} other {# ėjimų pažymėta kaip žinomi.}}",
+      "returned": "{count, plural, one {# ėjimas grąžintas mokytis.} few {# ėjimai grąžinti mokytis.} other {# ėjimų grąžinta mokytis.}}",
+      "failed": "Nepavyko. Bandykite dar kartą."
+    },
+    "settings": {
+      "title": "Treniruotė",
+      "sessionSizeLabel": "Kartojimų per sesiją",
+      "sessionSizeHint": "Nuo 10 iki 100.",
+      "newPerDayLabel": "Naujų ėjimų per dieną",
+      "newPerDayHint": "Nuo 0 iki 50; 0 – tik kartojimas.",
+      "submit": "Išsaugoti",
+      "saved": "Išsaugota.",
+      "sessionSize": "Kartojimų per sesiją turi būti sveikasis skaičius nuo 10 iki 100.",
+      "newPerDay": "Naujų ėjimų per dieną turi būti sveikasis skaičius nuo 0 iki 50."
     }
   }
 }

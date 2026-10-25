@@ -21,6 +21,7 @@ const server = vi.hoisted(() => {
       groups: { id: string; name: string }[];
     }[];
     coachesOf: string[];
+    trainingOf: string[];
   } = {
     google: { GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'secret' },
     links: [],
@@ -29,6 +30,7 @@ const server = vi.hoisted(() => {
     coachSince: null,
     coaches: [],
     coachesOf: [],
+    trainingOf: [],
   };
   return state;
 });
@@ -100,6 +102,11 @@ vi.mock('@mychess/db', async (original) => ({
     server.coachesOf.push(playerId);
     return Promise.resolve(server.coaches);
   },
+  // The account's training limits, as the repository reads them.
+  trainingSettings: (_db: unknown, playerId: string) => {
+    server.trainingOf.push(playerId);
+    return Promise.resolve({ sessionSize: 30, newPerDay: 5 });
+  },
 }));
 
 vi.mock('./coaching-actions', () => ({
@@ -113,6 +120,7 @@ vi.mock('./actions', () => ({
   updateProfileAction: vi.fn(),
   deleteAccountAction: vi.fn(),
   dismissLichessUnlinkedAction: vi.fn(),
+  updateTrainingSettingsAction: vi.fn(),
 }));
 
 type Search = Record<string, string | string[] | undefined>;
@@ -139,10 +147,11 @@ beforeEach(() => {
   server.coachSince = null;
   server.coaches = [];
   server.coachesOf = [];
+  server.trainingOf = [];
 });
 
 describe('the settings page', () => {
-  it('has the profile, Coach mode, coaches, sign-in methods, data and delete sections, and a way home', async () => {
+  it('has the profile, training, Coach mode, coaches, sign-in methods, data and delete sections, and a way home', async () => {
     await renderPage();
     expect(
       screen.getByRole('heading', { level: 1, name: s.title }),
@@ -153,6 +162,7 @@ describe('the settings page', () => {
         .map((heading) => heading.textContent),
     ).toEqual([
       s.profile.title,
+      MESSAGES.lt.training.settings.title,
       s.coachMode.title,
       s.myCoaches.title,
       s.providers.title,
@@ -170,6 +180,18 @@ describe('the settings page', () => {
     expect(
       screen.getByLabelText<HTMLInputElement>(s.profile.displayName).value,
     ).toBe('Rūta Jonaitė');
+  });
+
+  it("shows the session account's training limits (R-62, R-146)", async () => {
+    await renderPage();
+    const t = MESSAGES.lt.training.settings;
+    expect(server.trainingOf).toEqual(['a1']);
+    expect(
+      screen.getByLabelText<HTMLInputElement>(t.sessionSizeLabel).value,
+    ).toBe('30');
+    expect(
+      screen.getByLabelText<HTMLInputElement>(t.newPerDayLabel).value,
+    ).toBe('5');
   });
 
   it('shows the account’s links and the error code a link came back with', async () => {

@@ -3,11 +3,12 @@
 // plan from. The page reads the database only through this loader, which
 // starts from the session account: a value from the URL only narrows the
 // scope, and the snapshot query checks it is a repertoire the player trains.
-import type { RepertoireGraph, ReviewState, Side } from '@mychess/chess';
 import { trainingSnapshot, type TrainingScope } from '@mychess/db';
-import type { Account, TrainingSettings } from '@mychess/domain';
+import { SECONDS_PER_REVIEW, type Account } from '@mychess/domain';
 import { z } from 'zod';
 import type { TrainingMode } from '../lib/routes';
+import { trainingCounts, type TrainingCounts } from '../lib/training-counts';
+import type { TrainingData } from '../lib/training-data';
 import { getDb } from './db';
 
 const searchSchema = z.object({
@@ -27,51 +28,6 @@ export function parseTrainingSearch(
         ? { kind: 'all' }
         : { kind: 'repertoire', repertoireId: r },
   };
-}
-
-/** One repertoire the player trains, as the browser needs it. */
-interface TrainingDataEntry {
-  readonly id: string;
-  readonly name: string;
-  readonly side: Side;
-  /** The player's own, or assigned by a coach: which page it lives on. */
-  readonly kind: 'own' | 'assigned';
-  /** False while its assignment is paused: no new Moves from it. */
-  readonly active: boolean;
-  readonly graph: RepertoireGraph;
-}
-
-/** Another repertoire the player trains, for the "two answers" notice. */
-interface TrainingDataOther {
-  readonly id: string;
-  readonly name: string;
-  readonly side: Side;
-  readonly graph: RepertoireGraph;
-}
-
-/** What the training page sends the browser: plain data only. */
-export interface TrainingData {
-  readonly mode: TrainingMode;
-  /** In the learn order (R-145). */
-  readonly entries: readonly TrainingDataEntry[];
-  /**
-   * Every other repertoire the player trains, paused ones included, when
-   * the session is scoped to one: where the browser finds the other held
-   * repertoires that play a different move (S6 decision 6). Empty for
-   * every repertoire.
-   */
-  readonly others: readonly TrainingDataOther[];
-  /** The held Reviews (dormant ones left out). */
-  readonly reviews: readonly ReviewState[];
-  /** Keys learned or skipped among them. */
-  readonly learned: readonly string[];
-  /** Moves learned in the player's day so far (R-147). */
-  readonly learnedToday: number;
-  readonly settings: TrainingSettings;
-  /** The earliest due of the active entries' Reviews, for the empty state. */
-  readonly nextDue: Date | null;
-  /** The instant the snapshot was read at. */
-  readonly now: Date;
 }
 
 /**
@@ -109,4 +65,44 @@ export async function loadTraining(
     nextDue: snapshot.nextDue,
     now,
   };
+}
+
+/** Home's "Today" block (U1-M1-3): what is due and to learn, before starting. */
+export interface TodaySummary extends TrainingCounts {
+  /** The estimated minutes the due moves take, rounded up. */
+  readonly minutes: number;
+  /** The earliest due among the active repertoires' Reviews, or null. */
+  readonly nextDue: Date | null;
+}
+
+/**
+ * The session account's "Today" block over every repertoire they train
+ * (R-142): every due move, not a session's worth, and the new moves today's
+ * allowance leaves (R-146).
+ */
+export async function todaySummary(account: Account): Promise<TodaySummary> {
+  const data = await loadTraining(account, 'review', { kind: 'all' });
+  if (data === undefined)
+    return { due: 0, toLearn: 0, minutes: 0, nextDue: null };
+  const counts = trainingCounts(data);
+  return {
+    ...counts,
+    minutes: Math.ceil((counts.due * SECONDS_PER_REVIEW) / 60),
+    nextDue: data.nextDue,
+  };
+}
+
+/**
+ * The session account's due and to-learn counts for one repertoire, for its
+ * page's train buttons; null when they do not train it.
+ */
+export async function repertoireTraining(
+  account: Account,
+  repertoireId: string,
+): Promise<TrainingCounts | null> {
+  const data = await loadTraining(account, 'review', {
+    kind: 'repertoire',
+    repertoireId,
+  });
+  return data === undefined ? null : trainingCounts(data);
 }

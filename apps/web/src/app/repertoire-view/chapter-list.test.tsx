@@ -13,6 +13,18 @@ import { MESSAGES } from '../../i18n/locales';
 import { ChapterList, type ChapterBuilder } from './chapter-list';
 import type { FieldOutcome } from './field-save';
 
+const server = vi.hoisted(() => ({
+  count: vi.fn<(form: FormData) => Promise<unknown>>(),
+}));
+
+vi.mock('../repertuarai/know-actions', () => ({
+  knowCountAction: server.count,
+  markKnownAction: vi.fn(),
+  learnAgainAction: vi.fn(),
+}));
+
+const REPERTOIRE = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
+
 const at = (id: string, nameSource: Chapter['nameSource']): Chapter => ({
   id,
   rootKey: START_KEY,
@@ -218,5 +230,60 @@ describe('ChapterList in builder mode', () => {
       'disabled',
       true,
     );
+  });
+});
+
+describe('ChapterList for a player who trains it (R-58, R-147)', () => {
+  const toggles = () =>
+    screen.queryAllByRole('button', { name: /^Žinau arba mokytis iš naujo: / });
+
+  function renderTrained(training: boolean): void {
+    render(
+      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+        <ChapterList
+          chapters={CHAPTERS}
+          chapterId="c2"
+          ecoNames={{ D02: 'Londono sistema' }}
+          onSelect={vi.fn()}
+          training={
+            training
+              ? {
+                  repertoireId: REPERTOIRE,
+                  counts: { due: 0, toLearn: 0 },
+                }
+              : undefined
+          }
+        />
+      </NextIntlClientProvider>,
+    );
+    fireEvent.click(disclosure());
+  }
+
+  it('gives each chapter row its own menu, for that chapter', async () => {
+    server.count.mockResolvedValue({ ok: true, know: 12, again: 0 });
+    renderTrained(true);
+    expect(toggles().map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Žinau arba mokytis iš naujo: Londono sistema',
+      'Žinau arba mokytis iš naujo: Prieš karaliaus indą',
+      'Žinau arba mokytis iš naujo: Skyrius 3',
+    ]);
+    fireEvent.click(toggles()[1] ?? disclosure());
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: MESSAGES.lt.training.know.knowChapter,
+      }),
+    );
+    expect(screen.getByText(/^Pažymėti 12 ėjimų kaip žinomus?/u)).toBeDefined();
+    const form = server.count.mock.lastCall?.[0];
+    expect(form === undefined ? {} : Object.fromEntries(form)).toEqual({
+      kind: 'chapter',
+      repertoireId: REPERTOIRE,
+      chapterId: 'c2',
+    });
+  });
+
+  it('has no menu where the viewer does not train it', () => {
+    renderTrained(false);
+    expect(toggles()).toEqual([]);
   });
 });

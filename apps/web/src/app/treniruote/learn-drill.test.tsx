@@ -8,11 +8,11 @@ import type { JSX } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON, TAIMANOV } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/locales';
-import type { TrainingData } from '../../server/training';
+import type { TrainingData } from '../../lib/training-data';
 import type { DrillClock } from './drill-input';
 import type { FrameParts } from './drill';
 import { LearnDrill } from './learn-drill';
-import { learnLines, newKeys } from './training-start';
+import { learnLines, newKeys } from '../../lib/training-counts';
 
 const T = MESSAGES.lt.training;
 const MOVE_INPUT = MESSAGES.lt.board.moveInput.label;

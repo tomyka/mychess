@@ -1,8 +1,11 @@
+// The start state, and the counts it and home's "Today" block read
+// (lib/training-counts.ts), over one snapshot fixture.
 import { moveKey, playerKeys, START_KEY, startReview } from '@mychess/chess';
 import { describe, expect, it } from 'vitest';
-import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
-import type { TrainingData } from '../../server/training';
-import { learnLines, newKeys, startState } from './training-start';
+import { graphOf, LONDON, TAIMANOV } from '../../../test/fixtures/repertoires';
+import type { TrainingData } from '../../lib/training-data';
+import { learnLines, newKeys, trainingCounts } from '../../lib/training-counts';
+import { startState } from './training-start';
 
 const NOW = new Date('2026-10-25T08:00:00Z');
 const LATER = new Date('2026-10-26T08:00:00Z');
@@ -159,5 +162,61 @@ describe('the lines a learn session teaches', () => {
 
   it('teaches nothing once every move is learned', () => {
     expect(learnLines(data({ learned: LONDON_KEYS }))).toEqual([]);
+  });
+});
+
+describe('the counts a page shows before training (U1-M1-3)', () => {
+  const taimanov = graphOf(TAIMANOV, 'black');
+  const both = [
+    ...data().entries,
+    {
+      id: 'r2',
+      name: 'Taimanov',
+      side: 'black' as const,
+      kind: 'assigned' as const,
+      active: true,
+      graph: taimanov,
+    },
+  ];
+  const allKeys = [...LONDON_KEYS, ...new Set(playerKeys(taimanov))];
+  const [, BF4 = D4] = LONDON_KEYS;
+
+  it('counts every due review, not only a session of them', () => {
+    expect(allKeys.length).toBeGreaterThan(10);
+    expect(
+      trainingCounts(
+        data({
+          entries: both,
+          reviews: allKeys.map((key) => reviewDue(key, NOW)),
+          learned: allKeys,
+          settings: { sessionSize: 10, newPerDay: 10 },
+        }),
+      ),
+    ).toEqual({ due: allKeys.length, toLearn: 0 });
+  });
+
+  it('counts the reviews due by now and the new moves allowed today', () => {
+    expect(
+      trainingCounts(
+        data({
+          reviews: [reviewDue(D4, NOW), reviewDue(BF4, LATER)],
+          learned: [D4, BF4],
+          settings: { sessionSize: 20, newPerDay: 3 },
+          learnedToday: 1,
+        }),
+      ),
+    ).toEqual({ due: 1, toLearn: 2 });
+  });
+
+  it('counts nothing from a paused repertoire', () => {
+    expect(
+      trainingCounts(
+        data({
+          entries: data().entries.map((e) => ({ ...e, active: false })),
+          reviews: [reviewDue(D4, NOW)],
+          learned: [D4],
+        }),
+      ),
+    ).toEqual({ due: 0, toLearn: 0 });
   });
 });

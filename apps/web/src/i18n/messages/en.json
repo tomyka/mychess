@@ -658,6 +658,48 @@
       "wrong": "Not this move. Play the move the arrow shows.",
       "correct": "Correct",
       "known": "You know this move: play it."
+    },
+    "notTrained": "This cannot be changed: you do not train this repertoire, it is paused, or it has changed.",
+    "today": {
+      "title": "Today's review",
+      "due": "{count} due · about {minutes} min",
+      "start": "Start review",
+      "learn": "{count, plural, one {Learn # new move} other {Learn # new moves}}",
+      "nothingDue": "Nothing due now.",
+      "next": "Next review: {when}"
+    },
+    "repertoire": {
+      "review": "Review ({count})",
+      "learn": "Learn ({count})"
+    },
+    "know": {
+      "section": "Training",
+      "move": "This move: {move}",
+      "line": "This line",
+      "toggle": "I know this or learn again: {subject}",
+      "loading": "Counting…",
+      "knowMove": "I know this move",
+      "knowLine": "I know this line",
+      "knowChapter": "I know this chapter",
+      "question": "{count, plural, one {Mark # move as known?} other {Mark # moves as known?}} You skip learning {count, plural, one {it} other {them}}; the first review is tomorrow.",
+      "confirm": "Mark as known",
+      "cancel": "Cancel",
+      "again": "{count, plural, one {Learn again (# move)} other {Learn again (# moves)}}",
+      "nothing": "All these moves are already in review.",
+      "marked": "{count, plural, one {# move marked as known.} other {# moves marked as known.}}",
+      "returned": "{count, plural, one {# move is back to learn.} other {# moves are back to learn.}}",
+      "failed": "That did not work. Try again."
+    },
+    "settings": {
+      "title": "Training",
+      "sessionSizeLabel": "Reviews per session",
+      "sessionSizeHint": "From 10 to 100.",
+      "newPerDayLabel": "New moves a day",
+      "newPerDayHint": "From 0 to 50; 0 means review only.",
+      "submit": "Save",
+      "saved": "Saved.",
+      "sessionSize": "Reviews per session must be a whole number from 10 to 100.",
+      "newPerDay": "New moves a day must be a whole number from 0 to 50."
     }
   }
 }

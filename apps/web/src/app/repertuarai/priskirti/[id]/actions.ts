@@ -12,6 +12,7 @@ import {
   setAssignedPersonalNote,
 } from '@mychess/db';
 import { ASSIGNMENT_REFUSALS, REPERTOIRE_ISSUES } from '@mychess/domain';
+import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { repertoireRoute } from '../../../../lib/routes';
@@ -57,9 +58,10 @@ export async function pauseAction(
     { playerId: player.id, ...request.data },
     new Date(),
   );
-  return done.ok
-    ? { paused: request.data.paused }
-    : { paused: previous.paused, refusal: NOT_ASSIGNED };
+  if (!done.ok) return { paused: previous.paused, refusal: NOT_ASSIGNED };
+  // The page counts its train buttons again: a paused one trains nothing.
+  refresh();
+  return { paused: request.data.paused };
 }
 
 /**

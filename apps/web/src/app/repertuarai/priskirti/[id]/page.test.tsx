@@ -1,7 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../../../i18n/locales';
 import type { AssignedRepertoirePage } from '../../../../server/assignment-pages';
@@ -13,6 +13,23 @@ const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 
 const loader = vi.hoisted(() => ({
   data: vi.fn<(id: unknown) => Promise<AssignedRepertoirePage>>(),
+  training: vi.fn<(account: unknown, id: string) => Promise<unknown>>(),
+}));
+
+// The session account; requireOnboarded's redirects are session.ts's own.
+vi.mock('../../../../server/session', () => ({
+  requireOnboarded: () => Promise.resolve({ id: 'rokas' }),
+}));
+
+// Which counts it reads, and for whom, is the loader's own test.
+vi.mock('../../../../server/training', () => ({
+  repertoireTraining: loader.training,
+}));
+
+vi.mock('../../know-actions', () => ({
+  knowCountAction: vi.fn(),
+  markKnownAction: vi.fn(),
+  learnAgainAction: vi.fn(),
 }));
 
 // The loader's access check (404 unless assigned to the session player
@@ -45,24 +62,33 @@ const renderLt = (node: ReactNode) =>
     </NextIntlClientProvider>,
   );
 
+/** Rokas's London from Jonas, as the loader gives it. */
+function london(paused: boolean): AssignedRepertoirePage {
+  return {
+    repertoire: {
+      id: ID,
+      name: 'Londono sistema',
+      side: 'white',
+      version: 1,
+    },
+    coachName: 'Jonas',
+    graph: graphOf(LONDON),
+    personalNotes: {},
+    paused,
+    deadline: null,
+    overdue: false,
+    ecoNames: {},
+    changes: { added: [], removed: [], commentsChanged: 0 },
+  };
+}
+
 describe('the assigned repertoire page', () => {
+  beforeEach(() => {
+    loader.training.mockReset().mockResolvedValue({ due: 3, toLearn: 5 });
+  });
+
   it('loads the repertoire the path names and shows it', async () => {
-    loader.data.mockResolvedValue({
-      repertoire: {
-        id: ID,
-        name: 'Londono sistema',
-        side: 'white',
-        version: 1,
-      },
-      coachName: 'Jonas',
-      graph: graphOf(LONDON),
-      personalNotes: {},
-      paused: false,
-      deadline: null,
-      overdue: false,
-      ecoNames: {},
-      changes: { added: [], removed: [], commentsChanged: 0 },
-    });
+    loader.data.mockResolvedValue(london(false));
     renderLt(
       await AssignedRepertoirePageView({
         params: Promise.resolve({ id: ID }),
@@ -73,6 +99,33 @@ describe('the assigned repertoire page', () => {
       screen.getByRole('heading', { level: 1, name: 'Londono sistema' }),
     ).toBeDefined();
     expect(screen.getByRole('application')).toBeDefined();
+  });
+
+  it('trains it from its page, with its counts (R-142)', async () => {
+    loader.data.mockResolvedValue(london(false));
+    renderLt(
+      await AssignedRepertoirePageView({ params: Promise.resolve({ id: ID }) }),
+    );
+    expect(loader.training).toHaveBeenCalledWith({ id: 'rokas' }, ID);
+    expect(
+      screen.getByRole('link', { name: 'Kartoti (3)' }).getAttribute('href'),
+    ).toBe(`/treniruote?mode=review&r=${ID}`);
+    expect(screen.getByRole('link', { name: 'Mokytis (5)' })).toBeDefined();
+  });
+
+  it('hides the train buttons and "I know this" while paused (R-46)', async () => {
+    loader.data.mockResolvedValue(london(true));
+    renderLt(
+      await AssignedRepertoirePageView({ params: Promise.resolve({ id: ID }) }),
+    );
+    expect(screen.queryByRole('link', { name: /Kartoti/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Mokytis/ })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /Žinau arba mokytis iš naujo/ }),
+    ).toBeNull();
+    expect(
+      screen.getByText(MESSAGES.lt.assignment.pause.pausedHint),
+    ).toBeDefined();
   });
 });
 

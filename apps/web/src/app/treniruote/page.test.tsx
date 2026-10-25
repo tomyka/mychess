@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/locales';
-import type { TrainingData } from '../../server/training';
+import type { TrainingData } from '../../lib/training-data';
 import TrainingLoading from './loading';
 import TrainingNotFound from './not-found';
 import TrainingPage from './page';

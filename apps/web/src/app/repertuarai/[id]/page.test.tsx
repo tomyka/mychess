@@ -14,6 +14,23 @@ const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 const loader = vi.hoisted(() => ({
   data: vi.fn<(id: unknown) => Promise<RepertoirePageData>>(),
   assign: vi.fn<(id: string) => Promise<CoachAssignData>>(),
+  training: vi.fn<(account: unknown, id: string) => Promise<unknown>>(),
+}));
+
+// The session account; requireOnboarded's redirects are session.ts's own.
+vi.mock('../../../server/session', () => ({
+  requireOnboarded: () => Promise.resolve({ id: 'rokas' }),
+}));
+
+// Which counts it reads, and for whom, is the loader's own test.
+vi.mock('../../../server/training', () => ({
+  repertoireTraining: loader.training,
+}));
+
+vi.mock('../know-actions', () => ({
+  knowCountAction: vi.fn(),
+  markKnownAction: vi.fn(),
+  learnAgainAction: vi.fn(),
 }));
 
 // The loader's access check (404 for anything not the viewer's) and its
@@ -91,6 +108,7 @@ function renderIn(element: React.ReactNode): void {
 
 beforeEach(() => {
   loader.assign.mockReset().mockResolvedValue(NOT_COACHING);
+  loader.training.mockReset().mockResolvedValue({ due: 4, toLearn: 6 });
 });
 
 describe('the repertoire page', () => {
@@ -128,6 +146,23 @@ describe('the repertoire page', () => {
       screen.getByRole('heading', { level: 1, name: 'Londono sistema' }),
     ).toBeDefined();
     expect(screen.getByRole('application')).toBeDefined();
+  });
+
+  it('trains the repertoire from its page, with its counts (R-142)', async () => {
+    loader.data.mockResolvedValue(LONDON_DATA);
+    renderIn(
+      await RepertoirePage({
+        params: Promise.resolve({ id: ID }),
+        searchParams: NO_QUERY,
+      }),
+    );
+    expect(loader.training).toHaveBeenCalledWith({ id: 'rokas' }, ID);
+    expect(
+      screen.getByRole('link', { name: 'Kartoti (4)' }).getAttribute('href'),
+    ).toBe(`/treniruote?mode=review&r=${ID}`);
+    expect(
+      screen.getByRole('link', { name: 'Mokytis (6)' }).getAttribute('href'),
+    ).toBe(`/treniruote?mode=learn&r=${ID}`);
   });
 
   it('shows the assign panel only in Coach mode (R-15)', async () => {

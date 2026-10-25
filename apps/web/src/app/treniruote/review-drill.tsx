@@ -4,7 +4,7 @@ import { reviewCounts } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useMemo, type JSX } from 'react';
-import type { TrainingData } from '../../server/training';
+import type { TrainingData } from '../../lib/training-data';
 import { Board } from '../board/board';
 import { useSquareWords } from '../board/square-words';
 import { SECONDARY_BUTTON } from '../buttons';
@@ -18,7 +18,7 @@ import {
   sessionCounts,
   type DrillState,
 } from './review-drill-state';
-import { toLearn } from './training-start';
+import { toLearn } from '../../lib/training-counts';
 import { TwoAnswersNotice, type NamedRepertoire } from './two-answers-notice';
 import { useReviewDrill, type ReviewDrill as Drill } from './use-review-drill';
 

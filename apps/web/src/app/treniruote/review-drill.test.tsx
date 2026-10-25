@@ -15,7 +15,7 @@ import type { JSX } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON, TAIMANOV } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/locales';
-import type { TrainingData } from '../../server/training';
+import type { TrainingData } from '../../lib/training-data';
 import type { FrameParts } from './drill';
 import { ReviewDrill } from './review-drill';
 import type { DrillClock } from './drill-input';

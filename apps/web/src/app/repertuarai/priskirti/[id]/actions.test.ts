@@ -18,6 +18,7 @@ const server = vi.hoisted(() => ({
   seen: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   setNote: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   fork: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  refresh: vi.fn(),
 }));
 
 /** The error the mocked `redirect` throws, naming where it sends. */
@@ -35,6 +36,8 @@ vi.mock('next/navigation', () => ({
     throw new Redirected(to);
   },
 }));
+
+vi.mock('next/cache', () => ({ refresh: server.refresh }));
 
 vi.mock('@mychess/db', () => ({
   pauseAssignment: server.pause,
@@ -64,6 +67,7 @@ beforeEach(() => {
   server.pause.mockReset().mockResolvedValue({ ok: true, value: undefined });
   server.seen.mockReset().mockResolvedValue({ ok: true, value: undefined });
   server.setNote.mockReset().mockResolvedValue({ ok: true, value: undefined });
+  server.refresh.mockReset();
   server.fork
     .mockReset()
     .mockResolvedValue({ ok: true, value: { forkId: 'f-1' } });
@@ -97,6 +101,8 @@ describe('pauseAction (R-46)', () => {
       { playerId: 'rokas', repertoireId: ID, paused: false },
       expect.any(Date),
     );
+    // The page's train buttons count it again (R-46, R-142).
+    expect(server.refresh).toHaveBeenCalledOnce();
   });
 
   it('keeps the state and says so when the assignment is not the player’s', async () => {
@@ -106,6 +112,7 @@ describe('pauseAction (R-46)', () => {
       formOf({ repertoireId: ID, paused: 'true' }),
     );
     expect(state).toEqual({ paused: false, refusal: 'assignment.notFound' });
+    expect(server.refresh).not.toHaveBeenCalled();
   });
 
   it('reads a malformed form as not found and writes nothing', async () => {

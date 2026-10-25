@@ -4,6 +4,7 @@ import { assignmentBadges } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useEffect, type JSX } from 'react';
 import { ROUTES } from '../../../../lib/routes';
+import type { TrainingCounts } from '../../../../lib/training-counts';
 import type { AssignedRepertoirePage } from '../../../../server/assignment-pages';
 import {
   BackLink,
@@ -94,9 +95,16 @@ function useAssignedPanel(
   data: AssignedRepertoirePage,
   notes: Notes,
   actions: { readonly pause: PauseHandle; readonly forkAction: ForkAction },
+  training: TrainingCounts | null,
 ): PanelContent {
   const t = useTranslations();
+  // A paused assignment trains nothing new (R-46): no train buttons and no
+  // "I know this"; the pause control says why.
+  const trains = training !== null && !actions.pause.state.paused;
   return {
+    training: trains
+      ? { repertoireId: data.repertoire.id, counts: training }
+      : undefined,
     lead: (
       <ChangesSummary
         graph={data.graph}
@@ -130,9 +138,12 @@ function useAssignedPanel(
 export function AssignedView({
   data,
   forkAction,
+  training = null,
 }: {
   readonly data: AssignedRepertoirePage;
   readonly forkAction: ForkAction;
+  /** The player's due and to-learn counts of it, as the page loaded. */
+  readonly training?: TrainingCounts | null;
 }): JSX.Element {
   const { id, version } = data.repertoire;
   const view = useBrowseView(data.graph, data.repertoire.side);
@@ -140,7 +151,7 @@ export function AssignedView({
     setPersonalNoteAction({ repertoireId: id, moveKey, text }),
   );
   const pause = usePause(data.paused);
-  const panel = useAssignedPanel(data, notes, { pause, forkAction });
+  const panel = useAssignedPanel(data, notes, { pause, forkAction }, training);
   useEffect(() => {
     markSeenAction({ repertoireId: id, seenVersion: version }).catch(
       () => undefined,

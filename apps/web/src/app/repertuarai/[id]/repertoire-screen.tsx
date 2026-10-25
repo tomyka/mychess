@@ -20,6 +20,7 @@ import {
   type MoveCoachNote,
   type Notes,
   type PanelContent,
+  type PanelTraining,
   type RepertoireView,
 } from '../../repertoire-view';
 import { savePersonalNoteAction } from './actions';
@@ -61,6 +62,8 @@ export interface RepertoireScreenProps {
   readonly forkNotes: readonly ForkNote[];
   /** How many players have it by assignment, for the delete dialog (R-131). */
   readonly assignedPlayers?: number | undefined;
+  /** The owner's training of it (R-142); null when they do not train it. */
+  readonly training?: PanelTraining | null;
   /** The assign panel, in Coach mode only (R-15); last in the panel. */
   readonly assignPanel?: ReactNode;
 }
@@ -186,6 +189,7 @@ function ownerPanel(screen: Screen, notes: Notes): PanelContent {
         onSaveNote={notes.save(key)}
       />
     ),
+    training: props.training ?? undefined,
     notedMoves: notes.byMove,
     keptNoteMoves: new Set(props.forkNotes.map((note) => note.moveKey)),
     footer: (

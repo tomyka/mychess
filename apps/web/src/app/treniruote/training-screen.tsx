@@ -8,7 +8,7 @@ import {
   ROUTES,
   trainingPath,
 } from '../../lib/routes';
-import type { TrainingData } from '../../server/training';
+import type { TrainingData } from '../../lib/training-data';
 import type { FrameParts, TrainingLinks } from './drill';
 import { EmptyPanel, type ScopedRepertoire } from './empty-panel';
 import { LearnDrill } from './learn-drill';

@@ -28,7 +28,7 @@ import {
 import type { BoardView } from '../board/board-config';
 import { destsOf, isKey, squaresOf } from '../board/squares';
 import type { Flash } from './drill-input';
-import { newKeys } from './training-start';
+import { newKeys } from '../../lib/training-counts';
 
 export interface LearnDrillState {
   readonly lines: readonly LearnLine[];

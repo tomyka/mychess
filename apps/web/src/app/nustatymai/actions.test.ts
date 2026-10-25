@@ -1,6 +1,6 @@
 import { ACCOUNT_REFUSALS } from '@mychess/domain';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { deleteAccountAction } from './actions';
+import { deleteAccountAction, updateTrainingSettingsAction } from './actions';
 
 const DB = { name: 'the db' };
 const TO = 'ruta@example.lt';
@@ -10,6 +10,8 @@ const server = vi.hoisted(() => ({
   deleteAccount: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   send: vi.fn<(message: unknown) => Promise<void>>(),
   signOut: vi.fn<() => Promise<void>>(),
+  setTraining: vi.fn<(...args: unknown[]) => Promise<void>>(),
+  refresh: vi.fn(),
 }));
 
 /** The error the mocked `redirect` throws, naming where it sends. */
@@ -28,11 +30,12 @@ vi.mock('next/navigation', () => ({
   },
 }));
 
-vi.mock('next/cache', () => ({ refresh: vi.fn() }));
+vi.mock('next/cache', () => ({ refresh: server.refresh }));
 
 vi.mock('@mychess/db', () => ({
   deleteConfirmedAccount: server.deleteAccount,
   updateProfile: vi.fn(),
+  setTrainingSettings: server.setTraining,
 }));
 
 vi.mock('../../server/db', () => ({ getDb: () => DB }));
@@ -66,6 +69,8 @@ beforeEach(() => {
   });
   server.send.mockReset().mockResolvedValue(undefined);
   server.signOut.mockReset().mockResolvedValue(undefined);
+  server.setTraining.mockReset().mockResolvedValue(undefined);
+  server.refresh.mockReset();
   logged.mockClear();
   return () => {
     vi.useRealTimers();
@@ -136,5 +141,52 @@ describe('deleteAccountAction (R-40, R-82, R-87)', () => {
     });
     expect(server.send).not.toHaveBeenCalled();
     expect(server.signOut).not.toHaveBeenCalled();
+  });
+});
+
+/** The training form with its two fields. */
+function trainingForm(sessionSize: string, newPerDay: string): FormData {
+  const form = new FormData();
+  form.set('sessionSize', sessionSize);
+  form.set('newPerDay', newPerDay);
+  return form;
+}
+
+describe('updateTrainingSettingsAction (R-62, R-146)', () => {
+  it('saves the limits for the session account and says so', async () => {
+    const form = trainingForm('40', '0');
+    form.set('playerId', 'someone-else');
+    expect(await updateTrainingSettingsAction({}, form)).toEqual({
+      saved: true,
+    });
+    expect(server.setTraining).toHaveBeenCalledExactlyOnceWith(
+      DB,
+      'a1',
+      { sessionSize: 40, newPerDay: 0 },
+      NOW,
+    );
+    expect(server.refresh).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ['a session of 9', '9', '10', 'training.settings.sessionSize'],
+    ['a session of 101', '101', '10', 'training.settings.sessionSize'],
+    ['a session of 20.5', '20.5', '10', 'training.settings.sessionSize'],
+    ['51 new moves a day', '20', '51', 'training.settings.newPerDay'],
+    ['-1 new moves a day', '20', '-1', 'training.settings.newPerDay'],
+    ['a blank new moves a day', '20', '', 'training.settings.newPerDay'],
+    ['a blank session', ' ', '10', 'training.settings.sessionSize'],
+  ])('refuses %s and saves nothing', async (_name, size, perDay, refusal) => {
+    expect(
+      await updateTrainingSettingsAction({}, trainingForm(size, perDay)),
+    ).toEqual({ refusal });
+    expect(server.setTraining).not.toHaveBeenCalled();
+    expect(server.refresh).not.toHaveBeenCalled();
+  });
+
+  it('refuses a form without the fields', async () => {
+    expect(await updateTrainingSettingsAction({}, new FormData())).toEqual({
+      refusal: 'training.settings.sessionSize',
+    });
   });
 });

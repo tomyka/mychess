@@ -7,7 +7,7 @@ import {
   type Side,
 } from '@mychess/chess';
 import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
-import type { TrainingData } from '../../server/training';
+import type { TrainingData } from '../../lib/training-data';
 import { MOVE_DURATION, type BoardView } from '../board/board-config';
 import {
   BROWSER_CLOCK,
@@ -33,7 +33,7 @@ import {
   repertoireProgress,
   type RepertoireProgress,
 } from './session-progress';
-import { learnLines, reviewsOf } from './training-start';
+import { learnLines, reviewsOf } from '../../lib/training-counts';
 import type { ResultSync } from './use-result-sync';
 
 export interface LearnDrill extends MoveInput {

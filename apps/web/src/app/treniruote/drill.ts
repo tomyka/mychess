@@ -3,7 +3,7 @@
 // empty states; a drill owns its session, from the first item to its done
 // summary, and draws itself through `frame`.
 import type { JSX, ReactNode } from 'react';
-import type { TrainingData } from '../../server/training';
+import type { TrainingData } from '../../lib/training-data';
 import type { DrillClock } from './drill-input';
 import type { ResultSync } from './use-result-sync';
 

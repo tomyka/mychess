@@ -1,11 +1,13 @@
 'use client';
 
-import { chapterOf } from '@mychess/chess';
+import { chapterOf, type Chapter } from '@mychess/chess';
 import type { JSX, ReactNode } from 'react';
 import { ChapterList, type ChapterBuilder } from './chapter-list';
 import type { CommentEditor } from './comment';
 import { MoveList, type MoveListProps } from './move-list';
+import { KnowSection } from './know-section';
 import { PositionBody } from './position-body';
+import { TrainButtons, type PanelTraining } from './train-buttons';
 import type { RepertoireView } from './view';
 
 /** What a view puts in the panel; the panel derives the rest from the view. */
@@ -27,6 +29,12 @@ export interface PanelContent {
   readonly noteKind?: MoveListProps['noteKind'];
   /** The moves carrying a coach note kept by a fork (R-47). */
   readonly keptNoteMoves?: MoveListProps['keptNoteMoves'];
+  /**
+   * The player's training of it: the train buttons first, and "I know
+   * this" on the current move, its line and each chapter (R-58, R-142).
+   * Absent where the viewer does not train it.
+   */
+  readonly training?: PanelTraining | undefined;
   /** What follows the moves (the owner's actions and sharing). */
   readonly footer?: ReactNode;
 }
@@ -38,11 +46,42 @@ interface RepertoirePanelProps {
   readonly content: PanelContent;
 }
 
+/** The position section, then "I know this" for a player who trains it. */
+function ChapterPosition({
+  chapter,
+  state,
+  content,
+}: {
+  readonly chapter: Chapter;
+  readonly state: RepertoireView['state'];
+  readonly content: PanelContent;
+}): JSX.Element {
+  return (
+    <>
+      <PositionBody
+        intro={chapter.intro}
+        move={state.path.at(-1) ?? null}
+        commentEditor={content.commentEditor}
+        commentLabel={content.commentLabel}
+        renderNotes={content.renderNotes}
+      />
+      {content.training === undefined ? null : (
+        <KnowSection
+          training={content.training}
+          graph={state.graph}
+          chapterId={chapter.id}
+          path={state.path}
+        />
+      )}
+    </>
+  );
+}
+
 /**
- * The scrolling part of the panel: chapters, then the position (the
- * chapter's intro, or the current move's comment and notes), then the
- * moves. The DOM order is the visual order at every width, so Tab follows
- * what the eye sees (WCAG 2.4.3).
+ * The scrolling part of the panel: for a player who trains it the train
+ * buttons, then chapters, the position (the chapter's intro, or the
+ * current move's comment and notes, then "I know this"), then the moves. The DOM
+ * order is the visual order at every width, so Tab follows what the eye sees (WCAG 2.4.3).
  */
 export function RepertoirePanel({
   view,
@@ -56,6 +95,9 @@ export function RepertoirePanel({
       : chapterOf(state.graph, state.chapterId);
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-gutter py-3 lg:px-0">
+      {content.training === undefined ? null : (
+        <TrainButtons training={content.training} />
+      )}
       {content.lead}
       <ChapterList
         chapters={state.graph.chapters}
@@ -65,17 +107,12 @@ export function RepertoirePanel({
           dispatch({ type: 'chapter', chapterId });
         }}
         builder={content.chapterBuilder}
+        training={content.training}
       />
       {chapter === undefined ? (
         content.empty
       ) : (
-        <PositionBody
-          intro={chapter.intro}
-          move={state.path.at(-1) ?? null}
-          commentEditor={content.commentEditor}
-          commentLabel={content.commentLabel}
-          renderNotes={content.renderNotes}
-        />
+        <ChapterPosition chapter={chapter} state={state} content={content} />
       )}
       {chapter === undefined ? null : (
         // On a desktop the moves scroll on their own, so stepping keeps the

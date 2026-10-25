@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../i18n/locales';
+import type { TodaySummary } from '../server/training';
 import { HomeView } from './home-view';
 
 vi.mock('next/navigation', () => ({
@@ -16,6 +17,9 @@ vi.mock('./fork-offer-actions', () => ({
   acceptForkOfferAction: vi.fn(),
   declineForkOfferAction: vi.fn(),
 }));
+
+/** Nothing due and nothing to learn: the block's quietest state. */
+const QUIET: TodaySummary = { due: 0, toLearn: 0, minutes: 0, nextDue: null };
 
 const greetings = { lt: 'Sveiki, Rūta!', en: 'Hello, Rūta!' } as const;
 const signOut = { lt: 'Atsijungti', en: 'Sign out' } as const;
@@ -32,15 +36,19 @@ describe('HomeView', () => {
             isCoach={false}
             fromCoach={[]}
             offers={[]}
+            today={QUIET}
           />
         </NextIntlClientProvider>,
       );
       // The brand is a label, as on the other pages; the greeting is the
-      // page's one heading, the h1.
+      // page's one h1, today's review the first section under it.
       expect(screen.getByText('mychess').tagName).toBe('P');
       expect(
         screen.getAllByRole('heading').map((h) => [h.tagName, h.textContent]),
-      ).toEqual([['H1', greetings[locale]]]);
+      ).toEqual([
+        ['H1', greetings[locale]],
+        ['H2', MESSAGES[locale].training.today.title],
+      ]);
       expect(
         screen.getByRole('button', { name: signOut[locale] }),
       ).toBeDefined();
@@ -64,7 +72,13 @@ describe('HomeView', () => {
   it('links a coach to the coach dashboard', () => {
     render(
       <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
-        <HomeView displayName="Jonas" isCoach fromCoach={[]} offers={[]} />
+        <HomeView
+          displayName="Jonas"
+          isCoach
+          fromCoach={[]}
+          offers={[]}
+          today={QUIET}
+        />
       </NextIntlClientProvider>,
     );
     expect(
@@ -105,15 +119,41 @@ describe('HomeView', () => {
               daysLeft: 30,
             },
           ]}
+          today={QUIET}
         />
       </NextIntlClientProvider>,
     );
     expect(
       screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent),
-    ).toEqual([MESSAGES.lt.assignment.home.title, MESSAGES.lt.forkOffer.title]);
+    ).toEqual([
+      MESSAGES.lt.training.today.title,
+      MESSAGES.lt.assignment.home.title,
+      MESSAGES.lt.forkOffer.title,
+    ]);
     expect(screen.getByRole('link', { name: 'Londono sistema' })).toBeDefined();
     expect(
       screen.getByRole('button', { name: MESSAGES.lt.forkOffer.keep }),
     ).toBeDefined();
+  });
+
+  // U1-M1-3: the due count and the estimate show before starting.
+  it("shows today's review with its count and the way to start", () => {
+    render(
+      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+        <HomeView
+          displayName="Rokas"
+          isCoach={false}
+          fromCoach={[]}
+          offers={[]}
+          today={{ due: 12, toLearn: 0, minutes: 2, nextDue: null }}
+        />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByText('12 kartotinų · apie 2 min.')).toBeDefined();
+    expect(
+      screen
+        .getByRole('link', { name: MESSAGES.lt.training.today.start })
+        .getAttribute('href'),
+    ).toBe('/treniruote?mode=review');
   });
 });

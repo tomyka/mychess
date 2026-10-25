@@ -10,12 +10,15 @@ import {
   useTransition,
   type JSX,
   type KeyboardEvent,
+  type ReactNode,
   type RefObject,
 } from 'react';
 import { isMessageKey } from '../../i18n/message-key';
 import { DANGER_BUTTON, SECONDARY_BUTTON } from '../buttons';
 import { StatusLine } from '../status-line';
 import type { FieldOutcome } from './field-save';
+import { KnowThisMenu } from './know-this-menu';
+import type { PanelTraining } from './train-buttons';
 
 /** What the chapter list can change in builder mode. */
 export interface ChapterBuilder {
@@ -32,6 +35,8 @@ export interface ChapterRowProps {
   readonly title: string;
   readonly onChoose: (chapterId: string) => void;
   readonly builder: ChapterBuilder | undefined;
+  /** The player's training of it: the row gets its "I know this" menu. */
+  readonly training?: PanelTraining | undefined;
 }
 
 const ROW =
@@ -264,10 +269,39 @@ function RowEdits({
   );
 }
 
+/** The row's line: ending in its "I know this" menu for a player who trains it. */
+function RowLine({
+  chapterId,
+  title,
+  training,
+  children,
+}: {
+  readonly chapterId: string;
+  readonly title: string;
+  readonly training: PanelTraining | undefined;
+  readonly children: ReactNode;
+}): JSX.Element {
+  if (training === undefined)
+    return <div className="flex items-center gap-1">{children}</div>;
+  return (
+    <KnowThisMenu
+      fields={{
+        kind: 'chapter',
+        repertoireId: training.repertoireId,
+        chapterId,
+      }}
+      subject={title}
+    >
+      {children}
+    </KnowThisMenu>
+  );
+}
+
 /**
  * One chapter of the list: choosing it selects it; in builder mode it also
  * renames in place and deletes after an inline confirmation
- * (docs/design/repertoire-screen.md, Chapters in builder mode).
+ * (docs/design/repertoire-screen.md, Chapters in builder mode). For a
+ * player who trains it, the row ends in its "I know this" menu (R-58).
  */
 export function ChapterRow({
   chapter,
@@ -275,6 +309,7 @@ export function ChapterRow({
   title,
   onChoose,
   builder,
+  training,
 }: ChapterRowProps): JSX.Element {
   const { step, setStep, refs, closeTo } = useRowSteps();
   if (builder !== undefined && step === 'renaming')
@@ -297,8 +332,8 @@ export function ChapterRow({
         onCancel={closeTo('delete')}
       />
     );
-  return (
-    <div className="flex items-center gap-1">
+  const row = (
+    <>
       <button
         type="button"
         aria-current={current ? 'true' : undefined}
@@ -318,6 +353,11 @@ export function ChapterRow({
           onStep={setStep}
         />
       )}
-    </div>
+    </>
+  );
+  return (
+    <RowLine chapterId={chapter.id} title={title} training={training}>
+      {row}
+    </RowLine>
   );
 }

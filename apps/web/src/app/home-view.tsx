@@ -3,15 +3,18 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { ROUTES } from '../lib/routes';
 import type { HomeAssignments } from '../server/assignment-pages';
+import type { TodaySummary } from '../server/training';
 import { ForkOffers } from './fork-offers';
 import { FromMyCoach } from './from-my-coach';
 import { SignOutButton } from './sign-out-button';
+import { TodayBlock } from './today-block';
 
 const LINK = 'inline-flex min-h-touch items-center text-accent underline';
 
 /**
  * The home page for a signed-in, onboarded account; a coach also gets the
- * way to the coach dashboard (C-M1-1). Under the links, what the player's
+ * way to the coach dashboard (C-M1-1). Under the links, today's review
+ * (R-142, U1-M1-3), then what the player's
  * coaches assigned them and the copies they can still keep, each shown
  * only when there is any.
  */
@@ -20,9 +23,11 @@ export function HomeView({
   isCoach,
   fromCoach,
   offers,
+  today,
 }: {
   readonly displayName: string;
   readonly isCoach: boolean;
+  readonly today: TodaySummary;
 } & HomeAssignments): JSX.Element {
   const t = useTranslations('app');
   return (
@@ -47,6 +52,7 @@ export function HomeView({
         </Link>
         <SignOutButton />
       </div>
+      <TodayBlock summary={today} />
       <FromMyCoach assignments={fromCoach} />
       <ForkOffers offers={offers} />
     </main>

@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState, type JSX } from 'react';
 import { chapterLabel } from '../../lib/chapter-label';
 import { SECONDARY_BUTTON } from '../buttons';
 import { ChapterRow, type ChapterBuilder } from './chapter-row';
+import type { PanelTraining } from './train-buttons';
 
 export type { ChapterBuilder } from './chapter-row';
 
@@ -17,6 +18,8 @@ export interface ChapterListProps {
   readonly onSelect: (chapterId: string) => void;
   /** Builder mode: add, rename and delete chapters. */
   readonly builder?: ChapterBuilder | undefined;
+  /** The player's training of it: each row gets its "I know this" menu. */
+  readonly training?: PanelTraining | undefined;
 }
 
 /** Desktop opens the list by default; jsdom and phones keep it closed. */
@@ -84,6 +87,7 @@ function ChapterRows({
   title,
   onChoose,
   builder,
+  training,
   onAdd,
 }: {
   readonly id: string;
@@ -92,6 +96,7 @@ function ChapterRows({
   readonly title: (chapter: Chapter) => string;
   readonly onChoose: (chapterId: string) => void;
   readonly builder: ChapterBuilder | undefined;
+  readonly training: PanelTraining | undefined;
   readonly onAdd: () => void;
 }): JSX.Element {
   const t = useTranslations('repertoires.chapters');
@@ -106,6 +111,7 @@ function ChapterRows({
               title={title(c)}
               onChoose={onChoose}
               builder={builder}
+              training={training}
             />
           </li>
         ))}
@@ -136,6 +142,7 @@ export function ChapterList({
   ecoNames,
   onSelect,
   builder,
+  training,
 }: ChapterListProps): JSX.Element | null {
   const t = useTranslations();
   const listId = useId();
@@ -172,6 +179,7 @@ export function ChapterList({
           chapterId={chapterId}
           title={title}
           builder={builder}
+          training={training}
           onChoose={(id) => {
             onSelect(id);
             close();

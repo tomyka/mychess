@@ -1,4 +1,4 @@
-import { playerCoaches } from '@mychess/db';
+import { playerCoaches, trainingSettings } from '@mychess/db';
 import { deletableAccount, isCoach } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
@@ -15,6 +15,7 @@ import { LichessUnlinkedNotice } from './lichess-unlinked-notice';
 import { MyCoaches } from './my-coaches';
 import { ProfileForm } from './profile-form';
 import { Providers } from './providers';
+import { TrainingForm } from './training-form';
 import { SECONDARY_BUTTON } from '../buttons';
 import { SECTION, SECTION_TITLE, TEXT_LINK } from './styles';
 
@@ -74,10 +75,12 @@ export default async function SettingsPage({
   const params = await searchParams;
   const fresh = await hasFreshSession();
   const coaches = await playerCoaches(getDb(), account.id);
+  const training = await trainingSettings(getDb(), account.id);
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-gutter py-8 sm:px-gutter-wide">
       <Header />
       <ProfileForm displayName={account.displayName} locale={account.locale} />
+      <TrainingForm settings={training} />
       <CoachMode isCoach={isCoach(account)} />
       <MyCoaches
         coaches={coaches.map(({ id, displayName, groups }) => ({
