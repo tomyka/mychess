@@ -211,7 +211,10 @@ async function trainedBy(
   return new Map(
     entries.map(({ repertoire }) => [
       repertoire.id,
-      { active: repertoire.active, keys: new Set(playerKeys(repertoire.graph)) },
+      {
+        active: repertoire.active,
+        keys: new Set(playerKeys(repertoire.graph)),
+      },
     ]),
   );
 }
