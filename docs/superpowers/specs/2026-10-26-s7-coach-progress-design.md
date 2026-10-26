@@ -61,25 +61,31 @@ assignment rows with overdue, paused, forked and done exist since S5
 
 ## Design
 
-### Chess (`packages/chess/src/training/progress.ts`)
+### Chess (`packages/chess/src/training/coach-progress.ts`)
 
 - **`moveState(review, now)`**: `notStarted` (no Review), `skipped`
   (skipped_at set, never graded, not due), `due` (due <= now), `learned`.
   A skipped Move whose first Review is now due counts as `due`.
 - **`progressOf(graph, reviews, now)`**: for the Repertoire, each chapter
-  and each line (in line order), the four counts, `percentLearned` and
-  `mastered` (the existing `mastered`). A line is labelled by its Moves from
-  the chapter's start.
+  and each line, the four counts and `mastered` (the existing `mastered`);
+  `percentLearned(counts)` beside it. A line is a root-to-leaf path of the
+  chapter's tree (`paths()`, linear in the chapter's size; `lines()` can
+  grow exponentially through transpositions), labelled by its Moves from
+  the chapter's start; a line without an own Move is left out.
 
 ### Domain (`packages/domain`)
 
-- **`CoachSubject`** gains `{ kind: 'progress', repertoireId }`.
-  `canCoachSee` allows it when the Repertoire is shared with this coach or
-  assigned by this coach to this Player and not forked; a forked one is
-  refused `access.forked` (the UI shows the badge only); anything else
+- **`canCoachSeeProgress(coachId, playerId, repertoireId, facts)`**, built
+  on `canCoachSee` (refined while planning: `CoachSubject` and
+  `CoachAccessFacts` stay as they are, so their 13 constructions do not
+  change). It allows a Repertoire shared with this coach, or assigned by
+  this coach to this Player and not forked. A forked one is refused
+  `access.forked` (the UI shows the badge only); anything else
   `access.notShared`.
-- **`CoachAccessFacts`** gains `assignedRepertoireIds` (this coach's live,
-  unforked Assignments reaching the Player) and `forkedRepertoireIds`.
+- **`CoachProgressFacts`** = `CoachAccessFacts` plus this coach's
+  `assignments` reaching the Player (`assignmentFacts`, forked or not).
+- **`progressRepertoireIds`**: the shared and live assigned Repertoires,
+  whose results count for last trained (R-153).
 
 ### Database (`packages/db`)
 
@@ -89,7 +95,7 @@ assignment rows with overdue, paused, forked and done exist since S5
   progress; forked ones with the badge only; plus last trained.
 - **`coachRepertoireProgress(db, coachId, playerId, repertoireId, now)`**:
   for the progress page, the full `progressOf` with chapters and lines;
-  `undefined` when `canCoachSee` refuses.
+  `undefined` when `canCoachSeeProgress` refuses.
 - **`coachGroupProgress(db, coachId, groupId, now)`**: the R-152 grid: the
   Group's Players, the Group's Repertoires, one cell each, and each Player's
   last trained.
@@ -97,8 +103,11 @@ assignment rows with overdue, paused, forked and done exist since S5
 - Each repository decides access through the domain and filters again in
   SQL on the link, `assignments.coach_id` or the share row (Q26). Reviews
   are read once per call for all Players, restricted to the Repertoires'
-  own-side keys. A fixed number of statements, whatever the number of
-  Players or Repertoires, in one repeatable-read transaction.
+  own-side keys. One repeatable-read transaction; the number of statements
+  does not grow with the number of Players, and each Repertoire shown adds
+  its graph load (3 statements, as everywhere else).
+- "Last trained" leaves the loader as whole days ago in Vilnius, so the
+  server and the browser render the same text.
 
 ### Web (`apps/web`)
 
@@ -134,7 +143,7 @@ assignment rows with overdue, paused, forked and done exist since S5
 - Chess: unit and property tests for `moveState` and `progressOf` (counts sum
   to own Moves; mastered matches `mastered`; chapter counts sum to the
   Repertoire's).
-- Domain: `canCoachSee` for `progress`: shared, assigned, forked, paused,
+- Domain: `canCoachSeeProgress`: shared, assigned, forked, paused,
   unlinked, another coach's Assignment.
 - DB (Testcontainers): each repository against an unlinked coach, another
   coach, a private Repertoire, a forked Assignment, a group member removed;
