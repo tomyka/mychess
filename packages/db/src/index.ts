@@ -180,7 +180,7 @@ export {
   reviewsOf,
   type StoredReview,
 } from './training/reviews';
-export { recordResults, type ResultAnswer } from './training/results';
+export { recordResults } from './training/results';
 export { setTrainingSettings, trainingSettings } from './training/settings';
 export {
   trainingSnapshot,

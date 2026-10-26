@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { grade, startReview, type ReviewState } from '@mychess/chess';
 import type {
+  ResultAnswer,
   ResultKind,
   TrainingRefusal,
   TrainingResult,
@@ -13,7 +14,6 @@ import {
   pauseAssignment,
   recordResults,
   reviewsOf,
-  type ResultAnswer,
 } from '../src';
 import { useTestDatabase } from '../src/testing';
 import {

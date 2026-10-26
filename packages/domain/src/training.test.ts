@@ -2,7 +2,6 @@ import { QUEUE_LIMITS } from '@mychess/chess';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_TRAINING_SETTINGS,
-  MAX_RESULT_BATCH,
   RESULT_MAX_AGE_MS,
   SECONDS_PER_REVIEW,
   TRAINING_REFUSALS,
@@ -10,7 +9,6 @@ import {
   canRecord,
   clampAnsweredAt,
   learnOrder,
-  resultBatchSchema,
   trainingSettingsSchema,
   type StoredFacts,
   type TrainingEntry,
@@ -87,56 +85,6 @@ describe('SECONDS_PER_REVIEW', () => {
   it('estimates eight seconds per due move', () => {
     expect(SECONDS_PER_REVIEW).toBe(8);
   });
-});
-
-const RESULT = {
-  resultId: '7d3f2b1e-4c5a-4f6b-8a9c-0d1e2f3a4b5c',
-  kind: 'pass',
-  moveKey: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - e2e4',
-  repertoireId: '1a2b3c4d-5e6f-4a1b-9c2d-3e4f5a6b7c8d',
-  answeredAt: '2026-10-23T12:00:00.000Z',
-};
-const batchOf = (n: number): unknown[] =>
-  Array.from({ length: n }, () => RESULT);
-
-describe('resultBatchSchema', () => {
-  it('parses a result, coercing its time', () => {
-    expect(resultBatchSchema.parse([RESULT])).toEqual([
-      { ...RESULT, answeredAt: new Date('2026-10-23T12:00:00.000Z') },
-    ]);
-  });
-
-  it('refuses an empty batch', () => {
-    expect(resultBatchSchema.safeParse([]).success).toBe(false);
-  });
-
-  it('accepts a batch of 200 and refuses 201', () => {
-    expect(MAX_RESULT_BATCH).toBe(200);
-    expect(resultBatchSchema.safeParse(batchOf(200)).success).toBe(true);
-    expect(resultBatchSchema.safeParse(batchOf(201)).success).toBe(false);
-  });
-
-  it.each([
-    ['a bad result id', { resultId: 'nope' }],
-    ['a bad repertoire id', { repertoireId: 'nope' }],
-    ['an unknown kind', { kind: 'guess' }],
-    ['a move key too short', { moveKey: 'ab' }],
-    ['a move key too long', { moveKey: 'x'.repeat(201) }],
-    ['a time that is no date', { answeredAt: 'soon' }],
-  ])('refuses %s', (_, change) => {
-    expect(
-      resultBatchSchema.safeParse([{ ...RESULT, ...change }]).success,
-    ).toBe(false);
-  });
-
-  it.each(['learned', 'pass', 'lapse', 'hint'])(
-    'accepts the kind %s',
-    (kind) => {
-      expect(resultBatchSchema.safeParse([{ ...RESULT, kind }]).success).toBe(
-        true,
-      );
-    },
-  );
 });
 
 describe('TRAINING_REFUSALS', () => {

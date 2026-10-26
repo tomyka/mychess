@@ -16,9 +16,12 @@ import {
   acceptResult,
   canRecord,
   clampAnsweredAt,
+  isLogged,
+  resultAnswer,
   type RecordFacts,
+  type ResultAnswer,
+  type ResultStatus,
   type StoredFacts,
-  type TrainingRefusal,
   type TrainingResult,
 } from '@mychess/domain';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -29,19 +32,8 @@ import { trainingEntries } from './entries';
 import { lockReviews, reviewRow } from './reviews';
 import { serialiseTraining } from './serialise';
 
-/** What became of one result of a batch. */
-export type ResultAnswer =
-  | {
-      readonly resultId: string;
-      readonly status: 'applied' | 'stale' | 'duplicate';
-    }
-  | {
-      readonly resultId: string;
-      readonly status: 'refused';
-      readonly reason: TrainingRefusal['reason'];
-    };
-
-type Status = 'applied' | 'stale' | TrainingRefusal;
+/** What recording made of one result; a duplicate never gets this far. */
+type Status = Exclude<ResultStatus, 'duplicate'>;
 
 /** A training repertoire as recording needs it: active, and the keys it holds. */
 interface Trained {
@@ -167,11 +159,6 @@ async function recordOne(
   }
 }
 
-const answerOf = (resultId: string, status: Status): ResultAnswer =>
-  typeof status === 'string'
-    ? { resultId, status }
-    : { resultId, status: 'refused', reason: status.reason };
-
 /** The batch's results in answer order (clamped), then batch order. */
 const inAnswerOrder = (batch: readonly TrainingResult[], now: Date) =>
   batch
@@ -181,14 +168,6 @@ const inAnswerOrder = (batch: readonly TrainingResult[], now: Date) =>
       at: clampAnsweredAt(result.answeredAt, now),
     }))
     .sort((a, b) => a.at.getTime() - b.at.getTime() || a.index - b.index);
-
-/**
- * Whether a result's fate is logged: every one but a result naming nothing
- * the player holds (training.notHeld), which a forged batch could repeat at
- * will and which says nothing of the player's training.
- */
-const isLogged = (status: Status): boolean =>
-  typeof status === 'string' || status.reason !== 'training.notHeld';
 
 const idRowsSchema = z.array(z.object({ resultId: z.string() }));
 
@@ -274,12 +253,12 @@ export function recordResults(
     for (const { result, index, at } of inAnswerOrder(batch, now)) {
       const { resultId } = result;
       if (seen.has(resultId)) {
-        answers.push({ index, answer: { resultId, status: 'duplicate' } });
+        answers.push({ index, answer: resultAnswer(resultId, 'duplicate') });
         continue;
       }
       seen.add(resultId);
       const status = await recordOne(rec, result);
-      answers.push({ index, answer: answerOf(resultId, status) });
+      answers.push({ index, answer: resultAnswer(resultId, status) });
       if (!isLogged(status)) continue;
       log.push({
         resultId,

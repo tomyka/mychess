@@ -1,7 +1,7 @@
 /**
  * Training rules outside the chess core: the player's limits (R-62, R-146),
- * the result batch the browser sends and when a result applies (S6
- * decisions 2-6), and the order new moves are taught in (R-145).
+ * when a result applies (S6 decisions 2-6; the batch protocol is in
+ * training-results.ts), and the order new moves are taught in (R-145).
  */
 import {
   QUEUE_LIMITS,
@@ -63,21 +63,6 @@ export const RESULT_KINDS = everyOf<ResultKind>()([
   'hint',
 ]);
 
-/** One answer the browser queued (S6 decision 1). */
-export const trainingResultSchema = z.object({
-  resultId: z.uuid(),
-  kind: z.enum(RESULT_KINDS),
-  moveKey: z.string().min(3).max(200),
-  repertoireId: z.uuid(),
-  answeredAt: z.coerce.date(),
-});
-export type TrainingResult = z.infer<typeof trainingResultSchema>;
-export const MAX_RESULT_BATCH = 200;
-export const resultBatchSchema = z
-  .array(trainingResultSchema)
-  .min(1)
-  .max(MAX_RESULT_BATCH);
-
 /** How far back a queued result may be dated (S6 decision 2). */
 export const RESULT_MAX_AGE_MS = 7 * 86_400_000;
 
@@ -103,7 +88,7 @@ export const TRAINING_REFUSALS = {
   notLearned: 'training.notLearned',
   /** Not a move, line or chapter of a repertoire the player trains now. */
   notTrained: 'training.notTrained',
-  /** A result batch that can never be recorded: the browser drops it. */
+  /** A result batch that can never be recorded (training-results.ts). */
   badBatch: 'training.badBatch',
 } as const;
 

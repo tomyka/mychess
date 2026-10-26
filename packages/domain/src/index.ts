@@ -242,7 +242,6 @@ export {
 } from './sign-in';
 export {
   DEFAULT_TRAINING_SETTINGS,
-  MAX_RESULT_BATCH,
   RESULT_KINDS,
   RESULT_MAX_AGE_MS,
   SECONDS_PER_REVIEW,
@@ -252,8 +251,6 @@ export {
   canRecord,
   clampAnsweredAt,
   learnOrder,
-  resultBatchSchema,
-  trainingResultSchema,
   trainingSettingsSchema,
   type RepertoireKind,
   type ResultAcceptance,
@@ -262,7 +259,26 @@ export {
   type StoredFacts,
   type TrainingEntry,
   type TrainingRefusal,
-  type TrainingResult,
   type TrainingSettings,
 } from './training';
+export {
+  MAX_BATCH_BODY_BYTES,
+  MAX_RESULT_BATCH,
+  batchResponse,
+  isLogged,
+  resultAnswer,
+  resultBatchSchema,
+  settleFlush,
+  trainingResultSchema,
+  unreadRefusal,
+  type BatchBody,
+  type BatchHeaders,
+  type BatchOutcome,
+  type BatchReply,
+  type FlushVerdict,
+  type ResultAnswer,
+  type ResultStatus,
+  type TrainingResult,
+  type UnreadRefusal,
+} from './training-results';
 export type { Side } from '@mychess/chess';

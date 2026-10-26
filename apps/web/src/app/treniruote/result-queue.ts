@@ -2,7 +2,11 @@
 // decision 3, plan decision 10): one stored list per account, posted in
 // batches. Pure: the storage and the post are injected, so the hook decides
 // where the list lives and how it is sent.
-import { trainingResultSchema, type TrainingResult } from '@mychess/domain';
+import {
+  settleFlush,
+  trainingResultSchema,
+  type TrainingResult,
+} from '@mychess/domain';
 import { z } from 'zod';
 
 /** Where the list lives: one string, as localStorage keeps one key. */
@@ -22,39 +26,6 @@ export const queueKey = (accountId: string): string =>
   `${QUEUE_PREFIX}${accountId}`;
 
 const queueSchema = z.array(trainingResultSchema);
-
-/** One result's fate: recorded in some way, or refused with a reason. */
-const answerSchema = z.discriminatedUnion('status', [
-  z.object({
-    resultId: z.string(),
-    status: z.enum(['applied', 'stale', 'duplicate']),
-  }),
-  z.object({
-    resultId: z.string(),
-    status: z.literal('refused'),
-    reason: z.string(),
-  }),
-]);
-
-type Answer = z.infer<typeof answerSchema>;
-
-/** The server's 200: which results of the batch it answered, and how. */
-const answersSchema = z.object({ answers: z.array(answerSchema) });
-
-/**
- * Statuses that say the batch can never be recorded as sent: malformed
- * (400), refused for the account (403), too large (413) or not JSON (415).
- * A 401 is not among them, as the session may come back after signing in;
- * 429 and 5xx are kept for the next flush too.
- */
-const DROPPED_STATUSES: ReadonlySet<number> = new Set([400, 403, 413, 415]);
-
-/** Logs each refused result once, by its reason only: never a move or an id. */
-function warnRefused(answers: readonly Answer[]): void {
-  for (const answer of answers)
-    if (answer.status === 'refused')
-      console.warn('training: result refused', answer.reason);
-}
 
 /** The stored value as JSON, or undefined when it is not JSON at all. */
 function parsedJson(raw: string): unknown {
@@ -88,23 +59,27 @@ function remove(store: QueueStore, ids: ReadonlySet<string>): number {
   return left.length;
 }
 
-/** The ids a response answered; empty when it is no answer to record by. */
-async function answeredIds(
+/**
+ * The ids of `batch` to drop on `response` (the domain's settleFlush):
+ * none, all of them, or those answered. The body is read only on a 2xx;
+ * refusals are logged by status or reason only, never a move or an id.
+ */
+async function droppedIds(
   response: Response,
   batch: readonly TrainingResult[],
 ): Promise<ReadonlySet<string>> {
-  if (DROPPED_STATUSES.has(response.status)) {
-    // The batch can never be recorded: drop it. Logged without the moves.
-    console.error('training: batch refused', response.status);
-    return new Set(batch.map(({ resultId }) => resultId));
-  }
-  if (!response.ok) return new Set();
-  const body = answersSchema.safeParse(
-    await response.json().catch(() => undefined),
-  );
-  if (!body.success) return new Set();
-  warnRefused(body.data.answers);
-  return new Set(body.data.answers.map(({ resultId }) => resultId));
+  const verdict = settleFlush(batch, {
+    status: response.status,
+    body: response.ok
+      ? await response.json().catch(() => undefined)
+      : undefined,
+  });
+  if (verdict.kind === 'batchRefused')
+    console.error('training: batch refused', verdict.status);
+  if (verdict.kind === 'answered')
+    for (const reason of verdict.refused)
+      console.warn('training: result refused', reason);
+  return verdict.drop;
 }
 
 /**
@@ -123,7 +98,7 @@ export async function flush(
   const ids =
     response === undefined
       ? new Set<string>()
-      : await answeredIds(response, batch);
+      : await droppedIds(response, batch);
   const sent = batch.filter(({ resultId }) => ids.has(resultId)).length;
   return {
     sent,
