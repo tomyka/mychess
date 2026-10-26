@@ -20,6 +20,12 @@
     outline-offset: 2px;
   }
 
+  /* A heading that focus is moved to (a done summary, an import summary) is
+     where reading starts, not a control: no ring around it. */
+  [tabindex='-1']:focus-visible {
+    outline: none;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

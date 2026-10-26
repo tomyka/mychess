@@ -8,7 +8,7 @@ import {
   FRAME_PANEL,
   FRAME_SIDE,
   FRAME_TOP,
-} from './training-frame';
+} from './frame-classes';
 
 // The training page while it loads (docs/design/training-screen.md,
 // Loading): the frame with the real board's squares and no pieces, so

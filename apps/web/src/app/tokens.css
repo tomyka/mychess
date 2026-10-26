@@ -143,6 +143,12 @@
   --color-board-arrow: rgb(21 120 27 / 0.8); /* Learn pass arrows */
   --color-board-correct: rgb(24 112 58 / 0.55); /* square flash, success */
   --color-board-wrong: rgb(179 38 30 / 0.55); /* square flash, lapse */
+  /* The check and cross badges in a flashed square's corner: solid and the
+     same in both themes (the board barely changes), with a white glyph (6.1
+     and 6.5:1) and a white ring that parts them from any square. */
+  --color-board-badge-correct: #18703a;
+  --color-board-badge-wrong: #b3261e;
+  --color-board-badge-glyph: #ffffff; /* the badge's glyph and ring */
   --color-board-focus: #0f2e7a; /* keyboard cursor, >= 3:1 on both squares */
 
   /* Arrows and circles drawn on a move ([%cal] / [%csl], builder draw mode).

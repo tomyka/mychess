@@ -100,7 +100,10 @@ own note when it is built. Vocabulary is from `docs/CONTEXT.md`; tokens from
 
 Colour is never the only signal: correct and lapse also carry an icon on the
 square and words in the panel, and the panel line is an `aria-live="polite"`
-region so screen readers hear each result and the opponent's reply.
+region so screen readers hear each result and the opponent's reply. The
+square's icon is a badge in `board-badge-correct` / `board-badge-wrong` (the
+same in both themes, like the board) with a white glyph and a white ring,
+not the theme's `success` / `error`, which turn light in dark mode.
 
 ## States
 
@@ -156,9 +159,11 @@ Two cases, both in the panel, never over the board:
    `[ Back ]`. Focus moves to the message.
 2. **A result could not be saved yet** (R-60). The result waits in the
    browser's queue, which retries in the background, and the drill goes
-   on. An `error-subtle` banner at the top of the panel says how many
-   results are not saved yet and offers `[ Try now ]` (secondary). Its line
-   is a `role="status"` region, always present and empty while every result
+   on. A quiet banner at the top of the panel (`bg-sunken`, `border`, a
+   clock icon; not `error`, since nothing is lost or blocked) says how many
+   results are not saved yet (`text-sm`, so the banner stays one row with
+   its button and the prompt stays in view) and offers `[ Try now ]`
+   (secondary). Its line is a `role="status"` region, always present and empty while every result
    is saved, so a screen reader hears it when results start to wait. Focus
    does not move. The banner goes when the queue is empty.
 

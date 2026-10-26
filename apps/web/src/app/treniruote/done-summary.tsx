@@ -121,7 +121,7 @@ export function DoneSummary({
       </h2>
       <Stats stats={stats} />
       <Standing progress={progress} />
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap justify-center gap-3">
         {onContinue === undefined ? null : (
           <button type="button" onClick={onContinue} className={PRIMARY_BUTTON}>
             {t('continue')}

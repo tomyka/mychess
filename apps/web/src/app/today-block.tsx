@@ -56,7 +56,11 @@ export function TodayBlock({
           </Link>
         ) : null}
         {summary.toLearn > 0 ? (
-          <Link href={trainingPath('learn')} className={SECONDARY_BUTTON}>
+          // The main action when there is nothing to review.
+          <Link
+            href={trainingPath('learn')}
+            className={summary.due > 0 ? SECONDARY_BUTTON : PRIMARY_BUTTON}
+          >
             {t('learn', { count: summary.toLearn })}
           </Link>
         ) : null}

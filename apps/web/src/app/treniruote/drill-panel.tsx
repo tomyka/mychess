@@ -42,7 +42,12 @@ export function MoveRow({
         onCancel={input.cancel}
       />
     );
-  return <MoveInput onTyped={input.onTyped} />;
+  // A row of its own: the field grows across it, not down the panel.
+  return (
+    <div className="flex">
+      <MoveInput onTyped={input.onTyped} />
+    </div>
+  );
 }
 
 /** Moves from `rootKey` as a line is written: `1. d4 d5 2. Bf4`. */
