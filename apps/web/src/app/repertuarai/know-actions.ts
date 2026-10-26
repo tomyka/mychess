@@ -7,28 +7,42 @@
 // player trains it now (their own, or live by assignment and not paused),
 // and anything else, a malformed form included, reads as one refusal.
 import { knowCounts, learnAgain, markKnown, type KnowScope } from '@mychess/db';
+import {
+  TRAINING_REFUSALS,
+  type Result,
+  type TrainingRefusal,
+} from '@mychess/domain';
 import { refresh } from 'next/cache';
 import { z } from 'zod';
 import { getDb } from '../../server/db';
 import { requireOnboarded } from '../../server/session';
 
-/** The one refusal: not a scope the player trains now. */
-type NotTrained = 'training.notTrained';
+/** Why an action was refused, a message-catalogue key. */
+interface Refused {
+  readonly ok: false;
+  readonly refusal: TrainingRefusal['reason'];
+}
 
-const NOT_TRAINED = {
+/** A form that names no scope: refused as one the player does not train. */
+const NOT_TRAINED: Refused = {
   ok: false,
-  refusal: 'training.notTrained',
-} as const satisfies { ok: false; refusal: NotTrained };
+  refusal: TRAINING_REFUSALS.notTrained,
+};
 
 /** How many moves each action would change, for the menu and its confirm. */
 export type KnowCounts =
   | { readonly ok: true; readonly know: number; readonly again: number }
-  | { readonly ok: false; readonly refusal: NotTrained };
+  | Refused;
 
 /** How many moves an action changed. */
 export type KnowOutcome =
-  | { readonly ok: true; readonly changed: number }
-  | { readonly ok: false; readonly refusal: NotTrained };
+  { readonly ok: true; readonly changed: number } | Refused;
+
+/** The refusal the db gave, as the client receives it. */
+const refused = (result: { readonly refusal: TrainingRefusal }): Refused => ({
+  ok: false,
+  refusal: result.refusal.reason,
+});
 
 const repertoireId = z.uuid();
 const chapterId = z.string().min(1).max(20);
@@ -62,10 +76,10 @@ async function request(
 }
 
 /** A write's outcome: refused, or the count changed and the page refreshed. */
-function outcome(changed: number | undefined): KnowOutcome {
-  if (changed === undefined) return NOT_TRAINED;
+function outcome(changed: Result<number, TrainingRefusal>): KnowOutcome {
+  if (!changed.ok) return refused(changed);
   refresh();
-  return { ok: true, changed };
+  return { ok: true, changed: changed.value };
 }
 
 /** The moves "I know this" would mark and "Learn again" would return. */
@@ -73,7 +87,7 @@ export async function knowCountAction(form: FormData): Promise<KnowCounts> {
   const asked = await request(form);
   if (asked === undefined) return NOT_TRAINED;
   const counts = await knowCounts(getDb(), asked.playerId, asked.scope);
-  return counts === undefined ? NOT_TRAINED : { ok: true, ...counts };
+  return counts.ok ? { ok: true, ...counts.value } : refused(counts);
 }
 
 /** "I know this": the scope's new moves skip the learn pass (R-58). */

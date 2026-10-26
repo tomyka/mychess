@@ -4,10 +4,12 @@ import {
   isPlayerMove,
   lines,
   moveKey,
+  ok,
+  refuse,
   startReview,
   type RepertoireGraph,
 } from '@mychess/chess';
-import type { TrainingResult } from '@mychess/domain';
+import { TRAINING_REFUSALS, type TrainingResult } from '@mychess/domain';
 import { and, eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -47,6 +49,7 @@ const LATER = new Date(NOW.getTime() + 2 * DAY_MS);
 const QUEENS = graphOf('1. d4 d5 2. Bf4 Nf6 3. e3 *');
 const [D4 = '', BF4 = '', E3 = ''] = keysOf(QUEENS);
 const LONDON_GRAPH = graphOf(LONDON);
+const NOT_TRAINED = refuse(TRAINING_REFUSALS.notTrained);
 
 let own = '';
 
@@ -121,7 +124,7 @@ beforeEach(async () => {
 describe('markKnown (R-58)', () => {
   it('adds the chapter moves not yet in review as skipped, first due the next day', async () => {
     await learned(BF4);
-    expect(await markKnown(db, 'p', chapter(), NOW)).toBe(2);
+    expect(await markKnown(db, 'p', chapter(), NOW)).toEqual(ok(2));
     const stored = await reviewsOf(db, 'p');
     for (const key of [D4, E3]) {
       expect(stored.get(key)).toEqual({
@@ -141,8 +144,8 @@ describe('markKnown (R-58)', () => {
   });
 
   it('adds nothing the second time', async () => {
-    expect(await markKnown(db, 'p', chapter(), NOW)).toBe(3);
-    expect(await markKnown(db, 'p', chapter(), LATER)).toBe(0);
+    expect(await markKnown(db, 'p', chapter(), NOW)).toEqual(ok(3));
+    expect(await markKnown(db, 'p', chapter(), LATER)).toEqual(ok(0));
     expect((await reviewsOf(db, 'p')).get(D4)?.skippedAt).toEqual(NOW);
   });
 
@@ -155,13 +158,13 @@ describe('markKnown (R-58)', () => {
     const opponent = QUEENS.moves.find((m) => !isPlayerMove(QUEENS, m));
     if (opponent === undefined) throw new Error('expected an opponent move');
     const d5 = moveKey(opponent.from, opponent.san);
-    expect(await markKnown(db, 'p', move(d5), NOW)).toBeUndefined();
-    expect(await knowCounts(db, 'p', move(d5))).toBeUndefined();
-    expect(await learnAgain(db, 'p', move(d5))).toBeUndefined();
+    expect(await markKnown(db, 'p', move(d5), NOW)).toEqual(NOT_TRAINED);
+    expect(await knowCounts(db, 'p', move(d5))).toEqual(NOT_TRAINED);
+    expect(await learnAgain(db, 'p', move(d5))).toEqual(NOT_TRAINED);
     const [e4 = ''] = keysOf(graphOf('1. e4 *'));
-    expect(await markKnown(db, 'p', move(e4), NOW)).toBeUndefined();
+    expect(await markKnown(db, 'p', move(e4), NOW)).toEqual(NOT_TRAINED);
     expect(await keysIn()).toEqual([]);
-    expect(await markKnown(db, 'p', move(BF4), NOW)).toBe(1);
+    expect(await markKnown(db, 'p', move(BF4), NOW)).toEqual(ok(1));
     expect(await keysIn()).toEqual([BF4]);
   });
 
@@ -185,8 +188,10 @@ describe('markKnown (R-58)', () => {
       .filter((m) => isPlayerMove(LONDON_GRAPH, m))
       .map((m) => moveKey(m.from, m.san));
     expect(expected).toHaveLength(4);
-    expect((await knowCounts(db, 'p', line(1)))?.know).toBe(4);
-    expect(await markKnown(db, 'p', line(1), NOW)).toBe(4);
+    expect(await knowCounts(db, 'p', line(1))).toEqual(
+      ok({ know: 4, again: 0 }),
+    );
+    expect(await markKnown(db, 'p', line(1), NOW)).toEqual(ok(4));
     expect(await keysIn()).toEqual([...expected].sort());
     for (const scope of [
       line(9),
@@ -194,7 +199,7 @@ describe('markKnown (R-58)', () => {
       line(0, randomUUID()),
       { kind: 'chapter', repertoireId: london, chapterId: randomUUID() },
     ] as const)
-      expect(await markKnown(db, 'p', scope, NOW)).toBeUndefined();
+      expect(await markKnown(db, 'p', scope, NOW)).toEqual(NOT_TRAINED);
     expect(await keysIn()).toEqual([...expected].sort());
   });
 
@@ -207,9 +212,9 @@ describe('markKnown (R-58)', () => {
       now: NOW,
     });
     for (const id of [theirs, randomUUID(), 'not-an-id']) {
-      expect(await markKnown(db, 'p', chapter(id), NOW)).toBeUndefined();
-      expect(await knowCounts(db, 'p', chapter(id))).toBeUndefined();
-      expect(await learnAgain(db, 'p', chapter(id))).toBeUndefined();
+      expect(await markKnown(db, 'p', chapter(id), NOW)).toEqual(NOT_TRAINED);
+      expect(await knowCounts(db, 'p', chapter(id))).toEqual(NOT_TRAINED);
+      expect(await learnAgain(db, 'p', chapter(id))).toEqual(NOT_TRAINED);
     }
     expect(await keysIn('p')).toEqual([]);
     expect(await keysIn('q')).toEqual([]);
@@ -217,16 +222,18 @@ describe('markKnown (R-58)', () => {
 
   it('marks an assigned repertoire, and refuses it while paused (R-46)', async () => {
     const assigned = await assignedToP();
-    expect(await markKnown(db, 'p', chapter(assigned), NOW)).toBe(3);
+    expect(await markKnown(db, 'p', chapter(assigned), NOW)).toEqual(ok(3));
     const paused = await pauseAssignment(
       db,
       { playerId: 'p', repertoireId: assigned, paused: true },
       NOW,
     );
     expect(paused.ok).toBe(true);
-    expect(await markKnown(db, 'p', chapter(assigned), NOW)).toBeUndefined();
-    expect(await knowCounts(db, 'p', chapter(assigned))).toBeUndefined();
-    expect(await learnAgain(db, 'p', chapter(assigned))).toBeUndefined();
+    expect(await markKnown(db, 'p', chapter(assigned), NOW)).toEqual(
+      NOT_TRAINED,
+    );
+    expect(await knowCounts(db, 'p', chapter(assigned))).toEqual(NOT_TRAINED);
+    expect(await learnAgain(db, 'p', chapter(assigned))).toEqual(NOT_TRAINED);
     expect(await keysIn()).toEqual([D4, BF4, E3].sort());
   });
 
@@ -255,7 +262,7 @@ describe('markKnown (R-58)', () => {
     await hold.finish();
     const [answers, added] = await Promise.all([batch, known]);
     const applied = answers.filter((a) => a.status === 'applied').length;
-    expect(applied + (added ?? 0)).toBe(3);
+    expect(added).toEqual(ok(3 - applied));
     expect(await keysIn()).toEqual([D4, BF4, E3].sort());
   });
 });
@@ -263,10 +270,14 @@ describe('markKnown (R-58)', () => {
 describe('knowCounts (R-147)', () => {
   it('counts the moves each action would change, without writing', async () => {
     await learned(BF4);
-    expect(await knowCounts(db, 'p', chapter())).toEqual({ know: 2, again: 0 });
+    expect(await knowCounts(db, 'p', chapter())).toEqual(
+      ok({ know: 2, again: 0 }),
+    );
     expect(await keysIn()).toEqual([BF4]);
     await markKnown(db, 'p', chapter(), NOW);
-    expect(await knowCounts(db, 'p', chapter())).toEqual({ know: 0, again: 2 });
+    expect(await knowCounts(db, 'p', chapter())).toEqual(
+      ok({ know: 0, again: 2 }),
+    );
   });
 
   it('reads both counts in one transaction', async () => {
@@ -274,7 +285,7 @@ describe('knowCounts (R-147)', () => {
     const statements = await statementsOf(async () => {
       counts = await knowCounts(db, 'p', chapter());
     });
-    expect(counts).toEqual({ know: 3, again: 0 });
+    expect(counts).toEqual(ok({ know: 3, again: 0 }));
     expect(statements.filter((s) => /^begin/i.test(s))).toHaveLength(1);
   });
 });
@@ -284,15 +295,15 @@ describe('learnAgain (R-147)', () => {
     await learned(BF4);
     await markKnown(db, 'p', chapter(), NOW);
     await graded(D4, LATER);
-    expect(await learnAgain(db, 'p', chapter())).toBe(1);
+    expect(await learnAgain(db, 'p', chapter())).toEqual(ok(1));
     expect(await keysIn()).toEqual([D4, BF4].sort());
-    expect(await learnAgain(db, 'p', chapter())).toBe(0);
+    expect(await learnAgain(db, 'p', chapter())).toEqual(ok(0));
   });
 
   it("leaves another player's skipped moves alone", async () => {
     await writeReview(db, 'q', startReview(D4, NOW), { skippedAt: NOW });
     await markKnown(db, 'p', chapter(), NOW);
-    expect(await learnAgain(db, 'p', chapter())).toBe(3);
+    expect(await learnAgain(db, 'p', chapter())).toEqual(ok(3));
     expect(await keysIn('p')).toEqual([]);
     expect(await keysIn('q')).toEqual([D4]);
   });
@@ -307,7 +318,7 @@ describe('learnAgain (R-147)', () => {
     await grading.finish(
       `update reviews set reps = 2 where player_id = 'p' and move_key = '${D4}'`,
     );
-    expect(await again).toBe(2);
+    expect(await again).toEqual(ok(2));
     expect(await keysIn()).toEqual([D4]);
   });
 });

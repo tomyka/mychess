@@ -1,5 +1,6 @@
 import {
   moveKey,
+  ok,
   type EditOp,
   type RepertoireGraph,
   type RepertoireMove,
@@ -292,7 +293,7 @@ describe('playerAssignments', () => {
         { kind: 'chapter', repertoireId: rep, chapterId },
         NOW,
       ),
-    ).toBe(2);
+    ).toEqual(ok(2));
     expect(await playerAssignments(db, 'p', NOW)).toMatchObject([
       { done: true, badges: { overdue: false } },
     ]);

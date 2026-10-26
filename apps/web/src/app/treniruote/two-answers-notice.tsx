@@ -32,11 +32,9 @@ export function TwoAnswersNotice({
   repertoires,
 }: TwoAnswersNoticeProps): JSX.Element | null {
   const t = useTranslations('training.review.twoAnswers');
-  const others = twoAnswers(
-    item.fromKey,
-    item.san,
-    repertoires.map(({ id, graph }) => ({ id, graph, active: true })),
-  ).filter((a) => a.repertoireId !== item.repertoireId);
+  const others = twoAnswers(item.fromKey, item.san, repertoires).filter(
+    (a) => a.repertoireId !== item.repertoireId,
+  );
   if (others.length === 0) return null;
   const nameOf = (id: string): string =>
     repertoires.find((r) => r.id === id)?.name ?? '';

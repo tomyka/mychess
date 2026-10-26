@@ -23,10 +23,38 @@ export const queueKey = (accountId: string): string =>
 
 const queueSchema = z.array(trainingResultSchema);
 
-/** The server's 200: which results of the batch it answered. */
-const answersSchema = z.object({
-  answers: z.array(z.object({ resultId: z.string() })),
-});
+/** One result's fate: recorded in some way, or refused with a reason. */
+const answerSchema = z.discriminatedUnion('status', [
+  z.object({
+    resultId: z.string(),
+    status: z.enum(['applied', 'stale', 'duplicate']),
+  }),
+  z.object({
+    resultId: z.string(),
+    status: z.literal('refused'),
+    reason: z.string(),
+  }),
+]);
+
+type Answer = z.infer<typeof answerSchema>;
+
+/** The server's 200: which results of the batch it answered, and how. */
+const answersSchema = z.object({ answers: z.array(answerSchema) });
+
+/**
+ * Statuses that say the batch can never be recorded as sent: malformed
+ * (400), refused for the account (403), too large (413) or not JSON (415).
+ * A 401 is not among them, as the session may come back after signing in;
+ * 429 and 5xx are kept for the next flush too.
+ */
+const DROPPED_STATUSES: ReadonlySet<number> = new Set([400, 403, 413, 415]);
+
+/** Logs each refused result once, by its reason only: never a move or an id. */
+function warnRefused(answers: readonly Answer[]): void {
+  for (const answer of answers)
+    if (answer.status === 'refused')
+      console.warn('training: result refused', answer.reason);
+}
 
 /** The stored value as JSON, or undefined when it is not JSON at all. */
 function parsedJson(raw: string): unknown {
@@ -65,7 +93,7 @@ async function answeredIds(
   response: Response,
   batch: readonly TrainingResult[],
 ): Promise<ReadonlySet<string>> {
-  if (response.status === 400) {
+  if (DROPPED_STATUSES.has(response.status)) {
     // The batch can never be recorded: drop it. Logged without the moves.
     console.error('training: batch refused', response.status);
     return new Set(batch.map(({ resultId }) => resultId));
@@ -74,16 +102,16 @@ async function answeredIds(
   const body = answersSchema.safeParse(
     await response.json().catch(() => undefined),
   );
-  return new Set(
-    body.success ? body.data.answers.map(({ resultId }) => resultId) : [],
-  );
+  if (!body.success) return new Set();
+  warnRefused(body.data.answers);
+  return new Set(body.data.answers.map(({ resultId }) => resultId));
 }
 
 /**
  * Posts the oldest results, at most FLUSH_BATCH, and removes those the
  * server answered: applied, stale, duplicate and refused alike. A network
- * error or any other status keeps them all for the next flush; a 400 drops
- * the batch. `sent` counts the results removed, `left` those still queued.
+ * error or any other status keeps them all for the next flush; a 400, 403,
+ * 413 or 415 drops the batch. `sent` counts the results removed, `left` those still queued.
  */
 export async function flush(
   store: QueueStore,

@@ -5,6 +5,7 @@ import {
   MAX_RESULT_BATCH,
   RESULT_MAX_AGE_MS,
   SECONDS_PER_REVIEW,
+  TRAINING_REFUSALS,
   acceptResult,
   canRecord,
   clampAnsweredAt,
@@ -136,6 +137,18 @@ describe('resultBatchSchema', () => {
       );
     },
   );
+});
+
+describe('TRAINING_REFUSALS', () => {
+  it('names each refusal by its catalogue key or wire code', () => {
+    expect(TRAINING_REFUSALS).toStrictEqual({
+      notHeld: 'training.notHeld',
+      paused: 'training.paused',
+      notLearned: 'training.notLearned',
+      notTrained: 'training.notTrained',
+      badBatch: 'training.badBatch',
+    });
+  });
 });
 
 describe('canRecord', () => {

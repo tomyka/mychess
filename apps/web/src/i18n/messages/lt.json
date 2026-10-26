@@ -594,6 +594,8 @@
     "loading": "Kraunama treniruotė…",
     "notFound": "Tokios treniruotės nėra arba ji jums nepasiekiama.",
     "home": "Į pradžią",
+    "loadFailed": "Nepavyko įkelti treniruotės.",
+    "tryAgain": "Bandyti dar kartą",
     "empty": {
       "nothingDue": {
         "title": "Šiuo metu kartoti nieko nereikia",

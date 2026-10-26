@@ -11,11 +11,15 @@ import {
   knowThis,
   learnAgainKeys,
   lines,
+  ok,
   playerKeys,
+  refuse,
   type RepertoireGraph,
+  type Result,
   type ReviewState,
   type Scope,
 } from '@mychess/chess';
+import { TRAINING_REFUSALS, type TrainingRefusal } from '@mychess/domain';
 import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Executor } from '../client';
@@ -75,23 +79,26 @@ function chessScope(
   }
 }
 
+/** A scope the player does not train now. */
+const NOT_TRAINED = refuse(TRAINING_REFUSALS.notTrained);
+
 /**
- * `scope` in the repertoire the player trains; undefined when they do not
+ * `scope` in the repertoire the player trains; refused when they do not
  * train it, it is paused (R-46), or it has no such move, line or chapter.
  */
 async function resolve(
   tx: Executor,
   playerId: string,
   scope: KnowScope,
-): Promise<Resolved | undefined> {
+): Promise<Result<Resolved, TrainingRefusal>> {
   const trained = (await trainingRepertoires(tx, playerId)).find(
     (repertoire) => repertoire.id === scope.repertoireId,
   );
-  if (!trained?.active) return undefined;
+  if (!trained?.active) return NOT_TRAINED;
   const resolved = chessScope(trained.graph, scope);
   return resolved === undefined
-    ? undefined
-    : { scope: resolved, keys: playerKeys(trained.graph) };
+    ? NOT_TRAINED
+    : ok({ scope: resolved, keys: playerKeys(trained.graph) });
 }
 
 /** The keys "Learn again" removes: skipped and never drilled (R-147). */
@@ -124,23 +131,23 @@ interface KnowCounts {
 
 /**
  * How many moves each action would change in `scope`, for the menu and the
- * R-147 confirm, both read from one snapshot. Undefined when the scope is
+ * R-147 confirm, both read from one snapshot. Refused when the scope is
  * not one the player trains.
  */
 export function knowCounts(
   db: Executor,
   playerId: string,
   scope: KnowScope,
-): Promise<KnowCounts | undefined> {
+): Promise<Result<KnowCounts, TrainingRefusal>> {
   return db.transaction(
     async (tx) => {
       const resolved = await resolve(tx, playerId, scope);
-      if (resolved === undefined) return undefined;
+      if (!resolved.ok) return resolved;
       const stored = await reviewsOf(tx, playerId);
-      return {
-        know: knowThis(resolved.scope, stored, COUNT_ONLY).length,
-        again: againKeys(resolved.scope, stored).length,
-      };
+      return ok({
+        know: knowThis(resolved.value.scope, stored, COUNT_ONLY).length,
+        again: againKeys(resolved.value.scope, stored).length,
+      });
     },
     { isolationLevel: 'repeatable read' },
   );
@@ -152,21 +159,21 @@ const keyRowsSchema = z.array(z.object({ moveKey: z.string() }));
  * "I know this" (R-58): the scope's moves not yet in review start their
  * Reviews at `now`, first due the next day, marked skipped. A Review that
  * exists, learned or skipped, is never overwritten. Returns how many were
- * added; undefined when the scope is not one the player trains.
+ * added; refused when the scope is not one the player trains.
  */
 export function markKnown(
   db: Executor,
   playerId: string,
   scope: KnowScope,
   now: Date,
-): Promise<number | undefined> {
+): Promise<Result<number, TrainingRefusal>> {
   return db.transaction(async (tx) => {
     await serialiseTraining(tx, playerId);
     const resolved = await resolve(tx, playerId, scope);
-    if (resolved === undefined) return undefined;
-    const locked = await lockReviews(tx, playerId, resolved.keys);
-    const added = knowThis(resolved.scope, locked, now);
-    if (added.length === 0) return 0;
+    if (!resolved.ok) return resolved;
+    const locked = await lockReviews(tx, playerId, resolved.value.keys);
+    const added = knowThis(resolved.value.scope, locked, now);
+    if (added.length === 0) return ok(0);
     const inserted = keyRowsSchema.parse(
       await tx
         .insert(reviews)
@@ -182,27 +189,27 @@ export function markKnown(
         .onConflictDoNothing()
         .returning({ moveKey: reviews.moveKey }),
     );
-    return inserted.length;
+    return ok(inserted.length);
   });
 }
 
 /**
  * "Learn again" (R-147): deletes the scope's skipped Reviews that were never
  * drilled, so the moves go back to the learn pass. Returns how many;
- * undefined when the scope is not one the player trains.
+ * refused when the scope is not one the player trains.
  */
 export function learnAgain(
   db: Executor,
   playerId: string,
   scope: KnowScope,
-): Promise<number | undefined> {
+): Promise<Result<number, TrainingRefusal>> {
   return db.transaction(async (tx) => {
     await serialiseTraining(tx, playerId);
     const resolved = await resolve(tx, playerId, scope);
-    if (resolved === undefined) return undefined;
-    await lockReviews(tx, playerId, resolved.keys);
-    const keys = againKeys(resolved.scope, await reviewsOf(tx, playerId));
-    if (keys.length === 0) return 0;
+    if (!resolved.ok) return resolved;
+    await lockReviews(tx, playerId, resolved.value.keys);
+    const keys = againKeys(resolved.value.scope, await reviewsOf(tx, playerId));
+    if (keys.length === 0) return ok(0);
     const deleted = keyRowsSchema.parse(
       await tx
         .delete(reviews)
@@ -211,6 +218,6 @@ export function learnAgain(
         )
         .returning({ moveKey: reviews.moveKey }),
     );
-    return deleted.length;
+    return ok(deleted.length);
   });
 }

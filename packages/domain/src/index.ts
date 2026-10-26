@@ -249,6 +249,7 @@ export {
   resultBatchSchema,
   trainingResultSchema,
   trainingSettingsSchema,
+  type RepertoireKind,
   type ResultAcceptance,
   type RecordFacts,
   type ResultKind,

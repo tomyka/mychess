@@ -6,7 +6,7 @@ import type { TrainingResult } from '@mychess/domain';
 import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { graphOf, LONDON, TAIMANOV } from '../../../test/fixtures/repertoires';
+import { graphOf, TAIMANOV } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/locales';
 import type { TrainingData } from '../../lib/training-data';
 import type { DrillClock } from './drill-input';
@@ -330,6 +330,13 @@ describe('the learn drill’s done summary', () => {
   });
 });
 
+/**
+ * The smallest plan with two lines that share a move: 1. d4 is in both, so
+ * recording it once per key is shown, and the second line starts where the
+ * first one branched.
+ */
+const TWO_LINES = graphOf('1. d4 d5 (1... Nf6 2. Bf4) 2. c4 *');
+
 describe('the learn drill over a whole plan', () => {
   it('teaches every line of the plan in turn and records each new move once', () => {
     const d = data({
@@ -340,12 +347,13 @@ describe('the learn drill over a whole plan', () => {
           side: 'white',
           kind: 'own',
           active: true,
-          graph: graphOf(LONDON),
+          graph: TWO_LINES,
         },
       ],
     });
     const lines = learnLines(d);
-    expect(lines.length).toBeGreaterThan(1);
+    expect(lines).toHaveLength(2);
+    expect(newKeys(lines)).toHaveLength(3);
     renderDrill(d);
     /** One round of `steps`: the replies play themselves. */
     const round = (steps: (typeof lines)[number]['steps']) => {

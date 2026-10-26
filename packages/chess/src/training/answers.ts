@@ -22,7 +22,7 @@ const answerIn = (
 export function twoAnswers(
   fromKey: string,
   san: string,
-  repertoires: readonly TrainingRepertoire[],
+  repertoires: readonly Pick<TrainingRepertoire, 'id' | 'graph'>[],
 ): OtherAnswer[] {
   return repertoires.flatMap((r) => {
     const other = answerIn(r.graph, fromKey);

@@ -4,6 +4,7 @@ import {
   resultBatchSchema,
   TRAINING_RATE_LIMIT,
   TRAINING_RESULTS_RATE_LIMIT,
+  TRAINING_REFUSALS,
   trainingRateKey,
   trainingResultsKey,
 } from '@mychess/domain';
@@ -14,7 +15,7 @@ import { getAccount } from '../../../../server/session';
 const NO_STORE = { 'cache-control': 'no-store' };
 
 /** A batch that can never be recorded: the browser drops it (S6 lead decision 3). */
-const BAD_BATCH = 'training.badBatch';
+const BAD_BATCH = TRAINING_REFUSALS.badBatch;
 
 /**
  * The largest body a batch is read from: the largest batch is far smaller.

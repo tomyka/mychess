@@ -65,7 +65,10 @@ in `packages/chess/src/training/` (S2): FSRS wrapper, learn steps,
    every new result, on `online`, on page show and every 30 s while
    non-empty. The banner shows the unsynced count and a "try now" button.
    A result the server refuses as invalid (not held, bad key) is dropped
-   from the queue and logged; it is not retried forever.
+   from the queue and logged by the browser with its reason only; it is not
+   retried forever. On the server a `notHeld` refusal writes no log row
+   (security review: it names nothing the Player holds), and the log is
+   keyed by (Player, result id).
 4. **Learn-pass progress is not stored.** A Move becomes a Review only when
    its blind retest passes (`learned_at`) or by "I know this"
    (`skipped_at`). Leaving mid-pass loses only the unfinished line's
@@ -108,13 +111,16 @@ in `packages/chess/src/training/` (S2): FSRS wrapper, learn steps,
   defaults; message keys for refusals.
 - **`acceptResult(review, result, now)`**: the clamp and ordering rule of
   decision 2 as a value: `apply`, `stale` or a refusal.
-- **`canTrain(player, repertoireId, facts)`**: a Player trains a Repertoire
-  that is their own, or effectively assigned and not forked by them (the set
-  `trainingRepertoires` already returns); paused Repertoires train no new
-  Moves and add no Reviews. S5 left this as a query only; S6 makes it a
-  domain decision the endpoint checks.
-- **`TRAINING_RATE_LIMIT`** in `rate-limit.ts` beside `IMPORT_RATE_LIMIT`,
-  counted with `countRequest`.
+- **`canRecord(kind, facts)`** (built as; planned as `canTrain`): a result is
+  recorded only for a Repertoire the Player trains now (their own, or
+  effectively assigned and not forked: the set `trainingRepertoires`
+  returns) that holds the Move; otherwise `training.notHeld`. A paused
+  Repertoire refuses a `learned` result (`training.paused`, no new Moves,
+  R-46) but accepts pass, lapse and hint: an answer already given is kept.
+  The training page offers no Due Moves of a paused Repertoire.
+- **`TRAINING_RATE_LIMIT`** (batches) and **`TRAINING_RESULTS_RATE_LIMIT`**
+  (results, weighted by batch length; security review) in `rate-limit.ts`
+  beside `IMPORT_RATE_LIMIT`, counted with `countRequest`.
 - **`playerDay(now, timeZone)`**: the start and end of the Player's day.
 
 ### Database (`packages/db`)

@@ -594,6 +594,8 @@
     "loading": "Loading training…",
     "notFound": "There is no such training, or it is not open to you.",
     "home": "Home",
+    "loadFailed": "The training could not load.",
+    "tryAgain": "Try again",
     "empty": {
       "nothingDue": {
         "title": "Nothing due now",

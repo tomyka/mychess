@@ -2,8 +2,9 @@
 // the E2E database (plan Task D3): Reviews already due, so a journey needs
 // no clock moved, and the reads that check what the server recorded. Only
 // the test's own fresh @mychess.test accounts are touched; every statement
-// finds the account by that email.
-import { createDb, type DbHandle } from '@mychess/db';
+// finds the account by that email. Every value is a bound parameter ($1..),
+// never spliced into the SQL text.
+import pg from 'pg';
 import { z } from 'zod';
 
 /** The database the app under test uses (playwright.config.ts, same default). */
@@ -11,19 +12,17 @@ const DATABASE_URL =
   process.env['DATABASE_URL'] ??
   'postgres://mychess:mychess@127.0.0.1:5432/mychess';
 
-/** A SQL string literal: the values here are emails and move keys. */
-const literal = (value: string): string => `'${value.replaceAll("'", "''")}'`;
-
-/** The account of `email`, as a subquery. */
-const accountOf = (email: string): string =>
-  `(select id from accounts where email = ${literal(email)})`;
-
-async function withDb<T>(use: (handle: DbHandle) => Promise<T>): Promise<T> {
-  const handle = createDb(DATABASE_URL);
+/** Runs one statement with its values bound, on a connection of its own. */
+async function query(
+  text: string,
+  values: readonly unknown[],
+): Promise<pg.QueryResult> {
+  const client = new pg.Client({ connectionString: DATABASE_URL });
+  await client.connect();
   try {
-    return await use(handle);
+    return await client.query(text, [...values]);
   } finally {
-    await handle.close();
+    await client.end();
   }
 }
 
@@ -38,31 +37,32 @@ export async function seedDue(
   keys: readonly string[],
 ): Promise<void> {
   if (keys.length === 0) return;
-  const rows = keys.map(
-    (key, i) =>
-      `(${accountOf(email)}, ${literal(key)}, now() - interval '${String(keys.length - i)} minutes')`,
+  const { rowCount } = await query(
+    `insert into reviews (player_id, move_key, due, stability, difficulty,
+       elapsed_days, scheduled_days, learning_steps, reps, lapses, state,
+       last_review, learned_at, created_at, updated_at)
+     select a.id, k.move_key,
+       now() - (cardinality($2::text[]) - k.ord + 1) * interval '1 minute',
+       4, 5, 3, 3, 0, 2, 0, 2,
+       now() - interval '3 days', now() - interval '4 days',
+       now() - interval '4 days', now() - interval '4 days'
+     from accounts a, unnest($2::text[]) with ordinality as k(move_key, ord)
+     where a.email = $1
+     on conflict (player_id, move_key) do update set due = excluded.due`,
+    [email, keys],
   );
-  await withDb(({ db: database }) =>
-    database.execute(
-      `insert into reviews (player_id, move_key, due, stability, difficulty,
-         elapsed_days, scheduled_days, learning_steps, reps, lapses, state,
-         last_review, learned_at, created_at, updated_at)
-       select v.player_id, v.move_key, v.due, 4, 5, 3, 3, 0, 2, 0, 2,
-         now() - interval '3 days', now() - interval '4 days',
-         now() - interval '4 days', now() - interval '4 days'
-       from (values ${rows.join(', ')}) as v(player_id, move_key, due)
-       on conflict (player_id, move_key) do update set due = excluded.due`,
-    ),
-  );
+  if (rowCount !== keys.length)
+    throw new Error(
+      `seedDue: wrote ${String(rowCount)} of ${String(keys.length)} Reviews`,
+    );
 }
 
 /** Makes every Review of the player of `email` due now (the next day came). */
 export async function allDue(email: string): Promise<void> {
-  await withDb(({ db: database }) =>
-    database.execute(
-      `update reviews set due = now() - interval '1 minute'
-       where player_id = ${accountOf(email)}`,
-    ),
+  await query(
+    `update reviews set due = now() - interval '1 minute'
+     where player_id = (select id from accounts where email = $1)`,
+    [email],
   );
 }
 
@@ -77,13 +77,13 @@ type LoggedResult = z.infer<typeof resultRowSchema>;
 
 /** Every result the server logged for the player of `email`, oldest first. */
 export async function loggedResults(email: string): Promise<LoggedResult[]> {
-  const result = await withDb(({ db: database }) =>
-    database.execute(
-      `select move_key, kind, applied from review_results
-       where player_id = ${accountOf(email)} order by answered_at`,
-    ),
+  const { rows } = await query(
+    `select move_key, kind, applied from review_results
+     where player_id = (select id from accounts where email = $1)
+     order by answered_at`,
+    [email],
   );
-  return z.array(resultRowSchema).parse(result.rows);
+  return z.array(resultRowSchema).parse(rows);
 }
 
 const reviewRowSchema = z.object({
@@ -98,11 +98,10 @@ type StoredReviewRow = z.infer<typeof reviewRowSchema>;
 
 /** The player's Reviews, as stored. */
 export async function storedReviews(email: string): Promise<StoredReviewRow[]> {
-  const result = await withDb(({ db: database }) =>
-    database.execute(
-      `select move_key, due, learned_at, skipped_at from reviews
-       where player_id = ${accountOf(email)}`,
-    ),
+  const { rows } = await query(
+    `select move_key, due, learned_at, skipped_at from reviews
+     where player_id = (select id from accounts where email = $1)`,
+    [email],
   );
-  return z.array(reviewRowSchema).parse(result.rows);
+  return z.array(reviewRowSchema).parse(rows);
 }

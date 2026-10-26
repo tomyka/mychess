@@ -41,6 +41,12 @@ describe('twoAnswers (R-54)', () => {
       { repertoireId: 'd4', san: 'd4' },
     ]);
   });
+  it('needs only each repertoire id and graph', () => {
+    const named = { id: 'd4', graph: graph('1. d4 d5 *') };
+    expect(twoAnswers(START_KEY, 'e4', [named])).toEqual([
+      { repertoireId: 'd4', san: 'd4' },
+    ]);
+  });
 });
 
 describe('learnAgainKeys (R-147)', () => {

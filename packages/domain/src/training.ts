@@ -93,11 +93,18 @@ export const clampAnsweredAt = (at: Date, now: Date): Date =>
     ),
   );
 
-/** Message-catalogue keys for training refusals; the UI translates them. */
+/**
+ * Training refusals: message-catalogue keys the UI translates, or wire codes
+ * the browser acts on.
+ */
 export const TRAINING_REFUSALS = {
   notHeld: 'training.notHeld',
   paused: 'training.paused',
   notLearned: 'training.notLearned',
+  /** Not a move, line or chapter of a repertoire the player trains now. */
+  notTrained: 'training.notTrained',
+  /** A result batch that can never be recorded: the browser drops it. */
+  badBatch: 'training.badBatch',
 } as const;
 
 export interface TrainingRefusal {
@@ -171,9 +178,12 @@ export function acceptResult(
   return ok({ verdict: gradedVerdict(at, stored.lastReview), at });
 }
 
+/** How the player holds a repertoire: their own, or assigned by a coach. */
+export type RepertoireKind = 'own' | 'assigned';
+
 /** A repertoire as the learn order sees it (R-145). */
 export interface TrainingEntry {
-  readonly kind: 'own' | 'assigned';
+  readonly kind: RepertoireKind;
   /** effectiveDeadline, `YYYY-MM-DD`, or null. */
   readonly deadline: string | null;
   /** Its place in trainingRepertoires: own oldest first, then assigned. */

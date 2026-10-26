@@ -60,11 +60,14 @@ const ids = (results: readonly TrainingResult[]) =>
   results.map(({ resultId }) => resultId);
 
 let errors: MockInstance<typeof console.error>;
+let warnings: MockInstance<typeof console.warn>;
 
 beforeEach(() => {
   errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  warnings = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   return () => {
     errors.mockRestore();
+    warnings.mockRestore();
   };
 });
 
@@ -143,6 +146,62 @@ describe('flush', () => {
     expect(await flush(store, post)).toEqual({ sent: 1, left: 0 });
   });
 
+  it('warns once per refused result, with its reason only', async () => {
+    const store = filled(3);
+    const post = () =>
+      Promise.resolve(
+        Response.json({
+          answers: [
+            {
+              resultId: result(0).resultId,
+              status: 'refused',
+              reason: 'training.notHeld',
+            },
+            { resultId: result(1).resultId, status: 'applied' },
+            {
+              resultId: result(2).resultId,
+              status: 'refused',
+              reason: 'training.notTrained',
+            },
+          ],
+        }),
+      );
+    expect(await flush(store, post)).toEqual({ sent: 3, left: 0 });
+    expect(warnings.mock.calls).toEqual([
+      ['training: result refused', 'training.notHeld'],
+      ['training: result refused', 'training.notTrained'],
+    ]);
+    expect(errors).not.toHaveBeenCalled();
+  });
+
+  it('does not warn when nothing is refused', async () => {
+    const store = filled(2);
+    const post = (batch: TrainingResult[]) =>
+      Promise.resolve(
+        Response.json({
+          answers: [
+            { resultId: batch[0]?.resultId, status: 'stale' },
+            { resultId: batch[1]?.resultId, status: 'duplicate' },
+          ],
+        }),
+      );
+    expect(await flush(store, post)).toEqual({ sent: 2, left: 0 });
+    expect(warnings).not.toHaveBeenCalled();
+  });
+
+  it('keeps everything on a 200 whose answers it cannot read', async () => {
+    const store = filled(1);
+    for (const answer of [
+      { resultId: result(0).resultId },
+      { resultId: result(0).resultId, status: 'lost' },
+      { resultId: result(0).resultId, status: 'refused' },
+    ]) {
+      const post = () => Promise.resolve(Response.json({ answers: [answer] }));
+      expect(await flush(store, post)).toEqual({ sent: 0, left: 1 });
+    }
+    expect(warnings).not.toHaveBeenCalled();
+  });
+
   it('keeps everything on a network error', async () => {
     const store = filled(2);
     const post = () => Promise.reject(new TypeError('Failed to fetch'));
@@ -164,22 +223,25 @@ describe('flush', () => {
     expect(await flush(store, post)).toEqual({ sent: 0, left: 2 });
   });
 
-  it('drops the sent batch on a 400 and logs once, without the moves', async () => {
-    const store = filled(FLUSH_BATCH + 1);
-    const post = () =>
-      Promise.resolve(
-        Response.json({ reason: 'training.badBatch' }, { status: 400 }),
+  it.each([400, 403, 413, 415])(
+    'drops the sent batch on a %i and logs once, without the moves',
+    async (status) => {
+      const store = filled(FLUSH_BATCH + 1);
+      const post = () =>
+        Promise.resolve(
+          Response.json({ reason: 'training.badBatch' }, { status }),
+        );
+      expect(await flush(store, post)).toEqual({
+        sent: FLUSH_BATCH,
+        left: 1,
+      });
+      expect(pending(store)).toEqual([result(FLUSH_BATCH)]);
+      expect(errors).toHaveBeenCalledExactlyOnceWith(
+        'training: batch refused',
+        status,
       );
-    expect(await flush(store, post)).toEqual({
-      sent: FLUSH_BATCH,
-      left: 1,
-    });
-    expect(pending(store)).toEqual([result(FLUSH_BATCH)]);
-    expect(errors).toHaveBeenCalledExactlyOnceWith(
-      'training: batch refused',
-      400,
-    );
-  });
+    },
+  );
 
   it('keeps a result enqueued while the batch was posted', async () => {
     const store = filled(2);

@@ -4,7 +4,7 @@
 // (lib/training-counts.ts). Types only, so both sides share them without
 // importing each other.
 import type { RepertoireGraph, ReviewState, Side } from '@mychess/chess';
-import type { TrainingSettings } from '@mychess/domain';
+import type { RepertoireKind, TrainingSettings } from '@mychess/domain';
 import type { TrainingMode } from './routes';
 
 /** One repertoire the player trains, as the browser needs it. */
@@ -13,7 +13,7 @@ interface TrainingDataEntry {
   readonly name: string;
   readonly side: Side;
   /** The player's own, or assigned by a coach: which page it lives on. */
-  readonly kind: 'own' | 'assigned';
+  readonly kind: RepertoireKind;
   /** False while its assignment is paused: no new Moves from it. */
   readonly active: boolean;
   readonly graph: RepertoireGraph;

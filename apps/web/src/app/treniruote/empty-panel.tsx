@@ -1,5 +1,6 @@
 'use client';
 
+import type { RepertoireKind } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { JSX, ReactNode } from 'react';
@@ -12,7 +13,7 @@ import type { StartState } from './training-start';
 /** The repertoire a page is scoped to: which one, and whose. */
 export interface ScopedRepertoire {
   readonly id: string;
-  readonly kind: 'own' | 'assigned';
+  readonly kind: RepertoireKind;
 }
 
 /** A start state with nothing to drill. */

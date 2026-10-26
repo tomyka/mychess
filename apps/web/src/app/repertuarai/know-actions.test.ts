@@ -1,3 +1,10 @@
+import {
+  TRAINING_REFUSALS,
+  ok,
+  refuse,
+  type Result,
+  type TrainingRefusal,
+} from '@mychess/domain';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   knowCountAction,
@@ -17,10 +24,13 @@ const server = vi.hoisted(() => ({
         db: unknown,
         playerId: string,
         scope: unknown,
-      ) => Promise<{ know: number; again: number } | undefined>
+      ) => Promise<Result<{ know: number; again: number }, TrainingRefusal>>
     >(),
-  mark: vi.fn<(...args: unknown[]) => Promise<number | undefined>>(),
-  again: vi.fn<(...args: unknown[]) => Promise<number | undefined>>(),
+  mark: vi.fn<
+    (...args: unknown[]) => Promise<Result<number, TrainingRefusal>>
+  >(),
+  again:
+    vi.fn<(...args: unknown[]) => Promise<Result<number, TrainingRefusal>>>(),
   refresh: vi.fn(),
 }));
 
@@ -52,12 +62,13 @@ const LINE = {
 const CHAPTER = { kind: 'chapter', repertoireId: ID, chapterId: 'c1' } as const;
 
 const NOT_TRAINED = { ok: false, refusal: 'training.notTrained' };
+const REFUSED = refuse(TRAINING_REFUSALS.notTrained);
 
 beforeEach(() => {
   vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
-  server.counts.mockReset().mockResolvedValue({ know: 5, again: 2 });
-  server.mark.mockReset().mockResolvedValue(5);
-  server.again.mockReset().mockResolvedValue(2);
+  server.counts.mockReset().mockResolvedValue(ok({ know: 5, again: 2 }));
+  server.mark.mockReset().mockResolvedValue(ok(5));
+  server.again.mockReset().mockResolvedValue(ok(2));
   server.refresh.mockReset();
   return () => {
     vi.useRealTimers();
@@ -91,7 +102,7 @@ describe('knowCountAction (R-147)', () => {
   });
 
   it('refuses a repertoire the player does not train', async () => {
-    server.counts.mockResolvedValue(undefined);
+    server.counts.mockResolvedValue(REFUSED);
     expect(await knowCountAction(formOf(MOVE))).toEqual(NOT_TRAINED);
   });
 });
@@ -112,9 +123,17 @@ describe('markKnownAction (R-58)', () => {
   });
 
   it('refuses a foreign or paused repertoire and refreshes nothing', async () => {
-    server.mark.mockResolvedValue(undefined);
+    server.mark.mockResolvedValue(REFUSED);
     expect(await markKnownAction(formOf(CHAPTER))).toEqual(NOT_TRAINED);
     expect(server.refresh).not.toHaveBeenCalled();
+  });
+
+  it('passes the refusal the db gives through as it is', async () => {
+    server.mark.mockResolvedValue(refuse(TRAINING_REFUSALS.paused));
+    expect(await markKnownAction(formOf(CHAPTER))).toEqual({
+      ok: false,
+      refusal: 'training.paused',
+    });
   });
 });
 
@@ -134,7 +153,7 @@ describe('learnAgainAction (R-147)', () => {
   });
 
   it('refuses a repertoire the player does not train', async () => {
-    server.again.mockResolvedValue(undefined);
+    server.again.mockResolvedValue(REFUSED);
     expect(await learnAgainAction(formOf(MOVE))).toEqual(NOT_TRAINED);
   });
 });
