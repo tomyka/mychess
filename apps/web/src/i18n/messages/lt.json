@@ -205,6 +205,28 @@
       "deleteNote": "Ištrinti pastabą",
       "noteSaved": "Išsaugota",
       "noteDeleted": "Pastaba ištrinta"
+    },
+    "progress": {
+      "title": "Pažanga",
+      "empty": "{name} dar neturi jums matomų repertuarų.",
+      "assigned": "Priskirtas",
+      "shared": "Bendrinamas",
+      "counts": "{learned} išmokta · {due, plural, one {# kartotinas} few {# kartotini} other {# kartotinų}} · {skipped} pažymėta „Žinau“ · {notStarted} liko išmokti",
+      "percent": "{percent} % išmokta",
+      "mastered": "Įvaldyta",
+      "nothing": "Nėra ko mokytis",
+      "forkedNote": "Žaidėjas pasidarė asmeninę kopiją; jos pažangos nematote.",
+      "today": "Paskutinį kartą treniravosi šiandien",
+      "yesterday": "Paskutinį kartą treniravosi vakar",
+      "daysAgo": "Paskutinį kartą treniravosi prieš {days, plural, one {# dieną} few {# dienas} other {# dienų}}",
+      "neverTrained": "Dar nesitreniravo",
+      "chapters": "Skyriai",
+      "lines": "Variantai",
+      "open": "Pažanga: {name}",
+      "gridTitle": "Grupės pažanga",
+      "gridEmpty": "Grupei dar nieko nepriskirta.",
+      "player": "Žaidėjas",
+      "noAssignment": "Nepriskirta"
     }
   },
   "invite": {

@@ -205,6 +205,28 @@
       "deleteNote": "Delete note",
       "noteSaved": "Saved",
       "noteDeleted": "Note deleted"
+    },
+    "progress": {
+      "title": "Progress",
+      "empty": "{name} has no repertoires you can see yet.",
+      "assigned": "Assigned",
+      "shared": "Shared",
+      "counts": "{learned} learned · {due} due · {skipped} marked as known · {notStarted} to learn",
+      "percent": "{percent}% learned",
+      "mastered": "Mastered",
+      "nothing": "Nothing to learn",
+      "forkedNote": "The player made their own copy; you do not see its progress.",
+      "today": "Last trained today",
+      "yesterday": "Last trained yesterday",
+      "daysAgo": "Last trained {days, plural, one {# day} other {# days}} ago",
+      "neverTrained": "Not trained yet",
+      "chapters": "Chapters",
+      "lines": "Lines",
+      "open": "Progress: {name}",
+      "gridTitle": "Group progress",
+      "gridEmpty": "Nothing is assigned to the group yet.",
+      "player": "Player",
+      "noAssignment": "Not assigned"
     }
   },
   "invite": {

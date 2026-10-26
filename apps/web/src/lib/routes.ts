@@ -33,6 +33,13 @@ export const coachSharedRepertoirePath = (
 ): string =>
   `${coachPlayerPath(playerId)}/repertuarai/${encodeURIComponent(repertoireId)}`;
 
+/** A player's progress on one repertoire, in the coach dashboard (R-152). */
+export const coachProgressPath = (
+  playerId: string,
+  repertoireId: string,
+): string =>
+  `${coachPlayerPath(playerId)}/pazanga/${encodeURIComponent(repertoireId)}`;
+
 /** One group's page in the coach dashboard. */
 export const coachGroupPath = (groupId: string): string =>
   `${ROUTES.coach}/grupes/${encodeURIComponent(groupId)}`;

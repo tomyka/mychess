@@ -3,6 +3,7 @@ import {
   assignedRepertoirePath,
   coachGroupPath,
   coachPlayerPath,
+  coachProgressPath,
   coachSharedRepertoirePath,
   importIntoRoute,
   invitePath,
@@ -51,6 +52,17 @@ describe('coachSharedRepertoirePath', () => {
     );
     expect(coachSharedRepertoirePath('a/b', 'c d')).toBe(
       '/treneris/zaidejai/a%2Fb/repertuarai/c%20d',
+    );
+  });
+});
+
+describe('coachProgressPath', () => {
+  it('is the player page’s progress page for the ids, encoded', () => {
+    expect(coachProgressPath('p1', 'r1')).toBe(
+      '/treneris/zaidejai/p1/pazanga/r1',
+    );
+    expect(coachProgressPath('a/b', 'c d')).toBe(
+      '/treneris/zaidejai/a%2Fb/pazanga/c%20d',
     );
   });
 });
