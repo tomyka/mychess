@@ -32,6 +32,7 @@ describe('HomeView', () => {
       render(
         <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
           <HomeView
+            accountId="rokas"
             displayName="Rūta"
             isCoach={false}
             fromCoach={[]}
@@ -73,6 +74,7 @@ describe('HomeView', () => {
     render(
       <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
         <HomeView
+          accountId="rokas"
           displayName="Jonas"
           isCoach
           fromCoach={[]}
@@ -95,6 +97,7 @@ describe('HomeView', () => {
     render(
       <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
         <HomeView
+          accountId="rokas"
           displayName="Rokas"
           isCoach={false}
           fromCoach={[
@@ -141,6 +144,7 @@ describe('HomeView', () => {
     render(
       <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
         <HomeView
+          accountId="rokas"
           displayName="Rokas"
           isCoach={false}
           fromCoach={[]}

@@ -114,25 +114,33 @@ function againKeys(
  */
 const COUNT_ONLY = new Date(0);
 
+/** How many moves each action would change in a scope. */
+interface KnowCounts {
+  /** Moves "I know this" would add. */
+  readonly know: number;
+  /** Skipped moves "Learn again" would remove. */
+  readonly again: number;
+}
+
 /**
- * How many moves `action` would change in `scope`, for the R-147 confirm:
- * moves "I know this" would add, or skipped moves "Learn again" would
- * remove. Undefined when the scope is not one the player trains.
+ * How many moves each action would change in `scope`, for the menu and the
+ * R-147 confirm, both read from one snapshot. Undefined when the scope is
+ * not one the player trains.
  */
-export function knowCount(
+export function knowCounts(
   db: Executor,
   playerId: string,
   scope: KnowScope,
-  action: 'know' | 'again',
-): Promise<number | undefined> {
+): Promise<KnowCounts | undefined> {
   return db.transaction(
     async (tx) => {
       const resolved = await resolve(tx, playerId, scope);
       if (resolved === undefined) return undefined;
       const stored = await reviewsOf(tx, playerId);
-      return action === 'know'
-        ? knowThis(resolved.scope, stored, COUNT_ONLY).length
-        : againKeys(resolved.scope, stored).length;
+      return {
+        know: knowThis(resolved.scope, stored, COUNT_ONLY).length,
+        again: againKeys(resolved.scope, stored).length,
+      };
     },
     { isolationLevel: 'repeatable read' },
   );

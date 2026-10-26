@@ -81,6 +81,24 @@ describe('the training tables', () => {
     ).rejects.toThrow(/review_results_kind_check/);
   });
 
+  it('keys a result by player and result id: one id twice for a player is refused, for two players kept', async () => {
+    await insertAccount('q');
+    const insert = (playerId: string) =>
+      client.query(
+        `insert into review_results (result_id, player_id, move_key, repertoire_id,
+           kind, answered_at, applied, received_at)
+         values ('00000000-0000-4000-8000-000000000001', $1, 'k',
+           gen_random_uuid(), 'pass', now(), true, now())`,
+        [playerId],
+      );
+    await insert('p');
+    await insert('q');
+    expect(await count('review_results')).toBe(2);
+    await expect(insert('p')).rejects.toThrow(
+      /review_results_player_result_pk/,
+    );
+  });
+
   it('removes the reviews and results with the account', async () => {
     await insertReview('p', 'k', LEARNED);
     await insertResult('p');

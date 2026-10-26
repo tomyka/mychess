@@ -14,9 +14,12 @@ export interface QueueStore {
 /** The most results one flush posts. */
 export const FLUSH_BATCH = 50;
 
+/** What every account's queue key starts with. */
+const QUEUE_PREFIX = 'mychess.results.';
+
 /** The store key of an account's queue. */
 export const queueKey = (accountId: string): string =>
-  `mychess.results.${accountId}`;
+  `${QUEUE_PREFIX}${accountId}`;
 
 const queueSchema = z.array(trainingResultSchema);
 
@@ -98,4 +101,64 @@ export async function flush(
     sent,
     left: sent === 0 ? pending(store).length : remove(store, ids),
   };
+}
+
+/** How long signing out waits for the last flush (security review, S6). */
+export const SIGN_OUT_FLUSH_MS = 2000;
+
+/** The queue keys in `storage`, read before any is removed. */
+const queueKeys = (storage: Storage): string[] =>
+  Array.from({ length: storage.length }, (_, i) => storage.key(i)).filter(
+    (key): key is string => key?.startsWith(QUEUE_PREFIX) ?? false,
+  );
+
+/**
+ * Removes every account's queue from the browser's storage, so no unsent
+ * result outlives a sign-out or a deleted account on a shared browser.
+ * Where the browser refuses storage there is nothing to remove.
+ */
+export function clearQueuedResults(storage: () => Storage): void {
+  try {
+    const store = storage();
+    for (const key of queueKeys(store)) store.removeItem(key);
+  } catch {
+    // Storage refused: no queue was kept in it.
+  }
+}
+
+/** Resolves after `ms`, and the timer it set, to clear once not needed. */
+function timeout(ms: number): { done: Promise<void>; cancel: () => void } {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const done = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, ms);
+  });
+  return {
+    done,
+    cancel: () => {
+      clearTimeout(timer);
+    },
+  };
+}
+
+/**
+ * Signing out: one last flush of the account's own queue, waited for at
+ * most SIGN_OUT_FLUSH_MS, then every queue removed. Only the session's own
+ * queue is posted, as the server records any batch for the session account.
+ */
+export async function flushThenClear(
+  storage: () => Storage,
+  accountId: string,
+  post: (batch: TrainingResult[]) => Promise<Response>,
+): Promise<void> {
+  const key = queueKey(accountId);
+  const store: QueueStore = {
+    read: () => storage().getItem(key),
+    write: (value) => {
+      storage().setItem(key, value);
+    },
+  };
+  const limit = timeout(SIGN_OUT_FLUSH_MS);
+  await Promise.race([flush(store, post).catch(() => undefined), limit.done]);
+  limit.cancel();
+  clearQueuedResults(storage);
 }

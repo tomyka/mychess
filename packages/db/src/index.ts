@@ -132,7 +132,11 @@ export {
   setPersonalNote,
   type PersonalNoteInput,
 } from './personal-notes';
-export { countRateLimited, pruneRateLimits } from './rate-limits';
+export {
+  countRateLimited,
+  countWeighted,
+  pruneRateLimits,
+} from './rate-limits';
 export { deleteRepertoire } from './repertoires/delete';
 export {
   editRepertoire,
@@ -170,7 +174,7 @@ export {
 } from './training/entries';
 export { type TrainingExport } from './training/export';
 export {
-  knowCount,
+  knowCounts,
   learnAgain,
   markKnown,
   type KnowScope,

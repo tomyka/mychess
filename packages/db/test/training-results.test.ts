@@ -193,7 +193,7 @@ describe('recordResults', () => {
     ]);
   });
 
-  it('refuses a key the repertoire does not hold, and a repertoire the player does not train', async () => {
+  it('refuses, unlogged, a key the repertoire does not hold and a repertoire the player does not train', async () => {
     await seedPlayer(db, 'q', 'q@example.lt');
     const theirs = await createRepertoire(db, {
       ownerId: 'q',
@@ -211,7 +211,18 @@ describe('recordResults', () => {
       refused(unknown, 'training.notHeld'),
     ]);
     expect(await reviewsOf(db, 'p')).toEqual(new Map());
-    expect(await logOf()).toHaveLength(3);
+    expect(await logOf()).toEqual([]);
+  });
+
+  it('logs no row for a result that names nothing the player holds, so resending it is refused again', async () => {
+    const unheld = result('learned', E4);
+    expect(await record([unheld])).toEqual([
+      refused(unheld, 'training.notHeld'),
+    ]);
+    expect(await record([unheld])).toEqual([
+      refused(unheld, 'training.notHeld'),
+    ]);
+    expect(await logOf()).toEqual([]);
   });
 
   it('refuses learning on a paused assignment, yet applies an answer on it (S6 decision 6)', async () => {
@@ -247,6 +258,13 @@ describe('recordResults', () => {
       refused(learn, 'training.paused'),
       answer(pass, 'applied'),
     ]);
+    expect((await logOf()).map((r) => [r.result_id, r.applied])).toEqual(
+      expect.arrayContaining([
+        [learn.resultId, false],
+        [pass.resultId, true],
+      ]),
+    );
+    expect(await logOf()).toHaveLength(2);
   });
 
   it('applies a batch in answer order, and keeps a later-sent earlier answer as stale', async () => {
@@ -331,7 +349,7 @@ describe('recordResults', () => {
     expect(await logOf()).toMatchObject([{ applied: false }]);
   });
 
-  it("applies a result whose id another player logged, not a duplicate: their log row stays and this one's is skipped", async () => {
+  it("applies and logs a result whose id another player logged, and answers this player's own repeat as a duplicate", async () => {
     await seedPlayer(db, 'q', 'q@example.lt');
     const theirs = await createRepertoire(db, {
       ownerId: 'q',
@@ -346,7 +364,14 @@ describe('recordResults', () => {
     ).toEqual([answer(learn, 'applied')]);
     expect(await record([learn])).toEqual([answer(learn, 'applied')]);
     expect(await reviewOf(D4)).toBeDefined();
-    expect(await logOf()).toMatchObject([{ player_id: 'q' }]);
+    expect(
+      (await logOf()).map((r) => [r.result_id, r.player_id, r.applied]).sort(),
+    ).toEqual([
+      [learn.resultId, 'p', true],
+      [learn.resultId, 'q', true],
+    ]);
+    expect(await record([learn])).toEqual([answer(learn, 'duplicate')]);
+    expect(await logOf()).toHaveLength(2);
   });
 
   it('serialises two batches learning the same new moves in opposite order, without a deadlock', async () => {

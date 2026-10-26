@@ -46,7 +46,7 @@ export function browserStore(key: string, storage: () => Storage): QueueStore {
 }
 
 /** Posts one batch to the results endpoint, as the session's own. */
-const postBatch = (batch: TrainingResult[]): Promise<Response> =>
+export const postBatch = (batch: TrainingResult[]): Promise<Response> =>
   fetch(trainingResultsRoute, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

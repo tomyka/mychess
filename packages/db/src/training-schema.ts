@@ -63,15 +63,17 @@ export const reviews = pgTable(
 );
 
 /**
- * Every result the browser sent, applied or not (plan decisions 3-4): the
- * primary key makes a resent result a duplicate. `repertoire_id` has no
- * foreign key on purpose: the log is the player's history and outlives a
- * deleted repertoire.
+ * Every result the browser sent, applied or not, but for one naming nothing
+ * the player holds (plan decisions 3-4). The primary key (player, result
+ * id) makes a result the player resent a duplicate; another player's id
+ * never touches this player's results. `repertoire_id` has no foreign key
+ * on purpose: the log is the player's history and outlives a deleted
+ * repertoire.
  */
 export const reviewResults = pgTable(
   'review_results',
   {
-    resultId: uuid('result_id').primaryKey(),
+    resultId: uuid('result_id').notNull(),
     playerId: text('player_id')
       .notNull()
       .references(() => accounts.id, { onDelete: 'cascade' }),
@@ -83,6 +85,10 @@ export const reviewResults = pgTable(
     receivedAt: at('received_at').notNull(),
   },
   (t) => [
+    primaryKey({
+      name: 'review_results_player_result_pk',
+      columns: [t.playerId, t.resultId],
+    }),
     index('review_results_player_idx').on(t.playerId, t.answeredAt),
     check('review_results_kind_check', oneOf(t.kind, RESULT_KINDS)),
   ],

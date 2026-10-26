@@ -1,6 +1,6 @@
 import type { RateRule } from '@mychess/domain';
 import { describe, expect, it } from 'vitest';
-import { countRateLimited } from '../src';
+import { countRateLimited, countWeighted } from '../src';
 import { useTestDatabase } from '../src/testing';
 
 const { db, client } = useTestDatabase();
@@ -22,6 +22,34 @@ const rows = async (): Promise<unknown> =>
       'select key, count, window_start from request_counters order by key',
     )
   ).rows;
+
+describe('countWeighted', () => {
+  const weighted = (ms: number, weight: number) =>
+    countWeighted(db, {
+      key: 'k',
+      rule: { ...RULE, max: 5 },
+      now: at(ms),
+      weight,
+    });
+  const REFUSED_5 = { ok: false, refusal: { reason: 'x.tooMany', limit: 5 } };
+
+  it('counts a request as its weight, refusing one that would pass the maximum without counting it', async () => {
+    expect(await weighted(0, 3)).toEqual(ALLOWED);
+    expect(await weighted(1000, 3)).toEqual(REFUSED_5);
+    expect(await weighted(2000, 2)).toEqual(ALLOWED);
+    expect(await rows()).toEqual([
+      { key: 'k', count: 5, window_start: String(T0.getTime()) },
+    ]);
+  });
+
+  it('shares its counter with countRateLimited, which counts one', async () => {
+    await weighted(0, 4);
+    expect(
+      await countRateLimited(db, 'k', { ...RULE, max: 5 }, at(1000)),
+    ).toEqual(ALLOWED);
+    expect(await weighted(2000, 1)).toEqual(REFUSED_5);
+  });
+});
 
 describe('countRateLimited', () => {
   it('allows up to the maximum in a window, then refuses without counting', async () => {

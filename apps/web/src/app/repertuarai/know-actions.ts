@@ -6,7 +6,7 @@
 // the form; the db functions resolve the scope against the repertoire as the
 // player trains it now (their own, or live by assignment and not paused),
 // and anything else, a malformed form included, reads as one refusal.
-import { knowCount, learnAgain, markKnown, type KnowScope } from '@mychess/db';
+import { knowCounts, learnAgain, markKnown, type KnowScope } from '@mychess/db';
 import { refresh } from 'next/cache';
 import { z } from 'zod';
 import { getDb } from '../../server/db';
@@ -72,12 +72,8 @@ function outcome(changed: number | undefined): KnowOutcome {
 export async function knowCountAction(form: FormData): Promise<KnowCounts> {
   const asked = await request(form);
   if (asked === undefined) return NOT_TRAINED;
-  const { playerId, scope } = asked;
-  const know = await knowCount(getDb(), playerId, scope, 'know');
-  const again = await knowCount(getDb(), playerId, scope, 'again');
-  return know === undefined || again === undefined
-    ? NOT_TRAINED
-    : { ok: true, know, again };
+  const counts = await knowCounts(getDb(), asked.playerId, asked.scope);
+  return counts === undefined ? NOT_TRAINED : { ok: true, ...counts };
 }
 
 /** "I know this": the scope's new moves skip the learn pass (R-58). */

@@ -12,6 +12,13 @@ const server = vi.hoisted(() => ({
     vi.fn<
       (db: unknown, key: string, rule: unknown, now: Date) => Promise<unknown>
     >(),
+  weighted:
+    vi.fn<
+      (
+        db: unknown,
+        request: { key: string; rule: unknown; now: Date; weight: number },
+      ) => Promise<unknown>
+    >(),
   record:
     vi.fn<
       (
@@ -25,6 +32,7 @@ const server = vi.hoisted(() => ({
 
 vi.mock('@mychess/db', () => ({
   countRateLimited: server.counted,
+  countWeighted: server.weighted,
   recordResults: server.record,
 }));
 vi.mock('../../../../server/db', () => ({ getDb: () => DB }));
@@ -69,6 +77,7 @@ beforeEach(() => {
   vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
   server.account.mockReset().mockResolvedValue(ROKAS);
   server.counted.mockReset().mockResolvedValue({ ok: true, value: undefined });
+  server.weighted.mockReset().mockResolvedValue({ ok: true, value: undefined });
   server.record
     .mockReset()
     .mockResolvedValue([{ resultId: result(1).resultId, status: 'applied' }]);
@@ -97,6 +106,59 @@ describe('POST /api/training/results', () => {
       [{ ...result(1), answeredAt: new Date(result(1).answeredAt) }],
       NOW,
     );
+  });
+
+  it('counts the results of a parsed batch, each as one, on their own key', async () => {
+    const batch = Array.from({ length: 7 }, (_, n) => result(n));
+    expect((await post(JSON.stringify(batch))).status).toBe(200);
+    expect(server.weighted).toHaveBeenCalledExactlyOnceWith(DB, {
+      key: 'training-results:rokas',
+      rule: { windowMs: 60_000, max: 600, reason: 'training.tooManyResults' },
+      now: NOW,
+      weight: 7,
+    });
+  });
+
+  it('is 429 with the reason when too many results, and records nothing', async () => {
+    server.weighted.mockResolvedValue({
+      ok: false,
+      refusal: { reason: 'training.tooManyResults', limit: 600 },
+    });
+    const response = await post(JSON.stringify([result(1)]));
+    expect(response.status).toBe(429);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(await response.json()).toEqual({
+      reason: 'training.tooManyResults',
+    });
+    expect(server.record).not.toHaveBeenCalled();
+  });
+
+  it('counts no results for a batch that does not parse', async () => {
+    expect((await post('[]')).status).toBe(400);
+    expect(server.weighted).not.toHaveBeenCalled();
+  });
+
+  it('is 413 for a declared body over 256 KB, unread and unrecorded', async () => {
+    const response = await post('not json', {
+      ...JSON_BODY,
+      'content-length': String(256 * 1024 + 1),
+    });
+    expect(response.status).toBe(413);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(await response.json()).toEqual({ reason: 'training.badBatch' });
+    expect(server.weighted).not.toHaveBeenCalled();
+    expect(server.record).not.toHaveBeenCalled();
+  });
+
+  it('takes a declared body of 256 KB, and one with no declared length', async () => {
+    const body = JSON.stringify([result(1)]);
+    const at = await post(body, {
+      ...JSON_BODY,
+      'content-length': String(256 * 1024),
+    });
+    expect(at.status).not.toBe(413);
+    const undeclared = await post(body);
+    expect(undeclared.status).toBe(200);
   });
 
   it('never takes the player from the body', async () => {

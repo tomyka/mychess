@@ -2,7 +2,7 @@
 
 import type { Locale, Provider } from '@mychess/domain';
 import { useLocale, useTranslations } from 'next-intl';
-import { useId, useState, type JSX, type SubmitEvent } from 'react';
+import { useEffect, useId, useState, type JSX, type SubmitEvent } from 'react';
 import { authClient } from '../../lib/auth-client';
 import { offeredProviders } from '../../lib/providers';
 import { onboardingPath, signInPath } from '../../lib/return-path';
@@ -14,6 +14,7 @@ import {
 } from '../../lib/sign-in-errors';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
 import { StatusLine, type StatusLineProps } from '../status-line';
+import { clearQueuedResults } from '../treniruote/result-queue';
 
 export interface SignInFormProps {
   /** The `?error=` code a failed sign-in was sent back with. */
@@ -179,7 +180,10 @@ function ProviderButtons({
   );
 }
 
-/** The sign-in screen: a magic link by email, or Google or Lichess. */
+/**
+ * The sign-in screen: a magic link by email, or Google or Lichess. After a
+ * deletion it also removes the training results queued in this browser.
+ */
 export function SignInForm({
   error,
   deleted,
@@ -190,6 +194,10 @@ export function SignInForm({
   const urls = callbackUrls(next);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(() => initialMessage(error, deleted));
+  useEffect(() => {
+    // A deleted account's unsent training results must not stay behind.
+    if (deleted) clearQueuedResults(() => window.localStorage);
+  }, [deleted]);
   const run: Run = (action) => {
     setBusy(true);
     setMessage(null);

@@ -11,6 +11,7 @@ import {
   MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
   TRAINING_RATE_LIMIT,
+  TRAINING_RESULTS_RATE_LIMIT,
   countRequest,
   ok,
   type RateRefusal,
@@ -48,6 +49,7 @@ export const REQUEST_COUNTER_RETENTION_MS = Math.max(
   MAGIC_LINK_EMAIL_RATE_LIMIT.windowMs,
   IMPORT_RATE_LIMIT.windowMs,
   TRAINING_RATE_LIMIT.windowMs,
+  TRAINING_RESULTS_RATE_LIMIT.windowMs,
 );
 
 const counterRowsSchema = z.array(
@@ -62,11 +64,31 @@ const deletedSchema = z.object({ rowCount: z.number().int() });
  * or refused (and not counted). The upsert locks the key's row until the
  * transaction ends, so concurrent requests are counted one at a time.
  */
-export async function countRateLimited<R extends string>(
+export function countRateLimited<R extends string>(
   db: Executor,
   key: string,
   rule: RateRule<R>,
   now: Date,
+): Promise<Result<undefined, RateRefusal<R>>> {
+  return countWeighted(db, { key, rule, now, weight: 1 });
+}
+
+/** A request that counts as `weight` requests, such as a batch of results. */
+interface WeightedRequest<R extends string> {
+  readonly key: string;
+  readonly rule: RateRule<R>;
+  readonly now: Date;
+  readonly weight: number;
+}
+
+/**
+ * Counts `request` as its weight, as countRateLimited counts one: refused,
+ * and nothing counted, when the window's count plus the weight would pass
+ * the rule's maximum.
+ */
+export async function countWeighted<R extends string>(
+  db: Executor,
+  { key, rule, now, weight }: WeightedRequest<R>,
 ): Promise<Result<undefined, RateRefusal<R>>> {
   return db.transaction(async (tx) => {
     // A new key starts in a window long closed.
@@ -83,7 +105,7 @@ export async function countRateLimited<R extends string>(
           windowStart: requestCounters.windowStart,
         }),
     );
-    const counted = countRequest(row, rule, now.getTime());
+    const counted = countRequest(row, rule, now.getTime(), weight);
     if (!counted.ok) return counted;
     await tx
       .update(requestCounters)

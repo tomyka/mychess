@@ -19,12 +19,14 @@ const LINK = 'inline-flex min-h-touch items-center text-accent underline';
  * only when there is any.
  */
 export function HomeView({
+  accountId,
   displayName,
   isCoach,
   fromCoach,
   offers,
   today,
 }: {
+  readonly accountId: string;
   readonly displayName: string;
   readonly isCoach: boolean;
   readonly today: TodaySummary;
@@ -50,7 +52,7 @@ export function HomeView({
         <Link href={ROUTES.settings} className={LINK}>
           {t('settings')}
         </Link>
-        <SignOutButton />
+        <SignOutButton accountId={accountId} />
       </div>
       <TodayBlock summary={today} />
       <FromMyCoach assignments={fromCoach} />

@@ -2,7 +2,8 @@
  * Records the training results the browser queued (S6 decisions 2-6). The
  * domain decides each result (canRecord, acceptResult); this module loads
  * the facts, holds the touched Reviews FOR UPDATE, applies the results in
- * answer order and logs every one that is not a duplicate.
+ * answer order and logs every one that is neither a duplicate nor names
+ * something the player does not hold.
  */
 import {
   grade,
@@ -181,14 +182,21 @@ const inAnswerOrder = (batch: readonly TrainingResult[], now: Date) =>
     }))
     .sort((a, b) => a.at.getTime() - b.at.getTime() || a.index - b.index);
 
+/**
+ * Whether a result's fate is logged: every one but a result naming nothing
+ * the player holds (training.notHeld), which a forged batch could repeat at
+ * will and which says nothing of the player's training.
+ */
+const isLogged = (status: Status): boolean =>
+  typeof status === 'string' || status.reason !== 'training.notHeld';
+
 const idRowsSchema = z.array(z.object({ resultId: z.string() }));
 
 /**
- * The batch's result ids this player already logged. Another account's ids
- * are not read, so no id can be probed through a `duplicate` answer. Should
- * a result collide with another account's id (client uuids make that
- * practically impossible), it applies normally and the log insert's
- * conflict clause drops its row.
+ * The batch's result ids this player already logged. Results are keyed by
+ * player and id, so another account's ids are neither read nor in the way:
+ * no id can be probed through a `duplicate` answer, and none can block this
+ * player's result.
  */
 async function loggedIds(
   tx: Tx,
@@ -234,9 +242,10 @@ async function trainedBy(
  * Records a parsed batch for `playerId` (the session account) at `now`, in
  * one transaction (S6 decisions 2-6). Returns one answer per result, in
  * the batch's order. Results apply in answer order, `answeredAt` clamped
- * to [now - 7 days, now]; a result id already recorded, or seen earlier in
- * the batch, is a duplicate and nothing is done for it. Every other result
- * is logged, applied or not. The player's training writes run one at a
+ * to [now - 7 days, now]; a result id the player already logged, or seen
+ * earlier in the batch, is a duplicate and nothing is done for it. Every
+ * other result is logged, applied or not, but for a training.notHeld
+ * refusal. The player's training writes run one at a
  * time (serialiseTraining).
  */
 export function recordResults(
@@ -271,6 +280,7 @@ export function recordResults(
       seen.add(resultId);
       const status = await recordOne(rec, result);
       answers.push({ index, answer: answerOf(resultId, status) });
+      if (!isLogged(status)) continue;
       log.push({
         resultId,
         playerId,
@@ -286,7 +296,9 @@ export function recordResults(
       await tx
         .insert(reviewResults)
         .values(log)
-        .onConflictDoNothing({ target: reviewResults.resultId });
+        .onConflictDoNothing({
+          target: [reviewResults.playerId, reviewResults.resultId],
+        });
     }
     return answers.sort((a, b) => a.index - b.index).map((a) => a.answer);
   });

@@ -11,14 +11,13 @@ const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 const KEY = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -|d4';
 
 const server = vi.hoisted(() => ({
-  count:
+  counts:
     vi.fn<
       (
         db: unknown,
         playerId: string,
         scope: unknown,
-        action: 'know' | 'again',
-      ) => Promise<number | undefined>
+      ) => Promise<{ know: number; again: number } | undefined>
     >(),
   mark: vi.fn<(...args: unknown[]) => Promise<number | undefined>>(),
   again: vi.fn<(...args: unknown[]) => Promise<number | undefined>>(),
@@ -26,7 +25,7 @@ const server = vi.hoisted(() => ({
 }));
 
 vi.mock('@mychess/db', () => ({
-  knowCount: server.count,
+  knowCounts: server.counts,
   markKnown: server.mark,
   learnAgain: server.again,
 }));
@@ -56,11 +55,7 @@ const NOT_TRAINED = { ok: false, refusal: 'training.notTrained' };
 
 beforeEach(() => {
   vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
-  server.count
-    .mockReset()
-    .mockImplementation((_db, _player, _scope, action) =>
-      Promise.resolve(action === 'know' ? 5 : 2),
-    );
+  server.counts.mockReset().mockResolvedValue({ know: 5, again: 2 });
   server.mark.mockReset().mockResolvedValue(5);
   server.again.mockReset().mockResolvedValue(2);
   server.refresh.mockReset();
@@ -82,22 +77,21 @@ describe('knowCountAction (R-147)', () => {
       chapterId: 'c1',
       lineIndex: 2,
     };
-    expect(server.count).toHaveBeenCalledWith(DB, 'rokas', scope, 'know');
-    expect(server.count).toHaveBeenCalledWith(DB, 'rokas', scope, 'again');
+    expect(server.counts).toHaveBeenCalledTimes(1);
+    expect(server.counts).toHaveBeenCalledWith(DB, 'rokas', scope);
   });
 
   it('ignores a player id sent with the form', async () => {
     await knowCountAction(formOf({ ...CHAPTER, playerId: 'gabija' }));
-    expect(server.count).toHaveBeenCalledWith(
-      DB,
-      'rokas',
-      { kind: 'chapter', repertoireId: ID, chapterId: 'c1' },
-      'know',
-    );
+    expect(server.counts).toHaveBeenCalledWith(DB, 'rokas', {
+      kind: 'chapter',
+      repertoireId: ID,
+      chapterId: 'c1',
+    });
   });
 
   it('refuses a repertoire the player does not train', async () => {
-    server.count.mockResolvedValue(undefined);
+    server.counts.mockResolvedValue(undefined);
     expect(await knowCountAction(formOf(MOVE))).toEqual(NOT_TRAINED);
   });
 });
@@ -159,7 +153,7 @@ describe('the scope a form names', () => {
     expect(await knowCountAction(form)).toEqual(NOT_TRAINED);
     expect(await markKnownAction(form)).toEqual(NOT_TRAINED);
     expect(await learnAgainAction(form)).toEqual(NOT_TRAINED);
-    expect(server.count).not.toHaveBeenCalled();
+    expect(server.counts).not.toHaveBeenCalled();
     expect(server.mark).not.toHaveBeenCalled();
     expect(server.again).not.toHaveBeenCalled();
   });

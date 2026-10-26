@@ -153,10 +153,12 @@ export {
   MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
   TRAINING_RATE_LIMIT,
+  TRAINING_RESULTS_RATE_LIMIT,
   countRequest,
   importRateKey,
   magicLinkEmailRateKey,
   trainingRateKey,
+  trainingResultsKey,
   type RateRefusal,
   type RateRule,
 } from './rate-limit';

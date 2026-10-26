@@ -8,11 +8,14 @@ import {
   type MockInstance,
 } from 'vitest';
 import {
+  clearQueuedResults,
   enqueue,
   flush,
   FLUSH_BATCH,
+  flushThenClear,
   pending,
   queueKey,
+  SIGN_OUT_FLUSH_MS,
   type QueueStore,
 } from './result-queue';
 
@@ -202,5 +205,106 @@ describe('flush', () => {
       result(FLUSH_BATCH),
       result(FLUSH_BATCH + 1),
     ]);
+  });
+});
+
+/** A browser storage holding `entries`, fresh for each test. */
+function storageWith(entries: Record<string, string>): Storage {
+  window.localStorage.clear();
+  for (const [key, value] of Object.entries(entries))
+    window.localStorage.setItem(key, value);
+  return window.localStorage;
+}
+
+const keysOf = (storage: Storage): string[] =>
+  Array.from({ length: storage.length }, (_, i) => storage.key(i) ?? '').sort();
+
+/** A storage the browser refuses: every access throws. */
+const refused = (): Storage => {
+  throw new DOMException('denied', 'SecurityError');
+};
+
+describe('clearQueuedResults', () => {
+  it("removes every account's queue and nothing else", () => {
+    const storage = storageWith({
+      [queueKey('rokas')]: '[]',
+      [queueKey('gabija')]: '[]',
+      'mychess.other': 'kept',
+      theme: 'dark',
+    });
+    clearQueuedResults(() => storage);
+    expect(keysOf(storage)).toEqual(['mychess.other', 'theme']);
+  });
+
+  it('does nothing where the browser refuses storage', () => {
+    expect(() => {
+      clearQueuedResults(refused);
+    }).not.toThrow();
+  });
+});
+
+describe('flushThenClear', () => {
+  const queued = (accountId: string, results: TrainingResult[]) => ({
+    [queueKey(accountId)]: JSON.stringify(results),
+  });
+
+  it("posts the account's queue once, then clears every queue", async () => {
+    const storage = storageWith({
+      ...queued('rokas', [result(1), result(2)]),
+      ...queued('gabija', [result(3)]),
+    });
+    const post = vi.fn((batch: TrainingResult[]) =>
+      Promise.resolve(answering(batch)),
+    );
+    await flushThenClear(() => storage, 'rokas', post);
+    expect(post).toHaveBeenCalledOnce();
+    expect(post.mock.calls[0]?.[0].map((r) => r.resultId)).toEqual(
+      ids([result(1), result(2)]),
+    );
+    expect(keysOf(storage)).toEqual([]);
+  });
+
+  it('clears the queues even when the post fails', async () => {
+    const storage = storageWith(queued('rokas', [result(1)]));
+    await flushThenClear(
+      () => storage,
+      'rokas',
+      () => Promise.reject(new TypeError('offline')),
+    );
+    expect(keysOf(storage)).toEqual([]);
+  });
+
+  it('waits for the post at most SIGN_OUT_FLUSH_MS, then clears', async () => {
+    vi.useFakeTimers();
+    try {
+      const storage = storageWith(queued('rokas', [result(1)]));
+      let settled = false;
+      const done = flushThenClear(
+        () => storage,
+        'rokas',
+        () => new Promise<Response>(() => undefined),
+      ).then(() => {
+        settled = true;
+      });
+      await vi.advanceTimersByTimeAsync(SIGN_OUT_FLUSH_MS - 1);
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      await done;
+      expect(keysOf(storage)).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('waits two seconds at most', () => {
+    expect(SIGN_OUT_FLUSH_MS).toBe(2000);
+  });
+
+  it('does nothing, and does not throw, where the browser refuses storage', async () => {
+    const post = vi.fn(() => Promise.resolve(Response.json({ answers: [] })));
+    await expect(
+      flushThenClear(refused, 'rokas', post),
+    ).resolves.toBeUndefined();
+    expect(post).not.toHaveBeenCalled();
   });
 });

@@ -12,6 +12,7 @@ export default async function HomePage(): Promise<JSX.Element> {
   const today = await todaySummary(account);
   return (
     <HomeView
+      accountId={account.id}
       displayName={account.displayName}
       isCoach={isCoach(account)}
       fromCoach={fromCoach}

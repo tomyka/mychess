@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/locales';
+import { queueKey } from '../treniruote/result-queue';
 import { SignInForm, type SignInFormProps } from './sign-in-form';
 
 interface ClientAnswer {
@@ -216,6 +217,17 @@ describe('SignInForm', () => {
   it('says the account was deleted', () => {
     renderForm({ deleted: true });
     expect(status().textContent).toBe(lt.signIn.deleted);
+  });
+
+  it('removes every queued training result once the account was deleted, and keeps them otherwise', () => {
+    window.localStorage.clear();
+    window.localStorage.setItem(queueKey('rokas'), '[]');
+    window.localStorage.setItem('theme', 'dark');
+    renderForm();
+    expect(window.localStorage.getItem(queueKey('rokas'))).toBe('[]');
+    renderForm({ deleted: true });
+    expect(window.localStorage.getItem(queueKey('rokas'))).toBeNull();
+    expect(window.localStorage.getItem('theme')).toBe('dark');
   });
 });
 

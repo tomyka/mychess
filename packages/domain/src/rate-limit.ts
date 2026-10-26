@@ -87,21 +87,27 @@ export const magicLinkEmailRateKey = (
  * after the window opened opens a new one; otherwise a count at the maximum
  * refuses. Better Auth's own rule (a window of quiet since the last allowed
  * request) would refuse a steady pace under the maximum.
+ *
+ * A request may count as `weight` (default 1), such as a batch counted by
+ * its results: it is refused, and nothing counted, when the window's count
+ * plus its weight would pass the maximum.
  */
 export function countRequest<R extends string>(
   counter: RateCounter | undefined,
   rule: RateRule<R>,
   now: number,
+  weight = 1,
 ): Result<RateCounter, RateRefusal<R>> {
-  if (counter === undefined || now >= counter.windowStart + rule.windowMs) {
-    return { ok: true, value: { count: 1, windowStart: now } };
-  }
-  if (counter.count >= rule.max) {
+  const current =
+    counter === undefined || now >= counter.windowStart + rule.windowMs
+      ? { count: 0, windowStart: now }
+      : counter;
+  if (current.count + weight > rule.max) {
     return { ok: false, refusal: { reason: rule.reason, limit: rule.max } };
   }
   return {
     ok: true,
-    value: { count: counter.count + 1, windowStart: counter.windowStart },
+    value: { count: current.count + weight, windowStart: current.windowStart },
   };
 }
 
@@ -115,3 +121,17 @@ export const TRAINING_RATE_LIMIT = {
 /** The one counter of an account's result batches. */
 export const trainingRateKey = (accountId: string): string =>
   `training:${accountId}`;
+
+/**
+ * Results an account may post a minute, whatever the batches carry them
+ * (S6, security A6): each batch counts as its length, after parsing.
+ */
+export const TRAINING_RESULTS_RATE_LIMIT = {
+  windowMs: 60_000,
+  max: 600,
+  reason: 'training.tooManyResults',
+} as const satisfies RateRule;
+
+/** The one counter of an account's results, apart from its batches'. */
+export const trainingResultsKey = (accountId: string): string =>
+  `training-results:${accountId}`;

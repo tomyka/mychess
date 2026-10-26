@@ -4,10 +4,12 @@ import {
   MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
   TRAINING_RATE_LIMIT,
+  TRAINING_RESULTS_RATE_LIMIT,
   countRequest,
   importRateKey,
   magicLinkEmailRateKey,
   trainingRateKey,
+  trainingResultsKey,
   type RateCounter,
   type RateRule,
 } from './rate-limit';
@@ -60,6 +62,46 @@ describe('countRequest', () => {
       counter = counted.value;
     }
     expect(counter).toEqual({ count: 2, windowStart: T0 + 9 * 60_000 });
+  });
+});
+
+describe('countRequest with a weight', () => {
+  it('counts a weighted request as that many, opening a window at it', () => {
+    expect(countRequest(undefined, RULE, T0, 3)).toEqual({
+      ok: true,
+      value: { count: 3, windowStart: T0 },
+    });
+  });
+
+  it('adds the weight within the window up to the maximum', () => {
+    const counter = { count: 1, windowStart: T0 };
+    expect(countRequest(counter, RULE, T0 + 1000, 2)).toEqual({
+      ok: true,
+      value: { count: 3, windowStart: T0 },
+    });
+  });
+
+  it('refuses, without counting, a weight that would pass the maximum', () => {
+    const counter = { count: 2, windowStart: T0 };
+    expect(countRequest(counter, RULE, T0 + 1000, 2)).toEqual({
+      ok: false,
+      refusal: { reason: 'x.tooMany', limit: 3 },
+    });
+  });
+
+  it('refuses a weight over the maximum even in a new window', () => {
+    expect(countRequest(undefined, RULE, T0, 4)).toEqual({
+      ok: false,
+      refusal: { reason: 'x.tooMany', limit: 3 },
+    });
+  });
+
+  it('counts the weight in a new window once the old one has passed', () => {
+    const counter = { count: 3, windowStart: T0 };
+    expect(countRequest(counter, RULE, T0 + RULE.windowMs, 3)).toEqual({
+      ok: true,
+      value: { count: 3, windowStart: T0 + RULE.windowMs },
+    });
   });
 });
 
@@ -152,5 +194,21 @@ describe('TRAINING_RATE_LIMIT', () => {
 
   it('counts each account under its own key', () => {
     expect(trainingRateKey('a')).toBe('training:a');
+  });
+});
+
+describe('TRAINING_RESULTS_RATE_LIMIT', () => {
+  it('allows 600 results a minute per account, whatever the batches', () => {
+    expect(TRAINING_RESULTS_RATE_LIMIT).toEqual({
+      windowMs: 60_000,
+      max: 600,
+      reason: 'training.tooManyResults',
+    });
+  });
+
+  it('counts each account under its own key, apart from its batches', () => {
+    expect(trainingResultsKey('a')).toBe('training-results:a');
+    expect(trainingResultsKey('a')).not.toBe(trainingRateKey('a'));
+    expect(trainingResultsKey('b')).not.toBe(trainingResultsKey('a'));
   });
 });

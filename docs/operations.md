@@ -87,6 +87,15 @@ db:generate`), then the rest. That is why 0004/0005 and 0006/0007 come in
 pairs. Delete an uncommitted generated pair (SQL, snapshots, journal
 entries) before regenerating it.
 
+### Replacing a primary key (drizzle-kit gap)
+
+drizzle-kit 0.31 cannot name a primary key it drops: it writes the `DROP
+CONSTRAINT` commented out, with a placeholder, and asks for the name. The
+one exception to "never hand-edited" is completing that line in the
+freshly generated, uncommitted file with the real name (Postgres names a
+column-level key `<table>_pkey`), as in 0011 (`review_results`). A wrong
+name fails every db test, which migrates from scratch.
+
 ### Mail in tests (Mailpit, from S1)
 
 Staging and production send with Resend; local runs and E2E use Mailpit.
@@ -146,10 +155,19 @@ count. This bounds the mail one inbox (and the Resend quota) can be sent from
 many client addresses; a refused request gets a 429 as the per-IP limit does
 and mails nothing.
 
-That limit and the PGN import's are our own counters, in the
-`request_counters` table, keyed by a SHA-256 hash of the inbox or by the
-account id. The hash is unsalted, so a guessed address can be matched to its
-row; rows last at most an hour (the prune below). They are not in `rate_limits`: Better Auth
+Training results (`POST /api/training/results`, S6) have two limits per
+account, both a minute long: at most 120 batches (`TRAINING_RATE_LIMIT`,
+counted before the body is read; the browser posts once per answer) and at
+most 600 results (`TRAINING_RESULTS_RATE_LIMIT`, counted after the batch
+parses, each batch as its length), so a few large batches cannot carry more
+than many small ones. Either refusal is a 429 with
+`training.tooManyResults`, and the browser keeps its queue to resend later.
+A body declared over 256 KB is refused unread with a 413.
+
+The per-inbox magic-link limit, the PGN import's and the training limits
+are our own counters, in the `request_counters` table, keyed by a SHA-256
+hash of the inbox or by the account id. The hash is unsalted, so a guessed
+address can be matched to its row; rows last at most an hour (the prune below). They are not in `rate_limits`: Better Auth
 deletes its rows older than its own longest window (a minute) whenever one of
 its keys opens a new window, which would cut our hour short.
 

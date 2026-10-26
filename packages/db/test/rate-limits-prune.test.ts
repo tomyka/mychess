@@ -2,6 +2,8 @@ import {
   IMPORT_RATE_LIMIT,
   MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
+  TRAINING_RATE_LIMIT,
+  TRAINING_RESULTS_RATE_LIMIT,
   countRequest,
 } from '@mychess/domain';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -61,6 +63,12 @@ describe('the retention of each table', () => {
     );
     expect(REQUEST_COUNTER_RETENTION_MS).toBeGreaterThanOrEqual(
       IMPORT_RATE_LIMIT.windowMs,
+    );
+    expect(REQUEST_COUNTER_RETENTION_MS).toBeGreaterThanOrEqual(
+      TRAINING_RATE_LIMIT.windowMs,
+    );
+    expect(REQUEST_COUNTER_RETENTION_MS).toBeGreaterThanOrEqual(
+      TRAINING_RESULTS_RATE_LIMIT.windowMs,
     );
   });
 
