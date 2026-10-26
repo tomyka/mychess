@@ -139,7 +139,11 @@ export async function expectGreeting(
 export async function chooseEnglish(page: Page): Promise<void> {
   await page.getByRole('link', { name: lt.app.settings }).click();
   await page.getByRole('radio', { name: en.language.en }).check();
-  await page.getByRole('button', { name: lt.settings.profile.submit }).click();
+  // The profile's own Save: the training limits have one too (S6).
+  await page
+    .getByRole('region', { name: lt.settings.profile.title })
+    .getByRole('button', { name: lt.settings.profile.submit })
+    .click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await page.getByRole('link', { name: en.settings.home }).click();
 }

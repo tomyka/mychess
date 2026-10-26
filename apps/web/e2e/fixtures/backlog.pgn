@@ -1,0 +1,97 @@
+[Event "Linija 1: 1...Nf6"]
+[White "Dovydas Jankauskas"]
+[Black "?"]
+[Result "*"]
+
+1. d4 Nf6 2. Kd2 c5 3. Nh3 d5 4. f4 Bg4 5. b3 Be6 6. a4 Nfd7 7. Ng5 Nb6 8. Bb2 Rg8 9. Nh3 Na6 10. b4 g5 11. Qe1 cxd4 12. Rg1 g4 13. e3 Nc4+ 14. Kd3 Qb8 15. Qc1 Bg7 16. Ra3 Bh8 *
+
+[Event "Linija 2: 1...d5"]
+[White "Dovydas Jankauskas"]
+[Black "?"]
+[Result "*"]
+
+1. d4 d5 2. h4 b5 3. Bg5 e6 4. Nc3 Na6 5. Ne4 Bc5 6. Kd2 g6 7. Rb1 Nf6 8. b3 c6 9. c3 Bd6 10. Rb2 Nc5 11. a3 Nxb3+ 12. Kd3 Qc7 13. Ng3 Rb8 14. Kc2 Qd7 15. f4 Bc7 16. a4 Be5 *
+
+[Event "Linija 3: 1...e6"]
+[White "Dovydas Jankauskas"]
+[Black "?"]
+[Result "*"]
+
+1. d4 e6 2. g3 Bc5 3. Bf4 Kf8 4. Bxc7 Nh6 5. f3 Kg8 6. Bg2 e5 7. Na3 exd4 8. Kf1 a6 9. Qd2 Ng4 10. Rc1 Nh6 11. Ra1 Qe7 12. Qd1 g6 13. Nc4 Qxe2+ 14. Qxe2 d5 15. Qe4 b6 16. Qe3 Bf8 *
+
+[Event "Linija 4: 1...f5"]
+[White "Dovydas Jankauskas"]
+[Black "?"]
+[Result "*"]
+
+1. d4 f5 2. b3 g6 3. e4 a5 4. f3 fxe4 5. Na3 Nf6 6. Be3 d6 7. Kd2 c6 8. Qe1 Bf5 9. Rc1 b5 10. Qg3 e5 11. Kd1 g5 12. c4 Nbd7 13. Rc2 Rb8 14. Be2 Be7 15. Bxg5 Bh3 16. Qg4 Nb6 *
+
+[Event "Linija 5: 1...g6"]
+[White "Dovydas Jankauskas"]
+[Black "?"]
+[Result "*"]
+
+1. d4 g6 2. f4 Bh6 3. Nd2 a5 4. a4 Nc6 5. h4 Nxd4 6. Rh2 Nxc2+ 7. Kf2 Nd4 8. e3 d5 9. b4 f6 10. g4 Ne2 11. Bb2 c5 12. Bxf6 Qc7 13. Ne4 Nxf6 14. Ng3 Bf8 15. Nh3 Nxg3 16. Be2 Nf5 *
+
+[Event "Linija 6: 1...c5"]
+[White "Dovydas Jankauskas"]
+[Black "?"]
+[Result "*"]
+
+1. d4 c5 2. Qd2 Nh6 3. g3 Rg8 4. a4 g6 5. Qxh6 d6 6. Qxh7 Rg7 7. b3 e5 8. b4 Nc6 9. Bh6 g5 10. Qh8 Bh3 11. Ra2 e4 12. g4 Nxb4 13. Bxg7 Bxf1 14. Bf6 Qd7 15. c3 Qxg4 16. Rb2 Nd3+ *
+
+[Event "Linija 7: 1...d6"]
+[White "Dovydas Jankauskas"]
+[Black "?"]
+[Result "*"]
+
+1. d4 d6 2. f4 Nd7 3. a3 e6 4. Nh3 c5 5. b4 Ne5 6. g4 Qa5 7. e4 cxb4 8. Qe2 h6 9. c3 b3 10. Qc4 g5 11. Nd2 Nf6 12. Rg1 Qc7 13. Qxc7 Nexg4 14. Qxd6 Bg7 15. c4 Nxh2 16. Qc7 b2 *
+
+[Event "Linija 8: 1...b6"]
+[White "Dovydas Jankauskas"]
+[Black "?"]
+[Result "*"]
+
+1. d4 b6 2. Bd2 d5 3. b4 Bh3 4. Nc3 Bf5 5. e4 h5 6. Be2 a5 7. Bb5+ Nc6 8. Bh6 Ra6 9. Bxg7 e5 10. Qc1 Qa8 11. Rb1 Kd7 12. Qh6 exd4 13. g3 Qb8 14. Rb2 axb4 15. Qxh5 Rxh5 16. Bxa6 b5 *
+
+[Event "Linija 9: 1...c6"]
+[White "Dovydas Jankauskas"]
+[Black "?"]
+[Result "*"]
+
+1. d4 c6 2. e4 g5 3. Bxg5 Qc7 4. Na3 a6 5. Rc1 e6 6. Kd2 Be7 7. Nb5 cxb5 8. c4 e5 9. Qb3 Qa5+ 10. Ke3 Bd6 11. Bd8 exd4+ 12. Ke2 Bb4 13. Kd1 b6 14. cxb5 Ra7 15. Qd3 axb5 16. Qxd4 Na6 *
+
+[Event "Linija 10: 1...Nc6"]
+[White "Dovydas Jankauskas"]
+[Black "?"]
+[Result "*"]
+
+1. d4 Nc6 2. Bg5 b6 3. Bc1 Nxd4 4. Nc3 f6 5. Bg5 h5 6. b3 h4 7. g3 Nxb3 8. Rc1 Nc5 9. Bh3 Na4 10. Bxh4 c5 11. Qd5 d6 12. Qg5 f5 13. Kf1 c4 14. Ra1 Qd7 15. Qc1 Nxc3 16. Qd1 Nxa2 *
+
+[Event "Linija 11: 1...e5"]
+[White "Dovydas Jankauskas"]
+[Black "?"]
+[Result "*"]
+
+1. d4 e5 2. e3 e4 3. Bd3 Qf6 4. Ke2 Qe5 5. b3 b6 6. Ke1 Qh5 7. Nf3 Qb5 8. c3 Qe5 9. h3 g6 10. Na3 Bb7 11. Rg1 Bh6 12. Bf1 Kf8 13. Be2 Qd6 14. Rf1 Qxd4 15. Nb1 f6 16. a4 c6 *
+
+[Event "Linija 12: 1...b5"]
+[White "Dovydas Jankauskas"]
+[Black "?"]
+[Result "*"]
+
+1. d4 b5 2. Be3 b4 3. h4 Nh6 4. g3 Nf5 5. Na3 Bb7 6. Bh6 Bg2 7. b3 Bxh1 8. Qc1 Qc8 9. Bh3 Rg8 10. Qg5 Nd6 11. f3 Nc4 12. Qc1 Na5 13. Bxd7+ Kxd7 14. Kf1 Nc4 15. Qb1 a5 16. Qd1 Nxa3 *
+
+[Event "Linija 13: 1...a6"]
+[White "Dovydas Jankauskas"]
+[Black "?"]
+[Result "*"]
+
+1. d4 a6 2. f4 g6 3. Nh3 Bg7 4. Nc3 Be5 5. Ng5 h6 6. Nb1 Bg7 7. Na3 Be5 8. Qd3 b5 9. Kd2 Bg7 10. Qxb5 Ra7 11. Rb1 e5 12. Kd3 exd4 13. Qa5 Bf6 14. e4 Be5 15. g4 Ne7 16. Qd5 a5 *
+
+[Event "Linija 14: 1...h6"]
+[White "Dovydas Jankauskas"]
+[Black "?"]
+[Result "*"]
+
+1. d4 h6 2. Na3 g6 3. Kd2 b5 4. h3 e5 5. Kc3 a5 6. Nc4 c5 7. Kd3 b4 8. Bxh6 Bb7 9. Rc1 Qc8 10. g4 g5 11. a4 cxd4 12. Qe1 Rxh6 13. Rd1 Rf6 14. Nd6+ Ke7 15. Rc1 Bxh1 16. h4 Qc6 *

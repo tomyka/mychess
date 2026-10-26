@@ -1,5 +1,4 @@
 import fc from 'fast-check';
-import { Chess } from 'chess.js';
 import { describe, expect, it } from 'vitest';
 import { importPgn } from '../pgn/import-pgn';
 import {
@@ -437,32 +436,38 @@ describe('buildQueue', () => {
   });
 });
 
-/** A number picked by the board alone, so a position always picks the same. */
-const boardPick = (fen: string): number =>
-  Array.from({ length: (fen.split(' ')[0] ?? '').length }, (_, i) =>
-    fen.charCodeAt(i),
-  ).reduce((sum, code) => sum + code, 0);
+/** A made-up position key: the side to move alternates, starting with White. */
+const plyKey = (ply: number): string =>
+  `p${String(ply)} ${ply % 2 === 0 ? 'w' : 'b'} - -`;
 
 /**
- * Ten long games as chapters of one White repertoire, so it holds over 100
- * White moves. Black's moves differ from game to game; White's answer
- * depends on the position only, as a repertoire holds one answer per position.
+ * One chapter of a White repertoire: a single line of 240 half-moves, so it
+ * holds 120 White moves. dueCount reads only keys and the side to move, so
+ * the positions are made up rather than played, which keeps the test fast.
  */
-function longGames(): RepertoireGraph {
-  const chapters = Array.from({ length: 10 }, (_, game) => {
-    const chess = new Chess();
-    for (let ply = 0; ply < 60 && !chess.isGameOver(); ply += 1) {
-      const moves = chess.moves();
-      const pick =
-        chess.turn() === 'w' ? boardPick(chess.fen()) : game * 7 + ply * 3;
-      chess.move(must(moves[pick % moves.length]));
-    }
-    return `${chess
-      .history()
-      .map((san, i) => (i % 2 === 0 ? `${String(i / 2 + 1)}. ${san}` : san))
-      .join(' ')} *`;
-  });
-  return graph(chapters.join('\n\n'), 'white');
+function longLine(): RepertoireGraph {
+  const plies = 240;
+  return {
+    side: 'white',
+    chapters: [
+      {
+        id: 'c1',
+        rootKey: plyKey(0),
+        intro: null,
+        nameSource: { kind: 'index', number: 1 },
+      },
+    ],
+    moves: Array.from({ length: plies }, (_, ply) => ({
+      from: plyKey(ply),
+      to: plyKey(ply + 1),
+      san: `m${String(ply)}`,
+      uci: 'a1a2',
+      arrows: [],
+      circles: [],
+      comment: null,
+      chapters: ['c1'],
+    })),
+  };
 }
 
 describe('dueCount', () => {
@@ -514,7 +519,7 @@ describe('dueCount', () => {
   });
 
   it('is not capped at the largest session size', () => {
-    const big = longGames();
+    const big = longLine();
     const keys = new Set(playerKeys(big));
     expect(keys.size).toBeGreaterThan(100);
     const reviews = new Map([...keys].map((k) => [k, dueReview(k, 1)]));

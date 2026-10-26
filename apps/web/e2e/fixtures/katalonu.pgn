@@ -1,0 +1,27 @@
+[Event "Atvirasis, 7.Qc2 a6 8.Qxc4"]
+[White "Dovydas Jankauskas"]
+[Black "?"]
+[Result "*"]
+
+1. d4 Nf6 2. c4 e6 3. g3 d5 4. Bg2 Be7 5. Nf3 O-O 6. O-O dxc4 7. Qc2 a6 8. Qxc4 b5 9. Qc2 Bb7 10. Bd2 Be4 11. Qc1 Bb7 12. Bf4 Nd5 13. Nc3 Nxf4 14. Qxf4 Bd6 15. Qd2 Nd7 16. Rfd1 Qe7 17. Rac1 Rfd8 18. e4 b4 19. Na4 a5 20. Rc2 Rab8 21. Rdc1 Ba8 *
+
+[Event "6...c5"]
+[White "Dovydas Jankauskas"]
+[Black "?"]
+[Result "*"]
+
+1. d4 Nf6 2. c4 e6 3. g3 d5 4. Bg2 Be7 5. Nf3 O-O 6. O-O c5 7. cxd5 Nxd5 8. Nc3 Nc6 9. dxc5 Bxc5 10. Nxd5 exd5 11. a3 Bf5 12. b4 Bb6 13. Bb2 Re8 14. Rc1 Rc8 15. e3 Be4 16. Qd2 Qe7 17. Rfd1 Rcd8 18. Bd4 Bxd4 19. Nxd4 Nxd4 20. Qxd4 Bxg2 21. Kxg2 *
+
+[Event "Uždarasis, 6...Nbd7"]
+[White "Dovydas Jankauskas"]
+[Black "?"]
+[Result "*"]
+
+1. d4 Nf6 2. c4 e6 3. g3 d5 4. Bg2 Be7 5. Nf3 O-O 6. O-O Nbd7 7. Qc2 c6 8. Nbd2 b6 9. e4 Bb7 10. b3 Rc8 11. Bb2 Qc7 12. Rad1 Qb8 13. Rfe1 Rfd8 14. e5 Ne8 15. Nf1 c5 16. Ne3 Nc7 17. h4 cxd4 18. Nxd4 dxc4 19. Nxc4 Nd5 20. Qe4 Nc5 21. Qg4 *
+
+[Event "3...Bb4+"]
+[White "Dovydas Jankauskas"]
+[Black "?"]
+[Result "*"]
+
+1. d4 Nf6 2. c4 e6 3. g3 Bb4+ 4. Bd2 Be7 5. Bg2 d5 6. Nf3 O-O 7. O-O c6 8. Qc2 b6 9. Bf4 Ba6 10. Nbd2 Nbd7 11. Rfd1 Rc8 12. e4 c5 13. exd5 exd5 14. Rac1 Re8 15. Qa4 Bb7 16. dxc5 Nxc5 17. Qc2 Ne6 18. Be5 dxc4 19. Nxc4 Bxf3 20. Bxf3 Bc5 21. Qa4 *

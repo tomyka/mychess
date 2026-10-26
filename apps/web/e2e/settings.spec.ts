@@ -28,7 +28,11 @@ async function switchToEnglish(page: Page, name: string): Promise<void> {
     .getByLabel(lt.settings.profile.displayName, { exact: true })
     .fill(name);
   await page.getByRole('radio', { name: en.language.en }).check();
-  await page.getByRole('button', { name: lt.settings.profile.submit }).click();
+  // The profile's own Save: the training limits have one too (S6).
+  await page
+    .getByRole('region', { name: lt.settings.profile.title })
+    .getByRole('button', { name: lt.settings.profile.submit })
+    .click();
   // The page comes back in the language just chosen.
   await expect(page.getByText(en.settings.profile.saved)).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
