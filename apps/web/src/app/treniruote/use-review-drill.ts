@@ -5,12 +5,11 @@ import {
   dueCount,
   dueReviews,
   hintReview,
-  legalMoves,
   nextDue,
+  toLearnCount,
   trainingProgress,
   type BoardMove,
   type ReviewEmit,
-  type Side,
   type TrainingDay,
   type TrainingProgress,
   type TrainingRepertoire,
@@ -23,7 +22,8 @@ import {
   type SetStateAction,
 } from 'react';
 import type { TrainingData } from '../../lib/training-data';
-import { MOVE_DURATION, type BoardView } from '../board/board-config';
+import { MOVE_DURATION } from '../board/board-config';
+import { useDrillBoard, type DrillBoard } from './drill-board';
 import {
   BROWSER_CLOCK,
   FEEDBACK_MS,
@@ -38,8 +38,9 @@ import {
   afterHint,
   canHint,
   canPlay,
-  drillBoard,
   isDone,
+  positionOf,
+  repertoireOf,
   shownKey,
   startDrill,
   type DrillState,
@@ -57,11 +58,13 @@ interface DrillInput extends MoveInput {
   readonly restart: () => void;
 }
 
-export interface ReviewDrill extends DrillInput {
+export interface ReviewDrill
+  extends DrillInput, Pick<DrillBoard, 'view' | 'titled'> {
   readonly state: DrillState;
-  readonly view: BoardView;
   /** Done, and the Reviews graded so far leave more due now (R-62, R-78). */
   readonly canContinue: boolean;
+  /** The snapshot's day has new moves to learn (the done summary's link). */
+  readonly learnable: boolean;
   /** Where the repertoires stand now, by the Reviews graded so far. */
   readonly progress: () => TrainingProgress;
 }
@@ -75,7 +78,7 @@ const putBack = (s: DrillState): DrillState => ({
 
 /**
  * The drill's timed steps: after the correct flash the next item, then the
- * reply's slide with the board locked, and each flash's end.
+ * reply's slide with the board locked.
  */
 function useDrillTimers(
   state: DrillState,
@@ -96,14 +99,6 @@ function useDrillTimers(
     [setState],
   );
   useTimer(state.replying, MOVE_DURATION, unlock);
-  const { flash } = state;
-  const unflash = useMemo(
-    () => () => {
-      setState((s) => (s.flash === flash ? { ...s, flash: null } : s));
-    },
-    [setState, flash],
-  );
-  useTimer(flash !== null, FEEDBACK_MS, unflash);
 }
 
 /**
@@ -209,11 +204,6 @@ function useDrillInput(c: InputContext): DrillInput {
   };
 }
 
-/** The side the shown item's repertoire plays (the board's orientation). */
-const sideOf = (data: TrainingData, state: DrillState): Side =>
-  data.entries.find((e) => e.id === state.shown?.item.repertoireId)?.side ??
-  'white';
-
 /**
  * The review drill (plan Task C5): the session over the Reviews due at the
  * snapshot, each answer recorded and graded in the browser, and the board's
@@ -229,18 +219,19 @@ export function useReviewDrill(
   const [state, setState] = useState(() =>
     startDrill(dueReviews(day, data.now), repertoires, day.reviews, 0),
   );
-  const key = shownKey(state);
-  const legal = useMemo(() => legalMoves(key), [key]);
-  const side = sideOf(data, state);
-  const view = useMemo(
-    () => drillBoard(state, side, legal),
-    [state, side, legal],
-  );
+  const learnable = useMemo(() => toLearnCount(day) > 0, [day]);
   const gradedDay = useMemo(
     () => ({ ...day, reviews: state.reviews }),
     [day, state.reviews],
   );
   useDrillTimers(state, setState, repertoires);
+  const { view, legal, titled } = useDrillBoard({
+    data,
+    state,
+    setState,
+    positionOf,
+    repertoireOf,
+  });
   useDueAgain(state, gradedDay, clock);
   const input = useDrillInput({
     gradedDay,
@@ -255,6 +246,8 @@ export function useReviewDrill(
     ...input,
     state,
     view,
+    titled,
+    learnable,
     canContinue: done && dueCount(gradedDay, clock.now()) > 0,
     progress: () => trainingProgress(gradedDay, clock.now()),
   };

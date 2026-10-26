@@ -3,12 +3,8 @@
 // the browser as the session goes (S6 decision 1), and what the board shows
 // meanwhile (a flash, the reply sliding in). Every rule is chess's; this
 // only keeps their answers and draws them.
-import type { DrawShape } from '@lichess-org/chessground/draw';
-import type { Key } from '@lichess-org/chessground/types';
 import {
-  fenOf,
   grade,
-  inCheck,
   nextReview,
   reviewCounts,
   sideToMove,
@@ -22,13 +18,11 @@ import {
   type ReviewSessionState,
   type ReviewState,
   type ReviewTransition,
-  type Side,
   type TrainingRepertoire,
 } from '@mychess/chess';
-import type { BoardView } from '../board/board-config';
-import { destsOf, isKey, squaresOf } from '../board/squares';
 import { moveNumber } from '../repertoire-view';
 import type { SessionCounts } from './done-summary';
+import type { DrillPosition } from './drill-board';
 import type { Flash } from './drill-input';
 
 export interface DrillState {
@@ -145,58 +139,27 @@ export function playedMoves(s: DrillState): readonly RepertoireMove[] {
 export const shownKey = (s: DrillState): string =>
   playedMoves(s).at(-1)?.to ?? s.shown?.line.rootKey ?? START_KEY;
 
-/** The two squares of the move the current item expects. */
-function expected(s: DrillState): Key[] {
-  const move = isDone(s) ? undefined : s.shown?.line.moves.at(-1);
-  return move === undefined ? [] : squaresOf(move.uci);
-}
-
-/** R-59: after a Lapse, the expected move as an arrow. */
-function arrowsOf(s: DrillState): DrawShape[] {
-  const [orig, dest] = expected(s);
-  if (s.session.phase !== 'replay' || orig === undefined || dest === undefined)
-    return [];
-  return [{ orig, dest, brush: 'arrow' }];
-}
-
-/** The hint's piece (R-61) and the answer's flash, as square classes. */
-function markedOf(s: DrillState): Map<Key, string> {
-  const marked = new Map<Key, string>();
-  const [from] = expected(s);
-  const hinted = s.session.hinted && s.session.phase !== 'correct';
-  if (hinted && from !== undefined) marked.set(from, 'hint');
-  const flash = s.flash;
-  if (flash !== null && isKey(flash.square))
-    marked.set(flash.square, flash.kind);
-  return marked;
-}
-
-const NO_DESTS: ReadonlyMap<Key, readonly Key[]> = new Map();
-
-/** What the board shows, from `side`, with the position's `legal` moves. */
-export function drillBoard(
-  s: DrillState,
-  side: Side,
-  legal: readonly BoardMove[],
-): BoardView {
-  const key = shownKey(s);
-  const last = playedMoves(s).at(-1);
+/**
+ * What the board shows: the expected move as an arrow after a Lapse (R-59),
+ * its piece once hinted (R-61), and the answer's flash.
+ */
+export function positionOf(s: DrillState): DrillPosition {
+  const expected = isDone(s) ? undefined : s.shown?.line.moves.at(-1)?.uci;
+  const { phase, hinted } = s.session;
   return {
-    fen: fenOf(key),
-    orientation: side,
-    turnColor: sideToMove(key) === 'w' ? 'white' : 'black',
-    check: inCheck(key),
-    lastMove: last === undefined ? [] : squaresOf(last.uci),
-    dests: canPlay(s) ? destsOf(legal) : NO_DESTS,
-    shapes: [],
-    autoShapes: arrowsOf(s),
-    drawing: false,
-    picking: false,
-    picked: null,
+    key: shownKey(s),
+    last: playedMoves(s).at(-1)?.uci,
+    playable: canPlay(s),
+    arrow: phase === 'replay' ? expected : undefined,
+    hint: hinted && phase !== 'correct' ? expected : undefined,
+    flash: s.flash,
     revision: s.revision,
-    marked: markedOf(s),
   };
 }
+
+/** The repertoire of the item on the board. */
+export const repertoireOf = (s: DrillState): string | undefined =>
+  s.shown?.item.repertoireId;
 
 /** What the session did, for the done summary. */
 export function sessionCounts(session: ReviewSessionState): SessionCounts {

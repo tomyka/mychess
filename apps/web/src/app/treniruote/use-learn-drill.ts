@@ -2,16 +2,15 @@
 
 import {
   learnLines,
-  legalMoves,
   playLearn,
   trainingProgress,
   type BoardMove,
-  type Side,
   type TrainingProgress,
 } from '@mychess/chess';
 import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import type { TrainingData } from '../../lib/training-data';
-import { MOVE_DURATION, type BoardView } from '../board/board-config';
+import { MOVE_DURATION } from '../board/board-config';
+import { useDrillBoard, type DrillBoard } from './drill-board';
 import {
   BROWSER_CLOCK,
   FEEDBACK_MS,
@@ -24,8 +23,8 @@ import {
   advanced,
   afterPlay,
   canPlay,
-  learnBoard,
   opponentMoving,
+  positionOf,
   released,
   repertoireOf,
   shownKey,
@@ -35,9 +34,9 @@ import {
 import { dayOf } from '../../lib/training-day';
 import type { ResultSync } from './use-result-sync';
 
-export interface LearnDrill extends MoveInput {
+export interface LearnDrill
+  extends MoveInput, Pick<DrillBoard, 'view' | 'titled'> {
   readonly state: LearnDrillState;
-  readonly view: BoardView;
   /** Where the repertoires stand now, by the moves learned so far. */
   readonly progress: () => TrainingProgress;
 }
@@ -45,8 +44,8 @@ export interface LearnDrill extends MoveInput {
 type SetState = Dispatch<SetStateAction<LearnDrillState>>;
 
 /**
- * The drill's timed steps: the right move held for its flash, the
- * opponent's move sliding in with the board locked, and a wrong flash's end.
+ * The drill's timed steps: the right move held for its flash, and the
+ * opponent's move sliding in with the board locked.
  */
 function useLearnTimers(state: LearnDrillState, setState: SetState): void {
   const release = useMemo(
@@ -63,14 +62,6 @@ function useLearnTimers(state: LearnDrillState, setState: SetState): void {
     [setState],
   );
   useTimer(opponentMoving(state), MOVE_DURATION, advance);
-  const { flash } = state;
-  const unflash = useMemo(
-    () => () => {
-      setState((s) => (s.flash === flash ? { ...s, flash: null } : s));
-    },
-    [setState, flash],
-  );
-  useTimer(flash?.kind === 'wrong', FEEDBACK_MS, unflash);
 }
 
 interface InputContext {
@@ -111,10 +102,6 @@ function useLearnInput(c: InputContext): MoveInput {
   });
 }
 
-/** The side the line's repertoire plays (the board's orientation). */
-const sideOf = (data: TrainingData, state: LearnDrillState): Side =>
-  data.entries.find((e) => e.id === repertoireOf(state))?.side ?? 'white';
-
 /**
  * The learn drill (plan Task C6): the plan's lines one after another, each
  * learned in its two rounds, each move learned recorded and started as a
@@ -129,19 +116,20 @@ export function useLearnDrill(
   const [state, setState] = useState(() =>
     startLearnDrill(learnLines(day), day.reviews),
   );
-  const key = shownKey(state);
-  const legal = useMemo(() => legalMoves(key), [key]);
-  const side = sideOf(data, state);
-  const view = useMemo(
-    () => learnBoard(state, side, legal),
-    [state, side, legal],
-  );
   useLearnTimers(state, setState);
+  const { view, legal, titled } = useDrillBoard({
+    data,
+    state,
+    setState,
+    positionOf,
+    repertoireOf,
+  });
   const input = useLearnInput({ state, setState, legal, sync, clock });
   return {
     ...input,
     state,
     view,
+    titled,
     progress: () =>
       trainingProgress(
         { repertoires: day.repertoires, reviews: state.reviews },

@@ -1,6 +1,6 @@
 'use client';
 
-import { reviewCounts, toLearnCount } from '@mychess/chess';
+import { reviewCounts } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useMemo, type JSX } from 'react';
@@ -9,7 +9,7 @@ import { Board } from '../board/board';
 import { useSquareWords } from '../board/square-words';
 import { SECONDARY_BUTTON } from '../buttons';
 import { DoneActions, DoneSummary } from './done-summary';
-import type { DrillProps, FrameParts } from './drill';
+import type { DrillProps } from './drill';
 import { LineSoFar, MoveRow, ToMove } from './drill-panel';
 import {
   canHint,
@@ -18,7 +18,6 @@ import {
   sessionCounts,
   type DrillState,
 } from './review-drill-state';
-import { dayOf } from '../../lib/training-day';
 import { TwoAnswersNotice, type NamedRepertoire } from './two-answers-notice';
 import { useReviewDrill, type ReviewDrill as Drill } from './use-review-drill';
 
@@ -106,13 +105,6 @@ const namedOf = (data: TrainingData): NamedRepertoire[] =>
     graph,
   }));
 
-/** The shown item's repertoire name, as the frame's title (R-54). */
-function titled(data: TrainingData, state: DrillState): Partial<FrameParts> {
-  const id = state.shown?.item.repertoireId;
-  const name = data.entries.find((e) => e.id === id)?.name;
-  return name === undefined ? {} : { title: name };
-}
-
 /**
  * The review drill (docs/design/training-screen.md): the Due Reviews one at
  * a time, each in its repertoire and after its line so far (R-143), until
@@ -129,10 +121,9 @@ export function ReviewDrill({
   const drill = useReviewDrill(data, sync, clock);
   const describe = useSquareWords(drill.view.fen);
   const named = useMemo(() => namedOf(data), [data]);
-  const learnable = useMemo(() => toLearnCount(dayOf(data)) > 0, [data]);
   const { state } = drill;
   const parts = {
-    ...titled(data, state),
+    ...drill.titled,
     progress: reviewCounts(state.session),
   };
   const board = (
@@ -157,7 +148,7 @@ export function ReviewDrill({
       actions: (
         <DoneActions
           {...(drill.canContinue ? { onContinue: drill.restart } : {})}
-          {...(learnable ? { learnHref: links.learn } : {})}
+          {...(drill.learnable ? { learnHref: links.learn } : {})}
           doneHref={links.back}
         />
       ),

@@ -5,15 +5,10 @@
 // what the board shows meanwhile (a flash, a right move held, the opponent's
 // move sliding in). Every rule is chess's; this only keeps their answers and
 // draws them.
-import type { DrawShape } from '@lichess-org/chessground/draw';
-import type { Key } from '@lichess-org/chessground/types';
 import {
   advanceLearn,
   currentLearnStep,
-  fenOf,
-  inCheck,
   newKeys,
-  sideToMove,
   START_KEY,
   startLearnSession,
   startReview,
@@ -24,10 +19,8 @@ import {
   type LearnTransition,
   type RepertoireMove,
   type ReviewState,
-  type Side,
 } from '@mychess/chess';
-import type { BoardView } from '../board/board-config';
-import { destsOf, isKey, squaresOf } from '../board/squares';
+import type { DrillPosition } from './drill-board';
 import type { Flash } from './drill-input';
 
 export interface LearnDrillState {
@@ -183,46 +176,18 @@ export function learnCounts(s: LearnDrillState): {
 export const repertoireOf = (s: LearnDrillState): string | undefined =>
   s.session?.line.repertoireId;
 
-/** The arrow of the move asked, while the session shows it (R-144, R-55). */
-function arrowsOf(s: LearnDrillState): DrawShape[] {
-  const step = askedStep(s);
-  const [orig, dest] = step === undefined ? [] : squaresOf(step.move.uci);
-  if (s.session?.arrow !== true || orig === undefined || dest === undefined)
-    return [];
-  return [{ orig, dest, brush: 'arrow' }];
-}
-
-function markedOf(s: LearnDrillState): Map<Key, string> {
-  const marked = new Map<Key, string>();
-  const { flash } = s;
-  if (flash !== null && isKey(flash.square))
-    marked.set(flash.square, flash.kind);
-  return marked;
-}
-
-const NO_DESTS: ReadonlyMap<Key, readonly Key[]> = new Map();
-
-/** What the board shows, from `side`, with the position's `legal` moves. */
-export function learnBoard(
-  s: LearnDrillState,
-  side: Side,
-  legal: readonly BoardMove[],
-): BoardView {
-  const key = shownKey(s);
-  const last = playedMoves(s).at(-1);
+/**
+ * What the board shows: the arrow of the move asked, while the session
+ * shows it (R-144, R-55), and the answer's flash.
+ */
+export function positionOf(s: LearnDrillState): DrillPosition {
+  const asked = askedStep(s)?.move.uci;
   return {
-    fen: fenOf(key),
-    orientation: side,
-    turnColor: sideToMove(key) === 'w' ? 'white' : 'black',
-    check: inCheck(key),
-    lastMove: last === undefined ? [] : squaresOf(last.uci),
-    dests: canPlay(s) ? destsOf(legal) : NO_DESTS,
-    shapes: [],
-    autoShapes: arrowsOf(s),
-    drawing: false,
-    picking: false,
-    picked: null,
+    key: shownKey(s),
+    last: playedMoves(s).at(-1)?.uci,
+    playable: canPlay(s),
+    arrow: s.session?.arrow === true ? asked : undefined,
+    flash: s.flash,
     revision: s.revision,
-    marked: markedOf(s),
   };
 }

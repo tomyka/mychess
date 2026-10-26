@@ -3,19 +3,17 @@
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { JSX } from 'react';
-import type { TrainingData } from '../../lib/training-data';
 import { Board } from '../board/board';
 import { useSquareWords } from '../board/square-words';
 import { SECONDARY_BUTTON } from '../buttons';
 import { DoneActions, DoneSummary } from './done-summary';
-import type { DrillProps, FrameParts } from './drill';
+import type { DrillProps } from './drill';
 import { LineSoFar, MoveRow, ToMove } from './drill-panel';
 import {
   askedStep,
   isDone,
   learnCounts,
   playedMoves,
-  repertoireOf,
   type LearnDrillState,
 } from './learn-drill-state';
 import { useLearnDrill, type LearnDrill as Drill } from './use-learn-drill';
@@ -59,16 +57,6 @@ function Status({ drill }: { readonly drill: Drill }): JSX.Element {
   );
 }
 
-/** The line's repertoire name, as the frame's title (R-54). */
-function titled(
-  data: TrainingData,
-  state: LearnDrillState,
-): Partial<FrameParts> {
-  const id = repertoireOf(state);
-  const name = data.entries.find((e) => e.id === id)?.name;
-  return name === undefined ? {} : { title: name };
-}
-
 /**
  * The learn drill (docs/design/training-screen.md, R-144): the planned
  * lines one after another, each played with arrows on its new moves and
@@ -88,7 +76,7 @@ export function LearnDrill({
   const describe = useSquareWords(drill.view.fen);
   const { state } = drill;
   const counts = learnCounts(state);
-  const parts = { ...titled(data, state), progress: counts };
+  const parts = { ...drill.titled, progress: counts };
   const board = (
     <Board
       view={drill.view}
