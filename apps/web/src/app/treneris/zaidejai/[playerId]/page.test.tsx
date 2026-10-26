@@ -36,6 +36,7 @@ describe('the coach dashboard’s player page', () => {
       linkedAt: new Date('2026-10-18T08:00:00Z'),
       groups: [{ id: 'g-1', name: 'Šeštadienio grupė' }],
       repertoires: [{ id: 'r-1', name: 'Taimanovas', side: 'black' }],
+      progress: { rows: [], lastTrainedDays: null },
     });
     renderIn(
       await CoachPlayerPage({ params: Promise.resolve({ playerId: 'p-1' }) }),

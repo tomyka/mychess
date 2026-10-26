@@ -4,6 +4,7 @@ import {
   coachGroup,
   coachGroups,
   coachInvites,
+  coachLastTrained,
   coachPlayer,
   coachPlayers,
   sharedRepertoireSnapshot,
@@ -18,6 +19,7 @@ import type { RepertoireGraph, Side } from '@mychess/chess';
 import type { AccountRef } from '@mychess/domain';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
+import { daysSince } from '../lib/days-ago';
 import { accountIdSchema } from './account-id';
 import { ecoNamesOf } from './chapter-names';
 import {
@@ -25,11 +27,21 @@ import {
   assertCoachMaySeeBy,
   requireCoach,
 } from './coaching';
+import {
+  playerProgressData,
+  type PlayerProgressSection,
+} from './coach-progress';
 import { getDb } from './db';
+
+/** A player on the coach's home, with when they last trained (R-154). */
+interface CoachHomePlayer extends LinkedAccount {
+  /** Whole Vilnius days since the player last trained; null for never. */
+  readonly lastTrainedDays: number | null;
+}
 
 /** What the coach dashboard's home shows: the coach's own players, groups, invites. */
 export interface CoachHomeData {
-  readonly players: readonly LinkedAccount[];
+  readonly players: readonly CoachHomePlayer[];
   readonly groups: readonly CoachGroupSummary[];
   readonly invites: readonly CoachInvite[];
 }
@@ -38,10 +50,20 @@ export interface CoachHomeData {
 export async function coachHomeData(): Promise<CoachHomeData> {
   const coach = await requireCoach();
   const db = getDb();
+  const now = new Date();
+  const players = await coachPlayers(db, coach.id);
+  const last = await coachLastTrained(
+    db,
+    coach.id,
+    players.map((player) => player.id),
+  );
   return {
-    players: await coachPlayers(db, coach.id),
+    players: players.map((player) => ({
+      ...player,
+      lastTrainedDays: daysSince(last.get(player.id), now),
+    })),
     groups: await coachGroups(db, coach.id),
-    invites: await coachInvites(db, coach.id, new Date()),
+    invites: await coachInvites(db, coach.id, now),
   };
 }
 
@@ -49,6 +71,8 @@ export async function coachHomeData(): Promise<CoachHomeData> {
 export interface CoachPlayerPage extends LinkedAccount {
   /** The player's repertoires shared with this coach, by name (R-42). */
   readonly repertoires: readonly SharedRepertoireItem[];
+  /** Where the player stands on each repertoire the coach may see (S7). */
+  readonly progress: PlayerProgressSection;
 }
 
 /**
@@ -68,6 +92,7 @@ export async function coachPlayerData(
   return {
     ...player,
     repertoires: await sharedWithCoach(db, coach.id, parsed.data),
+    progress: await playerProgressData(coach, parsed.data, new Date()),
   };
 }
 

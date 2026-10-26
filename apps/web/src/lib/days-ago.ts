@@ -13,3 +13,11 @@ export function daysAgo(at: Date, now: Date): number {
     (Date.parse(vilniusDay(now)) - Date.parse(vilniusDay(at))) / DAY_MS,
   );
 }
+
+/** `daysAgo` of a last-trained time; null where there is none (never). */
+export function daysSince(
+  at: Date | null | undefined,
+  now: Date,
+): number | null {
+  return at === null || at === undefined ? null : daysAgo(at, now);
+}

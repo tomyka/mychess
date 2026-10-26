@@ -360,7 +360,14 @@ describe('coachPlayerData (the player page)', () => {
     });
     expect(
       Object.keys(z.record(z.string(), z.unknown()).parse(data)).sort(),
-    ).toEqual(['displayName', 'groups', 'id', 'linkedAt', 'repertoires']);
+    ).toEqual([
+      'displayName',
+      'groups',
+      'id',
+      'linkedAt',
+      'progress',
+      'repertoires',
+    ]);
     expect(JSON.stringify(data)).not.toContain('rokas@example.lt');
   });
 

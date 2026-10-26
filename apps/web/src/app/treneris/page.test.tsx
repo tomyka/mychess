@@ -16,6 +16,7 @@ const DATA: CoachHomeData = {
       displayName: 'Rokas',
       linkedAt: NOW,
       groups: [{ id: 'g-1', name: 'Šeštadienio grupė' }],
+      lastTrainedDays: null,
     },
   ],
   groups: [
