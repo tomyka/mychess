@@ -11,7 +11,7 @@ import {
 } from '../repertoire/graph';
 import { chapterWalks } from '../repertoire/walk';
 import type { Result } from '../result';
-import type { ReviewState } from './schedule';
+import { isDue, type ReviewState } from './schedule';
 import type { TrainingRepertoire } from './scope';
 
 /** R-62: how many Reviews a session holds and how many new moves a day. */
@@ -84,11 +84,23 @@ interface Due {
   readonly due: number;
 }
 
-/** Every player move of the active repertoires, each key once. */
-function queueItems(repertoires: readonly TrainingRepertoire[]): QueueItem[] {
+/**
+ * The moves training holds: every player move a chapter walk of the active
+ * repertoires reaches, each key once, named by the first repertoire that
+ * holds it. Paused repertoires (R-46) hold none. The one definition of a held
+ * move that the queue and the training day read.
+ */
+export const heldMoves = (
+  repertoires: readonly TrainingRepertoire[],
+): QueueItem[] => walkedMoves(repertoires.filter((r) => r.active));
+
+/** Every player move the repertoires' chapter walks reach, each key once. */
+export function walkedMoves(
+  repertoires: readonly TrainingRepertoire[],
+): QueueItem[] {
   const seen = new Set<string>();
   const items: QueueItem[] = [];
-  for (const r of repertoires.filter((x) => x.active)) {
+  for (const r of repertoires) {
     for (const m of playerMoves(r.graph)) {
       const key = moveKey(m.from, m.san);
       if (seen.has(key)) continue;
@@ -106,24 +118,14 @@ function dueAt(
   now: Date,
 ): ReviewState | undefined {
   const review = reviews.get(key);
-  return review !== undefined && review.fsrs.due.getTime() <= now.getTime()
-    ? review
-    : undefined;
+  return review !== undefined && isDue(review, now) ? review : undefined;
 }
 
-/**
- * How many Reviews are due at `now` across the active repertoires, each key
- * once and not cut at a session size: the same moves `buildQueue` offers as
- * Reviews before its cap.
- */
-export function dueCount(
-  input: Pick<QueueInput, 'repertoires' | 'reviews'>,
-  now: Date,
-): number {
-  return queueItems(input.repertoires).filter(
-    (item) => dueAt(input.reviews, item.key, now) !== undefined,
-  ).length;
-}
+/** R-62, R-146: the new moves today still allows, never below zero. */
+export const newMovesLeft = (
+  limits: Pick<QueueLimits, 'newPerDay'>,
+  learnedToday: number,
+): number => Math.max(0, limits.newPerDay - learnedToday);
 
 /** Which limit, if any, is out of the range R-62 allows. */
 function invalidLimit(limits: QueueLimits): keyof QueueLimits | null {
@@ -155,7 +157,7 @@ export function buildQueue(
   const due: Due[] = [];
   const fresh: QueueItem[] = [];
   const shown = input.exclude ?? new Set();
-  for (const item of queueItems(input.repertoires)) {
+  for (const item of heldMoves(input.repertoires)) {
     const review = dueAt(input.reviews, item.key, now);
     if (review !== undefined) {
       due.push({ item, due: review.fsrs.due.getTime() });
@@ -163,7 +165,6 @@ export function buildQueue(
       fresh.push(item);
     }
   }
-  const allowance = Math.max(0, limits.newPerDay - input.learnedToday);
   return {
     ok: true,
     value: {
@@ -171,7 +172,7 @@ export function buildQueue(
         .sort((a, b) => a.due - b.due)
         .slice(0, limits.reviews)
         .map((d) => d.item),
-      newMoves: fresh.slice(0, allowance),
+      newMoves: fresh.slice(0, newMovesLeft(limits, input.learnedToday)),
     },
   };
 }

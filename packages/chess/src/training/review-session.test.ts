@@ -53,7 +53,12 @@ describe('reviewSession', () => {
     expect(s.current?.item).toEqual(item('e4'));
     expect(s.current?.reply).toBeNull();
     expect(s).toMatchObject({ phase: 'ask', hinted: false });
-    expect(reviewCounts(s)).toEqual({ done: 0, total: 5 });
+    expect(reviewCounts(s)).toEqual({
+      done: 0,
+      total: 5,
+      passed: 0,
+      lapses: 0,
+    });
 
     const c3 = startReviewSession([item('c3')], reps);
     expect(sans(c3)).toEqual(['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5', 'c3']);
@@ -69,7 +74,12 @@ describe('reviewSession', () => {
     });
     expect(t.state.phase).toBe('correct');
     expect(t.state.outcomes.get(item('e4').key)).toBe('pass');
-    expect(reviewCounts(t.state)).toEqual({ done: 1, total: 5 });
+    expect(reviewCounts(t.state)).toEqual({
+      done: 1,
+      total: 5,
+      passed: 1,
+      lapses: 0,
+    });
   });
   it('chains into the queued move after the opponent reply (R-143)', () => {
     const s = pass(startReviewSession(all, reps));
@@ -86,7 +96,12 @@ describe('reviewSession', () => {
     expect(s.order.map((i) => i.san)).toEqual(['e4', 'Nf3', 'c3']);
     const after = pass(pass(s));
     expect(currentSan(after)).toBeUndefined();
-    expect(reviewCounts(after)).toEqual({ done: 3, total: 3 });
+    expect(reviewCounts(after)).toEqual({
+      done: 3,
+      total: 3,
+      passed: 3,
+      lapses: 0,
+    });
   });
   it('without a chain takes the next item in order, with no reply', () => {
     const s = pass(startReviewSession([item('e4'), item('c3')], reps));
@@ -142,13 +157,35 @@ describe('reviewSession', () => {
   it('ends when the repertoire is gone while drilling', () => {
     const s = pass(startReviewSession(all, reps), []);
     expect(s.current).toBeNull();
-    expect(reviewCounts(s)).toEqual({ done: 1, total: 1 });
+    expect(reviewCounts(s)).toEqual({
+      done: 1,
+      total: 1,
+      passed: 1,
+      lapses: 0,
+    });
   });
   it("keeps the current line's chapter on a chained line", () => {
     const s = pass(pass(startReviewSession(all, reps)));
     expect(currentSan(s)).toBe('Bc4');
     expect(s.current?.line.chapterId).toBe(italian.chapters[0]?.id);
     expect(s.current?.line.rootKey).toBe(italian.chapters[0]?.rootKey);
+  });
+  it('counts a wrong answer and a hint as Lapses, a right answer as passed (R-61)', () => {
+    const wrong = answerReview(startReviewSession(all, reps), 'd4').state;
+    const replayed = nextReview(answerReview(wrong, 'e4').state, reps);
+    const hinted = hintReview(replayed).state;
+    const passed = pass(
+      nextReview(
+        answerReview(hinted, hinted.current?.item.san ?? '').state,
+        reps,
+      ),
+    );
+    expect(reviewCounts(passed)).toEqual({
+      done: 3,
+      total: 5,
+      passed: 1,
+      lapses: 2,
+    });
   });
   it('a wrong answer is a Lapse, recorded once; then replay the move (R-59)', () => {
     const s = startReviewSession(all, reps);
@@ -221,7 +258,12 @@ describe('reviewSession', () => {
       s = nextReview(t.state, reps);
     }
     expect(outcomes.sort()).toEqual(all.map((i) => i.key).sort());
-    expect(reviewCounts(s)).toEqual({ done: 5, total: 5 });
+    expect(reviewCounts(s)).toEqual({
+      done: 5,
+      total: 5,
+      passed: 5,
+      lapses: 0,
+    });
     expect(answerReview(s, 'e4')).toEqual({ state: s, emit: null });
     expect(hintReview(s)).toEqual({ state: s, emit: null });
     expect(nextReview(s, reps)).toBe(s);
@@ -231,7 +273,12 @@ describe('reviewSession', () => {
     const elsewhere: QueueItem = { ...item('Nf3'), repertoireId: 'other' };
     const s = startReviewSession([gone, elsewhere, item('c3')], reps);
     expect(currentSan(s)).toBe('c3');
-    expect(reviewCounts(s)).toEqual({ done: 0, total: 1 });
+    expect(reviewCounts(s)).toEqual({
+      done: 0,
+      total: 1,
+      passed: 0,
+      lapses: 0,
+    });
   });
   it('skips an item a coach edit removed while drilling', () => {
     const s = startReviewSession([item('e4'), item('c3')], reps);
@@ -240,6 +287,11 @@ describe('reviewSession', () => {
     ];
     const after = pass(s, edited);
     expect(after.current).toBeNull();
-    expect(reviewCounts(after)).toEqual({ done: 1, total: 1 });
+    expect(reviewCounts(after)).toEqual({
+      done: 1,
+      total: 1,
+      passed: 1,
+      lapses: 0,
+    });
   });
 });

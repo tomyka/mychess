@@ -53,8 +53,6 @@ export interface TrainingSnapshot {
   /** Moves learned (not skipped) in the player's day so far (R-147). */
   readonly learnedToday: number;
   readonly settings: TrainingSettings;
-  /** For the empty state: the earliest due among the active entries' reviews, or null. */
-  readonly nextDue: Date | null;
 }
 
 /** The entries the scope names; undefined when it names none the player trains. */
@@ -80,20 +78,6 @@ const othersOf = (
       side,
       graph: repertoire.graph,
     }));
-
-/** The earliest due among `reviews` of keys `held`, or null. */
-function earliestDue(
-  reviews: ReadonlyMap<string, ReviewState>,
-  held: ReadonlySet<string>,
-): Date | null {
-  let earliest: Date | null = null;
-  for (const [key, { fsrs }] of reviews) {
-    if (held.has(key) && (earliest === null || fsrs.due < earliest)) {
-      earliest = fsrs.due;
-    }
-  }
-  return earliest;
-}
 
 /** The stored Reviews of keys `held`, as ReviewStates. */
 function heldReviews(
@@ -129,7 +113,6 @@ export async function trainingSnapshot(
       await reviewsOf(tx, playerId),
       heldKeys(all.map((e) => e.repertoire)),
     );
-    const active = entries.filter((e) => e.repertoire.active);
     return {
       entries,
       others: othersOf(all, entries),
@@ -142,7 +125,6 @@ export async function trainingSnapshot(
         dayEnd(now),
       ),
       settings: await trainingSettings(tx, playerId),
-      nextDue: earliestDue(reviews, heldKeys(active.map((e) => e.repertoire))),
     };
   }, SNAPSHOT);
 }

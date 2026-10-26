@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DAY_MS,
   grade,
+  isDue,
   retrievability,
   startReview,
   type Outcome,
@@ -11,6 +12,14 @@ import {
 const now = new Date('2026-10-16T08:00:00Z');
 
 describe('schedule', () => {
+  it('is due from its due instant on, not a millisecond before', () => {
+    const review = startReview('k', now);
+    const due = review.fsrs.due.getTime();
+    expect(isDue(review, new Date(due))).toBe(true);
+    expect(isDue(review, new Date(due + DAY_MS))).toBe(true);
+    expect(isDue(review, new Date(due - 1))).toBe(false);
+  });
+
   it('starts a review due the next day', () => {
     const review = startReview('k', now);
     expect(review.key).toBe('k');

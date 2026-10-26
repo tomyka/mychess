@@ -17,13 +17,13 @@ const renderLt = (node: ReactNode) =>
 const REVIEW = {
   kind: 'review',
   reviewed: 30,
-  correct: 27,
+  passed: 27,
   lapses: 3,
 } as const;
 
 /** 10:00 in Vilnius on 26 October 2026, winter time. */
 const NEXT = new Date('2026-10-26T08:00:00Z');
-const PROGRESS = { learned: 142, due: 6, toLearn: 18, nextReview: NEXT };
+const PROGRESS = { reviewed: 142, due: 6, toLearn: 18, nextDue: NEXT };
 
 /** The number the summary shows under `label`. */
 const stat = (label: string): string | null =>
@@ -74,7 +74,7 @@ describe('the done summary', () => {
   it('leaves the next review out when none is scheduled', () => {
     renderLt(
       <DoneSummary
-        progress={{ learned: 0, due: 0, toLearn: 4, nextReview: null }}
+        progress={{ reviewed: 0, due: 0, toLearn: 4, nextDue: null }}
         counts={REVIEW}
       />,
     );

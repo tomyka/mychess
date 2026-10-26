@@ -3,7 +3,7 @@
 import { START_KEY, type Side } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import type { JSX, ReactNode } from 'react';
-import type { TrainingMode } from '../../lib/routes';
+import type { TrainingMode } from '@mychess/chess';
 import { Board } from '../board/board';
 import type { BoardView } from '../board/board-config';
 import { BackLink } from '../repertoire-view';

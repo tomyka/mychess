@@ -48,16 +48,21 @@ export interface ReviewTransition {
   readonly emit: ReviewEmit | null;
 }
 
-/** Items answered, of the items the session holds. */
+/** Items answered, of the items the session holds, and how they went. */
 export interface ReviewCounts {
   readonly done: number;
   readonly total: number;
+  /** Answered right first time. */
+  readonly passed: number;
+  /** A wrong answer or a hint (R-61). */
+  readonly lapses: number;
 }
 
-export const reviewCounts = (s: ReviewSessionState): ReviewCounts => ({
-  done: s.outcomes.size,
-  total: s.order.length,
-});
+export function reviewCounts(s: ReviewSessionState): ReviewCounts {
+  const done = s.outcomes.size;
+  const passed = [...s.outcomes.values()].filter((o) => o === 'pass').length;
+  return { done, total: s.order.length, passed, lapses: done - passed };
+}
 
 const graphOf = (
   repertoires: readonly TrainingRepertoire[],

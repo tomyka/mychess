@@ -5,22 +5,22 @@ import Link from 'next/link';
 import { useEffect, useRef, type JSX } from 'react';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
 import { useReviewTime } from './review-time';
-import type { RepertoireProgress } from './session-progress';
+import type { TrainingProgress } from '@mychess/chess';
 
 /** What a session did: a review's outcomes, or the moves a learn pass taught. */
 export type SessionCounts =
   | {
       readonly kind: 'review';
       readonly reviewed: number;
-      readonly correct: number;
+      readonly passed: number;
       readonly lapses: number;
     }
   | { readonly kind: 'learn'; readonly learned: number };
 
 export interface DoneSummaryProps {
   readonly counts: SessionCounts;
-  /** Where the repertoires in scope stand now (repertoireProgress). */
-  readonly progress: RepertoireProgress;
+  /** Where the repertoires in scope stand now (trainingProgress). */
+  readonly progress: TrainingProgress;
 }
 
 export interface DoneActionsProps {
@@ -58,17 +58,17 @@ const segment = (part: number, whole: number): string =>
 function Standing({
   progress,
 }: {
-  readonly progress: RepertoireProgress;
+  readonly progress: TrainingProgress;
 }): JSX.Element {
   const t = useTranslations('training.done');
   const reviewTime = useReviewTime();
-  const { learned, due, toLearn, nextReview } = progress;
-  const whole = learned + toLearn;
+  const { reviewed, due, toLearn, nextDue } = progress;
+  const whole = reviewed + toLearn;
   return (
     <div className="flex flex-col gap-3">
-      {nextReview === null ? null : (
+      {nextDue === null ? null : (
         <p className="text-center text-fg-muted">
-          {t('next', { when: reviewTime(nextReview) })}
+          {t('next', { when: reviewTime(nextDue) })}
         </p>
       )}
       <div
@@ -77,12 +77,12 @@ function Standing({
       >
         <div
           className="bg-learned"
-          style={{ width: segment(learned - due, whole) }}
+          style={{ width: segment(reviewed - due, whole) }}
         />
         <div className="bg-due" style={{ width: segment(due, whole) }} />
       </div>
       <p className="text-center text-sm text-fg-muted">
-        {t('progress', { learned, due, toLearn })}
+        {t('progress', { learned: reviewed, due, toLearn })}
       </p>
     </div>
   );
@@ -140,7 +140,7 @@ export function DoneSummary({
     counts.kind === 'review'
       ? [
           [t('reviewed'), counts.reviewed, 'text-fg'],
-          [t('correct'), counts.correct, 'text-success'],
+          [t('correct'), counts.passed, 'text-success'],
           [t('lapses'), counts.lapses, 'text-error'],
         ]
       : [[t('learned'), counts.learned, 'text-learned']];

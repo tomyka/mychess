@@ -72,7 +72,6 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
     learned: [],
     learnedToday: 0,
     settings: { sessionSize: 20, newPerDay: 10 },
-    nextDue: null,
     now: NOW,
     ...overrides,
   };
@@ -110,7 +109,6 @@ describe('the training screen with nothing due', () => {
       data({
         reviews: [{ ...due, fsrs: { ...due.fsrs, due: NEXT } }],
         learned: [D4],
-        nextDue: NEXT,
         settings: { sessionSize: 20, newPerDay: 3 },
       }),
     );

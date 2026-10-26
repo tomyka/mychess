@@ -3,11 +3,16 @@
 // plan from. The page reads the database only through this loader, which
 // starts from the session account: a value from the URL only narrows the
 // scope, and the snapshot query checks it is a repertoire the player trains.
+import {
+  nextDue,
+  trainingCounts,
+  type TrainingCounts,
+  type TrainingMode,
+} from '@mychess/chess';
 import { trainingSnapshot, type TrainingScope } from '@mychess/db';
 import { SECONDS_PER_REVIEW, type Account } from '@mychess/domain';
 import { z } from 'zod';
-import type { TrainingMode } from '../lib/routes';
-import { trainingCounts, type TrainingCounts } from '../lib/training-counts';
+import { dayOf } from '../lib/training-day';
 import type { TrainingData } from '../lib/training-data';
 import { getDb } from './db';
 
@@ -62,7 +67,6 @@ export async function loadTraining(
     learned: [...snapshot.learned],
     learnedToday: snapshot.learnedToday,
     settings: snapshot.settings,
-    nextDue: snapshot.nextDue,
     now,
   };
 }
@@ -71,7 +75,7 @@ export async function loadTraining(
 export interface TodaySummary extends TrainingCounts {
   /** The estimated minutes the due moves take, rounded up. */
   readonly minutes: number;
-  /** The earliest due among the active repertoires' Reviews, or null. */
+  /** The earliest Review due after now, or null. */
   readonly nextDue: Date | null;
 }
 
@@ -84,11 +88,12 @@ export async function todaySummary(account: Account): Promise<TodaySummary> {
   const data = await loadTraining(account, 'review', { kind: 'all' });
   if (data === undefined)
     return { due: 0, toLearn: 0, minutes: 0, nextDue: null };
-  const counts = trainingCounts(data);
+  const day = dayOf(data);
+  const counts = trainingCounts(day, data.now);
   return {
     ...counts,
     minutes: Math.ceil((counts.due * SECONDS_PER_REVIEW) / 60),
-    nextDue: data.nextDue,
+    nextDue: nextDue(day, data.now),
   };
 }
 
@@ -104,5 +109,5 @@ export async function repertoireTraining(
     kind: 'repertoire',
     repertoireId,
   });
-  return data === undefined ? null : trainingCounts(data);
+  return data === undefined ? null : trainingCounts(dayOf(data), data.now);
 }

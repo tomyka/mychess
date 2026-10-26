@@ -12,6 +12,7 @@ import {
   currentLearnStep,
   fenOf,
   inCheck,
+  newKeys,
   sideToMove,
   START_KEY,
   startLearnSession,
@@ -28,7 +29,6 @@ import {
 import type { BoardView } from '../board/board-config';
 import { destsOf, isKey, squaresOf } from '../board/squares';
 import type { Flash } from './drill-input';
-import { newKeys } from '../../lib/training-counts';
 
 export interface LearnDrillState {
   readonly lines: readonly LearnLine[];

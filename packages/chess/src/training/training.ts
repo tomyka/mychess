@@ -31,7 +31,9 @@
  * (`startReviewSession`, `answerReview`, `hintReview`, `nextReview`,
  * `reviewCounts`) asks the queue's Reviews after their line so far, chains
  * into the next Due move of the same repertoire (R-143, R-54) and emits one
- * outcome per move (R-59, R-61). `twoAnswers` names the other answers
+ * outcome per move (R-59, R-61). The training day (`training-day.ts`) reads a
+ * player's snapshot: the allowance, what is due, when the next Review is,
+ * the progress and the screen training starts on. `twoAnswers` names the other answers
  * the player's repertoires give (R-54); `learnAgainKeys` the skipped moves
  * "Learn again" returns (R-147).
  *
@@ -41,7 +43,7 @@ export { knowThis, learnStep, startLearn } from './learn';
 export type { LearnEvent, LearnState } from './learn';
 export { allLearned, mastered, reconcile, weakSpots } from './progress';
 export type { Reconciliation, WeakSpot } from './progress';
-export { buildQueue, dueCount, QUEUE_LIMITS } from './queue';
+export { buildQueue, QUEUE_LIMITS } from './queue';
 export type {
   Queue,
   QueueInput,
@@ -85,5 +87,23 @@ export type {
   ReviewTransition,
   ReviewCounts,
 } from './review-session';
+export {
+  dueCount,
+  dueReviews,
+  learnLines,
+  newKeys,
+  nextDue,
+  startState,
+  toLearnCount,
+  trainingCounts,
+  trainingProgress,
+} from './training-day';
+export type {
+  StartState,
+  TrainingCounts,
+  TrainingDay,
+  TrainingMode,
+  TrainingProgress,
+} from './training-day';
 export { learnAgainKeys, twoAnswers } from './answers';
 export type { OtherAnswer } from './answers';

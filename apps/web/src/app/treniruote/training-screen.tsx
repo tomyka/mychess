@@ -1,13 +1,15 @@
 'use client';
 
+import { nextDue, startState } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
-import { useState, type JSX } from 'react';
+import { useMemo, useState, type JSX } from 'react';
 import {
   assignedRepertoirePath,
   repertoireRoute,
   ROUTES,
   trainingPath,
 } from '../../lib/routes';
+import { dayOf } from '../../lib/training-day';
 import type { TrainingData } from '../../lib/training-data';
 import type { FrameParts, TrainingLinks } from './drill';
 import { EmptyPanel, type ScopedRepertoire } from './empty-panel';
@@ -15,7 +17,6 @@ import { LearnDrill } from './learn-drill';
 import { ReviewDrill } from './review-drill';
 import { SyncBanner } from './sync-banner';
 import { TrainingFrame } from './training-frame';
-import { startState } from './training-start';
 import { useResultSync } from './use-result-sync';
 
 export interface TrainingScreenProps {
@@ -56,7 +57,8 @@ export function TrainingScreen({
   const sync = useResultSync(accountId);
   // Decided once from the snapshot: a drill that empties its queue shows
   // its done summary, not an empty state.
-  const [start] = useState(() => startState(data));
+  const day = useMemo(() => dayOf(data), [data]);
+  const [start] = useState(() => startState(day, data.mode, data.now));
   const scoped = data.entries.find((e) => e.id === repertoireId) ?? null;
   const links = linksFor(scoped);
   const frame = (parts: FrameParts): JSX.Element => (
@@ -81,7 +83,7 @@ export function TrainingScreen({
       panel: (
         <EmptyPanel
           state={start}
-          nextDue={data.nextDue}
+          nextDue={nextDue(day, data.now)}
           links={links}
           scoped={scoped}
         />

@@ -78,7 +78,6 @@ const SNAPSHOT: TrainingSnapshot = {
   learned: new Set(['k1|d4', 'k2|Bf4']),
   learnedToday: 3,
   settings: { sessionSize: 20, newPerDay: 5 },
-  nextDue: new Date('2026-10-21T08:00:00Z'),
 };
 
 beforeEach(() => {
@@ -156,7 +155,6 @@ describe('loadTraining', () => {
       learned: ['k1|d4', 'k2|Bf4'],
       learnedToday: 3,
       settings: { sessionSize: 20, newPerDay: 5 },
-      nextDue: new Date('2026-10-21T08:00:00Z'),
       now: NOW,
     });
   });
@@ -190,7 +188,6 @@ function londonDue(due: readonly string[]): TrainingSnapshot {
       }),
     ),
     learned: new Set(LONDON_KEYS),
-    nextDue: due.length > 0 ? NOW : later,
   };
 }
 
@@ -213,7 +210,7 @@ describe('todaySummary (U1-M1-3)', () => {
       due: 8,
       toLearn: 0,
       minutes: 2,
-      nextDue: NOW,
+      nextDue: null,
     });
     server.snapshot.mockResolvedValue(londonDue(LONDON_KEYS.slice(0, 1)));
     expect(await todaySummary(ROKAS)).toMatchObject({ due: 1, minutes: 1 });
@@ -235,7 +232,6 @@ describe('todaySummary (U1-M1-3)', () => {
       ...londonDue([]),
       reviews: new Map(),
       learned: new Set(),
-      nextDue: null,
     });
     expect(await todaySummary(ROKAS)).toEqual({
       due: 0,

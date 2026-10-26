@@ -2,12 +2,17 @@
 
 import {
   answerReview,
+  dueCount,
+  dueReviews,
   hintReview,
   legalMoves,
+  nextDue,
+  trainingProgress,
   type BoardMove,
   type ReviewEmit,
-  type ReviewState,
   type Side,
+  type TrainingDay,
+  type TrainingProgress,
   type TrainingRepertoire,
 } from '@mychess/chess';
 import {
@@ -39,15 +44,7 @@ import {
   startDrill,
   type DrillState,
 } from './review-drill-state';
-import {
-  repertoireProgress,
-  type RepertoireProgress,
-} from './session-progress';
-import {
-  dueReviews,
-  repertoiresOf,
-  reviewsOf,
-} from '../../lib/training-counts';
+import { dayOf } from '../../lib/training-day';
 import type { ResultSync } from './use-result-sync';
 
 /** The longest wait `setTimeout` keeps (about 24.8 days). */
@@ -66,7 +63,7 @@ export interface ReviewDrill extends DrillInput {
   /** Done, and the Reviews graded so far leave more due now (R-62, R-78). */
   readonly canContinue: boolean;
   /** Where the repertoires stand now, by the Reviews graded so far. */
-  readonly progress: () => RepertoireProgress;
+  readonly progress: () => TrainingProgress;
 }
 
 type SetState = Dispatch<SetStateAction<DrillState>>;
@@ -109,15 +106,13 @@ function useDrillTimers(
   useTimer(flash !== null, FEEDBACK_MS, unflash);
 }
 
-/** The first of `reviews` due after `now`, in ms from now, if a timer can wait that long. */
-function nextDueIn(
-  reviews: ReadonlyMap<string, ReviewState>,
-  now: number,
-): number | null {
-  const later = [...reviews.values()]
-    .map((r) => r.fsrs.due.getTime() - now)
-    .filter((wait) => wait > 0);
-  const wait = Math.min(...later);
+/**
+ * The first Review of `day`'s active repertoires due after `now`, in ms
+ * from now, if a timer can wait that long.
+ */
+function nextDueIn(day: TrainingDay, now: Date): number | null {
+  const due = nextDue(day, now);
+  const wait = due === null ? Infinity : due.getTime() - now.getTime();
   return wait <= MAX_TIMER_MS ? wait : null;
 }
 
@@ -125,12 +120,15 @@ function nextDueIn(
  * Once done, renders again when the next graded Review comes due: a Lapse
  * is due within minutes (R-78), and "continue" then has something to offer.
  */
-function useDueAgain(state: DrillState, clock: DrillClock): void {
+function useDueAgain(
+  state: DrillState,
+  gradedDay: TrainingDay,
+  clock: DrillClock,
+): void {
   const [tick, setTick] = useState(0);
   const done = isDone(state);
-  const { reviews } = state;
   useEffect(() => {
-    const wait = done ? nextDueIn(reviews, clock.now().getTime()) : null;
+    const wait = done ? nextDueIn(gradedDay, clock.now()) : null;
     if (wait === null) return undefined;
     const timer = setTimeout(() => {
       setTick(tick + 1);
@@ -138,7 +136,7 @@ function useDueAgain(state: DrillState, clock: DrillClock): void {
     return () => {
       clearTimeout(timer);
     };
-  }, [done, reviews, clock, tick]);
+  }, [done, gradedDay, clock, tick]);
 }
 
 /** Queues the emitted result with the sync (R-60). */
@@ -156,8 +154,8 @@ function recorder(sync: ResultSync, clock: DrillClock) {
 }
 
 interface InputContext {
-  readonly data: TrainingData;
-  readonly repertoires: readonly TrainingRepertoire[];
+  /** The training day with the Reviews graded so far. */
+  readonly gradedDay: TrainingDay;
   readonly state: DrillState;
   readonly setState: SetState;
   readonly legal: readonly BoardMove[];
@@ -197,9 +195,15 @@ function useDrillInput(c: InputContext): DrillInput {
       setState(afterHint(state, hinted, now));
     },
     restart() {
-      const due = dueReviews(c.data, state.reviews, clock.now());
+      const { gradedDay } = c;
+      const due = dueReviews(gradedDay, clock.now());
       setState(
-        startDrill(due, c.repertoires, state.reviews, state.revision + 1),
+        startDrill(
+          due,
+          gradedDay.repertoires,
+          gradedDay.reviews,
+          state.revision + 1,
+        ),
       );
     },
   };
@@ -220,12 +224,11 @@ export function useReviewDrill(
   sync: ResultSync,
   clock: DrillClock = BROWSER_CLOCK,
 ): ReviewDrill {
-  const repertoires = useMemo(() => repertoiresOf(data), [data]);
-  const [state, setState] = useState(() => {
-    const reviews = reviewsOf(data);
-    const due = dueReviews(data, reviews, data.now);
-    return startDrill(due, repertoires, reviews, 0);
-  });
+  const day = useMemo(() => dayOf(data), [data]);
+  const { repertoires } = day;
+  const [state, setState] = useState(() =>
+    startDrill(dueReviews(day, data.now), repertoires, day.reviews, 0),
+  );
   const key = shownKey(state);
   const legal = useMemo(() => legalMoves(key), [key]);
   const side = sideOf(data, state);
@@ -233,11 +236,14 @@ export function useReviewDrill(
     () => drillBoard(state, side, legal),
     [state, side, legal],
   );
+  const gradedDay = useMemo(
+    () => ({ ...day, reviews: state.reviews }),
+    [day, state.reviews],
+  );
   useDrillTimers(state, setState, repertoires);
-  useDueAgain(state, clock);
+  useDueAgain(state, gradedDay, clock);
   const input = useDrillInput({
-    data,
-    repertoires,
+    gradedDay,
     state,
     setState,
     legal,
@@ -249,9 +255,7 @@ export function useReviewDrill(
     ...input,
     state,
     view,
-    canContinue:
-      done && dueReviews(data, state.reviews, clock.now()).length > 0,
-    progress: () =>
-      repertoireProgress(data.entries, state.reviews, clock.now()),
+    canContinue: done && dueCount(gradedDay, clock.now()) > 0,
+    progress: () => trainingProgress(gradedDay, clock.now()),
   };
 }

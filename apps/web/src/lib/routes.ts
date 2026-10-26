@@ -2,6 +2,8 @@
  * The app's pages by what they are for. The paths themselves are Next's
  * file-system routes under `src/app`; this is the one place code names them.
  */
+import type { TrainingMode } from '@mychess/chess';
+
 export const ROUTES = {
   home: '/',
   signIn: '/prisijungti',
@@ -57,9 +59,6 @@ export const repertoireExportRoute = (id: string): string =>
 /** The import page with an existing repertoire chosen as the target. */
 export const importIntoRoute = (id: string): string =>
   `${ROUTES.repertoireImport}?i=${encodeURIComponent(id)}`;
-
-/** What a training session does: drill due Reviews or learn new Moves. */
-export type TrainingMode = 'review' | 'learn';
 
 /** The training page; `repertoireId` scopes it to one repertoire (R-142). */
 export const trainingPath = (

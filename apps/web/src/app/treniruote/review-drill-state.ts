@@ -10,6 +10,7 @@ import {
   grade,
   inCheck,
   nextReview,
+  reviewCounts,
   sideToMove,
   START_KEY,
   startReviewSession,
@@ -199,14 +200,8 @@ export function drillBoard(
 
 /** What the session did, for the done summary. */
 export function sessionCounts(session: ReviewSessionState): SessionCounts {
-  const outcomes = [...session.outcomes.values()];
-  const correct = outcomes.filter((o) => o === 'pass').length;
-  return {
-    kind: 'review',
-    reviewed: outcomes.length,
-    correct,
-    lapses: outcomes.length - correct,
-  };
+  const { done, passed, lapses } = reviewCounts(session);
+  return { kind: 'review', reviewed: done, passed, lapses };
 }
 
 /** The opponent's reply before the asked move, numbered: `1... d5`. */

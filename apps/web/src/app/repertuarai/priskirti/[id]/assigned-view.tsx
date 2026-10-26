@@ -4,7 +4,7 @@ import { assignmentBadges } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useEffect, type JSX } from 'react';
 import { ROUTES } from '../../../../lib/routes';
-import type { TrainingCounts } from '../../../../lib/training-counts';
+import type { TrainingCounts } from '@mychess/chess';
 import type { AssignedRepertoirePage } from '../../../../server/assignment-pages';
 import {
   BackLink,

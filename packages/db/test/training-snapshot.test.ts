@@ -77,7 +77,7 @@ describe('trainingSnapshot', () => {
     await seedLink(db, 'c', 'p');
   });
 
-  it('carries the entries, held reviews, learned set, settings and next due', async () => {
+  it('carries the entries, held reviews, learned set and settings', async () => {
     const own = await repertoireOf('p', 'Mano');
     const d4 = await learned(D4);
     await writeReview(db, 'p', startReview(BF4, hoursAgo(30)), {
@@ -90,7 +90,6 @@ describe('trainingSnapshot', () => {
       learned: new Set([D4, BF4]),
       learnedToday: 0,
       settings: { sessionSize: 30, newPerDay: 5 },
-      nextDue: d4.fsrs.due,
     });
     expect(snapshot?.reviews.get(D4)).toEqual(d4);
   });
@@ -122,7 +121,7 @@ describe('trainingSnapshot', () => {
     expect(await snapshotKeys(ALL)).toEqual([E4]);
   });
 
-  it('keeps a paused assignment and its reviews, but takes no next due from it (R-46)', async () => {
+  it('keeps a paused assignment, inactive, and its reviews (R-46)', async () => {
     const kings = await repertoireOf('c', 'Trenerio', KINGS);
     await assignToP(kings);
     await learned(E4);
@@ -137,32 +136,22 @@ describe('trainingSnapshot', () => {
       { repertoire: { id: kings, active: false } },
     ]);
     expect([...(snapshot?.reviews.keys() ?? [])]).toEqual([E4]);
-    expect(snapshot?.nextDue).toBeNull();
   });
 
-  it('takes the earliest due among the active repertoires held keys', async () => {
-    await repertoireOf('p', 'Mano');
-    await learned(D4, 10);
-    const earlier = await learned(BF4, 30);
-    await learned(E4, 60);
-    const snapshot = await trainingSnapshot(db, 'p', ALL, NOW);
-    expect(snapshot?.nextDue).toEqual(earlier.fsrs.due);
-  });
-
-  it('gives no next due without reviews', async () => {
+  it('carries no reviews or learned keys before the player learns a move', async () => {
     await repertoireOf('p', 'Mano');
     const snapshot = await trainingSnapshot(db, 'p', ALL, NOW);
-    expect(snapshot?.nextDue).toBeNull();
     expect(snapshot?.reviews).toEqual(new Map());
+    expect(snapshot?.learned).toEqual(new Set());
   });
 
   describe('scoped to one repertoire', () => {
-    it('carries only that entry and its next due, yet every held review (no shared move goes dormant)', async () => {
+    it('carries only that entry, yet every held review (no shared move goes dormant)', async () => {
       const own = await repertoireOf('p', 'Mano');
       const kings = await repertoireOf('c', 'Trenerio', KINGS);
       await assignToP(kings);
       const d4 = await learned(D4, 10);
-      await learned(NF3, 60);
+      const nf3 = await learned(NF3, 60);
       const snapshot = await trainingSnapshot(
         db,
         'p',
@@ -173,7 +162,8 @@ describe('trainingSnapshot', () => {
       expect([...(snapshot?.reviews.keys() ?? [])].sort()).toEqual(
         [D4, NF3].sort(),
       );
-      expect(snapshot?.nextDue).toEqual(d4.fsrs.due);
+      expect(snapshot?.reviews.get(D4)).toEqual(d4);
+      expect(snapshot?.reviews.get(NF3)).toEqual(nf3);
     });
 
     it('carries every other training repertoire, paused included, for the two answers notice (S6 decision 6)', async () => {

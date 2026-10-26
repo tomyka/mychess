@@ -38,6 +38,10 @@ export function startReview(key: string, now: Date): ReviewState {
   };
 }
 
+/** Whether the Review is Due at `now`: from its due instant on. */
+export const isDue = (review: ReviewState, now: Date): boolean =>
+  review.fsrs.due.getTime() <= now.getTime();
+
 export function grade(
   review: ReviewState,
   outcome: Outcome,

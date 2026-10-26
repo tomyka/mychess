@@ -148,6 +148,16 @@ _Avoid_: Card (implementation word), practice pool, drill (fine as a verb; in co
 A Review whose scheduled time has arrived, so it belongs in the next review session.
 _Avoid_: Overdue (unless meaning past due by a stated margin), pending
 
+**Next due**:
+The earliest time after now at which a Review of an active Repertoire becomes Due; none when no such Review is waiting. Shown when nothing is Due.
+
+**Allowance**:
+How many new Moves the Player may still learn today: the daily limit of new moves minus those learned since midnight in the Player's time zone, never below zero (R-62, R-146).
+_Avoid_: quota, budget
+
+**Training day**:
+Everything one day's training decides from: the Repertoires in scope (paused ones included), the Player's Reviews, the Moves learned or skipped, how many were learned today, and the session and daily limits. Due counts, Next due, the Allowance and what the training screen starts with are all read from it.
+
 **Lapse**:
 A failed Review: the Player played a wrong Move in a drill, or a Player mistake in a real game was detected. A Lapse makes the Move Due now and shortens its schedule.
 _Avoid_: Miss, error, demotion

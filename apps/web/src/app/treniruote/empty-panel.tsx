@@ -1,5 +1,6 @@
 'use client';
 
+import type { StartState } from '@mychess/chess';
 import type { RepertoireKind } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
@@ -8,7 +9,6 @@ import { importIntoRoute, repertoireRoute, ROUTES } from '../../lib/routes';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
 import type { TrainingLinks } from './drill';
 import { useReviewTime } from './review-time';
-import type { StartState } from './training-start';
 
 /** The repertoire a page is scoped to: which one, and whose. */
 export interface ScopedRepertoire {

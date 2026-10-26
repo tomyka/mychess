@@ -1,10 +1,13 @@
 'use client';
 
 import {
+  learnLines,
   legalMoves,
   playLearn,
+  trainingProgress,
   type BoardMove,
   type Side,
+  type TrainingProgress,
 } from '@mychess/chess';
 import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import type { TrainingData } from '../../lib/training-data';
@@ -29,18 +32,14 @@ import {
   startLearnDrill,
   type LearnDrillState,
 } from './learn-drill-state';
-import {
-  repertoireProgress,
-  type RepertoireProgress,
-} from './session-progress';
-import { learnLines, reviewsOf } from '../../lib/training-counts';
+import { dayOf } from '../../lib/training-day';
 import type { ResultSync } from './use-result-sync';
 
 export interface LearnDrill extends MoveInput {
   readonly state: LearnDrillState;
   readonly view: BoardView;
   /** Where the repertoires stand now, by the moves learned so far. */
-  readonly progress: () => RepertoireProgress;
+  readonly progress: () => TrainingProgress;
 }
 
 type SetState = Dispatch<SetStateAction<LearnDrillState>>;
@@ -126,8 +125,9 @@ export function useLearnDrill(
   sync: ResultSync,
   clock: DrillClock = BROWSER_CLOCK,
 ): LearnDrill {
+  const day = useMemo(() => dayOf(data), [data]);
   const [state, setState] = useState(() =>
-    startLearnDrill(learnLines(data), reviewsOf(data)),
+    startLearnDrill(learnLines(day), day.reviews),
   );
   const key = shownKey(state);
   const legal = useMemo(() => legalMoves(key), [key]);
@@ -143,6 +143,9 @@ export function useLearnDrill(
     state,
     view,
     progress: () =>
-      repertoireProgress(data.entries, state.reviews, clock.now()),
+      trainingProgress(
+        { repertoires: day.repertoires, reviews: state.reviews },
+        clock.now(),
+      ),
   };
 }

@@ -104,7 +104,6 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
     learned: [D4, BF4],
     learnedToday: 0,
     settings: { sessionSize: 20, newPerDay: 10 },
-    nextDue: null,
     now: NOW,
     ...overrides,
   };

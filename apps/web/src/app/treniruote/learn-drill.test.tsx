@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { Config } from '@lichess-org/chessground/config';
 import type { Key } from '@lichess-org/chessground/types';
-import { fenOf, moveKey, START_KEY } from '@mychess/chess';
+import { fenOf, learnLines, moveKey, newKeys, START_KEY } from '@mychess/chess';
 import type { TrainingResult } from '@mychess/domain';
 import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
@@ -12,7 +12,7 @@ import type { TrainingData } from '../../lib/training-data';
 import type { DrillClock } from './drill-input';
 import type { FrameParts } from './drill';
 import { LearnDrill } from './learn-drill';
-import { learnLines, newKeys } from '../../lib/training-counts';
+import { dayOf } from '../../lib/training-day';
 
 const T = MESSAGES.lt.training;
 const MOVE_INPUT = MESSAGES.lt.board.moveInput.label;
@@ -87,7 +87,6 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
     learned: [],
     learnedToday: 0,
     settings: { sessionSize: 20, newPerDay: 10 },
-    nextDue: null,
     now: NOW,
     ...overrides,
   };
@@ -351,7 +350,7 @@ describe('the learn drill over a whole plan', () => {
         },
       ],
     });
-    const lines = learnLines(d);
+    const lines = learnLines(dayOf(d));
     expect(lines).toHaveLength(2);
     expect(newKeys(lines)).toHaveLength(3);
     renderDrill(d);

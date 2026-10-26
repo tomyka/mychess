@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { JSX } from 'react';
 import { trainingPath } from '../../lib/routes';
-import type { TrainingCounts } from '../../lib/training-counts';
+import type { TrainingCounts } from '@mychess/chess';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
 
 /**

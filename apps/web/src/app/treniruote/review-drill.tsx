@@ -1,6 +1,6 @@
 'use client';
 
-import { reviewCounts } from '@mychess/chess';
+import { reviewCounts, toLearnCount } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useMemo, type JSX } from 'react';
@@ -18,7 +18,7 @@ import {
   sessionCounts,
   type DrillState,
 } from './review-drill-state';
-import { toLearn } from '../../lib/training-counts';
+import { dayOf } from '../../lib/training-day';
 import { TwoAnswersNotice, type NamedRepertoire } from './two-answers-notice';
 import { useReviewDrill, type ReviewDrill as Drill } from './use-review-drill';
 
@@ -129,7 +129,7 @@ export function ReviewDrill({
   const drill = useReviewDrill(data, sync, clock);
   const describe = useSquareWords(drill.view.fen);
   const named = useMemo(() => namedOf(data), [data]);
-  const learnable = useMemo(() => toLearn(data) > 0, [data]);
+  const learnable = useMemo(() => toLearnCount(dayOf(data)) > 0, [data]);
   const { state } = drill;
   const parts = {
     ...titled(data, state),

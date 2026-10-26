@@ -1,11 +1,15 @@
 // What the training page sends the browser (S6 decision 1): plain data the
 // server's loader (server/training.ts) fills from the session account's
-// snapshot, and the browser builds its queue and learn plan from
-// (lib/training-counts.ts). Types only, so both sides share them without
-// importing each other.
-import type { RepertoireGraph, ReviewState, Side } from '@mychess/chess';
+// snapshot, and the browser builds its queue and learn plan from (chess's
+// training day, through lib/training-day.ts). Types only, so both sides
+// share them without importing each other.
+import type {
+  RepertoireGraph,
+  ReviewState,
+  Side,
+  TrainingMode,
+} from '@mychess/chess';
 import type { RepertoireKind, TrainingSettings } from '@mychess/domain';
-import type { TrainingMode } from './routes';
 
 /** One repertoire the player trains, as the browser needs it. */
 interface TrainingDataEntry {
@@ -46,8 +50,6 @@ export interface TrainingData {
   /** Moves learned in the player's day so far (R-147). */
   readonly learnedToday: number;
   readonly settings: TrainingSettings;
-  /** The earliest due of the active entries' Reviews, for the empty state. */
-  readonly nextDue: Date | null;
   /** The instant the snapshot was read at. */
   readonly now: Date;
 }
