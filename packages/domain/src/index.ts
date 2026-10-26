@@ -140,6 +140,12 @@ export {
   type InvitingCoach,
   type NewInvite,
 } from './invite';
+export {
+  canMarkKnown,
+  knowScopeSchema,
+  type KnowScope,
+  type KnownScopeKeys,
+} from './know-scope';
 // Refusals are values (CLAUDE.md); apps read the shape from here.
 export { ok, refuse, type Result } from '@mychess/chess';
 export {

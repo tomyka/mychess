@@ -9,7 +9,11 @@ import {
   startReview,
   type RepertoireGraph,
 } from '@mychess/chess';
-import { TRAINING_REFUSALS, type TrainingResult } from '@mychess/domain';
+import {
+  TRAINING_REFUSALS,
+  type KnowScope,
+  type TrainingResult,
+} from '@mychess/domain';
 import { and, eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -22,7 +26,6 @@ import {
   pauseAssignment,
   recordResults,
   reviewsOf,
-  type KnowScope,
 } from '../src';
 import { reviewRow } from '../src/training/reviews';
 import { reviews } from '../src/training-schema';

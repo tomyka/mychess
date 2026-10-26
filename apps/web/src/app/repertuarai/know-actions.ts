@@ -3,17 +3,19 @@
 // "I know this" (R-58) and "Learn again" (R-147) on a move, a line or a
 // chapter of a repertoire the player trains, from its owner page or its
 // assigned page. The player is always the session account, never an id from
-// the form; the db functions resolve the scope against the repertoire as the
-// player trains it now (their own, or live by assignment and not paused),
-// and anything else, a malformed form included, reads as one refusal.
-import { knowCounts, learnAgain, markKnown, type KnowScope } from '@mychess/db';
+// the form. The domain parses the scope and decides whether the player may
+// mark it, against the repertoire as they train it now (their own, or live
+// by assignment and not paused); the db functions load and save. Anything
+// else, a malformed form included, reads as one refusal.
+import { knowCounts, learnAgain, markKnown } from '@mychess/db';
 import {
+  knowScopeSchema,
   TRAINING_REFUSALS,
+  type KnowScope,
   type Result,
   type TrainingRefusal,
 } from '@mychess/domain';
 import { refresh } from 'next/cache';
-import { z } from 'zod';
 import { getDb } from '../../server/db';
 import { requireOnboarded } from '../../server/session';
 
@@ -44,34 +46,12 @@ const refused = (result: { readonly refusal: TrainingRefusal }): Refused => ({
   refusal: result.refusal.reason,
 });
 
-const repertoireId = z.uuid();
-const chapterId = z.string().min(1).max(20);
-
-const scopeSchema = z.discriminatedUnion('kind', [
-  z.object({
-    kind: z.literal('move'),
-    repertoireId,
-    moveKey: z.string().min(3).max(200),
-  }),
-  z.object({
-    kind: z.literal('line'),
-    repertoireId,
-    chapterId,
-    // A whole number in decimal digits: '' or '1.5' is not a line.
-    lineIndex: z
-      .string()
-      .regex(/^\d{1,6}$/)
-      .transform(Number),
-  }),
-  z.object({ kind: z.literal('chapter'), repertoireId, chapterId }),
-]);
-
 /** The session player and the scope `form` names, or undefined. */
 async function request(
   form: FormData,
 ): Promise<{ playerId: string; scope: KnowScope } | undefined> {
   const player = await requireOnboarded();
-  const scope = scopeSchema.safeParse(Object.fromEntries(form));
+  const scope = knowScopeSchema.safeParse(Object.fromEntries(form));
   return scope.success ? { playerId: player.id, scope: scope.data } : undefined;
 }
 

@@ -173,12 +173,7 @@ export {
   type TrainingRepertoireEntry,
 } from './training/entries';
 export { type TrainingExport } from './training/export';
-export {
-  knowCounts,
-  learnAgain,
-  markKnown,
-  type KnowScope,
-} from './training/know';
+export { knowCounts, learnAgain, markKnown } from './training/know';
 export {
   learnedBetween,
   learnedKeys,

@@ -1,25 +1,25 @@
 /**
  * "I know this" (R-58) and "Learn again" (R-147) on a move, a line or a
- * chapter of one repertoire the player trains. Chess decides which moves
- * each changes (knowThis, learnAgainKeys); this module resolves the scope
- * against the repertoire as the player has it (their own, or live by
- * assignment and not paused), holds the player's Reviews of it FOR UPDATE
- * and writes. Every statement filters by the session player.
+ * chapter of one repertoire the player trains. The domain decides whether
+ * the player may mark the scope known (canMarkKnown) and chess which moves
+ * each action changes (knowThis, learnAgainKeys); this module loads the
+ * repertoires the player trains, holds their Reviews of the scope's
+ * repertoire FOR UPDATE and writes. Every statement filters by the session
+ * player.
  */
 import {
-  chapterOf,
   knowThis,
   learnAgainKeys,
-  lines,
   ok,
-  playerKeys,
-  refuse,
-  type RepertoireGraph,
   type Result,
   type ReviewState,
   type Scope,
 } from '@mychess/chess';
-import { TRAINING_REFUSALS, type TrainingRefusal } from '@mychess/domain';
+import {
+  canMarkKnown,
+  type KnowScope,
+  type TrainingRefusal,
+} from '@mychess/domain';
 import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Executor } from '../client';
@@ -32,74 +32,6 @@ import {
   type StoredReview,
 } from './reviews';
 import { serialiseTraining } from './serialise';
-
-/** What the player marks: one move, one line of a chapter, or a chapter. */
-export type KnowScope =
-  | {
-      readonly kind: 'move';
-      readonly repertoireId: string;
-      readonly moveKey: string;
-    }
-  | {
-      readonly kind: 'line';
-      readonly repertoireId: string;
-      readonly chapterId: string;
-      readonly lineIndex: number;
-    }
-  | {
-      readonly kind: 'chapter';
-      readonly repertoireId: string;
-      readonly chapterId: string;
-    };
-
-/** A scope resolved: chess's Scope and every player move of its repertoire. */
-interface Resolved {
-  readonly scope: Scope;
-  readonly keys: readonly string[];
-}
-
-/** The chess Scope of `scope` in `graph`, or undefined when the graph lacks it. */
-function chessScope(
-  graph: RepertoireGraph,
-  scope: KnowScope,
-): Scope | undefined {
-  switch (scope.kind) {
-    case 'move':
-      return playerKeys(graph).includes(scope.moveKey)
-        ? { kind: 'moves', keys: [scope.moveKey] }
-        : undefined;
-    case 'line': {
-      const line = lines(graph, scope.chapterId)[scope.lineIndex];
-      return line === undefined ? undefined : { kind: 'line', graph, line };
-    }
-    case 'chapter':
-      return chapterOf(graph, scope.chapterId) === undefined
-        ? undefined
-        : { kind: 'chapter', graph, chapterId: scope.chapterId };
-  }
-}
-
-/** A scope the player does not train now. */
-const NOT_TRAINED = refuse(TRAINING_REFUSALS.notTrained);
-
-/**
- * `scope` in the repertoire the player trains; refused when they do not
- * train it, it is paused (R-46), or it has no such move, line or chapter.
- */
-async function resolve(
-  tx: Executor,
-  playerId: string,
-  scope: KnowScope,
-): Promise<Result<Resolved, TrainingRefusal>> {
-  const trained = (await trainingRepertoires(tx, playerId)).find(
-    (repertoire) => repertoire.id === scope.repertoireId,
-  );
-  if (!trained?.active) return NOT_TRAINED;
-  const resolved = chessScope(trained.graph, scope);
-  return resolved === undefined
-    ? NOT_TRAINED
-    : ok({ scope: resolved, keys: playerKeys(trained.graph) });
-}
 
 /** The keys "Learn again" removes: skipped and never drilled (R-147). */
 function againKeys(
@@ -141,7 +73,10 @@ export function knowCounts(
 ): Promise<Result<KnowCounts, TrainingRefusal>> {
   return db.transaction(
     async (tx) => {
-      const resolved = await resolve(tx, playerId, scope);
+      const resolved = canMarkKnown(
+        await trainingRepertoires(tx, playerId),
+        scope,
+      );
       if (!resolved.ok) return resolved;
       const stored = await reviewsOf(tx, playerId);
       return ok({
@@ -169,7 +104,10 @@ export function markKnown(
 ): Promise<Result<number, TrainingRefusal>> {
   return db.transaction(async (tx) => {
     await serialiseTraining(tx, playerId);
-    const resolved = await resolve(tx, playerId, scope);
+    const resolved = canMarkKnown(
+      await trainingRepertoires(tx, playerId),
+      scope,
+    );
     if (!resolved.ok) return resolved;
     const locked = await lockReviews(tx, playerId, resolved.value.keys);
     const added = knowThis(resolved.value.scope, locked, now);
@@ -205,7 +143,10 @@ export function learnAgain(
 ): Promise<Result<number, TrainingRefusal>> {
   return db.transaction(async (tx) => {
     await serialiseTraining(tx, playerId);
-    const resolved = await resolve(tx, playerId, scope);
+    const resolved = canMarkKnown(
+      await trainingRepertoires(tx, playerId),
+      scope,
+    );
     if (!resolved.ok) return resolved;
     await lockReviews(tx, playerId, resolved.value.keys);
     const keys = againKeys(resolved.value.scope, await reviewsOf(tx, playerId));
