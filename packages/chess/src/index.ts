@@ -120,7 +120,7 @@ export {
   nextReview,
   playLearn,
   QUEUE_LIMITS,
-  heldKeys,
+  repertoireKeys,
   reconcile,
   reviewStateSchema,
   reviewCounts,

@@ -5,7 +5,7 @@
  * the learn plan from it with chess's pure functions.
  */
 import {
-  heldKeys,
+  repertoireKeys,
   type RepertoireGraph,
   type ReviewState,
   type Side,
@@ -111,7 +111,7 @@ export async function trainingSnapshot(
     if (entries === undefined) return undefined;
     const reviews = heldReviews(
       await reviewsOf(tx, playerId),
-      heldKeys(all.map((e) => e.repertoire)),
+      repertoireKeys(all.map((e) => e.repertoire)),
     );
     return {
       entries,

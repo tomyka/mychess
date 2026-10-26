@@ -5,7 +5,7 @@
 import { playerKeys, type RepertoireGraph } from '../repertoire/graph';
 import { DAY_MS, retrievability, type ReviewState } from './schedule';
 import {
-  heldKeys,
+  repertoireKeys,
   scopeKeys,
   type Scope,
   type TrainingRepertoire,
@@ -58,7 +58,7 @@ export function weakSpots(
   now: Date,
   repertoires?: readonly TrainingRepertoire[],
 ): WeakSpot[] {
-  const currentKeys = repertoires && heldKeys(repertoires);
+  const currentKeys = repertoires && repertoireKeys(repertoires);
   const since = now.getTime() - WEAK_WINDOW_DAYS * DAY_MS;
   return [...reviews.values()]
     .filter((review) => currentKeys?.has(review.key) ?? true)
@@ -103,7 +103,7 @@ export function reconcile(
   repertoires: readonly TrainingRepertoire[],
   reviews: ReadonlyMap<string, unknown>,
 ): Reconciliation {
-  const currentKeys = heldKeys(repertoires);
+  const currentKeys = repertoireKeys(repertoires);
   const current = [...currentKeys].sort();
   return {
     kept: current.filter((k) => reviews.has(k)),

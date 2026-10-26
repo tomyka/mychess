@@ -33,9 +33,9 @@
  * into the next Due move of the same repertoire (R-143, R-54) and emits one
  * outcome per move (R-59, R-61). The training day (`training-day.ts`) reads a
  * player's snapshot: the allowance, what is due, when the next Review is,
- * the progress and the screen training starts on. `twoAnswers` names the other answers
- * the player's repertoires give (R-54); `learnAgainKeys` the skipped moves
- * "Learn again" returns (R-147).
+ * the progress and the screen training starts on. `twoAnswers` names the
+ * other answers the player's repertoires give (R-54); `learnAgainKeys` the
+ * skipped moves "Learn again" returns (R-147).
  *
  * The ts-fsrs scheduler stays behind this interface (`schedule.ts`).
  */
@@ -53,7 +53,7 @@ export type {
 } from './queue';
 export { grade, startReview } from './schedule';
 export type { Outcome, ReviewState } from './schedule';
-export { heldKeys } from './scope';
+export { repertoireKeys } from './scope';
 export type { Scope, TrainingRepertoire } from './scope';
 export { reviewStateSchema, unreviewed } from './stored-review';
 export { lineTo } from './line-to';

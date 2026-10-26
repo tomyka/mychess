@@ -13,7 +13,7 @@ import { addMove, removeMove } from '../repertoire/edit';
 import type { Chapter, RepertoireGraph, Side } from '../repertoire/graph';
 import { chapterWalks } from '../repertoire/walk';
 import { reconcile } from './progress';
-import { heldKeys, scopeKeys, type TrainingRepertoire } from './scope';
+import { repertoireKeys, scopeKeys, type TrainingRepertoire } from './scope';
 
 function graphOf(pgn: string, side: Side): RepertoireGraph {
   const r = importPgn(pgn, side);
@@ -111,7 +111,9 @@ const versions = (base: RepertoireGraph, steps: readonly Step[]) =>
   );
 
 const heldBy = (graph: RepertoireGraph): ReadonlySet<string> =>
-  heldKeys([{ id: 'r', graph, active: true } satisfies TrainingRepertoire]);
+  repertoireKeys([
+    { id: 'r', graph, active: true } satisfies TrainingRepertoire,
+  ]);
 
 const minus = (a: ReadonlySet<string>, b: ReadonlySet<string>): string[] =>
   [...a].filter((k) => !b.has(k)).sort();

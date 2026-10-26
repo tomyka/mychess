@@ -70,8 +70,13 @@ export function scopeKeys(scope: Scope): string[] {
   }
 }
 
-/** The review keys the repertoires hold, paused ones included. */
-export function heldKeys(
+/**
+ * Every own move of the repertoires, paused ones included: any move of a
+ * graph, so its Review stays out of dormancy (R-44, R-46). Not what training
+ * offers: `heldMoves` (queue.ts) is the own moves a chapter walk of the
+ * active repertoires reaches.
+ */
+export function repertoireKeys(
   repertoires: readonly TrainingRepertoire[],
 ): ReadonlySet<string> {
   return new Set(repertoires.flatMap((r) => playerKeys(r.graph)));
