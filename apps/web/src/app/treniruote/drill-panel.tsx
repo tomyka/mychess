@@ -4,7 +4,7 @@
 // side to move, the move field or the promotion choice, and the line so far.
 import { sideToMove, type RepertoireMove } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
-import type { JSX } from 'react';
+import { useLayoutEffect, useRef, type JSX } from 'react';
 import { MoveInput } from '../board/move-input';
 import { PromotionPicker } from '../board/promotion-picker';
 import { moveNumber } from '../repertoire-view';
@@ -63,7 +63,12 @@ function lineText(moves: readonly RepertoireMove[], rootKey: string): string {
     .join(' ');
 }
 
-/** The moves so far on the line from `rootKey`, newest last. */
+/**
+ * The moves so far on the line from `rootKey`, newest last, as one row that
+ * scrolls sideways. Whenever the line changes the row jumps to its end (no
+ * smooth scroll, so reduced motion holds), keeping the newest move in view;
+ * the text stays whole for screen readers.
+ */
 export function LineSoFar({
   moves,
   rootKey,
@@ -72,12 +77,24 @@ export function LineSoFar({
   readonly rootKey: string | undefined;
 }): JSX.Element {
   const t = useTranslations('training.drill');
+  const text =
+    rootKey === undefined || moves.length === 0
+      ? null
+      : lineText(moves, rootKey);
+  const row = useRef<HTMLParagraphElement>(null);
+  useLayoutEffect(() => {
+    const element = row.current;
+    if (element !== null) element.scrollLeft = element.scrollWidth;
+  }, [text]);
   return (
     <div>
       <h2 className="sr-only">{t('line')}</h2>
-      {rootKey === undefined || moves.length === 0 ? null : (
-        <p className="overflow-x-auto text-sm whitespace-nowrap text-fg-muted tabular-nums">
-          {lineText(moves, rootKey)}
+      {text === null ? null : (
+        <p
+          ref={row}
+          className="overflow-x-auto text-sm whitespace-nowrap text-fg-muted tabular-nums"
+        >
+          {text}
         </p>
       )}
     </div>

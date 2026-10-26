@@ -4,13 +4,19 @@
 // play the move the repertoire holds there (or a wrong one), until done.
 import { readFileSync } from 'node:fs';
 import { expect, type Locator, type Page } from '@playwright/test';
-import type { RepertoireGraph, RepertoireMove, Side } from '@mychess/chess';
+import {
+  importPgn,
+  isPlayerMove,
+  legalMoves,
+  moveKey,
+  playerKeys,
+  START_KEY,
+  type RepertoireGraph,
+  type RepertoireMove,
+  type Side,
+} from '@mychess/chess';
 import { playOnBoard } from './board';
 import type { Messages } from './journey';
-import { chess } from './packages';
-
-const { importPgn, isPlayerMove, legalMoves, moveKey, playerKeys, START_KEY } =
-  chess;
 
 /** A repertoire a journey trains: its name in the app and its graph. */
 interface Book {

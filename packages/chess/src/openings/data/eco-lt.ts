@@ -7,7 +7,7 @@
 // their wording verbatim, including the move disambiguation many of them
 // carry ("Benoni gynyba, 6.e4", "be 9.O-O") in Lithuanian piece notation
 // (v1 #158); only the safe tidy of ruling R-77 (`eco-lt-tidy.ts`) is applied.
-import data from './eco-lt.json';
+import data from './eco-lt.json' with { type: 'json' };
 
 /** ECO code -> Lithuanian name. */
 export const ECO_LT: Readonly<Record<string, string>> = data;

@@ -3,9 +3,8 @@
 // no clock moved, and the reads that check what the server recorded. Only
 // the test's own fresh @mychess.test accounts are touched; every statement
 // finds the account by that email.
-import type { DbHandle } from '@mychess/db';
+import { createDb, type DbHandle } from '@mychess/db';
 import { z } from 'zod';
-import { db } from './packages';
 
 /** The database the app under test uses (playwright.config.ts, same default). */
 const DATABASE_URL =
@@ -20,7 +19,7 @@ const accountOf = (email: string): string =>
   `(select id from accounts where email = ${literal(email)})`;
 
 async function withDb<T>(use: (handle: DbHandle) => Promise<T>): Promise<T> {
-  const handle = db.createDb(DATABASE_URL);
+  const handle = createDb(DATABASE_URL);
   try {
     return await use(handle);
   } finally {

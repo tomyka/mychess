@@ -4,7 +4,7 @@
 // The data is `eco.json`, written by `scripts/generate-eco.mjs`; do not edit
 // it by hand. It is JSON rather than a TypeScript literal because a 500-entry
 // literal is far past the lint `max-lines` budget for a source file.
-import data from './eco.json';
+import data from './eco.json' with { type: 'json' };
 
 export interface EcoEntry {
   /** ECO code, `A00` to `E99`. */
