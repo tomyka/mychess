@@ -142,7 +142,7 @@ _Avoid_: Practice, lesson, teach mode
 
 **Review**:
 The spaced-repetition schedule for one own-side Move a Player has learned, one per (Player, Repertoire Move). Also the session in which due Reviews are drilled.
-_Avoid_: Card (implementation word), practice pool, drill (fine as a verb)
+_Avoid_: Card (implementation word), practice pool, drill (fine as a verb; in code, "drill" also names the training screen's interactive session, ReviewDrill and LearnDrill, R-149)
 
 **Due**:
 A Review whose scheduled time has arrived, so it belongs in the next review session.
