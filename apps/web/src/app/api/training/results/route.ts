@@ -27,7 +27,7 @@ function respond(outcome: BatchOutcome): Response {
  * each result's fate by its id. Recorded for the session account only: a
  * player id in the body is stripped by the schema. The request is counted
  * as a batch before its body is read, so a flood of bad bodies is limited
- * too; a body not declared JSON (415) or declared over 256 KB (413) is
+ * too; a body the domain's unreadRefusal rejects (not JSON, too large) is
  * refused unread. A parsed batch is counted again by its results, so
  * large batches carry no more results a minute than small ones could.
  */

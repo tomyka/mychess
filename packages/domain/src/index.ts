@@ -262,8 +262,6 @@ export {
   type TrainingSettings,
 } from './training';
 export {
-  MAX_BATCH_BODY_BYTES,
-  MAX_RESULT_BATCH,
   batchResponse,
   isLogged,
   resultAnswer,
@@ -271,14 +269,9 @@ export {
   settleFlush,
   trainingResultSchema,
   unreadRefusal,
-  type BatchBody,
-  type BatchHeaders,
   type BatchOutcome,
-  type BatchReply,
-  type FlushVerdict,
   type ResultAnswer,
   type ResultStatus,
   type TrainingResult,
-  type UnreadRefusal,
 } from './training-results';
 export type { Side } from '@mychess/chess';

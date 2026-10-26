@@ -10,6 +10,7 @@ import {
   TRAINING_REFUSALS,
   type TrainingRefusal,
 } from './training';
+import { TRAINING_RATE_LIMIT, TRAINING_RESULTS_RATE_LIMIT } from './rate-limit';
 
 /** Every issue of a batch: the batch can never be recorded as sent. */
 const error = TRAINING_REFUSALS.badBatch;
@@ -63,7 +64,7 @@ export const resultAnswer = (
     : { resultId, status: 'refused', reason: status.reason };
 
 /** A request refused from its headers, before its body is read. */
-export interface UnreadRefusal {
+interface UnreadRefusal {
   readonly kind: 'tooLarge' | 'notJson';
 }
 
@@ -78,24 +79,55 @@ export const isLogged = (status: ResultStatus): boolean =>
     ? status !== 'duplicate'
     : status.reason !== TRAINING_REFUSALS.notHeld;
 
+/** Why the endpoint's rate limits refuse a request. */
+type RateLimitReason = (
+  typeof TRAINING_RATE_LIMIT | typeof TRAINING_RESULTS_RATE_LIMIT
+)['reason'];
+
 /** How the endpoint ended a request. */
 export type BatchOutcome =
   | { readonly kind: 'recorded'; readonly answers: readonly ResultAnswer[] }
-  | { readonly kind: 'rateLimited'; readonly reason: string }
+  | { readonly kind: 'rateLimited'; readonly reason: RateLimitReason }
   | { readonly kind: 'unauthenticated' | 'notOnboarded' | 'malformed' }
   | UnreadRefusal;
 
-type OutcomeKind = BatchOutcome['kind'];
+/** The answers, a refusal's reason, or nothing. */
+type BatchBody =
+  | { readonly answers: readonly ResultAnswer[] }
+  | {
+      readonly reason: RateLimitReason | (typeof TRAINING_REFUSALS)['badBatch'];
+    }
+  | null;
 
-const STATUS = {
-  recorded: 200,
-  malformed: 400,
-  unauthenticated: 401,
-  notOnboarded: 403,
-  tooLarge: 413,
-  notJson: 415,
-  rateLimited: 429,
-} as const satisfies Record<OutcomeKind, number>;
+interface BatchResponse {
+  readonly status: number;
+  readonly body: BatchBody;
+}
+
+const badBatch = (status: number): BatchResponse => ({
+  status,
+  body: { reason: TRAINING_REFUSALS.badBatch },
+});
+
+/** The HTTP status and JSON body the endpoint answers `outcome` with. */
+export function batchResponse(outcome: BatchOutcome): BatchResponse {
+  switch (outcome.kind) {
+    case 'recorded':
+      return { status: 200, body: { answers: outcome.answers } };
+    case 'rateLimited':
+      return { status: 429, body: { reason: outcome.reason } };
+    case 'unauthenticated':
+      return { status: 401, body: null };
+    case 'notOnboarded':
+      return { status: 403, body: null };
+    case 'malformed':
+      return badBatch(400);
+    case 'tooLarge':
+      return badBatch(413);
+    case 'notJson':
+      return badBatch(415);
+  }
+}
 
 /**
  * Refusals that say the batch can never be recorded as sent: malformed,
@@ -108,44 +140,14 @@ const NEVER_RECORDABLE = [
   'notOnboarded',
   'tooLarge',
   'notJson',
-] as const satisfies readonly OutcomeKind[];
+] as const satisfies readonly BatchOutcome['kind'][];
 
 const DROPPED_STATUSES: ReadonlySet<number> = new Set(
-  NEVER_RECORDABLE.map((kind) => STATUS[kind]),
+  NEVER_RECORDABLE.map((kind) => batchResponse({ kind }).status),
 );
 
-/** The answers, a refusal's reason, or nothing. */
-export type BatchBody =
-  | { readonly answers: readonly ResultAnswer[] }
-  | { readonly reason: string }
-  | null;
-
-const bodyOf = (outcome: BatchOutcome): BatchBody => {
-  switch (outcome.kind) {
-    case 'recorded':
-      return { answers: outcome.answers };
-    case 'rateLimited':
-      return { reason: outcome.reason };
-    case 'unauthenticated':
-    case 'notOnboarded':
-      return null;
-    case 'malformed':
-    case 'tooLarge':
-    case 'notJson':
-      return { reason: TRAINING_REFUSALS.badBatch };
-  }
-};
-
-/** The HTTP status and JSON body the endpoint answers `outcome` with. */
-export const batchResponse = (
-  outcome: BatchOutcome,
-): { readonly status: number; readonly body: BatchBody } => ({
-  status: STATUS[outcome.kind],
-  body: bodyOf(outcome),
-});
-
 /** The request headers a batch is refused by before its body is read. */
-export interface BatchHeaders {
+interface BatchHeaders {
   readonly contentType: string | null;
   readonly contentLength: string | null;
 }
@@ -193,7 +195,7 @@ const answerSchema = z.discriminatedUnion('status', [
 const answersBodySchema = z.object({ answers: z.array(answerSchema) });
 
 /** The server's reply to a posted batch: its status and JSON body. */
-export interface BatchReply {
+interface BatchReply {
   readonly status: number;
   readonly body: unknown;
 }
@@ -202,7 +204,7 @@ export interface BatchReply {
  * What the browser does with a posted batch: keep it all for the next
  * flush, drop it all as never recordable, or drop the results answered.
  */
-export type FlushVerdict =
+type FlushVerdict =
   | { readonly kind: 'kept'; readonly drop: ReadonlySet<string> }
   | {
       readonly kind: 'batchRefused';
