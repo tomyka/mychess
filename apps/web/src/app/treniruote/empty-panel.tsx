@@ -18,6 +18,10 @@ export interface ScopedRepertoire {
 /** A start state with nothing to drill. */
 type EmptyState = Exclude<StartState, { readonly kind: 'drill' }>;
 
+/**
+ * An empty state's section. On a desktop its heading sits in the side card
+ * under the text-xl title, so it steps down to text-lg below a divider.
+ */
 function Empty({
   title,
   children,
@@ -26,8 +30,11 @@ function Empty({
   readonly children: ReactNode;
 }): JSX.Element {
   return (
-    <section aria-labelledby="training-empty" className="flex flex-col gap-3">
-      <h2 id="training-empty" className="text-xl font-semibold">
+    <section
+      aria-labelledby="training-empty"
+      className="flex flex-col gap-3 lg:border-t lg:border-border lg:pt-4"
+    >
+      <h2 id="training-empty" className="text-xl font-semibold lg:text-lg">
         {title}
       </h2>
       {children}

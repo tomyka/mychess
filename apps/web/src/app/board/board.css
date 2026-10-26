@@ -109,8 +109,20 @@
   background-color: var(--color-board-wrong);
 }
 
+/* The hint is a ring, so it does not read as a selection or a correct
+   move's flash; with the cursor on the same square the ring sits inside the
+   cursor's outline. */
 .cg-wrap cg-board square.hint {
-  background-color: var(--color-board-selected);
+  box-shadow:
+    inset 0 0 0 4px var(--color-board-hint),
+    inset 0 0 0 6px var(--color-board-hint-edge);
+}
+
+.cg-wrap cg-board square.hint.cursor {
+  box-shadow:
+    inset 0 0 0 3px var(--color-board-focus),
+    inset 0 0 0 7px var(--color-board-hint),
+    inset 0 0 0 9px var(--color-board-hint-edge);
 }
 
 .cg-wrap cg-board square.correct::after,

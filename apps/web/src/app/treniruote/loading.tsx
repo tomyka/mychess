@@ -4,9 +4,10 @@ import { EMPTY_BOARD, SKELETON_LINE } from '../repertoire-view';
 import { SlowStatus } from '../slow-status';
 import {
   FRAME_BOARD,
+  FRAME_CARD,
+  FRAME_HEAD,
   FRAME_MAIN,
   FRAME_PANEL,
-  FRAME_SIDE,
   FRAME_TOP,
 } from './frame-classes';
 
@@ -18,12 +19,8 @@ export default function TrainingLoading(): JSX.Element {
   const t = useTranslations('training');
   return (
     <main aria-busy="true" className={FRAME_MAIN}>
-      <div
-        aria-hidden="true"
-        style={EMPTY_BOARD}
-        className={`${FRAME_BOARD} aspect-square w-full lg:rounded-board`}
-      />
-      <div className={FRAME_SIDE}>
+      <div aria-hidden="true" className={FRAME_CARD} />
+      <div className={FRAME_HEAD}>
         <div className={FRAME_TOP}>
           <div className="flex min-h-touch min-w-touch items-center">
             <div className={`${SKELETON_LINE} w-5`} />
@@ -31,11 +28,16 @@ export default function TrainingLoading(): JSX.Element {
           <div className={`${SKELETON_LINE} w-40 flex-1 lg:flex-none`} />
           <div className={`${SKELETON_LINE} w-12`} />
         </div>
-        <div className={FRAME_PANEL}>
-          <SlowStatus text={t('loading')} />
-          <div className={`${SKELETON_LINE} w-48`} />
-          <div className={`${SKELETON_LINE} w-32`} />
-        </div>
+      </div>
+      <div
+        aria-hidden="true"
+        style={EMPTY_BOARD}
+        className={`${FRAME_BOARD} aspect-square w-full lg:rounded-board`}
+      />
+      <div className={FRAME_PANEL}>
+        <SlowStatus text={t('loading')} />
+        <div className={`${SKELETON_LINE} w-48`} />
+        <div className={`${SKELETON_LINE} w-32`} />
       </div>
     </main>
   );

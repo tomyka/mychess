@@ -9,10 +9,12 @@ import type { BoardView } from '../board/board-config';
 import { BackLink } from '../repertoire-view';
 import type { FrameParts } from './drill';
 import {
+  FRAME_ACTIONS,
   FRAME_BOARD,
+  FRAME_CARD,
+  FRAME_HEAD,
   FRAME_MAIN,
   FRAME_PANEL,
-  FRAME_SIDE,
   FRAME_TOP,
 } from './frame-classes';
 
@@ -57,7 +59,7 @@ function ProgressBar({
 }): JSX.Element {
   const share = total === 0 ? 0 : Math.min(1, done / total);
   return (
-    <div aria-hidden="true" className="order-1 h-1 bg-sunken lg:rounded-pill">
+    <div aria-hidden="true" className="h-1 bg-sunken lg:rounded-pill">
       <div
         className="h-full bg-accent lg:rounded-pill"
         style={{ width: `${String(share * 100)}%` }}
@@ -76,7 +78,7 @@ interface TopBarProps {
 function TopBar({ mode, backHref, title, progress }: TopBarProps): JSX.Element {
   const t = useTranslations('training');
   return (
-    <>
+    <div className={FRAME_HEAD}>
       <header className={FRAME_TOP}>
         <BackLink href={backHref} label={t('back')} />
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold lg:w-full lg:flex-none lg:text-xl">
@@ -90,7 +92,7 @@ function TopBar({ mode, backHref, title, progress }: TopBarProps): JSX.Element {
         )}
       </header>
       {progress === undefined ? null : <ProgressBar {...progress} />}
-    </>
+    </div>
   );
 }
 
@@ -111,32 +113,34 @@ const boardClass = (live: boolean, finished: boolean): string => {
   return `${FRAME_BOARD} opacity-60 ${finished ? 'max-lg:hidden' : ''}`;
 };
 
-/** The training screen's frame; nothing in it overlays the board. */
+/**
+ * The training screen's frame; nothing in it overlays the board. Its parts
+ * come in the order they show, so Tab goes back link, board, panel, bottom
+ * bar at every width; the board keeps its place in the tree, so focus stays
+ * on it after a move.
+ */
 export function TrainingFrame(props: TrainingFrameProps): JSX.Element {
   const { board, finished = false } = props;
   const live = board !== undefined && !finished;
   return (
     <main className={FRAME_MAIN}>
+      <div aria-hidden="true" className={FRAME_CARD} />
+      <TopBar
+        mode={props.mode}
+        backHref={props.backHref}
+        title={props.title ?? props.defaultTitle}
+        progress={props.progress}
+      />
       <div className={boardClass(live, finished)} inert={!live}>
         {board ?? <StillBoard side={props.side} />}
       </div>
-      <div className={FRAME_SIDE}>
-        <TopBar
-          mode={props.mode}
-          backHref={props.backHref}
-          title={props.title ?? props.defaultTitle}
-          progress={props.progress}
-        />
-        <div className={FRAME_PANEL}>
-          {props.banner}
-          {props.panel}
-        </div>
-        {props.actions === undefined ? null : (
-          <div className="order-4 flex flex-wrap gap-3 border-t border-border px-gutter pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:border-0 lg:px-0 lg:pb-0">
-            {props.actions}
-          </div>
-        )}
+      <div className={FRAME_PANEL}>
+        {props.banner}
+        {props.panel}
       </div>
+      {props.actions === undefined ? null : (
+        <div className={FRAME_ACTIONS}>{props.actions}</div>
+      )}
     </main>
   );
 }

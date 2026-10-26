@@ -670,6 +670,11 @@
       "nothingDue": "Nothing due now.",
       "next": "Next review: {when}"
     },
+    "when": {
+      "minutes": "in {count} min",
+      "hours": "in {count} h",
+      "tomorrow": "tomorrow at {time}"
+    },
     "repertoire": {
       "review": "Review ({count})",
       "learn": "Learn ({count})"

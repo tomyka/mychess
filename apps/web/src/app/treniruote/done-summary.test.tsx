@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../i18n/locales';
 import { DoneSummary } from './done-summary';
 
@@ -29,6 +29,10 @@ const PROGRESS = { learned: 142, due: 6, toLearn: 18, nextReview: NEXT };
 const stat = (label: string): string | null =>
   screen.getByText(label).parentElement?.querySelector('dd')?.textContent ??
   null;
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('the done summary', () => {
   it('shows the review counts and takes focus on its heading', () => {
@@ -99,10 +103,12 @@ describe('the done summary', () => {
   });
 
   it('says when the next review is, in Vilnius time, and where the repertoire stands', () => {
+    vi.useFakeTimers({
+      now: new Date('2026-10-25T07:00:00Z'),
+      toFake: ['Date'],
+    });
     renderLt(<DoneSummary progress={PROGRESS} counts={REVIEW} doneHref="/" />);
-    expect(screen.getByText(/^Kitas kartojimas:/).textContent).toContain(
-      '10:00',
-    );
+    expect(screen.getByText('Kitas kartojimas: rytoj 10:00')).toBeDefined();
     expect(
       screen.getByText('142 išmokta · 6 kartotini · 18 liko išmokti'),
     ).toBeDefined();

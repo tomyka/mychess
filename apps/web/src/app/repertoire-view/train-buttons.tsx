@@ -17,9 +17,14 @@ export interface PanelTraining {
   readonly counts: TrainingCounts;
 }
 
+/** The button weight of an action: the main one, or any other. */
+const weight = (main: boolean): string =>
+  main ? PRIMARY_BUTTON : SECONDARY_BUTTON;
+
 /**
  * Review and learn this repertoire only (R-142), each with its count, at
- * the top of the panel.
+ * the top of the panel. The main action is Review while moves are due,
+ * else Learn while there are new moves, else neither.
  */
 export function TrainButtons({
   training,
@@ -32,13 +37,13 @@ export function TrainButtons({
     <div className="flex flex-wrap gap-3">
       <Link
         href={trainingPath('review', repertoireId)}
-        className={PRIMARY_BUTTON}
+        className={weight(counts.due > 0)}
       >
         {t('review', { count: counts.due })}
       </Link>
       <Link
         href={trainingPath('learn', repertoireId)}
-        className={SECONDARY_BUTTON}
+        className={weight(counts.due === 0 && counts.toLearn > 0)}
       >
         {t('learn', { count: counts.toLearn })}
       </Link>

@@ -150,6 +150,11 @@
   --color-board-badge-wrong: #b3261e;
   --color-board-badge-glyph: #ffffff; /* the badge's glyph and ring */
   --color-board-focus: #0f2e7a; /* keyboard cursor, >= 3:1 on both squares */
+  /* A review hint's piece (R-61): an amber ring, apart from the green of a
+     selection or a correct move and the navy cursor, with a dark edge inside
+     it that reaches 3:1 on both squares (the amber alone does not). */
+  --color-board-hint: #ffb300;
+  --color-board-hint-edge: #3d2200;
 
   /* Arrows and circles drawn on a move ([%cal] / [%csl], builder draw mode).
    * The board reads these from script into chessground's brushes g, r, y, b,

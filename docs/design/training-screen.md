@@ -95,6 +95,7 @@ own note when it is built. Vocabulary is from `docs/CONTEXT.md`; tokens from
 | Correct | piece lands, `board-correct` flash on the target square for `duration-feedback`, check icon in the square corner | prompt changes to "correct" in `success` for the same time |
 | Opponent replies | reply slides in (`duration-move`); input locked meanwhile | move appended to the line |
 | Lapse (wrong move) | wrong piece snaps back, `board-wrong` flash, cross icon; then the expected move shown with a `board-arrow` | "not this move" in `error` with an icon; the player then replays the expected move (R-59) |
+| Hint (review, R-61) | `board-hint` amber ring with a `board-hint-edge` inner edge on the piece to move | "move the highlighted piece" |
 | Learn pass, shown | expected move as a `board-arrow` | "play the arrow move" |
 | Learn pass, blind retest | no arrow | "now without the arrow" |
 
@@ -148,7 +149,9 @@ Desktop: the same, board left, skeleton panel right.
 
 A Repertoire with no own-side Moves at all is a different empty state: the
 panel says so and offers the builder or PGN import instead (wording from
-i18n-content). Desktop: the same content in the side panel.
+i18n-content). Desktop: the same content in the side panel, where the
+heading steps down to text-lg under a divider (`border`) so it does not
+compete with the text-xl title above it.
 
 ### Error
 
@@ -206,8 +209,8 @@ the panel.
   region.
 - Focus never jumps after a move: it stays on the board. It moves only for
   the Error and Done states, to their heading.
-- "End session" and every panel button are reachable with Tab after the
-  board, in visual order.
+- Tab follows the screen at both widths: the back link, the board, then
+  every panel button and "End session", in visual order.
 
 ## Behaviour decided by the owner (#233)
 

@@ -670,6 +670,11 @@
       "nothingDue": "Šiuo metu kartoti nieko nereikia.",
       "next": "Kitas kartojimas: {when}"
     },
+    "when": {
+      "minutes": "po {count} min.",
+      "hours": "po {count} val.",
+      "tomorrow": "rytoj {time}"
+    },
     "repertoire": {
       "review": "Kartoti ({count})",
       "learn": "Mokytis ({count})"

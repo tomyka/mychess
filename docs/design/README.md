@@ -72,7 +72,7 @@ inside Tailwind 4's `@theme`, so each one is also a utility class.
 | Text | `fg`, `fg-muted` (`text-fg-muted`) | body, secondary |
 | Interactive | `accent`, `accent-fg`, `focus` | primary buttons, links, focus ring |
 | States | `success`, `error`, `due`, `learned`, each with `-subtle`, plus `on-state` | see below |
-| Board | `board-light`, `board-dark`, `board-last-move`, `board-selected`, `board-target`, `board-check`, `board-arrow`, `board-correct`, `board-wrong`, `board-badge-{correct,wrong,glyph}`, `board-focus`, `board-mark-{green,red,yellow,blue}` | the board only; a separate `@theme static` block |
+| Board | `board-light`, `board-dark`, `board-last-move`, `board-selected`, `board-target`, `board-check`, `board-arrow`, `board-correct`, `board-wrong`, `board-badge-{correct,wrong,glyph}`, `board-focus`, `board-hint`, `board-hint-edge`, `board-mark-{green,red,yellow,blue}` | the board only; a separate `@theme static` block |
 | Piece glyphs | `piece-white`, `piece-black`, `piece-outline` (`fill-piece-white`, `stroke-piece-outline`) | a side's king off the board (Mano repertuarai headings): the fill is the side's colour in both themes, the outline follows the theme |
 | Type | `font-sans`, `font-mono`, `text-xs` ... `text-4xl` | system UI stack, 12-36px |
 | Spacing | 4px scale, plus `touch` (44px), `gutter` (16px), `gutter-wide` (32px), `panel` (360px) | `min-h-touch`, `px-gutter`, `w-panel` |
@@ -116,6 +116,8 @@ same rule, but prefer tokens: a component should need no `dark:` class.
 | `board-mark-yellow` on light square | 1.8 | 1.5 |
 | `piece-outline` on `bg` (king glyph, 2026-10-18) | 19.0 | 15.5 |
 | `board-badge-glyph` on `board-badge-correct` / `-wrong` (2026-10-26; static, both themes) | 6.1 / 6.5 | 6.1 / 6.5 |
+| `board-hint-edge` on light / dark square (2026-10-26; static, both themes; the amber `board-hint` ring alone is 1.0 - 2.2, a hue cue only) | 10.7 / 4.7 | 8.6 / 3.8 |
+| `board-hint` on `board-hint-edge` | 8.2 | 8.2 |
 
 Board coordinates (opposite square colour on a square, about 2.3:1), the
 mark colours on dark squares (1.2 - 3.8) and yellow marks are supplementary,

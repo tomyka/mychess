@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { moveKey, START_KEY, startReview } from '@mychess/chess';
 import { NextIntlClientProvider } from 'next-intl';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/locales';
 import type { TrainingData } from '../../lib/training-data';
@@ -92,6 +92,10 @@ const heading = (name: string) =>
 const href = (name: string) =>
   screen.getByRole('link', { name }).getAttribute('href');
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 beforeEach(() => {
   sync.unsynced = 0;
   sync.retry.mockReset();
@@ -101,6 +105,7 @@ beforeEach(() => {
 describe('the training screen with nothing due', () => {
   it('says so, when the next review is in Vilnius time, and offers new moves', () => {
     const due = startReview(D4, NOW);
+    vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
     renderScreen(
       data({
         reviews: [{ ...due, fsrs: { ...due.fsrs, due: NEXT } }],
@@ -110,9 +115,7 @@ describe('the training screen with nothing due', () => {
       }),
     );
     expect(heading(T.empty.nothingDue.title)).toBeDefined();
-    expect(screen.getByText(/^Kitas kartojimas:/).textContent).toContain(
-      '10:00',
-    );
+    expect(screen.getByText('Kitas kartojimas: rytoj 10:00')).toBeDefined();
     expect(href('Mokytis 3 naujų ėjimų')).toBe(
       `/treniruote?mode=learn&r=${ID}`,
     );
