@@ -10,6 +10,7 @@ import {
   canChangeAssignment,
   canFork,
   canUseAssignment,
+  coachAssignmentBadges,
   deadlineSchema,
   deadlineSources,
   effectiveDeadline,
@@ -23,6 +24,7 @@ import {
   type ChangeStamp,
   type SeenFacts,
   type AssignmentTarget,
+  type BadgeSet,
 } from './assignment';
 import { vilniusDay } from './calendar';
 
@@ -829,5 +831,75 @@ describe('assignmentBadges (R-46, R-51, R-128, R-133)', () => {
       forked: true,
       updated: false,
     });
+  });
+});
+
+describe('coachAssignmentBadges (R-46, R-128, R-129, R-132)', () => {
+  const now = new Date('2026-11-02T10:00:00Z'); // 2 Nov in Vilnius
+  const record = (over: Partial<AssignmentFacts> = {}): AssignmentFacts => ({
+    playerId: 'p',
+    repertoireId: 'r',
+    coachId: 'c',
+    reaches: [
+      {
+        assignmentId: 'a-1',
+        deadline: '2026-11-01',
+        assignedVersion: 1,
+        joinedAt: null,
+      },
+    ],
+    pausedAt: null,
+    seenVersion: null,
+    forkedAt: null,
+    ...over,
+  });
+  const badges = (over: Partial<BadgeSet>): BadgeSet => ({
+    overdue: false,
+    paused: false,
+    forked: false,
+    updated: false,
+    ...over,
+  });
+  const PAST = new Date('2026-10-20T10:00:00Z');
+
+  it.each([
+    [
+      'past its deadline and not done: overdue',
+      record(),
+      false,
+      badges({ overdue: true }),
+    ],
+    ['done: never overdue', record(), true, badges({})],
+    [
+      'paused past its deadline: paused and still overdue',
+      record({ pausedAt: PAST }),
+      false,
+      badges({ paused: true, overdue: true }),
+    ],
+    [
+      'paused and done: paused alone',
+      record({ pausedAt: PAST }),
+      true,
+      badges({ paused: true }),
+    ],
+    [
+      'forked: forked alone',
+      record({ forkedAt: PAST, pausedAt: PAST }),
+      false,
+      badges({ forked: true }),
+    ],
+  ] as const)('%s', (_name, facts, done, expected) => {
+    expect(coachAssignmentBadges(facts, { done, now })).toStrictEqual(expected);
+  });
+
+  it('is assignmentStatusOf then assignmentBadges for the coach', () => {
+    const facts = record({ pausedAt: PAST });
+    const { overdue, paused, forked } = assignmentStatusOf(facts, {
+      done: false,
+      now,
+    });
+    expect(coachAssignmentBadges(facts, { done: false, now })).toStrictEqual(
+      assignmentBadges({ audience: 'coach', overdue, paused, forked }),
+    );
   });
 });

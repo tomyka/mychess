@@ -44,6 +44,7 @@ export {
   ASSIGNMENT_REFUSALS,
   assignableTargets,
   assignmentBadges,
+  coachAssignmentBadges,
   assignmentStatus,
   assignmentStatusOf,
   canAssign,

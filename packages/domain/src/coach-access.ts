@@ -4,7 +4,7 @@ import { ok, refuse, type Result } from '@mychess/chess';
 export const ACCESS_REFUSALS = {
   notLinked: 'access.notLinked',
   notShared: 'access.notShared',
-  /** The player forked the assignment: it is their own now (R-154). */
+  /** The player forked the assignment: it is their own now (R-155). */
   forked: 'access.forked',
 } as const;
 

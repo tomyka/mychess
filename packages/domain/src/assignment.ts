@@ -409,3 +409,16 @@ export function assignmentStatusOf(
     ),
   };
 }
+
+/**
+ * The badges the coach sees on one player's assignment (R-46, R-128,
+ * R-132): its status (assignmentStatusOf) as assignmentBadges shows it to
+ * the coach. `done` is the caller's (every player move learned).
+ */
+export function coachAssignmentBadges(
+  facts: AssignmentFacts,
+  progress: { readonly done: boolean; readonly now: Date },
+): BadgeSet {
+  const { overdue, paused, forked } = assignmentStatusOf(facts, progress);
+  return assignmentBadges({ audience: 'coach', overdue, paused, forked });
+}
