@@ -1,0 +1,438 @@
+import { playerKeys, startReview } from '@mychess/chess';
+import { beforeEach, describe, expect, it } from 'vitest';
+import {
+  coachGroupProgress,
+  coachLastTrained,
+  coachPlayerProgress,
+  coachRepertoireProgress,
+  forkAssignment,
+  pauseAssignment,
+  shareRepertoire,
+  removeMember,
+  unlink,
+  unshareRepertoire,
+} from '../src';
+import { graphRows } from '../src/repertoires/repository';
+import { reviewResults } from '../src/training-schema';
+import { useTestDatabase } from '../src/testing';
+import { seedAssignment, seedRepertoire } from './support/assignments';
+import {
+  seedCoach,
+  seedGroup,
+  seedLink,
+  seedMember,
+  seedPlayer,
+} from './support/coaching';
+import { countStatements } from './support/statements';
+import { writeReview } from './support/training';
+
+const { db } = useTestDatabase();
+const NOW = new Date('2026-10-26T09:00:00Z');
+const DAY_MS = 86_400_000;
+const HOUR_MS = 3_600_000;
+const WEEK_AGO = new Date(NOW.getTime() - 7 * DAY_MS);
+
+let karoKan = ''; // the coach's, assigned to p individually
+let group = '';
+let groupRep = ''; // the coach's, assigned to the group
+let shared = ''; // p's own, shared with c
+let privateRep = ''; // p's own, not shared
+
+/** A read the test expects to find something. */
+function present<T>(value: T | undefined): T {
+  if (value === undefined) throw new Error('expected a value');
+  return value;
+}
+
+/** A setup step that must not be refused. */
+function succeeded(
+  done: { ok: true } | { ok: false; refusal: { reason: string } },
+): void {
+  if (!done.ok) throw new Error(done.refusal.reason);
+}
+
+beforeEach(async () => {
+  await seedCoach(db, 'c', 'c@example.lt');
+  await seedCoach(db, 'other', 'other@example.lt');
+  await seedPlayer(db, 'p', 'p@example.lt');
+  await seedPlayer(db, 'q', 'q@example.lt');
+  await seedPlayer(db, 'stranger', 's@example.lt');
+  await seedLink(db, 'c', 'p');
+  await seedLink(db, 'c', 'q');
+  karoKan = await seedRepertoire(db, 'c', NOW);
+  groupRep = await seedRepertoire(db, 'c', NOW);
+  shared = await seedRepertoire(db, 'p', NOW);
+  privateRep = await seedRepertoire(db, 'p', NOW);
+  group = await seedGroup(db, 'c', 'Šeštadienio grupė');
+  await seedMember(db, 'c', group, 'p');
+  await seedMember(db, 'c', group, 'q');
+  await seedAssignment(db, {
+    coachId: 'c',
+    repertoireId: karoKan,
+    target: { playerId: 'p' },
+    now: NOW,
+  });
+  await seedAssignment(db, {
+    coachId: 'c',
+    repertoireId: groupRep,
+    target: { groupId: group },
+    now: NOW,
+  });
+  succeeded(
+    await shareRepertoire(db, {
+      ownerId: 'p',
+      repertoireId: shared,
+      coachId: 'c',
+      now: NOW,
+    }),
+  );
+});
+
+/** `playerId` learned every own move of `repertoireId` a week ago; all due now. */
+async function learnAll(
+  playerId: string,
+  repertoireId: string,
+): Promise<number> {
+  const keys = playerKeys(await graphRows(db, repertoireId, 'white'));
+  for (const key of keys)
+    await writeReview(db, playerId, startReview(key, WEEK_AGO), {
+      learnedAt: WEEK_AGO,
+    });
+  return keys.length;
+}
+
+/** A training result of `playerId` on `repertoireId`, answered at `answeredAt`. */
+async function result(
+  playerId: string,
+  repertoireId: string,
+  answeredAt: Date,
+): Promise<void> {
+  await db.insert(reviewResults).values({
+    resultId: crypto.randomUUID(),
+    playerId,
+    moveKey: 'k',
+    repertoireId,
+    kind: 'pass',
+    answeredAt,
+    applied: true,
+    receivedAt: answeredAt,
+  });
+}
+
+describe('coachPlayerProgress', () => {
+  it('lists assigned then shared repertoires with their standings, never private ones', async () => {
+    const own = await learnAll('p', karoKan);
+    const rows = present(await coachPlayerProgress(db, 'c', 'p', NOW)).rows;
+    const ids = rows.map((row) => row.repertoire.id);
+    expect(ids).toHaveLength(3);
+    expect(ids.slice(0, 2).sort()).toEqual([karoKan, groupRep].sort());
+    expect(ids.at(-1)).toBe(shared);
+    expect(ids).not.toContain(privateRep);
+    expect(rows.find((r) => r.repertoire.id === karoKan)).toMatchObject({
+      repertoire: { id: karoKan, name: 'Londono sistema', side: 'white' },
+      source: 'assigned',
+      badges: { overdue: false, paused: false, forked: false, updated: false },
+      standing: { counts: { due: own } },
+    });
+    // The same moves, trained through karoKan, count here too (R-156).
+    expect(rows.at(-1)).toMatchObject({
+      source: 'shared',
+      badges: null,
+      standing: { counts: { notStarted: 0, due: own } },
+    });
+  });
+
+  it('says when the player last trained on a visible repertoire', async () => {
+    await result('p', karoKan, new Date(NOW.getTime() - 2 * HOUR_MS));
+    await result('p', privateRep, new Date(NOW.getTime() - HOUR_MS));
+    expect((await coachPlayerProgress(db, 'c', 'p', NOW))?.lastTrained).toEqual(
+      new Date(NOW.getTime() - 2 * HOUR_MS),
+    );
+    expect((await coachPlayerProgress(db, 'c', 'q', NOW))?.lastTrained).toBe(
+      null,
+    );
+  });
+
+  it('shows a paused assignment with its badge and its states', async () => {
+    succeeded(
+      await pauseAssignment(
+        db,
+        { playerId: 'p', repertoireId: karoKan, paused: true },
+        NOW,
+      ),
+    );
+    const row = (await coachPlayerProgress(db, 'c', 'p', NOW))?.rows.find(
+      (r) => r.repertoire.id === karoKan,
+    );
+    expect(row?.badges?.paused).toBe(true);
+    expect(row?.standing).not.toBeNull();
+  });
+
+  it('shows a forked assignment with its badge only (R-155)', async () => {
+    succeeded(
+      await forkAssignment(db, { playerId: 'p', repertoireId: karoKan }, NOW),
+    );
+    const row = (await coachPlayerProgress(db, 'c', 'p', NOW))?.rows.find(
+      (r) => r.repertoire.id === karoKan,
+    );
+    expect(row?.badges?.forked).toBe(true);
+    expect(row?.standing).toBeNull();
+  });
+
+  it('is undefined for a player not linked to the coach', async () => {
+    expect(await coachPlayerProgress(db, 'c', 'stranger', NOW)).toBeUndefined();
+    expect(await coachPlayerProgress(db, 'other', 'p', NOW)).toBeUndefined();
+  });
+});
+
+describe('coachRepertoireProgress', () => {
+  it('drills an assignment down to chapters and lines', async () => {
+    const own = await learnAll('p', karoKan);
+    const view = await coachRepertoireProgress(
+      db,
+      { coachId: 'c', playerId: 'p', repertoireId: karoKan },
+      NOW,
+    );
+    expect(view?.player).toEqual({ id: 'p', displayName: 'Name p' });
+    expect(view?.repertoire.id).toBe(karoKan);
+    expect(view?.badges?.forked).toBe(false);
+    expect(view?.progress.counts.due).toBe(own);
+    expect(view?.progress.chapters.length).toBeGreaterThan(0);
+    expect(view?.progress.chapters[0]?.lines.length).toBeGreaterThan(0);
+  });
+
+  it('shows a shared repertoire without badges', async () => {
+    const view = await coachRepertoireProgress(
+      db,
+      { coachId: 'c', playerId: 'p', repertoireId: shared },
+      NOW,
+    );
+    expect(view?.repertoire.id).toBe(shared);
+    expect(view?.badges).toBeNull();
+  });
+
+  it('is undefined for a private, forked, another coach’s or malformed one', async () => {
+    expect(
+      await coachRepertoireProgress(
+        db,
+        { coachId: 'c', playerId: 'p', repertoireId: privateRep },
+        NOW,
+      ),
+    ).toBeUndefined();
+    expect(
+      await coachRepertoireProgress(
+        db,
+        { coachId: 'other', playerId: 'p', repertoireId: karoKan },
+        NOW,
+      ),
+    ).toBeUndefined();
+    expect(
+      await coachRepertoireProgress(
+        db,
+        { coachId: 'c', playerId: 'p', repertoireId: 'nope' },
+        NOW,
+      ),
+    ).toBeUndefined();
+    succeeded(
+      await forkAssignment(db, { playerId: 'p', repertoireId: karoKan }, NOW),
+    );
+    expect(
+      await coachRepertoireProgress(
+        db,
+        { coachId: 'c', playerId: 'p', repertoireId: karoKan },
+        NOW,
+      ),
+    ).toBeUndefined();
+  });
+
+  it('is undefined once the player unshares it', async () => {
+    // unshareRepertoire returns nothing; the share is gone once it resolves.
+    await unshareRepertoire(db, {
+      ownerId: 'p',
+      repertoireId: shared,
+      coachId: 'c',
+    });
+    expect(
+      await coachRepertoireProgress(
+        db,
+        { coachId: 'c', playerId: 'p', repertoireId: shared },
+        NOW,
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe('coachGroupProgress (R-153)', () => {
+  it('has one column per group repertoire and one row per member', async () => {
+    const own = await learnAll('q', groupRep);
+    await result('q', groupRep, WEEK_AGO);
+    const grid = present(await coachGroupProgress(db, 'c', group, NOW));
+    expect(grid.columns).toEqual([
+      { id: groupRep, name: 'Londono sistema', side: 'white' },
+    ]);
+    expect(grid.rows).toMatchObject([
+      {
+        player: { id: 'p', displayName: 'Name p' },
+        lastTrained: null,
+        cells: [{ standing: { counts: { notStarted: own } } }],
+      },
+      {
+        player: { id: 'q', displayName: 'Name q' },
+        lastTrained: WEEK_AGO,
+        cells: [{ standing: { counts: { notStarted: 0, due: own } } }],
+      },
+    ]);
+  });
+
+  it('shows a member’s forked cell with its badge only, Reviews or not (R-155)', async () => {
+    const own = await learnAll('q', groupRep);
+    succeeded(
+      await forkAssignment(db, { playerId: 'q', repertoireId: groupRep }, NOW),
+    );
+    const grid = present(await coachGroupProgress(db, 'c', group, NOW));
+    expect(grid.rows).toMatchObject([
+      {
+        player: { id: 'p' },
+        cells: [
+          {
+            badges: { forked: false },
+            standing: { counts: { notStarted: own } },
+          },
+        ],
+      },
+      {
+        player: { id: 'q' },
+        cells: [{ badges: { forked: true }, standing: null }],
+      },
+    ]);
+  });
+
+  it('has an empty cell where a member has no assignment of the column', async () => {
+    await seedAssignment(db, {
+      coachId: 'c',
+      repertoireId: karoKan,
+      target: { groupId: group },
+      now: NOW,
+    });
+    await seedPlayer(db, 'r', 'r@example.lt');
+    await seedLink(db, 'c', 'r');
+    await seedMember(db, 'c', group, 'r');
+    const grid = await coachGroupProgress(db, 'c', group, NOW);
+    expect(grid?.columns.map((c) => c.id).sort()).toEqual(
+      [groupRep, karoKan].sort(),
+    );
+    expect(grid?.rows.map((r) => r.cells.length)).toEqual([2, 2, 2]);
+  });
+
+  it('has no row for a player once unlinked', async () => {
+    succeeded(await unlink(db, 'c', 'p', NOW));
+    const grid = await coachGroupProgress(db, 'c', group, NOW);
+    expect(grid?.rows.map((r) => r.player.id)).toEqual(['q']);
+  });
+
+  it('is undefined for another coach’s group', async () => {
+    expect(await coachGroupProgress(db, 'other', group, NOW)).toBeUndefined();
+  });
+
+  it('reads in a number of statements that does not grow with members', async () => {
+    const two = await countStatements(() =>
+      coachGroupProgress(db, 'c', group, NOW),
+    );
+    await seedPlayer(db, 'r', 'r@example.lt');
+    await seedLink(db, 'c', 'r');
+    await seedMember(db, 'c', group, 'r');
+    const three = await countStatements(() =>
+      coachGroupProgress(db, 'c', group, NOW),
+    );
+    expect(three).toBe(two);
+  });
+
+  it('reads each column with one repertoire load: its row and 3 graph statements', async () => {
+    const one = await countStatements(() =>
+      coachGroupProgress(db, 'c', group, NOW),
+    );
+    await seedAssignment(db, {
+      coachId: 'c',
+      repertoireId: karoKan,
+      target: { groupId: group },
+      now: NOW,
+    });
+    const two = await countStatements(() =>
+      coachGroupProgress(db, 'c', group, NOW),
+    );
+    expect(two - one).toBe(4);
+  });
+});
+
+describe('access ends with the membership or the link', () => {
+  it('drops the group repertoire of a member removed from the group, still linked', async () => {
+    succeeded(
+      await removeMember(
+        db,
+        { coachId: 'c', groupId: group, playerId: 'p' },
+        NOW,
+      ),
+    );
+    const grid = present(await coachGroupProgress(db, 'c', group, NOW));
+    expect(grid.rows.map((r) => r.player.id)).toEqual(['q']);
+    const rows = present(await coachPlayerProgress(db, 'c', 'p', NOW)).rows;
+    expect(rows.map((r) => r.repertoire.id)).toEqual([karoKan, shared]);
+    expect(
+      await coachRepertoireProgress(
+        db,
+        { coachId: 'c', playerId: 'p', repertoireId: groupRep },
+        NOW,
+      ),
+    ).toBeUndefined();
+  });
+
+  it('shows nothing of a player unlinked after visible training', async () => {
+    await result('p', karoKan, new Date(NOW.getTime() - HOUR_MS));
+    expect((await coachLastTrained(db, 'c', ['p'])).size).toBe(1);
+    succeeded(await unlink(db, 'c', 'p', NOW));
+    expect((await coachLastTrained(db, 'c', ['p'])).size).toBe(0);
+    expect(await coachPlayerProgress(db, 'c', 'p', NOW)).toBeUndefined();
+    expect(
+      await coachRepertoireProgress(
+        db,
+        { coachId: 'c', playerId: 'p', repertoireId: karoKan },
+        NOW,
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe('coachLastTrained', () => {
+  it('is keyed by player, from visible results only (R-154)', async () => {
+    expect((await coachLastTrained(db, 'c', ['p', 'q'])).size).toBe(0);
+    await result('p', shared, new Date(NOW.getTime() - HOUR_MS));
+    await result('q', privateRep, NOW);
+    const last = await coachLastTrained(db, 'c', ['p', 'q']);
+    expect([...last]).toEqual([['p', new Date(NOW.getTime() - HOUR_MS)]]);
+  });
+
+  it('is empty for a player not linked to the coach', async () => {
+    await seedLink(db, 'other', 'stranger');
+    const theirs = await seedRepertoire(db, 'stranger', NOW);
+    succeeded(
+      await shareRepertoire(db, {
+        ownerId: 'stranger',
+        repertoireId: theirs,
+        coachId: 'other',
+        now: NOW,
+      }),
+    );
+    await result('stranger', theirs, NOW);
+    expect((await coachLastTrained(db, 'c', ['stranger'])).size).toBe(0);
+    expect((await coachLastTrained(db, 'other', ['stranger'])).size).toBe(1);
+  });
+
+  it('reads in a number of statements that does not grow with players', async () => {
+    await result('p', shared, NOW);
+    const one = await countStatements(() => coachLastTrained(db, 'c', ['p']));
+    const two = await countStatements(() =>
+      coachLastTrained(db, 'c', ['p', 'q']),
+    );
+    expect(two).toBe(one);
+  });
+});

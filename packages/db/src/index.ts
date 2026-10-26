@@ -133,6 +133,20 @@ export {
   type PersonalNoteInput,
 } from './personal-notes';
 export {
+  coachGroupProgress,
+  coachLastTrained,
+  coachPlayerProgress,
+  coachRepertoireProgress,
+  type GroupProgress,
+  type GroupProgressCell,
+  type GroupProgressRow,
+  type PlayerProgress,
+  type ProgressRow,
+  type RepertoireProgressRequest,
+  type RepertoireProgressView,
+} from './progress/coach-progress';
+export type { RepertoireRef } from './progress/view';
+export {
   countRateLimited,
   countWeighted,
   pruneRateLimits,

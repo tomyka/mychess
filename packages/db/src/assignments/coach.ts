@@ -1,8 +1,8 @@
 /**
  * What a coach reads of their own assignments of one repertoire (R-46,
  * R-51, R-128, R-131). The domain decides access (canViewRepertoire: the
- * coach's own repertoire), the badges (assignmentStatusOf, then
- * assignmentBadges) and who has it live (canUseAssignment); every
+ * coach's own repertoire), the deadline (assignmentStatusOf), the badges
+ * (coachAssignmentBadges) and who has it live (canUseAssignment); every
  * statement filters again on
  * `assignments.coach_id`, and the rows on the repertoire's owner, which
  * assignments_repertoire_fk already guarantees is the coach. A player
@@ -12,9 +12,9 @@
 import { allLearned, playerKeys, type RepertoireGraph } from '@mychess/chess';
 import {
   ownScope,
-  assignmentBadges,
   assignmentStatusOf,
   canUseAssignment,
+  coachAssignmentBadges,
   canViewRepertoire,
   type AssignmentFacts,
   type BadgeSet,
@@ -130,22 +130,13 @@ async function listedOf(
     if (displayName === undefined)
       throw new Error('coachAssignments: the player is gone');
     const done = allLearned(graph, learned.get(one.playerId) ?? new Set());
-    const { deadline, overdue, paused, forked } = assignmentStatusOf(one, {
-      done,
-      now,
-    });
     return {
       facts: one,
       player: {
         playerId: one.playerId,
         displayName,
-        deadline,
-        badges: assignmentBadges({
-          audience: 'coach',
-          overdue,
-          paused,
-          forked,
-        }),
+        deadline: assignmentStatusOf(one, { done, now }).deadline,
+        badges: coachAssignmentBadges(one, { done, now }),
       },
     };
   });

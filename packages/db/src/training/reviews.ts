@@ -3,7 +3,11 @@
  * (R-129). Every statement filters by the given player ids; rows are parsed
  * with zod and turned into chess's ReviewState through reviewStateSchema.
  */
-import { reviewStateSchema, type ReviewState } from '@mychess/chess';
+import {
+  reviewStateSchema,
+  type ReviewState,
+  type TrackedReview,
+} from '@mychess/chess';
 import { and, count, eq, gte, inArray, lt } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Executor } from '../client';
@@ -196,6 +200,45 @@ export async function learnedKeys(
   );
   for (const { playerId, moveKey } of rows) sets.get(playerId)?.add(moveKey);
   return sets;
+}
+
+const trackedRowsSchema = z.array(
+  reviewRowSchema.extend({ playerId: z.string().min(1) }),
+);
+
+/**
+ * The Reviews of `keys` for each of `playerIds`, by player then key, each
+ * with whether it entered by "I know this" (R-151). One statement whatever
+ * the number of players; none for no players or no keys. A player with no
+ * such Review has an empty map. Ungated: the caller decides who may read
+ * whose Reviews and passes only those player ids.
+ */
+export async function trackedReviews(
+  db: Executor,
+  playerIds: readonly string[],
+  keys: readonly string[],
+): Promise<Map<string, Map<string, TrackedReview>>> {
+  const out = new Map(
+    playerIds.map((id) => [id, new Map<string, TrackedReview>()]),
+  );
+  if (playerIds.length === 0 || keys.length === 0) return out;
+  const rows = trackedRowsSchema.parse(
+    await db
+      .select({ playerId: reviews.playerId, ...reviewColumns })
+      .from(reviews)
+      .where(
+        and(
+          inArray(reviews.playerId, [...playerIds]),
+          inArray(reviews.moveKey, [...keys]),
+        ),
+      ),
+  );
+  for (const row of rows)
+    out.get(row.playerId)?.set(row.moveKey, {
+      review: toReviewState(row),
+      skipped: row.skippedAt !== null,
+    });
+  return out;
 }
 
 const countRowsSchema = z.array(z.object({ n: z.number().int() })).length(1);
