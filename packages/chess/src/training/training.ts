@@ -43,6 +43,21 @@ export { knowThis, learnStep, startLearn } from './learn';
 export type { LearnEvent, LearnState } from './learn';
 export { allLearned, mastered, reconcile, weakSpots } from './progress';
 export type { Reconciliation, WeakSpot } from './progress';
+export {
+  moveState,
+  percentLearned,
+  progressOf,
+  repertoireStanding,
+} from './coach-progress';
+export type {
+  ChapterProgress,
+  LineProgress,
+  MoveState,
+  ProgressCounts,
+  RepertoireProgress,
+  Standing,
+  TrackedReview,
+} from './coach-progress';
 export { buildQueue, QUEUE_LIMITS } from './queue';
 export type {
   Queue,
