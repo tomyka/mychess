@@ -22,19 +22,19 @@ assignment rows with overdue, paused, forked and done exist since S5
 
 ## New rulings (owner, 2026-10-26)
 
-- **R-150** The coach sees each own-side Move of a Repertoire in exactly one
+- **R-151** The coach sees each own-side Move of a Repertoire in exactly one
   state: not started (no Review), skipped ("I know this", never graded),
   due (Review due now), learned (scheduled, not due). Mastered is a badge on
   a line, chapter or Repertoire, not a state.
-- **R-151** Progress drills down from the Repertoire to its chapters, and
+- **R-152** Progress drills down from the Repertoire to its chapters, and
   from a chapter to its lines.
-- **R-152** The Group page shows a grid: one row per Group Player, one column
+- **R-153** The Group page shows a grid: one row per Group Player, one column
   per Repertoire assigned to the Group; each cell holds % learned, the due
   count and the badges, and opens that Player's progress on it.
-- **R-153** The coach sees when a Player last trained ("last trained today /
+- **R-154** The coach sees when a Player last trained ("last trained today /
   4 days ago"), counted only from results on Repertoires the coach may see
   progress on. Streaks wait for M2.
-- **R-154** A forked Assignment shows only its "Asmeninė kopija" badge, no
+- **R-155** A forked Assignment shows only its "Asmeninė kopija" badge, no
   progress: the fork is the Player's own Repertoire (R-39). Sharing the fork
   (R-42) shows its progress like any shared Repertoire.
 
@@ -47,7 +47,9 @@ assignment rows with overdue, paused, forked and done exist since S5
    it has a Review. A Repertoire without own Moves shows no percentage.
 3. **Moves are counted per Repertoire**: a Move held by two Repertoires counts
    in each. Dormant Reviews (Moves no longer in the graph) never count, by
-   construction.
+   construction. A Review is one per Player and Move (R-53), so training on
+   a private Repertoire or a fork counts on an overlapping visible Move;
+   the owner accepted this (R-156, security review).
 4. **A paused Assignment still shows its states** (due included) with the
    "Pristabdyta" badge; the coach sees where the Player stopped.
 5. **Lines are rendered in one pass, server side**: every chapter's lines
@@ -55,7 +57,7 @@ assignment rows with overdue, paused, forked and done exist since S5
    computation is pure and cheap; no lazy loading.
 6. **Last trained** uses `review_results.answered_at` (when the Player
    trained, not when the batch arrived), filtered to the Repertoires of
-   R-153.
+   R-154.
 7. **One progress page per Player + Repertoire** serves both an Assignment
    and a shared Repertoire; the shared Repertoire's existing page links to it.
 
@@ -85,7 +87,7 @@ assignment rows with overdue, paused, forked and done exist since S5
 - **`CoachProgressFacts`** = `CoachAccessFacts` plus this coach's
   `assignments` reaching the Player (`assignmentFacts`, forked or not).
 - **`progressRepertoireIds`**: the shared and live assigned Repertoires,
-  whose results count for last trained (R-153).
+  whose results count for last trained (R-154).
 
 ### Database (`packages/db`)
 
@@ -96,10 +98,10 @@ assignment rows with overdue, paused, forked and done exist since S5
 - **`coachRepertoireProgress(db, coachId, playerId, repertoireId, now)`**:
   for the progress page, the full `progressOf` with chapters and lines;
   `undefined` when `canCoachSeeProgress` refuses.
-- **`coachGroupProgress(db, coachId, groupId, now)`**: the R-152 grid: the
+- **`coachGroupProgress(db, coachId, groupId, now)`**: the R-153 grid: the
   Group's Players, the Group's Repertoires, one cell each, and each Player's
   last trained.
-- **`lastTrained(db, coachId, playerIds)`**: R-153, one statement.
+- **`lastTrained(db, coachId, playerIds)`**: R-154, one statement.
 - Each repository decides access through the domain and filters again in
   SQL on the link, `assignments.coach_id` or the share row (Q26). Reviews
   are read once per call for all Players, restricted to the Repertoires'
@@ -120,7 +122,7 @@ assignment rows with overdue, paused, forked and done exist since S5
   slug from i18n-content): the Repertoire bar with the four counts, then one
   disclosure per chapter (bar, Mastered badge) holding its lines (label,
   bar, Mastered). 404 when the coach may not see it.
-- **Group page** (`/treneris/grupes/[groupId]`): the R-152 grid above the
+- **Group page** (`/treneris/grupes/[groupId]`): the R-153 grid above the
   members; on a phone the grid scrolls sideways with the name column fixed.
   Rows are the Group's current Players, so every cell has an Assignment
   (inherited on joining, Q31); a forked cell shows its badge only.
@@ -142,7 +144,8 @@ assignment rows with overdue, paused, forked and done exist since S5
 
 - Chess: unit and property tests for `moveState` and `progressOf` (counts sum
   to own Moves; mastered matches `mastered`; chapter counts sum to the
-  Repertoire's).
+  Repertoire's when no own Move is in two chapters; a Move shared by two
+  chapters counts in each chapter and once for the Repertoire).
 - Domain: `canCoachSeeProgress`: shared, assigned, forked, paused,
   unlinked, another coach's Assignment.
 - DB (Testcontainers): each repository against an unlinked coach, another

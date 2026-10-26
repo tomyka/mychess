@@ -16,8 +16,8 @@ chapters and lines. A group page shows a players x repertoires grid.
 - **Domain** (`packages/domain/src/coach-progress.ts`): the access rule
   `canCoachSeeProgress` is built on `canCoachSee`. It allows shared
   repertoires and live assignments from this coach, and refuses forked ones
-  (R-154). `progressRepertoireIds` gives the repertoires whose results count
-  for "last trained" (R-153).
+  (R-155). `progressRepertoireIds` gives the repertoires whose results count
+  for "last trained" (R-154).
 - **Database** (`packages/db/src/progress/`): four reads in repeatable-read
   transactions. They read facts, let the domain decide, then filter again in
   SQL through the existing scopes (`repertoireScope`, `sharedTo`,
@@ -34,7 +34,7 @@ fast-check, Playwright 1.64.
 
 **Spec:** `docs/superpowers/specs/2026-10-26-s7-coach-progress-design.md`.
 **Issue:** #257 (epic #250). **Rulings:** R-14, R-39, R-42, R-46, R-50,
-R-51, R-56, R-58, R-128, R-129, R-132, R-150 to R-154.
+R-51, R-56, R-58, R-128, R-129, R-132, R-151 to R-155.
 
 **Roles:** each task names its role. Tasks marked `- SECURITY` go through
 `security-reviewer`. Tasks marked `- UX` go through `ux-designer` and
@@ -227,7 +227,7 @@ const skippedNotDue = (key: string): TrackedReview => ({
   skipped: true,
 });
 
-describe('moveState (R-150)', () => {
+describe('moveState (R-151)', () => {
   it('is not started without a Review', () => {
     expect(moveState(undefined, NOW)).toBe('notStarted');
   });
@@ -281,7 +281,7 @@ describe('repertoireStanding', () => {
   });
 });
 
-describe('progressOf (R-151)', () => {
+describe('progressOf (R-152)', () => {
   it('drills down to each chapter and its lines with own moves', () => {
     const progress = progressOf(GRAPH, new Map(), NOW);
     expect(progress.chapters).toHaveLength(GRAPH.chapters.length);
@@ -335,8 +335,8 @@ Expected: FAIL, because `./coach-progress` cannot be resolved.
 // packages/chess/src/training/coach-progress.ts
 /**
  * Where a player stands on a repertoire, as their coach sees it: each own
- * move in exactly one state (R-150), counted for the repertoire, each
- * chapter and each of its lines (R-151), with Mastered (R-56) on each.
+ * move in exactly one state (R-151), counted for the repertoire, each
+ * chapter and each of its lines (R-152), with Mastered (R-56) on each.
  * Reviews of moves the graph does not hold (dormant) never count.
  */
 import { sideToMove } from '../position-key';
@@ -353,7 +353,7 @@ import { mastered } from './progress';
 import { isDue, type ReviewState } from './schedule';
 import { unreviewed } from './stored-review';
 
-/** R-150: the one state the coach sees a move in. */
+/** R-151: the one state the coach sees a move in. */
 export type MoveState = 'notStarted' | 'skipped' | 'due' | 'learned';
 
 /** A player's Review of a move, and whether it entered by "I know this". */
@@ -387,7 +387,7 @@ export interface RepertoireProgress extends Standing {
 }
 
 /**
- * R-150: due once the Review is due (a skipped move's first Review
+ * R-151: due once the Review is due (a skipped move's first Review
  * included); skipped while "I know this" was never graded since; else
  * learned.
  */
@@ -479,7 +479,7 @@ function chapterProgress(
 }
 
 /**
- * The drill-down of R-151: the repertoire, each chapter in order, and each
+ * The drill-down of R-152: the repertoire, each chapter in order, and each
  * line of the chapter's tree (`paths`, linear in the chapter's size) that
  * holds an own move.
  */
@@ -590,7 +590,7 @@ const facts = (extra: Partial<CoachProgressFacts> = {}): CoachProgressFacts => (
   ...extra,
 });
 
-describe('canCoachSeeProgress (R-39, R-42, R-154)', () => {
+describe('canCoachSeeProgress (R-39, R-42, R-155)', () => {
   it('allows a repertoire the player shares with the coach', () => {
     expect(canCoachSeeProgress('c', 'p', 'shared', facts()).ok).toBe(true);
   });
@@ -627,7 +627,7 @@ describe('canCoachSeeProgress (R-39, R-42, R-154)', () => {
   });
 });
 
-describe('progressRepertoireIds (R-153)', () => {
+describe('progressRepertoireIds (R-154)', () => {
   it('is the shared and live assigned repertoires, never a forked one', () => {
     expect([...progressRepertoireIds('c', 'p', facts())].sort()).toEqual([
       'live',
@@ -656,7 +656,7 @@ In `packages/domain/src/coach-access.ts`, extend the refusals:
 export const ACCESS_REFUSALS = {
   notLinked: 'access.notLinked',
   notShared: 'access.notShared',
-  /** The player forked the assignment: it is their own now (R-154). */
+  /** The player forked the assignment: it is their own now (R-155). */
   forked: 'access.forked',
 } as const;
 ```
@@ -668,7 +668,7 @@ If `coach-access.test.ts` pins `ACCESS_REFUSALS` with `toStrictEqual`, add
 // packages/domain/src/coach-progress.ts
 /**
  * Which of a player's repertoires their coach may see progress on (R-39,
- * R-42, R-154). Built on canCoachSee: nothing without an active link. A
+ * R-42, R-155). Built on canCoachSee: nothing without an active link. A
  * repertoire the player shares with the coach, or one this coach assigned
  * them that they have not forked. A forked one is the player's own now.
  */
@@ -717,7 +717,7 @@ export function canCoachSeeProgress(
 
 /**
  * The repertoires whose training results count for "last trained"
- * (R-153): those the coach may see progress on, so training on a private
+ * (R-154): those the coach may see progress on, so training on a private
  * repertoire never shows, not even as a time.
  */
 export function progressRepertoireIds(
@@ -888,7 +888,7 @@ describe('coachProgressFacts and lastTrained', () => {
     expect(await sharedPairs(db, 'c2', ['p'])).toEqual([]);
   });
 
-  it('counts only results on repertoires the coach may see (R-153)', async () => {
+  it('counts only results on repertoires the coach may see (R-154)', async () => {
     await result('p', assigned, new Date(NOW.getTime() - 3 * HOUR));
     await result('p', shared, new Date(NOW.getTime() - 2 * HOUR));
     await result('p', privateRep, new Date(NOW.getTime() - HOUR));
@@ -934,7 +934,7 @@ const trackedRowsSchema = z.array(
 
 /**
  * The Reviews of `keys` for each of `playerIds`, by player then key, each
- * with whether it entered by "I know this" (R-150). One statement whatever
+ * with whether it entered by "I know this" (R-151). One statement whatever
  * the number of players; none for no players or no keys. A player with no
  * such Review has an empty map.
  */
@@ -1019,7 +1019,7 @@ Keep `sharedTo`'s doc comment as it is.
 // packages/db/src/progress/facts.ts
 /**
  * The facts coach progress is decided on, for many players at once
- * (R-39, R-42, R-153): link, shares and this coach's assignments, in a
+ * (R-39, R-42, R-154): link, shares and this coach's assignments, in a
  * fixed number of statements. The domain decides (canCoachSeeProgress,
  * progressRepertoireIds); `lastTrained` filters on its answer. Internal to
  * the package.
@@ -1084,7 +1084,7 @@ const lastRowsSchema = z.array(
 
 /**
  * When each player last trained on a repertoire the coach may see
- * progress on (R-153): the latest `answered_at` (when they trained, not
+ * progress on (R-154): the latest `answered_at` (when they trained, not
  * when the batch arrived). One statement; no entry for a player without
  * such a result.
  */
@@ -1142,6 +1142,23 @@ git commit -m "feat(db): batch reads for coach progress: tracked reviews, shares
 - Create: `packages/db/src/progress/coach-progress.ts`
 - Create: `packages/db/test/coach-progress.test.ts`
 - Modify: `packages/db/src/index.ts` (exports)
+
+**Security review changes, which override the code below (B1 review, 2026-10-26):**
+- **F2, the domain decides every standing.** Remove `standingUnlessForked`.
+  - In `coachPlayerProgress` (both assigned and shared rows) and in the
+    grid's `cellOf`, compute the standing only when
+    `canCoachSeeProgress(coachId, playerId, repertoireId, facts).ok`.
+    Otherwise it is null, and the badges still show.
+  - `cellOf` takes the member's id and their `CoachProgressFacts`, so the
+    link check applies to it too.
+- **F3, tests to add:**
+  - `coachLastTrained(db, 'c', ['stranger'])` is empty, even after
+    `stranger` has a result on a repertoire shared with another coach.
+  - Once `p` is unlinked, `coachGroupProgress` no longer has a row for `p`.
+  - Once `p` unshares `shared`, `coachRepertoireProgress` on it returns
+    undefined.
+- **R-156:** progress counts a Review wherever it was trained. This is
+  accepted; no filtering by results is needed.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1233,7 +1250,7 @@ describe('coachPlayerProgress', () => {
     expect(row?.standing).not.toBeNull();
   });
 
-  it('shows a forked assignment with its badge only (R-154)', async () => {
+  it('shows a forked assignment with its badge only (R-155)', async () => {
     expect((await forkAssignment(db, { playerId: 'p', repertoireId: karoKan }, NOW)).ok).toBe(true);
     const row = (await coachPlayerProgress(db, 'c', 'p', NOW))?.rows.find(
       (r) => r.repertoire.id === karoKan,
@@ -1271,7 +1288,7 @@ describe('coachRepertoireProgress', () => {
   });
 });
 
-describe('coachGroupProgress (R-152)', () => {
+describe('coachGroupProgress (R-153)', () => {
   it('has one column per group repertoire and one row per member', async () => {
     await learnAll('q', groupRep);
     const grid = await coachGroupProgress(db, 'c', group, NOW);
@@ -1316,7 +1333,7 @@ Expected: FAIL, because `coachPlayerProgress` is not exported.
 /**
  * Loading the repertoires a coach may see progress on, and turning a
  * player's Reviews into what each row or cell shows: the S5 badges for an
- * assignment, the standing unless forked (R-154). Internal to the package.
+ * assignment, the standing unless forked (R-155). Internal to the package.
  */
 import {
   allLearned,
@@ -1381,7 +1398,7 @@ export function coachBadges(
   return assignmentBadges({ audience: 'coach', overdue, paused, forked });
 }
 
-/** The standing to show: none for a forked assignment (R-154). */
+/** The standing to show: none for a forked assignment (R-155). */
 export const standingUnlessForked = (
   facts: AssignmentFacts | undefined,
   graph: RepertoireGraph,
@@ -1403,7 +1420,7 @@ undefined facts and a null `forkedAt`. If the lint config bans `!=`, write
 ```ts
 // packages/db/src/progress/coach-progress.ts
 /**
- * What a coach reads of their players' progress (R-150 to R-154). Every
+ * What a coach reads of their players' progress (R-151 to R-155). Every
  * read is one repeatable-read snapshot. The facts are read first and the
  * domain decides (canCoachSee, canCoachSeeProgress). The repertoires are
  * then loaded through the same scopes again: the coach's own for an
@@ -1454,7 +1471,7 @@ export interface ProgressRow {
   readonly source: 'assigned' | 'shared';
   /** The S5 badges of an assignment; null for a shared repertoire. */
   readonly badges: BadgeSet | null;
-  /** Null for a forked assignment (R-154). */
+  /** Null for a forked assignment (R-155). */
   readonly standing: Standing | null;
 }
 
@@ -1555,7 +1572,7 @@ export interface RepertoireProgressView {
 }
 
 /**
- * The progress page (R-151): undefined unless canCoachSeeProgress allows
+ * The progress page (R-152): undefined unless canCoachSeeProgress allows
  * it. The repertoire then loads through the scope that allowed it.
  */
 export function coachRepertoireProgress(
@@ -1596,7 +1613,7 @@ export function coachRepertoireProgress(
 /** One cell of the group grid; null where the member has no assignment. */
 export interface GroupProgressCell {
   readonly badges: BadgeSet;
-  /** Null for a forked assignment (R-154). */
+  /** Null for a forked assignment (R-155). */
   readonly standing: Standing | null;
 }
 
@@ -1652,7 +1669,7 @@ function cellOf(
 }
 
 /**
- * The group grid (R-152): the coach's own group, one column per
+ * The group grid (R-153): the coach's own group, one column per
  * repertoire assigned to it (by name), one row per member (by name).
  * Undefined for any other group.
  */
@@ -1688,7 +1705,7 @@ export function coachGroupProgress(
   }, SNAPSHOT);
 }
 
-/** When each of `playerIds` last trained, as the coach may see it (R-153). */
+/** When each of `playerIds` last trained, as the coach may see it (R-154). */
 export function coachLastTrained(
   db: Executor,
   coachId: string,
@@ -1796,7 +1813,7 @@ function renderBar(counts: {
   return container;
 }
 
-describe('StateBar (R-150)', () => {
+describe('StateBar (R-151)', () => {
   it('gives each state a segment in proportion and the counts in words', () => {
     const container = renderBar({ notStarted: 2, skipped: 1, due: 1, learned: 4 });
     expect(container.querySelector('.bg-learned')?.getAttribute('style')).toContain('50%');
@@ -1827,7 +1844,7 @@ const show = (days: number | null): void => {
   );
 };
 
-describe('LastTrained (R-153)', () => {
+describe('LastTrained (R-154)', () => {
   it('says today, yesterday, and days ago', () => {
     show(0);
     expect(screen.getByText(/šiandien/)).toBeTruthy();
@@ -1869,7 +1886,7 @@ export function daysAgo(at: Date, now: Date): number {
 is the i18n-content proposal; i18n-content confirms it in review:
 
 ```ts
-/** A player's progress on one repertoire, in the coach dashboard (R-151). */
+/** A player's progress on one repertoire, in the coach dashboard (R-152). */
 export const coachProgressPath = (
   playerId: string,
   repertoireId: string,
@@ -1943,7 +1960,7 @@ const segment = (part: number, whole: number): string =>
   `${String(whole === 0 ? 0 : (part / whole) * 100)}%`;
 
 /**
- * The four states of R-150 as one bar (learned violet, "I know this" pale
+ * The four states of R-151 as one bar (learned violet, "I know this" pale
  * violet, due amber, to learn the grey track), with the same counts in words
  * (never colour alone, docs/design/README.md) and the Mastered badge.
  */
@@ -1982,7 +1999,7 @@ export function StateBar({
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
 
-/** "Last trained today / yesterday / N days ago", or "not trained yet" (R-153). */
+/** "Last trained today / yesterday / N days ago", or "not trained yet" (R-154). */
 export function LastTrained({
   days,
 }: {
@@ -2169,7 +2186,7 @@ export interface ChapterRow extends Omit<ChapterProgress, 'chapter'> {
   readonly title: string;
 }
 
-/** The progress page (R-151). */
+/** The progress page (R-152). */
 export interface ProgressPage {
   readonly player: AccountRef;
   readonly repertoire: RepertoireRef;
@@ -2216,7 +2233,7 @@ export interface GridRow {
   readonly cells: readonly (GroupProgressCell | null)[];
 }
 
-/** The group grid (R-152). */
+/** The group grid (R-153). */
 export interface GroupGrid {
   readonly columns: readonly RepertoireRef[];
   readonly rows: readonly GridRow[];
@@ -2316,7 +2333,7 @@ function show(): void {
   );
 }
 
-describe('the player page’s progress section (R-150, R-153, R-154)', () => {
+describe('the player page’s progress section (R-151, R-154, R-155)', () => {
   it('links each visible repertoire to its progress page with % and badges', () => {
     show();
     const link = screen.getByRole('link', { name: /Karo-Kan gynyba/ });
@@ -2404,7 +2421,7 @@ function Row({
   );
 }
 
-/** Every repertoire the coach may see progress on, and last trained (R-150 to R-154). */
+/** Every repertoire the coach may see progress on, and last trained (R-151 to R-155). */
 export function ProgressSection({
   player,
   progress,
@@ -2511,7 +2528,7 @@ function show(): void {
   );
 }
 
-describe('the progress page (R-151)', () => {
+describe('the progress page (R-152)', () => {
   it('heads with the player and repertoire, badges and the whole bar', () => {
     show();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Karo-Kan gynyba');
@@ -2632,7 +2649,7 @@ import type { JSX } from 'react';
 import { coachProgressData } from '../../../../../../server/coach-progress';
 import { ProgressView } from './progress-view';
 
-// One player's progress on one repertoire (R-151). The loader decides who
+// One player's progress on one repertoire (R-152). The loader decides who
 // may see it; an unlinked player, a private or forked repertoire and a
 // malformed id are all 404.
 export default async function CoachProgressPage({
@@ -2700,7 +2717,7 @@ function show(): void {
   );
 }
 
-describe('the group grid (R-152)', () => {
+describe('the group grid (R-153)', () => {
   it('is a table: a column per repertoire, a row per player', () => {
     show();
     const table = screen.getByRole('table');
@@ -2773,7 +2790,7 @@ function Cell({
 }
 
 /**
- * Players x the group's repertoires (R-152). On a phone the table scrolls
+ * Players x the group's repertoires (R-153). On a phone the table scrolls
  * sideways with the player column fixed; the page itself never scrolls
  * sideways. Group members see none of this (R-50): it is the coach's page.
  */
@@ -2887,7 +2904,7 @@ async function query(text: string, values: readonly unknown[]): Promise<void> {
   }
 }
 
-/** One Review per key, in the state the coach should see (R-150). */
+/** One Review per key, in the state the coach should see (R-151). */
 export type SeedState = 'learned' | 'due' | 'skipped';
 
 /**
@@ -2992,9 +3009,9 @@ git commit -m "test(e2e): C-M1-5 coach progress against a seeded history (#257)"
 - [ ] **Step 2:** i18n-content adds the S7 terms to `docs/glossary-lt.md`:
   progress "pažanga" and the `pazanga` slug, Mastered "įvaldyta", skipped
   "pažymėta „Žinau“", and "last trained". The lead records a closing ruling
-  in `docs/owner-rulings.md` (R-155, "S7 terms"), as R-148 did for S6.
+  in `docs/owner-rulings.md` (R-157, "S7 terms"), as R-148 did for S6.
 - [ ] **Step 3:** `docs/CONTEXT.md`: add "Move state (coach view)" under the
-  training terms, pointing at R-150.
+  training terms, pointing at R-151.
 - [ ] **Step 4:** Run `mp-code-review` on the slice's diff since `f84e15f`,
   then `improve-codebase-architecture` on `packages/*/src/**/progress*`,
   `packages/db/src/progress/` and the new web files. The owner picks the
@@ -3009,8 +3026,8 @@ git commit -m "test(e2e): C-M1-5 coach progress against a seeded history (#257)"
   - Every spec section maps to a task: chess A1, domain B1, database C1 and
     C2, web D1 to D5, error handling (404 paths in D2 and D4, "nothing to
     learn" in D1, "not trained yet" in D1), testing in every task and E1.
-  - The four states are R-150 (A1), the drill-down R-151 (A1, D4), the grid
-    R-152 (C2, D5), last trained R-153 (C1, D1 to D3), and forked R-154
+  - The four states are R-151 (A1), the drill-down R-152 (A1, D4), the grid
+    R-153 (C2, D5), last trained R-154 (C1, D1 to D3), and forked R-155
     (B1, C2, D3, D5).
 - Types:
   - `TrackedReview`, `Standing`, `ProgressCounts` and `RepertoireProgress`
