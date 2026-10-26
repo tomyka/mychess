@@ -27,6 +27,7 @@ describe('ACCESS_REFUSALS', () => {
     expect(ACCESS_REFUSALS).toStrictEqual({
       notLinked: 'access.notLinked',
       notShared: 'access.notShared',
+      forked: 'access.forked',
     });
   });
 });

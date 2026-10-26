@@ -497,7 +497,8 @@
   },
   "access": {
     "notLinked": "Šis žaidėjas su jumis nesusietas.",
-    "notShared": "Šis repertuaras su jumis nebendrinamas."
+    "notShared": "Šis repertuaras su jumis nebendrinamas.",
+    "forked": "Žaidėjas pasidarė asmeninę šio repertuaro kopiją."
   },
   "assignment": {
     "notFound": "Šio repertuaro nėra arba jis jums nepasiekiamas.",

@@ -1,9 +1,11 @@
 import { ok, refuse, type Result } from '@mychess/chess';
 
-/** Message-catalogue keys; the web answers both with 404 (plan decision 4). */
+/** Message-catalogue keys; the web answers each with 404 (plan decision 4). */
 export const ACCESS_REFUSALS = {
   notLinked: 'access.notLinked',
   notShared: 'access.notShared',
+  /** The player forked the assignment: it is their own now (R-154). */
+  forked: 'access.forked',
 } as const;
 
 export interface AccessRefusal {

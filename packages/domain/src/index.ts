@@ -102,6 +102,11 @@ export {
   type CoachSubject,
 } from './coach-access';
 export {
+  canCoachSeeProgress,
+  progressRepertoireIds,
+  type CoachProgressFacts,
+} from './coach-progress';
+export {
   COACH_REFUSALS,
   GROUP_NAME_ISSUES,
   GROUP_NAME_MAX,
