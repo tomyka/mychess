@@ -18,6 +18,7 @@ import { MESSAGES } from '../../i18n/locales';
 import type { TrainingData } from '../../lib/training-data';
 import type { FrameParts } from './drill';
 import { ReviewDrill } from './review-drill';
+import { TrainingFrame } from './training-frame';
 import type { DrillClock } from './drill-input';
 
 const T = MESSAGES.lt.training;
@@ -137,7 +138,10 @@ function frame(parts: FrameParts): JSX.Element {
   );
 }
 
-function renderDrill(d: TrainingData = data()) {
+function renderDrill(
+  d: TrainingData = data(),
+  drawFrame: (parts: FrameParts) => JSX.Element = frame,
+) {
   return render(
     <NextIntlClientProvider
       locale="lt"
@@ -154,7 +158,7 @@ function renderDrill(d: TrainingData = data()) {
           retry: vi.fn(),
         }}
         links={{ back: '/repertuarai/x', learn: '/treniruote?mode=learn' }}
-        frame={frame}
+        frame={drawFrame}
         clock={testClock}
       />
     </NextIntlClientProvider>,
@@ -267,6 +271,37 @@ describe('the review drill', () => {
     expect(kinds()).toEqual(['pass']);
   });
 
+  it('keeps focus on the board through a lapse played on it and the replay', () => {
+    renderDrill(data(), (parts) => (
+      <TrainingFrame
+        {...parts}
+        mode="review"
+        backHref="/repertuarai/x"
+        defaultTitle="no title"
+        side="white"
+        banner={null}
+      />
+    ));
+    const board = screen.getByRole('application', {
+      name: MESSAGES.lt.board.label,
+    });
+    board.focus();
+    act(() => {
+      ground.handlers.after?.('e2', 'e4');
+    });
+    expect(kinds()).toEqual(['lapse']);
+    expect(document.activeElement).toBe(board);
+    wait(400);
+    expect(document.activeElement).toBe(board);
+    act(() => {
+      ground.handlers.after?.('d2', 'd4');
+    });
+    wait(400);
+    wait(150);
+    expect(screen.getByRole('main').textContent).toContain(T.review.prompt);
+    expect(document.activeElement).toBe(board);
+  });
+
   it('says a typed move that is not legal, and records nothing', () => {
     renderDrill();
     type('Ke5');
@@ -348,6 +383,11 @@ describe('the review drill', () => {
       screen.getByRole('link', { name: T.done.learn }).getAttribute('href'),
     ).toBe('/treniruote?mode=learn');
     expect(screen.queryByRole('link', { name: T.drill.end })).toBeNull();
+    // The ways on sit in the bottom bar, Done first.
+    const bar = screen.getByRole('main').querySelector('footer');
+    expect(
+      Array.from(bar?.querySelectorAll('a') ?? [], (a) => a.textContent),
+    ).toEqual([T.done.done, T.done.learn]);
   });
 
   it('offers Continue once a lapse is due again, and starts a new session over it', () => {

@@ -7,7 +7,7 @@ import type { TrainingData } from '../../lib/training-data';
 import { Board } from '../board/board';
 import { useSquareWords } from '../board/square-words';
 import { SECONDARY_BUTTON } from '../buttons';
-import { DoneSummary } from './done-summary';
+import { DoneActions, DoneSummary } from './done-summary';
 import type { DrillProps, FrameParts } from './drill';
 import { LineSoFar, MoveRow, ToMove } from './drill-panel';
 import {
@@ -106,9 +106,9 @@ export function LearnDrill({
         <DoneSummary
           counts={{ kind: 'learn', learned: counts.done }}
           progress={drill.progress()}
-          doneHref={links.back}
         />
       ),
+      actions: <DoneActions doneHref={links.back} />,
     });
   return frame({
     ...parts,

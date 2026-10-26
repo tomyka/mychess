@@ -323,9 +323,10 @@ describe('the learn drill’s done summary', () => {
     expect(screen.getByText(/^1 išmokta · 0 kartotinų · 1 liko/)).toBeDefined();
     expect(screen.queryByRole('button', { name: T.done.continue })).toBeNull();
     expect(screen.queryByRole('link', { name: T.done.learn })).toBeNull();
-    expect(
-      screen.getByRole('link', { name: T.done.done }).getAttribute('href'),
-    ).toBe('/repertuarai/x');
+    const done = screen.getByRole('link', { name: T.done.done });
+    expect(done.getAttribute('href')).toBe('/repertuarai/x');
+    // In the bottom bar, not the panel.
+    expect(done.closest('footer')).not.toBeNull();
   });
 });
 

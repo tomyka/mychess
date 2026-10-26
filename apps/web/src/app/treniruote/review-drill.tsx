@@ -8,7 +8,7 @@ import type { TrainingData } from '../../lib/training-data';
 import { Board } from '../board/board';
 import { useSquareWords } from '../board/square-words';
 import { SECONDARY_BUTTON } from '../buttons';
-import { DoneSummary } from './done-summary';
+import { DoneActions, DoneSummary } from './done-summary';
 import type { DrillProps, FrameParts } from './drill';
 import { LineSoFar, MoveRow, ToMove } from './drill-panel';
 import {
@@ -152,6 +152,10 @@ export function ReviewDrill({
         <DoneSummary
           counts={sessionCounts(state.session)}
           progress={drill.progress()}
+        />
+      ),
+      actions: (
+        <DoneActions
           {...(drill.canContinue ? { onContinue: drill.restart } : {})}
           {...(learnable ? { learnHref: links.learn } : {})}
           doneHref={links.back}

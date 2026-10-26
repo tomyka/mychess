@@ -21,6 +21,9 @@ export interface DoneSummaryProps {
   readonly counts: SessionCounts;
   /** Where the repertoires in scope stand now (repertoireProgress). */
   readonly progress: RepertoireProgress;
+}
+
+export interface DoneActionsProps {
   /** Given when the queue rebuilt from this session's reviews has more (R-62). */
   readonly onContinue?: () => void;
   /** Given when today's new-move allowance is not used up (R-146). */
@@ -70,7 +73,7 @@ function Standing({
       )}
       <div
         aria-hidden="true"
-        className="flex h-2 overflow-hidden rounded-pill bg-sunken"
+        className="flex h-2 overflow-hidden rounded-pill bg-border"
       >
         <div
           className="bg-learned"
@@ -86,15 +89,47 @@ function Standing({
 }
 
 /**
+ * The Done state's ways on, for the frame's bottom bar: Done first, the new
+ * moves last as in the design, and Continue, when offered, between them.
+ * Each grows to share the bar; long labels wrap to a second row.
+ */
+export function DoneActions({
+  onContinue,
+  learnHref,
+  doneHref,
+}: DoneActionsProps): JSX.Element {
+  const t = useTranslations('training.done');
+  return (
+    <>
+      <Link href={doneHref} className={`${SECONDARY_BUTTON} grow`}>
+        {t('done')}
+      </Link>
+      {onContinue === undefined ? null : (
+        <button
+          type="button"
+          onClick={onContinue}
+          className={`${PRIMARY_BUTTON} grow`}
+        >
+          {t('continue')}
+        </button>
+      )}
+      {learnHref === undefined ? null : (
+        <Link href={learnHref} className={`${SECONDARY_BUTTON} grow`}>
+          {t('learn')}
+        </Link>
+      )}
+    </>
+  );
+}
+
+/**
  * The Done state (docs/design/training-screen.md): the session's counts and
- * the ways on. Focus moves to its heading when it appears.
+ * where the repertoires stand; its buttons are DoneActions, in the bottom
+ * bar. Focus moves to its heading when it appears.
  */
 export function DoneSummary({
   counts,
   progress,
-  onContinue,
-  learnHref,
-  doneHref,
 }: DoneSummaryProps): JSX.Element {
   const t = useTranslations('training.done');
   const heading = useRef<HTMLHeadingElement>(null);
@@ -121,21 +156,6 @@ export function DoneSummary({
       </h2>
       <Stats stats={stats} />
       <Standing progress={progress} />
-      <div className="flex flex-wrap justify-center gap-3">
-        {onContinue === undefined ? null : (
-          <button type="button" onClick={onContinue} className={PRIMARY_BUTTON}>
-            {t('continue')}
-          </button>
-        )}
-        {learnHref === undefined ? null : (
-          <Link href={learnHref} className={SECONDARY_BUTTON}>
-            {t('learn')}
-          </Link>
-        )}
-        <Link href={doneHref} className={SECONDARY_BUTTON}>
-          {t('done')}
-        </Link>
-      </div>
     </section>
   );
 }
