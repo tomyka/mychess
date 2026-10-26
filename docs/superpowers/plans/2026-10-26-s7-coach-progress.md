@@ -22,7 +22,7 @@ chapters and lines. A group page shows a players x repertoires grid.
   transactions. They read facts, let the domain decide, then filter again in
   SQL through the existing scopes (`repertoireScope`, `sharedTo`,
   `assignmentFacts`). The number of statements does not depend on the number
-  of players. Each repertoire shown adds the 3 statements of its graph load.
+  of players. Each repertoire shown adds 4 statements (its row and graph load).
 - **Web**: one loader module (`apps/web/src/server/coach-progress.ts`). It
   adds a state bar component, a "last trained" line on the players list and
   player page, a progress section on the player page, a progress page per
@@ -65,7 +65,7 @@ the spec):
 2. Lines come from `chapterWalks(graph)(id).paths()`, the tree's
    root-to-leaf paths. `lines()` enumerates every path through
    transpositions and can grow exponentially.
-3. Statement counts: fixed whatever the number of players, plus 3 per
+3. Statement counts: fixed whatever the number of players, plus 4 per
    repertoire shown (`graphRows`).
 4. Lines with no own move are left out of a chapter's lines.
 5. "Last trained" reaches the page as whole days ago in Vilnius, computed

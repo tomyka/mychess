@@ -95,19 +95,20 @@ assignment rows with overdue, paused, forked and done exist since S5
   every Repertoire of this coach reaching the Player (with the S5 badges)
   and every Repertoire shared with the coach, each with its Repertoire-level
   progress; forked ones with the badge only; plus last trained.
-- **`coachRepertoireProgress(db, coachId, playerId, repertoireId, now)`**:
+- **`coachRepertoireProgress(db, { coachId, playerId, repertoireId }, now)`**:
   for the progress page, the full `progressOf` with chapters and lines;
   `undefined` when `canCoachSeeProgress` refuses.
 - **`coachGroupProgress(db, coachId, groupId, now)`**: the R-153 grid: the
   Group's Players, the Group's Repertoires, one cell each, and each Player's
   last trained.
-- **`lastTrained(db, coachId, playerIds)`**: R-154, one statement.
+- **`coachLastTrained(db, coachId, playerIds)`**: R-154; it reads the facts, then one query over the visible (Player, Repertoire) pairs. A fixed number of statements, whatever the number of Players.
+- The four reads take the pool (`Db`), not a transaction, so each runs in its own repeatable-read snapshot.
 - Each repository decides access through the domain and filters again in
   SQL on the link, `assignments.coach_id` or the share row (Q26). Reviews
   are read once per call for all Players, restricted to the Repertoires'
   own-side keys. One repeatable-read transaction; the number of statements
   does not grow with the number of Players, and each Repertoire shown adds
-  its graph load (3 statements, as everywhere else).
+  its load (4 statements: the repertoire row and its 3 graph statements).
 - "Last trained" leaves the loader as whole days ago in Vilnius, so the
   server and the browser render the same text.
 
