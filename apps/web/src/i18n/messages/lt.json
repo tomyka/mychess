@@ -222,11 +222,13 @@
       "neverTrained": "Dar nesitreniravo",
       "chapters": "Skyriai",
       "lines": "Variantai",
-      "open": "Pažanga: {name}",
       "gridTitle": "Grupės pažanga",
       "gridEmpty": "Grupei dar nieko nepriskirta.",
       "player": "Žaidėjas",
-      "noAssignment": "Nepriskirta"
+      "noAssignment": "Nepriskirta",
+      "cellDue": "{due, plural, one {# kartotinas} few {# kartotini} other {# kartotinų}}",
+      "cellLabel": "{name}, {repertoire}: {percent}, {due}",
+      "cellLabelNothing": "{name}, {repertoire}: {nothing}"
     }
   },
   "invite": {

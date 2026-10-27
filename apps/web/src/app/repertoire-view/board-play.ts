@@ -38,6 +38,19 @@ export function moveNumber(ply: number, whiteFirst: boolean): string {
   return half % 2 === 0 ? `${number}.` : `${number}...`;
 }
 
+/**
+ * "1. e4 c6 2. d4": a line's moves from a chapter's root as one string, with
+ * a number before the first move and before every White move.
+ */
+export function lineText(sans: readonly string[], whiteFirst: boolean): string {
+  return sans
+    .map((san, ply) => {
+      const number = moveNumber(ply, whiteFirst);
+      return ply === 0 || !number.endsWith('...') ? `${number} ${san}` : san;
+    })
+    .join(' ');
+}
+
 /** A chapter and the moves from its root. */
 export interface Place {
   readonly chapterId: string | null;

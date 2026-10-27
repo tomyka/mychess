@@ -16,8 +16,10 @@
   /* ---- Surfaces and text ---- */
   --color-bg: light-dark(#f6f5f2, #131416); /* page */
   --color-surface: light-dark(#ffffff, #1c1d20); /* cards, panels, sheets */
-  --color-sunken: light-dark(#eceae5, #0e0f10); /* wells, progress tracks */
-  --color-border: light-dark(#d6d3cc, #3a3b40); /* dividers (decorative) */
+  --color-sunken: light-dark(#eceae5, #0e0f10); /* wells, skeletons */
+  /* dividers (decorative); the track of a progress bar, the to-learn part
+     (sunken is about 1.1:1 on the page and would vanish) */
+  --color-border: light-dark(#d6d3cc, #3a3b40);
   --color-border-strong: light-dark(#8a867e, #6f6c66); /* inputs, 3:1 */
   --color-fg: light-dark(#1b1a18, #ecebe7); /* body text */
   --color-fg-muted: light-dark(#595650, #a8a59e); /* secondary text */
@@ -44,6 +46,12 @@
   --color-due-subtle: light-dark(#fdf0dc, #36270f);
   --color-learned: light-dark(#6741b8, #b9a2ff);
   --color-learned-subtle: light-dark(#efe9fb, #2a2242);
+  /* A progress bar's "I know this" segment (R-151): learned mixed 42% into
+     the border track, so it sits between learned and to-learn in both
+     themes (about 1.8-2.1:1 to the track, 2.4-2.6:1 to learned). Not for
+     text; learned-subtle is lighter than the track in light and darker in
+     dark, so it read as a gap. */
+  --color-skipped: light-dark(#a796c4, #6f6690);
   --color-on-state: light-dark(#ffffff, #111214);
 
   /* ---- Piece glyphs off the board ----

@@ -9,9 +9,11 @@ export default async function CoachPlayerPage({
 }: {
   readonly params: Promise<{ playerId: string }>;
 }): Promise<JSX.Element> {
-  const { id, displayName, linkedAt, groups, repertoires } =
+  const { id, displayName, linkedAt, groups, repertoires, progress } =
     await coachPlayerData((await params).playerId);
   return (
-    <PlayerView player={{ id, displayName, linkedAt, groups, repertoires }} />
+    <PlayerView
+      player={{ id, displayName, linkedAt, groups, repertoires, progress }}
+    />
   );
 }

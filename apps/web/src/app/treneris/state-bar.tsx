@@ -1,4 +1,4 @@
-import type { ProgressCounts } from '@mychess/chess';
+import { percentLearned, type ProgressCounts } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
 
@@ -6,8 +6,33 @@ import type { JSX } from 'react';
 const segment = (part: number, whole: number): string =>
   `${String((part / whole) * 100)}%`;
 
+/** The Mastered pill (R-151), the same wherever progress is shown. */
+export function MasteredBadge(): JSX.Element {
+  const t = useTranslations('coach.progress');
+  return (
+    <span className="w-fit rounded-pill border border-transparent bg-success-subtle px-2 py-0.5 text-sm font-semibold text-success">
+      {t('mastered')}
+    </span>
+  );
+}
+
 /**
- * The four states of R-151 as one bar (learned violet, "I know this" pale
+ * The share learned in words, and whether there is anything to learn: an
+ * empty repertoire says "nothing to learn" rather than a percentage.
+ */
+export function usePercentLearned(counts: ProgressCounts): {
+  readonly text: string;
+  readonly empty: boolean;
+} {
+  const t = useTranslations('coach.progress');
+  const percent = percentLearned(counts);
+  return percent === null
+    ? { text: t('nothing'), empty: true }
+    : { text: t('percent', { percent }), empty: false };
+}
+
+/**
+ * The four states of R-151 as one bar (learned violet, "I know this" muted
  * violet, due amber, to learn the grey track), with the same counts in words
  * (never colour alone, docs/design/README.md) and the Mastered badge.
  */
@@ -35,18 +60,14 @@ export function StateBar({
           style={{ width: segment(counts.learned, whole) }}
         />
         <div
-          className="bg-learned-subtle"
+          className="bg-skipped"
           style={{ width: segment(counts.skipped, whole) }}
         />
         <div className="bg-due" style={{ width: segment(counts.due, whole) }} />
       </div>
       <p className="flex flex-wrap items-center gap-2 text-sm text-fg-muted">
-        <span>{t('counts', { ...counts })}</span>
-        {mastered ? (
-          <span className="rounded-pill border border-transparent bg-success-subtle px-2 py-0.5 font-semibold text-success">
-            {t('mastered')}
-          </span>
-        ) : null}
+        <span className="text-pretty">{t('counts', { ...counts })}</span>
+        {mastered ? <MasteredBadge /> : null}
       </p>
     </div>
   );

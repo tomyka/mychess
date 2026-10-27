@@ -1,8 +1,12 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import Link from 'next/link';
 import type { JSX } from 'react';
-import { coachPlayerPath } from '../../../../../../lib/routes';
+import {
+  coachPlayerPath,
+  coachProgressPath,
+} from '../../../../../../lib/routes';
 import type { SharedRepertoirePage } from '../../../../../../server/coach-pages';
 import {
   BackLink,
@@ -18,19 +22,20 @@ import { CoachNoteForm } from './coach-note-form';
  * The way back to the player and the repertoire's name: on a phone one top
  * bar (back, the name, the player's name under it) so the board stays high;
  * on a desktop the back link spelled out over the name
- * (docs/design/coach-shared-repertoire.md).
+ * (docs/design/coach-shared-repertoire.md). Then the way to the player's
+ * progress on this repertoire (S7 decision 7).
  */
 function SharedHeader({
   data,
 }: {
   readonly data: SharedRepertoirePage;
 }): JSX.Element {
-  const t = useTranslations('coach.shared');
+  const t = useTranslations('coach');
   return (
     <HeaderFrame>
       <BackLink
         href={coachPlayerPath(data.player.id)}
-        label={t('back', { name: data.player.displayName })}
+        label={t('shared.back', { name: data.player.displayName })}
       />
       <div className="flex min-w-0 flex-1 flex-col lg:flex-none">
         <h1
@@ -46,6 +51,12 @@ function SharedHeader({
           {data.player.displayName}
         </p>
       </div>
+      <Link
+        href={coachProgressPath(data.player.id, data.repertoire.id)}
+        className="inline-flex min-h-touch shrink-0 items-center text-accent underline"
+      >
+        {t('progress.title')}
+      </Link>
     </HeaderFrame>
   );
 }

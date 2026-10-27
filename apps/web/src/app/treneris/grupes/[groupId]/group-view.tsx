@@ -3,6 +3,7 @@
 import type { AccountRef } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX } from 'react';
+import type { GroupGrid } from '../../../../server/coach-progress';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../../buttons';
 import { ConfirmedAction } from '../../../confirmed-action';
 import { SECTION, SECTION_TITLE } from '../../../nustatymai/styles';
@@ -15,6 +16,7 @@ import {
 } from '../../actions';
 import { RefusalLine } from '../../refusal-line';
 import { COACH_PAGE, SubpageHeader } from '../../subpage-header';
+import { ProgressGrid } from './progress-grid';
 import { RenameGroupForm } from './rename-group-form';
 
 /** One of the coach's groups, its members, and the linked players to add. */
@@ -164,11 +166,16 @@ function AddMember({
   );
 }
 
-/** One group's page in the coach dashboard (plan decision 11). */
+/**
+ * One group's page in the coach dashboard (plan decision 11), with the
+ * group's progress grid above the members (R-153).
+ */
 export function GroupView({
   group,
+  grid,
 }: {
   readonly group: CoachGroupPageData;
+  readonly grid: GroupGrid;
 }): JSX.Element {
   const t = useTranslations('coach.group');
   const nameId = useId();
@@ -178,6 +185,7 @@ export function GroupView({
         <SubpageHeader title={group.name} titleId={nameId} />
         <RenameGroupForm groupId={group.id} name={group.name} />
       </div>
+      <ProgressGrid grid={grid} />
       <Members group={group} />
       <AddMember group={group} />
       <ConfirmedAction

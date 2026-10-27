@@ -1,7 +1,7 @@
 import type { Config } from '@lichess-org/chessground/config';
 import type { Key } from '@lichess-org/chessground/types';
 import { moveKey, START_KEY } from '@mychess/chess';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -106,6 +106,16 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
       screen.getByRole('link', { name: 'Atgal: Rokas' }).getAttribute('href'),
     ).toBe('/treneris/zaidejai/p-1');
     expect(screen.getByRole('application')).toBeDefined();
+  });
+
+  it('links to the player’s progress on this repertoire (S7 decision 7)', () => {
+    renderView();
+    const header = screen.getByRole('banner');
+    expect(
+      within(header)
+        .getByRole('link', { name: lt.coach.progress.title })
+        .getAttribute('href'),
+    ).toBe(`/treneris/zaidejai/p-1/pazanga/${ID}`);
   });
 
   it('has none of the owner’s controls', () => {

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import {
   childBySan,
+  lineText,
   markChange,
   moveNumber,
   movesBetween,
@@ -60,6 +61,22 @@ describe('moveNumber', () => {
       '2.',
       '2...',
     ]);
+  });
+});
+
+describe('lineText', () => {
+  it('numbers the first move and every White move from a White root', () => {
+    expect(lineText(['e4', 'c6', 'd4', 'd5', 'e5'], true)).toBe(
+      '1. e4 c6 2. d4 d5 3. e5',
+    );
+  });
+
+  it('numbers a Black first move with an ellipsis', () => {
+    expect(lineText(['c6', 'd4', 'd5'], false)).toBe('1... c6 2. d4 d5');
+  });
+
+  it('is empty for no moves', () => {
+    expect(lineText([], true)).toBe('');
   });
 });
 

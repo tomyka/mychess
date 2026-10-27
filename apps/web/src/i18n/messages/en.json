@@ -222,11 +222,13 @@
       "neverTrained": "Not trained yet",
       "chapters": "Chapters",
       "lines": "Lines",
-      "open": "Progress: {name}",
       "gridTitle": "Group progress",
       "gridEmpty": "Nothing is assigned to the group yet.",
       "player": "Player",
-      "noAssignment": "Not assigned"
+      "noAssignment": "Not assigned",
+      "cellDue": "{due} due",
+      "cellLabel": "{name}, {repertoire}: {percent}, {due}",
+      "cellLabelNothing": "{name}, {repertoire}: {nothing}"
     }
   },
   "invite": {

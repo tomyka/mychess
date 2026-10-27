@@ -10,11 +10,13 @@ import {
   coachSharedRepertoirePath,
 } from '../../../../lib/routes';
 import { DISPLAY_TIME_ZONE } from '../../../../lib/time-zone';
+import type { PlayerProgressSection } from '../../../../server/coach-progress';
 import { ConfirmedAction } from '../../../confirmed-action';
 import { SECTION, SECTION_TITLE, TEXT_LINK } from '../../../nustatymai/styles';
 import { unlinkPlayerAction, type CoachActionState } from '../../actions';
 import { RefusalLine } from '../../refusal-line';
 import { COACH_PAGE, SubpageHeader } from '../../subpage-header';
+import { ProgressSection } from './progress-section';
 
 /**
  * What the coach sees of a linked player (subject `profile`): the display
@@ -25,6 +27,8 @@ export interface CoachPlayerPageData extends AccountRef {
   readonly groups: readonly { readonly id: string; readonly name: string }[];
   /** The player's repertoires shared with this coach (R-42). */
   readonly repertoires: readonly SharedRepertoireItem[];
+  /** Where the player stands on each repertoire the coach may see (S7). */
+  readonly progress: PlayerProgressSection;
 }
 
 /** The coach's groups the player is in, each to its page. */
@@ -118,6 +122,7 @@ export function PlayerView({
       <SubpageHeader title={player.displayName} titleId={nameId}>
         <p className="text-fg-muted">{t('player.linkedSince', { date })}</p>
       </SubpageHeader>
+      <ProgressSection player={player} progress={player.progress} />
       <SharedRepertoires player={player} />
       <PlayerGroups groups={player.groups} />
       <RefusalLine state={state} />

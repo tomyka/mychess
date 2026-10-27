@@ -50,7 +50,7 @@ export async function playerProgressData(
 }
 
 /** A chapter of the progress page, named in the coach's locale. */
-interface ChapterRow extends Omit<ChapterProgress, 'chapter'> {
+export interface ChapterRow extends Omit<ChapterProgress, 'chapter'> {
   readonly id: string;
   readonly title: string;
 }

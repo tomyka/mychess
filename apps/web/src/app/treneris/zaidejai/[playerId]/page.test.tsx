@@ -49,8 +49,12 @@ describe('the coach dashboard’s player page', () => {
       screen.getByRole('link', { name: 'Šeštadienio grupė' }),
     ).toBeDefined();
     expect(
-      screen.getByRole('link', { name: /Taimanovas/ }).getAttribute('href'),
+      screen.getByRole('link', { name: /^Taimanovas/ }).getAttribute('href'),
     ).toBe('/treneris/zaidejai/p-1/repertuarai/r-1');
+    expect(
+      screen.getByText('Rokas dar neturi jums matomų repertuarų.'),
+    ).toBeDefined();
+    expect(screen.getByText(c.progress.neverTrained)).toBeDefined();
   });
 
   it('reads the same for anything the coach may not see (plan decision 4)', () => {

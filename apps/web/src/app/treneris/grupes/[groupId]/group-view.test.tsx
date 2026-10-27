@@ -8,6 +8,7 @@ import {
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../../i18n/locales';
+import type { GroupGrid } from '../../../../server/coach-progress';
 import type { CoachActionState, RenameGroupState } from '../../actions';
 import { GroupView, type CoachGroupPageData } from './group-view';
 
@@ -49,13 +50,25 @@ const GROUP: CoachGroupPageData = {
   ],
 };
 
+/** One member, one repertoire: enough to see the grid is on the page. */
+const GRID: GroupGrid = {
+  columns: [{ id: 'r-1', name: 'Karo-Kan gynyba', side: 'black' }],
+  rows: [
+    {
+      player: { id: 'p-1', displayName: 'Rokas' },
+      lastTrainedDays: 1,
+      cells: [null],
+    },
+  ],
+};
+
 function renderView(
   group: CoachGroupPageData,
   locale: 'lt' | 'en' = 'lt',
 ): void {
   render(
     <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
-      <GroupView group={group} />
+      <GroupView group={group} grid={GRID} />
     </NextIntlClientProvider>,
   );
 }
@@ -87,6 +100,20 @@ describe('GroupView', () => {
     expect(
       screen.getByRole('link', { name: c.back }).getAttribute('href'),
     ).toBe('/treneris');
+  });
+
+  it('shows the group progress grid above the members (R-153)', () => {
+    renderView(GROUP);
+    const grid = screen.getByRole('region', { name: c.progress.gridTitle });
+    expect(
+      within(grid).getByRole('columnheader', { name: 'Karo-Kan gynyba' }),
+    ).toBeDefined();
+    const titles = screen
+      .getAllByRole('heading', { level: 2 })
+      .map((heading) => heading.textContent);
+    expect(titles.indexOf(c.progress.gridTitle)).toBe(
+      titles.indexOf(g.membersTitle) - 1,
+    );
   });
 
   it('renames the group and says it is saved', async () => {

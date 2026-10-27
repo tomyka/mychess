@@ -67,6 +67,7 @@ describe('the coach dashboard', () => {
     ).toBe('/');
     const players = screen.getByRole('region', { name: c.players.title });
     expect(within(players).getByRole('link', { name: 'Rokas' })).toBeDefined();
+    expect(within(players).getByText(c.progress.neverTrained)).toBeDefined();
     const groups = screen.getByRole('region', { name: c.groups.title });
     expect(
       within(groups)

@@ -23,6 +23,7 @@ import {
   unassignAction,
 } from '../../src/app/repertuarai/[id]/assign-actions';
 import { setSharesAction } from '../../src/app/repertuarai/[id]/sharing-actions';
+import { forkAction } from '../../src/app/repertuarai/priskirti/[id]/actions';
 import * as coachActions from '../../src/app/treneris/actions';
 import {
   addMemberAction,
@@ -42,6 +43,7 @@ import {
   coachPlayerData,
   sharedRepertoireData,
 } from '../../src/server/coach-pages';
+import { coachProgressData } from '../../src/server/coach-progress';
 import { repertoirePageData } from '../../src/server/repertoires';
 import { TEST_ENV_VARS } from './support/auth';
 import {
@@ -228,6 +230,8 @@ const COACH_PAGES: Readonly<Record<string, (ids: Ids) => Promise<unknown>>> = {
   'treneris/grupes/[groupId]': (ids) => coachGroupData(ids.group),
   'treneris/zaidejai/[playerId]/repertuarai/[repertoireId]': (ids) =>
     sharedRepertoireData(ids.rokas.id, ids.london),
+  'treneris/zaidejai/[playerId]/pazanga/[repertoireId]': (ids) =>
+    coachProgressData(ids.rokas.id, ids.london),
 };
 
 /** The loaders that take a player or a group: Rimantas's ones. */
@@ -758,5 +762,57 @@ describe('a shared repertoire (checklist 2-3)', () => {
       await outcomeOf(sharedRepertoireData(ids.rokas.id, ids.london)),
     ).toEqual({ notFound: true });
     expect(await sql.rows('select * from repertoire_shares')).toEqual([]);
+  });
+});
+
+describe('the progress page (R-152, R-155)', () => {
+  it('shows a shared repertoire and a live assignment to their coach', async () => {
+    const ids = await setUp();
+    actAs(ids.rimantas);
+    expect(
+      await outcomeOf(coachProgressData(ids.rokas.id, ids.london)),
+    ).toMatchObject({ repertoire: { name: 'Londono sistema' } });
+    expect(
+      await outcomeOf(coachProgressData(ids.rokas.id, ids.assigned)),
+    ).toMatchObject({ repertoire: { name: 'Rimanto Londonas' } });
+  });
+
+  it('is 404 for a repertoire not shared with the coach', async () => {
+    const ids = await setUp();
+    actAs(ids.rimantas);
+    expect(
+      await outcomeOf(coachProgressData(ids.rokas.id, ids.unshared)),
+    ).toEqual({ notFound: true });
+  });
+
+  it('is 404 for a player not linked to the coach', async () => {
+    const ids = await setUp();
+    actAs(ids.rimantas);
+    expect(
+      await outcomeOf(coachProgressData(ids.gabija.id, ids.london)),
+    ).toEqual({ notFound: true });
+  });
+
+  it('is 404 for an assignment the player forked', async () => {
+    const ids = await setUp();
+    actAs(ids.rokas);
+    expect(
+      await outcomeOf(forkAction({}, formOf({ repertoireId: ids.assigned }))),
+    ).toHaveProperty('redirectedTo');
+    actAs(ids.rimantas);
+    expect(
+      await outcomeOf(coachProgressData(ids.rokas.id, ids.assigned)),
+    ).toEqual({ notFound: true });
+  });
+
+  it('is 404 for a malformed player or repertoire id', async () => {
+    const ids = await setUp();
+    actAs(ids.rimantas);
+    expect(await outcomeOf(coachProgressData('not-an-id', ids.london))).toEqual(
+      { notFound: true },
+    );
+    expect(
+      await outcomeOf(coachProgressData(ids.rokas.id, 'not-a-uuid')),
+    ).toEqual({ notFound: true });
   });
 });

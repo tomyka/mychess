@@ -29,8 +29,14 @@ const ROKAS: CoachPlayerRow = {
     { id: 'g-1', name: 'Sekmadienio grupė' },
     { id: 'g-2', name: 'Šeštadienio grupė' },
   ],
+  lastTrainedDays: 1,
 };
-const GABIJA: CoachPlayerRow = { id: 'p-2', displayName: 'Gabija', groups: [] };
+const GABIJA: CoachPlayerRow = {
+  id: 'p-2',
+  displayName: 'Gabija',
+  groups: [],
+  lastTrainedDays: null,
+};
 
 function renderList(
   players: readonly CoachPlayerRow[],
@@ -75,6 +81,16 @@ describe('PlayersList', () => {
       ),
     ).toBeDefined();
     expect(playerItem('Gabija').getByText(p.noGroups)).toBeDefined();
+  });
+
+  it('says when each player last trained (R-154)', () => {
+    renderList([ROKAS, GABIJA]);
+    expect(
+      playerItem('Rokas').getByText(MESSAGES.lt.coach.progress.yesterday),
+    ).toBeDefined();
+    expect(
+      playerItem('Gabija').getByText(MESSAGES.lt.coach.progress.neverTrained),
+    ).toBeDefined();
   });
 
   it('joins the group names as the locale joins a list', () => {

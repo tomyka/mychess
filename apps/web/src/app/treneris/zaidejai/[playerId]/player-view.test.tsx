@@ -35,6 +35,20 @@ const ROKAS: CoachPlayerPageData = {
     { id: 'r-1', name: 'Londono sistema', side: 'white' },
     { id: 'r-2', name: 'Taimanovas', side: 'black' },
   ],
+  progress: {
+    lastTrainedDays: 0,
+    rows: [
+      {
+        repertoire: { id: 'r-9', name: 'Karo-Kan gynyba', side: 'black' },
+        source: 'assigned',
+        badges: { overdue: false, paused: true, forked: false, updated: false },
+        standing: {
+          counts: { notStarted: 1, skipped: 0, due: 0, learned: 1 },
+          mastered: false,
+        },
+      },
+    ],
+  },
 };
 
 function renderView(
@@ -82,6 +96,25 @@ describe('PlayerView', () => {
     ]);
   });
 
+  it('shows the player’s progress first, then shares, then groups (S7)', () => {
+    renderView(ROKAS);
+    expect(
+      screen
+        .getAllByRole('heading', { level: 2 })
+        .map((heading) => heading.textContent),
+    ).toEqual([c.progress.title, c.shared.title, c.player.groupsTitle]);
+    const progress = within(
+      screen.getByRole('region', { name: c.progress.title }),
+    );
+    expect(progress.getByText(c.progress.today)).toBeDefined();
+    expect(
+      progress
+        .getByRole('link', { name: 'Karo-Kan gynyba' })
+        .getAttribute('href'),
+    ).toBe('/treneris/zaidejai/p-1/pazanga/r-9');
+    expect(progress.getByText('Pristabdyta')).toBeDefined();
+  });
+
   it('links each repertoire the player shares with the coach to its page (R-42)', () => {
     renderView(ROKAS);
     const section = within(
@@ -90,7 +123,10 @@ describe('PlayerView', () => {
     expect(
       section
         .getAllByRole('link')
-        .map((link) => [link.textContent, link.getAttribute('href')]),
+        .map((link) => [
+          link.getAttribute('aria-label') ?? link.textContent,
+          link.getAttribute('href'),
+        ]),
     ).toEqual([
       ['Londono sistemaBaltaisiais', '/treneris/zaidejai/p-1/repertuarai/r-1'],
       ['TaimanovasJuodaisiais', '/treneris/zaidejai/p-1/repertuarai/r-2'],
