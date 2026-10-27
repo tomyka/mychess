@@ -190,6 +190,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-154** (S7 brainstorm, #257, 2026-10-26): The coach sees when a player last trained, counted only from results on repertoires the coach may see progress on. Streaks wait for M2.
 - **R-155** (S7 brainstorm, #257, 2026-10-26): A forked assignment shows the coach only its own-copy badge, no progress (R-39); a shared fork (R-42) shows its progress like any shared repertoire.
 - **R-156** (S7 security review, #257, 2026-10-26): Coach progress shows whether the player knows each move the coach can see, wherever they trained it: a Review is one per player and move (R-53), so training on a private repertoire or a fork counts on an overlapping assigned or shared move. The coach still sees only the moves of repertoires they assigned or that were shared with them, never the private repertoire's other moves, name or training times (R-154 stays filtered).
+- **R-157** (S7 close, #257, 2026-10-27): S7 terms (docs/glossary-lt.md): progress "pažanga" ("Pažanga", route slug `pazanga`); the four move states as one line "{N} išmokta · # kartotinas/-i/-ų · {N} pažymėta „Žinau“ · {N} liko išmokti" / "learned · due · marked as known · to learn"; Mastered "Įvaldyta"; last trained "Paskutinį kartą treniravosi šiandien / vakar / prieš # dieną, dienas, dienų", never "Dar nesitreniravo"; the group grid "Grupės pažanga" with column "Žaidėjas", an empty cell "Nepriskirta" and "{N} % išmokta"; nothing to learn "Nėra ko mokytis".
 
 ## Open questions
 
