@@ -36,15 +36,19 @@ export interface Cast {
   readonly devices: BrowserContext[];
 }
 
-/** A new account named `name`, onboarded and then in `locale`, on home. */
+/**
+ * A new account named `name`, onboarded and then in `locale`, on home.
+ * Returns its email.
+ */
 async function account(
   page: Page,
   request: APIRequestContext,
   name: string,
   locale: Locale,
-): Promise<void> {
-  await newOnboardedAccount(page, request, name);
+): Promise<string> {
+  const email = await newOnboardedAccount(page, request, name);
   if (locale === 'en') await chooseEnglish(page);
+  return email;
 }
 
 /** The coach on `page`, Coach mode on, on the coach dashboard. */
@@ -54,15 +58,29 @@ export async function coachReady(page: Page, cast: Cast): Promise<void> {
   await page.goto('/treneris');
 }
 
+/** A player on a device of their own, and the email they signed up with. */
+export interface Player {
+  readonly page: Page;
+  readonly email: string;
+}
+
 /** A new player on a device of their own who accepts `link`; on home. */
 export async function playerAccepts(
   cast: Cast,
-  { link, name, group }: { link: string; name: string; group?: string },
+  invite: { link: string; name: string; group?: string },
 ): Promise<Page> {
+  return (await linkedPlayer(cast, invite)).page;
+}
+
+/** As `playerAccepts`, with the player's email (to seed their history). */
+export async function linkedPlayer(
+  cast: Cast,
+  { link, name, group }: { link: string; name: string; group?: string },
+): Promise<Player> {
   const context = await newDevice(cast.browser);
   cast.devices.push(context);
   const page = await context.newPage();
-  await account(page, cast.request, name, cast.locale);
+  const email = await account(page, cast.request, name, cast.locale);
   await page.goto(link);
   await expectInviteFrom(page, cast.messages, {
     coach: COACH,
@@ -70,7 +88,7 @@ export async function playerAccepts(
   });
   await acceptInvite(page, cast.messages);
   await page.goto('/');
-  return page;
+  return { page, email };
 }
 
 /** On home: `name` from the coach, with `deadline` (a day) or none. */
