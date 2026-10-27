@@ -68,10 +68,10 @@ inside Tailwind 4's `@theme`, so each one is also a utility class.
 
 | Group | Tokens (utility examples) | Use |
 | --- | --- | --- |
-| Surfaces | `bg`, `surface`, `sunken`, `border`, `border-strong` (`bg-surface`, `border-border`) | page, cards, wells; `border-strong` for inputs (3:1) |
+| Surfaces | `bg`, `surface`, `sunken`, `border`, `border-strong` (`bg-surface`, `border-border`) | page, cards, wells; `border` is also the progress-bar track; `border-strong` for inputs (3:1) |
 | Text | `fg`, `fg-muted` (`text-fg-muted`) | body, secondary |
 | Interactive | `accent`, `accent-fg`, `focus` | primary buttons, links, focus ring |
-| States | `success`, `error`, `due`, `learned`, each with `-subtle`, plus `on-state` | see below |
+| States | `success`, `error`, `due`, `learned`, each with `-subtle`, plus `on-state` and `skipped` (a bar segment only) | see below |
 | Board | `board-light`, `board-dark`, `board-last-move`, `board-selected`, `board-target`, `board-check`, `board-arrow`, `board-correct`, `board-wrong`, `board-badge-{correct,wrong,glyph}`, `board-focus`, `board-hint`, `board-hint-edge`, `board-mark-{green,red,yellow,blue}` | the board only; a separate `@theme static` block |
 | Piece glyphs | `piece-white`, `piece-black`, `piece-outline` (`fill-piece-white`, `stroke-piece-outline`) | a side's king off the board (Mano repertuarai headings): the fill is the side's colour in both themes, the outline follows the theme |
 | Type | `font-sans`, `font-mono`, `text-xs` ... `text-4xl` | system UI stack, 12-36px |
@@ -88,10 +88,16 @@ inside Tailwind 4's `@theme`, so each one is also a utility class.
 | `due` | Reviews whose time has come (CONTEXT.md "Due") | amber count and bar segment |
 | `learned` | Moves past their Learn pass, in Review | violet count and bar segment |
 
-To-learn Moves use the neutral `fg-muted` / `sunken` pair, so the three
-progress segments are always due (amber), learned (violet) and to-learn
-(grey). Colour is never the only signal: each segment also has its number
-and label.
+To-learn Moves are the bar's grey track, `border` (not `sunken`: about
+1.1:1 on the page in both themes, it would vanish), with `fg-muted` text.
+The coach's four-state bar (R-151) adds `skipped` for "I know this": a
+muted violet between `learned` and the track in both themes (about
+1.8 - 2.1:1 to the track, 2.4 - 2.6:1 to `learned`). `learned-subtle` is
+not a bar colour: it is lighter than the track in light and darker in dark,
+so a skipped segment in it reads as a gap. So the segments are always
+learned (violet), skipped (muted violet), due (amber) and to-learn (grey).
+Colour is never the only signal: each segment also has its number and
+label, and Mastered is a `success-subtle` pill with the word.
 
 ### Themes
 
@@ -111,6 +117,8 @@ same rule, but prefer tokens: a component should need no `dark:` class.
 | each state on its `-subtle` | 5.2 - 5.9 | 6.9 - 7.3 |
 | `on-state` on each solid state | 5.9 - 6.9 | 8.2 - 9.4 |
 | `border-strong` on `bg` / `surface` | 3.3 / 3.6 | 3.5 / 3.2 |
+| `border` (bar track) on `bg` / `surface` (2026-10-27) | 1.4 / 1.5 | 1.7 / 1.5 |
+| `skipped` on `border`; on `learned` (2026-10-27; bar segments, the counts carry the meaning) | 1.8; 2.6 | 2.1; 2.4 |
 | `board-focus` on light / dark square | 9.0 / 3.9 | 7.2 / 3.2 |
 | `board-mark-green` / `-red` / `-blue` on light square | 4.1 / 6.7 / 8.6 | 3.3 / 5.4 / 6.9 |
 | `board-mark-yellow` on light square | 1.8 | 1.5 |

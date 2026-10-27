@@ -118,7 +118,8 @@ assignment rows with overdue, paused, forked and done exist since S5
 - **Player page** (`/treneris/zaidejai/[playerId]`): a "Progress" section
   above the shared Repertoires: one row per Repertoire with the four-state
   bar, % learned, due count and badges, each to its progress page; last
-  trained in the header.
+  trained at the top of that section. The shared Repertoire's own page
+  (`repertuarai/[repertoireId]`) links to its progress page (decision 7).
 - **Progress page** (`/treneris/zaidejai/[playerId]/<slug>/[repertoireId]`,
   slug from i18n-content): the Repertoire bar with the four counts, then one
   disclosure per chapter (bar, Mastered badge) holding its lines (label,
