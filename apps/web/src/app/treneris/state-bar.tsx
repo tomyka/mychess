@@ -1,4 +1,8 @@
-import { percentLearned, type ProgressCounts } from '@mychess/chess';
+import {
+  percentLearned,
+  totalMoves,
+  type ProgressCounts,
+} from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
 
@@ -44,8 +48,7 @@ export function StateBar({
   readonly mastered: boolean;
 }): JSX.Element {
   const t = useTranslations('coach.progress');
-  const whole =
-    counts.notStarted + counts.skipped + counts.due + counts.learned;
+  const whole = totalMoves(counts);
   if (whole === 0) {
     return <p className="text-sm text-fg-muted">{t('nothing')}</p>;
   }

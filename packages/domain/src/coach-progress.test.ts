@@ -3,6 +3,7 @@ import type { AssignmentFacts } from './assignment';
 import { ACCESS_REFUSALS } from './coach-access';
 import {
   canCoachSeeProgress,
+  isCoachLinked,
   progressRepertoireIds,
   type CoachProgressFacts,
 } from './coach-progress';
@@ -40,6 +41,22 @@ const facts = (
 
 const allowed = { ok: true, value: undefined };
 const refused = (reason: string) => ({ ok: false, refusal: { reason } });
+
+describe('isCoachLinked', () => {
+  it('is true with an active link', () => {
+    expect(isCoachLinked('c', 'p', facts())).toBe(true);
+  });
+
+  it('is true with a link even when nothing is shared or assigned', () => {
+    const bare = facts({ sharedRepertoireIds: new Set(), assignments: [] });
+    expect(isCoachLinked('c', 'p', bare)).toBe(true);
+  });
+
+  it('is false without a link, and to oneself', () => {
+    expect(isCoachLinked('c', 'p', facts({ linked: false }))).toBe(false);
+    expect(isCoachLinked('p', 'p', facts())).toBe(false);
+  });
+});
 
 describe('canCoachSeeProgress (R-39, R-42, R-155)', () => {
   it('allows a repertoire the player shares with the coach', () => {

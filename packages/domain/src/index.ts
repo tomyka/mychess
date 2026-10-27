@@ -104,6 +104,7 @@ export {
 } from './coach-access';
 export {
   canCoachSeeProgress,
+  isCoachLinked,
   progressRepertoireIds,
   type CoachProgressFacts,
 } from './coach-progress';

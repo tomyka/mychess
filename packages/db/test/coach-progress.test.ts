@@ -88,7 +88,7 @@ beforeEach(async () => {
   );
 });
 
-/** `playerId` learned every own move of `repertoireId` a week ago; all due now. */
+/** `playerId` learned every player move of `repertoireId` a week ago; all due now. */
 async function learnAll(
   playerId: string,
   repertoireId: string,
@@ -307,7 +307,7 @@ describe('coachGroupProgress (R-153)', () => {
     ]);
   });
 
-  it('has an empty cell where a member has no assignment of the column', async () => {
+  it('gives a member who joins after the group assignments a cell for each (inherited, Q31)', async () => {
     await seedAssignment(db, {
       coachId: 'c',
       repertoireId: karoKan,
@@ -317,11 +317,30 @@ describe('coachGroupProgress (R-153)', () => {
     await seedPlayer(db, 'r', 'r@example.lt');
     await seedLink(db, 'c', 'r');
     await seedMember(db, 'c', group, 'r');
-    const grid = await coachGroupProgress(db, 'c', group, NOW);
-    expect(grid?.columns.map((c) => c.id).sort()).toEqual(
+    const grid = present(await coachGroupProgress(db, 'c', group, NOW));
+    expect(grid.columns.map((c) => c.id).sort()).toEqual(
       [groupRep, karoKan].sort(),
     );
-    expect(grid?.rows.map((r) => r.cells.length)).toEqual([2, 2, 2]);
+    const joined = present(grid.rows.find((row) => row.player.id === 'r'));
+    const notStarted = await Promise.all(
+      grid.columns.map(
+        async (c) => playerKeys(await graphRows(db, c.id, 'white')).length,
+      ),
+    );
+    expect(joined.cells).toEqual(
+      notStarted.map((n) => ({
+        badges: {
+          overdue: false,
+          paused: false,
+          forked: false,
+          updated: false,
+        },
+        standing: {
+          counts: { notStarted: n, skipped: 0, due: 0, learned: 0 },
+          mastered: false,
+        },
+      })),
+    );
   });
 
   it('has no row for a player once unlinked', async () => {

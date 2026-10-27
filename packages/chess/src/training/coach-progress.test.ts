@@ -13,6 +13,7 @@ import {
   percentLearned,
   progressOf,
   repertoireStanding,
+  totalMoves,
   type MoveState,
   type TrackedReview,
 } from './coach-progress';
@@ -41,16 +42,16 @@ const learned = (key: string): TrackedReview => {
       ...review,
       fsrs: { ...review.fsrs, due: new Date(NOW.getTime() + DAY_MS) },
     },
-    skipped: false,
+    knownWithoutLearning: false,
   };
 };
 const dueNow = (key: string): TrackedReview => ({
   review: startReview(key, new Date(NOW.getTime() - 2 * DAY_MS)),
-  skipped: false,
+  knownWithoutLearning: false,
 });
 const skippedNotDue = (key: string): TrackedReview => ({
   review: startReview(key, NOW),
-  skipped: true,
+  knownWithoutLearning: true,
 });
 
 describe('moveState (R-151)', () => {
@@ -60,7 +61,9 @@ describe('moveState (R-151)', () => {
 
   it('is due once the Review is due, skipped or not', () => {
     expect(moveState(dueNow('k'), NOW)).toBe('due');
-    expect(moveState({ ...dueNow('k'), skipped: true }, NOW)).toBe('due');
+    expect(moveState({ ...dueNow('k'), knownWithoutLearning: true }, NOW)).toBe(
+      'due',
+    );
   });
 
   it('is skipped for "I know this" never graded since', () => {
@@ -69,9 +72,9 @@ describe('moveState (R-151)', () => {
 
   it('is learned for a skipped move graded since', () => {
     const graded = grade(startReview('k', WEEK_AGO), 'pass', DAY_AGO);
-    expect(moveState({ review: graded, skipped: true }, DAY_AGO)).toBe(
-      'learned',
-    );
+    expect(
+      moveState({ review: graded, knownWithoutLearning: true }, DAY_AGO),
+    ).toBe('learned');
   });
 
   it('is learned for a learn pass not yet due', () => {
@@ -80,7 +83,7 @@ describe('moveState (R-151)', () => {
 });
 
 describe('repertoireStanding', () => {
-  it('counts every own move once, in one state', () => {
+  it('counts every player move once, in one state', () => {
     const [first, second] = KEYS;
     if (first === undefined || second === undefined) throw new Error('fixture');
     const reviews = new Map([
@@ -93,7 +96,7 @@ describe('repertoireStanding', () => {
     });
   });
 
-  it('is mastered when every own move is recalled at 90% or more (R-56)', () => {
+  it('is mastered when every player move is recalled at 90% or more (R-56)', () => {
     const reviews = new Map(KEYS.map((key) => [key, skippedNotDue(key)]));
     expect(repertoireStanding(GRAPH, reviews, NOW).mastered).toBe(true);
   });
@@ -110,7 +113,7 @@ describe('repertoireStanding', () => {
 });
 
 describe('progressOf (R-152)', () => {
-  it('drills down to each chapter and its lines with own moves', () => {
+  it('drills down to each chapter and its lines with player moves', () => {
     const progress = progressOf(GRAPH, new Map(), NOW);
     expect(progress.chapters).toHaveLength(GRAPH.chapters.length);
     const lines = progress.chapters.flatMap((chapter) => chapter.lines);
@@ -121,7 +124,7 @@ describe('progressOf (R-152)', () => {
     expect(lines.every((line) => line.counts.notStarted > 0)).toBe(true);
   });
 
-  it('leaves out lines that hold no own move', () => {
+  it('leaves out lines that hold no player move', () => {
     const imported = importPgn('1. e4 (1. d4) 1... e5 *', 'black');
     if (!imported.ok) throw new Error(imported.refusal.reason);
     const progress = progressOf(imported.value.graph, new Map(), NOW);
@@ -146,7 +149,7 @@ describe('progressOf (R-152)', () => {
     expect(chapter?.lines.map((line) => line.sans)).toEqual([['c5']]);
   });
 
-  it('puts every own move of the repertoire in exactly one state', () => {
+  it('puts every player move of the repertoire in exactly one state', () => {
     fc.assert(
       fc.property(fc.subarray(KEYS), fc.subarray(KEYS), (dues, skips) => {
         const reviews = new Map<string, TrackedReview>([
@@ -164,7 +167,7 @@ describe('progressOf (R-152)', () => {
 });
 
 // A Black repertoire whose two chapters diverge on White's first move, so
-// they share no own move (a White one could not: one answer per position).
+// they share no player move (a White one could not: one answer per position).
 const DISJOINT = graphOf(
   '[Event "Sicilian"]\n\n1. e4 c5 2. Nf3 d6 3. d4 cxd4 *\n\n' +
     '[Event "Queen\'s Gambit"]\n\n1. d4 d5 2. c4 e6 *',
@@ -205,7 +208,7 @@ const statesOf = (
 describe('progressOf properties', () => {
   const keys = playerKeys(DISJOINT);
 
-  it('has two chapters sharing no own move', () => {
+  it('has two chapters sharing no player move', () => {
     const [a, b] = DISJOINT.chapters.map((c) => chapterKeys(DISJOINT, c.id));
     expect([a?.length, b?.length]).toEqual([3, 2]);
     expect(a?.filter((k) => b?.includes(k))).toEqual([]);
@@ -229,7 +232,7 @@ describe('progressOf properties', () => {
     );
   });
 
-  it('sums chapter counts to the repertoire counts when no own move is shared', () => {
+  it('sums chapter counts to the repertoire counts when no player move is shared', () => {
     fc.assert(
       fc.property(reviewsOver(keys), (reviews) => {
         const progress = progressOf(DISJOINT, reviews, NOW);
@@ -270,6 +273,20 @@ describe('a move shared by two chapters', () => {
   });
 });
 
+describe('totalMoves', () => {
+  it('adds up the moves in every state', () => {
+    expect(totalMoves({ notStarted: 2, skipped: 3, due: 5, learned: 7 })).toBe(
+      17,
+    );
+  });
+
+  it('is zero with no player moves', () => {
+    expect(totalMoves({ notStarted: 0, skipped: 0, due: 0, learned: 0 })).toBe(
+      0,
+    );
+  });
+});
+
 describe('percentLearned', () => {
   it('counts every move with a Review, rounded', () => {
     expect(
@@ -277,7 +294,7 @@ describe('percentLearned', () => {
     ).toBe(67);
   });
 
-  it('is null with no own moves', () => {
+  it('is null with no player moves', () => {
     expect(
       percentLearned({ notStarted: 0, skipped: 0, due: 0, learned: 0 }),
     ).toBeNull();

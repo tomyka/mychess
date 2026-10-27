@@ -45,7 +45,7 @@ describe('trackedReviews', () => {
     await seedPlayer(db, 'p2', 'p2@example.lt');
   });
 
-  it('reads the asked keys of every asked player, marking skipped ones', async () => {
+  it('reads the asked keys of every asked player, marking those entered by "I know this"', async () => {
     const learned = startReview('a', NOW);
     await writeReview(db, 'p1', learned, { learnedAt: NOW });
     await writeReview(db, 'p2', startReview('a', NOW), { skippedAt: NOW });
@@ -53,9 +53,9 @@ describe('trackedReviews', () => {
     const read = await trackedReviews(db, ['p1', 'p2', 'p3'], ['a']);
     expect(read.get('p1')?.get('a')).toEqual({
       review: learned,
-      skipped: false,
+      knownWithoutLearning: false,
     });
-    expect(read.get('p2')?.get('a')?.skipped).toBe(true);
+    expect(read.get('p2')?.get('a')?.knownWithoutLearning).toBe(true);
     expect(read.get('p2')?.has('b')).toBe(false);
     expect(read.get('p3')?.size).toBe(0);
     expect([...read.keys()]).toEqual(['p1', 'p2', 'p3']);

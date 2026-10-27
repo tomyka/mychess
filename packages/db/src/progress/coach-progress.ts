@@ -2,7 +2,7 @@
  * What a coach reads of their players' progress (R-151 to R-155). Every
  * read is one repeatable-read snapshot, so each takes the pool (`Db`), never
  * a caller's transaction. The facts are read first, inside that snapshot,
- * and the domain decides (canCoachSee, canCoachSeeProgress). The
+ * and the domain decides (isCoachLinked, canCoachSeeProgress). The
  * repertoires are then loaded through the same scopes again: the coach's
  * own for an assignment, the share for a shared one (Q26). Statements:
  * fixed in the number of players, plus 4 per repertoire shown (its row and
@@ -15,8 +15,8 @@ import {
   type TrackedReview,
 } from '@mychess/chess';
 import {
-  canCoachSee,
   canCoachSeeProgress,
+  isCoachLinked,
   ownScope,
   sharedScope,
   type AccountRef,
@@ -74,13 +74,12 @@ async function linkedViewer(
   const facts = (await coachProgressFacts(tx, coachId, [playerId])).get(
     playerId,
   );
-  return facts !== undefined &&
-    canCoachSee(coachId, playerId, { kind: 'profile' }, facts).ok
+  return facts !== undefined && isCoachLinked(coachId, playerId, facts)
     ? { coachId, playerId, facts }
     : undefined;
 }
 
-/** The Reviews of one player on the own moves of `shown`. */
+/** The Reviews of one player on the player moves of `shown`. */
 async function trackedOf(
   tx: Executor,
   playerId: string,
@@ -333,7 +332,7 @@ function memberRow(
 }
 
 /**
- * The members canCoachSee lets this coach see at all: only their Reviews
+ * The members this coach is linked to (isCoachLinked): only their Reviews
  * are read (trackedReviews itself is ungated).
  */
 const linkedIds = (
@@ -341,9 +340,7 @@ const linkedIds = (
   facts: ReadonlyMap<string, CoachProgressFacts>,
 ): string[] =>
   [...facts]
-    .filter(
-      ([id, one]) => canCoachSee(coachId, id, { kind: 'profile' }, one).ok,
-    )
+    .filter(([id, one]) => isCoachLinked(coachId, id, one))
     .map(([id]) => id);
 
 /**

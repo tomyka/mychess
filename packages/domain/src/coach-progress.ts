@@ -34,9 +34,19 @@ const assignmentsOf = (
 const linkedTo = (
   coachId: string,
   playerId: string,
-  facts: CoachProgressFacts,
+  facts: CoachAccessFacts,
 ): Result<undefined, AccessRefusal> =>
   canCoachSee(coachId, playerId, { kind: 'profile' }, facts);
+
+/**
+ * Whether `coachId` has an active link to `playerId` (never to oneself):
+ * the gate before any of the player's progress is read.
+ */
+export const isCoachLinked = (
+  coachId: string,
+  playerId: string,
+  facts: CoachAccessFacts,
+): boolean => linkedTo(coachId, playerId, facts).ok;
 
 /** An assignment of this repertoire: live (canUseAssignment), forked or none. */
 function assignedAccess(
@@ -75,7 +85,7 @@ export function progressRepertoireIds(
   playerId: string,
   facts: CoachProgressFacts,
 ): ReadonlySet<string> {
-  if (!linkedTo(coachId, playerId, facts).ok) return new Set();
+  if (!isCoachLinked(coachId, playerId, facts)) return new Set();
   const live = assignmentsOf(coachId, playerId, facts)
     .filter((a) => canUseAssignment(a).ok)
     .map((a) => a.repertoireId);

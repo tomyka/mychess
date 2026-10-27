@@ -134,6 +134,7 @@ export {
   startReviewSession,
   startState,
   toLearnCount,
+  totalMoves,
   trainingCounts,
   trainingProgress,
   twoAnswers,

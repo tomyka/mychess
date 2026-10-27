@@ -236,7 +236,7 @@ export async function trackedReviews(
   for (const row of rows)
     out.get(row.playerId)?.set(row.moveKey, {
       review: toReviewState(row),
-      skipped: row.skippedAt !== null,
+      knownWithoutLearning: row.skippedAt !== null,
     });
   return out;
 }

@@ -1,7 +1,7 @@
 /**
  * What the coach progress reads show, built from what they loaded: the
  * repertoires a coach may see progress on (each with its graph), their
- * own-move keys, the S5 badges of an assignment, and the standing only
+ * player-move keys, the S5 badges of an assignment, and the standing only
  * where canCoachSeeProgress allows it (R-155: none for a forked
  * assignment). Internal to the package.
  */
@@ -75,7 +75,7 @@ export async function loadAllVisible(
   return out.sort(byName);
 }
 
-/** Every own-move key of the graphs, each once. */
+/** Every player-move key of the graphs, each once. */
 export const keysOf = (graphs: readonly RepertoireGraph[]): string[] => [
   ...new Set(graphs.flatMap((graph) => playerKeys(graph))),
 ];
