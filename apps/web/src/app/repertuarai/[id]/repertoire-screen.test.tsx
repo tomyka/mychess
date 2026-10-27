@@ -471,9 +471,13 @@ describe('RepertoireScreen: builder mode', () => {
     ground.set.mockClear();
     boardMove('e2', 'e4');
     expect(await screen.findByText(lt.repertoire.secondAnswer)).toBeDefined();
-    expect(ground.set.mock.calls.map(([config]) => config.fen)).toContain(
-      fenOf(START_KEY),
-    );
+    // The snap-back is the board's passive effect on the reset revision: it
+    // runs after the commit that shows the refusal, so it is waited for.
+    await waitFor(() => {
+      expect(ground.set.mock.calls.map(([config]) => config.fen)).toContain(
+        fenOf(START_KEY),
+      );
+    });
     expect(current()).toBeUndefined();
   });
 
