@@ -88,7 +88,7 @@ Laptop (1440x900) for preparation journeys, phone (390x844) for dashboard and me
 | C-M1-2 | Share the group invite link with the three players; each accepts | Each player appears in the group only after accepting; until then he sees nothing of theirs (Q2, Q34) |
 | C-M1-3 | Import "Karo-Kan gynyba: pagrindai" from PGN and assign it to the group | All three members receive it; a fourth account that joins later also receives it, with its deadline = later of the group date and the join date (Q31) |
 | C-M1-4 | Build "Itališkoji partija" with the board builder, add Lithuanian per-move notes, assign it individually to Rokas | Assignment appears for Rokas only; notes show in Lithuanian during Rokas's review |
-| C-M1-5 | Open the basic progress view for the group | Per player and per line: learned / in review / due / not started; Rokas's private London repertoire is not listed (Q26) |
+| C-M1-5 | Open the basic progress view for the group | Per player and per line: learned / due / skipped ("I know this") / not started, with Mastered (R-151, R-152); Rokas's private London repertoire is not listed (Q26) |
 | C-M1-6 | Remove Rokas from the group (then re-add) | Group assignment disappears from Rokas's list but his individual assignments stay; re-adding restores it with progress intact (Q31) |
 
 ### M2 Coaching
