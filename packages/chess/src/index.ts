@@ -43,6 +43,11 @@ export {
   type RepertoireChange,
 } from './repertoire/apply-change';
 export { normalizeComment } from './repertoire/comment';
+export {
+  chapterDistinctions,
+  type ChapterDistinction,
+  type DistinctMove,
+} from './repertoire/distinctions';
 export { lineText, moveNumber } from './repertoire/notation';
 export {
   mergeInto,
