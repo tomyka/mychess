@@ -32,7 +32,7 @@ import {
 } from '@mychess/domain';
 import { and, asc, desc, eq, gt, inArray, lte } from 'drizzle-orm';
 import { z } from 'zod';
-import type { Executor } from '../client';
+import { REPEATABLE_READ, type Executor } from '../client';
 import { isUuid } from '../ids';
 import { repertoireChanges } from '../assignment-schema';
 import {
@@ -42,10 +42,9 @@ import {
 import { repertoireScope } from '../repertoires/scope';
 import { personalNotes, repertoires } from '../schema';
 import { learnedKeys } from '../training/reviews';
+import { byName } from '../sort';
 import { namesOf } from './names';
 import { assignmentFacts } from './reach';
-
-const SNAPSHOT = { isolationLevel: 'repeatable read' } as const;
 
 /**
  * The player's assignments canUseAssignment lets them use (assigned now,
@@ -264,8 +263,8 @@ export function playerAssignments(
           now,
         ),
       )
-      .sort((a, b) => a.name.localeCompare(b.name, 'lt'));
-  }, SNAPSHOT);
+      .sort(byName((one) => ({ name: one.name, id: one.repertoireId })));
+  }, REPEATABLE_READ);
 }
 
 /** An assigned repertoire as its player opens it (R-21, R-102). */
@@ -361,7 +360,7 @@ export function assignedRepertoireForPlayer(
       deadline,
       overdue,
     };
-  }, SNAPSHOT);
+  }, REPEATABLE_READ);
 }
 
 /** What changed since the player last saw a repertoire (R-133). */
@@ -426,7 +425,7 @@ export function changesSince(
     );
     const news = newsOf(seenFacts(assignment), rows);
     return { changes: netMoveChanges(news.map((row) => row.changes)) };
-  }, SNAPSHOT);
+  }, REPEATABLE_READ);
 }
 
 const ownRowsSchema = z.array(z.object({ id: z.uuid() }));
@@ -459,7 +458,7 @@ async function ownLoaded(
  * repertoires oldest first, and those they have live by assignment
  * (usableAssignments: a forked one is absent, R-128). Exported for
  * training/entries.ts only, not from the package index; run it inside the
- * caller's SNAPSHOT transaction.
+ * caller's REPEATABLE_READ transaction.
  */
 export async function trainingSources(
   tx: Executor,
@@ -500,5 +499,5 @@ export function trainingRepertoires(
         active: isTrainingActive(assignment.pausedAt),
       })),
     ];
-  }, SNAPSHOT);
+  }, REPEATABLE_READ);
 }

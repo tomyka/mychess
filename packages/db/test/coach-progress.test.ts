@@ -228,6 +228,7 @@ describe('coachRepertoireProgress', () => {
     );
     expect(view?.player).toEqual({ id: 'p', displayName: 'Name p' });
     expect(view?.repertoire.id).toBe(karoKan);
+    expect(view?.graph).toEqual(await graphRows(db, karoKan, 'white'));
     expect(view?.badges?.forked).toBe(false);
     expect(view?.progress.counts.due).toBe(own);
     expect(view?.progress.chapters.length).toBeGreaterThan(0);

@@ -1,13 +1,12 @@
 /**
  * What the coach progress reads show, built from what they loaded: the
  * repertoires a coach may see progress on (each with its graph), their
- * player-move keys, the S5 badges of an assignment, and one mapping
- * of each entry the domain decided (entryRead): the scope it loads
- * through, its badges, and its standing only where granted (R-155: none
- * for a forked assignment). Internal to the package.
+ * player-move keys, and one mapping of each entry the domain decided
+ * (entryRead): the scope it loads through, its S5 badges (coachBadges,
+ * shared with coachAssignments), and its standing only where granted
+ * (R-155: none for a forked assignment). Internal to the package.
  */
 import {
-  allLearned,
   playerKeys,
   repertoireStanding,
   type RepertoireGraph,
@@ -16,19 +15,19 @@ import {
   type TrackedReview,
 } from '@mychess/chess';
 import {
-  coachAssignmentBadges,
   ownScope,
   sharedScope,
-  type AssignmentFacts,
   type BadgeSet,
   type CoachProgressFacts,
   type ProgressRepertoire,
   type ProgressSource,
   type RepertoireScope,
 } from '@mychess/domain';
+import { coachBadges } from '../assignments/badges';
 import type { Executor } from '../client';
 import { loadRepertoireRows } from '../repertoires/repository';
 import { repertoireScope } from '../repertoires/scope';
+import { byName } from '../sort';
 
 export interface RepertoireRef {
   readonly id: string;
@@ -60,10 +59,8 @@ export async function loadVisible(
   return { repertoire: { id, name, side }, graph: loaded.graph };
 }
 
-/** By name in Lithuanian order, then id. */
-export const byName = (a: LoadedGraph, b: LoadedGraph): number =>
-  a.repertoire.name.localeCompare(b.repertoire.name, 'lt') ||
-  a.repertoire.id.localeCompare(b.repertoire.id);
+/** By repertoire name in Lithuanian order, then id. */
+export const byRepertoireName = byName((one: LoadedGraph) => one.repertoire);
 
 /** Each of `ids` that `scope` reaches for viewing, by name: 4 statements each. */
 export async function loadAllVisible(
@@ -76,25 +73,13 @@ export async function loadAllVisible(
     const loaded = await loadVisible(tx, scope, id);
     if (loaded !== undefined) out.push(loaded);
   }
-  return out.sort(byName);
+  return out.sort(byRepertoireName);
 }
 
 /** Every player-move key of the graphs, each once. */
 export const keysOf = (graphs: readonly RepertoireGraph[]): string[] => [
   ...new Set(graphs.flatMap((graph) => playerKeys(graph))),
 ];
-
-/** An assignment's badges as the coach sees them; done when all are learned. */
-const coachBadges = (
-  facts: AssignmentFacts,
-  graph: RepertoireGraph,
-  tracked: ReadonlyMap<string, TrackedReview>,
-  now: Date,
-): BadgeSet =>
-  coachAssignmentBadges(facts, {
-    done: allLearned(graph, new Set(tracked.keys())),
-    now,
-  });
 
 /** Whose progress, seen by which coach, on what facts. */
 export interface ProgressViewer {

@@ -22,7 +22,7 @@ import {
 } from '@mychess/domain';
 import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
-import type { Executor } from '../client';
+import { REPEATABLE_READ, type Executor } from '../client';
 import { trainingRepertoires } from '../assignments/player';
 import { reviews } from '../training-schema';
 import {
@@ -71,21 +71,18 @@ export function knowCounts(
   playerId: string,
   scope: KnowScope,
 ): Promise<Result<KnowCounts, TrainingRefusal>> {
-  return db.transaction(
-    async (tx) => {
-      const resolved = canMarkKnown(
-        await trainingRepertoires(tx, playerId),
-        scope,
-      );
-      if (!resolved.ok) return resolved;
-      const stored = await reviewsOf(tx, playerId);
-      return ok({
-        know: knowThis(resolved.value.scope, stored, COUNT_ONLY).length,
-        again: againKeys(resolved.value.scope, stored).length,
-      });
-    },
-    { isolationLevel: 'repeatable read' },
-  );
+  return db.transaction(async (tx) => {
+    const resolved = canMarkKnown(
+      await trainingRepertoires(tx, playerId),
+      scope,
+    );
+    if (!resolved.ok) return resolved;
+    const stored = await reviewsOf(tx, playerId);
+    return ok({
+      know: knowThis(resolved.value.scope, stored, COUNT_ONLY).length,
+      again: againKeys(resolved.value.scope, stored).length,
+    });
+  }, REPEATABLE_READ);
 }
 
 const keyRowsSchema = z.array(z.object({ moveKey: z.string() }));

@@ -203,9 +203,8 @@ async function loggedIds(
 async function trainedBy(
   tx: Tx,
   playerId: string,
-  now: Date,
 ): Promise<Map<string, Trained>> {
-  const entries = await trainingEntries(tx, playerId, now);
+  const entries = await trainingEntries(tx, playerId);
   return new Map(
     entries.map(({ repertoire }) => [
       repertoire.id,
@@ -240,7 +239,7 @@ export function recordResults(
       tx,
       playerId,
       now,
-      trained: await trainedBy(tx, playerId, now),
+      trained: await trainedBy(tx, playerId),
       reviews: await lockReviews(
         tx,
         playerId,

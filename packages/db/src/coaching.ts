@@ -13,7 +13,7 @@ import type { PgColumn } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 import { lockAccountById } from './accounts';
 import { changeAssignments } from './assignments/change';
-import type { Db, Executor } from './client';
+import { REPEATABLE_READ, type Db, type Executor } from './client';
 import { isLinked, linkCount } from './coach-queries';
 import { revokeOpenInvites } from './invites';
 import { accounts, coachLinks, groupMembers, groups } from './schema';
@@ -260,6 +260,6 @@ export function sharedRepertoireSnapshot(
       player: await coachPlayer(tx, coachId, playerId),
       shared: await loadShared(tx, coachId, playerId, repertoireId),
     }),
-    { isolationLevel: 'repeatable read' },
+    REPEATABLE_READ,
   );
 }

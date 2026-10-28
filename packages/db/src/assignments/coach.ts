@@ -1,20 +1,19 @@
 /**
  * What a coach reads of their own assignments of one repertoire (R-46,
  * R-51, R-128, R-131). The domain decides access (canViewRepertoire: the
- * coach's own repertoire), the deadline (assignmentStatusOf), the badges
- * (coachAssignmentBadges) and who has it live (canUseAssignment); every
- * statement filters again on
- * `assignments.coach_id`, and the rows on the repertoire's owner, which
- * assignments_repertoire_fk already guarantees is the coach. A player
+ * coach's own repertoire), the deadline (assignmentDeadline), the badges
+ * (coachAssignmentBadges, through coachBadges, shared with the progress
+ * reads) and who has it live (canUseAssignment); every statement filters
+ * again on `assignments.coach_id`, and the rows on the repertoire's owner,
+ * which assignments_repertoire_fk already guarantees is the coach. A player
  * is listed only while they are linked to the coach (the link check in
  * reach.ts). A fixed number of statements, whatever the number of players.
  */
-import { allLearned, playerKeys, type RepertoireGraph } from '@mychess/chess';
+import { playerKeys, type RepertoireGraph } from '@mychess/chess';
 import {
   ownScope,
-  assignmentStatusOf,
+  assignmentDeadline,
   canUseAssignment,
-  coachAssignmentBadges,
   canViewRepertoire,
   type AssignmentFacts,
   type BadgeSet,
@@ -22,16 +21,16 @@ import {
 import { and, asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { assignments } from '../assignment-schema';
-import type { Executor } from '../client';
+import { REPEATABLE_READ, type Executor } from '../client';
 import { isUuid } from '../ids';
 import { loadRepertoireRows } from '../repertoires/repository';
 import { repertoireScope } from '../repertoires/scope';
 import { accounts, groups, repertoires } from '../schema';
-import { learnedKeys } from '../training/reviews';
+import { byName } from '../sort';
+import { trackedReviews } from '../training/reviews';
+import { coachBadges } from './badges';
 import { namesOf } from './names';
 import { assignmentFacts } from './reach';
-
-const SNAPSHOT = { isolationLevel: 'repeatable read' } as const;
 
 /** One player an assignment reaches, as the coach sees them. */
 export interface CoachAssignmentPlayer {
@@ -112,9 +111,9 @@ interface Listed {
 }
 
 /**
- * Each reached player's name and badges at `now` (assignmentStatusOf), done
- * when they learned every player move of `graph` (R-129). One read of the
- * learned sets for every player, of the repertoire's player moves only.
+ * Each reached player's name, deadline and badges at `now` (coachBadges:
+ * done when they learned every player move of `graph`, R-129). One read of
+ * the Reviews of every player, of the repertoire's player moves only.
  */
 async function listedOf(
   db: Executor,
@@ -123,20 +122,24 @@ async function listedOf(
 ): Promise<Listed[]> {
   const playerIds = facts.map((one) => one.playerId);
   const names = await namesOf(db, playerIds);
-  const learned = await learnedKeys(db, playerIds, playerKeys(graph));
+  const tracked = await trackedReviews(db, playerIds, playerKeys(graph));
   return facts.map((one) => {
     // The reached player's account cascades away with their link.
     const displayName = names.get(one.playerId);
     if (displayName === undefined)
       throw new Error('coachAssignments: the player is gone');
-    const done = allLearned(graph, learned.get(one.playerId) ?? new Set());
     return {
       facts: one,
       player: {
         playerId: one.playerId,
         displayName,
-        deadline: assignmentStatusOf(one, { done, now }).deadline,
-        badges: coachAssignmentBadges(one, { done, now }),
+        deadline: assignmentDeadline(one),
+        badges: coachBadges(
+          one,
+          graph,
+          tracked.get(one.playerId) ?? new Map(),
+          now,
+        ),
       },
     };
   });
@@ -152,7 +155,7 @@ const reachedBy = (
       facts.reaches.some((reach) => reach.assignmentId === assignmentId),
     )
     .map(({ player }) => player)
-    .toSorted(byName);
+    .toSorted(byPlayerName);
 
 function targetOf(row: Row): CoachAssignment['target'] {
   return row.groupId === null
@@ -160,8 +163,11 @@ function targetOf(row: Row): CoachAssignment['target'] {
     : { kind: 'group', id: row.groupId, name: row.groupName ?? '' };
 }
 
-const byName = (a: CoachAssignmentPlayer, b: CoachAssignmentPlayer): number =>
-  a.displayName.localeCompare(b.displayName, 'lt');
+/** Players by name in Lithuanian order, then id. */
+const byPlayerName = byName((one: CoachAssignmentPlayer) => ({
+  name: one.displayName,
+  id: one.playerId,
+}));
 
 /**
  * The coach's assignments of their own repertoire `repertoireId`, oldest
@@ -197,7 +203,7 @@ export function coachAssignments(
       deadline: row.deadline,
       players: reachedBy(listed, row.id),
     }));
-  }, SNAPSHOT);
+  }, REPEATABLE_READ);
 }
 
 /**
@@ -215,5 +221,5 @@ export async function assignedPlayerCount(
   return db.transaction(async (tx) => {
     const facts = await assignmentFacts(tx, { coachId, repertoireId });
     return facts.filter((one) => canUseAssignment(one).ok).length;
-  }, SNAPSHOT);
+  }, REPEATABLE_READ);
 }

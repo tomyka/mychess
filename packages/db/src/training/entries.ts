@@ -5,15 +5,13 @@
  */
 import type { Side, TrainingRepertoire } from '@mychess/chess';
 import {
-  assignmentStatusOf,
+  assignmentDeadline,
   isTrainingActive,
   learnOrder,
   type TrainingEntry,
 } from '@mychess/domain';
-import type { Executor } from '../client';
+import { REPEATABLE_READ, type Executor } from '../client';
 import { trainingSources } from '../assignments/player';
-
-const SNAPSHOT = { isolationLevel: 'repeatable read' } as const;
 
 /** One repertoire the player trains, as home and the training page list it. */
 export interface TrainingRepertoireEntry extends TrainingEntry {
@@ -25,12 +23,11 @@ export interface TrainingRepertoireEntry extends TrainingEntry {
 /**
  * trainingRepertoires with names, kind and deadline, in learnOrder (R-145):
  * deadline assignments earliest first, other assignments, own repertoires.
- * An assignment's deadline is its effective deadline at `now`, as in S5.
+ * An assignment's deadline is assignmentDeadline, as in S5.
  */
 export function trainingEntries(
   db: Executor,
   playerId: string,
-  now: Date,
 ): Promise<TrainingRepertoireEntry[]> {
   return db.transaction(async (tx) => {
     const { own, assigned } = await trainingSources(tx, playerId);
@@ -47,7 +44,7 @@ export function trainingEntries(
     const assignedEntries = assigned.map(
       ({ assignment, loaded }, index): TrainingRepertoireEntry => ({
         kind: 'assigned',
-        deadline: assignmentStatusOf(assignment, { done: false, now }).deadline,
+        deadline: assignmentDeadline(assignment),
         position: own.length + index,
         repertoire: {
           id: assignment.repertoireId,
@@ -59,5 +56,5 @@ export function trainingEntries(
       }),
     );
     return learnOrder([...ownEntries, ...assignedEntries]);
-  }, SNAPSHOT);
+  }, REPEATABLE_READ);
 }

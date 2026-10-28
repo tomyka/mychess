@@ -11,13 +11,11 @@ import {
   type Side,
 } from '@mychess/chess';
 import { dayEnd, dayStart, type TrainingSettings } from '@mychess/domain';
-import type { Executor } from '../client';
+import { REPEATABLE_READ, type Executor } from '../client';
 import { isUuid } from '../ids';
 import { trainingEntries, type TrainingRepertoireEntry } from './entries';
 import { learnedBetween, reviewsOf, type StoredReview } from './reviews';
 import { trainingSettings } from './settings';
-
-const SNAPSHOT = { isolationLevel: 'repeatable read' } as const;
 
 /** Every repertoire the player trains, or one of them. */
 export type TrainingScope =
@@ -106,7 +104,7 @@ export async function trainingSnapshot(
     return undefined;
   }
   return db.transaction(async (tx) => {
-    const all = await trainingEntries(tx, playerId, now);
+    const all = await trainingEntries(tx, playerId);
     const entries = scoped(all, scope);
     if (entries === undefined) return undefined;
     const reviews = heldReviews(
@@ -126,5 +124,5 @@ export async function trainingSnapshot(
       ),
       settings: await trainingSettings(tx, playerId),
     };
-  }, SNAPSHOT);
+  }, REPEATABLE_READ);
 }

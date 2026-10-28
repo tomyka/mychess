@@ -19,7 +19,7 @@ import {
 } from '@mychess/domain';
 import { and, asc, eq, notInArray } from 'drizzle-orm';
 import { z } from 'zod';
-import type { Executor, Tx } from './client';
+import { REPEATABLE_READ, type Executor, type Tx } from './client';
 import { holdLink } from './coach-queries';
 import { coachOwnNotes, type CoachNote } from './coach-notes';
 import { isUuid } from './ids';
@@ -243,7 +243,7 @@ export function sharedRepertoireForCoach(
 ): Promise<SharedRepertoire | undefined> {
   return db.transaction(
     (tx) => loadShared(tx, coachId, playerId, repertoireId),
-    { isolationLevel: 'repeatable read' },
+    REPEATABLE_READ,
   );
 }
 

@@ -7,10 +7,10 @@
  * groupGrid).
  */
 import type { AccountRef } from '@mychess/domain';
-import type { Db, Executor } from '../client';
+import { REPEATABLE_READ, type Db, type Executor } from '../client';
 import { coachPlayers, type LinkedAccount } from '../coaching';
 import { coachGroup, type CoachGroup } from '../groups';
-import { groupGrid, SNAPSHOT, type GroupProgress } from './coach-progress';
+import { groupGrid, type GroupProgress } from './coach-progress';
 import { coachProgressFacts, lastTrained } from './facts';
 
 /** The coach's linked players not in `group`, by display name. */
@@ -54,7 +54,7 @@ export function coachGroupPage(
       addable: await addableTo(tx, coachId, group),
       grid: await groupGrid(tx, coachId, group, now),
     };
-  }, SNAPSHOT);
+  }, REPEATABLE_READ);
 }
 
 /** A player on the coach's home, with when they last trained (R-154). */
@@ -84,5 +84,5 @@ export function coachHomePlayers(
       ...player,
       lastTrained: last.get(player.id) ?? null,
     }));
-  }, SNAPSHOT);
+  }, REPEATABLE_READ);
 }

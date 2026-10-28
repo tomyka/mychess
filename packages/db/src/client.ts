@@ -11,6 +11,12 @@ export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 /** What every repository function runs on: the database, or a transaction. */
 export type Executor = Db | Tx;
 
+/**
+ * The transaction option of a read that must see one snapshot across its
+ * statements, or of a write whose checks must not race its statements.
+ */
+export const REPEATABLE_READ = { isolationLevel: 'repeatable read' } as const;
+
 export interface DbHandle {
   readonly db: Db;
   // A property of function type, not a method shorthand: the implementation

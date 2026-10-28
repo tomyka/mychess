@@ -199,7 +199,7 @@ describe('trainingEntries (R-145)', () => {
     const due = await repertoireOf('c', 'Su terminu');
     await assignToP(open, null);
     await assignToP(due, '2026-11-01');
-    expect(await trainingEntries(db, 'p', NOW)).toMatchObject([
+    expect(await trainingEntries(db, 'p')).toMatchObject([
       {
         kind: 'assigned',
         deadline: '2026-11-01',
@@ -228,7 +228,7 @@ describe('trainingEntries (R-145)', () => {
     const newer = await repertoireOf('p', 'Naujas', LATER);
     const assigned = await repertoireOf('c', 'Trenerio');
     await assignToP(assigned, null);
-    const entries = await trainingEntries(db, 'p', NOW);
+    const entries = await trainingEntries(db, 'p');
     expect(entries.map((e) => [e.repertoire.id, e.kind, e.position])).toEqual([
       [assigned, 'assigned', 2],
       [older, 'own', 0],
@@ -246,7 +246,7 @@ describe('trainingEntries (R-145)', () => {
       NOW,
     );
     expect(done.ok).toBe(true);
-    expect(await trainingEntries(db, 'p', NOW)).toMatchObject([
+    expect(await trainingEntries(db, 'p')).toMatchObject([
       { kind: 'assigned', repertoire: { id: paused, active: false } },
     ]);
   });
@@ -257,12 +257,12 @@ describe('trainingEntries (R-145)', () => {
     await db
       .insert(assignmentPlayers)
       .values({ playerId: 'p', repertoireId: forked, forkedAt: NOW });
-    expect(await trainingEntries(db, 'p', NOW)).toEqual([]);
+    expect(await trainingEntries(db, 'p')).toEqual([]);
   });
 
   it("leaves out another player's repertoires", async () => {
     await seedPlayer(db, 'q', 'q@example.lt');
     await repertoireOf('q', 'Kito');
-    expect(await trainingEntries(db, 'p', NOW)).toEqual([]);
+    expect(await trainingEntries(db, 'p')).toEqual([]);
   });
 });

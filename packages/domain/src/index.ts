@@ -46,6 +46,7 @@ export {
   assignmentBadges,
   coachAssignmentBadges,
   assignmentStatus,
+  assignmentDeadline,
   assignmentStatusOf,
   canAssign,
   canChangeAssignment,

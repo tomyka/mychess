@@ -4,6 +4,7 @@ import {
   ASSIGNMENT_REFUSALS,
   assignableTargets,
   assignmentBadges,
+  assignmentDeadline,
   assignmentStatus,
   assignmentStatusOf,
   canAssign,
@@ -831,6 +832,67 @@ describe('assignmentBadges (R-46, R-51, R-128, R-133)', () => {
       forked: true,
       updated: false,
     });
+  });
+});
+
+describe('assignmentDeadline (R-16, R-134)', () => {
+  const reach = (
+    assignmentId: string,
+    deadline: string | null,
+    joinedAt: Date | null,
+  ): AssignmentReach => ({
+    assignmentId,
+    deadline,
+    assignedVersion: 1,
+    joinedAt,
+  });
+  const record = (reaches: AssignmentReach[]): AssignmentFacts => ({
+    playerId: 'p',
+    repertoireId: 'r',
+    coachId: 'c',
+    reaches,
+    pausedAt: null,
+    seenVersion: null,
+    forkedAt: null,
+  });
+  const JOINED = new Date('2026-10-25T10:00:00Z');
+
+  it('is the individual deadline when assigned individually, whatever the groups say', () => {
+    expect(
+      assignmentDeadline(
+        record([
+          reach('g', '2026-10-28', JOINED),
+          reach('i', '2026-11-05', null),
+        ]),
+      ),
+    ).toBe('2026-11-05');
+    expect(
+      assignmentDeadline(
+        record([reach('g', '2026-10-28', JOINED), reach('i', null, null)]),
+      ),
+    ).toBeNull();
+  });
+
+  it('is the earliest group deadline, each moved to its join day if later', () => {
+    expect(
+      assignmentDeadline(
+        record([
+          reach('a', '2026-11-10', JOINED),
+          reach('b', '2026-10-20', JOINED),
+        ]),
+      ),
+    ).toBe('2026-10-25');
+  });
+
+  it('is null when nothing reaching the player has a deadline', () => {
+    expect(assignmentDeadline(record([reach('a', null, JOINED)]))).toBeNull();
+  });
+
+  it('is the deadline assignmentStatusOf reports', () => {
+    const facts = record([reach('a', '2026-11-10', JOINED)]);
+    expect(
+      assignmentStatusOf(facts, { done: true, now: JOINED }).deadline,
+    ).toBe(assignmentDeadline(facts));
   });
 });
 

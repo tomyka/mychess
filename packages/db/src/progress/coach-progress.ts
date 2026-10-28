@@ -13,6 +13,7 @@
  */
 import {
   progressOf,
+  type RepertoireGraph,
   type RepertoireProgress,
   type TrackedReview,
 } from '@mychess/chess';
@@ -30,14 +31,14 @@ import {
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { assignments } from '../assignment-schema';
-import type { Db, Executor } from '../client';
+import { REPEATABLE_READ, type Db, type Executor } from '../client';
 import { coachPlayer, type LinkedAccount } from '../coaching';
 import type { CoachGroup, GroupMember } from '../groups';
 import { isUuid } from '../ids';
 import { trackedReviews } from '../training/reviews';
 import { coachProgressFacts, lastTrained } from './facts';
 import {
-  byName,
+  byRepertoireName,
   entryRead,
   keysOf,
   loadAllVisible,
@@ -49,7 +50,6 @@ import {
   type RepertoireRef,
 } from './view';
 
-export const SNAPSHOT = { isolationLevel: 'repeatable read' } as const;
 const NO_REVIEWS: ReadonlyMap<string, TrackedReview> = new Map();
 
 /** One repertoire on the player page. */
@@ -153,7 +153,7 @@ function byNameWithinSource(shown: readonly Shown[]): Shown[] {
     bySource.set(one.read.source, same);
   }
   return [...bySource.values()].flatMap((same) =>
-    same.sort((a, b) => byName(a.loaded, b.loaded)),
+    same.sort((a, b) => byRepertoireName(a.loaded, b.loaded)),
   );
 }
 
@@ -207,13 +207,15 @@ export function coachPlayerProgress(
       rows: shown.map((one) => rowOf(one, tracked, now)),
       lastTrained: last.get(playerId) ?? null,
     };
-  }, SNAPSHOT);
+  }, REPEATABLE_READ);
 }
 
 /** One player's progress on one repertoire, chapters and lines included. */
 export interface RepertoireProgressView {
   readonly player: AccountRef;
   readonly repertoire: RepertoireRef;
+  /** Its graph as loaded, so the page titles its chapters without a second read. */
+  readonly graph: RepertoireGraph;
   readonly badges: BadgeSet | null;
   readonly progress: RepertoireProgress;
 }
@@ -252,10 +254,11 @@ export function coachRepertoireProgress(
     return {
       player: { id: player.id, displayName: player.displayName },
       repertoire: loaded.repertoire,
+      graph: loaded.graph,
       badges: read.badges({ graph: loaded.graph, tracked, now }),
       progress: progressOf(loaded.graph, tracked, now),
     };
-  }, SNAPSHOT);
+  }, REPEATABLE_READ);
 }
 
 /** One cell of the group grid; null where the member has no assignment. */

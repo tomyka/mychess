@@ -23,7 +23,7 @@ import {
 } from '@mychess/domain';
 import { asc, eq, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
-import type { Executor } from '../client';
+import { REPEATABLE_READ, type Executor } from '../client';
 import {
   chapters,
   moveChapters,
@@ -202,7 +202,7 @@ export async function loadRepertoire(
         tx,
         repertoireScope(tx, ownScope(ownerId), 'view', id),
       ),
-    { isolationLevel: 'repeatable read' },
+    REPEATABLE_READ,
   );
 }
 
@@ -211,25 +211,22 @@ export async function loadRepertoires(
   db: Executor,
   ownerId: string,
 ): Promise<LoadedRepertoire[]> {
-  return db.transaction(
-    async (tx) => {
-      const owned = z.array(repertoireSchema).parse(
-        await tx
-          .select(metaColumns)
-          .from(repertoires)
-          .where(repertoireScope(tx, ownScope(ownerId), 'view'))
-          .orderBy(asc(repertoires.createdAt), asc(repertoires.id)),
-      );
-      const loaded: LoadedRepertoire[] = [];
-      for (const repertoire of owned)
-        loaded.push({
-          repertoire,
-          graph: await graphRows(tx, repertoire.id, repertoire.side),
-        });
-      return loaded;
-    },
-    { isolationLevel: 'repeatable read' },
-  );
+  return db.transaction(async (tx) => {
+    const owned = z.array(repertoireSchema).parse(
+      await tx
+        .select(metaColumns)
+        .from(repertoires)
+        .where(repertoireScope(tx, ownScope(ownerId), 'view'))
+        .orderBy(asc(repertoires.createdAt), asc(repertoires.id)),
+    );
+    const loaded: LoadedRepertoire[] = [];
+    for (const repertoire of owned)
+      loaded.push({
+        repertoire,
+        graph: await graphRows(tx, repertoire.id, repertoire.side),
+      });
+    return loaded;
+  }, REPEATABLE_READ);
 }
 
 export interface RepertoireListItem {

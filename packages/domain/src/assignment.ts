@@ -387,6 +387,14 @@ export function deadlineSources(
 }
 
 /**
+ * The deadline the player has on an assignment: effectiveDeadline over every
+ * row reaching them (R-16, R-134). The one deadline rule for every read.
+ */
+export function assignmentDeadline(facts: AssignmentFacts): string | null {
+  return effectiveDeadline(deadlineSources(facts.reaches));
+}
+
+/**
  * The one status rule for the player's and the coach's reads: the
  * effective deadline (R-16, R-134) and the badges on it (R-128, R-129,
  * R-132). `done` is the caller's (every player move learned).
@@ -395,7 +403,7 @@ export function assignmentStatusOf(
   facts: AssignmentFacts,
   { done, now }: { readonly done: boolean; readonly now: Date },
 ): AssignmentStatus & { readonly deadline: string | null } {
-  const deadline = effectiveDeadline(deadlineSources(facts.reaches));
+  const deadline = assignmentDeadline(facts);
   return {
     deadline,
     ...assignmentStatus(
