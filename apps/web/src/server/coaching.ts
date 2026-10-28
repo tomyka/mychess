@@ -1,4 +1,3 @@
-import { coachAccessFacts } from '@mychess/db';
 import {
   canCoachSee,
   isCoach,
@@ -8,7 +7,6 @@ import {
 } from '@mychess/domain';
 import { notFound, redirect } from 'next/navigation';
 import { ROUTES } from '../lib/routes';
-import { getDb } from './db';
 import { requireOnboarded } from './session';
 
 /**
@@ -22,24 +20,10 @@ export async function requireCoach(): Promise<Account> {
 }
 
 /**
- * Every coach-facing read of a player starts here (checklist 1-3): the
- * facts are read on this request, the domain decides, and a refusal is a
- * plain 404 (plan decision 4). The query that follows joins coach_links
+ * The access decision (checklist 1-3) on facts the caller read on this
+ * request, in one snapshot with the data they guard: a refusal is a plain
+ * 404 (plan decision 4). The query that read the data joined coach_links
  * again.
- */
-export async function assertCoachMaySee(
-  coach: Account,
-  playerId: string,
-  subject: CoachSubject,
-): Promise<void> {
-  const facts = await coachAccessFacts(getDb(), coach.id, playerId);
-  assertCoachMaySeeBy(coach, playerId, subject, facts);
-}
-
-/**
- * The same decision on facts the caller has already read on this request,
- * such as from one snapshot with the data they guard: a refusal is a plain
- * 404 (plan decision 4).
  */
 export function assertCoachMaySeeBy(
   coach: Account,

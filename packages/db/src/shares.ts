@@ -7,7 +7,6 @@
  * Coach link (checklist 1-3). Nothing here reads personal_notes
  * (checklist 2). The notes on a share are in coach-notes.ts.
  */
-import { sideSchema } from '@mychess/chess';
 import {
   sharedScope,
   canChangeShares,
@@ -214,35 +213,6 @@ export async function sharedCoachIds(
       .orderBy(asc(repertoireShares.coachId)),
   );
   return rows.map((row) => row.coachId);
-}
-
-export interface SharedRepertoireItem {
-  readonly id: string;
-  readonly name: string;
-  readonly side: z.infer<typeof sideSchema>;
-}
-
-const sharedRowsSchema = z.array(
-  z.object({ id: z.uuid(), name: z.string(), side: sideSchema }),
-);
-
-/** The player's repertoires shared with this coach, by name (checklist 1-2). */
-export async function sharedWithCoach(
-  db: Executor,
-  coachId: string,
-  playerId: string,
-): Promise<SharedRepertoireItem[]> {
-  return sharedRowsSchema.parse(
-    await db
-      .select({
-        id: repertoires.id,
-        name: repertoires.name,
-        side: repertoires.side,
-      })
-      .from(repertoires)
-      .where(repertoireScope(db, sharedScope(coachId, playerId), 'view'))
-      .orderBy(asc(repertoires.name), asc(repertoires.id)),
-  );
 }
 
 /** The ids of the player's repertoires shared with this coach (for coachAccessFacts). */

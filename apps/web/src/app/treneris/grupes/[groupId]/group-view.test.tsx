@@ -8,7 +8,7 @@ import {
 import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../../i18n/locales';
-import type { GroupGrid } from '../../../../server/coach-progress';
+import type { GroupGrid } from '../../../../server/coach-pages';
 import type { CoachActionState, RenameGroupState } from '../../actions';
 import { GroupView, type CoachGroupPageData } from './group-view';
 

@@ -1,8 +1,8 @@
 import { playerKeys, startReview } from '@mychess/chess';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  coachGroupProgress,
-  coachLastTrained,
+  coachGroupPage,
+  coachHomePlayers,
   coachPlayerProgress,
   coachRepertoireProgress,
   forkAssignment,
@@ -23,7 +23,7 @@ import {
   seedMember,
   seedPlayer,
 } from './support/coaching';
-import { countStatements } from './support/statements';
+import { countStatements, statementsOf } from './support/statements';
 import { writeReview } from './support/training';
 
 const { db } = useTestDatabase();
@@ -42,6 +42,12 @@ let privateRep = ''; // p's own, not shared
 function present<T>(value: T | undefined): T {
   if (value === undefined) throw new Error('expected a value');
   return value;
+}
+
+/** How many transactions `run` opens. */
+async function transactionsOf(run: () => Promise<unknown>): Promise<number> {
+  const statements = await statementsOf(run);
+  return statements.filter((s) => /^begin/i.test(s)).length;
 }
 
 /** A setup step that must not be refused. */
@@ -182,9 +188,33 @@ describe('coachPlayerProgress', () => {
     expect(row?.view).toEqual({ kind: 'forked' });
   });
 
+  it('reads the linked player with the coach’s own groups only', async () => {
+    const theirs = await seedGroup(db, 'other', 'Kita grupė');
+    await seedLink(db, 'other', 'p');
+    await seedMember(db, 'other', theirs, 'p');
+    const read = present(await coachPlayerProgress(db, 'c', 'p', NOW));
+    const { linkedAt, ...player } = read.player;
+    expect(player).toEqual({
+      id: 'p',
+      displayName: 'Name p',
+      groups: [{ id: group, name: 'Šeštadienio grupė' }],
+    });
+    expect(linkedAt).toBeInstanceOf(Date);
+  });
+
+  it('reads the player and their progress in one transaction', async () => {
+    expect(
+      await transactionsOf(() => coachPlayerProgress(db, 'c', 'p', NOW)),
+    ).toBe(1);
+  });
+
   it('is undefined for a player not linked to the coach', async () => {
     expect(await coachPlayerProgress(db, 'c', 'stranger', NOW)).toBeUndefined();
     expect(await coachPlayerProgress(db, 'other', 'p', NOW)).toBeUndefined();
+  });
+
+  it('is undefined for the coach’s own id', async () => {
+    expect(await coachPlayerProgress(db, 'c', 'c', NOW)).toBeUndefined();
   });
 });
 
@@ -265,11 +295,11 @@ describe('coachRepertoireProgress', () => {
   });
 });
 
-describe('coachGroupProgress (R-153)', () => {
+describe('coachGroupPage (R-153)', () => {
   it('has one column per group repertoire and one row per member', async () => {
     const own = await learnAll('q', groupRep);
     await result('q', groupRep, WEEK_AGO);
-    const grid = present(await coachGroupProgress(db, 'c', group, NOW));
+    const grid = present(await coachGroupPage(db, 'c', group, NOW)).grid;
     expect(grid.columns).toEqual([
       { id: groupRep, name: 'Londono sistema', side: 'white' },
     ]);
@@ -306,7 +336,7 @@ describe('coachGroupProgress (R-153)', () => {
     succeeded(
       await forkAssignment(db, { playerId: 'q', repertoireId: groupRep }, NOW),
     );
-    const grid = present(await coachGroupProgress(db, 'c', group, NOW));
+    const grid = present(await coachGroupPage(db, 'c', group, NOW)).grid;
     expect(grid.rows).toMatchObject([
       {
         player: { id: 'p' },
@@ -337,7 +367,7 @@ describe('coachGroupProgress (R-153)', () => {
     await seedPlayer(db, 'r', 'r@example.lt');
     await seedLink(db, 'c', 'r');
     await seedMember(db, 'c', group, 'r');
-    const grid = present(await coachGroupProgress(db, 'c', group, NOW));
+    const grid = present(await coachGroupPage(db, 'c', group, NOW)).grid;
     expect(grid.columns.map((c) => c.id).sort()).toEqual(
       [groupRep, karoKan].sort(),
     );
@@ -368,30 +398,58 @@ describe('coachGroupProgress (R-153)', () => {
 
   it('has no row for a player once unlinked', async () => {
     succeeded(await unlink(db, 'c', 'p', NOW));
-    const grid = await coachGroupProgress(db, 'c', group, NOW);
-    expect(grid?.rows.map((r) => r.player.id)).toEqual(['q']);
+    const grid = await coachGroupPage(db, 'c', group, NOW);
+    expect(grid?.grid.rows.map((r) => r.player.id)).toEqual(['q']);
   });
 
   it('is undefined for another coach’s group', async () => {
-    expect(await coachGroupProgress(db, 'other', group, NOW)).toBeUndefined();
+    expect(await coachGroupPage(db, 'other', group, NOW)).toBeUndefined();
+  });
+
+  it('reads the group with its members, and to add the coach’s other linked players only', async () => {
+    await seedPlayer(db, 'r', 'r@example.lt');
+    await seedLink(db, 'c', 'r');
+    await seedLink(db, 'other', 'stranger');
+    const page = present(await coachGroupPage(db, 'c', group, NOW));
+    expect(page.group).toMatchObject({
+      id: group,
+      name: 'Šeštadienio grupė',
+      members: [
+        { id: 'p', displayName: 'Name p' },
+        { id: 'q', displayName: 'Name q' },
+      ],
+    });
+    expect(page.addable).toEqual([{ id: 'r', displayName: 'Name r' }]);
+  });
+
+  it('offers no one to add once every linked player is a member', async () => {
+    expect(present(await coachGroupPage(db, 'c', group, NOW)).addable).toEqual(
+      [],
+    );
+  });
+
+  it('reads the group, who to add and the grid in one transaction', async () => {
+    expect(
+      await transactionsOf(() => coachGroupPage(db, 'c', group, NOW)),
+    ).toBe(1);
   });
 
   it('reads in a number of statements that does not grow with members', async () => {
     const two = await countStatements(() =>
-      coachGroupProgress(db, 'c', group, NOW),
+      coachGroupPage(db, 'c', group, NOW),
     );
     await seedPlayer(db, 'r', 'r@example.lt');
     await seedLink(db, 'c', 'r');
     await seedMember(db, 'c', group, 'r');
     const three = await countStatements(() =>
-      coachGroupProgress(db, 'c', group, NOW),
+      coachGroupPage(db, 'c', group, NOW),
     );
     expect(three).toBe(two);
   });
 
   it('reads each column with one repertoire load: its row and 3 graph statements', async () => {
     const one = await countStatements(() =>
-      coachGroupProgress(db, 'c', group, NOW),
+      coachGroupPage(db, 'c', group, NOW),
     );
     await seedAssignment(db, {
       coachId: 'c',
@@ -400,7 +458,7 @@ describe('coachGroupProgress (R-153)', () => {
       now: NOW,
     });
     const two = await countStatements(() =>
-      coachGroupProgress(db, 'c', group, NOW),
+      coachGroupPage(db, 'c', group, NOW),
     );
     expect(two - one).toBe(4);
   });
@@ -415,7 +473,7 @@ describe('access ends with the membership or the link', () => {
         NOW,
       ),
     );
-    const grid = present(await coachGroupProgress(db, 'c', group, NOW));
+    const grid = present(await coachGroupPage(db, 'c', group, NOW)).grid;
     expect(grid.rows.map((r) => r.player.id)).toEqual(['q']);
     const rows = present(await coachPlayerProgress(db, 'c', 'p', NOW)).rows;
     expect(rows.map((r) => r.repertoire.id)).toEqual([karoKan, shared]);
@@ -430,9 +488,12 @@ describe('access ends with the membership or the link', () => {
 
   it('shows nothing of a player unlinked after visible training', async () => {
     await result('p', karoKan, new Date(NOW.getTime() - HOUR_MS));
-    expect((await coachLastTrained(db, 'c', ['p'])).size).toBe(1);
+    expect(await trainedOf('c')).toContainEqual([
+      'p',
+      new Date(NOW.getTime() - HOUR_MS),
+    ]);
     succeeded(await unlink(db, 'c', 'p', NOW));
-    expect((await coachLastTrained(db, 'c', ['p'])).size).toBe(0);
+    expect((await trainedOf('c')).map(([id]) => id)).toEqual(['q']);
     expect(await coachPlayerProgress(db, 'c', 'p', NOW)).toBeUndefined();
     expect(
       await coachRepertoireProgress(
@@ -444,16 +505,52 @@ describe('access ends with the membership or the link', () => {
   });
 });
 
-describe('coachLastTrained', () => {
-  it('is keyed by player, from visible results only (R-154)', async () => {
-    expect((await coachLastTrained(db, 'c', ['p', 'q'])).size).toBe(0);
-    await result('p', shared, new Date(NOW.getTime() - HOUR_MS));
-    await result('q', privateRep, NOW);
-    const last = await coachLastTrained(db, 'c', ['p', 'q']);
-    expect([...last]).toEqual([['p', new Date(NOW.getTime() - HOUR_MS)]]);
+/** Each of the coach's players on their home, with when they last trained. */
+async function trainedOf(coachId: string): Promise<[string, Date | null][]> {
+  return (await coachHomePlayers(db, coachId)).map((player) => [
+    player.id,
+    player.lastTrained,
+  ]);
+}
+
+describe('coachHomePlayers', () => {
+  it('lists the linked players by name with their groups', async () => {
+    const players = await coachHomePlayers(db, 'c');
+    expect(
+      players.map(({ id, displayName, groups }) => ({
+        id,
+        displayName,
+        groups,
+      })),
+    ).toEqual([
+      {
+        id: 'p',
+        displayName: 'Name p',
+        groups: [{ id: group, name: 'Šeštadienio grupė' }],
+      },
+      {
+        id: 'q',
+        displayName: 'Name q',
+        groups: [{ id: group, name: 'Šeštadienio grupė' }],
+      },
+    ]);
+    expect(players.every((p) => p.linkedAt instanceof Date)).toBe(true);
   });
 
-  it('is empty for a player not linked to the coach', async () => {
+  it('says when each last trained, from visible results only (R-154)', async () => {
+    expect(await trainedOf('c')).toEqual([
+      ['p', null],
+      ['q', null],
+    ]);
+    await result('p', shared, new Date(NOW.getTime() - HOUR_MS));
+    await result('q', privateRep, NOW);
+    expect(await trainedOf('c')).toEqual([
+      ['p', new Date(NOW.getTime() - HOUR_MS)],
+      ['q', null],
+    ]);
+  });
+
+  it('never lists a player not linked to the coach', async () => {
     await seedLink(db, 'other', 'stranger');
     const theirs = await seedRepertoire(db, 'stranger', NOW);
     succeeded(
@@ -465,16 +562,21 @@ describe('coachLastTrained', () => {
       }),
     );
     await result('stranger', theirs, NOW);
-    expect((await coachLastTrained(db, 'c', ['stranger'])).size).toBe(0);
-    expect((await coachLastTrained(db, 'other', ['stranger'])).size).toBe(1);
+    expect((await trainedOf('c')).map(([id]) => id)).toEqual(['p', 'q']);
+    expect(await trainedOf('other')).toEqual([['stranger', NOW]]);
   });
 
-  it('reads in a number of statements that does not grow with players', async () => {
+  it('is empty for a coach without players', async () => {
+    expect(await coachHomePlayers(db, 'stranger')).toEqual([]);
+  });
+
+  it('reads in one transaction, in a number of statements that does not grow with players', async () => {
     await result('p', shared, NOW);
-    const one = await countStatements(() => coachLastTrained(db, 'c', ['p']));
-    const two = await countStatements(() =>
-      coachLastTrained(db, 'c', ['p', 'q']),
-    );
-    expect(two).toBe(one);
+    expect(await transactionsOf(() => coachHomePlayers(db, 'c'))).toBe(1);
+    const two = await countStatements(() => coachHomePlayers(db, 'c'));
+    await seedPlayer(db, 'r', 'r@example.lt');
+    await seedLink(db, 'c', 'r');
+    const three = await countStatements(() => coachHomePlayers(db, 'c'));
+    expect(three).toBe(two);
   });
 });

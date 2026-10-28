@@ -6,7 +6,10 @@
  * progressRepertoires). Each entry is then loaded through its scope
  * (entryRead): the coach's own for an assignment, live or forked, the
  * share for a shared one (Q26). Statements: fixed in the number of players,
- * plus 4 per repertoire shown (its row and the 3 of its graph).
+ * plus 4 per repertoire shown (its row and the 3 of its graph). The player
+ * page reads through coachPlayerProgress, the progress page through
+ * coachRepertoireProgress; the home and group pages are composed in
+ * pages.ts, the group grid from groupGrid here.
  */
 import {
   progressOf,
@@ -28,8 +31,8 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { assignments } from '../assignment-schema';
 import type { Db, Executor } from '../client';
-import { coachPlayer } from '../coaching';
-import { coachGroup, type GroupMember } from '../groups';
+import { coachPlayer, type LinkedAccount } from '../coaching';
+import type { CoachGroup, GroupMember } from '../groups';
 import { isUuid } from '../ids';
 import { trackedReviews } from '../training/reviews';
 import { coachProgressFacts, lastTrained } from './facts';
@@ -46,7 +49,7 @@ import {
   type RepertoireRef,
 } from './view';
 
-const SNAPSHOT = { isolationLevel: 'repeatable read' } as const;
+export const SNAPSHOT = { isolationLevel: 'repeatable read' } as const;
 const NO_REVIEWS: ReadonlyMap<string, TrackedReview> = new Map();
 
 /** One repertoire on the player page. */
@@ -60,7 +63,10 @@ export interface ProgressRow {
   readonly view: ProgressView;
 }
 
+/** The player page: the player, and where they stand. */
 export interface PlayerProgress {
+  /** The player, linked to the coach, with the coach's own groups. */
+  readonly player: LinkedAccount;
   readonly rows: readonly ProgressRow[];
   readonly lastTrained: Date | null;
 }
@@ -77,6 +83,27 @@ async function linkedViewer(
   return facts !== undefined && isCoachLinked(coachId, playerId, facts)
     ? { coachId, playerId, facts }
     : undefined;
+}
+
+/** A player the domain finds linked, and the player as the link reads them. */
+interface LinkedPlayer {
+  readonly viewer: ProgressViewer;
+  readonly player: LinkedAccount;
+}
+
+/**
+ * The viewer and the player when isCoachLinked, the player read by the
+ * same link again (coachPlayer joins coach_links); undefined otherwise.
+ */
+async function linkedPlayer(
+  tx: Executor,
+  coachId: string,
+  playerId: string,
+): Promise<LinkedPlayer | undefined> {
+  const viewer = await linkedViewer(tx, coachId, playerId);
+  if (viewer === undefined) return undefined;
+  const player = await coachPlayer(tx, coachId, playerId);
+  return player === undefined ? undefined : { viewer, player };
 }
 
 /** The Reviews of one player on the player moves of `shown`. */
@@ -149,9 +176,10 @@ async function playerRepertoires(
 }
 
 /**
- * The player page's progress: every repertoire this coach assigned the
- * player (by name), then every one the player shares with them (by name),
- * and when they last trained. Undefined unless linked.
+ * The player page, its one read: the player (by the same link again),
+ * every repertoire this coach assigned them (by name), then every one they
+ * share with the coach (by name), and when they last trained. Undefined
+ * unless isCoachLinked.
  */
 export function coachPlayerProgress(
   db: Db,
@@ -160,8 +188,9 @@ export function coachPlayerProgress(
   now: Date,
 ): Promise<PlayerProgress | undefined> {
   return db.transaction(async (tx) => {
-    const viewer = await linkedViewer(tx, coachId, playerId);
-    if (viewer === undefined) return undefined;
+    const linked = await linkedPlayer(tx, coachId, playerId);
+    if (linked === undefined) return undefined;
+    const { viewer, player } = linked;
     const shown = await playerRepertoires(tx, viewer);
     const tracked = await trackedOf(
       tx,
@@ -174,6 +203,7 @@ export function coachPlayerProgress(
       new Map([[playerId, viewer.facts]]),
     );
     return {
+      player,
       rows: shown.map((one) => rowOf(one, tracked, now)),
       lastTrained: last.get(playerId) ?? null,
     };
@@ -205,8 +235,9 @@ export function coachRepertoireProgress(
 ): Promise<RepertoireProgressView | undefined> {
   if (!isUuid(repertoireId)) return Promise.resolve(undefined);
   return db.transaction(async (tx) => {
-    const viewer = await linkedViewer(tx, coachId, playerId);
-    if (viewer === undefined) return undefined;
+    const linked = await linkedPlayer(tx, coachId, playerId);
+    if (linked === undefined) return undefined;
+    const { viewer, player } = linked;
     const entry = progressRepertoire(
       coachId,
       playerId,
@@ -216,8 +247,7 @@ export function coachRepertoireProgress(
     if (entry?.kind !== 'granted') return undefined;
     const read = entryRead(entry, viewer);
     const loaded = await loadVisible(tx, read.scope, repertoireId);
-    const player = await coachPlayer(tx, coachId, playerId);
-    if (loaded === undefined || player === undefined) return undefined;
+    if (loaded === undefined) return undefined;
     const tracked = await trackedOf(tx, playerId, [loaded]);
     return {
       player: { id: player.id, displayName: player.displayName },
@@ -304,8 +334,7 @@ function memberRow(
 ): GroupProgressRow {
   const facts = reads.facts.get(member.id);
   // coachProgressFacts has an entry for every id it was asked about.
-  if (facts === undefined)
-    throw new Error('coachGroupProgress: a member has no facts');
+  if (facts === undefined) throw new Error('groupGrid: a member has no facts');
   const viewer = { coachId: reads.coachId, playerId: member.id, facts };
   const tracked = reads.tracked.get(member.id) ?? NO_REVIEWS;
   return {
@@ -347,51 +376,26 @@ async function groupReads(
   return { coachId, columns, facts, tracked, last };
 }
 
-/**
- * The group grid (R-153): the coach's own group, one column per
- * repertoire assigned to it (by name), one row per member (by name).
- * Undefined for any other group.
- */
-export function coachGroupProgress(
-  db: Db,
+/** The grid of the coach's own `group`, read in the caller's snapshot (pages.ts). */
+export async function groupGrid(
+  tx: Executor,
   coachId: string,
-  groupId: string,
+  group: CoachGroup,
   now: Date,
-): Promise<GroupProgress | undefined> {
-  return db.transaction(async (tx) => {
-    const group = await coachGroup(tx, coachId, groupId);
-    if (group === undefined) return undefined;
-    const columns = await loadAllVisible(
-      tx,
-      ownScope(coachId),
-      await groupRepertoireIds(tx, coachId, groupId),
-    );
-    const reads = await groupReads(
-      tx,
-      coachId,
-      columns,
-      group.members.map((m) => m.id),
-    );
-    return {
-      columns: columns.map((c) => c.repertoire),
-      rows: group.members.map((member) => memberRow(reads, member, now)),
-    };
-  }, SNAPSHOT);
-}
-
-/** When each of `playerIds` last trained, as the coach may see it (R-154). */
-export function coachLastTrained(
-  db: Db,
-  coachId: string,
-  playerIds: readonly string[],
-): Promise<Map<string, Date>> {
-  return db.transaction(
-    async (tx) =>
-      lastTrained(
-        tx,
-        coachId,
-        await coachProgressFacts(tx, coachId, playerIds),
-      ),
-    SNAPSHOT,
+): Promise<GroupProgress> {
+  const columns = await loadAllVisible(
+    tx,
+    ownScope(coachId),
+    await groupRepertoireIds(tx, coachId, group.id),
   );
+  const reads = await groupReads(
+    tx,
+    coachId,
+    columns,
+    group.members.map((m) => m.id),
+  );
+  return {
+    columns: columns.map((c) => c.repertoire),
+    rows: group.members.map((member) => memberRow(reads, member, now)),
+  };
 }

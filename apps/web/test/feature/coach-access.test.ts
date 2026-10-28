@@ -705,6 +705,17 @@ describe('a shared repertoire (checklist 2-3)', () => {
     expect(data).not.toContain(PERSONAL_NOTE);
   });
 
+  it('lists on the player page only what the player shares, never the coach’s assignment', async () => {
+    const ids = await setUp();
+    actAs(ids.rimantas);
+    const page = await coachPlayerData(ids.rokas.id);
+    expect(page.repertoires.map((one) => one.id)).toEqual([ids.london]);
+    expect(page.progress.rows.map((row) => row.repertoire.id)).toEqual([
+      ids.assigned,
+      ids.london,
+    ]);
+  });
+
   it('is 404 on the next request after the player unshares, and the notes go (R-124)', async () => {
     const ids = await setUp();
     actAs(ids.rimantas);

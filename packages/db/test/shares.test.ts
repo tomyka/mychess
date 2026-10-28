@@ -7,6 +7,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import {
   coachAccessFacts,
+  coachPlayerProgress,
   coachNotesOn,
   createRepertoire,
   deleteAccount,
@@ -18,7 +19,6 @@ import {
   shareRepertoire,
   sharedRepertoireForCoach,
   sharedRepertoireSnapshot,
-  sharedWithCoach,
   unlink,
   unshareRepertoire,
   upsertCoachNote,
@@ -181,23 +181,34 @@ describe('sharedCoachIds', () => {
   });
 });
 
-describe('sharedWithCoach (checklist 1-2)', () => {
+/** The coach's player page's shared list: undefined when not linked. */
+async function sharedList(
+  coachId: string,
+  playerId: string,
+): Promise<unknown[] | undefined> {
+  const read = await coachPlayerProgress(db, coachId, playerId, T1);
+  return read?.rows
+    .filter((row) => row.source === 'shared')
+    .map((row) => row.repertoire);
+}
+
+describe('the player page’s shared repertoires (checklist 1-2)', () => {
   it("lists only the player's repertoires shared with this coach, by name", async () => {
     const { taimanov, gabijaLondon, rokasLondon } = await seedCoaching();
     await share('gabija', taimanov, 'rimantas');
     await share('gabija', gabijaLondon, 'dovydas');
     await share('rokas', rokasLondon, 'rimantas');
-    expect(await sharedWithCoach(db, 'rimantas', 'gabija')).toEqual([
+    expect(await sharedList('rimantas', 'gabija')).toEqual([
       { id: taimanov, name: 'Taimanovas', side: 'black' },
     ]);
-    expect(await sharedWithCoach(db, 'dovydas', 'gabija')).toEqual([
+    expect(await sharedList('dovydas', 'gabija')).toEqual([
       { id: gabijaLondon, name: 'Londono sistema', side: 'white' },
     ]);
-    expect(await sharedWithCoach(db, 'egle', 'gabija')).toEqual([]);
-    expect(await sharedWithCoach(db, 'dovydas', 'rokas')).toEqual([]);
+    expect(await sharedList('egle', 'gabija')).toBeUndefined();
+    expect(await sharedList('dovydas', 'rokas')).toBeUndefined();
   });
 
-  it('lists nothing once unshared or unlinked', async () => {
+  it('lists nothing once unshared, and no page once unlinked', async () => {
     const { taimanov, gabijaLondon } = await seedCoaching();
     await share('gabija', taimanov, 'rimantas');
     await share('gabija', gabijaLondon, 'dovydas');
@@ -207,8 +218,8 @@ describe('sharedWithCoach (checklist 1-2)', () => {
       coachId: 'rimantas',
     });
     await unlink(db, 'dovydas', 'gabija', T1);
-    expect(await sharedWithCoach(db, 'rimantas', 'gabija')).toEqual([]);
-    expect(await sharedWithCoach(db, 'dovydas', 'gabija')).toEqual([]);
+    expect(await sharedList('rimantas', 'gabija')).toEqual([]);
+    expect(await sharedList('dovydas', 'gabija')).toBeUndefined();
   });
 });
 

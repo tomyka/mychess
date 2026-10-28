@@ -3,14 +3,14 @@
 import { useFormatter, useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useActionState, useId, type JSX } from 'react';
-import type { SharedRepertoireItem } from '@mychess/db';
+import type { RepertoireRef } from '@mychess/db';
 import type { AccountRef } from '@mychess/domain';
 import {
   coachGroupPath,
   coachSharedRepertoirePath,
 } from '../../../../lib/routes';
 import { DISPLAY_TIME_ZONE } from '../../../../lib/time-zone';
-import type { PlayerProgressSection } from '../../../../server/coach-progress';
+import type { PlayerProgressSection } from '../../../../server/coach-pages';
 import { ConfirmedAction } from '../../../confirmed-action';
 import { SECTION, SECTION_TITLE, TEXT_LINK } from '../../../nustatymai/styles';
 import { unlinkPlayerAction, type CoachActionState } from '../../actions';
@@ -26,7 +26,7 @@ export interface CoachPlayerPageData extends AccountRef {
   readonly linkedAt: Date;
   readonly groups: readonly { readonly id: string; readonly name: string }[];
   /** The player's repertoires shared with this coach (R-42). */
-  readonly repertoires: readonly SharedRepertoireItem[];
+  readonly repertoires: readonly RepertoireRef[];
   /** Where the player stands on each repertoire the coach may see (S7). */
   readonly progress: PlayerProgressSection;
 }

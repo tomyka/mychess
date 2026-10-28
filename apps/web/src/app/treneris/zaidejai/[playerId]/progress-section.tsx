@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useId, type JSX } from 'react';
 import { coachProgressPath } from '../../../../lib/routes';
-import type { PlayerProgressSection } from '../../../../server/coach-progress';
+import type { PlayerProgressSection } from '../../../../server/coach-pages';
 import { AssignmentBadges } from '../../../assignment-badges';
 import { SECTION, SECTION_TITLE, TEXT_LINK } from '../../../nustatymai/styles';
 import { LastTrained } from '../../last-trained';

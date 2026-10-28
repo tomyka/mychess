@@ -133,8 +133,6 @@ export {
   type PersonalNoteInput,
 } from './personal-notes';
 export {
-  coachGroupProgress,
-  coachLastTrained,
   coachPlayerProgress,
   coachRepertoireProgress,
   type GroupProgress,
@@ -145,6 +143,12 @@ export {
   type RepertoireProgressRequest,
   type RepertoireProgressView,
 } from './progress/coach-progress';
+export {
+  coachGroupPage,
+  coachHomePlayers,
+  type GroupPage,
+  type HomePlayer,
+} from './progress/pages';
 export type { ProgressView, RepertoireRef } from './progress/view';
 export {
   countRateLimited,
@@ -173,10 +177,8 @@ export {
   shareRepertoire,
   sharedCoachIds,
   sharedRepertoireForCoach,
-  sharedWithCoach,
   unshareRepertoire,
   type SharedRepertoire,
-  type SharedRepertoireItem,
   type ShareRequest,
   type SharesRequest,
   type SharesSet,

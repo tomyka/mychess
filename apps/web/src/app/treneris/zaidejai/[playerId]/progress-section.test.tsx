@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 import { MESSAGES } from '../../../../i18n/locales';
-import type { PlayerProgressSection } from '../../../../server/coach-progress';
+import type { PlayerProgressSection } from '../../../../server/coach-pages';
 import { ProgressSection } from './progress-section';
 
 const p = MESSAGES.lt.coach.progress;

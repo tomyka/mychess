@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 import { MESSAGES } from '../../../../i18n/locales';
-import type { GroupGrid } from '../../../../server/coach-progress';
+import type { GroupGrid } from '../../../../server/coach-pages';
 import { ProgressGrid } from './progress-grid';
 
 const p = MESSAGES.lt.coach.progress;

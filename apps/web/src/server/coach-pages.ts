@@ -1,19 +1,24 @@
 // One loader per coach page (plan decision 14). Each starts with
-// requireCoach(); a page reads the database only through its loader.
+// requireCoach() and parses its ids; the page's data then comes from one
+// db read, in one snapshot, that decides access through the domain and
+// filters again in SQL (#303). An undefined read is a plain 404 (plan
+// decision 4).
 import {
-  coachGroup,
+  coachGroupPage,
   coachGroups,
+  coachHomePlayers,
   coachInvites,
-  coachLastTrained,
-  coachPlayer,
-  coachPlayers,
+  coachPlayerProgress,
   sharedRepertoireSnapshot,
-  sharedWithCoach,
   type CoachGroup,
   type CoachGroupSummary,
   type CoachInvite,
+  type GroupProgress,
+  type GroupProgressCell,
   type LinkedAccount,
-  type SharedRepertoireItem,
+  type PlayerProgress,
+  type ProgressRow,
+  type RepertoireRef,
 } from '@mychess/db';
 import type { RepertoireGraph, Side } from '@mychess/chess';
 import type { AccountRef } from '@mychess/domain';
@@ -22,15 +27,7 @@ import { z } from 'zod';
 import { daysSince } from '../lib/days-ago';
 import { accountIdSchema } from './account-id';
 import { ecoNamesOf } from './chapter-names';
-import {
-  assertCoachMaySee,
-  assertCoachMaySeeBy,
-  requireCoach,
-} from './coaching';
-import {
-  playerProgressData,
-  type PlayerProgressSection,
-} from './coach-progress';
+import { assertCoachMaySeeBy, requireCoach } from './coaching';
 import { getDb } from './db';
 
 /** A player on the coach's home, with when they last trained (R-154). */
@@ -46,39 +43,55 @@ export interface CoachHomeData {
   readonly invites: readonly CoachInvite[];
 }
 
-/** The coach dashboard's home, `/treneris`. */
+/**
+ * The coach dashboard's home, `/treneris`: the players and when they last
+ * trained in one read; the groups and invites are the coach's own data.
+ */
 export async function coachHomeData(): Promise<CoachHomeData> {
   const coach = await requireCoach();
   const db = getDb();
   const now = new Date();
-  const players = await coachPlayers(db, coach.id);
-  const last = await coachLastTrained(
-    db,
-    coach.id,
-    players.map((player) => player.id),
-  );
+  const players = await coachHomePlayers(db, coach.id);
   return {
-    players: players.map((player) => ({
+    players: players.map(({ lastTrained, ...player }) => ({
       ...player,
-      lastTrainedDays: daysSince(last.get(player.id), now),
+      lastTrainedDays: daysSince(lastTrained, now),
     })),
     groups: await coachGroups(db, coach.id),
     invites: await coachInvites(db, coach.id, now),
   };
 }
 
+/** The player page's progress section. */
+export interface PlayerProgressSection {
+  readonly rows: readonly ProgressRow[];
+  /** Whole Vilnius days since the player last trained; null for never. */
+  readonly lastTrainedDays: number | null;
+}
+
 /** One linked player's page. */
 export interface CoachPlayerPage extends LinkedAccount {
   /** The player's repertoires shared with this coach, by name (R-42). */
-  readonly repertoires: readonly SharedRepertoireItem[];
+  readonly repertoires: readonly RepertoireRef[];
   /** Where the player stands on each repertoire the coach may see (S7). */
   readonly progress: PlayerProgressSection;
 }
 
+/** The progress section of the player page, days counted from `now`. */
+const progressSection = (
+  read: PlayerProgress,
+  now: Date,
+): PlayerProgressSection => ({
+  rows: read.rows,
+  lastTrainedDays: daysSince(read.lastTrained, now),
+});
+
 /**
- * One linked player's page: the display name, the coach's own groups
- * (subject `profile`) and the repertoires the player shares with the
- * coach. Anything else, an unlinked player included, is 404.
+ * One linked player's page, from one read (coachPlayerProgress): the
+ * display name, the coach's own groups, the repertoires the player shares
+ * with the coach and the progress section. The read decides access
+ * (isCoachLinked) in its own snapshot; anything else, an unlinked player
+ * included, is 404.
  */
 export async function coachPlayerData(
   rawPlayerId: unknown,
@@ -86,13 +99,16 @@ export async function coachPlayerData(
   const coach = await requireCoach();
   const parsed = accountIdSchema.safeParse(rawPlayerId);
   if (!parsed.success) notFound();
-  await assertCoachMaySee(coach, parsed.data, { kind: 'profile' });
-  const db = getDb();
-  const player = (await coachPlayer(db, coach.id, parsed.data)) ?? notFound();
+  const now = new Date();
+  const read =
+    (await coachPlayerProgress(getDb(), coach.id, parsed.data, now)) ??
+    notFound();
   return {
-    ...player,
-    repertoires: await sharedWithCoach(db, coach.id, parsed.data),
-    progress: await playerProgressData(coach, parsed.data, new Date()),
+    ...read.player,
+    repertoires: read.rows
+      .filter((row) => row.source === 'shared')
+      .map((row) => row.repertoire),
+    progress: progressSection(read, now),
   };
 }
 
@@ -160,16 +176,44 @@ export async function sharedRepertoireData(
   };
 }
 
-/** A group's page: the group, its members, and who else could join it. */
+/** One member's row of the group grid. */
+interface GridRow {
+  readonly player: AccountRef;
+  readonly lastTrainedDays: number | null;
+  /** One per column, in column order; null without an assignment. */
+  readonly cells: readonly (GroupProgressCell | null)[];
+}
+
+/** The group grid (R-153). */
+export interface GroupGrid {
+  readonly columns: readonly RepertoireRef[];
+  readonly rows: readonly GridRow[];
+}
+
+/** A group's page: the group, who else could join it, and its grid. */
 export interface CoachGroupPage extends CoachGroup {
   /** The coach's linked players not yet in the group, by display name. */
   readonly addable: readonly AccountRef[];
+  /** Where each member stands on each group repertoire (R-153). */
+  readonly grid: GroupGrid;
 }
 
+/** The grid with last trained as whole Vilnius days before `now`. */
+const gridOf = (grid: GroupProgress, now: Date): GroupGrid => ({
+  columns: grid.columns,
+  rows: grid.rows.map((row) => ({
+    player: row.player,
+    lastTrainedDays: daysSince(row.lastTrained, now),
+    cells: row.cells,
+  })),
+});
+
 /**
- * One of the coach's own groups. A group is the coach's own data, not a
- * player's, so the query filtering on the coach is the check; any other
- * group is 404. The players to add are the coach's own linked players.
+ * One of the coach's own groups, from one read (coachGroupPage). A
+ * group is the coach's own data, not a player's, so the query filtering on
+ * the coach is the check; any other group is 404. The players to add are
+ * the coach's own linked players; the grid shows only what the domain
+ * grants per member.
  */
 export async function coachGroupData(
   rawGroupId: unknown,
@@ -177,11 +221,12 @@ export async function coachGroupData(
   const coach = await requireCoach();
   const parsed = z.uuid().safeParse(rawGroupId);
   if (!parsed.success) notFound();
-  const db = getDb();
-  const group = (await coachGroup(db, coach.id, parsed.data)) ?? notFound();
-  const members = new Set(group.members.map((member) => member.id));
-  const addable = (await coachPlayers(db, coach.id))
-    .filter((player) => !members.has(player.id))
-    .map(({ id, displayName }) => ({ id, displayName }));
-  return { ...group, addable };
+  const now = new Date();
+  const read =
+    (await coachGroupPage(getDb(), coach.id, parsed.data, now)) ?? notFound();
+  return {
+    ...read.group,
+    addable: read.addable,
+    grid: gridOf(read.grid, now),
+  };
 }

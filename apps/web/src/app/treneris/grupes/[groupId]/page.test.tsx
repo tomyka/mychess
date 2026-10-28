@@ -3,24 +3,18 @@ import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../../i18n/locales';
 import type { CoachGroupPage } from '../../../../server/coach-pages';
-import type { GroupGrid } from '../../../../server/coach-progress';
 import CoachGroupPageView from './page';
 
 const NOW = new Date('2026-10-18T08:00:00Z');
 
 const loader = vi.hoisted(() => ({
   group: vi.fn<(id: unknown) => Promise<CoachGroupPage>>(),
-  grid: vi.fn<(id: unknown) => Promise<GroupGrid>>(),
 }));
 
-// The loaders' checks (another coach's group is 404, Coach mode off goes
+// The loader's checks (another coach's group is 404, Coach mode off goes
 // to settings) are covered by the feature suite.
 vi.mock('../../../../server/coach-pages', () => ({
   coachGroupData: loader.group,
-}));
-
-vi.mock('../../../../server/coach-progress', () => ({
-  groupProgressData: loader.grid,
 }));
 
 vi.mock('../../actions', () => ({
@@ -34,23 +28,23 @@ const g = MESSAGES.lt.coach.group;
 const p = MESSAGES.lt.coach.progress;
 
 describe('the coach dashboard’s group page', () => {
-  it('loads the group the path names and shows its grid, members and who to add', async () => {
+  it('loads the group the path names once and shows its grid, members and who to add', async () => {
     loader.group.mockResolvedValue({
       id: 'g-1',
       name: 'Šeštadienio grupė',
       createdAt: NOW,
       members: [{ id: 'p-1', displayName: 'Rokas', joinedAt: NOW }],
       addable: [{ id: 'p-2', displayName: 'Gabija' }],
-    });
-    loader.grid.mockResolvedValue({
-      columns: [{ id: 'r-1', name: 'Karo-Kan gynyba', side: 'black' }],
-      rows: [
-        {
-          player: { id: 'p-1', displayName: 'Rokas' },
-          lastTrainedDays: null,
-          cells: [null],
-        },
-      ],
+      grid: {
+        columns: [{ id: 'r-1', name: 'Karo-Kan gynyba', side: 'black' }],
+        rows: [
+          {
+            player: { id: 'p-1', displayName: 'Rokas' },
+            lastTrainedDays: null,
+            cells: [null],
+          },
+        ],
+      },
     });
     render(
       <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
@@ -59,8 +53,7 @@ describe('the coach dashboard’s group page', () => {
         })}
       </NextIntlClientProvider>,
     );
-    expect(loader.group).toHaveBeenCalledWith('g-1');
-    expect(loader.grid).toHaveBeenCalledWith('g-1');
+    expect(loader.group).toHaveBeenCalledExactlyOnceWith('g-1');
     expect(
       screen.getByRole('region', { name: p.gridTitle }).textContent,
     ).toContain('Karo-Kan gynyba');

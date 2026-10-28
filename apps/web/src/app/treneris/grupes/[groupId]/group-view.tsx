@@ -3,7 +3,7 @@
 import type { AccountRef } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX } from 'react';
-import type { GroupGrid } from '../../../../server/coach-progress';
+import type { GroupGrid } from '../../../../server/coach-pages';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../../buttons';
 import { ConfirmedAction } from '../../../confirmed-action';
 import { SECTION, SECTION_TITLE } from '../../../nustatymai/styles';
