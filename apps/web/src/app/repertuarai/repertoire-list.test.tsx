@@ -52,7 +52,7 @@ const linksIn = (name: string) =>
     .map((link) => [link.getAttribute('href'), link.textContent]);
 
 describe('RepertoireList', () => {
-  it('groups White then Black, each sorted by name in the account’s language', () => {
+  it('groups White then Black, each sorted by name', () => {
     renderList(ITEMS);
     expect(
       screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent),
@@ -71,6 +71,20 @@ describe('RepertoireList', () => {
     expect(linksIn(l.black)).toEqual([
       ['/repertuarai/r-4', 'Taimanovas6 skyriai · 233 ėjimaiPakeista 15:00'],
     ]);
+  });
+
+  it('sorts in Lithuanian order whatever the viewer’s language (R-160)', () => {
+    renderList(
+      [
+        card({ id: 'r-j', name: 'Jonas' }),
+        card({ id: 'r-y', name: 'Yra' }),
+        card({ id: 'r-i', name: 'Ieva' }),
+      ],
+      'en',
+    );
+    expect(
+      linksIn(MESSAGES.en.repertoires.list.white).map(([href]) => href),
+    ).toEqual(['/repertuarai/r-i', '/repertuarai/r-y', '/repertuarai/r-j']);
   });
 
   it('names each card by its repertoire and describes it by its counts', () => {

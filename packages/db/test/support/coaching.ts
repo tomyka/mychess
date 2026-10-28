@@ -37,6 +37,35 @@ export async function seedPlayer(
   await db.insert(accounts).values(onboarded(id, email));
 }
 
+/**
+ * Names out of Lithuanian order, and that order (R-160): y sorts with i,
+ * before j, and Ž after Z. Neither the C nor an English collation gives it.
+ */
+export const UNSORTED_NAMES = ['Jonas', 'Yra', 'Ieva', 'Žalias', 'Zuikis'];
+export const LITHUANIAN_ORDER = ['Ieva', 'Yra', 'Jonas', 'Zuikis', 'Žalias'];
+
+/**
+ * One onboarded account per name, ids `<prefix>-1` .. in the names' order,
+ * in Coach mode since T0 when `coach`; returns their ids.
+ */
+export async function seedNamedAccounts(
+  db: Db,
+  prefix: string,
+  names: readonly string[],
+  coach = false,
+): Promise<string[]> {
+  const rows = names.map((displayName, i) => {
+    const id = `${prefix}-${String(i + 1)}`;
+    return {
+      ...onboarded(id, `${id}@example.lt`),
+      displayName,
+      coachSince: coach ? T0 : null,
+    };
+  });
+  await db.insert(accounts).values(rows);
+  return rows.map((row) => row.id);
+}
+
 /** Links `coachId` to an existing player at T0. */
 export async function seedLink(
   db: Db,

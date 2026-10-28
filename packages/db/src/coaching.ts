@@ -22,6 +22,7 @@ import {
   sharedRepertoireIds,
   type SharedRepertoire,
 } from './shares';
+import { byDisplayName, byOwnName } from './sort';
 
 /** Switches Coach mode on (R-11); a second call keeps the first time. */
 export async function startCoaching(
@@ -116,26 +117,28 @@ async function linkedAccounts(
   end: LinkEnd,
   where: { readonly links: SQL | undefined; readonly members: SQL | undefined },
 ): Promise<LinkedAccount[]> {
-  const people = linkRowsSchema.parse(
-    await db
-      .select({
-        id: accounts.id,
-        displayName: accounts.displayName,
-        linkedAt: coachLinks.createdAt,
-      })
-      .from(coachLinks)
-      .innerJoin(accounts, eq(accounts.id, end.other))
-      .where(where.links)
-      .orderBy(accounts.displayName, accounts.id),
-  );
-  const memberships = membershipRowsSchema.parse(
-    await db
-      .select({ owner: end.memberOther, id: groups.id, name: groups.name })
-      .from(groupMembers)
-      .innerJoin(groups, eq(groups.id, groupMembers.groupId))
-      .where(where.members)
-      .orderBy(groups.name, groups.id),
-  );
+  const people = linkRowsSchema
+    .parse(
+      await db
+        .select({
+          id: accounts.id,
+          displayName: accounts.displayName,
+          linkedAt: coachLinks.createdAt,
+        })
+        .from(coachLinks)
+        .innerJoin(accounts, eq(accounts.id, end.other))
+        .where(where.links),
+    )
+    .sort(byDisplayName);
+  const memberships = membershipRowsSchema
+    .parse(
+      await db
+        .select({ owner: end.memberOther, id: groups.id, name: groups.name })
+        .from(groupMembers)
+        .innerJoin(groups, eq(groups.id, groupMembers.groupId))
+        .where(where.members),
+    )
+    .sort(byOwnName);
   return people.map((person) => ({
     ...person,
     groups: memberships

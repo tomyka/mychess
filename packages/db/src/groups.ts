@@ -22,6 +22,7 @@ import {
 } from './coach-queries';
 import { isUuid } from './ids';
 import { accounts, groupMembers, groups } from './schema';
+import { byDisplayName, byOwnName } from './sort';
 
 type GroupResult = Result<undefined, CoachRefusal>;
 
@@ -300,20 +301,21 @@ export async function coachGroups(
   db: Executor,
   coachId: string,
 ): Promise<CoachGroupSummary[]> {
-  return summaryRowsSchema.parse(
-    await db
-      .select({
-        id: groups.id,
-        name: groups.name,
-        memberCount: count(groupMembers.playerId),
-        createdAt: groups.createdAt,
-      })
-      .from(groups)
-      .leftJoin(groupMembers, eq(groupMembers.groupId, groups.id))
-      .where(eq(groups.coachId, coachId))
-      .groupBy(groups.id)
-      .orderBy(groups.name, groups.id),
-  );
+  return summaryRowsSchema
+    .parse(
+      await db
+        .select({
+          id: groups.id,
+          name: groups.name,
+          memberCount: count(groupMembers.playerId),
+          createdAt: groups.createdAt,
+        })
+        .from(groups)
+        .leftJoin(groupMembers, eq(groupMembers.groupId, groups.id))
+        .where(eq(groups.coachId, coachId))
+        .groupBy(groups.id),
+    )
+    .sort(byOwnName);
 }
 
 /** A member of a group, as its coach sees them. */
@@ -356,22 +358,23 @@ export async function coachGroup(
     .where(groupIs(coachId, groupId))
     .limit(1);
   if (row === undefined) return undefined;
-  const members = memberRowsSchema.parse(
-    await db
-      .select({
-        id: accounts.id,
-        displayName: accounts.displayName,
-        joinedAt: groupMembers.joinedAt,
-      })
-      .from(groupMembers)
-      .innerJoin(accounts, eq(accounts.id, groupMembers.playerId))
-      .where(
-        and(
-          eq(groupMembers.groupId, groupId),
-          eq(groupMembers.coachId, coachId),
+  const members = memberRowsSchema
+    .parse(
+      await db
+        .select({
+          id: accounts.id,
+          displayName: accounts.displayName,
+          joinedAt: groupMembers.joinedAt,
+        })
+        .from(groupMembers)
+        .innerJoin(accounts, eq(accounts.id, groupMembers.playerId))
+        .where(
+          and(
+            eq(groupMembers.groupId, groupId),
+            eq(groupMembers.coachId, coachId),
+          ),
         ),
-      )
-      .orderBy(accounts.displayName, accounts.id),
-  );
+    )
+    .sort(byDisplayName);
   return { ...groupRowSchema.parse(row), members };
 }

@@ -19,14 +19,17 @@ import {
   seedRepertoire,
 } from './support/assignments';
 import {
+  LITHUANIAN_ORDER,
   openTransaction,
   seedCoach,
   seedGroup,
   seedLink,
   seedMember,
+  seedNamedAccounts,
   seedPlayer,
   someoneWaitsForALock,
   T0,
+  UNSORTED_NAMES,
 } from './support/coaching';
 
 const { db, client } = useTestDatabase();
@@ -310,6 +313,33 @@ describe('coachPlayers and coachPlayer', () => {
     });
     expect(await coachPlayer(db, 'd', 'jonas')).toBeUndefined();
     expect(await coachPlayer(db, 'c', 'lone')).toBeUndefined();
+  });
+});
+
+describe('linked accounts in Lithuanian order (R-160)', () => {
+  it("lists the coach's players, and each player's groups, by Lithuanian name", async () => {
+    await seedCoach(db, 'c', 'c@example.lt');
+    const players = await seedNamedAccounts(db, 'p', UNSORTED_NAMES);
+    for (const player of players) await seedLink(db, 'c', player);
+    for (const name of UNSORTED_NAMES) {
+      const group = await seedGroup(db, 'c', name);
+      await seedMember(db, 'c', group, 'p-1');
+    }
+    const listed = await coachPlayers(db, 'c');
+    expect(listed.map((player) => player.displayName)).toEqual(
+      LITHUANIAN_ORDER,
+    );
+    const jonas = listed.find((player) => player.id === 'p-1');
+    expect(jonas?.groups.map((group) => group.name)).toEqual(LITHUANIAN_ORDER);
+  });
+
+  it("lists the player's coaches by Lithuanian name", async () => {
+    await seedPlayer(db, 'ruta', 'ruta@example.lt');
+    const coaches = await seedNamedAccounts(db, 'c', UNSORTED_NAMES, true);
+    for (const coach of coaches) await seedLink(db, coach, 'ruta');
+    expect(
+      (await playerCoaches(db, 'ruta')).map((coach) => coach.displayName),
+    ).toEqual(LITHUANIAN_ORDER);
   });
 });
 

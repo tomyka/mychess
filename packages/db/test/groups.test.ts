@@ -17,14 +17,17 @@ import {
   seedRepertoire,
 } from './support/assignments';
 import {
+  LITHUANIAN_ORDER,
   openTransaction,
   seedCoach,
   seedGroup,
   seedLink,
   seedMember,
+  seedNamedAccounts,
   seedPlayer,
   someoneWaitsForALock,
   T0,
+  UNSORTED_NAMES,
 } from './support/coaching';
 
 const { db, client } = useTestDatabase();
@@ -461,6 +464,27 @@ describe('coachGroups and coachGroup', () => {
     expect(await coachGroup(db, 'c', foreign)).toBeUndefined();
     expect(await coachGroup(db, 'c', UNKNOWN)).toBeUndefined();
     expect(await coachGroup(db, 'c', 'not-a-uuid')).toBeUndefined();
+  });
+
+  it('lists the groups, and a group its members, by Lithuanian name (R-160)', async () => {
+    await seedCoach(db, 'c', 'c@example.lt');
+    for (const name of UNSORTED_NAMES) await seedGroup(db, 'c', name);
+    const group = await seedGroup(db, 'c', 'Šeštadienis');
+    const players = await seedNamedAccounts(db, 'p', UNSORTED_NAMES);
+    for (const player of players) {
+      await seedLink(db, 'c', player);
+      await seedMember(db, 'c', group, player);
+    }
+    expect((await coachGroups(db, 'c')).map(({ name }) => name)).toEqual([
+      ...LITHUANIAN_ORDER.slice(0, 3),
+      'Šeštadienis',
+      ...LITHUANIAN_ORDER.slice(3),
+    ]);
+    expect(
+      (await coachGroup(db, 'c', group))?.members.map(
+        (member) => member.displayName,
+      ),
+    ).toEqual(LITHUANIAN_ORDER);
   });
 });
 

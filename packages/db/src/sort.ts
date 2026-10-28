@@ -16,3 +16,18 @@ export const byName =
     const y = key(b);
     return x.name.localeCompare(y.name, 'lt') || x.id.localeCompare(y.id);
   };
+
+/** Things that keep their own name and id (groups), in byName's order. */
+export const byOwnName = byName((one: NameAndId) => one);
+
+/** An account as name lists show it. */
+interface DisplayNamed {
+  readonly id: string;
+  readonly displayName: string;
+}
+
+/** Accounts (players, coaches, members) in byName's order (R-160). */
+export const byDisplayName = byName((one: DisplayNamed) => ({
+  name: one.displayName,
+  id: one.id,
+}));

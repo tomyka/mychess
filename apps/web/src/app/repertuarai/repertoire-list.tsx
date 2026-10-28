@@ -1,7 +1,6 @@
 import { SIDES, type Side } from '@mychess/chess';
 import {
   useFormatter,
-  useLocale,
   useTranslations,
   type DateTimeFormatOptions,
 } from 'next-intl';
@@ -9,6 +8,8 @@ import Link from 'next/link';
 import { useId, type JSX } from 'react';
 import { DISPLAY_TIME_ZONE } from '../../lib/time-zone';
 import { repertoireRoute } from '../../lib/routes';
+
+const LITHUANIAN = new Intl.Collator('lt');
 
 /** One repertoire as Mano repertuarai lists it. */
 export interface RepertoireCard {
@@ -130,7 +131,8 @@ function SideGroup({
 
 /**
  * The account's repertoires by side, White then Black, each sorted by name
- * in the account's language; one line when there are none at all.
+ * in Lithuanian order whatever the viewer's language (R-160); one line when
+ * there are none at all.
  */
 export function RepertoireList({
   items,
@@ -140,9 +142,8 @@ export function RepertoireList({
   readonly now: Date;
 }): JSX.Element {
   const t = useTranslations('repertoires.list');
-  const collator = new Intl.Collator(useLocale());
   if (items.length === 0) return <p className="text-fg-muted">{t('empty')}</p>;
-  const sorted = [...items].sort((a, b) => collator.compare(a.name, b.name));
+  const sorted = [...items].sort((a, b) => LITHUANIAN.compare(a.name, b.name));
   return (
     <div className="grid gap-8 sm:grid-cols-2">
       {SIDES.map((side) => (
