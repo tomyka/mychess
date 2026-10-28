@@ -42,9 +42,12 @@ const ROKAS: CoachPlayerPageData = {
         repertoire: { id: 'r-9', name: 'Karo-Kan gynyba', side: 'black' },
         source: 'assigned',
         badges: { overdue: false, paused: true, forked: false, updated: false },
-        standing: {
-          counts: { notStarted: 1, skipped: 0, due: 0, learned: 1 },
-          mastered: false,
+        view: {
+          kind: 'granted',
+          standing: {
+            counts: { notStarted: 1, skipped: 0, due: 0, learned: 1 },
+            mastered: false,
+          },
         },
       },
     ],

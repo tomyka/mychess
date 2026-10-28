@@ -1,5 +1,6 @@
 import type {
   GroupProgress,
+  GroupProgressCell,
   PlayerProgress,
   ProgressRow,
   RepertoireProgressView,
@@ -52,7 +53,7 @@ const ROW: ProgressRow = {
   repertoire: REF,
   source: 'assigned',
   badges: BADGES,
-  standing: { counts: COUNTS, mastered: false },
+  view: { kind: 'granted', standing: { counts: COUNTS, mastered: false } },
 };
 
 const VIEW: RepertoireProgressView = {
@@ -177,7 +178,10 @@ describe('coachProgressData', () => {
 
 describe('groupProgressData', () => {
   it('reads the session coach’s group and turns last trained into Vilnius days ago', async () => {
-    const cell = { badges: BADGES, standing: null };
+    const cell: GroupProgressCell = {
+      badges: BADGES,
+      view: { kind: 'forked' },
+    };
     server.group.mockResolvedValue({
       columns: [REF],
       rows: [

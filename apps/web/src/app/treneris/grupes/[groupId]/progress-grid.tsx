@@ -72,14 +72,16 @@ function Cell({
   if (cell === null) {
     return <span className="text-fg-muted">{t('noAssignment')}</span>;
   }
-  const { standing } = cell;
+  const { view } = cell;
   return (
     <div className="flex flex-col gap-1">
-      {standing === null ? null : (
-        <CellLink standing={standing} target={target} />
+      {view.kind === 'forked' ? null : (
+        <CellLink standing={view.standing} target={target} />
       )}
       <AssignmentBadges flags={cell.badges} />
-      {standing?.mastered === true ? <MasteredBadge /> : null}
+      {view.kind === 'granted' && view.standing.mastered ? (
+        <MasteredBadge />
+      ) : null}
     </div>
   );
 }

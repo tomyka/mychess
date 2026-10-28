@@ -20,7 +20,7 @@ function RowName({
   readonly row: ProgressRow;
 }): JSX.Element {
   const { repertoire } = row;
-  if (row.standing === null) {
+  if (row.view.kind === 'forked') {
     return <span className="font-semibold">{repertoire.name}</span>;
   }
   return (
@@ -55,21 +55,26 @@ function Row({
   readonly row: ProgressRow;
 }): JSX.Element {
   const t = useTranslations('coach.progress');
-  const { standing, badges } = row;
+  const { view, badges } = row;
   return (
     <li className="flex flex-col gap-2 border-t border-border pt-3 first:border-t-0 first:pt-0">
       <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-2">
         <RowName playerId={playerId} row={row} />
         <span className="text-sm text-fg-muted">
           {t(row.source)}
-          {standing === null ? null : <Percent counts={standing.counts} />}
+          {view.kind === 'forked' ? null : (
+            <Percent counts={view.standing.counts} />
+          )}
         </span>
       </div>
       {badges === null ? null : <AssignmentBadges flags={badges} />}
-      {standing === null ? (
+      {view.kind === 'forked' ? (
         <p className="text-sm text-fg-muted">{t('forkedNote')}</p>
       ) : (
-        <StateBar counts={standing.counts} mastered={standing.mastered} />
+        <StateBar
+          counts={view.standing.counts}
+          mastered={view.standing.mastered}
+        />
       )}
     </li>
   );

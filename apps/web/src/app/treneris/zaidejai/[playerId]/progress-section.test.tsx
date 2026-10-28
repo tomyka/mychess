@@ -15,21 +15,24 @@ const PROGRESS: PlayerProgressSection = {
       repertoire: { id: 'r-1', name: 'Karo-Kan gynyba', side: 'black' },
       source: 'assigned',
       badges: { overdue: true, paused: false, forked: false, updated: false },
-      standing: { counts: COUNTS, mastered: false },
+      view: { kind: 'granted', standing: { counts: COUNTS, mastered: false } },
     },
     {
       repertoire: { id: 'r-2', name: 'Itališkoji partija', side: 'white' },
       source: 'assigned',
       badges: { overdue: false, paused: false, forked: true, updated: false },
-      standing: null,
+      view: { kind: 'forked' },
     },
     {
       repertoire: { id: 'r-3', name: 'Londono sistema', side: 'white' },
       source: 'shared',
       badges: null,
-      standing: {
-        counts: { notStarted: 0, skipped: 0, due: 0, learned: 3 },
-        mastered: true,
+      view: {
+        kind: 'granted',
+        standing: {
+          counts: { notStarted: 0, skipped: 0, due: 0, learned: 3 },
+          mastered: true,
+        },
       },
     },
   ],
@@ -94,9 +97,12 @@ describe('the player page’s progress section (R-151, R-154, R-155)', () => {
           repertoire: { id: 'r-4', name: 'Tuščias', side: 'white' },
           source: 'assigned',
           badges: null,
-          standing: {
-            counts: { notStarted: 0, skipped: 0, due: 0, learned: 0 },
-            mastered: false,
+          view: {
+            kind: 'granted',
+            standing: {
+              counts: { notStarted: 0, skipped: 0, due: 0, learned: 0 },
+              mastered: false,
+            },
           },
         },
       ],

@@ -145,7 +145,7 @@ export {
   type RepertoireProgressRequest,
   type RepertoireProgressView,
 } from './progress/coach-progress';
-export type { RepertoireRef } from './progress/view';
+export type { ProgressView, RepertoireRef } from './progress/view';
 export {
   countRateLimited,
   countWeighted,

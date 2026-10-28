@@ -132,13 +132,16 @@ describe('coachPlayerProgress', () => {
       repertoire: { id: karoKan, name: 'Londono sistema', side: 'white' },
       source: 'assigned',
       badges: { overdue: false, paused: false, forked: false, updated: false },
-      standing: { counts: { due: own } },
+      view: { kind: 'granted', standing: { counts: { due: own } } },
     });
     // The same moves, trained through karoKan, count here too (R-156).
     expect(rows.at(-1)).toMatchObject({
       source: 'shared',
       badges: null,
-      standing: { counts: { notStarted: 0, due: own } },
+      view: {
+        kind: 'granted',
+        standing: { counts: { notStarted: 0, due: own } },
+      },
     });
   });
 
@@ -165,7 +168,7 @@ describe('coachPlayerProgress', () => {
       (r) => r.repertoire.id === karoKan,
     );
     expect(row?.badges?.paused).toBe(true);
-    expect(row?.standing).not.toBeNull();
+    expect(row?.view.kind).toBe('granted');
   });
 
   it('shows a forked assignment with its badge only (R-155)', async () => {
@@ -176,7 +179,7 @@ describe('coachPlayerProgress', () => {
       (r) => r.repertoire.id === karoKan,
     );
     expect(row?.badges?.forked).toBe(true);
-    expect(row?.standing).toBeNull();
+    expect(row?.view).toEqual({ kind: 'forked' });
   });
 
   it('is undefined for a player not linked to the coach', async () => {
@@ -274,12 +277,26 @@ describe('coachGroupProgress (R-153)', () => {
       {
         player: { id: 'p', displayName: 'Name p' },
         lastTrained: null,
-        cells: [{ standing: { counts: { notStarted: own } } }],
+        cells: [
+          {
+            view: {
+              kind: 'granted',
+              standing: { counts: { notStarted: own } },
+            },
+          },
+        ],
       },
       {
         player: { id: 'q', displayName: 'Name q' },
         lastTrained: WEEK_AGO,
-        cells: [{ standing: { counts: { notStarted: 0, due: own } } }],
+        cells: [
+          {
+            view: {
+              kind: 'granted',
+              standing: { counts: { notStarted: 0, due: own } },
+            },
+          },
+        ],
       },
     ]);
   });
@@ -296,13 +313,16 @@ describe('coachGroupProgress (R-153)', () => {
         cells: [
           {
             badges: { forked: false },
-            standing: { counts: { notStarted: own } },
+            view: {
+              kind: 'granted',
+              standing: { counts: { notStarted: own } },
+            },
           },
         ],
       },
       {
         player: { id: 'q' },
-        cells: [{ badges: { forked: true }, standing: null }],
+        cells: [{ badges: { forked: true }, view: { kind: 'forked' } }],
       },
     ]);
   });
@@ -335,9 +355,12 @@ describe('coachGroupProgress (R-153)', () => {
           forked: false,
           updated: false,
         },
-        standing: {
-          counts: { notStarted: n, skipped: 0, due: 0, learned: 0 },
-          mastered: false,
+        view: {
+          kind: 'granted',
+          standing: {
+            counts: { notStarted: n, skipped: 0, due: 0, learned: 0 },
+            mastered: false,
+          },
         },
       })),
     );

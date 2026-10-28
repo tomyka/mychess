@@ -1,7 +1,7 @@
 /**
  * The facts coach progress is decided on, for many players at once
  * (R-39, R-42, R-154): link, shares and this coach's assignments, in a
- * fixed number of statements. The domain decides (canCoachSeeProgress,
+ * fixed number of statements. The domain decides (progressRepertoire,
  * progressRepertoireIds); `lastTrained` filters on its answer. Internal to
  * the package.
  */
@@ -41,7 +41,7 @@ async function linkedOf(
 }
 
 /**
- * canCoachSeeProgress's facts for each of `playerIds`. A fixed number of
+ * progressRepertoire's facts for each of `playerIds`. A fixed number of
  * statements whatever the number of players; none for no players.
  */
 export async function coachProgressFacts(

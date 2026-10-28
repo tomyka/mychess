@@ -521,8 +521,7 @@
   },
   "access": {
     "notLinked": "This player is not linked to you.",
-    "notShared": "This repertoire is not shared with you.",
-    "forked": "The player made their own copy of this repertoire."
+    "notShared": "This repertoire is not shared with you."
   },
   "assignment": {
     "notFound": "This repertoire does not exist or is not available to you.",

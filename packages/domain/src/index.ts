@@ -81,7 +81,13 @@ export {
   type Settlement,
   type SettlementFacts,
 } from './assignment-settlement';
-export { HOME_TIME_ZONE, dayEnd, dayStart, vilniusDay } from './calendar';
+export {
+  HOME_TIME_ZONE,
+  dayEnd,
+  dayStart,
+  daysBetween,
+  vilniusDay,
+} from './calendar';
 export {
   FORK_OFFER_DAYS,
   FORK_OFFER_REASONS,
@@ -103,10 +109,13 @@ export {
   type CoachSubject,
 } from './coach-access';
 export {
-  canCoachSeeProgress,
   isCoachLinked,
   progressRepertoireIds,
+  progressRepertoires,
+  progressRepertoire,
   type CoachProgressFacts,
+  type ProgressRepertoire,
+  type ProgressSource,
 } from './coach-progress';
 export {
   COACH_REFUSALS,

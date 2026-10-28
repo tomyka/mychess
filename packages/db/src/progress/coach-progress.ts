@@ -2,27 +2,27 @@
  * What a coach reads of their players' progress (R-151 to R-155). Every
  * read is one repeatable-read snapshot, so each takes the pool (`Db`), never
  * a caller's transaction. The facts are read first, inside that snapshot,
- * and the domain decides (isCoachLinked, canCoachSeeProgress). The
- * repertoires are then loaded through the same scopes again: the coach's
- * own for an assignment, the share for a shared one (Q26). Statements:
- * fixed in the number of players, plus 4 per repertoire shown (its row and
- * the 3 of its graph).
+ * and the domain decides (isCoachLinked, progressRepertoire,
+ * progressRepertoires). Each entry is then loaded through its scope
+ * (entryRead): the coach's own for an assignment, live or forked, the
+ * share for a shared one (Q26). Statements: fixed in the number of players,
+ * plus 4 per repertoire shown (its row and the 3 of its graph).
  */
 import {
   progressOf,
   type RepertoireProgress,
-  type Standing,
   type TrackedReview,
 } from '@mychess/chess';
 import {
-  canCoachSeeProgress,
   isCoachLinked,
   ownScope,
-  sharedScope,
+  progressRepertoire,
+  progressRepertoires,
   type AccountRef,
   type BadgeSet,
   type CoachProgressFacts,
   type PlayerRepertoire,
+  type ProgressSource,
 } from '@mychess/domain';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -34,12 +34,14 @@ import { isUuid } from '../ids';
 import { trackedReviews } from '../training/reviews';
 import { coachProgressFacts, lastTrained } from './facts';
 import {
-  coachBadges,
+  byName,
+  entryRead,
   keysOf,
   loadAllVisible,
   loadVisible,
-  standingFor,
+  type EntryRead,
   type LoadedGraph,
+  type ProgressView,
   type ProgressViewer,
   type RepertoireRef,
 } from './view';
@@ -47,17 +49,15 @@ import {
 const SNAPSHOT = { isolationLevel: 'repeatable read' } as const;
 const NO_REVIEWS: ReadonlyMap<string, TrackedReview> = new Map();
 
-/** Where a repertoire on the player page comes from. */
-type ProgressSource = 'assigned' | 'shared';
-
 /** One repertoire on the player page. */
 export interface ProgressRow {
   readonly repertoire: RepertoireRef;
+  /** The entry's source: assigned for a forked assignment too. */
   readonly source: ProgressSource;
   /** The S5 badges of an assignment; null for a shared repertoire. */
   readonly badges: BadgeSet | null;
-  /** Null where canCoachSeeProgress refuses: a forked assignment (R-155). */
-  readonly standing: Standing | null;
+  /** The standing where the domain grants it; forked otherwise (R-155). */
+  readonly view: ProgressView;
 }
 
 export interface PlayerProgress {
@@ -93,70 +93,59 @@ async function trackedOf(
   return read.get(playerId) ?? NO_REVIEWS;
 }
 
-/** The assignment of `repertoireId` among the viewer's facts, if any. */
-const assignmentOf = (facts: CoachProgressFacts, repertoireId: string) =>
-  facts.assignments.find((a) => a.repertoireId === repertoireId);
-
-/** The S5 badges of this coach's assignment of `loaded`; null for none. */
-function badgesOf(
-  facts: CoachProgressFacts,
-  loaded: LoadedGraph,
-  tracked: ReadonlyMap<string, TrackedReview>,
-  now: Date,
-): BadgeSet | null {
-  const assignment = assignmentOf(facts, loaded.repertoire.id);
-  return assignment === undefined
-    ? null
-    : coachBadges(assignment, loaded.graph, tracked, now);
-}
-
-/** A repertoire on the player page and the list it was loaded from. */
+/** A repertoire of progressRepertoires, loaded through its entryRead's scope. */
 interface Shown {
   readonly loaded: LoadedGraph;
-  readonly source: ProgressSource;
+  readonly read: EntryRead;
 }
 
 /** A row of the player page; badges only for an assignment. */
 function rowOf(
-  viewer: ProgressViewer,
-  { loaded, source }: Shown,
+  { loaded, read }: Shown,
   tracked: ReadonlyMap<string, TrackedReview>,
   now: Date,
 ): ProgressRow {
+  const reviewed = { graph: loaded.graph, tracked, now };
   return {
     repertoire: loaded.repertoire,
-    source,
-    badges:
-      source === 'assigned'
-        ? badgesOf(viewer.facts, loaded, tracked, now)
-        : null,
-    standing: standingFor(viewer, loaded, tracked, now),
+    source: read.source,
+    badges: read.badges(reviewed),
+    view: read.view(reviewed),
   };
 }
 
-const shownAs =
-  (source: ProgressSource) =>
-  (loaded: LoadedGraph): Shown => ({ loaded, source });
+/**
+ * `shown` in the domain's order of sources, each source by name: the
+ * domain decides which source comes first, the page only sorts within it.
+ */
+function byNameWithinSource(shown: readonly Shown[]): Shown[] {
+  const bySource = new Map<ProgressSource, Shown[]>();
+  for (const one of shown) {
+    const same = bySource.get(one.read.source) ?? [];
+    same.push(one);
+    bySource.set(one.read.source, same);
+  }
+  return [...bySource.values()].flatMap((same) =>
+    same.sort((a, b) => byName(a.loaded, b.loaded)),
+  );
+}
 
-/** Every repertoire this coach assigned the player, then every shared one. */
+/**
+ * Every repertoire of progressRepertoires its scope reaches: this coach's
+ * assignments (by name), then the shared ones (by name).
+ */
 async function playerRepertoires(
   tx: Executor,
-  { coachId, playerId, facts }: ProgressViewer,
+  viewer: ProgressViewer,
 ): Promise<Shown[]> {
-  const assigned = await loadAllVisible(
-    tx,
-    ownScope(coachId),
-    facts.assignments.map((a) => a.repertoireId),
-  );
-  const shared = await loadAllVisible(
-    tx,
-    sharedScope(coachId, playerId),
-    facts.sharedRepertoireIds,
-  );
-  return [
-    ...assigned.map(shownAs('assigned')),
-    ...shared.map(shownAs('shared')),
-  ];
+  const out: Shown[] = [];
+  const { coachId, playerId, facts } = viewer;
+  for (const entry of progressRepertoires(coachId, playerId, facts)) {
+    const read = entryRead(entry, viewer);
+    const loaded = await loadVisible(tx, read.scope, entry.repertoireId);
+    if (loaded !== undefined) out.push({ loaded, read });
+  }
+  return byNameWithinSource(out);
 }
 
 /**
@@ -185,7 +174,7 @@ export function coachPlayerProgress(
       new Map([[playerId, viewer.facts]]),
     );
     return {
-      rows: shown.map((one) => rowOf(viewer, one, tracked, now)),
+      rows: shown.map((one) => rowOf(one, tracked, now)),
       lastTrained: last.get(playerId) ?? null,
     };
   }, SNAPSHOT);
@@ -199,18 +188,6 @@ export interface RepertoireProgressView {
   readonly progress: RepertoireProgress;
 }
 
-/** The repertoire through the scope canCoachSeeProgress allowed it by. */
-function loadAllowed(
-  tx: Executor,
-  { coachId, playerId, facts }: ProgressViewer,
-  repertoireId: string,
-): Promise<LoadedGraph | undefined> {
-  const scope = facts.sharedRepertoireIds.has(repertoireId)
-    ? sharedScope(coachId, playerId)
-    : ownScope(coachId);
-  return loadVisible(tx, scope, repertoireId);
-}
-
 /** Whose progress on which repertoire, asked by which coach. */
 export interface RepertoireProgressRequest extends PlayerRepertoire {
   /** The acting coach: the session's, never one a client names. */
@@ -218,8 +195,8 @@ export interface RepertoireProgressRequest extends PlayerRepertoire {
 }
 
 /**
- * The progress page (R-152): undefined unless canCoachSeeProgress allows
- * it. The repertoire then loads through the scope that allowed it.
+ * The progress page (R-152): undefined unless progressRepertoire grants
+ * it. The repertoire then loads through that entry's scope.
  */
 export function coachRepertoireProgress(
   db: Db,
@@ -229,19 +206,23 @@ export function coachRepertoireProgress(
   if (!isUuid(repertoireId)) return Promise.resolve(undefined);
   return db.transaction(async (tx) => {
     const viewer = await linkedViewer(tx, coachId, playerId);
-    if (
-      viewer === undefined ||
-      !canCoachSeeProgress(coachId, playerId, repertoireId, viewer.facts).ok
-    )
-      return undefined;
-    const loaded = await loadAllowed(tx, viewer, repertoireId);
+    if (viewer === undefined) return undefined;
+    const entry = progressRepertoire(
+      coachId,
+      playerId,
+      repertoireId,
+      viewer.facts,
+    );
+    if (entry?.kind !== 'granted') return undefined;
+    const read = entryRead(entry, viewer);
+    const loaded = await loadVisible(tx, read.scope, repertoireId);
     const player = await coachPlayer(tx, coachId, playerId);
     if (loaded === undefined || player === undefined) return undefined;
     const tracked = await trackedOf(tx, playerId, [loaded]);
     return {
       player: { id: player.id, displayName: player.displayName },
       repertoire: loaded.repertoire,
-      badges: badgesOf(viewer.facts, loaded, tracked, now),
+      badges: read.badges({ graph: loaded.graph, tracked, now }),
       progress: progressOf(loaded.graph, tracked, now),
     };
   }, SNAPSHOT);
@@ -250,8 +231,8 @@ export function coachRepertoireProgress(
 /** One cell of the group grid; null where the member has no assignment. */
 export interface GroupProgressCell {
   readonly badges: BadgeSet;
-  /** Null where canCoachSeeProgress refuses: a forked assignment (R-155). */
-  readonly standing: Standing | null;
+  /** The standing where the domain grants it; forked otherwise (R-155). */
+  readonly view: ProgressView;
 }
 
 export interface GroupProgressRow {
@@ -286,8 +267,9 @@ async function groupRepertoireIds(
 }
 
 /**
- * The member's cell of `column`: null without an assignment of it; its
- * badges, and its standing only where canCoachSeeProgress allows it.
+ * The member's cell of `column`: null unless progressRepertoire shows this
+ * coach's assignment of it, live or forked; its badges, and its standing
+ * only where granted.
  */
 function cellOf(
   viewer: ProgressViewer,
@@ -295,12 +277,14 @@ function cellOf(
   tracked: ReadonlyMap<string, TrackedReview>,
   now: Date,
 ): GroupProgressCell | null {
-  const assignment = assignmentOf(viewer.facts, column.repertoire.id);
-  if (assignment === undefined) return null;
-  return {
-    badges: coachBadges(assignment, column.graph, tracked, now),
-    standing: standingFor(viewer, column, tracked, now),
-  };
+  const { coachId, playerId, facts } = viewer;
+  const id = column.repertoire.id;
+  const entry = progressRepertoire(coachId, playerId, id, facts);
+  if (entry === undefined) return null;
+  const read = entryRead(entry, viewer);
+  const reviewed = { graph: column.graph, tracked, now };
+  const badges = read.badges(reviewed);
+  return badges === null ? null : { badges, view: read.view(reviewed) };
 }
 
 /** What the grid knows of every member, read once for the whole group. */

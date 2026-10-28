@@ -1,9 +1,10 @@
 /**
  * What the coach progress reads show, built from what they loaded: the
  * repertoires a coach may see progress on (each with its graph), their
- * player-move keys, the S5 badges of an assignment, and the standing only
- * where canCoachSeeProgress allows it (R-155: none for a forked
- * assignment). Internal to the package.
+ * player-move keys, the S5 badges of an assignment, and one mapping
+ * of each entry the domain decided (entryRead): the scope it loads
+ * through, its badges, and its standing only where granted (R-155: none
+ * for a forked assignment). Internal to the package.
  */
 import {
   allLearned,
@@ -15,11 +16,14 @@ import {
   type TrackedReview,
 } from '@mychess/chess';
 import {
-  canCoachSeeProgress,
   coachAssignmentBadges,
+  ownScope,
+  sharedScope,
   type AssignmentFacts,
   type BadgeSet,
   type CoachProgressFacts,
+  type ProgressRepertoire,
+  type ProgressSource,
   type RepertoireScope,
 } from '@mychess/domain';
 import type { Executor } from '../client';
@@ -57,7 +61,7 @@ export async function loadVisible(
 }
 
 /** By name in Lithuanian order, then id. */
-const byName = (a: LoadedGraph, b: LoadedGraph): number =>
+export const byName = (a: LoadedGraph, b: LoadedGraph): number =>
   a.repertoire.name.localeCompare(b.repertoire.name, 'lt') ||
   a.repertoire.id.localeCompare(b.repertoire.id);
 
@@ -81,7 +85,7 @@ export const keysOf = (graphs: readonly RepertoireGraph[]): string[] => [
 ];
 
 /** An assignment's badges as the coach sees them; done when all are learned. */
-export const coachBadges = (
+const coachBadges = (
   facts: AssignmentFacts,
   graph: RepertoireGraph,
   tracked: ReadonlyMap<string, TrackedReview>,
@@ -100,21 +104,58 @@ export interface ProgressViewer {
 }
 
 /**
- * The standing of `loaded` to show `viewer`: only where
- * canCoachSeeProgress allows it, null otherwise (a forked assignment,
- * R-155).
+ * The scope an entry of the domain loads through (Q26): the player's share
+ * for a shared one, the coach's own repertoires for an assignment, live
+ * or forked.
  */
-export const standingFor = (
-  viewer: ProgressViewer,
-  loaded: LoadedGraph,
-  tracked: ReadonlyMap<string, TrackedReview>,
-  now: Date,
-): Standing | null =>
-  canCoachSeeProgress(
-    viewer.coachId,
-    viewer.playerId,
-    loaded.repertoire.id,
-    viewer.facts,
-  ).ok
-    ? repertoireStanding(loaded.graph, tracked, now)
-    : null;
+const scopeOf = (
+  { source }: Pick<ProgressRepertoire, 'source'>,
+  coachId: string,
+  playerId: string,
+): RepertoireScope =>
+  source === 'shared' ? sharedScope(coachId, playerId) : ownScope(coachId);
+
+/** What a row or cell shows of a repertoire: its standing, or that it is forked (R-155). */
+export type ProgressView =
+  | { readonly kind: 'granted'; readonly standing: Standing }
+  | { readonly kind: 'forked' };
+
+const FORKED: ProgressView = { kind: 'forked' };
+
+/** A graph with the player's Reviews on its moves, as of `now`. */
+interface Reviewed {
+  readonly graph: RepertoireGraph;
+  readonly tracked: ReadonlyMap<string, TrackedReview>;
+  readonly now: Date;
+}
+
+/** What the reads need of one entry of the domain, as it decided it. */
+export interface EntryRead {
+  readonly source: ProgressSource;
+  readonly scope: RepertoireScope;
+  /** The S5 badges of the entry's assignment; null for a shared one. */
+  readonly badges: (reviewed: Reviewed) => BadgeSet | null;
+  /** Its standing only where the entry is granted; forked otherwise. */
+  readonly view: (reviewed: Reviewed) => ProgressView;
+}
+
+/** One entry of progressRepertoire(s), mapped to what the reads load and show. */
+export function entryRead(
+  entry: ProgressRepertoire,
+  { coachId, playerId }: Pick<ProgressViewer, 'coachId' | 'playerId'>,
+): EntryRead {
+  const { assignment } = entry;
+  return {
+    source: entry.source,
+    scope: scopeOf(entry, coachId, playerId),
+    badges: ({ graph, tracked, now }) =>
+      assignment === null ? null : coachBadges(assignment, graph, tracked, now),
+    view: ({ graph, tracked, now }) =>
+      entry.kind === 'granted'
+        ? {
+            kind: 'granted',
+            standing: repertoireStanding(graph, tracked, now),
+          }
+        : FORKED,
+  };
+}

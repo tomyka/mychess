@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { AssignmentFacts } from './assignment';
-import { ACCESS_REFUSALS } from './coach-access';
 import {
-  canCoachSeeProgress,
   isCoachLinked,
+  progressRepertoire,
   progressRepertoireIds,
+  progressRepertoires,
   type CoachProgressFacts,
+  type ProgressRepertoire,
 } from './coach-progress';
 
 const T = new Date('2026-10-26T09:00:00Z');
@@ -39,8 +40,27 @@ const facts = (
   ...extra,
 });
 
-const allowed = { ok: true, value: undefined };
-const refused = (reason: string) => ({ ok: false, refusal: { reason } });
+const shared = (repertoireId: string): ProgressRepertoire => ({
+  repertoireId,
+  kind: 'granted',
+  source: 'shared',
+  assignment: null,
+});
+const assigned = (one: AssignmentFacts): ProgressRepertoire => ({
+  repertoireId: one.repertoireId,
+  kind: 'granted',
+  source: 'assigned',
+  assignment: one,
+});
+const forked = (one: AssignmentFacts): ProgressRepertoire => ({
+  repertoireId: one.repertoireId,
+  kind: 'forked',
+  source: 'assigned',
+  assignment: one,
+});
+
+const PAUSED = assignment('paused', { pausedAt: T });
+const FORKED = assignment('forked', { forkedAt: T });
 
 describe('isCoachLinked', () => {
   it('is true with an active link', () => {
@@ -58,67 +78,124 @@ describe('isCoachLinked', () => {
   });
 });
 
-describe('canCoachSeeProgress (R-39, R-42, R-155)', () => {
-  it('allows a repertoire the player shares with the coach', () => {
-    expect(canCoachSeeProgress('c', 'p', 'shared', facts())).toEqual(allowed);
-  });
-
-  it('allows a live assignment, paused or not', () => {
-    expect(canCoachSeeProgress('c', 'p', 'live', facts())).toEqual(allowed);
-    expect(canCoachSeeProgress('c', 'p', 'paused', facts())).toEqual(allowed);
-  });
-
-  it('refuses a forked assignment as forked', () => {
-    expect(canCoachSeeProgress('c', 'p', 'forked', facts())).toEqual(
-      refused(ACCESS_REFUSALS.forked),
+describe('progressRepertoire (R-39, R-42, R-155)', () => {
+  it('grants a repertoire the player shares with the coach, as shared', () => {
+    expect(progressRepertoire('c', 'p', 'shared', facts())).toEqual(
+      shared('shared'),
     );
   });
 
-  it('allows a forked repertoire the player also shares with the coach', () => {
-    const shared = facts({ sharedRepertoireIds: new Set(['forked']) });
-    expect(canCoachSeeProgress('c', 'p', 'forked', shared)).toEqual(allowed);
-  });
-
-  it('refuses anything else as not shared', () => {
-    expect(canCoachSeeProgress('c', 'p', 'private', facts())).toEqual(
-      refused(ACCESS_REFUSALS.notShared),
+  it('grants a live assignment, paused or not, with its assignment', () => {
+    expect(progressRepertoire('c', 'p', 'live', facts())).toEqual(
+      assigned(assignment('live')),
+    );
+    expect(progressRepertoire('c', 'p', 'paused', facts())).toEqual(
+      assigned(PAUSED),
     );
   });
 
-  it('refuses an assignment that no longer reaches the player', () => {
+  it('shows a forked assignment as forked, with that assignment', () => {
+    expect(progressRepertoire('c', 'p', 'forked', facts())).toEqual(
+      forked(FORKED),
+    );
+  });
+
+  it('grants a forked repertoire the player also shares, as shared', () => {
+    const both = facts({ sharedRepertoireIds: new Set(['forked']) });
+    expect(progressRepertoire('c', 'p', 'forked', both)).toEqual(
+      shared('forked'),
+    );
+  });
+
+  it('shows nothing else', () => {
+    expect(progressRepertoire('c', 'p', 'private', facts())).toBeUndefined();
+  });
+
+  it('shows nothing of an assignment that no longer reaches the player', () => {
     const gone = facts({ assignments: [assignment('live', { reaches: [] })] });
-    expect(canCoachSeeProgress('c', 'p', 'live', gone)).toEqual(
-      refused(ACCESS_REFUSALS.notShared),
-    );
+    expect(progressRepertoire('c', 'p', 'live', gone)).toBeUndefined();
   });
 
-  it('refuses another coach’s assignment of the same player', () => {
+  it('shows nothing of another coach’s assignment of the same player, forked or not', () => {
     const other = facts({
-      assignments: [assignment('live', { coachId: 'c2' })],
+      assignments: [
+        assignment('live', { coachId: 'c2' }),
+        assignment('forked', { coachId: 'c2', forkedAt: T }),
+      ],
     });
-    expect(canCoachSeeProgress('c', 'p', 'live', other)).toEqual(
-      refused(ACCESS_REFUSALS.notShared),
-    );
+    expect(progressRepertoire('c', 'p', 'live', other)).toBeUndefined();
+    expect(progressRepertoire('c', 'p', 'forked', other)).toBeUndefined();
   });
 
-  it('refuses this coach’s assignment of another player', () => {
+  it('shows nothing of this coach’s assignment of another player', () => {
     const other = facts({
       assignments: [assignment('live', { playerId: 'p2' })],
     });
-    expect(canCoachSeeProgress('c', 'p', 'live', other)).toEqual(
-      refused(ACCESS_REFUSALS.notShared),
-    );
+    expect(progressRepertoire('c', 'p', 'live', other)).toBeUndefined();
   });
 
-  it('refuses everything without a link, and to oneself', () => {
+  it('shows nothing without a link, and to oneself', () => {
     for (const id of ['shared', 'live', 'forked']) {
       expect(
-        canCoachSeeProgress('c', 'p', id, facts({ linked: false })),
-      ).toEqual(refused(ACCESS_REFUSALS.notLinked));
+        progressRepertoire('c', 'p', id, facts({ linked: false })),
+      ).toBeUndefined();
     }
-    expect(canCoachSeeProgress('p', 'p', 'shared', facts())).toEqual(
-      refused(ACCESS_REFUSALS.notLinked),
-    );
+    expect(progressRepertoire('p', 'p', 'shared', facts())).toBeUndefined();
+    expect(progressRepertoire('p', 'p', 'forked', facts())).toBeUndefined();
+  });
+});
+
+describe('progressRepertoires (R-151, R-155)', () => {
+  it('lists this coach’s assignments, a forked one as forked, then the shared ones', () => {
+    expect(progressRepertoires('c', 'p', facts())).toEqual([
+      assigned(assignment('live')),
+      assigned(PAUSED),
+      forked(FORKED),
+      shared('shared'),
+    ]);
+  });
+
+  it('lists a forked repertoire the player also shares once, as shared', () => {
+    const both = facts({ sharedRepertoireIds: new Set(['forked']) });
+    expect(progressRepertoires('c', 'p', both)).toEqual([
+      assigned(assignment('live')),
+      assigned(PAUSED),
+      shared('forked'),
+    ]);
+  });
+
+  it('lists a repertoire assigned through two rows once', () => {
+    const twice = facts({
+      sharedRepertoireIds: new Set(),
+      assignments: [assignment('live'), assignment('live')],
+    });
+    expect(progressRepertoires('c', 'p', twice)).toEqual([
+      assigned(assignment('live')),
+    ]);
+  });
+
+  it('leaves out another coach’s, another player’s and unreached assignments', () => {
+    const others = facts({
+      sharedRepertoireIds: new Set(),
+      assignments: [
+        assignment('other-coach', { coachId: 'c2' }),
+        assignment('other-player', { playerId: 'p2' }),
+        assignment('unreached', { reaches: [] }),
+      ],
+    });
+    expect(progressRepertoires('c', 'p', others)).toEqual([]);
+  });
+
+  it('is empty without a link, and to oneself', () => {
+    expect(progressRepertoires('c', 'p', facts({ linked: false }))).toEqual([]);
+    expect(progressRepertoires('p', 'p', facts())).toEqual([]);
+  });
+
+  it('agrees with progressRepertoire on every repertoire it lists', () => {
+    const f = facts();
+    for (const one of progressRepertoires('c', 'p', f)) {
+      expect(one).toEqual(progressRepertoire('c', 'p', one.repertoireId, f));
+    }
   });
 });
 
@@ -150,11 +227,13 @@ describe('progressRepertoireIds (R-154)', () => {
     expect(progressRepertoireIds('p', 'p', facts()).size).toBe(0);
   });
 
-  it('agrees with canCoachSeeProgress on every repertoire', () => {
+  it('agrees with progressRepertoire on every repertoire', () => {
     const f = facts();
     const ids = progressRepertoireIds('c', 'p', f);
     for (const id of ['shared', 'live', 'paused', 'forked', 'private']) {
-      expect(ids.has(id)).toBe(canCoachSeeProgress('c', 'p', id, f).ok);
+      expect(ids.has(id)).toBe(
+        progressRepertoire('c', 'p', id, f)?.kind === 'granted',
+      );
     }
   });
 });

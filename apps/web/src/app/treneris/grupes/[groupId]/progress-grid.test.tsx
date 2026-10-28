@@ -21,9 +21,12 @@ const GRID: GroupGrid = {
       cells: [
         {
           badges: NONE,
-          standing: {
-            counts: { notStarted: 1, skipped: 0, due: 5, learned: 2 },
-            mastered: false,
+          view: {
+            kind: 'granted',
+            standing: {
+              counts: { notStarted: 1, skipped: 0, due: 5, learned: 2 },
+              mastered: false,
+            },
           },
         },
         null,
@@ -33,12 +36,15 @@ const GRID: GroupGrid = {
       player: { id: 'p-2', displayName: 'Rokas' },
       lastTrainedDays: null,
       cells: [
-        { badges: { ...NONE, forked: true }, standing: null },
+        { badges: { ...NONE, forked: true }, view: { kind: 'forked' } },
         {
           badges: { ...NONE, overdue: true },
-          standing: {
-            counts: { notStarted: 0, skipped: 1, due: 0, learned: 3 },
-            mastered: true,
+          view: {
+            kind: 'granted',
+            standing: {
+              counts: { notStarted: 0, skipped: 1, due: 0, learned: 3 },
+              mastered: true,
+            },
           },
         },
       ],
@@ -149,9 +155,12 @@ describe('the group grid (R-153)', () => {
           cells: [
             {
               badges: NONE,
-              standing: {
-                counts: { notStarted: 0, skipped: 0, due: 0, learned: 0 },
-                mastered: false,
+              view: {
+                kind: 'granted',
+                standing: {
+                  counts: { notStarted: 0, skipped: 0, due: 0, learned: 0 },
+                  mastered: false,
+                },
               },
             },
           ],
