@@ -16,15 +16,21 @@ and their tests.
 
 ### 1. The progress access rule names its grant (candidate 1, Strong)
 
-- Domain: `progressAccess(coachId, playerId, repertoireId, facts)` returns
-  `Result<ProgressGrant, AccessRefusal>`, where `ProgressGrant` is
-  `{ source: 'shared' }` or `{ source: 'assigned'; assignment: AssignmentFacts }`.
-  `canCoachSeeProgress` is removed (its callers use `progressAccess`).
+- Domain: `progressRepertoire(coachId, playerId, repertoireId, facts)`
+  returns the repertoire's `ProgressRepertoire` (below) or undefined when the
+  coach may not see it. `canCoachSeeProgress` and the `access.forked`
+  refusal are removed. (Built as one union after review, 2026-10-28, rather
+  than a separate `progressAccess` result plus a grant type.)
 - Domain: `progressRepertoires(coachId, playerId, facts)` lists every
-  repertoire the player page shows, each with its grant or its refusal:
-  the shared ones, then this coach's assignments reaching the player (a
-  forked one carries `access.forked`). Empty without a link.
-  `progressRepertoireIds` becomes the granted ids of that list.
+  repertoire the player page shows as one `ProgressRepertoire` each: this
+  coach's assignments reaching the player first (`kind: 'granted'`, or
+  `kind: 'forked'` carrying the forked assignment for its badge), then the
+  shared ones; each entry carries its `source` and its assignment (null when
+  shared), so db never works out what a fork means. Refused ones are left
+  out; an id is listed once. Empty without a link.
+  `progressRepertoireIds` becomes the granted ids of that list. (Refined in
+  review, 2026-10-28: the spec first had a forked entry carry the
+  `access.forked` refusal; the badge needs the assignment.)
 - Db: one `scopeOf(grant, coachId, playerId)` maps `shared` to
   `sharedScope` and `assigned` to `ownScope`; `loadAllowed`'s copy of the
   domain's branch order goes. `standingFor` goes; standings follow the grant.

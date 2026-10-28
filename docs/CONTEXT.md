@@ -207,6 +207,10 @@ _Avoid_: Problem area, blunder
 Where one own-side Move of a Repertoire stands for a Player, as the Coach sees it, in exactly one of four (R-151): not started (no Review), skipped ("I know this", never graded since), Due, learned. Counted for a Repertoire, a Chapter and a Line; Mastered is a badge on those, not a fifth state. A Review counts wherever the Player trained the Move (R-156).
 _Avoid_: Status, progress level
 
+**Standing**:
+A set of Moves' counts per Move state (not started, skipped, Due, learned) and whether that set is Mastered: what the Coach sees for a Repertoire, a Chapter or a Line.
+_Avoid_: Stats, summary
+
 **Last trained**:
 When a Player last trained on a Repertoire the Coach may see progress on (R-154), shown as whole days ago in Vilnius. Training on a private Repertoire never shows.
 _Avoid_: Last active, last seen
