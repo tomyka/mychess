@@ -1,3 +1,4 @@
+import { byNameAndId } from '@mychess/domain';
 import {
   canAddMember,
   canChangeGroups,
@@ -22,7 +23,7 @@ import {
 } from './coach-queries';
 import { isUuid } from './ids';
 import { accounts, groupMembers, groups } from './schema';
-import { byDisplayName, byOwnName } from './sort';
+import { byDisplayName } from './sort';
 
 type GroupResult = Result<undefined, CoachRefusal>;
 
@@ -315,7 +316,7 @@ export async function coachGroups(
         .where(eq(groups.coachId, coachId))
         .groupBy(groups.id),
     )
-    .sort(byOwnName);
+    .sort(byNameAndId);
 }
 
 /** A member of a group, as its coach sees them. */

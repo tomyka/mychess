@@ -1,3 +1,4 @@
+import { byNameAndId } from '@mychess/domain';
 import {
   canStopCoaching,
   COACH_REFUSALS,
@@ -22,7 +23,7 @@ import {
   sharedRepertoireIds,
   type SharedRepertoire,
 } from './shares';
-import { byDisplayName, byOwnName } from './sort';
+import { byDisplayName } from './sort';
 
 /** Switches Coach mode on (R-11); a second call keeps the first time. */
 export async function startCoaching(
@@ -138,7 +139,7 @@ async function linkedAccounts(
         .innerJoin(groups, eq(groups.id, groupMembers.groupId))
         .where(where.members),
     )
-    .sort(byOwnName);
+    .sort(byNameAndId);
   return people.map((person) => ({
     ...person,
     groups: memberships

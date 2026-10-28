@@ -89,6 +89,7 @@ export {
   daysBetween,
   vilniusDay,
 } from './calendar';
+export { byName, byNameAndId, type NameAndId } from './name-order';
 export {
   FORK_OFFER_DAYS,
   FORK_OFFER_REASONS,

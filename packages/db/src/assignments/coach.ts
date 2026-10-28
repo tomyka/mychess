@@ -9,6 +9,7 @@
  * is listed only while they are linked to the coach (the link check in
  * reach.ts). A fixed number of statements, whatever the number of players.
  */
+import { byName } from '@mychess/domain';
 import { playerKeys, type RepertoireGraph } from '@mychess/chess';
 import {
   ownScope,
@@ -26,7 +27,6 @@ import { isUuid } from '../ids';
 import { loadRepertoireRows } from '../repertoires/repository';
 import { repertoireScope } from '../repertoires/scope';
 import { accounts, groups, repertoires } from '../schema';
-import { byName } from '../sort';
 import { trackedReviews } from '../training/reviews';
 import { coachBadges } from './badges';
 import { namesOf } from './names';

@@ -6,6 +6,7 @@
  * and reads the repertoire, its notes and its changes only through
  * the `assigned` repertoireScope. Each runs in one repeatable-read snapshot.
  */
+import { byName } from '@mychess/domain';
 import {
   allLearned,
   moveChangesSchema,
@@ -42,7 +43,6 @@ import {
 import { repertoireScope } from '../repertoires/scope';
 import { personalNotes, repertoires } from '../schema';
 import { learnedKeys } from '../training/reviews';
-import { byName } from '../sort';
 import { namesOf } from './names';
 import { assignmentFacts } from './reach';
 

@@ -6,6 +6,7 @@
  * shared with coachAssignments), and its standing only where granted
  * (R-155: none for a forked assignment). Internal to the package.
  */
+import { byName } from '@mychess/domain';
 import {
   playerKeys,
   repertoireStanding,
@@ -27,7 +28,6 @@ import { coachBadges } from '../assignments/badges';
 import type { Executor } from '../client';
 import { loadRepertoireRows } from '../repertoires/repository';
 import { repertoireScope } from '../repertoires/scope';
-import { byName } from '../sort';
 
 export interface RepertoireRef {
   readonly id: string;
