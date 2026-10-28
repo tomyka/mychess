@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { HOME_TIME_ZONE, dayEnd, dayStart, vilniusDay } from './calendar';
+import {
+  HOME_TIME_ZONE,
+  dayEnd,
+  dayStart,
+  daysBetween,
+  vilniusDay,
+} from './calendar';
 
 describe('HOME_TIME_ZONE', () => {
   it('is Vilnius (CLAUDE.md)', () => {
@@ -131,5 +137,39 @@ describe('dayEnd', () => {
     expect(iso(dayEnd(new Date('2026-10-23T12:00:00Z'), 'UTC'))).toBe(
       '2026-10-24T00:00:00.000Z',
     );
+  });
+});
+
+describe('daysBetween', () => {
+  const now = new Date('2026-10-26T09:00:00Z'); // 11:00 in Vilnius (EET)
+
+  it('is 0 for the same instant', () => {
+    expect(daysBetween(now, now)).toBe(0);
+  });
+
+  it('is 0 earlier the same Vilnius day, though the UTC day before', () => {
+    expect(daysBetween(new Date('2026-10-25T22:30:00Z'), now)).toBe(0);
+  });
+
+  it('is 1 for the Vilnius day before', () => {
+    expect(daysBetween(new Date('2026-10-25T20:00:00Z'), now)).toBe(1);
+  });
+
+  it('counts whole days across the DST change of 2026-10-25', () => {
+    expect(daysBetween(new Date('2026-10-20T09:00:00Z'), now)).toBe(6);
+  });
+
+  it('counts across a month and a year end', () => {
+    expect(daysBetween(new Date('2025-12-31T12:00:00Z'), now)).toBe(299);
+  });
+
+  it('is negative when `to` is the earlier day', () => {
+    expect(daysBetween(now, new Date('2026-10-25T20:00:00Z'))).toBe(-1);
+  });
+
+  it('follows the time zone it is given', () => {
+    const from = new Date('2026-10-25T22:30:00Z');
+    expect(daysBetween(from, now, 'UTC')).toBe(1);
+    expect(daysBetween(from, now)).toBe(0);
   });
 });

@@ -1,23 +1,13 @@
-import { vilniusDay } from '@mychess/domain';
-
-const DAY_MS = 86_400_000;
+import { daysBetween } from '@mychess/domain';
 
 /**
- * Whole Vilnius days from `at` to `now`: 0 the same day, 1 the day before
- * (R-154). The calendar days are compared as UTC dates, so a DST change
- * between them does not shift the count. Computed by a loader, so the server
- * and the browser render the same "last trained" text (spec, Database).
+ * Whole Vilnius days from a last-trained time to `now` (R-154); null where
+ * there is none (never). Computed by a loader, so the server and the browser
+ * render the same "last trained" text (spec, Database).
  */
-export function daysAgo(at: Date, now: Date): number {
-  return Math.round(
-    (Date.parse(vilniusDay(now)) - Date.parse(vilniusDay(at))) / DAY_MS,
-  );
-}
-
-/** `daysAgo` of a last-trained time; null where there is none (never). */
 export function daysSince(
   at: Date | null | undefined,
   now: Date,
 ): number | null {
-  return at === null || at === undefined ? null : daysAgo(at, now);
+  return at === null || at === undefined ? null : daysBetween(at, now);
 }

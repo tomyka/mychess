@@ -14,6 +14,7 @@ export const vilniusDay = (at: Date): string => DAY.format(at);
 const SECOND_MS = 1000;
 const MINUTE_MS = 60_000;
 const HOUR_MS = 3_600_000;
+const DAY_MS = 86_400_000;
 
 /** The wall clock in a time zone, to the second. */
 interface WallClock {
@@ -113,3 +114,18 @@ export function dayStart(at: Date, timeZone: string = HOME_TIME_ZONE): Date {
 /** The instant the next calendar day begins: days are 23 to 25 hours. */
 export const dayEnd = (at: Date, timeZone: string = HOME_TIME_ZONE): Date =>
   dayStart(new Date(dayStart(at, timeZone).getTime() + 26 * HOUR_MS), timeZone);
+
+/**
+ * Whole local calendar days from `from` to `to` in `timeZone`: 0 on the same
+ * local day, 1 the day before (R-154). The local days are compared as their
+ * UTC midnights, so a DST change between them does not shift the count.
+ */
+export const daysBetween = (
+  from: Date,
+  to: Date,
+  timeZone: string = HOME_TIME_ZONE,
+): number =>
+  Math.round(
+    (localDay(to.getTime(), timeZone) - localDay(from.getTime(), timeZone)) /
+      DAY_MS,
+  );
