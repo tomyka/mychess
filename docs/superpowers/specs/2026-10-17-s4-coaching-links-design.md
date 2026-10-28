@@ -68,7 +68,7 @@ The security checklist on #233, items 1 to 5, is part of this spec's acceptance.
   - `revokeInvite`, `unlink(coach, player)` and `leaveGroup`.
   - Group create, rename, delete and add or remove member.
   - `shareRepertoire` and `unshare`, and coach-note upsert or delete.
-  - `coachPlayers(coach)`, `playerCoaches(player)` and `sharedWithCoach(coach, player)`. Each one filters on an active link.
+  - `coachPlayers(coach)`, `playerCoaches(player)` and `sharedWithCoach(coach, player)`. Each one filters on an active link. (Since #303, the shared list comes from the coach's player-page read, `coachPlayerProgress`, through the same share predicate.)
 
 ### Web (`apps/web`)
 
