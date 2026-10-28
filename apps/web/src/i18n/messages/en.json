@@ -484,6 +484,8 @@
         "moves": "{count, plural, one {# move} other {# moves}}"
       },
       "chaptersTitle": "Chapters",
+      "renamedTitle": "Existing chapters that will be renamed",
+      "renamedItem": "“{from}” will be called “{to}”",
       "skippedTitle": "Skipped games ({count})",
       "skippedNone": "{count, plural, one {The game is valid} other {All # games are valid}}",
       "skippedItem": "Game {game}: {reason}",

@@ -17,6 +17,7 @@ const PREVIEW: ImportPreview = {
     moves: 1,
   },
   chapters: ['Sicilijos gynyba, Taimanovo variantas', 'Skyrius 2'],
+  renamed: [],
   skipped: [
     { game: 7, reason: 'pgn.illegalMove', san: 'Nxe4' },
     { game: 8, reason: 'pgn.secondAnswer', san: 'a6', move: 5 },
@@ -24,6 +25,12 @@ const PREVIEW: ImportPreview = {
   ],
   target: null,
   refusal: null,
+};
+
+/** An existing chapter a merge tells apart from a namesake (R-159). */
+const RENAMED = {
+  from: 'Karo-Kano gynyba',
+  to: 'Karo-Kano gynyba (B12, 2.\u00A0d4)',
 };
 
 function renderSummary(
@@ -62,6 +69,26 @@ describe('ImportSummary', () => {
         .getAllByRole('listitem')
         .map((item) => item.textContent),
     ).toEqual(['Sicilijos gynyba, Taimanovo variantas', 'Skyrius 2']);
+  });
+
+  it('lists the existing chapters a merge renames, old title and new (R-159)', () => {
+    renderSummary({
+      ...PREVIEW,
+      renamed: [RENAMED],
+    });
+    const list = screen.getByRole('list', { name: i.renamedTitle });
+    expect(
+      within(list)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual([
+      `\u201e${RENAMED.from}\u201c vadinsis \u201e${RENAMED.to}\u201c`,
+    ]);
+  });
+
+  it('leaves out the renamed list when no title changes', () => {
+    renderSummary(PREVIEW);
+    expect(screen.queryByRole('list', { name: i.renamedTitle })).toBeNull();
   });
 
   it('lists the skipped games with their reason and move', () => {

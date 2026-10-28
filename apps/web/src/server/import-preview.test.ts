@@ -1,7 +1,11 @@
 import { importPgn, type RepertoireGraph } from '@mychess/chess';
 import type { Account } from '@mychess/domain';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { previewImport, type PreviewOutcome } from './import-preview';
+import {
+  previewImport,
+  type ImportPreview,
+  type PreviewOutcome,
+} from './import-preview';
 
 const NOW = new Date('2026-10-28T09:00:00Z');
 const INTO = '0b9e7c1e-3f4a-4c5b-8d6e-7f8091a2b3c4';
@@ -36,26 +40,52 @@ const ADVANCE = '1. e4 c6 2. d4 d5 3. e5 Bf5 4. Nf3 e6 *';
 const CLASSICAL = '1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 *';
 const TWO_KNIGHTS = '1. e4 c6 2. Nc3 d5 3. Nf3 Bg4 *';
 
-/** The chapter titles a preview of `text` shows, or the refusal's reason. */
-async function titles(
+/** The preview of `text`, or a thrown error with the refusal's reason. */
+async function preview(
   locale: 'lt' | 'en',
   text: string,
   into?: string,
-): Promise<readonly string[]> {
+): Promise<ImportPreview> {
   const outcome: PreviewOutcome = await previewImport(
     account(locale),
     { text, side: 'black', into },
     NOW,
   );
   if (!outcome.ok) throw new Error(outcome.refusal.reason);
-  return outcome.preview.chapters;
+  return outcome.preview;
 }
+
+/** The chapter titles a preview of `text` shows. */
+const titles = async (
+  locale: 'lt' | 'en',
+  text: string,
+  into?: string,
+): Promise<readonly string[]> => (await preview(locale, text, into)).chapters;
 
 const graphOf = (text: string): RepertoireGraph => {
   const imported = importPgn(text, 'black');
   if (!imported.ok) throw new Error(imported.refusal.reason);
   return imported.value.graph;
 };
+
+/** The account's repertoire INTO holds the games of `text`. */
+function ownsRepertoireOf(text: string): void {
+  server.own.mockResolvedValue({
+    ok: true,
+    value: {
+      repertoire: {
+        id: INTO,
+        ownerId: 'rokas',
+        side: 'black',
+        name: 'Karo-Kan',
+        version: 3,
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+      graph: graphOf(text),
+    },
+  });
+}
 
 beforeEach(() => {
   server.own.mockReset();
@@ -81,26 +111,46 @@ describe('previewImport chapter titles (R-158)', () => {
   });
 
   it('titles a merge’s new chapters as the merged repertoire names them', async () => {
-    server.own.mockResolvedValue({
-      ok: true,
-      value: {
-        repertoire: {
-          id: INTO,
-          ownerId: 'rokas',
-          side: 'black',
-          name: 'Karo-Kan',
-          version: 3,
-          createdAt: NOW,
-          updatedAt: NOW,
-        },
-        graph: graphOf(ADVANCE),
-      },
-    });
+    ownsRepertoireOf(ADVANCE);
     // Alone, the Two Knights would be plain; beside the repertoire's
     // Advance it is told apart.
     expect(await titles('lt', TWO_KNIGHTS)).toEqual(['Karo-Kano gynyba']);
     expect(await titles('lt', TWO_KNIGHTS, INTO)).toEqual([
       'Karo-Kano gynyba (B11, 2.\u00A0Nc3)',
     ]);
+  });
+});
+
+describe('previewImport renamed chapters (R-159)', () => {
+  /** The Advance, told apart at `move` from the Two Knights it gains. */
+  const advanceRenamed = (move: string) => ({
+    from: 'Karo-Kano gynyba',
+    to: `Karo-Kano gynyba (B12, ${move})`,
+  });
+
+  it('lists an existing chapter a merge gives a namesake, old title and new', async () => {
+    ownsRepertoireOf(ADVANCE);
+    expect((await preview('lt', TWO_KNIGHTS, INTO)).renamed).toEqual([
+      advanceRenamed('2.\u00A0d4'),
+    ]);
+  });
+
+  it('leaves out the existing chapters whose title stays', async () => {
+    // The Classical keeps its own name; the Advance's move is where it
+    // parts from every other chapter, the Classical's 3. Nc3 included.
+    ownsRepertoireOf([CLASSICAL, ADVANCE].join('\n\n'));
+    expect((await preview('lt', TWO_KNIGHTS, INTO)).renamed).toEqual([
+      advanceRenamed('3.\u00A0e5'),
+    ]);
+  });
+
+  it('lists none when the language already names them apart', async () => {
+    ownsRepertoireOf(ADVANCE);
+    expect((await preview('en', TWO_KNIGHTS, INTO)).renamed).toEqual([]);
+  });
+
+  it('lists none for a new repertoire', async () => {
+    const upload = [ADVANCE, TWO_KNIGHTS].join('\n\n');
+    expect((await preview('lt', upload)).renamed).toEqual([]);
   });
 });

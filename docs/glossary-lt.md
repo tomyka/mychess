@@ -69,6 +69,7 @@ taxonomy (`data/openings/lt/`) and are not translated.
 | Hint | Hint | užuomina | v1 `move_nav_show_hint` | |
 | PGN | PGN | PGN | v1 `pgn_import_pgn_text_label` | Not translated. File: **PGN failas**. Upload: **įkelti**; import: **importuoti**; drop a file: **nutempti**. |
 | Import summary | What the file holds | Kas yra faile | proposed | The R-64 preview before saving: chapters, lines, positions, transpositions, moves. |
+| Renamed chapters (merge preview) | Existing chapters that will be renamed | Bus pervadinti esami skyriai | R-159 | Heading in the import preview, before the import, so future tense: **bus pervadinti**, not **pervadinami** (reads as happening now). Each item: **„{senas}“ vadinsis „{naujas}“** / “{old}” will be called “{new}”. Worded, not an arrow: screen readers say "right arrow" or skip it, and the quotes keep a title with its own parentheses and commas apart from the sentence. **vadinsis** has no participle, so it needs no gender or number agreement. |
 | Skipped game | Skipped game | praleista partija | proposed | Listed as **Partija N: {priežastis}** / "Game N: {reason}"; the reason is a lowercase fragment. Not "N partija", which reads as a count. |
 | Download PGN | Download PGN | atsisiųsti PGN | proposed | Not **eksportuoti**, as for the data export. |
 | Side picker options | White / Black | Baltieji / Juodieji | R-74 | Options under **Spalva**; list headings and "No repertoire as White" use **baltaisiais / juodaisiais**. |

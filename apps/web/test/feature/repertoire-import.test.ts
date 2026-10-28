@@ -107,6 +107,7 @@ const previewSchema = z.object({
       moves: z.number(),
     }),
     chapters: z.array(z.string()),
+    renamed: z.array(z.object({ from: z.string(), to: z.string() })),
     skipped: z.array(z.unknown()),
     target: z.unknown(),
     refusal: z.string().nullable(),
@@ -156,6 +157,7 @@ describe('previewImportAction', () => {
     expect(outcome.preview.summary).toEqual(summarize(merged.value.graph));
     // Game 1 adds no new move, so it adds no chapter (R-117).
     expect(outcome.preview.chapters).toHaveLength(1);
+    expect(outcome.preview.renamed).toEqual([]);
     expect(outcome.preview.skipped).toEqual([
       { game: 1, reason: 'pgn.secondAnswer', san: 'a6', move: 5 },
     ]);
@@ -167,6 +169,29 @@ describe('previewImportAction', () => {
     });
     expect(outcome.preview.refusal).toBeNull();
     expect((await stored(taimanov, gabija)).repertoire.version).toBe(1);
+  });
+
+  it('lists the existing chapter a merge gives a namesake, old title and new (R-159)', async () => {
+    const { gabija } = await cast();
+    const caroKann = await seedRepertoire(testDb(), 'gabija@example.lt', {
+      pgn: '1. e4 c6 2. d4 d5 3. e5 Bf5 4. Nf3 e6 *',
+      side: 'black',
+      name: 'Karo-Kanas',
+    });
+    actAs(gabija);
+    const outcome = previewSchema.parse(
+      await previewImportAction({
+        text: '1. e4 c6 2. Nc3 d5 3. Nf3 Bg4 *',
+        side: 'black',
+        into: caroKann,
+      }),
+    );
+    expect(outcome.preview.renamed).toEqual([
+      {
+        from: 'Karo-Kano gynyba',
+        to: 'Karo-Kano gynyba (B12, 2.\u00A0d4)',
+      },
+    ]);
   });
 
   it('shows the merge but refuses it when nothing in the file can be added (R-115)', async () => {

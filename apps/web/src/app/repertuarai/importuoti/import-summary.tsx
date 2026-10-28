@@ -3,7 +3,10 @@
 import type { RepertoireSummary, Side, Skipped } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import { useId, useState, type JSX, type RefObject } from 'react';
-import type { ImportPreview } from '../../../server/import-preview';
+import type {
+  ImportPreview,
+  RenamedChapter,
+} from '../../../server/import-preview';
 import { SECONDARY_BUTTON } from '../../buttons';
 import { SECTION_TITLE } from '../../nustatymai/styles';
 import { StatusLine } from '../../status-line';
@@ -55,7 +58,7 @@ function ChapterNames({
       <h3 id={titleId} className={SUBTITLE}>
         {t('repertoires.import.chaptersTitle')}
       </h3>
-      <ol aria-labelledby={titleId} className="list-decimal pl-6">
+      <ol aria-labelledby={titleId} className="list-decimal space-y-1 pl-6">
         {names.map((name, index) => (
           // Wrapped in full, not clamped: a distinction at the end of a
           // long title must show (R-158).
@@ -64,6 +67,33 @@ function ChapterNames({
           </li>
         ))}
       </ol>
+    </div>
+  );
+}
+
+/**
+ * The target's chapters the merge renames, old title and new (R-159), each
+ * wrapped in full like the chapter list.
+ */
+function RenamedChapters({
+  renamed,
+}: {
+  readonly renamed: readonly RenamedChapter[];
+}): JSX.Element {
+  const t = useTranslations('repertoires.import');
+  const titleId = useId();
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 id={titleId} className={SUBTITLE}>
+        {t('renamedTitle')}
+      </h3>
+      <ul aria-labelledby={titleId} className="list-disc space-y-1 pl-6">
+        {renamed.map(({ from, to }, index) => (
+          <li key={index} className="break-words">
+            {t('renamedItem', { from, to })}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -148,7 +178,10 @@ export interface ImportSummaryProps {
   readonly headingRef?: RefObject<HTMLHeadingElement | null>;
 }
 
-/** The counts, the chapters it brings and how many games were read. */
+/**
+ * The counts, the chapters it brings, the existing ones it renames and how
+ * many games were read.
+ */
 function Accepted({
   preview,
 }: {
@@ -160,6 +193,9 @@ function Accepted({
       <CountTiles summary={preview.summary} />
       {preview.chapters.length === 0 ? null : (
         <ChapterNames names={preview.chapters} />
+      )}
+      {preview.renamed.length === 0 ? null : (
+        <RenamedChapters renamed={preview.renamed} />
       )}
       {preview.skipped.length === 0 ? (
         <StatusLine

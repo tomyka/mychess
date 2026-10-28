@@ -484,6 +484,8 @@
         "moves": "{count, plural, one {# ėjimas} few {# ėjimai} other {# ėjimų}}"
       },
       "chaptersTitle": "Skyriai",
+      "renamedTitle": "Bus pervadinti esami skyriai",
+      "renamedItem": "„{from}“ vadinsis „{to}“",
       "skippedTitle": "Praleistos partijos ({count})",
       "skippedNone": "{count, plural, =1 {Partija tinkama} one {Visos partijos tinkamos (#)} few {Visos partijos tinkamos (#)} other {Visos partijos tinkamos (#)}}",
       "skippedItem": "Partija {game}: {reason}",

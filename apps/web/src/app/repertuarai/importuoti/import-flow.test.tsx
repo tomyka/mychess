@@ -32,6 +32,7 @@ const PGN = '[Event "Taimanov"]\n\n1. e4 c5 *\n';
 const PREVIEW: ImportPreview = {
   summary: { chapters: 1, lines: 1, positions: 3, transpositions: 0, moves: 2 },
   chapters: ['Taimanov'],
+  renamed: [],
   skipped: [],
   target: null,
   refusal: null,

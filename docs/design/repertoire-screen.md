@@ -573,6 +573,14 @@ After the preview:
   reason has one. When nothing was skipped: one `success` line, "All 6 games
   are valid". More than 10 skipped games: the first 10 and a "Show all {n}"
   disclosure.
+- **Renamed chapters (R-159):** when a merge gives an existing chapter a
+  namesake, a block after the chapter list names each one: an h3 (same
+  `text-base font-semibold` as "Chapters") over a bulleted list, one item
+  per chapter, old title and new in one sentence from the catalogue. Plain
+  `fg` text, no box: it is information, not a warning. Both titles wrap in
+  full, never clamped (R-158); the distinguishing suffix at the end of the
+  new title must show at 390px. No interactive content, so it adds no tab
+  stop. Hidden when nothing is renamed.
 - **Step 3, the target:** "New repertoire" with a name field (empty), or
   "Add to an existing one" with a select of the account's repertoires of
   the chosen side. With none of that side, that option is disabled and says

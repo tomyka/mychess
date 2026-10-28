@@ -54,6 +54,12 @@ export interface ImportTarget {
   readonly added: { readonly chapters: number; readonly moves: number };
 }
 
+/** An existing chapter whose title a merge changes (R-159). */
+export interface RenamedChapter {
+  readonly from: string;
+  readonly to: string;
+}
+
 /** What the import summary shows before the player confirms (R-64). */
 export interface ImportPreview {
   readonly summary: RepertoireSummary;
@@ -62,6 +68,11 @@ export interface ImportPreview {
    * repertoire page will show them after the import (R-158).
    */
   readonly chapters: readonly string[];
+  /**
+   * The target's chapters whose title the merge changes, because a chapter
+   * of the same name joins them (R-158, R-159); empty for a new repertoire.
+   */
+  readonly renamed: readonly RenamedChapter[];
   readonly skipped: readonly Skipped[];
   readonly target: ImportTarget | null;
   /** Why Import is refused for this target (R-115), or null. */
@@ -201,6 +212,22 @@ const titlesFrom = (
   locale: Locale,
 ): string[] => graph.chapters.slice(from).map(chapterLabelIn(graph, locale));
 
+/**
+ * `before`'s chapters whose title, in `locale`, differs in `after`, the
+ * repertoire a merge made of it (R-159): each with its old and new title.
+ */
+function renamedBy(
+  before: RepertoireGraph,
+  after: RepertoireGraph,
+  locale: Locale,
+): RenamedChapter[] {
+  const was = chapterLabelIn(before, locale);
+  const becomes = chapterLabelIn(after, locale);
+  return before.chapters
+    .map((chapter) => ({ from: was(chapter), to: becomes(chapter) }))
+    .filter(({ from, to }) => from !== to);
+}
+
 /** A new repertoire's preview: the import as it stands. */
 function newPreview(
   imported: ImportedRepertoire,
@@ -209,6 +236,7 @@ function newPreview(
   return {
     summary: summarize(imported.graph),
     chapters: titlesFrom(imported.graph, 0, locale),
+    renamed: [],
     skipped: imported.skipped,
     target: null,
     refusal: null,
@@ -229,6 +257,7 @@ function mergedPreview(
   return {
     summary: summarize(after),
     chapters: titlesFrom(after, before.chapters.length, locale),
+    renamed: renamedBy(before, after, locale),
     skipped: [...imported.skipped, ...merged.skipped].sort(
       (a, b) => a.game - b.game,
     ),
