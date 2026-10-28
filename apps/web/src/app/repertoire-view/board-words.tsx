@@ -3,12 +3,16 @@
 // What the repertoire page says about the board: its accessible name, the
 // cursor square, and each step for screen readers.
 import type { Key } from '@lichess-org/chessground/types';
-import { chapterChildren, chapterOf, sideToMove } from '@mychess/chess';
+import {
+  chapterChildren,
+  chapterOf,
+  moveNumber,
+  sideToMove,
+} from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
 import { chapterLabel } from '../../lib/chapter-label';
 import { useSquareWords } from '../board/square-words';
-import { moveNumber } from './board-play';
 import type { ScreenState } from './screen-state';
 
 /** The board's accessible name, and what to say for the cursor square. */

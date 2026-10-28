@@ -28,11 +28,6 @@ export { useNotes, type Notes } from './use-notes';
 export { useNotesByMove } from './notes-by-move';
 export { CoachNotes, type MoveCoachNote } from './coach-notes';
 
-// Move labels: the number written before a move, `6.` or `6...`, as the
-// move list writes it (the "what changed" summary uses it too), and a whole
-// line written out, `1. e4 c6 2. d4` (the coach's progress page).
-export { lineText, moveNumber } from './board-play';
-
 // A move played on the board: the legal moves joining its two squares (one,
 // or four promotions). The training drills take moves the same way.
 export { movesBetween } from './board-play';

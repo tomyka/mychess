@@ -2,12 +2,16 @@
 
 // The panel pieces both drills show (docs/design/training-screen.md): the
 // side to move, the move field or the promotion choice, and the line so far.
-import { sideToMove, type RepertoireMove } from '@mychess/chess';
+import {
+  lineText,
+  moveNumber,
+  sideToMove,
+  type RepertoireMove,
+} from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import { useLayoutEffect, useRef, type JSX } from 'react';
 import { MoveInput } from '../board/move-input';
 import { PromotionPicker } from '../board/promotion-picker';
-import { moveNumber } from '../repertoire-view';
 import type { MoveInput as DrillMoveInput } from './drill-input';
 
 type Color = 'white' | 'black';
@@ -50,21 +54,6 @@ export function MoveRow({
   );
 }
 
-/** Moves from `rootKey` as a line is written: `1. d4 d5 2. Bf4`. */
-function lineText(
-  moves: readonly RepertoireMove[],
-  whiteFirst: boolean,
-): string {
-  return moves
-    .map((move, ply) => {
-      const white = (ply + (whiteFirst ? 0 : 1)) % 2 === 0;
-      return white || ply === 0
-        ? `${moveNumber(ply, whiteFirst)} ${move.san}`
-        : move.san;
-    })
-    .join(' ');
-}
-
 /** One row of the desktop move list: `2.  Nf3  d6`. */
 interface ListRow {
   readonly number: string;
@@ -101,7 +90,10 @@ function layoutsOf(
   if (rootKey === undefined || moves.length === 0) return null;
   const whiteFirst = sideToMove(rootKey) === 'w';
   return {
-    text: lineText(moves, whiteFirst),
+    text: lineText(
+      moves.map((m) => m.san),
+      whiteFirst,
+    ),
     rows: listRows(moves, whiteFirst),
   };
 }

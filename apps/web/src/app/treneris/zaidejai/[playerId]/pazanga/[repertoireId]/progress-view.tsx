@@ -1,3 +1,4 @@
+import { lineText } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useId, type JSX } from 'react';
@@ -12,7 +13,6 @@ import {
   SECTION_TITLE,
   TEXT_LINK,
 } from '../../../../../nustatymai/styles';
-import { lineText } from '../../../../../repertoire-view';
 import { StateBar } from '../../../../state-bar';
 import { COACH_PAGE, SubpageHeader } from '../../../../subpage-header';
 

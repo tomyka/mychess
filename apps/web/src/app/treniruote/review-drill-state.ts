@@ -5,6 +5,7 @@
 // only keeps their answers and draws them.
 import {
   grade,
+  moveNumber,
   nextReview,
   reviewCounts,
   sideToMove,
@@ -20,7 +21,6 @@ import {
   type ReviewTransition,
   type TrainingRepertoire,
 } from '@mychess/chess';
-import { moveNumber } from '../repertoire-view';
 import type { SessionCounts } from './done-summary';
 import type { DrillPosition } from './drill-board';
 import type { Flash } from './drill-input';

@@ -4,6 +4,7 @@ import {
   chapterTree,
   isPlayerMove,
   moveKey,
+  moveNumber,
   sideToMove,
   type RepertoireGraph,
   type RepertoireMove,
@@ -11,7 +12,6 @@ import {
 } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import { useEffect, useRef, type JSX } from 'react';
-import { moveNumber } from './board-play';
 
 export interface MoveListProps {
   readonly graph: RepertoireGraph;

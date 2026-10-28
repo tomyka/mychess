@@ -8,6 +8,7 @@ import type {
   RepertoireGraph,
   RepertoireMove,
 } from '../repertoire/graph';
+import { moveNumber } from '../repertoire/notation';
 import {
   chapterWalks,
   type ChapterWalk,
@@ -65,20 +66,17 @@ function annotation(move: RepertoireMove): string[] {
 /**
  * A move with its number: always before a White move, and before a Black
  * move when `numbered` (the start of a line, or after a variation). `ply`
- * counts half-moves from White's first move, so it gives the move number.
+ * counts half-moves from White's first move, so it is `moveNumber`'s ply
+ * from a root with White to move.
  */
 function moveText(
   move: RepertoireMove,
   ply: number,
   numbered: boolean,
 ): string[] {
-  const number = 1 + Math.floor(ply / 2);
   const white = sideToMove(move.from) === 'w';
-  const san = white
-    ? `${String(number)}. ${move.san}`
-    : numbered
-      ? `${String(number)}... ${move.san}`
-      : move.san;
+  const san =
+    white || numbered ? `${moveNumber(ply, true)} ${move.san}` : move.san;
   return [san, ...annotation(move)];
 }
 

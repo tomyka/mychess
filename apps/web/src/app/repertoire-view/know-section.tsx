@@ -4,13 +4,13 @@ import {
   chapterOf,
   isPlayerMove,
   moveKey,
+  moveNumber,
   sideToMove,
   type RepertoireGraph,
   type RepertoireMove,
 } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
-import { moveNumber } from './board-play';
 import { currentLineIndex } from './current-line';
 import { KnowThisMenu } from './know-this-menu';
 import { PANEL_LABEL } from './panel-styles';

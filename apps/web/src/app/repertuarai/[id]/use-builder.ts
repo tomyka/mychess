@@ -8,6 +8,7 @@ import type { Key } from '@lichess-org/chessground/types';
 import {
   chapterOf,
   moveKey,
+  moveNumber,
   removalCount,
   sideToMove,
   START_KEY,
@@ -24,7 +25,6 @@ import { editRepertoireAction } from './actions';
 import {
   canMark,
   markChange,
-  moveNumber,
   placeAdded,
   SAVING,
   type ChapterBuilder,

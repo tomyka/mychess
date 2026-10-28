@@ -43,6 +43,7 @@ export {
   type RepertoireChange,
 } from './repertoire/apply-change';
 export { normalizeComment } from './repertoire/comment';
+export { lineText, moveNumber } from './repertoire/notation';
 export {
   mergeInto,
   type MergeAddition,

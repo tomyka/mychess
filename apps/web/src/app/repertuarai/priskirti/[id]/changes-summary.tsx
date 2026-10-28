@@ -2,6 +2,7 @@
 
 import {
   chapterPlies,
+  moveNumber,
   sideToMove,
   splitMoveKey,
   type Chapter,
@@ -12,7 +13,6 @@ import {
 import { useFormatter, useTranslations } from 'next-intl';
 import { useId, type JSX } from 'react';
 import { chapterLabel } from '../../../../lib/chapter-label';
-import { moveNumber } from '../../../repertoire-view';
 
 /** The moves one chapter gained and lost; `chapter` undefined: deleted since. */
 interface ChapterChanges {
