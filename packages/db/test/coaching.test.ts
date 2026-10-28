@@ -335,7 +335,9 @@ describe('linked accounts in Lithuanian order (R-160)', () => {
 
   it("lists the player's coaches by Lithuanian name", async () => {
     await seedPlayer(db, 'ruta', 'ruta@example.lt');
-    const coaches = await seedNamedAccounts(db, 'c', UNSORTED_NAMES, true);
+    const coaches = await seedNamedAccounts(db, 'c', UNSORTED_NAMES, {
+      coach: true,
+    });
     for (const coach of coaches) await seedLink(db, coach, 'ruta');
     expect(
       (await playerCoaches(db, 'ruta')).map((coach) => coach.displayName),

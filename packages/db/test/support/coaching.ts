@@ -52,7 +52,7 @@ export async function seedNamedAccounts(
   db: Db,
   prefix: string,
   names: readonly string[],
-  coach = false,
+  { coach = false }: { readonly coach?: boolean } = {},
 ): Promise<string[]> {
   const rows = names.map((displayName, i) => {
     const id = `${prefix}-${String(i + 1)}`;

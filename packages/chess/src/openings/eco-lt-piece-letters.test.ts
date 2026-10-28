@@ -63,8 +63,9 @@ describe('correctPieceLetters', () => {
     expect(correctPieceLetters('A76', 'Klasikinė Benoni gynyba, 9...Be8')).toBe(
       'Klasikinė Benoni gynyba, 9...Be8',
     );
-    expect(correctPieceLetters('D95', 'Griunfeldo gynyba, 6.Bd3')).toBe(
-      'Griunfeldo gynyba, 6.Bd3',
+    // D95's listed text under another code stays.
+    expect(correctPieceLetters('D94', 'Griunfeldo gynyba, 6.Qb3')).toBe(
+      'Griunfeldo gynyba, 6.Qb3',
     );
   });
 
