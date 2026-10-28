@@ -121,7 +121,7 @@ export function SharedRepertoireView({
     <RepertoireShell
       header={<SharedHeader data={data} />}
       name={data.repertoire.name}
-      ecoNames={data.ecoNames}
+      names={data.names}
       view={view}
       panel={panel}
     />

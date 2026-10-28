@@ -30,9 +30,13 @@ Sketches use English placeholders; the copy comes from i18n-content (Task
   `min-w-touch`), including move chips in the move list, chapter rows and
   the four draw colours.
 - **No fixed widths on text.** Buttons may wrap to two lines on a phone;
-  primary actions never truncate. Repertoire and chapter names clamp to two
-  lines in lists (one line in the phone top bar) with the full name on focus
-  or tap (`title` plus the full name in the accessible name).
+  primary actions never truncate. Repertoire names clamp to two lines in
+  lists (one line in the phone top bar) with the full name on focus or tap
+  (`title` plus the full name in the accessible name). Chapter titles are
+  never clamped (R-158): a title shared with another chapter ends in what
+  tells them apart, "Karo-Kano gynyba (B12, 3. e5)", and a clamp would cut
+  exactly that off. They wrap in full (`break-words`), in the disclosure,
+  the chapter rows, the import preview and the change summary.
 - **Tokens only;** no `dark:` classes are needed on these screens.
 - **Times** (last change) are formatted with `Intl` in the account's time
   zone (Europe/Vilnius by default): today as a time, this year as day and
@@ -156,7 +160,7 @@ repertoire with no chapters opens in builder mode.
 |  (status line, when there is one)    |  fixed too; the panel scrolls below
 |                                      |
 |  Chapter 2 of 6                  [v] |  chapter disclosure, 44px+:
-|  Sicilian, Taimanov: 5.Nc3           |  chapter title, clamp 2 lines
+|  Sicilian, Taimanov: 5.Nc3           |  chapter title, wraps in full
 |                                      |
 |  COMMENT                             |  text-sm semibold fg-muted label
 |  The main idea is ...Qc7 and ...a6,  |  comment text-base fg;
@@ -191,6 +195,9 @@ repertoire with no chapters opens in builder mode.
   of m" and the chapter title. Open, it lists every chapter inline, pushing
   the panel down (never over the board); choosing one selects it, closes the
   list and returns focus to the disclosure. Closed by default on a phone.
+  Rows are `min-h-touch` with `py-2`, so a title that wraps to two lines
+  still reads as its own row next to one-line rows; the list scrolls inside
+  itself past `max-h-72`, which holds five rows with three of them wrapped.
 - **Position section,** in this order:
   - at the chapter root: the chapter intro (R-66), or nothing if it has none;
   - on a move: its comment, or "No comment" in `fg-muted`;
@@ -534,7 +541,7 @@ After the preview:
 |  +-------------+                     |
 |                                      |
 |  Chapters                            |  h3 text-base semibold
-|  1. Sicilian, Taimanov: 5.Nc3        |  ordered list, names clamp 2
+|  1. Sicilian, Taimanov: 5.Nc3        |  ordered list, names wrap
 |  2. Sicilian, Taimanov: 5.Nb5        |
 |  ...                                 |
 |                                      |

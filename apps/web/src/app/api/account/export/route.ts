@@ -1,5 +1,5 @@
 import { exportAccount } from '@mychess/db';
-import { chapterTitleIn } from '../../../../server/chapter-names';
+import { plainChapterTitleIn } from '../../../../server/chapter-names';
 import { getDb } from '../../../../server/db';
 import { SESSION_NOT_FRESH } from '../../../../lib/sign-in-errors';
 import { getAccount, hasFreshSession } from '../../../../server/session';
@@ -24,7 +24,7 @@ export async function GET(): Promise<Response> {
       { status: 403, headers: NO_STORE },
     );
   const data = await exportAccount(getDb(), account.id, new Date(), {
-    chapterTitle: chapterTitleIn(account.locale),
+    chapterTitle: plainChapterTitleIn(account.locale),
   });
   if (data === undefined) return unauthorized();
   return Response.json(data, {

@@ -23,8 +23,9 @@ import {
 import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
+import type { ChapterNames } from '../../../lib/chapter-label';
 import { repertoireDeletedRoute } from '../../../lib/routes';
-import { ecoNamesOf } from '../../../server/chapter-names';
+import { chapterNamesOf } from '../../../server/chapter-names';
 import { getDb } from '../../../server/db';
 import { refusalOf } from '../../../server/parse-refusal';
 import { parsePersonalNote } from '../../../server/personal-note-input';
@@ -150,8 +151,8 @@ export type EditOutcome =
       readonly ok: true;
       readonly graph: RepertoireGraph;
       readonly version: number;
-      /** The opening names the edited chapters are now named after (R-104). */
-      readonly ecoNames: Readonly<Record<string, string>>;
+      /** What titles the edited chapters now (R-104, R-158). */
+      readonly names: ChapterNames;
     }
   | { readonly ok: false; readonly refusal: EditRefusalKey };
 
@@ -203,6 +204,6 @@ export async function editRepertoireAction(
     ok: true,
     graph,
     version: edited.value.version,
-    ecoNames: ecoNamesOf(graph, account.locale),
+    names: chapterNamesOf(graph, account.locale),
   };
 }

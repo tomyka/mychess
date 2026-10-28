@@ -8,7 +8,7 @@ import type { AccountRef, BadgeSet } from '@mychess/domain';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
 import { accountIdSchema } from './account-id';
-import { chapterTitleIn } from './chapter-names';
+import { chapterLabelIn } from './chapter-names';
 import { requireCoach } from './coaching';
 import { getDb } from './db';
 
@@ -52,7 +52,7 @@ export async function coachProgressData(
       { coachId: coach.id, ...parsed.data },
       new Date(),
     )) ?? notFound();
-  const title = chapterTitleIn(coach.locale);
+  const title = chapterLabelIn(view.graph, coach.locale);
   const { counts, mastered, chapters } = view.progress;
   return {
     player: view.player,

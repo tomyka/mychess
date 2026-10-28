@@ -19,11 +19,14 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
-import { createTranslator, NextIntlClientProvider } from 'next-intl';
+import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../../i18n/locales';
-import { chapterTitle, ecoNamesOf } from '../../../server/chapter-names';
+import {
+  chapterNamesOf,
+  plainChapterTitleIn,
+} from '../../../server/chapter-names';
 import type { NoteOutcome } from '../../repertoire-view';
 import type { EditOutcome } from './actions';
 import {
@@ -96,7 +99,7 @@ function renderScreen(
         repertoire={{ id: ID, name, side: graph.side, version: 3 }}
         graph={graph}
         notes={{}}
-        ecoNames={ecoNamesOf(graph, 'lt')}
+        names={chapterNamesOf(graph, 'lt')}
         sharing={coaching.sharing ?? { coaches: [], sharedWith: [] }}
         coachNotes={coaching.coachNotes ?? []}
         forkNotes={coaching.forkNotes ?? []}
@@ -130,13 +133,12 @@ beforeEach(() => {
 describe('RepertoireScreen: browsing', () => {
   it('names the board after the repertoire and the chapter', () => {
     renderScreen();
-    const title = chapterTitle(
-      createTranslator({ locale: 'lt', messages: lt }),
-      'lt',
-    );
+    const title = plainChapterTitleIn('lt');
+    // Both London chapters are named after the same opening (R-158).
+    expect(title(must(GRAPH.chapters[1]))).toBe(title(must(GRAPH.chapters[0])));
     expect(
       screen.getByRole('application', {
-        name: `Šachmatų lenta, Londono sistema, ${title(must(GRAPH.chapters[0]))}`,
+        name: `Šachmatų lenta, Londono sistema, ${title(must(GRAPH.chapters[0]))} (D00, 1...\u00A0d5)`,
       }),
     ).toBeDefined();
     expect(
@@ -404,7 +406,7 @@ function savedAs(
     ok: true,
     graph: result.value,
     version,
-    ecoNames: ecoNamesOf(result.value, 'lt'),
+    names: chapterNamesOf(result.value, 'lt'),
   };
 }
 
@@ -588,7 +590,7 @@ describe('RepertoireScreen: builder mode', () => {
       ok: true,
       graph: addChapter(GRAPH, START_KEY).graph,
       version: 4,
-      ecoNames: ecoNamesOf(GRAPH, 'lt'),
+      names: chapterNamesOf(GRAPH, 'lt'),
     });
     building();
     fireEvent.click(named(/Skyrius 1 iš 2/));

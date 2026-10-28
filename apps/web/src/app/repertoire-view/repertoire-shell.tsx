@@ -1,6 +1,7 @@
 'use client';
 
 import type { JSX, ReactNode } from 'react';
+import type { ChapterNames } from '../../lib/chapter-label';
 import { Board, type BoardProps } from '../board/board';
 import { BoardRow } from './board-row';
 import { Announcer, useBoardWords } from './board-words';
@@ -19,8 +20,8 @@ interface RepertoireShellProps {
   readonly header: ReactNode;
   /** The repertoire's name, which the board's accessible name carries. */
   readonly name: string;
-  /** The opening names the chapters are named after (decision 17). */
-  readonly ecoNames: Readonly<Record<string, string>>;
+  /** What titles the chapters (decision 17, R-158). */
+  readonly names: ChapterNames;
   readonly view: RepertoireView;
   /** What the view puts in the panel under the board row. */
   readonly panel: PanelContent;
@@ -66,7 +67,7 @@ const noReload = (): void => undefined;
 export function RepertoireShell({
   header,
   name,
-  ecoNames,
+  names,
   view,
   panel,
   drawing,
@@ -75,7 +76,7 @@ export function RepertoireShell({
 }: RepertoireShellProps): JSX.Element {
   const { state, dispatch, board, play } = view;
   const { said, ...handlers }: Partial<Drawing> = drawing ?? {};
-  const words = useBoardWords(name, state, board.view.fen, ecoNames);
+  const words = useBoardWords(name, state, board.view.fen, names);
   return (
     <main className="flex h-dvh flex-col lg:mx-auto lg:h-auto lg:max-w-6xl lg:gap-6 lg:px-gutter-wide lg:py-8">
       {header}
@@ -98,7 +99,7 @@ export function RepertoireShell({
           />
           {toolbar}
           <PanelStatus state={state} onReload={onReload} />
-          <RepertoirePanel view={view} ecoNames={ecoNames} content={panel} />
+          <RepertoirePanel view={view} names={names} content={panel} />
         </div>
       </div>
       <Announcer state={state} />

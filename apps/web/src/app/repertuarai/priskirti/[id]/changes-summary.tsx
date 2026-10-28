@@ -12,7 +12,7 @@ import {
 } from '@mychess/chess';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useId, type JSX } from 'react';
-import { chapterLabel } from '../../../../lib/chapter-label';
+import { chapterLabel, type ChapterNames } from '../../../../lib/chapter-label';
 
 /** The moves one chapter gained and lost; `chapter` undefined: deleted since. */
 interface ChapterChanges {
@@ -72,16 +72,19 @@ function byChapter(
 }
 
 /**
- * A chapter's heading: "Chapter N — its name", so two chapters named after
- * the same opening are told apart; just "Chapter N" when that is its name.
+ * A chapter's heading: "Chapter N — its title", the title told apart from
+ * another chapter's of the same name (R-158); just "Chapter N" when that is
+ * its name. Deleted chapters share one heading.
  */
 function useHeading(
-  ecoNames: Readonly<Record<string, string>>,
+  names: ChapterNames,
+  chapters: readonly Chapter[],
 ): (changes: ChapterChanges) => string {
   const t = useTranslations();
+  const title = chapterLabel(t, names, chapters);
   return ({ chapter, number }) => {
     if (chapter === undefined) return t('assignment.changes.deletedChapters');
-    const name = chapterLabel(t, ecoNames)(chapter);
+    const name = title(chapter);
     return chapter.nameSource.kind === 'index'
       ? name
       : t('assignment.changes.chapter', { number, name });
@@ -91,20 +94,19 @@ function useHeading(
 /** One chapter's heading and its added and removed moves. */
 function ChapterLines({
   changes,
-  ecoNames,
+  heading,
 }: {
   readonly changes: ChapterChanges;
-  readonly ecoNames: Readonly<Record<string, string>>;
+  readonly heading: string;
 }): JSX.Element {
   const t = useTranslations();
   const format = useFormatter();
   const list = (moves: readonly string[]): string =>
     format.list(moves, { type: 'conjunction' });
-  const heading = useHeading(ecoNames);
   const { added, removed } = changes;
   return (
     <li className="flex flex-col gap-1">
-      <h3 className="font-semibold">{heading(changes)}</h3>
+      <h3 className="font-semibold break-words">{heading}</h3>
       {added.length === 0 ? null : (
         <p>{t('assignment.changes.added', { moves: list(added) })}</p>
       )}
@@ -120,8 +122,8 @@ export interface ChangesSummaryProps {
   readonly graph: RepertoireGraph;
   /** What changed since the player last opened it (changesSince). */
   readonly changes: MoveChanges;
-  /** The opening names the chapters are named after (decision 17). */
-  readonly ecoNames: Readonly<Record<string, string>>;
+  /** What titles the chapters (decision 17, R-158). */
+  readonly names: ChapterNames;
 }
 
 /**
@@ -132,10 +134,11 @@ export interface ChangesSummaryProps {
 export function ChangesSummary({
   graph,
   changes,
-  ecoNames,
+  names,
 }: ChangesSummaryProps): JSX.Element | null {
   const t = useTranslations('assignment.changes');
   const titleId = useId();
+  const heading = useHeading(names, graph.chapters);
   const chapters = byChapter(graph, changes);
   if (chapters.length === 0 && changes.commentsChanged === 0) return null;
   return (
@@ -152,7 +155,7 @@ export function ChangesSummary({
             <ChapterLines
               key={group.chapter?.id ?? ''}
               changes={group}
-              ecoNames={ecoNames}
+              heading={heading(group)}
             />
           ))}
         </ul>

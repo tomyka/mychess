@@ -7,7 +7,7 @@ import {
   renameRepertoireAction,
   savePersonalNoteAction,
 } from '../../src/app/repertuarai/[id]/actions';
-import { ecoNamesOf } from '../../src/server/chapter-names';
+import { chapterNamesOf } from '../../src/server/chapter-names';
 import { repertoirePageData } from '../../src/server/repertoires';
 import { actAs, formOf, person, type Person } from './support/coaching';
 import { useRequestHarness } from './support/harness';
@@ -82,7 +82,7 @@ describe('the repertoire page', () => {
     });
     expect(data.graph.chapters).toHaveLength(2);
     expect(data.notes).toEqual({});
-    expect(data.ecoNames).toEqual(ecoNamesOf(data.graph, 'lt'));
+    expect(data.names).toEqual(chapterNamesOf(data.graph, 'lt'));
   });
 
   it('is not found for another account’s repertoire and a malformed id', async () => {

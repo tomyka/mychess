@@ -9,6 +9,7 @@ import {
 import { actAs, person, type Person } from './support/coaching';
 import { useRequestHarness } from './support/harness';
 import { outcomeOf, testDb } from './support/request';
+import { chapterLabelIn } from '../../src/server/chapter-names';
 import { graphOf } from '../fixtures/repertoires';
 import { LONDON, seedRepertoire, TAIMANOV } from './support/repertoires';
 
@@ -105,7 +106,7 @@ const previewSchema = z.object({
       transpositions: z.number(),
       moves: z.number(),
     }),
-    chapters: z.array(z.unknown()),
+    chapters: z.array(z.string()),
     skipped: z.array(z.unknown()),
     target: z.unknown(),
     refusal: z.string().nullable(),
@@ -126,12 +127,11 @@ describe('previewImportAction', () => {
     expect(preview.summary.chapters).toBe(6);
     expect(preview.summary.lines).toBe(6);
     expect(preview.summary.transpositions).toBeGreaterThanOrEqual(1);
+    const graph = graphOf(SICILIANS_WITH_BROKEN, 'black');
+    expect(preview.chapters).toEqual(
+      graph.chapters.map(chapterLabelIn(graph, 'lt')),
+    );
     expect(preview.chapters).toHaveLength(6);
-    expect(
-      preview.chapters.map((name) =>
-        z.object({ kind: z.literal('text'), text: z.string() }).parse(name),
-      ),
-    ).toHaveLength(6);
     expect(preview.skipped).toEqual([
       { game: 7, reason: 'pgn.illegalMove', san: 'Nxe4' },
     ]);

@@ -10,7 +10,7 @@ import {
 import { deleteRepertoire, loadRepertoire } from '@mychess/db';
 import { describe, expect, it, vi } from 'vitest';
 import { editRepertoireAction } from '../../src/app/repertuarai/[id]/actions';
-import { ecoNamesOf } from '../../src/server/chapter-names';
+import { chapterNamesOf } from '../../src/server/chapter-names';
 import { actAs, person, type Person } from './support/coaching';
 import { useRequestHarness } from './support/harness';
 import { outcomeOf, request, testDb } from './support/request';
@@ -113,7 +113,7 @@ describe('editRepertoireAction: moves', () => {
       ok: true,
       version: 2,
       graph: expected.value,
-      ecoNames: ecoNamesOf(expected.value, 'lt'),
+      names: chapterNamesOf(expected.value, 'lt'),
     });
     const now = await stored(empty, rokas);
     expect(now.version).toBe(2);

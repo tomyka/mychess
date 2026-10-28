@@ -1,5 +1,5 @@
 import { exportPgn } from '@mychess/chess';
-import { chapterTitleIn } from '../../../../../server/chapter-names';
+import { plainChapterTitleIn } from '../../../../../server/chapter-names';
 import { contentDisposition } from '../../../../../server/pgn-download';
 import { ownRepertoire } from '../../../../../server/repertoires';
 import { getAccount } from '../../../../../server/session';
@@ -23,7 +23,7 @@ export async function GET(
   const own = await ownRepertoire(account, (await params).id, 'view');
   if (!own.ok) return new Response(null, { status: 404, headers: NO_STORE });
   const pgn = exportPgn(own.value.graph, {
-    title: chapterTitleIn(account.locale),
+    title: plainChapterTitleIn(account.locale),
   });
   return new Response(pgn, {
     headers: {

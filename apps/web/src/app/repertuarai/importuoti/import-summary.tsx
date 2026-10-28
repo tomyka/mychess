@@ -1,11 +1,6 @@
 'use client';
 
-import type {
-  ChapterName,
-  RepertoireSummary,
-  Side,
-  Skipped,
-} from '@mychess/chess';
+import type { RepertoireSummary, Side, Skipped } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import { useId, useState, type JSX, type RefObject } from 'react';
 import type { ImportPreview } from '../../../server/import-preview';
@@ -51,7 +46,7 @@ function CountTiles({
 function ChapterNames({
   names,
 }: {
-  readonly names: readonly ChapterName[];
+  readonly names: readonly string[];
 }): JSX.Element {
   const t = useTranslations();
   const titleId = useId();
@@ -62,14 +57,10 @@ function ChapterNames({
       </h3>
       <ol aria-labelledby={titleId} className="list-decimal pl-6">
         {names.map((name, index) => (
-          // The clamp sits on an inner span: on the <li> it would replace
-          // the list-item display and hide the number.
-          <li key={index}>
-            <span className="line-clamp-2">
-              {name.kind === 'text'
-                ? name.text
-                : t(name.key, { number: name.number })}
-            </span>
+          // Wrapped in full, not clamped: a distinction at the end of a
+          // long title must show (R-158).
+          <li key={index} className="break-words">
+            {name}
           </li>
         ))}
       </ol>

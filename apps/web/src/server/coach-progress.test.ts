@@ -1,3 +1,4 @@
+import { importPgn, type Chapter, type RepertoireGraph } from '@mychess/chess';
 import type { RepertoireProgressView } from '@mychess/db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { coachProgressData } from './coach-progress';
@@ -32,21 +33,24 @@ const COUNTS = { notStarted: 1, skipped: 2, due: 3, learned: 4 };
 const REF = { id: REPERTOIRE, name: 'Karo-Kan', side: 'black' } as const;
 const BADGES = { overdue: true, paused: false, forked: false, updated: false };
 
+const ADVANCE: Chapter = {
+  id: 'ch1',
+  rootKey: 'k',
+  intro: null,
+  nameSource: { kind: 'header', name: 'Advance' },
+};
+
 const VIEW: RepertoireProgressView = {
   player: { id: PLAYER, displayName: 'Rokas' },
   repertoire: REF,
+  graph: { side: 'black', chapters: [ADVANCE], moves: [] },
   badges: BADGES,
   progress: {
     counts: COUNTS,
     mastered: false,
     chapters: [
       {
-        chapter: {
-          id: 'ch1',
-          rootKey: 'k',
-          intro: null,
-          nameSource: { kind: 'header', name: 'Advance' },
-        },
+        chapter: ADVANCE,
         whiteFirst: true,
         counts: COUNTS,
         mastered: true,
@@ -55,6 +59,39 @@ const VIEW: RepertoireProgressView = {
     ],
   },
 };
+
+/**
+ * Three Caro-Kann chapters, each named after its opening on import; the
+ * Advance (B12) and the Two Knights (B11) share their Lithuanian name.
+ */
+function caroKann(): RepertoireGraph {
+  const imported = importPgn(
+    [
+      '1. e4 c6 2. d4 d5 3. e5 Bf5 *',
+      '1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 *',
+      '1. e4 c6 2. Nc3 d5 3. Nf3 Bg4 *',
+    ].join('\n\n'),
+    'black',
+  );
+  if (!imported.ok) throw new Error(imported.refusal.reason);
+  return imported.value.graph;
+}
+
+/** `VIEW` over `graph`: each chapter with `VIEW`'s counts and no lines. */
+const viewOf = (graph: RepertoireGraph): RepertoireProgressView => ({
+  ...VIEW,
+  graph,
+  progress: {
+    ...VIEW.progress,
+    chapters: graph.chapters.map((chapter) => ({
+      chapter,
+      whiteFirst: true,
+      counts: COUNTS,
+      mastered: false,
+      lines: [],
+    })),
+  },
+});
 
 beforeEach(() => {
   vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
@@ -116,5 +153,26 @@ describe('coachProgressData', () => {
         },
       ],
     });
+  });
+
+  it('tells apart chapters named after the same opening (R-158)', async () => {
+    server.repertoire.mockResolvedValue(viewOf(caroKann()));
+    const page = await coachProgressData(PLAYER, REPERTOIRE);
+    expect(page.chapters.map((chapter) => chapter.title)).toEqual([
+      'Karo-Kano gynyba (B12, 3.\u00A0e5)',
+      'Karo-Kano gynyba, Klasikinis variantas',
+      'Karo-Kano gynyba (B11, 2.\u00A0Nc3)',
+    ]);
+  });
+
+  it('keeps titles plain where the coach’s language names them apart', async () => {
+    server.coach.mockResolvedValue({ ...JONAS, locale: 'en' });
+    server.repertoire.mockResolvedValue(viewOf(caroKann()));
+    const page = await coachProgressData(PLAYER, REPERTOIRE);
+    expect(page.chapters.map((chapter) => chapter.title)).toEqual([
+      'Caro-Kann Defense',
+      'Caro-Kann Defense: Classical Variation',
+      'Caro-Kann Defense: Two Knights Attack, Mindeno Variation',
+    ]);
   });
 });

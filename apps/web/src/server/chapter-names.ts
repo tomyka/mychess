@@ -1,5 +1,5 @@
 import {
-  chapterName,
+  chapterDistinctions,
   ecoName,
   type Chapter,
   type RepertoireGraph,
@@ -7,33 +7,61 @@ import {
 import type { Locale } from '@mychess/domain';
 import { createTranslator } from 'next-intl';
 import { MESSAGES } from '../i18n/locales';
-import type { ChapterTranslator } from '../lib/chapter-label';
+import {
+  baseTitle,
+  chapterTitles,
+  type ChapterNames,
+  type ChapterTranslator,
+} from '../lib/chapter-label';
 
 /**
- * What to call a chapter in `locale` on the server (the PGN download and
- * the data export): its name, its opening, or "Chapter N". A translator for
- * them comes from `createTranslator`, as in mail.ts, so no request is needed.
+ * `locale`'s own catalogue as a chapter translator: from `createTranslator`,
+ * as in mail.ts, so no request is needed.
  */
-export function chapterTitle(
+function translatorIn(locale: Locale): ChapterTranslator {
+  return createTranslator({ locale, messages: MESSAGES[locale] });
+}
+
+/** `baseTitle` over the ECO tables, in `locale`. */
+function baseTitleIn(
   t: ChapterTranslator,
   locale: Locale,
 ): (chapter: Chapter) => string {
-  return (chapter) => {
-    const name = chapterName(chapter.nameSource, locale);
-    return name.kind === 'text'
-      ? name.text
-      : t(name.key, { number: name.number });
-  };
+  return baseTitle(t, (eco) => ecoName(eco, locale));
 }
 
-/** `chapterTitle` with `locale`'s own catalogue, for routes without a request locale. */
-export function chapterTitleIn(locale: Locale): (chapter: Chapter) => string {
-  const t = createTranslator({ locale, messages: MESSAGES[locale] });
-  return chapterTitle((key, values) => t(key, values), locale);
+/**
+ * What to call a chapter in `locale` with no distinction: its name, its
+ * opening, or "Chapter N". For the PGN download and the data export.
+ */
+export function plainChapterTitleIn(
+  locale: Locale,
+): (chapter: Chapter) => string {
+  return baseTitleIn(translatorIn(locale), locale);
+}
+
+/**
+ * What to call each of `graph`'s chapters in `locale`, chapters that share
+ * a name told apart (R-158): `chapterLabel` on the server. A chapter not in
+ * `graph` gets its plain title.
+ */
+export function chapterLabelIn(
+  graph: RepertoireGraph,
+  locale: Locale,
+): (chapter: Chapter) => string {
+  const t = translatorIn(locale);
+  const plain = baseTitleIn(t, locale);
+  const titles = chapterTitles(
+    graph.chapters,
+    plain,
+    Object.fromEntries(chapterDistinctions(graph)),
+    t,
+  );
+  return (chapter) => titles[chapter.id] ?? plain(chapter);
 }
 
 /** The opening names the browser needs for this graph's ECO chapters (decision 17). */
-export function ecoNamesOf(
+function ecoNamesOf(
   graph: RepertoireGraph,
   locale: Locale,
 ): Record<string, string> {
@@ -41,4 +69,18 @@ export function ecoNamesOf(
     c.nameSource.kind === 'eco' ? [c.nameSource.eco] : [],
   );
   return Object.fromEntries(codes.map((code) => [code, ecoName(code, locale)]));
+}
+
+/**
+ * What the browser needs to title this graph's chapters (`chapterLabel`):
+ * its opening names and its chapters' distinctions (R-158), serialisable.
+ */
+export function chapterNamesOf(
+  graph: RepertoireGraph,
+  locale: Locale,
+): ChapterNames {
+  return {
+    ecoNames: ecoNamesOf(graph, locale),
+    distinctions: Object.fromEntries(chapterDistinctions(graph)),
+  };
 }

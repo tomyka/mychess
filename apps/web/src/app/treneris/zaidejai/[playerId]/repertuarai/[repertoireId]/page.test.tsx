@@ -47,7 +47,7 @@ describe('the coach’s page of a shared repertoire', () => {
       repertoire: { id: ID, name: 'Taimanovas', side: 'black' },
       graph: graphOf(TAIMANOV, 'black'),
       notes: {},
-      ecoNames: {},
+      names: { ecoNames: {}, distinctions: {} },
     });
     render(
       <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>

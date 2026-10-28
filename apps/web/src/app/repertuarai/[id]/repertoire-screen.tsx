@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type JSX, type ReactNode } from 'react';
+import type { ChapterNames } from '../../../lib/chapter-label';
 import { importIntoRoute } from '../../../lib/routes';
 import type {
   ForkNote,
@@ -50,8 +51,8 @@ export interface RepertoireScreenProps {
   readonly graph: RepertoireGraph;
   /** The viewer's Personal notes by move key (R-21). */
   readonly notes: Readonly<Record<string, string>>;
-  /** The opening names the chapters are named after (decision 17). */
-  readonly ecoNames: Readonly<Record<string, string>>;
+  /** What titles the chapters (decision 17, R-158). */
+  readonly names: ChapterNames;
   /** The chapter to open on; null or unknown opens the first. */
   readonly chapterId?: string | null;
   /** The owner's linked coaches and the shares (R-42). */
@@ -140,8 +141,8 @@ interface Screen {
   readonly state: ScreenState;
   readonly dispatch: Dispatch;
   readonly edit: Edit;
-  /** The opening names the chapters are named after, as of the last save. */
-  readonly ecoNames: Readonly<Record<string, string>>;
+  /** What titles the chapters, as of the last save (R-158). */
+  readonly names: ChapterNames;
 }
 
 /**
@@ -242,9 +243,9 @@ function ScreenBuilderBar({
 /** The screen's state, its edits and the board's handlers. */
 function useRepertoireScreen(props: RepertoireScreenProps) {
   const { repertoire, graph, chapterId } = props;
-  const [ecoNames, setEcoNames] = useState(props.ecoNames);
+  const [names, setNames] = useState(props.names);
   const editOf = (state: ScreenState, dispatch: Dispatch): Edit =>
-    editor(repertoire.id, state, dispatch, setEcoNames);
+    editor(repertoire.id, state, dispatch, setNames);
   const view = useBuilderView(
     { graph, version: repertoire.version, chapterId },
     repertoire.side,
@@ -253,7 +254,7 @@ function useRepertoireScreen(props: RepertoireScreenProps) {
   const { state, dispatch } = view;
   const edit = editOf(state, dispatch);
   const drawing = useDrawing(state, dispatch, edit);
-  const screen: Screen = { props, state, dispatch, edit, ecoNames };
+  const screen: Screen = { props, state, dispatch, edit, names };
   return { screen, view, drawing };
 }
 
@@ -286,7 +287,7 @@ export function RepertoireScreen(props: RepertoireScreenProps): JSX.Element {
         </RepertoireHeader>
       }
       name={repertoire.name}
-      ecoNames={screen.ecoNames}
+      names={screen.names}
       view={view}
       panel={ownerPanel(screen, notes)}
       drawing={drawing}

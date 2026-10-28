@@ -10,18 +10,15 @@
 // minute between them (R-119), counted before the text is read; the file is
 // parsed and checked against its limits (R-66) before the lock is taken.
 import {
-  chapterName,
   importPgn,
   mergeInto,
   SIDES,
   summarize,
-  type Chapter,
-  type ChapterName,
   type ImportedRepertoire,
   type LimitRefusal,
-  type Locale,
   type MergedRepertoire,
   type NothingToAdd,
+  type RepertoireGraph,
   type RepertoireSummary,
   type Skipped,
 } from '@mychess/chess';
@@ -38,9 +35,11 @@ import {
   REPERTOIRE_REFUSALS,
   repertoireNameSchema,
   type Account,
+  type Locale,
   type RateRefusal,
 } from '@mychess/domain';
 import { z } from 'zod';
+import { chapterLabelIn } from './chapter-names';
 import { getDb } from './db';
 import { refusalOf } from './parse-refusal';
 import { ownRepertoire } from './repertoires';
@@ -58,8 +57,11 @@ export interface ImportTarget {
 /** What the import summary shows before the player confirms (R-64). */
 export interface ImportPreview {
   readonly summary: RepertoireSummary;
-  /** The chapters the upload brings, in order. */
-  readonly chapters: readonly ChapterName[];
+  /**
+   * The titles of the chapters the upload brings, in order, as the
+   * repertoire page will show them after the import (R-158).
+   */
+  readonly chapters: readonly string[];
   readonly skipped: readonly Skipped[];
   readonly target: ImportTarget | null;
   /** Why Import is refused for this target (R-115), or null. */
@@ -188,8 +190,16 @@ function importFile(file: z.infer<typeof previewRequestSchema>): ImportedFile {
   return imported.ok ? imported : refused(imported.refusal);
 }
 
-const namesOf = (chapters: readonly Chapter[], locale: Locale): ChapterName[] =>
-  chapters.map((c) => chapterName(c.nameSource, locale));
+/**
+ * The titles of `graph`'s chapters from the `from`th on, in `locale`: each
+ * as the repertoire page will name it once `graph` is saved, told apart
+ * from any chapter of the same name (R-158).
+ */
+const titlesFrom = (
+  graph: RepertoireGraph,
+  from: number,
+  locale: Locale,
+): string[] => graph.chapters.slice(from).map(chapterLabelIn(graph, locale));
 
 /** A new repertoire's preview: the import as it stands. */
 function newPreview(
@@ -198,7 +208,7 @@ function newPreview(
 ): ImportPreview {
   return {
     summary: summarize(imported.graph),
-    chapters: namesOf(imported.graph.chapters, locale),
+    chapters: titlesFrom(imported.graph, 0, locale),
     skipped: imported.skipped,
     target: null,
     refusal: null,
@@ -218,7 +228,7 @@ function mergedPreview(
   const addition = merged.added;
   return {
     summary: summarize(after),
-    chapters: namesOf(after.chapters.slice(before.chapters.length), locale),
+    chapters: titlesFrom(after, before.chapters.length, locale),
     skipped: [...imported.skipped, ...merged.skipped].sort(
       (a, b) => a.game - b.game,
     ),

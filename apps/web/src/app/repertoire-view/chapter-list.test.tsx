@@ -45,7 +45,7 @@ function renderList(chapterId = 'c2', chapters = CHAPTERS) {
       <ChapterList
         chapters={chapters}
         chapterId={chapterId}
-        ecoNames={{ D02: 'Londono sistema' }}
+        names={{ ecoNames: { D02: 'Londono sistema' }, distinctions: {} }}
         onSelect={onSelect}
       />
     </NextIntlClientProvider>,
@@ -96,6 +96,50 @@ describe('ChapterList', () => {
     expect(rows[0]?.getAttribute('aria-current')).toBeNull();
   });
 
+  it('tells apart chapters named after the same opening (R-158)', () => {
+    render(
+      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+        <ChapterList
+          chapters={[
+            at('c1', { kind: 'eco', eco: 'B12' }),
+            at('c2', { kind: 'custom', name: 'Mano' }),
+            at('c5', { kind: 'eco', eco: 'B11' }),
+          ]}
+          chapterId="c5"
+          names={{
+            ecoNames: { B12: 'Karo-Kano gynyba', B11: 'Karo-Kano gynyba' },
+            distinctions: {
+              c1: {
+                eco: 'B12',
+                firstMove: { ply: 4, san: 'e5', whiteFirst: true },
+              },
+              c2: {
+                eco: 'B10',
+                firstMove: { ply: 2, san: 'c4', whiteFirst: true },
+              },
+              c5: {
+                eco: 'B11',
+                firstMove: { ply: 2, san: 'Nc3', whiteFirst: true },
+              },
+            },
+          }}
+          onSelect={vi.fn()}
+        />
+      </NextIntlClientProvider>,
+    );
+    const trigger = screen.getByRole('button', { name: /Skyrius 3 iš 3/ });
+    expect(trigger.textContent).toContain(
+      'Karo-Kano gynyba (B11, 2.\u00A0Nc3)',
+    );
+    fireEvent.click(trigger);
+    const rows = within(screen.getByRole('list')).getAllByRole('button');
+    expect(rows.map((row) => row.textContent)).toEqual([
+      'Karo-Kano gynyba (B12, 3.\u00A0e5)',
+      'Mano',
+      'Karo-Kano gynyba (B11, 2.\u00A0Nc3)',
+    ]);
+  });
+
   it('selects a chapter, closes the list and returns focus to the disclosure', () => {
     const onSelect = renderList();
     fireEvent.click(disclosure());
@@ -134,7 +178,7 @@ function renderBuilder(over: Partial<ChapterBuilder> = {}) {
       <ChapterList
         chapters={CHAPTERS}
         chapterId="c2"
-        ecoNames={{ D02: 'Londono sistema' }}
+        names={{ ecoNames: { D02: 'Londono sistema' }, distinctions: {} }}
         onSelect={vi.fn()}
         builder={builder}
       />
@@ -179,6 +223,55 @@ describe('ChapterList in builder mode', () => {
       expect(screen.queryByRole('textbox')).toBeNull();
     });
     expect(builder.onRename).toHaveBeenCalledWith('c3', 'Sistema su h3');
+  });
+
+  it('starts renaming one of two same-named chapters from its own name (R-158)', async () => {
+    const onRename = vi
+      .fn<(chapterId: string, name: string) => Promise<FieldOutcome>>()
+      .mockResolvedValue({ ok: true });
+    render(
+      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+        <ChapterList
+          chapters={[
+            at('c1', { kind: 'eco', eco: 'B12' }),
+            at('c5', { kind: 'eco', eco: 'B11' }),
+          ]}
+          chapterId="c1"
+          names={{
+            ecoNames: { B12: 'Karo-Kano gynyba', B11: 'Karo-Kano gynyba' },
+            distinctions: {
+              c1: {
+                eco: 'B12',
+                firstMove: { ply: 4, san: 'e5', whiteFirst: true },
+              },
+              c5: {
+                eco: 'B11',
+                firstMove: { ply: 2, san: 'Nc3', whiteFirst: true },
+              },
+            },
+          }}
+          onSelect={vi.fn()}
+          builder={{
+            disabled: false,
+            onAdd: vi.fn(),
+            onRename,
+            onDelete: vi.fn(),
+          }}
+        />
+      </NextIntlClientProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Skyrius 1 iš 2/ }));
+    fireEvent.click(
+      named('Pervadinti skyrių „Karo-Kano gynyba (B12, 3.\u00A0e5)“'),
+    );
+    const field = screen.getByRole<HTMLInputElement>('textbox', {
+      name: c.renameLabel,
+    });
+    expect(field.value).toBe('Karo-Kano gynyba');
+    fireEvent.click(named(c.renameSubmit));
+    await waitFor(() => {
+      expect(onRename).toHaveBeenCalledWith('c1', 'Karo-Kano gynyba');
+    });
   });
 
   it('keeps the field and says why when a rename is refused', async () => {
@@ -243,7 +336,7 @@ describe('ChapterList for a player who trains it (R-58, R-147)', () => {
         <ChapterList
           chapters={CHAPTERS}
           chapterId="c2"
-          ecoNames={{ D02: 'Londono sistema' }}
+          names={{ ecoNames: { D02: 'Londono sistema' }, distinctions: {} }}
           onSelect={vi.fn()}
           training={
             training

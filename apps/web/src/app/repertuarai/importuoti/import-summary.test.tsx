@@ -16,10 +16,7 @@ const PREVIEW: ImportPreview = {
     transpositions: 3,
     moves: 1,
   },
-  chapters: [
-    { kind: 'text', text: 'Sicilijos gynyba, Taimanovo variantas' },
-    { kind: 'key', key: 'chapter.untitled', number: 2 },
-  ],
+  chapters: ['Sicilijos gynyba, Taimanovo variantas', 'Skyrius 2'],
   skipped: [
     { game: 7, reason: 'pgn.illegalMove', san: 'Nxe4' },
     { game: 8, reason: 'pgn.secondAnswer', san: 'a6', move: 5 },

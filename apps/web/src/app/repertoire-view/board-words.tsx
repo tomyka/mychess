@@ -11,7 +11,7 @@ import {
 } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
-import { chapterLabel } from '../../lib/chapter-label';
+import { chapterLabel, type ChapterNames } from '../../lib/chapter-label';
 import { useSquareWords } from '../board/square-words';
 import type { ScreenState } from './screen-state';
 
@@ -26,7 +26,7 @@ export function useBoardWords(
   name: string,
   state: ScreenState,
   fen: string,
-  ecoNames: Readonly<Record<string, string>>,
+  names: ChapterNames,
 ): BoardWords {
   const t = useTranslations();
   const describe = useSquareWords(fen);
@@ -40,7 +40,7 @@ export function useBoardWords(
         ? t('repertoires.board.labelNoChapter', { name })
         : t('repertoires.board.label', {
             name,
-            chapter: chapterLabel(t, ecoNames)(chapter),
+            chapter: chapterLabel(t, names, state.graph.chapters)(chapter),
           }),
     describe,
   };

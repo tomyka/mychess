@@ -32,7 +32,10 @@ export interface ChapterBuilder {
 export interface ChapterRowProps {
   readonly chapter: Chapter;
   readonly current: boolean;
+  /** What the row shows: told apart from a chapter of the same name (R-158). */
   readonly title: string;
+  /** Its own name without that distinction, which renaming starts from. */
+  readonly name: string;
   readonly onChoose: (chapterId: string) => void;
   readonly builder: ChapterBuilder | undefined;
   /** The player's training of it: the row gets its "I know this" menu. */
@@ -40,7 +43,7 @@ export interface ChapterRowProps {
 }
 
 const ROW =
-  'flex min-h-touch w-full items-center rounded-control px-3 text-left aria-current:bg-sunken aria-current:font-semibold';
+  'flex min-h-touch w-full items-center rounded-control px-3 py-2 text-left aria-current:bg-sunken aria-current:font-semibold';
 const ICON =
   'inline-flex min-h-touch min-w-touch shrink-0 items-center justify-center rounded-control disabled:opacity-60';
 
@@ -105,19 +108,20 @@ function useRename(
 /** The row as a name field with Save and Cancel; Escape cancels. */
 function RenameForm({
   chapterId,
-  title,
+  name: initial,
   builder,
   onDone,
 }: {
   readonly chapterId: string;
-  readonly title: string;
+  /** The chapter's own name, without any distinction (R-158). */
+  readonly name: string;
   readonly builder: ChapterBuilder;
   readonly onDone: () => void;
 }): JSX.Element {
   const t = useTranslations('repertoires.chapters');
   const fieldId = useId();
   const statusId = useId();
-  const [name, setName] = useState(title);
+  const [name, setName] = useState(initial);
   const { refusal, pending, submit } = useRename(
     (typed) => builder.onRename(chapterId, typed),
     onDone,
@@ -307,6 +311,7 @@ export function ChapterRow({
   chapter,
   current,
   title,
+  name,
   onChoose,
   builder,
   training,
@@ -316,7 +321,7 @@ export function ChapterRow({
     return (
       <RenameForm
         chapterId={chapter.id}
-        title={title}
+        name={name}
         builder={builder}
         onDone={closeTo('rename')}
       />
@@ -343,7 +348,7 @@ export function ChapterRow({
         }}
         className={ROW}
       >
-        <span className="line-clamp-2">{title}</span>
+        <span className="min-w-0 break-words">{title}</span>
       </button>
       {builder === undefined ? null : (
         <RowEdits

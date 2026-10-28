@@ -3,7 +3,11 @@
 import type { Chapter } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import { useEffect, useId, useRef, useState, type JSX } from 'react';
-import { chapterLabel } from '../../lib/chapter-label';
+import {
+  chapterLabel,
+  plainChapterLabel,
+  type ChapterNames,
+} from '../../lib/chapter-label';
 import { SECONDARY_BUTTON } from '../buttons';
 import { ChapterRow, type ChapterBuilder } from './chapter-row';
 import type { PanelTraining } from './train-buttons';
@@ -13,8 +17,8 @@ export type { ChapterBuilder } from './chapter-row';
 export interface ChapterListProps {
   readonly chapters: readonly Chapter[];
   readonly chapterId: string | null;
-  /** The opening names the chapters are named after (decision 17). */
-  readonly ecoNames: Readonly<Record<string, string>>;
+  /** What titles the chapters (decision 17, R-158). */
+  readonly names: ChapterNames;
   readonly onSelect: (chapterId: string) => void;
   /** Builder mode: add, rename and delete chapters. */
   readonly builder?: ChapterBuilder | undefined;
@@ -72,9 +76,9 @@ function DisclosureText({
   return (
     <span className="flex min-w-0 flex-col">
       <span className="text-sm text-fg-muted">{position}</span>
-      <span className="line-clamp-2 font-semibold" title={title}>
-        {title}
-      </span>
+      {/* Wrapped in full, not clamped: the distinction that ends a long
+          title must show (R-158). */}
+      <span className="break-words font-semibold">{title}</span>
     </span>
   );
 }
@@ -85,6 +89,7 @@ function ChapterRows({
   chapters,
   chapterId,
   title,
+  name,
   onChoose,
   builder,
   training,
@@ -94,6 +99,8 @@ function ChapterRows({
   readonly chapters: readonly Chapter[];
   readonly chapterId: string | null;
   readonly title: (chapter: Chapter) => string;
+  /** A chapter's own name, which renaming starts from. */
+  readonly name: (chapter: Chapter) => string;
   readonly onChoose: (chapterId: string) => void;
   readonly builder: ChapterBuilder | undefined;
   readonly training: PanelTraining | undefined;
@@ -102,13 +109,14 @@ function ChapterRows({
   const t = useTranslations('repertoires.chapters');
   return (
     <div id={id} className="flex flex-col gap-2">
-      <ul className="flex max-h-60 flex-col overflow-y-auto">
+      <ul className="flex max-h-72 flex-col overflow-y-auto">
         {chapters.map((c) => (
           <li key={c.id}>
             <ChapterRow
               chapter={c}
               current={c.id === chapterId}
               title={title(c)}
+              name={name(c)}
               onChoose={onChoose}
               builder={builder}
               training={training}
@@ -139,7 +147,7 @@ function ChapterRows({
 export function ChapterList({
   chapters,
   chapterId,
-  ecoNames,
+  names,
   onSelect,
   builder,
   training,
@@ -150,7 +158,8 @@ export function ChapterList({
   const index = chapters.findIndex((c) => c.id === chapterId);
   const chapter = chapters[index];
   if (chapter === undefined) return null;
-  const title = chapterLabel(t, ecoNames);
+  const title = chapterLabel(t, names, chapters);
+  const name = plainChapterLabel(t, names);
   return (
     <div className="flex flex-col gap-1">
       <button
@@ -178,6 +187,7 @@ export function ChapterList({
           chapters={chapters}
           chapterId={chapterId}
           title={title}
+          name={name}
           builder={builder}
           training={training}
           onChoose={(id) => {

@@ -308,6 +308,9 @@
   },
   "chapter": {
     "untitled": "Skyrius {number}",
+    "distinct": "{name} ({eco}, {move})",
+    "distinctMove": "{name} ({move})",
+    "distinctEco": "{name} ({eco})",
     "nameBlank": "Įveskite skyriaus pavadinimą.",
     "nameTooLong": "Pavadinimas per ilgas: daugiausia 80 simbolių."
   },

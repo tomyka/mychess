@@ -50,7 +50,11 @@ function renderSummary(
 ) {
   return render(
     <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
-      <ChangesSummary graph={graph} changes={changes} ecoNames={ECO_NAMES} />
+      <ChangesSummary
+        graph={graph}
+        changes={changes}
+        names={{ ecoNames: ECO_NAMES, distinctions: {} }}
+      />
     </NextIntlClientProvider>,
   );
 }
@@ -163,7 +167,7 @@ describe('ChangesSummary (R-133)', () => {
     ).toBeDefined();
   });
 
-  it('tells two chapters named after the same opening apart by number', () => {
+  it('tells two chapters named after the same opening apart by number and distinction', () => {
     const afterD5 = keyAfter(LONDON_GRAPH, 'd4', 'd5');
     const afterNf6 = keyAfter(LONDON_GRAPH, 'd4', 'Nf6');
     render(
@@ -184,13 +188,28 @@ describe('ChangesSummary (R-133)', () => {
             removed: [],
             commentsChanged: 0,
           }}
-          ecoNames={{ D00: 'London System', A45: 'London System' }}
+          names={{
+            ecoNames: { D00: 'London System', A45: 'London System' },
+            distinctions: {
+              [chapterId(LONDON_GRAPH, 0)]: {
+                eco: 'D00',
+                firstMove: { ply: 1, san: 'd5', whiteFirst: true },
+              },
+              [chapterId(LONDON_GRAPH, 1)]: {
+                eco: 'A45',
+                firstMove: { ply: 1, san: 'Nf6', whiteFirst: true },
+              },
+            },
+          }}
         />
       </NextIntlClientProvider>,
     );
     expect(
       screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent),
-    ).toEqual(['Chapter 1 — London System', 'Chapter 2 — London System']);
+    ).toEqual([
+      'Chapter 1 — London System (D00, 1...\u00A0d5)',
+      'Chapter 2 — London System (A45, 1...\u00A0Nf6)',
+    ]);
   });
 
   it('does not repeat the number of a chapter named by its number', () => {

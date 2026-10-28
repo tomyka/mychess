@@ -55,7 +55,7 @@ const DATA: SharedRepertoirePage = {
   repertoire: { id: ID, name: 'Londono sistema', side: 'white' },
   graph: graphOf(LONDON),
   notes: { [D4]: 'Pirmiau Nf3' },
-  ecoNames: {},
+  names: { ecoNames: {}, distinctions: {} },
 };
 
 function renderView(data: SharedRepertoirePage = DATA): void {

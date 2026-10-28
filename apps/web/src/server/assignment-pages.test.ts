@@ -7,7 +7,7 @@ import type {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../test/fixtures/repertoires';
 import { assignedRepertoireData, homeAssignments } from './assignment-pages';
-import { ecoNamesOf } from './chapter-names';
+import { chapterNamesOf } from './chapter-names';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 const DB = { name: 'the db' };
@@ -109,7 +109,7 @@ describe('assignedRepertoireData', () => {
       deadline: '2026-10-19',
       overdue: true,
       // In the player's own language.
-      ecoNames: ecoNamesOf(GRAPH, 'en'),
+      names: chapterNamesOf(GRAPH, 'en'),
       changes: CHANGES.changes,
     });
   });

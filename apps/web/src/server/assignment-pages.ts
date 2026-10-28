@@ -14,7 +14,8 @@ import {
 import type { MoveChanges, RepertoireGraph, Side } from '@mychess/chess';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
-import { ecoNamesOf } from './chapter-names';
+import type { ChapterNames } from '../lib/chapter-label';
+import { chapterNamesOf } from './chapter-names';
 import { getDb } from './db';
 import { requireOnboarded } from './session';
 
@@ -38,8 +39,8 @@ export interface AssignedRepertoirePage {
   readonly deadline: string | null;
   /** Decided by the domain's assignmentStatus as of the page load (R-51). */
   readonly overdue: boolean;
-  /** The names of the openings its chapters are named after. */
-  readonly ecoNames: Readonly<Record<string, string>>;
+  /** What titles its chapters: opening names and distinctions (R-158). */
+  readonly names: ChapterNames;
   /** What changed since the player last opened it; empty when nothing did. */
   readonly changes: MoveChanges;
 }
@@ -80,7 +81,7 @@ export async function assignedRepertoireData(
     paused: assigned.paused,
     deadline: assigned.deadline,
     overdue: assigned.overdue,
-    ecoNames: ecoNamesOf(assigned.graph, player.locale),
+    names: chapterNamesOf(assigned.graph, player.locale),
     changes: since.changes,
   };
 }

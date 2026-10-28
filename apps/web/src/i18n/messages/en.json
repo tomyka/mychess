@@ -308,6 +308,9 @@
   },
   "chapter": {
     "untitled": "Chapter {number}",
+    "distinct": "{name} ({eco}, {move})",
+    "distinctMove": "{name} ({move})",
+    "distinctEco": "{name} ({eco})",
     "nameBlank": "Enter a name for the chapter.",
     "nameTooLong": "The name is too long: at most 80 characters."
   },

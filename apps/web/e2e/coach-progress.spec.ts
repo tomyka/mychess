@@ -8,6 +8,7 @@
 // its progress URL is not found (R-39); Dovydas's own copy of the Italian
 // shows its badge only (R-155); Gabija's shared Taimanov links from its own
 // page to her progress on it.
+import { ecoName } from '@mychess/chess';
 import {
   expect,
   type BrowserContext,
@@ -75,6 +76,19 @@ const ROKAS_SKIPPED = KARO_KAN_KEYS.slice(2, 3);
  * 11...Be4. Rokas's three seeded moves are its first three.
  */
 const FIRST_LINE_MOVES = 11;
+
+/**
+ * The titles of the Caro-Kann's chapters 1 (B12) and 5 (B11). Lithuanian
+ * names both openings the same, so each shows its ECO code and the first
+ * move it parts from the others at (R-158); English names them apart.
+ */
+const KARO_KAN_TITLES = {
+  lt: [
+    'Karo-Kano gynyba (B12, 3.\u00A0e5)',
+    'Karo-Kano gynyba (B11, 2.\u00A0Nc3)',
+  ],
+  en: [ecoName('B12', 'en'), ecoName('B11', 'en')],
+} as const;
 
 /** Each player's Caro-Kann counts, as seeded. */
 const SEEDED = {
@@ -187,6 +201,11 @@ async function rokasProgress(coach: Page, cast: Cast): Promise<void> {
     notStarted: FIRST_LINE_MOVES - 3,
   });
   const chapters = coach.getByRole('region', { name: t.chapters, exact: true });
+  const [advance, twoKnights] = KARO_KAN_TITLES[locale];
+  const titleOf = (index: number): Locator =>
+    chapters.locator('details').nth(index).locator('summary');
+  await expect(titleOf(0).getByText(advance, { exact: true })).toBeVisible();
+  await expect(titleOf(4).getByText(twoKnights, { exact: true })).toBeVisible();
   const first = chapters.locator('details').first();
   await expect(first).not.toHaveAttribute('open');
   const summary = first.locator('summary');

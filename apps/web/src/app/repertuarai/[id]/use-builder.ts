@@ -20,6 +20,7 @@ import {
 } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
+import type { ChapterNames } from '../../../lib/chapter-label';
 import { marksOf, toggleMark } from '../../board/shapes';
 import { editRepertoireAction } from './actions';
 import {
@@ -59,7 +60,7 @@ const FAILED = 'repertoires.failed';
 
 /**
  * Sends one edit with the screen's version and lands its outcome: the new
- * graph and its opening names, or the refusal. A board edit's refusal shows
+ * graph and what titles its chapters, or the refusal. A board edit's refusal shows
  * in the status line and puts the pieces back; a field shows its own,
  * unless the repertoire changed elsewhere, which the whole screen shows.
  */
@@ -67,7 +68,7 @@ export function editor(
   repertoireId: string,
   state: ScreenState,
   dispatch: Dispatch,
-  onNames: (ecoNames: Readonly<Record<string, string>>) => void,
+  onNames: (names: ChapterNames) => void,
 ): Edit {
   const refuse = (refusal: string, field: boolean): FieldOutcome => {
     if (field && refusal !== 'repertoire.stale') dispatch({ type: 'settled' });
@@ -92,7 +93,7 @@ export function editor(
         op,
       });
       if (!outcome.ok) return refuse(outcome.refusal, field);
-      onNames(outcome.ecoNames);
+      onNames(outcome.names);
       const { graph, version } = outcome;
       dispatch({ type: 'saved', graph, version, ...place?.(graph) });
       return { ok: true };

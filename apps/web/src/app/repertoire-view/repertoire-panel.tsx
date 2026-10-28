@@ -2,6 +2,7 @@
 
 import { chapterOf, type Chapter } from '@mychess/chess';
 import type { JSX, ReactNode } from 'react';
+import type { ChapterNames } from '../../lib/chapter-label';
 import { ChapterList, type ChapterBuilder } from './chapter-list';
 import type { CommentEditor } from './comment';
 import { MoveList, type MoveListProps } from './move-list';
@@ -41,8 +42,8 @@ export interface PanelContent {
 
 interface RepertoirePanelProps {
   readonly view: RepertoireView;
-  /** The opening names the chapters are named after (decision 17). */
-  readonly ecoNames: Readonly<Record<string, string>>;
+  /** What titles the chapters (decision 17, R-158). */
+  readonly names: ChapterNames;
   readonly content: PanelContent;
 }
 
@@ -85,7 +86,7 @@ function ChapterPosition({
  */
 export function RepertoirePanel({
   view,
-  ecoNames,
+  names,
   content,
 }: RepertoirePanelProps): JSX.Element {
   const { state, dispatch } = view;
@@ -102,7 +103,7 @@ export function RepertoirePanel({
       <ChapterList
         chapters={state.graph.chapters}
         chapterId={state.chapterId}
-        ecoNames={ecoNames}
+        names={names}
         onSelect={(chapterId) => {
           dispatch({ type: 'chapter', chapterId });
         }}

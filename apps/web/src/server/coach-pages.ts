@@ -24,9 +24,10 @@ import type { RepertoireGraph, Side } from '@mychess/chess';
 import type { AccountRef } from '@mychess/domain';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
+import type { ChapterNames } from '../lib/chapter-label';
 import { daysSince } from '../lib/days-ago';
 import { accountIdSchema } from './account-id';
-import { ecoNamesOf } from './chapter-names';
+import { chapterNamesOf } from './chapter-names';
 import { assertCoachMaySeeBy, requireCoach } from './coaching';
 import { getDb } from './db';
 
@@ -124,8 +125,8 @@ export interface SharedRepertoirePage {
   readonly graph: RepertoireGraph;
   /** The coach's own notes on it by move key (R-125). */
   readonly notes: Readonly<Record<string, string>>;
-  /** The names of the openings its chapters are named after. */
-  readonly ecoNames: Readonly<Record<string, string>>;
+  /** What titles its chapters: opening names and distinctions (R-158). */
+  readonly names: ChapterNames;
 }
 
 const sharedIdsSchema = z.object({
@@ -172,7 +173,7 @@ export async function sharedRepertoireData(
     notes: Object.fromEntries(
       shared.notes.map((note) => [note.moveKey, note.text]),
     ),
-    ecoNames: ecoNamesOf(shared.graph, coach.locale),
+    names: chapterNamesOf(shared.graph, coach.locale),
   };
 }
 

@@ -27,7 +27,8 @@ import {
 import type { RepertoireGraph } from '@mychess/chess';
 import { notFound } from 'next/navigation';
 import { z } from 'zod';
-import { ecoNamesOf } from './chapter-names';
+import type { ChapterNames } from '../lib/chapter-label';
+import { chapterNamesOf } from './chapter-names';
 import { getDb } from './db';
 import { requireOnboarded } from './session';
 
@@ -84,8 +85,8 @@ export interface RepertoirePageData {
   readonly graph: RepertoireGraph;
   /** The viewer's own Personal notes on it, by move key (R-21). */
   readonly notes: Readonly<Record<string, string>>;
-  /** The names of the openings its chapters are named after (decision 17). */
-  readonly ecoNames: Readonly<Record<string, string>>;
+  /** What titles its chapters: opening names and distinctions (R-158). */
+  readonly names: ChapterNames;
   readonly sharing: RepertoireSharing;
   /** Every coach's notes on it, read-only (R-107, R-125). */
   readonly coachNotes: readonly OwnerCoachNote[];
@@ -138,7 +139,7 @@ export async function repertoirePageData(
     repertoire,
     graph,
     notes: await listPersonalNotes(getDb(), account.id, repertoire.id),
-    ecoNames: ecoNamesOf(graph, account.locale),
+    names: chapterNamesOf(graph, account.locale),
     sharing: await sharingOf(account.id, repertoire.id),
     coachNotes: await ownerCoachNotes(account.id, repertoire.id),
     forkNotes: await forkCoachNotesOn(getDb(), account.id, repertoire.id),

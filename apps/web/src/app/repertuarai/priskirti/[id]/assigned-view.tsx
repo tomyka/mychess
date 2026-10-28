@@ -109,7 +109,7 @@ function useAssignedPanel(
       <ChangesSummary
         graph={data.graph}
         changes={data.changes}
-        ecoNames={data.ecoNames}
+        names={data.names}
       />
     ),
     empty: (
@@ -161,7 +161,7 @@ export function AssignedView({
     <RepertoireShell
       header={<AssignedHeader data={data} paused={pause.state.paused} />}
       name={data.repertoire.name}
-      ecoNames={data.ecoNames}
+      names={data.names}
       view={view}
       panel={panel}
     />
