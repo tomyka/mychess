@@ -1,5 +1,7 @@
 // Repertoire steps for the E2E journeys: Mano repertuarai, the repertoire
 // page's chapter list and move list, and the import flow.
+import { stat } from 'node:fs/promises';
+import { basename } from 'node:path';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { format, type Locale, type Messages } from './journey';
 
@@ -90,6 +92,25 @@ export async function typeMove(
 export const disclosure = (page: Page): Locator =>
   page.locator('button[aria-controls][aria-expanded]').first();
 
+/** What keeps a move's number and its SAN on one line in a chapter title. */
+const NO_BREAK_SPACE = String.fromCodePoint(0xa0);
+
+/**
+ * A chapter's title when another chapter shares its name (R-158): `name`
+ * with its ECO code and the move where it parts from the others, given as
+ * "6. Be3".
+ */
+export function distinctTitle(
+  messages: Messages,
+  { name, eco, move }: { name: string; eco: string; move: string },
+): string {
+  return format(messages.chapter.distinct, {
+    name,
+    eco,
+    move: move.replace(' ', NO_BREAK_SPACE),
+  });
+}
+
 /**
  * Opens the chapter list if closed and chooses row `index` titled `title`.
  * Right after a reload a click can land before the page hydrates and be
@@ -115,7 +136,12 @@ export async function chooseChapter(
   await expect(trigger).toContainText(title);
 }
 
-/** Uploads `file` (as `side`, unless the side is fixed) and asks for the preview. */
+/**
+ * Uploads `file` (as `side`, unless the side is fixed) and asks for the
+ * preview. A file set before the page hydrates is lost (the flow keeps it
+ * in React state), so it is set again until the page names it; the side is
+ * chosen after that, on the hydrated page.
+ */
 export async function previewImport(
   page: Page,
   messages: Messages,
@@ -123,7 +149,16 @@ export async function previewImport(
 ): Promise<void> {
   const t = messages.repertoires;
   await expect(page).toHaveURL(/\/repertuarai\/importuoti/);
-  await page.locator('input[type="file"]').setInputFiles(file);
+  const chosen = format(t.import.fileChosen, {
+    name: basename(file),
+    size: String(Math.ceil((await stat(file)).size / 1024)),
+  });
+  await expect(async () => {
+    await page.locator('input[type="file"]').setInputFiles(file);
+    await expect(page.getByText(chosen, { exact: true })).toBeVisible({
+      timeout: 1_000,
+    });
+  }).toPass();
   if (side !== undefined)
     await page.getByRole('radio', { name: t.create[side] }).check();
   await page.getByRole('button', { name: t.import.preview }).click();

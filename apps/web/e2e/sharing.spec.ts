@@ -29,6 +29,7 @@ import {
 import {
   chip,
   chooseChapter,
+  distinctTitle,
   plural,
   previewImport,
 } from './support/repertoires';
@@ -46,10 +47,20 @@ const TAIMANOV = fileURLToPath(
 /**
  * The first chapter (6.Be3), whose 9...Ne5 carries the comment below, by
  * its opening name in each language (opening names follow the language).
+ * Its 3.Nc3 chapter shares the name, so the title carries the ECO code and
+ * the move it parts at (R-158).
  */
 const FIRST_CHAPTER: Record<Locale, string> = {
-  lt: 'Siciliška gynyba, Taimanovo variantas',
-  en: 'Sicilian Defense: Taimanov Variation, Bastrikov Variation, English Attack',
+  lt: distinctTitle(lt, {
+    name: 'Siciliška gynyba, Taimanovo variantas',
+    eco: 'B48',
+    move: '6. Be3',
+  }),
+  en: distinctTitle(CATALOGUES.en, {
+    name: 'Sicilian Defense: Taimanov Variation, Bastrikov Variation, English Attack',
+    eco: 'B48',
+    move: '6. Be3',
+  }),
 };
 /** Rimantas reads in Lithuanian. */
 const TAIMANOV_B48 = FIRST_CHAPTER.lt;

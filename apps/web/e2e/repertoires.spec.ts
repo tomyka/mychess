@@ -23,6 +23,7 @@ import {
   chooseChapter,
   createRepertoire,
   disclosure,
+  distinctTitle,
   expectSummary,
   openRepertoires,
   plural,
@@ -51,8 +52,19 @@ const TAIMANOV_COUNTS = {
   moves: 107,
 };
 
-const TAIMANOV_B48 = 'Siciliška gynyba, Taimanovo variantas';
-const TAIMANOV_B47 = 'Siciliška gynyba, Taimanovo (Bastrikovo) variantas';
+// Two chapters each share these opening names, so each title carries its
+// ECO code and the move it parts at (R-158), proven with `importPgn` and
+// `chapterDistinctions`: 6.Be3 and 3.Nc3 (B48), 6.Be2 and 6.g3 (B47).
+const TAIMANOV_B48 = distinctTitle(lt, {
+  name: 'Siciliška gynyba, Taimanovo variantas',
+  eco: 'B48',
+  move: '6. Be3',
+});
+const TAIMANOV_B47 = distinctTitle(lt, {
+  name: 'Siciliška gynyba, Taimanovo (Bastrikovo) variantas',
+  eco: 'B47',
+  move: '6. Be2',
+});
 
 /** The Taimanov's intro, comments and arrow show on their moves. */
 async function expectTaimanovNotes(page: Page): Promise<void> {
@@ -65,7 +77,7 @@ async function expectTaimanovNotes(page: Page): Promise<void> {
   ).toBeVisible();
   await chip(page, `9... Ne5, ${t.moves.hasComment}`).click();
   await expect(page.getByText('Juodieji spaudžia c4 langelį.')).toBeVisible();
-  // 6.Be2 is the first of the two Bastrikov (B47) chapters.
+  // The Bastrikov (B47) chapter of 6.Be2, not its 6.g3 namesake.
   await chooseChapter(page, TAIMANOV_B47);
   await chip(page, `8... Bb4, ${t.moves.hasComment}`).click();
   await expect(page.getByText('jei 9.Na4, tai Be7')).toBeVisible();

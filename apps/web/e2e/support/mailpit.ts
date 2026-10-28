@@ -1,9 +1,6 @@
 import { expect, type APIRequestContext } from '@playwright/test';
 import { z } from 'zod';
-
-// The Mailpit the app under test sends through (playwright.config.ts
-// passes the same variable, with the same default, to the app).
-const MAILPIT = process.env['MAILPIT_URL'] ?? 'http://127.0.0.1:8025';
+import { MAILPIT_URL as MAILPIT } from './mailpit-url';
 
 const summarySchema = z.object({ ID: z.string() });
 const searchSchema = z.object({ messages: z.array(summarySchema) });
