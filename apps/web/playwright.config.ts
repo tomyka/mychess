@@ -1,4 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { parseEnv } from 'node:util';
 
 // apps/web's E2E suite (test:e2e): a production build served by `next start`
 // on its own port, driven in desktop Chromium and a phone profile. Both
@@ -6,6 +9,13 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = 3100;
 const BASE_URL = `http://127.0.0.1:${String(PORT)}`;
 const CI = process.env['CI'] === 'true';
+
+// This machine's Mailpit port lives in .env.local (it may not be 8025, which
+// another project's Mailpit can hold); nothing else is taken from that file.
+const LOCAL_ENV_FILE = join(import.meta.dirname, '.env.local');
+const LOCAL_MAILPIT_URL = existsSync(LOCAL_ENV_FILE)
+  ? parseEnv(readFileSync(LOCAL_ENV_FILE, 'utf8'))['MAILPIT_URL']
+  : undefined;
 
 /** A variable from the environment, or its local default. */
 const fromEnv = (name: string, fallback: string): string =>
@@ -29,7 +39,10 @@ const APP_ENV = {
   BETTER_AUTH_URL: BASE_URL,
   MAIL_TRANSPORT: fromEnv('MAIL_TRANSPORT', 'mailpit'),
   MAIL_FROM: fromEnv('MAIL_FROM', 'mychess <noreply@mychess.test>'),
-  MAILPIT_URL: fromEnv('MAILPIT_URL', 'http://127.0.0.1:8025'),
+  MAILPIT_URL: fromEnv(
+    'MAILPIT_URL',
+    LOCAL_MAILPIT_URL ?? 'http://127.0.0.1:8025',
+  ),
   LICHESS_CLIENT_ID: fromEnv('LICHESS_CLIENT_ID', 'mychess-local'),
 };
 

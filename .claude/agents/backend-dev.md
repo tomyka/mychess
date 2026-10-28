@@ -38,4 +38,6 @@ owner through the lead.
 
 Run and quote: `pnpm lint`, `pnpm typecheck`, `pnpm format:check`,
 `pnpm test:unit`, `pnpm test:db` (needs Docker). Then message the lead with
-the files you changed, the commands and their results, and any open question.
+the files you changed, the commands and their results, and any open question. List every
+item from the brief and from the lead's later messages, each marked done or
+not done with the reason: forwarded review items are the ones that get lost.

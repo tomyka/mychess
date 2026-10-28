@@ -42,4 +42,11 @@ Run and quote: `pnpm lint`, `pnpm typecheck`, `pnpm format:check`,
 `pnpm test:component`, and for anything a request reaches, `pnpm build` then
 `pnpm test:feature` (needs Docker; the feature and E2E suites are added by
 #249 - until then, say they do not exist yet). Then message the lead with the files you
-changed, the commands and their results, and any open question.
+changed, the commands and their results, and any open question. List every
+item from the brief and from the lead's later messages, each marked done or
+not done with the reason: forwarded review items are the ones that get lost.
+
+A new coach route goes into the access table in
+`apps/web/test/feature/coach-access.test.ts`; a new field on a coach loader
+goes into that loader's field allowlist test. Otherwise the gate finds both,
+a round trip later.

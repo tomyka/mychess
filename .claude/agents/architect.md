@@ -24,6 +24,8 @@ spec and plan of the current issue (`docs/superpowers/`).
   with `docs/CONTEXT.md` is a finding.
 - Each finding gives file and line, the rule it breaks and a fix. Keep
   "breaks a written rule" apart from "could be better".
+- When a display string changes (a title, a label), check every form seeded
+  from it: a field seeded with a display title saves the decoration as data.
 - **Do not reopen a decision.** A change that needs an ADR or ruling
   reopened, or a choice none covers, goes to the lead for the owner.
 

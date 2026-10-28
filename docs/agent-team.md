@@ -126,6 +126,12 @@ Three to five teammates at a time; each one costs tokens.
 - **No production data** reaches any teammate. Tests and staging use the
   persona seeds.
 - **The working tree is shared.** Teammates never run `git stash`, `git checkout -- <file>`, `git reset` or `git clean`: in a shared tree they move other teammates' uncommitted work. To check whether a failure is yours, run only your own tests.
+- **Edit source with Edit and Write**, never with splice or concatenation
+  scripts: in S7 a splice picked up another task's leftover scratch file and
+  overwrote half a test file. Scratch files go in a subfolder named after
+  your task.
+- **There is no Python on this machine.** Script with node (`node -e`, or an
+  `.mjs` file in your scratch subfolder).
 - **Never skip, weaken or delete a failing test** to reach green; a failing
   test is the finding.
 - **The lead commits only on the gate's exit code**: `node quality/gate.mjs
