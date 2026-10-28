@@ -5,7 +5,8 @@
 //
 // Each name gets the "safe tidy" of ruling R-77 (`tidyLtName`): whitespace,
 // castling with the letter O, no space after a move number, and the comma
-// before a trailing move qualifier. Wording stays verbatim.
+// before a trailing move qualifier. Wording stays verbatim. Then the explicit
+// per-code piece-letter corrections of ruling R-161 (`correctPieceLetters`).
 //
 // Deliberately a separate command from generate-eco.mjs: that one fetches
 // lichess's TSVs, this one scrapes a third party's HTML, which is far more
@@ -19,6 +20,7 @@ import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseDecadePage } from '../src/openings/eco-lt-parse.ts';
+import { correctPieceLetters } from '../src/openings/eco-lt-piece-letters.ts';
 import { tidyLtName } from '../src/openings/eco-lt-tidy.ts';
 
 const BASE_URL = 'http://www.xn--achmatai-4wb.lt/debiutu_enciklopedija.php';
@@ -60,7 +62,10 @@ async function main() {
 
   const sorted = Object.fromEntries(
     Object.entries(names)
-      .map(([code, name]) => [code, tidyLtName(name)])
+      .map(([code, name]) => [
+        code,
+        correctPieceLetters(code, tidyLtName(name)),
+      ])
       .sort(([a], [b]) => a.localeCompare(b)),
   );
   writeJson(OUT_PATH, sorted);

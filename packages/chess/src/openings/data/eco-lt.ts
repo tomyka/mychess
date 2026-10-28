@@ -6,7 +6,9 @@
 // edit it by hand: a fix goes into the generator or its input. Names keep
 // their wording verbatim, including the move disambiguation many of them
 // carry ("Benoni gynyba, 6.e4", "be 9.O-O") in Lithuanian piece notation
-// (v1 #158); only the safe tidy of ruling R-77 (`eco-lt-tidy.ts`) is applied.
+// (v1 #158); only the safe tidy of ruling R-77 (`eco-lt-tidy.ts`) and the
+// per-code piece-letter corrections of R-161 (`eco-lt-piece-letters.ts`) are
+// applied.
 import data from './eco-lt.json' with { type: 'json' };
 
 /** ECO code -> Lithuanian name. */
