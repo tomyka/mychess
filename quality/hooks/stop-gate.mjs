@@ -4,8 +4,15 @@
 // If anything fails, exit code 2 blocks the stop and hands the report to the agent.
 // - Skips when nothing changed since the last passing run (hash of git diff + untracked files).
 // - After N consecutive failed attempts it lets the agent stop and warns you, so it cannot loop forever.
+// - Skips while teammates work in the tree (a fresh team-running marker, #281).
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, isGitRepo, loadConfig, run } from '../lib.mjs';
 import { readInput } from './read-input.mjs';
@@ -20,6 +27,19 @@ const state = existsSync(statePath)
 const save = () => writeFileSync(statePath, JSON.stringify(state));
 
 await readInput();
+
+// While teammates work in this tree, their red-phase tests are not the
+// lead's to fix, so skip; the lead runs the gate before each commit and CI
+// runs on every push. The lead creates the marker when it dispatches
+// teammates and deletes it when they are done; one older than three hours is
+// ignored, so a forgotten marker cannot turn the gate off (#281).
+const teamMarker = join(cacheDir, 'team-running');
+const TEAM_MAX_AGE_MS = 3 * 60 * 60 * 1000;
+if (
+  existsSync(teamMarker) &&
+  Date.now() - statSync(teamMarker).mtimeMs < TEAM_MAX_AGE_MS
+)
+  process.exit(0);
 
 function workingTreeHash() {
   if (!isGitRepo()) return null;

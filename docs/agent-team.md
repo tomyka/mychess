@@ -137,6 +137,12 @@ Three to five teammates at a time; each one costs tokens.
 - **The lead commits only on the gate's exit code**: `node quality/gate.mjs
   check > gate.log 2>&1 && git commit ...`. A pipe (`gate | tail && git
   commit`) hides a failure and the commit goes through (S5, e7d9de8).
+- **The Stop hook pauses while teammates work** (#281): the lead creates
+  `node_modules/.cache/ts-quality/team-running` when it dispatches
+  teammates and deletes it once they have all reported, so the hook does not
+  run the gate on their red-phase tests. A marker older than three hours is
+  ignored, so refresh it on a long slice. The gate before each commit still
+  applies.
 - **No command that can wait on stdin** (a bare `cat`, an interactive
   prompt): it hangs the teammate's shell, and stopping it may be refused (S5).
 - **Silence is not progress.** With every handoff the lead starts a
