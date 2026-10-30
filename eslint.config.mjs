@@ -6,6 +6,7 @@ import { defineConfig } from 'eslint/config';
 import prettier from 'eslint-config-prettier';
 import reactHooks from 'eslint-plugin-react-hooks';
 import sonarjs from 'eslint-plugin-sonarjs';
+import testingLibrary from 'eslint-plugin-testing-library';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
@@ -184,6 +185,18 @@ export default defineConfig(
         'error',
         { assertFunctionNames: ['expect', 'expectTypeOf'] },
       ],
+    },
+  },
+  // Async Testing Library calls are awaited, so a test cannot assert before
+  // a pending transition settles (#282).
+  {
+    files: ['apps/web/src/**/*.test.ts', 'apps/web/src/**/*.test.tsx'],
+    plugins: { 'testing-library': testingLibrary },
+    rules: {
+      'testing-library/await-async-utils': 'error',
+      'testing-library/await-async-queries': 'error',
+      'testing-library/prefer-find-by': 'error',
+      'testing-library/no-wait-for-side-effects': 'error',
     },
   },
   {
