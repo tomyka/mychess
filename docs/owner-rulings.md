@@ -125,7 +125,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-89** (S1 close, #251, 2026-10-17): The data export includes the account's active sessions (IP address, user agent, created and expiry times), never their tokens.
 - **R-90** (S1 close, #251, 2026-10-17): When proving the email ends an unproven account's Lichess link, the settings page tells the player Lichess was disconnected for security and can be connected again.
 - **R-91** (S1 close, #251, 2026-10-17): "Profile" means an Account's display name and language (never the Account itself); "Provider link" is a sign-in method linked to an Account. The S1 Lithuanian terms proposed in docs/glossary-lt.md are approved.
-- **R-92** (S1 close, #251, 2026-10-17): The nightly full mutation run also runs the feature suite, so rules checked only there are mutation-tested; the per-push run stays fast.
+- ~~**R-92** (S1 close, #251, 2026-10-17): The nightly full mutation run also runs the feature suite, so rules checked only there are mutation-tested; the per-push run stays fast.~~ Superseded by #295 (owner, 2026-10-22): mutation testing no longer runs in CI; `node quality/gate.mjs mutation` runs it by hand (#269 closed 2026-10-30).
 - **R-93** (S1 close, #251, 2026-10-17): The persona test sign-in (R-73) may be enabled on local and staging environments; production always refuses it.
 - **R-94** (S1 close, #270, 2026-10-17): The admin audit email hash (R-88) is keyed: HMAC-SHA-256 with a per-environment secret (`AUDIT_EMAIL_KEY`), so a leaked database alone cannot confirm a guessed email.
 - **R-95** (S1 close, #270, 2026-10-17): Downloading the data export needs a sign-in within the last day, as linking does (R-84).
@@ -195,6 +195,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-159** (#305, 2026-10-28): When a PGN merge changes the title of an existing chapter (it gains a namesake, R-158), the import preview lists that chapter too, marked as renamed, with its old and new title.
 - **R-160** (#304, 2026-10-28): Every name list (players, coaches, groups, group members, pickers, repertoires) sorts in Lithuanian alphabetical order, whatever the viewer's locale.
 - **R-161** (#259, 2026-10-28): The Lithuanian opening-name tidy (R-77) may also correct English piece letters to Lithuanian ones (K, V, B, R, Ž), only through an explicit per-ECO-code correction list reviewed by i18n-content, never a blanket letter swap.
+- **R-162** (#275, 2026-10-30): The free entitlement (R-70) allows up to 50 repertoires per account, forks of a coach's repertoire included, and up to 5,000 moves in one repertoire. The limits are enforced in the domain and again in the repositories.
 
 ## Open questions
 

@@ -24,7 +24,9 @@ const SKIPPED = new Set([
 /** The numbers the rulings file defines, in file order. */
 function definedRulings(): number[] {
   const text = readFileSync(join(ROOT, 'docs/owner-rulings.md'), 'utf8');
-  return [...text.matchAll(/^- \*\*R-(\d+)\*\*/gm)].map((m) => Number(m[1]));
+  return [...text.matchAll(/^- (?:~~)?\*\*R-(\d+)\*\*/gm)].map((m) =>
+    Number(m[1]),
+  );
 }
 
 /** Every source file under `dir`, build output and dependencies left out. */
