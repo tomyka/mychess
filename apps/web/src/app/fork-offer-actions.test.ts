@@ -95,6 +95,16 @@ describe('acceptForkOfferAction (R-44)', () => {
       { refusal: 'forkOffer.notOpen' },
     );
   });
+
+  it('passes on the repertoire limit with its number (R-162, R-163)', async () => {
+    server.accept.mockResolvedValue({
+      ok: false,
+      refusal: { reason: 'repertoire.limit', limit: 50 },
+    });
+    expect(await acceptForkOfferAction({}, formOf({ offerId: OFFER }))).toEqual(
+      { refusal: 'repertoire.limit', limit: 50 },
+    );
+  });
 });
 
 describe('declineForkOfferAction', () => {

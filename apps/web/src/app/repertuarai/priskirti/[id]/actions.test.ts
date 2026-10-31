@@ -150,6 +150,17 @@ describe('forkAction (R-20, R-128)', () => {
     });
   });
 
+  it('says the player’s repertoire limit with its number (R-162, R-163)', async () => {
+    server.fork.mockResolvedValue({
+      ok: false,
+      refusal: { reason: 'repertoire.limit', limit: 50 },
+    });
+    expect(await forkAction({}, formOf({ repertoireId: ID }))).toEqual({
+      refusal: 'repertoire.limit',
+      limit: 50,
+    });
+  });
+
   it('reads a malformed form as not assigned and writes nothing', async () => {
     for (const fields of [{ repertoireId: 'not-a-uuid' }, {}])
       expect(await forkAction({}, formOf(fields))).toEqual({

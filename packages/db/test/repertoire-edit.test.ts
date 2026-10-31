@@ -14,12 +14,7 @@ import {
   type Side,
 } from '@mychess/chess';
 import { describe, expect, it } from 'vitest';
-import {
-  createRepertoire,
-  editRepertoire,
-  loadRepertoire,
-  shareRepertoire,
-} from '../src';
+import { editRepertoire, loadRepertoire, shareRepertoire } from '../src';
 import { accounts } from '../src/schema';
 import { useTestDatabase } from '../src/testing';
 import { seedAccount } from './support/accounts';
@@ -31,7 +26,14 @@ import {
   seedPlayer,
   someoneWaitsForALock,
 } from './support/coaching';
-import { canonical, graphOf, LONDON, T0, T1 } from './support/repertoires';
+import {
+  canonical,
+  graphOf,
+  LONDON,
+  T0,
+  T1,
+  newRepertoire,
+} from './support/repertoires';
 import { statementsOf } from './support/statements';
 
 const { db, client } = useTestDatabase();
@@ -57,7 +59,7 @@ async function stored(
   side: Side = 'white',
   owner = 'rokas',
 ): Promise<string> {
-  return createRepertoire(db, {
+  return newRepertoire(db, {
     ownerId: owner,
     side,
     name: 'Repertuaras',
@@ -93,7 +95,7 @@ const edit = <C extends RepertoireChange>(
 ) =>
   editRepertoire(db, {
     id,
-    viewer: { id: viewer },
+    viewer: { id: viewer, entitlement: 'free' },
     expectedVersion: version,
     change,
     now: T1,
@@ -220,7 +222,7 @@ describe('editRepertoire saves an edit (#276)', () => {
   it('saves the first chapter with its first move in one edit (R-111)', async () => {
     await seedAccount(db, 'rokas', 'rokas@example.lt');
     const empty = emptyGraph('white');
-    const id = await createRepertoire(db, {
+    const id = await newRepertoire(db, {
       ownerId: 'rokas',
       side: 'white',
       name: 'Nauja',

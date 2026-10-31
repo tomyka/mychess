@@ -8,13 +8,7 @@ import type {
 } from '@mychess/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import {
-  assign,
-  createRepertoire,
-  pauseAssignment,
-  recordResults,
-  reviewsOf,
-} from '../src';
+import { assign, pauseAssignment, recordResults, reviewsOf } from '../src';
 import { useTestDatabase } from '../src/testing';
 import {
   openTransaction,
@@ -23,7 +17,7 @@ import {
   seedPlayer,
   someoneWaitsForALock,
 } from './support/coaching';
-import { graphOf } from './support/repertoires';
+import { graphOf, newRepertoire } from './support/repertoires';
 import { statementsOf } from './support/statements';
 import { keysOf, writeReview } from './support/training';
 
@@ -116,7 +110,7 @@ describe('recordResults', () => {
     await seedCoach(db, 'c', 'c@example.lt');
     await seedPlayer(db, 'p', 'p@example.lt');
     await seedLink(db, 'c', 'p');
-    own = await createRepertoire(db, {
+    own = await newRepertoire(db, {
       ownerId: 'p',
       side: 'white',
       name: 'Mano',
@@ -195,7 +189,7 @@ describe('recordResults', () => {
 
   it('refuses, unlogged, a key the repertoire does not hold and a repertoire the player does not train', async () => {
     await seedPlayer(db, 'q', 'q@example.lt');
-    const theirs = await createRepertoire(db, {
+    const theirs = await newRepertoire(db, {
       ownerId: 'q',
       side: 'white',
       name: 'Kito',
@@ -226,7 +220,7 @@ describe('recordResults', () => {
   });
 
   it('refuses learning on a paused assignment, yet applies an answer on it (S6 decision 6)', async () => {
-    const kings = await createRepertoire(db, {
+    const kings = await newRepertoire(db, {
       ownerId: 'c',
       side: 'white',
       name: 'Trenerio',
@@ -351,7 +345,7 @@ describe('recordResults', () => {
 
   it("applies and logs a result whose id another player logged, and answers this player's own repeat as a duplicate", async () => {
     await seedPlayer(db, 'q', 'q@example.lt');
-    const theirs = await createRepertoire(db, {
+    const theirs = await newRepertoire(db, {
       ownerId: 'q',
       side: 'white',
       name: 'Kito',

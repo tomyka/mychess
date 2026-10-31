@@ -1,10 +1,10 @@
 import { canUseAssignment } from '@mychess/domain';
 import { asc } from 'drizzle-orm';
 import { z } from 'zod';
-import { createRepertoire, type Db } from '../../src';
+import { type Db } from '../../src';
 import { assignments, forkOffers } from '../../src/assignment-schema';
 import { assignmentFacts } from '../../src/assignments/reach';
-import { graphOf } from './repertoires';
+import { graphOf, newRepertoire } from './repertoires';
 
 /** A repertoire of `ownerId`, with a coach comment on 1. d4; returns its id. */
 export function seedRepertoire(
@@ -12,7 +12,7 @@ export function seedRepertoire(
   ownerId: string,
   now: Date,
 ): Promise<string> {
-  return createRepertoire(db, {
+  return newRepertoire(db, {
     ownerId,
     side: 'white',
     name: 'Londono sistema',

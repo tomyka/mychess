@@ -60,7 +60,8 @@ const FAILED = 'repertoires.failed';
 
 /**
  * Sends one edit with the screen's version and lands its outcome: the new
- * graph and what titles its chapters, or the refusal. A board edit's refusal shows
+ * graph and what titles its chapters, or the refusal (with the limit it
+ * names, R-162). A board edit's refusal shows
  * in the status line and puts the pieces back; a field shows its own,
  * unless the repertoire changed elsewhere, which the whole screen shows.
  */
@@ -70,10 +71,18 @@ export function editor(
   dispatch: Dispatch,
   onNames: (names: ChapterNames) => void,
 ): Edit {
-  const refuse = (refusal: string, field: boolean): FieldOutcome => {
+  const refuse = (
+    refusal: string,
+    field: boolean,
+    limit?: number,
+  ): FieldOutcome => {
     if (field && refusal !== 'repertoire.stale') dispatch({ type: 'settled' });
     else {
-      dispatch({ type: 'refused', reason: refusal });
+      dispatch(
+        limit === undefined
+          ? { type: 'refused', reason: refusal }
+          : { type: 'refused', reason: refusal, values: { limit } },
+      );
       dispatch({ type: 'reset' });
     }
     return { ok: false, refusal };
@@ -92,7 +101,7 @@ export function editor(
         version: state.version,
         op,
       });
-      if (!outcome.ok) return refuse(outcome.refusal, field);
+      if (!outcome.ok) return refuse(outcome.refusal, field, outcome.limit);
       onNames(outcome.names);
       const { graph, version } = outcome;
       dispatch({ type: 'saved', graph, version, ...place?.(graph) });

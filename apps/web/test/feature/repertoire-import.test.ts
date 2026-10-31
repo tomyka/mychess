@@ -11,7 +11,13 @@ import { useRequestHarness } from './support/harness';
 import { outcomeOf, testDb } from './support/request';
 import { chapterLabelIn } from '../../src/server/chapter-names';
 import { graphOf } from '../fixtures/repertoires';
-import { LONDON, seedRepertoire, TAIMANOV } from './support/repertoires';
+import {
+  LONDON,
+  pgnWithMoves,
+  seedRepertoire,
+  seedRepertoireRows,
+  TAIMANOV,
+} from './support/repertoires';
 
 vi.mock('next/headers', async () =>
   (await import('./support/request')).nextHeaders(),
@@ -495,6 +501,85 @@ describe('confirmImportAction', () => {
       ),
     ).toEqual({ redirectedTo: '/prisijungti' });
     expect(await repertoireCount()).toBe(0);
+  });
+});
+
+describe('the repertoire limits (R-162)', () => {
+  const AT_LIMIT = {
+    ok: false,
+    refusal: { reason: 'repertoire.limit', limit: 50 },
+  };
+  const TOO_MANY_MOVES = {
+    ok: false,
+    refusal: { reason: 'repertoire.tooManyMoves', limit: 5000 },
+  };
+
+  it('refuses a new repertoire past 50 at the preview and the confirm, and creates nothing', async () => {
+    const { gabija, taimanov } = await cast();
+    await seedRepertoireRows(sql, gabija.id, 48);
+    actAs(gabija);
+    expect(
+      await previewImportAction({ text: TAIMANOV, side: 'black' }),
+    ).toEqual(AT_LIMIT);
+    expect(
+      await confirmImportAction({
+        text: TAIMANOV,
+        side: 'black',
+        target: { kind: 'new', name: 'Penkiasdešimt pirmas' },
+      }),
+    ).toEqual(AT_LIMIT);
+    expect(await repertoireCount()).toBe(51);
+    // Adding to one she has makes no new repertoire.
+    expect(
+      previewSchema.parse(
+        await previewImportAction({
+          text: INTO_TAIMANOV,
+          side: 'black',
+          into: taimanov,
+        }),
+      ).preview.refusal,
+    ).toBeNull();
+  });
+
+  it('refuses a file of more than 5,000 moves as a new repertoire, and creates nothing', async () => {
+    const { gabija } = await cast();
+    actAs(gabija);
+    const text = pgnWithMoves(5001);
+    expect(await previewImportAction({ text, side: 'white' })).toEqual(
+      TOO_MANY_MOVES,
+    );
+    expect(
+      await confirmImportAction({
+        text,
+        side: 'white',
+        target: { kind: 'new', name: 'Per didelis' },
+      }),
+    ).toEqual(TOO_MANY_MOVES);
+    expect(await repertoireCount()).toBe(3);
+  });
+
+  it('refuses a merge that grows a repertoire past 5,000 moves, and writes nothing', async () => {
+    const { gabija } = await cast();
+    const full = await seedRepertoire(testDb(), 'gabija@example.lt', {
+      pgn: pgnWithMoves(4990),
+      side: 'white',
+      name: 'Beveik pilnas',
+    });
+    actAs(gabija);
+    const text = pgnWithMoves(5001);
+    expect(
+      await previewImportAction({ text, side: 'white', into: full }),
+    ).toEqual(TOO_MANY_MOVES);
+    expect(
+      await confirmImportAction({
+        text,
+        side: 'white',
+        target: { kind: 'existing', id: full, version: 1 },
+      }),
+    ).toEqual(TOO_MANY_MOVES);
+    const loaded = await stored(full, gabija);
+    expect(loaded.repertoire.version).toBe(1);
+    expect(loaded.graph.moves).toHaveLength(4990);
   });
 });
 

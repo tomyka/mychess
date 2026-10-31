@@ -18,7 +18,6 @@ import { and, eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   assign,
-  createRepertoire,
   knowCounts,
   learnAgain,
   learnedBetween,
@@ -37,7 +36,7 @@ import {
   seedPlayer,
   someoneWaitsForALock,
 } from './support/coaching';
-import { graphOf, LONDON } from './support/repertoires';
+import { graphOf, LONDON, newRepertoire } from './support/repertoires';
 import { statementsOf } from './support/statements';
 import { keysOf, writeReview } from './support/training';
 
@@ -89,7 +88,7 @@ async function graded(key: string, at: Date): Promise<void> {
 
 /** A repertoire of c's with QUEENS, assigned to p. */
 async function assignedToP(): Promise<string> {
-  const repertoireId = await createRepertoire(db, {
+  const repertoireId = await newRepertoire(db, {
     ownerId: 'c',
     side: 'white',
     name: 'Trenerio',
@@ -115,7 +114,7 @@ beforeEach(async () => {
   await seedPlayer(db, 'p', 'p@example.lt');
   await seedPlayer(db, 'q', 'q@example.lt');
   await seedLink(db, 'c', 'p');
-  own = await createRepertoire(db, {
+  own = await newRepertoire(db, {
     ownerId: 'p',
     side: 'white',
     name: 'Mano',
@@ -172,7 +171,7 @@ describe('markKnown (R-58)', () => {
   });
 
   it('marks one line of a chapter, and refuses a line or chapter the repertoire lacks', async () => {
-    const london = await createRepertoire(db, {
+    const london = await newRepertoire(db, {
       ownerId: 'p',
       side: 'white',
       name: 'Londonas',
@@ -207,7 +206,7 @@ describe('markKnown (R-58)', () => {
   });
 
   it("refuses a repertoire the player does not train, or another player's", async () => {
-    const theirs = await createRepertoire(db, {
+    const theirs = await newRepertoire(db, {
       ownerId: 'q',
       side: 'white',
       name: 'Kito',

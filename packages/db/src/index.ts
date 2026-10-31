@@ -166,6 +166,7 @@ export {
   createRepertoire,
   listRepertoires,
   loadRepertoire,
+  mayAddRepertoire,
   renameRepertoire,
   type LoadedRepertoire,
   type NewRepertoire,

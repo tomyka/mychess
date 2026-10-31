@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
   assign,
-  createRepertoire,
   pauseAssignment,
   setTrainingSettings,
   trainingSnapshot,
@@ -11,7 +10,7 @@ import {
 } from '../src';
 import { useTestDatabase } from '../src/testing';
 import { seedCoach, seedLink, seedPlayer } from './support/coaching';
-import { graphOf } from './support/repertoires';
+import { graphOf, newRepertoire } from './support/repertoires';
 import { countStatements } from './support/statements';
 import { keysOf, writeReview } from './support/training';
 
@@ -28,7 +27,7 @@ const [E4 = '', NF3 = ''] = keysOf(KINGS);
 const ALL = { kind: 'all' } as const;
 
 const repertoireOf = (ownerId: string, name: string, pgn = QUEENS) =>
-  createRepertoire(db, { ownerId, side: 'white', name, graph: pgn, now: NOW });
+  newRepertoire(db, { ownerId, side: 'white', name, graph: pgn, now: NOW });
 
 async function assignToP(repertoireId: string): Promise<void> {
   const done = await assign(

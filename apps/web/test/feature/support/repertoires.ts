@@ -3,8 +3,9 @@
 import type { ChapterNameSource, Side } from '@mychess/chess';
 import { createRepertoire, findAccountByEmail, type Db } from '@mychess/db';
 import { graphOf, TAIMANOV } from '../../fixtures/repertoires';
+import type { SqlHelpers } from './rows';
 
-export { LONDON, TAIMANOV } from '../../fixtures/repertoires';
+export { LONDON, pgnWithMoves, TAIMANOV } from '../../fixtures/repertoires';
 
 /** The Taimanov without its [Event] tag: its chapter is named after its opening (R-63). */
 export const UNTITLED_TAIMANOV = TAIMANOV.split('\n').slice(2).join('\n');
@@ -22,7 +23,10 @@ export interface SeededRepertoire {
   readonly name: string;
 }
 
-/** Imports `pgn` as a repertoire of the account `ownerEmail`; returns its id. */
+/**
+ * Imports `pgn` as a repertoire of the account `ownerEmail`; returns its id.
+ * Throws when an R-162 limit refuses it.
+ */
 export async function seedRepertoire(
   db: Db,
   ownerEmail: string,
@@ -30,7 +34,7 @@ export async function seedRepertoire(
 ): Promise<string> {
   const owner = await findAccountByEmail(db, ownerEmail);
   if (owner === undefined) throw new Error(`no account ${ownerEmail}`);
-  return createRepertoire(db, {
+  const created = await createRepertoire(db, {
     ownerId: owner.id,
     side,
     name,
@@ -38,4 +42,20 @@ export async function seedRepertoire(
       pgn === null ? { side, chapters: [], moves: [] } : graphOf(pgn, side),
     now: new Date(),
   });
+  if (!created.ok) throw new Error(created.refusal.reason);
+  return created.value;
+}
+
+/** `count` empty White repertoires of `ownerId`, written directly, to fill the R-162 limit. */
+export async function seedRepertoireRows(
+  sql: SqlHelpers,
+  ownerId: string,
+  count: number,
+): Promise<void> {
+  await sql.rows(
+    `insert into repertoires (owner_account_id, side, name, created_at, updated_at)
+     select $1, 'white', 'Repertuaras ' || n, now(), now()
+       from generate_series(1, $2::int) as n`,
+    [ownerId, count],
+  );
 }

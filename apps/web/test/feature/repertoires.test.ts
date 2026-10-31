@@ -5,7 +5,12 @@ import { myRepertoires } from '../../src/server/repertoires';
 import { actAs, formOf, person } from './support/coaching';
 import { useRequestHarness } from './support/harness';
 import { outcomeOf, testDb } from './support/request';
-import { LONDON, seedRepertoire, TAIMANOV } from './support/repertoires';
+import {
+  LONDON,
+  seedRepertoire,
+  seedRepertoireRows,
+  TAIMANOV,
+} from './support/repertoires';
 
 vi.mock('next/headers', async () =>
   (await import('./support/request')).nextHeaders(),
@@ -71,6 +76,21 @@ describe('createRepertoireAction', () => {
       ),
     ).toEqual({ refusal: 'repertoire.sideInvalid' });
     expect(await repertoireRows()).toEqual([]);
+  });
+
+  it('refuses a 51st repertoire with the limit and makes nothing (R-162)', async () => {
+    const rokas = await person(sql, 'rokas@example.lt', 'Rokas');
+    await seedRepertoireRows(sql, rokas.id, 50);
+    actAs(rokas);
+    expect(
+      await outcomeOf(
+        createRepertoireAction(
+          {},
+          formOf({ name: 'Londono sistema', side: 'white' }),
+        ),
+      ),
+    ).toEqual({ refusal: 'repertoire.limit', limit: 50 });
+    expect(await sql.count('repertoires')).toBe(50);
   });
 
   it('sends a signed-out visitor to sign-in and makes nothing', async () => {

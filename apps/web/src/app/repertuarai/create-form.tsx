@@ -6,6 +6,7 @@ import { useActionState, useId, type JSX } from 'react';
 import { PRIMARY_BUTTON } from '../buttons';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
+import { useRefusalText } from '../treneris/refusal-line';
 import { createRepertoireAction, type CreateState } from './actions';
 
 const INITIAL: CreateState = {};
@@ -46,6 +47,7 @@ function SideField(): JSX.Element {
  */
 export function CreateForm(): JSX.Element {
   const t = useTranslations();
+  const refusalText = useRefusalText();
   const fieldId = useId();
   const statusId = useId();
   const [state, action, pending] = useActionState(
@@ -81,11 +83,7 @@ export function CreateForm(): JSX.Element {
       >
         {t('repertoires.create.submit')}
       </button>
-      <StatusLine
-        id={statusId}
-        text={state.refusal === undefined ? null : t(state.refusal)}
-        tone="error"
-      />
+      <StatusLine id={statusId} text={refusalText(state)} tone="error" />
     </form>
   );
 }

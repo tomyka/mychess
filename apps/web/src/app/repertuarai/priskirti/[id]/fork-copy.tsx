@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { useActionState, type JSX } from 'react';
 import { ConfirmedAction } from '../../../confirmed-action';
-import { StatusLine } from '../../../status-line';
+import { RefusalLine } from '../../../treneris/refusal-line';
 import type { ForkState } from './actions';
 
 /** The server action that forks the assignment, as useActionState takes it. */
@@ -42,10 +42,7 @@ export function ForkCopy({
         cancel={t('assignment.fork.cancel')}
         tone="primary"
       />
-      <StatusLine
-        text={state.refusal === undefined ? null : t(state.refusal)}
-        tone="error"
-      />
+      <RefusalLine state={state} />
     </div>
   );
 }

@@ -12,18 +12,24 @@ import {
   type Side,
 } from '@mychess/chess';
 import {
+  canAddRepertoire,
+  canHoldMoves,
   ownScope,
   ok,
   refuse,
   REPERTOIRE_REFUSALS,
   repertoireSchema,
+  type Account,
   type Repertoire,
   type RepertoireAccessRefusal,
+  type RepertoireLimitRefusal,
   type Result,
 } from '@mychess/domain';
 import { asc, eq, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
-import { REPEATABLE_READ, type Executor } from '../client';
+import { lockAccountById } from '../accounts';
+import { REPEATABLE_READ, type Executor, type Tx } from '../client';
+import { countSchema } from '../coach-queries';
 import {
   chapters,
   moveChapters,
@@ -65,12 +71,68 @@ export interface NewRepertoire {
   readonly now: Date;
 }
 
-/** A new repertoire with its whole graph, in one transaction; returns its id. */
-export async function createRepertoire(
+/** How many repertoires `ownerId` owns, forks included (R-162). */
+const repertoireCount = async (db: Executor, ownerId: string) =>
+  countSchema.parse(
+    await db.$count(
+      repertoires,
+      repertoireScope(db, ownScope(ownerId), 'view'),
+    ),
+  );
+
+/** Whether a new repertoire is held to the owner's R-162 limits. */
+type Limits = 'enforced' | 'beyond';
+
+/**
+ * May the owner hold `input` as one more repertoire (R-162)? Decided with
+ * the owner's account row locked (the S4 lock order; a fork has locked its
+ * coach before), so two creations at 49 cannot both pass. A missing owner
+ * is a programmer error.
+ */
+async function withinLimits(
+  tx: Tx,
+  input: NewRepertoire,
+  limits: Limits,
+): Promise<Result<undefined, RepertoireLimitRefusal>> {
+  const owner = await lockAccountById(tx, input.ownerId);
+  if (owner === undefined) throw new Error('createRepertoire: no owner');
+  if (limits === 'beyond') return ok();
+  const room = canAddRepertoire(owner, await repertoireCount(tx, owner.id));
+  if (!room.ok) return room;
+  return canHoldMoves(owner, { before: 0, after: input.graph.moves.length });
+}
+
+/**
+ * A new repertoire with its whole graph, in one transaction; returns its
+ * id. Refused over the owner's R-162 limits, writing nothing.
+ */
+export function createRepertoire(
   db: Executor,
   input: NewRepertoire,
-): Promise<string> {
+): Promise<Result<string, RepertoireLimitRefusal>> {
+  return insertRepertoire(db, input, 'enforced');
+}
+
+/**
+ * createRepertoire made past the owner's R-162 limits: only for the
+ * automatic fork of a deleting coach (R-163), never for anything a person
+ * asks for. Package-internal: not exported from the package index.
+ */
+export function createRepertoireBeyondLimits(
+  db: Executor,
+  input: NewRepertoire,
+): Promise<Result<string, RepertoireLimitRefusal>> {
+  return insertRepertoire(db, input, 'beyond');
+}
+
+function insertRepertoire(
+  db: Executor,
+  input: NewRepertoire,
+  limits: Limits,
+): Promise<Result<string, RepertoireLimitRefusal>> {
   return db.transaction(async (tx) => {
+    const allowed = await withinLimits(tx, input, limits);
+    if (!allowed.ok) return allowed;
     const [row] = idRowsSchema.parse(
       await tx
         .insert(repertoires)
@@ -89,8 +151,20 @@ export async function createRepertoire(
       row.id,
       graphChanges(emptyGraph(input.side), input.graph),
     );
-    return row.id;
+    return ok(row.id);
   });
+}
+
+/**
+ * May `owner` add a repertoire now (R-162)? A read without locks, so an
+ * import preview can warn before the person confirms; createRepertoire
+ * decides again under the lock.
+ */
+export async function mayAddRepertoire(
+  db: Executor,
+  owner: Pick<Account, 'id' | 'entitlement'>,
+): Promise<Result<undefined, RepertoireLimitRefusal>> {
+  return canAddRepertoire(owner, await repertoireCount(db, owner.id));
 }
 
 /**

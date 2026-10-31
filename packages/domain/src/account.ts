@@ -84,17 +84,31 @@ export function hasProvenEmail(account: Account): boolean {
   return account.emailVerified;
 }
 
-/** What an entitlement allows a coach to have. */
+/** What an entitlement allows an account to have. */
 export interface EntitlementLimits {
+  /** Players linked to a coach (S4). */
   readonly coachPlayers: number;
+  /** A coach's groups (S4). */
   readonly coachGroups: number;
+  /** Repertoires an account owns, forks included (R-162). */
+  readonly repertoires: number;
+  /** Moves in one repertoire (R-162). */
+  readonly repertoireMoves: number;
 }
 
 const LIMITS: Record<Entitlement, EntitlementLimits> = {
-  free: { coachPlayers: 30, coachGroups: 10 },
+  free: {
+    coachPlayers: 30,
+    coachGroups: 10,
+    repertoires: 50,
+    repertoireMoves: 5000,
+  },
 };
 
-/** What an entitlement allows (R-70); S4 enforces the coach limits. */
+/**
+ * What an entitlement allows (R-70, R-162): S4 enforces the coach limits,
+ * canAddRepertoire and canHoldMoves the repertoire limits.
+ */
 export function entitlementLimits(entitlement: Entitlement): EntitlementLimits {
   return LIMITS[entitlement];
 }

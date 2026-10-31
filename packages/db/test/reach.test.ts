@@ -4,7 +4,6 @@ import {
   type AssignmentFacts,
 } from '@mychess/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createRepertoire } from '../src';
 import { assignmentPlayers, assignments } from '../src/assignment-schema';
 import {
   assignmentFacts,
@@ -26,7 +25,7 @@ import {
   someoneWaitsForALock,
   T0,
 } from './support/coaching';
-import { graphOf } from './support/repertoires';
+import { graphOf, newRepertoire } from './support/repertoires';
 import { countStatements } from './support/statements';
 
 const { db, client } = useTestDatabase();
@@ -74,8 +73,8 @@ async function setState(
     .values({ playerId, repertoireId: rep, ...state });
 }
 
-const newRepertoire = (name: string): Promise<string> =>
-  createRepertoire(db, {
+const coachRepertoire = (name: string): Promise<string> =>
+  newRepertoire(db, {
     ownerId: 'c',
     side: 'white',
     name,
@@ -108,7 +107,7 @@ beforeEach(async () => {
   g = await seedGroup(db, 'c', 'Šeštadienio grupė');
   await seedMember(db, 'c', g, 'p');
   await seedMember(db, 'c', g, 'q');
-  rep = await newRepertoire('Londono sistema');
+  rep = await coachRepertoire('Londono sistema');
 });
 
 describe('countStatements (the statement counter)', () => {
@@ -238,7 +237,7 @@ describe('assignmentFacts for a batch', () => {
   });
 
   it("narrows to one of the coach's repertoires", async () => {
-    const other = await newRepertoire('Karo-Kan');
+    const other = await coachRepertoire('Karo-Kan');
     await assignTo({ playerId: 'n' }, { repertoireId: other });
     expect(
       pairsOf(await assignmentFacts(db, { coachId: 'c', repertoireId: other })),
@@ -251,7 +250,7 @@ describe('assignmentFacts for a batch', () => {
   });
 
   it('orders the records by player, then repertoire, and the rows individual first', async () => {
-    const other = await newRepertoire('Karo-Kan');
+    const other = await coachRepertoire('Karo-Kan');
     await assignTo({ groupId: g }, { repertoireId: other });
     const own = await assignTo({ playerId: 'q' }, { repertoireId: other });
     const facts = await assignmentFacts(db, { playerIds: ['q', 'p'] });
@@ -310,7 +309,7 @@ describe('assignmentFacts for a batch', () => {
     async function coachWithGroup(coachId: string, size: number) {
       await seedCoach(db, coachId, `${coachId}@example.lt`);
       const groupId = await seedGroup(db, coachId, `Grupė ${coachId}`);
-      const repertoireId = await createRepertoire(db, {
+      const repertoireId = await newRepertoire(db, {
         ownerId: coachId,
         side: 'white',
         name: `Repertuaras ${coachId}`,
@@ -431,7 +430,7 @@ describe('liveRepertoire (the query-level filter)', () => {
 
 describe('unreachedState (the stale-state condition)', () => {
   it("selects the batch's states no row reaches, forked or not", async () => {
-    const other = await newRepertoire('Karo-Kan');
+    const other = await coachRepertoire('Karo-Kan');
     await assignTo({ groupId: g });
     await assignTo({ playerId: 'n' }, { repertoireId: other });
     await setState('p', { forkedAt: NOW });

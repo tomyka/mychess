@@ -5,17 +5,27 @@
 // offer by id and that player, and the domain's canAnswerForkOffer decides
 // in the answer's own transaction.
 import { acceptForkOffer, declineForkOffer } from '@mychess/db';
-import { FORK_OFFER_REFUSALS, type ForkOfferRefusal } from '@mychess/domain';
+import {
+  FORK_OFFER_REFUSALS,
+  type ForkOfferRefusal,
+  type RepertoireLimitRefusal,
+} from '@mychess/domain';
 import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { repertoireRoute } from '../lib/routes';
 import { getDb } from '../server/db';
+import { refusalState } from '../server/refusal-state';
 import { requireOnboarded } from '../server/session';
 
-/** What an offer's buttons show after a submit: a refusal. */
+/**
+ * What an offer's buttons show after a submit: a refusal, and the limit it
+ * names when the player is at their repertoire limit (R-162, R-163).
+ */
 export interface ForkOfferState {
-  readonly refusal?: ForkOfferRefusal['reason'];
+  readonly refusal?:
+    ForkOfferRefusal['reason'] | RepertoireLimitRefusal['reason'];
+  readonly limit?: number;
 }
 
 const NOT_OPEN: ForkOfferState = { refusal: FORK_OFFER_REFUSALS.notOpen };
@@ -35,7 +45,8 @@ async function offerOf(
 
 /**
  * Keeps a copy (a fork from the offer's snapshot) and goes to it. Another
- * player's offer, or one no longer open, is refused and nothing is written.
+ * player's offer, one no longer open, or a copy past the player's R-162
+ * limits is refused and nothing is written.
  */
 export async function acceptForkOfferAction(
   _previous: ForkOfferState,
@@ -44,7 +55,7 @@ export async function acceptForkOfferAction(
   const ref = await offerOf(form);
   if (ref === undefined) return NOT_OPEN;
   const kept = await acceptForkOffer(getDb(), ref, new Date());
-  if (!kept.ok) return { refusal: kept.refusal.reason };
+  if (!kept.ok) return refusalState(kept.refusal);
   redirect(repertoireRoute(kept.value.forkId));
 }
 

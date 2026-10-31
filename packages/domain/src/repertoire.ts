@@ -8,7 +8,7 @@ import {
   type Result,
 } from '@mychess/chess';
 import { z } from 'zod';
-import type { Account } from './account';
+import { entitlementLimits, type Account } from './account';
 import { canUseAssignment, type AssignmentFacts } from './assignment';
 
 export const REPERTOIRE_NAME_MAX = 80;
@@ -72,6 +72,8 @@ export type Repertoire = z.infer<typeof repertoireSchema>;
 export const REPERTOIRE_REFUSALS = {
   notFound: 'repertoire.notFound',
   stale: 'repertoire.stale',
+  limit: 'repertoire.limit',
+  tooManyMoves: 'repertoire.tooManyMoves',
 } as const;
 
 /** A missing repertoire and someone else's read the same (decision 12). */
@@ -209,4 +211,44 @@ export function canEditRepertoireAt(
   return repertoire.version === expectedVersion
     ? ok()
     : refuse(REPERTOIRE_REFUSALS.stale);
+}
+
+/** A repertoire limit of the owner's entitlement reached (R-162), naming it. */
+export interface RepertoireLimitRefusal {
+  readonly reason:
+    typeof REPERTOIRE_REFUSALS.limit | typeof REPERTOIRE_REFUSALS.tooManyMoves;
+  readonly limit: number;
+}
+
+type LimitCheck = Result<undefined, RepertoireLimitRefusal>;
+
+/**
+ * May `owner`, who has `repertoireCount` repertoires, add one more (R-162)?
+ * Forks count as any other repertoire; only the automatic fork of a
+ * deleting coach is made past the limit (R-163), and it never asks.
+ */
+export function canAddRepertoire(
+  owner: Pick<Account, 'entitlement'>,
+  repertoireCount: number,
+): LimitCheck {
+  const limit = entitlementLimits(owner.entitlement).repertoires;
+  return repertoireCount < limit
+    ? ok()
+    : refuse(REPERTOIRE_REFUSALS.limit, { limit });
+}
+
+/**
+ * May a repertoire of `owner` go from `moves.before` to `moves.after`
+ * moves (R-162)? Refused only when it grows past the limit: an edit that
+ * does not grow one already over it (an automatic fork, R-163), such as a
+ * removal, is allowed. A new repertoire starts from 0.
+ */
+export function canHoldMoves(
+  owner: Pick<Account, 'entitlement'>,
+  moves: { readonly before: number; readonly after: number },
+): LimitCheck {
+  const limit = entitlementLimits(owner.entitlement).repertoireMoves;
+  return moves.after > limit && moves.after > moves.before
+    ? refuse(REPERTOIRE_REFUSALS.tooManyMoves, { limit })
+    : ok();
 }

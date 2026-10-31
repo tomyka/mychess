@@ -5,6 +5,9 @@
  * coach's display name, the copy's own comments start empty, and the
  * player's personal notes (never another player's) come along. Reviews are
  * the player's, keyed by move, so nothing about them is copied (R-53).
+ * A fork is a repertoire like any other, so the player's R-162 limits
+ * refuse one they ask for; only the automatic fork of a deleting coach is
+ * made past them (R-163).
  */
 import { moveKey, type RepertoireGraph, type Side } from '@mychess/chess';
 import {
@@ -14,6 +17,7 @@ import {
   ok,
   refuse,
   type AssignmentRefusal,
+  type RepertoireLimitRefusal,
   type Result,
 } from '@mychess/domain';
 import { and, asc, eq } from 'drizzle-orm';
@@ -22,7 +26,10 @@ import { lockAccountById } from '../accounts';
 import { assignmentPlayers, forkCoachNotes } from '../assignment-schema';
 import type { Executor, Tx } from '../client';
 import { isUuid } from '../ids';
-import { createRepertoire } from '../repertoires/repository';
+import {
+  createRepertoire,
+  createRepertoireBeyondLimits,
+} from '../repertoires/repository';
 import { repertoireScope } from '../repertoires/scope';
 import { batches } from '../repertoires/write';
 import { personalNotes, repertoires } from '../schema';
@@ -38,6 +45,8 @@ export interface ForkSource extends Snapshot {
   /** The display name the coach notes carry (R-47, R-49). */
   readonly coachName: string;
   readonly now: Date;
+  /** The automatic fork of a deleting coach, made past the limits (R-163). */
+  readonly beyondLimits?: true;
 }
 
 const uncommented = (graph: RepertoireGraph): RepertoireGraph => ({
@@ -54,20 +63,27 @@ const commentsOf = (graph: RepertoireGraph) =>
   );
 
 /**
- * Writes the fork of `source` for its player and returns its id. On a
- * transaction it nests as a savepoint. Package-internal.
+ * Writes the fork of `source` for its player and returns its id, or the
+ * player's R-162 limit refusal with nothing written. On a transaction it
+ * nests as a savepoint. Package-internal.
  */
 export async function writeFork(
   tx: Executor,
   source: ForkSource,
-): Promise<string> {
-  const forkId = await createRepertoire(tx, {
+): Promise<Result<string, RepertoireLimitRefusal>> {
+  const create =
+    source.beyondLimits === true
+      ? createRepertoireBeyondLimits
+      : createRepertoire;
+  const created = await create(tx, {
     ownerId: source.playerId,
     side: source.side,
     name: source.name,
     graph: uncommented(source.graph),
     now: source.now,
   });
+  if (!created.ok) return created;
+  const forkId = created.value;
   for (const batch of batches(commentsOf(source.graph)))
     await tx.insert(forkCoachNotes).values(
       batch.map((note) => ({
@@ -85,7 +101,7 @@ export async function writeFork(
         updatedAt: source.now,
       })),
     );
-  return forkId;
+  return ok(forkId);
 }
 
 /** The player and the repertoire they fork; `playerId` is the session account. */
@@ -94,7 +110,10 @@ export interface ForkRequest {
   readonly repertoireId: string;
 }
 
-type ForkResult = Result<{ forkId: string }, AssignmentRefusal>;
+type ForkResult = Result<
+  { forkId: string },
+  AssignmentRefusal | RepertoireLimitRefusal
+>;
 
 const NOT_FOUND = refuse(ASSIGNMENT_REFUSALS.notFound);
 
@@ -145,13 +164,36 @@ async function markForked(tx: Tx, req: ForkRequest, now: Date): Promise<void> {
 
 /**
  * Forks the player's own live assignment of the repertoire (canFork): a
- * repertoire not assigned to them now, or already forked, is not found and
- * nothing is written. On a transaction it nests as a savepoint.
+ * repertoire not assigned to them now, or already forked, is not found,
+ * and at the player's R-162 limits the fork is refused; either way nothing
+ * is written and the assignment stays unforked. On a transaction it nests
+ * as a savepoint.
  */
 export function forkAssignment(
   db: Executor,
   req: ForkRequest,
   now: Date,
+): Promise<ForkResult> {
+  return fork(db, req, now, {});
+}
+
+/**
+ * The automatic fork of a deleting coach (R-49): forkAssignment, made past
+ * the player's R-162 limits (R-163). Package-internal.
+ */
+export function autoForkAssignment(
+  db: Executor,
+  req: ForkRequest,
+  now: Date,
+): Promise<ForkResult> {
+  return fork(db, req, now, { beyondLimits: true });
+}
+
+function fork(
+  db: Executor,
+  req: ForkRequest,
+  now: Date,
+  limits: Pick<ForkSource, 'beyondLimits'>,
 ): Promise<ForkResult> {
   if (!isUuid(req.repertoireId)) return Promise.resolve(NOT_FOUND);
   return db.transaction(async (tx) => {
@@ -160,16 +202,18 @@ export function forkAssignment(
     if (!allowed.ok) return allowed;
     const taken = await takeSnapshot(tx, req.playerId, req.repertoireId);
     if (coach === undefined || taken === undefined) return NOT_FOUND;
-    const forkId = await writeFork(tx, {
+    const written = await writeFork(tx, {
       ...taken.snapshot,
+      ...limits,
       playerId: req.playerId,
       name: taken.repertoire.name,
       side: taken.repertoire.side,
       coachName: coach.displayName,
       now,
     });
+    if (!written.ok) return written;
     await markForked(tx, req, now);
-    return ok({ forkId });
+    return ok({ forkId: written.value });
   });
 }
 

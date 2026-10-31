@@ -9,7 +9,6 @@ import {
   coachAccessFacts,
   coachPlayerProgress,
   coachNotesOn,
-  createRepertoire,
   deleteAccount,
   deleteCoachNote,
   deleteRepertoire,
@@ -32,7 +31,7 @@ import {
   seedPlayer,
   someoneWaitsForALock,
 } from './support/coaching';
-import { graphOf, LONDON, T0, T1 } from './support/repertoires';
+import { graphOf, LONDON, T0, T1, newRepertoire } from './support/repertoires';
 
 const { db, client } = useTestDatabase();
 
@@ -62,7 +61,7 @@ async function seedCoaching(): Promise<{
   await seedLink(db, 'rimantas', 'rokas');
   await seedLink(db, 'dovydas', 'gabija');
   const repertoire = (ownerId: string, name: string, pgn: string) =>
-    createRepertoire(db, {
+    newRepertoire(db, {
       ownerId,
       side: pgn === TAIMANOV ? 'black' : 'white',
       name,

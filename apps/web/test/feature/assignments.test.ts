@@ -58,7 +58,12 @@ import {
 } from './support/coaching';
 import { useRequestHarness } from './support/harness';
 import { outcomeOf, request, testDb } from './support/request';
-import { LONDON, seedRepertoire, TAIMANOV } from './support/repertoires';
+import {
+  LONDON,
+  seedRepertoire,
+  seedRepertoireRows,
+  TAIMANOV,
+} from './support/repertoires';
 
 vi.mock('next/headers', async () =>
   (await import('./support/request')).nextHeaders(),
@@ -1193,6 +1198,34 @@ async function rokasOffer(people: Cast): Promise<string> {
     people.rokas.id,
   ]);
 }
+
+describe('a fork the player asks for at the R-162 limit (R-163)', () => {
+  const AT_LIMIT = { refusal: 'repertoire.limit', limit: 50 };
+
+  it('forking an assignment is refused with the limit and changes nothing', async () => {
+    const { rokas, london } = await cast();
+    await seedRepertoireRows(sql, rokas.id, 50);
+    const before = await state();
+    actAs(rokas);
+    expect(
+      await outcomeOf(forkAction({}, formOf({ repertoireId: london }))),
+    ).toEqual(AT_LIMIT);
+    expect(await state()).toEqual(before);
+  });
+
+  it('keeping a copy from an offer is refused with the limit, and the offer stays', async () => {
+    const people = await cast();
+    const offer = await rokasOffer(people);
+    await seedRepertoireRows(sql, people.rokas.id, 50);
+    const before = await state();
+    actAs(people.rokas);
+    expect(
+      await outcomeOf(acceptForkOfferAction({}, formOf({ offerId: offer }))),
+    ).toEqual(AT_LIMIT);
+    expect(await state()).toEqual(before);
+    expect(await homeAssignments()).toMatchObject({ offers: [{ id: offer }] });
+  });
+});
 
 describe('the fork offer answers', () => {
   it('keeping a copy goes to the new fork, and the offer leaves home', async () => {

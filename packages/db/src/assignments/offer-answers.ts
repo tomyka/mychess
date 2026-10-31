@@ -10,6 +10,7 @@ import {
   ok,
   refuse,
   type ForkOfferRefusal,
+  type RepertoireLimitRefusal,
   type Result,
 } from '@mychess/domain';
 import { and, eq } from 'drizzle-orm';
@@ -48,14 +49,15 @@ const isOffer = (ref: ForkOfferRef) =>
 
 /**
  * Runs `answer` on the player's own offer if canAnswerForkOffer allows it,
- * the offer locked until the transaction ends.
+ * the offer locked until the transaction ends. `answer` may refuse too, and
+ * must then write nothing.
  */
-function onOpenOffer<T>(
+function onOpenOffer<T, R extends { reason: string }>(
   db: Executor,
   ref: ForkOfferRef,
   now: Date,
-  answer: (tx: Tx, offer: OfferRow) => Promise<T>,
-): Promise<Result<T, ForkOfferRefusal>> {
+  answer: (tx: Tx, offer: OfferRow) => Promise<Result<T, R>>,
+): Promise<Result<T, ForkOfferRefusal | R>> {
   if (!isUuid(ref.offerId)) return Promise.resolve(NOT_OPEN);
   return db.transaction(async (tx) => {
     const [offer] = offerRowsSchema.parse(
@@ -77,22 +79,25 @@ function onOpenOffer<T>(
     if (offer === undefined) return NOT_OPEN;
     const allowed = canAnswerForkOffer(offer, now);
     if (!allowed.ok) return allowed;
-    return ok(await answer(tx, offer));
+    return answer(tx, offer);
   });
 }
 
 /**
  * Keeps a copy (plan decision 7) from the offer's snapshot, so it works
  * after the coach changed or deleted the repertoire, and marks the offer
- * accepted with its fork.
+ * accepted with its fork. At the player's R-162 limits it is refused: the
+ * offer stays open and nothing is written (R-163).
  */
 export function acceptForkOffer(
   db: Executor,
   ref: ForkOfferRef,
   now: Date,
-): Promise<Result<{ forkId: string }, ForkOfferRefusal>> {
+): Promise<
+  Result<{ forkId: string }, ForkOfferRefusal | RepertoireLimitRefusal>
+> {
   return onOpenOffer(db, ref, now, async (tx, offer) => {
-    const forkId = await writeFork(tx, {
+    const written = await writeFork(tx, {
       ...offer.snapshot,
       playerId: ref.playerId,
       name: offer.name,
@@ -100,11 +105,13 @@ export function acceptForkOffer(
       coachName: offer.coachName,
       now,
     });
+    if (!written.ok) return written;
+    const forkId = written.value;
     await tx
       .update(forkOffers)
       .set({ acceptedAt: now, forkId })
       .where(isOffer(ref));
-    return { forkId };
+    return ok({ forkId });
   });
 }
 
@@ -114,8 +121,8 @@ export async function declineForkOffer(
   ref: ForkOfferRef,
   now: Date,
 ): Promise<Result<undefined, ForkOfferRefusal>> {
-  const answered = await onOpenOffer(db, ref, now, async (tx) => {
+  return onOpenOffer(db, ref, now, async (tx) => {
     await tx.update(forkOffers).set({ declinedAt: now }).where(isOffer(ref));
+    return ok();
   });
-  return answered.ok ? ok() : answered;
 }

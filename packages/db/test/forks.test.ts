@@ -10,7 +10,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   acceptForkOffer,
   assign,
-  createRepertoire,
   declineForkOffer,
   deleteAccount,
   deleteRepertoire,
@@ -29,6 +28,7 @@ import {
 } from '../src';
 import { assignments } from '../src/assignment-schema';
 import { forkForDeletingCoach } from '../src/assignments/coach-delete';
+import { autoForkAssignment } from '../src/assignments/fork';
 import { repertoires } from '../src/schema';
 import { useTestDatabase } from '../src/testing';
 import {
@@ -40,7 +40,12 @@ import {
   seedPlayer,
   someoneWaitsForALock,
 } from './support/coaching';
-import { canonical, graphOf } from './support/repertoires';
+import {
+  canonical,
+  graphOf,
+  newRepertoire,
+  seedRepertoireRows,
+} from './support/repertoires';
 import { countStatements } from './support/statements';
 
 const { db, client } = useTestDatabase();
@@ -151,7 +156,7 @@ beforeEach(async () => {
   g = await seedGroup(db, 'c', 'Šeštadienio grupė');
   await seedMember(db, 'c', g, 'p');
   await seedMember(db, 'c', g, 'q');
-  rep = await createRepertoire(db, {
+  rep = await newRepertoire(db, {
     ownerId: 'c',
     side: 'white',
     name: 'Londono sistema',
@@ -309,7 +314,7 @@ describe('acceptForkOffer', () => {
     expect(
       await editRepertoire(db, {
         id: rep,
-        viewer: { id: 'c' },
+        viewer: { id: 'c', entitlement: 'free' },
         expectedVersion: repertoire.version,
         change: {
           kind: 'edit',
@@ -616,7 +621,7 @@ describe("a coach's account delete over a batch (R-49)", () => {
   async function coachWithGroup(coachId: string, size: number) {
     await seedCoach(db, coachId, `${coachId}@example.lt`);
     const groupId = await seedGroup(db, coachId, `Grupė ${coachId}`);
-    const repertoireId = await createRepertoire(db, {
+    const repertoireId = await newRepertoire(db, {
       ownerId: coachId,
       side: 'white',
       name: `Repertuaras ${coachId}`,
@@ -655,7 +660,7 @@ describe("a coach's account delete over a batch (R-49)", () => {
     const [probePlayer] = probe.members;
     const oneFork = await countStatements(() =>
       db.transaction((tx) =>
-        forkAssignment(
+        autoForkAssignment(
           tx,
           { playerId: must(probePlayer), repertoireId: probe.repertoireId },
           LATER,
@@ -677,5 +682,48 @@ describe("a coach's account delete over a batch (R-49)", () => {
         owner_account_id: id,
       })),
     );
+  });
+});
+
+describe('forks at the R-162 limit (R-163)', () => {
+  const AT_LIMIT = {
+    ok: false,
+    refusal: { reason: 'repertoire.limit', limit: 50 },
+  };
+
+  it('refuses a fork the player asks for at 50 repertoires, writing nothing', async () => {
+    await assignTo(toPlayer('p'));
+    await seedRepertoireRows(db, 'p', 50);
+    expect(
+      await forkAssignment(db, { playerId: 'p', repertoireId: rep }, LATER),
+    ).toEqual(AT_LIMIT);
+    expect(await ownedIds('p')).toHaveLength(50);
+    expect(
+      await query(
+        'select player_id from assignment_players where forked_at is not null',
+      ),
+    ).toEqual([]);
+    expect(await query('select repertoire_id from fork_coach_notes')).toEqual(
+      [],
+    );
+  });
+
+  it('refuses accepting a fork offer at 50 repertoires and leaves the offer open', async () => {
+    await assignTo(toPlayer('n'));
+    expect(await deleteRepertoire(db, rep, 'c', NOW)).toEqual(OK);
+    await seedRepertoireRows(db, 'n', 50);
+    expect(await acceptAt(await offerOf('n'), LATER)).toEqual(AT_LIMIT);
+    expect(await ownedIds('n')).toHaveLength(50);
+    expect(await offerRows()).toEqual([
+      { player_id: 'n', accepted_at: null, declined_at: null, fork_id: null },
+    ]);
+    expect(await openForkOffers(db, 'n', LATER)).toHaveLength(1);
+  });
+
+  it("still forks automatically on the coach's account delete, past the limit", async () => {
+    await assignTo(toPlayer('p'));
+    await seedRepertoireRows(db, 'p', 50);
+    await deleteAccount(db, 'c', LATER);
+    expect(await ownedIds('p')).toHaveLength(51);
   });
 });

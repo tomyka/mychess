@@ -6,20 +6,25 @@ import {
   type ImportPreview,
   type PreviewOutcome,
 } from './import-preview';
+import { pgnWithMoves } from '../../test/fixtures/repertoires';
 
 const NOW = new Date('2026-10-28T09:00:00Z');
 const INTO = '0b9e7c1e-3f4a-4c5b-8d6e-7f8091a2b3c4';
 
+const DB = { name: 'the db' };
+
 const server = vi.hoisted(() => ({
   own: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  mayAdd: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
 }));
 
 vi.mock('@mychess/db', () => ({
   countRateLimited: () => Promise.resolve({ ok: true }),
   createRepertoire: vi.fn(),
   editRepertoire: vi.fn(),
+  mayAddRepertoire: server.mayAdd,
 }));
-vi.mock('./db', () => ({ getDb: () => ({}) }));
+vi.mock('./db', () => ({ getDb: () => DB }));
 vi.mock('./repertoires', () => ({ ownRepertoire: server.own }));
 
 const account = (locale: 'lt' | 'en'): Account => ({
@@ -89,6 +94,7 @@ function ownsRepertoireOf(text: string): void {
 
 beforeEach(() => {
   server.own.mockReset();
+  server.mayAdd.mockReset().mockResolvedValue({ ok: true, value: undefined });
 });
 
 describe('previewImport chapter titles (R-158)', () => {
@@ -153,4 +159,49 @@ describe('previewImport renamed chapters (R-159)', () => {
     const upload = [ADVANCE, TWO_KNIGHTS].join('\n\n');
     expect((await preview('lt', upload)).renamed).toEqual([]);
   });
+});
+
+describe('previewImport within the repertoire limits (R-162)', () => {
+  it('refuses a new repertoire when the account holds 50, before showing it', async () => {
+    const atLimit = {
+      ok: false,
+      refusal: { reason: 'repertoire.limit', limit: 50 },
+    };
+    server.mayAdd.mockResolvedValue(atLimit);
+    expect(
+      await previewImport(account('lt'), { text: ADVANCE, side: 'black' }, NOW),
+    ).toEqual(atLimit);
+    expect(server.mayAdd).toHaveBeenCalledWith(DB, account('lt'));
+  });
+
+  // A 5,000-move file takes seconds to generate and import.
+  it(
+    'refuses a new repertoire of more than 5,000 moves',
+    { timeout: 30_000 },
+    async () => {
+      expect(
+        await previewImport(
+          account('lt'),
+          { text: pgnWithMoves(5001), side: 'white' },
+          NOW,
+        ),
+      ).toEqual({
+        ok: false,
+        refusal: { reason: 'repertoire.tooManyMoves', limit: 5000 },
+      });
+    },
+  );
+
+  it(
+    'shows a new repertoire of exactly 5,000 moves',
+    { timeout: 30_000 },
+    async () => {
+      const outcome = await previewImport(
+        account('lt'),
+        { text: pgnWithMoves(5000), side: 'white' },
+        NOW,
+      );
+      expect(outcome.ok && outcome.preview.summary.moves).toBe(5000);
+    },
+  );
 });

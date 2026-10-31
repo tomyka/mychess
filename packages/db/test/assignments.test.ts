@@ -7,7 +7,6 @@ import {
   assign,
   assignedPlayerCount,
   coachAssignments,
-  createRepertoire,
   loadRepertoire,
   setDeadline,
   unassign,
@@ -30,7 +29,7 @@ import {
   seedPlayer,
 } from './support/coaching';
 import { liveRepertoireIds, offersOf } from './support/assignments';
-import { graphOf } from './support/repertoires';
+import { graphOf, newRepertoire } from './support/repertoires';
 import { countStatements } from './support/statements';
 import { keysOf, writeReview } from './support/training';
 
@@ -125,7 +124,7 @@ beforeEach(async () => {
   g = await seedGroup(db, 'c', 'Šeštadienio grupė');
   await seedMember(db, 'c', g, 'p');
   await seedMember(db, 'c', g, 'q');
-  rep = await createRepertoire(db, {
+  rep = await newRepertoire(db, {
     ownerId: 'c',
     side: 'white',
     name: 'Londono sistema',
@@ -179,7 +178,7 @@ describe('changeAssignments', () => {
   it("settles only the acting coach's repertoires, whatever another coach changes meanwhile", async () => {
     await seedCoach(db, 'd', 'd@example.lt');
     await seedLink(db, 'd', 'p');
-    const theirs = await createRepertoire(db, {
+    const theirs = await newRepertoire(db, {
       ownerId: 'd',
       side: 'white',
       name: 'Kito trenerio',
@@ -432,7 +431,7 @@ describe('assign', () => {
   ] as const)('refuses %s and writes nothing', async (_, kase) => {
     await seedCoach(db, 'd', 'd@example.lt');
     await seedLink(db, 'd', 'p');
-    const foreignRep = await createRepertoire(db, {
+    const foreignRep = await newRepertoire(db, {
       ownerId: 'd',
       side: 'white',
       name: 'Kito',
@@ -765,7 +764,7 @@ describe('coachAssignments', () => {
   it("is empty for another coach's repertoire, or one not the coach's", async () => {
     await seedCoach(db, 'd', 'd@example.lt');
     await assignTo({ groupId: g });
-    const own = await createRepertoire(db, {
+    const own = await newRepertoire(db, {
       ownerId: 'd',
       side: 'white',
       name: 'Kita',
@@ -983,7 +982,7 @@ describe('changeAssignments over a batch', () => {
   });
 
   it('writes the offers by player in the order named, then by repertoire id', async () => {
-    const other = await createRepertoire(db, {
+    const other = await newRepertoire(db, {
       ownerId: 'c',
       side: 'white',
       name: 'Kita',
@@ -1015,7 +1014,7 @@ describe('the coach reads over a batch', () => {
   /** A repertoire of `c` assigned to a new group of `size`, its first and third members forked. */
   async function assignedGroup(prefix: string, size: number) {
     const group = await groupOf(prefix, size);
-    const repertoireId = await createRepertoire(db, {
+    const repertoireId = await newRepertoire(db, {
       ownerId: 'c',
       side: 'white',
       name: `Repertuaras ${prefix}`,

@@ -118,6 +118,17 @@ describe('ForkOffers (R-44, R-130)', () => {
     expect(await screen.findByText(f.notOpen)).toBeDefined();
   });
 
+  it('says the repertoire limit with its number (R-162, R-163)', async () => {
+    server.accept.mockResolvedValue({ refusal: 'repertoire.limit', limit: 50 });
+    renderOffers([LONDON]);
+    fireEvent.click(screen.getByRole('button', { name: f.keep }));
+    expect(
+      await screen.findByText(
+        'Galite turėti ne daugiau kaip 50 repertuarų. Ištrinkite kurį nors, kad pridėtumėte naują.',
+      ),
+    ).toBeDefined();
+  });
+
   it('says it for a decline too', async () => {
     server.decline.mockResolvedValue({ refusal: 'forkOffer.notOpen' });
     renderOffers([LONDON]);

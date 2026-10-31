@@ -19,6 +19,7 @@ import {
   REPERTOIRE_REFUSALS,
   repertoireNameSchema,
   type RepertoireAccessRefusal,
+  type RepertoireLimitRefusal,
 } from '@mychess/domain';
 import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -28,6 +29,7 @@ import { repertoireDeletedRoute } from '../../../lib/routes';
 import { chapterNamesOf } from '../../../server/chapter-names';
 import { getDb } from '../../../server/db';
 import { refusalOf } from '../../../server/parse-refusal';
+import { refusalState } from '../../../server/refusal-state';
 import { parsePersonalNote } from '../../../server/personal-note-input';
 import {
   editRequestSchema,
@@ -145,7 +147,10 @@ export async function deleteRepertoireAction(
   redirect(repertoireDeletedRoute);
 }
 
-/** What one builder edit came to: the saved graph, or a catalogue key. */
+/**
+ * What one builder edit came to: the saved graph, or a catalogue key and
+ * the limit it names when it is one (R-162).
+ */
 export type EditOutcome =
   | {
       readonly ok: true;
@@ -154,7 +159,11 @@ export type EditOutcome =
       /** What titles the edited chapters now (R-104, R-158). */
       readonly names: ChapterNames;
     }
-  | { readonly ok: false; readonly refusal: EditRefusalKey };
+  | {
+      readonly ok: false;
+      readonly refusal: EditRefusalKey;
+      readonly limit?: number;
+    };
 
 const EDIT_ISSUES = [
   REPERTOIRE_ISSUES.chapterNameBlank,
@@ -168,7 +177,8 @@ type EditRefusalKey =
   | typeof INVALID_EDIT
   | RepertoireAccessRefusal['reason']
   | EditRefusal['reason']
-  | typeof REPERTOIRE_REFUSALS.stale;
+  | typeof REPERTOIRE_REFUSALS.stale
+  | RepertoireLimitRefusal['reason'];
 
 const refused = (refusal: EditRefusalKey): EditOutcome => ({
   ok: false,
@@ -182,7 +192,7 @@ const editIssue = (error: z.ZodError): EditRefusalKey =>
 /**
  * One builder edit: authenticate, parse, and let editRepertoire decide and
  * save it in one transaction (not found, then stale, then the chess
- * refusal; nothing is written on any refusal).
+ * refusal, then the R-162 move limit; nothing is written on any refusal).
  */
 export async function editRepertoireAction(
   input: unknown,
@@ -198,7 +208,7 @@ export async function editRepertoireAction(
     change: { kind: 'edit', op },
     now: new Date(),
   });
-  if (!edited.ok) return refused(edited.refusal.reason);
+  if (!edited.ok) return { ok: false, ...refusalState(edited.refusal) };
   const { graph } = edited.value;
   return {
     ok: true,

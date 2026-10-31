@@ -304,7 +304,9 @@
     "secondAnswer": "Šioje padėtyje jau turite atsakymą. Pirmiausia pašalinkite jį.",
     "unknownMove": "Šio ėjimo nebėra.",
     "invalidEdit": "Šio pakeitimo išsaugoti nepavyko.",
-    "sideMismatch": "Šis repertuaras skirtas kitai spalvai."
+    "sideMismatch": "Šis repertuaras skirtas kitai spalvai.",
+    "limit": "Galite turėti ne daugiau kaip {limit, number} repertuarų. Ištrinkite kurį nors, kad pridėtumėte naują.",
+    "tooManyMoves": "Repertuare gali būti ne daugiau kaip {limit, number} ėjimų."
   },
   "chapter": {
     "untitled": "Skyrius {number}",

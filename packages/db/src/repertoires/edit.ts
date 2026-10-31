@@ -3,8 +3,10 @@
  * repertoire's graph, a builder edit or an import into it. In one
  * transaction it holds the row through the own scope, asks the domain
  * whether this viewer may edit it from this version (canEditRepertoireAt),
- * reads the graph once, asks chess for the new graph (applyChange), writes
- * the minimal diff and records what changed for players (R-121, R-133).
+ * reads the graph once, asks chess for the new graph (applyChange), asks
+ * the domain whether the owner may hold that many moves (canHoldMoves,
+ * R-162), writes the minimal diff and records what changed for players
+ * (R-121, R-133).
  * The caller never sends a graph.
  */
 import {
@@ -19,12 +21,14 @@ import {
 } from '@mychess/chess';
 import {
   canEditRepertoireAt,
+  canHoldMoves,
   ok,
   ownScope,
   refuse,
   REPERTOIRE_REFUSALS,
   type Account,
   type RepertoireAccessRefusal,
+  type RepertoireLimitRefusal,
   type RepertoireStaleRefusal,
   type Result,
 } from '@mychess/domain';
@@ -41,8 +45,8 @@ import { writeChanges } from './write';
 export interface RepertoireEditRequest<C extends RepertoireChange> {
   /** The repertoire's id; one that is no uuid names nothing (not found). */
   readonly id: string;
-  /** The session account. */
-  readonly viewer: Pick<Account, 'id'>;
+  /** The session account; its entitlement sets the move limit (R-162). */
+  readonly viewer: Pick<Account, 'id' | 'entitlement'>;
   /** The version the client computed the change from. */
   readonly expectedVersion: number;
   readonly change: C;
@@ -59,7 +63,10 @@ export interface EditedRepertoire {
 }
 
 export type EditRepertoireRefusal<C extends RepertoireChange> =
-  RepertoireAccessRefusal | RepertoireStaleRefusal | ChangeRefusal<C>;
+  | RepertoireAccessRefusal
+  | RepertoireStaleRefusal
+  | ChangeRefusal<C>
+  | RepertoireLimitRefusal;
 
 const versionRowsSchema = z.array(z.object({ version: z.number().int() }));
 
@@ -112,7 +119,8 @@ async function save(
  * the stored graph under the row lock. Refused, writing nothing: not found
  * (no uuid, sent no statement; missing; or not the viewer's: the own scope
  * filters the lock, and the domain decides again), then stale (the version
- * moved on), then the change's own refusal. Neither of the first two reads
+ * moved on), then the change's own refusal, then the move limit (an edit
+ * that grows the repertoire past it, R-162). Neither of the first two reads
  * the graph.
  */
 export async function editRepertoire<C extends RepertoireChange>(
@@ -135,6 +143,11 @@ export async function editRepertoire<C extends RepertoireChange>(
     const before = await graphRows(tx, held.id, held.side);
     const applied = applyChange(before, request.change);
     if (!applied.ok) return applied;
+    const fits = canHoldMoves(request.viewer, {
+      before: before.moves.length,
+      after: applied.value.graph.moves.length,
+    });
+    if (!fits.ok) return fits;
     return ok(
       await save(tx, {
         id: held.id,

@@ -2,7 +2,9 @@ import {
   addChapter,
   addMove,
   chapterChildren,
+  legalMoves,
   moveKey,
+  sideToMove,
   START_KEY,
   type RepertoireGraph,
   type RepertoireMove,
@@ -14,7 +16,7 @@ import { chapterNamesOf } from '../../src/server/chapter-names';
 import { actAs, person, type Person } from './support/coaching';
 import { useRequestHarness } from './support/harness';
 import { outcomeOf, request, testDb } from './support/request';
-import { LONDON, seedRepertoire } from './support/repertoires';
+import { LONDON, pgnWithMoves, seedRepertoire } from './support/repertoires';
 
 vi.mock('next/headers', async () =>
   (await import('./support/request')).nextHeaders(),
@@ -317,6 +319,34 @@ describe('editRepertoireAction: refusals that change nothing', () => {
     });
     expect(await sql.count('repertoires')).toBe(1);
     expect(await sql.count('repertoire_changes')).toBe(0);
+  });
+
+  it('refuses a move past 5,000 with the limit and keeps the version (R-162)', async () => {
+    const { rokas } = await cast();
+    const full = await seedRepertoire(testDb(), 'rokas@example.lt', {
+      pgn: pgnWithMoves(5000),
+      side: 'white',
+      name: 'Pilnas',
+    });
+    actAs(rokas);
+    const { graph } = await stored(full, rokas);
+    const froms = new Set(graph.moves.map((m) => m.from));
+    const leaf = graph.moves.find(
+      (m) => !froms.has(m.to) && sideToMove(m.to) === 'w',
+    );
+    if (leaf === undefined) throw new Error('no leaf');
+    const san = legalMoves(leaf.to)[0]?.san ?? '';
+    expect(
+      await edit(full, 1, {
+        kind: 'addMove',
+        chapterId: graph.chapters[0]?.id,
+        from: leaf.to,
+        san,
+      }),
+    ).toEqual({ ok: false, refusal: 'repertoire.tooManyMoves', limit: 5000 });
+    const now = await stored(full, rokas);
+    expect(now.version).toBe(1);
+    expect(now.graph.moves).toHaveLength(5000);
   });
 
   it('refuses a malformed request without touching the database', async () => {

@@ -60,6 +60,16 @@ describe('CreateForm', () => {
     expect(nameField().value).toBe('a'.repeat(81));
   });
 
+  it('says the repertoire limit with its number, without marking the name (R-162)', async () => {
+    server.create.mockResolvedValue({ refusal: 'repertoire.limit', limit: 50 });
+    renderForm();
+    fireEvent.click(screen.getByRole('button', { name: c.submit }));
+    await screen.findByText(
+      'Galite turėti ne daugiau kaip 50 repertuarų. Ištrinkite kurį nors, kad pridėtumėte naują.',
+    );
+    expect(nameField().getAttribute('aria-invalid')).toBeNull();
+  });
+
   it('does not mark the name for a side refusal', async () => {
     server.create.mockResolvedValue({ refusal: 'repertoire.sideInvalid' });
     renderForm();

@@ -4,20 +4,26 @@
 // account, never an id from the request; each db write checks again, in its
 // own transaction, that the assignment is the player's and live
 // (canUseAssignment, canFork, R-128). Anything refused reads as one thing on
-// this page: not assigned to you.
+// this page, not assigned to you, but a fork past the player's own R-162
+// limits, which says the limit (R-163).
 import {
   forkAssignment,
   markSeen,
   pauseAssignment,
   setAssignedPersonalNote,
 } from '@mychess/db';
-import { ASSIGNMENT_REFUSALS, REPERTOIRE_ISSUES } from '@mychess/domain';
+import {
+  ASSIGNMENT_REFUSALS,
+  REPERTOIRE_ISSUES,
+  type RepertoireLimitRefusal,
+} from '@mychess/domain';
 import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { repertoireRoute } from '../../../../lib/routes';
 import { getDb } from '../../../../server/db';
 import { parsePersonalNote } from '../../../../server/personal-note-input';
+import { refusalState } from '../../../../server/refusal-state';
 import { requireOnboarded } from '../../../../server/session';
 import type { NoteOutcome } from '../../../repertoire-view';
 
@@ -65,19 +71,20 @@ export async function pauseAction(
 }
 
 /**
- * What the "make my own copy" form shows after a submit: a refusal; a fork
- * made goes to its own page instead.
+ * What the "make my own copy" form shows after a submit: a refusal, and the
+ * limit it names when it is one; a fork made goes to its own page instead.
  */
 export interface ForkState {
-  readonly refusal?: NotAssigned;
+  readonly refusal?: NotAssigned | RepertoireLimitRefusal['reason'];
+  readonly limit?: number;
 }
 
 const forkSchema = z.object({ repertoireId: z.uuid() });
 
 /**
  * Makes the session player their own copy of the assignment (R-20, R-128)
- * and goes to it. Anything but their own live assignment is refused and
- * nothing is written.
+ * and goes to it. Anything but their own live assignment, or a copy past
+ * their R-162 limits, is refused and nothing is written.
  */
 export async function forkAction(
   _previous: ForkState,
@@ -93,7 +100,10 @@ export async function forkAction(
     { playerId: player.id, repertoireId: request.data.repertoireId },
     new Date(),
   );
-  if (!forked.ok) return { refusal: NOT_ASSIGNED };
+  if (!forked.ok)
+    return 'limit' in forked.refusal
+      ? refusalState(forked.refusal)
+      : { refusal: NOT_ASSIGNED };
   redirect(repertoireRoute(forked.value.forkId));
 }
 

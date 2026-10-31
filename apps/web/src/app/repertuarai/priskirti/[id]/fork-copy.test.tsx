@@ -65,6 +65,20 @@ describe('ForkCopy (R-20, R-128)', () => {
     });
   });
 
+  it('says the repertoire limit with its number (R-162, R-163)', async () => {
+    action.mockResolvedValue({ refusal: 'repertoire.limit', limit: 50 });
+    renderFork('en');
+    fireEvent.click(screen.getByRole('button', { name: 'Make my own copy' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: MESSAGES.en.assignment.fork.confirm }),
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('status').textContent).toBe(
+        'You can have up to 50 repertoires. Delete one to add another.',
+      );
+    });
+  });
+
   it('speaks English on the English page', () => {
     renderFork('en');
     expect(

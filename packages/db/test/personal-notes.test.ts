@@ -2,7 +2,6 @@ import { moveKey, START_KEY } from '@mychess/chess';
 import { REPERTOIRE_REFUSALS } from '@mychess/domain';
 import { describe, expect, it } from 'vitest';
 import {
-  createRepertoire,
   deleteRepertoire,
   editRepertoire,
   listPersonalNotes,
@@ -10,7 +9,7 @@ import {
 } from '../src';
 import { useTestDatabase } from '../src/testing';
 import { seedAccount } from './support/accounts';
-import { graphOf, LONDON, T0, T1 } from './support/repertoires';
+import { graphOf, LONDON, T0, T1, newRepertoire } from './support/repertoires';
 
 const { db, client } = useTestDatabase();
 
@@ -23,7 +22,7 @@ const NOT_FOUND = {
 
 async function london(): Promise<string> {
   await seedAccount(db, 'rokas', 'rokas@example.lt');
-  return createRepertoire(db, {
+  return newRepertoire(db, {
     ownerId: 'rokas',
     side: 'white',
     name: 'Londono sistema',
@@ -146,7 +145,7 @@ describe('setPersonalNote and listPersonalNotes', () => {
       expect(
         await editRepertoire(db, {
           id,
-          viewer: { id: 'rokas' },
+          viewer: { id: 'rokas', entitlement: 'free' },
           expectedVersion,
           change: {
             kind: 'edit',

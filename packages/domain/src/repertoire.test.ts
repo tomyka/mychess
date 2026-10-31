@@ -8,8 +8,10 @@ import {
   REPERTOIRE_ISSUES,
   REPERTOIRE_NAME_MAX,
   REPERTOIRE_REFUSALS,
+  canAddRepertoire,
   canEditRepertoire,
   canEditRepertoireAt,
+  canHoldMoves,
   canKeepPersonalNotes,
   canUseScope,
   canViewRepertoire,
@@ -53,6 +55,8 @@ describe('the limits', () => {
     expect(REPERTOIRE_REFUSALS).toEqual({
       notFound: 'repertoire.notFound',
       stale: 'repertoire.stale',
+      limit: 'repertoire.limit',
+      tooManyMoves: 'repertoire.tooManyMoves',
     });
   });
 });
@@ -336,4 +340,58 @@ describe('canKeepPersonalNotes (R-21)', () => {
       expected,
     );
   });
+});
+
+describe('canAddRepertoire (R-162)', () => {
+  const owner = { entitlement: 'free' } as const;
+
+  it('allows a 50th repertoire', () => {
+    expect(canAddRepertoire(owner, 49)).toStrictEqual({
+      ok: true,
+      value: undefined,
+    });
+  });
+
+  it.each([50, 51])('refuses one more at %i, naming the limit', (count) => {
+    expect(canAddRepertoire(owner, count)).toStrictEqual({
+      ok: false,
+      refusal: { reason: 'repertoire.limit', limit: 50 },
+    });
+  });
+});
+
+describe('canHoldMoves (R-162)', () => {
+  const owner = { entitlement: 'free' } as const;
+  const tooMany = {
+    ok: false,
+    refusal: { reason: 'repertoire.tooManyMoves', limit: 5000 },
+  };
+
+  it('allows a repertoire of 5,000 moves', () => {
+    expect(canHoldMoves(owner, { before: 0, after: 5000 })).toStrictEqual({
+      ok: true,
+      value: undefined,
+    });
+  });
+
+  it.each([
+    { before: 0, after: 5001 },
+    { before: 5000, after: 5001 },
+    { before: 5001, after: 5002 },
+  ])(
+    'refuses growing to $after moves from $before, naming the limit',
+    (moves) => {
+      expect(canHoldMoves(owner, moves)).toStrictEqual(tooMany);
+    },
+  );
+
+  it.each([
+    { before: 5002, after: 5001 },
+    { before: 5001, after: 5001 },
+  ])(
+    'allows an edit that does not grow an over-limit one: $before to $after',
+    (moves) => {
+      expect(canHoldMoves(owner, moves).ok).toBe(true);
+    },
+  );
 });

@@ -304,7 +304,9 @@
     "secondAnswer": "You already have an answer in this position. Remove it first.",
     "unknownMove": "This move no longer exists.",
     "invalidEdit": "This change could not be saved.",
-    "sideMismatch": "This repertoire is for the other side."
+    "sideMismatch": "This repertoire is for the other side.",
+    "limit": "You can have up to {limit, number} repertoires. Delete one to add another.",
+    "tooManyMoves": "A repertoire can hold up to {limit, number} moves."
   },
   "chapter": {
     "untitled": "Chapter {number}",

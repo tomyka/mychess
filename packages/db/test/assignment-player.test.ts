@@ -11,7 +11,6 @@ import {
   assign,
   assignedRepertoireForPlayer,
   changesSince,
-  createRepertoire,
   editRepertoire,
   listPersonalNotes,
   loadRepertoire,
@@ -45,7 +44,7 @@ import {
   seedPlayer,
   someoneWaitsForALock,
 } from './support/coaching';
-import { graphOf } from './support/repertoires';
+import { graphOf, newRepertoire } from './support/repertoires';
 
 const { db, client } = useTestDatabase();
 
@@ -98,7 +97,7 @@ async function coachEdit(edit: Edit, now = LATER): Promise<void> {
   const { repertoire, graph } = await coachCopy();
   const saved = await editRepertoire(db, {
     id: rep,
-    viewer: { id: 'c' },
+    viewer: { id: 'c', entitlement: 'free' },
     expectedVersion: repertoire.version,
     change: { kind: 'edit', op: edit(graph) },
     now,
@@ -163,7 +162,7 @@ beforeEach(async () => {
   g = await seedGroup(db, 'c', 'Šeštadienio grupė');
   await seedMember(db, 'c', g, 'p');
   await seedMember(db, 'c', g, 'q');
-  rep = await createRepertoire(db, {
+  rep = await newRepertoire(db, {
     ownerId: 'c',
     side: 'white',
     name: 'Londono sistema',
@@ -264,7 +263,7 @@ describe('playerAssignments', () => {
   });
 
   it('is done for a repertoire without player moves (R-129)', async () => {
-    const opponentOnly = await createRepertoire(db, {
+    const opponentOnly = await newRepertoire(db, {
       ownerId: 'c',
       side: 'black',
       name: 'Tik varžovo',
@@ -429,7 +428,7 @@ describe('assignedRepertoireForPlayer', () => {
   });
 
   it('is not overdue once done, nor on the deadline day itself (R-51)', async () => {
-    const opponentOnly = await createRepertoire(db, {
+    const opponentOnly = await newRepertoire(db, {
       ownerId: 'c',
       side: 'black',
       name: 'Tik varžovo',
@@ -468,7 +467,7 @@ describe('assignedRepertoireForPlayer', () => {
   ] as const)('gives nothing for %s', async (_, playerId, which) => {
     await assignTo(toGroup(g));
     await forkFor('p');
-    const other = await createRepertoire(db, {
+    const other = await newRepertoire(db, {
       ownerId: 'c',
       side: 'white',
       name: 'Kitas',
@@ -856,7 +855,7 @@ describe('changesSince', () => {
 
 describe('trainingRepertoires', () => {
   it('lists the player’s own repertoires and their live assigned ones', async () => {
-    const own = await createRepertoire(db, {
+    const own = await newRepertoire(db, {
       ownerId: 'p',
       side: 'black',
       name: 'Karo-Kan',

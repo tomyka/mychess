@@ -483,6 +483,27 @@ describe('RepertoireScreen: builder mode', () => {
     expect(current()).toBeUndefined();
   });
 
+  it('says the move limit with its number and puts the piece back (R-162)', async () => {
+    server.edit.mockResolvedValue({
+      ok: false,
+      refusal: 'repertoire.tooManyMoves',
+      limit: 5000,
+    });
+    building();
+    ground.set.mockClear();
+    boardMove('e2', 'e4');
+    expect(
+      await screen.findByText(
+        /^Repertuare gali būti ne daugiau kaip 5\s000 ėjimų\.$/,
+      ),
+    ).toBeDefined();
+    await waitFor(() => {
+      expect(ground.set.mock.calls.map(([config]) => config.fen)).toContain(
+        fenOf(START_KEY),
+      );
+    });
+  });
+
   it('offers Reload and stops editing when the repertoire changed elsewhere', async () => {
     server.edit.mockResolvedValue({ ok: false, refusal: 'repertoire.stale' });
     building();

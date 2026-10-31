@@ -184,6 +184,35 @@ describe('ImportFlow', () => {
     expect(screen.getByRole('button', { name: i.preview })).toBeDefined();
   });
 
+  it('says the repertoire limits with their numbers (R-162)', async () => {
+    server.preview.mockResolvedValueOnce({
+      ok: false,
+      refusal: { reason: 'repertoire.tooManyMoves', limit: 5000 },
+    });
+    renderFlow();
+    chooseFile();
+    fireEvent.click(screen.getByRole('button', { name: i.preview }));
+    expect(
+      await screen.findByText(
+        /^Repertuare gali būti ne daugiau kaip 5\s000 ėjimų\.$/,
+      ),
+    ).toBeDefined();
+    server.preview.mockResolvedValueOnce({
+      ok: false,
+      refusal: { reason: 'repertoire.limit', limit: 50 },
+    });
+    const again = screen.getByRole('button', { name: i.preview });
+    await waitFor(() => {
+      expect(again.hasAttribute('disabled')).toBe(false);
+    });
+    fireEvent.click(again);
+    expect(
+      await screen.findByText(
+        'Galite turėti ne daugiau kaip 50 repertuarų. Ištrinkite kurį nors, kad pridėtumėte naują.',
+      ),
+    ).toBeDefined();
+  });
+
   it('says a file of too many half-moves and too many imports a minute are refused (R-119)', async () => {
     server.preview.mockResolvedValueOnce({
       ok: false,

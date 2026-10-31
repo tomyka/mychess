@@ -12,7 +12,6 @@ import {
   acceptInvite,
   completeOnboarding,
   createInvite,
-  createRepertoire,
   setPersonalNote,
   shareRepertoire,
   upsertCoachNote,
@@ -29,7 +28,12 @@ import { useTestDatabase } from '../src/testing';
 import { reviewResults } from '../src/training-schema';
 import { seedAccount, seedVerification } from './support/accounts';
 import { seedCoach, seedGroup, seedPlayer } from './support/coaching';
-import { graphOf, LONDON, T0 as RT0 } from './support/repertoires';
+import {
+  graphOf,
+  LONDON,
+  T0 as RT0,
+  newRepertoire,
+} from './support/repertoires';
 import { writeReview } from './support/training';
 
 const { db, client } = useTestDatabase();
@@ -93,7 +97,7 @@ describe('findAccountById / findAccountByEmail', () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
     const later = new Date('2026-10-17T09:00:00Z');
     const stored = async (name: string, now: Date) =>
-      createRepertoire(db, {
+      newRepertoire(db, {
         ownerId: 'a1',
         side: 'white',
         name,
@@ -366,14 +370,14 @@ describe('exportAccount', () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
     await seedAccount(db, 'a2', 'jonas@example.lt');
     const stored = graphOf(LONDON);
-    const id = await createRepertoire(db, {
+    const id = await newRepertoire(db, {
       ownerId: 'a1',
       side: 'white',
       name: 'Londono sistema',
       graph: stored,
       now: RT0,
     });
-    await createRepertoire(db, {
+    await newRepertoire(db, {
       ownerId: 'a2',
       side: 'black',
       name: 'Jono Sicilija',
@@ -412,7 +416,7 @@ describe('exportAccount', () => {
 
   it('exports a note stored under a malformed move key by its raw key', async () => {
     await seedAccount(db, 'a1', 'ruta@example.lt');
-    const id = await createRepertoire(db, {
+    const id = await newRepertoire(db, {
       ownerId: 'a1',
       side: 'white',
       name: 'Londono sistema',
@@ -620,7 +624,7 @@ describe('coaching rows on delete and export', () => {
 
   it("exports a player's shares and a coach's notes, each to its own account only (R-106)", async () => {
     await seedCoaching();
-    const id = await createRepertoire(db, {
+    const id = await newRepertoire(db, {
       ownerId: 'p1',
       side: 'white',
       name: 'Londono sistema',

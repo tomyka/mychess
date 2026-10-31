@@ -3,7 +3,6 @@ import { DEFAULT_TRAINING_SETTINGS } from '@mychess/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   assign,
-  createRepertoire,
   learnedBetween,
   learnedKeys,
   pauseAssignment,
@@ -15,7 +14,7 @@ import {
 import { assignmentPlayers } from '../src/assignment-schema';
 import { useTestDatabase } from '../src/testing';
 import { seedCoach, seedLink, seedPlayer } from './support/coaching';
-import { graphOf } from './support/repertoires';
+import { graphOf, newRepertoire } from './support/repertoires';
 import { writeReview } from './support/training';
 
 const { db, client } = useTestDatabase();
@@ -162,7 +161,7 @@ describe('trainingEntries (R-145)', () => {
   const PGN = '1. d4 d5 2. Bf4 Nf6 *';
 
   const repertoireOf = (ownerId: string, name: string, now = NOW) =>
-    createRepertoire(db, {
+    newRepertoire(db, {
       ownerId,
       side: 'white',
       name,

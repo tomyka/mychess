@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  createRepertoire,
   deleteAccount,
   deleteRepertoire,
   listRepertoires,
@@ -19,12 +18,19 @@ import {
   seedPlayer,
 } from './support/coaching';
 import { seedAccount } from './support/accounts';
-import { canonical, graphOf, LONDON, T0, T1 } from './support/repertoires';
+import {
+  canonical,
+  graphOf,
+  LONDON,
+  T0,
+  T1,
+  newRepertoire,
+} from './support/repertoires';
 
 const { db, client } = useTestDatabase();
 
 async function london(owner = 'rokas'): Promise<string> {
-  return createRepertoire(db, {
+  return newRepertoire(db, {
     ownerId: owner,
     side: 'white',
     name: 'Londono sistema',

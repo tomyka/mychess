@@ -63,10 +63,12 @@ describe('hasProvenEmail', () => {
 });
 
 describe('entitlementLimits', () => {
-  it('gives the free entitlement 30 players and 10 groups (R-70)', () => {
+  it('gives the free entitlement 30 players, 10 groups, 50 repertoires of 5,000 moves (R-70, R-162)', () => {
     expect(entitlementLimits('free')).toEqual({
       coachPlayers: 30,
       coachGroups: 10,
+      repertoires: 50,
+      repertoireMoves: 5000,
     });
   });
 });

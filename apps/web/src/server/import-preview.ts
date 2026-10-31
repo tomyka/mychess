@@ -9,6 +9,12 @@
 // be added (R-115). An account runs at most ten previews or confirms a
 // minute between them (R-119), counted before the text is read; the file is
 // parsed and checked against its limits (R-66) before the lock is taken.
+// The account's repertoire limits (R-162) refuse a new repertoire past 50
+// and a graph past 5,000 moves: the preview asks the domain up front, and
+// createRepertoire or editRepertoire decide again at the confirm.
+// The account's repertoire limits (R-162) refuse a new repertoire past 50
+// and a graph past 5,000 moves: the preview asks the domain up front, and
+// createRepertoire or editRepertoire decide again at the confirm.
 import {
   importPgn,
   mergeInto,
@@ -26,9 +32,11 @@ import {
   countRateLimited,
   createRepertoire,
   editRepertoire,
+  mayAddRepertoire,
   type LoadedRepertoire,
 } from '@mychess/db';
 import {
+  canHoldMoves,
   IMPORT_RATE_LIMIT,
   importRateKey,
   REPERTOIRE_ISSUES,
@@ -37,6 +45,7 @@ import {
   type Account,
   type Locale,
   type RateRefusal,
+  type RepertoireLimitRefusal,
 } from '@mychess/domain';
 import { z } from 'zod';
 import { chapterLabelIn } from './chapter-names';
@@ -94,8 +103,14 @@ export type ImportRefusalKey =
   | typeof REPERTOIRE_ISSUES.nameTooLong
   | typeof REPERTOIRE_ISSUES.sideInvalid;
 
-/** A limit an import breaks: the file's (R-66) or the imports a minute (R-119). */
-type LimitKey = LimitRefusal['reason'] | typeof IMPORT_RATE_LIMIT.reason;
+/**
+ * A limit an import breaks: the file's (R-66), the imports a minute (R-119)
+ * or the account's repertoires (R-162).
+ */
+type LimitKey =
+  | LimitRefusal['reason']
+  | typeof IMPORT_RATE_LIMIT.reason
+  | RepertoireLimitRefusal['reason'];
 
 /** A refusal that names no limit. */
 type PlainKey = Exclude<ImportRefusalKey, LimitKey>;
@@ -103,11 +118,12 @@ type PlainKey = Exclude<ImportRefusalKey, LimitKey>;
 /**
  * Why an import is refused, in the shape the domain gives it: a key, and
  * the limit broken when it is a limit (bytes, games, depth or half-moves,
- * R-66, R-119; or the imports a minute, R-119).
+ * R-66, R-119; the imports a minute, R-119; or repertoires or moves, R-162).
  */
 type ImportRefusal =
   | LimitRefusal
   | RateRefusal<typeof IMPORT_RATE_LIMIT.reason>
+  | RepertoireLimitRefusal
   | { readonly reason: PlainKey };
 
 export interface ImportRefused {
@@ -283,8 +299,9 @@ type Merged =
 
 /**
  * The preview's merge: `imported` merged in memory into the account's
- * repertoire `id`, which it may edit. Nothing is saved; the confirm decides
- * again in editRepertoire.
+ * repertoire `id`, which it may edit, refused when it would grow past the
+ * R-162 move limit. Nothing is saved; the confirm decides again in
+ * editRepertoire.
  */
 async function mergeIntoOwn(
   account: Account,
@@ -295,7 +312,28 @@ async function mergeIntoOwn(
   if (!own.ok) return refused(own.refusal);
   const merged = mergeInto(own.value.graph, imported);
   if (!merged.ok) return refused(merged.refusal);
+  const fits = canHoldMoves(account, {
+    before: own.value.graph.moves.length,
+    after: merged.value.graph.moves.length,
+  });
+  if (!fits.ok) return refused(fits.refusal);
   return { ok: true, loaded: own.value, merged: merged.value };
+}
+
+/**
+ * A new repertoire's preview, refused up front when the account may not
+ * add one or the import holds more moves than one may (R-162).
+ */
+async function previewNew(
+  account: Account,
+  imported: ImportedRepertoire,
+): Promise<PreviewOutcome> {
+  const room = await mayAddRepertoire(getDb(), account);
+  if (!room.ok) return refused(room.refusal);
+  const moves = imported.graph.moves.length;
+  const fits = canHoldMoves(account, { before: 0, after: moves });
+  if (!fits.ok) return refused(fits.refusal);
+  return { ok: true, preview: newPreview(imported, account.locale) };
 }
 
 /**
@@ -314,9 +352,7 @@ export async function previewImport(
   const imported = importFile(request.data);
   if (!imported.ok) return imported;
   const { into } = request.data;
-  if (into === undefined) {
-    return { ok: true, preview: newPreview(imported.value, account.locale) };
-  }
+  if (into === undefined) return previewNew(account, imported.value);
   const merge = await mergeIntoOwn(account, into, imported.value);
   if (!merge.ok) return merge;
   const { loaded, merged } = merge;
@@ -330,7 +366,7 @@ export async function previewImport(
  * Adds `imported` to an existing repertoire. editRepertoire decides and
  * saves it under the row lock: not found, then stale (changed since the
  * preview), then the merge's refusal (the other side, or nothing to add,
- * R-115); nothing is written on any refusal.
+ * R-115), then the R-162 move limit; nothing is written on any refusal.
  */
 async function importInto(
   account: Account,
@@ -351,7 +387,8 @@ async function importInto(
 
 /**
  * Imports the upload for good: a new repertoire with the given name, or the
- * games added to an existing one. The text is imported again here.
+ * games added to an existing one. The text is imported again here, and
+ * the R-162 limits are decided again where it is saved.
  */
 export async function confirmImport(
   account: Account,
@@ -368,16 +405,17 @@ export async function confirmImport(
   if (target.kind === 'existing') {
     return importInto(account, target, imported.value, now);
   }
-  const id = await createRepertoire(getDb(), {
+  const created = await createRepertoire(getDb(), {
     ownerId: account.id,
     side,
     name: target.name,
     graph: imported.value.graph,
     now,
   });
+  if (!created.ok) return refused(created.refusal);
   return {
     ok: true,
-    id,
+    id: created.value,
     chapterId: imported.value.graph.chapters[0]?.id ?? null,
   };
 }
