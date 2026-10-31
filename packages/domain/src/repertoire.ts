@@ -222,6 +222,16 @@ export interface RepertoireLimitRefusal {
 
 type LimitCheck = Result<undefined, RepertoireLimitRefusal>;
 
+const LIMIT_REASONS: readonly string[] = [
+  REPERTOIRE_REFUSALS.limit,
+  REPERTOIRE_REFUSALS.tooManyMoves,
+];
+
+/** Is `refusal` a repertoire limit (R-162), told apart by its reason? */
+export const isRepertoireLimitRefusal = (refusal: {
+  readonly reason: string;
+}): refusal is RepertoireLimitRefusal => LIMIT_REASONS.includes(refusal.reason);
+
 /**
  * May `owner`, who has `repertoireCount` repertoires, add one more (R-162)?
  * Forks count as any other repertoire; only the automatic fork of a

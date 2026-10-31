@@ -12,9 +12,6 @@
 // The account's repertoire limits (R-162) refuse a new repertoire past 50
 // and a graph past 5,000 moves: the preview asks the domain up front, and
 // createRepertoire or editRepertoire decide again at the confirm.
-// The account's repertoire limits (R-162) refuse a new repertoire past 50
-// and a graph past 5,000 moves: the preview asks the domain up front, and
-// createRepertoire or editRepertoire decide again at the confirm.
 import {
   importPgn,
   mergeInto,

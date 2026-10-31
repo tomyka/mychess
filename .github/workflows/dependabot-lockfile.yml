@@ -27,7 +27,7 @@ permissions: {}
 
 jobs:
   lockfile:
-    if: github.actor == 'dependabot[bot]' && github.repository == 'tomyka/mychess'
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.actor == 'dependabot[bot]' && github.repository == 'tomyka/mychess'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

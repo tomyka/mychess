@@ -45,7 +45,7 @@ async function offerOf(
 
 /**
  * Keeps a copy (a fork from the offer's snapshot) and goes to it. Another
- * player's offer, one no longer open, or a copy past the player's R-162
+ * player's offer, one no longer open, or a fork past the player's R-162
  * limits is refused and nothing is written.
  */
 export async function acceptForkOfferAction(

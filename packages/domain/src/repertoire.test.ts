@@ -12,6 +12,7 @@ import {
   canEditRepertoire,
   canEditRepertoireAt,
   canHoldMoves,
+  isRepertoireLimitRefusal,
   canKeepPersonalNotes,
   canUseScope,
   canViewRepertoire,
@@ -357,6 +358,20 @@ describe('canAddRepertoire (R-162)', () => {
       ok: false,
       refusal: { reason: 'repertoire.limit', limit: 50 },
     });
+  });
+});
+
+describe('isRepertoireLimitRefusal (R-162)', () => {
+  it('is true for the two limit reasons only', () => {
+    expect(
+      isRepertoireLimitRefusal({ reason: REPERTOIRE_REFUSALS.limit }),
+    ).toBe(true);
+    expect(
+      isRepertoireLimitRefusal({ reason: REPERTOIRE_REFUSALS.tooManyMoves }),
+    ).toBe(true);
+    expect(
+      isRepertoireLimitRefusal({ reason: REPERTOIRE_REFUSALS.notFound }),
+    ).toBe(false);
   });
 });
 

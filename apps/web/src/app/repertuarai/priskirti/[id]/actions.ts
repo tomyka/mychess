@@ -15,6 +15,7 @@ import {
 import {
   ASSIGNMENT_REFUSALS,
   REPERTOIRE_ISSUES,
+  isRepertoireLimitRefusal,
   type RepertoireLimitRefusal,
 } from '@mychess/domain';
 import { refresh } from 'next/cache';
@@ -83,7 +84,7 @@ const forkSchema = z.object({ repertoireId: z.uuid() });
 
 /**
  * Makes the session player their own copy of the assignment (R-20, R-128)
- * and goes to it. Anything but their own live assignment, or a copy past
+ * and goes to it. Anything but their own live assignment, or a fork past
  * their R-162 limits, is refused and nothing is written.
  */
 export async function forkAction(
@@ -101,7 +102,7 @@ export async function forkAction(
     new Date(),
   );
   if (!forked.ok)
-    return 'limit' in forked.refusal
+    return isRepertoireLimitRefusal(forked.refusal)
       ? refusalState(forked.refusal)
       : { refusal: NOT_ASSIGNED };
   redirect(repertoireRoute(forked.value.forkId));

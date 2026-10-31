@@ -204,6 +204,7 @@ export {
   canEditRepertoire,
   canEditRepertoireAt,
   canHoldMoves,
+  isRepertoireLimitRefusal,
   canKeepPersonalNotes,
   canUseScope,
   canViewRepertoire,

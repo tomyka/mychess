@@ -53,10 +53,10 @@ Vendored in this repo (`.agents/skills/`, pinned in `skills-lock.json`):
 | `integrations-dev` | `packages/integrations` | that folder | explorer (M2), M3 ecosystem |
 | `qa` | acceptance criteria, persona journeys, E2E, fixtures, persona seeds | tests, fixtures, seeds | every slice |
 | `security-reviewer` | privacy, auth, invites, admin, secrets | nothing | auth, coach access, deletion, admin, OAuth |
-| `devops` | `.github/workflows/`, Vercel, Neon, Resend, env | those; asks before any cloud change | infrastructure, pipelines |
+| `devops` | `.github/workflows/`, `infra/`, the production VM, Resend, env | those; asks before any cloud change | infrastructure, pipelines |
 
 Persona testers (`.claude/agents/persona-*.md`, ruling Q18) are not team
-members: the lead runs them against staging at the end of each milestone, in
+members: the lead runs them against a local stack with the persona seeds at the end of each milestone, in
 character, and files their findings as issues. See `docs/personas/README.md`.
 
 Why these roles:
@@ -106,7 +106,7 @@ Three to five teammates at a time; each one costs tokens.
 6. **Each slice ends** with `improve-codebase-architecture` (owner picks the
    "deepen" follow-ups), a `retro`, and closing the issue with the commit
    range and CI result.
-7. **Each milestone ends** with the persona testers on staging and the owner
+7. **Each milestone ends** with the persona testers on the local persona stack and the owner
    promoting to production.
 
 ## Working rules
@@ -123,7 +123,7 @@ Three to five teammates at a time; each one costs tokens.
   to the owning teammate through the lead.
 - **Rules are never invented.** A question the rulings, CONTEXT, ADRs and spec
   do not answer goes to the owner through the lead.
-- **No production data** reaches any teammate. Tests and staging use the
+- **No production data** reaches any teammate. Tests and persona testing use the
   persona seeds.
 - **The working tree is shared.** Teammates never run `git stash`, `git checkout -- <file>`, `git reset` or `git clean`: in a shared tree they move other teammates' uncommitted work. To check whether a failure is yours, run only your own tests.
 - **Edit source with Edit and Write**, never with splice or concatenation
@@ -155,7 +155,7 @@ Three to five teammates at a time; each one costs tokens.
 
 ## Autonomy (ruling Q20)
 
-- A green `main` deploys to staging; only the owner promotes to production.
+- A green `main` deploys to production (R-166); there is no staging.
 - **Unattended backlog runs** (`/backlog-run`, `.claude/commands/backlog-run.md`)
   take only issues labelled both `size/small` and `auto-ok`. `auto-ok` is
   applied by the owner or the lead with the owner's yes, never by a run. A run

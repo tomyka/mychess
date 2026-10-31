@@ -54,7 +54,7 @@ Domain vocabulary is defined in [CONTEXT.md](CONTEXT.md); architecture decisions
 - **R-31** (Q17, #226, 2026-10-16): Ten technical agent roles plus the lead: architect, backend-dev, web-dev, qa, security-reviewer, devops, chess-dev, ux-designer, i18n-content, integrations-dev.
 - **R-32** (Q18, #226, 2026-10-16): Personas live in `docs/personas/`, with seeded staging accounts and E2E fixtures carrying tier-matched repertoires, plus four persona subagents that explore staging in character each milestone.
 - **R-33** (Q19, #226, 2026-10-16): Use the sportbet quality kit. CI enforces the full gate including mutation testing; the post-edit hook stays on; the Stop hook runs a fast gate (no mutation).
-- **R-34** (Q20, #226, 2026-10-16): Trunk-based, lead-only commits. Green CI deploys to staging; production is promoted manually by the owner. Unattended runs only for issues labelled both `size/small` and `auto-ok`.
+- **R-34** (Q20, #226, 2026-10-16): Trunk-based, lead-only commits. ~~Green CI deploys to staging; production is promoted manually by the owner.~~ (superseded by R-166, #310) Unattended runs only for issues labelled both `size/small` and `auto-ok`.
 - ~~**R-35** (Q21, #226, 2026-10-16): GitHub-hosted runners; Vercel staging and production; a Neon branch per environment.~~ Superseded by R-164 (#310).
 - **R-36** (Q22, #226, 2026-10-16): Decision records are `docs/CONTEXT.md`, `docs/adr/` (domain-modeling skill) and `docs/owner-rulings.md`, mirrored on GitHub.
 - **R-37** (Q23, #226, 2026-10-16): Full label taxonomy: `epic`, milestones M1/M2/M3, `size/*`, `area/*`, `persona/*`, `role/*`, `auto-ok`, `blocked`. v1 custom labels are removed.
