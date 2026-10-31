@@ -29,7 +29,10 @@ async function squareCentre(
  * Presses `square` as a person does: a tap on a phone, a click on a desktop.
  * Both are trusted input, which is all chessground listens to.
  */
-async function pressSquare(hand: BoardHand, square: string): Promise<void> {
+export async function pressSquare(
+  hand: BoardHand,
+  square: string,
+): Promise<void> {
   const { x, y } = await squareCentre(hand, square);
   if (hand.isMobile) await hand.page.touchscreen.tap(x, y);
   else await hand.page.mouse.click(x, y);

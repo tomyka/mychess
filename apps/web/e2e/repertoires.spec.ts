@@ -7,7 +7,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { expect, type Page } from '@playwright/test';
-import { playOnBoard, type BoardHand } from './support/board';
+import { playOnBoard, pressSquare, type BoardHand } from './support/board';
 import {
   CATALOGUES,
   chooseEnglish,
@@ -130,7 +130,13 @@ async function commentAndArrow(
   await expect(page.getByText(t.builder.commentSaved)).toBeVisible();
   await page.getByRole('button', { name: t.builder.draw }).click();
   await page.getByRole('button', { name: t.colors.G }).click();
-  await playOnBoard(hand, 'c1', 'f4');
+  // Chessground reports a press a timer later, so two presses faster than
+  // a render both find no first square (#309); a person sees it first.
+  await pressSquare(hand, 'c1');
+  await expect(
+    page.getByText(format(t.builder.drawFrom, { square: 'c1' })),
+  ).toBeAttached();
+  await pressSquare(hand, 'f4');
   await expect(
     page.getByText(arrowText(messages, { from: 'c1', to: 'f4' })),
   ).toBeAttached();
