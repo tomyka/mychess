@@ -1,0 +1,38 @@
+# Caddy: TLS and routing for production on the mychess VM.
+#
+# APP_DOMAIN is the site's name. Its one source is BETTER_AUTH_URL in the
+# host's /srv/mychess/production/.env; infra/ci/deploy-production.sh reads it
+# from there and passes it in, and the Caddyfile reads it as {$APP_DOMAIN}.
+# Caddy requests the certificate the moment it loads a name, so DNS must point
+# at this host before the first deploy (docs/operations.md).
+#
+# caddy:2.x.y is pinned exactly, bumped deliberately on its own schedule.
+name: mychess-edge
+services:
+  caddy:
+    image: caddy:2.11.4
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN is required}
+    volumes:
+      # The directory, not the file: a replaced file keeps its old inode in the container.
+      - ./caddy:/etc/caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1:2019/config/']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+networks:
+  edge:
+    external: true
+
+volumes:
+  caddy_data: {}
+  caddy_config: {}

@@ -1,0 +1,65 @@
+# Watches the live site from outside the host: a monitor on the VM could not
+# notice the VM going down. Every 10 minutes it asks the site (the repository
+# variable PRODUCTION_URL, e.g. https://mychess.lt) for /api/version and the
+# home page, and checks that the certificate has more than 14 days left. A
+# failure fails the run, and GitHub mails the failure to whoever last edited
+# this schedule (the owner); a green run mails nothing. A check is tried three
+# times, 20 seconds apart, so one dropped request is not an alarm. GitHub may
+# start a run late or skip one under load; the next run catches up. Only
+# public information is requested: no secret is used. While PRODUCTION_URL is
+# unset (before the first deploy) the job is skipped.
+name: uptime
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    # Not in forks, which have no site to watch.
+    if: github.repository == 'tomyka/mychess' && vars.PRODUCTION_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SITE: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - name: The site answers
+        run: |
+          check() {
+            for attempt in 1 2 3; do
+              if "$@"; then return 0; fi
+              echo "attempt $attempt failed"
+              [ "$attempt" -lt 3 ] && sleep 20
+            done
+            return 1
+          }
+          version() {
+            body="$(curl -fsS --max-time 15 "$SITE/api/version")" || return 1
+            printf '%s' "$body" | grep -Eq '"commit":"[0-9a-f]{40}"' || { echo "unexpected /api/version body"; return 1; }
+            echo "version ok: $(printf '%s' "$body" | cut -c1-80)"
+          }
+          # A signed-out visitor's / goes to the sign-in page: follow it.
+          home() {
+            code="$(curl -sS -L --max-redirs 3 -o /dev/null -w '%{http_code}' --max-time 15 "$SITE/")" || return 1
+            [ "$code" = 200 ] || { echo "home answered $code"; return 1; }
+            echo "home ok"
+          }
+          check version
+          check home
+      - name: The certificate has more than 14 days left
+        run: |
+          host="${SITE#https://}"
+          if echo | openssl s_client -servername "$host" -connect "$host:443" 2>/dev/null \
+              | openssl x509 -noout -checkend 1209600; then
+            echo "certificate ok"
+          else
+            echo "::error::The certificate of $host expires within 14 days or could not be read"
+            exit 1
+          fi

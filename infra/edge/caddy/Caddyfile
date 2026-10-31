@@ -1,0 +1,19 @@
+# The live site. {$APP_DOMAIN} comes from edge.yml (the host's BETTER_AUTH_URL,
+# see there); Caddy takes its certificate from Let's Encrypt for that name.
+#
+# The client address: with no trusted_proxies, Caddy replaces any
+# X-Forwarded-For a client sends with the client's own address, and
+# X-Real-IP is set here from the connection, so neither header can be forged.
+# The app reads x-real-ip first, then x-forwarded-for, for its per-IP rate
+# limits (apps/web/src/server/auth.ts).
+{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy production-web:3000 {
+		header_up X-Real-IP {remote_host}
+	}
+}
+
+# www answers with a permanent redirect to the one canonical name.
+www.{$APP_DOMAIN} {
+	redir https://{$APP_DOMAIN}{uri} permanent
+}

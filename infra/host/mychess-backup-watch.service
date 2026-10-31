@@ -1,0 +1,9 @@
+[Unit]
+Description=Check the production backup's status and mail the owner if it is missing, failed or stale
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+TimeoutStartSec=2min
+ExecStart=/usr/local/bin/mychess-backup-watch

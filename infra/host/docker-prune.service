@@ -1,0 +1,13 @@
+[Unit]
+Description=Remove Docker containers, images, build cache and networks unused for three days (never volumes - that's data - and never a release image)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker container prune -f --filter until=72h
+# The release images (label mychess.release) are the rollback button's: the
+# deploy keeps the last three and removes older ones itself (infra/ci/release-image.sh).
+ExecStart=/usr/bin/docker image prune -af --filter until=72h --filter label!=mychess.release
+ExecStart=/usr/bin/docker builder prune -af --filter until=72h
+ExecStart=/usr/bin/docker network prune -f --filter until=72h

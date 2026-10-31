@@ -1,0 +1,56 @@
+# Production on the mychess VM (ADR 0010): data on a named volume, restarts on
+# failure, and the web container on the shared `edge` network where Caddy finds
+# it. Combined with app.yml by infra/ci/deploy-production.sh, with the host's
+# root-only /srv/mychess/production/.env (infra/host/production-env.sh and the
+# set-*.sh scripts write it).
+services:
+  postgres:
+    restart: unless-stopped
+    volumes:
+      - pgdata:/var/lib/postgresql
+
+  # Every variable the web app reads (apps/web/src/server/env.ts, the cron and
+  # version routes). Production requires an https BETTER_AUTH_URL and both
+  # Google values, or the app refuses to start; so a missing one fails here,
+  # before anything is replaced. MYCHESS_TEST_SIGNIN and TEST_SIGNIN_SECRET
+  # are never passed: the persona sign-in stays off in production (R-73).
+  web:
+    environment:
+      MYCHESS_ENV: production
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?BETTER_AUTH_URL is required}
+      CRON_SECRET: ${CRON_SECRET:?CRON_SECRET is required}
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:?MAIL_TRANSPORT is required}
+      MAIL_FROM: ${MAIL_FROM:?MAIL_FROM is required}
+      RESEND_API_KEY: ${RESEND_API_KEY:?RESEND_API_KEY is required (infra/host/set-secret.sh)}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required (infra/host/set-secret.sh)}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?GOOGLE_CLIENT_SECRET is required (infra/host/set-secret.sh)}
+      LICHESS_CLIENT_ID: ${LICHESS_CLIENT_ID:?LICHESS_CLIENT_ID is required (infra/host/set-secret.sh)}
+    restart: unless-stopped
+    networks:
+      default: {}
+      edge:
+        aliases: [production-web]
+
+  # The admin CLI (docs/operations.md), run by hand on the host:
+  #   docker compose -p mychess-production --env-file /srv/mychess/production/.env \
+  #     -f /srv/mychess/production/app.yml -f /srv/mychess/production/production.yml \
+  #     run --rm admin db/dist/admin-grant.mjs <email>
+  # APP_IMAGE=mychess:<deployed tag> must be set for that command too.
+  admin:
+    image: ${APP_IMAGE:?APP_IMAGE is required}
+    profiles: [tasks]
+    entrypoint: ['node']
+    environment:
+      DATABASE_URL: postgres://mychess:${POSTGRES_PASSWORD}@postgres:5432/mychess
+      AUDIT_EMAIL_KEY: ${AUDIT_EMAIL_KEY:?AUDIT_EMAIL_KEY is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+networks:
+  edge:
+    external: true
+
+volumes:
+  pgdata: {}

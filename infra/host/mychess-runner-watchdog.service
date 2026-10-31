@@ -1,0 +1,9 @@
+[Unit]
+Description=Restart this host's GitHub Actions runner if it has gone deaf to a queued job
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+TimeoutStartSec=2min
+ExecStart=/usr/local/bin/mychess-runner-watchdog

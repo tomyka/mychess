@@ -1,0 +1,11 @@
+[Unit]
+Description=Back up the production database, with a restore test
+Requires=docker.service
+After=docker.service
+# Any failure, timeout included, mails the owner (infra/host/backup-alert.sh).
+OnFailure=mychess-backup-alert@%n.service
+
+[Service]
+Type=oneshot
+TimeoutStartSec=1h
+ExecStart=/usr/local/bin/mychess-production-backup

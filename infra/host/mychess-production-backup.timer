@@ -1,0 +1,9 @@
+[Unit]
+Description=Nightly production database backup
+
+[Timer]
+OnCalendar=*-*-* 02:37:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

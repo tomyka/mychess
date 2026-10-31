@@ -1,0 +1,40 @@
+# A throwaway stack for CI's e2e job (infra/ci/e2e-stack.sh): the database in
+# memory, Mailpit, and the web server from the release image.
+#
+# The web server listens on a fixed loopback port (E2E_WEB_PORT, default
+# 3100): its BETTER_AUTH_URL must be the very origin the browser uses, or
+# Better Auth refuses the sign-in's requests and the magic links point
+# elsewhere. Postgres and Mailpit's API take random loopback ports
+# (`e2e-stack.sh database|mailpit` prints them): the tests read mail from
+# Mailpit and set up training state in the database directly
+# (apps/web/e2e/support/*-db.ts).
+#
+# The app runs as MYCHESS_ENV=local, as the e2e job always has: no Google, no
+# test sign-in. BETTER_AUTH_SECRET is a fixed CI-only value, not a secret: it
+# signs only this stack's throwaway sessions.
+services:
+  postgres:
+    tmpfs:
+      - /var/lib/postgresql
+    ports:
+      - '127.0.0.1::5432'
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - '127.0.0.1::8025'
+
+  web:
+    ports:
+      - '127.0.0.1:${E2E_WEB_PORT:-3100}:3000'
+    environment:
+      MYCHESS_ENV: local
+      BETTER_AUTH_SECRET: e2e-stack-only-not-a-secret-0123456789abcdef
+      BETTER_AUTH_URL: http://127.0.0.1:${E2E_WEB_PORT:-3100}
+      MAIL_TRANSPORT: mailpit
+      MAIL_FROM: mychess <noreply@mychess.test>
+      MAILPIT_URL: http://mailpit:8025
+      LICHESS_CLIENT_ID: mychess-ci
+    depends_on:
+      mailpit:
+        condition: service_started

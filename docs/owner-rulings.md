@@ -55,7 +55,7 @@ Domain vocabulary is defined in [CONTEXT.md](CONTEXT.md); architecture decisions
 - **R-32** (Q18, #226, 2026-10-16): Personas live in `docs/personas/`, with seeded staging accounts and E2E fixtures carrying tier-matched repertoires, plus four persona subagents that explore staging in character each milestone.
 - **R-33** (Q19, #226, 2026-10-16): Use the sportbet quality kit. CI enforces the full gate including mutation testing; the post-edit hook stays on; the Stop hook runs a fast gate (no mutation).
 - **R-34** (Q20, #226, 2026-10-16): Trunk-based, lead-only commits. Green CI deploys to staging; production is promoted manually by the owner. Unattended runs only for issues labelled both `size/small` and `auto-ok`.
-- **R-35** (Q21, #226, 2026-10-16): GitHub-hosted runners; Vercel staging and production; a Neon branch per environment.
+- ~~**R-35** (Q21, #226, 2026-10-16): GitHub-hosted runners; Vercel staging and production; a Neon branch per environment.~~ Superseded by R-164 (#310).
 - **R-36** (Q22, #226, 2026-10-16): Decision records are `docs/CONTEXT.md`, `docs/adr/` (domain-modeling skill) and `docs/owner-rulings.md`, mirrored on GitHub.
 - **R-37** (Q23, #226, 2026-10-16): Full label taxonomy: `epic`, milestones M1/M2/M3, `size/*`, `area/*`, `persona/*`, `role/*`, `auto-ok`, `blocked`. v1 custom labels are removed.
 - **R-38** (Q24, #226, 2026-10-16): The global skills (as in sportbet) are listed as prerequisites; `retro` and `writing-for-agents` are vendored into `.agents/skills` with `skills-lock.json`.
@@ -196,7 +196,12 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-160** (#304, 2026-10-28): Every name list (players, coaches, groups, group members, pickers, repertoires) sorts in Lithuanian alphabetical order, whatever the viewer's locale.
 - **R-161** (#259, 2026-10-28): The Lithuanian opening-name tidy (R-77) may also correct English piece letters to Lithuanian ones (K, V, B, R, Ž), only through an explicit per-ECO-code correction list reviewed by i18n-content, never a blanket letter swap.
 - **R-162** (#275, 2026-10-30): The free entitlement (R-70) allows up to 50 repertoires per account, forks of a coach's repertoire included, and up to 5,000 moves in one repertoire. The limits are enforced in the domain and again in the repositories.
+- **R-163** (#275, 2026-10-31): The automatic fork made when a coach deletes their account (R-49) is always made, even past the R-162 limits, so a player never loses an assignment they did not choose to give up; they then cannot add a repertoire until they are under the limit. A fork the player asks for (forking an assignment, accepting a fork offer) is refused at the limit.
+- **R-164** (#310, 2026-10-31): Production runs on the Oracle VM that was sportbet-ci, made mychess's only and renamed `mychess`, with the CI/CD sportbet_new has (build once, test the image, deploy what passed, restore point, rollback button). Supersedes R-35 and ADR 0009 (ADR 0010).
+- **R-165** (#310, 2026-10-31): Build and test jobs run on GitHub-hosted runners; only the deploy job runs on a self-hosted runner on the production VM, started only by a push or dispatch.
+- **R-166** (#310, 2026-10-31): There is no staging environment: a green `main` deploys to production. Supersedes the staging half of R-34; Vercel staging and its Neon database are retired once production is live.
+- **R-167** (#310, 2026-10-31): The production domain is mychess.lt (registered at Hostinger; its DNS points at the production VM). Decides the domain half of R-10.
 
 ## Open questions
 
-- **Brand and domain** (R-10): pending before the production launch.
+- **Brand** (R-10): pending before the production launch; the domain is mychess.lt (R-167).

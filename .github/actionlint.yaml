@@ -1,0 +1,3 @@
+# actionlint: the self-hosted runner on the production VM (infra/host/install-runner.sh).
+self-hosted-runner:
+  labels: [production]

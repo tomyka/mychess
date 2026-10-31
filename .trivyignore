@@ -1,0 +1,8 @@
+# Vulnerabilities Trivy must not fail the image job on (a known false
+# positive). One entry per line, each preceded by a comment saying why it is
+# safe to ignore and when to look again; for example:
+#
+#   # CVE-0000-00000: affects a feature the image does not use; recheck 2027-01.
+#   CVE-0000-00000
+#
+# Empty on purpose: unfixed CVEs are already skipped (--ignore-unfixed).

@@ -1,0 +1,70 @@
+name: Dependabot lockfile
+
+# Dependabot bumps the package.json files of a grouped pnpm update but, for the
+# development group, can leave pnpm-lock.yaml as it was (seen on sportbet_new,
+# #74), so every `pnpm install --frozen-lockfile` in CI fails and the pull
+# request can never merge. This job completes such a pull request: it
+# regenerates the lockfile from the manifests (resolution only:
+# `--lockfile-only --ignore-scripts` installs nothing and runs no script) and
+# pushes it to the Dependabot branch.
+#
+# The push must use a token of ours. A push made with GITHUB_TOKEN starts no
+# workflow, so CI/CD would never run on the new commit. Create a fine-grained
+# personal access token for this repository only (Contents: read and write)
+# and save it as the Dependabot secret LOCKFILE_PUSH_TOKEN (Settings > Secrets
+# and variables > Dependabot). Without the secret the job only says so and
+# passes.
+#
+# Safe to run twice: once the lockfile agrees with the manifests there is
+# nothing to commit, so the push that this job makes cannot start a loop. Only
+# Dependabot's own pull requests run it, never a fork's or a person's.
+on:
+  pull_request:
+    paths:
+      - '**/package.json'
+
+permissions: {}
+
+jobs:
+  lockfile:
+    if: github.actor == 'dependabot[bot]' && github.repository == 'tomyka/mychess'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check the token is set
+        id: token
+        env:
+          TOKEN: ${{ secrets.LOCKFILE_PUSH_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::warning::The Dependabot secret LOCKFILE_PUSH_TOKEN is not set, so this pull request's lockfile is not updated. Owner step: create a fine-grained token for this repository with Contents read and write, and save it under Settings > Secrets and variables > Dependabot."
+            echo "set=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "set=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.token.outputs.set == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.LOCKFILE_PUSH_TOKEN }}
+      - if: steps.token.outputs.set == 'true'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - if: steps.token.outputs.set == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+      - name: Regenerate the lockfile and push it
+        if: steps.token.outputs.set == 'true'
+        run: |
+          pnpm install --lockfile-only --no-frozen-lockfile --ignore-scripts
+          if git diff --quiet -- pnpm-lock.yaml; then
+            echo "The lockfile already agrees with the manifests."
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add pnpm-lock.yaml
+          git commit -m 'chore(deps): update pnpm-lock.yaml'
+          git push

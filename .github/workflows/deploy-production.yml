@@ -1,0 +1,108 @@
+name: Deploy production
+
+# The rollback button: deploys a commit that is already green to production on
+# the mychess VM. Every green push to main deploys itself (ci.yml's deploy
+# job); this is for going back, or for redeploying main's head after a host
+# setting changed (infra/host/set-secret.sh). Run it from the Actions tab (Run
+# workflow) on main; the commit is main's head unless a full SHA is typed (an
+# earlier green release). Its image must still be on the VM, which keeps the
+# last three releases (infra/ci/release-image.sh).
+#
+# Three jobs. `verify` (GitHub-hosted) refuses a commit that is not in main's
+# history or whose CI/CD run did not pass every one of check, image and e2e.
+# `deploy` runs on the VM's self-hosted runner (label `production`) and calls
+# infra/ci/deploy-production.sh, which takes a restore-point dump first,
+# migrates, replaces web, verifies the release and puts the previous web back
+# if that fails. `live` (GitHub-hosted) asks the public site, the repository
+# variable PRODUCTION_URL, which commit it serves (skipped while it is unset).
+#
+# It never runs on a pull request or a push, only on this button.
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full commit SHA to deploy (empty is main's head). It needs a green CI/CD run.
+        required: false
+
+permissions: {}
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.repository == 'tomyka/mychess' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      sha: ${{ steps.pick.outputs.sha }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      TYPED: ${{ inputs.sha }}
+    steps:
+      - name: The commit to deploy
+        id: pick
+        run: |
+          sha="${TYPED:-$GITHUB_SHA}"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::not a full commit SHA: $sha"; exit 1; }
+          status="$(gh api "repos/$REPO/compare/main...$sha" --jq .status)"
+          case "$status" in
+            identical|behind) ;;
+            *) echo "::error::$sha is not in main's history ($status)"; exit 1 ;;
+          esac
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - name: Every required job of its CI/CD run passed
+        env:
+          SHA: ${{ steps.pick.outputs.sha }}
+        run: |
+          run="$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA&status=completed" --jq '[.workflow_runs[]|select(.conclusion=="success")][0].id // empty')"
+          [ -n "$run" ] || { echo "::error::no successful CI/CD run for $SHA"; exit 1; }
+          jobs="$(gh api "repos/$REPO/actions/runs/$run/jobs" --paginate --jq '.jobs[]|"\(.name) \(.conclusion)"')"
+          for name in check image e2e; do
+            printf '%s\n' "$jobs" | grep -qx "$name success" || { echo "::error::job $name did not succeed for $SHA"; exit 1; }
+          done
+          echo "$SHA is green: run $run"
+
+  deploy:
+    needs: verify
+    runs-on: [self-hosted, production]
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    env:
+      SHA: ${{ needs.verify.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.verify.outputs.sha }}
+          sparse-checkout: infra
+          persist-credentials: false
+      - name: Deploy
+        run: sudo -n "$GITHUB_WORKSPACE/infra/ci/deploy-production.sh" "$SHA-arm64"
+
+  live:
+    needs: [verify, deploy]
+    if: vars.PRODUCTION_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SHA: ${{ needs.verify.outputs.sha }}
+      SITE: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - name: The public site serves that commit
+        run: |
+          for _ in 1 2 3 4 5 6; do
+            body="$(curl -fsS --max-time 10 "$SITE/api/version" || true)"
+            [ "$body" = "{\"commit\":\"$SHA\"}" ] && { echo "$SITE serves $SHA"; exit 0; }
+            sleep 10
+          done
+          echo "::error::$SITE answered '$body', expected commit $SHA"
+          exit 1

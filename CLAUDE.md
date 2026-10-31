@@ -19,7 +19,7 @@ it, ask the owner.
 - `size/large` work goes grill/brainstorm -> spec -> plan before code;
   specs and plans live in `docs/superpowers/{specs,plans}/`.
 - Trunk-based: work lands on `main`; only the lead commits. A green `main`
-  deploys to staging; the owner promotes to production.
+  deploys to production on the Oracle VM; there is no staging (R-166).
 - Agent team: the roles are in `.claude/agents/`; which team fits which
   stage, the pipeline, the working rules and the autonomy rules are in
   `docs/agent-team.md`.
@@ -66,8 +66,8 @@ built, linted or tested.
 - Times are stored in UTC; display in the user's time zone
   (Europe/Vilnius by default).
 - Migrations: change the Drizzle schema, generate, review and commit the
-  SQL. Never edit a migration that has reached staging.
-- No production data in tests, fixtures, issues or logs; staging uses the
+  SQL. Never edit a migration that has reached `main`.
+- No production data in tests, fixtures, issues or logs; persona testing uses the
   persona seeds (`docs/personas/`).
 
 ## Quality gates (enforced automatically)
@@ -80,8 +80,9 @@ details.
 - When you finish, the Stop hook runs the fast gate: format, lint, strict
   typecheck, suppression markers, tests with coverage thresholds, CRAP, dead
   code (knip) and architecture (dependency-cruiser).
-- CI (`.github/workflows/quality.yml`) runs the gate and the build on every
-  push. Mutation testing runs nowhere automatically (owner, #295); run it by
+- CI/CD (`.github/workflows/ci.yml`, #310) runs the gate, builds and scans
+  the one image, runs E2E against it and deploys a green `main` to the
+  production VM; `quality.yml` runs the gate on pull requests. Mutation testing runs nowhere automatically (owner, #295); run it by
   hand with `node quality/gate.mjs mutation`.
 
 Rules:

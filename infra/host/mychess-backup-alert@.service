@@ -1,0 +1,8 @@
+[Unit]
+Description=Mail the owner that %i failed
+
+[Service]
+Type=oneshot
+TimeoutStartSec=2min
+# Wired as OnFailure= by mychess-production-backup.service; %i is the failed unit.
+ExecStart=/usr/local/bin/mychess-backup-alert --unit %i

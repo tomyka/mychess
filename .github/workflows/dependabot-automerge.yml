@@ -1,0 +1,59 @@
+name: Dependabot auto-merge
+
+# Lets a Dependabot pull request merge itself, but only the smallest kind: a
+# patch version update (semver-patch), a security update included. A minor or
+# major update is left for a person even when it is a security update (the
+# owner reads those); so are Next.js majors (also ignored in dependabot.yml).
+#
+# How it works (as sportbet_new's): this runs after CI/CD finishes on a
+# Dependabot branch, and only when that run passed every job (check, image,
+# e2e; deploy is main's only). It merges the open Dependabot pull request
+# whose head is exactly the commit that run tested (--match-head-commit), when
+# every update-type in its commits' metadata is semver-patch. A merge made
+# with GITHUB_TOKEN starts no push run, so it then dispatches CI/CD on main,
+# which tests the merge commit and deploys it. The workflow file that runs is
+# main's, never the branch's.
+#
+# To stop it: delete this file.
+on:
+  workflow_run:
+    workflows: [CI/CD]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  merge:
+    if: >-
+      github.repository == 'tomyka/mychess' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      startsWith(github.event.workflow_run.head_branch, 'dependabot/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+      SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Merge a patch update whose CI/CD run passed, then run main
+        run: |
+          pr="$(gh pr list --repo "$REPO" --head "$BRANCH" --state open --json number,headRefOid,author \
+            --jq '.[] | select(.author.login == "app/dependabot" and .headRefOid == env.SHA) | .number')"
+          [[ "$pr" =~ ^[0-9]+$ ]] || { echo "no open Dependabot pull request has $SHA as its head: nothing to do"; exit 0; }
+          # Dependabot writes each update's metadata into its commit messages; a
+          # commit of ours on the branch (the lockfile job's) carries none.
+          types="$(gh pr view "$pr" --repo "$REPO" --json commits --jq '.commits[] | .messageBody' \
+            | grep -oE 'update-type: version-update:semver-[a-z]+' | sort -u)"
+          if [ "$types" != "update-type: version-update:semver-patch" ]; then
+            echo "pull request #$pr is not only patch updates (${types:-no metadata}): left for the owner"
+            exit 0
+          fi
+          gh pr merge "$pr" --repo "$REPO" --squash --match-head-commit "$SHA"
+          gh workflow run ci.yml --repo "$REPO" --ref main
+          echo "merged #$pr and started CI/CD on main"

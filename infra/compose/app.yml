@@ -1,0 +1,48 @@
+# The application: the database, the one-shot migrate task and the web server,
+# the last two from the one app image (Dockerfile). Never used alone: combined
+# with production.yml (infra/ci/deploy-production.sh) or e2e.yml
+# (infra/ci/e2e-stack.sh). Local development uses infra/compose.yaml instead.
+#
+# postgres:18.x is pinned exactly, bumped deliberately together with the
+# same tag in packages/db/src/testing/database.ts,
+# infra/host/backup-production.sh and the node tag in the Dockerfile.
+services:
+  postgres:
+    image: postgres:18.6
+    environment:
+      POSTGRES_DB: mychess
+      POSTGRES_USER: mychess
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U mychess -d mychess']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  migrate:
+    image: ${APP_IMAGE:?APP_IMAGE is required}
+    profiles: [tasks]
+    command: ['node', 'db/dist/migrate.mjs']
+    environment:
+      DATABASE_URL: postgres://mychess:${POSTGRES_PASSWORD}@postgres:5432/mychess
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    image: ${APP_IMAGE:?APP_IMAGE is required}
+    environment:
+      DATABASE_URL: postgres://mychess:${POSTGRES_PASSWORD}@postgres:5432/mychess
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s

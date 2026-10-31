@@ -16,6 +16,9 @@ const SECURITY_HEADERS = [
 ];
 
 const config: NextConfig = {
+  // A self-contained server in .next/standalone, which the Dockerfile copies
+  // into the production image (ADR 0010).
+  output: 'standalone',
   outputFileTracingRoot: workspaceRoot,
   turbopack: { root: workspaceRoot },
   transpilePackages: ['@mychess/domain', '@mychess/chess', '@mychess/db'],

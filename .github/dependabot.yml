@@ -1,0 +1,79 @@
+# Weekly dependency updates (Mondays), grouped so a week is a few pull requests
+# instead of dozens. Minor and patch bumps are grouped; a major is never
+# grouped, so it arrives alone and is merged by hand. What may merge itself
+# is decided by .github/workflows/dependabot-automerge.yml (patches only, and
+# only after CI/CD is green). Dependabot leaves pnpm-lock.yaml stale in the
+# development group, so .github/workflows/dependabot-lockfile.yml completes
+# those pull requests.
+version: 2
+updates:
+  # One pnpm workspace with one lockfile at the root; each package.json is
+  # listed so Dependabot reads its dependencies too.
+  - package-ecosystem: npm
+    directories:
+      - /
+      - /apps/web
+      - /packages/*
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    groups:
+      npm-development:
+        dependency-type: development
+        update-types: [minor, patch]
+      npm-production:
+        dependency-type: production
+        update-types: [minor, patch]
+    ignore:
+      # Next's majors are upgraded deliberately, never by a bot.
+      - dependency-name: next
+        update-types: ['version-update:semver-major']
+      # vitest is pinned exactly in the root, chess, domain, db and web
+      # manifests together with @vitest/coverage-v8, and Stryker's vitest
+      # runner must support it: any bump, patch included, moves all of them by
+      # hand. Dependabot bumping only some manifests cannot resolve to one
+      # lockfile (seen on sportbet_new, #74).
+      - dependency-name: vitest
+      - dependency-name: '@vitest/coverage-v8'
+      # The other @vitest/* packages version on their own; majors by hand.
+      - dependency-name: '@vitest/*'
+        update-types: ['version-update:semver-major']
+      # A TypeScript major is a new compiler: typescript-eslint, knip and the
+      # strict gate must support it first, by hand.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+      # @types/node follows the Node major the image runs (24, .nvmrc), by hand.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    groups:
+      github-actions:
+        update-types: [minor, patch]
+
+  # The Dockerfile's node tag is pinned exactly to .nvmrc and bumped together
+  # with it by hand.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    ignore:
+      - dependency-name: node
+
+  # The compose files (infra/compose/*.yml, infra/edge/edge.yml) are not read:
+  # Dependabot's docker-compose ecosystem only finds files named compose*.yml or
+  # docker-compose*.yml. Their images (postgres, caddy, mailpit) are bumped by
+  # hand; postgres:18.x is pinned in infra/compose/app.yml,
+  # packages/db/src/testing/database.ts and infra/host/backup-production.sh
+  # together.

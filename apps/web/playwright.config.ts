@@ -3,9 +3,14 @@ import { MAILPIT_URL } from './e2e/support/mailpit-url';
 
 // apps/web's E2E suite (test:e2e): a production build served by `next start`
 // on its own port, driven in desktop Chromium and a phone profile. Both
-// profiles run on Chromium, so CI installs only that browser.
+// profiles run on Chromium, so CI installs only that browser. With
+// E2E_BASE_URL set, the suite drives an app already running there and starts
+// no server of its own: CI's e2e job runs it against the release image
+// (infra/ci/e2e-stack.sh), with DATABASE_URL and MAILPIT_URL pointing at that
+// stack's services.
 const PORT = 3100;
-const BASE_URL = `http://127.0.0.1:${String(PORT)}`;
+const EXTERNAL_URL = process.env['E2E_BASE_URL'];
+const BASE_URL = EXTERNAL_URL ?? `http://127.0.0.1:${String(PORT)}`;
 const CI = process.env['CI'] === 'true';
 
 /** A variable from the environment, or its local default. */
@@ -36,6 +41,18 @@ const APP_ENV = {
   LICHESS_CLIENT_ID: fromEnv('LICHESS_CLIENT_ID', 'mychess-local'),
 };
 
+const WEB_SERVER = {
+  command: `pnpm build && pnpm start --hostname 127.0.0.1 --port ${String(PORT)}`,
+  url: BASE_URL,
+  // Merged over the runner's own environment; these win over a developer's
+  // apps/web/.env.local, which Next.js reads only for unset variables.
+  env: APP_ENV,
+  // Locally a server already on the port is reused (e.g. a manual
+  // `next start`); CI always builds and starts its own.
+  reuseExistingServer: !CI,
+  timeout: 300_000,
+};
+
 export default defineConfig({
   testDir: 'e2e',
   forbidOnly: CI,
@@ -55,15 +72,5 @@ export default defineConfig({
     { name: 'desktop-chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'pixel-7', use: { ...devices['Pixel 7'] } },
   ],
-  webServer: {
-    command: `pnpm build && pnpm start --hostname 127.0.0.1 --port ${String(PORT)}`,
-    url: BASE_URL,
-    // Merged over the runner's own environment; these win over a developer's
-    // apps/web/.env.local, which Next.js reads only for unset variables.
-    env: APP_ENV,
-    // Locally a server already on the port is reused (e.g. a manual
-    // `next start`); CI always builds and starts its own.
-    reuseExistingServer: !CI,
-    timeout: 300_000,
-  },
+  ...(EXTERNAL_URL === undefined ? { webServer: WEB_SERVER } : {}),
 });
