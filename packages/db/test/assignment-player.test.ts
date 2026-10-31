@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   moveKey,
   ok,
@@ -32,6 +34,7 @@ import {
   forkOffers,
 } from '../src/assignment-schema';
 import { liveRepertoire } from '../src/assignments/reach';
+import { MIGRATIONS_FOLDER } from '../src/migrations';
 import { loadRepertoireRows } from '../src/repertoires/repository';
 import { groupMembers, personalNotes } from '../src/schema';
 import { useTestDatabase } from '../src/testing';
@@ -814,23 +817,41 @@ describe('changesSince', () => {
     ).toEqual({ changes: { added: [], removed: [], commentsChanged: 0 } });
   });
 
-  it('reads a row stored before the rename, which says annotated', async () => {
+  it('migrates a row stored before the rename from annotated to commentsChanged, twice over', async () => {
     await assignTo(toGroup(g));
-    await coachEdit(commentD4);
-    await query(
-      `update repertoire_changes set changes = (changes - 'commentsChanged')
-         || jsonb_build_object('annotated', changes -> 'commentsChanged')`,
+    const stored = [
+      { added: [], removed: [], annotated: 1 },
+      { added: [], removed: [], commentsChanged: 2, annotated: 5 },
+      { added: [], removed: [], commentsChanged: 3 },
+      { added: [], removed: [] },
+    ];
+    for (const [i, changes] of stored.entries())
+      await query(
+        `insert into repertoire_changes (repertoire_id, version, changes, created_at)
+         values ($1, $2, $3, now())`,
+        [rep, i + 2, changes],
+      );
+    const migration = readFileSync(
+      join(MIGRATIONS_FOLDER, '0012_rename_annotated_to_comments_changed.sql'),
+      'utf8',
     );
-    expect(await query('select changes from repertoire_changes')).toEqual([
-      { changes: { added: [], removed: [], annotated: 1 } },
+    await query(migration);
+    await query(migration);
+    expect(
+      await query('select changes from repertoire_changes order by version'),
+    ).toEqual([
+      { changes: { added: [], removed: [], commentsChanged: 1 } },
+      { changes: { added: [], removed: [], commentsChanged: 2 } },
+      { changes: { added: [], removed: [], commentsChanged: 3 } },
+      { changes: { added: [], removed: [] } },
     ]);
     expect(
       await changesSince(db, {
         playerId: 'p',
         repertoireId: rep,
-        upToVersion: 99,
+        upToVersion: 4,
       }),
-    ).toEqual({ changes: { added: [], removed: [], commentsChanged: 1 } });
+    ).toEqual({ changes: { added: [], removed: [], commentsChanged: 6 } });
   });
 
   it('gives nothing for a repertoire not assigned to the player', async () => {

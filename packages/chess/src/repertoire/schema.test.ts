@@ -155,13 +155,7 @@ describe('moveChangesSchema', () => {
     expect(parsed).toStrictEqual(row);
   });
 
-  it('reads an old row that still counts comments as annotated', () => {
-    expect(
-      moveChangesSchema.parse({ added: [], removed: [link], annotated: 3 }),
-    ).toStrictEqual({ added: [], removed: [link], commentsChanged: 3 });
-  });
-
-  it('keeps the new name when a row has both', () => {
+  it('drops a stray annotated count beside commentsChanged', () => {
     expect(moveChangesSchema.parse({ ...row, annotated: 5 })).toStrictEqual(
       row,
     );
@@ -170,7 +164,7 @@ describe('moveChangesSchema', () => {
   it.each([
     ['a negative count', { ...row, commentsChanged: -1 }],
     ['a fractional count', { ...row, commentsChanged: 1.5 }],
-    ['a negative old count', { added: [], removed: [], annotated: -1 }],
+    ['the old name annotated', { added: [], removed: [link], annotated: 3 }],
     ['no count', { added: [], removed: [] }],
     [
       'a link without a move key',
