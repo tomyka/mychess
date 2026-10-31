@@ -1,10 +1,10 @@
-import { timingSafeEqual } from 'node:crypto';
 import { personaEmail, personaSignInAvailable } from '@mychess/domain';
 import type { BetterAuthPlugin } from 'better-auth';
 import { APIError, createAuthEndpoint } from 'better-auth/api';
 import { setSessionCookie } from 'better-auth/cookies';
 import { z } from 'zod';
 import type { WebEnv } from './env';
+import { sameSecret } from './same-secret';
 
 /**
  * The persona sign-in for local and staging (R-73, R-93), in one place: the
@@ -98,13 +98,6 @@ export interface TestSignInDeps {
 }
 
 const status = (code: number) => new Response(null, { status: code });
-
-/** Compares bytes, not characters: a non-ASCII header is longer in bytes. */
-function sameSecret(given: string, expected: string): boolean {
-  const a = Buffer.from(given);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
 
 /** The configured secret, or undefined when the route must not exist. */
 const enabledSecret = (env: TestSignInDeps['env']): string | undefined =>

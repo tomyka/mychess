@@ -180,10 +180,30 @@ and `request_counters` rows whose window opened longer ago than
 `REQUEST_COUNTER_RETENTION_MS` (an hour), both in
 `packages/db/src/rate-limits.ts`. It prints `rate-limits: pruned <n>`, the
 two tables together. Deleting them changes no limit decision. It needs only
-`DATABASE_URL`; run it from a scheduled job (hourly is plenty) once staging
-and production exist (#234). A new limit with a longer window, or a Better
+`DATABASE_URL`. On Vercel the same prune runs daily at 03:00 UTC as a cron
+(`apps/web/vercel.json`) calling `GET /api/cron/prune-rate-limits`, which
+answers `200 {"pruned":<n>}` only to `Authorization: Bearer <CRON_SECRET>`
+(Vercel Cron sends it), 401 to anything else, and 404 where `CRON_SECRET`
+(at least 32 characters) is not set. Daily, not hourly: the Hobby plan
+allows one run a day, and a late prune only lets dead rows wait longer
+(owner, 2026-10-31). A new limit with a longer window, or a Better
 Auth upgrade that changes its built-in windows, must update those constants
 (#262).
+
+## Staging (#234)
+
+Vercel project `mychess-staging` (team tomykas-projects), at
+`https://mychess-staging-tomykas-projects.vercel.app`, deploys every push to
+`main` from `apps/web` on Node 24, functions in fra1. PR previews are off.
+Its database is a Neon store (Frankfurt) connected through the Marketplace,
+which sets `DATABASE_URL` and `DATABASE_URL_UNPOOLED`. The build command
+builds `@mychess/db`, runs its migrations through `DATABASE_URL_UNPOOLED` on
+`main` deploys only (`VERCEL_ENV=production`), then builds the web app.
+Vercel Authentication covers preview URLs only. Mail goes through Resend
+from `onboarding@resend.dev` until a sending domain exists (R-10), so it
+reaches only the Resend account's own address; personas sign in through the
+test sign-in route instead. The generated secrets are also in the owner's
+gitignored `.env.staging.local`.
 
 ## Health check
 
