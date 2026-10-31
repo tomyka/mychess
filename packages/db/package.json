@@ -21,9 +21,9 @@
   "dependencies": {
     "@mychess/chess": "workspace:*",
     "@mychess/domain": "workspace:*",
-    "drizzle-orm": "0.45.3",
-    "pg": "8.23.0",
-    "zod": "4.6.5"
+    "drizzle-orm": "0.45.4",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@testcontainers/postgresql": "12.1.0",
