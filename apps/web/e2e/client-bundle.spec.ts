@@ -2,7 +2,8 @@
 // chapter names are resolved on the server, which passes the page only the
 // names it shows. A client module that reaches the classifier (for example
 // through `removeMove`, which renames the chapter) puts the whole table in a
-// chunk. This reads the production build the suite runs against. Locally the
+// chunk. This reads the production build the suite runs against (in CI the
+// image's own chunks, copied out by ci.yml's e2e job). Locally the
 // suite reuses a running server (reuseExistingServer), so this reads whatever
 // `.next` build is on disk: build first, or it checks a stale bundle.
 import { readdir, readFile } from 'node:fs/promises';
