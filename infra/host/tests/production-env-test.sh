@@ -91,8 +91,12 @@ check "stores the Lichess client id" test "$(value LICHESS_CLIENT_ID)" = mychess
 
 printf 'not a key\n' | bash "$secret" RESEND_API_KEY > /dev/null 2>&1
 check "refuses a value of the wrong shape" test "$?" = 2 -a "$(value RESEND_API_KEY)" = re_NEW
-printf 'short\n' | bash "$secret" GOOGLE_CLIENT_SECRET > /dev/null 2>&1
+printf 'GOCSPX-short\n' | bash "$secret" GOOGLE_CLIENT_SECRET > /dev/null 2>&1
 check "refuses a too-short Google secret" test "$?" = 2
+printf 're_ABC123_def\n' | bash "$secret" GOOGLE_CLIENT_ID > /dev/null 2>&1
+check "refuses a Resend key as the Google client id" test "$?" = 2 -a "$(value GOOGLE_CLIENT_ID)" = 123-abc.apps.googleusercontent.com
+printf '123-abc.apps.googleusercontent.com\n' | bash "$secret" GOOGLE_CLIENT_SECRET > /dev/null 2>&1
+check "refuses the client id as the Google secret" test "$?" = 2 -a "$(value GOOGLE_CLIENT_SECRET)" = GOCSPX-secret_value
 printf '\n' | bash "$secret" LICHESS_CLIENT_ID > /dev/null 2>&1
 check "refuses an empty value" test "$?" = 2 -a "$(value LICHESS_CLIENT_ID)" = mychess.example
 printf 'x=1\n' | bash "$secret" MYCHESS_TEST_SIGNIN > /dev/null 2>&1

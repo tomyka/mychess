@@ -9,8 +9,9 @@
 #   scp infra/host/set-secret.sh mychess:/tmp/
 #   powershell -NoProfile -Command "Get-Clipboard" | ssh mychess 'sudo bash /tmp/set-secret.sh RESEND_API_KEY'
 #
-# Settings: RESEND_API_KEY (re_...), GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
-# (the OAuth client whose redirect URI is <site>/api/auth/callback/google),
+# Settings: RESEND_API_KEY (re_...), GOOGLE_CLIENT_ID (....apps.googleusercontent.com),
+# GOOGLE_CLIENT_SECRET (GOCSPX-...) (the OAuth client whose redirect URI is
+# <site>/api/auth/callback/google),
 # LICHESS_CLIENT_ID (Lichess needs no secret: any client id names the app).
 # It does not redeploy: the web reads a changed value once the deploy button
 # (deploy-production.yml, empty sha) redeploys main's head.
@@ -22,7 +23,10 @@ set -euo pipefail
 name="${1:-}"
 case "$name" in
   RESEND_API_KEY) pattern='^re_[A-Za-z0-9_]+$' ;;
-  GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET) pattern='^[A-Za-z0-9._~-]{8,255}$' ;;
+  # Each Google value has its own shape, so a value copied for another
+  # setting (a Resend key once went in as the client id) is refused.
+  GOOGLE_CLIENT_ID) pattern='^[A-Za-z0-9-]{1,200}\.apps\.googleusercontent\.com$' ;;
+  GOOGLE_CLIENT_SECRET) pattern='^GOCSPX-[A-Za-z0-9_-]{8,248}$' ;;
   LICHESS_CLIENT_ID) pattern='^[A-Za-z0-9._~-]{1,128}$' ;;
   *) echo "usage: set-secret.sh RESEND_API_KEY|GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET|LICHESS_CLIENT_ID (value on stdin)" >&2; exit 2 ;;
 esac
