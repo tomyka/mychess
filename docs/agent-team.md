@@ -38,6 +38,8 @@ Global, installed per user (`~/.claude/skills/` or plugins):
 Vendored in this repo (`.agents/skills/`, pinned in `skills-lock.json`):
 `retro` (session retrospective, run by the lead at the end of each slice) and
 `writing-for-agents` (for editing `CLAUDE.md`, role files and skills).
+Claude Code finds them through the committed symlinks in `.claude/skills/`;
+add a link there when vendoring another skill.
 
 ## Roles
 
