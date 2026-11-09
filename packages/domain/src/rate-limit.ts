@@ -135,3 +135,17 @@ export const TRAINING_RESULTS_RATE_LIMIT = {
 /** The one counter of an account's results, apart from its batches'. */
 export const trainingResultsKey = (accountId: string): string =>
   `training-results:${accountId}`;
+
+/** FIDE ID searches an account may start a minute (#316, spec decision 6). */
+export const FIDE_SEARCH_RATE_LIMIT = {
+  windowMs: 60_000,
+  max: 10,
+  reason: 'fide.tooManySearches',
+} as const satisfies RateRule;
+
+/**
+ * The one counter of an account's FIDE ID searches; it names the account,
+ * never the searched ID (spec decision 7).
+ */
+export const fideSearchRateKey = (accountId: string): string =>
+  `fide-search:${accountId}`;

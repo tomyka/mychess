@@ -99,6 +99,7 @@ export default defineConfig({
       project('domain', 'packages/domain', 'vitest.config.ts'),
       project('db', 'packages/db', 'vitest.config.ts'),
       project('chess', 'packages/chess', 'vitest.config.ts'),
+      project('integrations', 'packages/integrations', 'vitest.config.ts'),
       project('web', 'apps/web', 'vitest.component.config.ts'),
       project('web-feature', 'apps/web', 'vitest.feature.config.ts'),
     ],

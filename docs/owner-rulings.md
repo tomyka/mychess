@@ -216,6 +216,10 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-180** (#258, 2026-11-09): For the current phase the user UI is English only: every page, email and opening name is served in English, and no language choice is offered (sign-in, onboarding, settings). The Lithuanian catalogue and each account's stored language are kept untouched so Lithuanian can be switched back on later. URL paths stay as they are. Pauses R-1 (Lithuanian default), the language question of R-81 and R-85.
 - **R-181** (#258, 2026-11-09): "Learned" keeps the progress meaning (R-151: scheduled and not due). The R-129 meaning (a move has a Review, from the learn pass or "I know this") is called "tracked": an Assignment is done when every move is tracked.
 - **R-182** (#258, 2026-11-09): A chapter whose moves were all learned today counts as mastered (R-178) while their recall is >= 90 % and they are not yet due; no extra review is required.
+- **R-183** (#316, 2026-11-09): A FIDE ID search covers the last 12 published months of the Lichess broadcast dumps.
+- **R-184** (#316, 2026-11-09): The server keeps an index per processed month (which FIDE IDs played which broadcast games), built as searches need a month, never by bulk import; the first search of a month runs in the background with progress, later searches are instant.
+- **R-185** (#316, 2026-11-09): Found games are listed (date, event, opponent, colour, result, opening) with a link to each game on Lichess; the in-app board viewer of R-172 comes in a later issue.
+- **R-186** (#316, 2026-11-09): Any signed-in account can use the FIDE ID search.
 
 ## Open questions
 

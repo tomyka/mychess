@@ -44,6 +44,15 @@ export function connect(url: string): {
   pool.on('error', (error) => {
     console.error('database pool: idle client error', error);
   });
+  // A checked-out client whose server ends the session (such as an idle
+  // transaction timeout, security M2a) emits 'error' with no pool listener
+  // on it; the query that next uses it fails instead, and the pool drops
+  // the unqueryable client on release.
+  pool.on('connect', (client) => {
+    client.on('error', (error) => {
+      console.error('database pool: client error', error);
+    });
+  });
   return { db: drizzle({ client: pool, schema }), pool };
 }
 

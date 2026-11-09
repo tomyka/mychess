@@ -83,6 +83,46 @@ export {
   type SettlementFacts,
 } from './assignment-settlement';
 export {
+  BROADCAST_GAME_ISSUE,
+  BROADCAST_RESULTS,
+  BROADCAST_TEXT_MAX,
+  LICHESS_GAME_URL,
+  broadcastGameSchema,
+  gameForPlayer,
+  isIndexableGame,
+  type BroadcastGame,
+  type BroadcastGameInput,
+  type BroadcastPairing,
+  type BroadcastResult,
+  type PlayerGame,
+  type PlayerOutcome,
+} from './broadcast-game';
+export {
+  BROADCAST_MONTH_RULES,
+  BROADCAST_MONTH_PATTERN,
+  BROADCAST_MONTH_REFUSALS,
+  BROADCAST_MONTH_STATES,
+  decideBroadcastFailure,
+  decideBroadcastFinish,
+  isBroadcastClaimHeld,
+  broadcastMonthSchema,
+  nextBroadcastMonthAction,
+  searchMonths,
+  decideBroadcastClaim,
+  type BroadcastMonth,
+  type BroadcastMonthAction,
+  type BroadcastMonthRefusal,
+  type BroadcastMonthState,
+  type BroadcastMonthStatus,
+} from './broadcast-month';
+export {
+  FIDE_ID_REFUSALS,
+  fideId,
+  fideIdSchema,
+  type FideId,
+  type FideIdRefusal,
+} from './fide-id';
+export {
   HOME_TIME_ZONE,
   dayEnd,
   dayStart,
@@ -173,12 +213,14 @@ export {
   type DisplayName,
 } from './display-name';
 export {
+  FIDE_SEARCH_RATE_LIMIT,
   IMPORT_RATE_LIMIT,
   MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
   TRAINING_RATE_LIMIT,
   TRAINING_RESULTS_RATE_LIMIT,
   countRequest,
+  fideSearchRateKey,
   importRateKey,
   magicLinkEmailRateKey,
   trainingRateKey,

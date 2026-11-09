@@ -1,0 +1,4 @@
+{
+  "//": "Quality gate: this package's own settings plus the kit's strict checks (../../tsconfig.strict.json), which win where both set a flag.",
+  "extends": ["./tsconfig.json", "../../tsconfig.strict.json"]
+}

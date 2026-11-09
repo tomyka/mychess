@@ -22,3 +22,15 @@ export const oneOf = (column: PgColumn, values: readonly string[]): SQL =>
 /** `column between min and max` with the bounds inlined, for a CHECK constraint. */
 export const between = (column: PgColumn, min: number, max: number): SQL =>
   sql`${column} between ${sql.raw(String(min))} and ${sql.raw(String(max))}`;
+
+/**
+ * `column ~ 'pattern'` with the pattern inlined, for a CHECK constraint that
+ * shares a domain pattern. The pattern is our own constant, never input;
+ * one with a quote would end the literal early, so it is refused.
+ */
+export const matches = (column: PgColumn, pattern: string): SQL => {
+  if (pattern.includes("'")) {
+    throw new RangeError(`a check pattern holds a quote: ${pattern}`);
+  }
+  return sql`${column} ~ ${sql.raw(`'${pattern}'`)}`;
+};

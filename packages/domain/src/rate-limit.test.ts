@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  FIDE_SEARCH_RATE_LIMIT,
   IMPORT_RATE_LIMIT,
   MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
   TRAINING_RATE_LIMIT,
   TRAINING_RESULTS_RATE_LIMIT,
   countRequest,
+  fideSearchRateKey,
   importRateKey,
   magicLinkEmailRateKey,
   trainingRateKey,
@@ -210,5 +212,20 @@ describe('TRAINING_RESULTS_RATE_LIMIT', () => {
     expect(trainingResultsKey('a')).toBe('training-results:a');
     expect(trainingResultsKey('a')).not.toBe(trainingRateKey('a'));
     expect(trainingResultsKey('b')).not.toBe(trainingResultsKey('a'));
+  });
+});
+
+describe('FIDE_SEARCH_RATE_LIMIT (#316, spec decision 6)', () => {
+  it('allows 10 searches a minute per account', () => {
+    expect(FIDE_SEARCH_RATE_LIMIT).toEqual({
+      windowMs: 60_000,
+      max: 10,
+      reason: 'fide.tooManySearches',
+    });
+  });
+
+  it('counts each account under its own key', () => {
+    expect(fideSearchRateKey('a')).toBe('fide-search:a');
+    expect(fideSearchRateKey('b')).not.toBe(fideSearchRateKey('a'));
   });
 });

@@ -15,6 +15,7 @@
       "vitest": {
         "config": ["vitest.*.config.ts"]
       }
-    }
+    },
+    "packages/integrations": {}
   }
 }

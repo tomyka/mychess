@@ -183,6 +183,13 @@ The first point where an Imported game leaves a Repertoire. Two kinds:
 - **Opponent left book**: the opponent played a Move the Repertoire does not prepare. Produces a suggestion to add a line from the explorer.
 _Avoid_: Error, blunder, out-of-book (unqualified)
 
+**Broadcast game**:
+An over-the-board game Lichess broadcast, found by a FIDE ID search through the broadcast index for opponent preparation (R-171). It is not an Imported game: no Deviation, no Coach visibility (R-172).
+_Avoid_: Imported game, real game (for these)
+
+**Broadcast month**:
+One monthly Lichess broadcast dump, indexed when a search first needs it (R-184). Its state is pending, processing, done or failed.
+
 ### Coaching
 
 **Goal**:

@@ -6,6 +6,7 @@ export default defineConfig({
     './src/schema.ts',
     './src/assignment-schema.ts',
     './src/training-schema.ts',
+    './src/broadcast-schema.ts',
   ],
   out: './migrations',
   strict: true,

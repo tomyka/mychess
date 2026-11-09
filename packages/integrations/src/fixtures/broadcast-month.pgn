@@ -1,0 +1,104 @@
+[Event "Round 1"]
+[Site "Synthetic Hall"]
+[Date "2026.03.14"]
+[Round "1"]
+[White "Testas, Jonas"]
+[Black "Pavyzdys, Rūta"]
+[Result "1-0"]
+[WhiteElo "2105"]
+[WhiteFideId "90000001"]
+[BlackFideId "90000002"]
+[ECO "B12"]
+[Opening "Caro-Kann Defense: Advance Variation"]
+[BroadcastName "Synthetic Open 2026 | Main"]
+[BroadcastURL "https://lichess.org/broadcast/synthetic-open-2026/round-1/AAAAAAAA"]
+[GameURL "https://lichess.org/broadcast/synthetic-open-2026/round-1/AAAAAAAA/gameAAA1"]
+
+1. e4 { [%clk 1:30:00] } 1... c6 { [%clk 1:30:00] } 2. d4 c5 3. e5 { A comment with [brackets] and "quotes" } 1-0
+
+
+[Event "Round 1"]
+[Date "2026.03.14"]
+[White "Nobody, Without Id"]
+[Black "Someone, Else"]
+[Result "0-1"]
+[ECO "C00"]
+[Opening "French Defense"]
+[BroadcastName "Synthetic Open 2026 | Main"]
+[GameURL "https://lichess.org/broadcast/synthetic-open-2026/round-1/AAAAAAAA/gameAAA2"]
+
+1. e4 e6 0-1
+
+
+[Event "Round 2"]
+[Date "2026.03.??"]
+[White "Fake, Player \"Junior\""]
+[Black "Placeholder, Black"]
+[Result "1/2-1/2"]
+[WhiteFideId "0"]
+[BlackFideId "90000003"]
+[BroadcastName "Synthetic Open 2026 | Main"]
+[GameURL "https://lichess.org/broadcast/synthetic-open-2026/round-2/BBBBBBBB/gameBBB1"]
+
+1. d4 d5 1/2-1/2
+
+
+[Event "Round 2"]
+[Date "2026.02.30"]
+[White "Imaginary, Ada"]
+[Black "Made Up, Bob"]
+[Result "*"]
+[WhiteFideId "90000004"]
+[BlackFideId "0123"]
+[Opening ""]
+[BroadcastName "Synthetic Open 2026 | Main"]
+[GameURL "https://lichess.org/broadcast/synthetic-open-2026/round-2/BBBBBBBB/gameBBB2"]
+
+1. c4 *
+
+
+[Event "Round 2"]
+[White "Bad, Result"]
+[Black "Also, Bad"]
+[Result "2-0"]
+[WhiteFideId "90000005"]
+[BroadcastName "Synthetic Open 2026 | Main"]
+[GameURL "https://lichess.org/broadcast/synthetic-open-2026/round-2/BBBBBBBB/gameBBB3"]
+
+1. e4 2-0
+
+
+[Event "Round 2"]
+[White "Script, Link"]
+[Black "Evil, Link"]
+[Result "1-0"]
+[WhiteFideId "90000006"]
+[BroadcastName "Synthetic Open 2026 | Main"]
+[GameURL "javascript:alert(1)"]
+
+1. e4 1-0
+
+
+[Event "Round 3"]
+[White "Malformed, Header"]
+[Black "Broken, Tag"]
+[Result "1-0"]
+[WhiteFideId "90000007"]
+[BroadcastName "Synthetic Open 2026 | Main"
+[GameURL "https://lichess.org/broadcast/synthetic-open-2026/round-3/CCCCCCCC/gameCCC1"]
+
+1. e4 1-0
+
+
+[Event "Round 3"]
+[Date "2026.03.20"]
+[White "Last, Player"]
+[Black "Final, Opponent"]
+[Result "0-1"]
+[WhiteFideId "90000008"]
+[BlackFideId "90000009"]
+[ECO "A00"]
+[BroadcastName "Synthetic Open 2026 | Main"]
+[GameURL "https://lichess.org/broadcast/synthetic-open-2026/round-3/CCCCCCCC/gameCCC2"]
+
+1. a3 0-1
