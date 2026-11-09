@@ -44,19 +44,21 @@ async function serverOn(env: Record<string, string>) {
   return { POST: route.POST, auth: getAuth() };
 }
 
-const STAGING = {
-  MYCHESS_ENV: 'staging',
-  BETTER_AUTH_URL: 'https://staging.mychess.test',
+// A local server with the test sign-in on: plain http, so no Secure cookie.
+// Local is the only environment the sign-in exists in (R-73, R-93, R-166).
+const LOCAL = {
+  MYCHESS_ENV: 'local',
+  BETTER_AUTH_URL: BASE,
   MYCHESS_TEST_SIGNIN: 'true',
   TEST_SIGNIN_SECRET: SECRET,
 };
 
-// A local server with the test sign-in on: plain http, so no Secure cookie.
-const LOCAL = { ...STAGING, MYCHESS_ENV: 'local', BETTER_AUTH_URL: BASE };
+// The same local server behind an https URL, so the cookie is Secure.
+const LOCAL_HTTPS = { ...LOCAL, BETTER_AUTH_URL: 'https://mychess.localhost' };
 
 // Production as it may run: the secret set, the switch off.
 const PRODUCTION = {
-  ...STAGING,
+  ...LOCAL,
   MYCHESS_ENV: 'production',
   BETTER_AUTH_URL: 'https://mychess.test',
   MYCHESS_TEST_SIGNIN: 'false',
@@ -82,8 +84,8 @@ afterEach(() => {
 });
 
 describe('POST /api/test/sign-in (R-73)', () => {
-  it('signs a persona in on staging, once per canonical email', async () => {
-    const { POST, auth } = await serverOn(STAGING);
+  it('signs a persona in locally, once per canonical email', async () => {
+    const { POST, auth } = await serverOn(LOCAL);
     const first = await POST(asPersona('u1@mychess.test'));
     const second = await POST(asPersona(' U1@MyChess.TEST '));
     expect([first.status, second.status]).toEqual([204, 204]);
@@ -109,7 +111,7 @@ describe('POST /api/test/sign-in (R-73)', () => {
   });
 
   it('marks the cookie Secure when the auth URL is https', async () => {
-    const { POST, auth } = await serverOn(STAGING);
+    const { POST, auth } = await serverOn(LOCAL_HTTPS);
     const response = await POST(asPersona('u1@mychess.test'));
     expect(response.headers.get('set-cookie')).toMatch(
       /^__Secure-better-auth\.session_token=[^;]+; Max-Age=7776000; Path=\/; HttpOnly; Secure; SameSite=Lax$/,
@@ -123,7 +125,7 @@ describe('POST /api/test/sign-in (R-73)', () => {
   it.each(['/api/auth/start-test-session', '/api/auth/startTestSession'])(
     'is not reachable over Better Auth HTTP handler (%s)',
     async (path) => {
-      const { auth } = await serverOn(STAGING);
+      const { auth } = await serverOn(LOCAL);
       const response = await auth.handler(
         new Request(`${BASE}${path}`, {
           method: 'POST',
@@ -153,9 +155,18 @@ describe('POST /api/test/sign-in (R-73)', () => {
     expect(await accountsInDb()).toEqual([]);
   });
 
+  // R-166: staging is gone, so a server still named staging does not start
+  // rather than keeping the sign-in on under a name it no longer knows.
+  it('refuses to start a server named staging with the flag on', async () => {
+    await expect(
+      serverOn({ ...LOCAL_HTTPS, MYCHESS_ENV: 'staging' }),
+    ).rejects.toThrow(/MYCHESS_ENV/);
+    expect(await accountsInDb()).toEqual([]);
+  });
+
   it('answers 404 without the flag', async () => {
     const { POST } = await serverOn({
-      ...STAGING,
+      ...LOCAL,
       MYCHESS_TEST_SIGNIN: 'false',
     });
     expect((await POST(asPersona('u1@mychess.test'))).status).toBe(404);
@@ -166,7 +177,7 @@ describe('POST /api/test/sign-in (R-73)', () => {
     ['no secret header', post('u1@mychess.test')],
     ['a non-persona email', asPersona('ruta@example.lt')],
   ])('answers 403 to %s, and creates nothing', async (_, request) => {
-    const { POST } = await serverOn(STAGING);
+    const { POST } = await serverOn(LOCAL);
     const response = await POST(request);
     expect(response.status).toBe(403);
     expect(response.headers.get('set-cookie')).toBeNull();
@@ -175,7 +186,7 @@ describe('POST /api/test/sign-in (R-73)', () => {
   });
 
   it('refuses a disabled persona (403) and starts no session (security item 8)', async () => {
-    const { POST, auth } = await serverOn(STAGING);
+    const { POST, auth } = await serverOn(LOCAL);
     const before = await POST(asPersona('u1@mychess.test'));
     await disableAccount(db, {
       email: 'u1@mychess.test',
@@ -198,7 +209,7 @@ describe('POST /api/test/sign-in (R-73)', () => {
 describe('startTestSession, called directly', () => {
   it.each([
     ['a production auth', PRODUCTION],
-    ['an auth without the flag', { ...STAGING, MYCHESS_TEST_SIGNIN: 'false' }],
+    ['an auth without the flag', { ...LOCAL, MYCHESS_TEST_SIGNIN: 'false' }],
   ])('refuses on %s: no account, no session', async (_, env) => {
     const { auth } = buildTestAuth(db, { env });
     await expect(
@@ -208,8 +219,8 @@ describe('startTestSession, called directly', () => {
     expect(await sessionCount()).toEqual([{ n: 0 }]);
   });
 
-  it('starts a session on a staging auth with the flag', async () => {
-    const { auth } = buildTestAuth(db, { env: STAGING });
+  it('starts a session on a local https auth with the flag', async () => {
+    const { auth } = buildTestAuth(db, { env: LOCAL_HTTPS });
     const { headers } = await auth.api.startTestSession({
       body: { email: 'u1@mychess.test' },
       returnHeaders: true,
@@ -221,7 +232,7 @@ describe('startTestSession, called directly', () => {
   });
 
   it('refuses a non-persona email itself: no account, no session', async () => {
-    const { auth } = buildTestAuth(db, { env: STAGING });
+    const { auth } = buildTestAuth(db, { env: LOCAL });
     await expect(
       auth.api.startTestSession({ body: { email: 'ruta@example.lt' } }),
     ).rejects.toMatchObject({ statusCode: 400 });

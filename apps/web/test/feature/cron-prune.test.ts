@@ -42,7 +42,7 @@ afterEach(() => {
 });
 
 describe('GET /api/cron/prune-rate-limits (#234)', () => {
-  it("prunes with Vercel Cron's bearer secret and says how many rows went", async () => {
+  it("prunes with the VM timer's bearer secret and says how many rows went", async () => {
     const response = await call(`Bearer ${SECRET}`);
 
     expect(response.status).toBe(200);

@@ -413,7 +413,7 @@ function lichessPlugin(env: WebEnv, fetchImpl: typeof fetch) {
 /**
  * Google, when both its credentials are set: an empty pair leaves the
  * provider out, so a Google sign-in is refused as unknown rather than
- * failing (security A7). Staging and production require both (env.ts).
+ * failing (security A7). Production requires both (env.ts).
  */
 function socialProviders(env: WebEnv) {
   if (!googleConfigured(env)) return {};
@@ -448,8 +448,9 @@ const rateLimitOptions = {
 } satisfies BetterAuthOptions['rateLimit'];
 
 /**
- * The client address as Vercel forwards it: Vercel sets both headers to
- * the client's IP and overwrites any value the client sent.
+ * The client address as Caddy forwards it in production: Caddy sets
+ * X-Real-IP from the connection and replaces any X-Forwarded-For the client
+ * sent (infra/edge/caddy/Caddyfile).
  *
  * The origin and callback-URL checks are on everywhere. Better Auth turns
  * them off by default when NODE_ENV is "test", which would let the feature

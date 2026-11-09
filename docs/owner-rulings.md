@@ -106,7 +106,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-70** (Q14): Every account has a "free" entitlement with limits enforced in the domain (coach: up to 30 linked players and 10 groups). No paywall in the MVP.
 - ~~**R-71** (Q15): Before the M1 production launch the lead counts v1 accounts with real activity and shows the owner, who decides then whether to invite them; no data migration is built unless asked.~~ Superseded by R-169.
 - **R-72** (Q20, Q27): Admin is a flag set only by a seed or CLI script, initially for the owner. Only Admins approve and publish starter repertoires.
-- **R-73** (Q21, Q28): Persona accounts sign in on staging through a test-only route that exists only when a staging env flag is set, accepts only `@mychess.test` emails and requires a shared-secret header; a test proves production refuses it.
+- **R-73** (Q21, Q28): Persona accounts sign in ~~on staging~~ through a test-only route that exists only when ~~a staging~~ an env flag is set, accepts only `@mychess.test` emails and requires a shared-secret header; a test proves production refuses it. (Staging superseded by R-166: local only.)
 - **R-74** (Q29): The Lithuanian terms proposed in `docs/glossary-lt.md` are adopted.
 - **R-75** (Q32): Unattended backlog runs open a PR with the gate green; the next supervised lead session reviews (qa, architect) and merges.
 - **R-76** (S2 brainstorm, #252, 2026-10-16): FSRS target retention is 90%, fixed for every player in M1; a player setting can follow later without data changes.
@@ -126,7 +126,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-90** (S1 close, #251, 2026-10-17): When proving the email ends an unproven account's Lichess link, the settings page tells the player Lichess was disconnected for security and can be connected again.
 - **R-91** (S1 close, #251, 2026-10-17): "Profile" means an Account's display name and language (never the Account itself); "Provider link" is a sign-in method linked to an Account. The S1 Lithuanian terms proposed in docs/glossary-lt.md are approved.
 - ~~**R-92** (S1 close, #251, 2026-10-17): The nightly full mutation run also runs the feature suite, so rules checked only there are mutation-tested; the per-push run stays fast.~~ Superseded by #295 (owner, 2026-10-22): mutation testing no longer runs in CI; `node quality/gate.mjs mutation` runs it by hand (#269 closed 2026-10-30).
-- **R-93** (S1 close, #251, 2026-10-17): The persona test sign-in (R-73) may be enabled on local and staging environments; production always refuses it.
+- **R-93** (S1 close, #251, 2026-10-17): The persona test sign-in (R-73) may be enabled on local ~~and staging~~ environments; production always refuses it. (Staging superseded by R-166.)
 - **R-94** (S1 close, #270, 2026-10-17): The admin audit email hash (R-88) is keyed: HMAC-SHA-256 with a per-environment secret (`AUDIT_EMAIL_KEY`), so a leaked database alone cannot confirm a guessed email.
 - **R-95** (S1 close, #270, 2026-10-17): Downloading the data export needs a sign-in within the last day, as linking does (R-84).
 - **R-96** (S3/S4 brainstorm, #253 #254, 2026-10-17): Slices reshuffled: sharing a player's own repertoire with a linked coach (R-42) moves from S3 to S4; the fork offer on unlink (R-44) moves from S4 to S5. S3 adds PGN export of a repertoire.

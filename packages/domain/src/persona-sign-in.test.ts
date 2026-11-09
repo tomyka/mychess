@@ -38,18 +38,16 @@ describe('personaEmail (R-73, R-93)', () => {
   });
 });
 
-describe('personaSignInAvailable (R-73, R-93)', () => {
+describe('personaSignInAvailable (R-73, R-93, R-166)', () => {
   it.each([
-    [false, true, true],
-    [false, false, false],
-    [true, true, false],
+    [true, true, true],
     [true, false, false],
+    [false, true, false],
+    [false, false, false],
   ])(
-    'in production %s, switched on %s, is available: %s',
-    (production, switchedOn, available) => {
-      expect(personaSignInAvailable({ production, switchedOn })).toBe(
-        available,
-      );
+    'local %s, switched on %s, is available: %s',
+    (local, switchedOn, available) => {
+      expect(personaSignInAvailable({ local, switchedOn })).toBe(available);
     },
   );
 });

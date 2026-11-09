@@ -26,12 +26,12 @@ export function personaEmail(raw: string): Result<string, PersonaRefusal> {
 }
 
 /**
- * Whether the persona sign-in exists (R-73, R-93): never in production, and
- * elsewhere only when switched on.
+ * Whether the persona sign-in exists (R-73, R-93, R-166): only on the local
+ * stack, and there only when switched on.
  */
 export function personaSignInAvailable(env: {
-  readonly production: boolean;
+  readonly local: boolean;
   readonly switchedOn: boolean;
 }): boolean {
-  return !env.production && env.switchedOn;
+  return env.local && env.switchedOn;
 }

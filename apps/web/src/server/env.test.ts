@@ -11,10 +11,10 @@ const base = {
   LICHESS_CLIENT_ID: 'mychess-local',
 };
 
-// What staging and production need on top of the base (security A7).
+// What production needs on top of the base (security A7).
 const deployed = {
   ...base,
-  BETTER_AUTH_URL: 'https://staging.mychess.lt',
+  BETTER_AUTH_URL: 'https://mychess.lt',
   GOOGLE_CLIENT_ID: 'google-client',
   GOOGLE_CLIENT_SECRET: 'google-secret',
 };
@@ -25,6 +25,9 @@ function without(key: string): Record<string, string> {
     Object.entries(base).filter(([name]) => name !== key),
   );
 }
+
+const issuePaths = (env: Record<string, string>) =>
+  webEnvSchema.safeParse(env).error?.issues.map((issue) => issue.path) ?? [];
 
 describe('webEnvSchema', () => {
   it('takes a local Mailpit environment and defaults to local, test sign-in off', () => {
@@ -37,21 +40,25 @@ describe('webEnvSchema', () => {
     });
   });
 
-  it('takes the local, staging and production environments', () => {
+  it('takes the local and production environments', () => {
     expect(
       webEnvSchema.parse({ ...base, MYCHESS_ENV: 'local' }).MYCHESS_ENV,
     ).toBe('local');
     expect(
-      webEnvSchema.parse({ ...deployed, MYCHESS_ENV: 'staging' }).MYCHESS_ENV,
-    ).toBe('staging');
-    expect(
       webEnvSchema.parse({ ...deployed, MYCHESS_ENV: 'production' })
         .MYCHESS_ENV,
     ).toBe('production');
-    expect(
-      webEnvSchema.safeParse({ ...base, MYCHESS_ENV: 'dev' }).success,
-    ).toBe(false);
   });
+
+  // There is no staging any more (R-166): its name is refused, not mapped.
+  it.each(['staging', 'dev', 'Production', ''])(
+    'refuses the environment %j',
+    (name) => {
+      expect(issuePaths({ ...deployed, MYCHESS_ENV: name })).toEqual([
+        ['MYCHESS_ENV'],
+      ]);
+    },
+  );
 
   it('refuses a secret shorter than 32 characters', () => {
     expect(
@@ -162,29 +169,20 @@ describe('webEnvSchema', () => {
   });
 });
 
-const issuePaths = (env: Record<string, string>) =>
-  webEnvSchema.safeParse(env).error?.issues.map((issue) => issue.path) ?? [];
+describe('webEnvSchema on production (security A7)', () => {
+  it('takes an https app URL and both Google credentials', () => {
+    expect(issuePaths({ ...deployed, MYCHESS_ENV: 'production' })).toEqual([]);
+  });
 
-describe('webEnvSchema on staging and production (security A7)', () => {
-  it.each(['staging', 'production'])(
-    'takes an https app URL and both Google credentials on %s',
-    (name) => {
-      expect(issuePaths({ ...deployed, MYCHESS_ENV: name })).toEqual([]);
-    },
-  );
-
-  it.each(['staging', 'production'])(
-    'refuses an http app URL on %s',
-    (name) => {
-      expect(
-        issuePaths({
-          ...deployed,
-          MYCHESS_ENV: name,
-          BETTER_AUTH_URL: 'http://staging.mychess.lt',
-        }),
-      ).toEqual([['BETTER_AUTH_URL']]);
-    },
-  );
+  it('refuses an http app URL', () => {
+    expect(
+      issuePaths({
+        ...deployed,
+        MYCHESS_ENV: 'production',
+        BETTER_AUTH_URL: 'http://mychess.lt',
+      }),
+    ).toEqual([['BETTER_AUTH_URL']]);
+  });
 
   it('takes an http app URL locally', () => {
     expect(
@@ -192,16 +190,14 @@ describe('webEnvSchema on staging and production (security A7)', () => {
     ).toEqual([]);
   });
 
-  it.each([
-    ['staging', 'GOOGLE_CLIENT_ID'],
-    ['staging', 'GOOGLE_CLIENT_SECRET'],
-    ['production', 'GOOGLE_CLIENT_ID'],
-    ['production', 'GOOGLE_CLIENT_SECRET'],
-  ])('needs %s to set %s', (name, key) => {
-    expect(issuePaths({ ...deployed, MYCHESS_ENV: name, [key]: '' })).toEqual([
-      [key],
-    ]);
-  });
+  it.each(['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'])(
+    'needs %s set',
+    (key) => {
+      expect(
+        issuePaths({ ...deployed, MYCHESS_ENV: 'production', [key]: '' }),
+      ).toEqual([[key]]);
+    },
+  );
 
   // R-73, R-93: production refuses the persona sign-in at start-up, not
   // only at request time.
@@ -229,19 +225,16 @@ describe('webEnvSchema on staging and production (security A7)', () => {
     ).toEqual([]);
   });
 
-  it.each(['local', 'staging'])(
-    'takes the test sign-in switched on with its secret on %s',
-    (name) => {
-      expect(
-        issuePaths({
-          ...deployed,
-          MYCHESS_ENV: name,
-          MYCHESS_TEST_SIGNIN: '1',
-          TEST_SIGNIN_SECRET: 's'.repeat(32),
-        }),
-      ).toEqual([]);
-    },
-  );
+  it('takes the test sign-in switched on with its secret locally', () => {
+    expect(
+      issuePaths({
+        ...deployed,
+        MYCHESS_ENV: 'local',
+        MYCHESS_TEST_SIGNIN: '1',
+        TEST_SIGNIN_SECRET: 's'.repeat(32),
+      }),
+    ).toEqual([]);
+  });
 
   it('lets a local environment leave Google out', () => {
     expect(
@@ -254,8 +247,40 @@ describe('webEnvSchema on staging and production (security A7)', () => {
   });
 });
 
+// Security N1: a production build (`next start`, the image) that forgot
+// MYCHESS_ENV refuses to start rather than running as local.
+describe('webEnvSchema under a production build (fails closed)', () => {
+  it('refuses NODE_ENV production without MYCHESS_ENV', () => {
+    expect(issuePaths({ ...deployed, NODE_ENV: 'production' })).toEqual([
+      ['MYCHESS_ENV'],
+    ]);
+  });
+
+  it.each(['local', 'production'])(
+    'takes NODE_ENV production with MYCHESS_ENV %s',
+    (name) => {
+      expect(
+        webEnvSchema.parse({
+          ...deployed,
+          NODE_ENV: 'production',
+          MYCHESS_ENV: name,
+        }).MYCHESS_ENV,
+      ).toBe(name);
+    },
+  );
+
+  it.each(['development', 'test'])(
+    'defaults to local under NODE_ENV %s',
+    (nodeEnv) => {
+      expect(
+        webEnvSchema.parse({ ...base, NODE_ENV: nodeEnv }).MYCHESS_ENV,
+      ).toBe('local');
+    },
+  );
+});
+
 describe('webEnvSchema secret', () => {
-  it.each(['local', 'staging', 'production'])(
+  it.each(['local', 'production'])(
     'refuses the .env.example placeholder secret on %s',
     (name) => {
       expect(
@@ -269,27 +294,6 @@ describe('webEnvSchema secret', () => {
   );
 });
 
-describe('webEnvSchema on Vercel (fails closed)', () => {
-  it('refuses a Vercel deployment that does not name its environment', () => {
-    expect(issuePaths({ ...deployed, VERCEL: '1' })).toEqual([['MYCHESS_ENV']]);
-  });
-
-  it.each(['staging', 'production'])(
-    'takes a Vercel deployment named %s',
-    (name) => {
-      expect(
-        webEnvSchema.parse({ ...deployed, VERCEL: '1', MYCHESS_ENV: name }),
-      ).toMatchObject({ VERCEL: '1', MYCHESS_ENV: name });
-    },
-  );
-
-  it('defaults to local only off Vercel, an empty VERCEL included', () => {
-    expect(webEnvSchema.parse({ ...base, VERCEL: '' }).MYCHESS_ENV).toBe(
-      'local',
-    );
-  });
-});
-
 describe('readWebEnv', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -297,9 +301,9 @@ describe('readWebEnv', () => {
 
   it('parses the process environment', () => {
     for (const [key, value] of Object.entries(deployed)) vi.stubEnv(key, value);
-    vi.stubEnv('MYCHESS_ENV', 'staging');
+    vi.stubEnv('MYCHESS_ENV', 'production');
     expect(readWebEnv()).toMatchObject({
-      MYCHESS_ENV: 'staging',
+      MYCHESS_ENV: 'production',
       MAIL_TRANSPORT: 'mailpit',
     });
   });

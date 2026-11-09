@@ -32,7 +32,8 @@ owner through the lead.
 - v1 (`archive/v1/mychess/supabase/migrations/`) is reference only, never
   copied: its files drifted from the live schema.
 - Migrations are generated with drizzle-kit and never edited once they have
-  reached staging.
+  reached `main`
+  (a green `main` deploys to production, R-166).
 
 ## Before you report a task done
 

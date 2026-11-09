@@ -4,11 +4,12 @@ import { testSignIn, type TestSignInDeps } from './test-sign-in';
 
 const SECRET = 's'.repeat(32);
 
-// A complete deployed environment (src/server/env.ts) without MYCHESS_ENV.
-const DEPLOYED_ENV = {
+// A complete production-ready environment (src/server/env.ts) without
+// MYCHESS_ENV.
+const FULL_ENV = {
   DATABASE_URL: 'postgres://u:p@localhost:5432/mychess',
   BETTER_AUTH_SECRET: 'x'.repeat(32),
-  BETTER_AUTH_URL: 'https://staging.mychess.lt',
+  BETTER_AUTH_URL: 'https://mychess.lt',
   MAIL_TRANSPORT: 'resend',
   RESEND_API_KEY: 're_x',
   MAIL_FROM: 'mychess <noreply@mychess.test>',
@@ -33,7 +34,7 @@ const deps = (
     .mockResolvedValue({ headers: answer(cookie.value) });
   const d: TestSignInDeps = {
     env: {
-      MYCHESS_ENV: 'staging',
+      MYCHESS_ENV: 'local',
       MYCHESS_TEST_SIGNIN: true,
       TEST_SIGNIN_SECRET: SECRET,
       ...over,
@@ -54,7 +55,7 @@ const post = (email: string, secret = SECRET) =>
   request(JSON.stringify({ email }), { 'x-test-secret': secret });
 
 describe('testSignIn (R-73)', () => {
-  it('signs a persona in on staging with its canonical email', async () => {
+  it('signs a persona in locally with its canonical email', async () => {
     const d = deps();
     const response = await testSignIn(post(' U1@MyChess.test '), d);
     expect(response.status).toBe(204);
@@ -63,11 +64,6 @@ describe('testSignIn (R-73)', () => {
       returnHeaders: true,
     });
     expect(response.headers.get('set-cookie')).toBe(COOKIE);
-  });
-
-  it('signs a persona in locally too', async () => {
-    const d = deps({ MYCHESS_ENV: 'local' });
-    expect((await testSignIn(post('u1@mychess.test'), d)).status).toBe(204);
   });
 
   it.each([
@@ -125,12 +121,10 @@ describe('testSignIn (R-73)', () => {
     expect(d.startTestSession).toHaveBeenCalledOnce();
   });
 
-  // Staging is its own Vercel project; its env as Vercel hands it over.
-  it('is on for a Vercel deployment named staging', async () => {
+  // The local env as the process hands it over: unset means local.
+  it('is on for a parsed environment that does not name itself', async () => {
     const env = webEnvSchema.parse({
-      ...DEPLOYED_ENV,
-      VERCEL: '1',
-      MYCHESS_ENV: 'staging',
+      ...FULL_ENV,
       MYCHESS_TEST_SIGNIN: '1',
       TEST_SIGNIN_SECRET: SECRET,
     });
@@ -141,10 +135,9 @@ describe('testSignIn (R-73)', () => {
     expect(response.status).toBe(204);
   });
 
-  it('cannot be switched on for a Vercel deployment named production', () => {
+  it('cannot be switched on for an environment named production', () => {
     const result = webEnvSchema.safeParse({
-      ...DEPLOYED_ENV,
-      VERCEL: '1',
+      ...FULL_ENV,
       MYCHESS_ENV: 'production',
       MYCHESS_TEST_SIGNIN: '1',
       TEST_SIGNIN_SECRET: SECRET,

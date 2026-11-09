@@ -116,7 +116,7 @@ name fails every db test, which migrates from scratch.
 
 ### Mail in tests (Mailpit, from S1)
 
-Staging and production send with Resend; local runs and E2E use Mailpit.
+Production sends with Resend; local runs and E2E use Mailpit.
 
 1. `docker compose -f infra/compose.yaml up -d` starts Postgres and Mailpit
    (Mailpit's UI on http://localhost:8025).
@@ -141,22 +141,29 @@ service containers on the same ports.
 
 ## Environments and sign-in (from S1)
 
-Every deployment sets `MYCHESS_ENV`: `production` on the VM (`staging` was
-the retired Vercel project's; `local` is the default only off Vercel). On
-Vercel the app refuses to start without it. Staging and production also need an https
-`BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, and a
-`BETTER_AUTH_SECRET` of at least 32 random characters
-(`openssl rand -base64 32`).
+`MYCHESS_ENV` is `local` or `production`; any other value, `staging`
+included, stops the app at start-up (there is no staging, R-166). It fails
+closed (security N1): under a production build (`NODE_ENV=production`, as
+`next start` and the image set it) the app refuses to start without it;
+only `next dev` and the tests default an unset value to `local`. Everything
+that starts a production build names it: `infra/compose/production.yml`
+sets `MYCHESS_ENV: production` as a literal, whatever the VM's `.env` says,
+and `infra/compose/e2e.yml`, `quality.yml` and `playwright.config.ts` set
+`local`. `next build` does not read it. Production also needs
+an https `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`;
+every environment needs a `BETTER_AUTH_SECRET` of at least 32 random
+characters (`openssl rand -base64 32`).
 
 The persona sign-in route (`POST /api/test/sign-in`, R-73) is on only where
 `MYCHESS_TEST_SIGNIN=1` and `TEST_SIGNIN_SECRET` are set and the environment is
-not production: set them on staging only, never on production. A production
-deployment with `MYCHESS_TEST_SIGNIN` on refuses to start (#268).
+not production: set them locally only (see "Local persona stack"), never
+on production. A production deployment with `MYCHESS_TEST_SIGNIN` on refuses
+to start (#268), and production's compose file never passes either.
 
 The admin CLI (`admin:grant`, `admin:disable`) keys the email hash in its
 audit rows with `AUDIT_EMAIL_KEY` (R-94; at least 32 random characters,
 `openssl rand -base64 32`) and refuses to run without it. Set it per
-environment, never the same value on staging and production, and keep it
+environment, never the same value locally and in production, and keep it
 stable: rotating it breaks "was this email audited" lookups for older rows.
 
 Sign-in rate limits are counted per client IP in the `rate_limits` table. The
@@ -206,8 +213,7 @@ the VM's `mychess-rate-limit-prune.timer` (`infra/host/rate-limit-prune.sh`)
 calling `GET /api/cron/prune-rate-limits`, which answers
 `200 {"pruned":<n>}` only to `Authorization: Bearer <CRON_SECRET>`, 401 to
 anything else, and 404 where `CRON_SECRET` (at least 32 characters) is not
-set. `apps/web/vercel.json` holds the same schedule for the Vercel staging
-project until it is retired. Daily, not hourly: a late prune only lets dead
+set. Daily, not hourly: a late prune only lets dead
 rows wait longer (owner, 2026-10-31). A new limit with a longer window, or a Better
 Auth upgrade that changes its built-in windows, must update those constants
 (#262).
@@ -380,13 +386,29 @@ A dump older than the running release's migrations needs that older
 release too: redeploy the commit the dump was taken under (its tag is in a
 `predeploy-*` file's name) with the deploy button, then restore.
 
-### Vercel staging: retired after the first production deploy
+### Local persona stack
 
-Until production is live, the Vercel project `mychess-staging` (team
-tomykas-projects) still deploys `main` with its Neon database (ADR 0009,
-superseded). Once the first production deploy is smoke-checked it is
-retired with its Neon store and `apps/web/vercel.json` (R-166); persona
-testing then runs locally against the persona seeds.
+There is no staging (R-166); persona testing and E2E run on the local stack
+(R-168), never against production.
+
+1. Start Postgres and Mailpit, copy `.env.example` and migrate, as in "Mail
+   in tests" above.
+2. In `apps/web/.env.local`, with `MYCHESS_ENV=local`, set
+   `MYCHESS_TEST_SIGNIN=1` and a `TEST_SIGNIN_SECRET` of at least 32 random
+   characters (`openssl rand -base64 32`).
+3. `pnpm --filter @mychess/db seed:personas` seeds the persona accounts and
+   their data (#258; it refuses to run unless `MYCHESS_ENV` is `local` and
+   the database host is `localhost`, `127.0.0.1`, `[::1]` or
+   `host.docker.internal`). Each run deletes the five persona accounts and
+   seeds them again, so it also resets whatever a tester changed. Other
+   accounts are never deleted, but a local account linked to
+   `persona-coach` receives the automatic forks of R-49 on each run. The
+   host check cannot tell a tunnel to a remote database on localhost from a
+   local one; never tunnel to production. The seed is built to
+   `packages/db/local/dist/`, outside the production image.
+4. `pnpm --filter @mychess/web dev`, then sign a persona in with
+   `POST /api/test/sign-in`, body `{"email":"persona-<id>@mychess.test"}`
+   and the secret in `x-test-secret`. Magic links land in Mailpit.
 
 ## Health check
 

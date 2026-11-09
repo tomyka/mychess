@@ -7,7 +7,7 @@ import type { WebEnv } from './env';
 import { sameSecret } from './same-secret';
 
 /**
- * The persona sign-in for local and staging (R-73, R-93), in one place: the
+ * The persona sign-in, local only (R-73, R-93, R-166), in one place: the
  * route's answer (`testSignIn`) and the Better Auth plugin whose server-only
  * endpoint starts the session (`testSignInPlugin`). Production never has it:
  * the environment refuses the switch there (env.ts), and both halves refuse
@@ -29,10 +29,10 @@ const personaEmailField = z.string().transform((raw, ctx) => {
 
 const testSignInBody = z.object({ email: personaEmailField });
 
-/** Whether the persona sign-in exists, as the domain decides it (R-73, R-93). */
+/** Whether the persona sign-in exists, as the domain decides it (R-73, R-93, R-166). */
 const enabled = (env: SwitchEnv): boolean =>
   personaSignInAvailable({
-    production: env.MYCHESS_ENV === 'production',
+    local: env.MYCHESS_ENV === 'local',
     switchedOn: env.MYCHESS_TEST_SIGNIN,
   });
 

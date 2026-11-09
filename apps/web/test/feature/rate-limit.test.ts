@@ -10,7 +10,7 @@ import {
 
 const { db, client } = useTestDatabase();
 
-/** A magic-link request from the client at `ip`, as Vercel forwards it. */
+/** A magic-link request from the client at `ip`, as Caddy forwards it. */
 function requestLink(
   built: BuiltAuth,
   email: string,

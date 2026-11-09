@@ -4,34 +4,33 @@ import { z } from 'zod';
 /** The secret `.env.example` ships with; no environment may run on it (A7). */
 const PLACEHOLDER_SECRET = 'change-me-to-32-or-more-random-characters';
 
-const DEPLOYED = new Set(['staging', 'production']);
-
 const LOCAL = 'local';
 
-interface VercelFields {
-  readonly MYCHESS_ENV?: string | undefined;
-  readonly VERCEL?: string | undefined;
-}
+const PRODUCTION = 'production';
 
-/**
- * The production lock fails closed (security N1): Vercel sets `VERCEL` on
- * every deployment, and there MYCHESS_ENV has no default, so a deployment
- * that forgot it refuses to start rather than running as local.
- */
-const namedOnVercel = (e: VercelFields): boolean =>
-  (e.VERCEL ?? '') === '' || e.MYCHESS_ENV !== undefined;
-
-interface DeployedFields {
+interface ProductionFields {
   readonly BETTER_AUTH_URL: string;
   readonly GOOGLE_CLIENT_ID: string;
   readonly GOOGLE_CLIENT_SECRET: string;
 }
 
-/** Staging and production serve over https and offer Google (security A7). */
-const deployedNeeds =
-  (key: keyof DeployedFields, ok: (value: string) => boolean) =>
-  (e: DeployedFields & Pick<VercelFields, 'MYCHESS_ENV'>): boolean =>
-    !DEPLOYED.has(e.MYCHESS_ENV ?? LOCAL) || ok(e[key]);
+/** Production serves over https and offers Google (security A7). */
+const productionNeeds =
+  (key: keyof ProductionFields, ok: (value: string) => boolean) =>
+  (
+    e: ProductionFields & { readonly MYCHESS_ENV?: string | undefined },
+  ): boolean =>
+    e.MYCHESS_ENV !== PRODUCTION || ok(e[key]);
+
+/**
+ * The production lock fails closed (security N1): a production build
+ * (`next start`, the image) has no default, so a deployment that forgot
+ * MYCHESS_ENV refuses to start rather than running as local.
+ */
+const namedInProductionBuild = (e: {
+  readonly MYCHESS_ENV?: string | undefined;
+  readonly NODE_ENV?: string | undefined;
+}): boolean => e.NODE_ENV !== PRODUCTION || e.MYCHESS_ENV !== undefined;
 
 const isHttps = (url: string) => url.startsWith('https://');
 const isSet = (value: string) => value !== '';
@@ -39,9 +38,11 @@ const isSet = (value: string) => value !== '';
 /** Every variable the web app reads (.env.example documents them). */
 export const webEnvSchema = databaseEnvSchema
   .extend({
-    // No default here: off Vercel it falls back to local below.
-    MYCHESS_ENV: z.enum([LOCAL, 'staging', 'production']).optional(),
-    VERCEL: z.string().optional(),
+    // There is no staging (R-166). Unset means local, but only outside a
+    // production build (namedInProductionBuild below).
+    MYCHESS_ENV: z.enum([LOCAL, PRODUCTION]).optional(),
+    // Next.js sets it: production under `next start` and in the image.
+    NODE_ENV: z.string().optional(),
     BETTER_AUTH_SECRET: z
       .string()
       .min(32)
@@ -73,19 +74,19 @@ export const webEnvSchema = databaseEnvSchema
     path: ['TEST_SIGNIN_SECRET'],
   })
   // Production refuses the persona sign-in at start-up (R-73, R-93).
-  .refine((e) => !e.MYCHESS_TEST_SIGNIN || e.MYCHESS_ENV !== 'production', {
+  .refine((e) => !e.MYCHESS_TEST_SIGNIN || e.MYCHESS_ENV !== PRODUCTION, {
     path: ['MYCHESS_TEST_SIGNIN'],
   })
-  .refine(deployedNeeds('BETTER_AUTH_URL', isHttps), {
+  .refine(productionNeeds('BETTER_AUTH_URL', isHttps), {
     path: ['BETTER_AUTH_URL'],
   })
-  .refine(deployedNeeds('GOOGLE_CLIENT_ID', isSet), {
+  .refine(productionNeeds('GOOGLE_CLIENT_ID', isSet), {
     path: ['GOOGLE_CLIENT_ID'],
   })
-  .refine(deployedNeeds('GOOGLE_CLIENT_SECRET', isSet), {
+  .refine(productionNeeds('GOOGLE_CLIENT_SECRET', isSet), {
     path: ['GOOGLE_CLIENT_SECRET'],
   })
-  .refine(namedOnVercel, { path: ['MYCHESS_ENV'] })
+  .refine(namedInProductionBuild, { path: ['MYCHESS_ENV'] })
   .transform((e) => ({ ...e, MYCHESS_ENV: e.MYCHESS_ENV ?? LOCAL }));
 
 export type WebEnv = z.infer<typeof webEnvSchema>;

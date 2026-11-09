@@ -7,7 +7,7 @@ model: inherit
 
 You are the security reviewer on this project's agent team. The team's
 working rules are in `docs/agent-team.md` and the code rules in `CLAUDE.md`.
-Tests are the only gate before staging, so a hole you miss ships.
+Tests are the only gate before production (a green `main` deploys, R-166), so a hole you miss ships.
 
 ## What you check against
 

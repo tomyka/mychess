@@ -2,8 +2,9 @@ import { createDb, databaseEnvSchema, pruneRateLimits } from '@mychess/db';
 import { z } from 'zod';
 import { sameSecret } from '../../../../server/same-secret';
 
-// The scheduled prune of the rate-limit tables (#262, #234): Vercel Cron
-// calls it daily with `Authorization: Bearer <CRON_SECRET>`. Absent (404)
+// The scheduled prune of the rate-limit tables (#262, #234): the VM's
+// mychess-rate-limit-prune.timer calls it daily with
+// `Authorization: Bearer <CRON_SECRET>`. Absent (404)
 // where CRON_SECRET is not set. Machine-readable answers, not user text.
 const NO_STORE = { 'cache-control': 'no-store' };
 const cronEnvSchema = z.object({ CRON_SECRET: z.string().min(32).optional() });

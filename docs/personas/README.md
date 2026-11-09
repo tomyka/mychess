@@ -29,19 +29,20 @@ All three players are in the coach's group "Šeštadienio grupė" and share the 
 
 ## How personas are used
 
-1. **Seeded staging accounts.** Each doc's "Seed data" section is the spec for a staging seed (accounts `persona-<id>@mychess.test`, repertoires as PGN, links, groups, assignments, training history, goals, messages, games). The seed must be idempotent and must never run against production.
-2. **E2E fixtures.** The same seed definitions back the E2E fixtures. Every journey ID (for example `U1-M1-3`, `C-M2-1`) maps to at least one happy-path E2E test; the test name should include the journey ID.
-3. **Persona tester agents.** The lead runs the four agents in `.claude/agents/persona-*.md` against staging at the end of each milestone (M1, M2, M3). Each agent walks its persona's journeys for that milestone in character and explores around them, then reports findings to the lead in a fixed format. The agents never edit code and never file issues; the lead triages and files them (labels `persona/<id>` plus `area/*`).
+1. **Seeded local accounts (R-168).** Each doc's "Seed data" section is the spec for the local persona seed (`pnpm --filter @mychess/db seed:personas`) (accounts `persona-<id>@mychess.test`, repertoires as PGN, links, groups, assignments, training history, goals, messages, games). The seed must be idempotent and must never run against production.
+   Journeys that start from a state the seed has already moved past (U1-M1-1, U1-M1-2, U1-M1-4, G-M1-1, D-M1-1, D-M1-3, C-M1-1, C-M1-2) run on a fresh `@mychess.test` account through the local test sign-in, which also stands in for Google sign-in locally. Not seeded in M1: Dovydas's two students, Gabija's EN setting, and any skipped ("I know this") moves; the journeys that need them create them.
+2. **E2E fixtures.** The same seed definitions back the E2E fixtures. Every journey ID (for example `U1-M1-3`, `C-M2-1`) maps to at least one happy-path E2E test; the test name should include the journey ID. The PGN files G-M1-2 and D-M1-2 import are `apps/web/e2e/fixtures/persona-taimanov.pgn` (comments, nested variations) and `persona-katalonu.pgn` (comments, `$1`/`$14`); `apps/web/test/feature/persona-pgn-fixtures.test.ts` proves they import whole.
+3. **Persona tester agents.** The lead runs the four agents in `.claude/agents/persona-*.md` against the local persona stack at the end of each milestone (M1, M2, M3). Each agent walks its persona's journeys for that milestone in character and explores around them, then reports findings to the lead in a fixed format. The agents never edit code and never file issues; the lead triages and files them (labels `persona/<id>` plus `area/*`).
 
 ## Conventions
 
 - Repertoire lines live in ```` ```pgn ```` fences, one line per row, with a `{label}` prefix. Every line was checked for legality with chess.js (1.0.0) on 2026-10-16; keep them legal when editing (any SAN parser that replays each row from the start position will do).
 - Late moves in the 2000+ lines (after about move 15) are representative, not engine-verified theory; chess-dev reviews them before any of them become starter content.
 - Lithuanian opening titles here are working names; the product uses the šachmatai.lt taxonomy (Q1).
-- External identities (FIDE, Lichess, Chess.com, chess-results.com) are placeholders served by staging fixtures. No real person's account or rating data is used.
+- External identities (FIDE, Lichess, Chess.com, chess-results.com) are placeholders served by local fixtures. No real person's account or rating data is used.
 
 ## Open dependencies
 
-- Staging URL and a test-only sign-in path for `@mychess.test` accounts (magic links on staging must be capturable without a real inbox). Until these exist, the tester agents cannot run.
-- Staging fixture adapters for FIDE (incl. the LTU ranking), Lichess, Chess.com and chess-results.com (M3). LSF publishes no rating of its own (#232); mychess shows a Lithuania ranking from the FIDE-LTU list instead (R-67).
+- The local persona stack (`docs/operations.md`): local Postgres, Mailpit, `pnpm dev`, the seed and the test sign-in for `@mychess.test` accounts (R-73, R-93).
+- Local fixture adapters for FIDE (incl. the LTU ranking), Lichess, Chess.com and chess-results.com (M3). LSF publishes no rating of its own (#232); mychess shows a Lithuania ranking from the FIDE-LTU list instead (R-67).
 - Spec decisions flagged as observations in the docs: two repertoires answering the same position (Rokas), hiding an unwanted group assignment (Dovydas), skipping the learn pass for known material (Dovydas), trusted-coach review of starter repertoires (coach).

@@ -28,7 +28,7 @@ a rule to unblock a teammate.
 - Check both locales (LT default, EN) and phone width on anything visible.
 
 **3. Fixtures and seeds.** You own `packages/db/src/seed/personas/` (the
-seeded staging accounts with their repertoires and training history), E2E
+seeded local persona accounts (R-168) with their repertoires and training history), E2E
 fixtures and test PGNs. Persona repertoires must be legal; prove it with
 `@mychess/chess`.
 

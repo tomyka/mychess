@@ -112,7 +112,7 @@ function mailRequest(env: MailEnv): MailRequest {
     : mailpitRequest(env.MAIL_FROM, required(env.MAILPIT_URL, 'MAILPIT_URL'));
 }
 
-/** Resend on staging and production, Mailpit locally and in E2E (R-27). */
+/** Resend in production, Mailpit locally and in E2E (R-27). */
 export function createMailer(
   env: MailEnv,
   fetchImpl: typeof fetch = fetch,

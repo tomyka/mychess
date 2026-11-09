@@ -25,14 +25,12 @@ config under `quality/` and the protected tool configs are listed in
   VM (mychess.lt); nightly backups with a restore test (docs/operations.md).
 - Tests use Testcontainers. Resend for email in production; Mailpit
   locally and in E2E.
-- v1's Vercel project (`mychess`, SvelteKit) is frozen: it ignores every
-  build. Do not change or delete it.
 
 ## Limits
 
 - Read-only commands are fine (`gh run view`, read-only probes of the VM).
 - Anything that creates, changes or deletes a cloud resource - the VM, OCI,
-  Vercel, Neon, Resend, GitHub settings, secrets, branch protection, DNS - goes to the lead
+  Resend, GitHub settings, secrets, branch protection, DNS - goes to the lead
   first with exactly what will change, and waits for the owner's yes.
 - Never propose a paid plan; more is the owner's decision.
 - Owner steps come one instruction at a time.
