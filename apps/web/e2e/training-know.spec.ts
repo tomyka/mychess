@@ -7,7 +7,6 @@ import { expect } from '@playwright/test';
 import { importRepertoire } from './support/assignments';
 import {
   CATALOGUES,
-  chooseEnglish,
   format,
   newOnboardedAccount,
   test,
@@ -33,7 +32,7 @@ import {
   trainLink,
 } from './support/training-cast';
 
-const { lt, en } = CATALOGUES;
+const { en } = CATALOGUES;
 
 const HOUR = 3_600_000;
 
@@ -55,34 +54,34 @@ test('D-M1-3: Dovydas marks the Catalan chapters known: nothing to learn, review
 }) => {
   test.setTimeout(180_000);
   const email = await newOnboardedAccount(page, request, 'Dovydas Jankauskas');
-  const url = await importRepertoire(page, lt, {
+  const url = await importRepertoire(page, en, {
     file: CATALAN_PGN,
     side: 'white',
     name: CATALAN,
   });
-  await expect(trainLink(page, lt, 'learn', 10)).toBeVisible();
-  const counts = await markChaptersKnown(page, lt, 'lt');
+  await expect(trainLink(page, en, 'learn', 10)).toBeVisible();
+  const counts = await markChaptersKnown(page, en, 'en');
   // Every own move, each counted once, confirmed with its count (R-147).
   expect(counts).toHaveLength(4);
   expect(counts.reduce((a, b) => a + b, 0)).toBe(ownKeys(catalan).length);
   await page.goto(url);
-  await expect(trainLink(page, lt, 'review', 0)).toBeVisible();
-  await trainLink(page, lt, 'learn', 0).click();
+  await expect(trainLink(page, en, 'review', 0)).toBeVisible();
+  await trainLink(page, en, 'learn', 0).click();
   await expect(
-    page.getByRole('heading', { name: lt.training.empty.nothingLeft.title }),
+    page.getByRole('heading', { name: en.training.empty.nothingLeft.title }),
   ).toBeVisible();
   await page.goto(url);
-  await trainLink(page, lt, 'review', 0).click();
+  await trainLink(page, en, 'review', 0).click();
   await expect(
-    page.getByRole('heading', { name: lt.training.empty.nothingDue.title }),
+    page.getByRole('heading', { name: en.training.empty.nothingDue.title }),
   ).toBeVisible();
   // "Next review: tomorrow HH:MM" (R-58: the first review is tomorrow), or
   // "in 24 h" once a minute passes after marking: review-time.ts words
   // anything under a day in hours (#308). The stored due times check R-58.
   const next = (when: string): string =>
-    format(lt.training.empty.nothingDue.next, { when });
-  const tomorrow = format(lt.training.when.tomorrow, { time: '' }).trim();
-  const inADay = format(lt.training.when.hours, { count: '24' });
+    format(en.training.empty.nothingDue.next, { when });
+  const tomorrow = format(en.training.when.tomorrow, { time: '' }).trim();
+  const inADay = format(en.training.when.hours, { count: '24' });
   await expect(
     page.getByText(next(tomorrow)).or(page.getByText(next(inADay))),
   ).toBeVisible();
@@ -96,14 +95,13 @@ test('D-M1-3: Dovydas marks the Catalan chapters known: nothing to learn, review
   }
 });
 
-test('D-M1-7 (en): reviewing both Catalans at 7...a6 shows the two-answers notice; each expects its own move', async ({
+test('D-M1-7: reviewing both Catalans at 7...a6 shows the two-answers notice; each expects its own move', async ({
   page,
   request,
   isMobile,
 }) => {
   test.setTimeout(180_000);
   const email = await newOnboardedAccount(page, request, 'Dovydas Jankauskas');
-  await chooseEnglish(page);
   for (const [file, name] of [
     [CATALAN_PGN, CATALAN],
     [CATALAN_A4_PGN, CATALAN_A4],

@@ -171,7 +171,7 @@ describe('previewImportAction', () => {
       id: taimanov,
       name: 'Taimanovas',
       version: 1,
-      added: { chapters: 1, moves: 2 },
+      added: { chapters: 1, moves: 2, annotated: 0 },
     });
     expect(outcome.preview.refusal).toBeNull();
     expect((await stored(taimanov, gabija)).repertoire.version).toBe(1);
@@ -187,15 +187,16 @@ describe('previewImportAction', () => {
     actAs(gabija);
     const outcome = previewSchema.parse(
       await previewImportAction({
-        text: '1. e4 c6 2. Nc3 d5 3. Nf3 Bg4 *',
+        // B10, which English (served, R-180) also calls "Caro-Kann Defense".
+        text: '1. e4 c6 2. c4 d5 *',
         side: 'black',
         into: caroKann,
       }),
     );
     expect(outcome.preview.renamed).toEqual([
       {
-        from: 'Karo-Kano gynyba',
-        to: 'Karo-Kano gynyba (B12, 2.\u00A0d4)',
+        from: 'Caro-Kann Defense',
+        to: 'Caro-Kann Defense (B12, 2.\u00A0d4)',
       },
     ]);
   });
@@ -220,7 +221,7 @@ describe('previewImportAction', () => {
       id: london,
       name: 'Londonas',
       version: 1,
-      added: { chapters: 0, moves: 0 },
+      added: { chapters: 0, moves: 0, annotated: 0 },
     });
   });
 
@@ -384,6 +385,31 @@ describe('confirmImportAction', () => {
     const before = graphOf(TAIMANOV, 'black');
     expect(loaded.graph.moves).toHaveLength(before.moves.length + 2);
     expect(await repertoireCount()).toBe(3);
+  });
+
+  it('adds the comments and NAGs of a file whose moves are all there, adding no chapter (R-175, R-176)', async () => {
+    const { gabija, london } = await cast();
+    actAs(gabija);
+    const outcome = await outcomeOf(
+      confirmImportAction({
+        text: game('1. d4 { Mine now } d5 $14 2. Bf4 { The bishop first } *'),
+        side: 'white',
+        target: { kind: 'existing', id: london, version: 1 },
+      }),
+    );
+    // No chapter added, so it opens on the repertoire itself.
+    expect(outcome).toEqual({ redirectedTo: `/repertuarai/${london}` });
+    const loaded = await stored(london, gabija);
+    expect(loaded.repertoire.version).toBe(2);
+    expect(loaded.graph.chapters).toEqual(graphOf(LONDON).chapters);
+    const move = (san: string) =>
+      loaded.graph.moves.find(
+        (m) => m.san === san && m.chapters.includes('c1'),
+      );
+    // The existing comment stays (R-176); the others are added.
+    expect(move('d4')?.comment).toBe('Solid');
+    expect(move('d5')?.nags).toEqual([14]);
+    expect(move('Bf4')?.comment).toBe('The bishop first');
   });
 
   it('refuses a file nothing of which can be added and writes nothing (R-115)', async () => {

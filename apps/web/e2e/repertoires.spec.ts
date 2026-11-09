@@ -7,10 +7,10 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { expect, type Page } from '@playwright/test';
+import { ecoName } from '@mychess/chess';
 import { playOnBoard, pressSquare, type BoardHand } from './support/board';
 import {
   CATALOGUES,
-  chooseEnglish,
   format,
   newDevice,
   newOnboardedAccount,
@@ -31,7 +31,7 @@ import {
   typeMove,
 } from './support/repertoires';
 
-const { lt } = CATALOGUES;
+const { en } = CATALOGUES;
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`fixtures/${name}`, import.meta.url));
@@ -55,20 +55,20 @@ const TAIMANOV_COUNTS = {
 // Two chapters each share these opening names, so each title carries its
 // ECO code and the move it parts at (R-158), proven with `importPgn` and
 // `chapterDistinctions`: 6.Be3 and 3.Nc3 (B48), 6.Be2 and 6.g3 (B47).
-const TAIMANOV_B48 = distinctTitle(lt, {
-  name: 'Siciliška gynyba, Taimanovo variantas',
+const TAIMANOV_B48 = distinctTitle(en, {
+  name: ecoName('B48', 'en'),
   eco: 'B48',
   move: '6. Be3',
 });
-const TAIMANOV_B47 = distinctTitle(lt, {
-  name: 'Siciliška gynyba, Taimanovo (Bastrikovo) variantas',
+const TAIMANOV_B47 = distinctTitle(en, {
+  name: ecoName('B47', 'en'),
   eco: 'B47',
   move: '6. Be2',
 });
 
 /** The Taimanov's intro, comments and arrow show on their moves. */
 async function expectTaimanovNotes(page: Page): Promise<void> {
-  const t = lt.repertoires;
+  const t = en.repertoires;
   await chooseChapter(page, TAIMANOV_B48);
   await expect(
     page.getByText(
@@ -83,7 +83,7 @@ async function expectTaimanovNotes(page: Page): Promise<void> {
   await expect(page.getByText('jei 9.Na4, tai Be7')).toBeVisible();
   await chip(page, '9... Be7').click();
   await expect(
-    page.getByText(arrowText(lt, { from: 'b4', to: 'e7' })),
+    page.getByText(arrowText(en, { from: 'b4', to: 'e7' })),
   ).toBeAttached();
 }
 
@@ -93,10 +93,10 @@ async function importAsNew(
   file: string,
   name: string,
 ): Promise<string> {
-  const t = lt.repertoires.import;
+  const t = en.repertoires.import;
   await page.goto('/repertuarai/importuoti');
-  await previewImport(page, lt, { file, side: 'black' });
-  await expectSummary(page, lt, 'lt', TAIMANOV_COUNTS);
+  await previewImport(page, en, { file, side: 'black' });
+  await expectSummary(page, en, 'en', TAIMANOV_COUNTS);
   await expect(page.getByRole('radio', { name: t.targetNew })).toBeChecked();
   await page.getByLabel(t.name, { exact: true }).fill(name);
   await page.getByRole('button', { name: t.confirm, exact: true }).click();
@@ -195,43 +195,38 @@ async function checkLondon(
   await expect(page.getByText(t.note.saved)).toBeVisible();
 }
 
-for (const locale of ['lt', 'en'] as const) {
-  test(`U1-M1-5 (own part, ${locale}): Rokas builds the London on the board, with a comment and an arrow`, async ({
-    page,
-    request,
-    isMobile,
-  }) => {
-    test.setTimeout(180_000);
-    const messages = CATALOGUES[locale];
-    await newOnboardedAccount(page, request, 'Rokas Petrauskas');
-    if (locale === 'en') await chooseEnglish(page);
-    await openRepertoires(page, messages);
-    const name = locale === 'lt' ? 'Londono sistema' : 'London System';
-    await createRepertoire(page, messages, { name, side: 'white' });
-    const comment =
-      locale === 'lt' ? 'Rikis išeina prieš e3.' : 'The bishop goes out first.';
-    await buildLondon({ page, isMobile }, messages, comment);
-    await checkLondon(page, messages, comment);
-    const t = messages.repertoires;
-    await page.getByRole('link', { name: t.header.back }).first().click();
-    await expect(page).toHaveURL(/\/repertuarai$/);
-    await expect(
-      page.getByText(plural(t.list.meta, locale, { chapters: 1, moves: 29 })),
-    ).toBeVisible();
-  });
-}
+// English only for now (R-180); the journey ran in Lithuanian too.
+test('U1-M1-5 (own part): Rokas builds the London on the board, with a comment and an arrow', async ({
+  page,
+  request,
+  isMobile,
+}) => {
+  test.setTimeout(180_000);
+  await newOnboardedAccount(page, request, 'Rokas Petrauskas');
+  await openRepertoires(page, en);
+  await createRepertoire(page, en, { name: 'London System', side: 'white' });
+  const comment = 'The bishop goes out first.';
+  await buildLondon({ page, isMobile }, en, comment);
+  await checkLondon(page, en, comment);
+  const t = en.repertoires;
+  await page.getByRole('link', { name: t.header.back }).first().click();
+  await expect(page).toHaveURL(/\/repertuarai$/);
+  await expect(
+    page.getByText(plural(t.list.meta, 'en', { chapters: 1, moves: 29 })),
+  ).toBeVisible();
+});
 
 test('G-M1-2, G-M1-6: Gabija imports the Taimanov, and its PGN download re-imports to the same tree', async ({
   page,
   request,
 }) => {
   test.setTimeout(180_000);
-  const t = lt.repertoires;
+  const t = en.repertoires;
   await newOnboardedAccount(page, request, 'Gabija Navickaitė');
-  await openRepertoires(page, lt);
+  await openRepertoires(page, en);
   await page.getByRole('link', { name: t.list.import }).click();
-  await previewImport(page, lt, { file: TAIMANOV, side: 'black' });
-  await expectSummary(page, lt, 'lt', TAIMANOV_COUNTS);
+  await previewImport(page, en, { file: TAIMANOV, side: 'black' });
+  await expectSummary(page, en, 'en', TAIMANOV_COUNTS);
   // R-64: the broken game is listed with its number and reason.
   await expect(
     page.getByRole('heading', {
@@ -242,7 +237,7 @@ test('G-M1-2, G-M1-6: Gabija imports the Taimanov, and its PGN download re-impor
     page.getByText(
       format(t.import.skippedMove, {
         game: '7',
-        reason: lt.pgn.illegalMove,
+        reason: en.pgn.illegalMove,
         move: 'Bxh7',
       }),
     ),
@@ -275,14 +270,14 @@ test('R-101, R-115, R-117: a PGN is added to an existing repertoire only where i
   request,
 }) => {
   test.setTimeout(180_000);
-  const t = lt.repertoires;
+  const t = en.repertoires;
   await newOnboardedAccount(page, request, 'Gabija Navickaitė');
   const url = await importAsNew(page, TAIMANOV, 'Taimanovas');
 
   // Nothing to add: refused, and the repertoire is not touched (R-115).
   await page.getByRole('link', { name: t.header.importInto }).first().click();
-  await previewImport(page, lt, { file: TAIMANOV_NOTHING });
-  await expect(page.getByText(lt.pgn.nothingToAdd)).toBeVisible();
+  await previewImport(page, en, { file: TAIMANOV_NOTHING });
+  await expect(page.getByText(en.pgn.nothingToAdd)).toBeVisible();
   await expect(
     page.getByRole('button', { name: t.import.confirm, exact: true }),
   ).toBeDisabled();
@@ -290,10 +285,10 @@ test('R-101, R-115, R-117: a PGN is added to an existing repertoire only where i
   // Two new lines and one it has: two chapters after the six (R-117).
   await page.goto(url);
   await page.getByRole('link', { name: t.header.importInto }).first().click();
-  await previewImport(page, lt, { file: TAIMANOV_MORE });
+  await previewImport(page, en, { file: TAIMANOV_MORE });
   await expect(
     page.getByText(
-      plural(t.import.added, 'lt', {
+      plural(t.import.added, 'en', {
         chapters: 2,
         moves: 12,
         name: 'Taimanovas',
@@ -309,7 +304,7 @@ test('R-101, R-115, R-117: a PGN is added to an existing repertoire only where i
   );
   await page.getByRole('link', { name: t.header.back }).first().click();
   await expect(
-    page.getByText(plural(t.list.meta, 'lt', { chapters: 8, moves: 119 })),
+    page.getByText(plural(t.list.meta, 'en', { chapters: 8, moves: 119 })),
   ).toBeVisible();
 });
 
@@ -320,10 +315,10 @@ test('the board takes a move from the keyboard in builder mode', async ({
 }) => {
   test.skip(isMobile, 'a phone has no arrow keys');
   await newOnboardedAccount(page, request, 'Rokas Petrauskas');
-  await openRepertoires(page, lt);
-  await createRepertoire(page, lt, { name: 'Klaviatūra', side: 'white' });
+  await openRepertoires(page, en);
+  await createRepertoire(page, en, { name: 'Klaviatūra', side: 'white' });
   // Tab from the mode switch lands on the board: one tab stop.
-  await page.getByRole('switch', { name: lt.repertoires.mode.build }).focus();
+  await page.getByRole('switch', { name: en.repertoires.mode.build }).focus();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('application')).toBeFocused();
   // The cursor starts on a1: to d2, pick up; to d4, drop.
@@ -344,8 +339,8 @@ test('another account’s repertoire and its download are not found', async ({
   browser,
 }) => {
   await newOnboardedAccount(page, request, 'Rokas Petrauskas');
-  await openRepertoires(page, lt);
-  await createRepertoire(page, lt, { name: 'Londono sistema', side: 'white' });
+  await openRepertoires(page, en);
+  await createRepertoire(page, en, { name: 'Londono sistema', side: 'white' });
   const id = /\/repertuarai\/([0-9a-f-]{36})/.exec(page.url())?.[1];
   if (id === undefined) throw new Error('no repertoire id in the URL');
 
@@ -356,7 +351,7 @@ test('another account’s repertoire and its download are not found', async ({
     // The page streams (loading.tsx), so its status is whatever streaming
     // gives; what the stranger sees is what is checked.
     await stranger.goto(`/repertuarai/${id}`);
-    await expect(stranger.getByText(lt.repertoire.notFound)).toBeVisible();
+    await expect(stranger.getByText(en.repertoire.notFound)).toBeVisible();
     await expect(stranger.getByText('Londono sistema')).toHaveCount(0);
     const exported = await other.request.get(`/api/repertoires/${id}/export`);
     expect(exported.status()).toBe(404);

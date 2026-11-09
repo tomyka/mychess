@@ -80,18 +80,17 @@ const requestLocale = async (): Promise<string | undefined> =>
   (await requestConfig({ requestLocale: Promise.resolve(undefined) })).locale;
 
 describe('the request locale', () => {
-  it('follows the cookie while signed out', async () => {
-    expect(await requestLocale()).toBe('lt');
-    setRequestCookie('NEXT_LOCALE', 'en');
+  it('is English while signed out, whatever the cookie says (R-180)', async () => {
+    expect(await requestLocale()).toBe('en');
+    setRequestCookie('NEXT_LOCALE', 'lt');
     expect(await requestLocale()).toBe('en');
   });
 
-  it("is the account's once signed in, whatever the cookie says", async () => {
+  it('is English for a Lithuanian account, whose stored locale stays (R-180)', async () => {
     request.cookie = await signIn('ruta@example.lt');
-    setRequestCookie('NEXT_LOCALE', 'en');
-    expect(await requestLocale()).toBe('lt');
-    await onboardAs('en');
     setRequestCookie('NEXT_LOCALE', 'lt');
+    expect(await requestLocale()).toBe('en');
+    await onboardAs('lt');
     expect(await requestLocale()).toBe('en');
   });
 });

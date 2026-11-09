@@ -82,6 +82,30 @@ function NameField({
   );
 }
 
+/**
+ * What a merge adds to the chosen repertoire: its new chapters and moves,
+ * when there are any, and the moves already there that gain a comment or
+ * NAGs (R-176), when there are any.
+ */
+function AddedLines({
+  target,
+}: {
+  readonly target: ImportTarget;
+}): JSX.Element {
+  const t = useTranslations('repertoires.import');
+  const { chapters, moves, annotated } = target.added;
+  return (
+    <>
+      {chapters + moves === 0 ? null : (
+        <p>{t('added', { chapters, moves, name: target.name })}</p>
+      )}
+      {annotated === 0 ? null : (
+        <p>{t('addedAnnotations', { count: annotated })}</p>
+      )}
+    </>
+  );
+}
+
 function ExistingField({
   id,
   options,
@@ -114,15 +138,7 @@ function ExistingField({
           </option>
         ))}
       </select>
-      {added?.id === id ? (
-        <p>
-          {t('added', {
-            chapters: added.added.chapters,
-            moves: added.added.moves,
-            name: added.name,
-          })}
-        </p>
-      ) : null}
+      {added?.id === id ? <AddedLines target={added} /> : null}
     </div>
   );
 }

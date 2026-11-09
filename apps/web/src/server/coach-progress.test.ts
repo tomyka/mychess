@@ -156,23 +156,36 @@ describe('coachProgressData', () => {
   });
 
   it('tells apart chapters named after the same opening (R-158)', async () => {
-    server.repertoire.mockResolvedValue(viewOf(caroKann()));
+    // English calls both B12 and B10 "Caro-Kann Defense".
+    const imported = importPgn(
+      [
+        '1. e4 c6 2. d4 d5 3. e5 Bf5 *',
+        '1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 *',
+        '1. e4 c6 2. c4 d5 *',
+      ].join('\n\n'),
+      'black',
+    );
+    if (!imported.ok) throw new Error(imported.refusal.reason);
+    server.repertoire.mockResolvedValue(viewOf(imported.value.graph));
     const page = await coachProgressData(PLAYER, REPERTOIRE);
     expect(page.chapters.map((chapter) => chapter.title)).toEqual([
-      'Karo-Kano gynyba (B12, 3.\u00A0e5)',
-      'Karo-Kano gynyba, Klasikinis variantas',
-      'Karo-Kano gynyba (B11, 2.\u00A0Nc3)',
+      'Caro-Kann Defense (B12, 3.\u00A0e5)',
+      'Caro-Kann Defense: Classical Variation',
+      'Caro-Kann Defense (B10, 2.\u00A0c4)',
     ]);
   });
 
   it('keeps titles plain where the coach’s language names them apart', async () => {
-    server.coach.mockResolvedValue({ ...JONAS, locale: 'en' });
-    server.repertoire.mockResolvedValue(viewOf(caroKann()));
-    const page = await coachProgressData(PLAYER, REPERTOIRE);
-    expect(page.chapters.map((chapter) => chapter.title)).toEqual([
-      'Caro-Kann Defense',
-      'Caro-Kann Defense: Classical Variation',
-      'Caro-Kann Defense: Two Knights Attack, Mindeno Variation',
-    ]);
+    for (const locale of ['lt', 'en'] as const) {
+      // A Lithuanian coach is served English too (R-180).
+      server.coach.mockResolvedValue({ ...JONAS, locale });
+      server.repertoire.mockResolvedValue(viewOf(caroKann()));
+      const page = await coachProgressData(PLAYER, REPERTOIRE);
+      expect(page.chapters.map((chapter) => chapter.title)).toEqual([
+        'Caro-Kann Defense',
+        'Caro-Kann Defense: Classical Variation',
+        'Caro-Kann Defense: Two Knights Attack, Mindeno Variation',
+      ]);
+    }
   });
 });

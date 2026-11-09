@@ -34,6 +34,7 @@ const PREVIEW: ImportPreview = {
   chapters: ['Taimanov'],
   renamed: [],
   skipped: [],
+  annotations: [],
   target: null,
   refusal: null,
 };
@@ -45,7 +46,7 @@ const MERGED: ImportPreview = {
     id: 'r-black',
     name: 'Taimanovas',
     version: 4,
-    added: { chapters: 2, moves: 41 },
+    added: { chapters: 2, moves: 41, annotated: 0 },
   },
 };
 
@@ -367,7 +368,7 @@ describe('ImportFlow', () => {
           id: 'r-black',
           name: 'Taimanovas',
           version: 4,
-          added: { chapters: 0, moves: 0 },
+          added: { chapters: 0, moves: 0, annotated: 0 },
         },
         refusal: 'pgn.nothingToAdd',
       },
@@ -387,6 +388,65 @@ describe('ImportFlow', () => {
       expect(screen.queryByText(MESSAGES.lt.pgn.nothingToAdd)).toBeNull();
     });
     await enabledConfirm();
+  });
+
+  it('enables Import for a file that only adds comments and NAGs, and says so (R-176)', async () => {
+    renderFlow();
+    await previewAsBlack();
+    server.preview.mockResolvedValue({
+      ok: true,
+      preview: {
+        ...MERGED,
+        chapters: [],
+        annotations: [{ move: '5. Nc3', comment: 'Main line' }],
+        target: {
+          id: 'r-black',
+          name: 'Taimanovas',
+          version: 4,
+          added: { chapters: 0, moves: 0, annotated: 1 },
+        },
+      },
+    });
+    fireEvent.click(screen.getByRole('radio', { name: i.targetExisting }));
+    await screen.findByText('Prideda komentarų ar ženklų 1 jau esamam ėjimui.');
+    expect(screen.getByText('5. Nc3: Main line')).toBeDefined();
+    // No "adds 0 chapters and 0 moves" promise beside it.
+    expect(screen.queryByText(/Prideda 0/)).toBeNull();
+    fireEvent.click(await enabledConfirm());
+    await waitFor(() => {
+      expect(server.confirm).toHaveBeenCalledWith({
+        text: PGN,
+        side: 'black',
+        target: { kind: 'existing', id: 'r-black', version: 4 },
+      });
+    });
+  });
+
+  it('says both what a merge adds in moves and in comments', async () => {
+    server.preview.mockImplementation((input) =>
+      Promise.resolve({
+        ok: true,
+        preview:
+          intoOf(input) === undefined
+            ? PREVIEW
+            : {
+                ...MERGED,
+                target: {
+                  id: 'r-black',
+                  name: 'Taimanovas',
+                  version: 4,
+                  added: { chapters: 2, moves: 41, annotated: 3 },
+                },
+              },
+      }),
+    );
+    renderFlow();
+    await previewAsBlack();
+    fireEvent.click(screen.getByRole('radio', { name: i.targetExisting }));
+    await screen.findByText(/Prideda 2 skyrius/);
+    expect(
+      screen.getByText('Prideda komentarų ar ženklų 3 jau esamiems ėjimams.'),
+    ).toBeDefined();
   });
 
   it('resets the target when the repertoire is gone', async () => {

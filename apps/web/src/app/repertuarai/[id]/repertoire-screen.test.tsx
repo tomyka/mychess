@@ -134,11 +134,14 @@ describe('RepertoireScreen: browsing', () => {
   it('names the board after the repertoire and the chapter', () => {
     renderScreen();
     const title = plainChapterTitleIn('lt');
-    // Both London chapters are named after the same opening (R-158).
-    expect(title(must(GRAPH.chapters[1]))).toBe(title(must(GRAPH.chapters[0])));
+    // The chapters are named in English (R-180), where the two London
+    // chapters' openings differ, so neither is told apart (R-158).
+    expect(title(must(GRAPH.chapters[1]))).not.toBe(
+      title(must(GRAPH.chapters[0])),
+    );
     expect(
       screen.getByRole('application', {
-        name: `Šachmatų lenta, Londono sistema, ${title(must(GRAPH.chapters[0]))} (D00, 1...\u00A0d5)`,
+        name: `Šachmatų lenta, Londono sistema, ${title(must(GRAPH.chapters[0]))}`,
       }),
     ).toBeDefined();
     expect(

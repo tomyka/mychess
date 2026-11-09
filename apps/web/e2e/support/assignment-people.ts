@@ -1,6 +1,7 @@
 // The people of the S5 journeys (plan Task C8): the coach and his players
-// (docs/personas/coach.md), each on a device of their own and in the test's
-// language, and the coach's group steps the journeys repeat.
+// (docs/personas/coach.md), each on a device of their own, in English (the
+// only language served, R-180), and the coach's group steps the journeys
+// repeat.
 import {
   expect,
   type APIRequestContext,
@@ -11,7 +12,6 @@ import {
 import { assignmentRow, deadlineText, homeAssignment } from './assignments';
 import { acceptInvite, expectInviteFrom, switchOnCoachMode } from './coaching';
 import {
-  chooseEnglish,
   format,
   newDevice,
   newOnboardedAccount,
@@ -36,24 +36,9 @@ export interface Cast {
   readonly devices: BrowserContext[];
 }
 
-/**
- * A new account named `name`, onboarded and then in `locale`, on home.
- * Returns its email.
- */
-async function account(
-  page: Page,
-  request: APIRequestContext,
-  name: string,
-  locale: Locale,
-): Promise<string> {
-  const email = await newOnboardedAccount(page, request, name);
-  if (locale === 'en') await chooseEnglish(page);
-  return email;
-}
-
 /** The coach on `page`, Coach mode on, on the coach dashboard. */
 export async function coachReady(page: Page, cast: Cast): Promise<void> {
-  await account(page, cast.request, COACH, cast.locale);
+  await newOnboardedAccount(page, cast.request, COACH);
   await switchOnCoachMode(page, cast.messages);
   await page.goto('/treneris');
 }
@@ -80,7 +65,7 @@ export async function linkedPlayer(
   const context = await newDevice(cast.browser);
   cast.devices.push(context);
   const page = await context.newPage();
-  const email = await account(page, cast.request, name, cast.locale);
+  const email = await newOnboardedAccount(page, cast.request, name);
   await page.goto(link);
   await expectInviteFrom(page, cast.messages, {
     coach: COACH,

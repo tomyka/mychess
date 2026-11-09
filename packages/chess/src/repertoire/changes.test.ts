@@ -182,6 +182,21 @@ describe('playerMoveChanges', () => {
     expect(c.commentsChanged).toBe(1);
   });
 
+  it('counts a move whose NAGs changed as a comment change (spec decision 5)', () => {
+    const after: RepertoireGraph = {
+      ...base,
+      moves: base.moves.map((m) => (m.san === 'e5' ? { ...m, nags: [14] } : m)),
+    };
+    expect(graphChanges(base, after).commentChanges.map((m) => m.nags)).toEqual(
+      [[14]],
+    );
+    expect(playerMoveChanges(base, after)).toEqual({
+      added: [],
+      removed: [],
+      commentsChanged: 1,
+    });
+  });
+
   it('lists a removed player move once per chapter it was in', () => {
     const after = ok(removeMove(base, 'c1', toOf(base, 'e5'), 'Nf3'));
     expect(playerMoveChanges(base, after).removed).toEqual([

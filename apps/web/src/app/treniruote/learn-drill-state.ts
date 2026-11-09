@@ -159,6 +159,16 @@ export function released(s: LearnDrillState): LearnDrillState {
 export const advanced = (s: LearnDrillState): LearnDrillState =>
   s.session === null ? s : { ...s, session: advanceLearn(s.session) };
 
+/**
+ * The state a move answers: with the opponent's move that still slides in
+ * counted as played, since the position on the board is already after it.
+ */
+export const answering = (s: LearnDrillState): LearnDrillState =>
+  opponentMoving(s) ? advanced(s) : s;
+
+/** Does the move field take a move now? Also while the opponent's move slides in (#324). */
+export const canType = (s: LearnDrillState): boolean => canPlay(answering(s));
+
 /** The new moves the plan teaches, and how many of them are learned. */
 export function learnCounts(s: LearnDrillState): {
   readonly done: number;

@@ -61,6 +61,25 @@ describe('createRepertoire and loadRepertoire', () => {
     );
   });
 
+  it('stores the NAGs of each move and loads them back (R-175)', async () => {
+    await seedAccount(db, 'rokas', 'rokas@example.lt');
+    const graph = graphOf('1. d4! d5 $14 $146 2. Bf4 *');
+    const id = await newRepertoire(db, {
+      ownerId: 'rokas',
+      side: 'white',
+      name: 'Su NAG',
+      graph,
+      now: T0,
+    });
+    const loaded = must(await loadRepertoire(db, id, 'rokas'));
+    expect(loaded.graph.moves.map((m) => [m.san, m.nags])).toEqual([
+      ['d4', [1]],
+      ['d5', [14, 146]],
+      ['Bf4', []],
+    ]);
+    expect(canonical(loaded.graph)).toEqual(canonical(graph));
+  });
+
   it('loads nothing for another account (the query filters by owner)', async () => {
     await seedAccount(db, 'rokas', 'rokas@example.lt');
     await seedAccount(db, 'rimantas', 'rimantas@example.lt');

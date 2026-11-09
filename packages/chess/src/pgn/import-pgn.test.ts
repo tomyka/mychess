@@ -444,6 +444,7 @@ describe('importPgn: replaying moves into the graph', () => {
         arrows: [],
         circles: [],
         comment: null,
+        nags: [],
         chapters: ['c1'],
       },
       {
@@ -454,6 +455,7 @@ describe('importPgn: replaying moves into the graph', () => {
         arrows: [],
         circles: [],
         comment: null,
+        nags: [],
         chapters: ['c1'],
       },
     ]);
@@ -858,5 +860,67 @@ describe('importPgn: move comments (R-102)', () => {
       'black',
     );
     expect(r.pgnGames).toEqual({ c1: 1, c2: 3 });
+  });
+});
+
+describe('importPgn: NAGs (R-175)', () => {
+  const nagsOf = (text: string, san: string) =>
+    must(imported(text).graph.moves.find((m) => m.san === san)).nags;
+
+  it('keeps a NAG on the move it follows', () => {
+    const text = '1. e4 $1 e5 $14 2. Nf3 *';
+    expect(nagsOf(text, 'e4')).toEqual([1]);
+    expect(nagsOf(text, 'e5')).toEqual([14]);
+    expect(nagsOf(text, 'Nf3')).toEqual([]);
+  });
+
+  it('reads the suffix glyphs as NAGs 1 to 6', () => {
+    const text = '1. e4! e5? 2. Nf3!! Nc6?? 3. Bb5!? a6?! *';
+    expect(
+      imported(text, 'black').graph.moves.map((m) => [m.san, m.nags]),
+    ).toEqual([
+      ['e4', [1]],
+      ['e5', [2]],
+      ['Nf3', [3]],
+      ['Nc6', [4]],
+      ['Bb5', [5]],
+      ['a6', [6]],
+    ]);
+  });
+
+  it('keeps several NAGs in file order without duplicates', () => {
+    expect(nagsOf('1. e4! $14 $1 $36 *', 'e4')).toEqual([1, 14, 36]);
+  });
+
+  it('keeps a NAG after a comment on the same move', () => {
+    const text = '1. e4 { Best } $1 e5 *';
+    expect(nagsOf(text, 'e4')).toEqual([1]);
+    expect(nagsOf(text, 'e5')).toEqual([]);
+  });
+
+  it('gives a variation move its NAG and leaves the main move alone', () => {
+    const text = '1. e4 e5 $1 (1... c5 $2 2. Nf3) 2. Nf3 $14 *';
+    expect(nagsOf(text, 'e5')).toEqual([1]);
+    expect(nagsOf(text, 'c5')).toEqual([2]);
+    expect(
+      imported(text)
+        .graph.moves.filter((m) => m.san === 'Nf3')
+        .map((m) => m.nags),
+    ).toEqual([[], [14]]);
+  });
+
+  it('drops a NAG with no move before it, and one outside $1 to $255', () => {
+    const { graph } = imported('$14 1. e4 $0 $256 e5 ( $5 1... c5) *');
+    expect(graph.moves.map((m) => m.nags)).toEqual([[], [], []]);
+  });
+
+  it('keeps the first NAGs when two games share a move', () => {
+    const text = '[Event "A"]\n\n1. e4 $1 e5 *\n\n[Event "B"]\n\n1. e4 $2 c5 *';
+    expect(nagsOf(text, 'e4')).toEqual([1]);
+  });
+
+  it('takes a later game NAGs when the first game had none', () => {
+    const text = '[Event "A"]\n\n1. e4 e5 *\n\n[Event "B"]\n\n1. e4 $5 c5 *';
+    expect(nagsOf(text, 'e4')).toEqual([5]);
   });
 });

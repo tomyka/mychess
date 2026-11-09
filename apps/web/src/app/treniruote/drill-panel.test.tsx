@@ -101,15 +101,35 @@ describe('LineSoFar', () => {
     expect(list.classList).toContain('lg:grid');
   });
 
-  it('scrolls the newest row of the desktop list into view as the line grows', () => {
+  it('scrolls the desktop list in its own box as the line grows, never the panel around it (#323)', () => {
     const seen = watchScrolls();
+    const height = vi
+      .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
+      .mockReturnValue(200);
     const { rerender } = render(<Line moves={LINE.slice(0, 3)} />);
+    const box = screen.getByRole('list').parentElement;
+    expect(box?.classList).toContain('lg:overflow-y-auto');
+    expect(box?.classList).toContain('lg:min-h-0');
+    expect(box?.scrollTop).toBe(200);
+
+    height.mockReturnValue(320);
     rerender(<Line moves={LINE} />);
-    expect(seen).toEqual(['2.Bf4', '4.Nf3c5']);
+    expect(box?.scrollTop).toBe(320);
+    // scrollIntoView would scroll the panel too, and hide the move field.
+    expect(seen).toEqual([]);
   });
 
   it('shows nothing before the first move', () => {
     render(<Line moves={[]} />);
     expect(screen.queryByRole('list')).toBeNull();
+  });
+
+  it('shows each move NAG glyphs after its SAN (R-175)', () => {
+    render(<Line moves={graphOf('1. d4 $1 d5 2. c4 $14 *').moves} />);
+    expect(lineRow().textContent).toBe('1. d4! d5 2. c4 ⩲');
+    expect(listRows()).toEqual([
+      ['1.', 'd4!', 'd5'],
+      ['2.', 'c4 ⩲', ''],
+    ]);
   });
 });

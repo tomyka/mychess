@@ -36,6 +36,7 @@ const move = (from: string, to: string, san: string, uci: string) => ({
   arrows: [],
   circles: [],
   comment: null,
+  nags: [],
   chapters: ['c1'],
 });
 

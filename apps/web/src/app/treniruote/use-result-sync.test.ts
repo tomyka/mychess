@@ -72,12 +72,13 @@ afterEach(() => {
 });
 
 describe('useResultSync', () => {
-  it('posts a recorded result and counts it down once answered', async () => {
+  it('posts a recorded result, never counting it unsynced while it saves', async () => {
     const { result: hook } = renderHook(() => useResultSync('rokas'));
     act(() => {
       hook.current.record(result(1));
     });
-    expect(hook.current.unsynced).toBe(1);
+    // In flight is not unsynced: the R-60 banner waits for a failed post (#324).
+    expect(hook.current.unsynced).toBe(0);
     await settle();
     expect(hook.current.unsynced).toBe(0);
     expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
@@ -175,6 +176,101 @@ describe('useResultSync', () => {
     await settle();
     expect(posted()).toEqual([[result(1).resultId], [result(2).resultId]]);
     expect(hook.current.unsynced).toBe(0);
+  });
+
+  it('counts no result unsynced while the posts that save it are in flight', async () => {
+    const answers: (() => void)[] = [];
+    fetchMock.mockImplementation(
+      (url, init) =>
+        new Promise<Response>((resolve) => {
+          answers.push(() => {
+            resolve(answering(url, init));
+          });
+        }),
+    );
+    const { result: hook } = renderHook(() => useResultSync('rokas'));
+    await settle();
+    act(() => {
+      hook.current.record(result(1));
+    });
+    act(() => {
+      hook.current.record(result(2));
+    });
+    await settle();
+    expect(hook.current.unsynced).toBe(0);
+    // The first post answers; the second result is still queued and posted next.
+    answers.shift()?.();
+    await settle();
+    expect(hook.current.unsynced).toBe(0);
+    answers.shift()?.();
+    await settle();
+    expect(posted()).toEqual([[result(1).resultId], [result(2).resultId]]);
+    expect(hook.current.unsynced).toBe(0);
+  });
+
+  it('counts what waits once a post fails, and each result recorded after', async () => {
+    fetchMock.mockImplementation(offline);
+    const { result: hook } = renderHook(() => useResultSync('rokas'));
+    act(() => {
+      hook.current.record(result(1));
+    });
+    await settle();
+    expect(hook.current.unsynced).toBe(1);
+    act(() => {
+      hook.current.record(result(2));
+    });
+    await settle();
+    expect(hook.current.unsynced).toBe(2);
+  });
+
+  it('gives up on a post that hangs after 10 s: counts it unsynced and retries every 30 s', async () => {
+    vi.useFakeTimers({
+      toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout'],
+    });
+    // Node's AbortSignal.timeout runs on a timer fake timers do not reach.
+    vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms) => {
+      const controller = new AbortController();
+      setTimeout(() => {
+        controller.abort(new DOMException('timed out', 'TimeoutError'));
+      }, ms);
+      return controller.signal;
+    });
+    // A server that never answers: the post ends only when it is aborted.
+    fetchMock.mockImplementation(
+      (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => {
+            reject(new DOMException('aborted', 'AbortError'));
+          });
+        }),
+    );
+    const { result: hook } = renderHook(() => useResultSync('rokas'));
+    await settle();
+    act(() => {
+      hook.current.record(result(1));
+    });
+    await act(() => vi.advanceTimersByTimeAsync(9_999));
+    await settle();
+    expect(hook.current.unsynced).toBe(0);
+    await act(() => vi.advanceTimersByTimeAsync(1));
+    await settle();
+    expect(hook.current.unsynced).toBe(1);
+    expect(pending(storage)).toEqual([result(1)]);
+
+    fetchMock.mockImplementation(answering);
+    await act(() => vi.advanceTimersByTimeAsync(SYNC_INTERVAL_MS));
+    await settle();
+    expect(posted()).toEqual([[result(1).resultId], [result(1).resultId]]);
+    expect(hook.current.unsynced).toBe(0);
+  });
+
+  it('counts what an earlier visit left only once its post fails', async () => {
+    enqueue(storage, result(1));
+    fetchMock.mockImplementation(offline);
+    const { result: hook } = renderHook(() => useResultSync('rokas'));
+    expect(hook.current.unsynced).toBe(0);
+    await settle();
+    expect(hook.current.unsynced).toBe(1);
   });
 
   it('keeps the queue in memory when storage is refused', async () => {

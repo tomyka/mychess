@@ -46,6 +46,11 @@ export interface RepertoireMove {
   readonly circles: readonly Circle[];
   /** The move's comment (R-102): part of the repertoire, exported with it. */
   readonly comment: string | null;
+  /**
+   * The move's NAGs (R-175), `$1` to `$255`, in file order without
+   * duplicates; `nags.ts` gives the glyphs shown for them.
+   */
+  readonly nags: readonly number[];
   readonly chapters: readonly string[];
 }
 

@@ -2,12 +2,16 @@
 import { z } from 'zod';
 import type { MoveChanges } from './changes';
 import type { RepertoireGraph } from './graph';
+import { NAG_MAX } from './nags';
 
 export const SIDES = ['white', 'black'] as const;
 export const sideSchema = z.enum(SIDES);
 const markColorSchema = z.enum(['G', 'R', 'Y', 'B']);
 
 const square = z.string().regex(/^[a-h][1-8]$/);
+
+/** A NAG as PGN writes it after `$`: a whole number from 1 to 255 (R-175). */
+export const nagSchema = z.number().int().min(1).max(NAG_MAX);
 
 export const arrowSchema = z.object({
   from: square,
@@ -46,6 +50,8 @@ const moveSchema = z.object({
   arrows: z.array(arrowSchema),
   circles: z.array(circleSchema),
   comment: z.string().nullable(),
+  // A graph stored before NAGs were kept (R-175) has none.
+  nags: z.array(nagSchema).default([]),
   chapters: z.array(z.string().min(1)),
 });
 

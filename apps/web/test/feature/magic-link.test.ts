@@ -172,11 +172,16 @@ describe('magic-link sign-in', () => {
     expect(built.sent[0]?.subject).toBe('Sign in to mychess');
   });
 
-  it('mails in Lithuanian when no locale was asked for', async () => {
+  it('mails in English when no locale or Lithuanian was asked for (R-180)', async () => {
     const built = buildTestAuth(db);
     await requestMagicLink(built, { email: 'ruta@example.lt' });
+    await requestMagicLink(built, {
+      email: 'jonas@example.lt',
+      metadata: { locale: 'lt' },
+    });
     expect(built.sent.map((m) => m.subject)).toEqual([
-      'Prisijungimas prie mychess',
+      'Sign in to mychess',
+      'Sign in to mychess',
     ]);
   });
 });

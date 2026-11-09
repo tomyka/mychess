@@ -13,9 +13,9 @@ describe('pgnFileName', () => {
     expect(pgnFileName('--Ąžuolas--', 'lt')).toBe('azuolas.pgn');
   });
 
-  it("falls back to the account's word for a repertoire when nothing is left", () => {
-    expect(pgnFileName('???', 'lt')).toBe('repertuaras.pgn');
-    expect(pgnFileName('', 'lt')).toBe('repertuaras.pgn');
+  it('falls back to the served word for a repertoire when nothing is left: English for a Lithuanian account (R-180)', () => {
+    expect(pgnFileName('???', 'lt')).toBe('repertoire.pgn');
+    expect(pgnFileName('', 'lt')).toBe('repertoire.pgn');
     expect(pgnFileName('???', 'en')).toBe('repertoire.pgn');
   });
 

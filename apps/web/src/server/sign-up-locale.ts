@@ -1,6 +1,6 @@
-import type { Locale } from '@mychess/domain';
+import { DEFAULT_LOCALE, type Locale } from '@mychess/domain';
 import { parseCookies } from 'better-auth/cookies';
-import { isLocale, LOCALE_COOKIE, resolveLocale } from '../i18n/locales';
+import { isLocale, LOCALE_COOKIE } from '../i18n/locales';
 
 /** The magic-link query parameter that carries the asking page's language. */
 const LINK_LOCALE = 'lang';
@@ -32,7 +32,12 @@ const cookieLocale = (headers: Headers | undefined): string | undefined => {
 export function signUpLocale(ctx: SignUpRequest | null): Locale {
   const fromLink = linkLocale(ctx?.request);
   if (fromLink !== null && isLocale(fromLink)) return fromLink;
-  return resolveLocale(cookieLocale(ctx?.headers));
+  // Stored, not served: any site language is kept as asked (R-180 leaves
+  // the stored locale alone), so this is not resolveLocale.
+  const fromCookie = cookieLocale(ctx?.headers);
+  return fromCookie !== undefined && isLocale(fromCookie)
+    ? fromCookie
+    : DEFAULT_LOCALE;
 }
 
 /** The magic link with the asking page's language on it, when known. */

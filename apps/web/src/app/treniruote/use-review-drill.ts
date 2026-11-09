@@ -38,6 +38,7 @@ import {
   afterHint,
   canHint,
   canPlay,
+  canType,
   isDone,
   positionOf,
   repertoireOf,
@@ -166,6 +167,7 @@ function useDrillInput(c: InputContext): DrillInput {
     position: shownKey(state),
     legal: c.legal,
     canPlay: canPlay(state),
+    canType: canType(state),
     play(move) {
       const now = clock.now();
       const answer = answerReview(state.session, move.san);

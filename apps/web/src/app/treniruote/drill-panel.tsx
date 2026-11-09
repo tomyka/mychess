@@ -3,6 +3,7 @@
 // The panel pieces both drills show (docs/design/training-screen.md): the
 // side to move, the move field or the promotion choice, and the line so far.
 import {
+  annotatedSan,
   lineText,
   moveNumber,
   sideToMove,
@@ -54,6 +55,10 @@ export function MoveRow({
   );
 }
 
+/** A move as the line shows it: its SAN and the glyphs of its NAGs (R-175). */
+const shownSan = (move: RepertoireMove): string =>
+  annotatedSan(move.san, move.nags);
+
 /** One row of the desktop move list: `2.  Nf3  d6`. */
 interface ListRow {
   readonly number: string;
@@ -70,7 +75,7 @@ function listRows(
   whiteFirst: boolean,
 ): ListRow[] {
   const offset = whiteFirst ? 0 : 1;
-  const sans = [...(whiteFirst ? [] : ['']), ...moves.map((m) => m.san)];
+  const sans = [...(whiteFirst ? [] : ['']), ...moves.map(shownSan)];
   return Array.from({ length: Math.ceil(sans.length / 2) }, (_, row) => ({
     number: moveNumber(Math.max(0, 2 * row - offset), whiteFirst),
     white: sans[2 * row] ?? '',
@@ -90,28 +95,20 @@ function layoutsOf(
   if (rootKey === undefined || moves.length === 0) return null;
   const whiteFirst = sideToMove(rootKey) === 'w';
   return {
-    text: lineText(
-      moves.map((m) => m.san),
-      whiteFirst,
-    ),
+    text: lineText(moves.map(shownSan), whiteFirst),
     rows: listRows(moves, whiteFirst),
   };
-}
-
-/** Brings the list's newest row into its scrolling panel; jsdom has no scrollIntoView. */
-function showNewest(list: HTMLElement | null): void {
-  const newest = list?.lastElementChild;
-  if (typeof newest?.scrollIntoView === 'function')
-    newest.scrollIntoView({ block: 'nearest' });
 }
 
 /**
  * The moves so far on the line from `rootKey`, newest last. A phone shows
  * them as one row that scrolls sideways; a desktop as the design's
- * two-column move list in the panel. Only one of the two is displayed at a
- * width, so a screen reader hears the line once. Whenever the line changes
- * the shown layout jumps to its newest move (no smooth scroll, so reduced
- * motion holds).
+ * two-column move list in the panel, in a box of its own that takes the
+ * panel's spare height and scrolls itself, so a long line never scrolls the
+ * panel and hides the move field above it (#323). Only one of the two is
+ * displayed at a width, so a screen reader hears the line once. Whenever
+ * the line changes the shown layout jumps to its newest move (no smooth
+ * scroll, so reduced motion holds).
  */
 export function LineSoFar({
   moves,
@@ -123,15 +120,16 @@ export function LineSoFar({
   const t = useTranslations('training.drill');
   const layouts = layoutsOf(moves, rootKey);
   const row = useRef<HTMLParagraphElement>(null);
-  const list = useRef<HTMLOListElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   const text = layouts?.text;
   useLayoutEffect(() => {
     const element = row.current;
     if (element !== null) element.scrollLeft = element.scrollWidth;
-    showNewest(list.current);
+    const scroller = box.current;
+    if (scroller !== null) scroller.scrollTop = scroller.scrollHeight;
   }, [text]);
   return (
-    <div>
+    <div ref={box} className="lg:min-h-0 lg:overflow-y-auto">
       <h2 className="sr-only">{t('line')}</h2>
       {layouts === null ? null : (
         <>
@@ -141,10 +139,7 @@ export function LineSoFar({
           >
             {layouts.text}
           </p>
-          <ol
-            ref={list}
-            className="hidden grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-1 tabular-nums lg:grid"
-          >
+          <ol className="hidden grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-1 tabular-nums lg:grid">
             {layouts.rows.map(({ number, white, black }) => (
               <li key={number} className="col-span-3 grid grid-cols-subgrid">
                 <span className="text-fg-muted">{number}</span>

@@ -13,10 +13,13 @@
 // and a graph past 5,000 moves: the preview asks the domain up front, and
 // createRepertoire or editRepertoire decide again at the confirm.
 import {
+  annotatedSan,
   importPgn,
   mergeInto,
+  moveNumber,
   SIDES,
   summarize,
+  type AddedAnnotation,
   type ImportedRepertoire,
   type LimitRefusal,
   type MergedRepertoire,
@@ -56,8 +59,25 @@ export interface ImportTarget {
   readonly name: string;
   /** The version the merge was computed from; the confirm sends it back. */
   readonly version: number;
-  /** What the merge adds to it. */
-  readonly added: { readonly chapters: number; readonly moves: number };
+  /**
+   * What the merge adds to it: chapters, moves, and the moves already
+   * there that gain a comment or NAGs (R-176).
+   */
+  readonly added: {
+    readonly chapters: number;
+    readonly moves: number;
+    readonly annotated: number;
+  };
+}
+
+/**
+ * A comment or NAGs a merge adds to a move the target already has (R-176):
+ * the move as players read it ("8. Qxc4!", with the glyphs of the NAGs it
+ * gains, R-175), and the comment it gains or null.
+ */
+export interface AddedComment {
+  readonly move: string;
+  readonly comment: string | null;
 }
 
 /** An existing chapter whose title a merge changes (R-159). */
@@ -80,6 +100,8 @@ export interface ImportPreview {
    */
   readonly renamed: readonly RenamedChapter[];
   readonly skipped: readonly Skipped[];
+  /** The comments and NAGs a merge adds (R-176); empty for a new repertoire. */
+  readonly annotations: readonly AddedComment[];
   readonly target: ImportTarget | null;
   /** Why Import is refused for this target (R-115), or null. */
   readonly refusal: NothingToAdd['reason'] | null;
@@ -251,10 +273,17 @@ function newPreview(
     chapters: titlesFrom(imported.graph, 0, locale),
     renamed: [],
     skipped: imported.skipped,
+    annotations: [],
     target: null,
     refusal: null,
   };
 }
+
+/** An added annotation as the preview lists it. */
+const addedComment = (added: AddedAnnotation): AddedComment => ({
+  move: `${moveNumber(added.ply, true)} ${annotatedSan(added.san, added.nags)}`,
+  comment: added.comment,
+});
 
 /** The preview of adding `imported` to `loaded`: the merged repertoire. */
 function mergedPreview(
@@ -267,6 +296,7 @@ function mergedPreview(
   const after = merged.graph;
   const { id, name, version } = loaded.repertoire;
   const addition = merged.added;
+  const annotations = addition.ok ? addition.value.annotations : [];
   return {
     summary: summarize(after),
     chapters: titlesFrom(after, before.chapters.length, locale),
@@ -274,13 +304,16 @@ function mergedPreview(
     skipped: [...imported.skipped, ...merged.skipped].sort(
       (a, b) => a.game - b.game,
     ),
+    annotations: annotations.map(addedComment),
     target: {
       id,
       name,
       version,
-      added: addition.ok
-        ? { chapters: addition.value.chapters, moves: addition.value.moves }
-        : { chapters: 0, moves: 0 },
+      added: {
+        chapters: addition.ok ? addition.value.chapters : 0,
+        moves: addition.ok ? addition.value.moves : 0,
+        annotated: annotations.length,
+      },
     },
     refusal: addition.ok ? null : addition.refusal.reason,
   };

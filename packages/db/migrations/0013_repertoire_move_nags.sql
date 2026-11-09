@@ -1,0 +1,1 @@
+ALTER TABLE "repertoire_moves" ADD COLUMN "nags" integer[] DEFAULT '{}' NOT NULL;

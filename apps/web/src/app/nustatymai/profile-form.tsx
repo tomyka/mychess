@@ -3,6 +3,7 @@
 import type { Locale } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX } from 'react';
+import { OFFERED_LOCALES } from '../../i18n/locales';
 import { isNameRefusal, LanguageField, NameField } from '../profile-fields';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
@@ -58,6 +59,7 @@ export function ProfileForm({
         <LanguageField
           legend={t('settings.profile.language')}
           initial={locale}
+          offered={OFFERED_LOCALES}
         />
         <button type="submit" disabled={pending} className={PRIMARY_BUTTON}>
           {t('settings.profile.submit')}

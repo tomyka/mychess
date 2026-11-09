@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  annotatedSan,
   chapterTree,
   isPlayerMove,
   moveKey,
@@ -147,11 +148,8 @@ function MoveChip({
   const number = moveNumber(token.ply, context.whiteFirst);
   const isCurrent = pathId(token.path) === context.current;
   const marks = marksOf(context, moveKey(move.from, move.san));
-  const label = useChipLabel(
-    `${number} ${move.san}`,
-    move.comment !== null,
-    marks,
-  );
+  const san = annotatedSan(move.san, move.nags);
+  const label = useChipLabel(`${number} ${san}`, move.comment !== null, marks);
   useEffect(() => {
     const chip = ref.current;
     if (isCurrent && typeof chip?.scrollIntoView === 'function')
@@ -179,7 +177,7 @@ function MoveChip({
         }}
         className={`inline-flex min-h-touch min-w-touch items-center justify-center gap-1 rounded-control px-2 text-base tabular-nums ${weight} ${tone}`}
       >
-        {move.san}
+        {san}
         <MoveGlyphs comment={move.comment !== null} marks={marks} />
       </button>
     </span>

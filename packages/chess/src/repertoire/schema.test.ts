@@ -91,7 +91,7 @@ describe('repertoire schemas', () => {
 
 describe('repertoireGraphSchema', () => {
   const imported = importPgn(
-    '[Event "A"]\n\n1. e4 {Main} e5 2. Nf3 { [%cal Gg1f3] [%csl Re4] } *',
+    '[Event "A"]\n\n1. e4 {Main} $1 e5 2. Nf3 { [%cal Gg1f3] [%csl Re4] } *',
     'white',
   );
   if (!imported.ok) throw new Error(imported.refusal.reason);
@@ -101,6 +101,7 @@ describe('repertoireGraphSchema', () => {
 
   it('parses a graph importPgn made, stored as JSON', () => {
     expect(g.moves.some((m) => m.arrows.length > 0)).toBe(true);
+    expect(g.moves.some((m) => m.nags.length > 0)).toBe(true);
     expect(repertoireGraphSchema.parse(JSON.parse(JSON.stringify(g)))).toEqual(
       g,
     );
@@ -136,6 +137,12 @@ describe('repertoireGraphSchema', () => {
       'a move with a numeric comment',
       { ...g, moves: [{ ...move, comment: 1 }] },
     ],
+    ['a move with NAG 0', { ...g, moves: [{ ...move, nags: [0] }] }],
+    ['a move with NAG 256', { ...g, moves: [{ ...move, nags: [256] }] }],
+    [
+      'a move with a fractional NAG',
+      { ...g, moves: [{ ...move, nags: [1.5] }] },
+    ],
     [
       'a move with an empty chapter id',
       { ...g, moves: [{ ...move, chapters: [''] }] },
@@ -143,6 +150,20 @@ describe('repertoireGraphSchema', () => {
     ['no moves list', { side: g.side, chapters: g.chapters }],
   ])('refuses %s', (_name, value) => {
     expect(ok(repertoireGraphSchema)(value)).toBe(false);
+  });
+});
+
+describe('repertoireGraphSchema: a graph stored before NAGs (R-175)', () => {
+  it('reads a move without NAGs as having none', () => {
+    const r = importPgn('1. e4 e5 *', 'white');
+    if (!r.ok) throw new Error(r.refusal.reason);
+    const stored: unknown = JSON.parse(
+      JSON.stringify(r.value.graph, (key, value: unknown) =>
+        key === 'nags' ? undefined : value,
+      ),
+    );
+    expect(JSON.stringify(stored)).not.toContain('nags');
+    expect(repertoireGraphSchema.parse(stored)).toEqual(r.value.graph);
   });
 });
 

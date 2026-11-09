@@ -32,6 +32,7 @@ const stored = (
   arrows: [],
   circles: [],
   comment: null,
+  nags: [],
   chapters,
 });
 

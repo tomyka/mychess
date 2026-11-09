@@ -29,7 +29,7 @@ import {
   trainLink,
 } from './support/training-cast';
 
-const { lt } = CATALOGUES;
+const { en } = CATALOGUES;
 
 /** The Pianissimo's eight White moves (1.e4 to 8.Bb3). */
 const PIANISSIMO = ['e4', 'Nf3', 'Bc4', 'c3', 'd3', 'O-O', 'Re1', 'Bb3'];
@@ -43,8 +43,8 @@ test('U1-M1-2: Rokas learns the Giuoco Pianissimo: arrows, then blind, then lear
 }) => {
   test.setTimeout(180_000);
   const email = await rokasWithItalian(page, request);
-  const drill: Drill = { page, messages: lt, books: [italian], isMobile };
-  await trainLink(page, lt, 'learn', 8).click();
+  const drill: Drill = { page, messages: en, books: [italian], isMobile };
+  await trainLink(page, en, 'learn', 8).click();
   await expectCounter(page, 0, 8);
   // The arrows round: each move shown with an arrow, played tap-tap.
   for (const san of PIANISSIMO) {
@@ -52,7 +52,7 @@ test('U1-M1-2: Rokas learns the Giuoco Pianissimo: arrows, then blind, then lear
     const asked = await answer(drill, 'board');
     expect([asked.move.san, asked.prompt]).toEqual([
       san,
-      lt.training.learn.arrows,
+      en.training.learn.arrows,
     ]);
   }
   await expectCounter(page, 0, 8);
@@ -61,18 +61,18 @@ test('U1-M1-2: Rokas learns the Giuoco Pianissimo: arrows, then blind, then lear
     const asked = await answer(drill);
     expect([asked.move.san, asked.prompt]).toEqual([
       san,
-      lt.training.learn.blind,
+      en.training.learn.blind,
     ]);
   }
   await expect(arrow(page)).toHaveCount(0);
   await answer(drill, 'wrong');
-  await expect(page.getByText(lt.training.learn.wrong)).toBeVisible();
+  await expect(page.getByText(en.training.learn.wrong)).toBeVisible();
   await expect(arrow(page)).toHaveCount(1);
   const rest = await drillToDone(drill);
   expect(rest.map((a) => a.move.san)).toEqual(
     expect.arrayContaining(PIANISSIMO.slice(3)),
   );
-  await expect(stat(page, lt.training.done.learned)).toHaveText('8');
+  await expect(stat(page, en.training.done.learned)).toHaveText('8');
   // Learned: eight Reviews, each first due a day later.
   await expect(async () => {
     const reviews = await storedReviews(email);
@@ -93,19 +93,19 @@ test('U1-M1-3: the next day Rokas sees the due count and time, reviews, lapses o
 }) => {
   test.setTimeout(180_000);
   const email = await rokasWithItalian(page, request);
-  const drill: Drill = { page, messages: lt, books: [italian], isMobile };
+  const drill: Drill = { page, messages: en, books: [italian], isMobile };
   await learnPianissimo(drill);
   await allDue(email);
   await page.goto('/');
   // Shown before starting: eight due, about 2 minutes.
-  await expect(today(page, lt)).toContainText(dueLine('lt', 8));
-  await startTodayReview(page, lt);
+  await expect(today(page, en)).toContainText(dueLine('en', 8));
+  await startTodayReview(page, en);
   await expectCounter(page, 0, 8);
   await answer(drill);
   await expectCounter(page, 1, 8);
   // A wrong answer: the right move shows as an arrow and must be played.
   const lapsed = await answer(drill, 'wrong');
-  await expect(page.getByText(lt.training.review.lapse)).toBeVisible();
+  await expect(page.getByText(en.training.review.lapse)).toBeVisible();
   await expect(arrow(page)).toHaveCount(1);
   const replay = await answer(drill);
   expect(replay.key).toBe(lapsed.key);
@@ -114,8 +114,8 @@ test('U1-M1-3: the next day Rokas sees the due count and time, reviews, lapses o
     type: 'U1-M1-3',
     description: `after the lapse, asked: ${rest.map((a) => a.move.san).join(' ')}`,
   });
-  await expect(doneHeading(page, lt)).toBeVisible();
-  await expect(stat(page, lt.training.done.lapses)).toHaveText('1');
+  await expect(doneHeading(page, en)).toBeVisible();
+  await expect(stat(page, en.training.done.lapses)).toHaveText('1');
   // R-59: the lapse is recorded once; every answer reached the server.
   await expect(async () => {
     const results = await loggedResults(email);
@@ -145,14 +145,14 @@ test('U1-M1-4: the Two Knights after the Pianissimo teaches only its own new mov
 }) => {
   test.setTimeout(180_000);
   const email = await rokasWithItalian(page, request);
-  const drill: Drill = { page, messages: lt, books: [italian], isMobile };
+  const drill: Drill = { page, messages: en, books: [italian], isMobile };
   await learnPianissimo(drill);
-  await setTrainingLimits(page, lt, { newPerDay: 10 });
+  await setTrainingLimits(page, en, { newPerDay: 10 });
   await page.goto('/repertuarai');
   await page.getByRole('link', { name: new RegExp(`^${ITALIAN}`) }).click();
   // Two left today: the Two Knights' 4.d3 and 5.c3. From 5...d6 on it is
   // the Pianissimo's position, already learned, so not taught again.
-  await trainLink(page, lt, 'learn', 2).click();
+  await trainLink(page, en, 'learn', 2).click();
   await expectCounter(page, 0, 2);
   const asked = await drillToDone(drill);
   test.info().annotations.push({
@@ -160,14 +160,14 @@ test('U1-M1-4: the Two Knights after the Pianissimo teaches only its own new mov
     description: asked.map((a) => `${a.move.san} (${a.prompt})`).join(', '),
   });
   const taught = asked
-    .filter((a) => a.prompt !== lt.training.learn.known)
+    .filter((a) => a.prompt !== en.training.learn.known)
     .map((a) => a.move.san);
   expect(new Set(taught)).toEqual(new Set(['d3', 'c3']));
   const pianissimo = new Set(ownKeys(italian).slice(0, 8));
   const shared = asked.filter((a) => pianissimo.has(`${a.key}|${a.move.san}`));
   expect(shared.length).toBeGreaterThan(0);
-  for (const a of shared) expect(a.prompt).toBe(lt.training.learn.known);
-  await expect(stat(page, lt.training.done.learned)).toHaveText('2');
+  for (const a of shared) expect(a.prompt).toBe(en.training.learn.known);
+  await expect(stat(page, en.training.done.learned)).toHaveText('2');
   await expect(async () => {
     expect(await storedReviews(email)).toHaveLength(10);
   }).toPass({ timeout: 10_000 });

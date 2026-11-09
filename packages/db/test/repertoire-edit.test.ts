@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import {
   applyEdit,
   emptyGraph,
@@ -547,5 +548,66 @@ describe('editRepertoire reads the graph once, and only when the row allows the 
       expect(matching(texts, /^begin/i)).toHaveLength(1);
       expect(matching(texts, /from "repertoire_moves"/)).toEqual([]);
     }
+  });
+});
+
+/** The D-M1-2 file (apps/web/e2e/fixtures/persona-katalonu.pgn): comments, `$1` and `$14`. */
+const KATALONU = readFileSync(
+  new URL(
+    '../../../apps/web/e2e/fixtures/persona-katalonu.pgn',
+    import.meta.url,
+  ),
+  'utf8',
+);
+
+/** `text` without its brace comments and NAGs: the same moves, unannotated. */
+const bare = (text: string): string =>
+  text.replace(/\{[^}]*\}/g, '').replace(/\$\d+/g, '');
+
+/** Each annotated move of `graph`: its key, comment and NAGs, sorted. */
+const annotationsOf = (graph: RepertoireGraph) =>
+  graph.moves
+    .filter((m) => m.comment !== null || m.nags.length > 0)
+    .map((m) => [moveKey(m.from, m.san), m.comment, m.nags] as const)
+    .sort(([a], [b]) => a.localeCompare(b));
+
+describe('editRepertoire: re-importing a file adds its comments and NAGs (#325, R-176)', () => {
+  it('adds them to the same moves without any, adding no chapter, as one recorded change', async () => {
+    await seedAccount(db, 'dovydas', 'dovydas@example.lt');
+    const id = await stored(bare(KATALONU), 'white', 'dovydas');
+    const before = await ownerGraph(id, 'dovydas');
+    expect(annotationsOf(before)).toEqual([]);
+    const full = graphOf(KATALONU);
+    const annotated = annotationsOf(full);
+    expect(annotated.length).toBeGreaterThan(0);
+    const saved = unwrap(
+      await edit(id, 'dovydas', 1, importOf(KATALONU, 'white')),
+    );
+    const changes = {
+      added: [],
+      removed: [],
+      commentsChanged: annotated.length,
+    };
+    expect(saved).toMatchObject({ version: 2, firstChapterId: null, changes });
+    const after = await ownerGraph(id, 'dovydas');
+    expect(after.chapters).toEqual(before.chapters);
+    expect(annotationsOf(after)).toEqual(annotated);
+    expect(canonical(after)).toEqual(canonical(saved.graph));
+    expect(await changeRows()).toEqual([
+      { repertoire_id: id, version: 2, changes, created_at: T1 },
+    ]);
+  });
+
+  it('still refuses the file once its comments and NAGs are there (R-115)', async () => {
+    await seedAccount(db, 'dovydas', 'dovydas@example.lt');
+    const id = await stored(KATALONU, 'white', 'dovydas');
+    const before = await state(id, 'dovydas');
+    expect(
+      await edit(id, 'dovydas', 1, importOf(bare(KATALONU), 'white')),
+    ).toEqual(refused('pgn.nothingToAdd'));
+    expect(await edit(id, 'dovydas', 1, importOf(KATALONU, 'white'))).toEqual(
+      refused('pgn.nothingToAdd'),
+    );
+    expect(await state(id, 'dovydas')).toEqual(before);
   });
 });

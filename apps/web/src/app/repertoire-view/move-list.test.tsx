@@ -57,6 +57,20 @@ describe('MoveList', () => {
     ]);
   });
 
+  it('shows each move NAG glyphs after its SAN (R-175)', () => {
+    renderList({
+      graph: graphOf('1. d4 $1 d5 2. c4 $14 e6 $146 *'),
+    });
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'd4!',
+      'd5',
+      'c4 ⩲',
+      'e6',
+    ]);
+    expect(chip('1. d4!')).toBeTruthy();
+    expect(chip('2. c4 ⩲')).toBeTruthy();
+  });
+
   it('goes to a move with the moves from the root', () => {
     const onGoto = renderList();
     fireEvent.click(chip('3... c5'));

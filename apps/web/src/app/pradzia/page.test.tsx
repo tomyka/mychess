@@ -128,10 +128,10 @@ describe('the onboarding page', () => {
     expect(document.querySelector('input[name="next"]')).toBeNull();
   });
 
-  it("prefills the provider's name and the account's language", async () => {
+  it("prefills the provider's name and keeps the account's stored language (R-180)", async () => {
     server.account = {
       displayName: 'Ruta J',
-      locale: 'en',
+      locale: 'lt',
       onboardedAt: null,
     };
     await renderPage('en');
@@ -140,9 +140,10 @@ describe('the onboarding page', () => {
         MESSAGES.en.onboarding.displayName,
       ).value,
     ).toBe('Ruta J');
+    expect(screen.queryByRole('radio')).toBeNull();
     expect(
-      screen.getByRole<HTMLInputElement>('radio', { name: 'English' }).checked,
-    ).toBe(true);
+      document.querySelector<HTMLInputElement>('input[name="locale"]')?.value,
+    ).toBe('lt');
   });
 
   it('offers to delete the account, confirmed by its email (R-86)', async () => {

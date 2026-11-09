@@ -228,20 +228,57 @@ describe('the review drill', () => {
     expect(kinds()).toEqual(['pass']);
   });
 
-  it('plays the opponent’s reply first on a chained item, input locked meanwhile', () => {
+  it('plays the opponent’s reply first on a chained item, the board locked meanwhile', () => {
     renderDrill();
     type('d4');
     wait(400);
     expect(lastWith('fen')).toBe(fenOf(afterD5));
     expect(lastWith('lastMove')).toEqual(['d7', 'd5']);
     expect(panel()).toContain('1... d5');
-    // The field keeps focus, but a move waits for the reply's slide.
-    type('Bf4');
-    expect(kinds()).toEqual(['pass']);
+    expect(lastWith('movable')?.dests?.size ?? 0).toBe(0);
     wait(150);
+    expect(lastWith('movable')?.dests?.size ?? 0).toBeGreaterThan(0);
     expect(panel()).toContain('1. d4 d5');
     type('Bf4');
     expect(kinds()).toEqual(['pass', 'pass']);
+  });
+
+  it('takes a move typed while the reply still slides in (#324)', () => {
+    renderDrill();
+    type('d4');
+    wait(400);
+    // The position is the player's already; only the board waits.
+    type('Bf4');
+    expect(kinds()).toEqual(['pass', 'pass']);
+    expect(panel()).toContain(T.review.correct);
+    expect(screen.getByLabelText<HTMLInputElement>(MOVE_INPUT).value).toBe('');
+    wait(150);
+    wait(400);
+    expect(screen.getByRole('heading', { name: T.done.title })).toBeDefined();
+  });
+
+  it('refuses a move typed during the correct flash, before the next card shows', () => {
+    renderDrill();
+    type('d4');
+    type('Bf4');
+    expect(kinds()).toEqual(['pass']);
+    expect(screen.getByLabelText<HTMLInputElement>(MOVE_INPUT).value).toBe(
+      'Bf4',
+    );
+    expect(panel()).toContain(T.review.correct);
+  });
+
+  it('grades a wrong move typed during the reply’s slide as a lapse', () => {
+    renderDrill();
+    type('d4');
+    wait(400);
+    type('c4');
+    expect(kinds()).toEqual(['pass', 'lapse']);
+    expect(arrows()).toEqual(['c1f4']);
+    wait(150);
+    type('Bf4');
+    expect(kinds()).toEqual(['pass', 'lapse']);
+    expect(panel()).toContain(T.review.correct);
   });
 
   it('records a wrong move as a lapse, shows the arrow, and the right move then goes on without a second record', () => {
@@ -480,5 +517,39 @@ describe('the review drill in a Black repertoire', () => {
     type('c5');
     expect(kinds()).toEqual(['pass']);
     expect(panel()).toContain('1. e4 c5');
+  });
+});
+
+describe('the review drill and NAGs', () => {
+  it('shows the line so far without NAG glyphs: review shows the board, not annotations (#325 decision 6)', () => {
+    const annotated = graphOf(
+      LONDON.replace('1. d4 { Solid', '1. d4 $1 { Solid').replace(
+        ' d5 2. Bf4',
+        ' d5 $14 2. Bf4',
+      ),
+    );
+    expect(
+      annotated.moves.filter((m) => m.nags.length > 0).map((m) => m.san),
+    ).toEqual(['d4', 'd5']);
+    renderDrill(
+      data({
+        entries: [
+          {
+            id: LONDON_ID,
+            name: 'Londono sistema',
+            side: 'white',
+            kind: 'own',
+            active: true,
+            graph: annotated,
+          },
+        ],
+        reviews: [dueReview(BF4, 1)],
+        learned: [BF4],
+      }),
+    );
+    wait(400);
+    expect(panel()).toContain('1. d4 d5');
+    expect(panel()).not.toContain('!');
+    expect(panel()).not.toContain('⩲');
   });
 });

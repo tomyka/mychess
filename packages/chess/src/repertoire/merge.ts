@@ -3,8 +3,10 @@
  * each imported chapter becomes a new chapter, and its moves go through the
  * existing repertoire's own move store, so positions merge (a move already
  * there gains the chapter) and the player keeps one answer per position
- * (R-54). The existing repertoire wins: a shared move keeps its comment and
- * marks, and gets the imported ones only where it has none.
+ * (R-54). The existing repertoire wins: a shared move keeps its comment,
+ * NAGs and marks, and gets the imported ones only where it has none. A game
+ * that adds no move adds no chapter, but its comments and NAGs still go to
+ * the moves that have none (R-176); its marks do not.
  */
 import {
   secondAnswer,
@@ -42,11 +44,36 @@ export interface MergedRepertoire {
 export interface MergeAddition {
   readonly chapters: number;
   readonly moves: number;
-  /** The first chapter it adds: the repertoire opens on it after the import. */
-  readonly firstChapterId: string;
+  /**
+   * The first chapter it adds: the repertoire opens on it after the import.
+   * Null when it adds only comments and NAGs.
+   */
+  readonly firstChapterId: string | null;
+  /**
+   * The comments and NAGs it adds to moves the repertoire already had
+   * (R-176), each move once, in the order the file reaches them.
+   */
+  readonly annotations: readonly AddedAnnotation[];
 }
 
-/** The merge adds no chapter: nothing in the file is new to the repertoire. */
+/**
+ * What a merge adds to a move the repertoire already had (R-176): the
+ * comment it had none of (else null) and the NAGs it had none of (else
+ * empty). `ply` counts half-moves from White's first move to the move,
+ * along the first imported line that reaches it, as `moveNumber` takes it.
+ */
+export interface AddedAnnotation {
+  readonly from: string;
+  readonly san: string;
+  readonly ply: number;
+  readonly comment: string | null;
+  readonly nags: readonly number[];
+}
+
+/**
+ * The merge adds no chapter and no comment or NAG: nothing in the file is
+ * new to the repertoire.
+ */
 export interface NothingToAdd {
   readonly reason: 'pgn.nothingToAdd';
 }
@@ -65,9 +92,15 @@ interface Visit {
 const firstPly = (rootKey: string): number =>
   sideToMove(rootKey) === 'b' ? 1 : 0;
 
-/** Gives a stored move the imported comment and marks where it has none. */
-function fillIn(draft: DraftMove, imported: RepertoireMove): void {
+/** Gives a stored move the imported comment and NAGs where it has none (R-176). */
+function annotate(draft: DraftMove, imported: RepertoireMove): void {
   draft.comment ??= imported.comment;
+  if (draft.nags.length === 0) draft.nags = [...imported.nags];
+}
+
+/** Gives a stored move the imported comment, NAGs and marks where it has none. */
+function fillIn(draft: DraftMove, imported: RepertoireMove): void {
+  annotate(draft, imported);
   if (draft.arrows.length === 0 && draft.circles.length === 0) {
     draft.arrows.push(...imported.arrows);
     draft.circles.push(...imported.circles);
@@ -104,21 +137,46 @@ function walk(
   }
 }
 
-/** What `after` adds to a repertoire of `chapters` chapters and `moves` moves. */
+/** What `after` has that `before`, the same move before the merge, had none of. */
+function addedTo(
+  before: RepertoireMove,
+  after: RepertoireMove,
+  ply: number,
+): AddedAnnotation[] {
+  const comment = before.comment === null ? after.comment : null;
+  const nags = before.nags.length === 0 ? after.nags : [];
+  if (comment === null && nags.length === 0) return [];
+  return [{ from: after.from, san: after.san, ply, comment, nags }];
+}
+
+/**
+ * What `after` adds to `before`, the existing repertoire, given the plies
+ * at which the merge reached each existing move.
+ */
 function additionOf(
+  before: RepertoireGraph,
   after: RepertoireGraph,
-  chapters: number,
-  moves: number,
+  plies: ReadonlyMap<string, number>,
 ): Result<MergeAddition, NothingToAdd> {
-  const first = after.chapters[chapters];
-  if (first === undefined)
+  const was = new Map(before.moves.map((m) => [moveKey(m.from, m.san), m]));
+  const now = new Map(after.moves.map((m) => [moveKey(m.from, m.san), m]));
+  const annotations = [...plies].flatMap(([key, ply]) => {
+    const old = was.get(key);
+    const merged = now.get(key);
+    return old === undefined || merged === undefined
+      ? []
+      : addedTo(old, merged, ply);
+  });
+  const first = after.chapters[before.chapters.length];
+  if (first === undefined && annotations.length === 0)
     return { ok: false, refusal: { reason: 'pgn.nothingToAdd' } };
   return {
     ok: true,
     value: {
-      chapters: after.chapters.length - chapters,
-      moves: after.moves.length - moves,
-      firstChapterId: first.id,
+      chapters: after.chapters.length - before.chapters.length,
+      moves: after.moves.length - before.moves.length,
+      firstChapterId: first?.id ?? null,
+      annotations,
     },
   };
 }
@@ -131,6 +189,8 @@ class Merge {
   private readonly existing: RepertoireGraph;
   /** The move keys of the existing repertoire and of the chapters added so far. */
   private readonly known: Set<string>;
+  /** The ply at which the merge first reached each move, by move key. */
+  private readonly plies = new Map<string, number>();
 
   constructor(existing: RepertoireGraph) {
     this.side = existing.side;
@@ -143,8 +203,9 @@ class Merge {
   /**
    * Adds one imported chapter if it keeps a move that neither the existing
    * repertoire nor the chapters added before it have (R-117, R-122). A
-   * chapter whose moves are all refused or already there is not added and
-   * changes nothing, but its refused moves are reported.
+   * chapter whose moves are all refused or already there is not added; it
+   * only gives its comments and NAGs to the moves it reaches that have none
+   * (R-176), and its refused moves are reported.
    */
   add(source: Chapter, children: Children, pgnGame: number): void {
     const refused: Skipped[] = [];
@@ -159,6 +220,7 @@ class Merge {
     });
     if (fresh === 0) {
       this.skipped.push(...refused);
+      this.annotateFrom(source.rootKey, children);
       return;
     }
     const chapter = this.renamed(source);
@@ -180,7 +242,7 @@ class Merge {
       moves: this.moves.list(),
     };
     const walks = chapterWalks(graph);
-    const { chapters: existing, moves: existingMoves } = this.existing;
+    const existing = this.existing.chapters;
     const chapters = this.chapters.map((c, i) =>
       i < existing.length
         ? c
@@ -190,7 +252,7 @@ class Merge {
     return {
       graph: merged,
       skipped: this.skipped,
-      added: additionOf(merged, existing.length, existingMoves.length),
+      added: additionOf(this.existing, merged, this.plies),
     };
   }
 
@@ -201,6 +263,20 @@ class Merge {
         ? ({ kind: 'index', number: nextChapterNumber(this.chapters) } as const)
         : source.nameSource;
     return { ...source, id: nextChapterId(this.chapters), nameSource };
+  }
+
+  /**
+   * Gives the comments and NAGs of a chapter that adds no move to the moves
+   * it reaches, stopping at a move the repertoire would refuse.
+   */
+  private annotateFrom(root: string, children: Children): void {
+    walk(root, children, (move, ply) => {
+      const stored = this.moves.find(move);
+      if (stored === undefined) return false;
+      this.reached(move, ply);
+      annotate(stored, move);
+      return true;
+    });
   }
 
   private put(
@@ -215,8 +291,15 @@ class Merge {
       return false;
     }
     this.known.add(moveKey(move.from, move.san));
+    this.reached(move, ply);
     fillIn(put.value, move);
     return true;
+  }
+
+  /** Notes the ply of the merge's first visit to `move`. */
+  private reached(move: RepertoireMove, ply: number): void {
+    const key = moveKey(move.from, move.san);
+    if (!this.plies.has(key)) this.plies.set(key, ply);
   }
 }
 

@@ -56,8 +56,15 @@ export interface MoveTaker {
   readonly position: string;
   /** Its legal moves. */
   readonly legal: readonly BoardMove[];
-  /** Does the drill take a move now? */
+  /** Does the drill take a move from the board now? */
   readonly canPlay: boolean;
+  /**
+   * Does it take a typed move now? Also while the opponent's move still
+   * slides in: the position is the player's already, and a move typed the
+   * moment the reply shows must not be lost (#324). Only the board waits,
+   * so a drag does not fight the slide.
+   */
+  readonly canType: boolean;
   readonly play: (move: BoardMove) => void;
   /** Puts a refused piece back on its square. */
   readonly putBack: () => void;
@@ -78,7 +85,7 @@ export function useMoveInput(taker: MoveTaker): MoveInput {
       else taker.putBack();
     },
     onTyped(text) {
-      if (!taker.canPlay) return false;
+      if (!taker.canType) return false;
       const move = findLegalMove(taker.position, text);
       if (move === null) taker.unknown();
       else taker.play(move);

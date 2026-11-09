@@ -18,18 +18,15 @@ import {
 } from './support/coaching';
 import {
   CATALOGUES,
-  chooseEnglish,
   freshEmail,
   newDevice,
   newOnboardedAccount,
   onboard,
   signIn,
   test,
-  type Locale,
-  type Messages,
 } from './support/journey';
 
-const { lt, en } = CATALOGUES;
+const { en } = CATALOGUES;
 
 const GROUP = 'Šeštadienio grupė';
 const COACH = 'Rimantas Vaitkus';
@@ -46,23 +43,19 @@ async function onDevice(
 }
 
 /**
- * C-M1-1: Rimantas, in `locale`, switches Coach mode on, makes the group
- * and its invite.
+ * C-M1-1: Rimantas switches Coach mode on, makes the group and its invite.
  */
 async function coachInvitesGroup(
   page: Page,
   request: APIRequestContext,
-  locale: Locale,
 ): Promise<string> {
-  const messages = CATALOGUES[locale];
   await newOnboardedAccount(page, request, COACH);
-  if (locale === 'en') await chooseEnglish(page);
-  await switchOnCoachMode(page, messages);
-  await page.getByRole('link', { name: messages.settings.home }).click();
-  await page.getByRole('link', { name: messages.app.coachArea }).click();
+  await switchOnCoachMode(page, en);
+  await page.getByRole('link', { name: en.settings.home }).click();
+  await page.getByRole('link', { name: en.app.coachArea }).click();
   await expect(page).toHaveURL(/\/treneris$/);
-  await createGroup(page, messages, GROUP);
-  return createInvite(page, messages, { kind: 'group', group: GROUP });
+  await createGroup(page, en, GROUP);
+  return createInvite(page, en, { kind: 'group', group: GROUP });
 }
 
 /** U1-M1-1, G-M1-1, D-M1-1: three players accept; returns Rokas's page. */
@@ -77,21 +70,20 @@ async function threePlayersAccept(
   await signUpThroughInvite(rokas, request, {
     link,
     name: 'Rokas Petrauskas',
-    locale: 'lt',
   });
-  await expectInviteFrom(rokas, lt, { coach: COACH, group: GROUP });
-  await acceptInvite(rokas, lt);
+  await expectInviteFrom(rokas, en, { coach: COACH, group: GROUP });
+  await acceptInvite(rokas, en);
   await expect(rokas.getByText(COACH)).toBeVisible();
   // Gabija, already signed in.
   const gabija = await onDevice(browser, devices);
   await newOnboardedAccount(gabija, request, 'Gabija Navickaitė');
   await gabija.goto(link);
-  await expectInviteFrom(gabija, lt, { coach: COACH, group: GROUP });
-  await acceptInvite(gabija, lt);
-  // Dovydas, in English.
+  await expectInviteFrom(gabija, en, { coach: COACH, group: GROUP });
+  await acceptInvite(gabija, en);
+  // Dovydas, signed in and onboarded before he opens the invite.
   const dovydas = await onDevice(browser, devices);
-  await signIn(dovydas, request, lt, freshEmail());
-  await onboard(dovydas, { name: 'Dovydas Kazlauskas', locale: 'en' });
+  await signIn(dovydas, request, en, freshEmail());
+  await onboard(dovydas, { name: 'Dovydas Kazlauskas' });
   await dovydas.goto(link);
   await expectInviteFrom(dovydas, en, { coach: COACH, group: GROUP });
   await acceptInvite(dovydas, en);
@@ -99,65 +91,56 @@ async function threePlayersAccept(
 }
 
 /**
- * Checklist 3: after Rokas unlinks (in Lithuanian), his page is not found
- * for the coach, who reads `messages`.
+ * Checklist 3: after Rokas unlinks, his page is not found for the coach.
  */
-async function unlinkEndsAccess(
-  coach: Page,
-  rokas: Page,
-  messages: Messages,
-): Promise<void> {
+async function unlinkEndsAccess(coach: Page, rokas: Page): Promise<void> {
   await coach.goto('/treneris');
   await coach
     .getByRole('link', { name: 'Rokas Petrauskas', exact: true })
     .click();
   await expect(coach).toHaveURL(/\/treneris\/zaidejai\//);
   await expect(coach.getByText('Rokas Petrauskas').first()).toBeVisible();
-  const t = lt.settings.myCoaches;
+  const t = en.settings.myCoaches;
   await rokas.getByRole('button', { name: t.unlink }).click();
   await rokas.getByRole('button', { name: t.confirmUnlink }).click();
   await expect(rokas.getByText(t.empty)).toBeVisible();
   await coach.reload();
-  await expect(coach.getByText(messages.coach.notFound)).toBeVisible();
+  await expect(coach.getByText(en.coach.notFound)).toBeVisible();
   await expect(coach.getByText('Rokas Petrauskas')).toHaveCount(0);
 }
 
-// The coach's side in both languages (spec, E2E: "in LT and EN"); the
-// players' languages are fixed by their journeys.
-for (const locale of ['lt', 'en'] as const) {
-  test(`C-M1-1 (coach in ${locale}), U1-M1-1, G-M1-1: one group invite brings three players into the group; unlink ends access`, async ({
-    page,
-    request,
-    browser,
-  }) => {
-    test.setTimeout(240_000);
-    const messages = CATALOGUES[locale];
-    const devices: BrowserContext[] = [];
-    try {
-      const link = await coachInvitesGroup(page, request, locale);
-      const rokas = await threePlayersAccept(browser, devices, request, link);
+// English only for now (R-180); the coach's side ran in Lithuanian too.
+test('C-M1-1, U1-M1-1, G-M1-1: one group invite brings three players into the group; unlink ends access', async ({
+  page,
+  request,
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  const devices: BrowserContext[] = [];
+  try {
+    const link = await coachInvitesGroup(page, request);
+    const rokas = await threePlayersAccept(browser, devices, request, link);
 
-      await page.reload();
-      await page.getByRole('link', { name: GROUP, exact: true }).click();
-      await expect(page).toHaveURL(/\/treneris\/grupes\//);
-      for (const name of PLAYERS)
-        await expect(page.getByText(name, { exact: true })).toBeVisible();
+    await page.reload();
+    await page.getByRole('link', { name: GROUP, exact: true }).click();
+    await expect(page).toHaveURL(/\/treneris\/grupes\//);
+    for (const name of PLAYERS)
+      await expect(page.getByText(name, { exact: true })).toBeVisible();
 
-      await unlinkEndsAccess(page, rokas, messages);
+    await unlinkEndsAccess(page, rokas);
 
-      // R-100: Coach mode stays on while Gabija and Dovydas are linked.
-      await page.goto('/nustatymai');
-      await page
-        .getByRole('button', { name: messages.settings.coachMode.switchOff })
-        .click();
-      await expect(page.getByText(messages.coach.stillLinked)).toBeVisible();
-      for (const name of PLAYERS.slice(1))
-        await expect(page.getByRole('link', { name })).toBeVisible();
-    } finally {
-      for (const device of devices) await device.close();
-    }
-  });
-}
+    // R-100: Coach mode stays on while Gabija and Dovydas are linked.
+    await page.goto('/nustatymai');
+    await page
+      .getByRole('button', { name: en.settings.coachMode.switchOff })
+      .click();
+    await expect(page.getByText(en.coach.stillLinked)).toBeVisible();
+    for (const name of PLAYERS.slice(1))
+      await expect(page.getByRole('link', { name })).toBeVisible();
+  } finally {
+    for (const device of devices) await device.close();
+  }
+});
 
 test('a revoked invite says only that it is not valid, and offers no Accept', async ({
   page,
@@ -165,10 +148,10 @@ test('a revoked invite says only that it is not valid, and offers no Accept', as
   browser,
 }) => {
   await newOnboardedAccount(page, request, COACH);
-  await switchOnCoachMode(page, lt);
+  await switchOnCoachMode(page, en);
   await page.goto('/treneris');
-  const link = await createInvite(page, lt, { kind: 'personal' });
-  const t = lt.coach.invites;
+  const link = await createInvite(page, en, { kind: 'personal' });
+  const t = en.coach.invites;
   await page
     .getByRole('listitem')
     .filter({ hasText: t.state.active })
@@ -181,9 +164,9 @@ test('a revoked invite says only that it is not valid, and offers no Accept', as
     const player = await other.newPage();
     await newOnboardedAccount(player, request, 'Rūta');
     await player.goto(link);
-    await expect(player.getByText(lt.invite.invalid)).toBeVisible();
+    await expect(player.getByText(en.invite.invalid)).toBeVisible();
     await expect(
-      player.getByRole('button', { name: lt.invite.accept }),
+      player.getByRole('button', { name: en.invite.accept }),
     ).toHaveCount(0);
   } finally {
     await other.close();

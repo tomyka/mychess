@@ -25,8 +25,6 @@ function renderForm(locale: 'lt' | 'en' = 'lt'): void {
 
 const nameField = () =>
   screen.getByLabelText<HTMLInputElement>(lt.settings.profile.displayName);
-const languageOption = (label: string) =>
-  screen.getByRole<HTMLInputElement>('radio', { name: label });
 const status = () => screen.getByRole('status');
 const save = () => {
   fireEvent.click(
@@ -45,20 +43,7 @@ beforeEach(() => {
 });
 
 describe('ProfileForm', () => {
-  it('shows the current name and language', () => {
-    renderForm();
-    expect(
-      screen.getByRole('heading', {
-        level: 2,
-        name: lt.settings.profile.title,
-      }),
-    ).toBeDefined();
-    expect(nameField().value).toBe('Rūta Jonaitė');
-    expect(languageOption(lt.language.lt).checked).toBe(true);
-    expect(status().textContent).toBe('');
-  });
-
-  it('names the languages in their own language on the English page', () => {
+  it('shows the current name and offers no language choice (R-180)', () => {
     renderForm('en');
     expect(
       screen.getByRole('heading', {
@@ -66,19 +51,25 @@ describe('ProfileForm', () => {
         name: en.settings.profile.title,
       }),
     ).toBeDefined();
-    expect(languageOption('English').checked).toBe(true);
-    expect(languageOption('Lietuvių').checked).toBe(false);
+    expect(
+      screen.getByLabelText<HTMLInputElement>(en.settings.profile.displayName)
+        .value,
+    ).toBe('Rūta Jonaitė');
+    expect(screen.queryByRole('radio')).toBeNull();
+    expect(
+      screen.queryByRole('group', { name: en.settings.profile.language }),
+    ).toBeNull();
+    expect(status().textContent).toBe('');
   });
 
-  it('sends the changed name and language, then says it saved', async () => {
+  it('sends the changed name with the stored language unchanged, then says it saved', async () => {
     renderForm();
     fireEvent.change(nameField(), { target: { value: 'Rūta' } });
-    fireEvent.click(languageOption(lt.language.en));
     save();
     await waitFor(() => {
       expect(status().textContent).toBe(lt.settings.profile.saved);
     });
-    expect(submitted()).toEqual({ displayName: 'Rūta', locale: 'en' });
+    expect(submitted()).toEqual({ displayName: 'Rūta', locale: 'lt' });
     expect(server.action).toHaveBeenCalledTimes(1);
     expect(nameField().getAttribute('aria-invalid')).toBeNull();
   });

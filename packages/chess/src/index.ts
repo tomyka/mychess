@@ -49,8 +49,10 @@ export {
   type DistinctMove,
 } from './repertoire/distinctions';
 export { lineText, moveNumber } from './repertoire/notation';
+export { annotatedSan } from './repertoire/nags';
 export {
   mergeInto,
+  type AddedAnnotation,
   type MergeAddition,
   type MergedRepertoire,
   type MergeRefusal,
@@ -70,6 +72,7 @@ export {
   circleSchema,
   marksInputSchema,
   moveChangesSchema,
+  nagSchema,
   repertoireGraphSchema,
   sideSchema,
   SIDES,

@@ -3,6 +3,7 @@ import {
   arrowSchema,
   chapterNameSourceSchema,
   circleSchema,
+  nagSchema,
   type RepertoireGraph,
   type Side,
 } from '@mychess/chess';
@@ -28,6 +29,7 @@ export const moveRowsSchema = z.array(
     arrows: z.array(arrowSchema),
     circles: z.array(circleSchema),
     comment: z.string().nullable(),
+    nags: z.array(nagSchema),
   }),
 );
 
@@ -74,6 +76,7 @@ export function graphOf(
       arrows: m.arrows,
       circles: m.circles,
       comment: m.comment,
+      nags: m.nags,
       chapters: inOrder(held.get(m.id) ?? []),
     })),
   };

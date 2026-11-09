@@ -72,7 +72,7 @@ async function storedProfiles(): Promise<unknown> {
 }
 
 describe('updateProfileAction', () => {
-  it('stores the new name and language, remembers the language and refreshes the page', async () => {
+  it('stores the new name and a posted language, leaves the locale cookie alone and refreshes the page (R-180)', async () => {
     request.cookie = await onboarded(RUTA, 'Rūta');
     expect(
       await outcomeOf(updateProfileAction({}, profileForm(' Rūta J ', 'en'))),
@@ -80,13 +80,8 @@ describe('updateProfileAction', () => {
     expect(await storedProfiles()).toEqual([
       { email: RUTA, displayName: 'Rūta J', locale: 'en' },
     ]);
-    expect(request.set).toEqual([
-      {
-        name: 'NEXT_LOCALE',
-        value: 'en',
-        options: { path: '/', maxAge: 31_536_000, sameSite: 'lax' },
-      },
-    ]);
+    // No language is offered to choose, so none is remembered.
+    expect(request.set).toEqual([]);
     expect(request.refreshed).toBe(1);
   });
 

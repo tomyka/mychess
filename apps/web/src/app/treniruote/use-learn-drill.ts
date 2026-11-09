@@ -22,7 +22,9 @@ import {
 import {
   advanced,
   afterPlay,
+  answering,
   canPlay,
+  canType,
   opponentMoving,
   positionOf,
   released,
@@ -79,19 +81,21 @@ function useLearnInput(c: InputContext): MoveInput {
     position: shownKey(state),
     legal: c.legal,
     canPlay: canPlay(state),
+    canType: canType(state),
     play(move) {
-      if (state.session === null) return;
+      const base = answering(state);
+      if (base.session === null) return;
       const now = clock.now();
-      const played = playLearn(state.session, move.san, now);
+      const played = playLearn(base.session, move.san, now);
       if (played.emit !== null)
         sync.record({
           resultId: clock.newId(),
           kind: 'learned',
           moveKey: played.emit.key,
-          repertoireId: state.session.line.repertoireId,
+          repertoireId: base.session.line.repertoireId,
           answeredAt: now,
         });
-      setState(afterPlay(state, move, played, now));
+      setState(afterPlay(base, move, played, now));
     },
     putBack() {
       setState((s) => ({ ...s, revision: s.revision + 1 }));

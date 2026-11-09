@@ -6,13 +6,16 @@ import {
 } from '@mychess/chess';
 import type { Locale } from '@mychess/domain';
 import { createTranslator } from 'next-intl';
-import { MESSAGES } from '../i18n/locales';
+import { MESSAGES, resolveLocale } from '../i18n/locales';
 import {
   baseTitle,
   chapterTitles,
   type ChapterNames,
   type ChapterTranslator,
 } from '../lib/chapter-label';
+
+// Each exported function takes the locale asked for (an account's stored
+// one) and names in the language served for it (R-180: English for now).
 
 /**
  * `locale`'s own catalogue as a chapter translator: from `createTranslator`,
@@ -35,8 +38,9 @@ function baseTitleIn(
  * opening, or "Chapter N". For the PGN download and the data export.
  */
 export function plainChapterTitleIn(
-  locale: Locale,
+  wanted: Locale,
 ): (chapter: Chapter) => string {
+  const locale = resolveLocale(wanted);
   return baseTitleIn(translatorIn(locale), locale);
 }
 
@@ -47,8 +51,9 @@ export function plainChapterTitleIn(
  */
 export function chapterLabelIn(
   graph: RepertoireGraph,
-  locale: Locale,
+  wanted: Locale,
 ): (chapter: Chapter) => string {
+  const locale = resolveLocale(wanted);
   const t = translatorIn(locale);
   const plain = baseTitleIn(t, locale);
   const titles = chapterTitles(
@@ -77,10 +82,10 @@ function ecoNamesOf(
  */
 export function chapterNamesOf(
   graph: RepertoireGraph,
-  locale: Locale,
+  wanted: Locale,
 ): ChapterNames {
   return {
-    ecoNames: ecoNamesOf(graph, locale),
+    ecoNames: ecoNamesOf(graph, resolveLocale(wanted)),
     distinctions: Object.fromEntries(chapterDistinctions(graph)),
   };
 }

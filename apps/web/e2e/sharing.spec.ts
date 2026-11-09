@@ -18,7 +18,6 @@ import {
 } from './support/coaching';
 import {
   CATALOGUES,
-  chooseEnglish,
   format,
   newDevice,
   newOnboardedAccount,
@@ -34,7 +33,7 @@ import {
   previewImport,
 } from './support/repertoires';
 
-const { lt } = CATALOGUES;
+const { lt, en } = CATALOGUES;
 
 const COACH = 'Rimantas Vaitkus';
 const PLAYER = 'Gabija Navickaitė';
@@ -56,14 +55,14 @@ const FIRST_CHAPTER: Record<Locale, string> = {
     eco: 'B48',
     move: '6. Be3',
   }),
-  en: distinctTitle(CATALOGUES.en, {
+  en: distinctTitle(en, {
     name: 'Sicilian Defense: Taimanov Variation, Bastrikov Variation, English Attack',
     eco: 'B48',
     move: '6. Be3',
   }),
 };
-/** Rimantas reads in Lithuanian. */
-const TAIMANOV_B48 = FIRST_CHAPTER.lt;
+/** Rimantas reads in English, the only language served (R-180). */
+const TAIMANOV_B48 = FIRST_CHAPTER.en;
 const COMMENT = 'Juodieji spaudžia c4 langelį.';
 /** Gabija's private note on 9...Ne5: no coach ever reads it (R-21). */
 const PERSONAL_NOTE = 'Asmeninis: čia dažnai suklystu.';
@@ -83,26 +82,26 @@ const shareSection = (page: Page, messages: Messages): Locator =>
 
 /** Rimantas: Coach mode on, a personal invite; returns its link. */
 async function coachInvites(page: Page): Promise<string> {
-  await switchOnCoachMode(page, lt);
+  await switchOnCoachMode(page, en);
   await page.goto('/treneris');
-  return createInvite(page, lt, { kind: 'personal' });
+  return createInvite(page, en, { kind: 'personal' });
 }
 
 /** Gabija accepts the invite, imports the Taimanov and notes 9...Ne5. */
 async function playerImports(page: Page, link: string): Promise<string> {
   await page.goto(link);
-  await expectInviteFrom(page, lt, { coach: COACH });
-  await acceptInvite(page, lt);
-  const t = lt.repertoires;
+  await expectInviteFrom(page, en, { coach: COACH });
+  await acceptInvite(page, en);
+  const t = en.repertoires;
   await page.goto('/repertuarai/importuoti');
-  await previewImport(page, lt, { file: TAIMANOV, side: 'black' });
+  await previewImport(page, en, { file: TAIMANOV, side: 'black' });
   await page.getByLabel(t.import.name, { exact: true }).fill(REPERTOIRE);
   await page
     .getByRole('button', { name: t.import.confirm, exact: true })
     .click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(REPERTOIRE);
   await chooseChapter(page, TAIMANOV_B48);
-  await ne5(page, lt).click();
+  await ne5(page, en).click();
   await page.getByRole('button', { name: t.note.label }).click();
   await page
     .getByRole('textbox', { name: t.note.label, exact: true })
@@ -147,7 +146,7 @@ async function openPlayer(coach: Page): Promise<string> {
  * comment shows, no edit control and never Gabija's personal note.
  */
 async function coachOpensShared(coach: Page): Promise<void> {
-  const t = lt.coach.shared;
+  const t = en.coach.shared;
   await coach
     .getByRole('region', { name: t.title })
     .getByRole('link', { name: new RegExp(`^${REPERTOIRE}`) })
@@ -156,15 +155,15 @@ async function coachOpensShared(coach: Page): Promise<void> {
   await expect(coach.getByRole('heading', { level: 1 })).toHaveText(REPERTOIRE);
   await expect(coach.getByText(t.readOnly)).toBeVisible();
   await chooseChapter(coach, TAIMANOV_B48);
-  await ne5(coach, lt).click();
+  await ne5(coach, en).click();
   await expect(coach.getByText(COMMENT)).toBeVisible();
-  const r = lt.repertoires;
+  const r = en.repertoires;
   for (const control of [
     coach.getByRole('switch', { name: r.mode.build }),
     coach.getByRole('link', { name: r.header.importInto }),
     coach.getByRole('button', { name: r.note.label }),
     coach.getByRole('textbox', { name: r.builder.commentLabel }),
-    coach.getByRole('region', { name: lt.share.title }),
+    coach.getByRole('region', { name: en.share.title }),
   ])
     await expect(control).toHaveCount(0);
   // Checklist 2: not on the page, and not in the data it was sent.
@@ -174,11 +173,11 @@ async function coachOpensShared(coach: Page): Promise<void> {
 
 /** On 9...Ne5 he saves a coach note; the move gets the pen mark. */
 async function coachWritesNote(coach: Page): Promise<void> {
-  const t = lt.coach.shared;
+  const t = en.coach.shared;
   await coach.getByLabel(t.note, { exact: true }).fill(COACH_NOTE);
   await coach.getByRole('button', { name: t.saveNote }).click();
   await expect(coach.getByText(t.noteSaved, { exact: true })).toBeVisible();
-  const marked = ne5(coach, lt, lt.repertoires.moves.hasCoachNote);
+  const marked = ne5(coach, en, en.repertoires.moves.hasCoachNote);
   await expect(marked.locator('svg[data-note="coach"]')).toBeAttached();
   await coach.reload();
   await chooseChapter(coach, TAIMANOV_B48);
@@ -208,7 +207,7 @@ async function expectCoachNote(
 
 /** The coach's page is the coach area's not-found page. */
 async function expectNotFound(coach: Page): Promise<void> {
-  await expect(coach.getByText(lt.coach.notFound)).toBeVisible();
+  await expect(coach.getByText(en.coach.notFound)).toBeVisible();
   await expect(coach.getByText(REPERTOIRE)).toHaveCount(0);
 }
 
@@ -234,7 +233,8 @@ async function onOwnDevice(
   }
 }
 
-for (const locale of ['lt', 'en'] as const) {
+// English only for now (R-180); Gabija's side ran in Lithuanian too.
+for (const locale of ['en'] as const) {
   test(`G-M1-3 (Gabija in ${locale}): a shared repertoire, its coach note, and how unshare and unlink end them`, async ({
     page: coach,
     request,
@@ -248,15 +248,10 @@ for (const locale of ['lt', 'en'] as const) {
     await onOwnDevice(browser, async (gabija) => {
       await newOnboardedAccount(gabija, request, PLAYER);
       const repertoire = await playerImports(gabija, link);
-      if (locale === 'en') {
-        await gabija.goto('/');
-        await chooseEnglish(gabija);
-        await gabija.goto(repertoire);
-      }
       // Not shared yet: her page lists nothing for him (checklist 2).
       const player = await openPlayer(coach);
       const noneShared = coach.getByText(
-        format(lt.coach.shared.empty, { name: PLAYER }),
+        format(en.coach.shared.empty, { name: PLAYER }),
       );
       await expect(noneShared).toBeVisible();
 
@@ -281,9 +276,9 @@ for (const locale of ['lt', 'en'] as const) {
       await setShared(gabija, messages, locale, true);
       await coach.goto(shared);
       await chooseChapter(coach, TAIMANOV_B48);
-      await ne5(coach, lt).click();
+      await ne5(coach, en).click();
       await expect(
-        coach.getByLabel(lt.coach.shared.note, { exact: true }),
+        coach.getByLabel(en.coach.shared.note, { exact: true }),
       ).toHaveValue('');
 
       // Unlinked: access ends on his next request.

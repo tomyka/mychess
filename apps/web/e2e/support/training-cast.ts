@@ -26,7 +26,7 @@ import {
   type Drill,
 } from './training';
 
-const { lt } = CATALOGUES;
+const { en } = CATALOGUES;
 
 export const ITALIAN = 'Itališkoji partija';
 export const CATALAN = 'Katalonų pradžia';
@@ -105,8 +105,8 @@ export async function rokasWithItalian(
 ): Promise<string> {
   const email = await newOnboardedAccount(page, request, 'Rokas Petrauskas');
   // Eight new moves a day: one session teaches exactly the Pianissimo.
-  await setTrainingLimits(page, lt, { newPerDay: 8 });
-  await importRepertoire(page, lt, {
+  await setTrainingLimits(page, en, { newPerDay: 8 });
+  await importRepertoire(page, en, {
     file: ITALIAN_PGN,
     side: 'white',
     name: ITALIAN,
@@ -117,11 +117,11 @@ export async function rokasWithItalian(
 /** On the Italian's page: learns its first line, typed, to the done summary. */
 export async function learnPianissimo(drill: Drill): Promise<Asked[]> {
   const { page } = drill;
-  await trainLink(page, lt, 'learn', 8).click();
+  await trainLink(page, en, 'learn', 8).click();
   await expect(page).toHaveURL(/\/treniruote\?mode=learn&r=/);
   await expectCounter(page, 0, 8);
   const asked = await drillToDone(drill);
-  await expect(stat(page, lt.training.done.learned)).toHaveText('8');
+  await expect(stat(page, en.training.done.learned)).toHaveText('8');
   return asked;
 }
 

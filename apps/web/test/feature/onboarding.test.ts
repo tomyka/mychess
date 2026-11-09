@@ -45,16 +45,10 @@ describe('completeOnboardingAction', () => {
     ]);
   });
 
-  it('keeps the language in the locale cookie for after sign-out', async () => {
+  it('leaves the locale cookie alone while no language is offered (R-180)', async () => {
     request.cookie = await signIn('ruta@example.lt');
     await outcomeOf(completeOnboardingAction({}, form('Rūta', 'en')));
-    expect(request.set).toEqual([
-      {
-        name: 'NEXT_LOCALE',
-        value: 'en',
-        options: { path: '/', maxAge: 31_536_000, sameSite: 'lax' },
-      },
-    ]);
+    expect(request.set).toEqual([]);
   });
 
   it('refuses a blank name and stores nothing', async () => {

@@ -2,11 +2,12 @@
 // owner's own text, so it never reaches the header unencoded.
 
 import type { Locale } from '@mychess/domain';
-import { MESSAGES } from '../i18n/locales';
+import { MESSAGES, resolveLocale } from '../i18n/locales';
 
 /**
  * The download's file name: ASCII, lower case, hyphens; when nothing is
- * left, the word for a repertoire in `locale` (ASCII-safe in each catalogue).
+ * left, the word for a repertoire in the language served for `locale`
+ * (R-180; ASCII-safe in each catalogue).
  */
 export function pgnFileName(name: string, locale: Locale): string {
   const slug = name
@@ -15,7 +16,8 @@ export function pgnFileName(name: string, locale: Locale): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-  return `${slug === '' ? MESSAGES[locale].pgn.fileNameFallback : slug}.pgn`;
+  const fallback = MESSAGES[resolveLocale(locale)].pgn.fileNameFallback;
+  return `${slug === '' ? fallback : slug}.pgn`;
 }
 
 /**

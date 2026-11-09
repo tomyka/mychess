@@ -4,6 +4,7 @@ import type { RepertoireSummary, Side, Skipped } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import { useId, useState, type JSX, type RefObject } from 'react';
 import type {
+  AddedComment,
   ImportPreview,
   RenamedChapter,
 } from '../../../server/import-preview';
@@ -14,6 +15,9 @@ import { StepNumber } from './file-step';
 
 /** Skipped games shown before "Show all" (docs/design/repertoire-screen.md). */
 const SKIPPED_SHOWN = 10;
+
+/** Added comments shown before "Show all", as for skipped games. */
+const ADDED_SHOWN = 10;
 
 const COUNTS = [
   'chapters',
@@ -94,6 +98,47 @@ function RenamedChapters({
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * The comments and NAGs a merge adds to moves the target already has
+ * (R-176): each move with the glyphs it gains (R-175) and its new comment,
+ * the first ten and the rest on request.
+ */
+function AddedComments({
+  added,
+}: {
+  readonly added: readonly AddedComment[];
+}): JSX.Element {
+  const t = useTranslations('repertoires.import');
+  const titleId = useId();
+  const [all, setAll] = useState(false);
+  const shown = all ? added : added.slice(0, ADDED_SHOWN);
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 id={titleId} className={SUBTITLE}>
+        {t('annotationsTitle', { count: added.length })}
+      </h3>
+      <ul aria-labelledby={titleId} className="list-disc space-y-1 pl-6">
+        {shown.map(({ move, comment }, index) => (
+          <li key={index} className="break-words">
+            {comment === null ? move : t('annotationItem', { move, comment })}
+          </li>
+        ))}
+      </ul>
+      {shown.length < added.length ? (
+        <button
+          type="button"
+          onClick={() => {
+            setAll(true);
+          }}
+          className={`${SECONDARY_BUTTON} self-start`}
+        >
+          {t('annotationsAll', { count: added.length })}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -179,8 +224,8 @@ export interface ImportSummaryProps {
 }
 
 /**
- * The counts, the chapters it brings, the existing ones it renames and how
- * many games were read.
+ * The counts, the chapters it brings, the existing ones it renames, the
+ * comments and NAGs it adds, and how many games were read.
  */
 function Accepted({
   preview,
@@ -196,6 +241,9 @@ function Accepted({
       )}
       {preview.renamed.length === 0 ? null : (
         <RenamedChapters renamed={preview.renamed} />
+      )}
+      {preview.annotations.length === 0 ? null : (
+        <AddedComments added={preview.annotations} />
       )}
       {preview.skipped.length === 0 ? (
         <StatusLine

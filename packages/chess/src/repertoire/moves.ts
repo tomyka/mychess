@@ -26,11 +26,12 @@ export interface PlayedMove {
   readonly uci: string;
 }
 
-/** A stored move whose marks and chapters can still grow, and whose comment can be set. */
+/** A stored move whose marks and chapters can still grow, and whose comment and NAGs can be set. */
 export interface DraftMove extends PlayedMove {
   readonly arrows: Arrow[];
   readonly circles: Circle[];
   comment: string | null;
+  nags: readonly number[];
   readonly chapters: string[];
 }
 
@@ -40,7 +41,10 @@ export interface SecondAnswer {
 
 const draftOf = (
   { from, to, san, uci }: PlayedMove,
-  rest: Pick<RepertoireMove, 'arrows' | 'circles' | 'comment' | 'chapters'>,
+  rest: Pick<
+    RepertoireMove,
+    'arrows' | 'circles' | 'comment' | 'nags' | 'chapters'
+  >,
 ): DraftMove => ({
   from,
   to,
@@ -49,6 +53,7 @@ const draftOf = (
   arrows: [...rest.arrows],
   circles: [...rest.circles],
   comment: rest.comment,
+  nags: [...rest.nags],
   chapters: [...rest.chapters],
 });
 
@@ -87,11 +92,17 @@ export class RepertoireMoves {
       arrows: [],
       circles: [],
       comment: null,
+      nags: [],
       chapters: [],
     });
     draft.chapters.push(chapterId);
     this.store(draft);
     return { ok: true, value: draft };
+  }
+
+  /** The stored move `move` is, if the repertoire has it. */
+  find(move: PlayedMove): DraftMove | undefined {
+    return this.byKey.get(moveKey(move.from, move.san));
   }
 
   /**

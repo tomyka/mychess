@@ -45,18 +45,29 @@ export function browserStore(key: string, storage: () => Storage): QueueStore {
   };
 }
 
+/**
+ * How long a post may go unanswered before it counts as failed: a stalled
+ * request would otherwise keep the flush running, the banner at 0 and the
+ * 30 s retry off (lead decision, #324 review).
+ */
+const POST_TIMEOUT_MS = 10_000;
+
 /** Posts one batch to the results endpoint, as the session's own. */
 export const postBatch = (batch: TrainingResult[]): Promise<Response> =>
   fetch(trainingResultsRoute, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(batch),
+    signal: AbortSignal.timeout(POST_TIMEOUT_MS),
   });
 
 export interface ResultSync {
   /** Queues a result and tries to send it at once. */
   record(result: TrainingResult): void;
-  /** Results not yet recorded by the server (the R-60 banner's count). */
+  /**
+   * Results a failed post left waiting (the R-60 banner's count); one still
+   * in flight is not counted.
+   */
   readonly unsynced: number;
   /** Tries to send the queue now (the banner's "try now"). */
   retry(): void;
@@ -87,17 +98,19 @@ export function useResultSync(accountId: string): ResultSync {
     do {
       handled = requests.current;
       progress = await flush(store, postBatch);
-      setUnsynced(progress.left);
       // A full batch went through: send the rest straight away.
     } while (
       handled < requests.current ||
       (progress.sent > 0 && progress.left > 0)
     );
     flushing.current = false;
+    // Counted only here: what is left once the flush stops is what the
+    // last post failed to save. A result whose post is still in flight is
+    // not unsynced, so the banner does not flash on every save (#324).
+    setUnsynced(progress.left);
   }, [store]);
 
   useEffect(() => {
-    setUnsynced(pending(store).length);
     const onShow = () => {
       void sync();
     };
@@ -124,7 +137,10 @@ export function useResultSync(accountId: string): ResultSync {
   const record = useCallback(
     (result: TrainingResult) => {
       enqueue(store, result);
-      setUnsynced(pending(store).length);
+      // While saving fails the count grows with each answer; else the
+      // flush decides.
+      const waiting = pending(store).length;
+      setUnsynced((shown) => (shown > 0 ? waiting : shown));
       void sync();
     },
     [store, sync],

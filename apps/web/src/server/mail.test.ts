@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../i18n/locales';
 import { createMailer, deletedMail, magicLinkMail } from './mail';
 
-const { lt, en } = MESSAGES;
+const { en } = MESSAGES;
 
 const message = {
   to: 'ruta@example.lt',
@@ -41,13 +41,13 @@ const resend = {
 } as const;
 
 describe('magicLinkMail', () => {
-  it('writes the link into a Lithuanian message from the catalogue', () => {
+  it('writes the link in English for a Lithuanian asker while only English is offered (R-180)', () => {
     expect(
       magicLinkMail('lt', 'ruta@example.lt', 'https://app/x?token=t'),
     ).toEqual({
       to: 'ruta@example.lt',
-      subject: lt.mail.magicLink.subject,
-      text: lt.mail.magicLink.body.replace('{url}', 'https://app/x?token=t'),
+      subject: en.mail.magicLink.subject,
+      text: en.mail.magicLink.body.replace('{url}', 'https://app/x?token=t'),
     });
   });
 
@@ -61,11 +61,11 @@ describe('magicLinkMail', () => {
 });
 
 describe('deletedMail', () => {
-  it('tells the person in Lithuanian that the account is gone', () => {
+  it('tells a Lithuanian account in English that it is gone (R-180)', () => {
     expect(deletedMail('lt', 'ruta@example.lt')).toEqual({
       to: 'ruta@example.lt',
-      subject: lt.mail.deleted.subject,
-      text: lt.mail.deleted.body,
+      subject: en.mail.deleted.subject,
+      text: en.mail.deleted.body,
     });
   });
 

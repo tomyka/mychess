@@ -73,6 +73,14 @@ describe('SignInForm', () => {
     expect(status().textContent).toBe('');
   });
 
+  it('offers no language choice (R-180)', () => {
+    renderForm({}, 'en');
+    expect(screen.queryByRole('radio')).toBeNull();
+    expect(screen.queryByRole('combobox')).toBeNull();
+    for (const name of [en.language.lt, en.language.en])
+      expect(screen.queryByText(name)).toBeNull();
+  });
+
   it('mails a magic link to the email as typed, in the page language, then says to check the email', async () => {
     renderForm();
     await submitEmail('Ruta@Example.lt');

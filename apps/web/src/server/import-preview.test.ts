@@ -44,6 +44,8 @@ const account = (locale: 'lt' | 'en'): Account => ({
 const ADVANCE = '1. e4 c6 2. d4 d5 3. e5 Bf5 4. Nf3 e6 *';
 const CLASSICAL = '1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 *';
 const TWO_KNIGHTS = '1. e4 c6 2. Nc3 d5 3. Nf3 Bg4 *';
+/** B10, which English names "Caro-Kann Defense" as it does the Advance's B12. */
+const ACCELERATED = '1. e4 c6 2. c4 d5 *';
 
 /** The preview of `text`, or a thrown error with the refusal's reason. */
 async function preview(
@@ -101,42 +103,46 @@ describe('previewImport chapter titles (R-158)', () => {
   const upload = [ADVANCE, CLASSICAL, TWO_KNIGHTS].join('\n\n');
 
   it('tells apart the chapters a file brings that share a name', async () => {
-    expect(await titles('lt', upload)).toEqual([
-      'Karo-Kano gynyba (B12, 3.\u00A0e5)',
-      'Karo-Kano gynyba, Klasikinis variantas',
-      'Karo-Kano gynyba (B11, 2.\u00A0Nc3)',
+    const shared = [ADVANCE, CLASSICAL, ACCELERATED].join('\n\n');
+    expect(await titles('en', shared)).toEqual([
+      'Caro-Kann Defense (B12, 3.\u00A0e5)',
+      'Caro-Kann Defense: Classical Variation',
+      'Caro-Kann Defense (B10, 2.\u00A0c4)',
     ]);
   });
 
-  it('keeps them plain where the language names them apart', async () => {
-    expect(await titles('en', upload)).toEqual([
-      'Caro-Kann Defense',
-      'Caro-Kann Defense: Classical Variation',
-      'Caro-Kann Defense: Two Knights Attack, Mindeno Variation',
-    ]);
-  });
+  it.each(['lt', 'en'] as const)(
+    'keeps them plain where the served language names them apart (a %s account, R-180)',
+    async (locale) => {
+      expect(await titles(locale, upload)).toEqual([
+        'Caro-Kann Defense',
+        'Caro-Kann Defense: Classical Variation',
+        'Caro-Kann Defense: Two Knights Attack, Mindeno Variation',
+      ]);
+    },
+  );
 
   it('titles a merge’s new chapters as the merged repertoire names them', async () => {
     ownsRepertoireOf(ADVANCE);
-    // Alone, the Two Knights would be plain; beside the repertoire's
+    // Alone, the Accelerated would be plain; beside the repertoire's
     // Advance it is told apart.
-    expect(await titles('lt', TWO_KNIGHTS)).toEqual(['Karo-Kano gynyba']);
-    expect(await titles('lt', TWO_KNIGHTS, INTO)).toEqual([
-      'Karo-Kano gynyba (B11, 2.\u00A0Nc3)',
+    expect(await titles('en', ACCELERATED)).toEqual(['Caro-Kann Defense']);
+    expect(await titles('en', ACCELERATED, INTO)).toEqual([
+      'Caro-Kann Defense (B10, 2.\u00A0c4)',
     ]);
   });
 });
 
 describe('previewImport renamed chapters (R-159)', () => {
-  /** The Advance, told apart at `move` from the Two Knights it gains. */
+  /** The Advance, told apart at `move` from the Accelerated it gains. */
   const advanceRenamed = (move: string) => ({
-    from: 'Karo-Kano gynyba',
-    to: `Karo-Kano gynyba (B12, ${move})`,
+    from: 'Caro-Kann Defense',
+    to: `Caro-Kann Defense (B12, ${move})`,
   });
 
   it('lists an existing chapter a merge gives a namesake, old title and new', async () => {
     ownsRepertoireOf(ADVANCE);
-    expect((await preview('lt', TWO_KNIGHTS, INTO)).renamed).toEqual([
+    expect((await preview('en', ACCELERATED, INTO)).renamed).toEqual([
       advanceRenamed('2.\u00A0d4'),
     ]);
   });
@@ -145,7 +151,7 @@ describe('previewImport renamed chapters (R-159)', () => {
     // The Classical keeps its own name; the Advance's move is where it
     // parts from every other chapter, the Classical's 3. Nc3 included.
     ownsRepertoireOf([CLASSICAL, ADVANCE].join('\n\n'));
-    expect((await preview('lt', TWO_KNIGHTS, INTO)).renamed).toEqual([
+    expect((await preview('en', ACCELERATED, INTO)).renamed).toEqual([
       advanceRenamed('3.\u00A0e5'),
     ]);
   });
@@ -204,4 +210,34 @@ describe('previewImport within the repertoire limits (R-162)', () => {
       expect(outcome.ok && outcome.preview.summary.moves).toBe(5000);
     },
   );
+});
+
+describe('previewImport added comments and NAGs (R-175, R-176)', () => {
+  const ANNOTATED_ADVANCE =
+    '1. e4 c6 2. d4 d5 3. e5 { Space } Bf5 $14 4. Nf3 { Quiet } e6 *';
+
+  it('lists the comments and NAGs a file adds to the moves already there, and takes it', async () => {
+    ownsRepertoireOf(ADVANCE);
+    const p = await preview('en', ANNOTATED_ADVANCE, INTO);
+    expect(p.refusal).toBeNull();
+    expect(p.chapters).toEqual([]);
+    expect(p.target?.added).toEqual({ chapters: 0, moves: 0, annotated: 3 });
+    expect(p.annotations).toEqual([
+      { move: '3. e5', comment: 'Space' },
+      { move: '3... Bf5 ⩲', comment: null },
+      { move: '4. Nf3', comment: 'Quiet' },
+    ]);
+  });
+
+  it('lists none when the repertoire already has them, and refuses the file (R-115)', async () => {
+    ownsRepertoireOf(ANNOTATED_ADVANCE);
+    const p = await preview('en', ANNOTATED_ADVANCE, INTO);
+    expect(p.refusal).toBe('pgn.nothingToAdd');
+    expect(p.annotations).toEqual([]);
+    expect(p.target?.added).toEqual({ chapters: 0, moves: 0, annotated: 0 });
+  });
+
+  it('lists none for a new repertoire: its comments come with its moves', async () => {
+    expect((await preview('en', ANNOTATED_ADVANCE)).annotations).toEqual([]);
+  });
 });

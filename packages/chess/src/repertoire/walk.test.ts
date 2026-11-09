@@ -41,6 +41,7 @@ const move = (
   arrows: [],
   circles: [],
   comment: null,
+  nags: [],
   chapters,
 });
 

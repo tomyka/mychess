@@ -3,6 +3,7 @@
 import type { Locale } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX, type ReactNode } from 'react';
+import { OFFERED_LOCALES, OFFERS_LANGUAGE_CHOICE } from '../../i18n/locales';
 import { PRIMARY_BUTTON } from '../buttons';
 import { isNameRefusal, LanguageField, NameField } from '../profile-fields';
 import { StatusLine } from '../status-line';
@@ -12,7 +13,7 @@ import { completeOnboardingAction, type OnboardingState } from './actions';
 export interface OnboardingFormProps {
   /** The name Google or Lichess gave, or empty (R-81). */
   readonly displayName: string;
-  /** The language the page is shown in; Lithuanian for a new account. */
+  /** The account's stored language, sent back unchanged unless a choice is offered (R-180). */
   readonly locale: Locale;
   /**
    * The invite to go on to once onboarded (R-81), sent back as a hidden
@@ -25,7 +26,12 @@ export interface OnboardingFormProps {
 
 const INITIAL: OnboardingState = {};
 
-/** The one onboarding screen: a display name and a language (R-81). */
+/** The intro asks for a language only when one is offered to choose (R-180). */
+const INTRO = OFFERS_LANGUAGE_CHOICE
+  ? 'onboarding.intro'
+  : 'onboarding.introNameOnly';
+
+/** The one onboarding screen: a display name, and a language when offered (R-81, R-180). */
 export function OnboardingForm({
   displayName,
   locale,
@@ -46,7 +52,7 @@ export function OnboardingForm({
           <h1 className="text-2xl font-bold sm:text-3xl">
             {t('onboarding.title')}
           </h1>
-          <p className="text-fg-muted">{t('onboarding.intro')}</p>
+          <p className="text-fg-muted">{t(INTRO)}</p>
         </header>
         <StatusLine
           id={statusId}
@@ -67,7 +73,11 @@ export function OnboardingForm({
             invalid={isNameRefusal(state.refusal)}
             statusId={statusId}
           />
-          <LanguageField legend={t('onboarding.language')} initial={locale} />
+          <LanguageField
+            legend={t('onboarding.language')}
+            initial={locale}
+            offered={OFFERED_LOCALES}
+          />
           {next === null ? null : (
             <input type="hidden" name="next" value={next} />
           )}

@@ -282,6 +282,7 @@ class RepertoireBuilder {
     addMarks(seen, put.value.arrows, move.arrows);
     addMarks(seen, put.value.circles, move.circles);
     put.value.comment ??= move.comment;
+    if (put.value.nags.length === 0) put.value.nags = move.nags;
     return true;
   }
 }

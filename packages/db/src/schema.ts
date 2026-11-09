@@ -12,12 +12,8 @@ import {
   INVITE_KINDS,
   LOCALES,
 } from '@mychess/domain';
-import {
-  SIDES,
-  type Arrow,
-  type ChapterNameSource,
-  type Circle,
-} from '@mychess/chess';
+import type { Arrow, ChapterNameSource, Circle } from '@mychess/chess';
+import { SIDES } from '@mychess/chess';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -363,6 +359,8 @@ export const repertoireMoves = pgTable(
     arrows: jsonb('arrows').$type<readonly Arrow[]>().notNull().default([]),
     circles: jsonb('circles').$type<readonly Circle[]>().notNull().default([]),
     comment: text('comment'),
+    /** The move's NAGs (R-175), `$1` to `$255`, in file order. */
+    nags: integer('nags').array().notNull().default([]),
     ord: integer('ord').notNull(),
   },
   (t) => [

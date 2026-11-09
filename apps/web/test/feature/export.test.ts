@@ -121,7 +121,7 @@ describe('the data export (R-40)', () => {
     expect((await GET()).status).toBe(200);
   });
 
-  it('holds the requester’s repertoires as PGN and personal notes only, titled in the account’s language (R-40, R-21, decision 21)', async () => {
+  it('holds the requester’s repertoires as PGN and personal notes only, titled in the served language (R-40, R-21, decision 21, R-180)', async () => {
     const rokas = await person(sql, 'rokas@example.lt', 'Rokas');
     const rimantas = await person(sql, 'rimantas@example.lt', 'Rimantas');
     const mine = await seedRepertoire(db, 'rokas@example.lt', {
@@ -153,8 +153,9 @@ describe('the data export (R-40)', () => {
     expect(body.repertoires.map((r) => [r.name, r.side])).toEqual([
       ['Taimanovas', 'black'],
     ]);
+    // A Lithuanian account's export is titled in English (R-180).
     expect(body.repertoires[0]?.pgn).toContain(
-      `[Event "${ecoName(eco, 'lt')}"]`,
+      `[Event "${ecoName(eco, 'en')}"]`,
     );
     expect(body.personalNotes).toEqual([
       expect.objectContaining({

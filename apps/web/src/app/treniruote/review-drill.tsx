@@ -1,6 +1,6 @@
 'use client';
 
-import { reviewCounts } from '@mychess/chess';
+import { reviewCounts, type RepertoireMove } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useMemo, type JSX } from 'react';
@@ -87,7 +87,7 @@ function ReviewPanel({
         {t('hint')}
       </button>
       <LineSoFar
-        moves={playedMoves(drill.state)}
+        moves={unannotated(playedMoves(drill.state))}
         rootKey={drill.state.shown?.line.rootKey}
       />
       {item === undefined ? null : (
@@ -104,6 +104,14 @@ const namedOf = (data: TrainingData): NamedRepertoire[] =>
     name,
     graph,
   }));
+
+/**
+ * `moves` without their NAGs: a review shows the board, not annotations, so
+ * its line so far shows no glyphs (#325 decision 6).
+ */
+const unannotated = (
+  moves: readonly RepertoireMove[],
+): readonly RepertoireMove[] => moves.map((m) => ({ ...m, nags: [] }));
 
 /**
  * The review drill (docs/design/training-screen.md): the Due Reviews one at

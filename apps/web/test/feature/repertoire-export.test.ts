@@ -143,21 +143,21 @@ describe('the PGN download (R-96, decision 13)', () => {
     );
   });
 
-  it('titles the chapters in the account’s language (decision 14)', async () => {
+  it('titles the chapters in the served language: English, for a Lithuanian account too (decision 14, R-180)', async () => {
     const { rokas, taimanov } = await cast();
     actAs(rokas);
     const eco = ecoOf(
       (await storedGraph(taimanov, rokas.id)).chapters[0]?.nameSource,
     );
-    const lt = await (await download(taimanov)).text();
     expect(ecoName(eco, 'lt')).toMatch(/^Siciliška gynyba/u);
-    expect(lt).toContain(`[Event "${ecoName(eco, 'lt')}"]`);
+    const lt = await (await download(taimanov)).text();
+    expect(lt).toContain(`[Event "${ecoName(eco, 'en')}"]`);
+    expect(lt).not.toContain(ecoName(eco, 'lt'));
     await client.query(
       "update accounts set locale = 'en' where email = 'rokas@example.lt'",
     );
     const en = await (await download(taimanov)).text();
     expect(en).toContain(`[Event "${ecoName(eco, 'en')}"]`);
-    expect(en).not.toContain(ecoName(eco, 'lt'));
   });
 
   it('falls back to a safe file name when the name has no letters or digits', async () => {
@@ -169,8 +169,9 @@ describe('the PGN download (R-96, decision 13)', () => {
     });
     actAs(rokas);
     const response = await download(london);
+    // English for a Lithuanian account too (R-180).
     expect(response.headers.get('content-disposition')).toBe(
-      'attachment; filename="repertuaras.pgn"; filename*=UTF-8\'\'%3F%3F%3F.pgn',
+      'attachment; filename="repertoire.pgn"; filename*=UTF-8\'\'%3F%3F%3F.pgn',
     );
     await client.query(
       "update accounts set locale = 'en' where email = 'rokas@example.lt'",

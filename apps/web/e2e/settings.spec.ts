@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { expect, type Page } from '@playwright/test';
+import { storedLocale, storeLocale } from './support/account-db';
 import { linkIn, nextMailTo } from './support/mailpit';
 import {
   CATALOGUES,
@@ -14,31 +15,29 @@ import {
   test,
 } from './support/journey';
 
-const { lt, en } = CATALOGUES;
+// The UI is English only for now and offers no language choice (R-180).
+const { en } = CATALOGUES;
 
-/** From the Lithuanian home page to settings. */
+/** From the home page to settings. */
 async function openSettings(page: Page): Promise<void> {
-  await page.getByRole('link', { name: lt.app.settings }).click();
+  await page.getByRole('link', { name: en.app.settings }).click();
   await expect(page).toHaveURL(/\/nustatymai$/);
 }
 
-/** In Lithuanian settings: a new display name and English, saved. */
-async function switchToEnglish(page: Page, name: string): Promise<void> {
+/** In settings: a new display name, saved. */
+async function rename(page: Page, name: string): Promise<void> {
   await page
-    .getByLabel(lt.settings.profile.displayName, { exact: true })
+    .getByLabel(en.settings.profile.displayName, { exact: true })
     .fill(name);
-  await page.getByRole('radio', { name: en.language.en }).check();
   // The profile's own Save: the training limits have one too (S6).
   await page
-    .getByRole('region', { name: lt.settings.profile.title })
-    .getByRole('button', { name: lt.settings.profile.submit })
+    .getByRole('region', { name: en.settings.profile.title })
+    .getByRole('button', { name: en.settings.profile.submit })
     .click();
-  // The page comes back in the language just chosen.
   await expect(page.getByText(en.settings.profile.saved)).toBeVisible();
-  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
 }
 
-test('a changed name and language show at once and stay, because the account locale wins over the cookie', async ({
+test('settings offer no language choice; a changed name shows at once and the page stays English despite a Lithuanian cookie', async ({
   page,
   request,
   baseURL,
@@ -46,12 +45,12 @@ test('a changed name and language show at once and stay, because the account loc
   if (baseURL === undefined) throw new Error('playwright.config sets baseURL');
   await newOnboardedAccount(page, request, 'Gabija');
   await openSettings(page);
+  await expect(page.getByRole('radio')).toHaveCount(0);
 
-  await switchToEnglish(page, 'Gabija N.');
+  await rename(page, 'Gabija N.');
   await page.getByRole('link', { name: en.settings.home }).click();
   await expectGreeting(page, en, 'Gabija N.');
 
-  // A cookie that says Lithuanian loses to the account's English.
   await page
     .context()
     .addCookies([{ name: LOCALE_COOKIE, value: 'lt', url: baseURL }]);
@@ -60,26 +59,27 @@ test('a changed name and language show at once and stay, because the account loc
   await expectGreeting(page, en, 'Gabija N.');
 });
 
-test('G-M1-5: English chosen in settings follows the account to another device', async ({
+test('G-M1-5: an account stored in Lithuanian is served English on every device, and saving settings keeps its stored language', async ({
   page,
   request,
   browser,
 }) => {
   const email = await newOnboardedAccount(page, request, 'Gabija');
+  await storeLocale(email, 'lt');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await expectGreeting(page, en, 'Gabija');
   await openSettings(page);
-  await switchToEnglish(page, 'Gabija');
-  await page.getByRole('link', { name: en.settings.home }).click();
-  await page.getByRole('button', { name: en.app.signOut }).click();
-  await expect(page).toHaveURL(/\/prisijungti$/);
+  await rename(page, 'Gabija N.');
+  expect(await storedLocale(email)).toBe('lt');
 
-  // The phone has no locale cookie: sign-in is Lithuanian until she is in.
   const other = await newDevice(browser);
   try {
     const phone = await other.newPage();
-    await signIn(phone, request, lt, email);
+    await signIn(phone, request, en, email);
     await expect(phone).toHaveURL(/\/$/);
     await expect(phone.locator('html')).toHaveAttribute('lang', 'en');
-    await expectGreeting(phone, en, 'Gabija');
+    await expectGreeting(phone, en, 'Gabija N.');
   } finally {
     await other.close();
   }
@@ -94,7 +94,7 @@ test('D-M3-5 (S1 part): the export link downloads JSON with the account email', 
 
   const downloading = page.waitForEvent('download');
   await page
-    .getByRole('link', { name: lt.settings.export.download, exact: true })
+    .getByRole('link', { name: en.settings.export.download, exact: true })
     .click();
   const download = await downloading;
 
@@ -111,11 +111,11 @@ test('deleting needs the exact display name, mails a confirmation, and frees the
   const email = await newOnboardedAccount(page, request, 'Rokas P');
   await openSettings(page);
   const typed = page.getByLabel(
-    format(lt.settings.delete.typeName, { name: 'Rokas P' }),
+    format(en.settings.delete.typeName, { name: 'Rokas P' }),
     { exact: true },
   );
   const confirm = page.getByRole('button', {
-    name: lt.settings.delete.confirm,
+    name: en.settings.delete.confirm,
   });
 
   await expect(confirm).toBeDisabled();
@@ -128,11 +128,11 @@ test('deleting needs the exact display name, mails a confirmation, and frees the
     await confirm.click();
     await expect(page).toHaveURL(/\/prisijungti\?deleted=1$/);
   });
-  expect(mail.Subject).toBe(lt.mail.deleted.subject);
-  await expect(page.getByRole('status')).toHaveText(lt.signIn.deleted);
+  expect(mail.Subject).toBe(en.mail.deleted.subject);
+  await expect(page.getByRole('status')).toHaveText(en.signIn.deleted);
 
   // The old account is gone: the same email starts over at onboarding.
-  const again = await requestLink(page, request, lt, {
+  const again = await requestLink(page, request, en, {
     typed: email,
     inbox: email,
   });
@@ -145,16 +145,20 @@ test('an account that has not finished onboarding deletes itself by typing its e
   request,
 }) => {
   const email = freshEmail();
-  await signIn(page, request, lt, email);
+  await signIn(page, request, en, email);
   await expect(page).toHaveURL(/\/pradzia$/);
 
-  await page.getByText(lt.onboarding.deleteAccount, { exact: true }).click();
+  // The disclosure's summary: in English the section heading inside it
+  // reads the same.
+  await page
+    .locator('summary', { hasText: en.onboarding.deleteAccount })
+    .click();
   const typed = page.getByLabel(
-    format(lt.settings.delete.typeEmail, { email }),
+    format(en.settings.delete.typeEmail, { email }),
     { exact: true },
   );
   const confirm = page.getByRole('button', {
-    name: lt.settings.delete.confirm,
+    name: en.settings.delete.confirm,
   });
   await expect(confirm).toBeDisabled();
   await typed.fill('e2e-someone-else@mychess.test');
@@ -166,5 +170,5 @@ test('an account that has not finished onboarding deletes itself by typing its e
     await confirm.click();
     await expect(page).toHaveURL(/\/prisijungti\?deleted=1$/);
   });
-  expect(mail.Subject).toBe(lt.mail.deleted.subject);
+  expect(mail.Subject).toBe(en.mail.deleted.subject);
 });

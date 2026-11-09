@@ -74,6 +74,20 @@ export function freshEmail(): string {
   return `e2e-${randomUUID().slice(0, 12)}@mychess.test`;
 }
 
+/** What `freshEmail` makes: `e2e-`, a UUID's first 12 characters, the test domain. */
+const FRESH_EMAIL = /^e2e-[0-9a-f]{8}-[0-9a-f]{3}@mychess\.test$/;
+
+/**
+ * `email`, if `freshEmail` could have made it; else throws. The helpers
+ * that write the database straight call it, so a persona or any other
+ * account is never touched.
+ */
+export function requireFreshEmail(email: string): string {
+  if (!FRESH_EMAIL.test(email))
+    throw new Error(`not a fresh test account: ${email}`);
+  return email;
+}
+
 /**
  * On the sign-in page (shown in `messages`' language), asks for a magic
  * link to `typed` and returns the mail that arrives at `inbox`.
@@ -108,19 +122,17 @@ export async function signIn(
 }
 
 /**
- * Fills the onboarding screen. Its own language is the account's (Lithuanian
- * for a new account, R-81), so the fields are found by role, not by label.
+ * Fills the onboarding screen: the display name only, as no language is
+ * offered to choose (R-180). The name field is found by its role and the
+ * submit button by its English name.
  */
 export async function onboard(
   page: Page,
-  { name, locale }: { name: string; locale: Locale },
+  { name }: { name: string },
 ): Promise<void> {
   await expect(page).toHaveURL(/\/pradzia$/);
   await page.getByRole('textbox').fill(name);
-  await page
-    .getByRole('radio', { name: CATALOGUES[locale].language[locale] })
-    .check();
-  await page.getByRole('button').click();
+  await page.getByRole('button', { name: en.onboarding.submit }).click();
   await expect(page).toHaveURL(/\/$/);
 }
 
@@ -135,28 +147,15 @@ export async function expectGreeting(
   );
 }
 
-/** From home, in Lithuanian settings, switches the account to English, then home. */
-export async function chooseEnglish(page: Page): Promise<void> {
-  await page.getByRole('link', { name: lt.app.settings }).click();
-  await page.getByRole('radio', { name: en.language.en }).check();
-  // The profile's own Save: the training limits have one too (S6).
-  await page
-    .getByRole('region', { name: lt.settings.profile.title })
-    .getByRole('button', { name: lt.settings.profile.submit })
-    .click();
-  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-  await page.getByRole('link', { name: en.settings.home }).click();
-}
-
-/** A new account, signed in by magic link and onboarded in Lithuanian. */
+/** A new account, signed in by magic link and onboarded, in English (R-180). */
 export async function newOnboardedAccount(
   page: Page,
   request: APIRequestContext,
   name: string,
 ): Promise<string> {
   const email = freshEmail();
-  await signIn(page, request, lt, email);
-  await onboard(page, { name, locale: 'lt' });
-  await expectGreeting(page, lt, name);
+  await signIn(page, request, en, email);
+  await onboard(page, { name });
+  await expectGreeting(page, en, name);
   return email;
 }

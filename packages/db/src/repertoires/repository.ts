@@ -199,6 +199,7 @@ export async function graphRows(
         arrows: repertoireMoves.arrows,
         circles: repertoireMoves.circles,
         comment: repertoireMoves.comment,
+        nags: repertoireMoves.nags,
       })
       .from(repertoireMoves)
       .where(eq(repertoireMoves.repertoireId, id))

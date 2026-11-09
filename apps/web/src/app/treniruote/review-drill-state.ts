@@ -70,7 +70,10 @@ function graded(
   return new Map(reviews).set(emit.key, grade(review, emit.outcome, now));
 }
 
-/** After the player's `move`: right, it stays and flashes; wrong, it goes back. */
+/**
+ * After the player's `move`: right, it stays and flashes; wrong, it goes
+ * back. A move typed during the reply's slide ends the slide.
+ */
 export function afterAnswer(
   s: DrillState,
   move: BoardMove,
@@ -82,6 +85,7 @@ export function afterAnswer(
     ...s,
     session: answer.state,
     reviews: graded(s.reviews, answer.emit, now),
+    replying: false,
     flash: { square: move.dest, kind: right ? 'correct' : 'wrong' },
     revision: right ? s.revision : s.revision + 1,
     unknownTyped: false,
@@ -118,9 +122,12 @@ export function advanced(
 
 export const isDone = (s: DrillState): boolean => s.session.current === null;
 
+/** Does the move field take a move now? Also while the reply slides in (#324). */
+export const canType = (s: DrillState): boolean =>
+  !isDone(s) && s.session.phase !== 'correct';
+
 /** Does the board take a move now? */
-export const canPlay = (s: DrillState): boolean =>
-  !isDone(s) && s.session.phase !== 'correct' && !s.replying;
+export const canPlay = (s: DrillState): boolean => canType(s) && !s.replying;
 
 /** Can a hint still be asked for the current item (R-61)? */
 export const canHint = (s: DrillState): boolean => {

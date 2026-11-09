@@ -1,4 +1,4 @@
-import { LOCALES, type Locale } from '@mychess/domain';
+import type { Locale } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useId, type JSX } from 'react';
 import type { ProfileRefusalKey } from '../server/profile-input';
@@ -58,20 +58,29 @@ export function NameField({
   );
 }
 
-/** One choice per site language, each named in its own language. */
+/**
+ * One choice per offered language, each named in its own language. With
+ * one language offered (R-180) nothing is asked: the stored language goes
+ * back as it is, so saving the form never changes it.
+ */
 export function LanguageField({
   legend,
   initial,
+  offered,
 }: {
   readonly legend: string;
   readonly initial: Locale;
+  /** The languages to choose from (OFFERED_LOCALES). */
+  readonly offered: readonly Locale[];
 }): JSX.Element {
   const t = useTranslations('language');
+  if (offered.length < 2)
+    return <input type="hidden" name="locale" value={initial} />;
   return (
     <fieldset className="flex flex-col gap-2">
       <legend className="mb-2 font-medium">{legend}</legend>
       <div className="grid grid-cols-2 gap-3">
-        {LOCALES.map((option) => (
+        {offered.map((option) => (
           <label
             key={option}
             lang={option}

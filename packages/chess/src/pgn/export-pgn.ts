@@ -64,8 +64,9 @@ function annotation(move: RepertoireMove): string[] {
 }
 
 /**
- * A move with its number: always before a White move, and before a Black
- * move when `numbered` (the start of a line, or after a variation). `ply`
+ * A move with its number and its NAGs as `$n` (R-175): the number always
+ * before a White move, and before a Black move when `numbered` (the start
+ * of a line, or after a variation). `ply`
  * counts half-moves from White's first move, so it is `moveNumber`'s ply
  * from a root with White to move.
  */
@@ -77,7 +78,8 @@ function moveText(
   const white = sideToMove(move.from) === 'w';
   const san =
     white || numbered ? `${moveNumber(ply, true)} ${move.san}` : move.san;
-  return [san, ...annotation(move)];
+  const nags = move.nags.map((nag) => `$${String(nag)}`);
+  return [san, ...nags, ...annotation(move)];
 }
 
 /**
@@ -128,8 +130,8 @@ function game(walk: ChapterWalk, chapter: Chapter, title: Title): string {
 /**
  * Writes a repertoire as PGN: one game per chapter, named by an `Event`
  * tag, with a `FEN` tag when the chapter does not start from the initial
- * position, its intro before the first move, each move's comment and its
- * arrows and circles (`[%cal]` / `[%csl]`) in one brace comment, and
+ * position, its intro before the first move, each move's NAGs as `$n`, its
+ * comment and its arrows and circles (`[%cal]` / `[%csl]`) in one brace comment, and
  * alternatives as variations. `options.title` names each game; by default
  * the chapter's name source itself.
  */

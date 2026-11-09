@@ -35,7 +35,9 @@ export interface ProfileState {
 /**
  * Saves a new display name and language. A changed language is also kept in
  * the locale cookie, so the site stays in it after sign-out; the page is
- * refreshed so it shows in the language just chosen.
+ * refreshed so it shows in the language just chosen. Under R-180 no
+ * language is offered to choose: the form sends the stored one back, and
+ * rememberLocale writes no cookie.
  */
 export async function updateProfileAction(
   _previous: ProfileState,

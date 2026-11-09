@@ -9,12 +9,19 @@
 // and the rest in the right one, over a card drawn behind them (FRAME_CARD),
 // as tall as the board.
 
-/** The board's edge on a desktop: the largest square that fits. */
-const BOARD_EDGE = 'lg:w-[min(calc(100dvh-4rem),42.5rem)]';
+/** The board's edge on a desktop (FRAME_MAIN's --board-edge). */
+const BOARD_EDGE = 'lg:w-(--board-edge)';
 
-/** On a desktop as tall as the board plus its padding (py-8), so the card is the board's height. */
+/**
+ * On a desktop the board's edge is the largest square that fits (the
+ * design's min(height, width - panel - gutters)): the height less the
+ * padding (py-8), 680px at most, and the width less the panel, the gap and
+ * the side padding (2rem each), so a 1024px-wide portrait tablet does not
+ * overflow (#323). The grid is as tall as the board plus its padding, so
+ * the card is the board's height.
+ */
 export const FRAME_MAIN =
-  'flex h-dvh flex-col lg:mx-auto lg:grid lg:h-[calc(min(calc(100dvh-4rem),42.5rem)+4rem)] lg:max-w-6xl lg:grid-cols-[auto_var(--spacing-panel)] lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:justify-center lg:gap-x-8 lg:gap-y-3 lg:px-gutter-wide lg:py-8';
+  'flex h-dvh flex-col lg:mx-auto lg:grid lg:[--board-edge:min(calc(100dvh_-_4rem),42.5rem,calc(100vw_-_var(--spacing-panel)_-_6rem))] lg:h-[calc(var(--board-edge)+4rem)] lg:max-w-6xl lg:grid-cols-[auto_var(--spacing-panel)] lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:justify-center lg:gap-x-8 lg:gap-y-3 lg:px-gutter-wide lg:py-8';
 
 /** The desktop side card, drawn behind the right column's parts. */
 export const FRAME_CARD =

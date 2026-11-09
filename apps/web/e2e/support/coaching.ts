@@ -6,7 +6,6 @@ import {
   format,
   freshEmail,
   requestLink,
-  type Locale,
   type Messages,
 } from './journey';
 import { linkIn } from './mailpit';
@@ -80,13 +79,13 @@ export async function expectInviteFrom(
 
 /**
  * Signed out, opens `link`: sign-in by magic link, then onboarding as
- * `name` in `locale`, each carrying the invite back (R-81), and lands on
+ * `name`, each carrying the invite back (R-81), and lands on
  * the confirm screen.
  */
 export async function signUpThroughInvite(
   page: Page,
   request: APIRequestContext,
-  { link, name, locale }: { link: string; name: string; locale: Locale },
+  { link, name }: { link: string; name: string },
 ): Promise<void> {
   const token = /\/k\/([A-Za-z0-9_-]{43})$/.exec(link)?.[1];
   if (token === undefined) throw new Error(`no token in ${link}`);
@@ -94,16 +93,16 @@ export async function signUpThroughInvite(
   await page.goto(link);
   await expect(page).toHaveURL(new RegExp(`/prisijungti\\?next=${next}$`));
   const email = freshEmail();
-  const mail = await requestLink(page, request, CATALOGUES.lt, {
+  const mail = await requestLink(page, request, CATALOGUES.en, {
     typed: email,
     inbox: email,
   });
   await page.goto(linkIn(mail.Text));
   await expect(page).toHaveURL(new RegExp(`/pradzia\\?next=${next}$`));
+  // Only the name: no language is offered to choose (R-180).
   await page.getByRole('textbox').fill(name);
   await page
-    .getByRole('radio', { name: CATALOGUES[locale].language[locale] })
-    .check();
-  await page.getByRole('button').click();
+    .getByRole('button', { name: CATALOGUES.en.onboarding.submit })
+    .click();
   await expect(page).toHaveURL(new RegExp(`/k/${token}$`));
 }

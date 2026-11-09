@@ -6,6 +6,7 @@
 // in code is a fixed fragment per state, never input.
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
+import { requireFreshEmail } from './journey';
 
 /** The database the app under test uses (playwright.config.ts, same default). */
 const DATABASE_URL =
@@ -89,7 +90,7 @@ async function seedState(
        now() - interval '9 days', now()
      from accounts a, unnest($2::text[]) as k
      where a.email = $1`,
-    [email, keys, card.reps],
+    [requireFreshEmail(email), keys, card.reps],
   );
   if (rowCount !== keys.length)
     throw new Error(
@@ -114,7 +115,7 @@ export async function seedResult(
      select $2::uuid, a.id, $3, $4::uuid, $5,
        now() - interval '1 minute', true, now() - interval '1 minute'
      from accounts a where a.email = $1`,
-    [email, randomUUID(), moveKey, repertoireId, 'pass'],
+    [requireFreshEmail(email), randomUUID(), moveKey, repertoireId, 'pass'],
   );
   if (rowCount !== 1) throw new Error(`seedResult: no account ${email}`);
 }

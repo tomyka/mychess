@@ -23,6 +23,7 @@ const PREVIEW: ImportPreview = {
     { game: 8, reason: 'pgn.secondAnswer', san: 'a6', move: 5 },
     { game: 9, reason: 'pgn.noMoves' },
   ],
+  annotations: [],
   target: null,
   refusal: null,
 };
@@ -188,5 +189,53 @@ describe('ImportSummary', () => {
         .closest('section')
         ?.getAttribute('aria-busy'),
     ).toBe('true');
+  });
+
+  it('lists the comments and NAGs a merge adds to moves already there (R-175, R-176)', () => {
+    renderSummary({
+      ...PREVIEW,
+      annotations: [
+        { move: '8. Qxc4!', comment: null },
+        { move: '18. e4!', comment: 'Centras' },
+      ],
+    });
+    const list = screen.getByRole('list', {
+      name: i.annotationsTitle.replace('{count}', '2'),
+    });
+    expect(
+      within(list)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['8. Qxc4!', '18. e4!: Centras']);
+  });
+
+  it('shows the first ten added comments, and the rest on request', () => {
+    const annotations = Array.from({ length: 12 }, (_, n) => ({
+      move: `${String(n + 1)}. d4`,
+      comment: `Note ${String(n + 1)}`,
+    }));
+    renderSummary({ ...PREVIEW, annotations });
+    const items = () =>
+      within(
+        screen.getByRole('list', {
+          name: i.annotationsTitle.replace('{count}', '12'),
+        }),
+      ).getAllByRole('listitem');
+    expect(items()).toHaveLength(10);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: i.annotationsAll.replace('{count}', '12'),
+      }),
+    );
+    expect(items()).toHaveLength(12);
+  });
+
+  it('lists no added comments when the merge adds none', () => {
+    renderSummary(PREVIEW);
+    expect(
+      screen.queryByRole('list', {
+        name: i.annotationsTitle.replace('{count}', '0'),
+      }),
+    ).toBeNull();
   });
 });

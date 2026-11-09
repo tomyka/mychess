@@ -1,6 +1,6 @@
 import type { Locale } from '@mychess/domain';
 import { createTranslator } from 'next-intl';
-import { MESSAGES } from '../i18n/locales';
+import { MESSAGES, resolveLocale } from '../i18n/locales';
 import type { WebEnv } from './env';
 
 export interface MailMessage {
@@ -13,7 +13,9 @@ export interface Mailer {
   readonly send: (message: MailMessage) => Promise<void>;
 }
 
-function mailText(locale: Locale) {
+/** The mail catalogue in the language served for `wanted` (R-180). */
+function mailText(wanted: Locale) {
+  const locale = resolveLocale(wanted);
   return createTranslator({
     locale,
     messages: MESSAGES[locale],

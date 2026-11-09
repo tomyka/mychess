@@ -158,7 +158,7 @@ describe('mergeInto (R-101)', () => {
   });
 
   it('adds no chapter for a game the repertoire already has, and takes nothing from it (R-117)', () => {
-    const existing = graphOf('1. e4 e5 2. Nf3 *');
+    const existing = graphOf('1. e4 { Mine } e5 2. Nf3 *');
     const r = merged(existing, '1. e4 { Theirs [%cal Gd2d4] } e5 *');
     expect(r.skipped).toEqual([]);
     expect(r.graph).toEqual(existing);
@@ -185,7 +185,12 @@ describe('mergeInto (R-101)', () => {
     );
     expect(r.added).toEqual({
       ok: true,
-      value: { chapters: 2, moves: 4, firstChapterId: 'c3' },
+      value: {
+        chapters: 2,
+        moves: 4,
+        firstChapterId: 'c3',
+        annotations: [],
+      },
     });
     expect(r.graph.moves).toHaveLength(existing.moves.length + 4);
   });
@@ -215,7 +220,12 @@ describe('mergeInto (R-101)', () => {
     ]);
     expect(r.added).toEqual({
       ok: true,
-      value: { chapters: 1, moves: 3, firstChapterId: 'c2' },
+      value: {
+        chapters: 1,
+        moves: 3,
+        firstChapterId: 'c2',
+        annotations: [],
+      },
     });
   });
 
@@ -553,4 +563,112 @@ describe('mergeInto: cost', () => {
       mergeInto(existing, incoming);
     expect(growth(inputOf, merge, 5)).toBeLessThan(LINEAR_GROWTH);
   }, 300_000);
+});
+
+describe('mergeInto: comments and NAGs on moves already there (R-176)', () => {
+  const moveOf = (graph: RepertoireGraph, san: string) =>
+    must(graph.moves.find((m) => m.san === san));
+
+  it('adds the comments and NAGs of a game the repertoire already has, without a chapter', () => {
+    const existing = graphOf('1. d4 Nf6 2. c4 e6 *');
+    const r = merged(existing, '1. d4 Nf6 2. c4 $1 { Space } e6 $14 *');
+    expect(r.graph.chapters).toEqual(existing.chapters);
+    expect(r.graph.moves).toHaveLength(existing.moves.length);
+    expect([moveOf(r.graph, 'c4').comment, moveOf(r.graph, 'c4').nags]).toEqual(
+      ['Space', [1]],
+    );
+    expect(moveOf(r.graph, 'e6').nags).toEqual([14]);
+    expect(moveOf(r.graph, 'd4')).toEqual(moveOf(existing, 'd4'));
+    expect(r.added).toEqual({
+      ok: true,
+      value: {
+        chapters: 0,
+        moves: 0,
+        firstChapterId: null,
+        annotations: [
+          {
+            from: moveOf(existing, 'c4').from,
+            san: 'c4',
+            ply: 2,
+            comment: 'Space',
+            nags: [1],
+          },
+          {
+            from: moveOf(existing, 'e6').from,
+            san: 'e6',
+            ply: 3,
+            comment: null,
+            nags: [14],
+          },
+        ],
+      },
+    });
+  });
+
+  it('never overwrites an existing comment or NAGs', () => {
+    const existing = graphOf('1. d4 { Mine } $5 Nf6 $2 2. c4 *');
+    const r = merged(existing, '1. d4 { Theirs } $1 Nf6 { New } $4 2. c4 *');
+    expect([moveOf(r.graph, 'd4').comment, moveOf(r.graph, 'd4').nags]).toEqual(
+      ['Mine', [5]],
+    );
+    expect([
+      moveOf(r.graph, 'Nf6').comment,
+      moveOf(r.graph, 'Nf6').nags,
+    ]).toEqual(['New', [2]]);
+    expect(r.added.ok && r.added.value.annotations).toEqual([
+      {
+        from: moveOf(existing, 'Nf6').from,
+        san: 'Nf6',
+        ply: 1,
+        comment: 'New',
+        nags: [],
+      },
+    ]);
+  });
+
+  it('does not take the marks of a game that adds no move (R-65 as before)', () => {
+    const existing = graphOf('1. d4 Nf6 *');
+    const r = merged(existing, '1. d4 { [%cal Gc2c4] } Nf6 *');
+    expect(r.graph).toEqual(existing);
+    expect(r.added).toEqual(NOTHING_TO_ADD);
+  });
+
+  it('lists the annotations a new chapter adds to shared moves, not those of its new moves', () => {
+    const existing = graphOf('1. d4 d5 *', 'black');
+    const r = merged(
+      existing,
+      '1. d4 { Queen pawn } d5 2. c4 { Gambit } e6 *',
+      'black',
+    );
+    expect(r.added.ok && r.added.value.annotations).toEqual([
+      {
+        from: START,
+        san: 'd4',
+        ply: 0,
+        comment: 'Queen pawn',
+        nags: [],
+      },
+    ]);
+    expect(moveOf(r.graph, 'c4').comment).toBe('Gambit');
+  });
+
+  it('lists a move once when two games annotate it', () => {
+    const existing = graphOf('1. d4 Nf6 *');
+    const r = merged(
+      existing,
+      '1. d4 { First } Nf6 *\n\n1. d4 $1 { Second } Nf6 *',
+    );
+    expect(moveOf(r.graph, 'd4').comment).toBe('First');
+    expect(moveOf(r.graph, 'd4').nags).toEqual([1]);
+    expect(r.added.ok && r.added.value.annotations).toEqual([
+      { from: START, san: 'd4', ply: 0, comment: 'First', nags: [1] },
+    ]);
+  });
+
+  it('adds no annotation past a refused second answer', () => {
+    const existing = graphOf('1. d4 d5 2. c4 e6 *');
+    const r = merged(existing, '1. d4 d5 2. Nf3 e6 { Never } *');
+    expect(r.graph).toEqual(existing);
+    expect(r.added).toEqual(NOTHING_TO_ADD);
+  });
 });

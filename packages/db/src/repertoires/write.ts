@@ -172,6 +172,7 @@ const moveRow = (repertoireId: string, m: RepertoireMove, ord: number) => ({
   arrows: m.arrows,
   circles: m.circles,
   comment: m.comment,
+  nags: [...m.nags],
   ord,
 });
 
@@ -208,7 +209,12 @@ async function updateMoves(
   for (const m of changed)
     await tx
       .update(repertoireMoves)
-      .set({ arrows: m.arrows, circles: m.circles, comment: m.comment })
+      .set({
+        arrows: m.arrows,
+        circles: m.circles,
+        comment: m.comment,
+        nags: [...m.nags],
+      })
       .where(
         and(
           ofRepertoire(repertoireId),

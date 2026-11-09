@@ -16,6 +16,7 @@ const BF4: RepertoireMove = {
   arrows: [{ from: 'g1', to: 'f3', color: 'G' }],
   circles: [],
   comment: 'The London bishop',
+  nags: [],
   chapters: ['c1'],
 };
 

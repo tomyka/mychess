@@ -365,7 +365,8 @@ async function repertoires(
   return { karoKanId, italianId, londonId, forkId };
 }
 
-for (const locale of ['lt', 'en'] as const) {
+// English only for now (R-180); the journeys ran in Lithuanian too.
+for (const locale of ['en'] as const) {
   test(`C-M1-5 (${locale}): the coach sees each player's progress as seeded, and never Rokas's private repertoire`, async ({
     page: coach,
     request,

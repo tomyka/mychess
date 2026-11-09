@@ -1,6 +1,7 @@
 import { Chess, type Move } from 'chess.js';
 import { positionKey } from '../position-key';
 import type { Marks } from '../repertoire/graph';
+import { isNag } from '../repertoire/nags';
 import type { Result } from '../result';
 import { parseMarks, type CommentMarks } from './marks';
 import type { MovetextToken } from './tokenize';
@@ -12,7 +13,7 @@ interface MoveComment extends Marks {
 
 /**
  * A move as replayed in its game, with the arrows, circles and prose of its
- * PGN comments, and where it stands in the game's move tree.
+ * PGN comments, its NAGs (R-175), and where it stands in the game's move tree.
  * `parent` is the index of the move it follows (null for a move from the
  * game's root), `moveNumber` the FEN full-move number it is played at, and
  * `uci` the move in coordinates.
@@ -21,6 +22,7 @@ export interface ReplayedMove extends MoveComment {
   readonly from: string;
   readonly to: string;
   readonly san: string;
+  readonly nags: readonly number[];
   readonly parent: number | null;
   readonly moveNumber: number;
   readonly uci: string;
@@ -100,7 +102,9 @@ function tryMove(board: Chess, san: string): Move | null {
  * enclosing branch. The marks and prose of a comment attach to the move it
  * follows, or to the branch's first move when it comes before it. Comments
  * before the game's first move are its intro instead; marks there have no
- * move and are dropped. NAGs are not kept.
+ * move and are dropped. A NAG attaches to the branch's last move, once; one
+ * with no move before it in its branch, or outside `$1` to `$255`, is
+ * dropped.
  */
 class Replay {
   readonly moves: ReplayedMove[] = [];
@@ -120,6 +124,7 @@ class Replay {
         this.comment(parseMarks(token.text));
         return null;
       case 'nag':
+        this.nag(token.nag);
         return null;
       case 'open':
         return this.open();
@@ -141,6 +146,14 @@ class Replay {
   private comment(marks: CommentMarks): void {
     if (this.moves.length > 0) this.addComment(marks);
     else if (marks.text !== '') this.introParts.push(marks.text);
+  }
+
+  private nag(nag: number): void {
+    const { last } = this.branch;
+    const move = last === null ? undefined : this.moves[last];
+    if (last === null || move === undefined || !isNag(nag)) return;
+    if (!move.nags.includes(nag))
+      this.moves[last] = { ...move, nags: [...move.nags, nag] };
   }
 
   /** Adds a comment to the branch's last move, or its first move to come. */
@@ -166,6 +179,7 @@ class Replay {
       from: key,
       to,
       san: played.san,
+      nags: [],
       ...this.branch.pending,
       parent,
       moveNumber,

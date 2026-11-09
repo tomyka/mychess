@@ -204,12 +204,34 @@ describe('the learn drill, arrows round', () => {
     wait(400);
     expect(lastWith('fen')).toBe(fenOf(AFTER_D5));
     expect(lastWith('lastMove')).toEqual(['d7', 'd5']);
-    type('Bf4');
-    expect(panel()).not.toContain(T.learn.correct);
+    expect(lastWith('movable')?.dests?.size ?? 0).toBe(0);
     wait(150);
+    expect(lastWith('movable')?.dests?.size ?? 0).toBeGreaterThan(0);
     expect(arrows()).toEqual(['c1f4']);
     expect(panel()).toContain('1. d4 d5');
     expect(recorded).toEqual([]);
+  });
+
+  it('refuses a move typed during the correct flash, the first move still shown right', () => {
+    renderDrill();
+    type('d4');
+    type('Bf4');
+    expect(panel()).toContain(T.learn.correct);
+    expect(recorded).toEqual([]);
+    expect(screen.getByLabelText<HTMLInputElement>(MOVE_INPUT).value).toBe(
+      'Bf4',
+    );
+    expect(lastWith('lastMove')).toEqual(['d2', 'd4']);
+  });
+
+  it('takes a move typed while the reply still slides in (#324)', () => {
+    renderDrill();
+    type('d4');
+    wait(400);
+    type('Bf4');
+    expect(panel()).toContain(T.learn.correct);
+    expect(screen.getByLabelText<HTMLInputElement>(MOVE_INPUT).value).toBe('');
+    expect(lastWith('lastMove')).toEqual(['c1', 'f4']);
   });
 
   it('puts a wrong move back and keeps the arrow, recording nothing', () => {
@@ -391,8 +413,6 @@ describe('the learn drill in a Black repertoire', () => {
     );
     expect(lastWith('orientation')).toBe('black');
     expect(lastWith('lastMove')).toEqual(['e2', 'e4']);
-    type('c5');
-    expect(panel()).not.toContain(T.learn.correct);
     wait(150);
     expect(arrows()).toEqual(['c7c5']);
     expect(panel()).toContain(MESSAGES.lt.training.drill.toMove.black);

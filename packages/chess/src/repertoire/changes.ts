@@ -4,7 +4,7 @@
  * changed"); `playerMoveChanges` and `netMoveChanges` give what it changes
  * for a player who trains the repertoire (R-121, R-133). A move is identified
  * by its move key; its `to` and `uci` follow from that key, so only its
- * comment and marks can change. A move's chapters are a set.
+ * comment, NAGs and marks can change. A move's chapters are a set.
  */
 import {
   isPlayerMove,
@@ -29,8 +29,9 @@ export interface GraphChanges {
   readonly addedMoves: readonly RepertoireMove[];
   readonly removedMoveKeys: readonly string[];
   /**
-   * Kept moves whose comment or marks changed: a Comment change, never a change
-   * to the moves a player trains (R-121).
+   * Kept moves whose comment, NAGs or marks changed: a Comment change, never
+   * a change to the moves a player trains (R-121); NAGs count as one too
+   * (#325 decision 5).
    */
   readonly commentChanges: readonly RepertoireMove[];
   /** Links added to kept moves. */
@@ -41,7 +42,7 @@ export interface GraphChanges {
 
 const keyOf = (m: RepertoireMove): string => moveKey(m.from, m.san);
 const commentOf = (m: RepertoireMove): string =>
-  JSON.stringify([m.comment, m.arrows, m.circles]);
+  JSON.stringify([m.comment, m.nags, m.arrows, m.circles]);
 const faceOf = (c: Chapter): string => JSON.stringify([c.nameSource, c.intro]);
 
 /** The links of `move` whose chapter `other` lacks and `keep` accepts. */

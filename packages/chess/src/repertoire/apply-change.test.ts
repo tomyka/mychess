@@ -130,6 +130,17 @@ describe('applyChange: an import (R-101)', () => {
     });
   });
 
+  it('takes a file that only adds comments and NAGs, opening on no chapter (R-176)', () => {
+    const file = imported('1. d4 { Solid } d5 $14 2. Bf4 *');
+    const merged = mergeInto(london, file);
+    if (!merged.ok) throw new Error(merged.refusal.reason);
+    expect(merged.value.graph.chapters).toEqual(london.chapters);
+    expect(applyChange(london, { kind: 'import', imported: file })).toEqual({
+      ok: true,
+      value: { graph: merged.value.graph, firstChapterId: null },
+    });
+  });
+
   it('refuses a file of the other side', () => {
     const file = imported('1. d4 d5 2. Bf4 *', 'black');
     expect(applyChange(london, { kind: 'import', imported: file })).toEqual({
@@ -145,8 +156,8 @@ describe('applyChange: an import (R-101)', () => {
       '1. e4 e5 *\n\n1. c4 e5 *',
     ],
     [
-      'every game is already there (R-117)',
-      '1. e4 e5 2. Nf3 *',
+      'every game is already there, its comment too (R-117, R-176)',
+      '1. e4 { Mine } e5 2. Nf3 *',
       '1. e4 { Theirs [%cal Gd2d4] } e5 *',
     ],
     [

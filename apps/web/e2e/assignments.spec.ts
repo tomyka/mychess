@@ -304,7 +304,8 @@ async function makeOwnCopy(
   await expect(badge(row, messages, 'forked')).toBeVisible();
 }
 
-for (const locale of ['lt', 'en'] as const) {
+// English only for now (R-180); the journeys ran in Lithuanian too.
+for (const locale of ['en'] as const) {
   test(`C-M1-3, C-M1-4, C-M1-6 (${locale}): group and individual assignments, a later member's deadline, leaving and rejoining the group`, async ({
     page: coach,
     request,
