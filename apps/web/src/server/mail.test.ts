@@ -6,7 +6,7 @@ const { en } = MESSAGES;
 
 const message = {
   to: 'ruta@example.lt',
-  subject: 'Prisijungimas prie mychess',
+  subject: 'Prisijungimas prie MyChess',
   text: 'Nuoroda: https://app/x?token=t',
 };
 

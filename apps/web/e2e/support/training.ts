@@ -93,6 +93,7 @@ function askingTexts(messages: Messages): string[] {
   const { review, learn } = messages.training;
   return [
     review.prompt,
+    review.again,
     review.lapse,
     review.hinted,
     learn.arrows,

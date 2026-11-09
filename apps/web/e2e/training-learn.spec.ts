@@ -116,6 +116,13 @@ test('U1-M1-3: the next day Rokas sees the due count and time, reviews, lapses o
   });
   await expect(doneHeading(page, en)).toBeVisible();
   await expect(stat(page, en.training.done.lapses)).toHaveText('1');
+  // R-78 (#319): the lapsed move came back in the session until it stuck,
+  // so the day is done and nothing is left to continue.
+  expect(rest.filter((a) => a.key === lapsed.key).length).toBeGreaterThan(0);
+  await expect(page.getByText(en.training.done.dayDone)).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: en.training.done.continue }),
+  ).toHaveCount(0);
   // R-59: the lapse is recorded once; every answer reached the server.
   await expect(async () => {
     const results = await loggedResults(email);
@@ -125,17 +132,13 @@ test('U1-M1-3: the next day Rokas sees the due count and time, reviews, lapses o
     // The first answer, the lapse (its replay records nothing), the rest.
     expect(reviews).toHaveLength(2 + rest.length);
   }).toPass({ timeout: 10_000 });
-  // R-78: the lapsed move keeps its relearning step: due again within the
-  // hour (the done summary's "continue" offers it then), the rest later.
+  // R-78: the lapsed move went through its relearning steps in the
+  // session, so no Review comes due again within the hour.
   const stored = await storedReviews(email);
-  const lapsedKey = `${lapsed.key}|${lapsed.move.san}`;
-  for (const review of stored) {
-    const soon = review.due.getTime() - Date.now() < HOUR;
-    expect([review.move_key, soon]).toEqual([
-      review.move_key,
-      review.move_key === lapsedKey,
-    ]);
-  }
+  for (const review of stored)
+    expect([review.move_key, review.due.getTime() - Date.now() > HOUR]).toEqual(
+      [review.move_key, true],
+    );
 });
 
 test('U1-M1-4: the Two Knights after the Pianissimo teaches only its own new moves', async ({

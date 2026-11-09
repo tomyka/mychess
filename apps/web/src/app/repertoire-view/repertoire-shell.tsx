@@ -6,7 +6,7 @@ import { Board, type BoardProps } from '../board/board';
 import { BoardRow } from './board-row';
 import { Announcer, useBoardWords } from './board-words';
 import { RepertoirePanel, type PanelContent } from './repertoire-panel';
-import type { ScreenState } from './screen-state';
+import type { ScreenMessage, ScreenState } from './screen-state';
 import { ScreenStatus } from './screen-status';
 import type { RepertoireView } from './view';
 
@@ -31,7 +31,11 @@ interface RepertoireShellProps {
   readonly toolbar?: ReactNode;
   /** Reloads the page once the repertoire changed elsewhere (a view that edits). */
   readonly onReload?: () => void;
+  /** What the view offers beside a status message (null: nothing). */
+  readonly statusAction?: StatusAction;
 }
+
+type StatusAction = (message: ScreenMessage) => ReactNode;
 
 /**
  * The page's status line, under the board row and the builder row and
@@ -41,16 +45,20 @@ interface RepertoireShellProps {
 function PanelStatus({
   state,
   onReload,
+  statusAction,
 }: {
   readonly state: ScreenState;
   readonly onReload: () => void;
+  readonly statusAction: StatusAction;
 }): JSX.Element {
+  const { message } = state;
   return (
     <div className="shrink-0 px-gutter lg:px-0">
       <ScreenStatus
-        message={state.message}
+        message={message}
         stale={state.stale}
         onReload={onReload}
+        action={message === null ? null : statusAction(message)}
       />
     </div>
   );
@@ -58,6 +66,8 @@ function PanelStatus({
 
 /** A view that never edits is never stale, so has nothing to reload. */
 const noReload = (): void => undefined;
+
+const noAction: StatusAction = () => null;
 
 /**
  * A repertoire page (docs/design/repertoire-screen.md, section 2): on a
@@ -73,6 +83,7 @@ export function RepertoireShell({
   drawing,
   toolbar,
   onReload = noReload,
+  statusAction = noAction,
 }: RepertoireShellProps): JSX.Element {
   const { state, dispatch, board, play } = view;
   const { said, ...handlers }: Partial<Drawing> = drawing ?? {};
@@ -98,7 +109,11 @@ export function RepertoireShell({
             play={play}
           />
           {toolbar}
-          <PanelStatus state={state} onReload={onReload} />
+          <PanelStatus
+            state={state}
+            onReload={onReload}
+            statusAction={statusAction}
+          />
           <RepertoirePanel view={view} names={names} content={panel} />
         </div>
       </div>

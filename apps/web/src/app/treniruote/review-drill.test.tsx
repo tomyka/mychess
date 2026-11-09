@@ -3,8 +3,10 @@ import type { Config } from '@lichess-org/chessground/config';
 import type { Key } from '@lichess-org/chessground/types';
 import {
   fenOf,
+  legalMoves,
   moveKey,
   playerKeys,
+  positionKey,
   START_KEY,
   startReview,
   type ReviewState,
@@ -13,7 +15,12 @@ import type { TrainingResult } from '@mychess/domain';
 import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { graphOf, LONDON, TAIMANOV } from '../../../test/fixtures/repertoires';
+import {
+  graphOf,
+  LONDON,
+  pgnWithMoves,
+  TAIMANOV,
+} from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/locales';
 import type { TrainingData } from '../../lib/training-data';
 import type { FrameParts } from './drill';
@@ -295,7 +302,8 @@ describe('the review drill', () => {
     expect(panel()).toContain(T.review.correct);
     wait(400);
     wait(150);
-    expect(counter()).toBe('1 / 2');
+    // The lapsed move is asked again at the end (R-78).
+    expect(counter()).toBe('1 / 3');
     expect(panel()).toContain(T.review.prompt);
   });
 
@@ -426,21 +434,79 @@ describe('the review drill', () => {
     ).toEqual([T.done.done, T.done.learn]);
   });
 
-  it('offers Continue once a lapse is due again, and starts a new session over it', () => {
-    renderDrill(data({ reviews: [dueReview(D4, 2)], learned: [D4] }));
+  it('asks a lapsed move again at the end of the session, each repeat counted, until today is done (#319, R-78)', () => {
+    renderDrill();
     type('e4');
+    // The repeat joins the session: two moves and one repeat.
+    expect(counter()).toBe('1 / 3');
     type('d4');
     wait(400);
-    expect(screen.getByRole('heading', { name: T.done.title })).toBeDefined();
-    expect(screen.queryByRole('button', { name: T.done.continue })).toBeNull();
-    // The lapse comes back within minutes (R-78).
-    clock.at = new Date(NOW.getTime() + DAY / 24);
-    wait(DAY / 24);
-    fireEvent.click(screen.getByRole('button', { name: T.done.continue }));
-    expect(counter()).toBe('0 / 1');
-    expect(panel()).toContain(T.review.prompt);
+    wait(150);
+    type('Bf4');
+    expect(counter()).toBe('2 / 3');
+    wait(400);
+    expect(panel()).toContain(T.review.again);
+    expect(lastWith('fen')).toBe(fenOf(START_KEY));
+    expect(screen.queryByRole('heading', { name: T.done.title })).toBeNull();
     type('d4');
-    expect(kinds()).toEqual(['lapse', 'pass']);
+    expect(kinds()).toEqual(['lapse', 'pass', 'pass']);
+    // A move in its learning steps comes back once more: 1 min, then
+    // 10 min (R-78); the next pass takes it out of today.
+    expect(counter()).toBe('3 / 4');
+    wait(400);
+    expect(panel()).toContain(T.review.again);
+    type('d4');
+    wait(400);
+    expect(kinds()).toEqual(['lapse', 'pass', 'pass', 'pass']);
+    expect(screen.getByRole('heading', { name: T.done.title })).toBeDefined();
+    expect(screen.getByText(T.done.dayDone)).toBeDefined();
+    expect(screen.queryByRole('button', { name: T.done.continue })).toBeNull();
+    // The summary counts the moves by their first answer.
+    const stat = (label: string) =>
+      screen.getByText(label).parentElement?.querySelector('dd')?.textContent;
+    expect(stat(T.done.reviewed)).toBe('2');
+    expect(stat(T.done.correct)).toBe('1');
+    expect(stat(T.done.lapses)).toBe('1');
+    expect(counter()).toBe('4 / 4');
+  });
+
+  it('says how many moves are still due and offers Continue when the session size leaves some (#319, R-62)', () => {
+    const wide = graphOf(pgnWithMoves(41));
+    const keys = [...new Set(playerKeys(wide))];
+    expect(keys).toHaveLength(21);
+    renderDrill(
+      data({
+        entries: [
+          {
+            id: LONDON_ID,
+            name: 'Platus',
+            side: 'white',
+            kind: 'own',
+            active: true,
+            graph: wide,
+          },
+        ],
+        reviews: keys.map((key) => dueReview(key, 1)),
+        learned: keys,
+        settings: { sessionSize: 10, newPerDay: 10 },
+      }),
+    );
+    expect(counter()).toBe('0 / 10');
+    for (let i = 0; i < 10; i++) {
+      // The repertoire holds one White move in each position.
+      const [move] = legalMoves(positionKey(lastWith('fen') ?? ''));
+      type(move?.san ?? 'no move');
+      wait(400);
+      wait(150);
+    }
+    expect(kinds()).toEqual(Array<string>(10).fill('pass'));
+    expect(screen.getByRole('heading', { name: T.done.title })).toBeDefined();
+    expect(screen.getByText('Dar 11 kartotinų ėjimų.')).toBeDefined();
+    expect(screen.queryByText(/^Kitas kartojimas:/)).toBeNull();
+    expect(screen.queryByText(T.done.dayDone)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: T.done.continue }));
+    expect(counter()).toBe('0 / 10');
+    expect(panel()).toContain(T.review.prompt);
   });
 });
 
@@ -551,5 +617,75 @@ describe('the review drill and NAGs', () => {
     expect(panel()).toContain('1. d4 d5');
     expect(panel()).not.toContain('!');
     expect(panel()).not.toContain('⩲');
+  });
+});
+
+describe('the review drill and coach notes (#322, R-174)', () => {
+  /** The coach's line: a note on 1. d4 and none on 2. Bf4. */
+  const NOTED = graphOf('1. d4 { Take the centre first. } d5 2. Bf4 *');
+  const noted = (kind: 'assigned' | 'own') =>
+    data({
+      entries: [
+        {
+          id: LONDON_ID,
+          name: 'Trenerio Londonas',
+          side: 'white',
+          kind,
+          active: true,
+          graph: NOTED,
+        },
+      ],
+    });
+  const note = () =>
+    screen.queryByRole('note', { name: T.drill.coachNote })?.textContent ??
+    null;
+  const next = () => screen.queryByRole('button', { name: T.review.next });
+
+  it('keeps the note hidden until the move is answered, then waits for the player to go on', () => {
+    renderDrill(noted('assigned'));
+    expect(panel()).toContain(T.review.prompt);
+    expect(note()).toBeNull();
+    expect(next()).toBeNull();
+    type('d4');
+    expect(kinds()).toEqual(['pass']);
+    expect(note()).toContain('Take the centre first.');
+    // The drill does not move on while the note is there to read.
+    wait(2000);
+    expect(note()).toContain('Take the centre first.');
+    expect(counter()).toBe('1 / 2');
+    const button = next();
+    if (button === null) throw new Error('a Next button');
+    fireEvent.click(button);
+    wait(150);
+    // 2. Bf4 has no note: the next card shows none, and goes on by itself.
+    expect(panel()).toContain('1. d4 d5');
+    expect(note()).toBeNull();
+    type('Bf4');
+    expect(next()).toBeNull();
+    wait(400);
+    expect(screen.getByRole('heading', { name: T.done.title })).toBeDefined();
+  });
+
+  it('shows the note with the arrow after a lapse', () => {
+    renderDrill(noted('assigned'));
+    type('e4');
+    expect(arrows()).toEqual(['d2d4']);
+    expect(note()).toContain('Take the centre first.');
+    type('d4');
+    expect(note()).toContain('Take the centre first.');
+    expect(next()).not.toBeNull();
+  });
+
+  it('shows no note after a hint, before the move is played', () => {
+    renderDrill(noted('assigned'));
+    fireEvent.click(screen.getByRole('button', { name: T.review.hint }));
+    expect(note()).toBeNull();
+  });
+
+  it('shows no coach note for a comment on the player’s own repertoire', () => {
+    renderDrill(noted('own'));
+    type('d4');
+    expect(note()).toBeNull();
+    expect(next()).toBeNull();
   });
 });

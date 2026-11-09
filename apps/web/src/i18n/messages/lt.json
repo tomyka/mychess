@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "mychess",
+    "title": "MyChess",
     "greeting": "Sveiki, {name}!",
     "signOut": "Atsijungti",
     "settings": "Nustatymai",
@@ -82,7 +82,7 @@
       "dismiss": "Supratau",
       "error": {
         "notFresh": "Dėl saugumo prieš prijungdami ar atjungdami paskyrą prisijunkite iš naujo.",
-        "linkedElsewhere": "Ši paskyra jau prijungta prie kitos mychess paskyros.",
+        "linkedElsewhere": "Ši paskyra jau prijungta prie kitos MyChess paskyros.",
         "generic": "Nepavyko. Bandykite dar kartą."
       }
     },
@@ -200,6 +200,7 @@
       "empty": "{name} dar nebendrina su jumis nė vieno repertuaro.",
       "back": "Atgal: {name}",
       "readOnly": "Tik peržiūra: galite rašyti trenerio pastabas, bet negalite keisti repertuaro.",
+      "notInChapter": "Šis repertuaras yra jūsų žaidėjo. Galite jį peržiūrėti ir rašyti trenerio pastabas, bet keisti jo negalite.",
       "note": "Mano pastaba",
       "noteHint": "Matote jūs ir {name}",
       "saveNote": "Išsaugoti pastabą",
@@ -249,11 +250,11 @@
   },
   "mail": {
     "magicLink": {
-      "subject": "Prisijungimas prie mychess",
-      "body": "Norėdami prisijungti prie mychess, paspauskite šią nuorodą (ji galioja 15 minučių):\n{url}\n\nJei nuorodos neprašėte, šį laišką galite ignoruoti."
+      "subject": "Prisijungimas prie MyChess",
+      "body": "Norėdami prisijungti prie MyChess, paspauskite šią nuorodą (ji galioja 15 minučių):\n{url}\n\nJei nuorodos neprašėte, šį laišką galite ignoruoti."
     },
     "deleted": {
-      "subject": "Jūsų mychess paskyra ištrinta",
+      "subject": "Jūsų MyChess paskyra ištrinta",
       "body": "Jūsų paskyra ir visi jos duomenys ištrinti visam laikui."
     }
   },
@@ -568,6 +569,7 @@
       "deletedChapters": "Ištrinti skyriai",
       "chapter": "Skyrius {number} — {name}"
     },
+    "notInChapter": "Šis repertuaras yra jūsų trenerio, todėl jo keisti negalite. Norėdami pridėti savo ėjimų, pasidarykite asmeninę kopiją.",
     "deadlineOn": "Terminas: {date}",
     "noDeadline": "Be termino",
     "badge": {
@@ -663,6 +665,8 @@
       "lapses": "suklydimai",
       "learned": "išmokta",
       "next": "Kitas kartojimas: {when}",
+      "stillDue": "{count, plural, one {Dar # kartotinas ėjimas.} few {Dar # kartotini ėjimai.} other {Dar # kartotinų ėjimų.}}",
+      "dayDone": "Šiandienos kartojimas baigtas.",
       "progress": "{learned} išmokta · {due, plural, one {# kartotinas} few {# kartotini} other {# kartotinų}} · {toLearn} liko išmokti",
       "continue": "Tęsti",
       "learn": "Mokytis naujų ėjimų",
@@ -678,15 +682,18 @@
         "black": "Juodųjų ėjimas"
       },
       "line": "Iki šiol sužaistas variantas",
-      "end": "Baigti sesiją"
+      "end": "Baigti sesiją",
+      "coachNote": "Trenerio pastaba"
     },
     "review": {
       "prompt": "Jūsų ėjimas",
+      "again": "Dar kartą: šiame ėjime anksčiau suklydote.",
       "replied": "Varžovo atsakas: {move}.",
       "correct": "Teisingai",
       "lapse": "Ne tas ėjimas. Sužaiskite ėjimą, kurį rodo rodyklė.",
       "hinted": "Užuomina: eikite paryškinta figūra.",
       "hint": "Užuomina",
+      "next": "Toliau",
       "twoAnswers": {
         "title": "Kituose jūsų repertuaruose čia žaidžiamas kitas ėjimas:",
         "item": "{name}: {move}"

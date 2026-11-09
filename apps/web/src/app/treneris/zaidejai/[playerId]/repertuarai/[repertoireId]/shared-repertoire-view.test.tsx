@@ -207,9 +207,9 @@ describe('SharedRepertoireView (R-42, read-only)', () => {
   it('changes nothing for a move the chapter lacks, played or typed', () => {
     renderView();
     boardMove('e2', 'e4');
-    expect(
-      screen.getByText(lt.repertoires.board.notInRepertoire),
-    ).toBeDefined();
+    // The repertoire is the player's; the coach cannot change it (R-42).
+    expect(screen.getByText(lt.coach.shared.notInChapter)).toBeDefined();
+    expect(screen.queryByText(lt.repertoires.board.notInRepertoire)).toBeNull();
     expect(current()).toBeUndefined();
     expect(screen.getByText('The London')).toBeDefined();
     const field = screen.getByLabelText<HTMLInputElement>(

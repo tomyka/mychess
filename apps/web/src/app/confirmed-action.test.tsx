@@ -95,4 +95,32 @@ describe('ConfirmedAction', () => {
     expect(button(LABELS.confirm).className).toContain('bg-accent');
     expect(button(LABELS.confirm).className).not.toContain('bg-error');
   });
+
+  it('asks when the page opens it, and tells the page when cancelled', () => {
+    const set = vi.fn();
+    const action = vi.fn(() => Promise.resolve());
+    const { rerender } = render(
+      <ConfirmedAction
+        action={action}
+        fields={{}}
+        asking={{ open: false, set }}
+        {...LABELS}
+      />,
+    );
+    fireEvent.click(button(LABELS.label));
+    expect(set).toHaveBeenLastCalledWith(true);
+    expect(screen.queryByText(LABELS.question)).toBeNull();
+    rerender(
+      <ConfirmedAction
+        action={action}
+        fields={{}}
+        asking={{ open: true, set }}
+        {...LABELS}
+      />,
+    );
+    expect(screen.getByText(LABELS.question)).toBeDefined();
+    expect(document.activeElement).toBe(button(LABELS.cancel));
+    fireEvent.click(button(LABELS.cancel));
+    expect(set).toHaveBeenLastCalledWith(false);
+  });
 });

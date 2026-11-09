@@ -3,7 +3,7 @@
 import type { RepertoireGraph, Side } from '@mychess/chess';
 import { useReducer } from 'react';
 import { initialState, screenReducer } from './screen-state';
-import { useBoardPlay, useScreenBoard } from './use-screen';
+import { NOT_IN_REPERTOIRE, useBoardPlay, useScreenBoard } from './use-screen';
 import type { RepertoireView } from './view';
 
 /** The repertoire a view that edits opens on. */
@@ -41,7 +41,9 @@ export function useBuilderView(
     state,
     dispatch,
     board,
-    state.mode === 'build' ? addNew(state, dispatch, board.key) : null,
+    state.mode === 'build'
+      ? { addNew: addNew(state, dispatch, board.key) }
+      : { refusal: NOT_IN_REPERTOIRE },
   );
   return { state, dispatch, board, play };
 }

@@ -46,7 +46,19 @@ describe('the message catalogues', () => {
   });
 
   it('name the site in both', () => {
-    expect(MESSAGES.lt.app.title).toBe('mychess');
-    expect(MESSAGES.en.app.title).toBe('mychess');
+    expect(MESSAGES.lt.app.title).toBe('MyChess');
+    expect(MESSAGES.en.app.title).toBe('MyChess');
+  });
+
+  it('write the brand as MyChess in every text (R-170)', () => {
+    for (const messages of [MESSAGES.lt, MESSAGES.en]) {
+      const texts = JSON.stringify(messages);
+      // A host (mychess.lt, @mychess.test) is a domain, not the brand.
+      const brands = [...texts.matchAll(/mychess(?!\.(?:lt|test)\b)/giu)];
+      expect(brands.map(([found]) => found)).toEqual(
+        brands.map(() => 'MyChess'),
+      );
+      expect(brands.length).toBeGreaterThan(0);
+    }
   });
 });

@@ -34,6 +34,7 @@ import {
   type LearnDrillState,
 } from './learn-drill-state';
 import { dayOf } from '../../lib/training-day';
+import { dayStanding, type DayStanding } from './day-standing';
 import type { ResultSync } from './use-result-sync';
 
 export interface LearnDrill
@@ -41,6 +42,8 @@ export interface LearnDrill
   readonly state: LearnDrillState;
   /** Where the repertoires stand now, by the moves learned so far. */
   readonly progress: () => TrainingProgress;
+  /** Where the player's day stands now (#319). */
+  readonly standing: () => DayStanding;
 }
 
 type SetState = Dispatch<SetStateAction<LearnDrillState>>;
@@ -129,15 +132,20 @@ export function useLearnDrill(
     repertoireOf,
   });
   const input = useLearnInput({ state, setState, legal, sync, clock });
+  const progressAt = (now: Date) =>
+    trainingProgress(
+      { repertoires: day.repertoires, reviews: state.reviews },
+      now,
+    );
   return {
     ...input,
     state,
     view,
     titled,
-    progress: () =>
-      trainingProgress(
-        { repertoires: day.repertoires, reviews: state.reviews },
-        clock.now(),
-      ),
+    progress: () => progressAt(clock.now()),
+    standing: () => {
+      const now = clock.now();
+      return dayStanding(progressAt(now), now);
+    },
   };
 }

@@ -225,6 +225,30 @@ describe('AssignedView (R-21, R-102)', () => {
     });
   });
 
+  it('says a move the chapter lacks is the coach’s to change, and offers the copy (#320)', async () => {
+    renderView();
+    const field = screen.getByLabelText<HTMLInputElement>(
+      lt.board.moveInput.label,
+    );
+    fireEvent.change(field, { target: { value: 'e4' } });
+    fireEvent.submit(field);
+    expect(screen.getByText(a.notInChapter)).toBeDefined();
+    expect(screen.queryByText(lt.repertoires.board.notInRepertoire)).toBeNull();
+    const offers = screen.getAllByRole('button', { name: a.fork.label });
+    expect(offers).toHaveLength(2);
+    fireEvent.click(offers[0] ?? field);
+    expect(
+      screen.getByText(a.fork.question.replace('{name}', 'Londono sistema')),
+    ).toBeDefined();
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: a.fork.cancel }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: a.fork.confirm }));
+    await waitFor(() => {
+      expect(fork).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('shows a repertoire without chapters as empty, with no note', () => {
     renderView({ graph: { ...GRAPH, chapters: [] } });
     expect(screen.getByText(lt.repertoires.panel.emptyBrowse)).toBeDefined();

@@ -115,7 +115,12 @@ export function SharedRepertoireView({
 }: {
   readonly data: SharedRepertoirePage;
 }): JSX.Element {
-  const view = useBrowseView(data.graph, data.repertoire.side);
+  // A move the chapter lacks: the repertoire is the player's (R-42).
+  const view = useBrowseView(
+    data.graph,
+    data.repertoire.side,
+    'coach.shared.notInChapter',
+  );
   const panel = useSharedPanel(data);
   return (
     <RepertoireShell

@@ -169,7 +169,7 @@ describe('magic-link sign-in', () => {
       email: 'ruta@example.lt',
       metadata: { locale: 'en' },
     });
-    expect(built.sent[0]?.subject).toBe('Sign in to mychess');
+    expect(built.sent[0]?.subject).toBe('Sign in to MyChess');
   });
 
   it('mails in English when no locale or Lithuanian was asked for (R-180)', async () => {
@@ -180,8 +180,8 @@ describe('magic-link sign-in', () => {
       metadata: { locale: 'lt' },
     });
     expect(built.sent.map((m) => m.subject)).toEqual([
-      'Sign in to mychess',
-      'Sign in to mychess',
+      'Sign in to MyChess',
+      'Sign in to MyChess',
     ]);
   });
 });

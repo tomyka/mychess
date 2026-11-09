@@ -90,6 +90,13 @@ export function canPlay(s: LearnDrillState): boolean {
 export const askedStep = (s: LearnDrillState): LearnPlanStep | undefined =>
   canPlay(s) ? waitingOn(s) : undefined;
 
+/**
+ * The move the arrow teaches now, if any: where its Coach note shows
+ * (R-174). The blind retest shows none, so the note gives nothing away.
+ */
+export const taughtMove = (s: LearnDrillState): RepertoireMove | undefined =>
+  s.session?.arrow === true ? askedStep(s)?.move : undefined;
+
 /** How many of the line's moves the board shows. */
 function plies(s: LearnDrillState): number {
   if (s.session === null) return 0;

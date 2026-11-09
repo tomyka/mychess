@@ -1,6 +1,6 @@
 {
   "app": {
-    "title": "mychess",
+    "title": "MyChess",
     "greeting": "Hello, {name}!",
     "signOut": "Sign out",
     "settings": "Settings",
@@ -82,7 +82,7 @@
       "dismiss": "Got it",
       "error": {
         "notFresh": "For your security, sign in again before connecting or disconnecting an account.",
-        "linkedElsewhere": "That account is already connected to another mychess account.",
+        "linkedElsewhere": "That account is already connected to another MyChess account.",
         "generic": "That did not work. Please try again."
       }
     },
@@ -200,6 +200,7 @@
       "empty": "{name} has not shared a repertoire with you yet.",
       "back": "Back to {name}",
       "readOnly": "Read-only: you can write coach notes, but not change the repertoire.",
+      "notInChapter": "This repertoire is your player's. You can read it and write coach notes, but you cannot change it.",
       "note": "My coach note",
       "noteHint": "You and {name} see this",
       "saveNote": "Save note",
@@ -249,11 +250,11 @@
   },
   "mail": {
     "magicLink": {
-      "subject": "Sign in to mychess",
-      "body": "To sign in to mychess, open this link (it works for 15 minutes):\n{url}\n\nIf you did not ask for this link, you can ignore this email."
+      "subject": "Sign in to MyChess",
+      "body": "To sign in to MyChess, open this link (it works for 15 minutes):\n{url}\n\nIf you did not ask for this link, you can ignore this email."
     },
     "deleted": {
-      "subject": "Your mychess account has been deleted",
+      "subject": "Your MyChess account has been deleted",
       "body": "Your account and all its data have been permanently deleted."
     }
   },
@@ -568,6 +569,7 @@
       "deletedChapters": "Deleted chapters",
       "chapter": "Chapter {number} — {name}"
     },
+    "notInChapter": "This repertoire is your coach's, so you cannot change it. To add your own moves, make your own copy.",
     "deadlineOn": "Deadline: {date}",
     "noDeadline": "No deadline",
     "badge": {
@@ -663,6 +665,8 @@
       "lapses": "lapses",
       "learned": "learned",
       "next": "Next review: {when}",
+      "stillDue": "{count, plural, one {# more move is due.} other {# more moves are due.}}",
+      "dayDone": "Today's review is done.",
       "progress": "{learned} learned · {due} due · {toLearn} to learn",
       "continue": "Continue",
       "learn": "Learn new moves",
@@ -678,15 +682,18 @@
         "black": "Black to move"
       },
       "line": "Line so far",
-      "end": "End session"
+      "end": "End session",
+      "coachNote": "Coach note"
     },
     "review": {
       "prompt": "Your move",
+      "again": "Once more: you missed this move earlier.",
       "replied": "Opponent played {move}.",
       "correct": "Correct",
       "lapse": "Not that move. Play the move the arrow shows.",
       "hinted": "Hint: move the highlighted piece.",
       "hint": "Hint",
+      "next": "Next",
       "twoAnswers": {
         "title": "Your other repertoires play another move here:",
         "item": "{name}: {move}"

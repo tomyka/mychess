@@ -24,6 +24,11 @@ const REVIEW = {
 /** 10:00 in Vilnius on 26 October 2026, winter time. */
 const NEXT = new Date('2026-10-26T08:00:00Z');
 const PROGRESS = { reviewed: 142, due: 6, toLearn: 18, nextDue: NEXT };
+/** Six moves still due when the session ends. */
+const DUE = {
+  progress: PROGRESS,
+  standing: { kind: 'due', count: 6 },
+} as const;
 
 /** The number the summary shows under `label`. */
 const stat = (label: string): string | null =>
@@ -40,7 +45,7 @@ afterEach(() => {
 
 describe('the done summary', () => {
   it('shows the review counts and takes focus on its heading', () => {
-    renderLt(<DoneSummary progress={PROGRESS} counts={REVIEW} />);
+    renderLt(<DoneSummary {...DUE} counts={REVIEW} />);
     const heading = screen.getByRole('heading', { name: T.title });
     expect(document.activeElement).toBe(heading);
     expect(stat(T.reviewed)).toBe('30');
@@ -49,35 +54,63 @@ describe('the done summary', () => {
   });
 
   it('shows how many moves a learn pass taught', () => {
-    renderLt(
-      <DoneSummary
-        progress={PROGRESS}
-        counts={{ kind: 'learn', learned: 8 }}
-      />,
-    );
+    renderLt(<DoneSummary {...DUE} counts={{ kind: 'learn', learned: 8 }} />);
     expect(stat(T.learned)).toBe('8');
     expect(screen.queryByText(T.lapses)).toBeNull();
   });
 
-  it('says when the next review is, in Vilnius time, and where the repertoire stands', () => {
+  it('says how many moves are still due, not a later review, while some are (#319, R-62)', () => {
+    renderLt(<DoneSummary {...DUE} counts={REVIEW} />);
+    expect(screen.getByText('Dar 6 kartotini ėjimai.')).toBeDefined();
+    expect(screen.queryByText(/^Kitas kartojimas:/)).toBeNull();
+    expect(screen.queryByText(T.dayDone)).toBeNull();
+    expect(
+      screen.getByText('142 išmokta · 6 kartotini · 18 liko išmokti'),
+    ).toBeDefined();
+  });
+
+  it('says when a move comes back later today, without calling the day done (R-78)', () => {
+    vi.useFakeTimers({
+      now: new Date('2026-10-25T07:50:00Z'),
+      toFake: ['Date'],
+    });
+    const soon = new Date('2026-10-25T08:00:00Z');
+    renderLt(
+      <DoneSummary
+        progress={{ ...PROGRESS, due: 0, nextDue: soon }}
+        standing={{ kind: 'laterToday', next: soon }}
+        counts={REVIEW}
+      />,
+    );
+    expect(screen.getByText('Kitas kartojimas: po 10 min.')).toBeDefined();
+    expect(screen.queryByText(T.dayDone)).toBeNull();
+  });
+
+  it('says plainly that today’s review is done, then when the next one is, in Vilnius time (#319)', () => {
     vi.useFakeTimers({
       now: new Date('2026-10-25T07:00:00Z'),
       toFake: ['Date'],
     });
-    renderLt(<DoneSummary progress={PROGRESS} counts={REVIEW} />);
+    renderLt(
+      <DoneSummary
+        progress={{ ...PROGRESS, due: 0 }}
+        standing={{ kind: 'dayDone', next: NEXT }}
+        counts={REVIEW}
+      />,
+    );
+    expect(screen.getByText(T.dayDone)).toBeDefined();
     expect(screen.getByText('Kitas kartojimas: rytoj 10:00')).toBeDefined();
-    expect(
-      screen.getByText('142 išmokta · 6 kartotini · 18 liko išmokti'),
-    ).toBeDefined();
   });
 
   it('leaves the next review out when none is scheduled', () => {
     renderLt(
       <DoneSummary
         progress={{ reviewed: 0, due: 0, toLearn: 4, nextDue: null }}
+        standing={{ kind: 'dayDone', next: null }}
         counts={REVIEW}
       />,
     );
+    expect(screen.getByText(T.dayDone)).toBeDefined();
     expect(screen.queryByText(/^Kitas kartojimas:/)).toBeNull();
     expect(
       screen.getByText('0 išmokta · 0 kartotinų · 4 liko išmokti'),
@@ -85,9 +118,7 @@ describe('the done summary', () => {
   });
 
   it('draws the progress bar on a border-toned track, visible on the dark page', () => {
-    const { container } = renderLt(
-      <DoneSummary progress={PROGRESS} counts={REVIEW} />,
-    );
+    const { container } = renderLt(<DoneSummary {...DUE} counts={REVIEW} />);
     const track = container.querySelector('.bg-learned')?.parentElement;
     expect(track?.classList).toContain('bg-border');
     expect(track?.classList).not.toContain('bg-sunken');

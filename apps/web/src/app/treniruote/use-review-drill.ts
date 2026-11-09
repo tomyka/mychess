@@ -35,6 +35,7 @@ import {
 import {
   advanced,
   afterAnswer,
+  answeredMove,
   afterHint,
   canHint,
   canPlay,
@@ -45,7 +46,11 @@ import {
   shownKey,
   startDrill,
   type DrillState,
+  type SessionBounds,
 } from './review-drill-state';
+import { coachNoteOn } from './coach-note';
+import { dayStanding, type DayStanding } from './day-standing';
+import { dayEnd } from '@mychess/domain';
 import { dayOf } from '../../lib/training-day';
 import type { ResultSync } from './use-result-sync';
 
@@ -64,13 +69,25 @@ export interface ReviewDrill
   readonly state: DrillState;
   /** Done, and the Reviews graded so far leave more due now (R-62, R-78). */
   readonly canContinue: boolean;
+  /** The Coach note on the move just answered (R-174), or null. */
+  readonly note: string | null;
+  /** On to the next item, once the answer is right; null otherwise. */
+  readonly next: (() => void) | null;
   /** The snapshot's day has new moves to learn (the done summary's link). */
   readonly learnable: boolean;
   /** Where the repertoires stand now, by the Reviews graded so far. */
   readonly progress: () => TrainingProgress;
+  /** Where the player's day stands now (#319). */
+  readonly standing: () => DayStanding;
 }
 
 type SetState = Dispatch<SetStateAction<DrillState>>;
+
+/** A session at `now`: the player's size, up to the end of their day. */
+const boundsOf = (
+  day: Pick<TrainingDay, 'limits'>,
+  now: Date,
+): SessionBounds => ({ size: day.limits.reviews, dayEnd: dayEnd(now) });
 
 const putBack = (s: DrillState): DrillState => ({
   ...s,
@@ -78,21 +95,23 @@ const putBack = (s: DrillState): DrillState => ({
 });
 
 /**
- * The drill's timed steps: after the correct flash the next item, then the
- * reply's slide with the board locked.
+ * The drill's timed steps: after the correct flash the next item, unless
+ * a Coach note waits to be read (`held`), then the reply's slide with the
+ * board locked. Returns the step to the next item, for the note's button.
  */
 function useDrillTimers(
   state: DrillState,
   setState: SetState,
   repertoires: readonly TrainingRepertoire[],
-): void {
+  held: boolean,
+): () => void {
   const next = useMemo(
     () => () => {
       setState((s) => advanced(s, repertoires));
     },
     [setState, repertoires],
   );
-  useTimer(state.session.phase === 'correct', FEEDBACK_MS, next);
+  useTimer(state.session.phase === 'correct' && !held, FEEDBACK_MS, next);
   const unlock = useMemo(
     () => () => {
       setState((s) => ({ ...s, replying: false }));
@@ -100,6 +119,7 @@ function useDrillTimers(
     [setState],
   );
   useTimer(state.replying, MOVE_DURATION, unlock);
+  return next;
 }
 
 /**
@@ -193,15 +213,15 @@ function useDrillInput(c: InputContext): DrillInput {
     },
     restart() {
       const { gradedDay } = c;
-      const due = dueReviews(gradedDay, clock.now());
-      setState(
-        startDrill(
-          due,
-          gradedDay.repertoires,
-          gradedDay.reviews,
-          state.revision + 1,
-        ),
+      const now = clock.now();
+      const started = startDrill(
+        dueReviews(gradedDay, now),
+        gradedDay.repertoires,
+        gradedDay.reviews,
+        boundsOf(gradedDay, now),
       );
+      // A new revision, so the board takes the new session's position.
+      setState({ ...started, revision: state.revision + 1 });
     },
   };
 }
@@ -219,14 +239,24 @@ export function useReviewDrill(
   const day = useMemo(() => dayOf(data), [data]);
   const { repertoires } = day;
   const [state, setState] = useState(() =>
-    startDrill(dueReviews(day, data.now), repertoires, day.reviews, 0),
+    startDrill(
+      dueReviews(day, data.now),
+      repertoires,
+      day.reviews,
+      boundsOf(day, data.now),
+    ),
   );
   const learnable = useMemo(() => toLearnCount(day) > 0, [day]);
   const gradedDay = useMemo(
     () => ({ ...day, reviews: state.reviews }),
     [day, state.reviews],
   );
-  useDrillTimers(state, setState, repertoires);
+  const note = coachNoteOn(
+    data.entries,
+    repertoireOf(state),
+    answeredMove(state),
+  );
+  const next = useDrillTimers(state, setState, repertoires, note !== null);
   const { view, legal, titled } = useDrillBoard({
     data,
     state,
@@ -250,7 +280,14 @@ export function useReviewDrill(
     view,
     titled,
     learnable,
+    note,
+    // Only a right answer goes on; a Lapse's arrow waits for its move.
+    next: state.session.phase === 'correct' ? next : null,
     canContinue: done && dueCount(gradedDay, clock.now()) > 0,
     progress: () => trainingProgress(gradedDay, clock.now()),
+    standing: () => {
+      const now = clock.now();
+      return dayStanding(trainingProgress(gradedDay, now), now);
+    },
   };
 }

@@ -43,7 +43,7 @@ describe('HomeView', () => {
       );
       // The brand is a label, as on the other pages; the greeting is the
       // page's one h1, today's review the first section under it.
-      expect(screen.getByText('mychess').tagName).toBe('P');
+      expect(screen.getByText('MyChess').tagName).toBe('P');
       expect(
         screen.getAllByRole('heading').map((h) => [h.tagName, h.textContent]),
       ).toEqual([

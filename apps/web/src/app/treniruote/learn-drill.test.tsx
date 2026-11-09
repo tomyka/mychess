@@ -420,3 +420,52 @@ describe('the learn drill in a Black repertoire', () => {
     expect(panel()).toContain(T.learn.correct);
   });
 });
+
+describe('the learn drill and coach notes (#322, R-174)', () => {
+  /** The coach's line: a note on 1. d4 and none on 2. Bf4. */
+  const NOTED = graphOf('1. d4 { Take the centre first. } d5 2. Bf4 *');
+  const noted = (kind: 'assigned' | 'own') =>
+    data({
+      entries: [
+        {
+          id: REP_ID,
+          name: 'Trenerio Londonas',
+          side: 'white',
+          kind,
+          active: true,
+          graph: NOTED,
+        },
+      ],
+    });
+  const note = () =>
+    screen.queryByRole('note', { name: T.drill.coachNote })?.textContent ??
+    null;
+
+  it('shows the coach’s note with the move where the arrow teaches it', () => {
+    renderDrill(noted('assigned'));
+    expect(arrows()).toEqual(['d2d4']);
+    expect(note()).toContain('Take the centre first.');
+    play('d4');
+    // 2. Bf4 has no note.
+    expect(arrows()).toEqual(['c1f4']);
+    expect(note()).toBeNull();
+  });
+
+  it('keeps the note out of the blind retest, so it gives nothing away', () => {
+    renderDrill(noted('assigned'));
+    play('d4');
+    play('Bf4');
+    expect(panel()).toContain(T.learn.blind);
+    expect(note()).toBeNull();
+    // A wrong move goes back to the arrow, where the move is taught again.
+    type('e4');
+    expect(arrows()).toEqual(['d2d4']);
+    expect(note()).toContain('Take the centre first.');
+  });
+
+  it('shows no coach note for a comment on the player’s own repertoire', () => {
+    renderDrill(noted('own'));
+    expect(arrows()).toEqual(['d2d4']);
+    expect(note()).toBeNull();
+  });
+});

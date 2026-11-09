@@ -2,8 +2,11 @@
 
 import { assignmentBadges } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
-import { useEffect, type JSX } from 'react';
+import { useEffect, useState, type JSX } from 'react';
+import type { MessageKey } from '../../../../i18n/message-key';
 import { ROUTES } from '../../../../lib/routes';
+import { SECONDARY_BUTTON } from '../../../buttons';
+import type { Asking } from '../../../confirmed-action';
 import type { TrainingCounts } from '@mychess/chess';
 import type { AssignedRepertoirePage } from '../../../../server/assignment-pages';
 import {
@@ -15,6 +18,7 @@ import {
   useNotes,
   type Notes,
   type PanelContent,
+  type ScreenMessage,
 } from '../../../repertoire-view';
 import { markSeenAction, setPersonalNoteAction } from './actions';
 import { ChangesSummary } from './changes-summary';
@@ -67,22 +71,52 @@ function AssignedHeader({
   );
 }
 
+/** What the board says for a move the chapter lacks: the coach's to change. */
+const NOT_IN_CHAPTER: MessageKey = 'assignment.notInChapter';
+
 /** Pause or resume, then "make my own copy". */
 function AssignmentActions({
   data,
   pause,
   forkAction,
+  forkAsking,
 }: {
   readonly data: AssignedRepertoirePage;
   readonly pause: PauseHandle;
   readonly forkAction: ForkAction;
+  readonly forkAsking: Asking;
 }): JSX.Element {
   const { id, name } = data.repertoire;
   return (
     <div className="flex flex-col gap-4 border-t border-border pt-4">
       <PauseControl repertoireId={id} pause={pause} />
-      <ForkCopy repertoireId={id} name={name} action={forkAction} />
+      <ForkCopy
+        repertoireId={id}
+        name={name}
+        action={forkAction}
+        asking={forkAsking}
+      />
     </div>
+  );
+}
+
+/**
+ * Beside "this is your coach's repertoire" (#320): the way to a Fork, a
+ * copy the player can change. It opens "make my own copy"'s question below
+ * the panel. Not a Fork offer (R-44, R-130), which follows an unlink.
+ */
+function OpenForkButton({ asking }: { readonly asking: Asking }): JSX.Element {
+  const t = useTranslations('assignment.fork');
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        asking.set(true);
+      }}
+      className={`${SECONDARY_BUTTON} self-start`}
+    >
+      {t('label')}
+    </button>
   );
 }
 
@@ -94,7 +128,11 @@ function AssignmentActions({
 function useAssignedPanel(
   data: AssignedRepertoirePage,
   notes: Notes,
-  actions: { readonly pause: PauseHandle; readonly forkAction: ForkAction },
+  actions: {
+    readonly pause: PauseHandle;
+    readonly forkAction: ForkAction;
+    readonly forkAsking: Asking;
+  },
   training: TrainingCounts | null,
 ): PanelContent {
   const t = useTranslations();
@@ -146,12 +184,19 @@ export function AssignedView({
   readonly training?: TrainingCounts | null;
 }): JSX.Element {
   const { id, version } = data.repertoire;
-  const view = useBrowseView(data.graph, data.repertoire.side);
+  const view = useBrowseView(data.graph, data.repertoire.side, NOT_IN_CHAPTER);
   const notes = useNotes(data.personalNotes, (moveKey, text) =>
     setPersonalNoteAction({ repertoireId: id, moveKey, text }),
   );
   const pause = usePause(data.paused);
-  const panel = useAssignedPanel(data, notes, { pause, forkAction }, training);
+  const [forkOpen, setForkOpen] = useState(false);
+  const forkAsking: Asking = { open: forkOpen, set: setForkOpen };
+  const panel = useAssignedPanel(
+    data,
+    notes,
+    { pause, forkAction, forkAsking },
+    training,
+  );
   useEffect(() => {
     markSeenAction({ repertoireId: id, seenVersion: version }).catch(
       () => undefined,
@@ -164,6 +209,11 @@ export function AssignedView({
       names={data.names}
       view={view}
       panel={panel}
+      statusAction={(message: ScreenMessage) =>
+        message.key === NOT_IN_CHAPTER ? (
+          <OpenForkButton asking={forkAsking} />
+        ) : null
+      }
     />
   );
 }

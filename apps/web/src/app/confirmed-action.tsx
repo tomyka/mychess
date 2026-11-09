@@ -22,6 +22,17 @@ export interface ConfirmedActionProps {
    * destroys or takes away; `primary` when it only creates, as a fork does.
    */
   readonly tone?: 'danger' | 'primary';
+  /**
+   * Whether it asks, when the page holds that (another control on the page
+   * can then open the question); left out, the step holds it itself.
+   */
+  readonly asking?: Asking | undefined;
+}
+
+/** The confirm step held outside: whether it asks, and how to change that. */
+export interface Asking {
+  readonly open: boolean;
+  readonly set: (open: boolean) => void;
 }
 
 const CONFIRM_BUTTON = { danger: DANGER_BUTTON, primary: PRIMARY_BUTTON };
@@ -58,8 +69,11 @@ export function ConfirmedAction({
   cancel,
   describedBy,
   tone = 'danger',
+  asking: held,
 }: ConfirmedActionProps): JSX.Element {
-  const [asking, setAsking] = useState(false);
+  const [own, setOwn] = useState(false);
+  const asking = held?.open ?? own;
+  const setAsking = held?.set ?? setOwn;
   const focus = useStepFocus(asking);
   if (!asking)
     return (

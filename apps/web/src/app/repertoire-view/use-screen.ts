@@ -15,6 +15,7 @@ import {
   type Side,
 } from '@mychess/chess';
 import { useMemo, useState, type ActionDispatch } from 'react';
+import type { MessageKey } from '../../i18n/message-key';
 import type { BoardView } from '../board/board-config';
 import { shapesOf } from '../board/shapes';
 import { destsOf, isKey, squaresOf } from '../board/squares';
@@ -107,16 +108,27 @@ const say = (message: ScreenMessage): ScreenAction => ({
   message,
 });
 
+/** What browsing says by default for a move the chapter lacks. */
+export const NOT_IN_REPERTOIRE: MessageKey =
+  'repertoires.board.notInRepertoire';
+
 /**
- * A move the chapter has at this position goes to it. Any other move is
- * `addNew`'s (builder mode); without it, browsing says the move is not in
- * the chapter and the piece goes back (docs/design/repertoire-screen.md).
+ * What a move the chapter lacks does: the builder adds it; browsing says
+ * `refusal` (a catalogue key) and puts the piece back, as does the builder
+ * for a drop that is no move.
+ */
+type OffChapter =
+  { readonly addNew: (san: string) => void } | { readonly refusal: MessageKey };
+
+/**
+ * A move the chapter has at this position goes to it; any other is
+ * `offChapter`'s (docs/design/repertoire-screen.md).
  */
 export function useBoardPlay(
   state: ScreenState,
   dispatch: Dispatch,
   board: ScreenBoard,
-  addNew: ((san: string) => void) | null,
+  offChapter: OffChapter,
 ): BoardPlay {
   const [promotion, setPromotion] = useState<PendingPromotion | null>(null);
 
@@ -130,11 +142,13 @@ export function useBoardPlay(
       dispatch({ type: 'say', message: null });
       return true;
     }
-    if (addNew !== null && san !== '') {
-      addNew(san);
+    if ('addNew' in offChapter && san !== '') {
+      offChapter.addNew(san);
       return true;
     }
-    dispatch(say({ key: 'repertoires.board.notInRepertoire', tone: 'info' }));
+    const key =
+      'refusal' in offChapter ? offChapter.refusal : NOT_IN_REPERTOIRE;
+    dispatch(say({ key, tone: 'info' }));
     dispatch({ type: 'reset' });
     return false;
   }

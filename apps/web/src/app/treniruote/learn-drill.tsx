@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { JSX } from 'react';
+import type { TrainingData } from '../../lib/training-data';
 import { Board } from '../board/board';
 import { useSquareWords } from '../board/square-words';
 import { SECONDARY_BUTTON } from '../buttons';
@@ -14,8 +15,11 @@ import {
   isDone,
   learnCounts,
   playedMoves,
+  repertoireOf,
+  taughtMove,
   type LearnDrillState,
 } from './learn-drill-state';
+import { coachNoteOn, DrillCoachNote } from './coach-note';
 import { useLearnDrill, type LearnDrill as Drill } from './use-learn-drill';
 
 type PromptKey = 'correct' | 'wrong' | 'known' | 'arrows' | 'blind';
@@ -57,6 +61,30 @@ function Status({ drill }: { readonly drill: Drill }): JSX.Element {
   );
 }
 
+/** What is asked, the move field, the taught move's Coach note, the line. */
+function LearnPanel({
+  drill,
+  entries,
+}: {
+  readonly drill: Drill;
+  readonly entries: TrainingData['entries'];
+}): JSX.Element {
+  const { state } = drill;
+  return (
+    <>
+      <Status drill={drill} />
+      <MoveRow input={drill} color={drill.view.turnColor} />
+      <DrillCoachNote
+        text={coachNoteOn(entries, repertoireOf(state), taughtMove(state))}
+      />
+      <LineSoFar
+        moves={playedMoves(state)}
+        rootKey={state.session?.line.rootKey}
+      />
+    </>
+  );
+}
+
 /**
  * The learn drill (docs/design/training-screen.md, R-144): the planned
  * lines one after another, each played with arrows on its new moves and
@@ -94,6 +122,7 @@ export function LearnDrill({
         <DoneSummary
           counts={{ kind: 'learn', learned: counts.done }}
           progress={drill.progress()}
+          standing={drill.standing()}
         />
       ),
       actions: <DoneActions doneHref={links.back} />,
@@ -101,16 +130,7 @@ export function LearnDrill({
   return frame({
     ...parts,
     board,
-    panel: (
-      <>
-        <Status drill={drill} />
-        <MoveRow input={drill} color={drill.view.turnColor} />
-        <LineSoFar
-          moves={playedMoves(state)}
-          rootKey={state.session?.line.rootKey}
-        />
-      </>
-    ),
+    panel: <LearnPanel drill={drill} entries={data.entries} />,
     actions: (
       <Link href={links.back} className={SECONDARY_BUTTON}>
         {t('training.drill.end')}

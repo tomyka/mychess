@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useEffect, useRef, type JSX } from 'react';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
+import type { DayStanding } from './day-standing';
 import { useReviewTime } from './review-time';
 import type { TrainingProgress } from '@mychess/chess';
 
@@ -21,6 +22,8 @@ export interface DoneSummaryProps {
   readonly counts: SessionCounts;
   /** Where the repertoires in scope stand now (trainingProgress). */
   readonly progress: TrainingProgress;
+  /** Where the player's day stands now (dayStanding). */
+  readonly standing: DayStanding;
 }
 
 export interface DoneActionsProps {
@@ -52,25 +55,52 @@ const segment = (part: number, whole: number): string =>
   `${String(whole === 0 ? 0 : (part / whole) * 100)}%`;
 
 /**
- * The Done state's view of the repertoires: when the next review is, and
- * a bar of learned, due and to-learn moves with the same counts in words.
+ * Where the day stands (#319): the moves still due, else today's review
+ * done or not, and when the next review is.
  */
-function Standing({
-  progress,
+function DayLine({
+  standing,
 }: {
-  readonly progress: TrainingProgress;
+  readonly standing: DayStanding;
 }): JSX.Element {
   const t = useTranslations('training.done');
   const reviewTime = useReviewTime();
-  const { reviewed, due, toLearn, nextDue } = progress;
+  if (standing.kind === 'due')
+    return (
+      <p className="text-center font-medium">
+        {t('stillDue', { count: standing.count })}
+      </p>
+    );
+  const { next } = standing;
+  return (
+    <div className="flex flex-col gap-1 text-center">
+      {standing.kind === 'dayDone' ? (
+        <p className="font-medium">{t('dayDone')}</p>
+      ) : null}
+      {next === null ? null : (
+        <p className="text-fg-muted">{t('next', { when: reviewTime(next) })}</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The Done state's view of the repertoires: where the day stands, and a
+ * bar of learned, due and to-learn moves with the same counts in words.
+ */
+function Standing({
+  progress,
+  standing,
+}: {
+  readonly progress: TrainingProgress;
+  readonly standing: DayStanding;
+}): JSX.Element {
+  const t = useTranslations('training.done');
+  const { reviewed, due, toLearn } = progress;
   const whole = reviewed + toLearn;
   return (
     <div className="flex flex-col gap-3">
-      {nextDue === null ? null : (
-        <p className="text-center text-fg-muted">
-          {t('next', { when: reviewTime(nextDue) })}
-        </p>
-      )}
+      <DayLine standing={standing} />
       <div
         aria-hidden="true"
         className="flex h-2 overflow-hidden rounded-pill bg-border"
@@ -130,6 +160,7 @@ export function DoneActions({
 export function DoneSummary({
   counts,
   progress,
+  standing,
 }: DoneSummaryProps): JSX.Element {
   const t = useTranslations('training.done');
   const heading = useRef<HTMLHeadingElement>(null);
@@ -155,7 +186,7 @@ export function DoneSummary({
         {t('title')}
       </h2>
       <Stats stats={stats} />
-      <Standing progress={progress} />
+      <Standing progress={progress} standing={standing} />
     </section>
   );
 }

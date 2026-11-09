@@ -1,39 +1,44 @@
 'use client';
 
-import { reviewCounts, type RepertoireMove } from '@mychess/chess';
+import type { RepertoireMove } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useMemo, type JSX } from 'react';
 import type { TrainingData } from '../../lib/training-data';
 import { Board } from '../board/board';
 import { useSquareWords } from '../board/square-words';
-import { SECONDARY_BUTTON } from '../buttons';
+import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
+import { DrillCoachNote } from './coach-note';
 import { DoneActions, DoneSummary } from './done-summary';
 import type { DrillProps } from './drill';
 import { LineSoFar, MoveRow, ToMove } from './drill-panel';
 import {
   canHint,
+  isRepeat,
   playedMoves,
   replyText,
   sessionCounts,
+  sessionProgress,
   type DrillState,
 } from './review-drill-state';
 import { TwoAnswersNotice, type NamedRepertoire } from './two-answers-notice';
 import { useReviewDrill, type ReviewDrill as Drill } from './use-review-drill';
 
-type StatusKey = 'correct' | 'lapse' | 'hinted' | 'prompt';
+type StatusKey = 'correct' | 'lapse' | 'hinted' | 'again' | 'prompt';
 
 /** What the panel says about the current answer. */
 function statusOf(state: DrillState): StatusKey {
   if (state.session.phase === 'correct') return 'correct';
   if (state.session.phase === 'replay') return 'lapse';
-  return state.session.hinted ? 'hinted' : 'prompt';
+  if (state.session.hinted) return 'hinted';
+  return isRepeat(state) ? 'again' : 'prompt';
 }
 
 const TONES: Record<StatusKey, string> = {
   correct: 'text-success',
   lapse: 'text-error',
   hinted: 'text-fg',
+  again: 'text-fg',
   prompt: 'text-fg',
 };
 
@@ -86,6 +91,16 @@ function ReviewPanel({
       >
         {t('hint')}
       </button>
+      <DrillCoachNote text={drill.note} />
+      {drill.note === null || drill.next === null ? null : (
+        <button
+          type="button"
+          onClick={drill.next}
+          className={`${PRIMARY_BUTTON} self-start`}
+        >
+          {t('next')}
+        </button>
+      )}
       <LineSoFar
         moves={unannotated(playedMoves(drill.state))}
         rootKey={drill.state.shown?.line.rootKey}
@@ -130,10 +145,7 @@ export function ReviewDrill({
   const describe = useSquareWords(drill.view.fen);
   const named = useMemo(() => namedOf(data), [data]);
   const { state } = drill;
-  const parts = {
-    ...drill.titled,
-    progress: reviewCounts(state.session),
-  };
+  const parts = { ...drill.titled, progress: sessionProgress(state) };
   const board = (
     <Board
       view={drill.view}
@@ -149,8 +161,9 @@ export function ReviewDrill({
       finished: true,
       panel: (
         <DoneSummary
-          counts={sessionCounts(state.session)}
+          counts={sessionCounts(state)}
           progress={drill.progress()}
+          standing={drill.standing()}
         />
       ),
       actions: (

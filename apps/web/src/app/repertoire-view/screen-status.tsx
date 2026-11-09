@@ -1,7 +1,7 @@
 'use client';
 
 import { useMessages, useTranslations } from 'next-intl';
-import { useEffect, useRef, type JSX } from 'react';
+import { useEffect, useRef, type JSX, type ReactNode } from 'react';
 import { isMessageKey } from '../../i18n/message-key';
 import { SECONDARY_BUTTON } from '../buttons';
 import { StatusLine } from '../status-line';
@@ -12,6 +12,8 @@ export interface ScreenStatusProps {
   /** The repertoire changed in another window: offer Reload. */
   readonly stale: boolean;
   readonly onReload: () => void;
+  /** What the view offers beside the message, such as a fork for a refusal. */
+  readonly action?: ReactNode;
 }
 
 /**
@@ -23,6 +25,7 @@ export function ScreenStatus({
   message,
   stale,
   onReload,
+  action = null,
 }: ScreenStatusProps): JSX.Element {
   const t = useTranslations();
   const messages = useMessages();
@@ -38,6 +41,7 @@ export function ScreenStatus({
   return (
     <div className="flex flex-col gap-2">
       <StatusLine text={text} tone={message?.tone ?? 'info'} />
+      {action}
       {stale ? (
         <button
           ref={reload}

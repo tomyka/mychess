@@ -47,6 +47,9 @@ ENV APP_COMMIT=$APP_COMMIT
 WORKDIR /app
 COPY --from=build /repo/apps/web/.next/standalone ./
 COPY --from=build /repo/apps/web/.next/static ./apps/web/.next/static
+# The standalone server serves public/ but next build does not copy it there:
+# the PWA's icons (the manifest's 192, 512 and maskable 512).
+COPY --from=build /repo/apps/web/public ./apps/web/public
 # The database's commands: each bundle finds ../migrations from its own file.
 COPY --from=build /repo/packages/db/dist ./db/dist
 COPY --from=build /repo/packages/db/migrations ./db/migrations

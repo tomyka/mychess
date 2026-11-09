@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import { useActionState, type JSX } from 'react';
-import { ConfirmedAction } from '../../../confirmed-action';
+import { ConfirmedAction, type Asking } from '../../../confirmed-action';
 import { RefusalLine } from '../../../treneris/refusal-line';
 import type { ForkState } from './actions';
 
@@ -23,11 +23,14 @@ export function ForkCopy({
   repertoireId,
   name,
   action,
+  asking,
 }: {
   readonly repertoireId: string;
   /** The repertoire's name, which the question names. */
   readonly name: string;
   readonly action: ForkAction;
+  /** Whether it asks, when the page can also open the question (#320). */
+  readonly asking?: Asking;
 }): JSX.Element {
   const t = useTranslations();
   const [state, fork] = useActionState(action, INITIAL);
@@ -41,6 +44,7 @@ export function ForkCopy({
         confirm={t('assignment.fork.confirm')}
         cancel={t('assignment.fork.cancel')}
         tone="primary"
+        asking={asking}
       />
       <RefusalLine state={state} />
     </div>
