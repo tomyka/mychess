@@ -122,6 +122,11 @@ _Avoid_: New, changed
 Text on a Move of a Repertoire, from PGN or written in the builder. It belongs to the Repertoire: it is exported with it and seen by whoever may see the Repertoire (R-102, one paragraph per R-105). On a Coach's own Repertoire it is a Coach note.
 _Avoid_: Annotation, note (a Personal note is private)
 
+**NAG**:
+A PGN symbol on a Move, such as ! ? !? or ⩲, kept with the Move, shown after its SAN when browsing and learning (not in review) and exported (R-175). Only the standard move and position assessments are shown; others are kept and exported.
+
+**Annotation** (only as the umbrella): a Move's Comment and NAGs together, as an import fills them in (R-176). Never for a Comment alone.
+
 **Personal note**:
 A Player's private note on a Move or Position of any Repertoire they train, including a live-linked one. Never visible to the Coach.
 _Avoid_: Annotation, comment (a Comment belongs to the Repertoire)
@@ -252,7 +257,7 @@ _Avoid_: Phase, release, sprint
 ## Flagged ambiguities (resolved where marked R-n)
 
 - **"Review"** is both the per-Move schedule and the drilling session. Kept deliberately; if it causes confusion, rename the session "review session".
-- **"Line"** is used for progress and Mastery goals, but storage and scheduling are per Move. Mastered = every Move learned and FSRS retrievability >= 90% today (R-56).
+- **"Line"** is used for progress and Mastery goals, but storage and scheduling are per Move. Mastered = every Move in the learned Move state (not Due, not skipped, not not-started) and FSRS retrievability >= 90% today (R-56, R-178). "Learned" in an Assignment's done badge means something else: the learn pass finished or "I know this" (R-129).
 - **Same Move in two Repertoires** (for example, two Coaches assigning overlapping openings): one Review per Player, position and Move (R-53); different answers in the same position are trained in context (R-54).
 - **"Shared"** for a private Repertoire means shared with chosen linked Coaches, read-only with progress (R-42).
 - **Fork and training state**: a Fork keeps the Player's Reviews, since Reviews belong to the Player, not the Repertoire (R-43, R-53).

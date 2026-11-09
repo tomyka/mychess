@@ -45,6 +45,7 @@ assignment rows with overdue, paused, forked and done exist since S5
    on time anyway (retrievability), so counters would still need it.
 2. **% learned** = (learned + due + skipped) / own Moves: a Move counts once
    it has a Review. A Repertoire without own Moves shows no percentage.
+   (Superseded by R-177, #321: learned / own Moves.)
 3. **Moves are counted per Repertoire**: a Move held by two Repertoires counts
    in each. Dormant Reviews (Moves no longer in the graph) never count, by
    construction. A Review is one per Player and Move (R-53), so training on

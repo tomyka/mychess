@@ -6,7 +6,7 @@ Domain vocabulary is defined in [CONTEXT.md](CONTEXT.md); architecture decisions
 
 ## Product & scope
 
-- **R-1** (Q1, #226, 2026-10-16): The UI is Lithuanian and English from day 1, Lithuanian is the default. Opening names come from the šachmatai.lt taxonomy.
+- **R-1** (Q1, #226, 2026-10-16): The UI is Lithuanian and English from day 1, Lithuanian is the default. (Paused by R-180: English only for now.) Opening names come from the šachmatai.lt taxonomy.
 - **R-2** (Q7, #226, 2026-10-16): Tiers (0-1400, 1400-2000, 2000+) are QA personas plus soft product defaults (suggested depth, starter repertoire). No feature is gated by tier.
 - **R-3** (Q8, #226, 2026-10-16): The MVP is free. The code keeps an entitlement seam so coach subscriptions can be added later.
 - **R-4** (Q10, #226, 2026-10-16): Content sources are PGN import, a board-based builder, a Lichess explorer panel, and starter repertoires per tier.
@@ -207,6 +207,13 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-171** (#316, 2026-11-09): Any FIDE ID can be searched for its Lichess broadcast games; the purpose is preparing for an opponent.
 - **R-172** (#316, 2026-11-09): Games found by a FIDE ID search are reviewed on the in-app board or opened on Lichess; they are not Imported games (no Deviation, no coach visibility).
 - **R-173** (#316, 2026-11-09): The FIDE ID search is built after M1 closes, and searches recent months of the Lichess broadcast dumps on demand; how many months is for the spec.
+- **R-174** (#322, 2026-11-09): A coach note on a move shows in the learn pass with the move, and in review only after the move is answered, so it never gives the answer away.
+- **R-175** (#325, 2026-11-09): PGN NAGs are kept on the move, shown as their symbols (for example ! ? !? +=) next to the move when browsing and learning, and written back in the PGN export.
+- **R-176** (#325, 2026-11-09): Importing a PGN into an existing repertoire also adds the file's comments to moves that have none; an existing comment is never overwritten, and the preview lists the comments it adds. A file that adds neither a move nor a comment is still refused (R-115, R-117).
+- **R-177** (#321, 2026-11-09): The coach progress percentage is learned moves (R-151: scheduled, not due) over all the player's own moves in that repertoire, matching the learned count beside it; due, skipped and not-started moves do not count. Supersedes S7 spec lead decision 2.
+- **R-178** (#321, 2026-11-09): Mastered (R-56) needs every move in the learned state (not due, not skipped, not not-started) and FSRS retrievability >= 90 % today; a due move breaks mastery until it is reviewed, and a skipped ("I know this") move counts only after its first review.
+- **R-179** (#258, 2026-11-09): Lithuanian language work is paused for the current phase: the UI stays as it is (Lithuanian default, R-1), gaps are covered later. New text still goes through both catalogues (the code rule), written by the developer without an i18n-content review; Lithuanian notation, opening-name wording and translation polish wait.
+- **R-180** (#258, 2026-11-09): For the current phase the user UI is English only: every page, email and opening name is served in English, and no language choice is offered (sign-in, onboarding, settings). The Lithuanian catalogue and each account's stored language are kept untouched so Lithuanian can be switched back on later. URL paths stay as they are. Pauses R-1 (Lithuanian default), the language question of R-81 and R-85.
 
 ## Open questions
 
