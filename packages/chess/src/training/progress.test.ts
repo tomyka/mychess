@@ -27,6 +27,7 @@ import {
   reconcile,
   weakSpots,
   type Scope,
+  type TrackedReview,
   type TrainingRepertoire,
 } from './training';
 
@@ -72,32 +73,60 @@ describe('thresholds', () => {
   });
 });
 
-describe('mastered', () => {
-  it('needs a review for every key with recall of at least 0.9', () => {
-    const reviews = new Map([
-      ['a', fresh('a')],
-      ['b', fresh('b')],
-    ]);
+/** Tracked as a learn pass (not "I know this"). */
+const viaLearn = (review: ReviewState): TrackedReview => ({
+  review,
+  knownWithoutLearning: false,
+});
+const tracked = (
+  ...entries: (readonly [string, ReviewState])[]
+): Map<string, TrackedReview> =>
+  new Map(entries.map(([key, review]) => [key, viaLearn(review)]));
+/** Its Review never due, so only recall decides (R-178's second half). */
+const neverDue = (review: ReviewState): ReviewState => ({
+  ...review,
+  fsrs: { ...review.fsrs, due: new Date(now.getTime() + 1000 * DAY_MS) },
+});
+
+describe('mastered (R-56, R-178)', () => {
+  it('needs every key learned with recall of at least 0.9', () => {
+    const reviews = tracked(['a', fresh('a')], ['b', fresh('b')]);
     expect(mastered(moves('a', 'b'), reviews, now)).toBe(true);
     expect(mastered(moves('a', 'b', 'c'), reviews, now)).toBe(false);
-    expect(
-      mastered(moves('a'), reviews, new Date(now.getTime() + 400 * DAY_MS)),
-    ).toBe(false);
   });
 
   it('is false for no keys: nothing to master is not mastered', () => {
-    expect(mastered(moves(), new Map([['a', fresh('a')]]), now)).toBe(false);
+    expect(mastered(moves(), tracked(['a', fresh('a')]), now)).toBe(false);
+  });
+
+  it('is broken by a due move, whatever its recall, until it is reviewed', () => {
+    // Learned 25 hours ago: due since an hour (R-58), recall still high.
+    const learnedAt = new Date(now.getTime() - 25 * 3_600_000);
+    const due = startReview('a', learnedAt);
+    expect(retrievability(due, now)).toBeGreaterThanOrEqual(MASTERY_RETENTION);
+    expect(mastered(moves('a'), tracked(['a', due]), now)).toBe(false);
+    const reviewed = grade(due, 'pass', now);
+    expect(mastered(moves('a'), tracked(['a', reviewed]), now)).toBe(true);
+  });
+
+  it('counts a skipped move only after its first review', () => {
+    const skipped = startReview('a', daysAgo(0.5));
+    const known = (review: ReviewState) =>
+      new Map([['a', { review, knownWithoutLearning: true }]]);
+    expect(mastered(moves('a'), known(skipped), now)).toBe(false);
+    const firstReview = grade(skipped, 'pass', daysAgo(0.25));
+    expect(mastered(moves('a'), known(firstReview), now)).toBe(true);
   });
 
   it('stays mastered until recall drops below the threshold', () => {
-    const review = fresh('a');
+    const review = neverDue(fresh('a'));
     // Find the first whole hour at which recall drops below the threshold.
     let at = now;
     while (retrievability(review, at) >= MASTERY_RETENTION) {
       at = new Date(at.getTime() + 3_600_000);
     }
     const last = new Date(at.getTime() - 3_600_000);
-    const reviews = new Map([['a', review]]);
+    const reviews = tracked(['a', review]);
     expect(mastered(moves('a'), reviews, last)).toBe(true);
     expect(mastered(moves('a'), reviews, at)).toBe(false);
   });

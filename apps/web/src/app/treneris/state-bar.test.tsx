@@ -122,7 +122,7 @@ describe('usePercentLearned', () => {
     renderLt(
       <Probe counts={{ notStarted: 1, skipped: 0, due: 1, learned: 2 }} />,
     );
-    expect(screen.getByText('75 % išmokta').getAttribute('data-empty')).toBe(
+    expect(screen.getByText('50 % išmokta').getAttribute('data-empty')).toBe(
       'false',
     );
   });

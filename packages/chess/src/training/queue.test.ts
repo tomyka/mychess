@@ -368,6 +368,7 @@ describe('buildQueue', () => {
         arrows: [],
         circles: [],
         comment: null,
+        nags: [],
         chapters: ['c1'],
       })),
     ).flat();

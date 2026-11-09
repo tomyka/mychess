@@ -9,16 +9,20 @@ import {
   type Side,
 } from '../repertoire/graph';
 import {
-  moveState,
   percentLearned,
   progressOf,
   repertoireStanding,
   totalMoves,
-  type MoveState,
-  type TrackedReview,
 } from './coach-progress';
+import { moveState, type MoveState, type TrackedReview } from './move-state';
 import { mastered } from './progress';
-import { DAY_MS, grade, startReview, type ReviewState } from './schedule';
+import {
+  DAY_MS,
+  grade,
+  retrievability,
+  startReview,
+  type ReviewState,
+} from './schedule';
 
 const NOW = new Date('2026-10-26T09:00:00Z');
 const DAY_AGO = new Date(NOW.getTime() - DAY_MS);
@@ -47,6 +51,15 @@ const learned = (key: string): TrackedReview => {
 };
 const dueNow = (key: string): TrackedReview => ({
   review: startReview(key, new Date(NOW.getTime() - 2 * DAY_MS)),
+  knownWithoutLearning: false,
+});
+/** Learned a week ago and reviewed correctly an hour ago. */
+const reviewedToday = (key: string): TrackedReview => ({
+  review: grade(
+    startReview(key, WEEK_AGO),
+    'pass',
+    new Date(NOW.getTime() - 3_600_000),
+  ),
   knownWithoutLearning: false,
 });
 const skippedNotDue = (key: string): TrackedReview => ({
@@ -96,9 +109,14 @@ describe('repertoireStanding', () => {
     });
   });
 
-  it('is mastered when every player move is recalled at 90% or more (R-56)', () => {
-    const reviews = new Map(KEYS.map((key) => [key, skippedNotDue(key)]));
+  it('is mastered when every player move is learned and recalled at 90% or more (R-56)', () => {
+    const reviews = new Map(KEYS.map((key) => [key, reviewedToday(key)]));
     expect(repertoireStanding(GRAPH, reviews, NOW).mastered).toBe(true);
+  });
+
+  it('is not mastered while every move is skipped and never reviewed (R-178)', () => {
+    const reviews = new Map(KEYS.map((key) => [key, skippedNotDue(key)]));
+    expect(repertoireStanding(GRAPH, reviews, NOW).mastered).toBe(false);
   });
 
   it('ignores Reviews of moves the graph does not hold (dormant)', () => {
@@ -179,7 +197,7 @@ const chapterKeys = (graph: RepertoireGraph, chapterId: string): string[] =>
     .filter((m) => m.chapters.includes(chapterId) && isPlayerMove(graph, m))
     .map((m) => moveKey(m.from, m.san));
 
-const makers = [learned, dueNow, skippedNotDue];
+const makers = [learned, dueNow, skippedNotDue, reviewedToday];
 
 /** Random Reviews over a random subset of `keys`, in every kind. */
 const reviewsOver = (
@@ -200,11 +218,6 @@ const reviewsOver = (
         ),
     );
 
-const statesOf = (
-  reviews: ReadonlyMap<string, TrackedReview>,
-): Map<string, ReviewState> =>
-  new Map([...reviews].map(([key, t]) => [key, t.review]));
-
 describe('progressOf properties', () => {
   const keys = playerKeys(DISJOINT);
 
@@ -217,15 +230,14 @@ describe('progressOf properties', () => {
   it('is mastered exactly when `mastered` says so, for the repertoire and each chapter', () => {
     fc.assert(
       fc.property(reviewsOver(keys), (reviews) => {
-        const states = statesOf(reviews);
         const progress = progressOf(DISJOINT, reviews, NOW);
         expect(progress.mastered).toBe(
-          mastered({ kind: 'moves', keys }, states, NOW),
+          mastered({ kind: 'moves', keys }, reviews, NOW),
         );
         for (const chapter of progress.chapters) {
           const own = chapterKeys(DISJOINT, chapter.chapter.id);
           expect(chapter.mastered).toBe(
-            mastered({ kind: 'moves', keys: own }, states, NOW),
+            mastered({ kind: 'moves', keys: own }, reviews, NOW),
           );
         }
       }),
@@ -287,16 +299,111 @@ describe('totalMoves', () => {
   });
 });
 
-describe('percentLearned', () => {
-  it('counts every move with a Review, rounded', () => {
+describe('percentLearned (R-177)', () => {
+  it('counts learned moves only, rounded: not due, skipped or not started', () => {
     expect(
       percentLearned({ notStarted: 2, skipped: 1, due: 1, learned: 2 }),
+    ).toBe(33);
+  });
+
+  it('rounds half and above up, not down', () => {
+    expect(
+      percentLearned({ notStarted: 1, skipped: 0, due: 0, learned: 2 }),
     ).toBe(67);
+  });
+
+  it('is 0 when every move is due and 100 when every move is learned', () => {
+    expect(
+      percentLearned({ notStarted: 0, skipped: 0, due: 10, learned: 0 }),
+    ).toBe(0);
+    expect(
+      percentLearned({ notStarted: 0, skipped: 0, due: 0, learned: 10 }),
+    ).toBe(100);
   });
 
   it('is null with no player moves', () => {
     expect(
       percentLearned({ notStarted: 0, skipped: 0, due: 0, learned: 0 }),
     ).toBeNull();
+  });
+});
+
+describe('a chapter learned yesterday (#321, R-177, R-178)', () => {
+  // Ten White moves of the Ruy Lopez, one chapter.
+  const ruy = graphOf(
+    '1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 ' +
+      '7. Bb3 d6 8. c3 O-O 9. h3 Nb8 10. d4 *',
+  );
+  const keys = playerKeys(ruy);
+  // Learned 25 hours ago: due since an hour ago (R-58).
+  const learnedAt = new Date(NOW.getTime() - 25 * 3_600_000);
+  const reviewedAt = new Date(NOW.getTime() - 3_600_000);
+  const viaLearn = (review: ReviewState): TrackedReview => ({
+    review,
+    knownWithoutLearning: false,
+  });
+  const yesterday = new Map(
+    keys.map((k) => [k, viaLearn(startReview(k, learnedAt))]),
+  );
+  const reviewed = new Map(
+    [...yesterday].map(([k, t]) => [
+      k,
+      viaLearn(grade(t.review, 'pass', reviewedAt)),
+    ]),
+  );
+
+  it('has ten player moves', () => {
+    expect(keys).toHaveLength(10);
+  });
+
+  it('counts none learned and is not mastered once all are due', () => {
+    const progress = progressOf(ruy, yesterday, NOW);
+    const [chapter] = progress.chapters;
+    expect(chapter?.counts).toEqual({
+      notStarted: 0,
+      skipped: 0,
+      due: 10,
+      learned: 0,
+    });
+    expect(percentLearned(progress.counts)).toBe(0);
+    expect(chapter?.mastered).toBe(false);
+    expect(progress.mastered).toBe(false);
+  });
+
+  it('counts all learned and is mastered after a correct review today', () => {
+    expect(
+      [...reviewed.values()].every((t) => retrievability(t.review, NOW) >= 0.9),
+    ).toBe(true);
+    const progress = progressOf(ruy, reviewed, NOW);
+    const [chapter] = progress.chapters;
+    expect(chapter?.counts).toEqual({
+      notStarted: 0,
+      skipped: 0,
+      due: 0,
+      learned: 10,
+    });
+    expect(percentLearned(progress.counts)).toBe(100);
+    expect(chapter?.mastered).toBe(true);
+    expect(progress.mastered).toBe(true);
+  });
+
+  it('leaves a skipped move never reviewed out of the percentage and mastery', () => {
+    const [first] = keys;
+    if (first === undefined) throw new Error('fixture');
+    const withSkip = new Map(reviewed);
+    withSkip.set(first, {
+      review: startReview(first, reviewedAt),
+      knownWithoutLearning: true,
+    });
+    const progress = progressOf(ruy, withSkip, NOW);
+    expect(progress.counts).toEqual({
+      notStarted: 0,
+      skipped: 1,
+      due: 0,
+      learned: 9,
+    });
+    expect(percentLearned(progress.counts)).toBe(90);
+    expect(progress.chapters[0]?.mastered).toBe(false);
+    expect(progress.mastered).toBe(false);
   });
 });

@@ -73,7 +73,7 @@ describe('the player page’s progress section (R-151, R-154, R-155)', () => {
     );
     const row = within(rowOf(link));
     expect(row.getByText('Pradelsta')).toBeTruthy();
-    expect(row.getByText('Priskirtas · 50 % išmokta')).toBeTruthy();
+    expect(row.getByText('Priskirtas · 25 % išmokta')).toBeTruthy();
     expect(row.getByText(/1 išmokta · 1 kartotinas/)).toBeTruthy();
   });
 

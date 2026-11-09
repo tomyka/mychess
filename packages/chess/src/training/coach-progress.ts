@@ -1,7 +1,8 @@
 /**
  * Where a player stands on a repertoire, as their coach sees it: each
  * player move in exactly one state (R-151), counted for the repertoire, each
- * chapter and each of its lines (R-152), with Mastered (R-56) on each.
+ * chapter and each of its lines (R-152), with Mastered (R-56, R-178) on
+ * each and the share learned (R-177).
  * Reviews of moves the graph does not hold (dormant) never count.
  */
 import { sideToMove } from '../position-key';
@@ -14,22 +15,8 @@ import {
   type RepertoireMove,
 } from '../repertoire/graph';
 import { chapterWalks, type ChapterWalk } from '../repertoire/walk';
+import { moveState, type MoveState, type TrackedReview } from './move-state';
 import { mastered } from './progress';
-import { isDue, type ReviewState } from './schedule';
-import { unreviewed } from './stored-review';
-
-/** R-151: the one state the coach sees a move in. */
-export type MoveState = 'notStarted' | 'skipped' | 'due' | 'learned';
-
-/** A player's Review of a move, and how it entered training. */
-export interface TrackedReview {
-  readonly review: ReviewState;
-  /**
-   * Entered training by "I know this" rather than a learn pass. Not the
-   * 'skipped' MoveState: that also needs the Review never graded since.
-   */
-  readonly knownWithoutLearning: boolean;
-}
 
 export type ProgressCounts = Readonly<Record<MoveState, number>>;
 
@@ -55,49 +42,26 @@ export interface RepertoireProgress extends Standing {
   readonly chapters: readonly ChapterProgress[];
 }
 
-/**
- * R-151: due once the Review is due (a skipped move's first Review
- * included); skipped while "I know this" was never graded since; else
- * learned.
- */
-export function moveState(
-  tracked: TrackedReview | undefined,
-  now: Date,
-): MoveState {
-  if (tracked === undefined) return 'notStarted';
-  if (isDue(tracked.review, now)) return 'due';
-  return tracked.knownWithoutLearning && unreviewed(tracked.review)
-    ? 'skipped'
-    : 'learned';
-}
-
 /** How many player moves the counts cover, in every state. */
 export function totalMoves(counts: ProgressCounts): number {
   return counts.notStarted + counts.skipped + counts.due + counts.learned;
 }
 
-/** Moves with a Review, as a whole percentage; null with no player moves. */
+/**
+ * R-177: learned moves (not due, skipped or not started) as a whole
+ * percentage of all player moves, matching the learned count; null with no
+ * player moves.
+ */
 export function percentLearned(counts: ProgressCounts): number | null {
   const total = totalMoves(counts);
-  const started = total - counts.notStarted;
-  return total === 0 ? null : Math.round((started / total) * 100);
+  return total === 0 ? null : Math.round((counts.learned / total) * 100);
 }
 
 /** What every standing is read from. */
 interface Reading {
   readonly reviews: ReadonlyMap<string, TrackedReview>;
-  readonly states: ReadonlyMap<string, ReviewState>;
   readonly now: Date;
 }
-
-const readingOf = (
-  reviews: ReadonlyMap<string, TrackedReview>,
-  now: Date,
-): Reading => ({
-  reviews,
-  states: new Map([...reviews].map(([key, t]) => [key, t.review])),
-  now,
-});
 
 function standingOf(keys: readonly string[], reading: Reading): Standing {
   const counts: Record<MoveState, number> = {
@@ -111,7 +75,7 @@ function standingOf(keys: readonly string[], reading: Reading): Standing {
   }
   return {
     counts,
-    mastered: mastered({ kind: 'moves', keys }, reading.states, reading.now),
+    mastered: mastered({ kind: 'moves', keys }, reading.reviews, reading.now),
   };
 }
 
@@ -138,7 +102,7 @@ export function repertoireStanding(
   reviews: ReadonlyMap<string, TrackedReview>,
   now: Date,
 ): Standing {
-  return standingOf(allPlayerKeys(graph), readingOf(reviews, now));
+  return standingOf(allPlayerKeys(graph), { reviews, now });
 }
 
 function chapterProgress(
@@ -171,7 +135,7 @@ export function progressOf(
   reviews: ReadonlyMap<string, TrackedReview>,
   now: Date,
 ): RepertoireProgress {
-  const reading = readingOf(reviews, now);
+  const reading = { reviews, now };
   const walks = chapterWalks(graph);
   return {
     ...standingOf(allPlayerKeys(graph), reading),

@@ -3,6 +3,7 @@
  * reconciliation of Reviews with the repertoires after a coach edit (Q30).
  */
 import { playerKeys, type RepertoireGraph } from '../repertoire/graph';
+import { moveState, type TrackedReview } from './move-state';
 import { DAY_MS, retrievability, type ReviewState } from './schedule';
 import {
   repertoireKeys,
@@ -26,24 +27,32 @@ export interface WeakSpot {
 }
 
 /**
- * Whether the scope is mastered at `now` (R-56): every move it covers has a
- * Review that the player still recalls well. A scope without moves (an empty
- * line, an unknown chapter) is not mastered: there is nothing to master.
+ * R-178: a move counts towards mastery when it is learned (R-151: not due,
+ * not skipped, not not-started) and the player still recalls it well.
+ */
+function masteredMove(tracked: TrackedReview | undefined, now: Date): boolean {
+  return (
+    tracked !== undefined &&
+    moveState(tracked, now) === 'learned' &&
+    retrievability(tracked.review, now) >= MASTERY_RETENTION
+  );
+}
+
+/**
+ * Whether the scope is mastered at `now` (R-56, R-178): every move it covers
+ * is learned and recalled well. A due move breaks mastery until it is
+ * reviewed; a skipped move counts only after its first Review. A scope
+ * without moves (an empty line, an unknown chapter) is not mastered: there
+ * is nothing to master.
  */
 export function mastered(
   scope: Scope,
-  reviews: ReadonlyMap<string, ReviewState>,
+  reviews: ReadonlyMap<string, TrackedReview>,
   now: Date,
 ): boolean {
   const all = scopeKeys(scope);
   return (
-    all.length > 0 &&
-    all.every((key) => {
-      const review = reviews.get(key);
-      return (
-        review !== undefined && retrievability(review, now) >= MASTERY_RETENTION
-      );
-    })
+    all.length > 0 && all.every((key) => masteredMove(reviews.get(key), now))
   );
 }
 

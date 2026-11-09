@@ -17,6 +17,7 @@ import {
   startLearn,
   type ReviewState,
   type Scope,
+  type TrackedReview,
 } from './training';
 
 const now = new Date('2026-10-16T08:00:00Z');
@@ -146,7 +147,20 @@ describe('I know this (R-58)', () => {
   });
 });
 
-describe('mastery of a line and a chapter (R-56)', () => {
+describe('mastery of a line and a chapter (R-56, R-178)', () => {
+  /** Twelve hours after learning: in review, not yet due (R-58). */
+  const evening = later(12 * 3_600_000);
+  const viaLearn = (
+    reviews: ReadonlyMap<string, ReviewState>,
+  ): Map<string, TrackedReview> =>
+    new Map(
+      [...reviews].map(([k, review]) => [
+        k,
+        { review, knownWithoutLearning: false },
+      ]),
+    );
+  const learnedTracked = (keys: readonly string[], at: Date) =>
+    viaLearn(learned(keys, at));
   const italianMain = lineOf(must(italian), 0);
   const philidor = lineOf(must(italian), 1);
   const lineScope = (line: readonly RepertoireMove[]): Scope => ({
@@ -165,55 +179,58 @@ describe('mastery of a line and a chapter (R-56)', () => {
       .map((san) => keyOfSan(line, san));
 
   it("masters a line when the player's moves of that line are recalled", () => {
-    const reviews = learned(playerKeysOf(italianMain), now);
-    expect(mastered(lineScope(italianMain), reviews, later(DAY_MS))).toBe(true);
-    expect(mastered(lineScope(philidor), reviews, later(DAY_MS))).toBe(false);
+    const reviews = learnedTracked(playerKeysOf(italianMain), now);
+    expect(mastered(lineScope(italianMain), reviews, evening)).toBe(true);
+    expect(mastered(lineScope(philidor), reviews, evening)).toBe(false);
   });
 
   it('masters a chapter only when every line of it is mastered', () => {
-    const someLines = learned(playerKeysOf(italianMain), now);
-    expect(
-      mastered(chapterScope(must(italian)), someLines, later(DAY_MS)),
-    ).toBe(false);
-    const allLines = learned(
+    const someLines = learnedTracked(playerKeysOf(italianMain), now);
+    expect(mastered(chapterScope(must(italian)), someLines, evening)).toBe(
+      false,
+    );
+    const allLines = learnedTracked(
       [...playerKeysOf(italianMain), ...playerKeysOf(philidor)],
       now,
     );
-    expect(mastered(chapterScope(must(italian)), allLines, later(DAY_MS))).toBe(
-      true,
-    );
+    expect(mastered(chapterScope(must(italian)), allLines, evening)).toBe(true);
   });
 
   it("does not need another chapter's moves", () => {
-    const reviews = learned(
+    const reviews = learnedTracked(
       [...playerKeysOf(italianMain), ...playerKeysOf(philidor)],
       now,
     );
-    expect(mastered(chapterScope(must(sicilian)), reviews, later(DAY_MS))).toBe(
+    expect(mastered(chapterScope(must(sicilian)), reviews, evening)).toBe(
       false,
     );
     const sicilianLine = lineOf(must(sicilian), 0);
     const both = new Map([
       ...reviews,
-      ...learned(
+      ...learnedTracked(
         [keyOfSan(sicilianLine, 'Nf3'), keyOfSan(sicilianLine, 'd4')],
         now,
       ),
     ]);
-    expect(mastered(chapterScope(must(sicilian)), both, later(DAY_MS))).toBe(
-      true,
-    );
+    expect(mastered(chapterScope(must(sicilian)), both, evening)).toBe(true);
   });
 
   it('is lost when recall fades', () => {
-    const reviews = learned(playerKeysOf(italianMain), now);
+    const reviews = learnedTracked(playerKeysOf(italianMain), now);
     expect(mastered(lineScope(italianMain), reviews, later(400 * DAY_MS))).toBe(
       false,
     );
   });
 
+  it('is broken once its moves fall due, until they are reviewed', () => {
+    const reviews = learnedTracked(playerKeysOf(italianMain), now);
+    expect(mastered(lineScope(italianMain), reviews, later(DAY_MS))).toBe(
+      false,
+    );
+  });
+
   it('is not mastered for an unknown chapter or an empty line', () => {
-    const reviews = learned(
+    const reviews = learnedTracked(
       [...playerKeysOf(italianMain), ...playerKeysOf(philidor)],
       now,
     );
@@ -235,8 +252,18 @@ describe('mastery of a line and a chapter (R-56)', () => {
       'Nc3',
       'c4',
     ]);
-    const all = new Map(reviews.map((r) => [r.key, r]));
-    expect(mastered(scope, all, later(DAY_MS))).toBe(true);
+    const known = (states: readonly ReviewState[]) =>
+      new Map(
+        states.map((review) => [
+          review.key,
+          { review, knownWithoutLearning: true },
+        ]),
+      );
+    expect(mastered(scope, known(reviews), evening)).toBe(false);
+    const firstReviews = reviews.map((r) => grade(r, 'pass', later(DAY_MS)));
+    expect(
+      mastered(scope, known(firstReviews), later(DAY_MS + 3_600_000)),
+    ).toBe(true);
   });
 });
 

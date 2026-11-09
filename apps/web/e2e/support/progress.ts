@@ -55,10 +55,11 @@ export const notStarted = (total: number): Counts => ({
 export const countsText = (locale: Locale, counts: Counts): string =>
   plural(CATALOGUES[locale].coach.progress.counts, locale, { ...counts });
 
-/** "n % learned": the moves with a Review, as a whole percentage. */
+/** "n % learned": the learned moves only (R-177), as a whole percentage. */
 export function percentText(locale: Locale, counts: Counts): string {
-  const started = counts.learned + counts.due + counts.skipped;
-  const percent = Math.round((started / (started + counts.notStarted)) * 100);
+  const total =
+    counts.learned + counts.due + counts.skipped + counts.notStarted;
+  const percent = Math.round((counts.learned / total) * 100);
   return format(CATALOGUES[locale].coach.progress.percent, {
     percent: String(percent),
   });

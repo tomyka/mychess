@@ -105,6 +105,7 @@ function longLine(): RepertoireGraph {
       arrows: [],
       circles: [],
       comment: null,
+      nags: [],
       chapters: ['c1'],
     })),
   };
@@ -429,6 +430,7 @@ const withOrphan: RepertoireGraph = {
       arrows: [],
       circles: [],
       comment: null,
+      nags: [],
       chapters: [],
     },
   ],

@@ -42,7 +42,7 @@ const GRID: GroupGrid = {
           view: {
             kind: 'granted',
             standing: {
-              counts: { notStarted: 0, skipped: 1, due: 0, learned: 3 },
+              counts: { notStarted: 0, skipped: 0, due: 0, learned: 4 },
               mastered: true,
             },
           },
@@ -88,12 +88,12 @@ describe('the group grid (R-153)', () => {
 
   it('shows % learned and due in a cell that opens the player’s progress', () => {
     show();
-    const cell = screen.getByRole('link', { name: /88 %/ });
+    const cell = screen.getByRole('link', { name: /25 %/ });
     expect(cell.getAttribute('href')).toBe(
       '/treneris/zaidejai/p-1/pazanga/r-1',
     );
     expect(within(cell).getByText('5 kartotini')).toBeTruthy();
-    expect(within(cell).getByText('88 % išmokta')).toBeTruthy();
+    expect(within(cell).getByText('25 % išmokta')).toBeTruthy();
   });
 
   it('names the player and the repertoire in each cell link, around its visible text', () => {
@@ -103,7 +103,7 @@ describe('the group grid (R-153)', () => {
         .getAllByRole('link', { name: /išmokta/ })
         .map((link) => link.getAttribute('aria-label')),
     ).toEqual([
-      'Gabija, Karo-Kan gynyba: 88 % išmokta, 5 kartotini',
+      'Gabija, Karo-Kan gynyba: 25 % išmokta, 5 kartotini',
       'Rokas, Italų partija: 100 % išmokta, 0 kartotinų',
     ]);
   });
@@ -192,11 +192,11 @@ describe('the group grid (R-153)', () => {
     show(GRID, 'en');
     const e = MESSAGES.en.coach.progress;
     expect(screen.getByRole('region', { name: e.gridTitle })).toBeTruthy();
-    expect(screen.getByRole('link', { name: /88% learned/ })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /25% learned/ })).toBeTruthy();
     expect(screen.getByText('5 due')).toBeTruthy();
     expect(
       screen.getByRole('link', {
-        name: 'Gabija, Karo-Kan gynyba: 88% learned, 5 due',
+        name: 'Gabija, Karo-Kan gynyba: 25% learned, 5 due',
       }),
     ).toBeTruthy();
   });
