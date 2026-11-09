@@ -15,6 +15,7 @@ import { seedDue, storedReviews } from './support/training-db';
 import {
   answer,
   doneHeading,
+  drillToDone,
   expectCounter,
   keyAfter,
   ownKeys,
@@ -147,5 +148,11 @@ test('D-M1-7: reviewing both Catalans at 7...a6 shows the two-answers notice; ea
       );
   }
   expect(new Set(seen)).toEqual(new Set([CATALAN, CATALAN_A4]));
+  // R-78 (#319): the lapsed item comes back in the session, still in its
+  // own repertoire and expecting its own move, until it sticks.
+  await expect(page.getByText(en.training.review.again)).toBeVisible();
+  const repeats = await drillToDone(drill);
+  expect(repeats.length).toBeGreaterThan(0);
+  expect(new Set(repeats.map((a) => a.book))).toEqual(new Set([seen[1]]));
   await expect(doneHeading(page, en)).toBeVisible();
 });

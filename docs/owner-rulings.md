@@ -214,6 +214,8 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-178** (#321, 2026-11-09): Mastered (R-56) needs every move in the learned state (not due, not skipped, not not-started) and FSRS retrievability >= 90 % today; a due move breaks mastery until it is reviewed, and a skipped ("I know this") move counts only after its first review.
 - **R-179** (#258, 2026-11-09): Lithuanian language work is paused for the current phase: the UI stays as it is (Lithuanian default, R-1), gaps are covered later. New text still goes through both catalogues (the code rule), written by the developer without an i18n-content review; Lithuanian notation, opening-name wording and translation polish wait.
 - **R-180** (#258, 2026-11-09): For the current phase the user UI is English only: every page, email and opening name is served in English, and no language choice is offered (sign-in, onboarding, settings). The Lithuanian catalogue and each account's stored language are kept untouched so Lithuanian can be switched back on later. URL paths stay as they are. Pauses R-1 (Lithuanian default), the language question of R-81 and R-85.
+- **R-181** (#258, 2026-11-09): "Learned" keeps the progress meaning (R-151: scheduled and not due). The R-129 meaning (a move has a Review, from the learn pass or "I know this") is called "tracked": an Assignment is done when every move is tracked.
+- **R-182** (#258, 2026-11-09): A chapter whose moves were all learned today counts as mastered (R-178) while their recall is >= 90 % and they are not yet due; no extra review is required.
 
 ## Open questions
 
