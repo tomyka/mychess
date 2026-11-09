@@ -17,3 +17,11 @@ test-results/
 playwright-report/
 .stryker-tmp/
 .superpowers/
+
+# Personal skills installed per user (docs/agent-team.md); only the R-38 vendored ones are tracked
+.agents/skills/*
+!.agents/skills/retro/
+!.agents/skills/writing-for-agents/
+.claude/skills/*
+!.claude/skills/retro
+!.claude/skills/writing-for-agents
