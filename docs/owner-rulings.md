@@ -18,7 +18,7 @@ Domain vocabulary is defined in [CONTEXT.md](CONTEXT.md); architecture decisions
 - **R-7** (Q35, #226, 2026-10-16): Mobile-first responsive web, installable as a PWA. Drilling is online-only in the MVP; offline is post-MVP.
 - **R-8** (Q36, #226, 2026-10-16): Starter repertoires are drafted per tier by chess-dev from Lichess explorer statistics, approved by the owner (or a trusted coach), and stored as PGN seed data.
 - **R-9** (Q38, #226, 2026-10-16): A minimal owner admin: users (disable), starter repertoire publishing, integration import triggers, usage stats, and an audit log.
-- **R-10** (Q39, #226, 2026-10-16): "mychess" is a working name. Brand and domain are decided before the production launch.
+- ~~**R-10** (Q39, #226, 2026-10-16): "mychess" is a working name. Brand and domain are decided before the production launch.~~ Decided by R-167 (domain) and R-170 (brand).
 
 ## Coach-player
 
@@ -52,7 +52,7 @@ Domain vocabulary is defined in [CONTEXT.md](CONTEXT.md); architecture decisions
 - **R-29** (Q14, #226, 2026-10-16): Port from v1, re-implemented with tests: opening data, LT names, generators, taxonomy, LT chess terminology; chess core (PGN parser, board wrapper, pieces/themes); integrations (FIDE, chess-results scraper, Lichess/Chess.com OAuth) when M3 starts. Leave archived: Stockfish analysis, gamification, Google Drive picker.
 - **R-30** (Q16, #226, 2026-10-16): Stack as sportbet_new: pnpm monorepo, Next.js 16 in `apps/web`, `packages/{domain,chess,db}`, Drizzle, Neon Postgres, Auth.js (magic link + Google); the sign-in library is now Better Auth (ADR 0010, S1).
 - **R-31** (Q17, #226, 2026-10-16): Ten technical agent roles plus the lead: architect, backend-dev, web-dev, qa, security-reviewer, devops, chess-dev, ux-designer, i18n-content, integrations-dev.
-- **R-32** (Q18, #226, 2026-10-16): Personas live in `docs/personas/`, with seeded staging accounts and E2E fixtures carrying tier-matched repertoires, plus four persona subagents that explore staging in character each milestone.
+- **R-32** (Q18, #226, 2026-10-16): Personas live in `docs/personas/`, with ~~seeded staging accounts~~ (superseded by R-168) and E2E fixtures carrying tier-matched repertoires, plus four persona subagents that explore ~~staging~~ the local persona stack (R-168) in character each milestone.
 - **R-33** (Q19, #226, 2026-10-16): Use the sportbet quality kit. CI enforces the full gate including mutation testing; the post-edit hook stays on; the Stop hook runs a fast gate (no mutation).
 - **R-34** (Q20, #226, 2026-10-16): Trunk-based, lead-only commits. ~~Green CI deploys to staging; production is promoted manually by the owner.~~ (superseded by R-166, #310) Unattended runs only for issues labelled both `size/small` and `auto-ok`.
 - ~~**R-35** (Q21, #226, 2026-10-16): GitHub-hosted runners; Vercel staging and production; a Neon branch per environment.~~ Superseded by R-164 (#310).
@@ -104,7 +104,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-68** (Q2): Lichess sign-in ships in M1 (with magic link and Google) and also links the account. Chess.com is never a sign-in method, only a linked username for game import.
 - **R-69** (Q24): One account per canonical email: a Google sign-in with a verified email joins the existing account. Lichess is linked only from settings while signed in, never merged by email.
 - **R-70** (Q14): Every account has a "free" entitlement with limits enforced in the domain (coach: up to 30 linked players and 10 groups). No paywall in the MVP.
-- **R-71** (Q15): Before the M1 production launch the lead counts v1 accounts with real activity and shows the owner, who decides then whether to invite them; no data migration is built unless asked.
+- ~~**R-71** (Q15): Before the M1 production launch the lead counts v1 accounts with real activity and shows the owner, who decides then whether to invite them; no data migration is built unless asked.~~ Superseded by R-169.
 - **R-72** (Q20, Q27): Admin is a flag set only by a seed or CLI script, initially for the owner. Only Admins approve and publish starter repertoires.
 - **R-73** (Q21, Q28): Persona accounts sign in on staging through a test-only route that exists only when a staging env flag is set, accepts only `@mychess.test` emails and requires a shared-secret header; a test proves production refuses it.
 - **R-74** (Q29): The Lithuanian terms proposed in `docs/glossary-lt.md` are adopted.
@@ -201,7 +201,14 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-165** (#310, 2026-10-31): Build and test jobs run on GitHub-hosted runners; only the deploy job runs on a self-hosted runner on the production VM, started only by a push or dispatch.
 - **R-166** (#310, 2026-10-31): There is no staging environment: a green `main` deploys to production. Supersedes the staging half of R-34; Vercel staging and its Neon database are retired once production is live.
 - **R-167** (#310, 2026-10-31): The production domain is mychess.lt (registered at Hostinger; its DNS points at the production VM). Decides the domain half of R-10.
+- **R-168** (#258, 2026-11-09): Persona seed accounts (R-32) exist on the local stack only, never in production; persona testers and E2E run against that stack. Supersedes the staging half of R-32.
+- **R-169** (#258, 2026-11-09): v1 accounts are not counted and not invited; R-71 is dropped.
+- **R-170** (#258, 2026-11-09): The brand is MyChess. Decides the brand half of R-10.
+- **R-171** (#316, 2026-11-09): Any FIDE ID can be searched for its Lichess broadcast games; the purpose is preparing for an opponent.
+- **R-172** (#316, 2026-11-09): Games found by a FIDE ID search are reviewed on the in-app board or opened on Lichess; they are not Imported games (no Deviation, no coach visibility).
+- **R-173** (#316, 2026-11-09): The FIDE ID search is built after M1 closes, and searches recent months of the Lichess broadcast dumps on demand; how many months is for the spec.
 
 ## Open questions
 
-- **Brand** (R-10): pending before the production launch; the domain is mychess.lt (R-167).
+None.
+
