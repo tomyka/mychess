@@ -187,6 +187,9 @@ _Avoid_: Error, blunder, out-of-book (unqualified)
 An over-the-board game Lichess broadcast, found by a FIDE ID search through the broadcast index for opponent preparation (R-171). It is not an Imported game: no Deviation, no Coach visibility (R-172).
 _Avoid_: Imported game, real game (for these)
 
+**Opening family**:
+The part of a Broadcast game's Lichess opening name before the first colon ("Sicilian Defense" from "Sicilian Defense: Najdorf Variation"); Opponent's games groups by it (R-189). Not the ECO-code family of the opening taxonomy in the chess package.
+
 **Broadcast month**:
 One monthly Lichess broadcast dump, indexed when a search first needs it (R-184). Its state is pending, processing, done or failed.
 

@@ -789,6 +789,11 @@
     "opponent": "prieš {name}",
     "opponentWithId": "prieš {name} (FIDE {id})",
     "openOnLichess": "Atidaryti Lichess",
-    "newTab": "(atsidaro naujame skirtuke)"
+    "newTab": "(atsidaro naujame skirtuke)",
+    "asWhite": "Baltaisiais",
+    "asBlack": "Juodaisiais",
+    "unknownOpening": "Nežinomas debiutas",
+    "groupSummary": "{count, plural, one {# partija} few {# partijos} other {# partijų}} · laimėjo {win}, lygiosios {draw}, pralaimėjo {loss}{unknown, plural, =0 {} other { · nebaigta #}}",
+    "credit": "Partijos iš <broadcasts>Lichess transliacijų</broadcasts> · <licence>CC BY-SA 4.0</licence>"
   }
 }

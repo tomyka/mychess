@@ -26,6 +26,17 @@
     outline: none;
   }
 
+  /* A disclosure draws its own chevron (or none). A flex summary already
+     hides the native marker in Chromium, but WebKit (Safari, iPhone) still
+     draws ::-webkit-details-marker, a second triangle (#348). */
+  summary {
+    list-style: none;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

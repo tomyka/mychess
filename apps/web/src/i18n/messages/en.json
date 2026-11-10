@@ -789,6 +789,11 @@
     "opponent": "vs {name}",
     "opponentWithId": "vs {name} (FIDE {id})",
     "openOnLichess": "Open on Lichess",
-    "newTab": "(opens in a new tab)"
+    "newTab": "(opens in a new tab)",
+    "asWhite": "As White",
+    "asBlack": "As Black",
+    "unknownOpening": "Unknown opening",
+    "groupSummary": "{count, plural, one {# game} other {# games}} · {win} won, {draw} drawn, {loss} lost{unknown, plural, =0 {} other { · # unfinished}}",
+    "credit": "Games from <broadcasts>Lichess broadcasts</broadcasts> · <licence>CC BY-SA 4.0</licence>"
   }
 }

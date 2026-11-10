@@ -38,6 +38,28 @@ const DATE = new Intl.DateTimeFormat('en', {
 /** Waiting for the runner: one poll every 5 s, two tiny months. */
 const MONTHS_READY_MS = 60_000;
 
+/**
+ * The searched player's fixture games as the page groups them (R-189,
+ * R-190): as White, then as Black; one game per family, so the families
+ * are ordered by name, and every group starts open (the largest two are).
+ */
+const GROUPED = [
+  {
+    title: en.fide.asWhite,
+    families: ["King's Indian Defense", 'Russian Game'],
+  },
+  {
+    title: en.fide.asBlack,
+    families: ['Caro-Kann Defense', "Queen's Gambit Declined"],
+  },
+] as const;
+
+/** The credit's links (#348): the games' source and their licence. */
+const CREDIT = [
+  ['Lichess broadcasts', 'https://lichess.org/broadcast'],
+  ['CC BY-SA 4.0', 'https://creativecommons.org/licenses/by-sa/4.0/'],
+] as const;
+
 function monthsReady(ready: number): string {
   return format(en.fide.monthsReady, { ready: String(ready), total: TOTAL });
 }
@@ -76,7 +98,7 @@ test('the committed fixture dumps are the ones broadcast-fixture.ts makes', () =
   }
 });
 
-test("a player opens Opponent's games from home, searches a FIDE ID and sees its months become ready, then the games newest first", async ({
+test("a player opens Opponent's games from home, searches a FIDE ID and sees its months become ready, then the games by colour and opening family", async ({
   page,
   request,
 }) => {
@@ -108,10 +130,30 @@ test("a player opens Opponent's games from home, searches a FIDE ID and sees its
   await expect(page).toHaveURL(/\/fide$/);
 
   const games = expectedGames();
-  const items = result.getByRole('listitem');
-  await expect(items).toHaveCount(games.length);
-  for (const [n, game] of games.entries()) {
-    await expectGame(items.nth(n), game);
+  await expect(result.getByRole('listitem')).toHaveCount(games.length);
+  for (const { title, families } of GROUPED) {
+    const section = result.getByRole('region', { name: title });
+    const groups = section.locator('details');
+    await expect(groups).toHaveCount(families.length);
+    for (const [n, family] of families.entries()) {
+      const group = groups.nth(n);
+      await expect(group).toHaveAttribute('open', '');
+      await expect(group.locator('summary')).toContainText(family);
+      const [game] = games.filter((found) =>
+        found.opening.slice(found.opening.indexOf(' ') + 1).startsWith(family),
+      );
+      if (game === undefined) throw new Error(`no fixture game in ${family}`);
+      const items = group.getByRole('listitem');
+      await expect(items).toHaveCount(1);
+      await expectGame(items.first(), game);
+    }
+  }
+
+  for (const [name, href] of CREDIT) {
+    const link = result.getByRole('link', { name });
+    await expect(link).toHaveAttribute('href', href);
+    await expect(link).toHaveAttribute('target', '_blank');
+    await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   }
 });
 

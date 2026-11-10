@@ -199,7 +199,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-163** (#275, 2026-10-31): The automatic fork made when a coach deletes their account (R-49) is always made, even past the R-162 limits, so a player never loses an assignment they did not choose to give up; they then cannot add a repertoire until they are under the limit. A fork the player asks for (forking an assignment, accepting a fork offer) is refused at the limit.
 - **R-164** (#310, 2026-10-31): Production runs on the Oracle VM that was sportbet-ci, made mychess's only and renamed `mychess`, with the CI/CD sportbet_new has (build once, test the image, deploy what passed, restore point, rollback button). Supersedes R-35 and ADR 0009 (ADR 0010).
 - **R-165** (#310, 2026-10-31): Build and test jobs run on GitHub-hosted runners; only the deploy job runs on a self-hosted runner on the production VM, started only by a push or dispatch.
-- **R-166** (#310, 2026-10-31): There is no staging environment: a green `main` deploys to production. Supersedes the staging half of R-34; Vercel staging and its Neon database are retired once production is live.
+- **R-166** (#310, 2026-10-31): There is no staging environment: a green `main` deploys to production. (Deploy order changed for the development phase by R-192.) Supersedes the staging half of R-34; Vercel staging and its Neon database are retired once production is live.
 - **R-167** (#310, 2026-10-31): The production domain is mychess.lt (registered at Hostinger; its DNS points at the production VM). Decides the domain half of R-10.
 - **R-168** (#258, 2026-11-09): Persona seed accounts (R-32) exist on the local stack only, never in production; persona testers and E2E run against that stack. Supersedes the staging half of R-32.
 - **R-169** (#258, 2026-11-09): v1 accounts are not counted and not invited; R-71 is dropped.
@@ -222,6 +222,12 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-186** (#316, 2026-11-09): Any signed-in account can use the FIDE ID search.
 - **R-187** (#316, 2026-11-10): The FIDE ID search page and its home-page link are called "Opponent's games".
 - **R-188** (#316, 2026-11-10): After a failed processing attempt a broadcast month waits 10 minutes before the next attempt, so a short outage does not use all three; after the third failure the 24-hour pause applies as before.
+- **R-189** (#316, #348, 2026-11-10): Opponent's games results are grouped by opening family (for example Sicilian Defense, Caro-Kann Defense), newest game first within a group.
+- **R-190** (#316, #348, 2026-11-10): The groups are split by the searched player's colour, "As White" then "As Black", each group showing its game count and the player's score (wins, draws, losses).
+- **R-191** (#316, 2026-11-10): Opponent's games never uses another person's online-play account or nickname (Lichess, Chess.com or any other): no looking up, linking or searching by it, because players often keep those names private on purpose and doing so would be spying. Only over-the-board sources matched by FIDE ID are used. A player linking their own account for their own game import (R-25, R-68) is unaffected.
+- **R-192** (2026-11-10): During the development phase a push to `main` deploys as soon as its image is built and scanned (about 2-3 minutes); the full gate and E2E run in parallel, and if either fails the previous release is redeployed automatically. Supersedes the "green main" half of R-166 for this phase.
+- **R-193** (2026-11-10): During the development phase the lead does not run the full local gate before committing: format, lint, strict typecheck and the tests of the changed packages are enough; CI runs the full gate. Supersedes the "commit only on the gate's exit code" working rule for this phase.
+- **R-194** (2026-11-10): During the development phase changes are checked on the local stack first (`pnpm dev`, the lead shares screenshots or the local URL) and deployed in batches.
 
 ## Open questions
 

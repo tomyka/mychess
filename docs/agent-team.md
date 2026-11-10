@@ -136,9 +136,13 @@ Three to five teammates at a time; each one costs tokens.
   `.mjs` file in your scratch subfolder).
 - **Never skip, weaken or delete a failing test** to reach green; a failing
   test is the finding.
-- **The lead commits only on the gate's exit code**: `node quality/gate.mjs
-  check > gate.log 2>&1 && git commit ...`. A pipe (`gate | tail && git
-  commit`) hides a failure and the commit goes through (S5, e7d9de8).
+- **The lead commits only on a check's exit code**, never through a pipe
+  (`check | tail && git commit` hides a failure and the commit goes through,
+  S5, e7d9de8). During the development phase (R-193) the check before a
+  commit is format, lint, strict typecheck and the tests of the changed
+  packages, chained with `&&`; CI runs the full gate (`node quality/gate.mjs
+  check`) after the deploy (R-192) and rolls back on failure. Outside that
+  phase it is the full gate.
 - **The Stop hook pauses while teammates work** (#281): the lead creates
   `node_modules/.cache/ts-quality/team-running` when it dispatches
   teammates and deletes it once they have all reported, so the hook does not

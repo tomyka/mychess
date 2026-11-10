@@ -6,9 +6,12 @@ import {
   LICHESS_GAME_URL,
   broadcastGameSchema,
   gameForPlayer,
+  groupForPreparation,
   isIndexableGame,
+  openingFamily,
   type BroadcastGameInput,
   type BroadcastPairing,
+  type PreparationGame,
 } from './broadcast-game';
 import { fideIdSchema, type FideId } from './fide-id';
 
@@ -208,5 +211,176 @@ describe('broadcastGameSchema (#316, security M3)', () => {
       // Message-catalogue keys only (CLAUDE.md); a FIDE ID keeps its own.
       expect([BROADCAST_GAME_ISSUE, 'fide.idInvalid']).toContain(message);
     }
+  });
+});
+
+describe('openingFamily (#348, R-189)', () => {
+  it.each([
+    ['Sicilian Defense: Najdorf Variation', 'Sicilian Defense'],
+    ['Sicilian Defense: Najdorf Variation, English Attack', 'Sicilian Defense'],
+    ['Russian Game', 'Russian Game'],
+    ["  Queen's Gambit Declined  : Exchange", "Queen's Gambit Declined"],
+    ['Caro-Kann Defense: Advance: odd', 'Caro-Kann Defense'],
+  ])('reads %j as the family %j', (name, family) => {
+    expect(openingFamily(name)).toBe(family);
+  });
+
+  it.each([[null], [''], ['   '], [': Najdorf Variation'], ['  : x']])(
+    'gives no family for %j',
+    (name) => {
+      expect(openingFamily(name)).toBeNull();
+    },
+  );
+});
+
+describe('groupForPreparation (#348, R-189, R-190)', () => {
+  interface Game extends PreparationGame {
+    readonly name: string;
+  }
+  const played = (name: string, over: Partial<PreparationGame> = {}): Game => ({
+    name,
+    colour: 'white',
+    outcome: 'win',
+    opening: 'Sicilian Defense: Najdorf Variation',
+    date: '2026-10-01',
+    ...over,
+  });
+  const names = (games: readonly Game[]): string[] =>
+    games.map((game) => game.name);
+
+  it('gives no section for no games', () => {
+    expect(groupForPreparation([])).toEqual([]);
+  });
+
+  it('puts the games as White first, then as Black, whatever the order given', () => {
+    const sections = groupForPreparation([
+      played('b', { colour: 'black' }),
+      played('w'),
+    ]);
+    expect(sections.map((section) => section.colour)).toEqual([
+      'white',
+      'black',
+    ]);
+    expect(
+      sections.map((section) => names(section.groups[0]?.games ?? [])),
+    ).toEqual([['w'], ['b']]);
+  });
+
+  it('leaves out a colour with no games', () => {
+    const sections = groupForPreparation([played('b', { colour: 'black' })]);
+    expect(sections.map((section) => section.colour)).toEqual(['black']);
+  });
+
+  it('groups by family, the variations of one family together', () => {
+    const [white] = groupForPreparation([
+      played('najdorf'),
+      played('dragon', { opening: 'Sicilian Defense: Dragon Variation' }),
+      played('russian', { opening: 'Russian Game' }),
+    ]);
+    expect(
+      white?.groups.map((group) => [group.family, names(group.games)]),
+    ).toEqual([
+      ['Sicilian Defense', ['najdorf', 'dragon']],
+      ['Russian Game', ['russian']],
+    ]);
+  });
+
+  it('orders the groups by game count, most first, ties by family name', () => {
+    const [white] = groupForPreparation([
+      played('r1', { opening: 'Russian Game' }),
+      played('s1', { opening: 'Scotch Game' }),
+      played('s2', { opening: 'Scotch Game: Classical' }),
+      played('e1', { opening: 'English Opening' }),
+      played('c1', { opening: 'Caro-Kann Defense' }),
+    ]);
+    expect(white?.groups.map((group) => group.family)).toEqual([
+      'Scotch Game',
+      'Caro-Kann Defense',
+      'English Opening',
+      'Russian Game',
+    ]);
+  });
+
+  it('puts the games with no opening in one group, last even when it is the largest', () => {
+    const [white] = groupForPreparation([
+      played('u1', { opening: null }),
+      played('u2', { opening: '' }),
+      played('u3', { opening: ': Najdorf' }),
+      played('s1'),
+    ]);
+    expect(
+      white?.groups.map((group) => [group.family, names(group.games)]),
+    ).toEqual([
+      ['Sicilian Defense', ['s1']],
+      [null, ['u1', 'u2', 'u3']],
+    ]);
+  });
+
+  it('keeps the unknown group last when it comes first', () => {
+    const [white] = groupForPreparation([
+      played('s1'),
+      played('u1', { opening: null }),
+      played('r1', { opening: 'Russian Game' }),
+    ]);
+    expect(white?.groups.map((group) => group.family)).toEqual([
+      'Russian Game',
+      'Sicilian Defense',
+      null,
+    ]);
+  });
+
+  it('lists a group newest first, an undated game last, equal dates in the order given', () => {
+    const [white] = groupForPreparation([
+      played('old', { date: '2026-01-05' }),
+      played('undated-1', { date: null }),
+      played('new', { date: '2026-10-20' }),
+      played('same-a', { date: '2026-05-01' }),
+      played('undated-2', { date: null }),
+      played('same-b', { date: '2026-05-01' }),
+    ]);
+    expect(names(white?.groups[0]?.games ?? [])).toEqual([
+      'new',
+      'same-a',
+      'same-b',
+      'old',
+      'undated-1',
+      'undated-2',
+    ]);
+  });
+
+  it('scores each group from the player’s side, unfinished games apart', () => {
+    const sections = groupForPreparation([
+      played('w1'),
+      played('w2'),
+      played('d1', { outcome: 'draw' }),
+      played('l1', { outcome: 'loss' }),
+      played('u1', { outcome: 'unknown' }),
+      played('r1', { opening: 'Russian Game', outcome: 'loss' }),
+      played('b1', { colour: 'black', outcome: 'draw' }),
+    ]);
+    expect(
+      sections.map((section) =>
+        section.groups.map((group) => [group.family, group.score]),
+      ),
+    ).toEqual([
+      [
+        ['Sicilian Defense', { win: 2, draw: 1, loss: 1, unknown: 1 }],
+        ['Russian Game', { win: 0, draw: 0, loss: 1, unknown: 0 }],
+      ],
+      [['Sicilian Defense', { win: 0, draw: 1, loss: 0, unknown: 0 }]],
+    ]);
+  });
+
+  it('keeps every game it was given, once', () => {
+    const games = [
+      played('a'),
+      played('b', { colour: 'black', opening: null }),
+      played('c', { opening: 'Russian Game', date: null }),
+      played('d', { colour: 'black' }),
+    ];
+    const kept = groupForPreparation(games).flatMap((section) =>
+      section.groups.flatMap((group) => names(group.games)),
+    );
+    expect(kept.toSorted()).toEqual(['a', 'b', 'c', 'd']);
   });
 });

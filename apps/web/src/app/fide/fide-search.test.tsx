@@ -256,14 +256,16 @@ describe('a search result', () => {
     server.start.mockResolvedValue(started({ snapshot: snapshot({ games }) }));
     renderPage();
     await search('13400002');
+    // Grouped (R-189, R-190): as White the Caro-Kann, then the unknown
+    // opening; then as Black.
     const texts = screen.getAllByRole('listitem').map((li) => li.textContent);
-    expect(texts[0]).toContain('Played Black, lost');
-    expect(texts[1]).toContain('Played White, drew');
-    expect(texts[1]).toContain(`${en.dateUnknown} · Synthetic Open 2026`);
-    expect(texts[2]).toContain('Played White, unfinished');
-    expect(texts[2]).toContain('vs Kitas, Petras');
-    expect(texts[2]).not.toContain('FIDE');
-    expect(texts[2]).not.toContain('B12');
+    expect(texts[0]).toContain('Played White, drew');
+    expect(texts[0]).toContain(`${en.dateUnknown} · Synthetic Open 2026`);
+    expect(texts[1]).toContain('Played White, unfinished');
+    expect(texts[1]).toContain('vs Kitas, Petras');
+    expect(texts[1]).not.toContain('FIDE');
+    expect(texts[1]).not.toContain('B12');
+    expect(texts[2]).toContain('Played Black, lost');
   });
 
   it('links no game whose address is not a Lichess game address', async () => {
@@ -276,7 +278,9 @@ describe('a search result', () => {
     renderPage();
     await search('13400002');
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
-    expect(screen.queryByRole('link', { name: /Lichess/ })).toBeNull();
+    expect(
+      screen.queryByRole('link', { name: new RegExp(en.openOnLichess) }),
+    ).toBeNull();
   });
 
   it('says when no game was found and nothing is left to wait for', async () => {
@@ -290,6 +294,7 @@ describe('a search result', () => {
     expect(screen.getByText(en.noGames)).toBeDefined();
     expect(screen.queryByText(en.noMonths)).toBeNull();
     expect(screen.queryByRole('list')).toBeNull();
+    expect(screen.queryByText(/CC BY-SA/)).toBeNull();
   });
 
   it('says no month could be searched when none is ready or waiting', async () => {
@@ -328,6 +333,141 @@ describe('a search result', () => {
     expect(screen.queryByText(en.monthsWaiting)).toBeNull();
     await act(() => vi.advanceTimersByTimeAsync(3 * POLL_MS));
     expect(server.poll).not.toHaveBeenCalled();
+  });
+});
+
+describe('the games grouped for preparation (#348, R-189, R-190)', () => {
+  let n = 0;
+  const found = (over: Partial<Game>): Game => {
+    n += 1;
+    return { ...GAME, url: `${GAME.url}-${String(n)}`, ...over };
+  };
+
+  async function showGames(games: Game[]): Promise<void> {
+    server.start.mockResolvedValue(started({ snapshot: snapshot({ games }) }));
+    renderPage();
+    await search('13400002');
+  }
+
+  const sectionTitles = () =>
+    screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
+
+  /** Each disclosure's summary text, in page order. */
+  const summaries = () =>
+    [...document.querySelectorAll('summary')].map((s) => s.textContent);
+
+  it('splits the games by the player’s colour, as White first', async () => {
+    await showGames([
+      found({ colour: 'black', outcome: 'loss' }),
+      found({ colour: 'white' }),
+    ]);
+    expect(sectionTitles()).toEqual([en.asWhite, en.asBlack]);
+    const [white, black] = screen
+      .getAllByRole('heading', { level: 3 })
+      .map((h) => h.closest('section'));
+    expect(white?.textContent).toContain('Played White, won');
+    expect(white?.textContent).not.toContain('Played Black');
+    expect(black?.textContent).toContain('Played Black, lost');
+  });
+
+  it('leaves out a colour the player had no game in', async () => {
+    await showGames([found({ colour: 'black' })]);
+    expect(sectionTitles()).toEqual([en.asBlack]);
+  });
+
+  it('groups by opening family, most games first, with each group’s count and score', async () => {
+    await showGames([
+      found({ opening: 'Russian Game', eco: 'C42', outcome: 'draw' }),
+      found({ outcome: 'loss' }),
+      found({ opening: 'Caro-Kann Defense: Panov Attack', eco: 'B14' }),
+      found({ outcome: 'unknown' }),
+    ]);
+    expect(summaries()).toEqual([
+      'Caro-Kann Defense3 games · 1 won, 0 drawn, 1 lost · 1 unfinished',
+      'Russian Game1 game · 0 won, 1 drawn, 0 lost',
+    ]);
+    const caroKann = document.querySelector('details');
+    // The full opening stays on each game.
+    expect(caroKann?.textContent).toContain(
+      'B14 Caro-Kann Defense: Panov Attack',
+    );
+    expect(caroKann?.querySelectorAll('li')).toHaveLength(3);
+  });
+
+  it('lists a group newest first', async () => {
+    await showGames([
+      found({ date: '2026-03-01', event: 'March Open' }),
+      found({ date: null, event: 'Undated Cup' }),
+      found({ date: '2026-09-01', event: 'September Open' }),
+    ]);
+    const texts = screen.getAllByRole('listitem').map((li) => li.textContent);
+    expect(texts[0]).toContain('September Open');
+    expect(texts[1]).toContain('March Open');
+    expect(texts[2]).toContain('Undated Cup');
+  });
+
+  it('puts the games with no opening in an unknown-opening group, last', async () => {
+    await showGames([
+      found({ opening: null, eco: null }),
+      found({ opening: null, eco: 'A00' }),
+      found({ opening: 'Russian Game' }),
+    ]);
+    expect(summaries()).toEqual([
+      'Russian Game1 game · 1 won, 0 drawn, 0 lost',
+      `${en.unknownOpening}2 games · 2 won, 0 drawn, 0 lost`,
+    ]);
+  });
+
+  it('opens the two largest groups of each colour, the rest closed', async () => {
+    await showGames([
+      found({ opening: 'Alekhine Defense' }),
+      found({ opening: 'Alekhine Defense' }),
+      found({ opening: 'Benoni Defense' }),
+      found({ opening: 'Caro-Kann Defense' }),
+      found({ colour: 'black', opening: 'Dutch Defense' }),
+      found({ colour: 'black', opening: 'English Opening' }),
+      found({ colour: 'black', opening: 'French Defense' }),
+    ]);
+    const open = [...document.querySelectorAll('details')].map((d) => [
+      d.querySelector('summary')?.firstChild?.textContent,
+      d.open,
+    ]);
+    expect(open).toEqual([
+      ['Alekhine Defense', true],
+      ['Benoni Defense', true],
+      ['Caro-Kann Defense', false],
+      ['Dutch Defense', true],
+      ['English Opening', true],
+      ['French Defense', false],
+    ]);
+  });
+
+  it('credits the Lichess broadcasts and their CC BY-SA 4.0 licence under the games', async () => {
+    await showGames([found({})]);
+    const broadcasts = screen.getByRole('link', {
+      name: `Lichess broadcasts ${en.newTab}`,
+    });
+    const licence = screen.getByRole('link', {
+      name: `CC BY-SA 4.0 ${en.newTab}`,
+    });
+    expect(broadcasts.getAttribute('href')).toBe(
+      'https://lichess.org/broadcast',
+    );
+    expect(licence.getAttribute('href')).toBe(
+      'https://creativecommons.org/licenses/by-sa/4.0/',
+    );
+    for (const link of [broadcasts, licence]) {
+      expect(link.getAttribute('target')).toBe('_blank');
+      expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+    }
+    expect(broadcasts.parentElement?.textContent).toBe(
+      `Games from Lichess broadcasts ${en.newTab} · CC BY-SA 4.0 ${en.newTab}`,
+    );
+    const [game] = screen.getAllByRole('listitem');
+    expect(
+      Number(game?.compareDocumentPosition(broadcasts)) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });
 

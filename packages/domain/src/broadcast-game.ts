@@ -141,3 +141,104 @@ export function gameForPlayer(game: BroadcastPairing, id: FideId): PlayerGame {
         outcome: BLACK_OUTCOME[game.result],
       };
 }
+
+/**
+ * The family of a Lichess opening name (R-189): the part before the first
+ * `:`, trimmed, so "Sicilian Defense: Najdorf Variation" is "Sicilian
+ * Defense". Null for a game with no opening name, or none before the `:`.
+ */
+export function openingFamily(opening: string | null): string | null {
+  if (opening === null) return null;
+  const colon = opening.indexOf(':');
+  const family = (colon === -1 ? opening : opening.slice(0, colon)).trim();
+  return family === '' ? null : family;
+}
+
+/** What grouping reads of a found game (R-189, R-190). */
+export interface PreparationGame {
+  readonly colour: Side;
+  readonly outcome: PlayerOutcome;
+  readonly opening: string | null;
+  /** `YYYY-MM-DD`, or null when the broadcast gave no date. */
+  readonly date: string | null;
+}
+
+/** How many games of a group the player won, drew, lost and left unfinished. */
+export type PreparationScore = Readonly<Record<PlayerOutcome, number>>;
+
+/** The games of one opening family; `family` is null for no opening name. */
+export interface OpeningFamilyGroup<G extends PreparationGame> {
+  readonly family: string | null;
+  /** Newest first, undated last. */
+  readonly games: readonly G[];
+  readonly score: PreparationScore;
+}
+
+/** The groups of the games the searched player had one colour in. */
+export interface PreparationSection<G extends PreparationGame> {
+  readonly colour: Side;
+  /** Most games first, ties by family name, the unknown opening last. */
+  readonly groups: readonly OpeningFamilyGroup<G>[];
+}
+
+const PREPARATION_SIDES: readonly Side[] = ['white', 'black'];
+
+/**
+ * A search's games for preparation (R-189, R-190): as White, then as
+ * Black, a colour with no game left out; inside each, one group per opening
+ * family, the largest first, ties by family name and the unknown opening
+ * last; a group's games newest first, with the player's score.
+ */
+export function groupForPreparation<G extends PreparationGame>(
+  games: readonly G[],
+): PreparationSection<G>[] {
+  return PREPARATION_SIDES.map((colour) => ({
+    colour,
+    groups: familyGroups(games.filter((game) => game.colour === colour)),
+  })).filter((section) => section.groups.length > 0);
+}
+
+function familyGroups<G extends PreparationGame>(
+  games: readonly G[],
+): OpeningFamilyGroup<G>[] {
+  const byFamily = new Map<string | null, G[]>();
+  for (const game of games.toSorted(newestFirst)) {
+    const family = openingFamily(game.opening);
+    const members = byFamily.get(family);
+    if (members === undefined) byFamily.set(family, [game]);
+    else members.push(game);
+  }
+  return [...byFamily]
+    .map(([family, members]) => ({
+      family,
+      games: members,
+      score: scoreOf(members),
+    }))
+    .sort(largestFirst);
+}
+
+/** Newest date first, undated last; equal dates keep the order given. */
+function newestFirst(a: PreparationGame, b: PreparationGame): number {
+  if (a.date === b.date) return 0;
+  if (a.date === null) return 1;
+  if (b.date === null) return -1;
+  return b.date.localeCompare(a.date);
+}
+
+/** Most games first, ties by family name; the one unknown group last. */
+function largestFirst<G extends PreparationGame>(
+  a: OpeningFamilyGroup<G>,
+  b: OpeningFamilyGroup<G>,
+): number {
+  if (a.family === null) return 1;
+  if (b.family === null) return -1;
+  return (
+    b.games.length - a.games.length || a.family.localeCompare(b.family, 'en')
+  );
+}
+
+function scoreOf(games: readonly PreparationGame[]): PreparationScore {
+  const score = { win: 0, draw: 0, loss: 0, unknown: 0 };
+  for (const game of games) score[game.outcome] += 1;
+  return score;
+}
