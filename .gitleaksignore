@@ -1,3 +1,5 @@
 # Fake values in the host scripts' shell tests (#310), not secrets.
 afd08e82c1530c313db5404e33c2fa8207832acf:infra/host/tests/rate-limit-prune-test.sh:generic-api-key:30
 afd08e82c1530c313db5404e33c2fa8207832acf:infra/host/tests/backup-alert-test.sh:generic-api-key:34
+# Fake value in the broadcast-index timer's shell test (#354), not a secret.
+3d474742235754f7c2b6c054906656f6c8a5f1ca:infra/host/tests/index-broadcasts-test.sh:generic-api-key:34
