@@ -777,6 +777,7 @@
     "monthsUnavailable": "{count, plural, one {# month unavailable} other {# months unavailable}}, retried tomorrow.",
     "truncated": "Only the newest {limit, number} games are shown.",
     "noGames": "No broadcast games of this player in these months.",
+    "noGamesYet": "No games of this player in the {count, plural, one {# ready month} other {# ready months}} so far.",
     "noMonths": "No month could be searched right now. Try again later.",
     "dateUnknown": "Date unknown",
     "white": "White",

@@ -217,7 +217,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-181** (#258, 2026-11-09): "Learned" keeps the progress meaning (R-151: scheduled and not due). The R-129 meaning (a move has a Review, from the learn pass or "I know this") is called "tracked": an Assignment is done when every move is tracked.
 - **R-182** (#258, 2026-11-09): A chapter whose moves were all learned today counts as mastered (R-178) while their recall is >= 90 % and they are not yet due; no extra review is required.
 - **R-183** (#316, 2026-11-09): A FIDE ID search covers the last 12 published months of the Lichess broadcast dumps.
-- **R-184** (#316, 2026-11-09): The server keeps an index per processed month (which FIDE IDs played which broadcast games), built as searches need a month, never by bulk import; the first search of a month runs in the background with progress, later searches are instant.
+- **R-184** (#316, 2026-11-09): The server keeps an index per processed month (which FIDE IDs played which broadcast games), ~~built as searches need a month~~ (kept ready nightly, R-195), never by bulk import; the first search of a month runs in the background with progress, later searches are instant.
 - **R-185** (#316, 2026-11-09): Found games are listed (date, event, opponent, colour, result, opening) with a link to each game on Lichess; the in-app board viewer of R-172 comes in a later issue.
 - **R-186** (#316, 2026-11-09): Any signed-in account can use the FIDE ID search.
 - **R-187** (#316, 2026-11-10): The FIDE ID search page and its home-page link are called "Opponent's games".
@@ -228,6 +228,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-192** (2026-11-10): During the development phase a push to `main` deploys as soon as its image is built and scanned (about 2-3 minutes); the full gate and E2E run in parallel, and if either fails the previous release is redeployed automatically. Supersedes the "green main" half of R-166 for this phase.
 - **R-193** (2026-11-10): During the development phase the lead does not run the full local gate before committing: format, lint, strict typecheck and the tests of the changed packages are enough; CI runs the full gate. Supersedes the "commit only on the gate's exit code" working rule for this phase.
 - **R-194** (2026-11-10): During the development phase changes are checked on the local stack first (`pnpm dev`, the lead shares screenshots or the local URL) and deployed in batches.
+- **R-195** (#316, 2026-11-10): A nightly job on the server indexes any of the 12 newest broadcast months not yet done, so searches do not wait for indexing; a search still triggers a month that is missing. Replaces "built as searches need a month" in R-184; still never a bulk import beyond those 12 months.
 
 ## Open questions
 

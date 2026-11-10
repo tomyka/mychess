@@ -1,0 +1,12 @@
+[Unit]
+Description=Nightly index of the newest broadcast months (R-195)
+
+[Timer]
+# After the docker prune (03:30) and clear of the backup (02:37), whose dump
+# and restore test would otherwise share the one OCPU with the dump downloads.
+OnCalendar=*-*-* 04:00:00 UTC
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -9,11 +9,12 @@
 # Production only: no build or test runs here (those are GitHub-hosted), so
 # no Node and no browser libraries. Installs Docker, the runner user, the
 # directories, the host firewall's 80/443, and the timers: docker prune
-# (enabled), the rate-limit prune (enabled once the production .env exists),
-# the nightly backup (enabled once /etc/mychess/backup.env exists,
-# set-backup-par.sh) and its morning watch (once /etc/mychess/alert.env
-# exists, set-alert-email.sh). The runner and its watchdog have their own
-# scripts (install-runner.sh, install-runner-watchdog.sh).
+# (enabled), the rate-limit prune and the nightly broadcast index (enabled
+# once the production .env exists), the nightly backup (enabled once
+# /etc/mychess/backup.env exists, set-backup-par.sh) and its morning watch
+# (once /etc/mychess/alert.env exists, set-alert-email.sh). The runner and
+# its watchdog have their own scripts (install-runner.sh,
+# install-runner-watchdog.sh).
 #
 # Oracle-specific (learned on sportbet_new): the Ubuntu image ships iptables
 # REJECT rules in /etc/iptables/rules.v4 beneath the VCN security list, so 80
@@ -122,15 +123,17 @@ for port in 80 443; do
   open_port ip6tables /etc/iptables/rules.v6 "$port"
 done
 
-say "Timers: docker prune, rate-limit prune, nightly backup with its alert and morning watch"
+say "Timers: docker prune, rate-limit prune, broadcast index, nightly backup with its alert and morning watch"
 install -m 755 "$here/backup-production.sh" /usr/local/bin/mychess-production-backup
 install -m 755 "$here/backup-alert.sh" /usr/local/bin/mychess-backup-alert
 install -m 755 "$here/backup-watch.sh" /usr/local/bin/mychess-backup-watch
 install -m 755 "$here/rate-limit-prune.sh" /usr/local/bin/mychess-rate-limit-prune
+install -m 755 "$here/index-broadcasts.sh" /usr/local/bin/mychess-index-broadcasts
 install -m 644 "$here/docker-prune.service" "$here/docker-prune.timer" \
   "$here/mychess-production-backup.service" "$here/mychess-production-backup.timer" \
   "$here/mychess-backup-alert@.service" "$here/mychess-backup-watch.service" "$here/mychess-backup-watch.timer" \
-  "$here/mychess-rate-limit-prune.service" "$here/mychess-rate-limit-prune.timer" /etc/systemd/system/
+  "$here/mychess-rate-limit-prune.service" "$here/mychess-rate-limit-prune.timer" \
+  "$here/mychess-index-broadcasts.service" "$here/mychess-index-broadcasts.timer" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now docker-prune.timer
 enable_when() { # file timer reason
@@ -141,6 +144,7 @@ enable_when() { # file timer reason
   fi
 }
 enable_when /srv/mychess/production/.env mychess-rate-limit-prune.timer "production-env.sh, then this again"
+enable_when /srv/mychess/production/.env mychess-index-broadcasts.timer "production-env.sh, then this again"
 enable_when /etc/mychess/backup.env mychess-production-backup.timer "set-backup-par.sh enables it"
 enable_when /etc/mychess/alert.env mychess-backup-watch.timer "set-alert-email.sh enables it"
 

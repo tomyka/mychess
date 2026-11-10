@@ -76,9 +76,10 @@ function PlayerHeader({
 }
 
 /**
- * What an empty list says once nothing is waiting (lead decision): no
- * games, when at least one month was searched; that no month could be
- * searched, when none is ready. While a month waits, the progress speaks.
+ * What an empty list says (lead decisions). While a month waits: no games
+ * in the ready months so far, once one is ready; before that the progress
+ * speaks alone. Once nothing waits: no games, when at least one month was
+ * searched; that no month could be searched, when none is ready.
  */
 function NoGames({
   progress,
@@ -86,7 +87,13 @@ function NoGames({
   readonly progress: SearchProgress;
 }): JSX.Element | null {
   const t = useTranslations('fide');
-  if (progress.waiting > 0) return null;
+  if (progress.waiting > 0) {
+    return progress.ready > 0 ? (
+      <p className="text-fg-muted">
+        {t('noGamesYet', { count: progress.ready })}
+      </p>
+    ) : null;
+  }
   return (
     <p className="text-fg-muted">
       {progress.ready > 0 ? t('noGames') : t('noMonths')}

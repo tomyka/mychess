@@ -777,6 +777,7 @@
     "monthsUnavailable": "{count, plural, one {# mėnuo nepasiekiamas} few {# mėnesiai nepasiekiami} other {# mėnesių nepasiekiama}}, bandysime rytoj.",
     "truncated": "Rodomos tik {limit, number} naujausių partijų.",
     "noGames": "Šių mėnesių transliacijose šio žaidėjo partijų nėra.",
+    "noGamesYet": "{count, plural, one {Paruoštame # mėnesyje} few {Paruoštuose # mėnesiuose} other {Paruoštuose mėnesiuose (#)}} šio žaidėjo partijų kol kas nėra.",
     "noMonths": "Šiuo metu nepavyko peržiūrėti nė vieno mėnesio. Bandykite vėliau.",
     "dateUnknown": "Data nežinoma",
     "white": "Baltieji",

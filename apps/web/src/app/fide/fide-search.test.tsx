@@ -297,6 +297,48 @@ describe('a search result', () => {
     expect(screen.queryByText(/CC BY-SA/)).toBeNull();
   });
 
+  it('says no game was found in the ready months so far while others are prepared', async () => {
+    server.start.mockResolvedValue(
+      started({
+        snapshot: snapshot({ games: [], progress: progress(3, 9) }),
+      }),
+    );
+    renderPage();
+    await search('13400002');
+    expect(
+      screen.getByText('No games of this player in the 3 ready months so far.'),
+    ).toBeDefined();
+    expect(screen.getByText(en.monthsWaiting)).toBeDefined();
+    expect(screen.queryByText(en.noGames)).toBeNull();
+  });
+
+  it('says it of one ready month in the singular', async () => {
+    server.start.mockResolvedValue(
+      started({
+        snapshot: snapshot({ games: [], progress: progress(1, 11) }),
+      }),
+    );
+    renderPage();
+    await search('13400002');
+    expect(
+      screen.getByText('No games of this player in the 1 ready month so far.'),
+    ).toBeDefined();
+  });
+
+  it('says nothing of games while no month is ready yet', async () => {
+    server.start.mockResolvedValue(
+      started({
+        snapshot: snapshot({ games: [], progress: progress(0, 12) }),
+      }),
+    );
+    renderPage();
+    await search('13400002');
+    expect(screen.queryByText(/so far/)).toBeNull();
+    expect(screen.queryByText(en.noGames)).toBeNull();
+    expect(screen.queryByText(en.noMonths)).toBeNull();
+    expect(screen.getByText(en.monthsWaiting)).toBeDefined();
+  });
+
   it('says no month could be searched when none is ready or waiting', async () => {
     server.start.mockResolvedValue(
       started({

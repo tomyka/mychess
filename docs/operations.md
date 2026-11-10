@@ -233,7 +233,8 @@ to a second VNIC (`enp1s0`, 10.0.0.233), kept answering by
   server from the one image (`Dockerfile`), and the one-shot `migrate` and
   `admin` tasks from the same image.
 - systemd timers: the nightly backup with its restore test, its morning
-  watch, the rate-limit prune, a docker prune and the runner watchdog.
+  watch, the rate-limit prune, the nightly broadcast index, a docker prune
+  and the runner watchdog.
 - One GitHub Actions runner registered to `tomyka/mychess` with label
   `production`, used only by deploys (R-165). What keeps a fork's code off
   it: no workflow a pull request can start asks for that label, and the
@@ -256,7 +257,8 @@ release whose check and e2e passed: the automatic rollback's target),
 The site's name is `BETTER_AUTH_URL` in `/srv/mychess/production/.env`,
 written by `production-env.sh <https url>`. The deploy derives Caddy's
 domain (`APP_DOMAIN`, read by the Caddyfile as `{$APP_DOMAIN}`) and the
-release check's host from it, and the rate-limit prune its URL. GitHub
+release check's host from it, and the rate-limit prune and the broadcast
+index their URL. GitHub
 reads the same URL from the repository variable `PRODUCTION_URL` (the
 environment's link, the deploy button's live check, `uptime.yml`, which is
 skipped while it is unset). Changing the domain: DNS first, then
@@ -436,7 +438,7 @@ Host steps (lead, with the owner's yes for each change to the host):
    timer), `set-alert-email.sh` with the owner's address (enables the
    watch), then `sudo mychess-backup-alert --test`.
 8. `sudo bash /tmp/mychess-host/bootstrap.sh` once more enables the
-   rate-limit prune timer now that the `.env` exists.
+   rate-limit prune and broadcast index timers now that the `.env` exists.
 
 Owner steps:
 
@@ -548,10 +550,52 @@ The index fills on demand (R-184): a search hands each of its months that
 is not ready to a background runner in the web process, which downloads that
 one month's dump from database.lichess.org, streams it, and writes its games
 and `done` in one transaction. One month at a time per process; a row lock
-keeps two processes off the same month. Nothing runs on a schedule and
-there is no bulk import: a month nobody searches is never fetched. The
-month list is cached an hour and a player's Lichess FIDE profile a day, in
-memory only. Searches are not logged with the searched ID.
+keeps two processes off the same month. There is no bulk import: only the
+12 newest months are ever fetched. The month list is cached an hour and a
+player's Lichess FIDE profile a day, in memory only. Searches are not logged
+with the searched ID.
+
+### The nightly index (R-195)
+
+A first search of a month not yet indexed waits about a minute per month,
+so the VM indexes ahead every night: `mychess-index-broadcasts.timer` runs
+at 04:00 UTC (up to 5 minutes later, `RandomizedDelaySec`; after the
+02:37 backup and the 03:30 docker prune, so the dump downloads do not share
+the one OCPU with the backup's restore test; a night the VM was off runs at
+the next boot, `Persistent`). Its service runs
+`/usr/local/bin/mychess-index-broadcasts` (`infra/host/index-broadcasts.sh`,
+installed and enabled by `bootstrap.sh` once the production `.env`
+exists), which calls `GET /api/cron/index-broadcasts` through this host's
+Caddy with `Authorization: Bearer <CRON_SECRET>` from the production
+`.env`, the same auth as the rate-limit prune (401 without it, 404 where
+`CRON_SECRET` is not set). The route reads `list.txt`, takes the 12
+newest months, hands every one whose next action is to process it (the
+retry rules below decide, so a month in its 10-minute or 24-hour wait is
+left alone) to the runner, and answers at once
+`202 {"queued":<n>,"ready":<m>}`. The script logs only
+`index broadcasts: queued <n>, ready <m>` and fails the unit on any other
+status. The indexing itself goes on in the web process after the unit has
+finished, one month at a time, so the unit's success means "queued", not
+"indexed": the month states below say how far it got.
+
+By hand on the VM:
+
+```sh
+sudo systemctl start mychess-index-broadcasts.service   # queue now
+sudo journalctl -u mychess-index-broadcasts.service -n 20   # the counts
+systemctl list-timers mychess-index-broadcasts.timer        # next run
+systemctl --failed                                          # a non-202 shows here
+```
+
+`ready` counts the months already `done`; `queued` + `ready` is below 12
+when some months are waiting out a retry or still `processing`. When
+`list.txt` or the month table cannot be read the route does not answer 202
+and the unit fails; the next night tries again. Running it again while
+months are still `processing` downloads nothing twice: the runner queues a
+month once and claims it under the row lock. A deploy that restarts the web
+container mid-run drops the rest of the queue; a month it left `processing`
+counts as a failed attempt after 15 minutes, and the next night (or the
+next search) picks the rest up.
 
 Retry rules (domain `BROADCAST_MONTH_RULES`, spec decision 2, R-188): one
 attempt may run 10 minutes and stall at most 60 s; a failed attempt puts the
