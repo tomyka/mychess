@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { BROADCAST_FIXTURE_DIR } from './e2e/support/broadcast-fixture';
 import { MAILPIT_URL } from './e2e/support/mailpit-url';
 
 // apps/web's E2E suite (test:e2e): a production build served by `next start`
@@ -39,6 +40,19 @@ const APP_ENV = {
   // environment's, else .env.local's, else compose's.
   MAILPIT_URL,
   LICHESS_CLIENT_ID: fromEnv('LICHESS_CLIENT_ID', 'mychess-local'),
+  // The FIDE search reads the committed fixture dumps, never
+  // database.lichess.org (#316, e2e/support/broadcast-fixture.ts). The app
+  // takes the directory only with the test sign-in on, which needs its
+  // secret; like BETTER_AUTH_SECRET above, it guards throwaway sessions.
+  MYCHESS_TEST_SIGNIN: fromEnv('MYCHESS_TEST_SIGNIN', 'true'),
+  TEST_SIGNIN_SECRET: fromEnv(
+    'TEST_SIGNIN_SECRET',
+    'local-e2e-only-test-sign-in-secret-0123456789',
+  ),
+  FIDE_DUMP_FIXTURE_DIR: fromEnv(
+    'FIDE_DUMP_FIXTURE_DIR',
+    BROADCAST_FIXTURE_DIR,
+  ),
 };
 
 const WEB_SERVER = {

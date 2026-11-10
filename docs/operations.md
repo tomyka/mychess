@@ -410,6 +410,76 @@ There is no staging (R-166); persona testing and E2E run on the local stack
    `POST /api/test/sign-in`, body `{"email":"persona-<id>@mychess.test"}`
    and the secret in `x-test-secret`. Magic links land in Mailpit.
 
+## Opponent's games (broadcast index)
+
+`/fide` ("Opponent's games", #316) lists a FIDE ID's over-the-board games
+from the Lichess broadcast dumps of the 12 newest months in
+`https://database.lichess.org/broadcast/list.txt` (R-183). It answers from
+an index in two tables:
+
+- `broadcast_months`: one row per dump month (`YYYY-MM`) with its `state`
+  (`pending`, `processing`, `done`, `failed`), `attempts`, `game_count`
+  and when it was claimed, processed or last failed.
+- `broadcast_games`: one row per broadcast game with at least one FIDE ID:
+  the Lichess game URL (unique, kept under the first month that listed it),
+  both players' names and FIDE IDs, date, result, ECO, opening and event.
+  No moves. Public broadcast data only; no account owns it and the data
+  export leaves it out.
+
+The index fills on demand (R-184): a search hands each of its months that
+is not ready to a background runner in the web process, which downloads that
+one month's dump from database.lichess.org, streams it, and writes its games
+and `done` in one transaction. One month at a time per process; a row lock
+keeps two processes off the same month. Nothing runs on a schedule and
+there is no bulk import: a month nobody searches is never fetched. The
+month list is cached an hour and a player's Lichess FIDE profile a day, in
+memory only. Searches are not logged with the searched ID.
+
+Retry rules (domain `BROADCAST_MONTH_RULES`, spec decision 2, R-188): one
+attempt may run 10 minutes and stall at most 60 s; a failed attempt puts the
+month back to `pending` and the next search may try it again 10 minutes
+later; after the third failed attempt it is `failed`, shown as
+"unavailable, retried tomorrow", and a search 24 hours later tries it
+again. A month left `processing` over 15 minutes (its process died) counts
+as a failed attempt.
+
+The month states on production:
+
+```sh
+sudo docker exec -i mychess-production-postgres-1 psql -U mychess -d mychess -c \
+  "select month, state, attempts, game_count, claimed_at, failed_at, processed_at
+     from broadcast_months order by month desc"
+```
+
+Resetting a month (to retry a failed one now, or to re-read a dump) sets it
+back to pending; the next search that needs it processes it again:
+
+```sh
+sudo docker exec -i mychess-production-postgres-1 psql -U mychess -d mychess -c \
+  "update broadcast_months set state = 'pending', attempts = 0, failed_at = null
+    where month = 'YYYY-MM'"
+```
+
+Never delete a `broadcast_months` row: its games cascade with it, and a
+game stored under it may also be listed by a later month already `done`,
+which would then lack that game. Re-reading a month adds the games the
+index lacks and changes none it has. Leave a month that is `processing`
+alone until it is done, failed or 15 minutes old: resetting it under a live
+attempt makes that attempt lose its claim and throw its work away.
+
+`FIDE_DUMP_FIXTURE_DIR` is a local-only switch for E2E: with
+`MYCHESS_ENV=local` and the test sign-in on (`MYCHESS_TEST_SIGNIN`,
+`TEST_SIGNIN_SECRET`), the runner reads `list.txt` and
+`lichess_db_broadcast_<YYYY-MM>.pgn.zst` from that directory instead of
+database.lichess.org, and Lichess's FIDE profile answers 404 (so the result
+is headed by the ID alone). Production refuses to start with it set.
+`apps/web/playwright.config.ts` and `infra/compose/e2e.yml` point it at
+`apps/web/e2e/fixtures/broadcast/`: two invented months, made by `node
+apps/web/e2e/support/broadcast-fixture.ts` (rerun after changing the games
+there; `fide-search.spec.ts` fails while the committed files differ). The
+E2E journey resets those months to pending in its own database before it
+searches.
+
 ## Health check
 
 `GET /api/health` answers `200 {"status":"ok","database":"up"}` when the

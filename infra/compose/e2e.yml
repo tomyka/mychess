@@ -9,9 +9,12 @@
 # Mailpit and set up training state in the database directly
 # (apps/web/e2e/support/*-db.ts).
 #
-# The app runs as MYCHESS_ENV=local, as the e2e job always has: no Google, no
-# test sign-in. BETTER_AUTH_SECRET is a fixed CI-only value, not a secret: it
-# signs only this stack's throwaway sessions.
+# The app runs as MYCHESS_ENV=local, as the e2e job always has: no Google.
+# BETTER_AUTH_SECRET is a fixed CI-only value, not a secret: it signs only
+# this stack's throwaway sessions. The test sign-in is on (TEST_SIGNIN_SECRET
+# is CI-only too) only because the app reads FIDE_DUMP_FIXTURE_DIR under it:
+# the FIDE search reads the committed fixture dumps, mounted read-only, and
+# never database.lichess.org (#316, apps/web/e2e/support/broadcast-fixture.ts).
 services:
   postgres:
     tmpfs:
@@ -35,6 +38,12 @@ services:
       MAIL_FROM: mychess <noreply@mychess.test>
       MAILPIT_URL: http://mailpit:8025
       LICHESS_CLIENT_ID: mychess-ci
+      MYCHESS_TEST_SIGNIN: 'true'
+      TEST_SIGNIN_SECRET: e2e-stack-only-test-sign-in-not-a-secret-0123
+      FIDE_DUMP_FIXTURE_DIR: /fixtures/broadcast
+    volumes:
+      # Relative to infra/compose, the first file's directory.
+      - ../../apps/web/e2e/fixtures/broadcast:/fixtures/broadcast:ro
     depends_on:
       mailpit:
         condition: service_started
