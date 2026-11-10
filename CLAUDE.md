@@ -18,8 +18,10 @@ it, ask the owner.
   closed when its acceptance criteria are met (`docs/agents/issue-tracker.md`).
 - `size/large` work goes grill/brainstorm -> spec -> plan before code;
   specs and plans live in `docs/superpowers/{specs,plans}/`.
-- Trunk-based: work lands on `main`; only the lead commits. A green `main`
-  deploys to production on the Oracle VM; there is no staging (R-166).
+- Trunk-based: work lands on `main`; only the lead commits. A push to `main`
+  deploys to production on the Oracle VM on trial once its image is built,
+  and is rolled back if the gate or E2E fails (R-192); there is no staging
+  (R-166).
 - Agent team: the roles are in `.claude/agents/`; which team fits which
   stage, the pipeline, the working rules and the autonomy rules are in
   `docs/agent-team.md`.
@@ -77,12 +79,15 @@ details.
 
 - After every file edit, a hook formats and lint-fixes the file and reports
   what is left.
-- When you finish, the Stop hook runs the fast gate: format, lint, strict
+- The fast gate (`node quality/gate.mjs check`): format, lint, strict
   typecheck, suppression markers, tests with coverage thresholds, CRAP, dead
-  code (knip) and architecture (dependency-cruiser).
+  code (knip) and architecture (dependency-cruiser). During the development
+  phase CI runs it on every push and the Stop hook is off (R-193); before a
+  commit the lead runs format, lint, typecheck and the changed packages'
+  tests.
 - CI/CD (`.github/workflows/ci.yml`, #310) runs the gate, builds and scans
-  the one image, runs E2E against it and deploys a green `main` to the
-  production VM; `quality.yml` runs the gate on pull requests. Mutation testing runs nowhere automatically (owner, #295); run it by
+  the one image, deploys it to the production VM on trial and runs E2E
+  against it, rolling back on a failure (R-192); `quality.yml` runs the gate on pull requests. Mutation testing runs nowhere automatically (owner, #295); run it by
   hand with `node quality/gate.mjs mutation`.
 
 Rules:

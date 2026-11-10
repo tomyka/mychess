@@ -33,7 +33,7 @@ owner through the lead.
   copied: its files drifted from the live schema.
 - Migrations are generated with drizzle-kit and never edited once they have
   reached `main`
-  (a green `main` deploys to production, R-166).
+  (`main` deploys to production, R-166, R-192).
 
 ## Before you report a task done
 

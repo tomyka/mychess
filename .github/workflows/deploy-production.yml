@@ -1,9 +1,13 @@
 name: Deploy production
 
 # The rollback button: deploys a commit that is already green to production on
-# the mychess VM. Every green push to main deploys itself (ci.yml's deploy
-# job); this is for going back, or for redeploying main's head after a host
-# setting changed (infra/host/set-secret.sh). Run it from the Actions tab (Run
+# the mychess VM. Every push to main deploys itself (ci.yml: on trial right
+# after the image, rolled back to the last confirmed release if its check or
+# e2e fails, R-192); this is for going back further, for redeploying a commit
+# whose run went green on a re-run after an automatic rollback, or for
+# redeploying main's head after a host setting changed
+# (infra/host/set-secret.sh). What it deploys becomes the confirmed release,
+# the one ci.yml's automatic rollback returns to. Run it from the Actions tab (Run
 # workflow) on main; the commit is main's head unless a full SHA is typed (an
 # earlier green release). Its image must still be on the VM, which keeps the
 # last three releases (infra/ci/release-image.sh).

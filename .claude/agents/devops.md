@@ -18,8 +18,9 @@ config under `quality/` and the protected tool configs are listed in
 ## The setup (R-164 to R-167; ADR 0010)
 
 - `ci.yml` on GitHub-hosted runners: the quality gate, one arm64 image
-  built and Trivy-scanned, E2E against that image; a green `main` deploys
-  it to production on the Oracle VM through the VM's self-hosted runner.
+  built and Trivy-scanned, E2E against that image; a push to `main` deploys
+  it on trial to production on the Oracle VM through the VM's self-hosted
+  runner, confirmed when the gate and E2E pass, rolled back otherwise (R-192).
   There is no staging (R-166). Mutation testing runs only by hand (#295).
 - Production: Caddy, the app container and Postgres in a container on the
   VM (mychess.lt); nightly backups with a restore test (docs/operations.md).

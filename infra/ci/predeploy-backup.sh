@@ -10,8 +10,9 @@
 # (pg_dump -Fc as `mychess` in the postgres container) into the backups
 # directory as predeploy-<UTC time>-<tag>.dump, mode 600. The nightly script's
 # glob is production-*.dump, so neither deletes the other's files. Only the
-# newest 14 predeploy dumps stay: with a deploy on every green push that is a
-# few days of pushes at least. A normal pg_dump -Fc file: restore it like any
+# newest 14 predeploy dumps stay: with a deploy on every push to main (and one
+# per rollback) that can be less than a day on a busy one; the nightly dumps
+# cover the week. A normal pg_dump -Fc file: restore it like any
 # other (docs/operations.md, "Restoring a backup").
 # Settings, all optional:
 #   SKIP_PREDEPLOY_BACKUP=1  no dump, with a loud warning: for an emergency only

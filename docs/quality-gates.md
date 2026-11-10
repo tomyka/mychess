@@ -25,7 +25,8 @@ Separate suites: `pnpm test:unit` (domain, chess), `pnpm test:component` (web), 
 
 ## CI
 
-- `.github/workflows/quality.yml` is the only workflow (#261). On pushes to main and pull requests: `gate.mjs check` (format, lint, typecheck, every test suite with coverage including the db suite, CRAP, dead code, architecture) and `pnpm build`. A newer push to the same ref cancels the running check. Mutation testing does not run in CI (owner, #295); the mutation commands above run it by hand.
+- `.github/workflows/ci.yml` (CI/CD, #310) runs `gate.mjs check` (format, lint, typecheck, every test suite with coverage including the db suite, CRAP, dead code, architecture) on every push, beside the image build and E2E against that image. On `main` during the development phase (R-192) the image deploys before the gate and E2E finish, and a failure of either rolls production back to the last release that passed; a commit that changes a migration or the deploy infrastructure waits for both (`docs/operations.md`, "The pipeline"). On `main` no run cancels another; elsewhere a newer push to the same ref cancels the running one.
+- `.github/workflows/quality.yml` runs the same gate and `pnpm build` on pull requests (and still on pushes to main, until the owner's pending change to pull requests only; it is protected). Mutation testing does not run in CI (owner, #295); the mutation commands above run it by hand.
 - Lead habit: push once per finished, reviewed unit of work, not after every fix.
 
 `archive/` (v1) is outside every gate.

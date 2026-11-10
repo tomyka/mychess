@@ -9,7 +9,7 @@ gate, one image built and scanned, the E2E suite run against that image,
 and a deploy of those bytes with a pre-deploy dump, migration, swap,
 release check and rollback. Build and test jobs run on GitHub-hosted
 runners; the deploy job runs on a self-hosted runner on the VM. There is no
-staging: a green `main` deploys to production.
+staging: a green `main` deploys to production. (Development phase: deploy on trial, roll back on a failed gate or E2E, R-192.)
 
 ## Consequences
 

@@ -161,7 +161,7 @@ Three to five teammates at a time; each one costs tokens.
 
 ## Autonomy (ruling Q20)
 
-- A green `main` deploys to production (R-166); there is no staging.
+- A push to `main` deploys to production on trial and is rolled back if the gate or E2E fails (R-166, R-192); there is no staging.
 - **Unattended backlog runs** (`/backlog-run`, `.claude/commands/backlog-run.md`)
   take only issues labelled both `size/small` and `auto-ok`. `auto-ok` is
   applied by the owner or the lead with the owner's yes, never by a run. A run
