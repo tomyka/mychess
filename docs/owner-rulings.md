@@ -233,6 +233,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-197** (#349, 2026-11-10): Any signed-in user may add a Lichess broadcast to the index by pasting its link; the tournament is fetched once.
 - **R-198** (#349, 2026-11-10): Community broadcast games are shown with the same Lichess CC BY-SA 4.0 credit and each game's link as the dumps; the lead asks Lichess to confirm.
 - **R-199** (#349, 2026-11-10): The server calls the Lichess broadcast API with the owner's personal token (study:read only), kept only in the VM's secrets.
+- **R-200** (#349, 2026-11-10): The approved broadcast organiser accounts (R-196) are `vakarinis` (LŠF national and regional events), `kesnor7` (Juoda-balta Druskininkai, Baltija Cup, LŠF youth and rapid/blitz) and `paulauskas` (Vilnius Chess Club); the owner approves any addition.
 
 ## Open questions
 
