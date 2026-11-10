@@ -108,7 +108,10 @@ describe('broadcastMonthStatuses (#316, spec decision 5)', () => {
     expect(
       await broadcastMonthStatuses(db, months('2025-01', '2025-02')),
     ).toEqual([
-      { month: '2025-01', status: { state: 'pending', attempts: 0 } },
+      {
+        month: '2025-01',
+        status: { state: 'pending', attempts: 0, lastFailedAt: null },
+      },
       {
         month: '2025-02',
         status: { state: 'processing', attempts: 1, since: NOW },
@@ -163,10 +166,10 @@ describe('claimBroadcastMonth (#316, spec decision 3)', () => {
   it('claims a month whose processing went stale as one more attempt', async () => {
     await claimed('2025-01');
     expect(
-      await claimBroadcastMonth(db, month('2025-01'), later(16 * MINUTE)),
+      await claimBroadcastMonth(db, month('2025-01'), later(25 * MINUTE)),
     ).toEqual({
       ok: true,
-      value: { month: '2025-01', claimedAt: later(16 * MINUTE) },
+      value: { month: '2025-01', claimedAt: later(25 * MINUTE) },
     });
     const [entry] = await broadcastMonthStatuses(db, months('2025-01'));
     expect(entry?.status.attempts).toBe(2);
@@ -199,7 +202,7 @@ describe('claimBroadcastMonth (#316, spec decision 3)', () => {
     });
     await streaming.promise;
     expect(
-      await claimBroadcastMonth(db, month('2025-01'), later(16 * MINUTE)),
+      await claimBroadcastMonth(db, month('2025-01'), later(25 * MINUTE)),
     ).toEqual({
       ok: false,
       refusal: { reason: 'fide.monthNotClaimable' },
@@ -364,66 +367,85 @@ describe('writeBroadcastMonth (#316, spec decision 2)', () => {
 
   it('refuses, writing nothing, once a later claim took the stale month over', async () => {
     const first = await claimed('2025-01');
-    await claimed('2025-01', later(16 * MINUTE));
+    await claimed('2025-01', later(25 * MINUTE));
     expect(
       await writeBroadcastMonth(db, {
         claim: first,
         games: [game(1)],
-        clock: () => later(17 * MINUTE),
+        clock: () => later(26 * MINUTE),
       }),
     ).toEqual({ ok: false, refusal: { reason: 'fide.monthClaimLost' } });
     expect(await gameCount()).toBe(0);
   });
 });
 
-describe('failBroadcastMonth (#316, spec decision 2)', () => {
-  it('leaves a month pending after its first failed attempt', async () => {
+describe('failBroadcastMonth (#316, spec decision 2, R-188)', () => {
+  const failedAt = async (): Promise<Date | null> => {
+    const { rows } = await client.query<{ failed_at: Date | null }>(
+      `select failed_at from broadcast_months where month = '2025-01'`,
+    );
+    return rows[0]?.failed_at ?? null;
+  };
+
+  it('leaves a month pending after its first failed attempt, with the time it failed', async () => {
     const claim = await claimed('2025-01');
     expect(await failBroadcastMonth(db, claim, later(MINUTE))).toEqual({
       ok: true,
-      value: { state: 'pending', attempts: 1 },
+      value: { state: 'pending', attempts: 1, lastFailedAt: later(MINUTE) },
     });
-    expect(
-      (await claimBroadcastMonth(db, month('2025-01'), later(MINUTE))).ok,
-    ).toBe(true);
+    expect(await failedAt()).toEqual(later(MINUTE));
+    const [entry] = await broadcastMonthStatuses(db, months('2025-01'));
+    expect(entry?.status).toEqual({
+      state: 'pending',
+      attempts: 1,
+      lastFailedAt: later(MINUTE),
+    });
   });
 
-  it('stores a failure time only on a failed month (architect F1)', async () => {
-    const failedAt = async (): Promise<Date | null> => {
-      const { rows } = await client.query<{ failed_at: Date | null }>(
-        `select failed_at from broadcast_months where month = '2025-01'`,
-      );
-      return rows[0]?.failed_at ?? null;
-    };
+  it('refuses a claim under 10 minutes after a failed attempt and allows it at 10 minutes (R-188)', async () => {
     await failBroadcastMonth(db, await claimed('2025-01'), NOW);
-    expect(await failedAt()).toBeNull();
-    await failBroadcastMonth(db, await claimed('2025-01'), NOW);
-    await failBroadcastMonth(db, await claimed('2025-01'), later(MINUTE));
-    expect(await failedAt()).toEqual(later(MINUTE));
+    expect(
+      await claimBroadcastMonth(db, month('2025-01'), later(10 * MINUTE - 1)),
+    ).toEqual({ ok: false, refusal: { reason: 'fide.monthNotClaimable' } });
+    expect(
+      (await claimBroadcastMonth(db, month('2025-01'), later(10 * MINUTE))).ok,
+    ).toBe(true);
   });
 
   it('fails a month after its third failed attempt, for a day', async () => {
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      await failBroadcastMonth(db, await claimed('2025-01'), NOW);
+      const at = later(attempt * 10 * MINUTE);
+      await failBroadcastMonth(db, await claimed('2025-01', at), at);
     }
+    const failedAtTime = later(20 * MINUTE);
     const [entry] = await broadcastMonthStatuses(db, months('2025-01'));
-    expect(entry?.status).toEqual({ state: 'failed', attempts: 3, since: NOW });
+    expect(entry?.status).toEqual({
+      state: 'failed',
+      attempts: 3,
+      since: failedAtTime,
+    });
+    expect(await failedAt()).toEqual(failedAtTime);
     expect(
-      await claimBroadcastMonth(db, month('2025-01'), later(MINUTE)),
+      await claimBroadcastMonth(db, month('2025-01'), later(30 * MINUTE)),
     ).toEqual({
       ok: false,
       refusal: { reason: 'fide.monthNotClaimable' },
     });
     expect(
-      (await claimBroadcastMonth(db, month('2025-01'), later(24 * 60 * MINUTE)))
-        .ok,
+      (
+        await claimBroadcastMonth(
+          db,
+          month('2025-01'),
+          later(20 * MINUTE + 24 * 60 * MINUTE),
+        )
+      ).ok,
     ).toBe(true);
   });
 
   it('refuses once a later claim took the stale month over', async () => {
     const first = await claimed('2025-01');
-    await claimed('2025-01', later(16 * MINUTE));
-    expect(await failBroadcastMonth(db, first, later(17 * MINUTE))).toEqual({
+    await claimed('2025-01', later(25 * MINUTE));
+    expect(await failBroadcastMonth(db, first, later(26 * MINUTE))).toEqual({
       ok: false,
       refusal: { reason: 'fide.monthClaimLost' },
     });

@@ -103,7 +103,11 @@ const monthRowBase = {
 /** A month row by its state, with the time that state keeps (the checks). */
 const monthRowsSchema = z.array(
   z.discriminatedUnion('state', [
-    z.object({ ...monthRowBase, state: z.literal('pending') }),
+    z.object({
+      ...monthRowBase,
+      state: z.literal('pending'),
+      failedAt: z.date().nullable(),
+    }),
     z.object({
       ...monthRowBase,
       state: z.literal('processing'),
@@ -167,7 +171,7 @@ function toStatus(row: MonthRow): BroadcastMonthStatus {
   const { attempts } = row;
   switch (row.state) {
     case 'pending':
-      return { state: row.state, attempts };
+      return { state: row.state, attempts, lastFailedAt: row.failedAt };
     case 'processing':
       return { state: row.state, attempts, since: row.claimedAt };
     case 'done':
@@ -179,8 +183,8 @@ function toStatus(row: MonthRow): BroadcastMonthStatus {
 
 /**
  * The columns that store `status`, the inverse of toStatus: its state, its
- * attempts and the one time its state keeps. The other times stay as they
- * were.
+ * attempts and the one time its state keeps (for a pending month, its last
+ * failure). The other times stay as they were.
  */
 function statusColumns(
   status: BroadcastMonthStatus,
@@ -188,7 +192,7 @@ function statusColumns(
   const { state, attempts } = status;
   switch (status.state) {
     case 'pending':
-      return { state, attempts };
+      return { state, attempts, failedAt: status.lastFailedAt };
     case 'processing':
       return { state, attempts, claimedAt: status.since };
     case 'done':
@@ -218,7 +222,11 @@ export async function broadcastMonthStatuses(
   );
   return months.map((month) => ({
     month,
-    status: known.get(month) ?? { state: 'pending', attempts: 0 },
+    status: known.get(month) ?? {
+      state: 'pending',
+      attempts: 0,
+      lastFailedAt: null,
+    },
   }));
 }
 

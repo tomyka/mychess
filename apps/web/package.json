@@ -17,6 +17,7 @@
     "@mychess/chess": "workspace:*",
     "@mychess/db": "workspace:*",
     "@mychess/domain": "workspace:*",
+    "@mychess/integrations": "workspace:*",
     "better-auth": "1.7.10",
     "next": "16.4.2",
     "next-intl": "4.14.9",

@@ -8,7 +8,7 @@ Each task: developer (test first) -> qa -> architect -> security-reviewer if mar
 1. **Integrations clients** - integrations-dev: month list, header stream parser, FIDE player endpoint; fixtures synthetic.
 2. **Domain rules** - backend-dev: `fideId`, `searchMonths`, `gameForPlayer`, month state machine.
 3. **Schema and repositories** - backend-dev: `broadcast_months`, `broadcast_games`, migration, claim/write/search repositories. - SECURITY (new public-data store).
-4. **Runner and route** - web-dev: background month processing in the server, `GET /api/fide/<id>`, rate limit. - SECURITY (outbound fetch, resource use).
+4. **Runner and route** - web-dev: background month processing in the server; two POST server actions, start (rate limited) and poll (search token, 1 h); no route handler. - SECURITY (outbound fetch, resource use).
 5. **Page** - web-dev: `/fide` form, progress, list, Lichess links, home link. - UX
 6. **E2E journey and docs** - qa: journey with a fixture month; operations.md note on the index and how to reset a month.
 

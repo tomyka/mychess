@@ -21,7 +21,12 @@ const config: NextConfig = {
   output: 'standalone',
   outputFileTracingRoot: workspaceRoot,
   turbopack: { root: workspaceRoot },
-  transpilePackages: ['@mychess/domain', '@mychess/chess', '@mychess/db'],
+  transpilePackages: [
+    '@mychess/domain',
+    '@mychess/chess',
+    '@mychess/db',
+    '@mychess/integrations',
+  ],
   poweredByHeader: false,
   // `next dev` would otherwise write AGENTS.md and CLAUDE.md into apps/web;
   // this repo's agent rules live in its own CLAUDE.md and docs/.
@@ -31,7 +36,17 @@ const config: NextConfig = {
   // plus the form's own overhead. The action re-checks every limit.
   experimental: { serverActions: { bodySizeLimit: '3mb' } },
   headers: () =>
-    Promise.resolve([{ source: '/:path*', headers: SECURITY_HEADERS }]),
+    Promise.resolve([
+      { source: '/:path*', headers: SECURITY_HEADERS },
+      // The FIDE ID search (#316, security requirements of task 4): an
+      // opponent's ID is typed there, so no URL leaves it as a referrer,
+      // not even to this site. Next applies the last matching value of a
+      // header, so this one wins on /fide.
+      {
+        source: '/fide',
+        headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
+      },
+    ]),
 };
 
 // next-intl without locale routing: the locale comes from a cookie

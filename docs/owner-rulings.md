@@ -220,6 +220,8 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-184** (#316, 2026-11-09): The server keeps an index per processed month (which FIDE IDs played which broadcast games), built as searches need a month, never by bulk import; the first search of a month runs in the background with progress, later searches are instant.
 - **R-185** (#316, 2026-11-09): Found games are listed (date, event, opponent, colour, result, opening) with a link to each game on Lichess; the in-app board viewer of R-172 comes in a later issue.
 - **R-186** (#316, 2026-11-09): Any signed-in account can use the FIDE ID search.
+- **R-187** (#316, 2026-11-10): The FIDE ID search page and its home-page link are called "Opponent's games".
+- **R-188** (#316, 2026-11-10): After a failed processing attempt a broadcast month waits 10 minutes before the next attempt, so a short outage does not use all three; after the third failure the 24-hour pause applies as before.
 
 ## Open questions
 

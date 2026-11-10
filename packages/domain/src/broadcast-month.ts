@@ -5,11 +5,15 @@
 import { ok, refuse, type Result } from '@mychess/chess';
 import { z } from 'zod';
 
-/** The timing rules of spec decision 2 and the month count of R-183. */
+/**
+ * The timing rules of spec decision 2 and R-188, and the month count of
+ * R-183.
+ */
 export const BROADCAST_MONTH_RULES = {
   searchMonths: 12,
   staleAfterMs: 15 * 60_000,
   maxAttempts: 3,
+  retryAfterFailureMs: 10 * 60_000,
   failedRetryAfterMs: 24 * 60 * 60_000,
 } as const;
 
@@ -47,12 +51,16 @@ export const BROADCAST_MONTH_STATES = [
 export type BroadcastMonthState = (typeof BROADCAST_MONTH_STATES)[number];
 
 /**
- * A month's index state and its processing attempts so far; but for a
- * pending month, which waits for any search, also when it entered the
- * state: claimed, done or failed.
+ * A month's index state and its processing attempts so far; a pending
+ * month also when its last attempt failed (null before any did), the
+ * others when they entered the state: claimed, done or failed.
  */
 export type BroadcastMonthStatus =
-  | { readonly state: 'pending'; readonly attempts: number }
+  | {
+      readonly state: 'pending';
+      readonly attempts: number;
+      readonly lastFailedAt: Date | null;
+    }
   | {
       readonly state: Exclude<BroadcastMonthState, 'pending'>;
       readonly attempts: number;
@@ -61,8 +69,8 @@ export type BroadcastMonthStatus =
 
 /**
  * What a search does with a month: use its index, start processing it,
- * wait for the processing under way, or go without it until a failed month
- * may be retried.
+ * wait for the processing under way or for the pause after a failed
+ * attempt (R-188), or go without it until a failed month may be retried.
  */
 export type BroadcastMonthAction = 'use' | 'process' | 'wait' | 'unavailable';
 
@@ -91,7 +99,7 @@ export function nextBroadcastMonthAction(
     case 'done':
       return 'use';
     case 'pending':
-      return 'process';
+      return pendingAction(current, now);
     case 'processing':
       return 'wait';
     case 'failed':
@@ -117,8 +125,9 @@ export function decideBroadcastClaim(
 }
 
 /**
- * A processing month whose attempt failed at `now`: pending for the next
- * search, or failed once it has used its three attempts (spec decision 2).
+ * A processing month whose attempt failed at `now`: pending for a search
+ * 10 minutes later (R-188), or failed once it has used its three attempts
+ * (spec decision 2).
  */
 export function decideBroadcastFailure(
   month: BroadcastMonthStatus,
@@ -127,7 +136,7 @@ export function decideBroadcastFailure(
   assertProcessing(month);
   return month.attempts >= BROADCAST_MONTH_RULES.maxAttempts
     ? { state: 'failed', attempts: month.attempts, since: now }
-    : { state: 'pending', attempts: month.attempts };
+    : { state: 'pending', attempts: month.attempts, lastFailedAt: now };
 }
 
 /** A processing month whose games were all written at `now`. */
@@ -152,6 +161,18 @@ export function isBroadcastClaimHeld(
     month.state === 'processing' &&
     month.since.getTime() === claimedAt.getTime()
   );
+}
+
+/** A pending month waits 10 minutes after a failed attempt (R-188). */
+function pendingAction(
+  month: Extract<BroadcastMonthStatus, { readonly state: 'pending' }>,
+  now: Date,
+): BroadcastMonthAction {
+  return month.lastFailedAt === null ||
+    now.getTime() - month.lastFailedAt.getTime() >=
+      BROADCAST_MONTH_RULES.retryAfterFailureMs
+    ? 'process'
+    : 'wait';
 }
 
 function withStaleFailed(

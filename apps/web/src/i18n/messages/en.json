@@ -5,7 +5,8 @@
     "signOut": "Sign out",
     "settings": "Settings",
     "coachArea": "Coach dashboard",
-    "repertoires": "My repertoires"
+    "repertoires": "My repertoires",
+    "fideSearch": "Opponent's games"
   },
   "language": {
     "lt": "Lietuvių",
@@ -753,5 +754,41 @@
       "sessionSize": "Reviews per session must be a whole number from 10 to 100.",
       "newPerDay": "New moves a day must be a whole number from 0 to 50."
     }
+  },
+  "fide": {
+    "home": "Home",
+    "title": "Opponent's games",
+    "intro": "Enter a player's FIDE ID to list their over-the-board games broadcast on Lichess in the last 12 months.",
+    "idLabel": "FIDE ID",
+    "idHint": "Digits only, as on the player's FIDE profile.",
+    "submit": "Search",
+    "searching": "Searching…",
+    "idBlank": "Enter a FIDE ID.",
+    "idInvalid": "A FIDE ID is digits only and does not start with 0.",
+    "idTooLong": "A FIDE ID has at most 9 digits.",
+    "tooManySearches": "Too many searches: at most {limit} a minute. Wait a minute and try again.",
+    "searchUnavailable": "The list of Lichess broadcasts could not be read. Try again later.",
+    "searchExpired": "This search has expired. Search again to see the latest games.",
+    "resultsTitle": "Games of FIDE ID {id}",
+    "rated": "FIDE ID {id} · {federation} · standard rating {rating}",
+    "unrated": "FIDE ID {id} · {federation} · unrated",
+    "monthsReady": "{ready} of {total} months ready",
+    "monthsWaiting": "The other months are being prepared. This page updates by itself.",
+    "monthsUnavailable": "{count, plural, one {# month unavailable} other {# months unavailable}}, retried tomorrow.",
+    "truncated": "Only the newest {limit, number} games are shown.",
+    "noGames": "No broadcast games of this player in these months.",
+    "noMonths": "No month could be searched right now. Try again later.",
+    "dateUnknown": "Date unknown",
+    "white": "White",
+    "black": "Black",
+    "win": "Won",
+    "draw": "Drew",
+    "loss": "Lost",
+    "unknown": "Unfinished",
+    "played": "Played {colour, select, white {White} other {Black}}, {outcome, select, win {won} draw {drew} loss {lost} other {unfinished}}",
+    "opponent": "vs {name}",
+    "opponentWithId": "vs {name} (FIDE {id})",
+    "openOnLichess": "Open on Lichess",
+    "newTab": "(opens in a new tab)"
   }
 }

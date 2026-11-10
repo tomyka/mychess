@@ -24,24 +24,36 @@ const DAY = 24 * 60 * MINUTE;
 const now = new Date('2026-11-09T12:00:00Z');
 const ago = (ms: number): Date => new Date(now.getTime() - ms);
 
-/** A month's status; a pending month has no time, the others `since`. */
+/**
+ * A month's status; a pending month keeps when its last attempt failed
+ * (none by default), the others `since`.
+ */
 const status = (
   given: {
     readonly state?: BroadcastMonthState;
     readonly attempts?: number;
     readonly since?: Date;
+    readonly lastFailedAt?: Date | null;
   } = {},
 ): BroadcastMonthStatus => {
-  const { state = 'pending', attempts = 0, since = ago(DAY) } = given;
-  return state === 'pending' ? { state, attempts } : { state, attempts, since };
+  const {
+    state = 'pending',
+    attempts = 0,
+    since = ago(DAY),
+    lastFailedAt = null,
+  } = given;
+  return state === 'pending'
+    ? { state, attempts, lastFailedAt }
+    : { state, attempts, since };
 };
 
 describe('broadcast month rules (#316, R-183, spec decision 2)', () => {
-  it('searches 12 months, retries a stale processing after 15 minutes and a failed month after a day, three attempts', () => {
+  it('searches 12 months, retries a stale processing after 15 minutes, a failed attempt after 10 minutes (R-188) and a failed month after a day, three attempts', () => {
     expect(BROADCAST_MONTH_RULES).toEqual({
       searchMonths: 12,
       staleAfterMs: 15 * MINUTE,
       maxAttempts: 3,
+      retryAfterFailureMs: 10 * MINUTE,
       failedRetryAfterMs: DAY,
     });
   });
@@ -160,7 +172,7 @@ describe('nextBroadcastMonthAction (#316, spec decisions 2 and 3)', () => {
     ).toBe('wait');
   });
 
-  it('retries a processing month left stale for over 15 minutes', () => {
+  it('waits after a processing month went stale, as after any failed attempt (R-188)', () => {
     expect(
       nextBroadcastMonthAction(
         status({
@@ -168,6 +180,33 @@ describe('nextBroadcastMonthAction (#316, spec decisions 2 and 3)', () => {
           attempts: 2,
           since: ago(15 * MINUTE + 1),
         }),
+        now,
+      ),
+    ).toBe('wait');
+  });
+
+  it('retries a stale processing month 10 minutes after it went stale', () => {
+    expect(
+      nextBroadcastMonthAction(
+        status({ state: 'processing', attempts: 2, since: ago(25 * MINUTE) }),
+        now,
+      ),
+    ).toBe('process');
+  });
+
+  it('waits for 10 minutes after a failed attempt (R-188)', () => {
+    expect(
+      nextBroadcastMonthAction(
+        status({ attempts: 1, lastFailedAt: ago(10 * MINUTE - 1) }),
+        now,
+      ),
+    ).toBe('wait');
+  });
+
+  it('retries a failed attempt once 10 minutes have passed (R-188)', () => {
+    expect(
+      nextBroadcastMonthAction(
+        status({ attempts: 2, lastFailedAt: ago(10 * MINUTE) }),
         now,
       ),
     ).toBe('process');
@@ -234,6 +273,15 @@ describe('decideBroadcastClaim (#316, spec decision 3)', () => {
     });
   });
 
+  it('refuses a pending month whose last attempt failed under 10 minutes ago (R-188)', () => {
+    expect(
+      decideBroadcastClaim(
+        status({ attempts: 1, lastFailedAt: ago(10 * MINUTE - 1) }),
+        now,
+      ),
+    ).toEqual({ ok: false, refusal: { reason: 'fide.monthNotClaimable' } });
+  });
+
   it.each([
     ['done', 1, ago(DAY)],
     ['processing', 1, ago(MINUTE)],
@@ -257,7 +305,7 @@ describe('decideBroadcastFailure (#316, spec decision 2)', () => {
     (attempts) => {
       expect(
         decideBroadcastFailure(status({ state: 'processing', attempts }), now),
-      ).toEqual({ state: 'pending', attempts });
+      ).toEqual({ state: 'pending', attempts, lastFailedAt: now });
     },
   );
 

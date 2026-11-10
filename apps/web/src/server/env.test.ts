@@ -215,6 +215,24 @@ describe('webEnvSchema on production (security A7)', () => {
     },
   );
 
+  // #316, arch F4: the broadcast dump fixtures are for local E2E only.
+  it('refuses a broadcast dump fixture directory in production', () => {
+    expect(
+      issuePaths({
+        ...deployed,
+        MYCHESS_ENV: 'production',
+        FIDE_DUMP_FIXTURE_DIR: '/tmp/fixtures',
+      }),
+    ).toEqual([['FIDE_DUMP_FIXTURE_DIR']]);
+  });
+
+  it('takes a broadcast dump fixture directory locally', () => {
+    expect(
+      webEnvSchema.parse({ ...base, FIDE_DUMP_FIXTURE_DIR: '/tmp/fixtures' })
+        .FIDE_DUMP_FIXTURE_DIR,
+    ).toBe('/tmp/fixtures');
+  });
+
   it('takes production with the test sign-in switched off', () => {
     expect(
       issuePaths({

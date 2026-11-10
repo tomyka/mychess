@@ -44,6 +44,9 @@ export function HomeView({
         <Link href={ROUTES.repertoires} className={LINK}>
           {t('repertoires')}
         </Link>
+        <Link href={ROUTES.fideSearch} className={LINK}>
+          {t('fideSearch')}
+        </Link>
         {isCoach ? (
           <Link href={ROUTES.coach} className={LINK}>
             {t('coachArea')}

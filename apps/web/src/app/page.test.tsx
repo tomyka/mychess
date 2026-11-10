@@ -63,6 +63,12 @@ describe('HomeView', () => {
           .getByRole('link', { name: MESSAGES[locale].app.repertoires })
           .getAttribute('href'),
       ).toBe('/repertuarai');
+      // The FIDE ID search (#316), for every account (R-186).
+      expect(
+        screen
+          .getByRole('link', { name: MESSAGES[locale].app.fideSearch })
+          .getAttribute('href'),
+      ).toBe('/fide');
       expect(
         screen.queryByRole('link', { name: MESSAGES[locale].app.coachArea }),
       ).toBeNull();

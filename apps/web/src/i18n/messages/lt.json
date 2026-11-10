@@ -5,7 +5,8 @@
     "signOut": "Atsijungti",
     "settings": "Nustatymai",
     "coachArea": "Trenerio skydelis",
-    "repertoires": "Mano repertuarai"
+    "repertoires": "Mano repertuarai",
+    "fideSearch": "Varžovo partijos"
   },
   "language": {
     "lt": "Lietuvių",
@@ -753,5 +754,41 @@
       "sessionSize": "Kartojimų per sesiją turi būti sveikasis skaičius nuo 10 iki 100.",
       "newPerDay": "Naujų ėjimų per dieną turi būti sveikasis skaičius nuo 0 iki 50."
     }
+  },
+  "fide": {
+    "home": "Pradžia",
+    "title": "Varžovo partijos",
+    "intro": "Įveskite žaidėjo FIDE ID ir pamatysite jo gyvas partijas, per paskutinius 12 mėnesių transliuotas Lichess.",
+    "idLabel": "FIDE ID",
+    "idHint": "Tik skaitmenys, kaip žaidėjo FIDE profilyje.",
+    "submit": "Ieškoti",
+    "searching": "Ieškoma…",
+    "idBlank": "Įveskite FIDE ID.",
+    "idInvalid": "FIDE ID sudaro tik skaitmenys, ir jis neprasideda nuliu.",
+    "idTooLong": "FIDE ID turi ne daugiau kaip 9 skaitmenis.",
+    "tooManySearches": "Per daug paieškų: ne daugiau kaip {limit} per minutę. Palaukite minutę ir bandykite dar kartą.",
+    "searchUnavailable": "Nepavyko nuskaityti Lichess transliacijų sąrašo. Bandykite vėliau.",
+    "searchExpired": "Ši paieška nebegalioja. Ieškokite dar kartą, kad pamatytumėte naujausias partijas.",
+    "resultsTitle": "FIDE ID {id} partijos",
+    "rated": "FIDE ID {id} · {federation} · klasikinis reitingas {rating}",
+    "unrated": "FIDE ID {id} · {federation} · be reitingo",
+    "monthsReady": "Paruošta mėnesių: {ready} iš {total}",
+    "monthsWaiting": "Kiti mėnesiai dar ruošiami. Puslapis atsinaujins pats.",
+    "monthsUnavailable": "{count, plural, one {# mėnuo nepasiekiamas} few {# mėnesiai nepasiekiami} other {# mėnesių nepasiekiama}}, bandysime rytoj.",
+    "truncated": "Rodomos tik {limit, number} naujausių partijų.",
+    "noGames": "Šių mėnesių transliacijose šio žaidėjo partijų nėra.",
+    "noMonths": "Šiuo metu nepavyko peržiūrėti nė vieno mėnesio. Bandykite vėliau.",
+    "dateUnknown": "Data nežinoma",
+    "white": "Baltieji",
+    "black": "Juodieji",
+    "win": "Laimėjo",
+    "draw": "Lygiosios",
+    "loss": "Pralaimėjo",
+    "unknown": "Nebaigta",
+    "played": "Žaidė {colour, select, white {baltaisiais} other {juodaisiais}}, {outcome, select, win {laimėjo} draw {lygiosios} loss {pralaimėjo} other {nebaigta}}",
+    "opponent": "prieš {name}",
+    "opponentWithId": "prieš {name} (FIDE {id})",
+    "openOnLichess": "Atidaryti Lichess",
+    "newTab": "(atsidaro naujame skirtuke)"
   }
 }

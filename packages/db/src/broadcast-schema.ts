@@ -22,7 +22,9 @@ import { at, matches, oneOf } from './schema-columns';
 
 /**
  * A dump month's index state (spec decision 2). Each state but pending
- * keeps when it was entered: claimed_at, processed_at or failed_at.
+ * keeps when it was entered: claimed_at, processed_at or failed_at. A
+ * pending month keeps in failed_at when its last attempt failed, null
+ * before any did, for the 10-minute pause of R-188.
  */
 export const broadcastMonths = pgTable(
   'broadcast_months',

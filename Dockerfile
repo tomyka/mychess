@@ -22,6 +22,7 @@ COPY apps/web/package.json apps/web/
 COPY packages/chess/package.json packages/chess/
 COPY packages/domain/package.json packages/domain/
 COPY packages/db/package.json packages/db/
+COPY packages/integrations/package.json packages/integrations/
 RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm -r build

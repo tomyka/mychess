@@ -14,6 +14,8 @@ export const ROUTES = {
   coach: '/treneris',
   /** The training page (S6 plan decision 9); trainingPath builds its links. */
   training: '/treniruote',
+  /** The FIDE ID search (#316); the ID is posted, never in the URL. */
+  fideSearch: '/fide',
   /** The "Mano treneriai" section of settings (plan decision 12). */
   myCoaches: '/nustatymai#treneriai',
 } as const;

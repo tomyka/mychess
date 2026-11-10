@@ -14,6 +14,13 @@ describe('the security headers on every page', () => {
           { key: 'Referrer-Policy', value: 'same-origin' },
         ],
       },
+      // The FIDE ID search (#316): no referrer at all, not even to this
+      // site, from the page where an opponent's ID is typed. Next applies
+      // the last matching value of a header, so this overrides the above.
+      {
+        source: '/fide',
+        headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
+      },
     ]);
   });
 });

@@ -57,6 +57,10 @@ export const webEnvSchema = databaseEnvSchema
     LICHESS_CLIENT_ID: z.string().min(1),
     MYCHESS_TEST_SIGNIN: z.stringbool().default(false),
     TEST_SIGNIN_SECRET: z.string().min(32).optional(),
+    // Local E2E only (#316): the FIDE search reads the Lichess broadcast
+    // list and dumps from this directory instead of the network, when the
+    // test sign-in is on too (broadcast-fixture-fetch.ts).
+    FIDE_DUMP_FIXTURE_DIR: z.string().min(1).optional(),
   })
   .refine(
     (e) => e.MAIL_TRANSPORT !== 'resend' || e.RESEND_API_KEY !== undefined,
@@ -77,6 +81,12 @@ export const webEnvSchema = databaseEnvSchema
   .refine((e) => !e.MYCHESS_TEST_SIGNIN || e.MYCHESS_ENV !== PRODUCTION, {
     path: ['MYCHESS_TEST_SIGNIN'],
   })
+  // Production refuses the broadcast dump fixtures at start-up as well.
+  .refine(
+    (e) =>
+      e.FIDE_DUMP_FIXTURE_DIR === undefined || e.MYCHESS_ENV !== PRODUCTION,
+    { path: ['FIDE_DUMP_FIXTURE_DIR'] },
+  )
   .refine(productionNeeds('BETTER_AUTH_URL', isHttps), {
     path: ['BETTER_AUTH_URL'],
   })
