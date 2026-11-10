@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   fideIdSchema,
   broadcastMonthSchema,
@@ -12,9 +14,11 @@ import {
   failBroadcastMonth,
   gamesForFideId,
   broadcastMonthStatuses,
+  releaseInterruptedBroadcastMonths,
   writeBroadcastMonth,
   type BroadcastMonthClaim,
 } from '../src';
+import { MIGRATIONS_FOLDER } from '../src/migrations';
 import { useTestDatabase } from '../src/testing';
 
 const { db, client } = useTestDatabase();
@@ -450,6 +454,190 @@ describe('failBroadcastMonth (#316, spec decision 2, R-188)', () => {
       refusal: { reason: 'fide.monthClaimLost' },
     });
     expect(await stateOf('2025-01')).toBe('processing');
+  });
+});
+
+/** A month row as stored, every column. */
+interface StoredMonth {
+  readonly month: string;
+  readonly state: string;
+  readonly attempts: number;
+  readonly game_count: number | null;
+  readonly claimed_at: Date | null;
+  readonly failed_at: Date | null;
+  readonly processed_at: Date | null;
+}
+
+/** Stores `row` as it is, bypassing the repositories. */
+async function store(
+  row: Pick<StoredMonth, 'month' | 'state' | 'attempts'> & Partial<StoredMonth>,
+): Promise<void> {
+  await client.query(
+    `insert into broadcast_months
+       (month, state, attempts, game_count, claimed_at, failed_at, processed_at)
+     values ($1, $2, $3, $4, $5, $6, $7)`,
+    [
+      row.month,
+      row.state,
+      row.attempts,
+      row.game_count ?? null,
+      row.claimed_at ?? null,
+      row.failed_at ?? null,
+      row.processed_at ?? null,
+    ],
+  );
+}
+
+async function storedMonths(): Promise<StoredMonth[]> {
+  const { rows } = await client.query<StoredMonth>(
+    `select month, state, attempts, game_count, claimed_at, failed_at, processed_at
+     from broadcast_months order by month`,
+  );
+  return rows;
+}
+
+/** A done, a failed and a pending month, none of them processing. */
+async function storeSettledMonths(): Promise<void> {
+  await store({
+    month: '2025-01',
+    state: 'done',
+    attempts: 2,
+    game_count: 7,
+    claimed_at: later(-3 * MINUTE),
+    processed_at: later(-MINUTE),
+  });
+  await store({
+    month: '2025-02',
+    state: 'failed',
+    attempts: 3,
+    claimed_at: later(-3 * MINUTE),
+    failed_at: later(-2 * MINUTE),
+  });
+  await store({
+    month: '2025-03',
+    state: 'pending',
+    attempts: 1,
+    claimed_at: later(-3 * MINUTE),
+    failed_at: later(-2 * MINUTE),
+  });
+}
+
+describe('releaseInterruptedBroadcastMonths (#355)', () => {
+  it('makes a month a previous process left processing pending again, refunding its attempt', async () => {
+    await store({
+      month: '2025-01',
+      state: 'processing',
+      attempts: 2,
+      claimed_at: later(-5 * MINUTE),
+      failed_at: later(-60 * MINUTE),
+    });
+    await claimed('2025-02', later(-MINUTE));
+    expect(await releaseInterruptedBroadcastMonths(db, NOW)).toBe(2);
+    expect(
+      await broadcastMonthStatuses(db, months('2025-01', '2025-02')),
+    ).toEqual([
+      {
+        month: '2025-01',
+        status: {
+          state: 'pending',
+          attempts: 1,
+          lastFailedAt: later(-60 * MINUTE),
+        },
+      },
+      {
+        month: '2025-02',
+        status: { state: 'pending', attempts: 0, lastFailedAt: null },
+      },
+    ]);
+    expect((await claimBroadcastMonth(db, month('2025-02'), NOW)).ok).toBe(
+      true,
+    );
+  });
+
+  it('leaves a month claimed as this process started or later', async () => {
+    await claimed('2025-01', NOW);
+    await claimed('2025-02', later(MINUTE));
+    const before = await storedMonths();
+    expect(await releaseInterruptedBroadcastMonths(db, NOW)).toBe(0);
+    expect(await storedMonths()).toEqual(before);
+  });
+
+  it('leaves a month whose write still holds its row', async () => {
+    const claim = await claimed('2025-01', later(-5 * MINUTE));
+    const streaming = deferred();
+    const release = deferred();
+    async function* stream(): AsyncGenerator<BroadcastGameInput> {
+      yield game(1);
+      streaming.resolve();
+      await release.promise;
+    }
+    const writing = writeBroadcastMonth(db, {
+      claim,
+      games: stream(),
+      clock: () => NOW,
+    });
+    await streaming.promise;
+    expect(await releaseInterruptedBroadcastMonths(db, NOW)).toBe(0);
+    release.resolve();
+    expect(await writing).toEqual({
+      ok: true,
+      value: { gameCount: 1, skipped: 0 },
+    });
+    expect(await stateOf('2025-01')).toBe('done');
+  });
+
+  it('leaves done, failed and pending months as they are', async () => {
+    await storeSettledMonths();
+    const before = await storedMonths();
+    expect(await releaseInterruptedBroadcastMonths(db, NOW)).toBe(0);
+    expect(await storedMonths()).toEqual(before);
+  });
+});
+
+describe('migration 0015 resets failed and processing months (#355)', () => {
+  it('makes failed and processing months pending with no attempts, leaving done months, twice over', async () => {
+    const migration = readFileSync(
+      join(MIGRATIONS_FOLDER, '0015_reset_broadcast_months.sql'),
+      'utf8',
+    );
+    await storeSettledMonths();
+    await written('2025-04', [game(1)]);
+    await store({
+      month: '2025-05',
+      state: 'processing',
+      attempts: 2,
+      claimed_at: later(-5 * MINUTE),
+      failed_at: later(-60 * MINUTE),
+    });
+    const [done, , , doneWritten] = await storedMonths();
+    await client.query(migration);
+    await client.query(migration);
+    const reset = {
+      state: 'pending',
+      attempts: 0,
+      game_count: null,
+      claimed_at: null,
+      failed_at: null,
+      processed_at: null,
+    };
+    expect(await storedMonths()).toEqual([
+      done,
+      { month: '2025-02', ...reset },
+      {
+        month: '2025-03',
+        state: 'pending',
+        attempts: 1,
+        game_count: null,
+        claimed_at: later(-3 * MINUTE),
+        failed_at: later(-2 * MINUTE),
+        processed_at: null,
+      },
+      doneWritten,
+      { month: '2025-05', ...reset },
+    ]);
+    expect(await gameCount()).toBe(1);
+    for (const text of ['2025-02', '2025-05'])
+      expect((await claimBroadcastMonth(db, month(text), NOW)).ok).toBe(true);
   });
 });
 

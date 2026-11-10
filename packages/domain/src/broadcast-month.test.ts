@@ -6,7 +6,9 @@ import {
   BROADCAST_MONTH_STATES,
   decideBroadcastFailure,
   decideBroadcastFinish,
+  decideBroadcastInterrupted,
   isBroadcastClaimHeld,
+  isBroadcastMonthInterrupted,
   broadcastMonthSchema,
   nextBroadcastMonthAction,
   searchMonths,
@@ -372,6 +374,88 @@ describe('isBroadcastClaimHeld (#316, spec decision 3)', () => {
           claimedAt,
         ),
       ).toBe(false);
+    },
+  );
+});
+
+describe('isBroadcastMonthInterrupted (#355)', () => {
+  const startedAt = ago(MINUTE);
+
+  it('is interrupted when processing under a claim from before this process started', () => {
+    expect(
+      isBroadcastMonthInterrupted(
+        status({ state: 'processing', attempts: 1, since: ago(MINUTE + 1) }),
+        startedAt,
+      ),
+    ).toBe(true);
+  });
+
+  it('is not interrupted when claimed as this process started or later', () => {
+    for (const since of [new Date(startedAt.getTime()), now]) {
+      expect(
+        isBroadcastMonthInterrupted(
+          status({ state: 'processing', attempts: 1, since }),
+          startedAt,
+        ),
+      ).toBe(false);
+    }
+  });
+
+  it.each(['pending', 'done', 'failed'] as const)(
+    'is not interrupted when %s',
+    (state) => {
+      expect(
+        isBroadcastMonthInterrupted(
+          status({ state, attempts: 1, since: ago(DAY) }),
+          startedAt,
+        ),
+      ).toBe(false);
+    },
+  );
+});
+
+describe('decideBroadcastInterrupted (#355)', () => {
+  it('makes an interrupted month pending again without spending the attempt', () => {
+    expect(
+      decideBroadcastInterrupted(
+        status({ state: 'processing', attempts: 2 }),
+        ago(DAY),
+      ),
+    ).toEqual({ state: 'pending', attempts: 1, lastFailedAt: ago(DAY) });
+  });
+
+  it('keeps no failure time when no attempt had failed', () => {
+    expect(
+      decideBroadcastInterrupted(
+        status({ state: 'processing', attempts: 1 }),
+        null,
+      ),
+    ).toEqual({ state: 'pending', attempts: 0, lastFailedAt: null });
+  });
+
+  it('never counts the attempts below zero', () => {
+    expect(
+      decideBroadcastInterrupted(
+        status({ state: 'processing', attempts: 0 }),
+        null,
+      ),
+    ).toEqual({ state: 'pending', attempts: 0, lastFailedAt: null });
+  });
+
+  it('lets the month be claimed again at once when no attempt had failed', () => {
+    const pending = decideBroadcastInterrupted(
+      status({ state: 'processing', attempts: 3 }),
+      null,
+    );
+    expect(nextBroadcastMonthAction(pending, now)).toBe('process');
+  });
+
+  it.each(['pending', 'done', 'failed'] as const)(
+    'throws for a %s month: only a processing month is interrupted',
+    (state) => {
+      expect(() => decideBroadcastInterrupted(status({ state }), null)).toThrow(
+        RangeError,
+      );
     },
   );
 });

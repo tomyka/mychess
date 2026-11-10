@@ -74,6 +74,7 @@ export {
   failBroadcastMonth,
   gamesForFideId,
   broadcastMonthStatuses,
+  releaseInterruptedBroadcastMonths,
   writeBroadcastMonth,
   type FoundGame,
   type FoundGames,

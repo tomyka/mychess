@@ -29,6 +29,7 @@ const db = {
   claim: vi.fn<BroadcastIndex['claim']>(),
   write: vi.fn<BroadcastIndex['write']>(),
   fail: vi.fn<BroadcastIndex['fail']>(),
+  release: vi.fn<BroadcastIndex['release']>(),
 };
 
 const claimOf = (month: BroadcastMonth): BroadcastMonthClaim => ({
@@ -87,6 +88,7 @@ beforeEach(() => {
   db.fail
     .mockReset()
     .mockResolvedValue(ok({ state: 'failed', attempts: 3, since: NOW }));
+  db.release.mockReset().mockResolvedValue(0);
 });
 
 describe('the broadcast month runner', () => {
@@ -110,6 +112,69 @@ describe('the broadcast month runner', () => {
     expect(db.write.mock.lastCall?.[0].claim).toEqual(claimOf(OCT));
     expect(db.write.mock.lastCall?.[0].clock()).toEqual(NOW);
     expect(db.fail).not.toHaveBeenCalled();
+  });
+
+  it('releases the months a previous process left processing once, before its first claim (#355)', async () => {
+    const order: string[] = [];
+    db.release.mockImplementation(() => {
+      order.push('release');
+      return Promise.resolve(1);
+    });
+    db.claim.mockImplementation((month) => {
+      order.push(`claim ${month}`);
+      return Promise.resolve(ok(claimOf(month)));
+    });
+    const { run } = runner({ [OCT]: dumpOf(OCT), [SEP]: dumpOf(SEP) });
+    run.need([OCT]);
+    run.need([SEP]);
+    await run.settled();
+    run.need([OCT]);
+    await run.settled();
+    expect(db.release).toHaveBeenCalledExactlyOnceWith(NOW);
+    expect(order).toEqual([
+      'release',
+      'claim 2026-10',
+      'claim 2026-09',
+      'claim 2026-10',
+    ]);
+  });
+
+  it('releases what was claimed before the runner was created, not before the first need', async () => {
+    let now = NOW;
+    const run = createBroadcastRunner({
+      index: db,
+      fetch: dumpServer({ [OCT]: dumpOf(OCT) }).fetch,
+      clock: () => now,
+    });
+    now = new Date(NOW.getTime() + 60_000);
+    run.need([OCT]);
+    await run.settled();
+    expect(db.release).toHaveBeenCalledExactlyOnceWith(NOW);
+  });
+
+  it('releases nothing until a month is needed', async () => {
+    const { run } = runner({});
+    run.need([]);
+    await run.settled();
+    expect(db.release).not.toHaveBeenCalled();
+  });
+
+  it('logs a failed release by its error name alone and still claims (#355)', async () => {
+    db.release.mockRejectedValue(
+      new TypeError('a text that may name anything'),
+    );
+    const { run } = runner({ [OCT]: dumpOf(OCT) });
+    run.need([OCT]);
+    await run.settled();
+    run.need([SEP]);
+    await run.settled();
+    expect(db.release).toHaveBeenCalledOnce();
+    expect(errors.mock.calls[0]).toEqual([
+      'broadcast index: release failed',
+      'TypeError',
+    ]);
+    expect(written.map((w) => w.month)).toEqual([OCT]);
+    expect(db.claim).toHaveBeenCalledTimes(2);
   });
 
   it('downloads nothing for a month whose claim is refused: someone else has it', async () => {

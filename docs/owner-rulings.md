@@ -229,6 +229,10 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-193** (2026-11-10): During the development phase the lead does not run the full local gate before committing: format, lint, strict typecheck and the tests of the changed packages are enough; CI runs the full gate. Supersedes the "commit only on the gate's exit code" working rule for this phase.
 - **R-194** (2026-11-10): During the development phase changes are checked on the local stack first (`pnpm dev`, the lead shares screenshots or the local URL) and deployed in batches.
 - **R-195** (#316, 2026-11-10): A nightly job on the server indexes any of the 12 newest broadcast months not yet done, so searches do not wait for indexing; a search still triggers a month that is missing. Replaces "built as searches need a month" in R-184; still never a bulk import beyond those 12 months.
+- **R-196** (#349, 2026-11-10): Community Lichess broadcasts (not in the monthly dumps) may be found through a curated, owner-approved list of broadcast organiser accounts; organisers are not the players searched, so this does not breach R-191. Players are still matched only by FIDE ID.
+- **R-197** (#349, 2026-11-10): Any signed-in user may add a Lichess broadcast to the index by pasting its link; the tournament is fetched once.
+- **R-198** (#349, 2026-11-10): Community broadcast games are shown with the same Lichess CC BY-SA 4.0 credit and each game's link as the dumps; the lead asks Lichess to confirm.
+- **R-199** (#349, 2026-11-10): The server calls the Lichess broadcast API with the owner's personal token (study:read only), kept only in the VM's secrets.
 
 ## Open questions
 

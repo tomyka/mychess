@@ -18,6 +18,7 @@
 import {
   claimBroadcastMonth,
   failBroadcastMonth,
+  releaseInterruptedBroadcastMonths,
   writeBroadcastMonth,
   type BroadcastMonthClaim,
   type BroadcastMonthWrite,
@@ -56,6 +57,9 @@ export interface BroadcastIndex {
     claim: BroadcastMonthClaim,
     now: Date,
   ) => ReturnType<typeof failBroadcastMonth>;
+  release: (
+    processStartedAt: Date,
+  ) => ReturnType<typeof releaseInterruptedBroadcastMonths>;
 }
 
 /** The index repositories on `db`. The write keeps its default idle backstop. */
@@ -64,6 +68,8 @@ export function broadcastIndexOn(db: Executor): BroadcastIndex {
     claim: (month, now) => claimBroadcastMonth(db, month, now),
     write: (write) => writeBroadcastMonth(db, write),
     fail: (claim, now) => failBroadcastMonth(db, claim, now),
+    release: (processStartedAt) =>
+      releaseInterruptedBroadcastMonths(db, processStartedAt),
   };
 }
 
@@ -84,14 +90,23 @@ export interface BroadcastRunner {
   settled(): Promise<void>;
 }
 
-/** A runner with an empty queue. */
+/**
+ * A runner with an empty queue. Its creation is taken as its process's
+ * start (there is one runner per process, fide-services.ts): before its
+ * first claim it releases, once, the months a process before it left
+ * processing (#355), so a restart does not cost those months an attempt.
+ */
 export function createBroadcastRunner(
   deps: BroadcastRunnerDeps,
 ): BroadcastRunner {
+  const startedAt = deps.clock();
   const queue = new Set<BroadcastMonth>();
   let running: Promise<void> | undefined;
+  let released: Promise<void> | undefined;
 
   const drain = async (): Promise<void> => {
+    released ??= releaseSafely(deps.index, startedAt);
+    await released;
     for (let month = first(queue); month !== undefined; month = first(queue)) {
       // Left queued while it is processed, so needing it again meanwhile
       // does not queue it twice.
@@ -114,6 +129,25 @@ export function createBroadcastRunner(
 
 function first(queue: ReadonlySet<BroadcastMonth>): BroadcastMonth | undefined {
   return queue.values().next().value;
+}
+
+/**
+ * Releases the months interrupted before `startedAt`. A failure is logged
+ * by the error's name alone and the runner goes on: the 15-minute stale
+ * rule still hands those months back, at the cost of an attempt.
+ */
+async function releaseSafely(
+  index: BroadcastIndex,
+  startedAt: Date,
+): Promise<void> {
+  try {
+    await index.release(startedAt);
+  } catch (error) {
+    console.error(
+      'broadcast index: release failed',
+      error instanceof Error ? error.name : 'unknown error',
+    );
+  }
 }
 
 /** Processes `month`; any failure is logged, so the queue goes on. */

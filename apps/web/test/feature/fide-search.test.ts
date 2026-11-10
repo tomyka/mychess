@@ -239,6 +239,27 @@ describe('a FIDE ID search (#316)', () => {
     expect(dumpsFetched()).toHaveLength(1);
   });
 
+  it('indexes a month a restart left processing at once, without spending an attempt (#355)', async () => {
+    const month = SEARCHED[0] ?? '';
+    // The process before this one claimed the month a minute ago, its first
+    // attempt, and was then restarted: the row is not locked by any write.
+    await sql.rows(
+      `insert into broadcast_months (month, state, attempts, claimed_at)
+       values ($1, 'processing', 1, now() - interval '1 minute')`,
+      [month],
+    );
+    const runner = serverProcess(goodDumps(MONTHS));
+    runner.need([broadcastMonthSchema.parse(month)]);
+    await runner.settled();
+    expect(dumpsFetched()).toHaveLength(1);
+    expect(
+      await sql.rows(
+        'select state, attempts from broadcast_months where month = $1',
+        [month],
+      ),
+    ).toEqual([{ state: 'done', attempts: 1 }]);
+  });
+
   it('counts only search starts: polls never use up the limit', async () => {
     serverProcess(goodDumps(MONTHS));
     const { token } = await started();

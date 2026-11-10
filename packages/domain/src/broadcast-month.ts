@@ -163,6 +163,38 @@ export function isBroadcastClaimHeld(
   );
 }
 
+/**
+ * Whether a process that started at `processStartedAt` finds `month` left
+ * processing by a process before it (#355): claimed before it started, so
+ * the restart that ended that process interrupted the attempt.
+ */
+export function isBroadcastMonthInterrupted(
+  month: BroadcastMonthStatus,
+  processStartedAt: Date,
+): boolean {
+  return (
+    month.state === 'processing' &&
+    month.since.getTime() < processStartedAt.getTime()
+  );
+}
+
+/**
+ * An interrupted processing month (isBroadcastMonthInterrupted) back to
+ * pending without spending its attempt (#355): a restart is not a failed
+ * attempt. Its last failure, `lastFailedAt`, stays as it was.
+ */
+export function decideBroadcastInterrupted(
+  month: BroadcastMonthStatus,
+  lastFailedAt: Date | null,
+): BroadcastMonthStatus {
+  assertProcessing(month);
+  return {
+    state: 'pending',
+    attempts: Math.max(0, month.attempts - 1),
+    lastFailedAt,
+  };
+}
+
 /** A pending month waits 10 minutes after a failed attempt (R-188). */
 function pendingAction(
   month: Extract<BroadcastMonthStatus, { readonly state: 'pending' }>,

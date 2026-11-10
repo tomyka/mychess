@@ -2,7 +2,8 @@
  * The FIDE ID search's broadcast index (#316): which months are ready, the
  * exclusive claim of a month to process it, the one-transaction write of a
  * month's games, and the search itself. The domain decides every state
- * change (decideBroadcastClaim, isBroadcastClaimHeld, decideBroadcastFinish, decideBroadcastFailure),
+ * change (decideBroadcastClaim, isBroadcastClaimHeld, decideBroadcastFinish, decideBroadcastFailure,
+ * isBroadcastMonthInterrupted, decideBroadcastInterrupted),
  * which games the index keeps (broadcastGameSchema) and how a game looks
  * from the searched player's side (gameForPlayer).
  */
@@ -13,8 +14,10 @@ import {
   decideBroadcastFailure,
   fideIdSchema,
   decideBroadcastFinish,
+  decideBroadcastInterrupted,
   gameForPlayer,
   isBroadcastClaimHeld,
+  isBroadcastMonthInterrupted,
   broadcastMonthSchema,
   ok,
   refuse,
@@ -315,6 +318,58 @@ export async function failBroadcastMonth(
       .set(statusColumns(next))
       .where(eq(broadcastMonths.month, claim.month));
     return ok(next);
+  });
+}
+
+/** A processing month row, with the last failure its pending state kept. */
+const processingRowsSchema = z.array(
+  z.object({
+    month: broadcastMonthSchema,
+    attempts: z.number().int().nonnegative(),
+    claimedAt: z.date(),
+    failedAt: z.date().nullable(),
+  }),
+);
+
+/**
+ * Makes the months a process before this one left processing pending
+ * again without spending their attempt (#355, decideBroadcastInterrupted),
+ * once, when this process starts at `processStartedAt` and before it claims
+ * any month: a restart is not a failed attempt. A month whose write still
+ * holds its row lock is left to that write. Returns how many it released.
+ */
+export async function releaseInterruptedBroadcastMonths(
+  db: Executor,
+  processStartedAt: Date,
+): Promise<number> {
+  return db.transaction(async (tx) => {
+    const rows = processingRowsSchema.parse(
+      await tx
+        .select({
+          month: broadcastMonths.month,
+          attempts: broadcastMonths.attempts,
+          claimedAt: broadcastMonths.claimedAt,
+          failedAt: broadcastMonths.failedAt,
+        })
+        .from(broadcastMonths)
+        .where(eq(broadcastMonths.state, 'processing'))
+        .for('update', { skipLocked: true }),
+    );
+    let released = 0;
+    for (const row of rows) {
+      const status: BroadcastMonthStatus = {
+        state: 'processing',
+        attempts: row.attempts,
+        since: row.claimedAt,
+      };
+      if (!isBroadcastMonthInterrupted(status, processStartedAt)) continue;
+      await tx
+        .update(broadcastMonths)
+        .set(statusColumns(decideBroadcastInterrupted(status, row.failedAt)))
+        .where(eq(broadcastMonths.month, row.month));
+      released += 1;
+    }
+    return released;
   });
 }
 

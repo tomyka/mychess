@@ -13,8 +13,9 @@
  * Opened on first use, as the database pool is (db.ts). The runner lives
  * as long as the Node server (`next start`, the standalone image): a month
  * it processes outlives the request that needed it. A restart drops the
- * queue; the month left processing goes stale and a later search or poll
- * hands it to the new process's runner (spec decision 2).
+ * queue; the new process's runner, created here once, releases the month
+ * left processing without spending its attempt before its first claim
+ * (#355), and a later search or poll hands it to that runner.
  */
 import type { Fetch } from '@mychess/integrations';
 import { broadcastFetch } from './broadcast-fixture-fetch';
