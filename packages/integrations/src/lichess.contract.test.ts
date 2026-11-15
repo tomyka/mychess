@@ -49,9 +49,9 @@ describe.runIf(enabled)('Lichess contract', () => {
 
 // The broadcast API needs a `study:read` token (R-199); these four requests
 // run only when MYCHESS_LICHESS_TOKEN holds one as well. Keep the token off
-// the command line (shell history): put it in a gitignored env file, such
-// as `.env.local`, and load it with Node's --env-file:
-//   MYCHESS_CONTRACT=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run --project integrations lichess.contract
+// the command line (shell history): put it in the gitignored env file
+// `apps/web/.env.local` and load it with Node's --env-file, from the root:
+//   MYCHESS_CONTRACT=1 node --env-file=apps/web/.env.local node_modules/vitest/vitest.mjs run --project integrations lichess.contract
 const token = process.env['MYCHESS_LICHESS_TOKEN'] ?? '';
 
 /** Vilnius Open 2026, a finished community tournament of an R-200 organiser. */

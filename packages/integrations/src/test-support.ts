@@ -92,3 +92,19 @@ export async function collectAll<T>(items: AsyncIterable<T>): Promise<T[]> {
   for await (const item of items) all.push(item);
   return all;
 }
+
+/**
+ * `size` pseudo-random bytes from `seed` (xorshift32): as incompressible as
+ * random bytes, but the same on every run.
+ */
+export function pseudoRandomBytes(size: number, seed = 1): Uint8Array {
+  const bytes = new Uint8Array(size);
+  let state = seed >>> 0 || 1;
+  for (let i = 0; i < size; i += 1) {
+    state = (state ^ (state << 13)) >>> 0;
+    state = (state ^ (state >>> 17)) >>> 0;
+    state = (state ^ (state << 5)) >>> 0;
+    bytes[i] = state & 0xff;
+  }
+  return bytes;
+}

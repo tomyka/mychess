@@ -7,6 +7,7 @@ import { pipeline, Readable } from 'node:stream';
 import { constants, createZstdDecompress } from 'node:zlib';
 import { bodyChunks, cappedBytes, getOk, type Fetch } from './http';
 import { MONTH_FORMAT } from './month-format';
+import { zstdFrames } from './zstd-frames';
 
 /** The size caps of one month's dump (security requirements, task 1). */
 export const BROADCAST_DUMP_LIMITS = {
@@ -17,6 +18,12 @@ export const BROADCAST_DUMP_LIMITS = {
    * bytes, 128 MB, so a frame cannot make the decoder allocate more.
    */
   zstdWindowLog: 27,
+  /**
+   * The most frames a dump may hold, skippable ones included. A real dump
+   * holds far fewer; each frame costs a decoder, so a flood of tiny ones
+   * would cost time out of proportion to its bytes.
+   */
+  zstdFrames: 100_000,
 } as const;
 
 /** Checked here because the month becomes part of a URL. */
@@ -47,7 +54,8 @@ export function broadcastDumpUrl(month: string): string {
 /**
  * Opens `month`'s dump. Fails when the download answers with an error
  * status. Reading the text fails once the compressed or decompressed bytes
- * pass BROADCAST_DUMP_LIMITS, a frame asks for a larger window, or the dump
+ * pass BROADCAST_DUMP_LIMITS, it holds more frames than they allow, a
+ * frame asks for a larger window or is malformed, or the dump
  * is closed. Aborting `signal` closes the dump, read or not; a reader that
  * stops early or reaches the end closes it too.
  */
@@ -66,23 +74,16 @@ function dumpOf(
   what: string,
 ): BroadcastDump {
   const body = response.body?.getReader();
-  const decompressor = createZstdDecompress({
-    params: {
-      [constants.ZSTD_d_windowLogMax]: BROADCAST_DUMP_LIMITS.zstdWindowLog,
-    },
-  });
   const compressed = cappedBytes(
     bodyChunks(body),
     BROADCAST_DUMP_LIMITS.compressedBytes,
     signal,
     what,
   );
-  // pipeline destroys every stage with the first error, so the reader of
-  // `decompressor` sees it; destroying again here is a no-op kept to make
-  // that hand-over explicit.
-  pipeline(Readable.from(compressed), decompressor, (error) => {
-    if (error) decompressor.destroy(error);
-  });
+  // One stream over every frame. Closing destroys it, so reading fails at
+  // once; the teardown of the frame being read runs through the body
+  // cancel below, which ends the read the frame's decoder waits on.
+  const decompressor = Readable.from(decompressedFrames(compressed));
   let open = true;
   const close = (reason: Error): void => {
     if (!open) return;
@@ -117,6 +118,37 @@ function dumpOf(
       return Promise.resolve();
     },
   };
+}
+
+/**
+ * The decompressed bytes of every zstd frame of `compressed`, in order. Node's
+ * zstd decoder stops at the end of the frame it started on (#357), so each
+ * frame gets its own decoder, each limited to the same window.
+ */
+async function* decompressedFrames(
+  compressed: AsyncIterable<Uint8Array>,
+): AsyncGenerator<Uint8Array> {
+  for await (const frame of zstdFrames(
+    compressed,
+    BROADCAST_DUMP_LIMITS.zstdFrames,
+  )) {
+    const decoder = createZstdDecompress({
+      params: {
+        [constants.ZSTD_d_windowLogMax]: BROADCAST_DUMP_LIMITS.zstdWindowLog,
+      },
+    });
+    // pipeline destroys every stage with the first error, so the reader of
+    // `decoder` sees it; destroying again here is a no-op kept to make that
+    // hand-over explicit.
+    pipeline(Readable.from(frame), decoder, (error) => {
+      if (error) decoder.destroy(error);
+    });
+    try {
+      yield* decoder;
+    } finally {
+      decoder.destroy();
+    }
+  }
 }
 
 function abortReason(signal: AbortSignal, what: string): Error {
