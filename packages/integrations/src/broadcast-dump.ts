@@ -26,6 +26,14 @@ export const BROADCAST_DUMP_LIMITS = {
   zstdFrames: 100_000,
 } as const;
 
+/** Size caps of a dump, as BROADCAST_DUMP_LIMITS gives them. */
+export interface BroadcastDumpLimits {
+  readonly compressedBytes: number;
+  readonly decompressedBytes: number;
+  readonly zstdWindowLog: number;
+  readonly zstdFrames: number;
+}
+
 /** Checked here because the month becomes part of a URL. */
 const MONTH = new RegExp(`^${MONTH_FORMAT}$`);
 
@@ -54,7 +62,8 @@ export function broadcastDumpUrl(month: string): string {
 /**
  * Opens `month`'s dump. Fails when the download answers with an error
  * status. Reading the text fails once the compressed or decompressed bytes
- * pass BROADCAST_DUMP_LIMITS, it holds more frames than they allow, a
+ * pass `limits` (BROADCAST_DUMP_LIMITS unless tests pass smaller ones), it
+ * holds more frames than they allow, a
  * frame asks for a larger window or is malformed, or the dump
  * is closed. Aborting `signal` closes the dump, read or not; a reader that
  * stops early or reaches the end closes it too.
@@ -63,27 +72,34 @@ export async function openBroadcastDump(
   fetch: Fetch,
   month: string,
   signal: AbortSignal,
+  limits: BroadcastDumpLimits = BROADCAST_DUMP_LIMITS,
 ): Promise<BroadcastDump> {
   const response = await getOk(fetch, broadcastDumpUrl(month), signal);
-  return dumpOf(response, signal, `the ${month} broadcast dump`);
+  return dumpOf(response, signal, `the ${month} broadcast dump`, limits);
 }
 
 function dumpOf(
   response: Response,
   signal: AbortSignal,
   what: string,
+  limits: BroadcastDumpLimits,
 ): BroadcastDump {
   const body = response.body?.getReader();
   const compressed = cappedBytes(
     bodyChunks(body),
-    BROADCAST_DUMP_LIMITS.compressedBytes,
+    limits.compressedBytes,
     signal,
     what,
   );
   // One stream over every frame. Closing destroys it, so reading fails at
   // once; the teardown of the frame being read runs through the body
   // cancel below, which ends the read the frame's decoder waits on.
-  const decompressor = Readable.from(decompressedFrames(compressed));
+  const decompressor = Readable.from(decompressedFrames(compressed, limits));
+  // A reader of the text gets the failure through its iterator. Without a
+  // listener, destroying the stream while no one reads it (closed unread,
+  // disposed after an abort) would raise the reason as an uncaught
+  // exception, so the listener only keeps it from escaping.
+  decompressor.on('error', () => undefined);
   let open = true;
   const close = (reason: Error): void => {
     if (!open) return;
@@ -106,7 +122,7 @@ function dumpOf(
   };
   const decompressed = cappedBytes(
     decompressor,
-    BROADCAST_DUMP_LIMITS.decompressedBytes,
+    limits.decompressedBytes,
     signal,
     `${what}, decompressed,`,
   );
@@ -127,14 +143,12 @@ function dumpOf(
  */
 async function* decompressedFrames(
   compressed: AsyncIterable<Uint8Array>,
+  limits: BroadcastDumpLimits,
 ): AsyncGenerator<Uint8Array> {
-  for await (const frame of zstdFrames(
-    compressed,
-    BROADCAST_DUMP_LIMITS.zstdFrames,
-  )) {
+  for await (const frame of zstdFrames(compressed, limits.zstdFrames)) {
     const decoder = createZstdDecompress({
       params: {
-        [constants.ZSTD_d_windowLogMax]: BROADCAST_DUMP_LIMITS.zstdWindowLog,
+        [constants.ZSTD_d_windowLogMax]: limits.zstdWindowLog,
       },
     });
     // pipeline destroys every stage with the first error, so the reader of

@@ -217,37 +217,86 @@ describe('openBroadcastDump', () => {
     const { text } = await openBroadcastDump(fetch, '2026-03', never);
     await expect(collectAll(text)).rejects.toThrow();
   });
+});
 
-  it('fails once the compressed bytes pass 100 MB', async () => {
-    expect(BROADCAST_DUMP_LIMITS.compressedBytes).toBe(100 * MIB);
-    // Random bytes do not compress, so each frame is about 1 MB on the wire.
-    const frame = zstdCompressSync(pseudoRandomBytes(MIB));
-    const fetch = fakeFetch({
-      [MONTH_URL]: streamedResponse(repeated(frame, 101)),
+describe('openBroadcastDump size caps', () => {
+  /**
+   * Small caps, so each test moves kilobytes, not the real 100 MB and 1 GB:
+   * the cap logic is the same, and the defaults are asserted below.
+   */
+  const SMALL = {
+    ...BROADCAST_DUMP_LIMITS,
+    compressedBytes: 64 * 1024,
+    decompressedBytes: MIB,
+  };
+
+  /** Every text chunk of `month`'s dump read under SMALL; the chars read. */
+  async function readSmall(
+    chunks: Iterable<Uint8Array>,
+  ): Promise<{ read: number; error: unknown }> {
+    const fetch = fakeFetch({ [MONTH_URL]: streamedResponse(chunks) });
+    const { text } = await openBroadcastDump(fetch, '2026-03', never, SMALL);
+    let read = 0;
+    try {
+      for await (const chunk of text) read += chunk.length;
+      return { read, error: undefined };
+    } catch (error) {
+      return { read, error };
+    }
+  }
+
+  it('defaults to 100 MB compressed, 1 GB decompressed, 100 000 frames and a 128 MB window', () => {
+    expect(BROADCAST_DUMP_LIMITS).toEqual({
+      compressedBytes: 100 * MIB,
+      decompressedBytes: 1024 * MIB,
+      zstdFrames: 100_000,
+      zstdWindowLog: 27,
     });
-    const { text } = await openBroadcastDump(fetch, '2026-03', never);
-    await expect(collectAll(text)).rejects.toThrow(
-      'larger than 104857600 bytes',
-    );
   });
 
-  it('fails once the decompressed bytes pass 1 GB', async () => {
-    expect(BROADCAST_DUMP_LIMITS.decompressedBytes).toBe(1024 * MIB);
-    // 64 MB of spaces compress to a few kilobytes: a small decompression
-    // bomb. Its frames arrive in one chunk, after a skippable frame, so the
-    // cap is counted across frames.
-    const frame = zstdCompressSync(Buffer.alloc(64 * MIB, ' '));
-    const dump = Buffer.concat([skippable(8), ...repeated(frame, 17)]);
-    const fetch = fakeFetch({ [MONTH_URL]: streamedResponse([dump]) });
-    const { text } = await openBroadcastDump(fetch, '2026-03', never);
-    let read = 0;
-    const reading = (async () => {
-      for await (const chunk of text) read += chunk.length;
-    })();
-    await expect(reading).rejects.toThrow('larger than 1073741824 bytes');
-    expect(read).toBeLessThanOrEqual(1024 * MIB);
-  }, 30_000);
+  /** Incompressible 16 KB frames, padded by a skippable frame to `total`. */
+  function framesOfTotal(total: number): Uint8Array[] {
+    const frame = zstdCompressSync(pseudoRandomBytes(16 * 1024));
+    const frames = repeated(frame, 3);
+    const padding = total - 3 * frame.byteLength - 8;
+    return [...frames, skippable(padding)];
+  }
 
+  it('reads a dump of exactly the compressed cap', async () => {
+    const chunks = framesOfTotal(64 * 1024);
+    expect(Buffer.concat(chunks).byteLength).toBe(64 * 1024);
+    const { read, error } = await readSmall(chunks);
+    expect(error).toBeUndefined();
+    expect(read).toBeGreaterThan(0);
+  });
+
+  it('fails once the compressed bytes pass the cap, counted across chunks', async () => {
+    const { error } = await readSmall(framesOfTotal(64 * 1024 + 1));
+    expect(String(error)).toContain('larger than 65536 bytes');
+  });
+
+  // Spaces compress to almost nothing: each frame is a small decompression
+  // bomb. The frames arrive in one chunk after a skippable frame, so the
+  // cap is counted across frames inside one chunk.
+  const QUARTER = zstdCompressSync(Buffer.alloc(MIB / 4, ' '));
+
+  it('reads a dump of exactly the decompressed cap', async () => {
+    const dump = Buffer.concat([skippable(8), ...repeated(QUARTER, 4)]);
+    await expect(readSmall([dump])).resolves.toEqual({
+      read: MIB,
+      error: undefined,
+    });
+  });
+
+  it('fails once the decompressed bytes pass the cap, across frames in one chunk', async () => {
+    const dump = Buffer.concat([skippable(8), ...repeated(QUARTER, 5)]);
+    const { read, error } = await readSmall([dump]);
+    expect(String(error)).toContain('larger than 1048576 bytes');
+    expect(read).toBeLessThanOrEqual(MIB);
+  });
+});
+
+describe('openBroadcastDump stops', () => {
   it('stops when the signal is aborted', async () => {
     const controller = new AbortController();
     const frame = zstdCompressSync(Buffer.alloc(MIB, ' '));
@@ -366,5 +415,79 @@ describe('openBroadcastDump teardown of a dump never read', () => {
     const dump = await openBroadcastDump(fetch, '2026-03', never);
     await expect(collectAll(dump.text)).resolves.toEqual(['x']);
     dump.close();
+  });
+});
+
+/**
+ * The errors raised outside any reader while `action` runs and a little
+ * after: a stream destroyed with no one listening raises its reason as an
+ * uncaught exception on a later tick.
+ */
+async function uncaughtDuring(action: () => Promise<void>): Promise<unknown[]> {
+  const raised: unknown[] = [];
+  const onError = (error: unknown): void => {
+    raised.push(error);
+  };
+  process.on('uncaughtException', onError);
+  process.on('unhandledRejection', onError);
+  try {
+    await action();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  } finally {
+    process.off('uncaughtException', onError);
+    process.off('unhandledRejection', onError);
+  }
+  return raised;
+}
+
+describe('openBroadcastDump teardown raises nothing outside its reader', () => {
+  // About 440 KB: several blocks, so text comes before the last one.
+  const PGN = '[Event "A"]\n\n1. e4 *\n'.repeat(20_000);
+
+  it('when closed before reading', async () => {
+    const raised = await uncaughtDuring(async () => {
+      const fetch = fakeFetch({ [MONTH_URL]: stalledResponse().response });
+      const dump = await openBroadcastDump(fetch, '2026-03', never);
+      dump.close();
+    });
+    expect(raised).toEqual([]);
+  });
+
+  it('when closed mid-frame, its text read in part', async () => {
+    const frame = zstdCompressSync(Buffer.from(PGN));
+    const answer = stalledAfter(frame.subarray(0, frame.byteLength - 10));
+    const raised = await uncaughtDuring(async () => {
+      const fetch = fakeFetch({ [MONTH_URL]: answer.response });
+      const dump = await openBroadcastDump(fetch, '2026-03', never);
+      const reader = dump.text[Symbol.asyncIterator]();
+      await reader.next();
+      dump.close();
+    });
+    expect(raised).toEqual([]);
+    expect(answer.cancelled()).toBe(true);
+  });
+
+  it('when disposed after an abort while idle', async () => {
+    const controller = new AbortController();
+    const raised = await uncaughtDuring(async () => {
+      const fetch = fakeFetch({ [MONTH_URL]: stalledResponse().response });
+      const dump = await openBroadcastDump(fetch, '2026-03', controller.signal);
+      controller.abort(new Error('idle too long'));
+      await dump[Symbol.asyncDispose]();
+    });
+    expect(raised).toEqual([]);
+  });
+
+  it('when a reader stops early and the dump is disposed', async () => {
+    const raised = await uncaughtDuring(async () => {
+      const fetch = fakeFetch({
+        [MONTH_URL]: streamedResponse([zstdCompressSync(Buffer.from(PGN))]),
+      });
+      await using dump = await openBroadcastDump(fetch, '2026-03', never);
+      for await (const chunk of dump.text) {
+        if (chunk.length > 0) break;
+      }
+    });
+    expect(raised).toEqual([]);
   });
 });
