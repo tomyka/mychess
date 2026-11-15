@@ -6,8 +6,12 @@ import { describe, expect, it } from 'vitest';
 import {
   broadcastGames,
   broadcastMonths,
+  lichessBroadcastsBy,
+  lichessBroadcastTour,
+  lichessBroadcastTourOfRound,
   lichessFidePlayer,
   openBroadcastDump,
+  openLichessBroadcastPgn,
   type Fetch,
 } from './index';
 
@@ -42,3 +46,63 @@ describe.runIf(enabled)('Lichess contract', () => {
     expect(player.ok).toBe(true);
   }, 15_000);
 });
+
+// The broadcast API needs a `study:read` token (R-199); these four requests
+// run only when MYCHESS_LICHESS_TOKEN holds one as well. Keep the token off
+// the command line (shell history): put it in a gitignored env file, such
+// as `.env.local`, and load it with Node's --env-file:
+//   MYCHESS_CONTRACT=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run --project integrations lichess.contract
+const token = process.env['MYCHESS_LICHESS_TOKEN'] ?? '';
+
+/** Vilnius Open 2026, a finished community tournament of an R-200 organiser. */
+const TOUR = { organiser: 'paulauskas', id: '8PbrZM5O', roundId: 'GzyWUqHk' };
+
+describe.runIf(enabled && token !== '')(
+  'Lichess broadcast API contract',
+  () => {
+    const api = { fetch: realFetch, token };
+
+    it("lists an organiser's tournaments", async () => {
+      const page = await lichessBroadcastsBy(
+        api,
+        TOUR.organiser,
+        1,
+        AbortSignal.timeout(15_000),
+      );
+      expect(page.ok && page.value.tours.map(({ tour }) => tour.id)).toContain(
+        TOUR.id,
+      );
+    }, 15_000);
+
+    it('reads a finished tournament with its rounds', async () => {
+      const tour = await lichessBroadcastTour(
+        api,
+        TOUR.id,
+        AbortSignal.timeout(15_000),
+      );
+      expect(tour.ok && tour.value.finished).toBe(true);
+    }, 15_000);
+
+    it('resolves a round to its tournament', async () => {
+      const tour = await lichessBroadcastTourOfRound(
+        api,
+        TOUR.roundId,
+        AbortSignal.timeout(15_000),
+      );
+      expect(tour.ok && tour.value.id).toBe(TOUR.id);
+    }, 15_000);
+
+    it("parses the tournament's PGN", async () => {
+      const opened = await openLichessBroadcastPgn(
+        api,
+        TOUR.id,
+        AbortSignal.timeout(30_000),
+      );
+      if (!opened.ok) throw new Error(opened.refusal.reason);
+      await using pgn = opened.value;
+      const games = [];
+      for await (const game of pgn.games) games.push(game);
+      expect(games.length).toBeGreaterThan(0);
+    }, 30_000);
+  },
+);

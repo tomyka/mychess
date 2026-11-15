@@ -5,7 +5,7 @@
  */
 import { pipeline, Readable } from 'node:stream';
 import { constants, createZstdDecompress } from 'node:zlib';
-import { cappedBytes, getOk, type Fetch } from './http';
+import { bodyChunks, cappedBytes, getOk, type Fetch } from './http';
 import { MONTH_FORMAT } from './month-format';
 
 /** The size caps of one month's dump (security requirements, task 1). */
@@ -123,17 +123,6 @@ function abortReason(signal: AbortSignal, what: string): Error {
   return signal.reason instanceof Error
     ? signal.reason
     : new Error(`${what} was aborted`);
-}
-
-async function* bodyChunks(
-  body: ReadableStreamDefaultReader<Uint8Array> | undefined,
-): AsyncGenerator<Uint8Array> {
-  if (body === undefined) return;
-  for (;;) {
-    const next = await body.read();
-    if (next.done) return;
-    yield next.value;
-  }
 }
 
 async function* utf8Text(

@@ -5,7 +5,13 @@
  */
 import { ok, refuse, type Result } from '@mychess/chess';
 import { z } from 'zod';
-import { discard, get, readCappedText, type Fetch } from './http';
+import {
+  discard,
+  get,
+  jsonOrUndefined,
+  readCappedText,
+  type Fetch,
+} from './http';
 
 /** Message-catalogue keys for a player the endpoint does not give. */
 export const FIDE_PLAYER_REFUSALS = {
@@ -111,14 +117,5 @@ async function playerAnswer(
   } catch {
     signal.throwIfAborted();
     throw new Error('the FIDE player request failed');
-  }
-}
-
-/** `text` parsed as JSON; undefined, which the schema refuses, when it is not. */
-function jsonOrUndefined(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return undefined;
   }
 }

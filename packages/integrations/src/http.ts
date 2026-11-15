@@ -41,17 +41,26 @@ export function discard(response: Response): void {
   response.body?.cancel().catch(() => undefined);
 }
 
-/** GETs `url` under the shared rules, whatever the status. */
+/**
+ * GETs `url` under the shared rules, whatever the status, sending `headers`
+ * besides the User-Agent.
+ */
 export function get(
   fetch: Fetch,
   url: string,
   signal: AbortSignal,
+  headers: Readonly<Record<string, string>> = {},
 ): Promise<Response> {
   return fetch(url, {
     redirect: 'error',
     signal,
-    headers: { 'User-Agent': USER_AGENT },
+    headers: { ...headers, 'User-Agent': USER_AGENT },
   });
+}
+
+/** The failure of a stream read past its byte cap. */
+export class TooLargeError extends Error {
+  override readonly name = 'TooLargeError';
 }
 
 /**
@@ -69,33 +78,70 @@ export async function* cappedBytes(
     signal.throwIfAborted();
     total += chunk.byteLength;
     if (total > maxBytes) {
-      throw new Error(`${what} is larger than ${String(maxBytes)} bytes`);
+      throw new TooLargeError(
+        `${what} is larger than ${String(maxBytes)} bytes`,
+      );
     }
     yield chunk;
   }
 }
 
-/** A response's body chunks; none for a response without a body. */
-function bodyOf(response: Response): Chunks {
-  return response.body ?? [];
-}
-
-/** A whole response body as UTF-8 text of at most `maxBytes` bytes. */
+/**
+ * A whole response body as UTF-8 text of at most `maxBytes` bytes. Aborting
+ * `signal` cancels the body, so a read waiting on the network ends, and
+ * fails with the abort reason; a read that fails otherwise cancels the body
+ * too.
+ */
 export async function readCappedText(
   response: Response,
   maxBytes: number,
   signal: AbortSignal,
   what: string,
 ): Promise<string> {
-  const decoder = new TextDecoder();
-  let text = '';
-  for await (const chunk of cappedBytes(
-    bodyOf(response),
-    maxBytes,
-    signal,
-    what,
-  )) {
-    text += decoder.decode(chunk, { stream: true });
+  const body = response.body?.getReader();
+  const onAbort = (): void => {
+    body?.cancel().catch(() => undefined);
+  };
+  signal.addEventListener('abort', onAbort, { once: true });
+  if (signal.aborted) onAbort();
+  try {
+    const decoder = new TextDecoder();
+    let text = '';
+    for await (const chunk of cappedBytes(
+      bodyChunks(body),
+      maxBytes,
+      signal,
+      what,
+    )) {
+      text += decoder.decode(chunk, { stream: true });
+    }
+    signal.throwIfAborted();
+    return text + decoder.decode();
+  } finally {
+    signal.removeEventListener('abort', onAbort);
+    // Frees the connection when a read failed (a cap passed, a decode or
+    // network error); after a whole read there is nothing left to cancel.
+    body?.cancel().catch(() => undefined);
   }
-  return text + decoder.decode();
+}
+
+/** The chunks a body reader delivers; none without a reader. */
+export async function* bodyChunks(
+  body: ReadableStreamDefaultReader<Uint8Array> | undefined,
+): AsyncGenerator<Uint8Array> {
+  if (body === undefined) return;
+  for (;;) {
+    const next = await body.read();
+    if (next.done) return;
+    yield next.value;
+  }
+}
+
+/** `text` parsed as JSON; undefined, which a schema refuses, when it is not. */
+export function jsonOrUndefined(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
 }

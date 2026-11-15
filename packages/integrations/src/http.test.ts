@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { cappedBytes, getOk, readCappedText, USER_AGENT } from './http';
-import { fakeFetch, never, trackedResponse } from './test-support';
+import {
+  cappedBytes,
+  get,
+  getOk,
+  readCappedText,
+  TooLargeError,
+  USER_AGENT,
+} from './http';
+import {
+  fakeFetch,
+  never,
+  stalledResponse,
+  trackedResponse,
+} from './test-support';
 
 async function collect(chunks: AsyncIterable<Uint8Array>): Promise<number[]> {
   const sizes: number[] = [];
@@ -101,5 +113,55 @@ describe('readCappedText', () => {
     await expect(
       readCappedText(new Response(null, { status: 204 }), 10, never, 'sample'),
     ).resolves.toBe('');
+  });
+
+  it('fails past the cap with a TooLargeError, and cancels the body', async () => {
+    const answer = trackedResponse([
+      new Uint8Array(6),
+      new Uint8Array(6),
+      new Uint8Array(6),
+      new Uint8Array(6),
+    ]);
+    await expect(
+      readCappedText(answer.response, 10, never, 'sample'),
+    ).rejects.toBeInstanceOf(TooLargeError);
+    expect(answer.cancelled()).toBe(true);
+  });
+  it('cancels a stalled body on abort and fails with the reason', async () => {
+    const controller = new AbortController();
+    const stalled = stalledResponse();
+    const reading = readCappedText(
+      stalled.response,
+      10,
+      controller.signal,
+      'sample',
+    );
+    const reason = new Error('stop');
+    controller.abort(reason);
+    await expect(reading).rejects.toBe(reason);
+    expect(stalled.cancelled()).toBe(true);
+  });
+
+  it('cancels the body when the signal is already aborted', async () => {
+    const answer = trackedResponse([new Uint8Array(2)]);
+    const reason = new Error('stop');
+    await expect(
+      readCappedText(answer.response, 10, AbortSignal.abort(reason), 'sample'),
+    ).rejects.toBe(reason);
+    expect(answer.cancelled()).toBe(true);
+  });
+});
+
+describe('get', () => {
+  it('sends extra headers, never overriding the User-Agent', async () => {
+    const fetch = fakeFetch({ 'https://example.org/': new Response('') });
+    await get(fetch, 'https://example.org/', never, {
+      Authorization: 'Bearer x',
+      'User-Agent': 'Other',
+    });
+    expect(fetch.calls[0]?.init.headers).toEqual({
+      Authorization: 'Bearer x',
+      'User-Agent': USER_AGENT,
+    });
   });
 });
