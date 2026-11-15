@@ -1,18 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  fideIdSchema,
   broadcastMonthSchema,
   type BroadcastGameInput,
-  type FideId,
   type BroadcastMonth,
 } from '@mychess/domain';
 import { describe, expect, it } from 'vitest';
 import {
-  FOUND_GAMES_LIMIT,
   claimBroadcastMonth,
   failBroadcastMonth,
-  gamesForFideId,
   broadcastMonthStatuses,
   releaseInterruptedBroadcastMonths,
   writeBroadcastMonth,
@@ -30,7 +26,6 @@ const later = (ms: number): Date => new Date(NOW.getTime() + ms);
 const month = (text: string): BroadcastMonth =>
   broadcastMonthSchema.parse(text);
 const months = (...texts: string[]): BroadcastMonth[] => texts.map(month);
-const id = (n: number): FideId => fideIdSchema.parse(n);
 
 /** A synthetic broadcast game: no real players (CLAUDE.md). */
 const game = (
@@ -638,93 +633,5 @@ describe('migration 0015 resets failed and processing months (#355)', () => {
     expect(await gameCount()).toBe(1);
     for (const text of ['2025-02', '2025-05'])
       expect((await claimBroadcastMonth(db, month(text), NOW)).ok).toBe(true);
-  });
-});
-
-describe('gamesForFideId (#316, R-185)', () => {
-  it("gives the player's games across months, newest first, from the player's side", async () => {
-    await written('2025-01', [
-      game(1, { date: '2025-01-05', result: '0-1' }),
-      game(2, { date: '2025-01-20', whiteFideId: 300, blackFideId: 100 }),
-      game(3, { whiteFideId: 300, blackFideId: 400 }),
-    ]);
-    await written('2025-02', [
-      game(4, { date: '2025-02-01', blackFideId: null, result: '*' }),
-    ]);
-    const found = await gamesForFideId(
-      db,
-      id(100),
-      months('2025-01', '2025-02'),
-    );
-    expect(found).toEqual({
-      truncated: false,
-      games: [
-        {
-          url: game(4).url,
-          month: '2025-02',
-          date: '2025-02-01',
-          event: 'Synthetic Open',
-          eco: 'B90',
-          opening: 'Sicilian Defense: Najdorf Variation',
-          colour: 'white',
-          opponent: { name: 'Black 4', fideId: null },
-          outcome: 'unknown',
-        },
-        expect.objectContaining({
-          url: game(2).url,
-          colour: 'black',
-          opponent: { name: 'White 2', fideId: 300 },
-          outcome: 'loss',
-        }),
-        expect.objectContaining({
-          url: game(1).url,
-          colour: 'white',
-          opponent: { name: 'Black 1', fideId: 200 },
-          outcome: 'loss',
-        }),
-      ],
-    });
-  });
-
-  it('searches only the months asked', async () => {
-    await written('2025-01', [game(1)]);
-    await written('2025-02', [game(2)]);
-    const found = await gamesForFideId(db, id(100), months('2025-02'));
-    expect(found.games.map((one) => one.url)).toEqual([game(2).url]);
-  });
-
-  it('puts a game without a date after the dated games of its month', async () => {
-    await written('2025-01', [
-      game(1, { date: null }),
-      game(2, { date: '2025-01-03' }),
-    ]);
-    const found = await gamesForFideId(db, id(100), months('2025-01'));
-    expect(found.games.map((one) => [one.url, one.date])).toEqual([
-      [game(2).url, '2025-01-03'],
-      [game(1).url, null],
-    ]);
-  });
-
-  it('gives at most 1000 games and says when there were more (security L1)', async () => {
-    expect(FOUND_GAMES_LIMIT).toBe(1000);
-    await written('2025-01', gamesNumbered(FOUND_GAMES_LIMIT + 1));
-    const found = await gamesForFideId(db, id(100), months('2025-01'));
-    expect(found.games).toHaveLength(FOUND_GAMES_LIMIT);
-    expect(found.truncated).toBe(true);
-  });
-
-  it('is not truncated at exactly the limit', async () => {
-    await written('2025-01', gamesNumbered(FOUND_GAMES_LIMIT));
-    const found = await gamesForFideId(db, id(100), months('2025-01'));
-    expect(found.games).toHaveLength(FOUND_GAMES_LIMIT);
-    expect(found.truncated).toBe(false);
-  });
-
-  it('gives nothing for no months', async () => {
-    await written('2025-01', [game(1)]);
-    expect(await gamesForFideId(db, id(100), [])).toEqual({
-      games: [],
-      truncated: false,
-    });
   });
 });

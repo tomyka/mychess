@@ -183,7 +183,10 @@ async function snapshotOf(
     }),
   );
   fideServices().runner.need(monthsTo('process', actions));
-  const found = await gamesForFideId(db, id, monthsTo('use', actions));
+  const found = await gamesForFideId(db, id, {
+    months: monthsTo('use', actions),
+    window: null,
+  });
   return {
     progress: progressOf(actions.map(({ action }) => DISPLAY[action])),
     games: found.games,

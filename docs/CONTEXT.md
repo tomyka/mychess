@@ -191,7 +191,20 @@ _Avoid_: Imported game, real game (for these)
 The part of a Broadcast game's Lichess opening name before the first colon ("Sicilian Defense" from "Sicilian Defense: Najdorf Variation"); Opponent's games groups by it (R-189). Not the ECO-code family of the opening taxonomy in the chess package.
 
 **Broadcast month**:
-One monthly Lichess broadcast dump, indexed when a search first needs it (R-184). Its state is pending, processing, done or failed.
+One monthly Lichess broadcast dump, indexed nightly while among the 12 newest, or when a search needs it first (R-184, R-195). Its state is pending, processing, done or failed.
+
+**Broadcast tournament**:
+One Lichess broadcast event (a "tour" in Lichess's API and in code), fetched once when finished and indexed beside the Broadcast months. It reaches the index from an Approved organiser's list or a pasted link (R-196, R-197). Its state is pending, processing, done or failed, as a month's.
+_Avoid_: event (for the indexed unit)
+
+**Approved organiser**:
+A Lichess account whose broadcast tournaments are listed nightly; the owner approves each (R-196, R-200). Not a player searched (R-191).
+
+**Official broadcast**:
+A broadcast Lichess marks official; its games reach the monthly dumps, so a Broadcast month's games count as official.
+
+**Community broadcast**:
+A broadcast not marked official; never in the dumps. Where a community game and an official copy of it both exist, a search shows the official one.
 
 ### Coaching
 

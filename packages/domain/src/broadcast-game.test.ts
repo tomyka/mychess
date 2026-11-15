@@ -9,7 +9,9 @@ import {
   groupForPreparation,
   isIndexableGame,
   openingFamily,
+  preferOfficialCopies,
   type BroadcastGameInput,
+  type OfficialCopyGame,
   type BroadcastPairing,
   type PreparationGame,
 } from './broadcast-game';
@@ -382,5 +384,81 @@ describe('groupForPreparation (#348, R-189, R-190)', () => {
       section.groups.flatMap((group) => names(group.games)),
     );
     expect(kept.toSorted()).toEqual(['a', 'b', 'c', 'd']);
+  });
+});
+
+describe('preferOfficialCopies (#349, spec decision 5)', () => {
+  /** A found game of the searched player; official unless said otherwise. */
+  const found = (
+    url: string,
+    over: Partial<OfficialCopyGame> = {},
+  ): OfficialCopyGame & { readonly url: string } => ({
+    url,
+    official: true,
+    date: '2026-03-01',
+    colour: 'white',
+    opponent: { name: 'Synthetic Opponent', fideId: id(200) },
+    outcome: 'win',
+    ...over,
+  });
+  const urls = (games: readonly { readonly url: string }[]): string[] =>
+    games.map((game) => game.url);
+
+  it('drops the community copy of a game an official copy holds, keeping the order', () => {
+    const games = [
+      found('community', { official: false }),
+      found('other', { date: '2026-02-01' }),
+      found('official'),
+    ];
+    expect(urls(preferOfficialCopies(games))).toEqual(['other', 'official']);
+  });
+
+  it.each([
+    ['date', { date: '2026-03-02' }],
+    ['colour', { colour: 'black' }],
+    ['opponent', { opponent: { name: 'Synthetic Opponent', fideId: id(201) } }],
+    ['result', { outcome: 'draw' }],
+  ] as const)('keeps a community game with another %s', (_, over) => {
+    const games = [
+      found('community', { official: false, ...over }),
+      found('o'),
+    ];
+    expect(urls(preferOfficialCopies(games))).toEqual(['community', 'o']);
+  });
+
+  it('keeps an undated community game, which no date can match', () => {
+    const games = [
+      found('community', { official: false, date: null }),
+      found('o', { date: null }),
+    ];
+    expect(urls(preferOfficialCopies(games))).toHaveLength(2);
+  });
+
+  it('keeps a community game against an opponent without a FIDE ID', () => {
+    const unknown = { name: 'Synthetic Opponent', fideId: null };
+    const games = [
+      found('community', { official: false, opponent: unknown }),
+      found('o', { opponent: unknown }),
+    ];
+    expect(urls(preferOfficialCopies(games))).toHaveLength(2);
+  });
+
+  it('keeps every official game and every community game no official one matches', () => {
+    const games = [
+      found('o1'),
+      found('o2'),
+      found('c1', { official: false }),
+      found('c2', { official: false, date: '2026-01-01' }),
+      found('c3', { official: false, date: '2026-01-01' }),
+    ];
+    expect(urls(preferOfficialCopies(games))).toEqual(['o1', 'o2', 'c2', 'c3']);
+  });
+
+  it('matches an unfinished result to an unfinished result only', () => {
+    const games = [
+      found('community', { official: false, outcome: 'unknown' }),
+      found('o', { outcome: 'unknown' }),
+    ];
+    expect(urls(preferOfficialCopies(games))).toEqual(['o']);
   });
 });

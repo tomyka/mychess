@@ -192,9 +192,10 @@ than many small ones. Either refusal is a 429 with
 `training.tooManyResults`, and the browser keeps its queue to resend later.
 A body declared over 256 KB is refused unread with a 413.
 
-The per-inbox magic-link limit, the PGN import's and the training limits
-are our own counters, in the `request_counters` table, keyed by a SHA-256
-hash of the inbox or by the account id. The hash is unsalted, so a guessed
+The per-inbox magic-link limit, the PGN import's, the training limits and
+the pasted broadcast links (10 an account a day, #349) are our own counters,
+in the `request_counters` table, keyed by a SHA-256 hash of the inbox or by
+the account id. The hash is unsalted, so a guessed
 address can be matched to its row; rows last at most an hour (the prune below). They are not in `rate_limits`: Better Auth
 deletes its rows older than its own longest window (a minute) whenever one of
 its keys opens a new window, which would cut our hour short.
@@ -205,7 +206,8 @@ Both tables grow: `rate_limits` with every new client address, and
 build`) deletes the rows that can no longer decide a request: `rate_limits`
 rows whose last request is older than `BETTER_AUTH_RETENTION_MS` (a minute)
 and `request_counters` rows whose window opened longer ago than
-`REQUEST_COUNTER_RETENTION_MS` (an hour), both in
+`REQUEST_COUNTER_RETENTION_MS` (an hour; a day for the `broadcast-link:`
+rows, `BROADCAST_LINK_COUNTER_RETENTION`), both in
 `packages/db/src/rate-limits.ts`. It prints `rate-limits: pruned <n>`, the
 two tables together. Deleting them changes no limit decision. It needs only
 `DATABASE_URL`. In production the same prune runs daily at 03:00 UTC from

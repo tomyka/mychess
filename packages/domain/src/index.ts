@@ -92,10 +92,12 @@ export {
   groupForPreparation,
   isIndexableGame,
   openingFamily,
+  preferOfficialCopies,
   type BroadcastGame,
   type BroadcastGameInput,
   type BroadcastPairing,
   type BroadcastResult,
+  type OfficialCopyGame,
   type OpeningFamilyGroup,
   type PlayerGame,
   type PlayerOutcome,
@@ -123,6 +125,40 @@ export {
   type BroadcastMonthState,
   type BroadcastMonthStatus,
 } from './broadcast-month';
+export {
+  BROADCAST_LINK_MAX,
+  BROADCAST_LINK_REFUSAL,
+  parseBroadcastLink,
+  type BroadcastLink,
+  type BroadcastLinkRefusal,
+} from './broadcast-link';
+export {
+  APPROVED_BROADCAST_ORGANISERS,
+  BROADCAST_TOUR_ID_PATTERN,
+  BROADCAST_TOUR_ORIGINS,
+  BROADCAST_TOUR_REFUSALS,
+  approvedOrganiser,
+  broadcastTourIdSchema,
+  qualifyBroadcastTour,
+  broadcastTourFieldsSchema,
+  isGameOfTour,
+  type ApprovedOrganiser,
+  type BroadcastTourCandidate,
+  type BroadcastTourClaimRefusal,
+  type BroadcastTourId,
+  type BroadcastTourOrigin,
+  type BroadcastTourRefusal,
+  type BroadcastTourStatus,
+  type QueuedBroadcastTour,
+} from './broadcast-tour';
+export {
+  broadcastWindow,
+  broadcastWindowStart,
+  isAfterBroadcastDumps,
+  isWithinBroadcastWindow,
+  monthOfInstant,
+  type BroadcastWindow,
+} from './broadcast-window';
 export {
   FIDE_ID_REFUSALS,
   fideId,
@@ -221,12 +257,14 @@ export {
   type DisplayName,
 } from './display-name';
 export {
+  BROADCAST_LINK_RATE_LIMIT,
   FIDE_SEARCH_RATE_LIMIT,
   IMPORT_RATE_LIMIT,
   MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
   TRAINING_RATE_LIMIT,
   TRAINING_RESULTS_RATE_LIMIT,
+  broadcastLinkRateKey,
   countRequest,
   fideSearchRateKey,
   importRateKey,

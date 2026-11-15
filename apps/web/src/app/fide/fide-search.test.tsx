@@ -30,7 +30,8 @@ type Game = SearchSnapshot['games'][number];
 
 const GAME: Game = {
   url: 'https://lichess.org/broadcast/synthetic/round-1/abc/game1',
-  month: broadcastMonthSchema.parse('2026-10'),
+  source: { kind: 'month', month: broadcastMonthSchema.parse('2026-10') },
+  official: true,
   date: '2026-10-14',
   event: 'Synthetic Open 2026',
   eco: 'B12',

@@ -39,7 +39,8 @@ const FOUND: FoundGames = {
   games: [
     {
       url: 'https://lichess.org/broadcast/x/round-1/abc/game1',
-      month: month('2026-10'),
+      source: { kind: 'month', month: month('2026-10') },
+      official: true,
       date: '2026-10-14',
       event: 'Synthetic Open',
       eco: 'B12',
@@ -204,7 +205,10 @@ describe('starting a FIDE ID search', () => {
   it('covers the 12 newest months and shows the player and games of ready ones', async () => {
     const search = await started(` ${String(ID)} `);
     expect(server.statuses).toHaveBeenCalledExactlyOnceWith(DB, SEARCHED);
-    expect(server.games).toHaveBeenCalledExactlyOnceWith(DB, ID, SEARCHED);
+    expect(server.games).toHaveBeenCalledExactlyOnceWith(DB, ID, {
+      months: SEARCHED,
+      window: null,
+    });
     expect(server.player).toHaveBeenCalledExactlyOnceWith(ID);
     const { token, ...shown } = search;
     expect(readSearchToken(SECRET, token, 'rokas', NOW)).toEqual({
@@ -261,10 +265,10 @@ describe('starting a FIDE ID search', () => {
       unavailable: 1,
     });
     expect(server.need).toHaveBeenCalledExactlyOnceWith([m0, m2, m4]);
-    expect(server.games.mock.lastCall?.[2]).toEqual([
-      SEARCHED[5],
-      ...SEARCHED.slice(7),
-    ]);
+    expect(server.games.mock.lastCall?.[2]).toEqual({
+      months: [SEARCHED[5], ...SEARCHED.slice(7)],
+      window: null,
+    });
   });
 
   it('counts only the months Lichess lists, when fewer than 12', async () => {

@@ -1,25 +1,28 @@
 /**
  * Our request counters (security A6), for limits Better Auth does not
  * cover, such as the PGN import's (R-119), the magic link's per email
- * (#264), the training results' (S6) and the FIDE ID search's (#316).
+ * (#264), the training results' (S6), the FIDE ID search's (#316) and
+ * the pasted broadcast links' (#349).
  * The domain's countRequest decides; this counts atomically per key, in
  * the request_counters table: Better Auth's rate_limits table is pruned by
  * Better Auth itself at its own one-minute horizon.
  */
 import {
+  BROADCAST_LINK_RATE_LIMIT,
   FIDE_SEARCH_RATE_LIMIT,
   IMPORT_RATE_LIMIT,
   MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
   TRAINING_RATE_LIMIT,
   TRAINING_RESULTS_RATE_LIMIT,
+  broadcastLinkRateKey,
   countRequest,
   ok,
   type RateRefusal,
   type RateRule,
   type Result,
 } from '@mychess/domain';
-import { eq, lt, sql } from 'drizzle-orm';
+import { and, eq, lt, not, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Executor } from './client';
 import { rateLimits, requestCounters } from './schema';
@@ -44,7 +47,9 @@ export const BETTER_AUTH_RETENTION_MS = Math.max(
 
 /**
  * How long a request_counters row can still decide a request: the longest
- * window of our own limits. A new limit counted here joins this list.
+ * window of our own limits, those with a retention of their own
+ * (BROADCAST_LINK_COUNTER_RETENTION) aside. A new limit counted here joins
+ * this list, or gets a retention of its own.
  */
 export const REQUEST_COUNTER_RETENTION_MS = Math.max(
   MAGIC_LINK_EMAIL_RATE_LIMIT.windowMs,
@@ -53,6 +58,16 @@ export const REQUEST_COUNTER_RETENTION_MS = Math.max(
   TRAINING_RESULTS_RATE_LIMIT.windowMs,
   FIDE_SEARCH_RATE_LIMIT.windowMs,
 );
+
+/**
+ * The pasted broadcast link counters (#349) live a day, their window; the
+ * others keep the hour, so the magic-link-email:<hash> rows do not outlive
+ * it (architect 1). Keyed by the prefix broadcastLinkRateKey gives.
+ */
+export const BROADCAST_LINK_COUNTER_RETENTION = {
+  prefix: broadcastLinkRateKey(''),
+  retentionMs: BROADCAST_LINK_RATE_LIMIT.windowMs,
+} as const;
 
 const counterRowsSchema = z.array(
   z.object({ count: z.number().int(), windowStart: z.number() }),
@@ -136,11 +151,19 @@ export async function pruneRateLimits(
       .delete(rateLimits)
       .where(lt(rateLimits.lastRequest, at - BETTER_AUTH_RETENTION_MS)),
   );
+  const { prefix, retentionMs } = BROADCAST_LINK_COUNTER_RETENTION;
+  const isLinkCounter = sql`starts_with(${requestCounters.key}, ${prefix})`;
   const ours = deletedSchema.parse(
     await db
       .delete(requestCounters)
       .where(
-        lt(requestCounters.windowStart, at - REQUEST_COUNTER_RETENTION_MS),
+        or(
+          and(
+            not(isLinkCounter),
+            lt(requestCounters.windowStart, at - REQUEST_COUNTER_RETENTION_MS),
+          ),
+          and(isLinkCounter, lt(requestCounters.windowStart, at - retentionMs)),
+        ),
       ),
   );
   return auth.rowCount + ours.rowCount;

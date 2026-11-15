@@ -1,10 +1,12 @@
 import {
+  BROADCAST_LINK_RATE_LIMIT,
   FIDE_SEARCH_RATE_LIMIT,
   IMPORT_RATE_LIMIT,
   MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
   TRAINING_RATE_LIMIT,
   TRAINING_RESULTS_RATE_LIMIT,
+  broadcastLinkRateKey,
   countRequest,
 } from '@mychess/domain';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -12,6 +14,7 @@ import { pruneRateLimits } from '../src';
 import { runRateLimitsPrune } from '../src/bin/rate-limits-command';
 import {
   BETTER_AUTH_RETENTION_MS,
+  BROADCAST_LINK_COUNTER_RETENTION,
   REQUEST_COUNTER_RETENTION_MS,
 } from '../src/rate-limits';
 import { useTestDatabase } from '../src/testing';
@@ -76,13 +79,61 @@ describe('the retention of each table', () => {
     );
   });
 
+  it('keeps only the pasted broadcast link counters for their day (#349, architect 1)', () => {
+    expect(BROADCAST_LINK_COUNTER_RETENTION).toEqual({
+      prefix: 'broadcast-link:',
+      retentionMs: 86_400_000,
+    });
+    expect(
+      broadcastLinkRateKey('a').startsWith(
+        BROADCAST_LINK_COUNTER_RETENTION.prefix,
+      ),
+    ).toBe(true);
+    expect(BROADCAST_LINK_COUNTER_RETENTION.retentionMs).toBe(
+      BROADCAST_LINK_RATE_LIMIT.windowMs,
+    );
+  });
+
   it('outlives every counter: one older counts like no counter at all', () => {
     const t0 = 1_000_000;
-    const now = t0 + REQUEST_COUNTER_RETENTION_MS;
-    const stale = { count: MAGIC_LINK_EMAIL_RATE_LIMIT.max, windowStart: t0 };
-    expect(countRequest(stale, MAGIC_LINK_EMAIL_RATE_LIMIT, now)).toEqual(
-      countRequest(undefined, MAGIC_LINK_EMAIL_RATE_LIMIT, now),
-    );
+    const kept = [
+      [MAGIC_LINK_EMAIL_RATE_LIMIT, REQUEST_COUNTER_RETENTION_MS],
+      [BROADCAST_LINK_RATE_LIMIT, BROADCAST_LINK_COUNTER_RETENTION.retentionMs],
+    ] as const;
+    for (const [rule, retentionMs] of kept) {
+      const now = t0 + retentionMs;
+      const stale = { count: rule.max, windowStart: t0 };
+      expect(countRequest(stale, rule, now)).toEqual(
+        countRequest(undefined, rule, now),
+      );
+    }
+  });
+});
+
+describe('pruneRateLimits by key prefix (#349, architect 1)', () => {
+  const DAY_CUTOFF =
+    NOW.getTime() - BROADCAST_LINK_COUNTER_RETENTION.retentionMs;
+
+  it('keeps a pasted link counter for its day and every other counter for the hour', async () => {
+    await seedCounters({
+      'broadcast-link:hour-old': COUNTER_CUTOFF - 1,
+      'broadcast-link:boundary': DAY_CUTOFF,
+      'broadcast-link:day-old': DAY_CUTOFF - 1,
+      'magic-link-email:hour-old': COUNTER_CUTOFF - 1,
+      'fide-search:hour-old': COUNTER_CUTOFF - 1,
+      'fide-search:boundary': COUNTER_CUTOFF,
+    });
+    expect(await pruneRateLimits(db, NOW)).toBe(3);
+    expect(await keysOf('request_counters')).toEqual([
+      'broadcast-link:boundary',
+      'broadcast-link:hour-old',
+      'fide-search:boundary',
+    ]);
+  });
+
+  it('reads a key that only contains the prefix later as any other key', async () => {
+    await seedCounters({ 'x-broadcast-link:a': COUNTER_CUTOFF - 1 });
+    expect(await pruneRateLimits(db, NOW)).toBe(1);
   });
 });
 

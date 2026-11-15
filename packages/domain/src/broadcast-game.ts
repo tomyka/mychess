@@ -154,6 +154,45 @@ export function openingFamily(opening: string | null): string | null {
   return family === '' ? null : family;
 }
 
+/**
+ * What de-duplication reads of a found game (#349, spec decision 5): a
+ * dump month's games and an official tournament's are official.
+ */
+export interface OfficialCopyGame extends Pick<
+  PlayerGame,
+  'colour' | 'opponent' | 'outcome'
+> {
+  readonly official: boolean;
+  /** `YYYY-MM-DD`, or null when the broadcast gave no date. */
+  readonly date: string | null;
+}
+
+/**
+ * One search's games without the community copies of official games (spec
+ * decision 5), in the order given. All are the searched player's, so a
+ * community game is a copy of an official one when both have the same
+ * date, colour, opponent FIDE ID and result; an undated game, or one
+ * against an opponent without a FIDE ID, is never taken for a copy. Two
+ * official games, or two community games, are both kept.
+ */
+export function preferOfficialCopies<G extends OfficialCopyGame>(
+  games: readonly G[],
+): G[] {
+  const official = new Set(games.filter((game) => game.official).map(copyKey));
+  return games.filter((game) => {
+    if (game.official) return true;
+    const key = copyKey(game);
+    return key === null || !official.has(key);
+  });
+}
+
+/** What two copies of one game share; null when it cannot be told. */
+function copyKey(game: OfficialCopyGame): string | null {
+  const { date, colour, opponent, outcome } = game;
+  if (date === null || opponent.fideId === null) return null;
+  return [date, colour, String(opponent.fideId), outcome].join(' ');
+}
+
 /** What grouping reads of a found game (R-189, R-190). */
 export interface PreparationGame {
   readonly colour: Side;

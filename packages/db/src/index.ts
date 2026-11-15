@@ -69,21 +69,37 @@ export {
 } from './assignments/player-state';
 export { auditEmailHash } from './audit-email';
 export {
-  FOUND_GAMES_LIMIT,
   claimBroadcastMonth,
   failBroadcastMonth,
-  gamesForFideId,
   broadcastMonthStatuses,
   releaseInterruptedBroadcastMonths,
   writeBroadcastMonth,
-  type FoundGame,
-  type FoundGames,
   type BroadcastMonthClaim,
   type BroadcastMonthEntry,
   type BroadcastMonthWrite,
+} from './broadcasts';
+export {
+  FOUND_GAMES_LIMIT,
+  gamesForFideId,
+  type BroadcastGameSource,
+  type BroadcastGameStream,
+  type BroadcastSearchScope,
   type BroadcastWriteCount,
   type BroadcastWriteOptions,
-} from './broadcasts';
+  type FoundGame,
+  type FoundGames,
+} from './broadcast-game-store';
+export {
+  broadcastTourStatuses,
+  claimBroadcastTour,
+  failBroadcastTour,
+  queueBroadcastTour,
+  releaseInterruptedBroadcastTours,
+  writeBroadcastTour,
+  type BroadcastTourClaim,
+  type BroadcastTourEntry,
+  type BroadcastTourWrite,
+} from './broadcast-tours';
 
 export {
   createDb,
