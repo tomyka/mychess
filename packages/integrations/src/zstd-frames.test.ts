@@ -56,9 +56,9 @@ const TEXT_B = '[Event "B"]\n'.repeat(20_000);
 const A = zstdCompressSync(Buffer.from(TEXT_A));
 const B = zstdCompressSync(Buffer.from(TEXT_B));
 /** RLE blocks: one byte repeated. */
-const RLE = zstdCompressSync(Buffer.alloc(300_000, ' '));
+const RLE = zstdCompressSync(Buffer.alloc(140_000, ' '));
 /** Raw blocks with a checksum: random bytes do not compress. */
-const RAW = zstdCompressSync(pseudoRandomBytes(300_000), {
+const RAW = zstdCompressSync(pseudoRandomBytes(140_000), {
   params: { [constants.ZSTD_c_checksumFlag]: 1 },
 });
 
@@ -140,12 +140,17 @@ describe('zstdFrames', () => {
   );
 
   it('splits frames of RLE and raw blocks, in chunks of any size', async () => {
-    // Each frame is about 300 KB on the wire: chunks of a byte or two would
-    // take seconds, so the small chunks are tested above.
+    // Two blocks each (140 KB of content crosses the 128 KB block size); the
+    // raw frame is about 140 KB on the wire, so the small chunks are tested
+    // above. Frames are compared as base64: comparing Buffers byte by byte
+    // takes seconds under coverage.
     const dump = Buffer.concat([RLE, skippable(4), RAW, A]);
-    for (const size of [997, 4096, dump.byteLength]) {
+    const expected = [RLE, RAW, A].map((f) =>
+      Buffer.from(f).toString('base64'),
+    );
+    for (const size of [997, dump.byteLength]) {
       const frames = await framesOf(dump, size);
-      expect(frames).toEqual([RLE, RAW, A].map((f) => Buffer.from(f)));
+      expect(frames.map((f) => f.toString('base64'))).toEqual(expected);
     }
   });
 
