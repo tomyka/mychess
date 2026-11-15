@@ -120,6 +120,13 @@
       "when": 1794777183312,
       "tag": "0016_broadcast_tours",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794780814589,
+      "tag": "0017_reset_empty_broadcast_months",
+      "breakpoints": true
     }
   ]
 }
