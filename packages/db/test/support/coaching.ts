@@ -3,17 +3,14 @@ import type pg from 'pg';
 import { z } from 'zod';
 import type { Db } from '../../src';
 import { accounts, coachLinks, groupMembers, groups } from '../../src/schema';
+import { signedUpAccount } from '../../src/testing';
 
 export const T0 = new Date('2026-10-16T08:00:00Z');
 
 const onboarded = (id: string, email: string) => ({
-  id,
-  email,
-  emailVerified: true,
+  ...signedUpAccount({ id, email, at: T0 }),
   displayName: `Name ${id}`,
   onboardedAt: T0,
-  createdAt: T0,
-  updatedAt: T0,
 });
 
 /** An onboarded account with Coach mode on since T0. */

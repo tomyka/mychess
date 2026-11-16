@@ -1,6 +1,7 @@
 // Test-only entry point (`@mychess/db/testing`): the test database's whole
 // life, for the db suite and any later suite that needs a real Postgres,
-// and the audit email key tests hash with. `inviteTokenHash` is here for
+// the audit email key tests hash with, and the account row a sign-up
+// creates (`signedUpAccount`). `inviteTokenHash` is here for
 // fixtures that write invite rows directly: runtime callers hand the raw
 // token to previewInvite and acceptInvite and never see how it is stored.
 // Never imported by runtime code; lint enforces that (eslint.config.mjs).
@@ -25,6 +26,7 @@ export {
 export { type PersonaRepertoire } from './personas/lines';
 export { PERSONA_REPERTOIRES } from './personas/repertoires';
 export { seedPersonas, type SeedSummary } from './personas/seed';
+export { signedUpAccount } from './signed-up-account';
 export {
   startTestDatabase,
   useTestDatabase,

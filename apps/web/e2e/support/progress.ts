@@ -3,7 +3,12 @@
 // imports, the counts a progress view writes, and the player's steps that
 // set the journey up (sharing with the coach, making an own copy).
 import { readFileSync } from 'node:fs';
-import { importPgn, playerKeys, type Side } from '@mychess/chess';
+import {
+  importPgn,
+  percentLearned,
+  playerKeys,
+  type Side,
+} from '@mychess/chess';
 import { expect, type Page } from '@playwright/test';
 import { COACH } from './assignment-people';
 import { homeAssignment } from './assignments';
@@ -55,11 +60,13 @@ export const notStarted = (total: number): Counts => ({
 export const countsText = (locale: Locale, counts: Counts): string =>
   plural(CATALOGUES[locale].coach.progress.counts, locale, { ...counts });
 
-/** "n % learned": the learned moves only (R-177), as a whole percentage. */
+/**
+ * "n % learned": the learned moves only (R-177), as the app rounds it
+ * (@mychess/chess `percentLearned`). Counts with no moves have no percentage.
+ */
 export function percentText(locale: Locale, counts: Counts): string {
-  const total =
-    counts.learned + counts.due + counts.skipped + counts.notStarted;
-  const percent = Math.round((counts.learned / total) * 100);
+  const percent = percentLearned(counts);
+  if (percent === null) throw new Error('percentText: no moves');
   return format(CATALOGUES[locale].coach.progress.percent, {
     percent: String(percent),
   });

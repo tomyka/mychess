@@ -5,6 +5,7 @@ import {
   sessions,
   verifications,
 } from '../../src/schema';
+import { signedUpAccount } from '../../src/testing';
 
 const T0 = new Date('2026-10-16T08:00:00Z');
 
@@ -14,14 +15,9 @@ export async function seedAccount(
   id: string,
   email: string,
 ): Promise<void> {
-  await db.insert(accounts).values({
-    id,
-    email,
-    emailVerified: true,
-    displayName: id,
-    createdAt: T0,
-    updatedAt: T0,
-  });
+  await db
+    .insert(accounts)
+    .values({ ...signedUpAccount({ id, email, at: T0 }), displayName: id });
   await db.insert(sessions).values({
     id: `s-${id}`,
     token: `t-${id}`,

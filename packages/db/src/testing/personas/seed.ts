@@ -44,6 +44,7 @@ import { accounts } from '../../schema';
 import { shareRepertoire } from '../../shares';
 import { recordResults } from '../../training/results';
 import { reviewsOf } from '../../training/reviews';
+import { signedUpAccount } from '../signed-up-account';
 import {
   PERSONA_ACCOUNTS,
   PERSONA_GROUP,
@@ -159,14 +160,13 @@ async function createAccount(
   persona: PersonaAccount,
 ): Promise<void> {
   const id = `persona-${persona.key}`;
-  await s.db.insert(accounts).values({
-    id,
-    email: canonicalEmail(persona.email),
-    emailVerified: true,
-    displayName: '',
-    createdAt: persona.since,
-    updatedAt: persona.since,
-  });
+  await s.db.insert(accounts).values(
+    signedUpAccount({
+      id,
+      email: canonicalEmail(persona.email),
+      at: persona.since,
+    }),
+  );
   const profile = profileSchema.parse(persona.profile);
   expectOk(await completeOnboarding(s.db, id, profile, persona.since), id);
   if (persona.coach) await startCoaching(s.db, id, persona.since);
