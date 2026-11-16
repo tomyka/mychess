@@ -6,14 +6,17 @@
 # GET /api/cron/index-broadcasts with `Authorization: Bearer <CRON_SECRET>`
 # (docs/operations.md); it hands every one of the 12 newest months that needs
 # processing to the web process's runner and answers at once with
-# 202 {"queued":<n>,"ready":<m>}. The indexing itself goes on in the web
-# process after this exits; its progress is in broadcast_months.
+# 202 {"queued":<n>,"ready":<m>,"community":"started"|"running"|"off"}. The
+# indexing itself goes on in the web process after this exits; its progress
+# is in broadcast_months. The community state (#349) is logged when the body
+# has it, "off" meaning no LICHESS_TOKEN; an image without it logs the counts.
 #
 # The site's URL (BETTER_AUTH_URL) and CRON_SECRET are read, key by key, from
 # the production .env (never sourced). The request goes through Caddy on this
 # host with the site's own name and certificate (--resolve to 127.0.0.1), so
 # it needs no DNS round trip. The secret reaches curl through a config on
-# stdin: never a command line, never a log. Only the two counts are printed.
+# stdin: never a command line, never a log. Only the two counts and the
+# community state are printed.
 # Exits non-zero on any answer but 202, an answer without the counts, or an
 # unreachable site, so the failure shows in `systemctl --failed`.
 # MYCHESS_PRODUCTION_ENV overrides the env file's path for the shell test.
@@ -48,4 +51,5 @@ if [ -z "$queued" ] || [ -z "$ready" ]; then
   echo "index broadcasts: a 202 without the queued and ready counts" >&2
   exit 1
 fi
-echo "index broadcasts: queued $queued, ready $ready"
+community="$(sed -n 's/.*"community" *: *"\(started\|running\|off\)".*/\1/p' <<< "$body")"
+echo "index broadcasts: queued $queued, ready $ready${community:+, community $community}"

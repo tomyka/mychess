@@ -50,6 +50,15 @@ reset
 STUB_BODY='{ "queued": 0, "ready": 12 }' bash "$index" > "$work/out" 2>&1
 check "reads spaced JSON and zero counts" grep -qx 'index broadcasts: queued 0, ready 12' "$work/out"
 
+for state in started running off; do
+  reset
+  STUB_BODY="{\"queued\":1,\"ready\":11,\"community\": \"$state\"}" bash "$index" > "$work/out" 2>&1
+  check "logs the community state '$state'" grep -qx "index broadcasts: queued 1, ready 11, community $state" "$work/out"
+done
+reset
+STUB_BODY='{"queued":1,"ready":11,"community":"lip_x\nsecret"}' bash "$index" > "$work/out" 2>&1
+check "an unknown community state is not logged" grep -qx 'index broadcasts: queued 1, ready 11' "$work/out"
+
 for status in 200 401 404 500 000; do
   reset
   STUB_STATUS="$status" STUB_BODY='{"error":"x"}' bash "$index" > "$work/out" 2>&1

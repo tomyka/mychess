@@ -46,7 +46,10 @@ check "mail goes through Resend" test "$(value MAIL_TRANSPORT)" = resend
 check "from noreply@ the site's domain" test "$(value MAIL_FROM)" = "mychess <noreply@mychess.example>"
 check "never the persona sign-in" bash -c '! grep -q -e MYCHESS_TEST_SIGNIN -e TEST_SIGNIN_SECRET "$1"' _ "$env_file"
 check "prints no value" bash -c '! grep -qF "$(sed -n "s/^CRON_SECRET=//p" "$1")" "$2"' _ "$env_file" "$work/out"
-check "names the secrets still to store" grep -q "RESEND_API_KEY GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET LICHESS_CLIENT_ID" "$work/out"
+check "names the secrets still to store" grep -q "RESEND_API_KEY GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET LICHESS_CLIENT_ID$" "$work/out"
+check "names the Lichess token apart, as optional" grep -q "^optional, not stored: LICHESS_TOKEN" "$work/out"
+check "and writes no empty LICHESS_TOKEN" bash -c '! grep -q "^LICHESS_TOKEN=" "$1"' _ "$env_file"
+check "the web container gets LICHESS_TOKEN, optional" grep -qxF '      LICHESS_TOKEN: ${LICHESS_TOKEN:-}' "$here/../compose/production.yml"
 touch "$work/probe"; chmod 600 "$work/probe"
 if [ "$(stat -c %a "$work/probe")" = 600 ]; then
   check "the file is mode 600" test "$(stat -c %a "$env_file")" = 600
@@ -88,6 +91,21 @@ printf 'GOCSPX-secret_value\n' | bash "$secret" GOOGLE_CLIENT_SECRET > /dev/null
 check "stores the Google client secret" test "$(value GOOGLE_CLIENT_SECRET)" = GOCSPX-secret_value
 printf 'mychess.example\n' | bash "$secret" LICHESS_CLIENT_ID > /dev/null 2>&1
 check "stores the Lichess client id" test "$(value LICHESS_CLIENT_ID)" = mychess.example
+
+printf ' lip_Synthetic_Token123 \n' | bash "$secret" LICHESS_TOKEN > "$work/out" 2>&1
+check "stores the Lichess token, trimmed" test "$(value LICHESS_TOKEN)" = lip_Synthetic_Token123
+check "prints no token" bash -c '! grep -q Synthetic "$1"' _ "$work/out"
+bash "$penv" https://mychess.example > "$work/out" 2>&1
+check "production-env.sh keeps it and names it no more" test "$(value LICHESS_TOKEN)" = lip_Synthetic_Token123 -a "$(count LICHESS_TOKEN)" = 1
+check "no optional note once stored" bash -c '! grep -q LICHESS_TOKEN "$1"' _ "$work/out"
+max="lip_$(printf 'a%.0s' $(seq 252))"
+printf '%s\n' "$max" | bash "$secret" LICHESS_TOKEN > /dev/null 2>&1
+check "stores a 256-character token" test "$?" = 0 -a "$(value LICHESS_TOKEN)" = "$max"
+for refused in "${max}a" lip_ Synthetic_Token123 lio_Synthetic lip_has-dash lip_has.dot re_ABC123_def; do
+  printf '%s\n' "$refused" | bash "$secret" LICHESS_TOKEN > "$work/out" 2>&1
+  check "refuses '${refused:0:24}' as the Lichess token" test "$?" = 2 -a "$(value LICHESS_TOKEN)" = "$max"
+done
+check "and does not echo it" bash -c '! grep -q re_ABC123 "$1"' _ "$work/out"
 
 printf 'not a key\n' | bash "$secret" RESEND_API_KEY > /dev/null 2>&1
 check "refuses a value of the wrong shape" test "$?" = 2 -a "$(value RESEND_API_KEY)" = re_NEW

@@ -12,7 +12,9 @@
 # Settings: RESEND_API_KEY (re_...), GOOGLE_CLIENT_ID (....apps.googleusercontent.com),
 # GOOGLE_CLIENT_SECRET (GOCSPX-...) (the OAuth client whose redirect URI is
 # <site>/api/auth/callback/google),
-# LICHESS_CLIENT_ID (Lichess needs no secret: any client id names the app).
+# LICHESS_CLIENT_ID (Lichess needs no secret: any client id names the app),
+# LICHESS_TOKEN (lip_..., optional: the owner's personal token, study:read
+# only, for the community broadcasts, R-199; unset, they are off).
 # It does not redeploy: the web reads a changed value once the deploy button
 # (deploy-production.yml, empty sha) redeploys main's head.
 #
@@ -28,7 +30,10 @@ case "$name" in
   GOOGLE_CLIENT_ID) pattern='^[A-Za-z0-9-]{1,200}\.apps\.googleusercontent\.com$' ;;
   GOOGLE_CLIENT_SECRET) pattern='^GOCSPX-[A-Za-z0-9_-]{8,248}$' ;;
   LICHESS_CLIENT_ID) pattern='^[A-Za-z0-9._~-]{1,128}$' ;;
-  *) echo "usage: set-secret.sh RESEND_API_KEY|GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET|LICHESS_CLIENT_ID (value on stdin)" >&2; exit 2 ;;
+  # A Lichess personal token is lip_ and more; at most 256 characters of
+  # these, as the app refuses any other at start-up (lichessTokenSchema).
+  LICHESS_TOKEN) pattern='^lip_[A-Za-z0-9_]{1,252}$' ;;
+  *) echo "usage: set-secret.sh RESEND_API_KEY|GOOGLE_CLIENT_ID|GOOGLE_CLIENT_SECRET|LICHESS_CLIENT_ID|LICHESS_TOKEN (value on stdin)" >&2; exit 2 ;;
 esac
 
 env_file="${MYCHESS_ROOT:-/srv/mychess}/production/.env"

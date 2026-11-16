@@ -19,7 +19,10 @@
 #
 # The secrets the owner supplies (RESEND_API_KEY, GOOGLE_CLIENT_ID,
 # GOOGLE_CLIENT_SECRET, LICHESS_CLIENT_ID) are stored by set-secret.sh; the
-# deploy refuses to start until all of them are there. MYCHESS_TEST_SIGNIN is
+# deploy refuses to start until all of them are there. LICHESS_TOKEN (R-199)
+# is stored the same way but is optional: without it the community
+# broadcasts are off, so it is named apart and blocks nothing. The compose
+# file passes it to the web container when set. MYCHESS_TEST_SIGNIN is
 # never written: the persona sign-in stays off in production (R-73).
 #
 # MYCHESS_ROOT (default /srv/mychess) is for the shell test only.
@@ -61,3 +64,4 @@ for key in RESEND_API_KEY GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET LICHESS_CLIENT_I
   has "$key" || missing="$missing $key"
 done
 [ -z "$missing" ] || echo "still to store with set-secret.sh before the first deploy:$missing"
+has LICHESS_TOKEN || echo "optional, not stored: LICHESS_TOKEN (community broadcasts stay off until set-secret.sh stores it)"

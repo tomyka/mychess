@@ -26,6 +26,9 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required (infra/host/set-secret.sh)}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?GOOGLE_CLIENT_SECRET is required (infra/host/set-secret.sh)}
       LICHESS_CLIENT_ID: ${LICHESS_CLIENT_ID:?LICHESS_CLIENT_ID is required (infra/host/set-secret.sh)}
+      # Optional (#349, R-199): unset or empty, the community broadcasts are
+      # off and the month index works as before.
+      LICHESS_TOKEN: ${LICHESS_TOKEN:-}
     restart: unless-stopped
     networks:
       default: {}

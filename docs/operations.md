@@ -431,7 +431,8 @@ Host steps (lead, with the owner's yes for each change to the host):
 5. The owner's secrets, each from the clipboard through stdin
    (`set-secret.sh RESEND_API_KEY`, `GOOGLE_CLIENT_ID`,
    `GOOGLE_CLIENT_SECRET`, `LICHESS_CLIENT_ID`); the deploy refuses to
-   start until all four are there.
+   start until all four are there. `LICHESS_TOKEN` is optional (see "The
+   Lichess token" below).
 6. Runner: a registration token piped into
    `install-runner.sh <version> <sha256>` (it also writes the sudoers rule
    for exactly the deploy script), then `install-runner-watchdog.sh
@@ -574,8 +575,10 @@ Caddy with `Authorization: Bearer <CRON_SECRET>` from the production
 newest months, hands every one whose next action is to process it (the
 retry rules below decide, so a month in its 10-minute or 24-hour wait is
 left alone) to the runner, and answers at once
-`202 {"queued":<n>,"ready":<m>}`. The script logs only
-`index broadcasts: queued <n>, ready <m>` and fails the unit on any other
+`202 {"queued":<n>,"ready":<m>,"community":"started"|"running"|"off"}`
+(the community broadcasts' night, below). The script logs only
+`index broadcasts: queued <n>, ready <m>, community <state>` and fails the
+unit on any other
 status. The indexing itself goes on in the web process after the unit has
 finished, one month at a time, so the unit's success means "queued", not
 "indexed": the month states below say how far it got.
@@ -643,6 +646,59 @@ apps/web/e2e/support/broadcast-fixture.ts` (rerun after changing the games
 there; `fide-search.spec.ts` fails while the committed files differ). The
 E2E journey resets those months to pending in its own database before it
 searches.
+
+### The Lichess token (community broadcasts, #349)
+
+`LICHESS_TOKEN` is the owner's personal Lichess token, with the
+`study:read` scope only, kept only in the VM's `.env` (R-199). The web
+process sends it to the Lichess broadcast API alone, never to the browser:
+the nightly listing of the approved organisers' tournaments (R-200) and the
+tournaments a user pastes a link to. It is optional: without it the
+community broadcasts are off (no organiser listing, a pasted link is
+refused) and the month index works as before. The app refuses to start with
+a token not of the form `[A-Za-z0-9_]{1,256}`; `set-secret.sh` refuses
+anything but `lip_` followed by those characters, so a wrong paste never
+reaches a deploy.
+
+Creating it (the owner, signed in to Lichess as themself):
+`https://lichess.org/account/oauth/token/create`, a description such as
+"mychess broadcasts", only "Read private studies and broadcasts"
+(`study:read`) ticked, nothing else. Lichess shows the token once; copy it.
+
+Setting it, from the laptop with the token on the clipboard (it travels on
+stdin, never a command line):
+
+```sh
+scp infra/host/set-secret.sh mychess:/tmp/
+powershell -NoProfile -Command "Get-Clipboard" | ssh mychess 'sudo bash /tmp/set-secret.sh LICHESS_TOKEN'
+powershell -NoProfile -Command 'Set-Clipboard -Value $null'
+```
+
+The last line empties the clipboard; if Windows clipboard history (Win+V)
+is on, delete the token's entry there too. Then the deploy button (`deploy-production.yml`, empty sha) so the web
+container reads it. `set-secret.sh` does not redeploy.
+
+Checking it is live, on the VM after the redeploy:
+
+```sh
+sudo systemctl start mychess-index-broadcasts.service
+sudo journalctl -u mychess-index-broadcasts.service -n 5
+```
+
+The last line ends `community started` (or `running`, a night already
+under way), not `community off`; and the web log no longer has
+`fide: LICHESS_TOKEN is not set; community broadcasts are off`
+(`sudo docker logs --since 1h mychess-production-web-1`). A night that
+fails, a revoked token for one, logs `fide: community broadcasts night
+failed` there.
+
+Rotating it: create a new token as above, store it with `set-secret.sh
+LICHESS_TOKEN` (it replaces the old line), redeploy, check it is live, then
+revoke the old one at `https://lichess.org/account/oauth/token`. Revoking
+it for good (a leak, or to turn the community broadcasts off): revoke it on
+that page, remove it from the VM with
+`sudo sed -i '/^LICHESS_TOKEN=/d' /srv/mychess/production/.env`, and
+redeploy; the nightly log then says `community off`.
 
 ## Health check
 
