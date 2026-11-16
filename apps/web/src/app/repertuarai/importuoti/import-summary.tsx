@@ -4,7 +4,7 @@ import type { RepertoireSummary, Side, Skipped } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import { useId, useState, type JSX, type RefObject } from 'react';
 import type {
-  AddedComment,
+  AddedAnnotation,
   ImportPreview,
   RenamedChapter,
 } from '../../../server/import-preview';
@@ -107,10 +107,10 @@ function RenamedChapters({
  * (R-176): each move with the glyphs it gains (R-175) and its new comment,
  * the first ten and the rest on request.
  */
-function AddedComments({
+function AddedAnnotations({
   added,
 }: {
-  readonly added: readonly AddedComment[];
+  readonly added: readonly AddedAnnotation[];
 }): JSX.Element {
   const t = useTranslations('repertoires.import');
   const titleId = useId();
@@ -243,7 +243,7 @@ function Accepted({
         <RenamedChapters renamed={preview.renamed} />
       )}
       {preview.annotations.length === 0 ? null : (
-        <AddedComments added={preview.annotations} />
+        <AddedAnnotations added={preview.annotations} />
       )}
       {preview.skipped.length === 0 ? (
         <StatusLine

@@ -1,8 +1,9 @@
 /**
  * The persona PGN files that G-M1-2 and D-M1-2 import (docs/personas,
- * e2e/fixtures/persona-*.pgn) are legal for their side and import whole:
- * every game becomes a chapter, nothing is skipped, comments survive, and
- * the files stay inside the upload limits (R-66, R-119).
+ * packages/chess/src/pgn/fixtures/persona-*.pgn) are legal for their side
+ * and import whole: every game becomes a chapter, nothing is skipped,
+ * comments survive, and the files stay inside the upload limits (R-66,
+ * R-119).
  */
 import { readFileSync } from 'node:fs';
 import {
@@ -15,7 +16,13 @@ import {
 import { describe, expect, it } from 'vitest';
 
 const fixture = (name: string): string =>
-  readFileSync(new URL(`../../e2e/fixtures/${name}`, import.meta.url), 'utf8');
+  readFileSync(
+    new URL(
+      `../../../../packages/chess/src/pgn/fixtures/${name}`,
+      import.meta.url,
+    ),
+    'utf8',
+  );
 
 /** The deepest parenthesis nesting of `text`, comments left out. */
 function variationDepth(text: string): number {

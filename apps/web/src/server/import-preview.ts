@@ -19,7 +19,7 @@ import {
   moveNumber,
   SIDES,
   summarize,
-  type AddedAnnotation,
+  type AddedAnnotation as MergedAnnotation,
   type ImportedRepertoire,
   type LimitRefusal,
   type MergedRepertoire,
@@ -71,11 +71,11 @@ export interface ImportTarget {
 }
 
 /**
- * A comment or NAGs a merge adds to a move the target already has (R-176):
- * the move as players read it ("8. Qxc4!", with the glyphs of the NAGs it
- * gains, R-175), and the comment it gains or null.
+ * An Annotation (a comment, NAGs or both) a merge adds to a move the target
+ * already has (R-176): the move as players read it ("8. Qxc4!", with the
+ * glyphs of the NAGs it gains, R-175), and the comment it gains or null.
  */
-export interface AddedComment {
+export interface AddedAnnotation {
   readonly move: string;
   readonly comment: string | null;
 }
@@ -101,7 +101,7 @@ export interface ImportPreview {
   readonly renamed: readonly RenamedChapter[];
   readonly skipped: readonly Skipped[];
   /** The comments and NAGs a merge adds (R-176); empty for a new repertoire. */
-  readonly annotations: readonly AddedComment[];
+  readonly annotations: readonly AddedAnnotation[];
   readonly target: ImportTarget | null;
   /** Why Import is refused for this target (R-115), or null. */
   readonly refusal: NothingToAdd['reason'] | null;
@@ -280,7 +280,7 @@ function newPreview(
 }
 
 /** An added annotation as the preview lists it. */
-const addedComment = (added: AddedAnnotation): AddedComment => ({
+const addedAnnotation = (added: MergedAnnotation): AddedAnnotation => ({
   move: `${moveNumber(added.ply, true)} ${annotatedSan(added.san, added.nags)}`,
   comment: added.comment,
 });
@@ -304,7 +304,7 @@ function mergedPreview(
     skipped: [...imported.skipped, ...merged.skipped].sort(
       (a, b) => a.game - b.game,
     ),
-    annotations: annotations.map(addedComment),
+    annotations: annotations.map(addedAnnotation),
     target: {
       id,
       name,

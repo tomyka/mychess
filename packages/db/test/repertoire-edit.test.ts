@@ -551,12 +551,9 @@ describe('editRepertoire reads the graph once, and only when the row allows the 
   });
 });
 
-/** The D-M1-2 file (apps/web/e2e/fixtures/persona-katalonu.pgn): comments, `$1` and `$14`. */
+/** The D-M1-2 file (packages/chess/src/pgn/fixtures/persona-katalonu.pgn): comments, `$1` and `$14`. */
 const KATALONU = readFileSync(
-  new URL(
-    '../../../apps/web/e2e/fixtures/persona-katalonu.pgn',
-    import.meta.url,
-  ),
+  new URL('../../chess/src/pgn/fixtures/persona-katalonu.pgn', import.meta.url),
   'utf8',
 );
 
