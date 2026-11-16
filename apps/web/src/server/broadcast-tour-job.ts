@@ -7,9 +7,8 @@
  * nor charged an attempt; it stays queued for a later night, as does one
  * Lichess refused to describe. Then, under the claim, its PGN streams into
  * one write with the tournament's own round ids (security M1), under the
- * runner's download limits. The detail is asked in the pacer's night lane,
- * which gives it LICHESS_PACE.requestMs from its turn; the PGN in its
- * download lane, bounded by the runner's limits alone. A refused
+ * runner's download limits; the Lichess gateway (lichess-broadcasts.ts)
+ * arms their idle limit as the PGN's request is sent. A refused
  * or failed download is a failed attempt, as for a month; the PGN is
  * always closed. Log lines name the tournament, a public id, and a refusal
  * key or error name only, never the token.
@@ -28,14 +27,9 @@ import {
   type BroadcastRoundId,
   type BroadcastTourId,
 } from '@mychess/domain';
-import {
-  lichessBroadcastTour,
-  openLichessBroadcastPgn,
-  type LichessApi,
-  type LichessBroadcastRefusal,
-} from '@mychess/integrations';
+import type { LichessBroadcastRefusal } from '@mychess/integrations';
 import { withDownloadLimits, type RunnerLimits } from './broadcast-limits';
-import { NO_ABORT } from './lichess-pace';
+import type { LichessBroadcasts } from './lichess-broadcasts';
 
 /** The tournament repositories the runner uses, on one database. */
 export interface BroadcastTourIndex {
@@ -66,13 +60,8 @@ export function broadcastTourIndexOn(db: Executor): BroadcastTourIndex {
 
 export interface TourJobDeps {
   readonly index: BroadcastTourIndex;
-  /** The night lane: a tournament's detail. */
-  readonly api: LichessApi;
-  /**
-   * The download lane for a tournament's PGN, `onTurn` called as its
-   * request is sent (LichessPacer.fetch).
-   */
-  readonly downloadApi: (onTurn: () => void) => LichessApi;
+  /** What the job asks Lichess: a tournament's detail and its PGN. */
+  readonly broadcasts: Pick<LichessBroadcasts, 'tour' | 'openPgn'>;
   readonly clock: () => Date;
   readonly limits: RunnerLimits;
 }
@@ -88,7 +77,7 @@ export async function processTour(
   deps: TourJobDeps,
   tourId: BroadcastTourId,
 ): Promise<void> {
-  const detail = await lichessBroadcastTour(deps.api, tourId, NO_ABORT);
+  const detail = await deps.broadcasts.tour(tourId);
   if (!detail.ok) {
     console.error(
       `fide: broadcast tour ${tourId} skipped`,
@@ -116,9 +105,7 @@ export async function processTour(
 
 /**
  * Streams the claimed tournament's PGN into its write; the refusal when
- * Lichess gave no PGN. The idle limit is armed when the request is sent,
- * so its wait in the pacer's queue never counts as idle; the deadline runs
- * throughout. A write refused because the claim was lost returns without
+ * Lichess gave no PGN. A write refused because the claim was lost returns without
  * reading; the PGN is closed either way.
  */
 function indexTour(
@@ -126,27 +113,20 @@ function indexTour(
   claim: BroadcastTourClaim,
   roundIds: readonly BroadcastRoundId[],
 ): Promise<LichessBroadcastRefusal['reason'] | undefined> {
-  return withDownloadLimits(
-    deps.limits,
-    async (signal, idle) => {
-      const opened = await openLichessBroadcastPgn(
-        deps.downloadApi(() => {
-          idle.arm();
-        }),
-        claim.tourId,
-        signal,
-      );
-      if (!opened.ok) return opened.refusal.reason;
-      await using pgn = opened.value;
-      idle.disarm();
-      await deps.index.write({
-        claim,
-        roundIds,
-        games: idle.watch(pgn.games),
-        clock: deps.clock,
-      });
-      return undefined;
-    },
-    false,
-  );
+  return withDownloadLimits(deps.limits, async (signal, idle) => {
+    const opened = await deps.broadcasts.openPgn(claim.tourId, {
+      signal,
+      idle,
+    });
+    if (!opened.ok) return opened.refusal.reason;
+    await using pgn = opened.value;
+    idle.disarm();
+    await deps.index.write({
+      claim,
+      roundIds,
+      games: idle.watch(pgn.games),
+      clock: deps.clock,
+    });
+    return undefined;
+  });
 }

@@ -31,7 +31,6 @@ import {
   broadcastGames,
   openBroadcastDump,
   type Fetch,
-  type LichessApi,
 } from '@mychess/integrations';
 import {
   RUNNER_LIMITS,
@@ -39,6 +38,7 @@ import {
   type RunnerLimits,
 } from './broadcast-limits';
 import { processTour, type BroadcastTourIndex } from './broadcast-tour-job';
+import type { LichessBroadcasts } from './lichess-broadcasts';
 import { logText } from './log-text';
 
 /** The index repositories the runner uses, on one database. */
@@ -68,15 +68,10 @@ export function broadcastIndexOn(db: Executor): BroadcastIndex {
   };
 }
 
-/**
- * What the runner fetches tournaments with: their repositories, and
- * Lichess in the pacer's night lane (details) and download lane (PGNs,
- * with a hook for when each is sent).
- */
+/** What the runner fetches tournaments with: their repositories, and Lichess. */
 interface BroadcastTourSide {
   readonly index: BroadcastTourIndex;
-  readonly api: LichessApi;
-  readonly downloadApi: (onTurn: () => void) => LichessApi;
+  readonly broadcasts: Pick<LichessBroadcasts, 'tour' | 'openPgn'>;
 }
 
 export interface BroadcastRunnerDeps {
@@ -234,6 +229,8 @@ function indexMonth(
   claim: BroadcastMonthClaim,
 ): Promise<void> {
   return withDownloadLimits(limits, async (signal, idle) => {
+    // The dump is fetched at once: the wait for its answer is idle time.
+    idle.arm();
     await using dump = await openBroadcastDump(deps.fetch, claim.month, signal);
     idle.disarm();
     await deps.index.write({

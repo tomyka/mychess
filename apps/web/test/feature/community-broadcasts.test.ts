@@ -1,22 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { broadcastTourStatuses, queueBroadcastTour } from '@mychess/db';
 import type { Fetch } from '@mychess/integrations';
 import {
   addBroadcastLinkAction,
   startFideSearchAction,
 } from '../../src/app/fide/actions';
 import { GET } from '../../src/app/api/cron/index-broadcasts/route';
-import {
-  createCommunityBroadcasts,
-  type CommunityBroadcasts,
-} from '../../src/server/broadcast-community';
-import {
-  broadcastIndexOn,
-  createBroadcastRunner,
-  type BroadcastRunner,
-} from '../../src/server/broadcast-runner';
-import { createBroadcastSources } from '../../src/server/broadcast-sources';
-import { broadcastTourIndexOn } from '../../src/server/broadcast-tour-job';
+import type { ComposedFideServices } from '../../src/server/fide-services';
 import type { StartedSearch } from '../../src/server/fide-search';
 import {
   compressedDump,
@@ -35,7 +24,8 @@ import {
   type FakeTour,
 } from '../fixtures/lichess-broadcast-api';
 import { actAs, formOf, person } from './support/coaching';
-import { fakeLichess, fide, monthsBack } from './support/fide';
+import { fakeLichess, fide, fideSettled, monthsBack } from './support/fide';
+import { fideStoreOn } from '../../src/server/fide-store';
 import { useRequestHarness } from './support/harness';
 import { testDb } from './support/request';
 
@@ -56,6 +46,11 @@ vi.mock('../../src/server/fide-services', async () =>
 );
 
 const { sql } = useRequestHarness();
+
+/** The real composition, past this file's mock of its module. */
+const { composeFideServices } = await vi.importActual<
+  typeof import('../../src/server/fide-services')
+>('../../src/server/fide-services');
 
 const CRON_SECRET = 'cron-secret-cron-secret-cron-secret-00';
 const MONTHS = monthsBack('2026-10', 13);
@@ -145,39 +140,24 @@ function lichess(): Fetch {
       : months(url, init);
 }
 
-/** The services of one server process with a Lichess token. */
-function serverProcess(): {
-  runner: BroadcastRunner;
-  community: CommunityBroadcasts;
+/**
+ * The services of one server process with a Lichess token, as the app
+ * composes them: the real gateway, its pace included, over the fake
+ * Lichess.
+ */
+function serverProcess(): ComposedFideServices & {
+  community: NonNullable<ComposedFideServices['community']>;
 } {
-  const fetch = lichess();
-  const api = { fetch, token: FAKE_LICHESS_TOKEN };
-  const clock = () => new Date();
-  const db = testDb();
-  const runner = createBroadcastRunner({
-    index: broadcastIndexOn(db),
-    fetch,
-    clock,
-    tours: {
-      index: broadcastTourIndexOn(db),
-      api,
-      downloadApi: () => api,
-    },
-  });
-  const community = createCommunityBroadcasts({
-    api,
-    pasteApi: api,
-    runner,
-    queue: (tour) => queueBroadcastTour(db, tour),
-    statuses: (window) => broadcastTourStatuses(db, window),
-  });
-  fide.services = {
-    runner,
-    sources: createBroadcastSources({ fetch, clock }),
-    community,
+  const composed = composeFideServices({
+    store: fideStoreOn(testDb()),
+    fetch: lichess(),
+    token: FAKE_LICHESS_TOKEN,
     secret: 'a-feature-test-secret-of-32-characters!!',
-  };
-  return { runner, community };
+  });
+  fide.composed = composed;
+  const { community } = composed;
+  if (community === null) throw new Error('no community broadcasts');
+  return { ...composed, community };
 }
 
 async function searchRuta(): Promise<StartedSearch> {
@@ -199,7 +179,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await fide.services?.runner.settled();
+  await fideSettled();
   vi.unstubAllEnvs();
 });
 

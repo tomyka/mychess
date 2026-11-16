@@ -1,6 +1,8 @@
-// The FIDE ID search's services for a feature test (#316): the real runner
-// and sources on the test database, reading a fake Lichess that serves the
-// month list, a player and synthetic dumps, never the network.
+// The FIDE ID search's services for a feature test (#316, #349): the real
+// services, composed by the test (composeFideServices, through
+// vi.importActual) on the test database, reading a fake Lichess that serves
+// the month list, a player, synthetic dumps and broadcast API answers,
+// never the network.
 //
 // Declared in the test file:
 //
@@ -13,20 +15,34 @@ import {
   BROADCAST_LIST_URL,
   type Fetch,
 } from '@mychess/integrations';
-import type { FideServices } from '../../../src/server/fide-services';
+import type {
+  ComposedFideServices,
+  FideServices,
+} from '../../../src/server/fide-services';
 import { dumpServer } from '../../fixtures/broadcast-dumps';
 
-/** The services the mocked fideServices() answers with. */
-export const fide: { services?: FideServices; fetched: string[] } = {
+/**
+ * The composed services the mocked fideServices() answers with, and the
+ * URLs the fake Lichess was asked.
+ */
+export const fide: { composed?: ComposedFideServices; fetched: string[] } = {
   fetched: [],
 };
+
+/** Resolves once nothing runs in the background: the night, the runner. */
+export async function fideSettled(): Promise<void> {
+  await fide.composed?.community?.settled();
+  await fide.composed?.runner.settled();
+}
 
 /** The body of a `src/server/fide-services` mock. */
 export function fideServicesMock(): { fideServices: () => FideServices } {
   return {
     fideServices: () => {
-      if (fide.services === undefined) throw new Error('no FIDE services set');
-      return fide.services;
+      if (fide.composed === undefined) {
+        throw new Error('no FIDE services set');
+      }
+      return fide.composed.services;
     },
   };
 }

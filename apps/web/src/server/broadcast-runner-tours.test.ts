@@ -11,14 +11,8 @@ import {
   RUTA_FIDE_ID,
   rutaMonth,
 } from '../../test/fixtures/broadcast-dumps';
-import {
-  FAKE_LICHESS_TOKEN,
-  fakeLichessApi,
-  pgnPath,
-  tourDetailJson,
-  tourPgn,
-  type FakeTour,
-} from '../../test/fixtures/lichess-broadcast-api';
+import { inMemoryLichessBroadcasts } from '../../test/fixtures/in-memory-lichess-broadcasts';
+import type { FakeTour } from '../../test/fixtures/lichess-broadcast-api';
 import { createBroadcastRunner, type BroadcastIndex } from './broadcast-runner';
 import type { BroadcastTourIndex } from './broadcast-tour-job';
 
@@ -32,7 +26,7 @@ const TOUR: FakeTour = {
   rounds: ['RoundAA1'],
 };
 const TOUR_ID = broadcastTourIdSchema.parse(TOUR.id);
-const PGN = tourPgn(TOUR, [
+const GAMES = [
   {
     roundId: 'RoundAA1',
     gameId: 'GameAAA1',
@@ -42,7 +36,7 @@ const PGN = tourPgn(TOUR, [
     date: '2026-10-01',
     result: '1-0',
   },
-]);
+];
 
 /** What was written, a month's or a tournament's, and the most at once. */
 const written: { key: string; games: unknown[] }[] = [];
@@ -113,9 +107,8 @@ beforeEach(() => {
 });
 
 function runner(withToken = true) {
-  const lichess = fakeLichessApi({
-    [TOUR_ID]: [{ json: tourDetailJson(TOUR) }],
-    [pgnPath(TOUR_ID)]: [{ text: PGN }],
+  const lichess = inMemoryLichessBroadcasts({
+    tours: [{ tour: TOUR, games: GAMES }],
   });
   const run = createBroadcastRunner({
     index: months,
@@ -123,16 +116,7 @@ function runner(withToken = true) {
       [OCT]: () => dumpResponse(compressedDump(rutaMonth(OCT))).response,
     }).fetch,
     clock: () => NOW,
-    tours: withToken
-      ? {
-          index: tours,
-          api: { fetch: lichess.fetch, token: FAKE_LICHESS_TOKEN },
-          downloadApi: () => ({
-            fetch: lichess.fetch,
-            token: FAKE_LICHESS_TOKEN,
-          }),
-        }
-      : null,
+    tours: withToken ? { index: tours, broadcasts: lichess } : null,
   });
   return { run, lichess };
 }
@@ -159,7 +143,7 @@ describe('the broadcast runner with tournaments (#349)', () => {
     await run.settled();
     expect(written.map((w) => w.key)).toEqual([OCT, TOUR_ID]);
     expect(mostWriting).toBe(1);
-    expect(lichess.requested).toHaveLength(2);
+    expect(lichess.calls).toHaveLength(2);
   });
 
   it('releases the months and the tournaments a previous process left processing, once', async () => {
@@ -190,7 +174,7 @@ describe('the broadcast runner with tournaments (#349)', () => {
     await run.settled();
     run.need([OCT]);
     await run.settled();
-    expect(lichess.requested).toEqual([]);
+    expect(lichess.calls).toEqual([]);
     expect(tours.claim).not.toHaveBeenCalled();
     expect(tours.release).not.toHaveBeenCalled();
     expect(written.map((w) => w.key)).toEqual([OCT]);

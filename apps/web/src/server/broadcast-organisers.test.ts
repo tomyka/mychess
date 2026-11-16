@@ -1,16 +1,15 @@
 import {
   broadcastMonthSchema,
+  type ApprovedOrganiser,
   type BroadcastWindow,
   type QueuedBroadcastTour,
 } from '@mychess/domain';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  FAKE_LICHESS_TOKEN,
-  fakeLichessApi,
-  toursPageJson,
-  type FakeAnswer,
-  type FakeTour,
-} from '../../test/fixtures/lichess-broadcast-api';
+  inMemoryLichessBroadcasts,
+  type InMemoryWorld,
+} from '../../test/fixtures/in-memory-lichess-broadcasts';
+import type { FakeTour } from '../../test/fixtures/lichess-broadcast-api';
 import { listOrganiserTours } from './broadcast-organisers';
 
 const NOW = new Date('2026-11-16T03:00:00Z');
@@ -39,9 +38,8 @@ const OFFICIAL_IN_DUMPS = tour('Offici02', '2026-08-01', { official: true });
 const RUNNING = tour('Runnin01', '2026-11-15', { running: ['RoundAA1'] });
 const OLD = tour('OldTour1', '2025-06-01');
 
-const page = (n: number) => `by/vakarinis?page=${String(n)}`;
-const by = (account: string) => `by/${account}?page=1`;
-const EMPTY: FakeAnswer = { json: toursPageJson([], null) };
+const page = (n: number, organiser: ApprovedOrganiser = 'vakarinis') =>
+  `page ${organiser} ${String(n)}`;
 
 const queued: QueuedBroadcastTour[] = [];
 const queue = vi.fn((queuedTour: QueuedBroadcastTour) => {
@@ -56,43 +54,20 @@ beforeEach(() => {
   warnings.mockReset().mockImplementation(() => undefined);
 });
 
-async function list(answers: Readonly<Record<string, readonly FakeAnswer[]>>) {
-  const lichess = fakeLichessApi({
-    [by('kesnor7')]: [EMPTY],
-    [by('paulauskas')]: [EMPTY],
-    ...answers,
-  });
-  const listing = await listOrganiserTours(
-    {
-      api: { fetch: lichess.fetch, token: FAKE_LICHESS_TOKEN },
-      queue,
-    },
-    WINDOW,
-    NOW,
-  );
-  return { listing, requested: lichess.requested };
+async function list(world: InMemoryWorld) {
+  const broadcasts = inMemoryLichessBroadcasts(world);
+  const listing = await listOrganiserTours({ broadcasts, queue }, WINDOW, NOW);
+  return { listing, calls: broadcasts.calls };
 }
-
-const path = (url: string) =>
-  url.replace('https://lichess.org/api/broadcast/', '');
 
 describe('the nightly organiser listing (#349, spec decisions 2 and 3)', () => {
   it('lists every approved organiser and queues the finished tours that qualify', async () => {
-    const { listing, requested } = await list({
-      [page(1)]: [
-        {
-          json: toursPageJson(
-            [RUNNING, OFFICIAL_NEW, COMMUNITY, OFFICIAL_IN_DUMPS],
-            null,
-          ),
-        },
-      ],
+    const { listing, calls } = await list({
+      organisers: {
+        vakarinis: [[RUNNING, OFFICIAL_NEW, COMMUNITY, OFFICIAL_IN_DUMPS]],
+      },
     });
-    expect(requested.map(path)).toEqual([
-      by('vakarinis'),
-      by('kesnor7'),
-      by('paulauskas'),
-    ]);
+    expect(calls).toEqual([page(1), page(1, 'kesnor7'), page(1, 'paulauskas')]);
     expect(queued).toEqual([
       expect.objectContaining({
         id: OFFICIAL_NEW.id,
@@ -109,56 +84,53 @@ describe('the nightly organiser listing (#349, spec decisions 2 and 3)', () => {
   it('counts only the tours that were new to the index', async () => {
     queue.mockImplementationOnce(() => Promise.resolve(false));
     const { listing } = await list({
-      [page(1)]: [{ json: toursPageJson([OFFICIAL_NEW, COMMUNITY], null) }],
+      organisers: { vakarinis: [[OFFICIAL_NEW, COMMUNITY]] },
     });
     expect(queue).toHaveBeenCalledTimes(2);
     expect(listing.queued).toBe(1);
   });
 
   it('reads further pages until a page holds only tours older than the window', async () => {
-    const { requested } = await list({
-      [page(1)]: [{ json: toursPageJson([COMMUNITY], 2) }],
-      [page(2)]: [{ json: toursPageJson([OLD, COMMUNITY], 3) }],
-      [page(3)]: [{ json: toursPageJson([OLD], 4) }],
-      [page(4)]: [{ json: toursPageJson([COMMUNITY], null) }],
+    const { calls } = await list({
+      organisers: {
+        vakarinis: [[COMMUNITY], [OLD, COMMUNITY], [OLD], [COMMUNITY]],
+      },
     });
-    expect(requested.map(path).slice(0, 3)).toEqual([
-      page(1),
-      page(2),
-      page(3),
-    ]);
-    expect(requested.map(path)).not.toContain(page(4));
+    expect(calls.slice(0, 3)).toEqual([page(1), page(2), page(3)]);
+    expect(calls).not.toContain(page(4));
   });
 
   it('stops paging on the last page', async () => {
-    const { requested } = await list({
-      [page(1)]: [{ json: toursPageJson([COMMUNITY], null) }],
-    });
-    expect(requested.map(path).filter((p) => p.includes('vakarinis'))).toEqual([
+    const { calls } = await list({ organisers: { vakarinis: [[COMMUNITY]] } });
+    expect(calls.filter((call) => call.includes('vakarinis'))).toEqual([
       page(1),
     ]);
   });
 
-  // The pacer holds the next request a minute after a 429 (lichess-pace).
+  // The gateway holds the next request a minute after a 429.
   it('asks again after a 429', async () => {
-    const { listing, requested } = await list({
-      [page(1)]: [{ status: 429 }, { json: toursPageJson([COMMUNITY], null) }],
+    const { listing, calls } = await list({
+      organisers: { vakarinis: [[COMMUNITY]] },
+      script: { [page(1)]: ['lichessBroadcast.rateLimited', 'world'] },
     });
-    expect(requested.map(path)).toEqual([
+    expect(calls).toEqual([
       page(1),
       page(1),
-      by('kesnor7'),
-      by('paulauskas'),
+      page(1, 'kesnor7'),
+      page(1, 'paulauskas'),
     ]);
     expect(listing).toEqual({ queued: 1, stopped: false });
   });
 
   it('stops for the night on a second 429', async () => {
-    const { listing, requested } = await list({
-      [page(1)]: [{ status: 429 }, { json: toursPageJson([COMMUNITY], null) }],
-      [by('kesnor7')]: [{ status: 429 }],
+    const { listing, calls } = await list({
+      organisers: { vakarinis: [[COMMUNITY]] },
+      script: {
+        [page(1)]: ['lichessBroadcast.rateLimited', 'world'],
+        [page(1, 'kesnor7')]: ['lichessBroadcast.rateLimited'],
+      },
     });
-    expect(requested.map(path)).toEqual([page(1), page(1), by('kesnor7')]);
+    expect(calls).toEqual([page(1), page(1), page(1, 'kesnor7')]);
     expect(listing).toEqual({ queued: 1, stopped: true });
     expect(warnings).toHaveBeenCalledWith(
       'fide: organiser listing stopped for the night on a second 429',
@@ -166,23 +138,22 @@ describe('the nightly organiser listing (#349, spec decisions 2 and 3)', () => {
   });
 
   it('logs an organiser Lichess refuses by the refusal and goes on to the next', async () => {
-    const { listing, requested } = await list({
-      [page(1)]: [{ status: 404 }],
-      [by('kesnor7')]: [{ json: toursPageJson([COMMUNITY], null) }],
+    const { listing, calls } = await list({
+      organisers: { kesnor7: [[COMMUNITY]] },
+      script: { [page(1)]: ['lichessBroadcast.notFound'] },
     });
     expect(warnings).toHaveBeenCalledWith(
       'fide: organiser vakarinis not listed',
       'lichessBroadcast.notFound',
     );
-    expect(requested).toHaveLength(3);
+    expect(calls).toHaveLength(3);
     expect(listing.queued).toBe(1);
   });
 
   it('logs an organiser whose listing fails, never its error text, and goes on', async () => {
     queue.mockRejectedValueOnce(new TypeError('insert failed: Tour Commun01'));
     const { listing } = await list({
-      [page(1)]: [{ json: toursPageJson([COMMUNITY], null) }],
-      [by('kesnor7')]: [{ json: toursPageJson([COMMUNITY], null) }],
+      organisers: { vakarinis: [[COMMUNITY]], kesnor7: [[COMMUNITY]] },
     });
     expect(warnings).toHaveBeenCalledWith(
       'fide: organiser vakarinis not listed',

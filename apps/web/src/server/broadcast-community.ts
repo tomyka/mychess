@@ -15,16 +15,14 @@ import {
   type BroadcastWindow,
   type QueuedBroadcastTour,
 } from '@mychess/domain';
-import type { LichessApi } from '@mychess/integrations';
 import { listOrganiserTours } from './broadcast-organisers';
 import type { BroadcastRunner } from './broadcast-runner';
+import type { LichessBroadcasts } from './lichess-broadcasts';
 import { logText } from './log-text';
 
 export interface CommunityBroadcastsDeps {
-  /** The pacer's night lane: the organiser listing. */
-  readonly api: LichessApi;
-  /** The pacer's paste lane, behind every night and download call. */
-  readonly pasteApi: LichessApi;
+  /** What the night asks Lichess: the organisers' pages. */
+  readonly broadcasts: Pick<LichessBroadcasts, 'organiserPage'>;
   readonly runner: Pick<BroadcastRunner, 'needTours'>;
   /** Queues a tournament; true when it was new to the index. */
   readonly queue: (tour: QueuedBroadcastTour) => Promise<boolean>;
@@ -33,8 +31,6 @@ export interface CommunityBroadcastsDeps {
 }
 
 export interface CommunityBroadcasts {
-  /** What a pasted link's Lichess calls go through: the paste lane. */
-  readonly pasteApi: LichessApi;
   /** Starts tonight's run, unawaited, unless one is running already. */
   nightly(window: BroadcastWindow, now: Date): 'started' | 'running';
   /** Queues `tour` and, when it was new, hands it to the runner. */
@@ -48,7 +44,6 @@ export function createCommunityBroadcasts(
 ): CommunityBroadcasts {
   let night: Promise<void> | undefined;
   return {
-    pasteApi: deps.pasteApi,
     nightly(window, now) {
       if (night !== undefined) return 'running';
       night = runSafely(deps, window, now).finally(() => {

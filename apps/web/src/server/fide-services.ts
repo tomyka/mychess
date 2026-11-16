@@ -1,59 +1,78 @@
 /**
- * The FIDE ID search's long-lived parts, one set per server process (#316):
- * the background runner, whose single queue is what keeps this process to
- * one download at a time, the in-memory caches of what Lichess publishes,
- * the community broadcasts with the one paced way to the Lichess broadcast
- * API (#349), and the secret the search tokens are signed with.
+ * The composition root of Opponent's games (#316, #349): the one place
+ * that builds the FIDE search's long-lived parts and hands each use case
+ * its dependencies. Server actions and the cron route call the use cases
+ * through fideServices(); nothing else builds them.
  *
- * This is the only way to the runner: nothing else may create one, or the
- * process would download two months at once (arch F3). The set is kept on
- * `globalThis` (mychessFideServices), not in a module variable, so a
- * module loaded twice (dev hot reload, or two server bundles) still shares
- * the one runner.
+ * - the background runner, whose single queue keeps this process to one
+ *   download at a time; nothing else may create one, or the process would
+ *   download two at once (arch F3);
+ * - the Lichess broadcast gateway (lichess-broadcasts.ts), one per process,
+ *   so every call keeps to the one pace; only with a Lichess token;
+ * - the community broadcasts (the night and the queue of pasted
+ *   tournaments), only with a token;
+ * - the in-memory caches of what Lichess publishes;
+ * - the use cases: start and poll a search, add a pasted link, and the
+ *   nightly upkeep.
  *
- * Opened on first use, as the database pool is (db.ts). The runner lives
- * as long as the Node server (`next start`, the standalone image): a month
- * it processes outlives the request that needed it. A restart drops the
- * queue; the new process's runner, created here once, releases the month
- * left processing without spending its attempt before its first claim
- * (#355), and a later search or poll hands it to that runner.
+ * The set is kept on `globalThis` (mychessFideServices), not in a module
+ * variable, so a module loaded twice (dev hot reload, or two server
+ * bundles) still shares the one runner. Opened on first use, as the
+ * database pool is (db.ts). The runner lives as long as the Node server: a
+ * month it processes outlives the request that needed it. A restart drops
+ * the queue; the new process's runner releases what was left processing
+ * without spending its attempt before its first claim (#355).
  */
-import { broadcastTourStatuses, queueBroadcastTour } from '@mychess/db';
-import type { Fetch, LichessApi } from '@mychess/integrations';
+import type { Fetch } from '@mychess/integrations';
 import {
   createCommunityBroadcasts,
   type CommunityBroadcasts,
 } from './broadcast-community';
 import { broadcastFetch } from './broadcast-fixture-fetch';
 import {
-  broadcastIndexOn,
+  createAddBroadcastLink,
+  type AddBroadcastLink,
+} from './broadcast-link';
+import { createPreindex, type Preindex } from './broadcast-preindex';
+import {
   createBroadcastRunner,
   type BroadcastRunner,
 } from './broadcast-runner';
-import {
-  createBroadcastSources,
-  type BroadcastSources,
-} from './broadcast-sources';
-import { broadcastTourIndexOn } from './broadcast-tour-job';
+import { createBroadcastSources } from './broadcast-sources';
 import { getDb } from './db';
 import { readWebEnv } from './env';
-import {
-  createLichessPacer,
-  LICHESS_PACE,
-  sleep,
-  type LichessLane,
-} from './lichess-pace';
+import { createFideSearch, type FideSearch } from './fide-search';
+import { fideStoreOn, type FideStore } from './fide-store';
+import { createLichessBroadcasts } from './lichess-broadcasts';
 
+/** The use cases of Opponent's games. */
 export interface FideServices {
-  readonly runner: BroadcastRunner;
-  readonly sources: BroadcastSources;
-  /**
-   * The community broadcasts (#349); null without a Lichess token, so
-   * the organiser listing and pasted links are off.
-   */
-  readonly community: CommunityBroadcasts | null;
+  readonly search: FideSearch;
+  readonly addBroadcastLink: AddBroadcastLink;
+  readonly preindex: Preindex;
+}
+
+/** What the services are built on. */
+export interface FideServicesDeps {
+  /** The repositories, on this process's database (fideStoreOn). */
+  readonly store: FideStore;
+  /** How Lichess is reached: the network, or local E2E fixtures. */
+  readonly fetch: Fetch;
+  /** The owner's Lichess token (R-199); none turns the community part off. */
+  readonly token: string | undefined;
   /** Signs the search tokens; HKDF derives their key from it. */
   readonly secret: string;
+  readonly clock?: () => Date;
+}
+
+/**
+ * The services and the long-lived parts behind them, for a test to wait
+ * on (the runner's queue, the community night).
+ */
+export interface ComposedFideServices {
+  readonly services: FideServices;
+  readonly runner: BroadcastRunner;
+  readonly community: CommunityBroadcasts | null;
 }
 
 declare global {
@@ -64,63 +83,65 @@ declare global {
 /** The real network: the clients build every URL from a constant. */
 const network: Fetch = (url, init) => fetch(url, init);
 
-const clock = (): Date => new Date();
-
 /** This process's FIDE search services. */
 export function fideServices(): FideServices {
-  globalThis.mychessFideServices ??= createServices();
+  globalThis.mychessFideServices ??= processServices();
   return globalThis.mychessFideServices;
 }
 
-function createServices(): FideServices {
+function processServices(): FideServices {
   const env = readWebEnv();
-  const lichess = broadcastFetch(env, network);
-  const lane = lichessLanes(lichess, env.LICHESS_TOKEN);
-  const db = getDb();
-  const runner = createBroadcastRunner({
-    index: broadcastIndexOn(db),
-    fetch: lichess,
-    clock,
-    tours:
-      lane === null
-        ? null
-        : {
-            index: broadcastTourIndexOn(db),
-            api: lane('night'),
-            downloadApi: (onTurn) => lane('download', onTurn),
-          },
-  });
-  return {
-    runner,
-    sources: createBroadcastSources({ fetch: lichess, clock }),
-    community:
-      lane === null
-        ? null
-        : createCommunityBroadcasts({
-            api: lane('night'),
-            pasteApi: lane('paste'),
-            runner,
-            queue: (tour) => queueBroadcastTour(db, tour),
-            statuses: (window) => broadcastTourStatuses(db, window),
-          }),
+  return composeFideServices({
+    store: fideStoreOn(getDb()),
+    fetch: broadcastFetch(env, network),
+    token: env.LICHESS_TOKEN,
     secret: env.BETTER_AUTH_SECRET,
-  };
+  }).services;
 }
 
-/**
- * The Lichess broadcast API with `token` in each lane of one pacer
- * (lichess-pace.ts), so every call of this process keeps to its pace;
- * null without a token.
- */
-function lichessLanes(
-  fetch: Fetch,
-  token: string | undefined,
-): ((lane: LichessLane, onTurn?: () => void) => LichessApi) | null {
-  if (token === undefined) return null;
-  const pacer = createLichessPacer(fetch, {
-    ...LICHESS_PACE,
-    sleep,
-    clock: () => Date.now(),
+/** Builds the services and their parts on `deps`. */
+export function composeFideServices(
+  deps: FideServicesDeps,
+): ComposedFideServices {
+  const { store, fetch } = deps;
+  const clock = deps.clock ?? (() => new Date());
+  const broadcasts =
+    deps.token === undefined
+      ? null
+      : createLichessBroadcasts({ fetch, token: deps.token });
+  const runner = createBroadcastRunner({
+    index: store.monthIndex,
+    fetch,
+    clock,
+    tours: broadcasts === null ? null : { index: store.tourIndex, broadcasts },
   });
-  return (lane, onTurn) => ({ fetch: pacer.fetch(lane, onTurn), token });
+  const community =
+    broadcasts === null
+      ? null
+      : createCommunityBroadcasts({
+          broadcasts,
+          runner,
+          queue: store.queueTour,
+          statuses: store.tourStatuses,
+        });
+  const sources = createBroadcastSources({ fetch, clock });
+  const months = () => sources.months();
+  const services: FideServices = {
+    search: createFideSearch({ store, runner, sources, secret: deps.secret }),
+    addBroadcastLink: createAddBroadcastLink({
+      count: store.count,
+      months,
+      paste:
+        broadcasts === null || community === null
+          ? null
+          : { broadcasts, add: (tour) => community.add(tour) },
+    }),
+    preindex: createPreindex({
+      months,
+      monthStatuses: store.monthStatuses,
+      runner,
+      community,
+    }),
+  };
+  return { services, runner, community };
 }

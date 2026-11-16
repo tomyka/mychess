@@ -9,11 +9,9 @@ import {
 } from '@mychess/domain';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  FAKE_LICHESS_TOKEN,
-  fakeLichessApi,
-  toursPageJson,
-  type FakeAnswer,
-} from '../../test/fixtures/lichess-broadcast-api';
+  inMemoryLichessBroadcasts,
+  type InMemoryWorld,
+} from '../../test/fixtures/in-memory-lichess-broadcasts';
 import { createCommunityBroadcasts } from './broadcast-community';
 
 const NOW = new Date('2026-11-16T03:00:00Z');
@@ -68,13 +66,9 @@ beforeEach(() => {
   vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 });
 
-function community(
-  answers: Readonly<Record<string, readonly FakeAnswer[]>> = {},
-) {
-  const lichess = fakeLichessApi(answers);
+function community(world: InMemoryWorld = {}) {
   return createCommunityBroadcasts({
-    api: { fetch: lichess.fetch, token: FAKE_LICHESS_TOKEN },
-    pasteApi: { fetch: lichess.fetch, token: 'lip_pasteLane' },
+    broadcasts: inMemoryLichessBroadcasts(world),
     runner: { needTours: deps.needTours },
     queue: deps.queue,
     statuses: deps.statuses,
@@ -94,7 +88,7 @@ describe('the community broadcasts (#349)', () => {
       entry('FailedTd', { state: 'failed', attempts: 3, since: NOW }),
     ]);
     const broadcasts = community({
-      'by/vakarinis?page=1': [{ json: toursPageJson([], null) }],
+      organisers: { vakarinis: [[]] },
     });
     expect(broadcasts.nightly(WINDOW, NOW)).toBe('started');
     await broadcasts.settled();
@@ -128,10 +122,6 @@ describe('the community broadcasts (#349)', () => {
       'TypeError',
     );
     expect(broadcasts.nightly(WINDOW, NOW)).toBe('started');
-  });
-
-  it('give pasted links the paste lane', () => {
-    expect(community().pasteApi.token).toBe('lip_pasteLane');
   });
 
   it('queue an added tour and hand it to the runner when it is new', async () => {

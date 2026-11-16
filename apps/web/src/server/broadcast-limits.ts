@@ -20,16 +20,15 @@ export const RUNNER_LIMITS: RunnerLimits = {
 
 /**
  * Runs `download` under `limits`: its signal is aborted at the deadline,
- * or when `idle` is left armed longer than the idle limit. The idle limit
- * starts armed, for the wait for the download's answer, unless
- * `armIdle` is false: a download that waits its turn in a queue first
- * arms it when its request is sent, so the wait never counts as idle. The
- * deadline runs from the start either way.
+ * from the start, or when `idle` is left armed longer than the idle
+ * limit. The idle limit starts disarmed: whoever sends the download's
+ * request arms it then, so a wait for a turn in a queue never counts as
+ * idle (the dump month as it fetches, the Lichess gateway as the PGN's
+ * turn comes).
  */
 export async function withDownloadLimits<T>(
   limits: RunnerLimits,
   download: (signal: AbortSignal, idle: IdleLimit) => Promise<T>,
-  armIdle = true,
 ): Promise<T> {
   const controller = new AbortController();
   const deadline = setTimeout(() => {
@@ -37,7 +36,6 @@ export async function withDownloadLimits<T>(
   }, limits.deadlineMs);
   const idle = new IdleLimit(controller, limits.idleMs);
   try {
-    if (armIdle) idle.arm();
     return await download(controller.signal, idle);
   } finally {
     clearTimeout(deadline);

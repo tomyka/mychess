@@ -1,6 +1,7 @@
 /**
  * The FIDE ID search's use cases (#316, spec decisions 4 to 7): start a
- * search, then poll its progress while months are being indexed.
+ * search, then poll its progress while months are being indexed. Built
+ * with their dependencies by the services (fide-services.ts).
  *
  * Starting parses the ID (the domain's fideId), counts the search against
  * the account's rate limit before any database or outbound work, reads the
@@ -13,11 +14,11 @@
  * from its stored state: use is ready, process and wait are waiting, and
  * unavailable (failed within the day) is neither.
  */
-import {
-  broadcastMonthStatuses,
-  countRateLimited,
-  gamesForFideId,
-  type FoundGame,
+import type {
+  BroadcastMonthEntry,
+  BroadcastSearchScope,
+  FoundGame,
+  FoundGames,
 } from '@mychess/db';
 import {
   FIDE_SEARCH_RATE_LIMIT,
@@ -32,8 +33,9 @@ import {
   type FideIdRefusal,
 } from '@mychess/domain';
 import type { FidePlayer } from '@mychess/integrations';
-import { getDb } from './db';
-import { fideServices } from './fide-services';
+import type { BroadcastRunner } from './broadcast-runner';
+import type { BroadcastSources } from './broadcast-sources';
+import type { CountRequest } from './count-request';
 import { readSearchToken, signSearchToken } from './fide-search-token';
 
 /** Catalogue key of a search whose month list could not be read. */
@@ -101,33 +103,89 @@ const DISPLAY: Readonly<Record<BroadcastMonthAction, MonthDisplay>> = {
   unavailable: 'unavailable',
 };
 
-/**
- * Starts a search of `accountId` for the ID typed as `raw`, at `now`. A
- * failure on the way (the database, say) answers as unavailable.
- */
-export async function startFideSearch(
-  accountId: string,
-  raw: unknown,
-  now: Date,
-): Promise<FideSearchState> {
-  const id = fideId(typeof raw === 'string' ? raw : '');
-  if (!id.ok) return { kind: 'refused', refusal: id.refusal.reason };
-  try {
-    return await startParsed(accountId, id.value, now);
-  } catch {
-    console.error(SEARCH_FAILED);
-    return { kind: 'refused', refusal: SEARCH_UNAVAILABLE };
-  }
+/** The index the search reads, on this process's database. */
+export interface SearchStore {
+  /** Counts the search against its rate limit (countRateLimited). */
+  readonly count: CountRequest;
+  /** The months' index states (broadcastMonthStatuses). */
+  readonly monthStatuses: (
+    months: readonly BroadcastMonth[],
+  ) => Promise<BroadcastMonthEntry[]>;
+  /** The games of `id` the scope covers (gamesForFideId). */
+  readonly games: (
+    id: FideId,
+    scope: BroadcastSearchScope,
+  ) => Promise<FoundGames>;
+}
+
+export interface FideSearchDeps {
+  readonly store: SearchStore;
+  /** Where the months the search needs are handed, unawaited. */
+  readonly runner: Pick<BroadcastRunner, 'need'>;
+  readonly sources: BroadcastSources;
+  /** Signs the search tokens (fide-search-token.ts). */
+  readonly secret: string;
+}
+
+export interface FideSearch {
+  /**
+   * Starts a search of `accountId` for the ID typed as `raw`, at `now`. A
+   * failure on the way (the database, say) answers as unavailable.
+   */
+  readonly start: (
+    accountId: string,
+    raw: unknown,
+    now: Date,
+  ) => Promise<FideSearchState>;
+  /**
+   * The progress of the search `token` names, for `accountId`, at `now`; a
+   * failure on the way answers as failed, for the page to poll again.
+   */
+  readonly poll: (
+    accountId: string,
+    token: unknown,
+    now: Date,
+  ) => Promise<FidePollState>;
+}
+
+/** The search use cases over `deps` (fide-services.ts builds them). */
+export function createFideSearch(deps: FideSearchDeps): FideSearch {
+  return {
+    async start(accountId, raw, now) {
+      const id = fideId(typeof raw === 'string' ? raw : '');
+      if (!id.ok) return { kind: 'refused', refusal: id.refusal.reason };
+      try {
+        return await startParsed(deps, accountId, id.value, now);
+      } catch {
+        console.error(SEARCH_FAILED);
+        return { kind: 'refused', refusal: SEARCH_UNAVAILABLE };
+      }
+    },
+    async poll(accountId, token, now) {
+      const search = readSearchToken(deps.secret, token, accountId, now);
+      if (!search.ok) return { kind: 'expired' };
+      const { fideId: id, months } = search.value;
+      try {
+        return {
+          kind: 'progress',
+          snapshot: await snapshotOf(deps, id, months, now),
+        };
+      } catch {
+        console.error(SEARCH_FAILED);
+        return { kind: 'failed' };
+      }
+    },
+  };
 }
 
 /** Starts the search for the parsed `id`, counted first. */
 async function startParsed(
+  deps: FideSearchDeps,
   accountId: string,
   id: FideId,
   now: Date,
 ): Promise<FideSearchState> {
-  const limited = await countRateLimited(
-    getDb(),
+  const limited = await deps.store.count(
     fideSearchRateKey(accountId),
     FIDE_SEARCH_RATE_LIMIT,
     now,
@@ -136,35 +194,18 @@ async function startParsed(
     const { reason, limit } = limited.refusal;
     return { kind: 'refused', refusal: reason, limit };
   }
-  const { sources, secret } = fideServices();
-  const months = await sources.months().then(searchMonths, () => null);
+  const months = await deps.sources.months().then(searchMonths, () => null);
   if (months === null) return { kind: 'refused', refusal: SEARCH_UNAVAILABLE };
   const [player, snapshot] = await Promise.all([
-    sources.player(id),
-    snapshotOf(id, months, now),
+    deps.sources.player(id),
+    snapshotOf(deps, id, months, now),
   ]);
-  const token = signSearchToken(secret, { accountId, fideId: id, months }, now);
+  const token = signSearchToken(
+    deps.secret,
+    { accountId, fideId: id, months },
+    now,
+  );
   return { kind: 'started', search: { token, fideId: id, player, snapshot } };
-}
-
-/**
- * The progress of the search `token` names, for `accountId`, at `now`; a
- * failure on the way answers as failed, for the page to poll again.
- */
-export async function pollFideSearch(
-  accountId: string,
-  token: unknown,
-  now: Date,
-): Promise<FidePollState> {
-  const search = readSearchToken(fideServices().secret, token, accountId, now);
-  if (!search.ok) return { kind: 'expired' };
-  const { fideId: id, months } = search.value;
-  try {
-    return { kind: 'progress', snapshot: await snapshotOf(id, months, now) };
-  } catch {
-    console.error(SEARCH_FAILED);
-    return { kind: 'failed' };
-  }
 }
 
 /**
@@ -175,19 +216,19 @@ export async function pollFideSearch(
  * rule) before its limit.
  */
 async function snapshotOf(
+  deps: FideSearchDeps,
   id: FideId,
   months: readonly BroadcastMonth[],
   now: Date,
 ): Promise<SearchSnapshot> {
-  const db = getDb();
-  const actions = (await broadcastMonthStatuses(db, months)).map(
+  const actions = (await deps.store.monthStatuses(months)).map(
     ({ month, status }) => ({
       month,
       action: nextBroadcastMonthAction(status, now),
     }),
   );
-  fideServices().runner.need(monthsTo('process', actions));
-  const found = await gamesForFideId(db, id, {
+  deps.runner.need(monthsTo('process', actions));
+  const found = await deps.store.games(id, {
     months: monthsTo('use', actions),
     window: broadcastWindow(months),
   });

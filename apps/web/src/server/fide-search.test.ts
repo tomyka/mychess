@@ -1,4 +1,4 @@
-import type { BroadcastMonthEntry, FoundGames } from '@mychess/db';
+import type { FoundGames } from '@mychess/db';
 import {
   broadcastMonthSchema,
   broadcastTourIdSchema,
@@ -8,10 +8,12 @@ import {
 } from '@mychess/domain';
 import type { FidePlayer } from '@mychess/integrations';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { pollFideSearch, startFideSearch } from './fide-search';
+import { fakeCounter } from '../../test/fixtures/count-request';
+import { createFideSearch } from './fide-search';
+import type { BroadcastSources } from './broadcast-sources';
 import { readSearchToken, signSearchToken } from './fide-search-token';
+import type { SearchStore } from './fide-search';
 
-const DB = { name: 'the db' };
 const NOW = new Date('2026-11-10T10:00:00Z');
 const SECRET = 'a-test-secret-of-at-least-32-characters!';
 const ID = 13_400_002;
@@ -57,41 +59,35 @@ const FOUND: FoundGames = {
   truncated: false,
 };
 
-const server = vi.hoisted(() => ({
-  counted:
-    vi.fn<
-      (db: unknown, key: string, rule: unknown, now: Date) => Promise<unknown>
-    >(),
-  statuses:
-    vi.fn<(db: unknown, months: readonly string[]) => Promise<unknown>>(),
-  games:
-    vi.fn<
-      (db: unknown, id: number, months: readonly string[]) => Promise<unknown>
-    >(),
+const server = {
+  statuses: vi.fn<SearchStore['monthStatuses']>(),
+  games: vi.fn<SearchStore['games']>(),
   need: vi.fn<(months: readonly string[]) => void>(),
-  months: vi.fn<() => Promise<readonly string[]>>(),
-  player: vi.fn<(id: number) => Promise<unknown>>(),
-}));
+  months: vi.fn<BroadcastSources['months']>(),
+  player: vi.fn<BroadcastSources['player']>(),
+};
 
-vi.mock('@mychess/db', () => ({
-  countRateLimited: server.counted,
-  broadcastMonthStatuses: server.statuses,
-  gamesForFideId: server.games,
-}));
-vi.mock('./db', () => ({ getDb: () => DB }));
-vi.mock('./fide-services', () => ({
-  fideServices: () => ({
-    runner: { need: server.need, settled: () => Promise.resolve() },
-    sources: { months: server.months, player: server.player },
-    secret: 'a-test-secret-of-at-least-32-characters!',
-  }),
-}));
+const counter = fakeCounter();
+
+/** The search use case, its store, runner and sources the fakes above. */
+const search = createFideSearch({
+  store: {
+    count: counter.count,
+    monthStatuses: server.statuses,
+    games: server.games,
+  },
+  runner: { need: server.need },
+  sources: { months: server.months, player: server.player },
+  secret: SECRET,
+});
+const startFideSearch = search.start;
+const pollFideSearch = search.poll;
 
 /** The months' entries with `statuses` by month, pending otherwise. */
 function entries(
   statuses: Readonly<Record<string, BroadcastMonthStatus>>,
-): (db: unknown, months: readonly string[]) => Promise<BroadcastMonthEntry[]> {
-  return (_db, months) =>
+): SearchStore['monthStatuses'] {
+  return (months) =>
     Promise.resolve(
       months.map((m) => ({
         month: month(m),
@@ -126,7 +122,7 @@ const logs = {
 };
 
 beforeEach(() => {
-  server.counted.mockReset().mockResolvedValue({ ok: true, value: undefined });
+  counter.calls.mockReset().mockResolvedValue('allowed');
   server.statuses.mockReset().mockImplementation(entries(allDone));
   server.games.mockReset().mockResolvedValue(FOUND);
   server.need.mockReset();
@@ -155,7 +151,7 @@ describe('starting a FIDE ID search', () => {
         kind: 'refused',
         refusal,
       });
-      expect(server.counted).not.toHaveBeenCalled();
+      expect(counter.calls).not.toHaveBeenCalled();
       expect(server.months).not.toHaveBeenCalled();
       expect(server.player).not.toHaveBeenCalled();
       expect(server.statuses).not.toHaveBeenCalled();
@@ -171,8 +167,7 @@ describe('starting a FIDE ID search', () => {
 
   it('counts the search against the account, never the ID', async () => {
     await started();
-    expect(server.counted).toHaveBeenCalledExactlyOnceWith(
-      DB,
+    expect(counter.calls).toHaveBeenCalledExactlyOnceWith(
       'fide-search:rokas',
       { windowMs: 60_000, max: 10, reason: 'fide.tooManySearches' },
       NOW,
@@ -180,10 +175,7 @@ describe('starting a FIDE ID search', () => {
   });
 
   it('refuses past the limit before any lookup or download', async () => {
-    server.counted.mockResolvedValue({
-      ok: false,
-      refusal: { reason: 'fide.tooManySearches', limit: 10 },
-    });
+    counter.calls.mockResolvedValue('limited');
     expect(await startFideSearch('rokas', form(String(ID)), NOW)).toEqual({
       kind: 'refused',
       refusal: 'fide.tooManySearches',
@@ -205,8 +197,8 @@ describe('starting a FIDE ID search', () => {
 
   it('covers the 12 newest months and shows the player and games of ready ones', async () => {
     const search = await started(` ${String(ID)} `);
-    expect(server.statuses).toHaveBeenCalledExactlyOnceWith(DB, SEARCHED);
-    expect(server.games).toHaveBeenCalledExactlyOnceWith(DB, ID, {
+    expect(server.statuses).toHaveBeenCalledExactlyOnceWith(SEARCHED);
+    expect(server.games).toHaveBeenCalledExactlyOnceWith(ID, {
       months: SEARCHED,
       window: { oldest: SEARCHED[11], newest: SEARCHED[0] },
     });
@@ -266,7 +258,7 @@ describe('starting a FIDE ID search', () => {
       unavailable: 1,
     });
     expect(server.need).toHaveBeenCalledExactlyOnceWith([m0, m2, m4]);
-    expect(server.games.mock.lastCall?.[2]).toEqual({
+    expect(server.games.mock.lastCall?.[1]).toEqual({
       months: [SEARCHED[5], ...SEARCHED.slice(7)],
       window: { oldest: SEARCHED[11], newest: SEARCHED[0] },
     });
@@ -307,7 +299,7 @@ describe('polling a started search', () => {
   it('answers with the progress of the search the token names', async () => {
     const { token } = await started();
     server.statuses.mockClear();
-    server.counted.mockClear();
+    counter.calls.mockClear();
     server.months.mockClear();
     server.statuses.mockImplementation(
       entries({
@@ -327,9 +319,9 @@ describe('polling a started search', () => {
         truncated: false,
       },
     });
-    expect(server.statuses).toHaveBeenCalledExactlyOnceWith(DB, SEARCHED);
+    expect(server.statuses).toHaveBeenCalledExactlyOnceWith(SEARCHED);
     expect(server.need).toHaveBeenLastCalledWith([SEARCHED[0]]);
-    expect(server.counted).not.toHaveBeenCalled();
+    expect(counter.calls).not.toHaveBeenCalled();
     expect(server.months).not.toHaveBeenCalled();
   });
 
@@ -391,12 +383,12 @@ describe('a failing database (security M1)', () => {
   });
 
   it('answers a start whose count or month states fail as unavailable', async () => {
-    server.counted.mockRejectedValue(leaky());
+    counter.calls.mockRejectedValue(leaky());
     expect(await startFideSearch('rokas', form(String(ID)), NOW)).toEqual({
       kind: 'refused',
       refusal: 'fide.searchUnavailable',
     });
-    server.counted.mockResolvedValue({ ok: true, value: undefined });
+    counter.calls.mockResolvedValue('allowed');
     server.statuses.mockRejectedValue(leaky());
     expect((await startFideSearch('rokas', form(String(ID)), NOW)).kind).toBe(
       'refused',

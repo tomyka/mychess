@@ -4,10 +4,10 @@
  * page 1 and then further pages until a page holds only tournaments older
  * than the window, every finished tournament the domain qualifies queued.
  *
- * Requests go through the pacer's night lane (lichess-pace.ts), which
- * keeps them a second apart, holds every request for a minute after a 429
- * and times each one. On a 429 the listing asks again, the pacer making it
- * wait; on a second 429 it stops for the night. An organiser Lichess
+ * Pages come from the Lichess gateway (lichess-broadcasts.ts), which
+ * paces and times each request and holds the next one a minute after a
+ * 429. On a 429 (its `rateLimited` refusal) the listing asks again; on a
+ * second it stops for the night. An organiser Lichess
  * refuses, or one whose listing fails, is logged by its refusal or as
  * logText says, and the next organiser is listed.
  */
@@ -22,17 +22,15 @@ import {
 } from '@mychess/domain';
 import {
   LICHESS_BROADCAST_REFUSALS,
-  lichessBroadcastsBy,
-  type LichessApi,
   type LichessBroadcastResult,
   type LichessListedTour,
 } from '@mychess/integrations';
 import { tourCandidate, tourLastRoundAt } from './broadcast-candidate';
-import { NO_ABORT } from './lichess-pace';
+import type { LichessBroadcasts } from './lichess-broadcasts';
 import { logText } from './log-text';
 
 export interface OrganiserListingDeps {
-  readonly api: LichessApi;
+  readonly broadcasts: Pick<LichessBroadcasts, 'organiserPage'>;
   /** Queues a tournament; true when it was new to the index. */
   readonly queue: (tour: QueuedBroadcastTour) => Promise<boolean>;
 }
@@ -95,11 +93,11 @@ async function listOrganiser(
   night: Night,
   organiser: ApprovedOrganiser,
 ): Promise<void> {
-  const { api } = night.deps;
+  const { broadcasts } = night.deps;
   for (let page: number | null = 1; page !== null && !night.stopped;) {
     const at: number = page;
     const answer = await patiently(night, () =>
-      lichessBroadcastsBy(api, organiser, at, NO_ABORT),
+      broadcasts.organiserPage(organiser, at),
     );
     if (answer === undefined) return;
     if (!answer.ok) {
@@ -117,8 +115,8 @@ async function listOrganiser(
 }
 
 /**
- * `request`'s answer, asked again after a first 429 (the pacer holds it
- * a minute); undefined, with the night stopped, on a second.
+ * `request`'s answer, asked again after a first 429 (the gateway holds
+ * it a minute); undefined, with the night stopped, on a second.
  */
 async function patiently<T>(
   night: Night,

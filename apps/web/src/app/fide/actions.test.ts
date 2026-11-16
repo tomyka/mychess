@@ -20,12 +20,11 @@ const server = vi.hoisted(() => ({
 }));
 
 vi.mock('../../server/session', () => ({ requireOnboarded: server.account }));
-vi.mock('../../server/broadcast-link', () => ({
-  addBroadcastLink: server.add,
-}));
-vi.mock('../../server/fide-search', () => ({
-  startFideSearch: server.start,
-  pollFideSearch: server.poll,
+vi.mock('../../server/fide-services', () => ({
+  fideServices: () => ({
+    search: { start: server.start, poll: server.poll },
+    addBroadcastLink: server.add,
+  }),
 }));
 
 const form = (fideId: string) => {

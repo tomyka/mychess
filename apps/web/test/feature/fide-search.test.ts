@@ -9,7 +9,6 @@ import {
   createBroadcastRunner,
   type BroadcastRunner,
 } from '../../src/server/broadcast-runner';
-import { createBroadcastSources } from '../../src/server/broadcast-sources';
 import type {
   FidePollState,
   FideSearchState,
@@ -22,7 +21,8 @@ import {
   rutaMonth,
 } from '../fixtures/broadcast-dumps';
 import { actAs, formOf, person, type Person } from './support/coaching';
-import { fakeLichess, fide, monthsBack } from './support/fide';
+import { fakeLichess, fide, fideSettled, monthsBack } from './support/fide';
+import { fideStoreOn } from '../../src/server/fide-store';
 import { useRequestHarness } from './support/harness';
 import { outcomeOf, testDb } from './support/request';
 
@@ -43,6 +43,11 @@ vi.mock('../../src/server/fide-services', async () =>
 );
 
 const { sql } = useRequestHarness();
+
+/** The real composition, past this file's mock of its module. */
+const { composeFideServices } = await vi.importActual<
+  typeof import('../../src/server/fide-services')
+>('../../src/server/fide-services');
 
 const SECRET = 'a-feature-test-secret-of-32-characters!!';
 const MONTHS = monthsBack('2026-10', 13);
@@ -70,19 +75,13 @@ const goodDumps = (months: readonly string[]): Dumps =>
 /** The services of one server process, on the test database. */
 function serverProcess(dumps: Dumps): BroadcastRunner {
   const fetch = fakeLichess({ months: MONTHS, player: PLAYER, dumps });
-  const clock = () => new Date();
-  const runner = createBroadcastRunner({
-    index: broadcastIndexOn(testDb()),
+  fide.composed = composeFideServices({
+    store: fideStoreOn(testDb()),
     fetch,
-    clock,
-  });
-  fide.services = {
-    runner,
-    sources: createBroadcastSources({ fetch, clock }),
-    community: null,
+    token: undefined,
     secret: SECRET,
-  };
-  return runner;
+  });
+  return fide.composed.runner;
 }
 
 const dumpsFetched = () => fide.fetched.filter((url) => url.endsWith('.zst'));
@@ -119,7 +118,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await fide.services?.runner.settled();
+  await fideSettled();
 });
 
 describe('a FIDE ID search (#316)', () => {

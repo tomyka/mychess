@@ -1,17 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET } from '../../src/app/api/cron/index-broadcasts/route';
-import {
-  broadcastIndexOn,
-  createBroadcastRunner,
-  type BroadcastRunner,
-} from '../../src/server/broadcast-runner';
-import { createBroadcastSources } from '../../src/server/broadcast-sources';
+import type { BroadcastRunner } from '../../src/server/broadcast-runner';
 import {
   compressedDump,
   dumpResponse,
   rutaMonth,
 } from '../fixtures/broadcast-dumps';
-import { fakeLichess, fide, monthsBack } from './support/fide';
+import { fakeLichess, fide, fideSettled, monthsBack } from './support/fide';
+import { fideStoreOn } from '../../src/server/fide-store';
 import { useRequestHarness } from './support/harness';
 import { testDb } from './support/request';
 
@@ -23,6 +19,11 @@ vi.mock('../../src/server/fide-services', async () =>
 );
 
 const { sql } = useRequestHarness();
+
+/** The real composition, past this file's mock of its module. */
+const { composeFideServices } = await vi.importActual<
+  typeof import('../../src/server/fide-services')
+>('../../src/server/fide-services');
 
 const SECRET = 'cron-secret-cron-secret-cron-secret-00';
 const ROUTE = 'http://localhost/api/cron/index-broadcasts';
@@ -40,19 +41,13 @@ function serverProcess(): BroadcastRunner {
       ]),
     ),
   });
-  const clock = () => new Date();
-  const runner = createBroadcastRunner({
-    index: broadcastIndexOn(testDb()),
+  fide.composed = composeFideServices({
+    store: fideStoreOn(testDb()),
     fetch,
-    clock,
-  });
-  fide.services = {
-    runner,
-    sources: createBroadcastSources({ fetch, clock }),
-    community: null,
+    token: undefined,
     secret: 'a-feature-test-secret-of-32-characters!!',
-  };
-  return runner;
+  });
+  return fide.composed.runner;
 }
 
 const call = (authorization: string): Promise<Response> =>
@@ -66,7 +61,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await fide.services?.runner.settled();
+  await fideSettled();
   vi.unstubAllEnvs();
 });
 
