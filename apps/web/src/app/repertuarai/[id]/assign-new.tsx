@@ -5,10 +5,11 @@ import { useActionState, useId, type JSX } from 'react';
 import { targetField } from '../../../lib/assign-target';
 import type { AssignPanelData } from '../../../server/coach-assignments';
 import { SECONDARY_BUTTON } from '../../buttons';
+import { FIELD } from '../../fields';
 import { StatusLine } from '../../status-line';
 import { submitByHand } from '../../submit-by-hand';
 import { assignAction } from './assign-actions';
-import { FIELD, INITIAL, useOutcome } from './assign-outcome';
+import { INITIAL, useOutcome } from './assign-outcome';
 
 /** Whom the picker offers: those it is not yet assigned to (the loader's). */
 type Offer = Pick<AssignPanelData, 'players' | 'groups'>;

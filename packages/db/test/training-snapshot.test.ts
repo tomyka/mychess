@@ -76,7 +76,7 @@ describe('trainingSnapshot', () => {
     await seedLink(db, 'c', 'p');
   });
 
-  it('carries the entries, held reviews, learned set and settings', async () => {
+  it('carries the entries, held reviews, tracked set and settings', async () => {
     const own = await repertoireOf('p', 'Mano');
     const d4 = await learned(D4);
     await writeReview(db, 'p', startReview(BF4, hoursAgo(30)), {
@@ -86,7 +86,7 @@ describe('trainingSnapshot', () => {
     const snapshot = await trainingSnapshot(db, 'p', ALL, NOW);
     expect(snapshot).toMatchObject({
       entries: [{ kind: 'own', name: 'Mano', repertoire: { id: own } }],
-      learned: new Set([D4, BF4]),
+      tracked: new Set([D4, BF4]),
       learnedToday: 0,
       settings: { sessionSize: 30, newPerDay: 5 },
     });
@@ -107,7 +107,7 @@ describe('trainingSnapshot', () => {
     await learned(E4);
     expect(await snapshotKeys(ALL)).toEqual([D4]);
     const snapshot = await trainingSnapshot(db, 'p', ALL, NOW);
-    expect(snapshot?.learned).toEqual(new Set([D4]));
+    expect(snapshot?.tracked).toEqual(new Set([D4]));
   });
 
   it('brings dormant reviews back when the repertoire is assigned again', async () => {
@@ -137,11 +137,11 @@ describe('trainingSnapshot', () => {
     expect([...(snapshot?.reviews.keys() ?? [])]).toEqual([E4]);
   });
 
-  it('carries no reviews or learned keys before the player learns a move', async () => {
+  it('carries no reviews or tracked keys before the player learns a move', async () => {
     await repertoireOf('p', 'Mano');
     const snapshot = await trainingSnapshot(db, 'p', ALL, NOW);
     expect(snapshot?.reviews).toEqual(new Map());
-    expect(snapshot?.learned).toEqual(new Set());
+    expect(snapshot?.tracked).toEqual(new Set());
   });
 
   describe('scoped to one repertoire', () => {

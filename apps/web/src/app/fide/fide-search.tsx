@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX } from 'react';
 import type { FideSearchState } from '../../server/fide-search';
 import { PRIMARY_BUTTON } from '../buttons';
+import { FIELD } from '../fields';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
 import { startFideSearchAction } from './actions';
@@ -99,7 +100,7 @@ function IdField({
           autoComplete="off"
           aria-invalid={invalid ? true : undefined}
           aria-describedby={invalid ? `${hintId} ${statusId}` : hintId}
-          className="min-h-touch rounded-control border border-border-strong bg-surface px-3 text-base text-fg aria-invalid:border-error sm:col-start-1 sm:row-start-1"
+          className={`${FIELD} sm:col-start-1 sm:row-start-1`}
         />
         <p
           id={hintId}

@@ -123,7 +123,7 @@ const data: TrainingData = {
   ],
   others: [],
   reviews: [],
-  learned: [],
+  tracked: [],
   learnedToday: 0,
   settings: { sessionSize: 20, newPerDay: 10 },
   now: new Date('2026-10-25T08:00:00Z'),

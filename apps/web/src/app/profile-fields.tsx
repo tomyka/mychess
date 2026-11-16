@@ -2,6 +2,7 @@ import type { Locale } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useId, type JSX } from 'react';
 import type { ProfileRefusalKey } from '../server/profile-input';
+import { FIELD } from './fields';
 
 /** Is the refusal about the display name (rather than the language)? */
 export const isNameRefusal = (
@@ -47,7 +48,7 @@ export function NameField({
         aria-describedby={
           described.length === 0 ? undefined : described.join(' ')
         }
-        className="min-h-touch rounded-control border border-border-strong bg-surface px-3 text-base text-fg aria-invalid:border-error"
+        className={FIELD}
       />
       {hint === undefined ? null : (
         <p id={hintId} className="text-sm text-fg-muted">

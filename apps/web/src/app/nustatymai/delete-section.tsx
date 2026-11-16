@@ -14,6 +14,7 @@ import {
   type ReactNode,
 } from 'react';
 import { DANGER_BUTTON } from '../buttons';
+import { FIELD } from '../fields';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
 import { deleteAccountAction, type DeleteState } from './actions';
@@ -151,7 +152,7 @@ export function DeleteSection({
           }}
           aria-invalid={refused ? true : undefined}
           aria-describedby={refused ? statusId : undefined}
-          className="min-h-touch rounded-control border border-border-strong bg-surface px-3 text-base text-fg aria-invalid:border-error"
+          className={FIELD}
         />
         <button
           type="submit"

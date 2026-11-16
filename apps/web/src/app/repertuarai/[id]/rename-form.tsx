@@ -3,13 +3,11 @@
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX, type KeyboardEvent } from 'react';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../buttons';
+import { FIELD } from '../../fields';
 import { StatusLine } from '../../status-line';
 import { submitByHand } from '../../submit-by-hand';
 import { renameRepertoireAction, type RenameState } from './actions';
 import type { Repertoire } from './repertoire-header-types';
-
-const FIELD =
-  'min-h-touch rounded-control border border-border-strong bg-surface px-3 text-base text-fg aria-invalid:border-error';
 
 /** The rename action, telling `onDone` once a name is saved. */
 function useRename(onDone: () => void) {

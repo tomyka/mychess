@@ -13,7 +13,7 @@ export const dayOf = (data: TrainingData): TrainingDay => ({
     active,
   })),
   reviews: new Map(data.reviews.map((r) => [r.key, r])),
-  learned: new Set(data.learned),
+  tracked: new Set(data.tracked),
   learnedToday: data.learnedToday,
   limits: {
     reviews: data.settings.sessionSize,

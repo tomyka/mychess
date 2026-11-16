@@ -107,7 +107,7 @@ async function linkedPlayer(
 }
 
 /** The Reviews of one player on the player moves of `shown`. */
-async function trackedOf(
+async function trackedReviewsOf(
   tx: Executor,
   playerId: string,
   shown: readonly LoadedGraph[],
@@ -192,7 +192,7 @@ export function coachPlayerProgress(
     if (linked === undefined) return undefined;
     const { viewer, player } = linked;
     const shown = await playerRepertoires(tx, viewer);
-    const tracked = await trackedOf(
+    const tracked = await trackedReviewsOf(
       tx,
       playerId,
       shown.map((one) => one.loaded),
@@ -250,7 +250,7 @@ export function coachRepertoireProgress(
     const read = entryRead(entry, viewer);
     const loaded = await loadVisible(tx, read.scope, repertoireId);
     if (loaded === undefined) return undefined;
-    const tracked = await trackedOf(tx, playerId, [loaded]);
+    const tracked = await trackedReviewsOf(tx, playerId, [loaded]);
     return {
       player: { id: player.id, displayName: player.displayName },
       repertoire: loaded.repertoire,

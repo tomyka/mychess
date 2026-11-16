@@ -19,7 +19,7 @@ import {
 import { chapterWalks } from '../repertoire/walk';
 import type { TrainingRepertoire } from './scope';
 
-/** `known`: a player move learned before, or planned earlier in this plan. */
+/** `known`: a player move tracked before, or planned earlier in this plan. */
 export type LearnStepKind = 'opponent' | 'known' | 'new';
 
 export interface LearnPlanStep {
@@ -37,7 +37,7 @@ export interface LearnLine {
 }
 
 interface Planner {
-  /** Keys learned before or planned to learn in this plan. */
+  /** Keys tracked before or planned to learn in this plan. */
   readonly planned: Set<string>;
   /** New moves the allowance still allows. */
   left: number;
@@ -88,14 +88,14 @@ function* candidateLines(
 
 /**
  * The lines to learn, at most `limit` new moves in all, over the active
- * repertoires in the given order. Keys in `learned` are never planned again.
+ * repertoires in the given order. Keys in `tracked` are never planned again.
  */
 export function learnPlan(
   repertoires: readonly TrainingRepertoire[],
-  learned: ReadonlySet<string>,
+  tracked: ReadonlySet<string>,
   limit: number,
 ): LearnLine[] {
-  const planner: Planner = { planned: new Set(learned), left: limit };
+  const planner: Planner = { planned: new Set(tracked), left: limit };
   const plan: LearnLine[] = [];
   for (const { repertoire, chapter, path } of candidateLines(repertoires)) {
     if (planner.left <= 0) break;

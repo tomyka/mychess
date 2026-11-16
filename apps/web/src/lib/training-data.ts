@@ -45,8 +45,8 @@ export interface TrainingData {
   readonly others: readonly TrainingDataOther[];
   /** The held Reviews (dormant ones left out). */
   readonly reviews: readonly ReviewState[];
-  /** Keys learned or skipped among them. */
-  readonly learned: readonly string[];
+  /** Tracked keys among them, a Review exists (R-181). */
+  readonly tracked: readonly string[];
   /** Moves learned in the player's day so far (R-147). */
   readonly learnedToday: number;
   readonly settings: TrainingSettings;

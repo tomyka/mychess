@@ -52,7 +52,7 @@ function day(overrides: Partial<TrainingDay> = {}): TrainingDay {
   return {
     repertoires: [repertoire(white)],
     reviews: new Map(),
-    learned: new Set(),
+    tracked: new Set(),
     learnedToday: 0,
     limits: { reviews: 20, newPerDay: 10 },
     ...overrides,
@@ -68,11 +68,11 @@ function reviewIn(key: string, ms: number): ReviewState {
   };
 }
 
-/** The Reviews, by key, and the learned keys they make. */
+/** The Reviews, by key, and the tracked keys they make. */
 function reviewed(...reviews: ReviewState[]): Partial<TrainingDay> {
   return {
     reviews: new Map(reviews.map((r) => [r.key, r])),
-    learned: new Set(reviews.map((r) => r.key)),
+    tracked: new Set(reviews.map((r) => r.key)),
   };
 }
 

@@ -46,8 +46,8 @@ export interface TrainingSnapshot {
    * ones (R-44) are left out at read time.
    */
   readonly reviews: ReadonlyMap<string, ReviewState>;
-  /** Keys learned or skipped among them (for learnPlan, R-129). */
-  readonly learned: ReadonlySet<string>;
+  /** Tracked keys among them, a Review exists (for learnPlan, R-181). */
+  readonly tracked: ReadonlySet<string>;
   /** Moves learned (not skipped) in the player's day so far (R-147). */
   readonly learnedToday: number;
   readonly settings: TrainingSettings;
@@ -115,7 +115,7 @@ export async function trainingSnapshot(
       entries,
       others: othersOf(all, entries),
       reviews,
-      learned: new Set(reviews.keys()),
+      tracked: new Set(reviews.keys()),
       learnedToday: await learnedBetween(
         tx,
         playerId,

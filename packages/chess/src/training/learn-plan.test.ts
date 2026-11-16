@@ -72,11 +72,11 @@ describe('learnPlan', () => {
       'new:d3',
     ]);
   });
-  it('treats learned keys as known and skips lines with nothing new', () => {
-    const learned = new Set(
+  it('treats tracked keys as known and skips lines with nothing new', () => {
+    const tracked = new Set(
       ['e4', 'Nf3', 'Bc4', 'c3'].map((s) => keyOf(italian, s)),
     );
-    const plan = learnPlan([rep('r', italian)], learned, 10);
+    const plan = learnPlan([rep('r', italian)], tracked, 10);
     expect(plan).toHaveLength(1);
     expect(plan[0]?.chapterId).toBe(italian.chapters[1]?.id);
     expect(steps(plan[0])?.at(-1)).toBe('new:d3');
@@ -123,21 +123,21 @@ describe('learnPlan', () => {
     .filter((m) => isPlayerMove(italian, m))
     .map((m) => moveKey(m.from, m.san));
 
-  it('plans min(limit, unlearned) moves, each once, none learned', () => {
+  it('plans min(limit, untracked) moves, each once, none tracked', () => {
     fc.assert(
       fc.property(
         fc.subarray(playerKeys),
         fc.integer({ min: 0, max: 10 }),
-        (learnedKeys, limit) => {
-          const learned = new Set(learnedKeys);
-          const planned = learnPlan([rep('r', italian)], learned, limit)
+        (trackedKeys, limit) => {
+          const tracked = new Set(trackedKeys);
+          const planned = learnPlan([rep('r', italian)], tracked, limit)
             .flatMap((l) => l.steps)
             .filter((s) => s.kind === 'new')
             .map((s) => s.key);
-          const unlearned = playerKeys.length - learned.size;
-          expect(planned).toHaveLength(Math.min(limit, unlearned));
+          const untracked = playerKeys.length - tracked.size;
+          expect(planned).toHaveLength(Math.min(limit, untracked));
           expect(new Set(planned).size).toBe(planned.length);
-          expect(planned.filter((k) => learned.has(k))).toEqual([]);
+          expect(planned.filter((k) => tracked.has(k))).toEqual([]);
         },
       ),
     );

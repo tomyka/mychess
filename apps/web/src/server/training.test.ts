@@ -75,7 +75,7 @@ const SNAPSHOT: TrainingSnapshot = {
     ['k1|d4', review('k1|d4')],
     ['k2|Bf4', review('k2|Bf4')],
   ]),
-  learned: new Set(['k1|d4', 'k2|Bf4']),
+  tracked: new Set(['k1|d4', 'k2|Bf4']),
   learnedToday: 3,
   settings: { sessionSize: 20, newPerDay: 5 },
 };
@@ -152,7 +152,7 @@ describe('loadTraining', () => {
       ],
       others: [{ id: THIRD, name: 'Kito', side: 'white', graph: LONDON_GRAPH }],
       reviews: [review('k1|d4'), review('k2|Bf4')],
-      learned: ['k1|d4', 'k2|Bf4'],
+      tracked: ['k1|d4', 'k2|Bf4'],
       learnedToday: 3,
       settings: { sessionSize: 20, newPerDay: 5 },
       now: NOW,
@@ -187,7 +187,7 @@ function londonDue(due: readonly string[]): TrainingSnapshot {
         return [key, { ...r, fsrs: { ...r.fsrs, due: at } }];
       }),
     ),
-    learned: new Set(LONDON_KEYS),
+    tracked: new Set(LONDON_KEYS),
   };
 }
 
@@ -231,7 +231,7 @@ describe('todaySummary (U1-M1-3)', () => {
     server.snapshot.mockResolvedValue({
       ...londonDue([]),
       reviews: new Map(),
-      learned: new Set(),
+      tracked: new Set(),
     });
     expect(await todaySummary(ROKAS)).toEqual({
       due: 0,

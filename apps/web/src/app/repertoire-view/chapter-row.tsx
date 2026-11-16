@@ -15,6 +15,7 @@ import {
 } from 'react';
 import { isMessageKey } from '../../i18n/message-key';
 import { DANGER_BUTTON, SECONDARY_BUTTON } from '../buttons';
+import { FIELD } from '../fields';
 import { StatusLine } from '../status-line';
 import type { FieldOutcome } from './field-save';
 import { KnowThisMenu } from './know-this-menu';
@@ -148,7 +149,7 @@ function RenameForm({
         }}
         aria-invalid={refusal === null ? undefined : true}
         aria-describedby={refusal === null ? undefined : statusId}
-        className="min-h-touch rounded-control border border-border-strong bg-surface px-3 text-base text-fg aria-invalid:border-error"
+        className={FIELD}
       />
       <div className="flex flex-wrap gap-2">
         <button

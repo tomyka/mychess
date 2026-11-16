@@ -5,6 +5,7 @@ import { FORK_OFFER_DAYS } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX } from 'react';
 import { SECONDARY_BUTTON } from '../../buttons';
+import { FIELD } from '../../fields';
 import { ConfirmedAction } from '../../confirmed-action';
 import { StatusLine } from '../../status-line';
 import { submitByHand } from '../../submit-by-hand';
@@ -15,7 +16,7 @@ import {
   setDeadlineAction,
   unassignAction,
 } from './assign-actions';
-import { FIELD, INITIAL, useOutcome } from './assign-outcome';
+import { INITIAL, useOutcome } from './assign-outcome';
 
 /** Change the row's deadline, or clear it while there is one (R-51). */
 export function DeadlineForms({

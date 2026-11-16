@@ -64,7 +64,7 @@ export async function loadTraining(
       graph,
     })),
     reviews: [...snapshot.reviews.values()],
-    learned: [...snapshot.learned],
+    tracked: [...snapshot.tracked],
     learnedToday: snapshot.learnedToday,
     settings: snapshot.settings,
     now,

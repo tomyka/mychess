@@ -27,8 +27,8 @@ export interface TrainingDay {
    * passes its copy graded during the session.
    */
   readonly reviews: ReadonlyMap<string, ReviewState>;
-  /** Keys learned or skipped (R-129, R-147). */
-  readonly learned: ReadonlySet<string>;
+  /** Tracked keys: a Review exists, learn pass finished or skipped (R-181). */
+  readonly tracked: ReadonlySet<string>;
   /** Moves learned, not skipped, in the player's day so far (R-147). */
   readonly learnedToday: number;
   /** The player's session size and new moves a day, already parsed (R-146). */
@@ -122,7 +122,7 @@ export function trainingProgress(day: Held, now: Date): TrainingProgress {
  * limits out of range are a programmer error, not a refusal.
  */
 export function dueReviews(
-  day: Omit<TrainingDay, 'learned'>,
+  day: Omit<TrainingDay, 'tracked'>,
   now: Date,
 ): readonly QueueItem[] {
   const queue = buildQueue(day, now, day.limits);
@@ -135,7 +135,7 @@ export function dueReviews(
  * learn order, up to what is left of today's allowance.
  */
 export const learnLines = (day: Omit<TrainingDay, 'reviews'>): LearnLine[] =>
-  learnPlan(day.repertoires, day.learned, allowance(day));
+  learnPlan(day.repertoires, day.tracked, allowance(day));
 
 /** The new moves in `lines`. */
 export const newKeys = (lines: readonly LearnLine[]): string[] =>
@@ -158,7 +158,7 @@ export const trainingCounts = (
 
 function learnStart(day: TrainingDay): StartState {
   const left = heldMoveKeys(day.repertoires).some(
-    (key) => !day.learned.has(key),
+    (key) => !day.tracked.has(key),
   );
   if (!left) return { kind: 'nothingLeft' };
   return allowance(day) === 0 ? { kind: 'limitReached' } : { kind: 'drill' };

@@ -108,7 +108,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
     ],
     others: [],
     reviews: [dueReview(D4, 2), dueReview(BF4, 1)],
-    learned: [D4, BF4],
+    tracked: [D4, BF4],
     learnedToday: 0,
     settings: { sessionSize: 20, newPerDay: 10 },
     now: NOW,
@@ -487,7 +487,7 @@ describe('the review drill', () => {
           },
         ],
         reviews: keys.map((key) => dueReview(key, 1)),
-        learned: keys,
+        tracked: keys,
         settings: { sessionSize: 10, newPerDay: 10 },
       }),
     );
@@ -527,7 +527,7 @@ describe('the review drill on a promotion', () => {
         },
       ],
       reviews: [dueReview(QUEEN, 1)],
-      learned: [QUEEN],
+      tracked: [QUEEN],
     });
   const P = MESSAGES.lt.board.promotion;
 
@@ -573,7 +573,7 @@ describe('the review drill in a Black repertoire', () => {
           },
         ],
         reviews: [dueReview(C5, 1)],
-        learned: [C5],
+        tracked: [C5],
       }),
     );
     expect(lastWith('orientation')).toBe('black');
@@ -610,7 +610,7 @@ describe('the review drill and NAGs', () => {
           },
         ],
         reviews: [dueReview(BF4, 1)],
-        learned: [BF4],
+        tracked: [BF4],
       }),
     );
     wait(400);

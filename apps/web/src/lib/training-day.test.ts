@@ -48,7 +48,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
     ],
     others: [],
     reviews: [],
-    learned: [],
+    tracked: [],
     learnedToday: 0,
     settings: { sessionSize: 20, newPerDay: 10 },
     now: NOW,
@@ -78,7 +78,7 @@ describe('a training snapshot as a training day', () => {
     const day = dayOf(
       data({
         reviews: [reviewDue(D4, NOW), reviewDue('elsewhere', LATER)],
-        learned: [D4],
+        tracked: [D4],
       }),
     );
     expect(day.reviews.get(D4)?.key).toBe(D4);
@@ -89,7 +89,7 @@ describe('a training snapshot as a training day', () => {
     const day = dayOf(
       data({
         reviews: ALL_KEYS.map((key) => reviewDue(key, NOW)),
-        learned: ALL_KEYS,
+        tracked: ALL_KEYS,
         settings: { sessionSize: 10, newPerDay: 10 },
       }),
     );
@@ -108,7 +108,7 @@ describe('a training snapshot as a training day', () => {
   });
 
   it('plans no learned or skipped move again', () => {
-    const keys = newKeys(learnLines(dayOf(data({ learned: [D4] }))));
+    const keys = newKeys(learnLines(dayOf(data({ tracked: [D4] }))));
     expect(keys).not.toContain(D4);
     expect(keys).toHaveLength(10);
   });

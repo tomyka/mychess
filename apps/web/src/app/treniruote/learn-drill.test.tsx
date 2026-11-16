@@ -84,7 +84,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
     ],
     others: [],
     reviews: [],
-    learned: [],
+    tracked: [],
     learnedToday: 0,
     settings: { sessionSize: 20, newPerDay: 10 },
     now: NOW,
@@ -244,7 +244,7 @@ describe('the learn drill, arrows round', () => {
   });
 
   it('plays a known move without an arrow and records nothing for it', () => {
-    renderDrill(data({ learned: [D4] }));
+    renderDrill(data({ tracked: [D4] }));
     expect(counter()).toBe('0 / 1');
     expect(arrows()).toEqual([]);
     expect(panel()).toContain(T.learn.known);

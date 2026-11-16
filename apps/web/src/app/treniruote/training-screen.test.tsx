@@ -69,7 +69,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
     ],
     others: [],
     reviews: [],
-    learned: [],
+    tracked: [],
     learnedToday: 0,
     settings: { sessionSize: 20, newPerDay: 10 },
     now: NOW,
@@ -108,7 +108,7 @@ describe('the training screen with nothing due', () => {
     renderScreen(
       data({
         reviews: [{ ...due, fsrs: { ...due.fsrs, due: NEXT } }],
-        learned: [D4],
+        tracked: [D4],
         settings: { sessionSize: 20, newPerDay: 3 },
       }),
     );
@@ -152,7 +152,7 @@ describe('the training screen with nothing to learn', () => {
     const all = data().entries.flatMap((e) =>
       e.graph.moves.map((m) => moveKey(m.from, m.san)),
     );
-    renderScreen(data({ mode: 'learn', learned: all }), null);
+    renderScreen(data({ mode: 'learn', tracked: all }), null);
     expect(heading(T.empty.nothingLeft.title)).toBeDefined();
     expect(screen.getByText(T.empty.nothingLeft.body)).toBeDefined();
     expect(
@@ -212,7 +212,7 @@ describe('the training screen with no moves of the player’s side', () => {
 });
 
 describe('the training screen with something to drill', () => {
-  const due = data({ reviews: [startReview(D4, new Date(0))], learned: [D4] });
+  const due = data({ reviews: [startReview(D4, new Date(0))], tracked: [D4] });
 
   it('hands the review mode to the review drill, drawn in the frame', () => {
     renderScreen(due);
