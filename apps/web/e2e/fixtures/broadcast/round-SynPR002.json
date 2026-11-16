@@ -1,0 +1,12 @@
+{
+  "round": {
+    "id": "SynPR002"
+  },
+  "tour": {
+    "id": "SynPst01",
+    "name": "Synthetic Club Rapid",
+    "slug": "synthetic-club-rapid",
+    "createdAt": 981709200000,
+    "dates": [981795600000, 981882000000]
+  }
+}

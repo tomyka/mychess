@@ -18,7 +18,24 @@ beforeAll(() => {
   writeFileSync(join(dir, 'list.txt'), LIST);
   writeFileSync(join(dir, 'lichess_db_broadcast_2026-10.pgn.zst'), DUMP);
   writeFileSync(join(dir, 'secret.txt'), 'not served');
+  for (const [name, body] of Object.entries(API_FILES)) {
+    writeFileSync(join(dir, name), body);
+  }
 });
+
+const API = 'https://lichess.org/api/broadcast';
+
+/** The broadcast API's fixture files (#349), each body naming its file. */
+const API_FILES: Readonly<Record<string, string>> = {
+  'by-paulauskas-2.json': '{"by":"paulauskas"}',
+  'round-SynRnd01.json': '{"round":"SynRnd01"}',
+  'tour-SynTour1.json': '{"tour":"SynTour1"}',
+  'tour-SynTour1.pgn': '[Event "SynTour1"]',
+};
+
+const BEARER: RequestInit = {
+  headers: { Authorization: 'Bearer lip_SyntheticToken123' },
+};
 
 const network: Fetch = vi.fn<Fetch>(() =>
   Promise.reject(new Error('the network is not used in this test')),
@@ -60,6 +77,44 @@ describe('the broadcast fetch', () => {
       expect(await list.text()).toBe(LIST);
       const dump = await fixture()(broadcastDumpUrl('2026-10'), INIT);
       expect(new Uint8Array(await dump.arrayBuffer())).toEqual(DUMP);
+      expect(network).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [`${API}/by/paulauskas?page=2`, 'by-paulauskas-2.json'],
+      [`${API}/-/-/SynRnd01`, 'round-SynRnd01.json'],
+      [`${API}/SynTour1`, 'tour-SynTour1.json'],
+      [`${API}/SynTour1.pgn?clocks=false&comments=false`, 'tour-SynTour1.pgn'],
+    ])('serves the broadcast API’s %s from %s', async (url, file) => {
+      const answer = await fixture()(url, BEARER);
+      expect(answer.status).toBe(200);
+      expect(await answer.text()).toBe(API_FILES[file]);
+      expect(network).not.toHaveBeenCalled();
+    });
+
+    it('answers a broadcast API request without a bearer token with 401', async () => {
+      for (const init of [INIT, { headers: { Authorization: 'lip_x' } }]) {
+        const answer = await fixture()(`${API}/SynTour1`, init);
+        expect(answer.status).toBe(401);
+      }
+    });
+
+    it.each([
+      `${API}/by/paulauskas?page=1`,
+      `${API}/SynTour2`,
+      `${API}/by/paulauskas?page=0`,
+      `${API}/by/paulauskas?page=2&x=1`,
+      `${API}/by/p?page=2`,
+      `${API}/by/../secret.txt?page=2`,
+      `${API}/SynTour1.pgn`,
+      `${API}/SynTour1.pgn?clocks=true&comments=false`,
+      `${API}/SynTour1/`,
+      `${API}/SynTour12`,
+      `${API}/x/y/SynRnd01`,
+      'http://lichess.org/api/broadcast/SynTour1',
+      'https://evil.example/api/broadcast/SynTour1',
+    ])('maps no other broadcast API URL to a file: %s', async (url) => {
+      expect((await fixture()(url, BEARER)).status).toBe(404);
       expect(network).not.toHaveBeenCalled();
     });
 

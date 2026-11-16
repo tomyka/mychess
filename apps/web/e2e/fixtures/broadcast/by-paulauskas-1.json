@@ -1,0 +1,36 @@
+{
+  "currentPageResults": [
+    {
+      "tour": {
+        "id": "SynRun01",
+        "name": "Synthetic Running Cup",
+        "slug": "synthetic-running-cup",
+        "createdAt": 982573200000,
+        "dates": [982659600000, 982746000000]
+      },
+      "round": {
+        "id": "SynRR002"
+      }
+    },
+    {
+      "tour": {
+        "id": "SynOrg01",
+        "name": "Synthetic Organiser Open",
+        "slug": "synthetic-organiser-open",
+        "createdAt": 982227600000,
+        "dates": [982314000000, 982400400000]
+      }
+    },
+    {
+      "tour": {
+        "id": "SynOff01",
+        "name": "Synthetic Official Championship",
+        "slug": "synthetic-official-championship",
+        "createdAt": 978598800000,
+        "dates": [978685200000, 978771600000],
+        "tier": 4
+      }
+    }
+  ],
+  "nextPage": null
+}

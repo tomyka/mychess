@@ -1,0 +1,32 @@
+[Event "Synthetic Organiser Open | Round 1"]
+[Site "Synthetic Hall"]
+[Date "2001.02.16"]
+[Round "1"]
+[White "Svetimas, Linas"]
+[Black "Pasalinis, Algis"]
+[Result "1-0"]
+[WhiteFideId "90000201"]
+[BlackFideId "90000202"]
+[ECO "A04"]
+[Opening "Zukertort Opening"]
+[BroadcastName "Synthetic Organiser Open"]
+[GameURL "https://lichess.org/broadcast/synthetic-organiser-open/round-1/SynOR001/SynOG001"]
+
+1. Nf3 d5 1-0
+
+[Event "Synthetic Organiser Open | Round 2"]
+[Site "Synthetic Hall"]
+[Date "2001.02.17"]
+[Round "2"]
+[White "Naujokas, Karolis"]
+[Black "Svetimas, Linas"]
+[Result "0-1"]
+[WhiteFideId "90000203"]
+[BlackFideId "90000201"]
+[ECO "B07"]
+[Opening "Pirc Defense"]
+[BroadcastName "Synthetic Organiser Open"]
+[GameURL "https://lichess.org/broadcast/synthetic-organiser-open/round-2/SynOR002/SynOG002"]
+
+1. e4 d6 2. d4 Nf6 0-1
+

@@ -1,0 +1,25 @@
+{
+  "tour": {
+    "id": "SynOrg01",
+    "name": "Synthetic Organiser Open",
+    "slug": "synthetic-organiser-open",
+    "createdAt": 982227600000,
+    "dates": [982314000000, 982400400000]
+  },
+  "rounds": [
+    {
+      "id": "SynOR001",
+      "name": "Round 1",
+      "slug": "round-1",
+      "startsAt": 982314000000,
+      "finished": true
+    },
+    {
+      "id": "SynOR002",
+      "name": "Round 2",
+      "slug": "round-2",
+      "startsAt": 982400400000,
+      "finished": true
+    }
+  ]
+}

@@ -153,6 +153,13 @@ function gameUrl(game: DumpGame): string {
   return `https://lichess.org/broadcast/${slug}/round-1/Synth${game.month.slice(5)}/${game.code}`;
 }
 
+/** The link of the dump game `code`, for instance Wint0003. */
+export function dumpGameUrl(code: string): string {
+  const game = GAMES.find((found) => found.code === code);
+  if (game === undefined) throw new Error(`no fixture game ${code}`);
+  return gameUrl(game);
+}
+
 function pgn(game: DumpGame): string {
   const tags: [string, string | undefined][] = [
     ['Event', `${game.event} | Round 1`],

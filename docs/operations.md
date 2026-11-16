@@ -538,13 +538,17 @@ There is no staging (R-166); persona testing and E2E run on the local stack
 `/fide` ("Opponent's games", #316) lists a FIDE ID's over-the-board games
 from the Lichess broadcast dumps of the 12 newest months in
 `https://database.lichess.org/broadcast/list.txt` (R-183). It answers from
-an index in two tables:
+an index in three tables:
 
 - `broadcast_months`: one row per dump month (`YYYY-MM`) with its `state`
   (`pending`, `processing`, `done`, `failed`), `attempts`, `game_count`
   and when it was claimed, processed or last failed.
+- `broadcast_tours`: one row per Lichess broadcast tournament fetched
+  beside the months (#349, "Community broadcasts" below), with the same
+  state columns.
 - `broadcast_games`: one row per broadcast game with at least one FIDE ID:
-  the Lichess game URL (unique, kept under the first month that listed it),
+  the Lichess game URL (unique, kept under the first month or tournament
+  that listed it),
   both players' names and FIDE IDs, date, result, ECO, opening and event.
   No moves. Public broadcast data only; no account owns it and the data
   export leaves it out.
@@ -645,7 +649,80 @@ is headed by the ID alone). Production refuses to start with it set.
 apps/web/e2e/support/broadcast-fixture.ts` (rerun after changing the games
 there; `fide-search.spec.ts` fails while the committed files differ). The
 E2E journey resets those months to pending in its own database before it
-searches.
+searches. The same directory answers the Lichess broadcast API (#349):
+`by-<account>-<page>.json`, `tour-<tourId>.json`, `round-<roundId>.json`
+and `tour-<tourId>.pgn`, invented tournaments in those months, made by
+`node apps/web/e2e/support/broadcast-api-fixture.ts` and then
+`pnpm exec prettier --write apps/web/e2e/fixtures/broadcast/*.json`
+(`community-broadcasts.spec.ts` fails while the committed files differ);
+the E2E app has a synthetic `LICHESS_TOKEN` and a `CRON_SECRET`
+(`apps/web/e2e/support/community-env.ts`), and its journeys delete those
+tournaments from their own database before they start.
+
+### Community broadcasts (#349)
+
+The dumps hold official broadcasts only and lag about six weeks, so the
+index also fetches Lichess broadcast tournaments, each once, when
+finished, into the same `broadcast_games` (spec
+`docs/superpowers/specs/2026-11-10-community-broadcasts-design.md`). Only
+with `LICHESS_TOKEN` set (below); without it this part is off and the
+months work as before. A tournament is fetched when it is finished, its
+last round is within the 12 months searched (from the oldest of the 12
+dump months to now), and:
+
+- it comes from an approved organiser's list (R-196, R-200: `vakarinis`,
+  `kesnor7`, `paulauskas`; the list is `APPROVED_BROADCAST_ORGANISERS` in
+  `packages/domain`, changed only by a reviewed code change the owner
+  approves, never on the VM): every community tournament, and an official
+  one only once its last round is past the newest dump month; or
+- a signed-in user pasted its link (R-197), official or community.
+
+**The night.** The nightly route (above) also starts the community night,
+in the web process, unawaited: each organiser's list is read page by page
+until a page is older than the window, every qualifying tournament not yet
+known is queued (`state = pending`), and every queued one due is handed to
+the runner, which fetches a tournament's rounds and then its PGN in the
+same one-at-a-time slot as the months. A tournament still running is left
+for a later night. Every Lichess call of the process goes through one
+queue a second apart; a 429 pauses all of them for a minute, and a second
+429 ends the listing for the night. Its log lines, in the web container:
+`fide: organiser listing stopped for the night on a second 429`, and
+`fide: community broadcasts night failed` with an error name.
+
+**A pasted link** ("Add a Lichess broadcast" on `/fide`). Only
+`https://lichess.org/broadcast/...` links to a tournament or a round (a
+game link names its round). Each account may paste 10 links a day,
+refused ones counted except a link that is no Lichess broadcast link. What
+the user sees, by catalogue key: `fide.broadcastAdded` (queued now; its
+games appear in searches once fetched),
+`fide.broadcastKnown` (queued already, by a paste or an organiser's list),
+`fide.broadcastLinkInvalid`, `fide.tourNotFound` (Lichess has no public
+broadcast there), `fide.tourNotFinished` (paste it again once its last
+round is over), `fide.tourOutsideWindow`, `fide.tooManyBroadcastLinks`,
+and `fide.broadcastLinkUnavailable` (no token, the month list unreadable,
+Lichess down or refusing the token, or the paste waited 30 s behind the
+night's calls). The page does not say when a tournament's games are
+fetched; its row's state does. Who pasted a link is not kept.
+
+**In a search** a tournament's games show beside the months' with the same
+Lichess credit and game links (R-198). When a community and an official
+copy of one game exist (same day, same two FIDE IDs, same result), only
+the official one shows.
+
+The tournament states on production:
+
+```sh
+sudo docker exec -i mychess-production-postgres-1 psql -U mychess -d mychess -c \
+  "select tour_id, name, origin, organiser, official, last_round_at, state,
+          attempts, game_count, failed_at, processed_at
+     from broadcast_tours order by last_round_at desc limit 30"
+```
+
+The retry rules are the months' (above). A tournament reset to pending
+(`update broadcast_tours set state = 'pending', attempts = 0, failed_at =
+null where tour_id = '<id>'`) is fetched again by the next night, not by
+a paste of its link, which answers "already added". Do not delete a row:
+its games cascade with it.
 
 ### The Lichess token (community broadcasts, #349)
 

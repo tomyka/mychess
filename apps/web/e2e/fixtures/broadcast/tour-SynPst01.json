@@ -1,0 +1,25 @@
+{
+  "tour": {
+    "id": "SynPst01",
+    "name": "Synthetic Club Rapid",
+    "slug": "synthetic-club-rapid",
+    "createdAt": 981709200000,
+    "dates": [981795600000, 981882000000]
+  },
+  "rounds": [
+    {
+      "id": "SynPR001",
+      "name": "Round 1",
+      "slug": "round-1",
+      "startsAt": 981795600000,
+      "finished": true
+    },
+    {
+      "id": "SynPR002",
+      "name": "Round 2",
+      "slug": "round-2",
+      "startsAt": 981882000000,
+      "finished": true
+    }
+  ]
+}

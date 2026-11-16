@@ -1,0 +1,32 @@
+[Event "Synthetic Club Rapid | Round 1"]
+[Site "Synthetic Hall"]
+[Date "2001.02.10"]
+[Round "1"]
+[White "Klubietis, Darius"]
+[Black "Greitas, Matas"]
+[Result "1-0"]
+[WhiteFideId "90000301"]
+[BlackFideId "90000302"]
+[ECO "B20"]
+[Opening "Sicilian Defense"]
+[BroadcastName "Synthetic Club Rapid"]
+[GameURL "https://lichess.org/broadcast/synthetic-club-rapid/round-1/SynPR001/SynPG001"]
+
+1. e4 c5 1-0
+
+[Event "Synthetic Club Rapid | Round 2"]
+[Site "Synthetic Hall"]
+[Date "2001.02.11"]
+[Round "2"]
+[White "Lentele, Rasa"]
+[Black "Klubietis, Darius"]
+[Result "1/2-1/2"]
+[WhiteFideId "90000303"]
+[BlackFideId "90000301"]
+[ECO "A45"]
+[Opening "Indian Defense"]
+[BroadcastName "Synthetic Club Rapid"]
+[GameURL "https://lichess.org/broadcast/synthetic-club-rapid/round-2/SynPR002/SynPG002"]
+
+1. d4 Nf6 1/2-1/2
+

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { storeLocale } from './support/account-db';
 import { resetFixtureMonths } from './support/broadcast-db';
 import {
@@ -9,14 +9,16 @@ import {
   SEARCHED_FIDE_ID,
   expectedGames,
   fixtureFiles,
-  type ExpectedGame,
 } from './support/broadcast-fixture';
 import {
-  CATALOGUES,
-  format,
-  newOnboardedAccount,
-  test,
-} from './support/journey';
+  MONTHS_READY_MS,
+  expectCredit,
+  expectGame,
+  monthsReady,
+  resultOf,
+  search,
+} from './support/fide-page';
+import { CATALOGUES, newOnboardedAccount, test } from './support/journey';
 
 // Opponent's games (#316, R-171, R-183 to R-187): the app reads the
 // committed fixture dumps (e2e/support/broadcast-fixture.ts), never
@@ -25,18 +27,6 @@ import {
 
 const { en } = CATALOGUES;
 const ID = String(SEARCHED_FIDE_ID);
-const TOTAL = String(FIXTURE_MONTHS.length);
-
-/** A game's date as the page writes it in English (game-list.tsx). */
-const DATE = new Intl.DateTimeFormat('en', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC',
-});
-
-/** Waiting for the runner: one poll every 5 s, two tiny months. */
-const MONTHS_READY_MS = 60_000;
 
 /**
  * The searched player's fixture games as the page groups them (R-189,
@@ -53,43 +43,6 @@ const GROUPED = [
     families: ['Caro-Kann Defense', "Queen's Gambit Declined"],
   },
 ] as const;
-
-/** The credit's links (#348): the games' source and their licence. */
-const CREDIT = [
-  ['Lichess broadcasts', 'https://lichess.org/broadcast'],
-  ['CC BY-SA 4.0', 'https://creativecommons.org/licenses/by-sa/4.0/'],
-] as const;
-
-function monthsReady(ready: number): string {
-  return format(en.fide.monthsReady, { ready: String(ready), total: TOTAL });
-}
-
-async function search(page: Page, typed: string): Promise<void> {
-  await page.getByLabel(en.fide.idLabel).fill(typed);
-  await page.getByRole('button', { name: en.fide.submit }).click();
-}
-
-function opponentLine(game: ExpectedGame): string {
-  return game.opponentFideId === undefined
-    ? format(en.fide.opponent, { name: game.opponent })
-    : format(en.fide.opponentWithId, {
-        name: game.opponent,
-        id: String(game.opponentFideId),
-      });
-}
-
-async function expectGame(item: Locator, game: ExpectedGame): Promise<void> {
-  const date = DATE.format(new Date(`${game.date}T00:00:00Z`));
-  await expect(item).toContainText(`${date} · ${game.event}`);
-  await expect(item).toContainText(opponentLine(game));
-  await expect(item).toContainText(en.fide[game.colour]);
-  await expect(item).toContainText(en.fide[game.outcome]);
-  await expect(item).toContainText(game.opening);
-  const link = item.getByRole('link', { name: en.fide.openOnLichess });
-  await expect(link).toHaveAttribute('href', game.url);
-  await expect(link).toHaveAttribute('target', '_blank');
-  await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
-}
 
 test('the committed fixture dumps are the ones broadcast-fixture.ts makes', () => {
   for (const [name, bytes] of fixtureFiles()) {
@@ -117,9 +70,7 @@ test("a player opens Opponent's games from home, searches a FIDE ID and sees its
 
   await search(page, ID);
 
-  const result = page.getByRole('region', {
-    name: format(en.fide.resultsTitle, { id: ID }),
-  });
+  const result = resultOf(page, SEARCHED_FIDE_ID);
   await expect(result.getByText(monthsReady(0))).toBeVisible();
   await expect(result.getByText(en.fide.monthsWaiting)).toBeVisible();
   await expect(
@@ -149,12 +100,7 @@ test("a player opens Opponent's games from home, searches a FIDE ID and sees its
     }
   }
 
-  for (const [name, href] of CREDIT) {
-    const link = result.getByRole('link', { name });
-    await expect(link).toHaveAttribute('href', href);
-    await expect(link).toHaveAttribute('target', '_blank');
-    await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
-  }
+  await expectCredit(result);
 });
 
 test('a FIDE ID that is not one is refused on the page, in English even for an account stored in Lithuanian (R-180)', async ({
@@ -179,7 +125,11 @@ test('a FIDE ID that is not one is refused on the page, in English even for an a
     await expect(page.getByText(refusal)).toBeVisible();
     await expect(field).toHaveAttribute('aria-invalid', 'true');
     await expect(field).toHaveValue(typed);
-    // No search started: no result, no months.
-    await expect(page.getByRole('region')).toHaveCount(0);
+    // No search started: no result, no months; the one region is "Add a
+    // Lichess broadcast" (#349).
+    await expect(page.getByRole('region')).toHaveCount(1);
+    await expect(
+      page.getByRole('region', { name: en.fide.addTitle }),
+    ).toBeVisible();
   }
 });

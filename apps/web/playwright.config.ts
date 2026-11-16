@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 import { BROADCAST_FIXTURE_DIR } from './e2e/support/broadcast-fixture';
+import {
+  E2E_CRON_SECRET,
+  E2E_LICHESS_TOKEN,
+} from './e2e/support/community-env';
 import { MAILPIT_URL } from './e2e/support/mailpit-url';
 
 // apps/web's E2E suite (test:e2e): a production build served by `next start`
@@ -53,6 +57,11 @@ const APP_ENV = {
     'FIDE_DUMP_FIXTURE_DIR',
     BROADCAST_FIXTURE_DIR,
   ),
+  // The community broadcasts are on (#349), their Lichess API answered from
+  // the same fixture directory; the journeys run the nightly route
+  // (e2e/support/community-env.ts: neither value is a secret).
+  LICHESS_TOKEN: E2E_LICHESS_TOKEN,
+  CRON_SECRET: E2E_CRON_SECRET,
 };
 
 const WEB_SERVER = {
