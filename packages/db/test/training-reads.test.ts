@@ -15,6 +15,7 @@ import { assignmentPlayers } from '../src/assignment-schema';
 import { useTestDatabase } from '../src/testing';
 import { seedCoach, seedLink, seedPlayer } from './support/coaching';
 import { graphOf, newRepertoire } from './support/repertoires';
+import { countStatements } from './support/statements';
 import { writeReview } from './support/training';
 
 const { db, client } = useTestDatabase();
@@ -234,6 +235,64 @@ describe('trainingEntries (R-145)', () => {
       [newer, 'own', 1],
     ]);
     expect(entries[0]?.repertoire.graph).toEqual(graphOf(PGN));
+  });
+
+  it("names an assigned repertoire's coach, the repertoire's owner; an own one none (#338)", async () => {
+    await seedCoach(db, 'c2', 'c2@example.lt');
+    await seedLink(db, 'c2', 'p');
+    const own = await repertoireOf('p', 'Mano');
+    const fromC = await repertoireOf('c', 'Trenerio');
+    const fromC2 = await repertoireOf('c2', 'Kito trenerio');
+    await assignToP(fromC, null);
+    const done = await assign(
+      db,
+      {
+        coachId: 'c2',
+        repertoireId: fromC2,
+        target: { kind: 'player', playerId: 'p' },
+        deadline: null,
+      },
+      NOW,
+    );
+    expect(done.ok).toBe(true);
+    const entries = await trainingEntries(db, 'p');
+    expect(
+      entries
+        .map((e) => [e.repertoire.id, e.coachName])
+        .sort(([a = ''], [b = '']) => String(a).localeCompare(String(b))),
+    ).toEqual(
+      [
+        [own, null],
+        [fromC, 'Name c'],
+        [fromC2, 'Name c2'],
+      ].sort(([a = ''], [b = '']) => String(a).localeCompare(String(b))),
+    );
+  });
+
+  it('reads as many statements for two assigning coaches as for one', async () => {
+    await seedCoach(db, 'c2', 'c2@example.lt');
+    await seedLink(db, 'c2', 'p');
+    await assignToP(await repertoireOf('c', 'Pirmas'), null);
+    const second = await repertoireOf('c', 'Antras');
+    await assignToP(second, null);
+    const oneCoach = await countStatements(() => trainingEntries(db, 'p'));
+    await client.query('delete from assignments where repertoire_id = $1', [
+      second,
+    ]);
+    const third = await repertoireOf('c2', 'Trečias');
+    const done = await assign(
+      db,
+      {
+        coachId: 'c2',
+        repertoireId: third,
+        target: { kind: 'player', playerId: 'p' },
+        deadline: null,
+      },
+      NOW,
+    );
+    expect(done.ok).toBe(true);
+    const twoCoaches = await countStatements(() => trainingEntries(db, 'p'));
+    expect(twoCoaches).toBe(oneCoach);
   });
 
   it('keeps a paused assignment, inactive (R-46)', async () => {

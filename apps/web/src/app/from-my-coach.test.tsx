@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 import { MESSAGES } from '../i18n/locales';
-import type { HomeAssignment } from '../server/assignment-pages';
+import type { AssignedListItem } from '../server/assignment-pages';
 import { FromMyCoach } from './from-my-coach';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
@@ -15,24 +15,26 @@ const day = (iso: string, locale: string): string =>
     timeZone: 'Europe/Vilnius',
   }).format(new Date(`${iso}T12:00:00Z`));
 
-const LONDON: HomeAssignment = {
+const LONDON: AssignedListItem = {
   repertoireId: ID,
   name: 'Londono sistema',
+  side: 'white',
   coachName: 'Jonas',
   deadline: '2026-11-30',
   badges: { overdue: true, paused: true, forked: false, updated: true },
 };
 
-const CARO: HomeAssignment = {
+const CARO: AssignedListItem = {
   repertoireId: 'c4f0a2b1-1d2e-4f3a-8b5c-6d7e8f9a0b1c',
   name: 'Karo-Kan gynyba: pagrindai',
+  side: 'black',
   coachName: 'Rimantas',
   deadline: null,
   badges: { overdue: false, paused: false, forked: false, updated: false },
 };
 
 function renderList(
-  assignments: readonly HomeAssignment[],
+  assignments: readonly AssignedListItem[],
   locale: 'lt' | 'en' = 'lt',
 ): void {
   render(

@@ -33,13 +33,18 @@ export interface TrainingScreenProps {
  */
 const linksFor = (scoped: ScopedRepertoire | null): TrainingLinks => {
   if (scoped === null)
-    return { back: ROUTES.home, learn: trainingPath('learn') };
+    return {
+      back: ROUTES.home,
+      learn: trainingPath('learn'),
+      review: trainingPath('review'),
+    };
   return {
     back:
       scoped.kind === 'own'
         ? repertoireRoute(scoped.id)
         : assignedRepertoirePath(scoped.id),
     learn: trainingPath('learn', scoped.id),
+    review: trainingPath('review', scoped.id),
   };
 };
 

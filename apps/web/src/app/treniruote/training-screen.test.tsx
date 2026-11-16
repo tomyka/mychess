@@ -47,7 +47,11 @@ const drills = vi.hoisted(() => {
         title: `${name} item`,
         progress: { done: 2, total: 5 },
         board: <div data-testid="live-board" />,
-        panel: <p>{`${name} drill, ${data.mode}, back to ${links.back}`}</p>,
+        panel: (
+          <p data-review={links.review}>
+            {`${name} drill, ${data.mode}, back to ${links.back}`}
+          </p>
+        ),
       });
   return { review: drill('review'), learn: drill('learn') };
 });
@@ -71,6 +75,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
     reviews: [],
     tracked: [],
     learnedToday: 0,
+    coachNotes: [],
     settings: { sessionSize: 20, newPerDay: 10 },
     now: NOW,
     ...overrides,
@@ -186,7 +191,11 @@ describe('the training screen with no moves of the player’s side', () => {
   it('offers no edit or import for an assigned repertoire, only the way back', () => {
     renderScreen(
       data({
-        entries: empty.entries.map((e) => ({ ...e, kind: 'assigned' })),
+        entries: empty.entries.map((e) => ({
+          ...e,
+          kind: 'assigned',
+          coachName: 'Ona',
+        })),
       }),
     );
     expect(heading(T.empty.noMoves.title)).toBeDefined();
@@ -230,7 +239,11 @@ describe('the training screen with something to drill', () => {
   it('leads an assigned repertoire’s drill back to its assigned page', () => {
     renderScreen({
       ...due,
-      entries: due.entries.map((e) => ({ ...e, kind: 'assigned' })),
+      entries: due.entries.map((e) => ({
+        ...e,
+        kind: 'assigned',
+        coachName: 'Ona',
+      })),
     });
     expect(
       screen.getByText(
@@ -241,7 +254,17 @@ describe('the training screen with something to drill', () => {
 
   it('hands the learn mode to the learn drill', () => {
     renderScreen(data({ mode: 'learn' }), null);
-    expect(screen.getByText('learn drill, learn, back to /')).toBeDefined();
+    const panel = screen.getByText('learn drill, learn, back to /');
+    // Its way on to review, over every repertoire.
+    expect(panel.dataset['review']).toBe('/treniruote?mode=review');
+  });
+
+  it('leads a drill scoped to one repertoire on to that repertoire’s review', () => {
+    renderScreen(data({ mode: 'learn' }));
+    const panel = screen.getByText(
+      `learn drill, learn, back to /repertuarai/${ID}`,
+    );
+    expect(panel.dataset['review']).toBe(`/treniruote?mode=review&r=${ID}`);
   });
 
   it('shows the banner over the drill only while results wait, and retries', () => {

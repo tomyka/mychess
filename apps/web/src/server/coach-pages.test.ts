@@ -156,7 +156,10 @@ describe('coachPlayerData', () => {
 });
 
 describe('coachGroupData', () => {
-  const cell: GroupProgressCell = { badges: BADGES, view: { kind: 'forked' } };
+  const cell: GroupProgressCell = {
+    badges: BADGES,
+    view: { kind: 'forked', sharedForkId: null },
+  };
 
   it('reads the session coach’s group once and turns last trained into Vilnius days ago', async () => {
     server.group.mockResolvedValue({

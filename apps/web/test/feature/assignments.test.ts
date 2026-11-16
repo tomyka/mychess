@@ -43,10 +43,14 @@ import { repertoireRoute } from '../../src/lib/routes';
 import {
   assignedRepertoireData,
   homeAssignments,
+  myAssignedRepertoires,
 } from '../../src/server/assignment-pages';
 import { coachAssignData } from '../../src/server/coach-assignments';
 import { sharedRepertoireData } from '../../src/server/coach-pages';
-import { repertoirePageData } from '../../src/server/repertoires';
+import {
+  myRepertoires,
+  repertoirePageData,
+} from '../../src/server/repertoires';
 import {
   actAs,
   coachPerson,
@@ -1345,6 +1349,37 @@ describe('home’s "From my coach" and fork offers', () => {
       offers: [],
     });
     expect(await state()).toEqual(before);
+  });
+
+  it('Mano repertuarai lists the session player’s live assignments, individual and group, by side (#328)', async () => {
+    const people = await cast();
+    const listed = async (who: Person): Promise<unknown> => {
+      actAs(who);
+      return (await myAssignedRepertoires()).map(
+        (one) => `${one.name} (${one.side}, ${one.coachName})`,
+      );
+    };
+    expect(await listed(people.rokas)).toEqual([
+      'Londono sistema (white, Rimantas)',
+      'Taimanovas (black, Rimantas)',
+    ]);
+    expect(await listed(people.gabija)).toEqual([
+      'Taimanovas (black, Rimantas)',
+    ]);
+    expect(await listed(people.jonas)).toEqual([]);
+    expect(await listed(people.rimantas)).toEqual([]);
+  });
+
+  it('Mano repertuarai labels the player’s fork with its coach, and sends no source id to the page (#328)', async () => {
+    const { rokas, london } = await cast();
+    actAs(rokas);
+    await outcomeOf(forkAction({}, formOf({ repertoireId: london })));
+    const mine = await myRepertoires();
+    expect(
+      mine.map(({ name, forkCoachName }) => ({ name, forkCoachName })),
+    ).toEqual([{ name: 'Londono sistema', forkCoachName: 'Rimantas' }]);
+    expect(Object.keys(mine[0] ?? {})).not.toContain('forkedFrom');
+    expect(JSON.stringify(mine)).not.toContain(london);
   });
 
   it('show the session player’s own pause, not another player’s', async () => {

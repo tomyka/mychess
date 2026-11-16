@@ -9,6 +9,7 @@ import {
   progressRepertoireIds,
   type CoachProgressFacts,
   type PlayerRepertoire,
+  type SharedFork,
 } from '@mychess/domain';
 import { and, eq, exists, max, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
@@ -17,7 +18,7 @@ import { assignmentFacts } from '../assignments/reach';
 import type { Executor } from '../client';
 import { playerRowsSchema } from '../coach-queries';
 import { coachLinks } from '../schema';
-import { sharedPairs } from '../share-scope';
+import { sharedPairs, type SharedPair } from '../share-scope';
 import { reviewResults } from '../training-schema';
 
 /** Which of `playerIds` are linked to `coachId`: one statement. */
@@ -54,20 +55,28 @@ export async function coachProgressFacts(
   const shares = await sharedPairs(db, coachId, playerIds);
   const assignments = await assignmentFacts(db, { playerIds, coachId });
   return new Map(
-    playerIds.map((playerId) => [
-      playerId,
-      {
-        linked: linked.has(playerId),
-        sharedRepertoireIds: new Set(
-          shares
-            .filter((s) => s.playerId === playerId)
-            .map((s) => s.repertoireId),
-        ),
-        assignments: assignments.filter((a) => a.playerId === playerId),
-      },
-    ]),
+    playerIds.map((playerId) => {
+      const theirs = shares.filter((s) => s.playerId === playerId);
+      return [
+        playerId,
+        {
+          linked: linked.has(playerId),
+          sharedRepertoireIds: new Set(theirs.map((s) => s.repertoireId)),
+          assignments: assignments.filter((a) => a.playerId === playerId),
+          sharedForks: sharedForksOf(theirs),
+        },
+      ];
+    }),
   );
 }
+
+/** The shared repertoires that are forks of this coach's, as the domain takes them. */
+const sharedForksOf = (shares: readonly SharedPair[]): SharedFork[] =>
+  shares.flatMap(({ repertoireId, sourceRepertoireId, createdAt }) =>
+    sourceRepertoireId === null
+      ? []
+      : [{ repertoireId, sourceRepertoireId, createdAt }],
+  );
 
 const lastRowsSchema = z.array(
   z.object({ playerId: z.string().min(1), at: z.date() }),

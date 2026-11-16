@@ -100,6 +100,7 @@ _Avoid_: Copy, share, subscription
 
 **Fork**:
 A Player's personal, editable copy of an assigned Repertoire, cut off from the Coach's later edits. The only way for a Player to change or add Moves to something they were assigned.
+Its **Fork origin** records the source Repertoire and the assigning Coach's display name at fork time; the source becomes unknown when that Repertoire is deleted, and the name stays (R-49), so the Player's list can say whose Assignment it was. A Coach learns that a Repertoire shared with them is the Fork of their own Assignment, and links to it, only while it is shared through an active link (R-43, R-155); the newest such Fork is named.
 _Avoid_: Clone, copy, duplicate
 
 **Fork offer**:
@@ -170,6 +171,13 @@ Everything one day's training decides from: the Repertoires in scope (paused one
 **Lapse**:
 A failed Review: the Player played a wrong Move in a drill, or a Player mistake in a real game was detected. A Lapse makes the Move Due now and shortens its schedule.
 _Avoid_: Miss, error, demotion
+
+**Ask**:
+One time a review session puts a Move's position to the Player. A Move's **first ask** in a session comes from the queue of Due Moves; a chained Move (the next own-side Move of the same line, when it is also in the session, R-143) is asked at once after it. A Lapse or hint brings the Move back as a Repeat (R-78).
+
+**Repeat**:
+A later Ask, in the same review session, of a Move answered in it, because its FSRS learning or relearning step (1 or 10 minutes) brings it back before the end of the training day (R-78, R-59). It is asked once its step has run out, before the next first ask, and asked early when nothing else is left. Repeats count toward the session size and are never cut by it; each records its own outcome.
+_Avoid_: Round, retry, relearn
 
 **Free play**:
 A second training mode where the Player plays against their Repertoire from the start rather than drilling Due Moves.

@@ -186,6 +186,13 @@ export {
   type ForkOfferRefusal,
   type ForkOfferState,
 } from './fork-offer';
+export { forkOriginOf, type ForkOrigin } from './fork-origin';
+export {
+  drillCoachNotes,
+  type DrillCoachNote,
+  type DrillRepertoire,
+  type OwnCoachNote,
+} from './drill-coach-notes';
 export {
   ACCESS_REFUSALS,
   canCoachSee,
@@ -201,6 +208,7 @@ export {
   type CoachProgressFacts,
   type ProgressRepertoire,
   type ProgressSource,
+  type SharedFork,
 } from './coach-progress';
 export {
   COACH_REFUSALS,

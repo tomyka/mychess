@@ -218,7 +218,9 @@
       "percent": "{percent}% learned",
       "mastered": "Mastered",
       "nothing": "Nothing to learn",
-      "forkedNote": "The player made their own copy; you do not see its progress.",
+      "forkedNote": "The player made their own copy. If they share it with you, you will see its progress under “Shared repertoires”.",
+      "forkedShared": "The player made their own copy and shares it with you.",
+      "forkedSharedLink": "See its progress",
       "today": "Last trained today",
       "yesterday": "Last trained yesterday",
       "daysAgo": "Last trained {days, plural, one {# day} other {# days}} ago",
@@ -351,6 +353,7 @@
       "empty": "You have no repertoires yet.",
       "meta": "{chapters, plural, one {# chapter} other {# chapters}} · {moves, plural, one {# move} other {# moves}}",
       "changed": "Changed {date}",
+      "forkOf": "Your own copy of {coach}'s assignment",
       "importTitle": "Have a PGN file?",
       "importIntro": "Upload a PGN file and see what it holds before saving.",
       "import": "Import PGN"
@@ -671,6 +674,7 @@
       "progress": "{learned} learned · {due} due · {toLearn} to learn",
       "continue": "Continue",
       "learn": "Learn new moves",
+      "review": "Start review",
       "done": "Done"
     },
     "sync": {

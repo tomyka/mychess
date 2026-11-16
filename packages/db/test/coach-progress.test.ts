@@ -185,7 +185,7 @@ describe('coachPlayerProgress', () => {
       (r) => r.repertoire.id === karoKan,
     );
     expect(row?.badges?.forked).toBe(true);
-    expect(row?.view).toEqual({ kind: 'forked' });
+    expect(row?.view).toEqual({ kind: 'forked', sharedForkId: null });
   });
 
   it('reads the linked player with the coach’s own groups only', async () => {
@@ -353,7 +353,12 @@ describe('coachGroupPage (R-153)', () => {
       },
       {
         player: { id: 'q' },
-        cells: [{ badges: { forked: true }, view: { kind: 'forked' } }],
+        cells: [
+          {
+            badges: { forked: true },
+            view: { kind: 'forked', sharedForkId: null },
+          },
+        ],
       },
     ]);
   });

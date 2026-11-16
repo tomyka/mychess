@@ -3,8 +3,11 @@
  * one at a time, each after its line so far. After a right answer the
  * session chains into the opponent's reply and a Due move that follows it,
  * so the player plays on in the line; otherwise it jumps to the next item.
- * Each item emits one outcome, the first of a hint, a Lapse or a pass, for
+ * Each ask emits one outcome, the first of a hint, a Lapse or a pass, for
  * the caller to grade; replaying the move after a Lapse records nothing.
+ * A move whose Review, so graded, comes due again before the player's day
+ * ends (a Lapse's relearning step, R-78) is asked again once that step runs
+ * out, and counts toward the session size from the moment it is answered.
  */
 import {
   isPlayerMove,
@@ -14,7 +17,7 @@ import {
 import { chapterChildren } from '../repertoire/walk';
 import { linesTo, type LineTo } from './line-to';
 import type { QueueItem } from './queue';
-import type { Outcome } from './schedule';
+import { grade, type Outcome, type ReviewState } from './schedule';
 import type { TrainingRepertoire } from './scope';
 
 /** `replay`: after a Lapse, the arrow is shown until the move is played. */
@@ -26,21 +29,62 @@ export interface ReviewItemView {
   readonly line: LineTo;
   /** The chained opponent reply, shown before asking. */
   readonly reply: RepertoireMove | null;
+  /** A move answered earlier in the session, asked again (R-78). */
+  readonly repeat: boolean;
 }
 
-export interface ReviewSessionState {
+/** R-78: a move answered this session that comes back today, and when. */
+export interface Repeat {
+  readonly item: QueueItem;
+  readonly due: Date;
+}
+
+/** How far a session goes. */
+export interface ReviewBounds {
+  /** R-62: the answers the session takes, its repeats included (R-78). */
+  readonly size: number;
+  /** When the player's day ends: a move due again before then comes back. */
+  readonly dayEnd: Date;
+}
+
+/**
+ * An answer's time and the player's Reviews before it: the session grades
+ * the answer as the caller will, to know when the move comes back (R-78).
+ */
+export interface ReviewClock {
+  readonly now: Date;
+  readonly reviews: ReadonlyMap<string, ReviewState>;
+}
+
+export interface ReviewSessionState extends ReviewBounds {
+  /** The items asked once each: the first asks. */
   readonly order: readonly QueueItem[];
+  /** Each item's first outcome; a repeat changes none. */
   readonly outcomes: ReadonlyMap<string, Outcome>;
-  /** Null when every item is answered. */
+  /** Null when the session is over. */
   readonly current: ReviewItemView | null;
   readonly phase: ReviewPhase;
   readonly hinted: boolean;
+  /** The current ask has emitted its outcome. */
+  readonly recorded: boolean;
+  /** Answers given so far, repeats included. */
+  readonly asked: number;
+  /**
+   * Repeats still to ask, the earliest due first: the current move's own
+   * once it is answered, never the one being asked.
+   */
+  readonly repeats: readonly Repeat[];
 }
 
 export interface ReviewEmit {
   readonly key: string;
   readonly repertoireId: string;
   readonly outcome: Outcome;
+  /**
+   * The move's Review graded with the outcome at the answer's time, for the
+   * caller to keep; null when the player has no Review of the move.
+   */
+  readonly review: ReviewState | null;
 }
 
 export interface ReviewTransition {
@@ -58,10 +102,37 @@ export interface ReviewCounts {
   readonly lapses: number;
 }
 
+/** The items' first answers; the repeats change none of them. */
 export function reviewCounts(s: ReviewSessionState): ReviewCounts {
   const done = s.outcomes.size;
   const passed = [...s.outcomes.values()].filter((o) => o === 'pass').length;
   return { done, total: s.order.length, passed, lapses: done - passed };
+}
+
+/** Answers given, repeats included, and how many the session takes in all. */
+export interface ReviewProgress {
+  readonly done: number;
+  readonly total: number;
+}
+
+/** The part of the state that outlives an ask. */
+type Asks = Pick<
+  ReviewSessionState,
+  'order' | 'outcomes' | 'size' | 'dayEnd' | 'asked' | 'repeats'
+>;
+
+/** Room left for first asks: the size less the answers given and owed. */
+const room = (s: Asks): number => s.size - s.asked - s.repeats.length;
+
+/**
+ * The session's progress: the repeats it owes are counted in, and the first
+ * asks only as far as the size has room for them (R-62, R-78).
+ */
+export function reviewProgress(s: ReviewSessionState): ReviewProgress {
+  const owed = s.current?.repeat === true && !s.recorded ? 1 : 0;
+  const open = s.order.filter((i) => !s.outcomes.has(i.key)).length;
+  const firsts = Math.min(open, Math.max(0, room(s) - owed));
+  return { done: s.asked, total: s.asked + s.repeats.length + owed + firsts };
 }
 
 const graphOf = (
@@ -89,9 +160,13 @@ function lineFinder(repertoires: readonly TrainingRepertoire[]): LineOf {
 }
 
 /** The item asked after its line so far; undefined when no repertoire holds it. */
-function viewOf(item: QueueItem, lineOf: LineOf): ReviewItemView | undefined {
+function viewOf(
+  item: QueueItem,
+  lineOf: LineOf,
+  repeat = false,
+): ReviewItemView | undefined {
   const line = lineOf(item);
-  return line && { item, line, reply: null };
+  return line && { item, line, reply: null, repeat };
 }
 
 /** The items a repertoire still holds, and the answered ones. */
@@ -102,36 +177,44 @@ const held = (
 ): QueueItem[] =>
   order.filter((i) => outcomes.has(i.key) || lineOf(i) !== undefined);
 
-/** The first unanswered item in order. */
-function firstOpen(
-  order: readonly QueueItem[],
-  outcomes: ReadonlyMap<string, Outcome>,
-  lineOf: LineOf,
-): ReviewItemView | null {
-  const open = order.find((i) => !outcomes.has(i.key));
-  return (open && viewOf(open, lineOf)) ?? null;
+/** The first unanswered item in order, if the size has room for it. */
+function firstOpen(s: Asks, lineOf: LineOf): ReviewItemView | undefined {
+  const open = s.order.find((i) => !s.outcomes.has(i.key));
+  return open && room(s) > 0 ? viewOf(open, lineOf) : undefined;
 }
 
 const asking = (
-  order: readonly QueueItem[],
-  outcomes: ReadonlyMap<string, Outcome>,
+  s: Asks,
   current: ReviewItemView | null,
 ): ReviewSessionState => ({
-  order,
-  outcomes,
+  order: s.order,
+  outcomes: s.outcomes,
+  size: s.size,
+  dayEnd: s.dayEnd,
+  asked: s.asked,
+  repeats: s.repeats,
   current,
   phase: 'ask',
   hinted: false,
+  recorded: false,
 });
 
+/**
+ * A session over `items` within `bounds`: it takes `size` answers, its
+ * repeats included (R-62, R-78), and leaves the items it has no room for
+ * to "continue".
+ */
 export function startReviewSession(
   items: readonly QueueItem[],
   repertoires: readonly TrainingRepertoire[],
+  bounds: ReviewBounds,
 ): ReviewSessionState {
   const outcomes = new Map<string, Outcome>();
   const lineOf = lineFinder(repertoires);
   const order = held(items, outcomes, lineOf);
-  return asking(order, outcomes, firstOpen(order, outcomes, lineOf));
+  const { size, dayEnd } = bounds;
+  const s: Asks = { order, outcomes, size, dayEnd, asked: 0, repeats: [] };
+  return asking(s, firstOpen(s, lineOf) ?? null);
 }
 
 interface Chained {
@@ -144,7 +227,7 @@ interface Chained {
  * `repertoireId`: R-54, each Review is shown inside one repertoire.
  */
 function openAfter(
-  s: ReviewSessionState,
+  s: Asks,
   repertoireId: string,
   afterReply: readonly RepertoireMove[],
   isPlayer: (m: RepertoireMove) => boolean,
@@ -166,7 +249,7 @@ function openAfter(
  * Due move answers; that move is asked next, its line the current one played on.
  */
 function chainFrom(
-  s: ReviewSessionState,
+  s: Asks,
   view: ReviewItemView,
   repertoires: readonly TrainingRepertoire[],
 ): ReviewItemView | undefined {
@@ -184,7 +267,8 @@ function chainFrom(
     );
     if (chained !== undefined) {
       const moves = [...view.line.moves, reply, chained.move];
-      return { item: chained.item, line: { ...view.line, moves }, reply };
+      const line = { ...view.line, moves };
+      return { item: chained.item, line, reply, repeat: false };
     }
   }
   return undefined;
@@ -201,23 +285,69 @@ function nextAfter(
   return [...rest.slice(0, at), item, ...rest.slice(at)];
 }
 
-/** After a right answer: the chained item, else the next open one. */
+/** The earliest repeat, asked if it is due by `at`. */
+function repeatDue(
+  s: Asks,
+  lineOf: LineOf,
+  at: number,
+): ReviewSessionState | undefined {
+  const [first, ...rest] = s.repeats;
+  if (first === undefined || first.due.getTime() > at) return undefined;
+  const view = viewOf(first.item, lineOf, true);
+  return view && asking({ ...s, repeats: rest }, view);
+}
+
+/** The chained move, asked at once (R-143), if the size has room for it. */
+function askChained(
+  s: Asks,
+  view: ReviewItemView,
+  repertoires: readonly TrainingRepertoire[],
+): ReviewSessionState | undefined {
+  const next = room(s) > 0 ? chainFrom(s, view, repertoires) : undefined;
+  if (next === undefined) return undefined;
+  const order = nextAfter(s.order, view.item, next.item);
+  return asking({ ...s, order }, next);
+}
+
+/**
+ * What is asked after the current item: the chained move, asked at once
+ * (R-143); else a repeat whose relearning step has run out by `now` (R-78);
+ * else the next first ask the size has room for. When none is left, a
+ * repeat still inside its step is asked early rather than dropped: the
+ * session ends with the move relearned, and FSRS grades the answer at the
+ * time it is given.
+ */
+function following(
+  s: Asks,
+  view: ReviewItemView,
+  find: {
+    readonly repertoires: readonly TrainingRepertoire[];
+    readonly lineOf: LineOf;
+  },
+  now: Date,
+): ReviewSessionState {
+  const { repertoires, lineOf } = find;
+  const first = firstOpen(s, lineOf);
+  return (
+    askChained(s, view, repertoires) ??
+    repeatDue(s, lineOf, now.getTime()) ??
+    (first && asking(s, first)) ??
+    repeatDue(s, lineOf, Infinity) ??
+    asking(s, null)
+  );
+}
+
+/** After a right answer at `now`: the next ask (`following`). */
 export function nextReview(
   s: ReviewSessionState,
   repertoires: readonly TrainingRepertoire[],
+  now: Date,
 ): ReviewSessionState {
   if (s.phase !== 'correct' || s.current === null) return s;
-  const view = s.current;
   const lineOf = lineFinder(repertoires);
-  const order = held(s.order, s.outcomes, lineOf);
-  const chained = chainFrom({ ...s, order }, view, repertoires);
-  if (chained !== undefined)
-    return asking(
-      nextAfter(order, view.item, chained.item),
-      s.outcomes,
-      chained,
-    );
-  return asking(order, s.outcomes, firstOpen(order, s.outcomes, lineOf));
+  const repeats = s.repeats.filter((r) => lineOf(r.item) !== undefined);
+  const asks = { ...s, order: held(s.order, s.outcomes, lineOf), repeats };
+  return following(asks, s.current, { repertoires, lineOf }, now);
 }
 
 const still = (state: ReviewSessionState): ReviewTransition => ({
@@ -225,39 +355,76 @@ const still = (state: ReviewSessionState): ReviewTransition => ({
   emit: null,
 });
 
-/** Records the item's one outcome and emits it. */
-function record(
+/**
+ * `repeats` with `item` in due order if its `graded` Review is due again
+ * before the day ends (R-78).
+ */
+function comeBack(
   s: ReviewSessionState,
   item: QueueItem,
-  outcome: Outcome,
-  change: Partial<Pick<ReviewSessionState, 'phase' | 'hinted'>>,
-): ReviewTransition {
-  const outcomes = new Map(s.outcomes).set(item.key, outcome);
-  const emit = { key: item.key, repertoireId: item.repertoireId, outcome };
-  return { state: { ...s, ...change, outcomes }, emit };
+  graded: ReviewState | null,
+): readonly Repeat[] {
+  if (graded === null) return s.repeats;
+  const { due } = graded.fsrs;
+  if (due.getTime() >= s.dayEnd.getTime()) return s.repeats;
+  return [...s.repeats, { item, due }].sort(
+    (a, b) => a.due.getTime() - b.due.getTime(),
+  );
 }
 
-/** The player's move for the current item. */
+/**
+ * Emits the ask's outcome with the move's Review graded by it. A first
+ * ask's outcome becomes the item's; the move's repeat, if it comes back
+ * today, is owed from now on (R-78).
+ */
+function record(
+  s: ReviewSessionState,
+  view: ReviewItemView,
+  answer: { readonly outcome: Outcome; readonly clock: ReviewClock },
+  change: Partial<Pick<ReviewSessionState, 'phase' | 'hinted'>>,
+): ReviewTransition {
+  const { item } = view;
+  const { outcome, clock } = answer;
+  const outcomes = view.repeat
+    ? s.outcomes
+    : new Map(s.outcomes).set(item.key, outcome);
+  const before = clock.reviews.get(item.key);
+  const review = before ? grade(before, outcome, clock.now) : null;
+  const repeats = comeBack(s, item, review);
+  const { key, repertoireId } = item;
+  const emit = { key, repertoireId, outcome, review };
+  const asked = s.asked + 1;
+  return {
+    state: { ...s, ...change, outcomes, repeats, asked, recorded: true },
+    emit,
+  };
+}
+
+/** The player's move for the current item, at the clock's time. */
 export function answerReview(
   s: ReviewSessionState,
   san: string,
+  clock: ReviewClock,
 ): ReviewTransition {
-  const item = s.current?.item;
-  if (item === undefined || s.phase === 'correct') return still(s);
-  const answered = s.outcomes.has(item.key);
-  if (san === item.san) {
-    return answered
+  const view = s.current;
+  if (view === null || s.phase === 'correct') return still(s);
+  if (san === view.item.san) {
+    return s.recorded
       ? still({ ...s, phase: 'correct' })
-      : record(s, item, 'pass', { phase: 'correct' });
+      : record(s, view, { outcome: 'pass', clock }, { phase: 'correct' });
   }
-  if (!answered) return record(s, item, 'lapse', { phase: 'replay' });
+  if (!s.recorded)
+    return record(s, view, { outcome: 'lapse', clock }, { phase: 'replay' });
   // Already a Lapse or a hint: show the arrow (R-59), record nothing more.
   return still(s.phase === 'replay' ? s : { ...s, phase: 'replay' });
 }
 
 /** R-61: a hint, before any other outcome, counts as a Lapse. */
-export function hintReview(s: ReviewSessionState): ReviewTransition {
-  const item = s.current?.item;
-  if (item === undefined || s.outcomes.has(item.key)) return still(s);
-  return record(s, item, 'hint', { hinted: true });
+export function hintReview(
+  s: ReviewSessionState,
+  clock: ReviewClock,
+): ReviewTransition {
+  const view = s.current;
+  if (view === null || s.recorded) return still(s);
+  return record(s, view, { outcome: 'hint', clock }, { hinted: true });
 }

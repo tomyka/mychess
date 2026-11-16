@@ -6,7 +6,12 @@ import type { TrainingDay } from '@mychess/chess';
 import type { TrainingData } from './training-data';
 
 /** The training day `data` holds. */
-export const dayOf = (data: TrainingData): TrainingDay => ({
+export const dayOf = (
+  data: Pick<
+    TrainingData,
+    'entries' | 'reviews' | 'tracked' | 'learnedToday' | 'settings'
+  >,
+): TrainingDay => ({
   repertoires: data.entries.map(({ id, graph, active }) => ({
     id,
     graph,

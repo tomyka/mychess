@@ -14,12 +14,14 @@ import {
 import {
   canAddRepertoire,
   canHoldMoves,
+  forkOriginOf,
   ownScope,
   ok,
   refuse,
   REPERTOIRE_REFUSALS,
   repertoireSchema,
   type Account,
+  type ForkOrigin,
   type Repertoire,
   type RepertoireAccessRefusal,
   type RepertoireLimitRefusal,
@@ -69,6 +71,8 @@ export interface NewRepertoire {
   readonly name: string;
   readonly graph: RepertoireGraph;
   readonly now: Date;
+  /** Where a fork came from (#328); only the fork paths pass it. */
+  readonly forkedFrom?: ForkOrigin;
 }
 
 /** How many repertoires `ownerId` owns, forks included (R-162). */
@@ -142,6 +146,8 @@ function insertRepertoire(
           name: input.name,
           createdAt: input.now,
           updatedAt: input.now,
+          forkedFromRepertoireId: input.forkedFrom?.repertoireId ?? null,
+          forkedFromCoachName: input.forkedFrom?.coachName ?? null,
         })
         .returning({ id: repertoires.id }),
     );
@@ -311,6 +317,8 @@ export interface RepertoireListItem {
   readonly chapters: number;
   readonly moves: number;
   readonly updatedAt: Date;
+  /** Whose assignment a fork copies (#328); null when it is no fork. */
+  readonly forkedFrom: ForkOrigin | null;
 }
 
 /**
@@ -329,15 +337,20 @@ const listRowsSchema = z.array(
     chapters: z.number().int(),
     moves: z.number().int(),
     updatedAt: z.date(),
+    forkedFromRepertoireId: z.uuid().nullable(),
+    forkedFromCoachName: z.string().nullable(),
   }),
 );
 
-/** The owner's repertoires, oldest first, with their chapter and move counts. */
+/**
+ * The owner's repertoires, oldest first, with their chapter and move
+ * counts and, on a fork, its origin (forkOriginOf).
+ */
 export async function listRepertoires(
   db: Executor,
   ownerId: string,
 ): Promise<RepertoireListItem[]> {
-  return listRowsSchema.parse(
+  const rows = listRowsSchema.parse(
     await db
       .select({
         id: repertoires.id,
@@ -346,10 +359,21 @@ export async function listRepertoires(
         chapters: rowsOf(chapters),
         moves: rowsOf(repertoireMoves),
         updatedAt: repertoires.updatedAt,
+        forkedFromRepertoireId: repertoires.forkedFromRepertoireId,
+        forkedFromCoachName: repertoires.forkedFromCoachName,
       })
       .from(repertoires)
       .where(repertoireScope(db, ownScope(ownerId), 'view'))
       .orderBy(asc(repertoires.createdAt), asc(repertoires.id)),
+  );
+  return rows.map(
+    ({ forkedFromRepertoireId, forkedFromCoachName, ...item }) => ({
+      ...item,
+      forkedFrom: forkOriginOf({
+        repertoireId: forkedFromRepertoireId,
+        coachName: forkedFromCoachName,
+      }),
+    }),
   );
 }
 

@@ -1,5 +1,5 @@
 import { SIDES, type Side } from '@mychess/chess';
-import { byNameAndId } from '@mychess/domain';
+import { byName } from '@mychess/domain';
 import {
   useFormatter,
   useTranslations,
@@ -8,7 +8,13 @@ import {
 import Link from 'next/link';
 import { useId, type JSX } from 'react';
 import { DISPLAY_TIME_ZONE } from '../../lib/time-zone';
-import { repertoireRoute } from '../../lib/routes';
+import { assignedRepertoirePath, repertoireRoute } from '../../lib/routes';
+import type { AssignedListItem } from '../../server/assignment-pages';
+import { AssignmentFacts } from '../assignment-facts';
+
+/** A card on the list: the whole card is the link to its page. */
+const CARD =
+  'flex min-h-touch flex-col gap-1 rounded-card border border-border bg-surface p-4';
 
 /** One repertoire as Mano repertuarai lists it. */
 export interface RepertoireCard {
@@ -18,6 +24,8 @@ export interface RepertoireCard {
   readonly chapters: number;
   readonly moves: number;
   readonly updatedAt: Date;
+  /** The coach whose assignment this is a Fork of (R-135, #328); null when it is none. */
+  readonly forkCoachName: string | null;
 }
 
 /** The calendar day of `date` in the display time zone, as `YYYY-MM-DD`. */
@@ -58,12 +66,15 @@ function Card({
       aria-labelledby={nameId}
       aria-describedby={metaId}
       title={item.name}
-      className="flex min-h-touch flex-col gap-1 rounded-card border border-border bg-surface p-4"
+      className={CARD}
     >
       <span id={nameId} className="line-clamp-2 text-lg font-semibold">
         {item.name}
       </span>
       <span id={metaId} className="flex flex-col text-sm text-fg-muted">
+        {item.forkCoachName === null ? null : (
+          <span>{t('forkOf', { coach: item.forkCoachName })}</span>
+        )}
         <span>{t('meta', { chapters: item.chapters, moves: item.moves })}</span>
         <span>{t('changed', { date: changed })}</span>
       </span>
@@ -93,13 +104,57 @@ function King({ side }: { readonly side: Side }): JSX.Element {
   );
 }
 
+/**
+ * A repertoire a coach assigned to the player: its page, who assigned it,
+ * the deadline and the badges, as home's "From my coach" shows them.
+ */
+function AssignedCard({
+  item,
+}: {
+  readonly item: AssignedListItem;
+}): JSX.Element {
+  const nameId = useId();
+  const metaId = useId();
+  return (
+    <Link
+      href={assignedRepertoirePath(item.repertoireId)}
+      aria-labelledby={nameId}
+      aria-describedby={metaId}
+      title={item.name}
+      className={CARD}
+    >
+      <span id={nameId} className="line-clamp-2 text-lg font-semibold">
+        {item.name}
+      </span>
+      <AssignmentFacts
+        assignment={item}
+        id={metaId}
+        className="text-sm text-fg-muted"
+      />
+    </Link>
+  );
+}
+
+/** One card of a side: the account's own repertoire or an assigned one. */
+type Entry =
+  | { readonly kind: 'own'; readonly item: RepertoireCard }
+  | { readonly kind: 'assigned'; readonly item: AssignedListItem };
+
+const keyOf = (entry: Entry): string =>
+  entry.kind === 'own' ? entry.item.id : entry.item.repertoireId;
+
+const byEntryName = byName((entry: Entry) => ({
+  name: entry.item.name,
+  id: keyOf(entry),
+}));
+
 function SideGroup({
   side,
-  items,
+  entries,
   now,
 }: {
   readonly side: Side;
-  readonly items: readonly RepertoireCard[];
+  readonly entries: readonly Entry[];
   readonly now: Date;
 }): JSX.Element {
   const t = useTranslations('repertoires.list');
@@ -113,13 +168,17 @@ function SideGroup({
         <King side={side} />
         {t(side)}
       </h2>
-      {items.length === 0 ? (
+      {entries.length === 0 ? (
         <p className="text-fg-muted">{t(EMPTY_KEY[side])}</p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {items.map((item) => (
-            <li key={item.id}>
-              <Card item={item} now={now} />
+          {entries.map((entry) => (
+            <li key={keyOf(entry)}>
+              {entry.kind === 'own' ? (
+                <Card item={entry.item} now={now} />
+              ) : (
+                <AssignedCard item={entry.item} />
+              )}
             </li>
           ))}
         </ul>
@@ -129,27 +188,33 @@ function SideGroup({
 }
 
 /**
- * The account's repertoires by side, White then Black, each sorted by name
- * in Lithuanian order whatever the viewer's language (R-160); one line when
- * there are none at all.
+ * The account's repertoires and those assigned to it (#328) by side, White
+ * then Black, each sorted by name in Lithuanian order whatever the viewer's
+ * language (R-160); one line when there are none at all.
  */
 export function RepertoireList({
   items,
+  assigned,
   now,
 }: {
   readonly items: readonly RepertoireCard[];
+  readonly assigned: readonly AssignedListItem[];
   readonly now: Date;
 }): JSX.Element {
   const t = useTranslations('repertoires.list');
-  if (items.length === 0) return <p className="text-fg-muted">{t('empty')}</p>;
-  const sorted = items.toSorted(byNameAndId);
+  const entries: Entry[] = [
+    ...items.map((item) => ({ kind: 'own', item }) as const),
+    ...assigned.map((item) => ({ kind: 'assigned', item }) as const),
+  ].toSorted(byEntryName);
+  if (entries.length === 0)
+    return <p className="text-fg-muted">{t('empty')}</p>;
   return (
     <div className="grid gap-8 sm:grid-cols-2">
       {SIDES.map((side) => (
         <SideGroup
           key={side}
           side={side}
-          items={sorted.filter((item) => item.side === side)}
+          entries={entries.filter((entry) => entry.item.side === side)}
           now={now}
         />
       ))}

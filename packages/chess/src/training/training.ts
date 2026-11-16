@@ -29,9 +29,10 @@
  * plays a `learnPlan` line's learn pass, an arrows round then a blind
  * round, and emits each new move once learned (R-144, R-55). The review session
  * (`startReviewSession`, `answerReview`, `hintReview`, `nextReview`,
- * `reviewCounts`) asks the queue's Reviews after their line so far, chains
- * into the next Due move of the same repertoire (R-143, R-54) and emits one
- * outcome per move (R-59, R-61). The training day (`training-day.ts`) reads a
+ * `reviewCounts`, `reviewProgress`) asks the queue's Reviews after their
+ * line so far, chains into the next Due move of the same repertoire (R-143,
+ * R-54), emits one outcome per ask (R-59, R-61) and asks a Lapse again once
+ * its relearning step runs out (R-78). The training day (`training-day.ts`) reads a
  * player's snapshot: the allowance, what is due, when the next Review is,
  * the progress and the screen training starts on. `twoAnswers` names the
  * other answers the player's repertoires give (R-54); `learnAgainKeys` the
@@ -92,6 +93,7 @@ export {
   hintReview,
   nextReview,
   reviewCounts,
+  reviewProgress,
   startReviewSession,
 } from './review-session';
 export type {
@@ -101,6 +103,10 @@ export type {
   ReviewSessionState,
   ReviewTransition,
   ReviewCounts,
+  ReviewBounds,
+  ReviewClock,
+  ReviewProgress,
+  Repeat,
 } from './review-session';
 export {
   dueCount,
@@ -112,6 +118,7 @@ export {
   toLearnCount,
   trainingCounts,
   trainingProgress,
+  dayStanding,
 } from './training-day';
 export type {
   StartState,
@@ -119,6 +126,7 @@ export type {
   TrainingDay,
   TrainingMode,
   TrainingProgress,
+  DayStanding,
 } from './training-day';
 export { learnAgainKeys, twoAnswers } from './answers';
 export type { OtherAnswer } from './answers';

@@ -1,12 +1,15 @@
 'use client';
 
 import {
+  dayStanding,
   learnLines,
   playLearn,
   trainingProgress,
   type BoardMove,
+  type DayStanding,
   type TrainingProgress,
 } from '@mychess/chess';
+import { dayEnd } from '@mychess/domain';
 import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import type { TrainingData } from '../../lib/training-data';
 import { MOVE_DURATION } from '../board/board-config';
@@ -34,7 +37,6 @@ import {
   type LearnDrillState,
 } from './learn-drill-state';
 import { dayOf } from '../../lib/training-day';
-import { dayStanding, type DayStanding } from './day-standing';
 import type { ResultSync } from './use-result-sync';
 
 export interface LearnDrill
@@ -145,7 +147,7 @@ export function useLearnDrill(
     progress: () => progressAt(clock.now()),
     standing: () => {
       const now = clock.now();
-      return dayStanding(progressAt(now), now);
+      return dayStanding(progressAt(now), dayEnd(now));
     },
   };
 }

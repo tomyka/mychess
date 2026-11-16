@@ -6,6 +6,7 @@
  */
 import type { PlayerRepertoire } from '@mychess/domain';
 import { and, eq, type SQL } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 import type { Executor, Tx } from './client';
 import { linkExists } from './coach-queries';
@@ -29,27 +30,60 @@ const sharesOf = (coachId: string, player: SQL): SQL | undefined =>
 export const sharedTo = (coachId: string, playerId: string): SQL | undefined =>
   sharesOf(coachId, eq(repertoireShares.playerId, playerId));
 
+/**
+ * A repertoire shared with the coach, when it was made, and, when it is a
+ * Fork of one of that coach's own repertoires, that source repertoire
+ * (#328); null otherwise.
+ */
+export interface SharedPair extends PlayerRepertoire {
+  readonly sourceRepertoireId: string | null;
+  readonly createdAt: Date;
+}
+
 const pairRowsSchema = z.array(
-  z.object({ playerId: z.string().min(1), repertoireId: z.uuid() }),
+  z.object({
+    playerId: z.string().min(1),
+    repertoireId: z.uuid(),
+    sourceRepertoireId: z.uuid().nullable(),
+    createdAt: z.date(),
+  }),
 );
+
+const fork = alias(repertoires, 'shared_fork');
+const source = alias(repertoires, 'fork_source');
 
 /**
  * Every repertoire of `playerIds` shared with `coachId`, as sharedTo has
- * them: one statement, none for no players.
+ * them, with its Fork source only when that source is the coach's own, in
+ * no particular order (the domain names the newest Fork): one statement,
+ * none for no players. SECURITY (R-39, R-43): where a
+ * repertoire came from is read only for a share this coach may use, so the
+ * coach never learns anything of an unshared fork, nor of another coach's
+ * repertoire.
  */
 export async function sharedPairs(
   db: Executor,
   coachId: string,
   playerIds: readonly string[],
-): Promise<PlayerRepertoire[]> {
+): Promise<SharedPair[]> {
   if (playerIds.length === 0) return [];
   return pairRowsSchema.parse(
     await db
       .select({
         playerId: repertoireShares.playerId,
         repertoireId: repertoireShares.repertoireId,
+        sourceRepertoireId: source.id,
+        createdAt: fork.createdAt,
       })
       .from(repertoireShares)
+      .innerJoin(fork, eq(fork.id, repertoireShares.repertoireId))
+      .leftJoin(
+        source,
+        and(
+          eq(source.id, fork.forkedFromRepertoireId),
+          eq(source.ownerAccountId, coachId),
+        ),
+      )
       .where(sharesOf(coachId, inIds(repertoireShares.playerId, playerIds))),
   );
 }

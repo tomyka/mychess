@@ -36,7 +36,10 @@ const GRID: GroupGrid = {
       player: { id: 'p-2', displayName: 'Rokas' },
       lastTrainedDays: null,
       cells: [
-        { badges: { ...NONE, forked: true }, view: { kind: 'forked' } },
+        {
+          badges: { ...NONE, forked: true },
+          view: { kind: 'forked', sharedForkId: null },
+        },
         {
           badges: { ...NONE, overdue: true },
           view: {

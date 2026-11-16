@@ -1,7 +1,9 @@
 // A Player's repertoires as the pages and actions reach them (S3). Access is
 // decided in the domain (canViewRepertoire, canEditRepertoire) and enforced
-// again by the queries, which filter by owner (CLAUDE.md, decision 12).
+// again by the queries, which filter by owner (CLAUDE.md, decision 12), or
+// by the player's live assignment (R-202).
 import {
+  assignedRepertoireForPlayer,
   coachNotesOn,
   forkCoachNotesOn,
   listPersonalNotes,
@@ -58,10 +60,56 @@ export async function ownRepertoire(
   return allowed.ok ? { ok: true, value: loaded } : allowed;
 }
 
+/** A repertoire as its PGN download needs it. */
+export interface DownloadableRepertoire {
+  readonly name: string;
+  /** With its comments: the owner's, or the coach's on an assignment. */
+  readonly graph: RepertoireGraph;
+}
+
+/**
+ * Repertoire `id` if `account` may download it: its own (R-96, through
+ * ownRepertoire), or one assigned to it now and not forked (R-202, through
+ * the player's assigned read). Anything else, a repertoire only shared with
+ * the account included, is undefined (decision 12).
+ */
+export async function downloadableRepertoire(
+  account: Account,
+  id: unknown,
+): Promise<DownloadableRepertoire | undefined> {
+  const parsed = z.uuid().safeParse(id);
+  if (!parsed.success) return undefined;
+  const own = await ownRepertoire(account, parsed.data, 'view');
+  if (own.ok)
+    return { name: own.value.repertoire.name, graph: own.value.graph };
+  const assigned = await assignedRepertoireForPlayer(
+    getDb(),
+    account.id,
+    parsed.data,
+    new Date(),
+  );
+  return assigned === undefined
+    ? undefined
+    : { name: assigned.repertoire.name, graph: assigned.graph };
+}
+
+/**
+ * One of the account's repertoires as Mano repertuarai shows it: a Fork
+ * carries only the name of the coach it came from (R-135, #328), never the
+ * coach's repertoire id.
+ */
+export type MyRepertoire = Omit<RepertoireListItem, 'forkedFrom'> & {
+  readonly forkCoachName: string | null;
+};
+
 /** Mano repertuarai: the session account's own repertoires. */
-export async function myRepertoires(): Promise<RepertoireListItem[]> {
+export async function myRepertoires(): Promise<MyRepertoire[]> {
   const account = await requireOnboarded();
-  return listRepertoires(getDb(), account.id);
+  const items = await listRepertoires(getDb(), account.id);
+  return items.map(({ forkedFrom, ...item }) => ({
+    ...item,
+    forkCoachName: forkedFrom?.coachName ?? null,
+  }));
 }
 
 /**

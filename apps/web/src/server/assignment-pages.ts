@@ -86,10 +86,13 @@ export async function assignedRepertoireData(
   };
 }
 
-/** One repertoire on home's "From my coach" (R-15, R-51, R-133). */
-export type HomeAssignment = Pick<
+/**
+ * One repertoire on home's "From my coach" (R-15, R-51, R-133) and under
+ * its side on Mano repertuarai (#328).
+ */
+export type AssignedListItem = Pick<
   PlayerAssignment,
-  'repertoireId' | 'name' | 'coachName' | 'deadline' | 'badges'
+  'repertoireId' | 'name' | 'side' | 'coachName' | 'deadline' | 'badges'
 >;
 
 /** One open fork offer on home (R-44, R-130). */
@@ -99,8 +102,35 @@ export type HomeForkOffer = Pick<
 >;
 
 export interface HomeAssignments {
-  readonly fromCoach: readonly HomeAssignment[];
+  readonly fromCoach: readonly AssignedListItem[];
   readonly offers: readonly HomeForkOffer[];
+}
+
+/** `playerId`'s live assignments as of `now`, individual and group merged (R-16). */
+async function fromCoachOf(
+  playerId: string,
+  now: Date,
+): Promise<AssignedListItem[]> {
+  const mine = await playerAssignments(getDb(), playerId, now);
+  return mine.map(
+    ({ repertoireId, name, side, coachName, deadline, badges }) => ({
+      repertoireId,
+      name,
+      side,
+      coachName,
+      deadline,
+      badges,
+    }),
+  );
+}
+
+/**
+ * The session player's live assignments for Mano repertuarai (#328), with
+ * their badges as home shows them; forked ones are left out (R-128).
+ */
+export async function myAssignedRepertoires(): Promise<AssignedListItem[]> {
+  const player = await requireOnboarded();
+  return fromCoachOf(player.id, new Date());
 }
 
 /**
@@ -112,18 +142,10 @@ export async function homeAssignments(): Promise<HomeAssignments> {
   const player = await requireOnboarded();
   const db = getDb();
   const now = new Date();
-  const mine = await playerAssignments(db, player.id, now);
+  const fromCoach = await fromCoachOf(player.id, now);
   const offers = await openForkOffers(db, player.id, now);
   return {
-    fromCoach: mine.map(
-      ({ repertoireId, name, coachName, deadline, badges }) => ({
-        repertoireId,
-        name,
-        coachName,
-        deadline,
-        badges,
-      }),
-    ),
+    fromCoach,
     offers: offers.map(({ id, name, coachName, daysLeft }) => ({
       id,
       name,

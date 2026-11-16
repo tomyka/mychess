@@ -110,6 +110,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
     reviews: [dueReview(D4, 2), dueReview(BF4, 1)],
     tracked: [D4, BF4],
     learnedToday: 0,
+    coachNotes: [],
     settings: { sessionSize: 20, newPerDay: 10 },
     now: NOW,
     ...overrides,
@@ -163,7 +164,11 @@ function renderDrill(
           unsynced: 0,
           retry: vi.fn(),
         }}
-        links={{ back: '/repertuarai/x', learn: '/treniruote?mode=learn' }}
+        links={{
+          back: '/repertuarai/x',
+          learn: '/treniruote?mode=learn',
+          review: '/treniruote?mode=review',
+        }}
         frame={drawFrame}
         clock={testClock}
       />
@@ -381,7 +386,11 @@ describe('the review drill', () => {
       data({
         entries: [
           ...data().entries,
-          { ...other('e1', 'Angliška', '1. c4 *'), kind: 'own', active: true },
+          {
+            ...other('e1', 'Angliška', '1. c4 *'),
+            kind: 'own',
+            active: true,
+          },
         ],
         others: [other('i1', 'Itališka', '1. e4 e5 2. Nf3 *')],
       }),
@@ -437,10 +446,11 @@ describe('the review drill', () => {
   it('asks a lapsed move again at the end of the session, each repeat counted, until today is done (#319, R-78)', () => {
     renderDrill();
     type('e4');
-    // The repeat joins the session: two moves and one repeat.
+    // The repeat joins the session at the lapse: two moves and one repeat.
     expect(counter()).toBe('1 / 3');
     type('d4');
     wait(400);
+    expect(counter()).toBe('1 / 3');
     wait(150);
     type('Bf4');
     expect(counter()).toBe('2 / 3');
@@ -468,6 +478,51 @@ describe('the review drill', () => {
     expect(stat(T.done.correct)).toBe('1');
     expect(stat(T.done.lapses)).toBe('1');
     expect(counter()).toBe('4 / 4');
+  });
+
+  it('starts its session by the clock, not the snapshot: a page loaded yesterday still repeats a lapse today (R-78)', () => {
+    renderDrill(data({ now: new Date(NOW.getTime() - DAY) }));
+    type('e4');
+    // Today's day end: the lapse's 1-minute step falls in it.
+    expect(counter()).toBe('1 / 3');
+  });
+
+  it('asks a lapsed move again once its 1-minute step has run out by the clock, before the session ends (#338, R-78)', () => {
+    const wide = graphOf(pgnWithMoves(41));
+    const keys = [...new Set(playerKeys(wide))];
+    renderDrill(
+      data({
+        entries: [
+          {
+            id: LONDON_ID,
+            name: 'Platus',
+            side: 'white',
+            kind: 'own',
+            active: true,
+            graph: wide,
+          },
+        ],
+        reviews: keys.map((key) => dueReview(key, 1)),
+        tracked: keys,
+        settings: { sessionSize: 10, newPerDay: 10 },
+      }),
+    );
+    /** The repertoire holds one White move in each position: the first. */
+    const moves = () => legalMoves(positionKey(lastWith('fen') ?? ''));
+    const [right, wrong] = moves();
+    type(wrong?.san ?? 'no move');
+    type(right?.san ?? 'no move');
+    wait(400);
+    wait(150);
+    // Inside the step: the next due move.
+    expect(panel()).toContain(T.review.prompt);
+    type(moves()[0]?.san ?? 'no move');
+    clock.at = new Date(NOW.getTime() + 2 * 60_000);
+    wait(400);
+    wait(150);
+    expect(panel()).toContain(T.review.again);
+    expect(lastWith('fen')).toBe(fenOf(START_KEY));
+    expect(counter()).toBe('2 / 10');
   });
 
   it('says how many moves are still due and offers Continue when the session size leaves some (#319, R-62)', () => {
@@ -568,6 +623,7 @@ describe('the review drill in a Black repertoire', () => {
             name: 'Taimanovo variantas',
             side: 'black',
             kind: 'assigned',
+            coachName: 'Ona',
             active: true,
             graph: taimanov,
           },
@@ -630,7 +686,7 @@ describe('the review drill and coach notes (#322, R-174)', () => {
           id: LONDON_ID,
           name: 'Trenerio Londonas',
           side: 'white',
-          kind,
+          ...(kind === 'assigned' ? { kind, coachName: 'Rasa' } : { kind }),
           active: true,
           graph: NOTED,
         },
@@ -670,7 +726,8 @@ describe('the review drill and coach notes (#322, R-174)', () => {
     renderDrill(noted('assigned'));
     type('e4');
     expect(arrows()).toEqual(['d2d4']);
-    expect(note()).toContain('Take the centre first.');
+    // Named with the assigning coach (R-107, #338).
+    expect(note()).toBe(`${byCoach('Rasa')}Take the centre first.`);
     type('d4');
     expect(note()).toContain('Take the centre first.');
     expect(next()).not.toBeNull();
@@ -688,4 +745,34 @@ describe('the review drill and coach notes (#322, R-174)', () => {
     expect(note()).toBeNull();
     expect(next()).toBeNull();
   });
+
+  it('shows a coach’s note on the player’s own repertoire, named, once the move is answered (R-107, R-43, R-174)', () => {
+    renderDrill({
+      ...noted('own'),
+      coachNotes: [
+        {
+          repertoireId: LONDON_ID,
+          moveKey: D4,
+          coachName: 'Ona',
+          text: 'A',
+          source: 'shared',
+        },
+        {
+          repertoireId: LONDON_ID,
+          moveKey: D4,
+          coachName: 'Jonas',
+          text: 'B',
+          source: 'shared',
+        },
+      ],
+    });
+    expect(note()).toBeNull();
+    type('d4');
+    expect(note()).toBe(`${byCoach('Ona')}A${byCoach('Jonas')}B`);
+    expect(next()).not.toBeNull();
+  });
 });
+
+/** The label of a note marked with its coach's name. */
+const byCoach = (name: string) =>
+  MESSAGES.lt.coachNote.byCoach.replace('{name}', name);

@@ -16,6 +16,26 @@ export interface MoveCoachNote {
 const FORK_NOTE = 'fork';
 
 /**
+ * One coach note as a card, read-only: whose it is, then its text. The
+ * repertoire page and the training drills both show a note this way.
+ */
+export function CoachNoteCard({
+  label,
+  text,
+}: {
+  /** Whose note it is, already translated. */
+  readonly label: string;
+  readonly text: string;
+}): JSX.Element {
+  return (
+    <div className="flex flex-col gap-1 rounded-card border border-border p-3">
+      <p className={PANEL_LABEL}>{label}</p>
+      <p className="whitespace-pre-line">{text}</p>
+    </div>
+  );
+}
+
+/**
  * The coaches' notes on a move, read-only, each marked with its coach's
  * name (R-107, R-125); nothing when there are none.
  */
@@ -29,14 +49,11 @@ export function CoachNotes({
   return (
     <ul aria-label={t('list')} className="flex flex-col gap-2">
       {notes.map((note) => (
-        <li
-          key={note.coachId ?? FORK_NOTE}
-          className="flex flex-col gap-1 rounded-card border border-border p-3"
-        >
-          <p className={PANEL_LABEL}>
-            {t('byCoach', { name: note.coachName })}
-          </p>
-          <p className="whitespace-pre-line">{note.text}</p>
+        <li key={note.coachId ?? FORK_NOTE}>
+          <CoachNoteCard
+            label={t('byCoach', { name: note.coachName })}
+            text={note.text}
+          />
         </li>
       ))}
     </ul>

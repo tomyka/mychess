@@ -11,13 +11,30 @@ import {
   type TrainingEntry,
 } from '@mychess/domain';
 import { REPEATABLE_READ, type Executor } from '../client';
+import { namesOf } from '../assignments/names';
 import { trainingSources } from '../assignments/player-training';
+
+/**
+ * The coach's name, read in the same snapshot as the repertoire: an
+ * account row cannot go while a repertoire it owns is held, so a missing
+ * one is a programmer error.
+ */
+function coachOf(names: ReadonlyMap<string, string>, ownerId: string): string {
+  const name = names.get(ownerId);
+  if (name === undefined) throw new Error('trainingEntries: no coach account');
+  return name;
+}
 
 /** One repertoire the player trains, as home and the training page list it. */
 export interface TrainingRepertoireEntry extends TrainingEntry {
   readonly repertoire: TrainingRepertoire;
   readonly name: string;
   readonly side: Side;
+  /**
+   * An assigned repertoire's coach, its owner's display name (#338), so a
+   * drill names the coach of a move's comment (R-102); null for one's own.
+   */
+  readonly coachName: string | null;
 }
 
 /**
@@ -31,6 +48,10 @@ export function trainingEntries(
 ): Promise<TrainingRepertoireEntry[]> {
   return db.transaction(async (tx) => {
     const { own, assigned } = await trainingSources(tx, playerId);
+    const coaches = await namesOf(
+      tx,
+      assigned.map(({ loaded }) => loaded.repertoire.ownerId),
+    );
     const ownEntries = own.map(
       ({ repertoire, graph }, position): TrainingRepertoireEntry => ({
         kind: 'own',
@@ -39,6 +60,7 @@ export function trainingEntries(
         repertoire: { id: repertoire.id, graph, active: true },
         name: repertoire.name,
         side: repertoire.side,
+        coachName: null,
       }),
     );
     const assignedEntries = assigned.map(
@@ -53,6 +75,7 @@ export function trainingEntries(
         },
         name: loaded.repertoire.name,
         side: loaded.repertoire.side,
+        coachName: coachOf(coaches, loaded.repertoire.ownerId),
       }),
     );
     return learnOrder([...ownEntries, ...assignedEntries]);

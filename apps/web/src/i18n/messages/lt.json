@@ -218,7 +218,9 @@
       "percent": "{percent} % išmokta",
       "mastered": "Įvaldyta",
       "nothing": "Nėra ko mokytis",
-      "forkedNote": "Žaidėjas pasidarė asmeninę kopiją; jos pažangos nematote.",
+      "forkedNote": "Žaidėjas pasidarė asmeninę kopiją. Jei ją bendrins su jumis, jos pažangą matysite skiltyje „Bendrinami repertuarai“.",
+      "forkedShared": "Žaidėjas pasidarė asmeninę kopiją ir ją bendrina su jumis.",
+      "forkedSharedLink": "Žiūrėti jos pažangą",
       "today": "Paskutinį kartą treniravosi šiandien",
       "yesterday": "Paskutinį kartą treniravosi vakar",
       "daysAgo": "Paskutinį kartą treniravosi prieš {days, plural, one {# dieną} few {# dienas} other {# dienų}}",
@@ -351,6 +353,7 @@
       "empty": "Repertuarų dar neturite.",
       "meta": "{chapters, plural, one {# skyrius} few {# skyriai} other {# skyrių}} · {moves, plural, one {# ėjimas} few {# ėjimai} other {# ėjimų}}",
       "changed": "Pakeista {date}",
+      "forkOf": "Jūsų asmeninė kopija (priskyrė {coach})",
       "importTitle": "Turite PGN failą?",
       "importIntro": "Įkelkite PGN failą ir pažiūrėkite, kas jame yra, prieš išsaugodami.",
       "import": "Importuoti PGN"
@@ -671,6 +674,7 @@
       "progress": "{learned} išmokta · {due, plural, one {# kartotinas} few {# kartotini} other {# kartotinų}} · {toLearn} liko išmokti",
       "continue": "Tęsti",
       "learn": "Mokytis naujų ėjimų",
+      "review": "Pradėti kartojimą",
       "done": "Baigti"
     },
     "sync": {

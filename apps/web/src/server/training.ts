@@ -9,8 +9,18 @@ import {
   type TrainingCounts,
   type TrainingMode,
 } from '@mychess/chess';
-import { trainingSnapshot, type TrainingScope } from '@mychess/db';
-import { SECONDS_PER_REVIEW, type Account } from '@mychess/domain';
+import {
+  coachNotesOn,
+  forkCoachNotesOn,
+  trainingSnapshot,
+  type TrainingScope,
+  type TrainingSnapshot,
+} from '@mychess/db';
+import {
+  SECONDS_PER_REVIEW,
+  type Account,
+  type OwnCoachNote,
+} from '@mychess/domain';
 import { z } from 'zod';
 import { dayOf } from '../lib/training-day';
 import type { TrainingData } from '../lib/training-data';
@@ -35,28 +45,95 @@ export function parseTrainingSearch(
   };
 }
 
+/** The training data the snapshot holds: all of it but the coach notes. */
+type SnapshotData = Omit<TrainingData, 'coachNotes'>;
+
+/** A note read from the db, as the browser gets it: no coach account id. */
+const ownNote =
+  (repertoireId: string, source: OwnCoachNote['source']) =>
+  (
+    note: Pick<OwnCoachNote, 'moveKey' | 'coachName' | 'text'>,
+  ): OwnCoachNote => ({
+    repertoireId,
+    moveKey: note.moveKey,
+    coachName: note.coachName,
+    text: note.text,
+    source,
+  });
+
+/**
+ * The coach notes on the session account's own repertoire `repertoireId`:
+ * the one its fork kept, and each sharing coach's. Both reads filter by
+ * owner.
+ */
+async function ownCoachNotes(
+  account: Account,
+  repertoireId: string,
+): Promise<OwnCoachNote[]> {
+  const [kept, shared] = await Promise.all([
+    forkCoachNotesOn(getDb(), account.id, repertoireId),
+    coachNotesOn(getDb(), account.id, repertoireId),
+  ]);
+  return [
+    ...kept.map(ownNote(repertoireId, 'fork')),
+    ...shared.map(ownNote(repertoireId, 'shared')),
+  ];
+}
+
 /**
  * The session account's training data for `scope`, or undefined when the
- * scope names a repertoire they do not train (the page's 404).
+ * scope names a repertoire they do not train (the page's 404). The coach
+ * notes are read for their own repertoires only: an assigned one's are its
+ * comments (R-102), named with its entry's coachName.
  */
 export async function loadTraining(
   account: Account,
   mode: TrainingMode,
   scope: TrainingScope,
 ): Promise<TrainingData | undefined> {
+  const data = await snapshotData(account, mode, scope);
+  if (data === undefined) return undefined;
+  const own = data.entries.filter((entry) => entry.kind === 'own');
+  const notes = await Promise.all(
+    own.map((entry) => ownCoachNotes(account, entry.id)),
+  );
+  return { ...data, coachNotes: notes.flat() };
+}
+
+type SnapshotEntry = TrainingSnapshot['entries'][number];
+
+/**
+ * A snapshot entry as plain data. The snapshot names the coach of every
+ * assigned entry (it throws otherwise), so a missing name is a programmer
+ * error here too.
+ */
+function dataEntry(entry: SnapshotEntry): TrainingData['entries'][number] {
+  const { repertoire, name, side } = entry;
+  const base = {
+    id: repertoire.id,
+    name,
+    side,
+    active: repertoire.active,
+    graph: repertoire.graph,
+  };
+  if (entry.kind === 'own') return { ...base, kind: 'own' };
+  if (entry.coachName === null)
+    throw new Error('an assigned training entry names its coach');
+  return { ...base, kind: 'assigned', coachName: entry.coachName };
+}
+
+/** The session account's snapshot for `scope` as plain data, read now. */
+async function snapshotData(
+  account: Account,
+  mode: TrainingMode,
+  scope: TrainingScope,
+): Promise<SnapshotData | undefined> {
   const now = new Date();
   const snapshot = await trainingSnapshot(getDb(), account.id, scope, now);
   if (snapshot === undefined) return undefined;
   return {
     mode,
-    entries: snapshot.entries.map(({ repertoire, name, side, kind }) => ({
-      id: repertoire.id,
-      name,
-      side,
-      kind,
-      active: repertoire.active,
-      graph: repertoire.graph,
-    })),
+    entries: snapshot.entries.map(dataEntry),
     others: snapshot.others.map(({ id, name, side, graph }) => ({
       id,
       name,
@@ -85,7 +162,7 @@ export interface TodaySummary extends TrainingCounts {
  * allowance leaves (R-146).
  */
 export async function todaySummary(account: Account): Promise<TodaySummary> {
-  const data = await loadTraining(account, 'review', { kind: 'all' });
+  const data = await snapshotData(account, 'review', { kind: 'all' });
   if (data === undefined)
     return { due: 0, toLearn: 0, minutes: 0, nextDue: null };
   const day = dayOf(data);
@@ -105,7 +182,7 @@ export async function repertoireTraining(
   account: Account,
   repertoireId: string,
 ): Promise<TrainingCounts | null> {
-  const data = await loadTraining(account, 'review', {
+  const data = await snapshotData(account, 'review', {
     kind: 'repertoire',
     repertoireId,
   });

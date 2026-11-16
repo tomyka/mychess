@@ -149,6 +149,17 @@ describe('the done summary’s buttons', () => {
     ).toBe('/treniruote?mode=learn');
   });
 
+  it('offers to start review when given its way there, after Done', () => {
+    const { unmount } = renderLt(<DoneActions doneHref="/" />);
+    expect(screen.queryByRole('link', { name: T.review })).toBeNull();
+    unmount();
+    renderLt(<DoneActions reviewHref="/treniruote?mode=review" doneHref="/" />);
+    expect(
+      screen.getByRole('link', { name: T.review }).getAttribute('href'),
+    ).toBe('/treniruote?mode=review');
+    expect(actionNames()).toEqual([T.done, T.review]);
+  });
+
   it('puts Done first and new moves last, Continue between them', () => {
     renderLt(
       <DoneActions

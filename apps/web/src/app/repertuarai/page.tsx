@@ -2,6 +2,7 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { JSX } from 'react';
 import { ROUTES } from '../../lib/routes';
+import { myAssignedRepertoires } from '../../server/assignment-pages';
 import { myRepertoires } from '../../server/repertoires';
 import { SECONDARY_BUTTON } from '../buttons';
 import { SECTION, SECTION_TITLE, TEXT_LINK } from '../nustatymai/styles';
@@ -61,19 +62,23 @@ function ImportSection(): JSX.Element {
 }
 
 // Mano repertuarai (docs/design/repertoire-screen.md, section 1): the
-// account's own repertoires by side, the create form and the way to import.
+// account's own repertoires and those assigned to it (#328) by side, the
+// create form and the way to import.
 export default async function RepertoiresPage({
   searchParams,
 }: {
   readonly searchParams: Promise<SearchParams>;
 }): Promise<JSX.Element> {
-  const items = await myRepertoires();
+  const [items, assigned] = await Promise.all([
+    myRepertoires(),
+    myAssignedRepertoires(),
+  ]);
   const { deleted } = await searchParams;
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-gutter py-8 sm:px-gutter-wide">
       <Header />
       <DeletedNotice shown={deleted === '1'} />
-      <RepertoireList items={items} now={new Date()} />
+      <RepertoireList items={items} assigned={assigned} now={new Date()} />
       <div className="grid gap-8 sm:grid-cols-2 sm:items-start">
         <CreateSection />
         <ImportSection />

@@ -2,10 +2,9 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useId, type JSX } from 'react';
 import { assignedRepertoirePath } from '../lib/routes';
-import type { HomeAssignment } from '../server/assignment-pages';
-import { AssignmentBadges } from './assignment-badges';
+import type { AssignedListItem } from '../server/assignment-pages';
+import { AssignmentFacts } from './assignment-facts';
 import { SECTION, SECTION_TITLE } from './nustatymai/styles';
-import { useDeadline } from './use-deadline';
 
 /**
  * The repertoire's name as a link one text line high, so the lines under
@@ -19,11 +18,8 @@ const ITEM_LINK =
 function AssignmentItem({
   assignment,
 }: {
-  readonly assignment: HomeAssignment;
+  readonly assignment: AssignedListItem;
 }): JSX.Element {
-  const t = useTranslations('assignment');
-  const date = useDeadline();
-  const { deadline } = assignment;
   return (
     <li className="flex flex-col gap-1">
       <Link
@@ -32,13 +28,7 @@ function AssignmentItem({
       >
         {assignment.name}
       </Link>
-      <span className="text-fg-muted">
-        {t('page.assignedBy', { name: assignment.coachName })}
-      </span>
-      {deadline === null ? null : (
-        <span>{t('deadlineOn', { date: date(deadline) })}</span>
-      )}
-      <AssignmentBadges flags={assignment.badges} />
+      <AssignmentFacts assignment={assignment} className="gap-1" />
     </li>
   );
 }
@@ -51,7 +41,7 @@ function AssignmentItem({
 export function FromMyCoach({
   assignments,
 }: {
-  readonly assignments: readonly HomeAssignment[];
+  readonly assignments: readonly AssignedListItem[];
 }): JSX.Element | null {
   const t = useTranslations('assignment.home');
   const titleId = useId();

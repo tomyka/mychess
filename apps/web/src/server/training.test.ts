@@ -28,7 +28,36 @@ const server = vi.hoisted(() => ({
     >(),
 }));
 
-vi.mock('@mychess/db', () => ({ trainingSnapshot: server.snapshot }));
+const notes = vi.hoisted(() => ({
+  shared: vi.fn<
+    (
+      db: unknown,
+      ownerId: string,
+      repertoireId: string,
+    ) => Promise<
+      {
+        coachId: string;
+        coachName: string;
+        moveKey: string;
+        text: string;
+        updatedAt: Date;
+      }[]
+    >
+  >(),
+  kept: vi.fn<
+    (
+      db: unknown,
+      playerId: string,
+      forkId: string,
+    ) => Promise<{ moveKey: string; text: string; coachName: string }[]>
+  >(),
+}));
+
+vi.mock('@mychess/db', () => ({
+  trainingSnapshot: server.snapshot,
+  coachNotesOn: notes.shared,
+  forkCoachNotesOn: notes.kept,
+}));
 vi.mock('./db', () => ({ getDb: () => DB }));
 
 /** Rokas, signed in and onboarded: the session account. */
@@ -60,6 +89,7 @@ const SNAPSHOT: TrainingSnapshot = {
       repertoire: { id: OTHER, graph: TAIMANOV_GRAPH, active: false },
       name: 'Taimanovas',
       side: 'black',
+      coachName: 'Name',
     },
     {
       kind: 'own',
@@ -68,6 +98,7 @@ const SNAPSHOT: TrainingSnapshot = {
       repertoire: { id: ID, graph: LONDON_GRAPH, active: true },
       name: 'Londono sistema',
       side: 'white',
+      coachName: null,
     },
   ],
   others: [{ id: THIRD, name: 'Kito', side: 'white', graph: LONDON_GRAPH }],
@@ -83,6 +114,8 @@ const SNAPSHOT: TrainingSnapshot = {
 beforeEach(() => {
   vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
   server.snapshot.mockReset().mockResolvedValue(SNAPSHOT);
+  notes.shared.mockReset().mockResolvedValue([]);
+  notes.kept.mockReset().mockResolvedValue([]);
   return () => {
     vi.useRealTimers();
   };
@@ -138,6 +171,8 @@ describe('loadTraining', () => {
           name: 'Taimanovas',
           side: 'black',
           kind: 'assigned',
+          // The assigning coach's name, for its notes (R-174).
+          coachName: 'Name',
           active: false,
           graph: TAIMANOV_GRAPH,
         },
@@ -155,8 +190,58 @@ describe('loadTraining', () => {
       tracked: ['k1|d4', 'k2|Bf4'],
       learnedToday: 3,
       settings: { sessionSize: 20, newPerDay: 5 },
+      coachNotes: [],
       now: NOW,
     });
+  });
+
+  it("reads the coach notes on the session account's own repertoires only, the fork's first (R-107, R-43, R-49)", async () => {
+    notes.kept.mockResolvedValue([
+      { moveKey: 'k1|d4', text: 'Kept.', coachName: 'Former coach' },
+    ]);
+    notes.shared.mockResolvedValue([
+      {
+        coachId: 'coach-1',
+        coachName: 'Coach One',
+        moveKey: 'k2|Bf4',
+        text: 'Shared.',
+        updatedAt: NOW,
+      },
+    ]);
+    const data = await loadTraining(ROKAS, 'review', { kind: 'all' });
+    // The session account's id, never one from the request; the assigned
+    // repertoire's notes are its comments (R-102).
+    expect(notes.shared).toHaveBeenCalledExactlyOnceWith(DB, 'rokas', ID);
+    expect(notes.kept).toHaveBeenCalledExactlyOnceWith(DB, 'rokas', ID);
+    // Plain data with no coach account id.
+    expect(data?.coachNotes).toEqual([
+      {
+        repertoireId: ID,
+        moveKey: 'k1|d4',
+        coachName: 'Former coach',
+        text: 'Kept.',
+        source: 'fork',
+      },
+      {
+        repertoireId: ID,
+        moveKey: 'k2|Bf4',
+        coachName: 'Coach One',
+        text: 'Shared.',
+        source: 'shared',
+      },
+    ]);
+  });
+
+  it('refuses an assigned entry the snapshot gives no coach name: a programmer error', async () => {
+    const [assigned, own] = SNAPSHOT.entries;
+    if (assigned === undefined || own === undefined) throw new Error('two');
+    server.snapshot.mockResolvedValue({
+      ...SNAPSHOT,
+      entries: [{ ...assigned, coachName: null }, own],
+    });
+    await expect(
+      loadTraining(ROKAS, 'review', { kind: 'all' }),
+    ).rejects.toThrow('an assigned training entry names its coach');
   });
 
   it('is undefined for a scope the player does not train', async () => {
@@ -167,6 +252,8 @@ describe('loadTraining', () => {
         repertoireId: OTHER,
       }),
     ).toBeUndefined();
+    expect(notes.shared).not.toHaveBeenCalled();
+    expect(notes.kept).not.toHaveBeenCalled();
   });
 });
 
@@ -192,7 +279,7 @@ function londonDue(due: readonly string[]): TrainingSnapshot {
 }
 
 describe('todaySummary (U1-M1-3)', () => {
-  it("reads the session account's every repertoire as of now", async () => {
+  it("reads the session account's every repertoire as of now, and no coach notes", async () => {
     await todaySummary(ROKAS);
     expect(server.snapshot).toHaveBeenCalledExactlyOnceWith(
       DB,
@@ -200,6 +287,8 @@ describe('todaySummary (U1-M1-3)', () => {
       { kind: 'all' },
       NOW,
     );
+    expect(notes.shared).not.toHaveBeenCalled();
+    expect(notes.kept).not.toHaveBeenCalled();
   });
 
   it('counts the due moves and rounds the minutes up', async () => {

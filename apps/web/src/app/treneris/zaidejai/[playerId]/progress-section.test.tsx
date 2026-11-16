@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 import { MESSAGES } from '../../../../i18n/locales';
+import { coachProgressPath } from '../../../../lib/routes';
 import type { PlayerProgressSection } from '../../../../server/coach-pages';
 import { ProgressSection } from './progress-section';
 
@@ -21,7 +22,7 @@ const PROGRESS: PlayerProgressSection = {
       repertoire: { id: 'r-2', name: 'Itališkoji partija', side: 'white' },
       source: 'assigned',
       badges: { overdue: false, paused: false, forked: true, updated: false },
-      view: { kind: 'forked' },
+      view: { kind: 'forked', sharedForkId: null },
     },
     {
       repertoire: { id: 'r-3', name: 'Londono sistema', side: 'white' },
@@ -121,6 +122,24 @@ describe('the player page’s progress section (R-151, R-154, R-155)', () => {
     expect(row.getByText(MESSAGES.lt.assignment.badge.forked)).toBeTruthy();
     expect(row.getByText(p.forkedNote)).toBeTruthy();
     expect(row.getByText(p.assigned)).toBeTruthy();
+    expect(row.queryByText(/išmokta/)).toBeNull();
+  });
+
+  it('says a forked assignment’s copy is shared with the coach, and links to its progress (#328)', () => {
+    show({
+      ...PROGRESS,
+      rows: PROGRESS.rows.map((row) =>
+        row.repertoire.id === 'r-2'
+          ? { ...row, view: { kind: 'forked', sharedForkId: 'r-3' } }
+          : row,
+      ),
+    });
+    const row = within(rowOf(screen.getByText('Itališkoji partija')));
+    expect(row.queryByText(p.forkedNote)).toBeNull();
+    expect(row.getByText(p.forkedShared)).toBeTruthy();
+    expect(
+      row.getByRole('link', { name: p.forkedSharedLink }).getAttribute('href'),
+    ).toBe(coachProgressPath('p-1', 'r-3'));
     expect(row.queryByText(/išmokta/)).toBeNull();
   });
 

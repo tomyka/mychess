@@ -9,19 +9,25 @@ import type {
   Side,
   TrainingMode,
 } from '@mychess/chess';
-import type { RepertoireKind, TrainingSettings } from '@mychess/domain';
+import type { OwnCoachNote, TrainingSettings } from '@mychess/domain';
 
-/** One repertoire the player trains, as the browser needs it. */
-interface TrainingDataEntry {
+/** What every repertoire the player trains has, as the browser needs it. */
+interface EntryBase {
   readonly id: string;
   readonly name: string;
   readonly side: Side;
-  /** The player's own, or assigned by a coach: which page it lives on. */
-  readonly kind: RepertoireKind;
   /** False while its assignment is paused: no new Moves from it. */
   readonly active: boolean;
   readonly graph: RepertoireGraph;
 }
+
+/**
+ * One repertoire the player trains: their own, or assigned by a coach
+ * (which page it lives on), with the assigning coach's display name.
+ */
+type TrainingDataEntry =
+  | (EntryBase & { readonly kind: 'own' })
+  | (EntryBase & { readonly kind: 'assigned'; readonly coachName: string });
 
 /** Another repertoire the player trains, for the "two answers" notice. */
 interface TrainingDataOther {
@@ -50,6 +56,12 @@ export interface TrainingData {
   /** Moves learned in the player's day so far (R-147). */
   readonly learnedToday: number;
   readonly settings: TrainingSettings;
+  /**
+   * The coach notes on the own entries: a sharing coach's (R-107) or one a
+   * fork kept (R-43, R-49), each named; no coach account id reaches the
+   * browser. An assigned entry's notes are its comments (R-102).
+   */
+  readonly coachNotes: readonly OwnCoachNote[];
   /** The instant the snapshot was read at. */
   readonly now: Date;
 }

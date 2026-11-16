@@ -110,6 +110,7 @@ describe('HomeView', () => {
             {
               repertoireId: '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10',
               name: 'Londono sistema',
+              side: 'white',
               coachName: 'Jonas',
               deadline: null,
               badges: {

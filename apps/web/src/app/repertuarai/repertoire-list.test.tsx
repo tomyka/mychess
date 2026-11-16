@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 import { MESSAGES } from '../../i18n/locales';
+import type { AssignedListItem } from '../../server/assignment-pages';
 import { RepertoireList, type RepertoireCard } from './repertoire-list';
 
 const NOW = new Date('2026-10-18T12:00:00Z');
@@ -13,6 +14,7 @@ const card = (
   chapters: 2,
   moves: 148,
   updatedAt: NOW,
+  forkCoachName: null,
   ...over,
 });
 
@@ -29,9 +31,37 @@ const ITEMS: readonly RepertoireCard[] = [
   }),
 ];
 
+const NO_BADGES = {
+  overdue: false,
+  paused: false,
+  forked: false,
+  updated: false,
+};
+
+/** Jonas's Caro-Kann, assigned to the viewer. */
+const CARO: AssignedListItem = {
+  repertoireId: 'a-1',
+  name: 'Karo-Kan gynyba',
+  side: 'black',
+  coachName: 'Jonas',
+  deadline: null,
+  badges: { ...NO_BADGES, updated: true },
+};
+
+/** Jonas's Italian, assigned to the viewer, past its deadline. */
+const ITALIAN: AssignedListItem = {
+  repertoireId: 'a-2',
+  name: 'Itališkoji partija',
+  side: 'white',
+  coachName: 'Jonas',
+  deadline: '2026-10-01',
+  badges: { ...NO_BADGES, overdue: true },
+};
+
 function renderList(
   items: readonly RepertoireCard[],
   locale: 'lt' | 'en' = 'lt',
+  assigned: readonly AssignedListItem[] = [],
 ): void {
   render(
     <NextIntlClientProvider
@@ -39,7 +69,7 @@ function renderList(
       messages={MESSAGES[locale]}
       timeZone="Europe/Vilnius"
     >
-      <RepertoireList items={items} now={NOW} />
+      <RepertoireList items={items} assigned={assigned} now={NOW} />
     </NextIntlClientProvider>,
   );
 }
@@ -98,6 +128,60 @@ describe('RepertoireList', () => {
     expect(
       within(screen.getByRole('region', { name: l.black })).getByText(
         l.emptyBlack,
+      ),
+    ).toBeDefined();
+  });
+
+  it('lists the repertoires assigned to the player under their side, sorted with the own ones (#328)', () => {
+    renderList(ITEMS, 'lt', [CARO, ITALIAN]);
+    expect(linksIn(l.white).map(([href]) => href)).toEqual([
+      '/repertuarai/priskirti/a-2',
+      '/repertuarai/r-1',
+      '/repertuarai/r-2',
+      '/repertuarai/r-3',
+    ]);
+    expect(linksIn(l.black).map(([href]) => href)).toEqual([
+      '/repertuarai/priskirti/a-1',
+      '/repertuarai/r-4',
+    ]);
+  });
+
+  it('marks an assigned repertoire with its coach, deadline and badges, as home does', () => {
+    renderList([], 'lt', [CARO, ITALIAN]);
+    const a = MESSAGES.lt.assignment;
+    const caro = screen.getByRole('link', { name: 'Karo-Kan gynyba' });
+    expect(within(caro).getByText('Priskyrė Jonas')).toBeDefined();
+    expect(within(caro).getByText(a.badge.updated)).toBeDefined();
+    expect(within(caro).queryByText(a.badge.overdue)).toBeNull();
+    const italian = screen.getByRole('link', { name: 'Itališkoji partija' });
+    expect(within(italian).getByText(a.badge.overdue)).toBeDefined();
+    expect(within(italian).getByText(/^Terminas/u).textContent).toMatch(
+      /2026/u,
+    );
+  });
+
+  it('labels the player’s own copy of an assignment with its coach, and nothing else (#328, R-135)', () => {
+    renderList(
+      [
+        card({ id: 'f-1', name: 'Itališkoji partija', forkCoachName: 'Jonas' }),
+        card({ id: 'r-1', name: 'Londono sistema' }),
+      ],
+      'lt',
+    );
+    const label = l.forkOf.replace('{coach}', 'Jonas');
+    const fork = screen.getByRole('link', { name: 'Itališkoji partija' });
+    expect(within(fork).getByText(label)).toBeDefined();
+    const own = screen.getByRole('link', { name: 'Londono sistema' });
+    expect(within(own).queryByText(label)).toBeNull();
+  });
+
+  it('says a side is empty only when it has neither an own nor an assigned repertoire', () => {
+    renderList([], 'lt', [CARO]);
+    expect(screen.queryByText(l.emptyBlack)).toBeNull();
+    expect(screen.queryByText(l.empty)).toBeNull();
+    expect(
+      within(screen.getByRole('region', { name: l.white })).getByText(
+        l.emptyWhite,
       ),
     ).toBeDefined();
   });

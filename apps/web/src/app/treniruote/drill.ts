@@ -29,6 +29,8 @@ export interface TrainingLinks {
   readonly back: string;
   /** The learn pass over the same scope. */
   readonly learn: string;
+  /** The review over the same scope. */
+  readonly review: string;
 }
 
 export interface DrillProps {

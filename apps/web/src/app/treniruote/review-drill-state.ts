@@ -1,11 +1,10 @@
 // The review drill's state between the player's answers: chess's review
 // session (what is asked, what each answer means), the Reviews graded in
 // the browser as the session goes (S6 decision 1), and what the board shows
-// meanwhile (a flash, the reply sliding in). What each answer means is
-// chess's; this keeps their answers, asks again the moves that come back
-// today (R-78) and draws them.
+// meanwhile (a flash, the reply sliding in). What each answer means, and
+// when a move comes back today (R-78), is chess's; this keeps the answers
+// and draws them.
 import {
-  grade,
   moveNumber,
   nextReview,
   reviewCounts,
@@ -15,6 +14,7 @@ import {
   type BoardMove,
   type QueueItem,
   type RepertoireMove,
+  type ReviewBounds,
   type ReviewEmit,
   type ReviewItemView,
   type ReviewSessionState,
@@ -26,23 +26,9 @@ import type { SessionCounts } from './done-summary';
 import type { DrillPosition } from './drill-board';
 import type { Flash } from './drill-input';
 
-/** How far a session goes: its size (R-62) and the player's day. */
-export interface SessionBounds {
-  /** Moves asked per session, the repeats of R-78 included. */
-  readonly size: number;
-  /** When the player's day ends: a move due before then comes back. */
-  readonly dayEnd: Date;
-}
-
-export interface DrillState extends SessionBounds {
-  /** The round being asked: chess's review session over its items. */
+export interface DrillState {
+  /** Chess's review session: what is asked, its repeats included (R-78). */
   readonly session: ReviewSessionState;
-  /**
-   * The rounds asked before it. The first asks the due moves; each later
-   * one asks again the moves of the round before that come back today, as
-   * a Lapse does within minutes, until none does (R-78).
-   */
-  readonly rounds: readonly ReviewSessionState[];
   /** The player's Reviews, graded as the session answers them. */
   readonly reviews: ReadonlyMap<string, ReviewState>;
   /** The item on the board: the asked one, or the last one once done. */
@@ -61,13 +47,11 @@ export function startDrill(
   items: readonly QueueItem[],
   repertoires: readonly TrainingRepertoire[],
   reviews: ReadonlyMap<string, ReviewState>,
-  bounds: SessionBounds,
+  bounds: ReviewBounds,
 ): DrillState {
-  const session = startReviewSession(items, repertoires);
+  const session = startReviewSession(items, repertoires, bounds);
   return {
-    ...bounds,
     session,
-    rounds: [],
     reviews,
     shown: session.current,
     replying: false,
@@ -77,15 +61,14 @@ export function startDrill(
   };
 }
 
-/** `reviews` with the emitted outcome graded at `now`. */
+/** `reviews` with the Review the emitted outcome graded (chess grades it). */
 function graded(
   reviews: ReadonlyMap<string, ReviewState>,
   emit: ReviewEmit | null,
-  now: Date,
 ): ReadonlyMap<string, ReviewState> {
-  const review = emit === null ? undefined : reviews.get(emit.key);
-  if (emit === null || review === undefined) return reviews;
-  return new Map(reviews).set(emit.key, grade(review, emit.outcome, now));
+  const review = emit?.review ?? null;
+  if (emit === null || review === null) return reviews;
+  return new Map(reviews).set(emit.key, review);
 }
 
 /**
@@ -96,13 +79,12 @@ export function afterAnswer(
   s: DrillState,
   move: BoardMove,
   answer: ReviewTransition,
-  now: Date,
 ): DrillState {
   const right = answer.state.phase === 'correct';
   return {
     ...s,
     session: answer.state,
-    reviews: graded(s.reviews, answer.emit, now),
+    reviews: graded(s.reviews, answer.emit),
     replying: false,
     flash: { square: move.dest, kind: right ? 'correct' : 'wrong' },
     revision: right ? s.revision : s.revision + 1,
@@ -111,72 +93,28 @@ export function afterAnswer(
 }
 
 /** After the hint button: the piece is shown, the hint graded. */
-export function afterHint(
-  s: DrillState,
-  hint: ReviewTransition,
-  now: Date,
-): DrillState {
+export function afterHint(s: DrillState, hint: ReviewTransition): DrillState {
   return {
     ...s,
     session: hint.state,
-    reviews: graded(s.reviews, hint.emit, now),
-  };
-}
-
-/** Is `key`'s graded Review due again before the player's day ends? */
-function dueToday(s: DrillState, key: string): boolean {
-  const due = s.reviews.get(key)?.fsrs.due;
-  return due !== undefined && due.getTime() < s.dayEnd.getTime();
-}
-
-/** The round's answered items that come back today, in its order (R-78). */
-const comingBack = (s: DrillState): QueueItem[] =>
-  s.session.order.filter(
-    (i) => s.session.outcomes.has(i.key) && dueToday(s, i.key),
-  );
-
-/**
- * The round's items still to ask. A repeat round asks all of its own; the
- * first stops where the session size is reached, the repeats counted in
- * (R-62, R-78), and leaves the rest due for "continue".
- */
-function stillAsked(s: DrillState): number {
-  const { order, outcomes } = s.session;
-  const open = order.length - outcomes.size;
-  if (isRepeat(s)) return open;
-  const room = s.size - outcomes.size - comingBack(s).length;
-  return Math.min(open, Math.max(0, room));
-}
-
-/** The next round over what comes back today, or the session done. */
-function nextRound(
-  s: DrillState,
-  repertoires: readonly TrainingRepertoire[],
-): DrillState {
-  const back = comingBack(s);
-  if (back.length === 0)
-    return { ...s, session: { ...s.session, current: null } };
-  return {
-    ...s,
-    rounds: [...s.rounds, s.session],
-    session: startReviewSession(back, repertoires),
+    reviews: graded(s.reviews, hint.emit),
   };
 }
 
 /**
- * After the correct flash: the chained item (its reply first), or the next;
- * once the round is over, the moves that come back today.
+ * After the correct flash at `now`: the chained item (its reply first), a
+ * move whose relearning step has run out (R-78), or the next due one.
  */
 export function advanced(
   s: DrillState,
   repertoires: readonly TrainingRepertoire[],
+  now: Date,
 ): DrillState {
-  const next = { ...s, session: nextReview(s.session, repertoires) };
-  const asks = next.session.current !== null && stillAsked(next) > 0;
-  const moved = asks ? next : nextRound(next, repertoires);
-  const { current } = moved.session;
+  const session = nextReview(s.session, repertoires, now);
+  const { current } = session;
   return {
-    ...moved,
+    ...s,
+    session,
     shown: current ?? s.shown,
     replying: (current?.reply ?? null) !== null,
     flash: null,
@@ -186,17 +124,8 @@ export function advanced(
 export const isDone = (s: DrillState): boolean => s.session.current === null;
 
 /** Is the drill asking again a move answered earlier in the session (R-78)? */
-export const isRepeat = (s: DrillState): boolean => s.rounds.length > 0;
-
-/** Every answer of the session so far, and how many it will take in all. */
-export function sessionProgress(s: DrillState): {
-  readonly done: number;
-  readonly total: number;
-} {
-  const before = s.rounds.reduce((n, r) => n + r.outcomes.size, 0);
-  const done = before + s.session.outcomes.size;
-  return { done, total: done + stillAsked(s) + comingBack(s).length };
-}
+export const isRepeat = (s: DrillState): boolean =>
+  s.session.current?.repeat === true;
 
 /** Does the move field take a move now? Also while the reply slides in (#324). */
 export const canType = (s: DrillState): boolean =>
@@ -206,10 +135,8 @@ export const canType = (s: DrillState): boolean =>
 export const canPlay = (s: DrillState): boolean => canType(s) && !s.replying;
 
 /** Can a hint still be asked for the current item (R-61)? */
-export const canHint = (s: DrillState): boolean => {
-  const key = s.session.current?.item.key;
-  return canPlay(s) && key !== undefined && !s.session.outcomes.has(key);
-};
+export const canHint = (s: DrillState): boolean =>
+  canPlay(s) && !s.session.recorded;
 
 /**
  * The asked move once it is answered, right or after a Lapse's arrow: where
@@ -254,11 +181,11 @@ export const repertoireOf = (s: DrillState): string | undefined =>
   s.shown?.item.repertoireId;
 
 /**
- * What the session did, for the done summary: the moves of its first round,
- * each by its first answer; the repeats change none of them.
+ * What the session did, for the done summary: its moves, each by its first
+ * answer; the repeats change none of them.
  */
 export function sessionCounts(s: DrillState): SessionCounts {
-  const { done, passed, lapses } = reviewCounts(s.rounds[0] ?? s.session);
+  const { done, passed, lapses } = reviewCounts(s.session);
   return { kind: 'review', reviewed: done, passed, lapses };
 }
 

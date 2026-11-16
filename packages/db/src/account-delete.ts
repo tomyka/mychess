@@ -51,6 +51,12 @@ const namesEmail = (email: string): SQL =>
  * hold their snapshots. Later slices extend the cascade with the rows they
  * add.
  *
+ * So a deleted coach's display name stays in exactly three places, all on
+ * players' rows: their fork coach notes (`fork_coach_notes.coach_name`),
+ * the fork offers it made them (`fork_offers.coach_name`), and their forks'
+ * origin (`repertoires.forked_from_coach_name`, #328), whose
+ * `forked_from_repertoire_id` the cascade sets null.
+ *
  * A concurrent delete can deadlock with it (a coach's auto-fork against
  * their player's own delete, #286); Postgres rolls the whole transaction
  * back, and it runs again, up to DELETE_ATTEMPTS times. It takes the

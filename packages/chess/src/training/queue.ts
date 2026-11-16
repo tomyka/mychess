@@ -46,9 +46,11 @@ export interface QueueInput {
   /**
    * Keys already shown for learning in this session: "continue" (R-62)
    * leaves them out of the new moves, so the next batch teaches other moves.
-   * It never holds back a Review: a Review graded this session is offered
-   * again only when it is Due again, as a Lapse is within minutes (R-78), and
-   * that repeat counts toward the session size.
+   * It never holds back a Review. A Lapse's repeat within minutes (R-78) is
+   * the review session's own: it asks the move again when its relearning
+   * step runs out, counted toward the session size from the answer on, and
+   * early when nothing else is left to ask (`nextReview`). The queue offers
+   * a Review graded earlier again once it is Due.
    */
   readonly exclude?: ReadonlySet<string>;
 }

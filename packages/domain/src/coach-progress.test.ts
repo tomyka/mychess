@@ -7,9 +7,18 @@ import {
   progressRepertoires,
   type CoachProgressFacts,
   type ProgressRepertoire,
+  type SharedFork,
 } from './coach-progress';
 
 const T = new Date('2026-10-26T09:00:00Z');
+const LATER = new Date('2026-10-27T09:00:00Z');
+
+/** A shared fork of `sourceRepertoireId`, made at `createdAt`. */
+const sharedFork = (
+  repertoireId: string,
+  sourceRepertoireId: string,
+  createdAt = T,
+): SharedFork => ({ repertoireId, sourceRepertoireId, createdAt });
 
 const assignment = (
   repertoireId: string,
@@ -37,6 +46,7 @@ const facts = (
     assignment('paused', { pausedAt: T }),
     assignment('forked', { forkedAt: T }),
   ],
+  sharedForks: [],
   ...extra,
 });
 
@@ -52,11 +62,15 @@ const assigned = (one: AssignmentFacts): ProgressRepertoire => ({
   source: 'assigned',
   assignment: one,
 });
-const forked = (one: AssignmentFacts): ProgressRepertoire => ({
+const forked = (
+  one: AssignmentFacts,
+  sharedForkId: string | null = null,
+): ProgressRepertoire => ({
   repertoireId: one.repertoireId,
   kind: 'forked',
   source: 'assigned',
   assignment: one,
+  sharedForkId,
 });
 
 const PAUSED = assignment('paused', { pausedAt: T });
@@ -97,6 +111,80 @@ describe('progressRepertoire (R-39, R-42, R-155)', () => {
   it('shows a forked assignment as forked, with that assignment', () => {
     expect(progressRepertoire('c', 'p', 'forked', facts())).toEqual(
       forked(FORKED),
+    );
+  });
+
+  it('names the fork of a forked assignment the player shares with the coach (#328, R-42)', () => {
+    const sharing = facts({
+      sharedRepertoireIds: new Set(['shared', 'fork']),
+      sharedForks: [sharedFork('fork', 'forked')],
+    });
+    expect(progressRepertoire('c', 'p', 'forked', sharing)).toEqual(
+      forked(FORKED, 'fork'),
+    );
+  });
+
+  it('never names a fork the player does not share with this coach (R-39, R-43)', () => {
+    const unshared = facts({
+      sharedForks: [sharedFork('fork', 'forked')],
+    });
+    expect(progressRepertoire('c', 'p', 'forked', unshared)).toEqual(
+      forked(FORKED),
+    );
+  });
+
+  it('never names a shared fork of another repertoire', () => {
+    const other = facts({
+      sharedRepertoireIds: new Set(['fork']),
+      sharedForks: [sharedFork('fork', 'elsewhere')],
+    });
+    expect(progressRepertoire('c', 'p', 'forked', other)).toEqual(
+      forked(FORKED),
+    );
+  });
+
+  it('names the newest shared fork when the player shares two of one assignment, whatever their order (R-128)', () => {
+    const older = sharedFork('older', 'forked', T);
+    const newer = sharedFork('newer', 'forked', LATER);
+    for (const order of [
+      [older, newer],
+      [newer, older],
+    ]) {
+      const two = facts({
+        sharedRepertoireIds: new Set(['newer', 'older']),
+        sharedForks: order,
+      });
+      expect(progressRepertoire('c', 'p', 'forked', two)).toEqual(
+        forked(FORKED, 'newer'),
+      );
+    }
+  });
+
+  it('names the greater id of two shared forks made at the same time', () => {
+    for (const order of [
+      [sharedFork('a', 'forked'), sharedFork('b', 'forked')],
+      [sharedFork('b', 'forked'), sharedFork('a', 'forked')],
+    ]) {
+      const two = facts({
+        sharedRepertoireIds: new Set(['a', 'b']),
+        sharedForks: order,
+      });
+      expect(progressRepertoire('c', 'p', 'forked', two)).toEqual(
+        forked(FORKED, 'b'),
+      );
+    }
+  });
+
+  it('names a shared fork over a newer one the player does not share', () => {
+    const one = facts({
+      sharedRepertoireIds: new Set(['older']),
+      sharedForks: [
+        sharedFork('older', 'forked', T),
+        sharedFork('newer', 'forked', LATER),
+      ],
+    });
+    expect(progressRepertoire('c', 'p', 'forked', one)).toEqual(
+      forked(FORKED, 'older'),
     );
   });
 
@@ -152,6 +240,19 @@ describe('progressRepertoires (R-151, R-155)', () => {
       assigned(PAUSED),
       forked(FORKED),
       shared('shared'),
+    ]);
+  });
+
+  it('lists a forked assignment with its shared fork, and the fork as shared (#328)', () => {
+    const sharing = facts({
+      sharedRepertoireIds: new Set(['fork']),
+      sharedForks: [sharedFork('fork', 'forked')],
+    });
+    expect(progressRepertoires('c', 'p', sharing)).toEqual([
+      assigned(assignment('live')),
+      assigned(PAUSED),
+      forked(FORKED, 'fork'),
+      shared('fork'),
     ]);
   });
 

@@ -1,6 +1,6 @@
 'use client';
 
-import type { RepertoireMove } from '@mychess/chess';
+import { reviewProgress, type RepertoireMove } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useMemo, type JSX } from 'react';
@@ -18,7 +18,6 @@ import {
   playedMoves,
   replyText,
   sessionCounts,
-  sessionProgress,
   type DrillState,
 } from './review-drill-state';
 import { TwoAnswersNotice, type NamedRepertoire } from './two-answers-notice';
@@ -91,8 +90,8 @@ function ReviewPanel({
       >
         {t('hint')}
       </button>
-      <DrillCoachNote text={drill.note} />
-      {drill.note === null || drill.next === null ? null : (
+      <DrillCoachNote notes={drill.notes} />
+      {drill.next === null ? null : (
         <button
           type="button"
           onClick={drill.next}
@@ -145,7 +144,7 @@ export function ReviewDrill({
   const describe = useSquareWords(drill.view.fen);
   const named = useMemo(() => namedOf(data), [data]);
   const { state } = drill;
-  const parts = { ...drill.titled, progress: sessionProgress(state) };
+  const parts = { ...drill.titled, progress: reviewProgress(state.session) };
   const board = (
     <Board
       view={drill.view}

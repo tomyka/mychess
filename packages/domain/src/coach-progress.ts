@@ -14,10 +14,28 @@ import {
   type CoachAccessFacts,
 } from './coach-access';
 
+/**
+ * A repertoire the player shares with this coach that is a fork of one of
+ * this coach's repertoires (#328), and the repertoire it was forked from.
+ */
+export interface SharedFork {
+  readonly repertoireId: string;
+  /** The coach's repertoire it is the Fork of. */
+  readonly sourceRepertoireId: string;
+  /** When the Fork was made: the newest one is named. */
+  readonly createdAt: Date;
+}
+
 /** canCoachSee's facts and this coach's assignments reaching the player. */
 export interface CoachProgressFacts extends CoachAccessFacts {
   /** assignmentFacts of this coach and player, forked or not. */
   readonly assignments: readonly AssignmentFacts[];
+  /**
+   * The player's shared forks of this coach's repertoires, in any order.
+   * Read only for shared repertoires, so an unshared fork is never among
+   * them (R-39, R-43).
+   */
+  readonly sharedForks: readonly SharedFork[];
 }
 
 /** Where a repertoire on the player page comes from. */
@@ -27,7 +45,9 @@ export type ProgressSource = 'shared' | 'assigned';
  * A repertoire the coach sees, and how: granted (its progress shows),
  * through the share or this coach's live assignment; or forked (its name
  * and badges only). `assignment` is this coach's assignment behind it, for
- * the badges; null for a shared one.
+ * the badges; null for a shared one. A forked one names the player's fork
+ * of it when the player shares that fork with this coach (#328), so the
+ * page can link to it; null otherwise, never an unshared fork (R-43).
  */
 export type ProgressRepertoire =
   | {
@@ -38,9 +58,16 @@ export type ProgressRepertoire =
     }
   | {
       readonly repertoireId: string;
-      readonly kind: 'granted' | 'forked';
+      readonly kind: 'granted';
       readonly source: 'assigned';
       readonly assignment: AssignmentFacts;
+    }
+  | {
+      readonly repertoireId: string;
+      readonly kind: 'forked';
+      readonly source: 'assigned';
+      readonly assignment: AssignmentFacts;
+      readonly sharedForkId: string | null;
     };
 
 /** This coach's assignments of this player; anyone else's never count. */
@@ -71,17 +98,45 @@ export const isCoachLinked = (
   facts: CoachAccessFacts,
 ): boolean => linkedTo(coachId, playerId, facts).ok;
 
+/** Newest first; of two made at once, the greater id first. */
+const newestFirst = (a: SharedFork, b: SharedFork): number =>
+  b.createdAt.getTime() - a.createdAt.getTime() ||
+  (a.repertoireId < b.repertoireId ? 1 : -1);
+
+/**
+ * The player's fork of `repertoireId` they share with this coach, only one
+ * the share facts hold too (R-39, R-43). The player may fork an assignment
+ * again once it is assigned again (R-128): the newest such Fork is named.
+ */
+const sharedForkOf = (
+  repertoireId: string,
+  facts: CoachProgressFacts,
+): string | null =>
+  facts.sharedForks
+    .filter(
+      (one) =>
+        one.sourceRepertoireId === repertoireId &&
+        facts.sharedRepertoireIds.has(one.repertoireId),
+    )
+    .toSorted(newestFirst)[0]?.repertoireId ?? null;
+
 /** An assignment of this repertoire: granted when live, forked, or nothing. */
 function assignedEntry(
   assignment: AssignmentFacts | undefined,
+  facts: CoachProgressFacts,
 ): ProgressRepertoire | undefined {
   if (assignment === undefined) return undefined;
   const { repertoireId } = assignment;
   if (canUseAssignment(assignment).ok)
     return { repertoireId, kind: 'granted', source: 'assigned', assignment };
-  return assignment.forkedAt === null
-    ? undefined
-    : { repertoireId, kind: 'forked', source: 'assigned', assignment };
+  if (assignment.forkedAt === null) return undefined;
+  return {
+    repertoireId,
+    kind: 'forked',
+    source: 'assigned',
+    assignment,
+    sharedForkId: sharedForkOf(repertoireId, facts),
+  };
 }
 
 /**
@@ -100,7 +155,10 @@ function entryOf(
       source: 'shared',
       assignment: null,
     };
-  return assignedEntry(own.find((a) => a.repertoireId === repertoireId));
+  return assignedEntry(
+    own.find((a) => a.repertoireId === repertoireId),
+    facts,
+  );
 }
 
 /**

@@ -6,7 +6,11 @@ import type {
 } from '@mychess/db';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../test/fixtures/repertoires';
-import { assignedRepertoireData, homeAssignments } from './assignment-pages';
+import {
+  assignedRepertoireData,
+  homeAssignments,
+  myAssignedRepertoires,
+} from './assignment-pages';
 import { chapterNamesOf } from './chapter-names';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
@@ -167,6 +171,7 @@ describe('homeAssignments', () => {
           {
             repertoireId: ID,
             name: 'Londono sistema',
+            side: 'white',
             coachName: 'Jonas',
             deadline: '2026-11-30',
             badges: {
@@ -188,6 +193,30 @@ describe('homeAssignments', () => {
       });
       expect(server.mine).toHaveBeenCalledWith(DB, 'rokas', NOW);
       expect(server.offers).toHaveBeenCalledWith(DB, 'rokas', NOW);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('myAssignedRepertoires', () => {
+  it('reads the session player’s live assignments, now, as home shows them (R-16)', async () => {
+    vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
+    try {
+      server.mine.mockReset().mockResolvedValue([MINE]);
+      server.offers.mockReset();
+      expect(await myAssignedRepertoires()).toEqual([
+        {
+          repertoireId: ID,
+          name: 'Londono sistema',
+          side: 'white',
+          coachName: 'Jonas',
+          deadline: '2026-11-30',
+          badges: MINE.badges,
+        },
+      ]);
+      expect(server.mine).toHaveBeenCalledWith(DB, 'rokas', NOW);
+      expect(server.offers).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

@@ -4,9 +4,8 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useEffect, useRef, type JSX } from 'react';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
-import type { DayStanding } from './day-standing';
 import { useReviewTime } from './review-time';
-import type { TrainingProgress } from '@mychess/chess';
+import type { DayStanding, TrainingProgress } from '@mychess/chess';
 
 /** What a session did: a review's outcomes, or the moves a learn pass taught. */
 export type SessionCounts =
@@ -31,6 +30,8 @@ export interface DoneActionsProps {
   readonly onContinue?: () => void;
   /** Given when today's new-move allowance is not used up (R-146). */
   readonly learnHref?: string;
+  /** Given when a learn pass ends with moves due: on to review them. */
+  readonly reviewHref?: string;
   /** Back to where the player came from. */
   readonly doneHref: string;
 }
@@ -126,6 +127,7 @@ function Standing({
 export function DoneActions({
   onContinue,
   learnHref,
+  reviewHref,
   doneHref,
 }: DoneActionsProps): JSX.Element {
   const t = useTranslations('training.done');
@@ -134,6 +136,11 @@ export function DoneActions({
       <Link href={doneHref} className={`${SECONDARY_BUTTON} grow`}>
         {t('done')}
       </Link>
+      {reviewHref === undefined ? null : (
+        <Link href={reviewHref} className={`${PRIMARY_BUTTON} grow`}>
+          {t('review')}
+        </Link>
+      )}
       {onContinue === undefined ? null : (
         <button
           type="button"

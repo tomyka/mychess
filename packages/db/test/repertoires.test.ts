@@ -102,6 +102,7 @@ describe('listRepertoires, renameRepertoire, deleteRepertoire', () => {
         chapters: 2,
         moves: graphOf(LONDON).moves.length,
         updatedAt: T0,
+        forkedFrom: null,
       },
     ]);
   });

@@ -4,7 +4,7 @@ import { assignmentBadges } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState, type JSX } from 'react';
 import type { MessageKey } from '../../../../i18n/message-key';
-import { ROUTES } from '../../../../lib/routes';
+import { repertoireExportRoute, ROUTES } from '../../../../lib/routes';
 import { SECONDARY_BUTTON } from '../../../buttons';
 import type { Asking } from '../../../confirmed-action';
 import type { TrainingCounts } from '@mychess/chess';
@@ -74,7 +74,21 @@ function AssignedHeader({
 /** What the board says for a move the chapter lacks: the coach's to change. */
 const NOT_IN_CHAPTER: MessageKey = 'assignment.notInChapter';
 
-/** Pause or resume, then "make my own copy". */
+/** The coach's repertoire as PGN, their comments included (R-202). */
+function DownloadLink({ id }: { readonly id: string }): JSX.Element {
+  const t = useTranslations('repertoires.header');
+  return (
+    <a
+      href={repertoireExportRoute(id)}
+      download
+      className={`${SECONDARY_BUTTON} self-start`}
+    >
+      {t('download')}
+    </a>
+  );
+}
+
+/** Pause or resume, download the PGN, then "make my own copy". */
 function AssignmentActions({
   data,
   pause,
@@ -90,6 +104,7 @@ function AssignmentActions({
   return (
     <div className="flex flex-col gap-4 border-t border-border pt-4">
       <PauseControl repertoireId={id} pause={pause} />
+      <DownloadLink id={id} />
       <ForkCopy
         repertoireId={id}
         name={name}

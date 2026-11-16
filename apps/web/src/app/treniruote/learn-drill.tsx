@@ -19,7 +19,7 @@ import {
   taughtMove,
   type LearnDrillState,
 } from './learn-drill-state';
-import { coachNoteOn, DrillCoachNote } from './coach-note';
+import { coachNotesFor, DrillCoachNote } from './coach-note';
 import { useLearnDrill, type LearnDrill as Drill } from './use-learn-drill';
 
 type PromptKey = 'correct' | 'wrong' | 'known' | 'arrows' | 'blind';
@@ -64,10 +64,10 @@ function Status({ drill }: { readonly drill: Drill }): JSX.Element {
 /** What is asked, the move field, the taught move's Coach note, the line. */
 function LearnPanel({
   drill,
-  entries,
+  data,
 }: {
   readonly drill: Drill;
-  readonly entries: TrainingData['entries'];
+  readonly data: TrainingData;
 }): JSX.Element {
   const { state } = drill;
   return (
@@ -75,7 +75,7 @@ function LearnPanel({
       <Status drill={drill} />
       <MoveRow input={drill} color={drill.view.turnColor} />
       <DrillCoachNote
-        text={coachNoteOn(entries, repertoireOf(state), taughtMove(state))}
+        notes={coachNotesFor(data, repertoireOf(state), taughtMove(state))}
       />
       <LineSoFar
         moves={playedMoves(state)}
@@ -113,7 +113,8 @@ export function LearnDrill({
       onMove={drill.onMove}
     />
   );
-  if (isDone(state))
+  if (isDone(state)) {
+    const standing = drill.standing();
     return frame({
       ...parts,
       board,
@@ -122,15 +123,21 @@ export function LearnDrill({
         <DoneSummary
           counts={{ kind: 'learn', learned: counts.done }}
           progress={drill.progress()}
-          standing={drill.standing()}
+          standing={standing}
         />
       ),
-      actions: <DoneActions doneHref={links.back} />,
+      actions: (
+        <DoneActions
+          doneHref={links.back}
+          {...(standing.kind === 'due' ? { reviewHref: links.review } : {})}
+        />
+      ),
     });
+  }
   return frame({
     ...parts,
     board,
-    panel: <LearnPanel drill={drill} entries={data.entries} />,
+    panel: <LearnPanel drill={drill} data={data} />,
     actions: (
       <Link href={links.back} className={SECONDARY_BUTTON}>
         {t('training.drill.end')}

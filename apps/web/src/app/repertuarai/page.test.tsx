@@ -17,6 +17,21 @@ vi.mock('../../server/repertoires', () => ({
         chapters: 2,
         moves: 21,
         updatedAt: new Date('2026-10-18T08:00:00Z'),
+        forkCoachName: null,
+      },
+    ]),
+}));
+
+vi.mock('../../server/assignment-pages', () => ({
+  myAssignedRepertoires: () =>
+    Promise.resolve([
+      {
+        repertoireId: 'a-1',
+        name: 'Karo-Kan gynyba',
+        side: 'black',
+        coachName: 'Jonas',
+        deadline: null,
+        badges: { overdue: false, paused: false, forked: false, updated: true },
       },
     ]),
 }));
@@ -51,6 +66,12 @@ describe('Mano repertuarai', () => {
         .getByRole('link', { name: 'Londono sistema' })
         .getAttribute('href'),
     ).toBe('/repertuarai/r-1');
+    expect(
+      screen
+        .getByRole('link', { name: 'Karo-Kan gynyba' })
+        .getAttribute('href'),
+    ).toBe('/repertuarai/priskirti/a-1');
+    expect(screen.queryByText(l.emptyBlack)).toBeNull();
     expect(
       screen.getByRole('heading', {
         level: 2,

@@ -1,7 +1,14 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { Config } from '@lichess-org/chessground/config';
 import type { Key } from '@lichess-org/chessground/types';
-import { fenOf, learnLines, moveKey, newKeys, START_KEY } from '@mychess/chess';
+import {
+  fenOf,
+  learnLines,
+  moveKey,
+  newKeys,
+  START_KEY,
+  startReview,
+} from '@mychess/chess';
 import type { TrainingResult } from '@mychess/domain';
 import { NextIntlClientProvider } from 'next-intl';
 import type { JSX } from 'react';
@@ -17,6 +24,7 @@ import { dayOf } from '../../lib/training-day';
 const T = MESSAGES.lt.training;
 const MOVE_INPUT = MESSAGES.lt.board.moveInput.label;
 const NOW = new Date('2026-10-25T08:00:00Z');
+const DAY = 86_400_000;
 const REP_ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 /** A short White line: two own moves around one reply. */
 const SHORT = graphOf('1. d4 d5 2. Bf4 *');
@@ -86,6 +94,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
     reviews: [],
     tracked: [],
     learnedToday: 0,
+    coachNotes: [],
     settings: { sessionSize: 20, newPerDay: 10 },
     now: NOW,
     ...overrides,
@@ -136,7 +145,11 @@ function renderDrill(d: TrainingData = data()) {
           unsynced: 0,
           retry: vi.fn(),
         }}
-        links={{ back: '/repertuarai/x', learn: '/treniruote?mode=learn' }}
+        links={{
+          back: '/repertuarai/x',
+          learn: '/treniruote?mode=learn',
+          review: `/treniruote?mode=review&r=${REP_ID}`,
+        }}
         frame={frame}
         clock={testClock}
       />
@@ -348,6 +361,26 @@ describe('the learn drill’s done summary', () => {
     expect(done.getAttribute('href')).toBe('/repertuarai/x');
     // In the bottom bar, not the panel.
     expect(done.closest('footer')).not.toBeNull();
+    // Nothing is due: no way on to review.
+    expect(screen.queryByRole('link', { name: T.done.review })).toBeNull();
+  });
+
+  it('leads on to review when moves are due (R-62)', () => {
+    renderDrill(
+      data({
+        settings: { sessionSize: 20, newPerDay: 1 },
+        reviews: [startReview(BF4, new Date(NOW.getTime() - DAY))],
+        tracked: [BF4],
+      }),
+    );
+    play('d4');
+    play('d4');
+    expect(screen.getByText('Dar 1 kartotinas ėjimas.')).toBeDefined();
+    const review = screen.getByRole('link', { name: T.done.review });
+    expect(review.getAttribute('href')).toBe(
+      `/treniruote?mode=review&r=${REP_ID}`,
+    );
+    expect(review.closest('footer')).not.toBeNull();
   });
 });
 
@@ -405,6 +438,7 @@ describe('the learn drill in a Black repertoire', () => {
             name: 'Taimanovo variantas',
             side: 'black',
             kind: 'assigned',
+            coachName: 'Ona',
             active: true,
             graph: graphOf(TAIMANOV, 'black'),
           },
@@ -431,7 +465,7 @@ describe('the learn drill and coach notes (#322, R-174)', () => {
           id: REP_ID,
           name: 'Trenerio Londonas',
           side: 'white',
-          kind,
+          ...(kind === 'assigned' ? { kind, coachName: 'Rasa' } : { kind }),
           active: true,
           graph: NOTED,
         },
@@ -444,7 +478,10 @@ describe('the learn drill and coach notes (#322, R-174)', () => {
   it('shows the coach’s note with the move where the arrow teaches it', () => {
     renderDrill(noted('assigned'));
     expect(arrows()).toEqual(['d2d4']);
-    expect(note()).toContain('Take the centre first.');
+    // Named with the assigning coach (R-107, #338).
+    expect(note()).toBe(
+      `${MESSAGES.lt.coachNote.byCoach.replace('{name}', 'Rasa')}Take the centre first.`,
+    );
     play('d4');
     // 2. Bf4 has no note.
     expect(arrows()).toEqual(['c1f4']);
@@ -466,6 +503,27 @@ describe('the learn drill and coach notes (#322, R-174)', () => {
   it('shows no coach note for a comment on the player’s own repertoire', () => {
     renderDrill(noted('own'));
     expect(arrows()).toEqual(['d2d4']);
+    expect(note()).toBeNull();
+  });
+
+  it('shows a coach’s note on the player’s own repertoire, named, with the move (R-107, R-174)', () => {
+    renderDrill({
+      ...noted('own'),
+      coachNotes: [
+        {
+          repertoireId: REP_ID,
+          moveKey: D4,
+          coachName: 'Ona',
+          text: 'Mine.',
+          source: 'fork',
+        },
+      ],
+    });
+    expect(arrows()).toEqual(['d2d4']);
+    expect(note()).toBe(
+      `${MESSAGES.lt.coachNote.byCoach.replace('{name}', 'Ona')}Mine.`,
+    );
+    play('d4');
     expect(note()).toBeNull();
   });
 });

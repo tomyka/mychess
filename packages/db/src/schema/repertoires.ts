@@ -1,8 +1,10 @@
 // Repertoires: the position-keyed graph, its chapters and the player's notes.
 import type { Arrow, ChapterNameSource, Circle } from '@mychess/chess';
 import { SIDES } from '@mychess/chess';
+import { sql } from 'drizzle-orm';
 import {
   check,
+  type AnyPgColumn,
   foreignKey,
   index,
   integer,
@@ -31,10 +33,27 @@ export const repertoires = pgTable(
     version: integer('version').notNull().default(1),
     createdAt: at('created_at').notNull(),
     updatedAt: at('updated_at').notNull(),
+    /**
+     * A fork's source, the coach's repertoire it copied (#328, ForkOrigin):
+     * null on a repertoire that is no fork, and once the source is deleted.
+     */
+    forkedFromRepertoireId: uuid('forked_from_repertoire_id').references(
+      (): AnyPgColumn => repertoires.id,
+      { onDelete: 'set null' },
+    ),
+    /** A fork's coach display name when it was made; outlives the coach (R-49). */
+    forkedFromCoachName: text('forked_from_coach_name'),
   },
   (t) => [
     index('repertoires_owner_idx').on(t.ownerAccountId),
+    // Serves the set-null on a source's delete and the coach's shared-fork read.
+    index('repertoires_forked_from_idx').on(t.forkedFromRepertoireId),
     check('repertoires_side_check', oneOf(t.side, SIDES)),
+    // A recorded source always comes with its coach's name.
+    check(
+      'repertoires_fork_origin_check',
+      sql`${t.forkedFromRepertoireId} is null or ${t.forkedFromCoachName} is not null`,
+    ),
     // The target of repertoire_shares_owner_fk.
     unique('repertoires_id_owner_unique').on(t.id, t.ownerAccountId),
   ],

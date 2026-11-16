@@ -11,6 +11,7 @@ import { DAY_MS, startReview, type ReviewState } from './schedule';
 import type { TrainingRepertoire } from './scope';
 import {
   allowance,
+  dayStanding,
   dueCount,
   dueReviews,
   learnLines,
@@ -482,6 +483,48 @@ describe('held moves: one definition, the chapter walks', () => {
       startState(day({ repertoires: [repertoire(only)] }), 'review', NOW),
     ).toEqual({
       kind: 'noMoves',
+    });
+  });
+});
+
+describe('where the day stands after a session (dayStanding)', () => {
+  const progress = (due: number, nextDue: Date | null) => ({ due, nextDue });
+  const IN_TEN_MINUTES = new Date('2026-10-25T08:10:00Z');
+  /** 23:59 in Vilnius: still today. */
+  const LATE_TONIGHT = new Date('2026-10-25T21:59:00Z');
+  /** Midnight in Vilnius: the day's end, so tomorrow. */
+  const MIDNIGHT = new Date('2026-10-25T22:00:00Z');
+
+  it('names the moves still due now, whatever comes later (R-62)', () => {
+    expect(dayStanding(progress(46, MIDNIGHT), MIDNIGHT)).toEqual({
+      kind: 'due',
+      count: 46,
+    });
+    expect(dayStanding(progress(1, null), MIDNIGHT)).toEqual({
+      kind: 'due',
+      count: 1,
+    });
+  });
+
+  it('names the next review when one comes back before the day ends (R-78)', () => {
+    expect(dayStanding(progress(0, IN_TEN_MINUTES), MIDNIGHT)).toEqual({
+      kind: 'laterToday',
+      next: IN_TEN_MINUTES,
+    });
+    expect(dayStanding(progress(0, LATE_TONIGHT), MIDNIGHT)).toEqual({
+      kind: 'laterToday',
+      next: LATE_TONIGHT,
+    });
+  });
+
+  it('says the day is done when nothing comes back before it ends', () => {
+    expect(dayStanding(progress(0, MIDNIGHT), MIDNIGHT)).toEqual({
+      kind: 'dayDone',
+      next: MIDNIGHT,
+    });
+    expect(dayStanding(progress(0, null), MIDNIGHT)).toEqual({
+      kind: 'dayDone',
+      next: null,
     });
   });
 });

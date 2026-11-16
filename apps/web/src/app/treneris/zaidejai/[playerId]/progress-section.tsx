@@ -46,6 +46,34 @@ function Percent({
   return percent.empty ? null : <>{` · ${percent.text}`}</>;
 }
 
+/**
+ * Under a forked assignment (R-155): that the copy is shared with this
+ * coach, with the way to its progress, or that its progress shows only
+ * once it is shared (#328).
+ */
+function ForkedNote({
+  playerId,
+  sharedForkId,
+}: {
+  readonly playerId: string;
+  readonly sharedForkId: string | null;
+}): JSX.Element {
+  const t = useTranslations('coach.progress');
+  if (sharedForkId === null)
+    return <p className="text-sm text-fg-muted">{t('forkedNote')}</p>;
+  return (
+    <p className="flex flex-wrap items-center gap-x-2 text-sm text-fg-muted">
+      <span>{t('forkedShared')}</span>
+      <Link
+        href={coachProgressPath(playerId, sharedForkId)}
+        className={TEXT_LINK}
+      >
+        {t('forkedSharedLink')}
+      </Link>
+    </p>
+  );
+}
+
 /** One repertoire: name, assigned or shared with % learned, badges, the state bar. */
 function Row({
   playerId,
@@ -69,7 +97,7 @@ function Row({
       </div>
       {badges === null ? null : <AssignmentBadges flags={badges} />}
       {view.kind === 'forked' ? (
-        <p className="text-sm text-fg-muted">{t('forkedNote')}</p>
+        <ForkedNote playerId={playerId} sharedForkId={view.sharedForkId} />
       ) : (
         <StateBar
           counts={view.standing.counts}

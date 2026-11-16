@@ -135,7 +135,12 @@ describe('coachProgressFacts and lastTrained', () => {
 
   it('reads the shares to this coach only', async () => {
     expect(await sharedPairs(db, 'c', ['p', 'q'])).toEqual([
-      { playerId: 'p', repertoireId: shared },
+      {
+        playerId: 'p',
+        repertoireId: shared,
+        sourceRepertoireId: null,
+        createdAt: NOW,
+      },
     ]);
   });
 
@@ -173,6 +178,7 @@ describe('coachProgressFacts and lastTrained', () => {
           linked: true,
           sharedRepertoireIds: new Set([privateRep]),
           assignments: [],
+          sharedForks: [],
         },
       ],
     ]);

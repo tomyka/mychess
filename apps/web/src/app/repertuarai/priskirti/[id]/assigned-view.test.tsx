@@ -113,8 +113,17 @@ describe('AssignedView (R-21, R-102)', () => {
       header.importInto,
     ])
       expect(screen.queryByRole('button', { name })).toBeNull();
-    expect(screen.queryByRole('link', { name: header.download })).toBeNull();
+    expect(screen.queryByRole('link', { name: header.importInto })).toBeNull();
     expect(document.querySelectorAll('textarea')).toHaveLength(0);
+  });
+
+  it('downloads the coach’s repertoire as PGN (R-202)', () => {
+    renderView();
+    const download = screen.getByRole('link', {
+      name: lt.repertoires.header.download,
+    });
+    expect(download.getAttribute('href')).toBe(`/api/repertoires/${ID}/export`);
+    expect(download.hasAttribute('download')).toBe(true);
   });
 
   it('shows the coach’s comments as coach notes with the coach’s name', () => {

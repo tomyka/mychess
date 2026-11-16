@@ -17,6 +17,7 @@ import {
   ok,
   refuse,
   type AssignmentRefusal,
+  type ForkOrigin,
   type RepertoireLimitRefusal,
   type Result,
 } from '@mychess/domain';
@@ -42,8 +43,11 @@ export interface ForkSource extends Snapshot {
   readonly playerId: string;
   readonly name: string;
   readonly side: Side;
-  /** The display name the coach notes carry (R-47, R-49). */
-  readonly coachName: string;
+  /**
+   * The Fork's origin (#328): its source, null once deleted (R-131), and
+   * the coach's display name, which its coach notes carry too (R-47, R-49).
+   */
+  readonly origin: ForkOrigin;
   readonly now: Date;
   /** The automatic fork of a deleting coach, made past the limits (R-163). */
   readonly beyondLimits?: true;
@@ -81,6 +85,7 @@ export async function writeFork(
     name: source.name,
     graph: uncommented(source.graph),
     now: source.now,
+    forkedFrom: source.origin,
   });
   if (!created.ok) return created;
   const forkId = created.value;
@@ -89,7 +94,7 @@ export async function writeFork(
       batch.map((note) => ({
         ...note,
         repertoireId: forkId,
-        coachName: source.coachName,
+        coachName: source.origin.coachName,
       })),
     );
   for (const batch of batches(source.personalNotes))
@@ -208,7 +213,7 @@ function fork(
       playerId: req.playerId,
       name: taken.repertoire.name,
       side: taken.repertoire.side,
-      coachName: coach.displayName,
+      origin: { repertoireId: req.repertoireId, coachName: coach.displayName },
       now,
     });
     if (!written.ok) return written;

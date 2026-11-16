@@ -72,6 +72,32 @@ export interface TrainingProgress {
   readonly nextDue: Date | null;
 }
 
+/** Where the player's day stands once a session is over (#319). */
+export type DayStanding =
+  /** Moves due now that the session left: the session can go on (R-62). */
+  | { readonly kind: 'due'; readonly count: number }
+  /** Nothing due now, but a move comes back before the day ends (R-78). */
+  | { readonly kind: 'laterToday'; readonly next: Date }
+  /** Nothing comes back today; `next` is the first review after it, if any. */
+  | { readonly kind: 'dayDone'; readonly next: Date | null };
+
+/**
+ * Where the day stands, by the repertoires' `progress` and the end of the
+ * player's day: moves still due now are a "continue", a move coming back
+ * before `dayEnd` is named with its time, and otherwise today's review is
+ * done.
+ */
+export function dayStanding(
+  progress: Pick<TrainingProgress, 'due' | 'nextDue'>,
+  dayEnd: Date,
+): DayStanding {
+  const { due, nextDue } = progress;
+  if (due > 0) return { kind: 'due', count: due };
+  if (nextDue !== null && nextDue.getTime() < dayEnd.getTime())
+    return { kind: 'laterToday', next: nextDue };
+  return { kind: 'dayDone', next: nextDue };
+}
+
 /** New moves still allowed today (R-62, R-146). */
 export const allowance = (
   day: Pick<TrainingDay, 'limits' | 'learnedToday'>,

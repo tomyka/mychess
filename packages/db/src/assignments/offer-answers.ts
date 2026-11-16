@@ -32,6 +32,7 @@ const NOT_OPEN = refuse(FORK_OFFER_REFUSALS.notOpen);
 
 const offerRowsSchema = z.array(
   z.object({
+    repertoireId: z.uuid().nullable(),
     name: z.string(),
     side: z.enum(SIDES),
     coachName: z.string(),
@@ -63,6 +64,7 @@ function onOpenOffer<T, R extends { reason: string }>(
     const [offer] = offerRowsSchema.parse(
       await tx
         .select({
+          repertoireId: forkOffers.repertoireId,
           name: forkOffers.name,
           side: forkOffers.side,
           coachName: forkOffers.coachName,
@@ -102,7 +104,7 @@ export function acceptForkOffer(
       playerId: ref.playerId,
       name: offer.name,
       side: offer.side,
-      coachName: offer.coachName,
+      origin: { repertoireId: offer.repertoireId, coachName: offer.coachName },
       now,
     });
     if (!written.ok) return written;

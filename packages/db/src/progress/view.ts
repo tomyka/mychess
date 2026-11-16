@@ -100,12 +100,14 @@ const scopeOf = (
 ): RepertoireScope =>
   source === 'shared' ? sharedScope(coachId, playerId) : ownScope(coachId);
 
-/** What a row or cell shows of a repertoire: its standing, or that it is forked (R-155). */
+/**
+ * What a row or cell shows of a repertoire: its standing, or that it is
+ * forked (R-155), with the player's fork of it when they share that fork
+ * with this coach (#328), so the page can link to it; null otherwise.
+ */
 export type ProgressView =
   | { readonly kind: 'granted'; readonly standing: Standing }
-  | { readonly kind: 'forked' };
-
-const FORKED: ProgressView = { kind: 'forked' };
+  | { readonly kind: 'forked'; readonly sharedForkId: string | null };
 
 /** A graph with the player's Reviews on its moves, as of `now`. */
 interface Reviewed {
@@ -141,6 +143,6 @@ export function entryRead(
             kind: 'granted',
             standing: repertoireStanding(graph, tracked, now),
           }
-        : FORKED,
+        : { kind: 'forked', sharedForkId: entry.sharedForkId },
   };
 }
