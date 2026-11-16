@@ -7,7 +7,7 @@
  * `assigned` repertoireScope. Callers run them in one repeatable-read
  * snapshot.
  */
-import { allLearned, playerKeys, type RepertoireGraph } from '@mychess/chess';
+import { playerKeys, type RepertoireGraph } from '@mychess/chess';
 import {
   assignedScope,
   assignmentStatusOf,
@@ -23,7 +23,7 @@ import {
 } from '../repertoires/repository';
 import { repertoireScope } from '../repertoires/scope';
 import { repertoires } from '../schema';
-import { learnedKeys } from '../training/reviews';
+import { trackedKeys } from '../training/reviews';
 import { assignmentFacts } from './reach';
 
 /** A usable assignment with its repertoire, loaded through the `assigned` scope. */
@@ -91,16 +91,16 @@ export async function loadLive(
 }
 
 /**
- * The player's learned set (R-129) among the player moves of `graphs`:
- * the keys of them they learned or skipped.
+ * The player's tracked set (R-129, R-181) among the player moves of
+ * `graphs`: the keys of them with a Review, learned or skipped.
  */
-export async function learnedOf(
+export async function trackedOf(
   db: Executor,
   playerId: string,
   graphs: readonly RepertoireGraph[],
 ): Promise<ReadonlySet<string>> {
   const keys = [...new Set(graphs.flatMap((graph) => playerKeys(graph)))];
-  return (await learnedKeys(db, [playerId], keys)).get(playerId) ?? new Set();
+  return (await trackedKeys(db, [playerId], keys)).get(playerId) ?? new Set();
 }
 
 /** What the domain says of a live assignment at `now` (R-16, R-46, R-51, R-129, R-134). */
@@ -113,11 +113,14 @@ interface LiveStatus {
 
 export function statusOf(
   { assignment, loaded }: LiveAssignment,
-  learned: ReadonlySet<string>,
+  tracked: ReadonlySet<string>,
   now: Date,
 ): LiveStatus {
-  const done = allLearned(loaded.graph, learned);
-  const status = assignmentStatusOf(assignment, { done, now });
+  const status = assignmentStatusOf(assignment, {
+    graph: loaded.graph,
+    tracked,
+    now,
+  });
   return {
     deadline: status.deadline,
     paused: status.paused,

@@ -17,7 +17,7 @@ import { personalNotes } from '../schema';
 import { namesOf } from './names';
 import {
   inLive,
-  learnedOf,
+  trackedOf,
   statusOf,
   usableAssignment,
   type LiveAssignment,
@@ -93,7 +93,7 @@ export function assignedRepertoireForPlayer(
     const names = await namesOf(tx, [loaded.repertoire.ownerId]);
     const { paused, deadline, overdue } = statusOf(
       opened,
-      await learnedOf(tx, playerId, [loaded.graph]),
+      await trackedOf(tx, playerId, [loaded.graph]),
       now,
     );
     return {

@@ -81,15 +81,15 @@ export function weakSpots(
 }
 
 /**
- * Whether every player move of `graph` is learned (R-129: an Assignment is
- * done). `learned` holds the keys with a Review: the learn pass passed or
- * "I know this" (R-58). Nothing to learn counts as done.
+ * Whether every player move of `graph` is tracked (R-129, R-181: an
+ * Assignment is done). `tracked` holds the keys with a Review: the learn
+ * pass passed or "I know this" (R-58). Nothing to track counts as done.
  */
-export function allLearned(
+export function allTracked(
   graph: RepertoireGraph,
-  learned: ReadonlySet<string>,
+  tracked: ReadonlySet<string>,
 ): boolean {
-  return playerKeys(graph).every((k) => learned.has(k));
+  return playerKeys(graph).every((k) => tracked.has(k));
 }
 
 export interface Reconciliation {

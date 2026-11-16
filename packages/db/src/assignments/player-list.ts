@@ -17,7 +17,7 @@ import { REPEATABLE_READ, type Executor } from '../client';
 import { repertoireChanges } from '../assignment-schema';
 import { namesOf } from './names';
 import {
-  learnedOf,
+  trackedOf,
   loadLive,
   seenFacts,
   statusOf,
@@ -34,7 +34,7 @@ export interface PlayerAssignment {
   /** effectiveDeadline: `YYYY-MM-DD` or null (R-16, R-134). */
   readonly deadline: string | null;
   readonly paused: boolean;
-  /** Every player move learned (R-129). */
+  /** Every player move tracked (R-129, R-181). */
   readonly done: boolean;
   /**
    * What the player sees on it at `now` (assignmentBadges): overdue
@@ -80,15 +80,15 @@ async function latestChanges(
 interface ItemFacts extends LiveAssignment {
   readonly coachName: string;
   readonly latest: ChangeStamp | undefined;
-  /** The player's learned set (R-129). */
-  readonly learned: ReadonlySet<string>;
+  /** The player's tracked set (R-129, R-181). */
+  readonly tracked: ReadonlySet<string>;
 }
 
 function itemOf(facts: ItemFacts, now: Date): PlayerAssignment {
   const { assignment, loaded } = facts;
   const { deadline, paused, done, overdue } = statusOf(
     facts,
-    facts.learned,
+    facts.tracked,
     now,
   );
   const updated = isUpdated(seenFacts(assignment), facts.latest);
@@ -125,7 +125,7 @@ export function playerAssignments(
       tx,
       live.map(({ assignment }) => assignment.repertoireId),
     );
-    const learned = await learnedOf(
+    const tracked = await trackedOf(
       tx,
       playerId,
       live.map(({ loaded }) => loaded.graph),
@@ -137,7 +137,7 @@ export function playerAssignments(
             ...entry,
             coachName: names.get(entry.assignment.coachId) ?? '',
             latest: latest.get(entry.assignment.repertoireId),
-            learned,
+            tracked,
           },
           now,
         ),

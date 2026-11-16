@@ -9,7 +9,7 @@ import {
   type RepertoireGraph,
 } from '../repertoire/graph';
 import {
-  allLearned,
+  allTracked,
   MASTERY_RETENTION,
   WEAK_LAPSES,
   WEAK_RETENTION,
@@ -332,31 +332,31 @@ describe('reconcile', () => {
   });
 });
 
-describe('allLearned (R-129)', () => {
+describe('allTracked (R-129, R-181)', () => {
   const keys = playerKeys(italian);
 
-  it('is true when every player move is learned, opponent moves aside', () => {
+  it('is true when every player move is tracked, opponent moves aside', () => {
     expect(keys).toHaveLength(5);
-    expect(allLearned(italian, new Set(keys))).toBe(true);
+    expect(allTracked(italian, new Set(keys))).toBe(true);
   });
 
-  it('is false when one player move is not learned', () => {
-    expect(allLearned(italian, new Set(keys.slice(1)))).toBe(false);
-    expect(allLearned(italian, new Set(keys.slice(0, -1)))).toBe(false);
+  it('is false when one player move is not tracked', () => {
+    expect(allTracked(italian, new Set(keys.slice(1)))).toBe(false);
+    expect(allTracked(italian, new Set(keys.slice(0, -1)))).toBe(false);
   });
 
-  it('is false when only opponent moves are learned', () => {
+  it('is false when only opponent moves are tracked', () => {
     const opponent = italian.moves
       .filter((m) => !keys.includes(moveKey(m.from, m.san)))
       .map((m) => moveKey(m.from, m.san));
-    expect(allLearned(italian, new Set(opponent))).toBe(false);
+    expect(allTracked(italian, new Set(opponent))).toBe(false);
   });
 
-  it('is true for a repertoire with no player moves (nothing to learn)', () => {
-    expect(allLearned(emptyGraph('white'), new Set())).toBe(true);
+  it('is true for a repertoire with no player moves (nothing to track)', () => {
+    expect(allTracked(emptyGraph('white'), new Set())).toBe(true);
   });
 
-  it('ignores learned keys the repertoire does not hold', () => {
-    expect(allLearned(italian, new Set([...keys, 'x|y']))).toBe(true);
+  it('ignores tracked keys the repertoire does not hold', () => {
+    expect(allTracked(italian, new Set([...keys, 'x|y']))).toBe(true);
   });
 });

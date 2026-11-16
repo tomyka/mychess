@@ -107,7 +107,7 @@ A 30-day offer to keep a Fork of an Assignment that ended for a Player (unassign
 _Avoid_: Copy offer, export
 
 **Deadline** (of an Assignment):
-A calendar date by which the Player should have learned every Move (R-129). Passed and not done, the Assignment is **overdue** for the Player and the Coach (R-51); nothing is blocked. Not the same as a Review being Due.
+A calendar date by which the Player should have every own-side Move Tracked, which makes the Assignment **done** (R-129, R-181). Passed and not done, the Assignment is **overdue** for the Player and the Coach (R-51); nothing is blocked. Not the same as a Review being Due.
 _Avoid_: Due date (collides with Due)
 
 **Paused** (Assignment):
@@ -146,8 +146,12 @@ The first encounter with a Move: shown with arrows, then retested blind. A Move 
 _Avoid_: Practice, lesson, teach mode
 
 **Review**:
-The spaced-repetition schedule for one own-side Move a Player has learned, one per (Player, Repertoire Move). Also the session in which due Reviews are drilled.
+The spaced-repetition schedule for one own-side Move, started by its Learn pass or "I know this", one per (Player, Repertoire Move). Also the session in which due Reviews are drilled.
 _Avoid_: Card (implementation word), practice pool, drill (fine as a verb; in code, "drill" also names the training screen's interactive session, ReviewDrill and LearnDrill, R-149)
+
+**Tracked** (Move):
+An own-side Move the Player has a Review of: its Learn pass finished or "I know this" (R-58). An Assignment is **done** when every own-side Move of its Repertoire as it is now is Tracked, so a Coach edit that adds Moves makes it not done again (R-129, R-181). Tracked says nothing about recall: a Due or skipped Move is still Tracked.
+_Avoid_: Learned (that is a Move state, R-151), known, completed
 
 **Due**:
 A Review whose scheduled time has arrived, so it belongs in the next review session.
@@ -280,7 +284,7 @@ _Avoid_: Phase, release, sprint
 ## Flagged ambiguities (resolved where marked R-n)
 
 - **"Review"** is both the per-Move schedule and the drilling session. Kept deliberately; if it causes confusion, rename the session "review session".
-- **"Line"** is used for progress and Mastery goals, but storage and scheduling are per Move. Mastered = every Move in the learned Move state (not Due, not skipped, not not-started) and FSRS retrievability >= 90% today (R-56, R-178). "Learned" in an Assignment's done badge means something else: the learn pass finished or "I know this" (R-129).
+- **"Line"** is used for progress and Mastery goals, but storage and scheduling are per Move. Mastered = every Move in the learned Move state (not Due, not skipped, not not-started) and FSRS retrievability >= 90% today (R-56, R-178). An Assignment is done when every own-side Move is Tracked (R-129, R-181), not learned: "learned" keeps only the Move state meaning (R-151).
 - **Same Move in two Repertoires** (for example, two Coaches assigning overlapping openings): one Review per Player, position and Move (R-53); different answers in the same position are trained in context (R-54).
 - **"Shared"** for a private Repertoire means shared with chosen linked Coaches, read-only with progress (R-42).
 - **Fork and training state**: a Fork keeps the Player's Reviews, since Reviews belong to the Player, not the Repertoire (R-43, R-53).

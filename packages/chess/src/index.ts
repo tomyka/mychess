@@ -109,7 +109,7 @@ export {
 export type { EcoEntry } from './openings/data/eco';
 export {
   advanceLearn,
-  allLearned,
+  allTracked,
   answerReview,
   buildQueue,
   currentLearnStep,

@@ -1,7 +1,8 @@
 /**
- * A player's stored Reviews (R-53) and the learned set built from them
- * (R-129). Every statement filters by the given player ids; rows are parsed
- * with zod and turned into chess's ReviewState through reviewStateSchema.
+ * A player's stored Reviews (R-53) and the tracked set built from them
+ * (R-129, R-181). Every statement filters by the given player ids; rows are
+ * parsed with zod and turned into chess's ReviewState through
+ * reviewStateSchema.
  */
 import {
   reviewStateSchema,
@@ -176,11 +177,12 @@ const keyRowsSchema = z.array(
 );
 
 /**
- * Keys learned or skipped: the R-129 learned set, one per requested player
- * (empty when they have none). Given `keys`, only those are read: a
+ * Keys with a Review, learned or skipped: the tracked set (R-129, R-181),
+ * one per requested player (empty when they have none). Given `keys`, only
+ * those are read: a
  * repertoire's player moves are all a done check needs.
  */
-export async function learnedKeys(
+export async function trackedKeys(
   db: Executor,
   playerIds: readonly string[],
   keys?: readonly string[],

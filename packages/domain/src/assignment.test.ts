@@ -1,3 +1,11 @@
+import {
+  addMove,
+  emptyGraph,
+  importPgn,
+  moveKey,
+  playerKeys,
+  type RepertoireGraph,
+} from '@mychess/chess';
 import { describe, expect, it } from 'vitest';
 import {
   ASSIGNMENT_ISSUES,
@@ -28,6 +36,25 @@ import {
   type BadgeSet,
 } from './assignment';
 import { vilniusDay } from './calendar';
+
+function graphOf(pgn: string): RepertoireGraph {
+  const imported = importPgn(pgn, 'white');
+  if (!imported.ok) throw new Error(imported.refusal.reason);
+  return imported.value.graph;
+}
+
+/** A white repertoire: the player moves are 1. e4 and 2. Nf3. */
+const GRAPH = graphOf('1. e4 e5 2. Nf3 Nc6 *');
+const PLAYER_KEYS = playerKeys(GRAPH);
+/** What assignmentStatusOf needs for a done (every move tracked) or not-done player. */
+const progressOf = (
+  done: boolean,
+  now: Date,
+): { graph: RepertoireGraph; tracked: ReadonlySet<string>; now: Date } => ({
+  graph: GRAPH,
+  tracked: new Set(done ? PLAYER_KEYS : []),
+  now,
+});
 
 const ok = { ok: true, value: undefined };
 const refused = (reason: string) => ({ ok: false, refusal: { reason } });
@@ -765,14 +792,16 @@ describe('assignmentStatusOf (R-16, R-129, R-132, R-134, R-128)', () => {
   ];
 
   it.each(cases)('%s', (_name, facts, done, expected) => {
-    expect(assignmentStatusOf(facts, { done, now })).toStrictEqual(expected);
+    expect(assignmentStatusOf(facts, progressOf(done, now))).toStrictEqual(
+      expected,
+    );
   });
 
   it.each(cases)(
     'agrees with effectiveDeadline and assignmentStatus: %s',
     (_name, facts, done) => {
       const deadline = effectiveDeadline(deadlineSources(facts.reaches));
-      expect(assignmentStatusOf(facts, { done, now })).toStrictEqual({
+      expect(assignmentStatusOf(facts, progressOf(done, now))).toStrictEqual({
         deadline,
         ...assignmentStatus(
           {
@@ -890,9 +919,9 @@ describe('assignmentDeadline (R-16, R-134)', () => {
 
   it('is the deadline assignmentStatusOf reports', () => {
     const facts = record([reach('a', '2026-11-10', JOINED)]);
-    expect(
-      assignmentStatusOf(facts, { done: true, now: JOINED }).deadline,
-    ).toBe(assignmentDeadline(facts));
+    expect(assignmentStatusOf(facts, progressOf(true, JOINED)).deadline).toBe(
+      assignmentDeadline(facts),
+    );
   });
 });
 
@@ -951,17 +980,119 @@ describe('coachAssignmentBadges (R-46, R-128, R-129, R-132)', () => {
       badges({ forked: true }),
     ],
   ] as const)('%s', (_name, facts, done, expected) => {
-    expect(coachAssignmentBadges(facts, { done, now })).toStrictEqual(expected);
+    expect(coachAssignmentBadges(facts, progressOf(done, now))).toStrictEqual(
+      expected,
+    );
   });
 
   it('is assignmentStatusOf then assignmentBadges for the coach', () => {
     const facts = record({ pausedAt: PAST });
-    const { overdue, paused, forked } = assignmentStatusOf(facts, {
-      done: false,
-      now,
-    });
-    expect(coachAssignmentBadges(facts, { done: false, now })).toStrictEqual(
+    const { overdue, paused, forked } = assignmentStatusOf(
+      facts,
+      progressOf(false, now),
+    );
+    expect(coachAssignmentBadges(facts, progressOf(false, now))).toStrictEqual(
       assignmentBadges({ audience: 'coach', overdue, paused, forked }),
     );
+  });
+
+  it('is not overdue once every player move is tracked (R-129)', () => {
+    expect(
+      coachAssignmentBadges(record(), progressOf(true, now)),
+    ).toStrictEqual(badges({}));
+  });
+});
+
+describe('assignmentStatusOf decides done (R-129, R-181)', () => {
+  const now = new Date('2026-11-02T10:00:00Z'); // 2 Nov in Vilnius
+  const PAST = new Date('2026-10-20T10:00:00Z');
+  /** Assigned individually with a deadline that has passed at `now`. */
+  const record = (over: Partial<AssignmentFacts> = {}): AssignmentFacts => ({
+    playerId: 'p',
+    repertoireId: 'r',
+    coachId: 'c',
+    reaches: [
+      {
+        assignmentId: 'a-1',
+        deadline: '2026-11-01',
+        assignedVersion: 1,
+        joinedAt: null,
+      },
+    ],
+    pausedAt: null,
+    seenVersion: null,
+    forkedAt: null,
+    ...over,
+  });
+  const statusOf = (
+    graph: RepertoireGraph,
+    tracked: Iterable<string>,
+    over: Partial<AssignmentFacts> = {},
+  ) =>
+    assignmentStatusOf(record(over), { graph, tracked: new Set(tracked), now });
+  const opponentKeys = GRAPH.moves
+    .map((m) => moveKey(m.from, m.san))
+    .filter((key) => !PLAYER_KEYS.includes(key));
+
+  it('is done, and not overdue, when every player move is tracked', () => {
+    expect(PLAYER_KEYS).toHaveLength(2);
+    expect(statusOf(GRAPH, PLAYER_KEYS)).toMatchObject({
+      done: true,
+      overdue: false,
+    });
+  });
+
+  it('is not done while one player move is untracked', () => {
+    for (const key of PLAYER_KEYS) {
+      const others = PLAYER_KEYS.filter((k) => k !== key);
+      expect(statusOf(GRAPH, others)).toMatchObject({
+        done: false,
+        overdue: true,
+      });
+    }
+  });
+
+  it('never counts the opponent moves', () => {
+    expect(opponentKeys).toHaveLength(2);
+    expect(statusOf(GRAPH, opponentKeys).done).toBe(false);
+    expect(statusOf(GRAPH, [...PLAYER_KEYS, ...opponentKeys]).done).toBe(true);
+  });
+
+  it('ignores tracked moves the repertoire does not hold', () => {
+    expect(statusOf(GRAPH, [...PLAYER_KEYS, 'x|y']).done).toBe(true);
+  });
+
+  it('is done for an empty repertoire: nothing to track', () => {
+    expect(statusOf(emptyGraph('white'), [])).toMatchObject({
+      done: true,
+      overdue: false,
+    });
+  });
+
+  it('is not done again after a coach edit adds a player move', () => {
+    const [chapter] = GRAPH.chapters;
+    const last = GRAPH.moves.find((m) => m.san === 'Nc6');
+    if (chapter === undefined || last === undefined) throw new Error('fixture');
+    const edited = addMove(GRAPH, chapter.id, last.to, 'Bb5');
+    if (!edited.ok) throw new Error(edited.refusal.reason);
+    expect(statusOf(GRAPH, PLAYER_KEYS).done).toBe(true);
+    expect(statusOf(edited.value, PLAYER_KEYS)).toMatchObject({
+      done: false,
+      overdue: true,
+    });
+  });
+
+  it('stays done while paused', () => {
+    expect(statusOf(GRAPH, PLAYER_KEYS, { pausedAt: PAST })).toMatchObject({
+      done: true,
+      paused: true,
+      overdue: false,
+    });
+  });
+
+  it('is never done once forked, every move tracked or not (R-128)', () => {
+    expect(
+      statusOf(GRAPH, PLAYER_KEYS, { forkedAt: PAST, pausedAt: PAST }),
+    ).toMatchObject({ done: false, forked: true, overdue: false });
   });
 });

@@ -62,6 +62,7 @@ export {
   type AssignableTargets,
   type AssignedTarget,
   type ChangeAssignmentFacts,
+  type AssignmentProgress,
   type AssignmentStatusFacts,
   type AssignmentFacts,
   type AssignmentReach,

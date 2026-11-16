@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   assign,
   learnedBetween,
-  learnedKeys,
+  trackedKeys,
   pauseAssignment,
   reviewsOf,
   setTrainingSettings,
@@ -90,19 +90,19 @@ describe('reviewsOf', () => {
   });
 });
 
-describe('learnedKeys (R-129)', () => {
+describe('trackedKeys (R-129, R-181)', () => {
   beforeEach(async () => {
     for (const id of ['p', 'q', 'r']) {
       await seedPlayer(db, id, `${id}@example.lt`);
     }
   });
 
-  it('gives each player their learned and skipped keys, and only theirs', async () => {
+  it('gives each player their tracked keys, learned and skipped, and only theirs', async () => {
     await writeReview(db, 'p', startReview('a', NOW), { learnedAt: NOW });
     await writeReview(db, 'p', startReview('b', NOW), { skippedAt: NOW });
     await writeReview(db, 'q', startReview('c', NOW), { learnedAt: NOW });
     await writeReview(db, 'r', startReview('d', NOW), { learnedAt: NOW });
-    expect(await learnedKeys(db, ['p', 'q', 'n'])).toEqual(
+    expect(await trackedKeys(db, ['p', 'q', 'n'])).toEqual(
       new Map([
         ['p', new Set(['a', 'b'])],
         ['q', new Set(['c'])],
@@ -115,20 +115,20 @@ describe('learnedKeys (R-129)', () => {
     await writeReview(db, 'p', startReview('a', NOW), { learnedAt: NOW });
     await writeReview(db, 'p', startReview('b', NOW), { skippedAt: NOW });
     await writeReview(db, 'q', startReview('c', NOW), { learnedAt: NOW });
-    expect(await learnedKeys(db, ['p', 'q'], ['b', 'c', 'z'])).toEqual(
+    expect(await trackedKeys(db, ['p', 'q'], ['b', 'c', 'z'])).toEqual(
       new Map([
         ['p', new Set(['b'])],
         ['q', new Set(['c'])],
       ]),
     );
-    expect(await learnedKeys(db, ['p'], [])).toEqual(
+    expect(await trackedKeys(db, ['p'], [])).toEqual(
       new Map([['p', new Set()]]),
     );
   });
 
   it('reads nothing for no players', async () => {
     await writeReview(db, 'p', startReview('a', NOW), { learnedAt: NOW });
-    expect(await learnedKeys(db, [])).toEqual(new Map());
+    expect(await trackedKeys(db, [])).toEqual(new Map());
   });
 });
 

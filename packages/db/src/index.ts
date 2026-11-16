@@ -235,8 +235,8 @@ export { type TrainingExport } from './training/export';
 export { knowCounts, learnAgain, markKnown } from './training/know';
 export {
   learnedBetween,
-  learnedKeys,
   reviewsOf,
+  trackedKeys,
   type StoredReview,
 } from './training/reviews';
 export { recordResults } from './training/results';

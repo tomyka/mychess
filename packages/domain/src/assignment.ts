@@ -1,4 +1,10 @@
-import { ok, refuse, type Result } from '@mychess/chess';
+import {
+  allTracked,
+  ok,
+  refuse,
+  type RepertoireGraph,
+  type Result,
+} from '@mychess/chess';
 import { z } from 'zod';
 import { vilniusDay } from './calendar';
 import { isCoach, type CoachState } from './coach';
@@ -168,7 +174,7 @@ export function effectiveDeadline(sources: DeadlineSources): string | null {
 export interface AssignmentStatusFacts {
   /** The effective deadline, `YYYY-MM-DD`, or null. */
   readonly deadline: string | null;
-  /** Every player move learned (R-129, chess allLearned). */
+  /** Every player move tracked (R-129, R-181; assignmentStatusOf decides it). */
   readonly done: boolean;
   readonly paused: boolean;
   readonly forked: boolean;
@@ -394,14 +400,25 @@ export function assignmentDeadline(facts: AssignmentFacts): string | null {
   return effectiveDeadline(deadlineSources(facts.reaches));
 }
 
+/** How far the player is through an assignment's repertoire at `now` (R-129). */
+export interface AssignmentProgress {
+  /** The assigned repertoire's moves as they are now, coach edits included. */
+  readonly graph: RepertoireGraph;
+  /** The player's tracked move keys: a Review exists (R-181). */
+  readonly tracked: ReadonlySet<string>;
+  readonly now: Date;
+}
+
 /**
  * The one status rule for the player's and the coach's reads: the
- * effective deadline (R-16, R-134) and the badges on it (R-128, R-129,
- * R-132). `done` is the caller's (every player move learned).
+ * effective deadline (R-16, R-134) and the badges on it (R-128, R-132).
+ * Done (R-129, R-181) when every player move of the repertoire as it is
+ * now is tracked, so a coach edit that adds moves undoes it; opponent
+ * moves never count, an empty repertoire is done, a forked one never is.
  */
 export function assignmentStatusOf(
   facts: AssignmentFacts,
-  { done, now }: { readonly done: boolean; readonly now: Date },
+  { graph, tracked, now }: AssignmentProgress,
 ): AssignmentStatus & { readonly deadline: string | null } {
   const deadline = assignmentDeadline(facts);
   return {
@@ -409,7 +426,7 @@ export function assignmentStatusOf(
     ...assignmentStatus(
       {
         deadline,
-        done,
+        done: allTracked(graph, tracked),
         paused: !isTrainingActive(facts.pausedAt),
         forked: facts.forkedAt !== null,
       },
@@ -420,12 +437,12 @@ export function assignmentStatusOf(
 
 /**
  * The badges the coach sees on one player's assignment (R-46, R-128,
- * R-132): its status (assignmentStatusOf) as assignmentBadges shows it to
- * the coach. `done` is the caller's (every player move learned).
+ * R-129, R-132): its status (assignmentStatusOf) as assignmentBadges shows
+ * it to the coach.
  */
 export function coachAssignmentBadges(
   facts: AssignmentFacts,
-  progress: { readonly done: boolean; readonly now: Date },
+  progress: AssignmentProgress,
 ): BadgeSet {
   const { overdue, paused, forked } = assignmentStatusOf(facts, progress);
   return assignmentBadges({ audience: 'coach', overdue, paused, forked });

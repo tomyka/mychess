@@ -112,7 +112,7 @@ interface Listed {
 
 /**
  * Each reached player's name, deadline and badges at `now` (coachBadges:
- * done when they learned every player move of `graph`, R-129). One read of
+ * done when every player move of `graph` is tracked, R-129). One read of
  * the Reviews of every player, of the repertoire's player moves only.
  */
 async function listedOf(
