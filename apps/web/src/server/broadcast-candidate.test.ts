@@ -25,18 +25,17 @@ describe('a Lichess tour as the domain reads it (#349)', () => {
 
   it('makes the candidate qualifyBroadcastTour reads', () => {
     expect(
-      tourCandidate({ ...TOUR, official: true }, true, { kind: 'pasted' }),
+      tourCandidate({ ...TOUR, official: true }, true, 'paulauskas'),
     ).toEqual({
       id: 'VilOpn26',
       name: 'Vilnius Open 2026',
       official: true,
       finished: true,
       lastRoundAt: new Date('2026-10-05T09:00:00Z'),
-      origin: { kind: 'pasted' },
+      organiser: 'paulauskas',
     });
     expect(
-      tourCandidate({ ...TOUR, dates: null }, false, { kind: 'pasted' })
-        .lastRoundAt,
+      tourCandidate({ ...TOUR, dates: null }, false, 'paulauskas').lastRoundAt,
     ).toBeNull();
   });
 });

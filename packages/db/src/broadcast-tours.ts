@@ -2,8 +2,9 @@
  * The broadcast tournaments of the FIDE ID search's index (#349, spec
  * decision 1): queuing a tournament qualifyBroadcastTour allowed, the
  * tournaments a search covers and their states, and the claim, write,
- * failure and release a month has (broadcast-index-state.ts). Public data:
- * who pasted a tournament is not kept, and no account's export holds it.
+ * failure and release a month has (broadcast-index-state.ts). Public data
+ * from the approved organisers' lists (R-201): no account owns it, and no
+ * account's export holds it.
  */
 import {
   BROADCAST_TOUR_REFUSALS,
@@ -105,14 +106,14 @@ const fromClaim = ({ tourId, claimedAt }: BroadcastTourClaim) => ({
 
 /**
  * Queues `tour` pending, to be fetched once (spec decision 1). A tournament
- * already queued, from a list or a pasted link, is left as it is, whatever
- * its state. True when it was new.
+ * already queued, by any organiser's list, is left as it is, whatever its
+ * state. True when it was new.
  */
 export async function queueBroadcastTour(
   db: Executor,
   tour: QueuedBroadcastTour,
 ): Promise<boolean> {
-  const { id, name, official, lastRoundAt, origin } =
+  const { id, name, official, lastRoundAt, organiser } =
     broadcastTourFieldsSchema.parse(tour);
   const inserted = await db
     .insert(broadcastTours)
@@ -121,8 +122,7 @@ export async function queueBroadcastTour(
       name,
       official,
       lastRoundAt,
-      origin: origin.kind,
-      organiser: origin.kind === 'organiser' ? origin.organiser : null,
+      organiser,
       state: 'pending',
       attempts: 0,
     })

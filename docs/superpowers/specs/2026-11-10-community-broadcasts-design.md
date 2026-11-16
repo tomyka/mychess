@@ -6,7 +6,7 @@ Issue #349. Research: `docs/research-lichess-community-broadcasts.md`, `docs/res
 
 - R-171, R-191: any FIDE ID; players matched only by FIDE ID; never a player's own online account.
 - R-196, R-200: community broadcasts found through the approved organiser accounts `vakarinis`, `kesnor7`, `paulauskas`; the owner approves additions.
-- R-197: any signed-in user may add a Lichess broadcast by pasting its link; the tournament is fetched once.
+- R-197: any signed-in user may add a Lichess broadcast by pasting its link; the tournament is fetched once. **Replaced by R-201 (2026-11-16, #360): the paste is removed**, so lead decisions 2(c), 4 and 9 and the paste parts of 6 and Design no longer apply; tournaments come only from the approved organisers.
 - R-198: community games carry the same Lichess CC BY-SA 4.0 credit and each game's link.
 - R-199: Lichess API calls use the owner's `study:read` token from the VM secrets.
 - R-183 to R-190, R-195: the 12-month window, grouping, nightly upkeep and the existing month index stay as they are.

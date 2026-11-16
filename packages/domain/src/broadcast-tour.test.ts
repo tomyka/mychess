@@ -7,7 +7,6 @@ import {
 import {
   APPROVED_BROADCAST_ORGANISERS,
   BROADCAST_TOUR_ID_PATTERN,
-  BROADCAST_TOUR_ORIGINS,
   BROADCAST_TOUR_REFUSALS,
   approvedOrganiser,
   broadcastRoundIdSchema,
@@ -39,11 +38,9 @@ const candidate = (
   official: false,
   finished: true,
   lastRoundAt: IN_DUMPS,
-  origin: { kind: 'organiser', organiser: 'paulauskas' },
+  organiser: 'paulauskas',
   ...overrides,
 });
-
-const PASTED = { kind: 'pasted' } as const;
 
 const roundId = (text: string) => broadcastRoundIdSchema.parse(text);
 
@@ -54,12 +51,6 @@ describe('APPROVED_BROADCAST_ORGANISERS (R-196, R-200)', () => {
       'kesnor7',
       'paulauskas',
     ]);
-  });
-});
-
-describe('BROADCAST_TOUR_ORIGINS', () => {
-  it("is an organiser's list or a pasted link", () => {
-    expect(BROADCAST_TOUR_ORIGINS).toEqual(['organiser', 'pasted']);
   });
 });
 
@@ -114,7 +105,7 @@ describe('qualifyBroadcastTour (#349, spec decision 2)', () => {
         name: 'Synthetic Open 2025',
         official: false,
         lastRoundAt: IN_DUMPS,
-        origin: { kind: 'organiser', organiser: 'paulauskas' },
+        organiser: 'paulauskas',
       },
     });
   });
@@ -132,23 +123,11 @@ describe('qualifyBroadcastTour (#349, spec decision 2)', () => {
     ).toBe(true);
   });
 
-  it('queues a pasted tournament, official or community, finished and in the window (c)', () => {
-    for (const official of [true, false]) {
+  it('refuses a tournament still running, community or official', () => {
+    for (const official of [false, true]) {
       expect(
         qualifyBroadcastTour(
-          candidate({ official, origin: PASTED }),
-          WINDOW,
-          NOW,
-        ).ok,
-      ).toBe(true);
-    }
-  });
-
-  it('refuses a tournament still running, from an organiser or pasted', () => {
-    for (const origin of [candidate().origin, PASTED]) {
-      expect(
-        qualifyBroadcastTour(
-          candidate({ finished: false, origin }),
+          candidate({ finished: false, official, lastRoundAt: AFTER_DUMPS }),
           WINDOW,
           NOW,
         ),
@@ -157,15 +136,13 @@ describe('qualifyBroadcastTour (#349, spec decision 2)', () => {
   });
 
   it('refuses a tournament whose last round is before the window', () => {
-    for (const origin of [candidate().origin, PASTED]) {
-      expect(
-        qualifyBroadcastTour(
-          candidate({ lastRoundAt: BEFORE_WINDOW, origin }),
-          WINDOW,
-          NOW,
-        ),
-      ).toEqual({ ok: false, refusal: { reason: 'fide.tourOutsideWindow' } });
-    }
+    expect(
+      qualifyBroadcastTour(
+        candidate({ lastRoundAt: BEFORE_WINDOW }),
+        WINDOW,
+        NOW,
+      ),
+    ).toEqual({ ok: false, refusal: { reason: 'fide.tourOutsideWindow' } });
   });
 
   it('refuses a finished tournament without a last round date as outside the window', () => {
@@ -209,15 +186,13 @@ describe('qualifyBroadcastTour (#349, spec decision 2)', () => {
   );
 
   it('refuses a last round after now as outside the window (security L2)', () => {
-    for (const origin of [candidate().origin, PASTED]) {
-      expect(
-        qualifyBroadcastTour(
-          candidate({ lastRoundAt: new Date(NOW.getTime() + 1), origin }),
-          WINDOW,
-          NOW,
-        ),
-      ).toEqual({ ok: false, refusal: { reason: 'fide.tourOutsideWindow' } });
-    }
+    expect(
+      qualifyBroadcastTour(
+        candidate({ lastRoundAt: new Date(NOW.getTime() + 1) }),
+        WINDOW,
+        NOW,
+      ),
+    ).toEqual({ ok: false, refusal: { reason: 'fide.tourOutsideWindow' } });
     expect(
       qualifyBroadcastTour(candidate({ lastRoundAt: NOW }), WINDOW, NOW).ok,
     ).toBe(true);

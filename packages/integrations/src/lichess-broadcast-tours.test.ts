@@ -6,7 +6,6 @@ import {
 import {
   LICHESS_BROADCAST_MAX_PAGE,
   lichessBroadcastTour,
-  lichessBroadcastTourOfRound,
   lichessBroadcastsBy,
 } from './lichess-broadcast-tours';
 import {
@@ -21,7 +20,6 @@ import {
 const TOKEN = 'lip_SyntheticToken123';
 const BY_URL = 'https://lichess.org/api/broadcast/by/organiser_1?page=1';
 const TOUR_URL = 'https://lichess.org/api/broadcast/AbCd1234';
-const ROUND_URL = 'https://lichess.org/api/broadcast/-/-/RoUnD567';
 
 const START = Date.UTC(2026, 6, 10, 15);
 const END = Date.UTC(2026, 6, 16, 15);
@@ -385,47 +383,6 @@ describe('lichessBroadcastTour', () => {
       await expect(lichessBroadcastTour(api(fetch), id, never)).rejects.toThrow(
         RangeError,
       );
-      expect(fetch.calls).toEqual([]);
-    },
-  );
-});
-
-describe('lichessBroadcastTourOfRound', () => {
-  it('resolves a round to its tour without trusting slugs', async () => {
-    const fetch = fakeFetch({
-      [ROUND_URL]: json({
-        round: round('RoUnD567', { finishedAt: END }),
-        tour: COMMUNITY_TOUR,
-        study: { writeable: false },
-        games: [],
-        photos: {},
-      }),
-    });
-    await expect(
-      lichessBroadcastTourOfRound(api(fetch), 'RoUnD567', never),
-    ).resolves.toEqual({ ok: true, value: PARSED_COMMUNITY });
-    expect(fetch.calls.map((call) => call.url)).toEqual([ROUND_URL]);
-  });
-
-  it('refuses an answer about another round', async () => {
-    const fetch = fakeFetch({
-      [ROUND_URL]: json({ round: round('OtHeR567', {}), tour: COMMUNITY_TOUR }),
-    });
-    await expect(
-      lichessBroadcastTourOfRound(api(fetch), 'RoUnD567', never),
-    ).resolves.toEqual({
-      ok: false,
-      refusal: { reason: LICHESS_BROADCAST_REFUSALS.invalid },
-    });
-  });
-
-  it.each(['RoUnD56', 'RoUnD/67', '-/-/RoUn'])(
-    'throws for the round id %j before any request',
-    async (id) => {
-      const fetch = fakeFetch({});
-      await expect(
-        lichessBroadcastTourOfRound(api(fetch), id, never),
-      ).rejects.toThrow(RangeError);
       expect(fetch.calls).toEqual([]);
     },
   );

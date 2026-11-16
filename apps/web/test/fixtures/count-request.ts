@@ -1,5 +1,5 @@
 // A fake request counter (src/server/count-request.ts) for the use cases'
-// tests: \`calls\` records each count and answers whether it is allowed or
+// tests: `calls` records each count and answers whether it is allowed or
 // limited, or fails; the counter itself answers as countRateLimited does,
 // a limited request refused with its rule's reason and limit.
 import { vi } from 'vitest';

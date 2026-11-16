@@ -6,7 +6,6 @@ const { client } = useTestDatabase();
 interface TourRow {
   readonly id?: string;
   readonly name?: string;
-  readonly origin?: string;
   readonly organiser?: string | null;
   readonly state?: string;
 }
@@ -15,15 +14,14 @@ interface TourRow {
 const insertTour = ({
   id = 'Ab3dEf7h',
   name = 'Synthetic Open',
-  origin = 'organiser',
   organiser = 'paulauskas',
   state = 'pending',
 }: TourRow = {}) =>
   client.query(
-    `insert into broadcast_tours (tour_id, name, origin, organiser, official,
+    `insert into broadcast_tours (tour_id, name, organiser, official,
        last_round_at, state, attempts)
-     values ($1, $2, $3, $4, false, '2026-03-01T10:00:00Z', $5, 0)`,
-    [id, name, origin, organiser, state],
+     values ($1, $2, $3, false, '2026-03-01T10:00:00Z', $4, 0)`,
+    [id, name, organiser, state],
   );
 
 /** A game row of `source`: a month, a tournament, both or neither. */
@@ -42,27 +40,29 @@ const gameCount = async (): Promise<number> => {
   return rows[0]?.n ?? -1;
 };
 
-describe('the broadcast tours table (#349, spec decision 1)', () => {
-  it("keeps an organiser's and a pasted tournament", async () => {
+describe('the broadcast tours table (#349, spec decision 1; R-201)', () => {
+  it("keeps an organiser's tournament", async () => {
     await insertTour();
-    await insertTour({ id: 'Zx9yW8v7', origin: 'pasted', organiser: null });
     const { rows } = await client.query(
-      'select tour_id, origin, organiser, state from broadcast_tours order by tour_id',
+      'select tour_id, organiser, state from broadcast_tours',
     );
     expect(rows).toEqual([
-      {
-        tour_id: 'Ab3dEf7h',
-        origin: 'organiser',
-        organiser: 'paulauskas',
-        state: 'pending',
-      },
-      {
-        tour_id: 'Zx9yW8v7',
-        origin: 'pasted',
-        organiser: null,
-        state: 'pending',
-      },
+      { tour_id: 'Ab3dEf7h', organiser: 'paulauskas', state: 'pending' },
     ]);
+  });
+
+  it("keeps no origin: every tournament is an organiser's (R-201)", async () => {
+    const { rows } = await client.query(
+      `select column_name from information_schema.columns
+       where table_name = 'broadcast_tours' and column_name = 'origin'`,
+    );
+    expect(rows).toEqual([]);
+  });
+
+  it('refuses a tournament without its organiser', async () => {
+    await expect(insertTour({ organiser: null })).rejects.toThrow(
+      /null value in column "organiser"/,
+    );
   });
 
   it.each(['Ab3dEf7', 'Ab3dEf7hX', 'Ab3d-f7h', "Ab3d'f7h"])(
@@ -80,19 +80,11 @@ describe('the broadcast tours table (#349, spec decision 1)', () => {
     );
   });
 
-  it('refuses an origin that does not exist', async () => {
-    await expect(
-      insertTour({ origin: 'imported', organiser: null }),
-    ).rejects.toThrow(/broadcast_tours_origin_check/);
-  });
-
   it.each([
-    ['an organiser without its account', { organiser: null }],
-    ['a pasted one with an account', { origin: 'pasted' }],
-    ['an account not in lower case', { organiser: 'Paulauskas' }],
-    ['an account that is no Lichess name', { organiser: "x' or 1=1" }],
-  ])('refuses %s', async (_, row) => {
-    await expect(insertTour(row)).rejects.toThrow(
+    ['an account not in lower case', 'Paulauskas'],
+    ['an account that is no Lichess name', "x' or 1=1"],
+  ])('refuses %s', async (_, organiser) => {
+    await expect(insertTour({ organiser })).rejects.toThrow(
       /broadcast_tours_organiser_check/,
     );
   });

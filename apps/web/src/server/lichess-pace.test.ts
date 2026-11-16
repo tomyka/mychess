@@ -104,7 +104,7 @@ describe('the Lichess pacer (#349, spec decision 3)', () => {
     );
     const call = pacer(server);
     const first = call('night', 'a');
-    const next = [call('paste', 'b'), call('download', 'c')];
+    const next = [call('night', 'b'), call('download', 'c')];
     await vi.advanceTimersByTimeAsync(59_999);
     expect((await first).status).toBe(429);
     expect(server.started).toHaveLength(1);
@@ -112,30 +112,22 @@ describe('the Lichess pacer (#349, spec decision 3)', () => {
     await Promise.all(next);
     expect(server.started.map(({ url, at }) => [url, at])).toEqual([
       ['a', 0],
-      ['c', 60_000],
-      ['b', 61_000],
+      ['b', 60_000],
+      ['c', 61_000],
     ]);
   });
 
-  it('sends night and download calls before paste calls (security M1d)', async () => {
+  it('sends the calls of every lane in the order they joined', async () => {
     const server = lichess();
     const call = pacer(server);
     const all = [
       call('night', 'n1'),
-      call('paste', 'p1'),
-      call('paste', 'p2'),
       call('download', 'd1'),
       call('night', 'n2'),
     ];
     await vi.runAllTimersAsync();
     await Promise.all(all);
-    expect(server.started.map(({ url }) => url)).toEqual([
-      'n1',
-      'd1',
-      'n2',
-      'p1',
-      'p2',
-    ]);
+    expect(server.started.map(({ url }) => url)).toEqual(['n1', 'd1', 'n2']);
   });
 
   it('rejects a call aborted while queued at once, without its turn (security M1a)', async () => {
@@ -143,8 +135,8 @@ describe('the Lichess pacer (#349, spec decision 3)', () => {
     const call = pacer(server);
     const controller = new AbortController();
     const first = call('night', 'a');
-    const aborted = call('paste', 'b', { signal: controller.signal });
-    const after = call('paste', 'c');
+    const aborted = call('night', 'b', { signal: controller.signal });
+    const after = call('night', 'c');
     controller.abort(new Error('the user left'));
     await expect(aborted).rejects.toThrow('the user left');
     await vi.runAllTimersAsync();
@@ -184,12 +176,12 @@ describe('the Lichess pacer (#349, spec decision 3)', () => {
     const call = pacer(server);
     await call('night', 'a');
     const controller = new AbortController();
-    const queued = call('paste', 'b', { signal: controller.signal }).catch(
+    const queued = call('night', 'b', { signal: controller.signal }).catch(
       (error: unknown) => error,
     );
     await vi.advanceTimersByTimeAsync(10_000);
-    controller.abort(new Error('the paste gave up'));
-    expect(await queued).toEqual(new Error('the paste gave up'));
+    controller.abort(new Error('the caller gave up'));
+    expect(await queued).toEqual(new Error('the caller gave up'));
     expect(Date.now() - T0).toBe(10_000);
     const after = call('night', 'c');
     await vi.runAllTimersAsync();
@@ -207,7 +199,7 @@ describe('the Lichess pacer (#349, spec decision 3)', () => {
     );
     const call = pacer(server);
     void call('night', 'a');
-    const waited = call('paste', 'b');
+    const waited = call('night', 'b');
     await vi.advanceTimersByTimeAsync(60_000);
     expect(await waited).toBeInstanceOf(Response);
     expect(server.started.map(({ url, at }) => [url, at])).toEqual([
@@ -216,7 +208,7 @@ describe('the Lichess pacer (#349, spec decision 3)', () => {
     ]);
   });
 
-  it.each(['night', 'paste'] as const)(
+  it.each(['night'] as const)(
     'gives a %s call 15 seconds from its turn, whatever its own signal',
     async (lane) => {
       const server = lichess();
@@ -277,7 +269,7 @@ describe('the Lichess pacer (#349, spec decision 3)', () => {
     });
     await paced.fetch('night')('a', { signal: NO_ABORT });
     const own = new AbortController().signal;
-    const second = paced.fetch('paste')('b', { signal: own });
+    const second = paced.fetch('night')('b', { signal: own });
     await vi.runAllTimersAsync();
     await second;
     expect(timeouts).toHaveLength(2);
@@ -332,7 +324,9 @@ describe('the pacer’s abort listeners (security nit)', () => {
     const server = lichess();
     const call = pacer(server);
     const calls = Array.from({ length: 50 }, (_, n) =>
-      call(n % 2 === 0 ? 'night' : 'paste', String(n), { signal: NO_ABORT }),
+      call(n % 2 === 0 ? 'night' : 'download', String(n), {
+        signal: NO_ABORT,
+      }),
     );
     expect(listeners(NO_ABORT)).toBe(0);
     await vi.runAllTimersAsync();
@@ -350,8 +344,8 @@ describe('the pacer’s abort listeners (security nit)', () => {
     const all = [
       call('night', 'a'),
       call('night', 'b', { signal: sent.signal }),
-      call('paste', 'c', { signal: aborted.signal }).catch(() => undefined),
-      call('paste', 'd', { signal: early.signal }).catch(() => undefined),
+      call('night', 'c', { signal: aborted.signal }).catch(() => undefined),
+      call('night', 'd', { signal: early.signal }).catch(() => undefined),
     ];
     expect(listeners(sent.signal)).toBe(1);
     expect(listeners(aborted.signal)).toBe(1);

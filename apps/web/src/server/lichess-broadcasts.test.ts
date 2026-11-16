@@ -1,18 +1,17 @@
-import { broadcastTourIdSchema, parseBroadcastLink } from '@mychess/domain';
+import { broadcastTourIdSchema } from '@mychess/domain';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   FAKE_LICHESS_TOKEN,
   fakeLichessApi,
   pgnPath,
   tourDetailJson,
-  tourJson,
   toursPageJson,
   tourPgn,
   type FakeAnswer,
   type FakeTour,
 } from '../../test/fixtures/lichess-broadcast-api';
 import { withDownloadLimits } from './broadcast-limits';
-import { createLichessBroadcasts, PASTE_WAIT_MS } from './lichess-broadcasts';
+import { createLichessBroadcasts } from './lichess-broadcasts';
 
 const T0 = Date.UTC(2026, 10, 16, 3);
 const TOUR_ID = broadcastTourIdSchema.parse('VilOpn26');
@@ -147,91 +146,6 @@ describe('the Lichess broadcast gateway (#349)', () => {
       [BLOCKED, 0],
       [TOUR_ID, 60_000],
     ]);
-  });
-
-  describe('a pasted link', () => {
-    const roundLink = parseBroadcastLink(
-      'https://lichess.org/broadcast/vilnius-open-2026/round-2/RoundAA2',
-    );
-    const tourLink = parseBroadcastLink(
-      'https://lichess.org/broadcast/vilnius-open-2026/VilOpn26',
-    );
-    if (!roundLink.ok || !tourLink.ok) throw new Error('fixture links');
-
-    it('resolves a round to its tournament and describes it', async () => {
-      const { broadcasts, sent } = gateway({
-        '-/-/RoundAA2': [
-          { json: { round: { id: 'RoundAA2' }, tour: tourJson(TOUR) } },
-        ],
-        [TOUR_ID]: [{ json: tourDetailJson(TOUR) }],
-      });
-      const detail = broadcasts.pastedTour(roundLink.value);
-      await vi.runAllTimersAsync();
-      expect((await detail).ok && (await detail).ok).toBe(true);
-      expect(sent).toEqual([
-        ['-/-/RoundAA2', 0],
-        [TOUR_ID, 1000],
-      ]);
-    });
-
-    it('describes a tournament link at once', async () => {
-      const { broadcasts, sent } = gateway({
-        [TOUR_ID]: [{ json: tourDetailJson(TOUR) }],
-      });
-      expect((await broadcasts.pastedTour(tourLink.value)).ok).toBe(true);
-      expect(sent).toEqual([[TOUR_ID, 0]]);
-    });
-
-    it('answers not found for a round Lichess does not know, asking nothing more', async () => {
-      const { broadcasts, sent } = gateway({});
-      expect(await broadcasts.pastedTour(roundLink.value)).toEqual({
-        ok: false,
-        refusal: { reason: 'lichessBroadcast.notFound' },
-      });
-      expect(sent).toHaveLength(1);
-    });
-
-    it('goes after every night and download call waiting (security M1d)', async () => {
-      const { broadcasts, sent } = gateway({
-        'by/kesnor7?page=1': [{ json: toursPageJson([], null) }],
-        [TOUR_ID]: [{ json: tourDetailJson(TOUR) }],
-        [pgnPath(TOUR_ID)]: [{ text: PGN }],
-      });
-      // The first call is sent at once; the rest queue behind it.
-      const first = broadcasts.organiserPage('kesnor7', 1);
-      const pasted = broadcasts.pastedTour(tourLink.value);
-      const night = broadcasts.tour(TOUR_ID);
-      const download = withDownloadLimits(
-        { deadlineMs: 600_000, idleMs: 600_000 },
-        async (signal, idle) => {
-          const opened = await broadcasts.openPgn(TOUR_ID, { signal, idle });
-          if (opened.ok) await opened.value[Symbol.asyncDispose]();
-        },
-      );
-      await vi.advanceTimersByTimeAsync(3000);
-      await Promise.all([first, pasted, night, download]);
-      expect(sent).toEqual([
-        ['by/kesnor7?page=1', 0],
-        [TOUR_ID, 1000],
-        [pgnPath(TOUR_ID), 2000],
-        [TOUR_ID, 3000],
-      ]);
-    });
-
-    it('waits at most 30 seconds in all, then answers unavailable unsent (architect L)', async () => {
-      expect(PASTE_WAIT_MS).toBe(30_000);
-      const { broadcasts, sent, pause } = gateway({
-        [TOUR_ID]: [{ json: tourDetailJson(TOUR) }],
-      });
-      await pause();
-      const pasted = broadcasts.pastedTour(tourLink.value);
-      await vi.advanceTimersByTimeAsync(30_000);
-      expect(await pasted).toEqual({
-        ok: false,
-        refusal: { reason: 'lichessBroadcast.unavailable' },
-      });
-      expect(sent).toEqual([[BLOCKED, 0]]);
-    });
   });
 
   describe('a tournament’s PGN', () => {

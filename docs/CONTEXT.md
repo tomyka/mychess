@@ -194,7 +194,7 @@ The part of a Broadcast game's Lichess opening name before the first colon ("Sic
 One monthly Lichess broadcast dump, indexed nightly while among the 12 newest, or when a search needs it first (R-184, R-195). Its state is pending, processing, done or failed.
 
 **Broadcast tournament**:
-One Lichess broadcast event (a "tour" in Lichess's API and in code), fetched once when finished and indexed beside the Broadcast months. It reaches the index from an Approved organiser's list or a pasted link (R-196, R-197). Its state is pending, processing, done or failed, as a month's.
+One Lichess broadcast event (a "tour" in Lichess's API and in code), fetched once when finished and indexed beside the Broadcast months. It reaches the index only from an Approved organiser's nightly list (R-196, R-201). Its state is pending, processing, done or failed, as a month's.
 _Avoid_: event (for the indexed unit)
 
 **Approved organiser**:

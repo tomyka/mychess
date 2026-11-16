@@ -10,7 +10,6 @@ import {
   BROADCAST_RESULTS,
   BROADCAST_TEXT_MAX,
   BROADCAST_TOUR_ID_PATTERN,
-  BROADCAST_TOUR_ORIGINS,
   LICHESS_GAME_URL,
 } from '@mychess/domain';
 import { sql } from 'drizzle-orm';
@@ -98,18 +97,17 @@ const ORGANISER_PATTERN = '^[a-z0-9_-]{2,30}$';
 
 /**
  * A Lichess broadcast tournament the index fetches once, when finished
- * (#349, spec decision 1): from an approved organiser's list, or pasted by
- * a user, who is not kept. Its last round decides whether a search covers
- * it (spec decision 2).
+ * (#349, spec decision 1), from an approved organiser's list: the only way
+ * in since pasting a link was removed (R-201). Its last round decides
+ * whether a search covers it (spec decision 2).
  */
 export const broadcastTours = pgTable(
   'broadcast_tours',
   {
     tourId: text('tour_id').primaryKey(),
     name: text('name').notNull(),
-    origin: text('origin', { enum: BROADCAST_TOUR_ORIGINS }).notNull(),
-    /** The approved organiser whose list it came from; null when pasted. */
-    organiser: text('organiser'),
+    /** The approved organiser whose list it came from. */
+    organiser: text('organiser').notNull(),
     official: boolean('official').notNull(),
     lastRoundAt: at('last_round_at').notNull(),
     ...indexStateColumns(),
@@ -125,12 +123,8 @@ export const broadcastTours = pgTable(
       sql`char_length(${t.name}) between 1 and ${sql.raw(String(BROADCAST_TEXT_MAX))}`,
     ),
     check(
-      'broadcast_tours_origin_check',
-      oneOf(t.origin, BROADCAST_TOUR_ORIGINS),
-    ),
-    check(
       'broadcast_tours_organiser_check',
-      sql`(${t.origin} = 'organiser') = (${t.organiser} is not null) and (${t.organiser} is null or ${matches(t.organiser, ORGANISER_PATTERN)})`,
+      matches(t.organiser, ORGANISER_PATTERN),
     ),
     ...indexStateChecks('broadcast_tours', t),
   ],

@@ -9,11 +9,9 @@
  *   download two at once (arch F3);
  * - the Lichess broadcast gateway (lichess-broadcasts.ts), one per process,
  *   so every call keeps to the one pace; only with a Lichess token;
- * - the community broadcasts (the night and the queue of pasted
- *   tournaments), only with a token;
+ * - the community broadcasts' night, only with a token;
  * - the in-memory caches of what Lichess publishes;
- * - the use cases: start and poll a search, add a pasted link, and the
- *   nightly upkeep.
+ * - the use cases: start and poll a search, and the nightly upkeep.
  *
  * The set is kept on `globalThis` (mychessFideServices), not in a module
  * variable, so a module loaded twice (dev hot reload, or two server
@@ -29,10 +27,6 @@ import {
   type CommunityBroadcasts,
 } from './broadcast-community';
 import { broadcastFetch } from './broadcast-fixture-fetch';
-import {
-  createAddBroadcastLink,
-  type AddBroadcastLink,
-} from './broadcast-link';
 import { createPreindex, type Preindex } from './broadcast-preindex';
 import {
   createBroadcastRunner,
@@ -48,7 +42,6 @@ import { createLichessBroadcasts } from './lichess-broadcasts';
 /** The use cases of Opponent's games. */
 export interface FideServices {
   readonly search: FideSearch;
-  readonly addBroadcastLink: AddBroadcastLink;
   readonly preindex: Preindex;
 }
 
@@ -128,14 +121,6 @@ export function composeFideServices(
   const months = () => sources.months();
   const services: FideServices = {
     search: createFideSearch({ store, runner, sources, secret: deps.secret }),
-    addBroadcastLink: createAddBroadcastLink({
-      count: store.count,
-      months,
-      paste:
-        broadcasts === null || community === null
-          ? null
-          : { broadcasts, add: (tour) => community.add(tour) },
-    }),
     preindex: createPreindex({
       months,
       monthStatuses: store.monthStatuses,

@@ -192,9 +192,8 @@ than many small ones. Either refusal is a 429 with
 `training.tooManyResults`, and the browser keeps its queue to resend later.
 A body declared over 256 KB is refused unread with a 413.
 
-The per-inbox magic-link limit, the PGN import's, the training limits and
-the pasted broadcast links (10 an account a day, #349) are our own counters,
-in the `request_counters` table, keyed by a SHA-256 hash of the inbox or by
+The per-inbox magic-link limit, the PGN import's and the training limits
+are our own counters, in the `request_counters` table, keyed by a SHA-256 hash of the inbox or by
 the account id. The hash is unsalted, so a guessed
 address can be matched to its row; rows last at most an hour (the prune below). They are not in `rate_limits`: Better Auth
 deletes its rows older than its own longest window (a minute) whenever one of
@@ -206,8 +205,7 @@ Both tables grow: `rate_limits` with every new client address, and
 build`) deletes the rows that can no longer decide a request: `rate_limits`
 rows whose last request is older than `BETTER_AUTH_RETENTION_MS` (a minute)
 and `request_counters` rows whose window opened longer ago than
-`REQUEST_COUNTER_RETENTION_MS` (an hour; a day for the `broadcast-link:`
-rows, `BROADCAST_LINK_COUNTER_RETENTION`), both in
+`REQUEST_COUNTER_RETENTION_MS` (an hour), both in
 `packages/db/src/rate-limits.ts`. It prints `rate-limits: pruned <n>`, the
 two tables together. Deleting them changes no limit decision. It needs only
 `DATABASE_URL`. In production the same prune runs daily at 03:00 UTC from
@@ -241,8 +239,9 @@ to a second VNIC (`enp1s0`, 10.0.0.233), kept answering by
   `production`, used only by deploys (R-165). What keeps a fork's code off
   it: no workflow a pull request can start asks for that label, and the
   repository requires approval of workflow runs for all external
-  contributors. The runner itself refuses nothing yet (follow-up: a
-  job-started hook that accepts only this repository's `main`). It must stay the only one:
+  contributors. The runner itself refuses every other job (#353, "The
+  runner's job-started hook" below), and the `production` environment
+  deploys only from `main`. It must stay the only one:
   it runs one job at a time, which is what keeps two deploys, or a deploy
   and a rollback, from interleaving.
 
@@ -413,6 +412,107 @@ same button with an empty SHA is how a changed host setting
 By hand on the host, from the runner's checkout:
 `sudo /opt/actions-runner/_work/mychess/mychess/infra/ci/deploy-production.sh <tag>`.
 
+### The runner's job-started hook (#353)
+
+The runner can reach root on the VM, and a workflow file chooses its
+runner: a fork's pull request could edit `quality.yml` to ask for
+`[self-hosted, production]`. So the runner runs
+`/usr/local/bin/mychess-runner-job-started.sh` (`infra/host/runner-job-started.sh`)
+before every job, through `ACTIONS_RUNNER_HOOK_JOB_STARTED` in
+`/opt/actions-runner/.env`, and the job fails before its first step unless:
+
+- `GITHUB_REPOSITORY` is `tomyka/mychess`;
+- `GITHUB_EVENT_NAME` is `push` or `workflow_dispatch`;
+- `GITHUB_REF` is `refs/heads/main`;
+- `GITHUB_WORKFLOW_REF` is `tomyka/mychess/.github/workflows/ci.yml` or
+  `deploy-production.yml`, at `refs/heads/main`.
+
+These are the only jobs that use the label: ci.yml's `deploy`, `verdict` and
+`deploy-after-tests` (push to main, or a dispatch on main) and the deploy
+button's `deploy` (dispatch on main), rollback included. No schedule or
+`workflow_run` deploys. A new workflow on the VM, or a new trigger for one
+of these, needs this hook changed first. The job log's "Set up job" shows
+`job-started hook: allowed, ...` or `refused, <what>`.
+
+`install-runner.sh` installs it; on a runner already registered,
+`sudo bash /tmp/mychess-host/install-runner-hook.sh` installs or updates it
+and restarts the runner, and changes nothing while a job runs (a deploy).
+Checking it by hand on the VM, without a job:
+
+```sh
+sudo -u runner env GITHUB_REPOSITORY=tomyka/mychess GITHUB_EVENT_NAME=pull_request \
+  GITHUB_REF=refs/pull/1/merge GITHUB_WORKFLOW_REF=tomyka/mychess/.github/workflows/quality.yml@refs/pull/1/merge \
+  /usr/local/bin/mychess-runner-job-started.sh; echo "exit $?"   # refused, exit 1
+```
+
+End to end, once after installing it and before relying on a deploy: a
+throwaway branch whose workflow asks for this runner and tries to pass as
+main's ci.yml. GitHub does not let a workflow's `env:` replace its
+`GITHUB_*` variables; this proves the hook sees the real ones. From a clean
+checkout of `main` on the laptop:
+
+```sh
+git switch -c hook-probe origin/main
+mkdir -p .github/workflows
+cat > .github/workflows/hook-probe.yml <<'EOF'
+name: hook-probe
+# Throwaway (#353): the production runner's hook must refuse this. Never merged.
+on:
+  push:
+    branches: [hook-probe]
+permissions: {}
+env:
+  GITHUB_EVENT_NAME: push
+  GITHUB_REF: refs/heads/main
+  GITHUB_WORKFLOW_REF: tomyka/mychess/.github/workflows/ci.yml@refs/heads/main
+jobs:
+  probe:
+    runs-on: [self-hosted, production]
+    timeout-minutes: 5
+    env:
+      GITHUB_EVENT_NAME: push
+      GITHUB_REF: refs/heads/main
+      GITHUB_WORKFLOW_REF: tomyka/mychess/.github/workflows/ci.yml@refs/heads/main
+    steps:
+      - run: echo should-not-run
+EOF
+git add .github/workflows/hook-probe.yml
+git commit -m "probe: the production runner's job-started hook (#353), never merged"
+git push origin hook-probe
+```
+
+It runs on the push, not on a dispatch: `workflow_dispatch` only starts a
+workflow that is also on the default branch, and this one must never be.
+The push also starts `ci.yml` on GitHub's runners (its production jobs are
+skipped off main); cancel that run if wanted. Then:
+
+```sh
+gh run list --branch hook-probe --workflow hook-probe.yml   # the run's id, failed
+gh run view <id> --log | grep -e 'job-started hook' -e should-not-run
+```
+
+Expected: one line, `job-started hook: refused, ref 'refs/heads/hook-probe'`
+(in "Set up job"), and no `should-not-run` output: the step never ran. Any
+other result (allowed, or the echo ran) means the hook does not guard the
+runner: take the runner offline (`cd /opt/actions-runner && sudo ./svc.sh
+stop`) and report it. Clean up:
+
+```sh
+git push origin --delete hook-probe
+git switch main && git branch -D hook-probe
+```
+
+Taking it out (only if it wrongly refuses a deploy):
+`sudo sed -i '/^ACTIONS_RUNNER_HOOK_JOB_STARTED=/d' /opt/actions-runner/.env`,
+then `cd /opt/actions-runner && sudo ./svc.sh stop && sudo ./svc.sh start`.
+
+The `production` environment (Settings > Environments) also allows only the
+`main` branch to deploy (a deployment branch policy). That covers only the
+jobs with `environment: production` (ci.yml's `deploy` and
+`deploy-after-tests`, the deploy button's `deploy`); ci.yml's `verdict` job
+has none, so the policy does not cover it. The hook is the real guard; the
+policy is a second one for the jobs it covers.
+
 ### Setting up the VM, in order
 
 Host steps (lead, with the owner's yes for each change to the host):
@@ -439,8 +539,8 @@ Host steps (lead, with the owner's yes for each change to the host):
    Lichess token" below).
 6. Runner: a registration token piped into
    `install-runner.sh <version> <sha256>` (it also writes the sudoers rule
-   for exactly the deploy script), then `install-runner-watchdog.sh
-   production` with an Actions-read token.
+   for exactly the deploy script and installs the job-started hook), then
+   `install-runner-watchdog.sh production` with an Actions-read token.
 7. Backups: `set-backup-par.sh` with the PAR URL (enables the nightly
    timer), `set-alert-email.sh` with the owner's address (enables the
    watch), then `sudo mychess-backup-alert --test`.
@@ -654,8 +754,8 @@ apps/web/e2e/support/broadcast-fixture.ts` (rerun after changing the games
 there; `fide-search.spec.ts` fails while the committed files differ). The
 E2E journey resets those months to pending in its own database before it
 searches. The same directory answers the Lichess broadcast API (#349):
-`by-<account>-<page>.json`, `tour-<tourId>.json`, `round-<roundId>.json`
-and `tour-<tourId>.pgn`, invented tournaments in those months, made by
+`by-<account>-<page>.json`, `tour-<tourId>.json` and `tour-<tourId>.pgn`,
+invented tournaments in those months, made by
 `node apps/web/e2e/support/broadcast-api-fixture.ts` and then
 `pnpm exec prettier --write apps/web/e2e/fixtures/broadcast/*.json`
 (`community-broadcasts.spec.ts` fails while the committed files differ);
@@ -678,8 +778,10 @@ dump months to now), and:
   `kesnor7`, `paulauskas`; the list is `APPROVED_BROADCAST_ORGANISERS` in
   `packages/domain`, changed only by a reviewed code change the owner
   approves, never on the VM): every community tournament, and an official
-  one only once its last round is past the newest dump month; or
-- a signed-in user pasted its link (R-197), official or community.
+  one only once its last round is past the newest dump month.
+
+Users cannot add a tournament: pasting a broadcast link was removed
+(R-201); an admin list of organisers is #361.
 
 **The night.** The nightly route (above) also starts the community night,
 in the web process, unawaited: each organiser's list is read page by page
@@ -692,21 +794,6 @@ queue a second apart; a 429 pauses all of them for a minute, and a second
 429 ends the listing for the night. Its log lines, in the web container:
 `fide: organiser listing stopped for the night on a second 429`, and
 `fide: community broadcasts night failed` with an error name.
-
-**A pasted link** ("Add a Lichess broadcast" on `/fide`). Only
-`https://lichess.org/broadcast/...` links to a tournament or a round (a
-game link names its round). Each account may paste 10 links a day,
-refused ones counted except a link that is no Lichess broadcast link. What
-the user sees, by catalogue key: `fide.broadcastAdded` (queued now; its
-games appear in searches once fetched),
-`fide.broadcastKnown` (queued already, by a paste or an organiser's list),
-`fide.broadcastLinkInvalid`, `fide.tourNotFound` (Lichess has no public
-broadcast there), `fide.tourNotFinished` (paste it again once its last
-round is over), `fide.tourOutsideWindow`, `fide.tooManyBroadcastLinks`,
-and `fide.broadcastLinkUnavailable` (no token, the month list unreadable,
-Lichess down or refusing the token, or the paste waited 30 s behind the
-night's calls). The page does not say when a tournament's games are
-fetched; its row's state does. Who pasted a link is not kept.
 
 **In a search** a tournament's games show beside the months' with the same
 Lichess credit and game links (R-198). When a community and an official
@@ -724,8 +811,8 @@ sudo docker exec -i mychess-production-postgres-1 psql -U mychess -d mychess -c 
 
 The retry rules are the months' (above). A tournament reset to pending
 (`update broadcast_tours set state = 'pending', attempts = 0, failed_at =
-null where tour_id = '<id>'`) is fetched again by the next night, not by
-a paste of its link, which answers "already added". Do not delete a row:
+null where tour_id = '<id>'`) is fetched again by the next night. Do not
+delete a row:
 its games cascade with it.
 
 ### The Lichess token (community broadcasts, #349)
@@ -733,10 +820,9 @@ its games cascade with it.
 `LICHESS_TOKEN` is the owner's personal Lichess token, with the
 `study:read` scope only, kept only in the VM's `.env` (R-199). The web
 process sends it to the Lichess broadcast API alone, never to the browser:
-the nightly listing of the approved organisers' tournaments (R-200) and the
-tournaments a user pastes a link to. It is optional: without it the
-community broadcasts are off (no organiser listing, a pasted link is
-refused) and the month index works as before. The app refuses to start with
+the nightly listing of the approved organisers' tournaments (R-200) and
+their downloads. It is optional: without it the community broadcasts are
+off (no organiser listing) and the month index works as before. The app refuses to start with
 a token not of the form `[A-Za-z0-9_]{1,256}`; `set-secret.sh` refuses
 anything but `lip_` followed by those characters, so a wrong paste never
 reaches a deploy.

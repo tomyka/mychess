@@ -1,8 +1,7 @@
 /**
  * Lichess broadcast tournaments (#349, spec "Findings"): an organiser's
- * tournaments page by page (`/api/broadcast/by/{account}`), one tournament
- * with its rounds (`/api/broadcast/{tourId}`), and the tournament of a
- * pasted round link (`/api/broadcast/-/-/{roundId}`). "Account" (a Lichess
+ * tournaments page by page (`/api/broadcast/by/{account}`) and one
+ * tournament with its rounds (`/api/broadcast/{tourId}`). "Account" (a Lichess
  * user) and "tour" (a broadcast tournament) are Lichess's own words. Which
  * tournaments qualify is the domain's decision; this module only reports
  * what Lichess says, parsed.
@@ -184,11 +183,6 @@ const tourDetailSchema = z
     finished: rounds.length > 0 && rounds.every((round) => round.finished),
   }));
 
-const roundAnswerSchema = z.object(
-  { round: z.object({ id: broadcastIdSchema }, INVALID), tour: tourSchema },
-  INVALID,
-);
-
 /**
  * Page `page` (1 to LICHESS_BROADCAST_MAX_PAGE) of the public tournaments
  * of `account`, 24 a page, newest first; the caller stops paging once
@@ -236,27 +230,4 @@ export async function lichessBroadcastTour(
     INVALID,
   );
   return lichessJson(api, `${BROADCAST_API_URL}/${tourId}`, schema, signal);
-}
-
-/**
- * The tournament of round `roundId`, as a pasted round link names it; the
- * link's slugs are not sent, since Lichess reads only the round ID.
- * `invalid` when Lichess answers about another round. Throws for a
- * `roundId` that is no Lichess broadcast ID.
- */
-export async function lichessBroadcastTourOfRound(
-  api: LichessApi,
-  roundId: string,
-  signal: AbortSignal,
-): Promise<LichessBroadcastResult<LichessBroadcastTour>> {
-  checkBroadcastId(roundId, 'round id');
-  const schema = roundAnswerSchema
-    .refine((answer) => answer.round.id === roundId, INVALID)
-    .transform((answer) => answer.tour);
-  return lichessJson(
-    api,
-    `${BROADCAST_API_URL}/-/-/${roundId}`,
-    schema,
-    signal,
-  );
 }

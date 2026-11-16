@@ -149,17 +149,3 @@ export const FIDE_SEARCH_RATE_LIMIT = {
  */
 export const fideSearchRateKey = (accountId: string): string =>
   `fide-search:${accountId}`;
-
-/**
- * Broadcast links an account may paste a day (#349, spec decision 4): a
- * fixed window of 24 hours from the first link counted, not a calendar day.
- */
-export const BROADCAST_LINK_RATE_LIMIT = {
-  windowMs: 24 * 60 * 60_000,
-  max: 10,
-  reason: 'fide.tooManyBroadcastLinks',
-} as const satisfies RateRule;
-
-/** The one counter of an account's pasted broadcast links. */
-export const broadcastLinkRateKey = (accountId: string): string =>
-  `broadcast-link:${accountId}`;

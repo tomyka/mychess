@@ -15,7 +15,6 @@ vi.mock('@mychess/db', () => ({ FOUND_GAMES_LIMIT: 1000 }));
 vi.mock('./actions', () => ({
   startFideSearchAction: vi.fn(),
   pollFideSearchAction: vi.fn(),
-  addBroadcastLinkAction: vi.fn(),
 }));
 
 const en = MESSAGES.en.fide;
@@ -25,7 +24,7 @@ beforeEach(() => {
 });
 
 describe('the FIDE ID search page', () => {
-  it('signs in first, then shows the title, the way home, what it does, the field and the broadcast link form', async () => {
+  it('signs in first, then shows the title, the way home, what it does, and the field, and no broadcast link form (R-201)', async () => {
     render(
       <NextIntlClientProvider locale="en" messages={MESSAGES.en}>
         {await FidePage()}
@@ -40,13 +39,16 @@ describe('the FIDE ID search page', () => {
     ).toBe('/');
     expect(screen.getByText(en.intro)).toBeDefined();
     expect(screen.getByLabelText(en.idLabel)).toBeDefined();
+    // Pasting a Lichess broadcast link was removed (R-201, #360).
     expect(
-      screen.getByRole('heading', { level: 2, name: en.addTitle }),
-    ).toBeDefined();
-    expect(screen.getByLabelText(en.linkLabel)).toBeDefined();
+      screen.queryByRole('heading', { name: 'Add a Lichess broadcast' }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole('textbox', { name: /broadcast link/i }),
+    ).toBeNull();
     expect(
       screen.getAllByRole('status').map((status) => status.textContent),
-    ).toEqual(['', '']);
+    ).toEqual(['']);
   });
 
   it('does not render for an account the session refuses', async () => {

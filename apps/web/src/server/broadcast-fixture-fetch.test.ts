@@ -82,7 +82,6 @@ describe('the broadcast fetch', () => {
 
     it.each([
       [`${API}/by/paulauskas?page=2`, 'by-paulauskas-2.json'],
-      [`${API}/-/-/SynRnd01`, 'round-SynRnd01.json'],
       [`${API}/SynTour1`, 'tour-SynTour1.json'],
       [`${API}/SynTour1.pgn?clocks=false&comments=false`, 'tour-SynTour1.pgn'],
     ])('serves the broadcast API’s %s from %s', async (url, file) => {
@@ -100,6 +99,8 @@ describe('the broadcast fetch', () => {
     });
 
     it.each([
+      // A round link's tournament: only a pasted link asked (R-201, #360).
+      `${API}/-/-/SynRnd01`,
       `${API}/by/paulauskas?page=1`,
       `${API}/SynTour2`,
       `${API}/by/paulauskas?page=0`,

@@ -2,16 +2,15 @@
  * The pace of this process's Lichess broadcast API requests (#349, spec
  * "Findings" and decision 3; architect M1, security M1): one at a time,
  * each started at least a second after the one before, and none for a
- * minute after a 429, whoever made the request that got it. The nightly
- * listing, the runner and pasted links all go through the one pacer
- * (fide-services.ts), each in its lane:
+ * minute after a 429, whoever made the request that got it. The private
+ * implementation of the Lichess broadcast gateway (lichess-broadcasts.ts),
+ * which alone uses it; its calls go in the order they join, each in its
+ * lane:
  *
  * - `night`: the organiser listing and a tournament's detail;
- * - `download`: a tournament's PGN, bounded by the runner's own limits;
- * - `paste`: a pasted link's requests, sent only when no night or
- *   download call waits, so pastes can never starve the night.
+ * - `download`: a tournament's PGN, bounded by the runner's own limits.
  *
- * A `night` or `paste` call gets LICHESS_PACE.requestMs from its turn, not
+ * A `night` call gets LICHESS_PACE.requestMs from its turn, not
  * from when it joined the queue. A call whose signal aborts while it waits,
  * a 429 pause included, leaves the queue and is rejected at that moment,
  * without a turn. A request waits for the one before
@@ -26,12 +25,12 @@ export const LICHESS_PACE = {
   gapMs: 1000,
   /** How long Lichess asks to be left alone after a 429. */
   pauseMs: 60_000,
-  /** How long a `night` or `paste` call may take from its turn. */
+  /** How long a `night` call may take from its turn. */
   requestMs: 15_000,
 } as const;
 
-/** Who is asking; `paste` goes last. */
-export type LichessLane = 'night' | 'download' | 'paste';
+/** Who is asking: a call that is timed, or a download the runner bounds. */
+export type LichessLane = 'night' | 'download';
 
 /**
  * A signal that never aborts, for a call bounded by its lane alone: the
@@ -74,13 +73,11 @@ interface Call {
 const TIMED: Readonly<Record<LichessLane, boolean>> = {
   night: true,
   download: false,
-  paste: true,
 };
 
 /** A pacer over `fetch`, its queue empty. */
 export function createLichessPacer(fetch: Fetch, deps: PaceDeps): LichessPacer {
-  const first: Call[] = [];
-  const last: Call[] = [];
+  const queue: Call[] = [];
   let nextStart = Number.NEGATIVE_INFINITY;
   let pumping = false;
   const timeout = deps.timeout ?? ((ms: number) => AbortSignal.timeout(ms));
@@ -111,12 +108,11 @@ export function createLichessPacer(fetch: Fetch, deps: PaceDeps): LichessPacer {
     pumping = true;
     try {
       for (;;) {
-        rejectAborted(first);
-        rejectAborted(last);
+        rejectAborted(queue);
         const wait = nextStart - deps.clock();
-        if (first.length + last.length === 0) return;
+        if (queue.length === 0) return;
         // After the wait the queue is looked at afresh: a call may have
-        // aborted, or a night call joined ahead of a paste.
+        // aborted.
         if (wait > 0) await deps.sleep(wait);
         else await sendNext();
       }
@@ -126,14 +122,13 @@ export function createLichessPacer(fetch: Fetch, deps: PaceDeps): LichessPacer {
   };
 
   const sendNext = async (): Promise<void> => {
-    const call = first.shift() ?? last.shift();
+    const call = queue.shift();
     if (call !== undefined) await send(call);
   };
 
   return {
     fetch: (lane, onTurn) => (url, init) =>
       new Promise<Response>((resolve, reject) => {
-        const queue = lane === 'paste' ? last : first;
         join(queue, { lane, url, init, resolve, reject, onTurn });
         pump().catch(() => undefined);
       }),

@@ -10,7 +10,7 @@ import {
   type BroadcastMonth,
   type BroadcastRoundId,
   type BroadcastTourId,
-  type BroadcastTourOrigin,
+  type ApprovedOrganiser,
   type BroadcastWindow,
   type FideId,
   type QueuedBroadcastTour,
@@ -86,7 +86,7 @@ export const queuedTour = (
     readonly name?: string;
     readonly official?: boolean;
     readonly lastRoundAt?: Date;
-    readonly origin?: BroadcastTourOrigin;
+    readonly organiser?: ApprovedOrganiser;
   } = {},
 ): QueuedBroadcastTour => {
   const qualified = qualifyBroadcastTour(
@@ -96,7 +96,7 @@ export const queuedTour = (
       official: false,
       finished: true,
       lastRoundAt: new Date('2026-10-20T10:00:00Z'),
-      origin: { kind: 'organiser', organiser: 'paulauskas' },
+      organiser: 'paulauskas',
       ...overrides,
     },
     QUEUE_WINDOW,

@@ -1,7 +1,7 @@
 // A synthetic Lichess broadcast API (#349) for the component suite: the
-// answers of `/api/broadcast/by/{account}`, `/api/broadcast/{tourId}`,
-// `/api/broadcast/-/-/{roundId}` and the tour PGN, served by a fake fetch,
-// so no test reaches the network. Names, ids and FIDE IDs are invented.
+// answers of `/api/broadcast/by/{account}`, `/api/broadcast/{tourId}` and
+// the tour PGN, served by a fake fetch, so no test reaches the network.
+// Names, ids and FIDE IDs are invented.
 import type { Fetch } from '@mychess/integrations';
 
 /** The token the fakes expect; any other request answers 401. */
@@ -24,7 +24,7 @@ export interface FakeTour {
 const instant = (day: string): number => Date.parse(`${day}T09:00:00Z`);
 
 /** A tour as Lichess's JSON gives it. */
-export function tourJson(tour: FakeTour): Record<string, unknown> {
+function tourJson(tour: FakeTour): Record<string, unknown> {
   return {
     id: tour.id,
     name: tour.name,

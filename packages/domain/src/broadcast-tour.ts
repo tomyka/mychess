@@ -5,10 +5,10 @@
  * 2). A tournament is indexed as a month is: pending, processing, done or
  * failed (BroadcastMonthStatus and its decide functions).
  *
- * A tournament still running is refused, not stored: an organiser's is
- * listed again every night and queued the night after it finishes; a
- * pasted one is refused with fide.tourNotFinished, so the user pastes it
- * again once it has finished (spec decision 4).
+ * Tournaments reach the index only through the organisers' nightly listing
+ * (R-201, which removed pasting a link). A tournament still running is
+ * refused, not stored: it is listed again every night and queued the night
+ * after it finishes.
  */
 import { ok, refuse, type Result } from '@mychess/chess';
 import { z } from 'zod';
@@ -37,10 +37,11 @@ export const APPROVED_BROADCAST_ORGANISERS = [
 export type ApprovedOrganiser = (typeof APPROVED_BROADCAST_ORGANISERS)[number];
 
 /**
- * The tournament refusals. notFinished, outsideWindow and inDumps answer a
- * pasted link, so they are message-catalogue keys. claimLost and
- * notClaimable are internal codes, not catalogue keys: only the background
- * runner meets them, and logs them, as the month's claim refusals.
+ * The tournament refusals: internal codes, not message-catalogue keys.
+ * Since R-201 no user asks for a tournament; only the nightly listing
+ * (notFinished, outsideWindow, inDumps) and the background runner
+ * (claimLost, notClaimable) meet them, and log them, as the month's claim
+ * refusals.
  */
 export const BROADCAST_TOUR_REFUSALS = {
   notFinished: 'fide.tourNotFinished',
@@ -82,9 +83,8 @@ const broadcastIdRegex = new RegExp(BROADCAST_TOUR_ID_PATTERN);
 
 /**
  * The issue messages of the two ids are internal codes, not catalogue
- * keys: a user's link is refused by parseBroadcastLink
- * (fide.broadcastLinkInvalid) before any id is parsed, and the ids Lichess
- * sends are parsed by the integrations.
+ * keys: no user gives an id (R-201), and the ids Lichess sends are parsed
+ * by the integrations.
  */
 export const broadcastTourIdSchema = z
   .string()
@@ -107,14 +107,6 @@ export function approvedOrganiser(account: string): ApprovedOrganiser | null {
   return APPROVED_BROADCAST_ORGANISERS.find((name) => name === lower) ?? null;
 }
 
-/** The kinds of BroadcastTourOrigin, which the database's check shares. */
-export const BROADCAST_TOUR_ORIGINS = ['organiser', 'pasted'] as const;
-
-/** How a tournament reached the index: an organiser's list, or a pasted link. */
-export type BroadcastTourOrigin =
-  | { readonly kind: 'organiser'; readonly organiser: ApprovedOrganiser }
-  | { readonly kind: 'pasted' };
-
 /** What Lichess says of a tournament, as qualifyBroadcastTour reads it. */
 export interface BroadcastTourCandidate {
   readonly id: string;
@@ -125,7 +117,8 @@ export interface BroadcastTourCandidate {
   readonly finished: boolean;
   /** The start of its last round (Lichess's last date); null for none. */
   readonly lastRoundAt: Date | null;
-  readonly origin: BroadcastTourOrigin;
+  /** The approved organiser whose list it came from (R-201). */
+  readonly organiser: ApprovedOrganiser;
 }
 
 /**
@@ -140,14 +133,6 @@ const tourNameSchema = z
   .max(BROADCAST_TEXT_MAX, BROADCAST_GAME_ISSUE)
   .refine((text) => !/[\p{Cc}\p{Cf}]/u.test(text), BROADCAST_GAME_ISSUE);
 
-const originSchema = z.discriminatedUnion('kind', [
-  z.object({
-    kind: z.literal('organiser'),
-    organiser: z.enum(APPROVED_BROADCAST_ORGANISERS),
-  }),
-  z.object({ kind: z.literal('pasted') }),
-]);
-
 /**
  * The fields of a tournament to queue, unbranded: what the database checks
  * again where it writes one. Parsing with it makes no QueuedBroadcastTour.
@@ -157,7 +142,7 @@ export const broadcastTourFieldsSchema = z.object({
   name: tourNameSchema,
   official: z.boolean(),
   lastRoundAt: z.date(),
-  origin: originSchema,
+  organiser: z.enum(APPROVED_BROADCAST_ORGANISERS),
 });
 
 /**
@@ -186,11 +171,10 @@ export const nextBroadcastTourAction: (
 /**
  * Whether the index fetches `tour`, with the search covering `window`
  * (spec decision 2): only a finished tournament whose last round is in the
- * window; an organiser's official one only once its last round is past
- * the newest dump month, as the dumps hold it otherwise; a pasted one,
- * official or community, whenever it is finished and in the window. The
- * window ends at `now`: a last round dated later is outside it (security
- * L2). Throws for an id or name the caller should have parsed.
+ * window, and an official one only once its last round is past the newest
+ * dump month, as the dumps hold it otherwise. The window ends at `now`: a
+ * last round dated later is outside it (security L2). Throws for an id or
+ * name the caller should have parsed.
  */
 export function qualifyBroadcastTour(
   tour: BroadcastTourCandidate,
@@ -206,11 +190,7 @@ export function qualifyBroadcastTour(
   ) {
     return refuse(BROADCAST_TOUR_REFUSALS.outsideWindow);
   }
-  if (
-    tour.origin.kind === 'organiser' &&
-    tour.official &&
-    !isAfterBroadcastDumps(lastRoundAt, window)
-  ) {
+  if (tour.official && !isAfterBroadcastDumps(lastRoundAt, window)) {
     return refuse(BROADCAST_TOUR_REFUSALS.inDumps);
   }
   return ok(
@@ -219,7 +199,7 @@ export function qualifyBroadcastTour(
       name: tour.name,
       official: tour.official,
       lastRoundAt,
-      origin: tour.origin,
+      organiser: tour.organiser,
     }),
   );
 }

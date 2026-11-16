@@ -71,11 +71,11 @@ async function statusOf(id = ID) {
 
 async function tourRow(id = ID) {
   const { rows } = await client.query<{
-    origin: string;
-    organiser: string | null;
+    name: string;
+    organiser: string;
     game_count: number | null;
   }>(
-    'select origin, organiser, game_count from broadcast_tours where tour_id = $1',
+    'select name, organiser, game_count from broadcast_tours where tour_id = $1',
     [id],
   );
   return rows[0];
@@ -94,7 +94,7 @@ describe('queueBroadcastTour (#349, spec decision 1)', () => {
   it("queues an organiser's tournament pending, keeping its organiser", async () => {
     expect(await queueBroadcastTour(db, queuedTour(ID))).toBe(true);
     expect(await tourRow()).toEqual({
-      origin: 'organiser',
+      name: 'Synthetic Open',
       organiser: 'paulauskas',
       game_count: null,
     });
@@ -105,28 +105,21 @@ describe('queueBroadcastTour (#349, spec decision 1)', () => {
     });
   });
 
-  it('queues a pasted tournament without anyone who pasted it', async () => {
-    await queueBroadcastTour(
-      db,
-      queuedTour(ID, { origin: { kind: 'pasted' } }),
-    );
-    expect(await tourRow()).toEqual({
-      origin: 'pasted',
-      organiser: null,
-      game_count: null,
-    });
-  });
-
-  it('leaves a tournament already queued as it is, whatever its state', async () => {
+  it('leaves a tournament already queued as it is, whatever its state, even from another organiser', async () => {
     await queueBroadcastTour(db, queuedTour(ID));
     await claimed();
     expect(
       await queueBroadcastTour(
         db,
-        queuedTour(ID, { origin: { kind: 'pasted' }, name: 'Other' }),
+        queuedTour(ID, { organiser: 'kesnor7', name: 'Other' }),
       ),
     ).toBe(false);
-    expect((await tourRow())?.origin).toBe('organiser');
+    expect(await tourRow()).toEqual(
+      expect.objectContaining({
+        name: 'Synthetic Open',
+        organiser: 'paulauskas',
+      }),
+    );
     expect((await statusOf())?.state).toBe('processing');
   });
 });

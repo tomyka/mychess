@@ -222,7 +222,7 @@ describe('the services composed (#349, arch C3)', () => {
     expect(used).toEqual(['count', 'monthStatuses', 'games']);
   });
 
-  it('without a Lichess token: no tournaments for the runner, no community night, no pasted links', async () => {
+  it('without a Lichess token: no tournaments for the runner, no community night', async () => {
     const { fetch, requested } = lichess();
     const { store, used } = fakeStore();
     const composed = composeFideServices({
@@ -238,14 +238,7 @@ describe('the services composed (#349, arch C3)', () => {
     expect(await composed.services.preindex(NOW)).toMatchObject({
       community: 'off',
     });
-    expect(
-      await composed.services.addBroadcastLink(
-        'rokas',
-        'https://lichess.org/broadcast/x/AbCd1234',
-        NOW,
-      ),
-    ).toEqual({ kind: 'refused', refusal: 'fide.broadcastLinkUnavailable' });
-    expect(used).not.toContain('count');
+    expect(used).toEqual(['monthStatuses']);
     expect(requested).toEqual([]);
   });
 

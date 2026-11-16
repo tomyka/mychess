@@ -5,7 +5,6 @@ import type { JSX } from 'react';
 import { ROUTES } from '../../lib/routes';
 import { requireOnboarded } from '../../server/session';
 import { TEXT_LINK } from '../nustatymai/styles';
-import { BroadcastLinkForm } from './broadcast-link-form';
 import { FideSearch } from './fide-search';
 
 function Header(): JSX.Element {
@@ -24,8 +23,7 @@ function Header(): JSX.Element {
 /**
  * The FIDE ID search (#316): any signed-in account (R-186) lists a
  * player's Lichess broadcast games of the last 12 months, to prepare for
- * them (R-171), and adds a Lichess broadcast by its link (#349, R-197).
- * Next serves it with `Referrer-Policy: no-referrer` (next.config.ts).
+ * them (R-171). Next serves it with `Referrer-Policy: no-referrer` (next.config.ts).
  */
 export default async function FidePage(): Promise<JSX.Element> {
   await requireOnboarded();
@@ -33,7 +31,6 @@ export default async function FidePage(): Promise<JSX.Element> {
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-gutter py-8 sm:px-gutter-wide">
       <Header />
       <FideSearch truncatedLimit={FOUND_GAMES_LIMIT} />
-      <BroadcastLinkForm />
     </main>
   );
 }

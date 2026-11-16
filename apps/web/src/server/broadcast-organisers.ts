@@ -144,10 +144,7 @@ async function queueQualifying(
   tours: readonly LichessListedTour[],
 ): Promise<void> {
   for (const listed of tours) {
-    const candidate = tourCandidate(listed.tour, listed.finished, {
-      kind: 'organiser',
-      organiser,
-    });
+    const candidate = tourCandidate(listed.tour, listed.finished, organiser);
     const qualified = qualifyBroadcastTour(candidate, night.window, night.now);
     if (qualified.ok && (await night.deps.queue(qualified.value))) {
       night.queued += 1;

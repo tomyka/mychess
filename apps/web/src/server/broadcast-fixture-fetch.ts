@@ -10,7 +10,7 @@
  * maps only those exact URLs to files: the month list to `list.txt`, a
  * month's dump to `lichess_db_broadcast_<YYYY-MM>.pgn.zst`, and the
  * Lichess broadcast API's answers (#349) to `by-<account>-<page>.json`,
- * `tour-<tourId>.json`, `round-<roundId>.json` and `tour-<tourId>.pgn`.
+ * `tour-<tourId>.json` and `tour-<tourId>.pgn`.
  * An API request without a bearer token answers 401, as Lichess's would
  * for the study:read calls; anything else, the FIDE player endpoint
  * included, answers 404.
@@ -40,11 +40,10 @@ const BROADCAST_API = 'https://lichess.org/api/broadcast/';
 /**
  * The API paths the clients request, after BROADCAST_API, each with the
  * file it maps to, named from its captured ids: an account's page, a
- * round's tournament, a tournament's PGN and a tournament.
+ * tournament's PGN and a tournament.
  */
 const API_FILES: readonly (readonly [RegExp, string, string])[] = [
   [/^by\/([A-Za-z0-9_-]{2,30})\?page=([1-9][0-9]?)$/, 'by-', '.json'],
-  [/^-\/-\/([A-Za-z0-9]{8})$/, 'round-', '.json'],
   [/^([A-Za-z0-9]{8})\.pgn\?clocks=false&comments=false$/, 'tour-', '.pgn'],
   [/^([A-Za-z0-9]{8})$/, 'tour-', '.json'],
 ];

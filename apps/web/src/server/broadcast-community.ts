@@ -1,7 +1,8 @@
 /**
  * The community broadcast side of the index (#349), one per process
  * (fide-services.ts), present only with a Lichess token: the nightly run
- * (spec decision 3) and the adding of a pasted tournament (decision 4).
+ * (spec decision 3). Tournaments reach the index only through it: pasting
+ * a link was removed (R-201, #360).
  *
  * A night lists the approved organisers (broadcast-organisers.ts), then
  * hands the runner every queued tournament in the window the domain says
@@ -33,8 +34,6 @@ export interface CommunityBroadcastsDeps {
 export interface CommunityBroadcasts {
   /** Starts tonight's run, unawaited, unless one is running already. */
   nightly(window: BroadcastWindow, now: Date): 'started' | 'running';
-  /** Queues `tour` and, when it was new, hands it to the runner. */
-  add(tour: QueuedBroadcastTour): Promise<boolean>;
   /** Resolves once no night is running. */
   settled(): Promise<void>;
 }
@@ -50,11 +49,6 @@ export function createCommunityBroadcasts(
         night = undefined;
       });
       return 'started';
-    },
-    async add(tour) {
-      const added = await deps.queue(tour);
-      if (added) deps.runner.needTours([tour.id]);
-      return added;
     },
     settled: () => night ?? Promise.resolve(),
   };

@@ -138,3 +138,73 @@ describe('migration 0017 resets the months stored done without games (#357)', ()
     );
   });
 });
+
+describe('migration 0018 keeps only organiser tournaments (#360, R-201)', () => {
+  const migration = (): string =>
+    readFileSync(
+      join(MIGRATIONS_FOLDER, '0018_broadcast_tours_organiser_only.sql'),
+      'utf8',
+    );
+
+  /**
+   * Runs `body` on one connection inside a transaction rolled back after
+   * it, with broadcast_tours as it was before 0018: an origin column and
+   * an organiser that pasted tournaments left null.
+   */
+  async function beforeMigration(
+    body: (query: (text: string) => Promise<unknown>) => Promise<void>,
+  ): Promise<void> {
+    const connection = await client.connect();
+    const query = (text: string) => connection.query(text);
+    try {
+      await query('begin');
+      await query(`alter table broadcast_tours
+        drop constraint broadcast_tours_organiser_check,
+        alter column organiser drop not null,
+        add column origin text not null default 'organiser',
+        add constraint broadcast_tours_origin_check
+          check (origin in ('organiser', 'pasted')),
+        add constraint broadcast_tours_organiser_check
+          check ((origin = 'organiser') = (organiser is not null))`);
+      await query(`insert into broadcast_tours (tour_id, name, organiser,
+          official, last_round_at, state, attempts)
+        values ('Org00001', 'Synthetic Open', 'paulauskas', false,
+          '2026-10-20T10:00:00Z', 'pending', 0)`);
+      await body(query);
+    } finally {
+      await query('rollback');
+      connection.release();
+    }
+  }
+
+  it('drops the origin and keeps every organiser tournament', async () => {
+    await beforeMigration(async (query) => {
+      await query(migration());
+      const columns = await query(
+        `select column_name from information_schema.columns
+         where table_name = 'broadcast_tours' and column_name = 'origin'`,
+      );
+      const tours = await query(
+        'select tour_id, organiser from broadcast_tours',
+      );
+      expect(columns).toEqual(expect.objectContaining({ rows: [] }));
+      expect(tours).toEqual(
+        expect.objectContaining({
+          rows: [{ tour_id: 'Org00001', organiser: 'paulauskas' }],
+        }),
+      );
+    });
+  });
+
+  it('stops with an error before any change when a pasted tournament exists', async () => {
+    await beforeMigration(async (query) => {
+      await query(`insert into broadcast_tours (tour_id, name, origin,
+          organiser, official, last_round_at, state, attempts)
+        values ('Pst00001', 'Synthetic Open', 'pasted', null, false,
+          '2026-10-20T10:00:00Z', 'pending', 0)`);
+      await expect(query(migration())).rejects.toThrow(
+        /holds a pasted tournament/,
+      );
+    });
+  });
+});

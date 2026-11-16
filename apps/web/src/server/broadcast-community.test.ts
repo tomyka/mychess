@@ -2,7 +2,6 @@ import type { BroadcastTourEntry } from '@mychess/db';
 import {
   broadcastMonthSchema,
   broadcastTourIdSchema,
-  qualifyBroadcastTour,
   type BroadcastTourStatus,
   type BroadcastWindow,
   type QueuedBroadcastTour,
@@ -33,23 +32,6 @@ const entry = (
   lastRoundAt: new Date('2026-10-05T09:00:00Z'),
   status,
 });
-
-const PASTED = (() => {
-  const qualified = qualifyBroadcastTour(
-    {
-      id: 'Pasted01',
-      name: 'Pasted Open',
-      official: false,
-      finished: true,
-      lastRoundAt: new Date('2026-10-05T09:00:00Z'),
-      origin: { kind: 'pasted' },
-    },
-    WINDOW,
-    NOW,
-  );
-  if (!qualified.ok) throw new Error('the fixture tour does not qualify');
-  return qualified.value;
-})();
 
 const deps = {
   queue: vi.fn<(tour: QueuedBroadcastTour) => Promise<boolean>>(),
@@ -122,19 +104,5 @@ describe('the community broadcasts (#349)', () => {
       'TypeError',
     );
     expect(broadcasts.nightly(WINDOW, NOW)).toBe('started');
-  });
-
-  it('queue an added tour and hand it to the runner when it is new', async () => {
-    const broadcasts = community();
-    expect(await broadcasts.add(PASTED)).toBe(true);
-    expect(deps.queue).toHaveBeenCalledExactlyOnceWith(PASTED);
-    expect(deps.needTours).toHaveBeenCalledExactlyOnceWith(['Pasted01']);
-  });
-
-  it('leave a tour already queued to the index as it is', async () => {
-    deps.queue.mockResolvedValue(false);
-    const broadcasts = community();
-    expect(await broadcasts.add(PASTED)).toBe(false);
-    expect(deps.needTours).not.toHaveBeenCalled();
   });
 });

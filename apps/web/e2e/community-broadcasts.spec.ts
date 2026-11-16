@@ -4,14 +4,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import {
   ORGANISER_PLAYER_FIDE_ID,
   ORGANISER_TOUR,
-  PASTED_PLAYER_FIDE_ID,
-  PASTED_TOUR,
-  RUNNING_TOUR,
   apiFixtureFiles,
   organiserGames,
-  pastedGames,
-  roundLink,
-  tourLink,
 } from './support/broadcast-api-fixture';
 import { fixtureTourStates, removeFixtureTours } from './support/broadcast-db';
 import {
@@ -28,14 +22,11 @@ import {
   resultOf,
   search,
 } from './support/fide-page';
-import {
-  CATALOGUES,
-  format,
-  newOnboardedAccount,
-  test,
-} from './support/journey';
+import { newOnboardedAccount, test } from './support/journey';
 
-// Community broadcasts in Opponent's games (#349, R-196 to R-200): the app
+// Community broadcasts in Opponent's games (#349, R-196, R-198 to R-201):
+// tournaments reach the index only through the nightly organiser listing;
+// pasting a link was removed (R-201, #360). The app
 // asks the Lichess broadcast API through its fixture fetch, which answers
 // from the committed files of e2e/support/broadcast-api-fixture.ts, with a
 // synthetic token (support/community-env.ts). What the component suite
@@ -43,21 +34,8 @@ import {
 // checks through the page and the running app: its env, the pacer and the
 // runner of one server process, and the nightly route over HTTP.
 
-const { en } = CATALOGUES;
-
 /** The runner fetches a tournament a second or two after it is queued. */
 const TOUR_FETCHED_MS = 30_000;
-
-/** Pastes `link` into "Add a Lichess broadcast". */
-async function paste(page: Page, link: string): Promise<void> {
-  await page.getByLabel(en.fide.linkLabel).fill(link);
-  await page.getByRole('button', { name: en.fide.addSubmit }).click();
-}
-
-/** The "Add a Lichess broadcast" section. */
-function addSection(page: Page): Locator {
-  return page.getByRole('region', { name: en.fide.addTitle });
-}
 
 /** Searches `id` and waits for both fixture months to be ready. */
 async function searchReady(page: Page, id: number): Promise<Locator> {
@@ -85,68 +63,6 @@ test('the committed Lichess broadcast API fixtures are the ones broadcast-api-fi
       expect(committed.equals(bytes), name).toBe(true);
     }
   }
-});
-
-test('a player pastes a Lichess broadcast round link, sees it added, and once it is fetched finds its games by FIDE ID with the Lichess credit', async ({
-  page,
-  request,
-}) => {
-  await newOnboardedAccount(page, request, 'Dovile');
-  await page.goto('/fide');
-  const section = addSection(page);
-  const field = page.getByLabel(en.fide.linkLabel);
-
-  // Refused links keep the field, marked, with the reason.
-  for (const [link, refusal] of [
-    [
-      'https://example.com/broadcast/synthetic-club-rapid/SynPst01',
-      en.fide.broadcastLinkInvalid,
-    ],
-    [
-      'https://lichess.org/broadcast/no-such-broadcast/SynNone1',
-      en.fide.tourNotFound,
-    ],
-    [roundLink(RUNNING_TOUR, 'SynRR001'), en.fide.tourNotFinished],
-  ] as const) {
-    await paste(page, link);
-    await expect(section.getByText(refusal)).toBeVisible();
-    await expect(field).toHaveAttribute('aria-invalid', 'true');
-    await expect(field).toHaveValue(link);
-  }
-
-  await paste(page, roundLink(PASTED_TOUR, 'SynPR002'));
-  await expect(
-    section.getByText(
-      format(en.fide.broadcastAdded, { name: PASTED_TOUR.name }),
-    ),
-  ).toBeVisible();
-  // The field empties once the link is added, its refusal mark gone.
-  await expect(field).toHaveValue('');
-  await expect(field).not.toHaveAttribute('aria-invalid', 'true');
-
-  // The tournament's own link names the same one: added already.
-  await paste(page, tourLink(PASTED_TOUR));
-  await expect(
-    section.getByText(
-      format(en.fide.broadcastKnown, { name: PASTED_TOUR.name }),
-    ),
-  ).toBeVisible();
-
-  // Only the pasted, finished tournament was queued, and the runner
-  // fetched it.
-  await expect
-    .poll(fixtureTourStates, { timeout: TOUR_FETCHED_MS })
-    .toEqual({ [PASTED_TOUR.id]: 'done' });
-
-  const result = await searchReady(page, PASTED_PLAYER_FIDE_ID);
-  const games = pastedGames();
-  await expect(result.getByRole('listitem')).toHaveCount(games.length);
-  for (const game of games) {
-    const item = gameItem(result, game.url);
-    await expect(item).toHaveCount(1);
-    await expectGame(item, game);
-  }
-  await expectCredit(result);
 });
 
 test("an approved organiser's community tournament, found by the nightly route, shows in a search, and its copy of an official game shows once", async ({

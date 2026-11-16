@@ -2,8 +2,7 @@
 // (#349): with the fixture directory set (broadcast-fixture.ts says when the
 // app uses it), the app's fixture fetch
 // (src/server/broadcast-fixture-fetch.ts) serves `by-<account>-<page>.json`,
-// `tour-<tourId>.json`, `round-<roundId>.json` and `tour-<tourId>.pgn` from
-// e2e/fixtures/broadcast, beside the month dumps. Every name, id and FIDE ID
+// `tour-<tourId>.json` and `tour-<tourId>.pgn` from e2e/fixtures/broadcast, beside the month dumps. Every name, id and FIDE ID
 // is invented; the tournaments are dated in the fixture's months (2001), so
 // they are in the window those months make and never meet a real one.
 //
@@ -50,24 +49,11 @@ interface Game {
   readonly moves: string;
 }
 
-/** The player whose games come from a pasted tournament alone. */
-export const PASTED_PLAYER_FIDE_ID = 90_000_301;
-
 /**
  * The player of the month dumps' third game (broadcast-fixture.ts,
  * Wint0003), whose games an organiser's community tournament repeats.
  */
 export const ORGANISER_PLAYER_FIDE_ID = 90_000_201;
-
-/** A finished community tournament no organiser lists: added by its link. */
-export const PASTED_TOUR: Tour = {
-  id: 'SynPst01',
-  name: 'Synthetic Club Rapid',
-  slug: 'synthetic-club-rapid',
-  official: false,
-  dates: ['2001-02-10', '2001-02-11'],
-  rounds: ['SynPR001', 'SynPR002'],
-};
 
 /** An organiser's finished community tournament: the night queues it. */
 export const ORGANISER_TOUR: Tour = {
@@ -92,8 +78,11 @@ const OFFICIAL_TOUR: Tour = {
   rounds: ['SynOF001'],
 };
 
-/** A community tournament with a round still to play: a paste is refused. */
-export const RUNNING_TOUR: Tour = {
+/**
+ * The organiser's community tournament with a round still to play: the
+ * night leaves it until it has finished, so Lichess is not asked about it.
+ */
+const RUNNING_TOUR: Tour = {
   id: 'SynRun01',
   name: 'Synthetic Running Cup',
   slug: 'synthetic-running-cup',
@@ -105,40 +94,10 @@ export const RUNNING_TOUR: Tour = {
 
 /** Every fixture tournament the index may queue, for the journeys' reset. */
 export const FIXTURE_TOUR_IDS = [
-  PASTED_TOUR.id,
   ORGANISER_TOUR.id,
   OFFICIAL_TOUR.id,
   RUNNING_TOUR.id,
 ] as const;
-
-const PASTED_GAMES: readonly Game[] = [
-  {
-    roundId: 'SynPR001',
-    gameId: 'SynPG001',
-    white: 'Klubietis, Darius',
-    black: 'Greitas, Matas',
-    whiteFideId: PASTED_PLAYER_FIDE_ID,
-    blackFideId: 90_000_302,
-    date: '2001-02-10',
-    result: '1-0',
-    eco: 'B20',
-    opening: 'Sicilian Defense',
-    moves: '1. e4 c5',
-  },
-  {
-    roundId: 'SynPR002',
-    gameId: 'SynPG002',
-    white: 'Lentele, Rasa',
-    black: 'Klubietis, Darius',
-    whiteFideId: 90_000_303,
-    blackFideId: PASTED_PLAYER_FIDE_ID,
-    date: '2001-02-11',
-    result: '1/2-1/2',
-    eco: 'A45',
-    opening: 'Indian Defense',
-    moves: '1. d4 Nf6',
-  },
-];
 
 const ORGANISER_GAMES: readonly Game[] = [
   // The community copy of the 2001-02 dump's Wint0003: another link, the
@@ -217,17 +176,6 @@ function tourGameUrl(tour: Tour, game: Game): string {
   return `https://lichess.org/broadcast/${tour.slug}/round-${String(round)}/${game.roundId}/${game.gameId}`;
 }
 
-/** A round's link, as a user copies it from Lichess. */
-export function roundLink(tour: Tour, roundId: string): string {
-  const round = tour.rounds.indexOf(roundId) + 1;
-  return `https://lichess.org/broadcast/${tour.slug}/round-${String(round)}/${roundId}`;
-}
-
-/** A tournament's link, as a user copies it from Lichess. */
-export function tourLink(tour: Tour): string {
-  return `https://lichess.org/broadcast/${tour.slug}/${tour.id}`;
-}
-
 /** `GET /api/broadcast/{tourId}.pgn`: every game with its headers. */
 function tourPgn(tour: Tour, games: readonly Game[]): string {
   return games
@@ -264,8 +212,8 @@ const page = (tours: readonly Tour[]): Uint8Array =>
 
 /**
  * The API's fixture files by name: each organiser's first page (only
- * `paulauskas` lists tournaments), the tournaments Lichess is asked about,
- * the rounds pasted, and the PGN of each finished tournament fetched.
+ * `paulauskas` lists tournaments), and the detail and PGN of the one
+ * tournament the night queues and the runner fetches.
  */
 export function apiFixtureFiles(): ReadonlyMap<string, Uint8Array> {
   const listed: Record<(typeof ORGANISERS)[number], readonly Tour[]> = {
@@ -277,21 +225,9 @@ export function apiFixtureFiles(): ReadonlyMap<string, Uint8Array> {
   for (const organiser of ORGANISERS) {
     files.set(`by-${organiser}-1.json`, page(listed[organiser]));
   }
-  for (const tour of [PASTED_TOUR, ORGANISER_TOUR, RUNNING_TOUR]) {
-    files.set(`tour-${tour.id}.json`, json(tourDetailJson(tour)));
-  }
-  for (const [tour, roundId] of [
-    [PASTED_TOUR, 'SynPR002'],
-    [RUNNING_TOUR, 'SynRR001'],
-  ] as const) {
-    files.set(
-      `round-${roundId}.json`,
-      json({ round: { id: roundId }, tour: tourJson(tour) }),
-    );
-  }
   files.set(
-    `tour-${PASTED_TOUR.id}.pgn`,
-    Buffer.from(tourPgn(PASTED_TOUR, PASTED_GAMES), 'utf8'),
+    `tour-${ORGANISER_TOUR.id}.json`,
+    json(tourDetailJson(ORGANISER_TOUR)),
   );
   files.set(
     `tour-${ORGANISER_TOUR.id}.pgn`,
@@ -330,13 +266,6 @@ function asSeenBy(fideId: number, tour: Tour, game: Game): CommunityGame {
     opening: `${game.eco} ${game.opening}`,
     url: tourGameUrl(tour, game),
   };
-}
-
-/** The pasted tournament's games of PASTED_PLAYER_FIDE_ID, newest first. */
-export function pastedGames(): CommunityGame[] {
-  return PASTED_GAMES.map((game) =>
-    asSeenBy(PASTED_PLAYER_FIDE_ID, PASTED_TOUR, game),
-  ).sort((a, b) => b.date.localeCompare(a.date));
 }
 
 /**

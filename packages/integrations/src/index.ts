@@ -30,7 +30,6 @@ export {
   LICHESS_BROADCAST_MAX_PAGE,
   lichessBroadcastsBy,
   lichessBroadcastTour,
-  lichessBroadcastTourOfRound,
   type LichessBroadcastPage,
   type LichessBroadcastRound,
   type LichessBroadcastTour,

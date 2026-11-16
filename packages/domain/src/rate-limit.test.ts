@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BROADCAST_LINK_RATE_LIMIT,
   FIDE_SEARCH_RATE_LIMIT,
   IMPORT_RATE_LIMIT,
   MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
   TRAINING_RATE_LIMIT,
   TRAINING_RESULTS_RATE_LIMIT,
-  broadcastLinkRateKey,
   countRequest,
   fideSearchRateKey,
   importRateKey,
@@ -229,42 +227,5 @@ describe('FIDE_SEARCH_RATE_LIMIT (#316, spec decision 6)', () => {
   it('counts each account under its own key', () => {
     expect(fideSearchRateKey('a')).toBe('fide-search:a');
     expect(fideSearchRateKey('b')).not.toBe(fideSearchRateKey('a'));
-  });
-});
-
-describe('BROADCAST_LINK_RATE_LIMIT (#349, spec decision 4)', () => {
-  it('allows 10 pasted links a day per account', () => {
-    expect(BROADCAST_LINK_RATE_LIMIT).toEqual({
-      windowMs: 24 * 60 * 60_000,
-      max: 10,
-      reason: 'fide.tooManyBroadcastLinks',
-    });
-  });
-
-  it('refuses the eleventh link of a day and allows one a day after the first', () => {
-    const start = 1_000_000;
-    let counter: RateCounter | undefined;
-    for (let n = 0; n < 10; n += 1) {
-      const counted = countRequest(
-        counter,
-        BROADCAST_LINK_RATE_LIMIT,
-        start + n,
-      );
-      if (!counted.ok) throw new Error('refused under the limit');
-      counter = counted.value;
-    }
-    const later = start + BROADCAST_LINK_RATE_LIMIT.windowMs;
-    expect(countRequest(counter, BROADCAST_LINK_RATE_LIMIT, later - 1).ok).toBe(
-      false,
-    );
-    expect(countRequest(counter, BROADCAST_LINK_RATE_LIMIT, later).ok).toBe(
-      true,
-    );
-  });
-
-  it('counts each account under its own key, apart from its searches', () => {
-    expect(broadcastLinkRateKey('a')).toBe('broadcast-link:a');
-    expect(broadcastLinkRateKey('b')).not.toBe(broadcastLinkRateKey('a'));
-    expect(broadcastLinkRateKey('a')).not.toBe(fideSearchRateKey('a'));
   });
 });

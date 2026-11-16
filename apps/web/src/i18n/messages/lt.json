@@ -795,21 +795,6 @@
     "asBlack": "Juodaisiais",
     "unknownOpening": "Nežinomas debiutas",
     "groupSummary": "{count, plural, one {# partija} few {# partijos} other {# partijų}} · laimėjo {win}, lygiosios {draw}, pralaimėjo {loss}{unknown, plural, =0 {} other { · nebaigta #}}",
-    "credit": "Partijos iš <broadcasts>Lichess transliacijų</broadcasts> · <licence>CC BY-SA 4.0</licence>",
-    "addTitle": "Pridėti Lichess transliaciją",
-    "addIntro": "Trūksta pasibaigusio turnyro? Įklijuokite jo Lichess transliacijos arba vieno iš jo turų nuorodą.",
-    "linkLabel": "Lichess transliacijos nuoroda",
-    "linkHint": "Nuoroda, prasidedanti https://lichess.org/broadcast/",
-    "addSubmit": "Pridėti",
-    "adding": "Pridedama…",
-    "broadcastAdded": "Turnyras „{name}“ pridėtas. Jo partijos atsiras paieškoje, kai bus atsiųstos.",
-    "broadcastKnown": "Turnyras „{name}“ jau pridėtas.",
-    "broadcastLinkInvalid": "Tai ne Lichess transliacijos nuoroda. Įklijuokite nuorodą, prasidedančią https://lichess.org/broadcast/.",
-    "broadcastLinkUnavailable": "Šiuo metu transliacijų pridėti negalima. Bandykite vėliau.",
-    "tooManyBroadcastLinks": "Per daug nuorodų: ne daugiau kaip {limit} per dieną. Bandykite rytoj.",
-    "tourNotFound": "Lichess neturi transliacijos šia nuoroda.",
-    "tourNotFinished": "Šis turnyras dar nesibaigė. Pridėkite jį, kai pasibaigs paskutinis turas.",
-    "tourOutsideWindow": "Šis turnyras nepatenka į 12 paieškos mėnesių.",
-    "tourInDumps": "Šio turnyro partijos jau yra Lichess transliacijų duomenų bazėje."
+    "credit": "Partijos iš <broadcasts>Lichess transliacijų</broadcasts> · <licence>CC BY-SA 4.0</licence>"
   }
 }

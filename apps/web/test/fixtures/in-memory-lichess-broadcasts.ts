@@ -1,5 +1,5 @@
 // An in-memory adapter at the Lichess broadcast gateway's seam (#349):
-// the runner, night and paste tests ask it as they ask the real gateway
+// the runner and night tests ask it as they ask the real gateway
 // (src/server/lichess-broadcasts.ts), with no fetch, pacer or clock behind
 // it. Its world is a few tournaments, each organiser's pages, and answers
 // scripted per call. Every call is recorded by name.
@@ -13,12 +13,7 @@ import {
   type LichessBroadcastTour,
   type LichessBroadcastTourDetail,
 } from '@mychess/integrations';
-import {
-  ok,
-  refuse,
-  type ApprovedOrganiser,
-  type BroadcastLink,
-} from '@mychess/domain';
+import { ok, refuse, type ApprovedOrganiser } from '@mychess/domain';
 import type { LichessBroadcasts } from '../../src/server/lichess-broadcasts';
 import {
   tourPgn,
@@ -43,8 +38,8 @@ export interface InMemoryWorld {
     Record<ApprovedOrganiser, readonly (readonly FakeTour[])[]>
   >;
   /**
-   * Answers by call name (\`page kesnor7 1\`, \`tour VilOpn26\`, \`pasted
-   * RoundAA2\`, \`pgn VilOpn26\`), given in turn, the last again after.
+   * Answers by call name (`page kesnor7 1`, `tour VilOpn26`,
+   * `pgn VilOpn26`), given in turn, the last again after.
    */
   readonly script?: Readonly<Record<string, readonly Scripted[]>>;
 }
@@ -56,7 +51,7 @@ export interface InMemoryLichessBroadcasts extends LichessBroadcasts {
 
 const instant = (day: string): Date => new Date(`${day}T09:00:00Z`);
 
-/** \`tour\` as the gateway gives it. */
+/** `tour` as the gateway gives it. */
 function lichessTour(tour: FakeTour): LichessBroadcastTour {
   const start = tour.dates?.[0];
   const end = tour.dates?.[1];
@@ -76,7 +71,7 @@ function lichessTour(tour: FakeTour): LichessBroadcastTour {
 const finished = (tour: FakeTour): boolean =>
   tour.rounds.every((round) => !(tour.running ?? []).includes(round));
 
-/** \`tour\` with its rounds, as the gateway gives it. */
+/** `tour` with its rounds, as the gateway gives it. */
 function lichessTourDetail(tour: FakeTour): LichessBroadcastTourDetail {
   return {
     tour: lichessTour(tour),
@@ -95,7 +90,7 @@ function lichessTourDetail(tour: FakeTour): LichessBroadcastTourDetail {
 
 const NOT_FOUND = LICHESS_BROADCAST_REFUSALS.notFound;
 
-/** An in-memory gateway over \`world\`. */
+/** An in-memory gateway over `world`. */
 export function inMemoryLichessBroadcasts(
   world: InMemoryWorld = {},
 ): InMemoryLichessBroadcasts {
@@ -135,13 +130,6 @@ export function inMemoryLichessBroadcasts(
         ok(organiserPageOf(world, organiser, page)),
       ),
     tour: (tourId) => answer(`tour ${tourId}`, undefined, () => detail(tourId)),
-    pastedTour: (link) => {
-      const id = link.kind === 'tour' ? link.tourId : link.roundId;
-      return answer(`pasted ${id}`, undefined, () => {
-        const owner = pastedOwner(world, link);
-        return owner === undefined ? refuse(NOT_FOUND) : detail(owner);
-      });
-    },
     openPgn: (tourId, { signal, idle }) => {
       // Sent at once: no queue in memory.
       idle.arm();
@@ -169,16 +157,6 @@ function organiserPageOf(
     })),
     nextPage: page < pages.length ? page + 1 : null,
   };
-}
-
-/** The id of the tournament `link` names in `world`, a round's by its rounds. */
-function pastedOwner(
-  world: InMemoryWorld,
-  link: BroadcastLink,
-): string | undefined {
-  if (link.kind === 'tour') return link.tourId;
-  return world.tours?.find(({ tour }) => tour.rounds.includes(link.roundId))
-    ?.tour.id;
 }
 
 /** An answer that never comes, but fails with the abort of `signal`. */

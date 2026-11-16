@@ -8,7 +8,6 @@ import {
   broadcastMonths,
   lichessBroadcastsBy,
   lichessBroadcastTour,
-  lichessBroadcastTourOfRound,
   lichessFidePlayer,
   openBroadcastDump,
   openLichessBroadcastPgn,
@@ -47,7 +46,7 @@ describe.runIf(enabled)('Lichess contract', () => {
   }, 15_000);
 });
 
-// The broadcast API needs a `study:read` token (R-199); these four requests
+// The broadcast API needs a `study:read` token (R-199); these three requests
 // run only when MYCHESS_LICHESS_TOKEN holds one as well. Keep the token off
 // the command line (shell history): put it in the gitignored env file
 // `apps/web/.env.local` and load it with Node's --env-file, from the root:
@@ -55,7 +54,7 @@ describe.runIf(enabled)('Lichess contract', () => {
 const token = process.env['MYCHESS_LICHESS_TOKEN'] ?? '';
 
 /** Vilnius Open 2026, a finished community tournament of an R-200 organiser. */
-const TOUR = { organiser: 'paulauskas', id: '8PbrZM5O', roundId: 'GzyWUqHk' };
+const TOUR = { organiser: 'paulauskas', id: '8PbrZM5O' };
 
 describe.runIf(enabled && token !== '')(
   'Lichess broadcast API contract',
@@ -81,15 +80,6 @@ describe.runIf(enabled && token !== '')(
         AbortSignal.timeout(15_000),
       );
       expect(tour.ok && tour.value.finished).toBe(true);
-    }, 15_000);
-
-    it('resolves a round to its tournament', async () => {
-      const tour = await lichessBroadcastTourOfRound(
-        api,
-        TOUR.roundId,
-        AbortSignal.timeout(15_000),
-      );
-      expect(tour.ok && tour.value.id).toBe(TOUR.id);
     }, 15_000);
 
     it("parses the tournament's PGN", async () => {

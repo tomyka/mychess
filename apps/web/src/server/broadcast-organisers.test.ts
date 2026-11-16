@@ -74,7 +74,7 @@ describe('the nightly organiser listing (#349, spec decisions 2 and 3)', () => {
         name: 'Tour Offici01',
         official: true,
         lastRoundAt: new Date('2026-10-20T09:00:00Z'),
-        origin: { kind: 'organiser', organiser: 'vakarinis' },
+        organiser: 'vakarinis',
       }),
       expect.objectContaining({ id: COMMUNITY.id, official: false }),
     ]);

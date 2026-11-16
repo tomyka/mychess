@@ -1,10 +1,10 @@
 /**
  * What the domain's qualifyBroadcastTour reads of a tournament Lichess
- * gave (#349), whether listed for an organiser or named by a pasted link.
+ * gave (#349) in an approved organiser's list.
  */
 import type {
+  ApprovedOrganiser,
   BroadcastTourCandidate,
-  BroadcastTourOrigin,
 } from '@mychess/domain';
 import type { LichessBroadcastTour } from '@mychess/integrations';
 
@@ -24,7 +24,7 @@ export function tourLastRoundAt(tour: LichessBroadcastTour): Date | null {
 export function tourCandidate(
   tour: LichessBroadcastTour,
   finished: boolean,
-  origin: BroadcastTourOrigin,
+  organiser: ApprovedOrganiser,
 ): BroadcastTourCandidate {
   return {
     id: tour.id,
@@ -32,6 +32,6 @@ export function tourCandidate(
     official: tour.official,
     finished,
     lastRoundAt: tourLastRoundAt(tour),
-    origin,
+    organiser,
   };
 }

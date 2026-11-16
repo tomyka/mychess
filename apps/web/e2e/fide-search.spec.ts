@@ -125,11 +125,8 @@ test('a FIDE ID that is not one is refused on the page, in English even for an a
     await expect(page.getByText(refusal)).toBeVisible();
     await expect(field).toHaveAttribute('aria-invalid', 'true');
     await expect(field).toHaveValue(typed);
-    // No search started: no result, no months; the one region is "Add a
-    // Lichess broadcast" (#349).
-    await expect(page.getByRole('region')).toHaveCount(1);
-    await expect(
-      page.getByRole('region', { name: en.fide.addTitle }),
-    ).toBeVisible();
+    // No search started: no result, no months, no region at all (the
+    // "Add a Lichess broadcast" section was removed, R-201).
+    await expect(page.getByRole('region')).toHaveCount(0);
   }
 });
