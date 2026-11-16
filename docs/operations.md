@@ -420,7 +420,11 @@ Host steps (lead, with the owner's yes for each change to the host):
 1. sportbet's CI has left the VM (sportbet_new's own work: its runner,
    containers, volumes, units, users, `/srv/sportbet-new`, `/etc/sportbet`
    removed; the sportbet public-NIC units are replaced in step 3).
-2. `scp -r infra/host mychess:/tmp/mychess-host`, then in tmux
+2. `ssh mychess 'rm -rf /tmp/mychess-host'` and `scp -r infra/host
+   mychess:/tmp/mychess-host` (without the `rm`, a folder left by an
+   earlier run makes scp nest the new copy in `/tmp/mychess-host/host` and
+   the next line runs the old scripts; on 2026-11-16 that left the
+   broadcast index timer uninstalled), then in tmux
    `sudo bash /tmp/mychess-host/bootstrap.sh` (packages, host name, Docker,
    the `runner` user, directories, firewall 80/443, the timers).
 3. `sudo bash /tmp/mychess-host/public-nic.sh enp1s0 10.0.0.233 10.0.0.1
@@ -743,7 +747,9 @@ Creating it (the owner, signed in to Lichess as themself):
 (`study:read`) ticked, nothing else. Lichess shows the token once; copy it.
 
 Setting it, from the laptop with the token on the clipboard (it travels on
-stdin, never a command line):
+stdin, never a command line). `mychess` is the VM's ssh alias; on the
+owner's laptop it is still `sportbet-ci` in `~/.ssh/config` (the host was
+sportbet-ci before):
 
 ```sh
 scp infra/host/set-secret.sh mychess:/tmp/
