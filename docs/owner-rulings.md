@@ -152,7 +152,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-116** (S3 review, #253, 2026-10-18): On the repertoire page an empty personal note shows as a single "Mano užrašas" button that opens the field (a written note stays open), and a repertoire with one chapter starts with its chapter list closed.
 - **R-117** (S3 review, #253, 2026-10-19): When importing into an existing repertoire, a game that adds no new move (its moves are all refused or already there) adds no chapter; if no game adds a move, the import is refused (R-115).
 - **R-118** (S3 review, #253, 2026-10-19): Lithuanian terms: a move Comment is "komentaras" (a move thread is "pokalbis apie ėjimą"); the repertoire edit mode is "Redaguoti" / "Edit"; a Personal note is "užrašas" ("Mano užrašas"); an untitled chapter is "Skyrius N".
-- **R-119** (S3 security review, #253, 2026-10-19): A PGN upload also has a limit of 50,000 half-moves in total (extends R-66), and an account may run at most 10 import previews or confirms a minute.
+- **R-119** (S3 security review, #253, 2026-10-19): A PGN upload also has a limit of 50,000 half-moves in total (extends R-66), and an account may run at most 10 import previews or confirms a minute. (Previews: replaced by R-208.)
 - **R-120** (S3/S4 language review, #253 #254, 2026-10-19): Terms: a ply is "pusėjimis" in Lithuanian and "half-move" in player-facing English; a Player in a coach's Group is "grupės žaidėjas" ("Grupės žaidėjai").
 - **R-121** (S3 close, #253, 2026-10-19): For reconciliation (R-23), a changed Move means a Move added or removed; editing a Move's comment, arrows or circles never resets a player's training on it.
 - **R-122** (S3 close, #253, 2026-10-19): R-117 judges each imported game against the repertoire and the earlier games of the same file: a game that adds no move beyond them adds no chapter.
@@ -235,6 +235,14 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-199** (#349, 2026-11-10): The server calls the Lichess broadcast API with the owner's personal token (study:read only), kept only in the VM's secrets.
 - **R-200** (#349, 2026-11-10): The approved broadcast organiser accounts (R-196) are `vakarinis` (LŠF national and regional events), `kesnor7` (Juoda-balta Druskininkai, Baltija Cup, LŠF youth and rapid/blitz) and `paulauskas` (Vilnius Chess Club); the owner approves any addition.
 - **R-201** (#360, 2026-11-16): Pasting a Lichess broadcast link is removed; community tournaments reach the index only through the approved organisers' nightly listing. Replaces R-197. An admin screen to manage the approved organiser list is wanted if more sources are needed (#361, not started).
+- **R-202** (#328, 2026-11-16): A player may download the PGN of a repertoire assigned to them (live-linked), with the coach's moves and Coach notes, as they can their own.
+- **R-203** (#329, 2026-11-16): A group deadline in the past is refused: it must be today or later.
+- **R-204** (#329, 2026-11-16): Creating a group also creates its group invite (R-98, R-99) and shows the link; the coach can create a new one at any time.
+- **R-205** (#330, 2026-11-16): A player setting "Show arrows when learning new moves" (default on). Off, the learn pass skips the arrow round and goes straight to the blind round; a wrong answer shows the arrow as after a lapse (R-59). Not gated by tier (R-2). Extends R-144.
+- **R-206** (#330, 2026-11-16): A player may learn one chosen chapter or one chosen line from the repertoire page, besides the default chapter order; the daily new-move limit still applies (R-62).
+- **R-207** (#330, 2026-11-16): Home lists the due count per repertoire under Today's review, each with a link to review that repertoire alone; a mixed session's header does not name a single repertoire.
+- **R-208** (#330, 2026-11-16): PGN import previews have their own limit of 30 a minute per account; confirms keep 10 a minute. Replaces the preview half of R-119.
+- **R-209** (#330, 2026-11-16): PGN import accepts pasted PGN text as well as a file, with the same limits (R-66, R-119, R-208) and the same preview.
 
 ## Open questions
 
