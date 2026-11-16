@@ -60,8 +60,12 @@ export const BROADCAST_TEXT_MAX = 200;
  */
 export const BROADCAST_GAME_ISSUE = 'fide.gameInvalid';
 
-/** A C0 or C1 control character, a line break included. */
-const CONTROL_CHARACTER = /\p{Cc}/u;
+/**
+ * A C0 or C1 control character (a line break included) or a format
+ * character: bidi controls and zero-width characters, which can make a name
+ * show reversed or spoofed (#346). The integrations strip the same set.
+ */
+const CONTROL_CHARACTER = /[\p{Cc}\p{Cf}]/u;
 
 const broadcastText = z
   .string()

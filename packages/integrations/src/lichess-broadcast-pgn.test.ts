@@ -92,6 +92,20 @@ describe('openLichessBroadcastPgn', () => {
     ]);
   });
 
+  it('strips bidi and zero-width characters, as the dump path does', async () => {
+    const spoofed = new TextEncoder().encode(
+      game(1, {
+        White: '‮Testas​, Jonas⁦',
+        WhiteFideId: '90000001',
+      }),
+    );
+    const fetch = fakeFetch({ [PGN_URL]: streamedResponse([spoofed]) });
+    const opened = await openLichessBroadcastPgn(api(fetch), 'AbCd1234', never);
+    if (!opened.ok) throw new Error('the PGN did not open');
+    const [record] = await collectAll(opened.value.games);
+    expect(record?.white).toBe('Testas, Jonas');
+  });
+
   it('asks without clocks or comments, with the token, refusing redirects', async () => {
     const fetch = fakeFetch({ [PGN_URL]: streamedResponse([encoded]) });
     await openLichessBroadcastPgn(api(fetch), 'AbCd1234', never);

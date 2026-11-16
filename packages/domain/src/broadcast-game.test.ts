@@ -204,6 +204,10 @@ describe('broadcastGameSchema (#316, security M3)', () => {
     ['a line break in the event', { event: 'A\nB' }],
     ['a control character in the opening', { opening: 'A\u007fB' }],
     ['a control character in the ECO', { eco: 'B9\u00070' }],
+    // #346: bidi controls and zero-width characters can spoof a name.
+    ['a bidi override in a name', { white: 'A‮B' }],
+    ['a bidi isolate in the event', { event: 'A⁦B' }],
+    ['a zero-width space in the opening', { opening: 'A​B' }],
   ])('refuses %s', (_, overrides) => {
     const parsed = broadcastGameSchema.safeParse({ ...record(), ...overrides });
     expect(parsed.success).toBe(false);

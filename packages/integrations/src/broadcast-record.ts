@@ -37,7 +37,12 @@ const FIDE_ID = /^[1-9][0-9]{0,8}$/;
 /** A PGN Date of a known day: `YYYY.MM.DD`. */
 const PGN_DATE = /^([0-9]{4})\.([0-9]{2})\.([0-9]{2})$/;
 
-const CONTROL_CHARACTERS = /\p{Cc}/gu;
+/**
+ * Control (Cc) and format (Cf) characters: Cf holds the bidi controls and
+ * zero-width characters a header could use to show reversed or spoofed
+ * text (#346). The tour-name schema strips the same set.
+ */
+const INVISIBLE_CHARACTERS = /[\p{Cc}\p{Cf}]/gu;
 
 const HIGH_SURROGATE_AT_END = /[\uD800-\uDBFF]$/;
 
@@ -124,13 +129,13 @@ function dateOf(headers: Headers): string | null {
 }
 
 /**
- * `raw` without control characters, trimmed and cut to `max` UTF-16 units
- * (the unit of the domain's length check) without splitting a character;
- * null when nothing is left.
+ * `raw` without control or format characters, trimmed and cut to `max`
+ * UTF-16 units (the unit of the domain's length check) without splitting a
+ * character; null when nothing is left, as for an empty value.
  */
 function cleanText(raw: string | undefined, max: number): string | null {
   const cut = (raw ?? '')
-    .replace(CONTROL_CHARACTERS, '')
+    .replace(INVISIBLE_CHARACTERS, '')
     .trim()
     .slice(0, max)
     .replace(HIGH_SURROGATE_AT_END, '')

@@ -201,6 +201,91 @@ describe('broadcastGames texts', () => {
     });
   });
 
+  /** Bidi controls and zero-width characters: Unicode format (Cf) characters. */
+  const INVISIBLE = {
+    'U+202A LRE': '‪',
+    'U+202B RLE': '‫',
+    'U+202C PDF': '‬',
+    'U+202D LRO': '‭',
+    'U+202E RLO': '‮',
+    'U+2066 LRI': '⁦',
+    'U+2067 RLI': '⁧',
+    'U+2068 FSI': '⁨',
+    'U+2069 PDI': '⁩',
+    'U+200E LRM': '‎',
+    'U+200F RLM': '‏',
+    'U+061C ALM': '؜',
+    'U+200B ZWSP': '​',
+    'U+200C ZWNJ': '‌',
+    'U+200D ZWJ': '‍',
+    'U+2060 WJ': '⁠',
+    'U+FEFF BOM': '﻿',
+    'U+00AD soft hyphen': '­',
+  } as const;
+
+  const FIELDS = [
+    ['White', 'white'],
+    ['Black', 'black'],
+    ['BroadcastName', 'event'],
+    ['ECO', 'eco'],
+    ['Opening', 'opening'],
+  ] as const;
+
+  describe.each(Object.entries(INVISIBLE))('strips %s', (_, character) => {
+    it.each(FIELDS)('from the %s header, then trims', async (header, field) => {
+      const record = await onlyGame({
+        [header]: `${character} Ab${character}c ${character}`,
+      });
+      expect(record?.[field]).toBe('Abc');
+    });
+
+    it('from the Event, when it stands for the event', async () => {
+      const record = await onlyGame({
+        BroadcastName: '',
+        Event: `${character}Plain${character} Event`,
+      });
+      expect(record?.event).toBe('Plain Event');
+    });
+  });
+
+  const ONLY_INVISIBLE = ` ${Object.values(INVISIBLE).join('')} \u0007 `;
+
+  it.each(['White', 'Black'])(
+    'skips a game whose %s is only invisible characters, as when blank',
+    async (side) => {
+      await expect(
+        onlyGame({ [side]: ONLY_INVISIBLE }),
+      ).resolves.toBeUndefined();
+    },
+  );
+
+  it('reads an ECO or Opening of only invisible characters as none', async () => {
+    const record = await onlyGame({
+      ECO: ONLY_INVISIBLE,
+      Opening: ONLY_INVISIBLE,
+    });
+    expect(record).toMatchObject({ eco: null, opening: null });
+  });
+
+  it('takes the Event when the BroadcastName is only invisible characters', async () => {
+    const record = await onlyGame({
+      BroadcastName: ONLY_INVISIBLE,
+      Event: 'Plain Event',
+    });
+    expect(record?.event).toBe('Plain Event');
+  });
+
+  it('keeps letters of every script and their combining marks', async () => {
+    const record = await onlyGame({
+      White: 'Šarūnas Ąžuolas',
+      Black: 'Ли Чжао 李钊 أحمد',
+    });
+    expect(record).toMatchObject({
+      white: 'Šarūnas Ąžuolas',
+      black: 'Ли Чжао 李钊 أحمد',
+    });
+  });
+
   it('cuts names, event, ECO and opening to 200 characters', async () => {
     const long = 'ž'.repeat(250);
     const record = await onlyGame({
