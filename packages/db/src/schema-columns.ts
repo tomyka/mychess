@@ -1,4 +1,4 @@
-// Column and constraint helpers shared by the schema files (schema.ts,
+// Column and constraint helpers shared by the schema files (schema/,
 // assignment-schema.ts, training-schema.ts).
 import { sql, type SQL } from 'drizzle-orm';
 import {

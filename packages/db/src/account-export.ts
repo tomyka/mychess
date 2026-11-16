@@ -13,7 +13,7 @@ import { accountColumns } from './accounts';
 import { iso, notedMove } from './export-values';
 import { forkCoachNotesOf } from './assignments/fork';
 import { openForkOffers } from './assignments/offers';
-import { playerAssignments } from './assignments/player';
+import { playerAssignments } from './assignments/player-list';
 import type { Executor } from './client';
 import { playerCoaches } from './coaching';
 import { coachGroups } from './groups';

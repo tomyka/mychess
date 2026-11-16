@@ -11,7 +11,7 @@ import {
   type TrainingEntry,
 } from '@mychess/domain';
 import { REPEATABLE_READ, type Executor } from '../client';
-import { trainingSources } from '../assignments/player';
+import { trainingSources } from '../assignments/player-training';
 
 /** One repertoire the player trains, as home and the training page list it. */
 export interface TrainingRepertoireEntry extends TrainingEntry {

@@ -1,7 +1,7 @@
 // S6's training tables (plan decisions 2-4): a player's Reviews (R-53: one
 // per player and move key) and the log of every training result the browser
 // sent. Both go with the account. drizzle-kit reads this file beside
-// schema.ts (drizzle.config.ts).
+// schema/ (drizzle.config.ts).
 import { RESULT_KINDS } from '@mychess/domain';
 import { sql } from 'drizzle-orm';
 import {

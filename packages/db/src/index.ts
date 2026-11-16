@@ -52,15 +52,19 @@ export {
 } from './assignments/offer-answers';
 export { openForkOffers, type OpenForkOffer } from './assignments/offers';
 export {
-  assignedRepertoireForPlayer,
   changesSince,
-  playerAssignments,
-  trainingRepertoires,
-  type AssignedRepertoire,
   type ChangesRequest,
   type ChangesSince,
+} from './assignments/player-changes';
+export {
+  playerAssignments,
   type PlayerAssignment,
-} from './assignments/player';
+} from './assignments/player-list';
+export {
+  assignedRepertoireForPlayer,
+  type AssignedRepertoire,
+} from './assignments/player-open';
+export { trainingRepertoires } from './assignments/player-training';
 export {
   markSeen,
   pauseAssignment,

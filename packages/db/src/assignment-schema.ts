@@ -1,6 +1,6 @@
 // S5's assignment tables (plan decisions 1-7): assignments, the players'
 // own state on them, the per-edit changes, fork offers and the coach notes
-// kept in forks. drizzle-kit reads this file beside schema.ts
+// kept in forks. drizzle-kit reads this file beside schema/
 // (drizzle.config.ts).
 import { FORK_OFFER_REASONS } from '@mychess/domain';
 import { SIDES } from '@mychess/chess';

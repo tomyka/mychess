@@ -3,7 +3,7 @@
 // row per broadcast game with at least one FIDE ID, from one month or one
 // tournament. Public broadcast data only; no account owns it, so it is in
 // no account's export (#316 spec decision 7).
-// drizzle-kit reads this file beside schema.ts (drizzle.config.ts).
+// drizzle-kit reads this file beside schema/ (drizzle.config.ts).
 import {
   BROADCAST_MONTH_PATTERN,
   BROADCAST_MONTH_STATES,

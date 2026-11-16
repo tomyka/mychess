@@ -23,7 +23,7 @@ import {
 import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { REPEATABLE_READ, type Executor } from '../client';
-import { trainingRepertoires } from '../assignments/player';
+import { trainingRepertoires } from '../assignments/player-training';
 import { reviews } from '../training-schema';
 import {
   lockReviews,
