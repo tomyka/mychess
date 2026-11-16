@@ -3,9 +3,15 @@ import { describe, expect, it } from 'vitest';
 import {
   chapterKeys,
   importChapters,
+  importChaptersFromPgn,
   moveKeyAt,
   repertoirePgn,
 } from '../src/testing/personas/lines';
+import {
+  importPersonaRepertoire,
+  readPersonaPgn,
+} from '../src/testing/personas/pgn-files';
+import { PERSONA_REPERTOIRES } from '../src/testing/personas/repertoires';
 
 const ITALIAN = '1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. c3 Nf6';
 const TWO_KNIGHTS = '1. e4 e5 2. Nf3 Nc6 3. Bc4 Nf6 4. d3 Bc5 5. c3';
@@ -142,4 +148,67 @@ describe('moveKeyAt', () => {
       expect(() => moveKeyAt(graph, 'Italian', at)).toThrow(/Italian/);
     },
   );
+});
+
+describe('importChaptersFromPgn', () => {
+  const DOC = [
+    { name: 'Italian', lines: [ITALIAN] },
+    { name: 'Petrov', lines: [PETROV] },
+  ];
+  const FILE =
+    '[Event "Italian"]\n\n{Quiet.} 1. e4 e5 2. Nf3 Nc6 3. Bc4 $1 Bc5 4. c3 {d4 next.} Nf6 (4... d6 5. d4) *\n\n' +
+    '[Event "Petrov"]\n\n1. e4 e5 2. Nf3 Nf6 3. Nxe5 d6 *';
+
+  it("imports the file with its comments, NAGs and variations, chapters named by the doc's labels", () => {
+    const { graph, chapterIds } = importChaptersFromPgn('white', DOC, FILE);
+    expect([...chapterIds]).toEqual([
+      ['Italian', graph.chapters[0]?.id],
+      ['Petrov', graph.chapters[1]?.id],
+    ]);
+    expect(graph.chapters[0]?.intro).toBe('Quiet.');
+    const c3 = graph.moves.find((m) => m.san === 'c3');
+    expect(c3?.comment).toBe('d4 next.');
+    expect(graph.moves.find((m) => m.san === 'Bc4')?.nags).toEqual([1]);
+    expect(graph.moves.map((m) => m.san)).toContain('d4');
+  });
+
+  it("throws when the file's games are not the doc's chapters, in order", () => {
+    const swapped = FILE.replace('"Italian"', '"Ruy"');
+    expect(() => importChaptersFromPgn('white', DOC, swapped)).toThrow(
+      /Ruy, Petrov/,
+    );
+  });
+
+  it('throws when the file has lost a move of the doc', () => {
+    const short = FILE.replace(' 3. Nxe5 d6', ' 3. Nxe5');
+    expect(() => importChaptersFromPgn('white', DOC, short)).toThrow(/no d6/);
+  });
+
+  it('throws when the import skips a game of the file', () => {
+    const bad = FILE.replace('3. Nxe5 d6', '3. Nxe5 d6 4. Ke3');
+    expect(() => importChaptersFromPgn('white', DOC, bad)).toThrow(/Petrov/);
+  });
+});
+
+describe('the persona PGN files', () => {
+  it.each(PERSONA_REPERTOIRES.filter((r) => r.pgnFile !== undefined))(
+    'hold every line of $name as its doc gives it, and import whole',
+    (r) => {
+      const imported = importPersonaRepertoire(r);
+      expect(imported.imported.skipped).toEqual([]);
+      expect(imported.graph.chapters).toHaveLength(r.chapters.length);
+    },
+  );
+
+  it('are the two the docs say were imported with comments', () => {
+    expect(
+      PERSONA_REPERTOIRES.flatMap((r) =>
+        r.pgnFile === undefined ? [] : [[r.handle, r.pgnFile]],
+      ),
+    ).toEqual([
+      ['taimanov', 'persona-taimanov.pgn'],
+      ['catalan', 'persona-katalonu.pgn'],
+    ]);
+    expect(readPersonaPgn('persona-katalonu.pgn')).toContain('$14');
+  });
 });

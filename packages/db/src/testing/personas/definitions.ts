@@ -139,6 +139,37 @@ export const PERSONA_NOTES: readonly PersonaNote[] = [
     text: 'jei 9.Na4, tai Be7',
     at: on('2026-02-02'),
   },
+  // 2000plus.md: long notes (300+ characters, mixed EN/LT) on 12.g5 and
+  // 17.Rb3, to test the note layout. On his fork, the Najdorf he trains;
+  // the texts and dates are seed assumptions.
+  {
+    player: '2000plus',
+    repertoire: 'najdorf-fork',
+    chapter: 'EA 6...e5',
+    move: '12.g5',
+    text:
+      'After 12.g5 I play 12...b4 and only then 13.Ne2 Ne8: the knight ' +
+      'goes back to e8, not h5, so it can come round to c7 and the ' +
+      'f7-f5 break is still there. Jei baltieji renkasi 13.Nd5, keičiu ' +
+      'Nxd5 14.exd5 Bf5 ir rikis stovi aktyviai. Svarbiausia - tempas: ' +
+      'a5-a4 eina pirma, tik tada ...b3, kitaip baltųjų puolimas ' +
+      'karaliaus sparne ateina greičiau.',
+    at: on('2026-01-17'),
+  },
+  {
+    player: '2000plus',
+    repertoire: 'najdorf-fork',
+    chapter: 'Poisoned Pawn',
+    move: '17.Rb3',
+    text:
+      '17.Rb3 Qa4 and now 18.Nxf6+ Bxf6 19.c4 - here Bh4+! first, 20.g3 ' +
+      'Be7, because without the check White castles with tempo and the ' +
+      'f-file opens at once. Po 21.O-O Ra7 bokštas gina septintą ' +
+      'horizontalę ir c7 bei e7 langelius. Prieš kitą turnyrą patikrinti ' +
+      'su varikliu 22.Qe3 ir 22.Rb8; lost a training game in March ' +
+      'because I forgot the check.',
+    at: on('2026-03-21'),
+  },
 ];
 
 /** A chapter learned on the day `daysAgo` before the seed date. */

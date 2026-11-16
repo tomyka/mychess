@@ -1,3 +1,4 @@
+import { moveKey } from '@mychess/chess';
 import { personaEmail } from '@mychess/domain';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
@@ -9,6 +10,7 @@ import {
   findAccountByEmail,
   listPersonalNotes,
   listRepertoires,
+  loadRepertoire,
   playerAssignments,
   playerCoaches,
   reviewsOf,
@@ -77,7 +79,7 @@ describe('seedPersonas', () => {
       expect(first.get('invites')).toBe(5);
       expect(first.get('assignments')).toBe(8);
       expect(first.get('repertoire_shares')).toBe(2);
-      expect(first.get('personal_notes')).toBe(2);
+      expect(first.get('personal_notes')).toBe(4);
     },
     SLOW,
   );
@@ -417,4 +419,71 @@ describe('runSeedPersonas', () => {
     expect(err).toEqual(['seed:personas: seed.notLocalEnv\n']);
     expect(process.exitCode).toBe(1);
   });
+});
+
+describe('seedPersonas imports (#332)', () => {
+  it(
+    "imports Gabija's Taimanov from her PGN file, with its comments and variations (G-M1-3)",
+    async () => {
+      await seedPersonas(db, NOW);
+      const gabija = await persona(db, 'persona-1400-2000@mychess.test');
+      const id = await idOfRepertoire(
+        gabija.id,
+        'Sicilijos gynyba, Taimanovo variantas',
+      );
+      const graph = (await loadRepertoire(db, id, gabija.id))?.graph;
+      const comments = graph?.moves.flatMap((m) =>
+        m.comment === null ? [] : [[m.san, m.comment]],
+      );
+      // persona-taimanov.pgn (packages/chess/src/pgn/fixtures) has 9 move comments and 2 intros.
+      expect(comments).toHaveLength(9);
+      expect(comments).toContainEqual(['Bb4', 'jei 9.Na4, tai Be7']);
+      expect(graph?.chapters.filter((c) => c.intro !== null)).toHaveLength(2);
+      // The 7.Qf3 sideline the doc's fence leaves out.
+      expect(graph?.moves.map((m) => m.san)).toContain('Qf3');
+    },
+    SLOW,
+  );
+
+  it(
+    "imports Dovydas's Catalan from his PGN file, with its comments and NAGs (D-M1-2)",
+    async () => {
+      await seedPersonas(db, NOW);
+      const dovydas = await persona(db, 'persona-2000plus@mychess.test');
+      const id = await idOfRepertoire(dovydas.id, 'Katalonų pradžia');
+      const graph = (await loadRepertoire(db, id, dovydas.id))?.graph;
+      const commented = graph?.moves.filter((m) => m.comment !== null);
+      // persona-katalonu.pgn (packages/chess/src/pgn/fixtures) has 7 move comments.
+      expect(commented).toHaveLength(7);
+      expect(new Set(graph?.moves.flatMap((m) => m.nags))).toEqual(
+        new Set([1, 14]),
+      );
+      expect(
+        graph?.moves.find((m) => m.san === 'Qxc4' && m.nags.includes(1)),
+      ).toBeDefined();
+    },
+    SLOW,
+  );
+
+  it(
+    'gives Dovydas his long notes on 12.g5 and 17.Rb3 in his Najdorf fork (D-M8 layout)',
+    async () => {
+      await seedPersonas(db, NOW);
+      const dovydas = await persona(db, 'persona-2000plus@mychess.test');
+      const fork = await idOfRepertoire(dovydas.id, 'Naidorfo variantas');
+      const graph = (await loadRepertoire(db, fork, dovydas.id))?.graph;
+      const notes = await listPersonalNotes(db, dovydas.id, fork);
+      const sanOf = (key: string) =>
+        graph?.moves.find((m) => moveKey(m.from, m.san) === key)?.san;
+      const long = Object.entries(notes).map(([key, text]) => [
+        sanOf(key),
+        text.length >= 300,
+      ]);
+      expect(long.sort()).toEqual([
+        ['Rb3', true],
+        ['g5', true],
+      ]);
+    },
+    SLOW,
+  );
 });

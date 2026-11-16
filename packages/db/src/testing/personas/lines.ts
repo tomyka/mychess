@@ -14,6 +14,12 @@ import {
 } from '@mychess/chess';
 import type { PersonaKey } from './accounts';
 
+/**
+ * The persona PGN files G-M1-2 and D-M1-2 import, in
+ * packages/chess/src/pgn/fixtures (one committed copy, #335).
+ */
+export type PersonaPgnFile = 'persona-taimanov.pgn' | 'persona-katalonu.pgn';
+
 /** One chapter: its name and its lines, each movetext from the start. */
 export interface ChapterLines {
   readonly name: string;
@@ -35,6 +41,11 @@ export interface PersonaRepertoire {
   readonly side: Side;
   readonly name: string;
   readonly chapters: readonly ChapterLines[];
+  /**
+   * The persona's own PGN file the doc says they imported (with comments
+   * and NAGs), which the seed imports instead of the bare `chapters`.
+   */
+  readonly pgnFile?: PersonaPgnFile;
 }
 
 /** A move and the moves after it, merged across a chapter's lines. */
@@ -103,6 +114,31 @@ export interface ImportedChapters {
 }
 
 /**
+ * What the app's PGN import makes of `pgn`, its games named `names` in
+ * file order. Throws when it refuses the file or leaves out any move.
+ */
+function importWhole(
+  pgn: string,
+  side: Side,
+  names: readonly string[],
+): ImportedChapters {
+  const imported = importPgn(pgn, side);
+  if (!imported.ok) throw new Error(`persona PGN: ${imported.refusal.reason}`);
+  const { graph, skipped } = imported.value;
+  const [first] = skipped;
+  if (first !== undefined) {
+    const chapter = names[first.game - 1] ?? '?';
+    throw new Error(`persona PGN: ${chapter}: ${first.reason}`);
+  }
+  // With nothing left out, every game made one chapter, in file order.
+  return {
+    imported: imported.value,
+    graph,
+    chapterIds: new Map(names.map((n, i) => [n, graph.chapters[i]?.id ?? ''])),
+  };
+}
+
+/**
  * What the app's PGN import makes of `chapters`. Throws when it refuses
  * the file or leaves out any move (an illegal move, a second answer,
  * R-54): seed lines are copied from the docs, so that is a typo.
@@ -111,22 +147,49 @@ export function importChapters(
   side: Side,
   chapters: readonly ChapterLines[],
 ): ImportedChapters {
-  const imported = importPgn(repertoirePgn(chapters), side);
-  if (!imported.ok) throw new Error(`persona PGN: ${imported.refusal.reason}`);
-  const { graph, skipped } = imported.value;
-  const [first] = skipped;
-  if (first !== undefined) {
-    const chapter = chapters[first.game - 1]?.name ?? '?';
-    throw new Error(`persona PGN: ${chapter}: ${first.reason}`);
-  }
-  // With nothing left out, every game made one chapter, in file order.
-  return {
-    imported: imported.value,
-    graph,
-    chapterIds: new Map(
-      chapters.map((c, i) => [c.name, graph.chapters[i]?.id ?? '']),
-    ),
-  };
+  return importWhole(
+    repertoirePgn(chapters),
+    side,
+    chapters.map((c) => c.name),
+  );
+}
+
+/**
+ * The Event headers of a PGN file's games, in file order. Read from the
+ * text, not the graph: the import renames a chapter whose main line
+ * reaches an ECO position after that position (taxonomyNamed), so the
+ * graph keeps no header name for most chapters.
+ */
+const eventsOf = (pgn: string): string[] =>
+  [...pgn.matchAll(/^\[Event "([^"]*)"\]/gm)].map((m) => m[1] ?? '');
+
+/**
+ * What the app's PGN import makes of a persona's own PGN file `pgn`, with
+ * its comments, NAGs and arrows, as the persona imported it. The file must
+ * hold the doc's `chapters` in order, one game each named by its label,
+ * and every move of their lines (it may hold more: variations the doc's
+ * fences leave out); otherwise the file and the doc have drifted, and
+ * this throws.
+ */
+export function importChaptersFromPgn(
+  side: Side,
+  chapters: readonly ChapterLines[],
+  pgn: string,
+): ImportedChapters {
+  const names = chapters.map((c) => c.name);
+  const events = eventsOf(pgn);
+  if (events.join('\n') !== names.join('\n'))
+    throw new Error(
+      `persona PGN: games ${events.join(', ')} are not the doc's`,
+    );
+  const file = importWhole(pgn, side, names);
+  const inFile = new Set(file.graph.moves.map((m) => moveKey(m.from, m.san)));
+  const missing = importChapters(side, chapters).graph.moves.find(
+    (m) => !inFile.has(moveKey(m.from, m.san)),
+  );
+  if (missing !== undefined)
+    throw new Error(`persona PGN: the file has no ${missing.san} the doc has`);
+  return file;
 }
 
 function chapterId({ chapterIds }: ImportedChapters, name: string): string {

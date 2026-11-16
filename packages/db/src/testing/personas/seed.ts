@@ -71,6 +71,7 @@ import {
   type ImportedChapters,
   type PersonaRepertoire,
 } from './lines';
+import { importPersonaRepertoire } from './pgn-files';
 import { PERSONA_REPERTOIRES } from './repertoires';
 import {
   planTraining,
@@ -198,12 +199,12 @@ async function link(s: Seeding, l: PersonaLink): Promise<void> {
   expectOk(await acceptInvite(s.db, token, playerId, l.at), `link ${l.player}`);
 }
 
-/** The PGN import of a repertoire's lines, as the app's import makes it. */
+/** The PGN import of a repertoire, as its persona imported it. */
 async function createPersonaRepertoire(
   s: Seeding,
   r: PersonaRepertoire,
 ): Promise<void> {
-  const chapters = importChapters(r.side, r.chapters);
+  const chapters = importPersonaRepertoire(r);
   const created = await createRepertoire(s.db, {
     ownerId: lookup(s.ids, r.owner),
     side: r.side,

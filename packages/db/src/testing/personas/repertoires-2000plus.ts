@@ -4,12 +4,13 @@
  */
 import { chapter, type ChapterLines, type PersonaRepertoire } from './lines';
 
-/** "Katalonų pradžia" (Dovydas's own, private). */
+/** "Katalonų pradžia" (Dovydas's own, private), imported from his PGN file with comments and NAGs. */
 export const CATALAN: PersonaRepertoire = {
   handle: 'catalan',
   owner: '2000plus',
   side: 'white',
   name: 'Katalonų pradžia',
+  pgnFile: 'persona-katalonu.pgn',
   chapters: [
     chapter(
       'Open 7.Qc2 a6 8.Qxc4',

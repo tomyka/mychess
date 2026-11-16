@@ -1,6 +1,8 @@
 /**
  * The persona repertoires: the ```pgn fences of docs/personas/*.md, line
  * for line, each label a chapter (2000plus.md's in repertoires-2000plus.ts).
+ * A repertoire with a `pgnFile` is seeded from that file instead (pgn-files.ts),
+ * which must hold these lines and may add comments, NAGs and variations.
  * Keep them in step with the docs (and with
  * packages/chess/src/personas.test.ts, which checks the same lines).
  * Pure data.
@@ -153,12 +155,16 @@ const QUEENS_GAMBIT: PersonaRepertoire = {
   ],
 };
 
-/** docs/personas/1400-2000.md, the Taimanov (Gabija's own, shared with the coach). */
+/**
+ * docs/personas/1400-2000.md, the Taimanov (Gabija's own, shared with the
+ * coach), imported from her PGN file with its comments and variations.
+ */
 const TAIMANOV: PersonaRepertoire = {
   handle: 'taimanov',
   owner: '1400-2000',
   side: 'black',
   name: 'Sicilijos gynyba, Taimanovo variantas',
+  pgnFile: 'persona-taimanov.pgn',
   chapters: [
     chapter(
       'English Attack',
