@@ -27,9 +27,12 @@ const call = (authorization?: string): Promise<Response> =>
 beforeEach(() => {
   vi.stubEnv('CRON_SECRET', SECRET);
   vi.useFakeTimers({ now: NOW, toFake: ['Date'] });
-  server.preindex
-    .mockReset()
-    .mockResolvedValue({ queued: 12, ready: 0, community: 'started' });
+  server.preindex.mockReset().mockResolvedValue({
+    queued: 12,
+    ready: 0,
+    community: 'started',
+    pruned: { months: 1, tours: 0 },
+  });
 });
 
 afterEach(() => {
@@ -47,6 +50,7 @@ describe('GET /api/cron/index-broadcasts (#354, R-195; #349)', () => {
       queued: 12,
       ready: 0,
       community: 'started',
+      pruned: { months: 1, tours: 0 },
     });
     expect(server.preindex).toHaveBeenCalledExactlyOnceWith(NOW);
   });

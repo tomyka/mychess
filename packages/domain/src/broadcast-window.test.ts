@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { broadcastMonthSchema, type BroadcastMonth } from './broadcast-month';
 import {
   broadcastWindow,
+  broadcastPruneWindow,
   broadcastWindowStart,
   isBeforeBroadcastWindow,
   isAfterBroadcastDumps,
+  isMonthBeforeBroadcastWindow,
   isWithinBroadcastWindow,
   monthOfInstant,
   tourListingDate,
@@ -127,5 +129,63 @@ describe('tourListingDate (#349, spec decision 3)', () => {
 
   it('is when the tour was created when it has no dates', () => {
     expect(tourListingDate({ lastRoundAt: null, createdAt })).toBe(createdAt);
+  });
+});
+
+describe('broadcastPruneWindow (#344)', () => {
+  /** In the month after the newest published one, as the dumps lag. */
+  const NOW = new Date('2026-01-20T10:00:00Z');
+
+  it('is the search window once 12 months are published', () => {
+    expect(broadcastPruneWindow(PUBLISHED, NOW)).toEqual({
+      oldest: '2025-01',
+      newest: '2025-12',
+    });
+    expect(broadcastPruneWindow(PUBLISHED.slice(-12), NOW)).toEqual({
+      oldest: '2025-01',
+      newest: '2025-12',
+    });
+  });
+
+  it('is none with fewer than 12 published months, so a short list prunes nothing', () => {
+    expect(broadcastPruneWindow(PUBLISHED.slice(-11), NOW)).toBeNull();
+    expect(broadcastPruneWindow([], NOW)).toBeNull();
+  });
+
+  it('counts each month once', () => {
+    const repeated = [...PUBLISHED.slice(-11), ...PUBLISHED.slice(-11)];
+    expect(broadcastPruneWindow(repeated, NOW)).toBeNull();
+  });
+
+  it('is none for a list naming a month after the current one (security Low 1)', () => {
+    const future = [...PUBLISHED, ...months('2099-01')];
+    expect(broadcastPruneWindow(future, NOW)).toBeNull();
+    expect(
+      broadcastPruneWindow(PUBLISHED, new Date('2025-12-31T23:59:59Z')),
+    ).not.toBeNull();
+    expect(
+      broadcastPruneWindow(PUBLISHED, new Date('2025-11-30T23:59:59Z')),
+    ).toBeNull();
+  });
+
+  it('is none for a stale list, whose newest month is over 3 months old (security Low 1)', () => {
+    expect(
+      broadcastPruneWindow(PUBLISHED, new Date('2026-03-31T23:59:59Z')),
+    ).not.toBeNull();
+    expect(
+      broadcastPruneWindow(PUBLISHED, new Date('2026-04-01T00:00:00Z')),
+    ).toBeNull();
+  });
+});
+
+describe('isMonthBeforeBroadcastWindow (#344)', () => {
+  it('holds only for months before the oldest one', () => {
+    const [before, oldest, newest] = months('2024-12', '2025-01', '2025-12');
+    if (before === undefined || oldest === undefined || newest === undefined) {
+      throw new Error('months');
+    }
+    expect(isMonthBeforeBroadcastWindow(before, window())).toBe(true);
+    expect(isMonthBeforeBroadcastWindow(oldest, window())).toBe(false);
+    expect(isMonthBeforeBroadcastWindow(newest, window())).toBe(false);
   });
 });

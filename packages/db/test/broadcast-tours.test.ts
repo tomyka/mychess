@@ -304,11 +304,20 @@ describe('writeBroadcastMonth over a tournament game (#349, security M1)', () =>
     expect(await whiteOf(tourGame(1).url)).toBe('Official name');
   });
 
-  it("never replaces another month's game", async () => {
+  it("takes an older month's game over, so it outlives the older month (#344)", async () => {
     await writtenMonth('2026-09', [tourGame(1)]);
-    await writtenMonth('2026-10', [tourGame(1, { white: 'Changed' })]);
+    await writtenMonth('2026-10', [tourGame(1, { white: 'Newer name' })]);
     expect(await sourcesOfGames()).toEqual([
-      { game_url: tourGame(1).url, month: '2026-09', tour_id: null },
+      { game_url: tourGame(1).url, month: '2026-10', tour_id: null },
+    ]);
+    expect(await whiteOf(tourGame(1).url)).toBe('Newer name');
+  });
+
+  it("never replaces a newer month's game, whatever the order of indexing (#344)", async () => {
+    await writtenMonth('2026-10', [tourGame(1)]);
+    await writtenMonth('2026-09', [tourGame(1, { white: 'Older name' })]);
+    expect(await sourcesOfGames()).toEqual([
+      { game_url: tourGame(1).url, month: '2026-10', tour_id: null },
     ]);
     expect(await whiteOf(tourGame(1).url)).toBe('White 1');
   });

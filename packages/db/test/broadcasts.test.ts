@@ -360,8 +360,13 @@ describe('writeBroadcastMonth (#316, spec decision 2)', () => {
     await written('2025-01', [game(1)]);
     await written('2025-02', [game(1)]);
     expect(await gameCount()).toBe(1);
-    // Counted for both months, stored under the first.
+    // Counted for both months, stored under the newer (#344).
+    expect(await storedGameCount('2025-01')).toBe(1);
     expect(await storedGameCount('2025-02')).toBe(1);
+    const { rows } = await client.query<{ month: string }>(
+      'select month from broadcast_games',
+    );
+    expect(rows).toEqual([{ month: '2025-02' }]);
   });
 
   it('refuses, writing nothing, once a later claim took the stale month over', async () => {

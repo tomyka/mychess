@@ -122,7 +122,8 @@ export interface FideSearchDeps {
   readonly store: SearchStore;
   /** Where the months the search needs are handed, unawaited. */
   readonly runner: Pick<BroadcastRunner, 'need'>;
-  readonly sources: BroadcastSources;
+  /** The cached month list and players; a search never refreshes them. */
+  readonly sources: Pick<BroadcastSources, 'months' | 'player'>;
   /** Signs the search tokens (fide-search-token.ts). */
   readonly secret: string;
 }

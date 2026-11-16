@@ -147,9 +147,11 @@ export {
 } from './broadcast-tour';
 export {
   broadcastWindow,
+  broadcastPruneWindow,
   broadcastWindowStart,
   isBeforeBroadcastWindow,
   isAfterBroadcastDumps,
+  isMonthBeforeBroadcastWindow,
   isWithinBroadcastWindow,
   monthOfInstant,
   tourListingDate,

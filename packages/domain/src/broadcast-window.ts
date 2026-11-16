@@ -4,7 +4,11 @@
  * weeks the dumps have not reached yet, which only broadcast tournaments
  * fill. All months are UTC months.
  */
-import { broadcastMonthSchema, searchMonths } from './broadcast-month';
+import {
+  BROADCAST_MONTH_RULES,
+  broadcastMonthSchema,
+  searchMonths,
+} from './broadcast-month';
 import type { BroadcastMonth } from './broadcast-month';
 
 /** The oldest and the newest of the months a search covers. */
@@ -79,4 +83,49 @@ export function tourListingDate(tour: {
   readonly createdAt: Date;
 }): Date {
   return tour.lastRoundAt ?? tour.createdAt;
+}
+
+/**
+ * The window the index is pruned to (#344): the search window of the
+ * `published` months, but only once it spans all 12 months (R-183). A
+ * shorter list, such as one Lichess served cut short, prunes nothing
+ * rather than months a full list would still cover.
+ *
+ * Nor does an implausible list (security Low 1): one whose newest month is
+ * after the month of `now`, which would move the window forward and prune
+ * months still covered, or more than PRUNE_STALE_MONTHS before it, a
+ * stale list. Months are UTC months.
+ */
+export function broadcastPruneWindow(
+  published: readonly BroadcastMonth[],
+  now: Date,
+): BroadcastWindow | null {
+  if (searchMonths(published).length !== BROADCAST_MONTH_RULES.searchMonths) {
+    return null;
+  }
+  const window = broadcastWindow(published);
+  const current = monthOfInstant(now);
+  return window !== null &&
+    window.newest <= current &&
+    window.newest >= monthsBefore(now, PRUNE_STALE_MONTHS)
+    ? window
+    : null;
+}
+
+/** How many months the newest published month may lag before a prune. */
+const PRUNE_STALE_MONTHS = 3;
+
+/** The UTC month `count` months before the month of `at`. */
+function monthsBefore(at: Date, count: number): BroadcastMonth {
+  return monthOfInstant(
+    new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth() - count, 1)),
+  );
+}
+
+/** Whether dump `month` is older than the window's oldest month. */
+export function isMonthBeforeBroadcastWindow(
+  month: BroadcastMonth,
+  window: BroadcastWindow,
+): boolean {
+  return month < window.oldest;
 }

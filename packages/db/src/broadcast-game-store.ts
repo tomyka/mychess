@@ -143,10 +143,13 @@ const EXCLUDED_GAME = {
 >;
 
 /**
- * Inserts a chunk of games; a link already stored keeps its first source
- * (security M1), but a month's game replaces a tournament's: the dump's
- * official data wins over a community copy. A tournament's game replaces
- * nothing, and a month's no other month's.
+ * Inserts a chunk of games; a link already stored keeps its source
+ * (security M1), with two exceptions for a month's game. It replaces a
+ * tournament's: the dump's official data wins over a community copy. It
+ * replaces an older month's (#344): a game is kept by the newest month
+ * that lists it, whatever order the months are indexed in, so it outlives
+ * an older month leaving the window (pruneBroadcastIndex). A tournament's
+ * game replaces nothing.
  */
 async function insertChunk(
   tx: Tx,
@@ -159,7 +162,7 @@ async function insertChunk(
     ? insert.onConflictDoUpdate({
         target: broadcastGames.gameUrl,
         set: EXCLUDED_GAME,
-        setWhere: isNotNull(broadcastGames.tourId),
+        setWhere: sql`${isNotNull(broadcastGames.tourId)} or ${broadcastGames.month} < excluded.month`,
       })
     : insert.onConflictDoNothing({ target: broadcastGames.gameUrl }));
 }

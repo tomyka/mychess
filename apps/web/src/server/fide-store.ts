@@ -9,8 +9,10 @@ import {
   broadcastTourStatuses,
   countRateLimited,
   gamesForFideId,
+  pruneBroadcastIndex,
   queueBroadcastTour,
   type BroadcastMonthEntry,
+  type BroadcastPruneCount,
   type BroadcastTourEntry,
   type Executor,
 } from '@mychess/db';
@@ -42,6 +44,8 @@ export interface FideStore extends SearchStore {
   readonly monthIndex: BroadcastIndex;
   /** The tournament index the runner claims, writes and fails. */
   readonly tourIndex: BroadcastTourIndex;
+  /** Deletes what left `window`, with its games (pruneBroadcastIndex). */
+  readonly prune: (window: BroadcastWindow) => Promise<BroadcastPruneCount>;
 }
 
 /** The repositories on `db`. */
@@ -54,5 +58,6 @@ export function fideStoreOn(db: Executor): FideStore {
     tourStatuses: (window) => broadcastTourStatuses(db, window),
     monthIndex: broadcastIndexOn(db),
     tourIndex: broadcastTourIndexOn(db),
+    prune: (window) => pruneBroadcastIndex(db, window),
   };
 }

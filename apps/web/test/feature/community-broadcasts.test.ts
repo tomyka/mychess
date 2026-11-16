@@ -160,7 +160,7 @@ describe('community broadcasts (#349)', () => {
         headers: { authorization: `Bearer ${CRON_SECRET}` },
       }),
     );
-    expect(await night.json()).toEqual({
+    expect(await night.json()).toMatchObject({
       queued: 12,
       ready: 0,
       community: 'started',

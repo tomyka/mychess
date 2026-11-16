@@ -27,6 +27,12 @@ const REQUEST_TIMEOUT_MS = 15_000;
 export interface BroadcastSources {
   /** The published dump months, newest first; fails when unreadable. */
   months(): Promise<BroadcastMonth[]>;
+  /**
+   * The published months read now, however new the cached list, which they
+   * then replace: for the nightly upkeep, whose prune must go by a list of
+   * its own run (#344).
+   */
+  refreshMonths(): Promise<BroadcastMonth[]>;
   /** The FIDE player with `id`; null when Lichess does not give one. */
   player(id: number): Promise<FidePlayer | null>;
 }
@@ -51,19 +57,24 @@ export function createBroadcastSources({
   const fresh = (entry: Cached<unknown> | undefined, ttl: number) =>
     entry !== undefined && clock().getTime() - entry.at < ttl;
 
+  /** Reads the list now and caches the read. */
+  const read = (): Promise<BroadcastMonth[]> => {
+    const value = publishedMonths(fetch);
+    const entry = { value, at: clock().getTime() };
+    list = entry;
+    // A failed read is not kept: the next search asks again.
+    value.catch(() => {
+      if (list === entry) list = undefined;
+    });
+    return value;
+  };
+
   return {
     months() {
-      if (list === undefined || !fresh(list, MONTHS_CACHE_MS)) {
-        const value = publishedMonths(fetch);
-        const entry = { value, at: clock().getTime() };
-        list = entry;
-        // A failed read is not kept: the next search asks again.
-        value.catch(() => {
-          if (list === entry) list = undefined;
-        });
-      }
+      if (list === undefined || !fresh(list, MONTHS_CACHE_MS)) return read();
       return list.value;
     },
+    refreshMonths: read,
     async player(id) {
       const cached = players.get(id);
       if (cached !== undefined && fresh(cached, PLAYER_CACHE_MS)) {

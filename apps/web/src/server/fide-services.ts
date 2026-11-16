@@ -118,14 +118,16 @@ export function composeFideServices(
           statuses: store.tourStatuses,
         });
   const sources = createBroadcastSources({ fetch, clock });
-  const months = () => sources.months();
   const services: FideServices = {
     search: createFideSearch({ store, runner, sources, secret: deps.secret }),
     preindex: createPreindex({
-      months,
+      // Read in its own run: its prune must not go by a list a search
+      // cached before it (#344).
+      months: () => sources.refreshMonths(),
       monthStatuses: store.monthStatuses,
       runner,
       community,
+      prune: store.prune,
     }),
   };
   return { services, runner, community };

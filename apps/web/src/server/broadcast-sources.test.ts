@@ -79,6 +79,26 @@ describe('the broadcast months', () => {
     await expect(sources.months()).rejects.toThrow();
     expect(fetch).toHaveBeenCalledTimes(2);
   });
+
+  // The nightly prune goes by a list read in its own run (#344, security).
+  it('are read afresh when refreshed, however new the cached list, and serve searches after', async () => {
+    const fetch = fakeFetch({ [BROADCAST_LIST_URL]: listAnswer });
+    const { sources } = sourcesWith(fetch);
+    await sources.months();
+    expect(await sources.refreshMonths()).toEqual(['2026-10', '2026-09']);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    await sources.months();
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('fail when a refresh cannot read the list, and keep no failed read', async () => {
+    const answers: Record<string, Answer> = {};
+    const fetch = fakeFetch(answers);
+    const { sources } = sourcesWith(fetch);
+    await expect(sources.refreshMonths()).rejects.toThrow();
+    answers[BROADCAST_LIST_URL] = listAnswer;
+    expect(await sources.months()).toEqual(['2026-10', '2026-09']);
+  });
 });
 
 describe('the FIDE player', () => {

@@ -33,7 +33,12 @@ const monthStatuses =
 const need = vi.fn<(months: readonly BroadcastMonth[]) => void>();
 const nightly =
   vi.fn<(window: BroadcastWindow, now: Date) => 'started' | 'running'>();
+const prune =
+  vi.fn<
+    (window: BroadcastWindow) => Promise<{ months: number; tours: number }>
+  >();
 const warnings = vi.spyOn(console, 'warn');
+const errors = vi.spyOn(console, 'error');
 
 /** The months' entries with `statuses` by month, pending otherwise. */
 function entries(
@@ -58,6 +63,7 @@ const preindex = (community = true) =>
     monthStatuses,
     runner: { need },
     community: community ? { nightly } : null,
+    prune,
   });
 
 beforeEach(() => {
@@ -65,7 +71,9 @@ beforeEach(() => {
   monthStatuses.mockReset().mockImplementation(entries(new Map()));
   need.mockReset();
   nightly.mockReset().mockReturnValue('started');
+  prune.mockReset().mockResolvedValue({ months: 0, tours: 0 });
   warnings.mockReset().mockImplementation(() => undefined);
+  errors.mockReset().mockImplementation(() => undefined);
 });
 
 describe('the nightly upkeep of the broadcast index (#354, R-195; #349)', () => {
@@ -74,6 +82,7 @@ describe('the nightly upkeep of the broadcast index (#354, R-195; #349)', () => 
       queued: 12,
       ready: 0,
       community: 'started',
+      pruned: { months: 0, tours: 0 },
     });
     expect(monthStatuses).toHaveBeenCalledExactlyOnceWith(NEWEST);
     expect(need).toHaveBeenCalledExactlyOnceWith(NEWEST);
@@ -139,6 +148,7 @@ describe('the nightly upkeep of the broadcast index (#354, R-195; #349)', () => 
       queued: 12,
       ready: 0,
       community: 'off',
+      pruned: { months: 0, tours: 0 },
     });
     expect(need).toHaveBeenCalledWith(NEWEST);
     expect(warnings).toHaveBeenCalledExactlyOnceWith(
@@ -152,6 +162,7 @@ describe('the nightly upkeep of the broadcast index (#354, R-195; #349)', () => 
       queued: 0,
       ready: 0,
       community: 'off',
+      pruned: null,
     });
     expect(nightly).not.toHaveBeenCalled();
   });
@@ -161,5 +172,69 @@ describe('the nightly upkeep of the broadcast index (#354, R-195; #349)', () => 
     await expect(preindex()(NOW)).rejects.toThrow('lichess down');
     expect(need).not.toHaveBeenCalled();
     expect(nightly).not.toHaveBeenCalled();
+  });
+});
+
+describe('pruning the broadcast index to the window (#344)', () => {
+  it('prunes to the window of a full month list, before handing months on, and logs what went', async () => {
+    const order: string[] = [];
+    prune.mockImplementation(() => {
+      order.push('prune');
+      return Promise.resolve({ months: 2, tours: 1 });
+    });
+    need.mockImplementation(() => {
+      order.push('need');
+    });
+    expect(await preindex()(NOW)).toMatchObject({
+      queued: 12,
+      pruned: { months: 2, tours: 1 },
+    });
+    expect(prune).toHaveBeenCalledExactlyOnceWith({
+      oldest: '2025-11',
+      newest: '2026-10',
+    });
+    expect(order).toEqual(['prune', 'need']);
+    expect(warnings).toHaveBeenCalledWith(
+      'fide: broadcast index pruned',
+      '2 months, 1 tours',
+    );
+  });
+
+  it('logs nothing when nothing left the window', async () => {
+    await preindex()(NOW);
+    expect(prune).toHaveBeenCalledOnce();
+    expect(warnings).not.toHaveBeenCalledWith(
+      'fide: broadcast index pruned',
+      expect.anything(),
+    );
+  });
+
+  it('prunes nothing from a list shorter than 12 months', async () => {
+    months.mockResolvedValue(LISTED.slice(0, 11));
+    expect(await preindex()(NOW)).toMatchObject({ queued: 11, pruned: null });
+    expect(prune).not.toHaveBeenCalled();
+  });
+
+  it('prunes nothing from a list newer than now, which would move the window forward', async () => {
+    expect(await preindex()(new Date('2026-09-30T23:00:00Z'))).toMatchObject({
+      pruned: null,
+    });
+    expect(prune).not.toHaveBeenCalled();
+  });
+
+  it('prunes nothing when the month list cannot be read', async () => {
+    months.mockRejectedValue(new Error('lichess down'));
+    await expect(preindex()(NOW)).rejects.toThrow('lichess down');
+    expect(prune).not.toHaveBeenCalled();
+  });
+
+  it('still hands the months on when the prune fails, logging its error name alone', async () => {
+    prune.mockRejectedValue(new TypeError('delete failed: 2025-09'));
+    expect(await preindex()(NOW)).toMatchObject({ queued: 12, pruned: null });
+    expect(need).toHaveBeenCalledWith(NEWEST);
+    expect(errors).toHaveBeenCalledExactlyOnceWith(
+      'fide: broadcast index prune failed',
+      'TypeError',
+    );
   });
 });

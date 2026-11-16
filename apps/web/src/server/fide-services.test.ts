@@ -135,6 +135,7 @@ function fakeStore(): { store: FideStore; used: string[] } {
       games: answering('games', { games: [], truncated: false }),
       queueTour: answering('queueTour', true),
       tourStatuses: answering('tourStatuses', []),
+      prune: answering('prune', { months: 0, tours: 0 }),
       monthIndex,
       tourIndex,
     },
@@ -148,11 +149,13 @@ function lichess() {
     'by/kesnor7?page=1': [{ json: toursPageJson([], null) }],
     'by/paulauskas?page=1': [{ json: toursPageJson([], null) }],
   });
-  const fetch: typeof api.fetch = (url, init) =>
-    url === BROADCAST_LIST_URL
-      ? Promise.resolve(new Response(`${broadcastDumpUrl('2026-10')}\n`))
-      : api.fetch(url, init);
-  return { fetch, requested: api.requested };
+  const lists = { read: 0 };
+  const fetch: typeof api.fetch = (url, init) => {
+    if (url !== BROADCAST_LIST_URL) return api.fetch(url, init);
+    lists.read += 1;
+    return Promise.resolve(new Response(`${broadcastDumpUrl('2026-10')}\n`));
+  };
+  return { fetch, requested: api.requested, lists };
 }
 
 describe('the FIDE search services, one set per process', () => {
@@ -220,6 +223,27 @@ describe('the services composed (#349, arch C3)', () => {
       true,
     );
     expect(used).toEqual(['count', 'monthStatuses', 'games']);
+  });
+
+  it('run the nightly upkeep on a month list read in its own run, not one a search cached (#344)', async () => {
+    const { fetch, lists } = lichess();
+    const { store, used } = fakeStore();
+    const { services } = composeFideServices({
+      store,
+      fetch,
+      token: undefined,
+      secret: SECRET,
+      clock: () => NOW,
+    });
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await services.search.start('rokas', '13400002', NOW);
+    expect(lists.read).toBe(1);
+    await services.preindex(NOW);
+    expect(lists.read).toBe(2);
+    // A search after it uses the list the upkeep read.
+    await services.search.start('rokas', '13400002', NOW);
+    expect(lists.read).toBe(2);
+    expect(used).toContain('monthStatuses');
   });
 
   it('without a Lichess token: no tournaments for the runner, no community night', async () => {

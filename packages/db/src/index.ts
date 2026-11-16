@@ -102,6 +102,10 @@ export {
   type BroadcastTourEntry,
   type BroadcastTourWrite,
 } from './broadcast-tours';
+export {
+  pruneBroadcastIndex,
+  type BroadcastPruneCount,
+} from './broadcast-prune';
 
 export {
   createDb,
