@@ -23,6 +23,13 @@ export interface WalkedMove {
   readonly move: RepertoireMove;
   /** Empty when the move lands on a position the walk already walked from. */
   readonly next: readonly WalkedMove[];
+  /**
+   * The line stops here only because the chapter goes on from this move's
+   * position elsewhere in the walk (a Transposition, #331): it has no
+   * `next`, yet the chapter has moves from its position. A plain leaf, with
+   * no moves from its position, does not transpose.
+   */
+  readonly transposes: boolean;
 }
 
 /** The walks over one chapter. */
@@ -158,11 +165,13 @@ function walkOnce(rootKey: string, children: Children): Walked {
   const stack = pending(children(rootKey), tree);
   for (let top = stack.pop(); top !== undefined; top = stack.pop()) {
     const next: WalkedMove[] = [];
-    top.into.push({ move: top.move, next });
+    const from = children(top.move.to);
+    const transposes = walked.has(top.move.to) && from.length > 0;
+    top.into.push({ move: top.move, next, transposes });
     moves.push(top.move);
     if (!walked.has(top.move.to)) {
       walked.add(top.move.to);
-      stack.push(...pending(children(top.move.to), next));
+      stack.push(...pending(from, next));
     }
   }
   return { tree, moves };

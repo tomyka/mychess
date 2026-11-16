@@ -154,12 +154,27 @@ describe('setDeadlineAction (R-51)', () => {
         formOf({ assignmentId: ASSIGNMENT, deadline: '2026-12-15' }),
       ),
     ).toEqual({ saved: 1 });
-    expect(server.setDeadline).toHaveBeenCalledWith(DB, {
-      coachId: 'jonas',
-      assignmentId: ASSIGNMENT,
-      deadline: '2026-12-15',
-    });
+    // As of now: a day already past is refused (R-203, R-210).
+    expect(server.setDeadline).toHaveBeenCalledWith(
+      DB,
+      { coachId: 'jonas', assignmentId: ASSIGNMENT, deadline: '2026-12-15' },
+      NOW,
+    );
     expect(server.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes on a deadline already past (R-203, R-210)', async () => {
+    server.setDeadline.mockResolvedValue({
+      ok: false,
+      refusal: { reason: 'assignment.deadlinePast' },
+    });
+    expect(
+      await setDeadlineAction(
+        FRESH,
+        formOf({ assignmentId: ASSIGNMENT, deadline: '2026-10-01' }),
+      ),
+    ).toEqual({ refusal: 'assignment.deadlinePast' });
+    expect(server.refresh).not.toHaveBeenCalled();
   });
 
   it('refuses an empty date: clearing is its own action', async () => {
@@ -191,11 +206,11 @@ describe('clearDeadlineAction (R-51)', () => {
         formOf({ assignmentId: ASSIGNMENT, deadline: '2026-12-15' }),
       ),
     ).toEqual({ saved: 1 });
-    expect(server.setDeadline).toHaveBeenCalledWith(DB, {
-      coachId: 'jonas',
-      assignmentId: ASSIGNMENT,
-      deadline: null,
-    });
+    expect(server.setDeadline).toHaveBeenCalledWith(
+      DB,
+      { coachId: 'jonas', assignmentId: ASSIGNMENT, deadline: null },
+      NOW,
+    );
     expect(server.refresh).toHaveBeenCalledTimes(1);
   });
 

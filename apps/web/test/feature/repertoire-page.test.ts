@@ -1,6 +1,7 @@
 import { moveKey, START_KEY } from '@mychess/chess';
 import { isValidElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import RepertoireLayout from '../../src/app/repertuarai/[id]/layout';
 import RepertoirePage from '../../src/app/repertuarai/[id]/page';
 import {
   deleteRepertoireAction,
@@ -93,6 +94,27 @@ describe('the repertoire page', () => {
     });
     expect(await outcomeOf(RepertoirePage(pageProps('not-a-uuid')))).toEqual({
       notFound: true,
+    });
+  });
+
+  // The layout decides before the page's loading.tsx streams, so a refused
+  // repertoire answers 404, not 200 (#331).
+  it('is not found in its layout, before the page streams, for another account’s and a malformed id (#331)', async () => {
+    const { rokas, gabija, london } = await cast();
+    const layoutProps = (id: string) => ({
+      params: Promise.resolve({ id }),
+      children: 'the page',
+    });
+    actAs(gabija);
+    expect(await outcomeOf(RepertoireLayout(layoutProps(london)))).toEqual({
+      notFound: true,
+    });
+    expect(
+      await outcomeOf(RepertoireLayout(layoutProps('not-a-uuid'))),
+    ).toEqual({ notFound: true });
+    actAs(rokas);
+    expect(await RepertoireLayout(layoutProps(london))).toMatchObject({
+      props: { children: 'the page' },
     });
   });
 

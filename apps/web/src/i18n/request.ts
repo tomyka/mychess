@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { getRequestConfig } from 'next-intl/server';
+import { DISPLAY_TIME_ZONE } from '../lib/time-zone';
 import { getAccount } from '../server/session';
 import { LOCALE_COOKIE, MESSAGES, resolveLocale } from './locales';
 
@@ -12,5 +13,7 @@ export default getRequestConfig(async () => {
   const locale = resolveLocale(
     account?.locale ?? store.get(LOCALE_COOKIE)?.value,
   );
-  return { locale, messages: MESSAGES[locale] };
+  // One zone on the server and in the browser (#331): a date formatted
+  // without its own zone would otherwise differ and break hydration.
+  return { locale, messages: MESSAGES[locale], timeZone: DISPLAY_TIME_ZONE };
 });

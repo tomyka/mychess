@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState, type JSX, type RefObject } from 'react';
-import { DANGER_BUTTON, PRIMARY_BUTTON, SECONDARY_BUTTON } from './buttons';
+import {
+  DANGER_BUTTON,
+  PRIMARY_BUTTON,
+  QUIET_BUTTON,
+  SECONDARY_BUTTON,
+} from './buttons';
 import { PendingButton } from './pending-button';
 
 export interface ConfirmedActionProps {
@@ -22,6 +27,8 @@ export interface ConfirmedActionProps {
    * destroys or takes away; `primary` when it only creates, as a fork does.
    */
   readonly tone?: 'danger' | 'primary';
+  /** The first button as quiet text, for an action kept out of the way. */
+  readonly quiet?: boolean;
   /**
    * Whether it asks, when the page holds that (another control on the page
    * can then open the question); left out, the step holds it itself.
@@ -69,6 +76,7 @@ export function ConfirmedAction({
   cancel,
   describedBy,
   tone = 'danger',
+  quiet = false,
   asking: held,
 }: ConfirmedActionProps): JSX.Element {
   const [own, setOwn] = useState(false);
@@ -84,7 +92,7 @@ export function ConfirmedAction({
         onClick={() => {
           setAsking(true);
         }}
-        className={`${SECONDARY_BUTTON} self-start`}
+        className={`${quiet ? QUIET_BUTTON : SECONDARY_BUTTON} self-start`}
       >
         {label}
       </button>

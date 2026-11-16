@@ -62,7 +62,8 @@ describe('the coach dashboard’s group page', () => {
     ).toBeDefined();
     expect(
       screen.getByRole('button', {
-        name: g.removeNamed.replace('{name}', 'Rokas'),
+        name: g.remove,
+        description: 'Rokas',
       }),
     ).toBeDefined();
     expect(screen.getByRole('option', { name: 'Gabija' })).toBeDefined();

@@ -5,6 +5,7 @@ import {
   INVITE_REFUSALS,
   INVITE_STATES,
   INVITE_TTL_MS,
+  acceptedBy,
   canAccept,
   canRevoke,
   inviteExpiry,
@@ -194,6 +195,47 @@ describe('canAccept', () => {
     expect(canAccept(invite({ revokedAt: T0 }), linked, T0)).toStrictEqual(
       refused(INVITE_REFUSALS.invalid),
     );
+  });
+});
+
+describe('acceptedBy (#329)', () => {
+  const none = { usedBy: null, linked: false, member: false };
+
+  const usedByP = { ...none, usedBy: 'p', linked: true };
+
+  it('is true for the linked account that used a personal invite, whatever its state now', () => {
+    const used = personal({ usedAt: T0 });
+    expect(acceptedBy(used, 'p', usedByP)).toBe(true);
+    expect(
+      acceptedBy(personal({ usedAt: T0, revokedAt: T0 }), 'p', usedByP),
+    ).toBe(true);
+  });
+
+  it('is false for the account that used a personal invite once it is unlinked', () => {
+    expect(
+      acceptedBy(personal({ usedAt: T0 }), 'p', { ...usedByP, linked: false }),
+    ).toBe(false);
+  });
+
+  it('is false for anyone else on a used personal invite, linked or not', () => {
+    const used = personal({ usedAt: T0 });
+    expect(acceptedBy(used, 'q', { ...none, usedBy: 'p' })).toBe(false);
+    expect(
+      acceptedBy(used, 'q', { usedBy: 'p', linked: true, member: true }),
+    ).toBe(false);
+    expect(acceptedBy(personal(), 'p', none)).toBe(false);
+  });
+
+  it("is true on a group invite for a linked member of the invite's group", () => {
+    expect(
+      acceptedBy(invite(), 'p', { ...none, linked: true, member: true }),
+    ).toBe(true);
+  });
+
+  it('is false on a group invite for a linked non-member, and for an unlinked account', () => {
+    expect(acceptedBy(invite(), 'p', { ...none, linked: true })).toBe(false);
+    expect(acceptedBy(invite(), 'p', { ...none, member: true })).toBe(false);
+    expect(acceptedBy(invite(), 'p', none)).toBe(false);
   });
 });
 

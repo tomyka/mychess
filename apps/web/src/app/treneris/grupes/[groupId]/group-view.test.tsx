@@ -80,6 +80,14 @@ const nameField = () => screen.getByLabelText<HTMLInputElement>(c.groups.name);
 const members = () =>
   within(screen.getByRole('region', { name: g.membersTitle }));
 const adding = () => within(screen.getByRole('region', { name: g.addTitle }));
+
+/** The member row of `name`. */
+const memberItem = (name: string) =>
+  within(
+    members()
+      .getAllByRole('listitem')
+      .find((item) => item.firstChild?.textContent === name) ?? document.body,
+  );
 /** The texts of the page's status lines (rename, members, adding). */
 const statuses = () =>
   screen.getAllByRole('status').map((status) => status.textContent);
@@ -145,18 +153,24 @@ describe('GroupView', () => {
     expect(nameField().getAttribute('aria-invalid')).toBe('true');
   });
 
-  it('lists the members, each with Remove', async () => {
+  it('lists the members, each with Remove, which asks first (#329)', async () => {
     renderView(GROUP);
     expect(
       members()
         .getAllByRole('listitem')
         .map((item) => item.firstChild?.textContent),
     ).toEqual(['Rokas', 'Rūta']);
-    fireEvent.click(
-      members().getByRole('button', {
-        name: g.removeNamed.replace('{name}', 'Rūta'),
-      }),
-    );
+    const ruta = memberItem('Rūta');
+    fireEvent.click(ruta.getByRole('button', { name: g.remove }));
+    // The first tap only asks.
+    expect(server.remove).not.toHaveBeenCalled();
+    expect(
+      ruta.getByText(g.removeConfirm.replace('{name}', 'Rūta')),
+    ).toBeDefined();
+    fireEvent.click(ruta.getByRole('button', { name: g.cancel }));
+    expect(ruta.queryByRole('button', { name: g.confirmRemove })).toBeNull();
+    fireEvent.click(ruta.getByRole('button', { name: g.remove }));
+    fireEvent.click(ruta.getByRole('button', { name: g.confirmRemove }));
     await waitFor(() => {
       expect(server.remove).toHaveBeenCalledTimes(1);
     });
@@ -170,11 +184,9 @@ describe('GroupView', () => {
   it('shows a refused Remove in the members section', async () => {
     server.remove.mockResolvedValue({ refusal: 'coach.notCoach' });
     renderView(GROUP);
-    fireEvent.click(
-      members().getByRole('button', {
-        name: g.removeNamed.replace('{name}', 'Rokas'),
-      }),
-    );
+    const rokas = memberItem('Rokas');
+    fireEvent.click(rokas.getByRole('button', { name: g.remove }));
+    fireEvent.click(rokas.getByRole('button', { name: g.confirmRemove }));
     await waitFor(() => {
       expect(members().getByRole('status').textContent).toBe(c.notCoach);
     });
@@ -247,8 +259,11 @@ describe('GroupView', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: 'Players in the group' }),
     ).toBeDefined();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove', description: 'Rokas' }),
+    );
     expect(
-      screen.getByRole('button', { name: 'Remove Rokas from the group' }),
+      screen.getByText('Remove Rokas from the group? They stay linked to you.'),
     ).toBeDefined();
   });
 });

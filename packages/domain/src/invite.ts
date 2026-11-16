@@ -126,6 +126,40 @@ export interface Acceptance {
   readonly counts: AcceptCounts;
 }
 
+/** What acceptedBy decides on, read for the asking account. */
+export interface ServedFacts {
+  /** The account that used a personal invite; null while unused. */
+  readonly usedBy: string | null;
+  /** The account is linked to the invite's coach now. */
+  readonly linked: boolean;
+  /** The account is a member of the invite's group now. */
+  readonly member: boolean;
+}
+
+/**
+ * Has `playerId` already been served by `invite` (#329), so the invite
+ * page can say it was accepted instead of offering it again? Only while
+ * they are linked to its coach, whatever the invite's state now; then, a
+ * personal invite they used, or a group invite whose group they are in.
+ * Anyone else, a former user since unlinked included, gets what canAccept
+ * says, so nothing new or false is told to them.
+ *
+ * Nothing records who used a group invite (it is multi-use, R-98), so for
+ * one, membership of its group stands in for "used it": a member who
+ * joined another way (an earlier invite, or added by the coach) also sees
+ * it as accepted. Accepted as low impact: it tells them only of their own
+ * link and membership.
+ */
+export function acceptedBy(
+  invite: Pick<Invite, 'kind' | 'groupId'>,
+  playerId: string,
+  facts: ServedFacts,
+): boolean {
+  if (!facts.linked) return false;
+  if (invite.kind === 'personal') return facts.usedBy === playerId;
+  return invite.groupId !== null && facts.member;
+}
+
 /** May the player accept `invite` now (R-12, R-70, R-98, R-99, R-108)? */
 export function canAccept(
   invite: Invite,

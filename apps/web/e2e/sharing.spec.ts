@@ -286,9 +286,9 @@ for (const locale of ['en'] as const) {
       await coach.reload();
       await expectNotFound(coach);
       await gabija.goto(repertoire);
-      await expect(
-        shareSection(gabija, messages).getByText(messages.share.noCoach),
-      ).toBeVisible();
+      // No linked coach left: no share section at all (#331).
+      await expect(gabija.getByRole('heading', { level: 1 })).toBeVisible();
+      await expect(shareSection(gabija, messages)).toHaveCount(0);
     });
   });
 }

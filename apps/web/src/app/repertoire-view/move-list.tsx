@@ -54,6 +54,11 @@ type Token =
       readonly path: readonly RepertoireMove[];
       /** Black's number shows at the start of a block or after variations. */
       readonly numbered: boolean;
+      /**
+       * It lands on a position the list goes on from elsewhere (a
+       * Transposition): the line goes on there, not after this chip (#331).
+       */
+      readonly transposes: boolean;
     }
   | { readonly kind: 'variations'; readonly blocks: readonly Token[][] };
 
@@ -82,6 +87,7 @@ function lineTokens(
       ply: p,
       path: mainPath,
       numbered,
+      transposes: main.transposes,
     });
     if (alternatives.length > 0)
       tokens.push({
@@ -115,17 +121,21 @@ const MARK_WORD = {
 } as const;
 
 /** The chip's accessible name: number and SAN, then what the move carries. */
-function useChipLabel(
-  text: string,
-  comment: boolean,
-  marks: readonly NoteMark[],
-): string {
+function useChipLabel(text: string, glyphs: ChipGlyphs): string {
   const t = useTranslations('repertoires.moves');
   return [
     text,
-    ...(comment ? [t('hasComment')] : []),
-    ...marks.map((mark) => t(MARK_WORD[mark])),
+    ...(glyphs.comment ? [t('hasComment')] : []),
+    ...glyphs.marks.map((mark) => t(MARK_WORD[mark])),
+    ...(glyphs.transposes ? [t('transposes')] : []),
   ].join(', ');
+}
+
+/** What a chip marks after its SAN; the chip's name says each in words. */
+interface ChipGlyphs {
+  readonly comment: boolean;
+  readonly marks: readonly NoteMark[];
+  readonly transposes: boolean;
 }
 
 /** The marks of the move `key`: the viewer's own note, then a kept one. */
@@ -147,9 +157,13 @@ function MoveChip({
   const { move } = token;
   const number = moveNumber(token.ply, context.whiteFirst);
   const isCurrent = pathId(token.path) === context.current;
-  const marks = marksOf(context, moveKey(move.from, move.san));
+  const glyphs: ChipGlyphs = {
+    comment: move.comment !== null,
+    marks: marksOf(context, moveKey(move.from, move.san)),
+    transposes: token.transposes,
+  };
   const san = annotatedSan(move.san, move.nags);
-  const label = useChipLabel(`${number} ${san}`, move.comment !== null, marks);
+  const label = useChipLabel(`${number} ${san}`, glyphs);
   useEffect(() => {
     const chip = ref.current;
     if (isCurrent && typeof chip?.scrollIntoView === 'function')
@@ -178,7 +192,7 @@ function MoveChip({
         className={`inline-flex min-h-touch min-w-touch items-center justify-center gap-1 rounded-control px-2 text-base tabular-nums ${weight} ${tone}`}
       >
         {san}
-        <MoveGlyphs comment={move.comment !== null} marks={marks} />
+        <MoveGlyphs glyphs={glyphs} />
       </button>
     </span>
   );
@@ -198,15 +212,25 @@ const NOTE_GLYPH: Readonly<Record<NoteMark, string>> = {
 
 /** The small comment and note marks after a SAN; their meaning is in the chip's name. */
 function MoveGlyphs({
-  comment,
-  marks,
+  glyphs,
 }: {
-  readonly comment: boolean;
-  readonly marks: readonly NoteMark[];
+  readonly glyphs: ChipGlyphs;
 }): JSX.Element | null {
-  if (!comment && marks.length === 0) return null;
+  const { comment, marks, transposes } = glyphs;
+  if (!comment && marks.length === 0 && !transposes) return null;
   return (
     <span aria-hidden="true" className="flex gap-0.5 text-xs">
+      {transposes ? (
+        // Two opposite arrows: the line goes on where it was shown already.
+        <svg
+          viewBox="0 0 16 16"
+          className="size-3"
+          fill="currentColor"
+          data-transposition=""
+        >
+          <path d="M2 5h9V2.5L15 6l-4 3.5V7H2zM14 11H5V8.5L1 12l4 3.5V13h9z" />
+        </svg>
+      ) : null}
       {comment ? (
         <svg viewBox="0 0 16 16" className="size-3" fill="currentColor">
           <path d="M2 3h12v8H6l-3 3v-3H2z" />

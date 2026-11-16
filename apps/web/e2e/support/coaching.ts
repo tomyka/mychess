@@ -58,9 +58,14 @@ export async function acceptInvite(
   messages: Messages,
 ): Promise<void> {
   await page.getByRole('button', { name: messages.invite.accept }).click();
-  await expect(page).toHaveURL(/\/nustatymai#treneriai$/);
+  await expect(page).toHaveURL(/\/nustatymai\?treneris=[^#]+#treneriai$/);
   await expect(
     page.getByRole('heading', { name: messages.settings.myCoaches.title }),
+  ).toBeVisible();
+  // It says the invite was accepted (#329).
+  const [before] = messages.settings.myCoaches.accepted.split('{name}');
+  await expect(
+    page.getByRole('status').filter({ hasText: before ?? '' }),
   ).toBeVisible();
 }
 

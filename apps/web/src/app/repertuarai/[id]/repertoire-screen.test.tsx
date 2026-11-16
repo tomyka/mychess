@@ -251,13 +251,17 @@ describe('RepertoireScreen: browsing', () => {
     );
   });
 
-  it('puts the assign panel last and counts its players on delete (R-131)', () => {
+  it('puts the assign panel before sharing and counts its players on delete (R-131, #331)', () => {
     renderScreen(GRAPH, 'Londono sistema', {
       assignedPlayers: 2,
       assignPanel: <section aria-label="Assign slot" />,
+      sharing: {
+        coaches: [{ id: 'c-1', displayName: 'Rimantas' }],
+        sharedWith: [],
+      },
     });
     const slot = screen.getByRole('region', { name: 'Assign slot' });
-    expect(slot.previousElementSibling?.getAttribute('aria-labelledby')).toBe(
+    expect(slot.nextElementSibling?.getAttribute('aria-labelledby')).toBe(
       screen.getByRole('heading', { level: 2, name: lt.share.title }).id,
     );
     // The phone's and the desktop's Delete both ask with the count.

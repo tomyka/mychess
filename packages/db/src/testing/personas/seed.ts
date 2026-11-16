@@ -18,6 +18,7 @@ import {
   DEFAULT_TRAINING_SETTINGS,
   deadlineSchema,
   groupNameSchema,
+  inviteExpiry,
   personaEmail,
   personalNoteSchema,
   profileSchema,
@@ -105,8 +106,12 @@ interface AccountSeeding {
 }
 
 /** Everything later steps look up: account ids, the group, the repertoires. */
-interface Seeding extends AccountSeeding {
+interface Seeding extends AccountSeeding, PersonaGroup {}
+
+/** The group, and the token of the invite it was made with (R-204). */
+interface PersonaGroup {
   readonly groupId: string;
+  readonly groupInviteToken: string;
 }
 
 /** The value of a repository result; a refusal means the definitions are wrong. */
@@ -174,8 +179,8 @@ async function createAccount(
   s.ids.set(persona.key, id);
 }
 
-/** The coach's group; returns its id. */
-async function createPersonaGroup(s: AccountSeeding): Promise<string> {
+/** The coach's group, with the invite every new group gets (R-204). */
+async function createPersonaGroup(s: AccountSeeding): Promise<PersonaGroup> {
   const { coach, name, createdAt } = PERSONA_GROUP;
   const created = await createGroup(
     s.db,
@@ -183,18 +188,34 @@ async function createPersonaGroup(s: AccountSeeding): Promise<string> {
     groupNameSchema.parse(name),
     createdAt,
   );
-  return expectOk(created, name);
+  const { groupId, invite } = expectOk(created, name);
+  return {
+    groupId,
+    groupInviteToken: expectOk(invite, `${name} invite`).token,
+  };
 }
 
-/** The link as a player makes it: accepting the coach's invite on its day. */
-async function link(s: Seeding, l: PersonaLink): Promise<void> {
+/**
+ * The invite token a player accepts on `l.at`: the group's own invite
+ * while it is open (R-99: 7 days from the group's day), as the coach
+ * shares it (coach.md C-M1-2); otherwise a new one the coach makes then.
+ */
+async function inviteTokenFor(s: Seeding, l: PersonaLink): Promise<string> {
+  const groupInviteOpen =
+    l.at.getTime() < inviteExpiry(PERSONA_GROUP.createdAt).getTime();
+  if (l.inGroup && groupInviteOpen) return s.groupInviteToken;
   const created = await createInvite(s.db, {
     coachId: lookup(s.ids, l.coach),
     kind: l.inGroup ? 'group' : 'personal',
     groupId: l.inGroup ? s.groupId : null,
     now: l.at,
   });
-  const { token } = expectOk(created, `invite for ${l.player}`);
+  return expectOk(created, `invite for ${l.player}`).token;
+}
+
+/** The link as a player makes it: accepting the coach's invite on its day. */
+async function link(s: Seeding, l: PersonaLink): Promise<void> {
+  const token = await inviteTokenFor(s, l);
   const playerId = lookup(s.ids, l.player);
   expectOk(await acceptInvite(s.db, token, playerId, l.at), `link ${l.player}`);
 }
@@ -394,7 +415,7 @@ export async function seedPersonas(db: Db, now: Date): Promise<SeedSummary> {
     repertoires: new Map(),
   };
   for (const persona of PERSONA_ACCOUNTS) await createAccount(base, persona);
-  const s: Seeding = { ...base, groupId: await createPersonaGroup(base) };
+  const s: Seeding = { ...base, ...(await createPersonaGroup(base)) };
   await writeCoaching(s);
   for (const t of PERSONA_TRAINING) await train(s, t);
   return {

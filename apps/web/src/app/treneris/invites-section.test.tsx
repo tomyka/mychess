@@ -48,33 +48,18 @@ const vilnius = (locale: string) =>
     timeZone: 'Europe/Vilnius',
   }).format(EXPIRES);
 
+// The coach's open invites: the loader lists no other (coachInvites, #329).
 const INVITES: readonly CoachInviteRow[] = [
   {
     id: 'i-1',
     kind: 'group',
     groupName: 'Šeštadienio grupė',
-    state: 'active',
     expiresAt: EXPIRES,
   },
   {
     id: 'i-2',
     kind: 'personal',
     groupName: null,
-    state: 'used',
-    expiresAt: EXPIRES,
-  },
-  {
-    id: 'i-3',
-    kind: 'personal',
-    groupName: null,
-    state: 'revoked',
-    expiresAt: EXPIRES,
-  },
-  {
-    id: 'i-4',
-    kind: 'personal',
-    groupName: null,
-    state: 'expired',
     expiresAt: EXPIRES,
   },
 ];
@@ -200,21 +185,22 @@ describe('InvitesSection: the invite list', () => {
     expect(screen.getByText(i.empty)).toBeDefined();
   });
 
-  it('shows each invite’s kind, group and state, and when an active one expires, in Vilnius time', () => {
+  it('shows each open invite’s kind, group and when it expires, in Vilnius time, with Revoke', () => {
     renderSection(INVITES);
     const rows = within(screen.getByRole('list')).getAllByRole('listitem');
     expect(rows.map((row) => row.textContent)).toEqual([
-      `${i.group}Grupė: Šeštadienio grupė${i.state.active}Galioja iki ${vilnius('lt')}${i.revoke}`,
-      `${i.personal}${i.state.used}`,
-      `${i.personal}${i.state.revoked}`,
-      `${i.personal}${i.state.expired}`,
+      `${i.group}Grupė: Šeštadienio grupėGalioja iki ${vilnius('lt')}${i.revoke}`,
+      `${i.personal}Galioja iki ${vilnius('lt')}${i.revoke}`,
     ]);
   });
 
-  it('revokes an active invite', async () => {
+  it('revokes an invite', async () => {
     renderSection(INVITES);
-    expect(screen.getAllByRole('button', { name: i.revoke })).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: i.revoke }));
+    const revokes = screen.getAllByRole('button', { name: i.revoke });
+    expect(revokes).toHaveLength(2);
+    const [first] = revokes;
+    if (first === undefined) throw new Error('no Revoke');
+    fireEvent.click(first);
     await waitFor(() => {
       expect(server.revoke).toHaveBeenCalledTimes(1);
     });
@@ -225,7 +211,7 @@ describe('InvitesSection: the invite list', () => {
 
   it('says so when an invite can no longer be revoked', async () => {
     server.revoke.mockResolvedValue({ refusal: 'invite.invalid' });
-    renderSection(INVITES);
+    renderSection(INVITES.slice(0, 1));
     fireEvent.click(screen.getByRole('button', { name: i.revoke }));
     await waitFor(() => {
       expect(

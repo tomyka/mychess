@@ -18,6 +18,7 @@ const TOKEN = 'A'.repeat(42) + '_';
 const GROUP_INVITE: InvitePreviewResult = {
   ok: true,
   value: {
+    state: 'active',
     coachDisplayName: 'Jonas',
     groupName: 'Šeštadienio grupė',
     kind: 'group',
@@ -58,13 +59,59 @@ describe('InviteView', () => {
     ).toBe('/');
   });
 
+  it('says what the coach will see: assigned repertoires and imported games, not just the name (R-39, #329)', () => {
+    const en = MESSAGES.en.invite.explain;
+    expect(en).toContain('repertoires they assign you');
+    expect(en).toContain('imported games');
+    expect(en).toContain('stay private unless you share them');
+    expect(i.explain).toContain('priskirtus repertuarus');
+    expect(i.explain).toContain('importuotas partijas');
+  });
+
   it('names no group for a personal invite without one', () => {
     renderView({
       ok: true,
-      value: { coachDisplayName: 'Jonas', groupName: null, kind: 'personal' },
+      value: {
+        state: 'active',
+        coachDisplayName: 'Jonas',
+        groupName: null,
+        kind: 'personal',
+      },
     });
     expect(screen.getByText('Treneris: Jonas')).toBeDefined();
     expect(screen.queryByText(/^Grupė:/u)).toBeNull();
+  });
+
+  it('says an invite this account already accepted links it with the coach and group, with no Accept (#329)', () => {
+    renderView({
+      ok: true,
+      value: {
+        state: 'accepted',
+        coachDisplayName: 'Jonas',
+        groupName: 'Šeštadienio grupė',
+      },
+    });
+    expect(
+      screen.getByText(i.accepted.replace('{coach}', 'Jonas')),
+    ).toBeDefined();
+    expect(screen.getByText('Grupė: Šeštadienio grupė')).toBeDefined();
+    expect(screen.queryByRole('button', { name: i.accept })).toBeNull();
+    expect(screen.queryByText(i.explain)).toBeNull();
+    expect(
+      screen.getByRole('link', { name: i.myCoaches }).getAttribute('href'),
+    ).toBe('/nustatymai#treneriai');
+  });
+
+  it('names no group on an accepted personal invite without one', () => {
+    renderView(
+      {
+        ok: true,
+        value: { state: 'accepted', coachDisplayName: 'Ona', groupName: null },
+      },
+      'en',
+    );
+    expect(screen.getByText('You are linked with Ona.')).toBeDefined();
+    expect(screen.queryByText(/^Group:/u)).toBeNull();
   });
 
   it('accepts by posting only the token (the account is the session’s)', async () => {

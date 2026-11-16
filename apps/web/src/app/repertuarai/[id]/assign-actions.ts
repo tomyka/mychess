@@ -65,7 +65,10 @@ export async function unassignAction(
   return settled(previous, ended);
 }
 
-/** Moves one of the coach's own deadlines; an empty date is refused. */
+/**
+ * Moves one of the coach's own deadlines; an empty date is refused, and so
+ * is a day already past in Vilnius (R-203, R-210).
+ */
 export async function setDeadlineAction(
   previous: AssignmentActionState,
   form: FormData,
@@ -73,10 +76,11 @@ export async function setDeadlineAction(
   const coach = await requireCoach();
   const request = parseDeadlineForm(form);
   if (!request.ok) return { refusal: request.refusal.reason };
-  const moved = await setDeadline(getDb(), {
-    coachId: coach.id,
-    ...request.value,
-  });
+  const moved = await setDeadline(
+    getDb(),
+    { coachId: coach.id, ...request.value },
+    new Date(),
+  );
   return settled(previous, moved);
 }
 
@@ -88,10 +92,10 @@ export async function clearDeadlineAction(
   const coach = await requireCoach();
   const request = parseAssignmentRef(form);
   if (!request.ok) return { refusal: request.refusal.reason };
-  const cleared = await setDeadline(getDb(), {
-    coachId: coach.id,
-    ...request.value,
-    deadline: null,
-  });
+  const cleared = await setDeadline(
+    getDb(),
+    { coachId: coach.id, ...request.value, deadline: null },
+    new Date(),
+  );
   return settled(previous, cleared);
 }

@@ -129,8 +129,13 @@ export async function setInGroup(
     await coach.getByRole('button', { name: t.add, exact: true }).click();
     await expect(members.getByText(name, { exact: true })).toBeVisible();
   } else {
-    await coach
-      .getByRole('button', { name: format(t.removeNamed, { name }) })
+    // Remove asks first (#329): the member's row holds both steps.
+    const row = members.getByRole('listitem').filter({
+      has: coach.getByText(name, { exact: true }),
+    });
+    await row.getByRole('button', { name: t.remove, exact: true }).click();
+    await row
+      .getByRole('button', { name: t.confirmRemove, exact: true })
       .click();
     await expect(members.getByText(name, { exact: true })).toHaveCount(0);
   }

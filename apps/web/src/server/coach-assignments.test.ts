@@ -71,6 +71,8 @@ describe('coachAssignData', () => {
         players: [],
         groups: [{ id: GROUP, name: 'Šeštadienio grupė' }],
         assignments: [ASSIGNMENT],
+        // Today in Vilnius, the date fields' earliest day (R-203).
+        today: '2026-10-20',
       },
     });
     expect(server.assignments).toHaveBeenCalledWith(DB, 'jonas', ID, NOW);

@@ -18,16 +18,48 @@ import {
 } from './assign-actions';
 import { INITIAL, useOutcome } from './assign-outcome';
 
+/**
+ * The new deadline's date, starting at the current one. Today is its
+ * earliest day as a hint only: the server refuses a past one (R-203).
+ */
+function NewDeadlineField({
+  deadline,
+  today,
+}: {
+  readonly deadline: string | null;
+  readonly today: string;
+}): JSX.Element {
+  const t = useTranslations('assignment.panel');
+  const dateId = useId();
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={dateId} className="text-sm font-medium">
+        {t('newDeadline')}
+      </label>
+      <input
+        id={dateId}
+        type="date"
+        name="deadline"
+        defaultValue={deadline ?? ''}
+        min={today}
+        className={FIELD}
+      />
+    </div>
+  );
+}
+
 /** Change the row's deadline, or clear it while there is one (R-51). */
 export function DeadlineForms({
   assignment,
   describedBy,
+  today,
 }: {
   readonly assignment: CoachAssignment;
   readonly describedBy: string;
+  /** Today in Vilnius: the date field's earliest day. */
+  readonly today: string;
 }): JSX.Element {
   const t = useTranslations('assignment.panel');
-  const dateId = useId();
   const { state, pending, using } = useLatestAction(INITIAL);
   const outcome = useOutcome(state, t('deadlineSaved'));
   return (
@@ -39,18 +71,7 @@ export function DeadlineForms({
         className="flex flex-wrap items-end gap-2"
       >
         <input type="hidden" name="assignmentId" value={assignment.id} />
-        <div className="flex flex-col gap-1">
-          <label htmlFor={dateId} className="text-sm font-medium">
-            {t('newDeadline')}
-          </label>
-          <input
-            id={dateId}
-            type="date"
-            name="deadline"
-            defaultValue={assignment.deadline ?? ''}
-            className={FIELD}
-          />
-        </div>
+        <NewDeadlineField deadline={assignment.deadline} today={today} />
         <button
           type="submit"
           disabled={pending}

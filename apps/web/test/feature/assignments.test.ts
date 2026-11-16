@@ -27,6 +27,7 @@ import {
   pauseAction,
   setPersonalNoteAction,
 } from '../../src/app/repertuarai/priskirti/[id]/actions';
+import AssignedRepertoireLayout from '../../src/app/repertuarai/priskirti/[id]/layout';
 import AssignedRepertoirePage from '../../src/app/repertuarai/priskirti/[id]/page';
 import { savePersonalNoteAction } from '../../src/app/repertuarai/[id]/actions';
 import {
@@ -285,6 +286,31 @@ describe('the assigned page is 404 (plan decision 12)', () => {
     actAs(people[name]);
     expect(await openPage(people.london)).toEqual({ notFound: true });
     expect(await state()).toEqual(before);
+  });
+
+  // The layout decides before the page's loading.tsx streams, so these
+  // answer 404, not 200 (#331).
+  it('in its layout, before the page streams: not assigned, foreign or malformed is not found', async () => {
+    const people = await cast();
+    const openLayout = (id: string): Promise<unknown> =>
+      outcomeOf(
+        AssignedRepertoireLayout({
+          params: Promise.resolve({ id }),
+          children: 'the page',
+        }),
+      );
+    actAs(people.gabija);
+    expect(await openLayout(people.london)).toEqual({ notFound: true });
+    expect(await openLayout('not-a-uuid')).toEqual({ notFound: true });
+    actAs(people.rimantas);
+    expect(await openLayout(people.london)).toEqual({ notFound: true });
+    actAs(people.rokas);
+    expect(
+      await AssignedRepertoireLayout({
+        params: Promise.resolve({ id: people.london }),
+        children: 'the page',
+      }),
+    ).toMatchObject({ props: { children: 'the page' } });
   });
 
   it('for the player after the coach unassigns it', async () => {

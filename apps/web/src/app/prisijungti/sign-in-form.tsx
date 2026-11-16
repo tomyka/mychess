@@ -214,6 +214,10 @@ export function SignInForm({
           <h1 className="text-2xl font-bold sm:text-3xl">
             {t('signIn.title')}
           </h1>
+          {next === null ? null : (
+            // A return path is only ever an invite (returnPath, R-81).
+            <p className="font-medium">{t('signIn.forInvite')}</p>
+          )}
           <p className="text-fg-muted">{t('signIn.intro')}</p>
         </header>
         <StatusLine

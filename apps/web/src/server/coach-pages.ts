@@ -15,6 +15,7 @@ import {
   type CoachInvite,
   type GroupProgress,
   type GroupProgressCell,
+  type HomePlayer,
   type LinkedAccount,
   type PlayerProgress,
   type ProgressRow,
@@ -31,8 +32,11 @@ import { chapterNamesOf } from './chapter-names';
 import { assertCoachMaySeeBy, requireCoach } from './coaching';
 import { getDb } from './db';
 
-/** A player on the coach's home, with when they last trained (R-154). */
-interface CoachHomePlayer extends LinkedAccount {
+/**
+ * A player on the coach's home, with when they last trained (R-154), their
+ * nearest deadline and whether they are overdue (#329).
+ */
+interface CoachHomePlayer extends Omit<HomePlayer, 'lastTrained'> {
   /** Whole Vilnius days since the player last trained; null for never. */
   readonly lastTrainedDays: number | null;
 }
@@ -52,7 +56,7 @@ export async function coachHomeData(): Promise<CoachHomeData> {
   const coach = await requireCoach();
   const db = getDb();
   const now = new Date();
-  const players = await coachHomePlayers(db, coach.id);
+  const players = await coachHomePlayers(db, coach.id, now);
   return {
     players: players.map(({ lastTrained, ...player }) => ({
       ...player,

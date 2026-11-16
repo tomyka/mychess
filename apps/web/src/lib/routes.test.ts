@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  acceptedInvitePath,
   assignedRepertoirePath,
   coachGroupPath,
   coachPlayerPath,
@@ -35,6 +36,15 @@ describe('invitePath', () => {
 
   it('encodes the token as one path segment', () => {
     expect(invitePath('a/b?c')).toBe('/k/a%2Fb%3Fc');
+  });
+});
+
+describe('acceptedInvitePath', () => {
+  it('is "Mano treneriai", naming the coach just linked, the id encoded', () => {
+    expect(acceptedInvitePath('c1')).toBe('/nustatymai?treneris=c1#treneriai');
+    expect(acceptedInvitePath('a&b')).toBe(
+      '/nustatymai?treneris=a%26b#treneriai',
+    );
   });
 });
 

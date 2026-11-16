@@ -81,12 +81,16 @@ const TO_ROKAS: CoachAssignment = {
   ],
 };
 
-const PEOPLE: Pick<AssignPanelData, 'players' | 'groups'> = {
+/** Today in Vilnius, as the loader gives it. */
+const TODAY = '2026-11-17';
+
+const PEOPLE: Pick<AssignPanelData, 'players' | 'groups' | 'today'> = {
   players: [
     { id: 'rokas', displayName: 'Rokas' },
     { id: 'egle', displayName: 'Eglė' },
   ],
   groups: [{ id: GROUP, name: 'Šeštadienio grupė' }],
+  today: TODAY,
 };
 
 function renderPanel(
@@ -180,7 +184,12 @@ describe('AssignPanel: assigning (R-15, R-16)', () => {
       </NextIntlClientProvider>
     );
     const { rerender } = render(
-      panel({ players: [], groups: PEOPLE.groups, assignments: [TO_ROKAS] }),
+      panel({
+        players: [],
+        groups: PEOPLE.groups,
+        assignments: [TO_ROKAS],
+        today: TODAY,
+      }),
     );
     fireEvent.change(screen.getByLabelText(p.target), {
       target: { value: `group:${GROUP}` },
@@ -189,7 +198,12 @@ describe('AssignPanel: assigning (R-15, R-16)', () => {
     expect(await screen.findByText(p.assigned)).toBeDefined();
     // The page refreshes: no one is left to offer, so the form goes.
     rerender(
-      panel({ players: [], groups: [], assignments: [TO_ROKAS, TO_GROUP] }),
+      panel({
+        players: [],
+        groups: [],
+        assignments: [TO_ROKAS, TO_GROUP],
+        today: TODAY,
+      }),
     );
     expect(screen.getByText(p.everyone)).toBeDefined();
     expect(screen.queryByRole('button', { name: p.assign })).toBeNull();
@@ -212,19 +226,25 @@ describe('AssignPanel: assigning (R-15, R-16)', () => {
       players: [{ id: 'egle', displayName: 'Eglė' }],
       groups: [],
       assignments: [TO_GROUP, TO_ROKAS],
+      today: TODAY,
     });
     expect(options()).toEqual([p.choose, 'Eglė']);
     expect(screen.queryByRole('group', { name: p.groups })).toBeNull();
   });
 
   it('says why there is nothing to pick', () => {
-    renderPanel({ players: [], groups: [], assignments: [] });
+    renderPanel({ players: [], groups: [], assignments: [], today: TODAY });
     expect(screen.getByText(p.nobody)).toBeDefined();
     expect(screen.queryByRole('button', { name: p.assign })).toBeNull();
   });
 
   it('says when it is already everyone’s', () => {
-    renderPanel({ players: [], groups: [], assignments: [TO_GROUP, TO_ROKAS] });
+    renderPanel({
+      players: [],
+      groups: [],
+      assignments: [TO_GROUP, TO_ROKAS],
+      today: TODAY,
+    });
     expect(screen.getByText(p.everyone)).toBeDefined();
     expect(screen.queryByRole('button', { name: p.assign })).toBeNull();
   });
@@ -320,6 +340,28 @@ describe('AssignPanel: the assignments (R-46, R-51, R-128, R-132)', () => {
     expect(server.deadline).not.toHaveBeenCalled();
     expect(
       await within(row('Šeštadienio grupė')).findByText(p.deadlineSaved),
+    ).toBeDefined();
+  });
+
+  it('hints at today as the earliest deadline in both date fields (R-203)', () => {
+    renderPanel({ ...PEOPLE, assignments: [TO_GROUP] });
+    expect(screen.getByLabelText<HTMLInputElement>(p.deadline).min).toBe(TODAY);
+    expect(
+      within(row('Šeštadienio grupė')).getByLabelText<HTMLInputElement>(
+        p.newDeadline,
+      ).min,
+    ).toBe(TODAY);
+  });
+
+  it('says when a deadline is already past (R-203, R-210)', async () => {
+    server.deadline.mockResolvedValue({ refusal: 'assignment.deadlinePast' });
+    renderPanel({ ...PEOPLE, assignments: [TO_GROUP] });
+    const group = row('Šeštadienio grupė');
+    fireEvent.click(
+      within(group).getByRole('button', { name: p.changeDeadline }),
+    );
+    expect(
+      await within(group).findByText(lt.assignment.deadlinePast),
     ).toBeDefined();
   });
 

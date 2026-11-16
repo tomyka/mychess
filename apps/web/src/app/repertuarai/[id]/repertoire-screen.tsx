@@ -166,7 +166,7 @@ function coachNotesOn(
 /**
  * What the owner puts in the panel: the builder's chapter and comment
  * fields, the coaches' notes and the Personal note under each move, and the
- * repertoire's actions and sharing last.
+ * repertoire's actions, assigning, and sharing last (#331).
  */
 function ownerPanel(screen: Screen, notes: Notes): PanelContent {
   const { props, state, dispatch, edit } = screen;
@@ -201,8 +201,8 @@ function ownerPanel(screen: Screen, notes: Notes): PanelContent {
           name={name}
           assignedPlayers={props.assignedPlayers}
         />
-        <ShareWithCoach repertoireId={id} sharing={props.sharing} />
         {props.assignPanel}
+        <ShareWithCoach repertoireId={id} sharing={props.sharing} />
       </>
     ),
   };

@@ -1,10 +1,11 @@
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { JSX } from 'react';
-import { ROUTES } from '../../../lib/routes';
-import { TEXT_LINK } from '../../nustatymai/styles';
+import { ROUTES } from '../../lib/routes';
+import { TEXT_LINK } from '../nustatymai/styles';
 
-// Another account's repertoire and a malformed id read the same (decision 12).
+// Another account's repertoire and a malformed id read the same (decision
+// 12). Here, not in [id]/, so the 404 its layout throws (#331) lands on it.
 export default function RepertoireNotFound(): JSX.Element {
   const t = useTranslations();
   return (

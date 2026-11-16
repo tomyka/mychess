@@ -303,6 +303,17 @@ describe('the settings page', () => {
     expect(within(coaches).getByText('Šeštadienio grupė')).toBeDefined();
   });
 
+  it('says the invite of `?treneris=` was accepted, naming that linked coach (#329)', async () => {
+    server.coaches = [
+      { id: 'c-1', displayName: 'Jonas', linkedAt: new Date(), groups: [] },
+    ];
+    await renderPage({ treneris: 'c-1' });
+    const coaches = screen.getByRole('region', { name: s.myCoaches.title });
+    expect(within(coaches).getByRole('status').textContent).toBe(
+      s.myCoaches.accepted.replace('{name}', 'Jonas'),
+    );
+  });
+
   it('says nothing about Lichess otherwise', async () => {
     await renderPage();
     expect(screen.queryByRole('note')).toBeNull();

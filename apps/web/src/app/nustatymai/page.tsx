@@ -88,6 +88,7 @@ export default async function SettingsPage({
           displayName,
           groups,
         }))}
+        acceptedCoachId={first(params['treneris']) ?? null}
       />
       <Providers
         links={links}

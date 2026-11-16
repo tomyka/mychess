@@ -13,6 +13,7 @@ import {
 } from '@mychess/db';
 import type { MoveChanges, RepertoireGraph, Side } from '@mychess/chess';
 import { notFound } from 'next/navigation';
+import { cache } from 'react';
 import { z } from 'zod';
 import type { ChapterNames } from '../lib/chapter-label';
 import { chapterNamesOf } from './chapter-names';
@@ -48,9 +49,13 @@ export interface AssignedRepertoirePage {
 /**
  * Repertoire `rawId` as the session player has it by assignment. Not
  * assigned to them now, forked, missing or a malformed id: all 404 (plan
- * decision 12); the queries filter by the player again.
+ * decision 12); the queries filter by the player again. Read once per
+ * request: the page's layout decides with it before the page streams
+ * (#331), and the page reads the same.
  */
-export async function assignedRepertoireData(
+export const assignedRepertoireData = cache(loadAssignedRepertoire);
+
+async function loadAssignedRepertoire(
   rawId: unknown,
 ): Promise<AssignedRepertoirePage> {
   const player = await requireOnboarded();

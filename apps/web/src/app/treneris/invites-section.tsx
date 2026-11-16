@@ -1,18 +1,16 @@
 'use client';
 
-import {
-  OPEN_INVITE_LIMIT,
-  type InviteKind,
-  type InviteState,
-} from '@mychess/domain';
+import { OPEN_INVITE_LIMIT, type InviteKind } from '@mychess/domain';
 import { useFormatter, useTranslations } from 'next-intl';
-import { useActionState, useId, useState, type JSX } from 'react';
+import { useActionState, useId, type JSX } from 'react';
 import { DISPLAY_TIME_ZONE } from '../../lib/time-zone';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
+import { FIELD } from '../fields';
 import { SECTION, SECTION_TITLE } from '../nustatymai/styles';
 import { PendingButton } from '../pending-button';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
+import { FreshLink } from './fresh-link';
 import {
   createInviteAction,
   revokeInviteAction,
@@ -20,12 +18,14 @@ import {
   type RevokeInviteState,
 } from './actions';
 
-/** One of the coach's invites as the list shows it; never its token. */
+/**
+ * One of the coach's open invites as the list shows it; never its token.
+ * The loader lists no used, expired or revoked one (coachInvites, #329).
+ */
 export interface CoachInviteRow {
   readonly id: string;
   readonly kind: InviteKind;
   readonly groupName: string | null;
-  readonly state: InviteState;
   readonly expiresAt: Date;
 }
 
@@ -42,50 +42,8 @@ const NOT_REVOKED: RevokeInviteState = {};
 /** A form's dispatch, as useActionState hands it over. */
 type Dispatch = (form: FormData) => void;
 
-const FIELD =
-  'min-h-touch rounded-control border border-border-strong bg-surface px-3 text-base text-fg';
-
 const CHOICE =
   'flex min-h-touch cursor-pointer items-center gap-3 rounded-control border border-border-strong bg-surface px-3 has-checked:border-accent has-checked:bg-sunken has-checked:ring-1 has-checked:ring-accent';
-
-/** The link just made, shown once with a Copy button (plan decision 5). */
-function FreshLink({ link }: { readonly link: string }): JSX.Element {
-  const t = useTranslations('coach.invites');
-  const fieldId = useId();
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="flex flex-col gap-2">
-      <label htmlFor={fieldId} className="font-medium">
-        {t('link')}
-      </label>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          id={fieldId}
-          type="text"
-          readOnly
-          value={link}
-          onFocus={(event) => {
-            event.currentTarget.select();
-          }}
-          className={`${FIELD} grow`}
-        />
-        <button
-          type="button"
-          onClick={() => {
-            void navigator.clipboard.writeText(link).then(() => {
-              setCopied(true);
-            });
-          }}
-          className={SECONDARY_BUTTON}
-        >
-          {t('copy')}
-        </button>
-      </div>
-      <p className="text-fg-muted">{t('linkOnce')}</p>
-      <StatusLine text={copied ? t('copied') : null} tone="success" />
-    </div>
-  );
-}
 
 /** Personal or group (R-98). */
 function KindField(): JSX.Element {
@@ -208,8 +166,8 @@ function RevokeForm({
 }
 
 /**
- * One invite: kind and group on the first line, state (and an active
- * one's expiry) on the second; an active one's Revoke at the row's end.
+ * One open invite: kind and group on the first line, when it expires on
+ * the second; its Revoke at the row's end.
  */
 function InviteRow({
   invite,
@@ -219,7 +177,6 @@ function InviteRow({
   readonly revoke: Dispatch;
 }): JSX.Element {
   const t = useTranslations('coach.invites');
-  const active = invite.state === 'active';
   return (
     <li className="flex items-center justify-between gap-3 border-t border-border pt-3 first:border-t-0 first:pt-0">
       <div className="flex min-w-0 flex-col gap-1">
@@ -231,18 +188,17 @@ function InviteRow({
             </span>
           )}
         </p>
-        <p className="flex flex-wrap gap-x-3 text-fg-muted">
-          <span>{t(`state.${invite.state}`)}</span>
-          {active ? <Expiry invite={invite} /> : null}
+        <p className="text-fg-muted">
+          <Expiry invite={invite} />
         </p>
       </div>
-      {active ? <RevokeForm invite={invite} revoke={revoke} /> : null}
+      <RevokeForm invite={invite} revoke={revoke} />
     </li>
   );
 }
 
 /**
- * The coach's invites with their state, and a refused Revoke. revokeInvite
+ * The coach's open invites, and a refused Revoke. revokeInvite
  * refuses only as "not valid": the invite was used, expired or revoked
  * since the list was shown, which is what the line says to the coach.
  */
@@ -272,7 +228,7 @@ function InviteList({
   );
 }
 
-/** Making invites, and the coach's invites with their state (R-98, R-99). */
+/** Making invites, and the coach's open invites (R-98, R-99). */
 export function InvitesSection({
   groups,
   invites,

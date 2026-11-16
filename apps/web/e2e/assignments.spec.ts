@@ -129,7 +129,9 @@ async function assignToRokas(
   await expect(
     gabija.getByRole('link', { name: ITALIAN, exact: true }),
   ).toHaveCount(0);
-  await gabija.goto(rokas.url());
+  // Its layout decides before the page streams, so it is a real 404 (#331).
+  const opened = await gabija.goto(rokas.url());
+  expect(opened?.status()).toBe(404);
   await expectNotAssigned(gabija, cast);
   return rokas.url();
 }
@@ -297,7 +299,8 @@ async function makeOwnCopy(
 
   await rokas.goto('/');
   await expect(fromMyCoach(rokas, messages)).toHaveCount(0);
-  await rokas.goto(assigned);
+  const opened = await rokas.goto(assigned);
+  expect(opened?.status()).toBe(404);
   await expectNotAssigned(rokas, cast);
   await coach.reload();
   const row = assignmentRow(coach, messages, ROKAS);

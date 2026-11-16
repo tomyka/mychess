@@ -52,9 +52,21 @@ export interface CreateGroupState {
   readonly refusal?: GroupRefusalKey;
   /** The new group's id; it keys the form, so the form comes back empty. */
   readonly createdId?: string;
+  /** The new group's invite link, shown once (R-204, plan decision 5). */
+  readonly link?: string;
+  /** Why the group was made without a link: the open-invite limit (R-114). */
+  readonly noLink?: CoachRefusal['reason'];
 }
 
-/** Makes a group of the coach, within the limit (R-12, R-70). */
+/** An invite's link, shown once: from the token, never stored. */
+const inviteLink = (token: string): string =>
+  new URL(invitePath(token), readWebEnv().BETTER_AUTH_URL).toString();
+
+/**
+ * Makes a group of the coach, within the limit (R-12, R-70), with its
+ * group invite (R-204); at 50 open invites the group is made without one
+ * and the coach is told (R-114).
+ */
 export async function createGroupAction(
   _previous: CreateGroupState,
   form: FormData,
@@ -65,7 +77,10 @@ export async function createGroupAction(
   const made = await createGroup(getDb(), coach.id, name.value, new Date());
   if (!made.ok) return { refusal: made.refusal.reason };
   refresh();
-  return { createdId: made.value };
+  const { groupId, invite } = made.value;
+  return invite.ok
+    ? { createdId: groupId, link: inviteLink(invite.value.token) }
+    : { createdId: groupId, noLink: invite.refusal.reason };
 }
 
 /** What the rename form shows after a submit. */
@@ -212,8 +227,7 @@ export async function createInviteAction(
   });
   if (!made.ok) return { refusal: made.refusal.reason };
   refresh();
-  const base = readWebEnv().BETTER_AUTH_URL;
-  return { link: new URL(invitePath(made.value.token), base).toString() };
+  return { link: inviteLink(made.value.token) };
 }
 
 const INVALID_INVITE: Result<undefined, InviteRefusal> = {

@@ -108,9 +108,9 @@ describe('ShareWithCoach (R-42)', () => {
     });
   });
 
-  it('explains that sharing needs a coach when there is none', () => {
+  it('is not shown at all without a linked coach (#331)', () => {
     renderShare({ coaches: [], sharedWith: [] });
-    expect(screen.getByText(s.noCoach)).toBeDefined();
+    expect(screen.queryByRole('heading', { name: s.title })).toBeNull();
     expect(screen.queryByRole('checkbox')).toBeNull();
     expect(screen.queryByRole('button', { name: s.save })).toBeNull();
   });

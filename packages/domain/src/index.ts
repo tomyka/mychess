@@ -50,6 +50,7 @@ export {
   assignmentStatusOf,
   canAssign,
   canChangeAssignment,
+  canSetDeadline,
   canFork,
   canUseAssignment,
   deadlineSchema,
@@ -188,6 +189,12 @@ export {
 } from './fork-offer';
 export { forkOriginOf, type ForkOrigin } from './fork-origin';
 export {
+  NO_DEADLINES,
+  deadlineAssignments,
+  playerDeadlines,
+  type PlayerDeadlines,
+} from './home-deadlines';
+export {
   drillCoachNotes,
   type DrillCoachNote,
   type DrillRepertoire,
@@ -233,6 +240,7 @@ export {
   INVITE_REFUSALS,
   INVITE_STATES,
   INVITE_TTL_MS,
+  acceptedBy,
   canAccept,
   canRevoke,
   inviteExpiry,
@@ -248,6 +256,7 @@ export {
   type InviteState,
   type InvitingCoach,
   type NewInvite,
+  type ServedFacts,
 } from './invite';
 export {
   canMarkKnown,

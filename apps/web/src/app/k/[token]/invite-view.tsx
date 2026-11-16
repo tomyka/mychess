@@ -1,6 +1,7 @@
 'use client';
 
-import type { InviteKind, InviteRefusal, Result } from '@mychess/domain';
+import type { InvitePreview } from '@mychess/db';
+import type { InviteRefusal, Result } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useActionState, type JSX } from 'react';
@@ -10,14 +11,14 @@ import { TEXT_LINK } from '../../nustatymai/styles';
 import { PendingButton } from '../../pending-button';
 import { acceptInviteAction, type AcceptState } from './actions';
 
-/** Who invites and to which group, as the confirm screen names them. */
-interface InvitePreview {
-  readonly coachDisplayName: string;
-  readonly groupName: string | null;
-  readonly kind: InviteKind;
-}
+/** Who invites and to which group, as the screen names them. */
+type Named = Pick<InvitePreview, 'coachDisplayName' | 'groupName'>;
 
-/** What accepting would do now: the coach and group, or the refusal. */
+/**
+ * What accepting would do now: the coach and group, or the refusal. The
+ * preview is open to accept, or one this account already accepted and is
+ * still linked by (only ever told to that account, #329).
+ */
 export type InvitePreviewResult = Result<InvitePreview, InviteRefusal>;
 
 type RefusalKey = InviteRefusal['reason'];
@@ -57,6 +58,35 @@ function Refused({ reason }: { readonly reason: RefusalKey }): JSX.Element {
   );
 }
 
+/** The group the invite is to, if any. */
+function GroupLine({
+  group,
+}: {
+  readonly group: string | null;
+}): JSX.Element | null {
+  const t = useTranslations('invite');
+  return group === null ? null : <p>{t('toGroup', { group })}</p>;
+}
+
+/** An invite this account already accepted: linked, and a way to its coaches. */
+function Accepted({ invite }: { readonly invite: Named }): JSX.Element {
+  const t = useTranslations('invite');
+  return (
+    <main className={PAGE}>
+      <Title />
+      <div className="flex flex-col gap-1 text-lg">
+        <p className="font-semibold">
+          {t('accepted', { coach: invite.coachDisplayName })}
+        </p>
+        <GroupLine group={invite.groupName} />
+      </div>
+      <Link href={ROUTES.myCoaches} className={`${PRIMARY_BUTTON} self-start`}>
+        {t('myCoaches')}
+      </Link>
+    </main>
+  );
+}
+
 /** Who invites, to which group, and Accept or Not now. */
 function Confirm({
   token,
@@ -64,7 +94,7 @@ function Confirm({
   action,
 }: {
   readonly token: string;
-  readonly invite: InvitePreview;
+  readonly invite: Named;
   readonly action: (form: FormData) => void;
 }): JSX.Element {
   const t = useTranslations('invite');
@@ -75,9 +105,7 @@ function Confirm({
         <p className="font-semibold">
           {t('fromCoach', { coach: invite.coachDisplayName })}
         </p>
-        {invite.groupName === null ? null : (
-          <p>{t('toGroup', { group: invite.groupName })}</p>
-        )}
+        <GroupLine group={invite.groupName} />
       </div>
       <p className="text-fg-muted">{t('explain')}</p>
       <form action={action} className="flex flex-wrap gap-3">
@@ -105,5 +133,7 @@ export function InviteView({
   const [state, action] = useActionState(acceptInviteAction, INITIAL);
   if (state.refusal !== undefined) return <Refused reason={state.refusal} />;
   if (!preview.ok) return <Refused reason={preview.refusal.reason} />;
+  if (preview.value.state === 'accepted')
+    return <Accepted invite={preview.value} />;
   return <Confirm token={token} invite={preview.value} action={action} />;
 }

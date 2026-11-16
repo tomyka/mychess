@@ -154,10 +154,12 @@ test('a revoked invite says only that it is not valid, and offers no Accept', as
   const t = en.coach.invites;
   await page
     .getByRole('listitem')
-    .filter({ hasText: t.state.active })
+    .filter({ hasText: t.personal })
     .getByRole('button', { name: t.revoke })
     .click();
-  await expect(page.getByText(t.state.revoked)).toBeVisible();
+  // The list shows open invites only (#329): the revoked one leaves it.
+  await expect(page.getByText(t.empty)).toBeVisible();
+  await expect(page.getByRole('button', { name: t.revoke })).toHaveCount(0);
 
   const other = await newDevice(browser);
   try {

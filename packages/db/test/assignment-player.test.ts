@@ -52,6 +52,8 @@ import { graphOf, newRepertoire } from './support/repertoires';
 const { db, client } = useTestDatabase();
 
 const NOW = new Date('2026-10-20T09:00:00Z');
+/** A day every deadline of these tests was still ahead (R-203, R-210). */
+const BEFORE_DEADLINES = new Date('2026-09-30T09:00:00Z');
 const LATER = new Date('2026-10-21T09:00:00Z');
 const DAY_MS = 86_400_000;
 /** R: the coach's comment on 1. d4; the player moves are d4 and Bf4. */
@@ -80,11 +82,12 @@ async function assignTo(
   target: ReturnType<typeof toPlayer> | ReturnType<typeof toGroup>,
   deadline: string | null = null,
   repertoireId = rep,
+  at = NOW,
 ): Promise<void> {
   const done = await assign(
     db,
     { coachId: 'c', repertoireId, target, deadline },
-    NOW,
+    at,
   );
   expect(done).toEqual(OK);
 }
@@ -199,7 +202,8 @@ describe('playerAssignments', () => {
   });
 
   it('is overdue from the Vilnius day after the effective deadline (R-16, R-51)', async () => {
-    await assignTo(toGroup(g), '2026-10-19');
+    // A group deadline is set no earlier than its day (R-203): it passes later.
+    await assignTo(toGroup(g), '2026-10-19', rep, BEFORE_DEADLINES);
     expect(await playerAssignments(db, 'q', NOW)).toMatchObject([
       { deadline: '2026-10-19', badges: { overdue: true } },
     ]);
@@ -273,7 +277,7 @@ describe('playerAssignments', () => {
       graph: graphOf('1. d4 *', 'black'),
       now: NOW,
     });
-    await assignTo(toPlayer('n'), '2026-10-01', opponentOnly);
+    await assignTo(toPlayer('n'), '2026-10-01', opponentOnly, BEFORE_DEADLINES);
     expect(await playerAssignments(db, 'n', NOW)).toMatchObject([
       {
         repertoireId: opponentOnly,
@@ -285,8 +289,8 @@ describe('playerAssignments', () => {
   });
 
   it('is done once every player move is learned or skipped, until the coach adds one (R-129)', async () => {
-    await assignTo(toPlayer('p'), '2026-10-01');
-    await assignTo(toPlayer('q'), '2026-10-01');
+    await assignTo(toPlayer('p'), '2026-10-01', rep, BEFORE_DEADLINES);
+    await assignTo(toPlayer('q'), '2026-10-01', rep, BEFORE_DEADLINES);
     const chapterId = chapterOf((await coachCopy()).graph);
     expect(
       await markKnown(
@@ -418,7 +422,7 @@ describe('assignedRepertoireForPlayer', () => {
   });
 
   it('gives the effective deadline, overdue from the Vilnius day after it (R-16, R-51, R-134)', async () => {
-    await assignTo(toGroup(g), '2026-10-19');
+    await assignTo(toGroup(g), '2026-10-19', rep, BEFORE_DEADLINES);
     await assignTo(toPlayer('p'), '2026-10-25');
     expect(await assignedRepertoireForPlayer(db, 'q', rep, NOW)).toMatchObject({
       deadline: '2026-10-19',
@@ -438,7 +442,7 @@ describe('assignedRepertoireForPlayer', () => {
       graph: graphOf('1. d4 *', 'black'),
       now: NOW,
     });
-    await assignTo(toPlayer('n'), '2026-10-01', opponentOnly);
+    await assignTo(toPlayer('n'), '2026-10-01', opponentOnly, BEFORE_DEADLINES);
     expect(
       await assignedRepertoireForPlayer(db, 'n', opponentOnly, NOW),
     ).toMatchObject({ deadline: '2026-10-01', overdue: false });

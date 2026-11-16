@@ -29,15 +29,46 @@ describe('LastTrained (R-154)', () => {
     [2, 'prieš 2 dienas'],
     [10, 'prieš 10 dienų'],
     [21, 'prieš 21 dieną'],
-  ])('says %i days ago, declined', (days, words) => {
+  ])(
+    'says %i days ago, declined, on the repertoires the coach sees',
+    (days, words) => {
+      show(days);
+      expect(
+        screen.getByText(
+          `Paskutinį kartą treniravosi ${words} su jums matomais repertuarais`,
+        ),
+      ).toBeTruthy();
+    },
+  );
+
+  // Another coach's repertoires are not counted: a player who trained
+  // yesterday elsewhere must not read as idle (R-154, #329).
+  it.each([
+    [0, 'Paskutinį kartą treniravosi šiandien su jums matomais repertuarais'],
+    [1, 'Paskutinį kartą treniravosi vakar su jums matomais repertuarais'],
+  ])('scopes %i days to the repertoires the coach sees', (days, said) => {
     show(days);
-    expect(
-      screen.getByText(`Paskutinį kartą treniravosi ${words}`),
-    ).toBeTruthy();
+    expect(screen.getByText(said)).toBeTruthy();
+  });
+
+  it('scopes every English line to the repertoires the coach sees', () => {
+    const en = MESSAGES.en.coach.progress;
+    for (const line of [en.today, en.yesterday, en.daysAgo])
+      expect(line).toContain('on the repertoires you can see');
   });
 
   it('says not trained yet without a result', () => {
     show(null);
     expect(screen.getByText(p.neverTrained)).toBeTruthy();
+  });
+
+  it('says only what holds: no training on the repertoires the coach sees, not none at all (R-154, #329)', () => {
+    show(null);
+    expect(
+      screen.getByText('Dar nesitreniravo su jums matomais repertuarais'),
+    ).toBeTruthy();
+    expect(MESSAGES.en.coach.progress.neverTrained).toBe(
+      'Not trained yet on the repertoires you can see',
+    );
   });
 });

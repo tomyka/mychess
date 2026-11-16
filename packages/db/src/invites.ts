@@ -1,4 +1,5 @@
 import {
+  acceptedBy,
   canAccept,
   canInvite,
   canRevoke,
@@ -6,24 +7,30 @@ import {
   INVITE_REFUSALS,
   inviteExpiry,
   inviteSchema,
-  inviteState,
   ok,
   refuse,
   type CoachRefusal,
+  type CoachState,
   type Invite,
   type InviteKind,
   type InviteRefusal,
-  type InviteState,
   type InvitingCoach,
   type NewInvite,
   type Result,
+  type ServedFacts,
 } from '@mychess/domain';
-import { and, desc, eq, gt, isNull, not, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { findAccountById, lockAccountById } from './accounts';
 import { changeAssignments } from './assignments/change';
 import type { Db, Executor, Tx } from './client';
-import { countSchema, holdGroup, isLinked, linkCount } from './coach-queries';
+import {
+  countSchema,
+  holdGroup,
+  isLinked,
+  isMember,
+  linkCount,
+} from './coach-queries';
 import { isUuid } from './ids';
 import {
   inviteTokenHash,
@@ -69,8 +76,7 @@ export interface CreatedInvite {
 /**
  * Open at `now`: what `inviteState` calls active, that is not revoked, not
  * used (only a personal invite is ever used, invites_used_personal) and
- * not yet expired. Never null (expires_at is not null), so `not` of it is
- * exactly the closed invites.
+ * not yet expired.
  */
 const openAt = (now: Date): SQL =>
   sql`(${isNull(invites.revokedAt)} and ${isNull(invites.usedAt)} and ${gt(invites.expiresAt, now)})`;
@@ -78,10 +84,6 @@ const openAt = (now: Date): SQL =>
 /** The coach's open invites at `now`. */
 const openInvitesOf = (coachId: string, now: Date) =>
   and(eq(invites.coachId, coachId), openAt(now));
-
-/** The coach's closed invites at `now`: revoked, used or expired. */
-const closedInvitesOf = (coachId: string, now: Date) =>
-  and(eq(invites.coachId, coachId), not(openAt(now)));
 
 /**
  * How many open invites `coachId` has at `now` (R-114). Exported for the
@@ -98,6 +100,20 @@ export async function openInviteCount(
 }
 
 /**
+ * canInvite on the coach's open invites at `now` (R-114). The caller has
+ * locked the coach row, so two creations at the limit cannot both pass.
+ * Package-internal: createInvite and createGroup decide with it.
+ */
+export async function inviteAllowed(
+  tx: Tx,
+  coach: CoachState,
+  coachId: string,
+  now: Date,
+): Promise<Result<undefined, CoachRefusal>> {
+  return canInvite(coach, await openInviteCount(tx, coachId, now));
+}
+
+/**
  * May the coach make this invite? Locks the coach row (plan decision 1)
  * before counting the open invites, so two creations at the limit cannot
  * both pass (R-114), and holds the group row, so neither changes before
@@ -109,14 +125,35 @@ async function mayInvite(
 ): Promise<Result<undefined, CoachRefusal>> {
   const coach = await lockAccountById(tx, request.coachId);
   if (coach === undefined) return refuse(COACH_REFUSALS.notCoach);
-  const allowed = canInvite(
-    coach,
-    await openInviteCount(tx, request.coachId, request.now),
-  );
+  const allowed = await inviteAllowed(tx, coach, request.coachId, request.now);
   if (!allowed.ok || request.groupId === null) return allowed;
   return (await holdGroup(tx, request.coachId, request.groupId))
     ? allowed
     : refuse(COACH_REFUSALS.groupNotFound);
+}
+
+/**
+ * Writes an invite the caller has already allowed (canInvite, under the
+ * coach row's lock) and returns its raw token once; only its hash is
+ * stored. Package-internal.
+ */
+export async function writeInvite(
+  tx: Tx,
+  request: InviteRequest,
+): Promise<CreatedInvite> {
+  const token = newInviteToken();
+  const [row] = await tx
+    .insert(invites)
+    .values({
+      coachId: request.coachId,
+      kind: request.kind,
+      groupId: request.groupId,
+      tokenHash: inviteTokenHash(token),
+      expiresAt: inviteExpiry(request.now),
+      createdAt: request.now,
+    })
+    .returning({ id: invites.id });
+  return { token, inviteId: z.uuid().parse(row?.id) };
 }
 
 /** Makes an invite; the raw token is returned here once and never stored. */
@@ -127,19 +164,7 @@ export function createInvite(
   return db.transaction(async (tx) => {
     const allowed = await mayInvite(tx, request);
     if (!allowed.ok) return allowed;
-    const token = newInviteToken();
-    const [row] = await tx
-      .insert(invites)
-      .values({
-        coachId: request.coachId,
-        kind: request.kind,
-        groupId: request.groupId,
-        tokenHash: inviteTokenHash(token),
-        expiresAt: inviteExpiry(request.now),
-        createdAt: request.now,
-      })
-      .returning({ id: invites.id });
-    return ok({ token, inviteId: z.uuid().parse(row?.id) });
+    return ok(await writeInvite(tx, request));
   });
 }
 
@@ -319,32 +344,68 @@ export async function revokeInvite(
   });
 }
 
-/** The invite with this hash and its group's name, unlocked. */
-async function findNamedInvite(
+const previewedInviteSchema = namedInviteSchema.extend({
+  usedBy: z.string().nullable(),
+});
+/** An invite as the invite page reads it: its group's name and who used it. */
+type PreviewedInvite = z.infer<typeof previewedInviteSchema>;
+
+/** The invite with this hash, its group's name and who used it, unlocked. */
+async function findPreviewedInvite(
   db: Executor,
   tokenHash: string,
-): Promise<NamedInvite | undefined> {
+): Promise<PreviewedInvite | undefined> {
   const [row] = await db
-    .select(namedInviteColumns)
+    .select({ ...namedInviteColumns, usedBy: invites.usedBy })
     .from(invites)
     .leftJoin(groups, eq(groups.id, invites.groupId))
     .where(eq(invites.tokenHash, tokenHash))
     .limit(1);
-  return row === undefined ? undefined : namedInviteSchema.parse(row);
-}
-
-/** What the invite page shows before the player accepts. */
-export interface InvitePreview {
-  readonly coachDisplayName: string;
-  readonly groupName: string | null;
-  readonly kind: InviteKind;
+  return row === undefined ? undefined : previewedInviteSchema.parse(row);
 }
 
 /**
- * What accepting would do, without locks or changes: the coach and the
- * group on success, or the refusal accepting would give now. `token` is
- * the raw token the link carries; a malformed one is refused without a
- * lookup.
+ * What the invite page shows: an invite the player may accept now
+ * (`active`), or one that already serves them (`accepted`, #329), so a
+ * second visit confirms instead of offering it again.
+ */
+export type InvitePreview =
+  | {
+      readonly state: 'active';
+      readonly coachDisplayName: string;
+      readonly groupName: string | null;
+      readonly kind: InviteKind;
+    }
+  | {
+      readonly state: 'accepted';
+      readonly coachDisplayName: string;
+      readonly groupName: string | null;
+    };
+
+/**
+ * acceptedBy's facts for `playerId` on `invite`, both reads filtered by
+ * that account: a link to its coach, and membership of its group.
+ */
+async function servedFacts(
+  db: Executor,
+  invite: PreviewedInvite,
+  playerId: string,
+): Promise<ServedFacts> {
+  return {
+    usedBy: invite.usedBy,
+    linked: await isLinked(db, invite.coachId, playerId),
+    member:
+      invite.groupId !== null && (await isMember(db, invite.groupId, playerId)),
+  };
+}
+
+/**
+ * What accepting would do, without locks or changes: `accepted` when the
+ * invite already serves the player (acceptedBy, whatever its state now);
+ * otherwise the coach and the group on success, or the refusal accepting
+ * would give now, as before #329, so no one else learns anything new.
+ * `token` is the raw token the link carries; a malformed one is refused
+ * without a lookup. SECURITY.
  */
 export async function previewInvite(
   db: Executor,
@@ -354,17 +415,19 @@ export async function previewInvite(
 ): Promise<Result<InvitePreview, InviteRefusal>> {
   const tokenHash = parsedTokenHash(token);
   if (tokenHash === undefined) return INVALID;
-  const invite = await findNamedInvite(db, tokenHash);
+  const invite = await findPreviewedInvite(db, tokenHash);
   if (invite === undefined) return INVALID;
   const coach = await findAccountById(db, invite.coachId);
   if (coach === undefined) return INVALID;
-  const check = await decide(db, invite, coach, { playerId, now });
-  if (!check.ok) return check;
-  return ok({
+  const shown = {
     coachDisplayName: coach.displayName,
     groupName: invite.groupName,
-    kind: invite.kind,
-  });
+  };
+  if (acceptedBy(invite, playerId, await servedFacts(db, invite, playerId)))
+    return ok({ state: 'accepted', ...shown });
+  const check = await decide(db, invite, coach, { playerId, now });
+  if (!check.ok) return check;
+  return ok({ state: 'active', ...shown, kind: invite.kind });
 }
 
 /** The invites `where` picks, with their groups' names, to order and limit. */
@@ -391,29 +454,21 @@ export async function allCoachInvites(
   );
 }
 
-/** One row of the coach's invite list; never a token or its hash. */
+/** One open invite on the coach's list; never a token or its hash. */
 export interface CoachInvite {
   readonly id: string;
   readonly kind: InviteKind;
   readonly groupName: string | null;
-  readonly state: InviteState;
   readonly expiresAt: Date;
   readonly createdAt: Date;
 }
 
 /**
- * The most closed (revoked, used or expired) invites the list shows. Open
- * invites are never capped here: R-114 already holds them to 50, and the
- * coach must see each one to revoke it.
- */
-const CLOSED_INVITE_LIST_MAX = 50;
-
-const newestFirst = (a: NamedInvite, b: NamedInvite): number =>
-  b.createdAt.getTime() - a.createdAt.getTime() || (a.id < b.id ? 1 : -1);
-
-/**
- * The coach's invites, newest first, with their state at `now`: every open
- * one, and the newest closed ones up to CLOSED_INVITE_LIST_MAX.
+ * The coach's open invites at `now` (inviteState active: not revoked, not
+ * used, not expired), newest first, so expired ones no longer pile up on
+ * the dashboard (#329). None is capped: R-114 holds them to 50, and the
+ * coach must see each one to revoke it. Closed invites stay in the data
+ * export (allCoachInvites, R-106).
  */
 export async function coachInvites(
   db: Executor,
@@ -421,18 +476,15 @@ export async function coachInvites(
   now: Date,
 ): Promise<CoachInvite[]> {
   const open = namedInvitesSchema.parse(
-    await namedInviteQuery(db, openInvitesOf(coachId, now)),
+    await namedInviteQuery(db, openInvitesOf(coachId, now)).orderBy(
+      desc(invites.createdAt),
+      desc(invites.id),
+    ),
   );
-  const closed = namedInvitesSchema.parse(
-    await namedInviteQuery(db, closedInvitesOf(coachId, now))
-      .orderBy(desc(invites.createdAt), desc(invites.id))
-      .limit(CLOSED_INVITE_LIST_MAX),
-  );
-  return [...open, ...closed].sort(newestFirst).map((row) => ({
+  return open.map((row) => ({
     id: row.id,
     kind: row.kind,
     groupName: row.groupName,
-    state: inviteState(row, now),
     expiresAt: row.expiresAt,
     createdAt: row.createdAt,
   }));

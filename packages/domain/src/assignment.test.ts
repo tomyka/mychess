@@ -18,6 +18,7 @@ import {
   canAssign,
   canChangeAssignment,
   canFork,
+  canSetDeadline,
   canUseAssignment,
   coachAssignmentBadges,
   deadlineSchema,
@@ -77,7 +78,28 @@ describe('ASSIGNMENT_REFUSALS', () => {
       notLinked: 'assignment.notLinked',
       groupNotFound: 'assignment.groupNotFound',
       alreadyAssigned: 'assignment.alreadyAssigned',
+      deadlinePast: 'assignment.deadlinePast',
     });
+  });
+});
+
+describe('canSetDeadline (R-203, R-210)', () => {
+  // 22:30 UTC on 16 November is already 17 November in Vilnius (UTC+2).
+  const LATE = new Date('2026-11-16T22:30:00Z');
+
+  it('refuses a deadline before today in Vilnius', () => {
+    expect(canSetDeadline('2026-11-16', LATE)).toEqual(
+      refused(ASSIGNMENT_REFUSALS.deadlinePast),
+    );
+    expect(canSetDeadline('2025-12-31', LATE)).toEqual(
+      refused(ASSIGNMENT_REFUSALS.deadlinePast),
+    );
+  });
+
+  it('allows a deadline of today or later in Vilnius, and none', () => {
+    expect(canSetDeadline('2026-11-17', LATE)).toEqual(ok);
+    expect(canSetDeadline('2026-12-01', LATE)).toEqual(ok);
+    expect(canSetDeadline(null, LATE)).toEqual(ok);
   });
 });
 

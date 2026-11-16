@@ -1,4 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { createInvite } from '@mychess/db';
+import { OPEN_INVITE_LIMIT } from '@mychess/domain';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
   addMemberAction,
@@ -21,8 +23,9 @@ import {
   link,
   person,
 } from './support/coaching';
+import { TEST_ENV_VARS } from './support/auth';
 import { useRequestHarness } from './support/harness';
-import { outcomeOf, request } from './support/request';
+import { outcomeOf, request, testDb } from './support/request';
 
 vi.mock('next/headers', async () =>
   (await import('./support/request')).nextHeaders(),
@@ -41,6 +44,19 @@ vi.mock('../../src/server/auth', async (original) =>
 );
 
 const { sql } = useRequestHarness();
+
+// The invite link is built from BETTER_AUTH_URL, read from the environment.
+beforeEach(() => {
+  for (const [name, value] of Object.entries(TEST_ENV_VARS))
+    vi.stubEnv(name, value);
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+/** A group invite's link, as the action answers it once. */
+const GROUP_LINK = /^http:\/\/localhost:3000\/k\/[A-Za-z0-9_-]{43}$/u;
 
 const groupNames = (): Promise<unknown[]> =>
   sql.rows(
@@ -76,13 +92,51 @@ describe('createGroupAction (R-12, R-70)', () => {
     expect(await groupNames()).toEqual([
       { coach: 'Jonas', name: 'Šeštadienio grupė' },
     ]);
-    // The new group's id keys the form, so it comes back empty.
-    expect(state).toEqual({
-      createdId: (await sql.rows('select id from groups'))
+    // The new group's id keys the form, so it comes back empty; its group
+    // invite's link is shown once (R-204).
+    const made = z
+      .strictObject({ createdId: z.uuid(), link: z.string().regex(GROUP_LINK) })
+      .parse(state);
+    expect(made.createdId).toBe(
+      (await sql.rows('select id from groups'))
         .map((row) => z.object({ id: z.uuid() }).parse(row).id)
         .at(0),
-    });
+    );
     expect(request.refreshed).toBe(1);
+  });
+
+  it('shows the new group’s invite link once, a group invite into that group (R-204)', async () => {
+    actAs(await coachPerson(sql, 'jonas@example.lt', 'Jonas'));
+    const state = z
+      .strictObject({ createdId: z.uuid(), link: z.string().regex(GROUP_LINK) })
+      .parse(await outcomeOf(createGroupAction({}, formOf({ name: 'Grupė' }))));
+    expect(
+      await sql.rows('select kind, group_id as "groupId" from invites'),
+    ).toEqual([{ kind: 'group', groupId: state.createdId }]);
+  });
+
+  it('makes the group but says no link was made at 50 open invites (R-114)', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const now = new Date();
+    for (let made = 0; made < OPEN_INVITE_LIMIT; made += 1) {
+      const invite = await createInvite(testDb(), {
+        coachId: jonas.id,
+        kind: 'personal',
+        groupId: null,
+        now,
+      });
+      if (!invite.ok) throw new Error(invite.refusal.reason);
+    }
+    actAs(jonas);
+    const state = await outcomeOf(
+      createGroupAction({}, formOf({ name: 'Grupė' })),
+    );
+    expect(
+      z.strictObject({ createdId: z.uuid(), noLink: z.string() }).parse(state)
+        .noLink,
+    ).toBe('coach.inviteLimit');
+    expect(await groupNames()).toEqual([{ coach: 'Jonas', name: 'Grupė' }]);
+    expect(await sql.count('invites')).toBe(OPEN_INVITE_LIMIT);
   });
 
   it('refuses a blank name', async () => {
@@ -403,9 +457,9 @@ describe('coachHomeData', () => {
         },
       ],
       groups: [{ id: groupId, name: 'Šeštadienio grupė', memberCount: 1 }],
-      invites: [
-        { kind: 'personal', groupName: 'Šeštadienio grupė', state: 'used' },
-      ],
+      // Open invites only: the personal one Rokas used is gone; the group's
+      // own invite, made with it, is open (R-204).
+      invites: [{ kind: 'group', groupName: 'Šeštadienio grupė' }],
     });
   });
 });

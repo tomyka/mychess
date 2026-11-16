@@ -12,10 +12,13 @@ import {
   unlink,
   unshareRepertoire,
 } from '../src';
+import { eq } from 'drizzle-orm';
+import { assignments } from '../src/assignment-schema';
 import { graphRows } from '../src/repertoires/repository';
 import { reviewResults } from '../src/training-schema';
 import { useTestDatabase } from '../src/testing';
 import { seedAssignment, seedRepertoire } from './support/assignments';
+import { graphOf, newRepertoire } from './support/repertoires';
 import {
   seedCoach,
   seedGroup,
@@ -513,7 +516,7 @@ describe('access ends with the membership or the link', () => {
 
 /** Each of the coach's players on their home, with when they last trained. */
 async function trainedOf(coachId: string): Promise<[string, Date | null][]> {
-  return (await coachHomePlayers(db, coachId)).map((player) => [
+  return (await coachHomePlayers(db, coachId, NOW)).map((player) => [
     player.id,
     player.lastTrained,
   ]);
@@ -521,7 +524,7 @@ async function trainedOf(coachId: string): Promise<[string, Date | null][]> {
 
 describe('coachHomePlayers', () => {
   it('lists the linked players by name with their groups', async () => {
-    const players = await coachHomePlayers(db, 'c');
+    const players = await coachHomePlayers(db, 'c', NOW);
     expect(
       players.map(({ id, displayName, groups }) => ({
         id,
@@ -573,16 +576,102 @@ describe('coachHomePlayers', () => {
   });
 
   it('is empty for a coach without players', async () => {
-    expect(await coachHomePlayers(db, 'stranger')).toEqual([]);
+    expect(await coachHomePlayers(db, 'stranger', NOW)).toEqual([]);
+  });
+
+  /** Each player's deadline fields on the coach's home. */
+  const deadlinesOf = async (coachId = 'c') =>
+    (await coachHomePlayers(db, coachId, NOW)).map(
+      ({ id, nearestDeadline, overdue }) => [id, nearestDeadline, overdue],
+    );
+
+  const setDeadline = (repertoireId: string, deadline: string) =>
+    db
+      .update(assignments)
+      .set({ deadline })
+      .where(eq(assignments.repertoireId, repertoireId));
+
+  it('gives each player the nearest deadline of this coach’s assignments not done, and whether one is overdue (#329)', async () => {
+    expect(await deadlinesOf()).toEqual([
+      ['p', null, false],
+      ['q', null, false],
+    ]);
+    // A repertoire of other moves, so learning the group's does not finish it.
+    const kings = await newRepertoire(db, {
+      ownerId: 'c',
+      side: 'white',
+      name: 'Karaliaus gambitas',
+      graph: graphOf('1. e4 e5 2. f4 *'),
+      now: NOW,
+    });
+    await seedAssignment(db, {
+      coachId: 'c',
+      repertoireId: kings,
+      target: { playerId: 'p' },
+      now: NOW,
+    });
+    // NOW is 26 October: the group's deadline has passed, p's own has not.
+    await setDeadline(groupRep, '2026-10-20');
+    await setDeadline(kings, '2026-11-02');
+    expect(await deadlinesOf()).toEqual([
+      ['p', '2026-10-20', true],
+      ['q', '2026-10-20', true],
+    ]);
+    // Done with the group's moves (karoKan holds the same ones, R-156).
+    await learnAll('p', groupRep);
+    expect(await deadlinesOf()).toEqual([
+      ['p', '2026-11-02', false],
+      ['q', '2026-10-20', true],
+    ]);
+  });
+
+  it('never counts another coach’s assignment of the player', async () => {
+    await seedLink(db, 'other', 'p');
+    const theirs = await seedRepertoire(db, 'other', NOW);
+    await seedAssignment(db, {
+      coachId: 'other',
+      repertoireId: theirs,
+      target: { playerId: 'p' },
+      now: NOW,
+    });
+    await setDeadline(theirs, '2026-10-01');
+    expect(await deadlinesOf()).toEqual([
+      ['p', null, false],
+      ['q', null, false],
+    ]);
+    expect(await deadlinesOf('other')).toEqual([['p', '2026-10-01', true]]);
+  });
+
+  it('reads no graph of an assignment no player has live (#329)', async () => {
+    const before = await countStatements(() => coachHomePlayers(db, 'c', NOW));
+    // karoKan reaches p only; once forked, its 4 graph statements go.
+    succeeded(
+      await forkAssignment(db, { playerId: 'p', repertoireId: karoKan }, NOW),
+    );
+    const after = await countStatements(() => coachHomePlayers(db, 'c', NOW));
+    expect(before - after).toBe(4);
+  });
+
+  it('never counts a forked assignment', async () => {
+    await setDeadline(karoKan, '2026-10-01');
+    succeeded(
+      await forkAssignment(db, { playerId: 'p', repertoireId: karoKan }, NOW),
+    );
+    expect(await deadlinesOf()).toEqual([
+      ['p', null, false],
+      ['q', null, false],
+    ]);
   });
 
   it('reads in one transaction, in a number of statements that does not grow with players', async () => {
     await result('p', shared, NOW);
-    expect(await transactionsOf(() => coachHomePlayers(db, 'c'))).toBe(1);
-    const two = await countStatements(() => coachHomePlayers(db, 'c'));
+    expect(await transactionsOf(() => coachHomePlayers(db, 'c', NOW))).toBe(1);
+    const two = await countStatements(() => coachHomePlayers(db, 'c', NOW));
+    // A third player with the group's assignment: its graph is read once.
     await seedPlayer(db, 'r', 'r@example.lt');
     await seedLink(db, 'c', 'r');
-    const three = await countStatements(() => coachHomePlayers(db, 'c'));
+    await seedMember(db, 'c', group, 'r');
+    const three = await countStatements(() => coachHomePlayers(db, 'c', NOW));
     expect(three).toBe(two);
   });
 });

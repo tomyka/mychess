@@ -96,6 +96,37 @@ describe('GroupsSection', () => {
     expect(nameField().getAttribute('aria-invalid')).toBe('true');
   });
 
+  it('shows the new group’s invite link once, to copy (R-204)', async () => {
+    const link = 'http://localhost:3000/k/abc';
+    server.create.mockResolvedValue({ createdId: 'g-new', link });
+    renderSection([]);
+    fireEvent.change(nameField(), { target: { value: 'Grupė' } });
+    fireEvent.click(create());
+    const i = MESSAGES.lt.coach.invites;
+    expect((await screen.findByLabelText<HTMLInputElement>(i.link)).value).toBe(
+      link,
+    );
+    expect(screen.getByRole('button', { name: i.copy })).toBeDefined();
+    expect(screen.getByText(i.linkOnce)).toBeDefined();
+  });
+
+  it('says the group was made without a link at the open-invite limit (R-114)', async () => {
+    server.create.mockResolvedValue({
+      createdId: 'g-new',
+      noLink: 'coach.inviteLimit',
+    });
+    renderSection([]);
+    fireEvent.change(nameField(), { target: { value: 'Grupė' } });
+    fireEvent.click(create());
+    expect(
+      await screen.findByText(g.createdNoLink.replace('{limit}', '50')),
+    ).toBeDefined();
+    expect(screen.queryByLabelText(MESSAGES.lt.coach.invites.link)).toBeNull();
+    // The group was made: the field is empty again and not marked invalid.
+    expect(nameField().value).toBe('');
+    expect(nameField().getAttribute('aria-invalid')).toBeNull();
+  });
+
   it('counts players in English on the English page', () => {
     renderSection(GROUPS.slice(0, 2), 'en');
     expect(screen.getByText('1 player')).toBeDefined();

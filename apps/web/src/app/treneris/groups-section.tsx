@@ -1,5 +1,6 @@
 'use client';
 
+import { OPEN_INVITE_LIMIT } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useActionState, useId, type JSX } from 'react';
@@ -10,6 +11,7 @@ import { SECTION, SECTION_TITLE, TEXT_LINK } from '../nustatymai/styles';
 import { StatusLine } from '../status-line';
 import { submitByHand } from '../submit-by-hand';
 import { createGroupAction, type CreateGroupState } from './actions';
+import { FreshLink } from './fresh-link';
 
 /** One of the coach's groups as the coach dashboard lists them. */
 export interface CoachGroupRow {
@@ -59,8 +61,26 @@ function CreateGroupForm(): JSX.Element {
           {t('coach.groups.create')}
         </button>
       </form>
+      <NewGroupInvite state={state} />
     </>
   );
+}
+
+/**
+ * After a group is made: its invite link once (R-204), or why it has none,
+ * the coach's open-invite limit (R-114).
+ */
+function NewGroupInvite({
+  state,
+}: {
+  readonly state: CreateGroupState;
+}): JSX.Element | null {
+  const t = useTranslations('coach.groups');
+  if (state.link !== undefined)
+    return <FreshLink key={state.link} link={state.link} />;
+  if (state.noLink !== undefined)
+    return <p>{t('createdNoLink', { limit: OPEN_INVITE_LIMIT })}</p>;
+  return null;
 }
 
 /** The coach's groups, each to its page, and the form to make one. */

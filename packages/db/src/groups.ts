@@ -19,9 +19,11 @@ import {
   groupCount,
   holdGroup,
   holdLink,
+  membershipIs,
   playerRowsSchema,
 } from './coach-queries';
 import { isUuid } from './ids';
+import { inviteAllowed, writeInvite, type CreatedInvite } from './invites';
 import { accounts, groupMembers, groups } from './schema';
 import { byDisplayName } from './sort';
 
@@ -44,18 +46,30 @@ async function mayChangeGroups(tx: Tx, coachId: string): Promise<GroupResult> {
 const groupIs = (coachId: string, groupId: string) =>
   and(eq(groups.id, groupId), eq(groups.coachId, coachId));
 
+/** A new group and its group invite (R-204). */
+export interface CreatedGroup {
+  readonly groupId: string;
+  /**
+   * The group's invite, its raw token returned here once and never stored;
+   * or, at the coach's 50 open invites, why there is none (R-114,
+   * canInvite): the group is made all the same.
+   */
+  readonly invite: Result<CreatedInvite, CoachRefusal>;
+}
+
 /**
- * Makes a group of the coach and returns its id, within the entitlement's
- * limit (R-70). `name` is already parsed (groupNameSchema); the CHECK is
- * the backstop. Locks the coach row first (plan decision 1), so two
- * creations at the limit cannot both pass.
+ * Makes a group of the coach, within the entitlement's limit (R-70), and
+ * its group invite (R-204, R-98, R-99) in the same transaction. `name` is
+ * already parsed (groupNameSchema); the CHECK is the backstop. Locks the
+ * coach row first (plan decision 1), so two creations at a limit cannot
+ * both pass. SECURITY: the invite is made as createInvite makes one.
  */
 export function createGroup(
   db: Db,
   coachId: string,
   name: string,
   now: Date,
-): Promise<Result<string, CoachRefusal>> {
+): Promise<Result<CreatedGroup, CoachRefusal>> {
   return db.transaction(async (tx) => {
     const coach = await lockAccountById(tx, coachId);
     if (coach === undefined) return NOT_COACH;
@@ -65,7 +79,12 @@ export function createGroup(
       .insert(groups)
       .values({ coachId, name, createdAt: now })
       .returning({ id: groups.id });
-    return ok(z.uuid().parse(row?.id));
+    const groupId = z.uuid().parse(row?.id);
+    const invitable = await inviteAllowed(tx, coach, coachId, now);
+    const invite = invitable.ok
+      ? ok(await writeInvite(tx, { coachId, kind: 'group', groupId, now }))
+      : invitable;
+    return ok({ groupId, invite });
   });
 }
 
@@ -113,9 +132,6 @@ async function memberIds(
 }
 
 /** The membership rows of `playerId` in `groupId`. */
-const membershipIs = (groupId: string, playerId: string) =>
-  and(eq(groupMembers.groupId, groupId), eq(groupMembers.playerId, playerId));
-
 /** Is `playerId` in `groupId`? If so, the membership row is locked (FOR UPDATE) until `tx` ends. */
 async function lockMembership(
   tx: Tx,

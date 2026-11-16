@@ -1,7 +1,13 @@
-import { COACH_REFUSALS } from '@mychess/domain';
+import {
+  COACH_REFUSALS,
+  inviteExpiry,
+  OPEN_INVITE_LIMIT,
+} from '@mychess/domain';
 import { describe, expect, it } from 'vitest';
 import {
+  acceptInvite,
   addMember,
+  createInvite,
   coachGroup,
   coachGroups,
   createGroup,
@@ -10,6 +16,8 @@ import {
   removeMember,
   renameGroup,
 } from '../src';
+import { inviteTokenHash } from '../src/invite-token';
+import { openInviteCount } from '../src/invites';
 import { useTestDatabase } from '../src/testing';
 import {
   offersOf,
@@ -64,12 +72,113 @@ describe('createGroup', () => {
       await query('select id, coach_id, name, created_at from groups'),
     ).toEqual([
       {
-        id: made.value,
+        id: made.value.groupId,
         coach_id: 'c',
         name: 'Šeštadienio grupė',
         created_at: NOW,
       },
     ]);
+  });
+
+  it('makes its group invite too, valid 7 days, and returns its link token once (R-204, R-98, R-99) - SECURITY', async () => {
+    await seedCoach(db, 'c', 'c@example.lt');
+    await seedPlayer(db, 'p', 'p@example.lt');
+    const made = await createGroup(db, 'c', 'Šeštadienio grupė', NOW);
+    if (!made.ok) throw new Error(made.refusal.reason);
+    const { groupId, invite } = made.value;
+    if (!invite.ok) throw new Error(invite.refusal.reason);
+    expect(
+      await query(
+        'select id, coach_id, kind, group_id, token_hash, expires_at, created_at from invites',
+      ),
+    ).toEqual([
+      {
+        id: invite.value.inviteId,
+        coach_id: 'c',
+        kind: 'group',
+        group_id: groupId,
+        token_hash: inviteTokenHash(invite.value.token),
+        expires_at: inviteExpiry(NOW),
+        created_at: NOW,
+      },
+    ]);
+    // The raw token is never stored.
+    expect(JSON.stringify(await query('select * from invites'))).not.toContain(
+      invite.value.token,
+    );
+    // The link works: accepting it links the player and puts them in the group.
+    expect((await acceptInvite(db, invite.value.token, 'p', NOW)).ok).toBe(
+      true,
+    );
+    expect(await query('select player_id from group_members')).toEqual([
+      { player_id: 'p' },
+    ]);
+  });
+
+  it.each([1, 2, 3])(
+    'ends with exactly 50 open invites when a group and an invite race at 49, run %i - SECURITY',
+    async (run) => {
+      const coach = `c${String(run)}`;
+      await seedCoach(db, coach, `${coach}@example.lt`);
+      for (let i = 1; i < OPEN_INVITE_LIMIT; i += 1)
+        await createInvite(db, {
+          coachId: coach,
+          kind: 'personal',
+          groupId: null,
+          now: NOW,
+        });
+      const [group, personal] = await Promise.all([
+        createGroup(db, coach, 'Mano', NOW),
+        createInvite(db, {
+          coachId: coach,
+          kind: 'personal',
+          groupId: null,
+          now: NOW,
+        }),
+      ]);
+      if (!group.ok) throw new Error(group.refusal.reason);
+      // Exactly one of the two got the 50th invite; the group is made either way.
+      expect([group.value.invite.ok, personal.ok].sort()).toEqual([
+        false,
+        true,
+      ]);
+      expect(await openInviteCount(db, coach, NOW)).toBe(OPEN_INVITE_LIMIT);
+    },
+  );
+
+  it('still makes the group at 50 open invites, without an invite, and says why (R-114)', async () => {
+    await seedCoach(db, 'c', 'c@example.lt');
+    for (let i = 0; i < OPEN_INVITE_LIMIT; i += 1)
+      expect(
+        (
+          await createInvite(db, {
+            coachId: 'c',
+            kind: 'personal',
+            groupId: null,
+            now: NOW,
+          })
+        ).ok,
+      ).toBe(true);
+    const made = await createGroup(db, 'c', 'Mano', NOW);
+    if (!made.ok) throw new Error(made.refusal.reason);
+    expect(made.value.invite).toEqual(refused(COACH_REFUSALS.inviteLimit));
+    expect(await query('select id from groups')).toEqual([
+      { id: made.value.groupId },
+    ]);
+    expect(
+      await query(
+        "select count(*)::int as n from invites where kind = 'group'",
+      ),
+    ).toEqual([{ n: 0 }]);
+  });
+
+  it('makes neither a group nor an invite when the group is refused', async () => {
+    await seedCoach(db, 'c', 'c@example.lt');
+    await seedGroups('c', 10);
+    expect(await createGroup(db, 'c', 'G11', NOW)).toEqual(
+      refused(COACH_REFUSALS.groupLimit),
+    );
+    expect(await query('select id from invites')).toEqual([]);
   });
 
   it('refuses the 11th group (R-70)', async () => {

@@ -98,16 +98,20 @@ beforeEach(() => {
 describe('coachHomeData', () => {
   it('gives each player the Vilnius days since they last trained, in one read', async () => {
     // 23:30 in Vilnius on 19 October: yesterday.
+    const overdue = { nearestDeadline: '2026-10-15', overdue: true };
+    const free = { nearestDeadline: null, overdue: false };
     server.home.mockResolvedValue([
-      { ...ROKAS, lastTrained: new Date('2026-10-19T20:30:00Z') },
-      { ...GABIJA, lastTrained: null },
+      { ...ROKAS, ...overdue, lastTrained: new Date('2026-10-19T20:30:00Z') },
+      { ...GABIJA, ...free, lastTrained: null },
     ]);
     const home = await coachHomeData();
+    // The deadline signal passes through as the read decided it (#329).
     expect(home.players).toEqual([
-      { ...ROKAS, lastTrainedDays: 1 },
-      { ...GABIJA, lastTrainedDays: null },
+      { ...ROKAS, ...overdue, lastTrainedDays: 1 },
+      { ...GABIJA, ...free, lastTrainedDays: null },
     ]);
-    expect(server.home).toHaveBeenCalledExactlyOnceWith(DB, 'jonas');
+    // As of now: overdue is judged at the clock.
+    expect(server.home).toHaveBeenCalledExactlyOnceWith(DB, 'jonas', NOW);
   });
 });
 

@@ -1,11 +1,12 @@
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { JSX } from 'react';
-import { ROUTES } from '../../../../lib/routes';
-import { TEXT_LINK } from '../../../nustatymai/styles';
+import { ROUTES } from '../../../lib/routes';
+import { TEXT_LINK } from '../../nustatymai/styles';
 
 // Not assigned, no longer assigned, forked, or a malformed id: all read the
-// same (plan decision 12).
+// same (plan decision 12). Here, not in [id]/, so the 404 its layout throws
+// (#331) lands on it.
 export default function AssignedRepertoireNotFound(): JSX.Element {
   const t = useTranslations('assignment.page');
   return (

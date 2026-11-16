@@ -15,6 +15,7 @@
   "signIn": {
     "title": "Prisijungimas",
     "intro": "Įveskite el. pašto adresą ir atsiųsime prisijungimo nuorodą.",
+    "forInvite": "Prisijunkite, kad priimtumėte trenerio kvietimą.",
     "email": "El. pašto adresas",
     "submit": "Siųsti nuorodą",
     "sent": "Nuoroda išsiųsta. Patikrinkite el. paštą ir paspauskite nuorodą laiške (ji galioja 15 minučių).",
@@ -62,6 +63,7 @@
     "myCoaches": {
       "title": "Mano treneriai",
       "empty": "Su jumis dar nesusietas nė vienas treneris. Treneris gali atsiųsti jums kvietimo nuorodą.",
+      "accepted": "Kvietimas priimtas. Esate susieti su šiuo treneriu: {name}.",
       "groups": "Grupės",
       "leaveGroup": "Palikti grupę",
       "leaveGroupNamed": "Palikti grupę „{group}“",
@@ -147,7 +149,8 @@
       "empty": "Grupių dar nėra.",
       "name": "Grupės pavadinimas",
       "create": "Sukurti grupę",
-      "members": "{count, plural, one {# žaidėjas} few {# žaidėjai} other {# žaidėjų}}"
+      "members": "{count, plural, one {# žaidėjas} few {# žaidėjai} other {# žaidėjų}}",
+      "createdNoLink": "Grupė sukurta, bet be kvietimo nuorodos: jau turite {limit} galiojančių kvietimų. Kai vienas iš jų nustos galioti, bus panaudotas arba atšauktas, sukurkite grupės kvietimą žemiau."
     },
     "invites": {
       "title": "Kvietimai",
@@ -162,17 +165,11 @@
       "linkOnce": "Nukopijuokite nuorodą dabar: vėliau jos parodyti nebegalėsime.",
       "copy": "Kopijuoti",
       "copied": "Nukopijuota.",
-      "empty": "Kvietimų dar nėra.",
+      "empty": "Galiojančių kvietimų nėra.",
       "groupName": "Grupė: {group}",
       "expires": "Galioja iki {date}",
       "revoke": "Atšaukti",
-      "revokeInvalid": "Šio kvietimo atšaukti nebegalima: jis jau panaudotas, nebegalioja arba jau atšauktas.",
-      "state": {
-        "active": "Galioja",
-        "expired": "Nebegalioja",
-        "used": "Panaudotas",
-        "revoked": "Atšauktas"
-      }
+      "revokeInvalid": "Šio kvietimo atšaukti nebegalima: jis jau panaudotas, nebegalioja arba jau atšauktas."
     },
     "notFound": "Šio puslapio nėra arba jis jums neprieinamas.",
     "back": "Atgal į trenerio skydelį",
@@ -186,7 +183,8 @@
       "membersTitle": "Grupės žaidėjai",
       "noMembers": "Grupėje dar nėra žaidėjų.",
       "remove": "Pašalinti",
-      "removeNamed": "Pašalinti iš grupės: {name}",
+      "removeConfirm": "Pašalinti žaidėją {name} iš grupės? Ryšys su jumis išliks.",
+      "confirmRemove": "Taip, pašalinti",
       "addTitle": "Pridėti žaidėją",
       "addLabel": "Žaidėjas",
       "add": "Pridėti",
@@ -221,10 +219,10 @@
       "forkedNote": "Žaidėjas pasidarė asmeninę kopiją. Jei ją bendrins su jumis, jos pažangą matysite skiltyje „Bendrinami repertuarai“.",
       "forkedShared": "Žaidėjas pasidarė asmeninę kopiją ir ją bendrina su jumis.",
       "forkedSharedLink": "Žiūrėti jos pažangą",
-      "today": "Paskutinį kartą treniravosi šiandien",
-      "yesterday": "Paskutinį kartą treniravosi vakar",
-      "daysAgo": "Paskutinį kartą treniravosi prieš {days, plural, one {# dieną} few {# dienas} other {# dienų}}",
-      "neverTrained": "Dar nesitreniravo",
+      "today": "Paskutinį kartą treniravosi šiandien su jums matomais repertuarais",
+      "yesterday": "Paskutinį kartą treniravosi vakar su jums matomais repertuarais",
+      "daysAgo": "Paskutinį kartą treniravosi prieš {days, plural, one {# dieną} few {# dienas} other {# dienų}} su jums matomais repertuarais",
+      "neverTrained": "Dar nesitreniravo su jums matomais repertuarais",
       "chapters": "Skyriai",
       "lines": "Variantai",
       "gridTitle": "Grupės pažanga",
@@ -243,10 +241,12 @@
     "title": "Trenerio kvietimas",
     "fromCoach": "Treneris: {coach}",
     "toGroup": "Grupė: {group}",
-    "explain": "Priėmę kvietimą susiesite savo paskyrą su trenerio paskyra. Treneris matys jūsų rodomą vardą ir galės įtraukti jus į savo grupes. Atsieti galėsite bet kada nustatymuose.",
+    "explain": "Priėmę kvietimą susiesite savo paskyrą su trenerio paskyra. Treneris matys jūsų rodomą vardą, viską apie jums priskirtus repertuarus (taip pat ir tai, kaip su jais treniruojatės) bei jūsų importuotas partijas, taip pat galės įtraukti jus į savo grupes. Jūsų pačių repertuarai lieka privatūs, nebent juos bendrinsite. Atsieti galėsite bet kada nustatymuose — tada treneris iš karto praras prieigą.",
     "accept": "Priimti kvietimą",
     "notNow": "Ne dabar",
     "home": "Į pradžią",
+    "accepted": "Esate susieti su šiuo treneriu: {coach}.",
+    "myCoaches": "Mano treneriai",
     "invalid": "Šis kvietimas negalioja. Paprašykite trenerio naujos nuorodos.",
     "ownInvite": "Tai jūsų pačių kvietimas. Nusiųskite nuorodą žaidėjui.",
     "coachFull": "Šis treneris daugiau žaidėjų susieti nebegali. Praneškite apie tai treneriui."
@@ -425,7 +425,8 @@
       "hasComment": "yra komentaras",
       "hasNote": "yra mano užrašas",
       "hasCoachNote": "yra mano trenerio pastaba",
-      "hasKeptCoachNote": "yra trenerio pastaba"
+      "hasKeptCoachNote": "yra trenerio pastaba",
+      "transposes": "ėjimų perstatymas"
     },
     "note": {
       "label": "Mano užrašas",
@@ -521,7 +522,6 @@
   "share": {
     "title": "Bendrinti su treneriu",
     "intro": "Pažymėti treneriai matys šį repertuarą su komentarais ir galės rašyti trenerio pastabas, bet negalės jo keisti. Jūsų asmeninių užrašų jie nematys.",
-    "noCoach": "Bendrinti galite tik su treneriu, su kuriuo esate susieti. Su treneriu susiesite priėmę jo kvietimą.",
     "coaches": "Treneriai",
     "save": "Išsaugoti",
     "sharedWith": "{count, plural, one {Bendrinama su # treneriu} few {Bendrinama su # treneriais} other {Bendrinama su # trenerių}}",
@@ -547,6 +547,7 @@
     "groupNotFound": "Šios grupės nėra arba ji ne jūsų.",
     "alreadyAssigned": "Šiam žaidėjui ar grupei šis repertuaras jau priskirtas.",
     "deadlineInvalid": "Įveskite tinkamą termino datą.",
+    "deadlinePast": "Ši data jau praėjo. Pasirinkite šiandienos ar vėlesnę datą.",
     "page": {
       "back": "Atgal į pradžią",
       "assignedBy": "Priskyrė {name}",

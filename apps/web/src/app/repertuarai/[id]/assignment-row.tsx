@@ -82,8 +82,11 @@ function Reached({
 /** One assignment: its target, deadline, players, and what can change. */
 export function AssignmentRow({
   assignment,
+  today,
 }: {
   readonly assignment: CoachAssignment;
+  /** The earliest deadline the date field offers (R-203). */
+  readonly today: string;
 }): JSX.Element {
   const t = useTranslations('assignment.panel');
   const nameId = useId();
@@ -99,7 +102,11 @@ export function AssignmentRow({
         <RowDeadline deadline={assignment.deadline} />
       </div>
       <Reached assignment={assignment} />
-      <DeadlineForms assignment={assignment} describedBy={nameId} />
+      <DeadlineForms
+        assignment={assignment}
+        describedBy={nameId}
+        today={today}
+      />
       <Unassign assignment={assignment} describedBy={nameId} />
     </li>
   );

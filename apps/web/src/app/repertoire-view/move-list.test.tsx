@@ -57,6 +57,21 @@ describe('MoveList', () => {
     ]);
   });
 
+  it('marks a move that transposes into a position the list already shows (#331)', () => {
+    // 1... e6 2. c4 d5 reaches the position after 1... d5 2. c4 e6.
+    renderList({
+      graph: graphOf('1. d4 d5 (1... e6 2. c4 d5) 2. c4 e6 3. Nc3 *'),
+    });
+    const moves = MESSAGES.en.repertoires.moves;
+    const transposing = chip(`2... d5, ${moves.transposes}`);
+    expect(transposing.querySelector('[data-transposition]')).not.toBeNull();
+    // A leaf that ends the line is not a transposition.
+    expect(chip('3. Nc3').querySelector('[data-transposition]')).toBeNull();
+    expect(
+      screen.getAllByRole('button', { name: new RegExp(moves.transposes) }),
+    ).toHaveLength(1);
+  });
+
   it('shows each move NAG glyphs after its SAN (R-175)', () => {
     renderList({
       graph: graphOf('1. d4 $1 d5 2. c4 $14 e6 $146 *'),

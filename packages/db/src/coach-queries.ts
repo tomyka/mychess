@@ -3,7 +3,27 @@ import { and, eq, sql, type Column, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Executor, Tx } from './client';
 import { isUuid } from './ids';
-import { coachLinks, groups } from './schema';
+import { coachLinks, groupMembers, groups } from './schema';
+
+/** The membership row of `playerId` in `groupId`. */
+export const membershipIs = (
+  groupId: string,
+  playerId: string,
+): SQL | undefined =>
+  and(eq(groupMembers.groupId, groupId), eq(groupMembers.playerId, playerId));
+
+/** Is `playerId` in `groupId` now? Read without a lock. */
+export async function isMember(
+  db: Executor,
+  groupId: string,
+  playerId: string,
+): Promise<boolean> {
+  return (
+    countSchema.parse(
+      await db.$count(groupMembers, membershipIs(groupId, playerId)),
+    ) > 0
+  );
+}
 
 /** A row count as `$count` returns it. */
 export const countSchema = z.number().int().nonnegative();

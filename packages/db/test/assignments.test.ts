@@ -405,6 +405,34 @@ describe('assign', () => {
     ]);
   });
 
+  it('refuses a group deadline before today in Vilnius and writes nothing (R-203)', async () => {
+    const toG = (deadline: string) =>
+      assign(
+        db,
+        { coachId: 'c', repertoireId: rep, target: toGroup(g), deadline },
+        new Date('2026-10-20T22:30:00Z'),
+      );
+    expect(await toG('2026-10-20')).toEqual(refused('assignment.deadlinePast'));
+    expect(await assignRows()).toEqual([]);
+    expect(await toG('2026-10-21')).toEqual(OK);
+  });
+
+  it('refuses an individual deadline before today too, and writes nothing (R-210)', async () => {
+    expect(
+      await assign(
+        db,
+        {
+          coachId: 'c',
+          repertoireId: rep,
+          target: toPlayer('p'),
+          deadline: '2026-10-19',
+        },
+        NOW,
+      ),
+    ).toEqual(refused('assignment.deadlinePast'));
+    expect(await assignRows()).toEqual([]);
+  });
+
   it("assigns it to the coach's own group, without a deadline", async () => {
     expect(
       await assign(
@@ -632,28 +660,80 @@ describe('setDeadline', () => {
     const deadline = async () =>
       (await query('select deadline::text from assignments'))[0];
     expect(
-      await setDeadline(db, {
-        coachId: 'c',
-        assignmentId: id,
-        deadline: '2026-11-30',
-      }),
+      await setDeadline(
+        db,
+        { coachId: 'c', assignmentId: id, deadline: '2026-11-30' },
+        NOW,
+      ),
     ).toEqual(OK);
     expect(await deadline()).toEqual({ deadline: '2026-11-30' });
     expect(
-      await setDeadline(db, { coachId: 'd', assignmentId: id, deadline: null }),
+      await setDeadline(
+        db,
+        { coachId: 'd', assignmentId: id, deadline: null },
+        NOW,
+      ),
     ).toEqual(refused('assignment.notFound'));
     expect(
-      await setDeadline(db, {
-        coachId: 'c',
-        assignmentId: 'not-a-uuid',
-        deadline: null,
-      }),
+      await setDeadline(
+        db,
+        { coachId: 'c', assignmentId: 'not-a-uuid', deadline: null },
+        NOW,
+      ),
     ).toEqual(refused('assignment.notFound'));
     expect(await deadline()).toEqual({ deadline: '2026-11-30' });
     expect(
-      await setDeadline(db, { coachId: 'c', assignmentId: id, deadline: null }),
+      await setDeadline(
+        db,
+        { coachId: 'c', assignmentId: id, deadline: null },
+        NOW,
+      ),
     ).toEqual(OK);
     expect(await deadline()).toEqual({ deadline: null });
+  });
+
+  it('refuses moving a group deadline before today, in Vilnius, and leaves it (R-203)', async () => {
+    await assignTo({ groupId: g }, '2026-11-01');
+    const id = await assignmentId({ groupId: g });
+    // 22:30 UTC on 20 October is already 21 October in Vilnius.
+    const late = new Date('2026-10-20T22:30:00Z');
+    const move = (deadline: string) =>
+      setDeadline(db, { coachId: 'c', assignmentId: id, deadline }, late);
+    expect(await move('2026-10-20')).toEqual(
+      refused('assignment.deadlinePast'),
+    );
+    expect(await query('select deadline::text from assignments')).toEqual([
+      { deadline: '2026-11-01' },
+    ]);
+    expect(await move('2026-10-21')).toEqual(OK);
+  });
+
+  it('refuses moving an individual deadline before today too, and leaves it (R-210)', async () => {
+    await assignTo({ playerId: 'p' }, '2026-11-01');
+    const id = await assignmentId({ playerId: 'p' });
+    expect(
+      await setDeadline(
+        db,
+        { coachId: 'c', assignmentId: id, deadline: '2026-10-19' },
+        NOW,
+      ),
+    ).toEqual(refused('assignment.deadlinePast'));
+    expect(await query('select deadline::text from assignments')).toEqual([
+      { deadline: '2026-11-01' },
+    ]);
+  });
+
+  it("refuses another coach's assignment as not found, whatever its deadline", async () => {
+    await seedCoach(db, 'd', 'd@example.lt');
+    await assignTo({ groupId: g }, '2026-11-01');
+    const id = await assignmentId({ groupId: g });
+    expect(
+      await setDeadline(
+        db,
+        { coachId: 'd', assignmentId: id, deadline: '2026-01-01' },
+        NOW,
+      ),
+    ).toEqual(refused('assignment.notFound'));
   });
 
   it('refuses with Coach mode off and leaves the deadline (R-113)', async () => {
@@ -661,11 +741,11 @@ describe('setDeadline', () => {
     const id = await assignmentId({ playerId: 'p' });
     await query(`update accounts set coach_since = null where id = 'c'`);
     expect(
-      await setDeadline(db, {
-        coachId: 'c',
-        assignmentId: id,
-        deadline: '2026-11-30',
-      }),
+      await setDeadline(
+        db,
+        { coachId: 'c', assignmentId: id, deadline: '2026-11-30' },
+        NOW,
+      ),
     ).toEqual(refused('assignment.notCoach'));
     expect(await query('select deadline::text from assignments')).toEqual([
       { deadline: '2026-11-01' },
@@ -676,11 +756,11 @@ describe('setDeadline', () => {
     await assignTo({ playerId: 'p' });
     const id = await assignmentId({ playerId: 'p' });
     expect(
-      await setDeadline(db, {
-        coachId: 'nobody',
-        assignmentId: id,
-        deadline: null,
-      }),
+      await setDeadline(
+        db,
+        { coachId: 'nobody', assignmentId: id, deadline: null },
+        NOW,
+      ),
     ).toEqual(refused('assignment.notCoach'));
   });
 });

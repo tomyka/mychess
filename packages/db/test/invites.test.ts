@@ -10,8 +10,10 @@ import {
   acceptInvite,
   coachInvites,
   createInvite,
+  leaveGroup,
   previewInvite,
   revokeInvite,
+  unlink,
 } from '../src';
 import { forkOffers } from '../src/assignment-schema';
 import { inviteTokenHash } from '../src/invite-token';
@@ -27,6 +29,7 @@ import {
   seedGroup,
   seedLink,
   seedLinks,
+  seedMember,
   seedPlayer,
   someoneWaitsForALock,
   T0,
@@ -671,6 +674,7 @@ describe('previewInvite', () => {
     expect(await previewInvite(db, token, 'p1', NOW)).toEqual({
       ok: true,
       value: {
+        state: 'active',
         coachDisplayName: 'Name c',
         groupName: 'Šeštadienio grupė',
         kind: 'group',
@@ -685,7 +689,103 @@ describe('previewInvite', () => {
     const { token } = await invite();
     expect(await previewInvite(db, token, 'p1', NOW)).toEqual({
       ok: true,
-      value: { coachDisplayName: 'Name c', groupName: null, kind: 'personal' },
+      value: {
+        state: 'active',
+        coachDisplayName: 'Name c',
+        groupName: null,
+        kind: 'personal',
+      },
+    });
+  });
+
+  describe('to the account it already serves (#329) - SECURITY', () => {
+    const ACCEPTED = (groupName: string | null) => ({
+      ok: true,
+      value: { state: 'accepted', coachDisplayName: 'Name c', groupName },
+    });
+
+    it('says a personal invite was accepted to the player who used it, even once revoked or expired', async () => {
+      await seedCoach(db, 'c', 'coach@example.lt');
+      await seedPlayer(db, 'p1', 'p1@example.lt');
+      const { token, inviteId } = await invite();
+      await accept(token, 'p1');
+      expect(await previewInvite(db, token, 'p1', NOW)).toEqual(ACCEPTED(null));
+      expect(await previewInvite(db, token, 'p1', at(WEEK))).toEqual(
+        ACCEPTED(null),
+      );
+      await revokeInvite(db, 'c', inviteId, NOW);
+      expect(await previewInvite(db, token, 'p1', NOW)).toEqual(ACCEPTED(null));
+    });
+
+    it('falls back to the usual answer for the player who used a personal invite once unlinked', async () => {
+      await seedCoach(db, 'c', 'coach@example.lt');
+      await seedPlayer(db, 'p1', 'p1@example.lt');
+      const { token } = await invite();
+      await accept(token, 'p1');
+      expect(await unlink(db, 'c', 'p1', NOW)).toMatchObject({ ok: true });
+      expect(await previewInvite(db, token, 'p1', NOW)).toEqual(
+        refused(INVITE_REFUSALS.invalid),
+      );
+    });
+
+    it('says a group invite was accepted to a linked member of its group', async () => {
+      await seedCoach(db, 'c', 'coach@example.lt');
+      await seedPlayer(db, 'p1', 'p1@example.lt');
+      const groupId = await seedGroup(db, 'c', 'Mano');
+      const { token } = await invite('group', groupId);
+      await accept(token, 'p1');
+      expect(await previewInvite(db, token, 'p1', NOW)).toEqual(
+        ACCEPTED('Mano'),
+      );
+    });
+
+    it('shows a group invite as active, not accepted, to a linked player who left its group', async () => {
+      await seedCoach(db, 'c', 'coach@example.lt');
+      await seedPlayer(db, 'p1', 'p1@example.lt');
+      const groupId = await seedGroup(db, 'c', 'Mano');
+      const { token } = await invite('group', groupId);
+      await accept(token, 'p1');
+      expect(await leaveGroup(db, 'p1', groupId, NOW)).toEqual({
+        ok: true,
+        value: undefined,
+      });
+      expect(await linksOf('c')).toBe(1);
+      expect(await previewInvite(db, token, 'p1', NOW)).toMatchObject({
+        ok: true,
+        value: { state: 'active', groupName: 'Mano' },
+      });
+    });
+
+    it('shows a group invite as active to a linked player outside its group', async () => {
+      await seedCoach(db, 'c', 'coach@example.lt');
+      await seedPlayer(db, 'p1', 'p1@example.lt');
+      await seedLink(db, 'c', 'p1');
+      const groupId = await seedGroup(db, 'c', 'Mano');
+      const other = await seedGroup(db, 'c', 'Kita');
+      await seedMember(db, 'c', other, 'p1');
+      const { token } = await invite('group', groupId);
+      expect(await previewInvite(db, token, 'p1', NOW)).toMatchObject({
+        ok: true,
+        value: { state: 'active', groupName: 'Mano' },
+      });
+    });
+
+    it("shows a group invite as before to an unlinked account, and another's used personal invite as invalid", async () => {
+      await seedCoach(db, 'c', 'coach@example.lt');
+      await seedPlayer(db, 'p1', 'p1@example.lt');
+      await seedPlayer(db, 'p2', 'p2@example.lt');
+      const groupId = await seedGroup(db, 'c', 'Mano');
+      const group = await invite('group', groupId);
+      await accept(group.token, 'p1');
+      expect(await previewInvite(db, group.token, 'p2', NOW)).toMatchObject({
+        ok: true,
+        value: { state: 'active' },
+      });
+      const personal = await invite();
+      await accept(personal.token, 'p1');
+      expect(await previewInvite(db, personal.token, 'p2', NOW)).toEqual(
+        refused(INVITE_REFUSALS.invalid),
+      );
     });
   });
 
@@ -741,8 +841,8 @@ describe('previewInvite', () => {
   });
 });
 
-describe('coachInvites', () => {
-  it("lists only the coach's invites, newest first, with their state and never a token", async () => {
+describe('coachInvites (#329) - SECURITY', () => {
+  it("lists only the coach's open invites, newest first, never a token; closed ones stay in the export (R-106)", async () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedCoach(db, 'c2', 'coach2@example.lt');
     await seedPlayer(db, 'p1', 'p1@example.lt');
@@ -751,6 +851,7 @@ describe('coachInvites', () => {
     const used = await invite('personal', null, 'c', at(1000));
     const revoked = await invite('group', groupId, 'c', at(2000));
     const open = await invite('group', groupId, 'c', at(3000));
+    const older = await invite('personal', null, 'c', at(2800));
     await invite('personal', null, 'c2', at(4000));
     await accept(used.token, 'p1', at(1000));
     await revokeInvite(db, 'c', revoked.inviteId, at(2500));
@@ -760,69 +861,48 @@ describe('coachInvites', () => {
         id: open.inviteId,
         kind: 'group',
         groupName: 'Mano',
-        state: 'active',
         expiresAt: at(3000 + WEEK),
         createdAt: at(3000),
       },
       {
-        id: revoked.inviteId,
-        kind: 'group',
-        groupName: 'Mano',
-        state: 'revoked',
-        expiresAt: at(2000 + WEEK),
-        createdAt: at(2000),
-      },
-      {
-        id: used.inviteId,
+        id: older.inviteId,
         kind: 'personal',
         groupName: null,
-        state: 'used',
-        expiresAt: at(1000 + WEEK),
-        createdAt: at(1000),
-      },
-      {
-        id: old.inviteId,
-        kind: 'personal',
-        groupName: null,
-        state: 'expired',
-        expiresAt: NOW,
-        createdAt: at(-WEEK),
+        expiresAt: at(2800 + WEEK),
+        createdAt: at(2800),
       },
     ]);
     const text = JSON.stringify(list);
-    for (const made of [old, used, revoked, open]) {
+    for (const made of [old, used, revoked, open, older]) {
       expect(text).not.toContain(made.token);
       expect(text).not.toContain(made.hash);
     }
+    expect((await allCoachInvites(db, 'c')).map((i) => i.id)).toEqual([
+      old.inviteId,
+      used.inviteId,
+      revoked.inviteId,
+      older.inviteId,
+      open.inviteId,
+    ]);
   });
 
-  const statesOf = (list: readonly { state: string }[]) =>
-    list.reduce<Record<string, number>>(
-      (n, i) => ({ ...n, [i.state]: (n[i.state] ?? 0) + 1 }),
-      {},
-    );
+  it('leaves out an invite from the moment it expires', async () => {
+    await seedCoach(db, 'c', 'coach@example.lt');
+    const made = await invite('personal', null, 'c', NOW);
+    const ids = async (now: Date) =>
+      (await coachInvites(db, 'c', now)).map((i) => i.id);
+    expect(await ids(at(WEEK - 1))).toEqual([made.inviteId]);
+    expect(await ids(at(WEEK))).toEqual([]);
+  });
 
-  it('lists every open invite, however many newer closed ones there are (R-114)', async () => {
+  it('lists every open invite, however many closed ones there are (R-114)', async () => {
     await seedCoach(db, 'c', 'coach@example.lt');
     await seedInvites('c', 30);
-    await seedInvites('c', 30, { revokedAt: T0, createdAt: at(-1000) });
+    await seedInvites('c', 30, { revokedAt: T0, createdAt: at(1000) });
+    await seedInvites('c', 5, { expiresAt: NOW });
     const list = await coachInvites(db, 'c', NOW);
-    expect(statesOf(list)).toEqual({ active: 30, revoked: 30 });
-    expect(list.map((i) => i.createdAt)).toEqual(
-      list.map((i) => i.createdAt).sort((a, b) => b.getTime() - a.getTime()),
-    );
-  });
-
-  it('lists only the 50 newest closed invites, dropping the oldest closed one', async () => {
-    await seedCoach(db, 'c', 'coach@example.lt');
-    await seedInvites('c', 1);
-    await seedInvites('c', 49, { revokedAt: T0, createdAt: at(-1000) });
-    await seedInvites('c', 1, { usedAt: T0, createdAt: at(-500) });
-    // The oldest closed invite: expired, and made before the others.
-    await seedInvites('c', 1, { expiresAt: NOW, createdAt: at(-WEEK) });
-    const list = await coachInvites(db, 'c', NOW);
-    expect(statesOf(list)).toEqual({ active: 1, revoked: 49, used: 1 });
-    expect(list.at(-1)?.state).toBe('active');
+    expect(list).toHaveLength(30);
+    expect(list.every((i) => i.expiresAt > NOW)).toBe(true);
   });
 });
 

@@ -272,8 +272,14 @@ describe('SignInForm with a return path (R-81)', () => {
     },
   );
 
+  it('says the person signs in to accept a coach’s invite, naming no one (#329)', () => {
+    renderForm({ next: NEXT });
+    expect(screen.getByText(lt.signIn.forInvite)).toBeDefined();
+  });
+
   it('keeps the plain destinations with no return path', async () => {
     renderForm({ next: null });
+    expect(screen.queryByText(lt.signIn.forInvite)).toBeNull();
     await submitEmail('ruta@example.lt');
     expect(client.magicLink).toHaveBeenCalledWith(
       expect.objectContaining(URLS),

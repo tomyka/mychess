@@ -152,6 +152,7 @@ export {
   renameGroup,
   type CoachGroup,
   type CoachGroupSummary,
+  type CreatedGroup,
   type GroupMember,
   type Membership,
 } from './groups';

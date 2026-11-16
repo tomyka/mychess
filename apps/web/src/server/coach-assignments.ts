@@ -8,7 +8,12 @@ import {
   coachPlayers,
   type CoachAssignment,
 } from '@mychess/db';
-import { assignableTargets, isCoach, type AccountRef } from '@mychess/domain';
+import {
+  assignableTargets,
+  isCoach,
+  vilniusDay,
+  type AccountRef,
+} from '@mychess/domain';
 import { getDb } from './db';
 import { requireOnboarded } from './session';
 
@@ -26,6 +31,12 @@ export interface AssignPanelData {
   readonly players: readonly AccountRef[];
   readonly groups: readonly AssignableGroup[];
   readonly assignments: readonly CoachAssignment[];
+  /**
+   * Today in Vilnius, `YYYY-MM-DD`: the date fields' earliest day, a hint
+   * only; the domain refuses an earlier one (R-203, R-210). Read here, not
+   * in the browser, so the server and the browser render the same.
+   */
+  readonly today: string;
 }
 
 export interface CoachAssignData {
@@ -41,20 +52,16 @@ async function panelOf(
   repertoireId: string,
 ): Promise<AssignPanelData> {
   const db = getDb();
+  const now = new Date();
   const players = await coachPlayers(db, coachId);
   const groups = await coachGroups(db, coachId);
-  const assignments = await coachAssignments(
-    db,
-    coachId,
-    repertoireId,
-    new Date(),
-  );
+  const assignments = await coachAssignments(db, coachId, repertoireId, now);
   const offer = assignableTargets(
     players.map(({ id, displayName }) => ({ id, displayName })),
     groups.map(({ id, name }) => ({ id, name })),
     assignments.map((assignment) => assignment.target),
   );
-  return { ...offer, assignments };
+  return { ...offer, assignments, today: vilniusDay(now) };
 }
 
 /**

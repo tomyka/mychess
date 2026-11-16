@@ -38,11 +38,10 @@ export default async function CoachPage(): Promise<JSX.Element> {
       />
       <InvitesSection
         groups={groups.map(({ id, name }) => ({ id, name }))}
-        invites={invites.map(({ id, kind, groupName, state, expiresAt }) => ({
+        invites={invites.map(({ id, kind, groupName, expiresAt }) => ({
           id,
           kind,
           groupName,
-          state,
           expiresAt,
         }))}
       />

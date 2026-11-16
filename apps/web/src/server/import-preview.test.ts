@@ -229,6 +229,25 @@ describe('previewImport added comments and NAGs (R-175, R-176)', () => {
     ]);
   });
 
+  it('leaves out a move that gains only a NAG with no glyph, yet takes the file (R-175, #335)', async () => {
+    ownsRepertoireOf(ADVANCE);
+    const p = await preview(
+      'en',
+      '1. e4 c6 2. d4 d5 3. e5 $146 Bf5 $14 4. Nf3 e6 *',
+      INTO,
+    );
+    // $146 ("novelty") has no glyph: listing 3. e5 would show nothing new.
+    expect(p.annotations).toEqual([{ move: '3... Bf5 ⩲', comment: null }]);
+    // The count says what the list shows.
+    expect(p.target?.added).toEqual({ chapters: 0, moves: 0, annotated: 1 });
+    expect(p.refusal).toBeNull();
+    const only = await preview('en', '1. e4 c6 2. d4 d5 3. e5 $146 *', INTO);
+    expect(only.annotations).toEqual([]);
+    expect(only.target?.added.annotated).toBe(0);
+    // Still something to add: Import stays enabled (R-115).
+    expect(only.refusal).toBeNull();
+  });
+
   it('lists none when the repertoire already has them, and refuses the file (R-115)', async () => {
     ownsRepertoireOf(ANNOTATED_ADVANCE);
     const p = await preview('en', ANNOTATED_ADVANCE, INTO);

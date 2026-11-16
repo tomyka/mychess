@@ -10,6 +10,7 @@ import {
   ASSIGNMENT_REFUSALS,
   canAssign,
   canChangeAssignment,
+  canSetDeadline,
   ok,
   refuse,
   type AssignmentRefusal,
@@ -143,6 +144,8 @@ export function assign(
   return db.transaction(async (tx) => {
     const decided = await decideAssign(tx, req);
     if (!decided.ok) return decided;
+    const dated = canSetDeadline(req.deadline, now);
+    if (!dated.ok) return dated;
     const columns = targetColumns(req.target);
     await changeAssignments(
       tx,
@@ -291,15 +294,19 @@ export interface DeadlineChange extends AssignmentRef {
 /**
  * Extends, moves or clears the deadline of the coach's own assignment
  * (R-51) while in Coach mode (R-113); canChangeAssignment decides under the
- * coach row's lock. Another coach's assignment is not found.
+ * coach row's lock. Another coach's assignment is not found. A deadline
+ * before today, at `now`, is refused (R-203, R-210, canSetDeadline).
  */
 export function setDeadline(
   db: Db,
   change: DeadlineChange,
+  now: Date,
 ): Promise<AssignmentResult> {
   return db.transaction(async (tx) => {
     const decided = await decideChange(tx, change);
     if (!decided.ok) return decided;
+    const dated = canSetDeadline(change.deadline, now);
+    if (!dated.ok) return dated;
     await tx
       .update(assignments)
       .set({ deadline: change.deadline })

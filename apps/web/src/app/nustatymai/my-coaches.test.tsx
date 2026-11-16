@@ -35,13 +35,45 @@ const ONA: MyCoach = { id: 'c-2', displayName: 'Ona', groups: [] };
 function renderCoaches(
   coaches: readonly MyCoach[],
   locale: 'lt' | 'en' = 'lt',
+  acceptedCoachId: string | null = null,
 ): void {
   render(
     <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
-      <MyCoaches coaches={coaches} />
+      <MyCoaches coaches={coaches} acceptedCoachId={acceptedCoachId} />
     </NextIntlClientProvider>,
   );
 }
+
+describe('MyCoaches after an invite is accepted (#329)', () => {
+  it('drops ?treneris= from the address once it shows, so a reload does not say it again', () => {
+    window.history.replaceState(null, '', '/nustatymai?treneris=c-2#treneriai');
+    renderCoaches([JONAS, ONA], 'lt', ONA.id);
+    expect(screen.getByRole('status').textContent).toBe(
+      m.accepted.replace('{name}', 'Ona'),
+    );
+    expect(window.location.pathname).toBe('/nustatymai');
+    expect(window.location.search).toBe('');
+    expect(window.location.hash).toBe('#treneriai');
+  });
+
+  it('leaves the address alone without an accepted invite', () => {
+    window.history.replaceState(null, '', '/nustatymai?tab=x');
+    renderCoaches([JONAS]);
+    expect(window.location.search).toBe('?tab=x');
+  });
+
+  it('says the player is now linked with the coach the invite was from', () => {
+    renderCoaches([JONAS, ONA], 'lt', ONA.id);
+    expect(screen.getByRole('status').textContent).toBe(
+      m.accepted.replace('{name}', 'Ona'),
+    );
+  });
+
+  it('says nothing for a coach the player is not linked to, or none', () => {
+    renderCoaches([JONAS], 'lt', 'someone-else');
+    expect(screen.getByRole('status').textContent).toBe('');
+  });
+});
 
 const coachItem = (name: string) =>
   within(

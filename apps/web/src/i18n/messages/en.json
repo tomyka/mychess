@@ -15,6 +15,7 @@
   "signIn": {
     "title": "Sign in",
     "intro": "Enter your email address and we will send you a sign-in link.",
+    "forInvite": "Sign in to accept the coach’s invite.",
     "email": "Email address",
     "submit": "Send link",
     "sent": "Link sent. Check your email and open the link in it (it is valid for 15 minutes).",
@@ -62,6 +63,7 @@
     "myCoaches": {
       "title": "My coaches",
       "empty": "You are not linked to a coach yet. A coach can send you an invite link.",
+      "accepted": "Invite accepted: you are now linked with {name}.",
       "groups": "Groups",
       "leaveGroup": "Leave group",
       "leaveGroupNamed": "Leave the group “{group}”",
@@ -147,7 +149,8 @@
       "empty": "No groups yet.",
       "name": "Group name",
       "create": "Create group",
-      "members": "{count, plural, one {# player} other {# players}}"
+      "members": "{count, plural, one {# player} other {# players}}",
+      "createdNoLink": "The group was created, but without an invite link: you already have {limit} open invites. Once one expires, is used or is revoked, create a group invite below."
     },
     "invites": {
       "title": "Invites",
@@ -162,17 +165,11 @@
       "linkOnce": "Copy the link now: it cannot be shown again.",
       "copy": "Copy",
       "copied": "Copied.",
-      "empty": "No invites yet.",
+      "empty": "No open invites.",
       "groupName": "Group: {group}",
       "expires": "Valid until {date}",
       "revoke": "Revoke",
-      "revokeInvalid": "This invite can no longer be revoked: it has been used, has expired or was already revoked.",
-      "state": {
-        "active": "Active",
-        "expired": "Expired",
-        "used": "Used",
-        "revoked": "Revoked"
-      }
+      "revokeInvalid": "This invite can no longer be revoked: it has been used, has expired or was already revoked."
     },
     "notFound": "This page does not exist or is not open to you.",
     "back": "Back to the coach dashboard",
@@ -186,7 +183,8 @@
       "membersTitle": "Players in the group",
       "noMembers": "No players in this group yet.",
       "remove": "Remove",
-      "removeNamed": "Remove {name} from the group",
+      "removeConfirm": "Remove {name} from the group? They stay linked to you.",
+      "confirmRemove": "Yes, remove",
       "addTitle": "Add a player",
       "addLabel": "Player",
       "add": "Add",
@@ -221,10 +219,10 @@
       "forkedNote": "The player made their own copy. If they share it with you, you will see its progress under “Shared repertoires”.",
       "forkedShared": "The player made their own copy and shares it with you.",
       "forkedSharedLink": "See its progress",
-      "today": "Last trained today",
-      "yesterday": "Last trained yesterday",
-      "daysAgo": "Last trained {days, plural, one {# day} other {# days}} ago",
-      "neverTrained": "Not trained yet",
+      "today": "Last trained today on the repertoires you can see",
+      "yesterday": "Last trained yesterday on the repertoires you can see",
+      "daysAgo": "Last trained {days, plural, one {# day} other {# days}} ago on the repertoires you can see",
+      "neverTrained": "Not trained yet on the repertoires you can see",
       "chapters": "Chapters",
       "lines": "Lines",
       "gridTitle": "Group progress",
@@ -243,10 +241,12 @@
     "title": "Invite from a coach",
     "fromCoach": "Coach: {coach}",
     "toGroup": "Group: {group}",
-    "explain": "If you accept, your account is linked to the coach’s. The coach will see your display name and can put you in their groups. You can unlink at any time in settings.",
+    "explain": "If you accept, your account is linked to the coach’s. The coach will see your display name, everything about the repertoires they assign you (your training on them included) and your imported games, and can put you in their groups. Your own repertoires stay private unless you share them. You can unlink at any time in settings, and the coach loses access at once.",
     "accept": "Accept invite",
     "notNow": "Not now",
     "home": "Home",
+    "accepted": "You are linked with {coach}.",
+    "myCoaches": "My coaches",
     "invalid": "This invite is not valid. Ask your coach for a new link.",
     "ownInvite": "This is your own invite. Send the link to a player.",
     "coachFull": "This coach cannot link any more players. Let your coach know."
@@ -425,7 +425,8 @@
       "hasComment": "has a comment",
       "hasNote": "has my note",
       "hasCoachNote": "has my coach note",
-      "hasKeptCoachNote": "has a coach note"
+      "hasKeptCoachNote": "has a coach note",
+      "transposes": "transposes"
     },
     "note": {
       "label": "My note",
@@ -494,7 +495,7 @@
       "chaptersTitle": "Chapters",
       "renamedTitle": "Existing chapters that will be renamed",
       "renamedItem": "“{from}” will be called “{to}”",
-      "annotationsTitle": "Comments and NAGs added to moves already there ({count})",
+      "annotationsTitle": "Comments and symbols added to moves already there ({count})",
       "annotationItem": "{move}: {comment}",
       "annotationsAll": "Show all {count}",
       "skippedTitle": "Skipped games ({count})",
@@ -508,7 +509,7 @@
       "name": "Name",
       "existing": "Repertoire",
       "added": "Adds {chapters, plural, one {# chapter} other {# chapters}} and {moves, plural, one {# move} other {# moves}} to {name}.",
-      "addedAnnotations": "{count, plural, one {Adds comments or NAGs to # move already there.} other {Adds comments or NAGs to # moves already there.}}",
+      "addedAnnotations": "{count, plural, one {Adds comments or symbols to # move already there.} other {Adds comments or symbols to # moves already there.}}",
       "updating": "Updating",
       "confirm": "Import",
       "importing": "Importing",
@@ -521,7 +522,6 @@
   "share": {
     "title": "Share with a coach",
     "intro": "The coaches you tick see this repertoire and its comments and can write coach notes, but cannot change it. They never see your personal notes.",
-    "noCoach": "You can share only with a coach you are linked to. You link to a coach by accepting their invite.",
     "coaches": "Coaches",
     "save": "Save",
     "sharedWith": "{count, plural, one {Shared with # coach} other {Shared with # coaches}}",
@@ -547,6 +547,7 @@
     "groupNotFound": "This group does not exist or is not yours.",
     "alreadyAssigned": "This repertoire is already assigned there.",
     "deadlineInvalid": "Enter a valid deadline date.",
+    "deadlinePast": "This date has already passed. Choose today or a later day.",
     "page": {
       "back": "Back to home",
       "assignedBy": "Assigned by {name}",

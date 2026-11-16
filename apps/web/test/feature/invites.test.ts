@@ -100,14 +100,15 @@ describe('createInviteAction (R-98, R-99, R-110)', () => {
         createInviteAction({}, formOf({ kind: 'group', groupId })),
       ),
     );
-    expect(await storedInvites()).toEqual([
-      {
-        kind: 'group',
-        group: 'Šeštadienio grupė',
-        tokenHash: inviteTokenHash(token),
-        revoked: false,
-      },
-    ]);
+    // Beside the group invite the group was made with (R-204).
+    const stored = await storedInvites();
+    expect(stored).toHaveLength(2);
+    expect(stored).toContainEqual({
+      kind: 'group',
+      group: 'Šeštadienio grupė',
+      tokenHash: inviteTokenHash(token),
+      revoked: false,
+    });
   });
 
   it('refuses a group invite without a group', async () => {
@@ -140,12 +141,14 @@ describe('createInviteAction (R-98, R-99, R-110)', () => {
     const ona = await coachPerson(sql, 'ona@example.lt', 'Ona');
     const onas = await groupOf(ona.id, 'Onos grupė');
     actAs(await coachPerson(sql, 'jonas@example.lt', 'Jonas'));
+    // Only Ona's group's own invite (R-204); Jonas makes none.
+    const before = await sql.count('invites');
     expect(
       await outcomeOf(
         createInviteAction({}, formOf({ kind: 'group', groupId: onas })),
       ),
     ).toEqual({ refusal: 'coach.groupNotFound' });
-    expect(await sql.count('invites')).toBe(0);
+    expect(await sql.count('invites')).toBe(before);
   });
 
   it('makes the invite for the session account, never a coachId the form carries (checklist 4)', async () => {
@@ -251,7 +254,9 @@ describe('revokeInviteAction (R-98)', () => {
       await outcomeOf(
         acceptInviteAction({}, formOf({ token: made.value.token })),
       ),
-    ).toEqual({ redirectedTo: '/nustatymai#treneriai' });
+    ).toEqual({
+      redirectedTo: `/nustatymai?treneris=${encodeURIComponent(jonas.id)}#treneriai`,
+    });
     actAs(jonas);
     expect(
       await outcomeOf(
@@ -311,7 +316,9 @@ const memberships = (): Promise<unknown[]> =>
       order by 1, 2`,
   );
 
-const MY_COACHES = '/nustatymai#treneriai';
+/** "Mano treneriai", naming the coach whose invite was accepted (#329). */
+const MY_COACHES = (coachId: string): string =>
+  `/nustatymai?treneris=${encodeURIComponent(coachId)}#treneriai`;
 const WELL_FORMED = 'B'.repeat(43);
 
 describe('the invite page /k/[token] (R-81, plan decision 8)', () => {
@@ -350,6 +357,7 @@ describe('the invite page /k/[token] (R-81, plan decision 8)', () => {
     expect(previewOf(await invitePage(token))).toEqual({
       ok: true,
       value: {
+        state: 'active',
         coachDisplayName: 'Jonas',
         groupName: 'Šeštadienio grupė',
         kind: 'group',
@@ -357,6 +365,40 @@ describe('the invite page /k/[token] (R-81, plan decision 8)', () => {
     });
     expect(await sql.count('coach_links')).toBe(0);
     expect(await sql.count('group_members')).toBe(0);
+  });
+
+  it('shows a used invite as accepted to the account that used it only (#329)', async () => {
+    const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
+    const personal = await inviteOf(jonas.id, 'personal');
+    const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
+    const group = await inviteOf(jonas.id, 'group', groupId);
+    const rokas = await person(sql, 'rokas@example.lt', 'Rokas');
+    actAs(rokas);
+    await accept({ token: personal });
+    await accept({ token: group });
+    expect(previewOf(await invitePage(personal))).toEqual({
+      ok: true,
+      value: { state: 'accepted', coachDisplayName: 'Jonas', groupName: null },
+    });
+    expect(previewOf(await invitePage(group))).toEqual({
+      ok: true,
+      value: {
+        state: 'accepted',
+        coachDisplayName: 'Jonas',
+        groupName: 'Šeštadienio grupė',
+      },
+    });
+    // Another account: the used personal invite is only "not valid", and
+    // the group invite is open to accept.
+    actAs(await person(sql, 'gabija@example.lt', 'Gabija'));
+    expect(previewOf(await invitePage(personal))).toEqual({
+      ok: false,
+      refusal: { reason: 'invite.invalid' },
+    });
+    expect(previewOf(await invitePage(group))).toMatchObject({
+      ok: true,
+      value: { state: 'active' },
+    });
   });
 
   it('says only "not valid" for a malformed or unknown token', async () => {
@@ -373,7 +415,9 @@ describe('acceptInviteAction (R-12, R-98, checklist 4 and 5)', () => {
     const groupId = await groupOf(jonas.id, 'Šeštadienio grupė');
     const token = await inviteOf(jonas.id, 'group', groupId);
     actAs(await person(sql, 'rokas@example.lt', 'Rokas'));
-    expect(await accept({ token })).toEqual({ redirectedTo: MY_COACHES });
+    expect(await accept({ token })).toEqual({
+      redirectedTo: MY_COACHES(jonas.id),
+    });
     expect(await links()).toEqual([{ coach: 'Jonas', player: 'Rokas' }]);
     expect(await memberships()).toEqual([
       { group: 'Šeštadienio grupė', player: 'Rokas' },
@@ -396,7 +440,7 @@ describe('acceptInviteAction (R-12, R-98, checklist 4 and 5)', () => {
     const used = await inviteOf(jonas.id, 'personal');
     actAs(await person(sql, 'gabija@example.lt', 'Gabija'));
     expect(await accept({ token: used })).toEqual({
-      redirectedTo: MY_COACHES,
+      redirectedTo: MY_COACHES(jonas.id),
     });
     actAs(await person(sql, 'rokas@example.lt', 'Rokas'));
     const invalid = { refusal: 'invite.invalid' };
@@ -435,7 +479,7 @@ describe('acceptInviteAction (R-12, R-98, checklist 4 and 5)', () => {
     const token = await inviteOf(jonas.id, 'personal');
     actAs(await person(sql, 'rokas@example.lt', 'Rokas'));
     expect(await accept({ token, playerId: gabija.id })).toEqual({
-      redirectedTo: MY_COACHES,
+      redirectedTo: MY_COACHES(jonas.id),
     });
     expect(await links()).toEqual([{ coach: 'Jonas', player: 'Rokas' }]);
   });
@@ -468,7 +512,9 @@ describe('acceptInviteAction (R-12, R-98, checklist 4 and 5)', () => {
       locale: 'lt',
     });
     request.cookie = cookie;
-    expect(await accept({ token })).toEqual({ redirectedTo: MY_COACHES });
+    expect(await accept({ token })).toEqual({
+      redirectedTo: MY_COACHES(jonas.id),
+    });
     expect(await sql.count(`accounts where email = 'gabija@example.lt'`)).toBe(
       1,
     );

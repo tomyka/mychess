@@ -1,12 +1,11 @@
-import { act, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { graphOf, LONDON } from '../../../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../../../i18n/locales';
 import type { AssignedRepertoirePage } from '../../../../server/assignment-pages';
-import AssignedRepertoireLoading from './loading';
-import AssignedRepertoireNotFound from './not-found';
+import AssignedRepertoireNotFound from '../not-found';
 import AssignedRepertoirePageView from './page';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
@@ -143,28 +142,5 @@ describe('the assigned repertoire page when it is not the player’s', () => {
         .getByRole('link', { name: MESSAGES.lt.assignment.page.home })
         .getAttribute('href'),
     ).toBe('/');
-  });
-});
-
-describe('the assigned repertoire page while it loads', () => {
-  it('shows a busy board frame with no board', () => {
-    renderLt(<AssignedRepertoireLoading />);
-    expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('true');
-    expect(screen.queryByRole('application')).toBeNull();
-  });
-
-  it('says it is loading only after about a second', () => {
-    vi.useFakeTimers();
-    try {
-      renderLt(<AssignedRepertoireLoading />);
-      const line = screen.getByRole('status');
-      expect(line.textContent).toBe('');
-      act(() => {
-        vi.advanceTimersByTime(1000);
-      });
-      expect(line.textContent).toBe(MESSAGES.lt.repertoires.loading);
-    } finally {
-      vi.useRealTimers();
-    }
   });
 });

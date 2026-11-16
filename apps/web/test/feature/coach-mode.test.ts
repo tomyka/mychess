@@ -68,7 +68,7 @@ describe('stopCoachingAction (R-100, R-109)', () => {
     ]);
     expect(
       await sql.rows('select revoked_at is not null as revoked from invites'),
-    ).toEqual([{ revoked: true }]);
+    ).toEqual([{ revoked: true }, { revoked: true }]); // the group's own invite (R-204) and the one made here
     expect(await sql.count('groups')).toBe(1);
     expect(request.refreshed).toBe(1);
   });

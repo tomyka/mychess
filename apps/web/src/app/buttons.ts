@@ -15,3 +15,11 @@ export const SECONDARY_BUTTON = `${BUTTON} border border-border-strong bg-surfac
 
 /** An action that destroys data. */
 export const DANGER_BUTTON = `${BUTTON} bg-error text-on-state`;
+
+/**
+ * A rare action kept out of the way, such as asking to unlink: underlined
+ * muted text, still a 44px touch target, so it never outweighs the row's
+ * main link (#329).
+ */
+export const QUIET_BUTTON =
+  'inline-flex min-h-touch items-center text-sm text-fg-muted underline';

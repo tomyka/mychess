@@ -14,6 +14,7 @@
 // createRepertoire or editRepertoire decide again at the confirm.
 import {
   annotatedSan,
+  hasGlyph,
   importPgn,
   mergeInto,
   moveNumber,
@@ -66,6 +67,7 @@ export interface ImportTarget {
   readonly added: {
     readonly chapters: number;
     readonly moves: number;
+    /** The moves listed in `annotations`: those whose addition shows. */
     readonly annotated: number;
   };
 }
@@ -100,7 +102,10 @@ export interface ImportPreview {
    */
   readonly renamed: readonly RenamedChapter[];
   readonly skipped: readonly Skipped[];
-  /** The comments and NAGs a merge adds (R-176); empty for a new repertoire. */
+  /**
+   * The comments and NAGs a merge adds that show (R-175, R-176); empty for
+   * a new repertoire.
+   */
   readonly annotations: readonly AddedAnnotation[];
   readonly target: ImportTarget | null;
   /** Why Import is refused for this target (R-115), or null. */
@@ -279,11 +284,22 @@ function newPreview(
   };
 }
 
-/** An added annotation as the preview lists it. */
-const addedAnnotation = (added: MergedAnnotation): AddedAnnotation => ({
-  move: `${moveNumber(added.ply, true)} ${annotatedSan(added.san, added.nags)}`,
-  comment: added.comment,
-});
+/**
+ * The added annotations the preview lists: each that shows something, a
+ * comment or a NAG's glyph (R-175). A move gaining only glyph-less NAGs
+ * ($146) would read as nothing new, so it is left out of the list and of
+ * the target's `annotated` count; the file still adds it, so the merge does
+ * not refuse it as nothing to add (R-115).
+ */
+function listedAnnotations(
+  added: readonly MergedAnnotation[],
+): AddedAnnotation[] {
+  return added.flatMap(({ ply, san, nags, comment }) => {
+    if (comment === null && !hasGlyph(nags)) return [];
+    const move = `${moveNumber(ply, true)} ${annotatedSan(san, nags)}`;
+    return [{ move, comment }];
+  });
+}
 
 /** The preview of adding `imported` to `loaded`: the merged repertoire. */
 function mergedPreview(
@@ -296,7 +312,9 @@ function mergedPreview(
   const after = merged.graph;
   const { id, name, version } = loaded.repertoire;
   const addition = merged.added;
-  const annotations = addition.ok ? addition.value.annotations : [];
+  const annotations = listedAnnotations(
+    addition.ok ? addition.value.annotations : [],
+  );
   return {
     summary: summarize(after),
     chapters: titlesFrom(after, before.chapters.length, locale),
@@ -304,7 +322,7 @@ function mergedPreview(
     skipped: [...imported.skipped, ...merged.skipped].sort(
       (a, b) => a.game - b.game,
     ),
-    annotations: annotations.map(addedAnnotation),
+    annotations,
     target: {
       id,
       name,

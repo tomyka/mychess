@@ -593,6 +593,18 @@ describe('ids in a form never pick whose data changes (checklist 4)', () => {
 
   it('a coachId in the form never makes a group or invite for that coach', async () => {
     const ids = await setUp();
+    const invitesBy = (): Promise<unknown[]> =>
+      sql.rows(
+        `select a.display_name as coach, count(*)::int as n
+           from invites i join accounts a on a.id = i.coach_id
+          group by 1 order by 1`,
+      );
+    // setUp's invites, each group's own among them (R-204).
+    const before = z
+      .array(z.object({ coach: z.string(), n: z.number() }))
+      .parse(await invitesBy());
+    const countOf = (coach: string): number =>
+      before.find((row) => row.coach === coach)?.n ?? 0;
     actAs(ids.rimantas);
     await outcomeOf(
       createGroupAction(
@@ -608,17 +620,11 @@ describe('ids in a form never pick whose data changes (checklist 4)', () => {
         ),
       ),
     ).toHaveProperty('link');
-    expect(
-      await sql.rows(
-        `select a.display_name as coach, count(*)::int as n
-           from invites i join accounts a on a.id = i.coach_id
-          group by 1 order by 1`,
-      ),
-    ).toEqual([
-      // setUp: Dovydas's used invite to Gabija; Rimantas's used one to
-      // Rokas and his open one; then the one this form made.
-      { coach: 'Dovydas', n: 1 },
-      { coach: 'Rimantas Vaitkus', n: 3 },
+    expect(await invitesBy()).toEqual([
+      // Dovydas gets none; Rimantas the new group's own invite and the
+      // personal one this form made.
+      { coach: 'Dovydas', n: countOf('Dovydas') },
+      { coach: 'Rimantas Vaitkus', n: countOf('Rimantas Vaitkus') + 2 },
     ]);
     expect(
       await sql.rows(

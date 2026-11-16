@@ -1,13 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
-import { MESSAGES } from '../../i18n/locales';
+import { MESSAGES } from '../../../i18n/locales';
 import RepertoiresLoading from './loading';
 import RepertoiresPage from './page';
 
 // requireOnboarded, inside the loader, never returns for a signed-out or
 // new account; the feature suite covers that.
-vi.mock('../../server/repertoires', () => ({
+vi.mock('../../../server/repertoires', () => ({
   myRepertoires: () =>
     Promise.resolve([
       {
@@ -22,7 +22,7 @@ vi.mock('../../server/repertoires', () => ({
     ]),
 }));
 
-vi.mock('../../server/assignment-pages', () => ({
+vi.mock('../../../server/assignment-pages', () => ({
   myAssignedRepertoires: () =>
     Promise.resolve([
       {
@@ -36,7 +36,7 @@ vi.mock('../../server/assignment-pages', () => ({
     ]),
 }));
 
-vi.mock('./actions', () => ({ createRepertoireAction: vi.fn() }));
+vi.mock('../actions', () => ({ createRepertoireAction: vi.fn() }));
 
 const l = MESSAGES.lt.repertoires.list;
 

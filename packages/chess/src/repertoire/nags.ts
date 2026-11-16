@@ -47,3 +47,13 @@ export function annotatedSan(san: string, nags: readonly number[]): string {
   const position = glyphsOf(nags, POSITION_GLYPHS);
   return `${san}${glyphsOf(nags, MOVE_GLYPHS)}${position === '' ? '' : ` ${position}`}`;
 }
+
+/**
+ * Whether any of `nags` has a shown glyph (R-175): exactly when
+ * `annotatedSan` adds to the SAN.
+ */
+export const hasGlyph = (nags: readonly number[]): boolean =>
+  nags.some(
+    (nag) =>
+      MOVE_GLYPHS[nag] !== undefined || POSITION_GLYPHS[nag] !== undefined,
+  );

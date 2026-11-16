@@ -28,6 +28,7 @@ import {
 } from '@mychess/domain';
 import type { RepertoireGraph } from '@mychess/chess';
 import { notFound } from 'next/navigation';
+import { cache } from 'react';
 import { z } from 'zod';
 import type { ChapterNames } from '../lib/chapter-label';
 import { chapterNamesOf } from './chapter-names';
@@ -175,14 +176,28 @@ async function ownerCoachNotes(
   }));
 }
 
+/**
+ * Repertoire `rawId` as the session account views it, read once per
+ * request (the page's layout and the page share it); anything the account
+ * may not view is 404.
+ */
+export const viewedRepertoire = cache(
+  async (
+    rawId: unknown,
+  ): Promise<{ account: Account; loaded: LoadedRepertoire }> => {
+    const account = await requireOnboarded();
+    const own = await ownRepertoire(account, rawId, 'view');
+    if (!own.ok) notFound();
+    return { account, loaded: own.value };
+  },
+);
+
 /** One repertoire's page; anything the account may not view is 404. */
 export async function repertoirePageData(
   rawId: unknown,
 ): Promise<RepertoirePageData> {
-  const account = await requireOnboarded();
-  const own = await ownRepertoire(account, rawId, 'view');
-  if (!own.ok) notFound();
-  const { repertoire, graph } = own.value;
+  const { account, loaded } = await viewedRepertoire(rawId);
+  const { repertoire, graph } = loaded;
   return {
     repertoire,
     graph,

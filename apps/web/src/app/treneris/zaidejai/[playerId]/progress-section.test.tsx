@@ -146,7 +146,9 @@ describe('the player page’s progress section (R-151, R-154, R-155)', () => {
   it('says when the player last trained', () => {
     show();
     expect(
-      screen.getByText('Paskutinį kartą treniravosi prieš 4 dienas'),
+      screen.getByText(
+        'Paskutinį kartą treniravosi prieš 4 dienas su jums matomais repertuarais',
+      ),
     ).toBeTruthy();
   });
 

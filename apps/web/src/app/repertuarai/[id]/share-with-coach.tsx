@@ -77,8 +77,8 @@ function ShareForm({
 
 /**
  * "Share with a coach" on the owner's repertoire (R-42): the linked
- * coaches as checkboxes with one Save; without a linked coach, why there
- * is nothing to tick.
+ * coaches as checkboxes with one Save; nothing without a linked coach
+ * (#331: a coach without a coach of their own has no one to share with).
  */
 export function ShareWithCoach({
   repertoireId,
@@ -86,22 +86,17 @@ export function ShareWithCoach({
 }: {
   readonly repertoireId: string;
   readonly sharing: RepertoireSharing;
-}): JSX.Element {
+}): JSX.Element | null {
   const t = useTranslations('share');
   const titleId = useId();
+  if (sharing.coaches.length === 0) return null;
   return (
     <section aria-labelledby={titleId} className="flex flex-col gap-2">
       <h2 id={titleId} className={PANEL_LABEL}>
         {t('title')}
       </h2>
-      {sharing.coaches.length === 0 ? (
-        <p className="text-fg-muted">{t('noCoach')}</p>
-      ) : (
-        <>
-          <p className="text-sm text-fg-muted">{t('intro')}</p>
-          <ShareForm repertoireId={repertoireId} sharing={sharing} />
-        </>
-      )}
+      <p className="text-sm text-fg-muted">{t('intro')}</p>
+      <ShareForm repertoireId={repertoireId} sharing={sharing} />
     </section>
   );
 }

@@ -4,7 +4,7 @@ import type { AccountRef } from '@mychess/domain';
 import { useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX } from 'react';
 import type { GroupGrid } from '../../../../server/coach-pages';
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../../../buttons';
+import { PRIMARY_BUTTON } from '../../../buttons';
 import { ConfirmedAction } from '../../../confirmed-action';
 import { SECTION, SECTION_TITLE } from '../../../nustatymai/styles';
 import { PendingButton } from '../../../pending-button';
@@ -44,19 +44,22 @@ function MemberRow({
   readonly remove: Dispatch;
 }): JSX.Element {
   const t = useTranslations('coach.group');
+  const nameId = useId();
   return (
-    <li className="flex items-center justify-between gap-3">
-      <span className="min-w-0 break-words">{member.displayName}</span>
-      <form action={remove} className="shrink-0">
-        <input type="hidden" name="groupId" value={groupId} />
-        <input type="hidden" name="playerId" value={member.id} />
-        <PendingButton
-          className={SECONDARY_BUTTON}
-          label={t('removeNamed', { name: member.displayName })}
-        >
-          {t('remove')}
-        </PendingButton>
-      </form>
+    <li className="flex flex-wrap items-center justify-between gap-3">
+      <span id={nameId} className="min-w-0 break-words">
+        {member.displayName}
+      </span>
+      {/* Asks first, as "Atsieti" does (#329). */}
+      <ConfirmedAction
+        action={remove}
+        fields={{ groupId, playerId: member.id }}
+        describedBy={nameId}
+        label={t('remove')}
+        question={t('removeConfirm', { name: member.displayName })}
+        confirm={t('confirmRemove')}
+        cancel={t('cancel')}
+      />
     </li>
   );
 }

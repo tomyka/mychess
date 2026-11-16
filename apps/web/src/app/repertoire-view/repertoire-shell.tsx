@@ -92,7 +92,9 @@ export function RepertoireShell({
     <main className="flex h-dvh flex-col lg:mx-auto lg:h-auto lg:max-w-6xl lg:gap-6 lg:px-gutter-wide lg:py-8">
       {header}
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:items-start lg:justify-center lg:gap-8">
-        <div className="shrink-0 lg:w-[min(calc(100dvh-12rem),42rem)]">
+        {/* On a desktop the panel scrolls with the page, not inside a box
+            (#331); the board stays in view beside it. */}
+        <div className="shrink-0 lg:sticky lg:top-8 lg:w-[min(calc(100dvh-12rem),42rem)]">
           <Board
             view={board.view}
             label={words.label}
@@ -101,7 +103,7 @@ export function RepertoireShell({
             {...handlers}
           />
         </div>
-        <div className="flex min-h-0 flex-1 flex-col lg:max-h-[calc(100dvh-12rem)] lg:w-panel lg:flex-none lg:rounded-card lg:bg-surface lg:p-4 lg:shadow-card">
+        <div className="flex min-h-0 flex-1 flex-col lg:w-panel lg:flex-none lg:rounded-card lg:bg-surface lg:p-4 lg:shadow-card">
           <BoardRow
             state={state}
             dispatch={dispatch}

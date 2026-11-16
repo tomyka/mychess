@@ -6,8 +6,19 @@
  * transaction, and the domain decides inside the snapshot (lastTrained,
  * groupGrid).
  */
-import type { AccountRef } from '@mychess/domain';
+import type { RepertoireGraph } from '@mychess/chess';
+import {
+  NO_DEADLINES,
+  deadlineAssignments,
+  ownScope,
+  playerDeadlines,
+  type AccountRef,
+  type CoachProgressFacts,
+  type PlayerDeadlines,
+} from '@mychess/domain';
 import { REPEATABLE_READ, type Db, type Executor } from '../client';
+import { trackedReviews } from '../training/reviews';
+import { keysOf, loadAllVisible } from './view';
 import { coachPlayers, type LinkedAccount } from '../coaching';
 import { coachGroup, type CoachGroup } from '../groups';
 import { groupGrid, type GroupProgress } from './coach-progress';
@@ -57,20 +68,63 @@ export function coachGroupPage(
   }, REPEATABLE_READ);
 }
 
-/** A player on the coach's home, with when they last trained (R-154). */
-export interface HomePlayer extends LinkedAccount {
+/**
+ * A player on the coach's home, with when they last trained (R-154) and
+ * their deadlines on this coach's assignments (#329, playerDeadlines).
+ */
+export interface HomePlayer extends LinkedAccount, PlayerDeadlines {
   /** The latest result on a repertoire the coach may see; null for none. */
   readonly lastTrained: Date | null;
 }
 
 /**
+ * The graphs of the repertoires behind deadlineAssignments (this coach's
+ * live assignments of linked players), each read once through the coach's
+ * own scope (4 statements each), and those players' tracked keys on them
+ * (one statement).
+ */
+async function deadlineReads(
+  tx: Executor,
+  coachId: string,
+  facts: ReadonlyMap<string, CoachProgressFacts>,
+): Promise<{
+  readonly graphs: ReadonlyMap<string, RepertoireGraph>;
+  readonly tracked: ReadonlyMap<string, ReadonlySet<string>>;
+}> {
+  const live = [...facts].map(
+    ([playerId, one]) =>
+      [playerId, deadlineAssignments(coachId, playerId, one)] as const,
+  );
+  const ids = new Set(
+    live.flatMap(([, assigned]) => assigned.map((a) => a.repertoireId)),
+  );
+  const loaded = await loadAllVisible(tx, ownScope(coachId), ids);
+  const reviews = await trackedReviews(
+    tx,
+    live.filter(([, assigned]) => assigned.length > 0).map(([id]) => id),
+    keysOf(loaded.map((one) => one.graph)),
+  );
+  return {
+    graphs: new Map(loaded.map((one) => [one.repertoire.id, one.graph])),
+    tracked: new Map(
+      [...reviews].map(([id, byKey]) => [id, new Set(byKey.keys())]),
+    ),
+  };
+}
+
+const NO_KEYS: ReadonlySet<string> = new Set();
+
+/**
  * The coach's linked players by display name, each with when they last
- * trained as the coach may see it (R-154), from one snapshot: a fixed
- * number of statements whatever the number of players.
+ * trained as the coach may see it (R-154) and their deadlines on this
+ * coach's live assignments (#329), from one snapshot: a fixed number of
+ * statements whatever the number of players (plus 4 per repertoire the
+ * coach assigned them).
  */
 export function coachHomePlayers(
   db: Db,
   coachId: string,
+  now: Date,
 ): Promise<HomePlayer[]> {
   return db.transaction(async (tx) => {
     const players = await coachPlayers(tx, coachId);
@@ -80,9 +134,22 @@ export function coachHomePlayers(
       players.map((player) => player.id),
     );
     const last = await lastTrained(tx, coachId, facts);
-    return players.map((player) => ({
-      ...player,
-      lastTrained: last.get(player.id) ?? null,
-    }));
+    const { graphs, tracked } = await deadlineReads(tx, coachId, facts);
+    return players.map((player) => {
+      const own = facts.get(player.id);
+      const deadlines =
+        own === undefined
+          ? NO_DEADLINES
+          : playerDeadlines(coachId, player.id, own, {
+              graphs,
+              tracked: tracked.get(player.id) ?? NO_KEYS,
+              now,
+            });
+      return {
+        ...player,
+        lastTrained: last.get(player.id) ?? null,
+        ...deadlines,
+      };
+    });
   }, REPEATABLE_READ);
 }

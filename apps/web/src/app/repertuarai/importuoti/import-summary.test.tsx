@@ -191,6 +191,17 @@ describe('ImportSummary', () => {
     ).toBe('true');
   });
 
+  it('speaks of symbols, not PGN NAGs, in either language (#335)', () => {
+    for (const locale of ['lt', 'en'] as const) {
+      const { annotationsTitle, addedAnnotations } =
+        MESSAGES[locale].repertoires.import;
+      expect(`${annotationsTitle} ${addedAnnotations}`).not.toMatch(/NAG/);
+    }
+    expect(MESSAGES.en.repertoires.import.annotationsTitle).toContain(
+      'symbols',
+    );
+  });
+
   it('lists the comments and NAGs a merge adds to moves already there (R-175, R-176)', () => {
     renderSummary({
       ...PREVIEW,

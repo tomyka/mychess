@@ -30,13 +30,29 @@ const ROKAS: CoachPlayerRow = {
     { id: 'g-2', name: 'Šeštadienio grupė' },
   ],
   lastTrainedDays: 1,
+  linkedAt: new Date('2026-09-14T10:00:00Z'),
+  nearestDeadline: '2026-11-01',
+  overdue: true,
 };
 const GABIJA: CoachPlayerRow = {
   id: 'p-2',
   displayName: 'Gabija',
   groups: [],
   lastTrainedDays: null,
+  linkedAt: new Date('2026-10-02T10:00:00Z'),
+  nearestDeadline: null,
+  overdue: false,
 };
+
+/** "Linked since" with `date` written as the page writes it, in Vilnius. */
+const linkedSince = (date: Date): string =>
+  MESSAGES.lt.coach.player.linkedSince.replace(
+    '{date}',
+    new Intl.DateTimeFormat('lt', {
+      dateStyle: 'medium',
+      timeZone: 'Europe/Vilnius',
+    }).format(date),
+  );
 
 function renderList(
   players: readonly CoachPlayerRow[],
@@ -133,6 +149,54 @@ describe('PlayersList', () => {
         MESSAGES.lt.coach.notLinked,
       );
     });
+  });
+
+  it('tells two players of the same name apart by when each linked (#329)', () => {
+    const other = { ...ROKAS, id: 'p-3', linkedAt: GABIJA.linkedAt };
+    renderList([ROKAS, other]);
+    const rows = screen
+      .getAllByRole('link', { name: 'Rokas' })
+      .map((link) => link.closest('li')?.textContent ?? '');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toContain(linkedSince(ROKAS.linkedAt));
+    expect(rows[1]).toContain(linkedSince(GABIJA.linkedAt));
+  });
+
+  it('marks a player with an overdue assignment, and gives the nearest deadline otherwise (#329)', () => {
+    const a = MESSAGES.lt.assignment;
+    const due = {
+      ...GABIJA,
+      id: 'p-4',
+      displayName: 'Eglė',
+      nearestDeadline: '2026-12-01',
+    };
+    renderList([ROKAS, GABIJA, due]);
+    const rokas = playerItem('Rokas');
+    expect(rokas.getByText(a.badge.overdue)).toBeDefined();
+    expect(rokas.queryByText(/^Terminas/u)).toBeNull();
+    const egle = playerItem('Eglė');
+    expect(
+      egle.getByText(
+        a.deadlineOn.replace(
+          '{date}',
+          new Intl.DateTimeFormat('lt', {
+            dateStyle: 'long',
+            timeZone: 'Europe/Vilnius',
+          }).format(new Date('2026-12-01T12:00:00Z')),
+        ),
+      ),
+    ).toBeDefined();
+    expect(egle.queryByText(a.badge.overdue)).toBeNull();
+    const gabija = playerItem('Gabija');
+    expect(gabija.queryByText(a.badge.overdue)).toBeNull();
+    expect(gabija.queryByText(/^Terminas/u)).toBeNull();
+  });
+
+  it('keeps Unlink a quiet text action, not a button as big as the name (#329)', () => {
+    renderList([ROKAS]);
+    const unlink = playerItem('Rokas').getByRole('button', { name: p.unlink });
+    expect(unlink.className).not.toContain('border');
+    expect(unlink.className).toContain('underline');
   });
 
   it('speaks English on the English page', () => {

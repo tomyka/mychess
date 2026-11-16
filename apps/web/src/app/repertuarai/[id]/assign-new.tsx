@@ -11,8 +11,11 @@ import { submitByHand } from '../../submit-by-hand';
 import { assignAction } from './assign-actions';
 import { INITIAL, useOutcome } from './assign-outcome';
 
-/** Whom the picker offers: those it is not yet assigned to (the loader's). */
-type Offer = Pick<AssignPanelData, 'players' | 'groups'>;
+/**
+ * Whom the picker offers: those it is not yet assigned to (the loader's);
+ * and today, the date field's earliest day.
+ */
+type Offer = Pick<AssignPanelData, 'players' | 'groups' | 'today'>;
 
 /** The picker: the players, then the groups, each under its label. */
 function TargetSelect({
@@ -91,7 +94,14 @@ function AssignForm({
         <label htmlFor={dateId} className="font-medium">
           {t('deadline')}
         </label>
-        <input id={dateId} type="date" name="deadline" className={FIELD} />
+        {/* Today is the earliest day as a hint; the server refuses a past one (R-203). */}
+        <input
+          id={dateId}
+          type="date"
+          name="deadline"
+          min={offer.today}
+          className={FIELD}
+        />
         <button
           type="submit"
           disabled={pending}

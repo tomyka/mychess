@@ -17,6 +17,8 @@ const DATA: CoachHomeData = {
       linkedAt: NOW,
       groups: [{ id: 'g-1', name: 'Šeštadienio grupė' }],
       lastTrainedDays: null,
+      nearestDeadline: null,
+      overdue: false,
     },
   ],
   groups: [
@@ -27,7 +29,6 @@ const DATA: CoachHomeData = {
       id: 'i-1',
       kind: 'group',
       groupName: 'Šeštadienio grupė',
-      state: 'active',
       expiresAt: NOW,
       createdAt: NOW,
     },

@@ -1,5 +1,6 @@
+import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { annotatedSan, isNag } from './nags';
+import { annotatedSan, hasGlyph, isNag } from './nags';
 
 describe('annotatedSan: the glyphs shown (R-175, decision 2)', () => {
   it.each([
@@ -56,5 +57,26 @@ describe('annotatedSan', () => {
 
   it('writes the move assessment first, then the position, skipping the rest', () => {
     expect(annotatedSan('e4', [14, 36, 1])).toBe('e4! ⩲');
+  });
+});
+
+describe('hasGlyph: whether any NAG is shown (R-175)', () => {
+  it('is true when a NAG has a move or a position glyph', () => {
+    expect(hasGlyph([1])).toBe(true);
+    expect(hasGlyph([6])).toBe(true);
+    expect(hasGlyph([10])).toBe(true);
+    expect(hasGlyph([19])).toBe(true);
+    expect(hasGlyph([22, 14])).toBe(true);
+  });
+  it('is false with no NAG or only glyph-less ones', () => {
+    expect(hasGlyph([])).toBe(false);
+    expect(hasGlyph([7, 11, 12, 20, 22, 255])).toBe(false);
+  });
+  it('agrees with annotatedSan: a glyph shows exactly when the SAN changes', () => {
+    fc.assert(
+      fc.property(fc.array(fc.integer({ min: 1, max: 255 })), (nags) => {
+        expect(hasGlyph(nags)).toBe(annotatedSan('e4', nags) !== 'e4');
+      }),
+    );
   });
 });

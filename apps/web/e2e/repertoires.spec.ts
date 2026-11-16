@@ -348,9 +348,9 @@ test('another account’s repertoire and its download are not found', async ({
   try {
     const stranger = await other.newPage();
     await newOnboardedAccount(stranger, request, 'Dovydas');
-    // The page streams (loading.tsx), so its status is whatever streaming
-    // gives; what the stranger sees is what is checked.
-    await stranger.goto(`/repertuarai/${id}`);
+    // Its layout decides before the page streams, so it is a real 404 (#331).
+    const opened = await stranger.goto(`/repertuarai/${id}`);
+    expect(opened?.status()).toBe(404);
     await expect(stranger.getByText(en.repertoire.notFound)).toBeVisible();
     await expect(stranger.getByText('Londono sistema')).toHaveCount(0);
     const exported = await other.request.get(`/api/repertoires/${id}/export`);

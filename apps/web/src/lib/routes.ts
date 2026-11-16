@@ -24,6 +24,14 @@ export const ROUTES = {
 export const invitePath = (token: string): string =>
   `/k/${encodeURIComponent(token)}`;
 
+/**
+ * "Mano treneriai" after accepting an invite: it names the coach just
+ * linked, by id, so the section can say so (#329). The page shows the name
+ * only for a coach the session account is linked to.
+ */
+export const acceptedInvitePath = (coachId: string): string =>
+  `${ROUTES.settings}?treneris=${encodeURIComponent(coachId)}#treneriai`;
+
 /** One linked player's page in the coach dashboard. */
 export const coachPlayerPath = (playerId: string): string =>
   `${ROUTES.coach}/zaidejai/${encodeURIComponent(playerId)}`;

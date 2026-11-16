@@ -38,7 +38,11 @@ export function AssignPanel({
       ) : (
         <ul aria-labelledby={listId} className="flex flex-col gap-3">
           {data.assignments.map((assignment) => (
-            <AssignmentRow key={assignment.id} assignment={assignment} />
+            <AssignmentRow
+              key={assignment.id}
+              assignment={assignment}
+              today={data.today}
+            />
           ))}
         </ul>
       )}

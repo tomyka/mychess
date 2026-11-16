@@ -7,7 +7,7 @@ import {
   type InviteRefusal,
 } from '@mychess/domain';
 import { redirect } from 'next/navigation';
-import { ROUTES } from '../../../lib/routes';
+import { acceptedInvitePath } from '../../../lib/routes';
 import { getDb } from '../../../server/db';
 import { requireOnboarded } from '../../../server/session';
 
@@ -20,7 +20,8 @@ export interface AcceptState {
  * Accepts the invite as the session account, never an id the form carries
  * (checklist 4), and only on a POST (plan decision 8). The token is
  * checked for its format before it is looked up (plan decision 6). On
- * success the player lands on "Mano treneriai" (plan decision 12).
+ * success the player lands on "Mano treneriai" (plan decision 12), which
+ * says they are now linked with the coach (#329).
  */
 export async function acceptInviteAction(
   _previous: AcceptState,
@@ -36,5 +37,5 @@ export async function acceptInviteAction(
     new Date(),
   );
   if (!accepted.ok) return { refusal: accepted.refusal.reason };
-  redirect(ROUTES.myCoaches);
+  redirect(acceptedInvitePath(accepted.value.coachId));
 }

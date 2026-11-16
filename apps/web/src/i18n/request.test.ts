@@ -33,6 +33,17 @@ vi.mock('../server/session', () => ({
   getAccount: () => Promise.resolve(request.account),
 }));
 
+/**
+ * English (R-180), dates in Vilnius time on the server and in the browser
+ * alike, so a date rendered without its own zone cannot differ between
+ * them and break hydration (#331).
+ */
+const ENGLISH = {
+  locale: 'en',
+  messages: MESSAGES.en,
+  timeZone: 'Europe/Vilnius',
+};
+
 /** The locale and catalogue the page renders with. */
 async function rendered(): Promise<unknown> {
   await import('./request');
@@ -49,15 +60,15 @@ describe('the request locale (R-180)', () => {
   it('renders English for a signed-in account stored in Lithuanian', async () => {
     request.account = { locale: 'lt' };
     request.cookie = 'lt';
-    expect(await rendered()).toEqual({ locale: 'en', messages: MESSAGES.en });
+    expect(await rendered()).toEqual(ENGLISH);
   });
 
   it('renders English for a visitor whose cookie says Lithuanian', async () => {
     request.cookie = 'lt';
-    expect(await rendered()).toEqual({ locale: 'en', messages: MESSAGES.en });
+    expect(await rendered()).toEqual(ENGLISH);
   });
 
   it('renders English with no account and no cookie', async () => {
-    expect(await rendered()).toEqual({ locale: 'en', messages: MESSAGES.en });
+    expect(await rendered()).toEqual(ENGLISH);
   });
 });

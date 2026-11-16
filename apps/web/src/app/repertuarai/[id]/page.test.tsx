@@ -6,7 +6,7 @@ import { MESSAGES } from '../../../i18n/locales';
 import type { CoachAssignData } from '../../../server/coach-assignments';
 import type { RepertoirePageData } from '../../../server/repertoires';
 import RepertoireLoading from './loading';
-import RepertoireNotFound from './not-found';
+import RepertoireNotFound from '../not-found';
 import RepertoirePage from './page';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
@@ -182,7 +182,7 @@ describe('the repertoire page', () => {
     unmount();
     loader.assign.mockResolvedValue({
       assignedPlayers: 0,
-      panel: { players: [], groups: [], assignments: [] },
+      panel: { players: [], groups: [], assignments: [], today: '2026-10-20' },
     });
     renderIn(await page());
     expect(loader.assign).toHaveBeenCalledWith(ID);

@@ -95,7 +95,7 @@ export function RepertoirePanel({
       ? undefined
       : chapterOf(state.graph, state.chapterId);
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-gutter py-3 lg:px-0">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-gutter py-3 lg:overflow-visible lg:px-0">
       {content.training === undefined ? null : (
         <TrainButtons training={content.training} />
       )}
@@ -116,9 +116,11 @@ export function RepertoirePanel({
         <ChapterPosition chapter={chapter} state={state} content={content} />
       )}
       {chapter === undefined ? null : (
-        // On a desktop the moves scroll on their own, so stepping keeps the
-        // comment above them in view; on a phone the whole panel scrolls.
-        <div className="lg:min-h-40 lg:flex-1 lg:overflow-y-auto">
+        // On a desktop the moves scroll on their own, at most about half a
+        // screen high, so stepping keeps the comment above them in view and
+        // the panel itself scrolls with the page (#331); on a phone the
+        // whole panel scrolls.
+        <div className="lg:max-h-[50dvh] lg:min-h-40 lg:overflow-y-auto">
           <MoveList
             graph={state.graph}
             chapterId={state.chapterId}

@@ -1,5 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { importPgn } from '../pgn/import-pgn';
 import { positionKey } from '../position-key';
 import { moveKey, type RepertoireGraph, type RepertoireMove } from './graph';
 import {
@@ -486,5 +487,63 @@ describe('chapterTree and chapterChildren', () => {
     expect(sans(children('c2')('p0'))).toEqual(['b']);
     expect(children('c9')('p0')).toEqual([]);
     expect(children('c1')('p1')).toEqual([]);
+  });
+});
+
+describe('a walked move that transposes (#331)', () => {
+  /** The walk's moves with their `transposes`, as `san:flag`, depth first. */
+  const flags = (walked: readonly WalkedMove[]): string[] =>
+    walked.flatMap((w) => [
+      `${w.move.san}:${String(w.transposes)}`,
+      ...flags(w.next),
+    ]);
+
+  it('marks a move whose line goes on elsewhere in the chapter, not a plain leaf', () => {
+    const r = importPgn(
+      '1. d4 d5 (1... e6 2. c4 d5) 2. c4 e6 3. Nc3 *',
+      'white',
+    );
+    if (!r.ok) throw new Error(r.refusal.reason);
+    expect(
+      flags(walkOf(r.value.graph, r.value.graph.chapters[0]?.id).tree()),
+    ).toEqual([
+      'd4:false',
+      'd5:false',
+      'c4:false',
+      'e6:false',
+      'Nc3:false',
+      'e6:false',
+      'c4:false',
+      'd5:true',
+    ]);
+  });
+
+  it('marks a move into a walked position only if the chapter moves on from it', () => {
+    const g = synthetic([
+      [0, 1, 'a'],
+      [0, 1, 'b'],
+      [1, 2, 'c'],
+      [0, 3, 'd'],
+      [0, 3, 'e'],
+    ]);
+    expect(flags(walkOf(g).tree())).toEqual([
+      'a:false',
+      'c:false',
+      'b:true',
+      'd:false',
+      'e:false',
+    ]);
+  });
+
+  it('counts only the moves of this chapter from the position', () => {
+    const g = synthetic(
+      [
+        [0, 1, 'a'],
+        [0, 1, 'b'],
+        [1, 2, 'c'],
+      ],
+      (i) => (i === 2 ? 'c2' : 'c1'),
+    );
+    expect(flags(walkOf(g).tree())).toEqual(['a:false', 'b:false']);
   });
 });

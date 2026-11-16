@@ -195,9 +195,8 @@ describe('seedPersonas', () => {
         ['Gabija Navickaitė', '2026-02-01'],
         ['Rokas Petrauskas', '2026-04-12'],
       ]);
-      const open = (await coachInvites(db, coach.id, NOW)).filter(
-        (i) => i.state === 'active',
-      );
+      // The dashboard lists open invites only (#329).
+      const open = await coachInvites(db, coach.id, NOW);
       expect(open).toEqual([
         expect.objectContaining({
           kind: 'group',

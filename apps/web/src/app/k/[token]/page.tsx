@@ -21,7 +21,9 @@ const NOT_VALID: InvitePreviewResult = {
 // account onboards, and both come back here (R-81). A GET never accepts:
 // this is a confirm screen, and Accept posts a server action (plan
 // decision 8). A malformed token is "not valid" without a lookup, and an
-// unknown, expired, used or revoked one reads the same (plan decision 6).
+// unknown, expired, used or revoked one reads the same (plan decision 6),
+// except to the account the invite already serves and links: it reads as
+// accepted (#329).
 export default async function InvitePage({
   params,
 }: {

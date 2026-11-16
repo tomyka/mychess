@@ -16,6 +16,7 @@ export const ASSIGNMENT_REFUSALS = {
   notLinked: 'assignment.notLinked',
   groupNotFound: 'assignment.groupNotFound',
   alreadyAssigned: 'assignment.alreadyAssigned',
+  deadlinePast: 'assignment.deadlinePast',
 } as const;
 
 export interface AssignmentRefusal {
@@ -88,6 +89,21 @@ export function canChangeAssignment(
 ): AssignmentResult {
   if (!isCoach(facts)) return refuse(ASSIGNMENT_REFUSALS.notCoach);
   return facts.found ? ok() : refuse(ASSIGNMENT_REFUSALS.notFound);
+}
+
+/**
+ * R-203, R-210: a deadline, group or individual, when assigning or
+ * changing it, is today or later in the Vilnius day (the day overdue is
+ * judged in; there is no per-account time zone yet). No deadline is always
+ * allowed.
+ */
+export function canSetDeadline(
+  deadline: string | null,
+  now: Date,
+): AssignmentResult {
+  return deadline !== null && deadline < vilniusDay(now)
+    ? refuse(ASSIGNMENT_REFUSALS.deadlinePast)
+    : ok();
 }
 
 /** Whom an existing assignment of the repertoire went to. */

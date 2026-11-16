@@ -67,7 +67,7 @@ export async function coachPerson(
 export async function groupOf(coachId: string, name: string): Promise<string> {
   const made = await createGroup(testDb(), coachId, name, new Date());
   if (!made.ok) throw new Error(`no group: ${made.refusal.reason}`);
-  return made.value;
+  return made.value.groupId;
 }
 
 /** Links `playerId` to `coachId` through a personal invite, into `groupId`. */

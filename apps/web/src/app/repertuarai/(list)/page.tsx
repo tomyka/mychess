@@ -1,14 +1,14 @@
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { JSX } from 'react';
-import { ROUTES } from '../../lib/routes';
-import { myAssignedRepertoires } from '../../server/assignment-pages';
-import { myRepertoires } from '../../server/repertoires';
-import { SECONDARY_BUTTON } from '../buttons';
-import { SECTION, SECTION_TITLE, TEXT_LINK } from '../nustatymai/styles';
-import { StatusLine } from '../status-line';
-import { CreateForm } from './create-form';
-import { RepertoireList } from './repertoire-list';
+import { ROUTES } from '../../../lib/routes';
+import { myAssignedRepertoires } from '../../../server/assignment-pages';
+import { myRepertoires } from '../../../server/repertoires';
+import { SECONDARY_BUTTON } from '../../buttons';
+import { SECTION, SECTION_TITLE, TEXT_LINK } from '../../nustatymai/styles';
+import { StatusLine } from '../../status-line';
+import { CreateForm } from '../create-form';
+import { RepertoireList } from '../repertoire-list';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -61,6 +61,8 @@ function ImportSection(): JSX.Element {
   );
 }
 
+// In the (list) route group so its loading.tsx wraps this page alone: a
+// streamed child page answers 200 even when it is not found (#331).
 // Mano repertuarai (docs/design/repertoire-screen.md, section 1): the
 // account's own repertoires and those assigned to it (#328) by side, the
 // create form and the way to import.
