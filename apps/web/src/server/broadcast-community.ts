@@ -18,6 +18,7 @@ import {
 import type { LichessApi } from '@mychess/integrations';
 import { listOrganiserTours } from './broadcast-organisers';
 import type { BroadcastRunner } from './broadcast-runner';
+import { logText } from './log-text';
 
 export interface CommunityBroadcastsDeps {
   /** The pacer's night lane: the organiser listing. */
@@ -64,7 +65,7 @@ export function createCommunityBroadcasts(
   };
 }
 
-/** One night; a failure is logged by its error name alone. */
+/** One night; a failure is logged as logText says (log-text.ts). */
 async function runSafely(
   deps: CommunityBroadcastsDeps,
   window: BroadcastWindow,
@@ -73,10 +74,7 @@ async function runSafely(
   try {
     await runNight(deps, window, now);
   } catch (error) {
-    console.error(
-      'fide: community broadcasts night failed',
-      error instanceof Error ? error.name : 'unknown error',
-    );
+    console.error('fide: community broadcasts night failed', logText(error));
   }
 }
 

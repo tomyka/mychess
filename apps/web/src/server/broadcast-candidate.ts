@@ -9,8 +9,17 @@ import type {
 import type { LichessBroadcastTour } from '@mychess/integrations';
 
 /**
- * `tour` as a candidate: its last round is Lichess's last date, none when
- * Lichess gives no dates (qualifyBroadcastTour then refuses it).
+ * When `tour`'s last round starts, as the domain reads it: Lichess's last
+ * date; null when Lichess gives no dates. The one place this mapping is
+ * made, for qualifying a tour and for paging an organiser's list.
+ */
+export function tourLastRoundAt(tour: LichessBroadcastTour): Date | null {
+  return tour.dates?.end ?? null;
+}
+
+/**
+ * `tour` as a candidate; one without a last round is refused by
+ * qualifyBroadcastTour.
  */
 export function tourCandidate(
   tour: LichessBroadcastTour,
@@ -22,7 +31,7 @@ export function tourCandidate(
     name: tour.name,
     official: tour.official,
     finished,
-    lastRoundAt: tour.dates?.end ?? null,
+    lastRoundAt: tourLastRoundAt(tour),
     origin,
   };
 }

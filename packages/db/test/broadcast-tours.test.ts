@@ -18,6 +18,7 @@ import {
   game,
   month,
   queuedTour,
+  roundId,
   tourGame,
   tourId,
 } from './support/broadcasts';
@@ -229,7 +230,7 @@ describe('writeBroadcastTour (#349, spec decision 1)', () => {
     await queueBroadcastTour(db, queuedTour(ID));
     const result = await writeBroadcastTour(db, {
       claim: await claimed(),
-      roundIds: [TOUR_ROUND, tourId('Rnd00002')],
+      roundIds: [TOUR_ROUND, roundId('Rnd00002')],
       games: [
         tourGame(1),
         tourGame(2, {}, 'Rnd00002'),

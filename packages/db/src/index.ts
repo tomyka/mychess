@@ -79,16 +79,18 @@ export {
   type BroadcastMonthWrite,
 } from './broadcasts';
 export {
-  FOUND_GAMES_LIMIT,
-  gamesForFideId,
   type BroadcastGameSource,
   type BroadcastGameStream,
-  type BroadcastSearchScope,
   type BroadcastWriteCount,
   type BroadcastWriteOptions,
+} from './broadcast-game-store';
+export {
+  FOUND_GAMES_LIMIT,
+  gamesForFideId,
+  type BroadcastSearchScope,
   type FoundGame,
   type FoundGames,
-} from './broadcast-game-store';
+} from './broadcast-search';
 export {
   broadcastTourStatuses,
   claimBroadcastTour,

@@ -25,7 +25,6 @@ import {
   fideId,
   fideSearchRateKey,
   nextBroadcastMonthAction,
-  preferOfficialCopies,
   searchMonths,
   type BroadcastMonth,
   type BroadcastMonthAction,
@@ -171,8 +170,9 @@ export async function pollFideSearch(
 /**
  * The search for `id` over `months` at `now`: the months the runner should
  * process are handed to it, unawaited; the games come from the ready ones
- * and from the tournaments fetched in their window (#349), a community
- * copy of an official game left out (preferOfficialCopies).
+ * and from the tournaments fetched in their window (#349); the query
+ * leaves out a community copy of an official game (preferOfficialCopies's
+ * rule) before its limit.
  */
 async function snapshotOf(
   id: FideId,
@@ -193,7 +193,7 @@ async function snapshotOf(
   });
   return {
     progress: progressOf(actions.map(({ action }) => DISPLAY[action])),
-    games: preferOfficialCopies(found.games),
+    games: found.games,
     truncated: found.truncated,
   };
 }

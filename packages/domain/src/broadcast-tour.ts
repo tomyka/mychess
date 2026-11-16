@@ -36,7 +36,12 @@ export const APPROVED_BROADCAST_ORGANISERS = [
 
 export type ApprovedOrganiser = (typeof APPROVED_BROADCAST_ORGANISERS)[number];
 
-/** Message-catalogue keys for the tournament refusals. */
+/**
+ * The tournament refusals. notFinished, outsideWindow and inDumps answer a
+ * pasted link, so they are message-catalogue keys. claimLost and
+ * notClaimable are internal codes, not catalogue keys: only the background
+ * runner meets them, and logs them, as the month's claim refusals.
+ */
 export const BROADCAST_TOUR_REFUSALS = {
   notFinished: 'fide.tourNotFinished',
   outsideWindow: 'fide.tourOutsideWindow',
@@ -64,18 +69,37 @@ export interface BroadcastTourClaimRefusal {
   >;
 }
 
-/**
- * A Lichess broadcast id (a tournament's or a round's): eight letters or
- * digits, as a regular expression source the database's check shares.
- */
-export const BROADCAST_TOUR_ID_PATTERN = '^[A-Za-z0-9]{8}$';
+/** A Lichess broadcast id, a tournament's or a round's: 8 letters or digits. */
+const BROADCAST_ID = '[A-Za-z0-9]{8}';
 
+/**
+ * A tournament id, as a regular expression source the database's check
+ * shares.
+ */
+export const BROADCAST_TOUR_ID_PATTERN = `^${BROADCAST_ID}$`;
+
+const broadcastIdRegex = new RegExp(BROADCAST_TOUR_ID_PATTERN);
+
+/**
+ * The issue messages of the two ids are internal codes, not catalogue
+ * keys: a user's link is refused by parseBroadcastLink
+ * (fide.broadcastLinkInvalid) before any id is parsed, and the ids Lichess
+ * sends are parsed by the integrations.
+ */
 export const broadcastTourIdSchema = z
   .string()
-  .regex(new RegExp(BROADCAST_TOUR_ID_PATTERN), 'fide.tourIdInvalid')
+  .regex(broadcastIdRegex, 'fide.tourIdInvalid')
   .brand<'BroadcastTourId'>();
 
 export type BroadcastTourId = z.infer<typeof broadcastTourIdSchema>;
+
+/** A round's id: a tournament id's form, but never one. */
+export const broadcastRoundIdSchema = z
+  .string()
+  .regex(broadcastIdRegex, 'fide.roundIdInvalid')
+  .brand<'BroadcastRoundId'>();
+
+export type BroadcastRoundId = z.infer<typeof broadcastRoundIdSchema>;
 
 /** The approved organiser `account` names, any letter case; null for others. */
 export function approvedOrganiser(account: string): ApprovedOrganiser | null {
@@ -204,8 +228,9 @@ export function qualifyBroadcastTour(
  * A broadcast game link: two slugs, the round id, the game id
  * (`/broadcast/{tour}/{round}/{roundId}/{gameId}`).
  */
-const TOUR_GAME_URL =
-  /^https:\/\/lichess\.org\/broadcast\/[A-Za-z0-9-]+\/[A-Za-z0-9-]+\/([A-Za-z0-9]{8})\/[A-Za-z0-9]{8}$/;
+const TOUR_GAME_URL = new RegExp(
+  `^https://lichess\\.org/broadcast/[A-Za-z0-9-]+/[A-Za-z0-9-]+/(${BROADCAST_ID})/${BROADCAST_ID}$`,
+);
 
 /**
  * Whether a tournament keeps the game at `url` (security M1): a broadcast
@@ -215,7 +240,7 @@ const TOUR_GAME_URL =
  */
 export function isGameOfTour(
   url: string,
-  roundIds: readonly BroadcastTourId[],
+  roundIds: readonly BroadcastRoundId[],
 ): boolean {
   const roundId = TOUR_GAME_URL.exec(url)?.[1];
   return roundId !== undefined && roundIds.some((id) => id === roundId);

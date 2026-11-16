@@ -28,6 +28,13 @@ Issue #349. Research: `docs/research-lichess-community-broadcasts.md`, `docs/res
 6. **Token:** `LICHESS_TOKEN` in the server env, sent as `Authorization: Bearer` on every Lichess API call; refused in the browser; this feature runs only when it is set: without it the organiser listing is skipped and a pasted link is refused as unavailable, while the month index keeps working (lead, during task 3: optional rather than required in production, so a deploy never waits on the secret); owner sets it on the VM with `set-secret.sh`.
 7. **Organiser list** lives in the domain as a constant with the ruling reference; changing it is a reviewed code change.
 
+Added by the lead during the work, from the reviews:
+
+8. **Which source keeps a game:** a tournament keeps only games whose link is a game of one of its own rounds (a pasted tournament cannot claim another event's game link); a tournament's write never replaces a stored game; a month's write replaces a game a tournament stored, since the official dump wins. A tournament's game count stays as written.
+9. **Counting pasted links:** a link is counted against the 10 a day once it parses as a Lichess broadcast link and before Lichess is asked, so a link refused as not finished, outside the window or unknown, or answered as already added, counts too; an off-site or malformed link does not.
+10. **The second 429** stops the night whether or not the two came in a row; the night retries once after the first.
+11. **De-duplication** happens before the search's 1000-game limit, so an official copy is never cut while its community copy is shown.
+
 ## Design
 
 - **integrations:** clients for `by/{account}` (paged), tour JSON, round-link resolution and tour PGN (reuse the header parser and its limits), all with the token and `redirect: 'error'`.

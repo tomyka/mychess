@@ -167,7 +167,7 @@ describe('the broadcast month runner', () => {
     await run.settled();
     expect(db.release).toHaveBeenCalledOnce();
     expect(errors.mock.calls[0]).toEqual([
-      'broadcast index: release failed',
+      'fide: broadcast index release failed',
       'TypeError',
     ]);
     expect(written.map((w) => w.month)).toEqual([OCT]);

@@ -23,7 +23,11 @@ import {
   type BroadcastTourWrite,
   type Executor,
 } from '@mychess/db';
-import { broadcastTourIdSchema, type BroadcastTourId } from '@mychess/domain';
+import {
+  broadcastRoundIdSchema,
+  type BroadcastRoundId,
+  type BroadcastTourId,
+} from '@mychess/domain';
 import {
   lichessBroadcastTour,
   openLichessBroadcastPgn,
@@ -73,7 +77,7 @@ export interface TourJobDeps {
   readonly limits: RunnerLimits;
 }
 
-const roundIdsSchema = broadcastTourIdSchema.array();
+const roundIdsSchema = broadcastRoundIdSchema.array();
 
 /**
  * Fetches the queued tournament `tourId` into the index, once it has
@@ -120,7 +124,7 @@ export async function processTour(
 function indexTour(
   deps: TourJobDeps,
   claim: BroadcastTourClaim,
-  roundIds: readonly BroadcastTourId[],
+  roundIds: readonly BroadcastRoundId[],
 ): Promise<LichessBroadcastRefusal['reason'] | undefined> {
   return withDownloadLimits(
     deps.limits,

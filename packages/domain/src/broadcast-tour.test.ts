@@ -10,6 +10,7 @@ import {
   BROADCAST_TOUR_ORIGINS,
   BROADCAST_TOUR_REFUSALS,
   approvedOrganiser,
+  broadcastRoundIdSchema,
   broadcastTourIdSchema,
   isGameOfTour,
   nextBroadcastTourAction,
@@ -44,7 +45,7 @@ const candidate = (
 
 const PASTED = { kind: 'pasted' } as const;
 
-const tourId = (text: string) => broadcastTourIdSchema.parse(text);
+const roundId = (text: string) => broadcastRoundIdSchema.parse(text);
 
 describe('APPROVED_BROADCAST_ORGANISERS (R-196, R-200)', () => {
   it('is the three accounts the owner approved', () => {
@@ -85,8 +86,13 @@ describe('broadcastTourIdSchema', () => {
     'refuses %j',
     (text) => {
       expect(broadcastTourIdSchema.safeParse(text).success).toBe(false);
+      expect(broadcastRoundIdSchema.safeParse(text).success).toBe(false);
     },
   );
+
+  it('shares its pattern with a round id, which is branded apart', () => {
+    expect(broadcastRoundIdSchema.parse('Zx9yW8v7')).toBe('Zx9yW8v7');
+  });
 });
 
 describe('qualifyBroadcastTour (#349, spec decision 2)', () => {
@@ -219,7 +225,7 @@ describe('qualifyBroadcastTour (#349, spec decision 2)', () => {
 });
 
 describe('isGameOfTour (#349, security M1)', () => {
-  const ROUNDS = [tourId('Zx9yW8v7'), tourId('Qr5sT6u7')];
+  const ROUNDS = [roundId('Zx9yW8v7'), roundId('Qr5sT6u7')];
   const url = (round: string, game = 'Gm1Gm2Gm') =>
     `https://lichess.org/broadcast/synthetic-open/round-1/${round}/${game}`;
 

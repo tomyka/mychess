@@ -34,12 +34,12 @@ import {
   type LichessApi,
 } from '@mychess/integrations';
 import {
-  logText,
   RUNNER_LIMITS,
   withDownloadLimits,
   type RunnerLimits,
 } from './broadcast-limits';
 import { processTour, type BroadcastTourIndex } from './broadcast-tour-job';
+import { logText } from './log-text';
 
 /** The index repositories the runner uses, on one database. */
 export interface BroadcastIndex {
@@ -188,17 +188,14 @@ async function releaseAll(
 
 /**
  * Releases what a process before this one left processing. A failure is
- * logged by the error's name alone and the runner goes on: the 15-minute
+ * logged as logText says (log-text.ts) and the runner goes on: the 15-minute
  * stale rule still hands it back, at the cost of an attempt.
  */
 async function releaseSafely(release: () => Promise<number>): Promise<void> {
   try {
     await release();
   } catch (error) {
-    console.error(
-      'broadcast index: release failed',
-      error instanceof Error ? error.name : 'unknown error',
-    );
+    console.error('fide: broadcast index release failed', logText(error));
   }
 }
 

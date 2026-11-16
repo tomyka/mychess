@@ -2,11 +2,13 @@
 // or tournaments (CLAUDE.md).
 import {
   broadcastMonthSchema,
+  broadcastRoundIdSchema,
   broadcastTourIdSchema,
   fideIdSchema,
   qualifyBroadcastTour,
   type BroadcastGameInput,
   type BroadcastMonth,
+  type BroadcastRoundId,
   type BroadcastTourId,
   type BroadcastTourOrigin,
   type BroadcastWindow,
@@ -26,6 +28,9 @@ export const fideId = (n: number): FideId => fideIdSchema.parse(n);
 
 export const tourId = (text: string): BroadcastTourId =>
   broadcastTourIdSchema.parse(text);
+
+export const roundId = (text: string): BroadcastRoundId =>
+  broadcastRoundIdSchema.parse(text);
 
 /** A synthetic broadcast game between FIDE IDs 100 (White) and 200. */
 export const game = (
@@ -49,7 +54,7 @@ export const gamesNumbered = (count: number): BroadcastGameInput[] =>
   Array.from({ length: count }, (_, n) => game(n));
 
 /** The round every synthetic tournament game is of, unless said otherwise. */
-export const TOUR_ROUND = tourId('Rnd00001');
+export const TOUR_ROUND = roundId('Rnd00001');
 
 /**
  * A synthetic game of `round`, with a broadcast game link of the shape

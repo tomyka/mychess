@@ -2,11 +2,8 @@
  * What the broadcast runner holds every download to, a dump month's or a
  * tournament's PGN (#316 security requirements, task 4; #349): a deadline
  * for the whole download and its write, below the domain's 15-minute stale
- * window, and a limit on waiting for the next bytes. And what its log
- * lines may say of an error.
+ * window, and a limit on waiting for the next bytes.
  */
-import { z } from 'zod';
-
 /** The time limits of one download and its write. */
 export interface RunnerLimits {
   /** The whole download: transfer, decompression and write. */
@@ -90,30 +87,4 @@ export class IdleLimit {
       await iterator.return?.();
     }
   }
-}
-
-/** The most characters of a failed query's cause a log line keeps. */
-const CAUSE_CHARS = 200;
-
-/**
- * A failed Drizzle query (DrizzleQueryError): its message holds the query
- * and its parameters, so only its cause, the driver's error, is logged.
- */
-const failedQuerySchema = z.object({
-  query: z.string(),
-  params: z.array(z.unknown()),
-  cause: z.instanceof(Error),
-});
-
-/**
- * What the log says of `error` (security L1): its name, and for a failed
- * query its cause's message, capped; never an error's own message, which
- * may hold game data or query parameters.
- */
-export function logText(error: unknown): string {
-  if (!(error instanceof Error)) return 'unknown error';
-  const query = failedQuerySchema.safeParse(error);
-  if (!query.success) return error.name;
-  const { cause } = query.data;
-  return `${error.name}: ${cause.message.slice(0, CAUSE_CHARS)}`;
 }

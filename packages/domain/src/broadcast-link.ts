@@ -6,7 +6,12 @@
  * letters, digits and dashes, and at most BROADCAST_LINK_MAX characters.
  */
 import { ok, refuse, type Result } from '@mychess/chess';
-import { broadcastTourIdSchema, type BroadcastTourId } from './broadcast-tour';
+import {
+  broadcastRoundIdSchema,
+  broadcastTourIdSchema,
+  type BroadcastRoundId,
+  type BroadcastTourId,
+} from './broadcast-tour';
 
 /** The longest pasted link read, spaces around it left out. */
 export const BROADCAST_LINK_MAX = 500;
@@ -21,7 +26,7 @@ export const BROADCAST_LINK_REFUSAL = 'fide.broadcastLinkInvalid';
  */
 export type BroadcastLink =
   | { readonly kind: 'tour'; readonly tourId: BroadcastTourId }
-  | { readonly kind: 'round'; readonly roundId: BroadcastTourId };
+  | { readonly kind: 'round'; readonly roundId: BroadcastRoundId };
 
 export interface BroadcastLinkRefusal {
   readonly reason: typeof BROADCAST_LINK_REFUSAL;
@@ -55,7 +60,7 @@ function linkOfPath(segments: readonly string[]): BroadcastLink | null {
   const [tourSlug, ...after] = segments;
   if (!isSlug(tourSlug)) return null;
   if (after.length === 1) {
-    const tourId = idOf(after[0]);
+    const tourId = idOf(broadcastTourIdSchema, after[0]);
     return tourId === null ? null : { kind: 'tour', tourId };
   }
   return roundLink(after);
@@ -64,12 +69,12 @@ function linkOfPath(segments: readonly string[]): BroadcastLink | null {
 /** A round slug and id, and maybe a game id after them. */
 function roundLink(segments: readonly string[]): BroadcastLink | null {
   const [roundSlug, id, gameId, ...rest] = segments;
-  const roundId = idOf(id);
+  const roundId = idOf(broadcastRoundIdSchema, id);
   const valid =
     roundId !== null &&
     isSlug(roundSlug) &&
     rest.length === 0 &&
-    (gameId === undefined || idOf(gameId) !== null);
+    (gameId === undefined || idOf(broadcastRoundIdSchema, gameId) !== null);
   return valid ? { kind: 'round', roundId } : null;
 }
 
@@ -77,7 +82,13 @@ function isSlug(segment: string | undefined): boolean {
   return segment !== undefined && SLUG.test(segment);
 }
 
-function idOf(segment: string | undefined): BroadcastTourId | null {
-  const id = broadcastTourIdSchema.safeParse(segment);
+/** `segment` as an id of `schema`; null when it is no broadcast id. */
+function idOf<I>(
+  schema: {
+    safeParse(input: unknown): { success: true; data: I } | { success: false };
+  },
+  segment: string | undefined,
+): I | null {
+  const id = schema.safeParse(segment);
   return id.success ? id.data : null;
 }

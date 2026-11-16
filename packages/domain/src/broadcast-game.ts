@@ -174,6 +174,10 @@ export interface OfficialCopyGame extends Pick<
  * date, colour, opponent FIDE ID and result; an undated game, or one
  * against an opponent without a FIDE ID, is never taken for a copy. Two
  * official games, or two community games, are both kept.
+ *
+ * This is the rule's definition. The database's search (gamesForFideId)
+ * applies it in SQL before its result limit, so a search's games are
+ * already without copies; a db test checks the two agree.
  */
 export function preferOfficialCopies<G extends OfficialCopyGame>(
   games: readonly G[],

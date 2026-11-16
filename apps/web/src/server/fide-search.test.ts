@@ -277,7 +277,10 @@ describe('starting a FIDE ID search', () => {
     expect((await started()).snapshot.progress.total).toBe(3);
   });
 
-  it('shows the official copy of a game a community tournament also broadcast (#349)', async () => {
+  // The query leaves out community copies of official games before its
+  // limit (gamesForFideId); the search shows what it gives, month and
+  // tournament games alike.
+  it('shows the month and tournament games as the query gives them (#349)', async () => {
     const [official] = FOUND.games;
     if (official === undefined) throw new Error('no fixture game');
     const tour = broadcastTourIdSchema.parse('VilOpn26');
@@ -287,20 +290,11 @@ describe('starting a FIDE ID search', () => {
       source: { kind: 'tour', tourId: tour } as const,
       official: false,
     };
-    // Another day: not a copy of the official game.
-    const otherCommunity = {
-      ...community,
-      date: '2026-10-15',
-      url: 'https://lichess.org/broadcast/v/round-2/RoundAA2/GameAAA2',
-    };
     server.games.mockResolvedValue({
-      games: [community, official, otherCommunity],
+      games: [community, official],
       truncated: false,
     });
-    expect((await started()).snapshot.games).toEqual([
-      official,
-      otherCommunity,
-    ]);
+    expect((await started()).snapshot.games).toEqual([community, official]);
   });
 
   it('carries the truncated flag of the games', async () => {

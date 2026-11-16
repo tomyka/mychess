@@ -12,6 +12,7 @@ import {
   ok,
   broadcastTourFieldsSchema,
   isGameOfTour,
+  type BroadcastRoundId,
   type BroadcastTourClaimRefusal,
   type BroadcastTourId,
   type BroadcastTourStatus,
@@ -57,7 +58,7 @@ export interface BroadcastTourEntry {
 export interface BroadcastTourWrite {
   readonly claim: BroadcastTourClaim;
   /** The tournament's own rounds, as Lichess lists them (isGameOfTour). */
-  readonly roundIds: readonly BroadcastTourId[];
+  readonly roundIds: readonly BroadcastRoundId[];
   readonly games: BroadcastGameStream;
   readonly clock: () => Date;
 }

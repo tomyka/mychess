@@ -6,9 +6,10 @@
  *
  * Requests go through the pacer's night lane (lichess-pace.ts), which
  * keeps them a second apart, holds every request for a minute after a 429
- * and times each one. On a 429 the listing asks again, the pacer making
- * it wait; on a second 429 it stops for the night. An organiser Lichess refuses or a request that fails is
- * logged by its refusal or error name and the next organiser is listed.
+ * and times each one. On a 429 the listing asks again, the pacer making it
+ * wait; on a second 429 it stops for the night. An organiser Lichess
+ * refuses, or one whose listing fails, is logged by its refusal or as
+ * logText says, and the next organiser is listed.
  */
 import {
   APPROVED_BROADCAST_ORGANISERS,
@@ -26,8 +27,9 @@ import {
   type LichessBroadcastResult,
   type LichessListedTour,
 } from '@mychess/integrations';
-import { tourCandidate } from './broadcast-candidate';
+import { tourCandidate, tourLastRoundAt } from './broadcast-candidate';
 import { NO_ABORT } from './lichess-pace';
+import { logText } from './log-text';
 
 export interface OrganiserListingDeps {
   readonly api: LichessApi;
@@ -77,7 +79,7 @@ export async function listOrganiserTours(
   return { queued: night.queued, stopped: night.stopped };
 }
 
-/** Lists `organiser`; a failure is logged by its error name alone. */
+/** Lists `organiser`; a failure is logged as logText says (log-text.ts). */
 async function listSafely(
   night: Night,
   organiser: ApprovedOrganiser,
@@ -85,10 +87,7 @@ async function listSafely(
   try {
     await listOrganiser(night, organiser);
   } catch (error) {
-    console.warn(
-      `fide: organiser ${organiser} not listed`,
-      error instanceof Error ? error.name : 'unknown error',
-    );
+    console.warn(`fide: organiser ${organiser} not listed`, logText(error));
   }
 }
 
@@ -170,7 +169,7 @@ function allBeforeWindow(
   return tours.every(({ tour }) =>
     isBeforeBroadcastWindow(
       tourListingDate({
-        lastRoundAt: tour.dates?.end ?? null,
+        lastRoundAt: tourLastRoundAt(tour),
         createdAt: tour.createdAt,
       }),
       window,
