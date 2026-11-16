@@ -116,6 +116,7 @@ same rule, but prefer tokens: a component should need no `dark:` class.
 | `success` / `error` / `due` / `learned` on `bg` | 5.6 / 6.0 / 5.4 / 6.4 | 8.9 / 8.1 / 9.3 / 8.5 |
 | each state on its `-subtle` | 5.2 - 5.9 | 6.9 - 7.3 |
 | `on-state` on each solid state | 5.9 - 6.9 | 8.2 - 9.4 |
+| A disabled (pending) button's label, the button at 85% over `bg` / `surface`: primary; danger (2026-11-16) | 4.9 / 4.9; 5.1 / 5.0 | 6.0 / 6.0; 6.2 / 6.2 |
 | `border-strong` on `bg` / `surface` | 3.3 / 3.6 | 3.5 / 3.2 |
 | `border` (bar track) on `bg` / `surface` (2026-10-27) | 1.4 / 1.5 | 1.7 / 1.5 |
 | `skipped` on `border`; on `learned` (2026-10-27; bar segments, the counts carry the meaning) | 1.8; 2.6 | 2.1; 2.4 |

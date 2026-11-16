@@ -99,6 +99,45 @@ describe('the Add a Lichess broadcast form (#349)', () => {
     },
   );
 
+  it.each([
+    ['added', { kind: 'added', name: 'Vilnius Open 2026' }],
+    ['known', { kind: 'known', name: 'Vilnius Open 2026' }],
+  ] as const)(
+    'clears the field once the tournament is %s, so a second tap sends nothing again (UX)',
+    async (_, answer) => {
+      server.add.mockResolvedValue(answer);
+      renderForm();
+      await paste(LINK);
+      expect(field().value).toBe('');
+    },
+  );
+
+  it('hides the last refusal while the next link is being added (UX)', async () => {
+    server.add.mockResolvedValueOnce({
+      kind: 'refused',
+      refusal: 'fide.tourNotFound',
+    });
+    renderForm();
+    await paste(LINK);
+    expect(statusText()).toBe(en.tourNotFound);
+    let answer: (state: BroadcastLinkState) => void = () => undefined;
+    server.add.mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    await paste(LINK);
+    expect(screen.getByRole('button', { name: en.adding })).toBeDefined();
+    expect(statusText()).toBe('');
+    expect(field().getAttribute('aria-invalid')).toBeNull();
+    await act(async () => {
+      answer({ kind: 'refused', refusal: 'fide.tourNotFound' });
+      await Promise.resolve();
+    });
+    expect(statusText()).toBe(en.tourNotFound);
+    expect(field().getAttribute('aria-invalid')).toBe('true');
+  });
+
   it('shows the daily limit of links', async () => {
     server.add.mockResolvedValue({
       kind: 'refused',

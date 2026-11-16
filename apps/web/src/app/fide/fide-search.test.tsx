@@ -147,6 +147,31 @@ describe('the FIDE ID search form', () => {
     expect(field().form?.getAttribute('aria-busy')).toBe('false');
   });
 
+  it('hides the last refusal while the next search runs (UX)', async () => {
+    server.start.mockResolvedValueOnce({
+      kind: 'refused',
+      refusal: 'fide.idInvalid',
+    });
+    renderPage();
+    await search('12a');
+    expect(screen.getByRole('status').textContent).toBe(en.idInvalid);
+    let answer: (state: FideSearchState) => void = () => undefined;
+    server.start.mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    await search('13400002');
+    expect(screen.getByRole('status').textContent).toBe('');
+    expect(field().getAttribute('aria-invalid')).toBeNull();
+    await act(async () => {
+      answer({ kind: 'refused', refusal: 'fide.idInvalid' });
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('status').textContent).toBe(en.idInvalid);
+    expect(field().getAttribute('aria-invalid')).toBe('true');
+  });
+
   it('is not busy when idle', () => {
     renderPage();
     expect(field().form?.getAttribute('aria-busy')).toBe('false');

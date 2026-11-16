@@ -27,7 +27,8 @@ export function FideSearch({
     startFideSearchAction,
     INITIAL,
   );
-  const refused = state.kind === 'refused' ? state : undefined;
+  // While the next search runs, the last refusal is no longer shown.
+  const refused = state.kind === 'refused' && !pending ? state : undefined;
   const text =
     refused === undefined
       ? null

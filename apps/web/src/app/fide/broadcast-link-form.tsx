@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useActionState, useId, type JSX } from 'react';
+import { useActionState, useId, useState, type JSX } from 'react';
 import type { BroadcastLinkState } from '../../server/broadcast-link';
 import { PRIMARY_BUTTON } from '../buttons';
 import { StatusLine } from '../status-line';
@@ -32,24 +32,36 @@ function useStatusText(state: BroadcastLinkState): string | null {
  * "Add a Lichess broadcast" (#349, R-197, spec decision 4): a signed-in
  * user pastes the link of a finished tournament, or of one of its rounds,
  * so its games join the searches once fetched. The link is posted to a
- * server action; the field keeps it when it is refused.
+ * server action; the field keeps it when it is refused and is emptied
+ * once it is added, so a second tap sends nothing again. While a link is
+ * being added the last refusal is not shown.
  */
 export function BroadcastLinkForm(): JSX.Element {
   const t = useTranslations('fide');
   const titleId = useId();
   const statusId = useId();
+  // A new field after each link added: it starts empty.
+  const [fieldKey, setFieldKey] = useState(0);
   const [state, action, pending] = useActionState(
-    addBroadcastLinkAction,
+    async (previous: BroadcastLinkState, form: FormData) => {
+      const next = await addBroadcastLinkAction(previous, form);
+      if (next.kind === 'added' || next.kind === 'known') {
+        setFieldKey((key) => key + 1);
+      }
+      return next;
+    },
     INITIAL,
   );
   const statusText = useStatusText(state);
-  const invalid = state.kind === 'refused';
+  const invalid = state.kind === 'refused' && !pending;
   return (
-    <section aria-labelledby={titleId} className="flex flex-col gap-2">
-      <h2 id={titleId} className="text-xl font-bold">
-        {t('addTitle')}
-      </h2>
-      <p className="text-fg-muted">{t('addIntro')}</p>
+    <section aria-labelledby={titleId} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <h2 id={titleId} className="text-xl font-bold">
+          {t('addTitle')}
+        </h2>
+        <p className="text-fg-muted">{t('addIntro')}</p>
+      </div>
       {/* noValidate and method post as for the FIDE ID search. */}
       <form
         method="post"
@@ -58,11 +70,16 @@ export function BroadcastLinkForm(): JSX.Element {
         onSubmit={submitByHand(action)}
         className="flex flex-col gap-2"
       >
-        <LinkField invalid={invalid} pending={pending} statusId={statusId} />
+        <LinkField
+          fieldKey={fieldKey}
+          invalid={invalid}
+          pending={pending}
+          statusId={statusId}
+        />
       </form>
       <StatusLine
         id={statusId}
-        text={statusText}
+        text={pending ? null : statusText}
         tone={invalid ? 'error' : 'success'}
       />
     </section>
@@ -74,10 +91,16 @@ export function BroadcastLinkForm(): JSX.Element {
  * and its hint on a phone; a URL keyboard on touch devices.
  */
 function LinkField({
+  fieldKey,
   invalid,
   pending,
   statusId,
 }: {
+  /**
+   * Changes once a link is added: the input alone is made anew, empty,
+   * so the button keeps its focus.
+   */
+  readonly fieldKey: number;
   /** Marks the field and points it at the status line's refusal. */
   readonly invalid: boolean;
   readonly pending: boolean;
@@ -93,6 +116,7 @@ function LinkField({
       </label>
       <div className="grid gap-x-3 gap-y-2 sm:grid-cols-[1fr_auto]">
         <input
+          key={fieldKey}
           id={inputId}
           type="url"
           name="link"
