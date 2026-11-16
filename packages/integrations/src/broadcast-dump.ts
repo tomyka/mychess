@@ -5,7 +5,7 @@
  */
 import { pipeline, Readable } from 'node:stream';
 import { constants, createZstdDecompress } from 'node:zlib';
-import { bodyChunks, cappedBytes, getOk, type Fetch } from './http';
+import { cappedBytes, getOk, readBody, type Fetch } from './http';
 import { MONTH_FORMAT } from './month-format';
 import { zstdFrames } from './zstd-frames';
 
@@ -84,17 +84,11 @@ function dumpOf(
   what: string,
   limits: BroadcastDumpLimits,
 ): BroadcastDump {
-  const body = response.body?.getReader();
-  const compressed = cappedBytes(
-    bodyChunks(body),
-    limits.compressedBytes,
-    signal,
-    what,
-  );
+  const body = readBody(response, limits.compressedBytes, signal, what);
   // One stream over every frame. Closing destroys it, so reading fails at
   // once; the teardown of the frame being read runs through the body
   // cancel below, which ends the read the frame's decoder waits on.
-  const decompressor = Readable.from(decompressedFrames(compressed, limits));
+  const decompressor = Readable.from(decompressedFrames(body.chunks, limits));
   // A reader of the text gets the failure through its iterator. Without a
   // listener, destroying the stream while no one reads it (closed unread,
   // disposed after an abort) would raise the reason as an uncaught
@@ -106,11 +100,8 @@ function dumpOf(
     open = false;
     signal.removeEventListener('abort', onAbort);
     decompressor.destroy(reason);
-    // The body is cancelled through the reader that holds it, which also
-    // ends a read waiting on the network. A cancel that fails means the
-    // body already failed, and that failure reaches the text's reader
-    // through the pipeline.
-    body?.cancel(reason).catch(() => undefined);
+    // Cancelling the body also ends a read waiting on the network.
+    body.cancel(reason);
   };
   const onAbort = (): void => {
     close(abortReason(signal, what));

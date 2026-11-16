@@ -98,35 +98,77 @@ export async function readCappedText(
   signal: AbortSignal,
   what: string,
 ): Promise<string> {
-  const body = response.body?.getReader();
+  const decoder = new TextDecoder();
+  let text = '';
+  for await (const chunk of readBody(response, maxBytes, signal, what).chunks) {
+    text += decoder.decode(chunk, { stream: true });
+  }
+  return text + decoder.decode();
+}
+
+/**
+ * A response body read under the shared rules, which hold here once:
+ * capped, cancelled on abort, cancelled however reading ends, and never
+ * taken for whole when it was cut short.
+ */
+export interface BodyReader {
+  /**
+   * The body's chunks, read once, on demand. Fails once more than the cap
+   * was read, with the reason once cancelled or `signal` is aborted (a
+   * cancelled body's reads end, so the end is checked), or as the body
+   * fails. However reading ends, early or not, the body is cancelled, so
+   * its connection is freed.
+   */
+  readonly chunks: AsyncGenerator<Uint8Array>;
+  /**
+   * Cancels the body, which also ends a read waiting on the network;
+   * reading then fails with `reason`. Only the first call counts.
+   */
+  cancel(reason: unknown): void;
+}
+
+/**
+ * Reads `response`'s body, failing past `maxBytes`; `what` names it in the
+ * error. Aborting `signal` cancels the body, read or not, with the abort
+ * reason.
+ */
+export function readBody(
+  response: Response,
+  maxBytes: number,
+  signal: AbortSignal,
+  what: string,
+): BodyReader {
+  const reader = response.body?.getReader();
+  let cancelled: { readonly reason: unknown } | undefined;
+  const release = (reason?: unknown): void => {
+    signal.removeEventListener('abort', onAbort);
+    // A cancel that fails means the body already failed: nothing to free.
+    reader?.cancel(reason).catch(() => undefined);
+  };
+  const cancel = (reason: unknown): void => {
+    if (cancelled !== undefined) return;
+    cancelled = { reason };
+    release(reason);
+  };
   const onAbort = (): void => {
-    body?.cancel().catch(() => undefined);
+    cancel(signal.reason);
   };
   signal.addEventListener('abort', onAbort, { once: true });
   if (signal.aborted) onAbort();
-  try {
-    const decoder = new TextDecoder();
-    let text = '';
-    for await (const chunk of cappedBytes(
-      bodyChunks(body),
-      maxBytes,
-      signal,
-      what,
-    )) {
-      text += decoder.decode(chunk, { stream: true });
+  async function* chunks(): AsyncGenerator<Uint8Array> {
+    try {
+      yield* cappedBytes(bodyChunks(reader), maxBytes, signal, what);
+      if (cancelled !== undefined) throw cancelled.reason;
+      signal.throwIfAborted();
+    } finally {
+      release();
     }
-    signal.throwIfAborted();
-    return text + decoder.decode();
-  } finally {
-    signal.removeEventListener('abort', onAbort);
-    // Frees the connection when a read failed (a cap passed, a decode or
-    // network error); after a whole read there is nothing left to cancel.
-    body?.cancel().catch(() => undefined);
   }
+  return { chunks: chunks(), cancel };
 }
 
 /** The chunks a body reader delivers; none without a reader. */
-export async function* bodyChunks(
+async function* bodyChunks(
   body: ReadableStreamDefaultReader<Uint8Array> | undefined,
 ): AsyncGenerator<Uint8Array> {
   if (body === undefined) return;

@@ -3,6 +3,7 @@ import {
   cappedBytes,
   get,
   getOk,
+  readBody,
   readCappedText,
   TooLargeError,
   USER_AGENT,
@@ -163,5 +164,112 @@ describe('get', () => {
       Authorization: 'Bearer x',
       'User-Agent': USER_AGENT,
     });
+  });
+});
+
+describe('readBody', () => {
+  const chunks = (): Uint8Array[] => [
+    new Uint8Array(3),
+    new Uint8Array(4),
+    new Uint8Array(3),
+  ];
+
+  it('yields the chunks of a body up to the cap, then ends', async () => {
+    const answer = trackedResponse(chunks());
+    const body = readBody(answer.response, 10, never, 'sample');
+    await expect(collect(body.chunks)).resolves.toEqual([3, 4, 3]);
+  });
+
+  it('yields nothing for a response without a body', async () => {
+    const body = readBody(new Response(null, { status: 204 }), 10, never, 'x');
+    await expect(collect(body.chunks)).resolves.toEqual([]);
+  });
+
+  it('fails past the cap, and cancels the body', async () => {
+    const answer = trackedResponse([...chunks(), ...chunks()]);
+    const body = readBody(answer.response, 10, never, 'sample');
+    await expect(collect(body.chunks)).rejects.toThrow(TooLargeError);
+    expect(answer.cancelled()).toBe(true);
+  });
+
+  it('cancels the body when the reader stops early', async () => {
+    const answer = trackedResponse([...chunks(), ...chunks()]);
+    const body = readBody(answer.response, 100, never, 'sample');
+    for await (const chunk of body.chunks) {
+      expect(chunk.byteLength).toBe(3);
+      break;
+    }
+    expect(answer.cancelled()).toBe(true);
+  });
+
+  it('cancels a stalled body on abort and fails with the reason', async () => {
+    const controller = new AbortController();
+    const stalled = stalledResponse();
+    const body = readBody(stalled.response, 10, controller.signal, 'sample');
+    const reading = collect(body.chunks);
+    const reason = new Error('stop');
+    controller.abort(reason);
+    await expect(reading).rejects.toBe(reason);
+    expect(stalled.cancelled()).toBe(true);
+  });
+
+  it('cancels at once on a signal already aborted, unread', () => {
+    const stalled = stalledResponse();
+    readBody(stalled.response, 10, AbortSignal.abort(new Error('x')), 'y');
+    expect(stalled.cancelled()).toBe(true);
+  });
+
+  it('fails with the abort reason when aborted before reading', async () => {
+    const answer = trackedResponse(chunks());
+    const reason = new Error('stop');
+    const body = readBody(answer.response, 10, AbortSignal.abort(reason), 'x');
+    await expect(collect(body.chunks)).rejects.toBe(reason);
+  });
+
+  it('on cancel, ends a stalled read and fails with the cancel reason', async () => {
+    const stalled = stalledResponse();
+    const body = readBody(stalled.response, 10, never, 'sample');
+    const reading = collect(body.chunks);
+    const reason = new Error('closed');
+    body.cancel(reason);
+    await expect(reading).rejects.toBe(reason);
+    expect(stalled.cancelled()).toBe(true);
+  });
+
+  it('cancelled before reading, cancels the body, and reading fails', async () => {
+    const answer = trackedResponse(chunks());
+    const body = readBody(answer.response, 10, never, 'sample');
+    const reason = new Error('closed');
+    body.cancel(reason);
+    expect(answer.cancelled()).toBe(true);
+    await expect(collect(body.chunks)).rejects.toBe(reason);
+  });
+
+  it('keeps the first cancel reason, before a later cancel or abort', async () => {
+    const controller = new AbortController();
+    const body = readBody(
+      stalledResponse().response,
+      10,
+      controller.signal,
+      'sample',
+    );
+    const first = new Error('closed');
+    body.cancel(first);
+    body.cancel(new Error('again'));
+    controller.abort(new Error('late'));
+    await expect(collect(body.chunks)).rejects.toBe(first);
+  });
+
+  it('fails on a body that errors while read, and cancels it', async () => {
+    let pulls = 0;
+    const failing = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls += 1;
+        if (pulls === 1) controller.enqueue(new Uint8Array(2));
+        else controller.error(new Error('connection reset'));
+      },
+    });
+    const body = readBody(new Response(failing), 10, never, 'sample');
+    await expect(collect(body.chunks)).rejects.toThrow('connection reset');
   });
 });

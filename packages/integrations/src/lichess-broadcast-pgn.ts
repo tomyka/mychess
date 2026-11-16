@@ -7,7 +7,7 @@
  */
 import { ok } from '@mychess/chess';
 import { broadcastGames, type BroadcastGameRecord } from './broadcast-games';
-import { bodyChunks, cappedBytes } from './http';
+import { readBody } from './http';
 import {
   checkBroadcastId,
   lichessGet,
@@ -55,20 +55,17 @@ export async function openLichessBroadcastPgn(
 }
 
 function pgnOf(response: Response, signal: AbortSignal): LichessBroadcastPgn {
-  const body = response.body?.getReader();
-  let closed = false;
-  const cancel = (): void => {
-    signal.removeEventListener('abort', cancel);
-    body?.cancel().catch(() => undefined);
-  };
+  const body = readBody(
+    response,
+    LICHESS_BROADCAST_PGN_MAX_BYTES,
+    signal,
+    TOUR_PGN_NAME,
+  );
   const close = (): void => {
-    closed = true;
-    cancel();
+    body.cancel(new Error(`${TOUR_PGN_NAME} was closed`));
   };
-  signal.addEventListener('abort', cancel, { once: true });
-  const text = pgnText(body, signal, () => closed, cancel);
   return {
-    games: broadcastGames(text),
+    games: broadcastGames(utf8Text(body.chunks)),
     close,
     [Symbol.asyncDispose]: () => {
       close();
@@ -77,32 +74,13 @@ function pgnOf(response: Response, signal: AbortSignal): LichessBroadcastPgn {
   };
 }
 
-/**
- * The text of `body`, capped. A cancelled body ends its reads, so the end
- * is checked: an abort or a close fails the read rather than passing for
- * the end of the PGN. `onEnd` frees the body however reading ends.
- */
-async function* pgnText(
-  body: ReadableStreamDefaultReader<Uint8Array> | undefined,
-  signal: AbortSignal,
-  isClosed: () => boolean,
-  onEnd: () => void,
+/** `bytes` decoded as UTF-8, a character split between chunks kept whole. */
+async function* utf8Text(
+  bytes: AsyncIterable<Uint8Array>,
 ): AsyncGenerator<string> {
-  try {
-    const decoder = new TextDecoder();
-    const bytes = cappedBytes(
-      bodyChunks(body),
-      LICHESS_BROADCAST_PGN_MAX_BYTES,
-      signal,
-      TOUR_PGN_NAME,
-    );
-    for await (const chunk of bytes) {
-      yield decoder.decode(chunk, { stream: true });
-    }
-    signal.throwIfAborted();
-    if (isClosed()) throw new Error(`${TOUR_PGN_NAME} was closed`);
-    yield decoder.decode();
-  } finally {
-    onEnd();
+  const decoder = new TextDecoder();
+  for await (const chunk of bytes) {
+    yield decoder.decode(chunk, { stream: true });
   }
+  yield decoder.decode();
 }
