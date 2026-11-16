@@ -3,7 +3,8 @@ import { NextIntlClientProvider } from 'next-intl';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../i18n/locales';
 import type { DeleteState, RenameState } from './actions';
-import { RepertoireActions, RepertoireHeader } from './repertoire-header';
+import { RepertoireActions } from './repertoire-actions';
+import { RepertoireHeader } from './repertoire-header';
 
 const server = vi.hoisted(() => ({
   rename:

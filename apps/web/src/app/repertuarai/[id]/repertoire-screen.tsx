@@ -28,7 +28,8 @@ import { savePersonalNoteAction } from './actions';
 import { BuilderBar } from './builder-bar';
 import { ModeSwitch } from './mode-switch';
 import { OwnerNotes } from './owner-notes';
-import { RepertoireActions, RepertoireHeader } from './repertoire-header';
+import { RepertoireActions } from './repertoire-actions';
+import { RepertoireHeader } from './repertoire-header';
 import { ShareWithCoach } from './share-with-coach';
 import {
   addMove,
