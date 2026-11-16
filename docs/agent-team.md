@@ -33,7 +33,6 @@ Global, installed per user (`~/.claude/skills/` or plugins):
 | `mp-code-review` | mattpocock/skills (local name) | architect, per task |
 | `improve-codebase-architecture`, `codebase-design` | mattpocock/skills | architect, per slice |
 | `security-review` | built into Claude Code | security-reviewer |
-| `vercel:*` | vercel plugin | devops, web-dev |
 
 Vendored in this repo (`.agents/skills/`, pinned in `skills-lock.json`):
 `retro` (session retrospective, run by the lead at the end of each slice) and

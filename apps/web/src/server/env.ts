@@ -15,12 +15,15 @@ interface ProductionFields {
   readonly GOOGLE_CLIENT_SECRET: string;
 }
 
+/** The environment's own name, as the process may give it. */
+interface EnvironmentName {
+  readonly MYCHESS_ENV?: string | undefined;
+}
+
 /** Production serves over https and offers Google (security A7). */
 const productionNeeds =
   (key: keyof ProductionFields, ok: (value: string) => boolean) =>
-  (
-    e: ProductionFields & { readonly MYCHESS_ENV?: string | undefined },
-  ): boolean =>
+  (e: ProductionFields & EnvironmentName): boolean =>
     e.MYCHESS_ENV !== PRODUCTION || ok(e[key]);
 
 /**
@@ -28,10 +31,9 @@ const productionNeeds =
  * (`next start`, the image) has no default, so a deployment that forgot
  * MYCHESS_ENV refuses to start rather than running as local.
  */
-const namedInProductionBuild = (e: {
-  readonly MYCHESS_ENV?: string | undefined;
-  readonly NODE_ENV?: string | undefined;
-}): boolean => e.NODE_ENV !== PRODUCTION || e.MYCHESS_ENV !== undefined;
+const namedInProductionBuild = (
+  e: EnvironmentName & { readonly NODE_ENV?: string | undefined },
+): boolean => e.NODE_ENV !== PRODUCTION || e.MYCHESS_ENV !== undefined;
 
 const isHttps = (url: string) => url.startsWith('https://');
 const isSet = (value: string) => value !== '';
@@ -43,6 +45,8 @@ export const webEnvSchema = databaseEnvSchema
     // production build (namedInProductionBuild below).
     MYCHESS_ENV: z.enum([LOCAL, PRODUCTION]).optional(),
     // Next.js sets it: production under `next start` and in the image.
+    // Read only by the lock below (namedInProductionBuild): WebEnv does
+    // not offer it.
     NODE_ENV: z.string().optional(),
     BETTER_AUTH_SECRET: z
       .string()
@@ -108,7 +112,11 @@ export const webEnvSchema = databaseEnvSchema
   .refine(namedInProductionBuild, { path: ['MYCHESS_ENV'] })
   .transform((e) => ({ ...e, MYCHESS_ENV: e.MYCHESS_ENV ?? LOCAL }));
 
-export type WebEnv = z.infer<typeof webEnvSchema>;
+/**
+ * The parsed environment the app reads. NODE_ENV is left out: only the
+ * fail-closed lock reads it, and the app goes by MYCHESS_ENV.
+ */
+export type WebEnv = Omit<z.infer<typeof webEnvSchema>, 'NODE_ENV'>;
 
 /** Google sign-in is offered only when both its credentials are set (A7). */
 export function googleConfigured(

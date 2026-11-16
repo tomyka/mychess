@@ -4,9 +4,9 @@ import { testSignIn, type TestSignInDeps } from './test-sign-in';
 
 const SECRET = 's'.repeat(32);
 
-// A complete production-ready environment (src/server/env.ts) without
-// MYCHESS_ENV.
-const FULL_ENV = {
+// A complete production-ready environment (src/server/env.ts) that does
+// not name itself: no MYCHESS_ENV.
+const UNNAMED_PRODUCTION_READY_ENV = {
   DATABASE_URL: 'postgres://u:p@localhost:5432/mychess',
   BETTER_AUTH_SECRET: 'x'.repeat(32),
   BETTER_AUTH_URL: 'https://mychess.lt',
@@ -124,7 +124,7 @@ describe('testSignIn (R-73)', () => {
   // The local env as the process hands it over: unset means local.
   it('is on for a parsed environment that does not name itself', async () => {
     const env = webEnvSchema.parse({
-      ...FULL_ENV,
+      ...UNNAMED_PRODUCTION_READY_ENV,
       MYCHESS_TEST_SIGNIN: '1',
       TEST_SIGNIN_SECRET: SECRET,
     });
@@ -137,7 +137,7 @@ describe('testSignIn (R-73)', () => {
 
   it('cannot be switched on for an environment named production', () => {
     const result = webEnvSchema.safeParse({
-      ...FULL_ENV,
+      ...UNNAMED_PRODUCTION_READY_ENV,
       MYCHESS_ENV: 'production',
       MYCHESS_TEST_SIGNIN: '1',
       TEST_SIGNIN_SECRET: SECRET,
