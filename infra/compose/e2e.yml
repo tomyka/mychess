@@ -39,7 +39,7 @@ services:
       BETTER_AUTH_SECRET: e2e-stack-only-not-a-secret-0123456789abcdef
       BETTER_AUTH_URL: http://127.0.0.1:${E2E_WEB_PORT:-3100}
       MAIL_TRANSPORT: mailpit
-      MAIL_FROM: mychess <noreply@mychess.test>
+      MAIL_FROM: MyChess <noreply@mychess.test>
       MAILPIT_URL: http://mailpit:8025
       LICHESS_CLIENT_ID: mychess-ci
       MYCHESS_TEST_SIGNIN: 'true'

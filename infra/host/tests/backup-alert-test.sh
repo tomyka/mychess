@@ -31,7 +31,7 @@ STUB
 chmod +x "$work/bin/curl"
 export STUB_DIR="$work" PATH="$work/bin:$PATH"
 
-printf 'POSTGRES_PASSWORD=x\nRESEND_API_KEY=re_SECRETKEY123\nMAIL_FROM=mychess <noreply@mychess.example>\n' > "$work/prod.env"
+printf 'POSTGRES_PASSWORD=x\nRESEND_API_KEY=re_SECRETKEY123\nMAIL_FROM=MyChess <noreply@mychess.example>\n' > "$work/prod.env"
 printf 'ALERT_EMAIL=owner@example.com\n' > "$work/alert.env"
 export MYCHESS_PRODUCTION_ENV="$work/prod.env" MYCHESS_ALERT_ENV="$work/alert.env" MYCHESS_BACKUP_STATUS="$work/status.json"
 alert="$here/backup-alert.sh"
@@ -43,7 +43,7 @@ reset
 bash "$alert" "upload failed (a 404 means the PAR expired)" >/dev/null 2>&1
 check "alert: sends one request" test -f "$work/curl.called"
 check "alert: payload addressed to the alert address" test "$(jq -r '.to[0]' "$work/curl.payload")" = owner@example.com
-check "alert: payload from the configured sender" test "$(jq -r '.from' "$work/curl.payload")" = 'mychess <noreply@mychess.example>'
+check "alert: payload from the configured sender" test "$(jq -r '.from' "$work/curl.payload")" = 'MyChess <noreply@mychess.example>'
 check "alert: reason is in the body" grep -q "upload failed (a 404 means the PAR expired)" "$work/curl.payload"
 check "alert: subject names the problem" grep -q "production backup problem" "$work/curl.payload"
 check "alert: key is not on the command line" bash -c '! grep -q SECRETKEY "$1"' _ "$work/curl.args"
@@ -71,7 +71,7 @@ STUB_CURL_EXIT=22 bash "$alert" "x" >/dev/null 2>&1
 check "alert: exits non-zero when curl fails" test "$?" != 0
 
 reset
-printf 'MAIL_FROM=mychess <noreply@mychess.example>\n' > "$work/prod2.env"
+printf 'MAIL_FROM=MyChess <noreply@mychess.example>\n' > "$work/prod2.env"
 MYCHESS_PRODUCTION_ENV="$work/prod2.env" bash "$alert" "x" >/dev/null 2>&1
 check "alert: no key, no send, non-zero" test "$?" != 0 -a ! -f "$work/curl.called"
 

@@ -10,7 +10,8 @@
 # --env-file` (infra/compose/production.yml) and, key by key, by the host's
 # timers: POSTGRES_PASSWORD, BETTER_AUTH_SECRET, AUDIT_EMAIL_KEY, CRON_SECRET,
 # BETTER_AUTH_URL, MYCHESS_ENV=production, MAIL_TRANSPORT=resend and
-# MAIL_FROM (noreply@ the site's domain, which Resend must have verified).
+# MAIL_FROM ("MyChess", the brand of R-170, at noreply@ the site's domain,
+# which Resend must have verified).
 #
 # BETTER_AUTH_URL is the one place the site's name is set: the deploy derives
 # Caddy's domain and its release check from it, the rate-limit prune its URL.
@@ -50,7 +51,7 @@ add AUDIT_EMAIL_KEY "$(secret)"
 add CRON_SECRET "$(secret)"
 add MYCHESS_ENV production
 add MAIL_TRANSPORT resend
-add MAIL_FROM "mychess <noreply@$domain>"
+add MAIL_FROM "MyChess <noreply@$domain>"
 
 tmp="$(umask 077; mktemp "$env_file.XXXXXX")"
 grep -v '^BETTER_AUTH_URL=' "$env_file" > "$tmp" || true

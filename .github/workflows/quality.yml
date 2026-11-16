@@ -104,7 +104,7 @@ jobs:
       BETTER_AUTH_SECRET: e2e-ci-value-e2e-ci-value-e2e-ci-value-00
       BETTER_AUTH_URL: http://127.0.0.1:3100
       MAIL_TRANSPORT: mailpit
-      MAIL_FROM: mychess <noreply@mychess.test>
+      MAIL_FROM: MyChess <noreply@mychess.test>
       MAILPIT_URL: http://127.0.0.1:8025
       LICHESS_CLIENT_ID: mychess-ci
     steps:

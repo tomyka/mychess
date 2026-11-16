@@ -39,7 +39,7 @@ const APP_ENV = {
   ),
   BETTER_AUTH_URL: BASE_URL,
   MAIL_TRANSPORT: fromEnv('MAIL_TRANSPORT', 'mailpit'),
-  MAIL_FROM: fromEnv('MAIL_FROM', 'mychess <noreply@mychess.test>'),
+  MAIL_FROM: fromEnv('MAIL_FROM', 'MyChess <noreply@mychess.test>'),
   // The tests read the same Mailpit (e2e/support/mailpit-url.ts): the
   // environment's, else .env.local's, else compose's.
   MAILPIT_URL,

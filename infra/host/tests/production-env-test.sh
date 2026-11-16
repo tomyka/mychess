@@ -43,7 +43,7 @@ check "the three app secrets differ" test "$(for k in BETTER_AUTH_SECRET AUDIT_E
 check "BETTER_AUTH_URL is the site" test "$(value BETTER_AUTH_URL)" = https://mychess.example
 check "MYCHESS_ENV is production" test "$(value MYCHESS_ENV)" = production
 check "mail goes through Resend" test "$(value MAIL_TRANSPORT)" = resend
-check "from noreply@ the site's domain" test "$(value MAIL_FROM)" = "mychess <noreply@mychess.example>"
+check "from MyChess (R-170) at noreply@ the site's domain" test "$(value MAIL_FROM)" = "MyChess <noreply@mychess.example>"
 check "never the persona sign-in" bash -c '! grep -q -e MYCHESS_TEST_SIGNIN -e TEST_SIGNIN_SECRET "$1"' _ "$env_file"
 check "prints no value" bash -c '! grep -qF "$(sed -n "s/^CRON_SECRET=//p" "$1")" "$2"' _ "$env_file" "$work/out"
 check "names the secrets still to store" grep -q "RESEND_API_KEY GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET LICHESS_CLIENT_ID$" "$work/out"
@@ -62,7 +62,7 @@ bash "$penv" https://chess.example > /dev/null 2>&1
 check "a re-run keeps every secret" test "$(value CRON_SECRET)" = "$before"
 check "a re-run replaces BETTER_AUTH_URL" test "$(value BETTER_AUTH_URL)" = https://chess.example
 check "with one line only" test "$(count BETTER_AUTH_URL)" = 1
-check "and keeps MAIL_FROM" test "$(value MAIL_FROM)" = "mychess <noreply@mychess.example>"
+check "and keeps MAIL_FROM" test "$(value MAIL_FROM)" = "MyChess <noreply@mychess.example>"
 check "no key twice" test -z "$(cut -d= -f1 "$env_file" | sort | uniq -d)"
 
 for refused in http://mychess.example https://mychess.example/ https://MyChess.example "https://mychess.example/path" mychess.example; do

@@ -13,9 +13,10 @@
 # The deploy runs `sudo -n infra/ci/deploy-production.sh` from the runner's
 # checkout, so a sudoers rule lets the `runner` user run exactly that path as
 # root. The runner user is in the docker group and owns that checkout, so it
-# is root-equivalent on this host anyway: accepted because only a push to this
-# repository or a dispatch can start a job here (ci.yml has no pull_request
-# trigger), and only main deploys.
+# is root-equivalent on this host anyway: accepted because the job-started
+# hook (runner-job-started.sh, installed by install-runner-hook.sh) refuses
+# every job but a push or dispatch of main's ci.yml or deploy-production.yml
+# in this repository (#353), whatever label a workflow asks for.
 #
 # Idempotent: a runner already registered to tomyka/mychess stays registered;
 # one registered to any other repository (sportbet's, before the clean-up) is
@@ -28,6 +29,7 @@ NAME=mychess
 LABEL=production
 REPO_URL=https://github.com/tomyka/mychess
 DIR=/opt/actions-runner
+HERE="$(cd "$(dirname "$0")" && pwd)"
 DEPLOY_SCRIPT="$DIR/_work/mychess/mychess/infra/ci/deploy-production.sh"
 [ "$(id -u)" -eq 0 ] || { echo "run as root (sudo)" >&2; exit 1; }
 IFS= read -r TOKEN || true
@@ -66,6 +68,10 @@ printf 'runner ALL=(root) NOPASSWD: %s\n' "$DEPLOY_SCRIPT" > "$tmp"
 visudo -cf "$tmp" >/dev/null
 install -m 440 "$tmp" "$sudoers"
 rm -f "$tmp"
+
+# The job-started hook (#353): the runner refuses every job but main's
+# ci.yml and deploy-production.yml. The restart below makes it read it.
+bash "$HERE/install-runner-hook.sh" --no-restart
 
 cd "$DIR"
 # svc.sh status exits non-zero whenever the service isn't currently running,
