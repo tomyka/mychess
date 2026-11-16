@@ -79,6 +79,7 @@ function serverProcess(dumps: Dumps): BroadcastRunner {
   fide.services = {
     runner,
     sources: createBroadcastSources({ fetch, clock }),
+    community: null,
     secret: SECRET,
   };
   return runner;

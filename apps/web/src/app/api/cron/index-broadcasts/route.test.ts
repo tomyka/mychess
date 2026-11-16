@@ -33,6 +33,8 @@ const server = vi.hoisted(() => ({
   need: vi.fn<(months: readonly string[]) => void>(),
   settled: vi.fn<() => Promise<void>>(),
   months: vi.fn<() => Promise<readonly string[]>>(),
+  nightly: vi.fn<(window: unknown, now: Date) => 'started' | 'running'>(),
+  community: true,
 }));
 
 vi.mock('@mychess/db', () => ({ broadcastMonthStatuses: server.statuses }));
@@ -42,6 +44,7 @@ vi.mock('../../../../server/fide-services', () => ({
     runner: { need: server.need, settled: server.settled },
     sources: { months: server.months, player: vi.fn() },
     secret: 'a-test-secret-of-at-least-32-characters!',
+    community: server.community ? { nightly: server.nightly } : null,
   }),
 }));
 
@@ -78,6 +81,8 @@ beforeEach(() => {
   // The runner's work never ends here: the route must not wait for it.
   server.settled.mockReset().mockReturnValue(new Promise(() => undefined));
   server.months.mockReset().mockResolvedValue(LISTED);
+  server.nightly.mockReset().mockReturnValue('started');
+  server.community = true;
 });
 
 afterEach(() => {
@@ -91,7 +96,11 @@ describe('GET /api/cron/index-broadcasts (#354, R-195)', () => {
 
     expect(response.status).toBe(202);
     expect(response.headers.get('cache-control')).toBe('no-store');
-    expect(await response.json()).toEqual({ queued: 12, ready: 0 });
+    expect(await response.json()).toEqual({
+      queued: 12,
+      ready: 0,
+      community: 'started',
+    });
     expect(server.statuses).toHaveBeenCalledWith(DB, NEWEST);
     expect(server.need).toHaveBeenCalledTimes(1);
     expect(server.need).toHaveBeenCalledWith(NEWEST);
@@ -132,7 +141,11 @@ describe('GET /api/cron/index-broadcasts (#354, R-195)', () => {
     const response = await call(`Bearer ${SECRET}`);
 
     expect(response.status).toBe(202);
-    expect(await response.json()).toEqual({ queued: 7, ready: 2 });
+    expect(await response.json()).toEqual({
+      queued: 7,
+      ready: 2,
+      community: 'started',
+    });
     expect(server.need).toHaveBeenCalledWith(NEWEST.slice(5));
   });
 
@@ -147,8 +160,61 @@ describe('GET /api/cron/index-broadcasts (#354, R-195)', () => {
 
     const response = await call(`Bearer ${SECRET}`);
 
-    expect(await response.json()).toEqual({ queued: 0, ready: 12 });
+    expect(await response.json()).toEqual({
+      queued: 0,
+      ready: 12,
+      community: 'started',
+    });
     expect(server.need).toHaveBeenCalledWith([]);
+  });
+
+  it('starts the community night over the window of the published months, unawaited (#349)', async () => {
+    const response = await call(`Bearer ${SECRET}`);
+
+    expect(response.status).toBe(202);
+    expect(server.nightly).toHaveBeenCalledExactlyOnceWith(
+      { oldest: '2025-11', newest: '2026-10' },
+      NOW,
+    );
+  });
+
+  it('says a community night still running', async () => {
+    server.nightly.mockReturnValue('running');
+
+    const response = await call(`Bearer ${SECRET}`);
+
+    expect(await response.json()).toMatchObject({ community: 'running' });
+  });
+
+  it('queues the months and logs once that the community part is off without a Lichess token', async () => {
+    server.community = false;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const response = await call(`Bearer ${SECRET}`);
+
+    expect(await response.json()).toEqual({
+      queued: 12,
+      ready: 0,
+      community: 'off',
+    });
+    expect(server.need).toHaveBeenCalledWith(NEWEST);
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      'fide: LICHESS_TOKEN is not set; community broadcasts are off',
+    );
+    warn.mockRestore();
+  });
+
+  it('starts no community night while no month is published', async () => {
+    server.months.mockResolvedValue([]);
+
+    const response = await call(`Bearer ${SECRET}`);
+
+    expect(await response.json()).toEqual({
+      queued: 0,
+      ready: 0,
+      community: 'off',
+    });
+    expect(server.nightly).not.toHaveBeenCalled();
   });
 
   it.each([

@@ -14,6 +14,14 @@ const server: {
 } = vi.hoisted(() => ({ env: {}, runners: [] }));
 
 vi.mock('./db', () => ({ getDb: () => ({ name: 'the db' }) }));
+// Kept out of the module graph for the same reason as the runner below.
+vi.mock('@mychess/db', () => ({
+  queueBroadcastTour: () => Promise.resolve(true),
+  broadcastTourStatuses: () => Promise.resolve([]),
+}));
+vi.mock('./broadcast-tour-job', () => ({
+  broadcastTourIndexOn: () => ({ name: 'the tour index' }),
+}));
 vi.mock('./env', () => ({ readWebEnv: () => server.env }));
 // The runner has its own tests; here only what it is built with matters.
 // Mocking it also keeps @mychess/db out of this file's module graph, so a
@@ -68,6 +76,51 @@ describe('the FIDE search services', () => {
     expect(reloaded.fideServices().runner).toBe(first.runner);
     expect(server.runners).toHaveLength(1);
   }, 30_000);
+
+  it('have no community broadcasts without a Lichess token, nor a runner for tours (#349)', () => {
+    expect(fideServices().community).toBeNull();
+    expect(server.runners[0]?.tours).toBeNull();
+  });
+
+  it('give the runner and the community broadcasts the lanes of one Lichess pacer, with the token (#349)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    try {
+      server.env = { ...LOCAL, LICHESS_TOKEN: 'lip_token' };
+      const { community } = fideServices();
+      const tours = server.runners[0]?.tours;
+      expect(tours?.index).toEqual({ name: 'the tour index' });
+      const turns: string[] = [];
+      const apis = [
+        tours?.downloadApi(() => turns.push('download sent')),
+        community?.pasteApi,
+        tours?.api,
+      ];
+      expect(apis.map((api) => api?.token)).toEqual([
+        'lip_token',
+        'lip_token',
+        'lip_token',
+      ]);
+      // One queue: the download goes at once, then the night call before
+      // the paste call that was queued ahead of it, a second apart.
+      const calls = ['download', 'paste', 'night'].map(async (lane, n) => {
+        const api = apis[n];
+        if (api === undefined) throw new Error(`no ${lane} lane`);
+        await api
+          .fetch(`https://lichess.org/api/broadcast/${lane}`, {})
+          .catch(() => undefined);
+      });
+      await vi.advanceTimersByTimeAsync(2000);
+      await Promise.all(calls);
+      expect(network.mock.calls.map(([url]) => url)).toEqual([
+        'https://lichess.org/api/broadcast/download',
+        'https://lichess.org/api/broadcast/night',
+        'https://lichess.org/api/broadcast/paste',
+      ]);
+      expect(turns).toEqual(['download sent']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 
   it('sign search tokens with the auth secret', () => {
     expect(fideServices().secret).toBe(SECRET);

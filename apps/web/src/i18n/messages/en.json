@@ -795,6 +795,21 @@
     "asBlack": "As Black",
     "unknownOpening": "Unknown opening",
     "groupSummary": "{count, plural, one {# game} other {# games}} · {win} won, {draw} drawn, {loss} lost{unknown, plural, =0 {} other { · # unfinished}}",
-    "credit": "Games from <broadcasts>Lichess broadcasts</broadcasts> · <licence>CC BY-SA 4.0</licence>"
+    "credit": "Games from <broadcasts>Lichess broadcasts</broadcasts> · <licence>CC BY-SA 4.0</licence>",
+    "addTitle": "Add a Lichess broadcast",
+    "addIntro": "Is a finished tournament missing? Paste the link of its Lichess broadcast, or of one of its rounds.",
+    "linkLabel": "Lichess broadcast link",
+    "linkHint": "A link starting with https://lichess.org/broadcast/",
+    "addSubmit": "Add",
+    "adding": "Adding…",
+    "broadcastAdded": "{name} was added. Its games will appear in searches once they are fetched.",
+    "broadcastKnown": "{name} is already added.",
+    "broadcastLinkInvalid": "This is not a Lichess broadcast link. Paste a link starting with https://lichess.org/broadcast/.",
+    "broadcastLinkUnavailable": "Broadcasts cannot be added right now. Try again later.",
+    "tooManyBroadcastLinks": "Too many links: at most {limit} a day. Try again tomorrow.",
+    "tourNotFound": "Lichess has no broadcast at this link.",
+    "tourNotFinished": "This tournament has not finished yet. Add it once its last round is over.",
+    "tourOutsideWindow": "This tournament is not within the 12 months searched.",
+    "tourInDumps": "This tournament's games are already in the Lichess broadcast database."
   }
 }

@@ -56,3 +56,27 @@ export function isAfterBroadcastDumps(
 ): boolean {
   return monthOfInstant(at) > window.newest;
 }
+
+/**
+ * Whether `at` is before the window, so a search never covers it: the
+ * nightly organiser listing stops paging once every tournament of a page
+ * is (spec decision 3), judged by tourListingDate.
+ */
+export function isBeforeBroadcastWindow(
+  at: Date,
+  window: BroadcastWindow,
+): boolean {
+  return at.getTime() < broadcastWindowStart(window).getTime();
+}
+
+/**
+ * The date an organiser's listed tournament is judged by against the
+ * window (spec decision 3): its last round, or when it was created if
+ * Lichess gives it no dates.
+ */
+export function tourListingDate(tour: {
+  readonly lastRoundAt: Date | null;
+  readonly createdAt: Date;
+}): Date {
+  return tour.lastRoundAt ?? tour.createdAt;
+}

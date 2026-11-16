@@ -1,9 +1,14 @@
 'use server';
 
-// The FIDE ID search's actions (#316). Both are POSTs, so the searched ID
+// The FIDE ID search's actions (#316), and the adding of a Lichess
+// broadcast by its link (#349). Both are POSTs, so the searched ID
 // travels in the body, never in a URL a log or a Referer could keep. Each
 // authenticates, then hands the untrusted input to the use case, which
 // parses it and counts the start against the account's rate limit.
+import {
+  addBroadcastLink,
+  type BroadcastLinkState,
+} from '../../server/broadcast-link';
 import {
   pollFideSearch,
   startFideSearch,
@@ -27,4 +32,17 @@ export async function pollFideSearchAction(
 ): Promise<FidePollState> {
   const account = await requireOnboarded();
   return pollFideSearch(account.id, token, new Date());
+}
+
+/**
+ * Adds the Lichess broadcast the form's `link` field links to (#349,
+ * R-197); the use case parses it and counts it against the account's
+ * daily limit.
+ */
+export async function addBroadcastLinkAction(
+  _previous: BroadcastLinkState,
+  form: FormData,
+): Promise<BroadcastLinkState> {
+  const account = await requireOnboarded();
+  return addBroadcastLink(account.id, form.get('link'), new Date());
 }

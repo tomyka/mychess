@@ -1,16 +1,18 @@
 /**
  * Builds the broadcast index of the months searches need (#316, spec
- * decisions 2 and 3, security requirements of task 4), in the background
+ * decisions 2 and 3, security requirements of task 4) and fetches the
+ * queued broadcast tournaments (#349, spec decision 1), in the background
  * of this server process.
  *
- * One month at a time per process (the Lichess database site asks for one
- * request at a time); the database's row lock decides between processes.
- * A month is claimed, its dump streamed through the header parser into one
- * write transaction under one AbortSignal: a 10-minute deadline, below the
- * domain's 15-minute stale window, and a 60-second limit on waiting for
- * bytes. On any error or abort the attempt is recorded as failed, in its
- * own transaction; never after the write said the claim was lost, as the
- * month is then another process's. The dump is always closed.
+ * One download at a time per process, a month's or a tournament's: they
+ * share one queue (the Lichess sites ask for one request at a time); the
+ * database's row lock decides between processes. A month is claimed, its
+ * dump streamed through the header parser into one write transaction
+ * under the download limits (broadcast-limits.ts). On any error or abort
+ * the attempt is recorded as failed, in its own transaction; never after
+ * the write said the claim was lost, as the month is then another
+ * process's. The dump is always closed. A tournament's job is
+ * broadcast-tour-job.ts; without a Lichess token the runner has none.
  *
  * The runner never learns which FIDE ID a search was for, so nothing it
  * logs can name one.
@@ -24,27 +26,20 @@ import {
   type BroadcastMonthWrite,
   type Executor,
 } from '@mychess/db';
-import type { BroadcastMonth } from '@mychess/domain';
-import { z } from 'zod';
+import type { BroadcastMonth, BroadcastTourId } from '@mychess/domain';
 import {
   broadcastGames,
   openBroadcastDump,
   type Fetch,
+  type LichessApi,
 } from '@mychess/integrations';
-
-/** The time limits of one month's processing. */
-export interface RunnerLimits {
-  /** The whole month: download, decompression and write. */
-  readonly deadlineMs: number;
-  /** The longest wait for the download's next bytes. */
-  readonly idleMs: number;
-}
-
-/** The limits of the security requirements, task 4. */
-export const RUNNER_LIMITS: RunnerLimits = {
-  deadlineMs: 10 * 60_000,
-  idleMs: 60_000,
-};
+import {
+  logText,
+  RUNNER_LIMITS,
+  withDownloadLimits,
+  type RunnerLimits,
+} from './broadcast-limits';
+import { processTour, type BroadcastTourIndex } from './broadcast-tour-job';
 
 /** The index repositories the runner uses, on one database. */
 export interface BroadcastIndex {
@@ -73,11 +68,24 @@ export function broadcastIndexOn(db: Executor): BroadcastIndex {
   };
 }
 
+/**
+ * What the runner fetches tournaments with: their repositories, and
+ * Lichess in the pacer's night lane (details) and download lane (PGNs,
+ * with a hook for when each is sent).
+ */
+interface BroadcastTourSide {
+  readonly index: BroadcastTourIndex;
+  readonly api: LichessApi;
+  readonly downloadApi: (onTurn: () => void) => LichessApi;
+}
+
 export interface BroadcastRunnerDeps {
   readonly index: BroadcastIndex;
   readonly fetch: Fetch;
   readonly clock: () => Date;
   readonly limits?: RunnerLimits;
+  /** None without a Lichess token: tournaments needed are then ignored. */
+  readonly tours?: BroadcastTourSide | null;
 }
 
 export interface BroadcastRunner {
@@ -86,62 +94,106 @@ export interface BroadcastRunner {
    * the runner when it is idle. Returns at once: a search never waits.
    */
   need(months: readonly BroadcastMonth[]): void;
+  /** Queues `tourIds` to be fetched, as `need` queues months. */
+  needTours(tourIds: readonly BroadcastTourId[]): void;
   /** Resolves once the queue is empty and nothing is processing. */
   settled(): Promise<void>;
+}
+
+/** A queued download: what its log line names, and the work. */
+interface Job {
+  readonly name: string;
+  readonly run: () => Promise<void>;
 }
 
 /**
  * A runner with an empty queue. Its creation is taken as its process's
  * start (there is one runner per process, fide-services.ts): before its
- * first claim it releases, once, the months a process before it left
- * processing (#355), so a restart does not cost those months an attempt.
+ * first claim it releases, once, the months and tournaments a process
+ * before it left processing (#355), so a restart does not cost them an
+ * attempt.
  */
 export function createBroadcastRunner(
   deps: BroadcastRunnerDeps,
 ): BroadcastRunner {
   const startedAt = deps.clock();
-  const queue = new Set<BroadcastMonth>();
+  const limits = deps.limits ?? RUNNER_LIMITS;
+  const tours = deps.tours ?? null;
+  // Keyed `month:` or `tour:`, so each is queued once.
+  const queue = new Map<string, Job>();
   let running: Promise<void> | undefined;
   let released: Promise<void> | undefined;
 
   const drain = async (): Promise<void> => {
-    released ??= releaseSafely(deps.index, startedAt);
+    released ??= releaseAll(deps.index, tours, startedAt);
     await released;
-    for (let month = first(queue); month !== undefined; month = first(queue)) {
+    for (let next = first(queue); next !== undefined; next = first(queue)) {
       // Left queued while it is processed, so needing it again meanwhile
       // does not queue it twice.
-      await processSafely(deps, month);
-      queue.delete(month);
+      const [key, job] = next;
+      await runSafely(job);
+      queue.delete(key);
     }
-    // Set in the same turn as the queue was found empty, so a month queued
+    // Set in the same turn as the queue was found empty, so a job queued
     // after this starts a new drain.
     running = undefined;
+  };
+  const enqueue = (key: string, job: Job): void => {
+    if (!queue.has(key)) queue.set(key, job);
+  };
+  const start = (): void => {
+    if (running === undefined && queue.size > 0) running = drain();
   };
 
   return {
     need(months) {
-      for (const month of months) queue.add(month);
-      if (running === undefined && queue.size > 0) running = drain();
+      for (const month of months) {
+        enqueue(`month:${month}`, {
+          name: `broadcast month ${month}`,
+          run: () => processMonth(deps, limits, month),
+        });
+      }
+      start();
+    },
+    needTours(tourIds) {
+      if (tours === null) return;
+      for (const tourId of tourIds) {
+        enqueue(`tour:${tourId}`, {
+          name: `broadcast tour ${tourId}`,
+          run: () =>
+            processTour({ ...tours, clock: deps.clock, limits }, tourId),
+        });
+      }
+      start();
     },
     settled: () => running ?? Promise.resolve(),
   };
 }
 
-function first(queue: ReadonlySet<BroadcastMonth>): BroadcastMonth | undefined {
-  return queue.values().next().value;
+function first(queue: ReadonlyMap<string, Job>): [string, Job] | undefined {
+  return queue.entries().next().value;
+}
+
+/** Releases the months, and the tournaments when there are any. */
+async function releaseAll(
+  index: BroadcastIndex,
+  tours: BroadcastTourSide | null,
+  startedAt: Date,
+): Promise<void> {
+  await releaseSafely(() => index.release(startedAt));
+  if (tours !== null) {
+    await releaseSafely(() => tours.index.release(startedAt));
+  }
 }
 
 /**
- * Releases the months interrupted before `startedAt`. A failure is logged
- * by the error's name alone and the runner goes on: the 15-minute stale
- * rule still hands those months back, at the cost of an attempt.
+ * Releases what a process before this one left processing. A failure is
+ * logged by the error's name alone and the runner goes on: the 15-minute
+ * stale rule still hands it back, at the cost of an attempt.
  */
-async function releaseSafely(
-  index: BroadcastIndex,
-  startedAt: Date,
-): Promise<void> {
+async function releaseSafely(release: () => Promise<number>): Promise<void> {
   try {
-    await index.release(startedAt);
+    await release();
   } catch (error) {
     console.error(
       'broadcast index: release failed',
@@ -150,27 +202,25 @@ async function releaseSafely(
   }
 }
 
-/** Processes `month`; any failure is logged, so the queue goes on. */
-async function processSafely(
-  deps: BroadcastRunnerDeps,
-  month: BroadcastMonth,
-): Promise<void> {
+/** Runs `job`; any failure is logged, so the queue goes on. */
+async function runSafely(job: Job): Promise<void> {
   try {
-    await processMonth(deps, month);
+    await job.run();
   } catch (error) {
-    console.error(`fide: broadcast month ${month} failed`, logText(error));
+    console.error(`fide: ${job.name} failed`, logText(error));
   }
 }
 
 async function processMonth(
   deps: BroadcastRunnerDeps,
+  limits: RunnerLimits,
   month: BroadcastMonth,
 ): Promise<void> {
   const claimed = await deps.index.claim(month, deps.clock());
   // Refused: another process holds the month, or it needs nothing now.
   if (!claimed.ok) return;
   try {
-    await indexMonth(deps, claimed.value);
+    await indexMonth(deps, limits, claimed.value);
   } catch (error) {
     await deps.index.fail(claimed.value, deps.clock());
     throw error;
@@ -181,101 +231,18 @@ async function processMonth(
  * Streams the claimed month's dump into its write. A write refused because
  * the claim was lost returns without reading; the dump is closed either way.
  */
-async function indexMonth(
+function indexMonth(
   deps: BroadcastRunnerDeps,
+  limits: RunnerLimits,
   claim: BroadcastMonthClaim,
 ): Promise<void> {
-  const limits = deps.limits ?? RUNNER_LIMITS;
-  const controller = new AbortController();
-  const deadline = setTimeout(() => {
-    controller.abort(new Error(`over ${String(limits.deadlineMs)} ms`));
-  }, limits.deadlineMs);
-  const idle = new IdleLimit(controller, limits.idleMs);
-  try {
-    idle.arm();
-    await using dump = await openBroadcastDump(
-      deps.fetch,
-      claim.month,
-      controller.signal,
-    );
+  return withDownloadLimits(limits, async (signal, idle) => {
+    await using dump = await openBroadcastDump(deps.fetch, claim.month, signal);
     idle.disarm();
     await deps.index.write({
       claim,
       games: broadcastGames(idle.watch(dump.text)),
       clock: deps.clock,
     });
-  } finally {
-    clearTimeout(deadline);
-    idle.disarm();
-  }
-}
-
-/**
- * Aborts `controller` when the download keeps the runner waiting longer
- * than `ms`: counted only while it waits for bytes, not while the write
- * holds a chunk, so a slow insert is not taken for a stalled download.
- */
-class IdleLimit {
-  private timer: ReturnType<typeof setTimeout> | undefined;
-  private readonly controller: AbortController;
-  private readonly ms: number;
-
-  constructor(controller: AbortController, ms: number) {
-    this.controller = controller;
-    this.ms = ms;
-  }
-
-  arm(): void {
-    this.disarm();
-    this.timer = setTimeout(() => {
-      this.controller.abort(new Error(`no bytes for ${String(this.ms)} ms`));
-    }, this.ms);
-  }
-
-  disarm(): void {
-    clearTimeout(this.timer);
-    this.timer = undefined;
-  }
-
-  async *watch(text: AsyncIterable<string>): AsyncGenerator<string> {
-    const iterator = text[Symbol.asyncIterator]();
-    try {
-      for (;;) {
-        this.arm();
-        const next = await iterator.next();
-        this.disarm();
-        if (next.done === true) return;
-        yield next.value;
-      }
-    } finally {
-      this.disarm();
-      await iterator.return?.();
-    }
-  }
-}
-
-/** The most characters of a failed query's cause a log line keeps. */
-const CAUSE_CHARS = 200;
-
-/**
- * A failed Drizzle query (DrizzleQueryError): its message holds the query
- * and its parameters, so only its cause, the driver's error, is logged.
- */
-const failedQuerySchema = z.object({
-  query: z.string(),
-  params: z.array(z.unknown()),
-  cause: z.instanceof(Error),
-});
-
-/**
- * What the log says of `error` (security L1): its name, and for a failed
- * query its cause's message, capped; never an error's own message, which
- * may hold game data or query parameters.
- */
-function logText(error: unknown): string {
-  if (!(error instanceof Error)) return 'unknown error';
-  const query = failedQuerySchema.safeParse(error);
-  if (!query.success) return error.name;
-  const { cause } = query.data;
-  return `${error.name}: ${cause.message.slice(0, CAUSE_CHARS)}`;
+  });
 }

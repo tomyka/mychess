@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { broadcastMonthSchema } from './broadcast-month';
+import {
+  broadcastMonthSchema,
+  nextBroadcastMonthAction,
+  type BroadcastMonthStatus,
+} from './broadcast-month';
 import {
   APPROVED_BROADCAST_ORGANISERS,
   BROADCAST_TOUR_ID_PATTERN,
@@ -8,6 +12,7 @@ import {
   approvedOrganiser,
   broadcastTourIdSchema,
   isGameOfTour,
+  nextBroadcastTourAction,
   qualifyBroadcastTour,
   type BroadcastTourCandidate,
 } from './broadcast-tour';
@@ -237,5 +242,23 @@ describe('isGameOfTour (#349, security M1)', () => {
 
   it('drops every game of a tournament without rounds', () => {
     expect(isGameOfTour(url('Zx9yW8v7'), [])).toBe(false);
+  });
+});
+
+describe('nextBroadcastTourAction (#349, CONTEXT: Broadcast tournament)', () => {
+  it("is the month's next action, under a tournament's name", () => {
+    expect(nextBroadcastTourAction).toBe(nextBroadcastMonthAction);
+  });
+
+  it('processes a queued tournament and uses a done one', () => {
+    const queued: BroadcastMonthStatus = {
+      state: 'pending',
+      attempts: 0,
+      lastFailedAt: null,
+    };
+    expect(nextBroadcastTourAction(queued, NOW)).toBe('process');
+    expect(
+      nextBroadcastTourAction({ state: 'done', attempts: 1, since: NOW }, NOW),
+    ).toBe('use');
   });
 });

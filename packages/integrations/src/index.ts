@@ -20,6 +20,8 @@ export {
 } from './lichess-broadcast-pgn';
 export {
   LICHESS_BROADCAST_REFUSALS,
+  LICHESS_TOKEN_INVALID,
+  lichessTokenSchema,
   type LichessApi,
   type LichessBroadcastRefusal,
   type LichessBroadcastResult,

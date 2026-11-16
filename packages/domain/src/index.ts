@@ -142,6 +142,7 @@ export {
   qualifyBroadcastTour,
   broadcastTourFieldsSchema,
   isGameOfTour,
+  nextBroadcastTourAction,
   type ApprovedOrganiser,
   type BroadcastTourCandidate,
   type BroadcastTourClaimRefusal,
@@ -154,9 +155,11 @@ export {
 export {
   broadcastWindow,
   broadcastWindowStart,
+  isBeforeBroadcastWindow,
   isAfterBroadcastDumps,
   isWithinBroadcastWindow,
   monthOfInstant,
+  tourListingDate,
   type BroadcastWindow,
 } from './broadcast-window';
 export {

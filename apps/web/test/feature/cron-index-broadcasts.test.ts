@@ -49,6 +49,7 @@ function serverProcess(): BroadcastRunner {
   fide.services = {
     runner,
     sources: createBroadcastSources({ fetch, clock }),
+    community: null,
     secret: 'a-feature-test-secret-of-32-characters!!',
   };
   return runner;
@@ -75,7 +76,11 @@ describe('GET /api/cron/index-broadcasts (#354, R-195)', () => {
 
     const first = await call(`Bearer ${SECRET}`);
     expect(first.status).toBe(202);
-    expect(await first.json()).toEqual({ queued: 12, ready: 0 });
+    expect(await first.json()).toEqual({
+      queued: 12,
+      ready: 0,
+      community: 'off',
+    });
     await runner.settled();
 
     expect(dumpsFetched()).toHaveLength(12);
@@ -86,7 +91,11 @@ describe('GET /api/cron/index-broadcasts (#354, R-195)', () => {
     ).toEqual(MONTHS.slice(0, 12).map((month) => ({ month })));
 
     const second = await call(`Bearer ${SECRET}`);
-    expect(await second.json()).toEqual({ queued: 0, ready: 12 });
+    expect(await second.json()).toEqual({
+      queued: 0,
+      ready: 12,
+      community: 'off',
+    });
     await runner.settled();
     expect(dumpsFetched()).toHaveLength(12);
   });

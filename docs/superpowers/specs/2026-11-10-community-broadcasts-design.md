@@ -15,7 +15,7 @@ Issue #349. Research: `docs/research-lichess-community-broadcasts.md`, `docs/res
 
 - The monthly dumps hold official broadcasts only and lag about six weeks.
 - No endpoint lists community broadcasts globally. `GET /api/broadcast/by/{account}` lists an account's tournaments, community and official (official ones have `tier`), 24 a page, newest first. `GET /api/broadcast/{tourId}` gives a tournament's rounds and dates; `GET /api/broadcast/{tourSlug}/{roundSlug}/{roundId}` resolves a pasted round link. `GET /api/broadcast/{tourId}.pgn?clocks=false&comments=false` gives every game with `WhiteFideId`/`BlackFideId`, `GameURL`, `BroadcastName`.
-- Limits: one request at a time; with a token 120 JSON requests a minute and PGN 30 games a second; on a 429 wait a minute. PGN downloads only for finished events.
+- Limits: one request at a time; with a token 120 JSON requests a minute and PGN 30 games a second; on a 429 wait a minute. PGN downloads only for finished events. (Lead, during task 3: the server starts Lichess requests one at a time, a second apart, but a tournament's PGN may still be streaming when the next JSON request starts; holding the slot through a download would time pastes out.)
 - The same event can exist as a community and an official tournament (different game links).
 
 ## Lead decisions
@@ -25,7 +25,7 @@ Issue #349. Research: `docs/research-lichess-community-broadcasts.md`, `docs/res
 3. **Nightly:** the existing nightly job (R-195) also lists each approved organiser's tournaments (page 1, more pages until older than the window) and queues new finished ones; one request at a time about a second apart; stops for the night on a second 429.
 4. **Pasting a link:** a field "Add a Lichess broadcast" on Opponent's games. Only `https://lichess.org/broadcast/...` links; the server resolves the tournament, refuses with a value when it is not finished, outside the window or unknown, and queues it otherwise; at most 10 pasted links per account a day (rate limit). The page says when it has been added.
 5. **Showing games:** a search shows tournament games next to month games, grouped as today. When a community and an official copy of the same game exist (same date, same two FIDE IDs, same result), the list shows one (prefer the official one).
-6. **Token:** `LICHESS_TOKEN` in the server env, sent as `Authorization: Bearer` on every Lichess API call; refused in the browser; the env schema requires it in production for this feature to run; owner sets it on the VM with `set-secret.sh`.
+6. **Token:** `LICHESS_TOKEN` in the server env, sent as `Authorization: Bearer` on every Lichess API call; refused in the browser; this feature runs only when it is set: without it the organiser listing is skipped and a pasted link is refused as unavailable, while the month index keeps working (lead, during task 3: optional rather than required in production, so a deploy never waits on the secret); owner sets it on the VM with `set-secret.sh`.
 7. **Organiser list** lives in the domain as a constant with the ruling reference; changing it is a reviewed code change.
 
 ## Design

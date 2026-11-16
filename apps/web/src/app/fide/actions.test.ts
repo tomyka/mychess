@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { pollFideSearchAction, startFideSearchAction } from './actions';
+import {
+  addBroadcastLinkAction,
+  pollFideSearchAction,
+  startFideSearchAction,
+} from './actions';
 
 const NOW = new Date('2026-11-10T10:00:00Z');
 
@@ -7,12 +11,18 @@ const server = vi.hoisted(() => ({
   account: vi.fn<() => Promise<unknown>>(),
   start:
     vi.fn<(accountId: string, raw: unknown, now: Date) => Promise<unknown>>(),
+  add: vi.fn<
+    (accountId: string, raw: unknown, now: Date) => Promise<unknown>
+  >(),
   poll: vi.fn<
     (accountId: string, token: unknown, now: Date) => Promise<unknown>
   >(),
 }));
 
 vi.mock('../../server/session', () => ({ requireOnboarded: server.account }));
+vi.mock('../../server/broadcast-link', () => ({
+  addBroadcastLink: server.add,
+}));
 vi.mock('../../server/fide-search', () => ({
   startFideSearch: server.start,
   pollFideSearch: server.poll,
@@ -29,6 +39,7 @@ beforeEach(() => {
   server.account.mockReset().mockResolvedValue({ id: 'rokas' });
   server.start.mockReset().mockResolvedValue({ kind: 'idle' });
   server.poll.mockReset().mockResolvedValue({ kind: 'expired' });
+  server.add.mockReset().mockResolvedValue({ kind: 'idle' });
   return () => {
     vi.useRealTimers();
   };
@@ -51,12 +62,29 @@ describe('the FIDE search actions', () => {
     expect(server.poll).toHaveBeenCalledExactlyOnceWith('rokas', 'a.b', NOW);
   });
 
+  it('add the posted broadcast link for the session account (#349)', async () => {
+    const data = new FormData();
+    data.set('link', 'https://lichess.org/broadcast/x/AbCd1234');
+    expect(await addBroadcastLinkAction({ kind: 'idle' }, data)).toEqual({
+      kind: 'idle',
+    });
+    expect(server.add).toHaveBeenCalledExactlyOnceWith(
+      'rokas',
+      'https://lichess.org/broadcast/x/AbCd1234',
+      NOW,
+    );
+  });
+
   it('do nothing without a signed-in account', async () => {
     server.account.mockRejectedValue(new Error('redirect to sign-in'));
     await expect(
       startFideSearchAction({ kind: 'idle' }, form('1')),
     ).rejects.toThrow('redirect');
     await expect(pollFideSearchAction('a.b')).rejects.toThrow('redirect');
+    await expect(
+      addBroadcastLinkAction({ kind: 'idle' }, new FormData()),
+    ).rejects.toThrow('redirect');
+    expect(server.add).not.toHaveBeenCalled();
     expect(server.start).not.toHaveBeenCalled();
     expect(server.poll).not.toHaveBeenCalled();
   });

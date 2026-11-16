@@ -1,4 +1,5 @@
 import { databaseEnvSchema } from '@mychess/db';
+import { lichessTokenSchema } from '@mychess/integrations';
 import { z } from 'zod';
 
 /** The secret `.env.example` ships with; no environment may run on it (A7). */
@@ -61,6 +62,14 @@ export const webEnvSchema = databaseEnvSchema
     // list and dumps from this directory instead of the network, when the
     // test sign-in is on too (broadcast-fixture-fetch.ts).
     FIDE_DUMP_FIXTURE_DIR: z.string().min(1).optional(),
+    // The owner's Lichess token, study:read only (#349, R-199), sent to the
+    // Lichess broadcast API alone and never to the browser. Unset or empty
+    // turns the community broadcasts off; the month index needs none. A
+    // token not in the form the client sends is refused at start-up.
+    LICHESS_TOKEN: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      lichessTokenSchema.optional(),
+    ),
   })
   .refine(
     (e) => e.MAIL_TRANSPORT !== 'resend' || e.RESEND_API_KEY !== undefined,

@@ -13,7 +13,10 @@
 import { ok, refuse, type Result } from '@mychess/chess';
 import { z } from 'zod';
 import { BROADCAST_GAME_ISSUE, BROADCAST_TEXT_MAX } from './broadcast-game';
-import type { BroadcastMonthStatus } from './broadcast-month';
+import {
+  nextBroadcastMonthAction,
+  type BroadcastMonthStatus,
+} from './broadcast-month';
 import {
   isAfterBroadcastDumps,
   isWithinBroadcastWindow,
@@ -145,6 +148,16 @@ export type QueuedBroadcastTour = z.infer<typeof queuedBroadcastTourSchema>;
 
 /** A tournament's index state: the lifecycle of a month's (spec decision 1). */
 export type BroadcastTourStatus = BroadcastMonthStatus;
+
+/**
+ * What the runner does with a tournament at `now`: use, process, wait or
+ * unavailable, by the same rules as a month (nextBroadcastMonthAction),
+ * named for tournaments (CONTEXT: Broadcast tournament).
+ */
+export const nextBroadcastTourAction: (
+  tour: BroadcastTourStatus,
+  now: Date,
+) => ReturnType<typeof nextBroadcastMonthAction> = nextBroadcastMonthAction;
 
 /**
  * Whether the index fetches `tour`, with the search covering `window`

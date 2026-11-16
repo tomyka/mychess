@@ -21,9 +21,11 @@ import {
 } from '@mychess/db';
 import {
   FIDE_SEARCH_RATE_LIMIT,
+  broadcastWindow,
   fideId,
   fideSearchRateKey,
   nextBroadcastMonthAction,
+  preferOfficialCopies,
   searchMonths,
   type BroadcastMonth,
   type BroadcastMonthAction,
@@ -168,7 +170,9 @@ export async function pollFideSearch(
 
 /**
  * The search for `id` over `months` at `now`: the months the runner should
- * process are handed to it, unawaited; the games come from the ready ones.
+ * process are handed to it, unawaited; the games come from the ready ones
+ * and from the tournaments fetched in their window (#349), a community
+ * copy of an official game left out (preferOfficialCopies).
  */
 async function snapshotOf(
   id: FideId,
@@ -185,11 +189,11 @@ async function snapshotOf(
   fideServices().runner.need(monthsTo('process', actions));
   const found = await gamesForFideId(db, id, {
     months: monthsTo('use', actions),
-    window: null,
+    window: broadcastWindow(months),
   });
   return {
     progress: progressOf(actions.map(({ action }) => DISPLAY[action])),
-    games: found.games,
+    games: preferOfficialCopies(found.games),
     truncated: found.truncated,
   };
 }

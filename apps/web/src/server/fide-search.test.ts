@@ -1,6 +1,7 @@
 import type { BroadcastMonthEntry, FoundGames } from '@mychess/db';
 import {
   broadcastMonthSchema,
+  broadcastTourIdSchema,
   fideIdSchema,
   type BroadcastMonth,
   type BroadcastMonthStatus,
@@ -207,7 +208,7 @@ describe('starting a FIDE ID search', () => {
     expect(server.statuses).toHaveBeenCalledExactlyOnceWith(DB, SEARCHED);
     expect(server.games).toHaveBeenCalledExactlyOnceWith(DB, ID, {
       months: SEARCHED,
-      window: null,
+      window: { oldest: SEARCHED[11], newest: SEARCHED[0] },
     });
     expect(server.player).toHaveBeenCalledExactlyOnceWith(ID);
     const { token, ...shown } = search;
@@ -267,13 +268,39 @@ describe('starting a FIDE ID search', () => {
     expect(server.need).toHaveBeenCalledExactlyOnceWith([m0, m2, m4]);
     expect(server.games.mock.lastCall?.[2]).toEqual({
       months: [SEARCHED[5], ...SEARCHED.slice(7)],
-      window: null,
+      window: { oldest: SEARCHED[11], newest: SEARCHED[0] },
     });
   });
 
   it('counts only the months Lichess lists, when fewer than 12', async () => {
     server.months.mockResolvedValue(LISTED.slice(0, 3));
     expect((await started()).snapshot.progress.total).toBe(3);
+  });
+
+  it('shows the official copy of a game a community tournament also broadcast (#349)', async () => {
+    const [official] = FOUND.games;
+    if (official === undefined) throw new Error('no fixture game');
+    const tour = broadcastTourIdSchema.parse('VilOpn26');
+    const community = {
+      ...official,
+      url: 'https://lichess.org/broadcast/v/round-1/RoundAA1/GameAAA1',
+      source: { kind: 'tour', tourId: tour } as const,
+      official: false,
+    };
+    // Another day: not a copy of the official game.
+    const otherCommunity = {
+      ...community,
+      date: '2026-10-15',
+      url: 'https://lichess.org/broadcast/v/round-2/RoundAA2/GameAAA2',
+    };
+    server.games.mockResolvedValue({
+      games: [community, official, otherCommunity],
+      truncated: false,
+    });
+    expect((await started()).snapshot.games).toEqual([
+      official,
+      otherCommunity,
+    ]);
   });
 
   it('carries the truncated flag of the games', async () => {

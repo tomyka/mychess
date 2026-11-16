@@ -3,9 +3,11 @@ import { broadcastMonthSchema, type BroadcastMonth } from './broadcast-month';
 import {
   broadcastWindow,
   broadcastWindowStart,
+  isBeforeBroadcastWindow,
   isAfterBroadcastDumps,
   isWithinBroadcastWindow,
   monthOfInstant,
+  tourListingDate,
 } from './broadcast-window';
 
 const months = (...given: string[]): BroadcastMonth[] =>
@@ -98,5 +100,32 @@ describe('isAfterBroadcastDumps', () => {
     expect(
       isAfterBroadcastDumps(new Date('2026-01-01T00:00:00Z'), window()),
     ).toBe(true);
+  });
+});
+
+describe('isBeforeBroadcastWindow (#349, spec decision 3)', () => {
+  it('holds only before the first instant of the oldest month', () => {
+    expect(
+      isBeforeBroadcastWindow(new Date('2024-12-31T23:59:59Z'), window()),
+    ).toBe(true);
+    expect(
+      isBeforeBroadcastWindow(new Date('2025-01-01T00:00:00Z'), window()),
+    ).toBe(false);
+    expect(
+      isBeforeBroadcastWindow(new Date('2026-01-20T10:00:00Z'), window()),
+    ).toBe(false);
+  });
+});
+
+describe('tourListingDate (#349, spec decision 3)', () => {
+  const createdAt = new Date('2024-06-01T00:00:00Z');
+
+  it("is a tour's last round when it has one", () => {
+    const lastRoundAt = new Date('2025-03-02T10:00:00Z');
+    expect(tourListingDate({ lastRoundAt, createdAt })).toBe(lastRoundAt);
+  });
+
+  it('is when the tour was created when it has no dates', () => {
+    expect(tourListingDate({ lastRoundAt: null, createdAt })).toBe(createdAt);
   });
 });

@@ -8,7 +8,7 @@
  * No refusal or error made here holds the token.
  */
 import { ok, refuse, type Result } from '@mychess/chess';
-import type { z } from 'zod';
+import { z } from 'zod';
 import {
   discard,
   get,
@@ -48,8 +48,18 @@ export interface LichessApi {
 /** The ID of a Lichess broadcast tournament or round: 8 letters or digits. */
 export const LICHESS_BROADCAST_ID = /^[A-Za-z0-9]{8}$/;
 
-/** A Lichess token as Lichess issues them (`lip_...`), safe in a header. */
-const TOKEN = /^[A-Za-z0-9_]{1,256}$/;
+/** The message-catalogue key of a token that is no Lichess token. */
+export const LICHESS_TOKEN_INVALID = 'lichessBroadcast.tokenInvalid';
+
+/**
+ * A Lichess personal API token as Lichess issues them (`lip_...`): letters,
+ * digits and `_`, so it is safe in a header. Its one issue message is
+ * LICHESS_TOKEN_INVALID, and no issue carries the value. The one definition
+ * of a token: the server's environment parses LICHESS_TOKEN with it too.
+ */
+export const lichessTokenSchema = z
+  .string(LICHESS_TOKEN_INVALID)
+  .regex(/^[A-Za-z0-9_]{1,256}$/, LICHESS_TOKEN_INVALID);
 
 /** The most bytes of a JSON answer read: a tour with its rounds is far less. */
 const JSON_MAX_BYTES = 2 * 1024 * 1024;
@@ -86,7 +96,7 @@ export async function lichessGet(
   url: string,
   signal: AbortSignal,
 ): Promise<LichessBroadcastResult<Response>> {
-  if (!TOKEN.test(api.token)) {
+  if (!lichessTokenSchema.safeParse(api.token).success) {
     throw new RangeError('the Lichess token is malformed');
   }
   let response: Response;

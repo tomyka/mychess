@@ -233,6 +233,36 @@ describe('webEnvSchema on production (security A7)', () => {
     ).toBe('/tmp/fixtures');
   });
 
+  // #349, R-199: the owner's study:read token; unset turns the community
+  // broadcasts off, nothing else.
+  it('takes a Lichess token, in production too', () => {
+    const token = 'lip_SyntheticToken123';
+    expect(
+      webEnvSchema.parse({ ...base, LICHESS_TOKEN: token }).LICHESS_TOKEN,
+    ).toBe(token);
+    expect(
+      issuePaths({
+        ...deployed,
+        MYCHESS_ENV: 'production',
+        LICHESS_TOKEN: token,
+      }),
+    ).toEqual([]);
+  });
+
+  it.each([undefined, ''])('leaves the Lichess token unset for %j', (value) => {
+    const env = value === undefined ? base : { ...base, LICHESS_TOKEN: value };
+    expect(webEnvSchema.parse(env).LICHESS_TOKEN).toBeUndefined();
+  });
+
+  it.each(['lip_with space', 'lip_x\nAuthorization: y', 'x'.repeat(257)])(
+    'refuses a malformed Lichess token %j at start-up',
+    (token) => {
+      expect(issuePaths({ ...base, LICHESS_TOKEN: token })).toEqual([
+        ['LICHESS_TOKEN'],
+      ]);
+    },
+  );
+
   it('takes production with the test sign-in switched off', () => {
     expect(
       issuePaths({

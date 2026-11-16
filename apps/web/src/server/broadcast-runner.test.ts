@@ -14,11 +14,8 @@ import {
   rutaMonth,
   stalledResponse,
 } from '../../test/fixtures/broadcast-dumps';
-import {
-  createBroadcastRunner,
-  RUNNER_LIMITS,
-  type BroadcastIndex,
-} from './broadcast-runner';
+import { RUNNER_LIMITS } from './broadcast-limits';
+import { createBroadcastRunner, type BroadcastIndex } from './broadcast-runner';
 
 const NOW = new Date('2026-11-10T10:00:00Z');
 const OCT = broadcastMonthSchema.parse('2026-10');
@@ -290,27 +287,70 @@ describe('the broadcast month runner', () => {
     expect(written.map((w) => w.month)).toEqual([OCT, SEP]);
   });
 
-  it('finishes a write that holds each game longer than the idle limit (arch M2)', async () => {
-    const games = [...rutaMonth(OCT), ...rutaMonth(SEP)].slice(0, 3);
-    db.write.mockImplementation(async ({ games: stream }) => {
-      let count = 0;
-      for await (const game of stream) {
-        expect(game).toBeDefined();
-        count += 1;
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      }
-      return ok({ gameCount: count, skipped: 0 });
+  // Arch M2, on a fake clock: the download path sets no timer of its own,
+  // so the runner's deadline and idle limit are the only timers, and time
+  // passes only when a test moves it.
+  describe('on a fake clock (arch M2)', () => {
+    const IDLE_MS = 50;
+    const LIMITS = { deadlineMs: 60_000, idleMs: IDLE_MS };
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      return () => {
+        vi.useRealTimers();
+      };
     });
-    const { run } = runner(
-      { [OCT]: () => dumpResponse(compressedDump(games), 16).response },
-      { deadlineMs: 60_000, idleMs: 50 },
-    );
-    run.need([OCT]);
-    await run.settled();
-    expect(await db.write.mock.results[0]?.value).toEqual(
-      ok({ gameCount: 3, skipped: 0 }),
-    );
-    expect(db.fail).not.toHaveBeenCalled();
+
+    /** Lets the runner reach the point where both its timers are set. */
+    async function untilTimers(count: number): Promise<void> {
+      for (let turn = 0; vi.getTimerCount() < count; turn += 1) {
+        if (turn > 1000) throw new Error('the runner set no idle limit');
+        await new Promise<void>((resolve) => {
+          queueMicrotask(resolve);
+        });
+      }
+    }
+
+    it('finishes a write that holds each game longer than the idle limit', async () => {
+      const games = [...rutaMonth(OCT), ...rutaMonth(SEP)].slice(0, 3);
+      const timersWhileHeld: number[] = [];
+      db.write.mockImplementation(async ({ games: stream }) => {
+        let count = 0;
+        for await (const game of stream) {
+          expect(game).toBeDefined();
+          count += 1;
+          // While the write holds a game only the deadline is set: the
+          // idle limit waits for the download's next bytes alone.
+          timersWhileHeld.push(vi.getTimerCount());
+          vi.advanceTimersByTime(3 * IDLE_MS);
+          await Promise.resolve();
+        }
+        return ok({ gameCount: count, skipped: 0 });
+      });
+      const { run } = runner(
+        { [OCT]: () => dumpResponse(compressedDump(games), 16).response },
+        LIMITS,
+      );
+      run.need([OCT]);
+      await run.settled();
+      expect(await db.write.mock.results[0]?.value).toEqual(
+        ok({ gameCount: 3, skipped: 0 }),
+      );
+      expect(timersWhileHeld).toEqual([1, 1, 1]);
+      expect(db.fail).not.toHaveBeenCalled();
+    });
+
+    it('gives up on a download the moment it has waited the idle limit', async () => {
+      const { run } = runner({ [OCT]: 'hang' }, LIMITS);
+      run.need([OCT]);
+      await untilTimers(2);
+      await vi.advanceTimersByTimeAsync(IDLE_MS - 1);
+      expect(db.fail).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      await run.settled();
+      expect(db.write).not.toHaveBeenCalled();
+      expect(db.fail).toHaveBeenCalledExactlyOnceWith(claimOf(OCT), NOW);
+    });
   });
 
   it('logs a failed query by its cause, never its text or parameters (security L1)', async () => {
