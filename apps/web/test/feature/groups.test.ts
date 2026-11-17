@@ -115,6 +115,26 @@ describe('createGroupAction (R-12, R-70)', () => {
     ).toEqual([{ kind: 'group', groupId: state.createdId }]);
   });
 
+  it('makes groups one after another, each with its own link (ux sign-off: the 4th)', async () => {
+    actAs(await coachPerson(sql, 'jonas@example.lt', 'Jonas'));
+    const made = z.strictObject({
+      createdId: z.uuid(),
+      link: z.string().regex(GROUP_LINK),
+    });
+    const links = new Set<string>();
+    let previous = {};
+    for (const name of ['Pirma', 'Antra', 'Trečia', 'Ketvirta', 'Penkta']) {
+      const state = made.parse(
+        await outcomeOf(createGroupAction(previous, formOf({ name }))),
+      );
+      links.add(state.link);
+      previous = state;
+    }
+    expect(links.size).toBe(5);
+    expect(await sql.count('groups')).toBe(5);
+    expect(await sql.count('invites')).toBe(5);
+  });
+
   it('makes the group but says no link was made at 50 open invites (R-114)', async () => {
     const jonas = await coachPerson(sql, 'jonas@example.lt', 'Jonas');
     const now = new Date();

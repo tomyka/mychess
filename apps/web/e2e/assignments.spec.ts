@@ -320,11 +320,8 @@ for (const locale of ['en'] as const) {
     const cast: Cast = { locale, messages, browser, request, devices };
     try {
       await coachReady(coach, cast);
-      await createGroup(coach, messages, GROUP);
-      const link = await createInvite(coach, messages, {
-        kind: 'group',
-        group: GROUP,
-      });
+      // The group's own invite, made with it (R-204).
+      const link = await createGroup(coach, messages, GROUP);
       const joins = (name: string): Promise<Page> =>
         playerAccepts(cast, { link, name, group: GROUP });
       const rokas = await joins(ROKAS);

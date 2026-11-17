@@ -204,3 +204,9 @@
     }
   }
 }
+
+/* `tall:` a desktop-wide screen held upright: a portrait tablet such as
+   1024 x 1366 (#334). It also matches `lg:` and comes after it, so a
+   `tall:` class overrides the `lg:` one; the training screen uses it to
+   stack its panel under a larger board instead of beside it. */
+@custom-variant tall (@media (width >= 64rem) and (orientation: portrait));

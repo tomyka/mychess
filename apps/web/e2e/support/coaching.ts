@@ -22,51 +22,71 @@ export async function switchOnCoachMode(
   await expect(page.getByText(t.on, { exact: true })).toBeVisible();
 }
 
-/** On the coach dashboard: a new group named `name`. */
+/** An invite link as the dashboard shows it once. */
+const INVITE_LINK = /\/k\/[A-Za-z0-9_-]{43}$/;
+
+/**
+ * On the coach dashboard: a new group named `name`; returns the group
+ * invite link it is made with, shown once in the groups section (R-204).
+ */
 export async function createGroup(
   page: Page,
   messages: Messages,
   name: string,
-): Promise<void> {
+): Promise<string> {
   const t = messages.coach.groups;
-  await page.getByLabel(t.name, { exact: true }).fill(name);
-  await page.getByRole('button', { name: t.create }).click();
-  await expect(page.getByRole('link', { name, exact: true })).toBeVisible();
+  const section = page.getByRole('region', { name: t.title });
+  await section.getByLabel(t.name, { exact: true }).fill(name);
+  await section.getByRole('button', { name: t.create }).click();
+  await expect(section.getByRole('link', { name, exact: true })).toBeVisible();
+  const field = section.getByLabel(messages.coach.invites.link, {
+    exact: true,
+  });
+  await expect(field).toHaveValue(INVITE_LINK);
+  return field.inputValue();
 }
 
-/** On the coach dashboard: a new invite; returns its link, shown once. */
+/**
+ * On the coach dashboard: a new invite from the invites section; returns
+ * its link, shown once. Scoped to that section: a new group shows its own
+ * link field in the groups section (R-204).
+ */
 export async function createInvite(
   page: Page,
   messages: Messages,
   { kind, group }: { kind: 'personal' | 'group'; group?: string },
 ): Promise<string> {
   const t = messages.coach.invites;
-  await page.getByRole('radio', { name: t[kind] }).check();
+  const section = page.getByRole('region', { name: t.title });
+  await section.getByRole('radio', { name: t[kind] }).check();
   if (group !== undefined)
-    await page
+    await section
       .getByLabel(t.groupLabel, { exact: true })
       .selectOption({ label: group });
-  await page.getByRole('button', { name: t.create }).click();
-  const field = page.getByLabel(t.link, { exact: true });
-  await expect(field).toHaveValue(/\/k\/[A-Za-z0-9_-]{43}$/);
+  await section.getByRole('button', { name: t.create }).click();
+  const field = section.getByLabel(t.link, { exact: true });
+  await expect(field).toHaveValue(INVITE_LINK);
   return field.inputValue();
 }
 
-/** On the invite's confirm screen: Accept, landing on "Mano treneriai". */
+/**
+ * On the invite's confirm screen: Accept, landing on "Mano treneriai",
+ * which says the invite was accepted (#329). Once said, `?treneris=`
+ * leaves the address, so a reload does not say it again.
+ */
 export async function acceptInvite(
   page: Page,
   messages: Messages,
 ): Promise<void> {
   await page.getByRole('button', { name: messages.invite.accept }).click();
-  await expect(page).toHaveURL(/\/nustatymai\?treneris=[^#]+#treneriai$/);
   await expect(
     page.getByRole('heading', { name: messages.settings.myCoaches.title }),
   ).toBeVisible();
-  // It says the invite was accepted (#329).
   const [before] = messages.settings.myCoaches.accepted.split('{name}');
   await expect(
     page.getByRole('status').filter({ hasText: before ?? '' }),
   ).toBeVisible();
+  await expect(page).toHaveURL(/\/nustatymai#treneriai$/);
 }
 
 /** The confirm screen names the coach and, for a group invite, the group. */

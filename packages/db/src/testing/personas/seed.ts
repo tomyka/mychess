@@ -20,6 +20,7 @@ import {
   groupNameSchema,
   inviteExpiry,
   personaEmail,
+  coachNoteSchema,
   personalNoteSchema,
   profileSchema,
   repertoireNameSchema,
@@ -36,6 +37,7 @@ import { assign } from '../../assignments/assign';
 import { forkAssignment } from '../../assignments/fork';
 import type { Db } from '../../client';
 import { startCoaching } from '../../coaching';
+import { upsertCoachNote } from '../../coach-notes';
 import { createGroup } from '../../groups';
 import { acceptInvite, createInvite } from '../../invites';
 import { setAssignedPersonalNote, setPersonalNote } from '../../personal-notes';
@@ -57,11 +59,15 @@ import {
 import {
   PERSONA_ASSIGNMENTS,
   PERSONA_FORKS,
+  PERSONA_COACH_NOTES,
+  PERSONA_COMMENTS,
   PERSONA_NOTES,
   PERSONA_SHARES,
   PERSONA_TRAINING,
   type PersonaAssignment,
   type PersonaFork,
+  type PersonaCoachNote,
+  type PersonaComment,
   type PersonaNote,
   type PersonaTraining,
 } from './definitions';
@@ -315,6 +321,50 @@ async function note(s: Seeding, n: PersonaNote): Promise<void> {
   expectOk(written, `note on ${n.move}`);
 }
 
+const moveKeyOf = (s: Seeding, t: PersonaComment): string => {
+  const { chapters } = lookup(s.repertoires, t.repertoire);
+  return moveKeyAt(chapters, t.chapter, t.move);
+};
+
+/** The owner's move comment, written as the builder writes it (R-102). */
+async function comment(s: Seeding, c: PersonaComment): Promise<void> {
+  const { id, owner } = lookup(s.repertoires, c.repertoire);
+  const ownerId = lookup(s.ids, owner);
+  const [viewer, loaded] = [
+    await findAccountById(s.db, ownerId),
+    await loadRepertoire(s.db, id, ownerId),
+  ];
+  if (viewer === undefined || loaded === undefined)
+    throw new Error(`persona seed: ${c.repertoire} not found`);
+  const op = {
+    kind: 'editComment' as const,
+    moveKey: moveKeyOf(s, c),
+    comment: c.text,
+  };
+  const edited = await editRepertoire(s.db, {
+    id,
+    viewer,
+    expectedVersion: loaded.repertoire.version,
+    change: { kind: 'edit', op },
+    now: c.at,
+  });
+  expectOk(edited, `comment on ${c.move}`);
+}
+
+/** The coach's note on a repertoire its owner shared with them (R-42). */
+async function coachNote(s: Seeding, n: PersonaCoachNote): Promise<void> {
+  const { id, owner } = lookup(s.repertoires, n.repertoire);
+  const written = await upsertCoachNote(s.db, {
+    coachId: lookup(s.ids, n.coach),
+    playerId: lookup(s.ids, owner),
+    repertoireId: id,
+    moveKey: moveKeyOf(s, n),
+    text: coachNoteSchema.parse(n.text),
+    now: n.at,
+  });
+  expectOk(written, `coach note on ${n.move}`);
+}
+
 /** A training definition as the planner takes it: chapters made move keys. */
 function scriptOf(s: Seeding, t: PersonaTraining): TrainingScript {
   const chaptersOf = (handle: string) => lookup(s.repertoires, handle).chapters;
@@ -393,11 +443,13 @@ async function pendingInvite(s: Seeding): Promise<void> {
 async function writeCoaching(s: Seeding): Promise<void> {
   for (const l of PERSONA_LINKS) await link(s, l);
   for (const r of PERSONA_REPERTOIRES) await createPersonaRepertoire(s, r);
+  for (const c of PERSONA_COMMENTS) await comment(s, c);
   for (const a of PERSONA_ASSIGNMENTS) await assignOne(s, a);
   for (const f of PERSONA_FORKS) await fork(s, f);
   for (const sh of PERSONA_SHARES)
     await share(s, sh.repertoire, sh.coach, sh.at);
   for (const n of PERSONA_NOTES) await note(s, n);
+  for (const n of PERSONA_COACH_NOTES) await coachNote(s, n);
   await pendingInvite(s);
 }
 

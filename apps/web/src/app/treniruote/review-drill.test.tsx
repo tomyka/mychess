@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import type { Config } from '@lichess-org/chessground/config';
 import type { Key } from '@lichess-org/chessground/types';
 import {
@@ -720,6 +720,48 @@ describe('the review drill and coach notes (#322, R-174)', () => {
     expect(next()).toBeNull();
     wait(400);
     expect(screen.getByRole('heading', { name: T.done.title })).toBeDefined();
+  });
+
+  it('puts Next held by a note in the bottom bar before End session, focused (ux sign-off)', () => {
+    renderDrill(noted('assigned'));
+    type('d4');
+    const button = next();
+    if (button === null) throw new Error('a Next button');
+    // In the thumb zone, not under the card below the fold on a phone.
+    const bar = button.closest('footer');
+    expect(bar).not.toBeNull();
+    expect(
+      within(screen.getByTestId('panel')).queryByRole('button', {
+        name: T.review.next,
+      }),
+    ).toBeNull();
+    expect(
+      Array.from(
+        bar?.querySelectorAll('a, button') ?? [],
+        (el) => el.textContent,
+      ),
+    ).toEqual([T.review.next, T.drill.end]);
+    // Focus leaves the disabled move field for it.
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('hides the move field and Hint while the note holds the drill, and shows them again after Next (ux sign-off)', () => {
+    renderDrill(noted('assigned'));
+    const hint = () => screen.queryByRole('button', { name: T.review.hint });
+    expect(screen.queryByLabelText(MOVE_INPUT)).not.toBeNull();
+    expect(hint()).not.toBeNull();
+    type('d4');
+    // Held: only the note and Next, which nothing else can be used beside.
+    expect(note()).toContain('Take the centre first.');
+    expect(next()).not.toBeNull();
+    expect(screen.queryByLabelText(MOVE_INPUT)).toBeNull();
+    expect(hint()).toBeNull();
+    const button = next();
+    if (button === null) throw new Error('a Next button');
+    fireEvent.click(button);
+    wait(150);
+    expect(screen.queryByLabelText(MOVE_INPUT)).not.toBeNull();
+    expect(hint()).not.toBeNull();
   });
 
   it('shows the note with the arrow after a lapse', () => {

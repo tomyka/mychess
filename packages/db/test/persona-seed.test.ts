@@ -5,6 +5,7 @@ import { z } from 'zod';
 import {
   coachAccessFacts,
   coachGroup,
+  coachNotesOn,
   coachGroups,
   coachInvites,
   findAccountByEmail,
@@ -80,6 +81,7 @@ describe('seedPersonas', () => {
       expect(first.get('assignments')).toBe(8);
       expect(first.get('repertoire_shares')).toBe(2);
       expect(first.get('personal_notes')).toBe(4);
+      expect(first.get('coach_notes')).toBe(1);
     },
     SLOW,
   );
@@ -482,6 +484,74 @@ describe('seedPersonas imports (#332)', () => {
         ['Rb3', true],
         ['g5', true],
       ]);
+    },
+    SLOW,
+  );
+});
+
+describe('seedPersonas M2 review states', () => {
+  /** Is the review of move `key` due for `playerId` at the seed date? */
+  const dueAt = async (playerId: string, key: string) => {
+    const review = (await reviewsOf(db, playerId)).get(key);
+    return review !== undefined && review.review.fsrs.due <= NOW;
+  };
+
+  it(
+    'puts a coach comment on a Caro-Kann move due for Rokas at the seed date (U1-M2-4, R-174)',
+    async () => {
+      await seedPersonas(db, NOW);
+      const coach = await persona(db, 'persona-coach@mychess.test');
+      const rokas = await persona(db, 'persona-u1400@mychess.test');
+      const id = await idOfRepertoire(coach.id, 'Karo-Kan gynyba: pagrindai');
+      const graph = (await loadRepertoire(db, id, coach.id))?.graph;
+      const commented = graph?.moves.filter((m) => m.comment !== null) ?? [];
+      expect(commented.map((m) => m.san)).toEqual(['Qd7']);
+      const [qd7] = commented;
+      expect(qd7?.comment).toMatch(/^Valdovė d7/);
+      expect(await dueAt(rokas.id, moveKey(qd7?.from ?? '', 'Qd7'))).toBe(true);
+      // Written before the assignment: no "Updated" badge (R-133).
+      const caroKann = (await playerAssignments(db, rokas.id, NOW)).find(
+        (a) => a.repertoireId === id,
+      );
+      expect(caroKann?.badges.updated).toBe(false);
+    },
+    SLOW,
+  );
+
+  it(
+    "gives Gabija's shared Taimanov Rimantas's coach note on 9...Be7, due at the seed date (R-107, R-174)",
+    async () => {
+      await seedPersonas(db, NOW);
+      const gabija = await persona(db, 'persona-1400-2000@mychess.test');
+      const id = await idOfRepertoire(
+        gabija.id,
+        'Sicilijos gynyba, Taimanovo variantas',
+      );
+      const notes = await coachNotesOn(db, gabija.id, id);
+      expect(notes.map((n) => [n.coachName, n.text.slice(0, 22)])).toEqual([
+        ['Rimantas Vaitkus', 'Teisingai, 9...Be7, ne'],
+      ]);
+      const graph = (await loadRepertoire(db, id, gabija.id))?.graph;
+      const be7 = graph?.moves.find(
+        (m) => moveKey(m.from, m.san) === notes[0]?.moveKey,
+      );
+      expect(be7?.san).toBe('Be7');
+      expect(await dueAt(gabija.id, notes[0]?.moveKey ?? '')).toBe(true);
+    },
+    SLOW,
+  );
+
+  it(
+    "leaves Rokas's QGD overdue at the seed date: its deadline passed, not done (R-51)",
+    async () => {
+      await seedPersonas(db, NOW);
+      const rokas = await persona(db, 'persona-u1400@mychess.test');
+      const assigned = await playerAssignments(db, rokas.id, NOW);
+      expect(
+        assigned
+          .filter((a) => a.badges.overdue)
+          .map((a) => [a.name, a.deadline, a.done]),
+      ).toEqual([['Atmestas valdovės gambitas', '2026-11-01', false]]);
     },
     SLOW,
   );

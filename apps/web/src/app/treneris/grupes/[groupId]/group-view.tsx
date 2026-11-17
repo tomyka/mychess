@@ -46,7 +46,7 @@ function MemberRow({
   const t = useTranslations('coach.group');
   const nameId = useId();
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3">
+    <li className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3 first:border-t-0 first:pt-0">
       <span id={nameId} className="min-w-0 break-words">
         {member.displayName}
       </span>
@@ -82,7 +82,7 @@ function Members({
       {group.members.length === 0 ? (
         <p className="text-fg-muted">{t('noMembers')}</p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-3">
           {group.members.map((member) => (
             <MemberRow
               key={member.id}

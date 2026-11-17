@@ -68,9 +68,12 @@ export const PERSONA_ASSIGNMENTS: readonly PersonaAssignment[] = [
     at: later(on('2026-04-12'), 1),
   },
   {
+    // Seed assumption (the docs give it none): a deadline already passed
+    // at the seed date, set when it was still ahead (R-210), and Rokas has
+    // not started it, so the assignment is overdue (R-51).
     repertoire: 'qgd',
     to: 'u1400',
-    deadline: null,
+    deadline: '2026-11-01',
     at: later(on('2026-04-12'), 1),
   },
 ];
@@ -169,6 +172,56 @@ export const PERSONA_NOTES: readonly PersonaNote[] = [
       'su varikliu 22.Qe3 ir 22.Rb8; lost a training game in March ' +
       'because I forgot the check.',
     at: on('2026-03-21'),
+  },
+];
+
+/** Text on move `move` of a chapter's main line, written on `at`. */
+export interface PersonaComment {
+  readonly repertoire: string;
+  readonly chapter: string;
+  readonly move: string;
+  readonly text: string;
+  readonly at: Date;
+}
+
+/**
+ * The owner's move comments (R-102) on their repertoire, written after it
+ * was made and before it is assigned, so players get it with the
+ * assignment, not as an "Updated" change (R-133). On an assigned
+ * repertoire they are the coach's notes its players see in training
+ * (R-174). Seed assumption: u1400.md (U1-M2-4)
+ * has Rokas read a Lithuanian coach note in review; this one is on a move
+ * of the Caro-Kann Exchange he learned the day before the seed date, so
+ * due on it.
+ */
+export const PERSONA_COMMENTS: readonly PersonaComment[] = [
+  {
+    repertoire: 'caro-kann',
+    chapter: 'Exchange',
+    move: '7...Qd7',
+    text: 'Valdovė d7 gina b7 pėstininką. Po 8.Nd2 e6 9.Ngf3 Bd6 keičiame juodalaukius rikius.',
+    at: later(on('2025-11-20'), 0.5),
+  },
+];
+
+/** A coach's note (R-42) on a move of a player's repertoire shared with them. */
+export interface PersonaCoachNote extends PersonaComment {
+  readonly coach: PersonaKey;
+}
+
+/**
+ * Seed assumption: Rimantas's note on Gabija's shared Taimanov, on the
+ * move she lapses on (due at the seed date), which she sees read-only in
+ * review once answered (R-107, R-174).
+ */
+export const PERSONA_COACH_NOTES: readonly PersonaCoachNote[] = [
+  {
+    coach: 'coach',
+    repertoire: 'taimanov',
+    chapter: '6.Be2',
+    move: '9...Be7',
+    text: 'Teisingai, 9...Be7, ne Bd6. Po 10.Nxc6 bxc6 11.Nb6 Rb8 12.Nxc8 Qxc8 baltieji turi rikių porą, bet juodųjų centras tvirtas: planas d7-d5.',
+    at: on('2026-02-10'),
   },
 ];
 

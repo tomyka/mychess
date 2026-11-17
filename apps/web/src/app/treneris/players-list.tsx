@@ -51,7 +51,11 @@ function DeadlineSignal({
   const date = useDeadline();
   if (player.overdue) return <AssignmentBadges flags={OVERDUE} />;
   if (player.nearestDeadline === null) return null;
-  return <p>{t('deadlineOn', { date: date(player.nearestDeadline) })}</p>;
+  return (
+    <p className="text-sm">
+      {t('deadlineOn', { date: date(player.nearestDeadline) })}
+    </p>
+  );
 }
 
 const INITIAL: CoachActionState = {};
@@ -95,7 +99,7 @@ function PlayerRow({
         <LinkedSince at={player.linkedAt} />
       </div>
       <DeadlineSignal player={player} />
-      <p className="text-fg-muted">
+      <p className="text-sm text-fg-muted">
         {groups.length === 0
           ? t('noGroups')
           : t('groups', {

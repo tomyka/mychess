@@ -55,7 +55,7 @@ He owns and assigns tier-fitting repertoires; full lines are in each player's pe
 |---|---|---|---|
 | "Itališkoji partija" (Italian Game) | White | Rokas | Individual, deadline 2026-11-30 |
 | "1...e5" (open games) | Black | Rokas | Individual |
-| "Atmestas valdovės gambitas" (QGD) | Black | Rokas | Individual |
+| "Atmestas valdovės gambitas" (QGD) | Black | Rokas | Individual, deadline 2026-11-01, not started: overdue |
 | "Valdovės gambitas" (Queen's Gambit) | White | Gabija | Individual, deadline 2026-12-15 |
 | "Slavų gynyba" (Slav Defence) | Black | Gabija | Individual, deadline 2026-11-30 |
 | "Naidorfo variantas" (Najdorf: English Attack 6...e5, 6.Bg5 and 6.Be2 chapters) | Black | Dovydas | Individual; Dovydas has forked it |

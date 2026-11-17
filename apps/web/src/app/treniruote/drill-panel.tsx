@@ -139,7 +139,9 @@ export function LineSoFar({
           >
             {layouts.text}
           </p>
-          <ol className="hidden grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-1 tabular-nums lg:grid">
+          {/* On a portrait tablet (`tall:`) the panel is board-wide under
+              the board: fixed move columns keep the list compact. */}
+          <ol className="hidden grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-1 tabular-nums lg:grid tall:grid-cols-[auto_8rem_8rem] tall:justify-start">
             {layouts.rows.map(({ number, white, black }) => (
               <li key={number} className="col-span-3 grid grid-cols-subgrid">
                 <span className="text-fg-muted">{number}</span>

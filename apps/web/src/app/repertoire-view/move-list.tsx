@@ -131,6 +131,12 @@ function useChipLabel(text: string, glyphs: ChipGlyphs): string {
   ].join(', ');
 }
 
+/** A transposing chip's hover title, what its two-arrow mark means; none otherwise. */
+function useTransposesHint(transposes: boolean): string | undefined {
+  const t = useTranslations('repertoires.moves');
+  return transposes ? t('transposesHint') : undefined;
+}
+
 /** What a chip marks after its SAN; the chip's name says each in words. */
 interface ChipGlyphs {
   readonly comment: boolean;
@@ -164,6 +170,7 @@ function MoveChip({
   };
   const san = annotatedSan(move.san, move.nags);
   const label = useChipLabel(`${number} ${san}`, glyphs);
+  const hint = useTransposesHint(token.transposes);
   useEffect(() => {
     const chip = ref.current;
     if (isCurrent && typeof chip?.scrollIntoView === 'function')
@@ -185,6 +192,7 @@ function MoveChip({
         ref={ref}
         type="button"
         aria-label={label}
+        title={hint}
         aria-current={isCurrent ? 'true' : undefined}
         onClick={() => {
           context.onGoto(token.path);

@@ -86,6 +86,40 @@ own note when it is built. Vocabulary is from `docs/CONTEXT.md`; tokens from
 - Between 640 and 1024px the panel moves under the board, as on the phone,
   but the board is capped at the viewport height minus the top bar.
 
+## Portrait tablet, 1024 x 1366 (#334)
+
+A screen 1024px or wider held upright (`tall:` in `tokens.css`: width at
+least 64rem and portrait). Side by side, the board fitted at 568px and the
+lower half of the screen was empty; stacked, it is 880px.
+
+```
++--------------------------------------------------+  1024 x 1366
+|  < Back  Katalonų pradžia          Review 0 / 20 |  top bar as one row
+|  [=========-----------------------------------]  |  progress
+|  +--------------------------------------------+  |
+|  |                                            |  |
+|  |               B O A R D                    |  |  min(100vw - 4rem,
+|  |      880px at 1024 x 1366                  |  |      100dvh - 30rem)
+|  |                                            |  |
+|  +--------------------------------------------+  |
+|  +--------------------------------------------+  |
+|  | ( ) White to move                          |  |  the card: panel and
+|  | Your move                                  |  |  bottom bar, as wide
+|  | [ Type a move           ][>]  [Hint]       |  |  as the board; the
+|  | 12. Na3  Bf5 ...                           |  |  panel takes what is
+|  | [ End session ]                            |  |  left (about 15rem)
+|  +--------------------------------------------+  |  and scrolls inside
++--------------------------------------------------+
+```
+
+- One grid column of the board's width, centred, with `gutter-wide`
+  padding; rows: top bar, board, panel, bottom bar. The tree order is
+  unchanged, so Tab still goes back link, board, panel, bottom bar.
+- The 30rem reserve is the padding, top bar, gaps, about 15rem of panel
+  and the bottom bar. On 768-1023px portrait tablets the 640-1024 rule
+  above still applies (board full width); phones and landscape screens are
+  unchanged.
+
 ## Move feedback (both widths)
 
 | Moment | Board | Panel |

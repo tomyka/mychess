@@ -54,6 +54,8 @@ async function coachInvitesGroup(
   await page.getByRole('link', { name: en.settings.home }).click();
   await page.getByRole('link', { name: en.app.coachArea }).click();
   await expect(page).toHaveURL(/\/treneris$/);
+  // A group invite from the invites form; the group's own one (R-204) is
+  // used by the assignment and progress journeys.
   await createGroup(page, en, GROUP);
   return createInvite(page, en, { kind: 'group', group: GROUP });
 }

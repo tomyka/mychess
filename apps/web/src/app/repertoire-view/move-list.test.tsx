@@ -65,6 +65,9 @@ describe('MoveList', () => {
     const moves = MESSAGES.en.repertoires.moves;
     const transposing = chip(`2... d5, ${moves.transposes}`);
     expect(transposing.querySelector('[data-transposition]')).not.toBeNull();
+    // A hover title says what the marker means (ux sign-off).
+    expect(transposing.title).toBe(moves.transposesHint);
+    expect(chip('3. Nc3').hasAttribute('title')).toBe(false);
     // A leaf that ends the line is not a transposition.
     expect(chip('3. Nc3').querySelector('[data-transposition]')).toBeNull();
     expect(

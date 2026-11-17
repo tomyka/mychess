@@ -81,7 +81,7 @@ function TopBar({ mode, backHref, title, progress }: TopBarProps): JSX.Element {
     <div className={FRAME_HEAD}>
       <header className={FRAME_TOP}>
         <BackLink href={backHref} label={t('back')} />
-        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold lg:w-full lg:flex-none lg:text-xl">
+        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold lg:w-full lg:flex-none lg:text-xl tall:w-auto tall:flex-1">
           {title}
         </h1>
         {progress === undefined ? null : (

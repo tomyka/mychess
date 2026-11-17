@@ -3,7 +3,7 @@
 import { reviewProgress, type RepertoireMove } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { useMemo, type JSX } from 'react';
+import { useEffect, useMemo, useRef, type JSX } from 'react';
 import type { TrainingData } from '../../lib/training-data';
 import { Board } from '../board/board';
 import { useSquareWords } from '../board/square-words';
@@ -81,25 +81,23 @@ function ReviewPanel({
   return (
     <>
       <Status drill={drill} />
-      <MoveRow input={drill} color={drill.view.turnColor} />
-      <button
-        type="button"
-        onClick={drill.hint}
-        aria-disabled={!canHint(drill.state)}
-        className={`${SECONDARY_BUTTON} self-start aria-disabled:opacity-60`}
-      >
-        {t('hint')}
-      </button>
+      {/* While a coach note holds the drill only it and Next count: the
+          move field and Hint cannot be used, and on a portrait tablet they
+          would push the note out of the panel. */}
+      {drill.next === null ? (
+        <>
+          <MoveRow input={drill} color={drill.view.turnColor} />
+          <button
+            type="button"
+            onClick={drill.hint}
+            aria-disabled={!canHint(drill.state)}
+            className={`${SECONDARY_BUTTON} self-start aria-disabled:opacity-60`}
+          >
+            {t('hint')}
+          </button>
+        </>
+      ) : null}
       <DrillCoachNote notes={drill.notes} />
-      {drill.next === null ? null : (
-        <button
-          type="button"
-          onClick={drill.next}
-          className={`${PRIMARY_BUTTON} self-start`}
-        >
-          {t('next')}
-        </button>
-      )}
       <LineSoFar
         moves={unannotated(playedMoves(drill.state))}
         rootKey={drill.state.shown?.line.rootKey}
@@ -178,9 +176,30 @@ export function ReviewDrill({
     board,
     panel: <ReviewPanel drill={drill} named={named} />,
     actions: (
-      <Link href={links.back} className={SECONDARY_BUTTON}>
-        {t('training.drill.end')}
-      </Link>
+      <>
+        {drill.next === null ? null : <NextButton onNext={drill.next} />}
+        <Link href={links.back} className={SECONDARY_BUTTON}>
+          {t('training.drill.end')}
+        </Link>
+      </>
     ),
   });
+}
+
+/**
+ * "Next" while a coach note holds the drill (R-174): in the bottom bar, the
+ * thumb zone, before End session, so on a phone it is not under the fold
+ * below the note; it takes the focus from the move field, now disabled.
+ */
+function NextButton({ onNext }: { readonly onNext: () => void }): JSX.Element {
+  const t = useTranslations('training.review');
+  const ref = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    ref.current?.focus();
+  }, []);
+  return (
+    <button ref={ref} type="button" onClick={onNext} className={PRIMARY_BUTTON}>
+      {t('next')}
+    </button>
+  );
 }

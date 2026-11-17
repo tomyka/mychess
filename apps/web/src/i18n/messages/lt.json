@@ -426,7 +426,8 @@
       "hasNote": "yra mano užrašas",
       "hasCoachNote": "yra mano trenerio pastaba",
       "hasKeptCoachNote": "yra trenerio pastaba",
-      "transposes": "ėjimų perstatymas"
+      "transposes": "ėjimų perstatymas",
+      "transposesHint": "Ėjimų perstatymas: variantas tęsiasi ten, kur ši padėtis jau buvo anksčiau"
     },
     "note": {
       "label": "Mano užrašas",

@@ -110,6 +110,28 @@ describe('GroupsSection', () => {
     expect(screen.getByText(i.linkOnce)).toBeDefined();
   });
 
+  it('shows each new group’s own link, the 4th as well as the 1st (ux sign-off)', async () => {
+    const i = MESSAGES.lt.coach.invites;
+    renderSection([]);
+    for (let n = 1; n <= 4; n += 1) {
+      const link = `http://localhost:3000/k/${String(n)}`;
+      server.create.mockResolvedValueOnce({
+        createdId: `g-${String(n)}`,
+        link,
+      });
+      fireEvent.change(nameField(), {
+        target: { value: `Grupė ${String(n)}` },
+      });
+      fireEvent.click(create());
+      await waitFor(() => {
+        expect(screen.getByLabelText<HTMLInputElement>(i.link).value).toBe(
+          link,
+        );
+      });
+    }
+    expect(server.create).toHaveBeenCalledTimes(4);
+  });
+
   it('says the group was made without a link at the open-invite limit (R-114)', async () => {
     server.create.mockResolvedValue({
       createdId: 'g-new',

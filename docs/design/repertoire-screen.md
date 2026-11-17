@@ -346,20 +346,26 @@ has a draw mode for touch and keyboard (plan decision 16).
 |  |                                          |  | [______________________] |  |
 |  |                                          |  | [ Save note ]            |  |
 |  |                                          |  |--------------------------|  |
-|  |                                          |  | 1. d4 d5 2. Bf4 Nf6      |  |  move list:
-|  |                                          |  | 3. e3 [e6] 4. Nf3 c5     |  |  flex-1, scrolls
+|  |                                          |  | 1. d4 d5 2. Bf4 Nf6      |  |  move list: at most
+|  |                                          |  | 3. e3 [e6] 4. Nf3 c5     |  |  50dvh, scrolls
 |  |                                          |  | |  3... c5 4. c3 Nc6     |  |  inside, current
-|  |                                          |  |                          |  |  move kept in view
-|  +------------------------------------------+  +--------------------------+  |
+|  |                                          |  |--------------------------|  |  move kept in view
+|  +------------------------------------------+  | Assign / Share ...       |  |  the rest follows;
+|    board: sticky top-8                         | (as tall as its content) |  |  the page scrolls,
+|                                                +--------------------------+  |  not the panel
 |    <---------------- 664 ----------------->  32  <---- panel 360 ----->      |
 +------------------------------------------------------------------------------+
 ```
 
 - Board and panel are centred as one block (1056px at 1280); gutters
   `gutter-wide`; the board has `rounded-board`. The panel (`w-panel`,
-  `bg-surface`, `rounded-card`, `shadow-card`) is the board's height; only
-  the chapter list and the move list scroll inside it, so the board row,
-  the builder row and the comment stay put.
+  `bg-surface`, `rounded-card`, `shadow-card`) is as tall as its content
+  and scrolls with the page, not inside a box of the board's height (#331):
+  a box inside the page made two scrollbars and hid the panel's lower
+  sections (assign, share) behind an inner scroll. The board is
+  `sticky top-8`, so it stays in view beside the panel however far the page
+  scrolls. Only the chapter list (5 rows at most) and the move list (at
+  most `50dvh`) scroll inside the panel.
 - **Header:** the back link, then the name (h1) with the four actions as
   `SECONDARY_BUTTON`s that wrap under the name when LT labels do not fit,
   and the mode switch at the right end. Rename turns the h1 into a name
@@ -371,10 +377,10 @@ has a draw mode for touch and keyboard (plan decision 16).
   status line, chapter disclosure, comment and note, move list. (The first
   draft put the move list above the comment on desktop with CSS `order`,
   which made Tab reach the comment before the moves, WCAG 2.4.3.) On
-  desktop the move list is its own scroller (`flex-1`, at least `min-h-40`),
-  so stepping scrolls the moves and the comment above them stays in view;
-  the panel as a whole scrolls only when the builder's fields leave the
-  list less than that.
+  desktop the move list is its own scroller (at least `min-h-40`, at most
+  `max-h-[50dvh]`), so stepping through a long chapter scrolls the moves
+  and the comment above them stays in view; the sections under the list
+  follow it down the page.
 - Draw mode on desktop: the builder row becomes the four colours, then
   Done; the hint is the first line under it.
 - **640-1024px:** the panel moves under the board as on the phone; the board
@@ -404,6 +410,12 @@ has a draw mode for touch and keyboard (plan decision 16).
 - A move with a comment shows a small comment glyph after the SAN; a move
   with the player's personal note shows a lock glyph. Both are `aria-hidden`
   with the meaning in the chip's accessible name ("6. Be2, has a comment").
+- **Transposition** (#331): a move that lands on a position the chapter
+  goes on from elsewhere ends its line there and shows two opposite arrows
+  (12px, `currentColor`) after the SAN, first of the glyphs; its accessible
+  name adds "transposes" ("4... Bc5, transposes"). The arrows say "the line
+  goes on where this position was shown already"; sighted players get the
+  same words from the chip's `title` (open, see the sign-off of 2026-11-17).
 - The moves are plain buttons in reading order and Tab walks them; each
   variation block is a `<div>` with no extra role. It is not an ARIA tree
   widget (that would take the moves out of the Tab order and needs more

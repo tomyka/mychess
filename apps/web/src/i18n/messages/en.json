@@ -426,7 +426,8 @@
       "hasNote": "has my note",
       "hasCoachNote": "has my coach note",
       "hasKeptCoachNote": "has a coach note",
-      "transposes": "transposes"
+      "transposes": "transposes",
+      "transposesHint": "Transposition: the line goes on where this position appears earlier"
     },
     "note": {
       "label": "My note",

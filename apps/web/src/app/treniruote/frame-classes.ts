@@ -7,7 +7,9 @@
 // bar, the board, the panel, the bottom bar. On a phone they stack and only
 // the panel scrolls. On a desktop a grid puts the board in the left column
 // and the rest in the right one, over a card drawn behind them (FRAME_CARD),
-// as tall as the board.
+// as tall as the board. On a portrait tablet 1024px or wider (`tall:`, #334)
+// the grid has one column: the top bar, a larger board, then the card with
+// the panel and the bottom bar under it.
 
 /** The board's edge on a desktop (FRAME_MAIN's --board-edge). */
 const BOARD_EDGE = 'lg:w-(--board-edge)';
@@ -19,27 +21,32 @@ const BOARD_EDGE = 'lg:w-(--board-edge)';
  * the side padding (2rem each), so a 1024px-wide portrait tablet does not
  * overflow (#323). The grid is as tall as the board plus its padding, so
  * the card is the board's height.
+ *
+ * On a portrait tablet the board is the width less the side padding, but
+ * leaves 30rem of the height for the padding, the top bar, the gaps, the
+ * panel (about 15rem) and the bottom bar; the grid fills the screen and the
+ * panel takes what is left.
  */
 export const FRAME_MAIN =
-  'flex h-dvh flex-col lg:mx-auto lg:grid lg:[--board-edge:min(calc(100dvh_-_4rem),42.5rem,calc(100vw_-_var(--spacing-panel)_-_6rem))] lg:h-[calc(var(--board-edge)+4rem)] lg:max-w-6xl lg:grid-cols-[auto_var(--spacing-panel)] lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:justify-center lg:gap-x-8 lg:gap-y-3 lg:px-gutter-wide lg:py-8';
+  'flex h-dvh flex-col lg:mx-auto lg:grid lg:[--board-edge:min(calc(100dvh_-_4rem),42.5rem,calc(100vw_-_var(--spacing-panel)_-_6rem))] lg:h-[calc(var(--board-edge)+4rem)] lg:max-w-6xl lg:grid-cols-[auto_var(--spacing-panel)] lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:justify-center lg:gap-x-8 lg:gap-y-3 lg:px-gutter-wide lg:py-8 tall:[--board-edge:min(calc(100vw_-_4rem),calc(100dvh_-_30rem))] tall:h-dvh tall:grid-cols-[var(--board-edge)] tall:grid-rows-[auto_auto_minmax(0,1fr)_auto] tall:gap-y-4';
 
-/** The desktop side card, drawn behind the right column's parts. */
+/** The desktop side card, drawn behind the right column's parts; on a portrait tablet behind the panel and the bottom bar. */
 export const FRAME_CARD =
-  'hidden lg:col-start-2 lg:row-span-full lg:block lg:w-panel lg:rounded-card lg:bg-surface lg:shadow-card';
+  'hidden lg:col-start-2 lg:row-span-full lg:block lg:w-panel lg:rounded-card lg:bg-surface lg:shadow-card tall:col-start-1 tall:row-span-2 tall:row-start-3 tall:w-full';
 
-/** The top bar and the session progress under it. */
+/** The top bar and the session progress under it; on a portrait tablet above the board, outside the card. */
 export const FRAME_HEAD =
-  'flex flex-col lg:col-start-2 lg:row-start-1 lg:mx-4 lg:mt-4 lg:min-w-0 lg:gap-3';
+  'flex flex-col lg:col-start-2 lg:row-start-1 lg:mx-4 lg:mt-4 lg:min-w-0 lg:gap-3 tall:col-start-1 tall:mx-0 tall:mt-0';
 
 /** Between 640 and 1024px the board is capped at the viewport's height. */
-export const FRAME_BOARD = `shrink-0 sm:mx-auto sm:w-[min(100%,calc(100dvh-3.75rem))] lg:col-start-1 lg:row-span-full lg:mx-0 lg:self-start ${BOARD_EDGE}`;
+export const FRAME_BOARD = `shrink-0 sm:mx-auto sm:w-[min(100%,calc(100dvh-3.75rem))] lg:col-start-1 lg:row-span-full lg:mx-0 lg:self-start ${BOARD_EDGE} tall:row-span-1 tall:row-start-2`;
 
 export const FRAME_TOP =
-  'flex min-h-14 items-center gap-3 px-gutter lg:min-h-0 lg:flex-col lg:items-start lg:gap-1 lg:px-0';
+  'flex min-h-14 items-center gap-3 px-gutter lg:min-h-0 lg:flex-col lg:items-start lg:gap-1 lg:px-0 tall:flex-row tall:items-center tall:gap-3';
 
 /** With no bottom bar, its margin and the empty row's gap make the card's padding. */
 export const FRAME_PANEL =
-  'flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-gutter py-3 lg:col-start-2 lg:row-start-2 lg:mx-4 lg:mb-1 lg:min-w-0 lg:px-0 lg:py-0';
+  'flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-gutter py-3 lg:col-start-2 lg:row-start-2 lg:mx-4 lg:mb-1 lg:min-w-0 lg:px-0 lg:py-0 tall:col-start-1 tall:row-start-3 tall:mt-4';
 
 export const FRAME_ACTIONS =
-  'flex flex-wrap gap-3 border-t border-border px-gutter pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:col-start-2 lg:row-start-3 lg:mx-4 lg:mb-4 lg:border-0 lg:px-0 lg:pt-0 lg:pb-0';
+  'flex flex-wrap gap-3 border-t border-border px-gutter pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:col-start-2 lg:row-start-3 lg:mx-4 lg:mb-4 lg:border-0 lg:px-0 lg:pt-0 lg:pb-0 tall:col-start-1 tall:row-start-4';
