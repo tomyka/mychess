@@ -13,7 +13,8 @@ name: CI/CD
 # as a short-lived artifact with its sha256 as a job output. e2e loads that
 # archive and runs the Playwright suite against a throwaway stack made from it
 # (infra/ci/e2e-stack.sh), so the black-box tests run on the very bytes that
-# deploy.
+# deploy; it is five parallel jobs, each with its own stack and a part of the
+# suite (#366).
 #
 # On main the scanned image goes to production at once, before check and e2e
 # finish (R-192): `deploy` runs on the production VM's own runner (label
@@ -171,17 +172,29 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
-  # Browser tests against a throwaway stack made from the image just built.
+  # Browser tests against a throwaway stack made from the image just built,
+  # split into parallel jobs (#366): each part loads the same image and starts
+  # its own stack, so the parts share no database or inbox. Parts 1-4 are the
+  # test lists in apps/web/e2e/ci-parts/ (balanced by run time; its README
+  # has the numbers); `rest` runs every test none of them lists, so no test
+  # is left out. needs.e2e.result, which verdict reads, is success only when
+  # every part passed; fail-fast is off so one failing part does not cancel
+  # the others' results.
   e2e:
     needs: image
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 30
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        part: ['1', '2', '3', '4', rest]
     env:
       APP_IMAGE: mychess:${{ github.sha }}-arm64
-      PROJECT: mychess-e2e-${{ github.run_id }}
+      PROJECT: mychess-e2e-${{ github.run_id }}-${{ matrix.part }}
       IMAGE_SHA256: ${{ needs.image.outputs.sha256 }}
     concurrency:
-      group: ci-e2e-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+      # One group per part: the parts of one run must not cancel each other.
+      group: ci-e2e-${{ matrix.part }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -226,7 +239,21 @@ jobs:
             echo "DATABASE_URL=$database"
           } >> "$GITHUB_ENV"
       # With E2E_BASE_URL set, playwright.config.ts starts no server of its own.
-      - run: pnpm test:e2e
+      - name: E2E, this part's tests
+        working-directory: apps/web
+        env:
+          PART: ${{ matrix.part }}
+        run: |
+          if [ "$PART" = rest ]; then
+            cat e2e/ci-parts/part-*.txt > "$RUNNER_TEMP/listed.txt"
+            selection=(--test-list-invert "$RUNNER_TEMP/listed.txt")
+          else
+            selection=(--test-list "e2e/ci-parts/part-$PART.txt")
+          fi
+          # A list whose files were renamed selects nothing; its tests then run
+          # in `rest`, and this line shows the imbalance.
+          pnpm exec playwright test --list "${selection[@]}" | tail -n 1
+          pnpm exec playwright test "${selection[@]}"
       - name: The web's log
         if: failure()
         run: docker compose -p "$PROJECT" logs --tail 200 web || true
@@ -236,7 +263,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
-          name: e2e-report
+          name: e2e-report-${{ matrix.part }}
           retention-days: 3
           path: |
             apps/web/playwright-report/

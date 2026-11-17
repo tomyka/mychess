@@ -1,0 +1,2 @@
+# CI e2e part 1 (README.md here).
+[desktop-chromium] > training-learn.spec.ts

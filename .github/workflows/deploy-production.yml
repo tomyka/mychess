@@ -67,8 +67,14 @@ jobs:
           run="$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA&status=completed" --jq '[.workflow_runs[]|select(.conclusion=="success")][0].id // empty')"
           [ -n "$run" ] || { echo "::error::no successful CI/CD run for $SHA"; exit 1; }
           jobs="$(gh api "repos/$REPO/actions/runs/$run/jobs" --paginate --jq '.jobs[]|"\(.name) \(.conclusion)"')"
+          # e2e is a matrix since #366: one job per part, named "e2e (<part>)".
+          # A name counts when it has at least one job and all of them passed.
           for name in check image e2e; do
-            printf '%s\n' "$jobs" | grep -qx "$name success" || { echo "::error::job $name did not succeed for $SHA"; exit 1; }
+            own="$(printf '%s\n' "$jobs" | grep -E "^$name( \([^)]*\))? " || true)"
+            if [ -z "$own" ] || printf '%s\n' "$own" | grep -qvE ' success$'; then
+              echo "::error::job $name did not succeed for $SHA"
+              exit 1
+            fi
           done
           echo "$SHA is green: run $run"
 

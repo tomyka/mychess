@@ -1,0 +1,4 @@
+# CI e2e part 3 (README.md here).
+[desktop-chromium] > training-review.spec.ts
+[desktop-chromium] > training-arrows.spec.ts
+[desktop-chromium] > repertoires.spec.ts

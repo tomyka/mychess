@@ -11,7 +11,7 @@ How mychess v2 is tested, built and run. Hosting decisions: `docs/adr/`
 | db | `pnpm test:db` | packages/db against a Testcontainers Postgres | gate |
 | component | `pnpm test:component` | apps/web components in jsdom | gate |
 | feature | `pnpm test:feature` | apps/web route handlers and server actions (`apps/web/test/feature/`) against a Testcontainers Postgres from `@mychess/db/testing` | gate |
-| e2e | `pnpm test:e2e` | Playwright (`apps/web/e2e/`), desktop Chromium and Pixel 7, against `next build` + `next start` on port 3100, or against `E2E_BASE_URL` when set | CI/CD `e2e` job against the release image, outside the gate |
+| e2e | `pnpm test:e2e` | Playwright (`apps/web/e2e/`), desktop Chromium and Pixel 7, against `next build` + `next start` on port 3100, or against `E2E_BASE_URL` when set | CI/CD `e2e` job against the release image, outside the gate, as five parallel parts (`apps/web/e2e/ci-parts/`) |
 
 Feature and db suites need Docker. The Postgres image every suite uses is
 `POSTGRES_IMAGE` in `packages/db/src/testing/database.ts`.
