@@ -5,6 +5,6 @@ export default async function setup(
   project: TestProject,
 ): Promise<() => Promise<void>> {
   const database = await startTestDatabase();
-  project.provide('databaseUrl', database.url);
+  project.provide('templateDatabaseUrl', database.url);
   return database.stop;
 }

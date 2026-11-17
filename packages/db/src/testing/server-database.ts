@@ -35,6 +35,21 @@ export function databaseUrlOn(serverUrl: string, name: string): string {
   return url.toString();
 }
 
+/** The name of the database `url` points at. */
+export function databaseNameOf(url: string): string {
+  return new URL(url).pathname.slice(1);
+}
+
+/** The name of the server's maintenance database, there on every Postgres. */
+const MAINTENANCE_DATABASE = 'postgres';
+
+const databaseNames = z.array(z.object({ name: z.string() }));
+
+/** The name of the database the vitest worker `poolId` copies `template` to. */
+export function workerDatabaseName(template: string, poolId: string): string {
+  return `${template}_w${poolId}`;
+}
+
 export async function createDatabase(
   serverUrl: string,
   name: string,
@@ -44,16 +59,53 @@ export async function createDatabase(
   );
 }
 
-/** Drops `name`, closing any connection still open to it. */
+/**
+ * Creates `copy` from `template` on the server of `templateUrl`, unless it
+ * exists already: a worker's later files reuse the copy its first file made.
+ * Only that worker ever creates `copy`, so the check cannot race. Nobody may
+ * be connected to the template meanwhile, so the template's own URL is
+ * never handed to a test file.
+ */
+export async function ensureDatabaseCopy(
+  templateUrl: string,
+  copy: string,
+): Promise<void> {
+  const template = databaseNameOf(templateUrl);
+  await onServer(
+    databaseUrlOn(templateUrl, MAINTENANCE_DATABASE),
+    async (client) => {
+      const existing = await client.query(
+        'select 1 from pg_database where datname = $1',
+        [copy],
+      );
+      if (existing.rowCount !== 0) return;
+      await client.query(
+        `create database ${client.escapeIdentifier(copy)} template ${client.escapeIdentifier(template)}`,
+      );
+    },
+  );
+}
+
+/**
+ * Drops `name` and every worker copy of it, closing any connection still
+ * open to them.
+ */
 export async function dropDatabase(
   serverUrl: string,
   name: string,
 ): Promise<void> {
-  await onServer(serverUrl, (client) =>
-    client.query(
-      `drop database if exists ${client.escapeIdentifier(name)} with (force)`,
-    ),
-  );
+  await onServer(serverUrl, async (client) => {
+    const copies = await client.query(
+      'select datname as name from pg_database where starts_with(datname, $1)',
+      [workerDatabaseName(name, '')],
+    );
+    const names = databaseNames.parse(copies.rows).map((row) => row.name);
+    for (const database of [...names, name]) {
+      await client.query(
+        `drop database if exists ${client.escapeIdentifier(database)} with (force)`,
+      );
+    }
+  });
 }
 
 async function onServer(

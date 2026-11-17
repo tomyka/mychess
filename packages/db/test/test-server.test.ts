@@ -1,12 +1,13 @@
 import pg from 'pg';
 import { afterEach, describe, expect, inject, it, vi } from 'vitest';
 import { startTestDatabase, type TestDatabase } from '../src/testing';
+import { workerDatabaseUrl } from '../src/testing/database';
 
 // TEST_POSTGRES_URL points startTestDatabase at a long-lived server. These
 // tests use the server the suite's global setup already started (its
 // `postgres` maintenance database), so they need no server of their own.
 const serverUrl = (() => {
-  const url = new URL(inject('databaseUrl'));
+  const url = new URL(inject('templateDatabaseUrl'));
   url.pathname = '/postgres';
   return url.toString();
 })();
@@ -50,11 +51,12 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-// Two databases are created and migrated here: the work the suite's global
-// setup does once, so it gets a hook's budget (vitest.config.ts
+// Each test below creates and migrates databases: the work the suite's
+// global setup does once, so it gets a hook's budget (vitest.config.ts
 // hookTimeout), not a plain test's 30 s. On a loaded Docker host the plain
-// timeout ran out (#285).
-const MIGRATING_TWICE = 120_000;
+// timeout ran out (#285), and with the files running in parallel (R-211)
+// even one migration can.
+const MIGRATING = 120_000;
 
 describe('startTestDatabase with TEST_POSTGRES_URL', () => {
   it(
@@ -79,20 +81,44 @@ describe('startTestDatabase with TEST_POSTGRES_URL', () => {
       expect(await databaseExists(databaseName(first))).toBe(false);
       expect(await databaseExists(databaseName(second))).toBe(false);
     },
-    MIGRATING_TWICE,
+    MIGRATING,
   );
 
-  it('drops the database even with a connection still open, and stops more than once safely', async () => {
-    vi.stubEnv('TEST_POSTGRES_URL', serverUrl);
-    const database = await startTestDatabase();
-    const open = new pg.Client({ connectionString: database.url });
-    open.on('error', () => undefined);
-    await open.connect();
-    await database.stop();
-    await expect(database.stop()).resolves.toBeUndefined();
-    expect(await databaseExists(databaseName(database))).toBe(false);
-    await open.end().catch(() => undefined);
-  });
+  it(
+    'drops the database even with a connection still open, and stops more than once safely',
+    async () => {
+      vi.stubEnv('TEST_POSTGRES_URL', serverUrl);
+      const database = await startTestDatabase();
+      const open = new pg.Client({ connectionString: database.url });
+      open.on('error', () => undefined);
+      await open.connect();
+      await database.stop();
+      await expect(database.stop()).resolves.toBeUndefined();
+      expect(await databaseExists(databaseName(database))).toBe(false);
+      await open.end().catch(() => undefined);
+    },
+    MIGRATING,
+  );
+
+  it(
+    'stop() also drops the copies the workers made of the database',
+    async () => {
+      vi.stubEnv('TEST_POSTGRES_URL', serverUrl);
+      const database = await startTestDatabase();
+      const copy = new URL(workerDatabaseUrl(database.url, '7')).pathname.slice(
+        1,
+      );
+      await onServer((client) =>
+        client.query(
+          `create database ${client.escapeIdentifier(copy)} template ${client.escapeIdentifier(databaseName(database))}`,
+        ),
+      );
+      await database.stop();
+      expect(await databaseExists(copy)).toBe(false);
+      expect(await databaseExists(databaseName(database))).toBe(false);
+    },
+    MIGRATING,
+  );
 
   it.each([
     ['an empty string', ''],

@@ -244,6 +244,7 @@ The open questions from the kickoff, answered by the owner. Q-numbers refer to t
 - **R-208** (#330, 2026-11-16): PGN import previews have their own limit of 30 a minute per account; confirms keep 10 a minute. Replaces the preview half of R-119.
 - **R-209** (#330, 2026-11-16): PGN import accepts pasted PGN text as well as a file, with the same limits (R-66, R-119, R-208) and the same preview.
 - **R-210** (#329, 2026-11-17): Every assignment deadline, group or individual, must be today or later in Vilnius time when it is set or changed; clearing a deadline is always allowed. Extends R-203.
+- **R-211** (#366, 2026-11-18): The db and web feature test projects run their files in parallel, each worker on its own database, to cut CI time; the owner approved changing packages/db/vitest.config.ts and apps/web/vitest.feature.config.ts for this (gate configuration, CLAUDE.md).
 
 ## Open questions
 

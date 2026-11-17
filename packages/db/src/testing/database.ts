@@ -1,17 +1,20 @@
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { sql } from 'drizzle-orm';
 import type pg from 'pg';
-import { afterAll, beforeEach, inject } from 'vitest';
+import { afterAll, beforeAll, beforeEach, inject } from 'vitest';
 import { z } from 'zod';
 import { connect, type Db } from '../client';
 import { databaseUrlSchema } from '../config';
 import { MIGRATIONS_FOLDER, runMigrations } from '../migrations';
 import {
   createDatabase,
+  databaseNameOf,
   databaseUrlOn,
   dropDatabase,
+  ensureDatabaseCopy,
   freshDatabaseName,
   testServerUrl,
+  workerDatabaseName,
 } from './server-database';
 
 /** The Postgres image every test suite runs on, bumped deliberately. */
@@ -19,8 +22,12 @@ const POSTGRES_IMAGE = 'postgres:18.6';
 
 declare module 'vitest' {
   export interface ProvidedContext {
-    /** The migrated test database a suite's global setup started. */
-    databaseUrl: string;
+    /**
+     * The migrated database a suite's global setup started: the template
+     * each vitest worker copies its own database from (R-211). No test file
+     * connects to it.
+     */
+    templateDatabaseUrl: string;
   }
 }
 
@@ -32,12 +39,13 @@ export interface TestDatabase {
 
 /**
  * A migrated, empty Postgres database. A global setup starts one and hands
- * its `url` to the test files as `databaseUrl`
- * (`project.provide('databaseUrl', database.url)`).
+ * its `url` to the test files as the template their workers copy
+ * (`project.provide('templateDatabaseUrl', database.url)`).
  *
  * With `TEST_POSTGRES_URL` set (an admin URL to a long-lived server, such as
- * infra/compose.yaml's), it is a fresh database on that server, dropped by
- * `stop`; otherwise a throwaway Testcontainers container.
+ * infra/compose.yaml's), it is a fresh database on that server, dropped with
+ * the workers' copies of it by `stop`; otherwise a throwaway Testcontainers
+ * container.
  */
 export async function startTestDatabase(): Promise<TestDatabase> {
   const serverUrl = testServerUrl(process.env);
@@ -46,8 +54,23 @@ export async function startTestDatabase(): Promise<TestDatabase> {
     : startServerDatabase(serverUrl);
 }
 
+/**
+ * A throwaway container needs no durability, and the workers running in
+ * parallel (R-211) would otherwise wait on every fsync and on the checkpoint
+ * each DROP DATABASE forces.
+ */
+const WITHOUT_DURABILITY = [
+  'postgres',
+  ...['fsync', 'synchronous_commit', 'full_page_writes'].flatMap((name) => [
+    '-c',
+    `${name}=off`,
+  ]),
+];
+
 async function startContainerDatabase(): Promise<TestDatabase> {
-  const container = await new PostgreSqlContainer(POSTGRES_IMAGE).start();
+  const container = await new PostgreSqlContainer(POSTGRES_IMAGE)
+    .withCommand(WITHOUT_DURABILITY)
+    .start();
   return migrated(container.getConnectionUri(), () => container.stop());
 }
 
@@ -90,28 +113,54 @@ export interface TestDatabaseConnection {
 }
 
 /**
- * Connects this test file to the suite's database (`databaseUrl`), empties
+ * Connects this test file to its vitest worker's own copy of the suite's
+ * template (`templateDatabaseUrl`), made by the worker's first file, empties
  * every table before each test and closes the connection after the last.
- * Call it once, at the top of the file.
+ * Files on other workers run at the same time on other copies, so they never
+ * see this file's rows (R-211). Call it once, at the top of the file.
  */
 export function useTestDatabase(): TestDatabaseConnection {
-  const url = providedDatabaseUrl(inject('databaseUrl'));
+  const templateUrl = providedDatabaseUrl(inject('templateDatabaseUrl'));
+  const url = workerDatabaseUrl(templateUrl, process.env['VITEST_POOL_ID']);
   const { db, pool } = connect(url);
+  beforeAll(() => ensureDatabaseCopy(templateUrl, databaseNameOf(url)));
   beforeEach(() => truncateAll(db));
   afterAll(() => pool.end());
   return { url, db, client: pool };
 }
 
+const poolIdSchema = z.string().regex(/^[1-9][0-9]*$/);
+
 /**
- * The `databaseUrl` a global setup provided, or a refusal. Never lets pg
- * fall back to PG* variables or localhost: whatever the file connects to,
- * it truncates.
+ * The URL of the copy of `templateUrl` that the vitest worker `poolId`
+ * (`VITEST_POOL_ID`, unique among the workers running at once) uses.
+ */
+export function workerDatabaseUrl(
+  templateUrl: string,
+  poolId: unknown,
+): string {
+  const id = poolIdSchema.safeParse(poolId);
+  if (!id.success) {
+    throw new Error(
+      'useTestDatabase: VITEST_POOL_ID is not a vitest pool id; run the file under vitest',
+    );
+  }
+  return databaseUrlOn(
+    templateUrl,
+    workerDatabaseName(databaseNameOf(templateUrl), id.data),
+  );
+}
+
+/**
+ * The `templateDatabaseUrl` a global setup provided, or a refusal. Never
+ * lets pg fall back to PG* variables or localhost: whatever the file
+ * connects to, it truncates.
  */
 export function providedDatabaseUrl(provided: unknown): string {
   const url = databaseUrlSchema.safeParse(provided);
   if (!url.success) {
     throw new Error(
-      'useTestDatabase: no Postgres databaseUrl was provided; the suite needs a globalSetup that calls startTestDatabase and provides its url as databaseUrl',
+      'useTestDatabase: no Postgres templateDatabaseUrl was provided; the suite needs a globalSetup that calls startTestDatabase and provides its url as templateDatabaseUrl',
     );
   }
   return url.data;
