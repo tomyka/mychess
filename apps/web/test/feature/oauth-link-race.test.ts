@@ -137,6 +137,43 @@ describe('a Lichess sign-in racing a proof of the email (#272)', () => {
   );
 });
 
+// A Google sign-in proves the email before Better Auth looks the account up
+// (R-87, #365). When the callback fails after the proof, the account is left
+// as a magic link would leave it: proven, with the unproven access ended,
+// and no Google link or session; signing in again joins.
+describe('a Google sign-in that fails after proving the email', () => {
+  it('leaves the account proven with no link or session, and the retry joins', async () => {
+    const built = setup({ google: GOOGLE, lichess: LICHESS });
+    const squatter = cookieFrom(await oauthRoundTrip(built, 'lichess'));
+    const flow = await startedFlow(built, 'google');
+    // The proof reads the account first; the join's own read, after the
+    // proof, is the one that fails.
+    midCallback.step = () => {
+      midCallback.step = () => Promise.reject(new Error('database went away'));
+      return Promise.resolve();
+    };
+
+    const response = await oauthCallback(built, flow);
+
+    expect(midCallback.step).toBeUndefined();
+    expect(errorCode(response)).not.toBeNull();
+    expect(await sessionOf(built, cookieFrom(response))).toBeUndefined();
+    expect(await sessionOf(built, squatter)).toBeUndefined();
+    expect(await count('sessions')).toBe(0);
+    expect(await count('provider_accounts')).toBe(0);
+    expect(await rows('select email_verified from accounts')).toEqual([
+      { email_verified: true },
+    ]);
+
+    const retry = await oauthRoundTrip(built, 'google');
+    expect(errorCode(retry)).toBeNull();
+    expect(await providerRows()).toEqual([{ provider_id: 'google' }]);
+    expect(await sessionOf(built, cookieFrom(retry))).toBe(
+      await accountId(EMAIL),
+    );
+  });
+});
+
 describe('a provider sign-in whose own link ends mid-callback', () => {
   // A proven account with both providers linked.
   async function bothLinked(built: BuiltAuth): Promise<void> {

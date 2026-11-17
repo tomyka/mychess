@@ -1,13 +1,24 @@
+// A provider's getUserInfo is handed tokens only, no endpoint context; the
+// proof below needs the callback's own context (its path, the adapter and the
+// cookies its account hooks set), which Better Auth exposes only from core.
+// Pinned to better-auth's own core version: bump both together.
+import {
+  tryGetCurrentAuthEndpointContext,
+  type AuthEndpointContext,
+} from '@better-auth/core/context';
 import { findAccountById, type Db } from '@mychess/db';
 import {
   decideProviderJoin,
+  GOOGLE,
   LICHESS,
+  type Account,
   type ProviderJoin,
 } from '@mychess/domain';
 import type { BetterAuthOptions } from 'better-auth';
 import { revokeUnprovenAccountAccess } from 'better-auth/db';
 import { getAuthoritativeSessionFromCtx, getOAuthState } from 'better-auth/api';
 import { refusalCode } from '../auth-refusal';
+import { googleUserInfo, type GoogleUserInfo } from '../oauth/google';
 import type { HookContext } from './request-hooks';
 
 type UserOptions = NonNullable<BetterAuthOptions['user']>;
@@ -61,23 +72,13 @@ async function emailJoinRequest(
 }
 
 /**
- * The domain's answer to a join, denied unless allowed (A1). A verified
- * Google email proves the mailbox, as a magic link does (R-87): if the
- * account is unproven (a Lichess sign-up under the address), Better Auth's
- * own magic-link clean-up ends the access it gathered before the proof
- * (provider links and sessions) and marks the email verified, so Google
- * joins an account the mailbox owner alone holds. The clean-up re-reads the
- * account under its own lock, so it runs for every allowed proof.
+ * The domain's answer to a join, denied unless allowed (A1). A proof of
+ * the email has already run by now (proveGoogleEmail): Better Auth joins
+ * only an account whose email is verified.
  */
-async function answerJoin(
-  join: ProviderJoin,
-  ctx: HookContext,
-): Promise<UserInfoAnswer> {
+function answerJoin(join: ProviderJoin): UserInfoAnswer {
   const decision = decideProviderJoin(join);
-  if (!decision.ok) return { error: refusalCode(decision.refusal) };
-  if (decision.value.kind === 'proveEmail')
-    await revokeUnprovenAccountAccess(ctx, decision.value.accountId);
-  return undefined;
+  return decision.ok ? undefined : { error: refusalCode(decision.refusal) };
 }
 
 /**
@@ -95,6 +96,94 @@ export function validateUserInfo(db: Db): ValidateUserInfo {
       link === undefined
         ? await emailJoinRequest(db, data)
         : await settingsJoinRequest(data, ctx, link.userId);
-    return answerJoin(join, ctx);
+    return answerJoin(join);
+  };
+}
+
+// Better Auth's provider callback, the one route where a sign-in proves.
+const CALLBACK_PATH = '/callback/:id';
+
+type ProofContext = Parameters<typeof revokeUnprovenAccountAccess>[0];
+
+/**
+ * Is this the provider callback's context? Better Auth runs every handler
+ * with its full endpoint context (api/dispatch.mjs, runWithEndpointContext);
+ * the store only types it as partial.
+ */
+const isCallback = (
+  ctx: AuthEndpointContext,
+): ctx is AuthEndpointContext & ProofContext =>
+  ctx.path === CALLBACK_PATH && typeof ctx.setCookie === 'function';
+
+/** The provider callback's context, when this request is one. */
+function callbackContext(): ProofContext | undefined {
+  const ctx = tryGetCurrentAuthEndpointContext();
+  return ctx !== undefined && isCallback(ctx) ? ctx : undefined;
+}
+
+/**
+ * A verified Google email proves the mailbox, as a magic link does (R-87).
+ * When the account with that email is unproven (a Lichess sign-up under the
+ * address), Better Auth's own magic-link clean-up ends the access it
+ * gathered before the proof (provider links and sessions) and marks the
+ * email verified, under its own lock, so Google joins an account the
+ * mailbox owner alone holds.
+ *
+ * It runs as Google's identity is read, before Better Auth looks the
+ * account up: Better Auth joins only an account whose email is already
+ * verified and asks `validateUserInfo` only after that check
+ * (oauth2/link-account.mjs, handleOAuthUserInfo). Only a sign-in proves: a
+ * link from settings, or a Google identity an account already holds, joins
+ * no account by its email.
+ */
+async function proveGoogleEmail(
+  db: Db,
+  identity: { readonly sub: string; readonly email: string },
+): Promise<void> {
+  const ctx = callbackContext();
+  if (ctx === undefined) return;
+  if ((await getOAuthState())?.link !== undefined) return;
+  const key = { providerId: GOOGLE, accountId: identity.sub };
+  if ((await ctx.context.internalAdapter.findAccountByKey(key)) !== null)
+    return;
+  const decision = decideProviderJoin({
+    via: 'email',
+    provider: GOOGLE,
+    emailVerified: true,
+    account: await joinTarget(db, ctx, identity.email),
+  });
+  if (decision.ok && decision.value.kind === 'proveEmail')
+    await revokeUnprovenAccountAccess(ctx, decision.value.accountId);
+}
+
+/**
+ * The account Better Auth's join will find for this email, looked up
+ * exactly as it does: the email lowercased, nothing else folded
+ * (oauth2/link-account.mjs, findUserByEmail). A Google email that matches
+ * an account only once canonicalised proves nothing of that account.
+ */
+async function joinTarget(
+  db: Db,
+  ctx: ProofContext,
+  email: string,
+): Promise<Account | undefined> {
+  const found = await ctx.context.internalAdapter.findUserByEmail(
+    email.toLowerCase(),
+  );
+  return found === null ? undefined : findAccountById(db, found.user.id);
+}
+
+/** Google's identity, proving its email as it is read (proveGoogleEmail). */
+export function provingGoogleUserInfo(db: Db) {
+  return async (
+    tokens: Parameters<typeof googleUserInfo>[0],
+  ): Promise<GoogleUserInfo | null> => {
+    const info = await googleUserInfo(tokens);
+    if (info !== null)
+      await proveGoogleEmail(db, {
+        sub: info.data.sub,
+        email: info.user.email,
+      });
+    return info;
   };
 }

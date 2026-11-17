@@ -26,13 +26,12 @@ import { ROUTES } from '../../lib/routes';
 import { refusalError } from '../auth-refusal';
 import { googleConfigured, type WebEnv } from '../env';
 import { magicLinkMail, type Mailer } from '../mail';
-import { googleUserInfo } from '../oauth/google';
 import { noteLichessUnlinked } from '../lichess-unlinked';
 import { lichessUserInfo } from '../oauth/lichess';
 import { endUnlinkedProviderSession } from '../provider-session';
 import { linkWithLocale, signUpLocale } from '../sign-up-locale';
 import { testSignInPlugin } from '../test-sign-in';
-import { validateUserInfo } from './provider-join';
+import { provingGoogleUserInfo, validateUserInfo } from './provider-join';
 import { beforeRequest } from './request-hooks';
 
 const DAY = 60 * 60 * 24;
@@ -139,9 +138,6 @@ const providerAccountOptions = {
   accountLinking: {
     enabled: true,
     trustedProviders: [LICHESS],
-    // An unproven account may be joined: only Google is, and it first ends
-    // the unproven access (validateUserInfo, decideProviderJoin, R-87).
-    requireLocalEmailVerified: false,
     allowDifferentEmails: true,
     allowUnlinkingAll: true,
   },
@@ -205,13 +201,13 @@ function lichessPlugin(env: WebEnv, fetchImpl: typeof fetch) {
  * provider out, so a Google sign-in is refused as unknown rather than
  * failing (security A7). Production requires both (env.ts).
  */
-function socialProviders(env: WebEnv) {
+function socialProviders(env: WebEnv, db: Db) {
   if (!googleConfigured(env)) return {};
   return {
     [GOOGLE]: {
       clientId: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
-      getUserInfo: googleUserInfo,
+      getUserInfo: provingGoogleUserInfo(db),
       disableIdTokenSignIn: true,
     },
   };
@@ -261,7 +257,7 @@ function authOptions({ db, env, mail, fetch: fetchImpl = fetch }: AuthDeps) {
     session: sessionOptions,
     account: providerAccountOptions,
     verification: { modelName: 'verifications' },
-    socialProviders: socialProviders(env),
+    socialProviders: socialProviders(env, db),
     rateLimit: rateLimitOptions,
     advanced: advancedOptions,
     // An error with no errorCallbackURL of its own lands on our sign-in

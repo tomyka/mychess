@@ -1,7 +1,10 @@
 import { useTestDatabase } from '@mychess/db/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { LICHESS_EMAIL_IN_USE } from '../../src/lib/sign-in-errors';
+import {
+  LICHESS_EMAIL_IN_USE,
+  signInErrorKey,
+} from '../../src/lib/sign-in-errors';
 import {
   buildTestAuth,
   type BuiltAuth,
@@ -21,7 +24,7 @@ import {
 import { sqlOn } from './support/rows';
 
 const { db, client } = useTestDatabase();
-const { rows, count } = sqlOn(client);
+const { rows, count, accountId } = sqlOn(client);
 
 // Better Auth's token exchange uses the global fetch; Lichess's identity
 // calls use the one createAuth is given. Both answer as `who`.
@@ -187,6 +190,24 @@ describe('Google proving the email of an account Lichess created', () => {
     expect(unlinkedNotice(cookieFrom(response))).toBe(await onlyAccountId());
   });
 
+  it('changes nothing for an unverified Google email: refused, the Lichess access stays', async () => {
+    const built = setup({
+      google: { ...GOOGLE, email_verified: false },
+      lichess: LICHESS,
+    });
+    const lichessSession = await lichessSignUp(built);
+    const response = await oauthRoundTrip(built, 'google');
+    expect(errorCode(response)).not.toBeNull();
+    expect(await rows('select provider_id from provider_accounts')).toEqual([
+      { provider_id: 'lichess' },
+    ]);
+    expect(await rows('select email_verified from accounts')).toEqual([
+      { email_verified: false },
+    ]);
+    expect(await sessionOf(built, lichessSession)).toBe(await onlyAccountId());
+    expect(await signedInAs(built, response)).toBeUndefined();
+  });
+
   it('changes nothing of a disabled account: it opens no session either (R-80)', async () => {
     const built = setup(BOTH);
     const lichessSession = await lichessSignUp(built);
@@ -237,6 +258,52 @@ describe('Google proving the email of an account Lichess created', () => {
     expect(unlinkedNotice(cookieFrom(response))).toBeUndefined();
   });
 
+  // Better Auth looks the account up by the email lowercased only; a Google
+  // email that matches it only once NFKC-folded (a fullwidth "ｒ") is not
+  // that mailbox, so it proves nothing of it.
+  it('proves nothing of an account whose email matches only once folded', async () => {
+    const built = setup({
+      google: { ...GOOGLE, email: 'ｒuta@example.lt' },
+      lichess: LICHESS,
+    });
+    const lichessSession = await lichessSignUp(built);
+    const response = await oauthRoundTrip(built, 'google');
+    expect(await rows('select provider_id from provider_accounts')).toEqual([
+      { provider_id: 'lichess' },
+    ]);
+    expect(await rows('select email_verified from accounts')).toEqual([
+      { email_verified: false },
+    ]);
+    expect(await sessionOf(built, lichessSession)).toBe(await onlyAccountId());
+    expect(unlinkedNotice(cookieFrom(response))).toBeUndefined();
+    expect(await signedInAs(built, response)).toBeUndefined();
+  });
+
+  it('proves nothing when another account already holds the Google identity', async () => {
+    const built = setup(BOTH);
+    const holder = await signInByMagicLink(built, 'other@example.lt');
+    await oauthRoundTrip(built, 'google', { cookie: holder, link: true });
+    const squatter = cookieFrom(await oauthRoundTrip(built, 'lichess'));
+    const holderId = await accountId('other@example.lt');
+    const unprovenId = await accountId('ruta@example.lt');
+
+    const response = await oauthRoundTrip(built, 'google');
+
+    expect(await signedInAs(built, response)).toBe(holderId);
+    expect(await sessionOf(built, squatter)).toBe(unprovenId);
+    expect(
+      await rows(
+        "select account_id from provider_accounts where provider_id = 'lichess'",
+      ),
+    ).toEqual([{ account_id: unprovenId }]);
+    expect(
+      await rows(
+        "select email_verified from accounts where email = 'ruta@example.lt'",
+      ),
+    ).toEqual([{ email_verified: false }]);
+    expect(unlinkedNotice(cookieFrom(response))).toBeUndefined();
+  });
+
   it('leaves the account alone when Google is linked from its own settings', async () => {
     const built = setup(BOTH);
     // Only the session: the sign-up also expired its OAuth state cookie.
@@ -263,7 +330,11 @@ describe('Google proving the email of an account Lichess created', () => {
     const first = await lichessSignUp(built);
     who.lichess = { ...LICHESS, id: 'impostor', username: 'Impostor' };
     const response = await oauthRoundTrip(built, 'lichess');
-    expect(errorCode(response)).toBe(LICHESS_EMAIL_IN_USE);
+    // Better Auth refuses the unproven account itself (account_not_linked)
+    // before our join rule is asked; the sign-in page says the same.
+    expect(signInErrorKey(errorCode(response) ?? undefined)).toBe(
+      'signIn.error.lichessEmailInUse',
+    );
     expect(await signedInAs(built, response)).toBeUndefined();
     expect(
       await rows('select provider_account_id from provider_accounts'),

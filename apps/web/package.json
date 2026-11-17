@@ -13,6 +13,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@better-auth/core": "1.7.23",
     "@lichess-org/chessground": "10.5.0",
     "@mychess/chess": "workspace:*",
     "@mychess/db": "workspace:*",

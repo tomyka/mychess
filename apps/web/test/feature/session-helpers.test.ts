@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import requestConfig from '../../src/i18n/request';
+import { requestConfigFor } from '../../src/i18n/request';
 import {
   getAccount,
   requireAccount,
@@ -77,7 +77,7 @@ describe('the session helpers', () => {
 
 // The locale next-intl renders this request in.
 const requestLocale = async (): Promise<string | undefined> =>
-  (await requestConfig({ requestLocale: Promise.resolve(undefined) })).locale;
+  (await requestConfigFor()).locale;
 
 describe('the request locale', () => {
   it('is English while signed out, whatever the cookie says (R-180)', async () => {
