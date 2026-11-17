@@ -78,15 +78,14 @@ test('D-M1-3: Dovydas marks the Catalan chapters known: nothing to learn, review
   await expect(
     page.getByRole('heading', { name: en.training.empty.nothingDue.title }),
   ).toBeVisible();
-  // "Next review: tomorrow HH:MM" (R-58: the first review is tomorrow), or
-  // "in 24 h" once a minute passes after marking: review-time.ts words
-  // anything under a day in hours (#308). The stored due times check R-58.
-  const next = (when: string): string =>
-    format(en.training.empty.nothingDue.next, { when });
+  // "Next review: tomorrow at HH:MM" (R-58: the first review is tomorrow),
+  // never "in 24 h": what would round to 24 h is a day (#330 UX sign-off).
+  // The stored due times check R-58.
   const tomorrow = format(en.training.when.tomorrow, { time: '' }).trim();
-  const inADay = format(en.training.when.hours, { count: '24' });
   await expect(
-    page.getByText(next(tomorrow)).or(page.getByText(next(inADay))),
+    page.getByText(
+      format(en.training.empty.nothingDue.next, { when: tomorrow }),
+    ),
   ).toBeVisible();
   const reviews = await storedReviews(email);
   expect(reviews).toHaveLength(ownKeys(catalan).length);

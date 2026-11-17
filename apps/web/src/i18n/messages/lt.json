@@ -718,7 +718,7 @@
     "today": {
       "title": "Šiandienos kartojimas",
       "due": "{count, plural, one {# kartotinas} few {# kartotini} other {# kartotinų}} · apie {minutes} min.",
-      "repertoireDue": "{name} · {side} · {count, plural, one {# kartotinas} few {# kartotini} other {# kartotinų}}",
+      "repertoireCounts": "{side} · {count, plural, one {# kartotinas} few {# kartotini} other {# kartotinų}}",
       "start": "Pradėti kartojimą",
       "learn": "{count, plural, one {Mokytis # naujo ėjimo} few {Mokytis # naujų ėjimų} other {Mokytis # naujų ėjimų}}",
       "nothingDue": "Šiuo metu kartoti nieko nereikia.",

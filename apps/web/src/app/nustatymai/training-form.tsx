@@ -85,7 +85,8 @@ function ArrowsField({ initial }: { readonly initial: boolean }): JSX.Element {
           {t('learnArrowsLabel')}
         </label>
       </div>
-      <p id={hintId} className="text-sm text-fg-muted">
+      {/* Under the label's text: past the box and its gap (UX sign-off). */}
+      <p id={hintId} className="pl-8 text-sm text-fg-muted">
         {t('learnArrowsHint')}
       </p>
     </div>

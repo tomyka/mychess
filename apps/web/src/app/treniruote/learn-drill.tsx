@@ -13,6 +13,7 @@ import {
   askedStep,
   isDone,
   learnCounts,
+  opponentMoving,
   playedMoves,
   type LearnDrillState,
 } from './learn-drill-state';
@@ -24,14 +25,27 @@ import { useLearnDrill, type LearnDrill as Drill } from './use-learn-drill';
 type PromptKey = 'correct' | 'wrong' | 'known' | 'arrows' | 'blind' | 'recall';
 
 /**
+ * After a right move, the opponent's reply slides in: the answer still
+ * stands until the next move is asked (UX sign-off). At a line's start
+ * nothing was answered yet.
+ */
+const answeredAwaitingReply = (state: LearnDrillState): boolean =>
+  opponentMoving(state) && (state.session?.index ?? 0) > 0;
+
+/**
  * What the panel asks (docs/design/training-screen.md, Learn pass): with
  * arrows off a new move is asked to be played from memory (R-205), not
  * "again".
  */
 function promptOf(state: LearnDrillState): PromptKey {
-  if (state.hold !== null) return 'correct';
+  if (state.hold !== null || answeredAwaitingReply(state)) return 'correct';
   if (state.wrong && state.session?.arrow === true) return 'wrong';
   if (askedStep(state)?.kind === 'known') return 'known';
+  return newMovePrompt(state);
+}
+
+/** How a new move is asked: with its arrow, blind again, or from memory (R-205). */
+function newMovePrompt(state: LearnDrillState): PromptKey {
   if (state.session?.round !== 'blind') return 'arrows';
   return state.options.arrows ? 'blind' : 'recall';
 }

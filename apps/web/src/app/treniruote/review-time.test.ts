@@ -39,9 +39,17 @@ describe('reviewWhen', () => {
     ['3 hours', 3 * HOUR, 3],
     ['3 h 20 min', 3 * HOUR + 20 * MINUTE, 3],
     ['3 h 40 min', 3 * HOUR + 40 * MINUTE, 4],
-    ['just under a day', 24 * HOUR - MINUTE, 24],
+    ['23 h 29 min', 23 * HOUR + 29 * MINUTE, 23],
   ])('counts hours %s ahead', (_, ms, count) => {
     expect(reviewWhen(after(NOON, ms), NOON)).toEqual({ kind: 'hours', count });
+  });
+
+  it.each([
+    ['23 h 30 min', 23 * HOUR + 30 * MINUTE],
+    ['just under a day', 24 * HOUR - MINUTE],
+    ['exactly a day', 24 * HOUR],
+  ])('names tomorrow, never "in 24 h", %s ahead (UX sign-off)', (_, ms) => {
+    expect(reviewWhen(after(NOON, ms), NOON)).toEqual({ kind: 'tomorrow' });
   });
 
   it('names tomorrow, in Vilnius days, a day or more ahead', () => {

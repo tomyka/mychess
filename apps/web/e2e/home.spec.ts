@@ -71,12 +71,12 @@ test('R-207: home lists each repertoire’s due moves, most urgent first; Start 
     ...ownKeys(karoKan).slice(0, 3),
     ...ownKeys(italian).slice(0, 2),
   ]);
+  // The name is the link; side and count follow it (#330 UX sign-off).
   const due = (name: string, side: 'white' | 'black', count: number) =>
-    format(en.training.today.repertoireDue, {
-      name,
+    `${name} ${format(en.training.today.repertoireCounts, {
       side: en.repertoires.create[side],
       count: String(count),
-    });
+    })}`;
   await page.goto('/');
   const block = today(page, en);
   await expect(block.getByRole('listitem')).toHaveText([
@@ -92,9 +92,7 @@ test('R-207: home lists each repertoire’s due moves, most urgent first; Start 
   expect(await itemRepertoire(page, en)).toBe(KARO_KAN);
   // The Italian's link: its two due moves alone, under its own name.
   await page.goto('/');
-  await block
-    .getByRole('link', { name: due(ITALIAN, 'white', 2), exact: true })
-    .click();
+  await block.getByRole('link', { name: ITALIAN, exact: true }).click();
   await expect(page).toHaveURL(/\/treniruote\?mode=review&r=[0-9a-f-]{36}$/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(ITALIAN);
   await expectCounter(page, 0, 2);

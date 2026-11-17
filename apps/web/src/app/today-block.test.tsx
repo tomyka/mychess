@@ -169,11 +169,18 @@ describe('TodayBlock’s due moves per repertoire (R-207)', () => {
       nextDue: null,
       repertoires: REPERTOIRES,
     });
-    const links = within(screen.getByRole('list')).getAllByRole('link');
-    expect(links.map((a) => a.textContent)).toEqual([
-      'Taimanovas · Juodieji · 2 kartotini',
-      'Londonas · Baltieji · 1 kartotinas',
+    const list = within(screen.getByRole('list'));
+    const links = list.getAllByRole('link');
+    // Only the name is the link; side and count follow it (UX sign-off).
+    expect(links.map((a) => a.textContent)).toEqual(['Taimanovas', 'Londonas']);
+    expect(list.getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'Taimanovas Juodieji · 2 kartotini',
+      'Londonas Baltieji · 1 kartotinas',
     ]);
+    // The counts never wrap apart on a phone.
+    expect(list.getByText('Juodieji · 2 kartotini').className).toContain(
+      'whitespace-nowrap',
+    );
     expect(links.map((a) => a.getAttribute('href'))).toEqual([
       '/treniruote?mode=review&r=r2',
       '/treniruote?mode=review&r=r1',
@@ -195,8 +202,8 @@ describe('TodayBlock’s due moves per repertoire (R-207)', () => {
     );
     expect(
       within(screen.getByRole('list'))
-        .getAllByRole('link')
-        .map((a) => a.textContent),
-    ).toEqual(['Taimanovas · Black · 2 due', 'Londonas · White · 1 due']);
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['Taimanovas Black · 2 due', 'Londonas White · 1 due']);
   });
 });

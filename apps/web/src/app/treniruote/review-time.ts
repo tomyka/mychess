@@ -22,15 +22,18 @@ export type ReviewWhen =
 const dayAfter = (day: string): string =>
   new Date(Date.parse(`${day}T12:00:00Z`) + DAY).toISOString().slice(0, 10);
 
-/** How to word a review due at `when`, seen at `now`. */
+/**
+ * How to word a review due at `when`, seen at `now`: minutes, then hours
+ * up to 23; what would round to 24 h or more is a day (UX sign-off, #330).
+ */
 export function reviewWhen(when: Date, now: Date): ReviewWhen {
-  const ahead = when.getTime() - now.getTime();
-  if (ahead < DAY) {
-    const minutes = Math.max(1, Math.round(ahead / MINUTE));
-    return minutes < 60
-      ? { kind: 'minutes', count: minutes }
-      : { kind: 'hours', count: Math.round(minutes / 60) };
-  }
+  const minutes = Math.max(
+    1,
+    Math.round((when.getTime() - now.getTime()) / MINUTE),
+  );
+  if (minutes < 60) return { kind: 'minutes', count: minutes };
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return { kind: 'hours', count: hours };
   return vilniusDay(when) === dayAfter(vilniusDay(now))
     ? { kind: 'tomorrow' }
     : { kind: 'later' };

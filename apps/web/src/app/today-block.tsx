@@ -32,8 +32,9 @@ function DueLine({ summary }: { readonly summary: TodaySummary }): JSX.Element {
 }
 
 /**
- * Each repertoire with due moves, most urgent first, each a link to the
- * review of it alone (R-207, R-142).
+ * Each repertoire with due moves, most urgent first: its name a link to
+ * the review of it alone (R-207, R-142), its side and count after it,
+ * which never wrap apart on a phone (UX sign-off).
  */
 function DueRepertoires({
   repertoires,
@@ -45,17 +46,22 @@ function DueRepertoires({
   return (
     <ul className="flex flex-col gap-1">
       {repertoires.map((r) => (
-        <li key={r.id}>
+        <li
+          key={r.id}
+          className="flex flex-wrap items-center justify-between gap-x-3"
+        >
           <Link
             href={trainingPath('review', r.id)}
-            className={`${TEXT_LINK} inline-flex min-h-touch items-center`}
+            className={`${TEXT_LINK} inline-flex min-h-touch min-w-0 items-center break-words`}
           >
-            {t('training.today.repertoireDue', {
-              name: r.name,
+            {r.name}
+          </Link>{' '}
+          <span className="whitespace-nowrap text-sm text-fg-muted">
+            {t('training.today.repertoireCounts', {
               side: t(`repertoires.create.${r.side}`),
               count: r.due,
             })}
-          </Link>
+          </span>
         </li>
       ))}
     </ul>

@@ -10,8 +10,14 @@ import Link from 'next/link';
 import { useMemo, type JSX } from 'react';
 import { learnDayOf } from '../../lib/learn-scope';
 import { learnPath } from '../../lib/routes';
-import { SECONDARY_BUTTON } from '../buttons';
 import type { PanelTraining } from './train-buttons';
+
+/**
+ * A secondary button made compact (UX sign-off): small text and padding,
+ * still a full touch target, so a long chapter name keeps its width.
+ */
+const COMPACT_BUTTON =
+  'inline-flex min-h-touch shrink-0 items-center justify-center rounded-control border border-border-strong bg-surface px-3 text-sm font-semibold text-fg';
 
 /**
  * "Learn (n)" for one chapter or one line (R-206): the new moves learning
@@ -52,7 +58,7 @@ export function LearnLink({
           ? t('learnLine', { count })
           : t('learnIn', { count, subject })
       }
-      className={`${SECONDARY_BUTTON} shrink-0`}
+      className={COMPACT_BUTTON}
     >
       {t('learn', { count })}
     </Link>

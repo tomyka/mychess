@@ -718,7 +718,7 @@
     "today": {
       "title": "Today's review",
       "due": "{count} due · about {minutes} min",
-      "repertoireDue": "{name} · {side} · {count} due",
+      "repertoireCounts": "{side} · {count} due",
       "start": "Start review",
       "learn": "{count, plural, one {Learn # new move} other {Learn # new moves}}",
       "nothingDue": "Nothing due now.",

@@ -209,6 +209,36 @@ describe('the learn drill, arrows round', () => {
     expect(panel()).toContain(T.learn.arrows);
   });
 
+  it('keeps saying “correct” while the reply slides in, until the next move is asked (UX sign-off)', () => {
+    renderDrill();
+    type('d4');
+    wait(400);
+    // The reply 1...d5 is sliding in: nothing is asked yet.
+    expect(panel()).toContain(T.learn.correct);
+    expect(panel()).not.toContain(T.learn.arrows);
+    wait(150);
+    expect(panel()).toContain(T.learn.arrows);
+    expect(panel()).not.toContain(T.learn.correct);
+  });
+
+  it('asks a Black line’s first move as soon as White’s opening move has slid in, saying nothing correct before', () => {
+    renderDrill(
+      data({
+        entries: [
+          {
+            id: REP_ID,
+            name: 'Juodųjų',
+            side: 'black',
+            kind: 'own',
+            active: true,
+            graph: graphOf('1. e4 c5 *', 'black'),
+          },
+        ],
+      }),
+    );
+    expect(panel()).not.toContain(T.learn.correct);
+  });
+
   it('holds a right move for its flash, then plays the reply itself, the board locked meanwhile', () => {
     renderDrill();
     type('d4');
