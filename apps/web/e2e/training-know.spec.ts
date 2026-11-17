@@ -17,7 +17,9 @@ import {
   doneHeading,
   drillToDone,
   expectCounter,
+  itemRepertoire,
   keyAfter,
+  nextButton,
   ownKeys,
   type Drill,
 } from './support/training';
@@ -96,7 +98,7 @@ test('D-M1-3: Dovydas marks the Catalan chapters known: nothing to learn, review
   }
 });
 
-test('D-M1-7: reviewing both Catalans at 7...a6 shows the two-answers notice; each expects its own move', async ({
+test('D-M1-7: reviewing both Catalans at 7...a6 shows the two-answers notice after each answer; each expects its own move', async ({
   page,
   request,
   isMobile,
@@ -121,31 +123,36 @@ test('D-M1-7: reviewing both Catalans at 7...a6 shows the two-answers notice; ea
   await page.goto('/');
   await startTodayReview(page, en);
   await expectCounter(page, 0, 2);
-  const t = en.training.review.twoAnswers;
   const notice = page.getByRole('note');
   const field = page.getByLabel(en.board.moveInput.label, { exact: true });
   const seen: string[] = [];
   for (let i = 0; i < 2; i += 1) {
-    const title =
-      (await page.getByRole('heading', { level: 1 }).textContent()) ?? '';
+    // Two repertoires: titled as several, the item's under it (R-207, R-54).
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      en.training.title.mixed,
+    );
+    const title = await itemRepertoire(page, en);
     const other = OTHER.get(title);
     if (other === undefined) throw new Error(`asked in "${title}"`);
-    await expect(notice).toContainText(t.title);
-    await expect(notice).toContainText(format(t.item, other));
+    // Never before the answer, so it cannot hint (#330 decision 4).
+    await expect(notice).toHaveCount(0);
+    const sentence = format(en.training.twoAnswers.other, other);
     if (i === 1) {
       // The other repertoire's move is a lapse here: the item expects
-      // its own repertoire's move, and nothing is blocked.
+      // its own repertoire's move, and the notice shows with the arrow.
       await field.fill(other.move);
       await field.press('Enter');
       await expect(page.getByText(en.training.review.lapse)).toBeVisible();
+      await expect(notice).toHaveText(sentence);
     }
     const asked = await answer(drill);
     expect(asked.book).toBe(title);
+    // After the right answer: one sentence, held until Next (R-174).
+    await expect(notice).toHaveText(sentence);
+    await nextButton(drill).click();
     seen.push(title);
     if (i === 0)
-      await expect(page.getByRole('heading', { level: 1 })).not.toHaveText(
-        title,
-      );
+      await expect.poll(() => itemRepertoire(page, en)).not.toBe(title);
   }
   expect(new Set(seen)).toEqual(new Set([CATALAN, CATALAN_A4]));
   // R-78 (#319): the lapsed item comes back in the session, still in its

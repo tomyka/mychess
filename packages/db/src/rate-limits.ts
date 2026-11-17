@@ -1,6 +1,7 @@
 /**
  * Our request counters (security A6), for limits Better Auth does not
- * cover, such as the PGN import's (R-119), the magic link's per email
+ * cover, such as the PGN import's previews and confirms (R-119, R-208), the
+ * magic link's per email
  * (#264), the training results' (S6) and the FIDE ID search's (#316).
  * The domain's countRequest decides; this counts atomically per key, in
  * the request_counters table: Better Auth's rate_limits table is pruned by
@@ -8,6 +9,7 @@
  */
 import {
   FIDE_SEARCH_RATE_LIMIT,
+  IMPORT_PREVIEW_RATE_LIMIT,
   IMPORT_RATE_LIMIT,
   MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
@@ -49,6 +51,7 @@ export const BETTER_AUTH_RETENTION_MS = Math.max(
 export const REQUEST_COUNTER_RETENTION_MS = Math.max(
   MAGIC_LINK_EMAIL_RATE_LIMIT.windowMs,
   IMPORT_RATE_LIMIT.windowMs,
+  IMPORT_PREVIEW_RATE_LIMIT.windowMs,
   TRAINING_RATE_LIMIT.windowMs,
   TRAINING_RESULTS_RATE_LIMIT.windowMs,
   FIDE_SEARCH_RATE_LIMIT.windowMs,

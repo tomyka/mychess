@@ -4,8 +4,13 @@
 // starts from the session account: a value from the URL only narrows the
 // scope, and the snapshot query checks it is a repertoire the player trains.
 import {
+  dueByRepertoire,
+  learnStart,
   nextDue,
+  trackedIn,
   trainingCounts,
+  type LearnFocus,
+  type Side,
   type TrainingCounts,
   type TrainingMode,
 } from '@mychess/chess';
@@ -22,26 +27,62 @@ import {
   type OwnCoachNote,
 } from '@mychess/domain';
 import { z } from 'zod';
+import { learnDayOf, type LearnScope } from '../lib/learn-scope';
+import { CHAPTER_PARAM, LINE_PARAM } from '../lib/routes';
 import { dayOf } from '../lib/training-day';
 import type { TrainingData } from '../lib/training-data';
 import { getDb } from './db';
+import { chapterIdSchema } from './repertoire-edit';
 
 const searchSchema = z.object({
   mode: z.enum(['review', 'learn']).catch('review'),
   r: z.uuid().optional().catch(undefined),
+  /** A chapter id, as the repertoire page's `?chapter=` takes one. */
+  [CHAPTER_PARAM]: chapterIdSchema.optional().catch(undefined),
+  /** A line's index in its chapter: digits only. */
+  [LINE_PARAM]: z
+    .string()
+    .regex(/^\d{1,4}$/)
+    .transform(Number)
+    .optional()
+    .catch(undefined),
 });
 
-/** The page's search params: an unknown mode is a review, a bad `r` is dropped. */
+/** The focus the URL names: learn only, in the scoped repertoire, with a chapter. */
+function focusOf(
+  mode: TrainingMode,
+  repertoireId: string | undefined,
+  chapterId: string | undefined,
+  lineIndex: number | undefined,
+): LearnFocus | null {
+  if (mode !== 'learn' || repertoireId === undefined || chapterId === undefined)
+    return null;
+  return {
+    repertoireId,
+    chapterId,
+    ...(lineIndex === undefined ? {} : { lineIndex }),
+  };
+}
+
+/**
+ * The page's search params (R-142, R-206): an unknown mode is a review; a
+ * bad `r`, chapter or line is dropped.
+ */
 export function parseTrainingSearch(
   params: Readonly<Record<string, string | string[] | undefined>>,
-): { readonly mode: TrainingMode; readonly scope: TrainingScope } {
-  const { mode, r } = searchSchema.parse(params);
+): {
+  readonly mode: TrainingMode;
+  readonly scope: TrainingScope;
+  readonly focus: LearnFocus | null;
+} {
+  const { mode, r, chapter, line } = searchSchema.parse(params);
   return {
     mode,
     scope:
       r === undefined
         ? { kind: 'all' }
         : { kind: 'repertoire', repertoireId: r },
+    focus: focusOf(mode, r, chapter, line),
   };
 }
 
@@ -84,12 +125,15 @@ async function ownCoachNotes(
  * The session account's training data for `scope`, or undefined when the
  * scope names a repertoire they do not train (the page's 404). The coach
  * notes are read for their own repertoires only: an assigned one's are its
- * comments (R-102), named with its entry's coachName.
+ * comments (R-102), named with its entry's coachName. A `focus` (R-206)
+ * narrows what a learn session plans; one the repertoire does not have
+ * plans nothing.
  */
 export async function loadTraining(
   account: Account,
   mode: TrainingMode,
   scope: TrainingScope,
+  focus: LearnFocus | null = null,
 ): Promise<TrainingData | undefined> {
   const data = await snapshotData(account, mode, scope);
   if (data === undefined) return undefined;
@@ -97,7 +141,11 @@ export async function loadTraining(
   const notes = await Promise.all(
     own.map((entry) => ownCoachNotes(account, entry.id)),
   );
-  return { ...data, coachNotes: notes.flat() };
+  return {
+    ...data,
+    coachNotes: notes.flat(),
+    ...(focus === null ? {} : { focus }),
+  };
 }
 
 type SnapshotEntry = TrainingSnapshot['entries'][number];
@@ -148,43 +196,93 @@ async function snapshotData(
   };
 }
 
+/** One repertoire on home's list of due moves (R-207). */
+interface TodayRepertoire {
+  readonly id: string;
+  readonly name: string;
+  readonly side: Side;
+  /** Its due moves, as a review of it alone counts them. */
+  readonly due: number;
+}
+
 /** Home's "Today" block (U1-M1-3): what is due and to learn, before starting. */
 export interface TodaySummary extends TrainingCounts {
   /** The estimated minutes the due moves take, rounded up. */
   readonly minutes: number;
   /** The earliest Review due after now, or null. */
   readonly nextDue: Date | null;
+  /** The repertoires with due moves, most urgent first (R-207). */
+  readonly repertoires: readonly TodayRepertoire[];
+}
+
+/** The repertoires with due moves, named, in the order the chess rule gives. */
+function dueRepertoires(
+  data: SnapshotData,
+  day: ReturnType<typeof dayOf>,
+): TodayRepertoire[] {
+  return dueByRepertoire(day, data.now).flatMap(({ repertoireId, due }) => {
+    const entry = data.entries.find((e) => e.id === repertoireId);
+    return entry === undefined
+      ? []
+      : [{ id: entry.id, name: entry.name, side: entry.side, due }];
+  });
 }
 
 /**
  * The session account's "Today" block over every repertoire they train
- * (R-142): every due move, not a session's worth, and the new moves today's
- * allowance leaves (R-146).
+ * (R-142): every due move, not a session's worth, each repertoire's own
+ * (R-207), and the new moves today's allowance leaves (R-146).
  */
 export async function todaySummary(account: Account): Promise<TodaySummary> {
   const data = await snapshotData(account, 'review', { kind: 'all' });
   if (data === undefined)
-    return { due: 0, toLearn: 0, minutes: 0, nextDue: null };
+    return { due: 0, toLearn: 0, minutes: 0, nextDue: null, repertoires: [] };
   const day = dayOf(data);
   const counts = trainingCounts(day, data.now);
   return {
     ...counts,
     minutes: Math.ceil((counts.due * SECONDS_PER_REVIEW) / 60),
     nextDue: nextDue(day, data.now),
+    repertoires: dueRepertoires(data, day),
   };
 }
 
 /**
- * The session account's due and to-learn counts for one repertoire, for its
- * page's train buttons; null when they do not train it.
+ * A repertoire page's training: its counts, what learning one chapter or
+ * line of it would teach today (R-206), and whether today's limit stops
+ * learning while moves are left (decision 11).
+ */
+export interface RepertoireTraining {
+  readonly counts: TrainingCounts;
+  readonly learn: LearnScope;
+  readonly limitReached: boolean;
+}
+
+/**
+ * The session account's training of one repertoire, for its page's train
+ * buttons and Learn links; null when they do not train it.
  */
 export async function repertoireTraining(
   account: Account,
   repertoireId: string,
-): Promise<TrainingCounts | null> {
+): Promise<RepertoireTraining | null> {
   const data = await snapshotData(account, 'review', {
     kind: 'repertoire',
     repertoireId,
   });
-  return data === undefined ? null : trainingCounts(dayOf(data), data.now);
+  const entry = data?.entries[0];
+  if (data === undefined || entry === undefined) return null;
+  const day = dayOf(data);
+  const learn: LearnScope = {
+    tracked: trackedIn(entry.graph, data.tracked),
+    learnedToday: data.learnedToday,
+    limits: day.limits,
+  };
+  return {
+    counts: trainingCounts(day, data.now),
+    learn,
+    limitReached:
+      learnStart(learnDayOf(entry.id, entry.graph, learn)).kind ===
+      'limitReached',
+  };
 }

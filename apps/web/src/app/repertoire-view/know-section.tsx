@@ -13,6 +13,7 @@ import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
 import { currentLineIndex } from './current-line';
 import { KnowThisMenu } from './know-this-menu';
+import { LearnLink } from './learn-link';
 import { PANEL_LABEL } from './panel-styles';
 import type { PanelTraining } from './train-buttons';
 
@@ -37,8 +38,9 @@ function moveLabel(
 
 /**
  * "I know this" and "Learn again" for the current move, when it is one of
- * the player's own, and for the line it is on (R-58, R-147). Nothing at
- * the chapter root: the chapter's own menu is on its row.
+ * the player's own, and for the line it is on (R-58, R-147), with Learn for
+ * that line (R-206). Nothing at the chapter root: the chapter's own menu and
+ * Learn are on its row.
  */
 export function KnowSection({
   training,
@@ -78,6 +80,11 @@ export function KnowSection({
         subject={t('line')}
       >
         <span className="flex-1">{t('line')}</span>
+        <LearnLink
+          training={training}
+          graph={graph}
+          focus={{ chapterId, lineIndex: line }}
+        />
       </KnowThisMenu>
     </section>
   );

@@ -2,7 +2,9 @@ import { marksInputSchema, type EditOp } from '@mychess/chess';
 import { chapterNameSchema, commentSchema } from '@mychess/domain';
 import { z } from 'zod';
 
-const chapterId = z.string().min(1).max(20);
+/** A chapter id from a request: an edit's, or a page's `?chapter=`. */
+export const chapterIdSchema = z.string().min(1).max(20);
+const chapterId = chapterIdSchema;
 const from = z.string().min(1).max(100);
 const san = z.string().min(1).max(10);
 

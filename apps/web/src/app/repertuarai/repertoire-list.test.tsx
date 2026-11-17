@@ -213,4 +213,11 @@ describe('RepertoireList', () => {
       ['/repertuarai/b', 'B2 chapters · 148 movesChanged Sep 2, 2025'],
     ]);
   });
+
+  it('shows a change today on a 24-hour clock in English too (#330 decision 6)', () => {
+    renderList([card({ id: 'a', name: 'A' })], 'en');
+    expect(linksIn(MESSAGES.en.repertoires.list.white)).toEqual([
+      ['/repertuarai/a', 'A2 chapters · 148 movesChanged 15:00'],
+    ]);
+  });
 });

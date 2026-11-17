@@ -28,6 +28,7 @@
 
 1. **R-148 and the two-answers wording (decision 4).** Keep R-148's Lithuanian lead-in "Kituose jūsų repertuaruose čia žaidžiamas kitas ėjimas:" in the new sentence; the English is decision 4's. Confirmed.
 2. **R-54 and the mixed header (decision 5).** A mixed session is titled "Several repertoires" with the current item's repertoire name as a subtitle, so R-54 still holds. Confirmed.
+4. **Learn on the current line (Task 13, added 2026-11-17).** The line's Learn button uses its own key `training.repertoire.learnLine` ("Learn # new moves in this line"); `training.repertoire.learnIn` with `{subject}` is for chapter rows only.
 3. **Coach notes with arrows off (R-174, R-205).** Overruled: with arrows off a blind learn ask is treated like a review ask, so the coach note and the two-answers notice show once the move is answered, right or wrong (as in review, R-174), and also when a wrong answer brings the arrow. A player who answers right must still see the note. Tasks 11 and 14 implement this.
 
 ---

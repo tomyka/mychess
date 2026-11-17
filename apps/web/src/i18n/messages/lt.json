@@ -306,7 +306,7 @@
     "unknownChapter": "Šio skyriaus nebėra.",
     "illegalMove": "Šis ėjimas neleistinas.",
     "unknownPosition": "Šios padėties skyriuje nėra.",
-    "secondAnswer": "Šioje padėtyje jau turite atsakymą. Pirmiausia pašalinkite jį.",
+    "secondAnswer": "Šiame repertuare čia jau yra ėjimas. Kitą ėjimą galite įtraukti į kitą repertuarą.",
     "unknownMove": "Šio ėjimo nebėra.",
     "invalidEdit": "Šio pakeitimo išsaugoti nepavyko.",
     "sideMismatch": "Šis repertuaras skirtas kitai spalvai.",
@@ -334,6 +334,7 @@
     "tooDeep": "Variantai įdėti per giliai: leidžiama iki {limit} lygių.",
     "tooManyMoves": "Faile daugiau nei {limit, number} pusėjimių.",
     "tooManyImports": "Per daug bandymų importuoti: ne daugiau kaip {limit} per minutę. Palaukite minutę ir bandykite dar kartą.",
+    "tooManyPreviews": "Per daug peržiūrų: ne daugiau kaip {limit} per minutę. Palaukite minutę ir bandykite dar kartą.",
     "noValidGames": "Faile nerasta nė vienos tinkamos partijos.",
     "nothingToAdd": "Iš šio failo nėra ko naujo pridėti: kiekviena jo partija jau yra repertuare arba kurioje nors padėtyje atsako kitaip.",
     "fileNameFallback": "repertuaras"
@@ -475,11 +476,13 @@
       "title": "Importuoti PGN",
       "intro": "Iki 2 MB ir 200 partijų.",
       "back": "Mano repertuarai",
-      "fileTitle": "Failas ir spalva",
+      "fileTitle": "PGN ir spalva",
       "file": "Pasirinkti PGN failą",
       "fileHint": "arba nutempkite jį čia",
       "fileChosen": "{name} · {size} KB",
-      "noFile": "Pasirinkite PGN failą.",
+      "paste": "Arba įklijuokite PGN",
+      "pasted": "Įklijuotas PGN",
+      "noFile": "Pasirinkite PGN failą arba įklijuokite PGN.",
       "side": "Spalva",
       "preview": "Rodyti, kas faile",
       "reading": "Skaitomas failas",
@@ -627,7 +630,8 @@
   "training": {
     "title": {
       "review": "Šiandienos kartojimas",
-      "learn": "Nauji ėjimai"
+      "learn": "Nauji ėjimai",
+      "mixed": "Keli repertuarai"
     },
     "mode": {
       "review": "Kartojimas",
@@ -690,7 +694,8 @@
       },
       "line": "Iki šiol sužaistas variantas",
       "end": "Baigti sesiją",
-      "coachNote": "Trenerio pastaba"
+      "coachNote": "Trenerio pastaba",
+      "next": "Toliau"
     },
     "review": {
       "prompt": "Jūsų ėjimas",
@@ -699,16 +704,12 @@
       "correct": "Teisingai",
       "lapse": "Ne tas ėjimas. Sužaiskite ėjimą, kurį rodo rodyklė.",
       "hinted": "Užuomina: eikite paryškinta figūra.",
-      "hint": "Užuomina",
-      "next": "Toliau",
-      "twoAnswers": {
-        "title": "Kituose jūsų repertuaruose čia žaidžiamas kitas ėjimas:",
-        "item": "{name}: {move}"
-      }
+      "hint": "Užuomina"
     },
     "learn": {
       "arrows": "Sužaiskite ėjimą, kurį rodo rodyklė",
       "blind": "Dabar be rodyklės",
+      "recall": "Sužaiskite naują ėjimą",
       "wrong": "Ne tas ėjimas. Sužaiskite ėjimą, kurį rodo rodyklė.",
       "correct": "Teisingai",
       "known": "Šį ėjimą jau žinote: sužaiskite jį."
@@ -717,6 +718,7 @@
     "today": {
       "title": "Šiandienos kartojimas",
       "due": "{count, plural, one {# kartotinas} few {# kartotini} other {# kartotinų}} · apie {minutes} min.",
+      "repertoireDue": "{name} · {side} · {count, plural, one {# kartotinas} few {# kartotini} other {# kartotinų}}",
       "start": "Pradėti kartojimą",
       "learn": "{count, plural, one {Mokytis # naujo ėjimo} few {Mokytis # naujų ėjimų} other {Mokytis # naujų ėjimų}}",
       "nothingDue": "Šiuo metu kartoti nieko nereikia.",
@@ -729,7 +731,11 @@
     },
     "repertoire": {
       "review": "Kartoti ({count})",
-      "learn": "Mokytis ({count})"
+      "learn": "Mokytis ({count})",
+      "learnIn": "{count, plural, one {Mokytis # naujo ėjimo} few {Mokytis # naujų ėjimų} other {Mokytis # naujų ėjimų}}: {subject}",
+      "learnLine": "{count, plural, one {Mokytis # naujo ėjimo šiame variante} few {Mokytis # naujų ėjimų šiame variante} other {Mokytis # naujų ėjimų šiame variante}}",
+      "limitReached": "Dienos riba pasiekta: {count, plural, one {# naujas ėjimas} few {# nauji ėjimai} other {# naujų ėjimų}} per dieną.",
+      "limitSettings": "Keisti ribą"
     },
     "know": {
       "section": "Treniruotė",
@@ -755,10 +761,16 @@
       "sessionSizeHint": "Nuo 10 iki 100.",
       "newPerDayLabel": "Naujų ėjimų per dieną",
       "newPerDayHint": "Nuo 0 iki 50; 0 — tik kartojimas.",
+      "learnArrowsLabel": "Rodyti rodykles mokantis naujų ėjimų",
+      "learnArrowsHint": "Išjungus naujo ėjimo klausiama be rodyklės; suklydus rodyklė parodoma.",
       "submit": "Išsaugoti",
       "saved": "Išsaugota.",
       "sessionSize": "Kartojimų per sesiją turi būti sveikasis skaičius nuo 10 iki 100.",
-      "newPerDay": "Naujų ėjimų per dieną turi būti sveikasis skaičius nuo 0 iki 50."
+      "newPerDay": "Naujų ėjimų per dieną turi būti sveikasis skaičius nuo 0 iki 50.",
+      "learnArrows": "Pasirinkite, ar rodyti rodykles."
+    },
+    "twoAnswers": {
+      "other": "Kituose jūsų repertuaruose čia žaidžiamas kitas ėjimas: {name} – {move}."
     }
   },
   "fide": {

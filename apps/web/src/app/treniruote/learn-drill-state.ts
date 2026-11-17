@@ -15,6 +15,7 @@ import {
   type BoardMove,
   type LearnLine,
   type LearnPlanStep,
+  type LearnSessionOptions,
   type LearnSessionState,
   type LearnTransition,
   type RepertoireMove,
@@ -29,6 +30,14 @@ export interface LearnDrillState {
   readonly at: number;
   /** That line's learn session; null when the plan has no line. */
   readonly session: LearnSessionState | null;
+  /** How each line's session starts (R-205): with its arrows round or blind. */
+  readonly options: LearnSessionOptions;
+  /**
+   * With arrows off, the new move just answered right without its arrow,
+   * while it is held: its Coach note shows now, as after a review's answer
+   * (lead answer 3, R-174).
+   */
+  readonly answered: RepertoireMove | null;
   /**
    * After a right move, the plies on the board while its flash shows: the
    * session has moved on, the board waits.
@@ -47,16 +56,19 @@ export interface LearnDrillState {
   readonly reviews: ReadonlyMap<string, ReviewState>;
 }
 
-/** A drill over `lines`, from the player's `reviews`. */
+/** A drill over `lines`, from the player's `reviews`, learned as `options` says. */
 export function startLearnDrill(
   lines: readonly LearnLine[],
   reviews: ReadonlyMap<string, ReviewState>,
+  options: LearnSessionOptions,
 ): LearnDrillState {
   const [first] = lines;
   return {
     lines,
     at: 0,
-    session: first === undefined ? null : startLearnSession(first),
+    session: first === undefined ? null : startLearnSession(first, options),
+    options,
+    answered: null,
     hold: null,
     wrong: false,
     flash: null,
@@ -91,11 +103,27 @@ export const askedStep = (s: LearnDrillState): LearnPlanStep | undefined =>
   canPlay(s) ? waitingOn(s) : undefined;
 
 /**
- * The move the arrow teaches now, if any: where its Coach note shows
- * (R-174). The blind retest shows none, so the note gives nothing away.
+ * The move whose Coach note shows now (R-174): the one the arrow teaches,
+ * or with arrows off the new move just answered right blind (lead answer
+ * 3). A blind ask shows none before its answer, so the note gives nothing
+ * away.
  */
 export const taughtMove = (s: LearnDrillState): RepertoireMove | undefined =>
-  s.session?.arrow === true ? askedStep(s)?.move : undefined;
+  s.session?.arrow === true ? askedStep(s)?.move : (s.answered ?? undefined);
+
+/**
+ * The move `s` asks, when it is a new move asked blind with arrows off and
+ * the answer was right: the move whose note shows after the answer. Else null.
+ */
+function answeredBlind(
+  s: LearnDrillState,
+  correct: boolean,
+): RepertoireMove | null {
+  const step = askedStep(s);
+  const blindNew =
+    !s.options.arrows && s.session?.arrow === false && step?.kind === 'new';
+  return correct && blindNew ? step.move : null;
+}
 
 /** How many of the line's moves the board shows. */
 function plies(s: LearnDrillState): number {
@@ -141,6 +169,7 @@ export function afterPlay(
   return {
     ...s,
     ...(emit === null ? {} : learnedAt(s, emit.key, now)),
+    answered: answeredBlind(s, correct),
     session: played.state,
     hold: correct ? index + 1 : null,
     wrong: !correct,
@@ -158,7 +187,10 @@ export function released(s: LearnDrillState): LearnDrillState {
     ...s,
     hold: null,
     flash: null,
-    ...(ended ? { at: s.at + 1, session: startLearnSession(next) } : {}),
+    answered: null,
+    ...(ended
+      ? { at: s.at + 1, session: startLearnSession(next, s.options) }
+      : {}),
   };
 }
 

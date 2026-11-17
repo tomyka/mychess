@@ -272,22 +272,8 @@ export {
   displayNameSchema,
   type DisplayName,
 } from './display-name';
-export {
-  FIDE_SEARCH_RATE_LIMIT,
-  IMPORT_RATE_LIMIT,
-  MAGIC_LINK_EMAIL_RATE_LIMIT,
-  MAGIC_LINK_RATE_LIMIT,
-  TRAINING_RATE_LIMIT,
-  TRAINING_RESULTS_RATE_LIMIT,
-  countRequest,
-  fideSearchRateKey,
-  importRateKey,
-  magicLinkEmailRateKey,
-  trainingRateKey,
-  trainingResultsKey,
-  type RateRefusal,
-  type RateRule,
-} from './rate-limit';
+// Every rate rule and counter key is public: the module is re-exported whole.
+export * from './rate-limit';
 export {
   PERSONA_EMAIL_DOMAIN,
   PERSONA_REFUSALS,

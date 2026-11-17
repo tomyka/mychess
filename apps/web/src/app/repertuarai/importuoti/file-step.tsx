@@ -114,20 +114,54 @@ function FileField({
   );
 }
 
+/** The PGN pasted instead of a file (R-209); typing in it drops the file. */
+function PasteField({
+  pasted,
+  onPaste,
+}: {
+  readonly pasted: string;
+  readonly onPaste: (text: string) => void;
+}): JSX.Element {
+  const t = useTranslations('repertoires.import');
+  const id = useId();
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={id} className="font-medium">
+        {t('paste')}
+      </label>
+      {/* text-base on the phone: a smaller font makes iOS zoom in on focus. */}
+      <textarea
+        id={id}
+        value={pasted}
+        rows={6}
+        spellCheck={false}
+        autoCapitalize="off"
+        autoCorrect="off"
+        onChange={(event) => {
+          onPaste(event.currentTarget.value);
+        }}
+        className="min-h-32 w-full rounded-control border border-border-strong bg-surface px-3 py-2 font-mono text-base text-fg sm:text-sm"
+      />
+    </div>
+  );
+}
+
 export interface FileStepProps {
   readonly file: File | null;
+  readonly pasted: string;
   readonly side: Side;
   readonly sideFixed: boolean;
   readonly pending: boolean;
   readonly fileRef: RefObject<HTMLInputElement | null>;
   readonly onFile: (file: File | null) => void;
+  readonly onPaste: (text: string) => void;
   readonly onSide: (side: Side) => void;
   readonly onSubmit: () => void;
   /** The step's status line. */
   readonly status: ReactNode;
 }
 
-/** Step 1: the file and the side it is a repertoire for. */
+/** Step 1: the file or pasted PGN, and the side it is a repertoire for. */
 export function FileStep(props: FileStepProps): JSX.Element {
   const t = useTranslations('repertoires.import');
   const titleId = useId();
@@ -150,6 +184,7 @@ export function FileStep(props: FileStepProps): JSX.Element {
           fileRef={props.fileRef}
           onFile={props.onFile}
         />
+        <PasteField pasted={props.pasted} onPaste={props.onPaste} />
         <SideField
           side={props.side}
           fixed={props.sideFixed}
@@ -168,13 +203,17 @@ export function FileStep(props: FileStepProps): JSX.Element {
   );
 }
 
-/** Step 1 once previewed: the file and side on one line, with "Change". */
+/**
+ * Step 1 once previewed: the file (or "Pasted PGN") and side on one line,
+ * with "Change".
+ */
 export function ChosenFile({
   name,
   side,
   onChange,
 }: {
-  readonly name: string;
+  /** The file's name; null for pasted text. */
+  readonly name: string | null;
   readonly side: Side;
   readonly onChange: () => void;
 }): JSX.Element {
@@ -183,7 +222,10 @@ export function ChosenFile({
     <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
       <p className="min-w-0 truncate font-medium">
         <StepNumber n={1} />
-        {t('import.chosen', { name, side: t(`create.${side}`) })}
+        {t('import.chosen', {
+          name: name ?? t('import.pasted'),
+          side: t(`create.${side}`),
+        })}
       </p>
       <button type="button" onClick={onChange} className={SECONDARY_BUTTON}>
         {t('import.change')}

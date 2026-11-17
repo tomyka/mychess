@@ -8,6 +8,7 @@ import {
   coachSharedRepertoirePath,
   importIntoRoute,
   invitePath,
+  learnPath,
   repertoireDeletedRoute,
   repertoireChapterRoute,
   repertoireExportRoute,
@@ -26,6 +27,10 @@ describe('ROUTES', () => {
   it('names the coach dashboard and the "Mano treneriai" section of settings', () => {
     expect(ROUTES.coach).toBe('/treneris');
     expect(ROUTES.myCoaches).toBe('/nustatymai#treneriai');
+  });
+
+  it('names the training section of settings (R-205)', () => {
+    expect(ROUTES.trainingSettings).toBe('/nustatymai#treniruote');
   });
 });
 
@@ -142,6 +147,23 @@ describe('trainingPath', () => {
   it('scopes it to one repertoire, the id encoded as a query value', () => {
     expect(trainingPath('learn', 'a&b c')).toBe(
       '/treniruote?mode=learn&r=a%26b%20c',
+    );
+  });
+});
+
+describe('learnPath (R-206)', () => {
+  it('learns one chapter of a repertoire, the chapter id encoded', () => {
+    expect(learnPath('r1', { chapterId: 'c 1' })).toBe(
+      '/treniruote?mode=learn&r=r1&chapter=c%201',
+    );
+  });
+
+  it('learns one line of the chapter, the first line too', () => {
+    expect(learnPath('r1', { chapterId: 'c1', lineIndex: 3 })).toBe(
+      '/treniruote?mode=learn&r=r1&chapter=c1&line=3',
+    );
+    expect(learnPath('r1', { chapterId: 'c1', lineIndex: 0 })).toBe(
+      '/treniruote?mode=learn&r=r1&chapter=c1&line=0',
     );
   });
 });

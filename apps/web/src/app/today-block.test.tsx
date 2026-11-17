@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { renderToString } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -20,14 +20,18 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function renderBlock(summary: TodaySummary, locale: 'lt' | 'en' = 'lt'): void {
+/** A summary; with no repertoires listed unless given. */
+type Summary = Omit<TodaySummary, 'repertoires'> &
+  Partial<Pick<TodaySummary, 'repertoires'>>;
+
+function renderBlock(summary: Summary, locale: 'lt' | 'en' = 'lt'): void {
   render(
     <NextIntlClientProvider
       locale={locale}
       messages={MESSAGES[locale]}
       timeZone="Europe/Vilnius"
     >
-      <TodayBlock summary={summary} />
+      <TodayBlock summary={{ repertoires: [], ...summary }} />
     </NextIntlClientProvider>,
   );
 }
@@ -80,11 +84,47 @@ describe('TodayBlock (U1-M1-3)', () => {
     ['en', '2026-10-27T06:10:00Z', 'Next review: in 20 min'],
     ['en', '2026-10-26T20:30:00Z', 'Next review: in 10 h'],
     ['lt', '2026-10-26T05:00:00Z', 'Kitas kartojimas: rytoj 08:30'],
-    ['en', '2026-10-26T05:00:00Z', 'Next review: tomorrow at 08:30 AM'],
+    ['en', '2026-10-26T05:00:00Z', 'Next review: tomorrow at 08:30'],
     ['lt', '2026-10-25T05:00:00Z', 'Kitas kartojimas: spalio 27 d. 08:30'],
   ])('in %s at %s says "%s"', (locale, now, text) => {
     at(now);
     renderBlock({ due: 0, toLearn: 0, minutes: 0, nextDue: NEXT }, locale);
+    expect(screen.getByText(text)).toBeDefined();
+  });
+
+  // #330 decision 6: a 24-hour clock in both locales, the year only when it
+  // is not this one.
+  it.each<[locale: 'lt' | 'en', next: string, now: string, text: string]>([
+    [
+      'en',
+      '2026-10-27T13:18:00Z',
+      '2026-10-26T05:00:00Z',
+      'Next review: tomorrow at 15:18',
+    ],
+    [
+      'en',
+      '2026-10-27T13:18:00Z',
+      '2026-10-25T05:00:00Z',
+      'Next review: October 27 at 15:18',
+    ],
+    [
+      'lt',
+      '2027-01-05T10:00:00Z',
+      '2026-12-20T10:00:00Z',
+      'Kitas kartojimas: 2027 m. sausio 5 d. 12:00',
+    ],
+    [
+      'en',
+      '2027-01-05T10:00:00Z',
+      '2026-12-20T10:00:00Z',
+      'Next review: January 5, 2027 at 12:00',
+    ],
+  ])('in %s, due at %s seen at %s, says "%s"', (locale, next, now, text) => {
+    at(now);
+    renderBlock(
+      { due: 0, toLearn: 0, minutes: 0, nextDue: new Date(next) },
+      locale,
+    );
     expect(screen.getByText(text)).toBeDefined();
   });
 
@@ -93,7 +133,13 @@ describe('TodayBlock (U1-M1-3)', () => {
     const html = renderToString(
       <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
         <TodayBlock
-          summary={{ due: 0, toLearn: 0, minutes: 0, nextDue: NEXT }}
+          summary={{
+            due: 0,
+            toLearn: 0,
+            minutes: 0,
+            nextDue: NEXT,
+            repertoires: [],
+          }}
         />
       </NextIntlClientProvider>,
     );
@@ -105,5 +151,52 @@ describe('TodayBlock (U1-M1-3)', () => {
     expect(screen.getByText(lt.nothingDue)).toBeDefined();
     expect(screen.queryByText(/Kitas kartojimas/)).toBeNull();
     expect(screen.queryAllByRole('link')).toEqual([]);
+    expect(screen.queryByRole('list')).toBeNull();
+  });
+});
+
+describe('TodayBlock’s due moves per repertoire (R-207)', () => {
+  const REPERTOIRES = [
+    { id: 'r2', name: 'Taimanovas', side: 'black', due: 2 },
+    { id: 'r1', name: 'Londonas', side: 'white', due: 1 },
+  ] as const;
+
+  it('lists each repertoire with due moves, each linking to its own review', () => {
+    renderBlock({
+      due: 3,
+      toLearn: 0,
+      minutes: 1,
+      nextDue: null,
+      repertoires: REPERTOIRES,
+    });
+    const links = within(screen.getByRole('list')).getAllByRole('link');
+    expect(links.map((a) => a.textContent)).toEqual([
+      'Taimanovas · Juodieji · 2 kartotini',
+      'Londonas · Baltieji · 1 kartotinas',
+    ]);
+    expect(links.map((a) => a.getAttribute('href'))).toEqual([
+      '/treniruote?mode=review&r=r2',
+      '/treniruote?mode=review&r=r1',
+    ]);
+    // The review of every repertoire stays the main action.
+    expect(link(lt.start)).toBe('/treniruote?mode=review');
+  });
+
+  it('writes the list in English too', () => {
+    renderBlock(
+      {
+        due: 3,
+        toLearn: 0,
+        minutes: 1,
+        nextDue: null,
+        repertoires: REPERTOIRES,
+      },
+      'en',
+    );
+    expect(
+      within(screen.getByRole('list'))
+        .getAllByRole('link')
+        .map((a) => a.textContent),
+    ).toEqual(['Taimanovas · Black · 2 due', 'Londonas · White · 1 due']);
   });
 });

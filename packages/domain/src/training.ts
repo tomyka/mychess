@@ -1,5 +1,5 @@
 /**
- * Training rules outside the chess core: the player's limits (R-62, R-146),
+ * Training rules outside the chess core: the player's settings (R-62, R-146, R-205),
  * when a result applies (S6 decisions 2-6; the batch protocol is in
  * training-results.ts), and the order new moves are taught in (R-145).
  */
@@ -16,6 +16,7 @@ import { z } from 'zod';
 export const TRAINING_ISSUES = {
   sessionSize: 'training.settings.sessionSize',
   newPerDay: 'training.settings.newPerDay',
+  learnArrows: 'training.settings.learnArrows',
 } as const;
 
 /** A whole number from `min` to `max`, coerced from a form string. */
@@ -26,16 +27,22 @@ const wholeNumber = (min: number, max: number, error: string) =>
     .min(min, { error })
     .max(max, { error });
 
-/** R-62: moves in a session; R-146: new moves a day. */
+/**
+ * R-62: moves in a session; R-146: new moves a day; R-205: arrows when
+ * learning new moves. `learnArrows` is a real boolean, never coerced: the
+ * caller turns a form's checkbox into one.
+ */
 export const trainingSettingsSchema = z.object({
   sessionSize: wholeNumber(10, 100, TRAINING_ISSUES.sessionSize),
   newPerDay: wholeNumber(0, 50, TRAINING_ISSUES.newPerDay),
+  learnArrows: z.boolean({ error: TRAINING_ISSUES.learnArrows }),
 });
 export type TrainingSettings = z.infer<typeof trainingSettingsSchema>;
-/** R-62's defaults, as the chess queue keeps them. */
+/** R-62's and R-205's defaults, the limits as the chess queue keeps them. */
 export const DEFAULT_TRAINING_SETTINGS: TrainingSettings = {
   sessionSize: QUEUE_LIMITS.reviews,
   newPerDay: QUEUE_LIMITS.newPerDay,
+  learnArrows: true,
 };
 
 /** Estimated time per Due Move on home (spec "Today" block); tunable. */

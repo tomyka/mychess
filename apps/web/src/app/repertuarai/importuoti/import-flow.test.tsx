@@ -1,6 +1,12 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../i18n/locales';
 import type {
   ImportPreview,
@@ -13,6 +19,17 @@ const server = vi.hoisted(() => ({
   preview: vi.fn<(input: unknown) => Promise<PreviewOutcome>>(),
   confirm: vi.fn<(input: unknown) => Promise<ImportRefused>>(),
 }));
+
+// The chess rule itself, watched: how often the flow asks it (decision 8).
+const chess = vi.hoisted(() => ({
+  playerSide: vi.fn<(text: string, names: readonly string[]) => unknown>(),
+}));
+
+vi.mock('@mychess/chess', async (original) => {
+  const real = await original<typeof import('@mychess/chess')>();
+  chess.playerSide.mockImplementation(real.playerSide);
+  return { ...real, playerSide: chess.playerSide };
+});
 
 vi.mock('./actions', () => ({
   previewImportAction: server.preview,
@@ -50,13 +67,25 @@ const MERGED: ImportPreview = {
   },
 };
 
-function renderFlow(preselected: string | null = null): void {
+function renderFlow(
+  preselected: string | null = null,
+  names: readonly string[] = [],
+): void {
   render(
     <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
-      <ImportFlow options={OPTIONS} preselected={preselected} />
+      <ImportFlow options={OPTIONS} preselected={preselected} names={names} />
     </NextIntlClientProvider>,
   );
 }
+
+const pasteField = () => screen.getByLabelText<HTMLTextAreaElement>(i.paste);
+
+function paste(text: string): void {
+  fireEvent.change(pasteField(), { target: { value: text } });
+}
+
+const sideRadio = (name: string) =>
+  screen.getByRole<HTMLInputElement>('radio', { name });
 
 function chooseFile(file = new File([PGN], 'taimanov.pgn')): void {
   fireEvent.change(screen.getByLabelText(i.file), {
@@ -91,6 +120,7 @@ const intoOf = (input: unknown): unknown =>
     : undefined;
 
 beforeEach(() => {
+  chess.playerSide.mockClear();
   server.preview.mockReset().mockImplementation((input) =>
     Promise.resolve({
       ok: true,
@@ -214,7 +244,7 @@ describe('ImportFlow', () => {
     ).toBeDefined();
   });
 
-  it('says a file of too many half-moves and too many imports a minute are refused (R-119)', async () => {
+  it('says a file of too many half-moves and too many previews a minute are refused (R-119, R-208)', async () => {
     server.preview.mockResolvedValueOnce({
       ok: false,
       refusal: { reason: 'pgn.tooManyMoves', limit: 50_000 },
@@ -227,7 +257,7 @@ describe('ImportFlow', () => {
     ).toBeDefined();
     server.preview.mockResolvedValueOnce({
       ok: false,
-      refusal: { reason: 'pgn.tooManyImports', limit: 10 },
+      refusal: { reason: 'pgn.tooManyPreviews', limit: 30 },
     });
     // The first request's transition may still hold the button disabled.
     const again = screen.getByRole('button', { name: i.preview });
@@ -237,7 +267,7 @@ describe('ImportFlow', () => {
     fireEvent.click(again);
     expect(
       await screen.findByText(
-        'Per daug bandymų importuoti: ne daugiau kaip 10 per minutę. Palaukite minutę ir bandykite dar kartą.',
+        'Per daug peržiūrų: ne daugiau kaip 30 per minutę. Palaukite minutę ir bandykite dar kartą.',
       ),
     ).toBeDefined();
   });
@@ -494,6 +524,7 @@ describe('ImportFlow', () => {
         <ImportFlow
           options={OPTIONS.filter((o) => o.side === 'black')}
           preselected={null}
+          names={[]}
         />
       </NextIntlClientProvider>,
     );
@@ -508,5 +539,212 @@ describe('ImportFlow', () => {
     expect(
       screen.getByText(MESSAGES.lt.repertoires.list.emptyWhite),
     ).toBeDefined();
+  });
+});
+
+describe('pasted PGN (R-209, #330 decision 10)', () => {
+  it('previews pasted text as it previews a file, and names it pasted', async () => {
+    renderFlow();
+    paste(PGN);
+    fireEvent.click(screen.getByRole('radio', { name: c.black }));
+    fireEvent.click(screen.getByRole('button', { name: i.preview }));
+    await screen.findByRole('heading', { name: i.summaryTitle });
+    expect(server.preview).toHaveBeenCalledExactlyOnceWith({
+      text: PGN,
+      side: 'black',
+      into: undefined,
+    });
+    expect(screen.getByText(`${i.pasted} · Juodieji`)).toBeDefined();
+  });
+
+  it('confirms the pasted text it previewed', async () => {
+    renderFlow();
+    paste(PGN);
+    fireEvent.click(screen.getByRole('button', { name: i.preview }));
+    await screen.findByRole('heading', { name: i.summaryTitle });
+    fireEvent.change(screen.getByLabelText(i.name), {
+      target: { value: 'Įklijuotas' },
+    });
+    fireEvent.click(await enabledConfirm());
+    await waitFor(() => {
+      expect(server.confirm).toHaveBeenCalledWith({
+        text: PGN,
+        side: 'white',
+        target: { kind: 'new', name: 'Įklijuotas' },
+      });
+    });
+  });
+
+  it('sends one of the two: a file chosen clears the pasted text', async () => {
+    renderFlow();
+    paste('1. d4 *');
+    chooseFile();
+    expect(pasteField().value).toBe('');
+    fireEvent.click(screen.getByRole('button', { name: i.preview }));
+    await screen.findByRole('heading', { name: i.summaryTitle });
+    expect(server.preview).toHaveBeenCalledWith(
+      expect.objectContaining({ text: PGN }),
+    );
+  });
+
+  it('sends one of the two: pasting drops the chosen file', async () => {
+    renderFlow();
+    chooseFile(new File(['1. e4 *'], 'kitas.pgn'));
+    paste(PGN);
+    expect(screen.queryByText(/^kitas\.pgn/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: i.preview }));
+    await screen.findByRole('heading', { name: i.summaryTitle });
+    expect(server.preview).toHaveBeenCalledWith(
+      expect.objectContaining({ text: PGN }),
+    );
+  });
+
+  it('asks for a file or a paste when the pasted text is blank', () => {
+    renderFlow();
+    paste('  \n ');
+    fireEvent.click(screen.getByRole('button', { name: i.preview }));
+    expect(screen.getByText(i.noFile)).toBeDefined();
+    expect(server.preview).not.toHaveBeenCalled();
+  });
+
+  it('refuses pasted text over 2 MB before sending it (R-66)', () => {
+    renderFlow();
+    paste('ą'.repeat(1024 * 1024 + 1));
+    fireEvent.click(screen.getByRole('button', { name: i.preview }));
+    expect(screen.getByText('Failas didesnis nei 2 MB.')).toBeDefined();
+    expect(server.preview).not.toHaveBeenCalled();
+  });
+});
+
+describe('the side the file’s players name (#330 decision 8)', () => {
+  const NAMES = ['Dovydas Jankauskas', 'dovydasj'];
+  const AS_BLACK = '[White "X"]\n[Black "DovydasJ"]\n\n1. e4 c5 *\n';
+
+  /** Typing settles: the side is read 300 ms after the last change. */
+  const typingPauses = (ms = 300): void => {
+    act(() => {
+      vi.advanceTimersByTime(ms);
+    });
+  };
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('defaults to Black when every pasted game names the account as Black, once typing pauses', () => {
+    vi.useFakeTimers();
+    renderFlow(null, NAMES);
+    paste(AS_BLACK);
+    typingPauses(299);
+    expect(sideRadio(c.white).checked).toBe(true);
+    typingPauses(1);
+    expect(sideRadio(c.black).checked).toBe(true);
+  });
+
+  it('reads the players once per pause, not on every keystroke', () => {
+    vi.useFakeTimers();
+    renderFlow(null, NAMES);
+    for (let n = 1; n <= AS_BLACK.length; n += 8) {
+      paste(AS_BLACK.slice(0, n));
+      typingPauses(100);
+    }
+    paste(AS_BLACK);
+    expect(chess.playerSide).not.toHaveBeenCalled();
+    typingPauses();
+    expect(chess.playerSide).toHaveBeenCalledExactlyOnceWith(AS_BLACK, NAMES);
+    expect(sideRadio(c.black).checked).toBe(true);
+  });
+
+  it('keeps a side chosen while typing', () => {
+    vi.useFakeTimers();
+    renderFlow(null, NAMES);
+    paste(AS_BLACK);
+    fireEvent.click(sideRadio(c.black));
+    fireEvent.click(sideRadio(c.white));
+    typingPauses();
+    expect(sideRadio(c.white).checked).toBe(true);
+  });
+
+  it('lets a file chosen while typing decide, not the text it replaced', async () => {
+    vi.useFakeTimers();
+    renderFlow(null, NAMES);
+    paste(AS_BLACK);
+    chooseFile(new File(['[White "X"]\n[Black "Y"]\n\n1. e4 *\n'], 'k.pgn'));
+    typingPauses();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(sideRadio(c.white).checked).toBe(true);
+  });
+
+  it('defaults to the side a chosen file names the account on', async () => {
+    renderFlow(null, NAMES);
+    chooseFile(new File([AS_BLACK], 'mano.pgn'));
+    await waitFor(() => {
+      expect(sideRadio(c.black).checked).toBe(true);
+    });
+  });
+
+  it('goes back to White when the next file names no one (otherwise White)', async () => {
+    renderFlow(null, NAMES);
+    chooseFile(new File([AS_BLACK], 'mano.pgn'));
+    await waitFor(() => {
+      expect(sideRadio(c.black).checked).toBe(true);
+    });
+    chooseFile(new File(['[White "X"]\n[Black "Y"]\n\n1. e4 *\n'], 'k.pgn'));
+    await waitFor(() => {
+      expect(sideRadio(c.white).checked).toBe(true);
+    });
+  });
+
+  it('goes back to White when text naming no one replaces a Black file', async () => {
+    renderFlow(null, NAMES);
+    chooseFile(new File([AS_BLACK], 'mano.pgn'));
+    await waitFor(() => {
+      expect(sideRadio(c.black).checked).toBe(true);
+    });
+    vi.useFakeTimers();
+    paste('1. e4 c5 *\n');
+    typingPauses();
+    expect(sideRadio(c.white).checked).toBe(true);
+  });
+
+  it('goes back to White for a file too large to read', async () => {
+    renderFlow(null, NAMES);
+    chooseFile(new File([AS_BLACK], 'mano.pgn'));
+    await waitFor(() => {
+      expect(sideRadio(c.black).checked).toBe(true);
+    });
+    const big = new File(['x'], 'big.pgn');
+    Object.defineProperty(big, 'size', { value: 2 * 1024 * 1024 + 1 });
+    chooseFile(big);
+    expect(sideRadio(c.white).checked).toBe(true);
+  });
+
+  it('keeps White when the games do not name the account', () => {
+    vi.useFakeTimers();
+    renderFlow(null, NAMES);
+    paste('[White "X"]\n[Black "Y"]\n\n1. e4 c5 *\n');
+    typingPauses();
+    expect(sideRadio(c.white).checked).toBe(true);
+  });
+
+  it('keeps the side the player chose', async () => {
+    renderFlow(null, ['Rokas']);
+    fireEvent.click(sideRadio(c.black));
+    paste('[White "Rokas"]\n[Black "X"]\n\n1. e4 *\n');
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    expect(sideRadio(c.black).checked).toBe(true);
+    chooseFile(new File(['[White "Rokas"]\n\n1. e4 *\n'], 'r.pgn'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(sideRadio(c.black).checked).toBe(true);
+  });
+
+  it('keeps the side of the repertoire it was opened from', () => {
+    vi.useFakeTimers();
+    renderFlow('r-white', NAMES);
+    paste(AS_BLACK);
+    typingPauses();
+    expect(sideRadio(c.white).checked).toBe(true);
   });
 });

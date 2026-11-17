@@ -7,7 +7,10 @@ import {
 } from '../../src/app/nustatymai/actions';
 import { showLichessUnlinked } from '../../src/server/lichess-unlinked';
 import { deletedMail } from '../../src/server/mail';
-import { linkedProviders } from '../../src/server/provider-links';
+import {
+  lichessUsername,
+  linkedProviders,
+} from '../../src/server/provider-links';
 import { BASE, requestMagicLink } from './support/auth';
 import {
   onboarded,
@@ -397,6 +400,22 @@ describe('the provider links on settings', () => {
 
   it('lists nothing for a signed-out visitor', async () => {
     expect(await linkedProviders()).toEqual([]);
+  });
+});
+
+describe('the Lichess username, for the import’s side default (#330 decision 8)', () => {
+  it('is the session account’s own Lichess id', async () => {
+    await twoAccounts();
+    expect(await lichessUsername()).toBe('ruta');
+  });
+
+  it('is none for another account signed in, not the linked one’s', async () => {
+    request.cookie = await twoAccounts();
+    expect(await lichessUsername()).toBeNull();
+  });
+
+  it('is none for a signed-out visitor', async () => {
+    expect(await lichessUsername()).toBeNull();
   });
 });
 

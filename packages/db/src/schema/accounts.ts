@@ -37,9 +37,13 @@ export const accounts = pgTable(
     onboardedAt: at('onboarded_at'),
     /** When Coach mode was switched on (R-11); null while it is off. */
     coachSince: at('coach_since'),
-    /** R-62, R-146: Reviews per session (10-100), new moves a day (0-50). */
+    /**
+     * R-62, R-146, R-205: Reviews per session (10-100), new moves a day
+     * (0-50), arrows when learning new moves.
+     */
     sessionSize: integer('session_size').notNull().default(20),
     newPerDay: integer('new_per_day').notNull().default(10),
+    learnArrows: boolean('learn_arrows').notNull().default(true),
     createdAt: at('created_at').notNull(),
     updatedAt: at('updated_at').notNull(),
   },

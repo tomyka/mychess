@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
+import { graphOf, LONDON } from '../../../test/fixtures/repertoires';
 import { MESSAGES } from '../../i18n/locales';
 import { ChapterList, type ChapterBuilder } from './chapter-list';
 import type { FieldOutcome } from './field-save';
@@ -343,6 +344,12 @@ describe('ChapterList for a player who trains it (R-58, R-147)', () => {
               ? {
                   repertoireId: REPERTOIRE,
                   counts: { due: 0, toLearn: 0 },
+                  learn: {
+                    tracked: [],
+                    learnedToday: 0,
+                    limits: { reviews: 20, newPerDay: 10 },
+                  },
+                  limitReached: false,
                 }
               : undefined
           }
@@ -378,5 +385,55 @@ describe('ChapterList for a player who trains it (R-58, R-147)', () => {
   it('has no menu where the viewer does not train it', () => {
     renderTrained(false);
     expect(toggles()).toEqual([]);
+  });
+});
+
+describe('ChapterList’s Learn on each chapter row (R-206)', () => {
+  const london = graphOf(LONDON);
+  const [first] = london.chapters;
+
+  function renderLearn(learnedToday: number): void {
+    render(
+      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+        <ChapterList
+          chapters={london.chapters}
+          chapterId={first?.id ?? null}
+          names={{ ecoNames: {}, distinctions: {} }}
+          onSelect={vi.fn()}
+          graph={london}
+          training={{
+            repertoireId: REPERTOIRE,
+            counts: { due: 0, toLearn: 2 },
+            learn: {
+              tracked: [],
+              learnedToday,
+              limits: { reviews: 20, newPerDay: 2 },
+            },
+            limitReached: false,
+          }}
+        />
+      </NextIntlClientProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Skyrius 1 iš/ }));
+  }
+
+  it('links each row to learning that chapter, with its count', () => {
+    renderLearn(0);
+    const links = screen.getAllByRole('link', {
+      name: /^Mokytis 2 naujų ėjimų: /,
+    });
+    expect(links.map((a) => a.getAttribute('href'))).toEqual(
+      london.chapters.map(
+        (c) => `/treniruote?mode=learn&r=${REPERTOIRE}&chapter=${c.id}`,
+      ),
+    );
+    expect(links.map((a) => a.textContent)).toEqual(
+      london.chapters.map(() => 'Mokytis (2)'),
+    );
+  });
+
+  it('has no Learn on a row once today’s new moves are used', () => {
+    renderLearn(2);
+    expect(screen.queryByRole('link')).toBeNull();
   });
 });

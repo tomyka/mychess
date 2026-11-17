@@ -126,7 +126,7 @@ const data: TrainingData = {
   tracked: [],
   learnedToday: 0,
   coachNotes: [],
-  settings: { sessionSize: 20, newPerDay: 10 },
+  settings: { sessionSize: 20, newPerDay: 10, learnArrows: true },
   now: new Date('2026-10-25T08:00:00Z'),
 };
 

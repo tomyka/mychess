@@ -3,7 +3,6 @@
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import type { JSX } from 'react';
-import type { TrainingData } from '../../lib/training-data';
 import { Board } from '../board/board';
 import { useSquareWords } from '../board/square-words';
 import { SECONDARY_BUTTON } from '../buttons';
@@ -15,21 +14,26 @@ import {
   isDone,
   learnCounts,
   playedMoves,
-  repertoireOf,
-  taughtMove,
   type LearnDrillState,
 } from './learn-drill-state';
-import { coachNotesFor, DrillCoachNote } from './coach-note';
+import { DrillCoachNote } from './coach-note';
+import { NextButton } from './next-button';
+import { TwoAnswersNotice } from './two-answers-notice';
 import { useLearnDrill, type LearnDrill as Drill } from './use-learn-drill';
 
-type PromptKey = 'correct' | 'wrong' | 'known' | 'arrows' | 'blind';
+type PromptKey = 'correct' | 'wrong' | 'known' | 'arrows' | 'blind' | 'recall';
 
-/** What the panel asks (docs/design/training-screen.md, Learn pass). */
+/**
+ * What the panel asks (docs/design/training-screen.md, Learn pass): with
+ * arrows off a new move is asked to be played from memory (R-205), not
+ * "again".
+ */
 function promptOf(state: LearnDrillState): PromptKey {
   if (state.hold !== null) return 'correct';
   if (state.wrong && state.session?.arrow === true) return 'wrong';
   if (askedStep(state)?.kind === 'known') return 'known';
-  return state.session?.round === 'blind' ? 'blind' : 'arrows';
+  if (state.session?.round !== 'blind') return 'arrows';
+  return state.options.arrows ? 'blind' : 'recall';
 }
 
 const TONES: Record<PromptKey, string> = {
@@ -38,6 +42,7 @@ const TONES: Record<PromptKey, string> = {
   known: 'text-fg',
   arrows: 'text-fg',
   blind: 'text-fg',
+  recall: 'text-fg',
 };
 
 /**
@@ -61,22 +66,20 @@ function Status({ drill }: { readonly drill: Drill }): JSX.Element {
   );
 }
 
-/** What is asked, the move field, the taught move's Coach note, the line. */
-function LearnPanel({
-  drill,
-  data,
-}: {
-  readonly drill: Drill;
-  readonly data: TrainingData;
-}): JSX.Element {
+/**
+ * What is asked, the move field, the taught move's Coach note, the line.
+ * While a note holds the drill only it and Next count, as in a review.
+ */
+function LearnPanel({ drill }: { readonly drill: Drill }): JSX.Element {
   const { state } = drill;
   return (
     <>
       <Status drill={drill} />
-      <MoveRow input={drill} color={drill.view.turnColor} />
-      <DrillCoachNote
-        notes={coachNotesFor(data, repertoireOf(state), taughtMove(state))}
-      />
+      {drill.next === null ? (
+        <MoveRow input={drill} color={drill.view.turnColor} />
+      ) : null}
+      <DrillCoachNote notes={drill.notes} />
+      <TwoAnswersNotice answers={drill.answers} />
       <LineSoFar
         moves={playedMoves(state)}
         rootKey={state.session?.line.rootKey}
@@ -137,11 +140,14 @@ export function LearnDrill({
   return frame({
     ...parts,
     board,
-    panel: <LearnPanel drill={drill} data={data} />,
+    panel: <LearnPanel drill={drill} />,
     actions: (
-      <Link href={links.back} className={SECONDARY_BUTTON}>
-        {t('training.drill.end')}
-      </Link>
+      <>
+        {drill.next === null ? null : <NextButton onNext={drill.next} />}
+        <Link href={links.back} className={SECONDARY_BUTTON}>
+          {t('training.drill.end')}
+        </Link>
+      </>
     ),
   });
 }

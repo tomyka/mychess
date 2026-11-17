@@ -609,7 +609,7 @@ describe('the repertoire limits (R-162)', () => {
   });
 });
 
-describe('the import rate limit (R-119)', () => {
+describe('the import rate limits (R-119, R-208)', () => {
   const T0 = new Date('2026-10-19T08:00:00Z');
   const preview = () => previewImportAction({ text: TAIMANOV, side: 'black' });
   const confirm = (name: string) =>
@@ -620,9 +620,13 @@ describe('the import rate limit (R-119)', () => {
         target: { kind: 'new', name },
       }),
     );
-  const TOO_MANY = {
+  const TOO_MANY_IMPORTS = {
     ok: false,
     refusal: { reason: 'pgn.tooManyImports', limit: 10 },
+  };
+  const TOO_MANY_PREVIEWS = {
+    ok: false,
+    refusal: { reason: 'pgn.tooManyPreviews', limit: 30 },
   };
 
   beforeEach(() => {
@@ -633,33 +637,46 @@ describe('the import rate limit (R-119)', () => {
     vi.useRealTimers();
   });
 
-  it('refuses the 11th preview or confirm in a minute and imports nothing', async () => {
-    const { gabija } = await cast();
-    actAs(gabija);
-    for (let i = 0; i < 5; i++) expect((await preview()).ok).toBe(true);
-    for (let i = 0; i < 5; i++) await confirm(`Importas ${String(i)}`);
-    expect(await repertoireCount()).toBe(8);
+  it('refuses the 31st preview in a minute', async () => {
+    actAs((await cast()).gabija);
+    for (let i = 0; i < 30; i++) expect((await preview()).ok).toBe(true);
+    expect(await preview()).toEqual(TOO_MANY_PREVIEWS);
+  });
+
+  it('counts previews apart from confirms: thirty previews leave ten confirms', async () => {
+    actAs((await cast()).gabija);
+    for (let i = 0; i < 30; i++) await preview();
+    const before = await repertoireCount();
+    for (let i = 0; i < 10; i++) await confirm(`Importas ${String(i)}`);
+    expect(await repertoireCount()).toBe(before + 10);
+    expect(await confirm('Vienuoliktas')).toEqual(TOO_MANY_IMPORTS);
+    expect(await repertoireCount()).toBe(before + 10);
+  });
+
+  it('refuses the 11th confirm in a minute, yet still previews', async () => {
+    actAs((await cast()).gabija);
+    for (let i = 0; i < 10; i++) await confirm(`Importas ${String(i)}`);
+    const before = await repertoireCount();
     vi.setSystemTime(new Date(T0.getTime() + 59_000));
-    expect(await confirm('Vienuoliktas')).toEqual(TOO_MANY);
-    expect(await preview()).toEqual(TOO_MANY);
-    expect(await repertoireCount()).toBe(8);
+    expect(await confirm('Vienuoliktas')).toEqual(TOO_MANY_IMPORTS);
+    expect(await repertoireCount()).toBe(before);
+    expect((await preview()).ok).toBe(true);
   });
 
   it('counts each account on its own', async () => {
-    const { gabija } = await cast();
-    actAs(gabija);
-    for (let i = 0; i < 10; i++) await preview();
-    expect(await preview()).toEqual(TOO_MANY);
+    actAs((await cast()).gabija);
+    for (let i = 0; i < 30; i++) await preview();
+    expect(await preview()).toEqual(TOO_MANY_PREVIEWS);
     actAs(await person(sql, 'ona@example.lt', 'Ona'));
     expect((await preview()).ok).toBe(true);
   });
 
-  it('allows imports again a minute after the minute opened', async () => {
-    const { gabija } = await cast();
-    actAs(gabija);
+  it('allows previews again a minute after the minute opened', async () => {
+    actAs((await cast()).gabija);
     await preview();
     vi.setSystemTime(new Date(T0.getTime() + 59_000));
-    for (let i = 0; i < 9; i++) await preview();
+    for (let i = 0; i < 29; i++) await preview();
+    expect(await preview()).toEqual(TOO_MANY_PREVIEWS);
     vi.setSystemTime(new Date(T0.getTime() + 60_000));
     expect((await preview()).ok).toBe(true);
   });

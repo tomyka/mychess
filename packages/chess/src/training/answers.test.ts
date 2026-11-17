@@ -24,26 +24,32 @@ describe('twoAnswers (R-54)', () => {
   const black = rep('black', graph('1. e4 e5 *', 'black'));
 
   it('names the repertoire that answers otherwise', () => {
-    expect(twoAnswers(START_KEY, 'e4', [e4, d4])).toEqual([
+    expect(twoAnswers(START_KEY, 'e4', 'e4', [e4, d4])).toEqual([
       { repertoireId: 'd4', san: 'd4' },
     ]);
-    expect(twoAnswers(START_KEY, 'd4', [e4, d4])).toEqual([
+    expect(twoAnswers(START_KEY, 'd4', 'd4', [e4, d4])).toEqual([
       { repertoireId: 'e4', san: 'e4' },
     ]);
   });
   it('leaves out a repertoire with the same answer or none there', () => {
-    expect(twoAnswers(START_KEY, 'e4', [e4, sameE4, black])).toEqual([]);
+    expect(twoAnswers(START_KEY, 'e4', 'e4', [e4, sameE4, black])).toEqual([]);
+  });
+  it('leaves out the drill’s own repertoire, whatever it plays there', () => {
+    expect(twoAnswers(START_KEY, 'e4', 'd4', [e4, d4])).toEqual([]);
+    expect(twoAnswers(START_KEY, 'c4', 'd4', [e4, d4])).toEqual([
+      { repertoireId: 'e4', san: 'e4' },
+    ]);
   });
   it('names a paused repertoire too', () => {
     const paused = rep('paused', graph('1. c4 *'), false);
-    expect(twoAnswers(START_KEY, 'e4', [e4, paused, d4])).toEqual([
+    expect(twoAnswers(START_KEY, 'e4', 'e4', [e4, paused, d4])).toEqual([
       { repertoireId: 'paused', san: 'c4' },
       { repertoireId: 'd4', san: 'd4' },
     ]);
   });
   it('needs only each repertoire id and graph', () => {
     const named = { id: 'd4', graph: graph('1. d4 d5 *') };
-    expect(twoAnswers(START_KEY, 'e4', [named])).toEqual([
+    expect(twoAnswers(START_KEY, 'e4', 'e4', [named])).toEqual([
       { repertoireId: 'd4', san: 'd4' },
     ]);
   });

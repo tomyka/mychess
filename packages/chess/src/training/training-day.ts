@@ -6,7 +6,7 @@
  * counts, the snapshot) and the browser (the drills, graded Reviews in hand)
  * read the same rules from here.
  */
-import { learnPlan, type LearnLine } from './learn-plan';
+import { learnPlan, type LearnFocus, type LearnLine } from './learn-plan';
 import {
   buildQueue,
   heldMoves,
@@ -15,7 +15,7 @@ import {
   type QueueItem,
   type QueueLimits,
 } from './queue';
-import { isDue, type ReviewState } from './schedule';
+import { isDue, startReview, type ReviewState } from './schedule';
 import type { TrainingRepertoire } from './scope';
 
 /** The training snapshot as plain data. */
@@ -33,6 +33,8 @@ export interface TrainingDay {
   readonly learnedToday: number;
   /** The player's session size and new moves a day, already parsed (R-146). */
   readonly limits: QueueLimits;
+  /** One chapter or line to learn instead of the learn order (R-206). */
+  readonly focus?: LearnFocus;
 }
 
 type Held = Pick<TrainingDay, 'repertoires' | 'reviews'>;
@@ -131,6 +133,40 @@ export function nextDue(day: Held, now: Date): Date | null {
   return later.length === 0 ? null : new Date(Math.min(...later));
 }
 
+/** One repertoire's Reviews due now, as home lists them (R-207). */
+export interface RepertoireDue {
+  readonly repertoireId: string;
+  /** What a review of it alone asks before its session cap: shared moves count in each. */
+  readonly due: number;
+}
+
+/** The Reviews of one repertoire due at `now`, as a review of it alone counts them. */
+const dueIn = (
+  repertoire: TrainingRepertoire,
+  reviews: Held['reviews'],
+  now: Date,
+): ReviewState[] =>
+  heldReviews({ repertoires: [repertoire], reviews }).filter((r) =>
+    isDue(r, now),
+  );
+
+/**
+ * The active repertoires with Reviews due at `now`, each counted as a
+ * review of it alone counts them (R-142, R-207), the most urgent first: by
+ * its earliest due Review, as the session orders them, then learn order.
+ */
+export function dueByRepertoire(day: Held, now: Date): RepertoireDue[] {
+  return day.repertoires
+    .map((repertoire, order) => {
+      const due = dueIn(repertoire, day.reviews, now);
+      const first = Math.min(...due.map((r) => r.fsrs.due.getTime()));
+      return { repertoireId: repertoire.id, due: due.length, first, order };
+    })
+    .filter((r) => r.due > 0)
+    .sort((a, b) => a.first - b.first || a.order - b.order)
+    .map(({ repertoireId, due }) => ({ repertoireId, due }));
+}
+
 /** The progress over the own moves the active repertoires hold. */
 export function trainingProgress(day: Held, now: Date): TrainingProgress {
   const reviewed = heldReviews(day).length;
@@ -158,10 +194,58 @@ export function dueReviews(
 
 /**
  * The lines a learn session teaches (R-144, R-145), in the repertoires'
- * learn order, up to what is left of today's allowance.
+ * learn order or only the day's focus (R-206), up to what is left of
+ * today's allowance.
  */
 export const learnLines = (day: Omit<TrainingDay, 'reviews'>): LearnLine[] =>
-  learnPlan(day.repertoires, day.tracked, allowance(day));
+  learnPlan(day.repertoires, day.tracked, allowance(day), day.focus);
+
+/** A move learned in the browser whose result the snapshot may not hold yet. */
+export interface LearnedMove {
+  readonly key: string;
+  /** When it was learned: its Review starts then. */
+  readonly at: Date;
+}
+
+/** `learned` without the keys `tracked` holds, each key once, first kept. */
+function untracked(
+  learned: readonly LearnedMove[],
+  tracked: ReadonlySet<string>,
+): LearnedMove[] {
+  const byKey = new Map<string, LearnedMove>();
+  for (const move of learned) {
+    if (!tracked.has(move.key) && !byKey.has(move.key))
+      byKey.set(move.key, move);
+  }
+  return [...byKey.values()];
+}
+
+/**
+ * `day` caught up with moves learned since its snapshot was read (decision
+ * 2): each is tracked, and it counts toward today's allowance when learned
+ * at or after `dayStart` (R-146), so an `at` in the future counts too. Its
+ * Review is seeded as `startReview(key, at)` only, so the plan and counts
+ * see it: callers must not read it as the move's real FSRS state, which is
+ * the server's once the result is posted. A move the snapshot already
+ * tracks changes nothing; with none left, `day` itself is returned.
+ */
+export function withLearned(
+  day: TrainingDay,
+  learned: readonly LearnedMove[],
+  dayStart: Date,
+): TrainingDay {
+  const fresh = untracked(learned, day.tracked);
+  if (fresh.length === 0) return day;
+  const reviews = new Map(day.reviews);
+  for (const { key, at } of fresh) reviews.set(key, startReview(key, at));
+  const today = fresh.filter((m) => m.at.getTime() >= dayStart.getTime());
+  return {
+    ...day,
+    reviews,
+    tracked: new Set([...day.tracked, ...fresh.map((m) => m.key)]),
+    learnedToday: day.learnedToday + today.length,
+  };
+}
 
 /** The new moves in `lines`. */
 export const newKeys = (lines: readonly LearnLine[]): string[] =>
@@ -182,11 +266,22 @@ export const trainingCounts = (
   toLearn: toLearnCount(day),
 });
 
-function learnStart(day: TrainingDay): StartState {
-  const left = heldMoveKeys(day.repertoires).some(
-    (key) => !day.tracked.has(key),
-  );
-  if (!left) return { kind: 'nothingLeft' };
+/**
+ * Are any moves left to learn, in the focus or the active repertoires? The
+ * learn plan without a limit decides, so "nothing left" is what a learn
+ * session would find.
+ */
+const movesLeft = (day: Omit<TrainingDay, 'reviews'>): boolean =>
+  learnPlan(day.repertoires, day.tracked, Number.POSITIVE_INFINITY, day.focus)
+    .length > 0;
+
+/**
+ * Where learning stands (decision 11): moves left and allowed, moves left
+ * but today's allowance used, or nothing left; in the focus only, when the
+ * day has one (R-206).
+ */
+export function learnStart(day: Omit<TrainingDay, 'reviews'>): StartState {
+  if (!movesLeft(day)) return { kind: 'nothingLeft' };
   return allowance(day) === 0 ? { kind: 'limitReached' } : { kind: 'drill' };
 }
 

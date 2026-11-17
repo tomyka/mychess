@@ -5,7 +5,7 @@ import { useFormatter, useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useActionState, useId, type JSX } from 'react';
 import { coachPlayerPath } from '../../lib/routes';
-import { DISPLAY_TIME_ZONE } from '../../lib/time-zone';
+import { MEDIUM_DATE } from '../../lib/date-format';
 import { AssignmentBadges } from '../assignment-badges';
 import { ConfirmedAction } from '../confirmed-action';
 import { useDeadline } from '../use-deadline';
@@ -64,10 +64,7 @@ const INITIAL: CoachActionState = {};
 function LinkedSince({ at }: { readonly at: Date }): JSX.Element {
   const t = useTranslations('coach.player');
   const format = useFormatter();
-  const date = format.dateTime(at, {
-    dateStyle: 'medium',
-    timeZone: DISPLAY_TIME_ZONE,
-  });
+  const date = format.dateTime(at, MEDIUM_DATE);
   return <p className="text-sm text-fg-muted">{t('linkedSince', { date })}</p>;
 }
 

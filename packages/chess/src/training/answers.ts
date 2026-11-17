@@ -18,13 +18,19 @@ const answerIn = (
 ): string | undefined =>
   graph.moves.find((m) => m.from === fromKey && isPlayerMove(graph, m))?.san;
 
-/** Held repertoires (paused included) that play something other than `san` at `fromKey`. */
+/**
+ * The player's other held repertoires (paused included) that play something
+ * other than `san` at `fromKey`. The drill's own repertoire, `ownId`, is
+ * never among them: it asks its own move (R-54).
+ */
 export function twoAnswers(
   fromKey: string,
   san: string,
+  ownId: string,
   repertoires: readonly Pick<TrainingRepertoire, 'id' | 'graph'>[],
 ): OtherAnswer[] {
   return repertoires.flatMap((r) => {
+    if (r.id === ownId) return [];
     const other = answerIn(r.graph, fromKey);
     return other === undefined || other === san
       ? []

@@ -27,20 +27,23 @@
  * Two sessions drive the browser's training screens. The learn session
  * (`startLearnSession`, `playLearn`, `advanceLearn`, `currentLearnStep`)
  * plays a `learnPlan` line's learn pass, an arrows round then a blind
- * round, and emits each new move once learned (R-144, R-55). The review session
+ * round (only the blind one with the arrows setting off, R-205: `askLearn`
+ * starts each new move asked), and emits each new move once learned (R-144,
+ * R-55). The review session
  * (`startReviewSession`, `answerReview`, `hintReview`, `nextReview`,
  * `reviewCounts`, `reviewProgress`) asks the queue's Reviews after their
  * line so far, chains into the next Due move of the same repertoire (R-143,
  * R-54), emits one outcome per ask (R-59, R-61) and asks a Lapse again once
  * its relearning step runs out (R-78). The training day (`training-day.ts`) reads a
  * player's snapshot: the allowance, what is due, when the next Review is,
- * the progress and the screen training starts on. `twoAnswers` names the
+ * the progress and the screen training starts on, and catches a day up with
+ * moves learned in the browser (`withLearned`). `twoAnswers` names the
  * other answers the player's repertoires give (R-54); `learnAgainKeys` the
  * skipped moves "Learn again" returns (R-147).
  *
  * The ts-fsrs scheduler stays behind this interface (`schedule.ts`).
  */
-export { knowThis, learnStep, startLearn } from './learn';
+export { askLearn, knowThis, learnStep, startLearn } from './learn';
 export type { LearnEvent, LearnState } from './learn';
 export { allTracked, mastered, reconcile, weakSpots } from './progress';
 export type { Reconciliation, WeakSpot } from './progress';
@@ -69,13 +72,18 @@ export type {
 } from './queue';
 export { grade, startReview } from './schedule';
 export type { Outcome, ReviewState } from './schedule';
-export { repertoireKeys } from './scope';
+export { repertoireKeys, trackedIn } from './scope';
 export type { Scope, TrainingRepertoire } from './scope';
 export { reviewStateSchema, unreviewed } from './stored-review';
 export { lineTo } from './line-to';
 export type { LineTo } from './line-to';
 export { learnPlan } from './learn-plan';
-export type { LearnLine, LearnPlanStep, LearnStepKind } from './learn-plan';
+export type {
+  LearnFocus,
+  LearnLine,
+  LearnPlanStep,
+  LearnStepKind,
+} from './learn-plan';
 export {
   advanceLearn,
   currentLearnStep,
@@ -85,6 +93,7 @@ export {
 export type {
   LearnEmit,
   LearnRound,
+  LearnSessionOptions,
   LearnSessionState,
   LearnTransition,
 } from './learn-session';
@@ -109,9 +118,11 @@ export type {
   Repeat,
 } from './review-session';
 export {
+  dueByRepertoire,
   dueCount,
   dueReviews,
   learnLines,
+  learnStart,
   newKeys,
   nextDue,
   startState,
@@ -119,8 +130,11 @@ export {
   trainingCounts,
   trainingProgress,
   dayStanding,
+  withLearned,
 } from './training-day';
 export type {
+  LearnedMove,
+  RepertoireDue,
   StartState,
   TrainingCounts,
   TrainingDay,

@@ -7,8 +7,8 @@ import type { MessageKey } from '../../../../i18n/message-key';
 import { repertoireExportRoute, ROUTES } from '../../../../lib/routes';
 import { SECONDARY_BUTTON } from '../../../buttons';
 import type { Asking } from '../../../confirmed-action';
-import type { TrainingCounts } from '@mychess/chess';
 import type { AssignedRepertoirePage } from '../../../../server/assignment-pages';
+import type { RepertoireTraining } from '../../../../server/training';
 import {
   BackLink,
   HeaderFrame,
@@ -148,15 +148,15 @@ function useAssignedPanel(
     readonly forkAction: ForkAction;
     readonly forkAsking: Asking;
   },
-  training: TrainingCounts | null,
+  training: RepertoireTraining | null,
 ): PanelContent {
   const t = useTranslations();
-  // A paused assignment trains nothing new (R-46): no train buttons and no
-  // "I know this"; the pause control says why.
+  // A paused assignment trains nothing new (R-46): no train buttons, no
+  // Learn and no "I know this"; the pause control says why.
   const trains = training !== null && !actions.pause.state.paused;
   return {
     training: trains
-      ? { repertoireId: data.repertoire.id, counts: training }
+      ? { repertoireId: data.repertoire.id, ...training }
       : undefined,
     lead: (
       <ChangesSummary
@@ -195,8 +195,8 @@ export function AssignedView({
 }: {
   readonly data: AssignedRepertoirePage;
   readonly forkAction: ForkAction;
-  /** The player's due and to-learn counts of it, as the page loaded. */
-  readonly training?: TrainingCounts | null;
+  /** The player's training of it, as the page loaded (R-142, R-206). */
+  readonly training?: RepertoireTraining | null;
 }): JSX.Element {
   const { id, version } = data.repertoire;
   const view = useBrowseView(data.graph, data.repertoire.side, NOT_IN_CHAPTER);

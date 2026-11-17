@@ -95,7 +95,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
     tracked: [],
     learnedToday: 0,
     coachNotes: [],
-    settings: { sessionSize: 20, newPerDay: 10 },
+    settings: { sessionSize: 20, newPerDay: 10, learnArrows: true },
     now: NOW,
     ...overrides,
   };
@@ -348,7 +348,9 @@ describe('the learn drill, blind round', () => {
 
 describe('the learn drill’s done summary', () => {
   it('shows the moves learned and the progress, with no way to learn more today', () => {
-    renderDrill(data({ settings: { sessionSize: 20, newPerDay: 1 } }));
+    renderDrill(
+      data({ settings: { sessionSize: 20, newPerDay: 1, learnArrows: true } }),
+    );
     expect(counter()).toBe('0 / 1');
     play('d4');
     play('d4');
@@ -368,7 +370,7 @@ describe('the learn drill’s done summary', () => {
   it('leads on to review when moves are due (R-62)', () => {
     renderDrill(
       data({
-        settings: { sessionSize: 20, newPerDay: 1 },
+        settings: { sessionSize: 20, newPerDay: 1, learnArrows: true },
         reviews: [startReview(BF4, new Date(NOW.getTime() - DAY))],
         tracked: [BF4],
       }),
@@ -525,5 +527,150 @@ describe('the learn drill and coach notes (#322, R-174)', () => {
     );
     play('d4');
     expect(note()).toBeNull();
+  });
+});
+
+describe('the two-answers notice in learn (R-54, #330 decision 4)', () => {
+  const OTHER = {
+    id: '0b9e7c1e-3f4a-4c5b-8d6e-7f8091a2b3c4',
+    name: 'Anglų pradžia',
+    side: 'white' as const,
+    graph: graphOf('1. c4 *'),
+  };
+  const sentence = T.twoAnswers.other
+    .replace('{name}', OTHER.name)
+    .replace('{move}', 'c4');
+  const notice = () => screen.queryByRole('note')?.textContent ?? null;
+  const next = () => screen.queryByRole('button', { name: T.drill.next });
+
+  it('shows on the new move’s step, with its arrow, in one sentence', () => {
+    renderDrill(data({ others: [OTHER] }));
+    expect(arrows()).toEqual(['d2d4']);
+    expect(notice()).toBe(sentence);
+  });
+
+  it('is not shown on the blind ask, nor on a move no other repertoire answers', () => {
+    renderDrill(data({ others: [OTHER] }));
+    play('d4');
+    expect(notice()).toBeNull();
+    play('Bf4');
+    expect(panel()).toContain(T.learn.blind);
+    expect(notice()).toBeNull();
+  });
+
+  it('with arrows off, shows only once the blind move is answered, and holds it until Next', () => {
+    renderDrill(
+      data({
+        others: [OTHER],
+        settings: { sessionSize: 20, newPerDay: 10, learnArrows: false },
+      }),
+    );
+    expect(notice()).toBeNull();
+    type('d4');
+    wait(2000);
+    expect(notice()).toBe(sentence);
+    const button = next();
+    if (button === null) throw new Error('Next holds the drill');
+    fireEvent.click(button);
+    wait(150);
+    expect(notice()).toBeNull();
+    expect(panel()).toContain(T.learn.recall);
+  });
+});
+
+describe('the learn drill with arrows off (R-205, #330 decision 1)', () => {
+  const noArrows = (overrides: Partial<TrainingData> = {}) =>
+    data({
+      settings: { sessionSize: 20, newPerDay: 10, learnArrows: false },
+      ...overrides,
+    });
+
+  it('asks the first new move without its arrow', () => {
+    renderDrill(noArrows());
+    expect(arrows()).toEqual([]);
+    expect(panel()).toContain(T.learn.recall);
+  });
+
+  it('records a move learned at its first right answer, and asks the next one blind', () => {
+    renderDrill(noArrows());
+    play('d4');
+    expect(recorded.map((r) => [r.kind, r.moveKey])).toEqual([['learned', D4]]);
+    expect(arrows()).toEqual([]);
+    expect(panel()).toContain(T.learn.recall);
+    play('Bf4');
+    expect(learnedKeys()).toEqual([D4, BF4]);
+    expect(screen.getByRole('main').dataset['finished']).toBe('yes');
+  });
+
+  it('shows the arrow after a wrong move, as after a lapse (R-59)', () => {
+    renderDrill(noArrows());
+    type('e4');
+    wait(400);
+    expect(arrows()).toEqual(['d2d4']);
+    expect(panel()).toContain(T.learn.wrong);
+    expect(recorded).toEqual([]);
+  });
+
+  describe('and coach notes (lead answer 3: as in a review, R-174)', () => {
+    const NOTED = graphOf('1. d4 { Take the centre first. } d5 2. Bf4 *');
+    const noted = () =>
+      noArrows({
+        entries: [
+          {
+            id: REP_ID,
+            name: 'Trenerio Londonas',
+            side: 'white',
+            kind: 'assigned',
+            coachName: 'Rasa',
+            active: true,
+            graph: NOTED,
+          },
+        ],
+      });
+    const note = () =>
+      screen.queryByRole('note', { name: T.drill.coachNote })?.textContent ??
+      null;
+    const next = () =>
+      screen.queryByRole('button', { name: T.drill.next }) ?? null;
+
+    it('keeps the note back until the move is answered, then holds the drill on it', () => {
+      renderDrill(noted());
+      expect(note()).toBeNull();
+      type('d4');
+      expect(note()).toContain('Take the centre first.');
+      expect(recorded.map((r) => r.moveKey)).toEqual([D4]);
+      // Held while the note is read: no flash timer moves on.
+      wait(2000);
+      expect(note()).toContain('Take the centre first.');
+      // Only the note and Next count meanwhile, as in a review.
+      expect(screen.queryByLabelText(MOVE_INPUT)).toBeNull();
+      const button = next();
+      if (button === null) throw new Error('Next holds the drill');
+      fireEvent.click(button);
+      wait(150);
+      expect(note()).toBeNull();
+      expect(next()).toBeNull();
+      expect(panel()).toContain(T.learn.recall);
+    });
+
+    it('moves on by itself after a right answer to a move with no note', () => {
+      renderDrill(noted());
+      type('d4');
+      const button = next();
+      if (button === null) throw new Error('Next holds the drill');
+      fireEvent.click(button);
+      wait(150);
+      type('Bf4');
+      expect(next()).toBeNull();
+      wait(400);
+      expect(screen.getByRole('main').dataset['finished']).toBe('yes');
+    });
+
+    it('shows the note with the arrow a wrong answer brings', () => {
+      renderDrill(noted());
+      type('e4');
+      expect(arrows()).toEqual(['d2d4']);
+      expect(note()).toContain('Take the centre first.');
+    });
   });
 });

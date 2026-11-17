@@ -19,10 +19,12 @@ vi.mock('./actions', () => ({ updateTrainingSettingsAction: server.action }));
 
 const lt = MESSAGES.lt.training.settings;
 
-function renderForm(locale: 'lt' | 'en' = 'lt'): void {
+function renderForm(locale: 'lt' | 'en' = 'lt', learnArrows = true): void {
   render(
     <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
-      <TrainingForm settings={{ sessionSize: 20, newPerDay: 10 }} />
+      <TrainingForm
+        settings={{ sessionSize: 20, newPerDay: 10, learnArrows }}
+      />
     </NextIntlClientProvider>,
   );
 }
@@ -31,6 +33,10 @@ const sessionField = () =>
   screen.getByLabelText<HTMLInputElement>(lt.sessionSizeLabel);
 const newField = () =>
   screen.getByLabelText<HTMLInputElement>(lt.newPerDayLabel);
+const arrowsBox = () =>
+  screen.getByRole<HTMLInputElement>('checkbox', {
+    name: lt.learnArrowsLabel,
+  });
 const status = () => screen.getByRole('status');
 
 function save(sessionSize: string, newPerDay: string): void {
@@ -79,8 +85,42 @@ describe('TrainingForm (R-62, R-146)', () => {
     await waitFor(() => {
       expect(status().textContent).toBe(lt.saved);
     });
-    expect(submitted()).toEqual({ sessionSize: '40', newPerDay: '0' });
+    expect(submitted()).toEqual({
+      sessionSize: '40',
+      newPerDay: '0',
+      learnArrows: 'on',
+    });
     expect(sessionField().getAttribute('aria-invalid')).toBeNull();
+  });
+
+  it('shows the arrows setting, on when stored on, with its hint (R-205)', () => {
+    renderForm();
+    expect(arrowsBox().checked).toBe(true);
+    expect(arrowsBox().getAttribute('aria-describedby')).toContain(
+      screen.getByText(lt.learnArrowsHint).id,
+    );
+  });
+
+  it('is the settings section #treniruote that training links to', () => {
+    renderForm();
+    expect(screen.getByRole('region', { name: lt.title }).id).toBe(
+      'treniruote',
+    );
+  });
+
+  it('shows the arrows setting off when stored off', () => {
+    renderForm('lt', false);
+    expect(arrowsBox().checked).toBe(false);
+  });
+
+  it('sends no arrows setting once the box is cleared', async () => {
+    renderForm();
+    fireEvent.click(arrowsBox());
+    save('20', '10');
+    await waitFor(() => {
+      expect(status().textContent).toBe(lt.saved);
+    });
+    expect(submitted()).toEqual({ sessionSize: '20', newPerDay: '10' });
   });
 
   it('refuses a session of 9, marks that field and keeps what was typed', async () => {

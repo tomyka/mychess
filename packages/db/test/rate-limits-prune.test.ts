@@ -1,5 +1,6 @@
 import {
   FIDE_SEARCH_RATE_LIMIT,
+  IMPORT_PREVIEW_RATE_LIMIT,
   IMPORT_RATE_LIMIT,
   MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
@@ -64,6 +65,9 @@ describe('the retention of each table', () => {
     );
     expect(REQUEST_COUNTER_RETENTION_MS).toBeGreaterThanOrEqual(
       IMPORT_RATE_LIMIT.windowMs,
+    );
+    expect(REQUEST_COUNTER_RETENTION_MS).toBeGreaterThanOrEqual(
+      IMPORT_PREVIEW_RATE_LIMIT.windowMs,
     );
     expect(REQUEST_COUNTER_RETENTION_MS).toBeGreaterThanOrEqual(
       TRAINING_RATE_LIMIT.windowMs,

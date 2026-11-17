@@ -277,3 +277,56 @@ describe('learnSession', () => {
     expect(emits).toEqual([{ kind: 'learned', key: keyOf(second, 'd3') }]);
   });
 });
+
+describe('learnSession without arrows (R-205)', () => {
+  const noArrows = { arrows: false } as const;
+  const newKeys = first.steps.filter((x) => x.kind === 'new').map((x) => x.key);
+
+  it('starts in the blind round at the first step, no arrow, each new move asked', () => {
+    const s = startLearnSession(first, noArrows);
+    expect(s).toMatchObject({
+      round: 'blind',
+      index: 0,
+      arrow: false,
+      done: false,
+    });
+    expect(newKeys.map((key) => s.states.get(key)?.step)).toEqual(
+      newKeys.map(() => 'asked'),
+    );
+  });
+  it('learns a new move at its first right answer', () => {
+    const t = playLearn(startLearnSession(first, noArrows), 'e4', now);
+    expect(t.correct).toBe(true);
+    expect(t.emit).toEqual({ kind: 'learned', key: keyOf(first, 'e4') });
+    expect(t.state.index).toBe(1);
+  });
+  it('shows the arrow after a wrong answer; the arrow move then asks it blind again (R-59)', () => {
+    const wrong = playLearn(startLearnSession(first, noArrows), 'd4', now);
+    expect(wrong.correct).toBe(false);
+    expect(wrong.emit).toBeNull();
+    expect(wrong.state.arrow).toBe(true);
+    expect(stepOf(wrong.state, 'e4')).toBe('shown');
+    const seen = playLearn(wrong.state, 'e4', now);
+    expect(seen.emit).toBeNull();
+    expect(seen.state.arrow).toBe(false);
+    expect(seen.state.index).toBe(0);
+    const learned = playLearn(seen.state, 'e4', now);
+    expect(learned.emit).toEqual({ kind: 'learned', key: keyOf(first, 'e4') });
+  });
+  it('ends after its one round, each new move learned once', () => {
+    const { state, emits } = runRound(startLearnSession(first, noArrows));
+    expect(state.done).toBe(true);
+    expect(emits.map((e) => e.key)).toEqual(newKeys);
+  });
+  it('plays known moves for context and learns only the new one', () => {
+    const { state, emits } = runRound(startLearnSession(second, noArrows));
+    expect(state.done).toBe(true);
+    expect(emits).toEqual([{ kind: 'learned', key: keyOf(second, 'd3') }]);
+  });
+  it('keeps the arrows round by default (R-144)', () => {
+    expect(startLearnSession(first)).toEqual(
+      startLearnSession(first, { arrows: true }),
+    );
+    expect(startLearnSession(first, { arrows: true }).round).toBe('arrows');
+  });
+});

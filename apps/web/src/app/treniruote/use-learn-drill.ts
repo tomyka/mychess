@@ -34,14 +34,26 @@ import {
   repertoireOf,
   shownKey,
   startLearnDrill,
+  taughtMove,
   type LearnDrillState,
 } from './learn-drill-state';
+import {
+  drillNotices,
+  hasNotices,
+  namedOf,
+  type DrillNotices,
+} from './drill-notices';
 import { dayOf } from '../../lib/training-day';
 import type { ResultSync } from './use-result-sync';
 
 export interface LearnDrill
-  extends MoveInput, Pick<DrillBoard, 'view' | 'titled'> {
+  extends MoveInput, DrillNotices, Pick<DrillBoard, 'view' | 'titled'> {
   readonly state: LearnDrillState;
+  /**
+   * On to the next step, once a blind answer's Coach notes or two-answers
+   * notice hold the drill (arrows off, lead answer 3); null while none do.
+   */
+  readonly next: (() => void) | null;
   /** Where the repertoires stand now, by the moves learned so far. */
   readonly progress: () => TrainingProgress;
   /** Where the player's day stands now (#319). */
@@ -51,17 +63,22 @@ export interface LearnDrill
 type SetState = Dispatch<SetStateAction<LearnDrillState>>;
 
 /**
- * The drill's timed steps: the right move held for its flash, and the
- * opponent's move sliding in with the board locked.
+ * The drill's timed steps: the right move held for its flash, unless a
+ * Coach note waits to be read (`held`), and the opponent's move sliding in
+ * with the board locked. Returns the release, for the note's button.
  */
-function useLearnTimers(state: LearnDrillState, setState: SetState): void {
+function useLearnTimers(
+  state: LearnDrillState,
+  setState: SetState,
+  held: boolean,
+): () => void {
   const release = useMemo(
     () => () => {
       setState(released);
     },
     [setState],
   );
-  useTimer(state.hold !== null, FEEDBACK_MS, release);
+  useTimer(state.hold !== null && !held, FEEDBACK_MS, release);
   const advance = useMemo(
     () => () => {
       setState(advanced);
@@ -69,6 +86,7 @@ function useLearnTimers(state: LearnDrillState, setState: SetState): void {
     [setState],
   );
   useTimer(opponentMoving(state), MOVE_DURATION, advance);
+  return release;
 }
 
 interface InputContext {
@@ -113,8 +131,9 @@ function useLearnInput(c: InputContext): MoveInput {
 
 /**
  * The learn drill (plan Task C6): the plan's lines one after another, each
- * learned in its two rounds, each move learned recorded and started as a
- * Review in the browser, and the board's view of it.
+ * learned in its two rounds (only the blind one with arrows off, R-205),
+ * each move learned recorded and started as a Review in the browser, and
+ * the board's view of it.
  */
 export function useLearnDrill(
   data: TrainingData,
@@ -123,9 +142,21 @@ export function useLearnDrill(
 ): LearnDrill {
   const day = useMemo(() => dayOf(data), [data]);
   const [state, setState] = useState(() =>
-    startLearnDrill(learnLines(day), day.reviews),
+    startLearnDrill(learnLines(day), day.reviews, {
+      arrows: data.settings.learnArrows,
+    }),
   );
-  useLearnTimers(state, setState);
+  const named = useMemo(() => namedOf(data), [data]);
+  const notices = drillNotices(
+    data,
+    named,
+    repertoireOf(state),
+    taughtMove(state),
+  );
+  // Only a blind answer's notices hold the drill: the arrow's show while
+  // it is asked, before the answer.
+  const held = state.answered !== null && hasNotices(notices);
+  const release = useLearnTimers(state, setState, held);
   const { view, legal, titled } = useDrillBoard({
     data,
     state,
@@ -144,6 +175,8 @@ export function useLearnDrill(
     state,
     view,
     titled,
+    ...notices,
+    next: held ? release : null,
     progress: () => progressAt(clock.now()),
     standing: () => {
       const now = clock.now();

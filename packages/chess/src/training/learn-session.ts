@@ -1,6 +1,7 @@
 /**
  * The learn session (R-144, R-55): one LearnLine played twice from its start,
- * the line's learn pass. In the `arrows` round each new move shows its arrow;
+ * the line's learn pass; with the player's arrows setting off (R-205), once,
+ * blind. In the `arrows` round each new move shows its arrow;
  * in the `blind` round it is asked without one. A new move runs its learn
  * pass (`learnStep`) and is emitted once learned, so the caller records it. A
  * known move is played for context, never graded and shown without an arrow;
@@ -8,7 +9,7 @@
  * browser drives it; it holds no clock of its own.
  */
 import type { LearnLine, LearnPlanStep } from './learn-plan';
-import { learnStep, startLearn, type LearnState } from './learn';
+import { askLearn, learnStep, startLearn, type LearnState } from './learn';
 
 /** The two rounds of a line's learn pass: with arrows, then blind. */
 export type LearnRound = 'arrows' | 'blind';
@@ -45,16 +46,29 @@ export const currentLearnStep = (
 const arrowAt = (line: LearnLine, round: LearnRound, index: number): boolean =>
   round === 'arrows' && line.steps[index]?.kind === 'new';
 
-export function startLearnSession(line: LearnLine): LearnSessionState {
+/** How the player learns (R-205). */
+export interface LearnSessionOptions {
+  /** False skips the arrows round: each new move is asked blind first. */
+  readonly arrows: boolean;
+}
+
+const WITH_ARROWS: LearnSessionOptions = { arrows: true };
+
+export function startLearnSession(
+  line: LearnLine,
+  options: LearnSessionOptions = WITH_ARROWS,
+): LearnSessionState {
+  const round: LearnRound = options.arrows ? 'arrows' : 'blind';
+  const start = options.arrows ? startLearn : askLearn;
   const states = new Map<string, LearnState>();
   for (const step of line.steps) {
-    if (step.kind === 'new') states.set(step.key, startLearn(step.key));
+    if (step.kind === 'new') states.set(step.key, start(step.key));
   }
   return {
     line,
-    round: 'arrows',
+    round,
     index: 0,
-    arrow: arrowAt(line, 'arrows', 0),
+    arrow: arrowAt(line, round, 0),
     states,
     done: line.steps.length === 0,
   };

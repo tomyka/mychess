@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest';
-import { reviewWhen } from './review-time';
+import { renderHook } from '@testing-library/react';
+import { NextIntlClientProvider } from 'next-intl';
+import { createElement, type ReactNode } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MESSAGES } from '../../i18n/locales';
+import { reviewWhen, useReviewTime } from './review-time';
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -66,4 +70,57 @@ describe('reviewWhen', () => {
       kind: 'tomorrow',
     });
   });
+});
+
+describe('useReviewTime (#330 decision 6)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** How the hook words `when`, in `locale`, seen at `now`. */
+  function worded(locale: 'lt' | 'en', now: Date, when: Date): string {
+    vi.useFakeTimers({ now, toFake: ['Date'] });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(NextIntlClientProvider, {
+        locale,
+        messages: MESSAGES[locale],
+        timeZone: 'Europe/Vilnius',
+        children,
+      });
+    const { result } = renderHook(() => useReviewTime(), { wrapper });
+    return result.current(when);
+  }
+
+  /** 16:18 in Vilnius on 27 October 2026 (UTC+2). */
+  const AFTERNOON = new Date('2026-10-27T14:18:00Z');
+
+  it.each([
+    ['en', 'tomorrow at 16:18'],
+    ['lt', 'rytoj 16:18'],
+  ] as const)('writes tomorrow on a 24-hour clock in %s', (locale, text) => {
+    expect(worded(locale, NOON, AFTERNOON)).toBe(text);
+  });
+
+  it.each([
+    ['en', 'October 29 at 16:18'],
+    ['lt', 'spalio 29 d. 16:18'],
+  ] as const)(
+    'leaves the year out of a date this year in %s',
+    (locale, text) => {
+      expect(worded(locale, NOON, after(AFTERNOON, 2 * 24 * HOUR))).toBe(text);
+    },
+  );
+
+  it.each([
+    ['en', 'January 5, 2027 at 12:00'],
+    ['lt', '2027 m. sausio 5 d. 12:00'],
+  ] as const)(
+    'gives the year of a review due next year in %s',
+    (locale, text) => {
+      const december = new Date('2026-12-20T10:00:00Z');
+      expect(worded(locale, december, new Date('2027-01-05T10:00:00Z'))).toBe(
+        text,
+      );
+    },
+  );
 });

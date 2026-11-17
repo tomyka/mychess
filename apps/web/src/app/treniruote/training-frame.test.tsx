@@ -29,6 +29,8 @@ function renderFrame(parts: {
   panel: ReactNode;
   actions?: ReactNode;
   banner?: ReactNode;
+  title?: string;
+  subtitle?: string;
 }) {
   render(
     <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
@@ -69,5 +71,21 @@ describe('the training frame’s tab order', () => {
       screen.getByRole('link', { name: T.back }),
       screen.getByRole('link', { name: 'Mokytis' }),
     ]);
+  });
+});
+
+describe('the training frame’s header', () => {
+  it('shows a subtitle under the title, outside the heading (R-54, R-207)', () => {
+    renderFrame({ panel: null, title: 'Keli repertuarai', subtitle: 'Kita' });
+    const title = screen.getByRole('heading', { level: 1 });
+    expect(title.textContent).toBe('Keli repertuarai');
+    expect(title.nextElementSibling?.textContent).toBe('Kita');
+  });
+
+  it('shows the title alone without one', () => {
+    renderFrame({ panel: null });
+    const title = screen.getByRole('heading', { level: 1 });
+    expect(title.textContent).toBe('Londono sistema');
+    expect(title.nextElementSibling).toBeNull();
   });
 });

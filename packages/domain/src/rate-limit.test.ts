@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   FIDE_SEARCH_RATE_LIMIT,
+  IMPORT_PREVIEW_RATE_LIMIT,
   IMPORT_RATE_LIMIT,
   MAGIC_LINK_EMAIL_RATE_LIMIT,
   MAGIC_LINK_RATE_LIMIT,
@@ -8,6 +9,7 @@ import {
   TRAINING_RESULTS_RATE_LIMIT,
   countRequest,
   fideSearchRateKey,
+  importPreviewRateKey,
   importRateKey,
   magicLinkEmailRateKey,
   trainingRateKey,
@@ -107,8 +109,8 @@ describe('countRequest with a weight', () => {
   });
 });
 
-describe('the import limit (R-119)', () => {
-  it('allows ten imports a minute, refused as too many imports', () => {
+describe('the import limits (R-119, R-208)', () => {
+  it('allows ten confirms a minute, refused as too many imports', () => {
     expect(IMPORT_RATE_LIMIT).toEqual({
       windowMs: 60_000,
       max: 10,
@@ -116,9 +118,36 @@ describe('the import limit (R-119)', () => {
     });
   });
 
-  it('counts per account, one key for previews and confirms', () => {
+  it('allows thirty previews a minute, refused as too many previews', () => {
+    expect(IMPORT_PREVIEW_RATE_LIMIT).toEqual({
+      windowMs: 60_000,
+      max: 30,
+      reason: 'pgn.tooManyPreviews',
+    });
+  });
+
+  it('counts previews and confirms apart, per account', () => {
     expect(importRateKey('acc-1')).toBe('pgn-import:acc-1');
     expect(importRateKey('acc-2')).not.toBe(importRateKey('acc-1'));
+    expect(importPreviewRateKey('acc-1')).toBe('pgn-preview:acc-1');
+    expect(importPreviewRateKey('acc-2')).not.toBe(
+      importPreviewRateKey('acc-1'),
+    );
+    expect(importPreviewRateKey('acc-1')).not.toBe(importRateKey('acc-1'));
+  });
+
+  it('refuses the thirty-first preview in a minute but not a confirm', () => {
+    let previews: RateCounter | undefined;
+    for (let i = 0; i < 30; i += 1) {
+      const counted = countRequest(previews, IMPORT_PREVIEW_RATE_LIMIT, T0 + i);
+      expect(counted.ok).toBe(true);
+      if (counted.ok) previews = counted.value;
+    }
+    expect(countRequest(previews, IMPORT_PREVIEW_RATE_LIMIT, T0 + 30)).toEqual({
+      ok: false,
+      refusal: { reason: 'pgn.tooManyPreviews', limit: 30 },
+    });
+    expect(countRequest(undefined, IMPORT_RATE_LIMIT, T0 + 30).ok).toBe(true);
   });
 });
 

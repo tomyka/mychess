@@ -119,6 +119,23 @@ describe('learnPlan', () => {
     ]);
   });
 
+  it('treats a key reviewed through another repertoire as known (R-53, decision 2)', () => {
+    const london = graph('1. e4 e5 2. Nf3 Nf6 3. d3 *');
+    const reviewed = new Set([keyOf(italian, 'e4'), keyOf(italian, 'Nf3')]);
+    const [first] = learnPlan(
+      [rep('l', london), rep('r', italian)],
+      reviewed,
+      10,
+    );
+    expect(steps(first)).toEqual([
+      'known:e4',
+      'opponent:e5',
+      'known:Nf3',
+      'opponent:Nf6',
+      'new:d3',
+    ]);
+  });
+
   const playerKeys = italian.moves
     .filter((m) => isPlayerMove(italian, m))
     .map((m) => moveKey(m.from, m.san));
@@ -138,6 +155,123 @@ describe('learnPlan', () => {
           expect(planned).toHaveLength(Math.min(limit, untracked));
           expect(new Set(planned).size).toBe(planned.length);
           expect(planned.filter((k) => tracked.has(k))).toEqual([]);
+        },
+      ),
+    );
+  });
+});
+
+describe('learnPlan with a focus (R-206)', () => {
+  const [one, two] = italian.chapters;
+  const chapterOne = one?.id ?? '';
+  const chapterTwo = two?.id ?? '';
+
+  it('plans only the focused chapter, its shared moves new when untracked', () => {
+    const plan = learnPlan([rep('r', italian)], new Set(), 10, {
+      repertoireId: 'r',
+      chapterId: chapterTwo,
+    });
+    expect(plan.map((l) => l.chapterId)).toEqual([chapterTwo]);
+    expect(steps(plan[0])).toEqual([
+      'new:e4',
+      'opponent:e5',
+      'new:Nf3',
+      'opponent:Nc6',
+      'new:Bc4',
+      'opponent:Nf6',
+      'new:d3',
+    ]);
+  });
+  it('keeps the daily allowance (R-62)', () => {
+    const plan = learnPlan([rep('r', italian)], new Set(), 2, {
+      repertoireId: 'r',
+      chapterId: chapterTwo,
+    });
+    expect(plan.map(steps)).toEqual([['new:e4', 'opponent:e5', 'new:Nf3']]);
+  });
+  it('plans one line of a chapter, by its index in the chapter’s lines', () => {
+    const g = graph('1. e4 e5 (1... c5 2. Nf3) 2. Nc3 *');
+    const chapterId = g.chapters[0]?.id ?? '';
+    const focus = (lineIndex: number) => ({
+      repertoireId: 'r',
+      chapterId,
+      lineIndex,
+    });
+    expect(
+      learnPlan([rep('r', g)], new Set(), 10, focus(1)).map(steps),
+    ).toEqual([['new:e4', 'opponent:c5', 'new:Nf3']]);
+    expect(
+      learnPlan([rep('r', g)], new Set(), 10, focus(0)).map(steps),
+    ).toEqual([['new:e4', 'opponent:e5', 'new:Nc3']]);
+  });
+  it('plans the focus in a later repertoire, past the others', () => {
+    const london = graph('1. d4 d5 2. Bf4 *');
+    const plan = learnPlan(
+      [rep('l', london), rep('r', italian)],
+      new Set(),
+      10,
+      { repertoireId: 'r', chapterId: chapterOne },
+    );
+    expect(plan.map((l) => [l.repertoireId, l.chapterId])).toEqual([
+      ['r', chapterOne],
+    ]);
+  });
+  it('plans nothing for a line, chapter or repertoire it does not hold', () => {
+    const plan = (focus: Parameters<typeof learnPlan>[3]) =>
+      learnPlan([rep('r', italian)], new Set(), 10, focus);
+    expect(
+      plan({ repertoireId: 'r', chapterId: chapterOne, lineIndex: 5 }),
+    ).toEqual([]);
+    expect(plan({ repertoireId: 'r', chapterId: 'nope' })).toEqual([]);
+    expect(plan({ repertoireId: 'other', chapterId: chapterOne })).toEqual([]);
+  });
+  it('plans nothing in a paused repertoire, focused or not (R-46)', () => {
+    expect(
+      learnPlan([rep('r', italian, false)], new Set(), 10, {
+        repertoireId: 'r',
+        chapterId: chapterOne,
+      }),
+    ).toEqual([]);
+  });
+  it('treats moves tracked through another repertoire as known (R-53)', () => {
+    const tracked = new Set([keyOf(italian, 'e4'), keyOf(italian, 'Nf3')]);
+    const plan = learnPlan([rep('r', italian)], tracked, 10, {
+      repertoireId: 'r',
+      chapterId: chapterTwo,
+    });
+    expect(steps(plan[0])?.slice(0, 3)).toEqual([
+      'known:e4',
+      'opponent:e5',
+      'known:Nf3',
+    ]);
+  });
+
+  const chapterKeys = (chapterId: string) =>
+    italian.moves
+      .filter((m) => isPlayerMove(italian, m) && m.chapters.includes(chapterId))
+      .map((m) => moveKey(m.from, m.san));
+
+  it('plans min(limit, untracked in the chapter) moves, all of the chapter', () => {
+    fc.assert(
+      fc.property(
+        fc.constantFrom(chapterOne, chapterTwo),
+        fc.subarray([...chapterKeys(chapterOne), ...chapterKeys(chapterTwo)]),
+        fc.integer({ min: 0, max: 10 }),
+        (chapterId, trackedKeys, limit) => {
+          const tracked = new Set(trackedKeys);
+          const plan = learnPlan([rep('r', italian)], tracked, limit, {
+            repertoireId: 'r',
+            chapterId,
+          });
+          const planned = plan
+            .flatMap((l) => l.steps)
+            .filter((s) => s.kind === 'new')
+            .map((s) => s.key);
+          const inChapter = chapterKeys(chapterId);
+          const untracked = inChapter.filter((k) => !tracked.has(k));
+          expect(planned).toHaveLength(Math.min(limit, untracked.length));
+          expect(planned.every((k) => untracked.includes(k))).toBe(true);
+          expect(plan.every((l) => l.chapterId === chapterId)).toBe(true);
         },
       ),
     );

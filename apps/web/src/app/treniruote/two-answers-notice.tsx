@@ -1,56 +1,29 @@
 'use client';
 
-import {
-  twoAnswers,
-  type QueueItem,
-  type RepertoireGraph,
-} from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import type { JSX } from 'react';
-
-/** A repertoire the player trains, by name. */
-export interface NamedRepertoire {
-  readonly id: string;
-  readonly name: string;
-  readonly graph: RepertoireGraph;
-}
-
-export interface TwoAnswersNoticeProps {
-  /** The asked item: its position and its repertoire's move. */
-  readonly item: QueueItem;
-  /** Every repertoire the player trains, in the session or not. */
-  readonly repertoires: readonly NamedRepertoire[];
-}
+import type { OtherAnswer } from './drill-notices';
 
 /**
- * R-54: the player's other repertoires that play another move in the asked
- * position, each by name with its move. It only informs: the item still
- * expects its own repertoire's move, and nothing waits on the notice.
+ * The two-answers notice: one sentence for each other repertoire and its
+ * move (R-54, decision 4). It only informs: the drill still expects its own
+ * repertoire's move. When it shows is the drill's (drill-notices.ts).
  */
 export function TwoAnswersNotice({
-  item,
-  repertoires,
-}: TwoAnswersNoticeProps): JSX.Element | null {
-  const t = useTranslations('training.review.twoAnswers');
-  const others = twoAnswers(item.fromKey, item.san, repertoires).filter(
-    (a) => a.repertoireId !== item.repertoireId,
-  );
-  if (others.length === 0) return null;
-  const nameOf = (id: string): string =>
-    repertoires.find((r) => r.id === id)?.name ?? '';
+  answers,
+}: {
+  readonly answers: readonly OtherAnswer[];
+}): JSX.Element | null {
+  const t = useTranslations('training.twoAnswers');
+  if (answers.length === 0) return null;
   return (
     <div
       role="note"
       className="rounded-control bg-sunken px-3 py-2 text-sm text-fg-muted"
     >
-      <p>{t('title')}</p>
-      <ul className="list-inside list-disc">
-        {others.map((a) => (
-          <li key={a.repertoireId}>
-            {t('item', { name: nameOf(a.repertoireId), move: a.san })}
-          </li>
-        ))}
-      </ul>
+      {answers.map((a) => (
+        <p key={a.repertoireId}>{t('other', { name: a.name, move: a.san })}</p>
+      ))}
     </div>
   );
 }

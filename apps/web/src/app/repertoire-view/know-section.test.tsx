@@ -18,11 +18,20 @@ const london = graphOf(LONDON);
 const chapterId = london.chapters[0]?.id ?? 'c1';
 const [, c5 = []] = lines(london, chapterId);
 
-function renderSection(depth: number): void {
+function renderSection(depth: number, learnedToday = 10): void {
   render(
     <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
       <KnowSection
-        training={{ repertoireId: ID, counts: { due: 0, toLearn: 0 } }}
+        training={{
+          repertoireId: ID,
+          counts: { due: 0, toLearn: 0 },
+          learn: {
+            tracked: [],
+            learnedToday,
+            limits: { reviews: 20, newPerDay: 10 },
+          },
+          limitReached: false,
+        }}
         graph={london}
         chapterId={chapterId}
         path={c5.slice(0, depth)}
@@ -54,8 +63,26 @@ describe('KnowSection (R-58)', () => {
   });
 
   it('shows nothing at the chapter root', () => {
-    renderSection(0);
+    renderSection(0, 0);
     expect(screen.queryAllByRole('button')).toEqual([]);
+    expect(screen.queryAllByRole('link')).toEqual([]);
     expect(screen.queryByText(lt.section)).toBeNull();
+  });
+});
+
+describe('KnowSection’s Learn on the current line (R-206)', () => {
+  it('links to learning the line the current move is on', () => {
+    renderSection(6, 0);
+    const link = screen.getByRole('link', {
+      name: /^Mokytis \d+ naujų ėjimų šiame variante$/,
+    });
+    expect(link.getAttribute('href')).toBe(
+      `/treniruote?mode=learn&r=${ID}&chapter=${chapterId}&line=1`,
+    );
+  });
+
+  it('has no Learn once today’s new moves are used', () => {
+    renderSection(6, 10);
+    expect(screen.queryAllByRole('link')).toEqual([]);
   });
 });

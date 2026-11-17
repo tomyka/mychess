@@ -24,6 +24,12 @@ export type LearnState =
 export const startLearn = (key: string): LearnState => ({ key, step: 'shown' });
 
 /**
+ * R-205: the pass without its arrow, asked blind first. A wrong answer goes
+ * to `shown`, so the arrow appears as after a lapse (R-59).
+ */
+export const askLearn = (key: string): LearnState => ({ key, step: 'asked' });
+
+/**
  * Arrow shown, then a blind retest; one correct retest ends the pass and
  * starts the Review at `now`, a wrong one shows the arrow again (R-55).
  * Events that do not apply to the step change nothing.

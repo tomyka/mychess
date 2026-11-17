@@ -83,7 +83,15 @@ function london(paused: boolean): AssignedRepertoirePage {
 
 describe('the assigned repertoire page', () => {
   beforeEach(() => {
-    loader.training.mockReset().mockResolvedValue({ due: 3, toLearn: 5 });
+    loader.training.mockReset().mockResolvedValue({
+      counts: { due: 3, toLearn: 5 },
+      learn: {
+        tracked: [],
+        learnedToday: 0,
+        limits: { reviews: 20, newPerDay: 5 },
+      },
+      limitReached: false,
+    });
   });
 
   it('loads the repertoire the path names and shows it', async () => {

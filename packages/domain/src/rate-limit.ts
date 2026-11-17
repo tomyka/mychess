@@ -27,11 +27,18 @@ export interface RateRefusal<R extends string = string> {
   readonly limit: number;
 }
 
-/** An account runs at most ten import previews or confirms a minute (R-119). */
+/** An account runs at most ten import confirms a minute (R-119, R-208). */
 export const IMPORT_RATE_LIMIT = {
   windowMs: 60_000,
   max: 10,
   reason: 'pgn.tooManyImports',
+} as const satisfies RateRule;
+
+/** An account runs at most thirty import previews a minute (R-208). */
+export const IMPORT_PREVIEW_RATE_LIMIT = {
+  windowMs: 60_000,
+  max: 30,
+  reason: 'pgn.tooManyPreviews',
 } as const satisfies RateRule;
 
 /**
@@ -53,9 +60,13 @@ export const MAGIC_LINK_EMAIL_RATE_LIMIT = {
   reason: 'signIn.error.tooManyRequests',
 } as const satisfies RateRule;
 
-/** The one counter an account's previews and confirms share (R-119). */
+/** The counter of an account's import confirms (R-119). */
 export const importRateKey = (accountId: string): string =>
   `pgn-import:${accountId}`;
+
+/** The counter of an account's previews, apart from its confirms (R-208). */
+export const importPreviewRateKey = (accountId: string): string =>
+  `pgn-preview:${accountId}`;
 
 /**
  * The inbox a canonical email reaches: its local part without a plus

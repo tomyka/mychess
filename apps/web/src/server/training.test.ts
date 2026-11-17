@@ -108,7 +108,7 @@ const SNAPSHOT: TrainingSnapshot = {
   ]),
   tracked: new Set(['k1|d4', 'k2|Bf4']),
   learnedToday: 3,
-  settings: { sessionSize: 20, newPerDay: 5 },
+  settings: { sessionSize: 20, newPerDay: 5, learnArrows: false },
 };
 
 beforeEach(() => {
@@ -126,6 +126,7 @@ describe('parseTrainingSearch', () => {
     expect(parseTrainingSearch({ mode: 'learn', r: ID })).toEqual({
       mode: 'learn',
       scope: { kind: 'repertoire', repertoireId: ID },
+      focus: null,
     });
   });
 
@@ -133,6 +134,7 @@ describe('parseTrainingSearch', () => {
     expect(parseTrainingSearch({})).toEqual({
       mode: 'review',
       scope: { kind: 'all' },
+      focus: null,
     });
   });
 
@@ -146,7 +148,51 @@ describe('parseTrainingSearch', () => {
       expect(parseTrainingSearch({ mode: 'learn', r })).toEqual({
         mode: 'learn',
         scope: { kind: 'all' },
+        focus: null,
       });
+  });
+});
+
+describe('parseTrainingSearch with a focus (R-206)', () => {
+  it('reads a chapter, and a line of it, to learn with r=', () => {
+    expect(
+      parseTrainingSearch({ mode: 'learn', r: ID, chapter: 'c1', line: '2' })
+        .focus,
+    ).toEqual({ repertoireId: ID, chapterId: 'c1', lineIndex: 2 });
+    expect(
+      parseTrainingSearch({ mode: 'learn', r: ID, chapter: 'c1', line: '0' })
+        .focus,
+    ).toEqual({ repertoireId: ID, chapterId: 'c1', lineIndex: 0 });
+    expect(
+      parseTrainingSearch({ mode: 'learn', r: ID, chapter: 'c1' }).focus,
+    ).toEqual({ repertoireId: ID, chapterId: 'c1' });
+  });
+
+  it('keeps the scope to the repertoire with a focus', () => {
+    expect(
+      parseTrainingSearch({ mode: 'learn', r: ID, chapter: 'c1' }).scope,
+    ).toEqual({ kind: 'repertoire', repertoireId: ID });
+  });
+
+  it('drops the focus outside learn, without r=, or with a malformed chapter', () => {
+    expect(
+      parseTrainingSearch({ mode: 'review', r: ID, chapter: 'c1' }).focus,
+    ).toBeNull();
+    expect(parseTrainingSearch({ mode: 'learn', chapter: 'c1' }).focus).toBe(
+      null,
+    );
+    for (const chapter of ['', 'x'.repeat(21), ['c1', 'c2']])
+      expect(
+        parseTrainingSearch({ mode: 'learn', r: ID, chapter }).focus,
+      ).toBeNull();
+  });
+
+  it('keeps the chapter but drops a malformed line', () => {
+    for (const line of ['-1', '1.5', 'two', '', ['1', '2']])
+      expect(
+        parseTrainingSearch({ mode: 'learn', r: ID, chapter: 'c1', line })
+          .focus,
+      ).toEqual({ repertoireId: ID, chapterId: 'c1' });
   });
 });
 
@@ -189,10 +235,20 @@ describe('loadTraining', () => {
       reviews: [review('k1|d4'), review('k2|Bf4')],
       tracked: ['k1|d4', 'k2|Bf4'],
       learnedToday: 3,
-      settings: { sessionSize: 20, newPerDay: 5 },
+      // The arrows setting reaches the page as stored (R-205).
+      settings: { sessionSize: 20, newPerDay: 5, learnArrows: false },
       coachNotes: [],
       now: NOW,
     });
+  });
+
+  it('hands the page the focus to learn, when the URL names one (R-206)', async () => {
+    const scope: TrainingScope = { kind: 'repertoire', repertoireId: ID };
+    const focus = { repertoireId: ID, chapterId: 'c1', lineIndex: 1 };
+    const data = await loadTraining(ROKAS, 'learn', scope, focus);
+    expect(data?.focus).toEqual(focus);
+    const whole = await loadTraining(ROKAS, 'learn', scope);
+    expect(whole === undefined ? 'none' : 'focus' in whole).toBe(false);
   });
 
   it("reads the coach notes on the session account's own repertoires only, the fork's first (R-107, R-43, R-49)", async () => {
@@ -300,6 +356,7 @@ describe('todaySummary (U1-M1-3)', () => {
       toLearn: 0,
       minutes: 2,
       nextDue: null,
+      repertoires: [{ id: ID, name: 'Londono sistema', side: 'white', due: 8 }],
     });
     server.snapshot.mockResolvedValue(londonDue(LONDON_KEYS.slice(0, 1)));
     expect(await todaySummary(ROKAS)).toMatchObject({ due: 1, minutes: 1 });
@@ -312,7 +369,31 @@ describe('todaySummary (U1-M1-3)', () => {
       toLearn: 0,
       minutes: 0,
       nextDue: new Date('2026-10-22T08:00:00Z'),
+      repertoires: [],
     });
+  });
+
+  it('lists each repertoire with due moves, the most urgent first (R-207)', async () => {
+    const london = londonDue(LONDON_KEYS.slice(0, 1));
+    const [taimanovKey = ''] = playerKeys(TAIMANOV_GRAPH);
+    const early = review(taimanovKey);
+    const earlier = new Date(NOW.getTime() - 60 * 60 * 1000);
+    server.snapshot.mockResolvedValue({
+      ...london,
+      entries: SNAPSHOT.entries.map((e) => ({
+        ...e,
+        repertoire: { ...e.repertoire, active: true },
+      })),
+      reviews: new Map([
+        ...london.reviews,
+        [taimanovKey, { ...early, fsrs: { ...early.fsrs, due: earlier } }],
+      ]),
+      tracked: new Set([...london.tracked, taimanovKey]),
+    });
+    expect((await todaySummary(ROKAS)).repertoires).toEqual([
+      { id: OTHER, name: 'Taimanovas', side: 'black', due: 1 },
+      { id: ID, name: 'Londono sistema', side: 'white', due: 1 },
+    ]);
   });
 
   it('counts the new moves today’s allowance leaves', async () => {
@@ -327,6 +408,7 @@ describe('todaySummary (U1-M1-3)', () => {
       toLearn: 2,
       minutes: 0,
       nextDue: null,
+      repertoires: [],
     });
   });
 });
@@ -335,8 +417,14 @@ describe('repertoireTraining', () => {
   it('reads the session account’s counts for that repertoire', async () => {
     server.snapshot.mockResolvedValue(londonDue(LONDON_KEYS.slice(0, 3)));
     expect(await repertoireTraining(ROKAS, ID)).toEqual({
-      due: 3,
-      toLearn: 0,
+      counts: { due: 3, toLearn: 0 },
+      learn: {
+        tracked: LONDON_KEYS,
+        learnedToday: 3,
+        limits: { reviews: 20, newPerDay: 5 },
+      },
+      // Every move is learned: nothing is left, which is no limit.
+      limitReached: false,
     });
     expect(server.snapshot).toHaveBeenCalledExactlyOnceWith(
       DB,
@@ -349,5 +437,39 @@ describe('repertoireTraining', () => {
   it('is null for a repertoire the player does not train', async () => {
     server.snapshot.mockResolvedValue(undefined);
     expect(await repertoireTraining(ROKAS, OTHER)).toBeNull();
+  });
+
+  /** The London with one move tracked, another repertoire's key, and `learnedToday`. */
+  const fresh = (learnedToday: number): TrainingSnapshot => ({
+    ...londonDue([]),
+    reviews: new Map(),
+    tracked: new Set([LONDON_KEYS[0] ?? '', 'x|y']),
+    learnedToday,
+    settings: { sessionSize: 20, newPerDay: 3, learnArrows: true },
+  });
+
+  it('sends only this repertoire’s tracked moves in its learn budget (R-206)', async () => {
+    server.snapshot.mockResolvedValue(fresh(0));
+    const training = await repertoireTraining(ROKAS, ID);
+    expect(training?.learn).toEqual({
+      tracked: [LONDON_KEYS[0]],
+      learnedToday: 0,
+      limits: { reviews: 20, newPerDay: 3 },
+    });
+    expect(training?.counts.toLearn).toBe(3);
+    expect(training?.limitReached).toBe(false);
+  });
+
+  it('says when today’s new moves are used while moves are left (decision 11)', async () => {
+    server.snapshot.mockResolvedValue(fresh(3));
+    expect(await repertoireTraining(ROKAS, ID)).toEqual({
+      counts: { due: 0, toLearn: 0 },
+      learn: {
+        tracked: [LONDON_KEYS[0]],
+        learnedToday: 3,
+        limits: { reviews: 20, newPerDay: 3 },
+      },
+      limitReached: true,
+    });
   });
 });

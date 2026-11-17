@@ -111,7 +111,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
     tracked: [D4, BF4],
     learnedToday: 0,
     coachNotes: [],
-    settings: { sessionSize: 20, newPerDay: 10 },
+    settings: { sessionSize: 20, newPerDay: 10, learnArrows: true },
     now: NOW,
     ...overrides,
   };
@@ -375,14 +375,14 @@ describe('the review drill', () => {
     expect(kinds()).toEqual(['hint']);
   });
 
-  it('lists the other repertoires that play another move here, scoped or not', () => {
+  describe('the two-answers notice (R-54, R-174, #330 decision 4)', () => {
     const other = (id: string, name: string, pgn: string) => ({
       id,
       name,
       side: 'white' as const,
       graph: graphOf(pgn),
     });
-    renderDrill(
+    const twoOthers = () =>
       data({
         entries: [
           ...data().entries,
@@ -393,12 +393,48 @@ describe('the review drill', () => {
           },
         ],
         others: [other('i1', 'Itališka', '1. e4 e5 2. Nf3 *')],
-      }),
-    );
-    const notice = screen.getByRole('note');
-    expect(notice.textContent).toContain('Angliška: c4');
-    expect(notice.textContent).toContain('Itališka: e4');
-    expect(notice.textContent).not.toContain('Londono');
+      });
+    const sentence = (name: string, move: string) =>
+      T.twoAnswers.other.replace('{name}', name).replace('{move}', move);
+    const next = () => screen.queryByRole('button', { name: T.drill.next });
+
+    it('says nothing before the answer, so it cannot hint', () => {
+      renderDrill(twoOthers());
+      expect(screen.queryByRole('note')).toBeNull();
+    });
+
+    it('names each other repertoire and its move once, in one sentence, after the answer, scoped or not', () => {
+      renderDrill(twoOthers());
+      type('d4');
+      const notice = screen.getByRole('note');
+      expect(
+        Array.from(notice.querySelectorAll('p'), (p) => p.textContent),
+      ).toEqual([sentence('Angliška', 'c4'), sentence('Itališka', 'e4')]);
+      expect(notice.textContent.match(/c4/g)).toHaveLength(1);
+      expect(notice.textContent).not.toContain('Londono');
+    });
+
+    it('holds a right answer until Next, so the notice can be read', () => {
+      renderDrill(twoOthers());
+      type('d4');
+      wait(2000);
+      expect(screen.getByRole('note')).toBeDefined();
+      const button = next();
+      if (button === null) throw new Error('a Next button');
+      fireEvent.click(button);
+      wait(150);
+      expect(screen.queryByRole('note')).toBeNull();
+      expect(panel()).toContain('1. d4 d5');
+    });
+
+    it('shows with the arrow after a wrong answer', () => {
+      renderDrill(twoOthers());
+      type('e4');
+      expect(arrows()).toEqual(['d2d4']);
+      expect(screen.getByRole('note').textContent).toContain(
+        sentence('Angliška', 'c4'),
+      );
+    });
   });
 
   it('shows no notice when every repertoire agrees', () => {
@@ -504,7 +540,7 @@ describe('the review drill', () => {
         ],
         reviews: keys.map((key) => dueReview(key, 1)),
         tracked: keys,
-        settings: { sessionSize: 10, newPerDay: 10 },
+        settings: { sessionSize: 10, newPerDay: 10, learnArrows: true },
       }),
     );
     /** The repertoire holds one White move in each position: the first. */
@@ -543,7 +579,7 @@ describe('the review drill', () => {
         ],
         reviews: keys.map((key) => dueReview(key, 1)),
         tracked: keys,
-        settings: { sessionSize: 10, newPerDay: 10 },
+        settings: { sessionSize: 10, newPerDay: 10, learnArrows: true },
       }),
     );
     expect(counter()).toBe('0 / 10');
@@ -695,7 +731,7 @@ describe('the review drill and coach notes (#322, R-174)', () => {
   const note = () =>
     screen.queryByRole('note', { name: T.drill.coachNote })?.textContent ??
     null;
-  const next = () => screen.queryByRole('button', { name: T.review.next });
+  const next = () => screen.queryByRole('button', { name: T.drill.next });
 
   it('keeps the note hidden until the move is answered, then waits for the player to go on', () => {
     renderDrill(noted('assigned'));
@@ -732,7 +768,7 @@ describe('the review drill and coach notes (#322, R-174)', () => {
     expect(bar).not.toBeNull();
     expect(
       within(screen.getByTestId('panel')).queryByRole('button', {
-        name: T.review.next,
+        name: T.drill.next,
       }),
     ).toBeNull();
     expect(
@@ -740,7 +776,7 @@ describe('the review drill and coach notes (#322, R-174)', () => {
         bar?.querySelectorAll('a, button') ?? [],
         (el) => el.textContent,
       ),
-    ).toEqual([T.review.next, T.drill.end]);
+    ).toEqual([T.drill.next, T.drill.end]);
     // Focus leaves the disabled move field for it.
     expect(document.activeElement).toBe(button);
   });

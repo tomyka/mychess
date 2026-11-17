@@ -67,9 +67,10 @@ const typed = (value: FormDataEntryValue | null): string | undefined =>
   typeof value === 'string' && value.trim() !== '' ? value : undefined;
 
 /**
- * Saves the session account's training limits (R-62, R-146): the session
- * size and the new moves a day, parsed with the domain's bounds. A refusal
- * names the first field out of range.
+ * Saves the session account's training settings (R-62, R-146, R-205): the
+ * session size and the new moves a day, parsed with the domain's bounds,
+ * and whether the learn pass shows arrows. A refusal names the first field
+ * out of range.
  */
 export async function updateTrainingSettingsAction(
   _previous: TrainingSettingsState,
@@ -79,6 +80,8 @@ export async function updateTrainingSettingsAction(
   const settings = trainingSettingsSchema.safeParse({
     sessionSize: typed(form.get('sessionSize')),
     newPerDay: typed(form.get('newPerDay')),
+    // A checkbox is sent only when ticked, and then as "on" (R-205).
+    learnArrows: form.get('learnArrows') === 'on',
   });
   if (!settings.success)
     return {

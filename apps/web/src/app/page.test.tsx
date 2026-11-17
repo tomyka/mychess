@@ -19,7 +19,13 @@ vi.mock('./fork-offer-actions', () => ({
 }));
 
 /** Nothing due and nothing to learn: the block's quietest state. */
-const QUIET: TodaySummary = { due: 0, toLearn: 0, minutes: 0, nextDue: null };
+const QUIET: TodaySummary = {
+  due: 0,
+  toLearn: 0,
+  minutes: 0,
+  nextDue: null,
+  repertoires: [],
+};
 
 const greetings = { lt: 'Sveiki, Rūta!', en: 'Hello, Rūta!' } as const;
 const signOut = { lt: 'Atsijungti', en: 'Sign out' } as const;
@@ -156,7 +162,7 @@ describe('HomeView', () => {
           isCoach={false}
           fromCoach={[]}
           offers={[]}
-          today={{ due: 12, toLearn: 0, minutes: 2, nextDue: null }}
+          today={{ ...QUIET, due: 12, minutes: 2 }}
         />
       </NextIntlClientProvider>,
     );

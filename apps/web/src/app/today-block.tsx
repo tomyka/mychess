@@ -6,7 +6,7 @@ import { useId, type JSX } from 'react';
 import { trainingPath } from '../lib/routes';
 import type { TodaySummary } from '../server/training';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from './buttons';
-import { SECTION, SECTION_TITLE } from './nustatymai/styles';
+import { SECTION, SECTION_TITLE, TEXT_LINK } from './nustatymai/styles';
 import { useReviewTime } from './treniruote/review-time';
 
 /** What is due: the count and the estimate, or when the next review is. */
@@ -32,9 +32,41 @@ function DueLine({ summary }: { readonly summary: TodaySummary }): JSX.Element {
 }
 
 /**
+ * Each repertoire with due moves, most urgent first, each a link to the
+ * review of it alone (R-207, R-142).
+ */
+function DueRepertoires({
+  repertoires,
+}: {
+  readonly repertoires: TodaySummary['repertoires'];
+}): JSX.Element | null {
+  const t = useTranslations();
+  if (repertoires.length === 0) return null;
+  return (
+    <ul className="flex flex-col gap-1">
+      {repertoires.map((r) => (
+        <li key={r.id}>
+          <Link
+            href={trainingPath('review', r.id)}
+            className={`${TEXT_LINK} inline-flex min-h-touch items-center`}
+          >
+            {t('training.today.repertoireDue', {
+              name: r.name,
+              side: t(`repertoires.create.${r.side}`),
+              count: r.due,
+            })}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
  * Home's "Today" block (R-142, U1-M1-3): the due count and about how long
- * it takes, shown before starting, then the review of every repertoire the
- * player trains and the new moves today's allowance leaves.
+ * it takes, shown before starting, each repertoire's due moves (R-207),
+ * then the review of every repertoire the player trains and the new moves
+ * today's allowance leaves.
  */
 export function TodayBlock({
   summary,
@@ -49,6 +81,7 @@ export function TodayBlock({
         {t('title')}
       </h2>
       <DueLine summary={summary} />
+      <DueRepertoires repertoires={summary.repertoires} />
       <div className="flex flex-wrap gap-3">
         {summary.due > 0 ? (
           <Link href={trainingPath('review')} className={PRIMARY_BUTTON}>

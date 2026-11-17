@@ -3,7 +3,7 @@
 import { OPEN_INVITE_LIMIT, type InviteKind } from '@mychess/domain';
 import { useFormatter, useTranslations } from 'next-intl';
 import { useActionState, useId, type JSX } from 'react';
-import { DISPLAY_TIME_ZONE } from '../../lib/time-zone';
+import { MEDIUM_DATE } from '../../lib/date-format';
 import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
 import { FIELD } from '../fields';
 import { SECTION, SECTION_TITLE } from '../nustatymai/styles';
@@ -141,10 +141,7 @@ function InviteForm({
 function Expiry({ invite }: { readonly invite: CoachInviteRow }): JSX.Element {
   const t = useTranslations('coach.invites');
   const format = useFormatter();
-  const date = format.dateTime(invite.expiresAt, {
-    dateStyle: 'medium',
-    timeZone: DISPLAY_TIME_ZONE,
-  });
+  const date = format.dateTime(invite.expiresAt, MEDIUM_DATE);
   return <span>{t('expires', { date })}</span>;
 }
 

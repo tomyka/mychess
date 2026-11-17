@@ -7,6 +7,7 @@ export {
   type SkipReason,
 } from './pgn/import-pgn';
 export { checkLimits, PGN_LIMITS, type LimitRefusal } from './pgn/limits';
+export { playerSide } from './pgn/player-side';
 export { fenOf, positionKey, sideToMove, START_KEY } from './position-key';
 export { ok, refuse, type Result } from './result';
 export {
@@ -113,6 +114,7 @@ export {
   answerReview,
   buildQueue,
   currentLearnStep,
+  dueByRepertoire,
   dueCount,
   dueReviews,
   grade,
@@ -121,6 +123,7 @@ export {
   learnAgainKeys,
   learnLines,
   learnPlan,
+  learnStart,
   learnStep,
   lineTo,
   mastered,
@@ -145,18 +148,23 @@ export {
   startState,
   toLearnCount,
   totalMoves,
+  trackedIn,
   trainingCounts,
   trainingProgress,
   dayStanding,
   twoAnswers,
   unreviewed,
   weakSpots,
+  withLearned,
   type ChapterProgress,
   type LearnEmit,
+  type LearnedMove,
   type LearnEvent,
+  type LearnFocus,
   type LearnLine,
   type LearnRound,
   type LearnPlanStep,
+  type LearnSessionOptions,
   type LearnSessionState,
   type LearnStepKind,
   type LearnTransition,
@@ -173,6 +181,7 @@ export {
   type QueueLimits,
   type QueueRefusal,
   type Reconciliation,
+  type RepertoireDue,
   type RepertoireProgress,
   type ReviewEmit,
   type ReviewItemView,

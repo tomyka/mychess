@@ -109,6 +109,7 @@ export function RepertoirePanel({
         }}
         builder={content.chapterBuilder}
         training={content.training}
+        graph={state.graph}
       />
       {chapter === undefined ? (
         content.empty

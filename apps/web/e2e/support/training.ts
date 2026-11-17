@@ -98,9 +98,23 @@ function askingTexts(messages: Messages): string[] {
     review.hinted,
     learn.arrows,
     learn.blind,
+    learn.recall,
     learn.known,
     learn.wrong,
   ];
+}
+
+/**
+ * "Next", while a coach note or the two-answers notice holds a right
+ * answer (R-174, #330 decision 4).
+ */
+export const nextButton = (d: Drill): Locator =>
+  d.page.getByRole('button', { name: d.messages.training.drill.next });
+
+/** Goes on past a right answer a note or notice holds; nothing if none does. */
+async function goOn(d: Drill): Promise<void> {
+  const next = nextButton(d);
+  if (await next.isVisible()) await next.click();
 }
 
 /** The panel's line while a move is asked. */
@@ -127,11 +141,48 @@ async function lineSans(d: Drill): Promise<string[]> {
   return text.split(/\s+/).filter((t) => t !== '' && !/^\d+\.+$/.test(t));
 }
 
-/** What is asked now, from the title, the line so far and the panel. */
+/**
+ * The repertoire of the item asked: the title, or in a mixed session,
+ * titled as several repertoires, the subtitle under it (R-54, R-207).
+ */
+export async function itemRepertoire(
+  page: Page,
+  messages: Messages,
+): Promise<string> {
+  const title = page.getByRole('heading', { level: 1 });
+  const text = (await title.textContent()) ?? '';
+  if (text !== messages.training.title.mixed) return text;
+  const subtitle = title.locator('xpath=following-sibling::p');
+  return (await subtitle.textContent()) ?? '';
+}
+
+/**
+ * The panel's prompt once it holds still: while the opponent's reply is
+ * still sliding in, the line so far already shows it but the panel may
+ * still say what the round asks of a new move, not the move about to be
+ * asked (a known one says so only once its turn comes).
+ */
+async function settledPrompt(d: Drill): Promise<string> {
+  const seen: { last: string | null } = { last: null };
+  await expect
+    .poll(
+      async () => {
+        const now = (await asking(d).textContent()) ?? '';
+        const same = now === seen.last;
+        seen.last = now;
+        return same;
+      },
+      { intervals: [250], timeout: 5_000 },
+    )
+    .toBe(true);
+  return seen.last ?? '';
+}
+
+/** What is asked now, from the repertoire, the line so far and the panel. */
 async function readAsked(d: Drill): Promise<Asked> {
-  const title = await d.page.getByRole('heading', { level: 1 }).textContent();
+  const title = await itemRepertoire(d.page, d.messages);
   const book = d.books.find((b) => b.name === title);
-  if (book === undefined) throw new Error(`no repertoire "${String(title)}"`);
+  if (book === undefined) throw new Error(`no repertoire "${title}"`);
   const sans = await lineSans(d);
   const key = positionAfter(book.graph, sans);
   const move = book.graph.moves.find(
@@ -139,7 +190,7 @@ async function readAsked(d: Drill): Promise<Asked> {
   );
   if (move === undefined)
     throw new Error(`nothing asked after ${String(sans)}`);
-  const prompt = (await asking(d).textContent()) ?? '';
+  const prompt = await settledPrompt(d);
   return { book: book.name, line: sans.join(' '), key, move, prompt };
 }
 
@@ -150,12 +201,23 @@ function wrongMove(key: string, san: string): string {
   return other.san;
 }
 
-/** Plays `san` in the move field; true once the drill took it. */
+/**
+ * Plays `san` in the move field; done once the drill took it: the field
+ * empties, or a note or notice holds the answer until Next.
+ */
 async function typed(d: Drill, san: string): Promise<void> {
   const field = moveField(d.page, d.messages);
   await field.fill(san);
   await field.press('Enter');
-  await expect(field).toHaveValue('', { timeout: 1_000 });
+  // Held, the field is gone (Next takes its place): never wait on it then.
+  await expect(async () => {
+    const held = await nextButton(d).isVisible();
+    const cleared =
+      !held &&
+      (await field.count()) > 0 &&
+      (await field.inputValue({ timeout: 200 })) === '';
+    expect(held || cleared).toBe(true);
+  }).toPass({ timeout: 1_000 });
 }
 
 /** Plays `move` on the board; the line moves on once the drill took it. */
@@ -168,17 +230,20 @@ async function tapped(d: Drill, asked: Asked): Promise<void> {
   await expect(async () => {
     const moved = (await lineSans(d)).join(' ') !== asked.line;
     const done = await doneHeading(d.page, d.messages).isVisible();
-    expect(moved || done).toBe(true);
+    const held = await nextButton(d).isVisible();
+    expect(moved || done || held).toBe(true);
   }).toPass({ timeout: 1_500 });
 }
 
 /**
- * Waits for the drill to ask, then answers as `how` says. Retried while
- * the board is still busy (the opponent's reply sliding in takes no move).
+ * Waits for the drill to ask, going on past a note or notice that holds
+ * the last answer, then answers as `how` says. Retried while the board is
+ * still busy (the opponent's reply sliding in takes no move).
  */
 export async function answer(d: Drill, how: Play = 'type'): Promise<Asked> {
   let asked: Asked | undefined;
   await expect(async () => {
+    await goOn(d);
     await expect(asking(d)).toBeVisible({ timeout: 2_000 });
     asked = await readAsked(d);
     if (how === 'board') await tapped(d, asked);
@@ -197,8 +262,15 @@ export async function drillToDone(d: Drill): Promise<Asked[]> {
   const done = doneHeading(d.page, d.messages);
   const seen: Asked[] = [];
   for (;;) {
-    await expect(asking(d).or(done)).toBeVisible({ timeout: 10_000 });
+    await expect(asking(d).or(done).or(nextButton(d))).toBeVisible({
+      timeout: 10_000,
+    });
     if (await done.isVisible()) return seen;
+    // The last right answer held: going on may end the session.
+    if (await nextButton(d).isVisible()) {
+      await goOn(d);
+      continue;
+    }
     seen.push(await answer(d));
   }
 }
@@ -228,11 +300,11 @@ export async function expectCounter(
   ).toHaveText(new RegExp(`${String(done)} / ${String(total)}$`));
 }
 
-/** In settings, the training limits (R-146), saved. */
+/** In settings, the training limits (R-146) and the learn arrows (R-205), saved. */
 export async function setTrainingLimits(
   page: Page,
   messages: Messages,
-  limits: { sessionSize?: number; newPerDay?: number },
+  limits: { sessionSize?: number; newPerDay?: number; learnArrows?: boolean },
 ): Promise<void> {
   const t = messages.training.settings;
   await page.goto('/nustatymai');
@@ -245,6 +317,10 @@ export async function setTrainingLimits(
     await section
       .getByLabel(t.newPerDayLabel, { exact: true })
       .fill(String(limits.newPerDay));
+  if (limits.learnArrows !== undefined)
+    await section
+      .getByRole('checkbox', { name: t.learnArrowsLabel })
+      .setChecked(limits.learnArrows);
   await section.getByRole('button', { name: t.submit }).click();
   await expect(section.getByText(t.saved, { exact: true })).toBeVisible();
 }

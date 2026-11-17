@@ -143,8 +143,14 @@ _Avoid_: Sync, migration, re-upload
 ### Training
 
 **Learn pass**:
-The first encounter with a Move: shown with arrows, then retested blind. A Move enters Review only after its Learn pass.
+The first encounter with a Move: shown with arrows, then retested blind. A Move enters Review only after its Learn pass. With the Player's **arrows setting** off (R-205), the arrow round is skipped: the Move is asked blind at once and a wrong answer shows its arrow.
 _Avoid_: Practice, lesson, teach mode
+
+**Learn order**:
+The order new Moves are taught in by default: the Player's Repertoires in their order, then each Chapter's walk (R-145).
+
+**Focus**:
+One Chapter, or one Line of it, that a learn session teaches instead of the Learn order (R-206). The Allowance still applies.
 
 **Review**:
 The spaced-repetition schedule for one own-side Move, started by its Learn pass or "I know this", one per (Player, Repertoire Move). Also the session in which due Reviews are drilled.

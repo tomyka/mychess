@@ -9,7 +9,7 @@ import {
   coachGroupPath,
   coachSharedRepertoirePath,
 } from '../../../../lib/routes';
-import { DISPLAY_TIME_ZONE } from '../../../../lib/time-zone';
+import { MEDIUM_DATE } from '../../../../lib/date-format';
 import type { PlayerProgressSection } from '../../../../server/coach-pages';
 import { ConfirmedAction } from '../../../confirmed-action';
 import { SECTION, SECTION_TITLE, TEXT_LINK } from '../../../nustatymai/styles';
@@ -113,10 +113,7 @@ export function PlayerView({
   const format = useFormatter();
   const nameId = useId();
   const [state, unlink] = useActionState(unlinkPlayerAction, INITIAL);
-  const date = format.dateTime(player.linkedAt, {
-    dateStyle: 'medium',
-    timeZone: DISPLAY_TIME_ZONE,
-  });
+  const date = format.dateTime(player.linkedAt, MEDIUM_DATE);
   return (
     <main className={COACH_PAGE}>
       <SubpageHeader title={player.displayName} titleId={nameId}>

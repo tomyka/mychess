@@ -152,20 +152,45 @@ function trainingForm(sessionSize: string, newPerDay: string): FormData {
   return form;
 }
 
-describe('updateTrainingSettingsAction (R-62, R-146)', () => {
+describe('updateTrainingSettingsAction (R-62, R-146, R-205)', () => {
   it('saves the limits for the session account and says so', async () => {
     const form = trainingForm('40', '0');
     form.set('playerId', 'someone-else');
+    form.set('learnArrows', 'on');
     expect(await updateTrainingSettingsAction({}, form)).toEqual({
       saved: true,
     });
     expect(server.setTraining).toHaveBeenCalledExactlyOnceWith(
       DB,
       'a1',
-      { sessionSize: 40, newPerDay: 0 },
+      { sessionSize: 40, newPerDay: 0, learnArrows: true },
       NOW,
     );
     expect(server.refresh).toHaveBeenCalledOnce();
+  });
+
+  it('turns the arrows off when the box is not ticked (R-205)', async () => {
+    expect(
+      await updateTrainingSettingsAction({}, trainingForm('20', '10')),
+    ).toEqual({ saved: true });
+    expect(server.setTraining).toHaveBeenCalledExactlyOnceWith(
+      DB,
+      'a1',
+      { sessionSize: 20, newPerDay: 10, learnArrows: false },
+      NOW,
+    );
+  });
+
+  it('turns the arrows on only for a ticked box, not any value sent', async () => {
+    const form = trainingForm('20', '10');
+    form.set('learnArrows', 'false');
+    await updateTrainingSettingsAction({}, form);
+    expect(server.setTraining).toHaveBeenCalledExactlyOnceWith(
+      DB,
+      'a1',
+      { sessionSize: 20, newPerDay: 10, learnArrows: false },
+      NOW,
+    );
   });
 
   it.each([

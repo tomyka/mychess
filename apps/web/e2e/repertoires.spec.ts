@@ -359,3 +359,50 @@ test('another account’s repertoire and its download are not found', async ({
     await other.close();
   }
 });
+
+/** A one-game PGN whose players name nobody. */
+const NAMELESS =
+  '[Event "?"]\n[White "?"]\n[Black "?"]\n\n1. e4 c6 2. d4 d5 *\n';
+
+test('R-209, decision 8: pasted PGN imports; the side is the one its players name the account on, else White', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const t = en.repertoires;
+  // The coach's Caro-Kann names him as Black in every game.
+  await newOnboardedAccount(page, request, 'Rimantas Vaitkus');
+  const caroKann = await readFile(fixture('karo-kan.pgn'), 'utf8');
+  const paste = page.getByLabel(t.import.paste, { exact: true });
+  const radio = (side: 'white' | 'black') =>
+    page.getByRole('radio', { name: t.create[side] });
+  // Typed before the page hydrates, the text is lost: load it again.
+  await expect(async () => {
+    await page.goto('/repertuarai/importuoti');
+    await paste.fill(caroKann);
+    await expect(radio('black')).toBeChecked({ timeout: 2_000 });
+  }).toPass({ timeout: 60_000 });
+  // Players naming nobody: back to White.
+  await paste.fill(NAMELESS);
+  await expect(radio('white')).toBeChecked();
+  await paste.fill(caroKann);
+  await expect(radio('black')).toBeChecked();
+  await page.getByRole('button', { name: t.import.preview }).click();
+  await expect(
+    page.getByRole('heading', { name: t.import.summaryTitle }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      // After the step's number, which is in the same line.
+      format(t.import.chosen, { name: t.import.pasted, side: t.create.black }),
+    ),
+  ).toBeVisible();
+  await page.getByLabel(t.import.name, { exact: true }).fill('Karo-Kan');
+  await page
+    .getByRole('button', { name: t.import.confirm, exact: true })
+    .click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Karo-Kan');
+  await expect(disclosure(page)).toContainText(
+    format(t.chapters.position, { index: '1', count: '5' }),
+  );
+});

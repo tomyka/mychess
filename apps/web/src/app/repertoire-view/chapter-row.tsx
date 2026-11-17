@@ -1,6 +1,6 @@
 'use client';
 
-import type { Chapter } from '@mychess/chess';
+import type { Chapter, RepertoireGraph } from '@mychess/chess';
 import { useMessages, useTranslations } from 'next-intl';
 import {
   useEffect,
@@ -19,6 +19,7 @@ import { FIELD } from '../fields';
 import { StatusLine } from '../status-line';
 import type { FieldOutcome } from './field-save';
 import { KnowThisMenu } from './know-this-menu';
+import { LearnLink } from './learn-link';
 import type { PanelTraining } from './train-buttons';
 
 /** What the chapter list can change in builder mode. */
@@ -41,6 +42,8 @@ export interface ChapterRowProps {
   readonly builder: ChapterBuilder | undefined;
   /** The player's training of it: the row gets its "I know this" menu. */
   readonly training?: PanelTraining | undefined;
+  /** The repertoire the chapter is in: with training, the row's Learn counts in it (R-206). */
+  readonly graph?: RepertoireGraph | undefined;
 }
 
 const ROW =
@@ -302,21 +305,59 @@ function RowLine({
   );
 }
 
+/** The chapter's title: choosing it selects the chapter; the chosen one is current. */
+function ChooseButton({
+  current,
+  title,
+  onChoose,
+}: {
+  readonly current: boolean;
+  readonly title: string;
+  readonly onChoose: () => void;
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      aria-current={current ? 'true' : undefined}
+      title={title}
+      onClick={onChoose}
+      className={ROW}
+    >
+      <span className="min-w-0 break-words">{title}</span>
+    </button>
+  );
+}
+
+/** Learn for the chapter (R-206), for a player who trains it. */
+function ChapterLearn({
+  chapter,
+  title,
+  training,
+  graph,
+}: Pick<
+  ChapterRowProps,
+  'chapter' | 'title' | 'training' | 'graph'
+>): JSX.Element | null {
+  if (training === undefined || graph === undefined) return null;
+  return (
+    <LearnLink
+      training={training}
+      graph={graph}
+      focus={{ chapterId: chapter.id }}
+      subject={title}
+    />
+  );
+}
+
 /**
  * One chapter of the list: choosing it selects it; in builder mode it also
  * renames in place and deletes after an inline confirmation
  * (docs/design/repertoire-screen.md, Chapters in builder mode). For a
- * player who trains it, the row ends in its "I know this" menu (R-58).
+ * player who trains it, the row has Learn for the chapter (R-206) and ends
+ * in its "I know this" menu (R-58).
  */
-export function ChapterRow({
-  chapter,
-  current,
-  title,
-  name,
-  onChoose,
-  builder,
-  training,
-}: ChapterRowProps): JSX.Element {
+export function ChapterRow(props: ChapterRowProps): JSX.Element {
+  const { chapter, current, title, name, onChoose, builder, training } = props;
   const { step, setStep, refs, closeTo } = useRowSteps();
   if (builder !== undefined && step === 'renaming')
     return (
@@ -340,17 +381,14 @@ export function ChapterRow({
     );
   const row = (
     <>
-      <button
-        type="button"
-        aria-current={current ? 'true' : undefined}
+      <ChooseButton
+        current={current}
         title={title}
-        onClick={() => {
+        onChoose={() => {
           onChoose(chapter.id);
         }}
-        className={ROW}
-      >
-        <span className="min-w-0 break-words">{title}</span>
-      </button>
+      />
+      <ChapterLearn {...props} />
       {builder === undefined ? null : (
         <RowEdits
           title={title}

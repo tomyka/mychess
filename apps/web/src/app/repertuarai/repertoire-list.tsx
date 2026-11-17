@@ -1,5 +1,5 @@
 import { SIDES, type Side } from '@mychess/chess';
-import { byName } from '@mychess/domain';
+import { byName, vilniusDay } from '@mychess/domain';
 import {
   useFormatter,
   useTranslations,
@@ -7,7 +7,7 @@ import {
 } from 'next-intl';
 import Link from 'next/link';
 import { useId, type JSX } from 'react';
-import { DISPLAY_TIME_ZONE } from '../../lib/time-zone';
+import { CLOCK, shortDateFormat } from '../../lib/date-format';
 import { assignedRepertoirePath, repertoireRoute } from '../../lib/routes';
 import type { AssignedListItem } from '../../server/assignment-pages';
 import { AssignmentFacts } from '../assignment-facts';
@@ -28,22 +28,14 @@ export interface RepertoireCard {
   readonly forkCoachName: string | null;
 }
 
-/** The calendar day of `date` in the display time zone, as `YYYY-MM-DD`. */
-const dayOf = (date: Date): string =>
-  date.toLocaleDateString('en-CA', { timeZone: DISPLAY_TIME_ZONE });
-
 /**
  * How "Changed" shows a time (docs/design/repertoire-screen.md): today as a
- * time, this year as day and month, older with the year.
+ * 24-hour time, this year as day and month, older with the year.
  */
-function changedFormat(updatedAt: Date, now: Date): DateTimeFormatOptions {
-  if (dayOf(updatedAt) === dayOf(now))
-    return { hour: '2-digit', minute: '2-digit' };
-  const sameYear = dayOf(updatedAt).slice(0, 4) === dayOf(now).slice(0, 4);
-  return sameYear
-    ? { month: 'short', day: 'numeric' }
-    : { year: 'numeric', month: 'short', day: 'numeric' };
-}
+const changedFormat = (updatedAt: Date, now: Date): DateTimeFormatOptions =>
+  vilniusDay(updatedAt) === vilniusDay(now)
+    ? CLOCK
+    : shortDateFormat(updatedAt, now);
 
 function Card({
   item,
@@ -56,10 +48,10 @@ function Card({
   const format = useFormatter();
   const nameId = useId();
   const metaId = useId();
-  const changed = format.dateTime(item.updatedAt, {
-    ...changedFormat(item.updatedAt, now),
-    timeZone: DISPLAY_TIME_ZONE,
-  });
+  const changed = format.dateTime(
+    item.updatedAt,
+    changedFormat(item.updatedAt, now),
+  );
   return (
     <Link
       href={repertoireRoute(item.id)}

@@ -2,7 +2,10 @@
  * The app's pages by what they are for. The paths themselves are Next's
  * file-system routes under `src/app`; this is the one place code names them.
  */
-import type { TrainingMode } from '@mychess/chess';
+import type { LearnFocus, TrainingMode } from '@mychess/chess';
+
+/** The id of settings' training section, which ROUTES.trainingSettings opens. */
+export const TRAINING_SETTINGS_SECTION = 'treniruote';
 
 export const ROUTES = {
   home: '/',
@@ -18,6 +21,8 @@ export const ROUTES = {
   fideSearch: '/fide',
   /** The "Mano treneriai" section of settings (plan decision 12). */
   myCoaches: '/nustatymai#treneriai',
+  /** The training section of settings: the limits and the arrows (R-205). */
+  trainingSettings: `/nustatymai#${TRAINING_SETTINGS_SECTION}`,
 } as const;
 
 /** An invite link's page; the token is one path segment. */
@@ -83,6 +88,21 @@ export const trainingPath = (
   repertoireId?: string,
 ): string =>
   `${ROUTES.training}?mode=${mode}${repertoireId === undefined ? '' : `&r=${encodeURIComponent(repertoireId)}`}`;
+
+/** The query parameter the training page learns one line of a chapter by. */
+export const LINE_PARAM = 'line';
+
+/** The learn pass over one chapter of a repertoire, or one line of it (R-206). */
+export const learnPath = (
+  repertoireId: string,
+  focus: Omit<LearnFocus, 'repertoireId'>,
+): string => {
+  const line =
+    focus.lineIndex === undefined
+      ? ''
+      : `&${LINE_PARAM}=${String(focus.lineIndex)}`;
+  return `${trainingPath('learn', repertoireId)}&${CHAPTER_PARAM}=${encodeURIComponent(focus.chapterId)}${line}`;
+};
 
 /** Where the browser posts its queued training results. */
 export const trainingResultsRoute = '/api/training/results';

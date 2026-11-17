@@ -8,6 +8,9 @@
  * line, so each move is learned on the path the walk takes to it.
  * A path through a transposition ends there; the moves after it are on the
  * path the walk took first.
+ *
+ * A focus (R-206) plans one chapter instead, or one line of it: then the
+ * candidate is that line as `lines` gives it, as "I know this" names it.
  */
 import {
   isPlayerMove,
@@ -16,7 +19,7 @@ import {
   type RepertoireGraph,
   type RepertoireMove,
 } from '../repertoire/graph';
-import { chapterWalks } from '../repertoire/walk';
+import { chapterWalks, type ChapterWalk } from '../repertoire/walk';
 import type { TrainingRepertoire } from './scope';
 
 /** `known`: a player move tracked before, or planned earlier in this plan. */
@@ -74,13 +77,52 @@ interface Candidate {
   readonly path: readonly RepertoireMove[];
 }
 
+/**
+ * One chapter, or one line of it, to learn instead of the learn order
+ * (R-206). `lineIndex` is the line's index in `lines(graph, chapterId)`,
+ * as the repertoire page names a line for "I know this" (R-58).
+ */
+export interface LearnFocus {
+  readonly repertoireId: string;
+  readonly chapterId: string;
+  readonly lineIndex?: number;
+}
+
+/** Does training plan `repertoire`: active, and the focus's if there is one? */
+const planned = (
+  repertoire: TrainingRepertoire,
+  focus: LearnFocus | undefined,
+): boolean =>
+  repertoire.active &&
+  (focus === undefined || repertoire.id === focus.repertoireId);
+
+/** The chapters of a planned repertoire the focus allows: all, without one. */
+const chaptersIn = (
+  repertoire: TrainingRepertoire,
+  focus: LearnFocus | undefined,
+): readonly Chapter[] =>
+  focus === undefined
+    ? repertoire.graph.chapters
+    : repertoire.graph.chapters.filter((c) => c.id === focus.chapterId);
+
+/** The chapter's candidate paths: its walk's paths, or the one focused line. */
+function pathsOf(
+  walk: ChapterWalk,
+  lineIndex: number | undefined,
+): readonly (readonly RepertoireMove[])[] {
+  if (lineIndex === undefined) return walk.paths();
+  const line = walk.lines()[lineIndex];
+  return line === undefined ? [] : [line];
+}
+
 function* candidateLines(
   repertoires: readonly TrainingRepertoire[],
+  focus: LearnFocus | undefined,
 ): Generator<Candidate> {
-  for (const repertoire of repertoires.filter((r) => r.active)) {
+  for (const repertoire of repertoires.filter((r) => planned(r, focus))) {
     const walks = chapterWalks(repertoire.graph);
-    for (const chapter of repertoire.graph.chapters) {
-      for (const path of walks(chapter.id).paths())
+    for (const chapter of chaptersIn(repertoire, focus)) {
+      for (const path of pathsOf(walks(chapter.id), focus?.lineIndex))
         yield { repertoire, chapter, path };
     }
   }
@@ -88,16 +130,21 @@ function* candidateLines(
 
 /**
  * The lines to learn, at most `limit` new moves in all, over the active
- * repertoires in the given order. Keys in `tracked` are never planned again.
+ * repertoires in the given order, or only the `focus` chapter or line
+ * (R-206). Keys in `tracked` are never planned again.
  */
 export function learnPlan(
   repertoires: readonly TrainingRepertoire[],
   tracked: ReadonlySet<string>,
   limit: number,
+  focus?: LearnFocus,
 ): LearnLine[] {
   const planner: Planner = { planned: new Set(tracked), left: limit };
   const plan: LearnLine[] = [];
-  for (const { repertoire, chapter, path } of candidateLines(repertoires)) {
+  for (const { repertoire, chapter, path } of candidateLines(
+    repertoires,
+    focus,
+  )) {
     if (planner.left <= 0) break;
     const steps = planPath(repertoire.graph, path, planner);
     if (steps.length > 0)

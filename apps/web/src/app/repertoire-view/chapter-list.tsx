@@ -1,6 +1,6 @@
 'use client';
 
-import type { Chapter } from '@mychess/chess';
+import type { Chapter, RepertoireGraph } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import { useEffect, useId, useRef, useState, type JSX } from 'react';
 import {
@@ -22,8 +22,10 @@ export interface ChapterListProps {
   readonly onSelect: (chapterId: string) => void;
   /** Builder mode: add, rename and delete chapters. */
   readonly builder?: ChapterBuilder | undefined;
-  /** The player's training of it: each row gets its "I know this" menu. */
+  /** The player's training of it: each row gets Learn and its "I know this" menu. */
   readonly training?: PanelTraining | undefined;
+  /** The repertoire the chapters are in, which each row's Learn counts in (R-206). */
+  readonly graph?: RepertoireGraph | undefined;
 }
 
 /** Desktop opens the list by default; jsdom and phones keep it closed. */
@@ -93,6 +95,7 @@ function ChapterRows({
   onChoose,
   builder,
   training,
+  graph,
   onAdd,
 }: {
   readonly id: string;
@@ -102,8 +105,9 @@ function ChapterRows({
   /** A chapter's own name, which renaming starts from. */
   readonly name: (chapter: Chapter) => string;
   readonly onChoose: (chapterId: string) => void;
-  readonly builder: ChapterBuilder | undefined;
-  readonly training: PanelTraining | undefined;
+  readonly builder?: ChapterBuilder | undefined;
+  readonly training?: PanelTraining | undefined;
+  readonly graph?: RepertoireGraph | undefined;
   readonly onAdd: () => void;
 }): JSX.Element {
   const t = useTranslations('repertoires.chapters');
@@ -120,6 +124,7 @@ function ChapterRows({
               onChoose={onChoose}
               builder={builder}
               training={training}
+              graph={graph}
             />
           </li>
         ))}
@@ -144,14 +149,8 @@ function ChapterRows({
  * Choosing one selects it, closes the list and returns focus here. In
  * builder mode the rows can be renamed and deleted and a chapter added.
  */
-export function ChapterList({
-  chapters,
-  chapterId,
-  names,
-  onSelect,
-  builder,
-  training,
-}: ChapterListProps): JSX.Element | null {
+export function ChapterList(props: ChapterListProps): JSX.Element | null {
+  const { chapters, chapterId, names, onSelect, builder } = props;
   const t = useTranslations();
   const listId = useId();
   const { open, setOpen, trigger, close } = useDisclosure(chapters.length > 1);
@@ -183,13 +182,10 @@ export function ChapterList({
       </button>
       {open ? (
         <ChapterRows
+          {...props}
           id={listId}
-          chapters={chapters}
-          chapterId={chapterId}
           title={title}
           name={name}
-          builder={builder}
-          training={training}
           onChoose={(id) => {
             onSelect(id);
             close();

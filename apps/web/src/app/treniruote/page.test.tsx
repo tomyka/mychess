@@ -24,7 +24,12 @@ const ACCOUNT = {
 
 const loader = vi.hoisted(() => ({
   load: vi.fn<
-    (account: unknown, mode: unknown, scope: unknown) => Promise<unknown>
+    (
+      account: unknown,
+      mode: unknown,
+      scope: unknown,
+      focus: unknown,
+    ) => Promise<unknown>
   >(),
   notFound: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND');
@@ -74,19 +79,44 @@ describe('the training page', () => {
         searchParams: Promise.resolve({ mode: 'learn', r: ID }),
       }),
     );
-    expect(loader.load).toHaveBeenCalledWith(ACCOUNT, 'learn', {
-      kind: 'repertoire',
-      repertoireId: ID,
-    });
+    expect(loader.load).toHaveBeenCalledWith(
+      ACCOUNT,
+      'learn',
+      { kind: 'repertoire', repertoireId: ID },
+      null,
+    );
     expect(screen.getByText(`learn for a1 in ${ID}`)).toBeDefined();
+  });
+
+  it('loads one chapter’s line to learn when the URL names it (R-206)', async () => {
+    loader.load.mockResolvedValue({ mode: 'learn' });
+    renderLt(
+      await TrainingPage({
+        searchParams: Promise.resolve({
+          mode: 'learn',
+          r: ID,
+          chapter: 'c1',
+          line: '0',
+        }),
+      }),
+    );
+    expect(loader.load).toHaveBeenCalledWith(
+      ACCOUNT,
+      'learn',
+      { kind: 'repertoire', repertoireId: ID },
+      { repertoireId: ID, chapterId: 'c1', lineIndex: 0 },
+    );
   });
 
   it('trains every repertoire without a scope', async () => {
     loader.load.mockResolvedValue({ mode: 'review' });
     renderLt(await TrainingPage({ searchParams: Promise.resolve({}) }));
-    expect(loader.load).toHaveBeenCalledWith(ACCOUNT, 'review', {
-      kind: 'all',
-    });
+    expect(loader.load).toHaveBeenCalledWith(
+      ACCOUNT,
+      'review',
+      { kind: 'all' },
+      null,
+    );
     expect(screen.getByText('review for a1 in null')).toBeDefined();
   });
 

@@ -306,7 +306,7 @@
     "unknownChapter": "This chapter no longer exists.",
     "illegalMove": "That move is not legal.",
     "unknownPosition": "This position is not in the chapter.",
-    "secondAnswer": "You already have an answer in this position. Remove it first.",
+    "secondAnswer": "This repertoire already has a move here. To play another move, put it in a different repertoire.",
     "unknownMove": "This move no longer exists.",
     "invalidEdit": "This change could not be saved.",
     "sideMismatch": "This repertoire is for the other side.",
@@ -334,6 +334,7 @@
     "tooDeep": "Variations are nested too deep: at most {limit} levels.",
     "tooManyMoves": "The file has more than {limit, number} half-moves.",
     "tooManyImports": "Too many import attempts: at most {limit} a minute. Wait a minute and try again.",
+    "tooManyPreviews": "Too many previews: at most {limit} a minute. Wait a minute and try again.",
     "noValidGames": "No valid game was found in the file.",
     "nothingToAdd": "Nothing new to add from this file: each of its games is already in the repertoire or answers a position differently.",
     "fileNameFallback": "repertoire"
@@ -475,11 +476,13 @@
       "title": "Import PGN",
       "intro": "Up to 2 MB and 200 games.",
       "back": "My repertoires",
-      "fileTitle": "File and side",
+      "fileTitle": "PGN and side",
       "file": "Choose PGN file",
       "fileHint": "or drop it here",
       "fileChosen": "{name} · {size} KB",
-      "noFile": "Choose a PGN file.",
+      "paste": "Or paste PGN",
+      "pasted": "Pasted PGN",
+      "noFile": "Choose a PGN file or paste PGN.",
       "side": "Side",
       "preview": "Show what is inside",
       "reading": "Reading the file",
@@ -627,7 +630,8 @@
   "training": {
     "title": {
       "review": "Today's review",
-      "learn": "New moves"
+      "learn": "New moves",
+      "mixed": "Several repertoires"
     },
     "mode": {
       "review": "Review",
@@ -690,7 +694,8 @@
       },
       "line": "Line so far",
       "end": "End session",
-      "coachNote": "Coach note"
+      "coachNote": "Coach note",
+      "next": "Next"
     },
     "review": {
       "prompt": "Your move",
@@ -699,16 +704,12 @@
       "correct": "Correct",
       "lapse": "Not that move. Play the move the arrow shows.",
       "hinted": "Hint: move the highlighted piece.",
-      "hint": "Hint",
-      "next": "Next",
-      "twoAnswers": {
-        "title": "Your other repertoires play another move here:",
-        "item": "{name}: {move}"
-      }
+      "hint": "Hint"
     },
     "learn": {
       "arrows": "Play the move the arrow shows",
       "blind": "Now without the arrow",
+      "recall": "Play the new move",
       "wrong": "Not that move. Play the move the arrow shows.",
       "correct": "Correct",
       "known": "You know this move: play it."
@@ -717,6 +718,7 @@
     "today": {
       "title": "Today's review",
       "due": "{count} due · about {minutes} min",
+      "repertoireDue": "{name} · {side} · {count} due",
       "start": "Start review",
       "learn": "{count, plural, one {Learn # new move} other {Learn # new moves}}",
       "nothingDue": "Nothing due now.",
@@ -729,7 +731,11 @@
     },
     "repertoire": {
       "review": "Review ({count})",
-      "learn": "Learn ({count})"
+      "learn": "Learn ({count})",
+      "learnIn": "{count, plural, one {Learn # new move} other {Learn # new moves}} in {subject}",
+      "learnLine": "{count, plural, one {Learn # new move in this line} other {Learn # new moves in this line}}",
+      "limitReached": "Daily limit reached: {count, plural, one {# new move} other {# new moves}} a day.",
+      "limitSettings": "Change the limit"
     },
     "know": {
       "section": "Training",
@@ -755,10 +761,16 @@
       "sessionSizeHint": "From 10 to 100.",
       "newPerDayLabel": "New moves a day",
       "newPerDayHint": "From 0 to 50; 0 means review only.",
+      "learnArrowsLabel": "Show arrows when learning new moves",
+      "learnArrowsHint": "Off, a new move is asked without its arrow; a wrong move shows it.",
       "submit": "Save",
       "saved": "Saved.",
       "sessionSize": "Reviews per session must be a whole number from 10 to 100.",
-      "newPerDay": "New moves a day must be a whole number from 0 to 50."
+      "newPerDay": "New moves a day must be a whole number from 0 to 50.",
+      "learnArrows": "Choose whether to show arrows."
+    },
+    "twoAnswers": {
+      "other": "Your other repertoire {name} plays {move} here."
     }
   },
   "fide": {

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it, vi } from 'vitest';
 import { MESSAGES } from '../../../i18n/locales';
@@ -18,6 +18,21 @@ vi.mock('../../../server/repertoires', () => ({
         updatedAt: new Date('2026-10-18T08:00:00Z'),
       },
     ]),
+}));
+
+// The session account and its Lichess link, the names the side default
+// looks for in a file's players (#330 decision 8).
+const session = vi.hoisted(() => {
+  const state: { lichess: string | null } = { lichess: null };
+  return state;
+});
+
+vi.mock('../../../server/session', () => ({
+  requireOnboarded: () => Promise.resolve({ id: 'a1', displayName: 'Rokas' }),
+}));
+
+vi.mock('../../../server/provider-links', () => ({
+  lichessUsername: () => Promise.resolve(session.lichess),
 }));
 
 vi.mock('./actions', () => ({
@@ -65,5 +80,33 @@ describe('the import page', () => {
   it('ignores an id that is not one of the account’s repertoires', async () => {
     await renderPage({ i: 'someone-elses' });
     expect(radio(c.black).disabled).toBe(false);
+  });
+
+  it('offers a field to paste PGN in', async () => {
+    await renderPage();
+    expect(screen.getByLabelText(i.paste).tagName).toBe('TEXTAREA');
+  });
+
+  it('defaults the side from the display name (#330 decision 8)', async () => {
+    session.lichess = null;
+    await renderPage();
+    fireEvent.change(screen.getByLabelText(i.paste), {
+      target: { value: '[White "X"]\n[Black "Rokas"]\n\n1. e4 c5 *\n' },
+    });
+    // Read once typing pauses.
+    await waitFor(() => {
+      expect(radio(c.black).checked).toBe(true);
+    });
+  });
+
+  it('defaults the side from the linked Lichess username too', async () => {
+    session.lichess = 'rokas_lt';
+    await renderPage();
+    fireEvent.change(screen.getByLabelText(i.paste), {
+      target: { value: '[White "X"]\n[Black "Rokas_LT"]\n\n1. e4 c5 *\n' },
+    });
+    await waitFor(() => {
+      expect(radio(c.black).checked).toBe(true);
+    });
   });
 });

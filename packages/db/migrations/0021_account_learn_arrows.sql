@@ -1,0 +1,1 @@
+ALTER TABLE "accounts" ADD COLUMN "learn_arrows" boolean DEFAULT true NOT NULL;

@@ -4,6 +4,7 @@ import {
   DEFAULT_TRAINING_SETTINGS,
   RESULT_MAX_AGE_MS,
   SECONDS_PER_REVIEW,
+  TRAINING_ISSUES,
   TRAINING_REFUSALS,
   acceptResult,
   canRecord,
@@ -20,63 +21,91 @@ const issuesOf = (input: unknown): string[] => {
 };
 
 describe('trainingSettingsSchema', () => {
+  const learnArrows = true;
+
   it.each([10, 100])('accepts a session size of %d (R-62)', (sessionSize) => {
     expect(
-      trainingSettingsSchema.parse({ sessionSize, newPerDay: 10 }),
-    ).toEqual({
-      sessionSize,
-      newPerDay: 10,
-    });
+      trainingSettingsSchema.parse({ sessionSize, newPerDay: 10, learnArrows }),
+    ).toEqual({ sessionSize, newPerDay: 10, learnArrows });
   });
 
   it.each([9, 101, 20.5])('refuses a session size of %d', (sessionSize) => {
-    expect(issuesOf({ sessionSize, newPerDay: 10 })).toEqual([
+    expect(issuesOf({ sessionSize, newPerDay: 10, learnArrows })).toEqual([
       'training.settings.sessionSize',
     ]);
   });
 
   it.each([0, 50])('accepts %d new moves a day (R-146)', (newPerDay) => {
     expect(
-      trainingSettingsSchema.parse({ sessionSize: 20, newPerDay }),
-    ).toEqual({
-      sessionSize: 20,
-      newPerDay,
-    });
+      trainingSettingsSchema.parse({ sessionSize: 20, newPerDay, learnArrows }),
+    ).toEqual({ sessionSize: 20, newPerDay, learnArrows });
   });
 
   it.each([-1, 51, 2.5])('refuses %d new moves a day', (newPerDay) => {
-    expect(issuesOf({ sessionSize: 20, newPerDay })).toEqual([
+    expect(issuesOf({ sessionSize: 20, newPerDay, learnArrows })).toEqual([
       'training.settings.newPerDay',
     ]);
   });
 
   it('refuses a value that is not a number with its key', () => {
-    expect(issuesOf({ sessionSize: 'many', newPerDay: 'some' })).toEqual([
-      'training.settings.sessionSize',
-      'training.settings.newPerDay',
-    ]);
+    expect(
+      issuesOf({ sessionSize: 'many', newPerDay: 'some', learnArrows }),
+    ).toEqual(['training.settings.sessionSize', 'training.settings.newPerDay']);
   });
 
   it('coerces the strings a form posts', () => {
     expect(
-      trainingSettingsSchema.parse({ sessionSize: '20', newPerDay: '5' }),
-    ).toEqual({ sessionSize: 20, newPerDay: 5 });
+      trainingSettingsSchema.parse({
+        sessionSize: '20',
+        newPerDay: '5',
+        learnArrows,
+      }),
+    ).toEqual({ sessionSize: 20, newPerDay: 5, learnArrows });
   });
 
-  it('defaults to 20 a session and 10 new a day, within the limits', () => {
+  it.each([true, false])('takes arrows %s (R-205)', (arrows) => {
+    expect(
+      trainingSettingsSchema.parse({
+        sessionSize: 20,
+        newPerDay: 10,
+        learnArrows: arrows,
+      }),
+    ).toEqual({ sessionSize: 20, newPerDay: 10, learnArrows: arrows });
+  });
+
+  it.each(['on', 'false', 1, undefined])(
+    'refuses arrows given as %s',
+    (arrows) => {
+      expect(
+        issuesOf({ sessionSize: 20, newPerDay: 10, learnArrows: arrows }),
+      ).toEqual(['training.settings.learnArrows']);
+    },
+  );
+
+  it('defaults to 20 a session, 10 new a day and arrows on, within the limits', () => {
     expect(DEFAULT_TRAINING_SETTINGS).toEqual({
       sessionSize: 20,
       newPerDay: 10,
+      learnArrows: true,
     });
     expect(trainingSettingsSchema.parse(DEFAULT_TRAINING_SETTINGS)).toEqual(
       DEFAULT_TRAINING_SETTINGS,
     );
   });
 
-  it("takes its defaults from the chess queue's limits", () => {
+  it("takes its limits' defaults from the chess queue", () => {
     expect(DEFAULT_TRAINING_SETTINGS).toEqual({
       sessionSize: QUEUE_LIMITS.reviews,
       newPerDay: QUEUE_LIMITS.newPerDay,
+      learnArrows: true,
+    });
+  });
+
+  it('names each issue by its catalogue key', () => {
+    expect(TRAINING_ISSUES).toStrictEqual({
+      sessionSize: 'training.settings.sessionSize',
+      newPerDay: 'training.settings.newPerDay',
+      learnArrows: 'training.settings.learnArrows',
     });
   });
 });

@@ -32,12 +32,13 @@ export const ITALIAN = 'Itališkoji partija';
 export const CATALAN = 'Katalonų pradžia';
 export const CATALAN_A4 = 'Katalonų pradžia: 8.a4 sistema';
 export const BACKLOG = 'Visas repertuaras';
+export const KARO_KAN = 'Karo-Kan gynyba: pagrindai';
 
 /**
  * Rokas's eight Italian lines (docs/personas/u1400.md): the Giuoco
  * Pianissimo first, then the Two Knights that transposes into it.
  */
-const ITALIAN_PGN = fixture('italiskoji.pgn');
+export const ITALIAN_PGN = fixture('italiskoji.pgn');
 /** Dovydas's four Catalan lines (docs/personas/2000plus.md). */
 export const CATALAN_PGN = fixture('katalonu.pgn');
 /** His 8.a4 system, a second White answer to 7...a6 (R-54). */
@@ -48,11 +49,14 @@ export const CATALAN_A4_PGN = fixture('katalonu-a4.pgn');
  * backlog journeys: Dovydas's real files are several times the persona's.
  */
 export const BACKLOG_PGN = fixture('backlog.pgn');
+/** The coach's five Caro-Kann lines (Black, docs/personas/coach.md). */
+export const KARO_KAN_PGN = fixture('karo-kan.pgn');
 
 export const italian = bookOf(ITALIAN_PGN, 'white', ITALIAN);
 export const catalan = bookOf(CATALAN_PGN, 'white', CATALAN);
 export const catalanA4 = bookOf(CATALAN_A4_PGN, 'white', CATALAN_A4);
 export const backlog = bookOf(BACKLOG_PGN, 'white', BACKLOG);
+export const karoKan = bookOf(KARO_KAN_PGN, 'black', KARO_KAN);
 
 /** The repertoire page's "Learn (n)" and "Review (n)" links. */
 export const trainLink = (

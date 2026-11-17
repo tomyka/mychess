@@ -71,6 +71,19 @@ export function scopeKeys(scope: Scope): string[] {
 }
 
 /**
+ * The keys of `tracked` that are player moves of `graph`, in their order:
+ * the player's tracked moves narrowed to one repertoire (R-53: a Review is
+ * the player's, whichever repertoire it was learned through).
+ */
+export function trackedIn(
+  graph: RepertoireGraph,
+  tracked: readonly string[],
+): string[] {
+  const own = new Set(playerKeys(graph));
+  return tracked.filter((key) => own.has(key));
+}
+
+/**
  * Every own move of the repertoires, paused ones included: any move of a
  * graph, so its Review stays out of dormancy (R-44, R-46). Not what training
  * offers: `heldMoves` (queue.ts) is the own moves a chapter walk of the

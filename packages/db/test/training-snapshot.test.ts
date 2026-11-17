@@ -82,13 +82,14 @@ describe('trainingSnapshot', () => {
     await writeReview(db, 'p', startReview(BF4, hoursAgo(30)), {
       skippedAt: hoursAgo(30),
     });
-    await setTrainingSettings(db, 'p', { sessionSize: 30, newPerDay: 5 }, NOW);
+    const settings = { sessionSize: 30, newPerDay: 5, learnArrows: false };
+    await setTrainingSettings(db, 'p', settings, NOW);
     const snapshot = await trainingSnapshot(db, 'p', ALL, NOW);
     expect(snapshot).toMatchObject({
       entries: [{ kind: 'own', name: 'Mano', repertoire: { id: own } }],
       tracked: new Set([D4, BF4]),
       learnedToday: 0,
-      settings: { sessionSize: 30, newPerDay: 5 },
+      settings,
     });
     expect(snapshot?.reviews.get(D4)).toEqual(d4);
   });

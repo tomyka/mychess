@@ -1,5 +1,5 @@
 /**
- * A player's two training limits (R-62, R-146), stored on their account
+ * A player's training settings (R-62, R-146, R-205), stored on their account
  * (S6 decision 8). The acting player is always the session account.
  */
 import {
@@ -11,7 +11,7 @@ import { eq } from 'drizzle-orm';
 import type { Executor } from '../client';
 import { accounts } from '../schema';
 
-/** The player's limits; the defaults for an account that does not exist. */
+/** The player's settings; the defaults for an account that does not exist. */
 export async function trainingSettings(
   db: Executor,
   playerId: string,
@@ -20,6 +20,7 @@ export async function trainingSettings(
     .select({
       sessionSize: accounts.sessionSize,
       newPerDay: accounts.newPerDay,
+      learnArrows: accounts.learnArrows,
     })
     .from(accounts)
     .where(eq(accounts.id, playerId));
@@ -28,7 +29,7 @@ export async function trainingSettings(
     : trainingSettingsSchema.parse(row);
 }
 
-/** Stores the player's limits, already parsed with trainingSettingsSchema. */
+/** Stores the player's settings, already parsed with trainingSettingsSchema. */
 export async function setTrainingSettings(
   db: Executor,
   playerId: string,
@@ -40,6 +41,7 @@ export async function setTrainingSettings(
     .set({
       sessionSize: settings.sessionSize,
       newPerDay: settings.newPerDay,
+      learnArrows: settings.learnArrows,
       updatedAt: now,
     })
     .where(eq(accounts.id, playerId));

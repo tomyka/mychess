@@ -52,7 +52,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
     tracked: [],
     learnedToday: 0,
     coachNotes: [],
-    settings: { sessionSize: 20, newPerDay: 10 },
+    settings: { sessionSize: 20, newPerDay: 10, learnArrows: true },
     now: NOW,
     ...overrides,
   };
@@ -92,7 +92,7 @@ describe('a training snapshot as a training day', () => {
       data({
         reviews: ALL_KEYS.map((key) => reviewDue(key, NOW)),
         tracked: ALL_KEYS,
-        settings: { sessionSize: 10, newPerDay: 10 },
+        settings: { sessionSize: 10, newPerDay: 10, learnArrows: true },
       }),
     );
     expect(dueReviews(day, NOW)).toHaveLength(10);
@@ -101,7 +101,10 @@ describe('a training snapshot as a training day', () => {
 
   it('allows the new moves a day less those learned today', () => {
     const day = dayOf(
-      data({ settings: { sessionSize: 20, newPerDay: 3 }, learnedToday: 1 }),
+      data({
+        settings: { sessionSize: 20, newPerDay: 3, learnArrows: true },
+        learnedToday: 1,
+      }),
     );
     expect(trainingCounts(day, NOW).toLearn).toBe(2);
     expect(startState(dayOf(data({ learnedToday: 10 })), 'learn', NOW)).toEqual(
@@ -113,5 +116,51 @@ describe('a training snapshot as a training day', () => {
     const keys = newKeys(learnLines(dayOf(data({ tracked: [D4] }))));
     expect(keys).not.toContain(D4);
     expect(keys).toHaveLength(10);
+  });
+});
+
+describe('a snapshot with a focus (R-206)', () => {
+  it('learns only the chapter the page names', () => {
+    const chapterId = london.chapters[0]?.id ?? '';
+    const day = dayOf(
+      data({ mode: 'learn', focus: { repertoireId: 'r1', chapterId } }),
+    );
+    expect(day.focus).toEqual({ repertoireId: 'r1', chapterId });
+    const lines = learnLines(day);
+    expect(lines.length).toBeGreaterThan(0);
+    expect(new Set(lines.map((l) => l.repertoireId))).toEqual(new Set(['r1']));
+  });
+
+  it('learns nothing in a chapter the repertoire does not have', () => {
+    const day = dayOf(
+      data({
+        mode: 'learn',
+        focus: { repertoireId: 'r1', chapterId: 'missing' },
+      }),
+    );
+    expect(learnLines(day)).toEqual([]);
+    expect(startState(day, 'learn', NOW)).toEqual({ kind: 'nothingLeft' });
+  });
+
+  it('learns every repertoire without one', () => {
+    expect(dayOf(data({ mode: 'learn' })).focus).toBeUndefined();
+  });
+});
+
+describe('a snapshot caught up with the browser’s queue (#330 decision 2)', () => {
+  it('does not teach again a move learned on an earlier page whose result is still queued', () => {
+    const fresh = data({ mode: 'learn' });
+    expect(newKeys(learnLines(dayOf(fresh)))).toContain(D4);
+    const caught = dayOf({ ...fresh, queued: [{ key: D4, at: NOW }] });
+    expect(caught.tracked.has(D4)).toBe(true);
+    expect(newKeys(learnLines(caught))).not.toContain(D4);
+    expect(caught.learnedToday).toBe(1);
+  });
+
+  it('counts toward today only a queued move learned since the day began', () => {
+    const yesterday = new Date(NOW.getTime() - 24 * 60 * 60 * 1000);
+    const caught = dayOf(data({ queued: [{ key: D4, at: yesterday }] }));
+    expect(caught.tracked.has(D4)).toBe(true);
+    expect(caught.learnedToday).toBe(0);
   });
 });

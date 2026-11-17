@@ -4,6 +4,8 @@
 // training day, through lib/training-day.ts). Types only, so both sides
 // share them without importing each other.
 import type {
+  LearnedMove,
+  LearnFocus,
   RepertoireGraph,
   ReviewState,
   Side,
@@ -64,4 +66,12 @@ export interface TrainingData {
   readonly coachNotes: readonly OwnCoachNote[];
   /** The instant the snapshot was read at. */
   readonly now: Date;
+  /**
+   * Moves this browser learned whose results it still queues (#330 decision
+   * 2), set by the training screen once mounted: the snapshot may have been
+   * read before they reached the server. Never sent by the server.
+   */
+  readonly queued?: readonly LearnedMove[];
+  /** The one chapter or line a learn session teaches (R-206), when the URL names one. */
+  readonly focus?: LearnFocus;
 }

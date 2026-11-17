@@ -108,7 +108,15 @@ function renderIn(element: React.ReactNode): void {
 
 beforeEach(() => {
   loader.assign.mockReset().mockResolvedValue(NOT_COACHING);
-  loader.training.mockReset().mockResolvedValue({ due: 4, toLearn: 6 });
+  loader.training.mockReset().mockResolvedValue({
+    counts: { due: 4, toLearn: 6 },
+    learn: {
+      tracked: [],
+      learnedToday: 0,
+      limits: { reviews: 20, newPerDay: 6 },
+    },
+    limitReached: false,
+  });
 });
 
 describe('the repertoire page', () => {

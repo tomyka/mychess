@@ -6,9 +6,10 @@
 // filter in the query) and merges in memory. The confirm decides in
 // editRepertoire under the row lock: owner, then the version the preview
 // showed (decision 6), then the merge, refused when nothing in the file can
-// be added (R-115). An account runs at most ten previews or confirms a
-// minute between them (R-119), counted before the text is read; the file is
-// parsed and checked against its limits (R-66) before the lock is taken.
+// be added (R-115). An account runs at most thirty previews (R-208) and ten
+// confirms (R-119) a minute, counted apart and before the text is read; the
+// file is parsed and checked against its limits (R-66) before the lock is
+// taken.
 // The account's repertoire limits (R-162) refuse a new repertoire past 50
 // and a graph past 5,000 moves: the preview asks the domain up front, and
 // createRepertoire or editRepertoire decide again at the confirm.
@@ -38,7 +39,9 @@ import {
 } from '@mychess/db';
 import {
   canHoldMoves,
+  IMPORT_PREVIEW_RATE_LIMIT,
   IMPORT_RATE_LIMIT,
+  importPreviewRateKey,
   importRateKey,
   REPERTOIRE_ISSUES,
   REPERTOIRE_REFUSALS,
@@ -46,6 +49,7 @@ import {
   type Account,
   type Locale,
   type RateRefusal,
+  type RateRule,
   type RepertoireLimitRefusal,
 } from '@mychess/domain';
 import { z } from 'zod';
@@ -114,10 +118,14 @@ export interface ImportPreview {
 
 const PGN_UNREADABLE = 'pgn.unreadable';
 
+/** The previews (R-208) or the confirms (R-119) a minute, refused. */
+type RateKey =
+  typeof IMPORT_PREVIEW_RATE_LIMIT.reason | typeof IMPORT_RATE_LIMIT.reason;
+
 /** Every refusal an import can come to; each is a message-catalogue key. */
 export type ImportRefusalKey =
   | LimitRefusal['reason']
-  | typeof IMPORT_RATE_LIMIT.reason
+  | RateKey
   | 'pgn.noValidGames'
   | NothingToAdd['reason']
   | typeof PGN_UNREADABLE
@@ -128,13 +136,11 @@ export type ImportRefusalKey =
   | typeof REPERTOIRE_ISSUES.sideInvalid;
 
 /**
- * A limit an import breaks: the file's (R-66), the imports a minute (R-119)
- * or the account's repertoires (R-162).
+ * A limit an import breaks: the file's (R-66), the previews or confirms a
+ * minute (R-208, R-119) or the account's repertoires (R-162).
  */
 type LimitKey =
-  | LimitRefusal['reason']
-  | typeof IMPORT_RATE_LIMIT.reason
-  | RepertoireLimitRefusal['reason'];
+  LimitRefusal['reason'] | RateKey | RepertoireLimitRefusal['reason'];
 
 /** A refusal that names no limit. */
 type PlainKey = Exclude<ImportRefusalKey, LimitKey>;
@@ -142,11 +148,12 @@ type PlainKey = Exclude<ImportRefusalKey, LimitKey>;
 /**
  * Why an import is refused, in the shape the domain gives it: a key, and
  * the limit broken when it is a limit (bytes, games, depth or half-moves,
- * R-66, R-119; the imports a minute, R-119; or repertoires or moves, R-162).
+ * R-66, R-119; the previews or confirms a minute, R-208, R-119; or
+ * repertoires or moves, R-162).
  */
 type ImportRefusal =
   | LimitRefusal
-  | RateRefusal<typeof IMPORT_RATE_LIMIT.reason>
+  | RateRefusal<RateKey>
   | RepertoireLimitRefusal
   | { readonly reason: PlainKey };
 
@@ -218,15 +225,34 @@ const requestRefused = (error: z.ZodError): ImportRefused =>
     reason: refusalOf(error, REQUEST_KEYS, REPERTOIRE_REFUSALS.notFound),
   });
 
-/** Counts one preview or confirm of `account`; refused over the R-119 limit. */
+/** A preview's or a confirm's counter: apart, as R-208 limits them apart. */
+interface ImportCounter {
+  readonly rule: RateRule<RateKey>;
+  readonly key: (accountId: string) => string;
+}
+
+const PREVIEWS: ImportCounter = {
+  rule: IMPORT_PREVIEW_RATE_LIMIT,
+  key: importPreviewRateKey,
+};
+const CONFIRMS: ImportCounter = {
+  rule: IMPORT_RATE_LIMIT,
+  key: importRateKey,
+};
+
+/**
+ * Counts one preview (R-208) or confirm (R-119) of `account` on its own
+ * counter; refused over that counter's limit.
+ */
 async function withinRateLimit(
   account: Account,
+  counter: ImportCounter,
   now: Date,
 ): Promise<ImportRefused | null> {
   const counted = await countRateLimited(
     getDb(),
-    importRateKey(account.id),
-    IMPORT_RATE_LIMIT,
+    counter.key(account.id),
+    counter.rule,
     now,
   );
   return counted.ok ? null : refused(counted.refusal);
@@ -393,7 +419,7 @@ export async function previewImport(
   input: unknown,
   now: Date,
 ): Promise<PreviewOutcome> {
-  const limited = await withinRateLimit(account, now);
+  const limited = await withinRateLimit(account, PREVIEWS, now);
   if (limited !== null) return limited;
   const request = previewRequestSchema.safeParse(input);
   if (!request.success) return requestRefused(request.error);
@@ -443,7 +469,7 @@ export async function confirmImport(
   input: unknown,
   now: Date,
 ): Promise<ConfirmOutcome> {
-  const limited = await withinRateLimit(account, now);
+  const limited = await withinRateLimit(account, CONFIRMS, now);
   if (limited !== null) return limited;
   const request = confirmRequestSchema.safeParse(input);
   if (!request.success) return requestRefused(request.error);

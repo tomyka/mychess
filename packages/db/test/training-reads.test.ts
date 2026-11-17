@@ -44,17 +44,34 @@ describe('trainingSettings', () => {
   });
 
   it('reads back what setTrainingSettings wrote, and stamps the account', async () => {
-    await setTrainingSettings(db, 'p', { sessionSize: 40, newPerDay: 0 }, NOW);
-    expect(await trainingSettings(db, 'p')).toEqual({
-      sessionSize: 40,
-      newPerDay: 0,
-    });
+    const settings = { sessionSize: 40, newPerDay: 0, learnArrows: false };
+    await setTrainingSettings(db, 'p', settings, NOW);
+    expect(await trainingSettings(db, 'p')).toEqual(settings);
     expect(await accountRow('p')).toEqual({ updated_at: NOW });
+  });
+
+  it('gives a fresh account arrows on (R-205)', async () => {
+    expect((await trainingSettings(db, 'p')).learnArrows).toBe(true);
+  });
+
+  it('turns arrows back on (R-205)', async () => {
+    const off = { sessionSize: 20, newPerDay: 10, learnArrows: false };
+    await setTrainingSettings(db, 'p', off, NOW);
+    await setTrainingSettings(db, 'p', { ...off, learnArrows: true }, LATER);
+    expect(await trainingSettings(db, 'p')).toEqual({
+      ...off,
+      learnArrows: true,
+    });
   });
 
   it("writes only the player's own settings", async () => {
     await seedPlayer(db, 'q', 'q@example.lt');
-    await setTrainingSettings(db, 'p', { sessionSize: 40, newPerDay: 0 }, NOW);
+    await setTrainingSettings(
+      db,
+      'p',
+      { sessionSize: 40, newPerDay: 0, learnArrows: false },
+      NOW,
+    );
     expect(await trainingSettings(db, 'q')).toEqual(DEFAULT_TRAINING_SETTINGS);
   });
 });

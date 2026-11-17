@@ -7,10 +7,28 @@ import { TrainButtons } from './train-buttons';
 
 const ID = '7d1f8f3e-5b8a-4c3e-9a51-2f0e6b7c9d10';
 
-function renderButtons(locale: 'lt' | 'en', due: number, toLearn: number) {
+const LEARN = {
+  tracked: [],
+  learnedToday: 0,
+  limits: { reviews: 20, newPerDay: 10 },
+};
+
+function renderButtons(
+  locale: 'lt' | 'en',
+  due: number,
+  toLearn: number,
+  limitReached = false,
+) {
   render(
     <NextIntlClientProvider locale={locale} messages={MESSAGES[locale]}>
-      <TrainButtons training={{ repertoireId: ID, counts: { due, toLearn } }} />
+      <TrainButtons
+        training={{
+          repertoireId: ID,
+          counts: { due, toLearn },
+          learn: LEARN,
+          limitReached,
+        }}
+      />
     </NextIntlClientProvider>,
   );
 }
@@ -52,5 +70,27 @@ describe('TrainButtons (R-142)', () => {
     renderButtons('lt', 0, 0);
     expect(mainActions()).toEqual([]);
     expect(screen.getAllByRole('link')).toHaveLength(2);
+  });
+
+  it('says the daily limit is reached instead of “Learn (0)” (decision 11)', () => {
+    renderButtons('en', 2, 0, true);
+    expect(screen.queryByRole('link', { name: /Learn/ })).toBeNull();
+    expect(
+      screen.getByText(/Daily limit reached: 10 new moves a day\./),
+    ).toBeDefined();
+    expect(href(MESSAGES.en.training.repertoire.limitSettings)).toBe(
+      '/nustatymai#treniruote',
+    );
+    expect(href('Review (2)')).toBe(`/treniruote?mode=review&r=${ID}`);
+  });
+
+  it('says it in Lithuanian too', () => {
+    renderButtons('lt', 0, 0, true);
+    expect(
+      screen.getByText(/Dienos riba pasiekta: 10 naujų ėjimų per dieną\./),
+    ).toBeDefined();
+    expect(href(MESSAGES.lt.training.repertoire.limitSettings)).toBe(
+      '/nustatymai#treniruote',
+    );
   });
 });

@@ -17,7 +17,15 @@ const D4 = moveKey(START_KEY, 'd4');
 
 const sync = vi.hoisted(() => {
   const accounts: string[] = [];
-  return { unsynced: 0, record: vi.fn(), retry: vi.fn(), accounts };
+  const state: { queued: readonly { key: string; at: Date }[] | null } = {
+    queued: null,
+  };
+  return Object.assign(state, {
+    unsynced: 0,
+    record: vi.fn(),
+    retry: vi.fn(),
+    accounts,
+  });
 });
 
 vi.mock('./use-result-sync', () => ({
@@ -25,6 +33,7 @@ vi.mock('./use-result-sync', () => ({
     sync.accounts.push(accountId);
     return { unsynced: sync.unsynced, record: sync.record, retry: sync.retry };
   },
+  useQueuedLearned: () => sync.queued,
 }));
 
 vi.mock('@lichess-org/chessground', () => ({
@@ -50,6 +59,9 @@ const drills = vi.hoisted(() => {
         panel: (
           <p data-review={links.review}>
             {`${name} drill, ${data.mode}, back to ${links.back}`}
+            {data.queued === undefined
+              ? null
+              : `, ${String(data.queued.length)} queued`}
           </p>
         ),
       });
@@ -76,7 +88,7 @@ function data(overrides: Partial<TrainingData> = {}): TrainingData {
     tracked: [],
     learnedToday: 0,
     coachNotes: [],
-    settings: { sessionSize: 20, newPerDay: 10 },
+    settings: { sessionSize: 20, newPerDay: 10, learnArrows: true },
     now: NOW,
     ...overrides,
   };
@@ -104,6 +116,7 @@ beforeEach(() => {
   sync.unsynced = 0;
   sync.retry.mockReset();
   sync.accounts = [];
+  sync.queued = null;
 });
 
 describe('the training screen with nothing due', () => {
@@ -114,7 +127,7 @@ describe('the training screen with nothing due', () => {
       data({
         reviews: [{ ...due, fsrs: { ...due.fsrs, due: NEXT } }],
         tracked: [D4],
-        settings: { sessionSize: 20, newPerDay: 3 },
+        settings: { sessionSize: 20, newPerDay: 3, learnArrows: true },
       }),
     );
     expect(heading(T.empty.nothingDue.title)).toBeDefined();
@@ -130,7 +143,10 @@ describe('the training screen with nothing due', () => {
 
   it('offers no new moves when today’s allowance is used', () => {
     renderScreen(
-      data({ settings: { sessionSize: 20, newPerDay: 2 }, learnedToday: 2 }),
+      data({
+        settings: { sessionSize: 20, newPerDay: 2, learnArrows: true },
+        learnedToday: 2,
+      }),
     );
     expect(heading(T.empty.nothingDue.title)).toBeDefined();
     expect(screen.queryByText(/^Kitas kartojimas:/)).toBeNull();
@@ -147,7 +163,10 @@ describe('the training screen with nothing due', () => {
 describe('the training screen with nothing to learn', () => {
   it('says today’s limit is reached', () => {
     renderScreen(
-      data({ mode: 'learn', settings: { sessionSize: 20, newPerDay: 0 } }),
+      data({
+        mode: 'learn',
+        settings: { sessionSize: 20, newPerDay: 0, learnArrows: true },
+      }),
     );
     expect(heading(T.empty.limitReached.title)).toBeDefined();
     expect(screen.getByText(T.empty.limitReached.body)).toBeDefined();
@@ -280,5 +299,92 @@ describe('the training screen with something to drill', () => {
     within(main).getByRole('button', { name: T.sync.retry }).click();
     expect(sync.retry).toHaveBeenCalledOnce();
     expect(screen.getByRole('status').textContent).toContain('2 rezultatai');
+  });
+});
+
+describe('the header of a session over several repertoires (R-207, R-54)', () => {
+  const OTHER = '0b6c2a4e-1f3d-4e5a-8b7c-9d0e1f2a3b4c';
+  const london = data().entries[0];
+  const two = (active: boolean): TrainingData['entries'] =>
+    london === undefined
+      ? []
+      : [london, { ...london, id: OTHER, name: 'Kita', active }];
+  const due = data({ reviews: [startReview(D4, new Date(0))], tracked: [D4] });
+
+  it('titles it as such and names the item’s repertoire under the title', () => {
+    renderScreen({ ...due, entries: two(true) }, null);
+    expect(
+      screen.getByRole('heading', { level: 1, name: T.title.mixed }),
+    ).toBeDefined();
+    expect(screen.getByText('review item')).toBeDefined();
+  });
+
+  it('names the repertoire when the session trains only it', () => {
+    renderScreen({ ...due, entries: two(true) }, ID);
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'review item' }),
+    ).toBeDefined();
+    expect(screen.queryByText(T.title.mixed)).toBeNull();
+  });
+
+  it('names the repertoire when it is the only one trained, the other paused', () => {
+    renderScreen({ ...due, entries: two(false) }, null);
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'review item' }),
+    ).toBeDefined();
+  });
+
+  it('keeps the mode’s title when there is nothing to drill', () => {
+    renderScreen(data({ entries: two(true) }), null);
+    expect(
+      screen.getByRole('heading', { level: 1, name: T.title.review }),
+    ).toBeDefined();
+  });
+});
+
+describe('the training screen and the results still queued (#330 decision 2)', () => {
+  const ONLY_D4 = [
+    {
+      id: ID,
+      name: 'd4',
+      side: 'white',
+      kind: 'own',
+      active: true,
+      graph: graphOf('1. d4 *'),
+    },
+  ] as const;
+
+  it('hands the learn drill the moves the browser still queues', () => {
+    sync.queued = [{ key: D4, at: NOW }];
+    renderScreen(data({ mode: 'learn' }));
+    expect(
+      screen.getByText(
+        `learn drill, learn, back to /repertuarai/${ID}, 1 queued`,
+      ),
+    ).toBeDefined();
+  });
+
+  it('hands the snapshot unchanged when nothing learned is queued', () => {
+    sync.queued = [];
+    renderScreen(data({ mode: 'learn' }));
+    expect(
+      screen.getByText(`learn drill, learn, back to /repertuarai/${ID}`),
+    ).toBeDefined();
+  });
+
+  it('says every move is learned when the queue holds the last one', () => {
+    sync.queued = [{ key: D4, at: NOW }];
+    renderScreen(data({ mode: 'learn', entries: ONLY_D4 }));
+    expect(heading(T.empty.nothingLeft.title)).toBeDefined();
+  });
+
+  it('leaves a review on the snapshot: a queued move’s Review is not the server’s', () => {
+    sync.queued = [{ key: D4, at: NOW }];
+    renderScreen(
+      data({ reviews: [startReview(D4, new Date(0))], tracked: [D4] }),
+    );
+    expect(
+      screen.getByText(`review drill, review, back to /repertuarai/${ID}`),
+    ).toBeDefined();
   });
 });

@@ -13,6 +13,7 @@ import {
   flush,
   FLUSH_BATCH,
   flushThenClear,
+  learnedIn,
   pending,
   queueKey,
   SIGN_OUT_FLUSH_MS,
@@ -368,5 +369,22 @@ describe('flushThenClear', () => {
       flushThenClear(refused, 'rokas', post),
     ).resolves.toBeUndefined();
     expect(post).not.toHaveBeenCalled();
+  });
+});
+
+describe('learnedIn (#330 decision 2)', () => {
+  it('gives the learned results as moves, in queue order, graded ones left out', () => {
+    const learned = (n: number): TrainingResult => ({
+      ...result(n),
+      kind: 'learned',
+    });
+    expect(learnedIn([learned(1), result(2), learned(3)])).toEqual([
+      { key: result(1).moveKey, at: result(1).answeredAt },
+      { key: result(3).moveKey, at: result(3).answeredAt },
+    ]);
+  });
+
+  it('gives none for an empty queue', () => {
+    expect(learnedIn([])).toEqual([]);
   });
 });

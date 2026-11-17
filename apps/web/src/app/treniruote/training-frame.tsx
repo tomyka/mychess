@@ -72,18 +72,28 @@ interface TopBarProps {
   readonly mode: TrainingMode;
   readonly backHref: string;
   readonly title: string;
+  readonly subtitle: string | undefined;
   readonly progress: FrameParts['progress'];
 }
 
-function TopBar({ mode, backHref, title, progress }: TopBarProps): JSX.Element {
+function TopBar({
+  mode,
+  backHref,
+  title,
+  subtitle,
+  progress,
+}: TopBarProps): JSX.Element {
   const t = useTranslations('training');
   return (
     <div className={FRAME_HEAD}>
       <header className={FRAME_TOP}>
         <BackLink href={backHref} label={t('back')} />
-        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold lg:w-full lg:flex-none lg:text-xl tall:w-auto tall:flex-1">
-          {title}
-        </h1>
+        <div className="min-w-0 flex-1 lg:w-full lg:flex-none tall:w-auto tall:flex-1">
+          <h1 className="truncate text-lg font-semibold lg:text-xl">{title}</h1>
+          {subtitle === undefined ? null : (
+            <p className="truncate text-sm text-fg-muted">{subtitle}</p>
+          )}
+        </div>
         {progress === undefined ? null : (
           <p className="shrink-0 text-fg-muted tabular-nums">
             <span className="max-lg:sr-only">{t(`mode.${mode}`)} </span>
@@ -101,6 +111,11 @@ export interface TrainingFrameProps extends FrameParts {
   readonly backHref: string;
   /** The title when the drill gives none. */
   readonly defaultTitle: string;
+  /**
+   * Under the title: the item's repertoire when the title names several
+   * (R-54, R-207).
+   */
+  readonly subtitle?: string;
   /** The side the still board is seen from. */
   readonly side: Side;
   /** The sync banner, at the top of the panel (R-60). */
@@ -129,6 +144,7 @@ export function TrainingFrame(props: TrainingFrameProps): JSX.Element {
         mode={props.mode}
         backHref={props.backHref}
         title={props.title ?? props.defaultTitle}
+        subtitle={props.subtitle}
         progress={props.progress}
       />
       <div className={boardClass(live, finished)} inert={!live}>

@@ -1,7 +1,7 @@
 import type { JSX } from 'react';
-import { z } from 'zod';
 import { CHAPTER_PARAM } from '../../../lib/routes';
 import { coachAssignData } from '../../../server/coach-assignments';
+import { chapterIdSchema } from '../../../server/repertoire-edit';
 import { repertoirePageData } from '../../../server/repertoires';
 import { requireOnboarded } from '../../../server/session';
 import { repertoireTraining } from '../../../server/training';
@@ -9,9 +9,6 @@ import { AssignPanel } from './assign-panel';
 import { RepertoireScreen } from './repertoire-screen';
 
 type SearchParams = Record<string, string | string[] | undefined>;
-
-/** A chapter id from the query; anything else opens the first chapter. */
-const chapterQuery = z.string().min(1).max(20);
 
 // One repertoire (docs/design/repertoire-screen.md, section 2). Anything the
 // account may not view, a malformed id included, is 404 (decision 12). The
@@ -28,7 +25,10 @@ export default async function RepertoirePage({
   readonly searchParams: Promise<SearchParams>;
 }): Promise<JSX.Element> {
   const { id } = await params;
-  const chapter = chapterQuery.safeParse((await searchParams)[CHAPTER_PARAM]);
+  // A chapter id from the query; anything else opens the first chapter.
+  const chapter = chapterIdSchema.safeParse(
+    (await searchParams)[CHAPTER_PARAM],
+  );
   const { repertoire, graph, notes, names, sharing, coachNotes, forkNotes } =
     await repertoirePageData(id);
   const { assignedPlayers, panel } = await coachAssignData(repertoire.id);
@@ -54,9 +54,7 @@ export default async function RepertoirePage({
       forkNotes={forkNotes}
       assignedPlayers={assignedPlayers}
       training={
-        training === null
-          ? null
-          : { repertoireId: repertoire.id, counts: training }
+        training === null ? null : { repertoireId: repertoire.id, ...training }
       }
       assignPanel={
         panel === null ? null : (

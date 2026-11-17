@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { startReview } from './schedule';
-import { learnStep, startLearn } from './training';
+import { askLearn, learnStep, startLearn } from './training';
 
 const now = new Date('2026-10-16T08:00:00Z');
 
@@ -16,6 +16,17 @@ describe('learn pass', () => {
       step: 'learned',
       review: startReview('k', now),
     });
+  });
+
+  it('starts asked blind without its arrow (R-205)', () => {
+    const s = askLearn('k');
+    expect(s).toEqual({ key: 'k', step: 'asked' });
+    expect(learnStep(s, 'correct', now)).toEqual({
+      key: 'k',
+      step: 'learned',
+      review: startReview('k', now),
+    });
+    expect(learnStep(s, 'wrong', now)).toEqual({ key: 'k', step: 'shown' });
   });
 
   it('goes back to the arrow after a wrong blind answer', () => {

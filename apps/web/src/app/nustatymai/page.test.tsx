@@ -105,7 +105,11 @@ vi.mock('@mychess/db', async (original) => ({
   // The account's training limits, as the repository reads them.
   trainingSettings: (_db: unknown, playerId: string) => {
     server.trainingOf.push(playerId);
-    return Promise.resolve({ sessionSize: 30, newPerDay: 5 });
+    return Promise.resolve({
+      sessionSize: 30,
+      newPerDay: 5,
+      learnArrows: false,
+    });
   },
 }));
 
@@ -182,7 +186,7 @@ describe('the settings page', () => {
     ).toBe('Rūta Jonaitė');
   });
 
-  it("shows the session account's training limits (R-62, R-146)", async () => {
+  it("shows the session account's training settings (R-62, R-146, R-205)", async () => {
     await renderPage();
     const t = MESSAGES.lt.training.settings;
     expect(server.trainingOf).toEqual(['a1']);
@@ -192,6 +196,11 @@ describe('the settings page', () => {
     expect(
       screen.getByLabelText<HTMLInputElement>(t.newPerDayLabel).value,
     ).toBe('5');
+    expect(
+      screen.getByRole<HTMLInputElement>('checkbox', {
+        name: t.learnArrowsLabel,
+      }).checked,
+    ).toBe(false);
   });
 
   it('shows the account’s links and the error code a link came back with', async () => {

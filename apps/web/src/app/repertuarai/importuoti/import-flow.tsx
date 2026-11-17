@@ -145,32 +145,37 @@ export interface ImportFlowProps {
   readonly options: readonly ImportOption[];
   /** Opened from this repertoire (`?i=`): its side, and it as the target. */
   readonly preselected: string | null;
+  /**
+   * The account's names a file's players may give it by: the side's
+   * default is the one they name it on (#330 decision 8).
+   */
+  readonly names: readonly string[];
 }
 
 /**
  * The PGN import (docs/design/repertoire-screen.md, section 3): the file
- * and side, what it holds (R-64), where it goes (R-101), then Import.
+ * or pasted PGN (R-209) and side, what it holds (R-64), where it goes
+ * (R-101), then Import.
  */
 export function ImportFlow({
   options,
   preselected,
+  names,
 }: ImportFlowProps): JSX.Element {
-  const flow = useImportFlow(options, preselected);
+  const flow = useImportFlow(options, preselected, names);
   const statusId = useId();
   if (flow.upload !== null) return <Previewed flow={flow} options={options} />;
   return (
     <FileStep
       file={flow.file}
+      pasted={flow.pasted}
       side={flow.side}
       sideFixed={flow.sideFixed}
       pending={flow.pending}
       fileRef={flow.fileRef}
-      onFile={(file) => {
-        flow.dispatch({ type: 'set', patch: { file } });
-      }}
-      onSide={(side) => {
-        flow.dispatch({ type: 'set', patch: { side } });
-      }}
+      onFile={flow.chooseFile}
+      onPaste={flow.paste}
+      onSide={flow.chooseSide}
       onSubmit={flow.submitFile}
       status={<FlowStatus id={statusId} flow={flow} />}
     />

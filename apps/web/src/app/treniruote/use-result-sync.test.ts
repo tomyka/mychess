@@ -1,11 +1,14 @@
 import type { TrainingResult } from '@mychess/domain';
 import { act, renderHook } from '@testing-library/react';
+import { createElement } from 'react';
+import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { enqueue, pending, queueKey } from './result-queue';
 import {
   browserStore,
   SYNC_INTERVAL_MS,
+  useQueuedLearned,
   useResultSync,
 } from './use-result-sync';
 
@@ -322,5 +325,50 @@ describe('browserStore', () => {
     expect(store.read()).toBeNull();
     store.write('[]');
     expect(store.read()).toBe('[]');
+  });
+});
+
+describe('useQueuedLearned (#330 decision 2)', () => {
+  const learned = (n: number): TrainingResult => ({
+    ...result(n),
+    kind: 'learned',
+  });
+
+  it('reads the account’s queued learned moves', () => {
+    enqueue(storage, learned(1));
+    enqueue(storage, result(2));
+    const { result: hook } = renderHook(() => useQueuedLearned('rokas'));
+    expect(hook.current).toEqual([
+      { key: learned(1).moveKey, at: learned(1).answeredAt },
+    ]);
+  });
+
+  it('reads only its own account’s queue', () => {
+    enqueue(
+      browserStore(queueKey('ona'), () => window.localStorage),
+      learned(1),
+    );
+    const { result: hook } = renderHook(() => useQueuedLearned('rokas'));
+    expect(hook.current).toEqual([]);
+  });
+
+  it('reads the queue once, as the page opened: later moves are the drill’s own', () => {
+    const { result: hook, rerender } = renderHook(() =>
+      useQueuedLearned('rokas'),
+    );
+    enqueue(storage, learned(1));
+    rerender();
+    expect(hook.current).toEqual([]);
+  });
+
+  it('gives null when rendered on the server, so hydration matches', () => {
+    enqueue(storage, learned(1));
+    let seen: unknown = 'unset';
+    const Probe = () => {
+      seen = useQueuedLearned('rokas');
+      return null;
+    };
+    renderToString(createElement(Probe));
+    expect(seen).toBeNull();
   });
 });

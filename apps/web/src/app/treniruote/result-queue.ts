@@ -2,6 +2,7 @@
 // decision 3, plan decision 10): one stored list per account, posted in
 // batches. Pure: the storage and the post are injected, so the hook decides
 // where the list lives and how it is sent.
+import type { LearnedMove } from '@mychess/chess';
 import {
   settleFlush,
   trainingResultSchema,
@@ -43,6 +44,15 @@ export function pending(store: QueueStore): TrainingResult[] {
   const parsed = queueSchema.safeParse(parsedJson(raw));
   return parsed.success ? parsed.data : [];
 }
+
+/**
+ * The learned results among `results`, as moves the training day takes
+ * (#330 decision 2); graded results are left out.
+ */
+export const learnedIn = (results: readonly TrainingResult[]): LearnedMove[] =>
+  results
+    .filter((r) => r.kind === 'learned')
+    .map((r) => ({ key: r.moveKey, at: r.answeredAt }));
 
 /** Adds a result to the end of the queue. */
 export function enqueue(store: QueueStore, result: TrainingResult): void {

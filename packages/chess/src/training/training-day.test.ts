@@ -12,15 +12,18 @@ import type { TrainingRepertoire } from './scope';
 import {
   allowance,
   dayStanding,
+  dueByRepertoire,
   dueCount,
   dueReviews,
   learnLines,
+  learnStart,
   newKeys,
   nextDue,
   startState,
   toLearnCount,
   trainingCounts,
   trainingProgress,
+  withLearned,
   type TrainingDay,
 } from './training-day';
 
@@ -331,6 +334,184 @@ describe('learnLines and newKeys', () => {
   });
 });
 
+describe('a focused training day (R-206)', () => {
+  const chapterId = white.chapters[0]?.id ?? '';
+  const focus = { repertoireId: 'r1', chapterId };
+  const other = graph('1. d4 d5 2. c4 *', 'white');
+
+  it('teaches only the focus, within the allowance', () => {
+    const focused = day({
+      repertoires: [repertoire(other, 'r0'), repertoire(white)],
+      focus,
+      limits: { reviews: 20, newPerDay: 3 },
+    });
+    expect(learnLines(focused).map((l) => l.repertoireId)).toEqual(['r1']);
+    expect(newKeys(learnLines(focused))).toEqual([E4, NF3, BC4]);
+    expect(toLearnCount(focused)).toBe(3);
+  });
+  it('has nothing left when the focus is learned, whatever else is not', () => {
+    const focused = day({
+      repertoires: [repertoire(other, 'r0'), repertoire(white)],
+      tracked: new Set([E4, NF3, BC4, C3]),
+      focus,
+    });
+    expect(learnStart(focused)).toEqual({ kind: 'nothingLeft' });
+    expect(startState(focused, 'learn', NOW)).toEqual({ kind: 'nothingLeft' });
+  });
+  it('is limit reached when the focus has moves left but the allowance is used', () => {
+    const focused = day({
+      repertoires: [repertoire(other, 'r0'), repertoire(white)],
+      tracked: new Set([E4]),
+      focus,
+      learnedToday: 10,
+    });
+    expect(learnStart(focused)).toEqual({ kind: 'limitReached' });
+    expect(learnStart({ ...focused, learnedToday: 9 })).toEqual({
+      kind: 'drill',
+    });
+  });
+});
+
+describe('learnStart (decision 11)', () => {
+  it('says the limit is reached while moves are left but the allowance is used', () => {
+    expect(learnStart(day({ learnedToday: 10 }))).toEqual({
+      kind: 'limitReached',
+    });
+    expect(learnStart(day())).toEqual({ kind: 'drill' });
+    expect(
+      learnStart(
+        day({ tracked: new Set([E4, NF3, BC4, C3]), learnedToday: 10 }),
+      ),
+    ).toEqual({ kind: 'nothingLeft' });
+  });
+});
+
+describe('withLearned (decision 2)', () => {
+  /** Midnight in Vilnius on 25 October 2026 (UTC+3 until 04:00 local). */
+  const DAY_START = new Date('2026-10-24T21:00:00Z');
+
+  it('a move learned in the browser is tracked, so no learn plan teaches it again', () => {
+    expect(newKeys(learnLines(day()))).toContain(E4);
+    const caught = withLearned(day(), [{ key: E4, at: NOW }], DAY_START);
+    expect(caught.tracked.has(E4)).toBe(true);
+    expect(caught.reviews.get(E4)).toEqual(startReview(E4, NOW));
+    expect(newKeys(learnLines(caught))).not.toContain(E4);
+    expect(newKeys(learnLines(caught))).toEqual([NF3, BC4, C3]);
+  });
+  it('counts toward today’s allowance only when learned today', () => {
+    expect(
+      withLearned(day(), [{ key: E4, at: NOW }], DAY_START).learnedToday,
+    ).toBe(1);
+    expect(
+      withLearned(day(), [{ key: E4, at: DAY_START }], DAY_START).learnedToday,
+    ).toBe(1);
+    const tomorrow = new Date(DAY_START.getTime() + DAY_MS);
+    expect(
+      withLearned(day(), [{ key: E4, at: tomorrow }], DAY_START).learnedToday,
+    ).toBe(1);
+    const yesterday = new Date(DAY_START.getTime() - 1);
+    expect(
+      withLearned(day(), [{ key: E4, at: yesterday }], DAY_START).learnedToday,
+    ).toBe(0);
+  });
+  it('leaves a move the snapshot already tracks, and takes a key once', () => {
+    const known = day({
+      reviews: new Map([[E4, startReview(E4, NOW)]]),
+      tracked: new Set([E4]),
+      learnedToday: 1,
+    });
+    expect(withLearned(known, [{ key: E4, at: NOW }], DAY_START)).toBe(known);
+    const twice = withLearned(
+      day(),
+      [
+        { key: NF3, at: NOW },
+        { key: NF3, at: new Date(NOW.getTime() + 1000) },
+      ],
+      DAY_START,
+    );
+    expect(twice.learnedToday).toBe(1);
+    expect(twice.reviews.get(NF3)).toEqual(startReview(NF3, NOW));
+  });
+  it('keeps the snapshot’s Reviews and tracked keys, and does not change it', () => {
+    const base = day(reviewed(reviewIn(E4, DAY_MS)));
+    const caught = withLearned(base, [{ key: NF3, at: NOW }], DAY_START);
+    expect([...caught.tracked]).toEqual([E4, NF3]);
+    expect(caught.reviews.get(E4)).toEqual(reviewIn(E4, DAY_MS));
+    expect(base.tracked.has(NF3)).toBe(false);
+    expect(base.reviews.has(NF3)).toBe(false);
+    expect(caught.limits).toBe(base.limits);
+  });
+});
+
+describe('dueByRepertoire (R-207)', () => {
+  /** A Review learned `days` before NOW: due since a day after that. */
+  const learnedAgo = (key: string, days: number): ReviewState =>
+    startReview(key, new Date(NOW.getTime() - days * DAY_MS));
+  const [C6 = '', D5 = ''] = BLACK_KEYS;
+
+  it('lists each repertoire with due moves, its own count, the most urgent first', () => {
+    const d = day({
+      repertoires: [repertoire(white, 'w'), repertoire(black, 'b')],
+      reviews: new Map([
+        [E4, learnedAgo(E4, 2)],
+        [C6, learnedAgo(C6, 3)],
+        [D5, learnedAgo(D5, 2)],
+      ]),
+    });
+    expect(dueByRepertoire(d, NOW)).toEqual([
+      { repertoireId: 'b', due: 2 },
+      { repertoireId: 'w', due: 1 },
+    ]);
+  });
+  it('keeps learn order between repertoires due since the same time', () => {
+    const d = day({
+      repertoires: [repertoire(white, 'w'), repertoire(black, 'b')],
+      reviews: new Map([
+        [E4, learnedAgo(E4, 2)],
+        [C6, learnedAgo(C6, 2)],
+      ]),
+    });
+    expect(dueByRepertoire(d, NOW)).toEqual([
+      { repertoireId: 'w', due: 1 },
+      { repertoireId: 'b', due: 1 },
+    ]);
+  });
+  it('counts a shared move in each repertoire that holds it, as each one’s review asks it', () => {
+    const d = day({
+      repertoires: [repertoire(transposing, 'a'), repertoire(transposed, 'b')],
+      reviews: new Map([[NC3, learnedAgo(NC3, 2)]]),
+    });
+    expect(dueByRepertoire(d, NOW)).toEqual([
+      { repertoireId: 'a', due: 1 },
+      { repertoireId: 'b', due: 1 },
+    ]);
+  });
+  it('counts a Review due exactly now, not one due a moment later', () => {
+    const d = day(reviewed(reviewIn(E4, 0), reviewIn(NF3, 1)));
+    expect(dueByRepertoire(d, NOW)).toEqual([{ repertoireId: 'r1', due: 1 }]);
+  });
+  it('leaves out paused repertoires and those with nothing due', () => {
+    const d = day({
+      repertoires: [repertoire(white, 'w', false), repertoire(black, 'b')],
+      reviews: new Map([
+        [E4, learnedAgo(E4, 2)],
+        [C6, learnedAgo(C6, 0)],
+      ]),
+    });
+    expect(dueByRepertoire(d, NOW)).toEqual([]);
+  });
+  it('sums to the moves due across repertoires that share none', () => {
+    const d = day({
+      repertoires: [repertoire(white, 'w'), repertoire(black, 'b')],
+      reviews: new Map(
+        [E4, NF3, C6].map((k) => [k, learnedAgo(k, 2)] as const),
+      ),
+    });
+    const total = dueByRepertoire(d, NOW).reduce((n, r) => n + r.due, 0);
+    expect(total).toBe(dueCount(d, NOW));
+  });
+});
+
 describe('trainingCounts', () => {
   it('is every due Review and the new moves the allowance allows', () => {
     const d = day({
@@ -472,6 +653,31 @@ describe('held moves: one definition, the chapter walks', () => {
       ...reviewed(...[E4, NF3, BC4, C3].map((k) => reviewIn(k, DAY_MS))),
     });
     expect(startState(d, 'learn', NOW)).toEqual({ kind: 'nothingLeft' });
+  });
+
+  it('has moves left to learn exactly when an untracked move is held', () => {
+    const repertoires = [
+      repertoire(withOrphan, 'w'),
+      repertoire(transposing, 't'),
+      repertoire(transposed, 'u'),
+      repertoire(black, 'b', false),
+    ];
+    const all = [...new Set(repertoires.flatMap((r) => playerKeys(r.graph)))];
+    const held = new Set(
+      repertoires
+        .filter((r) => r.active)
+        .flatMap((r) => playerKeys(r.graph))
+        .filter((k) => k !== orphanKey),
+    );
+    fc.assert(
+      fc.property(fc.subarray(all), (trackedKeys) => {
+        const tracked = new Set(trackedKeys);
+        const left = [...held].some((k) => !tracked.has(k));
+        expect(startState(day({ repertoires, tracked }), 'learn', NOW)).toEqual(
+          { kind: left ? 'drill' : 'nothingLeft' },
+        );
+      }),
+    );
   });
 
   it('is no moves when only an unreached move is held', () => {

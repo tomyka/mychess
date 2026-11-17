@@ -50,8 +50,13 @@ import {
   startDrill,
   type DrillState,
 } from './review-drill-state';
-import { coachNotesFor } from './coach-note';
-import { dayEnd, type DrillCoachNote } from '@mychess/domain';
+import {
+  drillNotices,
+  hasNotices,
+  namedOf,
+  type DrillNotices,
+} from './drill-notices';
+import { dayEnd } from '@mychess/domain';
 import { dayOf } from '../../lib/training-day';
 import type { ResultSync } from './use-result-sync';
 
@@ -66,15 +71,14 @@ interface DrillInput extends MoveInput {
 }
 
 export interface ReviewDrill
-  extends DrillInput, Pick<DrillBoard, 'view' | 'titled'> {
+  extends DrillInput, DrillNotices, Pick<DrillBoard, 'view' | 'titled'> {
   readonly state: DrillState;
   /** Done, and the Reviews graded so far leave more due now (R-62, R-78). */
   readonly canContinue: boolean;
-  /** The Coach notes on the move just answered (R-174); none before. */
-  readonly notes: readonly DrillCoachNote[];
   /**
-   * On to the next item, once the answer is right and Coach notes hold it
-   * (R-174); null otherwise, the drill then going on by itself.
+   * On to the next item, once the answer is right and Coach notes or the
+   * two-answers notice hold it (R-174, decision 4); null otherwise, the
+   * drill then going on by itself.
    */
   readonly next: (() => void) | null;
   /** The snapshot's day has new moves to learn (the done summary's link). */
@@ -115,7 +119,7 @@ interface TimerContext {
   readonly state: DrillState;
   readonly setState: SetState;
   readonly repertoires: readonly TrainingRepertoire[];
-  /** A Coach note waits to be read. */
+  /** A Coach note or the two-answers notice waits to be read. */
   readonly held: boolean;
   /** The next item is chosen at its time: a repeat may be due (R-78). */
   readonly clock: DrillClock;
@@ -286,14 +290,15 @@ export function useReviewDrill(
     () => ({ ...day, reviews: state.reviews }),
     [day, state.reviews],
   );
-  const notes = coachNotesFor(data, repertoireOf(state), answeredMove(state));
-  const next = useDrillTimers({
-    state,
-    setState,
-    repertoires,
-    held: notes.length > 0,
-    clock,
-  });
+  const named = useMemo(() => namedOf(data), [data]);
+  const notices = drillNotices(
+    data,
+    named,
+    repertoireOf(state),
+    answeredMove(state),
+  );
+  const held = hasNotices(notices);
+  const next = useDrillTimers({ state, setState, repertoires, held, clock });
   const { view, legal, titled } = useDrillBoard({
     data,
     state,
@@ -317,9 +322,9 @@ export function useReviewDrill(
     view,
     titled,
     learnable,
-    notes,
-    // Only a right answer held by its notes waits for the button; without
-    // notes it goes on by itself, and a Lapse's arrow waits for its move.
-    next: state.session.phase === 'correct' && notes.length > 0 ? next : null,
+    ...notices,
+    // Only a right answer held by what it shows waits for the button;
+    // without it it goes on by itself, and a Lapse's arrow waits for its move.
+    next: state.session.phase === 'correct' && held ? next : null,
   };
 }

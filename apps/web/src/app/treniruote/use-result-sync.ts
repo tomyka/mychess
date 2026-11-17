@@ -1,11 +1,21 @@
 'use client';
 
+import type { LearnedMove } from '@mychess/chess';
 import type { TrainingResult } from '@mychess/domain';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
+import { neverChanges, noSnapshot } from '../../lib/external-store';
 import { trainingResultsRoute } from '../../lib/routes';
 import {
   enqueue,
   flush,
+  learnedIn,
   pending,
   queueKey,
   type QueueStore,
@@ -150,4 +160,22 @@ export function useResultSync(accountId: string): ResultSync {
   }, [sync]);
 
   return { record, unsynced, retry };
+}
+
+/**
+ * The moves this browser learned for the account whose results it still
+ * queued when the page opened (#330 decision 2): the page's snapshot may
+ * have been read before they reached the server. Null on the server and
+ * while the page hydrates, so the first render matches the server's; read
+ * once, as moves learned on this page are the drill's own.
+ */
+export function useQueuedLearned(
+  accountId: string,
+): readonly LearnedMove[] | null {
+  const read = useMemo(() => {
+    const store = browserStore(queueKey(accountId), () => window.localStorage);
+    let once: readonly LearnedMove[] | undefined;
+    return () => (once ??= learnedIn(pending(store)));
+  }, [accountId]);
+  return useSyncExternalStore(neverChanges, read, noSnapshot);
 }

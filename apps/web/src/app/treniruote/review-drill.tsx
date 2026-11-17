@@ -3,11 +3,11 @@
 import { reviewProgress, type RepertoireMove } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, type JSX } from 'react';
-import type { TrainingData } from '../../lib/training-data';
+import type { JSX } from 'react';
 import { Board } from '../board/board';
 import { useSquareWords } from '../board/square-words';
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from '../buttons';
+import { SECONDARY_BUTTON } from '../buttons';
+import { NextButton } from './next-button';
 import { DrillCoachNote } from './coach-note';
 import { DoneActions, DoneSummary } from './done-summary';
 import type { DrillProps } from './drill';
@@ -20,7 +20,7 @@ import {
   sessionCounts,
   type DrillState,
 } from './review-drill-state';
-import { TwoAnswersNotice, type NamedRepertoire } from './two-answers-notice';
+import { TwoAnswersNotice } from './two-answers-notice';
 import { useReviewDrill, type ReviewDrill as Drill } from './use-review-drill';
 
 type StatusKey = 'correct' | 'lapse' | 'hinted' | 'again' | 'prompt';
@@ -69,21 +69,14 @@ function Status({ drill }: { readonly drill: Drill }): JSX.Element {
   );
 }
 
-function ReviewPanel({
-  drill,
-  named,
-}: {
-  readonly drill: Drill;
-  readonly named: readonly NamedRepertoire[];
-}): JSX.Element {
+function ReviewPanel({ drill }: { readonly drill: Drill }): JSX.Element {
   const t = useTranslations('training.review');
-  const item = drill.state.session.current?.item;
   return (
     <>
       <Status drill={drill} />
-      {/* While a coach note holds the drill only it and Next count: the
-          move field and Hint cannot be used, and on a portrait tablet they
-          would push the note out of the panel. */}
+      {/* While a coach note or the two-answers notice holds the drill only
+          it and Next count: the move field and Hint cannot be used, and on
+          a portrait tablet they would push the note out of the panel. */}
       {drill.next === null ? (
         <>
           <MoveRow input={drill} color={drill.view.turnColor} />
@@ -98,24 +91,14 @@ function ReviewPanel({
         </>
       ) : null}
       <DrillCoachNote notes={drill.notes} />
+      <TwoAnswersNotice answers={drill.answers} />
       <LineSoFar
         moves={unannotated(playedMoves(drill.state))}
         rootKey={drill.state.shown?.line.rootKey}
       />
-      {item === undefined ? null : (
-        <TwoAnswersNotice item={item} repertoires={named} />
-      )}
     </>
   );
 }
-
-/** Every repertoire the player trains, by name: the session's and the others. */
-const namedOf = (data: TrainingData): NamedRepertoire[] =>
-  [...data.entries, ...data.others].map(({ id, name, graph }) => ({
-    id,
-    name,
-    graph,
-  }));
 
 /**
  * `moves` without their NAGs: a review shows the board, not annotations, so
@@ -140,7 +123,6 @@ export function ReviewDrill({
   const t = useTranslations();
   const drill = useReviewDrill(data, sync, clock);
   const describe = useSquareWords(drill.view.fen);
-  const named = useMemo(() => namedOf(data), [data]);
   const { state } = drill;
   const parts = { ...drill.titled, progress: reviewProgress(state.session) };
   const board = (
@@ -174,7 +156,7 @@ export function ReviewDrill({
   return frame({
     ...parts,
     board,
-    panel: <ReviewPanel drill={drill} named={named} />,
+    panel: <ReviewPanel drill={drill} />,
     actions: (
       <>
         {drill.next === null ? null : <NextButton onNext={drill.next} />}
@@ -184,22 +166,4 @@ export function ReviewDrill({
       </>
     ),
   });
-}
-
-/**
- * "Next" while a coach note holds the drill (R-174): in the bottom bar, the
- * thumb zone, before End session, so on a phone it is not under the fold
- * below the note; it takes the focus from the move field, now disabled.
- */
-function NextButton({ onNext }: { readonly onNext: () => void }): JSX.Element {
-  const t = useTranslations('training.review');
-  const ref = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    ref.current?.focus();
-  }, []);
-  return (
-    <button ref={ref} type="button" onClick={onNext} className={PRIMARY_BUTTON}>
-      {t('next')}
-    </button>
-  );
 }
