@@ -75,7 +75,10 @@ async function threePlayersAccept(
   });
   await expectInviteFrom(rokas, en, { coach: COACH, group: GROUP });
   await acceptInvite(rokas, en);
-  await expect(rokas.getByText(COACH)).toBeVisible();
+  // In the coach list, not the "linked with" line above it (#329).
+  await expect(
+    rokas.getByRole('heading', { level: 3, name: COACH, exact: true }),
+  ).toBeVisible();
   // Gabija, already signed in.
   const gabija = await onDevice(browser, devices);
   await newOnboardedAccount(gabija, request, 'Gabija Navickaitė');

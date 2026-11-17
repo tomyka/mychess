@@ -13,9 +13,10 @@ import {
   GABIJA,
   GROUP,
   ROKAS,
-  changeGroupDeadline,
   coachReady,
   expectAssigned,
+  expectPastDeadlineRefused,
+  linkedPlayer,
   playerAccepts,
   setInGroup,
   type Cast,
@@ -32,6 +33,7 @@ import {
   untilAfterReload,
   vilniusDay,
 } from './support/assignments';
+import { passGroupDeadline } from './support/assignment-db';
 import { createGroup, createInvite } from './support/coaching';
 import { CATALOGUES, format, test } from './support/journey';
 import { chip, typeMove } from './support/repertoires';
@@ -139,20 +141,23 @@ async function assignToRokas(
 /**
  * C-M1-3, R-16: a member who joins later gets the group's deadline while it
  * is ahead, and their join day once the group's date is past (not overdue).
+ * The coach cannot set a past day (R-210), so the date passing is time
+ * moved in the database.
  */
 async function laterMember(
   coach: Page,
   cast: Cast,
   { link, deadline }: { link: string; deadline: string },
 ): Promise<void> {
-  const fourth = await playerAccepts(cast, {
+  const { page: fourth, email } = await linkedPlayer(cast, {
     link,
     name: FOURTH,
     group: GROUP,
   });
   await expectAssigned(fourth, cast, KARO_KAN, deadline);
   await openOwn(coach, KARO_KAN);
-  await changeGroupDeadline(coach, cast.messages, vilniusDay(-1));
+  await expectPastDeadlineRefused(coach, cast.messages, vilniusDay(-1));
+  await passGroupDeadline(email, KARO_KAN, vilniusDay(-1));
   await fourth.reload();
   await expectAssigned(fourth, cast, KARO_KAN, vilniusDay(0));
   const item = homeAssignment(fourth, cast.messages, KARO_KAN);

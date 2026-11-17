@@ -98,8 +98,11 @@ export async function expectAssigned(
   }
 }
 
-/** On the coach's repertoire page: the group row's deadline moves to `day`. */
-export async function changeGroupDeadline(
+/**
+ * On the coach's repertoire page: moving the group row's deadline to
+ * `day`, already past, is refused and says so (R-210).
+ */
+export async function expectPastDeadlineRefused(
   coach: Page,
   messages: Messages,
   day: string,
@@ -108,7 +111,9 @@ export async function changeGroupDeadline(
   const row = assignmentRow(coach, messages, GROUP);
   await row.getByLabel(t.newDeadline, { exact: true }).fill(day);
   await row.getByRole('button', { name: t.changeDeadline }).click();
-  await expect(row.getByText(t.deadlineSaved, { exact: true })).toBeVisible();
+  await expect(
+    row.getByText(messages.assignment.deadlinePast, { exact: true }),
+  ).toBeVisible();
 }
 
 /** The coach removes `name` from the group (`member` false) or adds them. */
