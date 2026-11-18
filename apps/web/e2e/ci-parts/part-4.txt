@@ -1,4 +1,0 @@
-# CI e2e part 4 (README.md here).
-[pixel-7] > training-review.spec.ts
-[pixel-7] > training-arrows.spec.ts
-[pixel-7] > repertoires.spec.ts

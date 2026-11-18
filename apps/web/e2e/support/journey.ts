@@ -5,6 +5,7 @@ import {
   type APIRequestContext,
   type Browser,
   type BrowserContext,
+  type BrowserContextOptions,
   type Page,
 } from '@playwright/test';
 import en from '../../src/i18n/messages/en.json' with { type: 'json' };
@@ -51,9 +52,25 @@ async function useFreshAddress(context: BrowserContext): Promise<void> {
   await context.setExtraHTTPHeaders({ 'x-forwarded-for': freshAddress() });
 }
 
-/** A second browser (another device) with its own address. */
+/**
+ * The running project's device, so another device in a journey is of the
+ * same kind: phones on Pixel 7 (R-213), desktops on desktop Chrome.
+ */
+function projectDevice(): BrowserContextOptions {
+  const { viewport, userAgent, isMobile, hasTouch, deviceScaleFactor } =
+    base.info().project.use;
+  return {
+    ...(viewport === undefined ? {} : { viewport }),
+    ...(userAgent === undefined ? {} : { userAgent }),
+    ...(isMobile === undefined ? {} : { isMobile }),
+    ...(hasTouch === undefined ? {} : { hasTouch }),
+    ...(deviceScaleFactor === undefined ? {} : { deviceScaleFactor }),
+  };
+}
+
+/** A second browser (another device of the project's kind) with its own address. */
 export async function newDevice(browser: Browser): Promise<BrowserContext> {
-  const context = await browser.newContext();
+  const context = await browser.newContext(projectDevice());
   await useFreshAddress(context);
   return context;
 }

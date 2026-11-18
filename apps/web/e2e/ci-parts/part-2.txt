@@ -1,2 +1,0 @@
-# CI e2e part 2 (README.md here).
-[pixel-7] > training-learn.spec.ts

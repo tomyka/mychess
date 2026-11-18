@@ -140,56 +140,19 @@ run "$tag" "$archive" "$(sha256sum "$archive" | cut -d' ' -f1)"
 check "a non-https BETTER_AUTH_URL: fails" test "$?" = 1
 check "and changes nothing" test ! -e "$work/srv/edge" -a ! -e "$work/docker.calls"
 
-# confirmed-tag: the automatic rollback's target (R-192).
-confirmed() { cat "$work/srv/production/confirmed-tag" 2>/dev/null; }
 good() { sha256sum "$archive" | cut -d' ' -f1; }
+deployed() { cat "$work/srv/production/deployed-tag" 2>/dev/null; }
 
 reset
+# The stub lists images in file order, newest first: the previous one is the oldest.
+printf 'mychess:%s\n' t3 t2 t1 t0 "$old-arm64" > "$work/images"
 run "$tag" "$archive" "$(good)"
-check "a plain deploy (gated, button, rollback): records it as confirmed too" test "$(confirmed)" = "$tag"
+check "pruning keeps the previous release's image, however old" grep -qx "mychess:$old-arm64" "$work/images"
+check "and removes the others beyond the newest three" bash -c '! grep -qx mychess:t0 "$1"' _ "$work/images"
 
-reset
-echo "$old-arm64" > "$work/srv/production/confirmed-tag"
-run --on-trial "$tag" "$archive" "$(good)"
-check "on trial: deploys" test "$?" = 0 -a "$(cat "$work/srv/production/deployed-tag")" = "$tag"
-check "on trial: leaves confirmed-tag alone" test "$(confirmed)" = "$old-arm64"
-
-reset
-run --on-trial "$tag" "$archive" "$(good)"
-check "on trial, no confirmed-tag yet: the release it replaces is confirmed" test "$(confirmed)" = "$old-arm64"
-
-reset
-confirmed_old=2222222222222222222222222222222222222222-arm64
-echo "$confirmed_old" > "$work/srv/production/confirmed-tag"
-# The stub lists images in file order, newest first: the confirmed one is the oldest.
-printf 'mychess:%s\n' t3 t2 t1 "$confirmed_old" >> "$work/images"
-run --on-trial "$tag" "$archive" "$(good)"
-check "pruning keeps the confirmed release's image, however old" grep -qx "mychess:$confirmed_old" "$work/images"
-
-reset
-export STUB_UNHEALTHY="mychess:$tag"
-echo "$old-arm64" > "$work/srv/production/confirmed-tag"
-run --on-trial "$tag" "$archive" "$(good)"
-check "on trial, web never healthy: fails, previous web back, nothing recorded" test "$?" = 1 -a "$(cat "$work/srv/production/deployed-tag")" = "$old-arm64" -a "$(confirmed)" = "$old-arm64"
-
-reset
-run --on-trial "$tag"
-check "on trial needs the build's archive" test "$?" = 2
-
-reset
-echo "mychess:$tag" >> "$work/images"
-run --confirm "$tag"
-check "confirm: records the tag" test "$?" = 0 -a "$(confirmed)" = "$tag"
-check "confirm: deploys nothing" bash -c '! grep -q compose "$1" 2>/dev/null' _ "$work/docker.calls"
-check "confirm: leaves deployed-tag alone" test "$(cat "$work/srv/production/deployed-tag")" = "$old-arm64"
-
-reset
-run --confirm "$tag"
-check "confirm: an image no longer on this host is refused, with its own code" test "$?" = 3 -a ! -e "$work/srv/production/confirmed-tag"
-run --confirm "$tag" "$archive" "$(good)"
-check "confirm: takes no archive" test "$?" = 2
-# --confirm never moves confirmed-tag backwards or off main's line: a throwaway
-# history c1 -> c2, and c3 off c1 (RELEASE_REPO is for the shell test only).
+# --if-newer (ci.yml): never replaces production with an older commit. A
+# throwaway history c1 -> c2, and c3 off c1 (RELEASE_REPO is for the shell
+# test only).
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@example.invalid
 export GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@example.invalid
 git init -q "$work/repo"
@@ -201,58 +164,29 @@ git -C "$work/repo" checkout -q -b side "$c1"
 git -C "$work/repo" commit -q --allow-empty -m c3
 c3="$(git -C "$work/repo" rev-parse HEAD)"
 export RELEASE_REPO="$work/repo"
-confirm_case() { # confirmed before, tag to confirm
+deploy_case() { # commit production runs, commit to deploy, options...
+  local running="$1" commit="$2"; shift 2
   reset
-  echo "$1-arm64" > "$work/srv/production/confirmed-tag"
-  echo "mychess:$2-arm64" >> "$work/images"
-  run --confirm "$2-arm64"
+  echo "$running-arm64" > "$work/srv/production/deployed-tag"
+  echo "mychess:$commit-arm64" > "$archive"
+  export STUB_COMMIT="$commit"
+  run "$@" "$commit-arm64" "$archive" "$(good)"
 }
-confirm_case "$c1" "$c2"
-check "confirm: a newer commit on the same line moves confirmed-tag up" test "$?" = 0 -a "$(confirmed)" = "$c2-arm64"
-confirm_case "$c2" "$c1"
-check "confirm: an older commit is refused" test "$?" = 1 -a "$(confirmed)" = "$c2-arm64"
-confirm_case "$c2" "$c3"
-check "confirm: a commit off the confirmed one's line (force-push) is refused" test "$?" = 1 -a "$(confirmed)" = "$c2-arm64"
-check "and says why" grep -q "does not hold $c2" "$work/err"
+deploy_case "$c1" "$c2" --if-newer
+check "if newer: a later commit on the same line deploys" test "$?" = 0 -a "$(deployed)" = "$c2-arm64"
+deploy_case "$c2" "$c1" --if-newer
+check "if newer: an older commit is not deployed, and that is no failure" test "$?" = 0 -a "$(deployed)" = "$c2-arm64"
+check "and nothing is touched" test ! -e "$work/docker.calls"
+check "and says why" grep -q "already holds $c1-arm64: not deployed" "$work/out"
+deploy_case "$c2" "$c2" --if-newer
+check "if newer: the commit production runs is not deployed again" test "$?" = 0 -a ! -e "$work/docker.calls"
+deploy_case "$c2" "$c3" --if-newer
+check "if newer: a commit off production's line (force-push) deploys" test "$?" = 0 -a "$(deployed)" = "$c3-arm64"
+deploy_case "$old" "$c1" --if-newer
+check "if newer: a running commit unknown to the checkout does not hold it back" test "$?" = 0 -a "$(deployed)" = "$c1-arm64"
+deploy_case "$c2" "$c1"
+check "without --if-newer (the button): an older commit deploys" test "$?" = 0 -a "$(deployed)" = "$c1-arm64"
 unset RELEASE_REPO
-
-# --roll-back <failed tag>: under the lock, only while production still runs
-# it, to the confirmed-tag read there and then.
-reset
-echo "$tag" > "$work/srv/production/deployed-tag"
-echo "$old-arm64" > "$work/srv/production/confirmed-tag"
-echo "mychess:$tag" >> "$work/images"
-export STUB_COMMIT=$old
-run --roll-back "$tag"
-check "roll back: deploys the confirmed release" test "$?" = 0 -a "$(cat "$work/srv/production/deployed-tag")" = "$old-arm64"
-check "roll back: with its image already here" grep -q "APP_IMAGE=mychess:$old-arm64 .*up -d --wait web" "$work/docker.calls"
-check "roll back: says from what to what" grep -q "rolling back from $tag to $old-arm64" "$work/out"
-
-reset
-run --roll-back "$tag"
-check "roll back: production no longer runs that tag: nothing done, not an error" test "$?" = 0 -a ! -e "$work/docker.calls"
-check "and says so" grep -q "not $tag: nothing to roll back" "$work/out"
-
-reset
-echo "$tag" > "$work/srv/production/deployed-tag"
-rm -f "$work/srv/production/confirmed-tag"
-run --roll-back "$tag"
-check "roll back: no confirmed release: fails, nothing done" test "$?" = 1 -a ! -e "$work/docker.calls"
-echo "$tag" > "$work/srv/production/confirmed-tag"
-run --roll-back "$tag"
-check "roll back: confirmed is the failed tag itself: fails" test "$?" = 1
-
-# --restore: redeploys the release on record (a trial cut short), confirmed
-# untouched.
-reset
-echo "2222222222222222222222222222222222222222-arm64" > "$work/srv/production/confirmed-tag"
-export STUB_COMMIT=$old
-run --restore
-check "restore: redeploys deployed-tag's release" test "$?" = 0 -a "$(cat "$work/srv/production/deployed-tag")" = "$old-arm64"
-check "restore: brings its web up" grep -q "APP_IMAGE=mychess:$old-arm64 .*up -d --wait web" "$work/docker.calls"
-check "restore: leaves confirmed-tag alone" test "$(confirmed)" = "2222222222222222222222222222222222222222-arm64"
-run --restore "$tag"
-check "restore: takes no tag" test "$?" = 2
 
 # A failed web's log may hold personal data (R: no personal data in logs): it
 # stays on the host, root only, and the public job log gets its path.

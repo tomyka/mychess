@@ -7,8 +7,9 @@ import {
 import { MAILPIT_URL } from './e2e/support/mailpit-url';
 
 // apps/web's E2E suite (test:e2e): a production build served by `next start`
-// on its own port, driven in desktop Chromium and a phone profile. Both
-// profiles run on Chromium, so CI installs only that browser. With
+// on its own port, driven in desktop Chromium and, for the journeys tagged
+// @mobile, a phone profile. Both profiles run on Chromium, so CI installs
+// only that browser. With
 // E2E_BASE_URL set, the suite drives an app already running there and starts
 // no server of its own: CI's e2e job runs it against the release image
 // (infra/ci/e2e-stack.sh), with DATABASE_URL and MAILPIT_URL pointing at that
@@ -91,9 +92,11 @@ export default defineConfig({
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
   },
+  // Desktop runs every journey; the phone profile only the journeys tagged
+  // @mobile, whose phone path differs (tap input, the phone layout), R-213.
   projects: [
     { name: 'desktop-chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'pixel-7', use: { ...devices['Pixel 7'] } },
+    { name: 'pixel-7', use: { ...devices['Pixel 7'] }, grep: /@mobile/ },
   ],
   ...(EXTERNAL_URL === undefined ? { webServer: WEB_SERVER } : {}),
 });

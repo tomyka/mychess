@@ -1,19 +1,17 @@
 name: Deploy production
 
 # The rollback button: deploys a commit that is already green to production on
-# the mychess VM. Every push to main deploys itself (ci.yml: on trial right
-# after the image, rolled back to the last confirmed release if its check or
-# e2e fails, R-192); this is for going back further, for redeploying a commit
-# whose run went green on a re-run after an automatic rollback, or for
-# redeploying main's head after a host setting changed
-# (infra/host/set-secret.sh). What it deploys becomes the confirmed release,
-# the one ci.yml's automatic rollback returns to. Run it from the Actions tab (Run
-# workflow) on main; the commit is main's head unless a full SHA is typed (an
-# earlier green release). Its image must still be on the VM, which keeps the
-# last three releases (infra/ci/release-image.sh).
+# the mychess VM. Every push to main deploys itself once its gate and E2E pass
+# (ci.yml, R-213); this is for going back to an earlier release, for
+# redeploying a commit whose run went green on a re-run, or for redeploying
+# main's head after a host setting changed (infra/host/set-secret.sh). Run it
+# from the Actions tab (Run workflow) on main; the commit is main's head
+# unless a full SHA is typed (an earlier green release). Its image must still
+# be on the VM, which keeps the last three releases
+# (infra/ci/release-image.sh). The next push to main deploys over it.
 #
 # Three jobs. `verify` (GitHub-hosted) refuses a commit that is not in main's
-# history or whose CI/CD run did not pass every one of check, image and e2e.
+# history or whose latest CI/CD run did not pass every job but deploy.
 # `deploy` runs on the VM's self-hosted runner (label `production`) and calls
 # infra/ci/deploy-production.sh, which takes a restore-point dump first,
 # migrates, replaces web, verifies the release and puts the previous web back
@@ -60,22 +58,20 @@ jobs:
             *) echo "::error::$sha is not in main's history ($status)"; exit 1 ;;
           esac
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
-      - name: Every required job of its CI/CD run passed
+      # Green: every job of its latest finished CI/CD run passed, the deploy
+      # job aside, so a commit whose own deploy failed on the host (a setting
+      # since fixed) can still be redeployed from here.
+      - name: Its CI/CD run passed the gate, the image and E2E
         env:
           SHA: ${{ steps.pick.outputs.sha }}
         run: |
-          run="$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA&status=completed" --jq '[.workflow_runs[]|select(.conclusion=="success")][0].id // empty')"
-          [ -n "$run" ] || { echo "::error::no successful CI/CD run for $SHA"; exit 1; }
-          jobs="$(gh api "repos/$REPO/actions/runs/$run/jobs" --paginate --jq '.jobs[]|"\(.name) \(.conclusion)"')"
-          # e2e is a matrix since #366: one job per part, named "e2e (<part>)".
-          # A name counts when it has at least one job and all of them passed.
-          for name in check image e2e; do
-            own="$(printf '%s\n' "$jobs" | grep -E "^$name( \([^)]*\))? " || true)"
-            if [ -z "$own" ] || printf '%s\n' "$own" | grep -qvE ' success$'; then
-              echo "::error::job $name did not succeed for $SHA"
-              exit 1
-            fi
-          done
+          run="$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA&status=completed" --jq '.workflow_runs[0].id // empty')"
+          [ -n "$run" ] || { echo "::error::no finished CI/CD run for $SHA"; exit 1; }
+          results="$(gh api "repos/$REPO/actions/runs/$run/jobs" --paginate --jq '.jobs[] | select(.name != "deploy") | .conclusion')"
+          if [ -z "$results" ] || grep -qvx success <<< "$results"; then
+            echo "::error::run $run for $SHA has a job that did not pass"
+            exit 1
+          fi
           echo "$SHA is green: run $run"
 
   deploy:

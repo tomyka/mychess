@@ -4,7 +4,7 @@
 // the arrows off a blind ask is treated like a review ask (lead answer 3,
 // R-174): a coach note shows once the move is answered, right or wrong,
 // and holds a right answer until Next.
-import { expect, type BrowserContext } from '@playwright/test';
+import { expect, type BrowserContext, type Page } from '@playwright/test';
 import {
   COACH,
   DOVYDAS,
@@ -91,64 +91,80 @@ test('D-M1 arrows off (R-205): Dovydas learns blind: no arrow, a right move lear
   }).toPass({ timeout: 10_000 });
 });
 
-test('R-174 with the arrows off: Rokas learns his coach’s Italian; the note shows after the answer and holds a right one until Next', async ({
-  page: coach,
-  request,
-  browser,
-  isMobile,
-}) => {
-  test.setTimeout(300_000);
-  const devices: BrowserContext[] = [];
-  const cast: Cast = { locale: 'en', messages: en, browser, request, devices };
-  try {
-    await coachReady(coach, cast);
-    const link = await createInvite(coach, en, { kind: 'personal' });
-    const { page: rokas } = await linkedPlayer(cast, { link, name: ROKAS });
-    await importRepertoire(coach, en, {
-      file: ITALIAN_PGN,
-      side: 'white',
-      name: ITALIAN,
-    });
-    await assignTo(coach, en, { target: ROKAS });
-    await setTrainingLimits(rokas, en, { newPerDay: 8, learnArrows: false });
-    await rokas.goto('/');
-    await rokas.getByRole('link', { name: ITALIAN, exact: true }).click();
-    await expect(rokas).toHaveURL(/\/repertuarai\/priskirti\//);
-    await trainLink(rokas, en, 'learn', 8).click();
-    await expectCounter(rokas, 0, 8);
-    const drill: Drill = {
-      page: rokas,
+/**
+ * The coach assigns his Italian to a linked Rokas, who has the arrows off;
+ * Rokas opens its learn pass. Rokas's page.
+ */
+async function rokasLearnsAssigned(coach: Page, cast: Cast): Promise<Page> {
+  await coachReady(coach, cast);
+  const link = await createInvite(coach, en, { kind: 'personal' });
+  const { page: rokas } = await linkedPlayer(cast, { link, name: ROKAS });
+  await importRepertoire(coach, en, {
+    file: ITALIAN_PGN,
+    side: 'white',
+    name: ITALIAN,
+  });
+  await assignTo(coach, en, { target: ROKAS });
+  await setTrainingLimits(rokas, en, { newPerDay: 8, learnArrows: false });
+  await rokas.goto('/');
+  await rokas.getByRole('link', { name: ITALIAN, exact: true }).click();
+  await expect(rokas).toHaveURL(/\/repertuarai\/priskirti\//);
+  await trainLink(rokas, en, 'learn', 8).click();
+  return rokas;
+}
+
+test(
+  'R-174 with the arrows off: Rokas learns his coach’s Italian; the note shows after the answer and holds a right one until Next',
+  { tag: '@mobile' },
+  async ({ page: coach, request, browser, isMobile }) => {
+    test.setTimeout(300_000);
+    const devices: BrowserContext[] = [];
+    const cast: Cast = {
+      locale: 'en',
       messages: en,
-      books: [italian],
-      isMobile,
+      browser,
+      request,
+      devices,
     };
-    const note = rokas.getByRole('note', { name: en.training.drill.coachNote });
-    for (const san of ['e4', 'Nf3']) {
-      expect((await answer(drill)).move.san).toBe(san);
+    try {
+      const rokas = await rokasLearnsAssigned(coach, cast);
+      await expectCounter(rokas, 0, 8);
+      const drill: Drill = {
+        page: rokas,
+        messages: en,
+        books: [italian],
+        isMobile,
+      };
+      const note = rokas.getByRole('note', {
+        name: en.training.drill.coachNote,
+      });
+      for (const san of ['e4', 'Nf3']) {
+        expect((await answer(drill)).move.san).toBe(san);
+        await expect(note).toHaveCount(0);
+      }
+      // 3.Bc4, right: the note shows now, and the drill waits for Next.
+      const bc4 = await answer(drill);
+      expect([bc4.move.san, bc4.prompt]).toEqual([
+        'Bc4',
+        en.training.learn.recall,
+      ]);
+      await expect(note).toContainText(BC4_COMMENT);
+      await expect(note).toContainText(
+        format(en.coachNote.byCoach, { name: COACH }),
+      );
+      await expect(nextButton(drill)).toBeVisible();
+      await nextButton(drill).click();
       await expect(note).toHaveCount(0);
+      // 4.c3, wrong: the note shows with the arrow.
+      const c3 = await answer(drill, 'wrong');
+      expect(c3.move.san).toBe('c3');
+      await expect(rokas.getByText(en.training.learn.wrong)).toBeVisible();
+      await expect(arrow(rokas)).toHaveCount(1);
+      await expect(note).toContainText(C3_COMMENT);
+      await drillToDone(drill);
+      await expect(stat(rokas, en.training.done.learned)).toHaveText('8');
+    } finally {
+      for (const device of devices) await device.close();
     }
-    // 3.Bc4, right: the note shows now, and the drill waits for Next.
-    const bc4 = await answer(drill);
-    expect([bc4.move.san, bc4.prompt]).toEqual([
-      'Bc4',
-      en.training.learn.recall,
-    ]);
-    await expect(note).toContainText(BC4_COMMENT);
-    await expect(note).toContainText(
-      format(en.coachNote.byCoach, { name: COACH }),
-    );
-    await expect(nextButton(drill)).toBeVisible();
-    await nextButton(drill).click();
-    await expect(note).toHaveCount(0);
-    // 4.c3, wrong: the note shows with the arrow.
-    const c3 = await answer(drill, 'wrong');
-    expect(c3.move.san).toBe('c3');
-    await expect(rokas.getByText(en.training.learn.wrong)).toBeVisible();
-    await expect(arrow(rokas)).toHaveCount(1);
-    await expect(note).toContainText(C3_COMMENT);
-    await drillToDone(drill);
-    await expect(stat(rokas, en.training.done.learned)).toHaveText('8');
-  } finally {
-    for (const device of devices) await device.close();
-  }
-});
+  },
+);

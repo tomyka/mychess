@@ -196,25 +196,25 @@ async function checkLondon(
 }
 
 // English only for now (R-180); the journey ran in Lithuanian too.
-test('U1-M1-5 (own part): Rokas builds the London on the board, with a comment and an arrow', async ({
-  page,
-  request,
-  isMobile,
-}) => {
-  test.setTimeout(180_000);
-  await newOnboardedAccount(page, request, 'Rokas Petrauskas');
-  await openRepertoires(page, en);
-  await createRepertoire(page, en, { name: 'London System', side: 'white' });
-  const comment = 'The bishop goes out first.';
-  await buildLondon({ page, isMobile }, en, comment);
-  await checkLondon(page, en, comment);
-  const t = en.repertoires;
-  await page.getByRole('link', { name: t.header.back }).first().click();
-  await expect(page).toHaveURL(/\/repertuarai$/);
-  await expect(
-    page.getByText(plural(t.list.meta, 'en', { chapters: 1, moves: 29 })),
-  ).toBeVisible();
-});
+test(
+  'U1-M1-5 (own part): Rokas builds the London on the board, with a comment and an arrow',
+  { tag: '@mobile' },
+  async ({ page, request, isMobile }) => {
+    test.setTimeout(180_000);
+    await newOnboardedAccount(page, request, 'Rokas Petrauskas');
+    await openRepertoires(page, en);
+    await createRepertoire(page, en, { name: 'London System', side: 'white' });
+    const comment = 'The bishop goes out first.';
+    await buildLondon({ page, isMobile }, en, comment);
+    await checkLondon(page, en, comment);
+    const t = en.repertoires;
+    await page.getByRole('link', { name: t.header.back }).first().click();
+    await expect(page).toHaveURL(/\/repertuarai$/);
+    await expect(
+      page.getByText(plural(t.list.meta, 'en', { chapters: 1, moves: 29 })),
+    ).toBeVisible();
+  },
+);
 
 test('G-M1-2, G-M1-6: Gabija imports the Taimanov, and its PGN download re-imports to the same tree', async ({
   page,

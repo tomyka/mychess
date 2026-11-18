@@ -115,37 +115,37 @@ async function unlinkEndsAccess(coach: Page, rokas: Page): Promise<void> {
 }
 
 // English only for now (R-180); the coach's side ran in Lithuanian too.
-test('C-M1-1, U1-M1-1, G-M1-1: one group invite brings three players into the group; unlink ends access', async ({
-  page,
-  request,
-  browser,
-}) => {
-  test.setTimeout(240_000);
-  const devices: BrowserContext[] = [];
-  try {
-    const link = await coachInvitesGroup(page, request);
-    const rokas = await threePlayersAccept(browser, devices, request, link);
+test(
+  'C-M1-1, U1-M1-1, G-M1-1: one group invite brings three players into the group; unlink ends access',
+  { tag: '@mobile' },
+  async ({ page, request, browser }) => {
+    test.setTimeout(240_000);
+    const devices: BrowserContext[] = [];
+    try {
+      const link = await coachInvitesGroup(page, request);
+      const rokas = await threePlayersAccept(browser, devices, request, link);
 
-    await page.reload();
-    await page.getByRole('link', { name: GROUP, exact: true }).click();
-    await expect(page).toHaveURL(/\/treneris\/grupes\//);
-    for (const name of PLAYERS)
-      await expect(page.getByText(name, { exact: true })).toBeVisible();
+      await page.reload();
+      await page.getByRole('link', { name: GROUP, exact: true }).click();
+      await expect(page).toHaveURL(/\/treneris\/grupes\//);
+      for (const name of PLAYERS)
+        await expect(page.getByText(name, { exact: true })).toBeVisible();
 
-    await unlinkEndsAccess(page, rokas);
+      await unlinkEndsAccess(page, rokas);
 
-    // R-100: Coach mode stays on while Gabija and Dovydas are linked.
-    await page.goto('/nustatymai');
-    await page
-      .getByRole('button', { name: en.settings.coachMode.switchOff })
-      .click();
-    await expect(page.getByText(en.coach.stillLinked)).toBeVisible();
-    for (const name of PLAYERS.slice(1))
-      await expect(page.getByRole('link', { name })).toBeVisible();
-  } finally {
-    for (const device of devices) await device.close();
-  }
-});
+      // R-100: Coach mode stays on while Gabija and Dovydas are linked.
+      await page.goto('/nustatymai');
+      await page
+        .getByRole('button', { name: en.settings.coachMode.switchOff })
+        .click();
+      await expect(page.getByText(en.coach.stillLinked)).toBeVisible();
+      for (const name of PLAYERS.slice(1))
+        await expect(page.getByRole('link', { name })).toBeVisible();
+    } finally {
+      for (const device of devices) await device.close();
+    }
+  },
+);
 
 test('a revoked invite says only that it is not valid, and offers no Accept', async ({
   page,

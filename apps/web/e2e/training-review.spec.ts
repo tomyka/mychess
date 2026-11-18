@@ -38,45 +38,45 @@ const endSession = (drill: Drill) =>
     exact: true,
   });
 
-test('G-M1-4: Gabija clears 85 due over two sessions, stopping mid-session', async ({
-  page,
-  request,
-  isMobile,
-}) => {
-  test.setTimeout(300_000);
-  const email = await newOnboardedAccount(page, request, 'Gabija Navickaitė');
-  await setTrainingLimits(page, en, { sessionSize: 60 });
-  await importRepertoire(page, en, {
-    file: BACKLOG_PGN,
-    side: 'white',
-    name: BACKLOG,
-  });
-  // The last of the 85 keys is the most overdue: urgency, not line order.
-  const due = ownKeys(backlog).slice(0, 85).reverse();
-  await seedDue(email, due);
-  const drill: Drill = { page, messages: en, books: [backlog], isMobile };
-  await page.goto('/');
-  await expect(today(page, en)).toContainText(dueLine('en', 85));
-  await startTodayReview(page, en);
-  await expectCounter(page, 0, 60);
-  const first = await answer(drill);
-  expect(`${first.key}|${first.move.san}`).toBe(due[0]);
-  for (let i = 1; i < 30; i += 1) await answer(drill);
-  await expectCounter(page, 30, 60);
-  // Stop mid-session, straight after the last answer; then reload.
-  await endSession(drill).click();
-  await expect(page).toHaveURL(/\/$/);
-  await page.reload();
-  await expect(today(page, en)).toContainText(dueLine('en', 55));
-  await startTodayReview(page, en);
-  await expectCounter(page, 0, 55);
-  expect(await drillToDone(drill)).toHaveLength(55);
-  await page.goto('/');
-  await expect(today(page, en)).toContainText(en.training.today.nothingDue);
-  const results = await loggedResults(email);
-  expect(results).toHaveLength(85);
-  expect(new Set(results.map((r) => r.move_key))).toEqual(new Set(due));
-});
+test(
+  'G-M1-4: Gabija clears 85 due over two sessions, stopping mid-session',
+  { tag: '@mobile' },
+  async ({ page, request, isMobile }) => {
+    test.setTimeout(300_000);
+    const email = await newOnboardedAccount(page, request, 'Gabija Navickaitė');
+    await setTrainingLimits(page, en, { sessionSize: 60 });
+    await importRepertoire(page, en, {
+      file: BACKLOG_PGN,
+      side: 'white',
+      name: BACKLOG,
+    });
+    // The last of the 85 keys is the most overdue: urgency, not line order.
+    const due = ownKeys(backlog).slice(0, 85).reverse();
+    await seedDue(email, due);
+    const drill: Drill = { page, messages: en, books: [backlog], isMobile };
+    await page.goto('/');
+    await expect(today(page, en)).toContainText(dueLine('en', 85));
+    await startTodayReview(page, en);
+    await expectCounter(page, 0, 60);
+    const first = await answer(drill);
+    expect(`${first.key}|${first.move.san}`).toBe(due[0]);
+    for (let i = 1; i < 30; i += 1) await answer(drill);
+    await expectCounter(page, 30, 60);
+    // Stop mid-session, straight after the last answer; then reload.
+    await endSession(drill).click();
+    await expect(page).toHaveURL(/\/$/);
+    await page.reload();
+    await expect(today(page, en)).toContainText(dueLine('en', 55));
+    await startTodayReview(page, en);
+    await expectCounter(page, 0, 55);
+    expect(await drillToDone(drill)).toHaveLength(55);
+    await page.goto('/');
+    await expect(today(page, en)).toContainText(en.training.today.nothingDue);
+    const results = await loggedResults(email);
+    expect(results).toHaveLength(85);
+    expect(new Set(results.map((r) => r.move_key))).toEqual(new Set(due));
+  },
+);
 
 test('D-M1-5: Dovydas reviews from a backlog of 150: sessions of 20, every answer advances', async ({
   page,

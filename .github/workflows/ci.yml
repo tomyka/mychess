@@ -1,70 +1,59 @@
 name: CI/CD
 
-# Build once, test the image, deploy what was built (ADR 0010, R-164, R-165;
-# the order is R-192's, for the development phase). One push runs this graph:
+# Build once, test the image, deploy what passed (ADR 0010, R-164, R-165,
+# R-213). One push runs this graph:
 #
 #   static ----------+
-#   test (4 shards) -+--> check -------------+--> verdict (main, on trial)
-#   image --+--> e2e ------------------------+
-#           +--> deploy (main) --------------+--> deploy-after-tests (main, held)
+#   test (4 shards) -+--> check --+
+#   image --> e2e (4 parts) ------+--> deploy (main only)
 #
-# static, test and check are the quality gate, once per push, split so it
-# finishes sooner (R-212; quality.yml runs it in one job on a pull request):
-# static runs the gates that need no test results, test runs the vitest suite
-# in parallel shards that keep their results and coverage, and check passes
-# only when static and every shard passed and the merged results meet the
-# coverage thresholds and CRAP. Every later job reads check alone. image builds the one app image natively on a GitHub-hosted
-# arm64 runner, scans it with Trivy, and saves it as a zstd archive, uploaded
-# as a short-lived artifact with its sha256 as a job output. e2e loads that
-# archive and runs the Playwright suite against a throwaway stack made from it
-# (infra/ci/e2e-stack.sh), so the black-box tests run on the very bytes that
-# deploy; it is five parallel jobs, each with its own stack and a part of the
-# suite (#366).
+# static, test and check are the quality gate, split so it finishes sooner
+# (R-212): static runs the gates that need no test results, test runs the
+# vitest suite in parallel shards that keep their results and coverage, and
+# check passes only when static and every shard passed and the merged results
+# meet the coverage thresholds and CRAP. image builds the one app image
+# natively on a GitHub-hosted arm64 runner, scans it with Trivy, and saves it
+# as a zstd archive, uploaded as a short-lived artifact with its sha256 as a
+# job output. e2e loads that archive and runs the Playwright suite against a
+# throwaway stack made from it (infra/ci/e2e-stack.sh), so the black-box tests
+# run on the very bytes that deploy.
 #
-# On main the scanned image goes to production at once, before check and e2e
-# finish (R-192): `deploy` runs on the production VM's own runner (label
-# `production`), downloads the same archive and calls
-# infra/ci/deploy-production.sh --on-trial (restore point, migrate, swap,
-# release check through Caddy, the previous web put back if that fails).
-# `verdict` waits for check and e2e: both passed records the release as
-# confirmed on the VM; either failed or cancelled redeploys the last
-# confirmed release and ends the run red. The rules, and which run acts when
-# pushes overlap, are infra/ci/release-decision.sh. A commit that changes
-# packages/db/migrations, infra/ci, infra/compose, infra/edge or this file
-# since the release that runs is held instead: no schema change, deploy
-# script, compose or Caddy file, nor verdict or rollback logic, goes out
-# before its tests, so a rollback never crosses one and never runs a failed
-# trial's infra.
-# `deploy-after-tests` deploys a held commit once check and e2e pass (the
-# order before R-192). deploy-production.yml is the button for a rollback to
-# an earlier green commit. There is no staging environment (R-166). A push of
-# another branch runs the graph up to e2e and stops.
+# On main, once check and e2e have passed, `deploy` runs on the production
+# VM's own runner (label `production`), downloads the same archive and calls
+# infra/ci/deploy-production.sh --if-newer: restore point, migrate, swap,
+# release check through Caddy, the previous web put back if that fails, and
+# nothing done when production already runs this commit or a newer one (runs
+# of two pushes can finish out of order). A red gate or E2E deploys nothing;
+# there is no deploy on trial and no automatic rollback (R-213, retiring
+# R-192). deploy-production.yml is the button for a rollback to an earlier
+# green commit. There is no staging environment (R-166). A push of another
+# branch runs the graph up to e2e and stops.
 #
-# The gate's jobs, image and e2e run on GitHub's hosted runners (R-165: the repository
+# Every job but deploy runs on GitHub's hosted runners (R-165: the repository
 # is public, so their minutes are free). This workflow has no pull_request
 # trigger, so only a push to this repository or a dispatch can start a
-# production job, and those jobs also require main. What keeps a fork's code
-# off the VM's runner is that no workflow a pull request can start asks for
-# the `production` label, plus the repository's fork pull request approval
-# setting (currently: approval for all external contributors); nothing on the
-# runner itself refuses a job yet (follow-up: a job-started hook that
-# accepts only this repository's main). The dispatch
-# is how dependabot-automerge.yml has main tested and deployed after it
-# merges (its merge, made with GITHUB_TOKEN, starts no push run), and how the
-# owner re-runs main by hand.
+# production job, and that job also requires main. The VM's runner refuses
+# every other job itself (infra/host/runner-job-started.sh, #353: only this
+# repository's main ci.yml and deploy-production.yml, on push or dispatch).
+# The dispatch is how dependabot-automerge.yml has main tested and deployed
+# after it merges (its merge, made with GITHUB_TOKEN, starts no push run), and
+# how the owner re-runs main by hand. Dependabot's branches are pushes here,
+# so their pull requests are tested too.
 #
-# Concurrency: on main nothing is cancelled, so every deployed commit gets its
-# own check and e2e (a cancelled one would count as failed and roll back); on
-# other branches a newer push cancels the superseded run. The production jobs
-# take no concurrency group: GitHub cancels a group's pending job when a newer
-# one queues, which would drop a rollback. They queue on the VM's one runner,
-# which runs one job at a time, and deploy-production.sh holds a lock.
+# Concurrency: elsewhere a newer push cancels the superseded run, which only
+# tests stale code; on main each run is its own group, so no run is cut off
+# mid-deploy. The deploy job's own group queues deploys one at a time, and a
+# newer run's deploy replaces an older one still waiting for its turn.
 on:
   push:
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+  cancel-in-progress: true
 
 env:
   # The app image's name (infra/ci/release-image.sh's RELEASE_IMAGE).
@@ -77,11 +66,6 @@ jobs:
   static:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    concurrency:
-      # Elsewhere a superseded push's gate only tests stale code, so cancel
-      # it; on main each run is its own group (see the top).
-      group: ci-static-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -117,10 +101,6 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4]
-    concurrency:
-      # One group per shard: the shards of one run must not cancel each other.
-      group: ci-test-${{ matrix.shard }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -143,19 +123,15 @@ jobs:
           path: reports/test-shards/
           if-no-files-found: error
 
-  # The gate's verdict, which every later job reads: static and every test
-  # shard passed, and the shards' merged results pass the test gate (no
-  # failed test, every test file run by a project, the coverage thresholds)
-  # and CRAP. It runs after a failure too, so it ends red rather than
-  # skipped.
+  # The gate's verdict, which deploy reads: static and every test shard
+  # passed, and the shards' merged results pass the test gate (no failed
+  # test, every test file run by a project, the coverage thresholds) and
+  # CRAP. It runs after a failure too, so it ends red rather than skipped.
   check:
     needs: [static, test]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    concurrency:
-      group: ci-check-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
-      cancel-in-progress: true
     steps:
       - name: Static and every test shard passed
         env:
@@ -196,9 +172,6 @@ jobs:
     timeout-minutes: 45
     outputs:
       sha256: ${{ steps.save.outputs.sha256 }}
-    concurrency:
-      group: ci-image-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -254,13 +227,16 @@ jobs:
           if-no-files-found: error
 
   # Browser tests against a throwaway stack made from the image just built,
-  # split into parallel jobs (#366): each part loads the same image and starts
-  # its own stack, so the parts share no database or inbox. Parts 1-4 are the
-  # test lists in apps/web/e2e/ci-parts/ (balanced by run time; its README
-  # has the numbers); `rest` runs every test none of them lists, so no test
-  # is left out. needs.e2e.result, which verdict reads, is success only when
-  # every part passed; fail-fast is off so one failing part does not cancel
-  # the others' results.
+  # in parallel parts: each loads the same image and starts its own stack, so
+  # the parts share no database or inbox. Desktop runs every journey, the
+  # phone profile only those tagged @mobile (playwright.config.ts, R-213).
+  # Playwright's --shard splits by test count, and the training journeys are
+  # few but slow, so the desktop parts are cut by spec file instead: the
+  # slowest file, then the next slowest three, then `rest`, every desktop
+  # test the first two leave (a new spec always runs). Each part's "E2E" step
+  # time is in the run; when one grows well past the others, move a file
+  # between DESKTOP_1 and DESKTOP_2. fail-fast is off, so one failing part
+  # does not cancel the others' results.
   e2e:
     needs: image
     runs-on: ubuntu-24.04-arm
@@ -268,15 +244,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        part: ['1', '2', '3', '4', rest]
+        part: [desktop-1, desktop-2, desktop-rest, mobile]
     env:
       APP_IMAGE: mychess:${{ github.sha }}-arm64
       PROJECT: mychess-e2e-${{ github.run_id }}-${{ matrix.part }}
       IMAGE_SHA256: ${{ needs.image.outputs.sha256 }}
-    concurrency:
-      # One group per part: the parts of one run must not cancel each other.
-      group: ci-e2e-${{ matrix.part }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
-      cancel-in-progress: true
+      # Playwright --grep patterns over the spec file names (see above).
+      DESKTOP_1: training-learn\.spec
+      DESKTOP_2: (training-review|training-arrows|repertoires)\.spec
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -325,14 +300,13 @@ jobs:
         env:
           PART: ${{ matrix.part }}
         run: |
-          if [ "$PART" = rest ]; then
-            cat e2e/ci-parts/part-*.txt > "$RUNNER_TEMP/listed.txt"
-            selection=(--test-list-invert "$RUNNER_TEMP/listed.txt")
-          else
-            selection=(--test-list "e2e/ci-parts/part-$PART.txt")
-          fi
-          # A list whose files were renamed selects nothing; its tests then run
-          # in `rest`, and this line shows the imbalance.
+          case "$PART" in
+            desktop-1) selection=(--project=desktop-chromium "--grep=$DESKTOP_1") ;;
+            desktop-2) selection=(--project=desktop-chromium "--grep=$DESKTOP_2") ;;
+            desktop-rest) selection=(--project=desktop-chromium "--grep-invert=$DESKTOP_1|$DESKTOP_2") ;;
+            mobile) selection=(--project=pixel-7) ;;
+            *) echo "::error::unknown part $PART"; exit 1 ;;
+          esac
           pnpm exec playwright test --list "${selection[@]}" | tail -n 1
           pnpm exec playwright test "${selection[@]}"
       - name: The web's log
@@ -351,178 +325,42 @@ jobs:
             apps/web/test-results/
           if-no-files-found: ignore
 
-  # The scanned image to production at once, on trial (R-192), on the VM's
-  # own runner: restore point, migrate, swap, release check through the edge,
-  # and the previous web put back on a failure. Skipped when production runs
-  # this commit or a newer one; held for deploy-after-tests when a migration
-  # changed since the release that runs (release-decision.sh). The site's
-  # name comes from the host's own settings (BETTER_AUTH_URL); the
-  # environment's link is the repository variable PRODUCTION_URL. Until that
-  # variable is set (the VM is not ready) the production jobs are skipped
-  # rather than left queued with no runner to take them.
+  # The tested image to production, on the VM's own runner, once the gate
+  # and every E2E part passed (R-213): restore point, migrate, swap, release
+  # check through the edge, the previous web put back on a failure; nothing
+  # done when production already runs this commit or a newer one
+  # (--if-newer). The site's name comes from the host's own settings
+  # (BETTER_AUTH_URL); the environment's link is the repository variable
+  # PRODUCTION_URL. Until that variable is set (the VM is not ready) the job
+  # is skipped rather than left queued with no runner to take it.
   deploy:
-    needs: image
+    needs: [check, image, e2e]
     if: github.ref == 'refs/heads/main' && github.repository == 'tomyka/mychess' && vars.PRODUCTION_URL != ''
     runs-on: [self-hosted, production]
     timeout-minutes: 20
-    environment:
-      name: production
-      url: ${{ vars.PRODUCTION_URL }}
-    outputs:
-      plan: ${{ steps.plan.outputs.plan }}
-    steps:
-      # main's history too: which of two commits is newer, and what changed
-      # between the release that runs and this one.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          sparse-checkout: infra
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Deploy now, hold for check and e2e, or skip
-        id: plan
-        run: |
-          source infra/ci/release-decision.sh
-          plan="$(deploy_plan "$GITHUB_SHA")"
-          case "$plan" in
-            deploy | hold | skip) ;;
-            *) echo "::error::no deploy plan for $GITHUB_SHA (got '$plan')"; exit 1 ;;
-          esac
-          echo "plan=$plan" >> "$GITHUB_OUTPUT"
-          echo "::notice::$GITHUB_SHA: $plan"
-      - if: steps.plan.outputs.plan == 'deploy'
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: image
-          path: ${{ runner.temp }}/image
-      - name: Deploy on trial
-        if: steps.plan.outputs.plan == 'deploy'
-        env:
-          IMAGE_SHA256: ${{ needs.image.outputs.sha256 }}
-        run: |
-          sudo -n "$GITHUB_WORKSPACE/infra/ci/deploy-production.sh" --on-trial "$GITHUB_SHA-arm64" "$RUNNER_TEMP/image/image.tar.zst" "$IMAGE_SHA256"
-      # The archive is in the image store now; the runner's disk is the VM's.
-      - name: Remove the downloaded archive
-        if: always()
-        run: rm -rf "$RUNNER_TEMP/image"
-
-  # A commit planned for a trial, once its deploy, check and e2e are over:
-  # confirmed when all passed, otherwise production goes back to the last
-  # confirmed release (the web only: no migration came with a trial, and
-  # restoring the database would lose what users wrote since; the restore
-  # point is there for the owner's call) and the run ends red. A trial deploy
-  # cut short (cancelled, timed out) before it recorded itself gets the
-  # release on record redeployed (--restore), since its web may be half
-  # swapped: only after a planned trial, and never for a commit that changes
-  # a gated path (its deploy script would run as root untested). It runs when
-  # the plan output is lost too, judged from the state files, and then never
-  # restores. release-decision.sh's verdict leaves production alone when
-  # a newer push already runs there (that push's own verdict decides) or a
-  # rollback already happened. No environment: the Deployments list would
-  # record this commit, not the release a rollback puts back; the job
-  # summary says what happened.
-  verdict:
-    needs: [check, e2e, deploy]
-    if: >-
-      always() && (needs.deploy.outputs.plan == 'deploy'
-      || needs.deploy.result == 'cancelled' || needs.deploy.result == 'failure')
-    runs-on: [self-hosted, production]
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          sparse-checkout: infra
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Confirm the release, or roll back to the last confirmed one
-        env:
-          PLAN: ${{ needs.deploy.outputs.plan }}
-          DEPLOY: ${{ needs.deploy.result }}
-          CHECK: ${{ needs.check.result }}
-          E2E: ${{ needs.e2e.result }}
-        run: |
-          source infra/ci/release-decision.sh
-          deploy="$GITHUB_WORKSPACE/infra/ci/deploy-production.sh"
-          read -r action detail <<< "$(verdict "$GITHUB_SHA" "$PLAN" "$DEPLOY" "$CHECK" "$E2E")"
-          case "$action" in
-            confirm)
-              # Exit 3: its image was pruned, newer releases came since; one of
-              # those gets confirmed by its own run.
-              status=0
-              sudo -n "$deploy" --confirm "$GITHUB_SHA-arm64" || status=$?
-              case "$status" in
-                0) echo "Production: $GITHUB_SHA confirmed (check and e2e passed)." >> "$GITHUB_STEP_SUMMARY" ;;
-                3) echo "::warning::$GITHUB_SHA passed, but its image is no longer on the VM: not confirmed" ;;
-                *) exit "$status" ;;
-              esac
-              ;;
-            roll-back)
-              echo "::error::check $CHECK, e2e $E2E: rolling production back from $GITHUB_SHA to $detail"
-              echo "Production: check $CHECK, e2e $E2E for $GITHUB_SHA; rolling back to $detail." >> "$GITHUB_STEP_SUMMARY"
-              # The script re-reads both tags under its lock and does nothing
-              # if production has moved on since.
-              sudo -n "$deploy" --roll-back "$GITHUB_SHA-arm64"
-              echo "Production: rollback to $detail finished (the log says if production had moved on)." >> "$GITHUB_STEP_SUMMARY"
-              ;;
-            restore)
-              # Only after a trial deploy: a held or skipped commit's script
-              # (perhaps changed, untested) never runs as root here.
-              if [ "$PLAN" != deploy ]; then
-                echo "::error::the deploy job ended $DEPLOY with plan '${PLAN:-lost}': not restored; redeploy $detail with the deploy button if needed"
-                exit 1
-              fi
-              echo "::error::the trial deploy of $GITHUB_SHA did not finish ($DEPLOY): redeploying $detail, the release on record"
-              sudo -n "$deploy" --restore
-              echo "Production: trial deploy $DEPLOY; $detail redeployed." >> "$GITHUB_STEP_SUMMARY"
-              ;;
-            stranded)
-              echo "::error::check $CHECK, e2e $E2E for $GITHUB_SHA, which production runs: $detail; use the deploy button"
-              echo "Production: still runs $GITHUB_SHA, which failed: $detail." >> "$GITHUB_STEP_SUMMARY"
-              ;;
-            *)
-              echo "::notice::$detail"
-              echo "Production: left alone ($detail)." >> "$GITHUB_STEP_SUMMARY"
-              ;;
-          esac
-          [ "$DEPLOY" = success ] && [ "$CHECK" = success ] && [ "$E2E" = success ] \
-            || { echo "::error::deploy $DEPLOY, check $CHECK, e2e $E2E"; exit 1; }
-
-  # A commit held because it carries a migration (or no known release runs):
-  # deployed once check and e2e pass, as a confirmed release, unless
-  # production already runs it or a newer commit by then.
-  deploy-after-tests:
-    needs: [check, image, e2e, deploy]
-    if: needs.deploy.outputs.plan == 'hold'
-    runs-on: [self-hosted, production]
-    timeout-minutes: 20
+    concurrency:
+      group: production
+      cancel-in-progress: false
     environment:
       name: production
       url: ${{ vars.PRODUCTION_URL }}
     steps:
+      # main's history too: whether production already runs a newer commit.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: infra
           fetch-depth: 0
           persist-credentials: false
-      - name: Is this commit newer than production's
-        id: order
-        run: |
-          source infra/ci/release-decision.sh
-          if newer_than_production "$GITHUB_SHA"; then
-            echo "newer=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::not deployed: production already holds $GITHUB_SHA"
-            echo "newer=false" >> "$GITHUB_OUTPUT"
-          fi
-      - if: steps.order.outputs.newer == 'true'
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: image
           path: ${{ runner.temp }}/image
       - name: Deploy
-        if: steps.order.outputs.newer == 'true'
         env:
           IMAGE_SHA256: ${{ needs.image.outputs.sha256 }}
-        run: sudo -n "$GITHUB_WORKSPACE/infra/ci/deploy-production.sh" "$GITHUB_SHA-arm64" "$RUNNER_TEMP/image/image.tar.zst" "$IMAGE_SHA256"
+        run: |
+          sudo -n "$GITHUB_WORKSPACE/infra/ci/deploy-production.sh" --if-newer "$GITHUB_SHA-arm64" "$RUNNER_TEMP/image/image.tar.zst" "$IMAGE_SHA256"
+      # The archive is in the image store now; the runner's disk is the VM's.
       - name: Remove the downloaded archive
         if: always()
         run: rm -rf "$RUNNER_TEMP/image"

@@ -1,7 +1,7 @@
 # Operations
 
 How mychess v2 is tested, built and run. Hosting decisions: `docs/adr/`
-(ADR 0010); rulings R-164 to R-166 in `docs/owner-rulings.md`.
+(ADR 0010); rulings R-164 to R-166 and R-213 in `docs/owner-rulings.md`.
 
 ## Test suites
 
@@ -11,7 +11,7 @@ How mychess v2 is tested, built and run. Hosting decisions: `docs/adr/`
 | db | `pnpm test:db` | packages/db against a Testcontainers Postgres | gate |
 | component | `pnpm test:component` | apps/web components in jsdom | gate |
 | feature | `pnpm test:feature` | apps/web route handlers and server actions (`apps/web/test/feature/`) against a Testcontainers Postgres from `@mychess/db/testing` | gate |
-| e2e | `pnpm test:e2e` | Playwright (`apps/web/e2e/`), desktop Chromium and Pixel 7, against `next build` + `next start` on port 3100, or against `E2E_BASE_URL` when set | CI/CD `e2e` job against the release image, outside the gate, as five parallel parts (`apps/web/e2e/ci-parts/`) |
+| e2e | `pnpm test:e2e` | Playwright (`apps/web/e2e/`): every journey in desktop Chromium, those tagged `@mobile` also in Pixel 7; against `next build` + `next start` on port 3100, or against `E2E_BASE_URL` when set | CI/CD `e2e` job against the release image, outside the gate, as four parallel parts ("The pipeline" below) |
 
 Feature and db suites need Docker. The Postgres image every suite uses is
 `POSTGRES_IMAGE` in `packages/db/src/testing/database.ts`.
@@ -148,7 +148,7 @@ closed (security N1): under a production build (`NODE_ENV=production`, as
 only `next dev` and the tests default an unset value to `local`. Everything
 that starts a production build names it: `infra/compose/production.yml`
 sets `MYCHESS_ENV: production` as a literal, whatever the VM's `.env` says,
-and `infra/compose/e2e.yml`, `quality.yml` and `playwright.config.ts` set
+and `infra/compose/e2e.yml` and `playwright.config.ts` set
 `local`. `next build` does not read it. Production also needs
 an https `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`;
 every environment needs a `BETTER_AUTH_SECRET` of at least 32 random
@@ -243,12 +243,12 @@ to a second VNIC (`enp1s0`, 10.0.0.233), kept answering by
   runner's job-started hook" below), and the `production` environment
   deploys only from `main`. It must stay the only one:
   it runs one job at a time, which is what keeps two deploys, or a deploy
-  and a rollback, from interleaving.
+  and the rollback button, from interleaving.
 
 Files on the host: `/srv/mychess/production/` (compose files, the root-only
-`.env`, `deployed-tag` (the release that runs), `confirmed-tag` (the newest
-release whose check and e2e passed: the automatic rollback's target),
-`.deploy.lock`), `/srv/mychess/edge/`, `/srv/mychess/backups/`
+`.env`, `deployed-tag` (the release that runs), `.deploy.lock`; a
+`confirmed-tag` left from the trial deploys of R-192 is no longer read and
+may be deleted), `/srv/mychess/edge/`, `/srv/mychess/backups/`
 (root only), `/srv/mychess/logs/` (failed webs' logs, root only),
 `/srv/mychess/backup-status.json`, and the root-only
 `/etc/mychess/` (`backup.env`, `alert.env`, `runner-watchdog.env`).
@@ -268,54 +268,46 @@ URI, the Resend sending domain and `MAIL_FROM`, then a deploy.
 
 ### The pipeline
 
-`.github/workflows/ci.yml` (CI/CD) runs on every push: the quality gate
-split three ways (R-212; GitHub-hosted): `static` (the gates that run no
-tests, the kit's tests, the infra shell tests, the secret scan), `test` (the
-vitest suite in four parallel shards, `gate.mjs test-shard i/4`) and `check`
-(`gate.mjs test-merge`: the shards' results and coverage merged, the coverage
-thresholds and CRAP on the merge; the one job later jobs read), and `image` (`docker build` on `ubuntu-24.04-arm`, Trivy, the image saved as
-a zstd archive artifact kept 3 days) in parallel, then `e2e` (the Playwright
-suite against that archive's image, as above). `quality.yml` runs the gate
-again on pull requests (and on pushes to main until the owner's pending
-change below; it is not part of the deploy).
-
-On `main`, during the development phase (R-192), the image goes to
-production as soon as it is built and scanned, about 2-3 minutes after the
-push, while `check` (~14 minutes) and `e2e` (~10 minutes) still run:
+`.github/workflows/ci.yml` (CI/CD) runs on every push, Dependabot's
+branches included, and tests first, then deploys (R-213):
 
 ```text
-check ----------------------------------+--> verdict             (on trial)
-image --+--> e2e -----------------------+
-        +--> deploy (VM) ---------------+--> deploy-after-tests  (held)
+static ----------+
+test (4 shards) -+--> check --+
+image --> e2e (4 parts) ------+--> deploy (main only, the VM's runner)
 ```
 
-1. `deploy` (the VM's runner) decides with `infra/ci/release-decision.sh`:
-   - **skip** when production already runs this commit or a newer one (an
-     older commit never replaces a newer one);
-   - **hold** when `packages/db/migrations`, `infra/ci`, `infra/compose`,
-     `infra/edge` or `.github/workflows/ci.yml` (the verdict and rollback
-     logic) differs between the release that runs and this commit, or
-     no known release runs (`deployed-tag` missing): a schema change, deploy
-     script, compose or Caddy file never goes out before its tests, so an
-     automatic rollback (which runs the trial commit's own deploy script)
-     never runs a failed trial's infra;
-   - otherwise **deploy on trial**:
-     `sudo -n infra/ci/deploy-production.sh --on-trial <sha>-arm64 <archive> <sha256>`.
-2. `verdict` (VM, after `check` and `e2e`, for a commit planned for a
-   trial, or whenever `deploy` failed or was cancelled): all passed records
-   it in `confirmed-tag`; check or e2e failed or cancelled redeploys the
-   confirmed release (`--roll-back`); a trial deploy cut short before it
-   recorded itself redeploys the release on record (`--restore`), since its
-   web may be half swapped; only when the plan was a trial (a held or
-   skipped commit's verdict touches nothing) and never for a commit that
-   changes a gated path (`--restore` runs that commit's deploy script as
-   root): that case is `stranded`, red, and names the button. Anything but all passed ends the run red (below).
-   The plan step fails on an empty or unknown plan.
-3. `deploy-after-tests` (VM, only for a held commit): once `check` and `e2e`
-   pass, deploys it as before R-192, unless production runs it or a newer
-   commit by then. A failed check or e2e leaves production untouched.
+- The quality gate, split three ways so it finishes sooner (R-212;
+  GitHub-hosted): `static` (the gates that run no tests, the kit's tests,
+  the infra shell tests, the secret scan), `test` (the vitest suite in four
+  parallel shards, `gate.mjs test-shard i/4`) and `check` (`gate.mjs
+  test-merge`: the shards' results and coverage merged, the coverage
+  thresholds and CRAP on the merge).
+- `image`: `docker build` on `ubuntu-24.04-arm`, Trivy (a fixable CRITICAL
+  fails it), the image saved as a zstd archive artifact kept 3 days.
+- `e2e`: the Playwright suite against that archive's image (as above), as
+  four parallel jobs, each with its own stack. Desktop Chromium runs every
+  journey, Pixel 7 only those tagged `@mobile` (`grep` on the `pixel-7`
+  project in `apps/web/playwright.config.ts`). Playwright's `--shard` splits
+  by test count and the training journeys are few but slow, so the desktop
+  parts are cut by spec file: `desktop-1` (`DESKTOP_1` in ci.yml, the
+  slowest file), `desktop-2` (`DESKTOP_2`, the next three) and
+  `desktop-rest` (every desktop test the first two leave, so a new spec
+  always runs); `mobile` is the Pixel 7 part. When one part's "E2E" step
+  grows well past the others, move a file between `DESKTOP_1` and
+  `DESKTOP_2`.
+- `deploy` (main only, after `check` and every `e2e` part passed):
+  `sudo -n infra/ci/deploy-production.sh --if-newer <sha>-arm64 <archive> <sha256>`
+  on the VM's runner. `--if-newer` deploys nothing, and passes, when
+  production already runs this commit or one after it (runs of two pushes
+  can finish out of order). A red gate or E2E deploys nothing: production
+  stays on the last release that passed. There is no deploy on trial and no
+  automatic rollback (R-192 retired by R-213).
 
-Every deploy, whichever job or the button starts it, is the same script:
+About 6-7 minutes from a push to production: the gate is done at about 4.5,
+E2E at about 6, the deploy takes under a minute.
+
+Every deploy, from ci.yml or the button, is the same script:
 
 1. load the archive, refusing any other bytes than the build's (sha256);
 2. copy the compose and Caddy files to `/srv/mychess`, start the edge and
@@ -330,68 +322,25 @@ Every deploy, whichever job or the button starts it, is the same script:
    (`/srv/mychess/logs/web-*.log`, root only, the newest 20; it can name
    users, and the Actions log is public: the job log prints only its path),
    put the previous release's web back and fail;
-8. record `deployed-tag` (and `confirmed-tag`, except on trial) and keep
-   only the newest 3 release images plus the running, previous and
-   confirmed ones.
+8. record `deployed-tag` and keep only the newest 3 release images plus
+   the running and previous ones.
 
-On `main` no CI job is cancelled by a newer push (each run is its own
-concurrency group), so every commit that went out gets its own verdict; on
-other branches a newer push cancels the superseded run. The production jobs
-take no concurrency group (GitHub cancels a group's pending job when a newer
-one queues, which could drop a rollback); the VM's one runner and the
-script's lock serialise them.
+Concurrency: on other branches a newer push cancels the superseded run; on
+`main` no run is cancelled by another (each is its own group), so no deploy
+is cut off half way. The `deploy` job's own group (`production`) runs one
+deploy at a time, and a newer run's deploy replaces an older one still
+waiting for its turn (that older run then shows as cancelled; the newer
+commit holds it). The VM's one runner and the script's lock serialise every
+deploy, the button's included.
 
-### When check or e2e fails after a deploy
+### When check or e2e fails
 
-The `verdict` job runs `deploy-production.sh --roll-back <failed>-arm64`,
-which, under the deploy lock, re-reads `deployed-tag` (and does nothing if
-production no longer runs the failed commit) and `confirmed-tag`, then
-redeploys the confirmed release with its image already on the VM (the
-button's path); the job fails, so the run is red. `--confirm` likewise
-refuses, under the lock, a release that does not hold the confirmed one
-(never backwards, never off main's line after a force-push). It is the web only: a trial deploy
-never carries a migration (those are held), so the schema is the confirmed
-release's too, and the database is not restored, because that would throw
-away what users wrote in the meantime. The trial's `predeploy-*` dump is
-there if the owner decides otherwise (restore below).
+Nothing reaches production: `deploy` is skipped and the run is red.
+Production keeps the last release that passed. Fix forward with the next
+push. A failure on a flake: re-run the failed jobs; once they pass, the run
+deploys (`deploy` runs when its needs pass on the re-run).
 
-The target is the newest *confirmed* release, not simply the one that ran
-before: with two quick pushes A then B, B's predecessor is A, which may be
-the very commit that failed. Overlapping runs are settled by
-`release-decision.sh`'s `verdict`, whatever order they finish in:
-
-| Production runs | This commit's check and e2e | Verdict |
-| --- | --- | --- |
-| this commit | passed | confirm it |
-| a newer commit holding this one | passed | confirm it (a better rollback target for the newer one), unless a newer one is confirmed already |
-| this commit | failed or cancelled | roll back to `confirmed-tag` |
-| a newer commit | failed or cancelled | leave it: the newer commit contains this one, and its own run confirms or rolls back |
-| an older commit (already rolled back, or the button) | either | leave it |
-| this commit, nothing confirmed before it | failed | `stranded`: the run is red and names the button |
-| the release before (the trial deploy was cut short) | any | `restore`: redeploy the release on record; `stranded` if this commit changes a gated path |
-| any (the plan was `hold` or `skip`) | any | leave it: no trial to judge |
-| a newer commit (the trial deploy was cut short) | any | leave it: that deploy replaced the web |
-
-So a rollback never undoes a newer push that already deployed, and never
-goes to an untested commit. A commit whose `check` or `e2e` fails on a
-flake: re-run the failed jobs; if they pass the run goes green but
-production stays on the rollback, so redeploy main's head with the button.
-
-How to see one: the run is red, its `verdict` job carries an error
-annotation ("rolling production back from <sha> to <sha>") and a job
-summary saying what it did; `cat /srv/mychess/production/deployed-tag
-confirmed-tag` on the host, or `curl $PRODUCTION_URL/api/version`, shows
-the commit that serves. The environment's Deployments list shows only the
-deploys (`deploy`, `deploy-after-tests`, the button), not rollbacks.
-
-Why the hold covers `infra/ci`, `infra/compose`, `infra/edge` and `ci.yml` too: the
-rollback runs the deploy script from the failed commit's checkout and copies
-that commit's compose and Caddy files; with those unchanged since the
-confirmed release, it puts back exactly what ran before. `infra/host` is not
-deployed by a deploy and does not hold.
-
-A destructive migration (a dropped column or table, a rename, a type
-change) is never deployed before its tests, by the hold above; but once a
+Every release is tested before it is live, migrations included. Once a
 migration is live, rolling the web back below it (the button) runs older
 code on the newer schema. Write migrations expand-then-contract: add in one
 commit, switch the code, drop in a later commit once nothing reads the old
@@ -403,11 +352,12 @@ shape, so the release before each one still works on its schema
 The rollback button is `.github/workflows/deploy-production.yml` (Actions >
 Deploy production > Run workflow, on `main`). Empty, it redeploys main's
 head; with a full SHA, that earlier commit. It refuses a commit outside
-main's history or without a green CI/CD run (check, image and e2e), runs
-the same deploy script with the image already on the VM (the last 3
-releases and the confirmed one), records it as the confirmed release (the
-automatic rollback's target from then on), and checks that
-`PRODUCTION_URL` then serves that commit. A migration is never undone:
+main's history or whose latest finished CI/CD run has a job other than
+`deploy` that did not pass (so a commit whose own deploy failed on the host
+can still be redeployed), runs the same deploy script with the image
+already on the VM (the last 3 releases), and checks that `PRODUCTION_URL`
+then serves that commit. The next push to `main` deploys over it, so after
+a rollback fix forward (or revert) before pushing again. A migration is never undone:
 rolling back across a schema change needs the restore point (below). The
 same button with an empty SHA is how a changed host setting
 (`set-secret.sh`) reaches the running web.
@@ -418,7 +368,7 @@ By hand on the host, from the runner's checkout:
 ### The runner's job-started hook (#353)
 
 The runner can reach root on the VM, and a workflow file chooses its
-runner: a fork's pull request could edit `quality.yml` to ask for
+runner: a fork's pull request could add or edit a workflow to ask for
 `[self-hosted, production]`. So the runner runs
 `/usr/local/bin/mychess-runner-job-started.sh` (`infra/host/runner-job-started.sh`)
 before every job, through `ACTIONS_RUNNER_HOOK_JOB_STARTED` in
@@ -430,9 +380,9 @@ before every job, through `ACTIONS_RUNNER_HOOK_JOB_STARTED` in
 - `GITHUB_WORKFLOW_REF` is `tomyka/mychess/.github/workflows/ci.yml` or
   `deploy-production.yml`, at `refs/heads/main`.
 
-These are the only jobs that use the label: ci.yml's `deploy`, `verdict` and
-`deploy-after-tests` (push to main, or a dispatch on main) and the deploy
-button's `deploy` (dispatch on main), rollback included. No schedule or
+These are the only jobs that use the label: ci.yml's `deploy` (push to
+main, or a dispatch on main) and the deploy button's `deploy` (dispatch on
+main). No schedule or
 `workflow_run` deploys. A new workflow on the VM, or a new trigger for one
 of these, needs this hook changed first. The job log's "Set up job" shows
 `job-started hook: allowed, ...` or `refused, <what>`.
@@ -510,11 +460,10 @@ Taking it out (only if it wrongly refuses a deploy):
 then `cd /opt/actions-runner && sudo ./svc.sh stop && sudo ./svc.sh start`.
 
 The `production` environment (Settings > Environments) also allows only the
-`main` branch to deploy (a deployment branch policy). That covers only the
-jobs with `environment: production` (ci.yml's `deploy` and
-`deploy-after-tests`, the deploy button's `deploy`); ci.yml's `verdict` job
-has none, so the policy does not cover it. The hook is the real guard; the
-policy is a second one for the jobs it covers.
+`main` branch to deploy (a deployment branch policy). It covers every job
+that uses the runner (ci.yml's `deploy` and the deploy button's `deploy`
+both have `environment: production`). The hook is the real guard; the
+policy is a second one.
 
 ### Setting up the VM, in order
 
@@ -563,7 +512,6 @@ Owner steps:
 - the Resend sending domain for `noreply@<domain>`;
 - the GitHub `production` environment and the repository variable
   `PRODUCTION_URL=https://<domain>`;
-- `quality.yml` changed to pull requests only (it is protected);
 - for Dependabot's lockfile job, the Dependabot secret
   `LOCKFILE_PUSH_TOKEN` (optional).
 

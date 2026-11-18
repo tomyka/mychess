@@ -145,8 +145,8 @@ Three to five teammates at a time; each one costs tokens.
   which scans the container; a fake test secret goes into
   `.gitleaksignore`), chained with `&&` and never piped (a pipe hides the
   exit code); CI runs the full gate (`node quality/gate.mjs
-  check`) after the deploy (R-192) and rolls back on failure. Outside that
-  phase it is the full gate.
+  check`) and E2E before it deploys, and a red run deploys nothing
+  (R-213). Outside that phase it is the full gate.
 - **The Stop hook pauses while teammates work** (#281): the lead creates
   `node_modules/.cache/ts-quality/team-running` when it dispatches
   teammates and deletes it once they have all reported, so the hook does not
@@ -165,7 +165,7 @@ Three to five teammates at a time; each one costs tokens.
 
 ## Autonomy (ruling Q20)
 
-- A push to `main` deploys to production on trial and is rolled back if the gate or E2E fails (R-166, R-192); there is no staging.
+- A push to `main` deploys to production once the gate and E2E have passed; a red run deploys nothing (R-166, R-213). There is no staging.
 - **Unattended backlog runs** (`/backlog-run`, `.claude/commands/backlog-run.md`)
   take only issues labelled both `size/small` and `auto-ok`. `auto-ok` is
   applied by the owner or the lead with the owner's yes, never by a run. A run
