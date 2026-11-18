@@ -3,12 +3,17 @@ name: CI/CD
 # Build once, test the image, deploy what was built (ADR 0010, R-164, R-165;
 # the order is R-192's, for the development phase). One push runs this graph:
 #
-#   check -----------------------------------+--> verdict (main, on trial)
+#   static ----------+
+#   test (4 shards) -+--> check -------------+--> verdict (main, on trial)
 #   image --+--> e2e ------------------------+
 #           +--> deploy (main) --------------+--> deploy-after-tests (main, held)
 #
-# check is the quality gate, once per push (quality.yml repeats it on a
-# pull request). image builds the one app image natively on a GitHub-hosted
+# static, test and check are the quality gate, once per push, split so it
+# finishes sooner (R-212; quality.yml runs it in one job on a pull request):
+# static runs the gates that need no test results, test runs the vitest suite
+# in parallel shards that keep their results and coverage, and check passes
+# only when static and every shard passed and the merged results meet the
+# coverage thresholds and CRAP. Every later job reads check alone. image builds the one app image natively on a GitHub-hosted
 # arm64 runner, scans it with Trivy, and saves it as a zstd archive, uploaded
 # as a short-lived artifact with its sha256 as a job output. e2e loads that
 # archive and runs the Playwright suite against a throwaway stack made from it
@@ -35,7 +40,7 @@ name: CI/CD
 # an earlier green commit. There is no staging environment (R-166). A push of
 # another branch runs the graph up to e2e and stops.
 #
-# check, image and e2e run on GitHub's hosted runners (R-165: the repository
+# The gate's jobs, image and e2e run on GitHub's hosted runners (R-165: the repository
 # is public, so their minutes are free). This workflow has no pull_request
 # trigger, so only a push to this repository or a dispatch can start a
 # production job, and those jobs also require main. What keeps a fork's code
@@ -66,13 +71,16 @@ env:
   RELEASE_IMAGE: mychess
 
 jobs:
-  check:
+  # The gates that need no test results: format, lint, typecheck, markers,
+  # dead code, architecture; and the secret scan and the kit's and the
+  # infrastructure scripts' own tests.
+  static:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     concurrency:
-      # Elsewhere a superseded push's check only tests stale code, so cancel
+      # Elsewhere a superseded push's gate only tests stale code, so cancel
       # it; on main each run is its own group (see the top).
-      group: ci-check-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+      group: ci-static-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -95,10 +103,83 @@ jobs:
       # database is touched); shellcheck is on the runner, so they lint too.
       - name: Infrastructure scripts' tests
         run: for test in infra/*/tests/*-test.sh; do bash "$test" || exit 1; done
-      # The quality gate (format, lint, typecheck, markers, tests with coverage
-      # incl. the db suite on Testcontainers, CRAP, dead code, architecture).
-      - name: Quality gate
-        run: node quality/gate.mjs check
+      - name: Quality gate, the gates that run no tests
+        run: node quality/gate.mjs check --static
+
+  # The vitest suite with coverage in parallel shards (vitest --shard), each
+  # with its own Testcontainers databases. A shard applies no coverage
+  # threshold (its coverage is partial); it keeps its results and coverage as
+  # a blob report for check.
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    concurrency:
+      # One group per shard: the shards of one run must not cancel each other.
+      group: ci-test-${{ matrix.shard }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Quality gate, this shard's tests
+        env:
+          # The total must match the matrix above.
+          SHARD: ${{ matrix.shard }}/4
+        run: node quality/gate.mjs test-shard "$SHARD"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: test-shard-${{ matrix.shard }}
+          retention-days: 1
+          path: reports/test-shards/
+          if-no-files-found: error
+
+  # The gate's verdict, which every later job reads: static and every test
+  # shard passed, and the shards' merged results pass the test gate (no
+  # failed test, every test file run by a project, the coverage thresholds)
+  # and CRAP. It runs after a failure too, so it ends red rather than
+  # skipped.
+  check:
+    needs: [static, test]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: ci-check-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Static and every test shard passed
+        env:
+          STATIC: ${{ needs.static.result }}
+          TEST: ${{ needs.test.result }}
+        run: |
+          [ "$STATIC" = success ] && [ "$TEST" = success ] \
+            || { echo "::error::static $STATIC, test shards $TEST"; exit 1; }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: test-shard-*
+          merge-multiple: true
+          path: reports/test-shards
+      - name: Quality gate, the shards merged (tests, coverage, CRAP)
+        run: node quality/gate.mjs test-merge
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always()
         with:

@@ -8,6 +8,9 @@ One runner, `quality/gate.mjs`, for people, agent hooks and CI alike. Thresholds
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm check` (`node quality/gate.mjs check`)  | The fast gate: format, lint, typecheck (strict), forbidden markers, tests + coverage, CRAP, dead code (knip), architecture (depcruise) |
 | `node quality/gate.mjs check --only lint,test` | Selected gates only                                                                                                                  |
+| `node quality/gate.mjs check --static`        | The gates that run no tests (CI's `static` job, R-212)                                                                                |
+| `node quality/gate.mjs test-shard i/N`        | One shard of the tests with coverage, kept in `reports/test-shards/` (CI's `test` matrix); no coverage threshold                     |
+| `node quality/gate.mjs test-merge`            | The shards merged: the test gate (thresholds) and CRAP on the merged coverage (CI's `check` job)                                      |
 | `pnpm mutation`                               | Mutation-test uncommitted source changes (Stryker)                                                                                    |
 | `node quality/gate.mjs mutation --branch`     | Mutation-test changes against `origin/main` (pull requests); add `--base <ref>` to diff against another ref (pushes)                  |
 | `pnpm mutation:full`                          | Mutation-test everything; shard it with `--full --shard i/N`, then `--merge`                                                         |

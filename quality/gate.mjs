@@ -1,6 +1,11 @@
 // Deterministic quality gate runner. Same command for you, the AI agent's hooks, and CI.
 //
 //   node quality/gate.mjs check              all static + test gates (no mutation)
+//   node quality/gate.mjs check --static     the gates that run no tests (CI's static job, R-212)
+//   node quality/gate.mjs test-shard 2/4     one shard of the tests with coverage, kept as
+//                                            reports/test-shards/shard-2-of-4.json (CI matrix, R-212)
+//   node quality/gate.mjs test-merge         merge the shards: the test gate on the merged
+//                                            results and coverage (thresholds), then crap
 //   node quality/gate.mjs mutation           mutation test uncommitted source changes
 //   node quality/gate.mjs mutation --branch  mutation test changes vs the base branch (CI pull requests)
 //   node quality/gate.mjs mutation --branch --base <ref>
@@ -11,6 +16,9 @@
 //   node quality/gate.mjs mutation --merge   merge the shards' reports, check the total
 //   node quality/gate.mjs all                check + mutation (uncommitted changes)
 //   add --only lint,typecheck to run selected gates
+//
+// check --static, every test-shard i/N for one N, and test-merge together
+// run the same gates as check, with the same rules and thresholds.
 //
 // Exit code 0 = all gates passed, 1 = at least one failed. Output is short and agent-readable.
 // One run at a time per working tree: a second run waits for the first (quality/lock.mjs).
@@ -169,13 +177,73 @@ function unrunTests() {
       : []),
   ].join('\n');
 }
-function gateTest() {
-  rmSync(join(ROOT, 'coverage'), { recursive: true, force: true });
+// The test gate's result with the unrun-tests check folded in.
+function withUnrunTests(r) {
   const unrun = unrunTests();
-  const r = run(bin('vitest'), ['run', '--coverage']);
   if (!unrun) return r;
   return { code: 1, out: `${unrun}\n${r.out}`, ms: r.ms };
 }
+function gateTest() {
+  rmSync(join(ROOT, 'coverage'), { recursive: true, force: true });
+  return withUnrunTests(run(bin('vitest'), ['run', '--coverage']));
+}
+
+// Sharded tests (R-212): each shard runs its part of the test files with
+// coverage and keeps vitest's blob report (results and coverage) as
+// reports/test-shards/shard-i-of-N.json; test-merge merges a complete set and
+// only then applies the coverage thresholds, so a shard's partial coverage
+// fails nothing. The thresholds are vitest.config.ts's, unchanged.
+const TEST_SHARDS = join(ROOT, 'reports', 'test-shards');
+const NO_SHARD_THRESHOLDS = [
+  'lines',
+  'branches',
+  'functions',
+  'statements',
+].map((metric) => `--coverage.thresholds.${metric}=0`);
+
+function gateTestShard(shard) {
+  const kept = join(TEST_SHARDS, `${shardName(shard)}.json`);
+  rmSync(kept, { force: true });
+  mkdirSync(TEST_SHARDS, { recursive: true });
+  rmSync(join(ROOT, 'coverage'), { recursive: true, force: true });
+  const r = run(bin('vitest'), [
+    'run',
+    `--shard=${shard.index}/${shard.total}`,
+    '--coverage',
+    ...NO_SHARD_THRESHOLDS,
+    '--coverage.reporter=text-summary',
+    '--reporter=default',
+    '--reporter=blob',
+    `--outputFile.blob=${kept}`,
+  ]);
+  if (r.code === 0 && !existsSync(kept))
+    return {
+      code: 1,
+      out: `No blob report at ${toRel(kept)}.\n${r.out}`,
+      ms: r.ms,
+    };
+  return r;
+}
+
+// The merge reads every file in reports/test-shards/, so it must hold exactly
+// one complete split: shard-1-of-N.json to shard-N-of-N.json.
+function gateTestMerge() {
+  rmSync(join(ROOT, 'coverage'), { recursive: true, force: true });
+  const names = existsSync(TEST_SHARDS) ? readdirSync(TEST_SHARDS) : [];
+  const set = completeShardSet(names);
+  if (set.error) return { code: 1, out: set.error, ms: 0 };
+  const extra = names.filter((f) => !set.files.includes(f));
+  if (extra.length > 0)
+    return {
+      code: 1,
+      out: `Not shard reports of this split, in ${toRel(TEST_SHARDS)}: ${extra.join(', ')}`,
+      ms: 0,
+    };
+  return withUnrunTests(
+    run(bin('vitest'), ['--merge-reports', TEST_SHARDS, '--coverage']),
+  );
+}
+
 function gateCrap() {
   if (!existsSync(join(ROOT, 'coverage', 'coverage-final.json'))) {
     return {
@@ -409,9 +477,25 @@ const CHECK = [
   ['deadcode', gateDeadcode],
   ['architecture', gateArchitecture],
 ];
+// The gates that need the tests' results; check --static leaves them out.
+const NEEDS_TESTS = new Set(['test', 'crap']);
 
 let gates;
-if (mode === 'check') gates = CHECK;
+if (mode === 'check' && argv.includes('--static'))
+  gates = CHECK.filter(([name]) => !NEEDS_TESTS.has(name));
+else if (mode === 'check') gates = CHECK;
+else if (mode === 'test-shard') {
+  const shard = parseShard(argv[1]);
+  if (!shard) {
+    console.error('Use "test-shard i/N", with 1 <= i <= N.');
+    process.exit(2);
+  }
+  gates = [['test', () => gateTestShard(shard)]];
+} else if (mode === 'test-merge')
+  gates = [
+    ['test', gateTestMerge],
+    ['crap', gateCrap],
+  ];
 else if (mode === 'mutation' && argv.includes('--merge'))
   gates = [['mutation', gateMutationMerge]];
 else if (mode === 'mutation' && argv.includes('--shard')) {
@@ -431,7 +515,9 @@ else if (mode === 'mutation' && argv.includes('--shard')) {
 } else if (mode === 'all')
   gates = [...CHECK, ['mutation', () => gateMutation('changed')]];
 else {
-  console.error(`Unknown mode "${mode}". Use check | mutation | all.`);
+  console.error(
+    `Unknown mode "${mode}". Use check | test-shard | test-merge | mutation | all.`,
+  );
   process.exit(2);
 }
 if (only) gates = gates.filter(([name]) => only.has(name));

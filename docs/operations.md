@@ -268,9 +268,12 @@ URI, the Resend sending domain and `MAIL_FROM`, then a deploy.
 
 ### The pipeline
 
-`.github/workflows/ci.yml` (CI/CD) runs on every push: `check` (the quality
-gate, the kit's tests, the infra shell tests, the secret scan; GitHub-hosted)
-and `image` (`docker build` on `ubuntu-24.04-arm`, Trivy, the image saved as
+`.github/workflows/ci.yml` (CI/CD) runs on every push: the quality gate
+split three ways (R-212; GitHub-hosted): `static` (the gates that run no
+tests, the kit's tests, the infra shell tests, the secret scan), `test` (the
+vitest suite in four parallel shards, `gate.mjs test-shard i/4`) and `check`
+(`gate.mjs test-merge`: the shards' results and coverage merged, the coverage
+thresholds and CRAP on the merge; the one job later jobs read), and `image` (`docker build` on `ubuntu-24.04-arm`, Trivy, the image saved as
 a zstd archive artifact kept 3 days) in parallel, then `e2e` (the Playwright
 suite against that archive's image, as above). `quality.yml` runs the gate
 again on pull requests (and on pushes to main until the owner's pending
