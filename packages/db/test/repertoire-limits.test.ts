@@ -68,15 +68,21 @@ describe('createRepertoire within the R-162 limits', () => {
     expect(await owned()).toBe(50);
   });
 
-  it('creates a repertoire of 5,000 moves and refuses one of 5,001, writing nothing', async () => {
-    await seedAccount(db, 'rokas', 'rokas@example.lt');
-    const id = idOf(await create(graphWithMoves(5000)));
-    expect(
-      must(await loadRepertoire(db, id, 'rokas')).graph.moves,
-    ).toHaveLength(5000);
-    expect(await create(graphWithMoves(5001))).toEqual(TOO_MANY_MOVES);
-    expect(await owned()).toBe(1);
-  });
+  // A 5,000-move graph is CPU-heavy; with files in parallel (R-211) it gets
+  // the long budget the migration tests use (#285).
+  it(
+    'creates a repertoire of 5,000 moves and refuses one of 5,001, writing nothing',
+    { timeout: 120_000 },
+    async () => {
+      await seedAccount(db, 'rokas', 'rokas@example.lt');
+      const id = idOf(await create(graphWithMoves(5000)));
+      expect(
+        must(await loadRepertoire(db, id, 'rokas')).graph.moves,
+      ).toHaveLength(5000);
+      expect(await create(graphWithMoves(5001))).toEqual(TOO_MANY_MOVES);
+      expect(await owned()).toBe(1);
+    },
+  );
 
   it('creates past both limits only for the automatic fork (R-163)', async () => {
     await seedAccount(db, 'rokas', 'rokas@example.lt');
@@ -147,21 +153,25 @@ describe('editRepertoire within the R-162 move limit', () => {
       now: T1,
     });
 
-  it('refuses a 5,001st move, writing nothing', async () => {
-    await seedAccount(db, 'rokas', 'rokas@example.lt');
-    const graph = graphWithMoves(5000);
-    const id = idOf(await create(graph));
-    // The generator grows one move at a time, so 5,001 is 5,000 and one more.
-    const next = must(
-      graphWithMoves(5001).moves.find(
-        (m) => !graph.moves.some((n) => n.from === m.from && n.san === m.san),
-      ),
-    );
-    expect(await edit(id, graph, 'addMove', next)).toEqual(TOO_MANY_MOVES);
-    const stored = must(await loadRepertoire(db, id, 'rokas'));
-    expect(stored.repertoire.version).toBe(1);
-    expect(stored.graph.moves).toHaveLength(5000);
-  });
+  it(
+    'refuses a 5,001st move, writing nothing',
+    { timeout: 120_000 },
+    async () => {
+      await seedAccount(db, 'rokas', 'rokas@example.lt');
+      const graph = graphWithMoves(5000);
+      const id = idOf(await create(graph));
+      // The generator grows one move at a time, so 5,001 is 5,000 and one more.
+      const next = must(
+        graphWithMoves(5001).moves.find(
+          (m) => !graph.moves.some((n) => n.from === m.from && n.san === m.san),
+        ),
+      );
+      expect(await edit(id, graph, 'addMove', next)).toEqual(TOO_MANY_MOVES);
+      const stored = must(await loadRepertoire(db, id, 'rokas'));
+      expect(stored.repertoire.version).toBe(1);
+      expect(stored.graph.moves).toHaveLength(5000);
+    },
+  );
 
   it('allows removing a move from a repertoire over the limit', async () => {
     await seedAccount(db, 'rokas', 'rokas@example.lt');

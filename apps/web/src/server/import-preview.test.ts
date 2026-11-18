@@ -180,10 +180,11 @@ describe('previewImport within the repertoire limits (R-162)', () => {
     expect(server.mayAdd).toHaveBeenCalledWith(DB, account('lt'));
   });
 
-  // A 5,000-move file takes seconds to generate and import.
+  // A 5,000-move file takes seconds to generate and import, longer with the
+  // gate's projects in parallel (R-211).
   it(
     'refuses a new repertoire of more than 5,000 moves',
-    { timeout: 30_000 },
+    { timeout: 120_000 },
     async () => {
       expect(
         await previewImport(
@@ -200,7 +201,7 @@ describe('previewImport within the repertoire limits (R-162)', () => {
 
   it(
     'shows a new repertoire of exactly 5,000 moves',
-    { timeout: 30_000 },
+    { timeout: 120_000 },
     async () => {
       const outcome = await previewImport(
         account('lt'),
