@@ -42,7 +42,7 @@
   },
   "settings": {
     "title": "Settings",
-    "home": "Back to home",
+    "home": "Home",
     "profile": {
       "title": "Profile",
       "displayName": "Display name",
@@ -553,7 +553,7 @@
     "deadlineInvalid": "Enter a valid deadline date.",
     "deadlinePast": "This date has already passed. Choose today or a later day.",
     "page": {
-      "back": "Back to home",
+      "back": "Home",
       "assignedBy": "Assigned by {name}",
       "notFound": "This repertoire is not assigned to you",
       "home": "Go to home"
@@ -798,13 +798,10 @@
     "noGamesYet": "No games of this player in the {count, plural, one {# ready month} other {# ready months}} so far.",
     "noMonths": "No month could be searched right now. Try again later.",
     "dateUnknown": "Date unknown",
-    "white": "White",
-    "black": "Black",
     "win": "Won",
     "draw": "Drew",
     "loss": "Lost",
     "unknown": "Unfinished",
-    "played": "Played {colour, select, white {White} other {Black}}, {outcome, select, win {won} draw {drew} loss {lost} other {unfinished}}",
     "opponent": "vs {name}",
     "opponentWithId": "vs {name} (FIDE {id})",
     "openOnLichess": "Open on Lichess",
@@ -813,6 +810,7 @@
     "asBlack": "As Black",
     "unknownOpening": "Unknown opening",
     "groupSummary": "{count, plural, one {# game} other {# games}} · {win} won, {draw} drawn, {loss} lost{unknown, plural, =0 {} other { · # unfinished}}",
+    "groupGlance": "{count, plural, one {# game} other {# games}} · <w>+{win}</w> <d>={draw}</d> <l>−{loss}</l>{unknown, plural, =0 {} other { · # unfinished}}",
     "credit": "Games from <broadcasts>Lichess broadcasts</broadcasts> · <licence>CC BY-SA 4.0</licence>"
   }
 }

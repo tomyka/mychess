@@ -346,7 +346,7 @@
     "list": {
       "title": "Mano repertuarai",
       "intro": "Kurkite savo debiutus arba importuokite PGN.",
-      "home": "Pradžia",
+      "home": "Į pradžią",
       "white": "Baltaisiais",
       "black": "Juodaisiais",
       "emptyWhite": "Repertuaro baltaisiais dar nėra.",
@@ -553,7 +553,7 @@
     "deadlineInvalid": "Įveskite tinkamą termino datą.",
     "deadlinePast": "Ši data jau praėjo. Pasirinkite šiandienos ar vėlesnę datą.",
     "page": {
-      "back": "Atgal į pradžią",
+      "back": "Į pradžią",
       "assignedBy": "Priskyrė {name}",
       "notFound": "Šis repertuaras jums nepriskirtas",
       "home": "Į pradžią"
@@ -774,7 +774,7 @@
     }
   },
   "fide": {
-    "home": "Pradžia",
+    "home": "Į pradžią",
     "title": "Varžovo partijos",
     "intro": "Įveskite žaidėjo FIDE ID ir pamatysite jo gyvas partijas, per paskutinius 12 mėnesių transliuotas Lichess.",
     "idLabel": "FIDE ID",
@@ -798,13 +798,10 @@
     "noGamesYet": "{count, plural, one {Paruoštame # mėnesyje} few {Paruoštuose # mėnesiuose} other {Paruoštuose mėnesiuose (#)}} šio žaidėjo partijų kol kas nėra.",
     "noMonths": "Šiuo metu nepavyko peržiūrėti nė vieno mėnesio. Bandykite vėliau.",
     "dateUnknown": "Data nežinoma",
-    "white": "Baltieji",
-    "black": "Juodieji",
     "win": "Laimėjo",
     "draw": "Lygiosios",
     "loss": "Pralaimėjo",
     "unknown": "Nebaigta",
-    "played": "Žaidė {colour, select, white {baltaisiais} other {juodaisiais}}, {outcome, select, win {laimėjo} draw {lygiosios} loss {pralaimėjo} other {nebaigta}}",
     "opponent": "prieš {name}",
     "opponentWithId": "prieš {name} (FIDE {id})",
     "openOnLichess": "Atidaryti Lichess",
@@ -813,6 +810,7 @@
     "asBlack": "Juodaisiais",
     "unknownOpening": "Nežinomas debiutas",
     "groupSummary": "{count, plural, one {# partija} few {# partijos} other {# partijų}} · laimėjo {win}, lygiosios {draw}, pralaimėjo {loss}{unknown, plural, =0 {} other { · nebaigta #}}",
+    "groupGlance": "{count, plural, one {# partija} few {# partijos} other {# partijų}} · <w>+{win}</w> <d>={draw}</d> <l>−{loss}</l>{unknown, plural, =0 {} other { · nebaigta #}}",
     "credit": "Partijos iš <broadcasts>Lichess transliacijų</broadcasts> · <licence>CC BY-SA 4.0</licence>"
   }
 }

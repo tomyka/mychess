@@ -244,6 +244,8 @@ export interface CommunityGame {
   readonly opponentFideId: number | undefined;
   readonly colour: 'white' | 'black';
   readonly outcome: 'win' | 'draw' | 'loss';
+  readonly eco: string;
+  /** The Lichess opening name; the page shows it within its family. */
   readonly opening: string;
   readonly url: string;
 }
@@ -263,7 +265,8 @@ function asSeenBy(fideId: number, tour: Tour, game: Game): CommunityGame {
     opponentFideId: colour === 'white' ? game.blackFideId : game.whiteFideId,
     colour,
     outcome: OUTCOME[game.result][colour],
-    opening: `${game.eco} ${game.opening}`,
+    eco: game.eco,
+    opening: game.opening,
     url: tourGameUrl(tour, game),
   };
 }

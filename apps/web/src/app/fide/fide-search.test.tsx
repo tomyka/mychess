@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { broadcastMonthSchema, fideIdSchema } from '@mychess/domain';
@@ -243,21 +243,21 @@ describe('a search result', () => {
     expect(screen.queryByText(/standard rating/)).toBeNull();
   });
 
-  it('lists a game: date, event, opponent, colour, result, opening and its Lichess link', async () => {
+  it('lists a game: date, event, opponent, result, opening and its Lichess link', async () => {
     renderPage();
     await search('13400002');
-    const [item] = screen.getAllByRole('listitem');
+    const item = within(screen.getByRole('listitem'));
     // Formatted for the page's language (R-180: English).
-    expect(item?.textContent).toContain('Oct 14, 2026 · Synthetic Open 2026');
-    expect(item?.textContent).toContain('vs Testas, Jonas (FIDE 90000002)');
-    // The badges are for the eye; a screen reader hears one sentence.
-    const badges = screen.getByText('Won').parentElement;
-    expect(badges?.getAttribute('aria-hidden')).toBe('true');
-    expect(badges?.textContent).toBe('WhiteWon');
-    expect(screen.getByText('Played White, won')).toBeDefined();
-    expect(item?.textContent).toContain(
-      'B12 Caro-Kann Defense: Advance Variation',
-    );
+    expect(item.getByText('Oct 14, 2026 · Synthetic Open 2026')).toBeDefined();
+    // The result beside the opponent, read by a screen reader too; the
+    // colour is the section's, not repeated on the game (#347 F1).
+    const opponent = item.getByText('vs Testas, Jonas (FIDE 90000002)');
+    const result = item.getByText(en.win);
+    expect(result.parentElement).toBe(opponent.parentElement);
+    expect(result.closest('[aria-hidden]')).toBeNull();
+    expect(item.queryByText(/^(White|Black)$/)).toBeNull();
+    // Inside the family's group, the variation alone (#347 F2).
+    expect(item.getByText('B12 Advance Variation')).toBeDefined();
     const link = screen.getByRole('link', {
       name: `${en.openOnLichess} ${en.newTab}`,
     });
@@ -284,14 +284,26 @@ describe('a search result', () => {
     await search('13400002');
     // Grouped (R-189, R-190): as White the Caro-Kann, then the unknown
     // opening; then as Black.
-    const texts = screen.getAllByRole('listitem').map((li) => li.textContent);
-    expect(texts[0]).toContain('Played White, drew');
-    expect(texts[0]).toContain(`${en.dateUnknown} · Synthetic Open 2026`);
-    expect(texts[1]).toContain('Played White, unfinished');
-    expect(texts[1]).toContain('vs Kitas, Petras');
-    expect(texts[1]).not.toContain('FIDE');
-    expect(texts[1]).not.toContain('B12');
-    expect(texts[2]).toContain('Played Black, lost');
+    const [drawn, unfinished, lost] = screen
+      .getAllByRole('listitem')
+      .map((li) => within(li));
+    expect(drawn?.getByText(en.draw)).toBeDefined();
+    expect(
+      drawn?.getByText(`${en.dateUnknown} · Synthetic Open 2026`),
+    ).toBeDefined();
+    expect(unfinished?.getByText(en.unknown)).toBeDefined();
+    expect(unfinished?.getByText('vs Kitas, Petras')).toBeDefined();
+    expect(unfinished?.queryByText(/FIDE|B12/)).toBeNull();
+    expect(lost?.getByText(en.loss)).toBeDefined();
+  });
+
+  it('shows the whole opening name when it has no variation', async () => {
+    const games: Game[] = [{ ...GAME, eco: 'C42', opening: 'Russian Game' }];
+    server.start.mockResolvedValue(started({ snapshot: snapshot({ games }) }));
+    renderPage();
+    await search('13400002');
+    const item = within(screen.getByRole('listitem'));
+    expect(item.getByText('C42 Russian Game')).toBeDefined();
   });
 
   it('links no game whose address is not a Lichess game address', async () => {
@@ -420,9 +432,24 @@ describe('the games grouped for preparation (#348, R-189, R-190)', () => {
   const sectionTitles = () =>
     screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
 
-  /** Each disclosure's summary text, in page order. */
+  /**
+   * Each disclosure's summary, in page order, as its lines: the family,
+   * the score at a glance (hidden from a screen reader) and the words a
+   * screen reader hears instead.
+   */
   const summaries = () =>
-    [...document.querySelectorAll('summary')].map((s) => s.textContent);
+    [...document.querySelectorAll('summary')].map((summary) => {
+      const [family, glance, words] = [...summary.children];
+      expect(glance?.getAttribute('aria-hidden')).toBe('true');
+      return [family?.textContent, glance?.textContent, words?.textContent];
+    });
+
+  /** Each group's family and whether it is open, in page order. */
+  const openGroups = () =>
+    [...document.querySelectorAll('details')].map((d) => [
+      d.querySelector('summary')?.firstChild?.textContent,
+      d.open,
+    ]);
 
   it('splits the games by the player’s colour, as White first', async () => {
     await showGames([
@@ -432,10 +459,10 @@ describe('the games grouped for preparation (#348, R-189, R-190)', () => {
     expect(sectionTitles()).toEqual([en.asWhite, en.asBlack]);
     const [white, black] = screen
       .getAllByRole('heading', { level: 3 })
-      .map((h) => h.closest('section'));
-    expect(white?.textContent).toContain('Played White, won');
-    expect(white?.textContent).not.toContain('Played Black');
-    expect(black?.textContent).toContain('Played Black, lost');
+      .map((h) => within(h.closest('section') ?? document.body));
+    expect(white?.getByText(en.win)).toBeDefined();
+    expect(white?.queryByText(en.loss)).toBeNull();
+    expect(black?.getByText(en.loss)).toBeDefined();
   });
 
   it('leaves out a colour the player had no game in', async () => {
@@ -451,15 +478,31 @@ describe('the games grouped for preparation (#348, R-189, R-190)', () => {
       found({ outcome: 'unknown' }),
     ]);
     expect(summaries()).toEqual([
-      'Caro-Kann Defense3 games · 1 won, 0 drawn, 1 lost · 1 unfinished',
-      'Russian Game1 game · 0 won, 1 drawn, 0 lost',
+      [
+        'Caro-Kann Defense',
+        '3 games · +1 =0 −1 · 1 unfinished',
+        '3 games · 1 won, 0 drawn, 1 lost · 1 unfinished',
+      ],
+      ['Russian Game', '1 game · +0 =1 −0', '1 game · 0 won, 1 drawn, 0 lost'],
     ]);
-    const caroKann = document.querySelector('details');
-    // The full opening stays on each game.
-    expect(caroKann?.textContent).toContain(
-      'B14 Caro-Kann Defense: Panov Attack',
+    const caroKann = within(document.querySelector('details') ?? document.body);
+    // Each game names its variation; the group names the family (#347 F2).
+    expect(caroKann.getByText('B14 Panov Attack')).toBeDefined();
+    expect(caroKann.getAllByRole('listitem')).toHaveLength(3);
+  });
+
+  it('colours the score’s numbers as the results are coloured (#347 F5)', async () => {
+    await showGames([
+      found({}),
+      found({ outcome: 'draw' }),
+      found({ outcome: 'loss' }),
+    ]);
+    const glance = within(
+      document.querySelector('summary [aria-hidden]') ?? document.body,
     );
-    expect(caroKann?.querySelectorAll('li')).toHaveLength(3);
+    expect(glance.getByText('+1').classList).toContain('text-success');
+    expect(glance.getByText('=1').classList).toContain('text-fg');
+    expect(glance.getByText('−1').classList).toContain('text-error');
   });
 
   it('lists a group newest first', async () => {
@@ -480,9 +523,9 @@ describe('the games grouped for preparation (#348, R-189, R-190)', () => {
       found({ opening: null, eco: 'A00' }),
       found({ opening: 'Russian Game' }),
     ]);
-    expect(summaries()).toEqual([
-      'Russian Game1 game · 1 won, 0 drawn, 0 lost',
-      `${en.unknownOpening}2 games · 2 won, 0 drawn, 0 lost`,
+    expect(summaries().map(([family]) => family)).toEqual([
+      'Russian Game',
+      en.unknownOpening,
     ]);
   });
 
@@ -496,17 +539,60 @@ describe('the games grouped for preparation (#348, R-189, R-190)', () => {
       found({ colour: 'black', opening: 'English Opening' }),
       found({ colour: 'black', opening: 'French Defense' }),
     ]);
-    const open = [...document.querySelectorAll('details')].map((d) => [
-      d.querySelector('summary')?.firstChild?.textContent,
-      d.open,
-    ]);
-    expect(open).toEqual([
+    expect(openGroups()).toEqual([
       ['Alekhine Defense', true],
       ['Benoni Defense', true],
       ['Caro-Kann Defense', false],
       ['Dutch Defense', true],
       ['English Opening', true],
       ['French Defense', false],
+    ]);
+  });
+
+  it('keeps each group open or closed as it was while new games reorder them (#347)', async () => {
+    const first = [
+      found({ opening: 'Alekhine Defense' }),
+      found({ opening: 'Alekhine Defense' }),
+      found({ opening: 'Benoni Defense' }),
+      found({ opening: 'Caro-Kann Defense' }),
+    ];
+    server.start.mockResolvedValue(
+      started({
+        snapshot: snapshot({ progress: progress(2, 10), games: first }),
+      }),
+    );
+    server.poll.mockResolvedValueOnce({
+      kind: 'progress',
+      snapshot: snapshot({
+        games: [
+          ...first,
+          // Caro-Kann and a new family now outnumber the Benoni.
+          found({ opening: 'Caro-Kann Defense' }),
+          found({ opening: 'Caro-Kann Defense' }),
+          found({ opening: 'Dutch Defense' }),
+          found({ opening: 'Dutch Defense' }),
+          found({ opening: 'Dutch Defense' }),
+          found({ opening: 'Dutch Defense' }),
+        ],
+      }),
+    });
+    renderPage();
+    await search('13400002');
+    // The person closes the Alekhine.
+    const [alekhine] = document.querySelectorAll('details');
+    act(() => {
+      if (alekhine === undefined) throw new Error('no group');
+      alekhine.open = false;
+      fireEvent(alekhine, new Event('toggle'));
+    });
+    await act(() => vi.advanceTimersByTimeAsync(POLL_MS));
+    expect(openGroups()).toEqual([
+      // New: its default by its place.
+      ['Dutch Defense', true],
+      // Seen before: as it was shown, or as the person left it.
+      ['Caro-Kann Defense', false],
+      ['Alekhine Defense', false],
+      ['Benoni Defense', true],
     ]);
   });
 
@@ -607,6 +693,21 @@ describe('while months are being prepared', () => {
     await act(() => vi.advanceTimersByTimeAsync(POLL_MS));
     expect(server.poll).toHaveBeenCalledTimes(2);
     expect(screen.getByText('12 of 12 months ready')).toBeDefined();
+  });
+
+  it('announces only the months-ready line, and the expiry when it comes (#347)', async () => {
+    server.start.mockResolvedValue(
+      started({ snapshot: snapshot({ progress: progress(2, 10, 1) }) }),
+    );
+    server.poll.mockResolvedValue({ kind: 'expired' });
+    renderPage();
+    await search('13400002');
+    const result = within(screen.getByRole('region', { name: PLAYER.name }));
+    const announced = () =>
+      result.getAllByRole('status').map((status) => status.textContent);
+    expect(announced()).toEqual(['2 of 12 months ready', '']);
+    await act(() => vi.advanceTimersByTimeAsync(POLL_MS));
+    expect(announced()).toEqual(['2 of 12 months ready', en.searchExpired]);
   });
 
   it('stops and says so when the search has expired', async () => {

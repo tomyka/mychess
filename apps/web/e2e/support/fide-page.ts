@@ -32,8 +32,26 @@ export interface ShownGame {
   readonly opponentFideId: number | undefined;
   readonly colour: 'white' | 'black';
   readonly outcome: 'win' | 'draw' | 'loss';
+  readonly eco: string;
+  /** The Lichess opening name, "Family: Variation" or the family alone. */
   readonly opening: string;
   readonly url: string;
+}
+
+/** The family a Lichess opening name is grouped under (R-189). */
+export function familyOf(opening: string): string {
+  const [family = opening] = opening.split(':');
+  return family.trim();
+}
+
+/**
+ * How a game's opening reads inside its family's group (#347 F2): the ECO
+ * and the variation, or the whole name when it is the family alone.
+ */
+function shownOpening(game: ShownGame): string {
+  const variation = game.opening.slice(familyOf(game.opening).length);
+  const rest = variation.replace(/^\s*:\s*/, '');
+  return `${game.eco} ${rest === '' ? game.opening : rest}`;
 }
 
 /** "{ready} of {total} months ready", for the fixture's months. */
@@ -74,9 +92,8 @@ export async function expectGame(
   const date = DATE.format(new Date(`${game.date}T00:00:00Z`));
   await expect(item).toContainText(`${date} · ${game.event}`);
   await expect(item).toContainText(opponentLine(game));
-  await expect(item).toContainText(en.fide[game.colour]);
   await expect(item).toContainText(en.fide[game.outcome]);
-  await expect(item).toContainText(game.opening);
+  await expect(item).toContainText(shownOpening(game));
   const link = item.getByRole('link', { name: en.fide.openOnLichess });
   await expect(link).toHaveAttribute('href', game.url);
   await expect(link).toHaveAttribute('target', '_blank');

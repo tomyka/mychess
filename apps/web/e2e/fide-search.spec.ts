@@ -14,6 +14,7 @@ import {
   MONTHS_READY_MS,
   expectCredit,
   expectGame,
+  familyOf,
   monthsReady,
   resultOf,
   search,
@@ -35,10 +36,12 @@ const ID = String(SEARCHED_FIDE_ID);
  */
 const GROUPED = [
   {
+    colour: 'white',
     title: en.fide.asWhite,
     families: ["King's Indian Defense", 'Russian Game'],
   },
   {
+    colour: 'black',
     title: en.fide.asBlack,
     families: ['Caro-Kann Defense', "Queen's Gambit Declined"],
   },
@@ -82,7 +85,7 @@ test("a player opens Opponent's games from home, searches a FIDE ID and sees its
 
   const games = expectedGames();
   await expect(result.getByRole('listitem')).toHaveCount(games.length);
-  for (const { title, families } of GROUPED) {
+  for (const { colour, title, families } of GROUPED) {
     const section = result.getByRole('region', { name: title });
     const groups = section.locator('details');
     await expect(groups).toHaveCount(families.length);
@@ -90,8 +93,9 @@ test("a player opens Opponent's games from home, searches a FIDE ID and sees its
       const group = groups.nth(n);
       await expect(group).toHaveAttribute('open', '');
       await expect(group.locator('summary')).toContainText(family);
-      const [game] = games.filter((found) =>
-        found.opening.slice(found.opening.indexOf(' ') + 1).startsWith(family),
+      const [game] = games.filter(
+        (found) =>
+          found.colour === colour && familyOf(found.opening) === family,
       );
       if (game === undefined) throw new Error(`no fixture game in ${family}`);
       const items = group.getByRole('listitem');

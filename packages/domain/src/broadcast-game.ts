@@ -159,6 +159,19 @@ export function openingFamily(opening: string | null): string | null {
 }
 
 /**
+ * The variation of a Lichess opening name within its family (#347 F2): the
+ * part after the first `:`, trimmed, so "Sicilian Defense: Najdorf
+ * Variation" is "Najdorf Variation". Null for a name that is its family
+ * alone, or that has no family to be a variation of.
+ */
+export function openingVariation(opening: string | null): string | null {
+  if (opening === null || openingFamily(opening) === null) return null;
+  const colon = opening.indexOf(':');
+  const variation = colon === -1 ? '' : opening.slice(colon + 1).trim();
+  return variation === '' ? null : variation;
+}
+
+/**
  * What de-duplication reads of a found game (#349, spec decision 5): a
  * dump month's games and an official tournament's are official.
  */
@@ -211,7 +224,7 @@ export interface PreparationGame {
 }
 
 /** How many games of a group the player won, drew, lost and left unfinished. */
-export type PreparationScore = Readonly<Record<PlayerOutcome, number>>;
+type PreparationScore = Readonly<Record<PlayerOutcome, number>>;
 
 /** The games of one opening family; `family` is null for no opening name. */
 export interface OpeningFamilyGroup<G extends PreparationGame> {
@@ -222,7 +235,7 @@ export interface OpeningFamilyGroup<G extends PreparationGame> {
 }
 
 /** The groups of the games the searched player had one colour in. */
-export interface PreparationSection<G extends PreparationGame> {
+export interface ColourSection<G extends PreparationGame> {
   readonly colour: Side;
   /** Most games first, ties by family name, the unknown opening last. */
   readonly groups: readonly OpeningFamilyGroup<G>[];
@@ -236,9 +249,9 @@ const PREPARATION_SIDES: readonly Side[] = ['white', 'black'];
  * family, the largest first, ties by family name and the unknown opening
  * last; a group's games newest first, with the player's score.
  */
-export function groupForPreparation<G extends PreparationGame>(
+export function groupByColourAndFamily<G extends PreparationGame>(
   games: readonly G[],
-): PreparationSection<G>[] {
+): ColourSection<G>[] {
   return PREPARATION_SIDES.map((colour) => ({
     colour,
     groups: familyGroups(games.filter((game) => game.colour === colour)),

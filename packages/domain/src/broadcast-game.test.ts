@@ -6,9 +6,10 @@ import {
   LICHESS_GAME_URL,
   broadcastGameSchema,
   gameForPlayer,
-  groupForPreparation,
+  groupByColourAndFamily,
   isIndexableGame,
   openingFamily,
+  openingVariation,
   preferOfficialCopies,
   type BroadcastGameInput,
   type OfficialCopyGame,
@@ -239,7 +240,31 @@ describe('openingFamily (#348, R-189)', () => {
   );
 });
 
-describe('groupForPreparation (#348, R-189, R-190)', () => {
+describe('openingVariation (#347 F2)', () => {
+  it.each([
+    ['Sicilian Defense: Najdorf Variation', 'Najdorf Variation'],
+    [
+      'Sicilian Defense: Najdorf Variation, English Attack',
+      'Najdorf Variation, English Attack',
+    ],
+    ["Queen's Gambit Declined  :  Exchange ", 'Exchange'],
+    ['Caro-Kann Defense: Advance: odd', 'Advance: odd'],
+  ])('reads %j as the variation %j', (name, variation) => {
+    expect(openingVariation(name)).toBe(variation);
+  });
+
+  it.each([
+    [null],
+    ['Russian Game'],
+    ['Russian Game:'],
+    ['Russian Game:   '],
+    [': Najdorf Variation'],
+  ])('gives no variation for %j', (name) => {
+    expect(openingVariation(name)).toBeNull();
+  });
+});
+
+describe('groupByColourAndFamily (#348, R-189, R-190)', () => {
   interface Game extends PreparationGame {
     readonly name: string;
   }
@@ -255,11 +280,11 @@ describe('groupForPreparation (#348, R-189, R-190)', () => {
     games.map((game) => game.name);
 
   it('gives no section for no games', () => {
-    expect(groupForPreparation([])).toEqual([]);
+    expect(groupByColourAndFamily([])).toEqual([]);
   });
 
   it('puts the games as White first, then as Black, whatever the order given', () => {
-    const sections = groupForPreparation([
+    const sections = groupByColourAndFamily([
       played('b', { colour: 'black' }),
       played('w'),
     ]);
@@ -273,12 +298,12 @@ describe('groupForPreparation (#348, R-189, R-190)', () => {
   });
 
   it('leaves out a colour with no games', () => {
-    const sections = groupForPreparation([played('b', { colour: 'black' })]);
+    const sections = groupByColourAndFamily([played('b', { colour: 'black' })]);
     expect(sections.map((section) => section.colour)).toEqual(['black']);
   });
 
   it('groups by family, the variations of one family together', () => {
-    const [white] = groupForPreparation([
+    const [white] = groupByColourAndFamily([
       played('najdorf'),
       played('dragon', { opening: 'Sicilian Defense: Dragon Variation' }),
       played('russian', { opening: 'Russian Game' }),
@@ -292,7 +317,7 @@ describe('groupForPreparation (#348, R-189, R-190)', () => {
   });
 
   it('orders the groups by game count, most first, ties by family name', () => {
-    const [white] = groupForPreparation([
+    const [white] = groupByColourAndFamily([
       played('r1', { opening: 'Russian Game' }),
       played('s1', { opening: 'Scotch Game' }),
       played('s2', { opening: 'Scotch Game: Classical' }),
@@ -308,7 +333,7 @@ describe('groupForPreparation (#348, R-189, R-190)', () => {
   });
 
   it('puts the games with no opening in one group, last even when it is the largest', () => {
-    const [white] = groupForPreparation([
+    const [white] = groupByColourAndFamily([
       played('u1', { opening: null }),
       played('u2', { opening: '' }),
       played('u3', { opening: ': Najdorf' }),
@@ -323,7 +348,7 @@ describe('groupForPreparation (#348, R-189, R-190)', () => {
   });
 
   it('keeps the unknown group last when it comes first', () => {
-    const [white] = groupForPreparation([
+    const [white] = groupByColourAndFamily([
       played('s1'),
       played('u1', { opening: null }),
       played('r1', { opening: 'Russian Game' }),
@@ -336,7 +361,7 @@ describe('groupForPreparation (#348, R-189, R-190)', () => {
   });
 
   it('lists a group newest first, an undated game last, equal dates in the order given', () => {
-    const [white] = groupForPreparation([
+    const [white] = groupByColourAndFamily([
       played('old', { date: '2026-01-05' }),
       played('undated-1', { date: null }),
       played('new', { date: '2026-10-20' }),
@@ -355,7 +380,7 @@ describe('groupForPreparation (#348, R-189, R-190)', () => {
   });
 
   it('scores each group from the player’s side, unfinished games apart', () => {
-    const sections = groupForPreparation([
+    const sections = groupByColourAndFamily([
       played('w1'),
       played('w2'),
       played('d1', { outcome: 'draw' }),
@@ -384,7 +409,7 @@ describe('groupForPreparation (#348, R-189, R-190)', () => {
       played('c', { opening: 'Russian Game', date: null }),
       played('d', { colour: 'black' }),
     ];
-    const kept = groupForPreparation(games).flatMap((section) =>
+    const kept = groupByColourAndFamily(games).flatMap((section) =>
       section.groups.flatMap((group) => names(group.games)),
     );
     expect(kept.toSorted()).toEqual(['a', 'b', 'c', 'd']);

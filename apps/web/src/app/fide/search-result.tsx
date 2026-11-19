@@ -101,7 +101,10 @@ function NoGames({
   );
 }
 
-/** The months' progress, announced politely as it changes. */
+/**
+ * The months' progress. Only the "N of 12" line is announced as it changes
+ * (#347), and the search's expiry when it comes; the rest is read in place.
+ */
 function Progress({
   progress,
   expired,
@@ -113,8 +116,10 @@ function Progress({
   const { total, ready, waiting, unavailable } = progress;
   const percent = total === 0 ? 100 : Math.round((ready / total) * 100);
   return (
-    <div role="status" className="flex flex-col gap-2">
-      <p className="font-medium">{t('monthsReady', { ready, total })}</p>
+    <div className="flex flex-col gap-2">
+      <p role="status" className="font-medium">
+        {t('monthsReady', { ready, total })}
+      </p>
       <div
         aria-hidden="true"
         className="h-2 overflow-hidden rounded-pill bg-border"
@@ -129,10 +134,15 @@ function Progress({
           {t('monthsUnavailable', { count: unavailable })}
         </p>
       ) : null}
-      {expired ? <p className="text-sm">{t('searchExpired')}</p> : null}
       {waiting > 0 && !expired ? (
         <p className="text-sm text-fg-muted">{t('monthsWaiting')}</p>
       ) : null}
+      {/* Rendered from the start, so the expiry is announced when it fills;
+          pulled up over the column's gap while empty (not hidden: a hidden
+          live region may not be announced). */}
+      <p role="status" className="-mt-2 text-sm not-empty:mt-0">
+        {expired ? t('searchExpired') : null}
+      </p>
     </div>
   );
 }
