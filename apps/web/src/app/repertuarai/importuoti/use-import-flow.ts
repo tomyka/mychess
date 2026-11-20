@@ -157,6 +157,24 @@ const withSource = (state: FlowState, source: Source | null): FlowState =>
     ? { ...state, file: null, pasted: source }
     : { ...state, file: source, pasted: '' };
 
+/**
+ * The flow once `upload` is previewed. A preview as the other side
+ * (switchSide) takes that side only now, so a refused one leaves the side
+ * and the target as they were; once taken, the side counts as chosen.
+ */
+function previewed(
+  state: FlowState,
+  upload: Upload,
+  preview: ImportPreview,
+): FlowState {
+  return patched(state, {
+    upload,
+    preview,
+    side: upload.side,
+    sideChosen: state.sideChosen || upload.side !== state.side,
+  });
+}
+
 function reduceFlow(state: FlowState, event: FlowEvent): FlowState {
   switch (event.type) {
     case 'set':
@@ -170,7 +188,7 @@ function reduceFlow(state: FlowState, event: FlowEvent): FlowState {
     case 'start':
       return { ...state, ...CLEARED, busy: event.busy };
     case 'previewed':
-      return { ...state, upload: event.upload, preview: event.preview };
+      return previewed(state, event.upload, event.preview);
     case 'refused':
       return {
         ...state,
@@ -231,6 +249,11 @@ interface FlowActions {
   readonly submitFile: () => void;
   readonly chooseTarget: (choice: TargetChoice) => void;
   readonly previewAgain: () => void;
+  /**
+   * Previews the file again as `side`, into a new repertoire: the side the
+   * preview suggests (#364, R-214).
+   */
+  readonly switchSide: (side: Side) => void;
   readonly confirm: () => void;
   /** Back to step 1 ("Change"). */
   readonly change: () => void;
@@ -293,6 +316,10 @@ function flowActions(
     },
     previewAgain: () => {
       again(target);
+    },
+    switchSide: (to) => {
+      if (upload === null) return;
+      preview('updating', () => Promise.resolve({ ...upload, side: to }), NEW);
     },
     change: () => {
       dispatch({ type: 'change' });

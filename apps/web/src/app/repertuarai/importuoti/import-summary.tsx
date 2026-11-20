@@ -213,10 +213,43 @@ function SkippedGames({
   );
 }
 
+/**
+ * The side looks wrong (#364, R-214): most games lost second answers and
+ * the other side would lose fewer. The switch previews the file again as
+ * `suggested`; without one (the side is fixed) the warning stands alone.
+ */
+function SideWarning({
+  suggested,
+  onSwitch,
+}: {
+  readonly suggested: Side;
+  readonly onSwitch: ((side: Side) => void) | undefined;
+}): JSX.Element {
+  const t = useTranslations('repertoires.import');
+  return (
+    <div className="flex flex-col gap-3 rounded-card bg-sunken p-4">
+      <p>{t('sideWarning', { side: suggested })}</p>
+      {onSwitch === undefined ? null : (
+        <button
+          type="button"
+          onClick={() => {
+            onSwitch(suggested);
+          }}
+          className={`${SECONDARY_BUTTON} self-start`}
+        >
+          {t('sideSwitch', { side: suggested })}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export interface ImportSummaryProps {
   readonly preview: ImportPreview;
   /** The upload's side, which decides how a skipped answer is written. */
   readonly side: Side;
+  /** Previews the file again as the other side; none when the side is fixed. */
+  readonly onSwitchSide?: (side: Side) => void;
   /** The preview is re-running against another target. */
   readonly busy: boolean;
   /** Focused after a preview so the summary is read next. */
@@ -264,6 +297,7 @@ function Accepted({
 export function ImportSummary({
   preview,
   side,
+  onSwitchSide,
   busy,
   headingRef,
 }: ImportSummaryProps): JSX.Element {
@@ -279,6 +313,12 @@ export function ImportSummary({
         <StepNumber n={2} />
         {t('summaryTitle')}
       </h2>
+      {preview.suggestedSide === null ? null : (
+        <SideWarning
+          suggested={preview.suggestedSide}
+          onSwitch={onSwitchSide}
+        />
+      )}
       {preview.refusal === null ? <Accepted preview={preview} /> : null}
       {preview.skipped.length === 0 ? null : (
         <SkippedGames skipped={preview.skipped} side={side} />

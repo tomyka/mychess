@@ -261,3 +261,33 @@ describe('previewImport added comments and NAGs (R-175, R-176)', () => {
     expect((await preview('en', ANNOTATED_ADVANCE)).annotations).toEqual([]);
   });
 });
+
+describe('previewImport side check (#364, R-214)', () => {
+  /** Black's one answer to each of White's first moves. */
+  const BLACK_FILE = ['1. e4 c5 *', '1. d4 Nf6 *', '1. c4 e5 *']
+    .map((moves) => `[Event "?"]\n\n${moves}\n`)
+    .join('\n');
+
+  const suggestedFor = async (side: 'white' | 'black', into?: string) => {
+    const outcome = await previewImport(
+      account('en'),
+      { text: BLACK_FILE, side, into },
+      NOW,
+    );
+    if (!outcome.ok) throw new Error(outcome.refusal.reason);
+    return outcome.preview.suggestedSide;
+  };
+
+  it('suggests Black for a Black repertoire previewed as White', async () => {
+    expect(await suggestedFor('white')).toBe('black');
+  });
+
+  it('suggests nothing when the side fits', async () => {
+    expect(await suggestedFor('black')).toBeNull();
+  });
+
+  it('checks the file alone when merging into a repertoire', async () => {
+    ownsRepertoireOf(ADVANCE);
+    expect(await suggestedFor('black', INTO)).toBeNull();
+  });
+});

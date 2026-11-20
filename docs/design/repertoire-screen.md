@@ -652,6 +652,7 @@ After the preview:
 | **Refused file** | step 1 stays open, the file stays chosen, the status line in `error` names the limit: "The file is larger than 2 MB", "The file has more than 200 games", "Variations are nested deeper than 64", "No valid game was found in the file". Focus stays on the button; the status line is announced |
 | **Nothing of the side** | the "Add to existing" option disabled with its reason (step 3) |
 | **Stale target** (`repertoire.stale` at confirm: the repertoire changed since the preview) | status line in `error` with [ Preview again ], which re-runs the preview against the current version |
+| **Side looks wrong** (#364, R-214: most games lost second answers, the other side would lose fewer) | at the top of step 2, under its heading, a `sunken` box: "Most games were skipped as second answers. Did you mean Black?" with [ Preview as Black ], which previews the file again as that side into a new repertoire. Opened from a repertoire (side fixed), the box has no button |
 | **Not found / side mismatch** | status line in `error` with the catalogue text; the target select is reset |
 | **Done** | navigation to the repertoire; no extra screen |
 

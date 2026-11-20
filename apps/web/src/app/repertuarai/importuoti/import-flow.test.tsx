@@ -54,6 +54,7 @@ const PREVIEW: ImportPreview = {
   annotations: [],
   target: null,
   refusal: null,
+  suggestedSide: null,
 };
 
 const MERGED: ImportPreview = {
@@ -746,5 +747,77 @@ describe('the side the file’s players name (#330 decision 8)', () => {
     paste(AS_BLACK);
     typingPauses();
     expect(sideRadio(c.white).checked).toBe(true);
+  });
+});
+
+describe('ImportFlow side check (#364, R-214)', () => {
+  /** The side a preview request names. */
+  const sideOf = (input: unknown): unknown =>
+    typeof input === 'object' && input !== null && 'side' in input
+      ? input.side
+      : undefined;
+
+  /** The server suggests Black for a preview as White, nothing as Black. */
+  beforeEach(() => {
+    server.preview.mockImplementation((input) =>
+      Promise.resolve({
+        ok: true,
+        preview: {
+          ...(intoOf(input) === undefined ? PREVIEW : MERGED),
+          suggestedSide: sideOf(input) === 'white' ? 'black' : null,
+        },
+      }),
+    );
+  });
+
+  const SWITCH = 'Peržiūrėti juodaisiais';
+  const warning = () =>
+    screen.queryByText(
+      'Daugumoje partijų ėjimai praleisti kaip antri atsakymai. Gal norėjote importuoti juodaisiais?',
+    );
+
+  async function previewAsWhite(preselected: string | null = null) {
+    renderFlow(preselected);
+    chooseFile();
+    fireEvent.click(screen.getByRole('button', { name: i.preview }));
+    await screen.findByRole('heading', { name: i.summaryTitle });
+  }
+
+  it('warns and previews the file again as the suggested side', async () => {
+    await previewAsWhite();
+    expect(warning()).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: SWITCH }));
+    await waitFor(() => {
+      expect(warning()).toBeNull();
+    });
+    expect(server.preview).toHaveBeenLastCalledWith({
+      text: PGN,
+      side: 'black',
+      into: undefined,
+    });
+    // The side is now Black: the chosen-file line says so.
+    expect(screen.getByText(`taimanov.pgn · ${c.black}`)).toBeDefined();
+  });
+
+  it('keeps the side when the preview as the other side is refused', async () => {
+    await previewAsWhite();
+    server.preview.mockResolvedValueOnce({
+      ok: false,
+      refusal: { reason: 'repertoire.limit', limit: 3 },
+    });
+    fireEvent.click(screen.getByRole('button', { name: SWITCH }));
+    await waitFor(() => {
+      expect(server.preview).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: SWITCH })).toBeDefined();
+    });
+    expect(screen.getByText(`taimanov.pgn · ${c.white}`)).toBeDefined();
+  });
+
+  it('warns without a switch when the side is fixed by the repertoire', async () => {
+    await previewAsWhite('r-white');
+    expect(warning()).not.toBeNull();
+    expect(screen.queryByRole('button', { name: SWITCH })).toBeNull();
   });
 });

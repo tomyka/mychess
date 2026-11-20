@@ -19,6 +19,7 @@ import {
   importPgn,
   mergeInto,
   moveNumber,
+  suggestedSide as sideToSuggest,
   SIDES,
   summarize,
   type AddedAnnotation as MergedAnnotation,
@@ -28,6 +29,7 @@ import {
   type NothingToAdd,
   type RepertoireGraph,
   type RepertoireSummary,
+  type Side,
   type Skipped,
 } from '@mychess/chess';
 import {
@@ -114,6 +116,12 @@ export interface ImportPreview {
   readonly target: ImportTarget | null;
   /** Why Import is refused for this target (R-115), or null. */
   readonly refusal: NothingToAdd['reason'] | null;
+  /**
+   * The side the file looks like a repertoire for, when it is not the one
+   * chosen (#364, R-214): most games lost second answers, and fewer would
+   * as that side. Null when the chosen side fits.
+   */
+  readonly suggestedSide: Side | null;
 }
 
 const PGN_UNREADABLE = 'pgn.unreadable';
@@ -164,6 +172,12 @@ export interface ImportRefused {
 
 export type PreviewOutcome =
   { readonly ok: true; readonly preview: ImportPreview } | ImportRefused;
+
+/** A preview before the side check: what the import and merge give. */
+type PreviewBody = Omit<ImportPreview, 'suggestedSide'>;
+
+type BodyOutcome =
+  { readonly ok: true; readonly preview: PreviewBody } | ImportRefused;
 
 /** An import done: the repertoire, and the first chapter it brought. */
 interface Imported {
@@ -295,10 +309,7 @@ function renamedBy(
 }
 
 /** A new repertoire's preview: the import as it stands. */
-function newPreview(
-  imported: ImportedRepertoire,
-  locale: Locale,
-): ImportPreview {
+function newPreview(imported: ImportedRepertoire, locale: Locale): PreviewBody {
   return {
     summary: summarize(imported.graph),
     chapters: titlesFrom(imported.graph, 0, locale),
@@ -333,7 +344,7 @@ function mergedPreview(
   imported: ImportedRepertoire,
   merged: MergedRepertoire,
   locale: Locale,
-): ImportPreview {
+): PreviewBody {
   const before = loaded.graph;
   const after = merged.graph;
   const { id, name, version } = loaded.repertoire;
@@ -401,7 +412,7 @@ async function mergeIntoOwn(
 async function previewNew(
   account: Account,
   imported: ImportedRepertoire,
-): Promise<PreviewOutcome> {
+): Promise<BodyOutcome> {
   const room = await mayAddRepertoire(getDb(), account);
   if (!room.ok) return refused(room.refusal);
   const moves = imported.graph.moves.length;
@@ -425,14 +436,26 @@ export async function previewImport(
   if (!request.success) return requestRefused(request.error);
   const imported = importFile(request.data);
   if (!imported.ok) return imported;
-  const { into } = request.data;
-  if (into === undefined) return previewNew(account, imported.value);
-  const merge = await mergeIntoOwn(account, into, imported.value);
+  const { text, side, into } = request.data;
+  const body = await previewBody(account, into, imported.value);
+  if (!body.ok) return body;
+  const suggestedSide = sideToSuggest(text, side, imported.value);
+  return { ok: true, preview: { ...body.preview, suggestedSide } };
+}
+
+/** The preview of `imported` as a new repertoire, or merged `into` one. */
+async function previewBody(
+  account: Account,
+  into: string | undefined,
+  imported: ImportedRepertoire,
+): Promise<BodyOutcome> {
+  if (into === undefined) return previewNew(account, imported);
+  const merge = await mergeIntoOwn(account, into, imported);
   if (!merge.ok) return merge;
   const { loaded, merged } = merge;
   return {
     ok: true,
-    preview: mergedPreview(loaded, imported.value, merged, account.locale),
+    preview: mergedPreview(loaded, imported, merged, account.locale),
   };
 }
 

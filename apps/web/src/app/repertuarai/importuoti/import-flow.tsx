@@ -114,6 +114,7 @@ function Previewed({
           <ImportSummary
             preview={preview}
             side={upload.side}
+            {...(flow.sideFixed ? {} : { onSwitchSide: flow.switchSide })}
             busy={flow.pending && flow.busy === 'updating'}
             headingRef={flow.headingRef}
           />

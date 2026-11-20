@@ -8,6 +8,7 @@ export {
 } from './pgn/import-pgn';
 export { checkLimits, PGN_LIMITS, type LimitRefusal } from './pgn/limits';
 export { playerSide } from './pgn/player-side';
+export { suggestedSide } from './pgn/side-check';
 export { fenOf, positionKey, sideToMove, START_KEY } from './position-key';
 export { ok, refuse, type Result } from './result';
 export {

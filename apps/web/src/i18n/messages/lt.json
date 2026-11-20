@@ -489,6 +489,8 @@
       "chosen": "{name} · {side}",
       "change": "Keisti",
       "summaryTitle": "Kas yra faile",
+      "sideWarning": "Daugumoje partijų ėjimai praleisti kaip antri atsakymai. Gal norėjote importuoti {side, select, white {baltaisiais} other {juodaisiais}}?",
+      "sideSwitch": "Peržiūrėti {side, select, white {baltaisiais} other {juodaisiais}}",
       "summary": {
         "chapters": "{count, plural, one {# skyrius} few {# skyriai} other {# skyrių}}",
         "lines": "{count, plural, one {# variantas} few {# variantai} other {# variantų}}",

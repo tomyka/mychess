@@ -26,6 +26,7 @@ const PREVIEW: ImportPreview = {
   annotations: [],
   target: null,
   refusal: null,
+  suggestedSide: null,
 };
 
 /** An existing chapter a merge tells apart from a namesake (R-159). */
@@ -248,5 +249,45 @@ describe('ImportSummary', () => {
         name: i.annotationsTitle.replace('{count}', '0'),
       }),
     ).toBeNull();
+  });
+});
+
+describe('ImportSummary side check (#364, R-214)', () => {
+  const SUGGESTS_WHITE: ImportPreview = { ...PREVIEW, suggestedSide: 'white' };
+
+  it('says the file looks like the other side’s, with a switch to it', () => {
+    const switched: string[] = [];
+    render(
+      <NextIntlClientProvider locale="lt" messages={MESSAGES.lt}>
+        <ImportSummary
+          preview={SUGGESTS_WHITE}
+          side="black"
+          busy={false}
+          onSwitchSide={(side) => switched.push(side)}
+        />
+      </NextIntlClientProvider>,
+    );
+    expect(
+      screen.getByText(
+        'Daugumoje partijų ėjimai praleisti kaip antri atsakymai. Gal norėjote importuoti baltaisiais?',
+      ),
+    ).toBeDefined();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Peržiūrėti baltaisiais' }),
+    );
+    expect(switched).toEqual(['white']);
+  });
+
+  it('warns with no switch when there is none to offer', () => {
+    renderSummary(SUGGESTS_WHITE);
+    expect(
+      screen.getByText(/Gal norėjote importuoti baltaisiais?/),
+    ).toBeDefined();
+    expect(screen.queryByRole('button', { name: /Peržiūrėti/ })).toBeNull();
+  });
+
+  it('says nothing of the side when it fits', () => {
+    renderSummary(PREVIEW);
+    expect(screen.queryByText(/Gal norėjote importuoti/)).toBeNull();
   });
 });

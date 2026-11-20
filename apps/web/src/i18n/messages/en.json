@@ -489,6 +489,8 @@
       "chosen": "{name} · {side}",
       "change": "Change",
       "summaryTitle": "What the file holds",
+      "sideWarning": "Most games were skipped as second answers. Did you mean {side, select, white {White} other {Black}}?",
+      "sideSwitch": "Preview as {side, select, white {White} other {Black}}",
       "summary": {
         "chapters": "{count, plural, one {# chapter} other {# chapters}}",
         "lines": "{count, plural, one {# line} other {# lines}}",
