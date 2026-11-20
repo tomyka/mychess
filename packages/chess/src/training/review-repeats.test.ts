@@ -298,6 +298,26 @@ describe('repeats within a review session (R-78)', () => {
   it('a size of zero asks nothing', () => {
     expect(start([item('e4')], 0).s.current).toBeNull();
   });
+  it('repeats a Lapse whose relearning step lands after the day ends (R-215)', () => {
+    // Five minutes before midnight: the 10-minute step is tomorrow, but the
+    // move still comes back in this session until it sticks.
+    const items = [item('e4'), item('c3')];
+    const late: Drill = {
+      s: startReviewSession(items, reps, { size: 20, dayEnd: at(5) }),
+      reviews: dueAtT0(items),
+    };
+    const d = answer(late, at(0), true);
+    expect(d.s.repeats.map((r) => r.item.san)).toEqual(['e4']);
+    expect(dueOf(d, 'e4')).toBeGreaterThan(at(5).getTime());
+  });
+  it('does not repeat a pass due after the day ends, however near the day end is', () => {
+    const items = [item('e4'), item('c3')];
+    const late: Drill = {
+      s: startReviewSession(items, reps, { size: 20, dayEnd: at(5) }),
+      reviews: dueAtT0(items),
+    };
+    expect(answer(late, at(0)).s.repeats).toEqual([]);
+  });
   it('does not repeat a move whose Review is due after the day ends', () => {
     const d = answer(start([item('e4'), item('c3')]), at(0));
     expect(d.s.repeats).toEqual([]);

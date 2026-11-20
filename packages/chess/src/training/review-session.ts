@@ -17,7 +17,12 @@ import {
 import { chapterChildren } from '../repertoire/walk';
 import { linesTo, type LineTo } from './line-to';
 import type { QueueItem } from './queue';
-import { grade, type Outcome, type ReviewState } from './schedule';
+import {
+  grade,
+  inShortTermStep,
+  type Outcome,
+  type ReviewState,
+} from './schedule';
 import type { TrainingRepertoire } from './scope';
 
 /** `replay`: after a Lapse, the arrow is shown until the move is played. */
@@ -357,7 +362,8 @@ const still = (state: ReviewSessionState): ReviewTransition => ({
 
 /**
  * `repeats` with `item` in due order if its `graded` Review is due again
- * before the day ends (R-78).
+ * before the day ends (R-78), or is still in a minutes-long relearning step,
+ * even one that lands after midnight (R-215).
  */
 function comeBack(
   s: ReviewSessionState,
@@ -366,7 +372,8 @@ function comeBack(
 ): readonly Repeat[] {
   if (graded === null) return s.repeats;
   const { due } = graded.fsrs;
-  if (due.getTime() >= s.dayEnd.getTime()) return s.repeats;
+  if (due.getTime() >= s.dayEnd.getTime() && !inShortTermStep(graded))
+    return s.repeats;
   return [...s.repeats, { item, due }].sort(
     (a, b) => a.due.getTime() - b.due.getTime(),
   );

@@ -3,6 +3,7 @@ import {
   fsrs,
   generatorParameters,
   Rating,
+  State,
   type Card,
 } from 'ts-fsrs';
 
@@ -27,6 +28,14 @@ export interface ReviewState {
   readonly fsrs: Card;
   readonly lapses: readonly Date[];
 }
+
+/**
+ * The Review is in an FSRS learning or relearning step, due again within
+ * minutes rather than days: a missed move that has not stuck yet (R-78).
+ */
+export const inShortTermStep = (review: ReviewState): boolean =>
+  review.fsrs.state === State.Learning ||
+  review.fsrs.state === State.Relearning;
 
 /** Starts review after the learn pass; R-58: the first review is due the next day. */
 export function startReview(key: string, now: Date): ReviewState {

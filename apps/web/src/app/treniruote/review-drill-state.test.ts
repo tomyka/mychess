@@ -169,20 +169,20 @@ describe('the review drill state', () => {
     expect(isRepeat(drill(10))).toBe(false);
   });
 
-  it('asks nothing again when the Lapse comes due at midnight: that is tomorrow', () => {
+  it('asks a move missed a minute to midnight again, though its step lands tomorrow (R-215)', () => {
     at = MINUTE_TO_MIDNIGHT;
     const start = drill(10);
-    const afterLapse = lapse(start);
     const missed = start.session.current?.item.key ?? '';
-    expect(afterLapse.reviews.get(missed)?.fsrs.due).toEqual(dayEnd(at));
-    expect(progress(afterLapse)).toEqual({ done: 1, total: 10 });
-    let state = afterLapse;
-    for (let i = 0; i < 50 && !isDone(state); i++) {
-      expect(isRepeat(state)).toBe(false);
-      state = play(state, expected(state));
-    }
-    expect(isDone(state)).toBe(true);
-    expect(progress(state)).toEqual({ done: 10, total: 10 });
+    const afterLapse = lapse(start);
+    expect(
+      afterLapse.reviews.get(missed)?.fsrs.due.getTime(),
+    ).toBeGreaterThanOrEqual(dayEnd(at).getTime());
+    const repeat = passUntil(afterLapse, isRepeat);
+    expect(repeat.session.current?.item.key).toBe(missed);
+    const done = passUntil(repeat, () => false);
+    expect(isDone(done)).toBe(true);
+    const { done: asked, total } = progress(done);
+    expect(asked).toBe(total);
   });
 
   it('has no answered move once done', () => {
