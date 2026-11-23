@@ -157,8 +157,8 @@ importers:
         specifier: 1.4.0
         version: 1.4.0
       ts-fsrs:
-        specifier: 5.4.2
-        version: 5.4.2
+        specifier: 6.0.0
+        version: 6.0.0
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -1688,6 +1688,10 @@ packages:
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
 
+  '@open-spaced-repetition/srs-kit@1.0.0':
+    resolution: {integrity: sha512-f++JAMpRw7Yh1U4JcHzTtVknJ1bYKz/4yejsus6TRl+ueGJpvexNBrOoqaeUWCgH/e1j046oiqjzy4Nf4RW/vw==}
+    engines: {node: '>=20.0.0'}
+
   '@oxc-parser/binding-android-arm-eabi@0.156.0':
     resolution: {integrity: sha512-RMq7DKNzEp1T51QKNLTn0NryNEt2IYfh7mZBlIdi2Ju52ltOEDMeIXv0XBpA6dL7j7ChjlcovtGcc1Jv4qMipg==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -2388,6 +2392,9 @@ packages:
 
   '@tybys/wasm-util@0.10.4':
     resolution: {integrity: sha512-W3c4gRigFS0T/Ma4qIYF3GDAc5AQdHb1yL5znJT1Zv1YaD9Kitx656wBjvr19qbiosmZT8lWDM5BEMynUqX65A==}
+
+  '@tybys/wasm-util@0.10.5':
+    resolution: {integrity: sha512-dOGOPxlaNV+G046mZzN+9C0dAcQZeSKcXiVaM0TYy/LM4ttTmgSBDxYfovcYI8Em3+eAbiAYpvWLOv8+ZVRJKA==}
 
   '@types/aria-query@5.0.4':
     resolution: {integrity: sha512-rfT93uj5s0PRL7EzccGMs3brplhcrghnDoV26NqKhCAS1hVo+WdNsPvE/yb6ilfr5hi2MEk6d5EWJTKdxg8jVw==}
@@ -4502,9 +4509,9 @@ packages:
     peerDependencies:
       typescript: '>=4.8.4'
 
-  ts-fsrs@5.4.2:
-    resolution: {integrity: sha512-z4qop4pzTcyTzuJ566d9EaX/4bZZzhYfeaPImfVr+xcYT65c5oBgFDijUhCE/D+C78eaolHIhKRZ04/RwF+v2g==}
-    engines: {node: '>=20.0.0'}
+  ts-fsrs@6.0.0:
+    resolution: {integrity: sha512-kX03GIEhXgBtUrgZuv7k7Aax8oYF3GCO0lASqJFw/8cvvI7qjE83J8IzFhHugux7//W0yquG7zidk3e9NRgEwg==}
+    engines: {node: '>=24.0.0'}
 
   tsconfig-paths-webpack-plugin@4.2.0:
     resolution: {integrity: sha512-zbem3rfRS8BgeNK50Zz5SIQgXzLafiHjOwUAvk/38/o1jHn/V5QAgVUcz884or7WYcPaH3N2CIfUc2u0ul7UcA==}
@@ -5930,7 +5937,7 @@ snapshots:
     dependencies:
       '@emnapi/core': 2.0.0-beta.2
       '@emnapi/runtime': 2.0.0-beta.2
-      '@tybys/wasm-util': 0.10.4
+      '@tybys/wasm-util': 0.10.5
     optional: true
 
   '@napi-rs/wasm-runtime@1.2.7(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)':
@@ -5988,6 +5995,8 @@ snapshots:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.3
+
+  '@open-spaced-repetition/srs-kit@1.0.0': {}
 
   '@oxc-parser/binding-android-arm-eabi@0.156.0':
     optional: true
@@ -6487,6 +6496,11 @@ snapshots:
       '@types/react-dom': 19.3.0(@types/react@19.3.0)
 
   '@tybys/wasm-util@0.10.4':
+    dependencies:
+      tslib: 2.9.1
+    optional: true
+
+  '@tybys/wasm-util@0.10.5':
     dependencies:
       tslib: 2.9.1
     optional: true
@@ -8700,7 +8714,9 @@ snapshots:
     dependencies:
       typescript: 6.0.3
 
-  ts-fsrs@5.4.2: {}
+  ts-fsrs@6.0.0:
+    dependencies:
+      '@open-spaced-repetition/srs-kit': 1.0.0
 
   tsconfig-paths-webpack-plugin@4.2.0:
     dependencies:
