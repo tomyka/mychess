@@ -131,6 +131,19 @@ export const doneHeading = (page: Page, messages: Messages): Locator =>
 const moveField = (page: Page, messages: Messages): Locator =>
   page.getByLabel(messages.board.moveInput.label, { exact: true });
 
+/** The typed-move field, opened from Type where a phone keeps it closed. */
+export async function openMoveField(
+  page: Page,
+  messages: Messages,
+): Promise<Locator> {
+  const field = moveField(page, messages);
+  if (!(await field.isVisible()))
+    await page
+      .getByRole('button', { name: messages.training.drill.type, exact: true })
+      .click();
+  return field;
+}
+
 /** The line so far, as its moves' SAN (the panel writes it with numbers). */
 async function lineSans(d: Drill): Promise<string[]> {
   const line = d.page
@@ -213,7 +226,7 @@ function wrongMove(key: string, san: string): string {
  * empties, or a note or notice holds the answer until Next.
  */
 async function typed(d: Drill, san: string): Promise<void> {
-  const field = moveField(d.page, d.messages);
+  const field = await openMoveField(d.page, d.messages);
   await field.fill(san);
   await field.press('Enter');
   // Held, the field is gone (Next takes its place): never wait on it then.

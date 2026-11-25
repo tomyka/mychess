@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useId, useState, type JSX, type SubmitEvent } from 'react';
+import { useId, useState, type JSX, type Ref, type SubmitEvent } from 'react';
 
 export interface MoveInputProps {
   /**
@@ -11,6 +11,8 @@ export interface MoveInputProps {
   readonly onTyped: (text: string) => boolean;
   /** While saving or in draw mode. */
   readonly disabled?: boolean;
+  /** The field itself, for a caller that moves the focus into it. */
+  readonly inputRef?: Ref<HTMLInputElement>;
 }
 
 /**
@@ -21,6 +23,7 @@ export interface MoveInputProps {
 export function MoveInput({
   onTyped,
   disabled = false,
+  inputRef,
 }: MoveInputProps): JSX.Element {
   const t = useTranslations('board.moveInput');
   const id = useId();
@@ -38,6 +41,7 @@ export function MoveInput({
         {t('label')}
       </label>
       <input
+        ref={inputRef}
         id={id}
         value={text}
         onChange={(event) => {

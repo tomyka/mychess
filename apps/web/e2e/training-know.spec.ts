@@ -15,6 +15,7 @@ import {
   itemRepertoire,
   keyAfter,
   nextButton,
+  openMoveField,
   ownKeys,
   type Drill,
 } from './support/training';
@@ -116,7 +117,6 @@ test('D-M1-7: reviewing both Catalans at 7...a6 shows the two-answers notice aft
   await startTodayReview(page, en);
   await expectCounter(page, 0, 2);
   const notice = page.getByRole('note');
-  const field = page.getByLabel(en.board.moveInput.label, { exact: true });
   const seen: string[] = [];
   for (let i = 0; i < 2; i += 1) {
     // Two repertoires: titled as today's review, the item's under it (R-224).
@@ -132,6 +132,7 @@ test('D-M1-7: reviewing both Catalans at 7...a6 shows the two-answers notice aft
     if (i === 1) {
       // The other repertoire's move is a lapse here: the item expects
       // its own repertoire's move, and the notice shows with the arrow.
+      const field = await openMoveField(page, en);
       await field.fill(other.move);
       await field.press('Enter');
       await expect(page.getByText(en.training.review.lapse)).toBeVisible();

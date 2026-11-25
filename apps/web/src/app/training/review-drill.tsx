@@ -78,17 +78,16 @@ function ReviewPanel({ drill }: { readonly drill: Drill }): JSX.Element {
           it and Next count: the move field and Hint cannot be used, and on
           a portrait tablet they would push the note out of the panel. */}
       {drill.next === null ? (
-        <>
-          <MoveRow input={drill} color={drill.view.turnColor} />
+        <MoveRow input={drill} color={drill.view.turnColor}>
           <button
             type="button"
             onClick={drill.hint}
             aria-disabled={!canHint(drill.state)}
-            className={`${TONAL_BUTTON} self-start`}
+            className={TONAL_BUTTON}
           >
             {t('hint')}
           </button>
-        </>
+        </MoveRow>
       ) : null}
       <DrillCoachNote notes={drill.notes} />
       <TwoAnswersNotice answers={drill.answers} />

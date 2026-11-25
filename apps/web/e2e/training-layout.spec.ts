@@ -34,35 +34,55 @@ interface Box {
   readonly bottom: number;
 }
 
-/** Where the board, the move field and its scrolling panel are, and the page's width. */
-async function measure(page: Page): Promise<{
+/** Below `lg` (1024px) the move field waits behind the Type button. */
+const isCompact = (width: number): boolean => width < 1024;
+
+/**
+ * Where the board, the move entry (the field, or Type on a compact width)
+ * and its scrolling panel are, and the page's width.
+ */
+async function measure(
+  page: Page,
+  compact: boolean,
+): Promise<{
   readonly pageWidth: number;
   readonly board: Box;
-  readonly field: Box;
+  readonly entry: Box;
   readonly panel: Box;
 }> {
-  return page.evaluate((label) => {
-    const boxOf = (element: Element | null | undefined): Box => {
-      if (element === null || element === undefined)
-        throw new Error('element not found');
-      const { left, right, top, bottom } = element.getBoundingClientRect();
-      return { left, right, top, bottom };
-    };
-    const field = document.querySelector(`input[placeholder="${label}"]`);
-    let panel = field?.parentElement;
-    while (
-      panel !== null &&
-      panel !== undefined &&
-      getComputedStyle(panel).overflowY !== 'auto'
-    )
-      panel = panel.parentElement;
-    return {
-      pageWidth: document.documentElement.scrollWidth,
-      board: boxOf(document.querySelector('cg-board')),
-      field: boxOf(field),
-      panel: boxOf(panel),
-    };
-  }, en.board.moveInput.label);
+  return page.evaluate(
+    ({ label, typeLabel, compact: phone }) => {
+      const boxOf = (element: Element | null | undefined): Box => {
+        if (element === null || element === undefined)
+          throw new Error('element not found');
+        const { left, right, top, bottom } = element.getBoundingClientRect();
+        return { left, right, top, bottom };
+      };
+      const entry = phone
+        ? [...document.querySelectorAll('button')].find(
+            (b) => b.textContent.trim() === typeLabel,
+          )
+        : document.querySelector(`input[placeholder="${label}"]`);
+      let panel = entry?.parentElement;
+      while (
+        panel !== null &&
+        panel !== undefined &&
+        getComputedStyle(panel).overflowY !== 'auto'
+      )
+        panel = panel.parentElement;
+      return {
+        pageWidth: document.documentElement.scrollWidth,
+        board: boxOf(document.querySelector('cg-board')),
+        entry: boxOf(entry),
+        panel: boxOf(panel),
+      };
+    },
+    {
+      label: en.board.moveInput.label,
+      typeLabel: en.training.drill.type,
+      compact,
+    },
+  );
 }
 
 test('#323: the training screen fits from a phone to a desktop, the move field in view', async ({
@@ -84,17 +104,23 @@ test('#323: the training screen fits from a phone to a desktop, the move field i
     // Each width opens the card afresh, as a player would.
     await page.goto('/training?mode=review');
     await expectCounter(page, 0, 1);
+    const compact = isCompact(viewport.width);
     await expect(
-      page.getByLabel(en.board.moveInput.label, { exact: true }),
+      compact
+        ? page.getByRole('button', {
+            name: en.training.drill.type,
+            exact: true,
+          })
+        : page.getByLabel(en.board.moveInput.label, { exact: true }),
     ).toBeVisible();
     await expect(page.locator('cg-board')).toBeVisible();
     const at = `${String(viewport.width)}x${String(viewport.height)}`;
-    const { pageWidth, board, field, panel } = await measure(page);
+    const { pageWidth, board, entry, panel } = await measure(page, compact);
     expect(pageWidth, at).toBeLessThanOrEqual(viewport.width);
     expect(board.left, at).toBeGreaterThanOrEqual(0);
     expect(board.right, at).toBeLessThanOrEqual(viewport.width);
-    expect(field.top, at).toBeGreaterThanOrEqual(panel.top);
-    expect(field.bottom, at).toBeLessThanOrEqual(panel.bottom);
-    expect(field.bottom, at).toBeLessThanOrEqual(viewport.height);
+    expect(entry.top, at).toBeGreaterThanOrEqual(panel.top);
+    expect(entry.bottom, at).toBeLessThanOrEqual(panel.bottom);
+    expect(entry.bottom, at).toBeLessThanOrEqual(viewport.height);
   }
 });

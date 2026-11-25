@@ -695,7 +695,8 @@
       "line": "Line so far",
       "end": "End session",
       "coachNote": "Coach note",
-      "next": "Next"
+      "next": "Next",
+      "type": "Type"
     },
     "review": {
       "prompt": "Your move",

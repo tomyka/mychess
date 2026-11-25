@@ -10,10 +10,10 @@ import {
   type RepertoireMove,
 } from '@mychess/chess';
 import { useTranslations } from 'next-intl';
-import { useLayoutEffect, useRef, type JSX } from 'react';
-import { MoveInput } from '../board/move-input';
+import { useLayoutEffect, useRef, type JSX, type ReactNode } from 'react';
 import { PromotionPicker } from '../board/promotion-picker';
 import type { MoveInput as DrillMoveInput } from './drill-input';
+import { MoveEntry } from './move-entry';
 
 type Color = 'white' | 'black';
 
@@ -31,13 +31,18 @@ export function ToMove({ color }: { readonly color: Color }): JSX.Element {
   );
 }
 
-/** The typed-move field, or the promotion choice in its place. */
+/**
+ * The typed-move entry with `children` (buttons such as Hint) beside its
+ * Type button, or the promotion choice in their place.
+ */
 export function MoveRow({
   input,
   color,
+  children,
 }: {
   readonly input: DrillMoveInput;
   readonly color: Color;
+  readonly children?: ReactNode;
 }): JSX.Element {
   if (input.promotion !== null)
     return (
@@ -47,12 +52,7 @@ export function MoveRow({
         onCancel={input.cancel}
       />
     );
-  // A row of its own: the field grows across it, not down the panel.
-  return (
-    <div className="flex">
-      <MoveInput onTyped={input.onTyped} />
-    </div>
-  );
+  return <MoveEntry onTyped={input.onTyped}>{children}</MoveEntry>;
 }
 
 /** A move as the line shows it: its SAN and the glyphs of its NAGs (R-175). */
