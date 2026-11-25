@@ -13,7 +13,7 @@ import { exportPgn } from './export-pgn';
 /** The D-M1-2 persona file (comments, `$1` and `$14`), shared with the db and web tests. */
 import KATALONU from './fixtures/persona-katalonu.pgn?raw';
 import { importPgn } from './import-pgn';
-import { imported, must, SET_UP, START } from './test-support';
+import { imported, must, AFTER_E4_E5_TAG, START } from './test-support';
 
 /**
  * Property runs, bounded so each property stays well under two seconds
@@ -182,11 +182,14 @@ describe('exportPgn', () => {
   it('keeps an escaped name and an intro with a brace through a round trip', () => {
     // A game from a set-up position is not classified, so the re-import keeps
     // the header name.
-    const graph = withChapters(graphOf(`${SET_UP}\n\n2. a3 c5 *`), (c) => ({
-      ...c,
-      intro: 'Close } early',
-      nameSource: { kind: 'custom', name: 'A "B" \\ C' },
-    }));
+    const graph = withChapters(
+      graphOf(`${AFTER_E4_E5_TAG}\n\n2. a3 c5 *`),
+      (c) => ({
+        ...c,
+        intro: 'Close } early',
+        nameSource: { kind: 'custom', name: 'A "B" \\ C' },
+      }),
+    );
     const again = must(graphOf(exportPgn(graph)).chapters[0]);
     expect(again.nameSource).toEqual({ kind: 'header', name: 'A "B" \\ C' });
     expect(again.intro).toBe('Close early');

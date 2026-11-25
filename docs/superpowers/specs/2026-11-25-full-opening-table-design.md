@@ -97,6 +97,20 @@ custom or header name is never replaced.
   the builder, the repertoire page, the coach and import-preview views, and
   the PGN/data exports, covered by tests.
 - A transposition into a named line gets that line's name.
-- Lithuanian names are unchanged (same per-code names as before).
+- Lithuanian names stay per ECO code (the šachmatai.lt name of the code the chapter derives, which may now be a deeper code, e.g. E05 for the Open Catalan).
 - Existing chapters show the new names with no data change.
 - The opening table is not in the client bundle.
+
+## As built
+
+- `classifyChapter(graph, chapter)` landed as `chapterOpening(chapter, mainLine)`
+  in `repertoire/naming.ts`: it reads each main-line move's `to` key, so no
+  move is replayed at all.
+- `oneEntryPerCode` stays in `eco-tsv.ts` (now generic) and is the per-code
+  fallback: `ECO_FAMILIES = oneEntryPerCode(ECO)`. `EcoEntry` lives in
+  `eco-tsv.ts` (a type-only import from `data/eco.ts` would be a
+  dependency-cruiser cycle), and `withPositionKeys` takes the key function
+  as a parameter, since the generator runs under Node, which cannot resolve
+  the package's extensionless imports.
+- Every first move is now a named line, so a chapter from the standard start
+  falls back to its header name or "Chapter N" only while it has no moves.

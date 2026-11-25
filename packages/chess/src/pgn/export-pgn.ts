@@ -30,13 +30,18 @@ function chapterName(chapter: Chapter): string {
 
 const tagValue = (value: string): string => value.replace(/[\\"]/g, '\\$&');
 
+/**
+ * What a repertoire's chapters are called in its export, built from the
+ * repertoire (names are derived from it, R-216).
+ */
+export type ChapterTitles = (
+  graph: RepertoireGraph,
+) => (chapter: Chapter) => string;
+
 /** Options of `exportPgn`. */
 export interface ExportOptions {
-  /**
-   * How export names a chapter's game, given the repertoire (names are
-   * derived from it, R-216); the default is the name source itself.
-   */
-  readonly title?: (graph: RepertoireGraph) => (chapter: Chapter) => string;
+  /** How export names each chapter's game; the default is the name source itself. */
+  readonly title?: ChapterTitles;
 }
 
 type Title = (chapter: Chapter) => string;

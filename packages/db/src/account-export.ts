@@ -6,12 +6,7 @@ import {
   type InviteState,
   type Locale,
 } from '@mychess/domain';
-import {
-  exportPgn,
-  type Chapter,
-  type RepertoireGraph,
-  type Side,
-} from '@mychess/chess';
+import { exportPgn, type ChapterTitles, type Side } from '@mychess/chess';
 import { and, asc, eq, gt } from 'drizzle-orm';
 import { z } from 'zod';
 import { accountColumns } from './accounts';
@@ -154,9 +149,7 @@ export interface AccountExportOptions {
    * derived from it, R-216): its display name in the account's language
    * (decision 14). The default is the name source itself.
    */
-  readonly chapterTitle?: (
-    graph: RepertoireGraph,
-  ) => (chapter: Chapter) => string;
+  readonly chapterTitle?: ChapterTitles;
 }
 
 const exportRowSchema = accountSchema.extend({

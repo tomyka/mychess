@@ -1,5 +1,6 @@
 import {
   ecoName,
+  exportPgn,
   importPgn,
   START_KEY,
   type Chapter,
@@ -160,5 +161,12 @@ describe('taxonomy names (R-216)', () => {
     });
     expect(plainChapterTitleIn('en')(graph)(only)).toBe(ADVANCE);
     expect(chapterLabelIn(graph, 'lt')(only)).toBe(ADVANCE);
+  });
+
+  it('titles the PGN download with the derived name', () => {
+    const graph = graphOf('1. e4 c6 2. d4 d5 3. e5');
+    expect(exportPgn(graph, { title: plainChapterTitleIn('en') })).toContain(
+      `[Event "${ADVANCE}"]`,
+    );
   });
 });

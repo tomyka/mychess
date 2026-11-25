@@ -6,7 +6,7 @@ import {
   imported,
   LINEAR_GROWTH,
   must,
-  SET_UP,
+  AFTER_E4_E5_TAG,
   START,
 } from '../pgn/test-support';
 import {
@@ -35,7 +35,7 @@ const keysOf = (g: RepertoireGraph) =>
 describe('mergeInto (R-101)', () => {
   // Games from a set-up position (after 1. e4 e5) are not classified, so they
   // keep their header names and numbers.
-  const unnamed = (moves: string) => `${SET_UP}\n\n${moves}`;
+  const unnamed = (moves: string) => `${AFTER_E4_E5_TAG}\n\n${moves}`;
 
   it('adds the imported games as new chapters after the existing ones', () => {
     const existing = graphOf(
@@ -353,7 +353,7 @@ describe('mergeInto (R-101)', () => {
   it('keeps a header name and names an added chapter by its merged main line', () => {
     const { graph } = merged(
       graphOf('1. e4 e5 2. Nf3 *', 'black'),
-      `[Event "Mine"]\n${SET_UP}\n\n2. a3 *\n\n[Event "Bishop"]\n\n1. e4 e5 2. Bc4 *`,
+      `[Event "Mine"]\n${AFTER_E4_E5_TAG}\n\n2. a3 *\n\n[Event "Bishop"]\n\n1. e4 e5 2. Bc4 *`,
       'black',
     );
     expect(graph.chapters.map((c) => c.nameSource)).toEqual([

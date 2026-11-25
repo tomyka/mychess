@@ -1,4 +1,8 @@
-export { exportPgn, type ExportOptions } from './pgn/export-pgn';
+export {
+  exportPgn,
+  type ChapterTitles,
+  type ExportOptions,
+} from './pgn/export-pgn';
 export {
   importPgn,
   type ImportedRepertoire,
@@ -50,7 +54,7 @@ export {
   type ChapterDistinction,
   type DistinctMove,
 } from './repertoire/distinctions';
-export { chapterOpening, taxonomyNames } from './repertoire/naming';
+export { taxonomyNames } from './repertoire/naming';
 export { lineText, moveNumber } from './repertoire/notation';
 export { annotatedSan, hasGlyph } from './repertoire/nags';
 export {
@@ -105,9 +109,7 @@ export {
 export {
   chapterName,
   classify,
-  classifyKeys,
   ecoName,
-  openingName,
   type ChapterName,
   type Locale,
 } from './openings/classify';

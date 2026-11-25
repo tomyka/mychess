@@ -33,7 +33,7 @@ function play(chess: Chess, san: string): boolean {
 
 /**
  * Each named line's final position to its entry; a later line wins a shared
- * position (lichess lists the more specific line later).
+ * position (the row lichess lists later, as before R-216).
  */
 export function indexByPosition(
   entries: readonly EcoEntry[],

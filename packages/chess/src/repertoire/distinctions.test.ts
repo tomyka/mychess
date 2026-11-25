@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { imported, SET_UP } from '../pgn/test-support';
+import { imported, AFTER_E4_E5_TAG } from '../pgn/test-support';
 import { START_KEY } from '../position-key';
 import { chapterDistinctions } from './distinctions';
 import type { Chapter, RepertoireGraph } from './graph';
@@ -150,7 +150,7 @@ describe('chapterDistinctions (R-158)', () => {
 
   it('gives an index-named chapter whose line classifies nothing no ECO code', () => {
     // From a set-up position the line classifies nothing.
-    const graph = graphOf(`${SET_UP}\n\n2. a3 c5 *`);
+    const graph = graphOf(`${AFTER_E4_E5_TAG}\n\n2. a3 c5 *`);
     expect(graph.chapters[0]?.nameSource.kind).toBe('index');
     expect(chapterDistinctions(graph).get('c1')?.eco).toBeNull();
   });

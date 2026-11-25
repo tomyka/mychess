@@ -3,6 +3,7 @@ import {
   ecoName,
   taxonomyNames,
   type Chapter,
+  type ChapterTitles,
   type RepertoireGraph,
 } from '@mychess/chess';
 import type { Locale } from '@mychess/domain';
@@ -41,9 +42,7 @@ function baseTitleIn(
  * name, its opening, or "Chapter N". For the PGN download and the data
  * export, which name chapters from the repertoire they belong to.
  */
-export function plainChapterTitleIn(
-  wanted: Locale,
-): (graph: RepertoireGraph) => (chapter: Chapter) => string {
+export function plainChapterTitleIn(wanted: Locale): ChapterTitles {
   const locale = resolveLocale(wanted);
   const t = translatorIn(locale);
   return (graph) => baseTitleIn(t, graph, locale);

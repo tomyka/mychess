@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { imported, must, SET_UP } from '../pgn/test-support';
+import { imported, must, AFTER_E4_E5_TAG } from '../pgn/test-support';
 import { START_KEY } from '../position-key';
 import type { Chapter, RepertoireGraph } from './graph';
 import { ecoName } from '../openings/classify';
@@ -67,7 +67,7 @@ describe('namedByMoves (R-104)', () => {
 describe('renamedByMoves', () => {
   it('returns the same graph for an unknown chapter or an unchanged name', () => {
     // From a set-up position the chapter is not classified and keeps its number.
-    const g = graphOf(`${SET_UP}\n\n2. a3 *`);
+    const g = graphOf(`${AFTER_E4_E5_TAG}\n\n2. a3 *`);
     expect(g.chapters[0]?.nameSource).toEqual({ kind: 'index', number: 1 });
     expect(renamedByMoves(g, 'c9')).toBe(g);
     expect(renamedByMoves(g, 'c1')).toBe(g);
@@ -120,7 +120,7 @@ describe('chapterOpening (R-216)', () => {
   });
 
   it('is null for a chapter not rooted at the standard start', () => {
-    const g = graphOf(`${SET_UP}\n\n2. Nf3 *`);
+    const g = graphOf(`${AFTER_E4_E5_TAG}\n\n2. Nf3 *`);
     expect(chapterOpening(must(g.chapters[0]), g.moves)).toBeNull();
   });
 
@@ -156,7 +156,7 @@ describe('taxonomyNames (R-216)', () => {
   });
 
   it('falls back to the stored code when the main line reaches no named line', () => {
-    const graph = withNameSource(graphOf(`${SET_UP}\n\n2. a3 c5 *`), {
+    const graph = withNameSource(graphOf(`${AFTER_E4_E5_TAG}\n\n2. a3 c5 *`), {
       kind: 'eco',
       eco: 'B12',
     });
